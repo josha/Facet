@@ -1,4 +1,5 @@
 --!strict
+local blueprint = require("../blueprint")
 --[[ CALLOUT — the app-PUSHED coach mark (navigation-and-menus brief §2 D3b;
 	director ruling 2026-08-16 §6.2).
 
@@ -86,18 +87,18 @@ local CALLOUT_KEYS = specGuard.keySet({
 
 export type Spec = {
 	id: string?,
-	anchor: any, -- Blueprint, required: the node the plate points at
-	content: any, -- Blueprint, required: the plate's body
+	anchor: blueprint.Blueprint, -- Blueprint, required: the node the plate points at
+	content: blueprint.Blueprint, -- Blueprint, required: the plate's body
 	dismissLabel: string?,
 	edge: string?,
 	align: string?,
 	tail: boolean?,
 	priority: number?,
 	-- the CALLER'S state, read and never written (see the header)
-	seen: any?, -- boolean | Readable<boolean>
-	sessions: any?, -- number | Readable<number>
+	seen: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
+	sessions: blueprint.Bound<number>?, -- number | Readable<number>
 	afterSessions: number?,
-	featureUsed: any?, -- boolean | Readable<boolean>
+	featureUsed: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
 	-- required: the ONLY thing this construct reports back
 	onRetire: (reason: string) -> (),
 	onShow: (() -> ())?,
@@ -109,7 +110,7 @@ export type Spec = {
 	which is the only way that sweep can see a surface that does not exist until
 	something presents it. Two copies would drift, and the drift would show up at
 	the text preference nobody swept (`menu_recipe.row` is the precedent). ]]
-function callout.plate(UI: any, opts: { content: any, dismissLabel: string? }): any
+function callout.plate(UI: any, opts: { content: blueprint.Blueprint, dismissLabel: string? }): any
 	return UI.VStack({
 		id = PLATE_ID,
 		-- the panel treatment, so the plate is themed by the ACTIVE snapshot

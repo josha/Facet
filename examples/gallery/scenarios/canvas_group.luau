@@ -135,7 +135,9 @@ return {
 			opacity = opacity,
 			width = UI.fill(),
 			height = { type = "fixed", px = PLATES[1].px },
-			children = { plate(PLATES[1]), plate(PLATES[2]), plate(PLATES[3]) },
+			plate(PLATES[1]),
+			plate(PLATES[2]),
+			plate(PLATES[3]),
 		})
 
 		-- THREE fade groups over one plate each: the same value, one wrap lower.
@@ -156,7 +158,7 @@ return {
 							opacity = opacity,
 							alignH = "center",
 							alignV = "center",
-							children = { plate(spec) },
+							plate(spec),
 						})
 					)
 				end
@@ -171,11 +173,10 @@ return {
 				padding = "s",
 				gap = "tight",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = title, textSize = "caption" }),
-					body,
-					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
-				},
+
+				UI.Text({ id = "Title", text = title, textSize = "caption" }),
+				body,
+				UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -200,103 +201,97 @@ return {
 			id = "CanvasGroup",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every other fixture here does: two
-				-- 132px panels, a chip row, a transition panel and the framework's own
-				-- refusal sentence do not fit the ~200px a 640x320 landscape phone has
-				-- left once the showcase reserves its chip strip.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			-- THE PAGE SCROLLS, for the reason every other fixture here does: two
+			-- 132px panels, a chip row, a transition panel and the framework's own
+			-- refusal sentence do not fit the ~200px a 640x320 landscape phone has
+			-- left once the showcase reserves its chip strip.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+				UI.HStack({
+					id = "Stops",
+					gap = "tight",
+					wrap = true,
+					width = UI.fill(),
+					children = (function()
+						local row = { UI.Text({ id = "StopsLabel", text = COPY.stopsLabel, textSize = "caption" }) }
+						for _, chip in stopChips do
+							table.insert(row, chip)
+						end
+						return row
+					end)(),
+				}),
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
+				-- side by side where there is room, a column where there is not:
+				-- the two panels are only a comparison while both are visible,
+				-- and a 320px phone cannot hold two 132px plates in one line
+				UI.AdaptiveStack({
+					id = "Panels",
+					axis = conditions.axis,
 					gap = "s",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						UI.HStack({
-							id = "Stops",
-							gap = "tight",
-							wrap = true,
-							width = UI.fill(),
-							children = (function()
-								local row =
-									{ UI.Text({ id = "StopsLabel", text = COPY.stopsLabel, textSize = "caption" }) }
-								for _, chip in stopChips do
-									table.insert(row, chip)
-								end
-								return row
-							end)(),
-						}),
-						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-						-- side by side where there is room, a column where there is not:
-						-- the two panels are only a comparison while both are visible,
-						-- and a 320px phone cannot hold two 132px plates in one line
-						UI.AdaptiveStack({
-							id = "Panels",
-							axis = conditions.axis,
-							gap = "s",
-							width = UI.fill(),
-							children = {
-								panel("One", COPY.oneTitle, COPY.oneNote, onePanel),
-								panel("Many", COPY.manyTitle, COPY.manyNote, manyPanel),
-							},
-						}),
 
-						UI.VStack({
-							id = "Transition",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = "caption" }),
-								UI.Button({
-									id = "ToggleFading",
-									label = COPY.transitionButton,
-									onActivate = function()
-										showFading:set(not showFading:get())
-									end,
-								}),
-								UI.When({
-									id = "FadingGate",
-									condition = showFading,
-									transition = { enter = "fade", class = "container" },
-									thenView = function()
-										-- a ZStack rather than a Box because this one holds
-										-- content: `UI.Box` is the plate form of the same
-										-- capability and takes neither padding nor children
-										return UI.ZStack({
-											id = "FadingPanel",
-											surface = "raised",
-											-- THE DECLARATION, with no opacity beside it
-											canvasGroup = true,
-											padding = "s",
-											width = UI.fill(),
-											children = {
-												UI.Text({
-													id = "Body",
-													text = COPY.transitionBody,
-													textSize = "caption",
-												}),
-											},
-										})
-									end,
-								}),
-								UI.Text({
-									id = "Note",
-									text = COPY.transitionNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-
-						UI.Text({ id = "RefusalTitle", text = COPY.refusalTitle, textSize = "caption" }),
-						UI.Text({ id = "Refusal", text = refusal, textSize = "caption", role = "secondary" }),
-					},
+					panel("One", COPY.oneTitle, COPY.oneNote, onePanel),
+					panel("Many", COPY.manyTitle, COPY.manyNote, manyPanel),
 				}),
-			},
+
+				UI.VStack({
+					id = "Transition",
+					surface = "control",
+					padding = "s",
+					gap = "tight",
+					width = UI.fill(),
+
+					UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = "caption" }),
+					UI.Button({
+						id = "ToggleFading",
+						label = COPY.transitionButton,
+						onActivate = function()
+							showFading:set(not showFading:get())
+						end,
+					}),
+					UI.When({
+						id = "FadingGate",
+						condition = showFading,
+						transition = { enter = "fade", class = "container" },
+						thenView = function()
+							-- a ZStack rather than a Box because this one holds
+							-- content: `UI.Box` is the plate form of the same
+							-- capability and takes neither padding nor children
+							return UI.ZStack({
+								id = "FadingPanel",
+								surface = "raised",
+								-- THE DECLARATION, with no opacity beside it
+								canvasGroup = true,
+								padding = "s",
+								width = UI.fill(),
+
+								UI.Text({
+									id = "Body",
+									text = COPY.transitionBody,
+									textSize = "caption",
+								}),
+							})
+						end,
+					}),
+					UI.Text({
+						id = "Note",
+						text = COPY.transitionNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
+				}),
+
+				UI.Text({ id = "RefusalTitle", text = COPY.refusalTitle, textSize = "caption" }),
+				UI.Text({ id = "Refusal", text = refusal, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		return {

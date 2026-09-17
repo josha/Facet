@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/Roblox/signals",
+  "commit": "7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60",
+  "version": "0.9.0",
+  "sha256": {
+    "LICENSE": "0b802f349000f942217919493f8df1879f7d35f025a26b9dbd3193c1e6e57250",
+    "callUserSpace.luau": "3e361a0dbc410259a02d0e3185429ac040b2c3242e86aba815b61c2a1dd5eb00",
+    "flags.luau": "434ca1355c20e75daf374729c902e25298e1d6d3dd76a886e3581d77cff33c24",
+    "license.luau": "26759b4644d48ec7ac810a68ffa3f3267617323b6207562e49b0042bf881d858",
+    "scheduler.luau": "0f02514701555524ef4d0e48cb6e18fa5c22695ddd4e2eb6a7e0fb54c44b1270",
+    "signals.luau": "12c242a4d19185f891f460ce72881123addf188532ed4db9b9b95ae4131e63c1"
+  }
+}

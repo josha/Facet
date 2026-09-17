@@ -520,6 +520,23 @@ table.insert(scenarios, {
 -- response of 2.37x, while this pure-CPU one responded 2.31x — a 3% match
 -- versus 11%. Recorded so nobody re-runs the experiment.
 
+local authoringMotion = require("./authoring_motion")
+for _, automatic in { false, true } do
+	table.insert(scenarios, {
+		name = if automatic then "motion-declarative" else "motion-explicit",
+		requirement = "UI-PERF-001",
+		setup = function()
+			return authoringMotion(automatic)
+		end,
+		run = function(state)
+			state.run()
+		end,
+		teardown = function(state)
+			state.dispose()
+		end,
+	})
+end
+
 -- stable order regardless of table iteration
 table.sort(scenarios, function(a, b)
 	return a.name < b.name

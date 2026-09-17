@@ -125,9 +125,8 @@ return {
 				id = id,
 				gap = "tight",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Body", text = COPY.panelBody, textSize = "caption", role = "secondary" }),
-				},
+
+				UI.Text({ id = "Body", text = COPY.panelBody, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -135,106 +134,102 @@ return {
 			id = "BranchScope",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-				-- title, two panels, two buttons and a five-line readout do not fit the
-				-- ~200px a 640x320 landscape phone has left once the showcase reserves
-				-- its chip strip.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
+
+			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
+			-- title, two panels, two buttons and a five-line readout do not fit the
+			-- ~200px a 640x320 landscape phone has left once the showcase reserves
+			-- its chip strip.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+
+				UI.VStack({
+					id = "Owned",
+					surface = "control",
+					padding = "s",
+					gap = "tight",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 
-						UI.VStack({
-							id = "Owned",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "OwnedTitle", text = COPY.ownedTitle, textSize = "caption" }),
-								UI.Button({
-									id = "OwnedButton",
-									label = COPY.ownedButton,
-									onActivate = function()
-										ownedShowing:set(not ownedShowing:get())
-										refresh()
-									end,
-								}),
-								UI.When({
-									id = "OwnedGate",
-									condition = ownedShowing,
-									-- THE WHOLE FIXTURE IS THIS ARGUMENT. The scope arrives
-									-- with the branch and dies with it, so the handles below
-									-- need no cleanup path of their own and no reset.
-									thenView = function(branchScope)
-										stats.ownedOpened += 1
-										openHandles(branchScope, function()
-											stats.ownedReleased += 1
-										end)
-										return panelBody("OwnedPanel")
-									end,
-								}),
-								UI.Text({
-									id = "OwnedNote",
-									text = COPY.ownedNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-
-						UI.VStack({
-							id = "Hoisted",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "HoistedTitle", text = COPY.hoistedTitle, textSize = "caption" }),
-								UI.Button({
-									id = "HoistedButton",
-									label = COPY.hoistedButton,
-									onActivate = function()
-										hoistedShowing:set(not hoistedShowing:get())
-										refresh()
-									end,
-								}),
-								UI.When({
-									id = "HoistedGate",
-									condition = hoistedShowing,
-									-- ...and this one IGNORES the argument, which is still
-									-- valid and is exactly what every `thenView` written
-									-- before this shipped does. It owns on `scope`, the
-									-- enclosing one, because that is where the old shape had
-									-- to put it.
-									thenView = function()
-										stats.hoistedOpened += 1
-										openHandles(scope, function()
-											stats.hoistedReleased += 1
-										end)
-										return panelBody("HoistedPanel")
-									end,
-								}),
-								UI.Text({
-									id = "HoistedNote",
-									text = COPY.hoistedNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-
-						UI.Text({ id = "StatsTitle", text = COPY.statsTitle, textSize = "caption" }),
-						UI.Text({ id = "Stats", text = readout, textSize = "caption", role = "secondary" }),
-					},
+					UI.Text({ id = "OwnedTitle", text = COPY.ownedTitle, textSize = "caption" }),
+					UI.Button({
+						id = "OwnedButton",
+						label = COPY.ownedButton,
+						onActivate = function()
+							ownedShowing:set(not ownedShowing:get())
+							refresh()
+						end,
+					}),
+					UI.When({
+						id = "OwnedGate",
+						condition = ownedShowing,
+						-- THE WHOLE FIXTURE IS THIS ARGUMENT. The scope arrives
+						-- with the branch and dies with it, so the handles below
+						-- need no cleanup path of their own and no reset.
+						thenView = function(branchScope)
+							stats.ownedOpened += 1
+							openHandles(branchScope, function()
+								stats.ownedReleased += 1
+							end)
+							return panelBody("OwnedPanel")
+						end,
+					}),
+					UI.Text({
+						id = "OwnedNote",
+						text = COPY.ownedNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-			},
+
+				UI.VStack({
+					id = "Hoisted",
+					surface = "control",
+					padding = "s",
+					gap = "tight",
+					width = UI.fill(),
+
+					UI.Text({ id = "HoistedTitle", text = COPY.hoistedTitle, textSize = "caption" }),
+					UI.Button({
+						id = "HoistedButton",
+						label = COPY.hoistedButton,
+						onActivate = function()
+							hoistedShowing:set(not hoistedShowing:get())
+							refresh()
+						end,
+					}),
+					UI.When({
+						id = "HoistedGate",
+						condition = hoistedShowing,
+						-- ...and this one IGNORES the argument, which is still
+						-- valid and is exactly what every `thenView` written
+						-- before this shipped does. It owns on `scope`, the
+						-- enclosing one, because that is where the old shape had
+						-- to put it.
+						thenView = function()
+							stats.hoistedOpened += 1
+							openHandles(scope, function()
+								stats.hoistedReleased += 1
+							end)
+							return panelBody("HoistedPanel")
+						end,
+					}),
+					UI.Text({
+						id = "HoistedNote",
+						text = COPY.hoistedNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
+				}),
+
+				UI.Text({ id = "StatsTitle", text = COPY.statsTitle, textSize = "caption" }),
+				UI.Text({ id = "Stats", text = readout, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		refresh()

@@ -1066,6 +1066,20 @@ end)
 -- ===== 8.5 sponsor_toast ===================================================
 
 describe("sponsor_toast (SF-T1/T2/T3/M6)", function()
+	it("content-fit toast bodies measure their text rather than only their padding", function()
+		local w = makeWorld("sponsor_toast")
+		w.adapter.tap("/ToastLab/Chrome/Width/Indicator/Options/Opt2")
+		w.pres.refresh()
+		w.step("showOne")
+		w.frames(60)
+		local toast = w.adapter.node("/__toast__/Items/[1]/Toast").rect
+		local text = w.adapter.node("/__toast__/Items/[1]/Toast/Plate/Body/Lines/Detail").rect
+		expect(toast.w > 200 and toast.w <= 560).toBe(true)
+		expect(text.w > 100).toBe(true)
+		expect(text.x >= toast.x and text.x + text.w <= toast.x + toast.w).toBe(true)
+		w.teardown()
+	end)
+
 	it("a toast never joins the stack and never moves focus (SF-T1)", function()
 		local w = makeWorld("sponsor_toast")
 		local before = w.pres.focus.focused:get()

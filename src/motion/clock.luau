@@ -41,6 +41,7 @@ local timelineLib = require("./timeline")
 local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
 local num = require("../num")
+local tracking = require("../core/tracking")
 
 local clock = {}
 
@@ -227,13 +228,15 @@ function clock.new(core: any, opts: Opts?): Clock
 
 			n = #active
 			transactions += 1
-			core:transaction(function()
-				for i = 1, n do
-					local entry = active[i]
-					if entry ~= nil and entry.detached ~= true and entry.commit ~= nil then
-						entry.commit()
+			tracking.withOrigin("motion", function()
+				core:transaction(function()
+					for i = 1, n do
+						local entry = active[i]
+						if entry ~= nil and entry.detached ~= true and entry.commit ~= nil then
+							entry.commit()
+						end
 					end
-				end
+				end)
 			end)
 
 			n = #active

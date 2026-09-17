@@ -14122,7 +14122,7 @@
      "measure_publish_settle::a measure→publish cycle settles inside one flush::a round trip that will not converge is a LOUD error, not a hang or a silent frame",
      "measure_publish_settle::a measure→publish cycle whose publication is a PROP settles in the same solve::an ENV change publishes and lands in the same write — the settle-pass arrival"
     ],
-    "shell": "grep -qF \"settle\" src/core/contract.luau && grep -qF \"FEEDBACK_ROUND_CAP\" src/core/custom.luau"
+    "shell": "grep -qF \"settle\" src/core/contract.luau && grep -qF \"FEEDBACK_ROUND_CAP\" src/core/signals.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -16713,7 +16713,7 @@
      "native_style_default::the plan the adapter obeys::the sheet's HOST and THEME pass through by identity",
      "native_style_default::the plan the adapter obeys::a bare `true` names no host or theme, so `ensure` takes its own defaults",
      "native_style_default::the plan the adapter obeys::the plan carries no `handle` and no `model` — those are the caller's objects",
-     "native_style_default::the plan the adapter obeys::transitions are OPT-IN, and reduced motion wins over the opt",
+     "native_style_default::the plan the adapter obeys::native paint transitions default on, with explicit opt-out and reduced motion",
      "native_style_default::the plan the adapter obeys::the plan is NEVER nil and always answers `native`, so one test decides the branch",
      "native_style_default::the plan the adapter obeys::the engine probe is consulted when the caller states no capability",
      "native_style_default::the plan the adapter obeys::an explicit `false` refuses BEFORE the engine is probed",
@@ -22242,7 +22242,7 @@
      "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
      "consumer_standalone::examples/consumer: input and state::a write to the signal repaints the label with no press at all",
      "consumer_standalone::examples/consumer: input and state::the toggle carries the signal the screen owns",
-     "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
+     "consumer_standalone::examples/consumer: input and state::Close invokes the session teardown command",
      "consumer_standalone::examples/consumer: it adapts by re-solving::the button stack arranges differently at a compact and a wide viewport",
      "consumer_standalone::examples/consumer: it adapts by re-solving::a viewport change re-solves the mounted surface without rebuilding it",
      "consumer_standalone::examples/consumer: it adapts by re-solving::the player's preferred text size grows the untouched label",
@@ -24414,7 +24414,7 @@
   {
    "check": {
     "resultIds": [
-     "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
+     "consumer_standalone::examples/consumer: input and state::Close invokes the session teardown command",
      "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
      "consumer_standalone::examples/consumer: input and state::a write to the signal repaints the label with no press at all",
      "consumer_standalone::examples/consumer: input and state::the toggle carries the signal the screen owns",

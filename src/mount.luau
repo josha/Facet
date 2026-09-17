@@ -1,4 +1,5 @@
 --!strict
+local tracking = require("./core/tracking")
 -- Mounted node graph (design §4.3 #2, §6.4): materializes a blueprint over a
 -- core exactly once per node (factory-once, UI-RUNTIME-001), subscribes
 -- dynamic props to their declared dirty classes, and gives ONLY structural
@@ -216,6 +217,7 @@ export type Transitions = {
 export type FeedbackSink = (event: { type: string, path: string }) -> ()
 
 export type MountOpts = {
+	context: { env: any?, presenter: any? }?,
 	scope: any?,
 	transitions: Transitions?,
 	feedback: FeedbackSink?,
@@ -225,7 +227,7 @@ local mountLib = {}
 
 -- CLOSED OPTS (constitution §4). `scope` misspelled means the mount owns
 -- its own root scope and the caller's dispose frees nothing.
-local MOUNT_OPTS_KEYS = specGuard.keySet({ "scope", "transitions", "feedback" })
+local MOUNT_OPTS_KEYS = specGuard.keySet({ "scope", "transitions", "feedback", "context" })
 
 function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	specGuard.assertKnownKeys("mount", opts, MOUNT_OPTS_KEYS, "opts")
@@ -245,7 +247,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		end
 	end
 	local counters = { mounted = 0, factoryRuns = 0 }
-	local dirtyQueue: { { path: string, class: string, prop: string? } } = {}
+	local dirtyQueue: { { path: string, class: string, prop: string?, origin: string? } } = {}
 	--[[ A MONOTONIC COUNT OF EVERY DIRTY EVER PUSHED, never reset by `takeDirty`.
 		`#dirtyQueue` answers "how much is pending", which is not the question the
 		renderer's solve-feedback check asks — it asks "did anything dirty the tree
@@ -256,7 +258,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 
 	local function pushDirty(path: string, class: string, prop: string?)
 		dirtySeq += 1
-		table.insert(dirtyQueue, { path = path, class = class, prop = prop })
+		table.insert(dirtyQueue, { path = path, class = class, prop = prop, origin = tracking.origin() })
 	end
 
 	local mountNode -- forward
@@ -594,9 +596,12 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					-- the item scope rides along so row factories can own
 					-- item-scoped resources (async handles, per-row memos —
 					-- §10.3/§10.5); ignoring the second argument stays valid
+					local currentItem = if bp.meta and bp.meta.currentItem
+						then itemScope:own(core:signal(wanted[key]))
+						else nil
 					local produce = function()
 						local built = mountNode(
-							bp.props.row(wanted[key], itemScope),
+							bp.props.row(currentItem or wanted[key], itemScope),
 							rowPath,
 							itemScope,
 							1,
@@ -633,6 +638,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					end
 					node.itemsByKey[key] = {
 						scope = itemScope,
+						currentItem = currentItem,
 						mounted = mounted,
 					}
 					if declared ~= nil then
@@ -649,6 +655,9 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				-- rebuild is over the SURVIVORS, in the new order
 				local entry = node.itemsByKey[key]
 				if entry ~= nil then
+					if entry.currentItem then
+						entry.currentItem:set(wanted[key])
+					end
 					table.insert(newChildren, entry.mounted)
 				end
 			end
@@ -720,8 +729,9 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			seen[key] = true
 			local itemScope = scope:child(`{path}/[{key}]`)
+			local currentItem = if bp.meta and bp.meta.currentItem then itemScope:own(core:signal(item)) else nil
 			local built = mountNode(
-				bp.props.row(item, itemScope),
+				bp.props.row(currentItem or item, itemScope),
 				`{path}/[{key}]`,
 				itemScope,
 				1,
@@ -731,7 +741,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				node.inheritFrom
 			)
 			markRow(built, inStack)
-			node.itemsByKey[key] = { scope = itemScope, mounted = built }
+			node.itemsByKey[key] = { scope = itemScope, mounted = built, currentItem = currentItem }
 			table.insert(order, key)
 		end
 		for _, key in order do
@@ -893,8 +903,32 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		inStack: boolean?,
 		inherited: any
 	): any
+		if bp.meta and bp.meta.build then
+			local owned = scope:child(bp.id or "component")
+			if not bp.meta.component then
+				tracking.inheritBindings(owned, scope)
+			end
+			local ok, result = pcall(bp.meta.build, core, owned, opts and opts.context)
+			if not ok then
+				owned:dispose()
+				error(result, 0)
+			end
+			return mountNode(result, parentPath, owned, index, boundary, inheritedActivation, inStack, inherited)
+		end
 		local id = bp.id or `{bp.class}#{index}`
 		local path = parentPath .. "/" .. id
+		if bp.class == "When" or bp.class == "ForEach" then
+			local prop = if bp.class == "When" then "condition" else "items"
+			if type(bp.props[prop]) == "function" then
+				local recipe = bp.props[prop]
+				local copy, props = table.clone(bp), table.clone(bp.props)
+				props[prop] = scope:own(core:memo(function()
+					return recipe(tracking.current())
+				end))
+				copy.props = props
+				bp = copy
+			end
+		end
 		local mountStructural = STRUCTURAL[bp.class]
 		if mountStructural ~= nil then
 			local node = mountStructural(bp, path, scope, boundary, inheritedActivation, inStack, inherited)
@@ -941,12 +975,26 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		end)
 
 		local dirtyMap = blueprintLib.PROP_DIRTY[bp.class] or {}
+		local propSpecs = blueprintLib.schema.forClass(bp.class).props
 		for propName, value in bp.props do
+			local propSpec = propSpecs[propName]
+			if type(value) == "function" and propSpec and propSpec.reactive then
+				local recipe = value
+				value = tracking.bind(core, scope, recipe)
+			end
 			if blueprintLib.isReadable(value) then
 				node.dynamicProps[propName] = value
 				node.props[propName] = value:get()
+				local function validate(result)
+					if type(bp.props[propName]) == "function" and propSpec and propSpec.reactive then
+						local valid, detail = blueprintLib.schema.checkValue(propSpec, result)
+						assert(valid, `Facet {bp.class}.{propName}: {detail or "invalid recipe result"}`)
+					end
+				end
+				validate(node.props[propName])
 				local classes = dirtyMap[propName] or { "paint" }
 				scope:own(core:observe(value, function(newValue)
+					validate(newValue)
 					local oldValue = node.props[propName]
 					node.props[propName] = newValue
 					-- Ordinary placement keeps its arrange-only fast path. A baseline
@@ -1070,9 +1118,15 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	-- The same scope name the renderer's structural sync uses, because they are the
 	-- same question — how much does making and un-making this tree cost — and a
 	-- mount-ramp profile wants one bar that grows with row count, not two.
-	local rootNode = profile.span("mount", function()
+	local mounted, rootNode = pcall(profile.span, "mount", function()
 		return mountNode(rootBlueprint, "", rootScope, 1)
 	end)
+	if not mounted then
+		if not rootScope:isDisposed() then
+			rootScope:dispose()
+		end
+		error(rootNode, 0)
+	end
 
 	local function dumpNode(node: any): any
 		local dirty = {}
@@ -1104,7 +1158,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				rootScope:dispose()
 			end)
 		end,
-		takeDirty = function(): { { path: string, class: string, prop: string? } }
+		takeDirty = function(): { { path: string, class: string, prop: string?, origin: string? } }
 			local taken = dirtyQueue
 			dirtyQueue = {}
 			return taken

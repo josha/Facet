@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- Rating: a small run of glyphs that reads as ONE value, and behaves like one.
 -- (director round 10, 2026-07-26: "I don't think the rating should render
 -- individual buttons for the stars. We probably want a custom rating control.")
@@ -94,15 +96,16 @@ local STAR_SIZE_ROLE = "small"
 rating.FILLED = "★"
 rating.EMPTY = "☆"
 
-export type Spec = {
+type NumberSignal = coreContract.Signal<number>
+export type Spec<V = NumberSignal> = {
 	id: string?,
-	value: any, -- owner-held Signal<number>
+	value: V, -- owner-held Signal<number>
 	count: number?, -- how many glyphs; default 5
 	-- may the value go to zero? Default true (an unrated item is a real state).
 	-- With `allowZero = false` the floor is 1 and a scrub off the leading edge
 	-- stops there instead of clearing.
 	allowZero: boolean?,
-	enabled: any?, -- boolean | Readable<boolean>
+	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
 	-- a display-only rating (an average, another player's score): it paints, it
 	-- is not focusable, and no input class can change it
 	readOnly: boolean?,

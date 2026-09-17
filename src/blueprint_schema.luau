@@ -56,6 +56,7 @@ local styling = require("./tokens/styling")
 local imageFraming = require("./render/image_framing")
 local textDistance = require("./text_distance")
 
+local animationPolicy = require("./motion/policy")
 local schema = {}
 
 export type Deprecation = {
@@ -840,6 +841,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		return true
 	end,
+	animation = animationPolicy.check,
 	opacity = schema.checkOpacity,
 	scaleFactor = schema.checkScaleFactor,
 	degrees = schema.checkDegrees,
@@ -1179,6 +1181,13 @@ local BOX: { [string]: PropSpec } = {
 
 		Reactive, and animatable through `presenter.withAnimation` — which is the
 		point (director ruling, 2026-08-14). `paint` dirty: no measure, no arrange. ]]
+	animation = p({
+		types = { "animation" },
+		reactive = false,
+		shared = true,
+		channel = "presentation",
+		doc = "named animation presets per property; layout coordinates the subtree; false opts out",
+	}),
 	scale = p({
 		types = { "scaleFactor" },
 		reactive = true,

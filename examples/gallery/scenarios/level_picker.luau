@@ -76,7 +76,7 @@ return {
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI = Facet.View
 		local core = ctx.core
 		local scope = core:scope("level-picker-scenario")
 
@@ -117,10 +117,10 @@ return {
 				padding = "s",
 				gap = "tight",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Label", text = label, textSize = "caption" }),
-					UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
-					--[[ THE STRIP TAKES THE LEFTOVER, and that is the whole layout.
+
+				UI.Text({ id = "Label", text = label, textSize = "caption" }),
+				UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
+				--[[ THE STRIP TAKES THE LEFTOVER, and that is the whole layout.
 						The stepper is content-sized (two 44px targets and a readout
 						whose width is a theme metric), the picker is `fill`, so the
 						row IS the reference picture at every width: the ± stays put
@@ -131,19 +131,19 @@ return {
 						finding on all five rows at every viewport: a `fill` child on a
 						wrapping stack's MAIN axis takes a whole line to itself, so the
 						wrap could never do anything except cost a line. ]]
-					UI.HStack({
-						id = "Pair",
-						-- THEME-OPT-OUT: this row is pinned between a `fill` picker and a stepper that
-						-- is content-sized from two 44px targets and a theme-metric readout, and the
-						-- comment above records why it may not wrap. There is no slack for a step that
-						-- grows: measured, `gap = "s"` puts all five rows 2px past their box on a
-						-- 320x640 phone at +14 under glossy-touch.
-						gap = 8,
-						align = "center",
-						width = UI.fill(),
-						children = { picker.blueprint, stepper.blueprint },
-					}),
-				},
+				UI.HStack({
+					id = "Pair",
+					-- THEME-OPT-OUT: this row is pinned between a `fill` picker and a stepper that
+					-- is content-sized from two 44px targets and a theme-metric readout, and the
+					-- comment above records why it may not wrap. There is no slack for a step that
+					-- grows: measured, `gap = "s"` puts all five rows 2px past their box on a
+					-- 320x640 phone at +14 under glossy-touch.
+					gap = 8,
+					align = "center",
+					width = UI.fill(),
+					picker.blueprint,
+					stepper.blueprint,
+				}),
 			})
 		end
 
@@ -208,10 +208,9 @@ return {
 				padding = "s",
 				gap = "xs",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "ReadoutTitle", text = COPY.readoutTitle, textSize = "caption" }),
-					UI.Text({ id = "ReadoutBody", text = readout, textSize = "caption", role = "secondary" }),
-				},
+
+				UI.Text({ id = "ReadoutTitle", text = COPY.readoutTitle, textSize = "caption" }),
+				UI.Text({ id = "ReadoutBody", text = readout, textSize = "caption", role = "secondary" }),
 			})
 		)
 		table.insert(page, UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }))
@@ -220,16 +219,15 @@ return {
 			id = "LevelPickerDemo",
 			padding = 12,
 			gap = "s",
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = page,
-				}),
-			},
+
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+				children = page,
+			}),
 		})
 
 		return {

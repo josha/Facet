@@ -142,12 +142,13 @@ export type Action = {
 	shortcut: ("defaultAction" | "cancelAction" | { keyCode: string, modifiers: { shift: boolean? }? })?,
 	onActivate: ((any?) -> ())?,
 }
-export type Spec = {
+type BooleanSignal = coreContract.Signal<boolean>
+export type Spec<P = BooleanSignal> = {
 	id: string?,
 	title: (Text | ((any) -> Text))?,
 	message: (Text | ((any) -> Text))?,
 	actions: ({ Action } | ((any) -> { Action }))?,
-	isPresented: coreContract.Signal<boolean>?,
+	isPresented: P?,
 	presenter: any?,
 	presenting: any?,
 	item: coreContract.Signal<any>?,
@@ -1110,7 +1111,9 @@ function alert.build(Facet: any, core: any, spec: Spec)
 						or (
 							type(result) == "table"
 							and type(result.class) == "string"
-							and type(UI[result.class]) == "function"
+							and (type(UI[result.class]) == "function" or (result.class == "Component" and result.meta and type(
+								result.meta.build
+							) == "function"))
 							and type(result.props) == "table"
 						),
 					"Controls.Alert: content must return a blueprint or nil"

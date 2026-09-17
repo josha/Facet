@@ -77,7 +77,7 @@ function brew_detail.new(app: any): any
 		return if use(expired) then "strong" else "caption"
 	end)
 
-	local bar = Facet.Controls.ProgressView(core, {
+	local bar = Facet.View.ProgressView({
 		id = "Countdown",
 		value = countdownFraction,
 		min = 0,
@@ -154,135 +154,128 @@ function brew_detail.new(app: any): any
 		padding = "m",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.Text({ id = "Title", text = titleText, textSize = "title" }),
-			parts.card(app, {
-				id = "StatusCard",
-				children = {
-					UI.HStack({
-						id = "Row",
-						gap = "s",
-						align = "center",
-						children = {
-							parts.chip(app, "Status", statusLabel),
-							UI.Text({ id = "Started", text = startedText, textSize = "caption", role = "secondary" }),
-							UI.When({
-								id = "WorkingWhen",
-								condition = pending,
-								thenView = function()
-									return parts.chip(app, "Working", S.t("detail.working"))
-								end,
-							}),
-						},
-					}),
-					-- THE COUNTDOWN, visible only while it is a fact
+
+		UI.Text({ id = "Title", text = titleText, textSize = "title" }),
+		parts.card(app, {
+			id = "StatusCard",
+			children = {
+				UI.HStack({
+					id = "Row",
+					gap = "s",
+					align = "center",
+
+					parts.chip(app, "Status", statusLabel),
+					UI.Text({ id = "Started", text = startedText, textSize = "caption", role = "secondary" }),
 					UI.When({
-						id = "CountdownWhen",
-						condition = counting,
+						id = "WorkingWhen",
+						condition = pending,
 						thenView = function()
-							return UI.VStack({
-								id = "Clock",
-								gap = "xs",
+							return parts.chip(app, "Working", S.t("detail.working"))
+						end,
+					}),
+				}),
+				-- THE COUNTDOWN, visible only while it is a fact
+				UI.When({
+					id = "CountdownWhen",
+					condition = counting,
+					thenView = function()
+						return UI.VStack({
+							id = "Clock",
+							gap = "xs",
+							width = UI.fill(),
+
+							UI.Text({
+								id = "Remaining",
+								text = countdownText,
+								textSize = countdownWeight,
+								role = "content",
+							}),
+							bar,
+						})
+					end,
+				}),
+			},
+		}),
+		parts.card(app, {
+			id = "BottlesCard",
+			children = {
+				UI.Text({ id = "Heading", text = S.t("detail.bottles"), textSize = "heading" }),
+				UI.VStack({
+					id = "Rows",
+					gap = "xs",
+					width = UI.fill(),
+
+					UI.ForEach({
+						id = "Items",
+						items = items,
+						key = function(item)
+							return item.potion
+						end,
+						row = function(item)
+							local potion = data.potionById(item.potion)
+							return UI.HStack({
+								id = "Item",
+								gap = "s",
+								align = "center",
 								width = UI.fill(),
-								children = {
-									UI.Text({
-										id = "Remaining",
-										text = countdownText,
-										textSize = countdownWeight,
-										role = "content",
-									}),
-									bar.blueprint,
-								},
+
+								if potion ~= nil
+									then parts.potionMark(app, "Mark", potion, "iconSizes.medium")
+									else UI.Spacer({ id = "Mark" }),
+								UI.Text({
+									id = "Name",
+									text = if potion == nil then item.potion else potion.name,
+									textSize = "body",
+									lineLimit = 1,
+									disclose = true,
+								}),
+								UI.Spacer({ id = "Gap", width = UI.fill() }),
+								parts.badge(app, "Bottles", tostring(item.bottles)),
 							})
 						end,
 					}),
-				},
+				}),
+				UI.HStack({
+					id = "Total",
+					gap = "s",
+					align = "center",
+					width = UI.fill(),
+
+					UI.Text({ id = "Label", text = S.t("detail.totalBottles"), textSize = "label" }),
+					UI.Spacer({ id = "Gap", width = UI.fill() }),
+					parts.badge(app, "Count", totalText),
+				}),
+			},
+		}),
+		UI.HStack({
+			id = "Actions",
+			gap = "s",
+			align = "center",
+			width = UI.fill(),
+
+			UI.Button({
+				id = "Primary",
+				label = primaryLabel,
+				surface = "accent",
+				enabled = primaryEnabled,
+				onActivate = primary,
 			}),
-			parts.card(app, {
-				id = "BottlesCard",
-				children = {
-					UI.Text({ id = "Heading", text = S.t("detail.bottles"), textSize = "heading" }),
-					UI.VStack({
-						id = "Rows",
-						gap = "xs",
-						width = UI.fill(),
-						children = {
-							UI.ForEach({
-								id = "Items",
-								items = items,
-								key = function(item)
-									return item.potion
-								end,
-								row = function(item)
-									local potion = data.potionById(item.potion)
-									return UI.HStack({
-										id = "Item",
-										gap = "s",
-										align = "center",
-										width = UI.fill(),
-										children = {
-											if potion ~= nil
-												then parts.potionMark(app, "Mark", potion, "iconSizes.medium")
-												else UI.Spacer({ id = "Mark" }),
-											UI.Text({
-												id = "Name",
-												text = if potion == nil then item.potion else potion.name,
-												textSize = "body",
-												lineLimit = 1,
-												disclose = true,
-											}),
-											UI.Spacer({ id = "Gap", width = UI.fill() }),
-											parts.badge(app, "Bottles", tostring(item.bottles)),
-										},
-									})
-								end,
-							}),
-						},
-					}),
-					UI.HStack({
-						id = "Total",
-						gap = "s",
-						align = "center",
-						width = UI.fill(),
-						children = {
-							UI.Text({ id = "Label", text = S.t("detail.totalBottles"), textSize = "label" }),
-							UI.Spacer({ id = "Gap", width = UI.fill() }),
-							parts.badge(app, "Count", totalText),
-						},
-					}),
-				},
+			-- disabled stays INSPECTABLE: the button says why
+			UI.When({
+				id = "DoneWhen",
+				condition = isDone,
+				thenView = function()
+					return UI.Text({
+						id = "DoneHint",
+						text = S.t("detail.collectedHint"),
+						textSize = "caption",
+						role = "secondary",
+						lineLimit = 2,
+						disclose = true,
+					})
+				end,
 			}),
-			UI.HStack({
-				id = "Actions",
-				gap = "s",
-				align = "center",
-				width = UI.fill(),
-				children = {
-					UI.Button({
-						id = "Primary",
-						label = primaryLabel,
-						surface = "accent",
-						enabled = primaryEnabled,
-						onActivate = primary,
-					}),
-					-- disabled stays INSPECTABLE: the button says why
-					UI.When({
-						id = "DoneWhen",
-						condition = isDone,
-						thenView = function()
-							return UI.Text({
-								id = "DoneHint",
-								text = S.t("detail.collectedHint"),
-								textSize = "caption",
-								role = "secondary",
-								lineLimit = 2,
-								disclose = true,
-							})
-						end,
-					}),
-				},
-			}),
-		},
+		}),
 	})
 
 	function self.view(): any
@@ -300,7 +293,6 @@ function brew_detail.new(app: any): any
 	end
 
 	function self.dispose()
-		bar.dispose()
 		items:dispose()
 		totalText:dispose()
 		statusLabel:dispose()

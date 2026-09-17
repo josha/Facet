@@ -1,4 +1,5 @@
 --!strict
+local blueprint = require("../blueprint")
 --[[ MENU — a freestanding action menu attachable to ANY blueprint
 	(navigation-and-menus brief §2 D2). This is what closes the context-menu construct.
 
@@ -113,7 +114,7 @@ export type Item = {
 
 export type Spec = {
 	id: string?,
-	trigger: any, -- Blueprint, required: ANY node, not a built-in trigger
+	trigger: blueprint.Blueprint, -- Blueprint, required: ANY node, not a built-in trigger
 	items: { Item }, -- required, non-empty
 	triggers: { string }?, -- which gestures open it; default all five
 	-- string | Readable<string> (automatic | menu | sheet; gap 20, framework-
@@ -121,7 +122,7 @@ export type Spec = {
 	-- value now rides the SAME hot-switch machinery `sizeClass`/
 	-- `interactionClasses` already drive an open menu through.
 	presentation: any?,
-	sizeClass: any?, -- string | Readable<string>
+	sizeClass: blueprint.Bound<string>?, -- string | Readable<string>
 	interactionClasses: any?, -- table | Readable<table>
 	--[[ the environment both facts above come from. Omitted, an
 		automatic presentation finds the one this control's own core published, and

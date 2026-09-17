@@ -1,70 +1,9 @@
 #!/usr/bin/env python3
-"""Gate check: `Facet.Controls`'s typed signatures still carry their types.
+"""Verify the public Controls and View authoring signatures with positive witnesses
+and negative probes. Dependency-graph diagnostics outside the target files are
+reported separately, not silently claimed as clean.
 
-The namespace is enumerated from source, with four historic `any` exceptions. The
-four new controls declare their specs at the public entry point, preserving
-types while their implementations remain deferred. The history below describes
-the original fifteen module-owned types and four deferred implementations.
-
-WHY THIS EXISTS. Fifteen of the nineteen `Facet.Controls` entries declare a real
-`spec` type, and they can only do it by holding a direct `local M = require(...)`
-binding at the top of `src/init.luau` — so those fifteen requires are EAGER and
-load-bearing for the types, and nothing else.
-
-THE IDIOM THAT WOULD HAVE BOUGHT BOTH DOES NOT EXIST. An earlier draft of this
-file claimed the requires were deferred into their closures with the parameter
-types kept through `typeof(require(...))`, worth 831 KB. Both halves were
-falsified by this check's own first run: a module's EXPORTED types enter scope
-ONLY through a direct binding, and all four deferral spellings —
-`type M = typeof(require(x))`, `local M = (nil :: any) :: typeof(require(x))`,
-`local M: typeof(require(x)) = (nil :: any)`, and
-`local M = if false then require(x) else (nil :: any)` — answer
-`TypeError: Unknown type 'M.Spec'` under the pinned analyzer. The 831 KB was
-subset arithmetic and was retracted with it
-(artifacts/release-candidate-review/perf/requalification.md §7).
-
-WHAT SHIPPED, and what it is worth: the FOUR entries that were already declared
-`spec: any` (`Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage`) need nothing from
-their module at load, so their requires moved into their closures — **228 KB
-[131..313]** of Lua heap (paired-by-index rounds, re-reproduced at review). The other **632 KB** stays on the table
-until the fifteen `export type Spec` declarations move to a module that costs
-nothing to load, because deferring those fifteen means widening them to `any`.
-
-Its entire justification is "the fifteen typed signatures survive", and until the
-analyzer was pinned into `rokit.toml` (wave T15) nothing in this repository could
-see a type. A change whose only claim is one no check can falsify is exactly what
-this file stops: if one of the fifteen ever silently degrades to `spec: any` —
-which is exactly what deferring its require would do — the authoring experience
-the naming decision bought disappears with no other symptom at all: the suite stays
-green, the surface dump stays byte-identical, and autocomplete quietly stops
-checking arguments.
-
-IT IS NOT A LINT REGIME, ON PURPOSE. `luau-lsp analyze` walks the whole require
-graph and this tree carries roughly 245 pre-existing diagnostics in modules
-nobody has ever type-cleaned. Gating on those would be a different project and
-would make this check impossible to keep green. So the rule is narrow and
-mechanical: diagnostics whose file IS ONE OF THE TARGETS must be zero. Everything
-in the dependency graph is reported by the analyzer and ignored here.
-
-TWO HALVES, AND NEITHER IS SUFFICIENT ALONE.
-
-  1. THE POSITIVE WITNESS (`tests/types/controls_witness.luau`) hands each entry a
-     local declared with the control module's OWN `Spec` type. A parameter type
-     that is some other type, or a narrower one, reddens it. A parameter type that
-     WIDENED to `any` does not — `any` accepts everything, including this.
-
-  2. THE NEGATIVE PROBE, below, is that missing direction. Each control is handed
-     a NUMBER in a generated throwaway file. An entry carrying a real `Spec` must
-     REJECT it; an entry that is `any` accepts it silently. The observed
-     accept/reject split is compared against the split DECLARED in
-     `src/init.luau`'s own source, so the two can never drift, and the four
-     entries that are `any` today are additionally pinned BY NAME so the set
-     cannot grow quietly.
-
-Run:  python3 tools/check_types.py            (exit 0 = PASS)
-      python3 tools/check_types.py --selftest (prove both halves bite)
-
-Writes artifacts/release-candidate-review/perf/types.json.
+Run: python3 tools/check_types.py [--selftest]
 """
 
 import json
@@ -79,15 +18,11 @@ ANALYZER = "luau-lsp"
 PLATFORM = "standard"
 INIT = "src/init.luau"
 WITNESS = "tests/types/controls_witness.luau"
-TARGETS = [INIT, WITNESS]
+TARGETS = [INIT, WITNESS, "tests/types/authoring_witness.luau"]
 ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 
-# The entries that take `spec: any` TODAY. This is a pre-existing fact about
-# `src/init.luau`, not an endorsement: each of these four is a control whose spec
-# was never given a published type. The set is pinned so it cannot GROW — which is
-# precisely the failure a careless lazy-require refactor would cause — and so that
-# narrowing one of them later is a deliberate edit here rather than a silent pass.
-DECLARED_ANY = {"AsyncImage", "Chip", "VirtualGrid", "VirtualList"}
+# No control may silently widen its public spec to any.
+DECLARED_ANY = set()
 
 
 def _env():
@@ -116,7 +51,7 @@ def namespace_entries(source):
     start = source.index("local Controls = table.freeze({")
     block = source[start:]
     block = block[: block.index("\n})")]
-    return dict(re.findall(r"\n\t(\w+) = function\(core: any, spec: ([^)]+)\)", block))
+    return dict(re.findall(r"\n\t(\w+) = function(?:<[^>]+>)?\(core: any, spec: ([^)]+)\)", block))
 
 
 def negative_probe(entries, tmpdir):
@@ -171,11 +106,31 @@ def run():
         f"the {len(TARGETS)} target files only, never the tree"
     )
 
+    # Authoring errors must be caught where callers write their screen.
+    probes = [
+        'local _bad = Facet.View.Text { text = false }',
+        'local _bad = Facet.View.VStack { 42 }',
+        'local _bad = Facet.View.Button { label = "x", onActivate = function(meta) if meta then local _x: number = meta.shift end end }',
+        'local _bad = Facet.View.Toggle { value = function() return true end }',
+        'local _bad = Facet.View.ForEach { items = function() return { { id = "a" } } end, key = function(item) return item.id end, row = function(item) return Facet.View.Text(item().missing) end }',
+    ]
+    probe_path = "tests/types/_authoring_negative.luau"
+    with open(probe_path, "w") as file:
+        file.write('--!strict\nlocal Facet = require("../../src")\n' + "\n".join(probes) + "\n")
+    try:
+        diagnostics, _ = analyze([probe_path])
+        rejected = {int(match.group(1)) for line in diagnostics if (match := re.search(r"\((\d+),\d+\):.*TypeError", line))}
+        for index, probe in enumerate(probes, 3):
+            if index not in rejected:
+                problems.append(f"authoring accepted invalid input: {probe}")
+    finally:
+        os.unlink(probe_path)
+
     # ---- half 2: the typed/any split is what src/init.luau declares ---------
     entries = namespace_entries(open(INIT).read())
     source = open(INIT).read()
     block = source.split("local Controls = table.freeze({", 1)[1].split("\n})", 1)[0]
-    names = set(re.findall(r"^\t(\w+) = function\(", block, re.MULTILINE))
+    names = set(re.findall(r"^\t(\w+) = function(?:<[^>]+>)?\(", block, re.MULTILINE))
     if not names or set(entries) != names:
         problems.append("every Controls entry must declare its core and spec parameters")
     declared_typed = {n for n, ann in entries.items() if ann.strip() != "any"}

@@ -71,3 +71,16 @@ Verdicts marked `[VERIFY]` are not confirmed; each says what would confirm it.
    `THIRD_PARTY_NOTICES.md` has no Fusion section, which is consistent. What is not clean is landing
    the notices file without the deletion: that would ship Fusion's code with no notice for it.
 5. **Optionally verify the `.rbxl` binaries** by rebuild-diff (item 23), if they are going to ship.
+
+
+## 2026-09-17 addendum: official Roblox Signals
+
+The migration vendors Signals 0.9.0 from Roblox/signals commit
+`7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60`. Four runtime modules retain the
+upstream algorithm; only requires/extensions are adapted. Source blob IDs and
+the adapted byte hashes are recorded in `src/vendor/signals/README.md` and
+`UPSTREAM.lock`. The MIT copyright and full permission notice are preserved
+in `LICENSE`, the package-carried `license.luau`, and `THIRD_PARTY_NOTICES.md`.
+The dependency inventory gate and offline package verification passed against
+this explicit vendor allowlist. This addendum records the new dependency; it
+does not re-adjudicate the historical audit's unrelated assets or release gates.

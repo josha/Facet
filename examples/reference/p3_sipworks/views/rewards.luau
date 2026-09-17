@@ -75,40 +75,38 @@ function rewardsView.card(app: any, opts: any): any
 				height = sealBox,
 				alignH = "center",
 				alignV = "center",
-				children = {
-					-- the empty slot is a RING: unstamped and stamped differ in
-					-- form, not only in colour
-					UI.Box({
-						id = "Ring",
-						width = dims.fill,
-						height = dims.fill,
-						corners = UI.cornersData("pill"),
-						stroke = UI.strokeData({}),
-					}),
-					UI.When({
-						id = "Stamped" .. index,
-						condition = filled,
-						thenView = function()
-							return UI.ZStack({
-								id = "Seal",
-								canvasGroup = true,
-								width = dims.fill,
-								height = dims.fill,
-								alignH = "center",
-								alignV = "center",
-								children = {
-									UI.Text({
-										id = "Mark",
-										text = artContent.SEAL_MARK,
-										textSize = "title",
-										textAlign = "center",
-										tint = markTint,
-									}),
-								},
-							})
-						end,
-					}),
-				},
+
+				-- the empty slot is a RING: unstamped and stamped differ in
+				-- form, not only in colour
+				UI.Box({
+					id = "Ring",
+					width = dims.fill,
+					height = dims.fill,
+					corners = UI.cornersData("pill"),
+					stroke = UI.strokeData({}),
+				}),
+				UI.When({
+					id = "Stamped" .. index,
+					condition = filled,
+					thenView = function()
+						return UI.ZStack({
+							id = "Seal",
+							canvasGroup = true,
+							width = dims.fill,
+							height = dims.fill,
+							alignH = "center",
+							alignV = "center",
+
+							UI.Text({
+								id = "Mark",
+								text = artContent.SEAL_MARK,
+								textSize = "title",
+								textAlign = "center",
+								tint = markTint,
+							}),
+						})
+					end,
+				}),
 			})
 		)
 	end
@@ -172,48 +170,44 @@ function rewardsView.modal(app: any): any
 	return UI.Screen({
 		id = "Rewards",
 		padding = "m",
-		children = {
-			UI.ZStack({
-				id = "Body",
-				canvasGroup = true,
-				width = dims.fill,
-				height = dims.fill,
-				alignH = "center",
-				alignV = "center",
-				children = {
-					parts.steamBackdrop(app, "Steam"),
-					-- an EXPLICIT box for the scroller, not `fill`: a filled
-					-- scroller still measures its own content, so the card would
-					-- have pushed the modal past the viewport at the largest text
-					-- preference (measured at 640x320)
-					UI.ScrollView({
-						id = "PanelScroll",
-						axis = "y",
-						width = dims.percentMax(0.92, "app.sip.cardW"),
-						height = dims.percent(0.95),
-						children = {
-							UI.VStack({
-								id = "Panel",
-								gap = "m",
-								align = "center",
-								width = dims.fill,
-								children = {
-									rewardsView.card(app, { compact = false }),
-									UI.Button({
-										id = "Done",
-										label = app.text("common.done"),
-										corners = UI.cornersData("pill"),
-										onActivate = function()
-											app.commands.dismissRewards()
-										end,
-									}),
-								},
-							}),
-						},
+
+		UI.ZStack({
+			id = "Body",
+			canvasGroup = true,
+			width = dims.fill,
+			height = dims.fill,
+			alignH = "center",
+			alignV = "center",
+
+			parts.steamBackdrop(app, "Steam"),
+			-- an EXPLICIT box for the scroller, not `fill`: a filled
+			-- scroller still measures its own content, so the card would
+			-- have pushed the modal past the viewport at the largest text
+			-- preference (measured at 640x320)
+			UI.ScrollView({
+				id = "PanelScroll",
+				axis = "y",
+				width = dims.percentMax(0.92, "app.sip.cardW"),
+				height = dims.percent(0.95),
+
+				UI.VStack({
+					id = "Panel",
+					gap = "m",
+					align = "center",
+					width = dims.fill,
+
+					rewardsView.card(app, { compact = false }),
+					UI.Button({
+						id = "Done",
+						label = app.text("common.done"),
+						corners = UI.cornersData("pill"),
+						onActivate = function()
+							app.commands.dismissRewards()
+						end,
 					}),
-				},
+				}),
 			}),
-		},
+		}),
 	})
 end
 

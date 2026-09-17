@@ -13,7 +13,7 @@ return {
 	title = "Native drag session (NS-A5/NS-A6)",
 	ledgerRows = { "NS-A5", "NS-A6", "NS-I2" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
+		local UI = ctx.Facet.View
 		local core = ctx.core
 
 		local status = core:signal("idle")
@@ -37,47 +37,45 @@ return {
 			-- said so. The room comes out of the inter-row gap, which is the cheapest
 			-- pixel on a four-row lab page; nothing here is a token.
 			gap = "s",
-			children = {
-				UI.Text({ id = "Title", text = "Drag session lab", textSize = 22 }),
-				UI.Text({ id = "Status", text = statusText, textSize = "label" }),
-				UI.Text({ id = "Hover", text = hoverText, textSize = "label" }),
-				-- The board's four fixed-width slots (Card + three targets, ~640px
-				-- with gaps) never fit a phone's width and must stay side by side —
-				-- the drag targets' geometry is meaningless if they wrap or shrink.
-				-- A horizontal ScrollView keeps them all reachable instead of letting
-				-- the row paint past the screen edge (overflow sweep, 2026-08-12).
-				UI.ScrollView({
-					id = "Board",
-					axis = "x",
-					gap = "m",
-					children = {
-						UI.Box({
-							id = "Card",
-							surface = "control",
-							width = { type = "fixed", px = 110 },
-							height = { type = "fixed", px = 70 },
-						}),
-						UI.Box({
-							id = "RowA",
-							surface = "raised",
-							width = { type = "fixed", px = 160 },
-							height = { type = "fixed", px = 70 },
-						}),
-						UI.Box({
-							id = "RowB",
-							surface = "raised",
-							width = { type = "fixed", px = 160 },
-							height = { type = "fixed", px = 70 },
-						}),
-						UI.Box({
-							id = "Locked",
-							surface = "base",
-							width = { type = "fixed", px = 160 },
-							height = { type = "fixed", px = 70 },
-						}),
-					},
+
+			UI.Text({ id = "Title", text = "Drag session lab", textSize = 22 }),
+			UI.Text({ id = "Status", text = statusText, textSize = "label" }),
+			UI.Text({ id = "Hover", text = hoverText, textSize = "label" }),
+			-- The board's four fixed-width slots (Card + three targets, ~640px
+			-- with gaps) never fit a phone's width and must stay side by side —
+			-- the drag targets' geometry is meaningless if they wrap or shrink.
+			-- A horizontal ScrollView keeps them all reachable instead of letting
+			-- the row paint past the screen edge (overflow sweep, 2026-08-12).
+			UI.ScrollView({
+				id = "Board",
+				axis = "x",
+				gap = "m",
+
+				UI.Box({
+					id = "Card",
+					surface = "control",
+					width = { type = "fixed", px = 110 },
+					height = { type = "fixed", px = 70 },
 				}),
-			},
+				UI.Box({
+					id = "RowA",
+					surface = "raised",
+					width = { type = "fixed", px = 160 },
+					height = { type = "fixed", px = 70 },
+				}),
+				UI.Box({
+					id = "RowB",
+					surface = "raised",
+					width = { type = "fixed", px = 160 },
+					height = { type = "fixed", px = 70 },
+				}),
+				UI.Box({
+					id = "Locked",
+					surface = "base",
+					width = { type = "fixed", px = 160 },
+					height = { type = "fixed", px = 70 },
+				}),
+			}),
 		})
 
 		local session: any = nil

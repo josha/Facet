@@ -78,7 +78,9 @@ export type Intent = {
 	can mount this. ]]
 function terminal.build(Facet: any, core: any, opts: Opts?)
 	local o: Opts = opts or {}
-	local UI = Facet.UI
+	local UI = Facet.View
+	-- The replicated session model survives engaging/disengaging this world
+	-- surface. Row components own only their mounted UI resources.
 	local scope = core:scope("outpost-terminal")
 
 	-- ===== state ============================================================
@@ -412,35 +414,14 @@ function terminal.build(Facet: any, core: any, opts: Opts?)
 
 	-- ===== the screen =======================================================
 
-	local controls: { any } = {}
-
-	local function consumerRow(consumer: rules.Consumer): any
-		local stepper = Facet.Controls.Stepper(core, {
-			id = `{consumer.id}Step`,
-			value = draft[consumer.id],
-			min = 0,
-			max = consumer.capacity,
-			format = function(value: number): string
-				return `{value}`
-			end,
-		})
-		table.insert(controls, stepper)
-		local state = scope:own(core:memo(function(use)
-			local units = use(draft[consumer.id])
-			local live = use(outpost.binding)
-			local now = if units >= consumer.needs then consumer.running else consumer.idle
-			local wasRunning = rules.isRunning(live, consumer.id)
-			local willRun = units >= consumer.needs
-			if wasRunning ~= willRun then
-				return `{now} (on Apply)`
-			end
-			return now
-		end))
-		local stateTint = scope:own(core:memo(function(use)
-			return if use(draft[consumer.id]) >= consumer.needs
-				then { role = "accent", blend = 1 }
-				else { role = "contentSecondary", blend = 1 }
-		end))
+	local ConsumerRow = Facet.component(function(ui, consumer: rules.Consumer)
+		local units, live = ui.read(draft[consumer.id]), ui.read(outpost.binding)
+		local function state()
+			local current = units()
+			local now = if current >= consumer.needs then consumer.running else consumer.idle
+			local wasRunning = rules.isRunning(live(), consumer.id)
+			return if wasRunning ~= (current >= consumer.needs) then `{now} (on Apply)` else now
+		end
 		return UI.HStack({
 			id = consumer.id,
 			surface = "control",
@@ -448,28 +429,37 @@ function terminal.build(Facet: any, core: any, opts: Opts?)
 			gap = "s",
 			align = "center",
 			width = UI.fill(),
-			children = {
-				UI.VStack({
-					id = "Copy",
-					gap = "tight",
-					width = UI.fill(),
-					children = {
-						UI.Text({
-							id = "Label",
-							text = `{consumer.label} — needs {consumer.needs}`,
-							textSize = "body",
-						}),
-						UI.Text({ id = "State", text = state, textSize = "caption", tint = stateTint }),
-					},
+			UI.VStack({
+				id = "Copy",
+				gap = "tight",
+				width = UI.fill(),
+				UI.Text({ id = "Label", text = `{consumer.label} — needs {consumer.needs}`, textSize = "body" }),
+				UI.Text({
+					id = "State",
+					text = state,
+					textSize = "caption",
+					tint = function()
+						return { role = if units() >= consumer.needs then "accent" else "contentSecondary", blend = 1 }
+					end,
 				}),
-				stepper.blueprint,
-			},
+			}),
+			UI.Stepper({
+				id = `{consumer.id}Step`,
+				value = units,
+				min = 0,
+				max = consumer.capacity,
+				onChange = function(value)
+					api.setValue(consumer.id, value)
+				end,
+				format = function(value)
+					return `{value}`
+				end,
+			}),
 		})
-	end
-
+	end)
 	local rows: { any } = {}
 	for _, consumer in rules.CONSUMERS do
-		table.insert(rows, consumerRow(consumer))
+		table.insert(rows, ConsumerRow(consumer))
 	end
 
 	local function action(id: string, label: string, role: string?, enabled: any?, onActivate: () -> ()): any
@@ -488,47 +478,44 @@ function terminal.build(Facet: any, core: any, opts: Opts?)
 		id = "OutpostTerminal",
 		padding = "m",
 		gap = "s",
-		children = {
-			UI.VStack({
-				id = "Head",
-				gap = "tight",
-				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = terminal.TITLE, textSize = "heading" }),
-					UI.Text({ id = "Budget", text = budgetLine, textSize = "body", role = "secondary" }),
-					UI.Text({ id = "Outpost", text = outpostLine, textSize = "caption", role = "secondary" }),
-				},
-			}),
-			UI.VStack({
-				id = "Consumers",
-				gap = "s",
-				width = UI.fill(),
-				children = rows,
-			}),
-			UI.Text({
-				id = "Message",
-				text = messageLine,
-				textSize = "body",
-				tint = messageTint,
-				width = UI.fill(),
-			}),
-			UI.HStack({
-				id = "Actions",
-				gap = "s",
-				width = UI.fill(),
-				children = {
-					action("Apply", "Apply", nil, canApply, function()
-						api.apply()
-					end),
-					action("Reset", "Reset", nil, nil, function()
-						api.reset()
-					end),
-					action("Exit", "Exit", "cancel", nil, function()
-						api.exit("exit-control")
-					end),
-				},
-			}),
-		},
+
+		UI.VStack({
+			id = "Head",
+			gap = "tight",
+			width = UI.fill(),
+
+			UI.Text({ id = "Title", text = terminal.TITLE, textSize = "heading" }),
+			UI.Text({ id = "Budget", text = budgetLine, textSize = "body", role = "secondary" }),
+			UI.Text({ id = "Outpost", text = outpostLine, textSize = "caption", role = "secondary" }),
+		}),
+		UI.VStack({
+			id = "Consumers",
+			gap = "s",
+			width = UI.fill(),
+			children = rows,
+		}),
+		UI.Text({
+			id = "Message",
+			text = messageLine,
+			textSize = "body",
+			tint = messageTint,
+			width = UI.fill(),
+		}),
+		UI.HStack({
+			id = "Actions",
+			gap = "s",
+			width = UI.fill(),
+
+			action("Apply", "Apply", nil, canApply, function()
+				api.apply()
+			end),
+			action("Reset", "Reset", nil, nil, function()
+				api.reset()
+			end),
+			action("Exit", "Exit", "cancel", nil, function()
+				api.exit("exit-control")
+			end),
+		}),
 	})
 
 	--[[ THE PRESENT OPTIONS THIS SCREEN NEEDS, declared BY the screen rather than
@@ -570,12 +557,6 @@ function terminal.build(Facet: any, core: any, opts: Opts?)
 		phase = phase,
 		report = api.snapshot,
 		dispose = function()
-			for _, control in controls do
-				if control.dispose ~= nil then
-					control.dispose()
-				end
-			end
-			table.clear(controls)
 			scope:dispose()
 		end,
 	}

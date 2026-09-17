@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- DisclosureGroup: a labelled header that expands and collapses its content
 -- (docs/plans/parity-next.md investment 7; acceptance row B-DSP2).
 --
@@ -22,12 +24,13 @@ local specGuard = require("../spec_guard")
 
 local disclosure_group = {}
 
-export type Spec = {
+type BooleanSignal = coreContract.Signal<boolean>
+export type Spec<V = BooleanSignal> = {
 	id: string?,
 	label: string, -- required: the header IS the control
-	expanded: any, -- owner-held Signal<boolean>
-	content: () -> any, -- () -> Blueprint, mounted only while expanded
-	enabled: any?,
+	expanded: V, -- owner-held Signal<boolean>
+	content: () -> blueprint.Blueprint, -- () -> Blueprint, mounted only while expanded
+	enabled: blueprint.Bound<boolean>?,
 	onToggle: ((expanded: boolean) -> ())?,
 	-- OPTIONAL (task 12, transitions round). When given, the toggle runs inside
 	-- `presenter.withAnimation("dismiss", …)` so every sibling whose position

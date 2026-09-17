@@ -57,10 +57,13 @@ local authority = require("./authority")
 -- the presentation channel's arithmetic: the composition rules, the
 -- authored triple's domain checks, and the write memo's comparison. Pure.
 local presentation = require("./presentation")
+local declarativeLib = require("./declarative_animation")
+local motionPolicy = require("../motion/policy")
 
 local presentation_channel = {}
 
 function presentation_channel.new(deps: {
+	clock: any?,
 	core: any,
 	root: any,
 	adapter: any,
@@ -138,6 +141,12 @@ function presentation_channel.new(deps: {
 	-- re-read, forward-declared: mount and the commit both reach them from above
 	local pushPresentationPaint: (path: string) -> ()
 	local readAuthoredPresentation: (node: any) -> boolean
+	local automatic = declarativeLib.new(core, deps.clock, function(path)
+		pushPresentationPaint(path)
+	end)
+	local suppressNextAutomatic = false
+	local suppressPaint = false
+	local autoArmed = false
 	-- PLAT-4 (platform verifier, 2026-07-27): the paint half of the presentation
 	-- channel was sound and the geometry half was not — `screenRectOf` composed
 	-- scroll offsets only, so while the keyboard keep-visible shift sat on the root
@@ -242,6 +251,9 @@ function presentation_channel.new(deps: {
 			o, s, r, offsetX, offsetY =
 				presentation.effective(authored[path], rec, if rec ~= nil then rec.set.spring:get() else 0)
 		end
+		if automatic.count() > 0 then
+			o, s, r, offsetX, offsetY = automatic.effective(path, o, s, r, offsetX, offsetY)
+		end
 		local node: any = nil
 
 		local composed = presentation.composeTransform(t, s, r, offsetX, offsetY)
@@ -341,6 +353,7 @@ function presentation_channel.new(deps: {
 	-- bookkeeping — the map, and `authoredN`, which is the off-path gate above.
 	-- Returns true when the stored triple moved, so a caller can skip a write.
 	function readAuthoredPresentation(node: any): boolean
+		automatic.register(node)
 		local path = node.path
 		local next = presentation.readAuthored(node.props, node.class, path)
 		local prev = authored[path]
@@ -436,12 +449,12 @@ function presentation_channel.new(deps: {
 		if session == nil or baseline == nil then
 			return
 		end
-		local set: any = nil
+		local sets: { [any]: any } = {}
+		local overrides: { [string]: any } = {}
 		-- the INTERRUPTION carry (design §Interruption). One spring serves the whole
 		-- call, so the velocity that survives is the DOMINANT record's: painted speed
 		-- is `rel * dp/dt`, so holding `relOld_max * vOld == relNew_max * vNew` keeps
 		-- the biggest motion's speed continuous and puts a small kink on the rest.
-		local carryMagOld, carryVelocity, carryMagNew = 0, 0, 0
 		-- `relX`/`relY` are RELATIVE to the ancestors' composed delta (the offset half
 		-- accumulates); `dw`/`dh` are the node's OWN absolute size delta, because the
 		-- size half does not accumulate. See the walk below.
@@ -450,6 +463,7 @@ function presentation_channel.new(deps: {
 		-- four rect numbers. Per-node like the size half, never accumulated: a fade
 		-- group's children are really inside its buffer and would fade twice.
 		local function claim(
+			selected: any,
 			path: string,
 			relX: number,
 			relY: number,
@@ -459,6 +473,7 @@ function presentation_channel.new(deps: {
 			dSc: number,
 			dRo: number
 		)
+			local set = sets[selected]
 			if set == nil then
 				-- `carriesVelocity = false` marks a CURVE-driven session:
 				-- a curve's speed is its shape, so there is no velocity to seed and
@@ -466,11 +481,16 @@ function presentation_channel.new(deps: {
 				-- value, and raising here would abort an armed commit mid-install.
 				-- Absent (an older session shape) means a spring, which carries.
 				set = {
-					spring = session.newSpring(),
+					spring = selected.newSpring(),
+					carryMagOld = 0,
+					carryVelocity = 0,
+					carryMagNew = 0,
+					automatic = autoArmed,
 					paths = {},
 					done = false,
-					carriesVelocity = session.carriesVelocity ~= false,
+					carriesVelocity = selected.carriesVelocity ~= false,
 				}
+				sets[selected] = set
 				-- the write rides the VALUE, not the clock step, exactly as a
 				-- transition's does, so an instantly-placed value lands the same way
 				set.unobserve = core:observe(set.spring, function()
@@ -490,9 +510,9 @@ function presentation_channel.new(deps: {
 				-- all four components are PIXELS on the same progress spring, so the
 				-- dominant magnitude is the largest of the four, not the largest offset
 				local mag = math.max(math.abs(prev.x), math.abs(prev.y), math.abs(prev.w), math.abs(prev.h))
-				if mag > carryMagOld then
-					carryMagOld = mag
-					carryVelocity = prev.set.spring:getVelocity()
+				if mag > set.carryMagOld then
+					set.carryMagOld = mag
+					set.carryVelocity = prev.set.spring:getVelocity()
 				end
 				relX += prev.x * p
 				relY += prev.y * p
@@ -512,7 +532,7 @@ function presentation_channel.new(deps: {
 				dRo += prev.r * p
 				animationClear(path, false)
 			end
-			carryMagNew = math.max(carryMagNew, math.abs(relX), math.abs(relY), math.abs(dw), math.abs(dh))
+			set.carryMagNew = math.max(set.carryMagNew, math.abs(relX), math.abs(relY), math.abs(dw), math.abs(dh))
 			local moves = relX ~= 0 or relY ~= 0 or dw ~= 0 or dh ~= 0
 			local paints = dOp ~= 0 or dSc ~= 0 or dRo ~= 0
 			animationRecords[path] = {
@@ -546,8 +566,20 @@ function presentation_channel.new(deps: {
 		-- `inh` is the composed ABSOLUTE delta this path inherits from the records
 		-- installed above it — never an ancestor's stored RELATIVE, and never a live
 		-- record from an EARLIER call (which is not this diff's business).
-		local function walk(node: any, inhX: number, inhY: number)
+		local function walk(node: any, inhX: number, inhY: number, inheritedSession: any)
 			local path = node.path
+			local selected = inheritedSession
+			local spec = automatic.spec(path)
+			if spec and spec.layout ~= nil then
+				if spec.layout == false then
+					selected = nil
+				elseif session.groups then
+					selected = session.groups[path] or inheritedSession
+				else
+					overrides[path] = overrides[path] or motionPolicy.session(deps.clock, spec.layout)
+					selected = overrides[path]
+				end
+			end
 			-- PRECEDENCE (design §Composition), SCOPED TO THE NODE — RED-TEAM
 			-- Milestone 1, blocker 1 (tests/animation_precedence.spec.luau).
 			--
@@ -620,26 +652,26 @@ function presentation_channel.new(deps: {
 					or dSc ~= 0
 					or dRo ~= 0
 					or animationRecords[path] ~= nil
-				if live and claimed and handles[path] ~= nil then
-					claim(path, relX, relY, dw, dh, dOp, dSc, dRo)
+				if selected and live and claimed and handles[path] ~= nil then
+					claim(selected, path, relX, relY, dw, dh, dOp, dSc, dRo)
 					-- what the children inherit is this path's composed ABSOLUTE POSITION
 					-- delta. Size is deliberately absent: see the comment above.
 					inhX, inhY = dx, dy
 				end
 			end
 			for _, child in node.children do
-				walk(child, inhX, inhY)
+				walk(child, inhX, inhY, selected)
 			end
 		end
-		walk(root.node, 0, 0)
+		walk(root.node, 0, 0, if session.groups then nil else session)
 		-- the parked deltas belong to THIS armed commit only: a path the walk declined
 		-- (not live, no handle) must not be flown by the next call
 		animationPaintDelta = {}
-		if set ~= nil then
+		for _, set in sets do
 			set.spring:setTarget(0)
 			-- after the aim, so the seed is what integrates from here
-			if set.carriesVelocity and carryMagOld > 0 and carryMagNew > 0 then
-				set.spring:setVelocity(carryVelocity * (carryMagOld / carryMagNew))
+			if set.carriesVelocity and set.carryMagOld > 0 and set.carryMagNew > 0 then
+				set.spring:setVelocity(set.carryVelocity * (set.carryMagOld / set.carryMagNew))
 			end
 		end
 	end
@@ -663,6 +695,72 @@ function presentation_channel.new(deps: {
 	function channel.disarmAnimation()
 		animationSession = nil
 		animationBaseline = nil
+	end
+
+	function channel.suppressAutomatic()
+		suppressNextAutomatic = true
+		for i = #animationSets, 1, -1 do
+			if animationSets[i].automatic then
+				animationSettle(animationSets[i])
+			end
+		end
+		automatic.settle()
+	end
+	function channel.beginAutomatic(dirty: { any })
+		if automatic.count() == 0 then
+			suppressNextAutomatic = false
+			return
+		end
+		suppressPaint = suppressNextAutomatic or (deps.clock ~= nil and deps.clock:isReduced())
+		suppressNextAutomatic = false
+		if suppressPaint then
+			channel.suppressAutomatic()
+			suppressNextAutomatic = false
+			return
+		end
+		if animationSession or automatic.count() == 0 then
+			return
+		end
+		local groups = {}
+		for _, entry in dirty do
+			if
+				entry.origin == nil
+				and (entry.class == "structure" or entry.class == "measure" or entry.class == "arrange")
+			then
+				local path = entry.path
+				while path and path ~= "" do
+					local spec = automatic.spec(path)
+					if spec and type(spec.layout) == "string" and not groups[path] then
+						groups[path] = motionPolicy.session(deps.clock, spec.layout)
+					end
+					path = string.match(path, "^(.*)/[^/]*$")
+				end
+			end
+		end
+		if next(groups) then
+			channel.armAnimation({ groups = groups })
+			autoArmed = true
+		end
+	end
+	function channel.endAutomatic()
+		if autoArmed then
+			autoArmed = false
+			channel.disarmAnimation()
+		end
+	end
+
+	function channel.guardRefresh(refresh)
+		return function()
+			if automatic.count() == 0 then
+				return refresh()
+			end
+			local ok, result = pcall(refresh)
+			channel.endAutomatic()
+			if not ok then
+				error(result, 0)
+			end
+			return result
+		end
 	end
 
 	-- DIAGNOSTIC (design §Proof), not a feature: how many paths currently carry a
@@ -711,8 +809,10 @@ function presentation_channel.new(deps: {
 				if node ~= nil then
 					local before = authored[path]
 					if readAuthoredPresentation(node) and handles[path] ~= nil then
+						automatic.react(path, before, authored[path], suppressPaint)
 						if animationSession ~= nil then
 							local now = authored[path]
+							local spec = automatic.spec(path)
 							local function was(key: string, identity: number): number
 								return (before ~= nil and before[key]) or identity
 							end
@@ -720,9 +820,15 @@ function presentation_channel.new(deps: {
 								return (now ~= nil and now[key]) or identity
 							end
 							animationPaintDelta[path] = {
-								o = was("opacity", 1) - isNow("opacity", 1),
-								s = was("scale", 1) - isNow("scale", 1),
-								r = was("rotation", 0) - isNow("rotation", 0),
+								o = if spec and spec.opacity ~= nil or autoArmed
+									then 0
+									else was("opacity", 1) - isNow("opacity", 1),
+								s = if spec and spec.scale ~= nil or autoArmed
+									then 0
+									else was("scale", 1) - isNow("scale", 1),
+								r = if spec and spec.rotation ~= nil or autoArmed
+									then 0
+									else was("rotation", 0) - isNow("rotation", 0),
 							}
 						end
 						pushPresentationPaint(path)
@@ -740,6 +846,7 @@ function presentation_channel.new(deps: {
 	-- for a path a recycled instance adopts, and a leaked `authored` entry would
 	-- make an idle surface pay forever.
 	function channel.forgetPath(path: string)
+		automatic.forget(path)
 		if lastTransform[path] ~= nil then
 			lastTransform[path] = nil
 			presentationLive -= 1
@@ -780,6 +887,7 @@ function presentation_channel.new(deps: {
 	-- a `withAnimation` spring is built on the presenter's clock, which OUTLIVES
 	-- the surface, so the springs die with the surface that started them
 	function channel.settleAll()
+		automatic.settle()
 		for i = #animationSets, 1, -1 do
 			animationSettle(animationSets[i])
 		end

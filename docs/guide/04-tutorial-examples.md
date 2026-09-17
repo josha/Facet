@@ -69,7 +69,7 @@ The file order:
 
 | # | File | New idea it introduces |
 |---|---|---|
-| 1 | `01_temperature_converter.luau` | signals, memos, and activation |
+| 1 | `01_temperature_converter.luau` | component state, property getters and controlled text entry |
 | 2 | `02_playlist_table.luau` | composing a reusable table/control from primitives |
 | 3 | `02_playlist_table.luau` (continued) | collections, derived filtering, virtualization |
 | 4 | `03_settings_sync.luau` | optimistic mutation and server reconciliation |
@@ -82,448 +82,195 @@ The file order:
 
 ## 4.1 Temperature converter
 
-**New concepts: signals, memos, and a real text field with its two edit modes.**
+**New concepts: component state, shared derived values and controlled text entry.**
 
-The smallest interactive screen. The user types a Fahrenheit value into a
-numeric text field (`Facet.newTextInput`) and sees it converted to Celsius. The
-field is the primary — and only — input affordance. (Earlier builds of this
-tutorial used stepper buttons because the library had no editable text-box
-control. Now that the text-input control (`Facet.newTextInput`, over the
-`UI.TextField` primitive) ships, the field replaces them.)
+[`01_temperature_converter.luau`](../../examples/gallery/examples/01_temperature_converter.luau)
+is a `Facet.component` using `Facet.View`. Its state and bindings belong to the
+mounted screen. It describes the interface once; only property recipes update.
 
-**The way back.** The quality pass played this screen and found it had no
-reset at all. Once a value was typed, the only route to the starting state was
-select-all-and-delete — not discoverable, and not a lesson. A **Clear** button
-now returns the field, the live preview and the committed result together.
-
-**Style authority.** Every `textSize` here names a typography *role*
-(`title`/`label`/`body`/`heading`), and every space names a step (`"m"`,
-`"s"`), rather than the px literals this example used to carry. A literal is
-the same number under every package. That is exactly what made these screens
-immune to the theme picker mounted beside them.
-
-Three pieces of state are held in signals:
-
-```lua
-local fahrenheitText = core:signal("")            -- the field's editable text (owner-held)
-local liveCelsius    = core:signal(nil :: number?) -- the LIVE preview (onChange)
-local celsius        = core:signal(nil :: number?) -- the COMMITTED result (onCommit)
+```luau
+local fahrenheit, setFahrenheit = ui.state("")
+local celsius, setCelsius = ui.state(nil :: number?)
+local function toCelsius(text)
+    local n = tonumber(text)
+    return if n then (n - 32) * 5 / 9 else nil
+end
+local liveCelsius = ui.memo(function() return toCelsius(fahrenheit()) end)
 ```
-
-The field text is a **string** signal the owner holds (state that outlives the
-control belongs to the caller). The two Celsius signals exist to make the whole
-lesson visible: one tracks every keystroke, the other changes only when the
-edit is finished.
 
 ### The two edit modes
 
-A text field has two moments worth distinguishing, and `newTextInput` gives you
-a callback for each:
+`onChange` accepts live text edits; the preview follows the text. `onCommit`
+updates the final result on Enter or focus loss. The getter remains the source of
+truth: validation can reject a proposed edit before its change callback runs.
 
-- **`onChange` — LIVE mode.** Fires on every accepted edit *while you type*. We
-  parse the text and update `liveCelsius`, which drives a preview label. As you
-  type `2`, `1`, `2`, the preview walks toward `100 °C`.
-- **`onCommit` — COMMIT mode.** Fires only when the edit is *finished* — on
-  Enter (`reason = "enter"`) or when focus leaves the field
-  (`reason = "focusLost"`). We update `celsius`, which drives the Result label.
-  Until you commit, the Result stays `—`.
-
-```lua
-local field = Facet.Controls.TextInput(core, {
-    id = "Fahrenheit",
-    value = fahrenheitText,
-    placeholder = "e.g. 212",
-    keyboardType = "numeric",   -- declared INTENT for the engine adapter, not a guarantee
-    validate = acceptNumeric,   -- enforces numeric input on every keystroke (below)
-    onChange = function(text)
-        local n = tonumber(text)
-        liveCelsius:set(if n ~= nil then (n - 32) * 5 / 9 else nil)
+```luau
+UI.TextInput {
+    id = "Fahrenheit", value = fahrenheit, onChange = setFahrenheit,
+    placeholder = "e.g. 212", keyboardType = "numeric",
+    validate = function(proposed)
+        return if string.match(proposed, "^%-?%d*%.?%d*$") then proposed else nil
     end,
-    onCommit = function(text, _reason)
-        local n = tonumber(text)
-        celsius:set(if n ~= nil then (n - 32) * 5 / 9 else nil)
+    onCommit = function(text) setCelsius(toCelsius(text)) end,
+}
+```
+
+The grammar accepts unfinished numbers such as `-` and `.` while refusing letters
+and a second decimal point. `keyboardType` describes intent; it does not force a
+Roblox keyboard layout. A rejected edit leaves the value unchanged.
+
+### Recipes and shared work
+
+Use a simple property function for formatting. `liveCelsius` is a memo because
+both the preview and the example driver read that derived number.
+
+```luau
+UI.Text {
+    id = "Preview", role = "secondary",
+    text = function()
+        local c = liveCelsius()
+        return if c == nil then "Preview: —" else string.format("Preview: %g °C", c)
     end,
-    env = deps and deps.env,               -- keyboard-occlusion keep-visible (phones)
-    actionSystem = deps and deps.actionSystem, -- the text-entry sinking context
-})
+}
+UI.Button {
+    label = "Clear",
+    onActivate = function()
+        ui.batch(function() setFahrenheit(""); setCelsius(nil) end)
+    end,
+}
 ```
-
-`keyboardType = "numeric"` is intent metadata. Roblox exposes no public keyboard-type setter, so it does not change the native keyboard. Use `presentation = "number"` with `numericValue`, `min`, `max`, `parse`, and `format` for numeric commits, or `validate` for a custom live editing rule:
-
-```lua
--- optional leading '-', digits, at most one '.'; also accepts the in-progress
--- states you pass THROUGH while typing ("", "-", ".", "-.") so a keystroke on
--- the way to a valid number is never blocked. Rejects letters, '+', a 2nd '.'.
-local function acceptNumeric(proposed)
-    if string.match(proposed, "^%-?%d*%.?%d*$") ~= nil then return proposed end
-    return nil   -- nil = reject this edit; the value is left unchanged
-end
-```
-
-`validate` runs on every proposed edit after the (optional) `maxLength` clamp:
-return the accepted string (you may normalize it), or `nil` to reject. A
-rejected edit fires no `onChange` and leaves the value untouched.
-
-### Two memos, two labels
-
-Each Celsius value becomes a display string through a **memo** — a value
-computed from other reactive values through the `use` reader, recomputed only
-when something it read changes. Passing that memo as `text` binds it to a Text:
-
-```lua
-local previewLabel = core:memo(function(use)
-    local c = use(liveCelsius)
-    if c == nil then return "Preview: —" end
-    return string.format("Preview: %g °C  (live, as you type)", c)
-end)
-local resultLabel = core:memo(function(use)
-    local c = use(celsius)
-    if c == nil then return "Result: —" end
-    return string.format("Result: %g °C", c)
-end)
-```
-
-Passing a memo (or signal) as a prop is what makes the text reactive: when it
-changes, only that one Text is rewritten — the surrounding UI is not rebuilt.
 
 ### No presenter wiring
 
-The field is a control that advertises its own four-input story: mounting it is
-enough. The `newTextInput` control attaches an *input contribution* to its root
-node, and the presenter auto-composes everything from it:
-
-- Activate routes into the field: a tap, or Return/gamepad-A on the focused
-  field, enters edit mode.
-- The presenter feeds the keyboard-occlusion geometry and keep-visible offset
-  automatically.
-- The field raises its own high-priority edit-mode context, so typing
-  swallows the arrow/D-pad keys and never moves focus.
-
-So this example passes **no** `present()` options at all:
-
-```lua
--- the caller just presents the screen; there are no present() opts to hand it
-presenter.present(built.screen)
-```
-
-The whole loop: typing writes `fahrenheitText`; `onChange` updates
-`liveCelsius`; the preview repaints. Press Enter (or tap away) and `onCommit`
-updates `celsius`; the Result repaints. You never touch a text node directly —
-that is the declarative cycle, with the live-vs-commit distinction on top.
-
----
+The mounted TextInput receives its environment and input integration from the
+host. It owns editing, keyboard occlusion and cancellation. The example passes
+no manual scope, core, input router or `.blueprint` into its view tree. Dismissing
+the component releases its resources. Use typography roles and spacing steps so
+the same description follows themes and the player's preferred text size.
 
 ## 4.2 Playlist table
 
-File: `examples/gallery/examples/02_playlist_table.luau`
+**New concepts: shared model state, keyed rows, custom cells and table interactions.**
 
-New concepts:
-
-- **the Table control**
-- **columns that own their cells**
-- **interactive controls inside cells**
-- **filter-as-you-type over a derived rows list**
-- **drag-and-drop row reordering**
-- **swipe actions on either edge of a row**
-
-This example combines two things that used to be separate lessons — a
-star-rating control and a track list. Together they form the screen a music
-app would actually ship: an iTunes-style playlist with a filter field and a
-header. It has two columns, Name and a star Rating you can drag across. You
-can drag its rows into a new order, and swipe them sideways for their actions.
-
-**There used to be a third column, Length, and measuring edit mode removed
-it.** A `fill` column gets whatever the fixed ones leave. Once this table
-declared `rowActions` with a destructive action, edit mode began spending
-*two* leading gutters on every row. That's 32px for the reorder ≡, plus the
-theme's `editAffordance` gutter for the red ⊖. On the narrowest viewport the sweep
-covers (320×640) that solved the Name cell to 6px and its text to 0px.
-Removing the 70px Length column gives the name 60px back there. The shipped
-example already squeezed the name down to 26px on that phone, and nothing
-complained. So this was a pre-existing problem that the new gutter merely made
-visible — the numbers and the two rejected alternatives are in the example's
-own columns list.
-
-**Restore.** Reordering rows and re-rating tracks are both destructive to the
-shipped playlist, and there was no way back short of leaving the place. A
-**Restore the original playlist** button returns the order, every rating and
-the filter together.
-
-**A known limit at Largest text.** On a compact phone with the player's text
-size at Largest, `UI.Table`'s touch Edit toggle overlaps the rating column's
-header title. It is a framework defect in the Table's toolbar/header spacing.
-This example authors no toolbar or header geometry. The large-text evidence
-row for this example records it as an open defect.
-
-The filter uses `Controls.TextInput` with `presentation = "search"`. Typing
-filters the existing rows immediately; clearing the field restores the list.
-The search icon and clear affordance follow the active theme.
+[`02_playlist_table.luau`](../../examples/gallery/examples/02_playlist_table.luau)
+keeps the playlist order and ratings in a model scope. Filtering or removing a
+mounted row does not destroy that track's rating. The application releases that
+model at its lifetime boundary; the `Playlist` component owns mounted controls.
+This is the same separation to use for an inventory or a server-backed catalog.
 
 ### The data
 
-The FULL playlist order lives in one signal holding the array of tracks. Each
-track's rating is its **own** signal, created once and looked up by track id:
-
-```lua
-local baseRows  = core:signal(table.clone(TRACKS))
-local filterText = core:signal("")   -- the filter field's value (owner-held)
-local ratings = {}
-for _, track in TRACKS do
-	ratings[track.id] = core:signal(track.rating)
-end
-```
-
-Separating "the order" from "each track's rating" is the key move. Reordering
-writes `baseRows`: rows move, and nothing rebuilds, because keyed rows keep
-their mounted cells. Rating a track writes one small signal instead: five
-star glyphs repaint, and nothing else changes.
+The model exposes `baseRows`, `sortOrder`, per-track ratings, and derived sorted
+and filtered rows. Sorting is stable: equal values keep their original relative
+order. A manual reorder first preserves the current displayed ordering, then
+clears the sort. Restore resets the fixture's order, ratings, filter and selection.
 
 ### Filter-as-you-type over a derived rows list
 
-The rows the table actually shows are a **memo** derived from `(baseRows,
-filterText)` — a case-insensitive substring match on the track name:
+A controlled search field binds the query. For component-local filtering, the
+same idea is:
 
-```lua
-local filteredRows = core:memo(function(use)
-	local query = string.lower(use(filterText))
-	local all   = use(baseRows)
-	if query == "" then return all end
-	local out = {}
-	for _, track in all do
-		-- string.find(..., 1, true) = a PLAIN substring test (no pattern magic),
-		-- so a filter like "." matches a literal dot
-		if string.find(string.lower(track.name), query, 1, true) ~= nil then
-			table.insert(out, track)
-		end
-	end
-	return out
+```luau
+local query, setQuery = ui.state("")
+local filtered = ui.memo(function()
+    local matches = {}
+    for _, track in tracks() do
+        if string.find(string.lower(track.name), string.lower(query()), 1, true) then
+            table.insert(matches, track)
+        end
+    end
+    return matches
 end)
+local search = UI.TextInput {
+    presentation = "search", value = query, onChange = setQuery,
+    placeholder = "Filter tracks",
+}
 ```
 
-The table's `rows` is this memo (`rows = filteredRows`). A `newTextInput` field above
-the table has `value = filterText`, so **every keystroke updates the signal the
-memo reads** — the filter is live by construction, no `onChange` plumbing
-needed. Because the table reads its rows reactively, editing the filter
-re-derives the list and the table reconciles. Surviving keys keep their
-mounted cells (no remount); only the rows that dropped out are removed. The field's
-`clearButton = true` shows a trailing ✕ *only while the filter is non-empty*;
-activating it empties `filterText` and the whole list returns.
+`tracks` is a getter; borrow a shared model readable with `ui.read(model.rows)`.
+Use a memo because filtering does real work. Formatting a short label usually
+needs only a property function. A plain substring search treats punctuation as
+text, not a pattern.
 
 ### Reordering while filtered
 
-Reordering is **disabled while a filter is active**, which is the standard
-media-library convention. The visible rows are a *subset* of the real order,
-so where a drop lands relative to the hidden rows is ambiguous. Rather than
-guess, the `onReorder` handler refuses the move while `filterText` is
-non-empty, and leaves the base order untouched. Clear the filter to rearrange.
-When unfiltered, the handler applies the splice to the full `baseRows` (the
-post-removal contract below).
+The example refuses reordering while a filter is active: a visible subset cannot
+unambiguously describe the full order. Clear the filter before moving rows.
+The reorder callback uses the table's post-removal destination index.
 
 ### Columns own their cells
 
-A table column can render plain text with `value`, or any blueprint with
-`cell`. Name is a `value` column. Rating is a `cell` column that mounts a real
-`Facet.newRating` control — one control, not five buttons, built once per
-track and owned by the example. Its glyphs are derived values over that
-track's rating signal:
+A `value` column renders a value. A `cell` column returns a view. A rating is one
+adjustable control, so it gets one focus stop and the control's native input story:
 
-```lua
-ratingControls[track.id] = Facet.Controls.Rating(core, {
-	id = "Rating", env = deps.env, value = ratings[track.id], count = 5,
-})
+```luau
+local function starCell(item)
+    return UI.Rating { id = "Rating", value = ratings[item.id], count = 5 }
+end
 ```
 
-Because each glyph is a bound derived value, rating a track is pure repaint: the
-test asserts the row's factory-run counter does not move. (This *was* five
-`UI.Button`s built inline. A device pass showed why that is the wrong shape:
-a Button is a `control` to every theme. So the rating painted as five
-plates, five focus stops, and five overlapping 44px hit targets in one cell.
-The example's own comment carries that history.)
+Here `ratings` contains shared writable model signals, which View also accepts.
+For local state use `value = rating, onChange = setRating`. Mount owns each rating
+control; no eager cache of control handles or manual disposal loop is needed.
 
 ### Activation lives on the node
 
-Buttons inside cells activate exactly like any other button. Each star
-carries its own effect on its `onActivate` prop. Activating it — a tap, or
-Return/A on the focused star — sets that track's rating: no path-matching
-router, and no `present()` opts:
-
-```lua
-UI.Button({ id = `Star{i}`, label = glyph, surface = "plain",
-	onActivate = function() rating:set(i) end })
-```
-
-The presenter dispatches Activate to the node's own handler when a leaf
-declares one. Otherwise it falls through to a mounted control's contribution —
-here the Table, for row selection and header behavior. So the star effect and
-the table's own behavior coexist with no consumer routing.
+Buttons use `onActivate`. Table row selection, header sorting and primary actions
+come from the table's contribution. Use `onPrimaryAction` to play the selected
+track; do not route events by matching strings in node paths. Child controls and
+the enclosing table retain their own input responsibilities.
 
 ### When the table is too narrow for its columns
 
-A phone in portrait is not a desktop with fewer pixels — a five-column table
-crammed into 393pt is five columns of nothing. So a Facet table that cannot fit
-every column's declared floor **collapses the lowest-priority column whole**
-rather than squeezing all of them past their minimums, and then says so.
+The example declares minimum widths for Name and Artist and a fixed width for
+Rating. Facet drops a lower-priority column as a whole when the floors cannot fit,
+then offers the hidden values through its disclosure. The first identity column
+stays available. Player column-width overrides participate in this calculation.
+Widening the viewport restores the column without replacing the surviving rows.
 
-Two declarations decide it, and both are optional:
+The demo also displays the table's column widths and selected header. That is a
+concrete reason to keep an explicit handle in this one component:
 
-```lua
-{ id = "name",   width = { type = "fill", weight = 3 }, minWidth = 90 },
-{ id = "artist", width = { type = "fill", weight = 2 }, minWidth = 72 },
-{ id = "rating", width = { type = "fixed", px = 144 } },
+```luau
+local tableHandle = ui.own(Facet.Controls.Table(core, tableSpec))
+local widths = ui.read(tableHandle.api.columnWidthOverrides)
+-- Include tableHandle.blueprint in the view tree; read widths() in a recipe.
 ```
 
-* **A floor is the trigger, wherever it comes from.** `minWidth` is now a floor
-  on every dim kind, `fill` included. Before, a `fill` column was divided
-  strictly by weight, and a declared minimum bought nothing. A `fixed` width
-  and a `percent` are floors too. So is any column the PLAYER has resized,
-  because a committed width resolves to a `fixed` dim. A table that declares
-  nothing and has never been resized has a demand of zero, and collapses
-  nothing. A resizable one is a single divider drag away from having a floor
-  it never wrote. Either way the disclosure follows the collapse — they read
-  the same state, so there is no shape where a column can go without the
-  `N more` chip going with it.
-* **`priority` is the order.** `priority = 1` is the most important. Absent a
-  priority, a column's priority is its declaration order, so the playlist
-  above drops Rating first because Rating is written last. `priority =
-  "always"` is a refusal — this column never goes, at any width. The
-  **first** column never goes either: it is the row's identity, and the
-  disclosure names each hidden value against it.
-
-Nothing is lost when a column collapses. The table grows an `N more` chip —
-its own focus stop, a 44px thumb band. Its plate lists each hidden column and
-every visible row's value for it, and a collapsed column's **sort** is still
-selectable from there. Widen the window and the column comes straight back.
-The collapse is a hide rather than a rebuild, so it costs no selection, no
-focus, and no live control inside a cell.
-
-The playlist demonstrates all of it at 320x640: Rating collapses, the two text
-columns go from 30px and 14px of readable text to 66px each, and the width
-readout above the table changes from `Rating locked` to `Rating hidden ·
-1 hidden`. `api.hiddenColumns` is the Readable that line reads.
+Use `UI.Table(tableSpec)` for a table that does not need those imperative
+readbacks. Do not introduce a manual handle solely to get a blueprint.
 
 ### Drag & drop
 
-Row reordering is built into the Table: `reorderable = true` plus an
-`onReorder` callback. While dragging, the row stays in place, and a ghost
-chip plus a drop line carry the affordance. On release the table reports
-**which keys moved and where they landed** — it never mutates your data. The
-example applies the splice to its own `baseRows` signal (and, per the rule
-above, only when no filter is active):
-
-```lua
-onReorder = function(keys, toIndex)
-	-- split rows into (moving, staying), then reinsert the moving block
-	-- after position `toIndex` among the staying rows
-end
-```
-
-`toIndex` counts positions among the rows NOT being dragged (drop the moved
-rows out, then insert the block after that slot) — this "post-removal"
-convention makes multi-row drags unambiguous.
+The table owns pickup, the insertion indicator, scrolling and drop input.
+The model's `onReorder` command applies the proposed order. Game rules can refuse
+a move; keep those rules in the model rather than duplicating drag machinery.
 
 ### Swipe actions on either edge
 
-Swiping a row sideways reveals its actions — left for **Remove**, right for
-**Top**. This is `rowActions`, the turnkey form of `Facet.newRowActions` that
-`Table` hosts for you: return `{ leading, trailing, fullSwipe }` for a row and
-that row gets a tray on each edge you filled in.
-
-```lua
-rowActions = function(item)
-	local id = item.id
-	return {
-		leading  = { { id = "top",    label = "Top",    icon = "chevron.up", onAction = ... } },
-		trailing = { { id = "remove", label = "Remove", icon = "trash",
-		               role = "destructive", onAction = ... } },
-		fullSwipe = { leading = false, trailing = true },
-	}
-end
-```
-
-**This is not edit mode, and the difference is the whole point.** Edit mode is a
-*mode* you enter with the Edit button, and while it is on, rows grow a ≡ reorder
-handle and taps select. Swipe actions are a per-row *gesture* that works with the
-table sitting in its normal state — no mode, no button, no selection change.
-The convention draws the same line: swipe-action documentation never mentions
-edit mode, and edit-mode documentation never mentions swiping.
-
-**Which edge gets what.** The default edge is trailing, and that is where a
-destructive action belongs, so Remove is trailing and Top is leading. Within an edge, actions
-appear in the order you list them, starting from the swipe's originating edge.
-
-**Full swipe is per edge.** By default a full swipe performs the first action for
-that direction, and you opt an edge out with `allowsFullSwipe: false`. The
-standard worked example disables it on the leading edge, and this example does
-the same. So a full swipe *left* removes the track outright; a full swipe *right*
-only reveals Top, which still needs a tap.
-
-**It composes with the primary action rather than fighting it.** A tap plays the
-track, a sideways drag opens a tray and plays nothing, and a mostly-vertical drag
-still scrolls the page. The Table's axis lock decides which of the three a
-gesture is before any of them can fire, so none of them has to know about the
-others.
-
-**And it is reachable without a swipe.** On a focused row, **Delete** runs the
-destructive action, and **Shift+Return** opens the row's action menu. So a
-keyboard and a gamepad reach Remove and Top with no gesture to imitate. That is
-the four-input rule, not a bonus.
-
-**Edit mode adds a second route to the same Remove.** Because the trailing tray
-carries a `role = "destructive"` action, entering edit mode also puts a small red
-⊖ in a leading gutter on every row. Tapping it *reveals the trailing tray* rather
-than deleting outright — the destructive action stays one more tap away.
+The example supplies Top on the leading edge and Remove on the trailing edge.
+Only Remove opts into full-swipe commit. Keyboard and gamepad users reach those
+same actions through the row-actions affordance. Destructive intent belongs in
+the action's role, so the active theme supplies its treatment.
 
 ### Scrolling vs. reordering on touch
 
-A vertical touch drag can only mean one thing. So the table follows the
-platform convention you know from phone playlist apps: a plain touch pan
-always SCROLLS, and reordering happens only in an explicit edit mode.
-
-When reordering is enabled and you hand the table the environment
-(`env = deps.env`), touch users automatically get an Edit/Done toggle in the
-table's corner. Tap Edit and every row grows a LEADING ≡ handle in a
-left-hand gutter (the cells slide right to clear it). Dragging the handle
-reorders — one row, or the whole selection when the dragged row is selected
-(tap rows to multi-select first). Dragging anywhere else still scrolls. Rows
-that are partially scrolled out render cropped at the table's edge, exactly
-like a native list.
-
-The toggle appears whenever a touchscreen **or a gamepad** is live on the
-device. Gamepad reordering starts from the same edit mode: focus a row,
-press A to grab it, D-pad to move, A to drop. The toggle keys off the full
-live capability set, so a desktop with a controller plugged in gets it even
-while the mouse is still the primary input. A pure mouse-and-keyboard machine
-never sees it: the wheel scrolls, and a direct row drag reorders,
-desktop-style. Owners who want their own edit UI pass an `editing` signal
-instead, and the built-in toggle steps aside.
+Let the table arbitrate the gesture. Its contribution distinguishes ordinary
+scrolling from a deliberate reorder and owns cancellation. Adding a second
+screen-local gesture detector would split that responsibility.
 
 ### Gamepad
 
-The example wires none of this. Because both composites attach input
-contributions, the presenter auto-merges their focus groups in document
-order. The filter field's group comes first, so focus starts on the filter.
-Then comes the table's own row/toolbar/star groups.
-
-D-pad Up/Down steps between the filter, rows, and toolbar. Left/Right moves
-from a row into its stars and across them. A (Cross on PlayStation) activates
-whatever is focused — select a row, press a star, or hit the Edit toggle.
-
-In edit mode, A on a focused row GRABS it (it highlights). Each D-pad press
-then moves the row one slot — the whole selection moves as a block if the
-grabbed row is selected — and A drops it. Grab-move-drop (the table's
-`navigateIntercept`) and selection-follows-focus (its `focusMoved`) ride the
-same contribution, so the screen passes no navigation or intercept opts.
+The same table supports directional focus, row selection, sorting, column
+resizing and row actions. The search field owns its editing context, so typing
+or navigating inside an edit cannot also move table selection.
 
 ### Try it in the place
 
-Type in the Filter field to narrow the list (case-insensitive, matches anywhere
-in a track name) and clear it with the ✕. Click or scrub the stars to rate.
-Click rows to select them. With a mouse, drag a row to reorder and wheel-scroll
-the list. On touch (or the Studio device emulator), tap Edit, then drag a row's
-≡ handle to reorder — plain drags pan the list. With a gamepad, D-pad + A drives
-everything (starting on the filter field), including grab-to-reorder in edit
-mode. Reordering is disabled while a filter is active — clear it first.
-
+Open Playlist table. Filter a name, clear the filter, rate a track, sort a column,
+resize it, play a row, move a row, and remove one. Restore makes the demonstration
+repeatable. Change the viewport, preferred text size and theme without rebuilding
+it. The headless tutorial spec drives these same controls and model commands.
 
 ## 4.3 Settings sync
 
@@ -662,517 +409,143 @@ contract is covered in [chapter 6](06-client-server.md).
 
 ## 4.4 Confirm dialog
 
-**New concept over example 4: modals — a second screen stacked on the first, with
-focus trapping and cancel routing.**
+**New concept: presentation is state; the Alert owns the modal behavior.**
 
-A **Delete Save** button opens a centered alert over a dimmed screen. A short
-title explains the action; a separate message explains that it cannot be undone.
-The actions share a horizontal row with centered labels. Their widths follow the
-content, so a longer action can use more space; spare space is distributed around
-them. When constrained, the row can shrink each action and the existing text
-fitting rules choose an authored compact label or truncate.
-**Delete** uses the destructive role. **Cancel** uses the theme's primary accent
-surface and receives initial focus, so Return or gamepad A keeps the save unless
-the player deliberately selects Delete.
+[`04_confirm_dialog.luau`](../../examples/gallery/examples/04_confirm_dialog.luau)
+keeps a local `open` value and declares an Alert beside the screen's content.
+The declaration contributes no inline copy or layout gap. The Alert supplies
+responsive sizing, safe initial focus, input routing and dismissal.
 
-The example uses the existing layout, theme and presenter APIs:
+```luau
+local open, setOpen = ui.state(false)
+local hasSave, setHasSave = ui.state(true)
 
-```lua
-UI.HStack({
-    id = "Actions", width = UI.fill(), gap = "s",
-    distribute = "spaceAround", align = "center",
-    children = {
-        UI.Button({
-            id = "Confirm", label = "Delete Save", compactLabel = "Delete",
-            role = "destructive",
-            width = { type = "content" }, shrinkWeight = 1,
-            align = "center", onActivate = confirm,
-        }),
-        UI.Button({
-            id = "Cancel", label = "Cancel", surface = "accent",
-            width = { type = "content" }, shrinkWeight = 1,
-            align = "center", onActivate = cancel,
-        }),
+return UI.Screen {
+    UI.Button { label = "Delete Save", enabled = hasSave, onActivate = function() setOpen(true) end },
+    UI.Alert {
+        title = "Delete this save?", message = "This cannot be undone.", severity = "critical",
+        isPresented = open, onPresentedChange = setOpen,
+        actions = {
+            { id = "Delete", label = "Delete Save", role = "destructive",
+              onActivate = function() setHasSave(false) end },
+            { id = "Cancel", label = "Cancel", role = "cancel" },
+        },
     },
-})
--- Open the alert with the safe primary action focused:
-currentModal = presenter.presentModal(dialog, { initialFocus = { id = "Cancel" } })
+}
 ```
 
-Styling and focus are separate choices: an accent surface gives an action primary
-visual weight; `initialFocus` tells the presenter where focus starts. This example
-puts the safe default action at the trailing end of the row.
+**The answer has to be visible.** Confirming empties the save slot and offers
+Restore; Cancel keeps the save. The full example records the outcome so both
+answers are visible and the demonstration is repeatable. Gamepad B takes the cancel
+route; focus returns to the original action. Roblox reserves Escape, so the
+on-screen Cancel remains available to keyboard users.
 
-The presenter traps focus inside the modal, routes gamepad B to dismissal, and
-restores focus to the original **Delete Save** control afterward. Left/right moves
-between the alert actions. Roblox reserves Escape; the on-screen Cancel action
-remains available to keyboard users.
-
-**The answer has to be visible.** Confirming empties the slot and offers
-**Restore the save**, while Cancel keeps it. Restoring the save lets the player
-try the flow again without leaving the example.
-
----
+For a single confirmed command, `UI.Button { confirm = { title = "Delete?" },
+onActivate = deleteSave, ... }` is shorter. Use a bound Alert when the decision
+has its own state or multiple actions; use a custom modal for a substantial task.
 
 ## 4.5 Word game
 
-**New concepts over example 4:**
+[`05_word_game.luau`](../../examples/gallery/examples/05_word_game.luau) separates
+word validation and scoring from a mounted `WordGame` component. The game model
+owns guesses, keyboard verdicts and the hardware input context. Its Core scope
+outlives the results overlay; closing the example releases that scope.
 
-- **a keyed grid laid out by `UI.Grid`**
-- **game state as a set of pure rules the UI never touches**
-- **state expressed as theme roles**
-- **a custom hardware-key input context**
+The view borrows model values and shares a tile's derived verdict:
 
-A complete Wordle-like game. At startup the player sees:
-
-- a title
-- a status line
-- a **six-row by five-column board** of empty tiles, with a caret (`_`) in the
-  cell the next letter lands in
-- a legend
-- a three-row on-screen keyboard
-- a "New game" button
-
-The loop: type five letters, press Enter, read the row. The game refuses a
-guess shorter than five letters, or one it does not recognise — it shows a
-message and does not consume a row. Six accepted wrong guesses lose and
-reveal the word; solving wins. Either ending opens a results card and
-disables the keyboard — only "New game" and the card's own buttons still
-respond. "New game" is deterministic: the solution comes from a seed, so the
-same seed always gives the same word.
-
-### The vocabulary is generated data, not a fixture in the source
-
-The example requires `./words`, the shared English word data both word games
-run on: **6,421 accepted five-letter guesses** and a smaller, more
-conservative **2,096 answers**. Both come from a pinned, hash-verified SCOWL
-release. Nothing is typed by hand, and nothing is fetched at runtime. The
-archive, its digest, the exact filters, and the licence notices are all in
-`examples/gallery/examples/words/PROVENANCE.md`.
-
-Keeping the two sets apart is the mechanic: a player may guess anything the
-game accepts, but the answer is only ever drawn from the familiar half. So
-the game is never lost to a word nobody has heard of. Everything the module
-returns is lowercase, and the game plays in uppercase, so the case flip
-happens once, at the boundary, in `rules.solutionForSeed`.
-
-It is *example content*, not framework code — a user-interface library has no
-opinion about English, so nothing in `src/` knows it exists.
-
-### The rules are a pure table, and they are not framework code
-
-Wordle scoring is *domain* logic. It lives in the example, exported so the tests
-can drive the whole game without mounting anything:
-
-```lua
-example.rules = rules      -- evaluate, validate, strongest, mergeKeys, solutionForSeed
+```luau
+local rowsNow, activeNow = ui.read(rowsSig), ui.read(activeSig)
+local state = ui.memo(function() return tileState(rowsNow(), activeNow(), r, c) end)
+local tint = function() return TILE_TINT[state()] end
+local mark = function() return TILE_MARK[state()] end
+local tile = UI.ZStack {
+    id = `tile{r}_{c}`, width = TILE, height = TILE,
+    UI.Box { id = "fill", width = UI.fill(), height = UI.fill(), tint = tint },
+    UI.Text { id = "mark", text = mark, textSize = "caption" },
+}
 ```
 
-The only genuinely subtle part is the duplicate-letter rule, and it is why
-`rules.evaluate` runs in **two passes**. The solution's letters are a
-*budget*: exact matches spend it first, and only what is left can pay for a
-misplaced letter. Guessing `AWARE` against `CRANE` is the case worth reading
-twice. The guess's first `A` is `absent`, not `present`, because the `A` in
-column 3 already spent the solution's only `A`. A single left-to-right pass
-gets that wrong, and nothing on screen tells you.
+The full example includes letters, a non-color mark for every verdict, and a
+separate cue for the row accepting input. A `Grid` lays out the board; three
+stacks lay out the keyboard. Custom keyboard hit targets use `Facet.UI.Button`
+for compact glyph sizing and verdict paint. Ordinary actions such as New game
+use `UI.Button` from `Facet.View`. Navigation still comes from Facet's solved
+layout and semantic input system.
 
-The on-screen keyboard remembers the **strongest** thing ever learned about each
-letter — correct beats present, present beats absent — so a later, weaker verdict
-can never downgrade a key:
-
-```lua
-rules.KEY_RANK = { absent = 1, present = 2, correct = 3 }
-```
-
-### The board is one `UI.Grid`
-
-```lua
-UI.Grid({ id = "board", columns = COLS, gap = "xs", rowGap = "xs",
-          itemSizing = "uniform", children = tiles })
-```
-
-`columns` is the entire board layout — the example never positions a tile.
-`itemSizing = "uniform"` is what makes it a *board* rather than five columns
-of whatever width the screen happens to be. Every cell takes the widest
-measured cell, so the grid reports "5 tiles + 4 gaps" as its own width, and
-the parent stack's `align = "center"` can centre it. Without it a grid
-reports "I need the whole offer", and the tiles scatter across a desktop with
-a hundred pixels of nothing between them.
-
-Each tile is a `UI.ZStack` sized from a **theme metric** (`targetSizes.minimum`),
-never a device pixel, holding a plate, a letter and a mark. Every visible property
-is a memo over the state signals, so the view is a pure function of the state.
-
-The metric is a `minMax` **floor**, not a `fixed` cap, and that word is
-load-bearing. The letter inside a tile grows with the player's text-size
-preference, so a fixed box is the defect class a fixed px height names. Under
-a theme with a taller type ramp, the glyph measured 49 px in a 44 px box at
-the largest preference. A floor lets the whole board grow, and
-`itemSizing = "uniform"` keeps every cell the same size while it does.
-
-### State is a theme role, never a colour and never an invented token
-
-This is the part of the example most worth copying. A tile is a `UI.Box`, and
-a Box's one paint channel is `tint`. So tile state is a **blend along a
-theme role** — and the blend *is* how much has been decided about the cell:
-
-```lua
-empty   = { role = "contentSecondary", blend = 0.2  }   -- nothing yet
-absent  = { role = "contentSecondary", blend = 0.55 }   -- judged: nowhere
-present = { role = "accent",           blend = 0.55 }   -- partial
-correct = { role = "accent",           blend = 1    }   -- full
-```
-
-**Pick the role for the contrast you need, not for the word that sounds right.**
-The empty plate above used to be `surfaceStrong`, which reads like "the quiet
-panel colour" and is exactly that. Every theme deliberately keeps a panel
-within a few percent of the page it sits on. So all thirty empty cells
-measured as low as 1.036:1 against the screen behind them, and simply were
-not there. Present in the tree, correct in a property probe, invisible.
-`contentSecondary` is contrast-gated against `surface` by the palette contract,
-so a small blend along it is a plate you can actually see in every theme.
-
-An on-screen key is a `UI.Button`, which paints from its `surface` role and
-its own interaction states. So a key's state rides `surface`, not a tint
-that would fight the control's own affordance: `base` for an eliminated
-letter, `chip` for a known-present one, `accent` for a solved one.
-
-Both also carry a plain-ASCII **mark** — `v` correct, `~` present, `x`
-absent, `_` "type here". Colour alone is not a cue, and ASCII is the only
-range every Roblox font is guaranteed to draw. The board is readable in
-greyscale.
-
-The same rule catches the **active row**. "Where am I typing" was a blend of
-1 against a blend of 0.6 of one role, which is a difference in colour and
-nothing else. It is now the `surface` channel: the active row's plates take
-the theme's outlined `chip`, and the rest take `plain`. So the cue is a
-*border* that survives a greyscale screen and any palette. Two channels, two
-questions — `tint` says what is known about a cell, `surface` says whether
-its row is taking letters.
-
-Reaching for a made-up token here is the classic version of this mistake. An
-earlier build of this example bound `surface` to `"tileCorrect"`, which is
-not a member of the closed `surface` enum. Every one of the thirty tiles
-rendered completely transparent, and nothing said so. Values from a
-**closed set** are states — use the enum. Values on a **continuum** are `tint`.
-
-### One command, three input paths
-
-The keyboard is three `HStack` rows of key buttons, and **that layout is the
-navigation map**. The presenter derives 2D navigation from any horizontal
-container automatically: each row becomes a horizontal group, so arrows/D-pad
-move left/right within a row and up/down between rows. Each move lands on
-the nearest key in the same column — with no navigation table in the file.
-
-Activating a key — a tap, Space on the focused key, or gamepad A — runs that
-key's command, because each key carries it on its own node:
-
-```lua
-UI.Button({ id = "key_" .. key, label = labelOf, surface = surfaceOf,
-            enabled = playingSig, padding = 0,
-            width = { type = "fill", weight = 1 },       -- the row divides itself
-            height = { type = "fixed", px = "targetSizes.minimum" },
-            onActivate = function()
-                if thisKey == "Enter" then submit()
-                elseif thisKey == "Back" then backspace()
-                else typeLetter(thisKey) end
-            end })
-```
-
-Note the widths: no key is a fixed pixel count. Each letter key is `fill`
-weight 1, and Enter/Delete are weight 1.5. So the row divides whatever width
-it is given, from a 320 px phone to a desktop. It never adds up to a fixed
-number that only suits one screen.
-
-The one thing that genuinely stays at the consumer level is the **hardware
-keyboard**, and it is app-semantic. A physical letter key should TYPE into
-the grid — not activate whatever key happens to be focused — and Enter
-should SUBMIT. So the example raises its own higher-priority context that
-**sinks** those keys, shadowing the presenter's default Activate:
-
-```lua
-local ctx = actions.createContext({ name = "WordleInput", priority = 2000, sink = true })
--- 26 letter actions, plus Submit (Return) and Backspace — NO navigation actions:
--- arrows/D-pad fall through to the presenter's auto grid navigation, so a player
--- can switch between typing and navigating without losing the guess in flight
-```
-
-Because Return is taken, the screen asks for the one presenter option in the
-file — `present(screen, { keyboardNavigation = true })` — which gives a
-keyboard-only player Tab/Shift+Tab traversal and Space-as-Activate.
-
-### Lifetime, and the results card
-
-This is the first example large enough to manage its own lifetime. It opens
-with a pattern you will see in the rest of the set: a scope that owns
-everything it creates, so `dispose()` cleans up completely:
-
-```lua
-local gameScope = core:scope("example-05-word-game")
-local function reg(readable)                     -- own a signal/memo for disposal
-    gameScope:own(function() readable:dispose() end)
-    return readable
-end
-local rowsSig = reg(core:signal(emptyRows()))
-```
-
-Every edit produces a **new** board table (via `cloneRows`) rather than mutating
-the old one, so the core sees a genuine change and recomputes only the tile
-bindings that moved. Multi-signal edits — a submit, a restart — go through
-`core:transaction` so the screen never paints a half-applied move.
-
-The ending presents a results card on top of the board. Note how it is centred:
-
-```lua
-UI.Screen({ id = "WordleResult", surface = "scrim", padding = "m", children = {
-    UI.ZStack({ id = "centre", width = FILL, height = FILL,
-                alignH = "center", alignV = "center", children = { card } }) } })
-```
-
-`alignH`/`alignV` are **ZStack-child** props. Set on a `Screen` or a `VStack`,
-they are accepted and silently ignored. A filling `ZStack` in between is what
-actually centres a card. (A stack's own children are aligned across the axis with
-`align` instead.)
-
-Finally, the whole page is a `UI.ScrollView`. The board plus a keyboard fits
-a compact phone at the default text size. It does *not* fit at the largest
-accessibility text size, so it scrolls rather than running off the screen.
-
-Its pure rules and its state machine are tested in
-`tests/example_word_game.spec.luau`; the four mounted input paths are in
-`tests/examples_games.spec.luau`. The test harness drives hardware keys
-through `actions.deviceKey(keyCode, true/false)` — the same arbitrated path a
-real device uses. That is how a headless test can prove keyboard, touch, and
-gamepad all reach the same game commands.
-
----
+Try a short guess, an unknown word, a repeated letter and a completed game.
+Refused guesses leave the current row intact. Closing the result card keeps the
+board; starting another game resets the model. The tests drive the same hardware
+commands and mounted node actions as the showcase.
 
 ## 4.6 Crossword tile game
 
-**New concepts over example 6: a pure rules table the tests can play without a
-screen, and a board where every empty square still paints something.**
+[`06_tile_game.luau`](../../examples/gallery/examples/06_tile_game.luau) adds a
+rack, tentative placements, word validation and scoring. The rules are pure
+functions. Commands update shared game state in a transaction, while a
+`Crossword` component owns the display's derived values.
 
-Seven letter tiles, six turns, a seven-by-seven board with a starred centre,
-and sixty points to reach. Pick a rack tile, tap a square, repeat, then
-**Submit word**. Three rules govern each turn:
+**Refusal is feedback, with the exact problem named.** The rules distinguish nine
+refusals. A refused submit keeps every tentative tile in place, so the player can
+correct the problem without rebuilding the word. Validation also feeds a live
+verdict before Submit is pressed. Use a memo for that shared work, and ordinary
+getters for short presentation values:
 
-- The first turn has to cover the star.
-- Every turn after it has to touch a letter already on the board.
-- Every word the turn creates has to be in the shared dictionary
-  (`examples/gallery/examples/words`, the same data the word game runs on).
-  This includes the run along its own axis *and* every crossing word a
-  placed tile now sits inside.
-
-The interaction is *select-then-place* — activate a rack tile to select it, then
-activate a board square to place it, and activate the held tile again to put it
-down. It is deliberately not drag-and-drop: select-then-place needs nothing new
-and is identical on a mouse, a fingertip, an arrow key and a D-pad.
-
-**The rules are a pure table.** `example.rules` takes a board and a placement and
-returns a verdict. No signal, no presenter, no engine:
-
-```lua
-local verdict = rules.validate(board, placed, turn)
--- { ok = true,  made = { { word = "ONE", axis = "row", score = 3 }, ... },
---   score = 10, bonus = 0, tiles = 3, message = "Making ONE — 10 points" }
--- { ok = false, code = "connect",
---   message = "After the first turn, a word has to touch a letter already on the board." }
-```
-
-That shape is why `tests/example_tile_game.spec.luau` can play every rule and
-every refusal headlessly, and it is why *no crossword logic is in Facet*. A
-user-interface library has no opinion about English. If a board needed
-something the framework could not express, that would be a framework gap to
-fix behind a public API rather than something to work around here.
-
-**Refusal is feedback, with the exact problem named.** There are nine
-refusals and nine sentences. A refused submit **changes nothing** — every
-placed tile stays where the player put it, so they move one tile instead of
-rebuilding a five-tile word from an empty rack. The same `rules.validate`
-also runs as a memo over the board, so the verdict line reads *before* the press:
-
-```lua
-local verdictSig = reg(core:memo(function(use)
-    local pending = use(pendingSig)
+```luau
+local boardNow, pendingNow = ui.read(boardSig), ui.read(pendingSig)
+local turnNow = ui.read(turnSig)
+local verdict = ui.memo(function()
+    local pending = pendingNow()
     if next(pending) == nil then return nil end
-    return rules.validate(use(boardSig), pending, use(turnSig))
-end))
+    return rules.validate(boardNow(), pending, turnNow())
+end)
+local wordText = function()
+    local result = verdict()
+    return if result then result.message else "No tiles placed this turn."
+end
 ```
 
-**Every square paints something, and the cue is never colour alone.** A board
-of forty-nine rectangles that is present in the tree and invisible on the
-screen is a real failure this repository has shipped. The obvious plate
-role, `surfaceStrong`, is the *panel* colour, which every theme keeps within
-a few percent of the page — 1.036:1 under Sci-Fi HUD. So a square is a
-`UI.ZStack` holding three nodes rather than a single `UI.Button`:
+Cells and rack letters use custom primitive hit targets because their glyphs,
+selected paint and cell surfaces are part of the board representation. Submit,
+Undo and Start over are ordinary `View.Button` declarations. The board and rack
+are ordered child arrays in uniform grids. Nothing calculates native GUI positions.
 
-```lua
-UI.Box({ id = "plate", tint = tint, surface = surface, width = FILL, height = FILL })
-UI.Text({ id = "mark", text = mark, textSize = "caption", role = "secondary" })
-UI.Button({ id = "tap", label = label, surface = "plain", padding = 0, onActivate = ... })
-```
-
-`plate` carries the colour — a `tint`, which is the one paint channel a `Box`
-has and a `Button` has none of — *and* the structure. It shows the theme's
-own solid `raised` plate for a committed letter, and its outlined `chip` for
-an uncommitted one. `mark` says the same fact a third time in ASCII — `*` the
-starred centre, `+` a legal next square, `~` a letter still yours to move.
-`tap` is `surface = "plain"`, which is the explicit declaration that it
-paints no plate of its own. Without it, every theme falls a Button through to
-its `control` slot and paints one anyway.
-`tests/example_tile_game.spec.luau` measures all forty-nine plates against the
-page behind them in all fifteen shipped themes and holds them to a 1.25:1 floor.
-
-**A square is a floor, not a fixed box.** Both the board cells and the rack
-tiles are `{ type = "minMax", min = "targetSizes.minimum" }`. Seven fixed
-56px squares plus their gaps need 416px, and the narrowest supported page is
-288. So a fixed square would have painted straight off the right of a 320px
-phone. A `minMax` floor lets `itemSizing = "uniform"` hug seven squares where
-there is room, and divide the offer where there is not. It also lets the
-letter grow at a raised text preference instead of being clipped.
-
-The board and the rack are each one `UI.Grid`, and the presenter derives 2D
-navigation from a Grid for free (per-row groups linked by up/down exits). So
-a D-pad or the arrow keys cross the whole board, the rack and the actions row
-with no navigation map in the example — it passes no `present()` opts. A
-typed letter with a board square focused places that letter, but it is a
-*convenience on top of* select-then-place and never the only route in.
-
-**A deterministic deal with a guaranteed opening.** The bag is the familiar
-98-tile English multiset, shuffled from a seeded generator. So a seed always
-deals the same game, and a replay test can assert an exact final board. After
-the deal, the game checks that some subset of the rack spells a word it can
-lay across the centre. If not, it reshuffles from the same stream, bounded at
-sixty-four attempts. That is the same guarantee `07_match3`'s `deal()` makes
-for its opening legal move, for the same reason: a hand that cannot start is
-a dead end the player cannot see.
-
----
+Try placing and taking back a tile, Undo, an invalid word, a valid crossing word
+and Start over. The mounted example tests check input, board paint, deterministic
+dealing, score and cleanup.
 
 ## 4.7 Match-3
 
-**New concepts over example 7: adaptive layout from device facts, asynchronous
-images, and deterministic rapid state churn.**
+[`07_match3.luau`](../../examples/gallery/examples/07_match3.luau) gives every tile
+a stable id. Its model owns the board and the phase sequence: swap, mark, remove,
+gravity, refill and land. A row component owns a tile's local presentation state.
+The array order is deterministic, while identity follows the key.
 
-A match-3 grid — the "write once, run everywhere" showcase — where swapping two
-adjacent tiles clears matches, tiles fall, and new tiles refill from the top. It
-pulls together three features not seen before.
-
-**Adaptive layout — and who is allowed to do it.** This example used to size its
-own tiles from the environment's `sizeClass` fact, with a `compact/regular/wide ->
-40/56/72 px` branch computed right here. That is *imperative responsive geometry
-inside a consumer*, and the quality pass removed it. Adaptation is Facet's
-job, not an example's. An example that names device classes has taken over a
-decision the framework already makes.
-
-The tile is one theme metric. The board is a `UI.Anchor` with one keyed
-`UI.ForEach` child per tile, so a moved tile is the SAME tile in a new place —
-that identity is what lets motion carry it there:
-
-```lua
-local CELL: any = { type = "fixed", px = "controlSizes.large.height" }
-
-UI.Anchor({ id = "board", children = { UI.ForEach({ ... }) } })
+```luau
+local board = UI.Anchor {
+    id = "board", overflow = "clip", width = BOARD_WIDTH, height = BOARD_HEIGHT,
+    animation = { layout = "object" },
+    UI.ForEach {
+        id = "tiles", items = items, key = "id",
+        row = function(item) return TileView { item = item } end,
+        transition = { enter = "materialize", exit = "fade", class = "object" },
+    },
+}
 ```
 
-A metric path resolves against the live theme snapshot on every solve, so a
-denser package makes the board denser and a chunky touch package makes it
-chunkier. This file never has to know what a phone is. The old test asserted
-the *defect* (`desktopW > phoneW`, which was only true because of the
-branch). It now asserts what actually matters: a viewport change reflows
-without rebuilding the tree, and the tile never drops below the theme's
-touch floor at any of four viewports.
+The board's animation policy coordinates position changes automatically. Game
+commands batch model changes; they do not wrap each swap or fall in
+`withAnimation`. A tile's component reads its current position through a getter
+and declares scaled offsets. Facet solves the target rectangles and animates the
+presentation between them. Removing a key runs its exit transition and disposes
+the row. Fading tile artwork uses a CanvasGroup; ordinary text outside that fade
+stays native.
 
-**Asynchronous images.** Each tile kind's picture is loaded through
-`Facet.newResourceProvider`, which models the *ready* and *pending* states a real
-texture load has. A tile shows an explicit placeholder until its image resolves,
-so nothing on screen assumes an image exists the instant a tile appears:
-
-```lua
-local provider = Facet.newResourceProvider(core, { maxConcurrent = 8 })
-kindHandle[kind] = provider.acquire(gameScope, `img/{kind}`)
-...
-local image = reg(core:memo(function(use)
-    local resolved = use(kindHandle[use(kindSig[rr][cc])].value)
-    return if resolved ~= nil then resolved else PENDING
-end))
-```
-
-**Who drains the provider, and why that mattered.** This file used to say the
-provider was "drained by the caller, never by this file". The gallery host
-never drained it, so on a real client every one of the thirty-six tiles
-showed the pending placeholder forever, and all five tile kinds were
-indistinguishable. The game was unplayable in the only place it was meant to
-be played.
-
-The example owns its transport now, because the artwork is its own fixture
-data. It delivers once at build, so the board is playable from the first
-frame. The three async states appear on screen as controls a player can drive:
-
-- **Re-request artwork** puts every kind back to pending.
-- **Deliver artwork** resolves them.
-- **Fail a load** produces the failed state, which the status line names and
-  the re-request recovers.
-
-"Still loading" and "will never load" look identical to a player unless you
-say which one it is.
-
-The five kinds are five of the framework's own shipped icons — five distinct
-*shapes*, so the board reads without relying on colour. A test pins each id
-against `src/themes/standard_icons.luau`, so a re-upload fails loudly instead
-of silently blanking the board. This is the async model from
-[chapter 2](02-architecture.md) in action.
-
-**Deterministic churn.** The board refills from a small seeded pseudo-random
-generator, so replaying the same swap always produces the same board — which is
-what lets a test assert an exact outcome. The board logic (`findMatches`,
-`collapse`, `resolve`, `swapCells`) is pure and engine-free. It updates
-per-cell signals so that only the cells that actually changed repaint — which
-is what keeps a whole cascading refill cheap.
-
-Each tile is an `Image` with a transparent, focusable `Button` layered on top.
-Because the board anchors tiles freely, no layout rows exist for the presenter
-to derive navigation from. So this example declares its own groups and passes
-them as `present()` opts (`navigationGroups`): the board is one rectangle
-group, and a gamepad crosses it left, right, up and down. Selection and
-swapping still ride each tile's own `onActivate`.
-
-Tiles travel. A swap, a fall and a refill each move through
-`presenter.withAnimation`, driven by a small phase machine (swap, mark,
-remove, gravity, refill, land, idle) so cascades resolve one visible step at a
-time. With Reduced Motion on, the travel is skipped and the result is
-identical: the same board, score and tiles, painted in place.
-
----
-
-That is the whole feature surface. From here, [chapter 5](05-styling.md) covers
-how any of these screens is styled, and [chapter 6](06-client-server.md) goes
-deeper on the replication used in example 4.
-
-The Showcase includes **All controls → Actions → Sheets** and
-**All controls → Navigation → Pages**. Open the race
-briefing to resize it with its header or focused Size button; change viewing
-distance to see centered placement. The course pager demonstrates horizontal
-swiping, page indicators, and controller navigation while long descriptions
-remain vertically scrollable.
-
-### Previewing layouts in Showcase
-
-Open Settings and choose **Preview as**: Automatic, Desktop, Phone, Tablet, or
-TV / 10-foot. Phone and Tablet also offer Portrait and Landscape. The independent
-Input choice lets you inspect combinations such as Phone with Gamepad or TV with
-Mouse & keyboard. Automatic input follows the preview device; with Automatic
-preview it follows the real device.
-
-Phone and tablet previews use bounded layout space at normal pixel size, limited
-by the current window. Desktop and TV use the current window. Enlarge the window
-when checking roomy layouts. Switching preserves the active demo and its state.
-These previews exercise Facet's layout and input policies; use Studio emulation
-and real hardware for platform keyboard, touch and controller checks.
-
-Display settings use Picker's `valueAlignment = "start"` to keep values beside
-their labels. Large-text layouts still stack when needed; other picker styles
-retain their normal adaptive layouts.
-The navigation-layout button in the combined demos is showcase-owned: it updates
-TabView's `sidebarPreference` through the public API. Ordinary TabViews render no
-layout-toggle button.
+**Who drains the provider.** The example owns its artwork transport and delivers
+the fixture once during build, so the board is playable immediately. The gallery
+host does not drain the provider. Re-request artwork returns the tiles to pending;
+Deliver artwork resolves them; Fail a load shows a named failure that re-request
+can recover. Readable fallback labels distinguish the tile kinds while loading.
+Try swaps by pointer drag, two taps, keyboard and gamepad. The tests cover legal
+and rejected swaps, identity through falling, phase progression, resource states
+and teardown. See [component authoring](15-components.md) for the same patterns
+without the game rules.

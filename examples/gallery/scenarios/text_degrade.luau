@@ -162,7 +162,7 @@ return {
 			return { type = "fixed", px = WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy }
 		end))
 
-		local widthPicker = Facet.Controls.Picker(core, {
+		local widthPicker = Facet.View.Picker({
 			id = "Room",
 			label = COPY.widthLabel,
 			-- SEGMENTED, declared: four peers named for how much room there is,
@@ -187,84 +187,79 @@ return {
 		local screen = UI.Screen({
 			id = "TextDegrade",
 			padding = "m",
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "m",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "title", disclose = true }),
-						UI.Text({ id = "Lead", text = COPY.lead, textSize = "caption", role = "secondary" }),
-						widthPicker.blueprint,
 
-						UI.VStack({
-							id = "RowPanel",
-							surface = "raised",
-							padding = "m",
-							gap = "s",
-							children = {
-								UI.Text({
-									id = "RowHeading",
-									text = COPY.rowHeading,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								-- THE ROW ITSELF. `clipChildren` is NOT declared: the crop at the
-								-- last stop is the solver's, on the rects, which is what every
-								-- headless sweep in this repo can actually read. Declaring an
-								-- engine clip host here would hide the same geometry from them.
-								UI.HStack({
-									id = "Row",
-									width = rowWidth,
-									gap = "xs",
-									children = {
-										-- A BUTTON, because `compactLabel` is a Button prop: a compact
-										-- representation is what a CONTROL has. The cascade's compact
-										-- rung reads exactly that declaration, so the public surface
-										-- for rung 2 is a control with something shorter to say.
-										UI.Button({
-											id = "Sort",
-											label = COPY.sortLabel,
-											compactLabel = SORT_COMPACT,
-											shrinkWeight = 1,
-										}),
-										UI.Text({ id = "Rank", text = COPY.rankLabel, shrinkWeight = 1 }),
-										-- the authored floor: a contract the cascade may not
-										-- descend below, which is what leaves a residual deficit
-										-- for the clip rung to answer at the last stop
-										UI.Text({
-											id = "Date",
-											text = COPY.dateLabel,
-											width = { type = "minMax", min = 60, preferred = 60 },
-											shrinkWeight = 1,
-										}),
-									},
-								}),
-							},
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "m",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "title", disclose = true }),
+				UI.Text({ id = "Lead", text = COPY.lead, textSize = "caption", role = "secondary" }),
+				widthPicker,
+
+				UI.VStack({
+					id = "RowPanel",
+					surface = "raised",
+					padding = "m",
+					gap = "s",
+
+					UI.Text({
+						id = "RowHeading",
+						text = COPY.rowHeading,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					-- THE ROW ITSELF. `clipChildren` is NOT declared: the crop at the
+					-- last stop is the solver's, on the rects, which is what every
+					-- headless sweep in this repo can actually read. Declaring an
+					-- engine clip host here would hide the same geometry from them.
+					UI.HStack({
+						id = "Row",
+						width = rowWidth,
+						gap = "xs",
+
+						-- A BUTTON, because `compactLabel` is a Button prop: a compact
+						-- representation is what a CONTROL has. The cascade's compact
+						-- rung reads exactly that declaration, so the public surface
+						-- for rung 2 is a control with something shorter to say.
+						UI.Button({
+							id = "Sort",
+							label = COPY.sortLabel,
+							compactLabel = SORT_COMPACT,
+							shrinkWeight = 1,
 						}),
-
-						UI.VStack({
-							id = "WrapPanel",
-							surface = "raised",
-							padding = "m",
-							gap = "s",
-							children = {
-								UI.Text({
-									id = "WrapHeading",
-									text = COPY.wrapHeading,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "WrapBody", text = COPY.wrapBody, width = columnWidth, disclose = true }),
-							},
+						UI.Text({ id = "Rank", text = COPY.rankLabel, shrinkWeight = 1 }),
+						-- the authored floor: a contract the cascade may not
+						-- descend below, which is what leaves a residual deficit
+						-- for the clip rung to answer at the last stop
+						UI.Text({
+							id = "Date",
+							text = COPY.dateLabel,
+							width = { type = "minMax", min = 60, preferred = 60 },
+							shrinkWeight = 1,
 						}),
-
-						UI.Text({ id = "Footnote", text = COPY.footnote, textSize = "caption", role = "secondary" }),
-					},
+					}),
 				}),
-			},
+
+				UI.VStack({
+					id = "WrapPanel",
+					surface = "raised",
+					padding = "m",
+					gap = "s",
+
+					UI.Text({
+						id = "WrapHeading",
+						text = COPY.wrapHeading,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Text({ id = "WrapBody", text = COPY.wrapBody, width = columnWidth, disclose = true }),
+				}),
+
+				UI.Text({ id = "Footnote", text = COPY.footnote, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		return {
@@ -294,7 +289,6 @@ return {
 			end,
 
 			dispose = function()
-				widthPicker.dispose()
 				scope:dispose()
 			end,
 		}

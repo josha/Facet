@@ -40,7 +40,7 @@ attempt("missingRequired", "a missing required property must be named", function
 end)
 
 attempt("childrenOnLeaf", "children on a leaf must be rejected", function(ctx)
-	return ctx.UI.Text({ id = "Bad", text = "x", children = { ctx.UI.Box({ id = "c" }) } })
+	return ctx.UI.Text({ id = "Bad", text = "x", ctx.UI.Box({ id = "c" }) })
 end)
 
 attempt("signalOnStaticProp", "a Signal on a mount-time-only prop must be rejected", function(ctx)
@@ -70,59 +70,56 @@ return {
 			id = "AuthoringScreen",
 			padding = "m",
 			gap = 10,
-			children = {
-				UI.Text({ id = "Title", text = "Strict public authoring", textSize = 22 }),
-				UI.Text({ id = "Summary", text = summary, textSize = "label" }),
-				-- A horizontal ScrollView rather than the original HStack (overflow
-				-- sweep, 2026-08-12): the button's and toggle's own hug-sized labels
-				-- ran 43-82px past a narrow phone's width with nothing to move them.
-				-- Neither control has a natural width safe to guess (localization can
-				-- widen either label ~1.4x), so a ScrollView — which never clamps its
-				-- scroll-axis content — keeps both exactly the size authoring produced
-				-- rather than risking a Grid squeezing one control's label to fit a
-				-- derived column.
-				UI.ScrollView({
-					id = "Row",
-					axis = "x",
-					gap = "s",
-					children = {
-						UI.Button({ id = "Valid", label = "Valid button" }),
-						UI.Toggle({ id = "ValidToggle", label = "Valid toggle", value = core:signal(false) }),
-					},
+
+			UI.Text({ id = "Title", text = "Strict public authoring", textSize = 22 }),
+			UI.Text({ id = "Summary", text = summary, textSize = "label" }),
+			-- A horizontal ScrollView rather than the original HStack (overflow
+			-- sweep, 2026-08-12): the button's and toggle's own hug-sized labels
+			-- ran 43-82px past a narrow phone's width with nothing to move them.
+			-- Neither control has a natural width safe to guess (localization can
+			-- widen either label ~1.4x), so a ScrollView — which never clamps its
+			-- scroll-axis content — keeps both exactly the size authoring produced
+			-- rather than risking a Grid squeezing one control's label to fit a
+			-- derived column.
+			UI.ScrollView({
+				id = "Row",
+				axis = "x",
+				gap = "s",
+
+				UI.Button({ id = "Valid", label = "Valid button" }),
+				UI.Toggle({ id = "ValidToggle", label = "Valid toggle", value = core:signal(false) }),
+			}),
+			UI.Grid({
+				id = "ValidGrid",
+				-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
+				-- express an intrinsic minimum (it measures to whatever it is offered), so the
+				-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
+				-- fill cells occupying their derived columns — would have nothing to show.
+				minColumnWidth = 90,
+				gap = "tight",
+
+				-- fill cells occupy their derived column (A-LV1). Before the
+				-- solver fix these rendered at the right column origins with
+				-- ZERO width, which is how the defect was found live.
+				UI.Box({
+					id = "g1",
+					surface = "raised",
+					width = UI.fill(),
+					height = { type = "fixed", px = 40 },
 				}),
-				UI.Grid({
-					id = "ValidGrid",
-					-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
-					-- express an intrinsic minimum (it measures to whatever it is offered), so the
-					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
-					-- fill cells occupying their derived columns — would have nothing to show.
-					minColumnWidth = 90,
-					gap = "tight",
-					children = {
-						-- fill cells occupy their derived column (A-LV1). Before the
-						-- solver fix these rendered at the right column origins with
-						-- ZERO width, which is how the defect was found live.
-						UI.Box({
-							id = "g1",
-							surface = "raised",
-							width = UI.fill(),
-							height = { type = "fixed", px = 40 },
-						}),
-						UI.Box({
-							id = "g2",
-							surface = "raised",
-							width = UI.fill(),
-							height = { type = "fixed", px = 40 },
-						}),
-						UI.Box({
-							id = "g3",
-							surface = "raised",
-							width = UI.fill(),
-							height = { type = "fixed", px = 40 },
-						}),
-					},
+				UI.Box({
+					id = "g2",
+					surface = "raised",
+					width = UI.fill(),
+					height = { type = "fixed", px = 40 },
 				}),
-			},
+				UI.Box({
+					id = "g3",
+					surface = "raised",
+					width = UI.fill(),
+					height = { type = "fixed", px = 40 },
+				}),
+			}),
 		})
 
 		local ctxForAttempts = { UI = UI, core = core }

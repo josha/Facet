@@ -2,6 +2,9 @@
 -- Shared selection decisions. Rendering never reconciles caller-owned values.
 local model = {}
 function model.read(value, use)
+	if type(value) == "function" then
+		return value()
+	end
 	if type(value) == "table" and (value.kind == "signal" or value.kind == "memo") then
 		return if use then use(value) else value:get()
 	end

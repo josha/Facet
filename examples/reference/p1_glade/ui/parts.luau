@@ -54,72 +54,66 @@ export type CommandSpec = {
 }
 
 function parts.commandButton(ctx: any, spec: CommandSpec): any
-	local core = ctx.core
-	local status = ctx.commerce.status(spec.commandId)
-	local label = core:memo(function(use)
-		if use(status) == "pending" then
-			return ctx.Lnow("picker.pending")
-		end
-		if ctx.Facet.UI.isReadable(spec.label) then
-			return use(spec.label)
-		end
-		return spec.label
+	local CommandButton = ctx.Facet.component(function(ui)
+		local status = ui.read(ctx.commerce.status(spec.commandId))
+		local locale = ui.read(ctx.state.locale)
+		local idle = if ctx.Facet.UI.isReadable(spec.label) then ui.read(spec.label) else spec.label
+		return ctx.Facet.View.Button({
+			id = spec.id,
+			label = function()
+				locale()
+				if status() == "pending" then
+					return ctx.Lnow("picker.pending")
+				end
+				return if type(idle) == "function" then idle() else idle
+			end,
+			enabled = function()
+				return status() ~= "pending"
+			end,
+			role = spec.role,
+			onActivate = spec.onActivate,
+		})
 	end)
-	local enabled = core:memo(function(use)
-		return use(status) ~= "pending"
-	end)
-	ctx.scope:own(label)
-	ctx.scope:own(enabled)
-	return ctx.UI.Button({
-		id = spec.id,
-		label = label,
-		enabled = enabled,
-		role = spec.role,
-		onActivate = spec.onActivate,
-	})
+	return CommandButton({})
 end
 
--- THE REJECTION NOTICE (spec §9). It appears directly under the control that was
--- pressed, carries the player-facing reason copy, and clears on the next attempt
--- or when the surface is dismissed. Nothing is silent and nothing reverts
--- invisibly.
+-- This branch owns its notice; rejected state remains in the shared model.
 function parts.rejectionNotice(ctx: any, id: string, commandId: string): any
-	local core = ctx.core
-	local status = ctx.commerce.status(commandId)
-	local reason = ctx.commerce.reason(commandId)
-	local rejected = core:memo(function(use)
-		return use(status) == "rejected"
-	end)
-	local copy = core:memo(function(use)
-		local why = use(reason)
-		return ctx.Lnow("reject." .. (why or "fallback"))
-	end)
-	ctx.scope:own(rejected)
-	ctx.scope:own(copy)
-	return ctx.UI.When({
-		id = id,
-		condition = rejected,
-		transition = { enter = "slide-down", fade = true, class = "container" },
-		thenView = function()
-			return ctx.UI.ZStack({
+	local Notice = ctx.Facet.component(function(ui)
+		local UI = ctx.Facet.View
+		local status, reason = ui.read(ctx.commerce.status(commandId)), ui.read(ctx.commerce.reason(commandId))
+		local locale = ui.read(ctx.state.locale)
+		return UI.When({
+			id = id,
+			condition = function()
+				return status() == "rejected"
+			end,
+			transition = { enter = "slide-down", fade = true, class = "container" },
+			UI.ZStack({
 				id = "Notice",
 				canvasGroup = true,
-				width = ctx.UI.fill(),
-				children = {
-					ctx.UI.stroke(
-						ctx.UI.VStack({
-							id = "Plate",
-							surface = "raised",
-							padding = "s",
-							width = ctx.UI.fill(),
-							children = { ctx.UI.Text({ id = "Why", text = copy, textSize = "body" }) },
+				width = UI.fill(),
+				UI.stroke(
+					UI.VStack({
+						id = "Plate",
+						surface = "raised",
+						padding = "s",
+						width = UI.fill(),
+						UI.Text({
+							id = "Why",
+							textSize = "body",
+							text = function()
+								locale()
+								return ctx.Lnow("reject." .. (reason() or "fallback"))
+							end,
 						}),
-						{}
-					),
-				},
-			})
-		end,
-	})
+					}),
+					{}
+				),
+			}),
+		})
+	end)
+	return Notice({})
 end
 
 -- A round well behind a piece of scene art. The proof's one avatar/jar treatment,

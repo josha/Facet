@@ -148,10 +148,9 @@ return {
 					id = "AdvancedBody",
 					gap = "tight",
 					width = UI.fill(),
-					children = {
-						UI.Toggle({ id = "Vsync", label = "Vertical sync", value = core:signal(true) }),
-						UI.Toggle({ id = "Telemetry", label = "Share telemetry", value = core:signal(false) }),
-					},
+
+					UI.Toggle({ id = "Vsync", label = "Vertical sync", value = core:signal(true) }),
+					UI.Toggle({ id = "Telemetry", label = "Share telemetry", value = core:signal(false) }),
 				})
 			end,
 		})
@@ -212,26 +211,24 @@ return {
 			id = "NavShapes",
 			gap = "tight",
 			width = UI.fill(),
-			children = {
-				UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = "caption" }),
-				navPill.blueprint,
-				UI.HStack({
-					id = "NavRailRow",
-					gap = "s",
-					align = "start",
+
+			UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = "caption" }),
+			navPill.blueprint,
+			UI.HStack({
+				id = "NavRailRow",
+				gap = "s",
+				align = "start",
+				width = UI.fill(),
+
+				navRail.blueprint,
+				UI.Text({
+					id = "NavReadout",
+					text = navReadout,
+					textSize = "caption",
+					role = "secondary",
 					width = UI.fill(),
-					children = {
-						navRail.blueprint,
-						UI.Text({
-							id = "NavReadout",
-							text = navReadout,
-							textSize = "caption",
-							role = "secondary",
-							width = UI.fill(),
-						}),
-					},
 				}),
-			},
+			}),
 		})
 
 		-- the ACTION ROW is the ViewThatFits case: side by side when the container
@@ -254,30 +251,27 @@ return {
 		local actions = UI.ViewThatFits({
 			id = "Actions",
 			width = { type = "percent", fraction = 1, max = 620 },
-			children = {
-				UI.HStack({
-					id = "ActionsRow",
-					gap = "s",
-					align = "stretch",
-					width = UI.fill(),
-					children = {
-						actionButton("Save", "Save changes"),
-						actionButton("Reset", "Reset to defaults", "cancel"),
-						actionButton("Delete", "Delete profile", "destructive"),
-					},
-				}),
-				UI.VStack({
-					id = "ActionsColumn",
-					gap = "tight",
-					align = "stretch",
-					width = UI.fill(),
-					children = {
-						actionButton("Save", "Save changes"),
-						actionButton("Reset", "Reset to defaults", "cancel"),
-						actionButton("Delete", "Delete profile", "destructive"),
-					},
-				}),
-			},
+
+			UI.HStack({
+				id = "ActionsRow",
+				gap = "s",
+				align = "stretch",
+				width = UI.fill(),
+
+				actionButton("Save", "Save changes"),
+				actionButton("Reset", "Reset to defaults", "cancel"),
+				actionButton("Delete", "Delete profile", "destructive"),
+			}),
+			UI.VStack({
+				id = "ActionsColumn",
+				gap = "tight",
+				align = "stretch",
+				width = UI.fill(),
+
+				actionButton("Save", "Save changes"),
+				actionButton("Reset", "Reset to defaults", "cancel"),
+				actionButton("Delete", "Delete profile", "destructive"),
+			}),
 		})
 
 		-- the SETTINGS/HUD split is an AdaptiveStack: side by side with room, stacked
@@ -286,26 +280,25 @@ return {
 			id = "Settings",
 			gap = 10,
 			width = UI.fill(),
-			children = {
-				UI.Text({ id = "Heading", text = "Settings", textSize = 22 }),
-				UI.Divider({}),
-				-- §3.3 `UI.sensoryFeedback`, on the two controls whose semantics are
-				-- already in the closed twelve. `adjust` is the continuous verb
-				-- (a stepper ticks; a subscriber rate-limits it — the framework does
-				-- not), `select` the discrete one. The declaration rides `meta`, so
-				-- the control's own blueprint is returned unchanged apart from it,
-				-- and BOTH stay exactly the controls they were: nothing here plays a
-				-- sound, a haptic or a particle, and nothing downstream of Facet
-				-- does either unless a game subscribes the bus and decides to
-				-- (`src/present/feedback.luau:4-5`).
-				UI.sensoryFeedback(stepper.blueprint, { trigger = volume, event = "adjust" }),
-				slider.blueprint,
-				UI.sensoryFeedback(picker.blueprint, { trigger = quality, event = "select" }),
-				UI.Divider({}),
-				navShapes,
-				UI.Divider({}),
-				disclosure.blueprint,
-			},
+
+			UI.Text({ id = "Heading", text = "Settings", textSize = 22 }),
+			UI.Divider({}),
+			-- §3.3 `UI.sensoryFeedback`, on the two controls whose semantics are
+			-- already in the closed twelve. `adjust` is the continuous verb
+			-- (a stepper ticks; a subscriber rate-limits it — the framework does
+			-- not), `select` the discrete one. The declaration rides `meta`, so
+			-- the control's own blueprint is returned unchanged apart from it,
+			-- and BOTH stay exactly the controls they were: nothing here plays a
+			-- sound, a haptic or a particle, and nothing downstream of Facet
+			-- does either unless a game subscribes the bus and decides to
+			-- (`src/present/feedback.luau:4-5`).
+			UI.sensoryFeedback(stepper.blueprint, { trigger = volume, event = "adjust" }),
+			slider.blueprint,
+			UI.sensoryFeedback(picker.blueprint, { trigger = quality, event = "select" }),
+			UI.Divider({}),
+			navShapes,
+			UI.Divider({}),
+			disclosure.blueprint,
 		})
 		-- A-LV4 shapes that had no fixture: an OVERLAY badge on a tile, a 16:9 media
 		-- box via aspectRatio, and a toolbar row. None uses manual pixel positioning.
@@ -360,33 +353,32 @@ return {
 					-- (see badgeCornerInset above); `{top=0,right=0}` on
 					-- every flat package
 					padding = badgeCornerInset,
-					children = {
-						UI.padding(
-							-- 28x28, NOT 24: the parchment seal is authored at 28x28 and
-							-- its recipe reserves a 5px contentInset on every side, so the
-							-- lifted count gets 28-10 = 18px of room. At 24 it got 14 —
-							-- less than the ~14.4px line box a 12px glyph needs, which is
-							-- the very clipping this fix round is closing. 28 also paints
-							-- the seal at its native size, so nothing resamples.
-							--
-							-- textAlign is load-bearing too: the lift centres a badge's
-							-- value only when a package actually skins it. On a FLAT theme
-							-- the label draws its own text with the alignment it was
-							-- given, and the default is start — so the unthemed "3" sat
-							-- against the left edge of its circle, which is where the
-							-- director found it.
-							UI.Text({
-								id = id .. "Badge",
-								text = badge,
-								textSize = "caption",
-								textAlign = "center",
-								surface = "badge",
-								width = { type = "fixed", px = 28 },
-								height = { type = "fixed", px = 28 },
-							}),
-							2
-						),
-					},
+
+					UI.padding(
+						-- 28x28, NOT 24: the parchment seal is authored at 28x28 and
+						-- its recipe reserves a 5px contentInset on every side, so the
+						-- lifted count gets 28-10 = 18px of room. At 24 it got 14 —
+						-- less than the ~14.4px line box a 12px glyph needs, which is
+						-- the very clipping this fix round is closing. 28 also paints
+						-- the seal at its native size, so nothing resamples.
+						--
+						-- textAlign is load-bearing too: the lift centres a badge's
+						-- value only when a package actually skins it. On a FLAT theme
+						-- the label draws its own text with the alignment it was
+						-- given, and the default is start — so the unthemed "3" sat
+						-- against the left edge of its circle, which is where the
+						-- director found it.
+						UI.Text({
+							id = id .. "Badge",
+							text = badge,
+							textSize = "caption",
+							textAlign = "center",
+							surface = "badge",
+							width = { type = "fixed", px = 28 },
+							height = { type = "fixed", px = 28 },
+						}),
+						2
+					),
 				})
 			)
 		end
@@ -397,13 +389,12 @@ return {
 			wrap = true,
 			gap = "tight",
 			width = UI.fill(),
-			children = {
-				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),
-				UI.Divider({ axis = "x" }),
-				UI.Button({ id = "TbPlay", label = "Play", height = { type = "minMax", min = "targetSizes.minimum" } }),
-				UI.Spacer({}),
-				UI.Button({ id = "TbMore", label = "…", height = { type = "minMax", min = "targetSizes.minimum" } }),
-			},
+
+			UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),
+			UI.Divider({ axis = "x" }),
+			UI.Button({ id = "TbPlay", label = "Play", height = { type = "minMax", min = "targetSizes.minimum" } }),
+			UI.Spacer({}),
+			UI.Button({ id = "TbMore", label = "…", height = { type = "minMax", min = "targetSizes.minimum" } }),
 		})
 		-- THE COMPACT-LABEL LADDER, on screen (compact-label stage, 2026-07-27).
 		--
@@ -448,35 +439,34 @@ return {
 			id = "CompactRow",
 			gap = "tight",
 			width = UI.fill(),
-			children = {
-				UI.Button({
-					id = "CmpRoomy",
-					label = "Edit item",
-					compactLabel = "Ed",
-					width = UI.fill(),
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Button({
-					id = "CmpText",
-					label = "Edit item",
-					compactLabel = "Ed",
-					width = compactWidth,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Button({
-					id = "CmpIcon",
-					label = "Edit item",
-					compactLabel = { icon = "edit" },
-					width = compactWidth,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-				UI.Button({
-					id = "CmpNone",
-					label = "Edit item",
-					width = compactWidth,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				}),
-			},
+
+			UI.Button({
+				id = "CmpRoomy",
+				label = "Edit item",
+				compactLabel = "Ed",
+				width = UI.fill(),
+				height = { type = "minMax", min = "targetSizes.minimum" },
+			}),
+			UI.Button({
+				id = "CmpText",
+				label = "Edit item",
+				compactLabel = "Ed",
+				width = compactWidth,
+				height = { type = "minMax", min = "targetSizes.minimum" },
+			}),
+			UI.Button({
+				id = "CmpIcon",
+				label = "Edit item",
+				compactLabel = { icon = "edit" },
+				width = compactWidth,
+				height = { type = "minMax", min = "targetSizes.minimum" },
+			}),
+			UI.Button({
+				id = "CmpNone",
+				label = "Edit item",
+				width = compactWidth,
+				height = { type = "minMax", min = "targetSizes.minimum" },
+			}),
 		})
 		-- 16:9 media with NO hand arithmetic: the height follows the resolved width
 		local media = UI.aspectRatio(UI.Box({ id = "Media", surface = "raised", width = UI.fill() }), 16 / 9)
@@ -522,11 +512,10 @@ return {
 			distribute = "spaceBetween",
 			wrap = true,
 			width = UI.fill(),
-			children = {
-				marker("LegendLow", "Optional"),
-				marker("LegendMid", "Useful"),
-				marker("LegendHigh", "Essential"),
-			},
+
+			marker("LegendLow", "Optional"),
+			marker("LegendMid", "Useful"),
+			marker("LegendHigh", "Essential"),
 		})
 		-- §2.4 the shrink pass, and §2.1 `lineAlign` riding the same row.
 		--
@@ -565,15 +554,14 @@ return {
 			gap = "tight",
 			align = "start",
 			width = UI.fill(),
-			children = {
-				bar("VocabOptional", {
-					width = { type = "minMax", min = 24, preferred = 140 },
-					shrinkWeight = 1,
-					layoutPriority = -1,
-				}),
-				bar("VocabUseful", { shrinkWeight = 1 }),
-				bar("VocabEssential", { height = { type = "fixed", px = 16 }, lineAlign = "end" }),
-			},
+
+			bar("VocabOptional", {
+				width = { type = "minMax", min = 24, preferred = 140 },
+				shrinkWeight = 1,
+				layoutPriority = -1,
+			}),
+			bar("VocabUseful", { shrinkWeight = 1 }),
+			bar("VocabEssential", { height = { type = "fixed", px = 16 }, lineAlign = "end" }),
 		})
 		-- §2.5 `containerRelativeFrame`. A paging card: one of three across the
 		-- SCROLLER's viewport, gutters included. The card is a child of this HUD
@@ -602,92 +590,86 @@ return {
 			id = "Specs",
 			gap = "tight",
 			width = UI.fill(),
-			children = {
-				UI.GridRow({
-					id = "SpecHead",
-					-- `fill` IS LOAD-BEARING, not decoration: a hug cell would be its own
-					-- 60px natural whether it spanned one column or two, so the span
-					-- would be accepted and invisible — the exact "assertion its own
-					-- starting value already satisfies" shape. Filling makes the cell
-					-- take the two columns AND the gap between them, which is the
-					-- arithmetic §2.2 specifies and the headless case asserts.
-					children = {
-						specCell("SpecTitle", "Row grid", {
-							gridSpan = 2,
-							width = UI.fill(),
-						}),
-					},
+
+			UI.GridRow({
+				id = "SpecHead",
+				-- `fill` IS LOAD-BEARING, not decoration: a hug cell would be its own
+				-- 60px natural whether it spanned one column or two, so the span
+				-- would be accepted and invisible — the exact "assertion its own
+				-- starting value already satisfies" shape. Filling makes the cell
+				-- take the two columns AND the gap between them, which is the
+				-- arithmetic §2.2 specifies and the headless case asserts.
+
+				specCell("SpecTitle", "Row grid", {
+					gridSpan = 2,
+					width = UI.fill(),
 				}),
-				UI.GridRow({
-					id = "SpecA",
-					children = {
-						specCell("SpecAKey", "Columns", { role = "secondary" }),
-						specCell("SpecAVal", "align"),
-					},
-				}),
-				UI.GridRow({
-					id = "SpecB",
-					children = {
-						specCell("SpecBKey", "Span", { role = "secondary" }),
-						specCell("SpecBVal", "the header"),
-					},
-				}),
-			},
+			}),
+			UI.GridRow({
+				id = "SpecA",
+
+				specCell("SpecAKey", "Columns", { role = "secondary" }),
+				specCell("SpecAVal", "align"),
+			}),
+			UI.GridRow({
+				id = "SpecB",
+
+				specCell("SpecBKey", "Span", { role = "secondary" }),
+				specCell("SpecBVal", "the header"),
+			}),
 		})
 
 		local hudColumn = UI.VStack({
 			id = "Hud",
 			gap = "s",
 			width = UI.fill(),
-			children = {
-				UI.Text({ id = "HudHeading", text = "Status", textSize = "control" }),
-				UI.Divider({}),
-				toolbar,
-				compactLadder,
-				progressView.blueprint,
-				saveLabel.blueprint,
-				media,
-				-- the dense readout field
-				UI.Grid({
-					id = "Stats",
-					-- A DENSITY FLOOR for the readout field, measured and kept 2026-08-21:
-					-- `"intrinsic"` sizes these to the widest `S12` glyph run, which re-columns the
-					-- field so short that the page stops overflowing its scroller at all — and this
-					-- fixture's §2.5 case is about what a scroller's viewport measures.
-					-- wide enough for "S12" at the largest text preference under the
-					-- ten-foot scale (the theme x text-size sweep of 2026-09-11 found
-					-- the caption 14px past a 48px cell); a tile that cannot hold its
-					-- own caption is not a smaller tile, it is a broken one
-					minColumnWidth = 72,
-					gap = "xs",
-					width = UI.fill(),
-					children = hudTiles,
-				}),
-				-- a dense tile grid: fill cells occupy their derived columns (A-LV1)
-				UI.Grid({
-					id = "Tiles",
-					-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
-					-- express an intrinsic minimum (it measures to whatever it is offered), so the
-					-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
-					-- fill cells occupying their derived columns — would have nothing to show.
-					minColumnWidth = 72,
-					gap = "tight",
-					width = UI.fill(),
-					children = {
-						badgedTile("t1", "3"),
-						badgedTile("t2", "9"),
-						badgedTile("t3", "1"),
-						badgedTile("t4", "7"),
-					},
-				}),
-				-- the round-2 layout vocabulary, built above
-				UI.Divider({}),
-				UI.Text({ id = "VocabHeading", text = "Layout vocabulary", textSize = "control" }),
-				vocabLegend,
-				vocabShrink,
-				vocabPage,
-				vocabSpecs,
-			},
+
+			UI.Text({ id = "HudHeading", text = "Status", textSize = "control" }),
+			UI.Divider({}),
+			toolbar,
+			compactLadder,
+			progressView.blueprint,
+			saveLabel.blueprint,
+			media,
+			-- the dense readout field
+			UI.Grid({
+				id = "Stats",
+				-- A DENSITY FLOOR for the readout field, measured and kept 2026-08-21:
+				-- `"intrinsic"` sizes these to the widest `S12` glyph run, which re-columns the
+				-- field so short that the page stops overflowing its scroller at all — and this
+				-- fixture's §2.5 case is about what a scroller's viewport measures.
+				-- wide enough for "S12" at the largest text preference under the
+				-- ten-foot scale (the theme x text-size sweep of 2026-09-11 found
+				-- the caption 14px past a 48px cell); a tile that cannot hold its
+				-- own caption is not a smaller tile, it is a broken one
+				minColumnWidth = 72,
+				gap = "xs",
+				width = UI.fill(),
+				children = hudTiles,
+			}),
+			-- a dense tile grid: fill cells occupy their derived columns (A-LV1)
+			UI.Grid({
+				id = "Tiles",
+				-- NOT `"intrinsic"`: every cell here is `fill` width, and a fill child cannot
+				-- express an intrinsic minimum (it measures to whatever it is offered), so the
+				-- grid would fall back to ONE LANE and the thing this fixture demonstrates —
+				-- fill cells occupying their derived columns — would have nothing to show.
+				minColumnWidth = 72,
+				gap = "tight",
+				width = UI.fill(),
+
+				badgedTile("t1", "3"),
+				badgedTile("t2", "9"),
+				badgedTile("t3", "1"),
+				badgedTile("t4", "7"),
+			}),
+			-- the round-2 layout vocabulary, built above
+			UI.Divider({}),
+			UI.Text({ id = "VocabHeading", text = "Layout vocabulary", textSize = "control" }),
+			vocabLegend,
+			vocabShrink,
+			vocabPage,
+			vocabSpecs,
 		})
 
 		-- The body SCROLLS and the action bar stays PINNED — the standard settings
@@ -717,24 +699,23 @@ return {
 			-- centres the width-capped action bar; the scroll region is fill-width
 			-- so it is unaffected
 			align = "center",
-			children = {
-				UI.ScrollView({
-					id = "BodyScroll",
-					axis = "y",
+
+			UI.ScrollView({
+				id = "BodyScroll",
+				axis = "y",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.AdaptiveStack({
+					id = "Body",
+					axis = conditions.axis,
+					gap = "m",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.AdaptiveStack({
-							id = "Body",
-							axis = conditions.axis,
-							gap = "m",
-							width = UI.fill(),
-							children = { settingsColumn, hudColumn },
-						}),
-					},
+					settingsColumn,
+					hudColumn,
 				}),
-				actions,
-			},
+			}),
+			actions,
 		})
 
 		return {

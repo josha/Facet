@@ -177,7 +177,7 @@ return {
 			that could not work anyway, because no fact ever reached it. Three short
 			labels still resolve segmented wherever there is room; on a compact
 			screen they now become the row list, which is what the ladder is for. ]]
-		local picker = Facet.Controls.Picker(core, {
+		local picker = Facet.View.Picker({
 			id = "Construction",
 			label = COPY.pick,
 			options = {
@@ -198,31 +198,29 @@ return {
 				padding = "s",
 				gap = "xs",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = title, textSize = "caption" }),
-					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
-					UI.VStack({
-						id = "Rows",
-						gap = 2,
-						width = UI.fill(),
-						children = {
-							UI.ForEach({
-								id = "List",
-								items = items,
-								key = function(entry: any): string
-									return entry.key
-								end,
-								row = function(entry: any): any
-									return UI.Text({
-										id = "Row",
-										text = `{entry.key}  {entry.value}`,
-										textSize = "caption",
-									})
-								end,
-							}),
-						},
+
+				UI.Text({ id = "Title", text = title, textSize = "caption" }),
+				UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
+				UI.VStack({
+					id = "Rows",
+					gap = 2,
+					width = UI.fill(),
+
+					UI.ForEach({
+						id = "List",
+						items = items,
+						key = function(entry: any): string
+							return entry.key
+						end,
+						row = function(entry: any): any
+							return UI.Text({
+								id = "Row",
+								text = `{entry.key}  {entry.value}`,
+								textSize = "caption",
+							})
+						end,
 					}),
-				},
+				}),
 			})
 		end
 
@@ -230,45 +228,42 @@ return {
 			id = "SortedEntries",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every other fixture here does:
-				-- twelve rows in each of two columns plus a picker and a status line do
-				-- not fit the ~200px a 640x320 landscape phone has left once the
-				-- showcase reserves its chip strip.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			-- THE PAGE SCROLLS, for the reason every other fixture here does:
+			-- twelve rows in each of two columns plus a picker and a status line do
+			-- not fit the ~200px a 640x320 landscape phone has left once the
+			-- showcase reserves its chip strip.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+				picker,
+				-- SIDE BY SIDE WITH ROOM, STACKED WITHOUT, and the axis is bound
+				-- rather than branched: an `AdaptiveStack` re-solves in place, so
+				-- flipping a 320px phone does not remount twenty-four rows and
+				-- lose the comparison the fixture exists for. (`wrap` was the
+				-- first draft and the solver refused it, correctly: a wrapping
+				-- stack has no single leftover to share, so a `fill` child on the
+				-- main axis takes a whole line and the columns were never beside
+				-- each other at any width.)
+				UI.AdaptiveStack({
+					id = "Columns",
+					axis = conditions.axis,
 					gap = "s",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						picker.blueprint,
-						-- SIDE BY SIDE WITH ROOM, STACKED WITHOUT, and the axis is bound
-						-- rather than branched: an `AdaptiveStack` re-solves in place, so
-						-- flipping a 320px phone does not remount twenty-four rows and
-						-- lose the comparison the fixture exists for. (`wrap` was the
-						-- first draft and the solver refused it, correctly: a wrapping
-						-- stack has no single leftover to share, so a `fill` child on the
-						-- main axis takes a whole line and the columns were never beside
-						-- each other at any width.)
-						UI.AdaptiveStack({
-							id = "Columns",
-							axis = conditions.axis,
-							gap = "s",
-							width = UI.fill(),
-							children = {
-								column("Raw", COPY.rawTitle, COPY.rawNote, rawEntries),
-								column("Sorted", COPY.sortedTitle, COPY.sortedNote, sortedEntries),
-							},
-						}),
-						UI.Text({ id = "StatusTitle", text = COPY.statusTitle, textSize = "caption" }),
-						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-					},
+
+					column("Raw", COPY.rawTitle, COPY.rawNote, rawEntries),
+					column("Sorted", COPY.sortedTitle, COPY.sortedNote, sortedEntries),
 				}),
-			},
+				UI.Text({ id = "StatusTitle", text = COPY.statusTitle, textSize = "caption" }),
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		return {
@@ -307,7 +302,6 @@ return {
 			end,
 
 			dispose = function()
-				picker.dispose()
 				scope:dispose()
 			end,
 		}

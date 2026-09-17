@@ -853,14 +853,13 @@ return {
 				id = "PerfWorkload",
 				padding = SCREEN_PADDING,
 				gap = SCREEN_GAP,
-				children = {
-					Facet.UI.Text({
-						id = "Head",
-						text = `Facet · {#rowsSignal:get()} rows`,
-						textSize = "label",
-					}),
-					list.blueprint,
-				},
+
+				Facet.UI.Text({
+					id = "Head",
+					text = `Facet · {#rowsSignal:get()} rows`,
+					textSize = "label",
+				}),
+				list.blueprint,
 			})
 			local handle = ctx.presenter.present(screen, {
 				recycleInstances = settings.recycle == true,

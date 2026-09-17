@@ -967,6 +967,9 @@ function drag_registry.new(opts: Opts)
 			-- skip it exactly as resolution excludes it
 			return false
 		end
+		-- Focus can scroll or transform a row before the next renderer refresh.
+		-- Aim and hit-test must read the same geometry on this navigation press.
+		registry.refreshTargets()
 		local x, y = centerOf(rectOf(targetPath))
 		if x == nil then
 			return false

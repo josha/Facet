@@ -22,7 +22,7 @@ project and connect from Studio.
 | File | What it is |
 |---|---|
 | `default.project.json` | Maps `src/` of the library to `ReplicatedStorage.Facet`, the screen module to `ReplicatedStorage.FacetConsumerScreen`, and the client script to `StarterPlayer.StarterPlayerScripts.FacetConsumer`. It also sets `Workspace.PlayerScriptsUseInputActionSystem`, which Facet's input layer requires and which cannot be set from code. |
-| `src/screen.luau` | The screen itself: state, a memo, and the blueprint — plus `session`, which presents it, wires both ways out of it, and tears it down in the right order. Takes `Facet` as an argument so the same module can be mounted by Roblox and by a headless test. |
+| `src/screen.luau` | The screen itself: component state, property recipes, and the view — plus `session`, which presents it, wires both ways out of it, and tears it down in the right order. Takes `Facet` as an argument so the same module can be mounted by Roblox and by a headless test. |
 | `src/main.client.luau` | The client script: wait for the DataModel, stand up a host, hand it to `screen.session`. Three statements. |
 
 ## What it demonstrates
@@ -30,19 +30,15 @@ project and connect from Studio.
 - **A theme, applied.** The panel takes the `raised` surface and the count takes
   the accent tint, both resolved from the active theme rather than from a colour
   written here. Swap the theme and both follow with no rebuild.
-- **State you own.** `count`, `soundOn`, and `closed` are signals the screen owns.
-  A control reads and writes the signal; it keeps nothing important of its own.
-- **Adaptation with no device branch.** The buttons stack in a column on a
-  compact phone and sit in a row on anything wider, because the stack's `axis` is
-  bound to `Facet.adaptive.conditions`. There is no device name in the project.
-- **The player's text size, respected by doing nothing.** The blurb declares no
-  text size, so it takes the body role and moves with the accessibility setting.
-- **Teardown that leaves nothing.** One scope owns every signal, every memo, and
-  both of the session's subscriptions — the observer watching the Close button
-  and the frame hook running the timer. Closing dismisses the surface, disposes
-  that scope, and then disposes the host, in that order. The order matters:
-  disposing the host while a surface is still presented leaves that surface's
-  observers alive on the core.
+- **Local state with automatic ownership.** `ui.state` returns a getter and setter.
+  The count label is a recipe; the toggle uses `value` and `onChange`.
+- **Adaptation with no device branch.** `ui.env("viewportRect")` tracks the available
+  viewport, and `Facet.adaptive.axisFor` selects the stack axis.
+- **The player's text size.** The blurb uses the body role and follows accessibility preferences.
+- **Teardown that leaves nothing.** Dismissing the component releases its state,
+  bindings and owned frame subscription. Close is a command callback. The session
+  dismisses the surface before disposing the host, and both Close and the timer
+  use that same teardown path.
 
 ## The proof
 

@@ -34,14 +34,13 @@ return {
 				id = "SettingsContent",
 				gap = "m",
 				width = UI.fill(),
-				children = {
-					UI.Text({ text = copy.settings, textSize = "heading", width = UI.fill() }),
-					UI.Toggle({ id = "Club", label = "Club membership", value = club, width = UI.fill() }),
-					UI.Text({
-						text = "The button summary and image follow the choice in this view.",
-						width = UI.fill(),
-					}),
-				},
+
+				UI.Text({ text = copy.settings, textSize = "heading", width = UI.fill() }),
+				UI.Toggle({ id = "Club", label = "Club membership", value = club, width = UI.fill() }),
+				UI.Text({
+					text = "The button summary and image follow the choice in this view.",
+					width = UI.fill(),
+				}),
 			}),
 		}))
 		local tabs = {}
@@ -56,47 +55,40 @@ return {
 						width = UI.fill(),
 						height = UI.fill(),
 						gap = "m",
-						children = {
-							UI.Text({ text = copy[key], textSize = "title", width = UI.fill() }),
-							UI.Text({
-								text = "Expand the navigation button to choose a different destination. Back returns focus to the button.",
-								width = UI.fill(),
-							}),
-							UI.Button({ id = "Practice", label = "Practice this course", width = UI.fill() }),
-						},
+
+						UI.Text({ text = copy[key], textSize = "title", width = UI.fill() }),
+						UI.Text({
+							text = "Expand the navigation button to choose a different destination. Back returns focus to the button.",
+							width = UI.fill(),
+						}),
+						UI.Button({ id = "Practice", label = "Practice this course", width = UI.fill() }),
 					})
 				end,
 			})
 		end
-		local nav = scope:own(
-			Facet.Controls.TabView(
-				core,
-				{ id = "Destinations", style = "collapsible", selection = selected, tabs = tabs }
-			)
-		)
+		local nav =
+			Facet.View.TabView({ id = "Destinations", style = "collapsible", selection = selected, tabs = tabs })
 		return {
 			screen = UI.Screen({
 				id = "CollapsibleView",
 				padding = "m",
-				children = {
-					UI.ScrollView({
-						id = "Page",
+
+				UI.ScrollView({
+					id = "Page",
+					width = UI.fill(),
+					height = UI.fill(),
+					gap = "m",
+
+					UI.Text({ text = copy.title, textSize = "title", width = UI.fill() }),
+					UI.Text({ text = copy.intro, width = UI.fill() }),
+					control.blueprint,
+					UI.VStack({
+						id = "NavigationRegion",
 						width = UI.fill(),
-						height = UI.fill(),
-						gap = "m",
-						children = {
-							UI.Text({ text = copy.title, textSize = "title", width = UI.fill() }),
-							UI.Text({ text = copy.intro, width = UI.fill() }),
-							control.blueprint,
-							UI.VStack({
-								id = "NavigationRegion",
-								width = UI.fill(),
-								height = { type = "fixed", px = 420 },
-								children = { nav.blueprint },
-							}),
-						},
+						height = { type = "fixed", px = 420 },
+						nav,
 					}),
-				},
+				}),
 			}),
 			steps = {
 				open = function()

@@ -197,7 +197,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			id = "PrimaryAction",
 			gap = "tight",
 			width = UI.fill(),
-			children = { runAll },
+			runAll,
 		})
 		else nil
 
@@ -240,8 +240,8 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- reasoned: the first attempt set the child to fill and left this row
 			-- hugging, and the device showed "F".
 			width = UI.fill(),
-			children = {
-				--[[ FILL, SO IT WRAPS INSTEAD OF RUNNING OFF THE EDGE.
+
+			--[[ FILL, SO IT WRAPS INSTEAD OF RUNNING OFF THE EDGE.
 
 					Device report, 2026-08-13: the mount-refusal message was cut off
 					on a phone — twice, once before it was shortened and again after.
@@ -254,14 +254,13 @@ function overlay.build(Facet: any, core: any, model: Model): any
 					is what a diagnostic has to do — a status line that can only ever
 					show its first sixty characters cannot carry a node path AND what
 					went wrong. ]]
-				UI.Text({
-					id = "State",
-					text = model.statusLine,
-					textSize = 15,
-					width = UI.fill(),
-				}),
-				UI.Text({ id = "Countdown", text = model.countdown, textSize = 15 }),
-			},
+			UI.Text({
+				id = "State",
+				text = model.statusLine,
+				textSize = 15,
+				width = UI.fill(),
+			}),
+			UI.Text({ id = "Countdown", text = model.countdown, textSize = 15 }),
 		})
 	)
 	table.insert(
@@ -269,11 +268,10 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		UI.VStack({
 			id = "Head",
 			gap = 2,
-			children = {
-				UI.Text({ id = "Build", text = model.buildLine, textSize = 13 }),
-				UI.Text({ id = "Scenario", text = model.scenarioLine, textSize = 13 }),
-				UI.Text({ id = "Device", text = model.deviceLine, textSize = 13 }),
-			},
+
+			UI.Text({ id = "Build", text = model.buildLine, textSize = 13 }),
+			UI.Text({ id = "Scenario", text = model.scenarioLine, textSize = 13 }),
+			UI.Text({ id = "Device", text = model.deviceLine, textSize = 13 }),
 		})
 	)
 	table.insert(stackChildren, actionRow)
@@ -288,7 +286,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- fixed picker cannot trap a control off-screen.
 			height = { type = "fixed", px = 110 },
 			width = UI.fill(),
-			children = { UI.VStack({ id = "Chips", gap = "xs", children = chips }) },
+			UI.VStack({ id = "Chips", gap = "xs", children = chips }),
 		})
 	)
 	table.insert(stackChildren, UI.VStack({ id = "Counters", gap = 0, children = counterTexts }))
@@ -309,40 +307,37 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	return UI.Screen({
 		id = "PerfLabOverlay",
 		padding = "s",
-		children = {
-			UI.Anchor({
-				id = "Dock",
+
+		UI.Anchor({
+			id = "Dock",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			UI.ScrollView({
+				id = "Panel",
+				axis = "y",
+				anchor = "bottomLeft",
+				-- OPAQUE. Two presented surfaces do not composite into one
+				-- layout, so a panel with no plate lets the workload read
+				-- straight through its own labels — which is what a phone
+				-- screenshot showed: counter text woven into list rows.
+				surface = "raised",
+				padding = "s",
 				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					UI.ScrollView({
-						id = "Panel",
-						axis = "y",
-						anchor = "bottomLeft",
-						-- OPAQUE. Two presented surfaces do not composite into one
-						-- layout, so a panel with no plate lets the workload read
-						-- straight through its own labels — which is what a phone
-						-- screenshot showed: counter text woven into list rows.
-						surface = "raised",
-						padding = "s",
-						width = UI.fill(),
-						-- A FRACTION OF THE SCREEN, RESOLVED EVERY SOLVE. A fixed px
-						-- computed by the caller was a snapshot of one orientation;
-						-- `percent` with a clamp is the same intent stated to the
-						-- solver, so rotation just re-solves it.
-						height = { type = "percent", fraction = 0.34, min = 96, max = 260 },
-						children = {
-							UI.VStack({
-								id = "Stack",
-								width = UI.fill(),
-								gap = "tight",
-								children = stackChildren,
-							}),
-						},
-					}),
-				},
+				-- A FRACTION OF THE SCREEN, RESOLVED EVERY SOLVE. A fixed px
+				-- computed by the caller was a snapshot of one orientation;
+				-- `percent` with a clamp is the same intent stated to the
+				-- solver, so rotation just re-solves it.
+				height = { type = "percent", fraction = 0.34, min = 96, max = 260 },
+
+				UI.VStack({
+					id = "Stack",
+					width = UI.fill(),
+					gap = "tight",
+					children = stackChildren,
+				}),
 			}),
-		},
+		}),
 	})
 end
 

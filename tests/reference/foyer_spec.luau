@@ -891,8 +891,7 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 	end)
 
 	--[[ A TOAST IN A REFERENCE APP (final review item 4). The toast layer wraps
-		whatever a caller hands it as the SOLE child of a `canvasGroup` `Toast` node
-		and fades it — the same sole-child-plate shape `Controls.Alert`,
+		an explicitly fading body as the SOLE child of a `canvasGroup` `Toast` node — the same sole-child-plate shape `Controls.Alert`,
 		`Controls.Menu`'s popover and the menu-style `Picker` all acknowledged, and
 		a real toast body IS a plate (a raised snack bar with a line of text on it).
 		Nothing swept a toast, so the finding this raises was counted by nobody: no
@@ -911,7 +910,7 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 					padding = 10,
 					children = { UI.Text({ id = "Line", text = "Saved to your shelf" }) },
 				}),
-				{ duration = 20, readFloor = 0 }
+				{ duration = 20, readFloor = 0, transition = { enter = "fade" } }
 			)
 			w.presenter.refresh()
 			w.presenter.tick(1 / 60)

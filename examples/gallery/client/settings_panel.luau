@@ -164,9 +164,11 @@ export type MountOpts = {
 ]]
 function settings_panel.mount(opts: MountOpts): any
 	local Facet = opts.Facet
-	local UI = Facet.UI
+	local UI = Facet.View
 	local core = opts.core
 	local env = opts.env
+	-- Preferences outlive each opening of the settings panel. The model is
+	-- host-owned; UI.Picker creates and disposes its own mounted control.
 	local scope = core:scope("gallery-settings-panel")
 	local COPY: any = opts.copy or settings_panel.COPY
 
@@ -175,7 +177,9 @@ function settings_panel.mount(opts: MountOpts): any
 	-- the preference (a press on this control is its only writer)
 	local setting = scope:own(core:signal(initial))
 	-- what is live (mirrors the fact, and is what the picker shows)
-	local mode = scope:own(core:signal(initial))
+	local mode = scope:own(core:memo(function(use)
+		return settings_panel.modeOf(use(reducedFact))
+	end))
 
 	local function applyMode(value: string)
 		local command = settings_panel.choose(settings_panel.modeOf(reducedFact:get()), value)
@@ -187,55 +191,37 @@ function settings_panel.mount(opts: MountOpts): any
 		env:set("reducedMotion", settings_panel.reducedOf(command.mode))
 	end
 
-	-- FOLLOW THE FACT. A demo that drives `reducedMotion` itself moves this
-	-- control with it; without this the card could show "Full" while the screen
-	-- behind it was running reduced, which is a settings surface lying.
-	scope:own(core:observe(reducedFact, function(value: any)
-		local live = settings_panel.modeOf(value)
-		if mode:get() ~= live then
-			mode:set(live)
-		end
-	end))
-
-	local motionPicker = Facet.Controls.Picker(core, {
-		id = "MotionMode",
-		label = COPY.motion,
-		-- SEGMENTED, declared rather than adaptive: two short labels side by side
-		-- ARE the teaching — "Full" and "Reduced" as peers, neither an off switch.
-		style = "segmented",
-		options = {
-			{ value = "full", label = COPY.full },
-			{ value = "reduced", label = COPY.reduced },
-		},
-		selected = mode,
-		-- `onChange` fires ONLY on a press (`picker.choose`), never on the
-		-- programmatic writes the observe above makes — which is exactly the
-		-- split this needs: a press is the one thing that moves the PREFERENCE.
-		onChange = function(value: any)
-			local word = tostring(value)
-			setting:set(word)
-			applyMode(word)
-		end,
-	})
-
-	local motionSection = UI.VStack({
-		id = "Motion",
-		width = UI.fill(),
-		gap = "xs",
-		children = {
-			motionPicker.blueprint,
-			-- WRAPS, never clips: this sentence is the difference between
-			-- "Reduced" and "Off" and it has to survive ~1.4x pseudo-localization
-			-- on a 320 px phone.
-			UI.Text({
+	-- The preference outlives the card; its view and subscriptions do not.
+	local MotionSettings = Facet.component(function(ui)
+		local View = Facet.View
+		return View.VStack({
+			id = "Motion",
+			width = View.fill(),
+			gap = "xs",
+			View.Picker({
+				id = "MotionMode",
+				label = COPY.motion,
+				style = "segmented",
+				options = {
+					{ value = "full", label = COPY.full },
+					{ value = "reduced", label = COPY.reduced },
+				},
+				selected = ui.read(mode),
+				onChange = function(value)
+					setting:set(value)
+					applyMode(value)
+				end,
+			}),
+			View.Text({
 				id = "Note",
 				text = COPY.motionNote,
 				textSize = "caption",
 				role = "secondary",
-				width = UI.fill(),
+				width = View.fill(),
 			}),
-		},
-	})
+		})
+	end)
+	local motionSection = MotionSettings({})
 
 	local previewProfile = scope:own(core:signal("automatic"))
 	local previewOrientation = scope:own(core:signal("portrait"))
@@ -255,7 +241,7 @@ function settings_panel.mount(opts: MountOpts): any
 		end
 		return true
 	end
-	local distancePicker = scope:own(Facet.Controls.Picker(core, {
+	local distancePicker = UI.Picker({
 		id = "ViewingDistance",
 		label = COPY.viewingDistance,
 		env = env,
@@ -268,22 +254,21 @@ function settings_panel.mount(opts: MountOpts): any
 		onChange = function(value)
 			setDistance(value)
 		end,
-	}))
+	})
 	local sections: { any } = {
 		UI.VStack({
 			id = "Distance",
 			width = UI.fill(),
 			gap = "xs",
-			children = {
-				distancePicker.blueprint,
-				UI.Text({
-					id = "Note",
-					text = COPY.distanceNote,
-					width = UI.fill(),
-					textSize = "caption",
-					role = "secondary",
-				}),
-			},
+
+			distancePicker,
+			UI.Text({
+				id = "Note",
+				text = COPY.distanceNote,
+				width = UI.fill(),
+				textSize = "caption",
+				role = "secondary",
+			}),
 		}),
 		motionSection,
 	}
@@ -316,7 +301,7 @@ function settings_panel.mount(opts: MountOpts): any
 			for _, value in values do
 				table.insert(options, { value = value, label = COPY[value] })
 			end
-			return scope:own(Facet.Controls.Picker(core, {
+			return UI.Picker({
 				id = id,
 				label = label,
 				valueAlignment = "start",
@@ -325,14 +310,16 @@ function settings_panel.mount(opts: MountOpts): any
 				options = options,
 				onChange = onChange,
 				enabled = enabled,
-			})).blueprint
+			})
 		end
 		-- Display presets replace the distance-only surface in the showcase.
-		sections[1] = UI.VStack({
-			id = "Display",
-			width = UI.fill(),
-			gap = "s",
-			children = {
+		local Display = Facet.component(function(ui)
+			local profile = ui.read(previewProfile)
+			return UI.VStack({
+				id = "Display",
+				width = UI.fill(),
+				gap = "s",
+
 				picker(
 					"Preview",
 					COPY.preview,
@@ -347,10 +334,10 @@ function settings_panel.mount(opts: MountOpts): any
 					previewOrientation,
 					{ "portrait", "landscape" },
 					setOrientation,
-					scope:own(core:memo(function(use)
-						local value = use(previewProfile)
+					function()
+						local value = profile()
 						return value == "phone" or value == "tablet"
-					end))
+					end
 				),
 				picker(
 					"Input",
@@ -367,8 +354,9 @@ function settings_panel.mount(opts: MountOpts): any
 					textSize = "caption",
 					role = "secondary",
 				}),
-			},
-		})
+			})
+		end)
+		sections[1] = Display({})
 	end
 	if opts.buildStamp ~= nil and opts.buildStamp ~= "" then
 		table.insert(
@@ -377,17 +365,16 @@ function settings_panel.mount(opts: MountOpts): any
 				id = "Build",
 				width = UI.fill(),
 				gap = "xs",
-				children = {
-					UI.Text({
-						id = "Stamp",
-						text = `build {opts.buildStamp}`,
-						textSize = "caption",
-						role = "secondary",
-						-- WRAPS, never clips: a sha plus a timestamp is long, and this
-						-- is the one line whose whole job is being read exactly.
-						width = UI.fill(),
-					}),
-				},
+
+				UI.Text({
+					id = "Stamp",
+					text = `build {opts.buildStamp}`,
+					textSize = "caption",
+					role = "secondary",
+					-- WRAPS, never clips: a sha plus a timestamp is long, and this
+					-- is the one line whose whole job is being read exactly.
+					width = UI.fill(),
+				}),
 			})
 		)
 	end
@@ -445,7 +432,6 @@ function settings_panel.mount(opts: MountOpts): any
 			return true
 		end,
 		dispose = function()
-			motionPicker.dispose()
 			scope:dispose()
 		end,
 	}

@@ -1,21 +1,27 @@
 --!strict
+local publicCore = require("../core/contract")
+local publicBlueprint = require("../blueprint")
+local publicEnv = require("../env/environment")
+
 -- A modal with owner-held detents, a draggable header, and focus-based sizing.
 local guard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
 local chromeSlots = require("../tokens/chrome_slots")
 local sheet = {}
-export type Spec = {
+type StringSignal = publicCore.Signal<string>
+type BooleanSignal = publicCore.Signal<boolean>
+export type Spec<V = StringSignal, P = BooleanSignal> = {
 	id: string?,
-	title: any,
-	content: any,
-	detent: any,
-	detents: { any }?,
-	env: any?,
+	title: publicBlueprint.Bound<string>,
+	content: publicBlueprint.Blueprint,
+	detent: V,
+	detents: { "medium" | "large" | { id: string, fraction: number?, height: number? } }?,
+	env: publicEnv.Env?,
 	presenter: any?,
-	isPresented: any?,
+	isPresented: P?,
 	interactiveDismissDisabled: boolean?,
-	dragIndicator: string?,
+	dragIndicator: ("automatic" | "visible" | "hidden")?,
 }
 local KEYS = guard.keySet({
 	"id",

@@ -18,9 +18,13 @@ properties shape everything else in this guide:
    write `Instance.new("Frame")` or set a `Position` by hand.
 
 This guide is written for a Roblox developer who has never seen this codebase.
-Read it in order.
+Start new code with [Components](15-components.md), then read the chapters for the underlying systems.
 
 For control selection while designing a screen, use [Choosing controls](14-choosing-controls.md), including when radial actions fit and which options to choose.
+
+New authoring capabilities: `Facet.component` owns local lifetimes; `Facet.View`
+provides ordered children, reactive properties and controlled inputs;
+`Facet.Signals` exposes the pinned upstream graph. See [API](../reference/api.md#view).
 
 ## The principles, in plain words
 
@@ -116,16 +120,23 @@ Everything below lives on the single table returned by requiring the library:
 local Facet = require(ReplicatedStorage.Facet)
 
 Facet.VERSION -- "0.11.0"
-local core = Facet.newCore()
-local list = Facet.Controls.VirtualList(core, { … })
+local UI = Facet.View
+local list = UI.VirtualList {
+    items = inventory, key = "id", itemExtent = 64,
+    row = function(item)
+        return UI.Text(function() return item().name end)
+    end,
+}
 ```
 
 [`../reference/api.md`](../reference/api.md) is the exhaustive reference for
 properties, defaults, callbacks, and return values. Each row below links to it.
 The guide chapters explain when and why to reach for a capability.
 
-Composite controls are all created the same way:
-`Facet.Controls.<Name>(core, spec)`. The older `Facet.new<Name>(Facet, core,
+Application controls are declared with `Facet.View.<Name> { ... }`; mounting owns
+their resources. Start with [component authoring](15-components.md). The catalog
+also names `Facet.Controls.<Name>(core, spec)`, the explicit handle API used by
+control implementations and diagnostics. The older `Facet.new<Name>(Facet, core,
 spec)` forms still work and are listed in `Facet.DEPRECATIONS` with their
 replacement and their earliest removal version.
 
@@ -174,10 +185,10 @@ replacement and their earliest removal version.
 | `Controls.PopupButton` | **Deprecated** (0.11.0): the popup half of `Controls.Picker`'s menu styles; still builds on the same engine. | [api](../reference/api.md#newpopupbutton) |
 | `Controls.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#newmenu) |
 | `Controls.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#newtextinput) |
-| `Controls.ProgressView` | A determinate or indeterminate bar or ring, segmented HUD meters, damage trails, and sized gauges with adaptive readouts. | [api](../reference/api.md#newprogressview) |
+| `Controls.ProgressView` | A determinate or indeterminate bar or ring, segmented HUD meters, damage trails, and adaptive gauge readouts; View supplies the owner and clock. | [api](../reference/api.md#newprogressview) |
 | `Controls.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#newdisclosuregroup) |
 | `Controls.LevelPicker` | A discrete numeric level strip with bar, glyph or image segments. | [api](../reference/api.md#newlevelpicker) |
-| `Controls.AsyncImage` | An image with placeholder, failure, and retry states. | [api](../reference/api.md#newasyncimage) |
+| `Controls.AsyncImage` | An image with placeholder, failure, and retry states; View owns its request lease. | [api](../reference/api.md#newasyncimage) |
 | `Controls.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#newcallout) |
 | `Controls.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#controlsnavigationstack) |
 | `Controls.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#newtabview) |
@@ -215,7 +226,7 @@ replacement and their earliest removal version.
 
 | Capability | What it does | Reference |
 |---|---|---|
-| `newPresenter` | Owns screens, modals, toasts and their motion; its reserveHud/hudReservations share measured space between independent HUD surfaces. | [api](../reference/api.md#newpresenter) |
+| `newPresenter` | Owns screens, modals and motion; top/bottom toasts support content-fit widths and animated reflow. reserveHud/hudReservations share space between HUD surfaces. | [api](../reference/api.md#newpresenter) |
 | `navBar` | The back+title+trailing chrome bar a presented surface draws at its own top. | [api](../reference/api.md#navbar) |
 | `newFocusGraph` | Derives keyboard and gamepad navigation from the solved layout. | [api](../reference/api.md#newfocusgraph) |
 | `newActionSystem` | The semantic input pipeline over Roblox's Input Action System. | [api](../reference/api.md#newactionsystem) |
@@ -250,6 +261,8 @@ replacement and their earliest removal version.
 
 | Capability | What it does | Reference |
 |---|---|---|
+| `component` / `View` | Describe a component once; own local state and bind property functions. | [guide](15-components.md) |
+| `Signals` | The pinned official Roblox Signals API for shared raw state. | [api](../reference/api.md#signals) |
 | `newCore` | Creates the reactive runtime: signals, memos, effects, scopes. | [api](../reference/api.md#newcore) |
 | `preload` | Force-loads the eight controls Facet defers, for the loading-screen moment. | [api](../reference/api.md#preload) |
 | `mount` | Turns a blueprint description into a live node graph. | [api](../reference/api.md#mount) |
@@ -396,3 +409,5 @@ Controller page ownership, value hold-repeat and edit Back behavior are covered 
 [Controller navigation ownership](../reference/api.md#controller-navigation-ownership).
 Adaptable bands have [navigation theme chrome](../reference/api.md#navigation-theme-chrome).
 For adaptive search composition and focus-restoring Back, run the Navigation flow Showcase.
+
+Declarative animation, direct conditional children, custom component slots and key-field collections are documented in [Component authoring](15-components.md).

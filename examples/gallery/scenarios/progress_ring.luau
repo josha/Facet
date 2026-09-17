@@ -1,45 +1,7 @@
 --!strict
--- Scenario 'progress_ring' (parity round 3, item D2): the CIRCULAR
--- progress indicator, BOTH forms, on the one surface where a player can see the
--- difference between them.
---
---   * DETERMINATE — `presentation = "circular"` with a value. A ring that fills
---     to the value, over the unfilled capacity ring, exactly as the
---     a capacity gauge is documented ("a closed ring that's
---     partially filled in"). Drive it with the steps; the arc is `arc(0, 360 * f)`.
---   * INDETERMINATE — the same shape with no value: a fixed-sweep head whose
---     START ANGLE advances with the phase, so the ring rotates without any
---     rotation channel existing. There is no native radial primitive in the
---     engine; both forms are `UI.Path` + `Facet.pathShapes.arc`.
---   * ...and the five-dot SPINNER beside it, unchanged, because it is the
---     fallback if the arc's per-frame paint ever fails on a device, and a
---     fixture that dropped it would delete the comparison a device pass needs.
---
--- Both indeterminate views share the surface's own motion clock and this
--- scenario's scope, so the cycles retire with the fixture (the `scope` an
--- indeterminate ProgressView requires). Under reduced motion they keep advancing
--- on the quantized 250 ms tick rather than freezing — a frozen spinner and a hung
--- process look identical.
---
--- The column is hosted in a `fill` ScrollView for the reason `path_ring`'s is:
--- a short landscape phone has less vertical room than this page has content, and
--- the shipped precedent is to make it reachable rather than clip it off.
---
--- ...AND THAT SCROLLER IS THIS SURFACE'S ONE KNOWN LIVE EXPOSURE, stated here
--- rather than left for somebody to find on a phone. `ClipsDescendants` does not
--- crop a `Path2D` — measured in Studio 2026-08-14 (canary D2a), and there is no
--- property on the class by which it could — so when a ring scrolls out of this
--- page's window the ARC keeps painting while every ordinary GuiObject beside it
--- is cropped. Nothing in this repository can see that: the solver's geometry and
--- the engine's own `GetBoundingRect` both honestly report the ring in-box, which
--- is exactly why it is written down. It is not a function of the theme's ring
--- size (progress_view's header has the arithmetic that closes the size-dependent
--- half); it is a property of the primitive, and the alternative — a page that
--- clips its own content off a short phone — is worse.
-
--- EVERY PLAYER-VISIBLE STRING, in one table and exported, so the localization
--- case in tests/examples_gallery.spec.luau can expand all of them ~1.4x. All of
--- it is `policy = "none"` copy: it must fit and wrap, never clip.
+-- Activity indicators inherit the mounted view's owner and presenter clock.
+-- Path2D is not clipped by Roblox ClipsDescendants; this fixture also exposes
+-- that engine limitation when a circular indicator scrolls out of the viewport.
 local COPY = {
 	title = "Progress and activity",
 	caption = "Adjust progress to compare the bar and ring. Activity indicators keep moving while work is running.",
@@ -55,92 +17,65 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local pres = ctx.presenter
-		local scope = core:scope("progress-ring")
-		local clock = pres.motionClock
-
-		local progress = scope:own(core:signal(0.25))
-
-		local bar = scope:own(Facet.Controls.ProgressView(core, {
-			id = "Bar",
-			value = progress,
-			showValue = true,
-			format = function(v)
+		local Facet, UI = ctx.Facet, ctx.Facet.View
+		local progress, writeProgress
+		local Progress = Facet.component(function(ui)
+			progress, writeProgress = ui.state(0.25)
+			local function percent(v)
 				return string.format("%d%%", math.floor(v * 100 + 0.5))
-			end,
-			segments = 5,
-			trail = { delay = 0.3, duration = 0.35 },
-			motionClock = clock,
-		}))
-		local adjust = scope:own(Facet.Controls.Slider(core, {
-			id = "AdjustProgress",
-			value = progress,
-			min = 0,
-			max = 1,
-			step = 0.05,
-		}))
-		local ring = Facet.Controls.ProgressView(core, {
-			id = "Ring",
-			label = COPY.determinate,
-			value = progress,
-			presentation = "circular",
-			diameter = 120,
-			showValue = true,
-			format = function(v)
-				return string.format("%d%%", math.floor(v * 100 + 0.5))
-			end,
-		})
-
-		local busy = Facet.Controls.ProgressView(core, {
-			id = "Busy",
-			label = COPY.indeterminate,
-			presentation = "circular",
-			motionClock = clock,
-			scope = scope,
-		})
-		local dots = Facet.Controls.ProgressView(core, {
-			id = "Dots",
-			label = COPY.spinner,
-			presentation = "spinner",
-			motionClock = clock,
-			scope = scope,
-		})
-
-		local screen = UI.Screen({
-			id = "ProgressRing",
-			padding = "m",
-			children = {
+			end
+			return UI.Screen({
+				id = "ProgressRing",
+				padding = "m",
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					gap = "s",
 					width = UI.fill(),
 					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
-						UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
-						UI.Text({ text = COPY.adjust, width = UI.fill() }),
-						adjust.blueprint,
-						UI.Text({ text = COPY.bar, width = UI.fill() }),
-						bar.blueprint,
-						ring.blueprint,
-						busy.blueprint,
-						dots.blueprint,
-					},
+					UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
+					UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
+					UI.Text({ text = COPY.adjust, width = UI.fill() }),
+					UI.Slider({
+						id = "AdjustProgress",
+						value = progress,
+						onChange = writeProgress,
+						min = 0,
+						max = 1,
+						step = 0.05,
+					}),
+					UI.Text({ text = COPY.bar, width = UI.fill() }),
+					UI.ProgressView({
+						id = "Bar",
+						value = progress,
+						showValue = true,
+						format = percent,
+						segments = 5,
+						trail = { delay = 0.3, duration = 0.35 },
+					}),
+					UI.ProgressView({
+						id = "Ring",
+						label = COPY.determinate,
+						value = progress,
+						presentation = "circular",
+						diameter = 120,
+						showValue = true,
+						format = percent,
+					}),
+					UI.ProgressView({ id = "Busy", label = COPY.indeterminate, presentation = "circular" }),
+					UI.ProgressView({ id = "Dots", label = COPY.spinner, presentation = "spinner" }),
 				}),
-			},
-		})
-
-		local function setProgress(value: number)
-			progress:set(math.clamp(value, 0, 1))
-			return { progress = progress:get(), fraction = ring.dump().fraction }
+			})
+		end)
+		local function report()
+			return { progress = progress(), fraction = progress(), reduced = ctx.presenter.motionClock:isReduced() }
 		end
-
+		local function setProgress(value)
+			writeProgress(math.clamp(value, 0, 1))
+			return report()
+		end
 		return {
-			screen = screen,
+			screen = Progress({}),
 			present = {},
 			steps = {
 				setProgress10 = function()
@@ -150,34 +85,18 @@ return {
 					return setProgress(0.65)
 				end,
 				setProgress100 = function()
-					return setProgress(1.0)
+					return setProgress(1)
 				end,
-				-- step the presenter's own clock so a Studio driver can watch the
-				-- head travel rather than only sample its endpoints
-				advance = function(_built: any, payload: string?)
+				advance = function(_built, payload)
 					local frames = tonumber(payload or "") or 30
 					for _ = 1, math.clamp(math.floor(frames), 1, 600) do
-						pres.tick(1 / 60)
+						ctx.presenter.tick(1 / 60)
 					end
-					return { phase = busy.dump().phase, reduced = clock:isReduced() }
+					return report()
 				end,
 			},
-			report = function()
-				return {
-					progress = progress:get(),
-					fraction = ring.dump().fraction,
-					busyPhase = busy.dump().phase,
-					busyAnimating = busy.dump().animating,
-					dotsPhase = dots.dump().phase,
-					reduced = clock:isReduced(),
-				}
-			end,
-			dispose = function()
-				ring.dispose()
-				busy.dispose()
-				dots.dispose()
-				scope:dispose()
-			end,
+			report = report,
+			dispose = function() end,
 		}
 	end,
 }

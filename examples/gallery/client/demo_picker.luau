@@ -276,6 +276,7 @@ export type MountOpts = {
 	core: any,
 	env: any,
 	presenter: any,
+	composed: boolean?,
 	-- (demo) -> built | nil; the host owns HOW a demo mounts, because that
 	-- differs between the tutorial contract and the scenario contract
 	mountDemo: (Demo) -> any,
@@ -296,28 +297,15 @@ export type MountOpts = {
 -- mount(opts) -> { handle, selection, current, dispose }
 function demo_picker.mount(opts: MountOpts): any
 	local Facet = opts.Facet
-	local UI = Facet.UI
+	local UI = Facet.View
 	local core = opts.core
 	local scope = core:scope("gallery-demo-picker")
-
 	local selection = scope:own(core:signal(demo_picker.initialSelection()))
 	local open = scope:own(core:signal(false))
 	local mounted: any = nil
-	-- WHAT IS ACTUALLY ON SCREEN, which is a different fact from `selection`.
-	-- `selection` is what the player (or a script) ASKED for; this is what they
-	-- GOT, and it is nil whenever `mountDemo` threw. See `show` below for the
-	-- measurement that made the distinction load-bearing.
 	local mountedId: string? = nil
-	-- FORWARD-DECLARED. `show` calls `raise`, and `raise` needs the screen, which
-	-- needs the rows, which need `show`. A local declared later is not an upvalue
-	-- of a function defined earlier — it compiles as a global read and is nil at
-	-- call time (this file was the
-	-- lesson's next victim).
 	local raise: () -> ()
-	-- everyone who has to go back on top after a demo mounts, in registration
-	-- order. The host's own `onRaise` option runs first and is unchanged.
 	local raiseListeners: { (demoHandle: any?) -> () } = {}
-
 	local function disposeMounted()
 		mountedId = nil
 		if mounted == nil then
@@ -331,26 +319,6 @@ function demo_picker.mount(opts: MountOpts): any
 		end
 		mounted = nil
 	end
-
-	--[[ show(id) -> DID IT ACTUALLY MOUNT?
-
-		THE RETURN VALUE IS THE POINT, and it is new. `mountDemo` runs under a
-		`pcall`, so a fixture module that is not replicated, or a build that
-		errors, used to end as a `warn` on a console no scripted caller reads —
-		while `selection` had already advanced and `current()` answered the id of a
-		demo that is not on screen.
-
-		THAT IS NOT HYPOTHETICAL. Measured live in the showcase place on
-		2026-08-15: with one scenario module renamed out from under it,
-		`FacetShowcaseAPI.showNext` answered `{"current":"measured-extents"}` and
-		`current` agreed — over an EMPTY screen. A caller that takes the id on
-		faith then measures whatever surface is still standing (a leftover probe,
-		the chrome, nothing at all) and reports a clean bill of health for a demo
-		it never looked at; one 32-demo sweep scanned a leftover `hud` surface 21
-		times exactly that way (artifacts/hit-expander-overhang/corpus-measurement.md).
-
-		So the answer travels with the request: this returns false, `mountedId`
-		stays nil, and `mounted()` below is what the API reports beside `current`. ]]
 	local function show(id: string): boolean
 		local demo = demo_picker.find(id)
 		if demo == nil then
@@ -360,10 +328,6 @@ function demo_picker.mount(opts: MountOpts): any
 		local ok, built = pcall(opts.mountDemo, demo)
 		if not ok then
 			(opts.warn or print)(`[Facet Showcase] '{demo.title}' failed to mount: {tostring(built)}`)
-			-- RAISE ANYWAY. The previous demo has already been dismissed, so
-			-- returning here left a blank screen with no way back: the chips are
-			-- presented BELOW the demo in z-order, and only `raise` puts them back
-			-- on top. A failed demo must not take the chrome down with it.
 			raise()
 			return false
 		end
@@ -372,66 +336,31 @@ function demo_picker.mount(opts: MountOpts): any
 		raise()
 		return true
 	end
-
-	-- the id of the demo actually on screen, or nil when the last mount failed.
-	-- Published on both return shapes below, beside `current`.
 	local function mountedDemo(): string?
 		return mountedId
 	end
-
-	--[[ THE CHIP'S LABEL, AND WHERE THE CHARACTER CLIP DID AND DID NOT SURVIVE.
-
-		`CHIP_LABEL_CHARS = 14` is documented as "what fits beside the demo picker's
-		chip on the narrowest phone portrait (320px)" — which makes the constant a
-		TWO-CHIP BUDGET written as a number, and clipping by character count the
-		thing `[SHOWCASE-CHROME]: CONCERNS 16` replaced: the composed chrome steps
-		its chips down a `UI.ViewThatFits` ladder to icon-only instead, which is a
-		measurement rather than a guess about a font. So the COMPOSED chip carries
-		the demo's real title and lets the ladder decide.
-
-		The STANDALONE path keeps the clip byte-for-byte: it draws its own chip into
-		its own 62px strip with no ladder above it, and the eight single-example
-		places' geometry assertions are written against that. ]]
-	local currentTitle = scope:own(core:memo(function(use)
-		local demo = demo_picker.find(use(selection))
-		local title = if demo ~= nil then demo.title else "—"
-		if opts.composed == true then
-			return title
-		end
-		return demo_picker.clip(title, demo_picker.CHIP_LABEL_CHARS)
-	end))
-	local toggleLabel = scope:own(core:memo(function(use)
-		return if use(open) then "Close" else use(currentTitle)
-	end))
-
-	-- A FUNCTION, NOT AN ARRAY. The composed host draws its rows inside its own
-	-- card (`rows` below) while the standalone path keeps its own `ScrollView`
-	-- (`list`); building the blueprints twice keeps the two trees from ever
-	-- sharing a node table, which is the kind of aliasing that only misbehaves
-	-- once both are mounted at the same time. The `selected` memos are shared —
-	-- they are derived state, not nodes.
-	local isCurrentOf: { [string]: any } = {}
-	for _, demo in demo_picker.DEMOS do
-		isCurrentOf[demo.id] = scope:own(core:memo(function(use)
-			return use(selection) == demo.id
-		end))
-	end
-	local function buildRows(): { any }
+	-- Selection and open state belong to the host because the picker remounts
+	-- when another demo is raised. Each mounted view owns its derived bindings.
+	local Rows = Facet.component(function(ui, props)
+		local current = ui.read(selection)
 		local rows = {}
 		for _, demo in demo_picker.DEMOS do
 			table.insert(
 				rows,
-				UI.Button({
+				Facet.UI.Button({
 					id = demo.id,
 					label = demo.title,
-					selected = isCurrentOf[demo.id],
+					-- The primitive exposes selected paint for this navigation row.
+					selected = function()
+						return current() == demo.id
+					end,
 					onActivate = function()
-						local command = demo_picker.choose(selection:get(), demo.id)
+						local command = demo_picker.choose(current(), demo.id)
 						if command.action == "swap" then
 							selection:set(command.selection)
 							show(command.selection)
 						end
-						if opts.onChose ~= nil then
+						if opts.onChose then
 							opts.onChose()
 						else
 							open:set(false)
@@ -440,15 +369,19 @@ function demo_picker.mount(opts: MountOpts): any
 				})
 			)
 		end
-
-		return rows
-	end
-
-	-- THE CHIP and THE LIST, as pieces. The host composes them into one chrome
-	-- surface beside the theme picker's chip when it asks for `composed`; the
-	-- historical screen below is what a non-composing caller still gets.
-	-- see theme_picker's chip: one HStack cannot hold two children called
-	-- "Toggle", and the historical id stays on the non-composed path
+		if props.scroll then
+			return UI.ScrollView({
+				id = "Rows",
+				gap = "xs",
+				surface = "raised",
+				padding = "s",
+				width = UI.hug(),
+				height = UI.hug(),
+				children = rows,
+			})
+		end
+		return UI.VStack({ id = "Rows", gap = "xs", width = UI.fill(), children = rows })
+	end)
 	local function pressChip()
 		if opts.onChip ~= nil then
 			opts.onChip()
@@ -456,102 +389,34 @@ function demo_picker.mount(opts: MountOpts): any
 			open:set(not open:get())
 		end
 	end
-	local chip = UI.Button({
-		id = if opts.composed == true then "DemoToggle" else "Toggle",
-		label = toggleLabel,
-		surface = "chip",
-		onActivate = pressChip,
-	})
-	-- THE ICON RUNG of the chrome's `ViewThatFits` ladder (CONCERNS 16: step the
-	-- chips down to icon-only rather than clipping their labels by character
-	-- count). `label` stays and is not drawn, so the rung is still a control with
-	-- an accessible name; "menu" is the framework's own list mark.
-	local iconChip = UI.Button({
-		id = "DemoToggleIcon",
-		label = toggleLabel,
-		surface = "chip",
-		shape = "circle",
-		icon = "menu",
-		onActivate = pressChip,
-	})
-	-- THE LIST SCROLLS, AND IT IS SIZED `hug` ON BOTH AXES (director report
-	-- 2026-07-27, found live under Pixel Quest). This was a plain `VStack`, so it
-	-- had no cap and no scroller: nine demos at a pixel package's row height came
-	-- to 720px inside the 689px this overlay actually gets on a notched phone
-	-- (844 viewport, less 59+34 safe insets, less the 62px reserved chrome strip)
-	-- and the last demo was simply cut off the bottom of the screen with no way to
-	-- reach it. Landscape is far worse: 700px of list in 235px of room.
-	--
-	-- NINE IS THAT MEASUREMENT'S COUNT, NOT TODAY'S. The catalogue stands at
-	-- ELEVEN since the parity round-2 fixtures joined it, which moves the
-	-- margin the wrong way — and is exactly why the fix had to be a cap rather
-	-- than a taller literal. Adding a demo does not send anyone back to re-measure
-	-- this number; that is the property the cap bought.
-	--
-	-- The THEME picker met this exact defect in round 10 and its fix is written up
-	-- at length beside its own panel — including the three wrong shapes that came
-	-- first (a ScrollView around the card clips the card; one inside it makes two
-	-- raised surfaces; and `fill` never registers overflow at all because a fill
-	-- box is by definition never smaller than its content). This picker is the
-	-- sibling that was missed.
-	--
-	-- `ScrollView` takes `surface` and `padding` like any container, so the
-	-- scroller IS the card: one node, one edge, one padding, scrollbar inside it
-	-- by construction. `hug` is the content size CAPPED at what the parent
-	-- offered, which is one declaration for both cases — a short list stops at its
-	-- last row, a long one lets the cap bite so the overflow turns scrolling on.
-	local list = UI.ScrollView({
-		id = "Rows",
-		gap = "xs",
-		surface = "raised",
-		padding = "s",
-		width = UI.hug(),
-		height = UI.hug(),
-		children = buildRows(),
-	})
-	-- ...AND THE PLAIN STACK the composed host puts inside ITS card. The chrome's
-	-- panel is already a `ScrollView` with `surface = "raised"` — the scroller IS
-	-- the card — so handing it the `list` above would nest a raised scroller in a
-	-- raised scroller, which is wrong shape #2 from the theme picker's round-10
-	-- write-up (a rounded panel inside a rounded panel with a gutter and no
-	-- meaning to it).
-	local rowsStack = UI.VStack({
-		id = "Rows",
-		gap = "xs",
-		width = UI.fill(),
-		children = buildRows(),
-	})
-
+	local Chip = Facet.component(function(ui, props)
+		local current, expanded = ui.read(selection), ui.read(open)
+		local label = ui.memo(function()
+			if expanded() then
+				return "Close"
+			end
+			local demo = demo_picker.find(current())
+			local title = if demo then demo.title else "—"
+			return if opts.composed then title else demo_picker.clip(title, demo_picker.CHIP_LABEL_CHARS)
+		end)
+		-- These primitive hit targets need chip paint and a circular icon form.
+		return Facet.UI.Button({
+			id = props.id,
+			label = label,
+			surface = "chip",
+			shape = if props.icon then "circle" else nil,
+			icon = if props.icon then "menu" else nil,
+			onActivate = pressChip,
+		})
+	end)
+	local chip = Chip({ id = if opts.composed then "DemoToggle" else "Toggle" })
+	local iconChip = Chip({ id = "DemoToggleIcon", icon = true })
+	local list, rowsStack = Rows({ scroll = true }), Rows({})
 	if opts.composed == true then
-		--[[ IN COMPOSED MODE THIS PICKER OWNS NO SURFACE, so "raise" means "ask the
-			host to put its chrome back on top" — the demo it just mounted was
-			presented after the chrome and therefore draws over it. `show` calls this,
-			and `raise` is a forward-declared local: leaving it nil here would make the
-			first demo swap a nil call.
-
-			IT IS A LIST NOW, NOT ONE CALLBACK (director round 3, 2026-08-21). The host
-			option is the theme picker's; the CHROME needs the same signal for its open
-			panel, and it is constructed after this picker, so it cannot be an option.
-			A panel that is not raised is a transient the live screen climbs over — the
-			z-order the whole arrangement leans on is PRESENT ORDER, and a demo swap
-			re-presents the demo. Measured: six swaps put the demo at displayOrder
-			11000 against a panel presented at 10400. ]]
 		raise = function()
 			if opts.onRaise ~= nil then
 				opts.onRaise()
 			end
-			--[[ THE HANDLE RIDES ALONG, and the error does not vanish (review
-				MINOR-2). A listener is told WHICH demo handle it is being raised over,
-				so a surface that is already above it can decline to spend a present
-				(`showcase_chrome`'s raisePanel: the presenter's `displayLayer` counter
-				only goes up). `mounted` is nil when the mount failed, which is exactly
-				the case where nothing climbed and nothing needs raising.
-
-				`pcall` stays — one broken listener must not take the rest of the
-				chrome down with it — but the error is REPORTED now, through the same
-				`warn` seam the mount failure two screens up already uses. A protected
-				call that drops what it caught is a listener that silently stops
-				working. ]]
 			local handle = if mounted ~= nil then mounted.handle else nil
 			for _, listener in raiseListeners do
 				local ok, err = pcall(listener, handle)
@@ -567,10 +432,6 @@ function demo_picker.mount(opts: MountOpts): any
 			rows = rowsStack,
 			open = open,
 			selection = selection,
-			--[[ REGISTER TO GO BACK ON TOP. Returns its own unsubscribe, so a caller
-				with a scope owns it the way it owns an observer. Called AFTER the demo
-				is mounted and presented, which is the only moment at which "put me
-				back on top" means anything. ]]
 			watchRaise = function(fn: (demoHandle: any?) -> ()): () -> ()
 				table.insert(raiseListeners, fn)
 				return function()
@@ -580,8 +441,6 @@ function demo_picker.mount(opts: MountOpts): any
 					end
 				end
 			end,
-			-- the host mounts the first demo itself once its chrome is up: this
-			-- picker no longer owns a surface to raise above it
 			show = show,
 			current = function()
 				return selection:get()
@@ -598,49 +457,29 @@ function demo_picker.mount(opts: MountOpts): any
 			end,
 		}
 	end
-
-	-- INSIDE THE RESERVED STRIP, at its left end (the theme chip takes the
-	-- right). The negative offset lifts this surface back INTO the strip that
-	-- `appChromeInsets` reserved for it.
 	local screen = UI.Screen({
 		id = "ShowcaseDemos",
 		padding = "s",
-		children = {
-			UI.Anchor({
-				id = "Dock",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					UI.VStack({
-						id = "Panel",
-						anchor = "topLeft",
-						offsetY = -demo_picker.BAR_HEIGHT,
-						gap = "xs",
-						children = {
-							chip,
-							UI.When({
-								id = "List",
-								condition = open,
-								thenView = function()
-									return list
-								end,
-							}),
-						},
-					}),
-				},
+		UI.Anchor({
+			id = "Dock",
+			width = UI.fill(),
+			height = UI.fill(),
+			UI.VStack({
+				id = "Panel",
+				anchor = "topLeft",
+				offsetY = -demo_picker.BAR_HEIGHT,
+				gap = "xs",
+				chip,
+				UI.When({
+					id = "List",
+					condition = open,
+					thenView = function()
+						return list
+					end,
+				}),
 			}),
-		},
+		}),
 	})
-
-	-- Z-ORDER IS PRESENT ORDER (presenter §2.2: each later surface renders
-	-- above). There is no opts.displayOrder and no bring-to-front, so a demo
-	-- presented after this overlay draws OVER it — which is exactly what
-	-- happened: the all-controls stepper rendered on top of the demo chip and
-	-- cut its label in half.
-	--
-	-- So the overlay re-presents itself after every demo mount. It is a two-node
-	-- surface; rebuilding it is cheaper than the alternative of teaching the
-	-- presenter a raise operation for one example's benefit.
 	local handle: any = nil
 	function raise()
 		if handle ~= nil then
@@ -651,12 +490,8 @@ function demo_picker.mount(opts: MountOpts): any
 			opts.onRaise()
 		end
 	end
-
 	raise()
-	-- mount the first demo immediately: an empty screen with one button on it
-	-- is not a showcase
 	show(selection:get())
-
 	return {
 		handleOf = function()
 			return handle
@@ -681,5 +516,4 @@ function demo_picker.mount(opts: MountOpts): any
 		end,
 	}
 end
-
 return demo_picker

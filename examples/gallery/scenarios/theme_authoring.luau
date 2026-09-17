@@ -139,7 +139,10 @@ return {
 			probe.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "LayerProbe",
 				surface = "raised",
-				children = { themed.blueprint, overridden.blueprint, field.blueprint, disabledField.blueprint },
+				themed.blueprint,
+				overridden.blueprint,
+				field.blueprint,
+				disabledField.blueprint,
 			}))
 			ctx.presenter.refresh()
 			return {
@@ -262,16 +265,15 @@ return {
 			values.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "ValueProbe",
 				surface = "raised",
-				children = {
-					bar.blueprint,
-					Facet.UI.Toggle({ id = "Switch", label = "Candlelight", value = values.switch }),
-					-- the DISABLED state, reached through the public prop rather than
-					-- a raw Interactable poke. The test package supplies no `disabled`
-					-- toggle art, which is the point: the accessibility floor still
-					-- applies over `default`.
-					Facet.UI.Toggle({ id = "SwitchOff", label = "Locked", value = values.switch, enabled = false }),
-					steps.blueprint,
-				},
+
+				bar.blueprint,
+				Facet.UI.Toggle({ id = "Switch", label = "Candlelight", value = values.switch }),
+				-- the DISABLED state, reached through the public prop rather than
+				-- a raw Interactable poke. The test package supplies no `disabled`
+				-- toggle art, which is the point: the accessibility floor still
+				-- applies over `default`.
+				Facet.UI.Toggle({ id = "SwitchOff", label = "Locked", value = values.switch, enabled = false }),
+				steps.blueprint,
 			}))
 			ctx.presenter.refresh()
 			return { presented = true, paths = VALUE_PATHS }
@@ -553,26 +555,28 @@ return {
 			adjacency.handle = ctx.presenter.present(Facet.UI.Screen({
 				id = "AdjacencyProbe",
 				padding = 0,
-				children = {
-					-- ONE ODD HOST per row, and the row IS the host: 401 halves to
-					-- 200.5 and thirds to 133.67, so both are asking the solver for a
-					-- fraction the engine cannot draw. `gap = 0` leaves nothing
-					-- between the cells but the boundary itself.
-					UI.HStack({
-						id = "HostTwo",
-						width = { type = "fixed", px = 401 },
-						height = { type = "fixed", px = 40 },
-						gap = 0,
-						children = { cell("A"), cell("B") },
-					}),
-					UI.HStack({
-						id = "HostThree",
-						width = { type = "fixed", px = 401 },
-						height = { type = "fixed", px = 40 },
-						gap = 0,
-						children = { cell("C"), cell("D"), cell("E") },
-					}),
-				},
+
+				-- ONE ODD HOST per row, and the row IS the host: 401 halves to
+				-- 200.5 and thirds to 133.67, so both are asking the solver for a
+				-- fraction the engine cannot draw. `gap = 0` leaves nothing
+				-- between the cells but the boundary itself.
+				UI.HStack({
+					id = "HostTwo",
+					width = { type = "fixed", px = 401 },
+					height = { type = "fixed", px = 40 },
+					gap = 0,
+					cell("A"),
+					cell("B"),
+				}),
+				UI.HStack({
+					id = "HostThree",
+					width = { type = "fixed", px = 401 },
+					height = { type = "fixed", px = 40 },
+					gap = 0,
+					cell("C"),
+					cell("D"),
+					cell("E"),
+				}),
 			}))
 			ctx.presenter.refresh()
 			return { presented = true, paths = ADJ_PATHS }
@@ -707,43 +711,41 @@ return {
 				-- clears the Roblox topbar, and keeps the end caps off the very
 				-- edge of the viewport so a capture shows the dial's whole width
 				padding = { top = 56, right = 32, bottom = 32, left = 32 },
-				children = {
-					module.blueprint(Facet.UI, core, resolved, {
-						id = "Gauge",
-						label = "Boiler pressure (gauge:dial)",
-						fraction = gauge.fraction,
-						heightPx = gauge.heightPx,
-					}),
-					-- RUNG 2, the whole modifier set on one node. The gradient is
-					-- the charter's cap-11 per-view wash: bounded data, one
-					-- adapter-owned `FacetGradient` child, and it must survive a
-					-- package swap while the theme keeps painting this node's
-					-- surface, corner and everything around it.
-					Facet.UI.shadow(
-						Facet.UI.gradient(
-							Facet.UI.VStack({
-								id = "WashCard",
-								surface = "raised",
-								width = Facet.UI.fill(),
-								height = { type = "fixed", px = 96 },
-								padding = { top = 12, right = 16, bottom = 12, left = 16 },
-								children = {
-									Facet.UI.Text({
-										id = "WashLabel",
-										text = "Rung 2: UI.gradient on this card only",
-										textSize = "caption",
-									}),
-								},
+
+				module.blueprint(Facet.UI, core, resolved, {
+					id = "Gauge",
+					label = "Boiler pressure (gauge:dial)",
+					fraction = gauge.fraction,
+					heightPx = gauge.heightPx,
+				}),
+				-- RUNG 2, the whole modifier set on one node. The gradient is
+				-- the charter's cap-11 per-view wash: bounded data, one
+				-- adapter-owned `FacetGradient` child, and it must survive a
+				-- package swap while the theme keeps painting this node's
+				-- surface, corner and everything around it.
+				Facet.UI.shadow(
+					Facet.UI.gradient(
+						Facet.UI.VStack({
+							id = "WashCard",
+							surface = "raised",
+							width = Facet.UI.fill(),
+							height = { type = "fixed", px = 96 },
+							padding = { top = 12, right = 16, bottom = 12, left = 16 },
+
+							Facet.UI.Text({
+								id = "WashLabel",
+								text = "Rung 2: UI.gradient on this card only",
+								textSize = "caption",
 							}),
-							{
-								colors = { "surfaceStrong", "accent" },
-								rotation = 90,
-								transparency = { 0.1, 0.3 },
-							}
-						),
-						"raised"
+						}),
+						{
+							colors = { "surfaceStrong", "accent" },
+							rotation = 90,
+							transparency = { 0.1, 0.3 },
+						}
 					),
-				},
+					"raised"
+				),
 			}))
 			ctx.presenter.refresh()
 			return { presented = true, paths = GAUGE_PATHS, resolved = resolved, builtUnder = gauge.builtUnder }
@@ -791,27 +793,25 @@ return {
 				-- clears the Roblox topbar so a capture shows the whole row
 				padding = { top = 56, right = 24, bottom = 24, left = 24 },
 				gap = "m",
-				children = {
-					UI.Text({ id = "Title", text = "shape = circle", textSize = "heading" }),
-					UI.HStack({
-						id = "Row",
-						gap = "m",
-						align = "center",
-						children = {
-							UI.Button({ id = "Dots", label = "...", shape = "circle" }),
-							UI.Button({ id = "Close", label = "Dismiss", shape = "circle", icon = "close" }),
-							UI.Button({ id = "Menu", label = "Open menu", shape = "circle", icon = "menu" }),
-							UI.Button({
-								id = "Wide",
-								label = "9+",
-								shape = "circle",
-								width = { type = "fixed", px = 72 },
-							}),
-							UI.Button({ id = "Accent", label = "OK", shape = "circle", surface = "accent" }),
-							UI.Button({ id = "Rect", label = "Rect" }),
-						},
+
+				UI.Text({ id = "Title", text = "shape = circle", textSize = "heading" }),
+				UI.HStack({
+					id = "Row",
+					gap = "m",
+					align = "center",
+
+					UI.Button({ id = "Dots", label = "...", shape = "circle" }),
+					UI.Button({ id = "Close", label = "Dismiss", shape = "circle", icon = "close" }),
+					UI.Button({ id = "Menu", label = "Open menu", shape = "circle", icon = "menu" }),
+					UI.Button({
+						id = "Wide",
+						label = "9+",
+						shape = "circle",
+						width = { type = "fixed", px = 72 },
 					}),
-				},
+					UI.Button({ id = "Accent", label = "OK", shape = "circle", surface = "accent" }),
+					UI.Button({ id = "Rect", label = "Rect" }),
+				}),
 			}))
 			ctx.presenter.refresh()
 			return { presented = true, paths = CIRCLE_PATHS }

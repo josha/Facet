@@ -352,26 +352,21 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 end
 
 function example.build(Facet: any, core: any, deps: any)
-	local UI = Facet.UI
+	local UI = Facet.View
 	local pres = deps.presenter
 	local actions = deps.actionSystem
-
-	-- gameScope owns everything this example creates, so dispose() returns the
-	-- registries to exactly where they were before build().
+	-- Game state and hardware input survive view branches and result overlays.
+	-- Only this model boundary owns a Core scope; view calculations belong to ui.
 	local gameScope = core:scope("example-05-word-game")
 	local function reg(readable: any): any
-		gameScope:own(function()
-			readable:dispose()
-		end)
+		gameScope:own(readable)
 		return readable
 	end
-
-	-- ---- state --------------------------------------------------------------
 	local rowsSig = reg(core:signal(emptyRows()))
-	local activeSig = reg(core:signal(1)) -- the row letters land in; ROWS+1 = finished
+	local activeSig = reg(core:signal(1))
 	local keysSig = reg(core:signal({} :: { [string]: string }))
-	local phaseSig = reg(core:signal("playing")) -- "playing" | "won" | "lost"
-	local noticeSig = reg(core:signal("")) -- refusal / outcome copy for the status line
+	local phaseSig = reg(core:signal("playing"))
+	local noticeSig = reg(core:signal(""))
 	local seedSig = reg(core:signal(1))
 	local solutionSig = reg(core:memo(function(use)
 		return rules.solutionForSeed(use(seedSig))
@@ -380,15 +375,12 @@ function example.build(Facet: any, core: any, deps: any)
 		return use(phaseSig) == "playing"
 	end))
 	local modalHandle: any = nil
-
-	-- ---- game commands (pure state; they know nothing about the view) -------
 	local function isPlaying(): boolean
 		return phaseSig:get() == "playing"
 	end
-
 	local function typeLetter(letter: string)
 		if not isPlaying() then
-			return -- input is disabled after a win or a loss
+			return
 		end
 		local rows = cloneRows(rowsSig:get())
 		local row = rows[activeSig:get()]
@@ -398,10 +390,9 @@ function example.build(Facet: any, core: any, deps: any)
 		row.letters ..= letter
 		core:transaction(function()
 			rowsSig:set(rows)
-			noticeSig:set("") -- editing clears a refusal message
+			noticeSig:set("")
 		end)
 	end
-
 	local function backspace()
 		if not isPlaying() then
 			return
@@ -417,14 +408,12 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set("")
 		end)
 	end
-
 	local function closeResults()
 		if modalHandle ~= nil then
 			pres.dismiss(modalHandle)
 			modalHandle = nil
 		end
 	end
-
 	local function restart(seed: number?)
 		closeResults()
 		local nextSeed = if seed ~= nil then math.max(1, math.floor(seed)) else seedSig:get() + 1
@@ -437,66 +426,52 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set("")
 		end)
 	end
-
-	-- The results card. Presented ON TOP of the board, so the board stays
-	-- readable behind the scrim. It is built at open time from plain strings —
-	-- nothing in it needs to react, because it is replaced on the next ending.
 	local function openResults(solved: boolean, solution: string, guesses: number)
 		closeResults()
 		modalHandle = pres.presentModal(UI.Screen({
 			id = "WordleResult",
 			surface = "scrim",
 			padding = "m",
-			children = {
-				-- A Screen's own alignH/alignV are ZSTACK-CHILD props and are
-				-- silently ignored here; centring a card means putting a filling
-				-- ZStack in between and letting its children inherit its alignment.
-				UI.ZStack({
-					id = "centre",
-					width = FILL,
-					height = FILL,
-					alignH = "center",
-					alignV = "center",
-					children = {
-						UI.VStack({
-							id = "Card",
-							surface = "raised",
-							padding = "m",
-							gap = "s",
-							align = "center",
-							children = {
-								UI.Text({
-									id = "Msg",
-									text = if solved then "Solved!" else "Out of guesses",
-									textSize = "heading",
-								}),
-								UI.Text({
-									id = "Word",
-									text = if solved
-										then `{solution} in {guesses} {if guesses == 1 then "guess" else "guesses"}.`
-										else `The word was {solution}.`,
-									textSize = "body",
-								}),
-								UI.Button({
-									id = "Again",
-									label = "New game",
-									onActivate = function()
-										restart()
-									end,
-								}),
-								UI.Button({
-									id = "Close",
-									label = "Close",
-									onActivate = closeResults,
-								}),
-							},
-						}),
-					},
+			UI.ZStack({
+				id = "centre",
+				width = FILL,
+				height = FILL,
+				alignH = "center",
+				alignV = "center",
+				UI.VStack({
+					id = "Card",
+					surface = "raised",
+					padding = "m",
+					gap = "s",
+					align = "center",
+					UI.Text({
+						id = "Msg",
+						text = if solved then "Solved!" else "Out of guesses",
+						textSize = "heading",
+					}),
+					UI.Text({
+						id = "Word",
+						text = if solved
+							then `{solution} in {guesses} {if guesses == 1 then "guess" else "guesses"}.`
+							else `The word was {solution}.`,
+						textSize = "body",
+					}),
+					UI.Button({
+						id = "Again",
+						label = "New game",
+						onActivate = function()
+							restart()
+						end,
+					}),
+					UI.Button({
+						id = "Close",
+						label = "Close",
+						onActivate = closeResults,
+					}),
 				}),
-			},
+			}),
 		}))
 	end
-
 	local function submit()
 		if not isPlaying() then
 			return
@@ -508,30 +483,21 @@ function example.build(Facet: any, core: any, deps: any)
 			return
 		end
 		local guess = row.letters
-
-		-- REFUSALS NEVER CONSUME A ROW: the letters stay where they are, the
-		-- active row does not move, and the player is told why.
 		local verdict = rules.validate(guess)
 		if verdict == "short" then
 			noticeSig:set(`Not enough letters — {#guess} of {COLS}. This row is still yours.`)
 			return
 		elseif verdict == "unknown" then
-			-- A REFUSAL IS A FACT ABOUT THIS GAME, NOT ABOUT ENGLISH. The accepted
-			-- set is 6,421 five-letter words and still finite, so "that is not a
-			-- word" is a claim the game cannot make — and "it is not in the list"
-			-- asks the player to care about a data structure. What is true, and
-			-- what a player can act on, is that this game did not recognise it.
 			noticeSig:set(`{guess} — this game doesn't know that word. Try another.`)
 			return
 		end
-
 		local solution = solutionSig:get()
 		local states = rules.evaluate(guess, solution)
 		row.submitted = true
 		row.states = states
 		local keys = rules.mergeKeys(keysSig:get(), guess, states)
 		core:transaction(function()
-			rowsSig:set(rows) -- the scored row keeps its verdict from here on
+			rowsSig:set(rows)
 			keysSig:set(keys)
 			activeSig:set(active + 1)
 			if guess == solution then
@@ -548,55 +514,50 @@ function example.build(Facet: any, core: any, deps: any)
 			openResults(phaseSig:get() == "won", solution, active)
 		end
 	end
-
-	-- ---- the board: one UI.Grid, thirty bound tiles -------------------------
-	local tiles = {}
+	local statusSig: any
 	local tileStateOf: { [string]: any } = {}
 	local tileSurfaceOf: { [string]: any } = {}
-	for r = 1, ROWS do
-		for c = 1, COLS do
-			local rr, cc = r, c
-			local state = reg(core:memo(function(use)
-				return tileState(use(rowsSig), use(activeSig), rr, cc)
-			end))
-			local letter = reg(core:memo(function(use)
-				return use(rowsSig)[rr].letters:sub(cc, cc)
-			end))
-			local tint = reg(core:memo(function(use)
-				return TILE_TINT[use(state)]
-			end))
-			local mark = reg(core:memo(function(use)
-				return TILE_MARK[use(state)]
-			end))
-			-- ...and the row cue. Its own memo rather than a branch inside `tint`
-			-- because it is a different channel answering a different question:
-			-- `tint` says what is known about this cell, `surface` says whether
-			-- this row is the one TAKING LETTERS. Which is why it reads the phase
-			-- as well as the row — a finished game is taking nothing, so the board
-			-- must not go on pointing at a row the keyboard can no longer fill.
-			local surface = reg(core:memo(function(use)
-				local taking = use(playingSig) and use(activeSig) == rr
-				return if taking then ACTIVE_ROW_PLATE.surface else IDLE_ROW_PLATE.surface
-			end))
-			tileStateOf[`{rr}:{cc}`] = state
-			tileSurfaceOf[`{rr}:{cc}`] = surface
-			table.insert(
-				tiles,
-				UI.ZStack({
-					id = `tile{r}_{c}`,
-					width = TILE,
-					height = TILE,
-					alignH = "center",
-					alignV = "center",
-					children = {
-						-- the plate. A Box's one paint channel is `tint`, so this is
-						-- where the state colour lives; `surface` beside it is the
-						-- theme's own chrome, and the two do not fight — the tint is an
-						-- explicit per-node claim on the fill, the surface is a tag the
-						-- theme's border and corner rules hang off.
+	local keyPathByLetter: { [string]: any } = {}
+	local WordGame = Facet.component(function(ui)
+		local rowsSigNow = ui.read(rowsSig)
+		local activeSigNow = ui.read(activeSig)
+		local keysSigNow = ui.read(keysSig)
+		local noticeSigNow = ui.read(noticeSig)
+		local playingSigNow = ui.read(playingSig)
+		-- Custom board/keyboard hit targets use Facet.UI.Button for surface and
+		-- compact glyph sizing; ordinary actions use UI.Button.
+		local tiles = {}
+		for r = 1, ROWS do
+			for c = 1, COLS do
+				local rr, cc = r, c
+				local state = ui.memo(function()
+					return tileState(rowsSigNow(), activeSigNow(), rr, cc)
+				end)
+				local letter = ui.memo(function()
+					return rowsSigNow()[rr].letters:sub(cc, cc)
+				end)
+				local tint = ui.memo(function()
+					return TILE_TINT[state()]
+				end)
+				local mark = ui.memo(function()
+					return TILE_MARK[state()]
+				end)
+				local surface = ui.memo(function()
+					local taking = playingSigNow() and activeSigNow() == rr
+					return if taking then ACTIVE_ROW_PLATE.surface else IDLE_ROW_PLATE.surface
+				end)
+				tileStateOf[`{rr}:{cc}`] = state
+				tileSurfaceOf[`{rr}:{cc}`] = surface
+				table.insert(
+					tiles,
+					UI.ZStack({
+						id = `tile{r}_{c}`,
+						width = TILE,
+						height = TILE,
+						alignH = "center",
+						alignV = "center",
 						UI.Box({ id = "fill", width = FILL, height = FILL, tint = tint, surface = surface }),
 						UI.Text({ id = "ch", text = letter, textSize = "heading" }),
-						-- ...and the same fact again, without colour.
 						UI.Text({
 							id = "mark",
 							text = mark,
@@ -605,164 +566,110 @@ function example.build(Facet: any, core: any, deps: any)
 							alignH = "end",
 							alignV = "end",
 						}),
-					},
-				})
-			)
-		end
-	end
-	-- `columns` is the whole board layout — the example never places a tile.
-	-- `itemSizing = "uniform"` is what makes it a BOARD rather than five columns
-	-- of whatever width the screen happens to be: every cell takes the widest
-	-- measured cell (one tile), so the grid reports 5 tiles + 4 gaps as its own
-	-- width and the parent stack's `align = "center"` can centre it. Without it
-	-- a grid says "I need the whole offer", and the tiles scatter across a
-	-- desktop with a hundred pixels of nothing between them.
-	local board =
-		UI.Grid({ id = "board", columns = COLS, gap = "xs", rowGap = "xs", itemSizing = "uniform", children = tiles })
-
-	-- ---- the on-screen keyboard: three HStack rows --------------------------
-	-- Each key carries its APP SEMANTICS on its own node `onActivate`: a tap, or
-	-- Return/A on the focused key, runs that key's command. The presenter
-	-- dispatches Activate here with no consumer routing, and derives the two-
-	-- dimensional navigation directly from these HStack rows
-	-- (layout-derived groups): Left/Right within a row, Up/Down between rows
-	-- landing on the nearest key in the same column. No navigation map here.
-	local keyPathByLetter: { [string]: string } = {}
-	local keyboardRows = {}
-	for ri, keys in KEYBOARD do
-		local rowId = "kbrow" .. ri
-		local buttons = {}
-		for ki, key in keys do
-			local thisKey = key
-			local isCommand = key == "Enter" or key == "Back"
-			local labelOf: any
-			local surfaceOf: any
-			if isCommand then
-				labelOf = if key == "Enter" then "Enter" else "Delete"
-			else
-				local state = reg(core:memo(function(use)
-					return use(keysSig)[thisKey] or "unknown"
-				end))
-				labelOf = reg(core:memo(function(use)
-					local s = use(state)
-					local m = KEY_MARK[s]
-					return if m ~= nil then thisKey .. m else thisKey
-				end))
-				surfaceOf = reg(core:memo(function(use)
-					return KEY_SURFACE[use(state)]
-				end))
+					})
+				)
 			end
-			buttons[ki] = UI.Button({
-				id = "key_" .. key,
-				label = labelOf,
-				-- `compactLabel` is what a Button draws when the full label does not
-				-- fit the box it ends up with — on a narrow phone "Delete" becomes
-				-- "Del" rather than an ellipsis.
-				compactLabel = if key == "Back" then "Del" else nil,
-				surface = surfaceOf,
-				-- after a win or a loss the whole keyboard goes dead; only "New
-				-- game" and the results card still respond.
-				enabled = playingSig,
-				textSize = "label",
-				-- a key is a LETTER IN A BOX: the theme's button inset would leave
-				-- no room for the glyph in a tenth of a phone's width, and the box
-				-- itself already carries the target height.
-				padding = 0,
-				width = if isCommand then WIDE_KEY else FILL,
-				height = KEY_HEIGHT,
-				onActivate = function()
-					if thisKey == "Enter" then
-						submit()
-					elseif thisKey == "Back" then
-						backspace()
-					else
-						typeLetter(thisKey)
-					end
-				end,
-			})
-			keyPathByLetter[key] = `/Wordle/page/col/kb/{rowId}/key_{key}`
 		end
-		keyboardRows[ri] = UI.HStack({ id = rowId, width = FILL, gap = "xs", children = buttons })
-	end
-	local keyboard = UI.VStack({ id = "kb", width = FILL, gap = "xs", children = keyboardRows })
-
-	-- ---- the status line ----------------------------------------------------
-	local statusSig = reg(core:memo(function(use)
-		local notice = use(noticeSig)
-		if notice ~= "" then
-			return notice
+		local board = UI.Grid({
+			id = "board",
+			columns = COLS,
+			gap = "xs",
+			rowGap = "xs",
+			itemSizing = "uniform",
+			children = tiles,
+		})
+		local keyboardRows = {}
+		for ri, keys in KEYBOARD do
+			local rowId = "kbrow" .. ri
+			local buttons = {}
+			for ki, key in keys do
+				local thisKey = key
+				local isCommand = key == "Enter" or key == "Back"
+				local labelOf: any
+				local surfaceOf: any
+				if isCommand then
+					labelOf = if key == "Enter" then "Enter" else "Delete"
+				else
+					local state = ui.memo(function()
+						return keysSigNow()[thisKey] or "unknown"
+					end)
+					labelOf = ui.memo(function()
+						local s = state()
+						local m = KEY_MARK[s]
+						return if m ~= nil then thisKey .. m else thisKey
+					end)
+					surfaceOf = ui.memo(function()
+						return KEY_SURFACE[state()]
+					end)
+				end
+				buttons[ki] = Facet.UI.Button({
+					id = "key_" .. key,
+					label = labelOf,
+					compactLabel = if key == "Back" then "Del" else nil,
+					surface = surfaceOf,
+					enabled = playingSig,
+					textSize = "label",
+					padding = 0,
+					width = if isCommand then WIDE_KEY else FILL,
+					height = KEY_HEIGHT,
+					onActivate = function()
+						if thisKey == "Enter" then
+							submit()
+						elseif thisKey == "Back" then
+							backspace()
+						else
+							typeLetter(thisKey)
+						end
+					end,
+				})
+				keyPathByLetter[key] = `/Wordle/page/col/kb/{rowId}/key_{key}`
+			end
+			keyboardRows[ri] = UI.HStack({ id = rowId, width = FILL, gap = "xs", children = buttons })
 		end
-		return `Guess the five-letter word — row {math.min(use(activeSig), ROWS)} of {ROWS}.`
-	end))
-
-	local screen = UI.Screen({
-		id = "Wordle",
-		-- A screen with no surface floats transparently over whatever is behind
-		-- it; `base` is the app background this game is meant to sit on.
-		surface = "base",
-		padding = "m",
-		children = {
-			-- The board plus a keyboard is tall. It fits a compact phone at the
-			-- default text size and does NOT fit at the largest accessibility
-			-- size, so the whole page scrolls rather than running off the screen.
+		local keyboard = UI.VStack({ id = "kb", width = FILL, gap = "xs", children = keyboardRows })
+		statusSig = ui.memo(function()
+			local notice = noticeSigNow()
+			if notice ~= "" then
+				return notice
+			end
+			return `Guess the five-letter word — row {math.min(activeSigNow(), ROWS)} of {ROWS}.`
+		end)
+		return UI.Screen({
+			id = "Wordle",
+			surface = "base",
+			padding = "m",
 			UI.ScrollView({
 				id = "page",
 				width = FILL,
 				height = FILL,
-				children = {
-					UI.VStack({
-						id = "col",
-						width = FILL,
-						gap = "s",
-						-- cross-axis alignment of a stack's children is `align`;
-						-- alignH/alignV would be accepted and ignored here.
-						align = "center",
-						children = {
-							UI.Text({ id = "Title", text = "Facet Wordle", textSize = "title" }),
-							UI.Text({ id = "Status", text = statusSig, textSize = "label", textAlign = "center" }),
-							board,
-							UI.Text({
-								id = "Legend",
-								text = "v correct   ~ present   x absent",
-								textSize = "caption",
-								role = "secondary",
-							}),
-							keyboard,
-							UI.Button({
-								id = "Restart",
-								label = "New game",
-								onActivate = function()
-									restart()
-								end,
-							}),
-						},
+				UI.VStack({
+					id = "col",
+					width = FILL,
+					gap = "s",
+					align = "center",
+					UI.Text({ id = "Title", text = "Facet Wordle", textSize = "title" }),
+					UI.Text({ id = "Status", text = statusSig, textSize = "label", textAlign = "center" }),
+					board,
+					UI.Text({
+						id = "Legend",
+						text = "v correct   ~ present   x absent",
+						textSize = "caption",
+						role = "secondary",
 					}),
-				},
+					keyboard,
+					UI.Button({
+						id = "Restart",
+						label = "New game",
+						onActivate = function()
+							restart()
+						end,
+					}),
+				}),
 			}),
-		},
-	})
-
-	-- ---- present + wire the hardware keyboard -------------------------------
-	-- Activation (tap / gamepad A on the focused key) rides each key's node
-	-- onActivate, and grid navigation is auto-derived from the keyboard's HStack
-	-- rows — neither needs an option.
-	--
-	-- `keyboardNavigation` is the ONE opt this screen asks for, and it is asked
-	-- for because of what the hardware context below does: Return is bound to
-	-- SUBMIT, so a keyboard player who has arrowed onto a key has no other way to
-	-- press it. Turning the desktop conventions on gives them Tab/Shift+Tab
-	-- traversal and Space-as-Activate, and makes this surface sink those keys
-	-- while it is engaged — correct for a full-screen game.
+		})
+	end)
+	local screen = WordGame({})
 	local handle = pres.present(screen, { keyboardNavigation = true })
-
-	-- A dedicated, higher-priority input context for the HARDWARE keys a real
-	-- keyboard sends — the genuinely app-semantic part that stays at the consumer
-	-- level. It SINKS so its keys shadow the presenter's default Activate: a
-	-- physical letter key TYPES into the grid (rather than activating whatever
-	-- on-screen key is focused), Enter SUBMITS, and Backspace deletes.
-	-- Navigation keys are intentionally NOT bound here — arrows/D-pad fall
-	-- through to the presenter's auto grid navigation, so a player can switch
-	-- between typing and navigating without losing the guess in flight.
 	local ctx = actions.createContext({ name = "WordleInput", priority = 2000, sink = true })
 	gameScope:own(function()
 		ctx.destroy()
@@ -781,15 +688,11 @@ function example.build(Facet: any, core: any, deps: any)
 	local backAction = ctx.createAction("Backspace", "Bool")
 	backAction.bind({ keyCode = "Backspace" })
 	backAction.onPressed(backspace)
-
-	-- ---- public / test API --------------------------------------------------
 	return {
 		title = example.title,
 		screen = screen,
 		handle = handle,
 		rules = rules,
-
-		-- fire a hardware key through the arbitrated action pipeline
 		press = function(keyCode: string)
 			actions.deviceKey(keyCode, true)
 			actions.deviceKey(keyCode, false)
@@ -801,14 +704,13 @@ function example.build(Facet: any, core: any, deps: any)
 			return tileState(rowsSig:get(), activeSig:get(), r, c)
 		end,
 		tint = function(r: number, c: number): any
-			return TILE_TINT[tileStateOf[`{r}:{c}`]:get()]
+			return TILE_TINT[tileStateOf[`{r}:{c}`]()]
 		end,
 		mark = function(r: number, c: number): string
-			return TILE_MARK[tileStateOf[`{r}:{c}`]:get()]
+			return TILE_MARK[tileStateOf[`{r}:{c}`]()]
 		end,
-		-- the row cue, read from the same memo the Box is bound to
 		tileSurface = function(r: number, c: number): string
-			return tileSurfaceOf[`{r}:{c}`]:get()
+			return tileSurfaceOf[`{r}:{c}`]()
 		end,
 		keyState = function(letter: string): string?
 			return keysSig:get()[letter]
@@ -826,7 +728,7 @@ function example.build(Facet: any, core: any, deps: any)
 			return phaseSig:get() == "lost"
 		end,
 		status = function(): string
-			return statusSig:get()
+			return statusSig()
 		end,
 		seed = function(): number
 			return seedSig:get()
@@ -844,7 +746,6 @@ function example.build(Facet: any, core: any, deps: any)
 		tilePath = function(r: number, c: number): string
 			return `/Wordle/page/col/board/tile{r}_{c}`
 		end,
-
 		dispose = function()
 			closeResults()
 			pres.dismiss(handle)
@@ -852,5 +753,4 @@ function example.build(Facet: any, core: any, deps: any)
 		end,
 	}
 end
-
 return example

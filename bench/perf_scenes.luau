@@ -1401,7 +1401,7 @@ table.insert(scenes, {
 			staggerHeld = 0,
 			-- the FRAMEWORK-ANSWERED halves of the flip and the pulse (below):
 			-- what the tree and the paint say, not what the driving code asked for
-			contentUp = adapter.node("/Motion/Adv/Content/then/Body") ~= nil,
+			contentUp = adapter.node("/Motion/Adv/Content/then/Reveal/Body") ~= nil,
 			flipsSeen = 0,
 			shakesSeen = 0,
 		}
@@ -1474,7 +1474,7 @@ table.insert(scenes, {
 			It counts every iteration the field is off its rest line, not only the
 			pulse frames: a shake lasts many frames, and 90 of 200 is the beat this
 			scene is actually paying for. ]]
-		local body = state.adapter.node("/Motion/Adv/Content/then/Body")
+		local body = state.adapter.node("/Motion/Adv/Content/then/Reveal/Body")
 		local up = body ~= nil
 		if up ~= state.contentUp then
 			state.contentUp = up

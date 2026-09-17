@@ -215,30 +215,23 @@ local host = require(ReplicatedStorage.Facet.client.host)
 -- engine, a render target under PlayerGui, an input system, a presenter — and
 -- one PreRender connection driving both halves of the frame.
 local h = host.new()
-local core, presenter = h.core, h.presenter
-
-local count = core:signal(0)
-local label = core:memo(function(use) return `Clicked {use(count)} times` end)
-
-presenter.present(
-    Facet.UI.Screen({
-        id = "Counter",
-        padding = "m", gap = "s",
-        children = {
-            Facet.UI.Text({ id = "Label", text = label }),
-            Facet.UI.Button({
-                id = "Bump",
-                label = "Bump",
-                onActivate = function()
-                    count:set(count:get() + 1)
-                end,
-            }),
+local UI = Facet.View
+local Counter = Facet.component(function(ui)
+    local count, setCount = ui.state(0)
+    return UI.Screen {
+        id = "Counter", padding = "m", gap = "s",
+        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
+        UI.Button {
+            id = "Bump", label = "Bump",
+            onActivate = function() setCount(function(n) return n + 1 end) end,
         },
-    })
-)
+    }
+end)
 
--- ...and when this surface goes away, `h.dispose()` takes back the frame
--- connection, the input system, the render target and the environment binding.
+local handle = h.presenter.present(Counter {})
+-- At the application's lifetime boundary:
+-- h.presenter.dismiss(handle)
+-- h.dispose()
 ```
 
 Press Play. A button appears; clicking, pressing Enter, or pressing gamepad A all

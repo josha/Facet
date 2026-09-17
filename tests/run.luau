@@ -216,6 +216,9 @@ require("./fine_grained_reactivity.spec")
 	diagnostics (cycle path names, a disposal that strands subscribers) that had
 	nothing to act on ]]
 require("./reactive_recovery.spec")
+require("./signals_backend.spec")
+require("./components.spec")
+require("./declarative_animation.spec")
 --[[ the PLATFORM ADAPTER driven by a fake engine (release-candidate platform
 	review PLAT-1/RR-6, PLAT-2, PLAT-3): the connections `roblox_env.bind` claims
 	to make, and the safe-area arithmetic it publishes ]]

@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- Stepper: a labelled value with discrete decrement/increment affordances
 -- (docs/plans/parity-next.md investment 4; acceptance rows B-VAL1/B-VAL3).
 -- Composed from shipped primitives — an HStack of a label, a value readout, and
@@ -44,15 +46,16 @@ local INCREMENT = themePackage.iconGlyph("increment") or "+"
 
 local stepper = {}
 
-export type Spec = {
+type NumberSignal = coreContract.Signal<number>
+export type Spec<V = NumberSignal> = {
 	id: string?,
 	label: string?,
-	value: any, -- owner-held Signal<number>
+	value: V, -- owner-held Signal<number>
 	min: number,
 	max: number,
 	step: number?, -- defaults to 1 (a Stepper is discrete by definition)
 	format: ((value: number) -> string)?,
-	enabled: any?, -- boolean | Readable<boolean>
+	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
 	onChange: ((value: number) -> ())?,
 }
 

@@ -349,3 +349,13 @@ dispose, module-vs-`.new` export policy, error-prefix grammar, and the rest.
 
 *Adopted 2026-08-02 (stage `api-architecture-consistency`, v0.8.0). Change this
 document, in the same commit as the rule-affecting change.*
+
+## Reactive implementation and authoring
+
+Roblox Signals 0.9.0 supplies dependency tracking and invalidation, pinned at
+`7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60`. Facet retains its Core contract for
+scoped disposal, deterministic change delivery, quarantine and convergent settling.
+Component setup creates an owned description once; property recipes drive changes.
+`Facet.View` reuses the existing control mechanisms. Numeric children are dense,
+validated and visited by index. The upstream MIT notice ships in the source and
+the Roblox model. The dependency gate admits only this pinned vendor.

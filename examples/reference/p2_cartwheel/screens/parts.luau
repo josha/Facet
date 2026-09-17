@@ -162,18 +162,17 @@ function parts.cardHeaderButton(app: any, spec: any): any
 		width = UI.fill(),
 		align = "center",
 		gap = "s",
-		children = {
-			UI.Text({ id = "Title", text = spec.title, textSize = "heading" }),
-			UI.Spacer({ id = "Gap", width = UI.fill() }),
-			UI.Image({
-				id = "Chevron",
-				image = app.art.marks.chevronRight.image,
-				scaleMode = "fit",
-				tint = { role = "contentSecondary", blend = 1 },
-				width = { type = "fixed", px = "iconSizes.small" },
-				height = { type = "fixed", px = "iconSizes.small" },
-			}),
-		},
+
+		UI.Text({ id = "Title", text = spec.title, textSize = "heading" }),
+		UI.Spacer({ id = "Gap", width = UI.fill() }),
+		UI.Image({
+			id = "Chevron",
+			image = app.art.marks.chevronRight.image,
+			scaleMode = "fit",
+			tint = { role = "contentSecondary", blend = 1 },
+			width = { type = "fixed", px = "iconSizes.small" },
+			height = { type = "fixed", px = "iconSizes.small" },
+		}),
 	})
 end
 

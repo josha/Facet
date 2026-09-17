@@ -70,12 +70,32 @@ local surfaceEnv = require("../env/surface_env")
 
 local host = {}
 
+export type SurfaceSpec =
+	{ kind: "screen" }
+	| {
+		kind: "billboard",
+		target: Instance,
+		canvas: { w: number, h: number },
+		studsOffset: Vector3?,
+		alwaysOnTop: boolean?,
+		maxDistance: number?,
+	}
+	| {
+		kind: "surface",
+		target: Instance,
+		face: Enum.NormalId,
+		canvas: { w: number, h: number },
+		maxDistance: number?,
+		onAdorneeLost: (() -> ())?,
+	}
+
 export type Opts = {
+	surface: SurfaceSpec?,
 	-- ===== render target (forwarded to `screen_target.new`) ================
 	-- the Roblox StyleSheet paint path. `nil` = the library default, which IS
 	-- sheet paint since 2026-08-21; `false` is the opt-OUT and
 	-- wins over everything. Forwarded verbatim to `screen_target.new`.
-	nativeStyle: boolean?,
+	nativeStyle: (boolean | { model: any?, handle: any?, host: Instance?, theme: string?, transitions: boolean? })?,
 	style: any?,
 	-- the PlayerGui to parent roots under; nil = the local player's own
 	-- (Studio Edit-mode previews pass an explicit host, which has no LocalPlayer)
@@ -117,6 +137,7 @@ export type Host = {
 }
 
 local OPTS_KEYS = specGuard.keySet({
+	"surface",
 	"nativeStyle",
 	"style",
 	"parent",
@@ -135,6 +156,24 @@ local OPTS_KEYS = specGuard.keySet({
 	requiring this file stays legal off-engine (see the header). Each is behind
 	its own seam above, so a headless caller never reaches any of them. ]]
 local function engineAdapter(opts: Opts, env: any): any
+	local surface = opts.surface
+	if surface and surface.kind ~= "screen" then
+		local parent = opts.parent or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+		local common: any = {
+			parent = parent,
+			adornee = surface.target,
+			canvas = surface.canvas,
+			maxDistance = surface.maxDistance,
+			style = opts.style,
+			displaySize = env:get("effectiveDisplaySize"):get(),
+		}
+		if surface.kind == "surface" then
+			common.face, common.onAdorneeLost = surface.face, surface.onAdorneeLost
+			return require("./surface_target").new(common)
+		end
+		common.studsOffset, common.alwaysOnTop = surface.studsOffset, surface.alwaysOnTop
+		return require("./billboard_target").new(common)
+	end
 	local screen_target = require("./screen_target") :: any
 	return screen_target.new({
 		nativeStyle = opts.nativeStyle,
@@ -178,6 +217,61 @@ local function engineConnectFrame(fn: (dt: number) -> ()): () -> ()
 	end
 end
 
+-- Screen-space geometry never overwrites a world canvas. The ordinary
+-- binder still supplies input and accessibility through the same environment.
+local SCREEN_FACTS = specGuard.keySet({
+	"viewportRect",
+	"safeInsets",
+	"coreSafeInsets",
+	"deviceSafeInsets",
+	"topbarSafeInsets",
+	"guiInset",
+	"keyboardRect",
+})
+local function bindingEnvironment(env: any, surface: any): any
+	if not surface or surface.kind == "screen" then
+		return env
+	end
+	env:set("viewportRect", { x = 0, y = 0, w = surface.canvas.w, h = surface.canvas.h })
+	env:set("presentationSpace", if surface.kind == "surface" then "world" else "billboard")
+	return setmetatable({
+		set = function(_, key, value)
+			if not SCREEN_FACTS[key] then
+				env:set(key, value)
+			end
+		end,
+	}, { __index = env })
+end
+local function validateSurface(surface: any)
+	if surface == nil then
+		return
+	end
+	assert(type(surface) == "table", "host.surface must be a placement table")
+	assert(
+		surface.kind == "screen" or surface.kind == "billboard" or surface.kind == "surface",
+		"host.surface.kind must be screen, billboard, or surface"
+	)
+	local keys = if surface.kind == "screen"
+		then { "kind" }
+		elseif surface.kind == "surface" then { "kind", "target", "face", "canvas", "maxDistance", "onAdorneeLost" }
+		else { "kind", "target", "canvas", "maxDistance", "studsOffset", "alwaysOnTop" }
+	specGuard.assertKnownKeys("host.surface", surface, specGuard.keySet(keys), "spec")
+	if surface.kind == "screen" then
+		return
+	end
+	assert(surface.target ~= nil, "host.surface.target is required")
+	assert(type(surface.canvas) == "table", "host.surface.canvas {w, h} is required")
+	specGuard.assertKnownKeys("host.surface.canvas", surface.canvas, { w = true, h = true }, "spec")
+	for _, value in { surface.canvas.w, surface.canvas.h } do
+		assert(
+			type(value) == "number" and value > 0 and value < math.huge,
+			"host.surface canvas dimensions must be finite and positive"
+		)
+	end
+	assert(surface.canvas.w ~= nil and surface.canvas.h ~= nil, "host.surface canvas requires w and h")
+	assert(surface.kind ~= "surface" or surface.face ~= nil, "host.surface.face is required for a surface")
+end
+
 --[[ Stand up a Facet client surface, bound and driven.
 
 	Returns the six pieces a consumer needs plus `dispose`. Present your
@@ -196,6 +290,7 @@ end
 function host.new(opts: Opts?): Host
 	specGuard.assertKnownKeys("client.host.new", opts, OPTS_KEYS, "opts")
 	local o: Opts = opts or {}
+	validateSurface(o.surface)
 
 	local core = (if o.newCore then o.newCore() else customCore.new()) :: any
 	local env = environment.new(core)
@@ -225,7 +320,8 @@ function host.new(opts: Opts?): Host
 		table.insert(undo, function()
 			surfaceEnv.unpublish(core, env)
 		end)
-		local unbindEnv = if o.bindEnv then o.bindEnv(env) else engineBindEnv(env)
+		local boundEnv = bindingEnvironment(env, o.surface)
+		local unbindEnv = if o.bindEnv then o.bindEnv(boundEnv) else engineBindEnv(boundEnv)
 		table.insert(undo, unbindEnv)
 
 		--[[ EVERY BUILT THING GOES ON THE STACK AS IT IS BUILT (R5 review §3b-2).
@@ -255,6 +351,9 @@ function host.new(opts: Opts?): Host
 		local inputSystem = if o.newInputSystem then o.newInputSystem(core) else engineInputSystem(core)
 		ownIfDisposable(inputSystem)
 		local presenter = presenterLib.new(core, env, adapter, inputSystem, { now = o.now })
+		if not o.connectFrame then
+			presenter.motionClock:setEasing(require("./motion_driver").engineEasing)
+		end
 
 		--[[ THE FRAME, AND BOTH HALVES OF IT. `tick(dt)` first: it steps the
 			motion clock and then runs the registered `onTick` hooks, so a hook reads

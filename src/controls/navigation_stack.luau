@@ -359,7 +359,9 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 				if
 					type(bp) ~= "table"
 					or type(bp.class) ~= "string"
-					or type(UI[bp.class]) ~= "function"
+					or not (type(UI[bp.class]) == "function" or (bp.class == "Component" and bp.meta and type(
+						bp.meta.build
+					) == "function"))
 					or type(bp.props) ~= "table"
 				then
 					fail("content must return a UI blueprint")

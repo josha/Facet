@@ -105,41 +105,39 @@ local function detailPane(app: any, kind: string): any
 		gap = "m",
 		width = dims.fill,
 		height = dims.fill,
-		children = {
-			UI.Divider({ id = "Rule" }),
-			UI.ZStack({
-				id = "PaneBody",
-				width = dims.fill,
-				height = dims.fill,
-				alignH = "center",
-				alignV = "center",
-				children = {
-					UI.When({
-						id = "Body",
-						condition = hasSelection,
-						thenView = function()
-							if kind == "recipes" then
-								return bookView.recipeView(app, { id = "Recipe", showBack = false })
-							end
-							return detailView.body(app, { id = "Detail", showBack = false })
-						end,
-					}),
-					UI.When({
-						id = "Empty",
-						condition = noSelection,
-						thenView = function()
-							return UI.Text({
-								id = "Hint",
-								text = app.text("detail.empty"),
-								role = "secondary",
-								textSize = "body",
-								textAlign = "center",
-							})
-						end,
-					}),
-				},
+
+		UI.Divider({ id = "Rule" }),
+		UI.ZStack({
+			id = "PaneBody",
+			width = dims.fill,
+			height = dims.fill,
+			alignH = "center",
+			alignV = "center",
+
+			UI.When({
+				id = "Body",
+				condition = hasSelection,
+				thenView = function()
+					if kind == "recipes" then
+						return bookView.recipeView(app, { id = "Recipe", showBack = false })
+					end
+					return detailView.body(app, { id = "Detail", showBack = false })
+				end,
 			}),
-		},
+			UI.When({
+				id = "Empty",
+				condition = noSelection,
+				thenView = function()
+					return UI.Text({
+						id = "Hint",
+						text = app.text("detail.empty"),
+						role = "secondary",
+						textSize = "body",
+						textAlign = "center",
+					})
+				end,
+			}),
+		}),
 	})
 end
 
@@ -199,49 +197,46 @@ local function listSection(app: any, kind: string): any
 				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
-				children = {
-					listBlueprint,
-					UI.When({
-						id = "EmptyState",
-						condition = empty,
-						transition = { enter = "fade" },
-						thenView = function()
-							return UI.ZStack({
-								id = "EmptyBox",
-								canvasGroup = true,
-								width = dims.fill,
-								height = dims.fill,
-								alignH = "center",
-								alignV = "center",
-								children = {
-									UI.VStack({
-										id = "Empty",
-										gap = "s",
-										align = "center",
-										padding = "m",
-										children = {
-											UI.Text({
-												id = "Message",
-												text = app.text("favorites.empty"),
-												role = "secondary",
-												textSize = "body",
-												textAlign = "center",
-											}),
-											UI.Button({
-												id = "Browse",
-												label = app.text("favorites.browse"),
-												corners = UI.cornersData("pill"),
-												onActivate = function()
-													app.commands.selectSection("menu")
-												end,
-											}),
-										},
-									}),
-								},
-							})
-						end,
-					}),
-				},
+
+				listBlueprint,
+				UI.When({
+					id = "EmptyState",
+					condition = empty,
+					transition = { enter = "fade" },
+					thenView = function()
+						return UI.ZStack({
+							id = "EmptyBox",
+							canvasGroup = true,
+							width = dims.fill,
+							height = dims.fill,
+							alignH = "center",
+							alignV = "center",
+
+							UI.VStack({
+								id = "Empty",
+								gap = "s",
+								align = "center",
+								padding = "m",
+
+								UI.Text({
+									id = "Message",
+									text = app.text("favorites.empty"),
+									role = "secondary",
+									textSize = "body",
+									textAlign = "center",
+								}),
+								UI.Button({
+									id = "Browse",
+									label = app.text("favorites.browse"),
+									corners = UI.cornersData("pill"),
+									onActivate = function()
+										app.commands.selectSection("menu")
+									end,
+								}),
+							}),
+						})
+					end,
+				}),
 			})
 		)
 	else
@@ -253,22 +248,21 @@ local function listSection(app: any, kind: string): any
 		gap = "m",
 		width = dims.fill,
 		height = dims.fill,
-		children = {
-			UI.VStack({
-				id = "ListPane",
-				gap = "s",
-				width = paneWidth(app),
-				height = dims.fill,
-				children = body,
-			}),
-			UI.When({
-				id = "Side",
-				condition = app.paneSplit,
-				thenView = function()
-					return detailPane(app, kind)
-				end,
-			}),
-		},
+
+		UI.VStack({
+			id = "ListPane",
+			gap = "s",
+			width = paneWidth(app),
+			height = dims.fill,
+			children = body,
+		}),
+		UI.When({
+			id = "Side",
+			condition = app.paneSplit,
+			thenView = function()
+				return detailPane(app, kind)
+			end,
+		}),
 	})
 end
 
@@ -281,23 +275,21 @@ local function stampsSection(app: any): any
 		padding = "m",
 		width = dims.fill,
 		height = dims.percent(1),
-		children = {
-			-- the same task card the list sections lead with: the Stamps pocket is
-			-- a section like any other and must not be the one place the task
-			-- vanishes from
-			taskView.card(app),
-			UI.ZStack({
-				-- HUGS, never fills: a `fill` height inside a y-scroller measures
-				-- against a canvas that is itself derived from the content
-				id = "Backdrop",
-				width = dims.fill,
-				alignH = "center",
-				alignV = "start",
-				children = {
-					rewardsView.card(app, { id = "RewardsCard", compact = true }),
-				},
-			}),
-		},
+
+		-- the same task card the list sections lead with: the Stamps pocket is
+		-- a section like any other and must not be the one place the task
+		-- vanishes from
+		taskView.card(app),
+		UI.ZStack({
+			-- HUGS, never fills: a `fill` height inside a y-scroller measures
+			-- against a canvas that is itself derived from the content
+			id = "Backdrop",
+			width = dims.fill,
+			alignH = "center",
+			alignV = "start",
+
+			rewardsView.card(app, { id = "RewardsCard", compact = true }),
+		}),
 	})
 end
 
@@ -315,9 +307,8 @@ local function sectionContent(app: any, section: string): any
 		padding = "s",
 		width = dims.fill,
 		height = dims.fill,
-		children = {
-			if section == "stamps" then stampsSection(app) else listSection(app, section),
-		},
+
+		if section == "stamps" then stampsSection(app) else listSection(app, section),
 	})
 end
 
@@ -420,7 +411,7 @@ function shell.build(app: any): any
 						return UI.VStack({
 							id = "TopSearchBox",
 							width = dims.minMax(160, 200, 260),
-							children = { listView.searchBar(app) },
+							listView.searchBar(app),
 						})
 					end,
 				})
@@ -439,7 +430,7 @@ function shell.build(app: any): any
 							id = "Accessory",
 							width = dims.fill,
 							padding = "xs",
-							children = { listView.searchBar(app) },
+							listView.searchBar(app),
 						})
 					end,
 				})
@@ -467,15 +458,15 @@ function shell.build(app: any): any
 		id = "Sipworks",
 		padding = 0,
 		surface = "base",
-		children = {
-			UI.VStack({
-				id = "Shell",
-				gap = 0,
-				width = dims.fill,
-				height = dims.fill,
-				children = { taskView.strip(app), nav.blueprint },
-			}),
-		},
+
+		UI.VStack({
+			id = "Shell",
+			gap = 0,
+			width = dims.fill,
+			height = dims.fill,
+			taskView.strip(app),
+			nav.blueprint,
+		}),
 	})
 end
 

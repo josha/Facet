@@ -438,43 +438,42 @@ return {
 			id = "OutpostLab",
 			padding = "m",
 			gap = "m",
-			children = {
-				--[[ THE READOUTS SCROLL AND THE CONTROLS DO NOT, which is the packing
+
+			--[[ THE READOUTS SCROLL AND THE CONTROLS DO NOT, which is the packing
 					the sibling world fixture (`sponsor_billboard`) learned the hard way: a
 					`fill` Spacer gives its pixels back to nobody, so a narrow landscape
 					phone put every labelled control below the fold with no page scroller
 					to reach it. A `fill` ScrollView does the Spacer's job AND is a place
 					the readouts can be read from. ]]
-				UI.ScrollView({
-					id = "Readouts",
-					axis = "y",
-					gap = "s",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "Outpost power terminal", textSize = "heading" }),
-						UI.Text({
-							id = "Lead",
-							text = "The terminal is on the console in the world. Walk up and use it.",
-							textSize = "caption",
-							role = "secondary",
-						}),
-						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Terminal", text = terminalLine, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Outcome", text = outcomeLine, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Face", text = faceLine, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Rules", text = rulesLine, textSize = "caption", role = "secondary" }),
-					},
+			UI.ScrollView({
+				id = "Readouts",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = "Outpost power terminal", textSize = "heading" }),
+				UI.Text({
+					id = "Lead",
+					text = "The terminal is on the console in the world. Walk up and use it.",
+					textSize = "caption",
+					role = "secondary",
 				}),
-				UI.Grid({
-					id = "Controls",
-					-- a packing floor rather than a font guess: this asks how many
-					-- controls fit a row and lets a long label compact
-					minColumnWidth = 104,
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
-					--[[ FIVE BUTTONS, AND THE COUNT IS A MEASUREMENT. At `minColumnWidth`
+				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "Terminal", text = terminalLine, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "Outcome", text = outcomeLine, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "Face", text = faceLine, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "Rules", text = rulesLine, textSize = "caption", role = "secondary" }),
+			}),
+			UI.Grid({
+				id = "Controls",
+				-- a packing floor rather than a font guess: this asks how many
+				-- controls fit a row and lets a long label compact
+				minColumnWidth = 104,
+				gap = "s",
+				rowGap = "s",
+				width = UI.fill(),
+				--[[ FIVE BUTTONS, AND THE COUNT IS A MEASUREMENT. At `minColumnWidth`
 					104 a 640x320 landscape phone fits five columns, so five controls are
 					one row and six are two — and the second row is 40px more than the
 					leftover has at the largest text preference, measured, on exactly that
@@ -482,25 +481,23 @@ return {
 					them by name, and a person at the console does not need them.
 					`Solve` is here because a driver taking a screenshot of the success
 					state should not have to know that 2 + 1 + 2 is the answer. ]]
-					children = {
-						control("BtnOpen", "Open", function()
-							open()
-						end),
-						control("BtnEngage", "Engage", function()
-							steps.engage(nil)
-						end),
-						control("BtnSolve", "Solve", function()
-							steps.solve(nil)
-						end),
-						control("BtnCancel", "Cancel", function()
-							steps.exitCancel(nil)
-						end),
-						control("BtnTeardown", "Teardown", function()
-							steps.teardown(nil)
-						end),
-					},
-				}),
-			},
+
+				control("BtnOpen", "Open", function()
+					open()
+				end),
+				control("BtnEngage", "Engage", function()
+					steps.engage(nil)
+				end),
+				control("BtnSolve", "Solve", function()
+					steps.solve(nil)
+				end),
+				control("BtnCancel", "Cancel", function()
+					steps.exitCancel(nil)
+				end),
+				control("BtnTeardown", "Teardown", function()
+					steps.teardown(nil)
+				end),
+			}),
 		})
 
 		local result: any = {}

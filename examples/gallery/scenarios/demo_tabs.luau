@@ -9,7 +9,7 @@ else
 end
 
 return function(ctx: any, id: string, groups: { any }): any
-	local Facet, UI = ctx.Facet, ctx.Facet.UI
+	local Facet, UI = ctx.Facet, ctx.Facet.View
 	local scope = ctx.core:scope(id)
 	local core = ctx.core
 	local selections = {}
@@ -35,16 +35,15 @@ return function(ctx: any, id: string, groups: { any }): any
 							id = "PageScroll",
 							width = UI.fill(),
 							height = UI.fill(),
-							children = {
-								UI.VStack({
-									id = "PageViewport",
-									width = UI.fill(),
-									height = tabScope:own(core:memo(function(use)
-										return { type = "fixed", px = math.max(1, use(ctx.env:get("viewportRect")).h) }
-									end)),
-									children = { nested.blueprint },
-								}),
-							},
+
+							UI.VStack({
+								id = "PageViewport",
+								width = UI.fill(),
+								height = tabScope:own(core:memo(function(use)
+									return { type = "fixed", px = math.max(1, use(ctx.env:get("viewportRect")).h) }
+								end)),
+								nested.blueprint,
+							}),
 						})
 					end
 					local childContext = table.clone(ctx)
@@ -64,6 +63,11 @@ return function(ctx: any, id: string, groups: { any }): any
 					local props = table.clone(built.screen.props)
 					props.id, props.children = built.screen.id, built.screen.children
 					props.width, props.height = UI.fill(), UI.fill()
+					if built.screen.class == "Component" then
+						-- Deferred descriptions acquire their tree at mount. Keep the
+						-- component intact rather than copying its empty placeholder.
+						props.id, props.children = "ComponentPage", { built.screen }
+					end
 					local body = UI.VStack(props)
 					local contribution = table.clone(Facet.contribution.read(built.screen) or {})
 					local syncGeometry = contribution.syncGeometry
@@ -111,6 +115,8 @@ return function(ctx: any, id: string, groups: { any }): any
 				end,
 			})
 		end
+		-- This diagnostic host reads placement and dump(), and coordinates
+		-- scenario handles across tab changes. Ordinary pages use View.TabView.
 		local view
 		view = Facet.Controls.TabView(core, {
 			id = key,
@@ -134,7 +140,7 @@ return function(ctx: any, id: string, groups: { any }): any
 				preference:set(if view.placement:get() == "sidebar" then "topBar" else "sidebar")
 			end,
 		},
-		screen = UI.Screen({ id = id, children = { view.blueprint } }),
+		screen = UI.Screen({ id = id, view.blueprint }),
 		report = function()
 			local selected = {}
 			for key, selection in selections do

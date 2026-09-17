@@ -11,7 +11,7 @@ return {
 	title = "Loading profile pictures",
 	ledgerRows = { "NS-A13", "NS-A14" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
+		local UI = ctx.Facet.View
 		local core = ctx.core
 		local scope = core:scope()
 		local provider = ctx.Facet.newResourceProvider(core)
@@ -51,38 +51,38 @@ return {
 			id = "AsyncImages",
 			padding = "m",
 			gap = 12,
-			children = {
-				-- THE PAGE SCROLLS, and it did not until this fixture entered the demo
-				-- picker (round-3 O-30). A title at 22pt, a status line and a row of
-				-- thumbnails came to 25px more than a 640x320 landscape phone has, and
-				-- 143px more under the largest text preference — a recorded, waived
-				-- overflow for as long as the only thing that mounted this was a sweep.
-				-- A surface a player can select does not get to overflow, so the waiver
-				-- and its themed ledger row are deleted rather than re-recorded.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = 12,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "Loading profile pictures", textSize = "title" }),
-						UI.Text({
-							id = "Explanation",
-							text = "Pictures can arrive later than the page. These keep their space while loading; an unavailable picture keeps a placeholder.",
-							textSize = "body",
-						}),
-						UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
-						UI.HStack({
-							id = "Row",
-							gap = 12,
-							wrap = true,
-							width = UI.fill(),
-							children = { imgs[1].blueprint, imgs[2].blueprint, imgs[3].blueprint },
-						}),
-					},
+
+			-- THE PAGE SCROLLS, and it did not until this fixture entered the demo
+			-- picker (round-3 O-30). A title at 22pt, a status line and a row of
+			-- thumbnails came to 25px more than a 640x320 landscape phone has, and
+			-- 143px more under the largest text preference — a recorded, waived
+			-- overflow for as long as the only thing that mounted this was a sweep.
+			-- A surface a player can select does not get to overflow, so the waiver
+			-- and its themed ledger row are deleted rather than re-recorded.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = 12,
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = "Loading profile pictures", textSize = "title" }),
+				UI.Text({
+					id = "Explanation",
+					text = "Pictures can arrive later than the page. These keep their space while loading; an unavailable picture keeps a placeholder.",
+					textSize = "body",
 				}),
-			},
+				UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
+				UI.HStack({
+					id = "Row",
+					gap = 12,
+					wrap = true,
+					width = UI.fill(),
+					imgs[1].blueprint,
+					imgs[2].blueprint,
+					imgs[3].blueprint,
+				}),
+			}),
 		})
 
 		return {

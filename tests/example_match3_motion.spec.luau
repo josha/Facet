@@ -101,10 +101,13 @@ end
 	root — and reading the root would report "no travel" for a board that is
 	visibly moving. Advancing past the enters first is what makes the root the
 	honest place to read, and it is what a player's first swap is anyway. ]]
+-- Drive both halves of each host frame. Declarative animation starts at the
+-- visual commit, so ticking without committing does not simulate a shown frame.
 local function settleMount(deps: any)
 	deps.presenter.refresh()
 	for _ = 1, 90 do
 		deps.presenter.tick(FRAME)
+		deps.presenter.refresh()
 	end
 	deps.presenter.refresh()
 end
@@ -112,6 +115,7 @@ end
 local function settleBoard(deps: any)
 	for _ = 1, 600 do
 		deps.presenter.tick(FRAME)
+		deps.presenter.refresh()
 	end
 	deps.presenter.refresh()
 end
@@ -158,11 +162,14 @@ local function tileRect(adapter: any, game: any, id: number): any?
 		return nil
 	end
 	local board = boardRect(adapter)
+	local paintedBoard = adapter.node("/Match3/Page/board").presentedPosition
 	return {
 		x = node.rect.x - board.x,
 		y = node.rect.y - board.y,
-		paintX = node.presentedPosition.x - board.x,
-		paintY = node.presentedPosition.y - board.y,
+		-- The board itself now follows its declarative layout policy when the
+		-- hint above it wraps. Measure tile travel against the painted board.
+		paintX = node.presentedPosition.x - paintedBoard.x,
+		paintY = node.presentedPosition.y - paintedBoard.y,
 	}
 end
 
@@ -285,6 +292,7 @@ describe("match-3 motion: the two swapped tiles travel", function()
 		-- six frames in — a third of the 0.2 s swap phase — both are between
 		for _ = 1, 6 do
 			deps.presenter.tick(FRAME)
+			deps.presenter.refresh()
 		end
 		deps.presenter.refresh()
 		local aMid = (tileRect(adapter, game, aId) :: any).paintY
@@ -309,8 +317,10 @@ describe("match-3 motion: the two swapped tiles travel", function()
 		local before = game.boardSnapshot()
 
 		game.swap(1, 1, 1, 2)
+		deps.presenter.refresh()
 		for _ = 1, 6 do
 			deps.presenter.tick(FRAME)
+			deps.presenter.refresh()
 		end
 		deps.presenter.refresh()
 		local outbound = (tileRect(adapter, game, aId) :: any).paintX
@@ -639,6 +649,7 @@ describe("match-3 motion: a reset mid-cascade leaves nothing behind", function()
 		game.swap(1, 3, 2, 3)
 		for _ = 1, 12 do
 			deps.presenter.tick(FRAME)
+			deps.presenter.refresh()
 		end
 		expect(game.tickHookActive()).toBe(true)
 		game.dispose()
@@ -646,6 +657,7 @@ describe("match-3 motion: a reset mid-cascade leaves nothing behind", function()
 		-- ticking a presenter whose game is gone must not resurrect anything
 		for _ = 1, 60 do
 			deps.presenter.tick(FRAME)
+			deps.presenter.refresh()
 		end
 		local after = core:counters()
 		for key, value in baseline :: { [string]: number } do
@@ -768,17 +780,18 @@ describe("match-3 motion: the example builds no animation system of its own", fu
 		expect(#source > 10000).toBe(true)
 		-- ...and the stripper left real code behind rather than eating the file
 		expect(#codeLines(source) > 300).toBe(true)
+		local code = table.concat(codeLines(source), "\n")
 		for _, needle in
 			{
 				"presenter", -- the deps handle every mechanism hangs off
-				"withAnimation",
+				"animation = { layout = TILE_MOTION }",
 				"onTick",
 				"UI.Anchor",
 				"UI.ForEach",
 				"transition = { enter",
 			}
 		do
-			expect(string.find(source, needle, 1, true) ~= nil).toBe(true)
+			expect(string.find(code, needle, 1, true) ~= nil).toBe(true)
 		end
 	end)
 end)

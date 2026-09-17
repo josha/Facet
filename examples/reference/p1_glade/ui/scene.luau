@@ -34,64 +34,62 @@ export type RingSpec = {
 	glade: string,
 	kind: string, -- "nectar" | "dew"
 	size: number,
-	scope: any,
 }
 
 function scene.ring(ctx: any, spec: RingSpec): any
-	local UI = ctx.UI
-	local core = ctx.core
-	local level = ctx.supply.level(spec.glade, spec.kind)
+	local SupplyRing = ctx.Facet.component(function(ui)
+		local UI = ctx.Facet.View
+		local level = ui.read(ctx.supply.level(spec.glade, spec.kind))
+		local nectar = ui.read(ctx.supply.nectarOf(spec.glade))
 
-	-- the painted arc chases the level through a spring (§11, class `object`).
-	-- Under reduced motion `setTarget` places instantly and fires the same
-	-- settle — the framework's parity contract, not a branch here.
-	local painted = ctx.clock:animate(level, "object", { scope = spec.scope })
+		-- the painted arc chases the level through a spring (§11, class `object`).
+		-- Under reduced motion `setTarget` places instantly and fires the same
+		-- settle — the framework's parity contract, not a branch here.
+		local painted = ui.animate(level, "object")
 
-	local sweep = spec.scope:own(core:memo(function(use)
-		local value = use(painted)
-		if value < 0 then
-			value = 0
-		elseif value > 1 then
-			value = 1
-		end
-		return value * FULL_TURN
-	end))
-	local visible = spec.scope:own(core:memo(function(use)
-		return use(sweep) > 1
-	end))
-	local points = spec.scope:own(core:memo(function(use)
-		local degrees = use(sweep)
-		local segments = math.clamp(math.ceil(degrees / 24), 2, 24)
-		return ctx.Facet.pathShapes.arc(0, degrees, { segments = segments })
-	end))
+		local sweep = ui.memo(function()
+			local value = painted()
+			if value < 0 then
+				value = 0
+			elseif value > 1 then
+				value = 1
+			end
+			return value * FULL_TURN
+		end)
+		local visible = ui.memo(function()
+			return sweep() > 1
+		end)
+		local points = ui.memo(function()
+			local degrees = sweep()
+			local segments = math.clamp(math.ceil(degrees / 24), 2, 24)
+			return ctx.Facet.pathShapes.arc(0, degrees, { segments = segments })
+		end)
 
-	local mark
-	if spec.kind == "nectar" then
-		local jarTint = spec.scope:own(core:memo(function(use)
-			local nectarId = use(ctx.supply.nectarOf(spec.glade))
-			local nectar = seedData.NECTAR_BY_ID[nectarId]
-			return ctx.tint(if nectar ~= nil then nectar.art else seedData.WHITE)
-		end))
-		-- the gauge icon swap (§11): a keyed region over the assigned nectar id,
-		-- so changing the jar materializes rather than cutting.
-		local assignedList = spec.scope:own(core:memo(function(use)
-			return { { id = use(ctx.supply.nectarOf(spec.glade)) } }
-		end))
-		mark = UI.ForEach({
-			id = "Jar",
-			items = assignedList,
-			key = function(item: any): string
-				return item.id
-			end,
-			transition = { enter = "materialize", class = "container" },
-			row = function(): any
-				return UI.corners(
-					UI.ZStack({
-						id = "Swap",
-						canvasGroup = true,
-						width = { type = "fixed", px = math.floor(spec.size * 0.46) },
-						height = { type = "fixed", px = math.floor(spec.size * 0.46) },
-						children = {
+		local mark
+		if spec.kind == "nectar" then
+			local jarTint = ui.memo(function()
+				local nectarId = nectar()
+				local nectar = seedData.NECTAR_BY_ID[nectarId]
+				return ctx.tint(if nectar ~= nil then nectar.art else seedData.WHITE)
+			end)
+			-- the gauge icon swap (§11): a keyed region over the assigned nectar id,
+			-- so changing the jar materializes rather than cutting.
+			local assignedList = ui.memo(function()
+				return { { id = nectar() } }
+			end)
+			mark = UI.ForEach({
+				id = "Jar",
+				items = assignedList,
+				key = "id",
+				transition = { enter = "materialize", class = "container" },
+				row = function(): any
+					return UI.corners(
+						UI.ZStack({
+							id = "Swap",
+							canvasGroup = true,
+							width = { type = "fixed", px = math.floor(spec.size * 0.46) },
+							height = { type = "fixed", px = math.floor(spec.size * 0.46) },
+
 							UI.corners(
 								UI.Box({
 									id = "Fill",
@@ -101,53 +99,52 @@ function scene.ring(ctx: any, spec: RingSpec): any
 								}),
 								"pill"
 							),
-						},
-					}),
-					"pill"
-				)
-			end,
-		})
-	else
-		mark = UI.corners(
-			UI.Box({
-				id = "Drop",
-				tint = ctx.tint(seedData.DEWWATER),
-				width = { type = "fixed", px = math.floor(spec.size * 0.40) },
-				height = { type = "fixed", px = math.floor(spec.size * 0.40) },
-			}),
-			"pill"
-		)
-	end
+						}),
+						"pill"
+					)
+				end,
+			})
+		else
+			mark = UI.corners(
+				UI.Box({
+					id = "Drop",
+					tint = ctx.tint(seedData.DEWWATER),
+					width = { type = "fixed", px = math.floor(spec.size * 0.40) },
+					height = { type = "fixed", px = math.floor(spec.size * 0.40) },
+				}),
+				"pill"
+			)
+		end
 
-	return UI.ZStack({
-		id = spec.id,
-		-- THE CIRCLE DOCTRINE (task PAINT, director item 12: OddOverlapNotRound.png
-		-- + whatisthis.png). `shape = "circle"` — generalized from the circle
-		-- Button onto ZStack this round — replaces the two literal, independently
-		-- authored `{ type = "fixed", px = spec.size }` dimensions above with ONE
-		-- authored axis and a solver-enforced square: an author (here, or the
-		-- next ring anyone builds) cannot hand the two axes different numbers by
-		-- a typo or a later edit, because there is only one number to hand it.
-		-- Byte-identical geometry to before (both axes were already spec.size),
-		-- pinned in tests/reference/glade_spec.luau.
-		shape = "circle",
-		width = { type = "fixed", px = spec.size },
-		-- THE OFFSET DOT, root-caused. The identity mark (`Swap`/`Drop` below) is
-		-- a ZStack child with no `alignH`/`alignV` of its own, so it inherited
-		-- this node's default — and this node had none either, so the solver's
-		-- own fallback fired: `child.alignH or node.alignH or "start"`
-		-- (layout/solver.luau) — pinning the mark to the ring's TOP-LEFT corner
-		-- instead of its centre. That is the "filled dot offset at the ring's
-		-- top-left" the director read as a possible second ring paint (it is
-		-- not: `Track` + the conditional `Arc` are the one ring, `mark` is the
-		-- one identity dot, and the "double-draw" was one ring correctly drawn
-		-- behind one badly-placed dot). Declaring the alignment HERE, on the
-		-- ring itself, fixes it for every mark this shared composite ever
-		-- draws — a class fix, not a per-card patch, since `scene.ring` is the
-		-- one function every nectar/dew ring in the proof calls.
-		alignH = "center",
-		alignV = "center",
-		children = {
+		return UI.ZStack({
+			id = spec.id,
+			-- THE CIRCLE DOCTRINE (task PAINT, director item 12: OddOverlapNotRound.png
+			-- + whatisthis.png). `shape = "circle"` — generalized from the circle
+			-- Button onto ZStack this round — replaces the two literal, independently
+			-- authored `{ type = "fixed", px = spec.size }` dimensions above with ONE
+			-- authored axis and a solver-enforced square: an author (here, or the
+			-- next ring anyone builds) cannot hand the two axes different numbers by
+			-- a typo or a later edit, because there is only one number to hand it.
+			-- Byte-identical geometry to before (both axes were already spec.size),
+			-- pinned in tests/reference/glade_spec.luau.
+			shape = "circle",
+			width = { type = "fixed", px = spec.size },
+			-- THE OFFSET DOT, root-caused. The identity mark (`Swap`/`Drop` below) is
+			-- a ZStack child with no `alignH`/`alignV` of its own, so it inherited
+			-- this node's default — and this node had none either, so the solver's
+			-- own fallback fired: `child.alignH or node.alignH or "start"`
+			-- (layout/solver.luau) — pinning the mark to the ring's TOP-LEFT corner
+			-- instead of its centre. That is the "filled dot offset at the ring's
+			-- top-left" the director read as a possible second ring paint (it is
+			-- not: `Track` + the conditional `Arc` are the one ring, `mark` is the
+			-- one identity dot, and the "double-draw" was one ring correctly drawn
+			-- behind one badly-placed dot). Declaring the alignment HERE, on the
+			-- ring itself, fixes it for every mark this shared composite ever
+			-- draws — a class fix, not a per-card patch, since `scene.ring` is the
+			-- one function every nectar/dew ring in the proof calls.
+			alignH = "center",
+			alignV = "center",
+
 			UI.Path({
 				id = "Track",
 				points = ctx.Facet.pathShapes.ring({}),
@@ -171,8 +168,9 @@ function scene.ring(ctx: any, spec: RingSpec): any
 				end,
 			}),
 			mark,
-		},
-	})
+		})
+	end)
+	return SupplyRing({})
 end
 
 -- ---- GladeScene --------------------------------------------------------------
@@ -189,43 +187,44 @@ export type SceneSpec = {
 	id: string,
 	glade: string,
 	form: string, -- "card" | "hero"
-	scope: any,
 	height: any, -- a dimension table
 }
 
 function scene.glade(ctx: any, spec: SceneSpec): any
-	local UI = ctx.UI
-	local core = ctx.core
-	local glade = seedData.GLADE_BY_ID[spec.glade]
+	local GladeScene = ctx.Facet.component(function(ui)
+		local UI = ctx.Facet.View
+		local glade = seedData.GLADE_BY_ID[spec.glade]
+		local now = ui.read(ctx.now)
+		local currentVisit = ui.read(ctx.visits.current(spec.glade))
 
-	local phase = spec.scope:own(core:memo(function(use)
-		return seedData.phaseAt(glade.phaseOffset, use(ctx.now))
-	end))
-	local sky = spec.scope:own(core:memo(function(use)
-		local ramp = seedData.SKY[use(phase)]
-		return UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } })
-	end))
-	local silhouette = spec.scope:own(core:memo(function(use)
-		return ctx.tint(seedData.SKY[use(phase)].silhouette)
-	end))
+		local phase = ui.memo(function()
+			return seedData.phaseAt(glade.phaseOffset, now())
+		end)
+		local sky = ui.memo(function()
+			local ramp = seedData.SKY[phase()]
+			return UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } })
+		end)
+		local silhouette = ui.memo(function()
+			return ctx.tint(seedData.SKY[phase()].silhouette)
+		end)
 
-	local layers: { any } = {
-		UI.Box({
-			id = "Sky",
-			tint = ctx.tint(seedData.WHITE),
-			gradient = sky,
-			width = UI.fill(),
-			height = UI.fill(),
-		}),
-		-- weighted-fill columns, not percent: a percent height inside the page
-		-- scroller's unbounded measure axis is the exact shape the solver
-		-- diagnoses (matrix row 2026-08-08, 33k repeats), and a weight ratio
-		-- states the same 42%/20% bands against the scene's own box
-		UI.VStack({
-			id = "TreesBand",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = {
+		local layers: { any } = {
+			UI.Box({
+				id = "Sky",
+				tint = ctx.tint(seedData.WHITE),
+				gradient = sky,
+				width = UI.fill(),
+				height = UI.fill(),
+			}),
+			-- weighted-fill columns, not percent: a percent height inside the page
+			-- scroller's unbounded measure axis is the exact shape the solver
+			-- diagnoses (matrix row 2026-08-08, 33k repeats), and a weight ratio
+			-- states the same 42%/20% bands against the scene's own box
+			UI.VStack({
+				id = "TreesBand",
+				width = UI.fill(),
+				height = UI.fill(),
+
 				UI.Spacer({ height = UI.fill(58) }),
 				UI.Box({
 					id = "TreesFar",
@@ -233,13 +232,12 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 					width = UI.fill(),
 					height = UI.fill(42),
 				}),
-			},
-		}),
-		UI.VStack({
-			id = "FloorBand",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = {
+			}),
+			UI.VStack({
+				id = "FloorBand",
+				width = UI.fill(),
+				height = UI.fill(),
+
 				UI.Spacer({ height = UI.fill(80) }),
 				UI.Box({
 					id = "Floor",
@@ -247,182 +245,181 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 					width = UI.fill(),
 					height = UI.fill(20),
 				}),
-			},
-		}),
-	}
+			}),
+		}
 
-	local fernChildren: { any } = {}
-	for _, fern in FERNS do
+		local fernChildren: { any } = {}
+		for _, fern in FERNS do
+			table.insert(
+				fernChildren,
+				UI.corners(
+					UI.Box({
+						id = fern.id,
+						anchor = "topLeft",
+						offsetX = { scale = fern.x },
+						offsetY = { scale = fern.y },
+						tint = ctx.tint(seedData.FERN),
+						width = { type = "fixed", px = fern.w },
+						height = { type = "fixed", px = fern.h },
+					}),
+					"control"
+				)
+			)
+		end
 		table.insert(
-			fernChildren,
+			layers,
+			UI.Anchor({
+				id = "Flora",
+				width = UI.fill(),
+				height = UI.fill(),
+				children = fernChildren,
+			})
+		)
+
+		table.insert(
+			layers,
 			UI.corners(
 				UI.Box({
-					id = fern.id,
-					anchor = "topLeft",
-					offsetX = { scale = fern.x },
-					offsetY = { scale = fern.y },
-					tint = ctx.tint(seedData.FERN),
-					width = { type = "fixed", px = fern.w },
-					height = { type = "fixed", px = fern.h },
+					id = "Dewstone",
+					tint = ctx.tint(seedData.DEWSTONE),
+					alignH = "center",
+					alignV = "end",
+					margin = { bottom = "m" },
+					width = { type = "fixed", px = if spec.form == "hero" then 56 else 34 },
+					height = { type = "fixed", px = if spec.form == "hero" then 18 else 12 },
 				}),
-				"control"
+				"pill"
 			)
 		)
-	end
-	table.insert(
-		layers,
-		UI.Anchor({
-			id = "Flora",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = fernChildren,
-		})
-	)
 
-	table.insert(
-		layers,
-		UI.corners(
-			UI.Box({
-				id = "Dewstone",
-				tint = ctx.tint(seedData.DEWSTONE),
-				alignH = "center",
-				alignV = "end",
-				margin = { bottom = "m" },
-				width = { type = "fixed", px = if spec.form == "hero" then 56 else 34 },
-				height = { type = "fixed", px = if spec.form == "hero" then 18 else 12 },
-			}),
-			"pill"
-		)
-	)
+		-- THE VISITOR. `When` over the scheduler's current-visit memo, so a window
+		-- opening or closing mounts and unmounts the wisp with a real transition and
+		-- nothing paints an invisible sprite at rest.
+		local visitor = ui.memo(function()
+			return currentVisit() ~= nil
+		end)
+		local motion = ctx.wispMotion(spec.glade, spec.form)
+		local glow, x, y = ui.read(motion.glow), ui.read(motion.x), ui.read(motion.y)
+		local wispSize = ui.memo(function()
+			local live = currentVisit()
+			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
+			local natural = if species ~= nil then species.scale else 1
+			local base = seedData.METRICS.wispSize * (if spec.form == "hero" then 1 else 0.62)
+			return math.max(8, math.floor(base * natural))
+		end)
+		local coreTint = ui.memo(function()
+			local live = currentVisit()
+			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
+			return ctx.tint(if species ~= nil then species.core else seedData.WHITE)
+		end)
+		local glowTint = ui.memo(function()
+			local live = currentVisit()
+			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
+			-- the delight glow (§11, class `decay`): one transparency swell after a
+			-- refill, then back. Decorative — the toast carries the information.
+			return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, glow())
+		end)
+		local trailTint = ui.memo(function()
+			local live = currentVisit()
+			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
+			return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, 0.55)
+		end)
+		local offsetX = ui.memo(function()
+			return { scale = x() }
+		end)
+		local offsetY = ui.memo(function()
+			return { scale = y() }
+		end)
+		local haloSize = ui.memo(function()
+			return { type = "fixed", px = math.floor(wispSize() * 1.9) }
+		end)
+		local bodySize = ui.memo(function()
+			return { type = "fixed", px = wispSize() }
+		end)
+		local trailSize = ui.memo(function()
+			return { type = "fixed", px = math.floor(wispSize() * 0.5) }
+		end)
 
-	-- THE VISITOR. `When` over the scheduler's current-visit memo, so a window
-	-- opening or closing mounts and unmounts the wisp with a real transition and
-	-- nothing paints an invisible sprite at rest.
-	local visitor = spec.scope:own(core:memo(function(use)
-		return use(ctx.visits.current(spec.glade)) ~= nil
-	end))
-	local motion = ctx.wispMotion(spec.glade, spec.form)
-	local wispSize = spec.scope:own(core:memo(function(use)
-		local live = use(ctx.visits.current(spec.glade))
-		local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
-		local natural = if species ~= nil then species.scale else 1
-		local base = seedData.METRICS.wispSize * (if spec.form == "hero" then 1 else 0.62)
-		return math.max(8, math.floor(base * natural))
-	end))
-	local coreTint = spec.scope:own(core:memo(function(use)
-		local live = use(ctx.visits.current(spec.glade))
-		local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
-		return ctx.tint(if species ~= nil then species.core else seedData.WHITE)
-	end))
-	local glowTint = spec.scope:own(core:memo(function(use)
-		local live = use(ctx.visits.current(spec.glade))
-		local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
-		-- the delight glow (§11, class `decay`): one transparency swell after a
-		-- refill, then back. Decorative — the toast carries the information.
-		return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, use(motion.glow))
-	end))
-	local trailTint = spec.scope:own(core:memo(function(use)
-		local live = use(ctx.visits.current(spec.glade))
-		local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
-		return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, 0.55)
-	end))
-	local offsetX = spec.scope:own(core:memo(function(use)
-		return { scale = use(motion.x) }
-	end))
-	local offsetY = spec.scope:own(core:memo(function(use)
-		return { scale = use(motion.y) }
-	end))
-	local haloSize = spec.scope:own(core:memo(function(use)
-		return { type = "fixed", px = math.floor(use(wispSize) * 1.9) }
-	end))
-	local bodySize = spec.scope:own(core:memo(function(use)
-		return { type = "fixed", px = use(wispSize) }
-	end))
-	local trailSize = spec.scope:own(core:memo(function(use)
-		return { type = "fixed", px = math.floor(use(wispSize) * 0.5) }
-	end))
+		table.insert(
+			layers,
+			UI.When({
+				id = "Visitor",
+				condition = visitor,
+				transition = { enter = "fade", class = "container" },
+				thenView = function(): any
+					return UI.ZStack({
+						id = "VisitorLayer",
+						canvasGroup = true,
+						width = UI.fill(),
+						height = UI.fill(),
 
-	table.insert(
-		layers,
-		UI.When({
-			id = "Visitor",
-			condition = visitor,
-			transition = { enter = "fade", class = "container" },
-			thenView = function(): any
-				return UI.ZStack({
-					id = "VisitorLayer",
-					canvasGroup = true,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
 						UI.Anchor({
 							id = "Flight",
 							width = UI.fill(),
 							height = UI.fill(),
-							children = {
-								UI.ZStack({
-									id = "Wisp",
-									anchor = "topLeft",
-									offsetX = offsetX,
-									offsetY = offsetY,
-									width = haloSize,
-									height = haloSize,
-									children = {
-										UI.corners(
-											UI.Box({
-												id = "Glow",
-												tint = glowTint,
-												width = UI.fill(),
-												height = UI.fill(),
-											}),
-											"pill"
-										),
-										UI.corners(
-											UI.Box({
-												id = "Core",
-												tint = coreTint,
-												alignH = "center",
-												alignV = "center",
-												width = bodySize,
-												height = bodySize,
-											}),
-											"pill"
-										),
-										UI.corners(
-											UI.Box({
-												id = "Trail",
-												tint = trailTint,
-												alignH = "start",
-												alignV = "end",
-												width = trailSize,
-												height = trailSize,
-											}),
-											"pill"
-										),
-									},
-								}),
-							},
-						}),
-					},
-				})
-			end,
-		})
-	)
 
-	return UI.stroke(
-		UI.corners(
-			UI.ZStack({
-				id = spec.id,
-				canvasGroup = true,
-				overflow = "clip",
-				width = UI.fill(),
-				height = spec.height,
-				children = layers,
-			}),
-			"panel"
-		),
-		{}
-	)
+							UI.ZStack({
+								id = "Wisp",
+								anchor = "topLeft",
+								offsetX = offsetX,
+								offsetY = offsetY,
+								width = haloSize,
+								height = haloSize,
+
+								UI.corners(
+									UI.Box({
+										id = "Glow",
+										tint = glowTint,
+										width = UI.fill(),
+										height = UI.fill(),
+									}),
+									"pill"
+								),
+								UI.corners(
+									UI.Box({
+										id = "Core",
+										tint = coreTint,
+										alignH = "center",
+										alignV = "center",
+										width = bodySize,
+										height = bodySize,
+									}),
+									"pill"
+								),
+								UI.corners(
+									UI.Box({
+										id = "Trail",
+										tint = trailTint,
+										alignH = "start",
+										alignV = "end",
+										width = trailSize,
+										height = trailSize,
+									}),
+									"pill"
+								),
+							}),
+						}),
+					})
+				end,
+			})
+		)
+
+		return UI.stroke(
+			UI.corners(
+				UI.ZStack({
+					id = spec.id,
+					canvasGroup = true,
+					overflow = "clip",
+					width = UI.fill(),
+					height = spec.height,
+					children = layers,
+				}),
+				"panel"
+			),
+			{}
+		)
+	end)
+	return GladeScene({})
 end
 
 -- ---- the wisp portrait -------------------------------------------------------
@@ -440,37 +437,36 @@ function scene.portrait(ctx: any, id: string, wispId: string, size: number): any
 			overflow = "clip",
 			width = { type = "fixed", px = size },
 			height = { type = "fixed", px = size },
-			children = {
+
+			UI.Box({
+				id = "Mini",
+				tint = ctx.tint(seedData.WHITE),
+				gradient = UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } }),
+				width = UI.fill(),
+				height = UI.fill(),
+			}),
+			UI.corners(
 				UI.Box({
-					id = "Mini",
-					tint = ctx.tint(seedData.WHITE),
-					gradient = UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } }),
-					width = UI.fill(),
-					height = UI.fill(),
+					id = "Glow",
+					tint = ctx.tint(if species ~= nil then species.glow else seedData.WHITE, 0.35),
+					alignH = "center",
+					alignV = "center",
+					width = { type = "fixed", px = math.floor(body * 1.8) },
+					height = { type = "fixed", px = math.floor(body * 1.8) },
 				}),
-				UI.corners(
-					UI.Box({
-						id = "Glow",
-						tint = ctx.tint(if species ~= nil then species.glow else seedData.WHITE, 0.35),
-						alignH = "center",
-						alignV = "center",
-						width = { type = "fixed", px = math.floor(body * 1.8) },
-						height = { type = "fixed", px = math.floor(body * 1.8) },
-					}),
-					"pill"
-				),
-				UI.corners(
-					UI.Box({
-						id = "Core",
-						tint = ctx.tint(if species ~= nil then species.core else seedData.WHITE),
-						alignH = "center",
-						alignV = "center",
-						width = { type = "fixed", px = body },
-						height = { type = "fixed", px = body },
-					}),
-					"pill"
-				),
-			},
+				"pill"
+			),
+			UI.corners(
+				UI.Box({
+					id = "Core",
+					tint = ctx.tint(if species ~= nil then species.core else seedData.WHITE),
+					alignH = "center",
+					alignV = "center",
+					width = { type = "fixed", px = body },
+					height = { type = "fixed", px = body },
+				}),
+				"pill"
+			),
 		}),
 		"pill"
 	)

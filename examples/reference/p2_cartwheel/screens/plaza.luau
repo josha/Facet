@@ -144,54 +144,52 @@ function plaza.new(app: any): any
 		height = UI.fill(),
 		alignH = "center",
 		alignV = "center",
-		children = {
-			UI.gradient(
-				UI.Image({
-					id = "KeyArt",
-					image = app.art.marks.menu.image,
-					scaleMode = "crop",
-					tint = { role = "contentSecondary", blend = 0.7 },
-					width = UI.fill(),
-					height = UI.fill(),
-				}),
-				{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
-			),
-			UI.Text({
-				id = "Note",
-				text = S.t("plaza.fallback"),
-				textSize = "caption",
-				role = "secondary",
-				textAlign = "center",
-				lineLimit = 2,
+
+		UI.gradient(
+			UI.Image({
+				id = "KeyArt",
+				image = app.art.marks.menu.image,
+				scaleMode = "crop",
+				tint = { role = "contentSecondary", blend = 0.7 },
+				width = UI.fill(),
+				height = UI.fill(),
 			}),
-		},
+			{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
+		),
+		UI.Text({
+			id = "Note",
+			text = S.t("plaza.fallback"),
+			textSize = "caption",
+			role = "secondary",
+			textAlign = "center",
+			lineLimit = 2,
+		}),
 	})
 
 	local hero = UI.ZStack({
 		id = "Hero",
 		width = UI.fill(),
 		height = { type = "fixed", px = "app.cartwheel.previewMin" },
-		children = {
-			-- the reserved box itself: it paints its own plate whether or not a
-			-- scene ever arrives, so the layout is identical in both worlds
-			UI.corners(
-				UI.Stage({
-					id = "Stage",
-					surface = "raised",
-					width = UI.fill(),
-					height = UI.fill(),
-				}),
-				"panel"
-			),
-			UI.When({
-				id = "FallbackWhen",
-				condition = noHost,
-				thenView = function()
-					return fallbackPlate
-				end,
-				transition = { enter = "fade", class = "container" },
+
+		-- the reserved box itself: it paints its own plate whether or not a
+		-- scene ever arrives, so the layout is identical in both worlds
+		UI.corners(
+			UI.Stage({
+				id = "Stage",
+				surface = "raised",
+				width = UI.fill(),
+				height = UI.fill(),
 			}),
-		},
+			"panel"
+		),
+		UI.When({
+			id = "FallbackWhen",
+			condition = noHost,
+			thenView = function()
+				return fallbackPlate
+			end,
+			transition = { enter = "fade", class = "container" },
+		}),
 	})
 
 	local page = UI.ScrollView({
@@ -201,22 +199,22 @@ function plaza.new(app: any): any
 		padding = "m",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			-- plaza and pitch names are identity text: they may truncate, but only
-			-- with a way back to the whole string (spec §19 disclose ledger)
-			UI.Text({ id = "Title", text = plazaName, textSize = "title", lineLimit = 2, disclose = true }),
-			hero,
-			parts.card(app, {
-				id = "Pitch",
-				children = {
-					UI.Text({ id = "Name", text = pitchName, textSize = "heading", lineLimit = 2, disclose = true }),
-					UI.Text({
-						id = "Recommended",
-						text = S.t("plaza.recommended"),
-						textSize = "caption",
-						role = "secondary",
-					}),
-					--[[ THIS WAS A `ViewThatFits` LADDER: three candidate summaries,
+
+		-- plaza and pitch names are identity text: they may truncate, but only
+		-- with a way back to the whole string (spec §19 disclose ledger)
+		UI.Text({ id = "Title", text = plazaName, textSize = "title", lineLimit = 2, disclose = true }),
+		hero,
+		parts.card(app, {
+			id = "Pitch",
+			children = {
+				UI.Text({ id = "Name", text = pitchName, textSize = "heading", lineLimit = 2, disclose = true }),
+				UI.Text({
+					id = "Recommended",
+					text = S.t("plaza.recommended"),
+					textSize = "caption",
+					role = "secondary",
+				}),
+				--[[ THIS WAS A `ViewThatFits` LADDER: three candidate summaries,
 						richest first (Full = 3 chips, Two = 2, One = 1), and the framework
 						measured and picked. Two things were wrong with it, and
 						`HStack{ wrap = true }` (parity round 3) fixes both.
@@ -245,28 +243,26 @@ function plaza.new(app: any): any
 						`align` as that child's cross placement — so keeping it slid the
 						whole row 80px right, off the card's leading edge (measured
 						1440x900: x 270 -> 350). Dropped, and the row stays where it was. ]]
-					UI.HStack({
-						id = "Summary",
-						wrap = true,
-						gap = "xs",
-						children = {
-							parts.chip(app, "Charge", chargeText),
-							parts.chip(app, "Popular", S.t("plaza.popular")),
-							parts.chip(app, "Trending", S.t("plaza.trending")),
-						},
-					}),
-				},
-			}),
-			parts.plate(app, {
-				id = "Flavor",
-				gap = "xs",
-				children = {
-					UI.Text({ id = "Cloud", text = cloudText, textSize = "body" }),
-					UI.Text({ id = "Seasonal", text = seasonalText, textSize = "body" }),
-					UI.Text({ id = "Stock", text = stockText, textSize = "body" }),
-				},
-			}),
-		},
+				UI.HStack({
+					id = "Summary",
+					wrap = true,
+					gap = "xs",
+
+					parts.chip(app, "Charge", chargeText),
+					parts.chip(app, "Popular", S.t("plaza.popular")),
+					parts.chip(app, "Trending", S.t("plaza.trending")),
+				}),
+			},
+		}),
+		parts.plate(app, {
+			id = "Flavor",
+			gap = "xs",
+			children = {
+				UI.Text({ id = "Cloud", text = cloudText, textSize = "body" }),
+				UI.Text({ id = "Seasonal", text = seasonalText, textSize = "body" }),
+				UI.Text({ id = "Stock", text = stockText, textSize = "body" }),
+			},
+		}),
 	})
 
 	function self.view(): any

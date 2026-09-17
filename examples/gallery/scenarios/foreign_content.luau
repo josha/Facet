@@ -65,91 +65,88 @@ return {
 				id = id,
 				gap = "tight",
 				width = { type = "fixed", px = 220 },
-				children = { child, UI.Text({ id = "Caption", text = caption, textSize = 13 }) },
+				child,
+				UI.Text({ id = "Caption", text = caption, textSize = 13 }),
 			})
 		end
 
 		local screen = UI.Screen({
 			id = "ForeignContent",
 			padding = "m",
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = 12,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "UI.Foreign", textSize = "title" }),
-						UI.Text({
-							id = "Blurb",
-							text = "Facet reserves and clips the box. You create the instance, you own every "
-								.. "property on it, and the framework writes exactly one thing: its Parent.",
-							textSize = "label",
-						}),
-						UI.HStack({
-							id = "Panes",
-							gap = 12,
-							wrap = true,
-							children = {
-								pane(
-									"Rich",
-									"RichText: markup spans in one label",
-									UI.Foreign({
-										id = "Pane",
-										width = { type = "fixed", px = 220 },
-										height = { type = "fixed", px = 96 },
-										surface = "raised",
-									})
-								),
-								pane(
-									"Engine",
-									"The ENGINE lays this out and measures it",
-									UI.Foreign({
-										id = "Pane",
-										width = { type = "fixed", px = 220 },
-										height = { type = "fixed", px = 96 },
-										surface = "raised",
-									})
-								),
-								pane(
-									"Clip",
-									"2x oversize — cropped at the box edge",
-									UI.Foreign({
-										id = "Pane",
-										width = { type = "fixed", px = 220 },
-										height = { type = "fixed", px = 96 },
-										surface = "raised",
-									})
-								),
-							},
-						}),
-						UI.Text({ id = "Status", text = status, textSize = 13 }),
-						UI.HStack({
-							id = "Actions",
-							gap = "s",
-							wrap = true,
-							children = {
-								UI.Button({
-									id = "Readopt",
-									label = "Re-adopt all three",
-									onActivate = function()
-										readoptAll()
-									end,
-								}),
-								UI.Button({
-									id = "AdoptPart",
-									label = "Adopt a Part (refused)",
-									onActivate = function()
-										adoptPart()
-									end,
-								}),
-							},
-						}),
-						UI.Text({ id = "Refusal", text = refusal, textSize = "caption", disclose = true }),
-					},
+
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = 12,
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = "UI.Foreign", textSize = "title" }),
+				UI.Text({
+					id = "Blurb",
+					text = "Facet reserves and clips the box. You create the instance, you own every "
+						.. "property on it, and the framework writes exactly one thing: its Parent.",
+					textSize = "label",
 				}),
-			},
+				UI.HStack({
+					id = "Panes",
+					gap = 12,
+					wrap = true,
+
+					pane(
+						"Rich",
+						"RichText: markup spans in one label",
+						UI.Foreign({
+							id = "Pane",
+							width = { type = "fixed", px = 220 },
+							height = { type = "fixed", px = 96 },
+							surface = "raised",
+						})
+					),
+					pane(
+						"Engine",
+						"The ENGINE lays this out and measures it",
+						UI.Foreign({
+							id = "Pane",
+							width = { type = "fixed", px = 220 },
+							height = { type = "fixed", px = 96 },
+							surface = "raised",
+						})
+					),
+					pane(
+						"Clip",
+						"2x oversize — cropped at the box edge",
+						UI.Foreign({
+							id = "Pane",
+							width = { type = "fixed", px = 220 },
+							height = { type = "fixed", px = 96 },
+							surface = "raised",
+						})
+					),
+				}),
+				UI.Text({ id = "Status", text = status, textSize = 13 }),
+				UI.HStack({
+					id = "Actions",
+					gap = "s",
+					wrap = true,
+
+					UI.Button({
+						id = "Readopt",
+						label = "Re-adopt all three",
+						onActivate = function()
+							readoptAll()
+						end,
+					}),
+					UI.Button({
+						id = "AdoptPart",
+						label = "Adopt a Part (refused)",
+						onActivate = function()
+							adoptPart()
+						end,
+					}),
+				}),
+				UI.Text({ id = "Refusal", text = refusal, textSize = "caption", disclose = true }),
+			}),
 		})
 
 		local CONTENT: { [string]: any } = {

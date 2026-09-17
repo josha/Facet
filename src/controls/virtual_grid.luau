@@ -1026,6 +1026,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						children = {
 							hit,
 							spec.cell(entry.item, {
+								current = function(use)
+									local index = use(indexByKey)[entry.key]
+									return if index then use(spec.items)[index] else entry.item
+								end,
 								scope = itemScope,
 								index = entry.index,
 								line = entry.line,

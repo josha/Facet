@@ -887,19 +887,18 @@ return {
 				id = id,
 				width = if opts ~= nil then opts.width else nil,
 				height = if opts ~= nil then opts.height else nil,
-				children = {
-					UI.corners(
-						UI.Box({
-							id = "Plate",
-							width = UI.fill(),
-							height = UI.fill(),
-							surface = if isWindow then WINDOW_SURFACE else CHIP_SURFACE,
-							tint = { role = "surface", blend = 1, transparency = GLASS },
-						}),
-						radius
-					),
-					UI.padding(content, plateInsets(if isWindow then WINDOW_SLOT else CHIP_SLOT, padding)),
-				},
+
+				UI.corners(
+					UI.Box({
+						id = "Plate",
+						width = UI.fill(),
+						height = UI.fill(),
+						surface = if isWindow then WINDOW_SURFACE else CHIP_SURFACE,
+						tint = { role = "surface", blend = 1, transparency = GLASS },
+					}),
+					radius
+				),
+				UI.padding(content, plateInsets(if isWindow then WINDOW_SLOT else CHIP_SLOT, padding)),
 			})
 		end
 
@@ -913,7 +912,7 @@ return {
 				UI.HStack({
 					id = id .. "Row",
 					align = "center",
-					children = { UI.Text({ id = id .. "T", text = text, textSize = size }) },
+					UI.Text({ id = id .. "T", text = text, textSize = size }),
 				}),
 				--[[ FOUR, NOT TEN (device round follow-up, 2026-08-21). A HUD pill's
 					gutter yields before its VALUE does: the expand mark now stands beside
@@ -1076,8 +1075,8 @@ return {
 					gap = "s",
 					align = "center",
 					width = UI.fill(),
-					children = {
-						--[[ THE MARK IS PAINT, NOT A SURFACE, and the sweep is why.
+
+					--[[ THE MARK IS PAINT, NOT A SURFACE, and the sweep is why.
 							`surface = "accent"` subscribes a node to the accent surface's
 							whole chrome recipe, and a themed package's `control` insets are
 							16-28px of border — on a dot the theme itself sized at 5-12px.
@@ -1092,16 +1091,16 @@ return {
 							has no task glyph, the only icon affordance is a Button (three
 							focus stops in a HUD that has none), and this fixture is not
 							allowed to invent art. ]]
-						UI.corners(
-							UI.Box({
-								id = `Mark{i}`,
-								width = { type = "fixed", px = "controls.progress.spinnerDotSize" },
-								height = { type = "fixed", px = "controls.progress.spinnerDotSize" },
-								tint = { role = "accent", blend = 1 },
-							}),
-							"pill"
-						),
-						--[[ THE NAME IS THIS ROW'S OWN TEXT, AND IT NEVER WRAPS.
+					UI.corners(
+						UI.Box({
+							id = `Mark{i}`,
+							width = { type = "fixed", px = "controls.progress.spinnerDotSize" },
+							height = { type = "fixed", px = "controls.progress.spinnerDotSize" },
+							tint = { role = "accent", blend = 1 },
+						}),
+						"pill"
+					),
+					--[[ THE NAME IS THIS ROW'S OWN TEXT, AND IT NEVER WRAPS.
 							`newProgressView`'s built-in `label` shrinks (O-23) but a Text
 							that has shrunk to its floor WRAPS, and a wrap is what broke
 							this panel: measured at an unbounded width every label is one
@@ -1110,22 +1109,21 @@ return {
 							and needed 267. Measure and arrange have to agree about height,
 							and `lineLimit = 1` is what makes them: this label gives up
 							pixels, then characters, and never lines. ]]
-						UI.Text({
-							id = `TaskName{i}`,
-							text = (COPY :: any)[key],
-							textSize = "caption",
-							lineLimit = 1,
-							shrinkWeight = 1,
-						}),
-						view.blueprint,
-						UI.Text({
-							id = `Reward{i}`,
-							text = (COPY :: any)[`reward{i}`],
-							textSize = "caption",
-							surface = "chip",
-							padding = { top = 2, right = 6, bottom = 2, left = 6 },
-						}),
-					},
+					UI.Text({
+						id = `TaskName{i}`,
+						text = (COPY :: any)[key],
+						textSize = "caption",
+						lineLimit = 1,
+						shrinkWeight = 1,
+					}),
+					view.blueprint,
+					UI.Text({
+						id = `Reward{i}`,
+						text = (COPY :: any)[`reward{i}`],
+						textSize = "caption",
+						surface = "chip",
+						padding = { top = 2, right = 6, bottom = 2, left = 6 },
+					}),
 				})
 			)
 		end
@@ -1173,7 +1171,7 @@ return {
 						surface = "raised",
 						padding = "m",
 						width = UI.fill(),
-						children = { UI.Text({ text = "Supplies delivered", textSize = "label" }) },
+						UI.Text({ text = "Supplies delivered", textSize = "label" }),
 					}),
 					{ key = "hud-supplies", duration = 4 }
 				)
@@ -1184,7 +1182,7 @@ return {
 				notice.dismiss()
 			end
 		end)
-		local hudActions = scope:own(Facet.Controls.Menu(core, {
+		local hudActions = Facet.View.Menu({
 			id = "HudActions",
 			trigger = roundButton("R1", COPY.round1, "menu", "compact"),
 			sizeClass = env:get("sizeClass"),
@@ -1207,7 +1205,7 @@ return {
 				{ id = "notice", label = "Show notification", onSelect = notify },
 				{ id = "close", label = "Close", onSelect = function() end },
 			},
-		}))
+		})
 
 		-- ---- the weapon rail -------------------------------------------------
 		local function weaponChip(id: string, name: string, ammo: string): any
@@ -1218,16 +1216,15 @@ return {
 					id = id .. "Row",
 					gap = "s",
 					align = "center",
-					children = {
-						UI.Text({ id = id .. "Name", text = name, textSize = "caption", shrinkWeight = 1 }),
-						UI.Text({
-							id = id .. "Ammo",
-							text = ammo,
-							textSize = "caption",
-							surface = "badge",
-							padding = { top = 1, right = 5, bottom = 1, left = 5 },
-						}),
-					},
+
+					UI.Text({ id = id .. "Name", text = name, textSize = "caption", shrinkWeight = 1 }),
+					UI.Text({
+						id = id .. "Ammo",
+						text = ammo,
+						textSize = "caption",
+						surface = "badge",
+						padding = { top = 1, right = 5, bottom = 1, left = 5 },
+					}),
 				}),
 				{ top = 4, right = 8, bottom = 4, left = 8 }
 			)
@@ -1259,35 +1256,33 @@ return {
 			id = "ClockStack",
 			gap = "tight",
 			align = "center",
-			children = {
-				pill("ScoreHome", COPY.scoreHome, "numeral"),
-				glass(
-					"TimerPod",
-					"pill",
+
+			pill("ScoreHome", COPY.scoreHome, "numeral"),
+			glass(
+				"TimerPod",
+				"pill",
+				UI.HStack({
+					id = "TimerRow",
+					gap = "tight",
+					align = "center",
+
+					-- THE RING NEEDS A BOX, for the reason the health bar does one
+					-- zone over: `newProgressView`'s row is `fill` on purpose, so
+					-- inside a HUGGING pod it measures as nothing and the ring inside
+					-- it overflows by exactly its own diameter (measured: "content
+					-- overflows this hstack by 24px"). The box is the THEME's ring
+					-- metric, so a package that draws a 44px ring gets a 44px box and
+					-- this fixture never learns a number.
 					UI.HStack({
-						id = "TimerRow",
-						gap = "tight",
-						align = "center",
-						children = {
-							-- THE RING NEEDS A BOX, for the reason the health bar does one
-							-- zone over: `newProgressView`'s row is `fill` on purpose, so
-							-- inside a HUGGING pod it measures as nothing and the ring inside
-							-- it overflows by exactly its own diameter (measured: "content
-							-- overflows this hstack by 24px"). The box is the THEME's ring
-							-- metric, so a package that draws a 44px ring gets a 44px box and
-							-- this fixture never learns a number.
-							UI.HStack({
-								id = "TimerRingBox",
-								width = { type = "fixed", px = "controls.progress.circularSize" },
-								children = { timerRing.blueprint },
-							}),
-							UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
-						},
+						id = "TimerRingBox",
+						width = { type = "fixed", px = "controls.progress.circularSize" },
+						timerRing.blueprint,
 					}),
-					{ top = 4, right = 12, bottom = 4, left = 12 }
-				),
-				pill("ScoreAway", COPY.scoreAway, "numeral"),
-			},
+					UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
+				}),
+				{ top = 4, right = 12, bottom = 4, left = 12 }
+			),
+			pill("ScoreAway", COPY.scoreAway, "numeral"),
 		})
 		local healthPod = glass(
 			"HealthPod",
@@ -1296,9 +1291,9 @@ return {
 				id = "HealthRow",
 				gap = "s",
 				align = "center",
-				children = {
-					UI.Text({ id = "HealthNum", text = healthText, textSize = "numeral" }),
-					--[[ THE BAR NEEDS A BOX, and this pod HUGS.
+
+				UI.Text({ id = "HealthNum", text = healthText, textSize = "numeral" }),
+				--[[ THE BAR NEEDS A BOX, and this pod HUGS.
 						`newProgressView`'s row is `fill` by construction — a bar spans
 						whatever it is given — so inside a hugging pod it measures as
 						nothing and vanishes.
@@ -1313,12 +1308,11 @@ return {
 						— and inside a DROPPED region it costs nothing, because the adapter
 						writes `Visible = false` down the whole subtree (proved in
 						tests/hud_composition.spec). ]]
-					UI.HStack({
-						id = "HealthBarBox",
-						width = { type = "fixed", px = 96 },
-						children = { healthBar.blueprint },
-					}),
-				},
+				UI.HStack({
+					id = "HealthBarBox",
+					width = { type = "fixed", px = 96 },
+					healthBar.blueprint,
+				}),
 			}),
 			{ top = 4, right = 12, bottom = 4, left = 12 }
 		)
@@ -1326,21 +1320,19 @@ return {
 			id = "RailTall",
 			gap = "xs",
 			align = "end",
-			children = {
-				weaponChip("W1", COPY.weapon1, COPY.ammo1),
-				weaponChip("W2", COPY.weapon2, COPY.ammo2),
-				weaponChip("W3", COPY.weapon3, COPY.ammo3),
-			},
+
+			weaponChip("W1", COPY.weapon1, COPY.ammo1),
+			weaponChip("W2", COPY.weapon2, COPY.ammo2),
+			weaponChip("W3", COPY.weapon3, COPY.ammo3),
 		})
 		local actionsCol = UI.VStack({
 			id = "ActionsCol",
 			gap = "s",
 			align = "end",
-			children = {
-				roundButton("A1", COPY.action1, "more", "large"),
-				roundButton("A2", COPY.action2, "menu", "large"),
-				roundButton("A3", COPY.action3, "checkmark", "large"),
-			},
+
+			roundButton("A1", COPY.action1, "more", "large"),
+			roundButton("A2", COPY.action2, "menu", "large"),
+			roundButton("A3", COPY.action3, "checkmark", "large"),
 		})
 		local feedLine = UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" })
 		local readoutText = UI.Text({ id = "ReadoutText", text = COPY.readout, textSize = "caption" })
@@ -2324,13 +2316,13 @@ return {
 					The probe surface is describing THIS HUD, so knowing where this HUD
 					keeps its controls is the fixture's business and not a leak. ]]
 				padding = { top = 8, right = 104, bottom = 8, left = 8 },
-				children = {
-					UI.Anchor({
-						id = "ProbeField",
-						width = UI.fill(),
-						height = UI.fill(),
-						children = {
-							--[[ SMALL BY DEFAULT, AND THAT IS THE FIX (director, 2026-08-17:
+
+				UI.Anchor({
+					id = "ProbeField",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					--[[ SMALL BY DEFAULT, AND THAT IS THE FIX (director, 2026-08-17:
 							*"this round seems to have regressed as the buttons on the right
 							disappeared"* — `IMG_3759`). They had not. The plate had grown a
 							line at a time until it covered them: the action rail and the
@@ -2348,65 +2340,64 @@ return {
 							reader ASKED for rather than a thing the instrument did to them.
 							An instrument that hides the screen it is describing is not an
 							instrument. ]]
-							UI.HStack({
-								id = "ProbeSlot",
-								anchor = "right",
-								children = {
-									glass(
-										"ProbePlate",
-										"panel",
-										UI.VStack({
-											id = "ProbeBody",
-											gap = 2,
-											width = UI.fill(),
-											children = {
-												-- COMPACT: the head is the toggle, so it must not cost a control's
-												-- full chrome height on a plate that has to stay out of the way
-												UI.Button({
-													id = "ProbeHead",
-													label = probeHeadLabel,
-													surface = "plain",
-													textSize = "caption",
-													padding = 0,
-													width = UI.fill(),
-													onActivate = function()
-														probeExpanded:set(not probeExpanded:get())
-													end,
-												}),
-												--[[ ONE TEXT PER LINE (see `probeLine` above). Each line is
+					UI.HStack({
+						id = "ProbeSlot",
+						anchor = "right",
+
+						glass(
+							"ProbePlate",
+							"panel",
+							UI.VStack({
+								id = "ProbeBody",
+								gap = 2,
+								width = UI.fill(),
+
+								-- COMPACT: the head is the toggle, so it must not cost a control's
+								-- full chrome height on a plate that has to stay out of the way
+								UI.Button({
+									id = "ProbeHead",
+									label = probeHeadLabel,
+									surface = "plain",
+									textSize = "caption",
+									padding = 0,
+									width = UI.fill(),
+									onActivate = function()
+										probeExpanded:set(not probeExpanded:get())
+									end,
+								}),
+								--[[ ONE TEXT PER LINE (see `probeLine` above). Each line is
 													measured, wrapped and placed on its own, so a line that grows
 													pushes the button DOWN instead of being drawn under it. ]]
-												UI.VStack({
-													id = "ProbeLines",
-													gap = 1,
-													width = UI.fill(),
-													children = probeLineViews,
-												}),
-												--[[ RELEASE / RE-ARM, and never the capture itself. On the
+								UI.VStack({
+									id = "ProbeLines",
+									gap = 1,
+									width = UI.fill(),
+									children = probeLineViews,
+								}),
+								--[[ RELEASE / RE-ARM, and never the capture itself. On the
 													plate's own surface it costs the HUD nothing — this
 													surface has room the HUD does not — and it is an ordinary
 													`UI.Button`, so the 44px target floor is the framework's
 													to enforce. Touch and pointer reach it; keyboard and
 													gamepad reach the same signal through `steps.holdProbe`
 													and `steps.armProbe` until cross-surface traversal exists. ]]
-												UI.Button({
-													id = "ProbeHold",
-													label = probeButtonLabel,
-													surface = "chip",
-													width = UI.fill(),
-													onActivate = function()
-														if probeHeld:get() then
-															probeHeld:set(false)
-															probeSample()
-														else
-															probeHeld:set(true)
-														end
-													end,
-												}),
-											},
-										}),
-										"s",
-										--[[ a plate a thumb can read without covering the screen it is
+								UI.Button({
+									id = "ProbeHold",
+									label = probeButtonLabel,
+									surface = "chip",
+									width = UI.fill(),
+									onActivate = function()
+										if probeHeld:get() then
+											probeHeld:set(false)
+											probeSample()
+										else
+											probeHeld:set(true)
+										end
+									end,
+								}),
+							}),
+							"s",
+							--[[ a plate a thumb can read without covering the screen it is
 											describing.
 
 											THE COMMENT USED TO NAME TWO NUMBERS THIS LINE HAS NEVER HELD,
@@ -2425,13 +2416,10 @@ return {
 											it. `tests/hud_paint_probe.spec` holds the PROPERTY in both
 											orientations rather than either number, so the pair may be
 											re-measured without this comment going stale a second time. ]]
-										{ width = { type = "fixed", px = 164 } }
-									),
-								},
-							}),
-						},
+							{ width = { type = "fixed", px = 164 } }
+						),
 					}),
-				},
+				}),
 			})
 		end
 
@@ -2524,20 +2512,20 @@ return {
 				and its own solved rects in — so this fixture converts nothing and needs
 				to know nothing about where its composition landed. ]]
 			exclusions = coordinatedExclusions,
-			children = {
-				-- THE PLATFORM'S OWN ROW. A `span = "above"` group, so it
-				-- is one full-width row above every lane in every arrangement — which
-				-- is what makes the nine anchored zones start BELOW the platform's
-				-- band instead of being told to avoid it. Its content is inset to the
-				-- free band's own left edge, so it sits level with Roblox's buttons
-				-- and cannot be on them; when nothing is riding, `UI.When` closes the
-				-- row entirely and the composition is byte-identical to the HUD that
-				-- never had the zone.
-				UI.Region({
-					id = "Strip",
-					group = "topbar",
-					rank = 6,
-					--[[ RESERVED, AND THIS IS THE ONE THAT WAS FOUND BY THE CHECK.
+
+			-- THE PLATFORM'S OWN ROW. A `span = "above"` group, so it
+			-- is one full-width row above every lane in every arrangement — which
+			-- is what makes the nine anchored zones start BELOW the platform's
+			-- band instead of being told to avoid it. Its content is inset to the
+			-- free band's own left edge, so it sits level with Roblox's buttons
+			-- and cannot be on them; when nothing is riding, `UI.When` closes the
+			-- row entirely and the composition is byte-identical to the HUD that
+			-- never had the zone.
+			UI.Region({
+				id = "Strip",
+				group = "topbar",
+				rank = 6,
+				--[[ RESERVED, AND THIS IS THE ONE THAT WAS FOUND BY THE CHECK.
 						With `mayDrop` the row was droppable, so on a 213px-tall window
 						the ladder dropped it (rank 6, 58px bought) — and every lane then
 						climbed into the space it left, which is THE PLATFORM'S BAND. The
@@ -2545,53 +2533,50 @@ return {
 						not this HUD has anything to put in it. `reserved` is rule 7's own
 						word for exactly that, and it is live, so the row reserves nothing
 						at all on the rung that is not riding. ]]
-					reserved = riding,
-					-- the floor a reserved region owes: content-expressed, like every
-					-- floor. The row's real height is the band's (a platform fact the
-					-- form carries); this is only what it may never fall below.
-					floor = { targets = 1 },
-					--[[ `fill`, SO THE REGION IS THE BAND. The row's box is a PLATFORM
+				reserved = riding,
+				-- the floor a reserved region owes: content-expressed, like every
+				-- floor. The row's real height is the band's (a platform fact the
+				-- form carries); this is only what it may never fall below.
+				floor = { targets = 1 },
+				--[[ `fill`, SO THE REGION IS THE BAND. The row's box is a PLATFORM
 						fact now — `bandSafeContent` lays the `topbar` zone into
 						`platformChrome.band` — and `sizing = "fill"` is what asks for it,
 						the same word it means in a lane (rule 6). The chip then centres in
 						the strip instead of sitting at the top of it. ]]
-					sizing = "fill",
-					children = {
-						--[[ AND THE WHOLE ROW IS BEHIND THE RIDE SWITCH, which is what makes
+				sizing = "fill",
+
+				--[[ AND THE WHOLE ROW IS BEHIND THE RIDE SWITCH, which is what makes
 							the not-riding rung byte-identical to `deviceSafeContent`: with
 							nothing paintable in it the region resolves to nothing (rule 9), the
 							band row is inactive, and the composition reserves the platform's
 							whole top reservation instead of the free strip. Two spacers as wide
 							as the platform's cluster used to live here; the framework holds that
 							space open now, because it is the one that knows where the strip is. ]]
-						UI.When({
-							id = "StripChip",
-							condition = riding,
-							thenView = function()
-								return UI.HStack({
-									id = "StripRow",
-									width = UI.fill(),
-									height = UI.fill(),
-									align = "center",
-									distribute = "center",
-									children = {
-										-- the band can be narrow (a 320px phone has ~156px of
-										-- it), so the fit is the framework's decision and not
-										-- an authored width guess
-										UI.ViewThatFits({
-											id = "StripFit",
-											children = {
-												pill("Objective", COPY.objective, "caption"),
-												pill("ObjectiveShort", COPY.objectiveShort, "caption"),
-											},
-										}),
-									},
-								})
-							end,
-						}),
-					},
+				UI.When({
+					id = "StripChip",
+					condition = riding,
+					thenView = function()
+						return UI.HStack({
+							id = "StripRow",
+							width = UI.fill(),
+							height = UI.fill(),
+							align = "center",
+							distribute = "center",
+
+							-- the band can be narrow (a 320px phone has ~156px of
+							-- it), so the fit is the framework's decision and not
+							-- an authored width guess
+							UI.ViewThatFits({
+								id = "StripFit",
+
+								pill("Objective", COPY.objective, "caption"),
+								pill("ObjectiveShort", COPY.objectiveShort, "caption"),
+							}),
+						})
+					end,
 				}),
-				--[[ UPPER LEFT — the round-button strip, AND THE SINK THAT LIVES IN IT.
+			}),
+			--[[ UPPER LEFT — the round-button strip, AND THE SINK THAT LIVES IN IT.
 					ONE FORM, and that is the D7 repair rather than a simplification.
 
 					It used to be two: a two-across `RoundStrip` and a three-down
@@ -2617,41 +2602,39 @@ return {
 					where it is not, at every width, with no ladder and no device branch.
 					Height is what it spends, and height is what a narrow portrait phone
 					has. ]]
-				UI.Region({
-					id = "Rounds",
-					group = "topLeft",
-					rank = 1,
-					children = {
-						UI.HStack({
-							id = "RoundStrip",
-							gap = "tight",
-							wrap = true,
-							children = {
-								hudActions.blueprint,
-								roundButton("R2", COPY.round2, "flag", "compact"),
-								-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
-								-- rather than elided — the four things that make "a host always
-								-- exists" true in code instead of true in a comment. Its 36px
-								-- disc still delivers a 44px hit rect: `Button` carries a
-								-- `minHitSize` clamped up to `targetSizes.minimum`, which is the
-								-- three-axes floor this affordance owes on touch.
-								roundButton("R3", COPY.round3, "more", "compact", openOverflow),
-							},
-						}),
-					},
+			UI.Region({
+				id = "Rounds",
+				group = "topLeft",
+				rank = 1,
+
+				UI.HStack({
+					id = "RoundStrip",
+					gap = "tight",
+					wrap = true,
+
+					hudActions,
+					roundButton("R2", COPY.round2, "flag", "compact"),
+					-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
+					-- rather than elided — the four things that make "a host always
+					-- exists" true in code instead of true in a comment. Its 36px
+					-- disc still delivers a 44px hit rect: `Button` carries a
+					-- `minHitSize` clamped up to `targetSizes.minimum`, which is the
+					-- three-axes floor this affordance owes on touch.
+					roundButton("R3", COPY.round3, "more", "compact", openOverflow),
 				}),
-				-- MIDDLE LEFT — the task panel, three forms richest first. This is
-				-- the panel that landed on the round buttons in the screenshot.
-				UI.Region({
-					id = "Tasks",
-					dismissButton = "automatic",
-					group = "left",
-					-- RE-RANKED 8 -> 7 (D7.4): the fps readout below used to survive
-					-- longer than three tasks and their rewards, which is a developer's
-					-- telemetry outliving the player's progression
-					rank = 7,
-					mayDrop = true,
-					--[[ "SELF" — THE CHIP IT STEPS DOWN TO IS THE ROUTE (D7.2). While this
+			}),
+			-- MIDDLE LEFT — the task panel, three forms richest first. This is
+			-- the panel that landed on the round buttons in the screenshot.
+			UI.Region({
+				id = "Tasks",
+				dismissButton = "automatic",
+				group = "left",
+				-- RE-RANKED 8 -> 7 (D7.4): the fps readout below used to survive
+				-- longer than three tasks and their rewards, which is a developer's
+				-- telemetry outliving the player's progression
+				rank = 7,
+				mayDrop = true,
+				--[[ "SELF" — THE CHIP IT STEPS DOWN TO IS THE ROUTE (D7.2). While this
 						zone is standing in a reduced form, the reduced form is what the player
 						is looking at, and the thing left behind has to be reachable FROM
 						there: an overflow sink is for when a zone is GONE, not an excuse for a
@@ -2660,24 +2643,23 @@ return {
 						what turned `TasksChip` from a glass pill of two `UI.Text` into a
 						Button. When the ladder runs out of steps and drops this zone entirely,
 						the sink carries it — `mayDrop` now means "moves to the sink". ]]
-					recover = "self",
-					floor = { lines = 1 },
-					children = {
-						glass(
-							"TasksFull",
-							"panel",
-							UI.VStack({
-								id = "TasksFullBody",
-								gap = "tight",
-								width = UI.fill(),
-								children = {
-									UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
-									taskRows[1],
-									taskRows[2],
-									taskRows[3],
-								},
-							}),
-							--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
+				recover = "self",
+				floor = { lines = 1 },
+
+				glass(
+					"TasksFull",
+					"panel",
+					UI.VStack({
+						id = "TasksFullBody",
+						gap = "tight",
+						width = UI.fill(),
+
+						UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
+						taskRows[1],
+						taskRows[2],
+						taskRows[3],
+					}),
+					--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
 								7, IMG_3786: the `+50`/`+120`/`+300` reward chips painting over
 								the plank's right border under Pixel Quest).
 
@@ -2689,9 +2671,9 @@ return {
 								this one was the exception to and `glass` took the whole job — one
 								authority for "a plate's content clears its frame" instead of one
 								panel that remembered and nine chips that did not. ]]
-							10
-						),
-						--[[ ONE TASK, AND NOTHING AROUND IT. Two measurements chose this
+					10
+				),
+				--[[ ONE TASK, AND NOTHING AROUND IT. Two measurements chose this
 							form, in order:
 
 							  * the HEADING went first. With the panel title kept over a
@@ -2713,50 +2695,49 @@ return {
 							What survives is the control's own row, whose label shrinks by
 							construction (O-23). The rich row is what the FULL form is for,
 							and the full form is what a screen with room gets. ]]
-						--[[ ...AND IT NEEDS NO ROUTE OF ITS OWN EITHER (wave REVEAL). A MIDDLE
+				--[[ ...AND IT NEEDS NO ROUTE OF ITS OWN EITHER (wave REVEAL). A MIDDLE
 							rung is a rung — `recover = "self"` is checked against every form below
 							the richest, and this one is what a mid-sized screen is left with, two
 							tasks and their rewards short. It used to carry a Button for that. The
 							region's one affordance covers whichever reduced form is standing, so
 							the middle rung is served by the same construct as the last one and
 							this form goes back to being content. ]]
-						glass(
-							"TasksOne",
-							"panel",
-							--[[ ONE ROW, NOT A ROW INSIDE A ROW, and the measurement outlived the
+				glass(
+					"TasksOne",
+					"panel",
+					--[[ ONE ROW, NOT A ROW INSIDE A ROW, and the measurement outlived the
 								Button it was first written for. An inner `fill` HStack between this
 								box and its children contributes nothing to the outer measure: the
 								plate hugged to 16px and the solver said so ("content box collapses
 								to 0px on x: padding 8 + 8 on a 16px width", measured
 								pseudo-localized at 320x640). The children go straight on the row. ]]
-							UI.HStack({
-								id = "TasksOneBody",
-								gap = "s",
-								align = "center",
-								width = UI.fill(),
-								children = {
-									-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With the row
-									-- alone the plate hugged to 16px — a bar is `fill`, so it
-									-- measures as nothing and there was nothing else in here to
-									-- measure. One non-fill child is what a hugging panel needs,
-									-- and the task's name is the one worth having.
-									UI.Text({
-										id = "TasksOneName",
-										text = COPY.task1,
-										textSize = "caption",
-										lineLimit = 1,
-										shrinkWeight = 1,
-									}),
-									taskBars[1].blueprint,
-								},
-							}),
-							"s",
-							-- ONE ROW IS NOT A WINDOW. The corner is a panel's; the FRAME
-							-- this has to clear is a chip's — see `glass` for why the two are
-							-- allowed to disagree on exactly this pod.
-							{ plate = "chip" }
-						),
-						--[[ THE TERMINAL FORM, AND IT IS A PILL AGAIN (wave REVEAL). It was a
+					UI.HStack({
+						id = "TasksOneBody",
+						gap = "s",
+						align = "center",
+						width = UI.fill(),
+
+						-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With the row
+						-- alone the plate hugged to 16px — a bar is `fill`, so it
+						-- measures as nothing and there was nothing else in here to
+						-- measure. One non-fill child is what a hugging panel needs,
+						-- and the task's name is the one worth having.
+						UI.Text({
+							id = "TasksOneName",
+							text = COPY.task1,
+							textSize = "caption",
+							lineLimit = 1,
+							shrinkWeight = 1,
+						}),
+						taskBars[1].blueprint,
+					}),
+					"s",
+					-- ONE ROW IS NOT A WINDOW. The corner is a panel's; the FRAME
+					-- this has to clear is a chip's — see `glass` for why the two are
+					-- allowed to disagree on exactly this pod.
+					{ plate = "chip" }
+				),
+				--[[ THE TERMINAL FORM, AND IT IS A PILL AGAIN (wave REVEAL). It was a
 							`pill(...)`; D7.2 turned it into a Button because a `self` route needs
 							something focusable in every reduced form and only the author could
 							supply one. The framework supplies it now — `UI.Region` appends one
@@ -2770,54 +2751,52 @@ return {
 							screen. The expand opens THIS region's own form 1: the task panel,
 							by identity, at this region's own anchor. Zero lines of route code in
 							this fixture is the product claim; a shorter route is the bonus. ]]
-						pill("TasksChip", COPY.tasksChip, "caption"),
-					},
-				}),
-				-- LOWER LEFT — the health bar, and under it the kill feed.
-				UI.Region({
-					id = "Health",
-					group = "bottomLeft",
-					rank = 5,
-					-- ITS REDUCED FORM LOSES THE BAR, and a pill with a figure on it is not
-					-- something to tap, so the sink is the honest route rather than "self"
-					recover = "overflow",
-					-- DROPPABLE, and the measurement is why. The left lane's irreducible
-					-- floor is the round-button strip (rank 1, never dropped) plus
-					-- whatever else in that lane cannot leave; with the health pod pinned
-					-- that floor was 66px and a 735x213 window offers the lanes 30.
-					-- Nothing could give, so the whole arrangement went illegal and rule 8
-					-- showed the declared fallback — the same shape the weapon rail's own
-					-- `mayDrop` note records, one lane over. A health read-out is worth
-					-- more than a kill feed (rank 5 vs 9) and less than the buttons the
-					-- player is reaching for (rank 1), and saying so is what lets the
-					-- ladder finish.
-					mayDrop = true,
-					children = {
-						-- the RICH form, hoisted above and shared with the recovery panel
-						healthPod,
-						-- the bar ALONE is the compact form: the figure is what a player
-						-- reads in a glance and the bar is what they read in a fight, so
-						-- when the pod cannot have both the FIGURE is what survives
-						pill("HealthOnly", healthText, "numeral"),
-					},
-				}),
-				-- LOWER LEFT — the kill feed, droppable: the first thing a real HUD
-				-- gives up, and the least missed.
-				UI.Region({
-					id = "Feed",
-					group = "bottomLeft",
-					-- RE-RANKED 9 -> 8 (D7.4): a kill feed is thin, but it is something that
-					-- happened in the match, and the fps readout is not
-					rank = 8,
-					mayDrop = true,
-					children = { feedLine },
-				}),
-				-- UPPER CENTRE — the round clock and the two team scores.
-				UI.Region({
-					id = "Clock",
-					group = "top",
-					rank = 2,
-					--[[ THE SCORES ARE THE CASE NO RE-RANK COULD HAVE FIXED (D7.4). This
+				pill("TasksChip", COPY.tasksChip, "caption"),
+			}),
+			-- LOWER LEFT — the health bar, and under it the kill feed.
+			UI.Region({
+				id = "Health",
+				group = "bottomLeft",
+				rank = 5,
+				-- ITS REDUCED FORM LOSES THE BAR, and a pill with a figure on it is not
+				-- something to tap, so the sink is the honest route rather than "self"
+				recover = "overflow",
+				-- DROPPABLE, and the measurement is why. The left lane's irreducible
+				-- floor is the round-button strip (rank 1, never dropped) plus
+				-- whatever else in that lane cannot leave; with the health pod pinned
+				-- that floor was 66px and a 735x213 window offers the lanes 30.
+				-- Nothing could give, so the whole arrangement went illegal and rule 8
+				-- showed the declared fallback — the same shape the weapon rail's own
+				-- `mayDrop` note records, one lane over. A health read-out is worth
+				-- more than a kill feed (rank 5 vs 9) and less than the buttons the
+				-- player is reaching for (rank 1), and saying so is what lets the
+				-- ladder finish.
+				mayDrop = true,
+
+				-- the RICH form, hoisted above and shared with the recovery panel
+				healthPod,
+				-- the bar ALONE is the compact form: the figure is what a player
+				-- reads in a glance and the bar is what they read in a fight, so
+				-- when the pod cannot have both the FIGURE is what survives
+				pill("HealthOnly", healthText, "numeral"),
+			}),
+			-- LOWER LEFT — the kill feed, droppable: the first thing a real HUD
+			-- gives up, and the least missed.
+			UI.Region({
+				id = "Feed",
+				group = "bottomLeft",
+				-- RE-RANKED 9 -> 8 (D7.4): a kill feed is thin, but it is something that
+				-- happened in the match, and the fps readout is not
+				rank = 8,
+				mayDrop = true,
+				feedLine,
+			}),
+			-- UPPER CENTRE — the round clock and the two team scores.
+			UI.Region({
+				id = "Clock",
+				group = "top",
+				rank = 2,
+				--[[ THE SCORES ARE THE CASE NO RE-RANK COULD HAVE FIXED (D7.4). This
 						zone's second form is deliberately "the clock and the ring, WITHOUT the
 						scores", so `12` and `9` cease to exist the moment the centre lane runs
 						short — while the fps readout, a whole region, is still standing in the
@@ -2825,40 +2804,40 @@ return {
 						fit, so no ranking makes the right lane pay the centre lane's deficit.
 						The scoreboard's recovery is the disclosure route, which is exactly
 						what "tap for detail" is for. ]]
-					recover = "overflow",
-					children = {
-						-- the RICH form, hoisted above and shared with the recovery panel
-						clockStack,
-						-- the clock and the ring, WITHOUT the scores: the Studio canary
-						-- is why this exists. With the URL bar open on a 735x413 window
-						-- the centre column has 61px and the full row needs more. What a
-						-- real HUD gives up on a squeezed screen is the score, not the
-						-- clock.
-						glass(
-							"TimerOnlyPod",
-							"pill",
-							UI.HStack({
-								id = "TimerOnlyRow",
-								gap = "tight",
-								align = "center",
-								children = {
-									--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
+				recover = "overflow",
+
+				-- the RICH form, hoisted above and shared with the recovery panel
+				clockStack,
+				-- the clock and the ring, WITHOUT the scores: the Studio canary
+				-- is why this exists. With the URL bar open on a 735x413 window
+				-- the centre column has 61px and the full row needs more. What a
+				-- real HUD gives up on a squeezed screen is the score, not the
+				-- clock.
+				glass(
+					"TimerOnlyPod",
+					"pill",
+					UI.HStack({
+						id = "TimerOnlyRow",
+						gap = "tight",
+						align = "center",
+
+						--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
 										`COPY.timerShort` for why a timer is not allowed the
 										ellipsis every other string on this HUD may take. ]]
-									UI.ViewThatFits({
-										id = "TimerOnlyFit",
-										children = {
-											UI.Text({
-												id = "TimerOnlyText",
-												text = COPY.timer,
-												textSize = "numeral",
-											}),
-											UI.Text({
-												id = "TimerOnlyShort",
-												text = COPY.timerShort,
-												textSize = "numeral",
-											}),
-											--[[ A THIRD RUNG, AND THE WAVE IS WHY (2026-08-21). The
+						UI.ViewThatFits({
+							id = "TimerOnlyFit",
+
+							UI.Text({
+								id = "TimerOnlyText",
+								text = COPY.timer,
+								textSize = "numeral",
+							}),
+							UI.Text({
+								id = "TimerOnlyShort",
+								text = COPY.timerShort,
+								textSize = "numeral",
+							}),
+							--[[ A THIRD RUNG, AND THE WAVE IS WHY (2026-08-21). The
 												expand mark now stands beside this pod inside the same
 												third of the screen, and at the LARGEST text preference on
 												a 320px phone even `2m` no longer fits what that leaves —
@@ -2871,85 +2850,79 @@ return {
 												the zone gives way. It reads as "two minutes left" on a
 												dial with room for one character, and it is still a
 												NUMBER — which `2:1…` never was. ]]
-											UI.Text({
-												id = "TimerOnlyTiny",
-												text = COPY.timerTiny,
-												textSize = "numeral",
-											}),
-										},
-									}),
-								},
+							UI.Text({
+								id = "TimerOnlyTiny",
+								text = COPY.timerTiny,
+								textSize = "numeral",
 							}),
-							-- the same ruling as `pill`'s gutter above, for the same reason
-							{ top = 4, right = 4, bottom = 4, left = 4 }
-						),
-					},
-				}),
-				-- UPPER RIGHT — the weapon rail, two forms, and the readout beside
-				-- it. In the screenshot these two are what ran into each other.
-				UI.Region({
-					id = "Rail",
-					group = "topRight",
-					rank = 4,
-					-- the compact form is ONE weapon name with no ammo count, so two
-					-- weapons and three counts are what it stops showing
-					recover = "overflow",
-					-- DROPPABLE, and the Studio canary is why. On a 735x413 window with
-					-- the URL bar open the right column has 61px and holds a 31px rail
-					-- over a 46px button: neither could give any more, so the whole
-					-- arrangement went illegal and rule 8 showed the DECLARED FALLBACK —
-					-- correct by contract, and 16px of HUD painted below its own box. A
-					-- weapon rail is more expendable than the action buttons (rank 4 vs
-					-- 3), so saying so is what lets the ladder finish instead of falling
-					-- back.
-					mayDrop = true,
-					children = {
-						-- the RICH form, hoisted above and shared with the recovery panel
-						railTall,
-						-- the compact form is NARROWER, not merely shorter: a HUD column
-						-- is a third of the screen, so a horizontal compact form is the
-						-- wrong ladder in a column (the sweep found this at 320px)
-						pill("W1c", COPY.weapon1, "caption"),
-					},
-				}),
-				UI.Region({
-					id = "Readout",
-					group = "topRight",
-					--[[ RE-RANKED 7 -> 9, THE FIRST THING TO GIVE WAY (D7.4). Measured live
+						}),
+					}),
+					-- the same ruling as `pill`'s gutter above, for the same reason
+					{ top = 4, right = 4, bottom = 4, left = 4 }
+				),
+			}),
+			-- UPPER RIGHT — the weapon rail, two forms, and the readout beside
+			-- it. In the screenshot these two are what ran into each other.
+			UI.Region({
+				id = "Rail",
+				group = "topRight",
+				rank = 4,
+				-- the compact form is ONE weapon name with no ammo count, so two
+				-- weapons and three counts are what it stops showing
+				recover = "overflow",
+				-- DROPPABLE, and the Studio canary is why. On a 735x413 window with
+				-- the URL bar open the right column has 61px and holds a 31px rail
+				-- over a 46px button: neither could give any more, so the whole
+				-- arrangement went illegal and rule 8 showed the DECLARED FALLBACK —
+				-- correct by contract, and 16px of HUD painted below its own box. A
+				-- weapon rail is more expendable than the action buttons (rank 4 vs
+				-- 3), so saying so is what lets the ladder finish instead of falling
+				-- back.
+				mayDrop = true,
+
+				-- the RICH form, hoisted above and shared with the recovery panel
+				railTall,
+				-- the compact form is NARROWER, not merely shorter: a HUD column
+				-- is a third of the screen, so a horizontal compact form is the
+				-- wrong ladder in a column (the sweep found this at 320px)
+				pill("W1c", COPY.weapon1, "caption"),
+			}),
+			UI.Region({
+				id = "Readout",
+				group = "topRight",
+				--[[ RE-RANKED 7 -> 9, THE FIRST THING TO GIVE WAY (D7.4). Measured live
 						with the URL bar open at 749x380: `60 FPS · 42 ms` was on screen while
 						all three tasks, their rewards, the health figure and the kill feed were
 						gone. A frame counter is what the developer wants and what the player
 						never asked for; it goes first. ]]
-					rank = 9,
-					mayDrop = true,
-					children = { readoutText },
-				}),
-				-- LOWER RIGHT — the action buttons, two forms (column, then one), at
-				-- the thumb size the theme names.
-				UI.Region({
-					id = "Actions",
-					group = "bottomRight",
-					rank = 3,
-					-- its compact form is ONE disc where the full form is three, so two
-					-- actions are what it stops showing
-					recover = "overflow",
-					children = {
-						-- the RICH form, hoisted above and shared with the recovery panel
-						actionsCol,
-						roundButton("A1r", COPY.action1, "more", "regular"),
-					},
-				}),
-				-- ...and the weapon name over them, which is where the screenshot puts
-				-- it. Droppable: a player who cannot see the name of the gun in their
-				-- own hands has lost the least of everything on this screen.
-				UI.Region({
-					id = "Weapon",
-					group = "bottomRight",
-					rank = 6,
-					mayDrop = true,
-					children = { weaponText },
-				}),
-			},
+				rank = 9,
+				mayDrop = true,
+				readoutText,
+			}),
+			-- LOWER RIGHT — the action buttons, two forms (column, then one), at
+			-- the thumb size the theme names.
+			UI.Region({
+				id = "Actions",
+				group = "bottomRight",
+				rank = 3,
+				-- its compact form is ONE disc where the full form is three, so two
+				-- actions are what it stops showing
+				recover = "overflow",
+
+				-- the RICH form, hoisted above and shared with the recovery panel
+				actionsCol,
+				roundButton("A1r", COPY.action1, "more", "regular"),
+			}),
+			-- ...and the weapon name over them, which is where the screenshot puts
+			-- it. Droppable: a player who cannot see the name of the gun in their
+			-- own hands has lost the least of everything on this screen.
+			UI.Region({
+				id = "Weapon",
+				group = "bottomRight",
+				rank = 6,
+				mayDrop = true,
+				weaponText,
+			}),
 		})
 
 		-- The switches are the FIXTURE'S DRIVERS, not HUD content, so they sit under
@@ -2966,23 +2939,23 @@ return {
 				per-edge max of the platform's inset and the theme's gutter; that IS the
 				`bandSafeContent` policy now (§9), so spending it again would double it. ]]
 			gap = "xs",
-			children = {
-				hud,
-				-- two switches WRAP rather than run off a 320px phone at the largest
-				-- text preference — found by the always-on sweep the moment the second
-				-- one was added, which is the sweep doing its job on the instrument
-				UI.When({
-					id = "DriversWhen",
-					condition = roomForDrivers,
-					thenView = function()
-						return UI.HStack({
-							id = "Drivers",
-							gap = 12,
-							wrap = true,
-							children = {
-								UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
-								UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
-								--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
+
+			hud,
+			-- two switches WRAP rather than run off a 320px phone at the largest
+			-- text preference — found by the always-on sweep the moment the second
+			-- one was added, which is the sweep doing its job on the instrument
+			UI.When({
+				id = "DriversWhen",
+				condition = roomForDrivers,
+				thenView = function()
+					return UI.HStack({
+						id = "Drivers",
+						gap = 12,
+						wrap = true,
+
+						UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
+						UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
+						--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
 							MEASUREMENT AND A REPORTED FRAMEWORK GAP (NM-H4a).
 
 							It belongs here on the four-input rule: a second base surface's
@@ -3007,11 +2980,10 @@ return {
 							scripted route — and neither is the capture. The probe LATCHES ITSELF
 							on the frame the disagreement appears, so no input class can miss the
 							evidence; what the switch buys is releasing and re-arming it. ]]
-							},
-						})
-					end,
-				}),
-				--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
+					})
+				end,
+			}),
+			--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
 					step down is only a demonstration if the viewer can see why THAT
 					zone was the one chosen, and the rank is otherwise only in the source
 					and in `report()`.
@@ -3026,7 +2998,7 @@ return {
 					declared fallback painted a weapon chip into Roblox's own button
 					cluster. An instrument that eats the thing it measures is exactly
 					what the comment above this Screen warns about, one level up. ]]
-				--[[ THE URL BAR, DRAWN (director 2026-08-15, item 5: *"when we enable
+			--[[ THE URL BAR, DRAWN (director 2026-08-15, item 5: *"when we enable
 					url bar, we should show a pseudo url bar"*).
 
 					It used to be a `margin.bottom` on the HUD: the height went away and
@@ -3040,13 +3012,13 @@ return {
 					drawn bar and the room the HUD lost are one number and cannot drift —
 					including the short-screen cap (a simulated bar may not eat more than
 					the screen has, see HUD_FLOOR_PX). ]]
-				UI.When({
-					id = "UrlBarWhen",
-					condition = scope:own(core:memo(function(use)
-						return use(urlBar) == true
-					end)),
-					thenView = function()
-						--[[ ONE LINE THAT SHRINKS, and the sweep is why it is not two.
+			UI.When({
+				id = "UrlBarWhen",
+				condition = scope:own(core:memo(function(use)
+					return use(urlBar) == true
+				end)),
+				thenView = function()
+					--[[ ONE LINE THAT SHRINKS, and the sweep is why it is not two.
 							The bar's height is capped on a short window (HUD_FLOOR_PX), so
 							at 735x213 with the switch on it is 53px — and a field over a
 							caption, pseudo-localized at 1.4x, needed 7px more than that.
@@ -3054,7 +3026,7 @@ return {
 							screen it is explaining. The field carries `lineLimit = 1` and
 							`shrinkWeight` for the same reason every other row in this
 							fixture does: it gives up pixels, then characters, never lines. ]]
-						--[[ THE BAND IS THE BROWSER'S FACT; THE FIELD IS THE THEME'S (D7.5).
+					--[[ THE BAND IS THE BROWSER'S FACT; THE FIELD IS THE THEME'S (D7.5).
 							The band still spans exactly the height the HUD lost — one memo, so
 							the picture and the geometry cannot drift (2026-08-15, item 5) — but
 							the FIELD inside it is a control, so its box is the control-size
@@ -3064,67 +3036,63 @@ return {
 							(measured 733x158 at 749x380, 42% of the viewport). Now the slab
 							cannot happen at any band height, because the field never grows to
 							fill one. ]]
-						return glass(
-							"UrlBarChrome",
-							"control",
-							UI.HStack({
-								id = "UrlBarBody",
-								width = UI.fill(),
-								height = UI.fill(),
-								align = "center",
-								children = {
-									glass(
-										"UrlBarFieldPlate",
-										"control",
-										UI.HStack({
-											id = "UrlBarFieldRow",
-											width = UI.fill(),
-											height = UI.fill(),
-											align = "center",
-											children = {
-												UI.Text({
-													id = "UrlBarField",
-													text = COPY.urlBarField,
-													textSize = "caption",
-													role = "secondary",
-													lineLimit = 1,
-													shrinkWeight = 1,
-												}),
-											},
-										}),
-										{ top = 2, right = 8, bottom = 2, left = 8 },
-										{
-											width = UI.fill(),
-											height = { type = "fixed", px = "controlSizes.compact.height" },
-										}
-									),
-								},
-							}),
-							{ top = 4, right = 10, bottom = 4, left = 10 },
-							{ width = UI.fill(), height = barHeight }
-						)
-					end,
-				}),
-				UI.When({
-					id = "LadderWhen",
-					condition = roomForCaption,
-					thenView = function()
-						return UI.VStack({
-							id = "LadderLines",
-							gap = 2,
+					return glass(
+						"UrlBarChrome",
+						"control",
+						UI.HStack({
+							id = "UrlBarBody",
 							width = UI.fill(),
-							children = {
-								UI.Text({
-									id = "Ladder",
-									text = COPY.ladder,
-									textSize = "caption",
-									role = "secondary",
+							height = UI.fill(),
+							align = "center",
+
+							glass(
+								"UrlBarFieldPlate",
+								"control",
+								UI.HStack({
+									id = "UrlBarFieldRow",
+									width = UI.fill(),
+									height = UI.fill(),
+									align = "center",
+
+									UI.Text({
+										id = "UrlBarField",
+										text = COPY.urlBarField,
+										textSize = "caption",
+										role = "secondary",
+										lineLimit = 1,
+										shrinkWeight = 1,
+									}),
 								}),
-							},
-						})
-					end,
-				}),
-			},
+								{ top = 2, right = 8, bottom = 2, left = 8 },
+								{
+									width = UI.fill(),
+									height = { type = "fixed", px = "controlSizes.compact.height" },
+								}
+							),
+						}),
+						{ top = 4, right = 10, bottom = 4, left = 10 },
+						{ width = UI.fill(), height = barHeight }
+					)
+				end,
+			}),
+			UI.When({
+				id = "LadderWhen",
+				condition = roomForCaption,
+				thenView = function()
+					return UI.VStack({
+						id = "LadderLines",
+						gap = 2,
+						width = UI.fill(),
+
+						UI.Text({
+							id = "Ladder",
+							text = COPY.ladder,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					})
+				end,
+			}),
 		})
 
 		result = {

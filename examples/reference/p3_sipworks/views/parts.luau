@@ -87,30 +87,30 @@ end
 -- ---------------------------------------------------------------------------
 
 function parts.flipPlate(app: any, spec: any): any
-	local UI = app.UI
-	local core = app.core
-	local progress = spec.progress
+	local FlipPlate = app.Facet.component(function(ui)
+		local UI = app.Facet.View
+		local progress = ui.read(spec.progress)
 
-	local showBack = app.own(core:memo(function(use)
-		return use(progress) >= 0.5
-	end))
-	local showFront = app.own(core:memo(function(use)
-		return use(progress) < 0.5
-	end))
-	local frontWidth = app.own(core:memo(function(use)
-		return dims.percent(math.max(0.02, 1 - 2 * use(progress)))
-	end))
-	local backWidth = app.own(core:memo(function(use)
-		return dims.percent(math.max(0.02, 2 * use(progress) - 1))
-	end))
+		local showBack = ui.memo(function()
+			return progress() >= 0.5
+		end)
+		local showFront = ui.memo(function()
+			return progress() < 0.5
+		end)
+		local frontWidth = ui.memo(function()
+			return dims.percent(math.max(0.02, 1 - 2 * progress()))
+		end)
+		local backWidth = ui.memo(function()
+			return dims.percent(math.max(0.02, 2 * progress() - 1))
+		end)
 
-	return UI.ZStack({
-		id = spec.id,
-		width = spec.width,
-		height = spec.height,
-		alignH = "center",
-		alignV = "center",
-		children = {
+		return UI.ZStack({
+			id = spec.id,
+			width = spec.width,
+			height = spec.height,
+			alignH = "center",
+			alignV = "center",
+
 			UI.When({
 				id = "Front",
 				condition = showFront,
@@ -121,7 +121,7 @@ function parts.flipPlate(app: any, spec: any): any
 						height = dims.fill,
 						alignH = "center",
 						alignV = "center",
-						children = { spec.front() },
+						spec.front(),
 					})
 				end,
 			}),
@@ -135,12 +135,13 @@ function parts.flipPlate(app: any, spec: any): any
 						height = dims.fill,
 						alignH = "center",
 						alignV = "center",
-						children = { spec.back() },
+						spec.back(),
 					})
 				end,
 			}),
-		},
-	})
+		})
+	end)
+	return FlipPlate({})
 end
 
 -- ---------------------------------------------------------------------------
@@ -227,17 +228,16 @@ function parts.factRow(app: any, id: string, label: any, value: any): any
 		gap = "xs",
 		align = "center",
 		width = dims.fill,
-		children = {
-			UI.Text({
-				id = "Label",
-				text = label,
-				textSize = "body",
-				width = dims.fill,
-				lineLimit = 2,
-				disclose = true,
-			}),
-			UI.Text({ id = "Value", text = value, textSize = "numeral", textAlign = "end" }),
-		},
+
+		UI.Text({
+			id = "Label",
+			text = label,
+			textSize = "body",
+			width = dims.fill,
+			lineLimit = 2,
+			disclose = true,
+		}),
+		UI.Text({ id = "Value", text = value, textSize = "numeral", textAlign = "end" }),
 	})
 end
 

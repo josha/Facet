@@ -79,6 +79,94 @@ local function visibleTexts(adapter: any): { string }
 	return out
 end
 
+describe("toast presentation: continuity and readable sizing", function()
+	for _, edge in { "top", "bottom" } do
+		it(`surviving {edge} toasts slide into a vacated slot`, function()
+			local _, _, adapter, _, pres = world()
+			local first = pres.presentToast(toastBody("first"), { position = edge, duration = 20 })
+			local second = pres.presentToast(toastBody("second"), { position = edge, duration = 20 })
+			for _ = 1, 90 do
+				pres.tick(FRAME)
+			end
+			local path = if edge == "top" then "/__toast__/Items/[2]/Toast" else "/__toast__/Items/[1]/Toast"
+			local start = adapter.node(path).rect.y
+			local previous, largestStep = start, 0
+			(if edge == "top" then first else second).dismiss()
+			for _ = 1, 120 do
+				pres.tick(FRAME)
+				local node = adapter.node(path)
+				local y = if node.presentedPosition then node.presentedPosition.y else node.rect.y
+				largestStep = math.max(largestStep, math.abs(y - previous))
+				previous = y
+			end
+			local target = adapter.node(path).rect.y
+			local distance = math.abs(target - start)
+			expect(distance > 0).toBe(true)
+			expect(largestStep < distance / 2).toBe(true)
+			expect(math.abs(previous - target) < 0.01).toBe(true)
+		end)
+	end
+
+	it("content-fit width centers short toasts and caps long wrapping text", function()
+		local _, _, adapter, _, pres = world(true)
+		pres.presentToast(toastBody("Saved"), { width = UI.hug(), duration = 20 })
+		pres.presentToast(toastBody(string.rep("A longer message that wraps. ", 12)), {
+			width = UI.hug({ max = 240 }),
+			duration = 20,
+		})
+		pres.presentToast(toastBody("Wide"), { width = UI.fill(), duration = 20 })
+		local short = adapter.node("/__toast__/Items/[1]/Toast").rect
+		local long = adapter.node("/__toast__/Items/[2]/Toast").rect
+		local wide = adapter.node("/__toast__/Items/[3]/Toast").rect
+		expect(short.w < long.w and long.w < wide.w).toBe(true)
+		expect(long.w <= 240).toBe(true)
+		expect(long.h > short.h).toBe(true)
+		expect(math.abs(short.x + short.w / 2 - 195) < 1).toBe(true)
+		expect(math.abs(long.x + long.w / 2 - 195) < 1).toBe(true)
+	end)
+
+	it("ordinary slide transitions keep text out of a CanvasGroup texture", function()
+		local _, _, adapter, _, pres = world()
+		pres.presentToast(toastBody("Crisp text"))
+		expect(adapter.node("/__toast__/Items/[1]/Toast").canvasGroupInstance).toBeNil()
+	end)
+
+	it("component toast bodies receive the same services and lifetime as a screen", function()
+		local Facet = require("../src")
+		local _, _, adapter, _, pres = world(true)
+		local disposed = false
+		local Body = Facet.component(function(ui)
+			local reduced = ui.env("reducedMotion")
+			local amount = ui.animate(function()
+				return 12
+			end, "object")
+			ui.own(function()
+				disposed = true
+			end)
+			return Facet.View.Text({
+				id = "Amount",
+				text = function()
+					return `{amount()} / {tostring(reduced())}`
+				end,
+			})
+		end)
+		local h = pres.presentToast(Body({}))
+		expect(visibleTexts(adapter)[1]).toBe("12 / true")
+		h.dismiss()
+		pres.tick(FRAME)
+		expect(disposed).toBe(true)
+	end)
+
+	it("invalid placement and width fail before a toast joins the scheduler", function()
+		local _, _, _, _, pres = world()
+		for _, opts in { { position = "middle" }, { width = { type = "unknown" } } } do
+			local ok = pcall(pres.presentToast, toastBody("invalid"), opts)
+			expect(ok).toBe(false)
+			expect(pres.toastCounts().visible).toBe(0)
+		end
+	end)
+end)
+
 describe("toast presentation: the layer is input-transparent", function()
 	it("a control beneath a live toast still activates", function()
 		local _, _, adapter, _, pres = world()
@@ -354,13 +442,14 @@ describe("toast presentation: reduced motion keeps the whole information surface
 		pres.tick(FRAME)
 		local group = adapter.node("/__toast__/Items/[1]/Toast")
 		expect(group ~= nil).toBe(true)
-		expect(group.canvasGroupInstance.groupTransparency).toBe(0)
+		expect(group.canvasGroupInstance).toBeNil()
+		expect(if group.props.transform then group.props.transform.y else 0).toBe(0)
 	end)
 
 	it("with motion the same toast starts displaced and transparent, then settles", function()
 		local _, _, adapter, _, pres = world(false)
 		pres.present(baseScreen())
-		pres.presentToast(toastBody("Lap 2"))
+		pres.presentToast(toastBody("Lap 2"), { transition = { enter = "slide-down", fade = true } })
 		local group = adapter.node("/__toast__/Items/[1]/Toast")
 		expect(group.canvasGroupInstance.groupTransparency).toBe(1)
 		expect(group.props.transform.y).toBe(-24) -- docked at the top: it comes DOWN
@@ -420,12 +509,12 @@ describe("toast presentation: reduced motion keeps the whole information surface
 		return #counted, acknowledged
 	end
 
-	it("the DEFAULT transition acknowledges the toast's own plate", function()
+	it("the DEFAULT slide needs no fading-plate exception", function()
 		local counted, acknowledged = sweepToasts(function(pres)
 			pres.presentToast(snack("Lap 2"))
 			pres.tick(FRAME)
 		end)
-		expect(`counted {counted}, acknowledged {acknowledged}`).toBe("counted 0, acknowledged 1")
+		expect(`counted {counted}, acknowledged {acknowledged}`).toBe("counted 0, acknowledged 0")
 	end)
 
 	it("a caller's own table is MERGED into, and a caller's own plate passes through", function()

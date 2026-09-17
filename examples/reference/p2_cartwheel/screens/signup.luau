@@ -30,7 +30,7 @@ function signup.new(app: any): any
 	self.watchword = watchword
 	self.fieldError = fieldError
 
-	local nameField = Facet.Controls.TextInput(core, {
+	local nameField = Facet.View.TextInput({
 		id = "GuildName",
 		value = guildName,
 		placeholder = S.t("guild.name"),
@@ -46,7 +46,7 @@ function signup.new(app: any): any
 		actionSystem = app.actionSystem,
 	})
 
-	local watchwordField = Facet.Controls.TextInput(core, {
+	local watchwordField = Facet.View.TextInput({
 		id = "Watchword",
 		value = watchword,
 		placeholder = S.t("guild.watchword"),
@@ -104,94 +104,91 @@ function signup.new(app: any): any
 		return UI.Screen({
 			id = "CartwheelGuildCard",
 			padding = "l",
-			children = {
-				UI.VStack({
-					id = "Card",
-					gap = "m",
-					padding = "l",
-					surface = "raised",
-					width = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = S.t("guild.title"), textSize = "title" }),
-						UI.Text({
-							id = "Note",
-							text = S.t("guild.note"),
-							textSize = "caption",
-							role = "secondary",
-							lineLimit = 3,
-						}),
-						nameField.blueprint,
-						UI.When({
-							id = "ErrorWhen",
-							condition = hasError,
-							thenView = function()
-								return UI.Text({
-									id = "Error",
-									text = fieldError,
-									textSize = "strong",
-									lineLimit = 2,
-								})
-							end,
-						}),
-						watchwordField.blueprint,
-						-- VARIANT B's permanent caption: two lines are reserved for
-						-- it, because the pseudo-locale wraps it
-						UI.Text({
-							id = "Visible",
-							text = S.t("guild.watchwordVisible"),
-							textSize = "caption",
-							role = "secondary",
-							lineLimit = 2,
-						}),
-						UI.When({
-							id = "WorkingWhen",
-							condition = pending,
-							thenView = function()
-								return UI.Text({
-									id = "Working",
-									text = S.t("command.working"),
-									textSize = "caption",
-									surface = "chip",
-								})
-							end,
-						}),
-						UI.HStack({
-							id = "Toolbar",
-							gap = "s",
-							align = "center",
-							children = {
-								UI.Button({
-									id = "Cancel",
-									label = S.t("guild.cancel"),
-									role = "cancel",
-									onActivate = close,
-								}),
-								UI.Button({
-									id = "Submit",
-									label = S.t("guild.submit"),
-									surface = "accent",
-									enabled = canSubmit,
-									onActivate = submit,
-								}),
-								UI.When({
-									id = "HintWhen",
-									condition = cannotSubmit,
-									thenView = function()
-										return UI.Text({
-											id = "Hint",
-											text = S.t("guild.submitHint"),
-											textSize = "caption",
-											role = "secondary",
-											lineLimit = 2,
-											disclose = true,
-										})
-									end,
-								}),
-							},
-						}),
-					},
+
+			UI.VStack({
+				id = "Card",
+				gap = "m",
+				padding = "l",
+				surface = "raised",
+				width = UI.fill(),
+
+				UI.Text({ id = "Title", text = S.t("guild.title"), textSize = "title" }),
+				UI.Text({
+					id = "Note",
+					text = S.t("guild.note"),
+					textSize = "caption",
+					role = "secondary",
+					lineLimit = 3,
 				}),
-			},
+				nameField,
+				UI.When({
+					id = "ErrorWhen",
+					condition = hasError,
+					thenView = function()
+						return UI.Text({
+							id = "Error",
+							text = fieldError,
+							textSize = "strong",
+							lineLimit = 2,
+						})
+					end,
+				}),
+				watchwordField,
+				-- VARIANT B's permanent caption: two lines are reserved for
+				-- it, because the pseudo-locale wraps it
+				UI.Text({
+					id = "Visible",
+					text = S.t("guild.watchwordVisible"),
+					textSize = "caption",
+					role = "secondary",
+					lineLimit = 2,
+				}),
+				UI.When({
+					id = "WorkingWhen",
+					condition = pending,
+					thenView = function()
+						return UI.Text({
+							id = "Working",
+							text = S.t("command.working"),
+							textSize = "caption",
+							surface = "chip",
+						})
+					end,
+				}),
+				UI.HStack({
+					id = "Toolbar",
+					gap = "s",
+					align = "center",
+
+					UI.Button({
+						id = "Cancel",
+						label = S.t("guild.cancel"),
+						role = "cancel",
+						onActivate = close,
+					}),
+					UI.Button({
+						id = "Submit",
+						label = S.t("guild.submit"),
+						surface = "accent",
+						enabled = canSubmit,
+						onActivate = submit,
+					}),
+					UI.When({
+						id = "HintWhen",
+						condition = cannotSubmit,
+						thenView = function()
+							return UI.Text({
+								id = "Hint",
+								text = S.t("guild.submitHint"),
+								textSize = "caption",
+								role = "secondary",
+								lineLimit = 2,
+								disclose = true,
+							})
+						end,
+					}),
+				}),
+			}),
 		})
 	end
 
@@ -222,48 +219,45 @@ function signup.new(app: any): any
 			UI.Screen({
 				id = "CartwheelSignOut",
 				padding = "l",
-				children = {
-					UI.VStack({
-						id = "Card",
-						gap = "m",
-						padding = "l",
-						surface = "raised",
-						children = {
-							UI.Text({ id = "Title", text = S.t("guild.signOutConfirm"), textSize = "heading" }),
-							UI.Text({
-								id = "Body",
-								text = S.t("guild.signOutBody"),
-								textSize = "caption",
-								role = "secondary",
-							}),
-							UI.HStack({
-								id = "Toolbar",
-								gap = "s",
-								children = {
-									UI.Button({
-										id = "Keep",
-										label = S.t("guild.cancel"),
-										role = "cancel",
-										onActivate = function()
-											self.closeSignOut()
-										end,
-									}),
-									UI.Button({
-										id = "SignOut",
-										label = S.t("guild.signOut"),
-										role = "destructive",
-										onActivate = function()
-											identity.signOut()
-											guildName:set("")
-											watchword:set("")
-											self.closeSignOut()
-										end,
-									}),
-								},
-							}),
-						},
+
+				UI.VStack({
+					id = "Card",
+					gap = "m",
+					padding = "l",
+					surface = "raised",
+
+					UI.Text({ id = "Title", text = S.t("guild.signOutConfirm"), textSize = "heading" }),
+					UI.Text({
+						id = "Body",
+						text = S.t("guild.signOutBody"),
+						textSize = "caption",
+						role = "secondary",
 					}),
-				},
+					UI.HStack({
+						id = "Toolbar",
+						gap = "s",
+
+						UI.Button({
+							id = "Keep",
+							label = S.t("guild.cancel"),
+							role = "cancel",
+							onActivate = function()
+								self.closeSignOut()
+							end,
+						}),
+						UI.Button({
+							id = "SignOut",
+							label = S.t("guild.signOut"),
+							role = "destructive",
+							onActivate = function()
+								identity.signOut()
+								guildName:set("")
+								watchword:set("")
+								self.closeSignOut()
+							end,
+						}),
+					}),
+				}),
 			}),
 			{ outsideTapCancel = true, initialFocus = "Keep" }
 		)
@@ -292,8 +286,6 @@ function signup.new(app: any): any
 	function self.dispose()
 		close()
 		self.closeSignOut()
-		watchwordField.dispose()
-		nameField.dispose()
 		cannotSubmit:dispose()
 		pending:dispose()
 		hasError:dispose()

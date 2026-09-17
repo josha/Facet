@@ -420,60 +420,31 @@ local LARGE_TEXT_FIXTURE_TEMPLATE = [==[
 	its author wrote would have found. ]]
 local SCENARIO_TEMPLATE = [==[
 --!strict
--- Scenario '%NAME%' (scaffolded by tools/lune/scaffold): the showcase surface
--- for `Facet.Controls.%DISPLAY%` — the demo `%KEBAB%` in the picker, and
--- `Facet_Scenario = "%NAME%"` before Play.
---
--- GROW THIS WITH THE CONTROL. A fixture exists so a person can DRIVE the control
--- on a device, which is the half no headless case can hold: give it
--- deterministic state, add one named `step` per verb the control offers plus a
--- `reset`, and make `report()` return what a bug report needs.
--- `examples/gallery/scenarios/branch_scope.luau` and `lifecycle_hidden.luau`
--- are the two smallest complete worked examples.
---
--- THE PAGE SCROLLS ON PURPOSE. Content that overflows with nothing to scroll it
--- is this repository's named recurring defect, and `tests/overflow_sweep.spec`
--- measures this surface at nine viewports by four text preferences by every
--- shipped theme from the moment it is registered.
---
--- NO LITERAL METRICS. Type sizes come from ROLES, not numbers, so the surface
--- follows the theme package and the player's own text-size preference.
-
+-- Current application authoring: a component owns its state and controls.
+-- Add real commands/readbacks, then exercise this mounted view on every input.
 return {
-	title = "%DISPLAY%",
-	ledgerRows = {},
-	build = function(ctx: any)
-		local UI = ctx.Facet.UI
-		local control = ctx.Facet.Controls.%DISPLAY%(ctx.core, { id = "Ctl" })
-
-		local screen = UI.Screen({
-			id = "%DISPLAY%",
-			padding = 12,
-			gap = 8,
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = 8,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = {
-						UI.Text({ id = "Title", text = "%DISPLAY%" }),
-						control.blueprint,
-					},
-				}),
-			},
-		})
-
-		return {
-			screen = screen,
-			-- TODO: one named step per verb a person would drive, plus `reset`
-			steps = {},
-			report = function()
-				return control.dump()
-			end,
-		}
-	end,
+    title = "%DISPLAY%", ledgerRows = {},
+    build = function(ctx: any)
+        local Facet, UI = ctx.Facet, ctx.Facet.View
+        local latest = {}
+        local Example = Facet.component(function(ui)
+            -- TODO: local value, setValue = ui.state(initial)
+            -- Keep report data in sync with an owned effect if the driver needs it.
+            return UI.Screen {
+                id = "%DISPLAY%", padding = "m", gap = "s",
+                UI.ScrollView {
+                    id = "Page", axis = "y", gap = "s", width = UI.fill(), height = UI.fill(),
+                    UI.Text { id = "Title", text = "%DISPLAY%" },
+                    UI.%DISPLAY% { id = "Ctl" },
+                },
+            }
+        end)
+        return {
+            screen = Example {},
+            -- TODO: one named command per user action, plus reset.
+            steps = {}, report = function() return latest end,
+        }
+    end,
 }
 ]==]
 
@@ -675,6 +646,13 @@ function scaffold.plan(kind: string, name: string): Plan
 				insert = `	{display} = function(core: any, spec: {name}.Spec)\n`
 					.. `		return {name}.build(library, core, spec)\n`
 					.. `	end,`,
+			},
+			{
+				path = "src/init.luau",
+				before = "\tNavigationStack = function(spec:",
+				insert = `\t{display} = function(spec: {name}.Spec & authoring.Animated): blueprint.Blueprint\n`
+					.. `\t\treturn viewBuilders.{display}(spec)\n`
+					.. `\tend,`,
 			},
 			--[[ ...AND THE LARGE-TEXT SWEEP (MAINT-3/MAINT-29, 2026-08-17). Without
 				this row the scaffold's own output failed `LT8-COVER` the moment it

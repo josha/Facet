@@ -790,7 +790,7 @@ describe("outpost terminal: the screen itself", function()
 		local source = fs.readFile("examples/gallery/examples/outpost_terminal/init.luau")
 		expect(string.find(source, "Controls.Slider", 1, true)).toBeNil()
 		expect(string.find(source, "newSlider", 1, true)).toBeNil()
-		expect(string.find(source, "Controls.Stepper", 1, true)).toBeTruthy()
+		expect(string.find(source, "UI.Stepper", 1, true)).toBeTruthy()
 	end)
 
 	it("THE CONTENT MODULE IS ENGINE-FREE, which is what lets two hosts share it", function()

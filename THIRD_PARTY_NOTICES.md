@@ -6,15 +6,40 @@ that carries a notice somebody else wrote. Each section names where the material
 came from, the license it arrives under, and the notice that must travel with any
 copy.
 
-Two things are worth saying plainly before the list.
+## Roblox Signals
 
-- **Facet has its own reactive core.** The signals, memos, effects, scopes and
-  transactions in `src/core/` are original work in this repository. Facet depends
-  on no third-party user-interface or reactivity library at runtime.
-- **The distributed library carries no third-party material.** The published
-  Roblox Package and the built `build/Facet.rbxm` contain `src/` and the reference
-  theme Facet wears out of the box. The one item below that needs a notice is
-  example content and ships in no released artifact.
+**Origin.** Roblox's official Signals library, version 0.9.0, pinned to commit
+`7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60` at
+[Roblox/signals](https://github.com/Roblox/signals).
+
+**Distribution.** `src/vendor/signals` contains the upstream implementation.
+Only require paths and source filenames are adapted for Facet's module tree.
+Facet's lifecycle, observer delivery and error handling remain Facet code.
+The upstream MIT notice is included both here and in the vendored package.
+
+```text
+MIT License
+
+Copyright (c) 2026 Roblox Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## 1. Facet's own art: icons and reference theme packages
 

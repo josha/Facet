@@ -214,13 +214,12 @@ return {
 				id = `Beat{index}`,
 				gap = "xs",
 				width = UI.fill(),
-				children = {
-					boxView,
-					-- captions WRAP (they are the preferred-text participant here);
-					-- the beat box grows with its caption because the column sizes to
-					-- its content, and the stage scrolls rather than clipping
-					UI.Text({ id = `Cap{index}`, text = caption, textSize = "caption", role = "secondary" }),
-				},
+
+				boxView,
+				-- captions WRAP (they are the preferred-text participant here);
+				-- the beat box grows with its caption because the column sizes to
+				-- its content, and the stage scrolls rather than clipping
+				UI.Text({ id = `Cap{index}`, text = caption, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -230,93 +229,90 @@ return {
 			id = "StageInner",
 			width = UI.fill(),
 			height = UI.fill(),
-			children = {
-				-- the beat-4 wash, BEHIND the beats: a tinted Box claims both colour
-				-- and opacity, so a wash painted over the content would hide it
-				UI.Box({
-					id = "Wash",
-					surface = "base",
-					tint = washTint,
+
+			-- the beat-4 wash, BEHIND the beats: a tinted Box claims both colour
+			-- and opacity, so a wash painted over the content would hide it
+			UI.Box({
+				id = "Wash",
+				surface = "base",
+				tint = washTint,
+				width = UI.fill(),
+				height = UI.fill(),
+			}),
+			UI.ScrollView({
+				id = "Beats",
+				axis = "y",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.HStack({
+					id = "Row",
+					gap = "s",
+					align = "start",
 					width = UI.fill(),
-					height = UI.fill(),
+
+					beat(
+						1,
+						"materialize",
+						UI.When({
+							id = "BoxARegion",
+							condition = boxAOpen,
+							transition = { enter = "materialize", class = "container" },
+							thenView = function()
+								return UI.corners(
+									UI.Box({
+										id = "BoxA",
+										surface = "control",
+										canvasGroup = true,
+										width = UI.fill(),
+										height = BEAT_BOX,
+									}),
+									"control"
+								)
+							end,
+						})
+					),
+					beat(
+						2,
+						"fly in (object)",
+						UI.corners(
+							UI.Box({
+								id = "BoxB",
+								surface = "control",
+								width = UI.fill(),
+								height = BEAT_BOX,
+							}),
+							"control"
+						)
+					),
+					beat(
+						3,
+						"reward pop",
+						UI.corners(
+							UI.Box({
+								id = "BoxC",
+								surface = "control",
+								width = UI.fill(),
+								height = BEAT_BOX,
+							}),
+							"control"
+						)
+					),
+					beat(
+						4,
+						"decay wash",
+						UI.corners(
+							UI.Box({
+								id = "BoxD",
+								surface = "control",
+								width = UI.fill(),
+								height = BEAT_BOX,
+							}),
+							"control"
+						)
+					),
 				}),
-				UI.ScrollView({
-					id = "Beats",
-					axis = "y",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.HStack({
-							id = "Row",
-							gap = "s",
-							align = "start",
-							width = UI.fill(),
-							children = {
-								beat(
-									1,
-									"materialize",
-									UI.When({
-										id = "BoxARegion",
-										condition = boxAOpen,
-										transition = { enter = "materialize", class = "container" },
-										thenView = function()
-											return UI.corners(
-												UI.Box({
-													id = "BoxA",
-													surface = "control",
-													canvasGroup = true,
-													width = UI.fill(),
-													height = BEAT_BOX,
-												}),
-												"control"
-											)
-										end,
-									})
-								),
-								beat(
-									2,
-									"fly in (object)",
-									UI.corners(
-										UI.Box({
-											id = "BoxB",
-											surface = "control",
-											width = UI.fill(),
-											height = BEAT_BOX,
-										}),
-										"control"
-									)
-								),
-								beat(
-									3,
-									"reward pop",
-									UI.corners(
-										UI.Box({
-											id = "BoxC",
-											surface = "control",
-											width = UI.fill(),
-											height = BEAT_BOX,
-										}),
-										"control"
-									)
-								),
-								beat(
-									4,
-									"decay wash",
-									UI.corners(
-										UI.Box({
-											id = "BoxD",
-											surface = "control",
-											width = UI.fill(),
-											height = BEAT_BOX,
-										}),
-										"control"
-									)
-								),
-							},
-						}),
-					},
-				}),
-			},
+			}),
 		})
 
 		local function control(id: string, label: string, onActivate: () -> ())
@@ -332,52 +328,50 @@ return {
 			id = "CelebrationLab",
 			padding = "m",
 			gap = "m",
-			children = {
-				UI.Text({ id = "Title", text = "Sequence lab", textSize = "heading" }),
-				-- THE STAGE IS THE SKIP AFFORDANCE. A content Button paints no text of
-				-- its own and refuses focusables inside it, so this is one activation
-				-- surface over inert content — and `focusable = false` keeps the focus
-				-- order exactly the four controls below.
-				UI.Button({
-					id = "Stage",
-					label = "Skip sequence",
-					focusable = false,
-					surface = "base",
-					width = UI.fill(),
-					height = UI.fill(),
-					onActivate = function()
-						skipRun()
-					end,
-					children = { stageInner },
-				}),
-				UI.Grid({
-					id = "Controls",
-					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-					-- lets the WIDEST verb decide every column, so one long label costs this lab a
-					-- whole column on a 320px phone: the control grid doubles in height and the
-					-- `fill` stage column above it collapses to zero. This number asks the other
-					-- question — how many controls fit a row — and lets a long label compact.
-					minColumnWidth = 104,
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
-					children = {
-						control("BtnRun", "Run", function()
-							startRun("button")
-						end),
-						control("BtnInterrupt", "Interrupt", function()
-							endTimeline()
-						end),
-						control("BtnSkip", "Skip", function()
-							skipRun()
-						end),
-						control("BtnReplay", "Replay", function()
-							startRun("replay")
-						end),
-					},
-				}),
-			},
+
+			UI.Text({ id = "Title", text = "Sequence lab", textSize = "heading" }),
+			-- THE STAGE IS THE SKIP AFFORDANCE. A content Button paints no text of
+			-- its own and refuses focusables inside it, so this is one activation
+			-- surface over inert content — and `focusable = false` keeps the focus
+			-- order exactly the four controls below.
+			UI.Button({
+				id = "Stage",
+				label = "Skip sequence",
+				focusable = false,
+				surface = "base",
+				width = UI.fill(),
+				height = UI.fill(),
+				onActivate = function()
+					skipRun()
+				end,
+				stageInner,
+			}),
+			UI.Grid({
+				id = "Controls",
+				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+				-- lets the WIDEST verb decide every column, so one long label costs this lab a
+				-- whole column on a 320px phone: the control grid doubles in height and the
+				-- `fill` stage column above it collapses to zero. This number asks the other
+				-- question — how many controls fit a row — and lets a long label compact.
+				minColumnWidth = 104,
+				gap = "s",
+				rowGap = "s",
+				width = UI.fill(),
+
+				control("BtnRun", "Run", function()
+					startRun("button")
+				end),
+				control("BtnInterrupt", "Interrupt", function()
+					endTimeline()
+				end),
+				control("BtnSkip", "Skip", function()
+					skipRun()
+				end),
+				control("BtnReplay", "Replay", function()
+					startRun("replay")
+				end),
+			}),
 		})
 
 		result.screen = screen

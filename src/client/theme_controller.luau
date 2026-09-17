@@ -633,7 +633,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			sheetName = theme_controller.sheetNameFor(pkg),
 			tokens = records,
 			mirrors = false, -- retired for packages: the attributes ARE the source
-			transitionsEnabled = o.transitions == true,
+			transitionsEnabled = o.transitions ~= false,
 		})
 		return made, built
 	end

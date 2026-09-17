@@ -65,22 +65,21 @@ return {
 				height = property(function(row)
 					return { type = "fixed", px = if row.rect then row.rect.h else 1 }
 				end),
-				children = {
-					UI.Text({ id = "Label", text = id, textSize = "label", alignH = "center", alignV = "center" }),
-					UI.Path({
-						id = "Direction",
-						role = "accent",
-						thickness = "strokes.hairline",
-						width = UI.fill(),
-						height = UI.fill(),
-						hidden = property(function(row)
-							return not row.edge
-						end),
-						points = property(function(row)
-							return Facet.pathShapes.needle(row.angle or 0, { innerRadius = 0.65, radius = 0.9 })
-						end),
-					}),
-				},
+
+				UI.Text({ id = "Label", text = id, textSize = "label", alignH = "center", alignV = "center" }),
+				UI.Path({
+					id = "Direction",
+					role = "accent",
+					thickness = "strokes.hairline",
+					width = UI.fill(),
+					height = UI.fill(),
+					hidden = property(function(row)
+						return not row.edge
+					end),
+					points = property(function(row)
+						return Facet.pathShapes.needle(row.angle or 0, { innerRadius = 0.65, radius = 0.9 })
+					end),
+				}),
 			})
 			table.insert(
 				pins,
@@ -102,21 +101,19 @@ return {
 			id = "WorldMarkers",
 			padding = "m",
 			gap = "s",
-			children = {
-				UI.Anchor({ id = "Map", width = UI.fill(), height = UI.fill(), children = pins }),
-				UI.ScrollView({
-					id = "Controls",
-					width = UI.fill(),
-					height = UI.fill(),
-					gap = "s",
-					children = {
-						UI.Text({ text = "A · Objective   B · Ally   C · Supplies", textSize = "label" }),
-						toggle("Move", "Move objective offscreen", shifted),
-						toggle("Crowd", "Bring markers together", crowded),
-						toggle("Hide", "Occlude supplies", hidden),
-					},
-				}),
-			},
+
+			UI.Anchor({ id = "Map", width = UI.fill(), height = UI.fill(), children = pins }),
+			UI.ScrollView({
+				id = "Controls",
+				width = UI.fill(),
+				height = UI.fill(),
+				gap = "s",
+
+				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", textSize = "label" }),
+				toggle("Move", "Move objective offscreen", shifted),
+				toggle("Crowd", "Bring markers together", crowded),
+				toggle("Hide", "Occlude supplies", hidden),
+			}),
 		})
 		return {
 			screen = screen,

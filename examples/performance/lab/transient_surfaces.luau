@@ -51,7 +51,7 @@ end
 -- a focusable to give focus back to
 local function base(Facet: any, id: string)
 	local UI = Facet.UI
-	return UI.Screen({ id = id, padding = 12, children = { UI.Button({ id = "Open", label = "Open" }) } })
+	return UI.Screen({ id = id, padding = 12, UI.Button({ id = "Open", label = "Open" }) })
 end
 
 local function buildAlert(Facet: any, core: any): Fixture
@@ -135,8 +135,7 @@ local function buildPicker(Facet: any, core: any): Fixture
 	return {
 		present = function(pres)
 			if baseHandle == nil then
-				baseHandle =
-					pres.present(UI.Screen({ id = "PickerBase", padding = 12, children = { picker.blueprint } }))
+				baseHandle = pres.present(UI.Screen({ id = "PickerBase", padding = 12, picker.blueprint }))
 				tickAndRefresh(pres, 1)
 			end
 		end,
@@ -184,7 +183,7 @@ local function buildRadial(Facet: any, core: any): Fixture
 	return {
 		present = function(pres)
 			if baseHandle == nil then
-				baseHandle = pres.present(UI.Screen({ id = "RadialBase", children = { menu.blueprint } }))
+				baseHandle = pres.present(UI.Screen({ id = "RadialBase", menu.blueprint }))
 				-- the launcher paints only once its position is solved (three ticks)
 				tickAndRefresh(pres, 3)
 			end

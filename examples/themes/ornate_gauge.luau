@@ -233,53 +233,50 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 			id = name .. "Dial",
 			width = FILL,
 			height = dialHeight,
-			children = {
-				-- the channel: whole art, stretched horizontally, which is
-				-- lossless because the art is column-identical by construction
+
+			-- the channel: whole art, stretched horizontally, which is
+			-- lossless because the art is column-identical by construction
+			UI.Image({
+				id = name .. "Face",
+				image = ornate_gauge.ART.face,
+				width = FILL,
+				height = FILL,
+			}),
+			-- the needle rides between the caps: the track is inset by one
+			-- cap width per side so the token can never slide under an
+			-- ornament at 0 % or 100 %
+			UI.HStack({
+				id = name .. "Track",
+				width = FILL,
+				height = FILL,
+				gap = 0,
+				padding = { top = 0, right = capPx, bottom = 0, left = capPx },
+
+				UI.Spacer({ id = name .. "Lead", width = lead, height = FILL }),
+				needle,
+				UI.Spacer({ id = name .. "Trail", width = trail, height = FILL }),
+			}),
+			-- the ornaments last, so they paint OVER the needle at the ends
+			UI.Anchor({
+				id = name .. "Caps",
+				width = FILL,
+				height = FILL,
+
 				UI.Image({
-					id = name .. "Face",
-					image = ornate_gauge.ART.face,
-					width = FILL,
+					id = name .. "CapStart",
+					image = ornate_gauge.ART.endcap,
+					anchor = "left",
+					width = { type = "fixed", px = capPx },
 					height = FILL,
 				}),
-				-- the needle rides between the caps: the track is inset by one
-				-- cap width per side so the token can never slide under an
-				-- ornament at 0 % or 100 %
-				UI.HStack({
-					id = name .. "Track",
-					width = FILL,
+				UI.Image({
+					id = name .. "CapEnd",
+					image = ornate_gauge.ART.endcap,
+					anchor = "right",
+					width = { type = "fixed", px = capPx },
 					height = FILL,
-					gap = 0,
-					padding = { top = 0, right = capPx, bottom = 0, left = capPx },
-					children = {
-						UI.Spacer({ id = name .. "Lead", width = lead, height = FILL }),
-						needle,
-						UI.Spacer({ id = name .. "Trail", width = trail, height = FILL }),
-					},
 				}),
-				-- the ornaments last, so they paint OVER the needle at the ends
-				UI.Anchor({
-					id = name .. "Caps",
-					width = FILL,
-					height = FILL,
-					children = {
-						UI.Image({
-							id = name .. "CapStart",
-							image = ornate_gauge.ART.endcap,
-							anchor = "left",
-							width = { type = "fixed", px = capPx },
-							height = FILL,
-						}),
-						UI.Image({
-							id = name .. "CapEnd",
-							image = ornate_gauge.ART.endcap,
-							anchor = "right",
-							width = { type = "fixed", px = capPx },
-							height = FILL,
-						}),
-					},
-				}),
-			},
+			}),
 		}),
 		resolved.ring
 	)
@@ -288,14 +285,13 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		id = name,
 		gap = "xs",
 		width = FILL,
-		children = {
-			UI.Text({
-				id = name .. "Label",
-				text = o.label or "Boiler pressure (gauge:dial)",
-				textSize = "caption",
-			}),
-			dial,
-		},
+
+		UI.Text({
+			id = name .. "Label",
+			text = o.label or "Boiler pressure (gauge:dial)",
+			textSize = "caption",
+		}),
+		dial,
 	})
 end
 

@@ -13,6 +13,9 @@ SECURITY.md
 AGENTS.md
 .gitignore
 rokit.toml
+stylua.toml
+.styluaignore
+# ^ Luau formatting configuration and the exclusion preserving pinned vendor bytes.
 run-tests.sh
 requirements.json
 src/

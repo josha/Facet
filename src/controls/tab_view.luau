@@ -1,4 +1,8 @@
 --!strict
+local publicCore = require("../core/contract")
+local publicBlueprint = require("../blueprint")
+local publicEnv = require("../env/environment")
+
 -- TabView — the tab construct the placement policy has been waiting for
 -- (navigation-and-menus brief §2 D5). `adaptive.navPlacement` shipped in
 -- 2026-08-09 and the construct never did, so all five reference apps assemble
@@ -190,12 +194,12 @@ local tab_view = {}
 -- disposed when the tab is deselected.
 export type Tab = {
 	id: string,
-	label: any?, -- string | Readable<string>; defaults to `id`
+	label: publicBlueprint.Bound<string>?, -- string | Readable<string>; defaults to `id`
 	icon: string?, -- SEMANTIC icon name, never an asset id
 	required: boolean?,
 	section: string?,
-	badge: any?, -- string | number | Readable of either — the count seal
-	content: (tabScope: any) -> any,
+	badge: publicBlueprint.Bound<string | number>?, -- string | number | Readable of either — the count seal
+	content: (tabScope: publicCore.Scope) -> publicBlueprint.Blueprint,
 }
 
 -- THE CHROME BESIDE THE TABS. Each slot is a FACTORY rather than a blueprint for
@@ -204,18 +208,19 @@ export type Tab = {
 -- is told the placement so ONE function can serve several homes, and it may
 -- return nothing to decline one of them.
 export type Accessories = {
-	head: ((placement: string, scope: any) -> any)?,
-	foot: ((placement: string, scope: any) -> any)?,
-	trailing: ((placement: string, scope: any) -> any)?,
-	aboveBar: ((placement: string, scope: any) -> any)?,
+	head: ((placement: string, scope: publicCore.Scope) -> publicBlueprint.Blueprint?)?,
+	foot: ((placement: string, scope: publicCore.Scope) -> publicBlueprint.Blueprint?)?,
+	trailing: ((placement: string, scope: publicCore.Scope) -> publicBlueprint.Blueprint?)?,
+	aboveBar: ((placement: string, scope: publicCore.Scope) -> publicBlueprint.Blueprint?)?,
 }
 
-export type Spec = {
+type StringSignal = publicCore.Signal<string>
+export type Spec<V = StringSignal> = {
 	id: string?,
-	selection: any, -- owner-held Signal of a tab id (required)
+	selection: V, -- owner-held Signal of a tab id (required)
 	tabs: { Tab },
 	sections: { { id: string, label: string } }?,
-	customization: any?, -- caller-owned {order: {string}, hidden: {string}} signal
+	customization: publicCore.Signal<{ order: { string }, hidden: { string } }>?, -- caller-owned {order: {string}, hidden: {string}} signal
 	-- chrome beside the tabs, homed by the placement (see the header). A slot no
 	-- reachable placement can host is an authoring mistake and refuses.
 	accessories: Accessories?,
@@ -223,19 +228,19 @@ export type Spec = {
 	-- band and lets the labels adapt inside it — a 1.4x locale at the largest text
 	-- preference otherwise makes the longest tab name the whole rail. Hosted by
 	-- `sidebar` alone, and refused for a placement that can never have one.
-	railWidth: any?,
+	railWidth: publicBlueprint.Bound<publicBlueprint.Dim>?,
 	-- the ENTER transition each content branch carries — the framework's own
 	-- `UI.When` transition table, passed through. The strip is never evicted, so
 	-- it is never animated by this.
-	transition: any?,
+	transition: publicBlueprint.TransitionSpec?,
 	-- "automatic" (default) | "bottomBar" | "bottomBarCompact" | "topBar" | "sidebar".
 	-- "automatic" reads `adaptive.navPlacement` — unless this TabView is NESTED,
 	-- which never claims the app-level answer (see the header).
 	placement: string?,
 	style: string?, -- automatic | sidebarAdaptable | collapsible
-	sidebarPreference: any?, -- automatic | sidebar | topBar, or Readable; nearby adaptable home
+	sidebarPreference: publicBlueprint.Bound<string>?, -- automatic | sidebar | topBar, or Readable; nearby adaptable home
 	restoreScroll: boolean?,
-	shoulderNavigation: any?, -- strip (default) | content, or readable policy
+	shoulderNavigation: publicBlueprint.Bound<string>?, -- strip (default) | content, or readable policy
 	restoreFocus: boolean?, -- default true; bounded path bookmarks for each tab
 	-- "automatic" (default, = "underline") | "underline" | "pill" | "none".
 	-- Underline is what every tab strip in the reference media draws; `"pill"` is
@@ -252,11 +257,11 @@ export type Spec = {
 	-- bar is caption-sized in tighter chrome and a rail is not, and WHICH home
 	-- takes which role is a design language rather than a layout rule — so the
 	-- construct carries the binding and never picks the ramp.
-	textSize: any?,
+	textSize: publicBlueprint.Bound<number | string>?,
 	conditions: any?, -- the table `adaptive.conditions(core, env)` returns
-	env: any?, -- an environment, when `conditions` was not built by the caller
-	enabled: any?,
-	onChange: ((id: any) -> ())?,
+	env: publicEnv.Env?, -- an environment, when `conditions` was not built by the caller
+	enabled: publicBlueprint.Bound<boolean>?,
+	onChange: ((id: string) -> ())?,
 }
 
 local PLACEMENTS: { [string]: boolean } = {

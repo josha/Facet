@@ -21,7 +21,7 @@ return {
 	ledgerRows = { "SF-T1", "SF-T2", "SF-T3", "SF-M6", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI = Facet.View
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
@@ -50,10 +50,13 @@ return {
 			end
 		end))
 
-		local beneathPresses = scope:own(core:signal(0))
-		local inputLabel = scope:own(core:memo(function(use)
-			return `Test input: {use(beneathPresses)}`
-		end))
+		local beneathPresses, setBeneathPresses
+		local position = function()
+			return "top"
+		end
+		local widthMode = function()
+			return "fill"
+		end
 
 		-- the schedule trace: every change in what the layer is showing/queuing,
 		-- sampled on the presenter's own tick (SF-T2's evidence)
@@ -92,23 +95,29 @@ return {
 			end
 		end))
 
-		-- ===== the toast blueprint ==========================================
-		-- ON A PLATE (director SFH-3: white text straight over the 3D world was
-		-- unreadable). The body rides a `raised` surface with corners and an
-		-- overlay shadow — the same composition a shipping toast would use, and
-		-- the reference pattern for any presentToast consumer.
-		local function toastLines(title: string, detail: string): any
-			return UI.HStack({
-				id = "Body",
-				padding = "m",
-				gap = "s",
-				-- FILL, not hug (live-found 2026-07-28): a hug HStack with a fill
-				-- child is the degenerate dim pairing — Lines solved to ZERO width
-				-- and every toast painted as an empty strip. Headless never asserted
-				-- paint widths, so only the pixels caught it; the width pin below
-				-- (sponsor_scenarios.spec) keeps it caught.
-				width = UI.fill(),
-				children = {
+		local ToastBody = Facet.component(function(_, props)
+			local contentWidth = if props.fit then UI.hug() else UI.fill()
+			return UI.ZStack({
+				id = "Plate",
+				width = contentWidth,
+				height = UI.hug(),
+				UI.shadow(
+					UI.corners(
+						UI.Box({
+							id = "PlateFill",
+							surface = "raised",
+							width = UI.fill(),
+							height = UI.fill(),
+						}),
+						"control"
+					),
+					"overlay"
+				),
+				UI.HStack({
+					id = "Body",
+					padding = "m",
+					gap = "s",
+					width = contentWidth,
 					UI.corners(
 						UI.Box({
 							id = "Glyph",
@@ -121,57 +130,19 @@ return {
 					UI.VStack({
 						id = "Lines",
 						gap = "xs",
-						width = UI.fill(),
-						children = {
-							-- WRAPS, never truncates: the toast grows in height and the
-							-- title is never the thing that gets cut
-							UI.Text({
-								id = "Title",
-								text = title,
-								textSize = "body",
-								width = UI.fill(),
-							}),
-							UI.Text({
-								id = "Detail",
-								text = detail,
-								-- body, not caption (director SFH-3: the detail line was
-								-- too small to catch at race-glance speed)
-								textSize = "body",
-								role = "secondary",
-								width = UI.fill(),
-							}),
-						},
+						width = contentWidth,
+						UI.Text({ id = "Title", text = props.title, textSize = "body", width = contentWidth }),
+						UI.Text({
+							id = "Detail",
+							text = props.detail,
+							textSize = "body",
+							role = "secondary",
+							width = contentWidth,
+						}),
 					}),
-				},
+				}),
 			})
-		end
-
-		-- ON A PLATE (director SFH-3: white text straight over the 3D world was
-		-- unreadable). The body rides a `raised` surface with corners and an
-		-- overlay shadow — the same composition a shipping toast would use, and
-		-- the reference pattern for any presentToast consumer.
-		local function toastBody(title: string, detail: string): any
-			return UI.ZStack({
-				id = "Plate",
-				width = UI.fill(),
-				height = { type = "content" },
-				children = {
-					UI.shadow(
-						UI.corners(
-							UI.Box({
-								id = "PlateFill",
-								surface = "raised",
-								width = UI.fill(),
-								height = UI.fill(),
-							}),
-							"control"
-						),
-						"overlay"
-					),
-					toastLines(title, detail),
-				},
-			})
-		end
+		end)
 
 		-- `subject` IS THE OPTION'S NAME HERE (review R2-F10). §3.1 calls the
 		-- same-message identity a SUBJECT — "the message updated where it stands" —
@@ -185,7 +156,12 @@ return {
 				options.key = options.subject
 				options.subject = nil
 			end
-			local handle = pres.presentToast(toastBody(title, detail), options)
+			options.position = options.position or position()
+			options.width = options.width or (if widthMode() == "hug" then UI.hug({ max = 560 }) else UI.fill())
+			local handle = pres.presentToast(
+				ToastBody({ title = title, detail = detail, fit = options.width.type == "hug" }),
+				options
+			)
 			table.insert(handles, { id = handle.id, title = title, opts = opts, at = elapsed, handle = handle })
 			note("toast:present", { title = title, opts = opts })
 			return handle
@@ -202,11 +178,16 @@ return {
 		end
 
 		local burstIndex = 0
-		local screen = UI.Screen({
-			id = "ToastLab",
-			padding = "m",
-			gap = "m",
-			children = {
+		local ToastLab = Facet.component(function(ui)
+			beneathPresses, setBeneathPresses = ui.state(0)
+			local setPosition, setWidthMode
+			position, setPosition = ui.state("top")
+			widthMode, setWidthMode = ui.state("fill")
+			return UI.Screen({
+				id = "ToastLab",
+				padding = "m",
+				gap = "m",
+
 				-- the toast strip owns the TOP lane (director SFH-3: the title used
 				-- to sit exactly under the first toast row); the lab's own chrome
 				-- lives below the stage
@@ -214,21 +195,24 @@ return {
 					id = "Stage",
 					width = UI.fill(),
 					height = UI.fill(),
-					children = {
+
+					UI.alignment(
 						UI.Button({
 							id = "Beneath",
-							label = inputLabel,
-							alignH = "center",
-							alignV = "center",
+							label = function()
+								return `Test input: {beneathPresses()}`
+							end,
 							height = { type = "minMax", min = "targetSizes.minimum" },
 							onActivate = function()
 								-- the control UNDER the toast: it must activate normally
 								-- while a toast is showing over it (SF-T1)
-								beneathPresses:set(beneathPresses:get() + 1)
-								note("beneath:activate", { presses = beneathPresses:get() })
+								setBeneathPresses(beneathPresses() + 1)
+								note("beneath:activate", { presses = beneathPresses() })
 							end,
 						}),
-					},
+						"center",
+						"center"
+					),
 				}),
 				--[[ THE CHROME SCROLLS, THE STAGE DOES NOT (O-21, measured 2026-08-15).
 					Both lanes were `fill` against a page that was not, so on a 640x320
@@ -245,53 +229,83 @@ return {
 					gap = "m",
 					width = UI.fill(),
 					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "Toasts", textSize = "heading" }),
-						UI.Text({
-							id = "Status",
-							text = "Show a toast, then try Test input. Its count increases while the toast stays visible; notifications leave your controls usable.",
-							textSize = "body",
-							role = "secondary",
-							width = UI.fill(),
-						}),
-						UI.Grid({
-							id = "Controls",
-							-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-							-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-							-- lets the WIDEST verb decide every column, so one long label costs this lab a
-							-- whole column on a 320px phone: the control grid doubles in height and the
-							-- `fill` stage column above it collapses to zero. This number asks the other
-							-- question — how many controls fit a row — and lets a long label compact.
-							minColumnWidth = 104,
-							gap = "s",
-							rowGap = "s",
-							width = UI.fill(),
-							children = {
-								control("BtnOne", "Show toast", function()
-									show("Notice", "A single transient message")
-								end),
-								control("BtnBurst", "Burst", function()
-									for i = 1, 12 do
-										burstIndex += 1
-										show(`Burst {burstIndex}`, "Queued behind the visible three", {
-											priority = i % 3,
-											duration = 1.2,
-											readFloor = 0.4,
-										})
-									end
-								end),
-								control("BtnPriority", "Priority", function()
-									show("Urgent", "Arrived during another toast's read floor", { priority = 5 })
-								end),
-								control("BtnSupersede", "Supersede", function()
-									show("Subject", "Same subject, replaced in place", { subject = "lap-time" })
-								end),
-							},
-						}),
-					},
+
+					UI.Text({ id = "Title", text = "Toasts", textSize = "heading" }),
+					UI.Text({
+						id = "Status",
+						text = "Show a toast, then try Test input. Its count increases while the toast stays visible; notifications leave your controls usable.",
+						textSize = "body",
+						role = "secondary",
+						width = UI.fill(),
+					}),
+					UI.Picker({
+						id = "Position",
+						label = "Edge for new stacks",
+						style = "segmented",
+						selected = position,
+						onChange = setPosition,
+						options = { { value = "top", label = "Top" }, { value = "bottom", label = "Bottom" } },
+					}),
+					UI.Picker({
+						id = "Width",
+						label = "Toast width",
+						style = "segmented",
+						selected = widthMode,
+						onChange = setWidthMode,
+						options = {
+							{ value = "fill", label = "Wide" },
+							{ value = "hug", label = "Fit content" },
+						},
+					}),
+					UI.Grid({
+						id = "Controls",
+						-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+						-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+						-- lets the WIDEST verb decide every column, so one long label costs this lab a
+						-- whole column on a 320px phone: the control grid doubles in height and the
+						-- `fill` stage column above it collapses to zero. This number asks the other
+						-- question — how many controls fit a row — and lets a long label compact.
+						minColumnWidth = 104,
+						gap = "s",
+						rowGap = "s",
+						width = UI.fill(),
+
+						control("BtnOne", "Show toast", function()
+							show("Notice", "A single transient message")
+						end),
+						control("BtnPair", "Show pair", function()
+							show(
+								"First message",
+								"The other toast slides into this space",
+								{ duration = 3, readFloor = 0 }
+							)
+							show(
+								"Second message",
+								"Still here after the first message leaves",
+								{ duration = 8, readFloor = 0 }
+							)
+						end),
+						control("BtnBurst", "Burst", function()
+							for i = 1, 12 do
+								burstIndex += 1
+								show(`Burst {burstIndex}`, "Queued behind the visible three", {
+									priority = i % 3,
+									duration = 1.2,
+									readFloor = 0.4,
+								})
+							end
+						end),
+						control("BtnPriority", "Priority", function()
+							show("Urgent", "Arrived during another toast's read floor", { priority = 5 })
+						end),
+						control("BtnSupersede", "Supersede", function()
+							show("Subject", "Same subject, replaced in place", { subject = "lap-time" })
+						end),
+					}),
 				}),
-			},
-		})
+			})
+		end)
+		local screen = ToastLab({})
 
 		local function focusBeneath(): boolean
 			return pres.focus.focusOn(BENEATH)
@@ -332,7 +346,7 @@ return {
 				focusBeneath()
 				local focusBefore = pres.focus.focused:get()
 				local depthBefore = pres.depth()
-				local pressesBefore = beneathPresses:get()
+				local pressesBefore = beneathPresses()
 				show("Over the button", "Tap through me", { duration = 6 })
 				pres.refresh()
 				local focusDuring = pres.focus.focused:get()
@@ -355,7 +369,7 @@ return {
 					focusDuring = focusDuring,
 					depthBefore = depthBefore,
 					depthDuring = pres.depth(),
-					pressDelta = beneathPresses:get() - pressesBefore,
+					pressDelta = beneathPresses() - pressesBefore,
 				}
 				table.insert(expectations, expectation)
 				entry.expected = expectation
@@ -493,7 +507,9 @@ return {
 				end)(),
 				aim = aim,
 				expectations = expectations,
-				beneathPresses = beneathPresses:get(),
+				beneathPresses = beneathPresses(),
+				position = position(),
+				width = widthMode(),
 				beneathRect = rectOf(BENEATH),
 				focusPath = pres.focus.focused:get(),
 				depth = pres.depth(),

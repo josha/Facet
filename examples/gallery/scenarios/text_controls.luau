@@ -55,65 +55,63 @@ return {
 		local body = UI.VStack({
 			width = UI.fill(),
 			gap = "m",
-			children = {
-				UI.Text({ text = "Writing and search", textSize = "title", width = UI.fill() }),
-				UI.Button({
-					id = "Enable",
-					label = scope:own(core:memo(function(use)
-						return if use(enabled) then "Disable fields" else "Enable fields"
-					end)),
-					onActivate = function()
-						enabled:set(not enabled:get())
-					end,
-				}),
-				UI.Button({ id = "Reset", label = "Reset", onActivate = reset }),
-				UI.Text({ text = "Race notes", textSize = "heading", width = UI.fill() }),
-				UI.Text({
-					text = "Enter starts a new line. Save notes commits your text.",
-					role = "secondary",
-					width = UI.fill(),
-				}),
-				editor.blueprint,
-				UI.Button({
-					id = "Save",
-					label = "Save notes",
-					enabled = enabled,
-					onActivate = function()
-						editor.api.submit()
-					end,
-				}),
-				UI.Text({ id = "Saved", text = saved, width = UI.fill() }),
-				UI.Text({ text = "Find a track", textSize = "heading", width = UI.fill() }),
-				search.blueprint,
-				UI.ForEach({
-					id = "Matches",
-					items = matches,
-					key = function(name)
-						return name
-					end,
-					row = function(name)
-						return UI.Text({ text = name, width = UI.fill() })
-					end,
-				}),
-				UI.Text({ text = "Lap count · 1 to 99", textSize = "heading", width = UI.fill() }),
-				number.blueprint,
-				UI.Text({
-					id = "Committed",
-					text = scope:own(core:memo(function(use)
-						return "Committed laps: " .. tostring(use(laps))
-					end)),
-					width = UI.fill(),
-				}),
-			},
+
+			UI.Text({ text = "Writing and search", textSize = "title", width = UI.fill() }),
+			UI.Button({
+				id = "Enable",
+				label = scope:own(core:memo(function(use)
+					return if use(enabled) then "Disable fields" else "Enable fields"
+				end)),
+				onActivate = function()
+					enabled:set(not enabled:get())
+				end,
+			}),
+			UI.Button({ id = "Reset", label = "Reset", onActivate = reset }),
+			UI.Text({ text = "Race notes", textSize = "heading", width = UI.fill() }),
+			UI.Text({
+				text = "Enter starts a new line. Save notes commits your text.",
+				role = "secondary",
+				width = UI.fill(),
+			}),
+			editor.blueprint,
+			UI.Button({
+				id = "Save",
+				label = "Save notes",
+				enabled = enabled,
+				onActivate = function()
+					editor.api.submit()
+				end,
+			}),
+			UI.Text({ id = "Saved", text = saved, width = UI.fill() }),
+			UI.Text({ text = "Find a track", textSize = "heading", width = UI.fill() }),
+			search.blueprint,
+			UI.ForEach({
+				id = "Matches",
+				items = matches,
+				key = function(name)
+					return name
+				end,
+				row = function(name)
+					return UI.Text({ text = name, width = UI.fill() })
+				end,
+			}),
+			UI.Text({ text = "Lap count · 1 to 99", textSize = "heading", width = UI.fill() }),
+			number.blueprint,
+			UI.Text({
+				id = "Committed",
+				text = scope:own(core:memo(function(use)
+					return "Committed laps: " .. tostring(use(laps))
+				end)),
+				width = UI.fill(),
+			}),
 		})
 		return {
 			screen = UI.Screen({
 				id = "TextControls",
 				surface = "base",
 				padding = "m",
-				children = {
-					UI.ScrollView({ id = "Content", width = UI.fill(), height = UI.fill(), children = { body } }),
-				},
+
+				UI.ScrollView({ id = "Content", width = UI.fill(), height = UI.fill(), body }),
 			}),
 
 			states = function()

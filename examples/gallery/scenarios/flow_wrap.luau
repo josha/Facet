@@ -161,7 +161,7 @@ return {
 			return if use(wrapping) then COPY.fitting else COPY.overflowing
 		end))
 
-		local alignPicker = Facet.Controls.Picker(core, {
+		local alignPicker = Facet.View.Picker({
 			id = "BlockAlign",
 			label = COPY.alignLabel,
 			-- SEGMENTED, declared: three peers, and the whole point is that they are
@@ -199,62 +199,60 @@ return {
 			id = "FlowWrap",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-				-- title, a toggle, two panels and a picker do not fit the ~200px a
-				-- 640x320 landscape phone has left once the showcase reserves its chip
-				-- strip, and content that overflows with nothing to scroll it is this
-				-- repo's named recurring defect.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Toggle({ id = "WrapToggle", label = COPY.wrapLabel, value = wrapping }),
-						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-						UI.Text({
-							id = "CloudCaption",
-							text = COPY.cloudCaption,
-							textSize = "caption",
-							role = "secondary",
-						}),
-						-- THE FIXTURE ITSELF. No height: it is exactly as tall as its
-						-- own lines, at every viewport, which is what makes the tag
-						-- count safe on a 320px phone.
-						UI.HStack({
-							id = "Cloud",
-							wrap = wrapping,
-							gap = TAG_GAP,
-							width = UI.fill(),
-							children = cloudTags,
-						}),
-						UI.Text({
-							id = "AlignCaption",
-							text = COPY.alignCaption,
-							textSize = "caption",
-							role = "secondary",
-						}),
-						alignPicker.blueprint,
-						-- ...and the probe, as a surface. `surface = "control"` so the
-						-- box the block is aligned INSIDE is visible; without it the
-						-- picker would appear to move the tags for no reason.
-						UI.HStack({
-							id = "AlignBox",
-							wrap = true,
-							align = blockAlign,
-							gap = TAG_GAP,
-							surface = "control",
-							padding = "s",
-							width = UI.fill(),
-							height = { type = "content", rows = ALIGN_BOX_ROWS, of = "controlSizes.compact.height" },
-							children = shortTags,
-						}),
-					},
+
+			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
+			-- title, a toggle, two panels and a picker do not fit the ~200px a
+			-- 640x320 landscape phone has left once the showcase reserves its chip
+			-- strip, and content that overflows with nothing to scroll it is this
+			-- repo's named recurring defect.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Toggle({ id = "WrapToggle", label = COPY.wrapLabel, value = wrapping }),
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
+				UI.Text({
+					id = "CloudCaption",
+					text = COPY.cloudCaption,
+					textSize = "caption",
+					role = "secondary",
 				}),
-			},
+				-- THE FIXTURE ITSELF. No height: it is exactly as tall as its
+				-- own lines, at every viewport, which is what makes the tag
+				-- count safe on a 320px phone.
+				UI.HStack({
+					id = "Cloud",
+					wrap = wrapping,
+					gap = TAG_GAP,
+					width = UI.fill(),
+					children = cloudTags,
+				}),
+				UI.Text({
+					id = "AlignCaption",
+					text = COPY.alignCaption,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				alignPicker,
+				-- ...and the probe, as a surface. `surface = "control"` so the
+				-- box the block is aligned INSIDE is visible; without it the
+				-- picker would appear to move the tags for no reason.
+				UI.HStack({
+					id = "AlignBox",
+					wrap = true,
+					align = blockAlign,
+					gap = TAG_GAP,
+					surface = "control",
+					padding = "s",
+					width = UI.fill(),
+					height = { type = "content", rows = ALIGN_BOX_ROWS, of = "controlSizes.compact.height" },
+					children = shortTags,
+				}),
+			}),
 		})
 
 		return {
@@ -287,7 +285,6 @@ return {
 			end,
 
 			dispose = function()
-				alignPicker.dispose()
 				scope:dispose()
 			end,
 		}

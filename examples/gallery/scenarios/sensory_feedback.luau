@@ -955,141 +955,136 @@ return {
 			id = "SensoryFeedback",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every fixture here does: four
-				-- comparison panels, a history and two kept panels do not fit the
-				-- ~200px a 640x320 landscape phone has left once the showcase reserves
-				-- its chip strip, and content that overflows with nothing to scroll it
-				-- is this repo's named recurring defect. What must fit WITHOUT
-				-- scrolling is the title, the sentence and the haptics panel — proved
-				-- from solved rects, per profile, at Largest text.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						caption("Intro", COPY.intro, true),
-						--[[ FIRST, AND ON. The toggle, the one-line status and the
+
+			-- THE PAGE SCROLLS, for the reason every fixture here does: four
+			-- comparison panels, a history and two kept panels do not fit the
+			-- ~200px a 640x320 landscape phone has left once the showcase reserves
+			-- its chip strip, and content that overflows with nothing to scroll it
+			-- is this repo's named recurring defect. What must fit WITHOUT
+			-- scrolling is the title, the sentence and the haptics panel — proved
+			-- from solved rects, per profile, at Largest text.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				caption("Intro", COPY.intro, true),
+				--[[ FIRST, AND ON. The toggle, the one-line status and the
 							short explanation are the three things the first viewport has
 							to hold; the evidence line under them may fall below the fold
 							and is allowed to grow, because the engine's own error text is
 							appended to it and a refusal in a pseudo-localized package is
 							longer than any budget worth declaring. ]]
-						panel("Haptics", {
-							UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
-							caption("PlayState", statusLine),
-							caption("PlayNote", COPY.playNote, true),
-							caption("PlayLibrary", COPY.playLibrary, true),
-							caption("PlayEvidence", hapticsEvidence, true),
-						}),
-						panel("PressRow", {
-							caption("PressTitle", COPY.pressTitle),
-							UI.HStack({
-								id = "PressControls",
-								wrap = true,
-								gap = "tight",
-								children = { sampleButton("PressSample", COPY.pressLabel) },
-							}),
-							caption("PressState", pressState),
-							caption("PressPhase", pressLine),
-							caption("PressNote", COPY.pressNote, true),
-						}),
-						panel("ReleaseRow", {
-							caption("ReleaseTitle", COPY.releaseTitle),
-							UI.HStack({
-								id = "ReleaseControls",
-								wrap = true,
-								gap = "tight",
-								children = { sampleButton("ReleaseSample", COPY.releaseLabel) },
-							}),
-							caption("ReleaseState", releaseOutcome),
-							caption("ReleasePhase", releaseLine),
-							caption("ReleaseNote", COPY.releaseNote, true),
-						}),
-						panel("SelectRow", {
-							caption("SelectTitle", COPY.selectTitle),
-							choiceGroup,
-							caption("SelectState", choiceLine),
-							caption("SelectPhase", selectLine),
-							caption("SelectNote", COPY.selectNote, true),
-						}),
-						panel("CustomRow", {
-							caption("CustomTitle", COPY.customTitle),
-							UI.HStack({
-								id = "CustomControls",
-								wrap = true,
-								gap = "tight",
-								children = {
-									-- `none` on the control itself: the presenter emits
-									-- nothing for it, so the INSTALLED adapter never hears
-									-- this press and the override adapter is the only thing
-									-- that answers it
-									UI.sensoryFeedback(
-										UI.Button({
-											id = "CustomSample",
-											label = COPY.customLabel,
-											surface = "chip",
-											onActivate = playCustom,
-										}),
-										{ activation = "none" }
-									),
-								},
-							}),
-							caption("CustomPhase", customLine),
-							caption("CustomNote", COPY.customNote, true),
-							caption("CustomLonger", COPY.customLonger, true),
-						}),
-						panel("History", {
-							caption("HistoryTitle", COPY.historyTitle),
-							caption("HistoryLog", historyText, true),
-							caption("HistoryCount", requestLine),
-							caption("HistoryNote", COPY.historyNote, true),
-						}),
-						-- ===== KEPT: the two lessons the four rows do not teach =====
-						panel("Leaves", {
-							caption("LeavesTitle", COPY.declaredTitle),
-							-- WRAPS. Five chips at the Largest text preference,
-							-- pseudo-localized, do not fit one line on a 320px phone, and a
-							-- row that cannot wrap walks off the right edge of its own box.
-							UI.HStack({ id = "LeafRow", wrap = true, gap = "tight", children = leafButtons }),
-							caption("MuteNote", COPY.muteNote, true),
-						}),
-						-- ONE DECLARATION, THREE CONTROLS, and the nesting is the point:
-						-- `Third` sits a level deeper than the other two, so a mechanism
-						-- that only reached direct children would be visibly wrong here.
-						UI.sensoryFeedback(
-							panel("Cascade", {
-								caption("CascadeTitle", COPY.cascadeTitle),
-								UI.HStack({
-									id = "CascadeRow",
-									wrap = true,
-									gap = "tight",
-									children = {
-										UI.Button({ id = "First", label = COPY.first, surface = "chip" }),
-										UI.VStack({
-											id = "Nested",
-											gap = "tight",
-											children = {
-												UI.Button({ id = "Second", label = COPY.second, surface = "chip" }),
-												UI.Button({ id = "Third", label = COPY.third, surface = "chip" }),
-											},
-										}),
-									},
-								}),
-								caption("CascadeNote", COPY.cascadeNote, true),
-							}),
-							{ activation = "pickup" }
-						),
-						panel("Unknowable", {
-							caption("UnknowableTitle", COPY.unknowableTitle),
-							caption("UnknowableNote", COPY.unknowable, true),
-						}),
-					},
+				panel("Haptics", {
+					UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
+					caption("PlayState", statusLine),
+					caption("PlayNote", COPY.playNote, true),
+					caption("PlayLibrary", COPY.playLibrary, true),
+					caption("PlayEvidence", hapticsEvidence, true),
 				}),
-			},
+				panel("PressRow", {
+					caption("PressTitle", COPY.pressTitle),
+					UI.HStack({
+						id = "PressControls",
+						wrap = true,
+						gap = "tight",
+						sampleButton("PressSample", COPY.pressLabel),
+					}),
+					caption("PressState", pressState),
+					caption("PressPhase", pressLine),
+					caption("PressNote", COPY.pressNote, true),
+				}),
+				panel("ReleaseRow", {
+					caption("ReleaseTitle", COPY.releaseTitle),
+					UI.HStack({
+						id = "ReleaseControls",
+						wrap = true,
+						gap = "tight",
+						sampleButton("ReleaseSample", COPY.releaseLabel),
+					}),
+					caption("ReleaseState", releaseOutcome),
+					caption("ReleasePhase", releaseLine),
+					caption("ReleaseNote", COPY.releaseNote, true),
+				}),
+				panel("SelectRow", {
+					caption("SelectTitle", COPY.selectTitle),
+					choiceGroup,
+					caption("SelectState", choiceLine),
+					caption("SelectPhase", selectLine),
+					caption("SelectNote", COPY.selectNote, true),
+				}),
+				panel("CustomRow", {
+					caption("CustomTitle", COPY.customTitle),
+					UI.HStack({
+						id = "CustomControls",
+						wrap = true,
+						gap = "tight",
+
+						-- `none` on the control itself: the presenter emits
+						-- nothing for it, so the INSTALLED adapter never hears
+						-- this press and the override adapter is the only thing
+						-- that answers it
+						UI.sensoryFeedback(
+							UI.Button({
+								id = "CustomSample",
+								label = COPY.customLabel,
+								surface = "chip",
+								onActivate = playCustom,
+							}),
+							{ activation = "none" }
+						),
+					}),
+					caption("CustomPhase", customLine),
+					caption("CustomNote", COPY.customNote, true),
+					caption("CustomLonger", COPY.customLonger, true),
+				}),
+				panel("History", {
+					caption("HistoryTitle", COPY.historyTitle),
+					caption("HistoryLog", historyText, true),
+					caption("HistoryCount", requestLine),
+					caption("HistoryNote", COPY.historyNote, true),
+				}),
+				-- ===== KEPT: the two lessons the four rows do not teach =====
+				panel("Leaves", {
+					caption("LeavesTitle", COPY.declaredTitle),
+					-- WRAPS. Five chips at the Largest text preference,
+					-- pseudo-localized, do not fit one line on a 320px phone, and a
+					-- row that cannot wrap walks off the right edge of its own box.
+					UI.HStack({ id = "LeafRow", wrap = true, gap = "tight", children = leafButtons }),
+					caption("MuteNote", COPY.muteNote, true),
+				}),
+				-- ONE DECLARATION, THREE CONTROLS, and the nesting is the point:
+				-- `Third` sits a level deeper than the other two, so a mechanism
+				-- that only reached direct children would be visibly wrong here.
+				UI.sensoryFeedback(
+					panel("Cascade", {
+						caption("CascadeTitle", COPY.cascadeTitle),
+						UI.HStack({
+							id = "CascadeRow",
+							wrap = true,
+							gap = "tight",
+
+							UI.Button({ id = "First", label = COPY.first, surface = "chip" }),
+							UI.VStack({
+								id = "Nested",
+								gap = "tight",
+
+								UI.Button({ id = "Second", label = COPY.second, surface = "chip" }),
+								UI.Button({ id = "Third", label = COPY.third, surface = "chip" }),
+							}),
+						}),
+						caption("CascadeNote", COPY.cascadeNote, true),
+					}),
+					{ activation = "pickup" }
+				),
+				panel("Unknowable", {
+					caption("UnknowableTitle", COPY.unknowableTitle),
+					caption("UnknowableNote", COPY.unknowable, true),
+				}),
+			}),
 		})
 
 		return {

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""check_no_fusion — Facet's reactive core is its own, and this is what says so.
+"""check_no_fusion — reject the retired dependency and verify the approved Signals pin.
 
 THE CLAIM. No Facet runtime, Roblox Package, example, skill, test, benchmark, or
-Rascal Rally file requires or depends on Fusion, and no vendored copy of it (or
-of anything else) is in the tree. Facet was once benchmarked against a thin
+Rascal Rally file requires or depends on Fusion, and no vendored copy of it is in the tree. Roblox Signals is the one approved, pinned runtime dependency. Facet was once benchmarked against a thin
 adapter over a vendored Fusion 0.3 (the bake-off chose the custom core over it); the
 adapter, the vendored copy and the comparison documents were removed on
 2026-08-30 and archived privately with checksums. This check is what keeps their
@@ -40,8 +39,8 @@ WHAT COUNTS AS A VIOLATION
   * the removed module names `fusion_adapter`, `fusion_headless`,
     `fusion_lune_external`, and the path `vendor/Fusion`;
   * any require whose string contains `fusion` in any case;
-  * any `vendor/` DIRECTORY anywhere in the tree. There is no vendored
-    third-party source in this repository and there is not going to be one.
+  * any vendor directory except src/vendor/signals, whose exact source bytes
+    and included MIT notice are pinned in UPSTREAM.lock.
 
 COMMENTS ARE NOT EXEMPT, and that is the opposite of `check_library_purity`'s
 rule for theme-package names — deliberately. There, a comment naming a package
@@ -74,6 +73,8 @@ Exit 0 = clean; 1 = violations; 2 = environment failure.
 """
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -186,10 +187,12 @@ def scan_tree(root, label_root, problems, exclude_words=False):
 
 
 def vendor_directories(root, label_root):
-    """Every directory named `vendor` under `root`, as repo-relative paths."""
+    """Vendor directories, excluding the coordinator's temporary source copies."""
     found = []
     for base, dirs, _names in os.walk(root):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        if os.path.relpath(base, root).replace(os.sep, "/") == "artifacts/verify":
+            dirs[:] = [d for d in dirs if d != "tmp"]
         for name in list(dirs):
             if name == "vendor":
                 found.append(os.path.relpath(os.path.join(base, name), label_root).replace(os.sep, "/"))
@@ -218,7 +221,24 @@ def check(skip_build=False, quiet=False):
         files += scan_tree(absolute, REPO, problems, exclude_words=True)
 
     for found in vendor_directories(REPO, REPO):
-        problems.append(f"{found}: a vendor/ directory is present in the tree — Facet vendors no third-party source")
+        if found != "src/vendor":
+            problems.append(f"{found}: unexpected vendor directory")
+    vendor = os.path.join(REPO, "src", "vendor")
+    if os.path.isdir(vendor):
+        if set(os.listdir(vendor)) != {"signals"}:
+            problems.append("src/vendor: only the pinned Roblox Signals dependency is approved")
+        signals = os.path.join(vendor, "signals")
+        try:
+            pin = json.load(open(os.path.join(signals, "UPSTREAM.lock")))
+            expected = set(pin["sha256"]) | {"README.md", "UPSTREAM.lock"}
+            if set(os.listdir(signals)) != expected:
+                problems.append("Roblox Signals: unlisted or missing files")
+            for name, digest in pin["sha256"].items():
+                with open(os.path.join(signals, name), "rb") as source:
+                    if hashlib.sha256(source.read()).hexdigest() != digest:
+                        problems.append(f"Roblox Signals: source integrity mismatch for {name}")
+        except (OSError, ValueError, KeyError) as error:
+            problems.append(f"Roblox Signals: missing or invalid pin: {error}")
 
     if os.path.isdir(RR):
         for root in RR_ROOTS:
@@ -334,6 +354,15 @@ def selftest():
         good = found == ["nested/vendor"]
         print(f"  [{'BITES' if good else 'WRONG'}] a vendor/ directory is found by name (got {found})")
         ok = ok and good
+
+        # Parallel verification producers copy src/ into this exact scratch
+        # root. Other artifact directories are still subject to the vendor ban.
+        os.makedirs(os.path.join(work, "artifacts", "verify", "tmp", "case", "src", "vendor"))
+        os.makedirs(os.path.join(work, "artifacts", "shipped", "vendor"))
+        found = vendor_directories(work, work)
+        good = found == ["artifacts/shipped/vendor", "nested/vendor"]
+        print(f"  [{'SCOPED' if good else 'WRONG'}] only verification scratch copies are excluded (got {found})")
+        ok = ok and good
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return ok
@@ -350,7 +379,8 @@ def main():
         print("check_no_fusion refuses, in sources AND in the built model:")
         for rule, pattern in RULES:
             print(f"  {rule}: {pattern.pattern}")
-        print("  ...and any directory named 'vendor' anywhere in the tree.")
+        print("  ...and any vendor directory except the pinned src/vendor/signals dependency.")
+        print("  Temporary source copies under artifacts/verify/tmp are excluded; built models are scanned separately.")
         print("allowed mentions (path + rule, with the reason and what removes it):")
         for path, rule, reason, removal in ALLOWLIST:
             print(f"  {path} [{rule}]")
@@ -371,7 +401,7 @@ def main():
         for problem in problems:
             print(f"  {problem}")
         raise SystemExit(1)
-    print("check_no_fusion: no Fusion name, require, path or vendored directory in the sources, the built model, or the game")
+    print("check_no_fusion: retired dependency absent; approved Signals files match their integrity pin")
     raise SystemExit(0)
 
 

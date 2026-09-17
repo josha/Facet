@@ -18,7 +18,7 @@
 
 	WHY IT SHARES THE MODULE RATHER THAN RESTATING IT. An example that only Roblox
 	can run is an example that rots: the guide keeps teaching it and nothing
-	notices when the library moves underneath. `screen.build(Facet, core, deps)`
+	notices when the library moves underneath. `screen.session(Facet, host, opts)`
 	takes the library as an argument precisely so the client script can reach it
 	through the instance tree while this file reaches it by path, and both mount
 	the identical description.
@@ -175,12 +175,12 @@ end)
 describe("examples/consumer: input and state", function()
 	it("a press on Bump raises the count and repaints the label", function()
 		local s = stand(COMPACT)
-		expect(s.built.count:get()).toBe(0)
+		expect(s.built.count()).toBe(0)
 
 		s.adapter.tap(PATHS.bump)
 		s.h.presenter.refresh()
 
-		expect(s.built.count:get()).toBe(1)
+		expect(s.built.count()).toBe(1)
 		expect(s.adapter.node(PATHS.count).props.text).toBe("1 tap")
 		expect(s.h.core:lastError()).toBe(nil)
 		s.teardown()
@@ -188,7 +188,7 @@ describe("examples/consumer: input and state", function()
 
 	it("a write to the signal repaints the label with no press at all", function()
 		local s = stand(COMPACT)
-		s.built.count:set(41)
+		s.built.setCount(41)
 		s.h.presenter.refresh()
 		expect(s.adapter.node(PATHS.count).props.text).toBe("41 taps")
 		s.teardown()
@@ -197,17 +197,17 @@ describe("examples/consumer: input and state", function()
 	it("the toggle carries the signal the screen owns", function()
 		local s = stand(COMPACT)
 		expect(s.adapter.node(PATHS.sound).props.value).toBe(true)
-		s.built.soundOn:set(false)
+		s.built.setSoundOn(false)
 		s.h.presenter.refresh()
 		expect(s.adapter.node(PATHS.sound).props.value).toBe(false)
 		s.teardown()
 	end)
 
-	it("Close raises the signal the session listens on", function()
+	it("Close invokes the session teardown command", function()
 		local s = stand(COMPACT)
-		expect(s.built.closed:get()).toBe(false)
+		expect(s.session.isTorn()).toBe(false)
 		s.adapter.tap(PATHS.close)
-		expect(s.built.closed:get()).toBe(true)
+		expect(s.session.isTorn()).toBe(true)
 		s.teardown()
 	end)
 end)

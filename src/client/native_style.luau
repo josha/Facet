@@ -95,7 +95,7 @@ end
 	  * the ESCAPE HATCH — an explicit `false` refuses, and wins over everything;
 	  * the CAPABILITY GATE — an engine without StyleSheets refuses too, even for
 	    a caller who asked out loud;
-	  * the TRANSITIONS SEED — opt-in per target, with reduced motion overriding
+	  * the TRANSITIONS SEED — enabled unless explicitly disabled, with reduced motion overriding
 	    the opt, asked for lazily so a target that opted out never calls a
 	    consumer's deprecated motion closure at all.
 
@@ -145,7 +145,7 @@ function native_style.paintPlan(opts: any, isReducedMotion: (() -> boolean)?, av
 		return { native = false, opt = resolved, transitions = false }
 	end
 	local config: any = if type(resolved) == "table" then resolved else nil
-	local transitions = config ~= nil and config.transitions == true
+	local transitions = native_style.transitionsAllowed(resolved)
 	if transitions and isReducedMotion ~= nil and isReducedMotion() == true then
 		transitions = false
 	end
@@ -156,6 +156,12 @@ function native_style.paintPlan(opts: any, isReducedMotion: (() -> boolean)?, av
 		theme = if config ~= nil then config.theme else nil,
 		transitions = transitions,
 	}
+end
+
+-- Native paint transitions are the default; a target may explicitly opt out.
+-- Keep this preference separate from the temporary reduced-motion state.
+function native_style.transitionsAllowed(config: any): boolean
+	return config ~= false and (type(config) ~= "table" or config.transitions ~= false)
 end
 
 -- distinct from the library ModuleScript tree (also commonly named "Facet"
@@ -615,15 +621,15 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 			rulesByName[child.Name] = child
 		end
 	end
-	-- transitionsOptedIn latches the per-target enhancement opt-in; the LIVE
+	-- transitionsAllowed latches the per-target preference; the LIVE
 	-- reducedMotion wiring (renderer) calls setTransitionsEnabled(true) when
 	-- RM turns off, which must NOT enable transitions on a target that never
-	-- opted in. Calls are pcall-guarded: SetPropertyTransitions publishability
+	-- enabled them. Calls are pcall-guarded: SetPropertyTransitions publishability
 	-- is the native stylesheets work rider, and a missing/errored method must degrade to the
 	-- instant path, never fail the mount.
-	local transitionsOptedIn = (opts and opts.transitionsEnabled) == true
+	local transitionsAllowed = (opts and opts.transitionsEnabled) == true
 	local function setTransitionsEnabled(on: boolean)
-		local effective = on and transitionsOptedIn
+		local effective = on and transitionsAllowed
 		for _, rule in model.rules do
 			if rule.transitions ~= nil then
 				local r = rulesByName[rule.name]
@@ -704,7 +710,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	} :: Handle
 
 	setTheme((opts and opts.theme) or model.defaultTheme)
-	setTransitionsEnabled(transitionsOptedIn)
+	setTransitionsEnabled(transitionsAllowed)
 	return handle
 end
 

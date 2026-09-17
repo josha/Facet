@@ -105,75 +105,72 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 				ctx.nav.openPicker(gladeId)
 			end
 		end,
-		children = {
-			UI.HStack({
-				id = "Row",
-				gap = "m",
-				align = "center",
+
+		UI.HStack({
+			id = "Row",
+			gap = "m",
+			align = "center",
+			width = UI.fill(),
+
+			sceneLib.ring(ctx, {
+				id = "Ring",
+				glade = gladeId,
+				kind = kind,
+				size = METRICS.ringLarge,
+			}),
+			UI.VStack({
+				id = "Copy",
+				gap = "xs",
 				width = UI.fill(),
-				children = {
-					sceneLib.ring(ctx, {
-						id = "Ring",
-						glade = gladeId,
-						kind = kind,
-						size = METRICS.ringLarge,
-						scope = scope,
-					}),
-					UI.VStack({
-						id = "Copy",
-						gap = "xs",
+
+				UI.HStack({
+					id = "TitleRow",
+					gap = "s",
+					align = "center",
+					width = UI.fill(),
+
+					UI.Text({
+						id = "Name",
+						text = title,
+						textSize = "label",
+						-- FILL, because lineLimit caps LINES, never the width a
+						-- text asks for (the recorded p2-caption class): under
+						-- the 1.4x locale this name's natural width pushed the
+						-- row past its box; a fill share truncates through the
+						-- declared disclose instead
 						width = UI.fill(),
-						children = {
-							UI.HStack({
-								id = "TitleRow",
-								gap = "s",
-								align = "center",
-								width = UI.fill(),
-								children = {
-									UI.Text({
-										id = "Name",
-										text = title,
-										textSize = "label",
-										-- FILL, because lineLimit caps LINES, never the width a
-										-- text asks for (the recorded p2-caption class): under
-										-- the 1.4x locale this name's natural width pushed the
-										-- row past its box; a fill share truncates through the
-										-- declared disclose instead
-										width = UI.fill(),
-										lineLimit = 1,
-										disclose = true,
-									}),
-									UI.When({
-										id = "StateChip",
-										condition = chipped,
-										transition = { enter = "fade", class = "container" },
-										thenView = function(): any
-											return UI.ZStack({
-												id = "ChipGroup",
-												canvasGroup = true,
-												children = { parts.chip(ctx, "Chip", chipText) },
-											})
-										end,
-									}),
-								},
-							}),
-							-- the caption wraps to two lines before the row grows:
-							-- rows are content-sized, never fixed px (spec §13) — and
-							-- FILL-width, or its natural single-line ask under the
-							-- 1.4x locale sets the column's minimum instead of
-							-- wrapping (the same lineLimit-is-not-a-width-cap class
-							-- as the name above)
-							UI.Text({
-								id = "Caption",
-								text = caption,
-								textSize = "caption",
-								role = captionRole,
-								width = UI.fill(),
-								lineLimit = 2,
-							}),
-						},
+						lineLimit = 1,
+						disclose = true,
 					}),
-					--[[ NO `Spacer` HERE, and its removal is a defect fix rather than a
+					UI.When({
+						id = "StateChip",
+						condition = chipped,
+						transition = { enter = "fade", class = "container" },
+						thenView = function(): any
+							return UI.ZStack({
+								id = "ChipGroup",
+								canvasGroup = true,
+								parts.chip(ctx, "Chip", chipText),
+							})
+						end,
+					}),
+				}),
+				-- the caption wraps to two lines before the row grows:
+				-- rows are content-sized, never fixed px (spec §13) — and
+				-- FILL-width, or its natural single-line ask under the
+				-- 1.4x locale sets the column's minimum instead of
+				-- wrapping (the same lineLimit-is-not-a-width-cap class
+				-- as the name above)
+				UI.Text({
+					id = "Caption",
+					text = caption,
+					textSize = "caption",
+					role = captionRole,
+					width = UI.fill(),
+					lineLimit = 2,
+				}),
+			}),
+			--[[ NO `Spacer` HERE, and its removal is a defect fix rather than a
 						tidy-up. `Copy` beside it is already `fill`, so a flexible spacer
 						SPLIT the row's free space with the copy column instead of pushing
 						anything: in the 248px detail lane the copy was starved to 29px
@@ -183,10 +180,8 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 						whose dew needs refilling became the one the sweep selects; the
 						same row on Fernhollow, Stillpond and Bramble Rest had carried it
 						since the row was written. ]]
-					affordance,
-				},
-			}),
-		},
+			affordance,
+		}),
 	})
 end
 
@@ -202,68 +197,65 @@ local function visitors(ctx: any, gladeId: string, scope: any): any
 		id = "Visitors",
 		gap = "s",
 		width = UI.fill(),
-		children = {
-			parts.heading(ctx, "VisitorsTitle", ctx.L("detail.visitors")),
-			UI.When({
-				id = "NoVisitors",
-				condition = empty,
-				thenView = function(): any
-					return parts.body(ctx, "None", ctx.L("detail.noVisitors"))
-				end,
-			}),
-			UI.ForEach({
-				id = "VisitorRows",
-				items = rows,
-				key = function(visit: any): string
-					return visit.id
-				end,
-				row = function(visit: any, rowScope: any): any
-					local name = rowScope:own(core:memo(function(use)
-						local _ = use(ctx.state.locale)
-						return ctx.Lnow("wisp." .. visit.wisp)
-					end))
-					local when = rowScope:own(core:memo(function(use)
-						local _ = use(ctx.state.locale)
-						return ctx.fmt.relative(use(ctx.now) - visit.finish)
-					end))
-					local activate = rowScope:own(core:memo(function(use)
-						local _ = use(ctx.state.locale)
-						return ctx.Lnow("wisp.activate", { wisp = ctx.Lnow("wisp." .. visit.wisp) })
-					end))
-					return UI.Button({
-						id = "Visitor_" .. visit.id,
-						label = activate,
+
+		parts.heading(ctx, "VisitorsTitle", ctx.L("detail.visitors")),
+		UI.When({
+			id = "NoVisitors",
+			condition = empty,
+			thenView = function(): any
+				return parts.body(ctx, "None", ctx.L("detail.noVisitors"))
+			end,
+		}),
+		UI.ForEach({
+			id = "VisitorRows",
+			items = rows,
+			key = function(visit: any): string
+				return visit.id
+			end,
+			row = function(visit: any, rowScope: any): any
+				local name = rowScope:own(core:memo(function(use)
+					local _ = use(ctx.state.locale)
+					return ctx.Lnow("wisp." .. visit.wisp)
+				end))
+				local when = rowScope:own(core:memo(function(use)
+					local _ = use(ctx.state.locale)
+					return ctx.fmt.relative(use(ctx.now) - visit.finish)
+				end))
+				local activate = rowScope:own(core:memo(function(use)
+					local _ = use(ctx.state.locale)
+					return ctx.Lnow("wisp.activate", { wisp = ctx.Lnow("wisp." .. visit.wisp) })
+				end))
+				return UI.Button({
+					id = "Visitor_" .. visit.id,
+					label = activate,
+					width = UI.fill(),
+					align = "start",
+					onActivate = function()
+						ctx.nav.openWisp(visit.wisp)
+					end,
+
+					UI.HStack({
+						id = "Row",
+						gap = "m",
+						align = "center",
 						width = UI.fill(),
-						align = "start",
-						onActivate = function()
-							ctx.nav.openWisp(visit.wisp)
-						end,
-						children = {
-							UI.HStack({
-								id = "Row",
-								gap = "m",
-								align = "center",
-								width = UI.fill(),
-								children = {
-									sceneLib.portrait(ctx, "Portrait", visit.wisp, METRICS.portrait),
-									UI.Text({
-										id = "Name",
-										text = name,
-										textSize = "label",
-										-- fill for the same reason as the supply row's name:
-										-- lineLimit does not cap the width a text asks for
-										width = UI.fill(),
-										lineLimit = 1,
-										disclose = true,
-									}),
-									parts.caption(ctx, "When", when),
-								},
-							}),
-						},
-					})
-				end,
-			}),
-		},
+
+						sceneLib.portrait(ctx, "Portrait", visit.wisp, METRICS.portrait),
+						UI.Text({
+							id = "Name",
+							text = name,
+							textSize = "label",
+							-- fill for the same reason as the supply row's name:
+							-- lineLimit does not cap the width a text asks for
+							width = UI.fill(),
+							lineLimit = 1,
+							disclose = true,
+						}),
+						parts.caption(ctx, "When", when),
+					}),
+				})
+			end,
+		}),
 	})
 end
 
@@ -322,26 +314,23 @@ function detail.body(ctx: any, spec: BodySpec): any
 		height = UI.fill(),
 		-- Compact destinations paint an opaque body during shared page transitions.
 		surface = if spec.compact then "base" else nil,
-		children = {
-			titleBar,
-			sceneLib.glade(ctx, {
-				id = "Hero",
-				glade = gladeId,
-				form = "hero",
-				scope = spec.scope,
-				height = heroHeight(ctx, spec.scope),
-			}),
-			UI.VStack({
-				id = "Supplies",
-				gap = "s",
-				width = UI.fill(),
-				children = {
-					supplyRow(ctx, gladeId, "nectar", spec.scope),
-					supplyRow(ctx, gladeId, "dew", spec.scope),
-				},
-			}),
-			visitors(ctx, gladeId, spec.scope),
-		},
+
+		titleBar,
+		sceneLib.glade(ctx, {
+			id = "Hero",
+			glade = gladeId,
+			form = "hero",
+			height = heroHeight(ctx, spec.scope),
+		}),
+		UI.VStack({
+			id = "Supplies",
+			gap = "s",
+			width = UI.fill(),
+
+			supplyRow(ctx, gladeId, "nectar", spec.scope),
+			supplyRow(ctx, gladeId, "dew", spec.scope),
+		}),
+		visitors(ctx, gladeId, spec.scope),
 	})
 end
 
@@ -375,13 +364,12 @@ function detail.lane(ctx: any): any
 				canvasGroup = true,
 				width = { type = "fixed", px = METRICS.detailPaneMin },
 				height = UI.fill(),
-				children = {
-					detail.body(ctx, { id = "Detail", glade = item.id, scope = rowScope, compact = false }),
-				},
+
+				detail.body(ctx, { id = "Detail", glade = item.id, scope = rowScope, compact = false }),
 			})
 		end,
 	})
-	return UI.VStack({ id = "DetailForm", height = UI.fill(), children = { rows } })
+	return UI.VStack({ id = "DetailForm", height = UI.fill(), rows })
 end
 
 return detail

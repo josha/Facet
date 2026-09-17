@@ -349,7 +349,7 @@ return {
 		-- it wired the size class AND declared the presentation, so the fact it
 		-- carried could never be consulted (ADAPT-1 call-site review). The class
 		-- stays — this screen drives it deliberately — and the ladder decides
-		local idiomPicker = Facet.Controls.Picker(core, {
+		local idiomPicker = Facet.View.Picker({
 			id = "Idiom",
 			label = COPY.idiomTitle,
 			-- a SEGMENTED strip, declared: this is a live switch the page wants
@@ -363,7 +363,6 @@ return {
 			selected = idiom,
 			sizeClass = conditions.sizeClass,
 		})
-		scope:own(idiomPicker)
 
 		local function readout(id: string, title: string, body: any): any
 			return UI.VStack({
@@ -372,10 +371,9 @@ return {
 				padding = "s",
 				gap = "xs",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = title, textSize = "caption" }),
-					UI.Text({ id = "Body", text = body, textSize = "caption", role = "secondary" }),
-				},
+
+				UI.Text({ id = "Title", text = title, textSize = "caption" }),
+				UI.Text({ id = "Body", text = body, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -393,10 +391,9 @@ return {
 					padding = "s",
 					gap = "xs",
 					width = UI.fill(),
-					children = {
-						entry.control.blueprint,
-						UI.Text({ id = "Routes", text = entry.routes, textSize = "caption", role = "secondary" }),
-					},
+
+					entry.control.blueprint,
+					UI.Text({ id = "Routes", text = entry.routes, textSize = "caption", role = "secondary" }),
 				})
 			)
 		end
@@ -405,49 +402,46 @@ return {
 			id = "MenuDemo",
 			padding = "xs",
 			gap = "xs",
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "xs",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+				UI.VStack({
+					id = "Cards",
+					gap = "xs",
+					align = "stretch",
+					width = UI.fill(),
+					children = triggerCards,
+				}),
+				UI.VStack({
+					id = "IdiomBox",
+					surface = "control",
+					padding = "s",
 					gap = "xs",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						UI.VStack({
-							id = "Cards",
-							gap = "xs",
-							align = "stretch",
-							width = UI.fill(),
-							children = triggerCards,
-						}),
-						UI.VStack({
-							id = "IdiomBox",
-							surface = "control",
-							padding = "s",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								idiomPicker.blueprint,
-								UI.Text({
-									id = "IdiomNote",
-									text = COPY.idiomNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						readout("Opened", COPY.openedTitle, lastOpen),
-						readout("State", COPY.stateTitle, stateLine),
-						readout("Counts", COPY.countsTitle, countsLine),
-						readout("Ran", COPY.ranTitle, ran),
-						readout("Diag", COPY.diagTitle, diagLine),
-						UI.Text({ id = "DepthNote", text = COPY.depthNote, textSize = "caption", role = "secondary" }),
-						readout("Honest", COPY.honestTitle, COPY.honest),
-					},
+
+					idiomPicker,
+					UI.Text({
+						id = "IdiomNote",
+						text = COPY.idiomNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-			},
+				readout("Opened", COPY.openedTitle, lastOpen),
+				readout("State", COPY.stateTitle, stateLine),
+				readout("Counts", COPY.countsTitle, countsLine),
+				readout("Ran", COPY.ranTitle, ran),
+				readout("Diag", COPY.diagTitle, diagLine),
+				UI.Text({ id = "DepthNote", text = COPY.depthNote, textSize = "caption", role = "secondary" }),
+				readout("Honest", COPY.honestTitle, COPY.honest),
+			}),
 		})
 
 		return {

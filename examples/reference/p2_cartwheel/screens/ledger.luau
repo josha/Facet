@@ -61,7 +61,7 @@ function ledger.new(app: any): any
 		end
 	end
 
-	local picker = Facet.Controls.Picker(core, {
+	local picker = Facet.View.Picker({
 		id = "Timeframe",
 		options = optionLabels,
 		selected = timeframe,
@@ -129,50 +129,48 @@ function ledger.new(app: any): any
 		id = "Plot",
 		width = UI.fill(),
 		height = { type = "fixed", px = "app.cartwheel.chartH" },
-		children = {
-			UI.Anchor({
-				id = "Grid",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = gridLines,
-			}),
-			UI.When({
-				id = "SeriesWhen",
-				condition = unlocked,
-				thenView = function()
-					return UI.ZStack({
-						id = "Series",
+
+		UI.Anchor({
+			id = "Grid",
+			width = UI.fill(),
+			height = UI.fill(),
+			children = gridLines,
+		}),
+		UI.When({
+			id = "SeriesWhen",
+			condition = unlocked,
+			thenView = function()
+				return UI.ZStack({
+					id = "Series",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = seriesPaths,
+				})
+			end,
+		}),
+		UI.When({
+			id = "LockWhen",
+			condition = locked,
+			thenView = function()
+				return UI.ZStack({
+					id = "Lock",
+					canvasGroup = true,
+					width = UI.fill(),
+					height = UI.fill(),
+					alignH = "center",
+					alignV = "center",
+
+					UI.Box({
+						id = "Scrim",
+						surface = "scrim",
 						width = UI.fill(),
 						height = UI.fill(),
-						children = seriesPaths,
-					})
-				end,
-			}),
-			UI.When({
-				id = "LockWhen",
-				condition = locked,
-				thenView = function()
-					return UI.ZStack({
-						id = "Lock",
-						canvasGroup = true,
-						width = UI.fill(),
-						height = UI.fill(),
-						alignH = "center",
-						alignV = "center",
-						children = {
-							UI.Box({
-								id = "Scrim",
-								surface = "scrim",
-								width = UI.fill(),
-								height = UI.fill(),
-							}),
-							parts.chip(app, "Badge", S.t("ledger.locked")),
-						},
-					})
-				end,
-				transition = { enter = "fade", class = "container" },
-			}),
-		},
+					}),
+					parts.chip(app, "Badge", S.t("ledger.locked")),
+				})
+			end,
+			transition = { enter = "fade", class = "container" },
+		}),
 	})
 
 	-- ---- the two-state upsell ------------------------------------------------
@@ -192,135 +190,128 @@ function ledger.new(app: any): any
 		id = "Upsell",
 		gap = "s",
 		width = UI.fill(),
-		children = {
-			UI.When({
-				id = "ExpandedWhen",
-				condition = upsellExpanded,
-				--[[ task POP fix round 1 (sweep found this real): `parts.card`
+
+		UI.When({
+			id = "ExpandedWhen",
+			condition = upsellExpanded,
+			--[[ task POP fix round 1 (sweep found this real): `parts.card`
 					is itself the plate (`surface = "raised"`) AND, before this
 					fix, the direct container of its own content — the same
 					shape `shop.wisp`'s pre-fix `Panel` had. `Expanded` (the
 					card/plate) stays the OUTER, non-canvasGroup node; `Group`
 					is the ONE new canvasGroup, nested one level in, wrapping
 					what used to be the card's direct children. ]]
-				thenView = function()
-					return UI.ZStack({
-						id = "ExpandedHost",
-						width = UI.fill(),
-						height = { type = "content" },
+			thenView = function()
+				return UI.ZStack({
+					id = "ExpandedHost",
+					width = UI.fill(),
+					height = { type = "content" },
+
+					parts.card(app, {
+						id = "Expanded",
 						children = {
-							parts.card(app, {
-								id = "Expanded",
-								children = {
-									UI.ZStack({
-										id = "Group",
-										canvasGroup = true,
-										width = UI.fill(),
-										height = { type = "content" },
-										children = {
-											UI.VStack({
-												id = "GroupStack",
-												gap = "s",
-												width = UI.fill(),
-												children = {
-													UI.HStack({
-														id = "Head",
-														gap = "s",
-														align = "center",
-														width = UI.fill(),
-														children = {
-															-- the heading TAKES the slack rather than a
-															-- spacer beside it: a fixed-width heading plus a
-															-- 44px disc overflowed a phone-width card by 7px
-															UI.Text({
-																id = "Heading",
-																text = S.t("ledger.unlockTitle"),
-																textSize = "heading",
-																width = UI.fill(),
-																lineLimit = 2,
-																disclose = true,
-															}),
-															UI.Button({
-																id = "Dismiss",
-																label = S.t("ledger.close"),
-																shape = "circle",
-																icon = "close",
-																onActivate = function()
-																	upsellCollapsed:set(true)
-																end,
-															}),
-														},
-													}),
-													UI.Text({
-														id = "Body",
-														text = S.t("ledger.unlockBody"),
-														textSize = "body",
-														role = "secondary",
-													}),
-													UI.Button({
-														id = "Unlock",
-														label = S.t("ledger.unlock"),
-														surface = "accent",
-														enabled = unlockIdle,
-														onActivate = unlock,
-													}),
-												},
-											}),
-										},
-									}),
-								},
-							}),
-						},
-					})
-				end,
-				transition = { enter = "fade", class = "container" },
-			}),
-			UI.When({
-				id = "RowWhen",
-				condition = upsellRow,
-				thenView = function()
-					return UI.ZStack({
-						id = "RowHost",
-						canvasGroup = true,
-						width = UI.fill(),
-						height = { type = "content" },
-						children = {
-							UI.HStack({
-								id = "Row",
-								gap = "s",
-								align = "center",
+							UI.ZStack({
+								id = "Group",
+								canvasGroup = true,
 								width = UI.fill(),
-								children = {
-									UI.Text({
-										id = "Line",
-										text = S.t("ledger.unlockRow", { credits = data.fullLedgerCredits }),
-										textSize = "caption",
-										role = "secondary",
-										lineLimit = 2,
-										disclose = true,
+								height = { type = "content" },
+
+								UI.VStack({
+									id = "GroupStack",
+									gap = "s",
+									width = UI.fill(),
+
+									UI.HStack({
+										id = "Head",
+										gap = "s",
+										align = "center",
+										width = UI.fill(),
+
+										-- the heading TAKES the slack rather than a
+										-- spacer beside it: a fixed-width heading plus a
+										-- 44px disc overflowed a phone-width card by 7px
+										UI.Text({
+											id = "Heading",
+											text = S.t("ledger.unlockTitle"),
+											textSize = "heading",
+											width = UI.fill(),
+											lineLimit = 2,
+											disclose = true,
+										}),
+										UI.Button({
+											id = "Dismiss",
+											label = S.t("ledger.close"),
+											shape = "circle",
+											icon = "close",
+											onActivate = function()
+												upsellCollapsed:set(true)
+											end,
+										}),
 									}),
-									UI.Spacer({ id = "Gap", width = UI.fill() }),
+									UI.Text({
+										id = "Body",
+										text = S.t("ledger.unlockBody"),
+										textSize = "body",
+										role = "secondary",
+									}),
 									UI.Button({
 										id = "Unlock",
 										label = S.t("ledger.unlock"),
+										surface = "accent",
 										enabled = unlockIdle,
 										onActivate = unlock,
 									}),
-								},
+								}),
 							}),
 						},
-					})
-				end,
-				transition = { enter = "fade", class = "container" },
-			}),
-			UI.When({
-				id = "WorkingWhen",
-				condition = unlockPending,
-				thenView = function()
-					return parts.chip(app, "Working", S.t("command.working"))
-				end,
-			}),
-		},
+					}),
+				})
+			end,
+			transition = { enter = "fade", class = "container" },
+		}),
+		UI.When({
+			id = "RowWhen",
+			condition = upsellRow,
+			thenView = function()
+				return UI.ZStack({
+					id = "RowHost",
+					canvasGroup = true,
+					width = UI.fill(),
+					height = { type = "content" },
+
+					UI.HStack({
+						id = "Row",
+						gap = "s",
+						align = "center",
+						width = UI.fill(),
+
+						UI.Text({
+							id = "Line",
+							text = S.t("ledger.unlockRow", { credits = data.fullLedgerCredits }),
+							textSize = "caption",
+							role = "secondary",
+							lineLimit = 2,
+							disclose = true,
+						}),
+						UI.Spacer({ id = "Gap", width = UI.fill() }),
+						UI.Button({
+							id = "Unlock",
+							label = S.t("ledger.unlock"),
+							enabled = unlockIdle,
+							onActivate = unlock,
+						}),
+					}),
+				})
+			end,
+			transition = { enter = "fade", class = "container" },
+		}),
+		UI.When({
+			id = "WorkingWhen",
+			condition = unlockPending,
+			thenView = function()
+				return parts.chip(app, "Working", S.t("command.working"))
+			end,
+		}),
 	})
 
 	local page = UI.ScrollView({
@@ -330,38 +321,35 @@ function ledger.new(app: any): any
 		padding = "m",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.Text({ id = "Title", text = S.t("ledger.title"), textSize = "title" }),
-			picker.blueprint,
-			UI.HStack({
-				id = "Chart",
+
+		UI.Text({ id = "Title", text = S.t("ledger.title"), textSize = "title" }),
+		picker,
+		UI.HStack({
+			id = "Chart",
+			gap = "s",
+			align = "start",
+			width = UI.fill(),
+
+			UI.VStack({ id = "Axis", gap = "m", children = axisCaptions }),
+			UI.VStack({
+				id = "PlotHost",
 				gap = "s",
-				align = "start",
 				width = UI.fill(),
-				children = {
-					UI.VStack({ id = "Axis", gap = "m", children = axisCaptions }),
-					UI.VStack({
-						id = "PlotHost",
-						gap = "s",
-						width = UI.fill(),
-						children = {
-							plot,
-							-- a chart legend is plaza NAMES, so its chips are ragged by
-							-- nature; the uniform grid this used to be gave all three the
-							-- widest name's width (135x23 each, measured 1440x900) and left
-							-- a dead third cell on the second row
-							UI.HStack({
-								id = "Legend",
-								wrap = true,
-								gap = "xs",
-								children = legendChips,
-							}),
-						},
-					}),
-				},
+
+				plot,
+				-- a chart legend is plaza NAMES, so its chips are ragged by
+				-- nature; the uniform grid this used to be gave all three the
+				-- widest name's width (135x23 each, measured 1440x900) and left
+				-- a dead third cell on the second row
+				UI.HStack({
+					id = "Legend",
+					wrap = true,
+					gap = "xs",
+					children = legendChips,
+				}),
 			}),
-			upsell,
-		},
+		}),
+		upsell,
 	})
 
 	function self.view(): any
@@ -379,7 +367,6 @@ function ledger.new(app: any): any
 	end
 
 	function self.dispose()
-		picker.dispose()
 		unlockIdle:dispose()
 		unlockPending:dispose()
 		for _, memo in seriesMemos do

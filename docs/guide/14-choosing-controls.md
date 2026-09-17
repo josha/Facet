@@ -85,22 +85,17 @@ each destination are ordinary nested TabViews. Collections and Motion and layout
 use the same structure.
 
 ```lua
-local categories = Facet.Controls.TabView(core, {
-    env = env,
+local UI = Facet.View
+local categories = UI.TabView {
     style = "sidebarAdaptable",
     tabs = {
-        { id = "inputs", label = "Inputs", content = function(tabScope)
-            local pages = Facet.Controls.TabView(core, {
-                env = env,
-                tabs = inputPages,
-            })
-            tabScope:own(pages)
-            return pages.blueprint
+        { id = "inputs", label = "Inputs", content = function()
+            return UI.TabView { tabs = inputPages }
         end },
         -- Other peer destinations use the same content factory pattern.
     },
-})
-screenScope:own(categories)
+}
+-- Include categories in your component's view tree; mount owns both levels.
 ```
 
 Leave placement automatic at both levels. Building the inner control inside the
@@ -382,6 +377,20 @@ Use presenter toasts for brief, noninteractive feedback. They automatically
 publish their measured HUD reservation without claiming focus. Screens can feed
 those rectangles into Composition top-lane exclusions; use layout.hudInsets for
 other edges. The Screen-anchored HUD's action menu demonstrates this coordination.
+Choose `position = "top"` or `"bottom"` for a new stack. Use `width = UI.fill()`
+for a wide announcement or `width = UI.hug({ max = 560 })` for a compact message.
+The first toast fixes the stack's edge until it empties; each toast chooses its
+own width. Other rows slide into place when one leaves. Default slides preserve
+native text clarity; opt into fading only when that treatment is needed.
+
+```luau
+local UI = Facet.View
+presenter.presentToast(UI.VStack {
+    surface = "raised", padding = "m", width = UI.hug(),
+    UI.Text "Checkpoint reached",
+}, { position = "bottom", width = UI.hug({ max = 560 }) })
+```
+
 
 Use client.world_anchor with offscreen retention to project objectives, and
 layout.worldMarkers to place themed labels around HUD exclusions. Game code owns

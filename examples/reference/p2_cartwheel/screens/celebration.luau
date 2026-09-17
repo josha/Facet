@@ -60,103 +60,97 @@ function celebration.new(app: any): any
 		return UI.Screen({
 			id = "CartwheelCelebration",
 			padding = "l",
-			children = {
-				-- the surface transition FADES, and a fade needs a fade group: a
-				-- `Screen` is not one, so the presenter looks for the root's single
-				-- declared canvasGroup child and this is it
-				UI.ZStack({
-					id = "Group",
-					canvasGroup = true,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.VStack({
-							id = "Card",
-							gap = "m",
-							align = "center",
-							padding = "l",
-							surface = "raised",
-							children = {
-								UI.Button({
-									id = "Bottle",
-									label = S.t("celebrate.title", { id = brewId:get() }),
-									gap = "xs",
-									align = "center",
-									offset = bottleOffset,
-									onActivate = function()
-										-- an idempotent toy: activating the bottle re-toggles
-										-- the cork and nothing else
-										corkIn:set(not corkIn:get())
-									end,
-									children = {
-										UI.ZStack({
-											id = "Art",
-											width = { type = "fixed", px = "controls.image.defaultSize" },
-											height = { type = "fixed", px = "controls.image.defaultSize" },
-											children = {
-												UI.Image({
-													id = "Glass",
-													image = app.art.marks.menu.image,
-													scaleMode = "fit",
-													tint = { role = "contentSecondary", blend = 0.8 },
-													width = UI.fill(),
-													height = UI.fill(),
-												}),
-												if potion ~= nil
-													then parts.potionMark(app, "Potion", potion, "iconSizes.medium")
-													else UI.Spacer({ id = "Potion" }),
-												UI.When({
-													id = "CorkWhen",
-													condition = corkIn,
-													thenView = function()
-														return UI.ZStack({
-															id = "Cork",
-															canvasGroup = true,
-															width = { type = "fixed", px = "iconSizes.small" },
-															height = { type = "fixed", px = "iconSizes.small" },
-															children = {
-																UI.Image({
-																	id = "Mark",
-																	image = app.art.marks.chevronDown.image,
-																	scaleMode = "fit",
-																	tint = { role = "accent", blend = 1 },
-																	width = UI.fill(),
-																	height = UI.fill(),
-																}),
-															},
-														})
-													end,
-													transition = {
-														enter = "slide-down",
-														fade = true,
-														class = "container",
-													},
-												}),
-											},
+
+			-- the surface transition FADES, and a fade needs a fade group: a
+			-- `Screen` is not one, so the presenter looks for the root's single
+			-- declared canvasGroup child and this is it
+			UI.ZStack({
+				id = "Group",
+				canvasGroup = true,
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.VStack({
+					id = "Card",
+					gap = "m",
+					align = "center",
+					padding = "l",
+					surface = "raised",
+
+					UI.Button({
+						id = "Bottle",
+						label = S.t("celebrate.title", { id = brewId:get() }),
+						gap = "xs",
+						align = "center",
+						offset = bottleOffset,
+						onActivate = function()
+							-- an idempotent toy: activating the bottle re-toggles
+							-- the cork and nothing else
+							corkIn:set(not corkIn:get())
+						end,
+
+						UI.ZStack({
+							id = "Art",
+							width = { type = "fixed", px = "controls.image.defaultSize" },
+							height = { type = "fixed", px = "controls.image.defaultSize" },
+
+							UI.Image({
+								id = "Glass",
+								image = app.art.marks.menu.image,
+								scaleMode = "fit",
+								tint = { role = "contentSecondary", blend = 0.8 },
+								width = UI.fill(),
+								height = UI.fill(),
+							}),
+							if potion ~= nil
+								then parts.potionMark(app, "Potion", potion, "iconSizes.medium")
+								else UI.Spacer({ id = "Potion" }),
+							UI.When({
+								id = "CorkWhen",
+								condition = corkIn,
+								thenView = function()
+									return UI.ZStack({
+										id = "Cork",
+										canvasGroup = true,
+										width = { type = "fixed", px = "iconSizes.small" },
+										height = { type = "fixed", px = "iconSizes.small" },
+
+										UI.Image({
+											id = "Mark",
+											image = app.art.marks.chevronDown.image,
+											scaleMode = "fit",
+											tint = { role = "accent", blend = 1 },
+											width = UI.fill(),
+											height = UI.fill(),
 										}),
-									},
-								}),
-								UI.Text({ id = "Title", text = titleText, textSize = "title", textAlign = "center" }),
-								UI.Text({
-									id = "Detail",
-									text = detailText,
-									textSize = "caption",
-									role = "secondary",
-									textAlign = "center",
-								}),
-								UI.Button({
-									id = "Done",
-									label = S.t("celebrate.done"),
-									surface = "accent",
-									onActivate = function()
-										self.dismiss()
-									end,
-								}),
-							},
+									})
+								end,
+								transition = {
+									enter = "slide-down",
+									fade = true,
+									class = "container",
+								},
+							}),
 						}),
-					},
+					}),
+					UI.Text({ id = "Title", text = titleText, textSize = "title", textAlign = "center" }),
+					UI.Text({
+						id = "Detail",
+						text = detailText,
+						textSize = "caption",
+						role = "secondary",
+						textAlign = "center",
+					}),
+					UI.Button({
+						id = "Done",
+						label = S.t("celebrate.done"),
+						surface = "accent",
+						onActivate = function()
+							self.dismiss()
+						end,
+					}),
 				}),
-			},
+			}),
 		})
 	end
 

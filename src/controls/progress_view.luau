@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- ProgressView: linear progress, determinate and INDETERMINATE
 -- (docs/plans/parity-next.md investment 7; acceptance row B-DSP1;
 -- parity-round2.md §3.1). A track with a filled portion, over the SHARED
@@ -235,7 +237,7 @@ export type Spec = {
 	-- determinate. Construction-fixed: the two modes are
 	-- two different views — a Readable that happens to yield nil is still a
 	-- determinate bar reading a broken value, never a mode switch.
-	value: any?, -- number | Readable<number> | nil
+	value: blueprint.Bound<number>?, -- number | Readable<number> | nil
 	label: string?,
 	min: number?, -- default 0
 	max: number?, -- default 1
@@ -246,7 +248,7 @@ export type Spec = {
 	-- REQUIRED when `value = nil`: the owner of the indeterminate cycle's clock
 	-- entry (see the header). Optional for a determinate view, which acquires
 	-- nothing beyond memos and takes the clock entry no one.
-	scope: any?,
+	scope: coreContract.Scope?,
 	-- the surface's motion clock (`presenter.motionClock`). Read only by the
 	-- indeterminate cycle; a determinate bar never touches it.
 	motionClock: any?,

@@ -46,14 +46,14 @@ return {
 				commits:set(commits:get() + 1)
 			end,
 		})
-		local slider = Facet.Controls.Slider(core, {
+		local slider = Facet.View.Slider({
 			id = "Volume",
 			value = volume,
 			min = 0,
 			max = 1,
 			step = 0.1,
 		})
-		local stepper = Facet.Controls.Stepper(core, {
+		local stepper = Facet.View.Stepper({
 			id = "Count",
 			value = count,
 			min = 0,
@@ -110,41 +110,38 @@ return {
 			-- glossy-touch narrows it further and measured 149px. The gutter waits on the
 			-- row it squeezes.
 			padding = 16,
-			children = {
-				UI.ScrollView({
-					id = "Body",
-					axis = "y",
-					gap = 10,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "Desktop keyboard focus chain", textSize = 22 }),
-						field.blueprint,
-						-- an HStack of two focusables is what engages the LAYOUT group
-						-- derivation, so this fixture is a GROUPED screen — the case
-						-- where Left/Right used to belong permanently to NavigateH
-						UI.HStack({
-							id = "Actions",
-							-- THEME-OPT-OUT: same standing as the page padding above — this two-button row
-							-- is already 145px past a 320x640 phone at +14 in the overflow ledger, and
-							-- `gap = "s"` under glossy-touch measured 151px. A theme step cannot fix a row
-							-- that does not fit; it can only make the recorded number worse.
-							gap = 8,
-							children = {
-								UI.Button({ id = "Save", label = "Save" }),
-								UI.Button({ id = "Reset", label = "Reset" }),
-							},
-						}),
-						slider.blueprint,
-						stepper.blueprint,
-						UI.ScrollView({
-							id = "List",
-							height = { type = "content", rows = LIST_VISIBLE_ROWS, of = "controlSizes.compact.height" },
-							children = rows,
-						}),
-					},
+
+			UI.ScrollView({
+				id = "Body",
+				axis = "y",
+				gap = 10,
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = "Desktop keyboard focus chain", textSize = 22 }),
+				field.blueprint,
+				-- an HStack of two focusables is what engages the LAYOUT group
+				-- derivation, so this fixture is a GROUPED screen — the case
+				-- where Left/Right used to belong permanently to NavigateH
+				UI.HStack({
+					id = "Actions",
+					-- THEME-OPT-OUT: same standing as the page padding above — this two-button row
+					-- is already 145px past a 320x640 phone at +14 in the overflow ledger, and
+					-- `gap = "s"` under glossy-touch measured 151px. A theme step cannot fix a row
+					-- that does not fit; it can only make the recorded number worse.
+					gap = 8,
+
+					UI.Button({ id = "Save", label = "Save" }),
+					UI.Button({ id = "Reset", label = "Reset" }),
 				}),
-			},
+				slider,
+				stepper,
+				UI.ScrollView({
+					id = "List",
+					height = { type = "content", rows = LIST_VISIBLE_ROWS, of = "controlSizes.compact.height" },
+					children = rows,
+				}),
+			}),
 		})
 
 		-- keyboard navigation is OPT-IN (director playtest 2026-08-03) and this is
@@ -320,11 +317,10 @@ return {
 						gap = "s",
 						width = { type = "fixed", px = 320 },
 						height = { type = "fixed", px = 180 },
-						children = {
-							UI.Text({ id = "MTitle", text = "Confirm", textSize = "heading" }),
-							UI.Button({ id = "Ok", label = "OK" }),
-							UI.Button({ id = "Nope", label = "Cancel" }),
-						},
+
+						UI.Text({ id = "MTitle", text = "Confirm", textSize = "heading" }),
+						UI.Button({ id = "Ok", label = "OK" }),
+						UI.Button({ id = "Nope", label = "Cancel" }),
 					}))
 					ctx.presenter.refresh()
 					return { open = true, focus = focusNow(), depth = ctx.presenter.depth() }

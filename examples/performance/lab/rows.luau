@@ -451,24 +451,23 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		id = "Labels",
 		gap = 2,
 		width = UI.fill(),
-		children = {
-			-- IDENTITY: may truncate, and therefore discloses (Step 8.5's rung 3).
-			-- Removing this to make the profile prettier is exactly the "weakened
-			-- accessibility behaviour" the plan forbids.
-			-- ONE LINE EACH, ALWAYS. A VirtualList slot is a FIXED height, and these two
-			-- texts were the only things in the row free to grow: a long identity name
-			-- wrapped to a second line and the row painted 5px into its neighbour. It
-			-- showed up only in the sweep and only on a phone, because it needs a long
-			-- string AND a narrow box AND that particular row inside the window — three
-			-- coincidences, which is why the height constant looked correct for months.
-			--
-			-- This is `Text.lineLimit`'s whole reason for existing (see
-			-- a fixed px height against unfixed content): the OWNER knows the box is fixed, so
-			-- the owner caps the lines. `disclose` keeps the full name reachable once it
-			-- truncates, so nothing is hidden — the line count is bounded, not the value.
-			UI.Text({ id = "Name", text = item.name, textSize = 15, disclose = true, lineLimit = 1 }),
-			UI.Text({ id = "Detail", text = item.detail, textSize = "caption", lineLimit = 1 }),
-		},
+
+		-- IDENTITY: may truncate, and therefore discloses (Step 8.5's rung 3).
+		-- Removing this to make the profile prettier is exactly the "weakened
+		-- accessibility behaviour" the plan forbids.
+		-- ONE LINE EACH, ALWAYS. A VirtualList slot is a FIXED height, and these two
+		-- texts were the only things in the row free to grow: a long identity name
+		-- wrapped to a second line and the row painted 5px into its neighbour. It
+		-- showed up only in the sweep and only on a phone, because it needs a long
+		-- string AND a narrow box AND that particular row inside the window — three
+		-- coincidences, which is why the height constant looked correct for months.
+		--
+		-- This is `Text.lineLimit`'s whole reason for existing (see
+		-- a fixed px height against unfixed content): the OWNER knows the box is fixed, so
+		-- the owner caps the lines. `disclose` keeps the full name reachable once it
+		-- truncates, so nothing is hidden — the line count is bounded, not the value.
+		UI.Text({ id = "Name", text = item.name, textSize = 15, disclose = true, lineLimit = 1 }),
+		UI.Text({ id = "Detail", text = item.detail, textSize = "caption", lineLimit = 1 }),
 	})
 	local toggle = UI.Toggle({ id = "Ready", label = "Ready", value = toggled })
 	local open = UI.Button({
@@ -495,7 +494,8 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 				id = "Head",
 				gap = "s",
 				width = UI.fill(),
-				children = { image.blueprint, labels },
+				image.blueprint,
+				labels,
 			}),
 			-- THE CONTROLS STACK TOO. Two lines was not enough: the controls line
 			-- alone needs ~420px (a Toggle, a Stepper with its label, readout and
@@ -521,7 +521,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 					id = "Action",
 					gap = "s",
 					width = UI.fill(),
-					children = { open },
+					open,
 				})
 			)
 		end
@@ -531,7 +531,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 				id = "Value",
 				gap = "s",
 				width = UI.fill(),
-				children = { stepper.blueprint },
+				stepper.blueprint,
 			})
 		)
 		return UI.VStack({
@@ -548,7 +548,11 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		gap = "s",
 		padding = rows.ROW_PADDING_STEP,
 		width = UI.fill(),
-		children = { image.blueprint, labels, toggle, stepper.blueprint, open },
+		image.blueprint,
+		labels,
+		toggle,
+		stepper.blueprint,
+		open,
 	})
 end
 

@@ -48,8 +48,7 @@ rules your addition must follow.
 lune run tools/lune/scaffold_cli control <lower_snake_name>
 ```
 
-This stamps and REGISTERS everything, so that nothing can be forgotten. Three
-files written, eleven edited:
+This stamps and REGISTERS everything, so that nothing can be forgotten. The plan reports the exact files it writes and edits:
 
 | File | What the scaffold does |
 |---|---|
@@ -58,7 +57,7 @@ files written, eleven edited:
 | `examples/gallery/scenarios/<name>.luau` | writes the gallery scenario — the surface a person opens on a device |
 | `tests/run.luau` | registers your spec in the runner |
 | `tests/conformance/controls_registry.luau` | writes your registry row, with `inputProofs` and `affordanceProofs` citing the stamped case names |
-| `src/init.luau` | the module local **and** the `Facet.Controls.<Name>` entry (two edits) |
+| `src/init.luau` | the module local and typed `Facet.Controls.<Name>` / `Facet.View.<Name>` entries |
 | `tests/lib/large_text_fixtures.luau` | registers a large-text fixture, so the accessibility sweep measures the control from its first commit |
 | `docs/reference/api.md` | appends the reference stub, at the anchor the registration checker requires |
 | `docs/guide/README.md` | adds the capability-catalog row, linked to that api.md anchor |
@@ -93,14 +92,23 @@ check that names it if you forget:
 | a new public property on a primitive | `lune run tools/lune/check_prop_parity_cli`, which proves seven views of the property agree |
 | a guide paragraph, when the control introduces a new CONCEPT | a human reviewer. The catalog row is mandatory; a concept paragraph is a judgement |
 
-**The call shape.** Your control is created as
-`Facet.Controls.<Name>(core, spec)` and has exactly that one public spelling.
-`build(Facet, core, spec)` stays the module's internal seam — the namespace
-entry the scaffold writes into `src/init.luau` is what hands the library over,
-so a caller never writes it. The nineteen `Facet.new<Name>` builders that still
-exist predate the namespace, kept working and declared in `Facet.DEPRECATIONS`;
-do **not** add a twentieth. `tools/check_call_shape_drift.py` refuses a new
-old-form call site anywhere in the maintained tree.
+**The call shape.** Application code uses `Facet.View.<Name> { ... }` inside a
+`Facet.component`. Keep `Facet.Controls.<Name>(core, spec)` for implementation,
+explicit imperative handles and low-level contract tests. Both public forms
+share the same `build(Facet, core, spec)` implementation; do not add a new
+`Facet.new<Name>` spelling.
+
+The scaffold registers both namespaces. Finish the typed View spec for controlled
+getters/callbacks and mark its reactive properties in `src/authoring.luau`.
+If the control needs the environment, presenter clock or owner, arrange automatic
+injection at that boundary. A normal view must not ask its caller for a scope,
+core or `.blueprint`. Test the View path as a mounted component, including cleanup,
+as well as the explicit handle contract. Use `ui.state`, plain property getters,
+`ui.memo` for shared work and ordered numeric children in its showcase scenario.
+
+Read [component authoring](../guide/15-components.md) before writing the public
+usage example. A new feature is unfinished when only the low-level constructor
+has an example or when its public View type omits runtime fields or metadata.
 
 ## 2. Design the control's contract (in the spec, first)
 

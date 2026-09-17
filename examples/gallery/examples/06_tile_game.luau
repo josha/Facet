@@ -733,53 +733,33 @@ local CELL_MARK: { [string]: string } = {
 -- ===========================================================================
 
 function example.build(Facet: any, core: any, deps: any)
-	local UI = Facet.UI
+	local UI = Facet.View
 	local pres = deps.presenter
 	local actions = deps.actionSystem
-
-	-- gameScope owns everything this example creates, so dispose() returns the
-	-- registries to exactly where they were before build().
+	-- Game state and hardware input survive view branches and result overlays.
+	-- Only this model boundary owns a Core scope; view calculations belong to ui.
 	local gameScope = core:scope("example-06-tile-game")
 	local function reg(readable: any): any
-		gameScope:own(function()
-			readable:dispose()
-		end)
+		gameScope:own(readable)
 		return readable
 	end
-
-	-- ---- state --------------------------------------------------------------
-	-- The bag and its cursor are PLAIN LOCALS, not signals: nothing on screen
-	-- reads them, and a signal nobody binds is a subscription that costs and
-	-- teaches nothing. Everything a player can see is below.
 	local seedSig = reg(core:signal(DEFAULT_SEED))
 	local boardSig = reg(core:signal({} :: { [string]: string }))
 	local pendingSig = reg(core:signal({} :: { [string]: string }))
-	-- rack slot -> letter. A slot emptied by a placement stays empty (and
-	-- disabled) until the turn is committed or undone, so the rack never
-	-- reshuffles under the player's finger.
 	local rackSig = reg(core:signal({} :: { [number]: string }))
-	-- which rack slot each placed tile came from, so Undo can put it back where
-	-- it was rather than wherever there happens to be room
 	local originSig = reg(core:signal({} :: { [string]: number }))
 	local selectedSig = reg(core:signal(nil :: number?))
 	local scoreSig = reg(core:signal(0))
 	local turnSig = reg(core:signal(1))
-	local phaseSig = reg(core:signal("playing")) -- "playing" | "won" | "lost"
+	local phaseSig = reg(core:signal("playing"))
 	local noticeSig = reg(core:signal(""))
-
 	local bag: { string } = {}
 	local bagAt = 1
 	local opening: string? = nil
 	local dealAttempts = 0
-
 	local function playing(): boolean
 		return phaseSig:get() == "playing"
 	end
-
-	--[[ THE DEAL, and the reset. Everything the game can change is written back
-		to the value it was constructed with — including the selection and the
-		message, so a restart cannot leave a highlighted rack tile or a stale
-		complaint behind. ]]
 	local function restart(seed: number?)
 		local nextSeed = if seed ~= nil then math.floor(seed) else seedSig:get()
 		local rng = rules.makeRng(nextSeed)
@@ -805,33 +785,23 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set("")
 		end)
 	end
-
-	-- ---- commands (pure state; they know nothing about the view) ------------
-
 	local function selectSlot(slot: number)
 		if not playing() then
 			return
 		end
 		if rackSig:get()[slot] == nil then
-			return -- the slot is empty and its button is disabled; nothing to say
+			return
 		end
 		core:transaction(function()
-			-- activating the held tile again puts it down, which is the only way
-			-- back out of "holding" that does not need a second control
 			selectedSig:set(if selectedSig:get() == slot then nil else slot)
 			noticeSig:set("")
 		end)
 	end
-
-	-- Activating a board square: place the held tile, or pick an uncommitted one
-	-- back up. Every branch that cannot act says why.
 	local function activateCell(r: number, c: number)
 		if not playing() then
 			return
 		end
 		if not rules.onBoard(r, c) then
-			-- no rendered square exists off the board, so nothing a player can
-			-- press reaches here; the guard keeps a scripted call equally inert
 			return
 		end
 		local key = rules.key(r, c)
@@ -844,7 +814,6 @@ function example.build(Facet: any, core: any, deps: any)
 				return
 			end
 			if pendingLetter ~= nil then
-				-- put it back on the rack it came from
 				local origin = table.clone(originSig:get())
 				local rack = table.clone(rackSig:get())
 				local pending = table.clone(pendingSig:get())
@@ -884,7 +853,6 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set("")
 		end)
 	end
-
 	local function undo()
 		if not playing() then
 			return
@@ -907,11 +875,6 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set("")
 		end)
 	end
-
-	--[[ SUBMIT, and the whole point of the refusal contract: a turn the rules
-		reject changes NOTHING. Not the board, not the rack, not the turn count,
-		not the selection — so the player moves one tile and tries again rather
-		than rebuilding the word from an empty rack. ]]
 	local function submit()
 		if not playing() then
 			return
@@ -927,7 +890,6 @@ function example.build(Facet: any, core: any, deps: any)
 		for key, letter in pending do
 			nextBoard[key] = letter
 		end
-		-- refill from the bag, in slot order, so a seed replays exactly
 		local rack = table.clone(rackSig:get())
 		for slot = 1, RACK_SIZE do
 			if rack[slot] == nil and bagAt <= #bag then
@@ -955,122 +917,108 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set(verdict.message)
 		end)
 	end
-
 	restart(DEFAULT_SEED)
-
-	-- ---- derived readouts ---------------------------------------------------
-	local turnsLeft = reg(core:memo(function(use)
-		return math.max(0, TURNS - (use(turnSig) - 1))
-	end))
-
-	local scoreText = reg(core:memo(function(use)
-		return `{use(scoreSig)} of {GOAL} points`
-	end))
-
-	local progressText = reg(core:memo(function(use)
-		local left = use(turnsLeft)
-		return `{left} {if left == 1 then "turn" else "turns"} left`
-	end))
-
-	-- THE LIVE VERDICT. It is the same `rules.validate` the Submit button runs,
-	-- asked every time the board changes — so the player reads the reason BEFORE
-	-- they press, and a refused submit tells them nothing they were not already
-	-- being told. That is the whole reason the rules are pure.
-	local verdictSig = reg(core:memo(function(use)
-		local pending = use(pendingSig)
-		if next(pending) == nil then
-			return nil
-		end
-		return rules.validate(use(boardSig), pending, use(turnSig))
-	end))
-
-	-- ONE MESSAGE LINE, not two. `notice` is what the player's last press did;
-	-- when there is nothing to report it falls through to the live verdict, so
-	-- the line always describes the board underneath it.
-	local wordText = reg(core:memo(function(use)
-		local notice = use(noticeSig)
-		if notice ~= "" then
-			return notice
-		end
-		local verdict = use(verdictSig)
-		if verdict == nil then
-			return "No tiles placed this turn."
-		end
-		return verdict.message
-	end))
-
-	-- ...and ONE INSTRUCTION LINE that always says what to do next.
-	local hintText = reg(core:memo(function(use)
-		local phase = use(phaseSig)
-		if phase == "won" then
-			return `You reached {use(scoreSig)} points in {use(turnSig) - 1} of {TURNS} turns — you win! `
-				.. "Press Start over to play again."
-		elseif phase == "lost" then
-			return `Out of turns at {use(scoreSig)} of {GOAL} points. Press Start over to play again.`
-		end
-		local slot = use(selectedSig)
-		if slot ~= nil then
-			return `Placing {use(rackSig)[slot]} — choose a square.`
-		end
-		if use(turnSig) <= 1 and next(use(boardSig)) == nil then
-			return "Cover the starred square with a word to begin."
-		end
-		return "Pick a letter from your rack, then choose a square."
-	end))
-
-	-- ---- the board: ONE Grid of 49 squares ----------------------------------
-	-- `UI.Grid` with a fixed column count is the container for a board, and it
-	-- earns the 2D focus story with it: the focus map turns a Grid's focusables
-	-- into per-row horizontal groups linked by up/down exits, so a D-pad or the
-	-- arrow keys cross the board with no consumer navigation map.
+	local turnsLeft: any
+	local scoreText: any
+	local progressText: any
+	local verdictSig: any
+	local wordText: any
+	local hintText: any
 	local cellStateOf: { [string]: any } = {}
-	local cells = {}
-	for r = 1, SIZE do
-		for c = 1, SIZE do
-			local rr, cc = r, c
-			local key = rules.key(r, c)
-			local state = reg(core:memo(function(use)
-				if use(pendingSig)[key] ~= nil then
-					return "pending"
-				end
-				if use(boardSig)[key] ~= nil then
-					return "committed"
-				end
-				if rules.legalCells(use(boardSig), use(pendingSig), use(turnSig))[key] then
-					return if rr == CENTRE and cc == CENTRE then "centre" else "legal"
-				end
-				return if rr == CENTRE and cc == CENTRE then "centre" else "idle"
-			end))
-			cellStateOf[key] = state
-			local label = reg(core:memo(function(use)
-				return letterAt(use(boardSig), use(pendingSig), rr, cc) or ""
-			end))
-			local tint = reg(core:memo(function(use)
-				return CELL_TINT[use(state)]
-			end))
-			local surface = reg(core:memo(function(use)
-				return CELL_SURFACE[use(state)]
-			end))
-			local mark = reg(core:memo(function(use)
-				return CELL_MARK[use(state)]
-			end))
-			table.insert(
-				cells,
-				UI.ZStack({
-					id = `cell{r}_{c}`,
-					width = CELL,
-					height = CELL,
-					alignH = "center",
-					alignV = "center",
-					children = {
-						-- THE PLATE. A Box's one paint channel is `tint`, so this is
-						-- where the state colour lives; `surface` beside it is the
-						-- theme's own chrome, and the two do not fight — the tint is an
-						-- explicit per-node claim on the fill, the surface is a tag the
-						-- theme's border and corner rules hang off. It is a SEPARATE
-						-- node from the button on top of it because a Button has no
-						-- tint channel, and a plate nothing can measure is a plate
-						-- nobody can prove is painted.
+	local Crossword = Facet.component(function(ui)
+		local boardSigNow = ui.read(boardSig)
+		local pendingSigNow = ui.read(pendingSig)
+		local rackSigNow = ui.read(rackSig)
+		local selectedSigNow = ui.read(selectedSig)
+		local scoreSigNow = ui.read(scoreSig)
+		local turnSigNow = ui.read(turnSig)
+		local phaseSigNow = ui.read(phaseSig)
+		local noticeSigNow = ui.read(noticeSig)
+		-- Custom board/keyboard hit targets use Facet.UI.Button for surface and
+		-- compact glyph sizing; ordinary actions use UI.Button.
+		turnsLeft = ui.memo(function()
+			return math.max(0, TURNS - (turnSigNow() - 1))
+		end)
+		scoreText = ui.memo(function()
+			return `{scoreSigNow()} of {GOAL} points`
+		end)
+		progressText = ui.memo(function()
+			local left = turnsLeft()
+			return `{left} {if left == 1 then "turn" else "turns"} left`
+		end)
+		verdictSig = ui.memo(function()
+			local pending = pendingSigNow()
+			if next(pending) == nil then
+				return nil
+			end
+			return rules.validate(boardSigNow(), pending, turnSigNow())
+		end)
+		wordText = ui.memo(function()
+			local notice = noticeSigNow()
+			if notice ~= "" then
+				return notice
+			end
+			local verdict = verdictSig()
+			if verdict == nil then
+				return "No tiles placed this turn."
+			end
+			return verdict.message
+		end)
+		hintText = ui.memo(function()
+			local phase = phaseSigNow()
+			if phase == "won" then
+				return `You reached {scoreSigNow()} points in {turnSigNow() - 1} of {TURNS} turns — you win! `
+					.. "Press Start over to play again."
+			elseif phase == "lost" then
+				return `Out of turns at {scoreSigNow()} of {GOAL} points. Press Start over to play again.`
+			end
+			local slot = selectedSigNow()
+			if slot ~= nil then
+				return `Placing {rackSigNow()[slot]} — choose a square.`
+			end
+			if turnSigNow() <= 1 and next(boardSigNow()) == nil then
+				return "Cover the starred square with a word to begin."
+			end
+			return "Pick a letter from your rack, then choose a square."
+		end)
+		local cells = {}
+		for r = 1, SIZE do
+			for c = 1, SIZE do
+				local rr, cc = r, c
+				local key = rules.key(r, c)
+				local state = ui.memo(function()
+					if pendingSigNow()[key] ~= nil then
+						return "pending"
+					end
+					if boardSigNow()[key] ~= nil then
+						return "committed"
+					end
+					if rules.legalCells(boardSigNow(), pendingSigNow(), turnSigNow())[key] then
+						return if rr == CENTRE and cc == CENTRE then "centre" else "legal"
+					end
+					return if rr == CENTRE and cc == CENTRE then "centre" else "idle"
+				end)
+				cellStateOf[key] = state
+				local label = ui.memo(function()
+					return letterAt(boardSigNow(), pendingSigNow(), rr, cc) or ""
+				end)
+				local tint = ui.memo(function()
+					return CELL_TINT[state()]
+				end)
+				local surface = ui.memo(function()
+					return CELL_SURFACE[state()]
+				end)
+				local mark = ui.memo(function()
+					return CELL_MARK[state()]
+				end)
+				table.insert(
+					cells,
+					UI.ZStack({
+						id = `cell{r}_{c}`,
+						width = CELL,
+						height = CELL,
+						alignH = "center",
+						alignV = "center",
 						UI.Box({ id = "plate", width = FILL, height = FILL, tint = tint, surface = surface }),
 						UI.Text({
 							id = "mark",
@@ -1080,13 +1028,7 @@ function example.build(Facet: any, core: any, deps: any)
 							alignH = "end",
 							alignV = "end",
 						}),
-						-- ...and the interactive layer, LAST so it is the topmost node
-						-- and takes the gesture (a GuiButton sinks input; whatever is
-						-- under it gets nothing). `plain` is the explicit declaration
-						-- that it paints no plate of its own, so the Box below shows
-						-- through — without it every theme falls a Button through to
-						-- its `control` slot and paints one anyway.
-						UI.Button({
+						Facet.UI.Button({
 							id = "tap",
 							label = label,
 							surface = "plain",
@@ -1094,164 +1036,106 @@ function example.build(Facet: any, core: any, deps: any)
 							width = FILL,
 							height = FILL,
 							textSize = "control",
-							-- APP SEMANTICS on the node: activating a square (tap, or
-							-- Return/A on the focused square) places the held tile. The
-							-- presenter dispatches Activate with no consumer routing; select-then-place is the app's own rule.
 							onActivate = function()
 								activateCell(rr, cc)
 							end,
 						}),
-					},
-				})
-			)
+					})
+				)
+			end
 		end
-	end
-	local board = UI.Grid({
-		id = "board",
-		columns = SIZE,
-		itemSizing = "uniform",
-		gap = "xs",
-		rowGap = "xs",
-		children = cells,
-	})
-
-	-- ---- rack: one button per slot ------------------------------------------
-	-- A slot emptied onto the board keeps its place and is DISABLED with a spent
-	-- marker, rather than being a blank button that looks pressable and silently
-	-- does nothing.
-	local rackTiles = {}
-	for i = 1, RACK_SIZE do
-		local slot = i
-		local letter = reg(core:memo(function(use)
-			return use(rackSig)[slot]
-		end))
-		local label = reg(core:memo(function(use)
-			return use(letter) or "·"
-		end))
-		local enabled = reg(core:memo(function(use)
-			return use(letter) ~= nil and use(phaseSig) == "playing"
-		end))
-		local isSelected = reg(core:memo(function(use)
-			return use(selectedSig) == slot
-		end))
-		rackTiles[i] = UI.Button({
-			id = "rt" .. i,
-			label = label,
-			enabled = enabled,
-			selected = isSelected,
-			width = CELL,
-			height = CELL,
-			textSize = "control",
-			-- APP SEMANTICS: activating a rack tile picks that slot up, and
-			-- activating the held one puts it down again.
-			onActivate = function()
-				selectSlot(slot)
-			end,
+		local board = UI.Grid({
+			id = "board",
+			columns = SIZE,
+			itemSizing = "uniform",
+			gap = "xs",
+			rowGap = "xs",
+			children = cells,
 		})
-	end
-	local rack = UI.Grid({
-		id = "rack",
-		columns = RACK_SIZE,
-		itemSizing = "uniform",
-		gap = "xs",
-		children = rackTiles,
-	})
-
-	-- ---- the screen ---------------------------------------------------------
-	local screen = UI.Screen({
-		id = "TileGame",
-		-- `surface = "base"` so the tutorial reads as a screen rather than loose
-		-- text floating over whatever 3D world the place happens to have.
-		surface = "base",
-		padding = "m",
-		children = {
-			-- A 7x7 board plus a rack plus three lines of copy is tall: the page
-			-- is a ScrollView so a short landscape phone can still reach Submit.
+		local rackTiles = {}
+		for i = 1, RACK_SIZE do
+			local slot = i
+			local letter = ui.memo(function()
+				return rackSigNow()[slot]
+			end)
+			local label = ui.memo(function()
+				return letter() or "·"
+			end)
+			local enabled = ui.memo(function()
+				return letter() ~= nil and phaseSigNow() == "playing"
+			end)
+			local isSelected = ui.memo(function()
+				return selectedSigNow() == slot
+			end)
+			rackTiles[i] = Facet.UI.Button({
+				id = "rt" .. i,
+				label = label,
+				enabled = enabled,
+				selected = isSelected,
+				width = CELL,
+				height = CELL,
+				textSize = "control",
+				onActivate = function()
+					selectSlot(slot)
+				end,
+			})
+		end
+		local rack = UI.Grid({
+			id = "rack",
+			columns = RACK_SIZE,
+			itemSizing = "uniform",
+			gap = "xs",
+			children = rackTiles,
+		})
+		return UI.Screen({
+			id = "TileGame",
+			surface = "base",
+			padding = "m",
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",
 				gap = "s",
 				width = FILL,
 				height = FILL,
-				children = {
-					UI.Text({ id = "Title", text = "Facet Crossword", textSize = "title" }),
-					-- THE GOAL AND THE BUDGET IN ONE LINE, and it WRAPS. As a plain
-					-- HStack the two readouts needed 307px of row and the page's
-					-- padded width at 320x640 is 280, so the line simply painted past
-					-- its own box. `UI.Grid` with `minColumnWidth = "intrinsic"` is
-					-- the declarative form of "side by side where they fit, stacked
-					-- where they do not": the column count is derived from the widest
-					-- child's own measured width under the ACTIVE theme's font, every
-					-- solve — two columns on a phone, one on a 320px phone, and no
-					-- viewport arithmetic to keep in sync.
-					--
-					-- NOT `UI.ViewThatFits`. A candidate ladder would need each
-					-- readout written TWICE and the framework keeps the losing
-					-- candidate mounted at a deliberate zero rect — so half the
-					-- declared content is unreachable at every viewport and both
-					-- copies answer `adapter.node(...)` identically. The readouts stay
-					-- DIRECT children here, at the paths this example has always
-					-- published, which is what tests/example_readouts.spec.luau pins.
-					UI.Grid({
-						id = "Stats",
-						minColumnWidth = "intrinsic",
-						gap = "s",
-						width = FILL,
-						children = {
-							UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
-							UI.Text({
-								id = "Progress",
-								text = progressText,
-								textSize = "label",
-								role = "secondary",
-							}),
-						},
+				UI.Text({ id = "Title", text = "Facet Crossword", textSize = "title" }),
+				UI.Grid({
+					id = "Stats",
+					minColumnWidth = "intrinsic",
+					gap = "s",
+					width = FILL,
+					UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
+					UI.Text({
+						id = "Progress",
+						text = progressText,
+						textSize = "label",
+						role = "secondary",
 					}),
-					UI.Text({ id = "Hint", text = hintText, textSize = "body", role = "secondary" }),
-					UI.Text({ id = "Word", text = wordText, textSize = "label" }),
-					board,
-					UI.Text({ id = "RackLabel", text = "Your rack", textSize = "label", role = "secondary" }),
-					rack,
-					-- The two turn verbs. A Grid for the same reason the stats line is
-					-- one: two full-sentence buttons do not fit a 320px row, and a
-					-- derived column count stacks them there without a viewport test.
-					UI.Grid({
-						id = "Actions",
-						minColumnWidth = "intrinsic",
-						gap = "s",
-						width = FILL,
-						children = {
-							UI.Button({ id = "Submit", label = "Submit word", onActivate = submit }),
-							UI.Button({ id = "Undo", label = "Undo turn", onActivate = undo }),
-						},
-					}),
-					UI.Button({
-						id = "Reset",
-						label = "Start over",
-						onActivate = function()
-							restart(DEFAULT_SEED)
-						end,
-					}),
-				},
+				}),
+				UI.Text({ id = "Hint", text = hintText, textSize = "body", role = "secondary" }),
+				UI.Text({ id = "Word", text = wordText, textSize = "label" }),
+				board,
+				UI.Text({ id = "RackLabel", text = "Your rack", textSize = "label", role = "secondary" }),
+				rack,
+				UI.Grid({
+					id = "Actions",
+					minColumnWidth = "intrinsic",
+					gap = "s",
+					width = FILL,
+					UI.Button({ id = "Submit", label = "Submit word", onActivate = submit }),
+					UI.Button({ id = "Undo", label = "Undo turn", onActivate = undo }),
+				}),
+				UI.Button({
+					id = "Reset",
+					label = "Start over",
+					onActivate = function()
+						restart(DEFAULT_SEED)
+					end,
+				}),
 			}),
-		},
-	})
-
-	-- Presented with NO opts: each square, rack tile and action carries its own
-	-- Activate handler, and the presenter derives 2D grid navigation from the two
-	-- Grids automatically (layout-derived groups) — so a D-pad crosses
-	-- the board and A places, with no consumer wiring.
+		})
+	end)
+	local screen = Crossword({})
 	local handle = pres.present(screen)
-
-	--[[ THE HARDWARE-LETTER CONVENIENCE, and what it is NOT.
-
-		With a board square focused, typing a letter that is on the rack places it
-		there. That is a shortcut ON TOP OF select-then-place, never the only way
-		in: every action in this game is reachable by pointer, touch, keyboard and
-		gamepad through the Activate path alone, which is what the four-input
-		requirement is met by. Navigation keys are deliberately NOT bound, so the
-		arrows and the D-pad still fall through to the presenter's own grid
-		navigation. ]]
 	local focusedCell = function(): (number?, number?)
 		local path = pres.focus.focused:get()
 		if type(path) ~= "string" then
@@ -1263,7 +1147,6 @@ function example.build(Facet: any, core: any, deps: any)
 		end
 		return tonumber(r), tonumber(c)
 	end
-
 	local function typeLetter(letter: string)
 		local r, c = focusedCell()
 		if r == nil or c == nil then
@@ -1279,7 +1162,6 @@ function example.build(Facet: any, core: any, deps: any)
 		end
 		noticeSig:set(`There is no {letter} on your rack.`)
 	end
-
 	local ctx = actions.createContext({ name = "CrosswordInput", priority = 2000, sink = true })
 	gameScope:own(function()
 		ctx.destroy()
@@ -1292,21 +1174,15 @@ function example.build(Facet: any, core: any, deps: any)
 			typeLetter(letter)
 		end)
 	end
-
-	-- ---- public / test API --------------------------------------------------
 	return {
 		title = example.title,
 		screen = screen,
 		handle = handle,
 		rules = rules,
-
-		-- fire a hardware key through the arbitrated action pipeline
 		press = function(keyCode: string)
 			actions.deviceKey(keyCode, true)
 			actions.deviceKey(keyCode, false)
 		end,
-
-		-- commands, at the same door the buttons use
 		select = selectSlot,
 		place = activateCell,
 		submit = submit,
@@ -1314,8 +1190,6 @@ function example.build(Facet: any, core: any, deps: any)
 		reset = function(seed: number?)
 			restart(seed or DEFAULT_SEED)
 		end,
-
-		-- observables
 		seed = function(): number
 			return seedSig:get()
 		end,
@@ -1335,16 +1209,16 @@ function example.build(Facet: any, core: any, deps: any)
 			return pendingSig:get()[rules.key(r, c)]
 		end,
 		cellState = function(r: number, c: number): string
-			return cellStateOf[rules.key(r, c)]:get()
+			return cellStateOf[rules.key(r, c)]()
 		end,
 		cellTint = function(r: number, c: number): any
-			return CELL_TINT[cellStateOf[rules.key(r, c)]:get()]
+			return CELL_TINT[cellStateOf[rules.key(r, c)]()]
 		end,
 		cellSurface = function(r: number, c: number): string
-			return CELL_SURFACE[cellStateOf[rules.key(r, c)]:get()]
+			return CELL_SURFACE[cellStateOf[rules.key(r, c)]()]
 		end,
 		cellMark = function(r: number, c: number): string
-			return CELL_MARK[cellStateOf[rules.key(r, c)]:get()]
+			return CELL_MARK[cellStateOf[rules.key(r, c)]()]
 		end,
 		rackLetter = function(slot: number): string?
 			return rackSig:get()[slot]
@@ -1368,29 +1242,26 @@ function example.build(Facet: any, core: any, deps: any)
 			return turnSig:get()
 		end,
 		turnsLeft = function(): number
-			return turnsLeft:get()
+			return turnsLeft()
 		end,
 		phase = function(): string
 			return phaseSig:get()
 		end,
 		hintText = function(): string
-			return hintText:get()
+			return hintText()
 		end,
 		wordText = function(): string
-			return wordText:get()
+			return wordText()
 		end,
 		scoreText = function(): string
-			return scoreText:get()
+			return scoreText()
 		end,
 		progressText = function(): string
-			return progressText:get()
+			return progressText()
 		end,
 		verdict = function(): any
-			return verdictSig:get()
+			return verdictSig()
 		end,
-		-- ONE string that carries every observable a replay has to reproduce, so
-		-- "the same seed and the same script land on the same game" is a single
-		-- comparison rather than twenty
 		dump = function(): string
 			local out: { string } = {}
 			for r = 1, SIZE do
@@ -1407,8 +1278,6 @@ function example.build(Facet: any, core: any, deps: any)
 			return table.concat(out, "/")
 				.. `|rack={table.concat(rack)}|score={scoreSig:get()}|turn={turnSig:get()}|phase={phaseSig:get()}`
 		end,
-
-		-- paths
 		cellPath = function(r: number, c: number): string
 			return `/TileGame/Page/board/cell{r}_{c}/tap`
 		end,
@@ -1426,12 +1295,10 @@ function example.build(Facet: any, core: any, deps: any)
 		submitPath = "/TileGame/Page/Actions/Submit",
 		undoPath = "/TileGame/Page/Actions/Undo",
 		resetPath = "/TileGame/Page/Reset",
-
 		dispose = function()
 			pres.dismiss(handle)
 			gameScope:dispose()
 		end,
 	}
 end
-
 return example

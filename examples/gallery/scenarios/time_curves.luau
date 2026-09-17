@@ -281,7 +281,7 @@ return {
 			return `{COPY.elapsed} {e} — {tw} — {sp}`
 		end))
 
-		local cooldownBar = Facet.Controls.ProgressView(core, {
+		local cooldownBar = Facet.View.ProgressView({
 			id = "CooldownBar",
 			label = COPY.tweenLabel,
 			value = cooldown,
@@ -290,7 +290,7 @@ return {
 			showValue = true,
 			format = percent,
 		})
-		local springBar = Facet.Controls.ProgressView(core, {
+		local springBar = Facet.View.ProgressView({
 			id = "SpringBar",
 			label = COPY.springLabel,
 			value = spring,
@@ -323,33 +323,31 @@ return {
 					id = lane.id,
 					gap = 2,
 					width = UI.fill(),
-					children = {
-						UI.Text({
-							id = "Label",
-							text = lane.label,
-							textSize = "caption",
-							role = "secondary",
+
+					UI.Text({
+						id = "Label",
+						text = lane.label,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Anchor({
+						id = "Lane",
+						surface = "control",
+						width = UI.fill(),
+						height = { type = "fixed", px = LANE_PX },
+
+						-- the lane holds NO text, which is what makes a fixed px
+						-- height safe here (the repo's named device-only defect
+						-- class is a px box fixed against content that is not)
+						UI.Box({
+							id = "Puck",
+							surface = "accent",
+							anchor = "left",
+							offsetX = offsetX,
+							width = { type = "fixed", px = PUCK_PX },
+							height = UI.fill(),
 						}),
-						UI.Anchor({
-							id = "Lane",
-							surface = "control",
-							width = UI.fill(),
-							height = { type = "fixed", px = LANE_PX },
-							children = {
-								-- the lane holds NO text, which is what makes a fixed px
-								-- height safe here (the repo's named device-only defect
-								-- class is a px box fixed against content that is not)
-								UI.Box({
-									id = "Puck",
-									surface = "accent",
-									anchor = "left",
-									offsetX = offsetX,
-									width = { type = "fixed", px = PUCK_PX },
-									height = UI.fill(),
-								}),
-							},
-						}),
-					},
+					}),
 				})
 			)
 		end
@@ -412,7 +410,7 @@ return {
 			end
 		end))
 
-		local motionPicker = Facet.Controls.Picker(core, {
+		local motionPicker = Facet.View.Picker({
 			id = "MotionMode",
 			label = COPY.motionLabel,
 			-- SEGMENTED and declared: "Full" and "Reduced" as peers is the teaching.
@@ -430,107 +428,106 @@ return {
 			id = "TimeCurves",
 			padding = 12,
 			gap = "tight",
-			children = {
-				-- THE PAGE SCROLLS. Three demonstrations, a picker, three buttons and
-				-- two status lines do not fit in the ~200px a 640x320 landscape phone
-				-- has left after the showcase reserves its chip strip, and content
-				-- that overflows with nothing to scroll it is this repo's named
-				-- recurring defect.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
+
+			-- THE PAGE SCROLLS. Three demonstrations, a picker, three buttons and
+			-- two status lines do not fit in the ~200px a 640x320 landscape phone
+			-- has left after the showcase reserves its chip strip, and content
+			-- that overflows with nothing to scroll it is this repo's named
+			-- recurring defect.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				motionPicker,
+
+				-- (1) THE RACE
+				UI.Text({ id = "RaceHead", text = COPY.raceHead, textSize = "label" }),
+				UI.Text({
+					id = "RaceBody",
+					text = COPY.raceBody,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				UI.Button({
+					id = "RunRace",
+					label = COPY.raceRun,
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						motionPicker.blueprint,
+					onActivate = runRace,
+				}),
+				cooldownBar,
+				springBar,
+				UI.Text({
+					id = "RaceStatus",
+					text = raceStatus,
+					textSize = "caption",
+					role = "secondary",
+				}),
 
-						-- (1) THE RACE
-						UI.Text({ id = "RaceHead", text = COPY.raceHead, textSize = "label" }),
-						UI.Text({
-							id = "RaceBody",
-							text = COPY.raceBody,
-							textSize = "caption",
-							role = "secondary",
-						}),
-						UI.Button({
-							id = "RunRace",
-							label = COPY.raceRun,
-							width = UI.fill(),
-							onActivate = runRace,
-						}),
-						cooldownBar.blueprint,
-						springBar.blueprint,
-						UI.Text({
-							id = "RaceStatus",
-							text = raceStatus,
-							textSize = "caption",
-							role = "secondary",
-						}),
+				-- (2) THE CURVE GALLERY
+				UI.Text({ id = "GalleryHead", text = COPY.galleryHead, textSize = "label" }),
+				UI.Text({
+					id = "GalleryBody",
+					text = COPY.galleryBody,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				UI.Button({
+					id = "LaunchGallery",
+					label = COPY.galleryRun,
+					width = UI.fill(),
+					onActivate = launchGallery,
+				}),
+				UI.VStack({
+					id = "Lanes",
+					gap = "tight",
+					width = UI.fill(),
+					children = lanes,
+				}),
 
-						-- (2) THE CURVE GALLERY
-						UI.Text({ id = "GalleryHead", text = COPY.galleryHead, textSize = "label" }),
-						UI.Text({
-							id = "GalleryBody",
-							text = COPY.galleryBody,
-							textSize = "caption",
-							role = "secondary",
-						}),
-						UI.Button({
-							id = "LaunchGallery",
-							label = COPY.galleryRun,
-							width = UI.fill(),
-							onActivate = launchGallery,
-						}),
-						UI.VStack({
-							id = "Lanes",
-							gap = "tight",
-							width = UI.fill(),
-							children = lanes,
-						}),
+				-- (3) THE withAnimation PANEL
+				UI.Text({ id = "PanelHead", text = COPY.panelHead, textSize = "label" }),
+				UI.Text({
+					id = "PanelBody",
+					text = COPY.panelBody,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				UI.Button({
+					id = "FlyPanel",
+					label = COPY.panelRun,
+					width = UI.fill(),
+					onActivate = flyPanel,
+				}),
+				-- the thing that MOVES: `anchor` is arrange-only, so flipping it
+				-- re-arranges one node without re-measuring it — exactly the rect
+				-- change `withAnimation` records and flies
+				UI.Anchor({
+					id = "PanelLane",
+					surface = "control",
+					width = UI.fill(),
+					height = { type = "fixed", px = 40 },
 
-						-- (3) THE withAnimation PANEL
-						UI.Text({ id = "PanelHead", text = COPY.panelHead, textSize = "label" }),
-						UI.Text({
-							id = "PanelBody",
-							text = COPY.panelBody,
-							textSize = "caption",
-							role = "secondary",
-						}),
-						UI.Button({
-							id = "FlyPanel",
-							label = COPY.panelRun,
-							width = UI.fill(),
-							onActivate = flyPanel,
-						}),
-						-- the thing that MOVES: `anchor` is arrange-only, so flipping it
-						-- re-arranges one node without re-measuring it — exactly the rect
-						-- change `withAnimation` records and flies
-						UI.Anchor({
-							id = "PanelLane",
-							surface = "control",
-							width = UI.fill(),
-							height = { type = "fixed", px = 40 },
-							children = {
-								UI.Box({
-									id = "PanelPuck",
-									surface = "accent",
-									anchor = scope:own(core:memo(function(use)
-										return if use(panelRight) then "topRight" else "topLeft"
-									end)),
-									width = { type = "fixed", px = 36 },
-									height = UI.fill(),
-								}),
-							},
-						}),
-						UI.Text({
-							id = "CardCaption",
-							text = COPY.panelCard,
-							textSize = "caption",
-							role = "secondary",
-						}),
-						--[[ ...and the thing that GROWS: a box whose SOLVED height
+					UI.Box({
+						id = "PanelPuck",
+						surface = "accent",
+						anchor = scope:own(core:memo(function(use)
+							return if use(panelRight) then "topRight" else "topLeft"
+						end)),
+						width = { type = "fixed", px = 36 },
+						height = UI.fill(),
+					}),
+				}),
+				UI.Text({
+					id = "CardCaption",
+					text = COPY.panelCard,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				--[[ ...and the thing that GROWS: a box whose SOLVED height
 							changes, so the flight has a size delta in it as well as a
 							position one. The solver lands the new height exactly and
 							instantly, as it always did; what the curve owns is the
@@ -546,23 +543,21 @@ return {
 							get to add more, so this one is shaped to be clean instead.
 							It holds no string for the older reason: a px height around
 							text is the device-only defect class this repo names. ]]
-						UI.Box({
-							id = "PanelCard",
-							surface = "accent",
-							width = UI.fill(),
-							height = scope:own(core:memo(function(use)
-								return { type = "fixed", px = if use(panelTall) then 88 else 40 }
-							end)),
-						}),
-						UI.Text({
-							id = "PanelStatus",
-							text = panelStatus,
-							textSize = "caption",
-							role = "secondary",
-						}),
-					},
+				UI.Box({
+					id = "PanelCard",
+					surface = "accent",
+					width = UI.fill(),
+					height = scope:own(core:memo(function(use)
+						return { type = "fixed", px = if use(panelTall) then 88 else 40 }
+					end)),
 				}),
-			},
+				UI.Text({
+					id = "PanelStatus",
+					text = panelStatus,
+					textSize = "caption",
+					role = "secondary",
+				}),
+			}),
 		})
 
 		-- one fact, two readers: keep the picker's signal and the environment fact
@@ -660,9 +655,6 @@ return {
 				-- PUT THE WORLD BACK: the persistent place-wide toggle is the settings
 				-- surface's job, not this demo's side effect
 				env:set("reducedMotion", inheritedReduced)
-				cooldownBar.dispose()
-				springBar.dispose()
-				motionPicker.dispose()
 				scope:dispose()
 			end,
 		}

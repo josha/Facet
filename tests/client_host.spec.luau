@@ -378,3 +378,50 @@ describe("client host: teardown", function()
 		expect(unbound).toBe(1)
 	end)
 end)
+
+describe("declarative host placement", function()
+	for _, kind in { "surface", "billboard" } do
+		it(kind .. " keeps canvas geometry while device facts stay live", function()
+			local publish
+			local h, frames = newHost({
+				surface = {
+					kind = kind,
+					target = {},
+					face = if kind == "surface" then "Back" else nil,
+					canvas = { w = 800, h = 600 },
+				},
+				bindEnv = function(env)
+					publish = function()
+						env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+						env:set("preferredInput", "Gamepad")
+						env:set("reducedMotion", true)
+					end
+					publish()
+					return function() end
+				end,
+			})
+			expect(h.env:get("viewportRect"):get()).toEqual({ x = 0, y = 0, w = 800, h = 600 })
+			publish()
+			expect(h.env:get("viewportRect"):get().w).toBe(800)
+			expect(h.env:get("reducedMotion"):get()).toBe(true)
+			expect(h.env:get("preferredInput"):get()).toBe("Gamepad")
+			expect(h.env:get("presentationSpace"):get()).toBe(if kind == "surface" then "world" else "billboard")
+			expect(frames.connects()).toBe(1)
+			h.dispose()
+			expect(frames.live()).toBe(0)
+		end)
+	end
+	it("rejects invalid placement before creating the host", function()
+		for _, surface in
+			{
+				{ kind = "unknown" },
+				{ kind = "billboard", target = {}, canvas = { w = 0, h = 600 } },
+				{ kind = "surface", target = {}, canvas = { w = 800, h = 600 } },
+			}
+		do
+			expect(pcall(function()
+				newHost({ surface = surface })
+			end)).toBe(false)
+		end
+	end)
+end)

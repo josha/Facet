@@ -52,7 +52,7 @@ local function describeSettings(music: boolean, volume: number): string
 end
 
 function example.build(Facet: any, core: any, _deps: any)
-	local UI = Facet.UI
+	local UI = Facet.View
 	local replication = Facet.replication
 
 	-- AUTHORITATIVE STATE (what the server has confirmed). A snapshot is the
@@ -186,191 +186,188 @@ function example.build(Facet: any, core: any, _deps: any)
 		history:set({ `Reset. The server rewrote the start values. Revision {snapshot.revision()}.` })
 	end
 
-	-- BINDINGS for the read-outs. Each one is a memo over the state it reports,
-	-- so the two halves of the lesson can never be drawn from the same source.
-	local draftLabel = core:memo(function(use)
-		return describeSettings(use(draftMusic), use(draftVolume))
-	end)
-	local serverLabel = core:memo(function(use)
-		local truth = use(snapshot.binding)
-		return `{describeSettings(truth.music, truth.volume)} (revision {snapshot.revision()})`
-	end)
-	local volumeLabel = core:memo(function(use)
-		return `Volume: {use(draftVolume)}`
-	end)
-	local statusLabel = core:memo(function(use)
-		local status = use(mutation.status)
-		local result = use(mutation.lastResult)
-		if status == "pending" then
-			return "Status: pending (no reply yet)"
-		elseif status == "confirmed" then
-			return "Status: accepted"
-		elseif status == "rejected" then
-			return `Status: rejected ({tostring(result)})`
+	local Settings = Facet.component(function(ui)
+		local music, volume = ui.read(draftMusic), ui.read(draftVolume)
+		local confirmed, mutationStatus, lastResult =
+			ui.read(snapshot.binding), ui.read(mutation.status), ui.read(mutation.lastResult)
+		local events = ui.read(history)
+		-- Recipes read the state they report; mount tracks their dependencies.
+		-- so the two halves of the lesson can never be drawn from the same source.
+		local draftLabel = function()
+			return describeSettings(music(), volume())
 		end
-		return "Status: idle"
-	end)
-	-- the status line says WHAT happened; this one says what to do next, which is
-	-- what a player who has never read the source is missing
-	local hintLabel = core:memo(function(use)
-		local status = use(mutation.status)
-		if status == "pending" then
-			return 'Your screen already shows it. Press "Deliver server reply".'
-		elseif status == "confirmed" then
-			return "Draft and server agree."
-		elseif status == "rejected" then
-			return "The server refused it, so the draft rolled back."
+		local serverLabel = function()
+			local truth = confirmed()
+			return `{describeSettings(truth.music, truth.volume)} (revision {snapshot.revision()})`
 		end
-		return "1. Change Music or volume. 2. Compare the two states. 3. Deliver the reply. Then try volume 99: only 0–10 is allowed."
-	end)
-	-- STATE COLOUR IS SEMANTIC, never a literal: `danger` for a refusal, `accent`
-	-- for an agreement, the resting content role otherwise.
-	local statusTint = core:memo(function(use)
-		local status = use(mutation.status)
-		if status == "rejected" then
-			return { role = "danger", blend = 1 }
-		elseif status == "confirmed" then
-			return { role = "accent", blend = 1 }
+		local volumeLabel = function()
+			return `Volume: {volume()}`
 		end
-		return { role = "content", blend = 1 }
-	end)
-	-- one memo per visible history row: a fixed row count keeps the panel's
-	-- geometry still while the text inside it changes
-	local function eventRow(index: number)
-		return core:memo(function(use)
-			return use(history)[index] or ""
-		end)
-	end
+		local statusLabel = function()
+			local status = mutationStatus()
+			local result = lastResult()
+			if status == "pending" then
+				return "Status: pending (no reply yet)"
+			elseif status == "confirmed" then
+				return "Status: accepted"
+			elseif status == "rejected" then
+				return `Status: rejected ({tostring(result)})`
+			end
+			return "Status: idle"
+		end
+		-- the status line says WHAT happened; this one says what to do next, which is
+		-- what a player who has never read the source is missing
+		local hintLabel = function()
+			local status = mutationStatus()
+			if status == "pending" then
+				return 'Your screen already shows it. Press "Deliver server reply".'
+			elseif status == "confirmed" then
+				return "Draft and server agree."
+			elseif status == "rejected" then
+				return "The server refused it, so the draft rolled back."
+			end
+			return "1. Change Music or volume. 2. Compare the two states. 3. Deliver the reply. Then try volume 99: only 0–10 is allowed."
+		end
+		-- STATE COLOUR IS SEMANTIC, never a literal: `danger` for a refusal, `accent`
+		-- for an agreement, the resting content role otherwise.
+		local statusTint = function()
+			local status = mutationStatus()
+			if status == "rejected" then
+				return { role = "danger", blend = 1 }
+			elseif status == "confirmed" then
+				return { role = "accent", blend = 1 }
+			end
+			return { role = "content", blend = 1 }
+		end
+		-- One recipe per visible history row: a fixed row count keeps the panel's
+		-- geometry still while the text inside it changes
+		local function eventRow(index: number)
+			return function()
+				return events()[index] or ""
+			end
+		end
 
-	-- The page scrolls: at the largest preferred-text setting on a compact phone
-	-- this content is taller than the viewport, and a settings screen whose Reset
-	-- button is off the bottom edge is not operable.
-	local screen = UI.Screen({
-		id = "Settings",
-		surface = "base",
-		padding = "m",
-		children = {
+		-- The page scrolls: at the largest preferred-text setting on a compact phone
+		-- this content is taller than the viewport, and a settings screen whose Reset
+		-- button is off the bottom edge is not operable.
+		return UI.Screen({
+			id = "Settings",
+			surface = "base",
+			padding = "m",
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					-- EVERY LONG LINE ON THIS PAGE DECLARES ITS FULL-VALUE PATH (director
-					-- ruling 5, 2026-08-13). On a 360px phone at the +14px preference
-					-- under fantasy-parchment the theme's chrome leaves this box 294px
-					-- and the word "Settings" alone measures 336px — so wrapping cannot
-					-- succeed here (the engine would break the word) and the line
-					-- ellipsizes instead. `disclose` is what the framework owes a reader
-					-- when that happens; the compact-phone sweep re-proves it every run.
-					UI.Text({ id = "Title", text = "Settings sync", textSize = "title", disclose = true }),
+				-- EVERY LONG LINE ON THIS PAGE DECLARES ITS FULL-VALUE PATH (director
+				-- ruling 5, 2026-08-13). On a 360px phone at the +14px preference
+				-- under fantasy-parchment the theme's chrome leaves this box 294px
+				-- and the word "Settings" alone measures 336px — so wrapping cannot
+				-- succeed here (the engine would break the word) and the line
+				-- ellipsizes instead. `disclose` is what the framework owes a reader
+				-- when that happens; the compact-phone sweep re-proves it every run.
+				UI.Text({ id = "Title", text = "Settings sync", textSize = "title", disclose = true }),
+				UI.Text({
+					id = "Lesson",
+					text = "See an instant change while a save is pending, then accept or reject it. Replies are paused in this local simulation so you can compare both states.",
+					textSize = "caption",
+					role = "secondary",
+				}),
+
+				-- THE TWO STATES, ADJACENT AND NAMED. Everything else on this
+				-- screen exists to move these two lines apart and back together.
+				UI.VStack({
+					id = "State",
+					surface = "raised",
+					padding = "m",
+					gap = "xs",
 					UI.Text({
-						id = "Lesson",
-						text = "See an instant change while a save is pending, then accept or reject it. Replies are paused in this local simulation so you can compare both states.",
+						id = "DraftHeading",
+						text = "On your screen — changes immediately",
+						textSize = "caption",
+						role = "secondary",
+						disclose = true,
+					}),
+					UI.Text({ id = "Draft", text = draftLabel, textSize = "body" }),
+					UI.Divider({ id = "StateRule" }),
+					UI.Text({
+						id = "ServerHeading",
+						text = "Saved on the simulated server",
+						textSize = "caption",
+						role = "secondary",
+						disclose = true,
+					}),
+					UI.Text({ id = "Server", text = serverLabel, textSize = "body", disclose = true }),
+				}),
+
+				UI.Text({ id = "Status", text = statusLabel, textSize = "label", tint = statusTint }),
+				UI.Text({ id = "Hint", text = hintLabel, textSize = "caption", role = "secondary" }),
+
+				-- A Toggle bound to the optimistic draft (see the node handlers
+				-- above): it flips the instant you press it, and flips back if
+				-- the server refuses.
+				UI.Toggle({ id = "Music", label = "Music", value = music, onChange = toggleMusic }),
+				-- A +/- volume stepper; the server validates 0..10. `align`
+				-- centres the read-out against the buttons — `alignV` is a
+				-- ZStack-child property and is silently ignored here.
+				UI.HStack({
+					id = "VolumeRow",
+					gap = "s",
+					align = "center",
+					-- THE ROW HAS TO CLAIM THE WIDTH BEFORE THE READ-OUT CAN FILL
+					-- IT. Content-sized, the row was only as wide as its two
+					-- buttons, so the `fill` read-out between them solved to 0x44
+					-- and the volume was invisible — measured, not guessed.
+					width = UI.fill(),
+					-- a one-glyph button is narrower than a finger: the floor
+					-- is the theme's own minimum target, never a px literal
+					UI.Button({
+						id = "VolMinus",
+						label = "–",
+						width = { type = "minMax", min = "targetSizes.minimum" },
+						onActivate = volDown,
+					}),
+					UI.Text({
+						id = "VolValue",
+						text = volumeLabel,
+						textSize = "control",
+						textAlign = "center",
+						width = UI.fill(),
+						disclose = true,
+					}),
+					UI.Button({
+						id = "VolPlus",
+						label = "+",
+						width = { type = "minMax", min = "targetSizes.minimum" },
+						onActivate = volUp,
+					}),
+				}),
+				-- the rejection path in ONE tap, so it needs no explaining: the
+				-- Lesson line above already says which volumes the server takes
+				UI.Button({ id = "AskInvalid", label = `Ask for volume {INVALID_VOLUME}`, onActivate = askInvalid }),
+				UI.Button({ id = "Deliver", label = "Deliver server reply", onActivate = deliverReply }),
+				UI.Button({ id = "Reset", label = "Reset demo", onActivate = resetDemo }),
+
+				UI.VStack({
+					id = "History",
+					surface = "raised",
+					padding = "m",
+					gap = "xs",
+					UI.Text({
+						id = "HistoryHeading",
+						text = "What happened (newest first)",
 						textSize = "caption",
 						role = "secondary",
 					}),
-
-					-- THE TWO STATES, ADJACENT AND NAMED. Everything else on this
-					-- screen exists to move these two lines apart and back together.
-					UI.VStack({
-						id = "State",
-						surface = "raised",
-						padding = "m",
-						gap = "xs",
-						children = {
-							UI.Text({
-								id = "DraftHeading",
-								text = "On your screen — changes immediately",
-								textSize = "caption",
-								role = "secondary",
-								disclose = true,
-							}),
-							UI.Text({ id = "Draft", text = draftLabel, textSize = "body" }),
-							UI.Divider({ id = "StateRule" }),
-							UI.Text({
-								id = "ServerHeading",
-								text = "Saved on the simulated server",
-								textSize = "caption",
-								role = "secondary",
-								disclose = true,
-							}),
-							UI.Text({ id = "Server", text = serverLabel, textSize = "body", disclose = true }),
-						},
-					}),
-
-					UI.Text({ id = "Status", text = statusLabel, textSize = "label", tint = statusTint }),
-					UI.Text({ id = "Hint", text = hintLabel, textSize = "caption", role = "secondary" }),
-
-					-- A Toggle bound to the optimistic draft (see the node handlers
-					-- above): it flips the instant you press it, and flips back if
-					-- the server refuses.
-					UI.Toggle({ id = "Music", label = "Music", value = draftMusic, onActivate = toggleMusic }),
-					-- A +/- volume stepper; the server validates 0..10. `align`
-					-- centres the read-out against the buttons — `alignV` is a
-					-- ZStack-child property and is silently ignored here.
-					UI.HStack({
-						id = "VolumeRow",
-						gap = "s",
-						align = "center",
-						-- THE ROW HAS TO CLAIM THE WIDTH BEFORE THE READ-OUT CAN FILL
-						-- IT. Content-sized, the row was only as wide as its two
-						-- buttons, so the `fill` read-out between them solved to 0x44
-						-- and the volume was invisible — measured, not guessed.
-						width = UI.fill(),
-						children = {
-							-- a one-glyph button is narrower than a finger: the floor
-							-- is the theme's own minimum target, never a px literal
-							UI.Button({
-								id = "VolMinus",
-								label = "–",
-								width = { type = "minMax", min = "targetSizes.minimum" },
-								onActivate = volDown,
-							}),
-							UI.Text({
-								id = "VolValue",
-								text = volumeLabel,
-								textSize = "control",
-								textAlign = "center",
-								width = UI.fill(),
-								disclose = true,
-							}),
-							UI.Button({
-								id = "VolPlus",
-								label = "+",
-								width = { type = "minMax", min = "targetSizes.minimum" },
-								onActivate = volUp,
-							}),
-						},
-					}),
-					-- the rejection path in ONE tap, so it needs no explaining: the
-					-- Lesson line above already says which volumes the server takes
-					UI.Button({ id = "AskInvalid", label = `Ask for volume {INVALID_VOLUME}`, onActivate = askInvalid }),
-					UI.Button({ id = "Deliver", label = "Deliver server reply", onActivate = deliverReply }),
-					UI.Button({ id = "Reset", label = "Reset demo", onActivate = resetDemo }),
-
-					UI.VStack({
-						id = "History",
-						surface = "raised",
-						padding = "m",
-						gap = "xs",
-						children = {
-							UI.Text({
-								id = "HistoryHeading",
-								text = "What happened (newest first)",
-								textSize = "caption",
-								role = "secondary",
-							}),
-							UI.Text({ id = "Event1", text = eventRow(1), textSize = "caption" }),
-							UI.Text({ id = "Event2", text = eventRow(2), textSize = "caption" }),
-							UI.Text({ id = "Event3", text = eventRow(3), textSize = "caption" }),
-						},
-					}),
-				},
+					UI.Text({ id = "Event1", text = eventRow(1), textSize = "caption" }),
+					UI.Text({ id = "Event2", text = eventRow(2), textSize = "caption" }),
+					UI.Text({ id = "Event3", text = eventRow(3), textSize = "caption" }),
+				}),
 			}),
-		},
-	})
+		})
+	end)
+	local screen = Settings({})
 
 	return {
 		screen = screen,

@@ -91,7 +91,7 @@ function gallery.new(app: any): any
 
 	-- ---- toolbar -------------------------------------------------------------
 
-	local layoutPicker = Facet.Controls.Picker(core, {
+	local layoutPicker = Facet.View.Picker({
 		id = "Layout",
 		label = S.t("gallery.layout"),
 		options = {
@@ -121,7 +121,7 @@ function gallery.new(app: any): any
 		selected = sortKey,
 	})
 
-	local timeframePicker = Facet.Controls.Picker(core, {
+	local timeframePicker = Facet.View.Picker({
 		id = "Timeframe",
 		options = {
 			{ value = "today", label = S.t("time.today") },
@@ -138,13 +138,13 @@ function gallery.new(app: any): any
 		table.insert(axisOptions, { value = name, label = parts.attributeName(app, index) })
 	end
 	-- the same, one screen over: the facts arrive with the surface (ADAPT-1)
-	local axisMenu = Facet.Controls.Picker(core, {
+	local axisMenu = Facet.View.Picker({
 		id = "Axis",
 		options = axisOptions,
 		selected = axisKey,
 	})
 
-	local search = Facet.Controls.TextInput(core, {
+	local search = Facet.View.TextInput({
 		id = "Search",
 		value = query,
 		placeholder = S.t("gallery.search"),
@@ -173,53 +173,50 @@ function gallery.new(app: any): any
 		id = "Toolbar",
 		gap = "s",
 		width = UI.fill(),
-		children = {
-			UI.HStack({
-				id = "Primary",
-				gap = "s",
-				align = "center",
-				width = UI.fill(),
-				children = {
-					layoutPicker.blueprint,
-					sortMenu.blueprint,
-					UI.Button({
-						id = "NewPotion",
-						label = S.t("gallery.newPotion"),
-						compactLabel = { icon = "increment" },
-						onActivate = function()
-							app.actions.openScratch()
-						end,
-					}),
-				},
+
+		UI.HStack({
+			id = "Primary",
+			gap = "s",
+			align = "center",
+			width = UI.fill(),
+
+			layoutPicker,
+			sortMenu.blueprint,
+			UI.Button({
+				id = "NewPotion",
+				label = S.t("gallery.newPotion"),
+				compactLabel = { icon = "increment" },
+				onActivate = function()
+					app.actions.openScratch()
+				end,
 			}),
-			UI.HStack({
-				id = "Secondary",
-				gap = "s",
-				align = "center",
-				width = UI.fill(),
-				children = {
-					UI.When({
-						id = "TimeframeWhen",
-						condition = sortIsPopularity,
-						thenView = function()
-							return timeframePicker.blueprint
-						end,
-					}),
-					UI.When({
-						id = "AxisWhen",
-						condition = sortIsAttribute,
-						thenView = function()
-							return axisMenu.blueprint
-						end,
-					}),
-					UI.VStack({
-						id = "SearchSlot",
-						width = UI.fill(),
-						children = { search.blueprint },
-					}),
-				},
+		}),
+		UI.HStack({
+			id = "Secondary",
+			gap = "s",
+			align = "center",
+			width = UI.fill(),
+
+			UI.When({
+				id = "TimeframeWhen",
+				condition = sortIsPopularity,
+				thenView = function()
+					return timeframePicker
+				end,
 			}),
-		},
+			UI.When({
+				id = "AxisWhen",
+				condition = sortIsAttribute,
+				thenView = function()
+					return axisMenu
+				end,
+			}),
+			UI.VStack({
+				id = "SearchSlot",
+				width = UI.fill(),
+				search,
+			}),
+		}),
 	})
 
 	-- ---- the grid form -------------------------------------------------------
@@ -255,36 +252,34 @@ function gallery.new(app: any): any
 					selected:set(potion.id)
 					app.actions.openPotion(potion.id)
 				end,
-				children = {
-					-- ONE child, and it is a VStack: a Button lays its content out as a
-					-- ROW, so a mark-over-name-over-caption tile has to say so (three
-					-- bare children overflowed a 96px column by 112px, which the
-					-- solver reported on every viewport)
-					UI.VStack({
-						id = "Cell",
-						gap = "xs",
-						align = "center",
-						children = {
-							parts.potionMark(app, "Mark", potion, "controls.image.defaultSize"),
-							UI.Text({
-								id = "Name",
-								text = potion.name,
-								textSize = "label",
-								textAlign = "center",
-								lineLimit = 2,
-								disclose = true,
-							}),
-							UI.Text({
-								id = "Strongest",
-								text = strongestCaption(potion),
-								textSize = "caption",
-								role = "secondary",
-								textAlign = "center",
-								lineLimit = 1,
-							}),
-						},
+
+				-- ONE child, and it is a VStack: a Button lays its content out as a
+				-- ROW, so a mark-over-name-over-caption tile has to say so (three
+				-- bare children overflowed a 96px column by 112px, which the
+				-- solver reported on every viewport)
+				UI.VStack({
+					id = "Cell",
+					gap = "xs",
+					align = "center",
+
+					parts.potionMark(app, "Mark", potion, "controls.image.defaultSize"),
+					UI.Text({
+						id = "Name",
+						text = potion.name,
+						textSize = "label",
+						textAlign = "center",
+						lineLimit = 2,
+						disclose = true,
 					}),
-				},
+					UI.Text({
+						id = "Strongest",
+						text = strongestCaption(potion),
+						textSize = "caption",
+						role = "secondary",
+						textAlign = "center",
+						lineLimit = 1,
+					}),
+				}),
 			})
 		)
 	end
@@ -343,18 +338,17 @@ function gallery.new(app: any): any
 		id = "Tiles",
 		minColumnWidth = tileMin,
 		gap = "m",
-		children = {
-			UI.ForEach({
-				id = "Cells",
-				items = rows,
-				key = function(item)
-					return item.id
-				end,
-				row = function(item)
-					return cellById[item.id]
-				end,
-			}),
-		},
+
+		UI.ForEach({
+			id = "Cells",
+			items = rows,
+			key = function(item)
+				return item.id
+			end,
+			row = function(item)
+				return cellById[item.id]
+			end,
+		}),
 	})
 
 	-- ---- the table form ------------------------------------------------------
@@ -376,17 +370,16 @@ function gallery.new(app: any): any
 						gap = "xs",
 						align = "center",
 						width = UI.fill(),
-						children = {
-							parts.potionMark(app, "Mark", item, "iconSizes.large"),
-							UI.Text({
-								id = "Name",
-								text = item.name,
-								textSize = "label",
-								width = UI.fill(),
-								lineLimit = 1,
-								disclose = true,
-							}),
-						},
+
+						parts.potionMark(app, "Mark", item, "iconSizes.large"),
+						UI.Text({
+							id = "Name",
+							text = item.name,
+							textSize = "label",
+							width = UI.fill(),
+							lineLimit = 1,
+							disclose = true,
+						}),
 					})
 				end,
 				sortable = true,
@@ -422,55 +415,53 @@ function gallery.new(app: any): any
 		gap = "s",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.Text({ id = "Title", text = S.t("gallery.title"), textSize = "title" }),
-			toolbar,
-			UI.When({
-				id = "EmptyWhen",
-				condition = isEmpty,
-				thenView = function()
-					return parts.empty(app, "Empty", S.t("gallery.empty"))
-				end,
-			}),
-			UI.When({
-				id = "GridWhen",
-				condition = isGrid,
-				thenView = function()
-					return UI.ZStack({
-						id = "GridHost",
-						canvasGroup = true,
-						overflow = "clip",
+
+		UI.Text({ id = "Title", text = S.t("gallery.title"), textSize = "title" }),
+		toolbar,
+		UI.When({
+			id = "EmptyWhen",
+			condition = isEmpty,
+			thenView = function()
+				return parts.empty(app, "Empty", S.t("gallery.empty"))
+			end,
+		}),
+		UI.When({
+			id = "GridWhen",
+			condition = isGrid,
+			thenView = function()
+				return UI.ZStack({
+					id = "GridHost",
+					canvasGroup = true,
+					overflow = "clip",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.ScrollView({
+						id = "GridScroll",
+						axis = "y",
 						width = UI.fill(),
 						height = UI.fill(),
-						children = {
-							UI.ScrollView({
-								id = "GridScroll",
-								axis = "y",
-								width = UI.fill(),
-								height = UI.fill(),
-								children = { gridForm },
-							}),
-						},
-					})
-				end,
-				transition = { enter = "fade", class = "container" },
-			}),
-			UI.When({
-				id = "TableWhen",
-				condition = isList,
-				thenView = function()
-					return UI.ZStack({
-						id = "TableHost",
-						canvasGroup = true,
-						overflow = "clip",
-						width = UI.fill(),
-						height = UI.fill(),
-						children = { tableControl.blueprint },
-					})
-				end,
-				transition = { enter = "fade", class = "container" },
-			}),
-		},
+						gridForm,
+					}),
+				})
+			end,
+			transition = { enter = "fade", class = "container" },
+		}),
+		UI.When({
+			id = "TableWhen",
+			condition = isList,
+			thenView = function()
+				return UI.ZStack({
+					id = "TableHost",
+					canvasGroup = true,
+					overflow = "clip",
+					width = UI.fill(),
+					height = UI.fill(),
+					tableControl.blueprint,
+				})
+			end,
+			transition = { enter = "fade", class = "container" },
+		}),
 	})
 
 	function self.view(): any
@@ -502,11 +493,7 @@ function gallery.new(app: any): any
 	function self.dispose()
 		unsubscribe()
 		tableControl.dispose()
-		search.dispose()
-		axisMenu.dispose()
-		timeframePicker.dispose()
 		sortMenu.dispose()
-		layoutPicker.dispose()
 		for _, memo in selectedMemos do
 			memo:dispose()
 		end

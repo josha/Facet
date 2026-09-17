@@ -31,12 +31,12 @@ return {
 		local volume = core:signal(40)
 		local nickname = core:signal("racer")
 
-		local field = Facet.Controls.TextInput(core, {
+		local field = Facet.View.TextInput({
 			id = "Nickname",
 			value = nickname,
 			placeholder = "Nickname",
 		})
-		local slider = Facet.Controls.Slider(core, {
+		local slider = Facet.View.Slider({
 			id = "Volume",
 			value = volume,
 			min = 0,
@@ -76,88 +76,81 @@ return {
 			id = "PrefText",
 			padding = "m",
 			gap = 10,
-			children = {
-				UI.Text({ id = "Title", text = "Preferred-text corpus", textSize = 22 }),
-				UI.ScrollView({
-					id = "Doc",
-					height = UI.fill(),
-					children = {
+
+			UI.Text({ id = "Title", text = "Preferred-text corpus", textSize = 22 }),
+			UI.ScrollView({
+				id = "Doc",
+				height = UI.fill(),
+
+				UI.VStack({
+					id = "DocRows",
+					gap = 10,
+
+					-- a wrap-capped identity line: at Largest it must ellipsize inside
+					-- its own box (never paint through a neighbour), and `disclose`
+					-- makes the full value reachable — the live hover/long-press plate
+					-- is drivable against THIS node (LT-6 full-value access, E3)
+					UI.Text({
+						id = "Identity",
+						text = "Bartholomew 'The Unstoppable Thunderbolt' Maximilian III",
+						textSize = "body",
+						lineLimit = 1,
+						disclose = true,
+						width = { type = "fixed", px = 220 },
+					}),
+					-- the scrolling FORM region: live control state + scroll position
+					-- must survive a hot preference change (LT-2). CONTENT-TERMS
+					-- (framework-gaps-phase2 gap 3, 2026-08-23): the viewport is FIVE
+					-- ROWS of the theme's own compact-control floor, an ESTIMATE
+					-- rather than a per-row sum of the mixed content it actually
+					-- holds (a field, a slider, six corpus lines — MEASURED at
+					-- Neutral: 44+44+22+65 plus three "s" gaps, already past 180,
+					-- which is why this region scrolls at Neutral too) — the same
+					-- "how many rows should the viewport show" declaration Region
+					-- floors already make inside Composition, not a claim that five
+					-- of THESE rows fit. `5 * 36 = 180`, value-identical at Neutral,
+					-- and now grows at the ten-foot ladder where the literal it
+					-- replaces never did.
+					UI.ScrollView({
+						id = "Form",
+						height = { type = "content", rows = 5, of = "controlSizes.compact.height" },
+
 						UI.VStack({
-							id = "DocRows",
-							gap = 10,
-							children = {
-								-- a wrap-capped identity line: at Largest it must ellipsize inside
-								-- its own box (never paint through a neighbour), and `disclose`
-								-- makes the full value reachable — the live hover/long-press plate
-								-- is drivable against THIS node (LT-6 full-value access, E3)
-								UI.Text({
-									id = "Identity",
-									text = "Bartholomew 'The Unstoppable Thunderbolt' Maximilian III",
-									textSize = "body",
-									lineLimit = 1,
-									disclose = true,
-									width = { type = "fixed", px = 220 },
-								}),
-								-- the scrolling FORM region: live control state + scroll position
-								-- must survive a hot preference change (LT-2). CONTENT-TERMS
-								-- (framework-gaps-phase2 gap 3, 2026-08-23): the viewport is FIVE
-								-- ROWS of the theme's own compact-control floor, an ESTIMATE
-								-- rather than a per-row sum of the mixed content it actually
-								-- holds (a field, a slider, six corpus lines — MEASURED at
-								-- Neutral: 44+44+22+65 plus three "s" gaps, already past 180,
-								-- which is why this region scrolls at Neutral too) — the same
-								-- "how many rows should the viewport show" declaration Region
-								-- floors already make inside Composition, not a claim that five
-								-- of THESE rows fit. `5 * 36 = 180`, value-identical at Neutral,
-								-- and now grows at the ten-foot ladder where the literal it
-								-- replaces never did.
-								UI.ScrollView({
-									id = "Form",
-									height = { type = "content", rows = 5, of = "controlSizes.compact.height" },
-									children = {
-										UI.VStack({
-											id = "FormRows",
-											gap = "s",
-											children = (function()
-												local rows = {}
-												table.insert(rows, field.blueprint)
-												table.insert(rows, slider.blueprint)
-												for _, child in corpusChildren do
-													table.insert(rows, child)
-												end
-												return rows
-											end)(),
-										}),
-									},
-								}),
-								-- the CTA band: reflow FIRST (row -> column candidate); labels are
-								-- actions and may never truncate (overflow order rung 1)
-								UI.ViewThatFits({
-									id = "CtaBand",
-									children = {
-										UI.HStack({
-											id = "CtaRow",
-											gap = "s",
-											children = {
-												UI.Button({ id = "AcceptRow", label = "Accept the invitation" }),
-												UI.Button({ id = "DeclineRow", label = "Politely decline for now" }),
-											},
-										}),
-										UI.VStack({
-											id = "CtaColumn",
-											gap = "s",
-											children = {
-												UI.Button({ id = "AcceptCol", label = "Accept the invitation" }),
-												UI.Button({ id = "DeclineCol", label = "Politely decline for now" }),
-											},
-										}),
-									},
-								}),
-							},
+							id = "FormRows",
+							gap = "s",
+							children = (function()
+								local rows = {}
+								table.insert(rows, field)
+								table.insert(rows, slider)
+								for _, child in corpusChildren do
+									table.insert(rows, child)
+								end
+								return rows
+							end)(),
 						}),
-					},
+					}),
+					-- the CTA band: reflow FIRST (row -> column candidate); labels are
+					-- actions and may never truncate (overflow order rung 1)
+					UI.ViewThatFits({
+						id = "CtaBand",
+
+						UI.HStack({
+							id = "CtaRow",
+							gap = "s",
+
+							UI.Button({ id = "AcceptRow", label = "Accept the invitation" }),
+							UI.Button({ id = "DeclineRow", label = "Politely decline for now" }),
+						}),
+						UI.VStack({
+							id = "CtaColumn",
+							gap = "s",
+
+							UI.Button({ id = "AcceptCol", label = "Accept the invitation" }),
+							UI.Button({ id = "DeclineCol", label = "Politely decline for now" }),
+						}),
+					}),
 				}),
-			},
+			}),
 		})
 
 		-- the four measured per-preference constants (probe artifact); the enum

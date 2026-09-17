@@ -124,11 +124,10 @@ return {
 				padding = 20,
 				gap = 10,
 				width = { type = "fixed", px = 300 },
-				children = {
-					UI.Text({ id = "DTitle", text = COPY.dialogTitle, textSize = "heading" }),
-					UI.Text({ id = "DBody", text = COPY.dialogBody, textSize = "caption", role = "secondary" }),
-					UI.Button({ id = "DClose", label = COPY.close, onActivate = closeDialog }),
-				},
+
+				UI.Text({ id = "DTitle", text = COPY.dialogTitle, textSize = "heading" }),
+				UI.Text({ id = "DBody", text = COPY.dialogBody, textSize = "caption", role = "secondary" }),
+				UI.Button({ id = "DClose", label = COPY.close, onActivate = closeDialog }),
 			}))
 			pres.refresh()
 		end
@@ -140,11 +139,10 @@ return {
 				id = id,
 				gap = "xs",
 				width = { type = "fixed", px = 132 },
-				children = {
-					body,
-					UI.Text({ id = "Label", text = label, textSize = "label" }),
-					UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
-				},
+
+				body,
+				UI.Text({ id = "Label", text = label, textSize = "label" }),
+				UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -165,76 +163,72 @@ return {
 		local screen = UI.Screen({
 			id = "PreferredTransparency",
 			padding = "m",
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = 10,
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "title" }),
+				UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "SettingLabel", text = COPY.setting, textSize = "label" }),
+				UI.HStack({ id = "Stops", gap = "tight", wrap = true, children = stopChips }),
+				UI.Text({ id = "Readout", text = readout, textSize = "label" }),
+				UI.Text({ id = "RealHint", text = COPY.realHint, textSize = "caption", role = "secondary" }),
+				UI.HStack({
+					id = "Swatches",
 					gap = 10,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "title" }),
-						UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "SettingLabel", text = COPY.setting, textSize = "label" }),
-						UI.HStack({ id = "Stops", gap = "tight", wrap = true, children = stopChips }),
-						UI.Text({ id = "Readout", text = readout, textSize = "label" }),
-						UI.Text({ id = "RealHint", text = COPY.realHint, textSize = "caption", role = "secondary" }),
-						UI.HStack({
-							id = "Swatches",
-							gap = 10,
-							wrap = true,
-							children = {
-								swatch(
-									"BackdropSwatch",
-									COPY.backdrop,
-									COPY.backdropHint,
-									-- the ONE declaration on this page that the
-									-- preference reaches: a backdrop says it means
-									-- to be seen through
-									UI.Box({
-										id = "Fill",
-										surface = "scrim",
-										width = UI.fill(),
-										height = { type = "fixed", px = 72 },
-									})
-								),
-								swatch(
-									"PanelSwatch",
-									COPY.panel,
-									COPY.panelHint,
-									UI.Box({
-										id = "Fill",
-										surface = "raised",
-										width = UI.fill(),
-										height = { type = "fixed", px = 72 },
-									})
-								),
-								swatch(
-									"FadeSwatch",
-									COPY.fade,
-									COPY.fadeHint,
-									UI.ZStack({
-										id = "Fill",
-										opacity = 0.5,
-										width = UI.fill(),
-										height = { type = "fixed", px = 72 },
-										children = {
-											UI.Box({
-												id = "Plate",
-												surface = "raised",
-												width = UI.fill(),
-												height = UI.fill(),
-											}),
-										},
-									})
-								),
-							},
-						}),
-						UI.Button({ id = "Open", label = COPY.open, onActivate = openDialog }),
-						UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-					},
+					wrap = true,
+
+					swatch(
+						"BackdropSwatch",
+						COPY.backdrop,
+						COPY.backdropHint,
+						-- the ONE declaration on this page that the
+						-- preference reaches: a backdrop says it means
+						-- to be seen through
+						UI.Box({
+							id = "Fill",
+							surface = "scrim",
+							width = UI.fill(),
+							height = { type = "fixed", px = 72 },
+						})
+					),
+					swatch(
+						"PanelSwatch",
+						COPY.panel,
+						COPY.panelHint,
+						UI.Box({
+							id = "Fill",
+							surface = "raised",
+							width = UI.fill(),
+							height = { type = "fixed", px = 72 },
+						})
+					),
+					swatch(
+						"FadeSwatch",
+						COPY.fade,
+						COPY.fadeHint,
+						UI.ZStack({
+							id = "Fill",
+							opacity = 0.5,
+							width = UI.fill(),
+							height = { type = "fixed", px = 72 },
+
+							UI.Box({
+								id = "Plate",
+								surface = "raised",
+								width = UI.fill(),
+								height = UI.fill(),
+							}),
+						})
+					),
 				}),
-			},
+				UI.Button({ id = "Open", label = COPY.open, onActivate = openDialog }),
+				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		return {

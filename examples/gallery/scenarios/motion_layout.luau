@@ -6,7 +6,8 @@ local groups = {
 		id = "motion",
 		label = "Motion",
 		tabs = {
-			{ id = "animation", label = "Animation", scenario = require("./with_animation") },
+			{ id = "automatic", label = "Automatic", scenario = require("./component_motion") },
+			{ id = "animation", label = "Explicit actions", scenario = require("./with_animation") },
 			{ id = "curves", label = "Timing", scenario = require("./time_curves") },
 			{ id = "opacity", label = "Transparency", scenario = require("./preferred_transparency") },
 			{ id = "compositing", label = "Group fade", scenario = require("./canvas_group") },

@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- Slider: a continuous (or stepped) value along a track (docs/plans/
 -- parity-next.md investment 4; acceptance rows B-VAL1/B-VAL2/B-VAL3).
 -- Shares the value arithmetic with Stepper through src/controls/value_model.luau,
@@ -73,16 +75,17 @@ local LABEL_GAP = "m"
 -- (see `focusStroke` below for why the slider draws its own at all)
 local FOCUS_RING = "focusRing"
 
-export type Spec = {
-	row: any?,
+type NumberSignal = coreContract.Signal<number>
+export type Spec<V = NumberSignal> = {
+	row: { description: blueprint.Bound<string>?, icon: blueprint.Bound<string>? }?,
 	id: string?,
-	label: string?,
-	value: any, -- owner-held Signal<number>
+	label: blueprint.Bound<string>?,
+	value: V, -- owner-held Signal<number>
 	min: number,
 	max: number,
 	step: number?, -- nil = continuous
 	format: ((value: number) -> string)?,
-	enabled: any?, -- boolean | Readable<boolean>
+	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
 	tapToPosition: boolean?, -- default true
 	onChange: ((value: number) -> ())?,
 	onCommit: ((value: number) -> ())?,

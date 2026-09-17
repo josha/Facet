@@ -1,4 +1,5 @@
 --!strict
+local blueprint = require("../blueprint")
 -- TextInput control (§17 Phase 5 expansion; the single-line text-field
 -- informed). A COMPOSITE over shipped primitives: a ZStack of the new
 -- `TextField` leaf primitive (the headless seam the engine maps to a TextBox)
@@ -47,7 +48,8 @@ local patternEscape = paths.escape
 
 local text_input = {}
 
-export type Spec = {
+type StringSignal = coreContract.Signal<string>
+export type Spec<V = StringSignal> = {
 	presentation: ("plain" | "search" | "number")?,
 	numericValue: coreContract.Signal<number>?,
 	min: number?,
@@ -55,15 +57,15 @@ export type Spec = {
 	parse: ((string) -> number?)?,
 	format: ((number) -> string)?,
 	multiline: boolean?,
-	height: any?,
+	height: blueprint.Bound<blueprint.Dim>?,
 	onCancel: (() -> ())?,
 	enabled: (boolean | coreContract.Readable<boolean>)?,
 	id: string?,
-	value: any, -- Signal<string>: the field text (owner-held)
+	value: V, -- Signal<string>: the field text (owner-held)
 	onChange: ((text: string) -> ())?, -- live: every accepted edit while typing
 	onCommit: ((text: string, reason: "enter" | "focusLost" | "submit") -> ())?, -- Enter / focus loss
 	placeholder: string?,
-	disabled: (boolean | any)?, -- boolean | Signal<boolean>
+	disabled: blueprint.Bound<boolean>?, -- boolean | Signal<boolean>
 	-- Intent metadata only; Roblox has no public native keyboard-type setter.
 	keyboardType: ("default" | "numeric" | "email" | "phone")?,
 	-- submitLabel: declared Return-key label hint (data). There is NO reachable

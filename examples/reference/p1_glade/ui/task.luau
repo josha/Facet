@@ -139,29 +139,28 @@ function task.stripBody(ctx: any, m: any): any
 		gap = "s",
 		align = "center",
 		width = UI.fill(),
-		children = {
-			UI.Text({
-				id = "TaskLabel",
-				text = m.stripTitle,
-				textSize = "label",
-				width = UI.fill(),
-				lineLimit = 1,
-				disclose = true,
-			}),
-			UI.Text({
-				id = "TaskProgress",
-				text = m.progress,
-				textSize = "caption",
-				role = "secondary",
-				textAlign = "end",
-				-- BANDED, because `lineLimit` caps LINES and never the width a text
-				-- asks for — the class this proof already records on the supply row's
-				-- name, caption and affordance
-				width = { type = "minMax", min = METRICS.affordanceMin, max = METRICS.affordanceMax },
-				lineLimit = 1,
-				disclose = true,
-			}),
-		},
+
+		UI.Text({
+			id = "TaskLabel",
+			text = m.stripTitle,
+			textSize = "label",
+			width = UI.fill(),
+			lineLimit = 1,
+			disclose = true,
+		}),
+		UI.Text({
+			id = "TaskProgress",
+			text = m.progress,
+			textSize = "caption",
+			role = "secondary",
+			textAlign = "end",
+			-- BANDED, because `lineLimit` caps LINES and never the width a text
+			-- asks for — the class this proof already records on the supply row's
+			-- name, caption and affordance
+			width = { type = "minMax", min = METRICS.affordanceMin, max = METRICS.affordanceMax },
+			lineLimit = 1,
+			disclose = true,
+		}),
 	})
 end
 
@@ -181,10 +180,9 @@ local function progressRow(ctx: any, id: string, label: any, done: any, scope: a
 		gap = "s",
 		align = "center",
 		width = UI.fill(),
-		children = {
-			UI.Text({ id = "RowLabel", text = label, textSize = "body", width = UI.fill() }),
-			parts.chip(ctx, "RowState", chipText),
-		},
+
+		UI.Text({ id = "RowLabel", text = label, textSize = "body", width = UI.fill() }),
+		parts.chip(ctx, "RowState", chipText),
 	})
 end
 
@@ -204,31 +202,29 @@ function task.card(ctx: any): any
 				id = "TaskBody",
 				gap = "s",
 				width = UI.fill(),
-				children = {
-					parts.heading(ctx, "TaskTitle", ctx.L("task.title")),
-					-- THE GOAL, in one sentence, on the opening screen
-					parts.body(ctx, "TaskGoal", ctx.L("task.intro")),
-					-- ...and the named subject: a glade, a wisp, and what it likes
-					UI.Text({ id = "TaskSubject", text = m.subject, textSize = "label", width = UI.fill() }),
-					UI.VStack({
-						id = "TaskRows",
-						gap = "xs",
-						width = UI.fill(),
-						children = {
-							progressRow(ctx, "TaskRowDew", m.rowDew, model.dewReady, scope),
-							progressRow(ctx, "TaskRowNectar", m.rowNectar, model.nectarReady, scope),
-						},
-					}),
-					UI.Text({ id = "TaskNext", text = m.next, textSize = "body", width = UI.fill() }),
-					UI.Button({
-						id = "TaskOpen",
-						label = m.open,
-						width = UI.fill(),
-						onActivate = function()
-							ctx.nav.openGlade(model.glade)
-						end,
-					}),
-				},
+
+				parts.heading(ctx, "TaskTitle", ctx.L("task.title")),
+				-- THE GOAL, in one sentence, on the opening screen
+				parts.body(ctx, "TaskGoal", ctx.L("task.intro")),
+				-- ...and the named subject: a glade, a wisp, and what it likes
+				UI.Text({ id = "TaskSubject", text = m.subject, textSize = "label", width = UI.fill() }),
+				UI.VStack({
+					id = "TaskRows",
+					gap = "xs",
+					width = UI.fill(),
+
+					progressRow(ctx, "TaskRowDew", m.rowDew, model.dewReady, scope),
+					progressRow(ctx, "TaskRowNectar", m.rowNectar, model.nectarReady, scope),
+				}),
+				UI.Text({ id = "TaskNext", text = m.next, textSize = "body", width = UI.fill() }),
+				UI.Button({
+					id = "TaskOpen",
+					label = m.open,
+					width = UI.fill(),
+					onActivate = function()
+						ctx.nav.openGlade(model.glade)
+					end,
+				}),
 			})
 		end,
 	})
@@ -245,30 +241,28 @@ function task.card(ctx: any): any
 				id = "TaskSettledGroup",
 				canvasGroup = true,
 				width = UI.fill(),
-				children = {
-					UI.VStack({
-						id = "TaskSettledBody",
-						gap = "s",
+
+				UI.VStack({
+					id = "TaskSettledBody",
+					gap = "s",
+					width = UI.fill(),
+
+					UI.Text({
+						id = "TaskSettledTitle",
+						text = m.doneTitle,
+						textSize = "heading",
 						width = UI.fill(),
-						children = {
-							UI.Text({
-								id = "TaskSettledTitle",
-								text = m.doneTitle,
-								textSize = "heading",
-								width = UI.fill(),
-							}),
-							parts.body(ctx, "TaskSettledCopy", m.doneBody),
-							UI.Button({
-								id = "TaskAgain",
-								label = ctx.L("task.done.reset"),
-								width = UI.fill(),
-								onActivate = function()
-									ctx.nav.prepareAgain()
-								end,
-							}),
-						},
 					}),
-				},
+					parts.body(ctx, "TaskSettledCopy", m.doneBody),
+					UI.Button({
+						id = "TaskAgain",
+						label = ctx.L("task.done.reset"),
+						width = UI.fill(),
+						onActivate = function()
+							ctx.nav.prepareAgain()
+						end,
+					}),
+				}),
 			})
 		end,
 	})
@@ -279,34 +273,33 @@ function task.card(ctx: any): any
 		padding = "m",
 		gap = "s",
 		width = UI.fill(),
-		children = {
-			active,
-			done,
-			-- ...and the Facet lesson LAST, collapsed, optional: it explains the app
-			-- after the play task rather than instead of it.
-			UI.Button({
-				id = "TaskShows",
-				label = ctx.L("task.shows.open"),
-				selected = showsOpen,
-				align = "start",
-				onActivate = function()
-					showsOpen:set(not showsOpen:get())
-				end,
-			}),
-			UI.When({
-				id = "TaskShowsWhen",
-				condition = showsOpen,
-				transition = { enter = "fade", class = "container" },
-				thenView = function(): any
-					return UI.ZStack({
-						id = "TaskShowsGroup",
-						canvasGroup = true,
-						width = UI.fill(),
-						children = { parts.caption(ctx, "TaskShowsBody", ctx.L("task.shows.body")) },
-					})
-				end,
-			}),
-		},
+
+		active,
+		done,
+		-- ...and the Facet lesson LAST, collapsed, optional: it explains the app
+		-- after the play task rather than instead of it.
+		UI.Button({
+			id = "TaskShows",
+			label = ctx.L("task.shows.open"),
+			selected = showsOpen,
+			align = "start",
+			onActivate = function()
+				showsOpen:set(not showsOpen:get())
+			end,
+		}),
+		UI.When({
+			id = "TaskShowsWhen",
+			condition = showsOpen,
+			transition = { enter = "fade", class = "container" },
+			thenView = function(): any
+				return UI.ZStack({
+					id = "TaskShowsGroup",
+					canvasGroup = true,
+					width = UI.fill(),
+					parts.caption(ctx, "TaskShowsBody", ctx.L("task.shows.body")),
+				})
+			end,
+		}),
 	})
 end
 

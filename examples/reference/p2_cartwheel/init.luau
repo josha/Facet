@@ -302,15 +302,14 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 			UI.ZStack({
 				id = "CartwheelNotice",
 				canvasGroup = true,
-				children = {
-					UI.Box({
-						id = "Plate",
-						surface = "raised",
-						width = UI.fill(),
-						height = { type = "content" },
-					}),
-					UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),
-				},
+
+				UI.Box({
+					id = "Plate",
+					surface = "raised",
+					width = UI.fill(),
+					height = { type = "content" },
+				}),
+				UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),
 			}),
 			{ key = "notice", position = "bottom" }
 		)
