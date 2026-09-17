@@ -1,9 +1,9 @@
 name: CI
 
-# Every push to the default branch, and every pull request. Nothing here needs a
-# secret: the whole run is formatting, the headless suite, the source scanners
-# and one offline build. Publishing lives in its own manually dispatched
-# workflow.
+# Every push to the default branch, and every pull request. Tool downloads use
+# the built-in read-only GitHub token; no repository secrets are required.
+# The run is formatting, the headless suite, the source scanners and one offline
+# build. Publishing lives in its own manually dispatched workflow.
 on:
   push:
     branches: [main]
@@ -42,7 +42,11 @@ jobs:
           echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
 
       - name: Install the pinned toolchain
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
+          # Rokit reads stored credentials, not GITHUB_TOKEN directly.
+          rokit authenticate github --token "$GITHUB_TOKEN"
           # Release-asset downloads can return transient GitHub server errors.
           for attempt in 1 2 3; do
             if rokit install --no-trust-check; then
