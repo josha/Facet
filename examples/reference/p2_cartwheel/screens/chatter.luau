@@ -59,53 +59,50 @@ function chatter.new(app: any): any
 			gap = "s",
 			align = "start",
 			width = UI.fill(),
-			children = {
-				UI.ZStack({
-					id = "Avatar",
-					width = { type = "fixed", px = "controlSizes.regular.height" },
-					height = { type = "fixed", px = "controlSizes.regular.height" },
-					children = {
-						avatarPlate,
-						if potion ~= nil
-							then parts.potionMark(app, "Mark", potion, "iconSizes.medium")
-							else UI.Spacer({ id = "Mark" }),
-					},
+
+			UI.ZStack({
+				id = "Avatar",
+				width = { type = "fixed", px = "controlSizes.regular.height" },
+				height = { type = "fixed", px = "controlSizes.regular.height" },
+
+				avatarPlate,
+				if potion ~= nil
+					then parts.potionMark(app, "Mark", potion, "iconSizes.medium")
+					else UI.Spacer({ id = "Mark" }),
+			}),
+			UI.VStack({
+				id = "Body",
+				gap = "xs",
+				width = UI.fill(),
+
+				UI.Text({
+					id = "Message",
+					text = S.t("chatter.postSaid", {
+						who = post.who,
+						potion = if potion == nil then post.potion else potion.name,
+					}),
+					textSize = if highlighted then "strong" else "body",
+					lineLimit = 3,
+					disclose = true,
 				}),
-				UI.VStack({
-					id = "Body",
+				-- ragged, not uniform: a post's tags are words of different
+				-- lengths, and the uniform grid this used to be padded both of
+				-- them out to the wider one (measured 105/105, 113/113, 83/83 ...
+				-- across the six seeded posts). `wrap = true` also means a third
+				-- tag would drop to a second line instead of squeezing the row.
+				UI.HStack({
+					id = "Tags",
+					wrap = true,
 					gap = "xs",
-					width = UI.fill(),
-					children = {
-						UI.Text({
-							id = "Message",
-							text = S.t("chatter.postSaid", {
-								who = post.who,
-								potion = if potion == nil then post.potion else potion.name,
-							}),
-							textSize = if highlighted then "strong" else "body",
-							lineLimit = 3,
-							disclose = true,
-						}),
-						-- ragged, not uniform: a post's tags are words of different
-						-- lengths, and the uniform grid this used to be padded both of
-						-- them out to the wider one (measured 105/105, 113/113, 83/83 ...
-						-- across the six seeded posts). `wrap = true` also means a third
-						-- tag would drop to a second line instead of squeezing the row.
-						UI.HStack({
-							id = "Tags",
-							wrap = true,
-							gap = "xs",
-							children = tags,
-						}),
-						UI.Text({
-							id = "When",
-							text = S.t("chatter.ago", { ago = strings.relative(post.minutes) }),
-							textSize = "caption",
-							role = "secondary",
-						}),
-					},
+					children = tags,
 				}),
-			},
+				UI.Text({
+					id = "When",
+					text = S.t("chatter.ago", { ago = strings.relative(post.minutes) }),
+					textSize = "caption",
+					role = "secondary",
+				}),
+			}),
 		})
 	end
 
@@ -216,16 +213,15 @@ function chatter.new(app: any): any
 			UI.Screen({
 				id = "CartwheelSubscribe",
 				padding = "l",
-				children = {
-					UI.VStack({
-						id = "Card",
-						gap = "m",
-						padding = "l",
-						surface = "raised",
-						width = UI.fill(),
-						children = children,
-					}),
-				},
+
+				UI.VStack({
+					id = "Card",
+					gap = "m",
+					padding = "l",
+					surface = "raised",
+					width = UI.fill(),
+					children = children,
+				}),
 			}),
 			{ outsideTapCancel = true, initialFocus = "Subscribe" }
 		)
@@ -240,37 +236,35 @@ function chatter.new(app: any): any
 			UI.Screen({
 				id = "CartwheelChatterOptions",
 				padding = "l",
-				children = {
-					UI.VStack({
-						id = "Card",
-						gap = "m",
-						padding = "l",
-						surface = "raised",
-						width = UI.fill(),
-						children = {
-							UI.Text({ id = "Title", text = S.t("chatter.options"), textSize = "title" }),
-							UI.Text({
-								id = "Status",
-								text = S.t("chatter.optionsStatus"),
-								textSize = "caption",
-								role = "secondary",
-							}),
-							UI.Toggle({ id = "Highlight", label = S.t("chatter.optHighlight"), value = optHighlight }),
-							UI.Toggle({ id = "Tools", label = S.t("chatter.optTools"), value = optTools }),
-							UI.Button({
-								id = "Close",
-								label = S.t("ledger.close"),
-								surface = "accent",
-								onActivate = function()
-									if optionsModal ~= nil then
-										app.presenter.dismiss(optionsModal)
-										optionsModal = nil
-									end
-								end,
-							}),
-						},
+
+				UI.VStack({
+					id = "Card",
+					gap = "m",
+					padding = "l",
+					surface = "raised",
+					width = UI.fill(),
+
+					UI.Text({ id = "Title", text = S.t("chatter.options"), textSize = "title" }),
+					UI.Text({
+						id = "Status",
+						text = S.t("chatter.optionsStatus"),
+						textSize = "caption",
+						role = "secondary",
 					}),
-				},
+					UI.Toggle({ id = "Highlight", label = S.t("chatter.optHighlight"), value = optHighlight }),
+					UI.Toggle({ id = "Tools", label = S.t("chatter.optTools"), value = optTools }),
+					UI.Button({
+						id = "Close",
+						label = S.t("ledger.close"),
+						surface = "accent",
+						onActivate = function()
+							if optionsModal ~= nil then
+								app.presenter.dismiss(optionsModal)
+								optionsModal = nil
+							end
+						end,
+					}),
+				}),
 			}),
 			{ outsideTapCancel = true, initialFocus = "Highlight" }
 		)
@@ -298,70 +292,67 @@ function chatter.new(app: any): any
 		gap = "s",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.HStack({
-				id = "Header",
-				gap = "s",
-				align = "center",
-				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = title, textSize = "title" }),
-					UI.Spacer({ id = "Gap", width = UI.fill() }),
-					UI.When({
-						id = "OptionsWhen",
-						condition = subscribed,
-						thenView = function()
-							return UI.Button({
-								id = "Options",
-								label = S.t("chatter.options"),
-								compactLabel = { icon = "menu" },
-								onActivate = openOptions,
-							})
-						end,
-					}),
-				},
+
+		UI.HStack({
+			id = "Header",
+			gap = "s",
+			align = "center",
+			width = UI.fill(),
+
+			UI.Text({ id = "Title", text = title, textSize = "title" }),
+			UI.Spacer({ id = "Gap", width = UI.fill() }),
+			UI.When({
+				id = "OptionsWhen",
+				condition = subscribed,
+				thenView = function()
+					return UI.Button({
+						id = "Options",
+						label = S.t("chatter.options"),
+						compactLabel = { icon = "menu" },
+						onActivate = openOptions,
+					})
+				end,
 			}),
-			UI.ScrollView({
-				id = "Feed",
-				axis = "y",
+		}),
+		UI.ScrollView({
+			id = "Feed",
+			axis = "y",
+			gap = "m",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			UI.When({
+				id = "MarketingWhen",
+				condition = notSubscribed,
+				thenView = function()
+					return marketingCard
+				end,
+			}),
+			UI.When({
+				id = "HighlightWhen",
+				condition = subscribed,
+				thenView = function()
+					local children: { any } = {
+						UI.Text({ id = "Heading", text = S.t("chatter.highlighted"), textSize = "heading" }),
+					}
+					for _, row in bonusRows do
+						table.insert(children, row)
+					end
+					return UI.VStack({
+						id = "Highlighted",
+						gap = "s",
+						width = UI.fill(),
+						children = children,
+					})
+				end,
+			}),
+			UI.VStack({
+				id = "Posts",
 				gap = "m",
 				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					UI.When({
-						id = "MarketingWhen",
-						condition = notSubscribed,
-						thenView = function()
-							return marketingCard
-						end,
-					}),
-					UI.When({
-						id = "HighlightWhen",
-						condition = subscribed,
-						thenView = function()
-							local children: { any } = {
-								UI.Text({ id = "Heading", text = S.t("chatter.highlighted"), textSize = "heading" }),
-							}
-							for _, row in bonusRows do
-								table.insert(children, row)
-							end
-							return UI.VStack({
-								id = "Highlighted",
-								gap = "s",
-								width = UI.fill(),
-								children = children,
-							})
-						end,
-					}),
-					UI.VStack({
-						id = "Posts",
-						gap = "m",
-						width = UI.fill(),
-						children = postRows,
-					}),
-				},
+				children = postRows,
 			}),
-		},
+		}),
 	})
 
 	function self.view(): any

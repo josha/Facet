@@ -61,6 +61,20 @@ numbered procedure where every step has a command and a pass condition:
 the playbooks do not cover. It is the rulebook the library holds itself to, with
 every approved exception named.
 
+### Examples teach the public API
+
+Read [component authoring](docs/guide/15-components.md) before writing a screen,
+guide snippet or feature scenario. Use `Facet.component`, `Facet.View`, ordered
+numeric children, property getters and explicit change callbacks. Put view state
+and derived work in the mounted component; borrow application state with
+`ui.read`. Declare layout animation on the container and enter/exit on the branch.
+
+Use an explicit Core scope for a model that outlives its views, or a control
+handle when the example actually calls its imperative API. Explain that need
+beside the code. Do not copy diagnostic harness ownership into an ordinary
+screen. The [example index](examples/README.md) identifies the starting points.
+Update the View types, current example and guide with each public feature.
+
 ## 3. Verify what you changed
 
 Verification runs in four named tiers through one command:

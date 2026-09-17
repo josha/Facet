@@ -13,29 +13,21 @@ This creates "when this changes, remember to also update that" rules. As the
 screen grows, the number of these rules grows even faster than the screen
 does. They are easy to get wrong.
 
-Facet is *declarative*. You write a function that returns a **description** of
-what the screen should look like *right now*, given the current data. You
-never mutate objects yourself. When the data changes, Facet compares the new
-description to what is on screen now. It makes the minimum set of changes
-needed. Your job is to answer one question: "given this data, what should the
-screen be?" You answer it as plain data.
+Facet is *declarative*. A component describes its structure once per mount.
+Property getters describe the values that may change. Facet tracks what those
+getters read and updates the affected properties; it does not rerun the entire
+component or rebuild its tree for each change.
 
-A description is built from **constructors** on `Facet.UI`: `UI.Screen`,
-`UI.VStack` (a vertical stack), `UI.Text`, `UI.Button`, and so on. Each returns a
-small frozen table — nothing is created on screen yet. These descriptions are
-called **blueprints** in the code (`src/blueprint.luau`).
+Use constructors on `Facet.View` for application UI. Each returns an inert
+**blueprint**, including controls whose resources will be created at mount.
 
-```lua
-local UI = Facet.UI
-local screen = UI.Screen({
-    id = "Menu",
-    padding = "m",
-    gap = "s",
-    children = {
-        UI.Text({ id = "Title", text = "Main Menu", textSize = "title" }),
-        UI.Button({ id = "Play", label = "Play" }),
-    },
-})
+```luau
+local UI = Facet.View
+local screen = UI.Screen {
+    id = "Menu", padding = "m", gap = "s",
+    UI.Text { id = "Title", text = "Main Menu", textSize = "title" },
+    UI.Button { id = "Play", label = "Play", onActivate = startGame },
+}
 ```
 
 `padding` and `gap` take a theme spacing token: `"xs"`, `"s"`, `"m"`, `"l"`, or
@@ -55,7 +47,7 @@ separate step (mounting — see [chapter 3](03-getting-started.md)).
 ### A description names the shape, not the numbers
 
 Because a blueprint is a description, it names *what the control is*, not the
-arithmetic that draws it. `UI.Button{ shape = "circle" }` is the clearest
+arithmetic that draws it. `Facet.UI.Button{ shape = "circle" }` is the clearest
 case. It is the floating round "…" action. You never compute a diameter, a
 radius, or a square.
 
@@ -76,7 +68,11 @@ that picture over the glyph. `label` stays the button's real name for screen
 readers and ten-foot readouts.
 
 ```lua
-UI.Button({ id = "More", label = "More actions", shape = "circle", icon = "more" })
+-- This custom icon target uses the primitive geometry API.
+Facet.UI.Button {
+    id = "More", label = "More actions", shape = "circle", icon = "more",
+    onActivate = openActions,
+}
 ```
 
 The full rules — hit geometry, skinning, and how `UI.corners`/`UI.shadow` compose —
@@ -113,83 +109,60 @@ device. **It must never be sent over the network** (more in
 
 ## 1.3 The reactive runtime
 
-You need semantic state to *change*: coins go up, a toggle flips. You also
-need the screen to follow. Facet provides a small **reactive runtime** for
-this, created with `Facet.newCore()`. The object it returns is called the
-**core** (`src/core/custom.luau`). It gives you four building blocks:
+State changes; the interface follows. Inside a component, `ui.state(initial)`
+returns a getter and setter. Calling the getter in a reactive property subscribes
+that property. Calling the setter requests a new value.
 
-- **Signal** — a container for a value that can change. `core:signal(0)` returns
-  a signal starting at `0`. Read it with `signal:get()`. Change it with
-  `signal:set(5)`.
-
-- **Memo** — a value *computed* from other signals or memos. You pass a function
-  that receives a reader called `use`. Anything you read through `use` becomes a
-  dependency. `core:memo(function(use) return use(a) + use(b) end)` recomputes
-  automatically whenever `a` or `b` changes, and *only* then. You read a memo with
-  `memo:get()`. You cannot `set` it.
-
-- **Observer** — a callback that runs when a signal or memo changes.
-  `core:observe(source, function(newValue) ... end)` returns an unsubscribe
-  function. Observers fire only when the value actually differs from what the
-  observer last saw.
-
-- **Effect** — like an observer, but its dependencies are discovered
-  automatically (the same `use`-reader trick as a memo). `core:effect(function(use)
-  ... end)` re-runs whenever anything it read changes.
-
-Facet gives two runtime guarantees:
-
-- **Transactions batch changes.** `core:transaction(function() ... end)` lets you
-  change several signals at once. Dependents recompute and observers fire *once*,
-  after the whole block ends, instead of after each individual `set`. This
-  prevents an interface from briefly showing an inconsistent, half-updated state.
-
-- **Recomputation is glitch-free and pull-based.** When a signal changes, Facet
-  marks dependent memos out-of-date. It recomputes a memo only when you actually
-  read it, and each recompute sees a fully consistent snapshot of its inputs. You
-  do not need to reason about update ordering.
-
-The core also detects and safely contains mistakes, instead of crashing your
-game. It catches:
-
-- dependency cycles
-- writing to a signal from inside a memo
-- runaway feedback loops
-- errors thrown inside your callbacks
-
-You can read the last one with `core:lastError()`. The update loop keeps
-running.
-
-### Ownership and cleanup: scopes
-
-Reactive things — observers, effects, signals — and other resources need
-cleanup when the screen or list row they belong to goes away. Facet handles
-this with **scopes** (`core:scope("label")`). A scope owns resources.
-Disposing the scope disposes everything it owns, in reverse order, exactly
-once. You rarely create scopes by hand for simple screens. The mounting and
-presentation layers create and dispose them for you. Remember this rule: a
-screen owns a scope, and closing the screen disposes it. That is why Facet
-does not leak.
-
-**A structural region hands you the scope for the thing it just made.** Both of
-them do, and they are the same idea twice:
-
-```lua
-UI.ForEach{ items = rows, key = …, row = function(item, itemScope) … end }   -- the ROW's lifetime
-UI.When{ condition = isOpen, thenView = function(branchScope) … end }        -- the PANEL's lifetime
+```luau
+local Counter = Facet.component(function(ui)
+    local count, setCount = ui.state(0)
+    local doubled = ui.memo(function() return count() * 2 end)
+    return UI.VStack {
+        UI.Text(function() return `Count {count()}, doubled {doubled()}` end),
+        UI.Button {
+            label = "Add one",
+            onActivate = function() setCount(function(n) return n + 1 end) end,
+        },
+    }
+end)
 ```
 
-Own a panel's timer, motion value, or async handle on `branchScope`. It is
-released the moment the panel closes. Every re-opening gets a *fresh* scope,
-so nothing a closed panel held can come back with it.
+An ordinary getter is enough for a short derived property. Use `ui.memo` when
+work is shared or expensive. `ui.watch(getter, callback)` reacts to changes;
+`ui.effect(function)` also runs initially and may return a cleanup function.
+`ui.batch(function)` groups related writes so dependents see a consistent result.
+A user command belongs in a callback, even when it requests the same value twice.
 
-The alternative is to hoist that ownership to the enclosing screen scope
-instead. There it outlives the panel, and you have to reset it by hand. That
-manual reset is exactly the leak the second argument exists to remove. A leak
-like this paints nothing, so nothing on screen will ever tell you it
-happened.
+Roblox Signals owns the dependency graph. Facet adds ownership, ordered delivery,
+error containment and settling. Core remains available for model state that must
+outlive any particular screen: `core:signal`, `core:memo`, `core:observe` and
+`core:scope`. Borrow such state with `ui.read(model.balance)` inside a component;
+`model.balance:get()` is an untracked snapshot, not a reactive property recipe.
+The [Core reference](../reference/api.md#reactive-core) documents that explicit boundary.
 
-Ignoring the argument is still fine — plenty of panels own nothing.
+### Ownership follows the mounted component
+
+Every mount owns its `ui.state`, `ui.memo`, `ui.watch` and `ui.effect` resources.
+Unmounting releases them. `ui.own` adds an external subscription or an explicitly
+needed control handle to that lifetime. You do not write an owner around each
+ordinary control declaration.
+
+```luau
+UI.When { condition = isOpen, Details { item = selectedItem } }
+UI.ForEach {
+    items = rows, key = "id",
+    row = function(item) return ItemRow { item = item } end,
+}
+```
+
+`Details` and `ItemRow` are components. Their state belongs to the visible branch
+or keyed row. The row's `item()` getter reads the current record, including a
+replacement with the same key. Keep state that must survive filtering or
+virtualization in the model. Numeric children are a dense array and retain their
+declared order; dictionary iteration does not define visual order.
+
+See [component authoring](15-components.md) for complete examples and animation
+policies, and [getting started](03-getting-started.md) for mounting and teardown.
 
 ## 1.4 The client-local runtime
 
@@ -353,17 +326,17 @@ UI.Composition{
         { id = "facts",    lane = "main",  sizing = "fill", minWidth = 240 },
         { id = "next",     lane = "trail", sizing = "hug",  place = 0.66 },
     },
-    children = {
+
         UI.Region{ id = "Headline", group = "ceremony", rank = 3, floor = { lines = 1 },
                    recover = "none",                              -- forms: richest first
-                   children = { bigPlate, oneLineChip } },
+                    bigPlate, oneLineChip  },
         UI.Region{ id = "List", group = "facts", rank = 2, sizing = "fill",
-                   mayScroll = true, floor = { lines = 2 }, children = { theList } },
+                   mayScroll = true, floor = { lines = 2 },  theList  },
         UI.Region{ id = "Actions", group = "next", rank = 1, floor = { targets = 2 },
-                   recover = "none", children = { buttonRow, buttonColumn } },
+                   recover = "none",  buttonRow, buttonColumn  },
         UI.Region{ id = "Tease", group = "next", rank = 9, mayDrop = true,
-                   recover = "overflow", children = { twoLines, oneLine } },
-    },
+                   recover = "overflow",  twoLines, oneLine  },
+
 }
 ```
 
@@ -520,7 +493,7 @@ that you are disclosing it yourself. Or you can replace it with a handler:
 ```lua
 UI.Region{ id = "Clock", group = "top", rank = 2, recover = "overflow",
            expand = function() myOwnPanel() end,        -- or "none", or omit for "auto"
-           children = { clockAndScores, clockOnly } }
+            clockAndScores, clockOnly  }
 ```
 
 **A region with one form never simplifies**, so `expand` is refused on a
@@ -570,18 +543,18 @@ UI.Composition{
     width = fill, height = fill,
     groups = Facet.composition.HUD_GROUPS,     -- the twelve groups, frozen
     arrangements = { Facet.composition.HUD },  -- one arrangement: three columns
-    children = {
-        UI.Region{ id = "Rounds", group = "topLeft", rank = 1, children = { wrappedStrip } },
+
+        UI.Region{ id = "Rounds", group = "topLeft", rank = 1,  wrappedStrip  },
         UI.Region{ id = "Tasks",  group = "left",   rank = 7, mayDrop = true,
                    recover = "self",     -- every reduced form is a Button that opens the rest
-                   children = { panel, oneTask, chip } },
+                    panel, oneTask, chip  },
         UI.Region{ id = "Clock",  group = "top",     rank = 2, recover = "overflow",
-                   children = { clockAndScore, clock } },   -- the scores go to the sink
+                    clockAndScore, clock  },   -- the scores go to the sink
         UI.Region{ id = "Rail",   group = "topRight", rank = 4, mayDrop = true,
-                   recover = "overflow", children = { tallRail, onePill } },
+                   recover = "overflow",  tallRail, onePill  },
         UI.Region{ id = "Actions", group = "bottomRight", rank = 3, recover = "overflow",
-                   children = { column, oneButton } },
-    },
+                    column, oneButton  },
+
 }
 ```
 

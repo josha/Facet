@@ -99,10 +99,9 @@ return {
 			return UI.VStack({
 				id = "Body",
 				gap = "xs",
-				children = {
-					UI.Text({ id = "Title", text = title, textSize = "body" }),
-					UI.Text({ id = "Sub", text = sub, textSize = "caption", role = "secondary" }),
-				},
+
+				UI.Text({ id = "Title", text = title, textSize = "body" }),
+				UI.Text({ id = "Sub", text = sub, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -235,109 +234,103 @@ return {
 			id = "CalloutDemo",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PERMANENT FURNITURE. Two anchors, built once, at paths that never
-				-- move — which is what makes a coach mark's anchor (a PATH) survive a reset.
-				UI.Anchor({
-					id = "Bar",
+
+			-- THE PERMANENT FURNITURE. Two anchors, built once, at paths that never
+			-- move — which is what makes a coach mark's anchor (a PATH) survive a reset.
+			UI.Anchor({
+				id = "Bar",
+				width = UI.fill(),
+				height = UI.hug(),
+				second.blueprint,
+				tip.blueprint,
+			}),
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+				UI.HStack({
+					id = "Picks",
+					gap = "tight",
+					wrap = true,
 					width = UI.fill(),
-					height = UI.hug(),
-					children = { second.blueprint, tip.blueprint },
+
+					pick("Show", COPY.show, function()
+						tip.api.present()
+					end),
+					pick("ShowSecond", COPY.showSecond, function()
+						second.api.present()
+					end),
+					pick("Use", COPY.use, function()
+						featureUsed:set(true)
+					end),
+					-- the button that makes this screen testable more than once
+					pick("Reset", COPY.reset, resetSession),
 				}),
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
+				UI.Text({ id = "Presses", text = pressLine, textSize = "caption" }),
+				UI.Text({ id = "ResetNote", text = COPY.resetNote, textSize = "caption", role = "secondary" }),
+				UI.VStack({
+					id = "Queue",
+					surface = "control",
+					padding = "s",
+					gap = "xs",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						UI.HStack({
-							id = "Picks",
-							gap = "tight",
-							wrap = true,
-							width = UI.fill(),
-							children = {
-								pick("Show", COPY.show, function()
-									tip.api.present()
-								end),
-								pick("ShowSecond", COPY.showSecond, function()
-									second.api.present()
-								end),
-								pick("Use", COPY.use, function()
-									featureUsed:set(true)
-								end),
-								-- the button that makes this screen testable more than once
-								pick("Reset", COPY.reset, resetSession),
-							},
-						}),
-						UI.Text({ id = "Presses", text = pressLine, textSize = "caption" }),
-						UI.Text({ id = "ResetNote", text = COPY.resetNote, textSize = "caption", role = "secondary" }),
-						UI.VStack({
-							id = "Queue",
-							surface = "control",
-							padding = "s",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "QueueTitle", text = COPY.queueTitle, textSize = "caption" }),
-								UI.Text({
-									id = "QueueBody",
-									text = queueLine,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						UI.VStack({
-							id = "State",
-							surface = "control",
-							padding = "s",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
-								UI.Text({
-									id = "StateBody",
-									text = stateLine,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "Reported", text = reported, textSize = "caption", role = "secondary" }),
-							},
-						}),
-						UI.VStack({
-							id = "Save",
-							surface = "control",
-							padding = "s",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "SaveTitle", text = COPY.saveTitle, textSize = "caption" }),
-								UI.Text({ id = "SaveBody", text = saved, textSize = "caption", role = "secondary" }),
-							},
-						}),
-						UI.VStack({
-							id = "Help",
-							surface = "control",
-							padding = "s",
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "HelpTitle", text = COPY.helpTitle, textSize = "caption" }),
-								UI.Text({
-									id = "HelpBody",
-									text = COPY.helpNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-					},
+
+					UI.Text({ id = "QueueTitle", text = COPY.queueTitle, textSize = "caption" }),
+					UI.Text({
+						id = "QueueBody",
+						text = queueLine,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-			},
+				UI.VStack({
+					id = "State",
+					surface = "control",
+					padding = "s",
+					gap = "xs",
+					width = UI.fill(),
+
+					UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
+					UI.Text({
+						id = "StateBody",
+						text = stateLine,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Text({ id = "Reported", text = reported, textSize = "caption", role = "secondary" }),
+				}),
+				UI.VStack({
+					id = "Save",
+					surface = "control",
+					padding = "s",
+					gap = "xs",
+					width = UI.fill(),
+
+					UI.Text({ id = "SaveTitle", text = COPY.saveTitle, textSize = "caption" }),
+					UI.Text({ id = "SaveBody", text = saved, textSize = "caption", role = "secondary" }),
+				}),
+				UI.VStack({
+					id = "Help",
+					surface = "control",
+					padding = "s",
+					gap = "xs",
+					width = UI.fill(),
+
+					UI.Text({ id = "HelpTitle", text = COPY.helpTitle, textSize = "caption" }),
+					UI.Text({
+						id = "HelpBody",
+						text = COPY.helpNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
+				}),
+				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		return {

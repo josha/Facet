@@ -162,7 +162,7 @@ return {
 			return `{COPY.statusPrefix}{if use(live) then COPY.statusOn else COPY.statusOff} — blend {pct}%`
 		end))
 
-		local slider = Facet.Controls.Slider(core, {
+		local slider = Facet.View.Slider({
 			id = "BlendSlider",
 			label = COPY.blendLabel,
 			value = blendPercent,
@@ -175,122 +175,117 @@ return {
 			id = "InheritedSubtree",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-				-- title, two controls, a seven-node panel and a status line do not fit
-				-- the ~200px a 640x320 landscape phone has left once the showcase
-				-- reserves its chip strip.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
+
+			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
+			-- title, two controls, a seven-node panel and a status line do not fit
+			-- the ~200px a 640x320 landscape phone has left once the showcase
+			-- reserves its chip strip.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+				UI.Toggle({ id = "PowerToggle", label = COPY.powerLabel, value = live }),
+				slider,
+				UI.VStack({
+					id = "Panel",
+					-- THE TWO INHERITED PROPS, ON ONE CONTAINER. Everything below
+					-- this line that names no `tint`/`enabled` of its own takes
+					-- these; anything that names its own wins over them.
+					enabled = live,
+					tint = panelTint,
+					surface = "control",
+					padding = "s",
+					gap = "tight",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						UI.Toggle({ id = "PowerToggle", label = COPY.powerLabel, value = live }),
-						slider.blueprint,
-						UI.VStack({
-							id = "Panel",
-							-- THE TWO INHERITED PROPS, ON ONE CONTAINER. Everything below
-							-- this line that names no `tint`/`enabled` of its own takes
-							-- these; anything that names its own wins over them.
-							enabled = live,
-							tint = panelTint,
-							surface = "control",
-							padding = "s",
-							gap = "tight",
+
+					-- BEAT 1: NESTED INHERITANCE, two levels below Panel.
+					UI.HStack({
+						id = "Row",
+						gap = "s",
+						-- a `fill` child needs a determinate parent to fill: a
+						-- `hug` HStack sizes to its content, so `HeroTitle`'s
+						-- `fill` had nothing to expand into and solved to a
+						-- zero-width box (caught by `tests/lib/world`'s
+						-- containment guard, not by `controller.diagnostics()`,
+						-- which reports overflow, never underflow)
+						width = UI.fill(),
+
+						UI.Text({
+							id = "HeroTitle",
+							text = COPY.heroText,
+							textSize = "control",
 							width = UI.fill(),
-							children = {
-								-- BEAT 1: NESTED INHERITANCE, two levels below Panel.
-								UI.HStack({
-									id = "Row",
-									gap = "s",
-									-- a `fill` child needs a determinate parent to fill: a
-									-- `hug` HStack sizes to its content, so `HeroTitle`'s
-									-- `fill` had nothing to expand into and solved to a
-									-- zero-width box (caught by `tests/lib/world`'s
-									-- containment guard, not by `controller.diagnostics()`,
-									-- which reports overflow, never underflow)
-									width = UI.fill(),
-									children = {
-										UI.Text({
-											id = "HeroTitle",
-											text = COPY.heroText,
-											textSize = "control",
-											width = UI.fill(),
-										}),
-										UI.Image({
-											id = "Crest",
-											width = { type = "fixed", px = 28 },
-											height = { type = "fixed", px = 28 },
-										}),
-									},
-								}),
-								UI.Text({
-									id = "CrestCaption",
-									text = COPY.crestLabel,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								-- BEAT 2a: LEAF OVERRIDE — its own tint beats the inherited one.
-								UI.Text({
-									id = "Note",
-									text = COPY.noteText,
-									textSize = "caption",
-									tint = { role = "danger", blend = 1 },
-								}),
-								-- BEAT 2b: NESTED-CONTAINER OVERRIDE — `Inner`'s own tint
-								-- replaces `Panel`'s for everything under `Inner`; `Sub`
-								-- names none of its own, so it takes `Inner`'s, not `Panel`'s.
-								UI.VStack({
-									id = "Inner",
-									tint = { role = "contentSecondary", blend = 1 },
-									gap = "tight",
-									children = {
-										UI.Text({ id = "Sub", text = COPY.innerSubText, textSize = "caption" }),
-									},
-								}),
-								-- THE ONE LITERAL FORM, CLEARLY LABELLED. Every other tint on
-								-- this screen is a theme role; this is the `direct` escape
-								-- hatch, named in its own text so nobody mistakes it for the
-								-- rule rather than the exception.
-								UI.Text({
-									id = "DirectDemo",
-									text = COPY.directText,
-									textSize = "caption",
-									tint = { direct = "#3388ff" },
-								}),
-								-- BEAT 3: THE CONTROL BOUNDARY. `Go`'s role paint and its own
-								-- `Caption` content take neither `Panel`'s tint nor a
-								-- descendant's — a control's interior is not tinted, ever.
-								UI.Button({
-									id = "Go",
-									label = COPY.goLabel,
-									onActivate = function()
-										engaged:set(engaged:get() + 1)
-									end,
-									children = { UI.Text({ id = "Caption", text = COPY.goCaption }) },
-								}),
-								UI.Text({
-									id = "ControlNote",
-									text = COPY.controlBoundaryNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
 						}),
-						UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-						-- BEATS 4/5: a legal focus stop AFTER the panel. With the panel on,
-						-- Tab from `BlendSlider` stops at `Go` first; with it off, Tab lands
-						-- here directly — the panel is skipped, not merely unreachable by
-						-- one route.
-						UI.Button({ id = "After", label = COPY.afterLabel }),
-						UI.Text({ id = "AfterNote", text = COPY.afterNote, textSize = "caption", role = "secondary" }),
-					},
+						UI.Image({
+							id = "Crest",
+							width = { type = "fixed", px = 28 },
+							height = { type = "fixed", px = 28 },
+						}),
+					}),
+					UI.Text({
+						id = "CrestCaption",
+						text = COPY.crestLabel,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					-- BEAT 2a: LEAF OVERRIDE — its own tint beats the inherited one.
+					UI.Text({
+						id = "Note",
+						text = COPY.noteText,
+						textSize = "caption",
+						tint = { role = "danger", blend = 1 },
+					}),
+					-- BEAT 2b: NESTED-CONTAINER OVERRIDE — `Inner`'s own tint
+					-- replaces `Panel`'s for everything under `Inner`; `Sub`
+					-- names none of its own, so it takes `Inner`'s, not `Panel`'s.
+					UI.VStack({
+						id = "Inner",
+						tint = { role = "contentSecondary", blend = 1 },
+						gap = "tight",
+
+						UI.Text({ id = "Sub", text = COPY.innerSubText, textSize = "caption" }),
+					}),
+					-- THE ONE LITERAL FORM, CLEARLY LABELLED. Every other tint on
+					-- this screen is a theme role; this is the `direct` escape
+					-- hatch, named in its own text so nobody mistakes it for the
+					-- rule rather than the exception.
+					UI.Text({
+						id = "DirectDemo",
+						text = COPY.directText,
+						textSize = "caption",
+						tint = { direct = "#3388ff" },
+					}),
+					-- BEAT 3: THE CONTROL BOUNDARY. `Go`'s role paint and its own
+					-- `Caption` content take neither `Panel`'s tint nor a
+					-- descendant's — a control's interior is not tinted, ever.
+					UI.Button({
+						id = "Go",
+						label = COPY.goLabel,
+						onActivate = function()
+							engaged:set(engaged:get() + 1)
+						end,
+						UI.Text({ id = "Caption", text = COPY.goCaption }),
+					}),
+					UI.Text({
+						id = "ControlNote",
+						text = COPY.controlBoundaryNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-			},
+				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
+				-- BEATS 4/5: a legal focus stop AFTER the panel. With the panel on,
+				-- Tab from `BlendSlider` stops at `Go` first; with it off, Tab lands
+				-- here directly — the panel is skipped, not merely unreachable by
+				-- one route.
+				UI.Button({ id = "After", label = COPY.afterLabel }),
+				UI.Text({ id = "AfterNote", text = COPY.afterNote, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		return {

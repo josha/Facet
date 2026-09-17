@@ -37,14 +37,13 @@ local METRICS = seedData.METRICS
 local function sheet(ctx: any, id: string, children: { any }): any
 	return ctx.UI.Screen({
 		id = id,
-		children = {
-			ctx.UI.ZStack({
-				id = "Sheet",
-				width = ctx.UI.fill(),
-				height = ctx.UI.fill(),
-				children = children,
-			}),
-		},
+
+		ctx.UI.ZStack({
+			id = "Sheet",
+			width = ctx.UI.fill(),
+			height = ctx.UI.fill(),
+			children = children,
+		}),
 	})
 end
 
@@ -62,21 +61,19 @@ local function page(ctx: any, children: { any }): any
 		surface = "raised",
 		width = ctx.UI.fill(),
 		height = ctx.UI.fill(),
-		children = {
-			ctx.UI.ZStack({
-				id = "PageContent",
-				canvasGroup = true,
+
+		ctx.UI.ZStack({
+			id = "PageContent",
+			canvasGroup = true,
+			width = ctx.UI.fill(),
+
+			ctx.UI.VStack({
+				id = "PageBody",
+				gap = "l",
 				width = ctx.UI.fill(),
-				children = {
-					ctx.UI.VStack({
-						id = "PageBody",
-						gap = "l",
-						width = ctx.UI.fill(),
-						children = children,
-					}),
-				},
+				children = children,
 			}),
-		},
+		}),
 	})
 end
 
@@ -168,38 +165,37 @@ local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): a
 			padding = "m",
 			gap = "s",
 			width = { type = "fixed", px = METRICS.nectarCardMin },
-			children = {
-				parts.well(ctx, "Art", nectar.art, METRICS.portrait, well),
-				UI.Text({ id = "Name", text = name, textSize = "label", lineLimit = 1, disclose = true }),
-				-- two lines are RESERVED by the layout so a shelf of cards never
-				-- jitters as summaries of different lengths scroll past
-				UI.Text({
-					id = "Summary",
-					text = summary,
-					textSize = "body",
-					role = "secondary",
-					lineLimit = 2,
-					disclose = true,
-				}),
-				-- no `compactLabel`: this button's label IS its phase, and a
-				-- construction-only compact form cannot follow it (see
-				-- `parts.commandButton`). An ellipsized "Confirming…" is honest;
-				-- the word "Shop" drawn during a pending purchase is not.
-				UI.Button({
-					id = "Act_" .. nectar.id,
-					label = actionLabel,
-					enabled = actionEnabled,
-					width = UI.fill(),
-					onActivate = function()
-						local phase = mode:get()
-						if phase == "shop" then
-							ctx.nav.openShop()
-						elseif phase == "use" or phase == "choose" then
-							ctx.nav.chooseNectar(gladeId, nectar.id)
-						end
-					end,
-				}),
-			},
+
+			parts.well(ctx, "Art", nectar.art, METRICS.portrait, well),
+			UI.Text({ id = "Name", text = name, textSize = "label", lineLimit = 1, disclose = true }),
+			-- two lines are RESERVED by the layout so a shelf of cards never
+			-- jitters as summaries of different lengths scroll past
+			UI.Text({
+				id = "Summary",
+				text = summary,
+				textSize = "body",
+				role = "secondary",
+				lineLimit = 2,
+				disclose = true,
+			}),
+			-- no `compactLabel`: this button's label IS its phase, and a
+			-- construction-only compact form cannot follow it (see
+			-- `parts.commandButton`). An ellipsized "Confirming…" is honest;
+			-- the word "Shop" drawn during a pending purchase is not.
+			UI.Button({
+				id = "Act_" .. nectar.id,
+				label = actionLabel,
+				enabled = actionEnabled,
+				width = UI.fill(),
+				onActivate = function()
+					local phase = mode:get()
+					if phase == "shop" then
+						ctx.nav.openShop()
+					elseif phase == "use" or phase == "choose" then
+						ctx.nav.chooseNectar(gladeId, nectar.id)
+					end
+				end,
+			}),
 		}),
 		"raised"
 	)
@@ -228,18 +224,17 @@ function shop.picker(ctx: any, gladeId: string, scope: any): any
 				gap = "s",
 				align = "center",
 				width = UI.fill(),
-				children = {
-					parts.heading(ctx, "Title", ctx.L("picker.title")),
-					UI.Spacer({ id = "Push" }),
-					UI.Button({
-						id = "Done",
-						label = ctx.L("picker.done"),
-						compactLabel = "OK",
-						onActivate = function()
-							ctx.nav.dismissTop()
-						end,
-					}),
-				},
+
+				parts.heading(ctx, "Title", ctx.L("picker.title")),
+				UI.Spacer({ id = "Push" }),
+				UI.Button({
+					id = "Done",
+					label = ctx.L("picker.done"),
+					compactLabel = "OK",
+					onActivate = function()
+						ctx.nav.dismissTop()
+					end,
+				}),
 			}),
 			UI.Button({
 				id = "ShopRow",
@@ -344,18 +339,17 @@ function shop.provisions(ctx: any, scope: any): any
 			gap = "s",
 			align = "center",
 			width = UI.fill(),
-			children = {
-				parts.heading(ctx, "Title", ctx.L("shop.title")),
-				UI.Spacer({ id = "Push" }),
-				UI.Button({
-					id = "Close",
-					label = ctx.L("wisp.close"),
-					compactLabel = { icon = "close" },
-					onActivate = function()
-						ctx.nav.dismissTop()
-					end,
-				}),
-			},
+
+			parts.heading(ctx, "Title", ctx.L("shop.title")),
+			UI.Spacer({ id = "Push" }),
+			UI.Button({
+				id = "Close",
+				label = ctx.L("wisp.close"),
+				compactLabel = { icon = "close" },
+				onActivate = function()
+					ctx.nav.dismissTop()
+				end,
+			}),
 		})
 	)
 	if hero ~= nil then
@@ -431,42 +425,38 @@ function shop.charm(ctx: any, scope: any): any
 					return UI.ZStack({
 						id = "TierGroup",
 						width = UI.fill(),
-						children = {
-							UI.VStack({
-								id = "Tier_" .. tier.id,
-								surface = "raised",
-								padding = "m",
+
+						UI.VStack({
+							id = "Tier_" .. tier.id,
+							surface = "raised",
+							padding = "m",
+							width = UI.fill(),
+
+							UI.ZStack({
+								id = "TierContent",
+								canvasGroup = true,
 								width = UI.fill(),
-								children = {
-									UI.ZStack({
-										id = "TierContent",
-										canvasGroup = true,
-										width = UI.fill(),
-										children = {
-											UI.VStack({
-												id = "TierBody",
-												gap = "s",
-												width = UI.fill(),
-												children = {
-													UI.Text({ id = "Name", text = name, textSize = "heading" }),
-													parts.body(ctx, "Tagline", tagline),
-													parts.chip(ctx, "Price", ctx.commerce.charmPriceOf(tier.id)),
-													parts.commandButton(ctx, {
-														id = "BuyCharm_" .. tier.id,
-														commandId = tier.id,
-														label = ctx.L("charm.buy"),
-														onActivate = function()
-															ctx.nav.buyCharm(tier.id)
-														end,
-													}),
-													parts.rejectionNotice(ctx, "RejectCharm_" .. tier.id, tier.id),
-												},
-											}),
-										},
+
+								UI.VStack({
+									id = "TierBody",
+									gap = "s",
+									width = UI.fill(),
+
+									UI.Text({ id = "Name", text = name, textSize = "heading" }),
+									parts.body(ctx, "Tagline", tagline),
+									parts.chip(ctx, "Price", ctx.commerce.charmPriceOf(tier.id)),
+									parts.commandButton(ctx, {
+										id = "BuyCharm_" .. tier.id,
+										commandId = tier.id,
+										label = ctx.L("charm.buy"),
+										onActivate = function()
+											ctx.nav.buyCharm(tier.id)
+										end,
 									}),
-								},
+									parts.rejectionNotice(ctx, "RejectCharm_" .. tier.id, tier.id),
+								}),
 							}),
-						},
+						}),
 					})
 				end,
 			})
@@ -480,46 +470,43 @@ function shop.charm(ctx: any, scope: any): any
 				gap = "s",
 				align = "center",
 				width = UI.fill(),
-				children = {
-					UI.Spacer({ id = "Push" }),
-					UI.Button({
-						id = "Close",
-						label = ctx.L("wisp.close"),
-						compactLabel = { icon = "close" },
-						onActivate = function()
-							ctx.nav.dismissTop()
-						end,
-					}),
-				},
+
+				UI.Spacer({ id = "Push" }),
+				UI.Button({
+					id = "Close",
+					label = ctx.L("wisp.close"),
+					compactLabel = { icon = "close" },
+					onActivate = function()
+						ctx.nav.dismissTop()
+					end,
+				}),
 			}),
 			-- the marketing header: the hero species floating over a soft glow
 			UI.ZStack({
 				id = "Header",
 				width = UI.fill(),
-				children = {
-					UI.corners(
-						UI.Box({
-							id = "Glow",
-							surface = "raised",
-							alignH = "center",
-							alignV = "center",
-							width = { type = "fixed", px = METRICS.heroPortrait * 2 },
-							height = { type = "fixed", px = METRICS.heroPortrait },
-						}),
-						"pill"
-					),
-					UI.VStack({
-						id = "HeaderCopy",
-						gap = "s",
-						align = "center",
-						width = UI.fill(),
-						children = {
-							sceneLib.portrait(ctx, "Hero", "tidewisp", METRICS.heroPortrait),
-							UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "title" }),
-							parts.body(ctx, "Pitch", pitch),
-						},
+
+				UI.corners(
+					UI.Box({
+						id = "Glow",
+						surface = "raised",
+						alignH = "center",
+						alignV = "center",
+						width = { type = "fixed", px = METRICS.heroPortrait * 2 },
+						height = { type = "fixed", px = METRICS.heroPortrait },
 					}),
-				},
+					"pill"
+				),
+				UI.VStack({
+					id = "HeaderCopy",
+					gap = "s",
+					align = "center",
+					width = UI.fill(),
+
+					sceneLib.portrait(ctx, "Hero", "tidewisp", METRICS.heroPortrait),
+					UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "title" }),
+					parts.body(ctx, "Pitch", pitch),
+				}),
 			}),
 			UI.VStack({
 				id = "Tiers",
@@ -578,72 +565,66 @@ function shop.wisp(ctx: any, wispId: string, scope: any): any
 			surface = "raised",
 			padding = "l",
 			width = UI.fill(),
-			children = {
-				UI.ZStack({
-					id = "PanelContent",
-					canvasGroup = true,
+
+			UI.ZStack({
+				id = "PanelContent",
+				canvasGroup = true,
+				width = UI.fill(),
+
+				UI.VStack({
+					id = "PanelBody",
+					gap = "m",
+					align = "center",
 					width = UI.fill(),
-					children = {
-						UI.VStack({
-							id = "PanelBody",
-							gap = "m",
-							align = "center",
-							width = UI.fill(),
-							children = {
-								UI.HStack({
-									id = "TitleRow",
-									gap = "s",
-									width = UI.fill(),
-									children = {
-										UI.Spacer({ id = "Push" }),
-										UI.Button({
-											id = "Close",
-											label = ctx.L("wisp.close"),
-											compactLabel = { icon = "close" },
-											onActivate = function()
-												ctx.nav.dismissTop()
-											end,
-										}),
-									},
-								}),
-								sceneLib.portrait(ctx, "Portrait", wispId, METRICS.heroPortrait),
-								UI.Text({ id = "Name", text = name, textSize = "heading" }),
-								parts.body(ctx, "Species", line),
-								parts.caption(ctx, "Seen", seen),
-								parts.chip(ctx, "Favourite", favourite),
-								UI.When({
-									id = "LumenGate",
-									condition = gated,
-									transition = { enter = "fade", class = "container" },
-									thenView = function(): any
-										return UI.ZStack({
-											id = "GateGroup",
-											canvasGroup = true,
-											children = {
-												UI.VStack({
-													id = "GateBody",
-													gap = "s",
-													align = "center",
-													children = {
-														parts.chip(ctx, "LumenChip", ctx.L("wisp.lumenPitch")),
-														UI.Button({
-															id = "SeeCharm",
-															label = ctx.L("offer.cta"),
-															onActivate = function()
-																ctx.nav.openCharm()
-															end,
-														}),
-													},
-												}),
-											},
-										})
-									end,
-								}),
-							},
+
+					UI.HStack({
+						id = "TitleRow",
+						gap = "s",
+						width = UI.fill(),
+
+						UI.Spacer({ id = "Push" }),
+						UI.Button({
+							id = "Close",
+							label = ctx.L("wisp.close"),
+							compactLabel = { icon = "close" },
+							onActivate = function()
+								ctx.nav.dismissTop()
+							end,
 						}),
-					},
+					}),
+					sceneLib.portrait(ctx, "Portrait", wispId, METRICS.heroPortrait),
+					UI.Text({ id = "Name", text = name, textSize = "heading" }),
+					parts.body(ctx, "Species", line),
+					parts.caption(ctx, "Seen", seen),
+					parts.chip(ctx, "Favourite", favourite),
+					UI.When({
+						id = "LumenGate",
+						condition = gated,
+						transition = { enter = "fade", class = "container" },
+						thenView = function(): any
+							return UI.ZStack({
+								id = "GateGroup",
+								canvasGroup = true,
+
+								UI.VStack({
+									id = "GateBody",
+									gap = "s",
+									align = "center",
+
+									parts.chip(ctx, "LumenChip", ctx.L("wisp.lumenPitch")),
+									UI.Button({
+										id = "SeeCharm",
+										label = ctx.L("offer.cta"),
+										onActivate = function()
+											ctx.nav.openCharm()
+										end,
+									}),
+								}),
+							})
+						end,
+					}),
 				}),
-			},
+			}),
 		}),
 	})
 end

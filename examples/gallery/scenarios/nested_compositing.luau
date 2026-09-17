@@ -211,7 +211,7 @@ return {
 			return if use(turned) then COPY.turnLabelOn else COPY.turnLabelOff
 		end))
 
-		local fadeSlider = Facet.Controls.Slider(core, {
+		local fadeSlider = Facet.View.Slider({
 			id = "FadeSlider",
 			label = COPY.fadeLabel,
 			value = fade,
@@ -239,7 +239,8 @@ return {
 			opacity = opacityValue,
 			width = UI.fill(),
 			height = { type = "fixed", px = BACK.h },
-			children = { plate(BACK), plate(FRONT) },
+			plate(BACK),
+			plate(FRONT),
 		})
 
 		-- TWO fade groups over one plate each: the same value, one wrap lower —
@@ -251,7 +252,8 @@ return {
 			id = "TwoGroups",
 			width = UI.fill(),
 			height = { type = "fixed", px = BACK.h },
-			children = { plate(BACK, opacityValue), plate(FRONT, opacityValue) },
+			plate(BACK, opacityValue),
+			plate(FRONT, opacityValue),
 		})
 
 		-- ── (b) a container that carries its contents, or does not ──────────
@@ -274,28 +276,27 @@ return {
 				alignV = "center",
 				width = { type = "fixed", px = CLUSTER_W },
 				height = { type = "fixed", px = CLUSTER_H },
-				children = {
-					UI.Box({
-						id = "Plate",
-						width = { type = "fixed", px = PLATE_W },
-						height = { type = "fixed", px = PLATE_H },
-						alignH = "center",
-						alignV = "center",
-						tint = { role = "accent", blend = 1 },
-					}),
-					-- the far corner: the position a rigid-group carry keeps correct
-					-- and an independent leaf transform does not
-					UI.Box({
-						id = "Marker",
-						width = { type = "fixed", px = MARKER },
-						height = { type = "fixed", px = MARKER },
-						alignH = "end",
-						alignV = "start",
-						tint = { role = "danger", blend = 1 },
-						rotation = mt.rotation,
-						scale = mt.scale,
-					}),
-				},
+
+				UI.Box({
+					id = "Plate",
+					width = { type = "fixed", px = PLATE_W },
+					height = { type = "fixed", px = PLATE_H },
+					alignH = "center",
+					alignV = "center",
+					tint = { role = "accent", blend = 1 },
+				}),
+				-- the far corner: the position a rigid-group carry keeps correct
+				-- and an independent leaf transform does not
+				UI.Box({
+					id = "Marker",
+					width = { type = "fixed", px = MARKER },
+					height = { type = "fixed", px = MARKER },
+					alignH = "end",
+					alignV = "start",
+					tint = { role = "danger", blend = 1 },
+					rotation = mt.rotation,
+					scale = mt.scale,
+				}),
 			})
 		end
 
@@ -327,7 +328,7 @@ return {
 				id = "Stage",
 				width = UI.fill(),
 				height = { type = "fixed", px = STAGE_H },
-				children = { body },
+				body,
 			})
 		end
 
@@ -338,11 +339,10 @@ return {
 				padding = "s",
 				gap = "tight",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = title, textSize = "caption" }),
-					body,
-					UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
-				},
+
+				UI.Text({ id = "Title", text = title, textSize = "caption" }),
+				body,
+				UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
 			})
 		end
 
@@ -350,90 +350,84 @@ return {
 			id = "NestedCompositing",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, same reason as every multi-section fixture here:
-				-- two comparison rows, two controls and four caption blocks do not fit
-				-- the ~200px a 640x320 landscape phone has left under the showcase's
-				-- own chrome strip.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			-- THE PAGE SCROLLS, same reason as every multi-section fixture here:
+			-- two comparison rows, two controls and four caption blocks do not fit
+			-- the ~200px a 640x320 landscape phone has left under the showcase's
+			-- own chrome strip.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+
+				UI.VStack({
+					id = "Opacity",
 					gap = "s",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
 
-						UI.VStack({
-							id = "Opacity",
-							gap = "s",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "SectionTitle", text = COPY.opacityTitle, textSize = "label" }),
-								UI.Text({
-									id = "SectionIntro",
-									text = COPY.opacityIntro,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								fadeSlider.blueprint,
-								UI.Text({
-									id = "FadeStatus",
-									text = fadeStatus,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								-- side by side where there is room, a column where there is
-								-- not — the comparison only means anything while both panels
-								-- are visible at once
-								UI.AdaptiveStack({
-									id = "Panels",
-									axis = conditions.axis,
-									gap = "s",
-									width = UI.fill(),
-									children = {
-										panel("One", COPY.oneTitle, COPY.oneNote, oneGroup),
-										panel("Two", COPY.manyTitle, COPY.manyNote, twoGroups),
-									},
-								}),
-							},
-						}),
+					UI.Text({ id = "SectionTitle", text = COPY.opacityTitle, textSize = "label" }),
+					UI.Text({
+						id = "SectionIntro",
+						text = COPY.opacityIntro,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					fadeSlider,
+					UI.Text({
+						id = "FadeStatus",
+						text = fadeStatus,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					-- side by side where there is room, a column where there is
+					-- not — the comparison only means anything while both panels
+					-- are visible at once
+					UI.AdaptiveStack({
+						id = "Panels",
+						axis = conditions.axis,
+						gap = "s",
+						width = UI.fill(),
 
-						UI.VStack({
-							id = "Carry",
-							gap = "s",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "SectionTitle", text = COPY.carryTitle, textSize = "label" }),
-								UI.Text({
-									id = "SectionIntro",
-									text = COPY.carryIntro,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								turnToggle,
-								UI.Text({
-									id = "TurnStatus",
-									text = turnStatus,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.AdaptiveStack({
-									id = "Panels",
-									axis = conditions.axis,
-									gap = "s",
-									width = UI.fill(),
-									children = {
-										panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),
-										panel("Alone", COPY.aloneTitle, COPY.aloneNote, stage(alone)),
-									},
-								}),
-							},
-						}),
-					},
+						panel("One", COPY.oneTitle, COPY.oneNote, oneGroup),
+						panel("Two", COPY.manyTitle, COPY.manyNote, twoGroups),
+					}),
 				}),
-			},
+
+				UI.VStack({
+					id = "Carry",
+					gap = "s",
+					width = UI.fill(),
+
+					UI.Text({ id = "SectionTitle", text = COPY.carryTitle, textSize = "label" }),
+					UI.Text({
+						id = "SectionIntro",
+						text = COPY.carryIntro,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					turnToggle,
+					UI.Text({
+						id = "TurnStatus",
+						text = turnStatus,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.AdaptiveStack({
+						id = "Panels",
+						axis = conditions.axis,
+						gap = "s",
+						width = UI.fill(),
+
+						panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),
+						panel("Alone", COPY.aloneTitle, COPY.aloneNote, stage(alone)),
+					}),
+				}),
+			}),
 		})
 
 		return {
@@ -468,7 +462,6 @@ return {
 			end,
 
 			dispose = function()
-				fadeSlider.dispose()
 				scope:dispose()
 			end,
 		}

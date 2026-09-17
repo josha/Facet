@@ -221,52 +221,51 @@ return {
 			id = "VirtualHGrid",
 			padding = "s",
 			gap = "tight",
-			children = {
-				UI.HStack({
-					id = "Controls",
-					wrap = true,
-					gap = "tight",
-					width = UI.fill(),
-					children = (function()
-						local kids: { any } = {}
-						for _, chip in laneChips do
-							table.insert(kids, chip)
-						end
-						table.insert(
-							kids,
-							UI.Button({
-								id = "Deep",
-								label = "Jump",
-								onActivate = function()
-									jumpTo(DEEP_INDEX)
-								end,
-							})
-						)
-						table.insert(
-							kids,
-							UI.Button({
-								id = "Start",
-								label = "Start",
-								onActivate = function()
-									jumpTo(1)
-								end,
-							})
-						)
-						return kids
-					end)(),
-				}),
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 1 }),
-				--[[ THE PANE WHOSE SOLVED WIDTH IS THE RAIL'S WINDOW, and whose solved
+
+			UI.HStack({
+				id = "Controls",
+				wrap = true,
+				gap = "tight",
+				width = UI.fill(),
+				children = (function()
+					local kids: { any } = {}
+					for _, chip in laneChips do
+						table.insert(kids, chip)
+					end
+					table.insert(
+						kids,
+						UI.Button({
+							id = "Deep",
+							label = "Jump",
+							onActivate = function()
+								jumpTo(DEEP_INDEX)
+							end,
+						})
+					)
+					table.insert(
+						kids,
+						UI.Button({
+							id = "Start",
+							label = "Start",
+							onActivate = function()
+								jumpTo(1)
+							end,
+						})
+					)
+					return kids
+				end)(),
+			}),
+			UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 1 }),
+			--[[ THE PANE WHOSE SOLVED WIDTH IS THE RAIL'S WINDOW, and whose solved
 					HEIGHT is the rail's cross extent. On `axis = "x"` the grid refuses a
 					`width` — there the width IS the scroll axis — and its height fills its
 					container, so this pane is the single place the screen decides both. ]]
-				UI.VStack({
-					id = "RailPane",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = { grid.blueprint },
-				}),
-			},
+			UI.VStack({
+				id = "RailPane",
+				width = UI.fill(),
+				height = UI.fill(),
+				grid.blueprint,
+			}),
 		})
 
 		local unbind: any = nil

@@ -57,7 +57,7 @@ return {
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI = Facet.View
 		local core = ctx.core
 		local scope = core:scope("card-rail")
 
@@ -125,47 +125,45 @@ return {
 						gap = CARD_ROW_GAP,
 						width = UI.fill(),
 						height = { type = "content" },
-						children = {
-							UI.ZStack({
-								id = "Preview",
+
+						UI.ZStack({
+							id = "Preview",
+							width = UI.fill(),
+							height = { type = "aspect", ratio = 16 / 9 },
+							padding = "m",
+							alignH = "center",
+							alignV = "center",
+
+							UI.Box({
+								id = "Backdrop",
 								width = UI.fill(),
-								height = { type = "aspect", ratio = 16 / 9 },
-								padding = "m",
-								alignH = "center",
-								alignV = "center",
-								children = {
-									UI.Box({
-										id = "Backdrop",
-										width = UI.fill(),
-										height = UI.fill(),
-										tint = { role = "accent", blend = 0.18 },
-									}),
-									UI.Path({
-										id = "Track",
-										width = UI.fill(),
-										height = UI.fill(),
-										points = Facet.pathShapes.ring({ radius = 0.36 }),
-										thickness = 5,
-										role = "accent",
-									}),
-								},
+								height = UI.fill(),
+								tint = { role = "accent", blend = 0.18 },
 							}),
-							-- ONE LINE EACH, DECLARED (§15.3 `policy = "truncate"`; see the
-							-- COPY note above, which is why neither of these strings is in
-							-- that table). Every card in a rail is the same width, so
-							-- a long name has nowhere to grow sideways and its only other
-							-- option is to reflow — and a plate that grows a line taller
-							-- than its neighbours is not a rail. Ellipsis is the contract
-							-- here, exactly as it is for the row-actions tray's labels.
-							UI.Text({ id = "Name", text = item.name, textSize = NAME_SIZE, lineLimit = 1 }),
-							UI.Text({
-								id = "Badge",
-								text = item.badge,
-								textSize = BADGE_SIZE,
-								role = "secondary",
-								lineLimit = 1,
+							UI.Path({
+								id = "Track",
+								width = UI.fill(),
+								height = UI.fill(),
+								points = Facet.pathShapes.ring({ radius = 0.36 }),
+								thickness = 5,
+								role = "accent",
 							}),
-						},
+						}),
+						-- ONE LINE EACH, DECLARED (§15.3 `policy = "truncate"`; see the
+						-- COPY note above, which is why neither of these strings is in
+						-- that table). Every card in a rail is the same width, so
+						-- a long name has nowhere to grow sideways and its only other
+						-- option is to reflow — and a plate that grows a line taller
+						-- than its neighbours is not a rail. Ellipsis is the contract
+						-- here, exactly as it is for the row-actions tray's labels.
+						UI.Text({ id = "Name", text = item.name, textSize = NAME_SIZE, lineLimit = 1 }),
+						UI.Text({
+							id = "Badge",
+							text = item.badge,
+							textSize = BADGE_SIZE,
+							role = "secondary",
+							lineLimit = 1,
+						}),
 					})
 				end,
 			})
@@ -209,8 +207,8 @@ return {
 			id = "CardRail",
 			padding = PADDING,
 			gap = "tight",
-			children = {
-				--[[ THE PAGE SCROLLS, AND THE AXIS IS WHY IT MAY (O-21). The rule this
+
+			--[[ THE PAGE SCROLLS, AND THE AXIS IS WHY IT MAY (O-21). The rule this
 					fixture family keeps — `variable_extents`, `scroll_host` — is that a
 					page scroller must not nest inside the scroller the surface exists to
 					prove, because a gesture with two owners has none. Here the rail owns
@@ -218,34 +216,32 @@ return {
 					that drags down never reaches the rail's own handler. It is the same
 					call `async_images` took when it entered the picker: a surface a
 					player can select does not get to overflow. ]]
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "tight",
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "tight",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Hint", text = COPY.hint, textSize = "caption", role = "secondary" }),
+				-- the rail's cross extent is the rail's own (`crossExtent = "hug"`),
+				-- so the pane that holds it takes its content's height rather than
+				-- a number this file computed for it
+				UI.VStack({
+					id = "RailPane",
+					gap = 0,
+					padding = 0,
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Hint", text = COPY.hint, textSize = "caption", role = "secondary" }),
-						-- the rail's cross extent is the rail's own (`crossExtent = "hug"`),
-						-- so the pane that holds it takes its content's height rather than
-						-- a number this file computed for it
-						UI.VStack({
-							id = "RailPane",
-							gap = 0,
-							padding = 0,
-							width = UI.fill(),
-							height = { type = "content" },
-							children = { rail.blueprint },
-						}),
-						UI.Text({ id = "Selected", text = selectedLabel, textSize = 13 }),
-						UI.Text({ id = "WeekendTitle", text = COPY.weekendTitle, textSize = "title" }),
-						weekendRail.blueprint,
-						UI.Text({ id = "RecommendedTitle", text = COPY.recommendedTitle, textSize = "title" }),
-						recommendedRail.blueprint,
-					},
+					height = { type = "content" },
+					rail.blueprint,
 				}),
-			},
+				UI.Text({ id = "Selected", text = selectedLabel, textSize = 13 }),
+				UI.Text({ id = "WeekendTitle", text = COPY.weekendTitle, textSize = "title" }),
+				weekendRail.blueprint,
+				UI.Text({ id = "RecommendedTitle", text = COPY.recommendedTitle, textSize = "title" }),
+				recommendedRail.blueprint,
+			}),
 		})
 
 		local unbindScroll: any = nil

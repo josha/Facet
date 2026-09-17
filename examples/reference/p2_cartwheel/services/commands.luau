@@ -82,15 +82,14 @@ function commands.new(opts: any): any
 			UI.ZStack({
 				id = "CartwheelToast",
 				canvasGroup = true,
-				children = {
-					UI.Box({
-						id = "Plate",
-						surface = "raised",
-						width = UI.fill(),
-						height = { type = "content" },
-					}),
-					UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),
-				},
+
+				UI.Box({
+					id = "Plate",
+					surface = "raised",
+					width = UI.fill(),
+					height = { type = "content" },
+				}),
+				UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),
 			}),
 			{ key = id, position = "bottom", duration = 4 }
 		)

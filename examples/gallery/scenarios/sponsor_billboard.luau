@@ -77,62 +77,60 @@ return {
 			id = "Omen",
 			width = UI.fill(),
 			height = UI.fill(),
-			children = {
-				UI.When({
-					id = "RenderScope",
-					condition = renderScope,
-					thenView = function()
-						return UI.ZStack({
-							id = "Composite",
-							canvasGroup = true,
+
+			UI.When({
+				id = "RenderScope",
+				condition = renderScope,
+				thenView = function()
+					return UI.ZStack({
+						id = "Composite",
+						canvasGroup = true,
+						width = UI.fill(),
+						height = UI.fill(),
+
+						UI.Path({
+							id = "Track",
+							points = shapes.ring({ radius = 0.86 }),
+							thickness = 4,
+							role = "secondary",
+							alignH = "center",
+							alignV = "center",
+							width = RING,
+							height = RING,
+						}),
+						UI.Path({
+							id = "Arc",
+							points = ringPoints,
+							thickness = 10,
+							role = "accent",
+							alignH = "center",
+							alignV = "center",
+							width = RING,
+							height = RING,
+						}),
+						UI.corners(
+							UI.Box({
+								id = "IconSlot",
+								surface = "accent",
+								alignH = "center",
+								alignV = "center",
+								width = { type = "fixed", px = "controlSizes.regular.height" },
+								height = { type = "fixed", px = "controlSizes.regular.height" },
+							}),
+							"pill"
+						),
+						UI.Text({
+							id = "Caption",
+							text = caption,
+							textSize = "caption",
+							textAlign = "center",
+							alignH = "center",
+							alignV = "end",
 							width = UI.fill(),
-							height = UI.fill(),
-							children = {
-								UI.Path({
-									id = "Track",
-									points = shapes.ring({ radius = 0.86 }),
-									thickness = 4,
-									role = "secondary",
-									alignH = "center",
-									alignV = "center",
-									width = RING,
-									height = RING,
-								}),
-								UI.Path({
-									id = "Arc",
-									points = ringPoints,
-									thickness = 10,
-									role = "accent",
-									alignH = "center",
-									alignV = "center",
-									width = RING,
-									height = RING,
-								}),
-								UI.corners(
-									UI.Box({
-										id = "IconSlot",
-										surface = "accent",
-										alignH = "center",
-										alignV = "center",
-										width = { type = "fixed", px = "controlSizes.regular.height" },
-										height = { type = "fixed", px = "controlSizes.regular.height" },
-									}),
-									"pill"
-								),
-								UI.Text({
-									id = "Caption",
-									text = caption,
-									textSize = "caption",
-									textAlign = "center",
-									alignH = "center",
-									alignV = "end",
-									width = UI.fill(),
-								}),
-							},
-						})
-					end,
-				}),
-			},
+						}),
+					})
+				end,
+			}),
 		})
 
 		-- ===== the companion screen =========================================
@@ -221,8 +219,8 @@ return {
 			id = "BillboardLab",
 			padding = "m",
 			gap = "m",
-			children = {
-				--[[ THE READOUTS SCROLL, AND THAT IS WHAT PUSHES THE CONTROLS DOWN
+
+			--[[ THE READOUTS SCROLL, AND THAT IS WHAT PUSHES THE CONTROLS DOWN
 					(O-21, measured 2026-08-15). This was a `Spacer` on `fill`, which is
 					a lane that gives its pixels back to nobody: on a 640x320 landscape
 					at +4 the three readouts plus a four-button grid ran 64px past the
@@ -232,54 +230,51 @@ return {
 					Spacer's job (it takes the leftover, so the control grid still sits
 					on the bottom edge) and its window is a place the readouts can be
 					read from rather than a place they overflow. ]]
-				UI.ScrollView({
-					id = "Readouts",
-					axis = "y",
-					gap = "m",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "Billboard lab", textSize = "heading" }),
-						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-						UI.Text({
-							id = "BillboardState",
-							text = billboardState,
-							textSize = "caption",
-							role = "secondary",
-						}),
-					},
+			UI.ScrollView({
+				id = "Readouts",
+				axis = "y",
+				gap = "m",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = "Billboard lab", textSize = "heading" }),
+				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
+				UI.Text({
+					id = "BillboardState",
+					text = billboardState,
+					textSize = "caption",
+					role = "secondary",
 				}),
-				UI.Grid({
-					id = "Controls",
-					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-					-- lets the WIDEST verb decide every column, so one long label costs this lab a
-					-- whole column on a 320px phone: the control grid doubles in height and the
-					-- `fill` stage column above it collapses to zero. This number asks the other
-					-- question — how many controls fit a row — and lets a long label compact.
-					minColumnWidth = 104,
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
-					children = {
-						control("BtnMount", "Mount", function()
-							mountBillboard()
-						end),
-						control("BtnDeplete", "Deplete", function()
-							startDeplete()
-						end),
-						control("BtnMove", "Move", function()
-							local api = seam()
-							if api ~= nil then
-								api.moveAnchor(3, 0, 0)
-							end
-						end),
-						control("BtnTeardown", "Teardown", function()
-							tearDownBillboard()
-						end),
-					},
-				}),
-			},
+			}),
+			UI.Grid({
+				id = "Controls",
+				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+				-- lets the WIDEST verb decide every column, so one long label costs this lab a
+				-- whole column on a 320px phone: the control grid doubles in height and the
+				-- `fill` stage column above it collapses to zero. This number asks the other
+				-- question — how many controls fit a row — and lets a long label compact.
+				minColumnWidth = 104,
+				gap = "s",
+				rowGap = "s",
+				width = UI.fill(),
+
+				control("BtnMount", "Mount", function()
+					mountBillboard()
+				end),
+				control("BtnDeplete", "Deplete", function()
+					startDeplete()
+				end),
+				control("BtnMove", "Move", function()
+					local api = seam()
+					if api ~= nil then
+						api.moveAnchor(3, 0, 0)
+					end
+				end),
+				control("BtnTeardown", "Teardown", function()
+					tearDownBillboard()
+				end),
+			}),
 		})
 
 		result.screen = screen

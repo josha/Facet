@@ -344,39 +344,37 @@ return {
 				stroke = strokeData,
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					UI.When({
-						id = "WashWhen",
-						condition = washOn,
-						thenView = function()
-							return UI.Box({
-								id = "Wash",
-								tint = verdictTint,
-								width = UI.fill(),
-								height = UI.fill(),
-							})
-						end,
+
+				UI.When({
+					id = "WashWhen",
+					condition = washOn,
+					thenView = function()
+						return UI.Box({
+							id = "Wash",
+							tint = verdictTint,
+							width = UI.fill(),
+							height = UI.fill(),
+						})
+					end,
+				}),
+				UI.HStack({
+					id = "Row",
+					padding = "s",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text({ id = "Name", text = item.name, textSize = "body" }),
+					UI.Spacer({ id = "Gap" }),
+					UI.Text({
+						id = "VerdictGlyph",
+						text = glyph,
+						textSize = "body",
+						textAlign = "center",
+						width = ICON,
+						height = ICON,
 					}),
-					UI.HStack({
-						id = "Row",
-						padding = "s",
-						gap = "s",
-						width = UI.fill(),
-						height = UI.fill(),
-						children = {
-							UI.Text({ id = "Name", text = item.name, textSize = "body" }),
-							UI.Spacer({ id = "Gap" }),
-							UI.Text({
-								id = "VerdictGlyph",
-								text = glyph,
-								textSize = "body",
-								textAlign = "center",
-								width = ICON,
-								height = ICON,
-							}),
-						},
-					}),
-				},
+				}),
 			})
 		end
 
@@ -552,26 +550,25 @@ return {
 							id = "GhostCard",
 							width = UI.fill(),
 							height = UI.fill(),
-							children = {
-								UI.shadow(
-									UI.corners(
-										UI.Box({
-											id = "GhostPlate",
-											surface = "raised",
-											width = UI.fill(),
-											height = UI.fill(),
-										}),
-										"control"
-									),
-									"overlay"
+
+							UI.shadow(
+								UI.corners(
+									UI.Box({
+										id = "GhostPlate",
+										surface = "raised",
+										width = UI.fill(),
+										height = UI.fill(),
+									}),
+									"control"
 								),
-								UI.Text({
-									id = "GhostLabel",
-									text = label,
-									alignH = "center",
-									alignV = "center",
-								}),
-							},
+								"overlay"
+							),
+							UI.Text({
+								id = "GhostLabel",
+								text = label,
+								alignH = "center",
+								alignV = "center",
+							}),
 						})
 					end,
 				}
@@ -586,11 +583,10 @@ return {
 					gap = "s",
 					padding = "s",
 					width = UI.fill(),
-					children = {
-						card("CardA", "A", "Card A"),
-						card("CardB", "B", "Card B", "flyToTarget"),
-						card("CardC", "C", "Card C"),
-					},
+
+					card("CardA", "A", "Card A"),
+					card("CardB", "B", "Card B", "flyToTarget"),
+					card("CardC", "C", "Card C"),
 				}),
 				"panel"
 			),
@@ -622,16 +618,15 @@ return {
 				offsetY = if anchor == "top" then 4 else -4,
 				width = CHEV_ICON,
 				height = CHEV_ICON,
-				children = {
-					UI.Text({
-						id = "Glyph",
-						text = glyph,
-						textSize = "caption",
-						textAlign = "center",
-						role = "secondary",
-						width = UI.fill(),
-					}),
-				},
+
+				UI.Text({
+					id = "Glyph",
+					text = glyph,
+					textSize = "caption",
+					textAlign = "center",
+					role = "secondary",
+					width = UI.fill(),
+				}),
 			})
 		end
 
@@ -639,39 +634,35 @@ return {
 			id = "DropLab",
 			padding = "m",
 			gap = "s",
-			children = {
-				UI.Text({ id = "Title", text = "Drop lab", textSize = "heading" }),
-				UI.Text({ id = "VerdictLine", text = verdictLine, textSize = "caption", role = "secondary" }),
-				-- ONE tree, two intents: portrait docks the hand under the list (thumb
-				-- zone), landscape puts it in a side column. It is one child ORDER
-				-- either way, because a structural swap would remount both halves.
-				UI.AdaptiveStack({
-					id = "Main",
-					axis = conditions.axis,
-					gap = "s",
+
+			UI.Text({ id = "Title", text = "Drop lab", textSize = "heading" }),
+			UI.Text({ id = "VerdictLine", text = verdictLine, textSize = "caption", role = "secondary" }),
+			-- ONE tree, two intents: portrait docks the hand under the list (thumb
+			-- zone), landscape puts it in a side column. It is one child ORDER
+			-- either way, because a structural swap would remount both halves.
+			UI.AdaptiveStack({
+				id = "Main",
+				axis = conditions.axis,
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.ZStack({
+					id = "ListZone",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.ZStack({
-							id = "ListZone",
-							width = UI.fill(),
-							children = {
-								list.blueprint,
-								UI.Anchor({
-									id = "Chevrons",
-									width = UI.fill(),
-									height = UI.fill(),
-									children = {
-										chevron("ChevTop", "top", "^"),
-										chevron("ChevBottom", "bottom", "v"),
-									},
-								}),
-							},
-						}),
-						hand,
-					},
+
+					list.blueprint,
+					UI.Anchor({
+						id = "Chevrons",
+						width = UI.fill(),
+						height = UI.fill(),
+
+						chevron("ChevTop", "top", "^"),
+						chevron("ChevBottom", "bottom", "v"),
+					}),
 				}),
-			},
+				hand,
+			}),
 		})
 
 		-- ===== registry plumbing ============================================
@@ -949,7 +940,7 @@ return {
 				pres.presentToast(
 					UI.VStack({
 						id = "Body",
-						children = { UI.Text({ id = "Line", text = "Toast during drag", textSize = "body" }) },
+						UI.Text({ id = "Line", text = "Toast during drag", textSize = "body" }),
 					}),
 					{ key = "drag-layer", duration = 6 }
 				)
@@ -1211,7 +1202,7 @@ return {
 				local activeBefore = registry().isActive()
 				local modal = pres.presentModal(UI.Screen({
 					id = "MidDragModal",
-					children = { UI.Button({ id = "Ok", label = "Ok", onActivate = function() end }) },
+					UI.Button({ id = "Ok", label = "Ok", onActivate = function() end }),
 				}))
 				local activeAfter = registry().isActive()
 				pres.dismiss(modal)

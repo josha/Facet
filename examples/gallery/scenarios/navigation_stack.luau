@@ -45,7 +45,7 @@ return {
 				id = "Scroll",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = { UI.VStack({ id = "Content", gap = "m", width = UI.fill(), children = children }) },
+				UI.VStack({ id = "Content", gap = "m", width = UI.fill(), children = children }),
 			})
 		end
 		stack = scope:own(Facet.Controls.NavigationStack(core, {
@@ -70,67 +70,62 @@ return {
 						axis = axis,
 						gap = "m",
 						width = UI.fill(),
-						children = {
+
+						UI.VStack({
+							id = "SearchEntry",
+							width = UI.fill(),
+							gap = "s",
+
+							UI.Text({ text = "Find a journey", textSize = "heading", width = UI.fill() }),
+							search.blueprint,
+						}),
+						UI.focusSection(
 							UI.VStack({
-								id = "SearchEntry",
+								id = "Results",
 								width = UI.fill(),
 								gap = "s",
-								children = {
-									UI.Text({ text = "Find a journey", textSize = "heading", width = UI.fill() }),
-									search.blueprint,
-								},
-							}),
-							UI.focusSection(
-								UI.VStack({
-									id = "Results",
+
+								UI.Text({
+									id = "ResultsHeading",
+									text = pageScope:own(core:memo(function(use)
+										return if use(query) == "" then "Suggested journeys" else "Search results"
+									end)),
 									width = UI.fill(),
-									gap = "s",
-									children = {
-										UI.Text({
-											id = "ResultsHeading",
-											text = pageScope:own(core:memo(function(use)
-												return if use(query) == ""
-													then "Suggested journeys"
-													else "Search results"
-											end)),
-											width = UI.fill(),
-											textSize = "heading",
-										}),
-										UI.ForEach({
-											id = "Matches",
-											items = matches,
-											key = function(item)
-												return item.id
-											end,
-											row = function(item)
-												return UI.Button({
-													id = "Result-" .. item.id,
-													label = item.label,
-													width = UI.fill(),
-													onActivate = function()
-														destination:set(item.id)
-														stack.api.push({ id = "details" })
-													end,
-												})
-											end,
-										}),
-										UI.When({
-											id = "Empty",
-											condition = pageScope:own(core:memo(function(use)
-												return #use(matches) == 0
-											end)),
-											thenView = function()
-												return UI.Text({
-													text = "No journeys found. Try another name or clear search.",
-													width = UI.fill(),
-												})
-											end,
-										}),
-									},
+									textSize = "heading",
 								}),
-								{ entry = "restore" }
-							),
-						},
+								UI.ForEach({
+									id = "Matches",
+									items = matches,
+									key = function(item)
+										return item.id
+									end,
+									row = function(item)
+										return UI.Button({
+											id = "Result-" .. item.id,
+											label = item.label,
+											width = UI.fill(),
+											onActivate = function()
+												destination:set(item.id)
+												stack.api.push({ id = "details" })
+											end,
+										})
+									end,
+								}),
+								UI.When({
+									id = "Empty",
+									condition = pageScope:own(core:memo(function(use)
+										return #use(matches) == 0
+									end)),
+									thenView = function()
+										return UI.Text({
+											text = "No journeys found. Try another name or clear search.",
+											width = UI.fill(),
+										})
+									end,
+								}),
+							}),
+							{ entry = "restore" }
+						),
 					})
 					return page(pageScope, {
 						UI.Text({
@@ -152,53 +147,49 @@ return {
 				details = {
 					title = "Journey details",
 					content = function(pageScope)
-						local editor = pageScope:own(
-							Facet.Controls.TextInput(core, { id = "Notes", value = notes, multiline = true, env = env })
-						)
+						local editor =
+							Facet.View.TextInput({ id = "Notes", value = notes, multiline = true, env = env })
 						return page(pageScope, {
 							UI.AdaptiveStack({
 								id = "Columns",
 								axis = axis,
 								gap = "m",
 								width = UI.fill(),
-								children = {
-									UI.VStack({
-										id = "Summary",
-										width = UI.fill(),
+
+								UI.VStack({
+									id = "Summary",
+									width = UI.fill(),
+									gap = "s",
+
+									UI.HStack({
+										id = "Baseline",
+										align = alignment,
 										gap = "s",
-										children = {
-											UI.HStack({
-												id = "Baseline",
-												align = alignment,
-												gap = "s",
-												width = UI.fill(),
-												children = {
-													UI.Text({ id = "Label", text = "Days", textSize = "caption" }),
-													UI.Text({ id = "Value", text = "3", textSize = "title" }),
-													UI.Spacer({ id = "FlexibleGap", minLength = minimum }),
-													UI.Text({ id = "Unit", text = "away", textSize = "body" }),
-												},
-											}),
-											UI.HStack({
-												id = "LastBaseline",
-												width = UI.fill(),
-												wrap = true,
-												align = "lastTextBaseline",
-												gap = "s",
-												children = {
-													UI.Text({ text = "Travel light", textSize = "heading" }),
-													UI.Text({ text = "and enjoy the view", textSize = "caption" }),
-												},
-											}),
-										},
-									}),
-									UI.VStack({
-										id = "Writing",
 										width = UI.fill(),
-										gap = "s",
-										children = { UI.Text({ text = "Your notes" }), editor.blueprint },
+
+										UI.Text({ id = "Label", text = "Days", textSize = "caption" }),
+										UI.Text({ id = "Value", text = "3", textSize = "title" }),
+										UI.Spacer({ id = "FlexibleGap", minLength = minimum }),
+										UI.Text({ id = "Unit", text = "away", textSize = "body" }),
 									}),
-								},
+									UI.HStack({
+										id = "LastBaseline",
+										width = UI.fill(),
+										wrap = true,
+										align = "lastTextBaseline",
+										gap = "s",
+
+										UI.Text({ text = "Travel light", textSize = "heading" }),
+										UI.Text({ text = "and enjoy the view", textSize = "caption" }),
+									}),
+								}),
+								UI.VStack({
+									id = "Writing",
+									width = UI.fill(),
+									gap = "s",
+									UI.Text({ text = "Your notes" }),
+									editor,
+								}),
 							}),
 							UI.Button({
 								id = "Review",
@@ -233,7 +224,7 @@ return {
 			},
 		}))
 		return {
-			screen = UI.Screen({ id = "NavigationFlow", surface = "base", children = { stack.blueprint } }),
+			screen = UI.Screen({ id = "NavigationFlow", surface = "base", stack.blueprint }),
 			steps = {
 				search = function()
 					query:set("forest")

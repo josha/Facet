@@ -6,16 +6,20 @@ shows exactly which pieces are engine-free and which live only on the client.
 
 ## 3.1 The pieces, in order
 
-Every Facet screen is assembled from the same short sequence:
+For a Roblox application, start with three pieces:
 
-1. **A core** — the reactive runtime. `Facet.newCore()`.
-2. **An environment** — the per-device facts. `Facet.newEnvironment(core)`.
-3. **An action system** — the input pipeline. `Facet.newActionSystem(core)`.
-4. **A render-target adapter** — where output goes. The real screen on the
-   client; a fake recorder in a test.
-5. **A presenter** — owns screens on top of all of the above.
-   `Facet.newPresenter(core, env, adapter, actionSystem)`.
-6. **A blueprint**, handed to `presenter.present(...)`.
+1. **A component** — `Facet.component(function(ui) ... end)` describes a view once per mount.
+2. **State and recipes** — `ui.state` holds local values; property functions read them.
+3. **A host** — `client.host.new()` supplies the environment, renderer, input and presenter. Present the component with `h.presenter.present(Counter {})`.
+
+Use `local UI = Facet.View`. Numeric children keep their declared order. Facet owns
+component state, controls and subscriptions until unmount. A changed property
+updates that property; it does not run the whole component again.
+
+The headless setup below assembles the host's underlying pieces explicitly so a
+test can supply a recording adapter. That setup is an integration boundary, not
+boilerplate to repeat in every screen. See [component authoring](15-components.md)
+for collections, memos, effects and animation.
 
 ## 3.2 The smallest screen, headless
 
@@ -26,18 +30,22 @@ how `tests/smoke.spec.luau` proves the whole library wires together.
 
 ```lua
 local Facet = require("../src") -- relative require: runs under Lune
+local UI = Facet.View
 
 local core   = Facet.newCore()
 local env    = Facet.newEnvironment(core)
 local system = Facet.newActionSystem(core)
 
--- a blueprint: a screen with one button
-local screen = Facet.UI.Screen({
-    id = "S",
-    children = {
-        Facet.UI.Button({ id = "Go", label = "Go" }),
-    },
-})
+local Hello = Facet.component(function(ui)
+    local count, setCount = ui.state(0)
+    return UI.Screen {
+        id = "S",
+        UI.Button {
+            id = "Go", label = function() return `Go ({count()})` end,
+            onActivate = function() setCount(function(n) return n + 1 end) end,
+        },
+    }
+end)
 
 -- a do-nothing render target that records how many nodes were created
 local created = 0
@@ -51,9 +59,9 @@ local adapter = {
 }
 
 local presenter = Facet.newPresenter(core, env, adapter, system)
-presenter.present(screen)
+local handle = presenter.present(Hello {})
 
-assert(created == 2)                                 -- the Screen and the Button
+assert(created == 3)                              -- Screen, Button, Label
 assert(presenter.focus.focused:get() == "/S/Go")    -- focus landed on the button
 ```
 
@@ -129,58 +137,38 @@ Studio claim, and `controller.inspect().mode` is what reports which arm is live.
 
 ## 3.3 Where state lives, and making the screen react
 
-The screen above is static. To make it *do* something, give it semantic state as
-a signal and read that signal from the blueprint.
+Keep temporary interface state inside its component. Give a changing property a
+function that reads the state; give a control a callback that changes it.
 
-```lua
-local core = Facet.newCore()
-
--- semantic state: a label the button will change
-local count = core:signal(0)
-
--- a memo derives display text from the count; it recomputes only when count changes
-local label = core:memo(function(use)
-    return `Clicked {use(count)} times`
+```luau
+local UI = Facet.View
+local Counter = Facet.component(function(ui)
+    local count, setCount = ui.state(0)
+    return UI.Screen {
+        id = "Counter", padding = "m", gap = "s",
+        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
+        UI.Button {
+            id = "Bump", label = "Bump",
+            onActivate = function() setCount(function(n) return n + 1 end) end,
+        },
+    }
 end)
-
-local screen = Facet.UI.Screen({
-    id = "Counter",
-    padding = "m",
-    gap = "s",
-    children = {
-        Facet.UI.Text({ id = "Label", text = label }),  -- a signal/memo as a prop = reactive
-        Facet.UI.Button({
-            id = "Bump",
-            label = "Bump",
-            onActivate = function()
-                count:set(count:get() + 1)
-            end,
-        }),
-    },
-})
+local handle = presenter.present(Counter {})
 ```
 
-The important line is `text = label`. Pass a **signal or memo** as a prop value
-and Facet subscribes to it. When the memo changes, Facet marks the text node
-dirty and repaints it on the next refresh. Pass a **plain value**
-(like `label = "Bump"`), it is fixed for the life of the node. That is the entire
-rule for making a prop reactive — hand it a readable value instead of a constant.
+`count()` reads the current value. `setCount` changes it. Facet tracks reads made
+by the `text` recipe and updates the label after a write. A literal property stays
+fixed. Use `ui.memo` for expensive or shared calculations; this short label needs
+only a function. Use `ui.watch` for an external reaction, not to copy a value into
+another property.
 
-The button's app behavior belongs on the button. The presenter still turns touch,
-mouse, keyboard, and gamepad input into the same semantic Activate event, but you do
-not need a screen-wide path router for ordinary controls:
+Component setup runs once per mount. Dismissing the handle releases its local
+state and bindings. State that must survive navigation belongs in your model;
+borrow a Core readable with `ui.read(model.coins)`. Never use `:get()` inside a
+reactive recipe: that read is untracked.
 
-```lua
-presenter.present(screen)
-```
-
-The `onActivate` function in the blueprint changes semantic state; the label follows.
-A screen-wide presenter override still exists for advanced routing and compatibility,
-but the control-local form is easier to compose and is the default taught here.
-
-You never touch the text node. You change `count`; the memo recomputes; the text
-prop is dirtied; the next `refresh()` repaints it. That is the declarative loop
-end to end.
+Touch, mouse, keyboard and gamepad all reach `onActivate`. Commands belong in
+callbacks, including commands that must run when a value has not changed.
 
 ## 3.4 Wiring inside Roblox Studio
 
@@ -262,30 +250,23 @@ local host = require(ReplicatedStorage.Facet.client.host)
 -- engine, a render target under PlayerGui, an input system, a presenter — and
 -- one PreRender connection driving both halves of the frame.
 local h = host.new()
-local core, presenter = h.core, h.presenter
+local UI = Facet.View
+local Counter = Facet.component(function(ui)
+    local count, setCount = ui.state(0)
+    return UI.Screen {
+        id = "Counter", padding = "m", gap = "s",
+        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
+        UI.Button {
+            id = "Bump", label = "Bump",
+            onActivate = function() setCount(function(n) return n + 1 end) end,
+        },
+    }
+end)
 
-local count = core:signal(0)
-local label = core:memo(function(use) return `Clicked {use(count)} times` end)
-
-local screen = Facet.UI.Screen({
-    id = "Counter",
-    padding = "m", gap = "s",
-    children = {
-        Facet.UI.Text({ id = "Label", text = label }),
-        Facet.UI.Button({
-            id = "Bump",
-            label = "Bump",
-            onActivate = function()
-                count:set(count:get() + 1)
-            end,
-        }),
-    },
-})
-
-presenter.present(screen)
-
--- ...and when this surface goes away, `h.dispose()` takes back the frame
--- connection and unbinds the environment.
+local handle = h.presenter.present(Counter {})
+-- At the application's lifetime boundary:
+-- h.presenter.dismiss(handle)
+-- h.dispose()
 ```
 
 The three differences from the headless version are the only differences that

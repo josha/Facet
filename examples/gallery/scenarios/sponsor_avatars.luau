@@ -154,32 +154,31 @@ return {
 				canvasGroup = true,
 				width = FACE,
 				height = FACE,
-				children = {
-					-- the presentable placeholder: a complete composite, never a spinner
-					UI.corners(UI.Box({ id = "Fallback", surface = "raised", width = FACE, height = FACE }), "pill"),
-					image.blueprint,
-					UI.When({
-						id = "InitialRegion",
-						condition = notReady,
-						thenView = function()
-							return UI.Text({
-								id = "Initial",
-								text = item.initial,
-								textSize = "label",
-								textAlign = "center",
-								width = FACE,
-								height = FACE,
-							})
-						end,
-					}),
-					-- the rim is a BOUND stroke prop (the reactive idiom): one memo of
-					-- `UI.strokeData`, so the dim state moves the border's transparency
-					-- without ever stacking a second border on the node
-					UI.corners(
-						UI.Box({ id = "Rim", surface = "plain", stroke = rimStroke, width = FACE, height = FACE }),
-						"pill"
-					),
-				},
+
+				-- the presentable placeholder: a complete composite, never a spinner
+				UI.corners(UI.Box({ id = "Fallback", surface = "raised", width = FACE, height = FACE }), "pill"),
+				image.blueprint,
+				UI.When({
+					id = "InitialRegion",
+					condition = notReady,
+					thenView = function()
+						return UI.Text({
+							id = "Initial",
+							text = item.initial,
+							textSize = "label",
+							textAlign = "center",
+							width = FACE,
+							height = FACE,
+						})
+					end,
+				}),
+				-- the rim is a BOUND stroke prop (the reactive idiom): one memo of
+				-- `UI.strokeData`, so the dim state moves the border's transparency
+				-- without ever stacking a second border on the node
+				UI.corners(
+					UI.Box({ id = "Rim", surface = "plain", stroke = rimStroke, width = FACE, height = FACE }),
+					"pill"
+				),
 			})
 		end
 
@@ -226,64 +225,61 @@ return {
 			id = "AvatarLab",
 			padding = "m",
 			gap = "m",
-			children = {
-				UI.Text({ id = "Title", text = "Avatar lab", textSize = "heading" }),
-				-- WRAPS TO FEWER COLUMNS rather than shrinking the circles below the
-				-- face floor: the grid derives its column count from a minimum width
-				UI.Grid({
-					id = "Avatars",
-					minColumnWidth = "intrinsic",
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
-					children = {
-						UI.ForEach({
-							id = "Set",
-							items = avatars,
-							key = function(item: any)
-								return item.rowKey
-							end,
-							row = composite,
-							transition = { enter = "fade", class = "container" },
-						}),
-					},
+
+			UI.Text({ id = "Title", text = "Avatar lab", textSize = "heading" }),
+			-- WRAPS TO FEWER COLUMNS rather than shrinking the circles below the
+			-- face floor: the grid derives its column count from a minimum width
+			UI.Grid({
+				id = "Avatars",
+				minColumnWidth = "intrinsic",
+				gap = "s",
+				rowGap = "s",
+				width = UI.fill(),
+
+				UI.ForEach({
+					id = "Set",
+					items = avatars,
+					key = function(item: any)
+						return item.rowKey
+					end,
+					row = composite,
+					transition = { enter = "fade", class = "container" },
 				}),
-				UI.Grid({
-					id = "Controls",
-					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-					-- lets the WIDEST verb decide every column, so one long label costs this lab a
-					-- whole column on a 320px phone: the control grid doubles in height and the
-					-- `fill` stage column above it collapses to zero. This number asks the other
-					-- question — how many controls fit a row — and lets a long label compact.
-					minColumnWidth = 104,
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
-					children = {
-						control("BtnLoad", "Load", function()
-							autoDrain:set(true)
-						end),
-						control("BtnFail", "Fail", function()
-							for index, item in avatars:get() :: { any } do
-								if index % 2 == 0 then
-									failing[item.key] = true
-									provider.invalidate(item.key)
-								end
-							end
-						end),
-						control("BtnChurn", "Churn", function()
-							avatars:set(makeSet(8, 8))
-						end),
-						control("BtnPreload", "Preload", function()
-							provider.preload({ "av-97", "av-98" })
-						end),
-						control("BtnDim", "Dim", function()
-							dimmed:set(not dimmed:get())
-						end),
-					},
-				}),
-			},
+			}),
+			UI.Grid({
+				id = "Controls",
+				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+				-- lets the WIDEST verb decide every column, so one long label costs this lab a
+				-- whole column on a 320px phone: the control grid doubles in height and the
+				-- `fill` stage column above it collapses to zero. This number asks the other
+				-- question — how many controls fit a row — and lets a long label compact.
+				minColumnWidth = 104,
+				gap = "s",
+				rowGap = "s",
+				width = UI.fill(),
+
+				control("BtnLoad", "Load", function()
+					autoDrain:set(true)
+				end),
+				control("BtnFail", "Fail", function()
+					for index, item in avatars:get() :: { any } do
+						if index % 2 == 0 then
+							failing[item.key] = true
+							provider.invalidate(item.key)
+						end
+					end
+				end),
+				control("BtnChurn", "Churn", function()
+					avatars:set(makeSet(8, 8))
+				end),
+				control("BtnPreload", "Preload", function()
+					provider.preload({ "av-97", "av-98" })
+				end),
+				control("BtnDim", "Dim", function()
+					dimmed:set(not dimmed:get())
+				end),
+			}),
 		})
 
 		local function stateSnapshot(): { [string]: string }

@@ -146,52 +146,51 @@ function workbench.new(app: any): any
 					id = "Layers",
 					width = UI.fill(),
 					height = box,
-					children = {
-						UI.Image({
-							id = "Bottle",
-							image = app.art.marks.menu.image,
-							scaleMode = "fit",
-							tint = { role = "contentSecondary", blend = 0.9 },
-							width = UI.fill(),
-							height = UI.fill(),
-						}),
-						UI.Image({
-							id = "Base",
-							image = app.art.marks.chevronUp.image,
-							scaleMode = "fit",
-							tint = baseHue,
-							width = UI.fill(),
-							height = UI.fill(),
-						}),
-						UI.When({
-							id = "EssenceWhen",
-							condition = hasEssence,
-							thenView = function()
-								return UI.Image({
-									id = "Essence",
-									image = app.art.marks.check.image,
-									scaleMode = "fit",
-									tint = { role = "accent", blend = 0.8 },
-									width = UI.fill(),
-									height = UI.fill(),
-								})
-							end,
-						}),
-						UI.When({
-							id = "GarnishWhen",
-							condition = hasGarnish,
-							thenView = function()
-								return UI.Image({
-									id = "Garnish",
-									image = app.art.marks.more.image,
-									scaleMode = "fit",
-									tint = { role = "contentStrong", blend = 1 },
-									width = UI.fill(),
-									height = UI.fill(),
-								})
-							end,
-						}),
-					},
+
+					UI.Image({
+						id = "Bottle",
+						image = app.art.marks.menu.image,
+						scaleMode = "fit",
+						tint = { role = "contentSecondary", blend = 0.9 },
+						width = UI.fill(),
+						height = UI.fill(),
+					}),
+					UI.Image({
+						id = "Base",
+						image = app.art.marks.chevronUp.image,
+						scaleMode = "fit",
+						tint = baseHue,
+						width = UI.fill(),
+						height = UI.fill(),
+					}),
+					UI.When({
+						id = "EssenceWhen",
+						condition = hasEssence,
+						thenView = function()
+							return UI.Image({
+								id = "Essence",
+								image = app.art.marks.check.image,
+								scaleMode = "fit",
+								tint = { role = "accent", blend = 0.8 },
+								width = UI.fill(),
+								height = UI.fill(),
+							})
+						end,
+					}),
+					UI.When({
+						id = "GarnishWhen",
+						condition = hasGarnish,
+						thenView = function()
+							return UI.Image({
+								id = "Garnish",
+								image = app.art.marks.more.image,
+								scaleMode = "fit",
+								tint = { role = "contentStrong", blend = 1 },
+								width = UI.fill(),
+								height = UI.fill(),
+							})
+						end,
+					}),
 				}),
 				-- THE CAPTION IS NEVER WIDER THAN THE BOX IT CAPTIONS. `lineLimit`
 				-- caps the lines a text spends, never the width it asks for, and
@@ -279,34 +278,33 @@ function workbench.new(app: any): any
 				gap = "xs",
 				align = "center",
 				width = UI.fill(),
-				children = {
-					UI.Image({
-						id = "Mark",
-						image = app.art.markFor(axis).image,
-						scaleMode = "fit",
-						tint = tintMemo,
-						width = { type = "fixed", px = "iconSizes.small" },
-						height = { type = "fixed", px = "iconSizes.small" },
-					}),
-					-- BOTH shrink, in proportion: a natural-width label beside a
-					-- fill bar overflowed the row by 56px once the form was a column
-					-- on a landscape phone
-					UI.Text({
-						id = "Name",
-						text = parts.attributeName(app, axis),
-						textSize = "label",
-						role = roleMemo,
-						width = UI.fill(),
-						lineLimit = 1,
-						disclose = true,
-					}),
-					UI.VStack({
-						id = "Bar",
-						width = UI.fill(2),
-						children = { gauge.blueprint },
-					}),
-					UI.Text({ id = "Value", text = valueText, textSize = "numeral", role = roleMemo }),
-				},
+
+				UI.Image({
+					id = "Mark",
+					image = app.art.markFor(axis).image,
+					scaleMode = "fit",
+					tint = tintMemo,
+					width = { type = "fixed", px = "iconSizes.small" },
+					height = { type = "fixed", px = "iconSizes.small" },
+				}),
+				-- BOTH shrink, in proportion: a natural-width label beside a
+				-- fill bar overflowed the row by 56px once the form was a column
+				-- on a landscape phone
+				UI.Text({
+					id = "Name",
+					text = parts.attributeName(app, axis),
+					textSize = "label",
+					role = roleMemo,
+					width = UI.fill(),
+					lineLimit = 1,
+					disclose = true,
+				}),
+				UI.VStack({
+					id = "Bar",
+					width = UI.fill(2),
+					gauge.blueprint,
+				}),
+				UI.Text({ id = "Value", text = valueText, textSize = "numeral", role = roleMemo }),
 			})
 		)
 	end
@@ -359,99 +357,92 @@ function workbench.new(app: any): any
 		gap = "m",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
+
+		UI.VStack({
+			id = "Potion",
+			gap = "xs",
+			width = UI.fill(),
+
+			UI.Text({ id = "Heading", text = S.t("bench.sectionPotion"), textSize = "heading" }),
+			nameField.blueprint,
+		}),
+		UI.VStack({
+			id = "Attributes",
+			gap = "xs",
+			width = UI.fill(),
+
+			UI.Text({ id = "Heading", text = S.t("bench.sectionAttributes"), textSize = "heading" }),
 			UI.VStack({
-				id = "Potion",
+				id = "Rows",
 				gap = "xs",
 				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Heading", text = S.t("bench.sectionPotion"), textSize = "heading" }),
-					nameField.blueprint,
-				},
+				children = attributeRows,
 			}),
-			UI.VStack({
-				id = "Attributes",
-				gap = "xs",
-				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Heading", text = S.t("bench.sectionAttributes"), textSize = "heading" }),
-					UI.VStack({
-						id = "Rows",
-						gap = "xs",
-						width = UI.fill(),
-						children = attributeRows,
-					}),
-				},
+		}),
+		UI.VStack({
+			id = "Ingredients",
+			gap = "xs",
+			width = UI.fill(),
+
+			UI.Text({ id = "Heading", text = S.t("bench.sectionIngredients"), textSize = "heading" }),
+			UI.HStack({
+				id = "BaseRow",
+				gap = "s",
+				align = "center",
+
+				-- the LABEL shrinks, not the picker: a picker's trigger is
+				-- as wide as its longest option ("Ribbon · Coppertonic")
+				-- and a fixed-width label beside one overflows a narrow
+				-- form
+				UI.Text({
+					id = "Label",
+					text = S.t("bench.base"),
+					textSize = "label",
+					width = UI.fill(),
+					lineLimit = 1,
+					disclose = true,
+				}),
+				basePicker.blueprint,
 			}),
-			UI.VStack({
-				id = "Ingredients",
-				gap = "xs",
-				width = UI.fill(),
-				children = {
-					UI.Text({ id = "Heading", text = S.t("bench.sectionIngredients"), textSize = "heading" }),
-					UI.HStack({
-						id = "BaseRow",
-						gap = "s",
-						align = "center",
-						children = {
-							-- the LABEL shrinks, not the picker: a picker's trigger is
-							-- as wide as its longest option ("Ribbon · Coppertonic")
-							-- and a fixed-width label beside one overflows a narrow
-							-- form
-							UI.Text({
-								id = "Label",
-								text = S.t("bench.base"),
-								textSize = "label",
-								width = UI.fill(),
-								lineLimit = 1,
-								disclose = true,
-							}),
-							basePicker.blueprint,
-						},
-					}),
-					UI.HStack({
-						id = "EssenceRow",
-						gap = "s",
-						align = "center",
-						children = {
-							-- the LABEL shrinks, not the picker: a picker's trigger is
-							-- as wide as its longest option ("Ribbon · Coppertonic")
-							-- and a fixed-width label beside one overflows a narrow
-							-- form
-							UI.Text({
-								id = "Label",
-								text = S.t("bench.essence"),
-								textSize = "label",
-								width = UI.fill(),
-								lineLimit = 1,
-								disclose = true,
-							}),
-							essencePicker.blueprint,
-						},
-					}),
-					UI.HStack({
-						id = "GarnishRow",
-						gap = "s",
-						align = "center",
-						children = {
-							-- the LABEL shrinks, not the picker: a picker's trigger is
-							-- as wide as its longest option ("Ribbon · Coppertonic")
-							-- and a fixed-width label beside one overflows a narrow
-							-- form
-							UI.Text({
-								id = "Label",
-								text = S.t("bench.garnish"),
-								textSize = "label",
-								width = UI.fill(),
-								lineLimit = 1,
-								disclose = true,
-							}),
-							garnishPicker.blueprint,
-						},
-					}),
-				},
+			UI.HStack({
+				id = "EssenceRow",
+				gap = "s",
+				align = "center",
+
+				-- the LABEL shrinks, not the picker: a picker's trigger is
+				-- as wide as its longest option ("Ribbon · Coppertonic")
+				-- and a fixed-width label beside one overflows a narrow
+				-- form
+				UI.Text({
+					id = "Label",
+					text = S.t("bench.essence"),
+					textSize = "label",
+					width = UI.fill(),
+					lineLimit = 1,
+					disclose = true,
+				}),
+				essencePicker.blueprint,
 			}),
-		},
+			UI.HStack({
+				id = "GarnishRow",
+				gap = "s",
+				align = "center",
+
+				-- the LABEL shrinks, not the picker: a picker's trigger is
+				-- as wide as its longest option ("Ribbon · Coppertonic")
+				-- and a fixed-width label beside one overflows a narrow
+				-- form
+				UI.Text({
+					id = "Label",
+					text = S.t("bench.garnish"),
+					textSize = "label",
+					width = UI.fill(),
+					lineLimit = 1,
+					disclose = true,
+				}),
+				garnishPicker.blueprint,
+			}),
+		}),
 	})
 
 	local page = UI.VStack({
@@ -460,47 +451,46 @@ function workbench.new(app: any): any
 		gap = "s",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.Text({ id = "Title", text = S.t("bench.title"), textSize = "title" }),
-			UI.Text({ id = "Live", text = S.t("bench.live"), textSize = "caption", role = "secondary" }),
-			UI.Composition({
-				id = "Bench",
-				-- `leadFirst` (framework-gaps-phase2 item 12): see shell.luau's header
-				-- for the full account of why this used to be a CUSTOM arrangement
-				-- reusing the `"twoLane"` name for different lanes.
-				arrangements = { "leadFirst", "column" },
-				laneGap = "m",
-				groupGap = "m",
-				width = UI.fill(),
-				height = UI.fill(),
-				groups = {
-					{ id = "preview", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.previewMin" },
-					{ id = "form", lane = "main", sizing = "fill" },
-				},
-				children = {
-					UI.Region({
-						id = "Preview",
-						group = "preview",
-						rank = 2,
-						-- the compact preview drops the attribute read-out, and a dropped one
-						-- drops the potion entirely — the screen owes both a route
-						recover = "overflow",
-						floor = { lines = 2 },
-						mayDrop = true,
-						children = { preview, previewCompact },
-					}),
-					UI.Region({
-						id = "Form",
-						group = "form",
-						rank = 1,
-						sizing = "fill",
-						mayScroll = true,
-						floor = { lines = 4 },
-						children = { form },
-					}),
-				},
+
+		UI.Text({ id = "Title", text = S.t("bench.title"), textSize = "title" }),
+		UI.Text({ id = "Live", text = S.t("bench.live"), textSize = "caption", role = "secondary" }),
+		UI.Composition({
+			id = "Bench",
+			-- `leadFirst` (framework-gaps-phase2 item 12): see shell.luau's header
+			-- for the full account of why this used to be a CUSTOM arrangement
+			-- reusing the `"twoLane"` name for different lanes.
+			arrangements = { "leadFirst", "column" },
+			laneGap = "m",
+			groupGap = "m",
+			width = UI.fill(),
+			height = UI.fill(),
+			groups = {
+				{ id = "preview", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.previewMin" },
+				{ id = "form", lane = "main", sizing = "fill" },
+			},
+
+			UI.Region({
+				id = "Preview",
+				group = "preview",
+				rank = 2,
+				-- the compact preview drops the attribute read-out, and a dropped one
+				-- drops the potion entirely — the screen owes both a route
+				recover = "overflow",
+				floor = { lines = 2 },
+				mayDrop = true,
+				preview,
+				previewCompact,
 			}),
-		},
+			UI.Region({
+				id = "Form",
+				group = "form",
+				rank = 1,
+				sizing = "fill",
+				mayScroll = true,
+				floor = { lines = 4 },
+				form,
+			}),
+		}),
 	})
 
 	function self.view(): any

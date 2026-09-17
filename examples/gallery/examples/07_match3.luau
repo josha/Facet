@@ -10,7 +10,7 @@
 --                      places, not two pictures changing inside two stationary
 --                      boxes, and the framework is what keeps a moved tile's
 --                      mounted node, scopes and state
---   * motion           — `presenter.withAnimation` paints every tile whose box
+--   * motion           — the board's `animation` paints every tile whose box
 --                      changed travelling from where it was to where it is. The
 --                      LAYOUT lands instantly and exactly, so hit-testing and
 --                      focus never chase a moving pixel, and the board stays
@@ -46,7 +46,7 @@
 --   move available.
 --
 -- REDUCED MOTION IS NOT THIS FILE'S BUSINESS, and the absence is deliberate:
--- there is no `reducedMotion` branch anywhere below. `withAnimation` and the
+-- there is no `reducedMotion` branch anywhere below. Automatic layout animation and the
 -- structural transitions both ride the motion authority, whose own contract
 -- places instantly and fires the same events on the same frame when a player
 -- asks for less motion. Ordering, feedback, scoring and the final board come
@@ -181,27 +181,19 @@ local function hasLegalMoveIn(grid: { { string } }): boolean
 end
 
 local function build(Facet: any, core: any, deps: any)
-	local UI = Facet.UI
+	local UI = Facet.View
 	local pres = deps.presenter
 	local seed = DEFAULT_SEED
-
+	-- The game model owns phase timing and resources across row lifetimes.
 	local gameScope = core:scope("example-07-match3")
 	local function reg(readable: any): any
-		gameScope:own(function()
-			readable:dispose()
-		end)
+		gameScope:own(readable)
 		return readable
 	end
-
 	local rng = makeRng(seed)
 	local function nextKind(): string
 		return KINDS[math.floor(rng() * #KINDS) + 1]
 	end
-
-	-- gravity for the DEALER's plain grid: existing kinds fall to the bottom of
-	-- their column, new kinds enter from the top drawn from the seeded sequence
-	-- (column by column, bottom to top — a fixed order so replays match). The
-	-- live board's own gravity below draws in exactly this order.
 	local function collapseIn(grid: { { string } })
 		for c = 1, COLS do
 			local stack: { string } = {}
@@ -216,14 +208,6 @@ local function build(Facet: any, core: any, deps: any)
 			end
 		end
 	end
-
-	-- THE OPENING BOARD IS NOT ALREADY WON, AND NOT ALREADY STUCK
-	-- (example-quality-pass). The board used to be filled cell by cell and shown
-	-- as-is, so a seed could open on a run the player never made — the game
-	-- scoring itself before the first tap — or on a board with no legal move at
-	-- all. The resolve pass clears any accidental opening run WITHOUT scoring it,
-	-- and the loop re-deals until a move exists. Bounded, so a pathological seed
-	-- cannot hang the mount.
 	local function dealKinds(): { { string } }
 		local grid: { { string } } = {}
 		for r = 1, ROWS do
@@ -255,31 +239,21 @@ local function build(Facet: any, core: any, deps: any)
 		end
 		return grid
 	end
-
-	-- ---- the board as a set of TILES ---------------------------------------
-	-- `board[r][c]` is the authoritative occupancy. A tile's `id` is handed out
-	-- once, at deal or refill, and never reused, so `id` is what the keyed
-	-- `UI.ForEach` below keys on and what makes a moved tile the SAME tile. Its
-	-- three signals are the view's mirror of the record; they are created by the
-	-- row factory and owned by the row's own item scope, so they live exactly as
-	-- long as the mounted tile does.
 	type Tile = {
 		id: number,
 		kind: string,
 		row: number,
 		col: number,
 		spawnRow: number?,
-		kindSig: any,
-		posSig: any,
-		markSig: any,
+		setKind: any,
+		setPosition: any,
+		setMarked: any,
 	}
-
 	local board: { { Tile? } } = {}
 	for r = 1, ROWS do
 		board[r] = {}
 	end
 	local nextTileId = 0
-
 	local function newTile(kind: string, row: number, col: number): Tile
 		nextTileId += 1
 		return {
@@ -288,13 +262,11 @@ local function build(Facet: any, core: any, deps: any)
 			row = row,
 			col = col,
 			spawnRow = nil,
-			kindSig = nil,
-			posSig = nil,
-			markSig = nil,
+			setKind = nil,
+			setPosition = nil,
+			setMarked = nil,
 		}
 	end
-
-	-- the live board as a plain grid of kinds, which is what the pure rules read
 	local function kindGrid(): { { string } }
 		local grid: { { string } } = {}
 		for r = 1, ROWS do
@@ -312,11 +284,6 @@ local function build(Facet: any, core: any, deps: any)
 	local function hasLegalMove(): boolean
 		return hasLegalMoveIn(kindGrid())
 	end
-
-	-- the ForEach's items, in DOCUMENT ORDER — row-major by where each tile is,
-	-- so the mounted order, the focus ring and the picture on screen are the same
-	-- order. A tile that moves therefore MOVES within the region (add/remove/move
-	-- only), which is what keeps its mounted identity and its scopes.
 	local items = reg(core:signal({} :: { { id: number } }))
 	local function publish()
 		local out: { { id: number } } = {}
@@ -330,16 +297,12 @@ local function build(Facet: any, core: any, deps: any)
 		end
 		items:set(out)
 	end
-
-	-- push the model into the view. `syncPositions` is what a `withAnimation`
-	-- body calls: every tile whose anchored offset changed is a box that changed,
-	-- and that is the whole of what the presenter needs to paint the travel.
 	local function syncPositions()
 		for r = 1, ROWS do
 			for c = 1, COLS do
 				local tile = board[r][c]
-				if tile ~= nil and tile.posSig ~= nil then
-					tile.posSig:set({ row = tile.row, col = tile.col })
+				if tile ~= nil and tile.setPosition ~= nil then
+					tile.setPosition({ row = tile.row, col = tile.col })
 				end
 			end
 		end
@@ -348,39 +311,28 @@ local function build(Facet: any, core: any, deps: any)
 		for r = 1, ROWS do
 			for c = 1, COLS do
 				local tile = board[r][c]
-				if tile ~= nil and tile.kindSig ~= nil then
-					tile.kindSig:set(tile.kind)
+				if tile ~= nil and tile.setKind ~= nil then
+					tile.setKind(tile.kind)
 				end
 			end
 		end
 	end
-
 	local score = reg(core:signal(0))
 	local moves = reg(core:signal(0))
 	local message = reg(core:signal(""))
 	local resolving = reg(core:signal(false))
 	local selected = reg(core:signal(nil :: { number }?))
-
-	-- ---- async images: one provider handle per tile kind --------------------
-	-- Generous concurrency so every kind is in the active window at once.
 	local provider = Facet.newResourceProvider(core, { maxConcurrent = 8 })
 	local kindHandle: { [string]: any } = {}
 	for _, kind in KINDS do
 		kindHandle[kind] = provider.acquire(gameScope, `img/{kind}`)
 	end
 	gameScope:own(function()
-		-- the handles are scope-owned already; this keeps the provider's own
-		-- bookkeeping from outliving the example
 		for _, handle in kindHandle do
 			handle.release()
 		end
 	end)
 	local PENDING = assets.pending
-
-	-- Drain whatever the provider currently has in flight, answering each request
-	-- with that kind's real asset. THIS IS THE TRANSPORT — in a real client it
-	-- would be the engine's texture pipeline; here the example plays that part so
-	-- the lesson is deterministic and has no timers in it.
 	local function deliverArt(): number
 		local delivered = 0
 		for _, request in provider.pendingRequests() do
@@ -392,18 +344,7 @@ local function build(Facet: any, core: any, deps: any)
 		end
 		return delivered
 	end
-
-	-- delivered once at build, so the board is playable from the first frame
 	deliverArt()
-
-	-- RE-REQUEST WITHOUT DROPPING THE KEY TO ZERO HANDLES. The provider owns one
-	-- state/value/error signal set per key and DISPOSES them when the last handle
-	-- releases; a fresh acquire then builds new ones. So releasing before
-	-- acquiring silently swaps the signals a mounted memo is subscribed to, and
-	-- every tile goes on painting the last art forever while the provider happily
-	-- re-fetches. Acquire FIRST (refcount 2), then release the old handle: the
-	-- entry never hits zero, the signals survive, and the mounted board sees the
-	-- state go back to pending.
 	local function requestArt(kind: string)
 		local key = `img/{kind}`
 		provider.invalidate(key)
@@ -411,18 +352,15 @@ local function build(Facet: any, core: any, deps: any)
 		kindHandle[kind].release()
 		kindHandle[kind] = fresh
 	end
-
 	local function reloadArt()
 		for _, kind in KINDS do
 			requestArt(kind)
 		end
 		message:set("Artwork re-requested — the tiles show the loading placeholder until it arrives.")
 	end
-
 	local function failArt()
 		local first = provider.pendingRequests()[1]
 		if first == nil then
-			-- nothing in flight: put one back in flight, then fail it
 			requestArt("a")
 			first = provider.pendingRequests()[1]
 		end
@@ -431,7 +369,6 @@ local function build(Facet: any, core: any, deps: any)
 			message:set('One tile kind failed to load. Press "Re-request artwork", then "Deliver artwork".')
 		end
 	end
-
 	local artStatus = reg(core:memo(function(use)
 		local pending, failed, ready = 0, 0, 0
 		for _, kind in KINDS do
@@ -452,177 +389,133 @@ local function build(Facet: any, core: any, deps: any)
 		end
 		return `Artwork: all {ready} ready`
 	end))
-
-	-- ---- the tile blueprint -------------------------------------------------
-	local activateTile: (tile: Tile) -> () -- forward-declared (below)
+	local activateTile: (tile: Tile) -> ()
 	local beginSwap: (number, number, number, number) -> ()
 	local tilesById: { [number]: Tile } = {}
-
-	local function tileRow(item: { id: number }, itemScope: any): any
-		local tile = tilesById[item.id]
-		-- the row's own item scope owns everything the row reads, so a tile that
-		-- leaves the board takes its signals and memos with it and a tile that
-		-- MOVES keeps them (a move is not a remount)
-		tile.kindSig = itemScope:own(core:signal(tile.kind))
-		tile.posSig = itemScope:own(core:signal({
+	local TileView = Facet.component(function(ui, props)
+		local tile = tilesById[props.item().id]
+		local kind, setKind = ui.state(tile.kind)
+		local position, setPosition = ui.state({
 			row = if tile.spawnRow ~= nil then tile.spawnRow else tile.row,
 			col = tile.col,
-		}))
-		tile.markSig = itemScope:own(core:signal(false))
-		local kindSig, posSig, markSig = tile.kindSig, tile.posSig, tile.markSig
-
-		-- WHERE THE TILE IS, as a share of the board's own inner box. The fraction
-		-- is spent at ARRANGE against the board's extent, so a tile moving is one
-		-- arrange pass and one rect write — never a re-measure, never a remount,
-		-- so nothing blinks (the framework's minimap-dot idiom).
-		local offsetX = itemScope:own(core:memo(function(use)
-			return { scale = (use(posSig).col - 1) / COLS }
-		end))
-		local offsetY = itemScope:own(core:memo(function(use)
-			return { scale = (use(posSig).row - 1) / ROWS }
-		end))
-
-		-- the tile's image: the resolved asset for its current kind, or the
-		-- pending placeholder until that kind's image arrives.
-		-- THE PLACEHOLDER FOLLOWS THE STATE, NOT THE VALUE. The provider keeps
-		-- the last-known value across a re-request (deliberately: it avoids a
-		-- flicker when a key is refetched), so a tile that keyed on `value ~= nil`
-		-- would go on showing stale art while its state read "pending", and a
-		-- FAILED key would look identical to a ready one. Reading the state is
-		-- what makes the three states actually distinguishable on screen.
-		local image = itemScope:own(core:memo(function(use)
-			local handle = kindHandle[use(kindSig)]
-			if use(handle.state) ~= "ready" then
+		})
+		local marked, setMarked = ui.state(false)
+		tile.setKind, tile.setPosition, tile.setMarked = setKind, setPosition, setMarked
+		ui.own(function()
+			tile.setKind, tile.setPosition, tile.setMarked = nil, nil, nil
+		end)
+		local selection, isResolving = ui.read(selected), ui.read(resolving)
+		local images = {}
+		for name, handle in kindHandle do
+			images[name] = { state = ui.read(handle.state), value = ui.read(handle.value) }
+		end
+		local offsetX = ui.memo(function()
+			return { scale = (position().col - 1) / COLS }
+		end)
+		local offsetY = ui.memo(function()
+			return { scale = (position().row - 1) / ROWS }
+		end)
+		local image = ui.memo(function()
+			local handle = images[kind()]
+			if handle.state() ~= "ready" then
 				return PENDING
 			end
-			local resolved = use(handle.value)
+			local resolved = handle.value()
 			return if resolved ~= nil then resolved else PENDING
-		end))
-		-- the kind's SHAPE is the primary cue, its colour the accelerator; the
-		-- ASCII label is what is left if art is unavailable entirely, so five
-		-- kinds stay distinguishable in every one of the three states.
-		local tint = itemScope:own(core:memo(function(use)
-			return { role = assets.match3Tints[use(kindSig)], blend = 1 }
-		end))
-		local fallbackLabel = itemScope:own(core:memo(function(use)
-			local kind = use(kindSig)
-			local ready = use(kindHandle[kind].state) == "ready"
+		end)
+		local tint = ui.memo(function()
+			return { role = assets.match3Tints[kind()], blend = 1 }
+		end)
+		local fallbackLabel = ui.memo(function()
+			local kind = kind()
+			local ready = images[kind].state() == "ready"
 			return if ready then "" else assets.match3Tiles[kind].label
-		end))
-		-- one `selected` channel, two meanings, and both are "this tile is picked
-		-- out": the player's own pick, and a tile the board has marked to clear.
-		-- It is the framework's own selected chrome rather than a colour this
-		-- example invented, so a theme swap restyles both.
-		local picked = itemScope:own(core:memo(function(use)
-			if use(markSig) then
+		end)
+		local picked = ui.memo(function()
+			if marked() then
 				return true
 			end
-			local sel = use(selected)
-			local at = use(posSig)
+			local sel = selection()
+			local at = position()
 			return sel ~= nil and sel[1] == at.row and sel[2] == at.col
-		end))
-
+		end)
+		-- Tile hit targets need primitive selected/surface paint; the component
+		-- still owns state and Facet owns focus, dragging and layout.
 		return UI.ZStack({
 			id = "cell",
-			-- a fading enter/exit needs a fade group, and the tile IS the region's
-			-- child, so it declares one rather than growing a wrapper
 			canvasGroup = true,
 			width = CELL,
 			height = CELL,
 			anchor = "topLeft",
 			offsetX = offsetX,
 			offsetY = offsetY,
-			children = {
-				-- the picture is inset inside its own tap target, so the board has
-				-- gutters to read by while every pixel of the tile stays tappable
-				UI.Image({
-					id = "img",
-					image = image,
-					tint = tint,
-					margin = "xs",
-					width = UI.fill(),
-					height = UI.fill(),
-				}),
-				-- the hit target: focusable + tappable, fills the tile; its
-				-- `selected` prop reflects the current selection, and its label
-				-- is the fallback symbol while the picture is not there. Its
-				-- node onActivate carries the APP SEMANTICS (select / swap
-				-- adjacency) — the presenter dispatches Activate (tap, or A on
-				-- the focused tile) here with no consumer routing.
-				-- IT IS A REAL CONTROL, not a marker: a marker layer is
-				-- display-only by contract and sits below the effective-target
-				-- floor, and these have to be pressable.
-				UI.dropTarget(
-					UI.draggable(
-						UI.Button({
-							id = "hit",
-							label = fallbackLabel,
-							surface = "plain",
-							selected = picked,
-							textSize = "control",
-							width = UI.fill(),
-							height = UI.fill(),
-							onActivate = function()
-								activateTile(tile)
-							end,
-						}),
-						{
-							payload = { kind = "match3", tile = tile },
-							enabled = itemScope:own(core:memo(function(use)
-								return not use(resolving)
-							end)),
-							proxy = function()
-								return UI.Image({ image = image, tint = tint, width = UI.fill(), height = UI.fill() })
-							end,
-						}
-					),
-					{
-						accepts = function(payload)
-							local source = type(payload) == "table" and payload.kind == "match3" and payload.tile
-							return source ~= nil
-								and source ~= false
-								and not resolving:get()
-								and board[source.row][source.col] == source
-								and math.abs(source.row - tile.row) + math.abs(source.col - tile.col) == 1,
-								"Tiles must be neighbors"
+			UI.Image({
+				id = "img",
+				image = image,
+				tint = tint,
+				margin = "xs",
+				width = UI.fill(),
+				height = UI.fill(),
+			}),
+			UI.dropTarget(
+				UI.draggable(
+					Facet.UI.Button({
+						id = "hit",
+						label = fallbackLabel,
+						surface = "plain",
+						selected = picked,
+						textSize = "control",
+						width = UI.fill(),
+						height = UI.fill(),
+						onActivate = function()
+							activateTile(tile)
 						end,
-						onDrop = function(payload)
-							selected:set(nil)
-							message:set("")
-							beginSwap(payload.tile.row, payload.tile.col, tile.row, tile.col)
+					}),
+					{
+						payload = { kind = "match3", tile = tile },
+						enabled = ui.memo(function()
+							return not isResolving()
+						end),
+						proxy = function()
+							return UI.Image({ image = image, tint = tint, width = UI.fill(), height = UI.fill() })
 						end,
 					}
 				),
-			},
+				{
+					accepts = function(payload)
+						local source = type(payload) == "table" and payload.kind == "match3" and payload.tile
+						return source ~= nil
+							and source ~= false
+							and not resolving:get()
+							and board[source.row][source.col] == source
+							and math.abs(source.row - tile.row) + math.abs(source.col - tile.col) == 1,
+							"Tiles must be neighbors"
+					end,
+					onDrop = function(payload)
+						selected:set(nil)
+						message:set("")
+						beginSwap(payload.tile.row, payload.tile.col, tile.row, tile.col)
+					end,
+				}
+			),
 		})
-	end
-
+	end)
 	local boardView = UI.Anchor({
 		id = "board",
-		-- a tile entering from above sits outside the board for one phase; the
-		-- board says so rather than painting it over the score line
+		animation = { layout = TILE_MOTION },
 		overflow = "clip",
 		width = BOARD_WIDTH,
 		height = BOARD_HEIGHT,
-		children = {
-			UI.ForEach({
-				id = "tiles",
-				items = items,
-				key = function(item: any): string
-					return tostring(item.id)
-				end,
-				row = tileRow,
-				-- insertion and removal are the transition system's job, never
-				-- `withAnimation`'s: a refilled tile materializes into its slot and
-				-- a cleared tile fades out of one, RETIRING in place (still
-				-- mounted, non-interactive, skipped by focus and by tap routing)
-				-- until the fade completes.
-				transition = { enter = "materialize", exit = "fade", class = TILE_MOTION },
-			}),
-		},
+		UI.ForEach({
+			id = "tiles",
+			items = items,
+			key = "id",
+			row = function(item)
+				return TileView({ item = item })
+			end,
+			transition = { enter = "materialize", exit = "fade", class = TILE_MOTION },
+		}),
 	})
-
-	-- ---- dealing ------------------------------------------------------------
 	local function dealBoard()
 		local grid = dealKinds()
 		tilesById = {}
@@ -636,20 +529,12 @@ local function build(Facet: any, core: any, deps: any)
 		publish()
 	end
 	dealBoard()
-
-	-- ---- the resolution state machine ---------------------------------------
-	-- A cascade is a sequence of phases with durations, which is exactly the
-	-- shape that tempts a `task.wait` loop. It gets none: `presenter.onTick` is
-	-- the one sanctioned frame source outside the motion clock, the hook is
-	-- registered only while the board is actually resolving, and the unsubscribe
-	-- is owned here.
 	local phase = "idle"
 	local elapsed = 0
 	local phaseLog: { string } = {}
 	local pendingSwap: { number }? = nil
 	local unsubTick: (() -> ())? = nil
 	local enterPhase: (name: string) -> ()
-
 	local function stopTicking()
 		if unsubTick ~= nil then
 			unsubTick()
@@ -657,20 +542,11 @@ local function build(Facet: any, core: any, deps: any)
 		end
 	end
 	gameScope:own(stopTicking)
-
 	local function tileAt(r: number, c: number): Tile?
 		return board[r][c]
 	end
-
-	--[[ WHAT AN ACCEPTED SWAP SAYS WHEN THE BOARD FINALLY STOPS.
-
-		The dead-end check is asked ONLY after a swap the board kept, exactly as
-		it was before this stage: a refused swap leaves the board it found, and
-		re-dealing under a player whose move was rejected would take the board
-		away from them mid-sentence. ]]
 	local clearedThisRun = 0
 	local swapScored = false
-
 	local function settleMessage()
 		if not swapScored then
 			return
@@ -678,19 +554,14 @@ local function build(Facet: any, core: any, deps: any)
 		local cleared = clearedThisRun
 		message:set(`Cleared {cleared} tiles.`)
 		if not hasLegalMove() then
-			-- a board with no move left is a dead end the player cannot see:
-			-- re-deal rather than let them tap forever
 			dealBoard()
 			message:set(`Cleared {cleared} tiles — no moves left, so the board was re-dealt.`)
 		end
 	end
-
-	-- each phase's ACTION runs when the phase is entered; the machine advances
-	-- when the phase's own duration has elapsed on the presenter's clock
 	local PHASE_ACTION: { [string]: () -> () } = {
 		swap = function()
 			local move = pendingSwap :: { number }
-			pres.withAnimation(TILE_MOTION, function()
+			core:transaction(function()
 				local a, b = tileAt(move[1], move[2]) :: Tile, tileAt(move[3], move[4]) :: Tile
 				a.row, a.col, b.row, b.col = b.row, b.col, a.row, a.col
 				board[a.row][a.col], board[b.row][b.col] = a, b
@@ -700,7 +571,7 @@ local function build(Facet: any, core: any, deps: any)
 		end,
 		revert = function()
 			local move = pendingSwap :: { number }
-			pres.withAnimation(TILE_MOTION, function()
+			core:transaction(function()
 				local a, b = tileAt(move[1], move[2]) :: Tile, tileAt(move[3], move[4]) :: Tile
 				a.row, a.col, b.row, b.col = b.row, b.col, a.row, a.col
 				board[a.row][a.col], board[b.row][b.col] = a, b
@@ -713,8 +584,8 @@ local function build(Facet: any, core: any, deps: any)
 			for key in findMatches() do
 				local rs, cs = key:match("(%d+),(%d+)")
 				local tile = board[tonumber(rs) :: number][tonumber(cs) :: number]
-				if tile ~= nil and tile.markSig ~= nil then
-					tile.markSig:set(true)
+				if tile ~= nil and tile.setMarked ~= nil then
+					tile.setMarked(true)
 				end
 			end
 		end,
@@ -734,13 +605,11 @@ local function build(Facet: any, core: any, deps: any)
 			if cleared > 0 then
 				score:set(score:get() + cleared)
 			end
-			-- the ids leave `items`; the region runs each row's EXIT and holds it
-			-- mounted-but-retiring until the fade completes
 			publish()
 			phaseLog[#phaseLog] = `remove:{cleared}`
 		end,
 		gravity = function()
-			pres.withAnimation(TILE_MOTION, function()
+			core:transaction(function()
 				for c = 1, COLS do
 					local stack: { Tile } = {}
 					for r = ROWS, 1, -1 do
@@ -761,9 +630,6 @@ local function build(Facet: any, core: any, deps: any)
 			end)
 		end,
 		refill = function()
-			-- new kinds are drawn column by column, bottom to top, which is the
-			-- order the dealer's own gravity draws in — so a replay of the same
-			-- seed lands on the same board
 			local added = 0
 			for c = 1, COLS do
 				local holes = 0
@@ -774,9 +640,6 @@ local function build(Facet: any, core: any, deps: any)
 				end
 				for r = holes, 1, -1 do
 					local tile = newTile(nextKind(), r, c)
-					-- it BELONGS to (r, c) from birth; it is merely painted and
-					-- arranged above the board for one phase, which is what
-					-- "entering from above" means
 					tile.spawnRow = r - holes
 					board[r][c] = tile
 					tilesById[tile.id] = tile
@@ -787,7 +650,7 @@ local function build(Facet: any, core: any, deps: any)
 			phaseLog[#phaseLog] = `refill:{added}`
 		end,
 		land = function()
-			pres.withAnimation(TILE_MOTION, function()
+			core:transaction(function()
 				for r = 1, ROWS do
 					for c = 1, COLS do
 						local tile = board[r][c]
@@ -808,7 +671,6 @@ local function build(Facet: any, core: any, deps: any)
 			swapScored = false
 		end,
 	}
-
 	enterPhase = function(name: string)
 		phase = name
 		elapsed = 0
@@ -818,7 +680,6 @@ local function build(Facet: any, core: any, deps: any)
 			action()
 		end
 	end
-
 	local function advance()
 		if phase == "swap" then
 			if next(findMatches()) ~= nil then
@@ -846,7 +707,6 @@ local function build(Facet: any, core: any, deps: any)
 			end
 		end
 	end
-
 	local function onFrame(dt: number)
 		local duration = PHASE_SECONDS[phase]
 		if duration == nil then
@@ -857,29 +717,18 @@ local function build(Facet: any, core: any, deps: any)
 			advance()
 		end
 	end
-
 	beginSwap = function(r1: number, c1: number, r2: number, c2: number)
 		pendingSwap = { r1, c1, r2, c2 }
 		clearedThisRun = 0
 		swapScored = false
 		resolving:set(true)
 		if unsubTick == nil then
-			-- the unsubscribe is ours to own; the scope holds it too, so a
-			-- teardown mid-cascade leaves no hook behind
 			unsubTick = pres.onTick(onFrame)
 		end
 		enterPhase("swap")
 	end
-
-	-- ---- select-then-swap ---------------------------------------------------
 	activateTile = function(tile: Tile)
 		if resolving:get() then
-			-- INPUT IS LOCKED WHILE THE BOARD RESOLVES, AND IT SAYS SO. A control
-			-- that ignores a tap without saying anything is indistinguishable from
-			-- a frozen game, so the refusal goes through the same message channel
-			-- every other refusal here uses. The tiles stay focusable on purpose:
-			-- disabling thirty-six controls would drop the focus ring out of the
-			-- board on every cascade and a pad player would have to walk back.
 			message:set("The board is still settling — wait for the tiles to land.")
 			return
 		end
@@ -889,22 +738,18 @@ local function build(Facet: any, core: any, deps: any)
 			selected:set({ r, c })
 			message:set("")
 		elseif sel[1] == r and sel[2] == c then
-			selected:set(nil) -- tapping the selected tile puts it down
+			selected:set(nil)
 			message:set("")
 		elseif math.abs(sel[1] - r) + math.abs(sel[2] - c) == 1 then
 			selected:set(nil)
 			message:set("")
-			beginSwap(sel[1], sel[2], r, c) -- adjacent: swap
+			beginSwap(sel[1], sel[2], r, c)
 		else
-			selected:set({ r, c }) -- non-adjacent: move the selection
+			selected:set({ r, c })
 			message:set("Tiles have to touch to swap. Pick a neighbour of the tile you chose.")
 		end
 	end
-
 	local function reset()
-		-- a reset abandons whatever the board was doing: the machine stops, its
-		-- frame hook goes with it, and a brand-new board is dealt with brand-new
-		-- tile ids (a re-deal is new tiles, not the old ones re-labelled)
 		stopTicking()
 		phase = "idle"
 		elapsed = 0
@@ -920,120 +765,82 @@ local function build(Facet: any, core: any, deps: any)
 		dealBoard()
 		message:set("")
 	end
-
-	-- ---- the instruction line ----------------------------------------------
-	local hint = reg(core:memo(function(use)
-		local said = use(message)
-		if said ~= "" then
-			return said
-		end
-		if use(resolving) then
-			return "The board is settling — tiles are clearing, dropping and refilling."
-		end
-		if use(selected) == nil then
-			return "Drag a tile onto a neighbor, or select two neighboring tiles. Three in a row clears."
-		end
-		return "Now tap a tile next to it — or tap the same tile again to put it down."
-	end))
-	local scoreText = reg(core:memo(function(use)
-		return `Score {use(score)}`
-	end))
-	local movesText = reg(core:memo(function(use)
-		return `{use(moves)} swaps`
-	end))
-
-	local screen = UI.Screen({
-		id = "Match3",
-		surface = "base",
-		padding = "m",
-		children = {
+	local hint: any
+	local Match3 = Facet.component(function(ui)
+		local messageNow = ui.read(message)
+		local resolvingNow = ui.read(resolving)
+		local selectedNow = ui.read(selected)
+		local scoreNow = ui.read(score)
+		local movesNow = ui.read(moves)
+		hint = ui.memo(function()
+			local said = messageNow()
+			if said ~= "" then
+				return said
+			end
+			if resolvingNow() then
+				return "The board is settling — tiles are clearing, dropping and refilling."
+			end
+			if selectedNow() == nil then
+				return "Drag a tile onto a neighbor, or select two neighboring tiles. Three in a row clears."
+			end
+			return "Now tap a tile next to it — or tap the same tile again to put it down."
+		end)
+		local scoreText = ui.memo(function()
+			return `Score {scoreNow()}`
+		end)
+		local movesText = ui.memo(function()
+			return `{movesNow()} swaps`
+		end)
+		return UI.Screen({
+			id = "Match3",
+			surface = "base",
+			padding = "m",
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = "Facet Match-3", textSize = "title" }),
-					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
-					-- ...AND THE SCORE ROW WRAPS, for the same reason the artwork
-					-- controls below do. `numeral` + `label` at the Largest text
-					-- preference measure 256+122 = 378px of a 328px phone row, and a
-					-- row that cannot wrap paints `0 swaps` off the right screen edge
-					-- (measured 2026-08-15: off x by 43px at +14, 82px at 320x640).
-					-- Neither figure is decoration — the move count is the thing the
-					-- player is playing against.
-					UI.HStack({
-						id = "Stats",
-						wrap = true,
-						gap = "m",
-						align = "center",
-						children = {
-							UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
-							UI.Text({ id = "Moves", text = movesText, textSize = "label", role = "secondary" }),
-						},
+				UI.Text({ id = "Title", text = "Facet Match-3", textSize = "title" }),
+				UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
+				UI.HStack({
+					id = "Stats",
+					wrap = true,
+					gap = "m",
+					align = "center",
+					UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
+					UI.Text({ id = "Moves", text = movesText, textSize = "label", role = "secondary" }),
+				}),
+				boardView,
+				UI.Text({ id = "ArtStatus", text = artStatus, textSize = "label", role = "secondary" }),
+				UI.Grid({
+					id = "Art",
+					minColumnWidth = "intrinsic",
+					gap = "s",
+					width = UI.fill(),
+					UI.Button({ id = "Reload", label = "Re-request artwork", onActivate = reloadArt }),
+					UI.Button({
+						id = "Deliver",
+						label = "Deliver artwork",
+						onActivate = function()
+							local n = deliverArt()
+							message:set(
+								if n > 0 then `Delivered {n} tile pictures.` else "Nothing was waiting to be delivered."
+							)
+						end,
 					}),
-					boardView,
-					UI.Text({ id = "ArtStatus", text = artStatus, textSize = "label", role = "secondary" }),
-					-- THE ARTWORK CONTROLS WRAP (device report 2026-08-12, IMG_3690:
-					-- "Fail a load" sliced by the right screen edge on a portrait
-					-- phone). Three buttons carrying full sentences need ~580px of
-					-- row; a 359px phone has 327. As an HStack the row simply painted
-					-- past its own box — the solver said so on every phone viewport
-					-- ("content overflows this hstack by 253px on the main axis") and
-					-- nothing read it.
-					--
-					-- A Grid with `minColumnWidth = "intrinsic"` is the declarative
-					-- form: the column count is derived from the widest child's own
-					-- measured width under the ACTIVE theme's font, every solve. One
-					-- column on a phone, one row on a desktop, and no viewport
-					-- arithmetic to keep in sync — the lesson's "state the intent, do
-					-- not compute the answer". The three buttons stay direct children,
-					-- so every path this example publishes is unchanged.
-					UI.Grid({
-						id = "Art",
-						minColumnWidth = "intrinsic",
-						gap = "s",
-						width = UI.fill(),
-						children = {
-							UI.Button({ id = "Reload", label = "Re-request artwork", onActivate = reloadArt }),
-							UI.Button({
-								id = "Deliver",
-								label = "Deliver artwork",
-								onActivate = function()
-									local n = deliverArt()
-									message:set(
-										if n > 0
-											then `Delivered {n} tile pictures.`
-											else "Nothing was waiting to be delivered."
-									)
-								end,
-							}),
-							UI.Button({ id = "Break", label = "Fail a load", onActivate = failArt }),
-						},
-					}),
-					UI.Button({ id = "Reset", label = "New board", onActivate = reset }),
-				},
+					UI.Button({ id = "Break", label = "Fail a load", onActivate = failArt }),
+				}),
+				UI.Button({ id = "Reset", label = "New board", onActivate = reset }),
 			}),
-		},
-	})
-
+		})
+	end)
+	local screen = Match3({})
 	local function tilePath(id: number): string
 		return `/Match3/Page/board/tiles/[{id}]/cell`
 	end
-
-	--[[ THE BOARD DECLARES ITS OWN 2D NAVIGATION.
-
-		A `UI.Grid` hands the presenter per-row navigation groups for free
-		(layout-derived groups), but a `UI.Anchor` has no rows to read —
-		free placement is the whole point of it — so an anchored board is one of
-		the "hand-wired screens" `navigationGroups` exists for. The board is one
-		RECTANGLE group (`columns`): left/right walk the lane, up/down
-		move a whole line and keep the lane. The two groups below it are the
-		artwork row and the reset button, declared here because pinning explicit
-		groups replaces the derivation for the WHOLE surface — leaving them out
-		would make everything under the board reachable by pointer and by nothing
-		else. ]]
+	-- THE BOARD DECLARES ITS OWN 2D NAVIGATION: tiles are freely placed in an
+	-- Anchor, so the layout cannot infer rows. Use the current board order.
 	local function navigationGroups(): any
 		local tiles: { string } = {}
 		for r = 1, ROWS do
@@ -1073,13 +880,7 @@ local function build(Facet: any, core: any, deps: any)
 			},
 		}
 	end
-
-	-- Each tile's node onActivate handles select/swap, and the board declares its
-	-- own navigation groups (above), so D-pad and arrow keys cross the board and
-	-- link into the artwork row and the New-board button.
 	local handle = pres.present(screen, { navigationGroups = navigationGroups })
-
-	-- ---- public / test API --------------------------------------------------
 	return {
 		title = "Match-3",
 		screen = screen,
@@ -1088,7 +889,6 @@ local function build(Facet: any, core: any, deps: any)
 		pendingImage = PENDING,
 		rows = ROWS,
 		cols = COLS,
-
 		kindAt = function(r: number, c: number): string
 			local tile = board[r][c]
 			return if tile ~= nil then tile.kind else ""
@@ -1110,7 +910,7 @@ local function build(Facet: any, core: any, deps: any)
 			return moves:get()
 		end,
 		hintText = function(): string
-			return hint:get()
+			return hint()
 		end,
 		artStatusText = function(): string
 			return artStatus:get()
@@ -1119,8 +919,6 @@ local function build(Facet: any, core: any, deps: any)
 		findMatches = findMatches,
 		reset = reset,
 		deliverArt = deliverArt,
-
-		-- identity, and the machine, for the tests that watch the middle of a move
 		tileIdAt = function(r: number, c: number): number?
 			local tile = board[r][c]
 			return if tile ~= nil then tile.id else nil
@@ -1150,7 +948,6 @@ local function build(Facet: any, core: any, deps: any)
 		tickHookActive = function(): boolean
 			return unsubTick ~= nil
 		end,
-
 		cellPath = function(r: number, c: number): string
 			local tile = board[r][c]
 			return if tile ~= nil then `{tilePath(tile.id)}/hit` else "/Match3/Page/board/tiles/[none]/cell/hit"
@@ -1171,9 +968,6 @@ local function build(Facet: any, core: any, deps: any)
 			end
 			beginSwap(r1, c1, r2, c2)
 		end,
-		-- test hook: install an exact board (no auto-resolve) so a swap scenario
-		-- is reproducible. The tiles keep their identity — only their kinds are
-		-- re-painted — so a scenario can be arranged without churning the board.
 		debugSetBoard = function(board2d: { { string } })
 			for r = 1, ROWS do
 				for c = 1, COLS do
@@ -1185,7 +979,6 @@ local function build(Facet: any, core: any, deps: any)
 			end
 			syncKinds()
 		end,
-
 		dispose = function()
 			stopTicking()
 			pres.dismiss(handle)
@@ -1193,7 +986,6 @@ local function build(Facet: any, core: any, deps: any)
 		end,
 	}
 end
-
 return {
 	title = "Match-3",
 	build = build,

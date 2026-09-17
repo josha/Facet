@@ -1047,6 +1047,60 @@ table.insert(ALLOWED_PROP_DRIFT, {
 -- the appearance and disappearance of nodes strictly under that prefix. Rect,
 -- hit-rect and prop drift on every node that still exists elsewhere is checked
 -- exactly as before, so this cannot be used to hide a regression next door.
+-- Signals authoring migration: these five tutorial actions now use the existing
+-- composite Button. Its Label child paints the copy; all other geometry remains
+-- checked. The switch uses the composite control's 44px minimum physical target,
+-- so it no longer needs the primitive's separate expanded hit rectangle.
+for _, path in { "AskInvalid", "Deliver", "Reset", "VolumeRow/VolMinus", "VolumeRow/VolPlus" } do
+	local full = "/Settings/Page/" .. path
+	table.insert(ALLOWED_PROP_DRIFT, {
+		path = full,
+		why = "Settings Sync uses View.Button: the standard composite paints its label in a child and derives enabled state.",
+	})
+	table.insert(
+		ALLOWED_NEW_NODES,
+		{ path = full .. "/Label", why = "The standard composite Button's label; the parent retains its action path." }
+	)
+end
+table.insert(ALLOWED_RECT_DRIFT, {
+	fixture = "03_settings_sync",
+	path = "/Settings/Page/Music",
+	why = "View.Toggle applies the standard 44px physical minimum; a separate expanded hit rectangle is no longer necessary. Real pointer changes and server rollback are covered by examples_gallery and the Studio drive.",
+})
+
+-- The remaining tutorial actions now use the same standard composite Button.
+-- Only props and the named Label child change: parent geometry and hit targets
+-- remain compared against the frozen baseline at every viewport.
+for _, path in
+	{
+		"/TempConverter/Page/Clear",
+		"/Playlist/Page/Restore",
+		"/DangerScreen/Page/Delete",
+		"/DangerScreen/Page/Restore",
+		"/Wordle/page/col/Restart",
+		"/TileGame/Page/Actions/Submit",
+		"/TileGame/Page/Actions/Undo",
+		"/TileGame/Page/Reset",
+		"/Match3/Page/Art/Break",
+		"/Match3/Page/Art/Deliver",
+		"/Match3/Page/Art/Reload",
+		"/Match3/Page/Reset",
+	}
+do
+	table.insert(ALLOWED_PROP_DRIFT, {
+		path = path,
+		why = "View.Button paints its copy in the standard Label child and defaults enabled to true; its action path and geometry are unchanged.",
+	})
+	table.insert(ALLOWED_NEW_NODES, {
+		path = path .. "/Label",
+		why = "The migrated tutorial's standard composite Button label.",
+	})
+end
+table.insert(ALLOWED_NEW_NODES, {
+	path = "/DangerScreen/ConfirmDialog",
+	why = "The declarative View.Alert owns a nonvisual, zero-size presentation anchor while the dialog is closed.",
+})
+
 local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = {
 	{
 		fixture = "07_match3",

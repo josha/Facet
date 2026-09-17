@@ -175,23 +175,22 @@ function brews.new(app: any): any
 			id = id,
 			gap = "s",
 			align = "center",
-			children = {
-				UI.Button({
-					id = "Open",
-					label = S.t("brews.open"),
-					compactLabel = if compact then { text = "Open" } else nil,
-					enabled = hasSelection,
-					onActivate = openSelected,
-				}),
-				UI.Button({
-					id = "Collect",
-					label = collectLabel,
-					compactLabel = if compact then { icon = "checkmark" } else nil,
-					surface = "accent",
-					enabled = hasSelection,
-					onActivate = collectSelected,
-				}),
-			},
+
+			UI.Button({
+				id = "Open",
+				label = S.t("brews.open"),
+				compactLabel = if compact then { text = "Open" } else nil,
+				enabled = hasSelection,
+				onActivate = openSelected,
+			}),
+			UI.Button({
+				id = "Collect",
+				label = collectLabel,
+				compactLabel = if compact then { icon = "checkmark" } else nil,
+				surface = "accent",
+				enabled = hasSelection,
+				onActivate = collectSelected,
+			}),
 		})
 	end
 
@@ -200,43 +199,43 @@ function brews.new(app: any): any
 		gap = "s",
 		align = "center",
 		width = UI.fill(),
-		children = {
-			UI.VStack({
-				id = "SearchSlot",
-				width = UI.fill(),
-				children = { search.blueprint },
-			}),
-			UI.When({
-				id = "SelectWhen",
-				condition = app.state.isCompact,
-				thenView = function()
-					return UI.Button({
-						id = "SelectMode",
-						label = core:memo(function(use)
-							return if use(selectionMode) then S.t("brews.selectDone") else S.t("brews.select")
-						end),
-						selected = selectionMode,
-						onActivate = function()
-							local on = not selectionMode:get()
-							selectionMode:set(on)
-							if not on then
-								listSelected:set({})
-							end
-						end,
-					})
-				end,
-			}),
-			UI.When({
-				id = "ActionsWhen",
-				condition = app.state.isTableMode,
-				thenView = function()
-					return UI.ViewThatFits({
-						id = "Actions",
-						children = { actionRow("Full", false), actionRow("Compact", true) },
-					})
-				end,
-			}),
-		},
+
+		UI.VStack({
+			id = "SearchSlot",
+			width = UI.fill(),
+			search.blueprint,
+		}),
+		UI.When({
+			id = "SelectWhen",
+			condition = app.state.isCompact,
+			thenView = function()
+				return UI.Button({
+					id = "SelectMode",
+					label = core:memo(function(use)
+						return if use(selectionMode) then S.t("brews.selectDone") else S.t("brews.select")
+					end),
+					selected = selectionMode,
+					onActivate = function()
+						local on = not selectionMode:get()
+						selectionMode:set(on)
+						if not on then
+							listSelected:set({})
+						end
+					end,
+				})
+			end,
+		}),
+		UI.When({
+			id = "ActionsWhen",
+			condition = app.state.isTableMode,
+			thenView = function()
+				return UI.ViewThatFits({
+					id = "Actions",
+					actionRow("Full", false),
+					actionRow("Compact", true),
+				})
+			end,
+		}),
 	})
 
 	-- "DISABLED STAYS INSPECTABLE" — on its own line. The reason the two toolbar
@@ -275,20 +274,19 @@ function brews.new(app: any): any
 			gap = "xs",
 			align = "center",
 			width = UI.fill(),
-			children = {
-				parts.thumbStack(app, "Thumbs", item.items, "iconSizes.large"),
-				-- the label TAKES the leftover instead of its natural width: a
-				-- column narrows with the table, and a fixed-width label inside one
-				-- paints over the cell beside it (7px on a landscape phone)
-				UI.Text({
-					id = "Id",
-					text = S.t("brews.rowLabel", { id = item.id }),
-					textSize = "label",
-					width = UI.fill(),
-					lineLimit = 1,
-					disclose = true,
-				}),
-			},
+
+			parts.thumbStack(app, "Thumbs", item.items, "iconSizes.large"),
+			-- the label TAKES the leftover instead of its natural width: a
+			-- column narrows with the table, and a fixed-width label inside one
+			-- paints over the cell beside it (7px on a landscape phone)
+			UI.Text({
+				id = "Id",
+				text = S.t("brews.rowLabel", { id = item.id }),
+				textSize = "label",
+				width = UI.fill(),
+				lineLimit = 1,
+				disclose = true,
+			}),
 		})
 	end
 
@@ -418,10 +416,9 @@ function brews.new(app: any): any
 				gap = "s",
 				align = "center",
 				padding = "xs",
-				children = {
-					UI.Text({ id = "Title", text = S.t("status." .. entry.status), textSize = "heading" }),
-					parts.badge(app, "Count", tostring(entry.count)),
-				},
+
+				UI.Text({ id = "Title", text = S.t("status." .. entry.status), textSize = "heading" }),
+				parts.badge(app, "Count", tostring(entry.count)),
 			})
 		end
 		local brew = entry.brew
@@ -431,50 +428,48 @@ function brews.new(app: any): any
 			gap = "s",
 			align = "center",
 			width = UI.fill(),
-			children = {
-				UI.When({
-					id = "PickWhen",
-					condition = selectionMode,
-					thenView = function()
-						return UI.Toggle({
-							id = "Pick",
-							label = S.t("brews.rowLabel", { id = brew.id }),
-							value = pickMemo(key),
-							onActivate = function()
-								local current = table.clone(listSelected:get() :: any)
-								if current[key] then
-									current[key] = nil
-								else
-									current[key] = true
-								end
-								listSelected:set(current)
-							end,
-						})
-					end,
+
+			UI.When({
+				id = "PickWhen",
+				condition = selectionMode,
+				thenView = function()
+					return UI.Toggle({
+						id = "Pick",
+						label = S.t("brews.rowLabel", { id = brew.id }),
+						value = pickMemo(key),
+						onActivate = function()
+							local current = table.clone(listSelected:get() :: any)
+							if current[key] then
+								current[key] = nil
+							else
+								current[key] = true
+							end
+							listSelected:set(current)
+						end,
+					})
+				end,
+			}),
+			UI.Button({
+				id = "Open",
+				label = S.t("brews.rowLabel", { id = brew.id }),
+				width = UI.fill(),
+				align = "center",
+				gap = "s",
+				onActivate = function()
+					app.actions.openBrew(brew.id)
+				end,
+
+				parts.thumbStack(app, "Thumbs", brew.items, "iconSizes.large"),
+				UI.Text({
+					id = "Name",
+					text = S.t("brews.rowLabel", { id = brew.id }),
+					textSize = "body",
+					lineLimit = 1,
+					disclose = true,
 				}),
-				UI.Button({
-					id = "Open",
-					label = S.t("brews.rowLabel", { id = brew.id }),
-					width = UI.fill(),
-					align = "center",
-					gap = "s",
-					onActivate = function()
-						app.actions.openBrew(brew.id)
-					end,
-					children = {
-						parts.thumbStack(app, "Thumbs", brew.items, "iconSizes.large"),
-						UI.Text({
-							id = "Name",
-							text = S.t("brews.rowLabel", { id = brew.id }),
-							textSize = "body",
-							lineLimit = 1,
-							disclose = true,
-						}),
-						UI.Spacer({ id = "Gap", width = UI.fill() }),
-						parts.badge(app, "Bottles", tostring(brew.bottles)),
-					},
-				}),
-			},
+				UI.Spacer({ id = "Gap", width = UI.fill() }),
+				parts.badge(app, "Bottles", tostring(brew.bottles)),
+			}),
 		})
 	end
 
@@ -484,16 +479,15 @@ function brews.new(app: any): any
 		gap = "xs",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.ForEach({
-				id = "Entries",
-				items = listEntries,
-				key = function(entry)
-					return entry.key
-				end,
-				row = listRow,
-			}),
-		},
+
+		UI.ForEach({
+			id = "Entries",
+			items = listEntries,
+			key = function(entry)
+				return entry.key
+			end,
+			row = listRow,
+		}),
 	})
 
 	-- the bottom band: bulk complete in LIST mode too
@@ -507,16 +501,15 @@ function brews.new(app: any): any
 				padding = "s",
 				align = "center",
 				width = UI.fill(),
-				children = {
-					UI.Button({
-						id = "CollectSelected",
-						label = collectLabel,
-						compactLabel = { icon = "checkmark" },
-						surface = "accent",
-						width = UI.fill(),
-						onActivate = collectSelected,
-					}),
-				},
+
+				UI.Button({
+					id = "CollectSelected",
+					label = collectLabel,
+					compactLabel = { icon = "checkmark" },
+					surface = "accent",
+					width = UI.fill(),
+					onActivate = collectSelected,
+				}),
 			})
 		end,
 	})
@@ -527,58 +520,56 @@ function brews.new(app: any): any
 		gap = "s",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.VStack({
-				id = "Body",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					UI.Text({ id = "Title", text = S.t("brews.title"), textSize = "title" }),
-					toolbar,
-					toolbarHint,
-					UI.When({
-						id = "TableWhen",
-						condition = app.state.isTableMode,
-						thenView = function()
-							return UI.ZStack({
-								id = "TableHost",
-								canvasGroup = true,
-								overflow = "clip",
-								width = UI.fill(),
-								height = UI.fill(),
-								children = { tableControl.blueprint },
-							})
-						end,
-						transition = { enter = "fade", class = "container" },
-					}),
-					UI.When({
-						id = "ListWhen",
-						condition = isListMode,
-						thenView = function()
-							return UI.ZStack({
-								id = "ListHost",
-								canvasGroup = true,
-								overflow = "clip",
-								width = UI.fill(),
-								height = UI.fill(),
-								children = { listBody },
-							})
-						end,
-						transition = { enter = "fade", class = "container" },
-					}),
-					-- an empty result says so in words rather than leaving a blank page
-					UI.When({
-						id = "EmptyWhen",
-						condition = isEmpty,
-						thenView = function()
-							return parts.empty(app, "Empty", S.t("brews.empty"))
-						end,
-					}),
-					selectBand,
-				},
+
+		UI.VStack({
+			id = "Body",
+			gap = "s",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			UI.Text({ id = "Title", text = S.t("brews.title"), textSize = "title" }),
+			toolbar,
+			toolbarHint,
+			UI.When({
+				id = "TableWhen",
+				condition = app.state.isTableMode,
+				thenView = function()
+					return UI.ZStack({
+						id = "TableHost",
+						canvasGroup = true,
+						overflow = "clip",
+						width = UI.fill(),
+						height = UI.fill(),
+						tableControl.blueprint,
+					})
+				end,
+				transition = { enter = "fade", class = "container" },
 			}),
-		},
+			UI.When({
+				id = "ListWhen",
+				condition = isListMode,
+				thenView = function()
+					return UI.ZStack({
+						id = "ListHost",
+						canvasGroup = true,
+						overflow = "clip",
+						width = UI.fill(),
+						height = UI.fill(),
+						listBody,
+					})
+				end,
+				transition = { enter = "fade", class = "container" },
+			}),
+			-- an empty result says so in words rather than leaving a blank page
+			UI.When({
+				id = "EmptyWhen",
+				condition = isEmpty,
+				thenView = function()
+					return parts.empty(app, "Empty", S.t("brews.empty"))
+				end,
+			}),
+			selectBand,
+		}),
 	})
 
 	function self.view(): any

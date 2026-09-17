@@ -218,77 +218,76 @@ return {
 			id = "Stage",
 			width = UI.fill(),
 			height = UI.fill(),
-			children = {
+
+			UI.Box({
+				id = "StageSurface",
+				surface = "base",
+				width = UI.fill(),
+				height = UI.fill(),
+			}),
+			slot("SlotA", "start", "start"),
+			slot("SlotB", "end", slotBAlignV),
+			UI.corners(
 				UI.Box({
-					id = "StageSurface",
-					surface = "base",
-					width = UI.fill(),
-					height = UI.fill(),
+					id = "Puck",
+					surface = "accent",
+					alignH = "start",
+					alignV = "start",
+					width = SLOT,
+					height = SLOT,
 				}),
-				slot("SlotA", "start", "start"),
-				slot("SlotB", "end", slotBAlignV),
-				UI.corners(
-					UI.Box({
-						id = "Puck",
-						surface = "accent",
-						alignH = "start",
-						alignV = "start",
-						width = SLOT,
-						height = SLOT,
-					}),
-					"pill"
-				),
-				-- THE CONTAINER CLASS, on a structural region. `materialize` is a
-				-- fading form, so its child is the declared fade group — that is the
-				-- framework's rule, and a plain Box here is an authoring error.
-				UI.When({
-					id = "PanelRegion",
-					condition = panelOpen,
-					transition = { enter = "materialize", class = "container" },
-					thenView = function()
-						return UI.shadow(
-							UI.corners(
-								UI.Box({
-									id = "Panel",
-									surface = "raised",
-									canvasGroup = true,
-									alignH = "center",
-									alignV = "center",
-									width = { type = "percent", fraction = 0.7 },
-									height = { type = "percent", fraction = 0.6 },
-								}),
-								"panel"
-							),
-							"overlay"
-						)
-					end,
+				"pill"
+			),
+			-- THE CONTAINER CLASS, on a structural region. `materialize` is a
+			-- fading form, so its child is the declared fade group — that is the
+			-- framework's rule, and a plain Box here is an authoring error.
+			UI.When({
+				id = "PanelRegion",
+				condition = panelOpen,
+				transition = { enter = "materialize", class = "container" },
+				thenView = function()
+					return UI.shadow(
+						UI.corners(
+							UI.Box({
+								id = "Panel",
+								surface = "raised",
+								canvasGroup = true,
+								alignH = "center",
+								alignV = "center",
+								width = { type = "percent", fraction = 0.7 },
+								height = { type = "percent", fraction = 0.6 },
+							}),
+							"panel"
+						),
+						"overlay"
+					)
+				end,
+			}),
+			UI.corners(
+				UI.Box({
+					id = "RewardChip",
+					surface = "control",
+					alignH = "center",
+					alignV = "end",
+					width = { type = "fixed", px = "controlSizes.regular.height" },
+					height = { type = "fixed", px = "controlSizes.compact.height" },
 				}),
-				UI.corners(
-					UI.Box({
-						id = "RewardChip",
-						surface = "control",
-						alignH = "center",
-						alignV = "end",
-						width = { type = "fixed", px = "controlSizes.regular.height" },
-						height = { type = "fixed", px = "controlSizes.compact.height" },
-					}),
-					"control"
-				),
-				-- SF-M8's dense scene: ≥20 concurrent springs, mounted only while the
-				-- stress step is on so the resting cost of the lab stays honest
-				UI.When({
-					id = "CloneRegion",
-					condition = stressOn,
-					thenView = function()
-						return UI.ZStack({
-							id = "Clones",
-							width = UI.fill(),
-							height = UI.fill(),
-							children = clones,
-						})
-					end,
-				}),
-			},
+				"control"
+			),
+			-- SF-M8's dense scene: ≥20 concurrent springs, mounted only while the
+			-- stress step is on so the resting cost of the lab stays honest
+			UI.When({
+				id = "CloneRegion",
+				condition = stressOn,
+				thenView = function()
+					return UI.ZStack({
+						id = "Clones",
+						width = UI.fill(),
+						height = UI.fill(),
+						children = clones,
+					})
+				end,
+			}),
 		})
 
 		local function control(id: string, label: string, onActivate: () -> ())
@@ -354,89 +353,84 @@ return {
 			id = "MotionLab",
 			padding = "m",
 			gap = "m",
-			children = {
-				UI.Text({ id = "Title", text = "Motion lab", textSize = "heading" }),
-				-- ONE tree, two intents: portrait stacks the stage over the controls,
-				-- landscape puts the controls in a trailing column. The Grid derives
-				-- its own column count, which is how the control row "wraps into two
-				-- rows" on a compact viewport without a device branch.
-				UI.AdaptiveStack({
-					id = "Main",
-					axis = conditions.axis,
-					gap = "m",
+
+			UI.Text({ id = "Title", text = "Motion lab", textSize = "heading" }),
+			-- ONE tree, two intents: portrait stacks the stage over the controls,
+			-- landscape puts the controls in a trailing column. The Grid derives
+			-- its own column count, which is how the control row "wraps into two
+			-- rows" on a compact viewport without a device branch.
+			UI.AdaptiveStack({
+				id = "Main",
+				axis = conditions.axis,
+				gap = "m",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.VStack({
+					id = "StageColumn",
+					gap = "s",
 					width = UI.fill(),
 					height = UI.fill(),
-					children = {
-						UI.VStack({
-							id = "StageColumn",
-							gap = "s",
+
+					stage,
+					-- the decay-wash subject, LABELED (director SFH-2: "decay
+					-- wash doesn't seem to do anything" — it worked, but an
+					-- anonymous strip gave the eye nothing to find). The label
+					-- names the button that drives it.
+					UI.ZStack({
+						id = "WashRow",
+						width = UI.fill(),
+						height = { type = "fixed", px = "targetSizes.minimum" },
+
+						UI.Box({
+							id = "WashFill",
+							surface = "control",
+							tint = wash,
 							width = UI.fill(),
 							height = UI.fill(),
-							children = {
-								stage,
-								-- the decay-wash subject, LABELED (director SFH-2: "decay
-								-- wash doesn't seem to do anything" — it worked, but an
-								-- anonymous strip gave the eye nothing to find). The label
-								-- names the button that drives it.
-								UI.ZStack({
-									id = "WashRow",
-									width = UI.fill(),
-									height = { type = "fixed", px = "targetSizes.minimum" },
-									children = {
-										UI.Box({
-											id = "WashFill",
-											surface = "control",
-											tint = wash,
-											width = UI.fill(),
-											height = UI.fill(),
-										}),
-										UI.Text({
-											id = "WashLabel",
-											text = "energy wash — press Hit",
-											role = "secondary",
-											alignH = "center",
-											alignV = "center",
-										}),
-									},
-								}),
-							},
 						}),
-						UI.Grid({
-							id = "Controls",
-							-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-							-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-							-- lets the WIDEST verb decide every column, so one long label costs this lab a
-							-- whole column on a 320px phone: the control grid doubles in height and the
-							-- `fill` stage column above it collapses to zero. This number asks the other
-							-- question — how many controls fit a row — and lets a long label compact.
-							minColumnWidth = 96,
-							gap = "s",
-							rowGap = "s",
-							width = UI.fill(),
-							children = {
-								control("BtnPanel", "Panel", function()
-									if panelOpen:get() then
-										closePanel()
-									else
-										openPanel()
-									end
-								end),
-								control("BtnFly", "Fly", function()
-									flyTo(SLOT_B, "SlotB")
-								end),
-								control("BtnToss", "Toss", function()
-									toss()
-								end),
-								control("BtnPop", "Pop", pop),
-								control("BtnHit", "Hit", hit),
-								control("BtnStress", "Stress", function()
-									stressOn:set(not stressOn:get())
-								end),
-							},
+						UI.Text({
+							id = "WashLabel",
+							text = "energy wash — press Hit",
+							role = "secondary",
+							alignH = "center",
+							alignV = "center",
 						}),
-					},
+					}),
 				}),
-			},
+				UI.Grid({
+					id = "Controls",
+					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+					-- lets the WIDEST verb decide every column, so one long label costs this lab a
+					-- whole column on a 320px phone: the control grid doubles in height and the
+					-- `fill` stage column above it collapses to zero. This number asks the other
+					-- question — how many controls fit a row — and lets a long label compact.
+					minColumnWidth = 96,
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
+
+					control("BtnPanel", "Panel", function()
+						if panelOpen:get() then
+							closePanel()
+						else
+							openPanel()
+						end
+					end),
+					control("BtnFly", "Fly", function()
+						flyTo(SLOT_B, "SlotB")
+					end),
+					control("BtnToss", "Toss", function()
+						toss()
+					end),
+					control("BtnPop", "Pop", pop),
+					control("BtnHit", "Hit", hit),
+					control("BtnStress", "Stress", function()
+						stressOn:set(not stressOn:get())
+					end),
+				}),
+			}),
 		})
 
 		local function startStress()

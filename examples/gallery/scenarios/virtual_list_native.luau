@@ -18,7 +18,7 @@ return {
 	title = "VirtualList on the native canvas (NS-A4)",
 	ledgerRows = { "NS-A4", "NS-A3" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
+		local UI = ctx.Facet.View
 		local core = ctx.core
 		local scope = core:scope("virtual-list-native")
 
@@ -106,10 +106,9 @@ return {
 			id = "VLNative",
 			padding = "m",
 			gap = "s",
-			children = {
-				UI.Text({ id = "Title", text = "VirtualList x2000 (native canvas)", textSize = 22 }),
-				list.blueprint,
-			},
+
+			UI.Text({ id = "Title", text = "VirtualList x2000 (native canvas)", textSize = 22 }),
+			list.blueprint,
 		})
 
 		local unbind: any = nil

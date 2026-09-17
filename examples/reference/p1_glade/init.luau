@@ -381,7 +381,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				id = "GladeToast",
 				surface = "raised",
 				padding = "m",
-				children = { UI.Text({ id = "Line", text = copy, textSize = "label" }) },
+				UI.Text({ id = "Line", text = copy, textSize = "label" }),
 			}),
 			{ key = key, duration = 4, position = "top" }
 		)
@@ -968,41 +968,39 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			-- not one of these regions, so it reads in the ring where it is PAINTED —
 			-- the leading rail before the content, the bottom bar after it — and that
 			-- rule is now the construct's rather than this file's.
-			children = {
-				UI.Region({
-					id = "Section",
-					group = "content",
-					rank = 1,
-					sizing = "fill",
-					mayScroll = true,
-					floor = { lines = 3 },
-					children = {
-						UI.ZStack({
-							id = "Body_" .. id,
-							-- A SECTION PLATE CLIPS, AND SAYS SO — and `overflow = "clip"` is
-							-- itself a clip host, so the plate keeps clipping while the one
-							-- canvasGroup this pane spends sits where the fade needs it.
-							overflow = "clip",
-							width = UI.fill(),
-							height = UI.fill(),
-							children = { build(ctx) },
-						}),
-					},
+
+			UI.Region({
+				id = "Section",
+				group = "content",
+				rank = 1,
+				sizing = "fill",
+				mayScroll = true,
+				floor = { lines = 3 },
+
+				UI.ZStack({
+					id = "Body_" .. id,
+					-- A SECTION PLATE CLIPS, AND SAYS SO — and `overflow = "clip"` is
+					-- itself a clip host, so the plate keeps clipping while the one
+					-- canvasGroup this pane spends sits where the fade needs it.
+					overflow = "clip",
+					width = UI.fill(),
+					height = UI.fill(),
+					build(ctx),
 				}),
-				UI.Region({
-					id = "Detail",
-					group = "detail",
-					rank = 2,
-					children = { detailLane },
-				}),
-			},
+			}),
+			UI.Region({
+				id = "Detail",
+				group = "detail",
+				rank = 2,
+				detailLane,
+			}),
 		})
 		return UI.ZStack({
 			id = "Pane_" .. id,
 			canvasGroup = true,
 			width = UI.fill(),
 			height = UI.fill(),
-			children = { pane },
+			pane,
 		})
 	end
 
@@ -1029,7 +1027,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		})
 	end
 
-	local navBar = scope:own(Facet.Controls.TabView(core, {
+	local navBar = Facet.View.TabView({
 		id = "Nav",
 		-- the proof's own section Signal, unchanged: everything that must survive a
 		-- tab switch is owned OUTSIDE the construct, and this is the first one
@@ -1061,7 +1059,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				return UI.Text({ id = "Wordmark", text = L("app.title"), textSize = "title", lineLimit = 1 })
 			end,
 		},
-	}))
+	})
 
 	--[[ THE TASK STRIP SITS ABOVE THE NAV, and it is ONE LINE by construction —
 		both of its texts declare `lineLimit = 1` with `disclose`, so it costs one
@@ -1075,7 +1073,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		gap = 0,
 		width = UI.fill(),
 		height = UI.fill(),
-		children = { taskUI.strip(ctx), navBar.blueprint },
+		taskUI.strip(ctx),
+		navBar,
 	})
 	local detailTitle = scope:own(core:memo(function(use)
 		local _ = use(locale)
@@ -1129,7 +1128,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			detailFlow.api.popToRoot()
 		end
 	end))
-	local screen = UI.Screen({ id = "Glade", surface = "base", children = { detailFlow.blueprint } })
+	local screen = UI.Screen({ id = "Glade", surface = "base", detailFlow.blueprint })
 
 	-- ---- the frame tick -----------------------------------------------------
 	-- The proof's ONE frame source, and it is the presenter's own: no second

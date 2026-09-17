@@ -201,59 +201,55 @@ return {
 			id = "MarkerLab",
 			padding = "m",
 			gap = "s",
-			children = {
-				UI.Text({ id = "Title", text = "Marker lab", textSize = "heading" }),
-				UI.ZStack({
-					id = "Stage",
+
+			UI.Text({ id = "Title", text = "Marker lab", textSize = "heading" }),
+			UI.ZStack({
+				id = "Stage",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.corners(
+					UI.Box({
+						id = "Map",
+						surface = "raised",
+						width = UI.fill(),
+						height = UI.fill(),
+					}),
+					"panel"
+				),
+				UI.Anchor({
+					id = "Overlay",
 					width = UI.fill(),
 					height = UI.fill(),
-					children = {
-						UI.corners(
-							UI.Box({
-								id = "Map",
-								surface = "raised",
-								width = UI.fill(),
-								height = UI.fill(),
-							}),
-							"panel"
-						),
-						UI.Anchor({
-							id = "Overlay",
-							width = UI.fill(),
-							height = UI.fill(),
-							children = {
-								UI.ForEach({
-									id = "Markers",
-									items = markers,
-									key = function(item: any)
-										return item.key
-									end,
-									row = markerView,
-									transition = { enter = "fade", class = "container" },
-								}),
-							},
-						}),
-					},
+
+					UI.ForEach({
+						id = "Markers",
+						items = markers,
+						key = function(item: any)
+							return item.key
+						end,
+						row = markerView,
+						transition = { enter = "fade", class = "container" },
+					}),
 				}),
-				UI.Grid({
-					id = "Controls",
-					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-					-- lets the WIDEST verb decide every column, so one long label costs this lab a
-					-- whole column on a 320px phone: the control grid doubles in height and the
-					-- `fill` stage column above it collapses to zero. This number asks the other
-					-- question — how many controls fit a row — and lets a long label compact.
-					minColumnWidth = 104,
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
-					children = {
-						control("BtnOrbit", "Orbit", toggleOrbit),
-						control("BtnBurst", "Burst", burst),
-						control("BtnAddRemove", "AddRemove", addRemove),
-					},
-				}),
-			},
+			}),
+			UI.Grid({
+				id = "Controls",
+				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+				-- lets the WIDEST verb decide every column, so one long label costs this lab a
+				-- whole column on a 320px phone: the control grid doubles in height and the
+				-- `fill` stage column above it collapses to zero. This number asks the other
+				-- question — how many controls fit a row — and lets a long label compact.
+				minColumnWidth = 104,
+				gap = "s",
+				rowGap = "s",
+				width = UI.fill(),
+
+				control("BtnOrbit", "Orbit", toggleOrbit),
+				control("BtnBurst", "Burst", burst),
+				control("BtnAddRemove", "AddRemove", addRemove),
+			}),
 		})
 
 		local function geometryNow(): any

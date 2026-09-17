@@ -36,25 +36,23 @@ function entryCompact.build(app: any): any
 		id = "SipworksCompact",
 		padding = 0,
 		surface = "base",
-		children = {
-			UI.VStack({
-				id = "Menu",
-				gap = "s",
-				padding = "s",
-				width = dims.fill,
-				height = dims.fill,
-				children = {
-					listView.searchBar(app),
-					listView.blendList(app, {
-						id = "List",
-						items = items,
-						onActivate = function(blendId: string)
-							app.commands.openBlend(blendId, "menu")
-						end,
-					}),
-				},
+
+		UI.VStack({
+			id = "Menu",
+			gap = "s",
+			padding = "s",
+			width = dims.fill,
+			height = dims.fill,
+
+			listView.searchBar(app),
+			listView.blendList(app, {
+				id = "List",
+				items = items,
+				onActivate = function(blendId: string)
+					app.commands.openBlend(blendId, "menu")
+				end,
 			}),
-		},
+		}),
 	})
 end
 

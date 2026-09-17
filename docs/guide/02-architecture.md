@@ -11,7 +11,7 @@ All source lives under `src/`. Grouped by responsibility:
 
 | Area | Files | Responsibility |
 |---|---|---|
-| **core** | `core/custom.luau`, `core/contract.luau`, `core/scope_impl.luau` | The reactive runtime: signals, memos, observers, effects, transactions, and scopes. No engine, no layout — just reactive values and their dependencies. |
+| **core** | `core/signals.luau`, `vendor/signals/`, `core/scope_impl.luau` | Official Roblox Signals provides the graph; Facet provides ordered observers, effects, transactions, recovery and scopes. No engine, no layout — just reactive values and their dependencies. |
 | **blueprint** | `blueprint.luau` | The declarative constructors (`UI.Screen`, `UI.Text`, `UI.Button`, `UI.When`, `UI.ForEach`, `UI.ErrorBoundary`, the style modifiers). Produces frozen data tables only. |
 | **mount** | `mount.luau` | Turns a blueprint into a live **mounted node graph**: runs each node's setup exactly once, subscribes changing props, and records what changed in a *dirty queue*. Only structural nodes (`When`/`ForEach`) may add or remove nodes later. |
 | **layout** | `layout/solver.luau`, `layout/text_metrics.luau`, `layout/dump.luau` | Pure two-pass geometry math. Given a snapshot of the tree and a viewport size, it produces a rectangle for every node. It never reads a signal or an `Instance`. |
@@ -114,9 +114,10 @@ enforce it.
 `controls/table.luau` and `controls/virtual_list.luau` are not special engine
 code — they are ordinary functions that *assemble the primitive blueprints* into
 something bigger. A table row, for instance, is a `ZStack` layering a full-row
-`Button` under an `HStack` of cells. You build your own composite controls the
-same way: a function that returns a blueprint (and, if it holds reactive state,
-owns a scope for it). Nothing about a composite control reaches past the public
+`Button` under an `HStack` of cells. For application composition, use `Facet.component` and `Facet.View`: local
+state and controls inherit the mounted component lifetime. Library control
+implementations use the explicit primitive/handle layer described in the
+[control playbook](../extending/new-control.md). Nothing about a composite control reaches past the public
 blueprint constructors.
 
 ### Render-target adapter

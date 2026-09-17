@@ -306,58 +306,56 @@ return {
 				anchor = "center",
 				offsetX = offset,
 				offsetY = bodyY,
-				children = {
-					UI.Box({
-						id = "Head",
-						tint = { role = "control", blend = 1 },
-						width = { type = "fixed", px = 32 },
-						height = { type = "fixed", px = 32 },
-						anchor = "top",
-						corners = UI.cornersData("pill"),
-					}),
-					UI.Box({
-						id = "Coat",
-						tint = { role = "accent", blend = 1 },
-						width = { type = "fixed", px = 40 },
-						height = { type = "fixed", px = 46 },
-						anchor = "center",
-						corners = UI.cornersData("pill"),
-					}),
-					UI.Box({
-						id = "Arm",
-						tint = { role = "accent", blend = 1 },
-						width = { type = "fixed", px = 12 },
-						height = { type = "fixed", px = 42 },
-						offsetX = 60,
-						offsetY = 30,
-						rotation = armAngle,
-					}),
-					UI.Box({
-						id = "LegLeft",
-						tint = { role = "control", blend = 1 },
-						width = { type = "fixed", px = 13 },
-						height = { type = "fixed", px = 30 },
-						offsetX = 21,
-						offsetY = 78,
-					}),
-					UI.Box({
-						id = "LegRight",
-						tint = { role = "control", blend = 1 },
-						width = { type = "fixed", px = 13 },
-						height = { type = "fixed", px = 30 },
-						offsetX = 43,
-						offsetY = 78,
-					}),
-				},
+
+				UI.Box({
+					id = "Head",
+					tint = { role = "control", blend = 1 },
+					width = { type = "fixed", px = 32 },
+					height = { type = "fixed", px = 32 },
+					anchor = "top",
+					corners = UI.cornersData("pill"),
+				}),
+				UI.Box({
+					id = "Coat",
+					tint = { role = "accent", blend = 1 },
+					width = { type = "fixed", px = 40 },
+					height = { type = "fixed", px = 46 },
+					anchor = "center",
+					corners = UI.cornersData("pill"),
+				}),
+				UI.Box({
+					id = "Arm",
+					tint = { role = "accent", blend = 1 },
+					width = { type = "fixed", px = 12 },
+					height = { type = "fixed", px = 42 },
+					offsetX = 60,
+					offsetY = 30,
+					rotation = armAngle,
+				}),
+				UI.Box({
+					id = "LegLeft",
+					tint = { role = "control", blend = 1 },
+					width = { type = "fixed", px = 13 },
+					height = { type = "fixed", px = 30 },
+					offsetX = 21,
+					offsetY = 78,
+				}),
+				UI.Box({
+					id = "LegRight",
+					tint = { role = "control", blend = 1 },
+					width = { type = "fixed", px = 13 },
+					height = { type = "fixed", px = 30 },
+					offsetX = 43,
+					offsetY = 78,
+				}),
 			})
 			local root = UI.Anchor({
 				id = "Scene",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					if item.kind == "world" then UI.Spacer({ width = UI.fill(), height = UI.fill() }) else silhouette,
-					menu.blueprint,
-				},
+
+				if item.kind == "world" then UI.Spacer({ width = UI.fill(), height = UI.fill() }) else silhouette,
+				menu.blueprint,
 			})
 			return Facet.contribution.attach(root, {
 				syncGeometry = function(rectOf, node)
@@ -424,7 +422,7 @@ return {
 					else "Open this example in Roblox to try a nearby item’s Actions prompt.")
 				else "Open your commands. Equipment leads to Tools. The explorer stays in view."
 		end))
-		local disclosure = scope:own(Facet.Controls.DisclosureGroup(core, {
+		local disclosure = Facet.View.DisclosureGroup({
 			id = "Advanced",
 			label = "More options",
 			expanded = advanced,
@@ -432,42 +430,41 @@ return {
 				return UI.VStack({
 					gap = "s",
 					width = UI.fill(),
-					children = {
-						UI.Button({
-							id = "ContentFit",
-							label = scope:own(core:memo(function(use)
-								return "Arc shape: " .. fitNames[use(fitting)]
-							end)),
-							onActivate = function()
-								fitting:set(fitModes[(table.find(fitModes, fitting:get()) :: number) % #fitModes + 1])
-							end,
-						}),
-						UI.Button({
-							id = "CornerPosition",
-							label = scope:own(core:memo(function(use)
-								return "Corner: " .. use(corner)
-							end)),
-							onActivate = function()
-								corner:set(corners[(table.find(corners, corner:get()) :: number) % #corners + 1])
-							end,
-						}),
-						UI.Toggle({ id = "Separate", label = "Separate character icons", value = separate }),
-						UI.Toggle({ id = "Skin", label = "Jewel buttons", value = skinned }),
-						UI.Toggle({ id = "Move", label = "Let the explorer wander", value = moving }),
-						UI.Toggle({ id = "PassThrough", label = "Allow taps through the center", value = passThrough }),
-						UI.Button({
-							id = "CenterPolicy",
-							label = scope:own(core:memo(function(use)
-								return "Center: " .. use(centerPolicy)
-							end)),
-							onActivate = function()
-								centerPolicy:set(if centerPolicy:get() == "empty" then "back" else "empty")
-							end,
-						}),
-					},
+
+					UI.Button({
+						id = "ContentFit",
+						label = scope:own(core:memo(function(use)
+							return "Arc shape: " .. fitNames[use(fitting)]
+						end)),
+						onActivate = function()
+							fitting:set(fitModes[(table.find(fitModes, fitting:get()) :: number) % #fitModes + 1])
+						end,
+					}),
+					UI.Button({
+						id = "CornerPosition",
+						label = scope:own(core:memo(function(use)
+							return "Corner: " .. use(corner)
+						end)),
+						onActivate = function()
+							corner:set(corners[(table.find(corners, corner:get()) :: number) % #corners + 1])
+						end,
+					}),
+					UI.Toggle({ id = "Separate", label = "Separate character icons", value = separate }),
+					UI.Toggle({ id = "Skin", label = "Jewel buttons", value = skinned }),
+					UI.Toggle({ id = "Move", label = "Let the explorer wander", value = moving }),
+					UI.Toggle({ id = "PassThrough", label = "Allow taps through the center", value = passThrough }),
+					UI.Button({
+						id = "CenterPolicy",
+						label = scope:own(core:memo(function(use)
+							return "Center: " .. use(centerPolicy)
+						end)),
+						onActivate = function()
+							centerPolicy:set(if centerPolicy:get() == "empty" then "back" else "empty")
+						end,
+					}),
 				})
 			end,
-		}))
+		})
 		local function sceneRows()
 			return UI.ForEach({
 				id = "Scenes",
@@ -485,25 +482,23 @@ return {
 					id = "InstructionPlate",
 					surface = "base",
 					width = UI.fill(),
-					children = {
-						UI.Text({
-							id = "Instruction",
-							text = instruction,
-							width = UI.fill(),
-							textSize = "caption",
-							disclose = true,
-						}),
-					},
+
+					UI.Text({
+						id = "Instruction",
+						text = instruction,
+						width = UI.fill(),
+						textSize = "caption",
+						disclose = true,
+					}),
 				}),
 				UI.ZStack({
 					id = "ResultPlate",
 					surface = "base",
 					width = UI.fill(),
-					children = {
-						UI.Text({ id = "Result", text = status, width = UI.fill(), textSize = "body", disclose = true }),
-					},
+
+					UI.Text({ id = "Result", text = status, width = UI.fill(), textSize = "body", disclose = true }),
 				}),
-				disclosure.blueprint,
+				disclosure,
 			}
 		end
 		local compact = scope:own(core:memo(function(use)
@@ -514,50 +509,48 @@ return {
 			screen = UI.Screen({
 				id = "RadialMenu",
 				padding = "m",
-				children = {
-					UI.When({
-						id = "Arrangement",
-						condition = compact,
-						thenView = function()
-							local sidebar = controls()
-							-- Stack the three destinations where their horizontal compact
-							-- forms would compete with the command surface.
-							sidebar[1] = UI.VStack({ id = "Tabs", width = UI.fill(), gap = "xs", children = tabs })
-							return UI.HStack({
-								width = UI.fill(),
+
+				UI.When({
+					id = "Arrangement",
+					condition = compact,
+					thenView = function()
+						local sidebar = controls()
+						-- Stack the three destinations where their horizontal compact
+						-- forms would compete with the command surface.
+						sidebar[1] = UI.VStack({ id = "Tabs", width = UI.fill(), gap = "xs", children = tabs })
+						return UI.HStack({
+							width = UI.fill(),
+							height = UI.fill(),
+							gap = "s",
+
+							UI.ScrollView({
+								id = "Options",
+								padding = { right = "s" },
+								width = scope:own(core:memo(function(use)
+									return {
+										type = "fixed",
+										px = math.clamp(use(env:get("viewportRect")).w * 0.38, 110, 240),
+									}
+								end)),
 								height = UI.fill(),
 								gap = "s",
-								children = {
-									UI.ScrollView({
-										id = "Options",
-										padding = { right = "s" },
-										width = scope:own(core:memo(function(use)
-											return {
-												type = "fixed",
-												px = math.clamp(use(env:get("viewportRect")).w * 0.38, 110, 240),
-											}
-										end)),
-										height = UI.fill(),
-										gap = "s",
-										children = sidebar,
-									}),
-									sceneRows(),
-								},
-							})
-						end,
-					}),
-					UI.When({
-						id = "TallArrangement",
-						condition = scope:own(core:memo(function(use)
-							return not use(compact)
-						end)),
-						thenView = function()
-							local content = controls()
-							table.insert(content, 3, sceneRows())
-							return UI.VStack({ width = UI.fill(), height = UI.fill(), gap = "s", children = content })
-						end,
-					}),
-				},
+								children = sidebar,
+							}),
+							sceneRows(),
+						})
+					end,
+				}),
+				UI.When({
+					id = "TallArrangement",
+					condition = scope:own(core:memo(function(use)
+						return not use(compact)
+					end)),
+					thenView = function()
+						local content = controls()
+						table.insert(content, 3, sceneRows())
+						return UI.VStack({ width = UI.fill(), height = UI.fill(), gap = "s", children = content })
+					end,
+				}),
 			}),
 			steps = {
 				world = function()

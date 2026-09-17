@@ -13,6 +13,7 @@ conversation history, or any repository other than this one.
 
 | You need | Read |
 |---|---|
+| the current authoring model, state, ownership, collections and animation | [`docs/guide/15-components.md`](docs/guide/15-components.md) |
 | the smallest working screen, headless and in Studio | [`docs/guide/03-getting-started.md`](docs/guide/03-getting-started.md) |
 | every public capability, one line each | the capability catalog in [`docs/guide/README.md`](docs/guide/README.md) |
 | a property, default, callback, or return value | [`docs/reference/api.md`](docs/reference/api.md) |
@@ -43,8 +44,9 @@ Before selecting controls for a new screen, apply
 [`Choosing controls`](docs/guide/14-choosing-controls.md). Use its task and input
 criteria to decide whether contextual radial actions are appropriate, then choose
 the documented geometry, content-fit, navigation, and completion options. For
-brief confirmations, use `Controls.Alert` and its `present(presenter)` method;
-the component owns responsive sizing, actions, focus and cancellation. Use
+brief confirmations, declare `View.Alert` with `isPresented` and `onPresentedChange`, or
+`View.Button.confirm` for a single action; the control owns responsive sizing,
+actions, focus and cancellation. Use
 `presentModal` directly for substantial custom modal tasks. For
 proximity actions around world objects, use the public `client.world_anchor`
 binding and the chooser’s world-object guidance. Prefer a direct prompt for one
@@ -60,7 +62,7 @@ Follow this order for every UI requirement, including whole-screen layouts and r
 
 First inspect the host screen as well as the control catalog. Reuse its existing
 toolbar, settings, and navigation composition: a new action usually needs a
-`Controls.Button` in that surface, not another piece of chrome. Before adding a
+`View.Button` in that surface, not another piece of chrome. Before adding a
 control, wrapper, or alternative presentation, identify the concrete requirement
 the closest existing control and host composition cannot express. Follow the
 [composition guidance](docs/guide/14-choosing-controls.md#compose-in-the-existing-screen).
@@ -81,15 +83,20 @@ The ordinary implementation rules below apply unless that documented last-resort
 fallback is necessary. Do not start with native Roblox controls or a separate
 custom input/layout system and then attempt to wrap Facet around it.
 
-1. **Compose from the public surface.** Layout comes from `Facet.UI.*` — stacks,
+1. **Compose from the public surface.** For new code, use `Facet.component` and
+   `Facet.View` ([component authoring](docs/guide/15-components.md)). The explicit
+   handle API remains available: layout comes from `Facet.UI.*` — stacks,
    grids, `ZStack`, `Composition`, and the layout modifiers. Controls come from
    `Facet.Controls.<Name>(core, spec)`. The catalog in the guide index lists every
    one; the API reference gives each one its properties.
-2. **Bind state, do not push it.** Hold semantic state in a signal or memo from
-   `Facet.newCore()`, and pass the readable value as a property. Facet subscribes
-   and repaints the property that changed. A plain value is fixed for the life of
-   the node. Your data stays yours: a control reads and writes the signal you own
-   and keeps nothing important of its own.
+2. **Keep local state in the component.** Use `ui.state`, property getters and
+   controlled callbacks (`value = enabled, onChange = setEnabled`). A getter reads;
+   a callback commands. Use `ui.memo` for shared/expensive derived work, `ui.watch`
+   for external reactions, and `ui.effect` when cleanup must run before the next
+   effect. Borrow shared model state with `ui.read`; `:get()` is untracked. The
+   component owns these resources automatically. Use `ui.own` only for external
+   resources or an explicitly needed control handle. Application/model lifetimes
+   may still use Core scopes.
 3. **Give the game its own theme.** Derive/customize a package to match its art
    direction, including real image/vector icons rather than text substitutes.
    See [Custom themes](docs/guide/09-custom-themes.md) for backgrounds, icon
@@ -119,6 +126,27 @@ custom input/layout system and then attempt to wrap Facet around it.
    large scrolling collections; document a reason when keeping them fully
    mounted. Keep durable row state in the model and let the control own
    windowing, scrolling and focus.
+
+**Examples are part of the API.** Maintained examples, guide snippets and new
+feature scenarios must teach the same current authoring vocabulary. Prefer dense
+numeric children, `UI.When { condition = open, Details {} }`, stable collection
+keys (`key = "id"`), current-item getters and row components. Keep durable row
+state in the model. Never introduce a second state/ownership facade just to keep
+old example code working.
+
+Declare ordinary motion where it belongs: `animation = { layout = "container" }`
+on a layout, local paint animation on a node, and `transition` for insertion or
+removal. Use `ui.animate` only when another calculation needs an animated number;
+reserve `ui.withAnimation` for exceptional action-scoped coordination. Native
+StyleRule paint transitions and reduced-motion handling come from the host.
+
+A low-level constructor in an example needs a concrete reason: implementing a
+control, testing primitive contracts, inspecting an imperative handle, or owning
+state outside a mounted view. Name that reason beside the code and link the
+ordinary component recipe. Do not copy low-level verification fixtures into new
+application UI. Historical plans and before/after migration examples are records,
+not current templates. When a feature changes, update its example and teaching
+snippet in the same change and exercise the mounted example.
 
 ## 3. Choosing where the interface lives
 
@@ -217,8 +245,9 @@ Outside the documented last-resort fallback in §2, each of these is a defect:
 
 ## 7. Two standing facts
 
-- **Facet's reactive core is its own**, in `src/core/`. Facet depends on no
-  third-party user-interface or reactivity library at runtime.
+- **Roblox Signals owns the reactive graph.** `src/core/signals.luau` adds Facet
+  ownership, ordered delivery, error recovery and settling. The upstream code and
+  MIT notice are pinned under `src/vendor/signals`; no other vendor is allowed.
 - **`Facet.VERSION` is the version, and it lives in one place**, `src/init.luau`.
   The compatibility policy is
   [`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation); the

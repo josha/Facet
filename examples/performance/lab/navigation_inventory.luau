@@ -39,15 +39,14 @@ function inventory.build(Facet: any, core: any, images: { string }): any
 						width = UI.fill(),
 						height = UI.fill(),
 						navigation = { targets = { "Cars" } },
-						children = {
-							UI.focusSection(UI.Grid({
-								id = "Cars",
-								minColumnWidth = 180,
-								gap = "m",
-								width = UI.fill(),
-								children = cards,
-							})),
-						},
+
+						UI.focusSection(UI.Grid({
+							id = "Cars",
+							minColumnWidth = 180,
+							gap = "m",
+							width = UI.fill(),
+							children = cards,
+						})),
 					})
 				end,
 			},
@@ -68,7 +67,7 @@ function inventory.build(Facet: any, core: any, images: { string }): any
 		},
 	})
 	return {
-		screen = UI.Screen({ id = "S", children = { tabs.blueprint } }),
+		screen = UI.Screen({ id = "S", tabs.blueprint }),
 		tabs = tabs,
 		selected = selected,
 		customization = customization,

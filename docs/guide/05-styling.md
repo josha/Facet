@@ -7,7 +7,7 @@ corners. The core idea: styling is *data* until the very last moment.
 > **How this chapter is arranged.** §5.1–5.6 describe the token and adapter
 > styling every screen gets by default. Two layers sit on top of that. Runtime
 > paint, native interaction states, and Dark/Light themes move to Roblox
-> StyleSheets in §5.7, plus optional transitions. Then §5.8 adds versioned
+> StyleSheets in §5.7, plus native paint transitions. Then §5.8 adds versioned
 > theme packages, which also own typography, metrics, insets, and nine-slice
 > chrome. The full walkthrough for building one is [chapter 9](09-custom-themes.md).
 
@@ -167,10 +167,10 @@ team hue, an energy blend. Written on a `Box`, `Text`, `Image`, `Path` or
 there and becomes **the tint the whole subtree paints with**:
 
 ```lua
-UI.VStack({ id = "Team", tint = { role = "accent", blend = heat }, children = {
+UI.VStack({ id = "Team", tint = { role = "accent", blend = heat },
     UI.Text({ id = "Name", text = racer }),
     UI.Image({ id = "Crest", image = crest }),
-} })
+ })
 ```
 
 The **nearest declaration wins**: a node's own `tint` beats an inherited one, and
@@ -329,7 +329,7 @@ named **`FacetStyle`** (under `ReplicatedStorage` by default) owns:
   `Disabled button`) and app-state paint via tags (`Selected row`);
 - themes: `Theme Dark` / `Theme Light` child sheets swapped at runtime with
   `adapter.setNativeTheme(name)` — no remount, focus and scroll retained;
-- optional per-rule transitions (progressive enhancement; reduced motion
+- per-rule transitions enabled by default (explicit opt-out supported; reduced motion
   strips them live).
 
 With `nativeStyle = false` — or on an engine without StyleSheets — the

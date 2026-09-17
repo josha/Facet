@@ -918,7 +918,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			id = if app.entry == "compact-link" then "SipworksCompact" else "Sipworks",
 			padding = 0,
 			surface = "base",
-			children = { navigationFlow.blueprint },
+			navigationFlow.blueprint,
 		})
 		shellHandle = presenter.present(blueprint, {
 			keyboardNavigation = true,

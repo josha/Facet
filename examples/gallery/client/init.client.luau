@@ -47,8 +47,8 @@ end
 -- fallback over an explicit opt-in over the library default — is a decision, not
 -- an expression: it lives in `paint_mode.luau` beside `boot_mode.luau`, for the
 -- same reason and with the same spec technique, because a client script's argument
--- list has no witness. Facet_NativeTransitions opts the sheet transitions in
--- (progressive enhancement, default OFF until the NSS-P3 publish rider clears).
+-- list has no witness. Facet_NativeTransitions may explicitly disable the
+-- native paint transitions; an absent attribute follows the library default.
 local paint_mode = require(script:WaitForChild("paint_mode")) :: any
 local adapter = screen_target.new({
 	--[[ THE DISTANCE THIS PLACE IS WATCHED FROM (fix round, 2026-08-21, found on
@@ -65,7 +65,7 @@ local adapter = screen_target.new({
 	nativeStyle = paint_mode.decide({
 		native = workspace:GetAttribute("Facet_NativeStyle") == true,
 		fallback = workspace:GetAttribute("Facet_ForceStyleFallback") == true,
-		transitions = workspace:GetAttribute("Facet_NativeTransitions") == true,
+		transitions = workspace:GetAttribute("Facet_NativeTransitions"),
 	}),
 })
 local system = roblox_input.newSystem(core)
@@ -675,14 +675,13 @@ if bootDecision.mode == "showcase" then
 	backdropHandle = pres.present(
 		UI.Screen({
 			id = "ShowcaseBackdrop",
-			children = {
-				UI.Box({
-					id = "Fill",
-					surface = "base",
-					width = UI.fill(),
-					height = UI.fill(),
-				}),
-			},
+
+			UI.Box({
+				id = "Fill",
+				surface = "base",
+				width = UI.fill(),
+				height = UI.fill(),
+			}),
 		}),
 		-- edgeToEdge: a backdrop that respects the safe area is a rectangle with
 		-- the world showing around it (device capture, 2026-07-26)
@@ -1121,51 +1120,61 @@ local mutation = Facet.replication.mutation(core, {
 	},
 })
 
--- hint text derives from the environment's preferred input (no remount:
--- it is a plain binding on an existing Text node — the phase-1 proof)
-local hint = core:memo(function(use)
-	local preferred = use(env:get("effectiveInput"))
-	return if preferred == "Touch"
-		then "Tap Save to apply"
-		elseif preferred == "Gamepad" then "Press A to apply"
-		else "Press Enter to apply"
-end)
-
-local statusLine = core:memo(function(use)
-	return `music={tostring(use(draftMusic))} save={use(saveStatus)}`
-end)
-
-local screen = UI.Screen({
-	id = "GallerySettings",
-	padding = "m",
-	gap = "s",
-	children = {
+-- The replication model survives the view; the mounted component owns the
+-- readout calculations and Studio checkpoint subscriptions.
+local Settings = Facet.component(function(ui)
+	local UI = Facet.View
+	local music, status = ui.read(draftMusic), ui.read(saveStatus)
+	local preferredInput = ui.env("effectiveInput")
+	local hint = ui.memo(function()
+		local preferred = preferredInput()
+		return if preferred == "Touch"
+			then "Tap Save to apply"
+			elseif preferred == "Gamepad" then "Press A to apply"
+			else "Press Enter to apply"
+	end)
+	local statusLine = ui.memo(function()
+		return `music={tostring(music())} save={status()}`
+	end)
+	ui.watch(statusLine, function(line)
+		workspace:SetAttribute("Facet_Status", line)
+	end, { immediate = true })
+	ui.watch(hint, function(text)
+		workspace:SetAttribute("Facet_Hint", text)
+	end, { immediate = true })
+	return UI.Screen({
+		id = "GallerySettings",
+		padding = "m",
+		gap = "s",
 		UI.Text({ id = "Title", text = "Facet Gallery — Settings", textSize = "title" }),
 		UI.Text({ id = "Hint", text = hint, textSize = "label" }),
-		UI.Toggle({ id = "Music", label = "Music", value = draftMusic }),
+		UI.Toggle({
+			id = "Music",
+			label = "Music",
+			value = music,
+			onChange = function(value)
+				draftMusic:set(value)
+			end,
+		}),
 		UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
 		UI.Spacer({ id = "Gap", height = UI.fill() }),
-		UI.Button({ id = "Save", label = "Save" }),
-	},
-})
-
-local handle = pres.present(screen, {
-	onActivate = function(path: string)
-		if path == "/GallerySettings/Music" then
-			draftMusic:set(not draftMusic:get())
-		elseif path == "/GallerySettings/Save" then
-			local envelope = mutation.send({ music = draftMusic:get() }, snapshot.revision())
-			saveStatus:set("pending")
-			-- loopback "server": validate + replicate + confirm next frame
-			task.defer(function()
-				snapshot.ingest(snapshot.revision() + 1, { music = envelope.payload.music, sfx = true })
-				mutation.confirm(envelope.requestId, "ok")
-				saveStatus:set("confirmed")
-				mutation.reset()
-			end)
-		end
-	end,
-})
+		UI.Button({
+			id = "Save",
+			label = "Save",
+			onActivate = function()
+				local envelope = mutation.send({ music = music() }, snapshot.revision())
+				saveStatus:set("pending")
+				task.defer(function()
+					snapshot.ingest(snapshot.revision() + 1, { music = envelope.payload.music, sfx = true })
+					mutation.confirm(envelope.requestId, "ok")
+					saveStatus:set("confirmed")
+					mutation.reset()
+				end)
+			end,
+		}),
+	})
+end)
+local handle = pres.present(Settings({}))
 
 local picker = mountThemePicker()
 
@@ -1181,15 +1190,6 @@ core:observe(pres.focus.focused, function(path)
 	workspace:SetAttribute("Facet_Focused", path or "")
 end)
 workspace:SetAttribute("Facet_Focused", pres.focus.focused:get() or "")
-core:observe(statusLine, function(line)
-	workspace:SetAttribute("Facet_Status", line)
-end)
-workspace:SetAttribute("Facet_Status", statusLine:get())
-core:observe(hint, function(text)
-	workspace:SetAttribute("Facet_Hint", text)
-end)
-workspace:SetAttribute("Facet_Hint", hint:get())
-
 -- factory-rerun counter for the no-remount proof: mounted total is stable
 -- unless structure genuinely changes
 task.defer(function()

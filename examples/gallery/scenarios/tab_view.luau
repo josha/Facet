@@ -287,52 +287,50 @@ return {
 								return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
 							end)),
 							shrinkWeight = 1,
-							children = {
-								statusPanel("Status"),
-								UI.Text({ id = "Name", text = COPY[id], textSize = "heading" }),
+
+							statusPanel("Status"),
+							UI.Text({ id = "Name", text = COPY[id], textSize = "heading" }),
+							UI.Text({
+								id = "Built",
+								text = `{COPY.builtHere}{builds[id] or 0}{COPY.times}`,
+								textSize = "caption",
+								role = "secondary",
+							}),
+							panel("Placements", {
+								UI.Text({ id = "Outer", text = outerLine, textSize = "caption" }),
+								UI.Text({ id = "Inner", text = innerLine, textSize = "caption" }),
 								UI.Text({
-									id = "Built",
-									text = `{COPY.builtHere}{builds[id] or 0}{COPY.times}`,
+									id = "Why",
+									text = COPY.nestedNote,
 									textSize = "caption",
 									role = "secondary",
 								}),
-								panel("Placements", {
-									UI.Text({ id = "Outer", text = outerLine, textSize = "caption" }),
-									UI.Text({ id = "Inner", text = innerLine, textSize = "caption" }),
-									UI.Text({
-										id = "Why",
-										text = COPY.nestedNote,
-										textSize = "caption",
-										role = "secondary",
-									}),
-								}),
-								UI.HStack({
-									id = "Jumps",
-									gap = "xs",
-									wrap = true,
-									width = UI.fill(),
-									children = {
-										chip("JumpLast", COPY.jumpLast, function()
-											page:set(PAGE_TABS[#PAGE_TABS])
-										end),
-										chip("JumpFirst", COPY.jumpFirst, function()
-											page:set(PAGE_TABS[1])
-										end),
-									},
-								}),
-								UI.Text({
-									id = "JumpNote",
-									text = COPY.jumpNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({
-									id = "Note",
-									text = COPY.pagesNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
+							}),
+							UI.HStack({
+								id = "Jumps",
+								gap = "xs",
+								wrap = true,
+								width = UI.fill(),
+
+								chip("JumpLast", COPY.jumpLast, function()
+									page:set(PAGE_TABS[#PAGE_TABS])
+								end),
+								chip("JumpFirst", COPY.jumpFirst, function()
+									page:set(PAGE_TABS[1])
+								end),
+							}),
+							UI.Text({
+								id = "JumpNote",
+								text = COPY.jumpNote,
+								textSize = "caption",
+								role = "secondary",
+							}),
+							UI.Text({
+								id = "Note",
+								text = COPY.pagesNote,
+								textSize = "caption",
+								role = "secondary",
+							}),
 						})
 					end,
 				})
@@ -372,16 +370,15 @@ return {
 				axis = "y",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					UI.VStack({
-						id = "PageViewport",
-						width = UI.fill(),
-						height = tabScope:own(core:memo(function(use)
-							return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
-						end)),
-						children = { inner.blueprint },
-					}),
-				},
+
+				UI.VStack({
+					id = "PageViewport",
+					width = UI.fill(),
+					height = tabScope:own(core:memo(function(use)
+						return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
+					end)),
+					inner.blueprint,
+				}),
 			})
 		end
 
@@ -392,21 +389,20 @@ return {
 				gap = "xs",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
-					UI.Text({ id = "Title", text = COPY.unreadTitle, textSize = "heading" }),
-					UI.Text({ id = "Note", text = COPY.unreadNote, textSize = "caption", role = "secondary" }),
-					UI.Text({
-						id = "Count",
-						text = core:memo(function(use)
-							return `{COPY.inbox}: {use(unread)}`
-						end),
-						textSize = "body",
-					}),
-					chip("ClearUnread", COPY.clearUnread, function()
-						unread:set(0)
+
+				statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
+				UI.Text({ id = "Title", text = COPY.unreadTitle, textSize = "heading" }),
+				UI.Text({ id = "Note", text = COPY.unreadNote, textSize = "caption", role = "secondary" }),
+				UI.Text({
+					id = "Count",
+					text = core:memo(function(use)
+						return `{COPY.inbox}: {use(unread)}`
 					end),
-				},
+					textSize = "body",
+				}),
+				chip("ClearUnread", COPY.clearUnread, function()
+					unread:set(0)
+				end),
 			})
 		end
 
@@ -435,37 +431,35 @@ return {
 				gap = "xs",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
-					UI.Text({ id = "Title", text = COPY.keptTitle, textSize = "heading" }),
-					UI.Text({ id = "Note", text = COPY.keptNote, textSize = "caption", role = "secondary" }),
-					UI.Text({
-						id = "Kept",
-						text = core:memo(function(use)
-							return COPY.kept .. tostring(use(kept))
-						end),
-						textSize = "body",
-					}),
-					UI.Text({
-						id = "Owned",
-						text = tabScope:own(core:memo(function(use)
-							return COPY.tabOwned .. tostring(use(tabOwned))
-						end)),
-						textSize = "body",
-					}),
-					UI.HStack({
-						id = "Bumps",
-						gap = "xs",
-						wrap = true,
-						width = UI.fill(),
-						children = {
-							chip("Bump", COPY.bump, bumpBoth),
-							chip("BumpUnread", COPY.bumpUnread, function()
-								unread:set(unread:get() + 1)
-							end),
-						},
-					}),
-				},
+
+				statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
+				UI.Text({ id = "Title", text = COPY.keptTitle, textSize = "heading" }),
+				UI.Text({ id = "Note", text = COPY.keptNote, textSize = "caption", role = "secondary" }),
+				UI.Text({
+					id = "Kept",
+					text = core:memo(function(use)
+						return COPY.kept .. tostring(use(kept))
+					end),
+					textSize = "body",
+				}),
+				UI.Text({
+					id = "Owned",
+					text = tabScope:own(core:memo(function(use)
+						return COPY.tabOwned .. tostring(use(tabOwned))
+					end)),
+					textSize = "body",
+				}),
+				UI.HStack({
+					id = "Bumps",
+					gap = "xs",
+					wrap = true,
+					width = UI.fill(),
+
+					chip("Bump", COPY.bump, bumpBoth),
+					chip("BumpUnread", COPY.bumpUnread, function()
+						unread:set(unread:get() + 1)
+					end),
+				}),
 			})
 		end
 
@@ -476,24 +470,23 @@ return {
 				gap = "xs",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
-					UI.Text({ id = "Title", text = COPY.meTitle, textSize = "heading" }),
-					UI.Text({ id = "Note", text = COPY.meNote, textSize = "caption", role = "secondary" }),
-					chip("MoveInboxFirst", COPY.moveInbox, function()
-						outer.moveTab("inbox", 1)
-					end),
-					chip("ToggleNotes", COPY.toggleNotes, function()
-						local hidden = table.find(customization:get().hidden, "notes") ~= nil
-						outer.setTabHidden("notes", not hidden)
-					end),
-					chip("ResetNavigation", COPY.resetNavigation, function()
-						customization:set({ order = {}, hidden = {} })
-					end),
-					chip("BumpUnreadMe", COPY.bumpUnread, function()
-						unread:set(unread:get() + 1)
-					end),
-				},
+
+				statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
+				UI.Text({ id = "Title", text = COPY.meTitle, textSize = "heading" }),
+				UI.Text({ id = "Note", text = COPY.meNote, textSize = "caption", role = "secondary" }),
+				chip("MoveInboxFirst", COPY.moveInbox, function()
+					outer.moveTab("inbox", 1)
+				end),
+				chip("ToggleNotes", COPY.toggleNotes, function()
+					local hidden = table.find(customization:get().hidden, "notes") ~= nil
+					outer.setTabHidden("notes", not hidden)
+				end),
+				chip("ResetNavigation", COPY.resetNavigation, function()
+					customization:set({ order = {}, hidden = {} })
+				end),
+				chip("BumpUnreadMe", COPY.bumpUnread, function()
+					unread:set(unread:get() + 1)
+				end),
 			})
 		end
 
@@ -574,16 +567,15 @@ return {
 			-- — every reference shell places one edge-to-edge — and on a 320px-tall
 			-- landscape carrying TWO of them the eight pixels are the difference
 			-- between the page fitting and not.
-			children = {
-				UI.VStack({
-					id = "Root",
-					gap = "xs",
-					align = "stretch",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = { outer.blueprint },
-				}),
-			},
+
+			UI.VStack({
+				id = "Root",
+				gap = "xs",
+				align = "stretch",
+				width = UI.fill(),
+				height = UI.fill(),
+				outer.blueprint,
+			}),
 		})
 
 		return {

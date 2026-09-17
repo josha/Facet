@@ -163,45 +163,43 @@ function dashboard.new(app: any): any
 		id = "HeroBand",
 		width = UI.fill(),
 		height = { type = "fixed", px = "app.cartwheel.heroH" },
-		children = {
-			UI.gradient(
-				UI.Box({
-					id = "Sky",
-					surface = "base",
-					width = UI.fill(),
-					height = UI.fill(),
-				}),
-				{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
-			),
-			UI.Anchor({
-				id = "Layers",
+
+		UI.gradient(
+			UI.Box({
+				id = "Sky",
+				surface = "base",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					heroLayer(1, app.art.marks.chevronUp, 0.16),
-					heroLayer(2, app.art.marks.menu, 0.34),
-					-- the cart itself: a four-frame asset swap on the domain clock
-					UI.Image({
-						id = "Cart",
-						image = own(core:memo(function(use)
-							local frame = use(flipFrame)
-							return app.art.markFor(frame).image
-						end)),
-						scaleMode = "fit",
-						tint = { role = "accent", blend = 1 },
-						anchor = "topLeft",
-						offsetX = own(core:memo(function(use)
-							return { scale = 0.46 + use(layerSprings[3]) }
-						end)),
-						offsetY = { scale = 0.42 },
-						width = { type = "fixed", px = "controlSizes.regular.height" },
-						height = { type = "fixed", px = "controlSizes.regular.height" },
-					}),
-					heroLayer(4, app.art.marks.more, 0.62),
-				},
 			}),
-			UI.Text({ id = "Brand", text = S.t("app.title"), textSize = "title", padding = "m" }),
-		},
+			{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
+		),
+		UI.Anchor({
+			id = "Layers",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			heroLayer(1, app.art.marks.chevronUp, 0.16),
+			heroLayer(2, app.art.marks.menu, 0.34),
+			-- the cart itself: a four-frame asset swap on the domain clock
+			UI.Image({
+				id = "Cart",
+				image = own(core:memo(function(use)
+					local frame = use(flipFrame)
+					return app.art.markFor(frame).image
+				end)),
+				scaleMode = "fit",
+				tint = { role = "accent", blend = 1 },
+				anchor = "topLeft",
+				offsetX = own(core:memo(function(use)
+					return { scale = 0.46 + use(layerSprings[3]) }
+				end)),
+				offsetY = { scale = 0.42 },
+				width = { type = "fixed", px = "controlSizes.regular.height" },
+				height = { type = "fixed", px = "controlSizes.regular.height" },
+			}),
+			heroLayer(4, app.art.marks.more, 0.62),
+		}),
+		UI.Text({ id = "Brand", text = S.t("app.title"), textSize = "title", padding = "m" }),
 	})
 
 	-- ---- card 1: Recent Brews (hero + tiles) --------------------------------
@@ -244,26 +242,24 @@ function dashboard.new(app: any): any
 			canvasGroup = true,
 			width = UI.fill(),
 			height = { type = "content" },
-			children = {
-				plate,
-				UI.VStack({
-					id = "Body",
-					padding = "s",
-					gap = "xs",
-					align = "center",
-					children = {
-						parts.thumbStack(app, "Thumbs", item.items, size),
-						UI.Text({
-							id = "Id",
-							text = S.t("brews.rowLabel", { id = item.id }),
-							textSize = "caption",
-							role = "secondary",
-							lineLimit = 1,
-							disclose = true,
-						}),
-					},
+
+			plate,
+			UI.VStack({
+				id = "Body",
+				padding = "s",
+				gap = "xs",
+				align = "center",
+
+				parts.thumbStack(app, "Thumbs", item.items, size),
+				UI.Text({
+					id = "Id",
+					text = S.t("brews.rowLabel", { id = item.id }),
+					textSize = "caption",
+					role = "secondary",
+					lineLimit = 1,
+					disclose = true,
 				}),
-			},
+			}),
 		})
 	end
 
@@ -294,61 +290,56 @@ function dashboard.new(app: any): any
 					{ id = "hero", lane = "lead", sizing = "hug" },
 					{ id = "tiles", lane = "main", sizing = "fill" },
 				},
-				children = {
-					UI.Region({
-						id = "Hero",
-						group = "hero",
-						rank = 1,
-						floor = { lines = 2 },
-						children = {
-							UI.VStack({
-								id = "HeroSlot",
-								gap = "xs",
-								width = UI.fill(),
-								children = {
-									UI.ForEach({
-										id = "HeroRow",
-										items = heroItems,
-										key = function(item)
-											return tostring(item.id)
-										end,
-										row = function(item)
-											return brewTile(item, true)
-										end,
-										transition = arrivalTransition,
-									}),
-								},
-							}),
-						},
+
+				UI.Region({
+					id = "Hero",
+					group = "hero",
+					rank = 1,
+					floor = { lines = 2 },
+
+					UI.VStack({
+						id = "HeroSlot",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.ForEach({
+							id = "HeroRow",
+							items = heroItems,
+							key = function(item)
+								return tostring(item.id)
+							end,
+							row = function(item)
+								return brewTile(item, true)
+							end,
+							transition = arrivalTransition,
+						}),
 					}),
-					UI.Region({
-						id = "Tiles",
-						group = "tiles",
-						rank = 2,
-						floor = { lines = 2 },
-						sizing = "fill",
-						children = {
-							UI.Grid({
-								id = "TileGrid",
-								columns = 2,
-								gap = "s",
-								children = {
-									UI.ForEach({
-										id = "TileRows",
-										items = tileItems,
-										key = function(item)
-											return tostring(item.id)
-										end,
-										row = function(item)
-											return brewTile(item, false)
-										end,
-										transition = arrivalTransition,
-									}),
-								},
-							}),
-						},
+				}),
+				UI.Region({
+					id = "Tiles",
+					group = "tiles",
+					rank = 2,
+					floor = { lines = 2 },
+					sizing = "fill",
+
+					UI.Grid({
+						id = "TileGrid",
+						columns = 2,
+						gap = "s",
+
+						UI.ForEach({
+							id = "TileRows",
+							items = tileItems,
+							key = function(item)
+								return tostring(item.id)
+							end,
+							row = function(item)
+								return brewTile(item, false)
+							end,
+							transition = arrivalTransition,
+						}),
 					}),
-				},
+				}),
 			}),
 			UI.Text({
 				id = "Tally",
@@ -425,22 +416,21 @@ function dashboard.new(app: any): any
 				id = "Plot",
 				width = UI.fill(),
 				height = { type = "fixed", px = "app.cartwheel.chartH" },
-				children = {
-					UI.Anchor({
-						id = "Bands",
-						width = UI.fill(),
-						height = UI.fill(),
-						children = bandBoxes,
-					}),
-					UI.Path({
-						id = "Line",
-						points = parts.polyline(skySamples),
-						role = "accent",
-						thickness = "controls.table.indicatorThickness",
-						width = UI.fill(),
-						height = UI.fill(),
-					}),
-				},
+
+				UI.Anchor({
+					id = "Bands",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = bandBoxes,
+				}),
+				UI.Path({
+					id = "Line",
+					points = parts.polyline(skySamples),
+					role = "accent",
+					thickness = "controls.table.indicatorThickness",
+					width = UI.fill(),
+					height = UI.fill(),
+				}),
 			}),
 			UI.HStack({
 				id = "Axis",
@@ -549,62 +539,59 @@ function dashboard.new(app: any): any
 		overflow = "clip",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "m",
-				padding = "m",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					heroBand,
-					UI.Composition({
-						id = "CardGrid",
-						-- `leadFirst` (framework-gaps-phase2 item 12): see `shell.luau`'s
-						-- header for the full account of why this used to be a CUSTOM
-						-- arrangement reusing the `"twoLane"` name for different lanes.
-						arrangements = { "leadFirst", "column" },
-						laneGap = "m",
-						groupGap = "m",
-						groups = {
-							{ id = "left", lane = "lead", sizing = "fill", minWidth = "app.cartwheel.cardMin" },
-							{ id = "right", lane = "main", sizing = "fill", minWidth = "app.cartwheel.cardMin" },
-						},
-						children = {
-							UI.Region({
-								id = "Recent",
-								group = "left",
-								rank = 1,
-								floor = { lines = 3 },
-								children = { recentCard },
-							}),
-							UI.Region({
-								id = "Sky",
-								group = "right",
-								rank = 2,
-								floor = { lines = 3 },
-								children = { skyCard },
-							}),
-							UI.Region({
-								id = "RackSlot",
-								group = "left",
-								rank = 3,
-								floor = { lines = 2 },
-								children = { rackCard },
-							}),
-							UI.Region({
-								id = "ChatterSlot",
-								group = "right",
-								rank = 4,
-								floor = { lines = 2 },
-								children = { chatterCard },
-							}),
-						},
-					}),
+
+		UI.ScrollView({
+			id = "Page",
+			axis = "y",
+			gap = "m",
+			padding = "m",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			heroBand,
+			UI.Composition({
+				id = "CardGrid",
+				-- `leadFirst` (framework-gaps-phase2 item 12): see `shell.luau`'s
+				-- header for the full account of why this used to be a CUSTOM
+				-- arrangement reusing the `"twoLane"` name for different lanes.
+				arrangements = { "leadFirst", "column" },
+				laneGap = "m",
+				groupGap = "m",
+				groups = {
+					{ id = "left", lane = "lead", sizing = "fill", minWidth = "app.cartwheel.cardMin" },
+					{ id = "right", lane = "main", sizing = "fill", minWidth = "app.cartwheel.cardMin" },
 				},
+
+				UI.Region({
+					id = "Recent",
+					group = "left",
+					rank = 1,
+					floor = { lines = 3 },
+					recentCard,
+				}),
+				UI.Region({
+					id = "Sky",
+					group = "right",
+					rank = 2,
+					floor = { lines = 3 },
+					skyCard,
+				}),
+				UI.Region({
+					id = "RackSlot",
+					group = "left",
+					rank = 3,
+					floor = { lines = 2 },
+					rackCard,
+				}),
+				UI.Region({
+					id = "ChatterSlot",
+					group = "right",
+					rank = 4,
+					floor = { lines = 2 },
+					chatterCard,
+				}),
 			}),
-		},
+		}),
 	})
 
 	self.footerPath = app.paths.cart .. "/Page/CardGrid/Recent/RecentBrews/Tally"

@@ -274,7 +274,7 @@ describe("theme picker: composed pieces carry their own handlers", function()
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
 		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		return theme_picker.mount({
+		local m = theme_picker.mount({
 			Facet = Facet,
 			core = core,
 			env = env,
@@ -286,26 +286,24 @@ describe("theme picker: composed pieces carry their own handlers", function()
 			composed = true,
 			warn = function() end,
 		})
-	end
-
-	local function findByIdPrefix(bp: any, prefix: string): any
-		if type(bp) ~= "table" then
-			return nil
-		end
-		local id = bp.id or (bp.props and bp.props.id)
-		if type(id) == "string" and string.sub(id, 1, #prefix) == prefix then
-			return bp
-		end
-		local kids = (bp.props and bp.props.children) or bp.children
-		if type(kids) == "table" then
-			for _, child in kids do
-				local hit = findByIdPrefix(child, prefix)
-				if hit ~= nil then
-					return hit
+		local shown = presenter.present(Facet.View.Screen({ id = "Test", m.chip, m.panel }))
+		presenter.refresh()
+		m.node = function(prefix)
+			presenter.refresh()
+			for _, path in adapter.paths() do
+				local id = string.match(path, "([^/]+)$")
+				if string.sub(id, 1, #prefix) == prefix then
+					return adapter.node(path)
 				end
 			end
+			return nil
 		end
-		return nil
+		local dispose = m.dispose
+		m.dispose = function()
+			presenter.dismiss(shown)
+			dispose()
+		end
+		return m
 	end
 
 	--[[ THE CHIP THE SHOWCASE ACTUALLY SHIPS IS NOT CLIPPED (purity audit DELETE
@@ -330,9 +328,9 @@ describe("theme picker: composed pieces carry their own handlers", function()
 			end
 		end
 		expect(`a name longer than the clip exists: {long ~= nil}`).toBe("a name longer than the clip exists: true")
-		findByIdPrefix(m.panel, `P_{long.id}`).props.onActivate()
+		m.node(`P_{long.id}`).onActivate()
 		expect(m.open:get()).toBe(false) -- so the chip is showing the NAME, not "Theme ×"
-		local text = tostring(m.chip.props.label:get())
+		local text = tostring(m.node("ThemeToggle").props.label)
 		expect(`chip shows the whole name: {text == long.displayName}`).toBe("chip shows the whole name: true")
 		expect(`chip is clipped: {string.find(text, "…", 1, true) ~= nil}`).toBe("chip is clipped: false")
 		m.dispose()
@@ -340,7 +338,7 @@ describe("theme picker: composed pieces carry their own handlers", function()
 
 	it("hands back a chip whose activation is on the chip itself", function()
 		local m = composed()
-		local handler = m.chip.props.onActivate
+		local handler = m.node("ThemeToggle").onActivate
 		expect(type(handler)).toBe("function")
 		-- and it really is the open/close, not a placeholder
 		expect(m.open:get()).toBe(false)
@@ -353,9 +351,9 @@ describe("theme picker: composed pieces carry their own handlers", function()
 
 	it("puts a handler on every package row, so no path router is needed", function()
 		local m = composed()
-		local row = findByIdPrefix(m.panel, "P_")
+		local row = m.node("P_")
 		expect(row ~= nil).toBe(true)
-		expect(type(row.props.onActivate)).toBe("function")
+		expect(type(row.onActivate)).toBe("function")
 		m.dispose()
 	end)
 
@@ -370,9 +368,9 @@ describe("theme picker: composed pieces carry their own handlers", function()
 			end
 		end
 		expect(other ~= nil).toBe(true)
-		local row = findByIdPrefix(m.panel, `P_{other}`)
+		local row = m.node(`P_{other}`)
 		expect(row ~= nil).toBe(true)
-		row.props.onActivate()
+		row.onActivate()
 		expect(m.selection:get().packageId).toBe(other)
 		m.dispose()
 	end)

@@ -242,7 +242,7 @@ return {
 			end
 		end))
 
-		local motionPicker = Facet.Controls.Picker(core, {
+		local motionPicker = Facet.View.Picker({
 			id = "MotionMode",
 			label = COPY.motionLabel,
 			-- SEGMENTED, declared rather than adaptive: two short labels shown side
@@ -293,42 +293,41 @@ return {
 			id = "Decorative",
 			gap = "xs",
 			width = UI.fill(),
-			children = {
-				UI.Text({
-					id = "Caption",
-					text = COPY.decorative,
-					textSize = "caption",
-					role = "secondary",
+
+			UI.Text({
+				id = "Caption",
+				text = COPY.decorative,
+				textSize = "caption",
+				role = "secondary",
+			}),
+			UI.Text({ id = "ColorCaption", text = COPY.colorLabel, textSize = "caption", role = "secondary" }),
+			-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
+			-- re-arranges one node without re-measuring it; the rect changes,
+			-- which is exactly what `withAnimation` records.
+			--
+			-- THE LANE/PUCK ARE `controls.decorative.minimum` NOW (gap 34, W3-B):
+			-- the raw 40 this pair hardened by hand against
+			-- `tests/overflow_sweep.spec.luau` — the same number `time_curves.luau`'s
+			-- puck independently reached for — is the theme-owned decorative-chrome
+			-- floor, so it ten-foot-scales instead of staying pinned.
+			UI.Anchor({
+				id = "Lane",
+				surface = "control",
+				width = UI.fill(),
+				height = { type = "fixed", px = "controls.decorative.minimum" },
+
+				UI.Box({
+					id = "Puck",
+					surface = "accent",
+					tint = colorTint,
+					anchor = scope:own(core:memo(function(use)
+						return if use(laneRight) then "topRight" else "topLeft"
+					end)),
+					width = { type = "fixed", px = "controls.decorative.minimum" },
+					height = UI.fill(),
 				}),
-				UI.Text({ id = "ColorCaption", text = COPY.colorLabel, textSize = "caption", role = "secondary" }),
-				-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
-				-- re-arranges one node without re-measuring it; the rect changes,
-				-- which is exactly what `withAnimation` records.
-				--
-				-- THE LANE/PUCK ARE `controls.decorative.minimum` NOW (gap 34, W3-B):
-				-- the raw 40 this pair hardened by hand against
-				-- `tests/overflow_sweep.spec.luau` — the same number `time_curves.luau`'s
-				-- puck independently reached for — is the theme-owned decorative-chrome
-				-- floor, so it ten-foot-scales instead of staying pinned.
-				UI.Anchor({
-					id = "Lane",
-					surface = "control",
-					width = UI.fill(),
-					height = { type = "fixed", px = "controls.decorative.minimum" },
-					children = {
-						UI.Box({
-							id = "Puck",
-							surface = "accent",
-							tint = colorTint,
-							anchor = scope:own(core:memo(function(use)
-								return if use(laneRight) then "topRight" else "topLeft"
-							end)),
-							width = { type = "fixed", px = "controls.decorative.minimum" },
-							height = UI.fill(),
-						}),
-					},
-				}),
-				--[[ (2) THE GROW — the consequence round 3 added, and the one this
+			}),
+			--[[ (2) THE GROW — the consequence round 3 added, and the one this
 					fixture exists to make legible.
 
 					`height` is bound to a memo, so flipping `cardTall` changes this
@@ -352,38 +351,37 @@ return {
 					labels inside it and the sweep caught exactly that (9px past its
 					own box at 320x640, +0 offset, before any text growth at all). The
 					caption above carries the words; the box carries the motion. ]]
-				UI.Text({
-					id = "CardCaption",
-					text = COPY.cardLabel,
-					textSize = "caption",
-					role = "secondary",
+			UI.Text({
+				id = "CardCaption",
+				text = COPY.cardLabel,
+				textSize = "caption",
+				role = "secondary",
+			}),
+			UI.VStack({
+				id = "Card",
+				surface = "raised",
+				-- THEME-OPT-OUT: this card's HEIGHT is the demo — a memo animating it between
+				-- two fixed px — so its inside is pinned by the same decision. MEASURED with
+				-- `padding = "s"` instead: the ten-foot ladder scales the step, the 20px pip no
+				-- longer clears it, and the card paints 4px past its own box on a 1920x1078
+				-- console at +0 under Facet Neutral. It waits on a height a box can declare in
+				-- CONTENT terms (purity audit MOVE §3); until then the pinned box and the
+				-- pinned padding are one decision, not two.
+				padding = 8,
+				gap = 2,
+				width = UI.fill(),
+				height = scope:own(core:memo(function(use)
+					return { type = "fixed", px = if use(cardTall) then 76 else 40 }
+				end)),
+
+				UI.Box({
+					id = "Pip",
+					surface = "accent",
+					width = { type = "fixed", px = 24 },
+					height = { type = "fixed", px = 20 },
 				}),
-				UI.VStack({
-					id = "Card",
-					surface = "raised",
-					-- THEME-OPT-OUT: this card's HEIGHT is the demo — a memo animating it between
-					-- two fixed px — so its inside is pinned by the same decision. MEASURED with
-					-- `padding = "s"` instead: the ten-foot ladder scales the step, the 20px pip no
-					-- longer clears it, and the card paints 4px past its own box on a 1920x1078
-					-- console at +0 under Facet Neutral. It waits on a height a box can declare in
-					-- CONTENT terms (purity audit MOVE §3); until then the pinned box and the
-					-- pinned padding are one decision, not two.
-					padding = 8,
-					gap = 2,
-					width = UI.fill(),
-					height = scope:own(core:memo(function(use)
-						return { type = "fixed", px = if use(cardTall) then 76 else 40 }
-					end)),
-					children = {
-						UI.Box({
-							id = "Pip",
-							surface = "accent",
-							width = { type = "fixed", px = 24 },
-							height = { type = "fixed", px = 20 },
-						}),
-					},
-				}),
-				--[[ (5) THE PAINT — opacity, scale and rotation, authored.
+			}),
+			--[[ (5) THE PAINT — opacity, scale and rotation, authored.
 
 					These are the consequence the director asked for: *"should opacity,
 					transparency, and scale get owned/influenced by facet? it seems
@@ -425,35 +423,34 @@ return {
 					decorative, the end state carries every fact, and a scale is NOT
 					substituted by a cross-fade (deleting the zoom is strictly less
 					motion than replacing it with another animation). ]]
-				UI.Text({
-					id = "EffectsCaption",
-					text = COPY.effectsLabel,
-					textSize = "caption",
-					role = "secondary",
+			UI.Text({
+				id = "EffectsCaption",
+				text = COPY.effectsLabel,
+				textSize = "caption",
+				role = "secondary",
+			}),
+			UI.Anchor({
+				id = "Effects",
+				surface = "control",
+				width = UI.fill(),
+				height = { type = "fixed", px = 60 },
+
+				UI.Box({
+					id = "Badge",
+					surface = "accent",
+					anchor = "center",
+					width = { type = "fixed", px = 40 },
+					height = { type = "fixed", px = 40 },
+					opacity = paintOpacity,
+					scale = scope:own(core:memo(function(use)
+						return if use(laneRight) then 0.6 else 1
+					end)),
+					rotation = scope:own(core:memo(function(use)
+						return if use(laneRight) then 45 else 0
+					end)),
 				}),
-				UI.Anchor({
-					id = "Effects",
-					surface = "control",
-					width = UI.fill(),
-					height = { type = "fixed", px = 60 },
-					children = {
-						UI.Box({
-							id = "Badge",
-							surface = "accent",
-							anchor = "center",
-							width = { type = "fixed", px = 40 },
-							height = { type = "fixed", px = 40 },
-							opacity = paintOpacity,
-							scale = scope:own(core:memo(function(use)
-								return if use(laneRight) then 0.6 else 1
-							end)),
-							rotation = scope:own(core:memo(function(use)
-								return if use(laneRight) then 45 else 0
-							end)),
-						}),
-					},
-				}),
-				--[[ (5b) THE WRAP — the spelling for everything the badge is not
+			}),
+			--[[ (5b) THE WRAP — the spelling for everything the badge is not
 					(director round 2026-08-15).
 
 					`opacity` is offered on `Box` and `ZStack` and REFUSED by name
@@ -484,13 +481,13 @@ return {
 					It rides `paintOpacity`, the badge's own memo, so the two rows
 					reach the same alpha on the same frame — one authored term, one
 					spring, two nodes that had to spell it differently. ]]
-				UI.Text({
-					id = "WrapCaption",
-					text = COPY.wrapLabel,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				--[[ IT HUGS AND IT WRAPS, and the sweep is why (2026-08-15). The first
+			UI.Text({
+				id = "WrapCaption",
+				text = COPY.wrapLabel,
+				textSize = "caption",
+				role = "secondary",
+			}),
+			--[[ IT HUGS AND IT WRAPS, and the sweep is why (2026-08-15). The first
 					draft copied the badge's shape — a fixed 60px `UI.Anchor` lane with
 					a centred, content-sized group inside it — and
 					`tests/overflow_sweep.spec.luau` filed 16 findings at once: at
@@ -501,89 +498,83 @@ return {
 					a fixed lane because a 40px square is 40px in every package; a row
 					of TEXT is not. So this one fills the column, wraps to a second
 					line when it must, and takes its height from its content. ]]
-				UI.ZStack({
-					id = "Wrapped",
-					surface = "control",
-					padding = "s",
+			UI.ZStack({
+				id = "Wrapped",
+				surface = "control",
+				padding = "s",
+				width = UI.fill(),
+				opacity = paintOpacity,
+
+				UI.HStack({
+					id = "Row",
+					gap = "s",
+					align = "center",
+					wrap = true,
 					width = UI.fill(),
-					opacity = paintOpacity,
-					children = {
-						UI.HStack({
-							id = "Row",
-							gap = "s",
-							align = "center",
-							wrap = true,
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "Label", text = COPY.wrapText, textSize = 13 }),
-								UI.Button({ id = "Locked", label = COPY.wrapButton, enabled = false }),
-							},
-						}),
-					},
+
+					UI.Text({ id = "Label", text = COPY.wrapText, textSize = 13 }),
+					UI.Button({ id = "Locked", label = COPY.wrapButton, enabled = false }),
 				}),
-				-- (3) THE APPEARANCE. The panel itself belongs to the transition
-				-- system and installs no record; what flies is the chips below it,
-				-- which it pushes down.
-				UI.When({
-					id = "Detail",
-					condition = detailOpen,
-					thenView = function()
+			}),
+			-- (3) THE APPEARANCE. The panel itself belongs to the transition
+			-- system and installs no record; what flies is the chips below it,
+			-- which it pushes down.
+			UI.When({
+				id = "Detail",
+				condition = detailOpen,
+				thenView = function()
+					return UI.VStack({
+						id = "Panel",
+						surface = "raised",
+						padding = "s",
+						gap = 2,
+						width = UI.fill(),
+
+						UI.Text({ id = "Head", text = COPY.detailHead, textSize = 13 }),
+						UI.Text({
+							id = "Body",
+							text = COPY.detailBody,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					})
+				end,
+			}),
+			-- (4) THE RE-ORDER. One keyed ForEach: the chips keep their identity
+			-- (and their paths) while their slots swap, so each one travels to
+			-- its new place instead of being destroyed and rebuilt there.
+			UI.HStack({
+				id = "Chips",
+				gap = "xs",
+				width = UI.fill(),
+
+				UI.ForEach({
+					id = "Order",
+					items = chipOrder,
+					key = function(name: any)
+						return name
+					end,
+					row = function(name: any)
 						return UI.VStack({
-							id = "Panel",
+							id = "Chip",
 							surface = "raised",
-							padding = "s",
-							gap = 2,
+							padding = "tight",
 							width = UI.fill(),
-							children = {
-								UI.Text({ id = "Head", text = COPY.detailHead, textSize = 13 }),
-								UI.Text({
-									id = "Body",
-									text = COPY.detailBody,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
+
+							UI.Text({
+								id = "Label",
+								text = name,
+								textSize = "caption",
+								textAlign = "center",
+								lineLimit = 1,
+							}),
 						})
 					end,
 				}),
-				-- (4) THE RE-ORDER. One keyed ForEach: the chips keep their identity
-				-- (and their paths) while their slots swap, so each one travels to
-				-- its new place instead of being destroyed and rebuilt there.
-				UI.HStack({
-					id = "Chips",
-					gap = "xs",
-					width = UI.fill(),
-					children = {
-						UI.ForEach({
-							id = "Order",
-							items = chipOrder,
-							key = function(name: any)
-								return name
-							end,
-							row = function(name: any)
-								return UI.VStack({
-									id = "Chip",
-									surface = "raised",
-									padding = "tight",
-									width = UI.fill(),
-									children = {
-										UI.Text({
-											id = "Label",
-											text = name,
-											textSize = "caption",
-											textAlign = "center",
-											lineLimit = 1,
-										}),
-									},
-								})
-							end,
-						}),
-					},
-				}),
-			},
+			}),
 		})
 
-		local chargeBar = Facet.Controls.ProgressView(core, {
+		local chargeBar = Facet.View.ProgressView({
 			id = "Charge",
 			label = COPY.chargeLabel,
 			value = charge,
@@ -625,17 +616,16 @@ return {
 			id = "Informational",
 			gap = "xs",
 			width = UI.fill(),
-			children = {
-				UI.Text({
-					id = "Caption",
-					text = COPY.informational,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				chargeBar.blueprint,
-				busyBar.blueprint,
-				busySpinner.blueprint,
-			},
+
+			UI.Text({
+				id = "Caption",
+				text = COPY.informational,
+				textSize = "caption",
+				role = "secondary",
+			}),
+			chargeBar,
+			busyBar.blueprint,
+			busySpinner.blueprint,
 		})
 
 		-- ONE declaration, two arrangements (A-AL2): an AdaptiveStack re-solves in
@@ -657,43 +647,42 @@ return {
 			id = "MotionDemo",
 			padding = 12,
 			gap = "tight",
-			children = {
-				-- THE PAGE SCROLLS. Two motion categories, a picker, a button and a
-				-- status line do not fit in the ~200px a 640x320 landscape phone has
-				-- left after the showcase reserves its chip strip — and the named
-				-- recurring defect in this repo is content that overflows with
-				-- nothing to scroll it. A scroll host is the framework's own answer
-				-- and costs the wide viewports nothing.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			-- THE PAGE SCROLLS. Two motion categories, a picker, a button and a
+			-- status line do not fit in the ~200px a 640x320 landscape phone has
+			-- left after the showcase reserves its chip strip — and the named
+			-- recurring defect in this repo is content that overflows with
+			-- nothing to scroll it. A scroll host is the framework's own answer
+			-- and costs the wide viewports nothing.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({
+					id = "Title",
+					text = COPY.title,
+					textSize = "control",
+				}),
+				motionPicker,
+				UI.Button({
+					id = "Run",
+					label = COPY.run,
+					width = UI.fill(),
+					onActivate = animate,
+				}),
+				UI.AdaptiveStack({
+					id = "Stage",
+					axis = stageAxis,
 					gap = "s",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({
-							id = "Title",
-							text = COPY.title,
-							textSize = "control",
-						}),
-						motionPicker.blueprint,
-						UI.Button({
-							id = "Run",
-							label = COPY.run,
-							width = UI.fill(),
-							onActivate = animate,
-						}),
-						UI.AdaptiveStack({
-							id = "Stage",
-							axis = stageAxis,
-							gap = "s",
-							width = UI.fill(),
-							children = { decorative, informational },
-						}),
-						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-					},
+					decorative,
+					informational,
 				}),
-			},
+				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		-- the mode signal and the environment fact are one fact with two readers;
@@ -778,7 +767,6 @@ return {
 				env:set("reducedMotion", inheritedReduced)
 				busyBar.dispose()
 				busySpinner.dispose()
-				chargeBar.dispose()
 				scope:dispose()
 			end,
 		}

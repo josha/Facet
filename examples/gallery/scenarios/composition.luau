@@ -82,7 +82,7 @@ return {
 				surface = "raised",
 				height = { type = "fixed", px = h },
 				width = UI.fill(),
-				children = { UI.Text({ id = id .. "Label", text = label, textSize = size, textAlign = "center" }) },
+				UI.Text({ id = id .. "Label", text = label, textSize = size, textAlign = "center" }),
 			})
 		end
 
@@ -95,16 +95,15 @@ return {
 					id = `Row{i}`,
 					gap = "s",
 					width = UI.fill(),
-					children = {
-						UI.Text({ id = `RowRank{i}`, text = tostring(i), textSize = "label" }),
-						UI.Box({
-							id = `RowMark{i}`,
-							surface = "chip",
-							width = { type = "fixed", px = 18 },
-							height = { type = "fixed", px = 18 },
-						}),
-						UI.Text({ id = `RowName{i}`, text = `Entry {i}`, textSize = "label", lineLimit = 1 }),
-					},
+
+					UI.Text({ id = `RowRank{i}`, text = tostring(i), textSize = "label" }),
+					UI.Box({
+						id = `RowMark{i}`,
+						surface = "chip",
+						width = { type = "fixed", px = 18 },
+						height = { type = "fixed", px = 18 },
+					}),
+					UI.Text({ id = `RowName{i}`, text = `Entry {i}`, textSize = "label", lineLimit = 1 }),
 				})
 			)
 		end
@@ -140,229 +139,220 @@ return {
 			},
 			-- REGIONS ARE DECLARED IN READING ORDER; `rank` is adaptation priority
 			-- only, and the two are deliberately independent
-			children = {
-				UI.Region({
-					id = "Recap",
-					group = "caption",
-					-- it steps down and drops by rank exactly like a lane region: the
-					-- span is about WHERE the row is, not about what it is worth
-					rank = 5,
-					-- the short form keeps the drama score and drops the lead changes and the
-					-- recoveries, so two facts leave the screen with it
-					recover = "overflow",
-					floor = { lines = 1 },
-					children = {
-						UI.When({
-							id = "RecapFull",
-							condition = hasRecap,
-							thenView = function()
-								return line("RecapTwoLine", "6 lead changes · 2 recoveries · Drama 41", 16)
-							end,
-						}),
-						UI.When({
-							id = "RecapShort",
-							condition = hasRecap,
-							thenView = function()
-								return line("RecapOneLine", "Drama 41", 14)
-							end,
-						}),
-					},
+
+			UI.Region({
+				id = "Recap",
+				group = "caption",
+				-- it steps down and drops by rank exactly like a lane region: the
+				-- span is about WHERE the row is, not about what it is worth
+				rank = 5,
+				-- the short form keeps the drama score and drops the lead changes and the
+				-- recoveries, so two facts leave the screen with it
+				recover = "overflow",
+				floor = { lines = 1 },
+
+				UI.When({
+					id = "RecapFull",
+					condition = hasRecap,
+					thenView = function()
+						return line("RecapTwoLine", "6 lead changes · 2 recoveries · Drama 41", 16)
+					end,
 				}),
-				UI.Region({
-					id = "Countdown",
-					group = "masthead",
-					rank = 2,
-					-- "Next round in 12" -> "12": fewer words, the same fact
-					recover = "none",
-					floor = { lines = 1 },
-					children = { line("CountdownFull", "Next round in 12", 18), line("CountdownShort", "12", 18) },
+				UI.When({
+					id = "RecapShort",
+					condition = hasRecap,
+					thenView = function()
+						return line("RecapOneLine", "Drama 41", 14)
+					end,
 				}),
-				UI.Region({
-					id = "BankChip",
-					group = "masthead",
-					rank = 5,
-					-- the short form drops the "+80" delta, and a dropped chip drops the balance
-					recover = "overflow",
-					mayDrop = true,
-					children = { line("BankFull", "Balance 1,240  +80", 14), line("BankShort", "1,240", 14) },
+			}),
+			UI.Region({
+				id = "Countdown",
+				group = "masthead",
+				rank = 2,
+				-- "Next round in 12" -> "12": fewer words, the same fact
+				recover = "none",
+				floor = { lines = 1 },
+				line("CountdownFull", "Next round in 12", 18),
+				line("CountdownShort", "12", 18),
+			}),
+			UI.Region({
+				id = "BankChip",
+				group = "masthead",
+				rank = 5,
+				-- the short form drops the "+80" delta, and a dropped chip drops the balance
+				recover = "overflow",
+				mayDrop = true,
+				line("BankFull", "Balance 1,240  +80", 14),
+				line("BankShort", "1,240", 14),
+			}),
+			UI.Region({
+				id = "Headline",
+				group = "ceremony",
+				rank = 3,
+				-- the same word on a smaller plate
+				recover = "none",
+				floor = { lines = 1 },
+				plate("HeadlinePlate", 96, "SECOND", 30),
+				line("HeadlineChip", "SECOND", 16),
+			}),
+			UI.Region({
+				id = "Celebration",
+				group = "ceremony",
+				rank = 4,
+				-- "+320 points" either way — a plate becomes a line
+				recover = "none",
+				-- the FLOOR is the reserved box: it holds when the transient rests,
+				-- so nothing under a thumb moves when the piece finishes
+				reserved = true,
+				floor = { targets = 2 },
+
+				UI.When({
+					id = "CelebrationFull",
+					condition = celebrating,
+					thenView = function()
+						return plate("CelebrationPiece", 88, "+320 points", 20)
+					end,
 				}),
-				UI.Region({
-					id = "Headline",
-					group = "ceremony",
-					rank = 3,
-					-- the same word on a smaller plate
-					recover = "none",
-					floor = { lines = 1 },
-					children = { plate("HeadlinePlate", 96, "SECOND", 30), line("HeadlineChip", "SECOND", 16) },
+				UI.When({
+					id = "CelebrationCompact",
+					condition = celebrating,
+					thenView = function()
+						return line("CelebrationLine", "+320 points", 16)
+					end,
 				}),
-				UI.Region({
-					id = "Celebration",
-					group = "ceremony",
-					rank = 4,
-					-- "+320 points" either way — a plate becomes a line
-					recover = "none",
-					-- the FLOOR is the reserved box: it holds when the transient rests,
-					-- so nothing under a thumb moves when the piece finishes
-					reserved = true,
-					floor = { targets = 2 },
-					children = {
-						UI.When({
-							id = "CelebrationFull",
-							condition = celebrating,
-							thenView = function()
-								return plate("CelebrationPiece", 88, "+320 points", 20)
-							end,
-						}),
-						UI.When({
-							id = "CelebrationCompact",
-							condition = celebrating,
-							thenView = function()
-								return line("CelebrationLine", "+320 points", 16)
-							end,
-						}),
-					},
+			}),
+			UI.Region({
+				id = "Callout",
+				group = "ceremony",
+				rank = 7,
+				-- "by four tenths" is the margin, and the short form does not carry it
+				recover = "overflow",
+				mayDrop = true,
+
+				UI.When({
+					id = "CalloutFull",
+					condition = hasCallout,
+					thenView = function()
+						return line("CalloutTwoLine", "You beat your rival by four tenths", 16)
+					end,
 				}),
-				UI.Region({
-					id = "Callout",
-					group = "ceremony",
-					rank = 7,
-					-- "by four tenths" is the margin, and the short form does not carry it
-					recover = "overflow",
-					mayDrop = true,
-					children = {
-						UI.When({
-							id = "CalloutFull",
-							condition = hasCallout,
-							thenView = function()
-								return line("CalloutTwoLine", "You beat your rival by four tenths", 16)
-							end,
-						}),
-						UI.When({
-							id = "CalloutShort",
-							condition = hasCallout,
-							thenView = function()
-								return line("CalloutOneLine", "Rival beaten", 14)
-							end,
-						}),
-					},
+				UI.When({
+					id = "CalloutShort",
+					condition = hasCallout,
+					thenView = function()
+						return line("CalloutOneLine", "Rival beaten", 14)
+					end,
 				}),
-				UI.Region({
-					id = "FieldHead",
-					group = "field",
-					rank = 4,
-					-- "Final order — 14 entries" -> "Order": the entry count goes
-					recover = "overflow",
-					floor = { lines = 1 },
-					children = {
-						line("FieldHeadFull", "Final order — 14 entries", 16),
-						line("FieldHeadShort", "Order", 14),
-					},
+			}),
+			UI.Region({
+				id = "FieldHead",
+				group = "field",
+				rank = 4,
+				-- "Final order — 14 entries" -> "Order": the entry count goes
+				recover = "overflow",
+				floor = { lines = 1 },
+
+				line("FieldHeadFull", "Final order — 14 entries", 16),
+				line("FieldHeadShort", "Order", 14),
+			}),
+			UI.Region({
+				id = "Field",
+				group = "field",
+				rank = 2,
+				sizing = "fill",
+				-- THE one scroll region on the surface; a second is refused at
+				-- construction, not resolved around
+				mayScroll = true,
+				floor = { lines = 2 },
+				field,
+			}),
+			UI.Region({
+				id = "Sponsors",
+				group = "next",
+				rank = 6,
+				-- "3 backers" names none of them
+				recover = "overflow",
+				mayDrop = true,
+
+				UI.VStack({
+					id = "SponsorsFull",
+					gap = "xs",
+
+					line("SponsorsHead", "BACKED BY", 12),
+					line("SponsorsList", "Aurora · Kestrel · Vale", 14),
 				}),
-				UI.Region({
-					id = "Field",
-					group = "field",
-					rank = 2,
-					sizing = "fill",
-					-- THE one scroll region on the surface; a second is refused at
-					-- construction, not resolved around
-					mayScroll = true,
-					floor = { lines = 2 },
-					children = { field },
+				line("SponsorsLine", "3 backers", 12),
+			}),
+			UI.Region({
+				id = "Bait",
+				group = "next",
+				rank = 8,
+				-- the short form drops what the win unlocks
+				recover = "overflow",
+				mayDrop = true,
+
+				line("BaitTwoLine", "Unlock the next tier with one more win", 14),
+				line("BaitOneLine", "One more win", 14),
+			}),
+			UI.Region({
+				id = "Tease",
+				group = "next",
+				rank = 9,
+				-- a droppable region can never claim "none" — dropping shows nothing
+				recover = "overflow",
+				mayDrop = true,
+
+				line("TeaseTwoLine", "Coming next: the night circuit", 14),
+				line("TeaseOneLine", "Night circuit", 14),
+			}),
+			UI.Region({
+				id = "Badge",
+				group = "next",
+				rank = 10,
+				mayDrop = true,
+				line("BadgeLine", "Streak x3", 12),
+			}),
+			UI.Region({
+				id = "Actions",
+				group = "next",
+				rank = 1,
+				-- the same two buttons, in a column instead of a row
+				recover = "none",
+				floor = { targets = 2 },
+
+				UI.HStack({
+					id = "ActionsRow",
+					gap = "s",
+
+					UI.Button({
+						id = "Again",
+						label = "Play again",
+						height = { type = "minMax", min = "targetSizes.minimum" },
+					}),
+					UI.Button({
+						id = "Leave",
+						label = "Leave",
+						height = { type = "minMax", min = "targetSizes.minimum" },
+					}),
 				}),
-				UI.Region({
-					id = "Sponsors",
-					group = "next",
-					rank = 6,
-					-- "3 backers" names none of them
-					recover = "overflow",
-					mayDrop = true,
-					children = {
-						UI.VStack({
-							id = "SponsorsFull",
-							gap = "xs",
-							children = {
-								line("SponsorsHead", "BACKED BY", 12),
-								line("SponsorsList", "Aurora · Kestrel · Vale", 14),
-							},
-						}),
-						line("SponsorsLine", "3 backers", 12),
-					},
+				UI.VStack({
+					id = "ActionsColumn",
+					gap = "tight",
+					align = "stretch",
+
+					UI.Button({
+						id = "Again",
+						label = "Play again",
+						height = { type = "minMax", min = "targetSizes.minimum" },
+					}),
+					UI.Button({
+						id = "Leave",
+						label = "Leave",
+						height = { type = "minMax", min = "targetSizes.minimum" },
+					}),
 				}),
-				UI.Region({
-					id = "Bait",
-					group = "next",
-					rank = 8,
-					-- the short form drops what the win unlocks
-					recover = "overflow",
-					mayDrop = true,
-					children = {
-						line("BaitTwoLine", "Unlock the next tier with one more win", 14),
-						line("BaitOneLine", "One more win", 14),
-					},
-				}),
-				UI.Region({
-					id = "Tease",
-					group = "next",
-					rank = 9,
-					-- a droppable region can never claim "none" — dropping shows nothing
-					recover = "overflow",
-					mayDrop = true,
-					children = {
-						line("TeaseTwoLine", "Coming next: the night circuit", 14),
-						line("TeaseOneLine", "Night circuit", 14),
-					},
-				}),
-				UI.Region({
-					id = "Badge",
-					group = "next",
-					rank = 10,
-					mayDrop = true,
-					children = { line("BadgeLine", "Streak x3", 12) },
-				}),
-				UI.Region({
-					id = "Actions",
-					group = "next",
-					rank = 1,
-					-- the same two buttons, in a column instead of a row
-					recover = "none",
-					floor = { targets = 2 },
-					children = {
-						UI.HStack({
-							id = "ActionsRow",
-							gap = "s",
-							children = {
-								UI.Button({
-									id = "Again",
-									label = "Play again",
-									height = { type = "minMax", min = "targetSizes.minimum" },
-								}),
-								UI.Button({
-									id = "Leave",
-									label = "Leave",
-									height = { type = "minMax", min = "targetSizes.minimum" },
-								}),
-							},
-						}),
-						UI.VStack({
-							id = "ActionsColumn",
-							gap = "tight",
-							align = "stretch",
-							children = {
-								UI.Button({
-									id = "Again",
-									label = "Play again",
-									height = { type = "minMax", min = "targetSizes.minimum" },
-								}),
-								UI.Button({
-									id = "Leave",
-									label = "Leave",
-									height = { type = "minMax", min = "targetSizes.minimum" },
-								}),
-							},
-						}),
-					},
-				}),
-			},
+			}),
 		})
 
 		-- THE BODY SCROLLS (BodyScroll precedent, adaptive_controls.luau). The offer
@@ -381,52 +371,49 @@ return {
 		local screen = UI.Screen({
 			id = "CompositionScreen",
 			padding = 12,
-			children = {
-				UI.ScrollView({
-					id = "Body",
-					axis = "y",
+
+			UI.ScrollView({
+				id = "Body",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				-- THE BAR WRAPS (O-21, 2026-08-15). Label + the resolved offer
+				-- name + `visits N` measure past a 320px phone row from +4
+				-- upward, and with nothing shrinkable in it the row painted
+				-- `visits 0` 93px off the right screen edge at +10 and 159px at
+				-- +14 — the readout this whole fixture is about. A wrap keeps
+				-- every one of the three readable; the Spacer still pushes the
+				-- count to the end of whatever line it lands on.
+				UI.HStack({
+					id = "OfferBar",
+					wrap = true,
 					gap = "s",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						-- THE BAR WRAPS (O-21, 2026-08-15). Label + the resolved offer
-						-- name + `visits N` measure past a 320px phone row from +4
-						-- upward, and with nothing shrinkable in it the row painted
-						-- `visits 0` 93px off the right screen edge at +10 and 159px at
-						-- +14 — the readout this whole fixture is about. A wrap keeps
-						-- every one of the three readable; the Spacer still pushes the
-						-- count to the end of whatever line it lands on.
-						UI.HStack({
-							id = "OfferBar",
-							wrap = true,
-							gap = "s",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "OfferLabel", text = "Offer", textSize = "label" }),
-								UI.Text({ id = "OfferName", text = offerName, textSize = "label" }),
-								UI.Spacer({}),
-								UI.Text({
-									id = "Visits",
-									text = core:memo(function(use)
-										return `visits {use(visits)}`
-									end),
-									textSize = "label",
-								}),
-							},
-						}),
-						-- THE OFFER FRAME. The composition adapts to THIS box, not to the
-						-- viewport — which is what makes the same screen resolve
-						-- differently inside a pane on an unchanged display.
-						UI.VStack({
-							id = "OfferFrame",
-							surface = "base",
-							width = offerDim("w"),
-							height = offerDim("h"),
-							children = { composition },
-						}),
-					},
+
+					UI.Text({ id = "OfferLabel", text = "Offer", textSize = "label" }),
+					UI.Text({ id = "OfferName", text = offerName, textSize = "label" }),
+					UI.Spacer({}),
+					UI.Text({
+						id = "Visits",
+						text = core:memo(function(use)
+							return `visits {use(visits)}`
+						end),
+						textSize = "label",
+					}),
 				}),
-			},
+				-- THE OFFER FRAME. The composition adapts to THIS box, not to the
+				-- viewport — which is what makes the same screen resolve
+				-- differently inside a pane on an unchanged display.
+				UI.VStack({
+					id = "OfferFrame",
+					surface = "base",
+					width = offerDim("w"),
+					height = offerDim("h"),
+					composition,
+				}),
+			}),
 		})
 
 		local function setOffer(name: string)

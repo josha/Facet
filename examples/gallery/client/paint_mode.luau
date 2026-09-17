@@ -17,7 +17,7 @@
 	  2. `Facet_NativeStyle` (or `Facet_NativeTransitions`) asks for the sheet
 	     path EXPLICITLY, and carries the transitions opt with it. Since the
 	     2026-08-21 default flip this is REDUNDANT-BUT-HARMLESS for paint — it
-	     still means something, because it is the only way to turn transitions on.
+	     preserves an explicit transition preference; nil follows the library.
 	  3. Neither set: return `nil`, which is not "off". `nil` is the absence of an
 	     opt, and the absence of an opt is what `native_style.DEFAULT_ENABLED`
 	     answers — so the gallery follows the library's default instead of pinning
@@ -39,8 +39,8 @@ export type Selectors = {
 	native: boolean,
 	-- `workspace.Facet_ForceStyleFallback == true`
 	fallback: boolean,
-	-- `workspace.Facet_NativeTransitions == true`
-	transitions: boolean,
+	-- nil follows the library; false explicitly disables native transitions.
+	transitions: boolean?,
 }
 
 local paint_mode = {}
@@ -52,8 +52,8 @@ function paint_mode.decide(selectors: Selectors): any
 	if selectors.fallback == true then
 		return false
 	end
-	if selectors.native == true or selectors.transitions == true then
-		return { transitions = selectors.transitions == true }
+	if selectors.native == true or selectors.transitions ~= nil then
+		return { transitions = selectors.transitions }
 	end
 	return nil
 end

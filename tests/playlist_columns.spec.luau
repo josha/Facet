@@ -173,7 +173,7 @@ describe("playlist columns: the header is on screen and legible", function()
 			expect(w.adapter.node(`{HEADER}/Head-artist/Grip`) ~= nil).toBe(true)
 			expect(w.adapter.node(`{HEADER}/Head-rating/Grip`)).toBe(nil)
 			-- the tutorial's own sentence about the same three facts
-			expect(w.built.widths:get()).toBe("Name auto · Artist auto · Rating locked")
+			expect(w.built.widths()).toBe("Name auto · Artist auto · Rating locked")
 			w.built.dispose()
 		end
 	)
@@ -219,7 +219,7 @@ describe("playlist columns: the three routes all move the same column", function
 		expect(`delta:{before - after}`).toBe("delta:90")
 		-- THE READOUT IS THE DEMO. It only moves because the widths are a Readable;
 		-- a pointer drag commits inside the control and calls nothing back.
-		expect(w.built.widths:get()).toBe(`Name {after}px · Artist auto · Rating locked`)
+		expect(w.built.widths()).toBe(`Name {after}px · Artist auto · Rating locked`)
 		w.built.dispose()
 	end)
 
@@ -258,11 +258,11 @@ describe("playlist columns: the three routes all move the same column", function
 		function()
 			local w = world()
 			focusHead(w, "name")
-			local idle = w.built.hint:get()
+			local idle = w.built.hint()
 			key(w, "Return")
-			expect(w.built.hint:get()).toBe("Name has the keys: , and . resize it, ↑/↓ sorts")
+			expect(w.built.hint()).toBe("Name has the keys: , and . resize it, ↑/↓ sorts")
 			key(w, "Return") -- and the second Activate hands them back
-			expect(w.built.hint:get()).toBe(idle)
+			expect(w.built.hint()).toBe(idle)
 			w.built.dispose()
 		end
 	)
@@ -799,7 +799,7 @@ describe("playlist columns: the divider forwards a press it did not turn into a 
 		expect(`sorted:{w.built.sortOrder:get().column}`).toBe("sorted:name")
 		-- ...and nothing was resized: `auto` is the readout for a column with no
 		-- committed override at all
-		expect(w.built.widths:get()).toBe("Name auto · Artist auto · Rating locked")
+		expect(w.built.widths()).toBe("Name auto · Artist auto · Rating locked")
 		w.built.dispose()
 	end)
 
@@ -809,7 +809,7 @@ describe("playlist columns: the divider forwards a press it did not turn into a 
 		-- 3px on a mouse: under `interaction_tokens.promotionPx("pointer")` = 6
 		tapGrip(w, -3)
 		expect(`under:{headWidth(w, "name") == before}`).toBe("under:true")
-		expect(w.built.widths:get()).toBe("Name auto · Artist auto · Rating locked")
+		expect(w.built.widths()).toBe("Name auto · Artist auto · Rating locked")
 		-- the SAME gesture 40px further is the resize it always was — the positive
 		-- control, because "nothing moved" is otherwise equally explained by a grip
 		-- that stopped receiving presses at all

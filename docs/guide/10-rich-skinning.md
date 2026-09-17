@@ -670,8 +670,10 @@ The per-view props take the **same grammar as a recipe** — a bare string or a
 per-state map:
 
 ```lua
-local slider = Facet.Controls.Slider(core, {
-    id = "Power", label = "Power", value = power, min = 0, max = 100,
+local UI = Facet.View
+local power, setPower = ui.state(50) -- inside Facet.component
+local slider = UI.Slider({
+    id = "Power", label = "Power", value = power, onChange = setPower, min = 0, max = 100,
     trackImage = "rbxassetid://133629068271978",        -- one picture
     thumbImage = {                                       -- ...or per state
         default = "rbxassetid://101901876687967",

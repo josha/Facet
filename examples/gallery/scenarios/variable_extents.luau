@@ -242,19 +242,18 @@ return {
 					padding = METRICS.padding,
 					gap = METRICS.gap,
 					width = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
-						UI.Text({
-							id = "Body",
-							text = item.body,
-							textSize = bodySize,
-							-- `lineLimit` is the wrap contract on UI.Text (there is no
-							-- `wrap` prop): the body wraps and is capped at exactly the
-							-- number of lines `rowExtent` reserved for it, so the two
-							-- sides of the declaration cannot drift
-							lineLimit = item.lines,
-						}),
-					},
+
+					UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
+					UI.Text({
+						id = "Body",
+						text = item.body,
+						textSize = bodySize,
+						-- `lineLimit` is the wrap contract on UI.Text (there is no
+						-- `wrap` prop): the body wraps and is capped at exactly the
+						-- number of lines `rowExtent` reserved for it, so the two
+						-- sides of the declaration cannot drift
+						lineLimit = item.lines,
+					}),
 				})
 			end,
 		})
@@ -326,63 +325,61 @@ return {
 			id = "VariableExtents",
 			padding = "s",
 			gap = "tight",
-			children = {
-				UI.ScrollView({
-					id = "Chrome",
-					axis = "y",
-					gap = "tight",
-					width = UI.fill(),
-					height = chromeHeight,
-					children = {
-						UI.Text({ id = "Title", text = "400 posts, four heights", textSize = "control" }),
-						--[[ THE CONTROLS WRAP rather than the page scrolling. Every other
+
+			UI.ScrollView({
+				id = "Chrome",
+				axis = "y",
+				gap = "tight",
+				width = UI.fill(),
+				height = chromeHeight,
+
+				UI.Text({ id = "Title", text = "400 posts, four heights", textSize = "control" }),
+				--[[ THE CONTROLS WRAP rather than the page scrolling. Every other
 					fixture here puts its chrome in a page `UI.ScrollView`, and this one
 					cannot: the list IS a scroll host, and nesting one inside another is a
 					gesture with two owners. `wrap = true` is the alternative that keeps
 					the whole page inside its box on a 320px phone — the framework's own
 					flow-wrap, doing the job the page scroller does elsewhere. ]]
-						UI.HStack({
-							id = "Controls",
-							wrap = true,
-							gap = "tight",
-							width = UI.fill(),
-							children = (function()
-								local kids: { any } = {
-									UI.Toggle({ id = "UniformToggle", label = "One height for all", value = uniformOn }),
-								}
-								for _, chip in sizeChips do
-									table.insert(kids, chip)
-								end
-								return kids
-							end)(),
-						}),
-						-- capped at two lines so a longer status string can never be the thing
-						-- that pushes the list out of its own page — and `disclose`d, because a
-						-- cap with no way past it is a cut string rather than a declared
-						-- degrade (O-21: this line IS cut at +10 and +14 on every phone here)
-						UI.Text({
-							id = "Status",
-							text = status,
-							textSize = "caption",
-							role = "secondary",
-							lineLimit = 2,
-							disclose = true,
-						}),
-					},
-				}),
-				-- the pane whose solved height IS the list's window (see the
-				-- `viewportExtent` block above). `fill` is what makes it the screen's
-				-- decision rather than the list's
-				UI.VStack({
-					id = "ListPane",
+				UI.HStack({
+					id = "Controls",
+					wrap = true,
+					gap = "tight",
 					width = UI.fill(),
-					-- weight 2 against the chrome's 1: on a short canvas the list still
-					-- gets the larger share of what there is, and where the chrome hugs
-					-- this is the only fill and takes everything left, as before
-					height = UI.fill(2),
-					children = { list.blueprint },
+					children = (function()
+						local kids: { any } = {
+							UI.Toggle({ id = "UniformToggle", label = "One height for all", value = uniformOn }),
+						}
+						for _, chip in sizeChips do
+							table.insert(kids, chip)
+						end
+						return kids
+					end)(),
 				}),
-			},
+				-- capped at two lines so a longer status string can never be the thing
+				-- that pushes the list out of its own page — and `disclose`d, because a
+				-- cap with no way past it is a cut string rather than a declared
+				-- degrade (O-21: this line IS cut at +10 and +14 on every phone here)
+				UI.Text({
+					id = "Status",
+					text = status,
+					textSize = "caption",
+					role = "secondary",
+					lineLimit = 2,
+					disclose = true,
+				}),
+			}),
+			-- the pane whose solved height IS the list's window (see the
+			-- `viewportExtent` block above). `fill` is what makes it the screen's
+			-- decision rather than the list's
+			UI.VStack({
+				id = "ListPane",
+				width = UI.fill(),
+				-- weight 2 against the chrome's 1: on a short canvas the list still
+				-- gets the larger share of what there is, and where the chrome hugs
+				-- this is the only fill and takes everything left, as before
+				height = UI.fill(2),
+				list.blueprint,
+			}),
 		})
 
 		local unbind: any = nil

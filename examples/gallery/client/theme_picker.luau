@@ -325,6 +325,7 @@ export type MountOpts = {
 	env: any,
 	adapter: any,
 	presenter: any,
+	composed: boolean?,
 	-- moduleName -> compiled package (the caller resolves ReplicatedStorage)
 	packages: { [string]: any },
 	-- injected so a caller can pass its own; defaults to Facet.client's
@@ -349,22 +350,16 @@ export type MountOpts = {
 -- a one-row picker is chrome that teaches nothing and still costs a surface.
 function theme_picker.mount(opts: MountOpts): any
 	local Facet = opts.Facet
-	local UI = Facet.UI
+	local UI = Facet.View
 	local core = opts.core
 	local themes = Facet.themes
 	local entries = theme_picker.listing(opts.packages, themes.neutralPackage())
 	if #entries < 2 then
 		return nil
 	end
-
 	local warnFn = opts.warn or print
 	local scope = core:scope("gallery-theme-picker")
 	local selection = scope:own(core:signal(theme_picker.initialSelection(entries)))
-
-	-- ONE controller for this environment (`themeMetrics` is a single
-	-- fact, so a second install is a capability error rather than a silent
-	-- clobber). Installed on NEUTRAL, which is what the gallery is already
-	-- showing — so mounting the picker changes nothing until it is used.
 	local ok, controller = pcall(opts.themeController.install, opts.adapter, themes.neutralPackage(), {
 		env = opts.env,
 	})
@@ -373,11 +368,6 @@ function theme_picker.mount(opts: MountOpts): any
 		scope:dispose()
 		return nil
 	end
-	-- SAY SO when the target cannot take native paint. On a fallback target a
-	-- package install commits the whole METRIC half live (sizes, spacing, type
-	-- all swap) while the palette applies from construction — the documented
-	-- documented limit. Without this line the picker looks broken: rows resize and
-	-- nothing changes colour, and there is nothing on screen explaining why.
 	if controller.inspect().fallback then
 		warnFn(
 			"[Facet Gallery] theme picker: this target paints through the explicit-write path, so a swap moves "
@@ -386,7 +376,6 @@ function theme_picker.mount(opts: MountOpts): any
 				.. "transaction."
 		)
 	end
-
 	local function apply(command: Command)
 		if command.action == "none" then
 			return
@@ -399,258 +388,95 @@ function theme_picker.mount(opts: MountOpts): any
 			end
 		end)
 		if not applied then
-			-- a refused swap must leave the PICKER showing what is really
-			-- installed, or the next click reasons from a lie
 			warnFn(`[Facet Gallery] theme picker: {tostring(err)}`)
 			return
 		end
 		selection:set(command.selection)
 	end
-
-	-- `onSelect` is a NODE handler, not a path pattern. See the note above the
-	-- present call: a surface-level `opts.onActivate` OVERRIDES every node's own
-	-- handler on that surface, so routing these rows by parsing their ids meant
-	-- the picker's own chip stopped working the moment the two shared a surface.
-	local function chip(id: string, label: string, isActive: any, onSelect: () -> ())
-		return UI.Button({
-			id = id,
-			label = label,
-			surface = "chip",
-			onActivate = onSelect,
-			-- THE ACTIVE ROW IS A SELECTION (director finding 12, root-caused live
-			-- 2026-07-26). This used to swap `surface` to `"accent"`, and a surface
-			-- is a promise about a FILL: under a skinned package the accent fill is
-			-- replaced by the package's chrome ART — which `Chrome role — accent`
-			-- only MULTIPLIES toward the accent, and a multiply can never lighten —
-			-- while the accent's `$OnAccent` label colour was still applied. Under
-			-- fantasy-ornate that measured as `GetStyled TextColor3` =
-			-- rgb(32, 22, 8) on a dark plum plate: the director's invisible label.
-			--
-			-- `selected` is what this actually is, and the framework models it end
-			-- to end: it routes the node to the package's own `selection` chrome
-			-- slot (ornate cut a plate for exactly this), tints it with
-			-- `$ChromeTintSelected`, and pairs the label with `$OnSelected`, which
-			-- `sheet_model.selectedContentColor` resolves against the theme's
-			-- declared selected surface — a declaration the reference-package sweep
-			-- now holds to the art's own sampled colour.
-			--
-			-- Reactive, so a swap repaints the row without rebuilding it — the same
-			-- no-remount promise the swap itself makes.
-			selected = scope:own(core:memo(function(use)
-				return use(isActive) == true
-			end)),
-			-- the box, and the two director rounds behind it, are documented on
-			-- CHIP_HEIGHT / CHIP_PADDING above — where a test can reach them
-			height = theme_picker.CHIP_HEIGHT,
-			padding = theme_picker.CHIP_PADDING,
-		})
-	end
-
-	local packageChips: { any } = {}
-	for _, entry in entries do
-		table.insert(
-			packageChips,
-			chip(
-				`P_{entry.id}`,
-				entry.displayName,
-				scope:own(core:memo(function(use)
-					return use(selection).packageId == entry.id
-				end)),
-				function()
-					apply(theme_picker.choosePackage(entries, selection:get(), entry.id))
-				end
-			)
-		)
-	end
-
-	-- The theme row is built for EVERY theme of every package and shown only for
-	-- the active one. A `UI.When` per package keeps the rows out of the tree
-	-- (and out of the focus order) when they are not the live ones, without the
-	-- picker ever rebuilding its own root.
-	local themeRows: { any } = {}
-	for _, entry in entries do
-		local chips: { any } = {}
-		for _, name in entry.themes do
-			table.insert(
-				chips,
-				chip(
-					`T_{entry.id}_{name}`,
-					name,
-					scope:own(core:memo(function(use)
-						local live = use(selection)
-						return live.packageId == entry.id and live.theme == name
-					end)),
-					function()
-						apply(theme_picker.chooseTheme(entries, selection:get(), name))
-					end
-				)
-			)
-		end
-		table.insert(
-			themeRows,
-			UI.When({
-				id = `Themes_{entry.id}`,
-				condition = scope:own(core:memo(function(use)
-					return use(selection).packageId == entry.id
-				end)),
-				thenView = function()
-					return UI.HStack({ id = "Row", gap = theme_picker.ROW_GAP, children = chips })
-				end,
+	-- Host selection survives closing the panel; view bindings do not.
+	-- Primitive chips expose the selected paint and measured padding used here.
+	local Choices = Facet.component(function(ui, props)
+		local current = ui.read(selection)
+		local function selectionChip(id: string, label: string, isActive: any, onSelect: () -> ())
+			return Facet.UI.Button({
+				id = id,
+				label = label,
+				surface = "chip",
+				onActivate = onSelect,
+				selected = isActive,
+				height = theme_picker.CHIP_HEIGHT,
+				padding = theme_picker.CHIP_PADDING,
 			})
-		)
-	end
-
-	-- COLLAPSED MODE (opt-in; see MountOpts.collapsible). `panelOpen` is a plain
-	-- signal so the handle toggles it with no remount.
-	--
-	-- `collapsible` is a BUILD-TIME boolean, not a binding, and the shell it adds
-	-- is built in plain Lua rather than with a `When`. That is deliberate: an
-	-- always-present wrapper would move the panel from
-	-- `/GalleryThemePicker/Dock/Panel` to `.../Dock/Shell/Panel` in every place,
-	-- and the eight single-example places' director-tuned geometry assertions
-	-- name that path. Un-collapsed, the tree is exactly what it has always been.
-	local isCollapsible = opts.collapsible == true
-	local panelOpen = scope:own(core:signal(not isCollapsible))
-	local handleLabel = scope:own(core:memo(function(use)
-		if use(panelOpen) then
-			return "Theme ×"
 		end
-		local entry = theme_picker.find(entries, use(selection).packageId)
-		local name = if entry ~= nil then entry.displayName else "—"
-		if isCollapsible then
-			-- Collapsed, the chip drops the "Theme:" prefix. Whether it also CLIPS
-			-- depends on what is above it, and it used to ask the wrong question
-			-- (purity audit DELETE §5, 2026-08-21): this gated on `collapsible`
-			-- while its sibling `demo_picker` gates the identical clip on
-			-- `composed`, and the showcase mounts BOTH flags — so in the shipped
-			-- chrome the demo chip handed the `UI.ViewThatFits` ladder its real
-			-- title and this one handed it a pre-truncated string. A ladder cannot
-			-- step a label it was never given, which made the clip defeat the very
-			-- mechanism `[SHOWCASE-CHROME]: CONCERNS 16` replaced it with.
-			--
-			-- COMPOSED: hand over the whole name and let the ladder measure.
-			-- STANDALONE: keep the clip byte-for-byte — that path draws its own chip
-			-- into its own 62px strip with no ladder above it, and the eight
-			-- single-example places' geometry assertions are written against it.
-			if opts.composed == true then
-				return name
+		local packageChips: { any } = {}
+		for _, entry in entries do
+			table.insert(
+				packageChips,
+				selectionChip(`P_{entry.id}`, entry.displayName, function()
+					return current().packageId == entry.id
+				end, function()
+					apply(theme_picker.choosePackage(entries, selection:get(), entry.id))
+				end)
+			)
+		end
+		local themeRows: { any } = {}
+		for _, entry in entries do
+			local chips: { any } = {}
+			for _, name in entry.themes do
+				table.insert(
+					chips,
+					selectionChip(`T_{entry.id}_{name}`, name, function()
+						local live = current()
+						return live.packageId == entry.id and live.theme == name
+					end, function()
+						apply(theme_picker.chooseTheme(entries, selection:get(), name))
+					end)
+				)
 			end
-			return theme_picker.clip(name, theme_picker.CHIP_LABEL_CHARS)
+			table.insert(
+				themeRows,
+				UI.When({
+					id = `Themes_{entry.id}`,
+					condition = function()
+						return current().packageId == entry.id
+					end,
+					thenView = function()
+						return UI.HStack({ id = "Row", gap = theme_picker.ROW_GAP, children = chips })
+					end,
+				})
+			)
 		end
-		return `Theme: {name}`
-	end))
-
-	-- the expanded panel, unchanged. Hoisted to a local so it can be mounted
-	-- either directly (the default) or behind a collapsed handle (the showcase).
-	-- THE TWO SECTIONS, hoisted: the composed card rebuilds around them without
-	-- a second surface, and the historical panel below is unchanged.
-	local panelSections = {
-		-- THE FIRST QUESTION, as one group. The caption labels the grid
-		-- and belongs to it, so it keeps the tight ROW_GAP while the
-		-- SECTION_GAP above separates this whole block from the theme
-		-- row — otherwise the title floats equidistant between the panel
-		-- edge and the grid and the hierarchy reads as three loose rows.
-		-- `fill` on purpose: the group is a grouping, not a size, and the
-		-- grid inside it must still be offered the panel's full inner
-		-- width (round 9's §9a-iii — a container measures its children in
-		-- its OWN definite box).
-		UI.VStack({
+		if props.themes then
+			return UI.VStack({ id = "Themes", gap = theme_picker.ROW_GAP, children = themeRows })
+		end
+		return UI.VStack({
 			id = "Choose",
 			width = UI.fill(),
 			gap = theme_picker.ROW_GAP,
-			children = {
-				UI.Text({
-					id = "Title",
-					text = "Theme",
-					textSize = "caption",
-					role = "secondary",
-				}),
-				UI.Grid({
-					id = "Packages",
-					-- MEASURED, NOT GUESSED (director round 9). This was a literal 132 px,
-					-- which is a guess about a FONT: under classic-desktop's 13 px
-					-- BuilderSans it is far too wide, and under sci-fi's 14 px Michroma —
-					-- a display face whose glyphs are much wider at the same size — far
-					-- too narrow, so the same picker over-wrapped in one theme and
-					-- clipped in the other. `"intrinsic"` sizes the column from the WIDEST
-					-- CHIP as the solver measures it under the LIVE theme, recomputed on
-					-- every solve, so the grid re-columns itself on a swap with nothing
-					-- to update.
-					minColumnWidth = "intrinsic",
-					-- UNIFORM CELLS (director ruling 2026-07-26). With intrinsic columns
-					-- the chips are already sized from real measurements, but they are
-					-- still RAGGED — ten plates of ten different widths. A picker is a
-					-- set of equal choices and reads better as one, so every cell takes
-					-- the max measured size. It is the same measurement, max-reduced, so
-					-- a wide theme font grows all ten together on the next solve.
-					itemSizing = "uniform",
-					gap = theme_picker.GRID_GAP,
-					-- the ROWS breathe with the package (director finding 14); the
-					-- COLUMN gap above stays a literal because it decides the count
-					rowGap = theme_picker.GRID_ROW_GAP,
-					width = UI.fill(),
-					children = packageChips,
-				}),
-			},
-		}),
-		UI.VStack({ id = "Themes", gap = theme_picker.ROW_GAP, children = themeRows }),
-	}
-
+			UI.Text({ id = "Title", text = "Theme", textSize = "caption", role = "secondary" }),
+			UI.Grid({
+				id = "Packages",
+				minColumnWidth = "intrinsic",
+				itemSizing = "uniform",
+				gap = theme_picker.GRID_GAP,
+				rowGap = theme_picker.GRID_ROW_GAP,
+				width = UI.fill(),
+				children = packageChips,
+			}),
+		})
+	end)
+	local isCollapsible = opts.collapsible == true
+	local panelOpen = scope:own(core:signal(not isCollapsible))
+	local panelSections = { Choices({}), Choices({ themes = true }) }
 	local panel = UI.VStack({
 		id = "Panel",
 		anchor = if isCollapsible then nil else "topRight",
 		surface = "raised",
 		padding = "s",
-		-- the gap BETWEEN THE TWO QUESTIONS (see SECTION_GAP): which
-		-- package, then which of that package's themes
 		gap = theme_picker.SECTION_GAP,
-		-- FILL, and a GRID for the chips (live-found 2026-07-25, P5). With
-		-- the four rich-skinning-v2 reference packages the row became TEN
-		-- chips; an HStack ran them off both edges of a 1233px viewport and
-		-- put "Facet Neutral" — the one row that has to be reachable,
-		-- because it is how you put it back — at x = -37. A picker that
-		-- grows with the corpus has to wrap, and on a 360px phone it has to
-		-- wrap several times.
-		--
-		-- `percent` with a CAP is the shape that does both: full width minus a
-		-- margin, never wider than 560. On a desktop the picker stays a top-right
-		-- card that does not cover the screen it sits over; on a phone it takes
-		-- what there is and wraps into more rows.
 		width = { type = "percent", fraction = 1, offset = -16, max = 560 },
 		children = panelSections,
 	})
-
-	-- COMPOSED: ONE NODE IS BOTH THE CARD AND THE SCROLLER.
-	--
-	-- Two wrong shapes came before this, and both are worth remembering because
-	-- the framework allows all three:
-	--
-	--   1. ScrollView AROUND the card. A scroll container clips to ITSELF, so it
-	--      clipped the card: a device capture showed a hard rectangle slicing a
-	--      row of theme chips in half while the card's own rounded corner
-	--      continued past the cut, with the scrollbar floating outside it.
-	--   2. ScrollView INSIDE the card. The clip was right, but now there were two
-	--      raised surfaces — a rounded panel inside a rounded panel with a gutter
-	--      and no meaning to it.
-	--   3. THIS. `ScrollView` takes `surface` and `padding` like any container
-	--      (CONTAINER_LAYOUT), so the scroller IS the card. One node, one edge,
-	--      one padding, scrollbar inside it by construction, and it cannot clip
-	--      its own corners because they are its own.
-	--
-	-- ...AND IT IS SIZED `hug`, ON BOTH AXES (director round 10, found live
-	-- 2026-07-26 on a phone). `fill` was the fourth wrong shape: it made the card
-	-- as big as the space rather than as big as the list, so under Facet Neutral
-	-- the ten themes ended less than halfway down a plate that ran to the bottom
-	-- of the screen, and the same card was the full width of the phone with the
-	-- rows inset inside it. Under Fantasy Ornate — taller rows, a 30px carved
-	-- frame — the OPPOSITE half showed: the list ran off the bottom of the
-	-- viewport and did not scroll, because a `fill` box is by definition never
-	-- smaller than its content, so the overflow that turns scrolling on never
-	-- registered.
-	--
-	-- `hug` is one declaration for both: the content size, capped at what the
-	-- parent offered. Short list -> a card that stops at the last row. Long list
-	-- -> the cap bites, content exceeds the box, and the ScrollView scrolls.
 	if opts.composed == true then
 		panel = UI.ScrollView({
 			id = "Panel",
@@ -662,123 +488,67 @@ function theme_picker.mount(opts: MountOpts): any
 			children = panelSections,
 		})
 	end
-
-	-- THE CHIP. One blueprint, used by the collapsed shell here and — when the
-	-- host composes the chrome itself — handed straight over so the host's own
-	-- solver lays it out beside the demo picker's.
-	-- DISTINCT ID WHEN COMPOSED. Both pickers' chips were called "Toggle", which
-	-- was fine while they lived in separate surfaces and is a duplicate-child-id
-	-- error the moment one HStack holds them both. The historical id survives on
-	-- the path the single-example places assert.
-	local chip = UI.Button({
-		id = if opts.composed == true then "ThemeToggle" else "Toggle",
-		label = handleLabel,
-		surface = "chip",
-		height = theme_picker.CHIP_HEIGHT,
-		padding = theme_picker.CHIP_PADDING,
-		onActivate = function()
-			panelOpen:set(not panelOpen:get())
-		end,
-	})
-
-	-- un-collapsed: the panel IS the dock's child, at its historical path.
-	-- collapsed: a shell holds a handle plus the panel behind a `When`.
-	-- THE STANDALONE COLLAPSED SHELL DOCKS TOP-RIGHT, AND DOES NOT LIFT
-	-- (example-quality-pass, 2026-08-06).
-	--
-	-- Collapsed mode used to be reachable only from the showcase, which composes
-	-- the pieces itself (`composed = true`) and therefore never builds this shell
-	-- at all — so the branch carried the showcase's geometry: docked top-LEFT and
-	-- lifted by `-BAR_HEIGHT` into a strip the showcase reserves through
-	-- `appChromeInsets`. The tutorial-example host reserves no such strip, and the
-	-- examples all lay their content out from the top-LEFT.
-	--
-	-- Measured why this matters: with the picker expanded (the example host's old
-	-- behaviour) its panel occupied `x 339..899, y 8..219` while example 01's text
-	-- field occupied `x 16..891, y 78..122` — the picker sat on top of most of the
-	-- primary control of the example it was supposed to be restyling, and on a
-	-- 360x691 phone it covered the example entirely.
-	--
-	-- So: top-RIGHT, no lift, out of the way of every example's content, and
-	-- collapsed by default. The showcase path is untouched (it never reaches here).
+	local Toggle = Facet.component(function(ui)
+		local expanded, current = ui.read(panelOpen), ui.read(selection)
+		local handleLabel = ui.memo(function()
+			if expanded() then
+				return "Theme ×"
+			end
+			local entry = theme_picker.find(entries, current().packageId)
+			local name = if entry ~= nil then entry.displayName else "—"
+			if isCollapsible then
+				if opts.composed == true then
+					return name
+				end
+				return theme_picker.clip(name, theme_picker.CHIP_LABEL_CHARS)
+			end
+			return `Theme: {name}`
+		end)
+		return Facet.UI.Button({
+			id = if opts.composed == true then "ThemeToggle" else "Toggle",
+			label = handleLabel,
+			surface = "chip",
+			height = theme_picker.CHIP_HEIGHT,
+			padding = theme_picker.CHIP_PADDING,
+			onActivate = function()
+				panelOpen:set(not panelOpen:get())
+			end,
+		})
+	end)
+	local chip = Toggle({})
 	local dockChild = if isCollapsible
 		then UI.VStack({
 			id = "Shell",
-			-- zero on both axes: the Screen's own "s" padding is the inset, so the
-			-- chip sits in the top-right corner without a second hard-coded margin
 			anchor = "topRight",
 			offsetX = 0,
 			offsetY = 0,
 			gap = theme_picker.ROW_GAP,
-			--[[ NO `alignH` HERE. It used to say `"end"`, meaning "right-align the chip
-				and the panel inside this column". It never did: `alignH` is read by a
-				node's PARENT, and this column's parent is `Dock`, a `UI.Anchor`, which
-				places by corner and reads no align at all (§2.1 placement audit,
-				2026-08-13). A stack's own cross-axis word is `align`, and `align =
-				"end"` is the spelling that WOULD right-set the chip against a wider
-				open panel — which moves pixels, so it is queued rather than taken:
-				`docs/plans/unfulfilled-placement-intents.md`. ]]
-			children = {
-				chip,
-				UI.When({
-					id = "PanelWhen",
-					condition = panelOpen,
-					thenView = function()
-						return panel
-					end,
-				}),
-			},
+			chip,
+			UI.When({
+				id = "PanelWhen",
+				condition = panelOpen,
+				thenView = function()
+					return panel
+				end,
+			}),
 		})
 		else panel
-
 	local screen = UI.Screen({
 		id = "GalleryThemePicker",
 		padding = "s",
-		children = {
-			UI.Anchor({
-				id = "Dock",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					dockChild,
-				},
-			}),
-		},
+		UI.Anchor({
+			id = "Dock",
+			width = UI.fill(),
+			height = UI.fill(),
+			dockChild,
+		}),
 	})
-
-	-- COMPOSED: the host is building ONE chrome surface and wants the pieces, not
-	-- a presented overlay. Two chips in two surfaces cannot measure each other,
-	-- so keeping them apart meant a hard-coded offset — and on a real phone the
-	-- text is wider than the offset assumed and the chips overlapped. Handing the
-	-- pieces to one solver makes overlap structurally impossible.
 	if opts.composed == true then
 		return {
 			chip = chip,
 			panel = panel,
-			-- THE SECTIONS, BARE. Theme is a SETTING, and `[SHOWCASE-CHROME]:
-			-- CONCERNS 16` put every setting behind one chip — so the showcase's
-			-- settings surface composes these two stacks into its own card
-			-- (`settings_panel.mount{ themeSections = … }`) rather than nesting this
-			-- picker's raised `panel` inside another raised card. `panel` above is
-			-- unchanged for every caller that still wants the standalone card.
 			sections = panelSections,
 			open = panelOpen,
-			-- THE SAME PATH A TAP TAKES, exposed as the scriptable entry point.
-			--
-			-- This slot used to read `dispatch = dispatch`, and `dispatch` had not
-			-- existed since behaviour moved onto the nodes — a deleted local whose
-			-- reference survived, which Luau reads as a nil GLOBAL rather than
-			-- failing (later locals are not upvalues, the same
-			-- family). So the composed picker shipped `dispatch = nil`, and the
-			-- showcase's `FacetShowcaseAPI.pickTheme` errored with "attempt to call
-			-- a nil value" for every caller: there was NO working route to switch
-			-- theme from a script, which is exactly the kind of thing an agent
-			-- driving the place needs and cannot get from a tap (XP-B3).
-			--
-			-- `pickPackage` routes through `apply`, the identical call the chips'
-			-- own `onActivate` makes, so driving it exercises the real command path
-			-- instead of a parallel one that can rot on its own. It still does not
-			-- prove the BUTTON works — only a real tap does that.
 			pickPackage = function(packageId: string): boolean
 				local command = theme_picker.choosePackage(entries, selection:get(), packageId)
 				if command.action == "none" then
@@ -796,56 +566,18 @@ function theme_picker.mount(opts: MountOpts): any
 			end,
 		}
 	end
-
-	-- NO SURFACE-LEVEL `onActivate`, DELIBERATELY.
-	--
-	-- `presenter.dispatchActivate` is explicit about this: "when opts.onActivate
-	-- IS present it wins outright (override)" — it runs and RETURNS, so no node
-	-- on that surface ever gets its own `props.onActivate`. This picker used to
-	-- route its rows that way, by matching `P_`/`T_` prefixes out of the path,
-	-- and the cost only became visible once the host composed both pickers into
-	-- one surface: the override swallowed every activation, so the theme chip and
-	-- the demo chip both went dead while the rows kept working. Before that, a
-	-- re-present that DROPPED the override had the mirror-image effect — chips
-	-- worked, rows dead. Two bugs, one cause, and they trade places.
-	--
-	-- Node handlers have neither failure mode: they cannot be dropped by a
-	-- re-present and they cannot be swallowed by a sibling surface's router.
-	-- `dispatch` survives only as a scriptable entry point (the showcase's
-	-- pointer-free drive API calls it); nothing on screen depends on it.
 	local presentOpts = {
-		-- PASSIVE: binds nothing gameplay-contended and never moves
-		-- the fixture's focus on appearance. It engages only when used.
 		responder = "passive",
 	}
 	local handle = opts.presenter.present(screen, presentOpts)
-
 	return {
-		-- A FUNCTION, NOT A FIELD. `raise` re-presents this surface and rebinds
-		-- the local, so a snapshot taken here goes stale the first time the host
-		-- raises the picker — and it points at a DISMISSED handle, which is worse
-		-- than nil because it still looks usable.
 		handleOf = function()
 			return handle
 		end,
-		-- z-order is present order (presenter §2.2). A host that mounts other
-		-- surfaces after this one re-presents it to put it back on top.
 		raise = function()
 			opts.presenter.dismiss(handle)
 			handle = opts.presenter.present(screen, presentOpts)
 		end,
-		-- THE SAME TWO SCRIPTABLE SEAMS THE COMPOSED HANDLE ALREADY HAD
-		-- (example-quality-pass, 2026-08-06). The tutorial-example host now mounts
-		-- this picker COLLAPSED, so an agent driving a themed capture has to be able
-		-- to open it and choose a package without a pointer — and the composed
-		-- (showcase) handle has offered exactly these two since the `dispatch`
-		-- regression. Two returns from one function offering different powers is how
-		-- the showcase's route rotted unnoticed; they match now.
-		--
-		-- `open` is the same signal the chip's own `onActivate` writes, and
-		-- `pickPackage` routes through `apply`, the identical call a package row's
-		-- `onActivate` makes. Driving either exercises the real command path rather
-		-- than a parallel one — it still does not prove the BUTTON works.
 		open = panelOpen,
 		pickPackage = function(packageId: string): boolean
 			local command = theme_picker.choosePackage(entries, selection:get(), packageId)
@@ -865,5 +597,4 @@ function theme_picker.mount(opts: MountOpts): any
 		end,
 	}
 end
-
 return theme_picker

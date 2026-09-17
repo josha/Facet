@@ -137,15 +137,14 @@ return {
 					padding = 10,
 					gap = "xs",
 					width = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
-						--[[ NO `lineLimit`, ON PURPOSE. `variable_extents` caps its body at
+
+					UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
+					--[[ NO `lineLimit`, ON PURPOSE. `variable_extents` caps its body at
 							exactly the number of lines its extent function reserved, because a
 							declared extent and an uncapped wrap cannot both be right. Here the
 							body wraps to whatever the live width and the live type scale make
 							it, which is the case a declared extent cannot express at all. ]]
-						UI.Text({ id = "Body", text = item.body, textSize = bodySize }),
-					},
+					UI.Text({ id = "Body", text = item.body, textSize = bodySize }),
 				})
 			end,
 		})
@@ -191,30 +190,29 @@ return {
 			id = "MeasuredExtents",
 			padding = "s",
 			gap = "tight",
-			children = {
-				--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
+
+			--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
 					`variable_extents` records: the list IS a scroll host, and nesting one
 					inside another is a gesture with two owners. `wrap = true` is the
 					framework's own flow-wrap doing the job a page scroller does elsewhere. ]]
-				UI.HStack({
-					id = "Controls",
-					wrap = true,
-					gap = "tight",
-					width = UI.fill(),
-					children = sizeChips,
-				}),
-				-- capped at two lines so a longer status string can never be the thing
-				-- that pushes the list out of its own page
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
-				-- the pane whose solved height IS the list's window. `fill` is what makes
-				-- it the screen's decision rather than the list's
-				UI.VStack({
-					id = "ListPane",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = { list.blueprint },
-				}),
-			},
+			UI.HStack({
+				id = "Controls",
+				wrap = true,
+				gap = "tight",
+				width = UI.fill(),
+				children = sizeChips,
+			}),
+			-- capped at two lines so a longer status string can never be the thing
+			-- that pushes the list out of its own page
+			UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
+			-- the pane whose solved height IS the list's window. `fill` is what makes
+			-- it the screen's decision rather than the list's
+			UI.VStack({
+				id = "ListPane",
+				width = UI.fill(),
+				height = UI.fill(),
+				list.blueprint,
+			}),
 		})
 
 		local unbind: any = nil

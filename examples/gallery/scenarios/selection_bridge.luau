@@ -24,10 +24,9 @@ return {
 			-- own step: `gap = "s"` costs 2px past the box under glossy-mobile. It waits on
 			-- the fixture giving the page somewhere to go.
 			gap = 8,
-			children = {
-				UI.Text({ id = "Title", text = "Selection bridge (base stays nil)", textSize = 22 }),
-				UI.Button({ id = "Open", label = "Open modal" }),
-			},
+
+			UI.Text({ id = "Title", text = "Selection bridge (base stays nil)", textSize = 22 }),
+			UI.Button({ id = "Open", label = "Open modal" }),
 		})
 
 		local modalHandle: any = nil
@@ -51,17 +50,16 @@ return {
 				surface = "raised",
 				active = true,
 				width = { type = "fixed", px = 280 },
-				children = {
-					UI.Text({ id = "MTitle", text = "Pick one", textSize = "control" }),
-					UI.ScrollView({
-						id = "MList",
-						height = { type = "fixed", px = 200 },
-						width = { type = "fixed", px = 250 },
-						padding = "xs",
-						children = rows,
-					}),
-					UI.Button({ id = "Close", label = "Close" }),
-				},
+
+				UI.Text({ id = "MTitle", text = "Pick one", textSize = "control" }),
+				UI.ScrollView({
+					id = "MList",
+					height = { type = "fixed", px = 200 },
+					width = { type = "fixed", px = 250 },
+					padding = "xs",
+					children = rows,
+				}),
+				UI.Button({ id = "Close", label = "Close" }),
 			})
 			modalHandle = pres.presentModal(modal, { engineSelectionBridge = true })
 			return true

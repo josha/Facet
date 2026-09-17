@@ -1064,7 +1064,7 @@ scroll position, in-progress text entry, and resource ownership. A palette-only
 swap does not churn a single decoration instance — the adapter compares the
 chrome signature first and only re-sweeps when the recipes actually differ.
 
-Paint may ride opt-in native transitions (`transitions = true` at install).
+Paint uses native transitions by default (`transitions = false` at install opts out).
 Geometry never animates independently of the solver.
 
 ## 9.10 Step 9 — upgrades
@@ -1145,8 +1145,10 @@ short version.
 **Rung 2, concretely.** `Slider` takes `thumbImage` and `trackImage`:
 
 ```lua
-local slider = Facet.Controls.Slider(core, {
-    id = "Power", label = "Power", value = power, min = 0, max = 100,
+local UI = Facet.View
+local power, setPower = ui.state(50) -- inside Facet.component
+local slider = UI.Slider({
+    id = "Power", label = "Power", value = power, onChange = setPower, min = 0, max = 100,
     thumbImage = "rbxassetid://102024273231445",   -- THIS slider only
 })
 ```

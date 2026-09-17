@@ -231,11 +231,12 @@ Yours can too — bind the values you resolved to **reactive props**:
 ```lua
 -- `height` is reactive, so writing the new resolved height into this signal
 -- re-sizes the control in the same frame, with no rebuild and no remount
-local dialHeight = core:memo(function(use) return { type = "fixed", px = use(heightPx) } end)
+local height, setHeight = ui.state(initialHeightPx)
+local function dialHeight() return { type = "fixed", px = height() } end
 ```
 
 Then, from your `controller.onChange` handler, re-run `resolve(...)` and write
-the signal.
+`setHeight(resolved.height)`. The component owns this local state.
 
 **What does NOT update that way, and why:** `UI.shadow` and `UI.corners` are
 functions that normalize eagerly and return a new blueprint — they are not

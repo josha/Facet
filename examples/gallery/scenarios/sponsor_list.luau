@@ -301,56 +301,54 @@ return {
 				margin = "xs",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					-- the selected FORM channel (never hue alone, I-5)
-					UI.Box({
-						id = "EdgeBar",
-						surface = "accent",
-						width = edgeBarWidth,
-						height = UI.fill(),
-					}),
-					UI.corners(UI.Box({ id = "Swatch", surface = "chip", width = SWATCH, height = SWATCH }), "pill"),
-					UI.VStack({
-						id = "Labels",
-						gap = "xs",
+
+				-- the selected FORM channel (never hue alone, I-5)
+				UI.Box({
+					id = "EdgeBar",
+					surface = "accent",
+					width = edgeBarWidth,
+					height = UI.fill(),
+				}),
+				UI.corners(UI.Box({ id = "Swatch", surface = "chip", width = SWATCH, height = SWATCH }), "pill"),
+				UI.VStack({
+					id = "Labels",
+					gap = "xs",
+					width = UI.fill(),
+
+					UI.Text({ id = "Name", text = item.name, textSize = "body", role = nameRole }),
+					-- CAPPED AT TWO LINES (finding F13): the row height above
+					-- reserves exactly this, so the largest text offset grows
+					-- every row by the same amount and the windowing arithmetic
+					-- stays index x height
+					UI.Text({
+						id = "Detail",
+						text = item.detail,
+						textSize = "caption",
+						role = "secondary",
+						lineLimit = 2,
+						-- ...AND A WAY BACK OUT OF THE CAP (O-21, 2026-08-15). The
+						-- cap is deliberate and stays: uniform growth per row is what
+						-- keeps `index x height` windowing true. What was missing is
+						-- the other half of §15.3 `policy = "truncate"` — on a
+						-- 359x718 phone at +10 and +14 this line is CUT (measured:
+						-- 101px of box for a 61-character string) and had nothing to
+						-- open it, which is lost copy rather than a declared degrade.
+						disclose = true,
 						width = UI.fill(),
-						children = {
-							UI.Text({ id = "Name", text = item.name, textSize = "body", role = nameRole }),
-							-- CAPPED AT TWO LINES (finding F13): the row height above
-							-- reserves exactly this, so the largest text offset grows
-							-- every row by the same amount and the windowing arithmetic
-							-- stays index x height
-							UI.Text({
-								id = "Detail",
-								text = item.detail,
-								textSize = "caption",
-								role = "secondary",
-								lineLimit = 2,
-								-- ...AND A WAY BACK OUT OF THE CAP (O-21, 2026-08-15). The
-								-- cap is deliberate and stays: uniform growth per row is what
-								-- keeps `index x height` windowing true. What was missing is
-								-- the other half of §15.3 `policy = "truncate"` — on a
-								-- 359x718 phone at +10 and +14 this line is CUT (measured:
-								-- 101px of box for a 61-character string) and had nothing to
-								-- open it, which is lost copy rather than a declared degrade.
-								disclose = true,
-								width = UI.fill(),
-							}),
-						},
 					}),
-					UI.Spacer({ id = "Gap" }),
-					-- the §4.2 verdict glyph slot: empty in this lab (no drag session
-					-- here), sized so the drop lab's row and this one measure the same
-					UI.Box({ id = "VerdictSlot", surface = "plain", width = SWATCH, height = SWATCH }),
-					-- SF-P1's continuous channel, on its own node so the card keeps its
-					-- state fill (a tint claims the fill it is written to)
-					UI.Box({
-						id = "Wash",
-						tint = washTint,
-						width = { type = "fixed", px = 6 },
-						height = UI.fill(),
-					}),
-				},
+				}),
+				UI.Spacer({ id = "Gap" }),
+				-- the §4.2 verdict glyph slot: empty in this lab (no drag session
+				-- here), sized so the drop lab's row and this one measure the same
+				UI.Box({ id = "VerdictSlot", surface = "plain", width = SWATCH, height = SWATCH }),
+				-- SF-P1's continuous channel, on its own node so the card keeps its
+				-- state fill (a tint claims the fill it is written to)
+				UI.Box({
+					id = "Wash",
+					tint = washTint,
+					width = { type = "fixed", px = 6 },
+					height = UI.fill(),
+				}),
 			})
 		end
 
@@ -500,54 +498,51 @@ return {
 		local screen = UI.Screen({
 			id = "ListLab",
 			padding = "m",
-			children = {
-				UI.ScrollView({
-					id = "Body",
-					axis = "y",
+
+			UI.ScrollView({
+				id = "Body",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
+				-- THE CONTROL ROW WRAPS (O-21, 2026-08-15). The buttons carry
+				-- their own labels and nothing in the row is shrinkable, so on a
+				-- 320px phone from +10 up it painted `Eligibility` 15px off the
+				-- right screen edge — a control whose label cannot be read and
+				-- whose target cannot be reached.
+				UI.HStack({
+					id = "Controls",
+					wrap = true,
 					gap = "s",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
-						-- THE CONTROL ROW WRAPS (O-21, 2026-08-15). The buttons carry
-						-- their own labels and nothing in the row is shrinkable, so on a
-						-- 320px phone from +10 up it painted `Eligibility` 15px off the
-						-- right screen edge — a control whose label cannot be read and
-						-- whose target cannot be reached.
-						UI.HStack({
-							id = "Controls",
-							wrap = true,
-							gap = "s",
-							width = UI.fill(),
-							children = {
-								UI.Button({
-									id = "BtnChurn",
-									label = "Churn",
-									selected = churning,
-									height = { type = "minMax", min = "targetSizes.minimum" },
-									onActivate = function()
-										churning:set(not churning:get())
-										if churning:get() then
-											scheduleChurn()
-										end
-									end,
-								}),
-								UI.Button({
-									id = "BtnEligibility",
-									label = "Eligibility",
-									selected = mixedEligibility,
-									height = { type = "minMax", min = "targetSizes.minimum" },
-									onActivate = function()
-										mixedEligibility:set(not mixedEligibility:get())
-									end,
-								}),
-							},
-						}),
-						list.blueprint,
-						UI.Text({ id = "InspectLine", text = inspect, textSize = "caption", role = "secondary" }),
-					},
+
+					UI.Button({
+						id = "BtnChurn",
+						label = "Churn",
+						selected = churning,
+						height = { type = "minMax", min = "targetSizes.minimum" },
+						onActivate = function()
+							churning:set(not churning:get())
+							if churning:get() then
+								scheduleChurn()
+							end
+						end,
+					}),
+					UI.Button({
+						id = "BtnEligibility",
+						label = "Eligibility",
+						selected = mixedEligibility,
+						height = { type = "minMax", min = "targetSizes.minimum" },
+						onActivate = function()
+							mixedEligibility:set(not mixedEligibility:get())
+						end,
+					}),
 				}),
-			},
+				list.blueprint,
+				UI.Text({ id = "InspectLine", text = inspect, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		-- ===== steps ========================================================

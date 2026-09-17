@@ -17,21 +17,20 @@ return {
 	title = "Safe-area authority (NS-A1)",
 	ledgerRows = { "NS-A1" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
+		local UI = ctx.Facet.View
 
 		local screen = UI.Screen({
 			id = "SafeAreaScreen",
 			padding = 0,
 			gap = "xs",
-			children = {
-				UI.Text({ id = "TopEdge", text = "TOP-EDGE MARKER", textSize = "control" }),
-				UI.Box({
-					id = "Content",
-					surface = "raised",
-					height = UI.fill(),
-				}),
-				UI.Text({ id = "BottomEdge", text = "BOTTOM-EDGE MARKER", textSize = "control" }),
-			},
+
+			UI.Text({ id = "TopEdge", text = "TOP-EDGE MARKER", textSize = "control" }),
+			UI.Box({
+				id = "Content",
+				surface = "raised",
+				height = UI.fill(),
+			}),
+			UI.Text({ id = "BottomEdge", text = "BOTTOM-EDGE MARKER", textSize = "control" }),
 		})
 
 		return {

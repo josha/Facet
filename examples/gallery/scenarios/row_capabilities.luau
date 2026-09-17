@@ -364,81 +364,77 @@ return {
 			id = "RowCapabilities",
 			padding = 12,
 			gap = "s",
-			children = {
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
+
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = copy.title, textSize = "heading" }),
+				UI.Text({ id = "Intro", text = copy.intro, textSize = "caption", role = "secondary" }),
+				-- WRAPPING, so two buttons whose labels expanded ~1.4x take a
+				-- second line instead of walking off a 320px phone. `wrap` is
+				-- itself round-3 vocabulary (item A) and this is what it is for.
+				UI.HStack({
+					id = "Toolbar",
 					gap = "s",
+					wrap = true,
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = copy.title, textSize = "heading" }),
-						UI.Text({ id = "Intro", text = copy.intro, textSize = "caption", role = "secondary" }),
-						-- WRAPPING, so two buttons whose labels expanded ~1.4x take a
-						-- second line instead of walking off a 320px phone. `wrap` is
-						-- itself round-3 vocabulary (item A) and this is what it is for.
-						UI.HStack({
-							id = "Toolbar",
-							gap = "s",
-							wrap = true,
-							width = UI.fill(),
-							children = {
-								UI.Button({
-									id = "MoveUp",
-									label = copy.moveUp,
-									onActivate = function()
-										move(-1)
-									end,
-								}),
-								UI.Button({
-									id = "MoveDown",
-									label = copy.moveDown,
-									onActivate = function()
-										move(1)
-									end,
-								}),
-							},
-						}),
-						UI.Text({ id = "Selected", text = selectedName, textSize = "label" }),
-						UI.focusSection(tbl.blueprint),
-						UI.Text({ id = "Order", text = orderLine, textSize = "caption", role = "secondary" }),
-						-- THE LINE THIS WHOLE FIXTURE IS FOR. `role = "danger"` is not
-						-- used: a refusal is information, not an error, and painting it
-						-- as one would say the table is broken — which is the exact
-						-- reading this surface exists to prevent.
-						UI.Text({ id = "Refusal", text = refusal, textSize = "label" }),
-						UI.Text({ id = "RefusalCount", text = refusalCount, textSize = "caption", role = "secondary" }),
-						UI.VStack({
-							id = "Legend",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({
-									id = "LegendPinned",
-									text = copy.legendPinned,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({
-									id = "LegendProtected",
-									text = copy.legendProtected,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({
-									id = "LegendLocked",
-									text = copy.legendLocked,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						UI.Text({ id = "Footer", text = copy.footer, textSize = "caption", role = "secondary" }),
-					},
+
+					UI.Button({
+						id = "MoveUp",
+						label = copy.moveUp,
+						onActivate = function()
+							move(-1)
+						end,
+					}),
+					UI.Button({
+						id = "MoveDown",
+						label = copy.moveDown,
+						onActivate = function()
+							move(1)
+						end,
+					}),
 				}),
-			},
+				UI.Text({ id = "Selected", text = selectedName, textSize = "label" }),
+				UI.focusSection(tbl.blueprint),
+				UI.Text({ id = "Order", text = orderLine, textSize = "caption", role = "secondary" }),
+				-- THE LINE THIS WHOLE FIXTURE IS FOR. `role = "danger"` is not
+				-- used: a refusal is information, not an error, and painting it
+				-- as one would say the table is broken — which is the exact
+				-- reading this surface exists to prevent.
+				UI.Text({ id = "Refusal", text = refusal, textSize = "label" }),
+				UI.Text({ id = "RefusalCount", text = refusalCount, textSize = "caption", role = "secondary" }),
+				UI.VStack({
+					id = "Legend",
+					surface = "control",
+					padding = "s",
+					gap = "tight",
+					width = UI.fill(),
+
+					UI.Text({
+						id = "LegendPinned",
+						text = copy.legendPinned,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Text({
+						id = "LegendProtected",
+						text = copy.legendProtected,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Text({
+						id = "LegendLocked",
+						text = copy.legendLocked,
+						textSize = "caption",
+						role = "secondary",
+					}),
+				}),
+				UI.Text({ id = "Footer", text = copy.footer, textSize = "caption", role = "secondary" }),
+			}),
 		})
 
 		local function ids(): { string }

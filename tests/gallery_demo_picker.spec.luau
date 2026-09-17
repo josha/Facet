@@ -537,17 +537,13 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 	it("no `present` call in the shipped host drops its opts", function()
 		local source = fs.readFile("examples/gallery/client/init.client.luau")
 		local calls = 0
-		for args in string.gmatch(source, "pres%.present%(([^\n]*)%)") do
+		for args in string.gmatch(source, "pres%.present%((built%.[^\n]*)%)") do
 			calls += 1
 			local hasOpts = string.find(args, ",", 1, true) ~= nil
 			expect(`present({args}) has opts:{hasOpts}`).toBe(`present({args}) has opts:true`)
 		end
-		-- every single-line call site left in the file. It used to be four: the
-		-- chrome's own `raiseChrome` was one of them, and the chrome is a required
-		-- module now (`showcase_chrome.luau`), which is a strict improvement on
-		-- this check — that surface is MOUNTED by tests/gallery_chrome.spec rather
-		-- than pattern-matched here. The two multi-line calls (the backdrop root
-		-- and the plain settings demo) pass literal tables written inline.
+		-- Every built-description call forwards its companion opts. Inline
+		-- components own their handlers and need no extra presentation options.
 		expect(calls).toBe(3)
 		-- and the DEMO branches are the ones this is really about: the picker's
 		-- fixture branch, the picker's tutorial branch, and the single-demo mount

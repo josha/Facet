@@ -17,6 +17,14 @@ you already believe in them and just need to know where to type.
 Every fact in the two tables is checked against the place it came from. See
 [section 4](#4-how-this-file-stays-true) for the rules and the command.
 
+Maintained examples and guide recipes use the
+[current component vocabulary](guide/15-components.md). A feature is not complete
+when only its explicit `Controls` constructor works: its typed `View` declaration,
+getter bindings, inherited services and mounted cleanup must work too. Test the
+mounted path and migrate its showcase page in the same change. Keep application
+models and diagnostic control handles explicit only where their longer lifetime
+or imperative operations are needed; see the [example index](../examples/README.md).
+
 ## 1. The areas
 
 Nineteen areas cover every top-level entry under `src/`. The **owns** column is the
@@ -27,12 +35,12 @@ tree to prove it.
 
 | Area | Owns | Responsibility | Public seam | Internal owner modules |
 |---|---|---|---|---|
-| **core** | `src/core/` | The reactive runtime: signals, memos, observers, effects, transactions and scopes. No engine, no layout. | `Facet.newCore` | `src/core/custom.luau`, `src/core/scope_impl.luau`, `src/core/contract.luau`, `src/core/profile.luau` |
-| **blueprint** | `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/class_contract.luau`, `src/spec_guard.luau` | The declarative constructors and the closed key schema every public spec is judged against. Produces frozen data only. | `Facet.UI` | `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/class_contract.luau`, `src/spec_guard.luau` |
+| **core** | `src/core/`, `src/vendor/` | The reactive runtime: signals, memos, observers, effects, transactions and scopes. No engine, no layout. | `Facet.newCore` | `src/core/signals.luau`, `src/core/scope_impl.luau`, `src/core/contract.luau`, `src/core/profile.luau` |
+| **blueprint** | `src/authoring.luau`, `src/blueprint_children.luau`, `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/class_contract.luau`, `src/spec_guard.luau` | The component authoring layer and primitive constructors. Descriptions are frozen; component setup runs at mount. | `Facet.component`, `Facet.View`, `Facet.UI` | `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/class_contract.luau`, `src/spec_guard.luau` |
 | **mount** | `src/mount.luau` | Turns a blueprint into a live mounted node graph, runs each setup once, and records what changed in the dirty queue. | `Facet.mount` | `src/mount.luau` |
 | **layout** | `src/layout/`, `src/region_expand.luau`, `src/measure.luau` | Pure two-pass geometry. A tree snapshot and a viewport go in, a rectangle per node comes out. It reads no signal and no instance. | `Facet.adaptive`, `Facet.composition`, `Facet.text` — plus the sibling instance `ReplicatedStorage.Facet.measure` (not a `Facet` table member: framework-gaps-phase2 gap 11's headless entry point, a standalone republish of `text_metrics.luau` reached WITHOUT running `src/init.luau`'s 65 `@self` requires; see [api.md](reference/api.md#measure--the-headless-entry-point-framework-gaps-phase2-gap-11)) | `src/layout/solver.luau`, `src/layout/text_metrics.luau`, `src/layout/text_fit.luau`, `src/layout/composition.luau` |
 | **render** | `src/render/` | Walks the mounted graph, runs the solver, drives a render-target adapter, and enforces one property authority per engine property. | `Facet.renderer` | `src/render/renderer.luau`, `src/render/authority.luau`, `src/render/target_contract.luau`, `src/render/layout_node.luau` |
-| **controls** | `src/controls/`, `src/row_capability.luau`, `src/virtual_extents.luau`, `src/selection_model.luau` | Composite controls assembled out of the primitive blueprints. Nothing here reaches past the public constructors. | `Facet.Controls` | `src/controls/table.luau`, `src/controls/virtual_list.luau`, `src/controls/row_actions.luau`, `src/controls/menu.luau` |
+| **controls** | `src/control_types.luau`, `src/controls/`, `src/row_capability.luau`, `src/virtual_extents.luau`, `src/selection_model.luau` | Composite controls assembled out of the primitive blueprints. Nothing here reaches past the public constructors. | `Facet.Controls` | `src/controls/table.luau`, `src/controls/virtual_list.luau`, `src/controls/row_actions.luau`, `src/controls/menu.luau` |
 | **present** | `src/present/` | Whole screens and modals: their lifetimes, focus scopes, input contexts, and the frame the renderer is driven from. | `Facet.newPresenter` | `src/present/presenter.luau`, `src/present/focus_map.luau`, `src/present/toast_schedule.luau`, `src/present/with_animation.luau` |
 | **input** | `src/input/` | The engine-free action, binding and context model, plus gestures, drag sessions and edge autoscroll. | `Facet.newActionSystem`, `Facet.newDragSession`, `Facet.touchGestures`, `Facet.spatial` | `src/input/actions.luau`, `src/input/drag_session.luau`, `src/input/touch_gestures.luau`, `src/input/contribution.luau` |
 | **focus** | `src/focus/` | Logical focus identity and navigation: flat rings, navigation groups, and document-order traversal. | `Facet.newFocusGraph` | `src/focus/focus_graph.luau` |

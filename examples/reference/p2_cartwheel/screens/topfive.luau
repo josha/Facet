@@ -43,7 +43,7 @@ function topfive.new(app: any): any
 		return tostring(use(total))
 	end)
 
-	local picker = Facet.Controls.Picker(core, {
+	local picker = Facet.View.Picker({
 		id = "Timeframe",
 		options = {
 			{ value = "today", label = S.t("time.day") },
@@ -116,27 +116,26 @@ function topfive.new(app: any): any
 				align = "center",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = {
-					parts.badge(app, "Value", valueText),
-					UI.Spacer({ id = "Slack", height = slackWeight, width = UI.fill() }),
-					column,
-					UI.Image({
-						id = "Mark",
-						image = markImage,
-						scaleMode = "fit",
-						tint = markTint,
-						width = { type = "fixed", px = "iconSizes.medium" },
-						height = { type = "fixed", px = "iconSizes.medium" },
-					}),
-					UI.Text({
-						id = "Name",
-						text = nameText,
-						textSize = "caption",
-						textAlign = "center",
-						lineLimit = 2,
-						disclose = true,
-					}),
-				},
+
+				parts.badge(app, "Value", valueText),
+				UI.Spacer({ id = "Slack", height = slackWeight, width = UI.fill() }),
+				column,
+				UI.Image({
+					id = "Mark",
+					image = markImage,
+					scaleMode = "fit",
+					tint = markTint,
+					width = { type = "fixed", px = "iconSizes.medium" },
+					height = { type = "fixed", px = "iconSizes.medium" },
+				}),
+				UI.Text({
+					id = "Name",
+					text = nameText,
+					textSize = "caption",
+					textAlign = "center",
+					lineLimit = 2,
+					disclose = true,
+				}),
 			})
 		)
 	end
@@ -148,27 +147,25 @@ function topfive.new(app: any): any
 		padding = "m",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			UI.Text({ id = "Title", text = S.t("top.title"), textSize = "title" }),
-			picker.blueprint,
-			UI.HStack({
-				id = "Summary",
-				gap = "s",
-				align = "center",
-				children = {
-					UI.Text({ id = "Label", text = S.t("top.totalBottles"), textSize = "caption", role = "secondary" }),
-					UI.Text({ id = "Count", text = totalText, textSize = "heading" }),
-				},
-			}),
-			UI.HStack({
-				id = "Chart",
-				gap = "s",
-				align = "end",
-				width = UI.fill(),
-				height = { type = "fixed", px = "app.cartwheel.chartH" },
-				children = cells,
-			}),
-		},
+
+		UI.Text({ id = "Title", text = S.t("top.title"), textSize = "title" }),
+		picker,
+		UI.HStack({
+			id = "Summary",
+			gap = "s",
+			align = "center",
+
+			UI.Text({ id = "Label", text = S.t("top.totalBottles"), textSize = "caption", role = "secondary" }),
+			UI.Text({ id = "Count", text = totalText, textSize = "heading" }),
+		}),
+		UI.HStack({
+			id = "Chart",
+			gap = "s",
+			align = "end",
+			width = UI.fill(),
+			height = { type = "fixed", px = "app.cartwheel.chartH" },
+			children = cells,
+		}),
 	})
 
 	function self.view(): any
@@ -187,7 +184,6 @@ function topfive.new(app: any): any
 		for _, unsubscribe in unsubscribes do
 			unsubscribe()
 		end
-		picker.dispose()
 		total:dispose()
 		totalText:dispose()
 		for _, memo in memos do

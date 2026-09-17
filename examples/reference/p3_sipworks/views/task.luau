@@ -127,29 +127,28 @@ function taskView.stripBody(app: any, m: any): any
 		gap = "s",
 		align = "center",
 		width = dims.fill,
-		children = {
-			UI.Text({
-				id = "TaskLabel",
-				text = m.stripTitle,
-				textSize = "strong",
-				width = dims.fill,
-				lineLimit = 1,
-				disclose = true,
-			}),
-			UI.Text({
-				id = "TaskProgress",
-				text = m.progress,
-				textSize = "caption",
-				role = "secondary",
-				textAlign = "end",
-				-- BANDED, because `lineLimit` caps LINES and never the width a text
-				-- asks for: at 320px, the largest preference and the 1.4x locale the
-				-- readout's natural ask pushed the strip 3px past its box
-				width = dims.atLeast("app.sip.taskProgressMin", "app.sip.taskProgressMax"),
-				lineLimit = 1,
-				disclose = true,
-			}),
-		},
+
+		UI.Text({
+			id = "TaskLabel",
+			text = m.stripTitle,
+			textSize = "strong",
+			width = dims.fill,
+			lineLimit = 1,
+			disclose = true,
+		}),
+		UI.Text({
+			id = "TaskProgress",
+			text = m.progress,
+			textSize = "caption",
+			role = "secondary",
+			textAlign = "end",
+			-- BANDED, because `lineLimit` caps LINES and never the width a text
+			-- asks for: at 320px, the largest preference and the 1.4x locale the
+			-- readout's natural ask pushed the strip 3px past its box
+			width = dims.atLeast("app.sip.taskProgressMin", "app.sip.taskProgressMax"),
+			lineLimit = 1,
+			disclose = true,
+		}),
 	})
 end
 
@@ -171,40 +170,39 @@ function taskView.card(app: any): any
 				id = "TaskBody",
 				gap = "s",
 				width = dims.fill,
-				children = {
-					UI.Text({
-						id = "TaskTitle",
-						text = app.text("task.title"),
-						textSize = "heading",
-						width = dims.fill,
-					}),
-					-- THE GOAL, in one sentence, on the opening screen
-					UI.Text({
-						id = "TaskGoal",
-						text = app.text("task.intro"),
-						textSize = "body",
-						role = "secondary",
-						width = dims.fill,
-					}),
-					-- ...and the next action, which is the line that changes
-					UI.Text({
-						id = "TaskNext",
-						text = m.nextLine,
-						textSize = "body",
-						width = dims.fill,
-					}),
-					UI.Button({
-						id = "TaskAct",
-						label = m.ctaLabel,
-						enabled = m.ctaEnabled,
-						surface = "accent",
-						corners = UI.cornersData("pill"),
-						width = dims.fill,
-						onActivate = function()
-							app.commands.taskAction()
-						end,
-					}),
-				},
+
+				UI.Text({
+					id = "TaskTitle",
+					text = app.text("task.title"),
+					textSize = "heading",
+					width = dims.fill,
+				}),
+				-- THE GOAL, in one sentence, on the opening screen
+				UI.Text({
+					id = "TaskGoal",
+					text = app.text("task.intro"),
+					textSize = "body",
+					role = "secondary",
+					width = dims.fill,
+				}),
+				-- ...and the next action, which is the line that changes
+				UI.Text({
+					id = "TaskNext",
+					text = m.nextLine,
+					textSize = "body",
+					width = dims.fill,
+				}),
+				UI.Button({
+					id = "TaskAct",
+					label = m.ctaLabel,
+					enabled = m.ctaEnabled,
+					surface = "accent",
+					corners = UI.cornersData("pill"),
+					width = dims.fill,
+					onActivate = function()
+						app.commands.taskAction()
+					end,
+				}),
 			})
 		end,
 	})
@@ -221,38 +219,36 @@ function taskView.card(app: any): any
 				id = "TaskDoneGroup",
 				canvasGroup = true,
 				width = dims.fill,
-				children = {
-					UI.VStack({
-						id = "TaskDoneBody",
-						gap = "s",
+
+				UI.VStack({
+					id = "TaskDoneBody",
+					gap = "s",
+					width = dims.fill,
+
+					UI.Text({
+						id = "TaskDoneTitle",
+						text = app.text("task.done.title"),
+						textSize = "heading",
 						width = dims.fill,
-						children = {
-							UI.Text({
-								id = "TaskDoneTitle",
-								text = app.text("task.done.title"),
-								textSize = "heading",
-								width = dims.fill,
-							}),
-							UI.Text({
-								id = "TaskDoneCopy",
-								text = app.text("task.done.body"),
-								textSize = "body",
-								role = "secondary",
-								width = dims.fill,
-							}),
-							UI.Button({
-								id = "TaskReset",
-								label = app.text("task.done.reset"),
-								surface = "accent",
-								corners = UI.cornersData("pill"),
-								width = dims.fill,
-								onActivate = function()
-									app.commands.serveAnother()
-								end,
-							}),
-						},
 					}),
-				},
+					UI.Text({
+						id = "TaskDoneCopy",
+						text = app.text("task.done.body"),
+						textSize = "body",
+						role = "secondary",
+						width = dims.fill,
+					}),
+					UI.Button({
+						id = "TaskReset",
+						label = app.text("task.done.reset"),
+						surface = "accent",
+						corners = UI.cornersData("pill"),
+						width = dims.fill,
+						onActivate = function()
+							app.commands.serveAnother()
+						end,
+					}),
+				}),
 			})
 		end,
 	})
@@ -265,42 +261,40 @@ function taskView.card(app: any): any
 		padding = "m",
 		gap = "s",
 		width = dims.fill,
-		children = {
-			active,
-			done,
-			-- ...and the Facet lesson LAST, collapsed, optional: it explains the
-			-- app after the play task rather than instead of it.
-			UI.Button({
-				id = "TaskShows",
-				label = app.text("task.shows.open"),
-				selected = showsOpen,
-				align = "start",
-				onActivate = function()
-					showsOpen:set(not showsOpen:get())
-				end,
-			}),
-			UI.When({
-				id = "TaskShowsWhen",
-				condition = showsOpen,
-				transition = { enter = "fade" },
-				thenView = function()
-					return UI.ZStack({
-						id = "TaskShowsGroup",
-						canvasGroup = true,
+
+		active,
+		done,
+		-- ...and the Facet lesson LAST, collapsed, optional: it explains the
+		-- app after the play task rather than instead of it.
+		UI.Button({
+			id = "TaskShows",
+			label = app.text("task.shows.open"),
+			selected = showsOpen,
+			align = "start",
+			onActivate = function()
+				showsOpen:set(not showsOpen:get())
+			end,
+		}),
+		UI.When({
+			id = "TaskShowsWhen",
+			condition = showsOpen,
+			transition = { enter = "fade" },
+			thenView = function()
+				return UI.ZStack({
+					id = "TaskShowsGroup",
+					canvasGroup = true,
+					width = dims.fill,
+
+					UI.Text({
+						id = "TaskShowsBody",
+						text = app.text("task.shows.body"),
+						textSize = "caption",
+						role = "secondary",
 						width = dims.fill,
-						children = {
-							UI.Text({
-								id = "TaskShowsBody",
-								text = app.text("task.shows.body"),
-								textSize = "caption",
-								role = "secondary",
-								width = dims.fill,
-							}),
-						},
-					})
-				end,
-			}),
-		},
+					}),
+				})
+			end,
+		}),
 	})
 end
 

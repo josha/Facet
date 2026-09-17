@@ -1,7 +1,8 @@
 # 15. Adaptive layout recipes
 
 Thirteen small problems that come up once a screen has to work on more than one
-device, each with the Facet answer and a snippet you can paste.
+device. Snippets use `local UI = Facet.View`; state/getter snippets run inside
+a `Facet.component(function(ui) ... end)`. See [component authoring](15-components.md).
 
 This chapter is a reference, not a lesson. Read
 [chapter 1 §1.9](01-concepts.md#19-adapting-a-whole-screen-you-declare-the-content-not-the-layout)
@@ -43,11 +44,11 @@ They compose: Facet checks the tiers first, then the weights inside the tier
 that is currently giving way.
 
 ```lua
-UI.HStack{ id = "Row", children = {
+UI.HStack{ id = "Row",
     UI.Text{ id = "Name",  text = playerName, shrinkWeight = 3 },  -- squeezes most
     UI.Text{ id = "Note",  text = subtitle,   shrinkWeight = 1 },
     UI.Text{ id = "Score", text = score,      layoutPriority = 1 }, -- survives longest
-} }
+ }
 ```
 
 ## 15.2 Sizing against the container, not the parent: `containerRelativeFrame`
@@ -77,30 +78,32 @@ it. `gridSpan` on a cell lets it cover more than one column — a title band abo
 a three-column stat block, for example:
 
 ```lua
-UI.Grid{ id = "Stats", children = {
-    UI.GridRow{ id = "Head", children = { UI.Text{ id = "T", text = "Lap times", gridSpan = 3 } } },
-    UI.GridRow{ id = "R1",   children = { lapCell, timeCell, deltaCell } },
-} }
+UI.Grid{ id = "Stats",
+    UI.GridRow{ id = "Head",  UI.Text{ id = "T", text = "Lap times", gridSpan = 3 }  },
+    UI.GridRow{ id = "R1",    lapCell, timeCell, deltaCell  },
+ }
 ```
 
 ## 15.4 Animating a state change: `presenter.withAnimation`
 
-Normally a signal write repaints immediately. Wrap the write, and Facet
-interpolates the *movement it causes* instead:
+Declare ordinary coordination on the layout that owns it:
 
-```lua
-presenter.withAnimation("container", function()
-    expanded:set(true)
-end)
+```luau
+UI.VStack {
+    animation = { layout = "container" },
+    UI.Toggle { label = "Details", value = expanded, onChange = setExpanded },
+    UI.When { condition = expanded, Details {} },
+    Footer {},
+}
 ```
 
-**In plain terms:** you do not animate a property, you animate a *write*.
-Everything whose **position** changes because of that write slides to its new
-place under the named motion class instead of jumping. The class comes from the
-registered set (`"container"`, `"object"`, `"decay"`, `"reward"`). Inline spring
-numbers are deliberately a hard error. That keeps motion a vocabulary, not a
-pile of magic constants. It animates *position*. A number that must count up
-rather than jump is still a `MotionValue`.
+Changing `expanded` moves surviving nodes toward their new solved rectangles.
+Insertion/removal is a separate `transition` declaration. A local paint policy,
+such as `animation = { scale = "object" }`, animates that node's scale getter.
+Use `ui.animate(target, "object")` only when another calculation needs an animated
+number. `ui.withAnimation` remains available for exceptional action-specific
+coordination; ordinary commands need no animation wrapper. The historical heading
+is retained for incoming links. See [motion policy](15-components.md#animate-where-the-layout-lives).
 
 ## 15.5 When a row is simply too long: `wrap`
 
@@ -169,9 +172,9 @@ the same way twice really does iterate the same way twice. The instant a player
 leaves and rejoins, the rows move.
 
 ```lua
-local rows = scope:own(core:memo(function(use)
-    return UI.sortedEntries(use(scores))
-end))
+local rows = ui.memo(function()
+    return UI.sortedEntries(scores())
+end)
 ```
 
 That is the same list, in the same order, whatever built the map. Keys sort
@@ -254,16 +257,15 @@ screen that shows cards, and the branch is where it goes stale.
 Declare the *arrangement* instead of the width:
 
 ```luau
-local rail = Facet.Controls.VirtualList(core, {
+local rail = UI.VirtualList {
     id = "Liveries",
     axis = "x",                 -- a rail runs sideways
-    rows = liveries,
-    key = function(item) return item.id end,
+    items = liveries,
+    key = "id",
     itemExtent = "cards",       -- how many belong in view, not how wide one is
-    viewportExtent = railWidth, -- the space this rail actually got
     rowGap = 8,
-    cell = function(item) return LiveryCard(item) end,
-})
+    row = function(item) return LiveryCard { item = item } end,
+}
 ```
 
 That is the whole difference. On a compact, touch-driven surface the rail
@@ -392,13 +394,13 @@ a one-row `ForEach` keyed by the text itself, and a *different string* becomes a
 different row instead:
 
 ```lua
-local rows = scope:own(core:memo(function(use)
-    return { { id = use(status) } }  -- one row; its key IS the text
-end))
+local rows = ui.memo(function()
+    return { { id = status() } }  -- one row; its key is the text
+end)
 UI.ForEach({
-    items = rows, key = function(r) return r.id end,
+    items = rows, key = "id",
     row = function(r)
-        return UI.ZStack({ canvasGroup = true, children = { UI.Text({ text = r.id }) } })
+        return UI.ZStack({ canvasGroup = true,  UI.Text(function() return r().id end)  })
     end,
     transition = { enter = "slide-up", fade = true, distance = 8 },
 })
@@ -419,16 +421,16 @@ while retiring — the round's one sanctioned *extra instance*:
 
 ```lua
 local function icon(image)
-    return UI.ZStack({ canvasGroup = true, children = { UI.Image({ image = image }) } })
+    return UI.ZStack({ canvasGroup = true,  UI.Image({ image = image })  })
 end
-local unmuted = scope:own(core:memo(function(use) return not use(muted) end))
+local unmuted = function() return not muted() end
 UI.ZStack({
-    children = {
+
         UI.When({ condition = muted, transition = { enter = "fade" },
-            thenView = function() return icon(mutedIcon) end }),
+            icon(mutedIcon) }),
         UI.When({ condition = unmuted, transition = { enter = "fade" },
-            thenView = function() return icon(speakerIcon) end }),
-    },
+            icon(speakerIcon) }),
+
 })
 ```
 
@@ -440,19 +442,11 @@ beat rather than popping straight across.
 
 ## 15.13 Growing a card without its neighbours jumping: `presenter.withAnimation`
 
-Expanding a card's content grows its measured height, and by default every
-sibling below it snaps to its new position on that frame. Wrap the write that
-causes the resize (see [§15.4](#154-animating-a-state-change-presenterwithanimation)):
-
-```lua
-presenter.withAnimation("container", function()
-    expanded:set(true)
-end)
-```
-
-**In plain terms:** the card and everything the resize pushes travel to their
-new solved positions under the `container` spring, instead of teleporting there
-the instant `expanded` flips.
+Put `animation = { layout = "container" }` on the common ancestor of the
+expanding card and its siblings, as in [§15.4](#154-animating-a-state-change-presenterwithanimation).
+Then call `setExpanded(true)` normally. All surviving nodes whose positions
+change share the policy. New and removed branches keep their own transition.
+The preset and reduced-motion behavior come from the host's motion authority.
 
 Next: [chapter 2](02-architecture.md) shows how the modules fit together, and
 [chapter 3](03-getting-started.md) builds a working screen.

@@ -289,8 +289,8 @@ return {
 			id = "TableVirtualized",
 			padding = 12,
 			gap = "s",
-			children = {
-				--[[ THE CHROME IS A SIBLING SCROLLER ON A SHORT CANVAS (O-21, measured
+
+			--[[ THE CHROME IS A SIBLING SCROLLER ON A SHORT CANVAS (O-21, measured
 					2026-08-15). The waiver this replaces was right that the page cannot
 					delegate its scrolling — `newTable` refuses `virtualized` beside
 					`scrolls = false`, so the table's own body is the one scroller this
@@ -304,67 +304,64 @@ return {
 					showcase leaves. Under the 1.4x `xa` locale it cost the `Last` line
 					10px below the fold, cut and unreachable. The chrome hugs wherever
 					there is room, so every viewport that already fitted is unmoved. ]]
-				UI.ScrollView({
-					id = "Chrome",
-					axis = "y",
-					gap = "s",
-					width = UI.fill(),
-					height = chromeHeight,
-					children = {
-						--[[ A WRAPPING BUTTON ROW. Four labels that a ~1.4x localization
+			UI.ScrollView({
+				id = "Chrome",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = chromeHeight,
+
+				--[[ A WRAPPING BUTTON ROW. Four labels that a ~1.4x localization
 					expansion widens together is exactly the shape a fixed row cannot
 					hold on a 320px phone, and `UI.HStack{ wrap = true }` is the one
 					construct that packs "as many as fit per line" with ragged widths. ]]
-						UI.HStack({
-							id = "Actions",
-							wrap = true,
-							gap = "xs",
-							width = UI.fill(),
-							children = {
-								actionButton("Reveal", copy.btnReveal, function()
-									tbl.api.revealRow(keyOf(FAR_ROW))
-									bump(copy.lastReveal)
-								end),
-								actionButton("Range", copy.btnRange, function()
-									tbl.api.select(keyOf(RANGE_FROM), { mode = "replace" })
-									tbl.api.select(keyOf(RANGE_TO), { mode = "range" })
-									bump(copy.lastRange)
-								end),
-								actionButton("MoveFar", copy.btnMove, function()
-									tbl.api.moveRow(keyOf(FAR_ROW), -1)
-									bump(copy.lastMove)
-								end),
-								actionButton("Edit", copy.btnEdit, function()
-									editing:set(not editing:get())
-								end),
-							},
-						}),
-						UI.Text({ id = "Status", text = status, textSize = "caption", disclose = true }),
-						UI.Text({
-							id = "Last",
-							text = last,
-							textSize = "caption",
-							role = "secondary",
-							disclose = true,
-							lineLimit = 1,
-						}),
-					},
+				UI.HStack({
+					id = "Actions",
+					wrap = true,
+					gap = "xs",
+					width = UI.fill(),
+
+					actionButton("Reveal", copy.btnReveal, function()
+						tbl.api.revealRow(keyOf(FAR_ROW))
+						bump(copy.lastReveal)
+					end),
+					actionButton("Range", copy.btnRange, function()
+						tbl.api.select(keyOf(RANGE_FROM), { mode = "replace" })
+						tbl.api.select(keyOf(RANGE_TO), { mode = "range" })
+						bump(copy.lastRange)
+					end),
+					actionButton("MoveFar", copy.btnMove, function()
+						tbl.api.moveRow(keyOf(FAR_ROW), -1)
+						bump(copy.lastMove)
+					end),
+					actionButton("Edit", copy.btnEdit, function()
+						editing:set(not editing:get())
+					end),
 				}),
-				--[[ THE LIST TAKES `fill`, AND IT IS THE ONLY THING ON THIS PAGE THAT
+				UI.Text({ id = "Status", text = status, textSize = "caption", disclose = true }),
+				UI.Text({
+					id = "Last",
+					text = last,
+					textSize = "caption",
+					role = "secondary",
+					disclose = true,
+					lineLimit = 1,
+				}),
+			}),
+			--[[ THE LIST TAKES `fill`, AND IT IS THE ONLY THING ON THIS PAGE THAT
 					DOES. Everything above sizes to its own content, so the window is
 					whatever the solver leaves — never a literal reserve subtracted from
 					the viewport. The table measures that box itself through
 					`syncGeometry`, so nothing here has to know it. ]]
-				UI.ZStack({
-					id = "ListPane",
-					width = UI.fill(),
-					-- weight 2 against the chrome's 1 wherever the chrome is a fill: on
-					-- a short canvas the table still gets the larger share, and where the
-					-- chrome hugs this is the only fill and takes everything left
-					height = UI.fill(2),
-					children = { tbl.blueprint },
-				}),
-			},
+			UI.ZStack({
+				id = "ListPane",
+				width = UI.fill(),
+				-- weight 2 against the chrome's 1 wherever the chrome is a fill: on
+				-- a short canvas the table still gets the larger share, and where the
+				-- chrome hugs this is the only fill and takes everything left
+				height = UI.fill(2),
+				tbl.blueprint,
+			}),
 		})
 
 		return {

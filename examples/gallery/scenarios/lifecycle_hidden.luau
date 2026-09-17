@@ -120,92 +120,88 @@ return {
 			id = "LifecycleHidden",
 			padding = 12,
 			gap = "s",
-			children = {
-				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-				-- title, a switch, two panels and a log do not fit the ~200px a
-				-- 640x320 landscape phone has left once the showcase reserves its chip
-				-- strip, and content that overflows with nothing to scroll it is this
-				-- repo's named recurring defect.
-				UI.ScrollView({
-					id = "Page",
-					axis = "y",
-					gap = "s",
+
+			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
+			-- title, a switch, two panels and a log do not fit the ~200px a
+			-- 640x320 landscape phone has left once the showcase reserves its chip
+			-- strip, and content that overflows with nothing to scroll it is this
+			-- repo's named recurring defect.
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
+				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
+				UI.Toggle({ id = "ShowToggle", label = COPY.toggleLabel, value = showing }),
+				-- PANEL ONE, AND THE ORDER IS THE DEMO. The kept slot goes FIRST so
+				-- that "this line never moves" is literally true on screen: a panel
+				-- whose height changes must sit BELOW everything claiming to be
+				-- still, or the still one is pushed around by its neighbour and the
+				-- comparison reads as noise. (Measured, not reasoned: with the
+				-- panels the other way round the kept caption moved 52 px.)
+				UI.VStack({
+					id = "Reserved",
+					surface = "control",
+					padding = "s",
+					gap = "tight",
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						UI.Toggle({ id = "ShowToggle", label = COPY.toggleLabel, value = showing }),
-						-- PANEL ONE, AND THE ORDER IS THE DEMO. The kept slot goes FIRST so
-						-- that "this line never moves" is literally true on screen: a panel
-						-- whose height changes must sit BELOW everything claiming to be
-						-- still, or the still one is pushed around by its neighbour and the
-						-- comparison reads as noise. (Measured, not reasoned: with the
-						-- panels the other way round the kept caption moved 52 px.)
-						UI.VStack({
-							id = "Reserved",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = "caption" }),
-								badge("Ghost", { hidden = isHidden }),
-								UI.Text({
-									id = "ReservedNote",
-									text = COPY.reservedNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						-- PANEL TWO, AND IT IS SECOND ON PURPOSE (see above): the node
-						-- really leaves here, so this panel's own height changes — and
-						-- because it sits BELOW the kept slot, nothing above it moves.
-						UI.VStack({
-							id = "Removed",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = "caption" }),
-								UI.When({
-									id = "Gate",
-									condition = showing,
-									thenView = function()
-										return badge("Badge", {
-											onAppear = function()
-												appearCount:set(appearCount:get() + 1)
-												note(COPY.appeared)
-											end,
-											onDisappear = function()
-												disappearCount:set(disappearCount:get() + 1)
-												note(COPY.disappeared)
-											end,
-										})
-									end,
-								}),
-								UI.Text({
-									id = "RemovedNote",
-									text = COPY.removedNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = "caption" }),
-						UI.Text({ id = "Log", text = logText, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Counts", text = counts, textSize = "caption", role = "secondary" }),
-						UI.Text({
-							id = "NoFire",
-							text = COPY.hiddenFiresNothing,
-							textSize = "caption",
-							role = "secondary",
-						}),
-					},
+
+					UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = "caption" }),
+					badge("Ghost", { hidden = isHidden }),
+					UI.Text({
+						id = "ReservedNote",
+						text = COPY.reservedNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-			},
+				-- PANEL TWO, AND IT IS SECOND ON PURPOSE (see above): the node
+				-- really leaves here, so this panel's own height changes — and
+				-- because it sits BELOW the kept slot, nothing above it moves.
+				UI.VStack({
+					id = "Removed",
+					surface = "control",
+					padding = "s",
+					gap = "tight",
+					width = UI.fill(),
+
+					UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = "caption" }),
+					UI.When({
+						id = "Gate",
+						condition = showing,
+						thenView = function()
+							return badge("Badge", {
+								onAppear = function()
+									appearCount:set(appearCount:get() + 1)
+									note(COPY.appeared)
+								end,
+								onDisappear = function()
+									disappearCount:set(disappearCount:get() + 1)
+									note(COPY.disappeared)
+								end,
+							})
+						end,
+					}),
+					UI.Text({
+						id = "RemovedNote",
+						text = COPY.removedNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
+				}),
+				UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = "caption" }),
+				UI.Text({ id = "Log", text = logText, textSize = "caption", role = "secondary" }),
+				UI.Text({ id = "Counts", text = counts, textSize = "caption", role = "secondary" }),
+				UI.Text({
+					id = "NoFire",
+					text = COPY.hiddenFiresNothing,
+					textSize = "caption",
+					role = "secondary",
+				}),
+			}),
 		})
 
 		return {

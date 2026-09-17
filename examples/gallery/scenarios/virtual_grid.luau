@@ -179,22 +179,21 @@ return {
 					padding = CELL_PADDING,
 					alignH = "center",
 					alignV = "center",
-					children = {
-						UI.Box({
-							id = "Face",
-							width = UI.fill(),
-							height = UI.fill(),
-							tint = { role = "accent", blend = 0.35 },
-						}),
-						UI.Text({
-							id = "N",
-							text = item.label,
-							textSize = LABEL_SIZE,
-							textAlign = "center",
-							lineLimit = 1,
-							width = UI.fill(),
-						}),
-					},
+
+					UI.Box({
+						id = "Face",
+						width = UI.fill(),
+						height = UI.fill(),
+						tint = { role = "accent", blend = 0.35 },
+					}),
+					UI.Text({
+						id = "N",
+						text = item.label,
+						textSize = LABEL_SIZE,
+						textAlign = "center",
+						lineLimit = 1,
+						width = UI.fill(),
+					}),
 				})
 			end,
 		})
@@ -242,8 +241,8 @@ return {
 			id = "VirtualGrid",
 			padding = "s",
 			gap = "tight",
-			children = {
-				--[[ THERE IS NO PAGE TITLE, AND ITS ABSENCE IS THE SECOND THING THE
+
+			--[[ THERE IS NO PAGE TITLE, AND ITS ABSENCE IS THE SECOND THING THE
 					SWEEP TAUGHT THIS FIXTURE. A 640x320 landscape phone leaves this
 					surface a 640x200 box once the CoreGui topbar and the showcase's chip
 					strip are taken out, and at the Largest text preference a title, a
@@ -254,55 +253,54 @@ return {
 					so something had to go, and the title was the one line here that says
 					nothing the status line does not. The fixture's name is already on the
 					picker chip and in `title` above. ]]
-				--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
+			--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
 					`variable_extents` records: the grid IS a scroll host, and nesting one
 					inside another is a gesture with two owners. ]]
-				UI.HStack({
-					id = "Controls",
-					wrap = true,
-					gap = "tight",
-					width = UI.fill(),
-					children = (function()
-						local kids: { any } = {}
-						for _, chip in laneChips do
-							table.insert(kids, chip)
-						end
-						table.insert(
-							kids,
-							UI.Button({
-								id = "Deep",
-								label = "Jump",
-								onActivate = function()
-									jumpTo(DEEP_INDEX)
-								end,
-							})
-						)
-						table.insert(
-							kids,
-							UI.Button({
-								id = "Top",
-								label = "Top",
-								onActivate = function()
-									jumpTo(1)
-								end,
-							})
-						)
-						return kids
-					end)(),
-				}),
-				-- capped at two lines so a longer status string can never be the thing
-				-- that pushes the grid out of its own page
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
-				-- the pane whose solved height IS the grid's window (see `onGeometry`
-				-- below). `fill` is what makes it the screen's decision, never the
-				-- grid's
-				UI.VStack({
-					id = "GridPane",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = { grid.blueprint },
-				}),
-			},
+			UI.HStack({
+				id = "Controls",
+				wrap = true,
+				gap = "tight",
+				width = UI.fill(),
+				children = (function()
+					local kids: { any } = {}
+					for _, chip in laneChips do
+						table.insert(kids, chip)
+					end
+					table.insert(
+						kids,
+						UI.Button({
+							id = "Deep",
+							label = "Jump",
+							onActivate = function()
+								jumpTo(DEEP_INDEX)
+							end,
+						})
+					)
+					table.insert(
+						kids,
+						UI.Button({
+							id = "Top",
+							label = "Top",
+							onActivate = function()
+								jumpTo(1)
+							end,
+						})
+					)
+					return kids
+				end)(),
+			}),
+			-- capped at two lines so a longer status string can never be the thing
+			-- that pushes the grid out of its own page
+			UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
+			-- the pane whose solved height IS the grid's window (see `onGeometry`
+			-- below). `fill` is what makes it the screen's decision, never the
+			-- grid's
+			UI.VStack({
+				id = "GridPane",
+				width = UI.fill(),
+				height = UI.fill(),
+				grid.blueprint,
+			}),
 		})
 
 		local unbind: any = nil

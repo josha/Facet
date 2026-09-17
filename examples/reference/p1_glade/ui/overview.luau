@@ -82,98 +82,90 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 		onActivate = function()
 			ctx.nav.openGlade(glade.id)
 		end,
-		children = {
-			UI.ZStack({
-				id = "Body",
-				width = UI.fill(),
-				children = {
-					sceneLib.glade(ctx, {
-						id = "Scene",
-						glade = glade.id,
-						form = "card",
-						scope = rowScope,
-						height = { type = "aspect", ratio = 5 / 3 },
-					}),
-					-- the name plate: read-only, top-leading, off the scene's own
-					-- paint so copy never sits on picture (visual invariant 2)
-					UI.corners(
-						UI.VStack({
-							id = "Plate",
-							surface = "raised",
-							padding = "xs",
-							margin = "s",
-							alignH = "start",
-							alignV = "start",
-							children = {
-								UI.Text({
-									id = "Name",
-									text = name,
-									textSize = "label",
-									lineLimit = 1,
-									disclose = true,
-								}),
-							},
-						}),
-						"pill"
-					),
-					-- glance-only rings, bottom-trailing on their own plate
-					UI.corners(
-						UI.HStack({
-							id = "Glance",
-							surface = "raised",
-							padding = "xs",
-							gap = "s",
-							alignH = "end",
-							alignV = "end",
-							margin = "s",
-							children = {
-								sceneLib.ring(ctx, {
-									id = "GlanceNectar",
-									glade = glade.id,
-									kind = "nectar",
-									size = METRICS.ringSmall,
-									scope = rowScope,
-								}),
-								sceneLib.ring(ctx, {
-									id = "GlanceDew",
-									glade = glade.id,
-									kind = "dew",
-									size = METRICS.ringSmall,
-									scope = rowScope,
-								}),
-							},
-						}),
-						"panel"
-					),
-				},
+
+		UI.ZStack({
+			id = "Body",
+			width = UI.fill(),
+
+			sceneLib.glade(ctx, {
+				id = "Scene",
+				glade = glade.id,
+				form = "card",
+				height = { type = "aspect", ratio = 5 / 3 },
 			}),
-		},
+			-- the name plate: read-only, top-leading, off the scene's own
+			-- paint so copy never sits on picture (visual invariant 2)
+			UI.corners(
+				UI.VStack({
+					id = "Plate",
+					surface = "raised",
+					padding = "xs",
+					margin = "s",
+					alignH = "start",
+					alignV = "start",
+
+					UI.Text({
+						id = "Name",
+						text = name,
+						textSize = "label",
+						lineLimit = 1,
+						disclose = true,
+					}),
+				}),
+				"pill"
+			),
+			-- glance-only rings, bottom-trailing on their own plate
+			UI.corners(
+				UI.HStack({
+					id = "Glance",
+					surface = "raised",
+					padding = "xs",
+					gap = "s",
+					alignH = "end",
+					alignV = "end",
+					margin = "s",
+
+					sceneLib.ring(ctx, {
+						id = "GlanceNectar",
+						glade = glade.id,
+						kind = "nectar",
+						size = METRICS.ringSmall,
+					}),
+					sceneLib.ring(ctx, {
+						id = "GlanceDew",
+						glade = glade.id,
+						kind = "dew",
+						size = METRICS.ringSmall,
+					}),
+				}),
+				"panel"
+			),
+		}),
 	})
 
 	return UI.ZStack({
 		id = "Card_" .. glade.id,
 		canvasGroup = true,
 		width = UI.fill(),
-		children = {
-			body,
-			-- the star: a sibling, floored to the theme's own target size so the
-			-- compact form (the glyph) is what gets drawn while "Favorite" stays
-			-- the semantic name every input class hears.
-			UI.Button({
-				id = "Fav_" .. glade.id,
-				label = ctx.L("overview.favorite"),
-				compactLabel = "★",
-				selected = favourite,
-				alignH = "end",
-				alignV = "start",
-				margin = "s",
-				width = { type = "fixed", px = "targetSizes.minimum" },
-				height = { type = "fixed", px = "targetSizes.minimum" },
-				onActivate = function()
-					ctx.nav.toggleFavourite(glade.id)
-				end,
-			}),
-		},
+
+		body,
+		-- the star: a sibling, floored to the theme's own target size so the
+		-- compact form (the glyph) is what gets drawn while "Favorite" stays
+		-- the semantic name every input class hears.
+		UI.Button({
+			id = "Fav_" .. glade.id,
+			label = ctx.L("overview.favorite"),
+			compactLabel = "★",
+			selected = favourite,
+			alignH = "end",
+			alignV = "start",
+			margin = "s",
+			width = { type = "fixed", px = "targetSizes.minimum" },
+			height = { type = "fixed", px = "targetSizes.minimum" },
+			onActivate = function()
+				ctx.nav.toggleFavourite(glade.id)
+			end,
+		}),
 	})
 end
 
@@ -197,69 +189,66 @@ local function offerCard(ctx: any): any
 				id = "OfferGroup",
 				canvasGroup = true,
 				width = UI.fill(),
-				children = {
-					UI.shadow(
-						UI.VStack({
-							id = "OfferCard",
-							surface = "raised",
-							padding = "m",
+
+				UI.shadow(
+					UI.VStack({
+						id = "OfferCard",
+						surface = "raised",
+						padding = "m",
+						gap = "s",
+						width = UI.fill(),
+
+						UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "heading" }),
+						parts.body(ctx, "Pitch", ctx.L("offer.pitch")),
+						-- THE TWO VERBS SHARE THE ROW THEY ARE IN. Hugging their
+						-- labels they are 281px of content in a 272px card on a
+						-- 360px phone — 9px of paint outside the box, and 214px
+						-- of it at the expansion locale and the largest text
+						-- preference on a landscape phone, all of which the
+						-- solver reported on every solve. Two `fill` verbs each
+						-- take half of whatever there is and let their labels
+						-- WRAP, which is the one adaptation that answers text
+						-- growth as well as it answers a narrow screen.
+						--
+						-- The row states `percent(1, max)` rather than `fill`
+						-- for the same reason: a `fill` row of `fill` children
+						-- measures as nothing at all, and an uncapped one would
+						-- hand a 1400px card two 700px buttons. This is ONE node
+						-- per verb — a ViewThatFits ladder would mount two
+						-- copies of `OfferSee`, and a proof whose tests address
+						-- nodes by the tail of their path must never have two.
+						UI.HStack({
+							id = "Actions",
 							gap = "s",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "heading" }),
-								parts.body(ctx, "Pitch", ctx.L("offer.pitch")),
-								-- THE TWO VERBS SHARE THE ROW THEY ARE IN. Hugging their
-								-- labels they are 281px of content in a 272px card on a
-								-- 360px phone — 9px of paint outside the box, and 214px
-								-- of it at the expansion locale and the largest text
-								-- preference on a landscape phone, all of which the
-								-- solver reported on every solve. Two `fill` verbs each
-								-- take half of whatever there is and let their labels
-								-- WRAP, which is the one adaptation that answers text
-								-- growth as well as it answers a narrow screen.
-								--
-								-- The row states `percent(1, max)` rather than `fill`
-								-- for the same reason: a `fill` row of `fill` children
-								-- measures as nothing at all, and an uncapped one would
-								-- hand a 1400px card two 700px buttons. This is ONE node
-								-- per verb — a ViewThatFits ladder would mount two
-								-- copies of `OfferSee`, and a proof whose tests address
-								-- nodes by the tail of their path must never have two.
-								UI.HStack({
-									id = "Actions",
-									gap = "s",
-									width = {
-										type = "percent",
-										fraction = 1,
-										max = METRICS.offerActionsMax,
-									},
-									children = {
-										UI.Button({
-											id = "OfferSee",
-											label = ctx.L("offer.cta"),
-											width = UI.fill(),
-											height = UI.fill(),
-											onActivate = function()
-												ctx.nav.openCharm()
-											end,
-										}),
-										UI.Button({
-											id = "OfferDismiss",
-											label = ctx.L("offer.dismiss"),
-											role = "cancel",
-											width = UI.fill(),
-											height = UI.fill(),
-											onActivate = function()
-												ctx.state.offerDismissed:set(true)
-											end,
-										}),
-									},
-								}),
+							width = {
+								type = "percent",
+								fraction = 1,
+								max = METRICS.offerActionsMax,
 							},
+
+							UI.Button({
+								id = "OfferSee",
+								label = ctx.L("offer.cta"),
+								width = UI.fill(),
+								height = UI.fill(),
+								onActivate = function()
+									ctx.nav.openCharm()
+								end,
+							}),
+							UI.Button({
+								id = "OfferDismiss",
+								label = ctx.L("offer.dismiss"),
+								role = "cancel",
+								width = UI.fill(),
+								height = UI.fill(),
+								onActivate = function()
+									ctx.state.offerDismissed:set(true)
+								end,
+							}),
 						}),
-						"raised"
-					),
-				},
+					}),
+					"raised"
+				),
 			})
 		end,
 	})
@@ -280,99 +269,98 @@ local function suggestions(ctx: any): any
 				id = "SuggestionList",
 				gap = "xs",
 				width = UI.fill(),
-				children = {
-					UI.ForEach({
-						id = "Rows",
-						items = ctx.visits.currentAll(),
-						key = function(item: any): string
-							return item.id
-						end,
-						row = function(item: any, rowScope: any): any
-							local wispName = rowScope:own(core:memo(function(use)
-								local _ = use(ctx.state.locale)
-								return ctx.Lnow("wisp." .. item.wisp)
-							end))
-							local gladeName = rowScope:own(core:memo(function(use)
-								local _ = use(ctx.state.locale)
-								return ctx.Lnow("glade." .. item.glade)
-							end))
-							-- the same sentence with no emphasis in it, for the
-							-- candidate below that has to survive any width: ONE text
-							-- node wraps, and a wrapping text can never overflow
-							local sentence = rowScope:own(core:memo(function(use)
-								local _ = use(ctx.state.locale)
-								return ctx.Lnow("wisp." .. item.wisp)
-									.. ctx.Lnow("overview.visiting")
-									.. ctx.Lnow("glade." .. item.glade)
-							end))
-							-- emphasis through SPLIT TEXT RUNS: Facet has no rich-text
-							-- spans, and the two names are the part that carries the
-							-- sentence
-							local function wisp(): any
-								return UI.Text({ id = "Wisp", text = wispName, textSize = "strong" })
-							end
-							local function mid(): any
-								return UI.Text({
-									id = "Mid",
-									text = ctx.L("overview.visiting"),
-									textSize = "body",
-									role = "secondary",
-								})
-							end
-							local function glade(): any
-								return UI.Text({ id = "Glade", text = gladeName, textSize = "strong" })
-							end
-							return UI.Button({
-								id = "Suggest_" .. item.id,
-								label = gladeName,
-								width = UI.fill(),
-								align = "start",
-								onActivate = function()
-									ctx.nav.search(ctx.Lnow("glade." .. item.glade))
-								end,
-								children = {
-									-- THREE CONTENT-SIZED RUNS CANNOT SHRINK, so on a
-									-- 360px phone this sentence painted 102px past the
-									-- row it sits in — the solver said so on every
-									-- solve, at rest, in the default locale. The runs
-									-- are the emphasis, so the ladder spends LINES
-									-- rather than glyphs: one line, then the name on
-									-- its own line, then — when even that will not go,
-									-- which is where the 1.4x expansion locale lands —
-									-- the plain wrapping sentence.
-									UI.ViewThatFits({
-										id = "Line",
-										children = {
-											UI.HStack({
-												id = "OneLine",
-												gap = 0,
-												children = { wisp(), mid(), glade() },
-											}),
-											UI.VStack({
-												id = "TwoLines",
-												gap = 0,
-												-- (no `alignH`: a ViewThatFits gives its chosen candidate the
-												-- whole offer and reads no placement prop; and a stack's own
-												-- cross-axis word is `align`, whose default is already
-												-- `start`. Accepted and ignored both ways round — deleted by
-												-- the §2.1 placement audit)
-												children = {
-													UI.HStack({
-														id = "Lead",
-														gap = 0,
-														children = { wisp(), mid() },
-													}),
-													glade(),
-												},
-											}),
-											UI.Text({ id = "Plain", text = sentence, textSize = "body" }),
-										},
-									}),
-								},
+
+				UI.ForEach({
+					id = "Rows",
+					items = ctx.visits.currentAll(),
+					key = function(item: any): string
+						return item.id
+					end,
+					row = function(item: any, rowScope: any): any
+						local wispName = rowScope:own(core:memo(function(use)
+							local _ = use(ctx.state.locale)
+							return ctx.Lnow("wisp." .. item.wisp)
+						end))
+						local gladeName = rowScope:own(core:memo(function(use)
+							local _ = use(ctx.state.locale)
+							return ctx.Lnow("glade." .. item.glade)
+						end))
+						-- the same sentence with no emphasis in it, for the
+						-- candidate below that has to survive any width: ONE text
+						-- node wraps, and a wrapping text can never overflow
+						local sentence = rowScope:own(core:memo(function(use)
+							local _ = use(ctx.state.locale)
+							return ctx.Lnow("wisp." .. item.wisp)
+								.. ctx.Lnow("overview.visiting")
+								.. ctx.Lnow("glade." .. item.glade)
+						end))
+						-- emphasis through SPLIT TEXT RUNS: Facet has no rich-text
+						-- spans, and the two names are the part that carries the
+						-- sentence
+						local function wisp(): any
+							return UI.Text({ id = "Wisp", text = wispName, textSize = "strong" })
+						end
+						local function mid(): any
+							return UI.Text({
+								id = "Mid",
+								text = ctx.L("overview.visiting"),
+								textSize = "body",
+								role = "secondary",
 							})
-						end,
-					}),
-				},
+						end
+						local function glade(): any
+							return UI.Text({ id = "Glade", text = gladeName, textSize = "strong" })
+						end
+						return UI.Button({
+							id = "Suggest_" .. item.id,
+							label = gladeName,
+							width = UI.fill(),
+							align = "start",
+							onActivate = function()
+								ctx.nav.search(ctx.Lnow("glade." .. item.glade))
+							end,
+
+							-- THREE CONTENT-SIZED RUNS CANNOT SHRINK, so on a
+							-- 360px phone this sentence painted 102px past the
+							-- row it sits in — the solver said so on every
+							-- solve, at rest, in the default locale. The runs
+							-- are the emphasis, so the ladder spends LINES
+							-- rather than glyphs: one line, then the name on
+							-- its own line, then — when even that will not go,
+							-- which is where the 1.4x expansion locale lands —
+							-- the plain wrapping sentence.
+							UI.ViewThatFits({
+								id = "Line",
+
+								UI.HStack({
+									id = "OneLine",
+									gap = 0,
+									wisp(),
+									mid(),
+									glade(),
+								}),
+								UI.VStack({
+									id = "TwoLines",
+									gap = 0,
+									-- (no `alignH`: a ViewThatFits gives its chosen candidate the
+									-- whole offer and reads no placement prop; and a stack's own
+									-- cross-axis word is `align`, whose default is already
+									-- `start`. Accepted and ignored both ways round — deleted by
+									-- the §2.1 placement audit)
+
+									UI.HStack({
+										id = "Lead",
+										gap = 0,
+										wisp(),
+										mid(),
+									}),
+									glade(),
+								}),
+								UI.Text({ id = "Plain", text = sentence, textSize = "body" }),
+							}),
+						})
+					end,
+				}),
 			})
 		end,
 	})
@@ -396,16 +384,15 @@ local function emptyState(ctx: any): any
 				id = "NoMatchesBody",
 				gap = "s",
 				width = UI.fill(),
-				children = {
-					parts.body(ctx, "Copy", copy),
-					UI.Button({
-						id = "ClearSearch",
-						label = ctx.L("overview.clearSearch"),
-						onActivate = function()
-							ctx.nav.search("")
-						end,
-					}),
-				},
+
+				parts.body(ctx, "Copy", copy),
+				UI.Button({
+					id = "ClearSearch",
+					label = ctx.L("overview.clearSearch"),
+					onActivate = function()
+						ctx.nav.search("")
+					end,
+				}),
 			})
 		end,
 	})
@@ -415,7 +402,7 @@ end
 
 function overview.glades(ctx: any): any
 	local UI = ctx.UI
-	local search = ctx.Facet.Controls.TextInput(ctx.core, {
+	local search = ctx.Facet.View.TextInput({
 		id = "Search",
 		value = ctx.state.search,
 		placeholder = ctx.L("overview.search"),
@@ -423,7 +410,6 @@ function overview.glades(ctx: any): any
 		env = ctx.env,
 		actionSystem = ctx.actionSystem,
 	})
-	ctx.scope:own(search)
 
 	return UI.ScrollView({
 		id = "GladesPage",
@@ -432,41 +418,41 @@ function overview.glades(ctx: any): any
 		padding = "l",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			--[[ THE TASK CARD LEADS THE PAGE, inside the page's own scroller. It is
+
+		--[[ THE TASK CARD LEADS THE PAGE, inside the page's own scroller. It is
 				the first thing on the opening screen — goal, named subject, two
 				progress rows, next action and the verb — and the five glade cards, the
 				search field, the charm offer and everything else stay exactly where
 				they were, underneath it. Scrolling past it is allowed; losing it is
 				not, which is what the one-line strip above the nav is for. ]]
-			taskUI.card(ctx),
-			offerCard(ctx),
-			UI.VStack({
-				id = "Find",
-				gap = "s",
-				width = UI.fill(),
-				children = { search.blueprint, suggestions(ctx), emptyState(ctx) },
+		taskUI.card(ctx),
+		offerCard(ctx),
+		UI.VStack({
+			id = "Find",
+			gap = "s",
+			width = UI.fill(),
+			search,
+			suggestions(ctx),
+			emptyState(ctx),
+		}),
+		UI.Grid({
+			id = "Cards",
+			minColumnWidth = METRICS.gladeCardMin,
+			gap = "m",
+			width = UI.fill(),
+
+			UI.ForEach({
+				id = "Glades",
+				items = ctx.state.filtered,
+				key = function(glade: any): string
+					return glade.id
+				end,
+				transition = { enter = "fade", class = "container" },
+				row = function(glade: any, rowScope: any): any
+					return gladeCard(ctx, glade, rowScope)
+				end,
 			}),
-			UI.Grid({
-				id = "Cards",
-				minColumnWidth = METRICS.gladeCardMin,
-				gap = "m",
-				width = UI.fill(),
-				children = {
-					UI.ForEach({
-						id = "Glades",
-						items = ctx.state.filtered,
-						key = function(glade: any): string
-							return glade.id
-						end,
-						transition = { enter = "fade", class = "container" },
-						row = function(glade: any, rowScope: any): any
-							return gladeCard(ctx, glade, rowScope)
-						end,
-					}),
-				},
-			}),
-		},
+		}),
 	})
 end
 
@@ -486,66 +472,62 @@ function overview.wisps(ctx: any): any
 		padding = "l",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			parts.heading(ctx, "WispsTitle", ctx.L("section.wisps")),
-			UI.Grid({
-				id = "WispCards",
-				minColumnWidth = METRICS.nectarCardMin,
-				gap = "m",
-				width = UI.fill(),
-				children = {
-					UI.ForEach({
-						id = "Wisps",
-						items = items,
-						key = function(wisp: any): string
-							return wisp.id
+
+		parts.heading(ctx, "WispsTitle", ctx.L("section.wisps")),
+		UI.Grid({
+			id = "WispCards",
+			minColumnWidth = METRICS.nectarCardMin,
+			gap = "m",
+			width = UI.fill(),
+
+			UI.ForEach({
+				id = "Wisps",
+				items = items,
+				key = function(wisp: any): string
+					return wisp.id
+				end,
+				row = function(wisp: any, rowScope: any): any
+					local name = rowScope:own(core:memo(function(use)
+						local _ = use(ctx.state.locale)
+						return ctx.Lnow("wisp." .. wisp.id)
+					end))
+					local gated = rowScope:own(core:memo(function(use)
+						return wisp.lumenOnly == true and use(ctx.commerce.charmTier()) ~= "lumen"
+					end))
+					return UI.Button({
+						id = "WispCard_" .. wisp.id,
+						label = name,
+						width = UI.fill(),
+						onActivate = function()
+							ctx.nav.openWisp(wisp.id)
 						end,
-						row = function(wisp: any, rowScope: any): any
-							local name = rowScope:own(core:memo(function(use)
-								local _ = use(ctx.state.locale)
-								return ctx.Lnow("wisp." .. wisp.id)
-							end))
-							local gated = rowScope:own(core:memo(function(use)
-								return wisp.lumenOnly == true and use(ctx.commerce.charmTier()) ~= "lumen"
-							end))
-							return UI.Button({
-								id = "WispCard_" .. wisp.id,
-								label = name,
-								width = UI.fill(),
-								onActivate = function()
-									ctx.nav.openWisp(wisp.id)
+
+						UI.VStack({
+							id = "Body",
+							gap = "s",
+							align = "center",
+							width = UI.fill(),
+
+							sceneLib.portrait(ctx, "Portrait", wisp.id, METRICS.portrait),
+							UI.Text({
+								id = "Name",
+								text = name,
+								textSize = "label",
+								lineLimit = 1,
+								disclose = true,
+							}),
+							UI.When({
+								id = "Gate",
+								condition = gated,
+								thenView = function(): any
+									return parts.chip(ctx, "LumenOnly", ctx.L("wisp.lumenChip"))
 								end,
-								children = {
-									UI.VStack({
-										id = "Body",
-										gap = "s",
-										align = "center",
-										width = UI.fill(),
-										children = {
-											sceneLib.portrait(ctx, "Portrait", wisp.id, METRICS.portrait),
-											UI.Text({
-												id = "Name",
-												text = name,
-												textSize = "label",
-												lineLimit = 1,
-												disclose = true,
-											}),
-											UI.When({
-												id = "Gate",
-												condition = gated,
-												thenView = function(): any
-													return parts.chip(ctx, "LumenOnly", ctx.L("wisp.lumenChip"))
-												end,
-											}),
-										},
-									}),
-								},
-							})
-						end,
-					}),
-				},
+							}),
+						}),
+					})
+				end,
 			}),
-		},
+		}),
 	})
 end
 
@@ -564,53 +546,50 @@ function overview.flora(ctx: any): any
 		padding = "l",
 		width = UI.fill(),
 		height = UI.fill(),
-		children = {
-			parts.heading(ctx, "FloraTitle", ctx.L("flora.title")),
-			UI.Grid({
-				id = "FloraCards",
-				minColumnWidth = METRICS.nectarCardMin,
-				gap = "m",
-				width = UI.fill(),
-				children = {
-					UI.ForEach({
-						id = "Flora",
-						items = items,
-						key = function(plant: any): string
-							return plant.id
-						end,
-						row = function(plant: any, rowScope: any): any
-							local name = rowScope:own(core:memo(function(use)
-								local _ = use(ctx.state.locale)
-								return ctx.Lnow("flora." .. plant.id)
-							end))
-							local species = rowScope:own(core:memo(function(use)
-								local _ = use(ctx.state.locale)
-								return ctx.Lnow("flora.species." .. plant.id)
-							end))
-							return UI.VStack({
-								id = "FloraCard_" .. plant.id,
-								surface = "raised",
-								padding = "m",
-								gap = "s",
-								align = "center",
-								width = UI.fill(),
-								children = {
-									parts.well(ctx, "Art", plant.art, METRICS.portrait),
-									UI.Text({
-										id = "Name",
-										text = name,
-										textSize = "label",
-										lineLimit = 1,
-										disclose = true,
-									}),
-									parts.caption(ctx, "Species", species),
-								},
-							})
-						end,
-					}),
-				},
+
+		parts.heading(ctx, "FloraTitle", ctx.L("flora.title")),
+		UI.Grid({
+			id = "FloraCards",
+			minColumnWidth = METRICS.nectarCardMin,
+			gap = "m",
+			width = UI.fill(),
+
+			UI.ForEach({
+				id = "Flora",
+				items = items,
+				key = function(plant: any): string
+					return plant.id
+				end,
+				row = function(plant: any, rowScope: any): any
+					local name = rowScope:own(core:memo(function(use)
+						local _ = use(ctx.state.locale)
+						return ctx.Lnow("flora." .. plant.id)
+					end))
+					local species = rowScope:own(core:memo(function(use)
+						local _ = use(ctx.state.locale)
+						return ctx.Lnow("flora.species." .. plant.id)
+					end))
+					return UI.VStack({
+						id = "FloraCard_" .. plant.id,
+						surface = "raised",
+						padding = "m",
+						gap = "s",
+						align = "center",
+						width = UI.fill(),
+
+						parts.well(ctx, "Art", plant.art, METRICS.portrait),
+						UI.Text({
+							id = "Name",
+							text = name,
+							textSize = "label",
+							lineLimit = 1,
+							disclose = true,
+						}),
+						parts.caption(ctx, "Species", species),
+					})
+				end,
 			}),
-		},
+		}),
 	})
 end
 

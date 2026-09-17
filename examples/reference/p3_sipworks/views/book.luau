@@ -57,95 +57,90 @@ function book.unlockCard(app: any): any
 			return UI.ZStack({
 				id = "UnlockBox",
 				width = dims.fill,
-				children = {
-					UI.VStack({
-						id = "Card",
-						surface = "raised",
-						corners = UI.cornersData("panel"),
-						stroke = UI.strokeData({}),
-						gap = 0,
+
+				UI.VStack({
+					id = "Card",
+					surface = "raised",
+					corners = UI.cornersData("panel"),
+					stroke = UI.strokeData({}),
+					gap = 0,
+					width = dims.fill,
+
+					UI.ZStack({
+						id = "Group",
+						canvasGroup = true,
 						width = dims.fill,
-						children = {
-							UI.ZStack({
-								id = "Group",
-								canvasGroup = true,
+
+						UI.VStack({
+							id = "GroupStack",
+							gap = 0,
+							width = dims.fill,
+
+							parts.artPlate(app, "blend", "amber-harvest", {
+								id = "Cover",
 								width = dims.fill,
-								children = {
-									UI.VStack({
-										id = "GroupStack",
-										gap = 0,
-										width = dims.fill,
-										children = {
-											parts.artPlate(app, "blend", "amber-harvest", {
-												id = "Cover",
-												width = dims.fill,
-												height = dims.aspect(2.4),
-												markSize = "title",
-											}),
-											UI.VStack({
-												id = "Bar",
-												-- the translucent bar is the MATERIALS adaptation: a
-												-- `raised` plate, never a blur
-												surface = "raised",
-												padding = "m",
-												gap = "xs",
-												width = dims.fill,
-												children = {
-													UI.Text({
-														id = "Name",
-														text = app.text(unlock.product.nameKey),
-														textSize = "heading",
-													}),
-													UI.Text({
-														id = "Description",
-														text = app.text(unlock.product.descriptionKey),
-														role = "secondary",
-														textSize = "body",
-														lineLimit = 2,
-														disclose = true,
-														width = dims.fill,
-													}),
-													-- WHILE THE PRODUCT IS STILL LOADING NO BUY BUTTON
-													-- IS MOUNTED (spec §10): a price nobody knows yet
-													-- must not be pressable.
-													UI.When({
-														id = "Loading",
-														condition = loading,
-														thenView = function()
-															return UI.Text({
-																id = "Price",
-																text = app.text("unlock.loading"),
-																role = "secondary",
-																textSize = "caption",
-															})
-														end,
-													}),
-													UI.When({
-														id = "Offer",
-														condition = available,
-														thenView = function()
-															return UI.Button({
-																id = "UnlockBuy",
-																label = buyLabel,
-																enabled = buyEnabled,
-																surface = "accent",
-																corners = UI.cornersData("pill"),
-																width = dims.fill,
-																onActivate = function()
-																	app.commands.buyBlendBook()
-																end,
-															})
-														end,
-													}),
-												},
-											}),
-										},
-									}),
-								},
+								height = dims.aspect(2.4),
+								markSize = "title",
 							}),
-						},
+							UI.VStack({
+								id = "Bar",
+								-- the translucent bar is the MATERIALS adaptation: a
+								-- `raised` plate, never a blur
+								surface = "raised",
+								padding = "m",
+								gap = "xs",
+								width = dims.fill,
+
+								UI.Text({
+									id = "Name",
+									text = app.text(unlock.product.nameKey),
+									textSize = "heading",
+								}),
+								UI.Text({
+									id = "Description",
+									text = app.text(unlock.product.descriptionKey),
+									role = "secondary",
+									textSize = "body",
+									lineLimit = 2,
+									disclose = true,
+									width = dims.fill,
+								}),
+								-- WHILE THE PRODUCT IS STILL LOADING NO BUY BUTTON
+								-- IS MOUNTED (spec §10): a price nobody knows yet
+								-- must not be pressable.
+								UI.When({
+									id = "Loading",
+									condition = loading,
+									thenView = function()
+										return UI.Text({
+											id = "Price",
+											text = app.text("unlock.loading"),
+											role = "secondary",
+											textSize = "caption",
+										})
+									end,
+								}),
+								UI.When({
+									id = "Offer",
+									condition = available,
+									thenView = function()
+										return UI.Button({
+											id = "UnlockBuy",
+											label = buyLabel,
+											enabled = buyEnabled,
+											surface = "accent",
+											corners = UI.cornersData("pill"),
+											width = dims.fill,
+											onActivate = function()
+												app.commands.buyBlendBook()
+											end,
+										})
+									end,
+								}),
+							}),
+						}),
 					}),
-				},
+				}),
 			})
 		end,
 	})
@@ -197,96 +192,91 @@ function book.recipeView(app: any, opts: any): any
 		gap = "s",
 		width = dims.fill,
 		height = dims.fill,
-		children = {
-			app.Facet.navBar({
-				id = "TopBar",
-				padding = if options.navigationHosted then 0 else "m",
-				onBack = if options.showBack
-					then function()
-						app.commands.closeRecipe()
-					end
-					else nil,
-				backLabel = app.text("nav.back"),
-				title = title,
-				titleSize = "heading",
-				titleWidth = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
-			}),
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "m",
-				padding = if options.navigationHosted then 0 else "m",
+
+		app.Facet.navBar({
+			id = "TopBar",
+			padding = if options.navigationHosted then 0 else "m",
+			onBack = if options.showBack
+				then function()
+					app.commands.closeRecipe()
+				end
+				else nil,
+			backLabel = app.text("nav.back"),
+			title = title,
+			titleSize = "heading",
+			titleWidth = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
+		}),
+		UI.ScrollView({
+			id = "Page",
+			axis = "y",
+			gap = "m",
+			padding = if options.navigationHosted then 0 else "m",
+			width = dims.fill,
+			height = dims.fill,
+
+			UI.ZStack({
+				id = "Hero",
 				width = dims.fill,
-				height = dims.fill,
-				children = {
+				height = dims.aspect(1.5),
+
+				UI.ForEach({
+					id = "HeroArt",
+					items = heroId,
+					key = function(blendId: string)
+						return blendId
+					end,
+					row = function(blendId: string)
+						return parts.artPlate(app, "blend", blendId, {
+							id = "Plate",
+							width = dims.fill,
+							height = dims.fill,
+							markSize = "title",
+						})
+					end,
+				}),
+				-- the batch stepper rides the hero's lower edge on an
+				-- `Anchor`, which is placement and not layout: the hero
+				-- keeps its whole box
+				UI.Anchor({
+					id = "BatchAnchor",
+					width = dims.fill,
+					height = dims.fill,
+
 					UI.ZStack({
-						id = "Hero",
-						width = dims.fill,
-						height = dims.aspect(1.5),
-						children = {
-							UI.ForEach({
-								id = "HeroArt",
-								items = heroId,
-								key = function(blendId: string)
-									return blendId
-								end,
-								row = function(blendId: string)
-									return parts.artPlate(app, "blend", blendId, {
-										id = "Plate",
-										width = dims.fill,
-										height = dims.fill,
-										markSize = "title",
-									})
-								end,
-							}),
-							-- the batch stepper rides the hero's lower edge on an
-							-- `Anchor`, which is placement and not layout: the hero
-							-- keeps its whole box
-							UI.Anchor({
-								id = "BatchAnchor",
-								width = dims.fill,
-								height = dims.fill,
-								children = {
-									UI.ZStack({
-										id = "BatchHost",
-										anchor = "bottom",
-										offsetY = "-m",
-										children = { app.batch.blueprint },
-									}),
-								},
-							}),
-						},
+						id = "BatchHost",
+						anchor = "bottom",
+						offsetY = "-m",
+						app.batch.blueprint,
 					}),
-					-- A HEADING NEEDS A FLOOR, not a natural width. A wrapping label
-					-- still MEASURES the width its string wants, so a 1.4x heading at
-					-- the largest text preference made the whole recipe pane 114px
-					-- wider than the pane it sits in.
-					UI.Text({
-						id = "Heading",
-						text = app.text("ingredients.recipe"),
-						textSize = "heading",
-						width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
-					}),
-					UI.VStack({
-						id = "Measures",
-						gap = "xs",
-						width = dims.fill,
-						children = {
-							UI.ForEach({
-								id = "Rows",
-								items = measures,
-								key = function(entry: any)
-									return entry.key
-								end,
-								row = function(entry: any, itemScope: any)
-									return book.measureRow(app, entry, itemScope)
-								end,
-							}),
-						},
-					}),
-				},
+				}),
 			}),
-		},
+			-- A HEADING NEEDS A FLOOR, not a natural width. A wrapping label
+			-- still MEASURES the width its string wants, so a 1.4x heading at
+			-- the largest text preference made the whole recipe pane 114px
+			-- wider than the pane it sits in.
+			UI.Text({
+				id = "Heading",
+				text = app.text("ingredients.recipe"),
+				textSize = "heading",
+				width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
+			}),
+			UI.VStack({
+				id = "Measures",
+				gap = "xs",
+				width = dims.fill,
+
+				UI.ForEach({
+					id = "Rows",
+					items = measures,
+					key = function(entry: any)
+						return entry.key
+					end,
+					row = function(entry: any, itemScope: any)
+						return book.measureRow(app, entry, itemScope)
+					end,
+				}),
+			}),
+		}),
 	})
 end
 
@@ -329,46 +319,44 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 		padding = "s",
 		align = "center",
 		width = dims.fill,
-		children = {
-			parts.artPlate(app, "botanical", botanical.id, {
-				width = dims.fixed("app.sip.rowArt"),
-				height = dims.fixed("app.sip.rowArt"),
-			}),
-			-- A FLOOR, NOT A FILL. A `fill` child still MEASURES its content, so a
-			-- capped-but-long localized name kept the row 70px wider than the pane
-			-- it lives in (1.4x copy at the largest text preference, in the tablet
-			-- two-pane row). A `minMax` floor is what lets the row compress and the
-			-- name truncate into its disclosure.
-			UI.VStack({
-				id = "Lines",
-				gap = "xs",
-				width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
-				children = {
-					UI.Text({ id = "Name", text = name, textSize = "strong", lineLimit = 1, disclose = true }),
-					-- a measured quantity is ONE short token; capping it keeps the row
-					-- the height of its own thumbnail at every text preference, and
-					-- `disclose` keeps the whole value reachable if it ever truncates
-					UI.Text({
-						id = "Quantity",
-						text = quantity,
-						role = "secondary",
-						textSize = "caption",
-						lineLimit = 1,
-						disclose = true,
-						width = dims.fill,
-					}),
-				},
-			}),
-			UI.Toggle({
-				id = "Got-" .. botanical.id,
-				width = dims.fixed("app.sip.gatherToggle"),
-				label = own(core:memo(function(use)
-					return i18n.at(use(i18n.locale), "recipe.gathered", { name = use(name) })
-				end)),
-				value = gathered,
+
+		parts.artPlate(app, "botanical", botanical.id, {
+			width = dims.fixed("app.sip.rowArt"),
+			height = dims.fixed("app.sip.rowArt"),
+		}),
+		-- A FLOOR, NOT A FILL. A `fill` child still MEASURES its content, so a
+		-- capped-but-long localized name kept the row 70px wider than the pane
+		-- it lives in (1.4x copy at the largest text preference, in the tablet
+		-- two-pane row). A `minMax` floor is what lets the row compress and the
+		-- name truncate into its disclosure.
+		UI.VStack({
+			id = "Lines",
+			gap = "xs",
+			width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
+
+			UI.Text({ id = "Name", text = name, textSize = "strong", lineLimit = 1, disclose = true }),
+			-- a measured quantity is ONE short token; capping it keeps the row
+			-- the height of its own thumbnail at every text preference, and
+			-- `disclose` keeps the whole value reachable if it ever truncates
+			UI.Text({
+				id = "Quantity",
+				text = quantity,
+				role = "secondary",
+				textSize = "caption",
+				lineLimit = 1,
 				disclose = true,
+				width = dims.fill,
 			}),
-		},
+		}),
+		UI.Toggle({
+			id = "Got-" .. botanical.id,
+			width = dims.fixed("app.sip.gatherToggle"),
+			label = own(core:memo(function(use)
+				return i18n.at(use(i18n.locale), "recipe.gathered", { name = use(name) })
+			end)),
+			value = gathered,
+			disclose = true,
+		}),
 	})
 end
 

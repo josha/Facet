@@ -322,27 +322,27 @@ return {
 				onActivate = function()
 					model.markRead(item.id)
 				end,
-				children = {
-					UI.When({
-						id = "DotWhen",
-						condition = showDot,
-						thenView = function()
-							return UI.Path({
-								id = "Dot",
-								width = { type = "fixed", px = 8 },
-								height = { type = "fixed", px = 8 },
-								points = Facet.pathShapes.ring({ radius = 0.5 }),
-								thickness = 3,
-								role = "accent",
-							})
-						end,
-					}),
-					UI.VStack({
-						id = "Text",
-						gap = 2,
-						width = UI.fill(),
-						children = {
-							--[[ THE SENDER TRUNCATES; IT DOES NOT PUSH (overflow sweep,
+
+				UI.When({
+					id = "DotWhen",
+					condition = showDot,
+					thenView = function()
+						return UI.Path({
+							id = "Dot",
+							width = { type = "fixed", px = 8 },
+							height = { type = "fixed", px = 8 },
+							points = Facet.pathShapes.ring({ radius = 0.5 }),
+							thickness = 3,
+							role = "accent",
+						})
+					end,
+				}),
+				UI.VStack({
+					id = "Text",
+					gap = 2,
+					width = UI.fill(),
+
+					--[[ THE SENDER TRUNCATES; IT DOES NOT PUSH (overflow sweep,
 								2026-09-12). This row is the narrowest thing on a 320px
 								portrait and the only one carrying a name, and the name was
 								content-sized beside a flag glyph — so any squeeze came out
@@ -352,32 +352,29 @@ return {
 								the node they skin), and it would squeeze again on a
 								narrower phone with no plate at all. A mail row's sender is
 								exactly the field a list truncates. ]]
-							UI.HStack({
-								id = "TopLine",
-								width = UI.fill(),
-								gap = "s",
-								children = {
-									UI.Text({
-										id = "From",
-										text = item.from,
-										textSize = 15,
-										width = UI.fill(),
-										lineLimit = 1,
-									}),
-									UI.When({
-										id = "FlagWhen",
-										condition = flagged,
-										thenView = function()
-											return UI.Text({ id = "Flag", text = "\u{1F6A9}", textSize = 13 })
-										end,
-									}),
-								},
-							}),
-							UI.Text({ id = "Subject", text = item.subject, textSize = "label" }),
-							UI.Text({ id = "Preview", text = item.preview, textSize = "caption", role = "secondary" }),
-						},
+					UI.HStack({
+						id = "TopLine",
+						width = UI.fill(),
+						gap = "s",
+
+						UI.Text({
+							id = "From",
+							text = item.from,
+							textSize = 15,
+							width = UI.fill(),
+							lineLimit = 1,
+						}),
+						UI.When({
+							id = "FlagWhen",
+							condition = flagged,
+							thenView = function()
+								return UI.Text({ id = "Flag", text = "\u{1F6A9}", textSize = 13 })
+							end,
+						}),
 					}),
-				},
+					UI.Text({ id = "Subject", text = item.subject, textSize = "label" }),
+					UI.Text({ id = "Preview", text = item.preview, textSize = "caption", role = "secondary" }),
+				}),
 			})
 		end
 
@@ -563,27 +560,25 @@ return {
 			align = "stretch",
 			width = UI.fill(),
 			height = UI.fill(),
-			children = {
-				-- ScrollView > VStack: the VStack is what makes this the
-				-- hand-wrapped, non-Table shape (a ScrollView can stack children on
-				-- its own axis, but a caller building a plain reactive list of rows
-				-- writes it the same way as any other VStack list — the ScrollView
-				-- only adds the scroll host).
-				UI.ScrollView({
-					id = "List",
-					axis = "y",
+
+			-- ScrollView > VStack: the VStack is what makes this the
+			-- hand-wrapped, non-Table shape (a ScrollView can stack children on
+			-- its own axis, but a caller building a plain reactive list of rows
+			-- writes it the same way as any other VStack list — the ScrollView
+			-- only adds the scroll host).
+			UI.ScrollView({
+				id = "List",
+				axis = "y",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.VStack({
+					id = "Rows",
+					gap = 1,
 					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.VStack({
-							id = "Rows",
-							gap = 1,
-							width = UI.fill(),
-							children = { rowsForEach },
-						}),
-					},
+					rowsForEach,
 				}),
-			},
+			}),
 		})
 
 		-- ===== surface 2: reorderable, editable Table with `rowActions` ========
@@ -657,24 +652,22 @@ return {
 			gap = "s",
 			width = UI.fill(),
 			height = UI.fill(),
-			children = {
-				UI.HStack({
-					id = "TableToolbar",
-					gap = "s",
-					children = {
-						UI.Button({
-							id = "EditToggle",
-							label = core:memo(function(use)
-								return if use(editingSignal) then "Done" else "Edit"
-							end),
-							onActivate = function()
-								editingSignal:set(not editingSignal:get())
-							end,
-						}),
-					},
+
+			UI.HStack({
+				id = "TableToolbar",
+				gap = "s",
+
+				UI.Button({
+					id = "EditToggle",
+					label = core:memo(function(use)
+						return if use(editingSignal) then "Done" else "Edit"
+					end),
+					onActivate = function()
+						editingSignal:set(not editingSignal:get())
+					end,
 				}),
-				tbl.blueprint,
-			},
+			}),
+			tbl.blueprint,
 		})
 
 		-- ===== surface 3: `newVirtualList` with hosted `rowActions` ============
@@ -697,45 +690,42 @@ return {
 				align = "center",
 				width = UI.fill(),
 				padding = { top = 10, bottom = 10, left = 14, right = 14 },
-				children = {
-					UI.When({
-						id = "DotWhen",
-						condition = showDot,
-						thenView = function()
-							return UI.Path({
-								id = "Dot",
-								width = { type = "fixed", px = 8 },
-								height = { type = "fixed", px = 8 },
-								points = Facet.pathShapes.ring({ radius = 0.5 }),
-								thickness = 3,
-								role = "accent",
-							})
-						end,
+
+				UI.When({
+					id = "DotWhen",
+					condition = showDot,
+					thenView = function()
+						return UI.Path({
+							id = "Dot",
+							width = { type = "fixed", px = 8 },
+							height = { type = "fixed", px = 8 },
+							points = Facet.pathShapes.ring({ radius = 0.5 }),
+							thickness = 3,
+							role = "accent",
+						})
+					end,
+				}),
+				UI.VStack({
+					id = "Text",
+					gap = 2,
+					width = UI.fill(),
+
+					UI.HStack({
+						id = "TopLine",
+						gap = "s",
+
+						UI.Text({ id = "From", text = item.from, textSize = 15 }),
+						UI.When({
+							id = "FlagWhen",
+							condition = flagged,
+							thenView = function()
+								return UI.Text({ id = "Flag", text = "\u{1F6A9}", textSize = 13 })
+							end,
+						}),
 					}),
-					UI.VStack({
-						id = "Text",
-						gap = 2,
-						width = UI.fill(),
-						children = {
-							UI.HStack({
-								id = "TopLine",
-								gap = "s",
-								children = {
-									UI.Text({ id = "From", text = item.from, textSize = 15 }),
-									UI.When({
-										id = "FlagWhen",
-										condition = flagged,
-										thenView = function()
-											return UI.Text({ id = "Flag", text = "\u{1F6A9}", textSize = 13 })
-										end,
-									}),
-								},
-							}),
-							UI.Text({ id = "Subject", text = item.subject, textSize = "label" }),
-							UI.Text({ id = "Preview", text = item.preview, textSize = "caption", role = "secondary" }),
-						},
-					}),
-				},
+					UI.Text({ id = "Subject", text = item.subject, textSize = "label" }),
+					UI.Text({ id = "Preview", text = item.preview, textSize = "caption", role = "secondary" }),
+				}),
 			})
 			return UI.background(
 				body,
@@ -868,8 +858,8 @@ return {
 			gap = "s",
 			width = UI.fill(),
 			height = UI.fill(),
-			children = {
-				--[[ THE HINT STAYS AT EVERY SIZE, AND THAT IS A MEASUREMENT (O-21,
+
+			--[[ THE HINT STAYS AT EVERY SIZE, AND THAT IS A MEASUREMENT (O-21,
 					2026-08-15). Hiding it behind the same `showHeading` Readable the
 					title uses was written first — on a 640x320 landscape at +14 this
 					sentence wraps to two lines and the hint itself ended 9px below the
@@ -878,14 +868,13 @@ return {
 					and the hint is inside the band on its own. Removing the FLOOR
 					reddens `scenario 'row_actions'`; hiding the hint moved nothing. The
 					words a player needs to drive this surface stay on it. ]]
-				UI.Text({
-					id = "VListHint",
-					text = "Swipe a row (real touch/mouse — no scripted step reaches this surface)",
-					textSize = "caption",
-					role = "secondary",
-				}),
-				vlist.blueprint,
-			},
+			UI.Text({
+				id = "VListHint",
+				text = "Swipe a row (real touch/mouse — no scripted step reaches this surface)",
+				textSize = "caption",
+				role = "secondary",
+			}),
+			vlist.blueprint,
 		})
 
 		local screen = UI.Screen({
@@ -901,45 +890,45 @@ return {
 			gap = scope:own(core:memo(function(use)
 				return if use(conditions.isShort) then "xs" else "s"
 			end)),
-			children = {
-				UI.When({
-					id = "HeadingWhen",
-					condition = showHeading,
-					thenView = function()
-						return UI.Text({ id = "Title", text = "Row actions — Mail", textSize = "title" })
+
+			UI.When({
+				id = "HeadingWhen",
+				condition = showHeading,
+				thenView = function()
+					return UI.Text({ id = "Title", text = "Row actions — Mail", textSize = "title" })
+				end,
+			}),
+			-- A GRID, NOT AN HSTACK (same device round, 320x640: "content
+			-- overflows this hstack by 24px on the main axis" — "VirtualList" is a
+			-- long word and three buttons of it do not fit a 288px content box).
+			-- `minColumnWidth = "intrinsic"` derives the column count from the
+			-- widest button's own measured width under the ACTIVE theme, every
+			-- solve, so the bar re-columns on a narrow phone and on a theme swap
+			-- without a single viewport number in this file. The three buttons stay
+			-- direct children, so `/MailActions/ModeBar/Mode*` is unchanged.
+			UI.Grid({
+				id = "ModeBar",
+				minColumnWidth = "intrinsic",
+				gap = "s",
+				width = UI.fill(),
+
+				UI.Button({
+					id = "ModeList",
+					label = "List",
+					onActivate = function()
+						mode:set("list")
 					end,
 				}),
-				-- A GRID, NOT AN HSTACK (same device round, 320x640: "content
-				-- overflows this hstack by 24px on the main axis" — "VirtualList" is a
-				-- long word and three buttons of it do not fit a 288px content box).
-				-- `minColumnWidth = "intrinsic"` derives the column count from the
-				-- widest button's own measured width under the ACTIVE theme, every
-				-- solve, so the bar re-columns on a narrow phone and on a theme swap
-				-- without a single viewport number in this file. The three buttons stay
-				-- direct children, so `/MailActions/ModeBar/Mode*` is unchanged.
-				UI.Grid({
-					id = "ModeBar",
-					minColumnWidth = "intrinsic",
-					gap = "s",
-					width = UI.fill(),
-					children = {
-						UI.Button({
-							id = "ModeList",
-							label = "List",
-							onActivate = function()
-								mode:set("list")
-							end,
-						}),
-						UI.Button({
-							id = "ModeTable",
-							label = "Table",
-							onActivate = function()
-								mode:set("table")
-							end,
-						}),
-						UI.Button({
-							id = "ModeVList",
-							--[[ "VList", NOT "VirtualList" (O-21, measured 2026-08-15).
+				UI.Button({
+					id = "ModeTable",
+					label = "Table",
+					onActivate = function()
+						mode:set("table")
+					end,
+				}),
+				UI.Button({
+					id = "ModeVList",
+					--[[ "VList", NOT "VirtualList" (O-21, measured 2026-08-15).
 								`minColumnWidth = "intrinsic"` derives the bar's column width
 								from the WIDEST label, and at +14 that word measured 243px:
 								three of those cannot share a 624px landscape row, so the bar
@@ -953,41 +942,39 @@ return {
 								bar measured 243 either way. The label itself is the input
 								the intrinsic column reads. `VList` is the name the rest of
 								this fixture already uses (`VListPane`, `vlist` mode). ]]
-							label = "VList",
-							onActivate = function()
-								mode:set("vlist")
-							end,
-						}),
-					},
-				}),
-				UI.When({
-					id = "ListWhen",
-					condition = core:memo(function(use)
-						return use(mode) == "list"
-					end),
-					thenView = function()
-						return listBody
+					label = "VList",
+					onActivate = function()
+						mode:set("vlist")
 					end,
 				}),
-				UI.When({
-					id = "TableWhen",
-					condition = core:memo(function(use)
-						return use(mode) == "table"
-					end),
-					thenView = function()
-						return tableBody
-					end,
-				}),
-				UI.When({
-					id = "VListWhen",
-					condition = core:memo(function(use)
-						return use(mode) == "vlist"
-					end),
-					thenView = function()
-						return vlistBody
-					end,
-				}),
-			},
+			}),
+			UI.When({
+				id = "ListWhen",
+				condition = core:memo(function(use)
+					return use(mode) == "list"
+				end),
+				thenView = function()
+					return listBody
+				end,
+			}),
+			UI.When({
+				id = "TableWhen",
+				condition = core:memo(function(use)
+					return use(mode) == "table"
+				end),
+				thenView = function()
+					return tableBody
+				end,
+			}),
+			UI.When({
+				id = "VListWhen",
+				condition = core:memo(function(use)
+					return use(mode) == "vlist"
+				end),
+				thenView = function()
+					return vlistBody
+				end,
+			}),
 		})
 
 		local function pressKey(key: string)

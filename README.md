@@ -11,8 +11,9 @@ Roblox user interface through the engine's own scrolling, styling, and input. On
 description adapts from a phone to a console without a per-device branch, and every
 control it ships is reachable by pointer, touch, keyboard, and gamepad.
 
-Facet has its own reactive core. It depends on no third-party user-interface or
-reactivity library at runtime.
+Facet uses the official Roblox Signals reactive graph with scoped ownership,
+ordered change delivery and layout settling. Write new interfaces with
+[`Facet.component` and `Facet.View`](docs/guide/15-components.md).
 
 ## What it runs on
 
@@ -134,32 +135,27 @@ local host = require(ReplicatedStorage.Facet.client.host)
 -- one call stands up a core, a bound environment, a render target, an input
 -- system and a presenter, and drives both halves of the frame
 local h = host.new()
-local core, presenter = h.core, h.presenter
-
-local count = core:signal(0)
-local label = core:memo(function(use)
-    return `Clicked {use(count)} times`
+local UI = Facet.View
+local Counter = Facet.component(function(ui)
+    local count, setCount = ui.state(0)
+    return UI.Screen {
+        id = "Counter", padding = "m", gap = "s",
+        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
+        UI.Button {
+            id = "Bump", label = "Bump",
+            onActivate = function() setCount(function(n) return n + 1 end) end,
+        },
+    }
 end)
 
-presenter.present(Facet.UI.Screen({
-    id = "Counter",
-    padding = "m",
-    gap = "s",
-    children = {
-        Facet.UI.Text({ id = "Label", text = label }),
-        Facet.UI.Button({
-            id = "Bump",
-            label = "Bump",
-            onActivate = function()
-                count:set(count:get() + 1)
-            end,
-        }),
-    },
-}))
+local handle = h.presenter.present(Counter {})
+-- At the application's lifetime boundary:
+-- h.presenter.dismiss(handle)
+-- h.dispose()
 ```
 
-Passing the memo as `text` is the whole reactivity rule: a readable value makes
-that property reactive, a plain value does not. Press Play, and clicking, pressing
+The `text` function reads `count()`; Facet tracks that read and updates the
+label when `setCount` changes it. The component owns its state and bindings. Press Play, and clicking, pressing
 Enter, or pressing gamepad A all bump the count.
 
 **One checkbox first.** Tick `Workspace.PlayerScriptsUseInputActionSystem` in

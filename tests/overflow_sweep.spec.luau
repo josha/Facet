@@ -293,6 +293,7 @@ local SHOWCASE_TOP = demo_picker.barReservation(device_views.CORE_TOP, nil, 8)
 -- through a replicated folder, so this file mounts those modules DIRECTLY below
 -- (the same thing the delegation would have built, minus an engine).
 local SCENARIOS = {
+	"component_motion",
 	"all_controls",
 	"collections",
 	"motion_layout",

@@ -10,7 +10,8 @@ local motion = require("../examples/gallery/scenarios/motion_layout")
 local function button(w, label)
 	for _, path in w.adapter.paths() do
 		local node = w.adapter.node(path)
-		if node.class == "Button" and node.props.label == label then
+		local text = w.adapter.node(path .. "/Label")
+		if node.class == "Button" and (node.props.label == label or (text and text.props.text == label)) then
 			return path
 		end
 	end
@@ -328,6 +329,19 @@ t.describe("Consolidated showcase", function()
 					for _, tab in group.tabs do
 						activate(w, tab.label)
 						t.expect(built.report().active).toBe(tab.id)
+						if scenario == motion and tab.id == "automatic" then
+							t.expect(built.report().example.balance).toBe(100)
+							local buy
+							for _, path in w.adapter.paths() do
+								if path:sub(-4) == "/Buy" then
+									buy = path
+								end
+							end
+							t.expect(buy ~= nil and w.pres.focus.focusOn(buy)).toBe(true)
+							w.press("ButtonA")
+							w.settle(4)
+							t.expect(built.report().example.balance).toBe(60)
+						end
 						w.press("DPadDown")
 						w.settle(2)
 						local focused = w.pres.focus.focused:get()

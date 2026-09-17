@@ -136,32 +136,31 @@ return {
 					id = "Row",
 					gap = "s",
 					padding = ROSTER_ROW_PADDING,
-					children = {
-						-- ...AND SO DOES THE NAME (O-21 round 2, 2026-08-15). With only the
-						-- detail carrying a weight the row still ran 14px past its slot
-						-- under Sci-Fi HUD on a 320px phone at +14 — the solver's own
-						-- "every shrinkable child is already at its floor" case, because
-						-- there was exactly one shrinkable child. `Racer 200` is as
-						-- degradable as `Lap 2 · P1` and gets the same treatment: one
-						-- line, a weight, and a `disclose` back to the whole string.
-						UI.Text({
-							id = "Name",
-							text = item.name,
-							textSize = ROSTER_NAME_SIZE,
-							lineLimit = 1,
-							disclose = true,
-							shrinkWeight = 1,
-						}),
-						UI.Spacer({ id = "Gap" }),
-						UI.Text({
-							id = "Detail",
-							text = item.detail,
-							textSize = ROSTER_DETAIL_SIZE,
-							lineLimit = 1,
-							disclose = true,
-							shrinkWeight = 1,
-						}),
-					},
+
+					-- ...AND SO DOES THE NAME (O-21 round 2, 2026-08-15). With only the
+					-- detail carrying a weight the row still ran 14px past its slot
+					-- under Sci-Fi HUD on a 320px phone at +14 — the solver's own
+					-- "every shrinkable child is already at its floor" case, because
+					-- there was exactly one shrinkable child. `Racer 200` is as
+					-- degradable as `Lap 2 · P1` and gets the same treatment: one
+					-- line, a weight, and a `disclose` back to the whole string.
+					UI.Text({
+						id = "Name",
+						text = item.name,
+						textSize = ROSTER_NAME_SIZE,
+						lineLimit = 1,
+						disclose = true,
+						shrinkWeight = 1,
+					}),
+					UI.Spacer({ id = "Gap" }),
+					UI.Text({
+						id = "Detail",
+						text = item.detail,
+						textSize = ROSTER_DETAIL_SIZE,
+						lineLimit = 1,
+						disclose = true,
+						shrinkWeight = 1,
+					}),
 				})
 			end,
 		})
@@ -179,8 +178,8 @@ return {
 			id = "PerfCapture",
 			padding = 12,
 			gap = "s",
-			children = {
-				--[[ ONE READOUT BAND, WRAPPING (O-21, measured 2026-08-15). The eight
+
+			--[[ ONE READOUT BAND, WRAPPING (O-21, measured 2026-08-15). The eight
 					live numbers and the boost count are the same kind of thing and used
 					to take two lines of the page's own stack regardless: on a 640x320
 					landscape at +10 that second line was 44px of a 176px content box the
@@ -192,60 +191,57 @@ return {
 					616px band) and `wrap = true` keeps a 320px portrait phone at the two
 					lines it always had. It is strictly cheaper under every theme
 					package, which a second pinned line would not have been. ]]
-				UI.HStack({
-					id = "Readouts",
-					gap = "tight",
-					wrap = true,
+			UI.HStack({
+				id = "Readouts",
+				gap = "tight",
+				wrap = true,
+				width = UI.fill(),
+				children = (function()
+					local kids: { any } = table.clone(readoutViews)
+					table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = "body" }))
+					return kids
+				end)(),
+			}),
+			progress.blueprint,
+			UI.ScrollView({
+				id = "Body",
+				axis = "y",
+				width = UI.fill(),
+				height = UI.fill(),
+
+				UI.AdaptiveStack({
+					id = "Split",
+					axis = conditions.axis,
+					gap = 12,
 					width = UI.fill(),
-					children = (function()
-						local kids: { any } = table.clone(readoutViews)
-						table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = "body" }))
-						return kids
-					end)(),
+					list.blueprint,
 				}),
-				progress.blueprint,
-				UI.ScrollView({
-					id = "Body",
-					axis = "y",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.AdaptiveStack({
-							id = "Split",
-							axis = conditions.axis,
-							gap = 12,
-							width = UI.fill(),
-							children = { list.blueprint },
-						}),
-					},
+			}),
+			UI.HStack({
+				id = "Actions",
+				-- THEME-OPT-OUT: this row is ALREADY in the overflow ledger for not fitting a
+				-- 320x640 phone at the Largest text preference (126px over, waived). Spending
+				-- the theme's own step here does not make it fit — measured with `gap = "s"` it
+				-- makes the recorded defect 2px worse under glossy-touch — so the step waits on
+				-- the row's own fix rather than landing on top of it.
+				gap = 8,
+				height = actionHeight,
+
+				UI.Button({
+					id = "Boost",
+					label = "Boost",
+					onActivate = function()
+						-- faultInput suppresses only the EFFECT, not the
+						-- activation: the press still happens, the screen
+						-- just stops reflecting it. That is the failure a
+						-- capture alone cannot see and a paired trace can.
+						if not faults.input then
+							boosts:set(boosts:get() + 1)
+						end
+					end,
 				}),
-				UI.HStack({
-					id = "Actions",
-					-- THEME-OPT-OUT: this row is ALREADY in the overflow ledger for not fitting a
-					-- 320x640 phone at the Largest text preference (126px over, waived). Spending
-					-- the theme's own step here does not make it fit — measured with `gap = "s"` it
-					-- makes the recorded defect 2px worse under glossy-touch — so the step waits on
-					-- the row's own fix rather than landing on top of it.
-					gap = 8,
-					height = actionHeight,
-					children = {
-						UI.Button({
-							id = "Boost",
-							label = "Boost",
-							onActivate = function()
-								-- faultInput suppresses only the EFFECT, not the
-								-- activation: the press still happens, the screen
-								-- just stops reflecting it. That is the failure a
-								-- capture alone cannot see and a paired trace can.
-								if not faults.input then
-									boosts:set(boosts:get() + 1)
-								end
-							end,
-						}),
-						UI.Button({ id = "Reset", label = "Reset" }),
-					},
-				}),
-			},
+				UI.Button({ id = "Reset", label = "Reset" }),
+			}),
 		})
 
 		return {

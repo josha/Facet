@@ -22,68 +22,63 @@ local keeper = {}
 local METRICS = seedData.METRICS
 
 function keeper.section(ctx: any): any
-	local UI = ctx.UI
-	local core = ctx.core
-	local scope = ctx.scope
-
-	local tierLabel = scope:own(core:memo(function(use)
-		local _ = use(ctx.state.locale)
-		local tier = use(ctx.commerce.charmTier())
-		if tier == "none" then
-			return ctx.Lnow("keeper.charmStatusNone")
-		end
-		return ctx.Lnow("keeper.charmStatus", { tier = ctx.Lnow("charm.tier." .. tier) })
-	end))
-	local charmCta = scope:own(core:memo(function(use)
-		local _ = use(ctx.state.locale)
-		return ctx.Lnow(if use(ctx.commerce.charmTier()) == "none" then "keeper.charmNone" else "keeper.charmUpgrade")
-	end))
-	local charmOffered = scope:own(core:memo(function(use)
-		return use(ctx.commerce.charmTier()) ~= "lumen"
-	end))
-	local joined = scope:own(core:memo(function(use)
-		local _ = use(ctx.state.locale)
-		return ctx.Lnow("keeper.joined", { date = seedData.KEEPER.joined })
-	end))
-	local restoreLabel = scope:own(core:memo(function(use)
-		local _ = use(ctx.state.locale)
-		if use(ctx.commerce.status("restore")) == "pending" then
-			return ctx.Lnow("keeper.restoring")
-		end
-		return ctx.Lnow("keeper.restore")
-	end))
-
-	return UI.ScrollView({
-		id = "KeeperPage",
-		axis = "y",
-		gap = "l",
-		padding = "l",
-		width = UI.fill(),
-		height = UI.fill(),
-		children = {
+	local Keeper = ctx.Facet.component(function(ui)
+		local locale = ui.read(ctx.state.locale)
+		local charmTier = ui.read(ctx.commerce.charmTier())
+		local restoreStatus = ui.read(ctx.commerce.status("restore"))
+		local UI = ctx.Facet.View
+		local tierLabel = ui.memo(function()
+			local _ = locale()
+			local tier = charmTier()
+			if tier == "none" then
+				return ctx.Lnow("keeper.charmStatusNone")
+			end
+			return ctx.Lnow("keeper.charmStatus", { tier = ctx.Lnow("charm.tier." .. tier) })
+		end)
+		local charmCta = ui.memo(function()
+			local _ = locale()
+			return ctx.Lnow(if charmTier() == "none" then "keeper.charmNone" else "keeper.charmUpgrade")
+		end)
+		local charmOffered = ui.memo(function()
+			return charmTier() ~= "lumen"
+		end)
+		local joined = ui.memo(function()
+			local _ = locale()
+			return ctx.Lnow("keeper.joined", { date = seedData.KEEPER.joined })
+		end)
+		local restoreLabel = ui.memo(function()
+			local _ = locale()
+			if restoreStatus() == "pending" then
+				return ctx.Lnow("keeper.restoring")
+			end
+			return ctx.Lnow("keeper.restore")
+		end)
+		return UI.ScrollView({
+			id = "KeeperPage",
+			axis = "y",
+			gap = "l",
+			padding = "l",
+			width = UI.fill(),
+			height = UI.fill(),
 			UI.HStack({
 				id = "Header",
 				gap = "m",
 				align = "center",
 				width = UI.fill(),
-				children = {
-					sceneLib.portrait(ctx, "Portrait", "tidewisp", METRICS.heroPortrait),
-					UI.VStack({
-						id = "Who",
-						gap = "xs",
-						width = UI.fill(),
-						children = {
-							UI.Text({
-								id = "Name",
-								text = ctx.state.keeperName,
-								textSize = "heading",
-								lineLimit = 1,
-								disclose = true,
-							}),
-							parts.caption(ctx, "Joined", joined),
-						},
+				sceneLib.portrait(ctx, "Portrait", "tidewisp", METRICS.heroPortrait),
+				UI.VStack({
+					id = "Who",
+					gap = "xs",
+					width = UI.fill(),
+					UI.Text({
+						id = "Name",
+						text = ctx.state.keeperName,
+						textSize = "heading",
+						lineLimit = 1,
+						disclose = true,
 					}),
-				},
+					parts.caption(ctx, "Joined", joined),
+				}),
 			}),
 			UI.VStack({
 				id = "CharmRow",
@@ -91,47 +86,41 @@ function keeper.section(ctx: any): any
 				padding = "m",
 				gap = "s",
 				width = UI.fill(),
-				children = {
-					parts.caption(ctx, "Status", tierLabel),
-					UI.When({
-						id = "CharmCta",
-						condition = charmOffered,
-						transition = { enter = "fade", class = "container" },
-						thenView = function(): any
-							return UI.ZStack({
-								id = "CtaGroup",
-								canvasGroup = true,
-								children = {
-									UI.Button({
-										id = "OpenCharm",
-										label = charmCta,
-										onActivate = function()
-											ctx.nav.openCharm()
-										end,
-									}),
-								},
-							})
-						end,
-					}),
-				},
+				parts.caption(ctx, "Status", tierLabel),
+				UI.When({
+					id = "CharmCta",
+					condition = charmOffered,
+					transition = { enter = "fade", class = "container" },
+					thenView = function(): any
+						return UI.ZStack({
+							id = "CtaGroup",
+							canvasGroup = true,
+							UI.Button({
+								id = "OpenCharm",
+								label = charmCta,
+								onActivate = function()
+									ctx.nav.openCharm()
+								end,
+							}),
+						})
+					end,
+				}),
 			}),
 			UI.VStack({
 				id = "RestoreRow",
 				gap = "s",
 				width = UI.fill(),
-				children = {
-					parts.commandButton(ctx, {
-						id = "Restore",
-						commandId = "restore",
-						label = restoreLabel,
-						onActivate = function()
-							ctx.nav.restore()
-						end,
-					}),
-					parts.rejectionNotice(ctx, "RestoreReject", "restore"),
-				},
+				parts.commandButton(ctx, {
+					id = "Restore",
+					commandId = "restore",
+					label = restoreLabel,
+					onActivate = function()
+						ctx.nav.restore()
+					end,
+				}),
+				parts.rejectionNotice(ctx, "RestoreReject", "restore"),
 			}),
-			UI.Button({
+			ctx.Facet.UI.Button({
 				id = "EditKeeper",
 				label = ctx.L("keeper.edit"),
 				compactLabel = { icon = "edit" },
@@ -147,17 +136,14 @@ function keeper.section(ctx: any): any
 					ctx.nav.openFreshStart()
 				end,
 			}),
-		},
-	})
+		})
+	end)
+	return Keeper({})
 end
 
--- ---- S7a: the edit form ------------------------------------------------------
--- Done commits the drafts to the keeper facts; Cancel discards them. No
--- validation, deliberately: the reference form has none and inventing one would
--- be a different screen.
 function keeper.editForm(ctx: any, scope: any): any
 	local UI = ctx.UI
-	local nameField = ctx.Facet.Controls.TextInput(ctx.core, {
+	local nameField = ctx.Facet.View.TextInput({
 		id = "NameField",
 		value = ctx.state.draftName,
 		placeholder = ctx.L("keeper.displayName"),
@@ -165,7 +151,7 @@ function keeper.editForm(ctx: any, scope: any): any
 		env = ctx.env,
 		actionSystem = ctx.actionSystem,
 	})
-	local contactField = ctx.Facet.Controls.TextInput(ctx.core, {
+	local contactField = ctx.Facet.View.TextInput({
 		id = "ContactField",
 		value = ctx.state.draftContact,
 		placeholder = ctx.L("keeper.contact"),
@@ -173,8 +159,6 @@ function keeper.editForm(ctx: any, scope: any): any
 		env = ctx.env,
 		actionSystem = ctx.actionSystem,
 	})
-	scope:own(nameField)
-	scope:own(contactField)
 
 	-- NavigationStack supplies the page title and Back chrome.
 	return shopLib.page(ctx, {
@@ -182,49 +166,45 @@ function keeper.editForm(ctx: any, scope: any): any
 			id = "Fields",
 			gap = "m",
 			width = UI.fill(),
-			children = {
-				UI.VStack({
-					id = "NameRow",
-					gap = "xs",
-					width = UI.fill(),
-					children = {
-						parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
-						nameField.blueprint,
-					},
-				}),
-				UI.VStack({
-					id = "ContactRow",
-					gap = "xs",
-					width = UI.fill(),
-					children = {
-						parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
-						contactField.blueprint,
-					},
-				}),
-			},
+
+			UI.VStack({
+				id = "NameRow",
+				gap = "xs",
+				width = UI.fill(),
+
+				parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
+				nameField,
+			}),
+			UI.VStack({
+				id = "ContactRow",
+				gap = "xs",
+				width = UI.fill(),
+
+				parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
+				contactField,
+			}),
 		}),
 		UI.HStack({
 			id = "Actions",
 			gap = "s",
 			width = UI.fill(),
-			children = {
-				UI.Button({
-					id = "SaveKeeper",
-					label = ctx.L("keeper.save"),
-					compactLabel = "OK",
-					onActivate = function()
-						ctx.nav.saveKeeper()
-					end,
-				}),
-				UI.Button({
-					id = "CancelKeeper",
-					label = ctx.L("keeper.cancel"),
-					role = "cancel",
-					onActivate = function()
-						ctx.nav.dismissTop()
-					end,
-				}),
-			},
+
+			UI.Button({
+				id = "SaveKeeper",
+				label = ctx.L("keeper.save"),
+				compactLabel = "OK",
+				onActivate = function()
+					ctx.nav.saveKeeper()
+				end,
+			}),
+			UI.Button({
+				id = "CancelKeeper",
+				label = ctx.L("keeper.cancel"),
+				role = "cancel",
+				onActivate = function()
+					ctx.nav.dismissTop()
+				end,
+			}),
 		}),
 	})
 end
@@ -244,44 +224,40 @@ function keeper.confirmReset(ctx: any): any
 			padding = "l",
 			alignH = "center",
 			alignV = "center",
-			children = {
-				UI.ZStack({
-					id = "AlertContent",
-					canvasGroup = true,
-					children = {
-						UI.VStack({
-							id = "AlertBody",
-							gap = "m",
-							children = {
-								parts.heading(ctx, "Title", ctx.L("keeper.confirmTitle")),
-								parts.body(ctx, "Body", ctx.L("keeper.confirmBody")),
-								UI.HStack({
-									id = "Actions",
-									gap = "s",
-									children = {
-										UI.Button({
-											id = "KeepGlades",
-											label = ctx.L("keeper.keep"),
-											role = "cancel",
-											onActivate = function()
-												ctx.nav.dismissTop()
-											end,
-										}),
-										UI.Button({
-											id = "StartOver",
-											label = ctx.L("keeper.startOver"),
-											role = "destructive",
-											onActivate = function()
-												ctx.nav.confirmFreshStart()
-											end,
-										}),
-									},
-								}),
-							},
+
+			UI.ZStack({
+				id = "AlertContent",
+				canvasGroup = true,
+
+				UI.VStack({
+					id = "AlertBody",
+					gap = "m",
+
+					parts.heading(ctx, "Title", ctx.L("keeper.confirmTitle")),
+					parts.body(ctx, "Body", ctx.L("keeper.confirmBody")),
+					UI.HStack({
+						id = "Actions",
+						gap = "s",
+
+						UI.Button({
+							id = "KeepGlades",
+							label = ctx.L("keeper.keep"),
+							role = "cancel",
+							onActivate = function()
+								ctx.nav.dismissTop()
+							end,
 						}),
-					},
+						UI.Button({
+							id = "StartOver",
+							label = ctx.L("keeper.startOver"),
+							role = "destructive",
+							onActivate = function()
+								ctx.nav.confirmFreshStart()
+							end,
+						}),
+					}),
 				}),
-			},
+			}),
 		}),
 	})
 end

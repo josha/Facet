@@ -14,90 +14,92 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx)
-		local Facet, core = ctx.Facet, ctx.core
-		local UI = Facet.UI
+		local Facet, UI = ctx.Facet, ctx.Facet.View
 		local copy = ctx.copy or COPY
-		local scope = core:scope("sheet-demo")
-		local detent = scope:own(core:signal("medium"))
-		local membership = scope:own(core:signal(false))
-		local status = scope:own(core:signal(copy.status))
-		local sheet
-		sheet = scope:own(Facet.Controls.Sheet(core, {
-			id = "Briefing",
-			title = copy.briefing,
-			detent = detent,
-			detents = { { id = "compact", fraction = 0.35 }, "medium", "large" },
-			content = UI.VStack({
-				id = "Details",
-				width = UI.fill(),
-				gap = "m",
-				children = {
-					UI.Text({ id = "Description", text = copy.description, width = UI.fill() }),
-					UI.Text({
-						text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
-						width = UI.fill(),
-					}),
-					UI.Toggle({ id = "Membership", label = copy.join, value = membership }),
-					UI.Text({
-						text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
-						width = UI.fill(),
-					}),
-					UI.Button({
-						id = "Start",
-						label = copy.start,
-						width = UI.fill(),
-						onActivate = function()
-							status:set("Practice started.")
-							sheet.dismiss()
-						end,
-					}),
-				},
-			}),
-		}))
+		local detent, setDetent, membership, setMembership, status, setStatus, presented, setPresented
 		local function open()
-			if ctx.presenter then
-				sheet.present(ctx.presenter)
-				return true
-			end
-			return false
+			setPresented(true)
+			return true
+		end
+		local function close()
+			setPresented(false)
 		end
 		local function reset()
-			sheet.dismiss()
-			detent:set("medium")
-			membership:set(false)
-			status:set(copy.status)
+			close()
+			setDetent("medium")
+			setMembership(false)
+			setStatus(copy.status)
 		end
-		return {
-			screen = UI.Screen({
+		local Briefing = Facet.component(function(ui)
+			detent, setDetent = ui.state("medium")
+			membership, setMembership = ui.state(false)
+			status, setStatus = ui.state(copy.status)
+			presented, setPresented = ui.state(false)
+			return UI.Screen({
 				id = "Sheet",
 				padding = "m",
-				children = {
-					UI.ScrollView({
-						id = "Page",
+				UI.ScrollView({
+					id = "Page",
+					width = UI.fill(),
+					height = UI.fill(),
+					gap = "m",
+					UI.Text({ text = copy.title, textSize = "title" }),
+					UI.Text({ text = copy.intro, width = UI.fill() }),
+					UI.Text({ id = "Status", text = status, width = UI.fill() }),
+					UI.Button({ id = "Open", label = copy.open, onActivate = open }),
+				}),
+				UI.Sheet({
+					id = "Briefing",
+					title = copy.briefing,
+					isPresented = presented,
+					onPresentedChange = setPresented,
+					detent = detent,
+					onDetentChange = setDetent,
+					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" },
+					content = UI.VStack({
+						id = "Details",
 						width = UI.fill(),
-						height = UI.fill(),
 						gap = "m",
-						children = {
-							UI.Text({ text = copy.title, textSize = "title" }),
-							UI.Text({ text = copy.intro, width = UI.fill() }),
-							UI.Text({ id = "Status", text = status, width = UI.fill() }),
-							UI.Button({ id = "Open", label = copy.open, onActivate = open }),
-						},
+						UI.Text({ id = "Description", text = copy.description, width = UI.fill() }),
+						UI.Text({
+							text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
+							width = UI.fill(),
+						}),
+						UI.Toggle({
+							id = "Membership",
+							label = copy.join,
+							value = membership,
+							onChange = setMembership,
+						}),
+						UI.Text({
+							text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
+							width = UI.fill(),
+						}),
+						UI.Button({
+							id = "Start",
+							label = copy.start,
+							width = UI.fill(),
+							onActivate = function()
+								setStatus("Practice started.")
+								close()
+							end,
+						}),
 					}),
-				},
-			}),
+				}),
+			})
+		end)
+		return {
+			screen = Briefing({}),
 			steps = {
 				open = open,
+				close = close,
+				reset = reset,
 				medium = function()
-					detent:set("medium")
+					setDetent("medium")
 				end,
 				large = function()
-					detent:set("large")
+					setDetent("large")
 				end,
-				close = function()
-					sheet.dismiss()
-				end,
-				reset = reset,
 			},
 			states = function()
 				return {
@@ -106,18 +108,20 @@ return {
 						id = "large",
 						kind = "dialog",
 						open = function()
-							detent:set("large")
+							setDetent("large")
 							return open()
 						end,
 					},
 				}
 			end,
 			report = function()
-				return { sheet = sheet.dump(), membership = membership:get(), status = status:get() }
+				return {
+					sheet = { presented = presented(), detent = detent() },
+					membership = membership(),
+					status = status(),
+				}
 			end,
-			dispose = function()
-				scope:dispose()
-			end,
+			dispose = function() end,
 		}
 	end,
 }
