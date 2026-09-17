@@ -596,15 +596,9 @@ local checks: { Check } = {
 		-- release), the reverse walk survives finding an already-disposed child
 		-- in `owned`, and the scope counter returns to baseline through both.
 		--
-		-- The "early child" half USED to be written as `child:dispose()` before
-		-- the parent's, which pins nothing (verifier RT-3): an early-disposed
-		-- child DEREGISTERS itself from `parent.owned`, so the reverse walk never
-		-- meets it and the `if not resource.disposed` guard in scope_impl is never
-		-- consulted. Deleting that guard outright left the whole suite green.
-		-- The live case is a cleanup closure that disposes a SIBLING child while
-		-- the parent is mid-walk: the child is still in `owned` when the walk
-		-- reaches it, so the guard is what keeps that from being reported as a
-		-- double disposal. That is the shape pinned below.
+		-- Explicit own() can retain an already-disposed scope. child() scopes
+		-- now unlink even during a parent's walk, so use own() here to exercise
+		-- the skip-disposed guard rather than only the unlink path.
 		name = "scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose",
 		requirement = "UI-LIFE-001",
 		run = function(core)
@@ -614,10 +608,7 @@ local checks: { Check } = {
 			scope:own(function()
 				table.insert(released, "first") -- runs LAST (reverse order)
 			end)
-			-- created BEFORE the closure that disposes it, so the reverse walk
-			-- reaches the closure first and finds the child already disposed
-			-- while it is still in `owned` — the guard's only live path
-			local child = scope:child("early")
+			local child = scope:own(core:scope("early"))
 			scope:own(function()
 				child:dispose()
 			end)

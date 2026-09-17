@@ -13,6 +13,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Unlink retired child scopes in constant time, preserving reverse cleanup order
+  and cleanup-error quarantine. Large keyed collections no longer scan and shift
+  the parent's ownership list for every removed row; storage tracks live resources.
+
 - Toast rows animate into vacated positions at either screen edge. Add per-toast
   `width` using ordinary dimensions, including content-fit `hug`; default slides
   avoid CanvasGroup text rasterization, while explicit fades remain available.
