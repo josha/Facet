@@ -1,9 +1,20 @@
 --!strict
+local publicCore = require("../core/contract")
+local publicBlueprint = require("../blueprint")
+local publicEnv = require("../env/environment")
+
 -- Finite content pages share selection with native scrolling and page indicators.
 local guard = require("../spec_guard")
 local pageView = {}
-export type Page = { id: string, title: string, content: any }
-export type Spec = { id: string?, pages: { Page }, selection: any, height: any?, indicators: boolean? }
+export type Page = { id: string, title: string, content: publicBlueprint.Blueprint }
+type StringSignal = publicCore.Signal<string>
+export type Spec<V = StringSignal> = {
+	id: string?,
+	pages: { Page },
+	selection: V,
+	height: publicBlueprint.Bound<publicBlueprint.Dim>?,
+	indicators: boolean?,
+}
 local KEYS = guard.keySet({ "id", "pages", "selection", "height", "indicators" })
 function pageView.build(Facet, core, spec: Spec)
 	guard.assertKnownKeys("Controls.PageView", spec, KEYS, "spec")

@@ -1,4 +1,5 @@
 --!strict
+local tracking = require("../core/tracking")
 -- Renderer (design §4.3 #4, §13): walks the mounted graph, solves layout, and
 -- drives a RenderTargetAdapter. Engine-free — ScreenTarget (client-only) and
 -- the FakeTarget (tests) implement the same adapter interface, which is what
@@ -180,6 +181,7 @@ local PURE_ARRANGE_PROPS: { [string]: boolean } = {
 }
 
 export type RendererAttachOpts = {
+	clock: any?,
 	-- "coreSafeContent" (default) | "deviceSafeContent" | "edgeToEdge"
 	rootPolicy: string?,
 	-- THE EDGE-FLOOR KNOB (director ruling, 2026-08-23): "if the
@@ -243,6 +245,7 @@ export type RendererAttachOpts = {
 }
 
 local ATTACH_OPTS_KEYS = specGuard.keySet({
+	"clock",
 	"engineSelectionBridge",
 	"onNodeTap",
 	"rootPolicy",
@@ -436,6 +439,7 @@ function renderer.attach(
 	-- price is that `dispose` must CLEAR `handles`/`lastRects` rather than rebind
 	-- them — see the note there.
 	local channel = presentation_channel.new({
+		clock = opts and opts.clock,
 		core = core,
 		root = root,
 		adapter = adapter,
@@ -839,7 +843,8 @@ function renderer.attach(
 				-- read at mount so a node born faded/scaled/rotated/offset paints that
 				-- way on its FIRST frame; the write happens after the handle exists, below
 				if
-					node.props.opacity ~= nil
+					node.props.animation ~= nil
+					or node.props.opacity ~= nil
 					or node.props.scale ~= nil
 					or node.props.rotation ~= nil
 					or node.props.offset ~= nil
@@ -2730,6 +2735,7 @@ function renderer.attach(
 	local geometryPending = false
 	attachScope:own(core:observe(geometryFacts, function()
 		geometryPending = true
+		channel.suppressAutomatic()
 	end))
 	attachScope:own(core:settle(function()
 		--[[ FIRST, because a pass restarts from the FIRST callback: when the branch
@@ -2797,6 +2803,7 @@ function renderer.attach(
 
 	function controller.refresh()
 		local dirty = root.takeDirty()
+		channel.beginAutomatic(dirty)
 		-- THE TRANSLATE LANE (Plan C, C6): placement writes on coordinate-space hosts
 		-- are served here without a solve, and what the lane could not take is the
 		-- REMAINDER the rest of this function sees. `render/translate_lane` carries the
@@ -3031,6 +3038,7 @@ function renderer.attach(
 			-- refresh used to spend a plan a torn one left behind (`structural_scope`,
 			-- ...AND THE TAIL THAT CLEARS THEM). Same shape as `resolveForFeedback`.
 			local ok, err = pcall(solveAndApply)
+			channel.endAutomatic()
 			dirtyContains = nil
 			measureContains = nil
 			structuralPlan = nil
@@ -3056,6 +3064,8 @@ function renderer.attach(
 		drainAppeared()
 		return stats
 	end
+
+	controller.refresh = channel.guardRefresh(controller.refresh)
 
 	-- focus visuals are style output (§8.4): the presenter drives this with
 	-- the logical focus path; nil clears
@@ -3713,7 +3723,11 @@ function renderer.attach(
 	function controller.observeScroll(path: string, fn: (pos: { x: number, y: number }) -> ()): () -> ()
 		local handle = handles[path]
 		if handle ~= nil and adapter.observeScroll ~= nil then
-			return adapter.observeScroll(handle, fn)
+			return adapter.observeScroll(handle, function(pos)
+				tracking.withOrigin("scroll", function()
+					fn(pos)
+				end)
+			end)
 		end
 		return function() end
 	end

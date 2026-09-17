@@ -1,4 +1,8 @@
 --!strict
+local publicCore = require("../core/contract")
+local publicBlueprint = require("../blueprint")
+local publicEnv = require("../env/environment")
+
 -- Table control, Phase A (NSTableView-informed). A COMPOSITE over
 -- shipped primitives: every row is a ZStack [whole-row hit Button, HStack of
 -- cells]; cells in every row (and the optional header) share the same column
@@ -159,7 +163,7 @@ export type Column = {
 export type Spec = {
 	id: string?,
 	columns: { Column },
-	rows: any, -- Readable<{T}>
+	rows: publicCore.Readable<{ any }>, -- Readable<{T}>
 	key: (any) -> string,
 	-- legacy table-wide cell factory; optional when every column carries
 	-- its own `cell`/`value` (the SwiftUI shape)
@@ -179,7 +183,7 @@ export type Spec = {
 	-- column's header cycles it (new column -> ascending, same -> flips);
 	-- the table NEVER sorts the data — the owner observes and re-sorts rows.
 	sortOrder: any?,
-	height: any?, -- root height dim (default fill); pass a Readable fixed dim
+	height: publicBlueprint.Bound<publicBlueprint.Dim>?, -- root height dim (default fill); pass a Readable fixed dim
 	-- to make the table hug its content (content-hugging docked panels)
 	-- WHO OWNS THE SCROLLING (director report 2026-07-27, playlist in landscape:
 	-- "just the table scrolls. really the whole view should scroll, as it's
@@ -239,8 +243,8 @@ export type Spec = {
 	-- `onPrimaryAction` (gated to non-mouse input when `env` is provided). The
 	-- full predicate, the principle behind it, and what Apple does and does not
 	-- document about `EditButton` are at THE AUTO EDIT/DONE TOGGLE below.
-	editing: any?,
-	env: any?, -- optional environment for input-aware affordances
+	editing: publicBlueprint.Bound<boolean>?,
+	env: publicEnv.Env?, -- optional environment for input-aware affordances
 	-- Task 10 (row-actions Table integration). Per-item callback: return
 	-- `{ leading?, trailing?, fullSwipe? }` (the same shape `newRowActions`
 	-- itself takes, minus `content`/`coordinator`/`env`/`editing` — Table

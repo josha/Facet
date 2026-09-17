@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- One view transforms between a summary button and an expanded clipping plate.
 local guard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
@@ -7,18 +9,19 @@ local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
 local regionExpand = require("../region_expand")
 local collapsible = {}
-export type Spec = {
+type BooleanSignal = coreContract.Signal<boolean>
+export type Spec<V = BooleanSignal> = {
 	id: string?,
-	label: any,
-	icon: any?,
-	image: any?,
-	content: any,
-	expanded: any,
+	label: blueprint.Bound<string>,
+	icon: blueprint.Bound<string>?,
+	image: blueprint.Bound<string>?,
+	content: blueprint.Blueprint,
+	expanded: V,
 	env: any?,
-	width: any?,
-	initialFocus: any?,
+	width: blueprint.Bound<blueprint.Dim>?,
+	initialFocus: string?,
 	dismissButton: string?,
-	enabled: any?,
+	enabled: blueprint.Bound<boolean>?,
 }
 local KEYS = guard.keySet({
 	"id",

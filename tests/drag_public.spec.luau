@@ -747,6 +747,21 @@ describe("public drag: hit geometry follows the PAINT (PLAT-4)", function()
 end)
 
 describe("public drag: the non-pointer paradigm (SF-D4)", function()
+	it("arming a moved target refreshes hit geometry before predicting or committing", function()
+		local b = board()
+		b.registry.arm("/S/Board/Card")
+		-- The next navigation press sees live transformed geometry before the
+		-- next renderer refresh. Slot A now occupies Slot B's former rectangle.
+		b.controller.setPresentationTransform("/S/Board", { x = 0, y = 120 })
+		b.registry.armTo("/S/Board/SlotA")
+		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotA")
+		expect(b.registry.verdict:get().legal).toBe(true)
+		b.registry.commit()
+		expect(#b.drops).toBe(1)
+		expect(b.drops[1].id).toBe("SlotA")
+		b.pres.dismiss(b.handle)
+	end)
+
 	it("arm -> navigate -> commit drives the SAME session and the SAME legality", function()
 		local b = board()
 		expect(b.registry.arm("/S/Board/Card")).toBe(true)

@@ -1033,6 +1033,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		})
 		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
 		local controller = renderer.attach(core, root, env, adapter, {
+			clock = motionClock,
 			-- window space: the anchor offsets below are the SAME coordinates
 			-- `screenRectOf` answers in, so the clamp arithmetic has one frame
 			rootPolicy = "edgeToEdge",
@@ -1677,6 +1678,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end,
 		})
 		local root = mountLib.mount(core, blueprint, {
+			context = { env = env, presenter = self },
 			scope = scope:child("mount"),
 			transitions = coordinator,
 			-- `UI.sensoryFeedback` (round 2 §3.3) emits through here, stamped with
@@ -1687,7 +1689,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				emitFeedback(event)
 			end,
 		})
+		-- Deferred components acquire their actual root identity at mount.
+		-- All routing, duplicate detection and exit reuse must use that identity.
+		if blueprint.id ~= root.node.id then
+			blueprint = table.clone(blueprint)
+			blueprint.id = root.node.id
+			flushPendingExit(blueprint.id)
+			noteDuplicateSurfaceId(blueprint.id)
+		end
 		local controller = renderer.attach(core, root, env, adapter, {
+			clock = motionClock,
 			rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
 			reserveAppChrome = reservesAppChrome,
 			edgeFloor = opts and opts.edgeFloor,
@@ -3816,6 +3827,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	local toasts = toastLayerLib.new({
 		reserveHud = hudReservations.reserve,
 		core = core,
+		presenter = self,
 		env = env,
 		adapter = adapter,
 		motionClock = motionClock,

@@ -1,4 +1,5 @@
 --!strict
+local blueprint = require("../blueprint")
 -- Picker: single-selection from an option set — the ONE selection control
 -- (2026-09-11: the popup button, the split trigger and the radio spelling fold
 -- into it, the way the reference platform's picker carries every picker style). Six styles
@@ -196,32 +197,33 @@ local picker = {}
 -- and a terse localized name live). `badge` is the count seal — a string, a
 -- number, or a Readable of either; an empty one hides the plate rather than
 -- painting an empty bubble.
+type AnySignal = coreContract.Signal<any>
 export type Option = {
 	id: string?,
 	value: any,
 	label: any,
 	icon: string?,
 	badge: any?,
-	enabled: any?,
+	enabled: blueprint.Bound<boolean>?,
 	description: any?,
 	sectionTitle: any?,
 }
 
-export type Spec = {
+export type Spec<V = AnySignal> = {
 	required: boolean?,
 	onChanging: ((any, any) -> boolean)?,
 	id: string?,
-	label: string?,
-	valueAlignment: any?, -- start | end (default), or Readable; labeled menu rows
+	label: blueprint.Bound<string>?,
+	valueAlignment: blueprint.Bound<string>?, -- start | end (default), or Readable; labeled menu rows
 	options: { Option } | coreContract.Readable<{ Option }>,
-	selected: any, -- owner-held Signal
+	selected: V, -- owner-held Signal
 	-- "automatic" (default) | "menu" | "segmented" | "inline" | "radioGroup" |
 	-- "navigationLink" — see the header for the ladder
 	style: string?,
 	presentation: string?, -- DEPRECATED alias of `style` ("radio" reads as "radioGroup")
 	-- a caller-owned Signal<string>: the search text of a navigationLink list.
 	-- Its presence makes the automatic style the navigation link.
-	query: any?,
+	query: coreContract.Signal<string>?,
 	placeholder: string?, -- the trigger's word when nothing is selected (menu styles)
 	-- "automatic" (default) | "none" | "underline" | "pill" — the D4 sliding
 	-- selection indicator. "automatic" is the PILL unless `presentation =
@@ -233,13 +235,13 @@ export type Spec = {
 	-- under `inline`, which is a column by definition. REACTIVE because a tab
 	-- bar's home moves under a live rotation and an arrangement change is a
 	-- re-solve, not a rebuild (A-AL2).
-	axis: any?,
+	axis: blueprint.Bound<string>?,
 	-- "fill" (default) | "hug", or a Readable of either. `fill` divides the offer
 	-- among the segments — the shape every pre-D5 caller has; `hug` gives the band
 	-- and every segment its natural width, which is what lets a strip be WIDER
 	-- than its offer and therefore scroll (f1's overflowing tab strip). Inert on
 	-- the vertical rail, which is content-sized by definition.
-	sizing: any?,
+	sizing: blueprint.Bound<string>?,
 	-- true makes the option ICON what every segment wears at every width, with
 	-- `label` staying the semantic name (f1's icon-only pill and rail). Default
 	-- false: the segment keeps its word and degrades to the glyph. A GROUP
@@ -251,10 +253,10 @@ export type Spec = {
 	-- the same reason `axis` and `sizing` are: a strip's home moves under a live
 	-- rotation and a tab bar in the thumb zone is caption-sized while the same
 	-- strip on a rail is not.
-	textSize: any?,
-	sizeClass: any?, -- string | Readable<string> from Facet.adaptive.conditions
+	textSize: blueprint.Bound<number | string>?,
+	sizeClass: blueprint.Bound<string>?, -- string | Readable<string> from Facet.adaptive.conditions
 	env: any?, -- optional environment, so the indicator's metrics follow a live theme
-	enabled: any?,
+	enabled: blueprint.Bound<boolean>?,
 	onChange: ((value: any) -> ())?,
 }
 

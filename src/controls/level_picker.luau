@@ -1,4 +1,6 @@
 --!strict
+local coreContract = require("../core/contract")
+local blueprint = require("../blueprint")
 -- LevelPicker: a run of `count` discrete segments that reads as ONE value, and
 -- behaves like one. (director ruling 2026-08-16: generalize the shipped
 -- `newRating` — a caller-chosen maximum, three ways to paint a level, and a
@@ -157,9 +159,10 @@ local DEFAULT_BAR_TINT = table.freeze({
 -- with room to spare — and is the honest reason this warns rather than refuses.
 level_picker.HIGH_COUNT = 11
 
-export type Spec = {
+type NumberSignal = coreContract.Signal<number>
+export type Spec<V = NumberSignal> = {
 	id: string?,
-	value: any, -- owner-held Signal<number>
+	value: V, -- owner-held Signal<number>
 	count: number?, -- how many levels; default 5
 	-- may the value go to zero? Default true (an unset level is a real state, and
 	-- the reference screenshot's second picker is at zero). With
@@ -177,7 +180,7 @@ export type Spec = {
 	-- optional: omitting one leaves that half to the theme. Each is an ordinary
 	-- Facet tint — `{ role = …, blend = … }` (themable) or `{ direct = … }`.
 	tint: { filled: any?, empty: any? }?,
-	enabled: any?, -- boolean | Readable<boolean>
+	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
 	-- a display-only picker (a reported quality level, another player's setting):
 	-- it paints, it is not focusable, and no input class can change it
 	readOnly: boolean?,
@@ -230,7 +233,7 @@ export type Config = {
 	constructor: string,
 	names: { run: string, mark: string },
 	id: string,
-	value: any,
+	value: V,
 	count: number,
 	minValue: number,
 	segment: string,
@@ -245,7 +248,7 @@ export type Config = {
 	-- an owed follow-up rather than smuggled in here.
 	targetFloor: boolean,
 	readOnly: boolean,
-	enabled: any?,
+	enabled: blueprint.Bound<boolean>?,
 	env: any?,
 	onChange: ((value: number) -> ())?,
 	diagnostics: { string },
@@ -253,7 +256,7 @@ export type Config = {
 
 -- the two validations both public entries share, with the constructor NAME
 -- passed in so every refusal says which one the caller wrote
-local function validate(constructor: string, id: string, value: any, count: any)
+local function validate(constructor: string, id: string, value: V, count: any)
 	-- a read-only Memo has kind "memo" and a :set that asserts, so a bare
 	-- "settable" duck-type check would pass and then blow up on the first tap —
 	-- reject it at BUILD, exactly as Stepper and Slider do

@@ -1,4 +1,8 @@
 --!strict
+local publicCore = require("../core/contract")
+local publicBlueprint = require("../blueprint")
+local publicEnv = require("../env/environment")
+
 -- A radial command surface composed from Anchor, Path, Button and ScrollView.
 -- One logical path survives ring fitting/replacement; all input commits here.
 local blueprintLib = require("../blueprint")
@@ -17,20 +21,20 @@ local function fixed(px: any): any
 end
 export type Item = {
 	id: string,
-	label: any,
+	label: publicBlueprint.Value<string>,
 	icon: string?,
-	compactLabel: any?,
+	compactLabel: publicBlueprint.Value<string>?,
 	labelStyle: string?,
 	slot: string?,
-	enabled: any?,
-	hidden: any?,
-	description: any?,
-	children: any?,
+	enabled: publicBlueprint.Value<boolean>?,
+	hidden: publicBlueprint.Value<boolean>?,
+	description: publicBlueprint.Value<string>?,
+	children: publicBlueprint.Value<{ Item }>?,
 	navigation: string?,
 	expansion: string?,
 	completion: string?,
-	checked: any?,
-	selected: any?,
+	checked: publicCore.Signal<boolean>?,
+	selected: publicCore.Signal<any>?,
 	value: any?,
 	dismiss: boolean?,
 	onSelect: (() -> ())?,
@@ -41,8 +45,8 @@ export type Item = {
 }
 export type Spec = {
 	id: string?,
-	items: any,
-	env: any?,
+	items: publicBlueprint.Bound<{ Item }>,
+	env: publicEnv.Env?,
 	label: string?,
 	launcher: boolean?,
 	icon: string?,
@@ -54,18 +58,18 @@ export type Spec = {
 	expansion: string?,
 	center: string?,
 	centerLabel: string?,
-	centerContent: any?,
+	centerContent: publicBlueprint.Blueprint?,
 	centerPassThrough: boolean?,
 	completion: string?,
 	anchor: any?,
 	follow: string?,
-	clearance: any?,
-	ringWidth: any?,
+	clearance: publicBlueprint.Bound<number | string>?,
+	ringWidth: publicBlueprint.Bound<number | string>?,
 	contentFit: string?,
 	gestureSelection: string?,
-	enabled: any?,
-	width: any?,
-	height: any?,
+	enabled: publicBlueprint.Bound<boolean>?,
+	width: publicBlueprint.Bound<publicBlueprint.Dim>?,
+	height: publicBlueprint.Bound<publicBlueprint.Dim>?,
 	holdAction: any?,
 	skin: any?,
 	onOpen: (() -> ())?,
@@ -151,7 +155,7 @@ local function choice(v: any, default: string, values: { string }, name: string)
 	)
 	return v
 end
-local function validate(items: any, distribution: string, ancestors: any?)
+local function validate(items: publicBlueprint.Bound<{ Item }>, distribution: string, ancestors: any?)
 	assert(type(items) == "table" and #items > 0, "Controls.RadialMenu: items must be a nonempty array")
 	local seen, stack = {}, ancestors or {}
 	assert(not stack[items], "Controls.RadialMenu: children must not contain a cycle")

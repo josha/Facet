@@ -12,7 +12,7 @@
 	tree, requires THAT, and drives a real screen through it.
 
 	WHAT IT PROVES, in order:
-	  1. the extracted tree contains nothing it must not ship (no vendored copy,
+	  1. the extracted tree contains nothing it must not ship (only the pinned Roblox Signals vendor,
 	     no rejected bake-off core, no spec files);
 	  2. `Facet.VERSION` inside the artifact equals the `Version` attribute the
 	     builder stamped on `Facet.Distribution` — the two halves of the release
@@ -177,17 +177,24 @@ end
 
 -- ── 2. tree hygiene ─────────────────────────────────────────────────────────
 
-local FORBIDDEN = { "vendor", "fusion_adapter", "imperative", ".spec" }
+local FORBIDDEN = { "fusion_adapter", "imperative", ".spec" }
+local APPROVED_VENDOR = {}
+for _, name in { "signals", "scheduler", "flags", "callUserSpace", "license" } do
+	APPROVED_VENDOR["vendor/signals/" .. name .. ".luau"] = true
+end
 local strays: { string } = {}
 for _, path in extracted do
 	local lowered = string.lower(path)
+	if string.find(lowered, "/vendor/", 1, true) and not APPROVED_VENDOR[string.match(path, "/Facet/(.+)$")] then
+		table.insert(strays, path .. " (unapproved vendor)")
+	end
 	for _, needle in FORBIDDEN do
 		if string.find(lowered, needle, 1, true) ~= nil then
 			table.insert(strays, `{path} (contains '{needle}')`)
 		end
 	end
 end
-check(#strays == 0, `the extracted tree ships no vendor / fusion_adapter / imperative / spec file`)
+check(#strays == 0, `the extracted tree ships only approved Signals vendor files and no rejected core or spec file`)
 for _, stray in strays do
 	print(`         - {stray}`)
 end

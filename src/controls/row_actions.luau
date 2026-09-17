@@ -1,4 +1,5 @@
 --!strict
+local blueprint = require("../blueprint")
 -- RowActions: a swipeable action tray around an arbitrary row (spec:
 -- docs/plans/row-actions.md, docs/plans/row-actions-implementation.md Tasks
 -- 3-4). The spec/blueprint contract and the lazy tray structure shipped in
@@ -226,7 +227,7 @@ export type ActionSpec = rowActionsSpec.ActionSpec
 
 export type Spec = {
 	id: string?,
-	content: any, -- Blueprint, required
+	content: blueprint.Blueprint, -- Blueprint, required
 	leading: { ActionSpec }?, -- nil = none; {} is a spec error
 	trailing: { ActionSpec }?,
 	fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?, -- default true
@@ -267,7 +268,7 @@ export type Spec = {
 	-- never in edit mode" — the minus can then never appear, structurally,
 	-- regardless of `hasDestructive`, at zero cost (see `hasEditAffordance`
 	-- below): a caller that never wires edit mode pays nothing for this task.
-	editing: any?, -- Readable<boolean>?
+	editing: blueprint.Bound<boolean>?, -- Readable<boolean>?
 	-- Task 10 (Table integration). `nil` (default) leaves the root
 	-- content-sized — Tasks 3-9's own shipped shape, unchanged, and correct
 	-- for every existing caller whose `content` already carries its own
@@ -281,7 +282,7 @@ export type Spec = {
 	-- unwrapped "Row" node carries on its own — to restore the row's normal
 	-- list-flow width; a standalone caller never sets this and is
 	-- byte-identical to before this field existed.
-	width: any?,
+	width: blueprint.Bound<blueprint.Dim>?,
 	-- Task 10 (Table integration). Default false: every standalone
 	-- `newRowActions` caller (and every Table row that is NOT `reorderable`)
 	-- keeps this composite's own internal Content "Hit" Grip wired to
@@ -338,7 +339,7 @@ export type HostedSpec = {
 	coordinator: any?,
 	env: any?,
 	-- `Readable<boolean>?`, same contract as `Spec.editing` — see `HOSTED_KEYS`
-	editing: any?,
+	editing: blueprint.Bound<boolean>?,
 	paths: HostedPaths,
 	onSlide: (px: number) -> (),
 	onCommitHeight: ((px: number?) -> ())?,
@@ -3145,6 +3146,10 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		-- node of this control's to hand over, and `rootPath` was seeded from
 		-- `spec.paths.content` at build time rather than learned here.
 		local function syncGeometry(_rectOf: ((string) -> any)?, rootNode: any?)
+			-- A geometry broadcast may still hold this contribution during removal.
+			if disposed then
+				return
+			end
 			-- C8a (device round 2026-08-12): the completed commit's deferred paint
 			-- restore. FIRST, and ahead of the `rootPath == nil` return below, because
 			-- it is the one piece of work here that does not need a path — see

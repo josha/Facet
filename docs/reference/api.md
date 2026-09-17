@@ -342,6 +342,7 @@ Three groups recur in the column below and are worth naming once:
 
 | Property | Accepted on | Meaning |
 |---|---|---|
+| `animation` | every rendered class | Static named presets for `layout`, `scale`, `opacity`, `rotation`, `offset`; each property must be supported by the node. `false` disables that animation. Layout declarations coordinate surviving descendants at the next refresh; property declarations animate paint without layout work. See [component motion](../guide/15-components.md#animate-where-the-layout-lives). |
 | `id` | every class | stable node identity; required to address the node later (focus, tests, dumps) |
 | `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="hug",min=,max=}`, `{type="fill",weight=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`, `{type="content",lines=,role=}` **or** `{type="content",rows=,of=}` (content-terms sizing — see below). The `px`/`min`/`preferred`/`max`/`of` fields take a number **or a theme metric name** (see below); `UI.fill(weight?)` and `UI.hug({min?,max?})` are the shorthand for the two most common raw tables |
 | `margin` | every rendered class | outer spacing the parent reserves around this node; a number, a spacing-step name, or `{top?,right?,bottom?,left?}` of either. A **`fill` child spends its own margin out of its fill**, on every container — a `ZStack` layer with `margin = { top = 56 }` is 56 px shorter, not 56 px lower — and a filled axis therefore ignores `alignH`/`alignV`, because there is nothing left to align. A non-fill child keeps its size and is displaced, so alignment still applies to it |
@@ -3104,9 +3105,11 @@ lifetime is the mount's, not the module's).
 **`attach` options** — `{ rootPolicy?, reserveAppChrome?, edgeFloor?, onNodeTap?,
 engineSelectionBridge?, onDiscloseHover?, onDiscloseLongPress?, recycleInstances?,
 incrementalLayout?, measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse?,
-translateHosts? }`
+translateHosts?, clock? }`
 (`recycleInstances` and `incrementalLayout` are the two performance opts described
 under `present()`, both on by default; a presented surface forwards its own).
+`clock` is the motion clock used by declarative `animation` policies. The presenter
+passes its shared clock automatically; a bare renderer consumer supplies one.
 
 The last five are **test seams rather than tuning knobs**, all five default **true**,
 and none is forwarded by `present()` — a presented surface always gets the default.
@@ -4278,7 +4281,8 @@ opts = {
   duration?,   -- seconds visible, default 4
   readFloor?,  -- minimum dwell before anything may replace it, default 2.5
   position?,   -- "top" (default) | "bottom" — the edge it docks to
-  transition?, -- default: in from its own edge, with a fade
+  width?,      -- normal Dim: UI.fill() (default), UI.hug({ max = 560 }), etc.
+  transition?, -- default: slide from its own edge; fading is explicit
   context?,    -- carried untouched on the toast's dismiss event
 }
 ```
@@ -4302,6 +4306,16 @@ opts = {
   superseded toast emits `type = "supersede"` with **`reason = nil`**, never a
   `dismiss` — one causal moment, one event. Match on the type; a subscriber
   wired to `type == "dismiss" and reason == "supersede"` fires never.
+- **Sizing and continuity.** Width is per toast: `UI.fill()` spans the safe
+  content width, while `UI.hug({ max = 560 })` centers a content-fit toast and
+  wraps longer text within the cap. The body must also permit content sizing.
+  Surviving rows automatically slide into a vacated slot on either edge.
+  Repeated changes retarget that motion; reduced motion places rows immediately.
+- **Text rendering.** The default slide uses ordinary native text, without a
+  CanvasGroup's quality-dependent texture. Request `fade = true` explicitly
+  when that visual treatment is wanted; a fade requires compositing.
+- Component toast bodies inherit `ui.env` and `ui.animate` services and release
+  their resources when the row retires.
 - **Layering** puts it above every base screen and below every modal.
 - **Reduced motion** changes the pixels and nothing else: the same toasts appear
   for the same durations in the same order, placed instantly (SF-T3).
@@ -9377,7 +9391,7 @@ releases the tree.
 | `rootFactory` | `(screenId) -> { gui }` — swap only the ROOT container; everything below is target-agnostic flat rendering (this is how `billboard_target` is built) |
 | `forceScrollFallback` | render `ScrollView` nodes as plain clip hosts with no engine scrolling — the A/B switch that exercises the fallback path deliberately |
 | `forceDragFallback` | make `setDragDetector` answer nil so the raw pointer-capture path runs instead |
-| `nativeStyle` | the paint path. **Absent is native StyleSheet paint** — the library default since 2026-08-21 (`native_style.DEFAULT_ENABLED`). `true` says the same thing explicitly; `{ model?, handle?, host?, theme?, transitions? }` configures it (`transitions` is still opt-in). **`false` is the opt-out**, per target, and wins over everything: it takes the explicit-write path, which is also where an engine without StyleSheets lands |
+| `nativeStyle` | the paint path. **Absent is native StyleSheet paint** — the library default since 2026-08-21 (`native_style.DEFAULT_ENABLED`). `true` says the same thing explicitly; `{ model?, handle?, host?, theme?, transitions? }` configures it (native transitions default on; `transitions = false` opts out). **`false` is the opt-out**, per target, and wins over everything: it takes the explicit-write path, which is also where an engine without StyleSheets lands |
 | `themePackage` | the installed `ThemePackage` whose chrome recipes decide decoration slots; the theme controller swaps it at runtime |
 | `displayOrder` | the `DisplayOrder` every root this target creates gets — where the whole target sits against the game's own `ScreenGui`s. Absent means 0 (the engine's default), which is why a game's hand-made surfaces float above Facet's unless someone says otherwise. The presenter still layers its own surfaces above one another from this floor |
 
@@ -9486,7 +9500,7 @@ environment untouched.
 | `sheetModel` | a prebuilt sheet model (else one is derived from the package) |
 | `nativeStyle` | the materializer seam (tests and tools inject it) |
 | `forceFallback` | exercise the fallback paint path deliberately |
-| `transitions` | opt into native paint transitions (default off) |
+| `transitions` | native paint transitions (default on); `false` opts out; reduced motion suppresses them live |
 | `preflightFonts` | preload the package's fonts before committing (default true) |
 | `calibrate` | `(keys) -> { [key]: number }`, the font-calibration seam |
 | `fontFiles` | family → engine font file, for a package shipping its own faces |
@@ -10940,3 +10954,199 @@ existing behavior. This style accepts automatic or topBar placement.
 NavigationStack keeps its existing Back hierarchy. It does not add a collapsed
 style: use a CollapsibleView for an app destination chooser alongside the stack
 when the product actually has sibling destinations.
+
+
+### `Signals`
+
+The pinned official [Roblox Signals](https://github.com/Roblox/signals/tree/7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60)
+0.9.0 API: `Signals.createSignal(initial, equals?)` returns a getter and setter;
+`Signals.createComputed(compute, equals?)` returns a lazy getter;
+`Signals.createEffect(effect)` returns a disposer. These use explicit dependency
+scopes (`get(track)`) and the upstream scheduler. Raw effects need explicit
+ownership and do not implement Facet effect cleanup. Use `ui` helpers in components.
+Pass a raw getter as a View property for direct interoperability through this
+shared Signals instance. A separately installed copy has its own scheduler;
+shared raw state should come from this export. `newCore` keeps the existing Facet
+contract and uses this graph internally; its transactions group Facet delivery.
+
+### `component`
+
+`Facet.component(function(ui, props) return description end)` defines a reusable
+component; `Component { ... }` creates an inert description. Each mount runs setup
+once with its own owner. Reactive properties update without rerunning setup.
+Unmounting releases local state, bindings, effects and explicitly owned resources.
+Setup and reactive callbacks must be synchronous. Start asynchronous work from
+an effect and return its cancellation function.
+
+| Component context | Contract |
+|---|---|
+| `ui.state(initial)` | Getter and setter. The setter accepts a value or `function(previous) return next end`. To store a function, return it from an updater. |
+| `ui.read(readable)` | Getter for caller-owned Core state; does not take ownership. |
+| `ui.memo(compute)` | Owned lazy cached getter; reads establish dependencies. |
+| `ui.watch(read, callback, {immediate?}?)` | Change-only subscription; optional initial call. Returns stop. Callback reads are untracked. |
+| `ui.effect(run)` | Runs initially and when dependencies change. Returned cleanup runs before rerun and at unmount. Returns stop. |
+| `ui.batch(run)` | Group Facet updates into one transaction. |
+| `ui.untrack(read)` | Read without creating reactive dependencies. |
+| `ui.env(key)` | Getter for a published environment fact; requires presenter/mount context. |
+| `ui.own(resource)` | Own an integration's disposer, scope or object with `dispose`. Wrap engine connections in a disconnect function. |
+
+### `View`
+
+The preferred description API. Alias it with `local UI = Facet.View`.
+Containers accept ordered, dense numeric children and the existing named
+`children` form. Mixing the forms or leaving array holes is refused. Luau hash
+order is never used for child order. `View.Text "literal"` and `View.Text(getter)`
+are native Luau calls; arrow functions are not supported by Luau.
+
+A reactive property accepts a fixed value, a Core readable, or a synchronous
+function. Reads inside functions establish dependencies; only affected bindings
+update. Event callbacks and factories remain callbacks, never guessed by arity.
+Controls are deferred descriptions, with their existing focus, theme, motion and
+input behavior. Their handles and subscriptions belong to the mounted region.
+`UI` and `Controls` retain their existing lower-level signatures.
+
+Editable getters require explicit callbacks: `value = amount, onChange = setAmount`
+(and `selected/onChange`, `selection/onChange`, `expanded/onChange`,
+`detent/onDetentChange`, `isPresented/onPresentedChange`, `Chip.selected/onToggle`).
+The callback decides whether to accept; Facet never mirrors rejected state.
+Existing settable Core signals are accepted by the same controls.
+
+`View.Button.confirm = {title, message?, acceptLabel?, cancelLabel?, destructive?}`
+uses an owned Alert. Cancel runs no action; acceptance calls `onActivate` once
+with the originating optional `ActivationMetadata`. This needs a presenter.
+`View.Alert` and `View.Sheet` declare owned modal presentations with bindings;
+they contribute no inline layout box. `View.AsyncImage` and `View.ProgressView`
+receive their mount scope; ProgressView also receives the presenter motion clock
+for activity indicators and trails. Ordinary callers provide neither.
+
+`View.ForEach {items, key, row}` calls `row(itemGetter)` once for each keyed row
+mount. The getter returns the newest item with that key, including in handlers.
+Reordering preserves node identity; removing a key ends its row lifetime after
+any exit transition. Keep durable row state in the model.
+`View.VirtualList` and `View.VirtualGrid` use the same `items/key/row` vocabulary
+and preserve virtualization. The list defaults `viewportExtent` to `"auto"`;
+explicit item extent and grid column rules remain those of the existing controls.
+`View.When` accepts `condition` and one direct child (or a `thenView` factory);
+the branch owns its mounted contents. `View.draggable` also accepts a getter for
+`enabled`; its payload/proxy/event functions remain callbacks. Use View modifiers
+for component descriptions so they resolve at mount.
+
+`NavigationStack` page factories and `Alert.content` accept component descriptions
+as well as primitive blueprints. The mounted page/content owns their lifetime.
+`View.AsyncImage` releases its request lease through the injected mount scope;
+its result is not an independently disposable control handle.
+
+The constructors and modifiers below use the corresponding existing specs unless
+an override above is stated. See [component examples](../guide/15-components.md).
+
+| Member | Existing spec or operation |
+|---|---|
+| `View.sortedEntries` | `UI.sortedEntries` |
+| `View.Screen` | `UI.Screen` |
+| `View.VStack` | `UI.VStack` |
+| `View.HStack` | `UI.HStack` |
+| `View.ZStack` | `UI.ZStack` |
+| `View.ScrollView` | `UI.ScrollView` |
+| `View.Spacer` | `UI.Spacer` |
+| `View.Box` | `UI.Box` |
+| `View.Anchor` | `UI.Anchor` |
+| `View.Grid` | `UI.Grid` |
+| `View.GridRow` | `UI.GridRow` |
+| `View.AdaptiveStack` | `UI.AdaptiveStack` |
+| `View.ViewThatFits` | `UI.ViewThatFits` |
+| `View.Region` | `UI.Region` |
+| `View.Composition` | `UI.Composition` |
+| `View.Divider` | `UI.Divider` |
+| `View.Grip` | `UI.Grip` |
+| `View.Text` | `UI.Text` |
+| `View.Image` | `UI.Image` |
+| `View.TextField` | `UI.TextField` |
+| `View.Path` | `UI.Path` |
+| `View.Foreign` | `UI.Foreign` |
+| `View.Stage` | `UI.Stage` |
+| `View.shadow` | `UI.shadow` |
+| `View.gradient` | `UI.gradient` |
+| `View.corners` | `UI.corners` |
+| `View.stroke` | `UI.stroke` |
+| `View.strokeData` | `UI.strokeData` |
+| `View.shadowData` | `UI.shadowData` |
+| `View.gradientData` | `UI.gradientData` |
+| `View.cornersData` | `UI.cornersData` |
+| `View.focusSection` | `UI.focusSection` |
+| `View.draggable` | `UI.draggable` |
+| `View.dropTarget` | `UI.dropTarget` |
+| `View.sensoryFeedback` | `UI.sensoryFeedback` |
+| `View.styleGroup` | `UI.styleGroup` |
+| `View.frame` | `UI.frame` |
+| `View.padding` | `UI.padding` |
+| `View.offset` | `UI.offset` |
+| `View.containerRelativeFrame` | `UI.containerRelativeFrame` |
+| `View.aspectRatio` | `UI.aspectRatio` |
+| `View.fill` | `UI.fill` |
+| `View.hug` | `UI.hug` |
+| `View.alignment` | `UI.alignment` |
+| `View.overlay` | `UI.overlay` |
+| `View.background` | `UI.background` |
+| `View.ErrorBoundary` | `UI.ErrorBoundary` |
+| `View.When` | `UI.When` |
+| `View.ForEach` | `UI.ForEach` |
+| `View.NavigationStack` | `Controls.NavigationStack` |
+| `View.SplitButton` | `Controls.SplitButton` |
+| `View.Button` | `Controls.Button` |
+| `View.ComboBox` | `Controls.ComboBox` |
+| `View.Toggle` | `Controls.Toggle` |
+| `View.Table` | `Controls.Table` |
+| `View.Slider` | `Controls.Slider` |
+| `View.Stepper` | `Controls.Stepper` |
+| `View.Picker` | `Controls.Picker` |
+| `View.PopupButton` | `Controls.PopupButton` |
+| `View.Menu` | `Controls.Menu` |
+| `View.TabView` | `Controls.TabView` |
+| `View.Label` | `Controls.Label` |
+| `View.Chip` | `Controls.Chip` |
+| `View.Rating` | `Controls.Rating` |
+| `View.TextInput` | `Controls.TextInput` |
+| `View.ProgressView` | `Controls.ProgressView` |
+| `View.LevelPicker` | `Controls.LevelPicker` |
+| `View.DisclosureGroup` | `Controls.DisclosureGroup` |
+| `View.VirtualList` | `Controls.VirtualList` |
+| `View.VirtualGrid` | `Controls.VirtualGrid` |
+| `View.RowActions` | `Controls.RowActions` |
+| `View.Callout` | `Controls.Callout` |
+| `View.RadialMenu` | `Controls.RadialMenu` |
+| `View.Alert` | `Controls.Alert` |
+| `View.Sheet` | `Controls.Sheet` |
+| `View.PageView` | `Controls.PageView` |
+| `View.CollapsibleView` | `Controls.CollapsibleView` |
+| `View.AsyncImage` | `Controls.AsyncImage` |
+
+The client host accepts `surface = {kind = "screen"}` (default),
+`{kind = "billboard", target, canvas = {w, h}, studsOffset?, alwaysOnTop?, maxDistance?}`,
+or `{kind = "surface", target, face, canvas = {w, h}, maxDistance?, onAdorneeLost?}`.
+World canvases use fixed pixel dimensions and client-owned GUI parenting;
+device input and accessibility facts remain live. World placement does not imply
+3D layout, VR, hand tracking or gaze input.
+
+### Declarative animation and composition additions
+
+`Facet.AnimationSpec` names local paint rules (`scale`, `opacity`, `rotation`,
+`offset`) and subtree layout coordination (`layout`). Each field accepts a named
+motion class/curve or `false`; other booleans are rejected at runtime. Declare it
+as a static `animation` property on a primitive or `Facet.View` control. Property
+support follows the target root's schema. Layout motion uses the existing solved
+rect diff, grouped by the nearest declaration; property motion uses the existing
+presentation channel without adding layout work. Initial mount does not fly.
+See [component animation](../guide/15-components.md#animate-where-the-layout-lives)
+for precedence, update provenance and reduced-motion behavior.
+
+`ui.animate(source: () -> number, preset: string, opts?: MotionValueOpts)` returns
+an owned animated getter. `ui.withAnimation(preset, action)` delegates to the
+presenter; it retains that operation's synchronous/non-nesting contract.
+
+`Facet.ComponentChildren` is the numeric-children/`children` prop shape for custom
+components. `Facet.component` normalizes those children in order and snapshots
+table props shallowly. `Facet.View.When` accepts one direct child or `thenView`.
+The View collection constructors accept a key field string as well as a key
+function; their row factory may itself be a component taking an item getter.
+Shared property recipes acquire one memo per mounted owner, with validation at
+each destination and no sharing across mounts or branch lifetimes.

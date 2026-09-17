@@ -324,7 +324,7 @@ describe("the toast_layer seam: the state really left, and the require is one-wa
 				table.insert(missing, field)
 			end
 		end
-		-- ...and the scan really found the seven fields, so an empty `missing` is
+		-- ...and the scan really found all eight fields, so an empty `missing` is
 		-- not an empty scan
 		local counted = 0
 		for line in string.gmatch("\n" .. typeBlock, "\n([^\n]*)") do
@@ -333,7 +333,7 @@ describe("the toast_layer seam: the state really left, and the require is one-wa
 				counted += 1
 			end
 		end
-		expect(counted).toBe(7)
+		expect(counted).toBe(8)
 		expect(`ToastOpts fields with no guard key: {table.concat(missing, ", ")}`).toBe(
 			"ToastOpts fields with no guard key: "
 		)

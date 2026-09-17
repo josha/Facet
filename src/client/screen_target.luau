@@ -223,7 +223,7 @@ export type Opts = {
 	-- below, unchanged (the native stylesheets work
 	-- fallback parity). `true` builds the built-in Dark+Light model; a table
 	-- passes { model | handle, host, theme }.
-	-- table form also takes `transitions = true` to opt into sheet transitions
+	-- table form also takes `transitions = false` to disable sheet transitions
 	-- (progressive enhancement; default OFF until the native stylesheets work publish rider clears)
 	nativeStyle: (boolean | { model: any?, handle: any?, host: Instance?, theme: string?, transitions: boolean? })?,
 	-- theme-packages stage: the installed ThemePackage whose
@@ -397,19 +397,14 @@ function screen_target.new(opts: Opts?)
 					-- authored styles in, class beside them: one derivation
 					model = sheet_model.build({ themes = themes, displaySize = displaySize })
 				end
-				-- transitions are progressive-enhancement OPT-IN (the native stylesheets work rider:
-				-- publish status unconfirmed; default = instant change), and
-				-- reduced motion always wins over the opt. This is CONSTRUCTION
-				-- time, before the renderer has pushed anything, so it can only
-				-- see a legacy `opts.isReducedMotion`; the live fact lands a
-				-- moment later through `setNativeTransitionsEnabled`, which the
-				-- renderer calls at attach (C1) — so the seed is never the last
-				-- word, only the value for the frames before a surface attaches.
+				-- Preserve the preference when reduced motion suppresses the initial
+				-- state, so switching reduced motion off can restore transitions.
 				nativeHandle = native_style.ensure(model, {
 					host = plan.host,
 					theme = plan.theme,
-					transitionsEnabled = plan.transitions,
+					transitionsEnabled = native_style.transitionsAllowed(plan.opt),
 				})
+				nativeHandle.setTransitionsEnabled(plan.transitions)
 			end
 		end
 	end

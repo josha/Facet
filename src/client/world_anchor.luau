@@ -1,4 +1,5 @@
 --!strict
+local tracking = require("../core/tracking")
 -- Screen-overlay projection only; no Instances, input, or frame driver created.
 local guard = require("../spec_guard")
 local worldAnchor = {}
@@ -127,7 +128,9 @@ function worldAnchor.new(host: any, opts: any, services: any?): any
 			or old.onscreen ~= nextValue.onscreen
 			or old.occluded ~= nextValue.occluded
 		then
-			anchor:set(nextValue)
+			tracking.withOrigin("tracking", function()
+				anchor:set(nextValue)
+			end)
 		end
 	end))
 	return table.freeze({

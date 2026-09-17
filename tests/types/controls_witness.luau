@@ -1,37 +1,6 @@
 --!strict
---[[ THE TYPE WITNESS for `Facet.Controls` (wave T15, director ruling 2026-08-21).
-
-	WHAT THIS FILE IS FOR. `src/init.luau` holds a direct `local M = require(...)`
-	binding for fifteen of the nineteen controls, because that is the ONLY spelling
-	through which a module's exported `Spec` type enters scope. The idiom that
-	would have deferred those requires AND kept the types —
-	`typeof(require(...))` — does not work: every deferral spelling was measured
-	against the pinned analyzer and answers `TypeError: Unknown type 'M.Spec'`
-	(artifacts/release-candidate-review/perf/requalification.md §7). So those
-	fifteen eager requires are load-bearing for the types and nothing else, and
-	their ENTIRE justification is "the fifteen typed signatures survive". Nothing
-	in this repository could see a type until the analyzer was pinned, so that
-	justification was a claim no check could falsify. This file is the half of the
-	instrument the analyzer reads.
-
-	IT IS RUN BY `tools/check_types.py`, NOT BY THE LUAU SUITE. Legacy witnesses
-	use `(nil :: any)`; the newer four use concrete specs exported by Facet itself.
-	It is never executed and lives under `tests/types/`, outside the spec glob.
-
-	HOW EACH CASE PROVES SOMETHING. A local is declared with the CONTROL MODULE'S
-	OWN `Spec` type and handed to the namespace entry. If the entry's parameter
-	type were some OTHER type, this reddens; if it were narrowed, this reddens.
-	What it cannot catch on its own is the entry WIDENING to `any` — `any` accepts
-	everything, including this. That direction is the negative probe's, in
-	`check_types.py`: a control whose entry still carries a real `Spec` must REJECT
-	a number, and the four entries that are `any` today are pinned as such by name.
-	Neither half is sufficient alone and the checker runs both.
-
-	FOUR ENTRIES TAKE `any` TODAY — Chip, VirtualList, VirtualGrid, AsyncImage —
-	and that is a pre-existing fact about `src/init.luau`, not something this wave
-	introduced or endorses. They are pinned by name in the checker so the set
-	cannot grow quietly.
-]]
+-- Public consumer witnesses: real specs must survive the namespace signatures.
+-- Negative probes in check_types.py separately catch widening to any.
 
 local Facet = require("../../src")
 local tableControl = require("../../src/controls/table")
@@ -167,8 +136,7 @@ local _tabview = Facet.Controls.TabView(core, tabViewSpec)
 local labelControlSpec: labelControl.Spec = nil :: any
 local _label = Facet.Controls.Label(core, labelControlSpec)
 
--- `Chip` declares `spec: any` in src/init.luau; pinned in check_types.py
-local _chip = Facet.Controls.Chip(core, nil :: any)
+local _chip = Facet.Controls.Chip(core, { selected = core:signal(false), label = "Tag" })
 
 local ratingControlSpec: ratingControl.Spec = nil :: any
 local _rating = Facet.Controls.Rating(core, ratingControlSpec)
@@ -202,11 +170,28 @@ local _levelpicker = Facet.Controls.LevelPicker(core, levelPickerSpec)
 local disclosureGroupSpec: disclosureGroup.Spec = nil :: any
 local _disclosuregroup = Facet.Controls.DisclosureGroup(core, disclosureGroupSpec)
 
--- `VirtualList` declares `spec: any` in src/init.luau; pinned in check_types.py
-local _virtuallist = Facet.Controls.VirtualList(core, nil :: any)
+local _virtuallist = Facet.Controls.VirtualList(core, {
+	rows = core:signal({ "a" }),
+	key = function(item: string)
+		return item
+	end,
+	cell = function(item: string)
+		return Facet.UI.Text(item)
+	end,
+	itemExtent = 40,
+})
 
--- `VirtualGrid` declares `spec: any` in src/init.luau; pinned in check_types.py
-local _virtualgrid = Facet.Controls.VirtualGrid(core, nil :: any)
+local _virtualgrid = Facet.Controls.VirtualGrid(core, {
+	items = core:signal({ "a" }),
+	key = function(item: string)
+		return item
+	end,
+	cell = function(item: string)
+		return Facet.UI.Text(item)
+	end,
+	columns = 2,
+	itemExtent = 40,
+})
 
 local rowActionsSpec: rowActions.Spec = nil :: any
 local _rowactions = Facet.Controls.RowActions(core, rowActionsSpec)
@@ -214,8 +199,8 @@ local _rowactions = Facet.Controls.RowActions(core, rowActionsSpec)
 local calloutControlSpec: calloutControl.Spec = nil :: any
 local _callout = Facet.Controls.Callout(core, calloutControlSpec)
 
--- `AsyncImage` declares `spec: any` in src/init.luau; pinned in check_types.py
-local _asyncimage = Facet.Controls.AsyncImage(core, nil :: any)
+local _asyncimage =
+	Facet.Controls.AsyncImage(core, { id = "Art", scope = core:scope(), provider = nil :: any, key = "image" })
 --[[ The results are bound so an entry that stopped returning anything at all
 	would be visible here too. They are deliberately not annotated: the builders'
 	return types are what they are, and pinning them in this file would make it a

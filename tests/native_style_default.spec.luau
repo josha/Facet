@@ -320,10 +320,16 @@ describe("the library default paint path", function()
 			expect(plan.opt.handle.sheet).toBe("pretend")
 		end)
 
-		it("transitions are OPT-IN, and reduced motion wins over the opt", function()
-			expect(planFor(true).transitions).toBe(false)
+		it("native paint transitions default on, with explicit opt-out and reduced motion", function()
+			expect(planFor(nil).transitions).toBe(true)
+			expect(planFor(true).transitions).toBe(true)
+			expect(planFor({}).transitions).toBe(true)
+			expect(planFor({ transitions = false }).transitions).toBe(false)
 			expect(planFor({ transitions = true }).transitions).toBe(true)
 			expect(planFor({ transitions = true }, true).transitions).toBe(false)
+			expect(planFor(nil, true).transitions).toBe(false)
+			expect(native_style.transitionsAllowed(planFor({ transitions = true }, true).opt)).toBe(true)
+			expect(native_style.transitionsAllowed(planFor({ transitions = false }, true).opt)).toBe(false)
 			-- ...and the motion fact is only asked for when it could matter, so a
 			-- consumer's deprecated closure is not called on a target that opted out
 			local asked = 0
@@ -402,7 +408,7 @@ end)
 ]]
 describe("the gallery A/B driver's precedence survives the flip", function()
 	local function selectors(over: { [string]: boolean }?): paint_mode.Selectors
-		local s = { native = false, fallback = false, transitions = false }
+		local s: paint_mode.Selectors = { native = false, fallback = false }
 		for key, value in over or {} do
 			(s :: any)[key] = value
 		end
@@ -426,9 +432,10 @@ describe("the gallery A/B driver's precedence survives the flip", function()
 	it("an explicit opt-in is REDUNDANT-BUT-HARMLESS: it still carries transitions", function()
 		local opt = paint_mode.decide(selectors({ native = true }))
 		expect(type(opt)).toBe("table")
-		expect((opt :: any).transitions).toBe(false)
+		expect((opt :: any).transitions).toBe(nil)
 		local withTransitions = paint_mode.decide(selectors({ native = true, transitions = true }))
 		expect((withTransitions :: any).transitions).toBe(true)
+		expect(paint_mode.decide(selectors({ transitions = false })).transitions).toBe(false)
 	end)
 
 	it("the transitions attribute alone opts in, because it cannot mean anything else", function()

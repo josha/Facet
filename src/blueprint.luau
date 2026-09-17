@@ -11,6 +11,8 @@
 local stylingLib = require("./tokens/styling")
 local chromeSlots = require("./tokens/chrome_slots")
 local schema = require("./blueprint_schema")
+local animationPolicy = require("./motion/policy")
+export type AnimationSpec = animationPolicy.Spec
 -- the R4 icon vocabulary. Required for ONE pure predicate (`isIconName`): a
 -- typo'd semantic name is an icon that silently never resolves, which is the
 -- accepted-and-ignored class the strict boundary exists to remove.
@@ -41,6 +43,7 @@ local contributionLib = require("./input/contribution")
 -- itself — no presentation code arrives with it.
 local feedbackContract = require("./present/feedback")
 
+local normalizeChildren = require("./blueprint_children")
 local blueprint = {}
 
 export type Blueprint = {
@@ -68,9 +71,12 @@ blueprint.schema = schema
 -- is read once at mount and REJECTS a Readable at construction.
 
 local coreContract = require("./core/contract")
+local activationMetadata = require("./input/activation_metadata")
+export type ActivationMetadata = activationMetadata.Metadata
 
 export type Readable<T> = coreContract.Readable<T>
-export type Bound<T> = T | Readable<T>
+export type Value<T> = T | Readable<T>
+export type Bound<T> = Value<T> | (() -> T)
 
 -- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",
@@ -153,6 +159,7 @@ export type BoxProps = {
 	-- MULTIPLIES with any scale the framework is applying and a `rotation` (degrees,
 	-- positive = clockwise) ADDS to any rotation it is applying; the composition
 	-- happens at the one presentation write site, so neither is a second writer.
+	animation: animationPolicy.Spec?,
 	scale: Bound<number>?,
 	rotation: Bound<number>?,
 	-- the fourth authored presentation term (gap 16
@@ -170,6 +177,7 @@ export type BoxProps = {
 
 -- props every container accepts on top of BoxProps
 export type ContainerProps = {
+	[number]: Blueprint,
 	padding: Bound<Sides>?,
 	overflow: Bound<string>?,
 	clipChildren: boolean?,
@@ -414,7 +422,7 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
 	help: string?,
-	onActivate: ((path: string, meta: any?) -> ())?,
+	onActivate: ((path: string, meta: ActivationMetadata?) -> ())?,
 }
 
 export type ToggleSpec = BoxProps & {
@@ -430,7 +438,7 @@ export type ToggleSpec = BoxProps & {
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
 	help: string?,
-	onActivate: ((path: string, meta: any?) -> ())?,
+	onActivate: ((path: string, meta: ActivationMetadata?) -> ())?,
 }
 
 export type TextFieldSpec = BoxProps & {
@@ -750,6 +758,9 @@ local function validateProp(class: string, key: string, value: any, propSpec: sc
 			0
 		)
 	end
+	if type(value) == "function" and propSpec.reactive then
+		return
+	end
 	if isReadable(value) then
 		if not propSpec.reactive then
 			error(
@@ -776,11 +787,21 @@ local function make(class: string, spec: any): Blueprint
 	if type(spec) ~= "table" then
 		error(`Facet UI.{class}: the constructor takes one spec table, got {typeof(spec)}`, 0)
 	end
+	spec = normalizeChildren(spec)
 	local classSpec = schema.forClass(class)
 	if classSpec == nil then
 		error(`Facet: unknown blueprint class '{class}'`, 0)
 	end
 	local known = classSpec.props
+	if spec.animation ~= nil then
+		local ok, why = animationPolicy.check(spec.animation)
+		assert(ok, `Facet UI.{class}.animation: {why or "invalid policy"}`)
+		for key in spec.animation do
+			assert(key == "layout" or known[key], `Facet UI.{class}: cannot animate unsupported property '{key}'`)
+		end
+		spec = table.clone(spec)
+		spec.animation = table.freeze(table.clone(spec.animation))
+	end
 	local props: { [string]: any } = {}
 	local children: { Blueprint }? = nil
 	local id: string? = nil
@@ -1139,6 +1160,9 @@ end
 -- smallest thing the author is willing to show. Declared in READING order; the
 -- `rank` is adaptation priority only, and the two are deliberately independent.
 function blueprint.Region(spec: RegionSpec): Blueprint
+	if type(spec) == "table" then
+		spec = normalizeChildren(spec)
+	end
 	if type(spec) ~= "table" then
 		-- ONE owner for "that is not a spec table" — everything below reads fields
 		return make("Region", spec)
@@ -1766,8 +1790,8 @@ end
 function blueprint.Grip(spec: GripSpec): Blueprint
 	return make("Grip", spec)
 end
-function blueprint.Text(spec: TextSpec): Blueprint
-	return make("Text", spec)
+function blueprint.Text(spec: TextSpec | string | (() -> string)): Blueprint
+	return make("Text", if type(spec) == "table" then spec else { text = spec })
 end
 function blueprint.Image(spec: ImageSpec): Blueprint
 	return make("Image", spec)

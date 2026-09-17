@@ -13,6 +13,37 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Toast rows animate into vacated positions at either screen edge. Add per-toast
+  `width` using ordinary dimensions, including content-fit `hug`; default slides
+  avoid CanvasGroup text rasterization, while explicit fades remain available.
+  Component toast bodies inherit environment and animation services.
+- `View.ProgressView` inherits the mounted owner and presenter clock, including
+  activity cycles and trails. Maintained examples adopt ordered numeric children;
+  tutorials, showcase chrome and reference views use component state, property
+  getters and automatic ownership. New-feature scaffolding and contributor
+  guidance teach the same syntax.
+- Track getter-based drag enablement without invoking payload callbacks.
+  NavigationStack pages and Alert content accept component descriptions.
+  AsyncImage request leases follow the mounted owner, including stale-response
+  rejection after unmount.
+- Prevent getter indexes from retaining cyclic values after unmount; keep shared
+  bindings alive through their component owner instead of a global strong value.
+- Reuse the Signals callback-delivery queue and renew signal subscriptions without
+  rereading their known value, reducing typing overhead while preserving callback
+  order and recovery.
+
+- Native StyleRule paint transitions now default on with explicit opt-out and live reduced-motion support; `client.host` installs Roblox's easing evaluator just like `motion_driver`.
+
+- Use pinned official Roblox Signals 0.9.0 for reactive dependencies while keeping
+  Facet's deterministic change delivery, lifecycle, recovery and settling contract.
+- Add `Facet.component` and `Facet.View`: scoped state and effects, property
+  functions, ordered array children, controlled inputs, confirmation and keyed
+  current-item getters. Migrate showcase motion settings and Settings Sync.
+- Add declarative screen, billboard and surface placement to the client host.
+- Complete previously untyped public control specs, describe activation metadata,
+  and check real component authoring with the pinned Luau analyzer.
+
+
 - Add segmented ProgressView bars, delayed damage trails, and sized circular HUD
   gauges with readouts that adapt to preferred text size. Share transient HUD
   reservations through the presenter and add pure HUD inset/marker layout helpers.
@@ -1157,6 +1188,13 @@ documented in [`docs/reference/api.md`](docs/reference/api.md), and the retiring
 ones are listed with the version that may remove them in `Facet.DEPRECATIONS`.
 
 ### Unreleased — game navigation continuity
+
+- Add declarative per-property animation and automatic layout groups on the shared
+  motion clock; provide owned `ui.animate` and explicit `ui.withAnimation` helpers.
+- Normalize custom-component children, accept direct `When` children and collection
+  key fields, and share repeated getter bindings within their mounted owner.
+- Add Motion → Automatic to the showcase and paired animation benchmark workloads.
+
 
 - Keep client input contexts in stable client-created storage; entering Table rows from a focus section works in normal and edit modes. Showcase unread markers use bounded vector paint so ornate panel decorations cannot spill across their rows.
 

@@ -273,10 +273,11 @@ export type Row = {
 function menu_recipe.row(UI: any, row: Row): any
 	local height = { type = "fixed", px = row.height or menu_recipe.ROW_HEIGHT }
 	local function readable(value)
-		return type(value) == "table" and (value.kind == "signal" or value.kind == "memo")
+		return type(value) == "function"
+			or (type(value) == "table" and (value.kind == "signal" or value.kind == "memo"))
 	end
 	local function read(value, use)
-		return if readable(value) then use(value) else value
+		return selection.read(value, use)
 	end
 	local liveIcon = readable(row.icon)
 	if liveIcon or readable(row.badge) then
@@ -451,7 +452,7 @@ function menu_recipe.row(UI: any, row: Row): any
 					UI.When({
 						id = "DescriptionWhen",
 						condition = row.scope:own(row.core:memo(function(use)
-							local value = use(row.description)
+							local value = read(row.description, use)
 							return value ~= nil and value ~= ""
 						end)),
 						thenView = description,

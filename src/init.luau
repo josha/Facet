@@ -8,7 +8,9 @@
 -- headless under lune and mounted under Rojo.
 
 local coreContract = require("@self/core/contract")
-local customCore = require("@self/core/custom")
+local customCore = require("@self/core/signals")
+local authoring = require("@self/authoring")
+local controlTypes = require("@self/control_types")
 local blueprint = require("@self/blueprint")
 local mountLib = require("@self/mount")
 local environment = require("@self/env/environment")
@@ -69,26 +71,55 @@ local motionCurves = require("@self/motion/curves")
 -- `core: any` 35 times. These are erased at runtime (the module returns nil),
 -- and it requires nothing, so the entry point stays safe for shared/server
 -- require graphs (UI-BOUND-001).
+type BooleanSignal = coreContract.Signal<boolean>
+type StringSignal = coreContract.Signal<string>
 export type Core = coreContract.Core
 export type Scope = coreContract.Scope
 export type Signal<T> = coreContract.Signal<T>
 export type Memo<T> = coreContract.Memo<T>
 export type Readable<T> = coreContract.Readable<T>
 export type Unsubscribe = coreContract.Unsubscribe
+export type ChipSpec = controlTypes.ChipSpec
+export type VirtualListSpec<T> = controlTypes.VirtualListSpec<T>
+export type VirtualGridSpec<T> = controlTypes.VirtualGridSpec<T>
+export type AsyncImageSpec = controlTypes.AsyncImageSpec
 export type NavigationStackSpec = navigationStack.Spec
 export type NavigationEntry = navigationStack.Entry
 
 -- These specs live at the public boundary so their implementations remain
 -- deferred without losing argument checking. Existing eager controls retain
 -- their module-owned Spec declarations below.
+export type ActivationMetadata = blueprint.ActivationMetadata
+export type AnimationSpec = authoring.AnimationSpec
+export type ComponentChildren = authoring.Children
+export type ComponentContext = authoring.Context
+export type Read<T> = authoring.Read<T>
+export type ConfirmationSpec = {
+	title: blueprint.Bound<string>,
+	message: blueprint.Bound<string>?,
+	acceptLabel: string?,
+	cancelLabel: string?,
+	destructive: boolean?,
+}
+export type SemanticRow = {
+	description: blueprint.Bound<string>?,
+	icon: blueprint.Bound<string>?,
+	value: blueprint.Bound<string>?,
+}
 export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? }
 export type ButtonSpec = {
+	image: blueprint.Bound<string>?,
+	imageAspectRatio: number?,
+	imageFraming: blueprint.ImageFraming?,
+	subtitle: blueprint.Bound<string>?,
+	row: SemanticRow?,
+	pop: boolean?,
 	id: string?,
 	label: blueprint.Bound<string>?,
 	children: { blueprint.Blueprint }?,
 	enabled: blueprint.Bound<boolean>?,
 	busy: blueprint.Bound<boolean>?,
-	onActivate: () -> (),
+	onActivate: (ActivationMetadata?) -> (),
 	repeatDelay: number?,
 	repeatInterval: number?,
 	shortcut: ButtonShortcut?,
@@ -97,10 +128,35 @@ export type ButtonSpec = {
 	width: blueprint.Bound<blueprint.Dim>?,
 	height: blueprint.Bound<blueprint.Dim>?,
 }
-export type ToggleSpec = {
+export type ViewButtonSpec = {
+	animation: AnimationSpec?,
+	[number]: blueprint.Blueprint,
+	confirm: ConfirmationSpec?,
+	image: blueprint.Bound<string>?,
+	imageAspectRatio: number?,
+	imageFraming: blueprint.ImageFraming?,
+	subtitle: blueprint.Bound<string>?,
+	row: SemanticRow?,
+	pop: boolean?,
 	id: string?,
 	label: blueprint.Bound<string>?,
-	value: Signal<boolean>,
+	children: { blueprint.Blueprint }?,
+	enabled: blueprint.Bound<boolean>?,
+	busy: blueprint.Bound<boolean>?,
+	onActivate: (ActivationMetadata?) -> (),
+	repeatDelay: number?,
+	repeatInterval: number?,
+	shortcut: ButtonShortcut?,
+	dialogAction: ("default" | "cancel")?,
+	role: blueprint.Bound<string>?,
+	width: blueprint.Bound<blueprint.Dim>?,
+	height: blueprint.Bound<blueprint.Dim>?,
+}
+export type ToggleSpec<V = BooleanSignal> = {
+	row: SemanticRow?,
+	id: string?,
+	label: blueprint.Bound<string>?,
+	value: V,
 	mixed: Signal<boolean>?, -- construction restricts this to checkbox
 	presentation: ("switch" | "checkbox" | "button")?,
 	children: { blueprint.Blueprint }?, -- construction restricts this to button
@@ -117,10 +173,10 @@ export type ComboBoxOption =
 		divider: false?,
 	}
 	| { divider: true }
-export type ComboBoxSpec = {
+export type ComboBoxSpec<V = StringSignal, S = StringSignal> = {
 	id: string?,
-	value: Signal<string>,
-	text: Signal<string>,
+	value: V,
+	text: S,
 	options: blueprint.Bound<{ ComboBoxOption }>,
 	enabled: blueprint.Bound<boolean>?,
 	acceptCustom: (string) -> (boolean, string?),
@@ -133,7 +189,7 @@ export type SplitButtonSpec = {
 	id: string?,
 	label: blueprint.Bound<string>?,
 	menuLabel: blueprint.Bound<string>?,
-	onActivate: () -> (),
+	onActivate: (ActivationMetadata?) -> (),
 	items: { menuControl.Item },
 	enabled: blueprint.Bound<boolean>?,
 	busy: blueprint.Bound<boolean>?,
@@ -434,99 +490,95 @@ local library: any = nil
 
 local Controls = table.freeze({
 	NavigationStack = function(core: any, spec: navigationStack.Spec)
-		return navigationStack.build(library, core, spec)
+		return authoring.control("NavigationStack", navigationStack.build, library, core, spec)
 	end,
 	SplitButton = function(core: any, spec: SplitButtonSpec)
-		return require("@self/controls/split_button").build(library, core, spec)
+		return authoring.control("SplitButton", require("@self/controls/split_button").build, library, core, spec)
 	end,
 	Button = function(core: any, spec: ButtonSpec)
-		return require("@self/controls/button").build(library, core, spec)
+		return authoring.control("Button", require("@self/controls/button").build, library, core, spec)
 	end,
 	ComboBox = function(core: any, spec: ComboBoxSpec)
-		return require("@self/controls/combo_box").build(library, core, spec)
+		return authoring.control("ComboBox", require("@self/controls/combo_box").build, library, core, spec)
 	end,
 	Toggle = function(core: any, spec: ToggleSpec)
-		return require("@self/controls/toggle").build(library, core, spec)
+		return authoring.control("Toggle", require("@self/controls/toggle").build, library, core, spec)
 	end,
 	Table = function(core: any, spec: tableControl.Spec)
-		return tableControl.build(library, core, spec)
+		return authoring.control("Table", tableControl.build, library, core, spec)
 	end,
 	Slider = function(core: any, spec: sliderControl.Spec)
-		return sliderControl.build(library, core, spec)
+		return authoring.control("Slider", sliderControl.build, library, core, spec)
 	end,
 	Stepper = function(core: any, spec: stepperControl.Spec)
-		return stepperControl.build(library, core, spec)
+		return authoring.control("Stepper", stepperControl.build, library, core, spec)
 	end,
 	Picker = function(core: any, spec: pickerControl.Spec)
-		return pickerControl.build(library, core, spec)
+		return authoring.control("Picker", pickerControl.build, library, core, spec)
 	end,
 	PopupButton = function(core: any, spec: popupButton.Spec)
-		return popupButton.build(library, core, spec)
+		return authoring.control("PopupButton", popupButton.build, library, core, spec)
 	end,
 	Menu = function(core: any, spec: menuControl.Spec)
-		return menuControl.build(library, core, spec)
+		return authoring.control("Menu", menuControl.build, library, core, spec)
 	end,
 	TabView = function(core: any, spec: tabView.Spec)
-		return tabView.build(library, core, spec)
+		return authoring.control("TabView", tabView.build, library, core, spec)
 	end,
 	Label = function(core: any, spec: labelControl.Spec)
-		return labelControl.build(library, core, spec)
+		return authoring.control("Label", labelControl.build, library, core, spec)
 	end,
-	-- DEFERRED (see the block header): this entry declares no spec type, so the
-	-- module is not needed until a Chip is actually built.
-	Chip = function(core: any, spec: any)
-		return require("@self/controls/chip").build(library, core, spec)
+	-- Spec types stay at the public boundary; implementation loads on demand.
+	Chip = function(core: any, spec: controlTypes.ChipSpec)
+		return authoring.control("Chip", require("@self/controls/chip").build, library, core, spec)
 	end,
 	Rating = function(core: any, spec: ratingControl.Spec)
-		return ratingControl.build(library, core, spec)
+		return authoring.control("Rating", ratingControl.build, library, core, spec)
 	end,
 	TextInput = function(core: any, spec: textInput.Spec)
-		return textInput.build(library, core, spec)
+		return authoring.control("TextInput", textInput.build, library, core, spec)
 	end,
 	ProgressView = function(core: any, spec: progressView.Spec)
-		return progressView.build(library, core, spec)
+		return authoring.control("ProgressView", progressView.build, library, core, spec)
 	end,
 	LevelPicker = function(core: any, spec: levelPicker.Spec)
-		return levelPicker.build(library, core, spec)
+		return authoring.control("LevelPicker", levelPicker.build, library, core, spec)
 	end,
 	DisclosureGroup = function(core: any, spec: disclosureGroup.Spec)
-		return disclosureGroup.build(library, core, spec)
+		return authoring.control("DisclosureGroup", disclosureGroup.build, library, core, spec)
 	end,
-	-- DEFERRED (see the block header): this entry declares no spec type, so the
-	-- module is not needed until a VirtualList is actually built.
-	VirtualList = function(core: any, spec: any)
-		return require("@self/controls/virtual_list").build(library, core, spec)
+	-- Deferred implementation; the public collection spec retains item types.
+	VirtualList = function<T>(core: any, spec: controlTypes.VirtualListSpec<T>)
+		return authoring.control("VirtualList", require("@self/controls/virtual_list").build, library, core, spec)
 	end,
-	-- DEFERRED (see the block header): this entry declares no spec type, so the
-	-- module is not needed until a VirtualGrid is actually built.
-	VirtualGrid = function(core: any, spec: any)
-		return require("@self/controls/virtual_grid").build(library, core, spec)
+	-- Deferred implementation; the public collection spec retains item types.
+	VirtualGrid = function<T>(core: any, spec: controlTypes.VirtualGridSpec<T>)
+		return authoring.control("VirtualGrid", require("@self/controls/virtual_grid").build, library, core, spec)
 	end,
 	RowActions = function(core: any, spec: rowActions.Spec)
-		return rowActions.build(library, core, spec)
+		return authoring.control("RowActions", rowActions.build, library, core, spec)
 	end,
 	Callout = function(core: any, spec: calloutControl.Spec)
-		return calloutControl.build(library, core, spec)
+		return authoring.control("Callout", calloutControl.build, library, core, spec)
 	end,
-	-- DEFERRED (see the block header): this entry declares no spec type, so the
-	-- module is not needed until an AsyncImage is actually built.
+	-- The spec is typed without eagerly loading the image implementation.
 	RadialMenu = function(core: any, spec: radial_menu.Spec)
-		return radial_menu.build(library, core, spec)
+		return authoring.control("RadialMenu", radial_menu.build, library, core, spec)
 	end,
 	Alert = function(core: any, spec: alert.Spec)
-		return alert.build(library, core, spec)
+		return authoring.control("Alert", alert.build, library, core, spec)
 	end,
 	Sheet = function(core: any, spec: sheet.Spec)
-		return sheet.build(library, core, spec)
+		return authoring.control("Sheet", sheet.build, library, core, spec)
 	end,
 	PageView = function(core: any, spec: page_view.Spec)
-		return page_view.build(library, core, spec)
+		return authoring.control("PageView", page_view.build, library, core, spec)
 	end,
 	CollapsibleView = function(core: any, spec: collapsible_view.Spec)
-		return collapsible_view.build(library, core, spec)
+		return authoring.control("CollapsibleView", collapsible_view.build, library, core, spec)
 	end,
-	AsyncImage = function(core: any, spec: any)
-		return require("@self/controls/async_image").build(library, core, spec)
+	AsyncImage = function(core: any, spec: controlTypes.AsyncImageSpec)
+		return authoring.control("AsyncImage", require("@self/controls/async_image").build, library, core, spec)
 	end,
 })
 
@@ -898,5 +950,202 @@ local Facet = {
 	cannot capture a local declared after it), so the library they hand to each
 	builder is bound here — the same table `Facet.new<Control>(Facet, …)` passes. ]]
 library = Facet
+Facet.Signals = require("@self/vendor/signals/signals")
+Facet.component = authoring.component
+local viewBuilders = authoring.views(Facet)
+Facet.View = table.freeze({
+	sortedEntries = blueprint.sortedEntries,
+	Screen = blueprint.Screen,
+	VStack = blueprint.VStack,
+	HStack = blueprint.HStack,
+	ZStack = blueprint.ZStack,
+	ScrollView = blueprint.ScrollView,
+	Spacer = blueprint.Spacer,
+	Box = blueprint.Box,
+	Anchor = blueprint.Anchor,
+	Grid = blueprint.Grid,
+	GridRow = blueprint.GridRow,
+	AdaptiveStack = blueprint.AdaptiveStack,
+	ViewThatFits = blueprint.ViewThatFits,
+	Region = blueprint.Region,
+	Composition = blueprint.Composition,
+	Divider = blueprint.Divider,
+	Grip = blueprint.Grip,
+	Text = blueprint.Text,
+	Image = blueprint.Image,
+	TextField = blueprint.TextField,
+	Path = blueprint.Path,
+	Foreign = blueprint.Foreign,
+	Stage = blueprint.Stage,
+	shadow = viewBuilders.shadow :: typeof(blueprint.shadow),
+	gradient = viewBuilders.gradient :: typeof(blueprint.gradient),
+	corners = viewBuilders.corners :: typeof(blueprint.corners),
+	stroke = viewBuilders.stroke :: typeof(blueprint.stroke),
+	strokeData = blueprint.strokeData,
+	shadowData = blueprint.shadowData,
+	gradientData = blueprint.gradientData,
+	cornersData = blueprint.cornersData,
+	focusSection = viewBuilders.focusSection :: typeof(blueprint.focusSection),
+	draggable = viewBuilders.draggable :: typeof(blueprint.draggable),
+	dropTarget = viewBuilders.dropTarget :: typeof(blueprint.dropTarget),
+	sensoryFeedback = viewBuilders.sensoryFeedback :: typeof(blueprint.sensoryFeedback),
+	styleGroup = viewBuilders.styleGroup :: typeof(blueprint.styleGroup),
+	frame = viewBuilders.frame :: typeof(blueprint.frame),
+	padding = viewBuilders.padding :: typeof(blueprint.padding),
+	offset = viewBuilders.offset :: typeof(blueprint.offset),
+	containerRelativeFrame = viewBuilders.containerRelativeFrame :: typeof(blueprint.containerRelativeFrame),
+	aspectRatio = viewBuilders.aspectRatio :: typeof(blueprint.aspectRatio),
+	fill = blueprint.fill,
+	hug = blueprint.hug,
+	alignment = viewBuilders.alignment :: typeof(blueprint.alignment),
+	overlay = viewBuilders.overlay :: typeof(blueprint.overlay),
+	background = viewBuilders.background :: typeof(blueprint.background),
+	ErrorBoundary = blueprint.ErrorBoundary,
+	When = function(spec: {
+		id: string?,
+		condition: blueprint.Bound<boolean>,
+		thenView: ((Scope) -> blueprint.Blueprint)?,
+		[number]: blueprint.Blueprint,
+		children: { blueprint.Blueprint }?,
+		transition: any?,
+	}): blueprint.Blueprint
+		return viewBuilders.When(spec)
+	end,
+	ForEach = function<T>(spec: {
+		id: string?,
+		items: Readable<{ T }> | (() -> { T }),
+		key: string | ((T) -> string),
+		row: (() -> T) -> blueprint.Blueprint,
+		transition: any?,
+	}): blueprint.Blueprint
+		return viewBuilders.ForEach(spec)
+	end,
+	NavigationStack = function(spec: navigationStack.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.NavigationStack(spec)
+	end,
+	SplitButton = function(spec: SplitButtonSpec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.SplitButton(spec)
+	end,
+	Button = function(spec: ViewButtonSpec): blueprint.Blueprint
+		return viewBuilders.Button(spec)
+	end,
+	ComboBox = function(spec: (ComboBoxSpec | (
+		ComboBoxSpec<authoring.Read<string>, authoring.Read<string>>
+		& { onChange: (string) -> (), onTextChange: (string) -> () }
+	)) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.ComboBox(spec)
+	end,
+	Toggle = function(spec: (
+		ToggleSpec<Signal<boolean>> | (ToggleSpec<authoring.Read<boolean>> & { onChange: (boolean) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Toggle(spec)
+	end,
+	Table = function(spec: tableControl.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Table(spec)
+	end,
+	Slider = function(spec: (
+		sliderControl.Spec | (sliderControl.Spec<authoring.Read<number>> & { onChange: (number) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Slider(spec)
+	end,
+	Stepper = function(spec: (
+		stepperControl.Spec | (stepperControl.Spec<authoring.Read<number>> & { onChange: (number) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Stepper(spec)
+	end,
+	Picker = function(
+		spec: (pickerControl.Spec | (pickerControl.Spec<authoring.Read<any>> & { onChange: (any) -> () })) & authoring.Animated
+	): blueprint.Blueprint
+		return viewBuilders.Picker(spec)
+	end,
+	PopupButton = function(spec: popupButton.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.PopupButton(spec)
+	end,
+	Menu = function(spec: menuControl.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Menu(spec)
+	end,
+	TabView = function(
+		spec: (tabView.Spec | (tabView.Spec<Read<string>> & { onChange: (string) -> () })) & authoring.Animated
+	): blueprint.Blueprint
+		return viewBuilders.TabView(spec)
+	end,
+	Label = function(spec: labelControl.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Label(spec)
+	end,
+	Chip = function(spec: (
+		controlTypes.ChipSpec | (controlTypes.ChipSpec<authoring.Read<boolean>> & { onToggle: (boolean) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Chip(spec)
+	end,
+	Rating = function(spec: (
+		ratingControl.Spec | (ratingControl.Spec<authoring.Read<number>> & { onChange: (number) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Rating(spec)
+	end,
+	TextInput = function(
+		spec: (
+			textInput.Spec | (textInput.Spec<authoring.Read<string>> & { onChange: (string) -> () })
+		) & authoring.Animated
+	): blueprint.Blueprint
+		return viewBuilders.TextInput(spec)
+	end,
+	ProgressView = function(spec: progressView.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.ProgressView(spec)
+	end,
+	LevelPicker = function(spec: (
+		levelPicker.Spec | (levelPicker.Spec<authoring.Read<number>> & { onChange: (number) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.LevelPicker(spec)
+	end,
+	DisclosureGroup = function(spec: (
+		disclosureGroup.Spec | (disclosureGroup.Spec<authoring.Read<boolean>> & { onChange: (boolean) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.DisclosureGroup(spec)
+	end,
+	VirtualList = function<T>(spec: controlTypes.ViewVirtualListSpec<T> & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.VirtualList(spec)
+	end,
+	VirtualGrid = function<T>(spec: controlTypes.ViewVirtualGridSpec<T> & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.VirtualGrid(spec)
+	end,
+	RowActions = function(spec: rowActions.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.RowActions(spec)
+	end,
+	Callout = function(spec: calloutControl.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.Callout(spec)
+	end,
+	RadialMenu = function(spec: radial_menu.Spec & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.RadialMenu(spec)
+	end,
+	Alert = function(
+		spec: alert.Spec | (alert.Spec<Read<boolean>> & { onPresentedChange: (boolean) -> () })
+	): blueprint.Blueprint
+		return viewBuilders.Alert(spec)
+	end,
+	Sheet = function(spec: (
+		sheet.Spec
+		| (sheet.Spec<StringSignal, Read<boolean>> & { onPresentedChange: (boolean) -> () })
+		| (sheet.Spec<Read<string>, BooleanSignal> & { onDetentChange: (string) -> () })
+		| (
+			sheet.Spec<Read<string>, Read<boolean>>
+			& { onDetentChange: (string) -> (), onPresentedChange: (boolean) -> () }
+		)
+	)): blueprint.Blueprint
+		return viewBuilders.Sheet(spec)
+	end,
+	PageView = function(
+		spec: (page_view.Spec | (page_view.Spec<Read<string>> & { onChange: (string) -> () })) & authoring.Animated
+	): blueprint.Blueprint
+		return viewBuilders.PageView(spec)
+	end,
+	CollapsibleView = function(spec: (
+		collapsible_view.Spec | (collapsible_view.Spec<authoring.Read<boolean>> & { onChange: (boolean) -> () })
+	) & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.CollapsibleView(spec)
+	end,
+	AsyncImage = function(spec: controlTypes.AsyncImageOptions & authoring.Animated): blueprint.Blueprint
+		return viewBuilders.AsyncImage(spec)
+	end,
+})
 
 return Facet

@@ -4,16 +4,26 @@
   {
    "archivedPath": "artifacts/distribution-readiness/audit/provenance-ledger.md",
    "label": "ledger",
-   "sha256": "308884f7b39d532226d684cd4ff70a90c8da1e2eb29582b77bf6ecc9834d7836"
+   "sha256": "3847ec15b4683ca32808743c0fb24519f9889f3395ba038badfe6c14a9646c64"
   },
   {
    "archivedPath": "THIRD_PARTY_NOTICES.md",
    "label": "notices",
-   "sha256": "29235e2f5c866221d52003ed9df65628524c89b69fc14929518c110e74b3c1eb"
+   "sha256": "8445fe98aebbb94f7db6b7615c9729125f00b24a5105e1d7ec929a868f91691a"
+  },
+  {
+   "archivedPath": "src/vendor/signals/UPSTREAM.lock",
+   "label": "signals source pin",
+   "sha256": "e91aef24cbc84534f43ec03ddb57d973898653d13a163d944f789d3c1fb7071f"
+  },
+  {
+   "archivedPath": "src/vendor/signals/LICENSE",
+   "label": "signals MIT license",
+   "sha256": "0b802f349000f942217919493f8df1879f7d35f025a26b9dbd3193c1e6e57250"
   }
  ],
- "recordedAt": "2026-08-31T03:38:25Z",
+ "recordedAt": "2026-09-17T06:06:58Z",
  "row": "distribution-readiness::provenance-and-third-party-notices",
  "schema": "facet-evidence-receipt/1",
- "summary": "the provenance ledger and the notices file it produced"
+ "summary": "Provenance ledger with the official Roblox Signals addendum, complete MIT notices, and pinned source inventory; verified with dependency and offline package gates."
 }

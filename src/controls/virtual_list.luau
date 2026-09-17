@@ -2644,7 +2644,13 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 
 					The row's own box stays the INDEX's number in both modes, so the canvas
 					offsets and the painted rects can never disagree. ]]
-				local cellNode = spec.cell(entry.item, { scope = itemScope })
+				local cellNode = spec.cell(entry.item, {
+					scope = itemScope,
+					current = function(use)
+						local index = use(indexByKey)[entry.key]
+						return if index then use(spec.rows)[index] else entry.item
+					end,
+				})
 				if itemExtentIsMeasured then
 					--[[ A `fill` MAIN AXIS IS REFUSED, on a measurement rather than a
 						theory: a `fill` child inside a content-sized wrapper measures ZERO on

@@ -124,10 +124,14 @@ GATE_SCHEMA = "facet-release-gate/1"
 # guards the THEME claim (facet-neutral); this guards the CONTENT claim. Kept
 # here rather than derived, because the point of the list is that a human decided
 # each entry — the Fusion adapter and the imperative core are rejected bake-off
-# artifacts (execution plan §0), and tests/examples/bench/vendor are development
-# material a consumer must never receive.
+# artifacts (execution plan §0). Only the pinned Roblox Signals vendor subtree
+# is allowed; tests/examples/bench remain development material.
 FORBIDDEN_SEGMENTS = ("tests", "examples", "vendor", "bench", "spikes")
 FORBIDDEN_SUBSTRINGS = ("fusion_adapter", "imperative", ".spec")
+APPROVED_VENDOR_PATHS = {"Facet/vendor", "Facet/vendor/signals"} | {
+    f"Facet/vendor/signals/{name}" for name in
+    ("signals", "scheduler", "flags", "callUserSpace", "license")
+}
 
 # The moderation values a read-back may carry and still be a release. The schema
 # table says `Approved`; the usage guide's worked example says
@@ -500,7 +504,7 @@ def inspect_tree(manifest):
     for path in sorted(present):
         segments = path.split("/")
         for segment in segments:
-            if segment in FORBIDDEN_SEGMENTS:
+            if segment in FORBIDDEN_SEGMENTS and not (segment == "vendor" and path in APPROVED_VENDOR_PATHS):
                 problems.append(f"FORBIDDEN in the distribution: {path} (segment '{segment}')")
         lowered = path.lower()
         for needle in FORBIDDEN_SUBSTRINGS:
