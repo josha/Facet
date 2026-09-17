@@ -26,7 +26,7 @@ local scope_impl = {}
 --     two conformance checks depend on.
 --   * CLEANUP ERROR — an owned cleanup THREW. The walk continues (quarantined):
 --     one bad cleanup must not skip its siblings, leak the scope
---     counter, or strand the disposing flag.
+--     counter, or retain released ownership entries.
 --
 -- THE WORDING LIVES HERE, with the semantics it describes (Step 5.5 cleanup
 -- ledger C-07). All three core candidates used to format these two strings
@@ -44,7 +44,37 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 
 	local function newScope(label: string?): any
 		counts.scopes += 1
-		return setmetatable({ label = label, owned = {}, disposed = false, parent = nil }, Scope)
+		return setmetatable({ label = label, disposed = false }, Scope)
+	end
+
+	-- Ordered entries preserve reverse cleanup order without scanning or shifting
+	-- siblings when a child retires. Storage follows live ownership, not churn.
+	local function append(owner: any, resource: any): any
+		local entry = { owner = owner, resource = resource, previous = owner.last }
+		if owner.last ~= nil then
+			owner.last.next = entry
+		end
+		owner.last = entry
+		return entry
+	end
+
+	local function unlink(entry: any)
+		local owner = entry.owner
+		if owner == nil then
+			return -- the parent's walk already removed this entry
+		end
+		if entry.previous ~= nil then
+			entry.previous.next = entry.next
+		end
+		if entry.next ~= nil then
+			entry.next.previous = entry.previous
+		else
+			owner.last = entry.previous
+		end
+		entry.owner = nil
+		entry.resource = nil
+		entry.previous = nil
+		entry.next = nil
 	end
 
 	-- OWNERSHIP MEANS RELEASABILITY (F-13). `own` used to insert whatever it was
@@ -71,7 +101,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 				0
 			)
 		end
-		table.insert(self.owned, resource)
+		append(self, resource)
 		return resource
 	end
 
@@ -85,8 +115,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 		-- disposed scope would never be cleaned up by anyone
 		assert(not self.disposed, "cannot create a child of a disposed scope")
 		local child = newScope(label)
-		child.parent = self
-		table.insert(self.owned, child)
+		child.parentEntry = append(self, child)
 		return child
 	end
 
@@ -96,14 +125,18 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 			return
 		end
 		self.disposed = true
-		self.disposing = true
-		for i = #self.owned, 1, -1 do
-			local resource = self.owned[i]
+		if self.parentEntry ~= nil then
+			unlink(self.parentEntry)
+			self.parentEntry = nil
+		end
+		while self.last ~= nil do
+			local entry = self.last
+			local resource = entry.resource
+			-- Pop before calling user code, then read the current tail again:
+			-- a cleanup can dispose another child and unlink it during this walk.
+			unlink(entry)
 			-- QUARANTINED: a throwing cleanup must not abort the
-			-- walk (its siblings still release), must not leak the scope counter,
-			-- and must not strand `disposing` — which would silently re-open the
-			-- unbounded-owned-growth hole and make the NEXT dispose a false
-			-- double-disposal report
+			-- walk (its siblings still release) or leak the scope counter.
 			local ok, err = pcall(function()
 				if type(resource) == "function" then
 					resource()
@@ -125,20 +158,7 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 				note(`Facet: scope cleanup error in '{self.label or "?"}': {tostring(err)}`)
 			end
 		end
-		self.owned = {}
-		self.disposing = nil
 		counts.scopes -= 1
-		-- deregister from the parent so a long-lived scope with churning children
-		-- (a ForEach under live re-sorts) does not grow its owned list without
-		-- bound; skipped while the PARENT is mid-walk (it clears owned itself)
-		local parent = self.parent
-		self.parent = nil
-		if parent ~= nil and not parent.disposed and parent.disposing ~= true then
-			local index = table.find(parent.owned, self)
-			if index ~= nil then
-				table.remove(parent.owned, index)
-			end
-		end
 	end
 
 	function Scope.isDisposed(self: any): boolean
