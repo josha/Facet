@@ -245,9 +245,10 @@ Outside the documented last-resort fallback in §2, each of these is a defect:
 
 ## 7. Two standing facts
 
-- **Roblox Signals owns the reactive graph.** `src/core/signals.luau` adds Facet
-  ownership, ordered delivery, error recovery and settling. The upstream code and
-  MIT notice are pinned under `src/vendor/signals`; no other vendor is allowed.
+- **Compose owns the reactive graph, scheduler and ownership.** `src/core/compose.luau`
+  provides Facet readables, diagnostics and layout settling. The source, MIT notice
+  and local lifetime patch are pinned under `src/vendor/compose`; no other vendor
+  is allowed. See `src/core/README.md` for the native scheduling contract.
 - **`Facet.VERSION` is the version, and it lives in one place**, `src/init.luau`.
   The compatibility policy is
   [`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation); the

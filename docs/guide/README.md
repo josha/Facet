@@ -24,7 +24,7 @@ For control selection while designing a screen, use [Choosing controls](14-choos
 
 New authoring capabilities: `Facet.component` owns local lifetimes; `Facet.View`
 provides ordered children, reactive properties and controlled inputs;
-`Facet.Signals` exposes the pinned upstream graph. See [API](../reference/api.md#view).
+Compose supplies the reactive runtime; shared model state uses `newCore`. See [API](../reference/api.md#view).
 
 ## The principles, in plain words
 
@@ -262,7 +262,6 @@ replacement and their earliest removal version.
 | Capability | What it does | Reference |
 |---|---|---|
 | `component` / `View` | Describe a component once; own local state and bind property functions. | [guide](15-components.md) |
-| `Signals` | The pinned official Roblox Signals API for shared raw state. | [api](../reference/api.md#signals) |
 | `newCore` | Creates the reactive runtime: signals, memos, effects, scopes. | [api](../reference/api.md#newcore) |
 | `preload` | Force-loads the eight controls Facet defers, for the loading-screen moment. | [api](../reference/api.md#preload) |
 | `mount` | Turns a blueprint description into a live node graph. | [api](../reference/api.md#mount) |

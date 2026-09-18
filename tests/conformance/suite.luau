@@ -239,7 +239,7 @@ local checks: { Check } = {
 			local a = core:signal(0)
 			core:effect(function(use)
 				local v = use(a)
-				if v < 1000 then
+				if v < 1e9 then
 					a:set(v + 1) -- unbounded feedback
 				end
 			end)

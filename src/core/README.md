@@ -1,35 +1,41 @@
-# `src/core/` — the reactive core Facet ships
+# Facet’s Compose runtime
 
-`custom.luau` is the reactive core Facet ships, and the only core in this
-directory. `Facet.newCore` returns it, every module in `src/` above this
-directory depends only on `contract.luau`'s shape, and it has no dependencies of
-its own.
+`Facet.newCore` uses `compose.luau`. Native Compose cells and formulas are the
+readables themselves; native watches and the reactor handle dependency delivery,
+batching and scheduling. Native owners store cleanup and unlink children in
+constant time. There is no second reactive graph, ordered observer queue, foreign
+Signals bridge or retained Signals export/vendor. `custom.luau` is only the old
+internal module-path alias used by development fixtures.
 
-Facet's reactive core is its own. It is not built on, wrapped around, or derived
-from another framework, and nothing under `src/` requires anything outside
-`src/`.
+Facet retains NaN-safe equality, counters, explicit readable disposal, diagnostics,
+component getter tracking, and layout settling. Layout settling repeats after
+geometry publication; Compose’s `reactor:settle` only drains reactive work and
+cannot replace that renderer phase. Formula disposal uses pinned graph internals
+because the public formula API has no disposal method.
 
-## The losing arms of the foundation bake-off are not here
+## Native scheduling contract
 
-The bake-off chose this core over two other arms on measured numbers. Neither arm is
-in the product tree:
+- Delivery is dependency-registration FIFO, not a total node-creation sort.
+- A drain is capped at 1,000,000 watch runs; layout has its separate 100-pass cap.
+  Compose abandons remaining work at its cap. Dispose and re-register affected
+  watches, or remount their owner, to resume. Changing a cell alone can leave an
+  abandoned watch stale. This is a limitation of the pinned upstream runtime.
+- Failed formulas keep their cached value and dependencies reached during the
+  failing run; a changed read sequence can drop old edges before failure. There
+  is no rollback to the previous successful dependency set.
+- Reactive callbacks and transactions must be synchronous. Components keep their
+  public state/getter API. `Facet.Signals` and raw Signals getter interop are removed.
 
-- the retained imperative baseline lives at **`bench/cores/imperative.luau`**. It
-  is a development fixture — `tests/conformance/cli`, `bench/scenarios.luau` and
-  one case in `tests/table.spec.luau` run against it, because a second
-  conforming implementation is what keeps `contract.luau` an interface rather
-  than a description of one implementation. It sits under `bench/` because
-  `tools/build_model.sh` maps `src/` and nothing else, so the distributed
-  Package contains runtime only;
-- the third arm and its vendored third-party sources were removed from this
-  repository on 2026-08-30 and archived privately, with checksums, alongside the
-  benchmark and conformance JSON that decided the rubric.
+## Ownership and composition
 
-## This directory is not an entry point, and the boundary checker enforces it
+`scope_impl.luau` delegates storage and child unlinking to Compose owners. Facet’s
+structural reconciler remains because it retains exiting rows, supports identity
+on re-entry, and publishes a consistent surviving tree when a row factory throws.
+Compose’s host/block keyed reconciler has different lifetime and failure behavior;
+substituting it would change those visible features, not just replace bookkeeping.
 
-`tools/lune/check_boundary.luau`'s consumer scan refuses a require of anything
-under `src/core/` from a game or an example — the blessed surface is the `Facet`
-table plus the client entry points listed in `docs/reference/api.md` §Client
-entry points. The same checker refuses any require that leaves `src/`, and
-`tools/check_no_fusion.py` refuses the removed material by name in the sources,
-in the built model, and in the consuming game.
+The source pin, full MIT notice, two local lifetime fixes and exact integrity
+inventory live in `../vendor/compose`. `tests/compose_lifetime.spec.luau` covers
+final-listener detachment, reads after self-disposal, and cap re-registration.
+These internals are not consumer entry points. Use the Facet table and documented
+client modules.

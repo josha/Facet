@@ -1,2 +1,2 @@
 # Preserve the pinned upstream source bytes; see vendor integrity gate.
-src/vendor/signals/**
+src/vendor/compose/**

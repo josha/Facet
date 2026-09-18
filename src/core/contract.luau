@@ -1,26 +1,19 @@
 --!strict
--- Facet core contract (design §6, §17 Phase 0): the reactive-foundation
--- interface every candidate core implements identically — the shipped custom
--- core (`src/core/custom.luau`, the one the bake-off selected) and the retained
--- imperative baseline kept as a development fixture at
--- `bench/cores/imperative.luau`. The public Facet API depends only on this
--- contract, so the Phase 0 rubric can swap implementations without API change.
--- Pure types; no code. Semantics the conformance suite enforces:
+-- Facet core interface. Compose is the shipped runtime on this branch;
+-- bench/cores/imperative.luau remains a development fixture. The native
+-- scheduling differences are documented in README.md beside this file.
+-- Semantics:
 --   * writes outside a transaction flush synchronously; inside, at close;
 --   * observers/effects see only post-flush (glitch-free) values, once per
 --     flush in which their source changed;
 --   * memo compute receives `use` for dependency access; dependency sets
---     replace atomically after successful evaluation;
+--     re-track during evaluation; failures retain partial dependency changes;
 --   * writing state during memo evaluation is an error;
 --   * effect writes schedule a later flush round; a bounded iteration cap
 --     turns feedback loops into errors;
---   * within one flush, OBSERVERS are notified in node CREATION order — a total
---     order across nodes, not merely within one node. Consumers that each watch
---     their OWN memo (the renderer's per-surface geometry memo is the shipped
---     case) would otherwise be notified in table-hash order, which varies run to
---     run; a surface's re-solve order is part of what makes a frame
---     reproducible. NOTE this is stated for observers only: effect ordering is
---     NOT yet promised (architecture gate F2, 2026-08-14);
+--   * delivery follows Compose's dependency-registration FIFO, with no global
+--     node-creation sort. A drain is limited to 1,000,000 watch runs; abandoned
+--     watches require disposal and re-registration to resume;
 --   * a transaction is a GROUPING, not a rollback — a body that throws leaves
 --     writes made before the throw published, and the error is re-raised after
 --     the flush. And a transaction body MUST NOT YIELD: the transaction stays
@@ -33,7 +26,7 @@
 --     a callback that writes ends the pass, propagation drains, and the pass
 --     RESTARTS from the first callback, so every settle callback observes every
 --     other one's publication. Passes repeat until one writes nothing, and a
---     settle pass counts against the same bounded iteration cap — a
+--     settle pass counts against a separate 100-pass iteration cap — a
 --     measure→publish cycle that will not converge is the same loud error an
 --     effect feedback loop is, never a hang and never a silent frame. Two
 --     obligations follow: a callback MUST be cheap and idempotent when it has

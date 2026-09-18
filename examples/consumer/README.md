@@ -31,7 +31,8 @@ project and connect from Studio.
   the accent tint, both resolved from the active theme rather than from a colour
   written here. Swap the theme and both follow with no rebuild.
 - **Local state with automatic ownership.** `ui.state` returns a getter and setter.
-  The count label is a recipe; the toggle uses `value` and `onChange`.
+  The count label is a recipe; the toggle uses `value` and `onChange`. Facet’s
+  Compose runtime tracks these getters and releases their resources on unmount.
 - **Adaptation with no device branch.** `ui.env("viewportRect")` tracks the available
   viewport, and `Facet.adaptive.axisFor` selects the stack axis.
 - **The player's text size.** The blurb uses the body role and follows accessibility preferences.

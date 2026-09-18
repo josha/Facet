@@ -146,19 +146,23 @@ Core methods (all take the core as `self`, i.e. call with `:`):
   dependencies through `use(readable)`; dependencies re-track on every run.
   Reads are glitch-free: inside or outside transactions a memo read is always
   consistent with current signal values. Writing state inside `compute` is an
-  error. Compute errors quarantine the memo (it keeps its old value).
+  error. Compute errors quarantine the memo (it keeps its old value). Native
+  dependency reads before the error remain applied; failure does not restore
+  the previous successful dependency set.
 - `core:observe(readable, onChange) -> unsubscribe` — calls `onChange(value)`
   after a flush in which the value actually changed. Observer callbacks are
   quarantined: a throwing callback warns, records `lastError`, and never
   wedges the scheduler. Disposing an observed node reclaims and silences its
-  observers.
+  observers. Delivery follows deterministic dependency-registration order, not
+  a global node-creation sort.
 - `core:effect(run) -> unsubscribe` — like observe but dependency-tracked, with
   one difference that matters: **`run(use)` executes immediately, at
   registration**, and then again post-commit whenever a tracked dependency
   changes. (`observe` does NOT fire on registration — it baselines instead.)
-  Writes from an effect land in the NEXT flush round; runaway feedback trips a
-  100-round cap, which discards that round's pending writes and warns and
-  records the trip on `lastError`.
+  Writes from an effect schedule later work in Compose’s FIFO queue. Runaway
+  feedback trips its 1,000,000-watch-run limit and records `lastError`. Dispose
+  and re-register affected watches (or remount their owner) to recover from an
+  abandoned drain. This is separate from the 100-pass layout-settle limit.
 - `core:transaction(body)` — **batching, not atomicity.** Writes inside `body`
   are held and observers/effects fire once at the end; set-then-revert inside a
   transaction fires nothing. There is no snapshot and no rollback: if `body`
@@ -10955,19 +10959,6 @@ NavigationStack keeps its existing Back hierarchy. It does not add a collapsed
 style: use a CollapsibleView for an app destination chooser alongside the stack
 when the product actually has sibling destinations.
 
-
-### `Signals`
-
-The pinned official [Roblox Signals](https://github.com/Roblox/signals/tree/7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60)
-0.9.0 API: `Signals.createSignal(initial, equals?)` returns a getter and setter;
-`Signals.createComputed(compute, equals?)` returns a lazy getter;
-`Signals.createEffect(effect)` returns a disposer. These use explicit dependency
-scopes (`get(track)`) and the upstream scheduler. Raw effects need explicit
-ownership and do not implement Facet effect cleanup. Use `ui` helpers in components.
-Pass a raw getter as a View property for direct interoperability through this
-shared Signals instance. A separately installed copy has its own scheduler;
-shared raw state should come from this export. `newCore` keeps the existing Facet
-contract and uses this graph internally; its transactions group Facet delivery.
 
 ### `component`
 

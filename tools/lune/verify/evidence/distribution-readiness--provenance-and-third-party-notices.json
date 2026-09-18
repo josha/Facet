@@ -9,21 +9,26 @@
   {
    "archivedPath": "THIRD_PARTY_NOTICES.md",
    "label": "notices",
-   "sha256": "8445fe98aebbb94f7db6b7615c9729125f00b24a5105e1d7ec929a868f91691a"
+   "sha256": "a358856e73cbdd825dd961e7125cb89786c26a3f9fde0bb143519fe58085eab7"
   },
   {
-   "archivedPath": "src/vendor/signals/UPSTREAM.lock",
-   "label": "signals source pin",
-   "sha256": "e91aef24cbc84534f43ec03ddb57d973898653d13a163d944f789d3c1fb7071f"
+   "archivedPath": "src/vendor/compose/UPSTREAM.lock",
+   "label": "Compose UPSTREAM.lock",
+   "sha256": "107331f77f7992bbd2e9a12375b3c616637252cf40f289ae3420d5997bac482b"
   },
   {
-   "archivedPath": "src/vendor/signals/LICENSE",
-   "label": "signals MIT license",
-   "sha256": "0b802f349000f942217919493f8df1879f7d35f025a26b9dbd3193c1e6e57250"
+   "archivedPath": "src/vendor/compose/LICENSE",
+   "label": "Compose LICENSE",
+   "sha256": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885"
+  },
+  {
+   "archivedPath": "src/vendor/compose/UPSTREAM.patch",
+   "label": "Compose UPSTREAM.patch",
+   "sha256": "46f0417fd58ea03a6d4fcf3d39c612006ae0670b8eab993981407b04d4a9d5fe"
   }
  ],
  "recordedAt": "2026-09-17T06:06:58Z",
  "row": "distribution-readiness::provenance-and-third-party-notices",
  "schema": "facet-evidence-receipt/1",
- "summary": "Provenance ledger with the official Roblox Signals addendum, complete MIT notices, and pinned source inventory; verified with dependency and offline package gates."
+ "summary": "Compose source pin, complete MIT notices, local lifetime patch, and exact source inventory. Offline package verification covers the built artifact."
 }

@@ -155,13 +155,15 @@ For projected contextual actions, own the existing
 `ui.own`, and use `ui.read(handle.anchor)` to bind its current projection. It
 shares the presenter's clock.
 
-## Existing code still works
+## Core and explicit handles
 
 `Facet.UI` retains primitive descriptions. `Facet.Controls` retains explicit
 `(core, spec)` constructors and handles. `newCore` retains signals, memos,
-change-only observers, transactions, error recovery and settling. Roblox Signals
-now supplies its dependency graph. `Facet.Signals` exposes the pinned upstream
-API for shared raw state and explicit-scope interoperability.
+change-only observers, transactions, error diagnostics and settling. Compose
+supplies the dependency graph, watches, batching and ownership. `Facet.Signals`
+is removed; shared model state uses `newCore` and components borrow it with
+`ui.read`. Native scheduling and failure semantics are documented in
+[`src/core/README.md`](../../src/core/README.md).
 
 See the [API reference](../reference/api.md#view) and the migrated
 [Settings Sync](../../examples/gallery/examples/03_settings_sync.luau) example.

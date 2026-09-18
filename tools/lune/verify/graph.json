@@ -14122,7 +14122,7 @@
      "measure_publish_settle::a measure→publish cycle settles inside one flush::a round trip that will not converge is a LOUD error, not a hang or a silent frame",
      "measure_publish_settle::a measure→publish cycle whose publication is a PROP settles in the same solve::an ENV change publishes and lands in the same write — the settle-pass arrival"
     ],
-    "shell": "grep -qF \"settle\" src/core/contract.luau && grep -qF \"FEEDBACK_ROUND_CAP\" src/core/signals.luau"
+    "shell": "grep -qF \"settle\" src/core/contract.luau && grep -qF \"FEEDBACK_ROUND_CAP\" src/core/compose.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -14794,7 +14794,7 @@
      "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::an INNOCENT settle survives a cap blown by an unrelated effect (NEW-2)",
      "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::a quarantined settle comes back when it is RE-REGISTERED (RR-9's stated exit)",
      "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::a healthy settle keeps running after an unrelated one is quarantined",
-     "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::the feedback cap permits exactly FEEDBACK_ROUND_CAP rounds (RR-11)",
+     "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::Compose caps a drain at one million watch runs (RR-11)",
      "reactive_recovery::the one-observer notify path keeps every snapshot guarantee (RR-12)::an observer that disposes ITSELF mid-callback is not called again",
      "reactive_recovery::the one-observer notify path keeps every snapshot guarantee (RR-12)::an observer that ADDS one mid-callback does not deliver to it in the same round",
      "reactive_recovery::the one-observer notify path keeps every snapshot guarantee (RR-12)::a memo that RECOMPUTED to an equal value delivers nothing to its lone observer",

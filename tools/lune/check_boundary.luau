@@ -4,7 +4,7 @@
 --   (a) any module OUTSIDE src/client requires a module under src/client
 --       (the client renderer/platform layer must be unreachable from
 --       shared/server-visible code), or
---   (b) vendored runtime code is restricted to the pinned Roblox Signals modules.
+--   (b) vendored runtime code is restricted to the pinned Compose modules.
 --       The dependency integrity gate verifies their bytes and MIT notice.
 --
 -- ...and then walks the CONSUMER side (ENF-2). The versioning policy tells a game to reach
@@ -20,6 +20,15 @@
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
+local serde = require("@lune/serde")
+local approvedVendor = {}
+for path in serde.decode("json", fs.readFile("src/vendor/compose/UPSTREAM.lock")).sha256 do
+	if string.match(path, "%.luau$") then
+		local module = string.gsub(path, "%.luau$", "")
+		module = string.gsub(module, "/?init$", "")
+		approvedVendor["src/vendor/compose" .. (if module == "" then "" else "/" .. module)] = true
+	end
+end
 local artifact = require("./artifact")
 
 local violations: { { file: string, target: string, rule: string } } = {}
@@ -89,10 +98,7 @@ local function checkFile(filePath: string)
 			table.insert(violations, { file = filePath, target = resolved, rule = "non-client-requires-client" })
 		end
 
-		local approved = resolved == "src/vendor/signals/signals"
-			or resolved == "src/vendor/signals/scheduler"
-			or resolved == "src/vendor/signals/flags"
-			or resolved == "src/vendor/signals/callUserSpace"
+		local approved = approvedVendor[resolved] == true
 		if
 			((string.match(resolved, "^vendor/") or string.match(resolved, "^src/vendor/")) and not approved)
 			or string.match(resolved, "Fusion")
