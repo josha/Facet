@@ -13,13 +13,15 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
-- Candidate Compose runtime: replace Signals and Facet’s duplicate scheduler and
+- Replace Signals and Facet’s duplicate scheduler and
   ownership storage with pinned Compose cells, formulas, watches, batching and
   owners. Remove the unused `Facet.Signals` export and raw-getter bridge.
   Delivery now follows dependency FIFO, and runaway watches use the native
   million-run cap with explicit re-registration after abandonment. Failed
   evaluations retain partial dependency changes. Keep Facet’s renderer settling,
   structural transitions and error boundaries. See `src/core/README.md`.
+  Rebuild all bundled tutorial, showcase, reference and performance places with
+  this runtime; examples keep the public component state and getter API.
 
 - Unlink retired child scopes in constant time, preserving reverse cleanup order
   and cleanup-error quarantine. Large keyed collections no longer scan and shift

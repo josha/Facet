@@ -5,6 +5,12 @@ examples use ordinary Luau tables with ordered numeric children. A component
 sets up once per mount; getters update individual properties. Callbacks command
 the model. The component owns its local state, memos, effects and controls.
 
+The examples and bundled places use Facet’s Compose runtime. Keep using
+`ui.state`, `ui.memo`, property getters and `ui.effect`; the component owns their
+Compose resources. Shared models use `Facet.newCore()` through the same public
+API. See the [runtime contract](../src/core/README.md) for callback ordering and
+error recovery.
+
 | Task | Example |
 |---|---|
 | Small complete client | [Standalone consumer](consumer/src/screen.luau) |
