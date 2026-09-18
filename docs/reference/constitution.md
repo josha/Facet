@@ -352,9 +352,11 @@ document, in the same commit as the rule-affecting change.*
 
 ## Reactive implementation and authoring
 
-Roblox Signals 0.9.0 supplies dependency tracking and invalidation, pinned at
-`7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60`. Facet retains its Core contract for
-scoped disposal, deterministic change delivery, quarantine and convergent settling.
+Compose supplies dependency tracking, native FIFO delivery, batching and ownership,
+pinned at `cce9b99590fd3bec3bb9cb60f378184e28fab71d` with the lifetime patch in
+`src/vendor/compose/UPSTREAM.patch`. Facet retains explicit readable disposal,
+diagnostics and convergent layout settling. Native scheduling and failed-evaluation
+semantics are documented in `src/core/README.md`; the Signals export is removed.
 Component setup creates an owned description once; property recipes drive changes.
 `Facet.View` reuses the existing control mechanisms. Numeric children are dense,
 validated and visited by index. The upstream MIT notice ships in the source and

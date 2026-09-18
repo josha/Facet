@@ -529,7 +529,7 @@ local function schedulerFeedback(_iterations: number)
 			ouro:set(use(ouro) + 1) -- self-feeding loop
 		end)
 		assert(
-			core:lastError() ~= nil and string.find(core:lastError() :: string, "cap") ~= nil,
+			core:lastError() ~= nil and string.find(core:lastError() :: string, "did not settle after", 1, true) ~= nil,
 			`feedback loop must hit the round cap, got {tostring(core:lastError())}`
 		)
 		dispose()

@@ -124,14 +124,22 @@ GATE_SCHEMA = "facet-release-gate/1"
 # guards the THEME claim (facet-neutral); this guards the CONTENT claim. Kept
 # here rather than derived, because the point of the list is that a human decided
 # each entry — the Fusion adapter and the imperative core are rejected bake-off
-# artifacts (execution plan §0). Only the pinned Roblox Signals vendor subtree
+# artifacts (execution plan §0). Only the pinned Compose vendor subtree
 # is allowed; tests/examples/bench remain development material.
 FORBIDDEN_SEGMENTS = ("tests", "examples", "vendor", "bench", "spikes")
 FORBIDDEN_SUBSTRINGS = ("fusion_adapter", "imperative", ".spec")
-APPROVED_VENDOR_PATHS = {"Facet/vendor", "Facet/vendor/signals"} | {
-    f"Facet/vendor/signals/{name}" for name in
-    ("signals", "scheduler", "flags", "callUserSpace", "license")
-}
+# Derive exact Rojo instance paths from the integrity-checked source inventory.
+with open(os.path.join(SRC, "vendor", "compose", "UPSTREAM.lock")) as handle:
+    _vendor_pin = json.load(handle)
+APPROVED_VENDOR_PATHS = {"Facet/vendor", "Facet/vendor/compose"}
+for _name in _vendor_pin["sha256"]:
+    if _name.endswith(".luau"):
+        _path = "Facet/vendor/compose/" + _name[:-5]
+        if _path.endswith("/init"):
+            _path = _path[:-5]
+        while _path.startswith("Facet/vendor/"):
+            APPROVED_VENDOR_PATHS.add(_path)
+            _path = _path.rsplit("/", 1)[0]
 
 # The moderation values a read-back may carry and still be a release. The schema
 # table says `Approved`; the usage guide's worked example says
@@ -446,8 +454,8 @@ def expected_tree():
         for directory in rest[:-1]:
             accumulated = f"{accumulated}/{directory}"
             folders.add(accumulated)
-        modules[f"{accumulated}/{rest[-1][: -len('.luau')]}"] = rel
-    return modules, folders
+        modules[accumulated if rest[-1] == "init.luau" else f"{accumulated}/{rest[-1][: -len('.luau')]}"] = rel
+    return modules, folders - set(modules)
 
 
 #[[ THE RELEASE METADATA, WHICH IS REQUIRED — not merely tolerated.

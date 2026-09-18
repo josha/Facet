@@ -11,8 +11,8 @@ Roblox user interface through the engine's own scrolling, styling, and input. On
 description adapts from a phone to a console without a per-device branch, and every
 control it ships is reachable by pointer, touch, keyboard, and gamepad.
 
-Facet uses the official Roblox Signals reactive graph with scoped ownership,
-ordered change delivery and layout settling. Write new interfaces with
+Facet uses Compose for reactive values, scheduling and scoped ownership,
+with Facet layout settling. Write new interfaces with
 [`Facet.component` and `Facet.View`](docs/guide/15-components.md).
 
 ## What it runs on

@@ -217,7 +217,8 @@ require("./fine_grained_reactivity.spec")
 	diagnostics (cycle path names, a disposal that strands subscribers) that had
 	nothing to act on ]]
 require("./reactive_recovery.spec")
-require("./signals_backend.spec")
+require("./compose_backend.spec")
+require("./compose_lifetime.spec")
 require("./components.spec")
 require("./declarative_animation.spec")
 --[[ the PLATFORM ADAPTER driven by a fake engine (release-candidate platform

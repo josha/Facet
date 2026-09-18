@@ -11,7 +11,7 @@ All source lives under `src/`. Grouped by responsibility:
 
 | Area | Files | Responsibility |
 |---|---|---|
-| **core** | `core/signals.luau`, `vendor/signals/`, `core/scope_impl.luau` | Official Roblox Signals provides the graph; Facet provides ordered observers, effects, transactions, recovery and scopes. No engine, no layout — just reactive values and their dependencies. |
+| **core** | `core/compose.luau`, `vendor/compose/`, `core/scope_impl.luau` | Compose provides the graph, watches, batching and ownership; Facet provides its readable API, diagnostics and layout settling. No engine, no layout — just reactive values and their dependencies. |
 | **blueprint** | `blueprint.luau` | The declarative constructors (`UI.Screen`, `UI.Text`, `UI.Button`, `UI.When`, `UI.ForEach`, `UI.ErrorBoundary`, the style modifiers). Produces frozen data tables only. |
 | **mount** | `mount.luau` | Turns a blueprint into a live **mounted node graph**: runs each node's setup exactly once, subscribes changing props, and records what changed in a *dirty queue*. Only structural nodes (`When`/`ForEach`) may add or remove nodes later. |
 | **layout** | `layout/solver.luau`, `layout/text_metrics.luau`, `layout/dump.luau` | Pure two-pass geometry math. Given a snapshot of the tree and a viewport size, it produces a rectangle for every node. It never reads a signal or an `Instance`. |

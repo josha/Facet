@@ -12,7 +12,7 @@
 	tree, requires THAT, and drives a real screen through it.
 
 	WHAT IT PROVES, in order:
-	  1. the extracted tree contains nothing it must not ship (only the pinned Roblox Signals vendor,
+	  1. the extracted tree contains nothing it must not ship (only the pinned Compose vendor,
 	     no rejected bake-off core, no spec files);
 	  2. `Facet.VERSION` inside the artifact equals the `Version` attribute the
 	     builder stamped on `Facet.Distribution` — the two halves of the release
@@ -40,6 +40,7 @@
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
+local serde = require("@lune/serde")
 local roblox = require("@lune/roblox")
 
 local MODEL_XML = "build/Facet.rbxmx"
@@ -179,8 +180,10 @@ end
 
 local FORBIDDEN = { "fusion_adapter", "imperative", ".spec" }
 local APPROVED_VENDOR = {}
-for _, name in { "signals", "scheduler", "flags", "callUserSpace", "license" } do
-	APPROVED_VENDOR["vendor/signals/" .. name .. ".luau"] = true
+for path in serde.decode("json", fs.readFile("src/vendor/compose/UPSTREAM.lock")).sha256 do
+	if string.match(path, "%.luau$") then
+		APPROVED_VENDOR["vendor/compose/" .. path] = true
+	end
 end
 local strays: { string } = {}
 for _, path in extracted do
@@ -194,7 +197,7 @@ for _, path in extracted do
 		end
 	end
 end
-check(#strays == 0, `the extracted tree ships only approved Signals vendor files and no rejected core or spec file`)
+check(#strays == 0, `the extracted tree ships only approved Compose vendor files and no rejected core or spec file`)
 for _, stray in strays do
 	print(`         - {stray}`)
 end

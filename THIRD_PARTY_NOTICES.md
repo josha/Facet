@@ -6,21 +6,20 @@ that carries a notice somebody else wrote. Each section names where the material
 came from, the license it arrives under, and the notice that must travel with any
 copy.
 
-## Roblox Signals
+## Compose
 
-**Origin.** Roblox's official Signals library, version 0.9.0, pinned to commit
-`7ef2ff7db01f6955cf7d9e5a0becb3129f7f8d60` at
-[Roblox/signals](https://github.com/Roblox/signals).
+**Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
+`cce9b99590fd3bec3bb9cb60f378184e28fab71d`, `src/core`.
 
-**Distribution.** `src/vendor/signals` contains the upstream implementation.
-Only require paths and source filenames are adapted for Facet's module tree.
-Facet's lifecycle, observer delivery and error handling remain Facet code.
-The upstream MIT notice is included both here and in the vendored package.
+**Distribution.** `src/vendor/compose` contains the pinned source, exact inventory
+and local lifetime fixes in `UPSTREAM.patch`. The MIT notice is also a
+ModuleScript so it travels inside the Roblox model. Compose owns the reactive
+graph, scheduling and scopes; Facet keeps its public facade and layout settling.
 
 ```text
 MIT License
 
-Copyright (c) 2026 Roblox Corporation
+Copyright (c) 2026 voidmeld
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

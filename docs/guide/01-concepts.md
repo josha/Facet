@@ -133,8 +133,8 @@ work is shared or expensive. `ui.watch(getter, callback)` reacts to changes;
 `ui.batch(function)` groups related writes so dependents see a consistent result.
 A user command belongs in a callback, even when it requests the same value twice.
 
-Roblox Signals owns the dependency graph. Facet adds ownership, ordered delivery,
-error containment and settling. Core remains available for model state that must
+Compose owns the dependency graph, scheduling and ownership. Facet adds
+its readable API, error diagnostics and layout settling. Core remains available for model state that must
 outlive any particular screen: `core:signal`, `core:memo`, `core:observe` and
 `core:scope`. Borrow such state with `ui.read(model.balance)` inside a component;
 `model.balance:get()` is an untracked snapshot, not a reactive property recipe.

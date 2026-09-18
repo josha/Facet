@@ -160,11 +160,10 @@ namespaces' members and the blessed client entry points) has a row here; the
   `spatial`, `contribution`, the scaffold control branch, the VERSION chain, and
   RascalRally's clean client-entry-point compliance — recorded as successes.
 
-## Component authoring and official Signals
+## Component authoring and Compose runtime
 
 | Item | Kind | Pattern / exception | Dispositions | Fragment |
 |---|---|---|---|---|
 | `component` | factory | deferred blueprint; setup once per mount; explicit component context owns resources | Signals/authoring migration | components |
-| `Signals`, `Signals.createSignal`, `Signals.createComputed`, `Signals.createEffect` | upstream namespace | pinned Roblox implementation; explicit upstream scopes | shared reactive graph; MIT redistribution | core-state |
 | `View` | namespace | native Luau descriptions; property recipes; ordered dense children | preserves primitive UI and explicit Controls contracts | components |
 | `View.sortedEntries`, `View.Screen`, `View.VStack`, `View.HStack`, `View.ZStack`, `View.ScrollView`, `View.Spacer`, `View.Box`, `View.Anchor`, `View.Grid`, `View.GridRow`, `View.AdaptiveStack`, `View.ViewThatFits`, `View.Region`, `View.Composition`, `View.Divider`, `View.Grip`, `View.Text`, `View.Image`, `View.TextField`, `View.Path`, `View.Foreign`, `View.Stage`, `View.shadow`, `View.gradient`, `View.corners`, `View.stroke`, `View.strokeData`, `View.shadowData`, `View.gradientData`, `View.cornersData`, `View.focusSection`, `View.draggable`, `View.dropTarget`, `View.sensoryFeedback`, `View.styleGroup`, `View.frame`, `View.padding`, `View.offset`, `View.containerRelativeFrame`, `View.aspectRatio`, `View.fill`, `View.hug`, `View.alignment`, `View.overlay`, `View.background`, `View.ErrorBoundary`, `View.When`, `View.ForEach`, `View.NavigationStack`, `View.SplitButton`, `View.Button`, `View.ComboBox`, `View.Toggle`, `View.Table`, `View.Slider`, `View.Stepper`, `View.Picker`, `View.PopupButton`, `View.Menu`, `View.TabView`, `View.Label`, `View.Chip`, `View.Rating`, `View.TextInput`, `View.ProgressView`, `View.LevelPicker`, `View.DisclosureGroup`, `View.VirtualList`, `View.VirtualGrid`, `View.RowActions`, `View.Callout`, `View.RadialMenu`, `View.Alert`, `View.Sheet`, `View.PageView`, `View.CollapsibleView`, `View.AsyncImage` | constructors and composition helpers | existing implementations with mount-owned recipes and deferred controls; modifiers apply to the resolved root | lifecycle, keyed identity, controlled commands | components |

@@ -266,7 +266,13 @@ local function controlSpec(core: any, scope: any, name: string, spec: any, legac
 			if change then
 				local callback = normalized[change]
 				assert(type(callback) == "function", `Facet View.{name}: a {key} getter requires {change}`)
-				local proxy: any = table.clone(source)
+				local proxy: any = {
+					_node = source._node,
+					_read = source._read,
+					get = function()
+						return source:get()
+					end,
+				}
 				proxy.kind = "signal"
 				proxy.set = function(_, nextValue)
 					callback(nextValue)

@@ -1,6 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
-local factory = require("../src/core/signals")
+local factory = require("../src/core/compose")
 
 -- Inspect retained ownership without depending on the list representation or
 -- on a collector cycle. Scope methods/closures are shared and excluded.
@@ -98,6 +98,7 @@ t.describe("scope ownership", function()
 		local core = factory.new()
 		local parent = core:scope()
 		local initial = reachable(parent)
+		local ownedBefore = parent.native.size()
 		local releases = 0
 		for _ = 1, 1000 do
 			local child = parent:child()
@@ -105,6 +106,8 @@ t.describe("scope ownership", function()
 				releases += 1
 			end)
 			child:dispose()
+			t.expect(parent.native.size()).toBe(ownedBefore)
+			t.expect(child.native.size()).toBe(0)
 			t.expect(reachable(child)[parent]).toBeNil()
 		end
 		for value in reachable(parent) do

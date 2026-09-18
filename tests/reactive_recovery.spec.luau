@@ -83,11 +83,7 @@ end)
 -- node is deliberate: the leak RR-2 describes is invisible from every public
 -- counter — that is what made it survive.
 local function subCount(source: any): number
-	local n = 0
-	for _ in (source :: any)._node.subs do
-		n += 1
-	end
-	return n
+	return require("../src/vendor/compose/reactive/graph").subscriberCount(source)
 end
 
 describe("a memo that fails on its FIRST evaluation can recover (RR-1/RR-4)", function()
@@ -471,7 +467,7 @@ describe("the flush's terminal contracts (RR-9/RR-10/RR-11)", function()
 			in this flush". That ordering is the whole finding. ]]
 		measured:set(5)
 		expect(published:get()).toBe(10)
-		expect(string.find(tostring(core:lastError()), "iteration cap", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(core:lastError()), "did not settle after", 1, true) ~= nil).toBe(true)
 		-- THE ASSERTION: the innocent publisher was not blamed
 		expect(string.find(tostring(core:lastError()), "is QUARANTINED", 1, true)).toBe(nil)
 
@@ -538,12 +534,8 @@ describe("the flush's terminal contracts (RR-9/RR-10/RR-11)", function()
 		expect(healthy > afterFirst).toBe(true)
 	end)
 
-	it("the feedback cap permits exactly FEEDBACK_ROUND_CAP rounds (RR-11)", function()
-		--[[ The instrument is effect RUNS, which is the only observable count the
-			core exposes for rounds. `core:effect` runs the body once at REGISTRATION,
-			outside the flush and before any dep is subscribed, so a runaway effect
-			registered on a quiet core costs 1 + cap runs. That decomposition is the
-			whole finding: the "101" the review measured is 1 + 100, not 101 rounds. ]]
+	it("Compose caps a drain at one million watch runs (RR-11)", function()
+		-- Native Compose counts individual watch runs, plus the registration run.
 		local core = Facet.newCore()
 		local a = core:signal(0)
 		local runs = 0
@@ -554,10 +546,10 @@ describe("the flush's terminal contracts (RR-9/RR-10/RR-11)", function()
 				a:set(v + 1)
 			end
 		end)
-		expect(runs).toBe(101)
+		expect(runs).toBe(1000001)
 		-- the value advanced once per ROUND, from the registration run's write
-		expect(a:get()).toBe(101)
-		expect(string.find(tostring(core:lastError()), "100-round iteration cap", 1, true) ~= nil).toBe(true)
+		expect(a:get()).toBe(1000001)
+		expect(string.find(tostring(core:lastError()), "did not settle after 1000000 runs", 1, true) ~= nil).toBe(true)
 	end)
 end)
 

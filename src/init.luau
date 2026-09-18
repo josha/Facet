@@ -8,7 +8,7 @@
 -- headless under lune and mounted under Rojo.
 
 local coreContract = require("@self/core/contract")
-local customCore = require("@self/core/signals")
+local customCore = require("@self/core/compose")
 local authoring = require("@self/authoring")
 local controlTypes = require("@self/control_types")
 local blueprint = require("@self/blueprint")
@@ -950,7 +950,6 @@ local Facet = {
 	cannot capture a local declared after it), so the library they hand to each
 	builder is bound here — the same table `Facet.new<Control>(Facet, …)` passes. ]]
 library = Facet
-Facet.Signals = require("@self/vendor/signals/signals")
 Facet.component = authoring.component
 local viewBuilders = authoring.views(Facet)
 Facet.View = table.freeze({

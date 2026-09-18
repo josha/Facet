@@ -27,7 +27,8 @@ no() { printf '  \xe2\x9c\x97 %s\n' "$1"; fail=$((fail + 1)); }
 TMP="$(mktemp -d)"
 # Producer TMPDIR may be relative; the consumer changes checkout before reading it.
 TMP="$(cd "$TMP" && pwd)"
-trap 'rm -rf "$TMP"; rm -f tests/.suite_cache_selftest_probe.luau' EXIT
+rr_probe=""
+trap 'rm -rf "$TMP"; rm -f tests/.suite_cache_selftest_probe.luau; [ -z "$rr_probe" ] || rm -f "$rr_probe"' EXIT
 
 # --- Build a synthetic cache in $1 whose meta claims fingerprint $2 -----------
 # Body/exit/pass/fail are the axes each refusal case bends.
@@ -346,20 +347,29 @@ fi
 # sweep would kill the dev loop at random. `tests/` is mounted by no project
 # file, and it is inside RascalRally's fingerprint for the same reason `src/` is
 # — its specs require Facet's tests/lib directly.
-printf -- '-- suite cache selftest probe\nreturn {}\n' >tests/.suite_cache_selftest_probe.luau
-rr_dirty="$(rr_fp)"
-rm -f tests/.suite_cache_selftest_probe.luau
+# Follow the consumer's declared dependency, which may be the main checkout
+# while this selftest runs in a sibling Facet worktree. Mutating this worktree
+# would then test a file the consumer does not import.
+rr_roots="$(cd "$RR" && tools/suite_transcript.sh --roots)"
+rr_facet_tests="$(printf '%s\n' "$rr_roots" | grep '/Facet/tests$')"
+rr_dirty="$rr_before"
+if [ -n "$rr_facet_tests" ] && [ -d "$RR/$rr_facet_tests" ] \
+	&& rr_probe="$(mktemp "$RR/$rr_facet_tests/.suite_cache_selftest_probe.XXXXXX")"; then
+	printf -- '-- suite cache selftest probe\nreturn {}\n' >"$rr_probe"
+	rr_dirty="$(rr_fp)"
+	rm -f "$rr_probe"
+	rr_probe=""
+fi
 if [ "$rr_dirty" != "$rr_before" ]; then
 	ok "RascalRally: a Facet-side edit changes the RascalRally fingerprint"
 else
 	no "RascalRally: a Facet-side edit changes the RascalRally fingerprint — the consumer would serve a stale green"
 fi
 
-# The probe above proves the fingerprint is content-sensitive to a Facet edit.
+# The probe above proves sensitivity to an edit in the Facet checkout the consumer uses.
 # It cannot prove WHICH Facet roots are covered, and `src/` is the one that
 # matters most — a game suite that missed it would serve a stale green over a
 # framework change. Asserted as a declaration, and labelled as one.
-rr_roots="$(cd "$RR" && tools/suite_transcript.sh --roots)"
 if printf '%s\n' "$rr_roots" | grep -q '/Facet/src$'; then
 	ok "RascalRally: Facet src/ is a declared fingerprint root"
 else
