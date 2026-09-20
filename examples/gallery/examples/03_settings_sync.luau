@@ -154,12 +154,8 @@ function example.build(ctx: any)
 	-- APP SEMANTICS (settings mutation) as node handlers referenced below;
 	-- activating a control commits the change, dispatched by the presenter with
 	-- no consumer routing. The toggle's flip rides commit's apply.
-	-- The Toggle has already written the draft; a request the form cannot send
-	-- puts it back.
+	-- A pending request leaves the draft alone; the mutation owns acceptance.
 	local function toggleMusic(nextMusic: boolean)
-		if mutation.status:peek() == "pending" then
-			draftMusic:set(not nextMusic)
-		end
 		requestChange(nextMusic, draftVolume:peek(), `music {if nextMusic then "on" else "off"}`)
 	end
 	local function volDown()

@@ -40,6 +40,10 @@ names what moved and why a caller breaks.
 
 New public API:
 
+- `UI.Toggle.onChange(wanted)` requests a model change before any write. The
+  model accepts by writing its value; a declined request preserves the value
+  and appearance, including a checkbox's mixed state. This form accepts
+  readonly Compose bindings. Cell-only toggles continue updating directly.
 - `UI.activationGate(node, { closed, onOpen })`. While `closed` reads true, the
   first Activate at or under the node wakes the subtree instead of reaching what
   is under the press. `onOpen(path, meta)` receives the path that press would

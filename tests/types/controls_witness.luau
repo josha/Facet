@@ -51,6 +51,21 @@ local _toggle = app.controls.Toggle("W")({
 	onChange = function(_value: boolean) end,
 })
 
+local approved = Facet.Compose.cell(false)
+local _controlledToggle = app.controls.Toggle({
+	label = "Music",
+	value = Facet.Compose.formula(function(use)
+		return use(approved)
+	end),
+	mixed = function(use)
+		return not use(approved)
+	end,
+	presentation = "checkbox",
+	onChange = function(value: boolean)
+		approved:set(value)
+	end,
+})
+
 local _combo = app.controls.ComboBox({
 	value = Facet.Compose.cell("a"),
 	text = Facet.Compose.cell("Alpine"),

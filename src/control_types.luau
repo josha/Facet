@@ -272,13 +272,14 @@ export type ButtonSpec = {
 	ref: ((record: any) -> ())?,
 	[number]: any,
 }
-export type ToggleSpec<V = BooleanCell> = {
+type BooleanSource = core.Readable<boolean> | ((core.Use) -> boolean)
+export type ToggleSpec<V = BooleanSource> = {
 	ref: ((record: any) -> ())?,
 	row: SemanticRow?,
 	id: string?,
 	label: bp.Bound<string>?,
 	value: V,
-	mixed: core.Cell<boolean>?, -- construction restricts this to checkbox
+	mixed: BooleanSource?, -- construction restricts this to checkbox
 	presentation: ("switch" | "checkbox" | "button")?,
 	children: { bp.Blueprint }?, -- construction restricts this to button
 	enabled: bp.Bound<boolean>?,

@@ -7628,9 +7628,16 @@ verbs, so `api` is the control's own record and `dump()` is the half worth
 reading.
 
 One boolean selection control with `presentation = "switch"` (default),
-`"checkbox"`, or `"button"`. Required `value` is a caller-owned writable Compose
-cell of boolean. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
+`"checkbox"`, or `"button"`. Required `value` is a boolean Compose readable or
+`function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
 `row`, and `children` (custom button content only).
+
+Without `onChange`, `value` and any `mixed` binding must be writable cells;
+activation updates them directly. With `onChange(wanted)`, activation requests
+the proposed boolean exactly once and writes neither binding. The model accepts
+by writing its state; declining or delaying that write preserves the displayed
+value. The callback's return value is ignored. A readonly binding requires this
+callback. Caller writes update the display without calling `onChange`.
 
 `row = { description?, icon?, value? }` turns the control into a settings row:
 the label leads, an optional description and semantic icon sit with it, and the
@@ -7641,8 +7648,9 @@ Switches paint their initial value immediately. Later value changes slide the kn
 without overshoot; pressing a switch keeps its label size unchanged. Reduced
 motion places the knob immediately.
 
-Checkboxes additionally accept `mixed`, a second caller-owned writable boolean
-cell. Mixed activation sets `value` to true and clears mixed in one transaction.
+Checkboxes additionally accept `mixed`, a second boolean binding. Mixed
+activation proposes true. Without a callback it sets `value` to true and clears
+mixed in one transaction; with a callback the model must commit both changes.
 There is no automatic three-state cycle. Clicking the label uses the same
 activation as the indicator. Checkbox labels wrap; toggle buttons retain selected
 styling between presses. Disabled controls preserve state and cannot activate.

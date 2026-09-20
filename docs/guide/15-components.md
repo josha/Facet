@@ -71,8 +71,12 @@ UI.Toggle {
 }
 ```
 
-The control displays the model's value. Rejecting a request leaves that value
-unchanged. Keep server validation in the game model.
+The control displays the model's value. With `onChange`, it writes no state:
+`model.requestMusic` must write `music` to accept the request. Rejecting or
+delaying a request leaves the value and appearance unchanged. The callback's
+return value is ignored. This form also accepts a Compose formula or
+`function(use)` as `value`; a checkbox's model also owns clearing `mixed`.
+Keep server validation in the game model.
 
 Use `Compose.formula` for a shared calculation:
 

@@ -4,8 +4,8 @@ local contract = require("../class_contract")
 local chrome = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local menuRecipe = require("./menu_recipe")
-local Compose = require("../vendor/compose/core")
-local read = require("../selection_model").read
+local selection = require("../selection_model")
+local read = selection.read
 local toggle = {}
 local KEYS = guard.keySet({ "id", "label", "value", "mixed", "presentation", "enabled", "onChange", "children", "row" })
 function toggle.build(Facet, core, spec)
@@ -17,21 +17,21 @@ function toggle.build(Facet, core, spec)
 		"UI.Toggle: presentation must be switch | checkbox | button"
 	)
 	assert(
-		Compose.isReadable(spec.value) and type(spec.value.set) == "function" and type(read(spec.value)) == "boolean",
-		"UI.Toggle: value must be a caller-owned boolean cell"
+		selection.isSource(spec.value) and type(read(spec.value)) == "boolean",
+		"UI.Toggle: value must be a boolean Compose readable or function(use)"
 	)
 	assert(
 		spec.mixed == nil
-			or (
-				presentation == "checkbox"
-				and Compose.isReadable(spec.mixed)
-				and type(spec.mixed.set) == "function"
-				and type(read(spec.mixed)) == "boolean"
-			),
-		"UI.Toggle: mixed must be a writable Compose cell holding a boolean on a checkbox"
+			or (presentation == "checkbox" and selection.isSource(spec.mixed) and type(read(spec.mixed)) == "boolean"),
+		"UI.Toggle: mixed must be a boolean Compose readable or function(use) on a checkbox"
 	)
 	assert(spec.children == nil or presentation == "button", "UI.Toggle: children require the button presentation")
 	assert(spec.onChange == nil or type(spec.onChange) == "function", "UI.Toggle: onChange must be a function")
+	assert(
+		spec.onChange ~= nil
+			or (selection.isWritable(spec.value) and (spec.mixed == nil or selection.isWritable(spec.mixed))),
+		"UI.Toggle: readonly value or mixed requires onChange"
+	)
 	local UI = Facet.UI
 	local disposed = false
 	local function activate()
@@ -40,12 +40,14 @@ function toggle.build(Facet, core, spec)
 		end
 		core.reactor:batch(function()
 			local nextValue = if spec.mixed and read(spec.mixed) then true else not read(spec.value)
-			if spec.mixed then
-				spec.mixed:set(false)
-			end
-			spec.value:set(nextValue)
 			if spec.onChange then
+				-- The model accepts by writing its source; a request never writes first.
 				spec.onChange(nextValue)
+			else
+				if spec.mixed then
+					spec.mixed:set(false)
+				end
+				spec.value:set(nextValue)
 			end
 		end)
 	end
