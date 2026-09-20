@@ -12,6 +12,7 @@ local focusMap = require("./focus_map")
 local Compose = require("../vendor/compose/core")
 local nodeAt = focusMap.nodeAt
 
+local cleanup = require("../core/cleanup")
 local toast_layer = {}
 
 -- presentToast options (ui-designer spec §3.1)
@@ -144,9 +145,13 @@ function toast_layer.new(ctx: Ctx)
 			reservation = nil
 		end
 		toastLayer = nil
-		layer.coordinator.dispose()
-		layer.controller.dispose()
-		layer.scope:dispose()
+		cleanup({
+			layer.coordinator.dispose,
+			layer.controller.dispose,
+			function()
+				layer.scope:dispose()
+			end,
+		})
 	end
 
 	local function ensureToastSchedule()
@@ -373,6 +378,16 @@ function toast_layer.new(ctx: Ctx)
 		presentToast = presentToast,
 		toastCounts = toastCounts,
 		tick = tick,
+		dispose = function()
+			cleanup({
+				function()
+					if toastSchedule then
+						toastSchedule.clear("manual")
+					end
+				end,
+				disposeToastLayer,
+			})
+		end,
 	}
 end
 

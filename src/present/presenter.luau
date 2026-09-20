@@ -43,6 +43,7 @@ local anchorPlacement = require("../layout/anchor_placement")
 local anchoredLib = require("./anchored")
 local Compose = require("../vendor/compose/core")
 local observeChange = require("../core/on_change")
+local cleanup = require("../core/cleanup")
 
 local presenter = {}
 
@@ -551,6 +552,7 @@ export type PresenterOpts = {
 function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opts: PresenterOpts?)
 	specGuard.assertKnownKeys("newPresenter", opts, PRESENTER_OPTS_KEYS, "opts")
 	local self = {}
+	local disposed = false
 	local graph = focus_graph.new(core)
 	-- Entry focus is still tracked, but a pointer/touch session has not asked
 	-- for a navigation ring. Seed once; subsequent input verbs own visibility.
@@ -1002,8 +1004,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		local plate = disclosurePlate
 		disclosurePlate = nil
-		plate.controller.dispose()
-		plate.scope:dispose()
+		cleanup({
+			plate.controller.dispose,
+			function()
+				plate.scope:dispose()
+			end,
+		})
 	end
 
 	local function dismissDisclosure(_reason: string)
@@ -1179,6 +1185,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	})
 
 	local function syncDisclosureFocus(path: string?)
+		if disposed then
+			return
+		end
 		-- A DIRECT ENGAGEMENT OUTRANKS FOCUS. A pointer dwell or a long press is a
 		-- deliberate ask about ONE label; focus merely happens to be somewhere, and
 		-- it is re-synced on every refresh. Without this, a refresh under a live
@@ -1239,6 +1248,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		  * `hasHelp` is stamped once at present, so a surface that declared no
 		    help anywhere pays nothing for the feature (the F-11 containment rule). ]]
 	local function syncHelpFocus(path: string?)
+		if disposed then
+			return
+		end
 		if graph.focusVisible:peek() == false then
 			helpPlate.focus(nil)
 			return
@@ -1470,6 +1482,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- makeHandle's, not a public verb: a re-present under an id whose surface is
 	-- still exiting must tear that one down first (task 7 item 2)
 	local flushPendingExit = surfaceLifecycle.flushPendingExit
+	local disposeSurfaces = surfaceLifecycle.dispose
 	-- ...and the diagnostic for the collision the flush CANNOT help with: two
 	-- surfaces LIVE under one id (review D4)
 	local noteDuplicateSurfaceId = surfaceLifecycle.noteDuplicateSurfaceId
@@ -1515,8 +1528,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		local state = dragProxyState
 		dragProxyState = nil
-		state.controller.dispose()
-		state.scope:dispose()
+		cleanup({
+			state.controller.dispose,
+			function()
+				state.scope:dispose()
+			end,
+		})
 	end
 	local dragProxyHost = {
 		show = function(info: any): any
@@ -1603,6 +1620,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		screenTakesScreen: boolean?,
 		inheritAppChrome: boolean?
 	)
+		assert(not disposed, "Facet: cannot present into a disposed presenter")
 		if not composeScene.isRoot(blueprint) then
 			error("Facet presenter: present a mounted Compose root (app.mount / app.presentModal mount one)", 0)
 		end
@@ -3937,7 +3955,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		motionClock = motionClock,
 	})
-	-- session-lifetime, like the presenter itself (it has no dispose); kept on self
+	-- session-lifetime, released with the presenter; kept on self
 	-- so the ownership is visible rather than implicit
 	self._animationProbeWatcher = withAnimation.probeWatcher
 	self.withAnimation = withAnimation.withAnimation
@@ -3986,6 +4004,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- CLOCK time, not wall time.
 	local tickBody: (dt: number?) -> ()
 	function self.tick(dt: number?)
+		if disposed then
+			return
+		end
 		profile.span("tick", function()
 			tickBody(dt)
 		end)
@@ -4114,6 +4135,28 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	function self.depth(): number
 		return #stack
+	end
+
+	function self.dispose()
+		if disposed then
+			return
+		end
+		disposed = true
+		table.clear(tickHooks)
+		cleanup({
+			calloutQueue.dispose,
+			toasts.dispose,
+			function()
+				helpPlate.dismiss("manual")
+			end,
+			disposeDisclosure,
+			function()
+				dragProxyHide(nil)
+			end,
+			anchoredSurfaces.dispose,
+			disposeSurfaces,
+			self._animationProbeWatcher,
+		})
 	end
 
 	return self

@@ -5,6 +5,7 @@ local host = require("./host")
 local scene = require("../render/compose_scene")
 local controls = require("../render/compose_controls")
 local controlTypes = require("../control_types")
+local cleanup = require("../core/cleanup")
 local application = {}
 
 function application.new(opts: host.Opts?): controlTypes.App
@@ -113,6 +114,7 @@ function application.new(opts: host.Opts?): controlTypes.App
 	end
 	-- A toast owns its body: the component runs inside the toast's own row.
 	function app.presentToast(component, options)
+		assert(not disposed, "Facet: cannot mount into a disposed application")
 		return surface.presenter.presentToast(component, options)
 	end
 	function surfaces.modal(component, options)
@@ -145,10 +147,7 @@ function application.new(opts: host.Opts?): controlTypes.App
 			end
 			released = true
 			providers[release] = nil
-			if unbind then
-				unbind()
-			end
-			provider.dispose()
+			cleanup({ unbind or function() end, provider.dispose })
 		end
 		providers[release] = true
 		return provider, release
@@ -172,29 +171,22 @@ function application.new(opts: host.Opts?): controlTypes.App
 		-- environment binding connected with no second chance, because the
 		-- application already reads as disposed. The first failure is raised
 		-- once the host is released.
-		local failure: any = nil
-		local function step(fn: () -> ())
-			local ok, err = pcall(fn)
-			if not ok and failure == nil then
-				failure = err
-			end
-		end
+		-- Surfaces finish their exits before the state they read is released.
+		local steps = { surface.presenter.dispose }
 		for close in table.clone(mounted) do
-			step(close)
+			table.insert(steps, close)
 		end
 		for release in table.clone(providers) do
-			step(release)
+			table.insert(steps, release)
 		end
 		if installedTheme then
-			step(installedTheme.uninstall)
+			table.insert(steps, installedTheme.uninstall)
 		end
-		step(function()
+		table.insert(steps, function()
 			runtime:dispose()
 		end)
-		step(surface.dispose)
-		if failure ~= nil then
-			error(failure, 0)
-		end
+		table.insert(steps, surface.dispose)
+		cleanup(steps)
 	end
 	return app
 end

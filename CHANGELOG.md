@@ -44,6 +44,9 @@ New public API:
   model accepts by writing its value; a declined request preserves the value
   and appearance, including a checkbox's mixed state. This form accepts
   readonly Compose bindings. Cell-only toggles continue updating directly.
+- `app.dispose()` finishes pending exits and removes toast, callout and other
+  auxiliary layers before releasing the state they display. Teardown continues
+  across cleanup failures, including a resource transport's unbind failure.
 - `UI.activationGate(node, { closed, onOpen })`. While `closed` reads true, the
   first Activate at or under the node wakes the subtree instead of reaching what
   is under the press. `onOpen(path, meta)` receives the path that press would

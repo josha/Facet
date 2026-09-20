@@ -252,6 +252,11 @@ function callout_queue.new(ctx: any)
 		return schedule.dismiss(id, reason or "manual")
 	end
 
+	function api.dispose()
+		awaitingSource = false
+		schedule.clear("manual")
+	end
+
 	--[[ A SURFACE TORN DOWN BY ANY OTHER ROUTE RELEASES ITS SLOT. Without this a
 		presenter-driven dismissal — an outside tap, a screen closing under it —
 		would leave the queue believing a callout is still on screen, and the next

@@ -10,6 +10,7 @@
 local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
 local world = require("../lib/world")
+local cleanup = require("../../src/core/cleanup")
 
 local refWorld = {}
 
@@ -75,6 +76,10 @@ function refWorld.mount(w: any, proof: any, makeDeps: any?): any
 		built = built,
 		handle = handle,
 		close = close,
+		dispose = function()
+			-- Rendered surfaces go before the proof's externally owned model.
+			cleanup({ w.app.dispose, built.dispose or function() end })
+		end,
 	}
 end
 

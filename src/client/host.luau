@@ -389,6 +389,7 @@ function host.new(opts: Opts?): Host
 			clock = o.clock,
 			mountComponent = o.mountComponent,
 		})
+		ownIfDisposable(presenter)
 		if not o.connectFrame then
 			presenter.motionClock:setEasing(require("./motion_driver").engineEasing)
 		end

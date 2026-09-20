@@ -296,6 +296,7 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 		expect(sorted(exported)).toEqual({
 			"back",
 			"dismiss",
+			"dispose",
 			"flushPendingExit",
 			"noteDuplicateSurfaceId",
 			"raise",

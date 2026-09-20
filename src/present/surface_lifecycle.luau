@@ -77,6 +77,7 @@
 local transitionsLib = require("../render/transitions")
 local profile = require("../core/profile")
 local focusMap = require("./focus_map")
+local cleanup = require("../core/cleanup")
 
 local isPathPrefix = focusMap.isPathPrefix
 local filterHidden = focusMap.filterHidden
@@ -106,6 +107,7 @@ function surfaceLifecycle.new(ctx: any)
 	local emitFeedback = ctx.emitFeedback
 	local refreshExclusive = ctx.refreshExclusive
 	local syncScrim = ctx.syncScrim
+	local disposing = false
 
 	-- the path an ARMED drag session was last aimed at, so "armed follows focus"
 	-- re-aims on a focus MOVE rather than on every sync (see the block below)
@@ -436,17 +438,20 @@ function surfaceLifecycle.new(ctx: any)
 			end
 			torn = true
 			forgetPendingExit(exitKey, teardown)
-			handle.controller.dispose()
 			-- handle.scope owns the mount child scope; disposing it disposes the
 			-- mounted tree exactly once (a separate root.dispose() here double-
 			-- disposed the 'mount' child — phase-4 fault injection, input-switch)
-			handle.scope:dispose()
-			if handle.coordinator ~= nil then
-				-- ...and this is what makes a FLUSHED teardown final: the
-				-- coordinator clears every entry's `done` before disposing it, so
-				-- the exit that was still running can no longer call back
-				handle.coordinator.dispose()
-			end
+			cleanup({
+				handle.controller.dispose,
+				function()
+					handle.scope:dispose()
+				end,
+				function()
+					if handle.coordinator ~= nil then
+						handle.coordinator.dispose()
+					end
+				end,
+			})
 		end
 		-- A DISMISSED SURFACE LEAVES THE STACK NOW AND THE SCREEN LATER. Its input
 		-- context is destroyed, its focus scope popped and its exclusivity dropped
@@ -472,7 +477,13 @@ function surfaceLifecycle.new(ctx: any)
 			present, which is the only instant at which honouring it would not
 			make the exit disagree with the enter it mirrors. ]]
 		local spec = handle.transitionSpec
-		if handle.transition ~= nil and spec ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
+		if
+			not disposing
+			and handle.transition ~= nil
+			and spec ~= nil
+			and handle.coordinator ~= nil
+			and handle.transitionNode ~= nil
+		then
 			if spec.exit ~= "instant" then
 				-- registered BEFORE the aim: reduced motion completes the exit
 				-- (and so runs `teardown`, which de-registers) inside this call
@@ -489,8 +500,10 @@ function surfaceLifecycle.new(ctx: any)
 			end
 		end
 		teardown()
-		refreshExclusive() -- dismissing a modal may lower the exclusive flag
-		syncScrim() -- retire or re-home the scrim to the new top exclusive surface
+		if not disposing then
+			refreshExclusive() -- dismissing a modal may lower the exclusive flag
+			syncScrim() -- retire or re-home the scrim to the new top exclusive surface
+		end
 	end
 
 	local function back()
@@ -785,6 +798,31 @@ function surfaceLifecycle.new(ctx: any)
 		return table.clone(surfaceIdNotes)
 	end
 
+	local function dispose()
+		disposing = true
+		local steps = {}
+		-- Retiring overlays can still read the base component's state too.
+		table.insert(steps, function()
+			local pending = {}
+			for _, list in pendingExits do
+				for _, teardown in list do
+					table.insert(pending, teardown)
+				end
+			end
+			cleanup(pending)
+		end)
+		for i = #stack, 1, -1 do
+			local handle = stack[i]
+			table.insert(steps, function()
+				dismiss(handle)
+			end)
+		end
+		-- Shutdown must not build a replacement scrim for each uncovered surface.
+		table.insert(steps, refreshExclusive)
+		table.insert(steps, syncScrim)
+		cleanup(steps)
+	end
+
 	return {
 		noteDuplicateSurfaceId = noteDuplicateSurfaceId,
 		surfaceIdNotes = readSurfaceIdNotes,
@@ -794,6 +832,7 @@ function surfaceLifecycle.new(ctx: any)
 		back = back,
 		raise = raise,
 		flushPendingExit = flushPendingExit,
+		dispose = dispose,
 	}
 end
 

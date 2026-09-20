@@ -280,7 +280,7 @@ describe("the toast_layer seam: the state really left, and the require is one-wa
 		expect(seen.delta).toBe(nil)
 	end)
 
-	it("the module offers exactly the three entry points the presenter binds", function()
+	it("the module offers exactly the entry points the presenter uses", function()
 		local returnBlock = string.match(moduleSource, "\n\treturn {\n(.-)\n\t}\nend\n\nreturn toast_layer")
 		assert(returnBlock ~= nil, `{MODULE_PATH}: no trailing 'return TABLE end' block to read`)
 		local names: { string } = {}
@@ -288,12 +288,13 @@ describe("the toast_layer seam: the state really left, and the require is one-wa
 			table.insert(names, name)
 		end
 		table.sort(names)
-		expect(names).toEqual({ "presentToast", "tick", "toastCounts" })
+		expect(names).toEqual({ "dispose", "presentToast", "tick", "toastCounts" })
 		-- ...and both public verbs are rebound under their ORIGINAL names, so no
 		-- consumer moved
 		local code = stripComments(host)
 		expect(string.find(code, "self.presentToast = toasts.presentToast", 1, true) ~= nil).toBe(true)
 		expect(string.find(code, "self.toastCounts = toasts.toastCounts", 1, true) ~= nil).toBe(true)
+		expect(string.find(code, "toasts.dispose", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the public `ToastOpts` has exactly ONE declaration, and its guard set travels with it", function()
