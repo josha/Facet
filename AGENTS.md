@@ -252,4 +252,4 @@ Outside the documented last-resort fallback in §2, each of these is a defect:
   `tools/sync_compose.py --check` fails when any file differs from the lock. Do not edit the snapshot.
   There is no local patch, and no other vendor is allowed. See `src/core/README.md` for the native scheduling contract.
 - **`Facet.VERSION` is the version, and it lives in one place**, `src/init.luau`.
-  See the [versioning policy](CONTRIBUTING.md#6-versioning).
+  See the [versioning policy](CONTRIBUTING.md#6-versioning-and-deprecation).

@@ -13,6 +13,12 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Application disposal immediately retires animated exits, toasts and auxiliary
+  surfaces before releasing their state. All cleanup steps run even if one fails.
+- Headless test worlds release their complete applications after each case.
+  CI runs the full verifier with one worker, reports producer progress, and saves
+  verification diagnostics on failure.
+
 ### One authoring model (breaking)
 
 Facet has one way to build an interface. `local app = Facet.new(opts)` builds the

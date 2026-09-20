@@ -69,21 +69,23 @@ jobs:
       - name: Formatting
         run: stylua --check src tests tools bench examples
 
-      # The full deterministic tier when the coordinator is present; the suite
-      # itself otherwise. Both mean "every deterministic check, exactly once".
+      # The same full tier contributors run locally. Keep the memory-intensive
+      # suite alone, and never fall back to a smaller set of checks.
       - name: Tests
         run: |
-          if [ -x tools/verify.sh ]; then
-            tools/verify.sh full
-          else
-            ./run-tests.sh
-          fi
+          mkdir -p artifacts/verify
+          tools/verify.sh full --jobs 1 2>&1 | tee artifacts/verify/ci.log
 
-      - name: Naming and product-language scan
-        run: python3 tools/check_brand_drift.py
-
-      - name: Documentation links
-        run: lune run tools/lune/check_links_cli
+      # Preserve the last started producer and completed results even when a
+      # later check fails or the job is cancelled.
+      - name: Save verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/verify/
+          if-no-files-found: warn
+          retention-days: 7
 
       # The distributable model, built and then inspected: it must carry the
       # library and nothing else.

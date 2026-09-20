@@ -454,6 +454,7 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	local command = buildCommand(producer, tmp, suiteJson)
 	trace(ctx.runId, producer, id, "run")
 	local startedAt = nowIso()
+	print(`  verify: START {producer.id} (timeout {producer.timeoutS or 600}s)`)
 	-- WALL CLOCK, not os.clock(). os.clock() is THIS process's CPU time, and a
 	-- coordinator that spends its time waiting on children accumulates almost
 	-- none of it — every producer would report ~0 ms.
@@ -564,6 +565,7 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	end
 	base.status = status
 	base.record = record
+	print(`  verify: {status} {producer.id} ({math.floor(elapsed / 1000)}s, exit {result.code})`)
 	--[[ A FAILING PRODUCER SAYS WHAT HAPPENED (finding 16). The reason field
 		still held "no stored result for this identity" — the reason it RAN, not
 		the reason it failed — so every failure read as a cache miss. ]]

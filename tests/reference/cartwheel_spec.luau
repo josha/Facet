@@ -33,7 +33,16 @@ local strings = require("../../examples/reference/p2_cartwheel/content/strings")
 -- proof PRESENTS ITSELF (it needs its own controller for the stage seam), so the
 -- harness never presents a second time — it only drives.
 
-type World = { core: any, env: any, adapter: any, presenter: any, system: any, built: any, record: (string) -> any }
+type World = {
+	core: any,
+	env: any,
+	adapter: any,
+	presenter: any,
+	system: any,
+	built: any,
+	record: (string) -> any,
+	dispose: () -> (),
+}
 
 local function makeWorld(opts: any?): World
 	local options: any = opts or {}
@@ -75,6 +84,7 @@ local function makeWorld(opts: any?): World
 		presenter = presenter,
 		system = system,
 		built = built,
+		dispose = rw.dispose,
 		-- the newest composite control built under `id`
 		record = function(id: string): any
 			return rw.world.record(id)
@@ -89,7 +99,7 @@ end
 	assertion depend on which file ran first. Retiring it here means every case in
 	this file declares its own, and nothing outside it inherits one. ]]
 local function closeWorld(world: World)
-	world.built.dispose()
+	world.dispose()
 	Facet.themes.declareApp("cartwheel", nil)
 end
 

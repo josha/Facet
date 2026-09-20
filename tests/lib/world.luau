@@ -15,8 +15,28 @@
 local Facet = require("../../src") :: any
 local fake_target = require("./fake_target")
 local overflow_guard = require("./overflow_guard")
+local testkit = require("./testkit")
+local cleanup = require("../../src/core/cleanup")
 
 local world = {}
+local caseWorlds = {}
+
+-- Surface close remains reusable within a case. The case itself owns the whole
+-- application, including auxiliary surfaces and the environment registration.
+testkit.afterEach(function()
+	local pending = caseWorlds
+	caseWorlds = {}
+	local steps = {}
+	for _, w in pending do
+		table.insert(steps, w.app.dispose)
+		table.insert(steps, function()
+			if w.adapter.liveCount then
+				assert(w.adapter.liveCount() == 0, "Facet world: native objects remain after application disposal")
+			end
+		end)
+	end
+	cleanup(steps)
+end)
 
 -- Every composite control module `app.controls` registers through `build`.
 local CONTROL_MODULES = {
@@ -211,6 +231,7 @@ function world.new(opts: Opts?): World
 		system = system,
 		pres = pres,
 	}
+	table.insert(caseWorlds, w)
 
 	--[[ THE INVARIANT, AT EVERY POINT THIS WORLD HANDS CONTROL BACK. A check that
 		ran only at mount would miss every defect a state change introduces, which is

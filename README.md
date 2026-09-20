@@ -242,7 +242,7 @@ the reference.
 ## Versioning
 
 `Facet.VERSION` reports the version defined in `src/init.luau`. Before 1.0, a minor
-version may change public behavior. The [versioning policy](CONTRIBUTING.md#6-versioning)
+version may change public behavior. The [versioning policy](CONTRIBUTING.md#6-versioning-and-deprecation)
 sets the rules for changes, and the [changelog](CHANGELOG.md) records them.
 
 ## Contributing, security, and license

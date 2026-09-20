@@ -117,6 +117,17 @@ lune run tests/run_one <spec-name>   # one spec file, for the edit-and-run loop
 `run_one` is also how you watch a new check **fail** before you trust it. This
 repository asks for that every time: a check nobody has seen fail is decoration.
 
+Before merging, wait for GitHub's **Verify** check to pass on the latest pull
+request revision. A local suite pass alone is not a full verification pass.
+The repository should require this check on an up-to-date pull request before
+merging into `main`. For a fork, a maintainer may need to approve its workflow
+run first; a missing or unstarted check is not a pass.
+
+CI runs `tools/verify.sh full --jobs 1`, then builds and inspects the distributable
+model. It saves verification logs and results as a workflow artifact, including
+on failure. Use the same command in a fresh checkout to reproduce its checks;
+local consumer repositories and private evidence are reported separately.
+
 Formatting and the text checks:
 
 ```sh
