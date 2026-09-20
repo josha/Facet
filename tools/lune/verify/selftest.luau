@@ -264,6 +264,33 @@ do
 	check("PENDING still ranks at PENDING severity", graphMod.severity("PENDING") == 3)
 end
 
+-- A producer must be able to see its logs before returning, and capturing
+-- those logs must not turn its failure into a successful verifier result.
+do
+	local runner = require("./run")
+	local oldRoot = results.ROOT
+	results.ROOT = `{scratch}/results`
+	runner.TMP_ROOT = `{scratch}/tmp`
+	runner.TRACE = `{scratch}/trace.json`
+	local logging = table.clone(producer)
+	logging.id = "live-logs"
+	logging.command =
+		[[bash -c 'printf "out\n"; printf "err\n" >&2; test -s "$TMPDIR/stdout.log" && test -s "$TMPDIR/stderr.log" || exit 9; exit 7']]
+	local outcome = runner.execute(logging, {
+		runId = "selftest",
+		toolchain = tc,
+		tier = "full",
+		rerun = {},
+	})
+	check("producer logs reach disk before it exits", outcome.exitCode == 7)
+	check("log capture preserves the failing verdict", outcome.status == "FAIL")
+	check(
+		"stdout and stderr remain available to result consumers",
+		outcome.stdout == "out\n" and outcome.stderr == "err\n"
+	)
+	results.ROOT = oldRoot
+end
+
 fs.removeDir(scratch)
 
 print("")

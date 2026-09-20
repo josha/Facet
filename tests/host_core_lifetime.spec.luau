@@ -304,3 +304,174 @@ describe("app.dispose releases the host even when a component cleanup throws", f
 end)
 
 local _ = harness
+
+describe("application shutdown finishes animated and auxiliary surfaces", function()
+	for _, reduced in { false, true } do
+		it("releases pending exits and toast rows immediately with reduced motion " .. tostring(reduced), function()
+			local w = require("./lib/world").new({ reducedMotion = reduced })
+			local UI = w.UI
+			local cleaned, frames = {}, 0
+			w.app.onFrame(function()
+				frames += 1
+			end)
+			local function panel(name)
+				return function()
+					Compose.cleanup(function()
+						cleaned[name] = (cleaned[name] or 0) + 1
+					end)
+					local text = Compose.formula(function()
+						return name
+					end)
+					return UI.ZStack(name)({ canvasGroup = true, UI.Text({ text = text }) })
+				end
+			end
+			w.present(panel("Base"))
+			local close = w.app.presentModal(panel("Leaving"), { transition = { enter = "fade", exit = "fade" } })
+			w.settle(12)
+			close()
+			w.app.presentModal(panel("StillOpen"), { transition = { enter = "fade", exit = "fade" } })
+			for i = 1, 5 do
+				w.app.presentToast(panel("Toast" .. i), { duration = 10 })
+			end
+			expect(w.adapter.liveCount() > 0).toBe(true)
+			expect(w.pres.toastCounts().queued > 0).toBe(true)
+			w.app.dispose()
+			expect(w.adapter.liveCount()).toBe(0)
+			expect(w.pres.toastCounts().visible).toBe(0)
+			expect(w.pres.toastCounts().queued).toBe(0)
+			for _, name in { "Base", "Leaving", "StillOpen", "Toast1", "Toast2", "Toast3" } do
+				expect(cleaned[name]).toBe(1)
+			end
+			-- Queued components were never mounted.
+			expect(cleaned.Toast4).toBeNil()
+			expect(cleaned.Toast5).toBeNil()
+			local before = frames
+			w.app.dispose()
+			w.pres.tick(1)
+			expect(frames).toBe(before)
+			Facet.themes.declareApp("shutdown_probe", { tileMin = 96 })
+			Facet.themes.declareApp("shutdown_probe", nil)
+			expect(w.core.lastError()).toBeNil()
+		end)
+	end
+	it("clears waiting callouts and chrome without mounting the next queued component", function()
+		local w = require("./lib/world").new()
+		local UI, shown = w.UI, Compose.cell(false)
+		local mounted, cleaned = 0, 0
+		w.present(function()
+			local tips = {}
+			for i = 1, 3 do
+				table.insert(
+					tips,
+					UI.Callout("Tip" .. i)({
+						anchor = UI.Button("Anchor" .. i)({ label = "Add", onActivate = function() end }),
+						isPresented = shown,
+						onRetire = function() end,
+						content = function()
+							mounted += 1
+							Compose.cleanup(function()
+								cleaned += 1
+							end)
+							return UI.Text({ text = "Add an item" })
+						end,
+					})
+				)
+			end
+			return UI.Screen("S")(tips)
+		end)
+		shown:set(true)
+		w.settle(12)
+		w.app.presentAnchored(function()
+			return UI.Text({ text = "Help" })
+		end, { id = "Chrome", chrome = true, anchor = { source = { rect = { x = 20, y = 20, w = 44, h = 44 } } } })
+		expect(mounted).toBe(1)
+		expect(w.pres.callouts().queued).toBe(2)
+		w.app.dispose()
+		expect(mounted).toBe(1)
+		expect(cleaned).toBe(1)
+		expect(w.adapter.liveCount()).toBe(0)
+		expect(w.pres.callouts().queued).toBe(0)
+	end)
+	it("releases a provider even if its transport's unbind fails", function()
+		local w = require("./lib/world").new()
+		local provider = w.app.newResourceProvider({
+			bind = function()
+				return function()
+					error("unbind failed", 0)
+				end
+			end,
+		})
+		local ok, err = pcall(w.app.dispose)
+		expect(ok).toBe(false)
+		expect(tostring(err)).toBe("unbind failed")
+		local owner = Compose.createOwner()
+		local handle = provider.acquire(owner, "after-dispose")
+		expect(handle.state:peek()).toBe("failed")
+		expect(handle.error:peek()).toBe("resource provider disposed")
+		owner.dispose()
+	end)
+end)
+
+describe("host cleanup on caller-owned services", function()
+	it("releases presenter observers while keeping the caller's core owner live", function()
+		local supplied = services.new()
+		local source = Compose.cell(0)
+		local calls = 0
+		supplied.owner.watch(function(use)
+			calls = use(source)
+		end)
+		local baseline = supplied.owner.size()
+		local adapter = fake_target.new()
+		adapter.setScrollIndicatorPolicy = function() end
+		local surface = newSurface({
+			newCore = function()
+				return supplied
+			end,
+			newAdapter = function()
+				return adapter
+			end,
+		})
+		surface.dispose()
+		expect(supplied.owner.isDisposed()).toBe(false)
+		expect(supplied.owner.size()).toBe(baseline)
+		source:set(4)
+		expect(calls).toBe(4)
+		supplied.owner.dispose()
+	end)
+	it("reports the first host cleanup error after attempting every release", function()
+		local core, envReleased, adapterReleased
+		local surface = newSurface({
+			newAdapter = function()
+				local adapter = fake_target.new()
+				adapter.dispose = function()
+					adapterReleased = true
+					error("adapter release failed", 0)
+				end
+				return adapter
+			end,
+			newInputSystem = function(value)
+				core = value
+				local system = Facet.newActionSystem(value)
+				local dispose = system.dispose
+				system.dispose = function()
+					dispose()
+					error("input release failed", 0)
+				end
+				return system
+			end,
+			bindEnv = function(env)
+				env:set("viewportRect", VIEWPORT)
+				return function()
+					envReleased = true
+				end
+			end,
+		})
+		local ok, err = pcall(surface.dispose)
+		expect(ok).toBe(false)
+		expect(tostring(err)).toBe("input release failed")
+		expect(envReleased).toBe(true)
+		expect(adapterReleased).toBe(true)
+		expect(core.owner.isDisposed()).toBe(true)
+		surface.dispose()
+	end)
+end)

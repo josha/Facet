@@ -43,6 +43,7 @@ local anchorPlacement = require("../layout/anchor_placement")
 local anchoredLib = require("./anchored")
 local Compose = require("../vendor/compose/core")
 local observeChange = require("../core/on_change")
+local cleanup = require("../core/cleanup")
 
 local presenter = {}
 
@@ -551,6 +552,7 @@ export type PresenterOpts = {
 function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opts: PresenterOpts?)
 	specGuard.assertKnownKeys("newPresenter", opts, PRESENTER_OPTS_KEYS, "opts")
 	local self = {}
+	local disposed = false
 	local graph = focus_graph.new(core)
 	-- Entry focus is still tracked, but a pointer/touch session has not asked
 	-- for a navigation ring. Seed once; subsequent input verbs own visibility.
@@ -643,8 +645,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				local policy = policyReadable:peek();
 				(adapter :: any).setScrollIndicatorPolicy(policy, reduced)
 			end
-			-- session-lifetime, like the presenter itself (it has no dispose):
-			-- kept on self so the ownership is visible, not implicit. An effect
+			-- Released with the presenter, including on a caller-owned core.
+			-- Kept on self so the ownership is visible. An effect
 			-- runs once at creation — that first run is the boot application and
 			-- must NOT refresh (self.refresh is not constructed yet, and there
 			-- is nothing mounted to re-solve); only CHANGES re-solve.
@@ -1002,8 +1004,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		local plate = disclosurePlate
 		disclosurePlate = nil
-		plate.controller.dispose()
-		plate.scope:dispose()
+		cleanup({
+			plate.controller.dispose,
+			function()
+				plate.scope:dispose()
+			end,
+		})
 	end
 
 	local function dismissDisclosure(_reason: string)
@@ -1179,6 +1185,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	})
 
 	local function syncDisclosureFocus(path: string?)
+		if disposed then
+			return
+		end
 		-- A DIRECT ENGAGEMENT OUTRANKS FOCUS. A pointer dwell or a long press is a
 		-- deliberate ask about ONE label; focus merely happens to be somewhere, and
 		-- it is re-synced on every refresh. Without this, a refresh under a live
@@ -1239,6 +1248,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		  * `hasHelp` is stamped once at present, so a surface that declared no
 		    help anywhere pays nothing for the feature (the F-11 containment rule). ]]
 	local function syncHelpFocus(path: string?)
+		if disposed then
+			return
+		end
 		if graph.focusVisible:peek() == false then
 			helpPlate.focus(nil)
 			return
@@ -1470,6 +1482,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- makeHandle's, not a public verb: a re-present under an id whose surface is
 	-- still exiting must tear that one down first (task 7 item 2)
 	local flushPendingExit = surfaceLifecycle.flushPendingExit
+	local disposeSurfaces = surfaceLifecycle.dispose
 	-- ...and the diagnostic for the collision the flush CANNOT help with: two
 	-- surfaces LIVE under one id (review D4)
 	local noteDuplicateSurfaceId = surfaceLifecycle.noteDuplicateSurfaceId
@@ -1482,11 +1495,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- mount, which cannot happen until this constructor has returned. `observe`
 	-- also seeds `lastSeen` from the value at registration, so moving a
 	-- registration later inside one constructor cannot make it fire late.
-	observeChange(core.owner, graph.focused, syncFocusVisuals)
+	local stopFocusObserver = observeChange(core.owner, graph.focused, syncFocusVisuals)
 	-- ...and on the ORIGIN flipping under a standing focus: the first arrow press
 	-- after a tap must bring the ring back onto the node the finger left it on,
 	-- without waiting for focus to move somewhere else.
-	observeChange(core.owner, graph.focusVisible, function()
+	local stopFocusVisibleObserver = observeChange(core.owner, graph.focusVisible, function()
 		syncFocusVisuals(graph.focused:peek())
 	end)
 	-- ...and on a RESPONDER flipping, for the same reason: engaging must bring the
@@ -1515,8 +1528,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		local state = dragProxyState
 		dragProxyState = nil
-		state.controller.dispose()
-		state.scope:dispose()
+		cleanup({
+			state.controller.dispose,
+			function()
+				state.scope:dispose()
+			end,
+		})
 	end
 	local dragProxyHost = {
 		show = function(info: any): any
@@ -1603,6 +1620,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		screenTakesScreen: boolean?,
 		inheritAppChrome: boolean?
 	)
+		assert(not disposed, "Facet: cannot present into a disposed presenter")
 		if not composeScene.isRoot(blueprint) then
 			error("Facet presenter: present a mounted Compose root (app.mount / app.presentModal mount one)", 0)
 		end
@@ -3937,7 +3955,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		motionClock = motionClock,
 	})
-	-- session-lifetime, like the presenter itself (it has no dispose); kept on self
+	-- session-lifetime, released with the presenter; kept on self
 	-- so the ownership is visible rather than implicit
 	self._animationProbeWatcher = withAnimation.probeWatcher
 	self.withAnimation = withAnimation.withAnimation
@@ -3986,6 +4004,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- CLOCK time, not wall time.
 	local tickBody: (dt: number?) -> ()
 	function self.tick(dt: number?)
+		if disposed then
+			return
+		end
 		profile.span("tick", function()
 			tickBody(dt)
 		end)
@@ -4114,6 +4135,36 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	function self.depth(): number
 		return #stack
+	end
+
+	function self.dispose()
+		if disposed then
+			return
+		end
+		disposed = true
+		table.clear(tickHooks)
+		cleanup({
+			calloutQueue.dispose,
+			toasts.dispose,
+			function()
+				helpPlate.dismiss("manual")
+			end,
+			disposeDisclosure,
+			function()
+				dragProxyHide(nil)
+			end,
+			anchoredSurfaces.dispose,
+			disposeSurfaces,
+			self._animationProbeWatcher,
+			stopFocusObserver,
+			stopFocusVisibleObserver,
+			self._scrollIndicatorWatcher or function() end,
+			function()
+				if presenterOpts.clock == nil then
+					motionClock:dispose()
+				end
+			end,
+		})
 	end
 
 	return self

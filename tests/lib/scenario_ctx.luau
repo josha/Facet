@@ -43,7 +43,12 @@ local CONTROL_MODULES = {
 	"toggle",
 }
 
-local records: { [any]: { [string]: { any } } } = setmetatable({}, { __mode = "k" }) :: any
+local records: { [any]: { [string]: any } } = {}
+-- A control record can refer back to its core, so weak keys cannot release it.
+-- Inspection belongs to this case, even when a failed case skips its cleanup.
+require("./testkit").afterEach(function()
+	table.clear(records)
+end)
 for _, name in CONTROL_MODULES do
 	local module = require("../../src/controls/" .. name) :: any
 	local original = module.build
@@ -56,8 +61,7 @@ for _, name in CONTROL_MODULES do
 				byId = {}
 				records[core] = byId
 			end
-			byId[id] = byId[id] or {}
-			table.insert(byId[id], result)
+			byId[id] = result
 		end
 		return result
 	end
@@ -79,8 +83,7 @@ local function base(w: any, app: any, UI: any, presenter: any, extra: { [string]
 		record = function() end,
 		flags = {},
 		controlRecord = function(id: string): any
-			local list = records[w.core] and records[w.core][id]
-			return if list ~= nil then list[#list] else nil
+			return records[w.core] and records[w.core][id]
 		end,
 		geometry = function(paths: { string }): { [string]: any }
 			local out: { [string]: any } = {}

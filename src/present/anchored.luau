@@ -100,6 +100,7 @@ local rendererLib = require("../render/renderer")
 local specGuard = require("../spec_guard")
 local themeSnapshot = require("../themes/snapshot")
 
+local cleanup = require("../core/cleanup")
 local anchored = {}
 
 -- Node ids inside the synthesized surface. Public in the sense that a test or a
@@ -737,9 +738,13 @@ function anchored.new(ctx: any)
 			local record = live[i]
 			if record.handle == handle then
 				table.remove(live, i)
-				record.handle.controller.dispose()
-				record.handle.root.dispose()
-				record.scope:dispose()
+				cleanup({
+					record.handle.controller.dispose,
+					record.handle.root.dispose,
+					function()
+						record.scope:dispose()
+					end,
+				})
 				return true
 			end
 		end
@@ -812,6 +817,17 @@ function anchored.new(ctx: any)
 		sync = sync,
 		dump = dump,
 		dismissChrome = dismissChrome,
+		dispose = function()
+			local steps = {}
+			for _, record in live do
+				if record.chrome then
+					table.insert(steps, function()
+						dismissChrome(record.handle)
+					end)
+				end
+			end
+			cleanup(steps)
+		end,
 	}
 end
 

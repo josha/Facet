@@ -76,14 +76,15 @@ function testkit.describe(name: string, body: () -> ())
 	currentSuite = prev
 end
 
---[[ ONE PER-CASE TEARDOWN HOOK, for a shared fixture that has to release what a
-	case built and FAIL the case when it cannot. It exists for exactly one caller
-	(`tests/lib/harness.luau`'s leak check) and is deliberately not a `beforeEach`
-	/ `afterEach` pair a spec writes against: a case's own teardown belongs in the
-	case, where the reader is. A hook that throws fails the case it ran after,
-	which is the whole point — a leak nobody can see is indistinguishable from no
-	leak. Hooks run in registration order, after the case body, pass or fail. ]]
+-- Shared fixtures use these boundaries to own the complete case lifetime.
+-- A spec's own setup and teardown stay in its body. Hook failures fail the
+-- case, and teardown still runs after a setup or case failure.
+local beforeEachHooks: { () -> () } = {}
 local afterEachHooks: { () -> () } = {}
+
+function testkit.beforeEach(fn: () -> ())
+	table.insert(beforeEachHooks, fn)
+end
 
 function testkit.afterEach(fn: () -> ())
 	table.insert(afterEachHooks, fn)
@@ -227,7 +228,12 @@ function testkit.run(options: RunOptions?): boolean
 		specsSeen[suite.spec] = true
 		for _, case in suite.cases do
 			local caseStart = os.clock()
-			local ok, err = pcall(case.fn)
+			local ok, err = pcall(function()
+				for _, hook in beforeEachHooks do
+					hook()
+				end
+				case.fn()
+			end)
 			-- the teardown runs whatever the case did, and its own failure is the
 			-- case's failure when the body itself had none
 			for _, hook in afterEachHooks do

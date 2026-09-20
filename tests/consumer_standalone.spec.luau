@@ -14,8 +14,7 @@ local harness = require("./lib/harness")
 	  4. a signal write repaints the label that reads it;
 	  5. a viewport change and a preferred-text change both RE-SOLVE the same
 	     mounted surface rather than rebuilding it; and
-	  6. teardown returns the reactive registries to the baseline they had before
-	     the screen existed.
+	  6. teardown returns the caller's core to its pre-application baseline.
 
 	WHY IT SHARES THE MODULE RATHER THAN RESTATING IT. An example that only Roblox
 	can run is an example that rots: the guide keeps teaching it and nothing
@@ -84,6 +83,7 @@ local function stand(viewport: { w: number, h: number }): Stand
 	local frames = newFrames()
 	local adapter = fake_target.new()
 	local core = harness.newCore()
+	local baseline = core.owner.size()
 	local app = Facet.new({
 		newCore = function()
 			return core
@@ -111,12 +111,6 @@ local function stand(viewport: { w: number, h: number }): Stand
 			end,
 		},
 	}
-
-	--[[ The baseline is taken with the host standing and NOTHING presented, which
-		is the only honest comparison for "the screen left nothing behind": the
-		host's own environment and presenter are supposed to survive until
-		`h.dispose()`. ]]
-	local baseline = h.core.owner.size()
 
 	--[[ THE SAME ENTRY POINT THE CLIENT SCRIPT CALLS. `session` presents the
 		screen, wires the Close button and the timer, and owns both subscriptions
@@ -284,7 +278,7 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 
 		local after = s.h.core.owner.size()
 		expect(after).toBe(s.baseline)
-		expect(after).toBe(s.baseline)
+		expect(s.h.core.owner.isDisposed()).toBe(false)
 	end)
 
 	it("takes every node off the render target", function()
@@ -309,7 +303,7 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 		expect(s.adapter.rootCount()).toBe(0)
 		local after = s.h.core.owner.size()
 		expect(after).toBe(s.baseline)
-		expect(after).toBe(s.baseline)
+		expect(s.h.core.owner.isDisposed()).toBe(false)
 		expect(s.h.core.lastError()).toBe(nil)
 
 		-- and it is idempotent: the timer route arriving late must not run it twice
@@ -360,7 +354,7 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 		expect(s.adapter.rootCount()).toBe(0)
 		local after = s.h.core.owner.size()
 		expect(after).toBe(s.baseline)
-		expect(after).toBe(s.baseline)
+		expect(s.h.core.owner.isDisposed()).toBe(false)
 		expect(s.h.core.lastError()).toBe(nil)
 	end)
 end)

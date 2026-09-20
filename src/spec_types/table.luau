@@ -9,29 +9,26 @@ local table_columns = require("../controls/table_columns")
 export type Column = {
 	id: string,
 	title: string?,
-	-- width sugar: a NUMBER is fixed px (SwiftUI .width(60)); {min, ideal,
-	-- max} is a minMax band (SwiftUI .width(min:ideal:max:)); full Dim tables
-	-- (fixed | fill | percent | minMax) pass through unchanged
+	-- A number is fixed pixels; { min, ideal, max } is a minMax band.
+	-- Full dimension tables pass through unchanged.
 	width: any,
 	minWidth: number?,
 	resizable: boolean?,
-	-- per-column cell alignment (SwiftUI TableColumnAlignment); vertical
-	-- CENTER and horizontal LEADING are the defaults
+	-- Cell alignment defaults to vertical center and horizontal leading.
 	alignment: { h: ("leading" | "center" | "trailing")?, v: ("top" | "center" | "bottom")? }?,
-	-- cell content, in priority order: `cell(item)` (custom Blueprint, like
-	-- TableColumn's content closure), `value(item)` (default Text cell, like
-	-- TableColumn(value:) — also marks the column sortable), spec.cellFor
+	-- Cell content, in priority order: cell(item), value(item) as text, then
+	-- spec.cellFor. A value callback also makes the column sortable.
 	cell: ((item: any) -> any)?,
 	value: ((item: any) -> string)?,
 	sortable: boolean?, -- opt a `cell` column into sorting explicitly
-	-- FULL-VALUE DISCLOSURE for table-authored text (Step 8.5 LT-G2): the
+	-- FULL-VALUE DISCLOSURE for table-authored text: the
 	-- default `value` cell and the header title are Texts the TABLE authors, so
 	-- a consumer had no way to declare their identity strings disclosable. A
 	-- column carrying `disclose = true` passes the declaration to both; a
 	-- custom `cell` blueprint declares it on its own Text instead.
 	disclose: boolean?,
 	--[[ WHICH COLUMN GOES FIRST WHEN THE TABLE IS TOO NARROW FOR ALL OF THEM
-		(ADAPT-18). `1` is the most important. Absent, a column's priority IS its
+		`1` is the most important. Absent, a column's priority IS its
 		declaration order, so an author who never sets this gets the ordering they
 		already wrote; `"always"` is the opt-out for a column that must stand at
 		any width. The FIRST declared column never collapses either way — it is the
@@ -50,7 +47,7 @@ export type Spec = {
 	rows: publicCore.Readable<{ any }>, -- Readable<{T}>
 	key: (any) -> string,
 	-- legacy table-wide cell factory; optional when every column carries
-	-- its own `cell`/`value` (the SwiftUI shape)
+	-- its own `cell`/`value`
 	cellFor: ((columnId: string, item: any) -> any)?,
 	-- OPTIONAL, and leaving it out is the recommended shape (director, 2026-07-27).
 	-- Absent, the table derives the row height from the theme's own per-paradigm row
@@ -63,7 +60,7 @@ export type Spec = {
 	selection: ("none" | "single" | "multi")?,
 	selectedKeys: any?, -- caller-owned Compose cell of { [rowKey]: boolean }
 	gap: number?,
-	-- OWNER-HELD sort binding (SwiftUI Table(sortOrder:)): a Signal holding
+	-- Caller-owned Compose sort cell holding
 	-- nil | { column: string, ascending: boolean }. Tapping a sortable
 	-- column's header cycles it (new column -> ascending, same -> flips);
 	-- the table NEVER sorts the data — the owner observes and re-sorts rows.
@@ -111,23 +108,15 @@ export type Spec = {
 	reorderable: boolean?,
 	onReorder: ((keys: { string }, toIndex: number) -> ())?,
 	dragLabel: ((item: any) -> string)?, -- ghost chip text (default: the key)
-	-- THE PRIMARY ACTION (parity round 2 §3.4). THE NAME IS OURS: SwiftUI has no
-	-- `onPrimaryAction` symbol — it delivers this verb as the `primaryAction:`
-	-- argument of `contextMenu(forSelectionType:menu:primaryAction:)`, whose
-	-- documented gesture model is what the dispatch below implements.
-	-- "Open this row" — the verb that is NOT selection. Reachable on all four
-	-- inputs with no invented gesture (see the primary-action block below for the
-	-- gesture table, Apple's own words, and the cost of the touch rule). Absent =
-	-- the table has no primary action and every gesture below behaves exactly as
-	-- it does today.
+	-- Opens a row independently of selection. The control routes pointer,
+	-- touch, keyboard and gamepad activation through the same callback.
 	onPrimaryAction: ((item: any, key: string) -> ())?,
 	-- touch-scroll design (2026-07-20): owner-held edit-mode signal. When it is
 	-- nil the table manages its own (api.editing), and auto-shows an Edit/Done
 	-- toggle whenever edit mode is the ONLY route to a capability this table
 	-- declares — `reorderable`, or a selectable table that declares
 	-- `onPrimaryAction` (gated to non-mouse input when `env` is provided). The
-	-- full predicate, the principle behind it, and what Apple does and does not
-	-- document about `EditButton` are at THE AUTO EDIT/DONE TOGGLE below.
+	-- control's edit-mode toggle exposes those capabilities under touch.
 	editing: publicBlueprint.Bound<boolean>?,
 	env: publicEnv.Env?, -- optional environment for input-aware affordances
 	-- Task 10 (row-actions Table integration). Per-item callback: return

@@ -4,7 +4,7 @@
 Learn one control, service, or extension seam and the rules here tell you what the
 next one looks like. The [API reference](api.md) documents each item; this document
 governs the *patterns*;
-[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning) governs
+[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation) governs
 how any of it may change. Every current public item follows a named rule below or
 appears in [§16 Exceptions](#16-exceptions) with the reason uniformity would be worse.
 
@@ -276,7 +276,7 @@ foreign names, it resolves or falls back visibly.
 ## 14. Versioning, deprecation, documentation
 
 - The versioning and deprecation policy
-  ([`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning)) is
+  ([`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation)) is
   binding: `VERSION` single-sourced in `src/init.luau`; `Facet.DEPRECATIONS` is the
   machine-readable ledger (schema-generated property entries plus declared
   entries), frozen; a deprecated surface keeps working for ≥ one MINOR unless it
