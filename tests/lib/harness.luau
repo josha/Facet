@@ -495,7 +495,6 @@ local function releaseCase()
 	local resources = {}
 	for _, core in cores do
 		local stage = stages[core]
-		stages[core] = nil
 		if stage == nil then
 			continue
 		end
@@ -566,6 +565,10 @@ local function releaseCase()
 	local ok, err = pcall(cleanup, resources)
 	if not ok then
 		table.insert(failures, `a teardown threw while releasing the case's resources: {tostring(err)}`)
+	end
+	-- Tick and cleanup callbacks still resolve this core's original stage.
+	for _, core in cores do
+		stages[core] = nil
 	end
 	activeCore = nil
 	if reason ~= nil then

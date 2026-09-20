@@ -281,6 +281,20 @@ end)
 
 -- Two consecutive cases exercise the runner's real afterEach boundary.
 describe("the case owns its complete harness world", function()
+	local sameLibrary
+	it("keeps the original construction library available during mount cleanup", function()
+		local core = harness.newCore()
+		local library = harness.libraryOf(core)
+		harness.mount(core, function()
+			require("../src/vendor/compose/core").cleanup(function()
+				sameLibrary = harness.libraryOf(core) == library
+			end)
+			return harness.UI.Text({ id = "Cleanup", text = "fixture" })
+		end)
+	end)
+	it("finishes cleanup without creating a replacement construction library", function()
+		expect(sameLibrary).toBe(true)
+	end)
 	local nativeApp, nativeAdapter
 	it("owns a native fixture even when the case leaves its screen open", function()
 		nativeApp, nativeAdapter = require("./lib/native_world")({ x = 0, y = 0, w = 640, h = 480 })
