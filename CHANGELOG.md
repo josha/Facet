@@ -13,6 +13,12 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Application disposal immediately retires animated exits, toasts and auxiliary
+  surfaces before releasing their state. All cleanup steps run even if one fails.
+- Headless test worlds release their complete applications after each case.
+  CI runs the full verifier with one worker, reports producer progress, and saves
+  verification diagnostics on failure.
+
 ### One authoring model (breaking)
 
 Facet has one way to build an interface. `local app = Facet.new(opts)` builds the
@@ -44,9 +50,6 @@ New public API:
   model accepts by writing its value; a declined request preserves the value
   and appearance, including a checkbox's mixed state. This form accepts
   readonly Compose bindings. Cell-only toggles continue updating directly.
-- `app.dispose()` finishes pending exits and removes toast, callout and other
-  auxiliary layers before releasing the state they display. Teardown continues
-  across cleanup failures, including a resource transport's unbind failure.
 - `UI.activationGate(node, { closed, onOpen })`. While `closed` reads true, the
   first Activate at or under the node wakes the subtree instead of reaching what
   is under the press. `onOpen(path, meta)` receives the path that press would

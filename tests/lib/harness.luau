@@ -15,6 +15,7 @@ local presenterLib = require("../../src/present/presenter")
 local sceneLib = require("../../src/render/compose_scene")
 local controlsLib = require("../../src/render/compose_controls")
 local observeChange = require("../../src/core/on_change")
+local cleanup = require("../../src/core/cleanup")
 
 local harness = {}
 
@@ -33,6 +34,7 @@ local PURE_HELPERS: { [string]: boolean } = {
 
 local stages: { [any]: any } = setmetatable({}, { __mode = "k" }) :: any
 local activeCore: any = nil
+local inCase = false
 -- the fallback core for a construction that names none (see `currentCore`)
 local ambientCore: any = nil
 
@@ -162,6 +164,7 @@ local function stageOf(core: any): any
 			owner = owner,
 			roots = {},
 			handles = {},
+			services = {},
 		}
 		stages[core] = stage
 		if core ~= ambientCore then
@@ -187,14 +190,16 @@ end
 
 	A construction with no core of its own now gets the AMBIENT core: a real
 	`services.new()` with a real library, real containment and a real settle pass.
-	It is process-wide on purpose — spec files build refusal fixtures at file
-	scope, before any case has run — so it is the ONE thing here that is not
-	released per case, and nothing a spec drives is built on it: every world and
-	every `harness.newCore()` makes its own. ]]
+	File-scope refusal fixtures keep that registration-time core. During a case,
+	implicit constructions get a tracked core instead: function arguments can
+	build a node before the receiving helper calls `harness.newCore()`. ]]
 
 local function currentCore(): any
 	if activeCore ~= nil then
 		return activeCore
+	end
+	if inCase then
+		return harness.newCore()
 	end
 	if ambientCore == nil then
 		ambientCore = services.new()
@@ -241,8 +246,24 @@ function harness.frameListeners(core: any): number
 end
 
 harness.coreFactory = { new = harness.newCore }
-harness.newEnvironment = Facet.newEnvironment
-harness.newActionSystem = Facet.newActionSystem
+local function trackService(core: any, service: any)
+	local ledger = stageOf(core).services
+	if table.find(ledger, service) == nil then
+		table.insert(ledger, service)
+	end
+end
+
+function harness.newEnvironment(core: any)
+	local env = Facet.newEnvironment(core)
+	trackService(core, env)
+	return env
+end
+
+function harness.newActionSystem(core: any)
+	local system = Facet.newActionSystem(core)
+	trackService(core, system)
+	return system
+end
 
 -- Mounts a node, or a component function, and returns the renderer's root.
 function harness.mount(core: any, content: any, _opts: any?)
@@ -274,6 +295,8 @@ end
 function harness.newPresenter(core: any, env: any, adapter: any, system: any, opts: any?)
 	activeCore = core
 	local stage = stageOf(core)
+	trackService(core, env)
+	trackService(core, system)
 	local presenterOpts = table.clone(opts or {})
 	-- How the presenter mounts a surface it builds for itself.
 	presenterOpts.mountComponent = function(component: any)
@@ -469,9 +492,9 @@ local function releaseCase()
 	local cores, adapters, reason = caseCores, caseAdapters, retainReason
 	caseCores, caseAdapters, retainReason = {}, {}, nil
 	local failures: { string } = {}
+	local resources = {}
 	for _, core in cores do
 		local stage = stages[core]
-		stages[core] = nil
 		if stage == nil then
 			continue
 		end
@@ -510,16 +533,42 @@ local function releaseCase()
 				end
 			end
 		end
+		if pres ~= nil then
+			local ok, err = pcall(pres.dispose)
+			if not ok then
+				table.insert(failures, `presenter shutdown threw: {tostring(err)}`)
+			end
+		end
 		for index = #stage.roots, 1, -1 do
 			local ok, err = pcall(stage.roots[index])
 			if not ok then
 				table.insert(failures, `a surface teardown threw while releasing the case: {tostring(err)}`)
 			end
 		end
-		local ok, err = pcall(stage.owner.dispose)
-		if not ok then
-			table.insert(failures, `a teardown threw while releasing the case's constructions: {tostring(err)}`)
+		local releases = {
+			stage.owner.dispose,
+			function()
+				stage.runtime:dispose()
+			end,
+		}
+		for index = #stage.services, 1, -1 do
+			table.insert(releases, stage.services[index].dispose)
 		end
+		table.insert(releases, core.settlePass.dispose)
+		table.insert(releases, core.owner.dispose)
+		for _, release in releases do
+			table.insert(resources, release)
+		end
+	end
+	-- A later core can mount nodes that read an earlier core's state. Close
+	-- every surface and mount before releasing any of those state owners.
+	local ok, err = pcall(cleanup, resources)
+	if not ok then
+		table.insert(failures, `a teardown threw while releasing the case's resources: {tostring(err)}`)
+	end
+	-- Tick and cleanup callbacks still resolve this core's original stage.
+	for _, core in cores do
+		stages[core] = nil
 	end
 	activeCore = nil
 	if reason ~= nil then
@@ -538,8 +587,13 @@ local function releaseCase()
 	return failures
 end
 
+testkit.beforeEach(function()
+	inCase = true
+end)
+
 testkit.afterEach(function()
 	local failures = releaseCase()
+	inCase = false
 	if #failures > 0 then
 		error("Facet harness leak check:\n  " .. table.concat(failures, "\n  "), 0)
 	end

@@ -645,8 +645,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				local policy = policyReadable:peek();
 				(adapter :: any).setScrollIndicatorPolicy(policy, reduced)
 			end
-			-- session-lifetime, like the presenter itself (it has no dispose):
-			-- kept on self so the ownership is visible, not implicit. An effect
+			-- Released with the presenter, including on a caller-owned core.
+			-- Kept on self so the ownership is visible. An effect
 			-- runs once at creation — that first run is the boot application and
 			-- must NOT refresh (self.refresh is not constructed yet, and there
 			-- is nothing mounted to re-solve); only CHANGES re-solve.
@@ -1495,11 +1495,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- mount, which cannot happen until this constructor has returned. `observe`
 	-- also seeds `lastSeen` from the value at registration, so moving a
 	-- registration later inside one constructor cannot make it fire late.
-	observeChange(core.owner, graph.focused, syncFocusVisuals)
+	local stopFocusObserver = observeChange(core.owner, graph.focused, syncFocusVisuals)
 	-- ...and on the ORIGIN flipping under a standing focus: the first arrow press
 	-- after a tap must bring the ring back onto the node the finger left it on,
 	-- without waiting for focus to move somewhere else.
-	observeChange(core.owner, graph.focusVisible, function()
+	local stopFocusVisibleObserver = observeChange(core.owner, graph.focusVisible, function()
 		syncFocusVisuals(graph.focused:peek())
 	end)
 	-- ...and on a RESPONDER flipping, for the same reason: engaging must bring the
@@ -4156,6 +4156,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			anchoredSurfaces.dispose,
 			disposeSurfaces,
 			self._animationProbeWatcher,
+			stopFocusObserver,
+			stopFocusVisibleObserver,
+			self._scrollIndicatorWatcher or function() end,
+			function()
+				if presenterOpts.clock == nil then
+					motionClock:dispose()
+				end
+			end,
 		})
 	end
 

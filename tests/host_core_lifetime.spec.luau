@@ -411,3 +411,67 @@ describe("application shutdown finishes animated and auxiliary surfaces", functi
 		owner.dispose()
 	end)
 end)
+
+describe("host cleanup on caller-owned services", function()
+	it("releases presenter observers while keeping the caller's core owner live", function()
+		local supplied = services.new()
+		local source = Compose.cell(0)
+		local calls = 0
+		supplied.owner.watch(function(use)
+			calls = use(source)
+		end)
+		local baseline = supplied.owner.size()
+		local adapter = fake_target.new()
+		adapter.setScrollIndicatorPolicy = function() end
+		local surface = newSurface({
+			newCore = function()
+				return supplied
+			end,
+			newAdapter = function()
+				return adapter
+			end,
+		})
+		surface.dispose()
+		expect(supplied.owner.isDisposed()).toBe(false)
+		expect(supplied.owner.size()).toBe(baseline)
+		source:set(4)
+		expect(calls).toBe(4)
+		supplied.owner.dispose()
+	end)
+	it("reports the first host cleanup error after attempting every release", function()
+		local core, envReleased, adapterReleased
+		local surface = newSurface({
+			newAdapter = function()
+				local adapter = fake_target.new()
+				adapter.dispose = function()
+					adapterReleased = true
+					error("adapter release failed", 0)
+				end
+				return adapter
+			end,
+			newInputSystem = function(value)
+				core = value
+				local system = Facet.newActionSystem(value)
+				local dispose = system.dispose
+				system.dispose = function()
+					dispose()
+					error("input release failed", 0)
+				end
+				return system
+			end,
+			bindEnv = function(env)
+				env:set("viewportRect", VIEWPORT)
+				return function()
+					envReleased = true
+				end
+			end,
+		})
+		local ok, err = pcall(surface.dispose)
+		expect(ok).toBe(false)
+		expect(tostring(err)).toBe("input release failed")
+		expect(envReleased).toBe(true)
+		expect(adapterReleased).toBe(true)
+		expect(core.owner.isDisposed()).toBe(true)
+		surface.dispose()
+	end)
+end)

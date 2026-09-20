@@ -35,7 +35,7 @@ anything below, because they decide how a call is written:
 
 `Facet.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
 currently `0.11.0`. Governed by the versioning and deprecation policy in
-[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning):
+[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation):
 pre-1.0, a minor bump may change behavior with notice; a patch bump never does. The version lives only here; docs and tests read it from the source.
 
 ### `EXIT_CAP_SECONDS`

@@ -1,6 +1,7 @@
 --!strict
 local Facet = require("../../src")
 local fake = require("./fake_target")
+local world = require("./world")
 return function()
 	local adapter = fake.new()
 	local now, tick, core = 0, nil, nil
@@ -24,6 +25,7 @@ return function()
 			return function() end
 		end,
 	})
+	world.own(app, adapter)
 	return app,
 		adapter,
 		function(seconds)

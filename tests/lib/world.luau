@@ -21,6 +21,10 @@ local cleanup = require("../../src/core/cleanup")
 local world = {}
 local caseWorlds = {}
 
+function world.own(app: any, adapter: any)
+	table.insert(caseWorlds, { app = app, adapter = adapter })
+end
+
 -- Surface close remains reusable within a case. The case itself owns the whole
 -- application, including auxiliary surfaces and the environment registration.
 testkit.afterEach(function()
@@ -231,7 +235,7 @@ function world.new(opts: Opts?): World
 		system = system,
 		pres = pres,
 	}
-	table.insert(caseWorlds, w)
+	world.own(app, adapter)
 
 	--[[ THE INVARIANT, AT EVERY POINT THIS WORLD HANDS CONTROL BACK. A check that
 		ran only at mount would miss every defect a state change introduces, which is

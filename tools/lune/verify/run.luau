@@ -452,17 +452,23 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 		suiteJson = `{tmp}/suite-results.json`
 	end
 	local command = buildCommand(producer, tmp, suiteJson)
+	fs.writeDir(tmp)
+	local stdoutLog, stderrLog = `{tmp}/stdout.log`, `{tmp}/stderr.log`
 	trace(ctx.runId, producer, id, "run")
 	local startedAt = nowIso()
+	print(`  verify: START {producer.id} (timeout {producer.timeoutS or 600}s)`)
 	-- WALL CLOCK, not os.clock(). os.clock() is THIS process's CPU time, and a
 	-- coordinator that spends its time waiting on children accumulates almost
 	-- none of it — every producer would report ~0 ms.
 	local t0 = datetime.now().unixTimestampMillis
-	local result = process.exec("bash", { "-c", withTimeout(command, producer.timeoutS or 600) })
+	local captured = `( {command} ) > "{stdoutLog}" 2> "{stderrLog}"`
+	local result = process.exec("bash", { "-c", withTimeout(captured, producer.timeoutS or 600) })
 	local elapsed = datetime.now().unixTimestampMillis - t0
 
-	local stdout = result.stdout or ""
-	local stderr = result.stderr or ""
+	-- Logs reach disk while the producer runs, including when the coordinator
+	-- is interrupted before it can write a result record.
+	local stdout = (if fs.isFile(stdoutLog) then fs.readFile(stdoutLog) else "") .. (result.stdout or "")
+	local stderr = (if fs.isFile(stderrLog) then fs.readFile(stderrLog) else "") .. (result.stderr or "")
 	base.exitCode = result.code
 	base.durationMs = elapsed
 	base.stdout = stdout
@@ -564,6 +570,7 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	end
 	base.status = status
 	base.record = record
+	print(`  verify: {status} {producer.id} ({math.floor(elapsed / 1000)}s, exit {result.code})`)
 	--[[ A FAILING PRODUCER SAYS WHAT HAPPENED (finding 16). The reason field
 		still held "no stored result for this identity" — the reason it RAN, not
 		the reason it failed — so every failure read as a cache miss. ]]

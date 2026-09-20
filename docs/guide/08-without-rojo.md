@@ -274,7 +274,7 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
   Pin a version by recording `Facet.VERSION` (currently `0.11.0`) somewhere you
   will see it, and check `Facet.DEPRECATIONS` after an upgrade — see
-  [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning). On
+  [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation). On
   the package route the
   `Distribution` folder's `Version`, `SourceCommit` and `SourceHash` attributes
   answer the same question without a checkout.
