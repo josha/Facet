@@ -4,9 +4,10 @@
 local host = require("./host")
 local scene = require("../render/compose_scene")
 local controls = require("../render/compose_controls")
+local controlTypes = require("../control_types")
 local application = {}
 
-function application.new(opts: host.Opts?)
+function application.new(opts: host.Opts?): controlTypes.App
 	-- The presenter exists before the UI runtime does, so the seam it mounts its
 	-- own surfaces through is bound once the runtime is up.
 	local mountComponent
@@ -25,7 +26,8 @@ function application.new(opts: host.Opts?)
 	local providers = {}
 	local constructors, domainUI = controls.new(runtime, surface.core, surface.presenter, surfaces)
 	local app = {
-		controls = constructors,
+		-- the typed face of the constructor table: a spec is checked where it is written
+		controls = constructors :: controlTypes.Controls,
 		runtime = runtime,
 		environment = surface.env,
 		presenter = surface.presenter,
@@ -165,17 +167,34 @@ function application.new(opts: host.Opts?)
 			return
 		end
 		disposed = true
-		for close in mounted do
-			close()
+		-- EVERY STEP RUNS. A component's cleanup is application code and may
+		-- throw; stopping there would leave the frame callback and the
+		-- environment binding connected with no second chance, because the
+		-- application already reads as disposed. The first failure is raised
+		-- once the host is released.
+		local failure: any = nil
+		local function step(fn: () -> ())
+			local ok, err = pcall(fn)
+			if not ok and failure == nil then
+				failure = err
+			end
+		end
+		for close in table.clone(mounted) do
+			step(close)
 		end
 		for release in table.clone(providers) do
-			release()
+			step(release)
 		end
 		if installedTheme then
-			installedTheme.uninstall()
+			step(installedTheme.uninstall)
 		end
-		runtime:dispose()
-		surface.dispose()
+		step(function()
+			runtime:dispose()
+		end)
+		step(surface.dispose)
+		if failure ~= nil then
+			error(failure, 0)
+		end
 	end
 	return app
 end

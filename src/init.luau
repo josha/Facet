@@ -18,6 +18,17 @@ local focusLib = require("@self/focus/focus_graph")
 local transitionsLib = require("@self/render/transitions")
 local rowActions = require("@self/controls/row_actions")
 local asyncResources = require("@self/async/resources")
+local controlTypes = require("@self/control_types")
+export type App = controlTypes.App
+export type Controls = controlTypes.Controls
+export type ButtonSpec = controlTypes.ButtonSpec
+export type ToggleSpec = controlTypes.ToggleSpec
+export type ComboBoxSpec = controlTypes.ComboBoxSpec
+export type SplitButtonSpec = controlTypes.SplitButtonSpec
+export type ChipSpec = controlTypes.ChipSpec
+export type AsyncImageSpec = controlTypes.AsyncImageSpec
+export type VirtualListSpec<T> = controlTypes.VirtualListSpec<T>
+export type VirtualGridSpec<T> = controlTypes.VirtualGridSpec<T>
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
 local motionClasses = require("@self/motion/classes")
@@ -392,7 +403,7 @@ local Facet = {
 -- Requiring Facet remains safe in shared code. Engine services are only resolved
 -- when a client explicitly starts an application.
 Facet.Compose = require("@self/vendor/compose/core")
-function Facet.new(opts: any?)
+function Facet.new(opts: any?): controlTypes.App
 	return require("@self/client/application").new(opts)
 end
 

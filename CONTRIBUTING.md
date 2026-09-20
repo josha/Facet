@@ -171,24 +171,57 @@ lives in your own project, run by your own entry point — see
   with no toolchain at all. A change that assumes a file sync breaks the second
   group. [Guide 8](docs/guide/08-without-rojo.md) is what that group reads.
 
-## 6. Versioning
+## 6. Versioning and deprecation
 
-Facet uses `MAJOR.MINOR.PATCH`, exposed as `Facet.VERSION`. The version string
-lives in `src/init.luau`; checks read that value rather than maintaining copies.
+Facet uses semantic versioning, `MAJOR.MINOR.PATCH`, exposed at runtime as
+`Facet.VERSION`. The version string lives in exactly one place, `src/init.luau`;
+documents and tests read it from there, and the drift is checked mechanically.
 
-Before 1.0, a minor version may change or remove public APIs. A patch version
-contains compatible fixes, documentation updates or performance improvements.
-After 1.0, breaking changes require a major version.
+**While the library is pre-1.0**, the version is `0.MINOR.PATCH`. A minor bump may
+change public behavior or remove a surface that was already deprecated, but only
+with the notice below. A patch bump is fully compatible: fixes, documentation, and
+performance. Version 1.0.0 is cut when the success criteria hold and a second
+production game consumes the library; from then on a major bump is breaking, a
+minor is additive, and a patch is fixes.
 
-The public surface consists of the exports in `src/init.luau` and the documented
-client entry points. Other modules are internal. Applications must not require
-internal modules.
+**The public surface** is what `src/init.luau` exports, plus the documented client
+entry points under `src/client/`. Everything else is internal and may change
+without notice. A game must not require a library-internal module.
 
-Record public behavior changes in `CHANGELOG.md`. Update the API reference,
-types, guides and maintained examples in the same change. They must describe
-the current API and run against it. A retired API does not require a compatibility
-alias or a migration guide. Tests must verify the replacement behavior and its
-performance, input, accessibility and cleanup contracts.
+**Deprecations are declared, not implied.** Every retiring surface has an entry in
+`Facet.DEPRECATIONS`, a frozen machine-readable ledger beside the exports in
+`src/init.luau`. An entry carries `surface`, `since`, `removeNoEarlierThan`,
+`replacement`, and an optional `note`; property entries are generated from the
+property schema, so an entry cannot go missing when a property is retired.
+
+- A deprecated surface keeps working for **at least one minor version** after
+  `since`. `removeNoEarlierThan` names the earliest version that may delete it.
+- Every entry names its replacement, either an API or a migration note.
+- Removal happens only in a minor bump before 1.0 or a major bump after it.
+
+**One exception, and it is narrow: a surface that never worked.** The
+keeps-working promise protects behavior that a consumer could actually rely on. A
+property that never reached a render target has no working behavior to preserve,
+and accepting it for another minor version would preserve only the silent failure.
+Those entries stay in the ledger for the record and are diagnosed at construction,
+with the error naming the replacement.
+
+**Before a version's first publish**, a breaking change may land in that version
+directly, provided the change is recorded in that version's `CHANGELOG.md` entry,
+row by row, with the surface it moves and why the move breaks a caller. After a
+version's first publish, the full deprecation window above applies with no
+exception. A compatibility shim is not a substitute for the record, and where the
+old behavior was itself the defect — a silent default the fix exists to remove — a
+shim is not an option at all. The ledger cannot see two of these changes on its
+own: a property flipping to required, and a documented default changing value,
+both generate no ledger row. So `tests/api_surface.spec.luau` pins the required set
+and every documented default *by value*, and reddens when either moves without a
+changelog row.
+
+**From 1.0 onward the promise is strict.** A surface that ships in 1.x keeps
+working for the whole of 1.x. Removing or changing it takes a major version, a
+`Facet.DEPRECATIONS` entry that names its replacement, and at least one minor
+release in which both spellings work.
 
 ## 7. Reporting a problem
 

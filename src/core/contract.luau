@@ -37,7 +37,11 @@ export type Unsubscribe = () -> ()
 
 export type Cell<T> = Compose.Cell<T>
 export type Formula<T> = Compose.Formula<T>
-export type Readable<T> = Compose.Readable<T>
+-- STRUCTURAL ON PURPOSE. Compose types each method's `self` as its own table, so
+-- a `Compose.Cell<T>` does not convert to a `Compose.Readable<T>` and a spec
+-- field typed `Readable<T>` would refuse the cell every author passes it. What a
+-- control needs from a readable is `peek`, and that is all this asks for.
+export type Readable<T> = { peek: (self: any) -> T }
 export type Owner = Compose.Owner
 
 -- `use` pulls a dependency's current value and registers the dependency for

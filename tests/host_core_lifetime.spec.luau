@@ -208,4 +208,99 @@ describe("the application's dispose reaches the same teardown", function()
 	end)
 end)
 
+--[[ A THROWING CLEANUP MUST NOT STRAND THE HOST. A component's `Compose.cleanup`
+	is application code. `app.dispose()` marks the application disposed FIRST, so
+	a throw that stopped the teardown left the frame callback and the environment
+	binding connected with no second call able to finish the job. ]]
+describe("app.dispose releases the host even when a component cleanup throws", function()
+	it("disconnects the frame callback and the environment binding, then raises", function()
+		local fake = require("./lib/fake_target")
+		local frameOff, envOff = 0, 0
+		local app = Facet.new({
+			newAdapter = function()
+				return fake.new()
+			end,
+			newInputSystem = function(core: any)
+				return Facet.newActionSystem(core)
+			end,
+			bindEnv = function(env: any)
+				env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
+				return function()
+					envOff += 1
+				end
+			end,
+			connectFrame = function()
+				return function()
+					frameOff += 1
+				end
+			end,
+		})
+		local UI = app.controls
+		app.mount(function()
+			Facet.Compose.cleanup(function()
+				error("boom from a component cleanup", 0)
+			end)
+			return UI.Screen("S")({ UI.Text("T")({ text = "hi" }) })
+		end)
+		local ok, err = pcall(app.dispose)
+		-- the failure is still reported to the caller...
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "boom from a component cleanup", 1, true) ~= nil).toBe(true)
+		-- ...and the host is released exactly once
+		expect(frameOff).toBe(1)
+		expect(envOff).toBe(1)
+		-- a second dispose is a no-op, not a second release
+		app.dispose()
+		expect(frameOff).toBe(1)
+	end)
+
+	it("closes every other surface and runs every other cleanup around the one that throws", function()
+		local fake = require("./lib/fake_target")
+		local adapter = fake.new()
+		local frameOff, cleaned = 0, {}
+		local app = Facet.new({
+			newAdapter = function()
+				return adapter
+			end,
+			newInputSystem = function(core: any)
+				return Facet.newActionSystem(core)
+			end,
+			bindEnv = function(env: any)
+				env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
+				return function() end
+			end,
+			connectFrame = function()
+				return function()
+					frameOff += 1
+				end
+			end,
+		})
+		local UI = app.controls
+		local function surface(name: string, throws: boolean)
+			return function()
+				Facet.Compose.cleanup(function()
+					cleaned[name] = true
+					if throws then
+						error(`boom from {name}`, 0)
+					end
+				end)
+				return UI.Screen(name)({ UI.Text("T")({ text = name }) })
+			end
+		end
+		app.mount(surface("First", false))
+		app.mount(surface("Broken", true))
+		app.presentModal(surface("Sheet", false))
+		expect(adapter.liveCount() > 0).toBe(true)
+		local ok, err = pcall(app.dispose)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "boom from Broken", 1, true) ~= nil).toBe(true)
+		-- every surface was torn down, in spite of the one in the middle
+		expect(cleaned.First).toBe(true)
+		expect(cleaned.Broken).toBe(true)
+		expect(cleaned.Sheet).toBe(true)
+		expect(adapter.liveCount()).toBe(0)
+		expect(frameOff).toBe(1)
+	end)
+end)
+
 local _ = harness

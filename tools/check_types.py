@@ -152,8 +152,11 @@ def negative_probe(entries):
 # per module: crafting a "wrong shape" literal generically for 27 different
 # Spec tables is not worth it once the answer is uniform.
 _EROSION_PROBES = [
-    ("Slider", 'app.controls.Slider({ value = "nope" })'),
-    ("NavigationStack", 'app.controls.NavigationStack({ path = 42, root = {}, destinations = {}, backLabel = "x" })'),
+    # The NAMED form is the field-checked one (src/control_types.luau says why).
+    ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
+    ("NavigationStack", 'app.controls.NavigationStack("N")({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
+    ("Button", 'app.controls.Button("B")({ label = 42 })'),
+    ("Toggle", 'app.controls.Toggle("T")({ value = "on" })'),
 ]
 
 
@@ -170,10 +173,17 @@ def field_erosion_check(entries):
         fh.write("\n".join(lines) + "\n")
     try:
         own, _ = analyze([path])
-        rejectedAny = len(own) > 0
-        return (not rejectedAny), (
-            "0 diagnostics on wrongly-typed field probes for Slider.value and "
-            "NavigationStack.path" if not rejectedAny else f"{len(own)} diagnostic(s): {own}"
+        # EVERY probe must draw its own diagnostic: one rejection must not vouch
+        # for the rest. Line 4 is the first probe (three header lines precede).
+        missed = []
+        for offset, (name, _call) in enumerate(_EROSION_PROBES):
+            line = 4 + offset
+            if not any(f"({line}," in ln for ln in own):
+                missed.append(name)
+        return (len(missed) > 0), (
+            "no diagnostic for a wrongly-typed field on: " + ", ".join(missed)
+            if missed
+            else f"{len(_EROSION_PROBES)} wrongly-typed fields rejected"
         )
     finally:
         os.unlink(path)
@@ -248,14 +258,13 @@ def run():
     if eroded is None:
         notes.append(f"field-erosion check: {erosionDetail}")
     elif eroded:
-        notes.append(
-            "field-erosion check CONFIRMED: composite()'s indirection in "
-            f"{CONTROLS_FILE} still erases a build function's declared Spec type at the "
-            "app.controls boundary (" + erosionDetail + "). This is a real gap in the "
-            "ported authoring surface, not a tooling problem — a wrongly-typed field "
-            "reaches no diagnostic until it is used inside the control's own module. "
-            "Not something this check can fix from tools/; the fix is generic typing "
-            "through composite()/construct() in src/render/compose_controls.luau."
+        problems.append(
+            "field-level type checking is ERODED at the app.controls boundary: "
+            + erosionDetail
+            + ". A wrongly-typed spec field must fail here. The constructor types live in "
+            "src/control_types.luau (`Controls`, `Constructor<S>`) and reach authors through "
+            "`Facet.new(): App`; a control missing from `Controls`, or a spec widened to `any`, "
+            "is the usual cause."
         )
     else:
         notes.append(

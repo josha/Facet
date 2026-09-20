@@ -9,12 +9,13 @@
 -- THIS IS NOT A DEEP TYPE WITNESS. `tools/check_types.py` found empirically
 -- (2026-09-20) that `composite()`'s indirection in compose_controls.luau
 -- erases every build function's declared `Spec` type at this boundary: even
--- `app.controls.Slider({ value = "nope" })`, where slider.luau declares
+-- `app.controls.Slider("W")({ value = "nope" })`, where slider.luau declares
 -- `spec: Spec`, draws no diagnostic here. The per-field annotations below are
 -- for a human reader and for the modules that still export their `Spec` type,
 -- not because the analyzer enforces them through `app.controls`.
 
 local Facet = require("../../src")
+local navigationStackControl = require("../../src/controls/navigation_stack")
 local tableControl = require("../../src/controls/table")
 local sliderControl = require("../../src/controls/slider")
 local stepperControl = require("../../src/controls/stepper")
@@ -33,26 +34,24 @@ local calloutControl = require("../../src/controls/callout")
 
 local app = Facet.new()
 
-local buttonSpec = {
+local _button = app.controls.Button("W")({
 	label = "Repeat",
 	busy = Facet.Compose.cell(false),
 	repeatDelay = 0.4,
 	shortcut = { keyCode = "F6", modifiers = { shift = true } },
 	dialogAction = "default",
 	onActivate = function() end,
-}
-local _button = app.controls.Button(buttonSpec)
+})
 
-local toggleSpec = {
+local _toggle = app.controls.Toggle("W")({
 	label = "Select all",
 	value = Facet.Compose.cell(false),
 	mixed = Facet.Compose.cell(true),
 	presentation = "checkbox",
 	onChange = function(_value: boolean) end,
-}
-local _toggle = app.controls.Toggle(toggleSpec)
+})
 
-local comboSpec = {
+local _combo = app.controls.ComboBox("W")({
 	value = Facet.Compose.cell("a"),
 	text = Facet.Compose.cell("Alpine"),
 	options = { { id = "a", label = "Alpine", description = "Mountain" } },
@@ -60,18 +59,17 @@ local comboSpec = {
 		return #text > 2, "Use at least three characters."
 	end,
 	onChange = function(_value: string) end,
-}
-local _combo = app.controls.ComboBox(comboSpec)
+})
 
-local splitSpec = {
+local _split = app.controls.SplitButton("W")({
 	label = "Start",
 	onActivate = function() end,
 	items = { { id = "practice", label = "Practice", onSelect = function() end } },
-}
-local _split = app.controls.SplitButton(splitSpec)
+})
 
-local navigationSpec = {
-	path = Facet.Compose.cell({ { id = "details", value = { name = "Alder" } } }),
+local _navigation = app.controls.NavigationStack("W")({
+	-- a path is a cell of entries; say so, because a cell is invariant in what it holds
+	path = Facet.Compose.cell({ { id = "details", value = { name = "Alder" } } } :: { navigationStackControl.Entry }),
 	backLabel = "Back",
 	root = {
 		title = Facet.Compose.cell("Home"),
@@ -88,8 +86,7 @@ local navigationSpec = {
 		},
 	},
 	transition = { enter = "slide-left", distance = 100 },
-}
-local _navigation = app.controls.NavigationStack(navigationSpec)
+})
 
 local tableControlSpec: tableControl.Spec = nil :: any
 local _table = app.controls.Table(tableControlSpec)
@@ -105,30 +102,28 @@ local _picker = app.controls.Picker(pickerControlSpec)
 
 local initialPickerOptions: { pickerControl.Option } = { { id = "a", value = "a", label = "Alpine" } }
 local livePickerOptions = Facet.Compose.cell(initialPickerOptions)
-local livePickerSpec: pickerControl.Spec = {
+local _livePicker = app.controls.Picker("W")({
 	options = livePickerOptions,
 	selected = Facet.Compose.cell("a"),
 	presentation = "radio",
-}
-local _livePicker = app.controls.Picker(livePickerSpec)
+})
 
 local popupButtonSpec: popupMenuControl.Spec = nil :: any
 local _popupbutton = app.controls.PopupButton(popupButtonSpec)
 
-local multiPopupSpec: popupMenuControl.Spec = {
+local _multiPopup = app.controls.PopupButton("W")({
 	options = { { id = "a", label = "Alpine" } },
 	selectedValues = Facet.Compose.cell({ a = true }),
 	onChange = function(chosen: { [string]: boolean })
 		local _selected: boolean? = chosen.a
 	end,
-}
-local _multiPopup = app.controls.PopupButton(multiPopupSpec)
+})
 
 local menuControlSpec: menuControl.Spec = nil :: any
 local _menu = app.controls.Menu(menuControlSpec)
 
-local statefulMenuSpec: menuControl.Spec = {
-	trigger = app.controls.Button({ label = "Filters" }) :: any,
+local _statefulMenu = app.controls.Menu("W")({
+	trigger = app.controls.Button("W")({ label = "Filters" }) :: any,
 	items = {
 		{
 			id = "a",
@@ -138,8 +133,7 @@ local statefulMenuSpec: menuControl.Spec = {
 			onChange = function(_checked: boolean) end,
 		},
 	},
-}
-local _statefulMenu = app.controls.Menu(statefulMenuSpec)
+})
 
 local tabViewSpec: tabView.Spec = nil :: any
 local _tabview = app.controls.TabView(tabViewSpec)
@@ -147,7 +141,7 @@ local _tabview = app.controls.TabView(tabViewSpec)
 local labelControlSpec: labelControl.Spec = nil :: any
 local _label = app.controls.Label(labelControlSpec)
 
-local _chip = app.controls.Chip({ selected = Facet.Compose.cell(false), label = "Tag" })
+local _chip = app.controls.Chip("W")({ selected = Facet.Compose.cell(false), label = "Tag" })
 
 local ratingControlSpec: ratingControl.Spec = nil :: any
 local _rating = app.controls.Rating(ratingControlSpec)
@@ -155,7 +149,7 @@ local _rating = app.controls.Rating(ratingControlSpec)
 local textInputSpec: textInputControl.Spec = nil :: any
 local _textinput = app.controls.TextInput(textInputSpec)
 
-local numericTextSpec: textInputControl.Spec = {
+local _numericText = app.controls.TextInput("W")({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),
 	presentation = "number",
@@ -169,8 +163,7 @@ local numericTextSpec: textInputControl.Spec = {
 	end,
 	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
 	onCancel = function() end,
-}
-local _numericText = app.controls.TextInput(numericTextSpec)
+})
 
 local progressViewSpec: progressView.Spec = nil :: any
 local _progressview = app.controls.ProgressView(progressViewSpec)
@@ -185,24 +178,24 @@ local collapsibleControl = require("../../src/controls/collapsible_view")
 local collapsibleSpec: collapsibleControl.Spec = nil :: any
 local _collapsible = app.controls.CollapsibleView(collapsibleSpec)
 
-local _virtuallist = app.controls.VirtualList({
+local _virtuallist = app.controls.VirtualList("W")({
 	rows = Facet.Compose.cell({ "a" }),
 	key = function(item: string)
 		return item
 	end,
 	cell = function(item: string)
-		return app.controls.Text(item)
+		return app.controls.Text({ text = item })
 	end,
 	itemExtent = 40,
 })
 
-local _virtualgrid = app.controls.VirtualGrid({
+local _virtualgrid = app.controls.VirtualGrid("W")({
 	items = Facet.Compose.cell({ "a" }),
 	key = function(item: string)
 		return item
 	end,
 	cell = function(item: string)
-		return app.controls.Text(item)
+		return app.controls.Text({ text = item })
 	end,
 	columns = 2,
 	itemExtent = 40,
@@ -214,7 +207,8 @@ local _rowactions = app.controls.RowActions(rowActionsSpec)
 local calloutControlSpec: calloutControl.Spec = nil :: any
 local _callout = app.controls.Callout(calloutControlSpec)
 
-local _asyncimage = app.controls.AsyncImage({ id = "Art", scope = nil :: any, provider = nil :: any, key = "image" })
+local _asyncimage =
+	app.controls.AsyncImage("W")({ id = "Art", scope = nil :: any, provider = nil :: any, key = "image" })
 
 local radialControl = require("../../src/controls/radial_menu")
 local radialSpec: radialControl.Spec = nil :: any
