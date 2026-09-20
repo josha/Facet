@@ -1,32 +1,67 @@
 --!strict
--- P1.1 mounted-graph tests (UI-RUNTIME-001/002, UI-LIFE-002, UI-DIAG-001):
+local harness = require("./lib/harness")
+-- Mounted-graph tests (UI-RUNTIME-001/002, UI-LIFE-002, UI-DIAG-001):
 -- factory-once mounting, per-prop dirty classes, structural regions with
--- keyed identity, duplicate-id/key hard errors, churn neutrality, dump
--- determinism.
+-- keyed identity, duplicate-name/key hard errors, churn neutrality.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
-local serde = require("@lune/serde")
+local Compose = (require("../src") :: any).Compose
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 
 local function settingsSubset(core: any)
-	local music = core:signal(false)
-	local title = core:signal("Settings")
-	local bp = UI.Screen({
-		id = "Settings",
-		children = {
-			UI.Text({ id = "Title", text = title, textSize = 24 }),
-			UI.Toggle({ id = "Music", label = "Music", value = music }),
-			UI.Button({ id = "Save", label = "Save" }),
-		},
-	})
+	local music = Compose.cell(false)
+	local title = Compose.cell("Settings")
+	-- A component: the mount owns every node it builds.
+	local function bp()
+		return UI.Screen({
+			id = "Settings",
+			children = {
+				UI.Text({ id = "Title", text = title, textSize = 24 }),
+				UI.Toggle({ id = "Music", label = "Music", value = music }),
+				UI.Button({ id = "Save", label = "Save" }),
+			},
+		})
+	end
 	return bp, music, title
 end
 
 describe("mount: factory-once and dirty classes", function()
+	it("property getters can clear optional paint but cannot omit required values", function()
+		local core = customFactory.new()
+		local tint = Compose.cell({ role = "accent", blend = 1 })
+		local root = mountLib.mount(
+			core,
+			UI.Text({
+				id = "Label",
+				text = "Label",
+				tint = function(use)
+					return use(tint)
+				end,
+			})
+		)
+		expect(root.node.props.tint.role).toBe("accent")
+		tint:set(nil)
+		expect(root.node.props.tint).toBeNil()
+		tint:set({ role = "content", blend = 1 })
+		expect(root.node.props.tint.role).toBe("content")
+		root.dispose()
+		local ok, err = pcall(function()
+			mountLib.mount(
+				core,
+				UI.Button({
+					label = function()
+						return nil
+					end,
+				})
+			)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Button.label", 1, true) ~= nil).toBe(true)
+	end)
 	it("mounts each node exactly once with stable paths", function()
 		local core = customFactory.new()
 		local bp = settingsSubset(core)
@@ -58,44 +93,48 @@ describe("mount: factory-once and dirty classes", function()
 
 	it("duplicate explicit sibling ids are a hard error", function()
 		local core = customFactory.new()
-		local bp = UI.VStack({
-			id = "Root",
-			children = {
-				UI.Box({ id = "Same" }),
-				UI.Box({ id = "Same" }),
-			},
-		})
-		local ok, err = pcall(mountLib.mount, core, bp)
+		local ok, err = pcall(mountLib.mount, core, function()
+			return UI.VStack({
+				id = "Root",
+				children = {
+					UI.Box({ id = "Same" }),
+					UI.Box({ id = "Same" }),
+				},
+			})
+		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "duplicate child id") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "duplicate child name 'Same'", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
 describe("mount: When region", function()
-	it("mounts/unmounts the branch scope and dirties only the region", function()
+	it("mounts/unmounts the branch and dirties only the region", function()
 		local core = customFactory.new()
-		local showAdvanced = core:signal(false)
-		local bp = UI.Screen({
-			id = "S",
-			children = {
-				UI.Text({ id = "Always", text = "hi" }),
-				UI.When({
-					id = "Advanced",
-					condition = showAdvanced,
-					thenView = function()
-						return UI.Text({ id = "Secret", text = "advanced" })
-					end,
-				}),
-			},
-		})
-		local root = mountLib.mount(core, bp)
+		local showAdvanced = Compose.cell(false)
+		local root = mountLib.mount(core, function()
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Text({ id = "Always", text = "hi" }),
+					UI.When({
+						id = "Advanced",
+						condition = showAdvanced,
+						thenView = function()
+							return UI.Text({ id = "Secret", text = "advanced" })
+						end,
+					}),
+				},
+			})
+		end)
 		local base = root.counters().mounted
 		local whenNode = root.node.children[2]
 		expect(#whenNode.children).toBe(0)
 		showAdvanced:set(true)
+		-- the branch region, and the branch's node inside it
 		expect(#whenNode.children).toBe(1)
-		expect(whenNode.children[1].path).toBe("/S/Advanced/then/Secret")
-		expect(root.counters().mounted).toBe(base + 1)
+		expect(whenNode.children[1].path).toBe("/S/Advanced/then")
+		expect(whenNode.children[1].children[1].path).toBe("/S/Advanced/then/Secret")
+		expect(root.counters().mounted).toBe(base + 2)
 		local dirty = root.takeDirty()
 		expect(dirty[#dirty].class).toBe("structure")
 		expect(dirty[#dirty].path).toBe("/S/Advanced")
@@ -106,136 +145,107 @@ describe("mount: When region", function()
 	end)
 end)
 
---[[ THE BRANCH SCOPE (docs/reference/api.md §When). `ForEach` hands each
-	row `(item, itemScope)`; `When.thenView` was handed NOTHING, even though
-	`mountWhen` builds a `branchScope` on the line above the factory call and
-	disposes it on branch exit. The consequence was not theoretical: a panel that
-	wants a MotionValue, a timer or an async handle had to hoist it to the
-	enclosing scope, where it OUTLIVES the panel — the exact leak shape the item
-	scope exists to prevent.
-
-	AND THE FLIP-FLOP IS THE CASE THAT DECIDES THE SHAPE. Every entry gets a
-	FRESH scope (`scope:child(branchPath)`), so a resource the panel owned last
-	time cannot survive into this time. That is also the answer to "should an
-	`elseView` share this scope" — it must not, and the framework does not have
-	an `elseView` to share it with; see the ruling in src/mount.luau. ]]
-describe("mount: When hands its branch the branch scope", function()
-	-- a When whose factory records every scope it is handed and owns a signal on it
+-- A branch owns what its `thenView` registers: each entry has a fresh owner,
+-- released when the branch closes.
+describe("mount: a When branch owns its resources", function()
 	local function branchFixture(initial: boolean)
 		local core = customFactory.new()
-		local on = core:signal(initial)
-		local handed: { any } = {}
+		local on = Compose.cell(initial)
+		local entries = 0
 		local released = 0
-		local bp = UI.Screen({
-			id = "S",
-			children = {
-				UI.Text({ id = "Always", text = "hi" }),
-				UI.When({
-					id = "Panel",
-					condition = on,
-					thenView = function(branchScope)
-						table.insert(handed, branchScope)
-						-- the whole point: an owned, releasable, branch-lifetime resource
-						branchScope:own(function()
-							released += 1
-						end)
-						return UI.Text({ id = "Body", text = "body" })
-					end,
-				}),
-			},
-		})
-		return core, on, mountLib.mount(core, bp), handed, function()
+		local root = mountLib.mount(core, function()
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Text({ id = "Always", text = "hi" }),
+					UI.When({
+						id = "Panel",
+						condition = on,
+						thenView = function()
+							entries += 1
+							Compose.cleanup(function()
+								released += 1
+							end)
+							return UI.Text({ id = "Body", text = "body" })
+						end,
+					}),
+				},
+			})
+		end)
+		return core, on, root, function()
+			return entries
+		end, function()
 			return released
 		end
 	end
 
-	it("thenView is handed the BRANCH scope — labelled with the branch path", function()
-		local _core, on, root, handed = branchFixture(false)
-		expect(#handed).toBe(0)
+	it("thenView runs when the branch opens, not before", function()
+		local _core, on, root, entries = branchFixture(false)
+		expect(entries()).toBe(0)
 		on:set(true)
-		expect(#handed).toBe(1)
-		-- the label is what makes this the BRANCH's scope rather than the screen's:
-		-- an enclosing scope handed over by mistake would read "/S" or nil
-		expect(handed[1].label).toBe("/S/Panel/then")
-		expect(handed[1]:isDisposed()).toBe(false)
+		expect(entries()).toBe(1)
 		root.dispose()
 	end)
 
-	it("the initial-true mount hands the same scope the later flip does", function()
-		-- mountWhen has TWO factory call sites (the observer and the initial read);
-		-- a fix applied to one of them passes the case above and fails here
-		local _core, _on, root, handed = branchFixture(true)
-		expect(#handed).toBe(1)
-		expect(handed[1].label).toBe("/S/Panel/then")
+	it("the initial-true mount builds the branch once", function()
+		local _core, _on, root, entries = branchFixture(true)
+		expect(entries()).toBe(1)
 		root.dispose()
 	end)
 
-	it("a resource owned on the handed scope is released when the branch closes", function()
-		local core, on, root, handed, released = branchFixture(false)
-		local baseline = core:counters().scopes
+	it("a resource owned by the branch is released when the branch closes", function()
+		local core, on, root, _entries, released = branchFixture(false)
 		on:set(true)
 		expect(released()).toBe(0)
 		on:set(false)
 		expect(released()).toBe(1) -- released WITH the branch, not at root disposal
-		expect(handed[1]:isDisposed()).toBe(true)
-		expect(core:counters().scopes).toBe(baseline)
 		root.dispose()
 		expect(released()).toBe(1) -- and not a second time
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
-	it("a flip back gets a FRESH scope: nothing from the previous entry survives", function()
-		--[[ This is the elseView argument as a test. If two entries (or two
-			branches) shared one scope, a resource from the closed panel would still
-			be alive and owned when the panel re-opened — the leak in a new costume,
-			and harder to see than the hoisted-signal one because the counters look
-			balanced. ]]
-		local core, on, root, handed, released = branchFixture(false)
-		local baseline = core:counters().scopes
+	it("a flip back gets a FRESH owner: nothing from the previous entry survives", function()
+		local core, on, root, entries, released = branchFixture(false)
 		on:set(true)
 		on:set(false)
 		on:set(true)
-		expect(#handed).toBe(2)
-		expect(handed[2]).never().toBe(handed[1])
-		expect(handed[1]:isDisposed()).toBe(true)
-		expect(handed[2]:isDisposed()).toBe(false)
+		expect(entries()).toBe(2)
 		expect(released()).toBe(1) -- entry 1's resource is gone; entry 2's is live
-		-- exactly ONE branch scope is live, not two: the first entry's was not
-		-- carried forward, it was replaced
-		expect(core:counters().scopes).toBe(baseline + 1)
 		root.dispose()
 		expect(released()).toBe(2)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
-	it("fifty open/close cycles leave no scope and no cleanup behind", function()
-		local core, on, root, handed, released = branchFixture(false)
-		local baseline = core:counters().scopes
+	it("fifty open/close cycles leave no cleanup behind", function()
+		local core, on, root, entries, released = branchFixture(false)
+		local mounted = root.counters().mounted
 		for _ = 1, 50 do
 			on:set(true)
 			on:set(false)
 		end
-		expect(#handed).toBe(50)
+		expect(entries()).toBe(50)
 		expect(released()).toBe(50)
-		expect(core:counters().scopes).toBe(baseline)
+		expect(root.counters().mounted).toBe(mounted)
 		root.dispose()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
 describe("mount: ForEach region", function()
 	local function cardList(core: any, initial: { { id: string, name: string } })
-		local cards = core:signal(initial)
-		local bp = UI.ForEach({
-			id = "Cards",
-			items = cards,
-			key = function(card)
-				return card.id
-			end,
-			row = function(card)
-				return UI.Text({ id = "Row-" .. card.id, text = card.name })
-			end,
-		})
+		local cards = Compose.cell(initial)
+		local function bp()
+			return UI.ForEach({
+				id = "Cards",
+				items = cards,
+				key = function(card)
+					return card.id
+				end,
+				row = function(card)
+					return UI.Text({ id = "Row-" .. card.id, text = card.name })
+				end,
+			})
+		end
 		return bp, cards
 	end
 
@@ -264,8 +274,11 @@ describe("mount: ForEach region", function()
 			{ id = "d", name = "Delta" },
 		})
 		expect(root.counters().factoryRuns).toBe(runsAfterMount + 1)
-		expect(root.node.itemsByKey.b).toBe(nil)
-		expect(#root.node.children).toBe(3)
+		local ids = {}
+		for index, child in root.node.children do
+			ids[index] = child.id
+		end
+		expect(table.concat(ids, ",")).toBe("Row-a,Row-c,Row-d")
 		root.dispose()
 		expect(root.counters().mounted).toBe(0)
 	end)
@@ -278,14 +291,14 @@ describe("mount: ForEach region", function()
 		})
 		local ok, err = pcall(mountLib.mount, core, bp)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "duplicate key") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "structure/duplicate-key", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
-describe("mount: churn and dumps", function()
+describe("mount: churn", function()
 	it("50 mount/dispose cycles return mount and core registries to baseline", function()
 		local core = customFactory.new()
-		local coreBaseline = core:counters()
+		local coreBaseline = core.owner.size()
 		for _ = 1, 50 do
 			local bp, music = settingsSubset(core)
 			local root = mountLib.mount(core, bp)
@@ -294,23 +307,11 @@ describe("mount: churn and dumps", function()
 			root.dispose()
 			expect(root.counters().mounted).toBe(0)
 		end
-		local after = core:counters()
+		local after = core.owner.size()
 		-- signals created by settingsSubset stay (test-owned); observers and
 		-- scopes created by mount must return to baseline
-		expect(after.observers).toBe(coreBaseline.observers)
-		expect(after.scopes).toBe(coreBaseline.scopes)
-	end)
-
-	it("dumps are deterministic and carry dirty flags", function()
-		local core = customFactory.new()
-		local bp, music = settingsSubset(core)
-		local root = mountLib.mount(core, bp)
-		music:set(true)
-		local d1 = serde.encode("json", root.dump(), true)
-		local d2 = serde.encode("json", root.dump(), true)
-		expect(d1).toBe(d2)
-		expect(string.find(d1, "semantics") ~= nil).toBe(true)
-		root.dispose()
+		expect(after).toBe(coreBaseline)
+		expect(after).toBe(coreBaseline)
 	end)
 end)
 

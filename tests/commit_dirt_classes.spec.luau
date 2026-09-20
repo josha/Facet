@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE COMMIT'S DIRTY SET IS NOT THE BUILD'S (wicked-fast T5b).
 
 	After T5 the six position-independent walks stop at a moved subtree — but not at
@@ -61,12 +62,13 @@ local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
 local fs = require("@lune/fs")
 local schema = require("../src/blueprint_schema")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES = scene.PLATES
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
@@ -552,7 +554,7 @@ local function driveWorld(
 	if not control then
 		a, b = valuesFor(prop, keepStretch)
 	end
-	local sig = core:signal(a)
+	local sig = Compose.cell(a)
 	local onParent = DRIVEN_ON_PARENT[prop] == true and not control
 	-- the three classes the four arrange-blind walks write for, and nothing else
 	local function leaf(kind: string, id: string, bind: boolean): any
@@ -832,7 +834,7 @@ describe("T5b audit, half three: driving each dropped prop leaves the four walks
 				local env = environment.new(core)
 				env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 				local a, b = valuesFor(prop)
-				local sig = core:signal(a)
+				local sig = Compose.cell(a)
 				local onParent = DRIVEN_ON_PARENT[prop] == true
 				local function leafOf(kind: string, id: string, bind: boolean): any
 					local props: any

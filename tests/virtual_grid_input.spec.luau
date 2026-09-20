@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ VirtualGrid four-input story (ui_todo §0; matrix §1c).
 
 	Proves the presenter AUTO-COMPOSES the lazy grid's pointer / touch / keyboard /
@@ -24,7 +25,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_grid = require("../src/controls/virtual_grid")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeItems(n: number): { { id: string, label: string } }
 	local items = table.create(n)
@@ -38,13 +40,13 @@ end
 -- 4 lanes x 40px lines in a 400px viewport = 10 visible lines, overscan 2.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local items = core:signal(makeItems(options.count or 400))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local items = Compose.cell(makeItems(options.count or 400))
 	local activations: { any } = {}
 	local grid = virtual_grid.build(Facet, core, {
 		id = "VG",
@@ -58,13 +60,13 @@ local function world(opts: any?)
 		overscan = options.overscan or 2,
 		width = { type = "fixed", px = 320 },
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
 	local handle = pres.present(screen) -- ZERO present opts
 	pres.refresh()
 	local unbindScroll = grid.bindNativeScroll(handle.controller)
@@ -89,11 +91,11 @@ end
 describe("VirtualGrid pointer input (no consumer wiring)", function()
 	it("VirtualGrid pointer: an engine scroll (driveScroll) slides the window", function()
 		local w = world()
-		expect(w.grid.scrollTop:get()).toBe(0)
+		expect(w.grid.scrollTop:peek()).toBe(0)
 		-- the engine ScrollingFrame scrolled — wheel, drag and momentum are all
 		-- native; its CanvasPosition mirrors back through observeScroll -> scrollTop
 		w.adapter.driveScroll("/S/VG", { x = 0, y = 400 })
-		expect(w.grid.scrollTop:get()).toBe(400)
+		expect(w.grid.scrollTop:peek()).toBe(400)
 		w.pres.refresh()
 		-- ten lines down: line 1's cells left, line 11's arrived
 		expect(w.grid.debugWindow().i1).toBe(nil)
@@ -125,7 +127,7 @@ describe("VirtualGrid touch input (no consumer wiring)", function()
 		-- a one-finger pan is a NATIVE ScrollingFrame gesture; headlessly the engine
 		-- drive stands in for the fling. A scroll is never a tap.
 		w.adapter.driveScroll("/S/VG", { x = 0, y = 200 })
-		expect(w.grid.scrollTop:get()).toBe(200)
+		expect(w.grid.scrollTop:peek()).toBe(200)
 		w.pres.refresh()
 		expect(w.grid.debugWindow().i25).toBe(true)
 		expect(#w.activations).toBe(0)
@@ -150,16 +152,16 @@ end)
 describe("VirtualGrid keyboard input (no consumer wiring)", function()
 	it("VirtualGrid keyboard: Left/Right steps cell-by-cell ACROSS a line", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i1")) -- auto-focus first cell
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i1")) -- auto-focus first cell
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i2"))
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i3"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i3"))
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i2"))
 	end)
 
 	it("VirtualGrid keyboard: Down moves a whole LINE, not one cell", function()
@@ -168,16 +170,16 @@ describe("VirtualGrid keyboard input (no consumer wiring)", function()
 			so ±1 is a sideways step; Down has to be ±lanes or the ring walks
 			visually rightward while the player presses down. ]]
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i1"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i1"))
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5")) -- NOT i2
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5")) -- NOT i2
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i9"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i9"))
 		w.system.deviceKey("Up", true)
 		w.system.deviceKey("Up", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5"))
 	end)
 
 	it("VirtualGrid keyboard: focus past the window edge scrolls the line into view", function()
@@ -187,12 +189,12 @@ describe("VirtualGrid keyboard input (no consumer wiring)", function()
 			w.system.deviceKey("Down", false)
 			w.pres.refresh()
 		end
-		local focused = w.pres.focus.focused:get() :: string
+		local focused = w.pres.focus.focused:peek() :: string
 		local key = string.match(focused, "%[(.-)%]/Cell/Hit$") :: string
 		local index = tonumber(string.match(key, "i(%d+)")) :: number
 		expect(index).toBe(1 + 14 * 4) -- fourteen whole lines down
 		-- ...and the focused cell's LINE was scrolled into the visible band
-		local top = w.grid.scrollTop:get()
+		local top = w.grid.scrollTop:peek()
 		expect(top > 0).toBe(true)
 		local lineTop = 14 * 40
 		expect(lineTop >= top).toBe(true)
@@ -213,8 +215,8 @@ describe("VirtualGrid keyboard input (no consumer wiring)", function()
 			w.system.deviceKey("Right", false)
 			w.pres.refresh()
 		end
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i44")) -- line 11, past the first ten
-		local top = w.grid.scrollTop:get()
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i44")) -- line 11, past the first ten
+		local top = w.grid.scrollTop:peek()
 		expect(top > 0).toBe(true)
 		local lineTop = 10 * 40
 		expect(lineTop >= top).toBe(true)
@@ -251,7 +253,7 @@ describe("VirtualGrid keyboard input (no consumer wiring)", function()
 		local w = world()
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false) -- focus i5
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		expect(#w.activations).toBe(1)
@@ -264,23 +266,23 @@ end)
 describe("VirtualGrid gamepad input (no consumer wiring)", function()
 	it("VirtualGrid gamepad: DPadRight steps a cell and DPadDown steps a whole line", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i1"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i1"))
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i2"))
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i6"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i6"))
 		w.system.deviceKey("DPadUp", true)
 		w.system.deviceKey("DPadUp", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i2"))
 	end)
 
 	it("VirtualGrid gamepad: ButtonA activates the focused cell", function()
 		local w = world()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false) -- focus i5
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5"))
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		expect(#w.activations).toBe(1)

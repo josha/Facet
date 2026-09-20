@@ -51,13 +51,13 @@
 	still the one thing a consumer can say about the mirror.
 
 	THERE IS NO OPT-OUT KEY, and that is deliberate. The only collection whose
-	scrolling is genuinely owned elsewhere is a `newTable{ scrolls = false }` block
+	scrolling is genuinely owned elsewhere is a `UI.Table{ scrolls = false }` block
 	table, which owns no `ScrollingFrame` and already publishes that fact as
 	`api.scrollPath() == nil` (ruling 3, O-10). `noticeMount` passes that nil
 	straight through, and the table's own `install` mirrors nothing while still
 	binding its tray-close to the real scrolling ancestor — so the opt-out is the
 	control's own published scroll path, one general mechanism, expressed where the
-	answer already lived. A `newVirtualList`/`newVirtualGrid` always mounts its own
+	answer already lived. A `UI.VirtualList`/`UI.VirtualGrid` always mounts its own
 	`ScrollView`, so neither has such a state to be in.
 
 	Public interface: `nativeScrollBinding.new(install) -> { bind, noticeController,
@@ -72,7 +72,7 @@ export type Binding = {
 	-- from the contribution's `bindController`
 	noticeController: (controller: any) -> (),
 	-- from the contribution's `syncGeometry`. `path` is the control's OWN scroll
-	-- host, and nil means it has none — a `newTable{ scrolls = false }` block
+	-- host, and nil means it has none — a `UI.Table{ scrolls = false }` block
 	-- table. `install` still runs for a nil path, because a control with no canvas
 	-- of its own may still have something to wire against the page that carries it
 	-- (Table's row-actions tray-close); it simply mirrors nothing.

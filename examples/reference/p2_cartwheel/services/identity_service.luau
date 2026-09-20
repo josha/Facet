@@ -14,11 +14,11 @@ local data = require("../content/data")
 local identity_service = {}
 
 function identity_service.new(opts: any): any
-	local core = opts.core
+	local Compose = opts.Compose
 	local self: any = {}
 
-	local signedIn = core:signal(false)
-	local guildName = core:signal("")
+	local signedIn = Compose.cell(false)
+	local guildName = Compose.cell("")
 	self.signedIn = signedIn
 	self.guildName = guildName
 
@@ -51,13 +51,10 @@ function identity_service.new(opts: any): any
 	end
 
 	function self.dump(): any
-		return { signedIn = signedIn:get(), guildName = guildName:get() }
+		return { signedIn = signedIn:peek(), guildName = guildName:peek() }
 	end
 
-	function self.dispose()
-		signedIn:dispose()
-		guildName:dispose()
-	end
+	function self.dispose() end
 
 	return self
 end

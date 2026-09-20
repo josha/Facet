@@ -11,96 +11,82 @@ return {
 	title = "Path2D ring + needle (NS-A7)",
 	ledgerRows = { "NS-A7" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.View
+		local UI, Compose = ctx.UI, ctx.Compose
 		local shapes = ctx.Facet.pathShapes
-		local progress, setProgress, ringPoints
-		local Gauge = ctx.Facet.component(function(ui)
-			progress, setProgress = ui.state(0.25)
-			ringPoints = ui.memo(function()
-				local p = math.clamp(progress(), 0, 1)
-				return shapes.arc(0, 360 * p, { segments = 8, radius = 0.9 })
-			end)
-			local needlePoints = function()
-				return shapes.needle(360 * math.clamp(progress(), 0, 1), { innerRadius = 0.1, radius = 0.62 })
-			end
-			local label = function()
-				return string.format("progress %d%%", progress() * 100 + 0.5)
-			end
+		local progress = Compose.cell(0.25)
+		local ringPoints = Compose.formula(function(use)
+			local p = math.clamp(use(progress), 0, 1)
+			return shapes.arc(0, 360 * p, { segments = 8, radius = 0.9 })
+		end)
+		local function needlePoints(use)
+			return shapes.needle(360 * math.clamp(use(progress), 0, 1), { innerRadius = 0.1, radius = 0.62 })
+		end
+		local function label(use)
+			return string.format("progress %d%%", use(progress) * 100 + 0.5)
+		end
+		local GAUGE = { type = "fixed", px = 180 }
 
-			-- The 180x180 gauge is a fixed-size decorative square (the ring reads
-			-- wrong at any other aspect), so it cannot itself shrink to fit a short
-			-- landscape phone the way `scroll_host`'s demo regions do. The page as
-			-- a whole is what overflowed (Title + Value + a 180px gauge taller than
-			-- a short landscape safe area — overflow_sweep, device bug round
-			-- 2026-08-12), and there is no pre-existing ScrollView here to nest
-			-- inside, so the shipped precedent applies directly (`adaptive_controls`
-			-- BodyScroll / tutorial example 01): host the column in a `fill`
-			-- ScrollView so it's reachable instead of clipped off the bottom.
-			return UI.Screen({
-				id = "PathRing",
+		-- The 180x180 gauge is a fixed-size decorative square (the ring reads
+		-- wrong at any other aspect), so it cannot shrink to fit a short landscape
+		-- phone. The column is hosted in a `fill` ScrollView so it stays reachable
+		-- instead of clipping off the bottom.
+		local function screen()
+			return UI.Screen("PathRing")({
 				padding = "m",
 
-				UI.ScrollView({
-					id = "Page",
+				UI.ScrollView("Page")({
 					axis = "y",
 					gap = "s",
 					width = UI.fill(),
 					height = UI.fill(),
 
-					UI.Text({ id = "Title", text = "Path2D progress ring", textSize = 22 }),
-					UI.Text({ id = "Value", text = label, textSize = "label" }),
-					UI.ZStack({
-						id = "Gauge",
-						width = { type = "fixed", px = 180 },
-						height = { type = "fixed", px = 180 },
+					UI.Text("Title")({ text = "Path2D progress ring", textSize = 22 }),
+					UI.Text("Value")({ text = label, textSize = "label" }),
+					UI.ZStack("Gauge")({
+						width = GAUGE,
+						height = GAUGE,
 
-						UI.Path({
-							id = "Track",
+						UI.Path("Track")({
 							points = shapes.ring({ radius = 0.9 }),
 							thickness = 3,
 							role = "secondary",
-							width = { type = "fixed", px = 180 },
-							height = { type = "fixed", px = 180 },
+							width = GAUGE,
+							height = GAUGE,
 						}),
-						UI.Path({
-							id = "Ring",
+						UI.Path("Ring")({
 							points = ringPoints,
 							thickness = 8,
 							role = "accent",
-							width = { type = "fixed", px = 180 },
-							height = { type = "fixed", px = 180 },
+							width = GAUGE,
+							height = GAUGE,
 						}),
-						UI.Path({
-							id = "Needle",
+						UI.Path("Needle")({
 							points = needlePoints,
 							thickness = 4,
-							width = { type = "fixed", px = 180 },
-							height = { type = "fixed", px = 180 },
+							width = GAUGE,
+							height = GAUGE,
 						}),
 					}),
 				}),
 			})
-		end)
+		end
 
+		local function set(value: number)
+			return function()
+				progress:set(value)
+				return progress:peek()
+			end
+		end
 		return {
-			screen = Gauge({}),
+			screen = screen,
 			present = {},
 			steps = {
-				setProgress10 = function()
-					setProgress(0.10)
-					return progress()
-				end,
-				setProgress65 = function()
-					setProgress(0.65)
-					return progress()
-				end,
-				setProgress100 = function()
-					setProgress(1.0)
-					return progress()
-				end,
+				setProgress10 = set(0.10),
+				setProgress65 = set(0.65),
+				setProgress100 = set(1.0),
 			},
 			report = function()
-				return { progress = progress(), ringPointCount = #ringPoints() }
+				return { progress = progress:peek(), ringPointCount = #ringPoints:peek() }
 			end,
 		}
 	end,

@@ -1,19 +1,23 @@
-# Compose source pin
+# Compose dependency
 
-Source: https://github.com/voidmeld/compose at
-`cce9b99590fd3bec3bb9cb60f378184e28fab71d`, `src/core` (MIT).
+This directory is a generated, read-only snapshot of upstream Compose.
+`UPSTREAM.lock` is the authority: it records the repository, the exact Git
+commit, and a SHA-256 for every file. `patches` is empty. Do not edit these
+files. `skills/compose/` holds the upstream agent skill and API reference from
+the same commit, under the same lock.
 
-Facet uses native cells, formulas, direct watches, effects, batching and owners.
-It imports the pinned graph internals for explicit readable disposal. Facet
-keeps its renderer settling and structural transitions/error boundaries.
+```sh
+python3 tools/sync_compose.py --check   # fail if any file differs from the lock
+python3 tools/sync_compose.py           # restore the snapshot from the pin
+```
 
-`UPSTREAM.patch` records two lifetime fixes: the final static listener must let
-Graph.release mark its sink released; reads after consumer disposal must not
-attach new edges. It also adds the license ModuleScript for model distribution.
-`tests/compose_lifetime.spec.luau` checks both failures and runaway re-registration.
-The native million-watch cap abandons stale watches; dispose/re-register them
-(or remount their owner) to resume. Native scheduling is dependency FIFO, not a
-Facet-wide creation-order sort. Failed evaluations can retain partial dependency
-changes; they do not restore an earlier successful dependency set.
+A fresh clone builds and tests without network access. The verify gate runs the
+check, so a local change to the snapshot cannot land.
 
-`UPSTREAM.lock` pins every distributed source and metadata file by SHA-256.
+To upgrade, set `commit` in `UPSTREAM.lock`, regenerate the two hash
+inventories from that commit, run the sync, and commit the result. To read from
+a local checkout instead of the network:
+
+```sh
+python3 tools/sync_compose.py --source /path/to/compose
+```

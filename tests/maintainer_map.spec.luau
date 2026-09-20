@@ -52,7 +52,7 @@ describe("maintainer map: every row still points at the tree it describes", func
 		local counts = checker.check().counts
 		-- every top-level src entry is claimed, and the tree has at least this many
 		expect(counts.srcEntries).toBeGreaterThanOrEqual(28)
-		expect(counts.areas).toBeGreaterThanOrEqual(19)
+		expect(counts.areas).toBeGreaterThanOrEqual(18)
 		expect(counts.tests).toBeGreaterThanOrEqual(60)
 		expect(counts.scenarios).toBeGreaterThanOrEqual(17)
 		expect(counts.gateRows).toBeGreaterThanOrEqual(40)
@@ -136,7 +136,14 @@ describe("maintainer map: every row still points at the tree it describes", func
 
 	it("reports a gate stage the manifest does not have", function()
 		expect(plant(function(text)
-			return (string.gsub(text, "`phase%-0%-foundation/conformance%-custom%-core`", "`no-such-stage/x`", 1))
+			return (
+				string.gsub(
+					text,
+					"`phase%-0%-foundation/compose%-services%-settle%-and%-containment`",
+					"`no-such-stage/x`",
+					1
+				)
+			)
 		end, "which tools/lune/verify/graph.json does not define")).toBeGreaterThanOrEqual(1)
 	end)
 
@@ -178,16 +185,17 @@ describe("maintainer map: every row still points at the tree it describes", func
 
 	it("derives a per-area covering count from the require graph", function()
 		local rows = checker.coverage()
-		expect(#rows).toBeGreaterThanOrEqual(19)
+		expect(#rows).toBeGreaterThanOrEqual(18)
 		local total = 0
 		local byArea: { [string]: number } = {}
 		for _, row in rows do
 			total += row.specs
 			byArea[row.area] = row.specs
 		end
-		-- the shared reactive runtime is reached by far more specs than the
-		-- single-module areas, which is what makes the derivation informative
-		expect(byArea["core"]).toBeGreaterThanOrEqual(80)
+		-- the library root, which carries the shared reactive runtime, is reached by
+		-- far more specs than the single-module areas, which is what makes the
+		-- derivation informative
+		expect(byArea["library root"]).toBeGreaterThanOrEqual(80)
 		expect(byArea["replication"]).toBeGreaterThanOrEqual(2)
 		expect(total).toBeGreaterThanOrEqual(500)
 	end)

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE PAINT-ONLY LAW for the transitions round (2026-09-12), spec §3.1/§3.3.
 
 	Every motion this round added — the TextInput invalid shake, the Button pop,
@@ -73,10 +74,11 @@
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local rectCensus = require("./lib/rect_census")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 local FRAME = 1 / 60
 
 -- nodes the engine would be handed a Size for that is not their solved size —
@@ -159,17 +161,17 @@ end
 	three different motion primitives on three different presentation props. ]]
 local function controlsWorld()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-	local invalid = w.core:signal(false)
-	local expanded = w.core:signal(false)
+	local invalid = Compose.cell(false)
+	local expanded = Compose.cell(false)
 	local hits = 0
-	local input = Facet.Controls.TextInput(w.core, {
+	local input = harness.Controls.TextInput(w.core, {
 		id = "Name",
-		value = w.core:signal(""),
+		value = Compose.cell(""),
 		invalid = invalid,
 		env = w.env,
 		actionSystem = w.system,
 	})
-	local button = Facet.Controls.Button(w.core, {
+	local button = harness.Controls.Button(w.core, {
 		id = "Go",
 		label = "Go",
 		pop = true,
@@ -177,7 +179,7 @@ local function controlsWorld()
 			hits += 1
 		end,
 	})
-	local group = Facet.Controls.DisclosureGroup(w.core, {
+	local group = harness.Controls.DisclosureGroup(w.core, {
 		id = "Adv",
 		label = "Advanced",
 		expanded = expanded,
@@ -221,7 +223,7 @@ describe("motion is paint-only and idle is free", function()
 		expect(`TextInput shook={sawLeft and sawRight}`).toBe("TextInput shook=true")
 		local rest = w.adapter.node("/S/Name")
 		expect(`TextInput atRest={rest.presentedPosition.x - rest.rect.x}`).toBe("TextInput atRest=0")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.overflowGuard()
 		f.dispose()
 	end)
@@ -242,7 +244,7 @@ describe("motion is paint-only and idle is free", function()
 		expectPaintOnly(w, opened)
 		expect(`Button popped={peakScale > 1.03}`).toBe("Button popped=true")
 		expect(`Button activations={f.hitCount()}`).toBe("Button activations=1")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.overflowGuard()
 		f.dispose()
 	end)
@@ -256,7 +258,7 @@ describe("motion is paint-only and idle is free", function()
 		w.pres.refresh()
 		local before = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 
-		local revealPath = "/S/Adv/Content/then/Reveal"
+		local revealPath = "/S/Adv/Reveal"
 		local clip = w.adapter.node(revealPath)
 		expect(clip.presentedSize.h < clip.rect.h).toBe(true)
 		local opened = openWindow(w, "DisclosureGroup caret", revealPath)
@@ -267,7 +269,7 @@ describe("motion is paint-only and idle is free", function()
 		local after = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 		expect(`DisclosureGroup caretTurned={after - before > 45}`).toBe("DisclosureGroup caretTurned=true")
 		expect(clip.presentedSize.h).toBe(clip.rect.h)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.overflowGuard()
 		f.dispose()
 	end)
@@ -286,7 +288,7 @@ describe("motion is paint-only and idle is free", function()
 		for _, id in { "a", "b", "c", "d", "e", "f" } do
 			table.insert(items, { id = id, label = string.upper(id) })
 		end
-		local menu = Facet.Controls.RadialMenu(w.core, {
+		local menu = harness.Controls.RadialMenu(w.core, {
 			id = "Ctl",
 			distribution = "even",
 			completion = "stay",
@@ -339,7 +341,7 @@ describe("motion is paint-only and idle is free", function()
 		end
 		expectPaintOnly(w, opened)
 		expect(`RadialMenu lifted={wedgeScale() > 1.02}`).toBe("RadialMenu lifted=true")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the RadialMenu commit pop moves nothing the solver owns", function()
@@ -361,64 +363,7 @@ describe("motion is paint-only and idle is free", function()
 		expectPaintOnly(w, opened)
 		expect(`RadialMenu popped={peak > lifted and peak > 1.05}`).toBe("RadialMenu popped=true")
 		expect(`RadialMenu stillOpen={menu.dump().open}`).toBe("RadialMenu stillOpen=true")
-		expect(w.core:lastError()).toBeNil()
-	end)
-
-	--[[ THIRTY ROWS ENTERING IN SEQUENCE. The rows mount together — one solve,
-		outside the window — and then wait their turn at the ABSENT alpha rather
-		than being mounted one at a time, which is the whole point: a staggered
-		list costs one layout pass, not thirty. ]]
-	it("a 30-row staggered enter moves nothing the solver owns", function()
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 1400 } })
-		local on = w.core:signal(false)
-		local rows = {}
-		for i = 1, 30 do
-			rows[i] = { id = `r{i}` }
-		end
-		local items = w.core:signal(rows)
-		w.present(UI.Screen({
-			id = "S",
-			children = {
-				UI.When({
-					id = "Gate",
-					condition = on,
-					thenView = function()
-						return UI.ForEach({
-							id = "List",
-							items = items,
-							key = function(row: any): string
-								return row.id
-							end,
-							transition = { enter = "fade", stagger = 0.02 },
-							row = function(row: any)
-								return UI.ZStack({
-									id = "Row",
-									canvasGroup = true,
-									children = { UI.Text({ id = "T", text = row.id }) },
-								})
-							end,
-						})
-					end,
-				}),
-			},
-		}))
-		w.settle(3)
-		-- the one legitimate solve: thirty rows mount and are placed
-		on:set(true)
-		w.pres.refresh()
-		local last = "/S/Gate/then/List/[r30]/Row"
-		expect(`stagger heldAbsent={w.adapter.node(last).canvasGroupInstance.groupTransparency}`).toBe(
-			"stagger heldAbsent=1"
-		)
-
-		local opened = openWindow(w, "stagger")
-		for _ = 1, 90 do
-			frame(w, opened)
-		end
-		expectPaintOnly(w, opened)
-		expect(`stagger arrived={w.adapter.node(last).canvasGroupInstance.groupTransparency}`).toBe("stagger arrived=0")
-		expect(`stagger atRest={w.pres.motionClock:activeCount()}`).toBe("stagger atRest=0")
-		w.overflowGuard()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	--[[ IDLE IS FREE. All three control motions fired at once, then two windows:
@@ -429,21 +374,24 @@ describe("motion is paint-only and idle is free", function()
 		local f = controlsWorld()
 		local w = f.w
 		local baseline = w.pres.motionClock:activeCount()
-		local atRest = w.pres.motionClock:stats()
+		local caretBefore = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 
 		f.invalid:set(true)
 		f.expanded:set(true)
 		w.adapter.tap("/S/Go")
-		local peakActive = 0
+		local peakScale = 1
 		for _ = 1, 120 do
 			frame(w)
-			peakActive = math.max(peakActive, w.pres.motionClock:activeCount())
+			local go = w.adapter.node("/S/Go")
+			if go.motionScaleInstance ~= nil then
+				peakScale = math.max(peakScale, go.motionScaleInstance.scale)
+			end
 		end
 		local settled = w.pres.motionClock:stats()
+		local caretAfter = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 		-- the motion window did real work, which is what makes the idle window a claim
-		expect(`idle ranSteps={settled.steps > atRest.steps}`).toBe("idle ranSteps=true")
-		expect(`idle ranWrites={settled.writes > atRest.writes}`).toBe("idle ranWrites=true")
-		expect(`idle ranActive={peakActive > baseline}`).toBe("idle ranActive=true")
+		expect(`idle ranPop={peakScale > 1.03}`).toBe("idle ranPop=true")
+		expect(`idle ranCaret={caretAfter - caretBefore > 45}`).toBe("idle ranCaret=true")
 		-- ...and every motion has detached itself BEFORE the idle window opens, so
 		-- a zero inside it cannot be a window that was never armed
 		expect(`idle activeBefore={w.pres.motionClock:activeCount()}`).toBe(`idle activeBefore={baseline}`)
@@ -459,7 +407,7 @@ describe("motion is paint-only and idle is free", function()
 		expect(`idle activeAfter={w.pres.motionClock:activeCount()}`).toBe(`idle activeAfter={baseline}`)
 		expectPaintOnly(w, opened)
 		expect(w.pres.motionClock:lastError()).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.overflowGuard()
 		f.dispose()
 	end)

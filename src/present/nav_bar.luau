@@ -6,7 +6,7 @@
 	one is a PRESENTED OR COMPACT-OPEN DETAIL SURFACE'S OWN CHROME — three sit
 	at the top of a modal, one is a header inside a compact screen's content —
 	never a tab strip's, so a slot keyed to `adaptive.navPlacement` and
-	invoked only from `newTabView`'s own home branches structurally cannot
+	invoked only from `UI.TabView`'s own home branches structurally cannot
 	reach any of them.
 
 	WHAT THE FOUR ACTUALLY SHARE, verbatim from that assessment: "(a) a
@@ -27,7 +27,7 @@
 
 	HOME. `src/present/*` (task-g6-report.md's own recommendation: "its real
 	companion is registry item 12's sibling... not this gap" — meaning NOT
-	`newTabView` — "a presenter-side surface-chrome seam" is the shape asked
+	`UI.TabView` — "a presenter-side surface-chrome seam" is the shape asked
 	for, and this file is present/-scoped exactly the way `catchers.luau` and
 	`modal_zones.luau` are: pure, stateless, holding no presenter reference of
 	its own).
@@ -39,6 +39,7 @@
 	non-hand-typed vocabulary) for all four — a deliberate, disclosed visual
 	harmonization, not an oversight. ]]
 
+local Compose = require("../vendor/compose/core")
 local blueprintLib = require("../blueprint")
 local specGuard = require("../spec_guard")
 
@@ -86,13 +87,26 @@ local NAV_BAR_KEYS: { [string]: boolean } = {
 	`UI.When`, scrolling with the body — every placement the four sites used
 	stays exactly where it was; only the bar's own children are shared code
 	now). ]]
-function navBar.build(spec: NavBarSpec): any
+-- `constructors` is the application's `app.controls` (or a control library's
+-- internal UI); `app.controls.navBar(spec)` is the same call.
+function navBar.build(spec: NavBarSpec, constructors: any?): any
+	if constructors ~= nil and rawget(constructors, "navBar") ~= nil then
+		return constructors.navBar(spec)
+	end
+	if constructors == nil and Compose.currentOwner() ~= nil then
+		error(
+			"Facet.navBar: inside a component, build the bar from the application's controls — "
+				.. "`app.controls.navBar(spec)` or `Facet.navBar(spec, app.controls)`",
+			0
+		)
+	end
+	local UI = constructors or blueprintLib
 	specGuard.assertKnownKeys("Facet.navBar", spec, NAV_BAR_KEYS, "spec")
 	local children: { any } = {}
 	if spec.onBack ~= nil then
 		table.insert(
 			children,
-			blueprintLib.Button({
+			UI.Button({
 				id = "Back",
 				label = spec.backLabel,
 				-- `prefer = true`: ALWAYS the chevron, never a degrade candidate.
@@ -113,7 +127,7 @@ function navBar.build(spec: NavBarSpec): any
 	if spec.title ~= nil then
 		table.insert(
 			children,
-			blueprintLib.Text({
+			UI.Text({
 				id = "Title",
 				text = spec.title,
 				textSize = spec.titleSize or "title",
@@ -123,18 +137,18 @@ function navBar.build(spec: NavBarSpec): any
 			})
 		)
 	end
-	table.insert(children, blueprintLib.Spacer({ id = "Push" }))
+	table.insert(children, UI.Spacer({ id = "Push" }))
 	if spec.trailing ~= nil then
 		for _, node in spec.trailing do
 			table.insert(children, node)
 		end
 	end
-	return blueprintLib.HStack({
+	return UI.HStack({
 		id = spec.id or "NavBar",
 		gap = spec.gap or "s",
 		align = "center",
 		padding = spec.padding,
-		width = blueprintLib.fill(),
+		width = UI.fill(),
 		children = children,
 	})
 end

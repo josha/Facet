@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A GUTTER MAY BE A THEME TOKEN — `newVirtualList.rowGap`, `newVirtualGrid.rowGap`
 	and `newVirtualGrid.gap`, on the contract `newTable.rowGap` has carried since
 	2026-08-06.
@@ -37,6 +38,7 @@ local virtual_list = require("../src/controls/virtual_list")
 local virtual_grid = require("../src/controls/virtual_grid")
 local themeSnapshot = require("../src/themes/snapshot")
 local surfaceEnv = require("../src/env/surface_env")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = table.create(n)
@@ -58,7 +60,7 @@ local function newList(core: any, opts: any): any
 		viewportExtent = opts.viewportExtent or 200,
 		env = opts.env,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
@@ -77,7 +79,7 @@ local function newGrid(core: any, opts: any): any
 		viewportExtent = opts.viewportExtent or 200,
 		env = opts.env,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
@@ -100,7 +102,7 @@ describe("an AMBIGUOUS core is refused, not resolved against neutral", function(
 		spells the message for every control that adopts it, so it is CALLED rather
 		than restated. ]]
 	local function twoSurfaces(): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		for _ = 1, 2 do
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
@@ -112,21 +114,21 @@ describe("an AMBIGUOUS core is refused, not resolved against neutral", function(
 	it("a NAMED gutter on an ambiguous core refuses, and the message names the way out", function()
 		local core = twoSurfaces()
 		local ok, err = pcall(function()
-			newList(core, { rows = core:signal(makeRows(4)), rowGap = "xs" })
+			newList(core, { rows = Compose.cell(makeRows(4)), rowGap = "xs" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "MORE THAN ONE environment", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "newVirtualList", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "UI.VirtualList", 1, true) ~= nil).toBe(true)
 	end)
 
 	it('...and so does `viewportExtent = "auto"`, whose seed is a screen it cannot name', function()
 		local core = twoSurfaces()
 		expect(pcall(function()
-			newList(core, { rows = core:signal(makeRows(4)), viewportExtent = "auto" })
+			newList(core, { rows = Compose.cell(makeRows(4)), viewportExtent = "auto" })
 		end)).toBe(false)
 		local gridCore = twoSurfaces()
 		expect(pcall(function()
-			newGrid(gridCore, { items = gridCore:signal(makeRows(9)), viewportExtent = "auto" })
+			newGrid(gridCore, { items = Compose.cell(makeRows(9)), viewportExtent = "auto" })
 		end)).toBe(false)
 	end)
 
@@ -137,7 +139,7 @@ describe("an AMBIGUOUS core is refused, not resolved against neutral", function(
 			the three above would pass just as happily against a control that refused
 			every ambiguous core outright. ]]
 		local core = twoSurfaces()
-		local list = newList(core, { rows = core:signal(makeRows(4)), rowGap = 6, viewportExtent = 200 })
+		local list = newList(core, { rows = Compose.cell(makeRows(4)), rowGap = 6, viewportExtent = 200 })
 		expect(list.dump().rowGap).toBe(6)
 		list.dispose()
 	end)
@@ -145,8 +147,8 @@ describe("an AMBIGUOUS core is refused, not resolved against neutral", function(
 	it("NOTHING published is still the headless case, and still resolves against neutral", function()
 		-- the other nil, unchanged: a name on a core with no environment at all is a
 		-- legal headless mount and answers from the neutral package
-		local core = Facet.newCore()
-		local list = newList(core, { rows = core:signal(makeRows(4)), rowGap = "xs" })
+		local core = harness.newCore()
+		local list = newList(core, { rows = Compose.cell(makeRows(4)), rowGap = "xs" })
 		expect(list.dump().rowGap).toBe(XS)
 		list.dispose()
 	end)
@@ -154,8 +156,8 @@ end)
 
 describe("a virtualized gutter takes a theme metric name", function()
 	it("VirtualList.rowGap resolves a space step, and the arithmetic is the number's", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local named = newList(core, { rows = rows, rowGap = "xs" })
 		local numeric = newList(core, { rows = rows, rowGap = XS, id = "VL2" })
 		expect(named.dump().rowGap).toBe(XS)
@@ -167,16 +169,16 @@ describe("a virtualized gutter takes a theme metric name", function()
 	end)
 
 	it("...and a DOTTED PATH into the metrics, exactly as newTable spells it", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local list = newList(core, { rows = rows, rowGap = "controls.table.rowGap" })
 		expect(list.dump().rowGap).toBe(TABLE_ROW_GAP)
 		list.dispose()
 	end)
 
 	it("VirtualGrid.rowGap and VirtualGrid.gap both take one", function()
-		local core = Facet.newCore()
-		local items = core:signal(makeRows(30))
+		local core = harness.newCore()
+		local items = Compose.cell(makeRows(30))
 		local grid = newGrid(core, { items = items, rowGap = "xs", gap = "controls.table.rowGap" })
 		local d = grid.dump()
 		expect(`{d.rowGap}|{d.gap}`).toBe(`{XS}|{TABLE_ROW_GAP}`)
@@ -184,9 +186,9 @@ describe("a virtualized gutter takes a theme metric name", function()
 	end)
 
 	it("VirtualGrid.gap takes a Readable — the field that refused even that", function()
-		local core = Facet.newCore()
-		local items = core:signal(makeRows(30))
-		local gap = core:signal(6)
+		local core = harness.newCore()
+		local items = Compose.cell(makeRows(30))
+		local gap = Compose.cell(6)
 		local grid = newGrid(core, { items = items, gap = gap })
 		expect(grid.dump().gap).toBe(6)
 		gap:set(10)
@@ -195,8 +197,8 @@ describe("a virtualized gutter takes a theme metric name", function()
 	end)
 
 	it("a name that resolves NOWHERE is refused, and names itself", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local ok, err = pcall(function()
 			newList(core, { rows = rows, rowGap = "6" })
 		end)
@@ -205,7 +207,7 @@ describe("a virtualized gutter takes a theme metric name", function()
 		expect(string.find(tostring(err), '"6"', 1, true) ~= nil).toBe(true)
 		expect(string.find(tostring(err), "rowGap", 1, true) ~= nil).toBe(true)
 		-- ...and the same refusal on the grid's two fields
-		local items = core:signal(makeRows(9))
+		local items = Compose.cell(makeRows(9))
 		expect(pcall(function()
 			newGrid(core, { items = items, rowGap = "nope" })
 		end)).toBe(false)
@@ -215,12 +217,12 @@ describe("a virtualized gutter takes a theme metric name", function()
 	end)
 
 	it("a negative number is still refused — widening the type widened nothing else", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		expect(pcall(function()
 			newList(core, { rows = rows, rowGap = -1 })
 		end)).toBe(false)
-		local items = core:signal(makeRows(9))
+		local items = Compose.cell(makeRows(9))
 		expect(pcall(function()
 			newGrid(core, { items = items, gap = -2 })
 		end)).toBe(false)
@@ -231,7 +233,7 @@ describe("a virtualized gutter takes a theme metric name", function()
 			an environment whose `themeMetrics` then changes underneath it — exactly
 			what a runtime package swap does — and both the reported gutter and the
 			content extent it feeds move without the control being reconstructed. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		local wide = themeSnapshot.neutral()
@@ -242,7 +244,7 @@ describe("a virtualized gutter takes a theme metric name", function()
 		narrow.space = table.clone(narrow.space)
 		narrow.space.xs = XS * 2
 		env:set("themeMetrics", wide)
-		local rows = core:signal(makeRows(8))
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, { rows = rows, rowGap = "xs", env = env })
 		local before = list.dump()
 		expect(before.rowGap).toBe(XS)

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Scroll indicator policy (director ruling 2026-08-09, "auto-showing scroll
 -- bars"; RESERVE HALF REVERSED 2026-08-12): pointer sessions keep the desktop
 -- convention — a persistent bar; touch/gamepad sessions get hidden-at-rest
@@ -40,11 +41,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local environment = require("../src/env/environment")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local function world(caps: any?, preferred: string?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 	if caps ~= nil then
@@ -56,7 +57,7 @@ local function world(caps: any?, preferred: string?)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true });
 	(adapter :: any).scrollBarThickness = 8
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return core, env, adapter, presenter
 end
 
@@ -64,20 +65,20 @@ describe("scroll indicator policy: derivation is input facts, never a device", f
 	it("pointer sessions derive 'always'; touch and gamepad derive 'auto'", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		expect(env:get("scrollIndicatorPolicy"):get()).toBe("always")
+		expect(env:get("scrollIndicatorPolicy"):peek()).toBe("always")
 		env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		env:set("preferredInput", "Touch")
-		expect(env:get("scrollIndicatorPolicy"):get()).toBe("auto")
+		expect(env:get("scrollIndicatorPolicy"):peek()).toBe("auto")
 		env:set("capabilities", { touch = false, mouse = false, keyboard = false, gamepad = true })
 		env:set("preferredInput", "Gamepad")
-		expect(env:get("scrollIndicatorPolicy"):get()).toBe("auto")
+		expect(env:get("scrollIndicatorPolicy"):peek()).toBe("auto")
 	end)
 end)
 
 describe("scroll indicator policy: the presenter drives the adapter seam", function()
 	it("reflows an unchanged page when the input policy changes its scrollbar reserve", function()
 		local _, env, adapter, presenter = world()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local handle = presenter.present(UI.Screen({
 			id = "PolicyPage",
 			children = {
@@ -151,17 +152,17 @@ describe("scroll indicator policy: the presenter drives the adapter seam", funct
 	end)
 
 	it("an adapter WITHOUT the seam degrades by name: nothing is called, nothing breaks", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true });
 		(adapter :: any).scrollBarThickness = 8
 		(adapter :: any).setScrollIndicatorPolicy = nil
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		expect(presenter ~= nil).toBe(true)
 		expect((adapter :: any).scrollBarThickness).toBe(8)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -176,7 +177,7 @@ describe("scroll indicator policy: a Y-axis hug height is stable across a sessio
 	-- untouched by any of it: it was never testing the axis the ruling moves.
 	it("a hug shelf does NOT change HEIGHT when the session flips to touch", function()
 		local core, env, adapter, presenter = world()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local handle = presenter.present(
 			UI.Screen({
 				id = "S",
@@ -212,7 +213,7 @@ describe("scroll indicator policy: a Y-axis hug height is stable across a sessio
 		-- either way: this case was never sensitive to the axis the fix touches.
 		expect((adapter :: any).scrollBarThickness).toBe(0)
 		expect(after).toBe(before)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		if type((handle :: any).dispose) == "function" then
 			(handle :: any).dispose()
 		end
@@ -226,7 +227,7 @@ describe("a single-axis scroller's canvas never exceeds its window on the other 
 		-- carousel MEASURES at content width — so the engine drew a HORIZONTAL
 		-- bar on a vertical scroller, straight through the tab dock under it.
 		local core, _, adapter, presenter = world()
-		local UI = Facet.UI
+		local UI = harness.UI
 		presenter.present(
 			UI.Screen({
 				id = "S",
@@ -270,14 +271,14 @@ describe("a single-axis scroller's canvas never exceeds its window on the other 
 		local carousel = (adapter :: any).node("/S/Page/Carousel")
 		expect(carousel.scrollRegion.contentW >= 900).toBe(true)
 		expect(carousel.scrollRegion.contentH <= carousel.rect.h + 1).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
 describe('indicators = "none": the carousel opt-out', function()
 	it("a peeking carousel declares its indicator off; its parent page keeps one", function()
 		local core, _, adapter, presenter = world()
-		local UI = Facet.UI
+		local UI = harness.UI
 		presenter.present(
 			UI.Screen({
 				id = "S",
@@ -316,7 +317,7 @@ describe('indicators = "none": the carousel opt-out', function()
 		presenter.refresh()
 		expect(((adapter :: any).node("/S/Page/Carousel") :: any).indicatorsOff).toBe(true)
 		expect(((adapter :: any).node("/S/Page") :: any).indicatorsOff).toBeNil()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 

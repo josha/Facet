@@ -12,7 +12,6 @@ if not game:IsLoaded() then
 end
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
@@ -23,24 +22,23 @@ local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_conten
 local responder_effects = require(ReplicatedStorage.Facet.client.responder_effects) :: any
 
 local boot_mode = require(script:WaitForChild("boot_mode")) :: any
+local demo_host = require(script:WaitForChild("demo_host")) :: any
 local bootDecision = boot_mode.decide({
 	showcase = workspace:GetAttribute("Facet_Showcase"),
 	scenario = workspace:GetAttribute("Facet_Scenario"),
 	example = workspace:GetAttribute("Facet_Example"),
 })
 
-local UI = Facet.UI
-local core = Facet.newCore()
-local env = Facet.newEnvironment(core)
+local Compose = Facet.Compose
 local environment_preview = require(ReplicatedStorage.Facet.client.environment_preview) :: any
-local displayPreview = if bootDecision.mode == "showcase" then environment_preview.new(env) else nil
-local unbindPlatform = roblox_env.bind(if displayPreview ~= nil then displayPreview.source else env)
-local function unbindEnv()
-	unbindPlatform()
-	if displayPreview ~= nil then
-		displayPreview.dispose()
-	end
-end
+-- One application stands the surface up. Its seams hand this bootstrap the
+-- pieces it configures itself: the environment binding, the render target and
+-- the input system. The application drives the frame: clock, then solve.
+local core: any, env: any, adapter: any, system: any
+local displayPreview: any = nil
+-- Stops the platform feeding the environment, once. A scenario freezes its
+-- facts with it; the application calls it again, harmlessly, when it is disposed.
+local unbindEnv: () -> ()
 -- NS-I2 fallback A/B driver: set workspace attribute Facet_ForceScrollFallback
 -- BEFORE running to exercise the clip-only ScrollView fallback in Studio
 -- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10). The PRECEDENCE — forced
@@ -50,25 +48,6 @@ end
 -- list has no witness. Facet_NativeTransitions may explicitly disable the
 -- native paint transitions; an absent attribute follows the library default.
 local paint_mode = require(script:WaitForChild("paint_mode")) :: any
-local adapter = screen_target.new({
-	--[[ THE DISTANCE THIS PLACE IS WATCHED FROM (fix round, 2026-08-21, found on
-		a live console row at stamp e0d6afd5). At ten-foot the paint family —
-		corner radii and hairlines — scales with the metric ladder, and a target
-		takes that class at construction; this bootstrap builds its own target
-		instead of taking `client.host`, so the fact has to be handed over by hand
-		or the showcase MEASURES at three metres and PAINTS at arm's length. The
-		verify read it exactly that way: a capsule painting `0, 999` where the
-		derivation says 1499. Read after `roblox_env.bind` above, so it is the
-		engine's own `ViewportDisplaySize`. ]]
-	displaySize = env:get("displaySize"):get(),
-	forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
-	nativeStyle = paint_mode.decide({
-		native = workspace:GetAttribute("Facet_NativeStyle") == true,
-		fallback = workspace:GetAttribute("Facet_ForceStyleFallback") == true,
-		transitions = workspace:GetAttribute("Facet_NativeTransitions"),
-	}),
-})
-local system = roblox_input.newSystem(core)
 -- KEYBOARD NAVIGATION ON, BECAUSE THIS PLACE FREED THE KEY FOR IT
 -- (example-quality-pass, 2026-08-06). The presenter's `keyboardNavigation`
 -- defaults FALSE so a game that never asked keeps the input behaviour it had —
@@ -77,13 +56,54 @@ local system = roblox_input.newSystem(core)
 -- then never opted in, so Tab bound nothing and traversal was dead in all seven
 -- tutorial examples: six Tab presses moved focus zero times. A UI-only gallery
 -- whose whole job is demonstrating the framework's input story has to have it on.
-local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-
--- The presentation layer's clock (Step 5): transitions, toasts, and every
--- motion-clock consumer advance ONLY inside presenter.tick — bind it to the
--- render clock exactly once, or nothing animates live while headless stays green.
-local motion_driver = require(ReplicatedStorage.Facet.client.motion_driver) :: any
-motion_driver.bind(pres)
+local app = Facet.new({
+	keyboardNavigation = true,
+	bindEnv = function(bound: any)
+		env = bound
+		displayPreview = if bootDecision.mode == "showcase" then environment_preview.new(bound) else nil
+		local unbindPlatform = roblox_env.bind(if displayPreview ~= nil then displayPreview.source else bound)
+		local unbound = false
+		unbindEnv = function()
+			if unbound then
+				return
+			end
+			unbound = true
+			unbindPlatform()
+			if displayPreview ~= nil then
+				displayPreview.dispose()
+			end
+		end
+		return unbindEnv
+	end,
+	newAdapter = function()
+		adapter = screen_target.new({
+			--[[ THE DISTANCE THIS PLACE IS WATCHED FROM (fix round, 2026-08-21, found on
+				a live console row at stamp e0d6afd5). At ten-foot the paint family —
+				corner radii and hairlines — scales with the metric ladder, and a target
+				takes that class at construction; this bootstrap builds its own target
+				instead of taking `client.host`, so the fact has to be handed over by hand
+				or the showcase MEASURES at three metres and PAINTS at arm's length. The
+				verify read it exactly that way: a capsule painting `0, 999` where the
+				derivation says 1499. Read after the environment is bound, so it is the
+				engine's own `ViewportDisplaySize`. ]]
+			displaySize = env:get("displaySize"):peek(),
+			forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
+			nativeStyle = paint_mode.decide({
+				native = workspace:GetAttribute("Facet_NativeStyle") == true,
+				fallback = workspace:GetAttribute("Facet_ForceStyleFallback") == true,
+				transitions = workspace:GetAttribute("Facet_NativeTransitions"),
+			}),
+		})
+		return adapter
+	end,
+	newInputSystem = function(value: any)
+		core = value
+		system = roblox_input.newSystem(value)
+		return system
+	end,
+})
+local UI = app.controls
+local pres = app.presenter
 
 -- First-responder engine seam: while an EXCLUSIVE (sinking) surface
 -- is up — a modal, or an engaged-from-passive HUD — hide the mobile touch
@@ -153,10 +173,9 @@ local function mountThemePicker(collapsible: boolean?, composed: boolean?)
 	end
 	local mounted = theme_picker.mount({
 		Facet = Facet,
-		core = core,
+		app = app,
 		env = env,
 		adapter = adapter,
-		presenter = pres,
 		packages = packages,
 		themeController = theme_controller,
 		collapsible = collapsible,
@@ -254,7 +273,6 @@ end
 -- which is what makes the showcase place drivable without editing its build.
 if bootDecision.mode == "showcase" then
 	local demo_picker = require(script:WaitForChild("demo_picker")) :: any
-	local demo_host = require(script:WaitForChild("demo_host")) :: any
 	local settings_panel = require(script:WaitForChild("settings_panel")) :: any
 	local showcase_chrome = require(script:WaitForChild("showcase_chrome")) :: any
 
@@ -318,15 +336,15 @@ if bootDecision.mode == "showcase" then
 	-- reservation — so reserving from it cannot chase its own tail. The literal
 	-- survives only as the first-frame value, for the one frame before any geometry
 	-- exists, and as the standalone (non-composed) pickers' own strip.
-	local chipsBottom = core:signal(nil :: number?)
+	local chipsBottom = Compose.cell(nil :: number?)
 	local backdropHandle: any = nil
 	-- the live core-topbar height, published as a signal because the CHROME is
 	-- presented edge-to-edge (it owns the strip) and therefore has to place
 	-- itself below the Roblox buttons itself, reactively
-	local coreTopSignal = core:signal(GuiService:GetGuiInset().Y)
+	local coreTopSignal = Compose.cell(GuiService:GetGuiInset().Y)
 	local function reserveBar()
 		local coreTop = GuiService:GetGuiInset().Y
-		if coreTopSignal:get() ~= coreTop then
+		if coreTopSignal:peek() ~= coreTop then
 			coreTopSignal:set(coreTop)
 		end
 		-- the same space step the chrome pads itself with, so the demo below starts
@@ -337,7 +355,7 @@ if bootDecision.mode == "showcase" then
 		-- its tail, because the plain rhythm step (10px under Glossy Mobile) was
 		-- less than the glow's own reach (17px). See `demo_picker.reservationSlack`
 		-- for the full measurement and the `math.max`-not-`+` reasoning.
-		local metrics = env:get("themeMetrics"):get()
+		local metrics = env:get("themeMetrics"):peek()
 		local baseSlack = if type(metrics) == "table" then metrics.space.s else 8
 		local chromeBleed = if type(metrics) == "table" then metrics.chromeBleed else nil
 		local slack = demo_picker.reservationSlack(baseSlack, chromeBleed)
@@ -349,8 +367,8 @@ if bootDecision.mode == "showcase" then
 			number would open a sixty-pixel dead band under the strip. Zero on every
 			near display, where the renderer adds nothing. ]]
 		local overscanTop = showcase_chrome.overscanEdge(
-			env:get("distanceProfile"):get(),
-			env:get("effectiveOverscanInsets"):get(),
+			env:get("distanceProfile"):peek(),
+			env:get("effectiveOverscanInsets"):peek(),
 			"top"
 		)
 		--[[ ONE AUTHORITY FOR THE PLATFORM'S ROW, ON BOTH SIDES OF THE SUBTRACTION
@@ -366,11 +384,11 @@ if bootDecision.mode == "showcase" then
 			produced, which is what the "compute it from the engine" rule above was
 			protecting. `coreTopSignal` keeps reading the engine directly, because
 			that one is not part of this sum: it PLACES the chip row. ]]
-		local platform = env:get("coreSafeInsets"):get()
+		local platform = env:get("coreSafeInsets"):peek()
 		local platformTop = if type(platform) == "table" then math.max(0, tonumber(platform.top) or 0) else 0
-		local want = demo_picker.barReservation(platformTop, chipsBottom:get(), slack, overscanTop)
+		local want = demo_picker.barReservation(platformTop, chipsBottom:peek(), slack, overscanTop)
 		local band = math.max(0, want - platformTop)
-		local live = env:get("appChromeInsets"):get()
+		local live = env:get("appChromeInsets"):peek()
 		if type(live) == "table" and live.top == band then
 			return
 		end
@@ -386,74 +404,56 @@ if bootDecision.mode == "showcase" then
 		then require(scenariosFolder:WaitForChild("foreign_instances")) :: any
 		else nil
 
-	--[[ EVERY DEMO GETS ITS OWN SCOPE, AND THE HOST INSTALLS IT. The proxy that
-		does it is `demo_host.scopedCore`, whose header carries the reasoning and the
-		live defect that made it a module rather than a local here: it is the one
-		piece of this mount path a headless spec can drive, and
-		`tests/gallery_demo_host.spec.luau` drives THAT one rather than a copy of it
-		that could drift. ]]
-	local function scopedCore(scope: any): any
-		return demo_host.scopedCore(core, scope)
-	end
-
-	-- HOW A DEMO MOUNTS is the host's job, because the two contracts differ:
-	-- a tutorial example takes (Facet, core, opts) and may present itself; a
-	-- scenario fixture takes one ctx table and returns a screen for us to
-	-- present. The picker knows neither, which is what keeps it a picker.
+	--[[ HOW A DEMO MOUNTS is `demo_host.mount`: one build contract for fixtures
+		and tutorial examples alike, presented through the application and released
+		with its screen. It is a module rather than a local here because it is the
+		one piece of this mount path a headless spec can drive, and
+		`tests/gallery_demo_host.spec.luau` drives that one rather than a copy. ]]
 	local activeBuilt: any = nil
-	local activeNavigation = core:signal(nil :: any)
+	local activeNavigation = Compose.cell(nil :: any)
 	local function mountDemo(demo: any): any
-		local demoScope = core:scope(`showcase-demo-{demo.id}`)
-		local demoCore = scopedCore(demoScope)
-		local built: any
-		if demo.kind == "fixture" then
-			assert(scenariosFolder ~= nil, "showcase: FacetScenarios is not replicated")
-			local mod = require(scenariosFolder:FindFirstChild(demo.module)) :: any
-			-- the MINIMAL ctx: the build-time subset of the runner's ctx. The
-			-- adaptive-controls fixture reads {Facet, core, env}; row_actions
-			-- additionally binds `presenter.onTick` at build (its VirtualList
-			-- waits for a mounted scroll path). `actionSystem` rides along for
-			-- the same reason it does in the runner — a fixture's steps never
-			-- run here, but nothing a fixture reads at BUILD may be absent.
-			--[[ THE `foreign` SEAM RIDES ALONG (UI.Foreign), for exactly
-				the reason the `present`-opts comment below records. A fixture whose
-				panes hold caller-owned instances declares them as DATA and adopts
-				them through `ctx.foreign.adopt` — a seam only the scenario RUNNER
-				had. Without this the showcase a player actually opens would mount
-				`foreign_content`'s three panes EMPTY while the runner and the sweep
-				showed them full: the test rig more correct than the shipped host,
-				which is the failure this file has already shipped once.
+		local folder = if demo.kind == "fixture" then scenariosFolder else examplesFolder
+		assert(folder ~= nil, `showcase: the {demo.kind} modules are not replicated`)
+		local mod = require(folder:FindFirstChild(demo.module)) :: any
+		local built: any = nil
+		--[[ THE CONTEXT EVERY DEMO BUILDS AGAINST, the build-time subset of the
+			scenario runner's. Nothing a demo reads at build may be absent.
 
-				It resolves the demo's own controller lazily, because the handle does
-				not exist until `present` returns two dozen lines below and the
-				fixture's buttons are pressed long after that. ]]
-			local demoHandle: any = nil
-			built = mod.build({
-				Facet = Facet,
-				core = demoCore,
-				env = env,
-				actionSystem = system,
-				presenter = pres,
-				worldActions = function(triggered)
-					return require(script:WaitForChild("world_actions_demo")).mount(
-						{ core = demoCore, presenter = pres },
-						function(value)
-							-- The world and its cover must switch in the same render frame.
-							-- Keep the backdrop solved and styled while the camera is exposed.
-							backdropHandle.controller.setRootVisible(not value)
-						end,
-						triggered
-					)
-				end,
-				foreign = {
-					adopt = function(nodePath: string, content: any): string
-						if demoHandle == nil then
-							return "not-presented"
-						end
-						return foreignInstances.adopt(demoHandle.controller, nodePath, content)
+			The `foreign` seam rides along (UI.Foreign): a fixture whose panes hold
+			caller-owned instances declares them as data and adopts them through
+			`ctx.foreign.adopt`. It resolves the demo's own controller lazily, because
+			the handle does not exist until the demo is presented. ]]
+		local ctx = {
+
+			Facet = Facet,
+			app = app,
+			UI = UI,
+			Compose = Compose,
+			core = core,
+			env = env,
+			adapter = adapter,
+			actionSystem = system,
+			presenter = pres,
+			worldActions = function(triggered)
+				return require(script:WaitForChild("world_actions_demo")).mount(
+					{ core = core, presenter = pres },
+					function(value)
+						-- The world and its cover must switch in the same render frame.
+						-- Keep the backdrop solved and styled while the camera is exposed.
+						backdropHandle.controller.setRootVisible(not value)
 					end,
-				},
-				--[[ THE RESOURCE TRANSPORT, the runner's other engine-owned seam
+					triggered
+				)
+			end,
+			foreign = {
+				adopt = function(nodePath: string, content: any): string
+					if built == nil or built.handle == nil then
+						return "not-presented"
+					end
+					return foreignInstances.adopt(built.handle.controller, nodePath, content)
+				end,
+			},
+			--[[ THE RESOURCE TRANSPORT, the runner's other engine-owned seam
 					(NS-A13, `scenarios/runner.luau`). A scenario stays engine-free, so
 					the host is what hands it `ContentProvider:PreloadAsync` — and
 					`async_images` calls this at BUILD, not in a step, which is why the
@@ -464,11 +464,11 @@ if bootDecision.mode == "showcase" then
 					Without this the demo would take the pcall in `show()` and warn.
 					`sponsor_avatars` reads the same seam and degrades honestly when it is
 					absent, which is what a headless run still exercises. ]]
-				bindResourceTransport = function(provider: any): () -> ()
-					local transport = require(ReplicatedStorage.Facet.client.roblox_resources) :: any
-					return transport.bind(provider)
-				end,
-				--[[ THE ENGINE'S OWN PAINT BIT, WHICH ONLY THE TEST RIG USED TO CARRY
+			bindResourceTransport = function(provider: any): () -> ()
+				local transport = require(ReplicatedStorage.Facet.client.roblox_resources) :: any
+				return transport.bind(provider)
+			end,
+			--[[ THE ENGINE'S OWN PAINT BIT, WHICH ONLY THE TEST RIG USED TO CARRY
 					(NM-H4a, 2026-08-16). Byte-identical to `scenarios/runner.luau`'s seam
 					of the same name — solved rects plus `Visible`, for named paths, read
 					on the host side so the fixture stays engine-free.
@@ -480,20 +480,20 @@ if bootDecision.mode == "showcase" then
 					from a real phone and reproduced by nothing in this repository; without
 					this line it would degrade to the model-only readout on the one host
 					that matters, which is the same failure as having no instrument. ]]
-				--[[ ...AND `enabled` IS THE SURFACE ROOT, the half a GuiObject cannot
+			--[[ ...AND `enabled` IS THE SURFACE ROOT, the half a GuiObject cannot
 					carry (2026-08-16). A surface is hidden with `ScreenGui.Enabled`, which
 					is a different property on a different class: every path a caller can
 					name resolves to a GuiObject, so a whole screen goes dark with every one
 					of its nodes still reporting `Visible = true`. A probe that reads only
 					the paint bit calls that screen healthy — which is exactly what the
 					HUD's plate did on the reported phone. ]]
-				geometry = function(paths: { string }): { [string]: any }
-					local out: { [string]: any } = {}
-					for _, path in paths do
-						local inst = (adapter :: any).getInstance and (adapter :: any).getInstance(path)
-						if inst ~= nil and inst:IsA("GuiObject") then
-							local layer = inst:FindFirstAncestorWhichIsA("LayerCollector")
-							--[[ ...AND THE TWO WAYS A PERFECT RECT PAINTS NOTHING (2026-08-17).
+			geometry = function(paths: { string }): { [string]: any }
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local inst = (adapter :: any).getInstance and (adapter :: any).getInstance(path)
+					if inst ~= nil and inst:IsA("GuiObject") then
+						local layer = inst:FindFirstAncestorWhichIsA("LayerCollector")
+						--[[ ...AND THE TWO WAYS A PERFECT RECT PAINTS NOTHING (2026-08-17).
 								The plate reported `14 of 14 painting` over a screen missing six
 								zones, with every rect, size, `Visible` and `Enabled` correct. What
 								it had never read is the pair of engine facts that make a node
@@ -507,147 +507,78 @@ if bootDecision.mode == "showcase" then
 
 								Both are read off the live tree here rather than inferred, because
 								the engine is the only thing that knows them. ]]
-							local groupAlpha = 0
-							local clippedBy: string? = nil
-							local pos, size = inst.AbsolutePosition, inst.AbsoluteSize
-							local up: Instance? = inst.Parent
-							while up ~= nil and not up:IsA("LayerCollector") do
-								if up:IsA("CanvasGroup") then
-									groupAlpha = math.max(groupAlpha, (up :: any).GroupTransparency)
-								end
-								if up:IsA("GuiObject") and (up :: any).ClipsDescendants then
-									local p, s = (up :: any).AbsolutePosition, (up :: any).AbsoluteSize
-									if
-										pos.X + size.X <= p.X
-										or pos.Y + size.Y <= p.Y
-										or pos.X >= p.X + s.X
-										or pos.Y >= p.Y + s.Y
-									then
-										clippedBy = clippedBy or up.Name
-									end
-								end
-								up = up.Parent
+						local groupAlpha = 0
+						local clippedBy: string? = nil
+						local pos, size = inst.AbsolutePosition, inst.AbsoluteSize
+						local up: Instance? = inst.Parent
+						while up ~= nil and not up:IsA("LayerCollector") do
+							if up:IsA("CanvasGroup") then
+								groupAlpha = math.max(groupAlpha, (up :: any).GroupTransparency)
 							end
-							out[path] = {
-								x = pos.X,
-								y = pos.Y,
-								w = size.X,
-								h = size.Y,
-								visible = inst.Visible,
-								enabled = if layer ~= nil then (layer :: any).Enabled else true,
-								groupAlpha = groupAlpha,
-								clippedBy = clippedBy,
-							}
+							if up:IsA("GuiObject") and (up :: any).ClipsDescendants then
+								local p, s = (up :: any).AbsolutePosition, (up :: any).AbsoluteSize
+								if
+									pos.X + size.X <= p.X
+									or pos.Y + size.Y <= p.Y
+									or pos.X >= p.X + s.X
+									or pos.Y >= p.Y + s.Y
+								then
+									clippedBy = clippedBy or up.Name
+								end
+							end
+							up = up.Parent
 						end
+						out[path] = {
+							x = pos.X,
+							y = pos.Y,
+							w = size.X,
+							h = size.Y,
+							visible = inst.Visible,
+							enabled = if layer ~= nil then (layer :: any).Enabled else true,
+							groupAlpha = groupAlpha,
+							clippedBy = clippedBy,
+						}
 					end
-					return out
-				end,
-			})
-			--[[ A FIXTURE'S `present` OPTS ARE PART OF THE FIXTURE (C2, 2026-08-12).
-				This dropped the second argument, so every `present` table a fixture
-				declared was silently discarded HERE and nowhere else: the scenario
-				runner passes it (`scenarios/runner.luau`), the overflow sweep passes
-				it (`tests/overflow_sweep.spec.luau`), and the tutorial branch eleven
-				lines below passes it — the test rigs were more correct than the
-				shipped host, which is the failure mode the standing lesson is named
-				after.
-
-				It was load-bearing the day it was found: `scenarios/row_actions.luau`
-				derives its hosted VirtualList's window from its own solved pane
-				through `present.onGeometry`, so in the showcase that window stayed
-				frozen at the pre-geometry literal and the list painted past its pane
-				on a landscape phone — the very defect that seam was added to fix.
-				`present` is nil for a fixture that declares none, which is exactly
-				what `present(screen)` meant before. ]]
-			built.handle = pres.present(built.screen, built.present)
-			demoHandle = built.handle
-			--[[ THE NATIVE-SCROLL MIRROR, WHICH THIS BRANCH NEVER BOUND (measured live
-				in Studio 2026-08-15, showcase place, `virtual_grid`: an engine scroll to
-				`CanvasPosition.Y = 2000` left the mounted window still showing `c1..c16`).
-
-				THE SAME OMISSION, A THIRD TIME. A virtualized collection cannot reach the
-				render controller at build, so the CONSUMER wires `bindNativeScroll` after
-				`present` — and the loop that does it existed in the tutorial branch below
-				and in the single-demo path, and nowhere here. Without it `scrollTop` is
-				written by nothing: the engine moves its canvas, the control never hears,
-				and the window stays pinned on its first line while the player flings a
-				list that visibly does not move.
-
-				FIVE PICKER DEMOS WERE DEAD ON THIS PATH, not one — `virtual_grid`,
-				`virtual_hgrid`, `variable_extents`, `measured_extents` and
-				`table_virtualized` all publish their control flat (or under `api`) and
-				bind nowhere else. The four that worked (`card_rail`, `row_actions`,
-				`sponsor_list`, `sponsor_drop`) bind themselves from `presenter.onTick`,
-				which is why the defect was invisible in the fixtures a device pass drove.
-				`scenarios/virtual_grid.luau:318-321` publishes `grid` in as many words
-				"for the showcase host's native-scroll auto-bind" — against a loop that
-				did not exist for fixtures.
-
-				It is the same shape as the `present`-opts defect eleven lines above (C2)
-				and the `foreign` seam below it: the fixture branch keeps arriving at a
-				capability the runner, the sweep and the tutorial branch already have. The
-				general fix — making the omission impossible or loud in the CONTROL — is
-				booked as a framework defect (`ui_todo.md`, "the bind you can forget"),
-				because it belongs in the presenter's contribution seam and not in a
-				showcase host.
-
-				A DOUBLE BIND IS HARMLESS AND A MISSING ONE IS NOT: a fixture that also
-				binds itself ends with two `observeScroll` callbacks writing the same
-				position into the same signal. The unbind is owned by the demo's scope, so
-				it is released when the player picks the next demo. ]]
+				end
+				return out
+			end,
+		}
+		-- The demo's `present` options are part of the demo: `demo_host.mount`
+		-- passes them, so a fixture's `onGeometry` reaches the presenter.
+		built = demo_host.mount(ctx, mod)
+		local releases: { () -> () } = {}
+		if built.handle ~= nil then
+			--[[ THE NATIVE-SCROLL MIRROR. A virtualized collection cannot reach the
+				render controller at build, so the consumer wires `bindNativeScroll`
+				after the demo is presented. Without it the engine moves its canvas and
+				the control never hears. A double bind is harmless and a missing one is
+				not; the unbind is released with the demo. ]]
 			for _, value in built :: any do
 				local bind = nativeScrollBinderOf(value)
 				if bind ~= nil then
-					demoScope:own(bind(built.handle.controller))
+					local unbind = bind(built.handle.controller)
+					if type(unbind) == "function" then
+						table.insert(releases, unbind)
+					end
 				end
 			end
-			-- ...and the DECLARED half, the exact parallel of the runner's
-			-- post-present pass: whatever `built.foreignContent` names is
-			-- adopted now, and the per-node status is kept so a fixture can report it
+			-- The declared half of the foreign seam: whatever `built.foreignContent`
+			-- names is adopted now, and the per-node status is kept for the report.
 			if built.foreignContent ~= nil then
 				built.foreignApplied = foreignInstances.applyAll(built.handle.controller, built.foreignContent)
 			end
-		else
-			local mod = require(examplesFolder:FindFirstChild(demo.module)) :: any
-			built = mod.build(Facet, demoCore, {
-				env = env,
-				actionSystem = system,
-				presenter = pres,
-				adapter = adapter,
-			})
-			-- examples 1-4 hand back a screen to present; 5-7 present themselves
-			if built.handle == nil and built.screen ~= nil then
-				local presented = pres.present(built.screen, built.present)
-				for _, value in built :: any do
-					local bind = nativeScrollBinderOf(value)
-					if bind ~= nil then
-						bind(presented.controller)
-					end
-				end
-				built.handle = presented
-			end
 		end
-		-- DELIVER THE LOOPBACK SERVER'S RESPONSES.
-		--
-		-- THE HOST NO LONGER ANSWERS FOR THE PLAYER (example-quality-pass,
-		-- 2026-08-06). This used to flush any `built.server.flush` every frame,
-		-- because example 03's first change otherwise went pending and stayed
-		-- pending. That fixed the symptom and destroyed the lesson: the pending
-		-- state — the whole point of an optimistic-apply example — was answered
-		-- before a player could ever see it, and the accept/reject/rollback path
-		-- had no on-screen route at all.
-		--
-		-- Example 03 now owns delivery through a visible "Deliver server reply"
-		-- button and exposes `server.deliver`, not `server.flush`, so it does not
-		-- opt into this auto-answer. The hook stays, nil-guarded, for any FUTURE
-		-- example whose transport really should answer promptly without a control.
+		-- A demo whose loopback transport answers promptly exposes `server.flush`.
+		-- Example 03 delivers through its own visible button and exposes none.
 		if built.server ~= nil and type(built.server.flush) == "function" then
-			demoScope:own(RunService.Heartbeat:Connect(function()
-				built.server.flush()
-			end))
+			table.insert(
+				releases,
+				app.onFrame(function()
+					built.server.flush()
+				end)
+			)
 		end
 
-		demo_host.ownLifetime(built, pres, demoScope)
 		local dispose = built.dispose
 		activeBuilt = built
 		activeNavigation:set(built.navigationLayout)
@@ -656,6 +587,10 @@ if bootDecision.mode == "showcase" then
 				activeBuilt = nil
 				activeNavigation:set(nil)
 			end
+			for _, release in releases do
+				release()
+			end
+			table.clear(releases)
 			dispose()
 		end
 		return built
@@ -672,21 +607,21 @@ if bootDecision.mode == "showcase" then
 	-- Z-ORDER IS PRESENT ORDER (presenter §2.2), so presenting this ONCE, before
 	-- anything else, keeps it underneath every demo and the chrome without any
 	-- notion of "send to back". It is never raised, and that is the mechanism.
-	backdropHandle = pres.present(
-		UI.Screen({
-			id = "ShowcaseBackdrop",
-
-			UI.Box({
-				id = "Fill",
-				surface = "base",
-				width = UI.fill(),
-				height = UI.fill(),
-			}),
-		}),
+	local _, _, mountedBackdrop = app.mount(
+		function()
+			return UI.Screen("ShowcaseBackdrop")({
+				UI.Box("Fill")({
+					surface = "base",
+					width = UI.fill(),
+					height = UI.fill(),
+				}),
+			})
+		end,
 		-- edgeToEdge: a backdrop that respects the safe area is a rectangle with
 		-- the world showing around it (device capture, 2026-07-26)
 		{ responder = "passive", rootPolicy = "edgeToEdge" }
 	)
+	backdropHandle = mountedBackdrop
 
 	-- THE CHROME: A STRIP THAT NEVER MOVES, AND A PANEL THAT COMES AND GOES.
 	--
@@ -711,9 +646,8 @@ if bootDecision.mode == "showcase" then
 
 	demos = demo_picker.mount({
 		Facet = Facet,
-		core = core,
+		app = app,
 		env = env,
-		presenter = pres,
 		composed = true,
 		mountDemo = mountDemo,
 		-- PANEL PRESENCE IS THE CHROME'S, so the chip asks and the row's choice
@@ -741,7 +675,7 @@ if bootDecision.mode == "showcase" then
 	settings = settings_panel.mount({
 		preview = displayPreview,
 		Facet = Facet,
-		core = core,
+		app = app,
 		env = env,
 		-- theme is a SETTING and lives in here now (CONCERNS 16); nil when no
 		-- package replicated, which leaves settings with just its motion section
@@ -754,9 +688,9 @@ if bootDecision.mode == "showcase" then
 
 	chrome = showcase_chrome.mount({
 		Facet = Facet,
+		app = app,
 		core = core,
 		env = env,
-		presenter = pres,
 		actionSystem = system,
 		demos = demos,
 		settings = settings,
@@ -767,7 +701,7 @@ if bootDecision.mode == "showcase" then
 		-- change or a raised text preference re-reports the chip row's real bottom
 		-- edge and the reserved strip follows it.
 		onChipsBottom = function(bottom: number)
-			if chipsBottom:get() ~= bottom then
+			if chipsBottom:peek() ~= bottom then
 				chipsBottom:set(bottom)
 			end
 		end,
@@ -783,7 +717,7 @@ if bootDecision.mode == "showcase" then
 			everywhere. Written only on change: it feeds a derived memo. ]]
 		onChipsRect = function(rect: any)
 			local declared = { { x = rect.x, y = rect.y, w = rect.w, h = rect.h } }
-			local live = env:get("appChromeRects"):get()
+			local live = env:get("appChromeRects"):peek()
 			local was = if type(live) == "table" then (live :: any)[1] else nil
 			if type(was) == "table" and was.x == rect.x and was.y == rect.y and was.w == rect.w and was.h == rect.h then
 				return
@@ -795,14 +729,10 @@ if bootDecision.mode == "showcase" then
 	-- the strip is up; now mount the demo it advertises
 	demos.show(demos.current())
 
-	local showcaseHeartbeat = RunService.Heartbeat:Connect(function()
-		-- re-assert the reservation before the solve: the platform adapter
-		-- rewrites coreSafeInsets on orientation and topbar changes — which this
-		-- band is stated relative to — and the write above is idempotent, so this
-		-- simply keeps the strip reserved
-		reserveBar()
-		pres.refresh()
-	end)
+	-- Re-assert the reservation before each solve: the platform adapter rewrites
+	-- coreSafeInsets on orientation and topbar changes, which this band is stated
+	-- relative to. The write is idempotent, so this simply keeps the strip reserved.
+	local showcaseHeartbeat = app.onFrame(reserveBar)
 	-- A HANDLE FOR THE ROOM. The scenario runner already publishes its API this
 	-- way (examples/gallery/scenarios/runner.luau) and for the same reason: the
 	-- Studio MCP's execute_luau runs in a DIFFERENT Luau VM than this
@@ -880,7 +810,7 @@ if bootDecision.mode == "showcase" then
 				for _, entry in showcasePicker.entries do
 					table.insert(ids, entry.id)
 				end
-				return HttpService:JSONEncode({ entries = ids, current = showcasePicker.selection:get() })
+				return HttpService:JSONEncode({ entries = ids, current = showcasePicker.selection:peek() })
 			end,
 			pickTheme = function(arg: string?)
 				if showcasePicker == nil then
@@ -892,14 +822,14 @@ if bootDecision.mode == "showcase" then
 				-- from a script at all. `pickPackage` is the same call the chips'
 				-- own onActivate makes.
 				local ok = showcasePicker.pickPackage(tostring(arg))
-				return HttpService:JSONEncode({ ok = ok, current = showcasePicker.selection:get() })
+				return HttpService:JSONEncode({ ok = ok, current = showcasePicker.selection:peek() })
 			end,
 			-- THE SAME CALL A CHIP PRESS AND THE TOGGLE KEY MAKE. Theme now lives
 			-- inside settings (CONCERNS 16), so "open the themes" is "open the
 			-- settings section" — one route, not a parallel one that can rot.
 			toggleThemes = function(_arg: string?)
 				chrome.request("settings")
-				return HttpService:JSONEncode({ open = chrome.isOpen(), section = chrome.kind:get() })
+				return HttpService:JSONEncode({ open = chrome.isOpen(), section = chrome.kind:peek() })
 			end,
 			chrome = function(arg: string?)
 				if arg == "demos" or arg == "settings" then
@@ -909,8 +839,8 @@ if bootDecision.mode == "showcase" then
 				end
 				return HttpService:JSONEncode({
 					open = chrome.isOpen(),
-					section = chrome.kind:get(),
-					engaged = chrome.panelHandle() ~= nil and chrome.panelHandle().responder:get() or "none",
+					section = chrome.kind:peek(),
+					engaged = chrome.panelHandle() ~= nil and chrome.panelHandle().responder:peek() or "none",
 				})
 			end,
 			-- Display and input settings use the same routes as their Pickers.
@@ -918,20 +848,20 @@ if bootDecision.mode == "showcase" then
 				local ok = if arg ~= nil then settings.setPreview(arg) else true
 				return HttpService:JSONEncode({
 					ok = ok,
-					profile = settings.previewProfile:get(),
-					viewport = env:get("viewportRect"):get(),
+					profile = settings.previewProfile:peek(),
+					viewport = env:get("viewportRect"):peek(),
 				})
 			end,
 			orientation = function(arg: string?)
 				local ok = if arg ~= nil then settings.setOrientation(arg) else true
-				return HttpService:JSONEncode({ ok = ok, orientation = settings.previewOrientation:get() })
+				return HttpService:JSONEncode({ ok = ok, orientation = settings.previewOrientation:peek() })
 			end,
 			input = function(arg: string?)
 				local ok = if arg ~= nil then settings.setInput(arg) else true
 				return HttpService:JSONEncode({
 					ok = ok,
-					input = settings.previewInput:get(),
-					resolved = env:get("interactionClasses"):get().primary,
+					input = settings.previewInput:peek(),
+					resolved = env:get("interactionClasses"):peek().primary,
 				})
 			end,
 			distance = function(arg: string?)
@@ -939,9 +869,9 @@ if bootDecision.mode == "showcase" then
 					settings.setViewingDistance(arg)
 				end
 				return HttpService:JSONEncode({
-					preference = env:get("viewingDistance"):get(),
-					resolved = env:get("distanceProfile"):get(),
-					source = env:get("distanceProfileSource"):get(),
+					preference = env:get("viewingDistance"):peek(),
+					resolved = env:get("distanceProfile"):peek(),
+					source = env:get("distanceProfileSource"):peek(),
 				})
 			end,
 			motion = function(arg: string?)
@@ -949,9 +879,9 @@ if bootDecision.mode == "showcase" then
 					settings.setMode(arg)
 				end
 				return HttpService:JSONEncode({
-					motion = settings.mode:get(),
-					setting = settings.setting:get(),
-					reduced = env:get("reducedMotion"):get() == true,
+					motion = settings.mode:peek(),
+					setting = settings.setting:peek(),
+					reduced = env:get("reducedMotion"):peek() == true,
 				})
 			end,
 		} :: { [string]: (string?) -> string }
@@ -997,24 +927,14 @@ if bootDecision.mode == "scenario" then
 	if registryModule ~= nil then
 		local registry = require(registryModule) :: any
 		local runner = require(registry.runner) :: any
-		local scenarioHeartbeat = RunService.Heartbeat:Connect(function(dt: number)
-			-- tick BEFORE refresh: presenter.tick advances time-based presenter
-			-- state (toast clocks, the disclosure hover dwell — Step 8.5), and
-			-- refresh then paints its outcome in the same frame. The scenario
-			-- path used to refresh only, so a hover dwell could never elapse in
-			-- a live scenario session while every headless case passed (found
-			-- driving the disclosure plate in the device matrix, 2026-08-03).
-			pres.tick(dt)
-			pres.refresh()
-		end)
 		local started, result = pcall(runner.start, {
 			Facet = Facet,
 			registry = registry,
 			scenarioName = scenarioName,
+			app = app,
 			core = core,
 			env = env,
 			adapter = adapter,
-			presenter = pres,
 			actionSystem = system,
 			unbindEnv = unbindEnv,
 		})
@@ -1023,14 +943,13 @@ if bootDecision.mode == "scenario" then
 			-- unregistered scenario); this covers the ones it cannot, and then puts
 			-- the error back so the console goes red too. A pcall that SWALLOWED
 			-- this would reproduce the very defect this branch was rewired to fix.
-			scenarioHeartbeat:Disconnect()
 			if workspace:GetAttribute("Facet_ScenarioState") == nil then
 				workspace:SetAttribute("Facet_ScenarioState", boot_mode.refusedState("start-failed"))
 			end
 			warn(boot_mode.refusal("Facet_Scenario", `mounting '{scenarioName}' threw: {tostring(result)}`))
 			error(result, 0)
 		end
-		local _keep = { scenarioHeartbeat, result, unbindResponderEffects }
+		local _keep = { result, unbindResponderEffects }
 		return
 	else
 		refuseScenario("FacetScenarios is not replicated into this place, so no scenario can be mounted")
@@ -1064,32 +983,30 @@ if bootDecision.mode == "example" then
 		)
 	else
 		local example = require(exampleModule) :: any
-		local built = example.build(Facet, core, {
+		-- Two build styles (docs/guide/04-tutorial-examples.md): examples 1-4
+		-- answer `{ screen, present }` for the host to present; the game examples
+		-- (5-7) present themselves and answer `{ handle }`.
+		local built = demo_host.mount({
+			Facet = Facet,
+			app = app,
+			UI = UI,
+			Compose = Compose,
+			core = core,
 			env = env,
+			adapter = adapter,
 			actionSystem = system,
 			presenter = pres,
-			adapter = adapter,
-		})
-		-- two build styles (documented in docs/guide/04-tutorial-examples.md):
-		-- examples 1-4 return { screen, present } for the caller to present;
-		-- the game examples (5-7) present THEMSELVES and return { handle }
-		if built.handle == nil and built.screen ~= nil then
-			local presented = pres.present(built.screen, built.present)
-			-- native-scroll consumer wiring (native-substrate NS-A3/NS-A4):
-			-- controls riding the native canvas expose bindNativeScroll; the
-			-- CONSUMER binds after present so engine CanvasPosition feeds
-			-- their windowing/keep-visible mirror
+		}, example)
+		-- Controls riding the native canvas expose `bindNativeScroll`; the consumer
+		-- binds after present so engine CanvasPosition feeds their window.
+		if built.handle ~= nil then
 			for _, value in built :: any do
 				local bind = nativeScrollBinderOf(value)
 				if bind ~= nil then
-					bind(presented.controller)
+					bind(built.handle.controller)
 				end
 			end
-			built.handle = presented
 		end
-		local exampleHeartbeat = RunService.Heartbeat:Connect(function()
-			pres.refresh()
-		end)
 		-- COLLAPSED, because the picker is gallery chrome and the example is the
 		-- subject (example-quality-pass, found live 2026-08-06). Expanded, its
 		-- panel measured `x 339..899, y 8..219` on desktop and covered most of
@@ -1100,69 +1017,61 @@ if bootDecision.mode == "example" then
 		workspace:SetAttribute("Facet_GalleryReady", true)
 		workspace:SetAttribute("Facet_ExampleTitle", example.title)
 		print(`[Facet Gallery] example {selected}: {example.title}`)
-		local _keep = { exampleHeartbeat, unbindEnv, built, examplePicker }
+		local _keep = { unbindEnv, built, examplePicker }
 		return
 	end
 end
 
 -- semantic state: authoritative snapshot + draft + mutation (loopback server)
 local snapshot = Facet.replication.snapshot(core, 1, { music = false, sfx = true })
-local draftMusic = core:signal(false)
-local saveStatus = core:signal("idle")
+local draftMusic = Compose.cell(false)
+local saveStatus = Compose.cell("idle")
 local mutation = Facet.replication.mutation(core, {
 	optimistic = {
 		apply = function(payload)
 			draftMusic:set(payload.music)
 		end,
 		restore = function()
-			draftMusic:set(snapshot.binding:get().music)
+			draftMusic:set(snapshot.binding:peek().music)
 		end,
 	},
 })
 
 -- The replication model survives the view; the mounted component owns the
 -- readout calculations and Studio checkpoint subscriptions.
-local Settings = Facet.component(function(ui)
-	local UI = Facet.View
-	local music, status = ui.read(draftMusic), ui.read(saveStatus)
-	local preferredInput = ui.env("effectiveInput")
-	local hint = ui.memo(function()
-		local preferred = preferredInput()
+local function Settings()
+	local preferredInput = env:get("effectiveInput")
+	local hint = Compose.formula(function(use)
+		local preferred = use(preferredInput)
 		return if preferred == "Touch"
 			then "Tap Save to apply"
 			elseif preferred == "Gamepad" then "Press A to apply"
 			else "Press Enter to apply"
 	end)
-	local statusLine = ui.memo(function()
-		return `music={tostring(music())} save={status()}`
+	local statusLine = Compose.formula(function(use)
+		return `music={tostring(use(draftMusic))} save={use(saveStatus)}`
 	end)
-	ui.watch(statusLine, function(line)
-		workspace:SetAttribute("Facet_Status", line)
-	end, { immediate = true })
-	ui.watch(hint, function(text)
-		workspace:SetAttribute("Facet_Hint", text)
-	end, { immediate = true })
-	return UI.Screen({
-		id = "GallerySettings",
+	Compose.watch(function(use)
+		workspace:SetAttribute("Facet_Status", use(statusLine))
+	end)
+	Compose.watch(function(use)
+		workspace:SetAttribute("Facet_Hint", use(hint))
+	end)
+	Compose.watch(function(use)
+		workspace:SetAttribute("Facet_Focused", use(pres.focus.focused) or "")
+	end)
+	return UI.Screen("GallerySettings")({
 		padding = "m",
 		gap = "s",
-		UI.Text({ id = "Title", text = "Facet Gallery — Settings", textSize = "title" }),
-		UI.Text({ id = "Hint", text = hint, textSize = "label" }),
-		UI.Toggle({
-			id = "Music",
-			label = "Music",
-			value = music,
-			onChange = function(value)
-				draftMusic:set(value)
-			end,
-		}),
-		UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
-		UI.Spacer({ id = "Gap", height = UI.fill() }),
-		UI.Button({
-			id = "Save",
+		UI.Text("Title")({ text = "Facet Gallery — Settings", textSize = "title" }),
+		UI.Text("Hint")({ text = hint, textSize = "label" }),
+		UI.Toggle("Music")({ label = "Music", value = draftMusic }),
+		UI.Text("Status")({ text = statusLine, textSize = "label" }),
+		UI.Spacer("Gap")({ height = UI.fill() }),
+		UI.Button("Save")({
 			label = "Save",
 			onActivate = function()
-				local envelope = mutation.send({ music = music() }, snapshot.revision())
+				local envelope = mutation.send({ music = draftMusic:peek() }, snapshot.revision())
 				saveStatus:set("pending")
 				task.defer(function()
 					snapshot.ingest(snapshot.revision() + 1, { music = envelope.payload.music, sfx = true })
@@ -1173,30 +1082,21 @@ local Settings = Facet.component(function(ui)
 			end,
 		}),
 	})
-end)
-local handle = pres.present(Settings({}))
+end
+local _, _, handle = app.mount(Settings)
 
 local picker = mountThemePicker()
-
--- frame-coalesced refresh (design §6.2: production coalesces to a frame)
-local heartbeat = RunService.Heartbeat:Connect(function()
-	pres.refresh()
-end)
 
 -- Studio verification checkpoints
 workspace:SetAttribute("Facet_GalleryReady", true)
 workspace:SetAttribute("Facet_Version", Facet.VERSION)
-core:observe(pres.focus.focused, function(path)
-	workspace:SetAttribute("Facet_Focused", path or "")
-end)
-workspace:SetAttribute("Facet_Focused", pres.focus.focused:get() or "")
 -- factory-rerun counter for the no-remount proof: mounted total is stable
 -- unless structure genuinely changes
 task.defer(function()
 	workspace:SetAttribute("Facet_FactoryRuns", handle.root.counters().factoryRuns)
 end)
 
-print(`[Facet Gallery] running {Facet.VERSION}; focus={pres.focus.focused:get()}`)
+print(`[Facet Gallery] running {Facet.VERSION}; focus={pres.focus.focused:peek()}`)
 
 -- keep references alive for the session
-local _keep = { unbindEnv, heartbeat, mutation, unbindResponderEffects, picker }
+local _keep = { unbindEnv, mutation, unbindResponderEffects, picker }

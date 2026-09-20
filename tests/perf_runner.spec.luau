@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Phase 4 spec (design §17 Phase 4 "controlled performance runner and
 -- floor-device suite"; §14.3 benchmark definition; §16.1 command contract).
 -- Proves the perf-runner MODULE (bench/perf_runner.luau) is:
@@ -14,7 +15,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local perf_runner = require("../bench/perf_runner")
 local perf_profiles = require("../bench/perf_profiles")
-local custom = require("../src/core/custom")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
+local custom = harness.coreFactory
 
 -- sorted key list of a table (shape comparison helper)
 local function keys(tbl: any): { string }
@@ -36,11 +39,11 @@ local function tinyScene(name: string?)
 		dataset = "1 signal / 1 memo / 1 observer; 5 writes per iteration",
 		setup = function(_profile: any)
 			local core = custom.new()
-			local s = core:signal(0)
-			local m = core:memo(function(use)
+			local s = Compose.cell(0)
+			local m = Compose.formula(function(use)
 				return use(s) * 2
 			end)
-			core:observe(m, function() end)
+			observeChange(core.owner, m, function() end)
 			return { core = core, s = s, n = 0 }
 		end,
 		run = function(state: any): { [string]: number }?
@@ -85,8 +88,7 @@ describe("perf runner — record schema (§14.3)", function()
 		expect(type(rec.allocRateKbPerSec)).toBe("number")
 		expect(type(rec.heapSlopeKbPerIter)).toBe("number")
 		-- live registry counters (Instances stand-in) + connections stand-in
-		expect(rec.liveRegistry.signals).toBeGreaterThanOrEqual(1)
-		expect(type(rec.liveRegistry.memos)).toBe("number")
+		expect(rec.liveRegistry.registrations).toBeGreaterThanOrEqual(1)
 		expect(type(rec.liveConnections)).toBe("number")
 		-- dropped/stale async work (zeros for a non-async scene, but present)
 		expect(rec.async.dropped).toBe(0)

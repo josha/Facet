@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 -- THE SCREEN-ANCHORED HUD.
 --
 -- The commissioning case is two screenshots of a shipped FPS: fullscreen the HUD
@@ -29,9 +31,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local composition = require("../src/layout/composition")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
@@ -620,14 +622,17 @@ describe("DIR5: the HUD demo exercises BOTH expand roles", function()
 	local hudScenario = require("../examples/gallery/scenarios/hud")
 
 	local function rolesOf(): { string }
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = hudScenario.build({
 			Facet = Facet,
+			app = scenario_app.over(core, presenter),
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -646,7 +651,8 @@ describe("DIR5: the HUD demo exercises BOTH expand roles", function()
 				walk(child)
 			end
 		end
-		walk(built.screen)
+		-- the declared roles are read off the mounted tree
+		walk(harness.mount(core, built.screen).node)
 		built.dispose()
 		table.sort(out)
 		return out
@@ -716,7 +722,7 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 	}
 
 	local function drive(profile: any): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = profile.vp.w, h = profile.vp.h })
 		env:set("coreSafeInsets", profile.core)
@@ -725,9 +731,12 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 		env:set("topbarInset", profile.bar)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = hudScenario.build({
 			Facet = Facet,
+			app = scenario_app.over(core, presenter),
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -786,7 +795,7 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 	-- keeps for itself. The failure names both boxes, because "which node" and
 	-- "which rect" are two different bugs.
 	local function assertClearsChrome(w: any, where: string, minPainted: number)
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		expect(#chrome.rects > 0).toBe(true) -- a check with nothing to check is decoration
 		local checked = 0
 		for _, path in w.adapter.paths() do
@@ -862,7 +871,7 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 
 	it("...and it is USING the strip: the objective chip is level with Roblox's own buttons", function()
 		local w = drive(PROFILES[1])
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		local band = chrome.band
 		expect(band ~= nil).toBe(true)
 		--[[ THE PATH MOVED WITH THE §9 MIGRATION AND THE ASSERTIONS DID NOT. The
@@ -872,7 +881,7 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 			`platformChrome.band`), so the two spacers and the inner stack are gone and
 			the whole row is behind the ride switch. Every expectation below is
 			unchanged — this is the same claim about the same pixels. ]]
-		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/Objective")
+		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripChip/StripRow/StripFit/Objective")
 		expect(chip ~= nil).toBe(true)
 		local rect = (chip :: any).rect
 		-- INSIDE the platform's own band, vertically — this is the "aligned with the
@@ -1020,7 +1029,7 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 
 	it("the rung with no strip is EXACTLY what deviceSafeContent applied: the top band is spent whole", function()
 		local w = drive(PROFILES[5])
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		expect(chrome.band).toBe(nil)
 		local rounds = w.adapter.node("/HudScreen/Hud/Rounds")
 		expect((rounds :: any).rect.y).toBe(chrome.insets.top)

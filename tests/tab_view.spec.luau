@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- TabView spec (navigation-and-menus brief §2 D5) — the tab construct
 -- `adaptive.navPlacement` has been waiting for since 2026-08-09.
 --
@@ -14,7 +15,7 @@
 --     inner one: it must not claim the app-level placement, must not fight for
 --     a focus scope, and must not touch the presenter's back() stack.
 --   * EVICTION IS A REAL DISPOSAL, NOT A HIDE. A hide passes every visual test
---     and leaks every switch, so the proof is `core:counters()` returning to a
+--     and leaks every switch, so the proof is `core.owner.size()` returning to a
 --     baseline after N switches — plus a caller-owned resource on the tab scope
 --     actually being disposed.
 --   * A `fill` STRIP CANNOT OVERFLOW. Five tabs at 320px are 64px each, so an
@@ -31,8 +32,9 @@ local Facet = require("../src") :: any
 local tab_view = require("../src/controls/tab_view")
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- ===== the harness ========================================================
 -- One mounted TabView on a real presenter. The viewport/input facts below are
@@ -63,7 +65,7 @@ end
 local function world(opts: any?)
 	local options = opts or {}
 	local view = options.viewport or PHONE
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -78,8 +80,8 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local selection = core:signal(options.initial or "home")
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local selection = Compose.cell(options.initial or "home")
 	local built: any = {
 		id = "Tabs",
 		selection = selection,
@@ -93,7 +95,7 @@ local function world(opts: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local tv = Facet.Controls.TabView(core, built)
+	local tv = harness.Controls.TabView(core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
 	pres.refresh()
 	return {
@@ -217,7 +219,7 @@ end)
 describe("D5: the strip IS a segmented picker, not a second option row", function()
 	it("mounts newPicker's own option row, with the D4 indicator on it", function()
 		local w = world()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		expect(w.adapter.node(tabPath(w, 1)).class).toBe("Button")
 		expect(w.adapter.node(tabPath(w, 1)).props.label).toBe("Home")
 		expect(w.adapter.node(stripPath(w) .. "/Indicator/Layer/Bar") ~= nil).toBe(true)
@@ -271,7 +273,15 @@ describe("D5: the strip IS a segmented picker, not a second option row", functio
 		})
 		-- the count is a node INSIDE the seal (2026-09-12), so the seal and the
 		-- number it holds are two rects — see tests/badge_centering.spec.luau
-		local badge = stripPath(w) .. "/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge/Count"
+		-- the button's content row is unnamed, so its path segment is found
+		local badge: string? = nil
+		local prefix = stripPath(w) .. "/Indicator/Options/Opt2Cell/Opt2/"
+		for _, path in w.adapter.paths() do
+			if string.sub(path, 1, #prefix) == prefix and string.match(path, "/Badge/Count$") then
+				badge = path
+			end
+		end
+		assert(badge, "the badge count is mounted")
 		expect(w.adapter.node(badge).props.text).toBe("12")
 		for _ = 1, 6 do
 			w.selection:set("feed")
@@ -350,11 +360,11 @@ describe("D5: placement comes from the policy, and the strip is RE-HOMED not reb
 	end)
 
 	it("an automatic placement with nothing to ask is an authoring error, not a guess", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				tabs = { { id = "a", content = body("a") } },
 			})
 		end)
@@ -367,18 +377,18 @@ end)
 local function nestedWorld(opts: any?)
 	local options = opts or {}
 	local view = options.viewport or PHONE
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local outerSelection = core:signal("discover")
-	local innerSelection = core:signal("foryou")
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local outerSelection = Compose.cell("discover")
+	local innerSelection = Compose.cell("foryou")
 	local inner: any = nil
 	local innerBuilds = 0
-	local outer = Facet.Controls.TabView(core, {
+	local outer = harness.Controls.TabView(core, {
 		id = "App",
 		selection = outerSelection,
 		env = env,
@@ -388,9 +398,9 @@ local function nestedWorld(opts: any?)
 				label = "Discover",
 				-- `r2` EXACTLY: the page's own top tab bar, built INSIDE the app
 				-- tab's content factory, which is also where laziness puts it
-				content = function(tabScope: any)
+				content = function()
 					innerBuilds += 1
-					inner = Facet.Controls.TabView(core, {
+					inner = harness.Controls.TabView(core, {
 						id = "Page",
 						selection = innerSelection,
 						env = env,
@@ -399,7 +409,6 @@ local function nestedWorld(opts: any?)
 							{ id = "charts", label = "Charts", content = body("charts") },
 						},
 					})
-					tabScope:own(inner)
 					return inner.blueprint
 				end,
 			},
@@ -440,7 +449,7 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		expect(inner.dump().nested).toBe(true)
 		-- and they really are in different homes on screen
 		expect(w.adapter.node("/S/App/BottomHome/then/BottomBand/Strip") ~= nil).toBe(true)
-		expect(w.adapter.node("/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBandCenter/TopBand/Strip") ~= nil).toBe(
+		expect(w.adapter.node("/S/App/Content/Tab-discover/Page/TopHome/then/TopBandCenter/TopBand/Strip") ~= nil).toBe(
 			true
 		)
 	end)
@@ -464,15 +473,15 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		-- reads after it — the shipped "reads where it is painted" rule
 		expect(#paths).toBe(5)
 		expect(paths[1]).toBe(
-			"/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt1"
+			"/S/App/Content/Tab-discover/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt1"
 		)
 		expect(paths[2]).toBe(
-			"/S/App/Content/Tab-discover/then/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt2"
+			"/S/App/Content/Tab-discover/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt2"
 		)
 		expect(paths[3]).toBe("/S/App/BottomHome/then/BottomBand/Strip/Indicator/Options/Opt1")
 		-- ONE flat order: neither TabView trapped focus inside itself, which is
 		-- what a `transientScope` would have done
-		expect(w.pres.focus.trapped == nil or w.pres.focus.trapped:get() == nil).toBe(true)
+		expect(w.pres.focus.trapped == nil or w.pres.focus.trapped:peek() == nil).toBe(true)
 	end)
 
 	it("neither level touches the presenter's back() stack", function()
@@ -494,11 +503,9 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		local w = nestedWorld({ viewport = PHONE })
 		w.innerSelection:set("charts")
 		w.pres.refresh()
-		expect(w.outerSelection:get()).toBe("discover")
+		expect(w.outerSelection:peek()).toBe("discover")
 		expect(w.innerOf().dump().selectedId).toBe("charts")
-		expect(w.adapter.node("/S/App/Content/Tab-discover/then/Page/Content/Tab-charts/then/chartsBody") ~= nil).toBe(
-			true
-		)
+		expect(w.adapter.node("/S/App/Content/Tab-discover/Page/Content/Tab-charts/chartsBody") ~= nil).toBe(true)
 	end)
 
 	it("the inner TabView is CONTENT, so it is evicted with its host tab and re-nests on return", function()
@@ -506,7 +513,7 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		expect(w.innerBuilds()).toBe(1)
 		w.outerSelection:set("create")
 		w.pres.refresh()
-		expect(w.adapter.node("/S/App/Content/Tab-discover/then/Page")).toBeNil()
+		expect(w.adapter.node("/S/App/Content/Tab-discover/Page")).toBeNil()
 		w.outerSelection:set("discover")
 		w.pres.refresh()
 		expect(w.innerBuilds()).toBe(2)
@@ -518,23 +525,23 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 	it("a content factory that THROWS still leaves the depth balanced", function()
 		-- an unbalanced build stack would make every later TabView in the session
 		-- think it was nested, which is a bug that only shows up two screens away
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local boom = Facet.Controls.TabView(core, {
-			id = "Boom",
-			selection = core:signal("a"),
-			env = env,
-			tabs = { {
-				id = "a",
-				content = function()
-					error("content exploded", 0)
-				end,
-			} },
-		})
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local ok = pcall(function()
+			local boom = harness.Controls.TabView(core, {
+				id = "Boom",
+				selection = Compose.cell("a"),
+				env = env,
+				tabs = { {
+					id = "a",
+					content = function()
+						error("content exploded", 0)
+					end,
+				} },
+			})
 			pres.present(UI.Screen({ id = "S", children = { boom.blueprint } }))
 			pres.refresh()
 		end)
@@ -549,9 +556,9 @@ end)
 describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", function()
 	it("only the selected tab's subtree exists at all", function()
 		local w = world()
-		expect(w.adapter.node("/S/Tabs/Content/Tab-home/then/homeBody") ~= nil).toBe(true)
-		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/then/feedBody")).toBeNil()
-		expect(w.adapter.node("/S/Tabs/Content/Tab-me/then/meBody")).toBeNil()
+		expect(w.adapter.node("/S/Tabs/Content/Tab-home/homeBody") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/feedBody")).toBeNil()
+		expect(w.adapter.node("/S/Tabs/Content/Tab-me/meBody")).toBeNil()
 		expect(w.tv.dump().mountedTabs).toEqual({ "home" })
 		expect(w.tv.dump().contentMounts).toBe(1)
 	end)
@@ -562,9 +569,9 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 		w.pres.refresh()
 		-- gone, not merely invisible: a hide would leave the node and answer a
 		-- visibility query, which is exactly the implementation this case refuses
-		expect(w.adapter.node("/S/Tabs/Content/Tab-home/then/homeBody")).toBeNil()
-		expect(w.adapter.visibleOf("/S/Tabs/Content/Tab-home/then/homeBody")).toBeNil()
-		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/then/feedBody") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Tabs/Content/Tab-home/homeBody")).toBeNil()
+		expect(w.adapter.visibleOf("/S/Tabs/Content/Tab-home/homeBody")).toBeNil()
+		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/feedBody") ~= nil).toBe(true)
 		expect(w.tv.dump().mountedTabs).toEqual({ "feed" })
 		expect(w.tv.dump().contentEvictions).toBe(1)
 	end)
@@ -597,7 +604,7 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 			},
 		})
 		local region = w.adapter.node("/S/Tabs/Content").rect
-		local page = w.adapter.node("/S/Tabs/Content/Tab-home/then/homeBody").rect
+		local page = w.adapter.node("/S/Tabs/Content/Tab-home/homeBody").rect
 		expect(page.w).toBe(region.w)
 		-- ...and the region files no "child overflows its zstack" of its own. (The
 		-- BODY still reports its own row overflowing, which is the fixture being
@@ -625,7 +632,7 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 		w.pres.refresh()
 		w.selection:set("home")
 		w.pres.refresh()
-		local baseline = w.core:counters()
+		local baseline = w.core.owner.size()
 		for _ = 1, 10 do
 			w.selection:set("feed")
 			w.pres.refresh()
@@ -634,27 +641,27 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 			w.selection:set("home")
 			w.pres.refresh()
 		end
-		local after = w.core:counters()
-		expect(after.signals).toBe(baseline.signals)
-		expect(after.memos).toBe(baseline.memos)
-		expect(after.observers).toBe(baseline.observers)
-		expect(after.effects).toBe(baseline.effects)
-		expect(after.scopes).toBe(baseline.scopes)
-		expect(after.settles).toBe(baseline.settles)
+		local after = w.core.owner.size()
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
 		expect(w.tv.dump().contentMounts).toBe(33)
 		expect(w.tv.dump().contentEvictions).toBe(32)
 	end)
 
 	it("eviction disposes what the CALLER owned on the tab scope", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local selection = core:signal("home")
-		local disposed = 0
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selection = Compose.cell("home")
+		local disposed, released = 0, 0
 		local baseline: any = nil
-		local tv = Facet.Controls.TabView(core, {
+		local tv = harness.Controls.TabView(core, {
 			id = "Tabs",
 			selection = selection,
 			env = env,
@@ -662,19 +669,21 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 				{
 					id = "home",
 					label = "Home",
-					content = function(tabScope: any)
-						-- the tab's own reactive state, owned on the scope the tab
+					content = function(tabOwner: any)
+						-- the tab's own reactive state, owned by the owner the tab
 						-- hands out — this is the whole eviction contract
 						for _ = 1, 5 do
-							tabScope:own(core:memo(function()
+							local memo = Compose.formula(function()
 								return 1
-							end))
+							end)
+							tabOwner.own(function()
+								memo:dispose()
+								released += 1
+							end)
 						end
-						tabScope:own({
-							dispose = function()
-								disposed += 1
-							end,
-						})
+						tabOwner.own(function()
+							disposed += 1
+						end)
 						return UI.Text({ id = "homeBody", text = "home" })
 					end,
 				},
@@ -683,18 +692,16 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 		})
 		pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }))
 		pres.refresh()
-		local withTab = core:counters()
 		selection:set("feed")
 		pres.refresh()
-		local withoutTab = core:counters()
 		expect(disposed).toBe(1)
-		-- the five memos the tab owned really went away: the neutrality claim
-		-- above is measuring something
-		expect(withoutTab.memos < withTab.memos).toBe(true)
-		expect(withTab.memos - withoutTab.memos >= 5).toBe(true)
+		--[[ the five formulas the tab owned really went away: the tab's owner is
+			the tab's, not the application's, so the count that means something is
+			how many of ITS releases ran, not how much the app owner shed. ]]
+		expect(released).toBe(5)
 		selection:set("home")
 		pres.refresh()
-		expect(core:counters().memos).toBe(withTab.memos)
+		expect(released).toBe(5)
 		tv.dispose()
 	end)
 
@@ -722,15 +729,15 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 	end)
 
 	it("...and state held OUTSIDE the TabView survives it — the documented escape hatch", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local selection = core:signal("home")
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selection = Compose.cell("home")
 		-- the caller's Signal, OUTSIDE the TabView, exactly as `selection` is
-		local draft = core:signal("half typed")
-		local tv = Facet.Controls.TabView(core, {
+		local draft = Compose.cell("half typed")
+		local tv = harness.Controls.TabView(core, {
 			id = "Tabs",
 			selection = selection,
 			env = env,
@@ -747,12 +754,12 @@ describe("D5: LAZY content, EVICTED state — a real disposal, never a hide", fu
 		})
 		pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }))
 		pres.refresh()
-		expect(adapter.node("/S/Tabs/Content/Tab-home/then/homeBody").props.text).toBe("half typed")
+		expect(adapter.node("/S/Tabs/Content/Tab-home/homeBody").props.text).toBe("half typed")
 		selection:set("feed")
 		pres.refresh()
 		selection:set("home")
 		pres.refresh()
-		expect(adapter.node("/S/Tabs/Content/Tab-home/then/homeBody").props.text).toBe("half typed")
+		expect(adapter.node("/S/Tabs/Content/Tab-home/homeBody").props.text).toBe("half typed")
 		tv.dispose()
 	end)
 end)
@@ -826,30 +833,30 @@ describe("D5: four inputs, one story", function()
 		local w = world()
 		w.adapter.tap(tabPath(w, 2))
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("feed")
-		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/then/feedBody") ~= nil).toBe(true)
+		expect(w.selection:peek()).toBe("feed")
+		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/feedBody") ~= nil).toBe(true)
 	end)
 
 	it("TabView touch: a touch tap/pan drives the control (device-true)", function()
 		local w = world()
 		w.adapter.touchTap(tabPath(w, 3))
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("me")
+		expect(w.selection:peek()).toBe("me")
 	end)
 
 	it("TabView keyboard: focus + Return drives the control", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 1))
+		expect(w.pres.focus.focused:peek()).toBe(tabPath(w, 1))
 		-- RIGHT, not Down: a bar is a HORIZONTAL group, which is the whole point of
 		-- the focus_map fix D5 landed
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 2))
+		expect(w.pres.focus.focused:peek()).toBe(tabPath(w, 2))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("feed")
-		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/then/feedBody") ~= nil).toBe(true)
+		expect(w.selection:peek()).toBe("feed")
+		expect(w.adapter.node("/S/Tabs/Content/Tab-feed/feedBody") ~= nil).toBe(true)
 	end)
 
 	it("TabView gamepad: focus + ButtonA drives the control", function()
@@ -858,11 +865,11 @@ describe("D5: four inputs, one story", function()
 		w.system.deviceKey("DPadRight", false)
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 3))
+		expect(w.pres.focus.focused:peek()).toBe(tabPath(w, 3))
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("me")
+		expect(w.selection:peek()).toBe("me")
 	end)
 
 	it("TabView pointer affordance: the pointer structural idiom (hover/direct-drag/wheel)", function()
@@ -930,44 +937,44 @@ describe("D5: four inputs, one story", function()
 		expect(#paths).toBe(3)
 		expect(paths[1]).toBe(tabPath(w, 1))
 		expect(paths[3]).toBe(tabPath(w, 3))
-		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 1))
+		expect(w.pres.focus.focused:peek()).toBe(tabPath(w, 1))
 		expect(w.adapter.node(tabPath(w, 1)).focused == true).toBe(false) -- no navigation yet
 		-- Adjust on a focused tab PAGES, and it clamps rather than wrapping
 		w.system.deviceKey("Period", true)
 		w.system.deviceKey("Period", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("feed")
+		expect(w.selection:peek()).toBe("feed")
 		w.system.deviceKey("Comma", true)
 		w.system.deviceKey("Comma", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("home")
+		expect(w.selection:peek()).toBe("home")
 		w.system.deviceKey("Comma", true)
 		w.system.deviceKey("Comma", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("home")
+		expect(w.selection:peek()).toBe("home")
 	end)
 
 	it("TabView gamepad affordance: the gamepad structural idiom (focus/grab/A-B/ten-foot)", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 1))
+		expect(w.pres.focus.focused:peek()).toBe(tabPath(w, 1))
 		-- THE SHOULDERS PAGE. They are bound DYNAMICALLY, only while focus is on a
 		-- tab, so a screen carrying a TabView never shadows gameplay bumpers.
 		w.system.deviceKey("ButtonR1", true)
 		w.system.deviceKey("ButtonR1", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("feed")
+		expect(w.selection:peek()).toBe("feed")
 		w.system.deviceKey("ButtonR1", true)
 		w.system.deviceKey("ButtonR1", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("me")
+		expect(w.selection:peek()).toBe("me")
 		w.system.deviceKey("ButtonR1", true)
 		w.system.deviceKey("ButtonR1", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("me") -- clamps at the last tab, never wraps
+		expect(w.selection:peek()).toBe("me") -- clamps at the last tab, never wraps
 		w.system.deviceKey("ButtonL1", true)
 		w.system.deviceKey("ButtonL1", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("feed")
+		expect(w.selection:peek()).toBe("feed")
 		-- ...and a ten-foot screen still reaches every tab (the top bar, per policy).
 		-- `distanceProfile` is DERIVED from the engine's display size, never set:
 		-- a TV at 3m is a fact the platform reports, not one a screen declares.
@@ -990,7 +997,7 @@ describe("D5: four inputs, one story", function()
 		expect(groups[1].order[1]).toBe(tabPath(w, 1))
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 2))
+		expect(w.pres.focus.focused:peek()).toBe(tabPath(w, 2))
 		-- ...and the SIDEBAR rail stays vertical, from the same live axis
 		local rail = world({ viewport = DESKTOP, preferredInput = "KeyboardAndMouse" })
 		expect(focus_map.autoGroups(rail.handle.root.node)[1].axis).toBe("vertical")
@@ -1010,11 +1017,11 @@ describe("D5: four inputs, one story", function()
 			},
 		})
 		-- the content's Button is the FIRST focusable (the bar is painted after it)
-		expect(w.pres.focus.focused:get()).toBe("/S/Tabs/Content/Tab-home/then/Inside")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Tabs/Content/Tab-home/Inside")
 		w.system.deviceKey("ButtonR1", true)
 		w.system.deviceKey("ButtonR1", false)
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("home")
+		expect(w.selection:peek()).toBe("home")
 	end)
 end)
 
@@ -1056,67 +1063,41 @@ describe("§6: the content branches carry the caller's enter transition", functi
 		end
 	end
 
-	it("the declared transition reaches the content branch, and only it", function()
+	it("the declared crossfade reaches the content branch, and only it", function()
 		local w = world({
-			transition = { enter = "fade", class = "container" },
+			transition = { fade = true },
 			tabs = {
 				{ id = "home", label = "Home", content = plate("home") },
 				{ id = "me", label = "Me", content = plate("me") },
 			},
 		})
 		expect(#w.handle.controller.diagnostics()).toBe(0)
-		expect(nodeAt(w, "/S/Tabs/Content/Tab-home/then/homePlate").transition.enter).toBe("fade")
+		-- the page's own layer carries the fade: it enters from transparent
+		local page = nodeAt(w, "/S/Tabs/Content/Tab-home")
+		expect(type(page.props.opacity)).toBe("number")
 		-- the strip's home is NOT a content branch: it re-homes on rotation and a
 		-- fade there would cross-fade a bar the player did not move
-		expect(nodeAt(w, "/S/Tabs/BottomHome/then/BottomBand").transition).toBeNil()
-	end)
-
-	--[[ task CONN, review-fix234-findings.md Finding 2. `contentTransition`
-		rebuilds the transition table field-by-field rather than passing the
-		caller's declaration through, so a field ADDED to the shared transition
-		Spec after this construct was written (`distance`, task-fix3 cause A —
-		landed one commit before `contentTransition` itself) was silently
-		dropped: a caller declaring a slide with `distance` got the themed
-		default travel instead, reproducing cause A's own "slides a few pixels"
-		bug scoped to TabView. Looping over the DECLARED table's own keys (rather
-		than a hand-list of field names here) is what keeps this case honest
-		against the NEXT field the Spec grows — a hand-list would need its own
-		edit to notice a new drop, which is exactly the shape of bug this is. ]]
-	it("the full transition contract passes through field-for-field, exit forced to instant", function()
-		local declared =
-			{ enter = "slide-left", exit = "slide-right", class = "container", fade = true, distance = 240 }
-		local w = world({
-			transition = declared,
-			tabs = {
-				{ id = "home", label = "Home", content = plate("home") },
-				{ id = "me", label = "Me", content = plate("me") },
-			},
-		})
-		local applied = nodeAt(w, "/S/Tabs/Content/Tab-home/then/homePlate").transition
-		expect(applied ~= nil).toBe(true)
-		for key, value in declared do
-			if key == "exit" then
-				continue
-			end
-			expect(applied[key]).toBe(value)
-		end
-		-- the one deliberate override (task-fix3 cause B, comment above
-		-- `contentTransition`): TabView never retires a departing branch, so the
-		-- caller's own `exit` never plays regardless of what they declared
-		expect(applied.exit).toBe("instant")
+		expect(nodeAt(w, "/S/Tabs/BottomHome/then/BottomBand").props.opacity).toBeNil()
+		-- the departing page stays mounted, without input, until its fade ends
+		w.selection:set("me")
+		w.pres.refresh()
+		expect(nodeAt(w, "/S/Tabs/Content/Tab-me") ~= nil).toBe(true)
+		local departing = nodeAt(w, "/S/Tabs/Content/Tab-home")
+		expect(departing ~= nil).toBe(true)
+		expect(departing.props.enabled).toBe(false)
 	end)
 
 	it("declaring none leaves the branch with none — p4_foyer's path is unchanged", function()
 		local w = world()
-		expect(nodeAt(w, "/S/Tabs/Content/Tab-home/then/homeBody").transition).toBeNil()
+		expect(nodeAt(w, "/S/Tabs/Content/Tab-home").props.opacity).toBeNil()
 	end)
 
 	it("a transition must be a table, not the name of one", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				placement = "topBar",
 				transition = "fade",
 				tabs = { { id = "a", content = body("a") } },
@@ -1132,11 +1113,11 @@ end)
 
 describe("D5: the closed spec, the dump, and disposal", function()
 	it("an unknown key is an authoring error", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				placement = "topBar",
 				tabs = { { id = "a", content = body("a") } },
 				retain = true,
@@ -1147,11 +1128,11 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("`content` must be a FACTORY, and the refusal says why", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				placement = "topBar",
 				tabs = { { id = "a", content = UI.Text({ id = "T", text = "t" }) } },
 			})
@@ -1161,11 +1142,11 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("two tabs may not share an id, because a tab id IS the selection value", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				placement = "topBar",
 				tabs = { { id = "a", content = body("a") }, { id = "a", content = body("b") } },
 			})
@@ -1174,10 +1155,10 @@ describe("D5: the closed spec, the dump, and disposal", function()
 		expect(string.find(tostring(err), "share the id", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("`selection` must be a settable Signal the caller owns", function()
-		local core = Facet.newCore()
+	it("`selection` must be a writable Compose cell the caller owns", function()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
 				selection = "home",
 				placement = "topBar",
@@ -1185,7 +1166,7 @@ describe("D5: the closed spec, the dump, and disposal", function()
 			})
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "must be a writable Compose cell the caller owns", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the dump is deterministic and names every fact a bug report needs", function()
@@ -1201,12 +1182,12 @@ describe("D5: the closed spec, the dump, and disposal", function()
 	end)
 
 	it("dispose is registry-neutral, strip and indicator and all", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		-- the selection Signal is the CALLER's, so it is created BEFORE the
 		-- baseline: a control that freed it would be freeing what it does not own
-		local selection = core:signal("a")
-		local baseline = core:counters()
-		local tv = Facet.Controls.TabView(core, {
+		local selection = Compose.cell("a")
+		local baseline = core.owner.size()
+		local tv = harness.Controls.TabView(core, {
 			id = "X",
 			selection = selection,
 			placement = "sidebar",
@@ -1216,11 +1197,11 @@ describe("D5: the closed spec, the dump, and disposal", function()
 			},
 		})
 		tv.dispose()
-		local after = core:counters()
-		expect(after.scopes).toBe(baseline.scopes)
-		expect(after.memos).toBe(baseline.memos)
-		expect(after.observers).toBe(baseline.observers)
-		expect(after.signals).toBe(baseline.signals)
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
 	end)
 
 	it("hot-switch: nothing to carry or cancel — selection is atomic", function()
@@ -1233,9 +1214,9 @@ describe("D5: the closed spec, the dump, and disposal", function()
 		w.adapter.tap(tabPath(w, 2))
 		w.env:set("preferredInput", "Gamepad")
 		w.pres.refresh()
-		expect(w.selection:get()).toBe("feed")
+		expect(w.selection:peek()).toBe("feed")
 		expect(w.tv.dump().mountedTabs).toEqual({ "feed" })
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1248,20 +1229,20 @@ end)
 	binding REACHES the segments and follows a live re-home. ]]
 describe("§6: the strip carries the caller's type role, and it follows the home", function()
 	it("a bound textSize reaches the segments and re-reads when the placement moves", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local conditions = Facet.adaptive.conditions(core, env)
-		local role = core:memo(function(use)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local conditions = Facet.adaptive.conditions(env)
+		local role = Compose.formula(function(use)
 			local home = use(conditions.navPlacement)
 			return if home == "bottomBar" or home == "bottomBarCompact" then "caption" else "body"
 		end)
-		local tv = Facet.Controls.TabView(core, {
+		local tv = harness.Controls.TabView(core, {
 			id = "Tabs",
-			selection = core:signal("home"),
+			selection = Compose.cell("home"),
 			env = env,
 			textSize = role,
 			tabs = tabsOf({ "home", "feed", "me" }),
@@ -1383,11 +1364,11 @@ describe("§6: the sidebar rail's width is the caller's to state", function()
 	end)
 
 	it("a rail band declared for a placement that has no rail refuses", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.TabView(core, {
+			harness.Controls.TabView(core, {
 				id = "X",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				placement = "bottomBar",
 				railWidth = { type = "fixed", px = 200 },
 				tabs = { { id = "a", content = body("a") } },

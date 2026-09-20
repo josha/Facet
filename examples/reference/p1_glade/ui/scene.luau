@@ -37,18 +37,20 @@ export type RingSpec = {
 }
 
 function scene.ring(ctx: any, spec: RingSpec): any
-	local SupplyRing = ctx.Facet.component(function(ui)
-		local UI = ctx.Facet.View
-		local level = ui.read(ctx.supply.level(spec.glade, spec.kind))
-		local nectar = ui.read(ctx.supply.nectarOf(spec.glade))
+	local function SupplyRing(): any
+		local UI = ctx.UI
+		local level = (ctx.supply.level(spec.glade, spec.kind))
+		local nectar = (ctx.supply.nectarOf(spec.glade))
 
 		-- the painted arc chases the level through a spring (§11, class `object`).
 		-- Under reduced motion `setTarget` places instantly and fires the same
 		-- settle — the framework's parity contract, not a branch here.
-		local painted = ui.animate(level, "object")
+		local painted = ctx.runtime.spring(function(use)
+			return use(level)
+		end, { period = 0.28, damping = 1 })
 
-		local sweep = ui.memo(function()
-			local value = painted()
+		local sweep = ctx.Compose.formula(function(use)
+			local value = use(painted)
 			if value < 0 then
 				value = 0
 			elseif value > 1 then
@@ -56,43 +58,40 @@ function scene.ring(ctx: any, spec: RingSpec): any
 			end
 			return value * FULL_TURN
 		end)
-		local visible = ui.memo(function()
-			return sweep() > 1
+		local visible = ctx.Compose.formula(function(use)
+			return use(sweep) > 1
 		end)
-		local points = ui.memo(function()
-			local degrees = sweep()
+		local points = ctx.Compose.formula(function(use)
+			local degrees = use(sweep)
 			local segments = math.clamp(math.ceil(degrees / 24), 2, 24)
 			return ctx.Facet.pathShapes.arc(0, degrees, { segments = segments })
 		end)
 
 		local mark
 		if spec.kind == "nectar" then
-			local jarTint = ui.memo(function()
-				local nectarId = nectar()
+			local jarTint = ctx.Compose.formula(function(use)
+				local nectarId = use(nectar)
 				local nectar = seedData.NECTAR_BY_ID[nectarId]
 				return ctx.tint(if nectar ~= nil then nectar.art else seedData.WHITE)
 			end)
 			-- the gauge icon swap (§11): a keyed region over the assigned nectar id,
 			-- so changing the jar materializes rather than cutting.
-			local assignedList = ui.memo(function()
-				return { { id = nectar() } }
+			local assignedList = ctx.Compose.formula(function(use)
+				return { { id = use(nectar) } }
 			end)
-			mark = UI.ForEach({
-				id = "Jar",
+			mark = ctx.forEach("Jar")({
 				items = assignedList,
 				key = "id",
 				transition = { enter = "materialize", class = "container" },
 				row = function(): any
 					return UI.corners(
-						UI.ZStack({
-							id = "Swap",
+						UI.ZStack("Swap")({
 							canvasGroup = true,
 							width = { type = "fixed", px = math.floor(spec.size * 0.46) },
 							height = { type = "fixed", px = math.floor(spec.size * 0.46) },
 
 							UI.corners(
-								UI.Box({
-									id = "Fill",
+								UI.Box("Fill")({
 									tint = jarTint,
 									width = UI.fill(),
 									height = UI.fill(),
@@ -106,8 +105,7 @@ function scene.ring(ctx: any, spec: RingSpec): any
 			})
 		else
 			mark = UI.corners(
-				UI.Box({
-					id = "Drop",
+				UI.Box("Drop")({
 					tint = ctx.tint(seedData.DEWWATER),
 					width = { type = "fixed", px = math.floor(spec.size * 0.40) },
 					height = { type = "fixed", px = math.floor(spec.size * 0.40) },
@@ -116,8 +114,7 @@ function scene.ring(ctx: any, spec: RingSpec): any
 			)
 		end
 
-		return UI.ZStack({
-			id = spec.id,
+		return UI.ZStack(spec.id)({
 			-- THE CIRCLE DOCTRINE (task PAINT, director item 12: OddOverlapNotRound.png
 			-- + whatisthis.png). `shape = "circle"` — generalized from the circle
 			-- Button onto ZStack this round — replaces the two literal, independently
@@ -145,20 +142,17 @@ function scene.ring(ctx: any, spec: RingSpec): any
 			alignH = "center",
 			alignV = "center",
 
-			UI.Path({
-				id = "Track",
+			UI.Path("Track")({
 				points = ctx.Facet.pathShapes.ring({}),
 				thickness = "xs",
 				role = "secondary",
 				width = UI.fill(),
 				height = UI.fill(),
 			}),
-			UI.When({
-				id = "Arc",
+			ctx.when("Arc")({
 				condition = visible,
 				thenView = function(): any
-					return UI.Path({
-						id = "Fill",
+					return UI.Path("Fill")({
 						points = points,
 						thickness = "xs",
 						tint = ctx.supplyTint(spec.kind),
@@ -169,8 +163,8 @@ function scene.ring(ctx: any, spec: RingSpec): any
 			}),
 			mark,
 		})
-	end)
-	return SupplyRing({})
+	end
+	return SupplyRing()
 end
 
 -- ---- GladeScene --------------------------------------------------------------
@@ -191,26 +185,25 @@ export type SceneSpec = {
 }
 
 function scene.glade(ctx: any, spec: SceneSpec): any
-	local GladeScene = ctx.Facet.component(function(ui)
-		local UI = ctx.Facet.View
+	local function GladeScene(): any
+		local UI = ctx.UI
 		local glade = seedData.GLADE_BY_ID[spec.glade]
-		local now = ui.read(ctx.now)
-		local currentVisit = ui.read(ctx.visits.current(spec.glade))
+		local now = ctx.now
+		local currentVisit = (ctx.visits.current(spec.glade))
 
-		local phase = ui.memo(function()
-			return seedData.phaseAt(glade.phaseOffset, now())
+		local phase = ctx.Compose.formula(function(use)
+			return seedData.phaseAt(glade.phaseOffset, use(now))
 		end)
-		local sky = ui.memo(function()
-			local ramp = seedData.SKY[phase()]
+		local sky = ctx.Compose.formula(function(use)
+			local ramp = seedData.SKY[use(phase)]
 			return UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } })
 		end)
-		local silhouette = ui.memo(function()
-			return ctx.tint(seedData.SKY[phase()].silhouette)
+		local silhouette = ctx.Compose.formula(function(use)
+			return ctx.tint(seedData.SKY[use(phase)].silhouette)
 		end)
 
 		local layers: { any } = {
-			UI.Box({
-				id = "Sky",
+			UI.Box("Sky")({
 				tint = ctx.tint(seedData.WHITE),
 				gradient = sky,
 				width = UI.fill(),
@@ -220,27 +213,23 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 			-- scroller's unbounded measure axis is the exact shape the solver
 			-- diagnoses (matrix row 2026-08-08, 33k repeats), and a weight ratio
 			-- states the same 42%/20% bands against the scene's own box
-			UI.VStack({
-				id = "TreesBand",
+			UI.VStack("TreesBand")({
 				width = UI.fill(),
 				height = UI.fill(),
 
 				UI.Spacer({ height = UI.fill(58) }),
-				UI.Box({
-					id = "TreesFar",
+				UI.Box("TreesFar")({
 					tint = silhouette,
 					width = UI.fill(),
 					height = UI.fill(42),
 				}),
 			}),
-			UI.VStack({
-				id = "FloorBand",
+			UI.VStack("FloorBand")({
 				width = UI.fill(),
 				height = UI.fill(),
 
 				UI.Spacer({ height = UI.fill(80) }),
-				UI.Box({
-					id = "Floor",
+				UI.Box("Floor")({
 					tint = ctx.tint(seedData.MOSS),
 					width = UI.fill(),
 					height = UI.fill(20),
@@ -253,8 +242,7 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 			table.insert(
 				fernChildren,
 				UI.corners(
-					UI.Box({
-						id = fern.id,
+					UI.Box(fern.id)({
 						anchor = "topLeft",
 						offsetX = { scale = fern.x },
 						offsetY = { scale = fern.y },
@@ -268,19 +256,16 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 		end
 		table.insert(
 			layers,
-			UI.Anchor({
-				id = "Flora",
+			UI.Anchor("Flora")(ctx.withChildren({
 				width = UI.fill(),
 				height = UI.fill(),
-				children = fernChildren,
-			})
+			}, fernChildren))
 		)
 
 		table.insert(
 			layers,
 			UI.corners(
-				UI.Box({
-					id = "Dewstone",
+				UI.Box("Dewstone")({
 					tint = ctx.tint(seedData.DEWSTONE),
 					alignH = "center",
 					alignV = "end",
@@ -295,71 +280,67 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 		-- THE VISITOR. `When` over the scheduler's current-visit memo, so a window
 		-- opening or closing mounts and unmounts the wisp with a real transition and
 		-- nothing paints an invisible sprite at rest.
-		local visitor = ui.memo(function()
-			return currentVisit() ~= nil
+		local visitor = ctx.Compose.formula(function(use)
+			return use(currentVisit) ~= nil
 		end)
 		local motion = ctx.wispMotion(spec.glade, spec.form)
-		local glow, x, y = ui.read(motion.glow), ui.read(motion.x), ui.read(motion.y)
-		local wispSize = ui.memo(function()
-			local live = currentVisit()
+		local glow, x, y = motion.glow, motion.x, motion.y
+		local wispSize = ctx.Compose.formula(function(use)
+			local live = use(currentVisit)
 			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
 			local natural = if species ~= nil then species.scale else 1
 			local base = seedData.METRICS.wispSize * (if spec.form == "hero" then 1 else 0.62)
 			return math.max(8, math.floor(base * natural))
 		end)
-		local coreTint = ui.memo(function()
-			local live = currentVisit()
+		local coreTint = ctx.Compose.formula(function(use)
+			local live = use(currentVisit)
 			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
 			return ctx.tint(if species ~= nil then species.core else seedData.WHITE)
 		end)
-		local glowTint = ui.memo(function()
-			local live = currentVisit()
+		local glowTint = ctx.Compose.formula(function(use)
+			local live = use(currentVisit)
 			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
 			-- the delight glow (§11, class `decay`): one transparency swell after a
 			-- refill, then back. Decorative — the toast carries the information.
-			return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, glow())
+			return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, use(glow))
 		end)
-		local trailTint = ui.memo(function()
-			local live = currentVisit()
+		local trailTint = ctx.Compose.formula(function(use)
+			local live = use(currentVisit)
 			local species = if live ~= nil then seedData.WISP_BY_ID[live.wisp] else nil
 			return ctx.tint(if species ~= nil then species.glow else seedData.WHITE, 0.55)
 		end)
-		local offsetX = ui.memo(function()
-			return { scale = x() }
+		local offsetX = ctx.Compose.formula(function(use)
+			return { scale = use(x) }
 		end)
-		local offsetY = ui.memo(function()
-			return { scale = y() }
+		local offsetY = ctx.Compose.formula(function(use)
+			return { scale = use(y) }
 		end)
-		local haloSize = ui.memo(function()
-			return { type = "fixed", px = math.floor(wispSize() * 1.9) }
+		local haloSize = ctx.Compose.formula(function(use)
+			return { type = "fixed", px = math.floor(use(wispSize) * 1.9) }
 		end)
-		local bodySize = ui.memo(function()
-			return { type = "fixed", px = wispSize() }
+		local bodySize = ctx.Compose.formula(function(use)
+			return { type = "fixed", px = use(wispSize) }
 		end)
-		local trailSize = ui.memo(function()
-			return { type = "fixed", px = math.floor(wispSize() * 0.5) }
+		local trailSize = ctx.Compose.formula(function(use)
+			return { type = "fixed", px = math.floor(use(wispSize) * 0.5) }
 		end)
 
 		table.insert(
 			layers,
-			UI.When({
-				id = "Visitor",
+			ctx.when("Visitor")({
 				condition = visitor,
 				transition = { enter = "fade", class = "container" },
 				thenView = function(): any
-					return UI.ZStack({
-						id = "VisitorLayer",
+					return UI.ZStack("VisitorLayer")({
 						canvasGroup = true,
 						width = UI.fill(),
 						height = UI.fill(),
 
-						UI.Anchor({
-							id = "Flight",
+						UI.Anchor("Flight")({
 							width = UI.fill(),
 							height = UI.fill(),
 
-							UI.ZStack({
-								id = "Wisp",
+							UI.ZStack("Wisp")({
 								anchor = "topLeft",
 								offsetX = offsetX,
 								offsetY = offsetY,
@@ -367,8 +348,7 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 								height = haloSize,
 
 								UI.corners(
-									UI.Box({
-										id = "Glow",
+									UI.Box("Glow")({
 										tint = glowTint,
 										width = UI.fill(),
 										height = UI.fill(),
@@ -376,8 +356,7 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 									"pill"
 								),
 								UI.corners(
-									UI.Box({
-										id = "Core",
+									UI.Box("Core")({
 										tint = coreTint,
 										alignH = "center",
 										alignV = "center",
@@ -387,8 +366,7 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 									"pill"
 								),
 								UI.corners(
-									UI.Box({
-										id = "Trail",
+									UI.Box("Trail")({
 										tint = trailTint,
 										alignH = "start",
 										alignV = "end",
@@ -406,20 +384,18 @@ function scene.glade(ctx: any, spec: SceneSpec): any
 
 		return UI.stroke(
 			UI.corners(
-				UI.ZStack({
-					id = spec.id,
+				UI.ZStack(spec.id)(ctx.withChildren({
 					canvasGroup = true,
 					overflow = "clip",
 					width = UI.fill(),
 					height = spec.height,
-					children = layers,
-				}),
+				}, layers)),
 				"panel"
 			),
 			{}
 		)
-	end)
-	return GladeScene({})
+	end
+	return GladeScene()
 end
 
 -- ---- the wisp portrait -------------------------------------------------------
@@ -431,23 +407,20 @@ function scene.portrait(ctx: any, id: string, wispId: string, size: number): any
 	local ramp = seedData.SKY[if species ~= nil then species.phase else "day"]
 	local body = math.max(6, math.floor(size * 0.42))
 	return UI.corners(
-		UI.ZStack({
-			id = id,
+		UI.ZStack(id)({
 			surface = "raised",
 			overflow = "clip",
 			width = { type = "fixed", px = size },
 			height = { type = "fixed", px = size },
 
-			UI.Box({
-				id = "Mini",
+			UI.Box("Mini")({
 				tint = ctx.tint(seedData.WHITE),
 				gradient = UI.gradientData({ colors = { ctx.rgb(ramp.high), ctx.rgb(ramp.low) } }),
 				width = UI.fill(),
 				height = UI.fill(),
 			}),
 			UI.corners(
-				UI.Box({
-					id = "Glow",
+				UI.Box("Glow")({
 					tint = ctx.tint(if species ~= nil then species.glow else seedData.WHITE, 0.35),
 					alignH = "center",
 					alignV = "center",
@@ -457,8 +430,7 @@ function scene.portrait(ctx: any, id: string, wispId: string, size: number): any
 				"pill"
 			),
 			UI.corners(
-				UI.Box({
-					id = "Core",
+				UI.Box("Core")({
 					tint = ctx.tint(if species ~= nil then species.core else seedData.WHITE),
 					alignH = "center",
 					alignV = "center",

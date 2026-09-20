@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Phase-1 verifier corrective tests (findings F1/F2):
 -- F1: the focus ring follows structural changes — focusables mounted by When
 --     join the ring; unmounting the focused control moves focus to a
@@ -11,34 +12,36 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 describe("focus ring follows structure (F1)", function()
 	local function world()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		return core, system, pres
 	end
 
 	it("a focusable inside When joins the ring on mount and leaves on unmount", function()
 		local core, system, pres = world()
-		local showExtra = core:signal(false)
+		local showExtra = Compose.cell(false)
 		local activated: { string } = {}
 		pres.present(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
 				children = {
-					Facet.UI.Button({ id = "A", label = "a" }),
-					Facet.UI.When({
+					harness.UI.Button({ id = "A", label = "a" }),
+					harness.UI.When({
 						id = "W",
 						condition = showExtra,
 						thenView = function()
-							return Facet.UI.Button({ id = "B", label = "b" })
+							return harness.UI.Button({ id = "B", label = "b" })
 						end,
 					}),
-					Facet.UI.Button({ id = "C", label = "c" }),
+					harness.UI.Button({ id = "C", label = "c" }),
 				},
 			}),
 			{
@@ -50,13 +53,13 @@ describe("focus ring follows structure (F1)", function()
 		-- before: ring is A, C
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/S/C")
+		expect(pres.focus.focused:peek()).toBe("/S/C")
 		-- mount B; refresh re-derives the ring: A, B, C
 		showExtra:set(true)
 		pres.refresh()
 		system.deviceKey("Up", true)
 		system.deviceKey("Up", false)
-		expect(pres.focus.focused:get()).toBe("/S/W/then/B")
+		expect(pres.focus.focused:peek()).toBe("/S/W/then/B")
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
 		expect(activated[#activated]).toBe("/S/W/then/B")
@@ -64,7 +67,7 @@ describe("focus ring follows structure (F1)", function()
 		-- Activate routes to a LIVE path
 		showExtra:set(false)
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/C")
+		expect(pres.focus.focused:peek()).toBe("/S/C")
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
 		expect(activated[#activated]).toBe("/S/C")
@@ -73,34 +76,34 @@ end)
 
 describe("confirm-before-ingest convergence (F2)", function()
 	it("an optimistic view reconciled on snapshot ingest converges regardless of delivery order", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local snapshot = Facet.replication.snapshot(core, 1, { music = false })
-		local draft = core:signal(false)
+		local draft = Compose.cell(false)
 		local mutation = Facet.replication.mutation(core, {
 			optimistic = {
 				apply = function(payload)
 					draft:set(payload.music)
 				end,
 				restore = function()
-					draft:set(snapshot.binding:get().music)
+					draft:set(snapshot.binding:peek().music)
 				end,
 			},
 		})
 		-- the documented wiring contract: the game re-reconciles the
 		-- optimistic view whenever authoritative state ingests
-		core:observe(snapshot.binding, function(data)
-			if mutation.status:get() ~= "pending" then
+		observeChange(core.owner, snapshot.binding, function(data)
+			if mutation.status:peek() ~= "pending" then
 				draft:set(data.music)
 			end
 		end)
 		local envelope = mutation.send({ music = true }, snapshot.revision())
-		expect(draft:get()).toBe(true)
+		expect(draft:peek()).toBe(true)
 		-- confirm arrives BEFORE the snapshot: restore() goes to stale truth
 		mutation.confirm(envelope.requestId, "ok")
-		expect(mutation.status:get()).toBe("confirmed")
-		expect(draft:get()).toBe(false) -- stale, transiently
+		expect(mutation.status:peek()).toBe("confirmed")
+		expect(draft:peek()).toBe(false) -- stale, transiently
 		-- the late snapshot ingest re-converges through the wiring contract
 		snapshot.ingest(2, { music = true })
-		expect(draft:get()).toBe(true) -- converged: no permanent divergence
+		expect(draft:peek()).toBe(true) -- converged: no permanent divergence
 	end)
 end)

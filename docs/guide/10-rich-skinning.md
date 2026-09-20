@@ -325,7 +325,7 @@ barCenter = { kind = "nineSlice", asset = "ornate_bar_center",
   fill art would disappear at 10 %.
 
 **The `spinner` slot** is the bar family's indeterminate cousin: one dot of the
-ring that an indeterminate `newProgressView` draws when it has no value to
+ring that an indeterminate `UI.ProgressView` draws when it has no value to
 report (`presentation = "spinner"`). It is whole-image by default, and
 **round** by default — exactly like `sliderThumb`. A dot is a fixed-size token,
 so slicing one would smear its centre pixel. Like `barTrack` / `barFill`, it
@@ -610,13 +610,15 @@ spelling they use compile to the same 81 rules and paint byte-identically.
 > Facet does the rest. That includes swapping live, mid-session, when the
 > player plugs in a keyboard.
 
-```lua
-local controller = theme_controller.install(adapter, glossyTouch, {
-    env = env,
-    core = core,
+```luau
+local controller = app.installTheme(glossyTouch, {
     selectBy = { touch = glossyTouch, pointer = compactPointer, gamepad = compactPointer },
 })
 ```
+
+`app.installTheme` installs a `theme_controller` on the application's own render
+target and supplies its environment. Call `theme_controller.install(adapter,
+package, opts)` directly only when you host the target yourself.
 
 - The vocabulary is exactly the input-paradigm classes Facet already publishes:
   `touch`, `pointer`, `gamepad`. Facet detects nothing new.
@@ -644,10 +646,10 @@ framework rebuilds by design when the fill art changes.
 
 > **In plain words.** If a button is a picture, you do not want Facet's grey
 > rounded rectangle showing around the edges of it. It does not draw one — and
-> that now holds for every image-bearing slot and every layer stack.
+> that holds for every image-bearing slot and every layer stack.
 
-Chapter 9 introduced the three `Skinned — <slot>` suppression rules. In v2 they
-cover **every** image-bearing slot and layered nodes identically. The decorated
+The `Skinned — <slot>` suppression rules [chapter 9](09-custom-themes.md)
+describes cover **every** image-bearing slot and layered nodes identically. The decorated
 node's fill, corner radius and hairline all stop drawing. `GetStyled` is the
 instrument that proves it — a plain property read is *blind* to sheet paint.
 The census counts the suppressions. The exceptions are deliberate. The value
@@ -669,11 +671,11 @@ signature you should look for when a skin refuses to repaint.
 The per-view props take the **same grammar as a recipe** — a bare string or a
 per-state map:
 
-```lua
-local UI = Facet.View
-local power, setPower = ui.state(50) -- inside Facet.component
-local slider = UI.Slider({
-    id = "Power", label = "Power", value = power, onChange = setPower, min = 0, max = 100,
+```luau
+local UI = app.controls
+local power = Compose.cell(50)
+local slider = UI.Slider("Power")({
+    label = "Power", value = power, min = 0, max = 100,
     trackImage = "rbxassetid://133629068271978",        -- one picture
     thumbImage = {                                       -- ...or per state
         default = "rbxassetid://101901876687967",

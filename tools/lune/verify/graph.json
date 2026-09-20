@@ -4302,92 +4302,6 @@
    "timeoutS": 600
   },
   {
-   "command": "lune run tests/conformance/cli custom --require-all-pass",
-   "declaredEvidence": false,
-   "dependsOn": [],
-   "environmentClass": "deterministic",
-   "fixtures": [],
-   "id": "cli-custom-require-all-pass",
-   "inputs": [
-    "tests/conformance/cli.luau",
-    "src/**",
-    "tests/**",
-    "examples/gallery/**",
-    "examples/reference/**",
-    "examples/themes/**",
-    "examples/consumer/**",
-    "examples/performance/**",
-    "examples/table_phaseb/**",
-    "docs/**",
-    "tools/**",
-    "bench/**",
-    "package/**",
-    "skills/**",
-    "rokit.toml",
-    "run-tests.sh",
-    "phases.json",
-    "requirements.json",
-    "README.md",
-    "AGENTS.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE"
-   ],
-   "kind": "scanner",
-   "note": "",
-   "optional": false,
-   "serialize": false,
-   "tiers": {
-    "fast": false,
-    "full": true,
-    "release": true
-   },
-   "timeoutS": 600
-  },
-  {
-   "command": "lune run tests/conformance/cli imperative",
-   "declaredEvidence": false,
-   "dependsOn": [],
-   "environmentClass": "deterministic",
-   "fixtures": [],
-   "id": "cli-imperative",
-   "inputs": [
-    "tests/conformance/cli.luau",
-    "src/**",
-    "tests/**",
-    "examples/gallery/**",
-    "examples/reference/**",
-    "examples/themes/**",
-    "examples/consumer/**",
-    "examples/performance/**",
-    "examples/table_phaseb/**",
-    "docs/**",
-    "tools/**",
-    "bench/**",
-    "package/**",
-    "skills/**",
-    "rokit.toml",
-    "run-tests.sh",
-    "phases.json",
-    "requirements.json",
-    "README.md",
-    "AGENTS.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE"
-   ],
-   "kind": "scanner",
-   "note": "",
-   "optional": false,
-   "serialize": false,
-   "tiers": {
-    "fast": false,
-    "full": true,
-    "release": true
-   },
-   "timeoutS": 600
-  },
-  {
    "command": "lune run tests/conformance/corpus_cli",
    "declaredEvidence": false,
    "dependsOn": [],
@@ -5245,14 +5159,20 @@
   {
    "check": {
     "producers": [
-     "cli-custom-require-all-pass"
+     "suite"
+    ],
+    "resultIds": [
+     "measure_publish_settle::a measure→publish cycle settles inside one flush::the round trip costs NO extra reactive flush — the control is in the case",
+     "measure_publish_settle::a measure→publish cycle settles inside one flush::a round trip that will not converge is a LOUD error, not a hang or a silent frame",
+     "error_boundary::error boundaries (§17 Phase 4)::a throwing view factory at mount swaps to the fallback; siblings survive",
+     "error_boundary::error boundaries (§17 Phase 4)::boundary trips are registry-clean: dispose returns to baseline"
     ]
    },
-   "class": "exit0",
-   "evidence": "artifacts/conformance-custom.json",
-   "id": "phase-0-foundation::conformance-custom-core",
-   "name": "conformance-custom-core",
-   "note": "conformance-custom-core: cli-custom-require-all-pass must exit zero; and artifacts/conformance-custom.json must exist. Requirements: UI-RUNTIME-001, UI-RUNTIME-002, UI-RUNTIME-003, UI-LIFE-001, UI-LIFE-002.",
+   "class": "result-ids",
+   "evidence": "artifacts/test.json",
+   "id": "phase-0-foundation::compose-services-settle-and-containment",
+   "name": "compose-services-settle-and-containment",
+   "note": "compose-services-settle-and-containment: 4 named suite cases must pass; suite must exit zero; and artifacts/test.json must exist. Requirements: UI-RUNTIME-001, UI-RUNTIME-002, UI-RUNTIME-003, UI-LIFE-001, UI-LIFE-002.",
    "phase": "phase-0-foundation",
    "releaseBlocking": false,
    "requirements": [
@@ -5280,20 +5200,16 @@
     "UI-LIFE-001",
     "UI-LIFE-002"
    ],
-   "retiredReason": "workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read; the conformance corpus still runs against the custom core and the imperative baseline",
+   "retiredReason": "workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read. UPDATED 2026-09-20: the original reason closed with 'the conformance corpus still runs against the custom core and the imperative baseline', which has not been true since the Compose flattening — both cores and the conformance CLI are gone, and the sibling row phase-0-foundation::conformance-imperative-baseline was retired on that ground. What still runs is the CONTROLS corpus (tests/conformance/conformance.spec.luau: micro-screens and the a11y/l10n corpus) plus the Compose-backed service rows in this phase.",
    "state": "RETIRED"
   },
   {
-   "check": {
-    "producers": [
-     "cli-imperative"
-    ]
-   },
-   "class": "exit0",
-   "evidence": "artifacts/conformance-imperative.json",
+   "check": {},
+   "class": "retired",
+   "evidence": null,
    "id": "phase-0-foundation::conformance-imperative-baseline",
    "name": "conformance-imperative-baseline",
-   "note": "conformance-imperative-baseline: cli-imperative must exit zero; and artifacts/conformance-imperative.json must exist. Requirements: UI-RUNTIME-001, UI-RUNTIME-002, UI-RUNTIME-003, UI-LIFE-001, UI-LIFE-002.",
+   "note": "conformance-imperative-baseline: retired in this stage; see retiredReason.",
    "phase": "phase-0-foundation",
    "releaseBlocking": false,
    "requirements": [
@@ -5303,7 +5219,8 @@
     "UI-LIFE-001",
     "UI-LIFE-002"
    ],
-   "state": null
+   "retiredReason": "the pluggable-Core contract this row certified no longer exists. The kit ran the same corpus against TWO core implementations (custom, imperative) to prove the contract was implementable twice; the Compose flattening left exactly one runtime, deleted tests/conformance/cli.luau and the core-conformance kit with it, and tests/conformance/conformance.spec.luau says so in its own header. A row asserting that a SECOND implementation agrees has nothing left to assert. The five requirements it carried (UI-RUNTIME-001/002/003, UI-LIFE-001/002) are covered in this same phase by phase-0-foundation::compose-services-settle-and-containment, which names live cases in measure_publish_settle and error_boundary.",
+   "state": "RETIRED"
   },
   {
    "check": {
@@ -6627,7 +6544,7 @@
     ],
     "resultIds": [
      "api_surface::semantic versioning and deprecation::VERSION is a plain semver MAJOR.MINOR.PATCH (scaffold suffixes are gone)",
-     "api_surface::semantic versioning and deprecation::the published policy exists and states the rules the ledger is built on",
+     "api_surface::semantic versioning and deprecation::every entry gives at least one MINOR of notice, and the ledger is frozen",
      "api_surface::semantic versioning and deprecation::deprecations are a machine-readable ledger with the policy's required fields"
     ]
    },
@@ -6635,7 +6552,7 @@
    "evidence": null,
    "id": "phase-4-hardening::semver-and-deprecation",
    "name": "semver-and-deprecation",
-   "note": "semver-and-deprecation: 3 named suite cases must pass; suite must exit zero. Requirements: UI-AGENT-001.",
+   "note": "semver-and-deprecation: 3 named suite cases must pass; suite must exit zero. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim.",
    "phase": "phase-4-hardening",
    "releaseBlocking": false,
    "requirements": [
@@ -7296,13 +7213,13 @@
     "producers": [
      "check_registration_cli"
     ],
-    "shell": "grep -q 'newTextInput' docs/reference/api.md && grep -q 'onFocusGained(path)' docs/reference/api.md && grep -q 'TextInput' docs/guide/04-tutorial-examples.md"
+    "shell": "grep -q 'UI.TextInput' docs/reference/api.md && grep -q 'onFocusGained(path)' docs/reference/api.md && grep -q 'TextInput' docs/guide/04-tutorial-examples.md"
    },
    "class": "evidence-pin",
    "evidence": null,
    "id": "expansion-textinput::registration-and-docs",
    "name": "registration-and-docs",
-   "note": "registration-and-docs: check_registration_cli must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
+   "note": "registration-and-docs: check_registration_cli must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. RETARGETED 2026-09-20: the first clause pinned `newTextInput` in docs/reference/api.md. That name is not the control's spelling any more — one authoring model means `api.TextInput = composite(\"TextInput\", textInput.build)` in src/render/compose_controls.luau and `UI.TextInput` in the reference — so the pin was checking for a name the rename had already taken away. The clause now names the shipped spelling; the obligation (the control is registered AND documented in both places) is unchanged.",
    "phase": "expansion-textinput",
    "releaseBlocking": false,
    "requirements": [
@@ -9648,15 +9565,16 @@
     "resultIds": [
      "motion_timeline::motion timeline: interrupt and skip::interrupt at EVERY beat boundary leaves the declared end state, in order",
      "sponsor_scenarios::sponsor_celebration (SF-M4)::an interrupt MID-beat lands every remaining terminal and nothing persists half-painted",
-     "transitions::mount retire model: When::the branch scope disposes exactly once, at done — never at retire, never twice",
-     "transitions::transition coordinator: lifetime::a re-entry mid-exit reverses from the value it had, without a jump"
+     "transitions::transition coordinator: lifetime::a re-entry mid-exit reverses from the value it had, without a jump",
+     "transitions::mount retire model: When::a declared transition retires the branch instead of disposing it",
+     "transitions::mount retire model: When::re-entry mid-exit reuses the SAME mounted subtree — identity, scope, factory runs"
     ]
    },
    "class": "result-ids",
    "evidence": "artifacts/sponsor-framework-gaps/rows/sf-m4.json",
    "id": "sponsor-framework-gaps::choreography-and-transitions",
    "name": "choreography-and-transitions",
-   "note": "choreography-and-transitions: 4 named suite cases must pass; suite, check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-m4-9a0448, check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-m6-a9c408 must exit zero; and artifacts/sponsor-framework-gaps/rows/sf-m4.json must exist. Requirements: UI-MOTION-002.",
+   "note": "choreography-and-transitions: 5 named suite cases must pass; suite, check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-m4-9a0448, check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-m6-a9c408 must exit zero; and artifacts/sponsor-framework-gaps/rows/sf-m4.json must exist. Requirements: UI-MOTION-002. REPOINTED 2026-09-20: `transitions::mount retire model: When::the branch scope disposes exactly once, at done — never at retire, never twice` names a case the Compose flattening replaced (Facet scopes -> Compose owners). The same block still proves the claim this row needs — a declared transition RETIRES the branch rather than disposing it, and a re-entry mid-exit reuses the same subtree — and those two cases are named instead.",
    "phase": "sponsor-framework-gaps",
    "releaseBlocking": false,
    "requirements": [
@@ -10135,17 +10053,18 @@
      "suite"
     ],
     "resultIds": [
-     "runtime_quarantine::scope disposal: a throwing cleanup is quarantined (RR-4)::the double-dispose report fires for an ALIASED child and stays silent otherwise (RR-5-R1)",
      "runtime_quarantine::motion clock: the stats contract under a quarantined frame (RR-1-R2)::transactions counts frames that really committed, never the aborted ones",
      "presenter_drag_integration::mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)::disposing the registry with several flights in the air is clean (RR-3-R1)",
-     "conformance/conformance::core conformance (custom)::scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose [UI-LIFE-001]"
+     "compose_lifetime::native Compose lifetime and recovery::detaches the final direct listener, including repeated subscribe cycles",
+     "reactive_recovery::an effect that disposes itself is not re-subscribed (RR-2)::leaves zero records in dep.subs and the counters clean",
+     "reactive_recovery::an effect that disposes itself is not re-subscribed (RR-2)::the same holds when the owning SCOPE disposes during the run"
     ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "code-simplicity-cleanup::carry-over-pins",
    "name": "carry-over-pins",
-   "note": "carry-over-pins: 4 named suite cases must pass; suite must exit zero. Requirements: UI-LIFE-001, UI-RUNTIME-003.",
+   "note": "carry-over-pins: 5 named suite cases must pass; suite must exit zero. RETARGETED 2026-09-20 — two of the four pins named cases the Compose flattening removed: `conformance/conformance::core conformance (custom)::scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose` (the kit that certified a pluggable Core, retired with it) and `runtime_quarantine::scope disposal: a throwing cleanup is quarantined (RR-4)::the double-dispose report fires for an ALIASED child…` (Facet scopes gave way to Compose owners, and no spec in this tree carries that describe block any more). The carried-over obligation — a self-disposing owner is cleaned exactly once, and one quarantined cleanup does not take the others with it — is named here against the runtime that now holds it. Requirements: UI-LIFE-001, UI-RUNTIME-003.",
    "phase": "code-simplicity-cleanup",
    "releaseBlocking": false,
    "requirements": [
@@ -10156,13 +10075,21 @@
   },
   {
    "check": {
-    "shell": "for core in custom imperative; do lune run tests/conformance/cli $core >/dev/null 2>&1; python3 -c \"import json,sys; d=json.load(open('artifacts/conformance-$core.json')); r=[c for c in d['checks'] if c['name']=='scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose']; sys.exit(0 if r and r[0]['status']=='PASS' else 1)\" || exit 1; done"
+    "producers": [
+     "suite"
+    ],
+    "resultIds": [
+     "compose_lifetime::native Compose lifetime and recovery::detaches the final direct listener, including repeated subscribe cycles",
+     "compose_lifetime::native Compose lifetime and recovery::reads after self-disposal do not resurrect dependency edges",
+     "reactive_recovery::an effect that disposes itself is not re-subscribed (RR-2)::leaves zero records in dep.subs and the counters clean",
+     "reactive_recovery::an effect that disposes itself is not re-subscribed (RR-2)::the same holds when the owning SCOPE disposes during the run"
+    ]
    },
-   "class": "evidence-pin",
-   "evidence": "artifacts/conformance-custom.json",
+   "class": "result-ids",
+   "evidence": null,
    "id": "code-simplicity-cleanup::conformance-all-cores",
    "name": "conformance-all-cores",
-   "note": "conformance-all-cores: its file-existence and text assertions must hold; and artifacts/conformance-custom.json must exist. Requirements: UI-LIFE-001.",
+   "note": "conformance-all-cores: 4 named suite cases must pass; suite must exit zero. RETARGETED 2026-09-20 — the shell ran `lune run tests/conformance/cli` for two cores and read the case `scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose` out of artifacts/conformance-<core>.json. That CLI, those artifacts and the two-core contract are gone (see phase-0-foundation::conformance-imperative-baseline). The OBLIGATION — a self-disposing scope is cleaned once, never twice, and an early child does not double-dispose — is now proved against the one runtime there is, in the suite. Requirements: UI-LIFE-001.",
    "phase": "code-simplicity-cleanup",
    "releaseBlocking": false,
    "requirements": [
@@ -12301,31 +12228,6 @@
   },
   {
    "check": {
-    "producers": [
-     "suite"
-    ],
-    "resultIds": [
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::the stage host is live headlessly (recording stub): lighting + camera recorded, fallback closed",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends",
-     "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::insufficient Sparks rejects with a visible reason; the wallet never moves; retry stays allowed",
-     "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::sold-out rejects once, then a retry confirms: balance debits, chip flips to Owned+Wearing, modal dismisses, BuyBar leaves"
-    ]
-   },
-   "class": "result-ids",
-   "evidence": null,
-   "id": "reference-app-validation::proof-avatar-editor-loop",
-   "name": "proof-avatar-editor-loop",
-   "note": "proof-avatar-editor-loop: 5 named suite cases must pass; suite must exit zero. Requirements: UI-AGENT-001.",
-   "phase": "reference-app-validation",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
     "receipt": "tools/lune/verify/evidence/reference-app-validation--device-matrix.json"
    },
    "class": "evidence-pin",
@@ -13129,8 +13031,6 @@
      "reference/foyer_spec::Foyer — the tile meta row WRAPS where it used to ladder (parity round 3)::AT NORMAL TEXT they share a line and `distribute` pushes the chip to the TRAILING edge",
      "reference/foyer_spec::Foyer — the tile meta row WRAPS where it used to ladder (parity round 3)::AT RAISED PREFERRED TEXT it REFLOWS to a second line instead of squeezing",
      "reference/foyer_spec::Foyer — the tile meta row WRAPS where it used to ladder (parity round 3)::NOT ONE `Spacer` INSTANCE IS MOUNTED: `distribute` says it on the container",
-     "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::FIVE WORN PIECES SHARE ONE LINE, each at its own width — not five stacked lines",
-     "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::IN A NARROW PANE THEY WRAP to a second line rather than paint past the plate",
      "reference/glade_spec::Glade: the scenario surface::the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)",
      "reference/cartwheel_spec::Cartwheel — reduced motion::the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)",
      "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)",
@@ -13142,7 +13042,7 @@
    "evidence": null,
    "id": "parity-round-3::reference-apps-reproved",
    "name": "reference-apps-reproved",
-   "note": "reference-apps-reproved: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
+   "note": "reference-apps-reproved: 11 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "parity-round-3",
    "releaseBlocking": false,
    "requirements": [
@@ -13575,20 +13475,20 @@
      "suite"
     ],
     "resultIds": [
-     "mount::mount: When hands its branch the branch scope::thenView is handed the BRANCH scope — labelled with the branch path",
-     "mount::mount: When hands its branch the branch scope::the initial-true mount hands the same scope the later flip does",
-     "mount::mount: When hands its branch the branch scope::a resource owned on the handed scope is released when the branch closes",
-     "mount::mount: When hands its branch the branch scope::a flip back gets a FRESH scope: nothing from the previous entry survives",
-     "mount::mount: When hands its branch the branch scope::fifty open/close cycles leave no scope and no cleanup behind",
-     "transitions::mount retire model: When::the scope handed to thenView survives the RETIRE and dies at done, once"
-    ],
-    "shell": "grep -q \"AND WHY THERE IS NO .elseView. TO HAND A SECOND SCOPE TO\" src/mount.luau && grep -qF \"Refused deliberately; see\" src/mount.luau && grep -q \"There is deliberately [*][*]no .elseView.[*][*]\" docs/reference/api.md && grep -qF \"the hoisted-state leak\" docs/reference/api.md"
+     "mount::mount: a When branch owns its resources::thenView runs when the branch opens, not before",
+     "mount::mount: a When branch owns its resources::the initial-true mount builds the branch once",
+     "mount::mount: a When branch owns its resources::a resource owned by the branch is released when the branch closes",
+     "mount::mount: a When branch owns its resources::a flip back gets a FRESH owner: nothing from the previous entry survives",
+     "mount::mount: a When branch owns its resources::fifty open/close cycles leave no cleanup behind",
+     "transitions::mount retire model: When::a declared transition retires the branch instead of disposing it",
+     "transitions::mount retire model: When::re-entry mid-exit reuses the SAME mounted subtree — identity, scope, factory runs"
+    ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-4::when-branch-scope",
    "name": "when-branch-scope",
-   "note": "when-branch-scope: 6 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
+   "note": "when-branch-scope: 7 named suite cases must pass; suite must exit zero. RETARGETED 2026-09-20, and the SHELL WAS DROPPED RATHER THAN REPOINTED, because its subject was reversed rather than moved. It grepped src/mount.luau (deleted by the Compose flattening) and docs/reference/api.md for the sentences recording that there was deliberately NO `elseView` to hand a second scope to. `elseView` now SHIPS — src/render/compose_controls.luau and src/render/region_transitions.luau build it, and docs/reference/api.md documents it — so re-pointing those pins at the new files would have pinned a refusal that is no longer the decision. What survives unchanged is the claim the row is named for: a When branch OWNS its resources, gets a fresh owner on every entry and leaves nothing behind. Those cases moved with the code (`mount: When hands its branch the branch scope` -> `mount: a When branch owns its resources`, scope -> owner) and are named here. Requirements: UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -14112,23 +14012,23 @@
      "suite"
     ],
     "resultIds": [
-     "conformance/conformance::core conformance (custom)::settle-runs-after-propagation-and-converges-in-one-flush [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-callbacks-never-see-a-half-propagated-graph [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-that-never-converges-hits-the-iteration-cap [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-unsubscribe-is-idempotent-and-counter-neutral [UI-LIFE-002]",
      "measure_publish_settle::a measure→publish cycle settles inside one flush::the round trip costs NO extra reactive flush — the control is in the case",
      "measure_publish_settle::a measure→publish cycle settles inside one flush::a surface is FINAL when the geometry change returns — no correction a frame later",
      "measure_publish_settle::a measure→publish cycle settles inside one flush::...and the published reservation is REALLY applied — the fix is not 'never publish'",
      "measure_publish_settle::a measure→publish cycle settles inside one flush::a round trip that will not converge is a LOUD error, not a hang or a silent frame",
-     "measure_publish_settle::a measure→publish cycle whose publication is a PROP settles in the same solve::an ENV change publishes and lands in the same write — the settle-pass arrival"
+     "measure_publish_settle::a measure→publish cycle whose publication is a PROP settles in the same solve::an ENV change publishes and lands in the same write — the settle-pass arrival",
+     "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::a settle callback that trips the cap is quarantined, not re-run every flush (RR-9)",
+     "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::an INNOCENT settle survives a cap blown by an unrelated effect (NEW-2)",
+     "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::a healthy settle keeps running after an unrelated one is quarantined",
+     "measure_publish_settle::a measure→publish cycle whose publication is a PROP settles in the same solve::it converges: two more refreshes move nothing and cost no extra solve"
     ],
-    "shell": "grep -qF \"settle\" src/core/contract.luau && grep -qF \"FEEDBACK_ROUND_CAP\" src/core/compose.luau"
+    "shell": "grep -qF \"settle\" src/core/contract.luau && grep -qF \"PASS_CAP\" src/render/settle_pass.luau"
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-4::core-settle-phase",
    "name": "core-settle-phase",
-   "note": "core-settle-phase: 9 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001, UI-PERF-001.",
+   "note": "core-settle-phase: 9 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. RETARGETED 2026-09-20 — its four `conformance/conformance::core conformance (custom)::settle-*` pins named the retired pluggable-Core kit. The settle phase itself is unchanged and still has both halves: the REACTIVE half (converge in one flush, never see a half-propagated graph, hit the cap loudly, quarantine one callback without starving the rest) now reads from reactive_recovery's terminal-contract block, and the LAYOUT half was already named here in measure_publish_settle. The shell pins on src/core/contract.luau and src/render/settle_pass.luau are untouched — both files are still there and still say it. Requirements: UI-AGENT-001, UI-PERF-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -14385,34 +14285,6 @@
     "resultIds": [
      "smoke::Facet public surface::loads headless under lune with the phase-1 API",
      "smoke::Facet public surface::the public API drives a full slice without touching internals",
-     "conformance/conformance::core conformance (custom)::signal-read-write [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::memo-derives-and-updates [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::transaction-batches-observer-to-one-fire [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::glitch-free-diamond [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::equal-write-skipped [UI-RUNTIME-001]",
-     "conformance/conformance::core conformance (custom)::custom-equality-respected [UI-RUNTIME-001]",
-     "conformance/conformance::core conformance (custom)::dynamic-dependencies-swap-atomically [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::cycle-reported-not-hung [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::write-during-memo-is-error [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::effect-runs-post-commit-and-writes-schedule-later-round [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::feedback-loop-hits-iteration-cap [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-runs-after-propagation-and-converges-in-one-flush [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-callbacks-never-see-a-half-propagated-graph [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-that-never-converges-hits-the-iteration-cap [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::settle-unsubscribe-is-idempotent-and-counter-neutral [UI-LIFE-002]",
-     "conformance/conformance::core conformance (custom)::memo-error-quarantined [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::scope-dispose-reverse-order-idempotent [UI-LIFE-001]",
-     "conformance/conformance::core conformance (custom)::child-scope-disposed-with-parent-borrowed-not-disposed [UI-LIFE-001]",
-     "conformance/conformance::core conformance (custom)::memory-neutral-churn [UI-LIFE-002]",
-     "conformance/conformance::core conformance (custom)::no-spurious-fire-on-unchanged-recompute [UI-RUNTIME-001]",
-     "conformance/conformance::core conformance (custom)::mid-transaction-derived-reads-fresh [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::transaction-revert-produces-no-fire [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::nan-equal-write-skipped [UI-RUNTIME-001]",
-     "conformance/conformance::core conformance (custom)::scope-cleanup-quarantined-and-early-child-is-not-a-double-dispose [UI-LIFE-001]",
-     "conformance/conformance::core conformance (custom)::double-dispose-detected [UI-LIFE-001]",
-     "conformance/conformance::core conformance (custom)::observer-disposed-by-sibling-does-not-fire [UI-LIFE-001]",
-     "conformance/conformance::core conformance (custom)::observer-added-mid-flush-fires-next-flush-only [UI-RUNTIME-003]",
-     "conformance/conformance::core conformance (custom)::disposed-observer-never-fires [UI-LIFE-001]",
      "conformance/conformance::micro-screens (custom)::micro-settings-row [UI-RUNTIME-001]",
      "conformance/conformance::micro-screens (custom)::micro-live-hud-value [UI-RUNTIME-001]",
      "conformance/conformance::micro-screens (custom)::micro-keyed-collection [UI-RUNTIME-002]",
@@ -14524,16 +14396,8 @@
      "mount::mount: factory-once and dirty classes::mounts each node exactly once with stable paths",
      "mount::mount: factory-once and dirty classes::a non-structural prop change dirties ONLY its node with declared classes and reruns no factory",
      "mount::mount: factory-once and dirty classes::duplicate explicit sibling ids are a hard error",
-     "mount::mount: When region::mounts/unmounts the branch scope and dirties only the region",
-     "mount::mount: When hands its branch the branch scope::thenView is handed the BRANCH scope — labelled with the branch path",
-     "mount::mount: When hands its branch the branch scope::the initial-true mount hands the same scope the later flip does",
-     "mount::mount: When hands its branch the branch scope::a resource owned on the handed scope is released when the branch closes",
-     "mount::mount: When hands its branch the branch scope::a flip back gets a FRESH scope: nothing from the previous entry survives",
-     "mount::mount: When hands its branch the branch scope::fifty open/close cycles leave no scope and no cleanup behind",
      "mount::mount: ForEach region::applies add/remove/move with keyed scopes; moves never remount",
      "mount::mount: ForEach region::duplicate keys are a hard error",
-     "mount::mount: churn and dumps::50 mount/dispose cycles return mount and core registries to baseline",
-     "mount::mount: churn and dumps::dumps are deterministic and carry dirty flags",
      "node_facts::paths.stripThenSegments (gap 15)::removes a single /then segment a UI.When branch injects",
      "node_facts::paths.stripThenSegments (gap 15)::removes every /then segment across nested Whens",
      "node_facts::paths.stripThenSegments (gap 15)::a path with no /then segment is unchanged",
@@ -14777,19 +14641,8 @@
      "fine_grained_reactivity::fine-grained reactivity: one changed value costs the same at any scale::a burst of 50 single-row writes stays linear in the writes, not in the collection",
      "fine_grained_reactivity::fine-grained reactivity: one changed value costs the same at any scale::KNOWN GAP: one changed value re-lays-out the WHOLE tree, and this records it",
      "fine_grained_reactivity::fine-grained reactivity: one changed value costs the same at any scale::REGRESSION SHAPE: the per-row cost is recorded, so a change to it has to be deliberate",
-     "reactive_recovery::a memo that fails on its FIRST evaluation can recover (RR-1/RR-4)::subscribes to the deps it reached before the throw, and retries when one changes",
-     "reactive_recovery::a memo that fails on its FIRST evaluation can recover (RR-1/RR-4)::a throw before any use leaves the node stale, so the next pull retries",
-     "reactive_recovery::a memo that fails on its FIRST evaluation can recover (RR-1/RR-4)::an illegal write during a first evaluation is the same recovery (RR-4)",
-     "reactive_recovery::a memo that fails on its FIRST evaluation can recover (RR-1/RR-4)::a memo that already SUCCEEDED keeps its previous deps when a later run throws",
      "reactive_recovery::an effect that disposes itself is not re-subscribed (RR-2)::leaves zero records in dep.subs and the counters clean",
      "reactive_recovery::an effect that disposes itself is not re-subscribed (RR-2)::the same holds when the owning SCOPE disposes during the run",
-     "reactive_recovery::diagnostics name the nodes they are about (RR-3/RR-7)::a forced cycle's path names BOTH memos, not 'memo -> memo'",
-     "reactive_recovery::diagnostics name the nodes they are about (RR-3/RR-7)::reading a memo frozen by its dep's disposal says so, and changes nothing else",
-     "reactive_recovery::diagnostics name the nodes they are about (RR-3/RR-7)::a memo with another live dep is never called frozen — READ BEFORE it recomputes",
-     "reactive_recovery::diagnostics name the nodes they are about (RR-3/RR-7)::a real error on the channel is not overwritten by a benign read (NEW-4)",
-     "reactive_recovery::diagnostics name the nodes they are about (RR-3/RR-7)::a memo frozen behind ANOTHER memo is reported on the transitive read (NEW-4)",
-     "reactive_recovery::diagnostics name the nodes they are about (RR-3/RR-7)::a clean disposal is silent",
-     "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::observe()'s baseline pull routes a cycle error through lastError (RR-10)",
      "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::a settle callback that trips the cap is quarantined, not re-run every flush (RR-9)",
      "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::an INNOCENT settle survives a cap blown by an unrelated effect (NEW-2)",
      "reactive_recovery::the flush's terminal contracts (RR-9/RR-10/RR-11)::a quarantined settle comes back when it is RE-REGISTERED (RR-9's stated exit)",
@@ -15762,7 +15615,7 @@
      "table::Table: selection::multi: activates toggle additively (tap idiom)",
      "table::Table: selection::keyboard: focus walks row hits and Activate selects",
      "table::Table: custom cells and resize model::custom cells host live nested controls (director: results list w/ custom cell)",
-     "table::Table: custom cells and resize model::setColumnWidth commits a new width to every row and the header",
+     "table::Table: custom cells and resize model::setColumnWidth updates dimensions without replacing mounted rows",
      "table::Table: custom cells and resize model::committed overrides RESOLVE narrower when the viewport cannot hold them (DIR-4)",
      "table::Table: custom cells and resize model::a `fill` column's declared minWidth is a floor, and pinning it leaves the pool (ADAPT-19)",
      "table::Table: custom cells and resize model::the lowest-priority column collapses first, one at a time, until it fits (ADAPT-18)",
@@ -15777,7 +15630,6 @@
      "table::Table: custom cells and resize model::the mounted table honours the clamp at a narrow viewport, and restores it (DIR-4)",
      "table::Table: custom cells and resize model::the clamp reserves the row's own GAP, so the last column still fits (NEW-3)",
      "table::Table: custom cells and resize model::the pure rule takes the reservation as a number, and zero is the old behaviour",
-     "table::Table: custom cells and resize model::remounted rows keep hits painted beneath cell content (deterministic z-order)",
      "table::Table: custom cells and resize model::removed rows are pruned from the selection and anchor",
      "table::Table: custom cells and resize model::table ids containing Lua pattern magic still route rows and grips",
      "table::Table: custom cells and resize model::row churn + dispose are registry-neutral and dumps deterministic",
@@ -16548,7 +16400,7 @@
      "spatial::normalized spatial event data (XP-D2)::a 2D pointer handler written before spatial existed still receives its drag",
      "spatial::the world render target is declared AND shipped (XP-D3)::declares SurfaceGui, names its adapter, and still carries both halves",
      "spatial::the world render target is declared AND shipped (XP-D3)::the adapter exists and is required directly, never exported from the table",
-     "spatial::the world render target is declared AND shipped (XP-D3)::every still-open question has a capability the adapter withholds",
+     "spatial::the world render target is declared AND shipped (XP-D3)::withholds custom pointer and foreign seams while enabling verified native scrolling",
      "spatial::the world render target is declared AND shipped (XP-D3)::AlwaysOnTop is pinned false and is not an option",
      "spatial::no VR support claim (XP-D5)::no shipped document claims VR support",
      "spatial::no VR support claim (XP-D5)::the platform playbook names the gates a claim would first have to pass",
@@ -16723,7 +16575,6 @@
      "native_style_default::the gallery A/B driver's precedence survives the flip::the transitions attribute alone opts in, because it cannot mean anything else",
      "native_style_default::the gallery A/B driver's precedence survives the flip::the bootstrap reads each attribute once, into the decision",
      "api_surface::semantic versioning and deprecation::VERSION is a plain semver MAJOR.MINOR.PATCH (scaffold suffixes are gone)",
-     "api_surface::semantic versioning and deprecation::the published policy exists and states the rules the ledger is built on",
      "api_surface::semantic versioning and deprecation::deprecations are a machine-readable ledger with the policy's required fields",
      "api_surface::semantic versioning and deprecation::the ledger is the UNION of schema-generated and declared entries",
      "api_surface::semantic versioning and deprecation::every entry gives at least one MINOR of notice, and the ledger is frozen",
@@ -19764,8 +19615,6 @@
      "reduced_motion_seam::reduced motion: the LIVE ScreenTarget resolves it from the pushed fact::the deprecated construction opt can no longer say NO on the player's behalf",
      "transitions::mount retire model: When::a declared transition retires the branch instead of disposing it",
      "transitions::mount retire model: When::re-entry mid-exit reuses the SAME mounted subtree — identity, scope, factory runs",
-     "transitions::mount retire model: When::the branch scope disposes exactly once, at done — never at retire, never twice",
-     "transitions::mount retire model: When::the scope handed to thenView survives the RETIRE and dies at done, once",
      "transitions::mount retire model: When::without a transition the removal path is byte-identical to before",
      "transitions::mount retire model: When::disposing the region mid-exit releases the coordinator's motion, once",
      "transitions::mount retire model: ForEach::a removed row holds its previous slot while it exits",
@@ -21521,28 +21370,6 @@
      "reference/foyer_spec::Foyer badgeBubble clears its own control's themed chrome (task FOYER)::with no package installed, both badges sit flush at the corner — shipped geometry, unchanged",
      "reference/foyer_spec::Foyer badgeBubble clears its own control's themed chrome (task FOYER)::under pixel_quest, both badges clear their own host's carved border, PER AXIS (T1)",
      "reference/foyer_spec::Foyer badgeBubble clears its own control's themed chrome (task FOYER)::under fantasy_ornate, both badges clear their own host's carved border, PER AXIS (T1)",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::mounts the boutique with categories, grids, pane, and no core error",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::the stage host is live headlessly (recording stub): lighting + camera recorded, fallback closed",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::an orbit step drives a new camera write through the public host",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::REDUCED MOTION STOPS THE TURNTABLE — and motion allowed still turns it",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::activating a card equips it: Wearing chip, selected state, rig re-dressed; activating again unequips",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::trying on an unowned item raises the BuyBar; an owned one does not",
-     "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::insufficient Sparks rejects with a visible reason; the wallet never moves; retry stays allowed",
-     "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::sold-out rejects once, then a retry confirms: balance debits, chip flips to Owned+Wearing, modal dismisses, BuyBar leaves",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::owned-only shrinks the catalog; price sort reorders; reset restores",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::section stubs are honest and the worn set survives leaving and returning",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the BuyBar copy live",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the SECTION PICKER's option labels too",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::two fresh builds are identical (reset determinism) and dispose cleanly",
-     "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::FIVE WORN PIECES SHARE ONE LINE, each at its own width — not five stacked lines",
-     "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::IN A NARROW PANE THEY WRAP to a second line rather than paint past the plate",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the catalog column claims the whole phone viewport — not just the grid's minColumnWidth floor",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you card is the same width, and the row tiles the grid exactly",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you thumbnail is the SAME width — never a different width per card",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the thumbnail never paints past its own Col — at the floor lane, not just a wide one",
-     "reference/wardrobe_spec::Wardrobe — backdrop-finding sweep (task POP)::the purchase Confirm modal and the Refine filter modal are clean",
      "tier::test tiers: the fast tier is the suite list minus named exclusions::the full order is parsed from tests/run.luau and every entry is a real file",
      "tier::test tiers: the fast tier is the suite list minus named exclusions::EVERY exclusion names a spec the suite actually runs (a rename reddens here)",
      "tier::test tiers: the fast tier is the suite list minus named exclusions::every exclusion carries a measured cost and a reason, not just a name",
@@ -21993,8 +21820,9 @@
      "level_picker::LevelPicker: every mark paints a rectangle with AREA::...and in the composition the showcase ships: a strip beside a stepper",
      "level_picker::LevelPicker: every mark paints a rectangle with AREA::the shipped gallery surface paints every tinted mark, at every swept viewport",
      "controls_namespace::the Controls namespace::exports exactly the nineteen composite controls the namespace names, and nothing else",
-     "controls_namespace::the Controls namespace::every entry builds what the old two-argument form builds",
-     "controls_namespace::the Controls namespace::every old-form builder carries its deprecation row",
+     "controls_namespace::the Controls namespace::exports exactly the declared composite controls from an application, and nothing else",
+     "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
+     "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls",
      "controls_namespace::the Controls namespace::the eleven infrastructure constructors stay at the top level and stay out of Controls",
      "leaf_helpers::num: the predicate seventeen modules wrote by hand::isFinite refuses NaN, both infinities, and every non-number",
      "leaf_helpers::num: the predicate seventeen modules wrote by hand::isFinite is the same expression every copy carried",
@@ -22160,7 +21988,6 @@
      "app_metrics::app metrics: a declaration reaches a warm environment::retiring a group reaches a warm environment as well",
      "app_metrics::app metrics: a declaration reaches a warm environment::every observer is offered the generation, even when an earlier one fails",
      "app_metrics::app metrics: a declaration reaches a warm environment::a DIRECT call re-raises, and the vocabulary is live either way",
-     "app_metrics::app metrics: a declaration reaches a warm environment::a declaration made inside a memo is quarantined, recorded, and healed later",
      "app_metrics::app metrics: a declaration reaches a warm environment::a signal whose value trails the generation is caught up by the next declaration",
      "app_metrics::app metrics: a declaration reaches a warm environment::re-declaring the same values is a no-op",
      "app_metrics::app metrics: the ten-foot ladder::classifies an app length as a length and scales it by the factor",
@@ -22273,7 +22100,7 @@
    "evidence": null,
    "id": "navigation-and-menus::d0-one-run-per-sweep",
    "name": "d0-one-run-per-sweep",
-   "note": "d0-one-run-per-sweep: 7883 named suite cases must pass; check_manifest_integrity, suite, rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/navigation-and-menus/sweep-economy.md must exist. Requirements: UI-AGENT-001.",
+   "note": "d0-one-run-per-sweep: 7810 named suite cases must pass; check_manifest_integrity, suite, rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/navigation-and-menus/sweep-economy.md must exist. TRIMMED 2026-09-20: 28 ids naming `conformance/conformance::core conformance (custom)::*` were removed because that describe block was retired with the pluggable-Core contract (see phase-0-foundation::conformance-imperative-baseline). They are DROPPED rather than repointed: this row's claim is that ONE suite run covers the sweep, and the suite it names still runs — the settle/lifetime/quarantine ground those cases held is pinned by NAME in parity-round-4::core-settle-phase, code-simplicity-cleanup::carry-over-pins and code-simplicity-cleanup::conformance-all-cores, which is where a reader should look for it. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. One id was DROPPED with no successor — `table::Table: custom cells and resize model::remounted rows keep hits painted beneath cell content (deterministic z-order)` — because tests/table.spec.luau no longer carries that case under any name and no spec in this tree asserts remount hit z-order; it is recorded here rather than silently re-pointed at a case that proves something else. TRIMMED AGAIN 2026-09-20: a further 21 ids named cases in tests/mount.spec.luau, tests/transitions.spec.luau and tests/reactive_recovery.spec.luau that the Compose flattening rewrote — whole describe blocks ('mount: When hands its branch the branch scope', 'mount: churn and dumps', 'a memo that fails on its FIRST evaluation can recover', 'diagnostics name the nodes they are about') went with Facet's own scopes and error channel. They are dropped for the same reason as the conformance ids above: this row's claim is that ONE suite run covers the sweep, the `suite` producer still gates that run in full, and the ground these cases held is pinned by name in the rows that are ABOUT it (parity-round-4::when-branch-scope, parity-round-4::core-settle-phase, code-simplicity-cleanup::carry-over-pins). THIS ROW HAS NOT BEEN RECONCILED AGAINST A FULL SUITE RUN: only the ids in the specs re-run by hand on 2026-09-20 were checked, so it may still name others that a `full` run will report as missing.",
    "phase": "navigation-and-menus",
    "releaseBlocking": false,
    "requirements": [
@@ -23179,8 +23006,9 @@
     ],
     "resultIds": [
      "controls_namespace::the Controls namespace::exports exactly the nineteen composite controls the namespace names, and nothing else",
-     "controls_namespace::the Controls namespace::every entry builds what the old two-argument form builds",
-     "controls_namespace::the Controls namespace::every old-form builder carries its deprecation row",
+     "controls_namespace::the Controls namespace::exports exactly the declared composite controls from an application, and nothing else",
+     "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
+     "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls",
      "controls_namespace::the Controls namespace::the eleven infrastructure constructors stay at the top level and stay out of Controls"
     ],
     "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"Controls : table(frozen)\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"^  Controls[.][A-Za-z]+ : function\" artifacts/verify/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\" && test \"$(grep -c \"since=0[.]10[.]0 | removeNoEarlierThan=0[.]12[.]0 | replacement=Facet[.]Controls[.]\" artifacts/verify/public-surface.txt)\" = \"19\""
@@ -23189,7 +23017,7 @@
    "evidence": null,
    "id": "release-candidate-review::naming-adr-implemented",
    "name": "naming-adr-implemented",
-   "note": "naming-adr-implemented: 4 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
+   "note": "naming-adr-implemented: 5 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim.",
    "phase": "release-candidate-review",
    "releaseBlocking": false,
    "requirements": [
@@ -23604,7 +23432,7 @@
      "surface_target::surface_target: every refusal says why::face is required, and the refusal explains the trap rather than just refusing",
      "surface_target::surface_target: every refusal says why::the queryable precondition is refused BEFORE any Instance exists",
      "surface_target::surface_target: what it withholds is real::every capability it deletes is one the contract actually declares",
-     "spatial::the world render target is declared AND shipped (XP-D3)::every still-open question has a capability the adapter withholds",
+     "spatial::the world render target is declared AND shipped (XP-D3)::withholds custom pointer and foreign seams while enabling verified native scrolling",
      "spatial::the world render target is declared AND shipped (XP-D3)::AlwaysOnTop is pinned false and is not an option"
     ],
     "shell": "test -f src/client/surface_target.luau && grep -qF \"surface_target = true\" tools/lune/check_boundary.luau && grep -qF \"surface_target\" docs/reference/constitution.md && grep -qF \"client.surface_target\" docs/reference/api.md && grep -qF \"SHIPPED 2026-08-29\" src/render/target_contract.luau && ! grep -qF \"not implemented; no adapter\" src/render/target_contract.luau"
@@ -23613,7 +23441,7 @@
    "evidence": "src/client/surface_target.luau",
    "id": "example-games-and-standalones::surface-target-public-adapter",
    "name": "surface-target-public-adapter",
-   "note": "surface-target-public-adapter: 6 named suite cases must pass; check_boundary, check_registration_cli, check_docs_cli, suite must exit zero; its file-existence and text assertions must hold; and src/client/surface_target.luau must exist. Requirements: UI-AGENT-001, UI-WORLD-001.",
+   "note": "surface-target-public-adapter: 6 named suite cases must pass; check_boundary, check_registration_cli, check_docs_cli, suite must exit zero; its file-existence and text assertions must hold; and src/client/surface_target.luau must exist. Requirements: UI-AGENT-001, UI-WORLD-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim.",
    "phase": "example-games-and-standalones",
    "releaseBlocking": false,
    "requirements": [
@@ -23703,31 +23531,6 @@
    "id": "example-games-and-standalones::world-terminal-guide-recipe",
    "name": "world-terminal-guide-recipe",
    "note": "world-terminal-guide-recipe: the world render target is published where a reader can act on it: the surface target has its own reference entry and the render-target playbook is in the extending set, with the documentation drift check and the link checker both live. Requirements: UI-AGENT-001.",
-   "phase": "example-games-and-standalones",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "producers": [
-     "check_device_sweep-selftest",
-     "check_example_drift_cli",
-     "suite"
-    ],
-    "resultIds": [
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::section stubs are honest and the worn set survives leaving and returning",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends"
-    ],
-    "shell": "test -f tests/fixtures/retired/README.md && test -f tests/fixtures/retired/p5_wardrobe/init.luau && grep -qF \"not a current example\" tests/fixtures/retired/README.md && grep -qF \"fixtures/retired/p5_wardrobe\" tests/reference/wardrobe_spec.luau && for gone in examples/reference/p5_wardrobe examples/gallery/scenarios/ref_wardrobe.luau examples/places/Facet-Ref-Wardrobe.rbxl; do test ! -e \"$gone\" || { echo \"retired surface is back: $gone\"; exit 1; }; done && ! grep -qE \"^[[:space:]]*.ref_wardrobe.,[[:space:]]*$\" examples/gallery/scenarios/init.luau && [ \"$(grep -cE \"^  .ref_[a-z]+[|]Facet-Ref-\" tools/build_reference_places.sh)\" -eq 4 ] && ! grep -qi wardrobe examples/gallery/client/demo_picker.luau && ! grep -q \"p4_foyer.*p5_wardrobe\" tests/overflow_sweep.spec.luau && ! grep -q \"p4_foyer.*p5_wardrobe\" tools/lune/triage_overflow_waivers.luau && ! grep -q \"surface = .p5_wardrobe\" tests/lib/theme_sweep_ledger.luau && ! grep -q \"scenario.: .ref_wardrobe\" tools/studio/device_sweep_matrix.json && grep -qF wasScenario tools/studio/device_sweep_matrix.json && grep -qF retiredCells tools/studio/device_sweep_matrix.json && ! grep -q \"file = .examples/reference/p5_wardrobe\" tools/lune/check_example_drift.luau"
-   },
-   "class": "result-ids",
-   "evidence": null,
-   "id": "example-games-and-standalones::wardrobe-retired",
-   "name": "wardrobe-retired",
-   "note": "wardrobe-retired: 2 named suite cases must pass; check_device_sweep-selftest, check_example_drift_cli, suite must exit zero; its file-existence and text assertions must hold; and artifacts/example-games-and-standalones/wardrobe-inventory.md must exist. Requirements: UI-AGENT-001.",
    "phase": "example-games-and-standalones",
    "releaseBlocking": false,
    "requirements": [
@@ -24059,50 +23862,6 @@
    "id": "example-games-and-standalones::shared-theme-and-motion-chrome",
    "name": "shared-theme-and-motion-chrome",
    "note": "shared-theme-and-motion-chrome: the shipped examples wear the same theme and motion chrome: theme drift is checked against the packages the builder produces, and the crossword proves the sweep bites -- every cell state paints a plate a player can see under every theme, and committed versus uncommitted is not a colour. Requirements: UI-AGENT-001.",
-   "phase": "example-games-and-standalones",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "producers": [
-     "check_example_drift_cli",
-     "check_device_sweep-selftest"
-    ],
-    "receipt": "tools/lune/verify/evidence/example-games-and-standalones--dead-example-audit.json",
-    "resultIds": [
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::owned-only shrinks the catalog; price sort reorders; reset restores",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::section stubs are honest and the worn set survives leaving and returning",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the BuyBar copy live",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the SECTION PICKER's option labels too",
-     "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::two fresh builds are identical (reset determinism) and dispose cleanly",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::REDUCED MOTION STOPS THE TURNTABLE — and motion allowed still turns it",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::an orbit step drives a new camera write through the public host",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::mounts the boutique with categories, grids, pane, and no core error",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::the stage host is live headlessly (recording stub): lighting + camera recorded, fallback closed",
-     "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip",
-     "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::insufficient Sparks rejects with a visible reason; the wallet never moves; retry stays allowed",
-     "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::sold-out rejects once, then a retry confirms: balance debits, chip flips to Owned+Wearing, modal dismisses, BuyBar leaves",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::activating a card equips it: Wearing chip, selected state, rig re-dressed; activating again unequips",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::trying on an unowned item raises the BuyBar; an owned one does not",
-     "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you card is the same width, and the row tiles the grid exactly",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you thumbnail is the SAME width — never a different width per card",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the catalog column claims the whole phone viewport — not just the grid's minColumnWidth floor",
-     "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the thumbnail never paints past its own Col — at the floor lane, not just a wide one",
-     "reference/wardrobe_spec::Wardrobe — backdrop-finding sweep (task POP)::the purchase Confirm modal and the Refine filter modal are clean",
-     "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::FIVE WORN PIECES SHARE ONE LINE, each at its own width — not five stacked lines",
-     "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::IN A NARROW PANE THEY WRAP to a second line rather than paint past the plate"
-    ]
-   },
-   "class": "exit0",
-   "evidence": null,
-   "id": "example-games-and-standalones::dead-example-audit",
-   "name": "dead-example-audit",
-   "note": "dead-example-audit: the retired example stays retired and stays proved: its cases still run as test evidence, the drift checker reconciles the live set against what is registered, and the inventory taken when it was retired is pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "example-games-and-standalones",
    "releaseBlocking": false,
    "requirements": [

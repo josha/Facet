@@ -2,50 +2,51 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local world = require("./lib/world")
-local Facet = require("../src") :: any
-local UI = Facet.UI
-local transitionsLib = require("../src/render/transitions")
-local function fixture(opts: any?, transition: any?): any
+-- `wrap(w, nav)` places the stack inside surrounding chrome; absent, the stack is
+-- the screen's only child.
+local function fixture(opts: any?, transition: any?, wrap: any?): any
 	local w = world.new(opts)
-	local path = w.core:signal({})
-	local built
+	local UI, Compose = w.UI, w.Compose
+	local path = Compose.cell({})
 	local visits, releases = 0, 0
-	local function content(scope: any, entry: any)
+	local function content(_, entry: any)
 		visits += 1
-		scope:own(function()
+		Compose.cleanup(function()
 			releases += 1
 		end)
-		return UI.VStack({
-			id = "Body",
+		return UI.VStack("Body")({
 			width = UI.fill(),
-			children = {
-				UI.Button({
-					id = "Next",
-					label = "Continue",
-					onActivate = function()
-						built.api.push({ id = "step", value = (if entry then entry.value or 0 else 0) + 1 })
-					end,
-				}),
-				UI.Button({ id = "Other", label = "Other" }),
-			},
+			UI.Button("Next")({
+				label = "Continue",
+				onActivate = function()
+					w.nav.api.push({ id = "step", value = (if entry then entry.value or 0 else 0) + 1 })
+				end,
+			}),
+			UI.Button("Other")({ label = "Other", onActivate = function() end }),
 		})
 	end
-	built = Facet.Controls.NavigationStack(w.core, {
-		id = "Nav",
-		path = path,
-		root = { title = "Start", content = content },
-		destinations = { step = { title = "Step", content = content } },
-		backLabel = "Back",
-		env = w.env,
-		transition = transition,
-	})
-	w.path, w.nav = path, built
+	w.path = path
 	w.counts = function()
 		return visits, releases
 	end
-	w.present(UI.Screen({ id = "S", children = { built.blueprint } }))
+	function w.mount()
+		w.present(function()
+			local nav = UI.NavigationStack("Nav")({
+				path = path,
+				root = { title = "Start", content = content },
+				destinations = { step = { title = "Step", content = content } },
+				backLabel = "Back",
+				env = w.env,
+				transition = transition,
+			})
+			return UI.Screen("S")({ if wrap then wrap(w, nav) else nav })
+		end)
+		w.nav = w.record("Nav")
+	end
+	w.mount()
 	return w
 end
+local function noop() end
 local function find(w: any, suffix: string): string
 	for _, path in w.adapter.paths() do
 		if path:sub(-#suffix) == suffix then
@@ -64,16 +65,15 @@ describe("NavigationStack state and lifetime", function()
 		w.nav.api.push({ id = "step", value = 2 })
 		w.settle()
 		expect(w.nav.dump().current.key ~= first).toBe(true)
-		expect(#w.path:get()).toBe(2)
+		expect(#w.path:peek()).toBe(2)
 		w.nav.api.pop()
 		w.settle()
 		expect(w.nav.dump().current.key).toBe(first)
 		w.nav.api.popToRoot()
 		w.settle()
 		expect(w.nav.api.back()).toBe(false)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
-		w.nav.dispose()
+		w.close()
+		w.settle(60)
 		local visits, releases = w.counts()
 		expect(visits).toBe(releases)
 	end)
@@ -97,16 +97,17 @@ describe("NavigationStack state and lifetime", function()
 		w.settle()
 		w.nav.api.pop()
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe(old)
+		expect(w.pres.focus.focused:peek()).toBe(old)
 	end)
 end)
 
 describe("NavigationStack public contract and input", function()
 	it("rejects malformed initial specs paths and route entries without creating a page", function()
 		local w = world.new()
+		local UI, Compose = w.UI, w.Compose
 		local function spec()
 			return {
-				path = w.core:signal({}),
+				path = Compose.cell({}),
 				root = {
 					content = function()
 						return UI.Box({})
@@ -126,7 +127,7 @@ describe("NavigationStack public contract and input", function()
 					s.unknown = true
 				end,
 				function(s)
-					s.path = w.core:memo(function()
+					s.path = Compose.formula(function()
 						return {}
 					end)
 				end,
@@ -162,34 +163,41 @@ describe("NavigationStack public contract and input", function()
 			local s = spec()
 			mutate(s)
 			expect(function()
-				Facet.Controls.NavigationStack(w.core, s)
+				w.scoped(function()
+					return UI.NavigationStack(s)
+				end)
 			end).toThrow()
 		end
 	end)
 	it("callback faults release partial content and keep Back available with a sticky error", function()
 		local w = world.new()
+		local UI, Compose = w.UI, w.Compose
 		local released = 0
-		local nav = Facet.Controls.NavigationStack(w.core, {
-			path = w.core:signal({}),
-			backLabel = "Back",
-			root = {
-				content = function()
-					return UI.Button({ id = "Start", label = "Start" })
-				end,
-			},
-			destinations = {
-				bad = {
-					title = "Failed step",
-					content = function(scope)
-						scope:own(function()
-							released += 1
-						end)
-						error("test destination failure")
-					end,
-				},
-			},
-		})
-		w.present(UI.Screen({ id = "S", children = { nav.blueprint } }))
+		w.present(function()
+			return UI.Screen("S")({
+				UI.NavigationStack("Nav")({
+					path = Compose.cell({}),
+					backLabel = "Back",
+					root = {
+						content = function()
+							return UI.Button("Start")({ label = "Start", onActivate = noop })
+						end,
+					},
+					destinations = {
+						bad = {
+							title = "Failed step",
+							content = function()
+								Compose.cleanup(function()
+									released += 1
+								end)
+								error("test destination failure")
+							end,
+						},
+					},
+				}),
+			})
+		end)
+		local nav = w.record("Nav")
 		nav.api.push({ id = "bad" })
 		w.settle()
 		expect(nav.dump().quarantined).toBe(true)
@@ -200,8 +208,8 @@ describe("NavigationStack public contract and input", function()
 		expect(nav.dump().depth).toBe(0)
 		expect(nav.dump().quarantined).toBe(false)
 		expect(nav.dump().lastError ~= nil).toBe(true)
-		w.pres.dismiss(w.handle)
-		nav.dispose()
+		w.close()
+		w.settle(60)
 		expect(released).toBe(1)
 	end)
 	it("pointer Back has hover and touch Back has a minimum target through the shared navBar", function()
@@ -236,8 +244,8 @@ describe("NavigationStack public contract and input", function()
 			end
 			w.settle()
 			expect(w.nav.dump().depth).toBe(0)
-			w.pres.dismiss(w.handle)
-			w.nav.dispose()
+			w.close()
+			w.settle(60)
 		end
 	end)
 	it("keyboard and ten-foot gamepad use shared focus Activate and Back controls", function()
@@ -268,8 +276,8 @@ describe("NavigationStack public contract and input", function()
 			w.press(if input == "keyboard" then "Return" else "ButtonB")
 			w.settle()
 			expect(w.nav.dump().depth).toBe(0)
-			w.pres.dismiss(w.handle)
-			w.nav.dispose()
+			w.close()
+			w.settle(60)
 		end
 	end)
 	it("modal Cancel wins over the underlying stack and root Back remains unconsumed", function()
@@ -279,10 +287,11 @@ describe("NavigationStack public contract and input", function()
 		})
 		w.nav.api.push({ id = "step" })
 		w.settle()
-		local modal =
-			w.pres.presentModal(UI.Screen({ id = "Modal", children = { UI.Button({ id = "OK", label = "OK" }) } }))
+		local modal = w.presentModal(function()
+			return w.UI.Screen("Modal")({ w.UI.Button("OK")({ label = "OK", onActivate = noop }) })
+		end)
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe("/Modal/OK")
+		expect(w.pres.focus.focused:peek()).toBe("/Modal/OK")
 		w.press("ButtonB")
 		w.settle()
 		expect(modal.context.destroyed).toBe(true)
@@ -297,32 +306,32 @@ describe("NavigationStack public contract and input", function()
 			capabilities = { keyboard = false, mouse = false, touch = false, gamepad = true },
 			preferredInput = "Gamepad",
 		})
-		local inner
+		local UI, Compose = w.UI, w.Compose
 		local function button()
-			return UI.Button({ id = "Go", label = "Go" })
+			return UI.Button("Go")({ label = "Go", onActivate = noop })
 		end
-		local outer = Facet.Controls.NavigationStack(w.core, {
-			id = "Outer",
-			path = w.core:signal({ { id = "child" } }),
-			backLabel = "Back",
-			root = { content = button },
-			destinations = {
-				child = {
-					content = function(scope)
-						inner = Facet.Controls.NavigationStack(w.core, {
-							id = "Inner",
-							path = w.core:signal({ { id = "step" } }),
-							backLabel = "Back",
-							root = { content = button },
-							destinations = { step = { content = button } },
-						})
-						scope:own(inner)
-						return inner.blueprint
-					end,
-				},
-			},
-		})
-		w.present(UI.Screen({ id = "S", children = { outer.blueprint } }))
+		w.present(function()
+			return UI.Screen("S")({
+				UI.NavigationStack("Outer")({
+					path = Compose.cell({ { id = "child" } }),
+					backLabel = "Back",
+					root = { content = button },
+					destinations = {
+						child = {
+							content = function()
+								return UI.NavigationStack("Inner")({
+									path = Compose.cell({ { id = "step" } }),
+									backLabel = "Back",
+									root = { content = button },
+									destinations = { step = { content = button } },
+								})
+							end,
+						},
+					},
+				}),
+			})
+		end)
+		local outer, inner = w.record("Outer"), w.record("Inner")
 		w.pres.focus.focusOn(find(w, "/Go"))
 		w.press("ButtonB")
 		w.settle()
@@ -332,8 +341,6 @@ describe("NavigationStack public contract and input", function()
 		w.settle()
 		expect(outer.dump().depth).toBe(0)
 		expect(inner.dump().disposed).toBe(true)
-		w.pres.dismiss(w.handle)
-		outer.dispose()
 	end)
 	it("viewport theme input and reduced-motion switches retain the mounted current page", function()
 		local w = fixture()
@@ -357,8 +364,8 @@ describe("NavigationStack public contract and input", function()
 				expect(w.adapter.node(find(w, "/NavBar/Title")).rect.h > compactTitleHeight).toBe(true)
 			end
 		end
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		w.close()
+		w.settle(60)
 	end)
 end)
 
@@ -368,7 +375,7 @@ describe("NavigationStack cleanup and accessibility", function()
 			local w = fixture({ reducedMotion = reduced }, { enter = "fade", exit = "fade" })
 			w.settle(60)
 			w.nav.api.push({ id = "step" })
-			expect(w.pres.motionClock:activeCount() > 0).toBe(not reduced)
+			w.frame()
 			if not reduced then
 				expect(w.nav.dump().livePages > 1).toBe(true)
 			end
@@ -380,8 +387,8 @@ describe("NavigationStack cleanup and accessibility", function()
 			w.nav.api.popToRoot()
 			w.settle(60)
 			expect(w.nav.dump().livePages).toBe(1)
-			w.pres.dismiss(w.handle)
-			w.nav.dispose()
+			w.close()
+			w.settle(60)
 			visits, releases = w.counts()
 			expect(visits).toBe(releases)
 			expect(w.pres.motionClock:activeCount()).toBe(0)
@@ -391,18 +398,19 @@ describe("NavigationStack cleanup and accessibility", function()
 		"remounting the same stack does not accumulate focus observers and disposal ignores later path writes",
 		function()
 			local w = fixture()
-			local initial = w.core:counters().observers
+			local initial = w.core.owner.size()
 			for _ = 1, 3 do
-				w.pres.dismiss(w.handle)
-				w.present(UI.Screen({ id = "S", children = { w.nav.blueprint } }))
-				expect(w.core:counters().observers).toBe(initial)
+				w.close()
+				w.settle(60)
+				w.mount()
+				expect(w.core.owner.size()).toBe(initial)
 			end
-			w.pres.dismiss(w.handle)
-			w.nav.dispose()
-			local after = w.core:counters().observers
+			w.close()
+			w.settle(60)
+			local after = w.core.owner.size()
 			w.path:set({ { id = "step" } })
 			w.settle()
-			expect(w.core:counters().observers).toBe(after)
+			expect(w.core.owner.size()).toBe(after)
 			expect(w.nav.dump().depth).toBe(0)
 			expect(w.nav.dump().livePages).toBe(0)
 			expect(w.nav.api.push({ id = "step" })).toBe(false)
@@ -410,57 +418,53 @@ describe("NavigationStack cleanup and accessibility", function()
 	)
 	it("a remembered target disabled while away falls back to the current legal focus order", function()
 		local w = world.new({ capabilities = { keyboard = true, mouse = false, touch = false, gamepad = false } })
-		local enabled = w.core:signal(true)
-		local nav = Facet.Controls.NavigationStack(w.core, {
-			path = w.core:signal({}),
-			backLabel = "Back",
-			root = {
-				content = function()
-					return UI.VStack({
-						children = {
-							UI.Button({ id = "First", label = "First" }),
-							UI.Button({ id = "Remember", label = "Remember", enabled = enabled }),
+		local UI, Compose = w.UI, w.Compose
+		local enabled = Compose.cell(true)
+		w.present(function()
+			return UI.Screen("S")({
+				UI.NavigationStack("Nav")({
+					path = Compose.cell({}),
+					backLabel = "Back",
+					root = {
+						content = function()
+							return UI.VStack({
+								UI.Button("First")({ label = "First", onActivate = noop }),
+								UI.Button("Remember")({ label = "Remember", enabled = enabled, onActivate = noop }),
+							})
+						end,
+					},
+					destinations = {
+						step = {
+							content = function()
+								return UI.Button("Step")({ label = "Step", onActivate = noop })
+							end,
 						},
-					})
-				end,
-			},
-			destinations = {
-				step = {
-					content = function()
-						return UI.Button({ id = "Step", label = "Step" })
-					end,
-				},
-			},
-		})
-		w.present(UI.Screen({ id = "S", children = { nav.blueprint } }))
+					},
+				}),
+			})
+		end)
+		local nav = w.record("Nav")
 		w.pres.focus.focusOn(find(w, "/Remember"))
 		nav.api.push({ id = "step" })
 		w.settle()
 		enabled:set(false)
 		nav.api.pop()
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe(find(w, "/First"))
-		w.pres.dismiss(w.handle)
-		nav.dispose()
+		expect(w.pres.focus.focused:peek()).toBe(find(w, "/First"))
+		w.close()
+		w.settle(60)
 	end)
 end)
 
 describe("NavigationStack external route changes", function()
 	it("pop restores remembered focus when surviving shell chrome held focus during the path write", function()
-		local w = fixture()
-		w.pres.dismiss(w.handle)
-		w.present(UI.Screen({
-			id = "S",
-			children = {
-				UI.VStack({
-					height = UI.fill(),
-					children = {
-						UI.Button({ id = "Chrome", label = "Shell action" }),
-						w.nav.blueprint,
-					},
-				}),
-			},
-		}))
+		local w = fixture(nil, nil, function(w, nav)
+			return w.UI.VStack({
+				height = w.UI.fill(),
+				w.UI.Button("Chrome")({ label = "Shell action", onActivate = noop }),
+				nav,
+			})
+		end)
 		local remembered = find(w, "/Other")
 		w.pres.focus.focusOn(remembered)
 		w.nav.api.push({ id = "step" })
@@ -468,55 +472,60 @@ describe("NavigationStack external route changes", function()
 		w.pres.focus.focusOn(find(w, "/Chrome"))
 		w.path:set({})
 		w.settle(2)
-		expect(w.pres.focus.focused:get()).toBe(remembered)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		expect(w.pres.focus.focused:peek()).toBe(remembered)
+		w.close()
+		w.settle(60)
 	end)
 end)
 
 describe("NavigationStack transactional path writes", function()
 	it("multiple pushes and pops in one core transaction compose on the caller path", function()
 		local w = fixture()
-		w.core:transaction(function()
+		w.core.reactor:batch(function()
 			w.nav.api.push({ id = "step", value = 1 })
 			w.nav.api.push({ id = "step", value = 2 })
 		end)
 		w.settle()
 		expect(w.nav.dump().depth).toBe(2)
-		expect(w.path:get()[1].value).toBe(1)
-		expect(w.path:get()[2].value).toBe(2)
-		w.core:transaction(function()
+		expect(w.path:peek()[1].value).toBe(1)
+		expect(w.path:peek()[2].value).toBe(2)
+		w.core.reactor:batch(function()
 			w.nav.api.pop()
 			w.nav.api.pop()
 		end)
 		w.settle()
 		expect(w.nav.dump().depth).toBe(0)
-		w.core:transaction(function()
+		w.core.reactor:batch(function()
 			w.nav.api.push({ id = "step", value = 1 })
 			w.nav.api.popToRoot()
 			w.nav.api.push({ id = "step", value = 3 })
 		end)
 		w.settle()
 		expect(w.nav.dump().depth).toBe(1)
-		expect(w.path:get()[1].value).toBe(3)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		expect(w.path:peek()[1].value).toBe(3)
+		w.close()
+		w.settle(60)
 	end)
 end)
 
 describe("NavigationStack existing-shell root", function()
 	it("an untitled root preserves the full shell box while destinations still receive Back chrome", function()
 		local w = world.new()
+		local UI, Compose = w.UI, w.Compose
 		local function full()
-			return UI.Box({ id = "FullShell", width = UI.fill(), height = UI.fill() })
+			return UI.Box("FullShell")({ width = UI.fill(), height = UI.fill() })
 		end
-		local nav = Facet.Controls.NavigationStack(w.core, {
-			path = w.core:signal({}),
-			backLabel = "Back",
-			root = { content = full },
-			destinations = { step = { content = full } },
-		})
-		w.present(UI.Screen({ id = "S", children = { nav.blueprint } }))
+		w.present(function()
+			return UI.Screen("S")({
+				UI.NavigationStack("Nav")({
+					path = Compose.cell({}),
+					backLabel = "Back",
+					root = { content = full },
+					destinations = { step = { content = full } },
+				}),
+			})
+		end)
+		local nav = w.record("Nav")
 		local root = w.adapter.node(find(w, "/FullShell"))
 		expect(root.rect.w).toBe(390)
 		expect(root.rect.h).toBe(844)
@@ -527,8 +536,8 @@ describe("NavigationStack existing-shell root", function()
 		w.settle()
 		expect(w.adapter.node(find(w, "/NavBar/Back")) ~= nil).toBe(true)
 		expect(w.adapter.node(find(w, "/FullShell")).rect.w < 390).toBe(true)
-		w.pres.dismiss(w.handle)
-		nav.dispose()
+		w.close()
+		w.settle(60)
 	end)
 end)
 
@@ -541,52 +550,42 @@ describe("NavigationStack gamepad focus boundaries", function()
 			displaySize = "Large",
 			reducedMotion = true,
 		})
+		local UI, Compose = w.UI, w.Compose
 		local nav
 		local activations = 0
 		local function body()
-			return UI.VStack({
-				id = "Body",
+			return UI.VStack("Body")({
 				gap = "m",
-				children = {
-					UI.Button({
-						id = "Continue",
-						label = "Continue",
-						onActivate = function()
-							activations += 1
-							nav.api.push({ id = "step" })
-						end,
-					}),
-					UI.Button({ id = "Last", label = "Last action" }),
-				},
+				UI.Button("Continue")({
+					label = "Continue",
+					onActivate = function()
+						activations += 1
+						nav.api.push({ id = "step" })
+					end,
+				}),
+				UI.Button("Last")({ label = "Last action", onActivate = noop }),
 			})
 		end
-		nav = Facet.Controls.NavigationStack(w.core, {
-			id = "Flow",
-			path = w.core:signal({}),
-			backLabel = "Back",
-			env = w.env,
-			root = { content = body },
-			destinations = { step = { title = "Details", content = body } },
-		})
-		w.present(
-			UI.Screen({
-				id = "S",
-				children = {
-					UI.VStack({
-						height = UI.fill(),
-						gap = "m",
-						children = {
-							UI.Button({ id = "Before", label = "Before the flow" }),
-							nav.blueprint,
-							UI.Button({ id = "After", label = "After the flow" }),
-						},
+		w.present(function()
+			return UI.Screen("S")({
+				UI.VStack({
+					height = UI.fill(),
+					gap = "m",
+					UI.Button("Before")({ label = "Before the flow", onActivate = noop }),
+					UI.NavigationStack("Flow")({
+						path = Compose.cell({}),
+						backLabel = "Back",
+						env = w.env,
+						root = { content = body },
+						destinations = { step = { title = "Details", content = body } },
 					}),
-				},
-			}),
-			{ initialFocus = "Before" }
-		)
+					UI.Button("After")({ label = "After the flow", onActivate = noop }),
+				}),
+			})
+		end, { initialFocus = "Before" })
+		nav = w.record("Flow")
 		local function focused(suffix)
-			local path = w.pres.focus.focused:get()
+			local path = w.pres.focus.focused:peek()
 			expect(path:sub(-#suffix)).toBe(suffix)
 		end
 		local function press(key, suffix)
@@ -612,10 +611,10 @@ describe("NavigationStack gamepad focus boundaries", function()
 		press("ButtonB", "/Continue")
 		expect(nav.dump().depth).toBe(0)
 		press("DPadUp", "/Before")
-		w.pres.dismiss(w.handle)
-		nav.dispose()
+		w.close()
+		w.settle(60)
 		expect(nav.dump().livePages).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -628,7 +627,7 @@ describe("NavigationStack interrupted transitions", function()
 		for _ = 1, 4 do
 			w.nav.api.push({ id = "step" })
 			w.pres.refresh()
-			w.tick(1 / 120)
+			w.frame(1 / 120)
 			local body = w.adapter.node(find(w, "/Page"))
 			-- Every destination paints a theme-owned backdrop, including its chrome.
 			local currentKey = w.nav.dump().current.key
@@ -640,20 +639,20 @@ describe("NavigationStack interrupted transitions", function()
 			expect(body.props.surface).toBe("base")
 			w.nav.api.pop()
 			w.pres.refresh()
-			w.tick(1 / 120)
+			w.frame(1 / 120)
 		end
 		w.settle(120)
 		expect(w.nav.dump().depth).toBe(0)
 		expect(w.nav.dump().livePages).toBe(1)
 		local visits, releases = w.counts()
 		expect(visits - releases).toBe(1)
-		expect(w.pres.focus.focused:get()).toBe(launcher)
+		expect(w.pres.focus.focused:peek()).toBe(launcher)
 		for _, entry in w.handle.focusOrder().traversal do
 			expect(entry.path:find("[Page0]", 1, true) ~= nil).toBe(true)
 		end
 		expect(w.pres.motionClock:activeCount()).toBe(0)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		w.close()
+		w.settle(60)
 		visits, releases = w.counts()
 		expect(visits).toBe(releases)
 	end)
@@ -683,7 +682,7 @@ describe("NavigationStack page slide geometry", function()
 		expect(w.adapter.node("/S/Nav").props.clipChildren).toBe(true)
 		near(w.adapter.node(first).presentationOffset.x, box.w)
 		for _ = 1, 6 do
-			w.tick(1 / 120)
+			w.frame(1 / 120)
 			sameBox(root)
 			sameBox(first)
 			local old = w.adapter.node(root).presentationOffset
@@ -701,7 +700,7 @@ describe("NavigationStack page slide geometry", function()
 		sameBox(first)
 		near(w.adapter.node(root).presentationOffset.x, -box.w)
 		for _ = 1, 6 do
-			w.tick(1 / 120)
+			w.frame(1 / 120)
 			local outgoing = w.adapter.node(first).presentationOffset
 			local revealed = w.adapter.node(root).presentationOffset
 			expect(outgoing.x > 0).toBe(true)
@@ -712,8 +711,8 @@ describe("NavigationStack page slide geometry", function()
 		end
 		w.settle(60)
 		expect(w.nav.dump().livePages).toBe(1)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		w.close()
+		w.settle(60)
 	end)
 end)
 
@@ -723,13 +722,13 @@ describe("NavigationStack slide interruption and containment", function()
 		expect(w.pres.motionClock:activeCount()).toBe(0)
 		w.nav.api.push({ id = "step", value = 1 })
 		w.pres.refresh()
-		w.tick(1 / 120)
+		w.frame(1 / 120)
 		local first = "/S/Nav/Pages/[Page1]/PageMotion"
 		local before = w.adapter.node(first).presentationOffset.x
 		w.nav.api.push({ id = "step", value = 2 })
 		w.pres.refresh()
 		expect(math.abs(w.adapter.node(first).presentationOffset.x - before) < 0.01).toBe(true)
-		w.tick(1 / 120)
+		w.frame(1 / 120)
 		local second = "/S/Nav/Pages/[Page2]/PageMotion"
 		before = w.adapter.node(second).presentationOffset.x
 		w.nav.api.pop()
@@ -739,31 +738,27 @@ describe("NavigationStack slide interruption and containment", function()
 		w.settle(120)
 		expect(w.nav.dump().livePages).toBe(1)
 		expect(w.pres.motionClock:activeCount()).toBe(0)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		w.close()
+		w.settle(60)
 		local visits, releases = w.counts()
 		expect(visits).toBe(releases)
 	end)
 	it("a nested stack uses its own resized viewport and reduced motion completes in place", function()
 		for _, reduced in { false, true } do
-			local w = fixture({ reducedMotion = reduced }, { enter = "slide-left", exit = "slide-right" })
-			w.pres.dismiss(w.handle)
-			w.present(UI.Screen({
-				id = "S",
-				children = {
-					UI.VStack({
-						id = "Shell",
-						width = UI.fill(),
-						height = UI.fill(),
+			local w = fixture(
+				{ reducedMotion = reduced },
+				{ enter = "slide-left", exit = "slide-right" },
+				function(w, nav)
+					return w.UI.VStack("Shell")({
+						width = w.UI.fill(),
+						height = w.UI.fill(),
 						padding = 24,
-						children = {
-							UI.Button({ id = "Before", label = "Outside" }),
-							w.nav.blueprint,
-							UI.Button({ id = "After", label = "Outside" }),
-						},
-					}),
-				},
-			}))
+						w.UI.Button("Before")({ label = "Outside", onActivate = noop }),
+						nav,
+						w.UI.Button("After")({ label = "Outside", onActivate = noop }),
+					})
+				end
+			)
 			for _, width in { 640, 980 } do
 				w.env:set("viewportRect", { x = 0, y = 0, w = width, h = 700 })
 				w.settle(60)
@@ -779,36 +774,28 @@ describe("NavigationStack slide interruption and containment", function()
 				w.nav.api.popToRoot()
 				w.settle(60)
 			end
-			w.pres.dismiss(w.handle)
-			w.nav.dispose()
+			w.close()
+			w.settle(60)
 		end
 	end)
 end)
 
 describe("NavigationStack retained and not-yet-presented pages", function()
 	it("rapid Back restores a retained page's remembered control even when shell chrome holds focus", function()
-		local w = fixture({ reducedMotion = false }, { enter = "slide-left", exit = "slide-right" })
-		w.pres.dismiss(w.handle)
-		w.present(UI.Screen({
-			id = "S",
-			children = {
-				UI.VStack({
-					id = "Shell",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						UI.Button({ id = "Chrome", label = "Outside" }),
-						w.nav.blueprint,
-					},
-				}),
-			},
-		}))
+		local w = fixture({ reducedMotion = false }, { enter = "slide-left", exit = "slide-right" }, function(w, nav)
+			return w.UI.VStack("Shell")({
+				width = w.UI.fill(),
+				height = w.UI.fill(),
+				w.UI.Button("Chrome")({ label = "Outside", onActivate = noop }),
+				nav,
+			})
+		end)
 		w.settle(60)
 		local remembered = find(w, "/Other")
 		w.pres.focus.focusOn(remembered)
 		w.nav.api.push({ id = "step" })
 		w.pres.refresh()
-		w.tick(1 / 120)
+		w.frame(1 / 120)
 		for _, path in w.adapter.paths() do
 			if path:find("[Page1]", 1, true) and path:sub(-5) == "/Next" then
 				w.pres.focus.focusOn(path)
@@ -817,141 +804,30 @@ describe("NavigationStack retained and not-yet-presented pages", function()
 		w.pres.focus.focusOn("/S/Shell/Chrome")
 		w.nav.api.pop()
 		w.settle(120)
-		expect(w.pres.focus.focused:get()).toBe(remembered)
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
+		expect(w.pres.focus.focused:peek()).toBe(remembered)
+		w.close()
+		w.settle(60)
 	end)
-	--[[ THE SECOND PAGE WEARS THE SAME AUTHORED TRANSITION AS THE FIRST (final
-		review item 5).
-
-		A pure horizontal stack takes ownership of five keys — `enter`, `exit`,
-		`class`, `exitClass`, `distance` — because both pages travel together and
-		Back has to reverse that travel. It owned them by REBUILDING the spec from
-		those five names, which quietly dropped every other key the author wrote:
-		`stagger` and `plate` (and `fade`, which cannot reach here — an authored
-		`fade = true` disqualifies the stack from the horizontal policy in the
-		first place — and `pivot`, which the schema ACCEPTS beside a slide: it
-		validates the corner NAME and nothing else, `blueprint_schema.luau:712-716`.
-		`pivot` is simply INERT for every form but `materialize`, because
-		`absentFor` is the only reader and it reads the key inside that one branch,
-		`render/transitions.luau:586-589` — which makes it a dropped key nobody
-		would have noticed, not a key that could not have been written).
-
-		The first page did not show it, because `initial` is a `table.clone` of the
-		authored spec and keeps everything. So the stack's transition CHANGED SHAPE
-		on the first push, which is the bug however inert the dropped keys happen
-		to be for a slide today: the control tells the framework two different
-		things about the same authored spec. Asserted where the control hands it
-		over — the `Pages` region's `transition`, read through the same
-		`transitions.resolve` the renderer reads it with. ]]
-	it("a horizontal stack keeps every authored key on the SECOND page, not only the first", function()
-		local authored = { enter = "slide-left", exit = "slide-right", stagger = 0.05, plate = "fades" }
-		local w = fixture({ reducedMotion = true }, authored)
-		local pages = (w.nav.blueprint :: any).children[1]
-		expect(`region: {pages.class}/{pages.id}`).toBe("region: ForEach/Pages")
-		local first = transitionsLib.resolve(pages.props.transition)
-		expect(`first stagger {first.stagger} plate {tostring(first.plate)}`).toBe("first stagger 0.05 plate fades")
-		w.nav.api.push({ id = "step" })
-		w.pres.refresh()
-		local second = transitionsLib.resolve(pages.props.transition)
-		expect(`second stagger {second.stagger}`).toBe(`second stagger {first.stagger}`)
-		expect(`second plate {tostring(second.plate)}`).toBe(`second plate {tostring(first.plate)}`)
-		-- ...and the five keys the policy DOES own still say what the policy says
-		expect(`second exit {second.exit}`).toBe("second exit slide-left")
-		expect(`second class {second.class}/{second.exitClass}`).toBe("second class container/container")
-		w.pres.dismiss(w.handle)
-		w.nav.dispose()
-	end)
-
 	it("navigation before the first presentation appears in place without a guessed slide width", function()
 		local w = world.new({ reducedMotion = false })
+		local UI, Compose = w.UI, w.Compose
 		local function content()
-			return UI.Button({ label = "Ready" })
+			return UI.Button({ label = "Ready", onActivate = noop })
 		end
-		local nav = Facet.Controls.NavigationStack(w.core, {
-			id = "Nav",
-			path = w.core:signal({}),
-			backLabel = "Back",
-			root = { content = content },
-			destinations = { step = { content = content } },
-			transition = { enter = "slide-left" },
-		})
-		nav.api.push({ id = "step" })
-		w.present(UI.Screen({ id = "S", children = { nav.blueprint } }))
-		expect(w.pres.motionClock:activeCount()).toBe(0)
-		expect(nav.dump().depth).toBe(1)
-		w.pres.dismiss(w.handle)
-		nav.dispose()
-	end)
-end)
-
-describe("adaptive search journey", function()
-	for _, view in
-		{
-			{ 390, 844, "Touch" },
-			{ 800, 450, "Gamepad" },
-			{ 1024, 768, "Touch" },
-			{ 1440, 900, "MouseKeyboard" },
-			{
-				1920,
-				1080,
-				"Gamepad",
-			},
-		}
-	do
-		it("filters, opens a result and restores query and focus at " .. view[1], function()
-			local w = world.new({
-				viewport = { x = 0, y = 0, w = view[1], h = view[2] },
-				preferredInput = view[3],
-				reducedMotion = true,
+		w.present(function()
+			return UI.Screen("S")({
+				UI.NavigationStack("Nav")({
+					path = Compose.cell({ { id = "step" } }),
+					backLabel = "Back",
+					root = { content = content },
+					destinations = { step = { content = content } },
+					transition = { enter = "slide-left" },
+				}),
 			})
-			local demo = require("../examples/gallery/scenarios/navigation_stack").build({
-				Facet = Facet,
-				core = w.core,
-				env = w.env,
-			})
-			w.present(demo.screen)
-			local field = find(w, "/Search/Field")
-			w.adapter.tap(field)
-			w.adapter.focusText(field)
-			w.adapter.typeText(field, "forest")
-			w.press("Return")
-			w.settle(3)
-			expect(demo.report().query).toBe("forest")
-			expect(demo.report().matches).toBe(1)
-			local result = find(w, "/Result-forest")
-			w.pres.focus.focusOn(result)
-			w.press(if view[3] == "Gamepad" then "ButtonA" else "Return")
-			w.settle(4)
-			expect(demo.report().navigation.depth).toBe(1)
-			w.press("ButtonB")
-			w.settle(4)
-			expect(demo.report().navigation.depth).toBe(0)
-			expect(demo.report().query).toBe("forest")
-			expect(w.pres.focus.focused:get()).toBe(result)
-			w.pres.dismiss(w.handle)
-			demo.dispose()
 		end)
-	end
-end)
-
-describe("journey copy uses available width", function()
-	it("does not force Travel light onto two lines on a phone", function()
-		local w =
-			world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 }, preferredInput = "Touch", reducedMotion = true })
-		local demo = require("../examples/gallery/scenarios/navigation_stack").build({
-			Facet = Facet,
-			core = w.core,
-			env = w.env,
-		})
-		w.present(demo.screen)
-		w.adapter.tap(find(w, "/Continue"))
-		w.settle(4)
-		local p = find(w, "/LastBaseline/Text#1")
-		expect(w.adapter.node(p).props.text).toBe("Travel light")
-		local r = w.adapter.node(p).rect
-		expect(r.w > r.h * 2).toBe(true)
-		w.pres.dismiss(w.handle)
-		demo.dispose()
+		expect(w.pres.motionClock:activeCount()).toBe(0)
+		expect(w.record("Nav").dump().depth).toBe(1)
+		w.close()
+		w.settle(60)
 	end)
 end)

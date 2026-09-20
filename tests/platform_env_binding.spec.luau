@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE PLATFORM ADAPTER, DRIVEN BY A FAKE ENGINE — release-candidate platform
 	review PLAT-1/RR-6, PLAT-2 and PLAT-3.
@@ -151,7 +152,7 @@ end
 
 describe("the platform adapter binds the connections it claims to (PLAT-1/PLAT-2)", function()
 	it("the on-screen-keyboard connection is made even though the keyboard is down at bind", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = environment.new(core)
 		local camera = newCamera(390, 844)
 		local services = newFakeServices(camera)
@@ -161,22 +162,22 @@ describe("the platform adapter binds the connections it claims to (PLAT-1/PLAT-2
 		expect(keyboardSignal:liveCount()).toBe(1)
 
 		-- ...and the rect actually arrives when the keyboard comes up
-		expect(env:get("keyboardOcclusionRect"):get()).toBe(nil)
+		expect(env:get("keyboardOcclusionRect"):peek()).toBe(nil)
 		services.userInput.OnScreenKeyboardVisible = true
 		keyboardSignal:fire()
-		local rect = env:get("keyboardOcclusionRect"):get()
+		local rect = env:get("keyboardOcclusionRect"):peek()
 		expect(rect).toBeTruthy()
 		expect(rect.y).toBe(700)
 		expect(rect.h).toBe(300)
 
 		services.userInput.OnScreenKeyboardVisible = false
 		keyboardSignal:fire()
-		expect(env:get("keyboardOcclusionRect"):get()).toBe(nil)
+		expect(env:get("keyboardOcclusionRect"):peek()).toBe(nil)
 		unbind()
 	end)
 
 	it("an engine without the member is cleanly skipped, with no nil hole", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = environment.new(core)
 		local camera = newCamera(1280, 720)
 		local services = newFakeServices(camera)
@@ -189,12 +190,12 @@ describe("the platform adapter binds the connections it claims to (PLAT-1/PLAT-2
 	end)
 
 	it("a replaced CurrentCamera re-binds ViewportSize and drops the old connection (PLAT-2)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = environment.new(core)
 		local first = newCamera(390, 844)
 		local services = newFakeServices(first)
 		local unbind = roblox_env.bind(env, services)
-		expect(env:get("viewportRect"):get().w).toBe(390)
+		expect(env:get("viewportRect"):peek().w).toBe(390)
 
 		local firstViewportSignal = first:GetPropertyChangedSignal("ViewportSize")
 		expect(firstViewportSignal:liveCount()).toBe(1)
@@ -205,13 +206,13 @@ describe("the platform adapter binds the connections it claims to (PLAT-1/PLAT-2
 		services.world.bag.signalFor("CurrentCamera"):fire()
 
 		-- the facts followed it...
-		expect(env:get("viewportRect"):get().w).toBe(1280)
+		expect(env:get("viewportRect"):peek().w).toBe(1280)
 		-- ...the old connection is gone...
 		expect(firstViewportSignal:liveCount()).toBe(0)
 		-- ...and the NEW camera's resizes reach env
 		second.ViewportSize = { X = 1600, Y = 900 }
 		second:GetPropertyChangedSignal("ViewportSize"):fire()
-		expect(env:get("viewportRect"):get().w).toBe(1600)
+		expect(env:get("viewportRect"):peek().w).toBe(1600)
 
 		unbind()
 		expect(second:GetPropertyChangedSignal("ViewportSize"):liveCount()).toBe(0)
@@ -238,7 +239,7 @@ end)
 	can be made to disagree. ]]
 describe("a sticky Gamepad preference does not outvote a pointer the player is using (DIR5)", function()
 	local function bound(setup: (services: any) -> ())
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = environment.new(core)
 		local services = newFakeServices(newCamera(1280, 720))
 		setup(services)
@@ -275,18 +276,18 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			outvote the engine with, and inventing one is how a boot screen picks the
 			wrong layout (the phone case one layer up, in reverse). ]]
 		local env, _, unbind = bound(padDesktop)
-		expect(env:get("preferredInput"):get()).toBe("Gamepad")
-		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		expect(env:get("preferredInput"):peek()).toBe("Gamepad")
+		expect(env:get("interactionClasses"):peek().primary).toBe("gamepad")
 		unbind()
 	end)
 
 	it("a mouse CLICK claims primacy from a pad nobody has pressed", function()
 		local env, services, unbind = bound(padDesktop)
 		began(services, "MouseButton1")
-		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
-		local classes = env:get("interactionClasses"):get()
+		expect(env:get("preferredInput"):peek()).toBe("KeyboardAndMouse")
+		local classes = env:get("interactionClasses"):peek()
 		expect(classes.primary).toBe("pointer")
-		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("effectiveInput"):peek()).toBe("KeyboardAndMouse")
 		--[[ THE CAPABILITY IS UNTOUCHED, and this is the line that keeps the fix from
 			being a different bug: the pad IS live and everything that gates on liveness
  must still see it. Only PRIMARY moved. ]]
@@ -297,10 +298,10 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 	it("...and a real pad PRESS takes it straight back", function()
 		local env, services, unbind = bound(padDesktop)
 		began(services, "MouseButton1")
-		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("effectiveInput"):peek()).toBe("KeyboardAndMouse")
 		began(services, "Gamepad1")
-		expect(env:get("preferredInput"):get()).toBe("Gamepad")
-		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		expect(env:get("preferredInput"):peek()).toBe("Gamepad")
+		expect(env:get("interactionClasses"):peek().primary).toBe("gamepad")
 		unbind()
 	end)
 
@@ -323,17 +324,17 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 	it("stick drift interleaved with mouse movement does not flap primacy, or publish at all", function()
 		local env, services, unbind = bound(padDesktop)
 		began(services, "MouseButton1") -- the player is on the mouse, deliberately
-		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("effectiveInput"):peek()).toBe("KeyboardAndMouse")
 
 		local flips = 0
-		local last = env:get("effectiveInput"):get()
-		local stop = Facet.newCore()
+		local last = env:get("effectiveInput"):peek()
+		local stop = harness.newCore()
 		local watcher = env:get("effectiveInput")
 		local unwatch = nil :: any
 		do
 			-- count every CHANGE of the derived fact, which is what a consumer feels
-			local scope = stop:scope("flap")
-			scope:own(stop:effect(function(use)
+			local scope = stop.owner.createChild()
+			scope.own(stop.owner.watch(function(use)
 				local now = use(watcher)
 				if now ~= last then
 					flips += 1
@@ -350,11 +351,11 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			mouseMoved(services) -- movement: noise on the other side
 		end
 		expect(`flips after 40 noise events: {flips}`).toBe("flips after 40 noise events: 0")
-		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("effectiveInput"):peek()).toBe("KeyboardAndMouse")
 
 		-- ...and the deadzone is a THRESHOLD, not a mute: one real deflection claims it
 		stick(services, 0.9)
-		expect(env:get("effectiveInput"):get()).toBe("Gamepad")
+		expect(env:get("effectiveInput"):peek()).toBe("Gamepad")
 		expect(`flips after one deliberate deflection: {flips}`).toBe("flips after one deliberate deflection: 1")
 		unwatch()
 		unbind()
@@ -366,14 +367,14 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			side has drift of its own. ]]
 		local env, services, unbind = bound(padDesktop)
 		began(services, "Gamepad1")
-		expect(env:get("effectiveInput"):get()).toBe("Gamepad")
+		expect(env:get("effectiveInput"):peek()).toBe("Gamepad")
 		for _ = 1, 10 do
 			mouseMoved(services)
 		end
-		expect(env:get("effectiveInput"):get()).toBe("Gamepad")
+		expect(env:get("effectiveInput"):peek()).toBe("Gamepad")
 		-- a CLICK is the act, and it moves it
 		began(services, "MouseButton1")
-		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("effectiveInput"):peek()).toBe("KeyboardAndMouse")
 		unbind()
 	end)
 
@@ -386,8 +387,8 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			s.userInput.TouchEnabled = true
 		end)
 		began(services, "Touch")
-		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
-		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
+		expect(env:get("preferredInput"):peek()).toBe("KeyboardAndMouse")
+		expect(env:get("interactionClasses"):peek().primary).toBe("pointer")
 		unbind()
 	end)
 
@@ -400,8 +401,8 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			s.userInput.KeyboardEnabled = false
 		end)
 		began(services, "Touch")
-		expect(env:get("preferredInput"):get()).toBe("Gamepad")
-		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		expect(env:get("preferredInput"):peek()).toBe("Gamepad")
+		expect(env:get("interactionClasses"):peek().primary).toBe("gamepad")
 		unbind()
 	end)
 
@@ -413,7 +414,7 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			s.userInput.InputBegan = nil
 			s.userInput.InputChanged = nil
 		end)
-		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		expect(env:get("preferredInput"):peek()).toBe("Gamepad")
 		unbind()
 	end)
 
@@ -424,12 +425,12 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 			the module is driven through the whole sequence without it. ]]
 		local services = newFakeServices(newCamera(1280, 720))
 		expect(services.userInput.GetLastInputType).toBeNil()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = environment.new(core)
 		padDesktop(services)
 		local unbind = roblox_env.bind(env, services)
 		began(services, "MouseButton1")
-		expect(env:get("effectiveInput"):get()).toBe("KeyboardAndMouse")
+		expect(env:get("effectiveInput"):peek()).toBe("KeyboardAndMouse")
 		unbind()
 	end)
 
@@ -437,8 +438,8 @@ describe("a sticky Gamepad preference does not outvote a pointer the player is u
 		-- the negative control: nothing in this correction may move the ordinary
 		-- desktop, which is the shape every other case in this suite assumes
 		local env, _, unbind = bound(function() end)
-		expect(env:get("preferredInput"):get()).toBe("KeyboardAndMouse")
-		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
+		expect(env:get("preferredInput"):peek()).toBe("KeyboardAndMouse")
+		expect(env:get("interactionClasses"):peek().primary).toBe("pointer")
 		unbind()
 	end)
 end)
@@ -469,7 +470,7 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 	local NO_GUI_INSET = { x = 0, y = 0 }
 
 	local function rotatingWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = environment.new(core)
 		local camera = newCamera(PORTRAIT.w, PORTRAIT.h)
 		local services = newFakeServices(camera)
@@ -496,7 +497,7 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 				services.gui.bag.signalFor("TopbarInset"):fire()
 			end,
 			insets = function(key: string): any
-				return env:get(key):get()
+				return env:get(key):peek()
 			end,
 		}
 	end
@@ -505,13 +506,13 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 		local w = rotatingWorld()
 		-- settled portrait: the area agrees with the viewport, so it publishes
 		expect(w.insets("coreSafeInsets").bottom).toBe(58)
-		expect(w.env:get("viewportRect"):get().h).toBe(852)
+		expect(w.env:get("viewportRect"):peek().h).toBe(852)
 
 		-- THE ROTATION. The camera moves first; `GetInsetArea` still answers the
 		-- portrait rect, which on the landscape window derives right = 852 - 393 =
 		-- 459 — 54% of the axis, from a rect that never described this window.
 		w.rotate(LANDSCAPE)
-		expect(w.env:get("viewportRect"):get().w).toBe(852)
+		expect(w.env:get("viewportRect"):peek().w).toBe(852)
 		expect(w.insets("coreSafeInsets").right).toBe(0)
 		expect(w.insets("coreSafeInsets").bottom).toBe(58)
 		expect(w.insets("deviceSafeInsets").right).toBe(0)
@@ -521,7 +522,7 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 		w.catchUp(LANDSCAPE_AREA)
 		expect(w.insets("coreSafeInsets").bottom).toBe(58)
 		expect(w.insets("coreSafeInsets").right).toBe(0)
-		expect(w.env:get("viewportRect"):get().w).toBe(852)
+		expect(w.env:get("viewportRect"):peek().w).toBe(852)
 		w.unbind()
 	end)
 
@@ -536,7 +537,7 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 		expect(w.insets("coreSafeInsets").bottom).toBe(58)
 		local SHORTER = { w = 393, h = 800 }
 		w.rotate(SHORTER)
-		expect(w.env:get("viewportRect"):get().h).toBe(800)
+		expect(w.env:get("viewportRect"):peek().h).toBe(800)
 		-- the stale area would have derived bottom = 800 - 794 = 6, a plausible-
 		-- looking number that is simply wrong; the last good 58 stands instead
 		expect(w.insets("coreSafeInsets").bottom).toBe(58)
@@ -553,7 +554,7 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 		-- both facts move in the same pass, which is the healthy platform
 		w.live.core, w.live.device, w.live.topbar = LANDSCAPE_AREA, LANDSCAPE_AREA, LANDSCAPE_AREA
 		w.rotate(LANDSCAPE)
-		expect(w.env:get("viewportRect"):get().w).toBe(852)
+		expect(w.env:get("viewportRect"):peek().w).toBe(852)
 		expect(w.insets("coreSafeInsets").bottom).toBe(58)
 		expect(w.insets("coreSafeInsets").right).toBe(0)
 		w.unbind()
@@ -564,7 +565,7 @@ describe("safe-area insets are refused while the platform has not caught up (PLA
 		local topbarBefore = w.insets("topbarSafeInsets")
 		w.rotate(LANDSCAPE)
 		-- the viewport is the fact that DID move, and it moves regardless
-		expect(w.env:get("viewportRect"):get().h).toBe(393)
+		expect(w.env:get("viewportRect"):peek().h).toBe(393)
 		-- ...while every inset key keeps the value it had
 		expect(w.insets("topbarSafeInsets").bottom).toBe(topbarBefore.bottom)
 		expect(w.insets("topbarSafeInsets").right).toBe(topbarBefore.right)

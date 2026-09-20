@@ -17,11 +17,11 @@ local TIMEFRAMES = table.freeze({ "today", "week", "month", "year" })
 local POINTS = table.freeze({ twoWeeks = 14, month = 30, year = 12 })
 
 function stats_service.new(opts: any): any
-	local core = opts.core
+	local Compose = opts.Compose
 	local seed: number = opts.seed or 1
 
 	local self: any = {}
-	local version = core:signal(0)
+	local version = Compose.cell(0)
 	self.version = version
 
 	-- ---- seeded popularity: potion -> timeframe -> bottles ------------------
@@ -115,7 +115,7 @@ function stats_service.new(opts: any): any
 		for _, item in brew.items do
 			collected[item.potion] = (collected[item.potion] or 0) + item.bottles
 		end
-		version:set(version:get() + 1)
+		version:set(version:peek() + 1)
 	end
 
 	function self.collectedBottles(): number
@@ -138,9 +138,7 @@ function stats_service.new(opts: any): any
 		return { top = top, collected = self.collectedBottles(), totalToday = self.totalBottles("today") }
 	end
 
-	function self.dispose()
-		version:dispose()
-	end
+	function self.dispose() end
 
 	return self
 end

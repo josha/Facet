@@ -16,17 +16,13 @@ rewards.THRESHOLD = 10
 rewards.REDEEM_COST = 10
 
 function rewards.new(opts: any)
-	local core = opts.core
-	local scope = opts.scope
+	local Compose = opts.Compose
+	-- groups several writes into one update
+	local batch = opts.batch
 
-	local earned = core:signal(opts.startEarned or 0)
-	local spent = core:signal(opts.startSpent or 0)
-	local unstamped = core:signal({} :: { [number]: boolean })
-	scope:own(function()
-		earned:dispose()
-		spent:dispose()
-		unstamped:dispose()
-	end)
+	local earned = Compose.cell(opts.startEarned or 0)
+	local spent = Compose.cell(opts.startSpent or 0)
+	local unstamped = Compose.cell({} :: { [number]: boolean })
 
 	local self = {}
 	self.earned = earned
@@ -34,7 +30,7 @@ function rewards.new(opts: any)
 	self.unstamped = unstamped
 
 	function self.unspent(): number
-		return earned:get() - spent:get()
+		return earned:peek() - spent:peek()
 	end
 
 	-- how many of the card's ten seals are stamped right now
@@ -54,12 +50,12 @@ function rewards.new(opts: any)
 	-- beats, in slot order, and they survive until the card is visited.
 	function self.earn(count: number): { number }
 		local before = self.filled()
-		core:transaction(function()
-			earned:set(earned:get() + math.max(0, count))
+		batch(function()
+			earned:set(earned:peek() + math.max(0, count))
 		end)
 		local after = self.filled()
 		local fresh: { number } = {}
-		local next = table.clone(unstamped:get())
+		local next = table.clone(unstamped:peek())
 		for slot = before + 1, after do
 			table.insert(fresh, slot)
 			next[slot] = true
@@ -72,14 +68,14 @@ function rewards.new(opts: any)
 		if not self.canRedeem() then
 			return false
 		end
-		spent:set(spent:get() + rewards.REDEEM_COST)
+		spent:set(spent:peek() + rewards.REDEEM_COST)
 		-- the card the player just spent is gone: nothing on it is "new" now
 		unstamped:set({})
 		return true
 	end
 
 	function self.clearUnstamped()
-		if next(unstamped:get()) == nil then
+		if next(unstamped:peek()) == nil then
 			return
 		end
 		unstamped:set({})
@@ -87,7 +83,7 @@ function rewards.new(opts: any)
 
 	function self.newSlots(): { number }
 		local out: { number } = {}
-		for slot in unstamped:get() do
+		for slot in unstamped:peek() do
 			table.insert(out, slot)
 		end
 		table.sort(out)
@@ -95,7 +91,7 @@ function rewards.new(opts: any)
 	end
 
 	function self.reset()
-		core:transaction(function()
+		batch(function()
 			earned:set(opts.startEarned or 0)
 			spent:set(opts.startSpent or 0)
 			unstamped:set({})

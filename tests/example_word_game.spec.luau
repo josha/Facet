@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local example_world = require("./lib/example_world")
 -- The word game's PURE rules and its state machine (roadmap Step 10, EQ-9).
 --
 -- Two halves, deliberately separated:
@@ -67,21 +69,15 @@ local REACT_SEED = (function(): number
 end)()
 
 local function makeWorld(viewport: any?)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", viewport or { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
-	return core, deps, adapter
+	local xw = example_world.new({ viewport = viewport })
+	return xw.core, xw.ctx, xw.adapter
 end
 
 -- Build the game and put it on the REACT puzzle. `restart(seed)` is the
 -- example's own public door onto a named puzzle — the same one the "New game"
 -- button uses — so a test that replays a seed drives exactly what a player does.
 local function newGame(core: any, deps: any): any
-	local game = wordGame.build(Facet, core, deps)
+	local game = wordGame.build(deps)
 	game.restart(REACT_SEED)
 	return game
 end
@@ -335,7 +331,7 @@ describe("examples/05 word game — the state machine", function()
 	it("starts on a visible six-by-five board with a caret in the first cell", function()
 		local core, deps, adapter = makeWorld()
 		local game = newGame(core, deps)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		for r = 1, rules.ROWS do
 			for c = 1, rules.COLS do
 				expect(adapter.node(game.tilePath(r, c)) ~= nil).toBe(true)
@@ -597,7 +593,7 @@ describe("examples/05 word game — the state machine", function()
 		-- built, NOT restarted: the game's own opening seed is 1, and its answer is
 		-- whatever the shared data deals that seed
 		local core, deps = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = wordGame.build(deps)
 		expect(game.seed()).toBe(1)
 		expect(game.solution()).toBe(rules.solutionForSeed(1))
 		guess(game, "RULES")
@@ -677,15 +673,13 @@ describe("examples/05 word game — the state machine", function()
 
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local game = newGame(core, deps)
 		guess(game, "RULES")
 		guess(game, "REACT")
 		game.dispose()
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 

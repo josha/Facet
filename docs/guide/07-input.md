@@ -437,7 +437,7 @@ All of the above is engine-independent and enforced. The conformance registry
 requires every interactive control to cite passing device-true tests for all
 four input classes, so a mouse-only control cannot land.
 
-Native text editing stays with Roblox. `Controls.TextInput` uses one TextBox for
+Native text editing stays with Roblox. `UI.TextInput` uses one TextBox for
 plain, search, numeric, or multiline entry. During editing, arrows move the
 native caret; multiline Return inserts a newline. Use `api.submit()` for an
 explicit multiline submission. Numeric entry keeps a text draft separate from
@@ -446,7 +446,7 @@ its committed number and validates on commit. A searchable Picker (`style =
 query and selection separate: submit or leave the text field before navigating
 results with the focus graph. Filtering never clears the selected value.
 
-`Controls.Button` declares busy state, optional hold repeat, and scoped
+`UI.Button` declares busy state, optional hold repeat, and scoped
 `shortcut` or `dialogAction` behavior through the same semantic action system.
 Only the active, visible, enabled surface's controls are eligible. The first
 eligible declaration wins duplicate keys, and active native editing takes
@@ -466,8 +466,8 @@ the presenter manages that for you through three surface modes:
 **Passive (HUDs).** A speedometer or score readout — on screen, not being
 navigated — presents as:
 
-```lua
-local hud = pres.present(speedoScreen, { responder = "passive" })
+```luau
+local close, _, hud = app.mount(Speedometer, { responder = "passive" })
 ```
 
 Its navigation context exists but is **disabled**, and while it is passive the
@@ -488,7 +488,16 @@ keyboard, it falls back to the no-op guard that has always caught it.
 `hud.responder` reads `"engaged"`. The surface resigns — restoring avatar
 input exactly — on Cancel (`ButtonB`), an outside tap, or `hud.resign()`.
 
-**Exclusive (modals).** `presentModal` is engaged from the moment it opens
+**One press to wake an inactive surface.** A screen that is not the focused
+one — an inactive monitor, a background panel in a split — declares
+`UI.activationGate(node, { closed, onOpen })`. While `closed` reads true the
+first Activate at or under that node calls `onOpen` and reaches nothing
+underneath, so a player selects the surface without also launching what sat
+under the finger. It is honoured on the one Activate dispatch pointer, touch,
+keyboard and gamepad all arrive through, so it adds no focus stop and no cover
+node. Nested gates wake one level per press, innermost first.
+
+**Exclusive (modals).** `app.presentModal` is engaged from the moment it opens
 (3500+, stacking +500 per depth) and restores avatar input on dismiss. A modal
 that genuinely wants the jump key (a word game binding `Space`) passes
 `{ gameplayGuard = false }`.
@@ -499,8 +508,12 @@ bootstrap:
 
 ```lua
 local responder_effects = require(ReplicatedStorage.Facet.client.responder_effects)
-responder_effects.bind(core, pres) -- toggles GuiService.TouchControlsEnabled
+responder_effects.bind(core, app.presenter) -- toggles GuiService.TouchControlsEnabled
 ```
+
+`core` is the services object the host hands your `newInputSystem` hook; a
+bootstrap that wants this effect captures it there. See
+[`examples/gallery/client/init.client.luau`](../../examples/gallery/client/init.client.luau).
 
 Like `roblox_env`/`roblox_input`, this module is client-only and deliberately
 not on the `Facet.*` table (that keeps the main library safe to require from
@@ -707,14 +720,12 @@ ContextActionService at priority 2000 and sinks them, so horizontal focus
 navigation and a Table's selected-column resize never see a keypress. Fix: the
 same declaration of `Workspace.PlayerScriptsUseInputActionSystem`. There is no
 alternative involving a bigger priority number — see the warning at the top of
-this chapter for the measurement, and
-`the-camera-still-owns-the-arrow-keys`
-for the full session.
+this chapter for the measurement.
 
-The probe for this one is separate from the gamepad probe, and it has to be.
-Measured live, `RbxCameraKeypress` held the arrows in a session where
-`jumpAction` was not bound at all, so `legacyStackActive()` answered `false`
-while the arrows were owned:
+The probe for this one is separate from the gamepad probe, and it has to be:
+`RbxCameraKeypress` can hold the arrows in a session where `jumpAction` is not
+bound at all, so `legacyStackActive()` answers `false` while the arrows are
+owned.
 
 ```lua
 local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention)
@@ -814,12 +825,13 @@ with Facet when you build directly in Studio and do not use Rojo.
 
 ## Root and destination flows
 
-Use `Controls.NavigationStack` for a wizard or a sequence of detail pages. Keep a
-`path` Signal in your model: an empty array shows the root, and each `{id, value}`
-entry names a destination and its data. Push, pop, Back and return-to-root all
-write that same state. The framework supplies Back chrome and legal focus
-restoration. Content receives a scope that is disposed when the page leaves.
-Keep durable answers outside that scope so returning to a page retains them.
+Use `UI.NavigationStack` for a wizard or a sequence of detail pages. Keep
+the `path` in a writable Compose cell in your model: an empty array shows the
+root, and each `{id, value}` entry names a destination and its data. Push, pop,
+Back and return-to-root all write that same cell. The framework supplies Back
+chrome and legal focus restoration. Each page's content runs under its own
+Compose owner, which is released when the page leaves. Keep durable answers in
+cells created outside that owner so returning to a page retains them.
 
 For horizontal page travel, set `transition = { enter = "slide-left" }`.
 Push slides the next page in from the right while the current page moves left;
@@ -831,7 +843,7 @@ The Showcase's **Plan a journey** uses one flow across compact, tablet, desktop
 and ten-foot contexts. Size and input facts choose its arrangement and controls;
 its title, spacing, hit targets and motion use the current theme and preferences.
 A popup or text editor consumes Cancel first, then the stack pops, then the
-containing modal can close. See the [API](../reference/api.md#controlsnavigationstack).
+containing modal can close. See the [API](../reference/api.md#uinavigationstack).
 
 Screen size and input remain separate facts in a navigation flow. A phone with
 a gamepad keeps compact chrome and arrangement while gaining directional focus,
@@ -841,7 +853,7 @@ path or form data. The Showcase journey tests this mixed-input case explicitly.
 
 ### Radial quick actions
 
-`Facet.Controls.RadialMenu` owns launcher tap/slide capture, geometric sector
+`UI.RadialMenu` owns launcher tap/slide capture, geometric sector
 selection, spatial focus, and analog highlighting through the presenter and
 semantic action system. A tap latches open; slide and release selects once.
 Returning to the hole cancels a drag. Arrow keys and D-pad traverse spatially,
@@ -849,7 +861,7 @@ Tab reaches every action, and Activate commits. Cancel goes back one level, then
 dismisses at root. Roblox reserves physical Escape for its own menu; opening that
 menu cancels active pointer capture. Visible Back and gamepad B remain available.
 Bind an optional semantic `holdAction` for held-trigger release selection.
-See the [API reference](../reference/api.md#controlsradialmenu) for compass gaps,
+See the [API reference](../reference/api.md#uiradialmenu) for compass gaps,
 completion policies, moving anchors, and center pass-through bounds.
 
 Choose radial menus for small contextual command sets and stable directional
@@ -859,7 +871,7 @@ fitting, image-only buttons, hierarchy, and per-action completion policies.
 
 ## Viewing distance and game menus
 
-Set `env:set("viewingDistance", "near")` for a nearby controller display or
+Set `app.environment:set("viewingDistance", "near")` for a nearby controller display or
 `"ten-foot"` for a distant TV. `"automatic"` restores inference. Input choice
 and viewing distance are separate; a controller does not select distant type.
 

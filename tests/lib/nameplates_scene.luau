@@ -88,11 +88,10 @@
 	state or expect the first to be inflated. Before T3 a pure and a caster tick
 	read the identical steady `lastMeasured` and only `lastNodeBuilds` separated
 	them; after T3 both counters do. ]]
-local UI = require("../../src/blueprint")
-local mountLib = require("../../src/mount")
+local scene_root = require("./scene_root")
+local Compose = require("../../src/vendor/compose/core")
 local environment = require("../../src/env/environment")
 local renderer = require("../../src/render/renderer")
-local customFactory = require("../../src/core/custom")
 local path_shapes = require("../../src/controls/path_shapes")
 local fake_target = require("./fake_target")
 
@@ -167,35 +166,31 @@ export type Census = { mounted: number, layout: number, nodeBuilds: number, plat
 function nameplates_scene.new(opts: Opts?)
 	local o: Opts = opts or {}
 	local n = o.plates or nameplates_scene.PLATES
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 1280, h = 720 })
-
 	local items = {}
 	for i = 1, n do
 		local caster = i % nameplates_scene.CASTER_EVERY == 0
 		items[i] = {
 			key = `p{i}`,
 			caster = caster,
-			x = core:signal((i * 37) % 1200),
-			y = core:signal((i * 53) % 680),
-			hp = core:signal(0.5 + ((i % 7) / 14)),
-			cast = core:signal(if caster then 0.25 else 0),
+			x = Compose.cell((i * 37) % 1200),
+			y = Compose.cell((i * 53) % 680),
+			hp = Compose.cell(0.5 + ((i % 7) / 14)),
+			cast = Compose.cell(if caster then 0.25 else 0),
 			-- see `scene.hide`: authored `hidden`, false on every plate, so the tree
 			-- this fixture mounts is the one every earlier pin was taken on
-			hidden = core:signal(false),
+			hidden = Compose.cell(false),
 			-- ...and see `scene.nudgeLabel`: a placement prop on a TEXT LEAF
-			labelAlign = core:signal("start"),
+			labelAlign = Compose.cell("start"),
 			-- see `Opts.reactiveAnchor`/`scene.anchorFlip`
-			anchor = core:signal("topLeft"),
+			anchor = Compose.cell("topLeft"),
 			name = `Racer {i}`,
 			lvl = tostring(10 + (i % 30)),
 		}
 	end
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	-- see `Opts.inertAlign`: bound only when the opt is on, so the default tree is
 	-- byte-identical to what every other spec pins.
-	local alignSignal = core:signal("start")
+	local alignSignal = Compose.cell("start")
 
 	local function offsetOf(item: any, axis: "x" | "y"): any
 		local sig = if axis == "x" then item.x else item.y
@@ -205,7 +200,7 @@ function nameplates_scene.new(opts: Opts?)
 		-- the RascalRally minimap idiom (`FacetSponsor/MapCanvas.luau:230-236`):
 		-- a scaleOffset metric, so `offsetPx` resolves it against the anchor's
 		-- inner extent and the answer is viewport-dependent
-		return core:memo(function(use: any)
+		return function(use: any)
 			local v = use(sig)
 			-- ...and NIL PASSES THROUGH AS NIL, because `scene.clearOffset` is a real
 			-- drive on this fixture too: dividing a cleared offset by the viewport
@@ -215,79 +210,80 @@ function nameplates_scene.new(opts: Opts?)
 				return nil
 			end
 			return { scale = (v :: number) / 1280, offset = -9 }
-		end)
+		end
 	end
 
 	local plateWidth = if o.overflow then 2000 else 180
-	local children: { any } = {
-		UI.ForEach({
-			id = "Plates",
-			items = rows,
-			key = function(item: any)
-				return item.key
-			end,
-			row = function(item: any)
-				local rowChildren: { any } = {
-					UI.Text({ id = "Name", textSize = 14, text = item.name }),
-					UI.Text({ id = "Lvl", textSize = 12, text = item.lvl, lineAlign = item.labelAlign }),
-				}
-				if o.withButton and item.key == "p3" then
-					table.insert(rowChildren, UI.Button({ id = "Btn", width = px(20), height = px(16), label = "b" }))
-				end
-				local plateChildren: { any } = {
-					UI.HStack({
-						id = "Row",
-						padding = 0,
-						gap = 4,
-						width = fill(),
-						height = px(16),
-						children = rowChildren,
-					}),
-					UI.Box({
-						id = "Hp",
-						height = px(6),
-						width = core:memo(function(use: any)
-							return px(100 * (use(item.hp) :: number))
-						end),
-					}),
-					UI.Box({
-						id = "Cast",
-						height = px(4),
-						width = core:memo(function(use: any)
-							return px(100 * (use(item.cast) :: number))
-						end),
-					}),
-				}
-				if o.withPath and item.key == "p3" then
-					-- see `Opts.withPath`: the points come from `src/controls/path_shapes`
-					-- rather than two literals, because `UI.Path`'s own doc says `points`
-					-- are normalized Path2D control points from `Facet.pathShapes`
-					-- (`blueprint_schema.luau:2615-2621`), and it is the idiom
-					-- `tests/commit_scope.spec.luau:759` already uses for this latch.
-					table.insert(plateChildren, UI.Path({ id = "Spark", points = path_shapes.ring(), thickness = 2 }))
-				end
-				return UI.VStack({
-					id = "Plate",
-					anchor = if o.reactiveAnchor then item.anchor else "topLeft",
-					offsetX = offsetOf(item, "x"),
-					offsetY = offsetOf(item, "y"),
-					lineAlign = if o.inertAlign then alignSignal else nil,
-					hidden = item.hidden,
-					padding = 0,
-					gap = 2,
-					width = px(if item.key == "p1" then plateWidth else 180),
-					height = { type = "content" },
-					children = plateChildren,
-				})
-			end,
-		}),
-	}
-	local bp = UI.Screen({
-		id = "S",
-		children = { UI.Anchor({ id = "Canvas", width = fill(), height = fill(), children = children }) },
-	})
+	local mounted = scene_root.mount(function(UI)
+		return UI.Screen("S")({
+			UI.Anchor("Canvas")({
+				width = fill(),
+				height = fill(),
+				scene_root.keyed(UI, "Plates", {
+					items = rows,
+					key = function(item: any)
+						return item.key
+					end,
+					row = function(entry: any)
+						local item = entry:peek()
+						local row: { [any]: any } = {
+							padding = 0,
+							gap = 4,
+							width = fill(),
+							height = px(16),
+							UI.Text("Name")({ textSize = 14, text = item.name }),
+							UI.Text("Lvl")({ textSize = 12, text = item.lvl, lineAlign = item.labelAlign }),
+						}
+						if o.withButton and item.key == "p3" then
+							table.insert(
+								row,
+								UI.Button("Btn")({
+									width = px(20),
+									height = px(16),
+									label = "b",
+									onActivate = function() end,
+								})
+							)
+						end
+						local plate: { [any]: any } = {
+							anchor = if o.reactiveAnchor then item.anchor else "topLeft",
+							offsetX = offsetOf(item, "x"),
+							offsetY = offsetOf(item, "y"),
+							lineAlign = if o.inertAlign then alignSignal else nil,
+							hidden = item.hidden,
+							padding = 0,
+							gap = 2,
+							width = px(if item.key == "p1" then plateWidth else 180),
+							height = { type = "content" },
+							UI.HStack("Row")(row),
+							UI.Box("Hp")({
+								height = px(6),
+								width = function(use: any)
+									return px(100 * (use(item.hp) :: number))
+								end,
+							}),
+							UI.Box("Cast")({
+								height = px(4),
+								width = function(use: any)
+									return px(100 * (use(item.cast) :: number))
+								end,
+							}),
+						}
+						if o.withPath and item.key == "p3" then
+							-- `points` are normalized Path2D control points from
+							-- `src/controls/path_shapes`
+							table.insert(plate, UI.Path("Spark")({ points = path_shapes.ring(), thickness = 2 }))
+						end
+						return UI.VStack("Plate")(plate)
+					end,
+				}),
+			}),
+		})
+	end)
+	local core, root = mounted.core, mounted.root
+	local env = environment.new(core)
+	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 1280, h = 720 })
 
-	local root = mountLib.mount(core, bp)
 	local adapter = fake_target.new({ ops = o.ops == true })
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
@@ -310,20 +306,20 @@ function nameplates_scene.new(opts: Opts?)
 
 	function scene.tick(dx: number, dy: number)
 		for _, item in items do
-			item.x:set((item.x:get() :: number) + dx)
-			item.y:set((item.y:get() :: number) + dy)
+			item.x:set((item.x:peek() :: number) + dx)
+			item.y:set((item.y:peek() :: number) + dy)
 		end
 		controller.refresh()
 	end
 
 	function scene.tickWithCasts(dx: number, dy: number)
 		for _, item in items do
-			item.x:set((item.x:get() :: number) + dx)
-			item.y:set((item.y:get() :: number) + dy)
+			item.x:set((item.x:peek() :: number) + dx)
+			item.y:set((item.y:peek() :: number) + dy)
 			if item.caster then
 				-- 0.05 per tick, wrapping: never an equal write (an equal write is
 				-- skipped by the signal and the caster would silently stop being one)
-				local next_ = (item.cast:get() :: number) + 0.05
+				local next_ = (item.cast:peek() :: number) + 0.05
 				item.cast:set(if next_ > 1 then 0.05 else next_)
 			end
 		end
@@ -391,7 +387,7 @@ function nameplates_scene.new(opts: Opts?)
 		vertical term staying still. ]]
 	function scene.anchorFlip(i: number)
 		local item = items[i]
-		item.anchor:set(if item.anchor:get() == "topLeft" then "top" else "topLeft")
+		item.anchor:set(if item.anchor:peek() == "topLeft" then "top" else "topLeft")
 		controller.refresh()
 	end
 
@@ -416,7 +412,7 @@ function nameplates_scene.new(opts: Opts?)
 	end
 
 	-- ...and the write back, which the nil-flip drive NEEDS: `tick` reads
-	-- `item.x:get() + dx`, so a plate left at `nil` makes every later tick an
+	-- `item.x:peek() + dx`, so a plate left at `nil` makes every later tick an
 	-- arithmetic error on nil. A driver that clears an offset restores it.
 	function scene.setOffsetX(i: number, value: number?)
 		items[i].x:set(value)
@@ -433,17 +429,17 @@ function nameplates_scene.new(opts: Opts?)
 		local item = {
 			key = `add{i}`,
 			caster = caster,
-			x = core:signal((i * 11) % 1200),
-			y = core:signal((i * 17) % 680),
-			hp = core:signal(0.5),
-			cast = core:signal(if caster then 0.25 else 0),
-			hidden = core:signal(false),
-			labelAlign = core:signal("start"),
-			anchor = core:signal("topLeft"),
+			x = Compose.cell((i * 11) % 1200),
+			y = Compose.cell((i * 17) % 680),
+			hp = Compose.cell(0.5),
+			cast = Compose.cell(if caster then 0.25 else 0),
+			hidden = Compose.cell(false),
+			labelAlign = Compose.cell("start"),
+			anchor = Compose.cell("topLeft"),
 			name = `Added {i}`,
 			lvl = "1",
 		}
-		local next_ = table.clone(rows:get() :: any)
+		local next_ = table.clone(rows:peek() :: any)
 		table.insert(next_, item)
 		rows:set(next_)
 		-- KEEP `items` IN SYNC (wicked-fast T2, Fix round 2, I-2). `tick`,
@@ -462,7 +458,7 @@ function nameplates_scene.new(opts: Opts?)
 	end
 
 	function scene.remove(i: number)
-		local next_ = table.clone(rows:get() :: any)
+		local next_ = table.clone(rows:peek() :: any)
 		table.remove(next_, i)
 		rows:set(next_)
 		-- see `scene.add`'s comment: `items` must track `rows`, not lag it.

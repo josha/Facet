@@ -56,7 +56,6 @@
 	plates over one control is never the right answer.
 ]]
 
-local blueprintLib = require("../blueprint")
 local focusMap = require("./focus_map")
 local themeSnapshot = require("../themes/snapshot")
 local paths = require("../paths")
@@ -170,19 +169,21 @@ function help_plate.new(ctx: any)
 		dispose()
 		local box = safeBox(owner.reserveAppChrome)
 		local inset = themeSnapshot.resolveNumber(metricsNow(), EDGE_INSET_METRIC) or 0
-		local panel = blueprintLib.VStack({
-			id = PLATE_ID,
-			-- the panel treatment, so the plate is themed by the ACTIVE snapshot
-			-- (fill, corner, stroke, insets) rather than by numbers written here
-			surface = "raised",
-			padding = "s",
-			-- HUG WITH A CEILING: a short sentence gets a short plate, a long one
-			-- WRAPS inside the safe box instead of running off the screen edge —
-			-- which is what makes a 1.4x pseudo-localized string legible rather
-			-- than clipped
-			width = { type = "hug", max = math.max(0, box.w - 2 * inset) },
-			children = { blueprintLib.Text({ id = BODY_ID, text = text, textSize = "body" }) },
-		})
+		local function panel(UI: any)
+			return UI.VStack({
+				id = PLATE_ID,
+				-- the panel treatment, so the plate is themed by the ACTIVE snapshot
+				-- (fill, corner, stroke, insets) rather than by numbers written here
+				surface = "raised",
+				padding = "s",
+				-- HUG WITH A CEILING: a short sentence gets a short plate, a long one
+				-- WRAPS inside the safe box instead of running off the screen edge —
+				-- which is what makes a 1.4x pseudo-localized string legible rather
+				-- than clipped
+				width = { type = "hug", max = math.max(0, box.w - 2 * inset) },
+				children = { UI.Text({ id = BODY_ID, text = text, textSize = "body" }) },
+			})
+		end
 		presenting = true
 		--[[ CHROME, NOT A SURFACE, and that is a structural claim rather than a
 			configured one. A presented surface pushes a focus scope even when it
@@ -366,7 +367,7 @@ function help_plate.new(ctx: any)
 		declaration cannot: is there a gesture left that reaches this sentence. ]]
 	function api.declarations(): { [string]: any }
 		local out: { [string]: any } = {}
-		local pointerLive = env:get("interactionClasses"):get().pointer == true
+		local pointerLive = env:get("interactionClasses"):peek().pointer == true
 		for _, handle in stack do
 			if handle.hasHelp ~= true or handle.root == nil then
 				continue

@@ -2,7 +2,7 @@
 --[[ THE CARD PARADIGM'S ARRANGEMENT — how many cards belong in view, and
 	therefore how wide one card is (director ruling 2026-08-18).
 
-	WHAT IT IS FOR. `newVirtualList`'s `itemExtent` takes four forms that all answer
+	WHAT IT IS FOR. `UI.VirtualList`'s `itemExtent` takes four forms that all answer
 	"how big is one item" with a number the AUTHOR knows. A card rail's answer is
 	not a number at all, it is an ARRANGEMENT: how many cards should be in view
 	*here*, which is a question about the space this rail actually got and about how
@@ -153,7 +153,10 @@ function card_rail.new(ctx: Ctx): Arrangement
 		if source == nil then
 			return nil
 		end
-		return if use ~= nil then use(source) else (source :: any):get()
+		if use ~= nil then
+			return use(source)
+		end
+		return (source :: any):peek()
 	end
 	local function width(use: any?): number
 		return if use ~= nil then ctx.viewportIn(use) else ctx.viewportNow()

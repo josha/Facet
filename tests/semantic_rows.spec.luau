@@ -1,8 +1,10 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 t.describe("semantic control rows", function()
 	t.it("fits a described toggle beside its natural-width value in a narrow desktop theme", function()
 		local snapshot = require("../src/themes/snapshot")
@@ -10,10 +12,10 @@ t.describe("semantic control rows", function()
 			viewport = { x = 0, y = 0, w = 320, h = 640 },
 			themeMetrics = snapshot.resolve(require("../examples/themes/classic_desktop").build(Facet.themes), nil, {}),
 		})
-		local toggle = Facet.Controls.Toggle(w.core, {
+		local toggle = harness.Controls.Toggle(w.core, {
 			id = "Assist",
 			label = "Driving assistance",
-			value = w.core:signal(true),
+			value = Compose.cell(true),
 			row = { description = "Keep the car stable on rough terrain", icon = "settings" },
 		})
 		w.present(UI.Screen({
@@ -28,9 +30,19 @@ t.describe("semantic control rows", function()
 				}),
 			},
 		}))
-		local labels = w.controller.rectOf("/S/Rows/Assist/HStack#1/VStack#2")
-		local value = w.controller.rectOf("/S/Rows/Assist/HStack#1/Value")
-		local description = w.controller.rectOf("/S/Rows/Assist/HStack#1/VStack#2/Description")
+		-- Unnamed row stacks carry generated ids, so the lookups go by suffix.
+		local function find(suffix: string): string
+			for _, path in w.adapter.paths() do
+				if string.sub(path, 1, 15) == "/S/Rows/Assist/" and string.sub(path, -#suffix) == suffix then
+					return path
+				end
+			end
+			error("missing " .. suffix)
+		end
+		local descriptionPath = find("/Description")
+		local labels = w.controller.rectOf(string.sub(descriptionPath, 1, -#"/Description" - 1))
+		local value = w.controller.rectOf(find("/Value"))
+		local description = w.controller.rectOf(descriptionPath)
 		t.expect(description.y + description.h <= labels.y + labels.h).toBe(true)
 		t.expect(labels.w).toBeGreaterThan(value.w * 2)
 		w.pres.dismiss(w.handle)
@@ -39,10 +51,10 @@ t.describe("semantic control rows", function()
 	for _, input in { "Gamepad", "Keyboard", "Touch", "MouseKeyboard" } do
 		t.it("keeps one semantic target and readable content for " .. input, function()
 			local w = world.new({ preferredInput = input, viewport = { x = 0, y = 0, w = 390, h = 844 } })
-			local value = w.core:signal(false)
-			local volume = w.core:signal(50)
+			local value = Compose.cell(false)
+			local volume = Compose.cell(50)
 			local hits = 0
-			local action = Facet.Controls.Button(w.core, {
+			local action = harness.Controls.Button(w.core, {
 				id = "Action",
 				label = "Manage equipment",
 				row = { description = "Choose equipment for the next expedition", icon = "search", value = "12 items" },
@@ -50,13 +62,13 @@ t.describe("semantic control rows", function()
 					hits += 1
 				end,
 			})
-			local toggle = Facet.Controls.Toggle(w.core, {
+			local toggle = harness.Controls.Toggle(w.core, {
 				id = "Toggle",
 				label = "Camera assistance",
 				row = { description = "Keep the route in view", icon = "search" },
 				value = value,
 			})
-			local slider = Facet.Controls.Slider(w.core, {
+			local slider = harness.Controls.Slider(w.core, {
 				id = "Volume",
 				label = "Music volume",
 				row = { description = "Adjust music while playing", icon = "search" },
@@ -85,7 +97,7 @@ t.describe("semantic control rows", function()
 				end
 			end
 			activate("/S/Rows/Toggle")
-			t.expect(value:get()).toBe(true)
+			t.expect(value:peek()).toBe(true)
 			activate("/S/Rows/Action")
 			t.expect(hits).toBe(1)
 			local paths = {}
@@ -101,11 +113,11 @@ t.describe("semantic control rows", function()
 					if input == "Touch" then "touch" else "pointer"
 				)
 				w.adapter.pointerUp(path, rect.x + rect.w, rect.y + rect.h / 2)
-				t.expect(volume:get()).toBe(100)
+				t.expect(volume:peek()).toBe(100)
 			else
 				w.pres.focus.focusOn(path)
 				w.press("ButtonR1")
-				t.expect(volume:get()).toBe(60)
+				t.expect(volume:peek()).toBe(60)
 			end
 			w.settle(2)
 			w.pres.dismiss(w.handle)

@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 local blueprint = require("../blueprint")
 -- RowActions: a swipeable action tray around an arbitrary row (spec:
 -- docs/plans/row-actions.md, docs/plans/row-actions-implementation.md Tasks
@@ -52,7 +53,7 @@ local blueprint = require("../blueprint")
 	them is a rewrite of code four device rounds hardened, not an extraction. ]]
 --
 -- STRUCTURE. The root is a `UI.Anchor` — the same "overlay without joining
--- stack flow" shape `newTable` uses for its own drag guides
+-- stack flow" shape `UI.Table` uses for its own drag guides
 -- (table.luau: "root: an Anchor so drag guides overlay the content without
 -- joining any stack flow") — holding up to three anchor children: a lazily
 -- mounted leading tray, a lazily mounted trailing tray, and the wrapped
@@ -198,7 +199,7 @@ local row_actions = {}
 --[[ THE ROW'S KEY SURFACE, DECLARED ONCE (parity round 3, owed row 9,
 	2026-08-13). Two readers: this file's own `ensureKeysContext`, which binds
 	them on the engine's focus-scoped context; and a HOST that has to stand in
-	for an engine it has not built yet (`newVirtualList` — a hosted engine is
+	for an engine it has not built yet (`UI.VirtualList` — a hosted engine is
 	born at a pointer gesture's axis lock, so a row a keyboard-only or pad-only
 	player has merely focused had no engine and therefore no binding at all,
 	neither Delete nor the menu that is a pad's route to a non-destructive
@@ -220,7 +221,7 @@ row_actions.ROW_KEYS = {
 
 -- RE-EXPORTED, not moved out of the public surface: both types are authored in
 -- `row_actions_spec.luau` (which is what validates against them) and republished
--- here under their shipped names, so `newRowActions.ActionSpec` and every
+-- here under their shipped names, so `UI.RowActions.ActionSpec` and every
 -- `{ ActionSpec }` annotation in this file read exactly as before.
 export type Edge = rowActionsSpec.Edge
 export type ActionSpec = rowActionsSpec.ActionSpec
@@ -249,8 +250,8 @@ export type Spec = {
 		untouched.
 
 		A THUNK AND NOT A BOOLEAN, because this composite has NO NOTION OF AN ITEM
-		— it receives already-resolved `ActionSpec` lists. `newTable` /
-		`newVirtualList` own the item and own `spec.rowDeletable`, so each closes
+		— it receives already-resolved `ActionSpec` lists. `UI.Table` /
+		`UI.VirtualList` own the item and own `spec.rowDeletable`, so each closes
 		over both and hands the verdict down; evaluating it late means a predicate
 		reading a mutated item still decides correctly, and it keeps the fail-closed
 		reading in ONE place (`row_capability.allows`) rather than two.
@@ -284,7 +285,7 @@ export type Spec = {
 	-- byte-identical to before this field existed.
 	width: blueprint.Bound<blueprint.Dim>?,
 	-- Task 10 (Table integration). Default false: every standalone
-	-- `newRowActions` caller (and every Table row that is NOT `reorderable`)
+	-- `UI.RowActions` caller (and every Table row that is NOT `reorderable`)
 	-- keeps this composite's own internal Content "Hit" Grip wired to
 	-- `_pointerHandlers` exactly as Tasks 3-9 shipped it — the composite is
 	-- fully self-sufficient. `true` skips wiring that Grip's pointer handlers
@@ -564,10 +565,9 @@ row_actions.newCoordinator = rowActionsCoordinator.new
 -- routes the two things a node used to answer — paths and paint — through
 -- `pathsOf`/`applySlide` below. Each entry point validates its OWN spec
 -- against its own closed key set before calling in here.
-local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?)
+local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?, owner: any)
 	local UI = Facet.UI
 	local id = spec.id or "RowActions"
-	local scope = core:scope("row-actions-" .. tostring(id))
 	-- read once: `hosted` is a build-time fact, never live
 	local isHosted = hosted ~= nil
 	-- ...and so is "is this row's width decided FOR it" (device bug round
@@ -579,17 +579,13 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- its width is not an independent fact and must never be used as a cap.
 	local widthKind = if type(spec.width) == "table" then (spec.width :: any).type else nil
 	local clampable = isHosted or widthKind == "fill" or widthKind == "fixed"
-	-- fix round 1, finding 5: every error this shared function (and the
-	-- validation helpers it calls — `actionsFor`/`buildActionSpec`/
-	-- `normalizeFullSwipe`, now in `row_actions_spec.luau`, which is why they
-	-- take `label` as their first argument) raises names the CALLING entry point,
-	-- not always
-	-- the standalone one. Both `row_actions.build` and `row_actions.buildHosted`
-	-- already assert their OWN closed key set under their own name before
-	-- ever reaching here (`"newRowActions"`/`"newRowActionsHosted"` at the
-	-- `assertKnownKeys` call sites) — this is that same label, reused for
-	-- every OTHER error this shared body can still raise.
-	local label = if isHosted then "newRowActionsHosted" else "newRowActions"
+	-- Every error this shared function raises — and every one the validation
+	-- helpers it calls raise (`actionsFor`/`buildActionSpec`/`normalizeFullSwipe`
+	-- in `row_actions_spec.luau`, which is why they take `label` first) — names
+	-- the public constructor, and says which MODE raised it: standalone and
+	-- hosted are one constructor with two engines, and a hosted error the
+	-- standalone name owned used to send the author to the wrong call site.
+	local label = if isHosted then "UI.RowActions (hosted)" else "UI.RowActions"
 
 	if not isHosted and (type(spec.content) ~= "table" or (spec.content :: any).class == nil) then
 		error(`Facet {label}('{id}'): \`content\` is required and must be a Blueprint`, 0)
@@ -651,7 +647,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- present — `nil` is the other legal value ("this row is never in edit
 	-- mode"), a plain `true`/`false` literal is not (unlike `table.luau`'s own
 	-- `spec.editing`, which accepts one but silently treats it as absent via
-	-- `spec.editing or scope:own(core:signal(false))` — a real, if minor,
+	-- `spec.editing or Compose.cell(false)` — a real, if minor,
 	-- existing footgun this control does not repeat: a caller who passes a
 	-- literal boolean here gets a loud build-time error naming the mistake,
 	-- not a silently-ignored one). `UI.isReadable` is the framework's own
@@ -755,15 +751,15 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	end
 
 	-- ===== reveal state ======================================================
-	local openEdge = scope:own(core:signal(nil :: Edge?))
-	local offset = scope:own(core:signal(0))
+	local openEdge = Compose.cell(nil :: Edge?)
+	local offset = Compose.cell(0)
 	-- Task 5: the commit sequence's own height-collapse target — `nil` means
 	-- "no override" (BOX.height "content-sized when absent",
 	-- src/layout/solver.luau: `node.height or CONTENT`), which is what every
 	-- row that never commits reads forever, byte-identical to Tasks 3-4 (no
 	-- `height` prop was ever set on the root before this task). Only a commit
 	-- (`doCommit` below) ever writes a real pixel number here.
-	local rowHeightOverride = scope:own(core:signal(nil :: number?))
+	local rowHeightOverride = Compose.cell(nil :: number?)
 	-- true once `dispose()` has run — the commit sequence's own belt-and-
 	-- suspenders guard (spec: "never fire onAction for a row whose key no
 	-- longer matches"), on top of the emergent one disposing `scope` already
@@ -830,7 +826,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		it, so nothing has to vanish. That is a real feature (a per-plate stretch
 		past the band width) rather than a bug fix, it is a feel decision, and it is
 		not taken here. What ships is the sentence that was written down. ]]
-	local committingSig = scope:own(core:signal(false))
+	local committingSig = Compose.cell(false)
 	-- REDTEAM FIX (item 1, BLOCKER): incremented once per commit that
 	-- actually starts (`doCommitAction`'s destructive branch); the two
 	-- `onSettle` chains it launches capture the value at start and refuse to
@@ -857,7 +853,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		receives, not through a theme snapshot. ]]
 	local bandMetrics = rowActionsMetrics.build(
 		core,
-		scope,
+		owner,
 		spec.env,
 		leadingActions,
 		trailingActions,
@@ -891,19 +887,19 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- cannot miss a write: the spring's every step, the drag's every sample and
 	-- the commit's slide-off all already come through here.
 	-- fix round 1, finding 4: change-gated, mirroring `offset`'s own signal
-	-- (`eq = defaultEq`, `bench/cores/imperative.luau`'s `node.set` — a write
+	-- (`eq = defaultEq`, a cell's own `set` — a write
 	-- that does not change the value never marks the node dirty or fires its
 	-- observers). `offset:set(px)` below already no-ops internally on a
 	-- repeat value; `onSlide` used to fire anyway, EVERY call, because it sat
 	-- outside that suppression — `resetToClosed`'s `retarget(0)` on every
 	-- ORDINARY close (offset already 0 the whole time: the row never left
-	-- closed) sent the host a spurious `onSlide(0)`. Reading `offset:get()`
+	-- closed) sent the host a spurious `onSlide(0)`. Reading `offset:peek()`
 	-- BEFORE the write is what `defaultEq` itself compares against, so this
 	-- is the identical decision the signal already makes, made visible to the
 	-- one caller sitting outside its notification path.
 	local onSlide = if hosted ~= nil then hosted.onSlide else nil
 	local function applySlide(px: number)
-		local changed = px ~= offset:get()
+		local changed = px ~= offset:peek()
 		offset:set(px)
 		-- D1: the row is home. This is the ONE seam every offset write goes
 		-- through, so it is the one place that can say "back at rest" without
@@ -930,10 +926,10 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- time), which the report's own case (c) already distinguishes from the
 	-- real, load-bearing `nil` a completed commit sends ("no override, back
 	-- to content height" — a real transition, still forwarded because `px ~=
-	-- rowHeightOverride:get()` is true exactly when the value actually moves).
+	-- rowHeightOverride:peek()` is true exactly when the value actually moves).
 	local onCommitHeight = if hosted ~= nil then hosted.onCommitHeight else nil
 	local function applyCommitHeight(px: number?)
-		local changed = px ~= rowHeightOverride:get()
+		local changed = px ~= rowHeightOverride:peek()
 		rowHeightOverride:set(px)
 		if onCommitHeight ~= nil and changed then
 			onCommitHeight(px)
@@ -959,7 +955,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	local controller: any = nil
 	local motionClock: any = nil
 	-- the reactive twin of `motionClock ~= nil` — see `bindMotion`'s own comment
-	local motionBound = scope:own(core:signal(false))
+	local motionBound = Compose.cell(false)
 	-- REDTEAM FIX (item 2, BLOCKER): the presenter's own `presentModal`/
 	-- `dismiss`, arriving (if ever) via the new `bindPresent` contribution
 	-- seam (contribution.luau; presenter.luau's `bindContribution`) — what
@@ -1032,7 +1028,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 
 	local spring: any = nil
 	local pendingDeparture: any = nil
-	scope:own(function()
+	owner.own(function()
 		if pendingDeparture ~= nil then
 			pendingDeparture.unsubscribe()
 			pendingDeparture = nil
@@ -1042,12 +1038,15 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if spring ~= nil or motionClock == nil then
 			return
 		end
-		spring = scope:own(motionClock:spring(offset:get(), "object"))
+		spring = motionClock:spring(offset:peek(), "object")
+		owner.own(function()
+			spring:dispose()
+		end)
 		-- dispose pattern mirrors drag_registry.luau:388-396 (unsubscribe, then
 		-- dispose the value) — one axis here instead of drag's two.
-		scope:own(core:observe(spring, function()
-			applySlide(spring:get())
-		end))
+		owner.watchStatic(spring, function()
+			applySlide(spring:peek())
+		end)
 	end
 
 	-- THE ONE RETARGET FORK. With a clock, aim the persistent spring — the
@@ -1066,9 +1065,9 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 
 	local function targetFor(edge: Edge?): number
 		if edge == "leading" then
-			return leadingWidth:get()
+			return leadingWidth:peek()
 		elseif edge == "trailing" then
-			return -trailingWidth:get()
+			return -trailingWidth:peek()
 		end
 		return 0
 	end
@@ -1236,9 +1235,9 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- here too, same as `menuOpen` always has, so `doCommitAction` below can
 	-- call it — its body now tears down a REAL presented surface rather
 	-- than merely flipping a signal a permanently-mounted `UI.When` reads.
-	local menuOpen = scope:own(core:signal(false))
+	local menuOpen = Compose.cell(false)
 	local menuHandle: any = nil
-	local menuOx = scope:own(core:signal(0))
+	local menuOx = Compose.cell(0)
 	--[[ `menuOy` IS NOT ALWAYS A PIXEL COUNT (ruling 4, director 2026-08-13).
 		Paired with `menuAnchorKind` below, it spells BOTH placements:
 
@@ -1253,15 +1252,15 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		`oy = trigger.y - innerH` puts its bottom edge exactly on the trigger's top
 		WITHOUT this file measuring the menu at all. Spelling it as a scale lets the
 		solver supply `innerH`, which is the number that is actually true. ]]
-	local menuOy = scope:own(core:signal(0 :: any))
-	local menuAnchorKind = scope:own(core:signal("topLeft"))
+	local menuOy = Compose.cell(0 :: any)
+	local menuAnchorKind = Compose.cell("topLeft")
 	-- `menuOpen:set(false)` runs FIRST, BEFORE `dismissFn(handle)` — found
 	-- live (a real bug, not a style choice): `dismissFn` synchronously
 	-- restores focus (`focus_graph.luau`'s own `restoreStack`), which fires
 	-- this row's OWN focus-change observer (`bindFocusGraph` below,
-	-- `core:observe(graph.focused, syncKeysEnabled)`) DURING the dismiss
+	-- `observeChange(graph.focused, syncKeysEnabled)`) DURING the dismiss
 	-- call, before `closeMenu` would otherwise get a chance to update
-	-- `menuOpen`. `pathInsideRow`'s own `menuOpen:get()` branch has to see
+	-- `menuOpen`. `pathInsideRow`'s own `menuOpen:peek()` branch has to see
 	-- the truth at that exact moment — restoring focus back onto this row's
 	-- own content is harmless either way (still a path-prefix match), but
 	-- `openMenu`'s mirror-image ordering below is NOT harmless (see its own
@@ -1311,14 +1310,14 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		local host = if controller.scrollHostFor ~= nil then controller.scrollHostFor(path) else nil
 		local window = if host ~= nil
 			then host.rect
-			elseif bandMetrics.env ~= nil then bandMetrics.env:get("viewportRect"):get()
+			elseif bandMetrics.env ~= nil then bandMetrics.env:get("viewportRect"):peek()
 			else nil
 		if row == nil or window == nil then
 			return fallback
 		end
 		-- Hosted content itself carries the slide; the standalone root does not.
-		local x = row.x - (if hosted ~= nil then offset:get() else 0)
-		local bleed = metricsSig:get().chromeBleed or 0
+		local x = row.x - (if hosted ~= nil then offset:peek() else 0)
+		local bleed = metricsSig:peek().chromeBleed or 0
 		return if edge == "trailing"
 			then math.min(fallback, window.x - x - row.w - bleed)
 			else math.max(fallback, window.x + window.w - x + bleed)
@@ -1365,10 +1364,13 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			return
 		end
 		if collapseSpring == nil then
-			collapseSpring = scope:own(motionClock:spring(initial, "object"))
-			scope:own(core:observe(collapseSpring, function()
-				applyCommitHeight(collapseSpring:get())
-			end))
+			collapseSpring = motionClock:spring(initial, "object")
+			owner.own(function()
+				collapseSpring:dispose()
+			end)
+			owner.watchStatic(collapseSpring, function()
+				applyCommitHeight(collapseSpring:peek())
+			end)
 		else
 			collapseSpring:snap(initial)
 		end
@@ -1437,7 +1439,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		-- half of this same finding — another row's coordinator CLAIM
 		-- leaving THIS row's menu armed while ITS tray closes — is fixed at
 		-- `row_actions.newCoordinator`'s own `claim`, below.)
-		if menuOpen:get() then
+		if menuOpen:peek() then
 			closeMenu()
 		end
 		-- RULING (director-delegated, final-review-findings.md): "The
@@ -1609,7 +1611,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 
 				That would be wrong, and it is not what happens: `openEdge` is set to
 				the swiped edge here, and `syncGeometry`'s open-edge re-assert (search
-				`openEdge:get() == "trailing"`) re-aims the spring at the TRAY width on
+				`openEdge:peek() == "trailing"`) re-aims the spring at the TRAY width on
 				the very next sync. The row therefore settles revealed, on screen,
 				exactly where an ordinary open swipe leaves it.
 
@@ -1782,7 +1784,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	local MENU_ROOT_ID = "Menu"
 	--[[ THE ROW RECIPE IS SHARED NOW (navigation-and-menus D2, director call §5).
 		Both metric names and the per-row body moved to `src/controls/menu_recipe
-		.luau`, which `popup_button` and the freestanding `newMenu` render from too
+		.luau`, which `popup_button` and the freestanding `UI.Menu` render from too
 		— *"three copies of a menu row is how the icon-first ruling gets silently
 		lost"*. The ruling itself (a menu row KEEPS its label; icon-first is the
 		TRAY's inversion; deliberately no `prefer`) travelled with it and is
@@ -1864,7 +1866,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- default (presenter.luau's own documented ordering), so it always
 	-- wins over the modal's own (refused) native Cancel routing.
 	local function menuHandleCancel(_focusedPath: string?): boolean
-		if menuOpen:get() then
+		if menuOpen:peek() then
 			closeMenu()
 			return true
 		end
@@ -1889,7 +1891,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if n == 0 then
 			return 0
 		end
-		local metrics = metricsSig:get()
+		local metrics = metricsSig:peek()
 		local rowH = themeSnapshot.resolveNumber(metrics, MENU_ROW_HEIGHT) or 0
 		local gap = themeSnapshot.resolveNumber(metrics, MENU_ROW_GAP) or 0
 		return n * rowH + (n - 1) * gap
@@ -1905,7 +1907,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if env == nil then
 			return nil
 		end
-		local vp = env:get("viewportRect"):get()
+		local vp = env:get("viewportRect"):peek()
 		if type(vp) ~= "table" or type(vp.h) ~= "number" then
 			return nil
 		end
@@ -1941,7 +1943,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		any solve — `openMenu` never runs at all without `controller`, see its own
 		guard below) degrades to `0, 0, "topLeft"` rather than erroring. ]]
 	--[[ WRITE THE THREE PLACEMENT SIGNALS, AND ONLY WHEN SOMETHING MOVED.
-		`core:signal`'s baseline no-op-on-same-value covers the plain-number case for
+		`Compose.cell`'s baseline no-op-on-same-value covers the plain-number case for
 		free, but the flipped form is a FRESH `{ scale, offset }` table every call —
 		so a straight `set` would dirty the menu's arrange on every single
 		`syncGeometry` frame the menu is open, which is exactly the per-frame churn
@@ -1949,7 +1951,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	local function setMenuAnchor(ox: number, oy: any, kind: string)
 		menuOx:set(ox)
 		menuAnchorKind:set(kind)
-		local current = menuOy:get()
+		local current = menuOy:peek()
 		if type(oy) == "table" and type(current) == "table" then
 			if current.scale == oy.scale and current.offset == oy.offset then
 				return
@@ -2103,7 +2105,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		-- focus-change observer (`bindFocusGraph` below) SYNCHRONOUSLY,
 		-- inside `presentModalFn(...)`, before `menuOpen:set(true)` would
 		-- otherwise run. `syncKeysEnabled` -> `pathInsideRow` reads
-		-- `menuOpen:get()` at exactly that moment: with the old ordering it
+		-- `menuOpen:peek()` at exactly that moment: with the old ordering it
 		-- was STILL `false` (the new focus path is under the menu's own
 		-- surface, never a prefix of `rootPath`), so `syncKeysEnabled`
 		-- DISABLED this row's own `RowActionsKeys-<id>` context right then
@@ -2121,7 +2123,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		-- mechanism): a tap outside the menu's own subtree dismisses it and
 		-- is swallowed, never clicking through to whatever it actually
 		-- landed on (`presenter.luau`'s own `applyOutsideOutcome`).
-		local handle = presentModalFn(buildMenuBlueprint(), {
+		local handle = presentModalFn(if Facet.surfaces then buildMenuBlueprint else buildMenuBlueprint(), {
 			rootPolicy = "edgeToEdge",
 			scrim = "none",
 			outsideTapCancel = true,
@@ -2153,7 +2155,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		end
 	end
 	local function toggleMenu()
-		if menuOpen:get() then
+		if menuOpen:peek() then
 			closeMenu()
 		else
 			openMenu()
@@ -2264,7 +2266,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 				-- action out from under it. `menuOpen` is checked live
 				-- (not snapshotted), so this guard tracks the menu's real
 				-- state on every single press.
-				if menuOpen:get() then
+				if menuOpen:peek() then
 					return
 				end
 				commitDestructive()
@@ -2279,7 +2281,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		end)
 		ctx.setEnabled(false) -- enabled only while `pathInsideRow` — see syncKeysEnabled
 		keysContext = ctx
-		scope:own(function()
+		owner.own(function()
 			if keysContext ~= nil then
 				keysContext.destroy()
 				keysContext = nil
@@ -2294,7 +2296,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- would leave ButtonX/Shift+Return unable to re-close the menu they
 	-- just opened (the exact hazard the big comment above
 	-- `ROW_ACTIONS_KEY_PRIORITY` already documents as the reason this scope
-	-- has to be broad). `menuOpen:get()` alone is a sufficient, simpler
+	-- has to be broad). `menuOpen:peek()` alone is a sufficient, simpler
 	-- test than a second path-prefix comparison: this row's own menu can
 	-- only ever be open while ITS OWN presentModal handle is the trapped
 	-- top of the focus stack (`focus_graph.luau`'s own `pushScope(trap =
@@ -2316,7 +2318,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- for a tray edge already returns a path INSIDE `rootPath` there, so the
 	-- extra checks below are always false when `hostedPaths == nil`.
 	local function pathInsideRow(path: string?): boolean
-		if menuOpen:get() then
+		if menuOpen:peek() then
 			return true
 		end
 		if path == nil then
@@ -2358,7 +2360,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- itself), still torn down by the identical `scope:own` in there, just
 	-- never at all for a row nobody ever focuses.
 	local function syncKeysEnabled()
-		local insideRow = pathInsideRow(if focusGraph ~= nil then focusGraph.focused:get() else nil)
+		local insideRow = pathInsideRow(if focusGraph ~= nil then focusGraph.focused:peek() else nil)
 		if not insideRow and keysContext == nil then
 			return -- never built; nothing to disable, and no reason to build one now
 		end
@@ -2454,14 +2456,14 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if measured > 0 or actions == nil then
 			return measured
 		end
-		return #actions * buttonMinWidthPx:get()
+		return #actions * buttonMinWidthPx:peek()
 	end
 
 	local function currentDecision(): any
 		return row_actions_state.new({
 			rowWidth = currentRowWidth(),
-			leadingWidth = provisionalWidth(leadingActions, leadingWidth:get()),
-			trailingWidth = provisionalWidth(trailingActions, trailingWidth:get()),
+			leadingWidth = provisionalWidth(leadingActions, leadingWidth:peek()),
+			trailingWidth = provisionalWidth(trailingActions, trailingWidth:peek()),
 			fullSwipeLeading = fullSwipe.leading,
 			fullSwipeTrailing = fullSwipe.trailing,
 		})
@@ -2511,7 +2513,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		drag = {
 			originX = pos.x,
 			originY = pos.y,
-			startOffset = offset:get(),
+			startOffset = offset:peek(),
 			axis = "pending",
 		}
 		tracker:reset()
@@ -2643,7 +2645,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if wasHorizontal then
 			tracker:push(pos.x, pos.y, currentNow())
 			local vx = tracker:velocity() -- (vx, vy); only the horizontal axis matters here
-			local verdict = currentDecision().settle(offset:get(), vx)
+			local verdict = currentDecision().settle(offset:peek(), vx)
 			drag = nil
 			-- REVIEW FIX (director-visible fidelity gap): `vx` already drove
 			-- the DECISION above (settle's velocity projection); it must also
@@ -2687,7 +2689,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 					BEFORE `setVelocity`/`setTarget` for exactly that reason. On a
 					spring that IS already at `offset` (the first gesture, or a
 					second one after an ordinary settled flight) it is a no-op. ]]
-				spring:snap(offset:get())
+				spring:snap(offset:peek())
 				spring:setVelocity(vx)
 			end
 			settleTo(verdict)
@@ -2715,7 +2717,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- flight left it — and a cancel's target is 0, the very value a row
 			-- that has already been closed once is parked at.
 			if spring ~= nil then
-				spring:snap(offset:get())
+				spring:snap(offset:peek())
 			end
 			-- spec: "pointer cancel mid-drag springs back to closed"
 			close()
@@ -2739,11 +2741,11 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- them would have tried to `_close()`/re-grab an irrevocably-committing
 	-- row had this kept saying "open". `committed` wins outright.
 	local function isOpen(): boolean
-		return not committed and openEdge:get() ~= nil
+		return not committed and openEdge:peek() ~= nil
 	end
 
 	-- Task 7: the reactive twin of `isOpen()` — `outsideDismiss.active` (below)
-	-- needs a Readable<boolean> to `core:observe`/`:get()`, not a plain
+	-- needs a Readable<boolean> to `a change listener`/`:peek()`, not a plain
 	-- function; a one-line memo over the same `openEdge` signal `isOpen`
 	-- already reads. `committed` is a plain (non-signal) local, but every
 	-- write to it in this file is always paired, same-call, with an
@@ -2751,9 +2753,11 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- `openEdge:set(edge)`; `resetToClosed`'s `openEdge:set(nil)` before
 	-- `committed = false`) — so reading it here still recomputes at exactly
 	-- the right moments, never one commit-generation stale.
-	local isOpenReadable = scope:own(core:memo(function(use)
-		return not committed and use(openEdge) ~= nil
-	end))
+	local isOpenReadable = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return not committed and use(openEdge) ~= nil
+		end)
+	end)
 
 	-- Task 7 (matrix §B PopupButton parity, popup_button.luau:331-337's exact
 	-- shape): gamepad ButtonB closes an open tray, offered to the presenter's
@@ -2776,13 +2780,17 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- it first.
 	-- schema build moved to row_actions_dump.luau (task EXTRACT2); this reads
 	-- today's live values once and hands them over by value.
+	local terminalDump = nil
 	local function dump()
+		if terminalDump then
+			return terminalDump
+		end
 		return rowActionsDump.build({
 			id = id,
-			offsetPx = offset:get(),
-			openEdge = openEdge:get(),
+			offsetPx = offset:peek(),
+			openEdge = openEdge:peek(),
 			committed = committed,
-			menuOpen = menuOpen:get(),
+			menuOpen = menuOpen:peek(),
 			menuHeightPx = predictedMenuHeight(),
 		})
 	end
@@ -2829,8 +2837,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		exactly `|offset|`. Four device rounds are written into that file's comments. ]]
 	local trayViews = rowActionsTrays.build({
 		UI = UI,
-		core = core,
-		scope = scope,
+		owner = owner,
 		leadingActions = leadingActions,
 		trailingActions = trailingActions,
 		leadingWidth = leadingWidth,
@@ -2858,9 +2865,11 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	local editAffordanceView: any = if hasEditAffordance
 		then rowActionsRoot.buildEditAffordance({
 			UI = UI,
-			editAffordanceShown = scope:own(core:memo(function(use)
-				return use(editAffordanceShown) and not use(committingSig)
-			end)),
+			editAffordanceShown = Compose.withOwner(owner, function()
+				return Compose.formula(function(use)
+					return use(editAffordanceShown) and not use(committingSig)
+				end)
+			end),
 			destructiveEntry = firstDestructiveEntry(),
 		})
 		else nil
@@ -2895,8 +2904,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		if not isHosted then
 			root = rowActionsRoot.build({
 				UI = UI,
-				core = core,
-				scope = scope,
+				owner = owner,
 				id = id,
 				width = spec.width,
 				content = content,
@@ -3074,8 +3082,8 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			if trayPath == nil then
 				return
 			end
-			local pad = buttonPadPx:get()
-			local minWidth = buttonMinWidthPx:get()
+			local pad = buttonPadPx:peek()
+			local minWidth = buttonMinWidthPx:peek()
 			-- A3 (device bug round 2026-08-12, "Mark Read" cut off under Fantasy
 			-- Parchment). MEASURE THE REQUIREMENT, NOT THE RENDER: the room a
 			-- tray plate needs is the drawn text PLUS the button's own inner
@@ -3087,7 +3095,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- width form: the plate's `fixed` px is decided HERE, so this
 			-- is the one place that can afford the frame for it. Zero on flat
 			-- packages, so nothing that already fit moves.
-			local chrome = buttonChromePx:get()
+			local chrome = buttonChromePx:peek()
 			-- A1b (same round): a band wider than the row it belongs to hangs off
 			-- the row's far edge — measured at 108px outside a 160px row, with no
 			-- diagnostic — and those plates are unreachable. Under a row whose
@@ -3125,7 +3133,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			end
 			-- the band's fixed extras, exactly as `bandExtras` sums them, so the
 			-- share-out below is measured against the same total the row travels
-			local extras = (#actions - 1) * trayGapPx:get() + rowGutterPx:get()
+			local extras = (#actions - 1) * trayGapPx:peek() + rowGutterPx:peek()
 			local room = if clampable then currentRowWidth() - extras else 0
 			local scale = 1
 			if clampable and room > 0 and desiredTotal > room and measuredCount == #actions then
@@ -3155,7 +3163,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- it is the one piece of work here that does not need a path — see
 			-- `drainPostCommitRestore`'s own comment above `close()`.
 			drainPostCommitRestore()
-			if pendingDeparture ~= nil and math.abs(offset:get() - pendingDeparture.target) <= 1 then
+			if pendingDeparture ~= nil and math.abs(offset:peek() - pendingDeparture.target) <= 1 then
 				pendingDeparture.arrive()
 			end
 			if rootNode ~= nil then
@@ -3210,7 +3218,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- true in the very same call, ahead of both) — so with `drag ==
 			-- nil` (the gesture already released) this block used to run on
 			-- the VERY NEXT refresh and call the plain `retarget(-trailingWidth
-			-- :get())` on that SAME spring, overwriting the commit's own
+			-- :peek())` on that SAME spring, overwriting the commit's own
 			-- off-screen target back to the merely-open one before the spring
 			-- ever got there. The commit's `retargetThen` had already
 			-- subscribed its `onSettle`, so the spring still eventually
@@ -3223,11 +3231,11 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- above), so gating on it here is the same shape as gating on
 			-- `drag` — never re-aim a value something else already owns.
 			if drag == nil and not committed then
-				if leadingActions ~= nil and openEdge:get() == "leading" then
-					retarget(leadingWidth:get())
+				if leadingActions ~= nil and openEdge:peek() == "leading" then
+					retarget(leadingWidth:peek())
 				end
-				if trailingActions ~= nil and openEdge:get() == "trailing" then
-					retarget(-trailingWidth:get())
+				if trailingActions ~= nil and openEdge:peek() == "trailing" then
+					retarget(-trailingWidth:peek())
 				end
 			end
 			-- REDTEAM FIX (item 2, BLOCKER, follow-on): re-read this row's own
@@ -3240,9 +3248,9 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- implemented — the menu tracks the row frame for frame, the same
 			-- continuity a plain measured child gave for free before this
 			-- fix). A no-op the instant nothing moved (two signal reads, a
-			-- write only on an actual change — `core:signal`'s own baseline
+			-- write only on an actual change — `Compose.cell`'s own baseline
 			-- no-op-on-same-value behavior).
-			if menuOpen:get() then
+			if menuOpen:peek() then
 				-- ...and the FLIP is re-decided here too (ruling 4): a row scrolling
 				-- toward the bottom edge with its menu open has to flip as it goes,
 				-- for the same reason the position is re-read at all.
@@ -3295,7 +3303,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- `bindMotion`/`bindController`: a bare mount (no presenter) means
 			-- `openMenu` simply has nothing to present onto.
 			bindPresent = function(presentModal: any, dismiss: any)
-				presentModalFn = presentModal
+				presentModalFn = if Facet.surfaces then Facet.surfaces.modal else presentModal
 				dismissFn = dismiss
 			end,
 			-- Task 8: the action-system + focus-graph handoff that lets
@@ -3313,7 +3321,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			end,
 			bindFocusGraph = function(graph: any)
 				focusGraph = graph
-				scope:own(core:observe(graph.focused, syncKeysEnabled))
+				owner.watchStatic(graph.focused, syncKeysEnabled)
 				syncKeysEnabled()
 			end,
 			-- Task 7 (matrix §B PopupButton parity, popup_button.luau:338-346's
@@ -3371,96 +3379,42 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- `revealPx`, its own signal.
 	local trayState: any = nil
 	if isHosted then
-		local revealPx = scope:own(core:memo(function(use)
-			return math.abs(use(offset))
-		end))
+		local revealPx = Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				return math.abs(use(offset))
+			end)
+		end)
 		local leadingState = if leadingActions ~= nil
 			then { edge = "leading" :: Edge, actions = leadingActions, revealPx = revealPx }
 			else nil
 		local trailingState = if trailingActions ~= nil
 			then { edge = "trailing" :: Edge, actions = trailingActions, revealPx = revealPx }
 			else nil
-		trayState = scope:own(core:memo(function(use)
-			local edge = use(openEdge)
-			if edge == nil then
-				local px = use(offset)
-				if px > 0 then
-					edge = "leading"
-				elseif px < 0 then
-					edge = "trailing"
+		trayState = Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				local edge = use(openEdge)
+				if edge == nil then
+					local px = use(offset)
+					if px > 0 then
+						edge = "leading"
+					elseif px < 0 then
+						edge = "trailing"
+					end
 				end
-			end
-			if edge == "leading" then
-				return leadingState
-			elseif edge == "trailing" then
-				return trailingState
-			end
-			return nil
-		end))
+				if edge == "leading" then
+					return leadingState
+				elseif edge == "trailing" then
+					return trailingState
+				end
+				return nil
+			end)
+		end)
 	end
 
 	api = {
 		blueprint = blueprint,
 		dump = dump,
-		dispose = function()
-			--[[ SHOWCASE2 task B (six live "double disposal of scope 'row-
-				actions-mN'" warnings, row_actions.luau demo). Root cause: this
-				row's `scope` can be torn down by TWO independent, both-correct
-				owners — the app's own per-item lifecycle (`examples/gallery/
-				scenarios/row_actions.luau`'s `itemScope:own(function() ...
-				built.dispose() end)`, which needs a row disposed the moment it
-				LEAVES the list) AND `examples/gallery/client/demo_host.luau`'s
-				`scopedCore` (a blanket per-demo leak guard: every `core:scope(...)`
-				a demo makes, however deep, is additionally owned into the demo's
-				OWN scope — by design, for demos that do not scope themselves).
-				Measured live: on a whole-demo teardown the blanket guard's cascade
-				reaches this scope BEFORE the ForEach's own item-scope teardown
-				does, so the SECOND arrival — this function, called again from the
-				app's own registration — found `scope` already gone.
-
-				Every OTHER step below already documents itself as idempotent
-				(`closeMenu()`, `coordinator.release()`); this was the one gap. The
-				fix is the same guard `src/mount.luau` already uses at every one of
-				its own multi-owner dispose sites (`if not X:isDisposed() then
-				X:dispose() end`) — not a special case for THIS collision, the
-				general contract a composite control's public `dispose()` must
-				already meet to be safely owned from more than one place. Skipping
-				`closeMenu`/`coordinator.release` here is safe: the only path that
-				can win this race is the WHOLE-DEMO teardown (a single row can
-				never be double-torn-down mid-session — the app's per-item path is
-				the sole owner then), and a demo tearing down discards its menu
-				stack and its coordinator in the same breath. ]]
-			if scope:isDisposed() then
-				return
-			end
-			-- Task 5: set BEFORE tearing the scope down — the commit path's
-			-- own guard (see `doCommit`'s comment) reads this synchronously
-			-- inside the same `scope:dispose()` call if a spring is settling
-			-- mid-teardown.
-			disposed = true
-			-- REDTEAM FIX (item 2, BLOCKER, follow-on requirement: "dispose
-			-- cleanly with the wrapper"). The menu is now a SIBLING presented
-			-- surface, never a descendant of this row's own `scope` — disposing
-			-- `scope` below tears down THIS row's own mounted tree only, and
-			-- would leave an open menu's own handle stranded in the presenter's
-			-- `stack` forever (its `transientScope`-equivalent focus trap along
-			-- with it) with nothing left alive to ever close it. `closeMenu()`
-			-- is idempotent (a no-op via the `menuHandle == nil` guard when no
-			-- menu is open), so this is safe unconditionally, same as the
-			-- coordinator release below.
-			closeMenu()
-			-- Task 7: clear this row's coordinator entry BEFORE the scope
-			-- (and every spring/signal it owns) tears down — a coordinator
-			-- holding a stale reference to a disposed row would call `_close()`
-			-- on it the next time something else claims/scrolls, reaching into
-			-- a torn-down scope. Unconditional and idempotent (see `release`'s
-			-- own comment): correct whether this row was open, mid-gesture, or
-			-- never claimed at all.
-			if coordinator ~= nil then
-				coordinator.release(api)
-			end
-			scope:dispose()
-		end,
+		dispose = owner.dispose,
 		-- internal seam for Table + coordinator (NOT public API; underscore
 		-- prefix) — Tasks 6-8 build the touch/keyboard/gamepad paths through
 		-- these six:
@@ -3618,7 +3572,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		as its own row content's left padding, so it obviously needs to read it — but
 		a WRAP host, where the composite spends the number on the caller's behalf,
 		may still have OTHER CHROME OUTSIDE THE COMPOSITE that has to reserve the
-		identical amount. `newTable` does: its heading band sits outside every row,
+		identical amount. `UI.Table` does: its heading band sits outside every row,
 		so a wrapped row's cells moved 36px in while the header stayed put, and the
 		columns came apart the instant edit mode opened.
 
@@ -3630,46 +3584,69 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		engine already computed, nil unless the row can ever show the minus, and
 		nothing in either mode behaves differently for its being legible. ]]
 	api.editGutterPx = editGutterPx
+	-- Runs for explicit disposal and parent-owner disposal, before the row's
+	-- formulas are released. Sibling menus must not outlive their source row.
+	owner.own(function()
+		disposed = true
+		closeMenu()
+		if coordinator ~= nil then
+			coordinator.release(api)
+		end
+		terminalDump = dump()
+	end)
 	return api
 end
 
--- THE STANDALONE/TABLE ENTRY POINT — `Facet.newRowActions`. Unchanged
+local function buildEngine(Facet, core, spec, hosted)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return buildOwnedEngine(Facet, core, spec, hosted, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
+end
+
+-- THE STANDALONE/TABLE ENTRY POINT — `UI.RowActions`. Unchanged
 -- behavior: the whole composite, blueprint and all.
 function row_actions.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newRowActions", spec, ROW_ACTIONS_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.RowActions", spec, ROW_ACTIONS_KEYS, "spec")
 	return buildEngine(Facet, core, spec, nil)
 end
 
 -- THE HOSTED ENTRY POINT (Task 2) — engine only, NO blueprint. Internal, not
--- public API: `newVirtualList`'s own `rowActions` spec key (Task 3) is what a
+-- public API: `UI.VirtualList`'s own `rowActions` spec key (Task 3) is what a
 -- caller reaches, exactly as Table already owns its own row-actions wiring.
 -- See the HOSTED MODE comment at the top of this file for the contract, and
 -- docs/plans/row-actions-hosted-mode-design.md for why the host owns the
 -- nodes.
 function row_actions.buildHosted(Facet: any, core: any, spec: HostedSpec): HostedEngine
-	specGuard.assertKnownKeys("newRowActionsHosted", spec, HOSTED_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.RowActions (hosted)", spec, HOSTED_KEYS, "spec")
 	local id = spec.id or "RowActions"
 	local paths: any = spec.paths
 	if type(paths) ~= "table" then
 		error(
-			`Facet newRowActionsHosted('{id}'): \`paths\` is required — a hosted engine mounts nothing of its `
+			`Facet UI.RowActions (hosted)('{id}'): \`paths\` is required — a hosted engine mounts nothing of its `
 				.. "own, so the host must name the nodes it reads live rects and text facts from",
 			0
 		)
 	end
-	specGuard.assertKnownKeys("newRowActionsHosted", paths, HOSTED_PATH_KEYS, "spec.paths")
+	specGuard.assertKnownKeys("UI.RowActions (hosted)", paths, HOSTED_PATH_KEYS, "spec.paths")
 	if type(paths.content) ~= "string" or paths.content == "" then
-		error(`Facet newRowActionsHosted('{id}'): \`paths.content\` must be the host's own row path (a string)`, 0)
+		error(`Facet UI.RowActions (hosted)('{id}'): \`paths.content\` must be the host's own row path (a string)`, 0)
 	end
 	if type(spec.onSlide) ~= "function" then
 		error(
-			`Facet newRowActionsHosted('{id}'): \`onSlide\` must be a function — the host paints the slide `
+			`Facet UI.RowActions (hosted)('{id}'): \`onSlide\` must be a function — the host paints the slide `
 				.. "(this engine owns no node to paint)",
 			0
 		)
 	end
 	if spec.onCommitHeight ~= nil and type(spec.onCommitHeight) ~= "function" then
-		error(`Facet newRowActionsHosted('{id}'): \`onCommitHeight\` must be a function, or nil`, 0)
+		error(`Facet UI.RowActions (hosted)('{id}'): \`onCommitHeight\` must be a function, or nil`, 0)
 	end
 	-- REFUSED, not silently degraded: a hosted engine with nothing to reveal on
 	-- either edge is a host that built a row engine it never needed. The
@@ -3677,7 +3654,7 @@ function row_actions.buildHosted(Facet: any, core: any, spec: HostedSpec): Hoste
 	-- meaning here — there is no content to hand back.
 	if spec.leading == nil and spec.trailing == nil then
 		error(
-			`Facet newRowActionsHosted('{id}'): a hosted engine needs actions on at least one edge — build no `
+			`Facet UI.RowActions (hosted)('{id}'): a hosted engine needs actions on at least one edge — build no `
 				.. "engine at all for a row with none",
 			0
 		)
@@ -3695,7 +3672,7 @@ function row_actions.buildHosted(Facet: any, core: any, spec: HostedSpec): Hoste
 	-- instead.
 	if spec.leading ~= nil and (type(paths.trayLeading) ~= "string" or paths.trayLeading == "") then
 		error(
-			`Facet newRowActionsHosted('{id}'): \`leading\` actions require \`paths.trayLeading\` (the host's `
+			`Facet UI.RowActions (hosted)('{id}'): \`leading\` actions require \`paths.trayLeading\` (the host's `
 				.. "own leading tray container path) — without it the tray can never be measured or found to "
 				.. "paint, and the row would silently claim to be open with nothing revealed",
 			0
@@ -3703,7 +3680,7 @@ function row_actions.buildHosted(Facet: any, core: any, spec: HostedSpec): Hoste
 	end
 	if spec.trailing ~= nil and (type(paths.trayTrailing) ~= "string" or paths.trayTrailing == "") then
 		error(
-			`Facet newRowActionsHosted('{id}'): \`trailing\` actions require \`paths.trayTrailing\` (the host's `
+			`Facet UI.RowActions (hosted)('{id}'): \`trailing\` actions require \`paths.trayTrailing\` (the host's `
 				.. "own trailing tray container path) — without it the tray can never be measured or found to "
 				.. "paint, and the row would silently claim to be open with nothing revealed",
 			0

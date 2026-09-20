@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local refWorld = require("./reference/ref_world")
 --[[ BACKDROP-BEFORE-CONTENT — the pop class fixed-3's cause C rhymed with
 	(framework-gaps-phase2-followups task POP, director item 10 + mandate b).
 
@@ -49,17 +51,27 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local transitionsLib = require("../src/render/transitions")
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+-- A surface binds its coordinator to the mounted tree, as the presenter does.
+local mountLib = {
+	mount = function(core: any, content: any, opts: any?)
+		local root = harness.mount(core, content)
+		if opts ~= nil and opts.transitions ~= nil then
+			transitionsLib.bind(root.node, opts.transitions)
+		end
+		return root
+	end,
+}
 local rendererLib = require("../src/render/renderer")
 local clockLib = require("../src/motion/clock")
 local fake_target = require("./lib/fake_target")
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local gladeProof = require("../examples/reference/p1_glade") :: any
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -164,7 +176,7 @@ describe("backdrop-before-content: the pure structural finder", function()
 	end)
 
 	it("a REACTIVE tint (no readable `.transparency`) is treated as opaque — the safe default direction", function()
-		-- `core:memo`'s own Readable shape (`{ kind = "memo", _node = ..., get = fn }`)
+		-- `Compose.formula`'s own Readable shape (`{ kind = "memo", _node = ..., get = fn }`)
 		-- carries no `.transparency` field at all; unreadable counts as painting
 		local reactiveTint: any = { kind = "memo", _node = {}, get = function() end }
 		local group = node("/S/Group", { canvasGroup = true }, {
@@ -264,7 +276,7 @@ describe("backdrop-before-content: the pure structural finder", function()
 		local ok, err = pcall(function()
 			return UIlocal.When({
 				id = "Gate",
-				condition = customFactory.new():signal(true),
+				condition = Compose.cell(true),
 				transition = { enter = "materialize", plate = "hides" },
 				thenView = function()
 					return UIlocal.Box({ id = "Leaf" })
@@ -390,7 +402,7 @@ end
 describe("backdrop-before-content: the live coordinator", function()
 	it("RED — the buggy shape: the coordinator reports the finding, and the plate itself fades", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter, _, coordinator = attach(core, env, clock, buggyScreen(on))
 		local findings = coordinator.findings()
 		expect(#findings).toBe(1)
@@ -406,7 +418,7 @@ describe("backdrop-before-content: the live coordinator", function()
 
 	it("GREEN — the fixed shape: zero findings, and the plate NEVER fades while the content does", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter, _, coordinator = attach(core, env, clock, fixedScreen(on))
 		expect(#coordinator.findings()).toBe(0)
 		local plate = adapter.node("/S/Gate/then/Wrap/Plate")
@@ -422,7 +434,7 @@ describe("backdrop-before-content: the live coordinator", function()
 
 	it("THE SPLIT: transform still rides the WHOLE card (materialize scales `Wrap`, not just `Group`)", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, fixedScreen(on))
 		-- `Wrap` is `entry.path` (what the caller declared); the whole card
 		-- scales as one rigid unit, plate included, so a materialize still
@@ -451,6 +463,7 @@ local function gladeWorld(width: number?, height: number?): any
 		presenterOpts = { keyboardNavigation = true },
 	})
 	local built = gladeProof.build(Facet, w.core, {
+		app = refWorld.harnessApp(harness, w.core, w.env, w.pres),
 		env = w.env,
 		actionSystem = w.system,
 		presenter = w.pres,
@@ -529,7 +542,7 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		local alert: any
 		local counted, all = backdropSweep.capture(function()
 			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-			alert = Facet.Controls.Alert(w.core, {
+			alert = harness.Controls.Alert(w.core, {
 				id = "Ack",
 				title = "Delete?",
 				actions = { { id = "ok", label = "OK" } },
@@ -552,7 +565,7 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		local alert: any
 		local counted, all = backdropSweep.capture(function()
 			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-			alert = Facet.Controls.Alert(w.core, {
+			alert = harness.Controls.Alert(w.core, {
 				id = "Over",
 				title = "Delete?",
 				actions = { { id = "ok", label = "OK" } },
@@ -578,8 +591,8 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		local declared: any
 		local counted, all = backdropSweep.capture(function()
 			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-			declared = w.core:signal({ enter = "materialize", class = "object" })
-			alert = Facet.Controls.Alert(w.core, {
+			declared = Compose.cell({ enter = "materialize", class = "object" })
+			alert = harness.Controls.Alert(w.core, {
 				id = "Bound",
 				title = "Delete?",
 				actions = { { id = "ok", label = "OK" } },
@@ -591,7 +604,6 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		expect(#counted).toBe(0)
 		onlyAcknowledged(all, "/Bound/Center/Card")
 		alert.dispose()
-		declared:dispose()
 	end)
 
 	--[[ A CALLER'S OWN VALUES WIN, AND IDENTITY SURVIVES WHEN NOTHING IS OWED
@@ -609,7 +621,7 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 	it("a caller's own values win, and an untouched declaration is passed through uncloned", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
 		local function presented(id: string, declared: any): any
-			local alert = Facet.Controls.Alert(w.core, {
+			local alert = harness.Controls.Alert(w.core, {
 				id = id,
 				title = "Delete?",
 				actions = { { id = "ok", label = "OK" } },
@@ -638,17 +650,16 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		expect(merged.scale).toBe(1.015)
 		expect(partial.scale).toBeNil() -- the caller's own table is not written to
 
-		local declared = w.core:signal({ enter = "materialize", plate = "fades", scale = 0.9 })
-		local bound = Facet.Controls.Alert(w.core, {
+		local declared = Compose.cell({ enter = "materialize", plate = "fades", scale = 0.9 })
+		local bound = harness.Controls.Alert(w.core, {
 			id = "OwnBound",
 			title = "Delete?",
 			actions = { { id = "ok", label = "OK" } },
 			transition = declared,
 		})
 		local boundHandle = bound.present(w.pres)
-		expect(boundHandle.transition:get()).toBe(declared:get())
+		expect(boundHandle.transition:peek()).toBe(declared:peek())
 		bound.dispose()
-		declared:dispose()
 	end)
 
 	it("Controls.Menu — Popup → Panel", function()
@@ -656,7 +667,7 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		local control: any
 		local counted, all = backdropSweep.capture(function()
 			w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
-			control = Facet.Controls.Menu(w.core, {
+			control = harness.Controls.Menu(w.core, {
 				id = "M",
 				trigger = UI.Button({
 					id = "Trigger",
@@ -693,12 +704,12 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		local picker: any
 		local counted, all = backdropSweep.capture(function()
 			w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
-			picker = Facet.Controls.Picker(w.core, {
+			picker = harness.Controls.Picker(w.core, {
 				id = "Quality",
 				label = "Quality",
 				style = "menu",
 				env = w.env,
-				selected = w.core:signal("a"),
+				selected = Compose.cell("a"),
 				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 			})
 			w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))

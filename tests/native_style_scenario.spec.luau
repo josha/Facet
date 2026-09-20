@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Native-style scenario headless conformance (ledger NSS-A2/NSS-I2): the E3
 -- fixture (examples/gallery/scenarios/native_style.luau) mounts through the
 -- REAL presenter on the FakeTarget, and every classification INPUT the native
@@ -17,16 +18,18 @@ local adapter_source = require("./lib/adapter_source")
 local scenario = require("../examples/gallery/scenarios/native_style") :: any
 
 local function makeCtx()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	-- stub the runner-owned engine seams: headless runs assert the CALLS, not paint
 	local nativeCalls: { any } = {}
 	local ctx = {
 		Facet = Facet,
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,

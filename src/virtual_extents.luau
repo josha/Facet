@@ -14,19 +14,11 @@
 	engine, no theme. That is deliberate — this is the load-bearing half of
 	variable item extents and it is the half that is provable in a terminal.
 
-	WHY IT EXISTS. `newVirtualList` windowed by `index x pitch` for its whole life
-	(`src/controls/virtual_list.luau`). That is O(1) and exact ONLY because the
-	pitch is one number, and the price was that the CONSUMER had to predict its own
-	row's extent for every live fact the row reads — viewport, typography scale,
-	theme metrics, accessibility text preference. The widened overflow sweep
-	measured what that costs: a `row_actions` row declares 84px and measures 88 at
-	the default text preference, and 249 at `preferredTextOffset = 14` on a 320x640
-	phone (`docs/handoff/2026-08-13-rulings-needed.md` ruling 7, ruled 2026-08-13).
-	Variable extents need the other arithmetic — a PREFIX SUM, searched rather than
-	divided — and this module is it.
+	WHY IT EXISTS. Windowing by `index x pitch` is O(1) and exact only while the
+	pitch is one number. Variable extents need the other arithmetic — a PREFIX
+	SUM, searched rather than divided — and this module is both.
 
-	TWO INDEXES, ONE SHAPE, AND THE UNIFORM ONE IS UNCHANGED. `uniform` is today's
-	formulas verbatim, expressed through the same interface so the control has ONE
+	TWO INDEXES, ONE SHAPE. `uniform` is the closed-form arithmetic, expressed through the same interface so the control has ONE
 	vocabulary instead of two code paths that could drift. It allocates no table
 	and answers every query in O(1); a list that does not use variable extents pays
 	this module nothing beyond one constructor call per data change.
@@ -47,8 +39,7 @@
 	space (offset 0 = the start of the content, never the viewport). "Extent" is
 	the item's own size on that axis; "pitch" is extent + gap, i.e. the slot; the
 	gap is dead space between slots and the content carries no TRAILING gap, so N
-	slots span `sum(extent) + (N-1)*gap`. All of that is `virtual_list.luau`'s
-	existing contract, moved here rather than re-invented.
+	slots span `sum(extent) + (N-1)*gap`.
 ]]
 
 local virtual_extents = {}
@@ -76,10 +67,8 @@ export type Index = {
 	boundaryOffset: (slot: number) -> number,
 }
 
---[[ ── THE UNIFORM INDEX — today's arithmetic, unchanged ──────────────────────
-	Every line here is the formula it replaces in `virtual_list.luau`, kept in the
-	same shape so a reader can check them off against each other. Nothing is
-	allocated per item; `count` is the only thing it needs to know about the data. ]]
+-- The uniform index: closed-form, nothing allocated per item; `count` is the
+-- only thing it needs to know about the data.
 function virtual_extents.uniform(count: number, extent: number, gap: number): Index
 	local pitch = extent + gap
 	local content = if count <= 0 then 0 else count * extent + (count - 1) * gap
@@ -94,14 +83,10 @@ function virtual_extents.uniform(count: number, extent: number, gap: number): In
 			return extent
 		end,
 		window = function(top: number, viewport: number, overscan: number): (number, number)
-			--[[ THE PRE-FEATURE FORMULA, BYTE FOR BYTE. The visible COUNT comes from
-				the viewport alone and is therefore independent of where between two
-				slots the scroll sits, which at a fractional offset names one row fewer
-				than the viewport actually touches; `overscan` (default 2) has always
-				covered it. Kept exactly rather than tightened: it is the baseline every
-				shipped list, every window assertion in the suite and the perf lab's
-				instance counts were measured against, and tightening it is its own
-				change with its own before/after (`docs/plans/variable-item-extents.md`). ]]
+			-- The visible count comes from the viewport alone, so at a fractional
+			-- offset it names one row fewer than the viewport touches; `overscan`
+			-- covers it. Window assertions and perf baselines are measured against
+			-- this formula.
 			if pitch <= 0 then
 				return 1, count
 			end

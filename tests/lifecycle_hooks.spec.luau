@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	VIEW LIFECYCLE HOOKS and the SPACE-RESERVING HIDE
 	(docs/plans/parity-round3.md, item D — the completeness audit's
@@ -58,13 +59,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local schema = require("../src/blueprint_schema")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function fixed(px: number): any
 	return { type = "fixed", px = px }
@@ -228,7 +230,7 @@ describe("onAppear", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local shown = core:signal(false)
+		local shown = Compose.cell(false)
 		local log: { string } = {}
 		local controllerRef: any = nil
 		local screen = UI.Screen({
@@ -283,7 +285,7 @@ describe("onDisappear", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local shown = core:signal(true)
+		local shown = Compose.cell(true)
 		local log: { string } = {}
 		local ctrl: any = nil
 		local screen = UI.Screen({
@@ -412,7 +414,7 @@ describe("hidden — the space-reserving hide", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local shown = core:signal(false)
+		local shown = Compose.cell(false)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -466,7 +468,7 @@ describe("hidden — the space-reserving hide", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local ghost = core:signal(true)
+		local ghost = Compose.cell(true)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -498,8 +500,8 @@ describe("hidden — the space-reserving hide", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local branch = core:signal(true)
-		local ghost = core:signal(true)
+		local branch = Compose.cell(true)
+		local ghost = Compose.cell(true)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -537,7 +539,7 @@ describe("hidden — the space-reserving hide", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local ghost = core:signal(false)
+		local ghost = Compose.cell(false)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -569,7 +571,7 @@ describe("hidden — the space-reserving hide", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local ghost = core:signal(false)
+		local ghost = Compose.cell(false)
 		local taps = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -676,7 +678,7 @@ describe("hidden — the space-reserving hide", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local ghost = core:signal(false)
+		local ghost = Compose.cell(false)
 		local screen = UI.Screen({
 			id = "S",
 			children = {

@@ -1,39 +1,6 @@
 --!strict
--- AsyncImage composite: an Image whose content
--- arrives through the async resource provider — placeholder while pending,
--- the fetched content when ready, and a visible failure state when the
--- transport reports failure. Engine-free: the provider supplies state/value
--- signals; the Roblox transport (src/client/roblox_resources.luau) or a test
--- harness answers them. Stale completions never resurrect a released image
--- (provider generations; corrections addendum §12 honesty rule).
---
--- newAsyncImage(Facet, core, spec) -> { blueprint, state, handle }
---   spec = {
---     id: string,
---     scope: Scope,            -- owns the provider handle (release-on-dispose)
---     provider: Provider,       -- src/async/resources.luau provider
---     key: string,              -- content id (rbxassetid://, rbxthumb://...)
---     width/height: Dim?,       -- passed to every layer (default: the theme's image size)
---     failureLabel: string?,    -- OPT-IN failure text; absent = failure stays silent (a failed image keeps its placeholder)
---     retry: { count, delaySeconds, giveUp? }?,  -- per-call-site retry (per call site)
---     dimmed: Bound<boolean>?,  -- the dim treatment ), see below
---   }
--- state is the provider's Readable: "pending" | "ready" | "failed".
---
--- THE DIM TREATMENT (ui-designer spec §6.5). "Dimmed" is a real
--- presentation state an avatar needs — a racer who left, an entry that is not
--- eligible — and it rides the AUTHORED tint channel rather than a bespoke
--- transparency write: the image blends 35 % toward the `surface` role it sits on,
--- which is themable, contrast-checkable at both ends, and leaves the native sheet
--- uncontested. The undimmed value is the same tint at blend 0 (the identity
--- blend), so turning the state on and off never adds or removes a paint claim
--- mid-life — the node's authority is the same in both states.
---
--- FAILURE STAYS SILENT (a failed image keeps its placeholder). A failed image keeps its placeholder; there is no
--- spinner and no broken-image glyph, and `retry` does not change that — it only
--- decides how many times the transport is asked before the key is given up for
--- the session.
-
+-- A resource-backed image. The mounted owner releases the lease and bindings.
+local Compose = require("../vendor/compose/core")
 local specGuard = require("../spec_guard")
 
 local async_image = {}
@@ -53,16 +20,15 @@ local ASYNC_IMAGE_KEYS = specGuard.keySet({
 	"key",
 	"provider",
 	"retry",
-	"scope",
 	"width",
 })
 
-function async_image.build(Facet: any, core: any, spec: any)
-	specGuard.assertKnownKeys("newAsyncImage", spec, ASYNC_IMAGE_KEYS, "spec")
+local function build(Facet: any, core: any, spec: any, owner: any)
+	specGuard.assertKnownKeys("UI.AsyncImage", spec, ASYNC_IMAGE_KEYS, "spec")
 	local UI = Facet.UI
-	assert(type(spec) == "table" and type(spec.id) == "string", "newAsyncImage: spec.id required")
-	assert(spec.provider ~= nil and spec.scope ~= nil, "newAsyncImage: provider and scope required")
-	assert(type(spec.key) == "string" and spec.key ~= "", "newAsyncImage: key must be a content string")
+	assert(type(spec) == "table" and type(spec.id) == "string", "UI.AsyncImage: spec.id required")
+	assert(spec.provider ~= nil, "AsyncImage: provider required")
+	assert(type(spec.key) == "string" and spec.key ~= "", "UI.AsyncImage: key must be a content string")
 
 	-- the default square is a theme metric, so an icon-scale change reaches every
 	-- async image without a consumer edit
@@ -71,35 +37,31 @@ function async_image.build(Facet: any, core: any, spec: any)
 
 	-- retry counts and spacing are a CALL-SITE decision: an avatar in a
 	-- results list can afford two spaced attempts; a decorative badge cannot.
-	local handle =
-		spec.provider.acquire(spec.scope, spec.key, if spec.retry ~= nil then { retry = spec.retry } else nil)
+	local handle = spec.provider.acquire(owner, spec.key, if spec.retry ~= nil then { retry = spec.retry } else nil)
 
-	-- ALL FOUR MEMOS ARE SCOPE-OWNED (found by the round-2 runtime verifier:
-	-- an avatar grid churning composites leaked every memo per cycle — the same
-	-- ownership class adaptive.conditions had). spec.scope is already required;
-	-- the memos die with the composite exactly like the provider handle does.
-	local imageContent = spec.scope:own(core:memo(function(use)
+	-- The image owner holds both the lease and the derived bindings.
+	local imageContent = Compose.formula(function(use)
 		return if use(handle.state) == "ready" then use(handle.value) or "" else ""
-	end))
-	local showPlaceholder = spec.scope:own(core:memo(function(use)
+	end)
+	local showPlaceholder = Compose.formula(function(use)
 		return use(handle.state) ~= "ready"
-	end))
+	end)
 	-- FAILURE IS SILENT unless the CALLER opts into a mark (P5-F2): the default
 	-- failed state is the placeholder persisting — a complete, presentable state,
 	-- never a spinner or broken-image glyph. `failureLabel` is the deliberate
 	-- exception a call site makes for itself.
 	local showFailure = if spec.failureLabel == nil
 		then nil
-		else spec.scope:own(core:memo(function(use)
+		else Compose.formula(function(use)
 			return use(handle.state) == "failed"
-		end))
+		end)
 	local dimmed = spec.dimmed
 	local tint: any = nil
 	if dimmed ~= nil then
 		if Facet.UI.isReadable(dimmed) then
-			tint = spec.scope:own(core:memo(function(use)
+			tint = Compose.formula(function(use)
 				return if use(dimmed) == true then DIM_TINT else PLAIN_TINT
-			end))
+			end)
 		else
 			tint = if dimmed == true then DIM_TINT else PLAIN_TINT
 		end
@@ -144,7 +106,20 @@ function async_image.build(Facet: any, core: any, spec: any)
 		blueprint = blueprint,
 		state = handle.state,
 		handle = handle,
+		dispose = owner.dispose,
 	}
 end
 
+function async_image.build(Facet: any, core: any, spec: any)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
+end
 return async_image

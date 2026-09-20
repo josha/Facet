@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ PICKER SWEEP — every style x four theme packages x four text preferences x
 	five matrix viewports (picker round, 2026-09-11). What "the picker holds up
 	everywhere" means, pinned against solved rects rather than eyeballed:
@@ -25,7 +26,7 @@ local snapshot = require("../src/themes/snapshot")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local textMetrics = require("../src/layout/text_metrics")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- the PACKAGE as well as its snapshot: the closed-surface pin below asks the
 -- package what it paints for a slot, which is a question only the package can
@@ -61,6 +62,7 @@ local MENU_FAMILY: { [string]: boolean } = { menu = true, navigationLink = true 
 -- is the documented LT-G4 gap (an option label has no `disclose` route) and is
 -- swept by the large-text matrix's own Picker fixtures, not re-litigated here.
 local fixtures = require("./fixtures/a11y_l10n_fixtures")
+local Compose = require("../src/vendor/compose/core")
 local function options(style: string): { any }
 	if style == "segmented" then
 		-- a DECLARED segmented strip is the short-word, few-option control (the
@@ -108,40 +110,42 @@ local function world(viewport: any, offset: number, theme: any)
 end
 
 local function mount(w: any, style: string)
-	local selected = w.core:signal("a")
+	local selected = Compose.cell("a")
 	local spec: any = { id = "P", label = lt.PSEUDO_ACTION, selected = selected, options = options(style) }
 	if style == "navigationLink" then
-		spec.query = w.core:signal("")
+		spec.query = Compose.cell("")
 	elseif style ~= "automatic" then
 		spec.style = style
 	end
-	local picker = Facet.Controls.Picker(w.core, spec)
-	local neighbour = UI.Button({ id = "Below", label = lt.PSEUDO_ACTION, width = UI.fill() })
-	w.present(UI.Screen({
-		id = "S",
-		padding = "m",
-		children = {
-			UI.ScrollView({
-				id = "Page",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					UI.VStack({
-						id = "Form",
-						width = UI.fill(),
-						gap = "m",
-						children = {
-							UI.Text({ id = "Title", text = lt.PSEUDO, width = UI.fill() }),
-							picker.blueprint,
-							neighbour,
-						},
-					}),
-				},
-			}),
-		},
-	}))
+	w.present(function()
+		local picker = w.UI.Picker(spec)
+		local neighbour = UI.Button({ id = "Below", label = lt.PSEUDO_ACTION, width = UI.fill() })
+		return UI.Screen({
+			id = "S",
+			padding = "m",
+			children = {
+				UI.ScrollView({
+					id = "Page",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = {
+						UI.VStack({
+							id = "Form",
+							width = UI.fill(),
+							gap = "m",
+							children = {
+								UI.Text({ id = "Title", text = lt.PSEUDO, width = UI.fill() }),
+								picker,
+								neighbour,
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end)
 	w.pres.refresh()
-	return picker, selected
+	return w.record("P"), selected
 end
 
 local function rectWithin(rect: any, vp: any): boolean
@@ -360,8 +364,8 @@ local function pinRowFit(label: string, w: any, theme: any, viewport: any, popup
 	local safeW = math.max(120, viewport.rect.w - 2 * inset)
 	-- the same two facts `text_metrics.reservedSize` takes on the live path, read
 	-- off this cell's own environment rather than assumed
-	local scale = snapshot.measureScale(w.env:get("displaySize"):get(), w.env:get("preferredTextSize"):get())
-	local offset = snapshot.textOffset(w.env:get("preferredTextOffset"):get())
+	local scale = snapshot.measureScale(w.env:get("displaySize"):peek(), w.env:get("preferredTextSize"):peek())
+	local offset = snapshot.textOffset(w.env:get("preferredTextOffset"):peek())
 	local _ = snap
 	local rows = 0
 	for _, path in w.adapter.paths() do
@@ -619,7 +623,7 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 								pinFillSpan(label, w, theme, popupRoot :: string)
 								pinNoPhantomScroll(label, w)
 							end
-							local focused = w.pres.focus.focused:get()
+							local focused = w.pres.focus.focused:peek()
 							expect(
 								`{label} focus inside the popup: {focused ~= nil and string.find(
 									focused,
@@ -630,14 +634,14 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							).toBe(`{label} focus inside the popup: true`)
 							picker.api.select("c")
 							w.pres.refresh()
-							expect(`{label} picked c: {selected:get()} open={picker.dump().open}`).toBe(
+							expect(`{label} picked c: {selected:peek()} open={picker.dump().open}`).toBe(
 								`{label} picked c: c open=false`
 							)
 							picker.api.open()
 							w.pres.refresh()
 							picker.api.close()
 							w.pres.refresh()
-							local back = w.pres.focus.focused:get()
+							local back = w.pres.focus.focused:peek()
 							expect(`{label} closed, focus back on the trigger: {back == trigger}`).toBe(
 								`{label} closed, focus back on the trigger: true`
 							)
@@ -655,14 +659,14 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							end
 							pinTrack(label, w, picker)
 							local second = suffixPath(w, "/Opt2")
-								or suffixPath(w, "/[b]/Option")
-								or suffixPath(w, "/[b]/SectionRow/Option")
+								or suffixPath(w, "/[b]/Option-b")
+								or suffixPath(w, "/[b]/SectionRow-b/Option-b")
 							expect(`{label} second option mounted: {second ~= nil}`).toBe(
 								`{label} second option mounted: true`
 							)
 							w.adapter.tap(second :: string)
 							w.pres.refresh()
-							expect(`{label} tapped b: {selected:get()}`).toBe(`{label} tapped b: b`)
+							expect(`{label} tapped b: {selected:peek()}`).toBe(`{label} tapped b: b`)
 							judge(label .. " after pick", w, "/S")
 						end
 						picker.dispose()
@@ -688,23 +692,28 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 				for _, viewport in VIEWPORTS do
 					local label = `[quality @{preference.name}(+{preference.offset}) {theme.id} {viewport.id}]`
 					local w = world(viewport, preference.offset, theme)
-					local picker = Facet.Controls.Picker(w.core, {
+					local spec = {
 						id = "Q",
 						label = "Quality",
 						style = "menu",
-						selected = w.core:signal("balanced"),
+						selected = Compose.cell("balanced"),
 						options = {
 							{ value = "performance", label = "Performance" },
 							{ value = "balanced", label = "Balanced" },
 							{ value = "fidelity", label = "Fidelity" },
 						},
-					})
-					w.present(UI.Screen({
-						id = "S",
-						padding = "m",
-						children = { UI.VStack({ id = "Form", width = UI.fill(), children = { picker.blueprint } }) },
-					}))
+					}
+					w.present(function()
+						return UI.Screen({
+							id = "S",
+							padding = "m",
+							children = {
+								UI.VStack({ id = "Form", width = UI.fill(), children = { w.UI.Picker(spec) } }),
+							},
+						})
+					end)
 					w.pres.refresh()
+					local picker = w.record("Q")
 					cells += 1
 					picker.api.open()
 					w.pres.refresh()

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE COPY-ON-WRITE RECT MAP (perf campaign P2) — the demonstrator and its oracle.
 
@@ -78,14 +79,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local solver = require("../src/layout/solver")
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
+local Compose = require("../src/vendor/compose/core")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -123,12 +125,12 @@ local function world(incremental: boolean, cache: boolean, viewport: { w: number
 	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 	local items = {}
 	for i = 1, rowCount do
-		table.insert(items, { id = `r{i}`, n = core:signal(i) })
+		table.insert(items, { id = `r{i}`, n = Compose.cell(i) })
 	end
-	local rows = core:signal(items)
-	local wide = core:signal(false)
-	local branchOn = core:signal(true)
-	local wrapWidth = core:memo(function(use: any)
+	local rows = Compose.cell(items)
+	local wide = Compose.cell(false)
+	local branchOn = Compose.cell(true)
+	local wrapWidth = Compose.formula(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
 	local bp = UI.ScrollView({
@@ -213,7 +215,7 @@ local function world(incremental: boolean, cache: boolean, viewport: { w: number
 									UI.Text({
 										id = "V",
 										textSize = 14,
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return tostring(use(item.n))
 										end),
 									}),
@@ -222,7 +224,7 @@ local function world(incremental: boolean, cache: boolean, viewport: { w: number
 										textSize = 12,
 										disclose = true,
 										width = px(40),
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return `Extraordinarily Long Identity {use(item.n)}`
 										end),
 									}),
@@ -355,7 +357,7 @@ local SCRIPT: { { name: string, run: (Arm) -> () } } = {
 		name = "structure: a row is appended (no reuse set at all)",
 		run = function(arm: Arm)
 			local next_ = table.clone(arm.items)
-			table.insert(next_, { id = "rNew", n = arm.core:signal(1234) })
+			table.insert(next_, { id = "rNew", n = Compose.cell(1234) })
 			arm.items[#arm.items + 1] = next_[#next_]
 			arm.rows:set(next_)
 		end,

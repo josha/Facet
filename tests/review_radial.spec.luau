@@ -1,5 +1,6 @@
 --!strict
 local t = require("./lib/testkit")
+local scenarioCtx = require("./lib/scenario_ctx")
 local world = require("./lib/world")
 local Facet = require("../src") :: any
 local scenario = require("../examples/gallery/scenarios/radial_menu")
@@ -11,13 +12,7 @@ t.describe("handheld character commands", function()
 				preferredInput = "Gamepad",
 				env = { viewingDistance = "near" },
 			})
-			local s = scenario.build({
-				Facet = Facet,
-				core = w.core,
-				env = w.env,
-				presenter = w.pres,
-				actionSystem = w.system,
-			})
+			local s = scenario.build(scenarioCtx.of(w))
 			w.present(s.screen, s.present)
 			s.steps.character()
 			w.settle(3)

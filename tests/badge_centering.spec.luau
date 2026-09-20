@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A BADGE'S NUMBER SITS IN THE MIDDLE OF ITS SEAL, AND THE PROOF IS TWO RECTS.
 
 	WHAT WAS REPORTED (owner, 2026-09-12, Compact Pointer): the "3" on the Inbox
@@ -48,12 +49,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local chrome_slots = require("../src/tokens/chrome_slots")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local PACKAGES: { { name: string, module: any } } = {
 	{ name = "classic_desktop", module = require("../examples/themes/classic_desktop") },
@@ -84,9 +86,9 @@ local function sealOf(metrics: any?, offset: number): (Rect, Rect)
 		themeMetrics = metrics,
 		env = { preferredTextOffset = offset },
 	})
-	local picker = Facet.Controls.Picker(w.core, {
+	local picker = harness.Controls.Picker(w.core, {
 		id = "View",
-		selected = w.core:signal("a"),
+		selected = Compose.cell("a"),
 		options = {
 			{ value = "a", label = "Pages" },
 			{ value = "b", label = "Inbox", badge = BADGE_TEXT },

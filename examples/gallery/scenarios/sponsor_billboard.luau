@@ -16,17 +16,20 @@
 -- wall-clock terminus while the ring is unmounted, which is what "render vs
 -- record" has to mean for the data not to lie.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Billboard lab (SF-W1)",
 	ledgerRows = { "SF-W1", "SF-M5", "SF-C1", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
 		local shapes = Facet.pathShapes
-		local scope = core:scope("sponsor-billboard")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
 
 		local CANVAS = { w = 320, h = 220 }
@@ -43,11 +46,11 @@ return {
 		-- wall-clock terminus, and under reduced motion the `informational` kind
 		-- quantizes its writes to 250 ms steps and still lands at zero at the same
 		-- moment (finding F10's stepped policy).
-		local fraction = scope:own(core:signal(1))
+		local fraction = Compose.cell(1)
 		local timer: any = nil
-		local timerDone = scope:own(core:signal(false))
-		local recording = scope:own(core:signal(true))
-		local rendering = scope:own(core:signal(true))
+		local timerDone = Compose.cell(false)
+		local recording = Compose.cell(true)
+		local rendering = Compose.cell(true)
 		local depleteRuns = 0
 
 		-- THE PURE PREDICATE (E1). Render is a presentation decision; recording is
@@ -57,93 +60,89 @@ return {
 			return state.recording and state.inScope
 		end
 
-		local renderScope = scope:own(core:memo(function(use)
+		local renderScope = Compose.formula(function(use)
 			return shouldRender({ recording = use(recording), inScope = use(rendering) })
-		end))
+		end)
 
-		local ringPoints = scope:own(core:memo(function(use)
+		local ringPoints = Compose.formula(function(use)
 			local value = math.clamp(use(fraction), 0, 1)
 			return shapes.arc(0, 360 * value, { segments = 8, radius = 0.86 })
-		end))
-		local caption = scope:own(core:memo(function(use)
+		end)
+		local caption = Compose.formula(function(use)
 			return string.format("omen %d%%", math.floor(use(fraction) * 100 + 0.5))
-		end))
+		end)
 
 		-- ===== the billboard blueprint ======================================
 		-- display-only: no focusables, no pointer capture (the billboard riders stay
 		-- out of scope), so nothing here is a Button and nothing is `focusable`
 		local RING: any = { type = "fixed", px = 160 }
-		local billboardBlueprint = UI.ZStack({
-			id = "Omen",
-			width = UI.fill(),
-			height = UI.fill(),
+		-- Built with the billboard application's own controls: the omen lives in
+		-- that application, not in the lab screen's.
+		local function billboardBlueprint(UI: any)
+			return UI.ZStack("Omen")({
+				width = UI.fill(),
+				height = UI.fill(),
 
-			UI.When({
-				id = "RenderScope",
-				condition = renderScope,
-				thenView = function()
-					return UI.ZStack({
-						id = "Composite",
-						canvasGroup = true,
-						width = UI.fill(),
-						height = UI.fill(),
+				UI.When("RenderScope")({
+					Compose.show(renderScope, function()
+						return UI.ZStack("Composite")({
+							canvasGroup = true,
+							width = UI.fill(),
+							height = UI.fill(),
 
-						UI.Path({
-							id = "Track",
-							points = shapes.ring({ radius = 0.86 }),
-							thickness = 4,
-							role = "secondary",
-							alignH = "center",
-							alignV = "center",
-							width = RING,
-							height = RING,
-						}),
-						UI.Path({
-							id = "Arc",
-							points = ringPoints,
-							thickness = 10,
-							role = "accent",
-							alignH = "center",
-							alignV = "center",
-							width = RING,
-							height = RING,
-						}),
-						UI.corners(
-							UI.Box({
-								id = "IconSlot",
-								surface = "accent",
+							UI.Path("Track")({
+								points = shapes.ring({ radius = 0.86 }),
+								thickness = 4,
+								role = "secondary",
 								alignH = "center",
 								alignV = "center",
-								width = { type = "fixed", px = "controlSizes.regular.height" },
-								height = { type = "fixed", px = "controlSizes.regular.height" },
+								width = RING,
+								height = RING,
 							}),
-							"pill"
-						),
-						UI.Text({
-							id = "Caption",
-							text = caption,
-							textSize = "caption",
-							textAlign = "center",
-							alignH = "center",
-							alignV = "end",
-							width = UI.fill(),
-						}),
-					})
-				end,
-			}),
-		})
+							UI.Path("Arc")({
+								points = ringPoints,
+								thickness = 10,
+								role = "accent",
+								alignH = "center",
+								alignV = "center",
+								width = RING,
+								height = RING,
+							}),
+							UI.corners(
+								UI.Box("IconSlot")({
+									surface = "accent",
+									alignH = "center",
+									alignV = "center",
+									width = { type = "fixed", px = "controlSizes.regular.height" },
+									height = { type = "fixed", px = "controlSizes.regular.height" },
+								}),
+								"pill"
+							),
+							UI.Text("Caption")({
+								text = caption,
+								textSize = "caption",
+								textAlign = "center",
+								alignH = "center",
+								alignV = "end",
+								width = UI.fill(),
+							}),
+						})
+					end),
+				}),
+			})
+		end
 
 		-- ===== the companion screen =========================================
-		local statusLine = scope:own(core:memo(function(use)
+		local statusLine = Compose.formula(function(use)
 			return string.format(
 				"omen %d%% — render:%s record:%s",
 				math.floor(use(fraction) * 100 + 0.5),
 				tostring(use(renderScope)),
 				tostring(use(recording))
 			)
-		end))
+		end)
 
-		local billboardState = scope:own(core:signal("not mounted"))
+		local billboardState = Compose.cell("not mounted")
 
 		local function seam(): any
 			return ctx.billboard
@@ -155,7 +154,7 @@ return {
 				billboardState:set("seam absent")
 				return { mounted = false, reason = "no billboard seam on this host (headless run)" }
 			end
-			local dump = api.mount({ blueprint = billboardBlueprint, canvas = CANVAS })
+			local dump = api.mount({ screen = billboardBlueprint, canvas = CANVAS })
 			billboardState:set(if dump.mounted then "mounted" else "failed")
 			note("billboard:mount", dump)
 			return dump
@@ -181,22 +180,27 @@ return {
 			timerDone:set(false)
 			depleteRuns += 1
 			fraction:set(1)
-			timer = scope:own(clock:timer({ from = 1, to = 0, duration = DEPLETE_SECONDS }))
+			timer = own(clock:timer({ from = 1, to = 0, duration = DEPLETE_SECONDS }))
 			-- the timer is a Readable; mirroring it into the fixture's own signal is
 			-- what lets the ring and the caption read one value
-			scope:own(core:observe(timer, function(value: number)
+			local running = timer
+			lifetime.watch(function(use)
+				if timer ~= running then
+					return
+				end
+				local value = use(running)
 				fraction:set(value)
 				if value <= 0 then
 					timerDone:set(true)
 				end
-			end))
+			end)
 			note("deplete:start", { duration = DEPLETE_SECONDS, kind = timer:motionKind() })
 			return { duration = DEPLETE_SECONDS, kind = timer:motionKind(), run = depleteRuns }
 		end
 
 		local result: any = {}
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			local api = seam()
 			if api ~= nil then
@@ -207,20 +211,19 @@ return {
 		end))
 
 		local function control(id: string, label: string, onActivate: () -> ())
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = onActivate,
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "BillboardLab",
-			padding = "m",
-			gap = "m",
+		local function screen()
+			return UI.Screen("BillboardLab")({
+				padding = "m",
+				gap = "m",
 
-			--[[ THE READOUTS SCROLL, AND THAT IS WHAT PUSHES THE CONTROLS DOWN
+				--[[ THE READOUTS SCROLL, AND THAT IS WHAT PUSHES THE CONTROLS DOWN
 					(O-21, measured 2026-08-15). This was a `Spacer` on `fill`, which is
 					a lane that gives its pixels back to nobody: on a 640x320 landscape
 					at +4 the three readouts plus a four-button grid ran 64px past the
@@ -230,52 +233,50 @@ return {
 					Spacer's job (it takes the leftover, so the control grid still sits
 					on the bottom edge) and its window is a place the readouts can be
 					read from rather than a place they overflow. ]]
-			UI.ScrollView({
-				id = "Readouts",
-				axis = "y",
-				gap = "m",
-				width = UI.fill(),
-				height = UI.fill(),
+				UI.ScrollView("Readouts")({
+					axis = "y",
+					gap = "m",
+					width = UI.fill(),
+					height = UI.fill(),
 
-				UI.Text({ id = "Title", text = "Billboard lab", textSize = "heading" }),
-				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-				UI.Text({
-					id = "BillboardState",
-					text = billboardState,
-					textSize = "caption",
-					role = "secondary",
+					UI.Text("Title")({ text = "Billboard lab", textSize = "heading" }),
+					UI.Text("Status")({ text = statusLine, textSize = "caption", role = "secondary" }),
+					UI.Text("BillboardState")({
+						text = billboardState,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-			}),
-			UI.Grid({
-				id = "Controls",
-				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-				-- lets the WIDEST verb decide every column, so one long label costs this lab a
-				-- whole column on a 320px phone: the control grid doubles in height and the
-				-- `fill` stage column above it collapses to zero. This number asks the other
-				-- question — how many controls fit a row — and lets a long label compact.
-				minColumnWidth = 104,
-				gap = "s",
-				rowGap = "s",
-				width = UI.fill(),
+				UI.Grid("Controls")({
+					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+					-- lets the WIDEST verb decide every column, so one long label costs this lab a
+					-- whole column on a 320px phone: the control grid doubles in height and the
+					-- `fill` stage column above it collapses to zero. This number asks the other
+					-- question — how many controls fit a row — and lets a long label compact.
+					minColumnWidth = 104,
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
 
-				control("BtnMount", "Mount", function()
-					mountBillboard()
-				end),
-				control("BtnDeplete", "Deplete", function()
-					startDeplete()
-				end),
-				control("BtnMove", "Move", function()
-					local api = seam()
-					if api ~= nil then
-						api.moveAnchor(3, 0, 0)
-					end
-				end),
-				control("BtnTeardown", "Teardown", function()
-					tearDownBillboard()
-				end),
-			}),
-		})
+					control("BtnMount", "Mount", function()
+						mountBillboard()
+					end),
+					control("BtnDeplete", "Deplete", function()
+						startDeplete()
+					end),
+					control("BtnMove", "Move", function()
+						local api = seam()
+						if api ~= nil then
+							api.moveAnchor(3, 0, 0)
+						end
+					end),
+					control("BtnTeardown", "Teardown", function()
+						tearDownBillboard()
+					end),
+				}),
+			})
+		end
 
 		result.screen = screen
 		result.present = {}
@@ -290,12 +291,12 @@ return {
 			end,
 			depleteRead = function()
 				return {
-					fraction = fraction:get(),
-					done = timerDone:get(),
-					arcPoints = #(ringPoints:get() :: any),
+					fraction = fraction:peek(),
+					done = timerDone:peek(),
+					arcPoints = #(ringPoints:peek() :: any),
 					kind = if timer ~= nil then timer:motionKind() else nil,
 					reducedForm = if timer ~= nil then timer:reducedForm() else nil,
-					motionPolicy = env:get("motionPolicy"):get(),
+					motionPolicy = env:get("motionPolicy"):peek(),
 				}
 			end,
 			-- the world anchor moves and the billboard tracks it (engine-owned; the
@@ -312,11 +313,11 @@ return {
 			-- SF-W1's pure half: the render-vs-record predicate. Recording never
 			-- stops; only the painting does, and the ring's value keeps its terminus.
 			scopePredicate = function()
-				local before = { fraction = fraction:get(), rendering = renderScope:get() }
+				local before = { fraction = fraction:peek(), rendering = renderScope:peek() }
 				rendering:set(false)
-				local outOfScope = { rendering = renderScope:get(), recording = recording:get() }
+				local outOfScope = { rendering = renderScope:peek(), recording = recording:peek() }
 				rendering:set(true)
-				local restored = { rendering = renderScope:get(), fraction = fraction:get() }
+				local restored = { rendering = renderScope:peek(), fraction = fraction:peek() }
 				note("scopePredicate", { before = before, outOfScope = outOfScope, restored = restored })
 				return {
 					before = before,
@@ -333,7 +334,7 @@ return {
 			end,
 			setRecording = function(_built: any, payload: string?)
 				recording:set(payload ~= "false")
-				return { recording = recording:get(), rendering = renderScope:get() }
+				return { recording = recording:peek(), rendering = renderScope:peek() }
 			end,
 			teardown = function()
 				return tearDownBillboard()
@@ -347,7 +348,7 @@ return {
 					return { cycles = 0, reason = "no billboard seam on this host (headless run)" }
 				end
 				for _ = 1, times do
-					api.mount({ blueprint = billboardBlueprint, canvas = CANVAS })
+					api.mount({ screen = billboardBlueprint, canvas = CANVAS })
 					api.teardown()
 				end
 				local after = api.dump()
@@ -361,26 +362,26 @@ return {
 				ledger = "SF-W1",
 				elapsed = elapsed,
 				trace = trace,
-				fraction = fraction:get(),
+				fraction = fraction:peek(),
 				depleteRuns = depleteRuns,
-				timerDone = timerDone:get(),
+				timerDone = timerDone:peek(),
 				timerKind = if timer ~= nil then timer:motionKind() else nil,
-				renderScope = renderScope:get(),
-				recording = recording:get(),
+				renderScope = renderScope:peek(),
+				recording = recording:peek(),
 				canvas = CANVAS,
 				billboard = if api ~= nil then api.dump() else { mounted = false, seam = "absent" },
-				billboardState = billboardState:get(),
-				arcPoints = #(ringPoints:get() :: any),
-				caption = caption:get(),
-				focusPath = pres.focus.focused:get(),
+				billboardState = billboardState:peek(),
+				arcPoints = #(ringPoints:peek() :: any),
+				caption = caption:peek(),
+				focusPath = pres.focus.focused:peek(),
 				-- SF-W1/F12: the billboard itself carries no focusables, so its matrix
 				-- rows assert geometry and lifecycle and mark focus-visibility N/A
 				billboardFocusables = 0,
-				reducedMotion = env:get("reducedMotion"):get(),
-				motionPolicy = env:get("motionPolicy"):get(),
+				reducedMotion = env:get("reducedMotion"):peek(),
+				motionPolicy = env:get("motionPolicy"):peek(),
 				motion = { active = clock:activeCount(), stats = clock:stats() },
-				counters = core:counters(),
-				coreError = core:lastError(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
@@ -389,7 +390,7 @@ return {
 				timer:dispose()
 				timer = nil
 			end
-			scope:dispose()
+			lifetime.dispose()
 		end
 		return result
 	end,

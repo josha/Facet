@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE Z BAND IS A FUNCTION OF THE TREE, NOT OF HISTORY (NM-H4a).
 
 	MEASURED ON THE LIVE ADAPTER, 2026-08-17, in a Studio Play session on the built
@@ -40,15 +41,15 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local function world(): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 734, h = 393 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, pres = pres, system = system }
 end
 

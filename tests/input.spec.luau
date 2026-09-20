@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- P1.5 input pipeline tests (UI-INPUT-001/003/004): the headless model must
 -- reproduce the ENGINE semantics measured in the Studio spike (T1-T6a),
 -- including the scriptable-bypasses-arbitration truth, plus focus wiring
@@ -7,9 +8,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local actionsLib = require("../src/input/actions")
 local focus_graph = require("../src/focus/focus_graph")
+local observeChange = require("../src/core/on_change")
 
 local function spikeSetup()
 	local core = customFactory.new()
@@ -99,9 +101,9 @@ describe("input: engine-mirrored arbitration (spike parity)", function()
 	it("disabling a context resets held Bool state", function()
 		local s = spikeSetup()
 		s.system.deviceKey("E", true) -- high holds E down
-		expect(s.ctxHigh.actions[1].state:get()).toBe(true)
+		expect(s.ctxHigh.actions[1].state:peek()).toBe(true)
 		s.ctxHigh.setEnabled(false)
-		expect(s.ctxHigh.actions[1].state:get()).toBe(false)
+		expect(s.ctxHigh.actions[1].state:peek()).toBe(false)
 	end)
 end)
 
@@ -134,7 +136,7 @@ describe("input: focus wiring", function()
 		local navScript = navigate.bind({ scriptable = true })
 		local activateScript = activate.bind({ scriptable = true })
 
-		core:observe(navigate.state, function(dir)
+		observeChange(core.owner, navigate.state, function(dir)
 			if dir == 1 then
 				graph.navigate(1)
 			elseif dir == -1 then
@@ -143,16 +145,16 @@ describe("input: focus wiring", function()
 		end)
 		local activated: string? = nil
 		activate.onPressed(function()
-			activated = graph.focused:get()
+			activated = graph.focused:peek()
 		end)
 
 		navScript.fire(1)
 		navScript.fire(0)
 		navScript.fire(1)
-		expect(graph.focused:get()).toBe("Save")
+		expect(graph.focused:peek()).toBe("Save")
 		navScript.fire(0)
 		navScript.fire(-1)
-		expect(graph.focused:get()).toBe("Sfx")
+		expect(graph.focused:peek()).toBe("Sfx")
 		activateScript.fire(true)
 		expect(activated).toBe("Sfx")
 	end)
@@ -160,7 +162,7 @@ end)
 
 describe("input: modifier state (Phase B)", function()
 	local actions = require("../src/input/actions")
-	local customCore = require("../src/core/custom")
+	local customCore = harness.coreFactory
 
 	it("deviceKey tracks shift and ctrl/cmd modifier state", function()
 		local core = customCore.new()
@@ -286,7 +288,7 @@ describe("input: modifier-gated bindings (Task 8b)", function()
 
 	-- Fix round 2 (platform review, MAJOR-1 — HEADLESS, independently
 	-- reproduced against the fix-round-1 commit): the key-up escape hatch
-	-- was `action.state:get() == true` — ACTION-scoped, not BINDING-scoped
+	-- was `action.state:peek() == true` — ACTION-scoped, not BINDING-scoped
 	-- — so a modified binding could re-enter candidacy on a key-up it never
 	-- actually received the matching key-down for, preempt an unmodified
 	-- sibling's own release via the higher-priority Sink context, and leave
@@ -335,10 +337,10 @@ describe("input: modifier-gated bindings (Task 8b)", function()
 		local s = shiftCollisionSetup()
 		s.system.deviceKey("LeftShift", true)
 		s.system.deviceKey("Return", true)
-		expect(s.actMenu.state:get()).toBe(true)
+		expect(s.actMenu.state:peek()).toBe(true)
 		s.system.deviceKey("LeftShift", false) -- released BEFORE Return
 		s.system.deviceKey("Return", false) -- must still reach actMenu, or its Bool sticks true
-		expect(s.actMenu.state:get()).toBe(false)
+		expect(s.actMenu.state:peek()).toBe(false)
 		-- proof it isn't stuck: the NEXT full shifted press fires again (a
 		-- stuck-true state would dedupe this second `_deliver(true)` away)
 		s.system.deviceKey("LeftShift", true)

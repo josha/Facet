@@ -12,37 +12,30 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx)
-		local Facet, core = ctx.Facet, ctx.core
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local copy = ctx.copy or COPY
-		local scope = core:scope("collapsible-demo")
-		local expanded = scope:own(core:signal(false))
-		local club = scope:own(core:signal(false))
-		local selected = scope:own(core:signal("coast"))
-		local label = scope:own(core:memo(function(use)
+		local expanded = Compose.cell(false)
+		local club = Compose.cell(false)
+		local selected = Compose.cell("coast")
+		local label = Compose.formula(function(use)
 			return if use(club) then "Club race settings" else copy.settings
-		end))
-		local icon = scope:own(core:memo(function(use)
+		end)
+		local icon = Compose.formula(function(use)
 			return if use(club) then "check" else "flag"
-		end))
-		local control = scope:own(Facet.Controls.CollapsibleView(core, {
-			id = "Settings",
-			label = label,
-			icon = icon,
-			expanded = expanded,
-			content = UI.VStack({
-				id = "SettingsContent",
+		end)
+		local function settingsContent()
+			return UI.VStack("SettingsContent")({
 				gap = "m",
 				width = UI.fill(),
 
 				UI.Text({ text = copy.settings, textSize = "heading", width = UI.fill() }),
-				UI.Toggle({ id = "Club", label = "Club membership", value = club, width = UI.fill() }),
+				UI.frame(UI.Toggle("Club")({ label = "Club membership", value = club }), { maxWidth = "infinity" }),
 				UI.Text({
 					text = "The button summary and image follow the choice in this view.",
 					width = UI.fill(),
 				}),
-			}),
-		}))
+			})
+		end
 		local tabs = {}
 		for _, key in { "coast", "forest", "summit" } do
 			table.insert(tabs, {
@@ -50,8 +43,7 @@ return {
 				label = copy[key],
 				icon = "flag",
 				content = function()
-					return UI.ScrollView({
-						id = "Course",
+					return UI.ScrollView("Course")({
 						width = UI.fill(),
 						height = UI.fill(),
 						gap = "m",
@@ -61,35 +53,42 @@ return {
 							text = "Expand the navigation button to choose a different destination. Back returns focus to the button.",
 							width = UI.fill(),
 						}),
-						UI.Button({ id = "Practice", label = "Practice this course", width = UI.fill() }),
+						UI.Button("Practice")({
+							label = "Practice this course",
+							width = UI.fill(),
+							onActivate = function() end,
+						}),
 					})
 				end,
 			})
 		end
-		local nav =
-			Facet.View.TabView({ id = "Destinations", style = "collapsible", selection = selected, tabs = tabs })
-		return {
-			screen = UI.Screen({
-				id = "CollapsibleView",
+		local function Example()
+			return UI.Screen("CollapsibleView")({
 				padding = "m",
 
-				UI.ScrollView({
-					id = "Page",
+				UI.ScrollView("Page")({
 					width = UI.fill(),
 					height = UI.fill(),
 					gap = "m",
 
 					UI.Text({ text = copy.title, textSize = "title", width = UI.fill() }),
 					UI.Text({ text = copy.intro, width = UI.fill() }),
-					control.blueprint,
-					UI.VStack({
-						id = "NavigationRegion",
+					UI.CollapsibleView("Settings")({
+						label = label,
+						icon = icon,
+						expanded = expanded,
+						content = settingsContent,
+					}),
+					UI.VStack("NavigationRegion")({
 						width = UI.fill(),
 						height = { type = "fixed", px = 420 },
-						nav,
+						UI.TabView("Destinations")({ style = "collapsible", selection = selected, tabs = tabs }),
 					}),
 				}),
-			}),
+			})
+		end
+		return {
+			screen = Example,
 			steps = {
 				open = function()
 					expanded:set(true)
@@ -116,11 +115,9 @@ return {
 				}
 			end,
 			report = function()
-				return { view = control.dump(), selection = selected:get(), club = club:get() }
+				return { expanded = expanded:peek(), selection = selected:peek(), club = club:peek() }
 			end,
-			dispose = function()
-				scope:dispose()
-			end,
+			dispose = function() end,
 		}
 	end,
 }

@@ -1,6 +1,6 @@
 -- Facet Edit Preview — durable Studio plugin (director Part-2 ws2).
--- Wraps src/client/edit_preview: renders a blueprint through the REAL Facet
--- pipeline into CoreGui during Edit, with device-profile presets.
+-- Wraps src/client/edit_preview: renders a component through a REAL Facet
+-- application into CoreGui during Edit, with device-profile presets.
 --
 -- Install: copy this file into your local Studio plugins folder
 --   Desktop: ~/Documents/Roblox/Plugins/   (restart Studio to load)
@@ -8,8 +8,8 @@
 --   * a `Facet` ModuleScript tree anywhere under ReplicatedStorage (Rojo sync
 --     or injected — the plugin finds it recursively);
 --   * optionally a `FacetPreviewEntry` ModuleScript under ReplicatedStorage
---     returning `function(Facet, core) -> Blueprint` (your screen to
---     preview); without one, a built-in sample screen renders.
+--     returning `function(app) -> node` (your screen to preview, built with
+--     `app.controls`); without one, a built-in sample screen renders.
 -- Toolbar: "Preview" toggles; "Device" cycles phone → tablet → desktop.
 
 local CoreGui = game:GetService("CoreGui")
@@ -37,25 +37,23 @@ local function findFacet()
 	return found
 end
 
-local function sampleBlueprint(Facet, core)
-	local UI = Facet.UI
-	local value = core:signal(true)
-	return UI.Screen({
-		id = "PluginSample",
-		padding = 16,
-		gap = 8,
-		children = {
-			UI.Text({ id = "Title", text = "Facet Edit Preview — sample screen", textSize = 22 }),
-			UI.Text({
-				id = "Hint",
+local function sampleComponent(Facet)
+	return function(app)
+		local UI = app.controls
+		local value = Facet.Compose.cell(true)
+		return UI.Screen("PluginSample")({
+			padding = 16,
+			gap = 8,
+			UI.Text("Title")({ text = "Facet Edit Preview — sample screen", textSize = 22 }),
+			UI.Text("Hint")({
 				text = "Provide ReplicatedStorage.FacetPreviewEntry to preview your own screen.",
 				textSize = 14,
 				role = "secondary",
 			}),
-			UI.Toggle({ id = "Sample", label = "A sample toggle", value = value }),
-			UI.Button({ id = "Sample2", label = "A sample button" }),
-		},
-	})
+			UI.Toggle("Sample")({ label = "A sample toggle", value = value }),
+			UI.Button("Sample2")({ label = "A sample button", onActivate = function() end }),
+		})
+	end
 end
 
 local function stop()
@@ -75,15 +73,15 @@ local function start()
 		local Facet = require(facetModule)
 		local edit_preview = require(facetModule:FindFirstChild("client"):FindFirstChild("edit_preview"))
 		local entryModule = ReplicatedStorage:FindFirstChild("FacetPreviewEntry")
-		local blueprint
+		local component
 		if entryModule ~= nil and entryModule:IsA("ModuleScript") then
-			blueprint = require(entryModule)
+			component = require(entryModule)
 		else
-			blueprint = sampleBlueprint
+			component = sampleComponent(Facet)
 		end
 		handle = edit_preview.start(Facet, {
 			parent = CoreGui,
-			blueprint = blueprint,
+			component = component,
 			profile = ORDER[profileIndex],
 		})
 	end)

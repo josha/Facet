@@ -58,24 +58,28 @@ local region_expand = {}
 
 -- Both explicit CollapsibleViews and automatic region disclosures retain a
 -- keyboard exit while allowing pointer/touch users to dismiss outside the plate.
-function region_expand.dismissAffordance(UI: any, button: any, policy: string?, focusVisible: any): any
+-- `button` is a node, or a builder with its `id`: the automatic policy rebuilds
+-- the control each time keyboard navigation brings it back.
+function region_expand.dismissAffordance(UI: any, button: any, policy: string?, focusVisible: any, id: string?): any
 	assert(policy == nil or policy == "always" or policy == "automatic", "dismissButton must be always | automatic")
+	local build = if type(button) == "function"
+		then button
+		else function()
+			return button
+		end
 	if policy ~= "automatic" or focusVisible == nil then
-		return button
+		return build()
 	end
 	return UI.When({
-		id = button.id .. "When",
+		id = (id or button.id) .. "When",
 		condition = focusVisible,
-		thenView = function()
-			return button
-		end,
+		thenView = build,
 	})
 end
 
 function region_expand.collapseButton(UI: any, id: string, collapse: () -> (), policy: string?, focusVisible: any): any
-	return region_expand.dismissAffordance(
-		UI,
-		UI.Button({
+	return region_expand.dismissAffordance(UI, function()
+		return UI.Button({
 			id = id,
 			label = "Collapse",
 			compactLabel = { icon = "chevron.up", prefer = true },
@@ -83,10 +87,8 @@ function region_expand.collapseButton(UI: any, id: string, collapse: () -> (), p
 			width = { type = "fill", weight = 1 },
 			height = { type = "minMax", min = "targetSizes.minimum" },
 			onActivate = collapse,
-		}),
-		policy,
-		focusVisible
-	)
+		})
+	end, policy, focusVisible, id)
 end
 
 --[[ The plate box the composition sized, and the two numbers the DECLARATION
@@ -119,7 +121,7 @@ export type Config = {
 		`UI.Composition`. The only composition-specific thing in this file was
 		`facts()`, which reads the region's row out of the last resolution dump.
 
-		`newTable`'s column collapse is the second disclosure in the framework and
+		`UI.Table`'s column collapse is the second disclosure in the framework and
 		it is not a region at all: the facts are "are any columns collapsed", and
 		the plate's width is the table's own measured content width. Handing them in
 		is what let that feature reuse this whole file rather than grow a second
@@ -130,6 +132,9 @@ export type Config = {
 		`UI.Region`. The argument is the anchor path this engine is currently
 		tracking, so a caller keyed by path needs no state of its own. ]]
 	factsOf: ((anchorPath: string?) -> Facts?)?,
+	-- true where the bound present functions take a COMPONENT: the plate is then
+	-- built under the surface's own owner instead of at the call
+	components: boolean?,
 }
 
 local function parentPath(path: string): string?
@@ -304,7 +309,10 @@ function region_expand.new(config: Config)
 			if presentModalFn == nil then
 				return nil
 			end
-			handle = (presentModalFn :: any)(config.sheetOf(focusVisible), {
+			local function sheet()
+				return config.sheetOf(focusVisible)
+			end
+			handle = (presentModalFn :: any)(if config.components then sheet else sheet(), {
 				scrim = "scrim",
 				outsideTapCancel = true,
 			})
@@ -313,7 +321,10 @@ function region_expand.new(config: Config)
 			if presentAnchoredFn == nil or regionPath == nil then
 				return nil
 			end
-			handle = (presentAnchoredFn :: any)(config.panelOf(plate, focusVisible), anchoredOpts())
+			local function panel()
+				return config.panelOf(plate, focusVisible)
+			end
+			handle = (presentAnchoredFn :: any)(if config.components then panel else panel(), anchoredOpts())
 			mode = "anchored"
 		end
 		if handle ~= nil then

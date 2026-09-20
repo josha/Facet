@@ -1,8 +1,10 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local rbx = require("@lune/roblox")
 local worldAnchor = require("../src/client/world_anchor")
+local Compose = require("../src/vendor/compose/core")
 local function fixture()
 	local scene = {}
 	local camera = { NearPlaneZ = -0.5, ViewportSize = { X = 800, Y = 600 } }
@@ -19,7 +21,7 @@ local function fixture()
 	end
 	local tick, connected = nil, false
 	local host = {
-		core = Facet.newCore(),
+		core = harness.newCore(),
 		presenter = {
 			onTick = function(fn)
 				tick, connected = fn, true
@@ -55,37 +57,37 @@ t.describe("world anchor", function()
 			{ target = part, offscreen = "retain", occlusion = true },
 			{ workspace = scene }
 		)
-		t.expect(binding.anchor:get().visible).toBe(true)
-		t.expect(binding.anchor:get().onscreen).toBe(false)
-		t.expect(binding.anchor:get().x > 800).toBe(true)
+		t.expect(binding.anchor:peek().visible).toBe(true)
+		t.expect(binding.anchor:peek().onscreen).toBe(false)
+		t.expect(binding.anchor:peek().x > 800).toBe(true)
 		part.CFrame = rbx.CFrame.new(100, 0, 10)
 		tick()
-		t.expect(binding.anchor:get().x > 400).toBe(true)
+		t.expect(binding.anchor:peek().x > 400).toBe(true)
 		hit = { Instance = {
 			IsDescendantOf = function()
 				return false
 			end,
 		} }
 		tick()
-		t.expect(binding.anchor:get().visible).toBe(false)
-		t.expect(binding.anchor:get().occluded).toBe(true)
+		t.expect(binding.anchor:peek().visible).toBe(false)
+		t.expect(binding.anchor:peek().occluded).toBe(true)
 		hit = { Instance = part }
 		tick()
-		t.expect(binding.anchor:get().visible).toBe(true)
+		t.expect(binding.anchor:peek().visible).toBe(true)
 		binding.dispose()
 	end)
 	t.it("encloses projected corners with padding and updates on the host frame", function()
 		local host, scene, part, tick = fixture()
 		local binding = worldAnchor.new(host, { target = part, padding = 0.15 }, { workspace = scene })
-		local a = binding.anchor:get()
+		local a = binding.anchor:peek()
 		t.expect(a.visible).toBe(true)
 		t.expect(a.x).toBe(400)
 		t.expect(a.y).toBe(300)
 		t.expect(math.abs(a.clearance - (math.sqrt(20 * 20 + 10 * 10) / 0.9 * 1.15)) < 0.001).toBe(true)
 		part.CFrame = rbx.CFrame.new(2, 0, -5) * rbx.CFrame.Angles(0, 0.5, 0.3)
 		tick()
-		t.expect(binding.anchor:get().x > a.x).toBe(true)
-		t.expect(binding.anchor:get().clearance > a.clearance).toBe(true)
+		t.expect(binding.anchor:peek().x > a.x).toBe(true)
+		t.expect(binding.anchor:peek().clearance > a.clearance).toBe(true)
 		binding.dispose()
 	end)
 	t.it("uses relative padding at every distance and defaults to fifteen percent", function()
@@ -101,7 +103,7 @@ t.describe("world anchor", function()
 				tick()
 				local radius = math.sqrt(200 ^ 2 + 100 ^ 2) / (distance - 1)
 				local fraction = if padding == false then 0.15 else padding
-				t.expect(math.abs(binding.anchor:get().clearance / radius - (1 + fraction)) < 0.00001).toBe(true)
+				t.expect(math.abs(binding.anchor:peek().clearance / radius - (1 + fraction)) < 0.00001).toBe(true)
 			end
 			binding.dispose()
 		end
@@ -125,18 +127,18 @@ t.describe("world anchor", function()
 		function player:IsA(name)
 			return name == "Player"
 		end
-		local target = host.core:signal(player)
+		local target = Compose.cell(player)
 		local binding = worldAnchor.new(host, { target = target }, { workspace = scene })
-		t.expect(binding.anchor:get().clearance > 0).toBe(true)
+		t.expect(binding.anchor:peek().clearance > 0).toBe(true)
 		player.Character = nil
 		tick()
-		t.expect(binding.anchor:get().visible).toBe(false)
+		t.expect(binding.anchor:peek().visible).toBe(false)
 		player.Character = model
 		tick()
-		t.expect(binding.anchor:get().visible).toBe(true)
+		t.expect(binding.anchor:peek().visible).toBe(true)
 		scene.CurrentCamera = nil
 		tick()
-		t.expect(binding.anchor:get().visible).toBe(false)
+		t.expect(binding.anchor:peek().visible).toBe(false)
 		binding.dispose()
 		binding.dispose()
 		t.expect(connected()).toBe(false)
@@ -147,12 +149,12 @@ t.describe("world anchor", function()
 		for _, cf in { rbx.CFrame.new(0, 0, -1), rbx.CFrame.new(0, 0, 10), rbx.CFrame.new(100, 0, -10) } do
 			part.CFrame = cf
 			tick()
-			t.expect(binding.anchor:get().visible).toBe(false)
+			t.expect(binding.anchor:peek().visible).toBe(false)
 		end
 		part.CFrame = rbx.CFrame.new(0, 0, -10)
 		part.live = false
 		tick()
-		t.expect(binding.anchor:get().visible).toBe(false)
+		t.expect(binding.anchor:peek().visible).toBe(false)
 		binding.dispose()
 	end)
 	t.it("validates options before allocating a frame hook", function()

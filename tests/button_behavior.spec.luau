@@ -1,12 +1,14 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 t.describe("Button behavior", function()
 	t.it("ordinary buttons allocate no inactive progress region", function()
 		local w = world.new()
-		local button = Facet.Controls.Button(w.core, { id = "B", label = "Race", onActivate = function() end })
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		local button = harness.Controls.Button(w.core, { id = "B", label = "Race", onActivate = function() end })
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		t.expect(w.adapter.node("/S/B/Busy")).toBeNil()
 		t.expect(button.dump().busy).toBe(false)
 		w.pres.dismiss(w.handle)
@@ -18,14 +20,14 @@ t.describe("Button behavior", function()
 				then nil
 				else Facet.themes.resolve((require)(`../examples/themes/{theme}`).build(Facet.themes), nil, {})
 			local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, themeMetrics = metrics })
-			local busy = w.core:signal(false)
-			local button = Facet.Controls.Button(w.core, {
+			local busy = Compose.cell(false)
+			local button = harness.Controls.Button(w.core, {
 				id = "B",
 				label = "Prepare race",
 				busy = busy,
 				onActivate = function() end,
 			})
-			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 			w.tick(0)
 			local label
 			for _, path in w.adapter.paths() do
@@ -81,7 +83,7 @@ t.describe("Button behavior", function()
 	t.it("a pending modal immediately blocks underlying repeat and shortcut activation", function()
 		local w = world.new()
 		local calls = 0
-		local button = Facet.Controls.Button(w.core, {
+		local button = harness.Controls.Button(w.core, {
 			id = "B",
 			label = "Repeat",
 			repeatDelay = 0.4,
@@ -90,14 +92,14 @@ t.describe("Button behavior", function()
 				calls += 1
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		w.tick(0)
 		w.press("Return")
 		t.expect(calls).toBe(1)
 		local modal = w.pres.presentModal(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "Modal",
-				children = { Facet.UI.Button({ id = "Confirm", label = "Confirm pending modal" }) },
+				children = { harness.UI.Button({ id = "Confirm", label = "Confirm pending modal" }) },
 			}),
 			{ revealWhenTextExact = true }
 		)
@@ -117,10 +119,10 @@ t.describe("Button behavior", function()
 	end)
 	t.it("hold repeat stops on release busy and disposal and shortcuts respect active text entry", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
-		local busy = w.core:signal(false)
-		local enabled = w.core:signal(true)
+		local busy = Compose.cell(false)
+		local enabled = Compose.cell(true)
 		local calls = 0
-		local button = Facet.Controls.Button(w.core, {
+		local button = harness.Controls.Button(w.core, {
 			id = "B",
 			label = "Increase",
 			busy = busy,
@@ -132,8 +134,8 @@ t.describe("Button behavior", function()
 				calls += 1
 			end,
 		})
-		local editor = Facet.Controls.TextInput(w.core, { id = "E", value = w.core:signal(""), multiline = true })
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint, editor.blueprint } }))
+		local editor = harness.Controls.TextInput(w.core, { id = "E", value = Compose.cell(""), multiline = true })
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint, editor.blueprint } }))
 		w.tick(0)
 		w.system.deviceKey("ButtonA", true)
 		w.tick(0.4)
@@ -172,8 +174,8 @@ t.describe("Button behavior", function()
 			registrations += 1
 			return onTick(fn)
 		end
-		local button = Facet.Controls.Button(w.core, { label = "Plain", onActivate = function() end })
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		local button = harness.Controls.Button(w.core, { label = "Plain", onActivate = function() end })
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		local mounted = registrations
 		for _ = 1, 5 do
 			w.pres.refresh()
@@ -186,7 +188,7 @@ t.describe("Button behavior", function()
 	t.it("leaving a repeated pointer hold does not consume the next shortcut", function()
 		local w = world.new()
 		local calls = 0
-		local button = Facet.Controls.Button(w.core, {
+		local button = harness.Controls.Button(w.core, {
 			id = "B",
 			label = "Repeat",
 			repeatDelay = 0.4,
@@ -195,7 +197,7 @@ t.describe("Button behavior", function()
 				calls += 1
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		w.tick(0)
 		local r = w.controller.rectOf("/S/B")
 		w.adapter.pointerDown("/S/B", r.x + 2, r.y + 2, "mouse")
@@ -211,20 +213,20 @@ t.describe("Button behavior", function()
 
 	t.it("dismissing a surface releases its button keys before the control is disposed", function()
 		local w = world.new()
-		local button = Facet.Controls.Button(w.core, {
+		local button = harness.Controls.Button(w.core, {
 			id = "Old",
 			label = "Old",
 			repeatDelay = 0.4,
 			onActivate = function() end,
 		})
-		local handle = w.present(Facet.UI.Screen({ id = "OldScreen", children = { button.blueprint } }))
+		local handle = w.present(harness.UI.Screen({ id = "OldScreen", children = { button.blueprint } }))
 		w.tick(0)
 		w.pres.dismiss(handle)
 		local calls = 0
-		w.present(Facet.UI.Screen({
+		w.present(harness.UI.Screen({
 			id = "NewScreen",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "New",
 					label = "New",
 					onActivate = function()
@@ -242,23 +244,27 @@ t.describe("Button behavior", function()
 
 	t.it("an initially busy button starts its spinner and releases it when busy ends", function()
 		local w = world.new()
-		local busy = w.core:signal(true)
-		local button = Facet.Controls.Button(w.core, {
+		local busy = Compose.cell(true)
+		local idle = harness.frameListeners(w.core)
+		local button = harness.Controls.Button(w.core, {
 			label = "Loading",
 			busy = busy,
 			onActivate = function() end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		w.tick(1)
-		t.expect(w.pres.motionClock:activeCount()).toBe(1)
+		-- the spinner's cycle is the one frame listener this screen holds
+		t.expect(harness.frameListeners(w.core) - idle).toBe(1)
 		busy:set(false)
 		w.tick(1)
-		t.expect(w.pres.motionClock:activeCount()).toBe(0)
+		t.expect(harness.frameListeners(w.core) - idle).toBe(0)
 		busy:set(true)
 		w.tick(1)
-		t.expect(w.pres.motionClock:activeCount()).toBe(1)
+		t.expect(harness.frameListeners(w.core) - idle).toBe(1)
 		w.pres.dismiss(w.handle)
 		button.dispose()
+		w.settle(60)
+		t.expect(harness.frameListeners(w.core) - idle).toBe(0)
 		t.expect(w.pres.motionClock:activeCount()).toBe(0)
 	end)
 
@@ -271,7 +277,7 @@ t.describe("Button behavior", function()
 				end,
 			} })
 			local calls = 0
-			local button = Facet.Controls.Button(w.core, {
+			local button = harness.Controls.Button(w.core, {
 				id = "B",
 				label = "Repeat",
 				repeatDelay = 0.4,
@@ -280,7 +286,7 @@ t.describe("Button behavior", function()
 					calls += 1
 				end,
 			})
-			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 			w.tick(0)
 			w.system.deviceKey(device.key, true)
 			now = 0.4
@@ -302,7 +308,7 @@ t.describe("Button behavior", function()
 	t.it("overlapping shortcut and default bindings activate one button once", function()
 		local w = world.new()
 		local calls = 0
-		local button = Facet.Controls.Button(w.core, {
+		local button = harness.Controls.Button(w.core, {
 			label = "Default",
 			shortcut = { keyCode = "Return" },
 			dialogAction = "default",
@@ -310,7 +316,7 @@ t.describe("Button behavior", function()
 				calls += 1
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		w.tick(0)
 		w.press("Return")
 		t.expect(calls).toBe(1)
@@ -320,11 +326,11 @@ t.describe("Button behavior", function()
 
 	t.it("the first eligible default in document order wins and yields while hidden or disabled", function()
 		local w = world.new()
-		local hidden = w.core:signal(false)
-		local enabled = w.core:signal(true)
+		local hidden = Compose.cell(false)
+		local enabled = Compose.cell(true)
 		local chosen = ""
 		-- Construction and lexical order deliberately differ from document order.
-		local later = Facet.Controls.Button(w.core, {
+		local later = harness.Controls.Button(w.core, {
 			id = "A",
 			label = "Later",
 			dialogAction = "default",
@@ -332,7 +338,7 @@ t.describe("Button behavior", function()
 				chosen ..= "A"
 			end,
 		})
-		local first = Facet.Controls.Button(w.core, {
+		local first = harness.Controls.Button(w.core, {
 			id = "Z",
 			label = "First",
 			dialogAction = "default",
@@ -341,10 +347,10 @@ t.describe("Button behavior", function()
 				chosen ..= "Z"
 			end,
 		})
-		w.present(Facet.UI.Screen({
+		w.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.VStack({ id = "First", hidden = hidden, children = { first.blueprint } }),
+				harness.UI.VStack({ id = "First", hidden = hidden, children = { first.blueprint } }),
 				later.blueprint,
 			},
 		}))
@@ -379,7 +385,7 @@ t.describe("Button behavior", function()
 				function()
 					local w = world.new()
 					local calls = 0
-					local button = Facet.Controls.Button(w.core, {
+					local button = harness.Controls.Button(w.core, {
 						id = "B",
 						label = "Repeat",
 						repeatDelay = 0.4,
@@ -387,7 +393,7 @@ t.describe("Button behavior", function()
 							calls += 1
 						end,
 					})
-					w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+					w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 					w.tick(0)
 					local r = w.controller.rectOf("/S/B")
 					local x, y = r.x + 2, r.y + 2
@@ -418,7 +424,7 @@ t.describe("Button behavior", function()
 		t.it("an activate kicks the root scale and it returns to 1 for free", function()
 			local w = world.new()
 			local hits = 0
-			local button = Facet.Controls.Button(w.core, {
+			local button = harness.Controls.Button(w.core, {
 				id = "Go",
 				label = "Go",
 				pop = true,
@@ -426,7 +432,7 @@ t.describe("Button behavior", function()
 					hits += 1
 				end,
 			})
-			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 			local idleActive = w.pres.motionClock:activeCount()
 			w.adapter.tap("/S/Go")
 			local peak = 1
@@ -450,7 +456,7 @@ t.describe("Button behavior", function()
 		t.it("reduced motion keeps the root scale exactly at 1", function()
 			local w = world.new({ reducedMotion = true })
 			local hits = 0
-			local button = Facet.Controls.Button(w.core, {
+			local button = harness.Controls.Button(w.core, {
 				id = "Go",
 				label = "Go",
 				pop = true,
@@ -458,7 +464,7 @@ t.describe("Button behavior", function()
 					hits += 1
 				end,
 			})
-			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 			w.adapter.tap("/S/Go")
 			for _ = 1, 10 do
 				w.pres.tick(FRAME)
@@ -473,8 +479,8 @@ t.describe("Button behavior", function()
 
 		t.it("without pop, the root never authors a transform", function()
 			local w = world.new()
-			local button = Facet.Controls.Button(w.core, { id = "Go", label = "Go", onActivate = function() end })
-			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			local button = harness.Controls.Button(w.core, { id = "Go", label = "Go", onActivate = function() end })
+			w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 			w.adapter.tap("/S/Go")
 			for _ = 1, 10 do
 				w.pres.tick(FRAME)
@@ -488,7 +494,7 @@ t.describe("Button behavior", function()
 		t.it("a held repeat pulses activate without re-kicking the pop", function()
 			local w = world.new()
 			local hits = 0
-			local button = Facet.Controls.Button(w.core, {
+			local button = harness.Controls.Button(w.core, {
 				id = "Go",
 				label = "Go",
 				pop = true,
@@ -497,7 +503,7 @@ t.describe("Button behavior", function()
 					hits += 1
 				end,
 			})
-			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 			local idleActive = w.pres.motionClock:activeCount()
 			w.tick(0)
 			w.system.deviceKey("Return", true)

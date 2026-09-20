@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ O2 — MEASURE DIRT AND ARRANGE DIRT ARE NOT THE SAME SET.
 
 	`renderer.luau`'s ancestor closure (the `else` arm beside `dirtyClosure`)
@@ -99,6 +100,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES = scene.PLATES
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
@@ -345,19 +347,19 @@ end)
 	measure half must refuse `Wrap`'s slate (its text moved) while the arrange half
 	moves it; a split that refuses neither paints the old width. Three arms, same
 	comparison as the oracle. ]]
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local function refusalWorld(measureReuse: boolean, incremental: boolean, view: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local label = core:signal("ab")
-	local dx = core:signal(0)
+	local label = Compose.cell("ab")
+	local dx = Compose.cell(0)
 	local bp = UI.Screen({
 		id = "S",
 		children = {

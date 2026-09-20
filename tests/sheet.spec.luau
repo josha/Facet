@@ -1,11 +1,13 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 local function mount(extra, facts)
 	local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true, env = facts })
-	local detent = w.core:signal("medium")
+	local detent = Compose.cell("medium")
 	local spec = {
 		id = "Sheet",
 		title = "Race details",
@@ -18,7 +20,7 @@ local function mount(extra, facts)
 	for k, v in extra or {} do
 		spec[k] = v
 	end
-	local control = Facet.Controls.Sheet(w.core, spec)
+	local control = harness.Controls.Sheet(w.core, spec)
 	w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
 	local handle = control.present(w.pres)
 	w.settle(3)
@@ -47,33 +49,33 @@ t.describe("Sheet control", function()
 		local w, c, d = mount()
 		w.adapter.tap(size)
 		w.settle(3)
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		c.dispose()
 	end)
 	t.it("Sheet touch: a touch tap/pan drives the control (device-true)", function()
 		local w, c, d = mount()
 		dragBy(w, -230, "touch")
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		c.dispose()
 	end)
 	t.it("Sheet keyboard: focus + Return drives the control", function()
 		local w, c, d, h = mount()
 		w.pres.focus.focusOn(size)
 		w.press("Return")
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		c.dispose()
 	end)
 	t.it("Sheet gamepad: focus + ButtonA drives the control", function()
 		local w, c, d, h = mount()
 		w.pres.focus.focusOn(size)
 		w.press("ButtonA")
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		c.dispose()
 	end)
 	t.it("Sheet pointer affordance: hover, direct drag, wheel channel", function()
 		local w, c, d = mount()
 		dragBy(w, -250, "pointer")
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		t.expect(w.adapter.node("/Sheet/Layer/Panel").class).toBe("ScrollView")
 		c.dispose()
 	end)
@@ -89,9 +91,9 @@ t.describe("Sheet control", function()
 		local w, c, d, h = mount()
 		w.pres.focus.focusOn(size)
 		w.press("Right")
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		w.press("Down")
-		t.expect(w.pres.focus.focused:get() == size).toBe(false)
+		t.expect(w.pres.focus.focused:peek() == size).toBe(false)
 		w.pres.focus.focusOn(close)
 		w.press("Return")
 		t.expect(c.dump().presented).toBe(false)
@@ -102,10 +104,10 @@ t.describe("Sheet control", function()
 		t.expect(c.dump().placement).toBe("center")
 		w.pres.focus.focusOn(size)
 		w.press("DPadRight")
-		t.expect(d:get()).toBe("large")
+		t.expect(d:peek()).toBe("large")
 		w.press("ButtonB")
 		t.expect(c.dump().presented).toBe(false)
-		t.expect(w.pres.focus.focused:get()).toBe("/Base/Open")
+		t.expect(w.pres.focus.focused:peek()).toBe("/Base/Open")
 		c.dispose()
 	end)
 	t.it("Sheet hot-switch: in-flight state resolves CARRY or CANCEL on a class flip", function()
@@ -116,7 +118,7 @@ t.describe("Sheet control", function()
 		w.env:set("capabilities", { gamepad = true })
 		w.settle(3)
 		t.expect(c.dump().dragging).toBe(false)
-		t.expect(d:get()).toBe("medium")
+		t.expect(d:peek()).toBe("medium")
 		c.dispose()
 	end)
 	t.it("interactive dismissal can be disabled without disabling explicit close", function()
@@ -135,19 +137,18 @@ t.describe("Sheet control", function()
 				{ detents = { "tiny" } },
 				{ detents = { "medium", "medium" } },
 				{
-					detent = w.core:memo(function()
+					detent = Compose.formula(function()
 						return "medium"
 					end),
 				},
 			}
 		do
-			local spec =
-				{ title = "Details", detent = w.core:signal("medium"), content = UI.Text({ text = "Content" }) }
+			local spec = { title = "Details", detent = Compose.cell("medium"), content = UI.Text({ text = "Content" }) }
 			for k, v in change do
 				spec[k] = v
 			end
 			t.expect(pcall(function()
-				Facet.Controls.Sheet(w.core, spec)
+				harness.Controls.Sheet(w.core, spec)
 			end)).toBe(false)
 		end
 	end)
@@ -165,9 +166,10 @@ t.describe("Sheet control", function()
 	end)
 	t.it("small detents retain usable content and reachable dismissal", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 300 }, reducedMotion = true })
-		local c = Facet.Controls.Sheet(w.core, {
+		local c = harness.Controls.Sheet(w.core, {
+			id = "Sheet",
 			title = "Details",
-			detent = w.core:signal("small"),
+			detent = Compose.cell("small"),
 			detents = { { id = "small", height = 50 } },
 			content = UI.Button({ id = "Action", label = "Continue" }),
 		})
@@ -185,14 +187,14 @@ t.describe("Sheet control", function()
 		w.settle(3)
 		w.pres.focus.focusOn(size)
 		w.press("DPadRight")
-		t.expect(w.pres.focus.focused:get()).toBe(close)
+		t.expect(w.pres.focus.focused:peek()).toBe(close)
 		c.dispose()
 	end)
 	t.it("caller content named Size does not acquire sheet adjustment", function()
 		local w, c, d = mount({ content = UI.Button({ id = "Size", label = "Player size" }) })
 		w.pres.focus.focusOn("/Sheet/Layer/Panel/Body/Size")
 		w.press("DPadRight")
-		t.expect(d:get()).toBe("medium")
+		t.expect(d:peek()).toBe("medium")
 		c.dispose()
 	end)
 
@@ -213,10 +215,10 @@ t.describe("Sheet control", function()
 	end)
 	t.it("bound presentation reopens and cleanup returns to its baseline", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 600 }, reducedMotion = false })
-		local detent = w.core:signal("medium")
-		local shown = w.core:signal(false)
-		local baseline = w.core:counters()
-		local c = Facet.Controls.Sheet(w.core, {
+		local detent = Compose.cell("medium")
+		local shown = Compose.cell(false)
+		local baseline = w.core.owner.size()
+		local c = harness.Controls.Sheet(w.core, {
 			title = "Details",
 			detent = detent,
 			isPresented = shown,
@@ -235,9 +237,9 @@ t.describe("Sheet control", function()
 		t.expect(c.dump().presented).toBe(true)
 		c.dispose()
 		w.settle(90)
-		t.expect(shown:get()).toBe(false)
-		t.expect(w.core:lastError()).toBe(nil)
-		t.expect(w.core:counters()).toEqual(baseline)
+		t.expect(shown:peek()).toBe(false)
+		t.expect(w.core.lastError()).toBe(nil)
+		t.expect(w.core.owner.size()).toEqual(baseline)
 	end)
 	t.it("canceling a stationary grab resumes the interrupted detent motion", function()
 		local w, c, d = mount()

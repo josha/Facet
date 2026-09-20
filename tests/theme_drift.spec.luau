@@ -436,6 +436,8 @@ describe("the teaching corpus spells the values the theme system already names",
 			"examples/performance/lab/rows.luau [COMPACT_CONTROLS_WIDTH COMPACT_LINE_GAP COMPACT_TEXT_BLOCK "
 				.. "ROW_GAP ROW_PADDING_HEADROOM TEXT_BLOCK]",
 			"examples/reference/p2_cartwheel/screens/plaza.luau [ORBIT_RADIUS]",
+			-- Collection extents bound preview scenes and estimate measured chat rows.
+			"examples/virtual_monitors/screens.luau [estimatedItemExtent=<literal> itemExtent=<literal>]",
 		}, "\n"))
 	end)
 

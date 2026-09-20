@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE PER-NODE PRESENTATION CHANNEL (acceptance row SF-M9).
 --
 -- The channel existed on paper before this stage: the authority manifest declared
@@ -19,14 +20,15 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
 local fake_target = require("./lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
+local Compose = require("../src/vendor/compose/core")
 
 -- the LIVE adapter as ONE text: it is three files since the 200k `Source`
 -- write-cap split (tests/lib/adapter_source names them and says why)
@@ -89,7 +91,7 @@ describe("presentation transform: composition onto the solved rect", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local label = core:signal("Row")
+		local label = Compose.cell("Row")
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -220,7 +222,7 @@ describe("presentation transform: the keep-visible root shift (SF-M9)", function
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local show = core:signal(false)
+		local show = Compose.cell(false)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -255,7 +257,7 @@ describe("presentation transform: the keep-visible root shift (SF-M9)", function
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local show = core:signal(true)
+		local show = Compose.cell(true)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -330,9 +332,9 @@ describe("presentation transparency: the declared fade group", function()
 	it("the declaration is not reactive and rejects a Signal at construction", function()
 		local core = customFactory.new()
 		local err = fails(function()
-			UI.Box({ id = "G", canvasGroup = core:signal(true) })
+			UI.Box({ id = "G", canvasGroup = Compose.cell(true) })
 		end)
-		expect(string.find(err, "does not accept a Signal/Memo", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "does not accept a Compose cell or formula", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("GroupTransparency is NOT a native-sheet-owned property (that is the whole point)", function()

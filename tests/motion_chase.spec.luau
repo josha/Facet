@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Perceptual arrival (acceptance rows SF-M2, SF-M3). Two
 -- scalar springs, one live target, and the claim that matters: arrival fires on
 -- the frame the object visually LANDS, not when the solver's epsilon trips.
@@ -12,14 +13,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 local clockLib = require("../src/motion/clock")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
 local function fixture()
 	local core = customCore.new()
-	local policy = core:signal("full")
+	local policy = Compose.cell("full")
 	local clock = clockLib.new(core, {
 		motionPolicy = policy,
 		now = function()
@@ -64,8 +66,8 @@ describe("motion chase: perceptual arrival", function()
 		expect(arrivals[1].how).toBe("radius")
 		expect(arrivals[1].targetLost).toBe(false)
 		-- the object really is on top of the target when we say it arrived
-		expect(math.abs(x:get() - 400)).toBeLessThanOrEqual(4)
-		expect(math.abs(y:get() - 300)).toBeLessThanOrEqual(4)
+		expect(math.abs(x:peek() - 400)).toBeLessThanOrEqual(4)
+		expect(math.abs(y:peek() - 300)).toBeLessThanOrEqual(4)
 
 		-- and the same flight, timed to settle instead
 		local settleFrame = stepUntil(clock, function()
@@ -150,8 +152,8 @@ describe("motion chase: perceptual arrival", function()
 		end)
 		expect(#arrivals).toBe(1)
 		expect(arrivals[1].how).toBe("radius")
-		expect(math.abs(x:get() - 120)).toBeLessThanOrEqual(4)
-		expect(math.abs(y:get() - 700)).toBeLessThanOrEqual(4)
+		expect(math.abs(x:peek() - 120)).toBeLessThanOrEqual(4)
+		expect(math.abs(y:peek() - 700)).toBeLessThanOrEqual(4)
 	end)
 
 	it("a target that keeps running is never declared arrived at a stale pixel", function()
@@ -176,14 +178,14 @@ describe("motion chase: perceptual arrival", function()
 			clock:step(FRAME)
 		end
 		expect(#arrivals).toBe(0)
-		expect(x:get()).toBeLessThan(position)
+		expect(x:peek()).toBeLessThan(position)
 		-- when it stops, the chase catches up and reports the radius honestly
 		stepUntil(clock, function()
 			return #arrivals > 0
 		end)
 		expect(#arrivals).toBe(1)
 		expect(arrivals[1].how).toBe("radius")
-		expect(math.abs(x:get() - position)).toBeLessThanOrEqual(4)
+		expect(math.abs(x:peek() - position)).toBeLessThanOrEqual(4)
 	end)
 
 	it("a vanished target resolves by SETTLE and says so (targetLost)", function()
@@ -216,8 +218,8 @@ describe("motion chase: perceptual arrival", function()
 		expect(arrivals[1].how).toBe("settle")
 		expect(arrivals[1].targetLost).toBe(true)
 		-- it parks on the last good read rather than freezing where it was
-		expect(x:get()).toBe(500)
-		expect(y:get()).toBe(500)
+		expect(x:peek()).toBe(500)
+		expect(y:peek()).toBe(500)
 	end)
 
 	it("cancel abandons the chase without an arrival event", function()
@@ -265,8 +267,8 @@ describe("motion chase: perceptual arrival", function()
 			end,
 		})
 		-- no step at all: placement and the semantic event both landed
-		expect(x:get()).toBe(400)
-		expect(y:get()).toBe(300)
+		expect(x:peek()).toBe(400)
+		expect(y:peek()).toBe(300)
 		expect(flight:isDone()).toBe(true)
 		expect(#arrivals).toBe(1)
 		expect(arrivals[1].how).toBe("radius")

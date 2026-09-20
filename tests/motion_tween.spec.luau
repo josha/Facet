@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Time-based easing: the curve registry,
 -- the tween driver behind the shared `MotionValue` handle, and the engine seam.
 --
@@ -20,7 +21,7 @@
 --     layer, because "it goes through newValue" is a claim about code, not
 --     behavior.
 --   * THE CLOCK ENTRY DOES NOT LEAK. A tween is a clock participant like any
---     other, so build/aim/settle/dispose churn must return `core:counters()` to
+--     other, so build/aim/settle/dispose churn must return `core.owner.size()` to
 --     baseline exactly as the spring cases do.
 --   * A CURVE IS A NAME. An inline spec table is refused, exactly as an inline
 --     spring params table is, and for the same drift reason.
@@ -28,9 +29,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 local clockLib = require("../src/motion/clock")
 local curves = require("../src/motion/curves")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 -- exact in binary, so accumulated elapsed lands on a duration without drift
@@ -46,7 +48,7 @@ type Fixture = {
 
 local function fixture(): Fixture
 	local core = customCore.new()
-	local policy = core:signal("full")
+	local policy = Compose.cell("full")
 	local now = 0
 	local clock = clockLib.new(core, {
 		motionPolicy = policy,
@@ -254,12 +256,12 @@ describe("clock:tween — a duration that means what it says", function()
 		-- 0.5 s at 1/64 s ticks is 32 ticks exactly
 		stepN(f.clock, 31, TICK)
 		expect(v:isSettled()).toBe(false)
-		expect(v:get() < 100).toBeTruthy()
+		expect(v:peek() < 100).toBeTruthy()
 		stepN(f.clock, 1, TICK)
 		-- the whole point of the primitive: AT the terminus on the frame the
 		-- duration elapses. A spring is still ~0.7 s from here.
 		expect(v:isSettled()).toBe(true)
-		expect(v:get()).toBe(100)
+		expect(v:peek()).toBe(100)
 	end)
 
 	it("a curve is not a straight line — quad/out is ahead of linear at the midpoint", function()
@@ -272,13 +274,13 @@ describe("clock:tween — a duration that means what it says", function()
 		a:setTarget(100)
 		b:setTarget(100)
 		stepN(f.clock, 16, TICK) -- halfway
-		expect(math.abs(a:get() - 50) < 1e-6).toBeTruthy()
+		expect(math.abs(a:peek() - 50) < 1e-6).toBeTruthy()
 		-- ease-out covers 75% of the distance in the first half
-		expect(math.abs(b:get() - 75) < 1e-6).toBeTruthy()
+		expect(math.abs(b:peek() - 75) < 1e-6).toBeTruthy()
 		-- ...and they still land together, which is what "same duration" means
 		stepN(f.clock, 16, TICK)
-		expect(a:get()).toBe(100)
-		expect(b:get()).toBe(100)
+		expect(a:peek()).toBe(100)
+		expect(b:peek()).toBe(100)
 	end)
 
 	it("a re-aim mid-flight redirects from where it IS, with no jump", function()
@@ -288,10 +290,10 @@ describe("clock:tween — a duration that means what it says", function()
 		local v = f.clock:tween(0, "half")
 		v:setTarget(100)
 		stepN(f.clock, 16, TICK)
-		local mid = v:get()
+		local mid = v:peek()
 		v:setTarget(0)
 		-- the interruptibility invariant: aiming NEVER moves the value
-		expect(v:get()).toBe(mid)
+		expect(v:peek()).toBe(mid)
 		--[[ ...AND THE FIRST PAINTED FRAME AFTER THE AIM MUST CONTINUE FROM `mid`.
 			Added because a mutation survived without it (M13, artifacts/…/mutations.md):
 			re-basing the ramp's origin on `target` instead of `current` still lands on
@@ -299,13 +301,13 @@ describe("clock:tween — a duration that means what it says", function()
 			VISIBLY JUMPS to ~97 on the frame after the interrupt. The defect lives
 			entirely in the first frame, so that is where the check has to look. ]]
 		stepN(f.clock, 1, TICK)
-		expect(v:get() < mid).toBeTruthy() -- moving toward 0...
-		expect(v:get() > mid - 10).toBeTruthy() -- ...from where it was, not from 100
+		expect(v:peek() < mid).toBeTruthy() -- moving toward 0...
+		expect(v:peek() > mid - 10).toBeTruthy() -- ...from where it was, not from 100
 		-- and it runs a FULL duration from here, so it is not back at 0 early
 		stepN(f.clock, 30, TICK)
 		expect(v:isSettled()).toBe(false)
 		stepN(f.clock, 1, TICK)
-		expect(v:get()).toBe(0)
+		expect(v:peek()).toBe(0)
 	end)
 
 	it("refuses setVelocity: a curve's speed is its shape", function()
@@ -347,9 +349,9 @@ describe("clock:tween — a duration that means what it says", function()
 			because the tempting expectation (that it lands on the calling frame) would
 			have made `clock:tween` the one primitive that writes outside the step. ]]
 		expect(v:isSettled()).toBe(true)
-		expect(v:get()).toBe(0)
+		expect(v:peek()).toBe(0)
 		stepN(f.clock, 1, TICK)
-		expect(v:get()).toBe(42)
+		expect(v:peek()).toBe(42)
 		expect(f.clock:activeCount()).toBe(0)
 	end)
 
@@ -374,7 +376,7 @@ describe("clock:tween — a duration that means what it says", function()
 		local fires, seen = 0, -1
 		v:onSettle(function()
 			fires += 1
-			seen = v:get()
+			seen = v:peek()
 		end)
 		v:setTarget(100)
 		stepN(f.clock, 40, TICK)
@@ -392,7 +394,7 @@ describe("clock:tween — a duration that means what it says", function()
 		-- a tween owes a wall-clock terminus and must be DONE.
 		f.clock:step(0.6)
 		expect(v:isSettled()).toBe(true)
-		expect(v:get()).toBe(100)
+		expect(v:peek()).toBe(100)
 	end)
 
 	it("refuses an unknown curve, an inline spec, and a non-finite initial", function()
@@ -431,7 +433,7 @@ describe("clock:tween — reduced motion is inherited, not re-decided", function
 		v:setTarget(100)
 		-- no step at all: the write and the event land on the calling frame, so
 		-- RM parity never depends on a driver being attached
-		expect(v:get()).toBe(100)
+		expect(v:peek()).toBe(100)
 		expect(fires).toBe(1)
 	end)
 
@@ -443,15 +445,15 @@ describe("clock:tween — reduced motion is inherited, not re-decided", function
 		local v = f.clock:tween(0, "sweep", { kind = "informational", quantum = 0.25 })
 		v:setTarget(100)
 		-- it did NOT jump: the information (how much time is left) survives
-		expect(v:get()).toBe(0)
+		expect(v:peek()).toBe(0)
 		f.advance(0.1)
-		expect(v:get()).toBe(0) -- inside the quantum: no write yet
+		expect(v:peek()).toBe(0) -- inside the quantum: no write yet
 		f.advance(0.2)
-		expect(v:get() > 0).toBeTruthy() -- the 250 ms tick landed
-		expect(v:get() < 100).toBeTruthy()
+		expect(v:peek() > 0).toBeTruthy() -- the 250 ms tick landed
+		expect(v:peek() < 100).toBeTruthy()
 		f.advance(1.0)
 		-- and the terminal write ALWAYS lands, on time
-		expect(v:get()).toBe(100)
+		expect(v:peek()).toBe(100)
 		expect(v:isSettled()).toBe(true)
 	end)
 
@@ -471,7 +473,7 @@ describe("clock:tween — reduced motion is inherited, not re-decided", function
 		stepN(reduced.clock, 64, TICK)
 		local reducedWrites = reduced.clock:stats().writes
 
-		expect(a:get()).toBe(b:get()) -- same terminus: nothing was deleted
+		expect(a:peek()).toBe(b:peek()) -- same terminus: nothing was deleted
 		expect(reducedWrites < fullWrites).toBeTruthy()
 		expect(reducedWrites <= 6).toBeTruthy() -- ~4 quanta plus the terminal write
 	end)
@@ -482,25 +484,27 @@ describe("clock:tween — the clock entry cannot leak", function()
 		curves.reset()
 		curves.registerCurve("half", { duration = 0.5, style = "linear" })
 		local core = customCore.new()
-		local baseline = core:counters()
-		local scope = core:scope("surface")
+		local baseline = core.owner.size()
+		local scope = core.owner.createChild()
 		local clock = clockLib.new(core, {
 			now = function()
 				return 0
 			end,
 		})
-		scope:own(clock)
+		scope.own(function()
+			clock:dispose()
+		end)
 		clock:tween(0, "half"):setTarget(5)
 		scope:dispose()
 		expect(clock:isDisposed()).toBe(true)
-		expect(core:counters()).toEqual(baseline)
+		expect(core.owner.size()).toEqual(baseline)
 	end)
 
 	it("build/aim/settle/dispose churn returns the graph to baseline", function()
 		curves.reset()
 		curves.registerCurve("quick", { duration = 0.1, style = "quad" })
 		local core = customCore.new()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		for _ = 1, 50 do
 			local clock = clockLib.new(core, {
 				now = function()
@@ -512,8 +516,8 @@ describe("clock:tween — the clock entry cannot leak", function()
 			stepN(clock, 10, FRAME)
 			clock:dispose()
 		end
-		expect(core:counters()).toEqual(baseline)
-		expect(core:lastError()).toBe(nil)
+		expect(core.owner.size()).toEqual(baseline)
+		expect(core.lastError()).toBe(nil)
 	end)
 
 	it("a disposed clock refuses to build a tween rather than leaking one", function()
@@ -553,7 +557,7 @@ describe("clock:setEasing — the engine owns the curve", function()
 		-- the installed evaluator DECIDED the shape: quad/out would read 75 here,
 		-- the linear stand-in reads 50. If this were still the pure twin the
 		-- installation would be decoration.
-		expect(math.abs(v:get() - 50) < 1e-6).toBeTruthy()
+		expect(math.abs(v:peek() - 50) < 1e-6).toBeTruthy()
 	end)
 
 	it("is read per evaluation, so a bind upgrades values built before it", function()
@@ -566,7 +570,7 @@ describe("clock:setEasing — the engine owns the curve", function()
 		end)
 		v:setTarget(100)
 		stepN(f.clock, 16, TICK)
-		expect(math.abs(v:get() - 50) < 1e-6).toBeTruthy()
+		expect(math.abs(v:peek() - 50) < 1e-6).toBeTruthy()
 	end)
 
 	it("refuses a non-function rather than failing on the first frame of motion", function()

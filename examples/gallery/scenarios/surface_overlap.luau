@@ -76,55 +76,52 @@ return {
 	copy = COPY,
 	declarations = DECLARATIONS,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local presenter = ctx.presenter
-		local scope = core:scope("surface-overlap")
+		local UI, Compose = ctx.UI, ctx.Compose
+		local app = ctx.app
 
-		local mode = scope:own(core:signal("layered"))
-		local declaration = scope:own(core:signal(DECLARATIONS.layered))
-		local findings = scope:own(core:signal(COPY.quiet))
-		local probeHidden = scope:own(core:signal(false))
+		local mode = Compose.cell("layered")
+		local declaration = Compose.cell(DECLARATIONS.layered)
+		local findings = Compose.cell(COPY.quiet)
+		local probeHidden = Compose.cell(false)
 
 		-- THE PROBE SURFACE. A small plate hard against the top-left of the
 		-- screen — 16px in, which is where the director's real one was.
 		local function probeScreen(): any
-			return UI.Screen({
-				id = "SurfaceOverlapProbe",
+			return UI.Screen("SurfaceOverlapProbe")({
 				padding = "m",
 
-				UI.VStack({
-					id = "Plate",
+				UI.VStack("Plate")({
 					surface = "control",
 					padding = "s",
 					gap = "xs",
 					hidden = probeHidden,
 
-					UI.Text({ id = "Label", text = COPY.probe, textSize = "caption" }),
-					UI.Text({ id = "Hint", text = COPY.probeHint, textSize = "caption", role = "secondary" }),
+					UI.Text("Label")({ text = COPY.probe, textSize = "caption" }),
+					UI.Text("Hint")({ text = COPY.probeHint, textSize = "caption", role = "secondary" }),
 				}),
 			})
 		end
 
 		local probeHandle: any = nil
+		local closeProbe: (() -> ())? = nil
 
 		-- SCOPE-OWNED, ON EVERY PATH. `dispose` below runs it, and it runs before
 		-- every re-present, so no state of this fixture can leave two probes on
 		-- screen — which is the defect the fixture is about.
 		local function dropProbe()
-			if probeHandle ~= nil and presenter ~= nil then
-				presenter.dismiss(probeHandle)
+			if closeProbe ~= nil then
+				closeProbe()
 			end
-			probeHandle = nil
+			closeProbe, probeHandle = nil, nil
 		end
 
 		local function raiseProbe(edgeToEdge: boolean, layered: boolean)
 			dropProbe()
-			if presenter == nil then
+			if app == nil then
 				return
 			end
-			probeHandle = presenter.present(probeScreen(), {
+			local _
+			closeProbe, _, probeHandle = app.mount(probeScreen, {
 				-- passive: a second base surface shares ONE focus graph with the
 				-- screen behind it, and a debug overlay must never take the Tab ring
 				responder = "passive",
@@ -132,7 +129,7 @@ return {
 			})
 			if layered then
 				-- the band above, which is the declaration itself
-				probeHandle.controller.setDisplayOrder(presenter.SURFACE_LAYER.toast + 100)
+				probeHandle.controller.setDisplayOrder(ctx.presenter.SURFACE_LAYER.toast + 100)
 			end
 		end
 
@@ -149,7 +146,7 @@ return {
 				end
 			end
 			if #lines == 0 then
-				findings:set(if probeHidden:get() then COPY.quietHidden else COPY.quiet)
+				findings:set(if probeHidden:peek() then COPY.quietHidden else COPY.quiet)
 			else
 				findings:set(table.concat(lines, "\n"))
 			end
@@ -165,82 +162,66 @@ return {
 
 		choose("layered")
 
-		local function pick(id: string, label: string, value: string): any
-			return UI.Button({
-				id = id,
-				label = label,
-				surface = "chip",
-				selected = scope:own(core:memo(function(use)
-					return use(mode) == value
-				end)),
-				onActivate = function()
-					choose(value)
-				end,
+		local function screen()
+			return UI.Screen("SurfaceOverlap")({
+				padding = 12,
+				gap = "s",
+
+				-- the page scrolls for the reason every fixture here does: a title,
+				-- a control row and two readouts do not fit the ~200px a 640x320
+				-- landscape phone has left once the showcase reserves its chip strip
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					UI.Text("PickLabel")({ text = COPY.pick, textSize = "caption" }),
+					-- one value among four, so the choice is a picker
+					UI.Picker("Picks")({
+						label = COPY.pick,
+						selected = mode,
+						style = "segmented",
+						options = {
+							{ value = "layered", label = COPY.layered },
+							{ value = "decoration", label = COPY.decoration },
+							{ value = "undeclared", label = COPY.undeclared },
+							{ value = "invisible", label = COPY.invisible },
+						},
+						onChange = choose,
+					}),
+					UI.VStack("State")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.Text("StateTitle")({ text = COPY.stateTitle, textSize = "caption" }),
+						UI.Text("Declaration")({
+							text = declaration,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+					UI.VStack("Findings")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.Text("FindingsTitle")({ text = COPY.findingsTitle, textSize = "caption" }),
+						UI.Text("FindingsBody")({
+							text = findings,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+					UI.Text("Note")({ text = COPY.note, textSize = "caption", role = "secondary" }),
+				}),
 			})
 		end
-
-		local screen = UI.Screen({
-			id = "SurfaceOverlap",
-			padding = 12,
-			gap = "s",
-
-			-- the page scrolls for the reason every fixture here does: a title,
-			-- a control row and two readouts do not fit the ~200px a 640x320
-			-- landscape phone has left once the showcase reserves its chip strip
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "PickLabel", text = COPY.pick, textSize = "caption" }),
-				UI.HStack({
-					id = "Picks",
-					gap = "tight",
-					wrap = true,
-					width = UI.fill(),
-
-					pick("Layered", COPY.layered, "layered"),
-					pick("Decoration", COPY.decoration, "decoration"),
-					pick("Undeclared", COPY.undeclared, "undeclared"),
-					pick("Invisible", COPY.invisible, "invisible"),
-				}),
-				UI.VStack({
-					id = "State",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
-
-					UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
-					UI.Text({
-						id = "Declaration",
-						text = declaration,
-						textSize = "caption",
-						role = "secondary",
-					}),
-				}),
-				UI.VStack({
-					id = "Findings",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
-
-					UI.Text({ id = "FindingsTitle", text = COPY.findingsTitle, textSize = "caption" }),
-					UI.Text({
-						id = "FindingsBody",
-						text = findings,
-						textSize = "caption",
-						role = "secondary",
-					}),
-				}),
-				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-			}),
-		})
 
 		return {
 			screen = screen,
@@ -252,27 +233,26 @@ return {
 				-- one step, taking the same four values the four buttons do
 				declare = function(_built: any, payload: string?)
 					choose(payload or "layered")
-					return { mode = mode:get() }
+					return { mode = mode:peek() }
 				end,
 				-- re-read after the host has settled a frame (a `hidden` swing needs
 				-- the solve that retires the rect before the union can shrink)
 				reread = function()
 					readFindings()
-					return { findings = findings:get() }
+					return { findings = findings:peek() }
 				end,
 			},
 
 			report = function()
 				return {
-					mode = mode:get(),
-					declaration = declaration:get(),
-					findings = findings:get(),
+					mode = mode:peek(),
+					declaration = declaration:peek(),
+					findings = findings:peek(),
 				}
 			end,
 
 			dispose = function()
 				dropProbe()
-				scope:dispose()
 			end,
 		}
 	end,

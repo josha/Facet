@@ -175,7 +175,7 @@ local function tableAfter(lines: { string }, marker: string): { { string } }?
 	return rows
 end
 
--- `src/core/` -> "core"; `src/mount.luau` -> "mount". Anything else -> nil.
+-- `src/core/` -> "core"; `src/paths.luau` -> "paths". Anything else -> nil.
 local function topEntryOf(path: string): string?
 	local rest = string.match(path, "^src/(.+)$")
 	if rest == nil then

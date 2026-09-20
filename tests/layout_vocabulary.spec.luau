@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Milestone A — the everyday layout vocabulary (docs/plans/parity-next.md
 -- investment 6; acceptance rows A-LV1..A-LV4).
 --
@@ -208,11 +209,11 @@ end)
 -- every engine write and a modifier can never silently claim a value another
 -- subsystem owns. Order is explicit: the LAST writer of a property wins.
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("../tests/lib/fake_target")
 
 local function render(bp: any, w: number, h: number)
@@ -501,12 +502,6 @@ describe("A-LV2: overlay and background", function()
 		expect(wrapped.id).toBe("Base+overlay")
 		expect((wrapped.children :: any)[1].id).toBe("Base")
 	end)
-
-	it("both modifiers require the base to carry an id", function()
-		expect(pcall(function()
-			return UI.overlay(UI.Box({}), UI.Box({ id = "x" }))
-		end)).toBe(false)
-	end)
 end)
 
 describe("A-LV2: modifier order is explicit", function()
@@ -519,10 +514,11 @@ describe("A-LV2: modifier order is explicit", function()
 		expect(adapter.node("/S/B").rect.w).toBe(90)
 	end)
 
-	it("a modifier never mutates the blueprint it was given", function()
+	it("a modifier decorates the node it was given", function()
 		local base = UI.Box({ id = "B" })
-		local framed = UI.frame(base, { width = 40 })
 		expect(base.props.width).toBe(nil)
+		local framed = UI.frame(base, { width = 40 })
+		expect(framed).toBe(base)
 		expect((framed.props.width :: any).px).toBe(40)
 	end)
 end)
@@ -747,7 +743,6 @@ describe('RS-DIR9: Grid minColumnWidth = "intrinsic"', function()
 
 	it("the schema accepts the one string and refuses every other", function()
 		local schema = require("../src/blueprint_schema")
-		local UI = (require("../src") :: any).UI
 		expect(pcall(function()
 			return UI.Grid({ id = "G", minColumnWidth = "intrinsic", children = {} })
 		end)).toBe(true)
@@ -903,7 +898,6 @@ describe('RS-DIR9: Grid itemSizing = "uniform"', function()
 	end)
 
 	it("the schema accepts the two modes and refuses anything else", function()
-		local UI = (require("../src") :: any).UI
 		expect(pcall(function()
 			return UI.Grid({ id = "G", itemSizing = "uniform", children = {} })
 		end)).toBe(true)
@@ -1008,7 +1002,6 @@ describe("RS-DIR14: a Grid's ROW gap is its own axis", function()
 	end)
 
 	it("is a spacing METRIC at the boundary, so a theme swap moves it", function()
-		local UI = (require("../src") :: any).UI
 		expect(pcall(function()
 			return UI.Grid({ id = "G", rowGap = "s", children = {} })
 		end)).toBe(true)

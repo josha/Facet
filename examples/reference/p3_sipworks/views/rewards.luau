@@ -16,7 +16,6 @@ local rewardsView = {}
 
 function rewardsView.card(app: any, opts: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local rewards = app.services.rewards
 	local compact = (opts or {}).compact == true
@@ -26,7 +25,7 @@ function rewardsView.card(app: any, opts: any): any
 	-- the box (the solver reported a 14px overflow). The box now composes the
 	-- environment's own additive preferred-text reservation, exactly as a Table
 	-- row does, instead of clipping a letter.
-	local sealBox = app.own(core:memo(function(use)
+	local sealBox = app.own(app.Compose.formula(function(use)
 		if app.env == nil then
 			return dims.fixed(`app.sip.{sealName}`)
 		end
@@ -57,20 +56,19 @@ function rewardsView.card(app: any, opts: any): any
 	local cells: { any } = {}
 	for slot = 1, rewardsService.THRESHOLD do
 		local index = slot
-		local filled = app.own(core:memo(function(use)
+		local filled = app.own(app.Compose.formula(function(use)
 			return use(rewards.earned) - use(rewards.spent) >= index
 		end))
 		-- the pop's own value: 0 while a newly-earned seal waits for its beat,
 		-- 1 once it has landed. Bound to the mark's TINT, so the arrival is a
 		-- fade the solver never sees (see the report's deviation note).
 		local pop = app.state.sealPops[index]
-		local markTint = app.own(core:memo(function(use)
-			return { role = artContent.SEAL_ROLE, blend = use(pop) }
+		local markTint = app.own(app.Compose.formula(function(use)
+			return { role = artContent.SEAL_ROLE, blend = math.clamp(use(pop), 0, 1) }
 		end))
 		table.insert(
 			cells,
-			UI.ZStack({
-				id = "Cell" .. index,
+			UI.ZStack("Cell" .. index)({
 				width = sealBox,
 				height = sealBox,
 				alignH = "center",
@@ -78,27 +76,23 @@ function rewardsView.card(app: any, opts: any): any
 
 				-- the empty slot is a RING: unstamped and stamped differ in
 				-- form, not only in colour
-				UI.Box({
-					id = "Ring",
+				UI.Box("Ring")({
 					width = dims.fill,
 					height = dims.fill,
 					corners = UI.cornersData("pill"),
 					stroke = UI.strokeData({}),
 				}),
-				UI.When({
-					id = "Stamped" .. index,
+				app.when("Stamped" .. index)({
 					condition = filled,
 					thenView = function()
-						return UI.ZStack({
-							id = "Seal",
+						return UI.ZStack("Seal")({
 							canvasGroup = true,
 							width = dims.fill,
 							height = dims.fill,
 							alignH = "center",
 							alignV = "center",
 
-							UI.Text({
-								id = "Mark",
+							UI.Text("Mark")({
 								text = artContent.SEAL_MARK,
 								textSize = "title",
 								textAlign = "center",
@@ -112,20 +106,17 @@ function rewardsView.card(app: any, opts: any): any
 	end
 
 	local children: { any } = {
-		UI.Text({ id = "Title", text = app.text("rewards.title"), textSize = "heading" }),
-		UI.Grid({
-			id = "Seals",
+		UI.Text("Title")({ text = app.text("rewards.title"), textSize = "heading" }),
+		UI.Grid("Seals")(app.withChildren({
 			columns = 5,
 			gap = if compact then "xs" else "s",
 			itemSizing = "uniform",
-			children = cells,
-		}),
+		}, cells)),
 	}
 	if not compact then
 		table.insert(
 			children,
-			UI.Text({
-				id = "Away",
+			UI.Text("Away")({
 				-- the plural fixture: zero / one / other, picked by the service
 				text = app.text("rewards.away", function(use)
 					local unspent = use(rewards.earned) - use(rewards.spent)
@@ -139,8 +130,7 @@ function rewardsView.card(app: any, opts: any): any
 		)
 		table.insert(
 			children,
-			UI.Text({
-				id = "Progress",
+			UI.Text("Progress")({
 				text = app.text("rewards.progress", function(use)
 					return { n = math.clamp(use(rewards.earned) - use(rewards.spent), 0, rewardsService.THRESHOLD) }
 				end),
@@ -150,8 +140,7 @@ function rewardsView.card(app: any, opts: any): any
 		)
 	end
 
-	return UI.VStack({
-		id = (opts or {}).id or "RewardsCard",
+	return UI.VStack((opts or {}).id or "RewardsCard")(app.withChildren({
 		surface = "raised",
 		corners = UI.cornersData("panel"),
 		stroke = UI.strokeData({}),
@@ -159,20 +148,17 @@ function rewardsView.card(app: any, opts: any): any
 		gap = if compact then "xs" else "s",
 		align = "center",
 		width = dims.fill,
-		children = children,
-	})
+	}, children))
 end
 
 -- the modal wrapper (the sidebar Pocket's presentation). The card itself sits
 -- over the ambient steam backdrop; nothing on it is interactive except Done.
 function rewardsView.modal(app: any): any
 	local UI = app.UI
-	return UI.Screen({
-		id = "Rewards",
+	return UI.Screen("Rewards")({
 		padding = "m",
 
-		UI.ZStack({
-			id = "Body",
+		UI.ZStack("Body")({
 			canvasGroup = true,
 			width = dims.fill,
 			height = dims.fill,
@@ -184,27 +170,26 @@ function rewardsView.modal(app: any): any
 			-- scroller still measures its own content, so the card would
 			-- have pushed the modal past the viewport at the largest text
 			-- preference (measured at 640x320)
-			UI.ScrollView({
-				id = "PanelScroll",
+			UI.ScrollView("PanelScroll")({
 				axis = "y",
 				width = dims.percentMax(0.92, "app.sip.cardW"),
 				height = dims.percent(0.95),
 
-				UI.VStack({
-					id = "Panel",
+				UI.VStack("Panel")({
 					gap = "m",
 					align = "center",
 					width = dims.fill,
 
 					rewardsView.card(app, { compact = false }),
-					UI.Button({
-						id = "Done",
-						label = app.text("common.done"),
-						corners = UI.cornersData("pill"),
-						onActivate = function()
-							app.commands.dismissRewards()
-						end,
-					}),
+					UI.corners(
+						UI.Button("Done")({
+							label = app.text("common.done"),
+							onActivate = function()
+								app.commands.dismissRewards()
+							end,
+						}),
+						UI.cornersData("pill")
+					),
 				}),
 			}),
 		}),

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE LAZY GRID, SIDEWAYS — `newVirtualGrid { axis = "x" }`.
 
@@ -46,7 +47,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_grid = require("../src/controls/virtual_grid")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local CROSS = 320 -- the strip's height: the axis the lanes divide
 local LANES = 4
@@ -67,13 +69,13 @@ end
 	instruction `newVirtualList` gives for its own horizontal mode. ]]
 local function world(opts: any?)
 	local options: any = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local items = core:signal(options.items or makeItems(options.count or 400))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local items = Compose.cell(options.items or makeItems(options.count or 400))
 	local built = 0
 	local activations: { any } = {}
 	local grid = virtual_grid.build(Facet, core, {
@@ -91,18 +93,18 @@ local function world(opts: any?)
 		overscan = options.overscan,
 		cell = function(item: any)
 			built += 1
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
 		end,
 	})
-	local screen = Facet.UI.Screen({
+	local screen = harness.UI.Screen({
 		id = "S",
 		padding = 0,
 		gap = 0,
 		children = {
-			Facet.UI.VStack({
+			harness.UI.VStack({
 				id = "Wrap",
 				padding = 0,
 				gap = 0,
@@ -155,12 +157,12 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 	end)
 
 	it("...and an axis that is neither is still refused, naming the legal pair", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return virtual_grid.build(Facet, core, {
 				id = "HG",
 				axis = "diagonal",
-				items = core:signal(makeItems(4)),
+				items = Compose.cell(makeItems(4)),
 				key = function(i: any)
 					return i.id
 				end,
@@ -168,7 +170,7 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 				itemExtent = 40,
 				viewportExtent = 200,
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x" })
+					return harness.UI.Text({ id = "L", text = "x" })
 				end,
 			})
 		end)
@@ -182,12 +184,12 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 		declares — so accepting both would be two answers to one dim. Same refusal,
 		same reason, as `newVirtualList`'s. ]]
 	it("`width` is refused on the horizontal axis, and the message names the route", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return virtual_grid.build(Facet, core, {
 				id = "HG",
 				axis = "x",
-				items = core:signal(makeItems(4)),
+				items = Compose.cell(makeItems(4)),
 				key = function(i: any)
 					return i.id
 				end,
@@ -196,7 +198,7 @@ describe("VirtualHGrid: the axis the control used to refuse", function()
 				viewportExtent = 200,
 				width = { type = "fixed", px = 300 },
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x" })
+					return harness.UI.Text({ id = "L", text = "x" })
 				end,
 			})
 		end)
@@ -255,27 +257,27 @@ describe("VirtualHGrid: the mounted band's lanes are the flow grid's own arithme
 			grown its own `floor((innerH - gap * (lanes - 1)) / lanes)`; comparing
 			against the eager grid is what makes the two unable to drift apart. ]]
 		local w = world({ count = 20, gap = 6 })
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local kids = {}
 		for i = 1, 20 do
 			table.insert(
 				kids,
-				Facet.UI.Box({
+				harness.UI.Box({
 					id = `e{i}`,
 					width = { type = "fixed", px = LINE },
 					height = { type = "fill" },
 				})
 			)
 		end
-		local eager = pres.present(Facet.UI.Screen({
+		local eager = pres.present(harness.UI.Screen({
 			id = "E",
 			padding = 0,
 			gap = 0,
 			children = {
-				Facet.UI.Grid({
+				harness.UI.Grid({
 					id = "G",
 					flow = "column",
 					columns = LANES,
@@ -351,9 +353,9 @@ end)
 describe("VirtualHGrid pointer and touch (no consumer wiring)", function()
 	it("a native scroll moves along X and slides the window; it never activates a cell", function()
 		local w = world()
-		expect(w.grid.scrollTop:get()).toBe(0)
+		expect(w.grid.scrollTop:peek()).toBe(0)
 		w.adapter.driveScroll("/S/Wrap/HG", { x = 400, y = 0 })
-		expect(w.grid.scrollTop:get()).toBe(400)
+		expect(w.grid.scrollTop:peek()).toBe(400)
 		w.pres.refresh()
 		expect(w.grid.debugWindow().i1).toBe(nil)
 		expect(w.grid.debugWindow().i41).toBe(true)
@@ -389,30 +391,30 @@ describe("VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a co
 			SHAPE: every cell would still be focusable, and Down would walk visually
 			rightward across the strip. ]]
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i1")) -- auto-focus first cell
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i1")) -- auto-focus first cell
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i2"))
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i3"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i3"))
 		w.system.deviceKey("Up", true)
 		w.system.deviceKey("Up", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i2"))
 	end)
 
 	it("Right/Left moves a whole LINE, not one cell", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i1"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i1"))
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5")) -- NOT i2
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5")) -- NOT i2
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i9"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i9"))
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5"))
 	end)
 
 	it("focus past the window edge scrolls the line into view", function()
@@ -422,11 +424,11 @@ describe("VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a co
 			w.system.deviceKey("Right", false)
 			w.pres.refresh()
 		end
-		local focused = w.pres.focus.focused:get() :: string
+		local focused = w.pres.focus.focused:peek() :: string
 		local key = string.match(focused, "%[(.-)%]/Cell/Hit$") :: string
 		local index = tonumber(string.match(key, "i(%d+)")) :: number
 		expect(index).toBe(1 + 9 * LANES) -- nine whole lines along
-		local left = w.grid.scrollTop:get()
+		local left = w.grid.scrollTop:peek()
 		expect(left > 0).toBe(true)
 		local lineLeft = 9 * LINE
 		expect(lineLeft >= left).toBe(true)
@@ -442,8 +444,8 @@ describe("VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a co
 			w.system.deviceKey("Down", false)
 			w.pres.refresh()
 		end
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i28")) -- line 7, past the first five
-		local left = w.grid.scrollTop:get()
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i28")) -- line 7, past the first five
+		local left = w.grid.scrollTop:peek()
 		expect(left > 0).toBe(true)
 		local lineLeft = 6 * LINE
 		expect(lineLeft >= left).toBe(true)
@@ -454,7 +456,7 @@ describe("VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a co
 		local w = world()
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(cellHit("i5"))
+		expect(w.pres.focus.focused:peek()).toBe(cellHit("i5"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		expect(#w.activations).toBe(1)
@@ -464,10 +466,10 @@ describe("VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a co
 		local g = world()
 		g.system.deviceKey("DPadDown", true)
 		g.system.deviceKey("DPadDown", false)
-		expect(g.pres.focus.focused:get()).toBe(cellHit("i2"))
+		expect(g.pres.focus.focused:peek()).toBe(cellHit("i2"))
 		g.system.deviceKey("DPadRight", true)
 		g.system.deviceKey("DPadRight", false)
-		expect(g.pres.focus.focused:get()).toBe(cellHit("i6"))
+		expect(g.pres.focus.focused:peek()).toBe(cellHit("i6"))
 		g.system.deviceKey("ButtonA", true)
 		g.system.deviceKey("ButtonA", false)
 		expect(#g.activations).toBe(1)

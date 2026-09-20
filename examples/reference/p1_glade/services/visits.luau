@@ -11,17 +11,18 @@ local seedData = require("../content/seed")
 local visits = {}
 
 export type Opts = {
-	core: any,
+	Compose: any,
+	rooted: (() -> any) -> any,
 	now: any, -- Readable<number>
 	charmTier: any, -- Readable<string>
-	scope: any,
 }
 
 function visits.new(opts: Opts): any
-	local core = opts.core
+	local Compose = opts.Compose
+	-- a cached formula outlives the row that first asks for it
+	local rooted = opts.rooted
 	local now = opts.now
 	local charmTier = opts.charmTier
-	local scope = opts.scope
 
 	-- which visits have already had their arrival ceremony played. Presentation
 	-- state, not world state: it never replicates and it resets with the world.
@@ -44,19 +45,21 @@ function visits.new(opts: Opts): any
 	function service.current(gladeId: string): any
 		local memo = currentByGlade[gladeId]
 		if memo == nil then
-			memo = scope:own(core:memo(function(use)
-				local at = use(now)
-				local tier = use(charmTier)
-				for _, visit in seedData.VISITS do
-					if visit.glade == gladeId then
-						local from = startOf(visit, tier)
-						if at >= from and at < visit.finish then
-							return { id = visit.id, wisp = visit.wisp, glade = visit.glade, start = from }
+			memo = rooted(function()
+				return Compose.formula(function(use)
+					local at = use(now)
+					local tier = use(charmTier)
+					for _, visit in seedData.VISITS do
+						if visit.glade == gladeId then
+							local from = startOf(visit, tier)
+							if at >= from and at < visit.finish then
+								return { id = visit.id, wisp = visit.wisp, glade = visit.glade, start = from }
+							end
 						end
 					end
-				end
-				return nil
-			end))
+					return nil
+				end)
+			end)
 			currentByGlade[gladeId] = memo
 		end
 		return memo
@@ -66,39 +69,41 @@ function visits.new(opts: Opts): any
 	function service.recent(gladeId: string): any
 		local memo = recentByGlade[gladeId]
 		if memo == nil then
-			memo = scope:own(core:memo(function(use)
-				local at = use(now)
-				local tier = use(charmTier)
-				local out: { any } = {}
-				for _, visit in seedData.VISITS do
-					if visit.glade == gladeId and visit.finish <= at then
-						table.insert(
-							out,
-							{ id = visit.id, wisp = visit.wisp, glade = visit.glade, finish = visit.finish }
-						)
+			memo = rooted(function()
+				return Compose.formula(function(use)
+					local at = use(now)
+					local tier = use(charmTier)
+					local out: { any } = {}
+					for _, visit in seedData.VISITS do
+						if visit.glade == gladeId and visit.finish <= at then
+							table.insert(
+								out,
+								{ id = visit.id, wisp = visit.wisp, glade = visit.glade, finish = visit.finish }
+							)
+						end
 					end
-				end
-				-- a current visit counts as seen, at its start
-				local live = use(service.current(gladeId))
-				if live ~= nil then
-					table.insert(out, { id = live.id, wisp = live.wisp, glade = live.glade, finish = live.start })
-				end
-				table.sort(out, function(a: any, b: any)
-					if a.finish == b.finish then
-						return a.id > b.id
+					-- a current visit counts as seen, at its start
+					local live = use(service.current(gladeId))
+					if live ~= nil then
+						table.insert(out, { id = live.id, wisp = live.wisp, glade = live.glade, finish = live.start })
 					end
-					return a.finish > b.finish
+					table.sort(out, function(a: any, b: any)
+						if a.finish == b.finish then
+							return a.id > b.id
+						end
+						return a.finish > b.finish
+					end)
+					local _ = tier
+					return out
 				end)
-				local _ = tier
-				return out
-			end))
+			end)
 			recentByGlade[gladeId] = memo
 		end
 		return memo
 	end
 
 	-- every glade with a visitor right now — the search suggestions' source
-	local currentAll = scope:own(core:memo(function(use)
+	local currentAll = Compose.formula(function(use)
 		local at = use(now)
 		local tier = use(charmTier)
 		local out: { any } = {}
@@ -109,7 +114,7 @@ function visits.new(opts: Opts): any
 			end
 		end
 		return out
-	end))
+	end)
 
 	function service.currentAll(): any
 		return currentAll
@@ -117,8 +122,8 @@ function visits.new(opts: Opts): any
 
 	-- when was this wisp last seen, and where (S6's "Last seen {when} in {glade}")
 	function service.lastSeen(wispId: string): any?
-		local at = now:get()
-		local tier = charmTier:get()
+		local at = now:peek()
+		local tier = charmTier:peek()
 		local best: any = nil
 		for _, visit in seedData.VISITS do
 			if visit.wisp == wispId then
@@ -134,7 +139,7 @@ function visits.new(opts: Opts): any
 
 	-- the arrival ceremony's gate: a current visit whose fly-in has not run yet.
 	function service.needsPresent(gladeId: string): any?
-		local live = service.current(gladeId):get()
+		local live = service.current(gladeId):peek()
 		if live == nil or presented[live.id] then
 			return nil
 		end
@@ -151,7 +156,7 @@ function visits.new(opts: Opts): any
 
 	function service.dump(): any
 		local live: { any } = {}
-		for _, entry in currentAll:get() do
+		for _, entry in currentAll:peek() do
 			table.insert(live, { glade = entry.glade, wisp = entry.wisp, visit = entry.id })
 		end
 		table.sort(live, function(a: any, b: any)

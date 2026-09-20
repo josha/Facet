@@ -47,6 +47,7 @@
 ]]
 local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
+local nativeApp = require("../../bench/native_app")
 local demo_picker = require("../../examples/gallery/client/demo_picker") :: any
 local device_views = require("../../tests/lib/device_views")
 local large_text = require("../../tests/lib/large_text")
@@ -73,23 +74,31 @@ local function settle(presenter: any)
 end
 
 local function world(view: any): any
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
-	env:set("displaySize", view.displaySize)
-	env:set("preferredInput", view.input)
-	env:set("capabilities", CAPABILITIES[view.input])
-	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
+	local w = nativeApp({
+		newAdapter = function()
+			return adapter
+		end,
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		env = {
+			coreSafeInsets = { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 },
+			displaySize = view.displaySize,
+			preferredInput = view.input,
+			capabilities = CAPABILITIES[view.input],
+		},
+	})
+	w.presenter = w.pres
+	return w
 end
 
-local function scenarioCtx(w: any): any
+-- what a gallery scenario or example builds against
+local function surfaceCtx(w: any): any
 	return {
 		Facet = Facet,
+		app = w.app,
+		UI = w.UI,
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -113,9 +122,24 @@ local function scenarioCtx(w: any): any
 	}
 end
 
+-- what a reference proof builds against: `build(Facet, core, deps)`
+local function proofDeps(w: any, locale: string?): any
+	return {
+		app = w.app,
+		env = w.env,
+		actionSystem = w.system,
+		presenter = w.presenter,
+		adapter = w.adapter,
+		locale = locale,
+	}
+end
+
+-- a surface answers `{ screen = component, present = options? }`, or mounts its
+-- own screen inside `build` and answers the `handle`
 local function present(w: any, built: any): any
 	if built.handle == nil and built.screen ~= nil then
-		built.handle = w.presenter.present(built.screen, built.present)
+		local _, _, handle = w.app.mount(built.screen, built.present)
+		built.handle = handle
 	end
 	return built
 end
@@ -549,33 +573,19 @@ end
 for _, name in SCENARIOS do
 	local module = require(`../../examples/gallery/scenarios/{name}`) :: any
 	sweepOne("scenario", name, function(w)
-		return present(w, module.build(scenarioCtx(w)))
+		return present(w, module.build(surfaceCtx(w)))
 	end)
 end
 for _, name in EXAMPLES do
 	local module = require(`../../examples/gallery/examples/{name}`) :: any
 	sweepOne("example", name, function(w)
-		return present(
-			w,
-			module.build(
-				Facet,
-				w.core,
-				{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-			)
-		)
+		return present(w, module.build(surfaceCtx(w)))
 	end)
 end
 for _, name in PROOFS do
 	local module = require(`../../examples/reference/{name}`) :: any
 	sweepOne("proof", name, function(w)
-		return present(
-			w,
-			module.build(
-				Facet,
-				w.core,
-				{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-			)
-		)
+		return present(w, module.build(Facet, w.core, proofDeps(w)))
 	end)
 end
 
@@ -584,20 +594,13 @@ PASS = "xa"
 for _, name in SCENARIOS do
 	local module = require(`../../examples/gallery/scenarios/{name}`) :: any
 	sweepOne("scenario", name, function(w)
-		return present(w, module.build(scenarioCtx(w)))
+		return present(w, module.build(surfaceCtx(w)))
 	end, module, true)
 end
 for _, name in PROOFS do
 	local module = require(`../../examples/reference/{name}`) :: any
 	sweepOne("proof", name, function(w)
-		return present(
-			w,
-			module.build(
-				Facet,
-				w.core,
-				{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter, locale = "xa" }
-			)
-		)
+		return present(w, module.build(Facet, w.core, proofDeps(w, "xa")))
 	end, module, true)
 end
 

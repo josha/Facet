@@ -14,82 +14,74 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx)
-		local Facet, UI = ctx.Facet, ctx.Facet.View
+		local UI, Compose = ctx.UI, ctx.Compose
 		local copy = ctx.copy or COPY
-		local detent, setDetent, membership, setMembership, status, setStatus, presented, setPresented
+		local detent = Compose.cell("medium")
+		local membership = Compose.cell(false)
+		local status = Compose.cell(copy.status)
+		local presented = Compose.cell(false)
 		local function open()
-			setPresented(true)
+			presented:set(true)
 			return true
 		end
 		local function close()
-			setPresented(false)
+			presented:set(false)
+		end
+		local function setDetent(value)
+			detent:set(value)
 		end
 		local function reset()
 			close()
-			setDetent("medium")
-			setMembership(false)
-			setStatus(copy.status)
+			detent:set("medium")
+			membership:set(false)
+			status:set(copy.status)
 		end
-		local Briefing = Facet.component(function(ui)
-			detent, setDetent = ui.state("medium")
-			membership, setMembership = ui.state(false)
-			status, setStatus = ui.state(copy.status)
-			presented, setPresented = ui.state(false)
-			return UI.Screen({
-				id = "Sheet",
+		local function Briefing()
+			return UI.Screen("Sheet")({
 				padding = "m",
-				UI.ScrollView({
-					id = "Page",
+				UI.ScrollView("Page")({
 					width = UI.fill(),
 					height = UI.fill(),
 					gap = "m",
 					UI.Text({ text = copy.title, textSize = "title" }),
 					UI.Text({ text = copy.intro, width = UI.fill() }),
-					UI.Text({ id = "Status", text = status, width = UI.fill() }),
-					UI.Button({ id = "Open", label = copy.open, onActivate = open }),
+					UI.Text("Status")({ text = status, width = UI.fill() }),
+					UI.Button("Open")({ label = copy.open, onActivate = open }),
 				}),
-				UI.Sheet({
-					id = "Briefing",
+				UI.Sheet("Briefing")({
 					title = copy.briefing,
 					isPresented = presented,
-					onPresentedChange = setPresented,
 					detent = detent,
-					onDetentChange = setDetent,
 					detents = { { id = "compact", fraction = 0.35 }, "medium", "large" },
-					content = UI.VStack({
-						id = "Details",
-						width = UI.fill(),
-						gap = "m",
-						UI.Text({ id = "Description", text = copy.description, width = UI.fill() }),
-						UI.Text({
-							text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
+					content = function()
+						return UI.VStack("Details")({
 							width = UI.fill(),
-						}),
-						UI.Toggle({
-							id = "Membership",
-							label = copy.join,
-							value = membership,
-							onChange = setMembership,
-						}),
-						UI.Text({
-							text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
-							width = UI.fill(),
-						}),
-						UI.Button({
-							id = "Start",
-							label = copy.start,
-							width = UI.fill(),
-							onActivate = function()
-								setStatus("Practice started.")
-								close()
-							end,
-						}),
-					}),
+							gap = "m",
+							UI.Text("Description")({ text = copy.description, width = UI.fill() }),
+							UI.Text({
+								text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
+								width = UI.fill(),
+							}),
+							UI.Toggle("Membership")({ label = copy.join, value = membership }),
+							UI.Text({
+								text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
+								width = UI.fill(),
+							}),
+							UI.Button("Start")({
+								label = copy.start,
+								width = UI.fill(),
+								onActivate = function()
+									status:set("Practice started.")
+									close()
+								end,
+							}),
+						})
+					end,
 				}),
 			})
-		end)
+		end
 		return {
-			screen = Briefing({}),
+			screen = Briefing,
 			steps = {
 				open = open,
 				close = close,
@@ -116,11 +108,12 @@ return {
 			end,
 			report = function()
 				return {
-					sheet = { presented = presented(), detent = detent() },
-					membership = membership(),
-					status = status(),
+					sheet = { presented = presented:peek(), detent = detent:peek() },
+					membership = membership:peek(),
+					status = status:peek(),
 				}
 			end,
+			-- nothing outlives the screen
 			dispose = function() end,
 		}
 	end,

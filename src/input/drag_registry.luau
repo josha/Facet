@@ -47,6 +47,8 @@ local tokens = require("./interaction_tokens")
 local specGuard = require("../spec_guard")
 local num = require("../num")
 local rectLib = require("../rect")
+local Compose = require("../vendor/compose/core")
+local observeChange = require("../core/on_change")
 
 local drag_registry = {}
 
@@ -154,13 +156,13 @@ function drag_registry.new(opts: Opts)
 	local disposed = false
 
 	-- the predicted verdict, published as a plain signal so any consumer binds it
-	local verdict = core:signal(nil :: Verdict?)
+	local verdict = Compose.cell(nil :: Verdict?)
 	-- THE HELD SOURCE (director round five): the path a live session is carrying,
 	-- for the whole of "the slot sits empty until it lands or returns" — set at
 	-- acquisition, cleared when the drop LANDS or the return flight ARRIVES (not
 	-- at the release frame, which is earlier). The renderer binds this to the
 	-- `facet-drag-held` state every theme's sheet empties.
-	local heldSource = core:signal(nil :: string?)
+	local heldSource = Compose.cell(nil :: string?)
 
 	-- pre-promotion press (a press that has not travelled far enough to be a drag)
 	local pending: any = nil
@@ -381,12 +383,12 @@ function drag_registry.new(opts: Opts)
 			if record.flightDone then
 				return
 			end
-			record.proxyX = x:get()
-			record.proxyY = y:get()
+			record.proxyX = x:peek()
+			record.proxyY = y:peek()
 			writeProxyFor(record)
 		end
-		local unX = core:observe(x, pull)
-		local unY = core:observe(y, pull)
+		local unX = observeChange(core.owner, x, pull)
+		local unY = observeChange(core.owner, y, pull)
 		record.motionScope = {
 			function()
 				unX()
@@ -535,7 +537,8 @@ function drag_registry.new(opts: Opts)
 			session.proxyHandle = proxyHost.show({
 				sourcePath = sourcePath,
 				payload = payload,
-				blueprint = if decl.proxy ~= nil then decl.proxy() else nil,
+				-- the host calls this inside its own mount, so the ghost owns its nodes
+				component = decl.proxy,
 				rect = sourceRect,
 				mode = mode,
 			})
@@ -546,9 +549,9 @@ function drag_registry.new(opts: Opts)
 		if motionClock ~= nil and session.proxyHandle ~= nil then
 			local scale = motionClock:spring(1, decl.dragMotion or "object")
 			session.scaleValue = scale
-			local unsub = core:observe(scale, function()
+			local unsub = observeChange(core.owner, scale, function()
 				if live == session then
-					session.proxyScale = scale:get()
+					session.proxyScale = scale:peek()
 					writeProxy()
 				end
 			end)
@@ -907,12 +910,12 @@ function drag_registry.new(opts: Opts)
 					if live ~= session then
 						return
 					end
-					session.proxyX = hx:get()
-					session.proxyY = hy:get()
+					session.proxyX = hx:peek()
+					session.proxyY = hy:peek()
 					writeProxy()
 				end
-				local unX = core:observe(hx, ride)
-				local unY = core:observe(hy, ride)
+				local unX = observeChange(core.owner, hx, ride)
+				local unY = observeChange(core.owner, hy, ride)
 				session.hopX = hx
 				session.hopY = hy
 				session.disposeHop = function()
@@ -1141,7 +1144,7 @@ function drag_registry.new(opts: Opts)
 			active = live ~= nil,
 			mode = if live ~= nil then live.mode else nil,
 			source = if live ~= nil then live.sourcePath else nil,
-			verdict = verdict:get(),
+			verdict = verdict:peek(),
 		}
 	end
 

@@ -40,6 +40,8 @@
 local schema = require("../blueprint_schema")
 local themeSnapshot = require("../themes/snapshot")
 
+local Compose = require("../vendor/compose/core")
+local observeChange = require("../core/on_change")
 local transitions = {}
 
 -- ui-designer spec §2.1 / disposition F8: flat and non-overridable
@@ -124,7 +126,7 @@ local DEFAULT_SLIDE_DISTANCE = 24
 	and tiles it was ratified on. A surface whose content is mostly TEXT declares
 	`transition.scale` instead and settles DOWN from just above 1: every scale in
 	[1, 1 + 1/TextSize) floors to the same pixel, so the text lands at its final
-	size on the first painted frame and never moves (`Controls.Alert`'s
+	size on the first painted frame and never moves (`UI.Alert`'s
 	`DEFAULT_TRANSITION` is the first caller; `blueprint_schema.luau`'s `scale`
 	note carries the same rule for authors). ]]
 local MATERIALIZE_SCALE = 0.96
@@ -155,6 +157,7 @@ local TRAVEL: { [string]: { x: number, y: number } } = {
 
 export type Spec = {
 	fromRect: any?,
+	source: any?,
 	content: string?,
 	enter: string,
 	exit: string,
@@ -196,8 +199,8 @@ export type Opts = {
 function transitions.resolve(declared: any): Spec
 	-- Read once at the structural event boundary. The mounted node retains the
 	-- source; an active entry retains this validated value snapshot.
-	if type(declared) == "table" and (declared.kind == "signal" or declared.kind == "memo") then
-		declared = declared:get()
+	if Compose.isReadable(declared) then
+		declared = declared:peek()
 	end
 	local valid, detail = schema.checkValue(TRANSITION_SPEC, declared)
 	if not valid then
@@ -207,6 +210,10 @@ function transitions.resolve(declared: any): Spec
 	local exit = declared.exit or (schema.TRANSITION_MIRROR :: any)[enter]
 	return {
 		fromRect = declared.fromRect,
+		-- retained UNSAMPLED: a live source is re-read on every painted frame,
+		-- which is what lets an expansion follow a scrolling card and reverse from
+		-- wherever it has reached
+		source = declared.source,
 		content = declared.content,
 		enter = enter,
 		exit = exit,
@@ -272,7 +279,7 @@ local function paintsBackdrop(child: any): (boolean, string?)
 		if type(tint) == "table" then
 			-- `styling.checkTint`'s own vocabulary: "0 is opaque (the default),
 			-- 1 is invisible". A REACTIVE tint (a Bound value, still a plain
-			-- table at this layer — see `core:memo`'s `makeReadable`) carries no
+			-- table at this layer — see `Compose.formula`'s `makeReadable`) carries no
 			-- readable `.transparency` at all; treating "unreadable" the same as
 			-- "opaque" is the safe direction (a `surface = "plain"`-style miss
 			-- would hide a real finding, a spurious one just asks for a look).
@@ -613,6 +620,7 @@ function transitions.new(opts: Opts)
 		end
 		if form == "transform" then
 			absent.fromRect = spec.fromRect
+			absent.source = spec.source
 		end
 		absent.reveal = form == "reveal"
 		if form == "materialize" then
@@ -663,14 +671,55 @@ function transitions.new(opts: Opts)
 		)
 	end
 
+	--[[ THE RECTANGLE A TRANSFORM GROWS FROM, THIS FRAME. `fromRect` is a fixed
+		one. `source` is live: a node path, whose painted rect the controller
+		already knows, or a rect Readable the owner keeps. It is read per frame, so
+		an expansion follows a source that scrolls and collapses back onto wherever
+		the source has reached. A source that has stopped painting (scrolled out of
+		a virtualized window, unmounted) yields nothing; the last rect it DID yield
+		is kept, because the alternative is a jump to the origin mid-flight. ]]
+	local function originOf(entry: any): any
+		local absent = entry.absent
+		if absent.fromRect ~= nil then
+			return absent.fromRect
+		end
+		local source = absent.source
+		if source == nil then
+			return nil
+		end
+		local rect
+		if source.path ~= nil then
+			local path = if Compose.isReadable(source.path) then source.path:peek() else source.path
+			rect = if type(path) == "string" then controller.rectOf(path) else nil
+		else
+			rect = if Compose.isReadable(source.rect) then source.rect:peek() else source.rect
+		end
+		if type(rect) == "table" then
+			--[[ ONE TABLE PER ENTRY, REWRITTEN IN PLACE. A live `source` is
+				re-read on every PAINTED frame of the transition, so allocating the
+				snapshot here handed the collector a fresh four-field table sixty
+				times a second per in-flight expansion. Nothing outside this module
+				retains the value — `writeEntry` reads the four fields and writes a
+				transform — so the copy exists to detach from the caller's rect,
+				which one reused table does just as well. ]]
+			local last = entry.lastOrigin
+			if last == nil then
+				last = {}
+				entry.lastOrigin = last
+			end
+			last.x, last.y, last.w, last.h = rect.x, rect.y, rect.w, rect.h
+		end
+		return entry.lastOrigin
+	end
+
 	local function writeEntry(entry: any)
 		if controller == nil or entry.disposed then
 			return
 		end
-		local p = entry.progress:get()
+		local p = entry.progress:peek()
 		-- Transform changes the clipping plate, never UIScale or text metrics.
 		-- Clamp the decorative spring so a rectangle cannot overshoot either form.
-		if entry.absent.fromRect or entry.absent.reveal then
+		if entry.absent.fromRect or entry.absent.source or entry.absent.reveal then
 			p = math.clamp(p, 0, 1)
 		end
 		local k = 1 - p
@@ -682,10 +731,10 @@ function transitions.new(opts: Opts)
 			controller.setPresentationTransparency(entry.writtenAlphaPath, nil)
 			entry.writtenAlphaPath = nil
 		end
-		if absent.fromRect then
+		if absent.fromRect or absent.source then
 			local rect = controller.rectOf(entry.path)
-			if rect then
-				local from = absent.fromRect
+			local from = originOf(entry)
+			if rect and from then
 				controller.setPresentationTransform(entry.path, {
 					x = (from.x - rect.x) * k,
 					y = (from.y - rect.y) * k,
@@ -732,9 +781,9 @@ function transitions.new(opts: Opts)
 		end
 		if oldDistance ~= nil and newDistance ~= nil and oldDistance ~= newDistance then
 			local ratio = oldDistance / newDistance
-			local p = 1 - ratio * (1 - entry.progress:get())
+			local p = 1 - ratio * (1 - entry.progress:peek())
 			local velocity = ratio * entry.progress:getVelocity()
-			core:transaction(function()
+			core.reactor:batch(function()
 				entry.absent = absent
 				entry.progress:snap(p)
 				entry.progress:setVelocity(velocity)
@@ -813,7 +862,7 @@ function transitions.new(opts: Opts)
 	-- the progress spring's two listeners, wired once per spring (entryFor builds
 	-- the first; retune builds a replacement when the phase's class differs)
 	local function listen(entry: any)
-		entry.unobserve = core:observe(entry.progress, function()
+		entry.unobserve = observeChange(core.owner, entry.progress, function()
 			writeEntry(entry)
 		end)
 		entry.progress:onSettle(function()
@@ -834,7 +883,7 @@ function transitions.new(opts: Opts)
 			return
 		end
 		local old = entry.progress
-		local fresh = clock:spring(old:get(), class, { eps = eps })
+		local fresh = clock:spring(old:peek(), class, { eps = eps })
 		fresh:setVelocity(old:getVelocity())
 		if entry.unobserve ~= nil then
 			entry.unobserve()
@@ -1087,7 +1136,7 @@ function transitions.new(opts: Opts)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "parked"
-		entry.progress:setTarget(entry.progress:get())
+		entry.progress:setTarget(entry.progress:peek())
 	end
 
 	function self.release(path: string)
@@ -1115,6 +1164,39 @@ function transitions.new(opts: Opts)
 	end
 
 	return self
+end
+
+-- A mounted tree reaches its surface's coordinator through the tree's journal.
+-- Regions build detached, before their surface exists, so each region node
+-- carries `drainTransitions`: binding replays the enters that were waiting, in
+-- tree order, which is also row order for a staggered list.
+function transitions.bind(rootNode: any, coordinator: any)
+	local journal = assert(rootNode.journal, "Facet transitions: bind takes a mounted root node")
+	journal.transitions = coordinator
+	local function walk(node: any)
+		if node.drainTransitions ~= nil then
+			node.drainTransitions()
+		end
+		for _, child in node.children do
+			walk(child)
+		end
+	end
+	walk(rootNode)
+end
+
+function transitions.coordinatorOf(node: any): any?
+	local journal = node.journal
+	return if journal ~= nil then journal.transitions else nil
+end
+
+-- A retiring mark changes focus order and hit routing, which read structure.
+function transitions.markStructure(node: any)
+	local journal = node.journal
+	if journal == nil or node.path == nil then
+		return
+	end
+	journal.sequence += 1
+	table.insert(journal.pending, { path = node.path, class = "structure" })
 end
 
 transitions.EXIT_CAP_SECONDS = EXIT_CAP_SECONDS

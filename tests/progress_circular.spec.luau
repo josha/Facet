@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE CIRCULAR PROGRESS INDICATOR, BOTH FORMS (parity round 3, item D2).
 --
 -- `presentation = "circular"` is the one shape in the family that accepts BOTH
@@ -21,24 +22,25 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
-local motionClockLib = require("../src/motion/clock")
 local fake_target = require("../tests/lib/fake_target")
 local progress_view = require("../src/controls/progress_view")
 local path_shapes = require("../src/controls/path_shapes")
 local themes = Facet.themes
 local device_views = require("./lib/device_views")
+local nativeWorld = require("./lib/world")
+local Compose = require("../src/vendor/compose/core")
 
 local RING = "/S/Load/Ring"
 local ARC = RING .. "/Arc"
 local TRACK = RING .. "/Track"
 
-local function harness(w: number?, h: number?)
+local function newWorld(w: number?, h: number?)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w or 400, h = h or 600 })
@@ -49,18 +51,6 @@ local function harness(w: number?, h: number?)
 	return core, env, adapter, pres
 end
 
-local function clockWorld(policy: string?)
-	local core, env, adapter, pres = harness()
-	local now = { t = 0 }
-	local clock = motionClockLib.new(core, {
-		now = function()
-			return now.t
-		end,
-		motionPolicy = core:signal(policy or "full"),
-	})
-	return core, env, adapter, pres, clock, now
-end
-
 -- the angle (screen convention, 0 = up, clockwise) of a point on the ring
 local function angleOf(p: any): number
 	local a = math.deg(math.atan2(p.x - 0.5, 0.5 - p.y))
@@ -69,8 +59,8 @@ end
 
 describe("ProgressView circular: the DETERMINATE ring is the value's own arc", function()
 	it("draws an arc over a full backing ring, and no bar at all", function()
-		local core, _, adapter, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.25, presentation = "circular" })
+		local core, _, adapter, pres = newWorld()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.25, presentation = "circular" })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -90,9 +80,9 @@ describe("ProgressView circular: the DETERMINATE ring is the value's own arc", f
 	end)
 
 	it("the SWEEP is the value: 25% ends at 3 o'clock, 100% closes the ring", function()
-		local core, _, adapter, pres = harness()
-		local v = core:signal(0.25)
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = v, presentation = "circular" })
+		local core, _, adapter, pres = newWorld()
+		local v = Compose.cell(0.25)
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = v, presentation = "circular" })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local pts = adapter.node(ARC).props.points
@@ -112,9 +102,9 @@ describe("ProgressView circular: the DETERMINATE ring is the value's own arc", f
 	end)
 
 	it("a value change is PAINT ONLY: one prop write on `points`, zero re-solves", function()
-		local core, _, adapter, pres = harness()
-		local v = core:signal(0.25)
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = v, presentation = "circular" })
+		local core, _, adapter, pres = newWorld()
+		local v = Compose.cell(0.25)
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = v, presentation = "circular" })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		adapter.takeOps()
@@ -135,22 +125,23 @@ describe("ProgressView circular: the DETERMINATE ring is the value's own arc", f
 end)
 
 describe("ProgressView circular: the INDETERMINATE ring rotates its own start angle", function()
-	local function ringWorld(policy: string?)
-		local core, _, adapter, pres, clock, now = clockWorld(policy)
-		local p = Facet.Controls.ProgressView(core, {
-			id = "Load",
-			presentation = "circular",
-			motionClock = clock,
-			scope = core:scope("surface"),
+	local function ringWorld(reduced: boolean?)
+		local w = nativeWorld.new({
+			viewport = { x = 0, y = 0, w = 400, h = 600 },
+			safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+			reducedMotion = reduced,
+			ops = true,
 		})
-		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
-		pres.refresh()
-		expect(#handle.controller.diagnostics()).toBe(0)
-		return core, adapter, pres, clock, now, p, handle
+		w.present(function()
+			return w.UI.Screen("S")({ w.UI.ProgressView("Load")({ presentation = "circular" }) })
+		end)
+		expect(#w.controller.diagnostics()).toBe(0)
+		return w
 	end
 
 	it("the HEAD travels while the sweep stays fixed — and there is no backing ring", function()
-		local _, adapter, pres, clock, now, p = ringWorld()
+		local w = ringWorld()
+		local adapter = w.adapter
 		-- an indeterminate ring is a travelling head on empty plate: a full backing
 		-- ring would read as a determinate ring stuck at 100%
 		expect(adapter.node(TRACK)).toBeNil()
@@ -164,9 +155,7 @@ describe("ProgressView circular: the INDETERMINATE ring rotates its own start an
 		local startHead, startSweep = head(), sweep()
 		local moved = false
 		for _ = 1, 10 do
-			now.t += 0.05
-			clock:step()
-			pres.refresh()
+			w.frame(0.05)
 			if math.abs(head() - startHead) > 0.001 then
 				moved = true
 			end
@@ -174,20 +163,18 @@ describe("ProgressView circular: the INDETERMINATE ring rotates its own start an
 			expect(math.abs(sweep() - startSweep) < 0.001).toBe(true)
 		end
 		expect(moved).toBe(true)
-		p.dispose()
-		clock:dispose()
+		w.close()
 	end)
 
 	it("rotating is PAINT: 60 frames of travel write points and never re-solve", function()
-		local _, adapter, pres, clock, now, p, handle = ringWorld()
+		local w = ringWorld()
+		local adapter = w.adapter
 		adapter.takeOps()
-		local stats = handle.controller.stats()
+		local stats = w.controller.stats()
 		local solves, creates = stats.solves, stats.creates
 		local pointOps = 0
 		for _ = 1, 60 do
-			now.t += 1 / 60
-			clock:step()
-			pres.refresh()
+			w.frame(1 / 60)
 			for _, op in adapter.takeOps() do
 				if string.find(op, ".points", 1, true) ~= nil then
 					pointOps += 1
@@ -195,63 +182,51 @@ describe("ProgressView circular: the INDETERMINATE ring rotates its own start an
 			end
 		end
 		expect(pointOps > 0).toBe(true)
-		local after = handle.controller.stats()
+		local after = w.controller.stats()
 		expect(after.solves).toBe(solves)
 		expect(after.creates).toBe(creates)
-		p.dispose()
-		clock:dispose()
+		w.close()
 	end)
 
-	it("takes the SAME single clock entry the dots take — no second one for the arc", function()
-		local core, _, _, clock, _, p = ringWorld()
-		expect(clock:activeCount()).toBe(1)
-		-- ...and a second, DOT spinner beside it takes exactly one more: the arc did
-		-- not quietly acquire a private cycle
-		local dots = Facet.Controls.ProgressView(core, {
-			id = "Dots",
-			presentation = "spinner",
-			motionClock = clock,
-			scope = core:scope("s2"),
-		})
-		expect(clock:activeCount()).toBe(2)
-		dots.dispose()
-		p.dispose()
-		clock:dispose()
-	end)
-
-	it("under REDUCED motion the ring keeps advancing, on the quantized tick", function()
-		local _, adapter, pres, clock, now, p = ringWorld("reduced")
+	it("under REDUCED motion the ring keeps travelling, on the quantized tick", function()
+		--[[ THE TWO BEATS, AND BOTH ARE THE CONTRACT. A ring that never moves
+			passes the first alone, which is how this case came to assert a freeze:
+			it sampled once after a FULL cycle, where the sawtooth has wrapped back
+			to its start pose, and read the coincidence as a rest pose. An
+			indeterminate indicator is the only thing on the screen saying "work is
+			still happening" — reduced motion coarsens it to four steps a second and
+			never deletes it. ]]
+		local w = ringWorld(true)
 		local function head(): number
-			return angleOf(adapter.node(ARC).props.points[1])
+			return angleOf(w.adapter.node(ARC).props.points[1])
 		end
 		local start = head()
-		now.t += 0.05
-		clock:step()
-		pres.refresh()
-		expect(math.abs(head() - start) < 1e-9).toBe(true) -- quantized: no write inside the tick
-		now.t += 0.3
-		clock:step()
-		pres.refresh()
-		expect(math.abs(head() - start) > 0.001).toBe(true) -- ...and it MOVED, rather than froze
-		p.dispose()
-		clock:dispose()
-	end)
-
-	it("with no clock it holds its rest pose and says so", function()
-		local core, _, adapter, pres = harness()
-		local p = Facet.Controls.ProgressView(core, {
-			id = "Load",
-			presentation = "circular",
-			scope = core:scope("surface"),
-		})
-		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
-		pres.refresh()
-		expect(adapter.node(ARC) ~= nil).toBe(true)
-		local d = p.dump()
-		expect(d.animating).toBe(false)
-		expect(d.phase).toBe(0)
+		-- inside the tick: quantized, so no write at all
+		for _ = 1, 3 do
+			w.frame(0.05)
+		end
+		expect(math.abs(head() - start) < 1e-9).toBe(true)
+		expect(w.record("Load").dump().phase).toBe(0)
+		-- ...and across it: MOVED, rather than frozen
+		w.frame(0.15)
+		expect(math.abs(head() - start) > 0.001).toBe(true)
+		local d = w.record("Load").dump()
+		expect(d.phase > 0).toBe(true)
 		expect(d.semanticText).toBe("Loading")
-		p.dispose()
+		-- over a cycle it visits several distinct poses — several, not sixty
+		local seen: { [string]: boolean } = {}
+		local count = 0
+		for _ = 1, 20 do
+			w.frame(0.05)
+			local key = string.format("%.6f", head())
+			if seen[key] == nil then
+				seen[key] = true
+				count += 1
+			end
+		end
+		expect(count >= 3).toBe(true)
+		expect(count <= 8).toBe(true)
+		w.close()
 	end)
 end)
 
@@ -262,22 +237,16 @@ describe("ProgressView circular: the OFF-PATH cost is exactly zero", function()
 		-- pre-existing shapes are mounted here and driven for 120 clock steps: if a
 		-- single Path is materialised, or a single `points` op reaches the adapter,
 		-- the new shape has leaked into the old ones.
-		local core, _, adapter, pres, clock, now = clockWorld()
-		local bar = Facet.Controls.ProgressView(core, { id = "Bar", value = core:signal(0.4), height = 12 })
-		local dots = Facet.Controls.ProgressView(core, {
-			id = "Dots",
-			presentation = "spinner",
-			motionClock = clock,
-			scope = core:scope("surface"),
-		})
+		local core, _, adapter, pres = newWorld()
+		local bar = harness.Controls.ProgressView(core, { id = "Bar", value = Compose.cell(0.4), height = 12 })
+		local dots = harness.Controls.ProgressView(core, { id = "Dots", presentation = "spinner" })
 		pres.present(UI.Screen({ id = "S", children = { bar.blueprint, dots.blueprint } }))
 		pres.refresh()
 		local instances = #adapter.paths()
 		adapter.takeOps()
 		local pointOps = 0
 		for _ = 1, 120 do
-			now.t += 1 / 60
-			clock:step()
+			pres.tick(1 / 60)
 			pres.refresh()
 			for _, op in adapter.takeOps() do
 				if string.find(op, ".points", 1, true) ~= nil then
@@ -292,7 +261,6 @@ describe("ProgressView circular: the OFF-PATH cost is exactly zero", function()
 		end
 		bar.dispose()
 		dots.dispose()
-		clock:dispose()
 	end)
 end)
 
@@ -530,9 +498,9 @@ describe("ProgressView circular: it lays out in every shipped theme, at every sw
 		for _, name in PACKAGES do
 			local pkg = (require)(`../examples/themes/{name}`).build(themes)
 			for _, view in device_views.VIEWS do
-				local core, env, adapter, pres = harness(view.w, view.h)
+				local core, env, adapter, pres = newWorld(view.w, view.h)
 				env:set("themeMetrics", themes.resolve(pkg, nil, {}))
-				local p = Facet.Controls.ProgressView(core, {
+				local p = harness.Controls.ProgressView(core, {
 					id = "Load",
 					label = "Loading the race",
 					value = 0.42,
@@ -593,20 +561,17 @@ describe("ProgressView circular: it lays out in every shipped theme, at every sw
 		for _, name in ALL do
 			local pkg = (require)(`../examples/themes/{name}`).build(themes)
 			for _, presentation in { "bar", "spinner", "circular" } do
-				local core, env, adapter, pres = harness(320, 640)
+				local core, env, adapter, pres = newWorld(320, 640)
 				env:set("themeMetrics", themes.resolve(pkg, nil, {}))
 				local spec: any = {
 					id = "Load",
 					label = "Downloading the season pass",
 					presentation = presentation,
 				}
-				if presentation == "spinner" then
-					spec.motionClock = pres.motionClock
-					spec.scope = core:scope("o23")
-				else
+				if presentation ~= "spinner" then
 					spec.value = 0.42
 				end
-				local p = Facet.Controls.ProgressView(core, spec)
+				local p = harness.Controls.ProgressView(core, spec)
 				local handle = pres.present(UI.Screen({ id = "S", padding = 16, children = { p.blueprint } }))
 				pres.refresh()
 				pres.refresh()

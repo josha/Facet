@@ -57,7 +57,7 @@ def tracked() -> list[str]:
 
 def selftest() -> int:
     allows, denies = load("src/\nREADME.md\n!src/core/fusion_adapter.luau\n")
-    clean = ["src/init.luau", "README.md", "src/core/custom.luau"]
+    clean = ["src/init.luau", "README.md", "src/core/services.luau"]
     planted = clean + ["docs/plans/secret-plan.md", "src/core/fusion_adapter.luau"]
     ok = strays(clean, allows, denies) == [] and strays(planted, allows, denies) == [
         "docs/plans/secret-plan.md",

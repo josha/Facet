@@ -16,10 +16,8 @@ local rewardsThreshold = rewardsService.THRESHOLD
 
 local detail = {}
 
-local function ownIn(scope: any, readable: any): any
-	scope:own(function()
-		readable:dispose()
-	end)
+-- A row owns what its builder makes.
+local function ownIn(_row: any, readable: any): any
 	return readable
 end
 
@@ -29,11 +27,10 @@ end
 
 local function descriptionRuns(app: any, id: string): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 
-	local runs = app.own(core:memo(function(use)
+	local runs = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		local blend = if blendId ~= nil then catalog.blend(blendId) else nil
 		if blend == nil then
@@ -51,13 +48,11 @@ local function descriptionRuns(app: any, id: string): any
 		return out
 	end))
 
-	return UI.VStack({
-		id = id,
+	return UI.VStack(id)({
 		gap = "xs",
 		width = dims.fill,
 
-		UI.ForEach({
-			id = "Runs",
+		app.forEach("Runs")({
 			items = runs,
 			key = function(run: any)
 				return run.key
@@ -66,8 +61,7 @@ local function descriptionRuns(app: any, id: string): any
 				-- THE DECLARED EMPHASIS APPROXIMATION (ledger §D): emphasis is
 				-- a whole paragraph drawn at the `strong` type role. There is no
 				-- rich-text span engine here and none is claimed.
-				return UI.Text({
-					id = "Run",
+				return UI.Text("Run")({
 					text = run.text,
 					textSize = if run.emphasis then "strong" else "body",
 					width = dims.fill,
@@ -79,18 +73,17 @@ end
 
 local function header(app: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 
-	local title = app.own(core:memo(function(use)
+	local title = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		if blendId == nil then
 			return ""
 		end
 		return i18n.nameAt(use(i18n.locale), "blend", blendId, catalog.blend(blendId).title)
 	end))
-	local caffeine = app.own(core:memo(function(use)
+	local caffeine = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		if blendId == nil then
 			return ""
@@ -98,15 +91,14 @@ local function header(app: any): any
 		return i18n.at(use(i18n.locale), "row.caffeine", { n = catalog.caffeineMg(blendId) })
 	end))
 	local function texts(id: string, width: any): any
-		return UI.VStack({
-			id = id,
+		return UI.VStack(id)({
 			gap = "s",
 			padding = "l",
 			width = width,
 
-			UI.Text({ id = "Title", text = title, textSize = "title", width = dims.fill }),
+			UI.Text("Title")({ text = title, textSize = "title", width = dims.fill }),
 			descriptionRuns(app, "Description" .. id),
-			UI.Text({ id = "Caffeine", text = caffeine, role = "secondary", textSize = "caption" }),
+			UI.Text("Caffeine")({ text = caffeine, role = "secondary", textSize = "caption" }),
 		})
 	end
 
@@ -115,9 +107,8 @@ local function header(app: any): any
 	-- that key", and the reason changing blends re-keys the picture instead of
 	-- rebuilding the header.
 	local function art(id: string, width: any, height: any): any
-		return UI.ForEach({
-			id = id,
-			items = app.own(core:memo(function(use)
+		return app.forEach(id)({
+			items = app.own(app.Compose.formula(function(use)
 				local blendId = use(app.state.selectedBlendId)
 				return if blendId == nil then {} else { blendId }
 			end)),
@@ -135,14 +126,12 @@ local function header(app: any): any
 		})
 	end
 
-	return UI.ViewThatFits({
-		id = "Header",
+	return UI.ViewThatFits("Header")({
 
 		-- 1. the WIDE CARD. It states a real minimum for its text column
 		-- rather than a `fill`: a fill child inside a candidate always fits,
 		-- so a fill here would make this candidate win on a phone.
-		UI.HStack({
-			id = "WideCard",
+		UI.HStack("WideCard")({
 			surface = "raised",
 			corners = UI.cornersData("panel"),
 			stroke = UI.strokeData({}),
@@ -155,21 +144,18 @@ local function header(app: any): any
 			-- description, a bigger type preference, a 1.4x locale) is the
 			-- fixed-px-height defect class, and the solver's overflow
 			-- diagnostic caught exactly that at desktop width.
-			UI.ZStack({
-				id = "WideArt",
+			UI.ZStack("WideArt")({
 				width = dims.fixed("app.sip.headerArtW"),
 				height = dims.fill,
 				art("WideArtFor", dims.fill, dims.fill),
 			}),
 		}),
 		-- 2. the FULL-BLEED fallback
-		UI.VStack({
-			id = "FullBleed",
+		UI.VStack("FullBleed")({
 			gap = "s",
 			width = dims.fill,
 
-			UI.ZStack({
-				id = "BleedArt",
+			UI.ZStack("BleedArt")({
 				width = dims.fill,
 				height = dims.aspect(1.2),
 				art("BleedArtFor", dims.fill, dims.fill),
@@ -185,11 +171,10 @@ end
 
 local function botanicalGrid(app: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 
-	local ids = app.own(core:memo(function(use)
+	local ids = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		if blendId == nil then
 			return {}
@@ -197,21 +182,18 @@ local function botanicalGrid(app: any): any
 		return catalog.tileBotanicals(blendId)
 	end))
 
-	return UI.VStack({
-		id = "Botanicals",
+	return UI.VStack("Botanicals")({
 		gap = "s",
 		width = dims.fill,
 
 		-- a floor rather than a natural width, for the reason the recipe's own
 		-- heading carries the same shape
-		UI.Text({
-			id = "Heading",
+		UI.Text("Heading")({
 			text = app.text("ingredients.menu"),
 			textSize = "heading",
 			width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 		}),
-		UI.Grid({
-			id = "Tiles",
+		UI.Grid("Tiles")({
 			-- "intrinsic" — no column narrower than the widest child MEASURES.
 			-- A px literal here reads as a guess about a font, and it is worse
 			-- than one: the grid's pitch is innerWidth/columns, so a literal
@@ -222,8 +204,7 @@ local function botanicalGrid(app: any): any
 			gap = "m",
 			width = dims.fill,
 
-			UI.ForEach({
-				id = "Cells",
+			app.forEach("Cells")({
 				items = ids,
 				key = function(id: string)
 					return id
@@ -232,12 +213,11 @@ local function botanicalGrid(app: any): any
 					local botanical = catalog.botanical(botanicalId)
 					local label = ownIn(
 						itemScope,
-						core:memo(function(use)
+						app.Compose.formula(function(use)
 							return i18n.nameAt(use(i18n.locale), "botanical", botanicalId, botanical.name)
 						end)
 					)
-					return UI.Button({
-						id = "Tile-" .. botanicalId,
+					return UI.Button("Tile-" .. botanicalId)({
 						label = label,
 						-- no padding of its own: the Grid's intrinsic column
 						-- is measured from the cell's content, and a control
@@ -256,8 +236,7 @@ local function botanicalGrid(app: any): any
 						-- label sat BESIDE the art and every tile overflowed
 						-- its grid cell (found by `controller.diagnostics()`,
 						-- never by a screenshot).
-						UI.VStack({
-							id = "Cell",
+						UI.VStack("Cell")({
 							gap = "xs",
 							align = "center",
 							width = dims.fixed("app.sip.tileArt"),
@@ -270,8 +249,7 @@ local function botanicalGrid(app: any): any
 							-- stating one of its own, so a long localized
 							-- name truncates (and discloses) instead of
 							-- widening the grid
-							UI.Text({
-								id = "Name",
+							UI.Text("Name")({
 								text = label,
 								textSize = "label",
 								lineLimit = 1,
@@ -293,12 +271,11 @@ end
 
 local function ctaBand(app: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local order = app.services.order
 	local rewards = app.services.rewards
 
-	local paused = app.own(core:memo(function(use)
+	local paused = app.own(app.Compose.formula(function(use)
 		return not use(order.paymentsEnabled)
 	end))
 	-- THE REJECTION, AT THE POINT OF ACTION. OrderService acknowledges a refusal
@@ -307,13 +284,13 @@ local function ctaBand(app: any): any
 	-- away had nothing left to read. The task's own latch is what this notice is
 	-- over: it says what happened, says the stamps were not touched, and leaves
 	-- the CTA right underneath it to press again.
-	local refused = app.own(core:memo(function(use)
+	local refused = app.own(app.Compose.formula(function(use)
 		return app.entry == "full" and use(app.services.task.refused)
 	end))
 	-- ONE node, one id, one geometry (spec §8 asks for exactly that), and the
 	-- label is a binding — so the pay/redeem swap and the pending state cost no
 	-- remount and can never leave two CTAs on screen at once.
-	local label = app.own(core:memo(function(use)
+	local label = app.own(app.Compose.formula(function(use)
 		local locale = use(i18n.locale)
 		if use(order.status) == "pending" then
 			return i18n.at(locale, "order.pending")
@@ -326,28 +303,24 @@ local function ctaBand(app: any): any
 		end
 		return i18n.at(locale, "order.place", { price = order.price })
 	end))
-	local enabled = app.own(core:memo(function(use)
+	local enabled = app.own(app.Compose.formula(function(use)
 		return use(order.status) ~= "pending"
 	end))
 
-	return UI.VStack({
-		id = "Cta",
+	return UI.VStack("Cta")({
 		gap = "xs",
 		width = dims.fill,
 
-		UI.Divider({ id = "Rule" }),
-		UI.When({
-			id = "GuardNotice",
+		UI.Divider("Rule")({}),
+		app.when("GuardNotice")({
 			condition = paused,
 			transition = { enter = "fade" },
 			thenView = function()
-				return UI.ZStack({
-					id = "NoticeBox",
+				return UI.ZStack("NoticeBox")({
 					canvasGroup = true,
 					width = dims.fill,
 
-					UI.Text({
-						id = "Notice",
+					UI.Text("Notice")({
 						text = app.text("guard.paused"),
 						surface = "chip",
 						role = "secondary",
@@ -357,18 +330,15 @@ local function ctaBand(app: any): any
 				})
 			end,
 		}),
-		UI.When({
-			id = "RejectNotice",
+		app.when("RejectNotice")({
 			condition = refused,
 			transition = { enter = "fade" },
 			thenView = function()
-				return UI.ZStack({
-					id = "RejectBox",
+				return UI.ZStack("RejectBox")({
 					canvasGroup = true,
 					width = dims.fill,
 
-					UI.Text({
-						id = "Reject",
+					UI.Text("Reject")({
 						text = app.text("task.next.rejected"),
 						surface = "chip",
 						textSize = "caption",
@@ -377,8 +347,7 @@ local function ctaBand(app: any): any
 				})
 			end,
 		}),
-		UI.HStack({
-			id = "Band",
+		UI.HStack("Band")({
 			padding = "s",
 			align = "center",
 			width = dims.fill,
@@ -394,17 +363,18 @@ local function ctaBand(app: any): any
 			-- the "bar material" adaptation: a stated raised plate
 			surface = "raised",
 
-			UI.Button({
-				id = "OrderCTA",
-				label = label,
-				enabled = enabled,
-				surface = "accent",
-				corners = UI.cornersData("pill"),
-				width = dims.fill,
-				onActivate = function()
-					app.commands.orderCta()
-				end,
-			}),
+			UI.corners(
+				UI.Button("OrderCTA")({
+					label = label,
+					enabled = enabled,
+					surface = "accent",
+					width = dims.fill,
+					onActivate = function()
+						app.commands.orderCta()
+					end,
+				}),
+				UI.cornersData("pill")
+			),
 		}),
 	})
 end
@@ -426,13 +396,12 @@ function detail.body(app: any, opts: any): any
 		table.insert(topBarTrailing, detail.favoriteSlot(app))
 	end
 
-	local body = UI.VStack({
-		id = options.id or "Detail",
+	local body = UI.VStack(options.id or "Detail")({
 		gap = "s",
 		width = dims.fill,
 		height = dims.fill,
 
-		app.Facet.navBar({
+		parts.navBar(app, {
 			id = "TopBar",
 			padding = if options.navigationHosted then 0 else "m",
 			onBack = if options.showBack
@@ -443,16 +412,14 @@ function detail.body(app: any, opts: any): any
 			backLabel = app.text("nav.back"),
 			trailing = topBarTrailing,
 		}),
-		UI.ScrollView({
-			id = "Page",
+		UI.ScrollView("Page")({
 			axis = "y",
 			gap = "m",
 			padding = if options.navigationHosted then 0 else "m",
 			width = dims.fill,
 			height = dims.fill,
 
-			UI.VStack({
-				id = "Content",
+			UI.VStack("Content")({
 				gap = "m",
 				width = dims.fill,
 				header(app),
@@ -464,13 +431,11 @@ function detail.body(app: any, opts: any): any
 	if options.navigationHosted then
 		-- The stack already spends one header. Keep the favorite, details and
 		-- order action in one scroller so a short window can reach every verb.
-		return UI.VStack({
-			id = options.id or "Detail",
+		return UI.VStack(options.id or "Detail")({
 			width = dims.fill,
 			height = dims.fill,
 
-			UI.ScrollView({
-				id = "Page",
+			UI.ScrollView("Page")({
 				axis = "y",
 				gap = "m",
 				width = dims.fill,
@@ -488,10 +453,8 @@ end
 -- region so it re-targets with the selection without remounting the top bar
 function detail.favoriteSlot(app: any): any
 	local UI = app.UI
-	local core = app.core
-	return UI.ForEach({
-		id = "FavoriteSlot",
-		items = app.own(core:memo(function(use)
+	return app.forEach("FavoriteSlot")({
+		items = app.own(app.Compose.formula(function(use)
 			local blendId = use(app.state.selectedBlendId)
 			return if blendId == nil then {} else { blendId }
 		end)),
@@ -510,18 +473,16 @@ end
 
 function detail.botanicalCard(app: any, blendId: string, botanicalId: string, progress: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 	local botanical = catalog.botanical(botanicalId)
 
-	local name = app.own(core:memo(function(use)
+	local name = app.own(app.Compose.formula(function(use)
 		return i18n.nameAt(use(i18n.locale), "botanical", botanicalId, botanical.name)
 	end))
 
 	local function frontFace(): any
-		return UI.VStack({
-			id = "Front",
+		return UI.VStack("Front")({
 			gap = "s",
 			padding = "m",
 			align = "center",
@@ -534,14 +495,12 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 				height = dims.fill,
 				markSize = "title",
 			}),
-			UI.Text({ id = "Name", text = name, textSize = "title", textAlign = "center", lineLimit = 2 }),
-			UI.HStack({
-				id = "Actions",
+			UI.Text("Name")({ text = name, textSize = "title", textAlign = "center", lineLimit = 2 }),
+			UI.HStack("Actions")({
 				gap = "m",
 				align = "center",
 
-				UI.Button({
-					id = "CardClose",
+				UI.Button("CardClose")({
 					label = app.text("card.close"),
 					shape = "circle",
 					icon = "close",
@@ -549,8 +508,7 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 						app.commands.closeBotanical()
 					end,
 				}),
-				UI.Button({
-					id = "CardFacts",
+				UI.Button("CardFacts")({
 					label = app.text("card.factsOpen"),
 					shape = "circle",
 					icon = "more",
@@ -564,11 +522,11 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 
 	local function backFace(): any
 		local rows: { any } = {
-			UI.Text({ id = "FactsTitle", text = app.text("facts.title"), textSize = "heading" }),
+			UI.Text("FactsTitle")({ text = app.text("facts.title"), textSize = "heading" }),
 		}
 		for index, fact in catalog.factsFor(blendId, botanicalId) do
 			if index > 1 then
-				table.insert(rows, UI.Divider({ id = "Rule" .. index }))
+				table.insert(rows, UI.Divider("Rule" .. index)({}))
 			end
 			local kind = fact.kind
 			local value = fact.value
@@ -578,7 +536,7 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 					app,
 					"Fact" .. index,
 					app.text(fact.key),
-					app.own(core:memo(function(use)
+					app.own(app.Compose.formula(function(use)
 						local locale = use(i18n.locale)
 						local key = if kind == "grams"
 							then "facts.grams"
@@ -592,8 +550,7 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 		end
 		table.insert(
 			rows,
-			UI.Button({
-				id = "CardFactsClose",
+			UI.Button("CardFactsClose")({
 				label = app.text("card.factsClose"),
 				shape = "circle",
 				icon = "chevron.leading",
@@ -606,13 +563,11 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 		-- so the facts face is a stated TRANSLUCENT plate — a tinted `Box`
 		-- (the one class that takes the continuous channel) under the rows —
 		-- and it is never called a blur anywhere in this proof.
-		return UI.ZStack({
-			id = "Back",
+		return UI.ZStack("Back")({
 			width = dims.fill,
 			height = dims.fill,
 
-			UI.Box({
-				id = "Plate",
+			UI.Box("Plate")({
 				width = dims.fill,
 				height = dims.fill,
 				surface = "raised",
@@ -625,15 +580,13 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 			-- own content, so the facts rows' natural width leaked out through
 			-- the face and past the card's edge; a percent box is a real box and
 			-- stops the propagation on the axis it names.
-			UI.ScrollView({
-				id = "Rows",
+			UI.ScrollView("Rows")(app.withChildren({
 				axis = "y",
 				gap = "s",
 				padding = "s",
 				width = dims.percent(1),
 				height = dims.percent(1),
-				children = rows,
-			}),
+			}, rows)),
 		})
 	end
 
@@ -644,27 +597,23 @@ function detail.botanicalCard(app: any, blendId: string, botanicalId: string, pr
 		background in lockstep with the flip face's text (`newpop.mov`'s
 		mechanism). `Card` stays the outer, non-canvasGroup plate; `Group` is
 		the ONE new canvasGroup, nested one level in. ]]
-	return UI.Screen({
-		id = "BotanicalCard",
+	return UI.Screen("BotanicalCard")({
 		padding = 0,
 
-		UI.ZStack({
-			id = "Body",
+		UI.ZStack("Body")({
 			width = dims.fill,
 			height = dims.fill,
 			alignH = "center",
 			alignV = "center",
 
-			UI.ZStack({
-				id = "Card",
+			UI.ZStack("Card")({
 				width = dims.percentMax(0.92, "app.sip.cardW"),
 				height = dims.percentMax(0.9, "app.sip.cardH"),
 				surface = "raised",
 				corners = UI.cornersData("panel"),
 				shadow = UI.shadowData("overlay"),
 
-				UI.ZStack({
-					id = "Group",
+				UI.ZStack("Group")({
 					canvasGroup = true,
 					width = dims.fill,
 					height = dims.fill,
@@ -690,12 +639,10 @@ end
 function detail.guardAlert(app: any, reasonKey: string): any
 	local UI = app.UI
 	local body = if app.services.i18n.has(reasonKey) then reasonKey else "guard.fallback"
-	return UI.Screen({
-		id = "GuardAlert",
+	return UI.Screen("GuardAlert")({
 		padding = "m",
 
-		UI.ZStack({
-			id = "Body",
+		UI.ZStack("Body")({
 			canvasGroup = true,
 			width = dims.fill,
 			height = dims.fill,
@@ -706,14 +653,12 @@ function detail.guardAlert(app: any, reasonKey: string): any
 			-- itself, so at a small viewport (or 1.4x copy at the largest
 			-- text preference) the alert SCROLLS instead of painting its
 			-- body outside the screen.
-			UI.ScrollView({
-				id = "AlertScroll",
+			UI.ScrollView("AlertScroll")({
 				axis = "y",
 				width = dims.percentMax(0.92, "app.sip.cardW"),
 				height = dims.percent(0.9),
 
-				UI.VStack({
-					id = "Alert",
+				UI.VStack("Alert")({
 					surface = "raised",
 					corners = UI.cornersData("panel"),
 					padding = "m",
@@ -721,26 +666,25 @@ function detail.guardAlert(app: any, reasonKey: string): any
 					align = "center",
 					width = dims.fill,
 
-					UI.Text({
-						id = "Title",
+					UI.Text("Title")({
 						text = app.text("guard.title"),
 						textSize = "heading",
 					}),
-					UI.Text({
-						id = "Reason",
+					UI.Text("Reason")({
 						text = app.text(body),
 						role = "secondary",
 						textSize = "body",
 						width = dims.fill,
 					}),
-					UI.Button({
-						id = "GuardOK",
-						label = app.text("common.ok"),
-						corners = UI.cornersData("pill"),
-						onActivate = function()
-							app.commands.dismissGuard()
-						end,
-					}),
+					UI.corners(
+						UI.Button("GuardOK")({
+							label = app.text("common.ok"),
+							onActivate = function()
+								app.commands.dismissGuard()
+							end,
+						}),
+						UI.cornersData("pill")
+					),
 				}),
 			}),
 		}),
@@ -753,11 +697,10 @@ end
 
 function detail.orderPlaced(app: any, blendId: string, progress: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 
-	local pickup = app.own(core:memo(function(use)
+	local pickup = app.own(app.Compose.formula(function(use)
 		local locale = use(i18n.locale)
 		return i18n.at(locale, "placed.pickup", {
 			title = i18n.nameAt(locale, "blend", blendId, catalog.blend(blendId).title),
@@ -765,16 +708,14 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 	end))
 
 	local function face(id: string, headingKey: string, body: any): any
-		return UI.VStack({
-			id = id,
+		return UI.VStack(id)({
 			gap = "s",
 			padding = "m",
 			align = "center",
 			width = dims.fill,
 			height = dims.fill,
 
-			UI.Text({
-				id = "Heading",
+			UI.Text("Heading")({
 				text = app.text(headingKey),
 				textSize = "heading",
 				textAlign = "center",
@@ -782,8 +723,7 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 				disclose = true,
 				width = dims.fill,
 			}),
-			UI.Text({
-				id = "Body",
+			UI.Text("Body")({
 				text = body,
 				role = "secondary",
 				textSize = "body",
@@ -795,12 +735,10 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 		})
 	end
 
-	return UI.Screen({
-		id = "OrderPlaced",
+	return UI.Screen("OrderPlaced")({
 		padding = 0,
 
-		UI.ZStack({
-			id = "Body",
+		UI.ZStack("Body")({
 			canvasGroup = true,
 			width = dims.fill,
 			height = dims.fill,
@@ -814,14 +752,12 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 				markSize = "title",
 			}),
 			-- the veil: a stated translucent plate over the art, never a blur
-			UI.Box({
-				id = "Veil",
+			UI.Box("Veil")({
 				width = dims.fill,
 				height = dims.fill,
 				tint = { role = "surface", blend = 1, transparency = 0.35 },
 			}),
-			UI.ZStack({
-				id = "Disc",
+			UI.ZStack("Disc")({
 				-- a share of the viewport, capped at the spec's disc, and
 				-- 1:1 by derivation rather than by two numbers agreeing
 				width = dims.percentMax(0.8, "app.sip.orderCard"),
@@ -842,16 +778,20 @@ function detail.orderPlaced(app: any, blendId: string, progress: any): any
 					end,
 				}),
 			}),
-			UI.Button({
-				id = "Done",
-				label = app.text("common.done"),
-				corners = UI.cornersData("pill"),
+			-- the slot places the button in the corner; its padding is the button's margin
+			UI.ZStack("DoneSlot")({
 				alignH = "end",
 				alignV = "start",
-				margin = "m",
-				onActivate = function()
-					app.commands.dismissOrderPlaced()
-				end,
+				padding = "m",
+				UI.corners(
+					UI.Button("Done")({
+						label = app.text("common.done"),
+						onActivate = function()
+							app.commands.dismissOrderPlaced()
+						end,
+					}),
+					UI.cornersData("pill")
+				),
 			}),
 		}),
 	})

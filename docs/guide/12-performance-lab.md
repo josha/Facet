@@ -450,7 +450,7 @@ Start from the standing lesson, because ignoring it shipped a defect:
 - **Measure a breakpoint inside the real fixed slot** — a free-height measurement only
   shows horizontal overflow.
 - **You do not have to notice this one yourself.** The framework checks the
-  promise for you. A `newVirtualList` row whose content measures taller than the
+  promise for you. A `UI.VirtualList` row whose content measures taller than the
   declared `itemExtent` files a finding on `controller.diagnostics()`, naming both
   numbers and the row (`docs/reference/api.md` → [a lying `itemExtent`](../reference/api.md#a-lying-itemextent)).
   This lab's own `rows.heightFor` is what that check was built from. It had to

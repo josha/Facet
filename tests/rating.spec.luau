@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Rating (director round 10, 2026-07-26): a run of glyphs that reads as ONE
 -- value and takes ONE focus stop.
 --
@@ -11,14 +12,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local fake_target = require("../tests/lib/fake_target")
 local chrome_slots = require("../src/tokens/chrome_slots")
+local Compose = require("../src/vendor/compose/core")
 
 local STRIP = "/S/Stars/Strip"
 
@@ -30,12 +32,12 @@ local function mount(specOverrides: any?)
 	local adapter = fake_target.new()
 	local system = actionsLib.newSystem(core)
 	local pres = presenterLib.new(core, env, adapter, system)
-	local value = core:signal(3)
+	local value = Compose.cell(3)
 	local spec: any = { id = "Stars", value = value }
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.Controls.Rating(core, spec)
+	local control = harness.Controls.Rating(core, spec)
 	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control
@@ -51,9 +53,9 @@ describe("Rating: the value model", function()
 	it("a read-only Memo is refused at BUILD, not on the first tap", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.Rating(core, {
+			return harness.Controls.Rating(core, {
 				id = "R",
-				value = core:memo(function()
+				value = Compose.formula(function()
 					return 3
 				end),
 			})
@@ -64,7 +66,7 @@ describe("Rating: the value model", function()
 		local core = customFactory.new()
 		for _, bad in { 0, -3, 2.5 } do
 			expect(pcall(function()
-				return Facet.Controls.Rating(core, { id = "R", value = core:signal(1), count = bad })
+				return harness.Controls.Rating(core, { id = "R", value = Compose.cell(1), count = bad })
 			end)).toBe(false)
 		end
 	end)
@@ -91,16 +93,16 @@ describe("Rating: the value model", function()
 		local _, adapter, _, pres, value = mount()
 		adapter.pointerDown(STRIP, pointAt(adapter, -2))
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		local _, adapter2, _, pres2, value2 = mount({ allowZero = false })
 		adapter2.pointerDown(STRIP, pointAt(adapter2, -2))
 		pres2.refresh()
-		expect(value2:get()).toBe(1)
+		expect(value2:peek()).toBe(1)
 	end)
 
 	it("semantic text reports the value IN ITS RANGE, never a bare number", function()
 		local _, _, _, _, _, control = mount()
-		expect(control.semanticText:get()).toBe("3 of 5")
+		expect(control.semanticText:peek()).toBe("3 of 5")
 	end)
 
 	-- CTRL-08c (api-architecture-consistency F-25). Neither `dump()` nor
@@ -128,10 +130,10 @@ describe("Rating: the value model", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local baseline = core:counters() -- AFTER the long-lived singletons
+		local baseline = core.owner.size() -- AFTER the long-lived singletons
 
-		local value = core:signal(3)
-		local control = Facet.Controls.Rating(core, { id = "Stars", value = value, env = env })
+		local value = Compose.cell(3)
+		local control = harness.Controls.Rating(core, { id = "Stars", value = value, env = env })
 		local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
@@ -140,12 +142,9 @@ describe("Rating: the value model", function()
 
 		pres.dismiss(handle)
 		control.dispose()
-		value:dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -173,11 +172,11 @@ describe("Rating: one control, not N buttons", function()
 			system.deviceKey("DPadDown", true)
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
-			seen[tostring(pres.focus.focused:get())] = true
+			seen[tostring(pres.focus.focused:peek())] = true
 			system.deviceKey("DPadRight", true)
 			system.deviceKey("DPadRight", false)
 			pres.refresh()
-			seen[tostring(pres.focus.focused:get())] = true
+			seen[tostring(pres.focus.focused:peek())] = true
 		end
 		expect(seen[STRIP]).toBe(true)
 		for i = 1, 5 do
@@ -193,23 +192,23 @@ describe("Rating: one control, not N buttons", function()
 		system2.deviceKey("DPadDown", true)
 		system2.deviceKey("DPadDown", false)
 		pres2.refresh()
-		expect(tostring(pres2.focus.focused:get())).never().toBe(STRIP)
+		expect(tostring(pres2.focus.focused:peek())).never().toBe(STRIP)
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
 		pres.refresh()
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 
 	it("a disabled rating refuses every input class, not just the pointer", function()
 		local _, adapter, system, pres, value = mount({ enabled = false })
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
 		pres.refresh()
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
 		system.deviceKey("Period", true)
 		system.deviceKey("Period", false)
 		pres.refresh()
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 end)
 
@@ -219,24 +218,24 @@ describe("Rating reaches the same arithmetic from every input class", function()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
 		adapter.pointerUp(pointAt(adapter, 0.9))
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.3))
 		adapter.pointerUp(pointAt(adapter, 0.3))
 		pres.refresh()
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 	end)
 
 	it("touch: a finger drag across the strip scrubs the value live", function()
 		local _, adapter, _, pres, value = mount()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.1), "touch")
 		pres.refresh()
-		expect(value:get()).toBe(1)
+		expect(value:peek()).toBe(1)
 		adapter.pointerMove(pointAt(adapter, 0.7))
 		pres.refresh()
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 		adapter.pointerUp(pointAt(adapter, 0.7))
 		pres.refresh()
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 	end)
 
 	it("keyboard: Adjust on the focused strip rates without touching a star", function()
@@ -247,11 +246,11 @@ describe("Rating reaches the same arithmetic from every input class", function()
 		system.deviceKey("Period", true)
 		system.deviceKey("Period", false)
 		pres.refresh()
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 		system.deviceKey("Comma", true)
 		system.deviceKey("Comma", false)
 		pres.refresh()
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 
 	it("gamepad: the bumpers Adjust the focused rating", function()
@@ -262,11 +261,11 @@ describe("Rating reaches the same arithmetic from every input class", function()
 		system.deviceKey("ButtonR1", true)
 		system.deviceKey("ButtonR1", false)
 		pres.refresh()
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 		system.deviceKey("ButtonL1", true)
 		system.deviceKey("ButtonL1", false)
 		pres.refresh()
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 
 	it("no Adjust key is bound while focus sits outside the Rating (no gameplay bumper shadow)", function()
@@ -277,8 +276,8 @@ describe("Rating reaches the same arithmetic from every input class", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local value = core:signal(3)
-		local control = Facet.Controls.Rating(core, { id = "Stars", value = value })
+		local value = Compose.cell(3)
+		local control = harness.Controls.Rating(core, { id = "Stars", value = value })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -291,17 +290,17 @@ describe("Rating reaches the same arithmetic from every input class", function()
 		system.deviceKey("ButtonR1", true)
 		system.deviceKey("ButtonR1", false)
 		pres.refresh()
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 
 	it("hotSwitch: losing the pointer mid-scrub CANCELS back, it never commits", function()
 		local _, adapter, _, pres, value, control = mount()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 		control.onInteractionClassLost("pointer")
 		pres.refresh()
-		expect(value:get()).toBe(3) -- the pre-scrub value, not the half-finished one
+		expect(value:peek()).toBe(3) -- the pre-scrub value, not the half-finished one
 	end)
 end)
 
@@ -344,8 +343,8 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local value = core:signal(start)
-		local control = Facet.Controls.Rating(core, { id = "Stars", value = value })
+		local value = Compose.cell(start)
+		local control = harness.Controls.Rating(core, { id = "Stars", value = value })
 		pres.present(
 			UI.Screen({
 				id = "S",
@@ -377,29 +376,29 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 
 	it("at the MAXIMUM, one more Right moves the ring instead of the rating", function()
 		local value, pres, tap = mountRow(4)
-		expect(tostring(pres.focus.focused:get())).toBe(ROW_STRIP)
+		expect(tostring(pres.focus.focused:peek())).toBe(ROW_STRIP)
 		tap("DPadRight") -- 4 -> 5, the ring must NOT move
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`5@{ROW_STRIP}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{ROW_STRIP}`)
 		tap("DPadRight") -- at the maximum: the ring moves, the value does not
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`5@{AFTER}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{AFTER}`)
 	end)
 
 	it("at the MINIMUM, one more Left moves the ring the other way", function()
 		local value, pres, tap = mountRow(1)
 		tap("DPadLeft") -- 1 -> 0 (zero is allowed by default)
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`0@{ROW_STRIP}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`0@{ROW_STRIP}`)
 		tap("DPadLeft") -- at the minimum: the ring moves, the value does not
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`0@{BEFORE}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`0@{BEFORE}`)
 	end)
 
 	it("the yield RE-ARMS: walking back onto the strip adjusts again", function()
 		local value, pres, tap = mountRow(5)
 		tap("DPadRight") -- yields
-		expect(tostring(pres.focus.focused:get())).toBe(AFTER)
+		expect(tostring(pres.focus.focused:peek())).toBe(AFTER)
 		tap("DPadLeft") -- back onto the strip (navigation, not adjust)
-		expect(tostring(pres.focus.focused:get())).toBe(ROW_STRIP)
+		expect(tostring(pres.focus.focused:peek())).toBe(ROW_STRIP)
 		tap("DPadLeft") -- and the arrow is the control's again
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 	end)
 
 	it("the yield RE-ARMS: the NEXT value control in the row is not dead on arrival", function()
@@ -421,9 +420,9 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local left, right = core:signal(5), core:signal(2)
-		local a = Facet.Controls.Rating(core, { id = "A", value = left })
-		local b = Facet.Controls.Rating(core, { id = "B", value = right })
+		local left, right = Compose.cell(5), Compose.cell(2)
+		local a = harness.Controls.Rating(core, { id = "A", value = left })
+		local b = harness.Controls.Rating(core, { id = "B", value = right })
 		local A, B = "/S/Row/A/Strip", "/S/Row/B/Strip"
 		local START = "/S/Row/Start"
 		pres.present(
@@ -449,13 +448,13 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 			system.deviceKey(key, false)
 			pres.refresh()
 		end
-		expect(tostring(pres.focus.focused:get())).toBe(START)
+		expect(tostring(pres.focus.focused:peek())).toBe(START)
 		tap("DPadRight") -- onto A
-		expect(tostring(pres.focus.focused:get())).toBe(A)
+		expect(tostring(pres.focus.focused:peek())).toBe(A)
 		tap("DPadRight") -- A is at 5 of 5: it yields, and the ring moves to B
-		expect(`{left:get()}@{pres.focus.focused:get()}`).toBe(`5@{B}`)
+		expect(`{left:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{B}`)
 		tap("DPadRight") -- ...and B, which has room to move, must actually move
-		expect(`{right:get()}@{pres.focus.focused:get()}`).toBe(`3@{B}`)
+		expect(`{right:peek()}@{pres.focus.focused:peek()}`).toBe(`3@{B}`)
 	end)
 
 	it("the yield RE-ARMS: the rating in the NEXT ROW down still takes the arrow", function()
@@ -480,9 +479,9 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local top, bottom = core:signal(5), core:signal(2)
-		local r1 = Facet.Controls.Rating(core, { id = "R1", value = top })
-		local r2 = Facet.Controls.Rating(core, { id = "R2", value = bottom })
+		local top, bottom = Compose.cell(5), Compose.cell(2)
+		local r1 = harness.Controls.Rating(core, { id = "R1", value = top })
+		local r2 = harness.Controls.Rating(core, { id = "R2", value = bottom })
 		local ENTER, S1, BTN, S2 =
 			"/S/Body/Row1/Enter", "/S/Body/Row1/R1/Strip", "/S/Body/Row1/Btn", "/S/Body/Row2/R2/Strip"
 		local function btn(id: string)
@@ -516,14 +515,14 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 			pres.refresh()
 		end
 		tap("DPadRight") -- Enter -> row 1's rating (which is at 5 of 5)
-		expect(tostring(pres.focus.focused:get())).toBe(S1)
+		expect(tostring(pres.focus.focused:peek())).toBe(S1)
 		tap("DPadRight") -- at the maximum: yields onto the row's button
-		expect(`{top:get()}@{pres.focus.focused:get()}`).toBe(`5@{BTN}`)
+		expect(`{top:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{BTN}`)
 		tap("DPadDown") -- down to row 2's rating: a VERTICAL key, so nothing on the
 		-- horizontal adjust action ever sees a release
-		expect(tostring(pres.focus.focused:get())).toBe(S2)
+		expect(tostring(pres.focus.focused:peek())).toBe(S2)
 		tap("DPadRight") -- ...and this rating has room, so it must move
-		expect(`{bottom:get()}@{pres.focus.focused:get()}`).toBe(`3@{S2}`)
+		expect(`{bottom:peek()}@{pres.focus.focused:peek()}`).toBe(`3@{S2}`)
 	end)
 
 	it("BELOW the limit the arrow is still the control's — the ring never moves", function()
@@ -531,20 +530,20 @@ describe("Rating: at its limit the arrow goes back to navigation", function()
 		for _ = 1, 4 do
 			tap("DPadRight")
 		end
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`5@{ROW_STRIP}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{ROW_STRIP}`)
 	end)
 
 	it("NEGATIVE CONTROL: the BUMPERS never yield — they took nothing from navigation", function()
 		local value, pres, tap = mountRow(5)
 		tap("ButtonR1") -- at the maximum, on a dedicated adjust key
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`5@{ROW_STRIP}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{ROW_STRIP}`)
 		tap("Period") -- ...and the keyboard's dedicated adjust key agrees
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`5@{ROW_STRIP}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`5@{ROW_STRIP}`)
 		-- POSITIVE CONTROL in the same session: the arrow, on the same control at
 		-- the same limit, DOES yield — so the two lines above are a statement about
 		-- the key rather than about this fixture being stuck.
 		tap("DPadRight")
-		expect(tostring(pres.focus.focused:get())).toBe(AFTER)
+		expect(tostring(pres.focus.focused:peek())).toBe(AFTER)
 	end)
 end)
 
@@ -581,7 +580,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = Facet.Controls.Rating(core, { id = "R", value = core:signal(3), starSize = starSize })
+		local control = harness.Controls.Rating(core, { id = "R", value = Compose.cell(3), starSize = starSize })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -650,7 +649,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = Facet.Controls.Rating(core, { id = "R", value = core:signal(3) })
+		local control = harness.Controls.Rating(core, { id = "R", value = Compose.cell(3) })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -696,7 +695,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = Facet.Controls.Rating(core, { id = "R", value = core:signal(3) })
+		local control = harness.Controls.Rating(core, { id = "R", value = Compose.cell(3) })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -723,7 +722,7 @@ describe("Rating: the strip fits the cell a table gives it, under every package"
 	it("an unknown starSize is a build error, not a silently-default star", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.Rating(core, { id = "R", value = core:signal(1), starSize = "huge" })
+			return harness.Controls.Rating(core, { id = "R", value = Compose.cell(1), starSize = "huge" })
 		end)).toBe(false)
 	end)
 end)
@@ -769,7 +768,7 @@ describe("Rating: the star run spaces itself for the input paradigm", function()
 		env:set("preferredInput", if touch then "Touch" else "KeyboardAndMouse")
 		local adapter = fake.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local control = Facet.Controls.Rating(core, { id = "R", value = core:signal(3), env = env })
+		local control = harness.Controls.Rating(core, { id = "R", value = Compose.cell(3), env = env })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -820,7 +819,7 @@ describe("Rating: the star run spaces itself for the input paradigm", function()
 	it("a rating with NO env takes the pointer spacing, which is the one that always fits", function()
 		local core = customFactory.new()
 		local ok = pcall(function()
-			return Facet.Controls.Rating(core, { id = "R", value = core:signal(3) })
+			return harness.Controls.Rating(core, { id = "R", value = Compose.cell(3) })
 		end)
 		expect(ok).toBe(true)
 	end)

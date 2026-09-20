@@ -103,4 +103,69 @@ end
 ]]
 foreign_content.CLAIMED_PROPERTY = "Parent"
 
+--[[ THE `onHost` PROP'S BINDING — one per mounted Foreign that declared one.
+
+	WHY THE PROP EXISTS. `controller.foreignHost(path)` is the seam, and only a
+	CONTROLLER can be asked for it. A component builds before its own
+	`app.mount` returns a handle, so a component that wants to fill its own box
+	has no controller at the moment it declares the box. Every consumer that met
+	this wrote the same workaround: smuggle the controller out through a mutable
+	box the host fills in later, then ask for the handle on every frame until it
+	stops answering nil — a per-frame busy-wait for a structural event the
+	renderer already knows the exact moment of, and a frame connection that
+	outlives nothing in particular.
+
+	WHAT IT HANDS YOU IS THE SEAM, NOT THE CONTAINER. The box is Facet's: the
+	renderer writes a rect and a plate onto it every solve, and handing it out
+	would be the writable-handle hole `foreignHost` was shaped to refuse
+	(docs/reference/api.md §Foreign, "There is no contentRoot() here"). So `onHost`
+	receives exactly what `foreignHost(path)` answers — `{ adopt }`, or nil where
+	the render target has no foreign seam at all (a world canvas; see
+	`src/client/billboard_target.luau`). A headless fake target DOES have one, so
+	a spec's `onHost` is called with the fake seam and its `adopt` is recorded.
+
+	ONCE EACH WAY. `open` runs the declaration at most once and keeps whatever it
+	returns; `close` runs that at most once, when the node is removed or the
+	surface is torn down. Both are CONTAINED: a caller's engine code failing is
+	not a reason for the render pass around it to unwind, and a cleanup that
+	throws must not strand the cleanups after it.
+]]
+function foreign_content.newHostBinding(path: string, declared: (seam: any) -> (() -> ())?, report: ((any) -> ())?)
+	local opened, closed = false, false
+	local release: (() -> ())? = nil
+	local function contain(body: () -> any)
+		local ok, result = pcall(body)
+		if not ok then
+			if report ~= nil then
+				report(`Facet UI.Foreign('{path}') onHost: {tostring(result)}`)
+			end
+			return nil
+		end
+		return result
+	end
+	return {
+		open = function(seam: any)
+			if opened or closed then
+				return
+			end
+			opened = true
+			local returned = contain(function()
+				return declared(seam)
+			end)
+			release = if type(returned) == "function" then returned else nil
+		end,
+		close = function()
+			if closed then
+				return
+			end
+			closed = true
+			local run = release
+			release = nil
+			if run ~= nil then
+				contain(run)
+			end
+		end,
+	}
+end
+
 return table.freeze(foreign_content)

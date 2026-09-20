@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local Compose = require("../src").Compose
 -- Milestone A — adaptive layout (docs/plans/parity-next.md investment 5;
 -- acceptance rows A-AL1..A-AL3) and the axis-aware Divider (A-LV3).
 --
@@ -10,9 +12,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local adaptive = require("../src/layout/adaptive")
@@ -102,40 +104,40 @@ describe("A-AL3: reactive conditions over the environment", function()
 		if displaySize ~= nil then
 			env:set("displaySize", displaySize)
 		end
-		return core, env, adaptive.conditions(core, env)
+		return core, env, adaptive.conditions(env)
 	end
 
 	it("exposes the class and its boolean tests as Readables", function()
 		local _, _, c = makeConditions(400)
-		expect(c.sizeClass:get()).toBe("compact")
-		expect(c.isCompact:get()).toBe(true)
-		expect(c.isRegular:get()).toBe(false)
-		expect(c.isWide:get()).toBe(false)
+		expect(c.sizeClass:peek()).toBe("compact")
+		expect(c.isCompact:peek()).toBe(true)
+		expect(c.isRegular:peek()).toBe(false)
+		expect(c.isWide:peek()).toBe(false)
 	end)
 
 	it("re-resolves live when the viewport changes, with no remount", function()
 		local _, env, c = makeConditions(400)
-		expect(c.isCompact:get()).toBe(true)
+		expect(c.isCompact:peek()).toBe(true)
 		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		expect(c.sizeClass:get()).toBe("wide")
-		expect(c.isWide:get()).toBe(true)
-		expect(c.isCompact:get()).toBe(false)
+		expect(c.sizeClass:peek()).toBe("wide")
+		expect(c.isWide:peek()).toBe(true)
+		expect(c.isCompact:peek()).toBe(false)
 	end)
 
 	it("isTenFoot follows the distance profile, not the input class", function()
 		local _, _, near = makeConditions(1920, "Medium")
-		expect(near.isTenFoot:get()).toBe(false)
+		expect(near.isTenFoot:peek()).toBe(false)
 		local _, _, far = makeConditions(1920, "Large")
-		expect(far.isTenFoot:get()).toBe(true)
+		expect(far.isTenFoot:peek()).toBe(true)
 		-- and the ten-foot density floor applies
-		expect(far.sizeClass:get()).toBe("regular")
+		expect(far.sizeClass:peek()).toBe("regular")
 	end)
 
 	it("axis is a Readable an AdaptiveStack can bind directly", function()
 		local _, env, c = makeConditions(400)
-		expect(c.axis:get()).toBe("y")
+		expect(c.axis:peek()).toBe("y")
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 800 })
-		expect(c.axis:get()).toBe("x")
+		expect(c.axis:peek()).toBe("x")
 	end)
 
 	it("REFUSES the engine's placeholder viewport: a degenerate write keeps the last real fact", function()
@@ -163,16 +165,16 @@ describe("A-AL3: reactive conditions over the environment", function()
 		}
 		for i, bad in BAD do
 			env:set("viewportRect", bad)
-			local vp = env:get("viewportRect"):get()
+			local vp = env:get("viewportRect"):peek()
 			expect(`{i}:{vp.w}x{vp.h}`).toBe(`{i}:801x392`)
 		end
 		-- and nil is refused the same way, not stored
 		env:set("viewportRect", nil)
-		local vp = env:get("viewportRect"):get()
+		local vp = env:get("viewportRect"):peek()
 		expect(`{vp.w}x{vp.h}`).toBe("801x392")
 		-- a REAL write still lands (the refusal is about placeholders, not writes)
 		env:set("viewportRect", { x = 0, y = 0, w = 375, h = 812 })
-		expect(env:get("viewportRect"):get().w).toBe(375)
+		expect(env:get("viewportRect"):peek().w).toBe(375)
 	end)
 
 	--[[ GAP 7a (framework-gaps-phase2 §7): `navPlacement` alone was a bare
@@ -183,37 +185,37 @@ describe("A-AL3: reactive conditions over the environment", function()
 	it("GAP7a: navSidebar/navTopBar/navBottomBar/navBottomBarCompact are the four homes, promoted", function()
 		-- pointer-primary, roomy on both axes -> sidebar
 		local _, _, sidebarC = makeConditions(1200, nil, 800)
-		expect(sidebarC.navPlacement:get()).toBe("sidebar")
-		expect(sidebarC.navSidebar:get()).toBe(true)
-		expect(sidebarC.navTopBar:get()).toBe(false)
-		expect(sidebarC.navBottomBar:get()).toBe(false)
-		expect(sidebarC.navBottomBarCompact:get()).toBe(false)
+		expect(sidebarC.navPlacement:peek()).toBe("sidebar")
+		expect(sidebarC.navSidebar:peek()).toBe(true)
+		expect(sidebarC.navTopBar:peek()).toBe(false)
+		expect(sidebarC.navBottomBar:peek()).toBe(false)
+		expect(sidebarC.navBottomBarCompact:peek()).toBe(false)
 
 		-- ten-foot -> topBar
 		local _, _, topC = makeConditions(1200, "Large", 800)
-		expect(topC.navPlacement:get()).toBe("topBar")
-		expect(topC.navTopBar:get()).toBe(true)
-		expect(topC.navSidebar:get()).toBe(false)
+		expect(topC.navPlacement:peek()).toBe("topBar")
+		expect(topC.navTopBar:peek()).toBe(true)
+		expect(topC.navSidebar:peek()).toBe(false)
 
 		-- compact width -> bottomBar
 		local _, _, bottomC = makeConditions(400, nil, 800)
-		expect(bottomC.navPlacement:get()).toBe("bottomBar")
-		expect(bottomC.navBottomBar:get()).toBe(true)
-		expect(bottomC.navBottomBarCompact:get()).toBe(false)
+		expect(bottomC.navPlacement:peek()).toBe("bottomBar")
+		expect(bottomC.navBottomBar:peek()).toBe(true)
+		expect(bottomC.navBottomBarCompact:peek()).toBe(false)
 
 		-- short height, roomy width -> bottomBarCompact
 		local _, _, compactC = makeConditions(900, nil, 400)
-		expect(compactC.navPlacement:get()).toBe("bottomBarCompact")
-		expect(compactC.navBottomBarCompact:get()).toBe(true)
-		expect(compactC.navBottomBar:get()).toBe(false)
+		expect(compactC.navPlacement:peek()).toBe("bottomBarCompact")
+		expect(compactC.navBottomBarCompact:peek()).toBe(true)
+		expect(compactC.navBottomBar:peek()).toBe(false)
 	end)
 
 	it("GAP7a: navSidebar re-resolves live, exactly as navPlacement does", function()
 		local _, env, c = makeConditions(1200, nil, 800)
-		expect(c.navSidebar:get()).toBe(true)
+		expect(c.navSidebar:peek()).toBe(true)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
-		expect(c.navSidebar:get()).toBe(false)
-		expect(c.navBottomBar:get()).toBe(true)
+		expect(c.navSidebar:peek()).toBe(false)
+		expect(c.navBottomBar:peek()).toBe(true)
 	end)
 
 	--[[ GAP 7b: the trap is that `isRegular` READS like "at least regular" and
@@ -223,34 +225,34 @@ describe("A-AL3: reactive conditions over the environment", function()
 		hand, self-explanatory without reading the breakpoint doc. ]]
 	it("GAP7b: isRegularOrWider/isCompactOnly name the two-way split the trap invites", function()
 		local _, _, compact = makeConditions(400)
-		expect(compact.isCompactOnly:get()).toBe(true)
-		expect(compact.isRegularOrWider:get()).toBe(false)
+		expect(compact.isCompactOnly:peek()).toBe(true)
+		expect(compact.isRegularOrWider:peek()).toBe(false)
 
 		local _, _, regular = makeConditions(700)
-		expect(regular.isCompactOnly:get()).toBe(false)
-		expect(regular.isRegularOrWider:get()).toBe(true)
+		expect(regular.isCompactOnly:peek()).toBe(false)
+		expect(regular.isRegularOrWider:peek()).toBe(true)
 
 		-- the trap's own case: `isRegular` is false here, but isRegularOrWider
 		-- (what every hand-rolled `not isCompact` site actually meant) is true
 		local _, _, wide = makeConditions(1200)
-		expect(wide.isRegular:get()).toBe(false)
-		expect(wide.isCompactOnly:get()).toBe(false)
-		expect(wide.isRegularOrWider:get()).toBe(true)
+		expect(wide.isRegular:peek()).toBe(false)
+		expect(wide.isCompactOnly:peek()).toBe(false)
+		expect(wide.isRegularOrWider:peek()).toBe(true)
 	end)
 
 	it("GAP7b: isCompactOnly is isCompact under a name that pairs with isRegularOrWider, not a second fact", function()
 		local _, env, c = makeConditions(400)
-		expect(c.isCompactOnly:get()).toBe(c.isCompact:get())
+		expect(c.isCompactOnly:peek()).toBe(c.isCompact:peek())
 		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		expect(c.isCompactOnly:get()).toBe(c.isCompact:get())
+		expect(c.isCompactOnly:peek()).toBe(c.isCompact:peek())
 	end)
 
 	it("GAP7b: conditions.atLeast is the general form isRegularOrWider names", function()
 		local _, _, c = makeConditions(700)
-		expect(c.atLeast("compact"):get()).toBe(true)
-		expect(c.atLeast("regular"):get()).toBe(true)
-		expect(c.atLeast("wide"):get()).toBe(false)
-		expect(c.atLeast("regular"):get()).toBe(c.isRegularOrWider:get())
+		expect(c.atLeast("compact"):peek()).toBe(true)
+		expect(c.atLeast("regular"):peek()).toBe(true)
+		expect(c.atLeast("wide"):peek()).toBe(false)
+		expect(c.atLeast("regular"):peek()).toBe(c.isRegularOrWider:peek())
 	end)
 end)
 
@@ -299,7 +301,7 @@ describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", functi
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local axis = core:signal("y")
+		local axis = Compose.cell("y")
 		local root, adapter, controller = makeStack(core, env, axis)
 		local factoryRunsBefore = root.counters().factoryRuns
 		local mountedBefore = root.counters().mounted
@@ -323,7 +325,7 @@ describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", functi
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local conditions = adaptive.conditions(core, env)
+		local conditions = adaptive.conditions(env)
 		local root, adapter, controller = makeStack(core, env, conditions.axis)
 		expect(adapter.node("/S/Bar/A").rect.x).toBe(adapter.node("/S/Bar/B").rect.x)
 		local createsBefore = controller.stats().creates
@@ -340,7 +342,7 @@ describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", functi
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local gap = core:signal(8)
+		local gap = Compose.cell(8)
 		local bp = UI.Screen({
 			id = "S",
 			children = {
@@ -370,7 +372,7 @@ describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", functi
 
 	it("rejects an axis outside the closed set at construction", function()
 		local ok, err = pcall(function()
-			return UI.AdaptiveStack({ id = "Bar", axis = "diagonal" })
+			return mountLib.mount(harness.newCore(), UI.AdaptiveStack({ id = "Bar", axis = "diagonal" }))
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "one of y | x", 1, true) ~= nil).toBe(true)
@@ -445,7 +447,7 @@ describe("A-LV3: Divider is axis-aware", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 300 })
-		local axis = core:signal("y")
+		local axis = Compose.cell("y")
 		local bp = UI.Screen({
 			id = "S",
 			children = {
@@ -490,7 +492,7 @@ end)
 -- navigation can never land on an invisible control.
 
 describe("A-AL1: ViewThatFits", function()
-	local presenterLib = require("../src/present/presenter")
+	local presenterLib = harness.presenterLib
 	local actionsLib = require("../src/input/actions")
 
 	local function makeFits(viewportW: number)
@@ -623,7 +625,7 @@ describe("A-AL1: ViewThatFits", function()
 			system.deviceKey("DPadDown", true)
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
-			local f = pres.focus.focused:get()
+			local f = pres.focus.focused:peek()
 			if f ~= nil then
 				visited[f] = true
 			end
@@ -663,7 +665,7 @@ describe("A-AL1: ViewThatFits", function()
 				system.deviceKey("DPadDown", true)
 				system.deviceKey("DPadDown", false)
 				pres.refresh()
-				local f = pres.focus.focused:get()
+				local f = pres.focus.focused:peek()
 				if f ~= nil then
 					seen ..= f .. ","
 				end
@@ -722,7 +724,7 @@ describe("A-AL1: ViewThatFits", function()
 					system.deviceKey(key, true)
 					system.deviceKey(key, false)
 					pres.refresh()
-					local f = pres.focus.focused:get()
+					local f = pres.focus.focused:peek()
 					if f ~= nil then
 						seen ..= f .. ","
 					end
@@ -817,7 +819,7 @@ describe("A-AL1: ViewThatFits", function()
 
 	it("requires at least one candidate", function()
 		local ok = pcall(function()
-			return UI.ViewThatFits({ id = "Fits" })
+			return mountLib.mount(harness.newCore(), UI.ViewThatFits({ id = "Fits" }))
 		end)
 		expect(ok).toBe(false)
 	end)
@@ -1566,7 +1568,7 @@ describe("interactionClasses: the primary class before any input has happened", 
 		if preferred ~= nil then
 			env:set("preferredInput", preferred)
 		end
-		return env:get("interactionClasses"):get()
+		return env:get("interactionClasses"):peek()
 	end
 
 	it("a touch-only device is TOUCH-primary even while PreferredInput still says KeyboardAndMouse", function()
@@ -1608,7 +1610,7 @@ describe("interactionClasses: the primary class before any input has happened", 
 			if preferred ~= nil then
 				env:set("preferredInput", preferred)
 			end
-			return env:get("effectiveInput"):get()
+			return env:get("effectiveInput"):peek()
 		end
 		expect(effective({ keyboard = false, mouse = false, touch = true, gamepad = false }, "KeyboardAndMouse")).toBe(
 			"Touch"
@@ -1667,18 +1669,18 @@ end)
 ]]
 describe("DV3-1: the topbar band is addressable from facts alone", function()
 	local function bandOf(env: any): { x: number, y: number, w: number, h: number }
-		local band = env:get("platformChrome"):get().band
+		local band = env:get("platformChrome"):peek().band
 		return band or { x = 0, y = 0, w = 0, h = 0 }
 	end
 
 	it("defaults to the desktop/no-notch answer rather than to a guess", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		local safe = env:get("topbarSafeInsets"):get()
+		local safe = env:get("topbarSafeInsets"):peek()
 		expect(`{safe.top}|{safe.bottom}|{safe.left}|{safe.right}`).toBe("0|0|0|0")
 		-- with no topbar reported at all there is NO BAND — not a band at the
 		-- window origin, which is the reading that puts content under CoreGui
-		expect(env:get("platformChrome"):get().band).toBe(nil)
+		expect(env:get("platformChrome"):peek().band).toBe(nil)
 		local band = bandOf(env)
 		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("0|0|0|0")
 	end)
@@ -1695,7 +1697,7 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 		local band = bandOf(env)
 		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("273|0|480|58")
 		-- the band is where the PLATFORM says, never at the window origin
-		expect(band.x).toBe(env:get("topbarInset"):get().x)
+		expect(band.x).toBe(env:get("topbarInset"):peek().x)
 	end)
 
 	it("the band is reachable from an edgeToEdge surface and NOT from a safe one", function()
@@ -1773,7 +1775,7 @@ end)
 ]]
 describe("platformChrome states the L, not its bounding box", function()
 	local function chromeOf(env: any): any
-		return env:get("platformChrome"):get()
+		return env:get("platformChrome"):peek()
 	end
 	local function rectStr(r: any): string
 		return if r == nil then "nil" else `{r.x},{r.y} {r.w}x{r.h}`
@@ -1956,15 +1958,15 @@ describe("regression pin: the width facts are byte-unchanged", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 		env:set("displaySize", "Large")
-		local c = adaptive.conditions(core, env)
-		expect(c.sizeClass:get()).toBe("regular") -- the ten-foot demotion, untouched
-		expect(c.isCompact:get()).toBe(false)
-		expect(c.isRegular:get()).toBe(true)
-		expect(c.isWide:get()).toBe(false)
-		expect(c.isTenFoot:get()).toBe(true)
-		expect(c.viewportWidth:get()).toBe(1920)
-		expect(c.contentWidth:get()).toBe(1920)
-		expect(c.axis:get()).toBe("x")
+		local c = adaptive.conditions(env)
+		expect(c.sizeClass:peek()).toBe("regular") -- the ten-foot demotion, untouched
+		expect(c.isCompact:peek()).toBe(false)
+		expect(c.isRegular:peek()).toBe(true)
+		expect(c.isWide:peek()).toBe(false)
+		expect(c.isTenFoot:peek()).toBe(true)
+		expect(c.viewportWidth:peek()).toBe(1920)
+		expect(c.contentWidth:peek()).toBe(1920)
+		expect(c.axis:peek()).toBe("x")
 	end)
 end)
 
@@ -2003,46 +2005,56 @@ describe("height and orientation are facts, not device names", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 733, h = 313 })
-		local c = adaptive.conditions(core, env)
-		expect(c.heightClass:get()).toBe("short")
-		expect(c.isShort:get()).toBe(true)
-		expect(c.isTall:get()).toBe(false)
-		expect(c.viewportHeight:get()).toBe(313)
-		expect(c.orientation:get()).toBe("landscape")
-		expect(c.isLandscape:get()).toBe(true)
+		local c = adaptive.conditions(env)
+		expect(c.heightClass:peek()).toBe("short")
+		expect(c.isShort:peek()).toBe(true)
+		expect(c.isTall:peek()).toBe(false)
+		expect(c.viewportHeight:peek()).toBe(313)
+		expect(c.orientation:peek()).toBe("landscape")
+		expect(c.isLandscape:peek()).toBe(true)
 
 		env:set("viewportRect", { x = 0, y = 0, w = 313, h = 1180 })
-		expect(c.heightClass:get()).toBe("tall")
-		expect(c.isShort:get()).toBe(false)
-		expect(c.isTall:get()).toBe(true)
-		expect(c.viewportHeight:get()).toBe(1180)
-		expect(c.orientation:get()).toBe("portrait")
-		expect(c.isLandscape:get()).toBe(false)
+		expect(c.heightClass:peek()).toBe("tall")
+		expect(c.isShort:peek()).toBe(false)
+		expect(c.isTall:peek()).toBe(true)
+		expect(c.viewportHeight:peek()).toBe(1180)
+		expect(c.orientation:peek()).toBe("portrait")
+		expect(c.isLandscape:peek()).toBe(false)
 	end)
 
-	it("opts.scope owns ALL of them, so the height half cannot leak", function()
+	it("the native owner disposes formulas, including conditions requested later", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local baseline = core:counters()
-		local scope = core:scope("conditions")
-		local c = adaptive.conditions(core, env, { scope = scope })
+		local owner = Compose.createOwner(core.scene.reactor)
+		local c = Compose.withOwner(owner, function()
+			return adaptive.conditions(env)
+		end)
 		-- touch every memo so none is lazily uncreated
-		local _ = c.sizeClass:get()
-			.. tostring(c.isCompact:get())
-			.. tostring(c.isRegular:get())
-			.. tostring(c.isWide:get())
-			.. tostring(c.isTenFoot:get())
-			.. tostring(c.viewportWidth:get())
-			.. c.axis:get()
-			.. c.heightClass:get()
-			.. tostring(c.isShort:get())
-			.. tostring(c.isTall:get())
-			.. tostring(c.viewportHeight:get())
-			.. c.orientation:get()
-			.. tostring(c.isLandscape:get())
-		scope:dispose()
-		expect(core:counters().observers).toBe(baseline.observers)
+		local _ = c.sizeClass:peek()
+			.. tostring(c.isCompact:peek())
+			.. tostring(c.isRegular:peek())
+			.. tostring(c.isWide:peek())
+			.. tostring(c.isTenFoot:peek())
+			.. tostring(c.viewportWidth:peek())
+			.. c.axis:peek()
+			.. c.heightClass:peek()
+			.. tostring(c.isShort:peek())
+			.. tostring(c.isTall:peek())
+			.. tostring(c.viewportHeight:peek())
+			.. c.orientation:peek()
+			.. tostring(c.isLandscape:peek())
+		local later = c.atLeast("wide")
+		expect(later:peek()).toBe(false)
+		owner.dispose()
+		for _, derived in ipairs({ c.axis, c.heightClass, c.isTall, c.navSidebar, later }) do
+			expect(pcall(function()
+				return derived:peek()
+			end)).toBe(false)
+		end
+		-- Environment facts are borrowed, so their lifetime is independent.
+		expect(c.sizeClass:peek()).toBe(env:get("sizeClass"):peek())
+		env:dispose()
 	end)
 end)
 
@@ -2147,11 +2159,11 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 		env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		env:set("preferredInput", "Touch")
-		local c = adaptive.conditions(core, env)
-		expect(c.navPlacement:get()).toBe("bottomBar")
+		local c = adaptive.conditions(env)
+		expect(c.navPlacement:peek()).toBe("bottomBar")
 		-- rotate the same phone: inline bottom bar, no remount decision changes hands
 		env:set("viewportRect", { x = 0, y = 0, w = 691, h = 360 })
-		expect(c.navPlacement:get()).toBe("bottomBarCompact")
+		expect(c.navPlacement:peek()).toBe("bottomBarCompact")
 		--[[ a tablet-shaped canvas on the same touch session, with the engine
 			calling the display SMALL — which is what the engine calls EVERY tablet
 			("Most tablet/mobile/handheld devices"), so this is the live tablet row
@@ -2160,23 +2172,23 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 			display fact is no longer consulted at all. ]]
 		env:set("displaySize", "Small")
 		env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
-		expect(c.navPlacement:get()).toBe("topBar")
+		expect(c.navPlacement:peek()).toBe("topBar")
 		-- ...and the same canvas is the same answer whatever the display says
 		env:set("displaySize", "Medium")
-		expect(c.navPlacement:get()).toBe("topBar")
+		expect(c.navPlacement:peek()).toBe("topBar")
 		-- rotate that tablet: still a tablet (the case `sizeClass` alone fails)
 		env:set("displaySize", "Small")
 		env:set("viewportRect", { x = 0, y = 0, w = 810, h = 1080 })
-		expect(c.navPlacement:get()).toBe("topBar")
+		expect(c.navPlacement:peek()).toBe("topBar")
 		env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
 		-- the same canvas on a pointer session: sidebar (display fact irrelevant)
 		env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = false })
 		env:set("preferredInput", "KeyboardAndMouse")
-		expect(c.navPlacement:get()).toBe("sidebar")
+		expect(c.navPlacement:peek()).toBe("sidebar")
 		-- ten-foot facts: top bar again
 		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 		env:set("displaySize", "Large")
-		expect(c.navPlacement:get()).toBe("topBar")
+		expect(c.navPlacement:peek()).toBe("topBar")
 	end)
 end)
 
@@ -2211,7 +2223,7 @@ describe("NM-H4a: a topbar-safe inset that cannot describe this viewport is disc
 		for key, value in facts do
 			env:set(key, value)
 		end
-		return env:get("platformChrome"):get()
+		return env:get("platformChrome"):peek()
 	end
 
 	local LANDSCAPE = {

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- AUTHORED PAINT ESCAPES (acceptance rows SF-P1..SF-P4).
 --
 -- Four narrow escapes from the finite-selector model, each with a declared
@@ -18,10 +19,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local schema = require("../src/blueprint_schema")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
@@ -38,6 +39,7 @@ local rendererSource = fs.readFile("src/render/renderer.luau")
 -- ...and the WHOLE renderer, every part joined — see the z-order case below for why
 -- one file is the wrong denominator for a claim about the renderer
 local renderer_source = require("./lib/renderer_source")
+local Compose = require("../src/vendor/compose/core")
 local runnerSource = fs.readFile("examples/gallery/scenarios/runner.luau")
 
 local NEUTRAL_THEME = { colors = default_style.colors, extra = default_style.extra }
@@ -345,7 +347,7 @@ describe("tint: emission and application", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local energy = core:signal({ role = "accent", blend = 0 } :: any)
+		local energy = Compose.cell({ role = "accent", blend = 0 } :: any)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({ id = "S", children = { UI.Box({ id = "Wash", surface = "control", tint = energy }) } })
@@ -488,7 +490,7 @@ describe("Image scaleMode", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local mode = core:signal("fit")
+		local mode = Compose.cell("fit")
 		local root = mountLib.mount(
 			core,
 			UI.Screen({ id = "S", children = { UI.Image({ id = "Face", image = "rbxassetid://1", scaleMode = mode }) } })
@@ -545,16 +547,17 @@ describe("UI.stroke: the authored border", function()
 		)).toBe(true)
 		local core = customFactory.new()
 		local err = fails(function()
-			UI.stroke(UI.Box({ id = "R" }), { thickness = core:signal(2) })
+			UI.stroke(UI.Box({ id = "R" }), { thickness = Compose.cell(2) })
 		end)
-		expect(contains(err, "cannot be a Signal/Memo")).toBe(true)
+		expect(contains(err, "cannot be a Compose cell or formula")).toBe(true)
 		expect(contains(err, "UI.strokeData")).toBe(true)
 	end)
 
-	it("returns a NEW blueprint (blueprints are frozen) and rides the style authority", function()
+	it("decorates the node it is handed and rides the style authority", function()
 		local base = UI.Box({ id = "Row" })
-		local stroked = UI.stroke(base, { thickness = 2 })
 		expect(base.props.stroke).toBeNil()
+		local stroked = UI.stroke(base, { thickness = 2 })
+		expect(stroked).toBe(base)
 		expect(stroked.props.stroke ~= nil).toBe(true)
 		expect(rendererLib.STYLE_PROPS.stroke).toBe(true)
 		expect(authority.authorityFor("Box", "stroke")).toBe("style")
@@ -566,7 +569,7 @@ describe("UI.stroke: the authored border", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local pulse = core:signal(UI.strokeData({ thickness = 1 }) :: any)
+		local pulse = Compose.cell(UI.strokeData({ thickness = 1 }) :: any)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({ id = "S", children = { UI.Box({ id = "Row", surface = "control", stroke = pulse }) } })
@@ -622,9 +625,9 @@ describe("UI.stroke: the authored border", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local lift = core:signal(4)
-		local wash = core:signal(45)
-		local radius = core:signal(6)
+		local lift = Compose.cell(4)
+		local wash = Compose.cell(45)
+		local radius = Compose.cell(6)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -633,13 +636,13 @@ describe("UI.stroke: the authored border", function()
 					UI.Box({
 						id = "Row",
 						surface = "control",
-						shadow = core:memo(function(use)
+						shadow = Compose.formula(function(use)
 							return UI.shadowData({ blurRadius = { scale = 0, offset = use(lift) } })
 						end),
-						gradient = core:memo(function(use)
+						gradient = Compose.formula(function(use)
 							return UI.gradientData({ colors = { "surface", "accent" }, rotation = use(wash) })
 						end),
-						corners = core:memo(function(use)
+						corners = Compose.formula(function(use)
 							return UI.cornersData(use(radius))
 						end),
 					}),
@@ -798,9 +801,9 @@ describe("zIndex: paint order within the parent's stacking scope", function()
 	it("is read once at mount and rejects a Signal, like every `what a node IS` prop", function()
 		local core = customFactory.new()
 		local err = fails(function()
-			UI.Box({ id = "B", zIndex = core:signal(3) })
+			UI.Box({ id = "B", zIndex = Compose.cell(3) })
 		end)
-		expect(contains(err, "does not accept a Signal/Memo")).toBe(true)
+		expect(contains(err, "does not accept a Compose cell or formula")).toBe(true)
 		expect(authority.authorityFor("common", "zIndex")).toBe("layout")
 	end)
 

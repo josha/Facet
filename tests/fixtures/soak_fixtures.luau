@@ -6,6 +6,7 @@
 local runner = require("../../tools/lune/registry_runner")
 local Facet = require("../../src")
 local fake_target = require("../lib/fake_target")
+local Compose = require("../../src/vendor/compose/core")
 
 -- arms every fixture's fake target's op log (T12, default off per ruling
 -- A-11). `runner.Fixture.run` is a fixed `() -> any` the shared runner calls
@@ -27,7 +28,7 @@ local fixtures: { runner.Fixture } = {
 				id = "Base",
 				children = { Facet.UI.Button({ id = "B", label = "b" }) },
 			}))
-			local baseline = core:counters()
+			local baseline = core.owner.size()
 			local liveBaseline = adapter.liveCount()
 			for _ = 1, 200 do
 				local modal = pres.presentModal(Facet.UI.Screen({
@@ -36,7 +37,7 @@ local fixtures: { runner.Fixture } = {
 				}))
 				pres.dismiss(modal)
 			end
-			local after = core:counters()
+			local after = core.owner.size()
 			for k, v in baseline :: any do
 				if (after :: any)[k] ~= v then
 					error(`counter {k} leaked: {v} -> {(after :: any)[k]}`)
@@ -53,7 +54,7 @@ local fixtures: { runner.Fixture } = {
 		requirement = "UI-RUNTIME-002",
 		run = function()
 			local core = Facet.newCore()
-			local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+			local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
 			local bp = Facet.UI.ForEach({
 				id = "List",
 				items = items,
@@ -64,7 +65,7 @@ local fixtures: { runner.Fixture } = {
 					return Facet.UI.Text({ id = "Row-" .. item.id, text = item.id })
 				end,
 			})
-			local baseline = core:counters()
+			local baseline = core.owner.size()
 			local root = Facet.mount(core, bp)
 			for i = 1, 100 do
 				-- rotate + replace: moves, adds, removes every iteration
@@ -72,7 +73,7 @@ local fixtures: { runner.Fixture } = {
 				items:set({ { id = "a" }, { id = "b" }, { id = "c" } })
 			end
 			root.dispose()
-			local after = core:counters()
+			local after = core.owner.size()
 			for k, v in baseline :: any do
 				if (after :: any)[k] ~= v then
 					error(`counter {k} leaked: {v} -> {(after :: any)[k]}`)

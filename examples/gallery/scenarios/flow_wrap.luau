@@ -143,13 +143,10 @@ return {
 	tagCount = TAG_COUNT,
 	shortCount = SHORT_COUNT,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("flow-wrap")
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local wrapping = scope:own(core:signal(true))
-		local blockAlign = scope:own(core:signal("start"))
+		local wrapping = Compose.cell(true)
+		local blockAlign = Compose.cell("start")
 
 		-- THE STATUS LINE IS A CLAIM ABOUT THE SOLVER, and it is derived from the
 		-- one fact that decides it rather than from a diagnostics read a scenario
@@ -157,23 +154,9 @@ return {
 		-- viewport, so `wrap = false` here IS the overflowing state — and
 		-- `tests/flow_wrap.spec.luau` asserts the solver agrees, in both directions,
 		-- so this sentence cannot quietly become false.
-		local status = scope:own(core:memo(function(use)
+		local status = Compose.formula(function(use)
 			return if use(wrapping) then COPY.fitting else COPY.overflowing
-		end))
-
-		local alignPicker = Facet.View.Picker({
-			id = "BlockAlign",
-			label = COPY.alignLabel,
-			-- SEGMENTED, declared: three peers, and the whole point is that they are
-			-- the SAME three words `align` has always taken on a stack
-			style = "segmented",
-			options = {
-				{ value = "start", label = COPY.alignStart },
-				{ value = "center", label = COPY.alignCenter },
-				{ value = "end", label = COPY.alignEnd },
-			},
-			selected = blockAlign,
-		})
+		end)
 
 		-- A TAG IS A BUTTON, and a Button's own label is already measured and drawn
 		-- on ONE line when it is a single word (`isSingleWord`, `renderer.luau`) —
@@ -183,82 +166,84 @@ return {
 		-- "Hill climb") deliberately keep the wrapping reading, so the pseudo-
 		-- localized run proves a tag that grows still fits its own plate.
 		local function tag(id: string, label: string): any
-			return UI.Button({ id = id, label = label, surface = "chip" })
+			return UI.Button(id)({ label = label, surface = "chip", onActivate = function() end })
 		end
 
-		local cloudTags = {}
-		for i = 1, TAG_COUNT do
-			table.insert(cloudTags, tag(`T{i}`, (COPY :: any)[`tag{i}`]))
-		end
-		local shortTags = {}
-		for i = 1, SHORT_COUNT do
-			table.insert(shortTags, tag(`S{i}`, (COPY :: any)[`short{i}`]))
+		-- A row's properties with its generated tags as the children.
+		local function tagRow(props: { [any]: any }, prefix: string, key: string, count: number)
+			for i = 1, count do
+				table.insert(props, tag(`{prefix}{i}`, (COPY :: any)[`{key}{i}`]))
+			end
+			return props
 		end
 
-		local screen = UI.Screen({
-			id = "FlowWrap",
-			padding = 12,
-			gap = "s",
-
-			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-			-- title, a toggle, two panels and a picker do not fit the ~200px a
-			-- 640x320 landscape phone has left once the showcase reserves its chip
-			-- strip, and content that overflows with nothing to scroll it is this
-			-- repo's named recurring defect.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function Example()
+			return UI.Screen("FlowWrap")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Toggle({ id = "WrapToggle", label = COPY.wrapLabel, value = wrapping }),
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-				UI.Text({
-					id = "CloudCaption",
-					text = COPY.cloudCaption,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				-- THE FIXTURE ITSELF. No height: it is exactly as tall as its
-				-- own lines, at every viewport, which is what makes the tag
-				-- count safe on a 320px phone.
-				UI.HStack({
-					id = "Cloud",
-					wrap = wrapping,
-					gap = TAG_GAP,
+				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
+				-- title, a toggle, two panels and a picker do not fit the ~200px a
+				-- 640x320 landscape phone has left once the showcase reserves its chip
+				-- strip, and content that overflows with nothing to scroll it is this
+				-- repo's named recurring defect.
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
 					width = UI.fill(),
-					children = cloudTags,
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Toggle("WrapToggle")({ label = COPY.wrapLabel, value = wrapping }),
+					UI.Text("Status")({ text = status, textSize = "caption", role = "secondary" }),
+					UI.Text("CloudCaption")({
+						text = COPY.cloudCaption,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					-- THE FIXTURE ITSELF. No height: it is exactly as tall as its
+					-- own lines, at every viewport, which is what makes the tag
+					-- count safe on a 320px phone.
+					UI.HStack("Cloud")(
+						tagRow({ wrap = wrapping, gap = TAG_GAP, width = UI.fill() }, "T", "tag", TAG_COUNT)
+					),
+					UI.Text("AlignCaption")({
+						text = COPY.alignCaption,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Picker("BlockAlign")({
+						label = COPY.alignLabel,
+						-- SEGMENTED, declared: three peers, and the whole point is that they are
+						-- the SAME three words `align` has always taken on a stack
+						style = "segmented",
+						options = {
+							{ value = "start", label = COPY.alignStart },
+							{ value = "center", label = COPY.alignCenter },
+							{ value = "end", label = COPY.alignEnd },
+						},
+						selected = blockAlign,
+					}),
+					-- ...and the probe, as a surface. `surface = "control"` so the
+					-- box the block is aligned INSIDE is visible; without it the
+					-- picker would appear to move the tags for no reason.
+					UI.HStack("AlignBox")(tagRow({
+						wrap = true,
+						align = blockAlign,
+						gap = TAG_GAP,
+						surface = "control",
+						padding = "s",
+						width = UI.fill(),
+						height = { type = "content", rows = ALIGN_BOX_ROWS, of = "controlSizes.compact.height" },
+					}, "S", "short", SHORT_COUNT)),
 				}),
-				UI.Text({
-					id = "AlignCaption",
-					text = COPY.alignCaption,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				alignPicker,
-				-- ...and the probe, as a surface. `surface = "control"` so the
-				-- box the block is aligned INSIDE is visible; without it the
-				-- picker would appear to move the tags for no reason.
-				UI.HStack({
-					id = "AlignBox",
-					wrap = true,
-					align = blockAlign,
-					gap = TAG_GAP,
-					surface = "control",
-					padding = "s",
-					width = UI.fill(),
-					height = { type = "content", rows = ALIGN_BOX_ROWS, of = "controlSizes.compact.height" },
-					children = shortTags,
-				}),
-			}),
-		})
+			})
+		end
 
 		return {
-			screen = screen,
+			screen = Example,
 			present = {},
-			-- published for the headless suite: the signals a test drives, rather
+			-- published for the headless suite: the cells a test drives, rather
 			-- than a re-implementation of them
 			wrapping = wrapping,
 			blockAlign = blockAlign,
@@ -267,7 +252,7 @@ return {
 				-- the toggle, as the player's own press fires it
 				setWrap = function(_built: any, payload: string?)
 					wrapping:set(payload ~= "off")
-					return { wrap = wrapping:get() }
+					return { wrap = wrapping:peek() }
 				end,
 				setAlign = function(_built: any, payload: string?)
 					local value = if payload == "center" or payload == "end" then payload else "start"
@@ -278,15 +263,13 @@ return {
 
 			report = function()
 				return {
-					wrap = wrapping:get(),
-					align = blockAlign:get(),
+					wrap = wrapping:peek(),
+					align = blockAlign:peek(),
 					tags = TAG_COUNT,
 				}
 			end,
 
-			dispose = function()
-				scope:dispose()
-			end,
+			dispose = function() end,
 		}
 	end,
 }

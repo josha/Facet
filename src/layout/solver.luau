@@ -2897,7 +2897,7 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 								channel, so it reports a defect that has already been fixed. ]]
 							filedBy = node.id,
 							issue = string.format(
-								"newVirtualList '%s' declares itemExtent = %s, but this row's content measures "
+								"UI.VirtualList '%s' declares itemExtent = %s, but this row's content measures "
 									.. "%spx on the list's %s axis — %dpx %s than the slot it is windowed into, so it "
 									.. "paints over the next row (`index x itemExtent` is exact only while the declared "
 									.. "extent is the TRUE one). Recompute itemExtent from the facts this cell really "

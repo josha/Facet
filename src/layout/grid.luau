@@ -271,7 +271,7 @@ end
 	states as an exact transpose (same box turned on its side, same children with
 	their axes exchanged, every rect back with x/y and w/h swapped).
 
-	WHY THAT MATTERS BEYOND TIDINESS. `newVirtualGrid`'s design decision is that the
+	WHY THAT MATTERS BEYOND TIDINESS. `UI.VirtualGrid`'s design decision is that the
 	mounted band IS a real `UI.Grid`, so the lane formula EXECUTES rather than being
 	copied into the control where it would agree today and drift tomorrow. Without a
 	column-major mode a sideways grid had no band to be, which is exactly what that
@@ -429,7 +429,7 @@ end
 
 --[[ ===== A LINE TAKES THE GRID'S OWN FLOW EXTENT (device report 2026-08-16) ==
 
-	*"three of the five demo rows are blank."* `newLevelPicker`'s default `bar`
+	*"three of the five demo rows are blank."* `UI.LevelPicker`'s default `bar`
 	segment is a run of tinted `UI.Box` marks in a uniform grid, each declaring
 	`fill` on BOTH axes. Every mark solved to `12x0` — the lane's width, and NO
 	HEIGHT — inside a grid that had itself been arranged 44px tall, so the whole

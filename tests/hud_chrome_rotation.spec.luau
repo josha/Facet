@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 -- THE SHIPPED HUD FIXTURE, ON THE TWO AXES NOTHING ELSE SWEEPS (director report
 -- 2026-08-15).
 --
@@ -79,7 +81,7 @@ local function platform(view: View): { [string]: any }
 end
 
 local function world(view: View, appChrome: { any }?): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	for k, v in platform(view) do
 		env:set(k, v)
@@ -92,13 +94,16 @@ local function world(view: View, appChrome: { any }?): any
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	-- the runner's own resolution accessor, resolved lazily for the reason the
 	-- showcase host resolves its `foreign` seam lazily: the handle does not exist
 	-- until `present` returns, and the fixture reads this long afterwards
 	local handle: any = nil
 	local built = hud.build({
 		Facet = Facet,
+		app = scenario_app.over(core, presenter),
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -254,7 +259,7 @@ describe("director 2026-08-15 round 2: anchored content never touches the physic
 	for _, view in { PORTRAIT, LANDSCAPE } do
 		it(`{view.w}x{view.h}: every anchored zone clears BOTH lateral edges by the theme's own step`, function()
 			local w = world(view)
-			local metrics = w.env:get("themeMetrics"):get()
+			local metrics = w.env:get("themeMetrics"):peek()
 			local gutter = ((if type(metrics) == "table" then metrics.space else nil) or {}).s
 			expect(type(gutter) == "number" and gutter > 0).toBe(true)
 			for _, id in ANCHORED do
@@ -362,7 +367,7 @@ describe("director item 4: the APP's chrome is reserved per column", function()
 
 	it("the declared chrome is REPORTED as occupied, so a collision check can see it", function()
 		local w = world(LANDSCAPE, CHIPS)
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		local found = false
 		for _, r in chrome.rects do
 			if r.x == 0 and r.y == PLATFORM_TOP and r.w == 290 and r.h == CHIP_STRIP then
@@ -377,12 +382,12 @@ describe("director item 5: the URL bar is a box you can see, and the HUD re-flow
 	it("the drawn bar is EXACTLY the height the HUD lost", function()
 		local w = world(LANDSCAPE, { { x = 0, y = PLATFORM_TOP, w = 290, h = CHIP_STRIP } })
 		local before = rectOf(w, "/HudScreen/Hud")
-		expect(rectOf(w, "/HudScreen/UrlBarWhen/then/UrlBarChrome") == nil).toBe(true)
+		expect(rectOf(w, "/HudScreen/UrlBarWhen/UrlBarChrome") == nil).toBe(true)
 
 		local result = w.built.steps.openUrlBar()
 		settle(w)
 
-		local bar = rectOf(w, "/HudScreen/UrlBarWhen/then/UrlBarChrome")
+		local bar = rectOf(w, "/HudScreen/UrlBarWhen/UrlBarChrome")
 		expect(bar ~= nil).toBe(true)
 		local after = rectOf(w, "/HudScreen/Hud")
 		-- the drawn box IS the loss the step reports: one memo feeds both, so the
@@ -1188,9 +1193,9 @@ describe("DIR-2: the beside-chrome band gives way at the measured collision shap
 			settle(w)
 			-- the path moved with the §9 migration (the two cluster-width Spacers and
 			-- the inner stack are the framework's job now); the claim did not
-			local full = "/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/Objective/ObjectiveRow/ObjectiveT"
+			local full = "/HudScreen/Hud/Strip/StripChip/StripRow/StripFit/Objective/ObjectiveRow/ObjectiveT"
 			local short =
-				"/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/ObjectiveShort/ObjectiveShortRow/ObjectiveShortT"
+				"/HudScreen/Hud/Strip/StripChip/StripRow/StripFit/ObjectiveShort/ObjectiveShortRow/ObjectiveShortT"
 			local shown = if w.adapter.visibleOf(full) ~= false then full else short
 			expect(`+{offset}: a rung is on screen: {shown ~= nil}`).toBe(`+{offset}: a rung is on screen: true`)
 			local facts = w.built.handle.controller.textAt(shown)
@@ -1292,7 +1297,7 @@ describe("H1: every input that can move a give-way decision settles where a fres
 		solve — see the header for why that is what "a fresh mount at this state"
 		has to mean for an internal signal. ]]
 	local function epochWorld(view: View, state: any): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
@@ -1308,10 +1313,13 @@ describe("H1: every input that can move a give-way decision settles where a fres
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local handle: any = nil
 		local built = hud.build({
 			Facet = Facet,
+			app = scenario_app.over(core, presenter),
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,

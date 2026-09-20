@@ -12,7 +12,7 @@ the client script you write by hand, and what you do and do not give up.
 
 ## 8.1 The one rule: the instance tree must mirror the file tree
 
-Facet's internal requires are Luau **require-by-string** — `require("@self/core/custom")`
+Facet's internal requires are Luau **require-by-string** — `require("@self/input/hint")`
 inside `src/init.luau`, `require("../layout/solver")` inside a leaf module. This is
 generally available in the engine (no beta flag), and it resolves against the
 **instance tree**, not against files. Two consequences decide whether an install
@@ -122,9 +122,10 @@ Its root is the `Facet` ModuleScript with the whole tree beneath it.
    and choose `Facet.rbxm`.
 3. Verify: `ReplicatedStorage.Facet` must be a **ModuleScript** (not a Folder),
    with `async`, `client`, `controls`, `core`, `env`, `focus`, `input`, `layout`,
-   `motion`, `present`, `preview`, `render`, `replication`, `themes`, and
-   `tokens` beneath it. All fifteen: the entry module requires every one of them
-   at load, so an install missing `motion` or `themes` errors on first require.
+   `motion`, `present`, `preview`, `render`, `replication`, `themes`, `tokens`
+   and `vendor` beneath it. All sixteen: the entry module requires most of them
+   at load and `Facet.new` requires the rest, so an install missing `motion`,
+   `themes` or `vendor` errors on first require.
 
 That is the whole install. If you instead drag the `.rbxm` file onto the 3D
 viewport, Studio parents it to `Workspace` — move it to `ReplicatedStorage` in the
@@ -181,8 +182,9 @@ library never touches it.
 
 ## 8.6 Option E — rebuild the tree by hand *(last resort)*
 
-40 ModuleScripts across 13 folders. Only worth it if you genuinely cannot move a
-file into Studio. Follow §8.1 exactly. Create the folders. Create a ModuleScript for each `.luau`
+Over 300 ModuleScripts across 26 folders, including the pinned Compose snapshot
+under `vendor`. Only worth it if you genuinely cannot move a file into Studio.
+Follow §8.1 exactly. Create the folders. Create a ModuleScript for each `.luau`
 file, with the suffix stripped. Make `src/init.luau`'s contents the body of the
 `Facet` ModuleScript itself, not a child named `init`. A mistake shows up on first require as an error naming the component it
 could not resolve — check that node's name and its parent's class before
@@ -207,32 +209,34 @@ end
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
+local Compose = Facet.Compose
 
--- client-only modules are NOT on the Facet table; require them directly
-local host = require(ReplicatedStorage.Facet.client.host)
+-- ONE call stands the whole thing up: a Compose runtime, an environment BOUND
+-- to the engine, a render target under PlayerGui, an input system, a presenter
+-- — and one PreRender connection driving both halves of the frame.
+local app = Facet.new()
+local UI = app.controls
 
--- ONE call stands the whole thing up: a core, an environment BOUND to the
--- engine, a render target under PlayerGui, an input system, a presenter — and
--- one PreRender connection driving both halves of the frame.
-local h = host.new()
-local UI = Facet.View
-local Counter = Facet.component(function(ui)
-    local count, setCount = ui.state(0)
+local function Counter()
+    local count = Compose.cell(0)
     return UI.Screen {
-        id = "Counter", padding = "m", gap = "s",
-        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
+        padding = "m", gap = "s",
+        UI.Text { text = function(use) return `Clicked {use(count)} times` end },
         UI.Button {
-            id = "Bump", label = "Bump",
-            onActivate = function() setCount(function(n) return n + 1 end) end,
+            label = "Bump",
+            onActivate = function() count:update(function(n) return n + 1 end) end,
         },
     }
-end)
+end
 
-local handle = h.presenter.present(Counter {})
+local close = app.mount(Counter)
 -- At the application's lifetime boundary:
--- h.presenter.dismiss(handle)
--- h.dispose()
+-- close()
+-- app.dispose()
 ```
+
+`Facet.new` loads the client modules itself, so requiring Facet from shared or
+server code never resolves an engine service. Call it only from client code.
 
 Press Play. A button appears; clicking, pressing Enter, or pressing gamepad A all
 bump the count.
@@ -252,15 +256,12 @@ that has an avatar. Full story — including why, and how to tell — in
 [chapter 7](07-input.md).
 
 > **If the property is not in the Properties panel at all**, your Studio build
-> does not expose it. This was observed on Studio `0.730.0.7300790`. There,
-> neither `Workspace` nor `StarterPlayer` has the member, and
-> `Enum.PlayerScriptsUseInputActionSystem` does not exist either. The Input
-> Action System is a client beta, and the property comes and goes with it. That
-> is not fatal to a UI-only place: in exactly that Studio, a freshly installed
-> Facet built its `InputContext`/`InputAction` instances and both mouse and
-> keyboard Activate worked. The flag governs *coexistence with the legacy control
-> scripts* in a game that has an avatar — which is where a dead gamepad A comes
-> from. Check for it again before shipping anything gamepad-facing.
+> does not expose it. The Input Action System is a client beta, so the property
+> comes and goes with it. A UI-only place still works: Facet builds its
+> `InputContext`/`InputAction` instances, and mouse and keyboard Activate work.
+> The flag governs *coexistence with the legacy control scripts* in a game that
+> has an avatar, which is where a dead gamepad A comes from. Check for the
+> property again before shipping anything gamepad-facing.
 
 ## 8.9 What you give up, and what you don't
 
@@ -273,7 +274,7 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
   Pin a version by recording `Facet.VERSION` (currently `0.11.0`) somewhere you
   will see it, and check `Facet.DEPRECATIONS` after an upgrade — see
-  [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation). On
+  [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning). On
   the package route the
   `Distribution` folder's `Version`, `SourceCommit` and `SourceHash` attributes
   answer the same question without a checkout.
@@ -301,7 +302,7 @@ outside the node either way and is untouched.
 | Require error naming a module or "could not resolve" a component | The instance tree does not mirror the file tree (§8.1) | Re-insert from `build/Facet.rbxm`; do not rename or flatten nodes |
 | `Facet` is a **Folder**, not a ModuleScript | You copied the `src` folder rather than the built model — `init.luau` must *be* the `Facet` node | Use option B or C |
 | Requires fail only sometimes, usually on join | Missing the `game.Loaded:Wait()` guard (§8.7) | Add the guard at the top of the client script |
-| `attempt to index nil with 'client'` from a server or shared script | `client/*` is client-only by design and never on the public table | Require the adapters from a LocalScript only ([chapter 2](02-architecture.md)) |
+| An engine-service error from a server or shared script | `Facet.new` binds client services such as `Players.LocalPlayer` | Create the application from a LocalScript, or a Script with `RunContext = Client` ([chapter 2](02-architecture.md)) |
 | Gamepad A does nothing | `Workspace.PlayerScriptsUseInputActionSystem` is off | §8.8, then [chapter 7](07-input.md) |
-| Nothing renders, no errors | nothing is driving the frame | Stand the surface up with `client.host` (§8.7), which connects one `PreRender` and drives `tick(dt)` then `refresh()` |
+| Nothing renders, no errors | nothing is driving the frame | Stand the surface up with `Facet.new()` (§8.7), which connects one `PreRender` and drives `tick(dt)` then `refresh()` |
 | It renders but nothing ever animates — a toast never expires, a transition never completes | the motion clock is not advancing: something is calling `presenter.refresh()` without `presenter.tick(dt)` | Same fix. `refresh` re-solves what the frame dirtied; `tick` is what moves the clock every transition, spring and timer rides, and a frozen clock looks exactly like a settled one in a dump |

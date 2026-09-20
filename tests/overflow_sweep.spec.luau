@@ -1,4 +1,8 @@
 --!strict
+local harness = require("./lib/harness")
+local refWorld = require("./reference/ref_world")
+local scenario_app = require("./lib/scenario_app")
+local Compose = require("../src/vendor/compose/core")
 -- THE ALWAYS-ON OVERFLOW SWEEP (device bug round 2026-08-12, Group B).
 --
 -- WHY THIS EXISTS. The standing lesson records a defect
@@ -193,7 +197,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local fake_target = require("./lib/fake_target")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
 local device_views = require("./lib/device_views")
@@ -609,7 +613,7 @@ end
 --
 -- "RESTATES" IS CONTAINMENT, NOT EQUALITY (2026-08-13, when the zstack-overlap
 -- class became visible here): a Table row composes its actions wrapper as
--- `[m1@0]/RowActions-m1` and p2_cartwheel names its tiles `[120]/Tile120`, so the
+-- `[m1]/RowActions-m1` and p2_cartwheel names its tiles `[120]/Tile120`, so the
 -- equality test collapsed neither and one wrong constant would have arrived as six
 -- and four identical waiver lines. The test is the key's leading word, which is
 -- the part a composed name borrows; a segment that merely sits under a key it does
@@ -901,7 +905,7 @@ local WAIVERS: { Waiver } = {
 	{
 		surface = "row_actions",
 		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-from/Value",
+		node = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-from/Value",
 		sig = "this child overflows its zstack by NxNpx and",
 		px = 32,
 		since = 0,
@@ -931,7 +935,7 @@ local WAIVERS: { Waiver } = {
 	{
 		surface = "row_actions",
 		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value",
+		node = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value",
 		sig = "this child overflows its zstack by NxNpx and",
 		px = 24,
 		since = 10,
@@ -958,7 +962,7 @@ local WAIVERS: { Waiver } = {
 			and is not free to give back. ]]
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
 		px = 19,
 		since = 4,
@@ -968,7 +972,7 @@ local WAIVERS: { Waiver } = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody/FeedPage",
 		sig = "content box collapses to Npx on y: padding N",
 		px = 16,
 		since = 0,
@@ -1130,7 +1134,7 @@ local function settle(presenter: any)
 end
 
 local function world(view: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
@@ -1149,7 +1153,7 @@ local function world(view: any): any
 	-- input class, not just the pointer views. See tests/scroll_window_clip.spec.luau
 	-- for the half of this the reserve does NOT cover.
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -1221,7 +1225,7 @@ local LOCALE_WAIVERS: { Waiver } = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
 		px = 110,
 		since = 14,
@@ -1807,6 +1811,9 @@ end
 local function scenarioCtx(w: any): any
 	return {
 		Facet = Facet,
+		app = scenario_app.over(w.core, w.presenter),
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -1872,14 +1879,7 @@ describe("overflow sweep: tutorial examples", function()
 	for _, name in EXAMPLES do
 		local module = require(`../examples/gallery/examples/{name}`) :: any
 		sweep("example", name, function(w)
-			return present(
-				w,
-				module.build(
-					Facet,
-					w.core,
-					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-				)
-			)
+			return present(w, module.build(scenarioCtx(w)))
 		end)
 	end
 end)
@@ -1890,11 +1890,13 @@ describe("overflow sweep: reference proofs", function()
 		sweep("proof", name, function(w)
 			return present(
 				w,
-				module.build(
-					Facet,
-					w.core,
-					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-				)
+				module.build(Facet, w.core, {
+					app = refWorld.harnessApp(harness, w.core, w.env, w.presenter),
+					env = w.env,
+					actionSystem = w.system,
+					presenter = w.presenter,
+					adapter = w.adapter,
+				})
 			)
 		end, function(w)
 			-- a proof takes its locale as a BUILD FACT, and drives its own step too
@@ -1903,6 +1905,7 @@ describe("overflow sweep: reference proofs", function()
 			local built = present(
 				w,
 				module.build(Facet, w.core, {
+					app = refWorld.harnessApp(harness, w.core, w.env, w.presenter),
 					env = w.env,
 					actionSystem = w.system,
 					presenter = w.presenter,
@@ -2029,9 +2032,9 @@ describe("overflow sweep: the widened breadth bites", function()
 		for i = 1, 4 do
 			table.insert(rows, { id = `r{i}` })
 		end
-		local list = Facet.Controls.VirtualList(w.core, {
+		local list = harness.Controls.VirtualList(w.core, {
 			id = "Lying",
-			rows = w.core:signal(rows),
+			rows = Compose.cell(rows),
 			key = function(item: any)
 				return item.id
 			end,
@@ -2594,7 +2597,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 	end
 
 	local function hudWorld(view: any, snapshot: any?, offset: number, chips: any?, top: number): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		env:set("coreSafeInsets", { top = top, bottom = 0, left = 0, right = 0 })
@@ -2611,10 +2614,13 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local handle: any = nil
 		local built = hud.build({
 			Facet = Facet,
+			app = scenario_app.over(core, presenter),
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -3138,7 +3144,7 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		if dump == nil then
 			return
 		end
-		local metrics = w.env:get("themeMetrics"):get()
+		local metrics = w.env:get("themeMetrics"):peek()
 		local floor = layoutNodeFloor.effectiveHitFloor("Button", metrics)
 		if floor == nil then
 			return
@@ -3437,10 +3443,44 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			raises the HUD compact disc from 36 to 48 to fit its content. Comparing
 			the census with the previous package adds exactly Health/Expand at
 			705x338, Pixel Quest, text offset 0, strip false; no routes are removed.
-			Both framework-cut and unexplained sub-floor lists remain empty. ]]
+			Both framework-cut and unexplained sub-floor lists remain empty.
+
+			495 -> 506 (the Compose port). THE PREVIOUS NOTE HERE WAS WRONG AND IS
+			CORRECTED, which is the point of re-reading a pin rather than bumping
+			it: it credited the eleven routes to `/then/` path renames in
+			`tests/lib/theme_sweep_ledger.luau` and `WAIVERS`, and
+			`collectRouteFloors` cannot see either. It reads exactly two things —
+			the live composition dump at `/HudScreen/Hud` and the adapter's node
+			and hit rects — so no waiver or ledger row can add or remove a swept
+			route, ever.
+
+			WHAT THE ELEVEN ACTUALLY ARE, read by diffing the swept route list
+			against `origin/main` (instrumented census, both trees, same matrix).
+			All eleven are ADDITIONS at text offset +0; nothing was removed:
+
+			    /HudScreen/Hud/Actions  640x320  classic-desktop / compact-pointer, strip=false
+			    /HudScreen/Hud/Actions  320x640  glossy-mobile, strip=false and strip=true
+			    /HudScreen/Hud/Actions  705x338  scifi-hud / <no package>, strip=true
+			    /HudScreen/Hud/Rail     640x320  classic-desktop, strip=true
+			    /HudScreen/Hud/Rail     705x338  compact-pointer, strip=true
+			    /HudScreen/Hud/Tasks    640x320  classic-desktop, strip=true
+			    /HudScreen/Hud/Tasks    705x338  classic-desktop strip=false, compact-pointer strip=true
+
+			In every one of them the region sat at its RICHEST form (activeForm 1,
+			`expandable = false`, no Expand node at all) on the base and now sits
+			one form down with a live Expand affordance — and all eleven are in the
+			three SHORTEST viewports this sweep runs (640x320, 705x338, 320x640).
+			One further cell moved without changing the count: glossy-mobile Tasks
+			at 640x320, strip=true, went from form 2 to form 3. So the HUD has
+			slightly less room at the default text size than it had, and the
+			composition spends it the way it is designed to — by stepping down and
+			offering the route. That is a LAYOUT change from the port, not a census
+			change, and the census's own verdict on it is the half a count cannot
+			say: every one of the eleven measures at or above the hit floor, and
+			both pinned-EMPTY lists are still empty. ]]
 		-- Adding the two near-controller views contributes 68 measured routes;
 		-- both framework-cut and unexplained sub-floor lists remain empty.
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 495")
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 506")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

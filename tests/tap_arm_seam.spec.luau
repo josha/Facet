@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE TAP-ECHO / ARM-DISPATCH SEAM, MECHANISED — and the behaviour it moved.
 
 	`tools/lune/verify/data/source-cap-ledger.md` names this block as `renderer.luau`'s
@@ -79,12 +80,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 local src_tree = require("./lib/src_tree")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local RENDERER_PATH = "src/render/renderer.luau"
 -- the card mounts as the `When`'s branch, so ITS path is the branch path
@@ -390,7 +392,7 @@ local function surface(opts: { armOnTap: boolean?, plain: boolean? }?): Surface
 	local clock = 0
 	-- the card lives under a `When` so a case can unmount and remount it at the SAME
 	-- path, which is the shape the per-path records are swept for
-	local mounted = core:signal(true)
+	local mounted = Compose.cell(true)
 	-- a Button, because `controller.tapAt` dispatches only through `TAPPABLE`
 	local card = UI.Button({
 		id = "Card",

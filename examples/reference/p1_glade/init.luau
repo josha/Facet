@@ -97,43 +97,74 @@ local function serialize(value: any): string
 	return tostring(value)
 end
 
-function Glade.build(Facet: any, core: any, deps: any): any
-	local UI = Facet.UI
-	local env = deps.env
-	local presenter = deps.presenter
+-- Services, state and the screen live under `appOwner`; a presented surface
+-- lives under its own mount and is released when that mount closes.
+local function construct(Facet: any, deps: any, appOwner: any): any
+	local host = deps.app
+	local UI = host.controls
+	local Compose = Facet.Compose
+	local env = host.environment
+	local presenter = host.presenter
 	local actionSystem = deps.actionSystem
 
-	local scope = core:scope("ref-p1-glade")
-	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
+	local conditions = Facet.adaptive.conditions(env)
 	local clock = presenter.motionClock
 
+	-- Runs `onChange` when `source` changes; the current owner releases it.
+	local function observe(source: any, onChange: (any) -> ()): () -> ()
+		local first = true
+		return Compose.watch(function(use)
+			local value = use(source)
+			if first then
+				first = false
+				return
+			end
+			onChange(value)
+		end)
+	end
+	-- Runs `build` under the app's owner, for values that outlive the surface that
+	-- first asks for them.
+	local function rooted(build: () -> any): any
+		return Compose.withOwner(appOwner, build)
+	end
+	-- A motion value is released with the owner that made it.
+	local function ownMotion(value: any): any
+		Compose.cleanup(function()
+			value:dispose()
+		end)
+		return value
+	end
+
 	-- ---- injected time ------------------------------------------------------
-	local now = scope:own(core:signal(0))
+	local now = Compose.cell(0)
 	local commerce: any
 
 	local function advance(dt: number)
 		if dt <= 0 then
 			return
 		end
-		now:set(now:get() + dt)
-		commerce.update(now:get())
+		now:set(now:peek() + dt)
+		commerce.update(now:peek())
 	end
 
 	-- ---- locale + copy ------------------------------------------------------
-	local locale = scope:own(core:signal(strings.DEFAULT_LOCALE))
+	local locale = Compose.cell(strings.DEFAULT_LOCALE)
 	local copyMemos: { [string]: any } = {}
 	local function L(key: string): any
 		local memo = copyMemos[key]
 		if memo == nil then
-			memo = scope:own(core:memo(function(use)
-				return strings.get(use(locale), key)
-			end))
+			-- cached across surfaces, so it lives under the app owner
+			memo = Compose.withOwner(appOwner, function()
+				return Compose.formula(function(use)
+					return strings.get(use(locale), key)
+				end)
+			end)
 			copyMemos[key] = memo
 		end
 		return memo
 	end
 	local function Lnow(key: string, subs: { [string]: string }?): string
-		return strings.get(locale:get(), key, subs)
+		return strings.get(locale:peek(), key, subs)
 	end
 
 	-- ---- proof-owned formatting (the framework has no date/locale formatter) --
@@ -175,34 +206,34 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	end
 
 	-- ---- services -----------------------------------------------------------
-	local supply = supplyService.new({ core = core, now = now, scope = scope })
-	commerce = commerceService.new({ core = core, now = now, scope = scope })
+	local supply = supplyService.new({ Compose = Compose, rooted = rooted, now = now })
+	commerce = commerceService.new({ Compose = Compose, now = now })
 	local visits = visitService.new({
-		core = core,
+		Compose = Compose,
+		rooted = rooted,
 		now = now,
 		charmTier = commerce.charmTier(),
-		scope = scope,
 	})
 
 	-- ---- semantic + presentation state --------------------------------------
 	local state = {
 		locale = locale,
-		section = scope:own(core:signal("glades")),
-		selectedGlade = scope:own(core:signal(nil :: string?)),
-		search = scope:own(core:signal("")),
-		offerDismissed = scope:own(core:signal(false)),
-		keeperName = scope:own(core:signal(seedData.KEEPER.displayName)),
-		keeperContact = scope:own(core:signal(seedData.KEEPER.contact)),
-		draftName = scope:own(core:signal(seedData.KEEPER.displayName)),
-		draftContact = scope:own(core:signal(seedData.KEEPER.contact)),
-		keeperPath = scope:own(core:signal({})),
-		detailPath = scope:own(core:signal({})),
+		section = Compose.cell("glades"),
+		selectedGlade = Compose.cell(nil :: string?),
+		search = Compose.cell(""),
+		offerDismissed = Compose.cell(false),
+		keeperName = Compose.cell(seedData.KEEPER.displayName),
+		keeperContact = Compose.cell(seedData.KEEPER.contact),
+		draftName = Compose.cell(seedData.KEEPER.displayName),
+		draftContact = Compose.cell(seedData.KEEPER.contact),
+		keeperPath = Compose.cell({}),
+		detailPath = Compose.cell({}),
 		favourites = {} :: { [string]: any },
 	}
 	for _, glade in seedData.GLADES do
-		state.favourites[glade.id] = scope:own(core:signal(glade.favourite == true))
+		state.favourites[glade.id] = Compose.cell(glade.favourite == true)
 	end
-	state.filtered = scope:own(core:memo(function(use)
+	state.filtered = Compose.formula(function(use)
 		local term = string.lower(use(state.search))
 		local loc = use(state.locale)
 		local out: { any } = {}
@@ -217,7 +248,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			end
 		end
 		return out
-	end))
+	end)
 
 	--[[ ---- the played task ---------------------------------------------------
 
@@ -239,34 +270,34 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		glade = taskGlade,
 		wisp = taskWisp,
 		nectar = taskNectar,
-		complete = scope:own(core:signal(false)),
+		complete = Compose.cell(false),
 	}
-	taskModel.dewReady = scope:own(core:memo(function(use)
+	taskModel.dewReady = Compose.formula(function(use)
 		return use(supply.state(taskGlade, "dew")) == "full"
-	end))
-	taskModel.nectarReady = scope:own(core:memo(function(use)
+	end)
+	taskModel.nectarReady = Compose.formula(function(use)
 		return use(supply.nectarOf(taskGlade)) == taskNectar and use(supply.state(taskGlade, "nectar")) == "full"
-	end))
-	taskModel.ready = scope:own(core:memo(function(use)
+	end)
+	taskModel.ready = Compose.formula(function(use)
 		return use(taskModel.dewReady) and use(taskModel.nectarReady)
-	end))
+	end)
 	--[[ `touched` is the one thing a derivation cannot recover: whether a row has
 		EVER been true in this attempt. Without it a supply that drains back to
 		empty returns the task line to its opening sentence, which reads as "you
 		have not started" to a player who just did two things — and the clock can
 		put them there without touching anything at all. With it the line says what
 		CHANGED. Cleared by the reset, like every other task fact. ]]
-	taskModel.touched = scope:own(core:signal(false))
-	scope:own(core:observe(taskModel.dewReady, function(ready: boolean)
+	taskModel.touched = Compose.cell(false)
+	observe(taskModel.dewReady, function(ready: boolean)
 		if ready then
 			taskModel.touched:set(true)
 		end
-	end))
-	scope:own(core:observe(taskModel.nectarReady, function(ready: boolean)
+	end)
+	observe(taskModel.nectarReady, function(ready: boolean)
 		if ready then
 			taskModel.touched:set(true)
 		end
-	end))
+	end)
 	--[[ start | nectar | dew | resume | done.
 
 		`dew` and `resume` are the two DEPLETED paths, and they are the reason this
@@ -274,7 +305,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		row that was ticked can come back untocked with nothing the player did. Both
 		phases name the changed condition and both leave the same two verbs one press
 		away — refill, and choose. ]]
-	taskModel.phase = scope:own(core:memo(function(use)
+	taskModel.phase = Compose.formula(function(use)
 		if use(taskModel.complete) then
 			return "done"
 		end
@@ -290,11 +321,11 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			return "dew"
 		end
 		return if use(taskModel.touched) then "resume" else "start"
-	end))
+	end)
 	function taskModel.rows(): { { id: string, done: boolean } }
 		return {
-			{ id = "dew", done = taskModel.dewReady:get() },
-			{ id = "nectar", done = taskModel.nectarReady:get() },
+			{ id = "dew", done = taskModel.dewReady:peek() },
+			{ id = "nectar", done = taskModel.nectarReady:peek() },
 		}
 	end
 	function taskModel.dump(): any
@@ -302,11 +333,11 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			glade = taskGlade,
 			wisp = taskWisp,
 			nectar = taskNectar,
-			phase = taskModel.phase:get(),
-			dewReady = taskModel.dewReady:get(),
-			nectarReady = taskModel.nectarReady:get(),
-			touched = taskModel.touched:get(),
-			complete = taskModel.complete:get(),
+			phase = taskModel.phase:peek(),
+			dewReady = taskModel.dewReady:peek(),
+			nectarReady = taskModel.nectarReady:peek(),
+			touched = taskModel.touched:peek(),
+			complete = taskModel.complete:peek(),
 		}
 	end
 
@@ -321,10 +352,10 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		local record = wispRecords[key]
 		if record == nil then
 			record = {
-				x = scope:own(clock:spring(WISP_REST.x, "object")),
-				y = scope:own(clock:spring(WISP_REST.y, "object")),
-				scale = scope:own(clock:spring(1, "reward")),
-				glow = scope:own(clock:spring(GLOW_REST, "decay")),
+				x = ownMotion(clock:spring(WISP_REST.x, "object")),
+				y = ownMotion(clock:spring(WISP_REST.y, "object")),
+				scale = ownMotion(clock:spring(1, "reward")),
+				glow = ownMotion(clock:spring(GLOW_REST, "decay")),
 				timeline = nil :: any,
 			}
 			wispRecords[key] = record
@@ -334,7 +365,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 
 	-- ---- feedback log (the bus is the game's seam; the proof plays nothing) ---
 	local feedbackLog: { string } = {}
-	scope:own(presenter.onFeedback(function(event: any)
+	Compose.cleanup(presenter.onFeedback(function(event: any)
 		table.insert(feedbackLog, tostring(event.type))
 		if #feedbackLog > 64 then
 			table.remove(feedbackLog, 1)
@@ -346,8 +377,10 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	local ctx = {
 		Facet = Facet,
 		UI = UI,
-		core = core,
-		scope = scope,
+		Compose = Compose,
+		runtime = host.runtime,
+		observe = observe,
+		ownMotion = ownMotion,
 		env = env,
 		actionSystem = actionSystem,
 		presenter = presenter,
@@ -376,15 +409,68 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		if #toastLog > 16 then
 			table.remove(toastLog, 1)
 		end
-		presenter.presentToast(
-			UI.VStack({
-				id = "GladeToast",
+		-- a toast owns its body: the component runs inside the toast
+		local function body()
+			return UI.VStack("GladeToast")({
 				surface = "raised",
 				padding = "m",
-				UI.Text({ id = "Line", text = copy, textSize = "label" }),
-			}),
-			{ key = key, duration = 4, position = "top" }
-		)
+				UI.Text("Line")({ text = copy, textSize = "label" }),
+			})
+		end
+		presenter.presentToast(body, { key = key, duration = 4, position = "top" })
+	end
+
+	-- A conditional region: `/<id>/then/...` or `/<id>/else/...`.
+	function ctx.when(id: string)
+		return function(spec: any)
+			return UI.When(id)({
+				Compose.show(
+					spec.condition,
+					function()
+						return UI.When("then")({ spec.thenView() })
+					end,
+					if spec.elseView
+						then function()
+							return UI.When("else")({ spec.elseView() })
+						end
+						else nil
+				),
+			})
+		end
+	end
+	-- A keyed collection: each row lives at `/<id>/[key]/...`.
+	function ctx.forEach(id: string)
+		return function(spec: any)
+			return UI.ForEach(id)({
+				Compose.keyed({
+					from = spec.items,
+					-- a string key names the field that identifies a row
+					key = if type(spec.key) == "string"
+						then function(item: any)
+							return item[spec.key]
+						end
+						else spec.key,
+					render = function(item: any, _, key: any)
+						local node = spec.row(item:peek())
+						node.collectionKey = `[{key}]`
+						return node
+					end,
+				}),
+			})
+		end
+	end
+	-- Appends a generated child list to a property table.
+	function ctx.withChildren(props: any, children: { any }): any
+		for _, child in children do
+			table.insert(props, child)
+		end
+		return props
+	end
+	-- Presents a modal component and answers its handle; dismissing the handle
+	-- releases the component.
+	function ctx.presentModal(component: () -> any, options: any?): any
+		local _, _, handle = host.presentModal(component, options)
+		return handle
 	end
 
 	-- ---- the modal stack ----------------------------------------------------
@@ -394,36 +480,31 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- teardown), which bounds the retirement to exactly one surface.
 	local keeperFlow: any
 	local detailFlow: any
-	local stack: { any } = {}
-	local retired: { any } = {}
-
-	local function reapRetired()
-		for _, dead in retired do
-			pcall(function()
-				dead:dispose()
-			end)
+	-- A flow's depth is its caller-owned path: Back drops the last entry.
+	local function popPath(path: any): boolean
+		local entries = path:peek()
+		if #entries == 0 then
+			return false
 		end
-		retired = {}
+		local rest = table.clone(entries)
+		table.remove(rest)
+		path:set(rest)
+		return true
 	end
+	local stack: { any } = {}
 
-	local function pushSurface(kind: string, build: (any) -> any, opts: any)
-		reapRetired()
-		local surfaceScope = scope:child("surface-" .. kind)
-		local blueprint = build(surfaceScope)
-		local handle = presenter.presentModal(blueprint, opts)
-		table.insert(stack, { kind = kind, handle = handle, scope = surfaceScope })
+	-- `build` runs inside the surface's own mount, which owns what it makes.
+	local function pushSurface(kind: string, build: () -> any, opts: any)
+		local handle = ctx.presentModal(build, opts)
+		table.insert(stack, { kind = kind, handle = handle })
 	end
 
 	function nav.dismissTop(): boolean
 		local top = table.remove(stack)
 		if top == nil then
-			if keeperFlow ~= nil and keeperFlow.api.back() then
-				return true
-			end
-			return detailFlow ~= nil and detailFlow.api.back() or false
+			return popPath(state.keeperPath) or popPath(state.detailPath)
 		end
 		presenter.dismiss(top.handle)
-		table.insert(retired, top.scope)
 		if top.kind == "shop" or top.kind == "charm" then
 			commerce.clearAll()
 		end
@@ -439,12 +520,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		while #stack > 0 do
 			nav.dismissTop()
 		end
-		if keeperFlow then
-			keeperFlow.api.popToRoot()
-		end
-		if detailFlow then
-			detailFlow.api.popToRoot()
-		end
+		state.keeperPath:set({})
+		state.detailPath:set({})
 	end
 
 	-- ---- the wisp fly-in ceremony -------------------------------------------
@@ -553,13 +630,13 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		if signal == nil then
 			return
 		end
-		signal:set(not signal:get())
+		signal:set(not signal:peek())
 		presenter.emitFeedback({ type = "select", context = { verb = "favourite", glade = gladeId } })
 	end
 
 	function nav.openGlade(gladeId: string)
 		state.selectedGlade:set(gladeId)
-		if conditions.isCompact:get() then
+		if conditions.isCompact:peek() then
 			state.detailPath:set({ { id = "detail", value = gladeId } })
 		end
 		--[[ THE TASK'S WISP WAITS FOR ITS GLADE. Every other glade presents its
@@ -568,14 +645,14 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			that arrival is the whole payoff of "prepare a home for a visiting wisp" —
 			a ceremony that already played before the player did anything is a
 			ceremony that belongs to nobody. `settleTask` is what fires it. ]]
-		if gladeId ~= taskGlade or taskModel.complete:get() then
+		if gladeId ~= taskGlade or taskModel.complete:peek() then
 			startFlyIn(gladeId)
 		end
 	end
 
 	function nav.closeDetail()
-		if #state.detailPath:get() > 0 then
-			detailFlow.api.popToRoot()
+		if #state.detailPath:peek() > 0 then
+			state.detailPath:set({})
 		else
 			state.selectedGlade:set(nil)
 		end
@@ -588,7 +665,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		delight(gladeId)
 		toast(
 			"refill:" .. gladeId,
-			core:memo(function(use)
+			Compose.formula(function(use)
 				local _ = use(state.locale)
 				return Lnow("toast.refill", { glade = Lnow("glade." .. gladeId) })
 			end)
@@ -600,14 +677,14 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- — and the completion state latches. One causal moment, on the frame the
 	-- second condition became true, rather than a poll.
 	local function settleTask()
-		if taskModel.complete:get() then
+		if taskModel.complete:peek() then
 			return
 		end
 		taskModel.complete:set(true)
 		-- the fly-in only if the wisp standing at the edge is the one the task
 		-- NAMED: the seeded window closes after a while, and a task that announced
 		-- Emberwisp must not fly a Tidewisp in and call it the same thing
-		local live = visits.current(taskGlade):get()
+		local live = visits.current(taskGlade):peek()
 		if live ~= nil and live.wisp == taskWisp then
 			startFlyIn(taskGlade)
 		end
@@ -618,21 +695,21 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		})
 		toast(
 			"task",
-			core:memo(function(use)
+			Compose.formula(function(use)
 				local _ = use(state.locale)
 				return Lnow("task.toast", { wisp = Lnow("wisp." .. taskWisp), glade = Lnow("glade." .. taskGlade) })
 			end)
 		)
 	end
-	scope:own(core:observe(taskModel.ready, function(ready: boolean)
+	observe(taskModel.ready, function(ready: boolean)
 		if ready then
 			settleTask()
 		end
-	end))
+	end)
 
 	function nav.openPicker(gladeId: string)
-		pushSurface("picker", function(surfaceScope)
-			return shopUI.picker(ctx, gladeId, surfaceScope)
+		pushSurface("picker", function()
+			return shopUI.picker(ctx, gladeId)
 		end, {
 			scrim = "scrim",
 			outsideTapCancel = true,
@@ -648,13 +725,13 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		end
 		if nectar.premium then
 			local held = commerce.satchelOf(nectarId)
-			if held:get() <= 0 then
+			if held:peek() <= 0 then
 				nav.openShop()
 				return
 			end
 			-- the proof FIXES the reference's untracked consumption: using a
 			-- premium jar decrements the satchel. A design decision, recorded.
-			held:set(held:get() - 1)
+			held:set(held:peek() - 1)
 		end
 		supply.assign(gladeId, nectarId)
 		presenter.emitFeedback({ type = "commit", context = { verb = "chooseNectar", nectar = nectarId } })
@@ -664,7 +741,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		delight(gladeId)
 		toast(
 			"refill:" .. gladeId,
-			core:memo(function(use)
+			Compose.formula(function(use)
 				local _ = use(state.locale)
 				return Lnow("toast.refill", { glade = Lnow("glade." .. gladeId) })
 			end)
@@ -672,8 +749,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	end
 
 	function nav.openShop()
-		pushSurface("shop", function(surfaceScope)
-			return shopUI.provisions(ctx, surfaceScope)
+		pushSurface("shop", function()
+			return shopUI.provisions(ctx)
 		end, {
 			scrim = "scrim",
 			outsideTapCancel = true,
@@ -698,8 +775,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				recommended = "BuyCharm_" .. tier.id
 			end
 		end
-		pushSurface("charm", function(surfaceScope)
-			return shopUI.charm(ctx, surfaceScope)
+		pushSurface("charm", function()
+			return shopUI.charm(ctx)
 		end, {
 			scrim = "scrim",
 			outsideTapCancel = true,
@@ -713,8 +790,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	end
 
 	function nav.openWisp(wispId: string)
-		pushSurface("wisp", function(surfaceScope)
-			return shopUI.wisp(ctx, wispId, surfaceScope)
+		pushSurface("wisp", function()
+			return shopUI.wisp(ctx, wispId)
 		end, {
 			scrim = "scrim",
 			outsideTapCancel = true,
@@ -728,17 +805,17 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	end
 
 	function nav.openEdit()
-		state.draftName:set(state.keeperName:get())
-		state.draftContact:set(state.keeperContact:get())
+		state.draftName:set(state.keeperName:peek())
+		state.draftContact:set(state.keeperContact:peek())
 		state.section:set("keeper")
 		state.keeperPath:set({ { id = "edit" } })
 	end
 
 	function nav.saveKeeper()
-		state.keeperName:set(state.draftName:get())
-		state.keeperContact:set(state.draftContact:get())
+		state.keeperName:set(state.draftName:peek())
+		state.keeperContact:set(state.draftContact:peek())
 		presenter.emitFeedback({ type = "commit", context = { verb = "saveKeeper" } })
-		keeperFlow.api.popToRoot()
+		state.keeperPath:set({})
 	end
 
 	function nav.openFreshStart()
@@ -757,7 +834,6 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- dump taken before anything happened.
 	local function resetWorld()
 		dismissAll()
-		reapRetired()
 		interruptFlyIns()
 		supply.reset()
 		commerce.reset()
@@ -806,7 +882,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- an observer on the command's own status, so there is one causal moment and
 	-- no polling.
 	for _, pack in seedData.PACKS do
-		scope:own(core:observe(commerce.status(pack.id), function(status: string)
+		observe(commerce.status(pack.id), function(status: string)
 			if status ~= "confirmed" then
 				if status == "rejected" then
 					presenter.emitFeedback({ type = "reject", context = { verb = "buyPack", pack = pack.id } })
@@ -816,7 +892,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			presenter.emitFeedback({ type = "celebrate", context = { verb = "buyPack", pack = pack.id } })
 			toast(
 				"purchase",
-				core:memo(function(use)
+				Compose.formula(function(use)
 					local _ = use(state.locale)
 					return Lnow("toast.purchase", {
 						count = tostring(pack.quantity),
@@ -824,10 +900,10 @@ function Glade.build(Facet: any, core: any, deps: any): any
 					})
 				end)
 			)
-		end))
+		end)
 	end
 	for _, tier in seedData.CHARM_TIERS do
-		scope:own(core:observe(commerce.status(tier.id), function(status: string)
+		observe(commerce.status(tier.id), function(status: string)
 			if status == "rejected" then
 				presenter.emitFeedback({ type = "reject", context = { verb = "buyCharm", tier = tier.id } })
 				return
@@ -838,14 +914,14 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			presenter.emitFeedback({ type = "celebrate", context = { verb = "buyCharm", tier = tier.id } })
 			toast(
 				"purchase",
-				core:memo(function(use)
+				Compose.formula(function(use)
 					local _ = use(state.locale)
 					return Lnow("charm.toast", { tier = Lnow("charm.tier." .. tier.id) })
 				end)
 			)
-		end))
+		end)
 	end
-	scope:own(core:observe(commerce.status("restore"), function(status: string)
+	observe(commerce.status("restore"), function(status: string)
 		if status == "rejected" then
 			presenter.emitFeedback({ type = "reject", context = { verb = "restore" } })
 			return
@@ -854,38 +930,35 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			return
 		end
 		toast("restore", L("keeper.restoreToast"))
-	end))
+	end)
 
 	-- Keeper -> Edit is a data flow. The shared stack owns page lifetime, Back,
 	-- Cancel ordering and focus restoration; drafts remain in the app's model.
 	-- Purchase sheets and the destructive Fresh Start choice remain modals.
-	keeperFlow = scope:own(Facet.Controls.NavigationStack(core, {
-		id = "KeeperFlow",
+	keeperFlow = UI.NavigationStack("KeeperFlow")({
 		path = state.keeperPath,
 		backLabel = Lnow("keeper.cancel"),
 		env = env,
 		root = {
 			title = L("section.keeper"),
-			content = function(pageScope)
-				local pageContext = table.clone(ctx)
-				pageContext.scope = pageScope
-				return keeperUI.section(pageContext)
+			content = function()
+				return keeperUI.section(ctx)
 			end,
 		},
 		destinations = {
 			edit = {
 				title = L("keeper.editTitle"),
-				content = function(pageScope)
-					return keeperUI.editForm(ctx, pageScope)
+				content = function()
+					return keeperUI.editForm(ctx)
 				end,
 			},
 		},
-	}))
-	scope:own(core:observe(state.section, function(section)
+	})
+	observe(state.section, function(section)
 		if section ~= "keeper" then
-			keeperFlow.api.popToRoot()
+			state.keeperPath:set({})
 		end
-	end))
+	end)
 
 	-- ---- the shell ----------------------------------------------------------
 	-- ONE construct, and it is the framework's. `Facet.Controls.TabView` owns the
@@ -915,9 +988,9 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- GAP 7a (framework-gaps-phase2 §7): the two thumb-zone homes, off the
 	-- promoted predicates rather than a hand-rolled `== "bottomBar"` string
 	-- compare.
-	local terse = scope:own(core:memo(function(use)
+	local terse = Compose.formula(function(use)
 		return use(conditions.navBottomBar) or use(conditions.navBottomBarCompact)
-	end))
+	end)
 	--[[ ...AND THE TERSE FORM COMES WITH THE TERSE TREATMENT, which is the other
 		half of the same director call: a thumb-zone tab is caption-sized, which is
 		what a tab bar is everywhere and what keeps four names off the ellipsis on a
@@ -925,9 +998,9 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		its four tabs at 320px, which is the very report ("I see a lot of cutoff
 		text") this vocabulary answers. The sidebar and the top bar keep the body
 		size, so this rides the same `terse` fact the words do. ]]
-	local navTextSize = scope:own(core:memo(function(use)
+	local navTextSize = Compose.formula(function(use)
 		return if use(terse) then "caption" else "body"
-	end))
+	end)
 
 	--[[ THE TWO CONTENT PANES still adapt by MEASUREMENT, which is what a
 		Composition is for: the detail lane sits beside the section when both clear
@@ -949,8 +1022,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			whole content rather than one section body. The plate below keeps its
 			clip through `overflow = "clip"`, which is a clip host in its own right
 			(blueprint F-19) and costs no second buffer. ]]
-		local pane = UI.Composition({
-			id = "Panes",
+		local pane = UI.Composition("Panes")({
 			arrangements = {
 				{ name = "detailBeside", lanes = { { "main" }, { "trail" } } },
 				{ name = "detailBelow", lanes = { { "main", "trail" } } },
@@ -969,16 +1041,14 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			-- the leading rail before the content, the bottom bar after it — and that
 			-- rule is now the construct's rather than this file's.
 
-			UI.Region({
-				id = "Section",
+			UI.Region("Section")({
 				group = "content",
 				rank = 1,
 				sizing = "fill",
 				mayScroll = true,
 				floor = { lines = 3 },
 
-				UI.ZStack({
-					id = "Body_" .. id,
+				UI.ZStack("Body_" .. id)({
 					-- A SECTION PLATE CLIPS, AND SAYS SO — and `overflow = "clip"` is
 					-- itself a clip host, so the plate keeps clipping while the one
 					-- canvasGroup this pane spends sits where the fade needs it.
@@ -988,15 +1058,13 @@ function Glade.build(Facet: any, core: any, deps: any): any
 					build(ctx),
 				}),
 			}),
-			UI.Region({
-				id = "Detail",
+			UI.Region("Detail")({
 				group = "detail",
 				rank = 2,
 				detailLane,
 			}),
 		})
-		return UI.ZStack({
-			id = "Pane_" .. id,
+		return UI.ZStack("Pane_" .. id)({
 			canvasGroup = true,
 			width = UI.fill(),
 			height = UI.fill(),
@@ -1009,7 +1077,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		wisps = overviewUI.wisps,
 		flora = overviewUI.flora,
 		keeper = function()
-			return keeperFlow.blueprint
+			return keeperFlow
 		end,
 	}
 	local navTabs: { any } = {}
@@ -1017,18 +1085,17 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		local section = id
 		table.insert(navTabs, {
 			id = section,
-			label = scope:own(core:memo(function(use)
+			label = Compose.formula(function(use)
 				local _ = use(locale)
 				return Lnow("section." .. section .. (if use(terse) then ".short" else ""))
-			end)),
+			end),
 			content = function()
 				return sectionPane(section, SECTION_BUILD[section])
 			end,
 		})
 	end
 
-	local navBar = Facet.View.TabView({
-		id = "Nav",
+	local navBar = UI.TabView("Nav")({
 		-- the proof's own section Signal, unchanged: everything that must survive a
 		-- tab switch is owned OUTSIDE the construct, and this is the first one
 		selection = state.section,
@@ -1056,7 +1123,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				the expansion locale — and `head` is hosted by exactly that home, so
 				the placement decides it instead of a fifth memo in this file. ]]
 			head = function()
-				return UI.Text({ id = "Wordmark", text = L("app.title"), textSize = "title", lineLimit = 1 })
+				return UI.Text("Wordmark")({ text = L("app.title"), textSize = "title", lineLimit = 1 })
 			end,
 		},
 	})
@@ -1068,21 +1135,19 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		CARD, and the card leads the Glades page inside that page's own scroller
 		where it can be as tall as its words. `ui/task.luau` records the measurement
 		that decided the split. ]]
-	local shell = UI.VStack({
-		id = "Shell",
+	local shell = UI.VStack("Shell")({
 		gap = 0,
 		width = UI.fill(),
 		height = UI.fill(),
 		taskUI.strip(ctx),
 		navBar,
 	})
-	local detailTitle = scope:own(core:memo(function(use)
+	local detailTitle = Compose.formula(function(use)
 		local _ = use(locale)
 		local selected = use(state.selectedGlade)
 		return if selected then Lnow("glade." .. selected) else Lnow("section.glades")
-	end))
-	detailFlow = scope:own(Facet.Controls.NavigationStack(core, {
-		id = "GladeFlow",
+	end)
+	detailFlow = UI.NavigationStack("GladeFlow")({
 		path = state.detailPath,
 		backLabel = Lnow("detail.back"),
 		env = env,
@@ -1090,7 +1155,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			enter = "slide-left",
 			exit = "slide-right",
 			class = "container",
-			distance = env:get("viewportRect"):get().w,
+			distance = env:get("viewportRect"):peek().w,
 		},
 		root = {
 			content = function()
@@ -1100,42 +1165,41 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		destinations = {
 			detail = {
 				title = detailTitle,
-				content = function(pageScope, entry)
+				content = function(_, entry)
 					return detailUI.body(ctx, {
 						id = "DetailBody",
 						glade = entry.value,
-						scope = pageScope,
 						compact = true,
 						navigationHosted = true,
 					})
 				end,
 			},
 		},
-	}))
+	})
 	-- One selection survives rotations: compact pushes the detail; wider layouts
 	-- return it to the existing split lane. Back on compact clears the selection.
-	scope:own(core:observe(state.detailPath, function(path)
-		if #path == 0 and conditions.isCompact:get() then
+	observe(state.detailPath, function(path)
+		if #path == 0 and conditions.isCompact:peek() then
 			state.selectedGlade:set(nil)
 			interruptFlyIns()
 		end
-	end))
-	scope:own(core:observe(conditions.isCompact, function(compact)
-		local selected = state.selectedGlade:get()
+	end)
+	observe(conditions.isCompact, function(compact)
+		local selected = state.selectedGlade:peek()
 		if compact and selected ~= nil then
 			state.detailPath:set({ { id = "detail", value = selected } })
 		elseif not compact then
-			detailFlow.api.popToRoot()
+			state.detailPath:set({})
 		end
-	end))
-	local screen = UI.Screen({ id = "Glade", surface = "base", detailFlow.blueprint })
+	end)
+	local screen = UI.Screen("Glade")({ surface = "base", detailFlow })
 
 	-- ---- the frame tick -----------------------------------------------------
 	-- The proof's ONE frame source, and it is the presenter's own: no second
 	-- RunService connection, no wall clock. In Studio this advances the world at
 	-- real speed; headlessly the suite hands `presenter.tick(dt)` a scripted dt
 	-- and gets the identical arithmetic.
-	scope:own(presenter.onTick(function(dt: number)
+	Compose.cleanup(presenter.onTick(function(dt: number)
 		advance(dt)
 	end))
 
@@ -1143,7 +1207,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	local function favouriteList(): { string }
 		local out: { string } = {}
 		for id, signal in state.favourites do
-			if signal:get() then
+			if signal:peek() then
 				table.insert(out, id)
 			end
 		end
@@ -1163,16 +1227,16 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		return {
 			proof = "p1_glade",
 			seed = seedData.WORLD,
-			now = now:get(),
-			locale = locale:get(),
-			section = state.section:get(),
-			selectedGlade = state.selectedGlade:get(),
-			search = state.search:get(),
-			offerDismissed = state.offerDismissed:get(),
+			now = now:peek(),
+			locale = locale:peek(),
+			section = state.section:peek(),
+			selectedGlade = state.selectedGlade:peek(),
+			search = state.search:peek(),
+			offerDismissed = state.offerDismissed:peek(),
 			favourites = favouriteList(),
-			keeper = { name = state.keeperName:get(), contact = state.keeperContact:get() },
-			keeperNavigation = table.clone(state.keeperPath:get()),
-			detailNavigation = table.clone(state.detailPath:get()),
+			keeper = { name = state.keeperName:peek(), contact = state.keeperContact:peek() },
+			keeperNavigation = table.clone(state.keeperPath:peek()),
+			detailNavigation = table.clone(state.detailPath:peek()),
 			-- the played task, published so a drive reads the same phase the card
 			-- paints rather than re-deriving it from the supply service
 			task = taskModel.dump(),
@@ -1198,7 +1262,10 @@ function Glade.build(Facet: any, core: any, deps: any): any
 
 	local built
 	built = {
-		screen = screen,
+		-- the screen is built once under the app owner; the mount presents it
+		screen = function()
+			return screen
+		end,
 		present = {
 			keyboardNavigation = true,
 			rootPolicy = "coreSafeContent",
@@ -1220,7 +1287,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				local seconds = tonumber(payload) or 60
 				advance(seconds)
 				presenter.tick(0)
-				return { now = now:get() }
+				return { now = now:peek() }
 			end,
 			settleCommerce = function(): any
 				advance(seedData.COMMAND_SECONDS + 0.01)
@@ -1229,29 +1296,29 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			end,
 			selectSection = function(_built: any, payload: any): any
 				nav.selectSection(tostring(payload))
-				return { section = state.section:get() }
+				return { section = state.section:peek() }
 			end,
 			selectGlade = function(_built: any, payload: any): any
 				nav.openGlade(tostring(payload or seedData.GLADES[1].id))
-				return { selected = state.selectedGlade:get(), surfaces = surfaceList() }
+				return { selected = state.selectedGlade:peek(), surfaces = surfaceList() }
 			end,
 			closeDetail = function(): any
 				nav.closeDetail()
-				return { selected = state.selectedGlade:get(), surfaces = surfaceList() }
+				return { selected = state.selectedGlade:peek(), surfaces = surfaceList() }
 			end,
 			refillDew = function(_built: any, payload: any): any
-				local gladeId = tostring(payload or state.selectedGlade:get() or seedData.GLADES[1].id)
+				local gladeId = tostring(payload or state.selectedGlade:peek() or seedData.GLADES[1].id)
 				nav.refillDew(gladeId)
-				return { glade = gladeId, state = supply.state(gladeId, "dew"):get() }
+				return { glade = gladeId, state = supply.state(gladeId, "dew"):peek() }
 			end,
 			openPicker = function(_built: any, payload: any): any
-				nav.openPicker(tostring(payload or state.selectedGlade:get() or seedData.GLADES[1].id))
+				nav.openPicker(tostring(payload or state.selectedGlade:peek() or seedData.GLADES[1].id))
 				return { surfaces = surfaceList() }
 			end,
 			chooseNectar = function(_built: any, payload: any): any
-				local gladeId = state.selectedGlade:get() or seedData.GLADES[1].id
+				local gladeId = state.selectedGlade:peek() or seedData.GLADES[1].id
 				nav.chooseNectar(gladeId, tostring(payload or "clover"))
-				return { glade = gladeId, nectar = supply.nectarOf(gladeId):get() }
+				return { glade = gladeId, nectar = supply.nectarOf(gladeId):peek() }
 			end,
 			openShop = function(): any
 				nav.openShop()
@@ -1286,7 +1353,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 					state.draftName:set(tostring(payload))
 				end
 				nav.saveKeeper()
-				return { keeper = { name = state.keeperName:get(), contact = state.keeperContact:get() } }
+				return { keeper = { name = state.keeperName:peek(), contact = state.keeperContact:peek() } }
 			end,
 			freshStart = function(): any
 				nav.openFreshStart()
@@ -1302,7 +1369,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			end,
 			search = function(_built: any, payload: any): any
 				nav.search(if payload == nil then "" else tostring(payload))
-				return { search = state.search:get(), matches = #state.filtered:get() }
+				return { search = state.search:peek(), matches = #state.filtered:peek() }
 			end,
 			toggleFavourite = function(_built: any, payload: any): any
 				nav.toggleFavourite(tostring(payload or seedData.GLADES[1].id))
@@ -1313,7 +1380,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				if strings.TABLES[next_] ~= nil then
 					locale:set(next_)
 				end
-				return { locale = locale:get() }
+				return { locale = locale:peek() }
 			end,
 			dismissOffer = function(): any
 				state.offerDismissed:set(true)
@@ -1322,7 +1389,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			-- THE TASK'S TWO VERBS, the same commands its two on-screen controls call
 			openTask = function(): any
 				nav.openGlade(taskModel.glade)
-				return { selected = state.selectedGlade:get(), task = taskModel.dump() }
+				return { selected = state.selectedGlade:peek(), task = taskModel.dump() }
 			end,
 			prepareAgain = function(): any
 				nav.prepareAgain()
@@ -1339,8 +1406,6 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		-- the proof's own verbs, for a test that would rather call than drive
 		api = {
 			nav = nav,
-			keeperNavigation = keeperFlow,
-			detailNavigation = detailFlow,
 			state = state,
 			task = taskModel,
 			supply = supply,
@@ -1359,7 +1424,6 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		},
 		dispose = function()
 			dismissAll()
-			reapRetired()
 			interruptFlyIns()
 			if handleRef ~= nil then
 				pcall(function()
@@ -1367,7 +1431,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 				end)
 				handleRef = nil
 			end
-			scope:dispose()
+			appOwner.dispose()
 		end,
 	}
 
@@ -1377,6 +1441,15 @@ function Glade.build(Facet: any, core: any, deps: any): any
 
 	local _ = parts
 	return built
+end
+
+-- `deps.app` is the application the caller mounts `built.screen` into.
+function Glade.build(Facet: any, _core: any, deps: any): any
+	local Compose = Facet.Compose
+	local appOwner = Compose.createOwner(deps.app.runtime.reactor)
+	return Compose.withOwner(appOwner, function()
+		return construct(Facet, deps, appOwner)
+	end)
 end
 
 return Glade

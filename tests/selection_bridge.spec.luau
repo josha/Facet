@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Engine-selection bridge (native-substrate NS-A12/NS-A11): opt-in,
 -- modal-only, mirrors logical focus, clears on teardown; passive/default
 -- surfaces NEVER touch engine selection. The engine half (Selectable
@@ -8,7 +9,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local FacetRoot = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
@@ -18,8 +19,8 @@ local function present(kind: string, opts: any)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 	local adapter = fake_target.new({ ops = true })
 	local system = FacetRoot.newActionSystem(core)
-	local pres = FacetRoot.newPresenter(core, env, adapter, system)
-	local UI = FacetRoot.UI
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local UI = harness.UI
 	local bp = UI.Screen({
 		id = "S",
 		children = {

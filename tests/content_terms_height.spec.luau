@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 --[[ CONTENT-TERMS HEIGHT (framework-gaps-phase2 gap 3; audit §3).
 
 	`UI.Composition` already had this vocabulary, LOCKED inside it — Region
@@ -35,7 +37,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local solver = require("../src/layout/solver")
 local snapshot = require("../src/themes/snapshot")
 local fake_target = require("./lib/fake_target")
@@ -62,25 +64,30 @@ end
 local DESKTOP = { w = 1232, h = 1067 }
 
 local function fixtureWorld(view: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
 local function mountFixture(w: any, module: any): any
 	local built = module.build({
 		Facet = Facet,
+		app = scenario_app.over(w.core, w.presenter),
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,
 		presenter = w.presenter,
 	})
-	built.handle = w.presenter.present(built.screen, built.present)
+	if built.handle == nil then
+		built.handle = w.presenter.present(built.screen, built.present)
+	end
 	for _ = 1, 3 do
 		w.presenter.refresh()
 	end

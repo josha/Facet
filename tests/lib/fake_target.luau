@@ -1559,7 +1559,23 @@ function fake_target.new(opts: Opts?)
 	-- pointer seam: capture-based routing + semantic cursor hints,
 	-- mirroring the ScreenTarget contract (down captures; moves/up route to
 	-- the captured node until release; a captured drag keeps its hint alive)
+	--[[ A HANDLER MATERIALISES AN ELIDED NODE, mirroring the live adapter's
+		`ensureInstance` exactly. Container elision is CREATION-TIME: `create`
+		cannot know that a layout-only class will later be handed pointer handlers
+		or a drag detector, so every other seam materialises on demand. A fake that
+		accepted handlers on a node with no object would be green over a live
+		adapter that dropped them — which is the one divergence this target
+		exists to prevent. ]]
+	local function fakeEnsureInstance(handle: any)
+		if handle ~= nil and handle.elided == true then
+			handle.elided = nil
+			handle.materialized = true
+		end
+	end
+	adapter._ensureInstance = fakeEnsureInstance
+
 	function adapter.setPointerHandlers(handle: any, handlers: any)
+		fakeEnsureInstance(handle)
 		handle.pointer = handlers
 	end
 
@@ -1826,6 +1842,7 @@ function fake_target.new(opts: Opts?)
 		if adapter.noDragDetector then
 			return nil
 		end
+		fakeEnsureInstance(handle)
 		handle.dragDetector = handlers
 		if recordOps then
 			note(`dragdetector {handle.path}`)
@@ -1924,6 +1941,7 @@ function fake_target.new(opts: Opts?)
 		hit rects BEFORE rects and the host origin can still be stale here — exactly
 		the ordering the live `applyRect -> applyHitExpander` call answers. ]]
 	function adapter.setHitRect(handle: any, rect: any)
+		fakeEnsureInstance(handle)
 		handle.storedHitRect = rect
 		if rect == nil then
 			handle.hitRect = nil

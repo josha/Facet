@@ -1,124 +1,8 @@
 --!strict
--- SelectionIndicator — the sliding selection seam (navigation-and-menus brief
--- §2 D4). ONE indicator that ANIMATES FROM THE PREVIOUSLY SELECTED CHILD'S RECT
--- TO THE NEW ONE, in two skins: the `underline` (r2's tab bar, f1's sheet strip)
--- and the filled `pill` (r3's segmented control, f1's top rail and left rail).
---
--- ===== IT IS AN INTERNAL SEAM, NOT A PUBLIC CONSTRUCT =====================
---
--- Director ruling 2026-08-16: the PUBLIC authoring surface for this is a
--- PROPERTY on the controls that consume it — `indicator = "underline" | "pill" |
--- "none"` on `newPicker`, and the same property on D5's TabView. Nobody
--- instantiates the mechanism directly, so there is no `src/init.luau` export, no
--- `api.md` heading of its own, and no dump schema of its own: its state is
--- reported inside the consuming control's `dump()` (see `picker.dump().indicator`).
--- The same shape `row_actions_trays` and `virtual_window` already have — a
--- registry row that names the control it serves.
---
--- What IS deliberately reachable is the pure geometry decision below
--- (`resolveIndicatorRect`) and the pure motion decision (`resolveTransition`),
--- because both consumers must be able to test against them.
---
--- ===== WHY A SEAM AND NOT A CONTROL OR A MODIFIER =========================
---
--- It wraps a strip somebody else built and paints one decoration behind it. It
--- is not a control (it owns no value, takes no input and is never a focus stop)
--- and it is not a modifier (the constitution's positional-scalar modifier family
--- is CLOSED, §16 E-18, and this needs its own reactive state, its own motion and
--- its own geometry intake).
---
--- The shape is chosen so that NEITHER consumer owns it. D5's `TabView` is a
--- strip of tabs with content below; D6's segmented `Picker` is a pill of
--- buttons with nothing below; f1's left rail is the same pill turned VERTICAL.
--- Those three trees have nothing structural in common — so this seam is told
--- nothing about them. It is handed:
---
---     * `content`  — the strip blueprint, whatever shape it is;
---     * `segments` — {(selection value, child id)} pairs;
---     * `selected` — the owner's Readable (this module NEVER writes it).
---
--- and it resolves each child's SOLVED RECT by id at run time. A host that can
--- give an id to the thing it wants underlined can use this; nothing else about
--- the host is assumed, which is why one seam serves a horizontal tab strip, a
--- horizontal pill and a vertical pill without either consumer subclassing it.
---
--- ===== THE TRANSITION IS BETWEEN TWO RECTS, NEVER TWO INDICES ==============
---
--- Segments stop being equal-width the moment their labels differ ("For you" vs
--- "Charts" in r2), and they stop being equal-anything under a 1.4x
--- pseudo-localization. Interpolating an INDEX would put the bar under nothing
--- for the whole flight and land it at the wrong width. So four scalar springs
--- carry x, y, w and h from the old rect to the new one, and a 2-D flight is two
--- scalar springs (src/motion/chase.luau's rule, applied to a box instead of a
--- point). Nothing here knows what position a segment holds in the strip.
---
--- ===== GEOMETRY ARRIVES ON THE ARRANGE CADENCE, COMPARED BY VALUE ==========
---
--- `syncGeometry` (the input-contribution seam) is fed the surface's `rectOf` on
--- EVERY solve and every refresh, so an unguarded intake would re-run the target
--- memo, re-aim four springs and re-solve the surface forever. Both stages are
--- therefore compared BY VALUE, the `renderer.luau:2844-2860` shape from
--- `8560f2b` ("one viewport change is one solve, not five"):
---
---     fed        a FLAT numeric table (host rect + every segment rect), written
---                by syncGeometry into a signal whose equality is `sameGeometry`;
---     targetRect a scope-owned MEMO over (`fed`, `selected`) whose equality is
---                the same comparator.
---
--- `sameGeometry` refuses any table-valued field outright rather than comparing
--- it by identity — the renderer's own deliberate conservatism, kept here for the
--- same reason: a rebuilt-outer/reused-inner shape would otherwise report a false
--- "unchanged", which is a MISSED update rather than a spare one.
---
--- `rectOf`, NOT `screenRectOf`. The indicator lives in the SAME parent as the
--- strip it tracks, so it inherits every scroll offset and presentation shift the
--- strip inherits; subtracting two raw host-space rects cancels them exactly.
--- `screenRectOf` accumulates those shifts, so inside D5's overflowing horizontal
--- ScrollView it would apply the scroll twice and the bar would fly off the strip.
--- THE SAME ARGUMENT COVERS A COORDINATE-SPACE HOST (Plan C, C1): beneath one, a
--- stored rect is relative to the host, and the layer and the segments are under
--- the SAME host — so the origin is a common term in the subtraction and cancels,
--- exactly as the scroll offset does. `tests/translate_host.spec.luau` pins the
--- delta across a host move rather than leaving the cancellation asserted.
---
--- ===== REDUCED MOTION SNAPS, AND IT IS NOT RE-PLUMBED HERE =================
---
--- A `clock:spring` value is DECORATIVE by default, and the motion authority's
--- own I-4 invariant already says a decorative `setTarget` under reduced motion
--- places the value at its terminus INSTANTLY, on the same frame, with the same
--- events (src/motion/motion.luau). The clock reads `motionPolicy`, which the
--- environment derives from `reducedMotion`. So this module contains no reduced-
--- motion branch at all: it aims springs, and the authority decides whether that
--- is a flight or a placement. The spec proves it by COUNTING the rect writes the
--- adapter receives across twenty presenter ticks, not by reading a flag.
---
--- ===== FIRST PAINT PLACES; IT DOES NOT SLIDE IN FROM NOWHERE ===============
---
--- `resolveTransition` is the whole policy, pure and exported:
---   * never placed         -> PLACE (the initial selection is where the bar IS)
---   * placed, selection changed -> SLIDE
---   * placed, selection unchanged -> PLACE
--- The third rule matters as much as the first: a rotation, a theme swap or a
--- preferred-text change moves every segment rect under an UNCHANGED selection,
--- and a bar that swims across the strip on every re-solve is a bug, not motion.
---
--- ===== NEVER A FOCUS STOP =================================================
---
--- `collectFocusables` (src/present/focus_map.luau) appends any node whose class
--- is in FOCUSABLE — Button, Toggle, TextField — and that flat order IS the
--- document order Tab walks. The indicator is an `Anchor` holding a `Box`:
--- neither class is focusable, and the layer is declared FIRST inside the ZStack
--- so it paints BEHIND the strip and can never take a tap from it. Wrapping a
--- strip therefore leaves its focus order byte-identical, which the spec asserts
--- rather than assumes.
---
--- ===== IT NEVER OPENS A PRESENTER ANIMATION SCOPE ==========================
---
--- `presenter.withAnimation` is presenter-wide and hard-errors on re-entrant
--- nesting, so a decoration that wrapped its own writes in it would explode
--- inside any caller that had already opened one. This seam owns its own motion
--- values instead and drives them directly; it is safe to mount inside anything.
-
+local Compose = require("../vendor/compose/core")
+-- Shared decoration for Picker and TabView. It follows measured option bounds
+-- and paints an underline or pill without adding an input target. Native
+-- selection changes use Compose springs; geometry changes place it immediately.
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local rectLib = require("../rect")
@@ -136,7 +20,7 @@ export type Spec = {
 	selected: any, -- owner-held Readable; never written by this module
 	skin: string?, -- "underline" (default) | "pill"
 	-- "x" (default) | "y", or a Readable of either. REACTIVE, because the host's
-	-- own axis can be: `newPicker` flips its option stack between a row and a
+	-- own axis can be: `UI.Picker` flips its option stack between a row and a
 	-- column on a live space change and that flip is a RE-SOLVE, not a rebuild
 	-- (the A-AL2 rule), so an indicator holding a build-time axis would keep
 	-- underlining the wrong edge for the rest of the session.
@@ -419,12 +303,7 @@ selection_indicator.sameGeometry = sameGeometry
 -- reactive kinds: `selected` is normally a Signal and `axis` is normally a MEMO
 -- (picker's option-stack axis is derived from its presentation), and reading only
 -- one of them would hand the caller back the node itself.
-local function readValue(source: any, use: any?): any
-	if type(source) == "table" and ((source :: any).kind == "signal" or (source :: any).kind == "memo") then
-		return if use ~= nil then use(source) else (source :: any):get()
-	end
-	return source
-end
+local readValue = require("../selection_model").read
 
 -- does this static blueprint subtree mount more than it declares? A `When` or a
 -- `ForEach` can, so a segment id absent from the static tree is not provably an
@@ -444,11 +323,10 @@ local function findIds(bp: any, ids: { [string]: boolean }, structural: { boolea
 	end
 end
 
-function selection_indicator.build(Facet: any, core: any, spec: Spec)
+local function build(Facet: any, core: any, spec: Spec, owner: any)
 	specGuard.assertKnownKeys("selectionIndicator", spec, INDICATOR_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "SelectionIndicator"
-	local scope = core:scope("selection-indicator-" .. tostring(id))
 
 	if type(spec.content) ~= "table" or spec.content.class == nil then
 		error(`Facet selectionIndicator('{id}'): \`content\` must be the strip blueprint this indicator tracks`, 0)
@@ -518,8 +396,8 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- shape as `table.luau`/`row_actions_metrics.luau` — `spec.env` is optional
 	-- and absent degrades to the neutral snapshot, while a live theme swap
 	-- re-resolves through `env:get("themeMetrics")`, which is itself reactive.
-	local env = spec.env
-	local metricsSig = scope:own(core:memo(function(use)
+	local env = spec.env or require("../env/surface_env").find(core)
+	local metricsSig = Compose.formula(function(use)
 		if env == nil then
 			return themeSnapshot.neutral()
 		end
@@ -534,7 +412,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 				and type(raw.radii) == "table"
 			then raw
 			else themeSnapshot.neutral()
-	end))
+	end)
 	--[[ WHICH PLATE THE BAR IS, hoisted above `skinOpts` because the inset rule
 		below has to know what the bar's surface CARVES. The declaration and the
 		reasoning for it live at `barSurface`'s use site further down; only the two
@@ -548,7 +426,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- Keep the theme's segment coverage even when the pill uses palette paint.
 	-- NO_SLOT changes artwork, not the established control-border clearance:
 	-- subtracting that clearance prevents a second inset inside themed segments.
-	local skinOpts = scope:own(core:memo(function(use)
+	local skinOpts = Compose.formula(function(use)
 		local snap = use(metricsSig)
 		local carved = 0
 		local insets = if type(snap) == "table" then (snap :: any).chromeInsets else nil
@@ -566,20 +444,55 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			thickness = themeSnapshot.resolveNumber(snap, spec.thickness or DEFAULT_THICKNESS) or 0,
 			inset = math.max(0, declared - carved),
 		}
-	end, sameGeometry))
+	end, sameGeometry)
 
 	-- ===== the painted bar =================================================
-	-- Four owned signals ARE the bound props; the springs (built lazily, only
-	-- once a presenter has handed over its clock) write into them. Exactly
-	-- row_actions' shipped shape: with no clock — a bare `mountLib.mount` in a
-	-- unit test, which never runs a presenter's bindContribution walk — every
-	-- retarget falls back to an instant placement, which is a supported
-	-- degradation and not a second code path.
-	local offX = scope:own(core:signal(0))
-	local offY = scope:own(core:signal(0))
-	local boxW = scope:own(core:signal(0))
-	local boxH = scope:own(core:signal(0))
-	local shown = scope:own(core:signal(false))
+	-- Target geometry is separate from painted geometry. Compose animates the
+	-- latter; reduced motion reads the target, and frameless hosts place it directly.
+	local offX = Compose.cell(0)
+	local offY = Compose.cell(0)
+	local boxW = Compose.cell(0)
+	local boxH = Compose.cell(0)
+	local shown = Compose.cell(false)
+
+	local nativeSprings, nativeOwner
+	local motionVersion = Compose.cell(0)
+	local function animated(key, source)
+		return function(use)
+			use(motionVersion)
+			local reduced = env ~= nil and use(env:get("motionPolicy")) == "reduced"
+			return if nativeSprings and not reduced then use(nativeSprings[key]) else use(source)
+		end
+	end
+	local paintedX, paintedY = animated("x", offX), animated("y", offY)
+	local paintedW, paintedH = animated("w", boxW), animated("h", boxH)
+	local function resetNativeMotion()
+		if nativeOwner then
+			nativeOwner.dispose()
+			nativeOwner, nativeSprings = nil, nil
+			motionVersion:update(function(value)
+				return value + 1
+			end)
+		end
+	end
+	local function ensureNativeMotion()
+		if nativeSprings then
+			return
+		end
+		nativeOwner = owner.createChild()
+		Compose.withOwner(nativeOwner, function()
+			local values = { x = offX, y = offY, w = boxW, h = boxH }
+			nativeSprings = {}
+			for key, value in values do
+				nativeSprings[key] = Facet.runtime.spring(function(use)
+					return use(value)
+				end, { period = 0.28, damping = 1 })
+			end
+		end)
+		motionVersion:update(function(value)
+			return value + 1
+		end)
+	end
 
 	local function dimEq(a: any, b: any): boolean
 		return type(a) == "table" and type(b) == "table" and a.px == b.px
@@ -588,15 +501,15 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- carry `dirty = { "measure" }`, so the memo's by-value equality is what makes
 	-- an equal-width strip (r3's icon-only segments) an ARRANGE-ONLY slide: the
 	-- size memos never re-emit and only the two anchor offsets move.
-	local widthDim = scope:own(core:memo(function(use)
-		return { type = "fixed", px = use(boxW) }
-	end, dimEq))
-	local heightDim = scope:own(core:memo(function(use)
-		return { type = "fixed", px = use(boxH) }
-	end, dimEq))
-	local hiddenMemo = scope:own(core:memo(function(use)
+	local widthDim = Compose.formula(function(use)
+		return { type = "fixed", px = paintedW(use) }
+	end, dimEq)
+	local heightDim = Compose.formula(function(use)
+		return { type = "fixed", px = paintedH(use) }
+	end, dimEq)
+	local hiddenMemo = Compose.formula(function(use)
 		return not use(shown)
-	end))
+	end)
 
 	-- A pill fills its themed surface; an underline is a tint rule. The default
 	-- pill keeps the palette fill paired with its label, while an explicit surface
@@ -645,7 +558,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		one the token was reaching for. So the derived token is resolved
 		DEFENSIVELY here and falls back to the plain `selection` radius, the same
 		family, which every style can answer. The authoring refusal is unaffected
-		— `newPicker` still refuses a container its live radii cannot name, where
+		— `UI.Picker` still refuses a container its live radii cannot name, where
 		the author wrote it, which is the check that catches a typo. ]]
 	local derives = spec.corner == nil and skin == "pill" and spec.trackCorner ~= nil
 	--[[ the derived token, or the plain `selection` fallback when this style
@@ -658,7 +571,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		quarantine heals the STATE and tells nobody"). The fallback exists for a
 		LEGITIMATE case — a theme swapped away from the package that published the
 		container — but it catches an illegitimate one just as quietly: a REACTIVE
-		`stripCorner` whose value becomes a typo. `newPicker`'s authoring check
+		`stripCorner` whose value becomes a typo. `UI.Picker`'s authoring check
 		refuses a typo it can see at build, and by construction cannot see a value
 		set later. So the healed case is noted, naming both the token and what was
 		painted instead.
@@ -741,23 +654,23 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		fires the warn and sets `cornerFallbacks = 1` for a corner that is then
 		thrown away and never painted, so the diagnostic reported a fallback that
 		did not happen. ]]
-	local uniformCorners: any = if corner ~= nil and not derives then derivedCorners(corner, metricsSig:get()) else nil
+	local uniformCorners: any = if corner ~= nil and not derives then derivedCorners(corner, metricsSig:peek()) else nil
 	if derives then
 		local reactive = type(spec.trackCorner) == "table"
 		if reactive then
-			uniformCorners = scope:own(core:memo(function(use)
+			uniformCorners = Compose.formula(function(use)
 				return derivedCorners(
 					selection_indicator.fillCornerFor(readValue(spec.trackCorner, use)),
 					use(metricsSig)
 				)
-			end))
+			end)
 		else
-			uniformCorners = derivedCorners(selection_indicator.fillCornerFor(spec.trackCorner), metricsSig:get())
+			uniformCorners = derivedCorners(selection_indicator.fillCornerFor(spec.trackCorner), metricsSig:peek())
 		end
 	end
 	local barCorners: any = uniformCorners
 	if spec.segmentCorners ~= nil then
-		barCorners = scope:own(core:memo(function(use)
+		barCorners = Compose.formula(function(use)
 			local fallback = readValue(uniformCorners, use)
 			local list = readValue(spec.segmentCorners, use)
 			if type(list) ~= "table" then
@@ -770,7 +683,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 			return fallback
-		end))
+		end)
 	end
 	-- `barSurface` is declared above `skinOpts` (the carved-border rule reads its
 	-- slot); the decision it records is this paragraph's.
@@ -779,8 +692,8 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		surface = barSurface,
 		tint = if barSurface == nil then UNDERLINE_TINT else nil,
 		anchor = "topLeft",
-		offsetX = offX,
-		offsetY = offY,
+		offsetX = paintedX,
+		offsetY = paintedY,
 		width = widthDim,
 		height = heightDim,
 		hidden = hiddenMemo,
@@ -830,7 +743,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- flat numeric table: 1..4 = the layer's rect, then 4 per segment in
 	-- declaration order. FLAT on purpose — `sameGeometry` refuses nested tables,
 	-- and a flat shape makes that refusal free rather than an obstacle.
-	local fed = scope:own(core:signal({}, sameGeometry))
+	local fed = Compose.cell({}, sameGeometry)
 
 	-- Identity and geometry must describe the SAME solve. A live reorder cannot
 	-- interpret the previous rectangles using the new option indices.
@@ -851,11 +764,11 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- swimming bar or a per-frame re-solve wants first. Ten idle refreshes must
 	-- leave it where it was.
 	local geometryUpdates = 0
-	scope:own(core:observe(fed, function()
+	owner.watchStatic(fed, function()
 		geometryUpdates += 1
-	end))
+	end)
 
-	local targetRect = scope:own(core:memo(function(use)
+	local targetRect = Compose.formula(function(use)
 		local numbers = use(fed)
 		local index = indexOfValue(readValue(spec.selected, use))
 		if index == nil or numbers[1] == nil then
@@ -870,64 +783,29 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			{ x = numbers[1], y = numbers[2], w = numbers[3], h = numbers[4] },
 			use(skinOpts)
 		)
-	end, sameGeometry))
+	end, sameGeometry)
 
 	-- ===== motion ===========================================================
 	local motionClock: any = nil
-	local motionClassName = spec.motionClass or "object"
-	local springs: any = nil
-
-	local function ensureSprings()
-		if springs ~= nil or motionClock == nil then
-			return
-		end
-		local made = {
-			x = scope:own(motionClock:spring(offX:get(), motionClassName)),
-			y = scope:own(motionClock:spring(offY:get(), motionClassName)),
-			w = scope:own(motionClock:spring(boxW:get(), motionClassName)),
-			h = scope:own(motionClock:spring(boxH:get(), motionClassName)),
-		}
-		springs = made
-		scope:own(core:observe(made.x, function()
-			offX:set(made.x:get())
-		end))
-		scope:own(core:observe(made.y, function()
-			offY:set(made.y:get())
-		end))
-		scope:own(core:observe(made.w, function()
-			boxW:set(made.w:get())
-		end))
-		scope:own(core:observe(made.h, function()
-			boxH:set(made.h:get())
-		end))
-	end
 
 	local function placeAt(rect: Rect)
+		resetNativeMotion()
 		offX:set(rect.x)
 		offY:set(rect.y)
 		boxW:set(rect.w)
 		boxH:set(rect.h)
-		if springs ~= nil then
-			springs.x:snap(rect.x)
-			springs.y:snap(rect.y)
-			springs.w:snap(rect.w)
-			springs.h:snap(rect.h)
-		end
 	end
 
 	local function slideTo(rect: Rect)
-		if motionClock == nil then
+		if motionClock == nil or Facet.runtime.host.frames == nil then
 			placeAt(rect) -- no presenter, no clock: an instant placement (supported)
 			return
 		end
-		ensureSprings()
-		-- Under reduced motion each of these places the value at its terminus on
-		-- this very frame and fires the same settle event (motion I-4). There is
-		-- no branch here on purpose: the authority owns that decision.
-		springs.x:setTarget(rect.x)
-		springs.y:setTarget(rect.y)
-		springs.w:setTarget(rect.w)
-		springs.h:setTarget(rect.h)
+		ensureNativeMotion()
+		offX:set(rect.x)
+		offY:set(rect.y)
+		boxW:set(rect.w)
+		boxH:set(rect.h)
 	end
 
 	local placed = false
@@ -937,7 +815,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	local slides = 0
 
 	local function applyTarget()
-		local rect = targetRect:get()
+		local rect = targetRect:peek()
 		if rect == nil then
 			shown:set(false)
 			return
@@ -958,7 +836,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		shown:set(true)
 	end
 
-	scope:own(core:observe(targetRect, applyTarget))
+	owner.watchStatic(targetRect, applyTarget)
 
 	local built = contribution.attach(root, {
 		-- SOLVED RECTS, ON THE ARRANGE CADENCE. Idempotent and equality-guarded
@@ -970,6 +848,9 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			fedEpoch = nil
 		end,
 		syncGeometry = function(rectOf: (string) -> any, rootNode: any?)
+			if owner.isDisposed() then
+				return
+			end
 			local segments = segmentsNow()
 			local structure = if controller then controller.structureEpoch() else nil
 			local geometry = if controller then controller.geometryEpoch() else nil
@@ -1064,7 +945,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 				table.insert(unresolved, segment.id)
 			end
 		end
-		local rect = targetRect:get()
+		local rect = targetRect:peek()
 		local current = readValue(spec.selected)
 		local label: string? = nil
 		for _, segment in segmentsNow() do
@@ -1090,7 +971,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			-- tense, and at most 1 (a fill has one corner). A theme swapped away
 			-- from the package that publishes the container reads 1 while it is
 			-- away and 0 when the package returns; a typo on a REACTIVE
-			-- `stripCorner` — the one `newPicker` cannot see at build — stays at
+			-- `stripCorner` — the one `UI.Picker` cannot see at build — stays at
 			-- 1 until the value is corrected. Zero is the ordinary reading.
 			cornerFallbacks = cornerFallbacks,
 			rect = if rect == nil then nil else { x = rect.x, y = rect.y, w = rect.w, h = rect.h },
@@ -1099,10 +980,22 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	end
 
 	function api.dispose()
-		scope:dispose()
+		owner.dispose()
 	end
 
 	return api
 end
 
+function selection_indicator.build(Facet, core, spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
+end
 return selection_indicator

@@ -9,6 +9,14 @@ cd "$(dirname "$0")/.."
 # so a project declaring it FAILED THE BUILD with "Unknown property" while the
 # pinned toolchain built it fine. Measured 2026-08-15.
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# --check, NOT a bare materialize. The snapshot is COMMITTED, so the only thing
+# an entry point can honestly do with it is VERIFY it. A bare run re-fetches and
+# rewrites the vendored tree from the pin, which means a tampered or locally
+# edited Compose would be silently repaired on the way into a build instead of
+# reported -- the supply-chain failure this gate exists to catch, turned into a
+# no-op. A mismatch here is a FINDING; restoring the snapshot is an explicit
+# `python3 tools/sync_compose.py` a human runs, on purpose, by itself.
+python3 tools/sync_compose.py --check || exit $?
 # BOTH output directories, because BOTH are gitignored and this script writes
 # into both. `build/` used to be missing from this line, and the rojo-build row
 # below writes `-o build/Facet-Gallery.rbxl`: rojo does NOT create the parent

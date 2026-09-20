@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE DRAG-TO-EDGE AUTOSCROLL SEAM, MECHANISED — and the behaviour it moved.
 
 	`tools/lune/verify/data/source-cap-ledger.md` records the rule every extraction in
@@ -43,9 +44,9 @@ local fs = require("@lune/fs")
 -- every `.luau` under `src/`, walked recursively (see the one-consumer case)
 local src_tree = require("./lib/src_tree")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")

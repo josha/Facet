@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- IMAGE VALUE DISPLAYS (rich-skinning-v2 package P3): the bar
 -- family, the stepper plate and the toggle's two image slots.
 --
@@ -29,15 +30,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local fs = require("@lune/fs")
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local motionClockLib = require("../src/motion/clock")
 local fake_target = require("./lib/fake_target")
@@ -47,6 +48,7 @@ local snapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local adapter_source = require("./lib/adapter_source")
+local Compose = require("../src/vendor/compose/core")
 
 -- the LIVE adapter as ONE text: it is three files since the 200k `Source`
 -- write-cap split (tests/lib/adapter_source names them and says why)
@@ -215,11 +217,11 @@ end
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
-local function harness()
+local function world()
 	local w = worldLib.new({
 		viewport = { x = 0, y = 0, w = 400, h = 600 },
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
@@ -444,8 +446,9 @@ describe("the bar's ornaments reserve the space they paint in", function()
 	end)
 
 	it("the SOLVER clears the label, the readout and the rows above and below", function()
-		local core, env, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", label = "Download", value = 0.35, showValue = true })
+		local core, env, adapter, _, pres = world()
+		local p =
+			harness.Controls.ProgressView(core, { id = "Load", label = "Download", value = 0.35, showValue = true })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -545,14 +548,14 @@ describe("insets that leave no content box are REFUSED or REPORTED", function()
 		-- full height. Same diagnosis, repaired instead of merely announced. The
 		-- assertion below is the fill's height precisely because that is the thing
 		-- the user could not see.
-		local core, env, adapter, _, pres = harness()
+		local core, env, adapter, _, pres = world()
 		local d = valueDisplays()
 		d.chrome.barTrack.contentInsets = { top = 8, right = 8, bottom = 8, left = 8 }
 		d.metrics.controls = d.metrics.controls or {}
 		d.metrics.controls.progress = { trackHeight = 40, rowMinHeight = 56 }
 		local pkg = themes.define(d)
 		assert(pkg ~= nil, "the deep-inset fixture must compile at a 40px track")
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.35, height = 12 })
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.35, height = 12 })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		env:set("themeMetrics", snapshot.resolve(pkg, nil, {}))
@@ -573,7 +576,7 @@ describe("insets that leave no content box are REFUSED or REPORTED", function()
 		expect(string.find(reported.issue, "16px of border", 1, true) ~= nil).toBe(true)
 		expect(string.find(reported.issue, "12px", 1, true) ~= nil).toBe(true)
 		-- and a track that CAN afford its insets reports nothing
-		local ok = Facet.Controls.ProgressView(core, { id = "Fine", value = 0.35 })
+		local ok = harness.Controls.ProgressView(core, { id = "Fine", value = 0.35 })
 		pres.present(UI.Screen({ id = "T", children = { ok.blueprint } })).controller.diagnostics()
 		pres.refresh()
 		p.dispose()
@@ -806,10 +809,10 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 			now = function()
 				return now.t
 			end,
-			motionPolicy = core:signal("full"),
+			motionPolicy = Compose.cell("full"),
 		})
-		local scope = core:scope("spinner-paint")
-		local view = Facet.Controls.ProgressView(core, {
+		local scope = core.owner.createChild()
+		local view = harness.Controls.ProgressView(core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
@@ -868,9 +871,11 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		expect(`distinct blend levels at rest: {distinctCount(blends)}`).toBe("distinct blend levels at rest: 3")
 		-- ...and it MOVES: the same five plates carry different colours a moment
 		-- later, which is the whole fact art would replace with a constant
+		-- the cycle runs on the UI runtime's frames
 		for _ = 1, 12 do
 			now.t += 1 / 60
 			clock:step()
+			harness.step(core, 1 / 60)
 			pres.refresh()
 		end
 		local later = blendsNow()
@@ -1263,8 +1268,8 @@ end)
 
 describe("the value controls declare their slots on the internal channel", function()
 	it("a ProgressView's track and fill reach adapter.create as hints", function()
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.4 })
+		local core, _, adapter, _, pres = world()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.4 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar").decorationHint.slot).toBe("barTrack")
@@ -1273,9 +1278,9 @@ describe("the value controls declare their slots on the internal channel", funct
 	end)
 
 	it("the fill's solved rect is still the percent — geometry stays solver-owned", function()
-		local core, _, adapter, _, pres = harness()
-		local v = core:signal(0.25)
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = v })
+		local core, _, adapter, _, pres = world()
+		local v = Compose.cell(0.25)
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = v })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local track = adapter.node("/S/Load/Bar").rect
@@ -1287,8 +1292,8 @@ describe("the value controls declare their slots on the internal channel", funct
 	end)
 
 	it("a Stepper's two affordances declare the plate slot", function()
-		local core, _, adapter, _, pres = harness()
-		local s = Facet.Controls.Stepper(core, { id = "Qty", value = core:signal(2), min = 0, max = 9 })
+		local core, _, adapter, _, pres = world()
+		local s = harness.Controls.Stepper(core, { id = "Qty", value = Compose.cell(2), min = 0, max = 9 })
 		pres.present(UI.Screen({ id = "S", children = { s.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Qty/Dec").decorationHint.slot).toBe("stepperPlate")
@@ -1350,8 +1355,8 @@ describe("the bar family's census falls on EVERY teardown path", function()
 		expect(string.find(extent, 'if type(rect) == "table" then', 1, true) ~= nil).toBe(true)
 		-- the SOLVER's number is what the presenter actually publishes for the
 		-- track, in unscaled px, and the fill box is derived from it verbatim
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.5 })
+		local core, _, adapter, _, pres = world()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local track = adapter.node("/S/Load/Bar").rect

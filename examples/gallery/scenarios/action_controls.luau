@@ -3,16 +3,9 @@ return {
 	title = "Actions and menus",
 	ledgerRows = { "CONTROL-ACTIONS" },
 	build = function(ctx)
-		local Facet, core = ctx.Facet, ctx.core
-		local UI = Facet.UI
-		local scope = core:scope("action-controls")
-		local function signal(v)
-			return scope:own(core:signal(v))
-		end
-		local function own(v)
-			return scope:own(v)
-		end
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
+		local Facet = ctx.Facet
+		local UI, Compose = ctx.UI, ctx.Compose
+		local signal = Compose.cell
 		local busy = signal(false)
 		local enabled = signal(true)
 		local count = signal(0)
@@ -24,154 +17,11 @@ return {
 		local heroVisible = signal(true)
 		local rowVolume = signal(60)
 		local assist = signal(true)
-		local rowToggle = Facet.View.Toggle({
-			id = "Assist",
-			label = "Driving assistance",
-			value = assist,
-			row = { description = "Keep the car stable on rough terrain", icon = "settings" },
-		})
-		local rowSlider = Facet.View.Slider({
-			id = "Music",
-			label = "Music volume",
-			value = rowVolume,
-			min = 0,
-			max = 100,
-			step = 5,
-			row = { description = "Balance music against race sounds", icon = "settings" },
-		})
-		local rowAction = Facet.View.Button({
-			id = "Equipment",
-			label = "Manage equipment",
-			row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "search" },
-			onActivate = function()
-				scrollTarget:set(nil)
-				scrollTarget:set("Drivers")
-			end,
-		})
+		local confirming = signal(false)
 		local seconds = 0
-		local save = Facet.View.Button({
-			id = "Save",
-			label = "Prepare race",
-			busy = busy,
-			enabled = enabled,
-			onActivate = function()
-				busy:set(true)
-				seconds = 1.5
-				status:set("Preparing your race…")
-			end,
-		})
-		if ctx.presenter then
-			scope:own(ctx.presenter.onTick(function(dt)
-				if busy:get() then
-					seconds -= dt
-					if seconds <= 0 then
-						busy:set(false)
-						status:set("Your race is ready.")
-					end
-				end
-			end))
-		end
-		local repeatButton = own(Facet.Controls.Button(core, {
-			id = "Repeat",
-			label = "Add a lap · hold to repeat",
-			enabled = enabled,
-			repeatDelay = 0.4,
-			repeatInterval = 0.1,
-			onActivate = function()
-				count:set(count:get() + 1)
-			end,
-		}))
-		local shortcut = own(Facet.Controls.Button(core, {
-			id = "Shortcut",
-			label = "Restart count · F6",
-			shortcut = { keyCode = "F6" },
-			enabled = enabled,
-			onActivate = function()
-				count:set(0)
-				status:set("Lap count restarted.")
-			end,
-		}))
-		local items = {
-			{ id = "favorites", label = "Favorites only", checked = favorites },
-			{ divider = true },
-			{ id = "any", label = "Any weather", selected = weather, value = "any" },
-			{ id = "dry", label = "Dry weather", selected = weather, value = "dry" },
-			{
-				id = "snow",
-				label = "Snow",
-				selected = weather,
-				value = "snow",
-				enabled = false,
-				description = "Winter races are closed.",
-			},
-			{ divider = true },
-			{
-				id = "done",
-				label = "Apply filters",
-				onSelect = function()
-					status:set("Filters applied.")
-				end,
-			},
-		}
-		local menu = own(Facet.Controls.Menu(core, {
-			id = "Filters",
-			trigger = UI.Button({ id = "Filters", label = "Race filters", enabled = enabled }),
-			items = items,
-		}))
-		local split = own(Facet.Controls.SplitButton(core, {
-			id = "Split",
-			label = "Start race",
-			enabled = enabled,
-			onActivate = function()
-				status:set("Race started.")
-			end,
-			items = {
-				{
-					id = "practice",
-					label = "Practice",
-					onSelect = function()
-						status:set("Practice started.")
-					end,
-				},
-				{
-					id = "time",
-					label = "Time trial",
-					onSelect = function()
-						status:set("Time trial started.")
-					end,
-				},
-			},
-		}))
-		local dialog = own(Facet.Controls.Alert(core, {
-			id = "RaceConfirmation",
-			title = "Start this race?",
-			message = "Your selected driver is ready.",
-			actions = {
-				{
-					id = "Cancel",
-					label = "Cancel",
-					role = "cancel",
-					onActivate = function()
-						status:set("Race cancelled.")
-					end,
-				},
-				{
-					id = "Accept",
-					label = "Start",
-					role = "default",
-					onActivate = function()
-						status:set("Race confirmed.")
-					end,
-				},
-			},
-		}))
-		local dismiss = dialog.dismiss
 		local function openDialog()
-			if ctx.presenter then
-				dialog.present(ctx.presenter)
-			end
+			confirming:set(true)
 		end
-
 		local function reset()
 			busy:set(false)
 			enabled:set(true)
@@ -179,229 +29,344 @@ return {
 			favorites:set(false)
 			weather:set("any")
 			status:set("Ready to race.")
-			dismiss()
-		end
-		local function heading(text)
-			return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
+			confirming:set(false)
 		end
 
-		local drivers = {}
-		for i, name in { "Classic driver", "Trailblazer" } do
-			local card = Facet.View.Button({
-				id = "Driver" .. i,
-				label = name,
-				subtitle = "Choose for the next race",
-				image = `rbxthumb://type=AvatarHeadShot&id={i}&w=420&h=420`,
-				imageAspectRatio = 1,
-				imageFraming = { width = 420, height = 420, focusY = 0.25 },
+		local function Example()
+			local conditions = Facet.adaptive.conditions(ctx.env)
+			local rowToggle = UI.Toggle("Assist")({
+				label = "Driving assistance",
+				value = assist,
+				row = { description = "Keep the car stable on rough terrain", icon = "settings" },
+			})
+			local rowSlider = UI.Slider("Music")({
+				label = "Music volume",
+				value = rowVolume,
+				min = 0,
+				max = 100,
+				step = 5,
+				row = { description = "Balance music against race sounds", icon = "settings" },
+			})
+			local rowAction = UI.Button("Equipment")({
+				label = "Manage equipment",
+				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "search" },
+				onActivate = function()
+					scrollTarget:set(nil)
+					scrollTarget:set("Drivers")
+				end,
+			})
+			local save = UI.Button("Save")({
+				label = "Prepare race",
+				busy = busy,
 				enabled = enabled,
 				onActivate = function()
-					status:set(name .. " selected.")
+					busy:set(true)
+					seconds = 1.5
+					status:set("Preparing your race…")
 				end,
 			})
-			table.insert(drivers, card)
-		end
-		local driverGrid = UI.focusSection(
-			UI.Grid({ id = "Drivers", minColumnWidth = 180, gap = "m", width = UI.fill(), children = drivers }),
-			{ entry = "restore", preferred = "Driver1" }
-		)
-
-		local previews = {}
-		for _, mode in { "crop", "none" } do
-			table.insert(
-				previews,
-				UI.VStack({
-					id = "Backdrop" .. mode,
-					width = UI.fill(),
-					gap = "s",
-					padding = "m",
-					surface = "raised",
-
-					UI.background(
-						UI.Box({ id = "Preview", width = UI.fill(), height = { type = "fixed", px = 180 } }),
-						UI.Image({
-							id = "Artwork",
-							image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-							imageFraming = { width = 420, height = 420, mode = mode, focusX = 0.5, focusY = 0.25 },
-						})
-					),
-					UI.Text({
-						text = if mode == "crop"
-							then "Focal crop · keeps the face in view"
-							else "Natural pixels · crop as the view shrinks",
-						width = UI.fill(),
-					}),
-				})
-			)
-		end
-
-		local hero = UI.background(
-			UI.focusSection(
-				UI.VStack({
-					id = "Hero",
-					width = UI.fill(),
-					height = { type = "minMax", min = 240 },
-					padding = "m",
-					gap = "m",
-
-					UI.Text({
-						id = "HeroTitle",
-						text = "Your next race starts here",
-						textSize = "title",
-						width = UI.fill(),
-					}),
-					UI.Text({
-						text = "Choose your driver. Tune your ride. Find your next challenge.",
-						textSize = "body",
-						width = UI.fill(),
-					}),
-					UI.Button({
-						id = "ChooseDriver",
-						label = "Choose a driver",
-						onActivate = function()
-							scrollTarget:set(nil)
-							scrollTarget:set("Drivers")
-						end,
-					}),
-				}),
-				{ preferred = "ChooseDriver" }
-			),
-			UI.ZStack({
-				id = "HeroScene",
-				clipChildren = true,
-
-				UI.Image({
-					id = "HeroArt",
-					width = UI.fill(),
-					height = UI.fill(),
-					image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
-					imageFraming = own(core:memo(function(use)
-						local reduced = ctx.env and use(ctx.env:get("motionPolicy")) == "reduced"
-						return {
-							width = 420,
-							height = 420,
-							focusY = 0.25,
-							scale = if reduced then 1 else 1.04 - 0.04 * use(scrollProgress),
-						}
-					end)),
-				}),
-				UI.gradient(
-					UI.Box({ id = "Readability", surface = "base", width = UI.fill(), height = UI.fill() }),
-					{ colors = { "surface", "surfaceStrong" }, rotation = 90, transparency = { 0.55, 0.08 } }
-				),
-			})
-		)
-
-		local showroom = UI.VStack({
-			id = "Showroom",
-			width = UI.fill(),
-			gap = "m",
-
-			hero,
-			heading("Choose your driver"),
-			driverGrid,
-			heading("Image backgrounds"),
-			UI.Grid({ id = "Backgrounds", minColumnWidth = 240, width = UI.fill(), gap = "m", children = previews }),
-		})
-		local raceSetup = UI.VStack({
-			id = "RaceSetup",
-			width = UI.fill(),
-			gap = "m",
-
-			UI.focusSection(UI.VStack({
-				id = "SettingsRows",
-				width = UI.fill(),
-				gap = "m",
-				rowAction,
-				rowToggle,
-				rowSlider,
-			})),
-			heading("Prepare a race"),
-			save,
-			UI.Text({ id = "Status", text = status, width = UI.fill() }),
-			heading("Set the lap count"),
-			repeatButton.blueprint,
-			UI.Text({
-				id = "Count",
-				text = scope:own(core:memo(function(use)
-					return tostring(use(count)) .. " laps"
-				end)),
-			}),
-			shortcut.blueprint,
-			heading("Filter the grid"),
-			menu.blueprint,
-			UI.Text({
-				text = scope:own(core:memo(function(use)
-					return (if use(favorites) then "Favorites" else "All races") .. " · " .. use(weather) .. " weather"
-				end)),
-				width = UI.fill(),
-			}),
-			heading("Start or choose a mode"),
-			UI.Text({
-				id = "CapSplit",
-				text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
-				textSize = "caption",
-				role = "secondary",
-				width = UI.fill(),
-			}),
-			split.blueprint,
-			UI.Button({ id = "Confirm", label = "Confirm race…", enabled = enabled, onActivate = openDialog }),
-		})
-		local body = UI.AdaptiveStack({
-			id = "Sections",
-			width = UI.fill(),
-			gap = "l",
-			align = "start",
-			axis = own(core:memo(function(use)
-				return if use(conditions.isWide) then "x" else "y"
-			end)),
-			showroom,
-			raceSetup,
-		})
-		local page = UI.VStack({
-			width = UI.fill(),
-			gap = "m",
-
-			UI.Text({ text = "Actions and menus", textSize = "title", width = UI.fill() }),
-			UI.Button({ id = "Reset", label = "Reset", onActivate = reset }),
-			UI.Button({
-				id = "Enable",
-				label = "Toggle enabled",
-				onActivate = function()
-					enabled:set(not enabled:get())
-				end,
-			}),
-			body,
-		})
-		local scroller = UI.ScrollView({
-			id = "Content",
-			width = UI.fill(),
-			height = UI.fill(),
-			navigation = {
-				focus = "target",
-				targets = { "Hero", "SettingsRows", "Drivers" },
-				target = scrollTarget,
-				progress = scrollProgress,
-				onVisibilityChanged = function(id, visible)
-					if id == "Hero" then
-						heroVisible:set(visible)
+			if ctx.presenter then
+				Compose.cleanup(ctx.presenter.onTick(function(dt)
+					if busy:peek() then
+						seconds -= dt
+						if seconds <= 0 then
+							busy:set(false)
+							status:set("Your race is ready.")
+						end
 					end
+				end))
+			end
+			local repeatButton = UI.Button("Repeat")({
+				label = "Add a lap · hold to repeat",
+				enabled = enabled,
+				repeatDelay = 0.4,
+				repeatInterval = 0.1,
+				onActivate = function()
+					count:set(count:peek() + 1)
 				end,
-			},
-			page,
-		})
-		local screen = UI.Screen({ id = "ActionControls", surface = "base", padding = "m", scroller })
-		return {
-			screen = screen,
-			states = function()
-				return {
+			})
+			local shortcut = UI.Button("Shortcut")({
+				label = "Restart count · F6",
+				shortcut = { keyCode = "F6" },
+				enabled = enabled,
+				onActivate = function()
+					count:set(0)
+					status:set("Lap count restarted.")
+				end,
+			})
+			local items = {
+				{ id = "favorites", label = "Favorites only", checked = favorites },
+				{ divider = true },
+				{ id = "any", label = "Any weather", selected = weather, value = "any" },
+				{ id = "dry", label = "Dry weather", selected = weather, value = "dry" },
+				{
+					id = "snow",
+					label = "Snow",
+					selected = weather,
+					value = "snow",
+					enabled = false,
+					description = "Winter races are closed.",
+				},
+				{ divider = true },
+				{
+					id = "done",
+					label = "Apply filters",
+					onSelect = function()
+						status:set("Filters applied.")
+					end,
+				},
+			}
+			local menu = UI.Menu("Filters")({
+				label = "Race filters",
+				items = items,
+			})
+			local split = UI.SplitButton("Split")({
+				label = "Start race",
+				enabled = enabled,
+				onActivate = function()
+					status:set("Race started.")
+				end,
+				items = {
 					{
-						id = "stateful-menu",
-						kind = "menu",
-						open = function()
-							return menu.api.open()
+						id = "practice",
+						label = "Practice",
+						onSelect = function()
+							status:set("Practice started.")
 						end,
 					},
+					{
+						id = "time",
+						label = "Time trial",
+						onSelect = function()
+							status:set("Time trial started.")
+						end,
+					},
+				},
+			})
+			local dialog = UI.Alert("RaceConfirmation")({
+				isPresented = confirming,
+				title = "Start this race?",
+				message = "Your selected driver is ready.",
+				actions = {
+					{
+						id = "Cancel",
+						label = "Cancel",
+						role = "cancel",
+						onActivate = function()
+							status:set("Race cancelled.")
+						end,
+					},
+					{
+						id = "Accept",
+						label = "Start",
+						role = "default",
+						onActivate = function()
+							status:set("Race confirmed.")
+						end,
+					},
+				},
+			})
+			local function heading(text)
+				return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
+			end
+
+			local drivers: { [any]: any } = { minColumnWidth = 180, gap = "m", width = UI.fill() }
+			for i, name in { "Classic driver", "Trailblazer" } do
+				local card = UI.Button("Driver" .. i)({
+					label = name,
+					subtitle = "Choose for the next race",
+					image = `rbxthumb://type=AvatarHeadShot&id={i}&w=420&h=420`,
+					imageAspectRatio = 1,
+					imageFraming = { width = 420, height = 420, focusY = 0.25 },
+					enabled = enabled,
+					onActivate = function()
+						status:set(name .. " selected.")
+					end,
+				})
+				table.insert(drivers, card)
+			end
+			local driverGrid =
+				UI.focusSection(UI.Grid("Drivers")(drivers), { entry = "restore", preferred = "Driver1" })
+
+			local previews: { [any]: any } = { minColumnWidth = 240, width = UI.fill(), gap = "m" }
+			for _, mode in { "crop", "none" } do
+				table.insert(
+					previews,
+					UI.VStack("Backdrop" .. mode)({
+						width = UI.fill(),
+						gap = "s",
+						padding = "m",
+						surface = "raised",
+
+						UI.background(
+							UI.Box("Preview")({ width = UI.fill(), height = { type = "fixed", px = 180 } }),
+							UI.Image("Artwork")({
+								image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+								imageFraming = { width = 420, height = 420, mode = mode, focusX = 0.5, focusY = 0.25 },
+							})
+						),
+						UI.Text({
+							text = if mode == "crop"
+								then "Focal crop · keeps the face in view"
+								else "Natural pixels · crop as the view shrinks",
+							width = UI.fill(),
+						}),
+					})
+				)
+			end
+
+			local hero = UI.background(
+				UI.focusSection(
+					UI.VStack("Hero")({
+						width = UI.fill(),
+						height = { type = "minMax", min = 240 },
+						padding = "m",
+						gap = "m",
+
+						UI.Text("HeroTitle")({
+							text = "Your next race starts here",
+							textSize = "title",
+							width = UI.fill(),
+						}),
+						UI.Text({
+							text = "Choose your driver. Tune your ride. Find your next challenge.",
+							textSize = "body",
+							width = UI.fill(),
+						}),
+						UI.Button("ChooseDriver")({
+							label = "Choose a driver",
+							onActivate = function()
+								scrollTarget:set(nil)
+								scrollTarget:set("Drivers")
+							end,
+						}),
+					}),
+					{ preferred = "ChooseDriver" }
+				),
+				UI.ZStack("HeroScene")({
+					clipChildren = true,
+
+					UI.Image("HeroArt")({
+						width = UI.fill(),
+						height = UI.fill(),
+						image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+						imageFraming = Compose.formula(function(use)
+							local reduced = ctx.env and use(ctx.env:get("motionPolicy")) == "reduced"
+							return {
+								width = 420,
+								height = 420,
+								focusY = 0.25,
+								scale = if reduced then 1 else 1.04 - 0.04 * use(scrollProgress),
+							}
+						end),
+					}),
+					UI.gradient(
+						UI.Box("Readability")({ surface = "base", width = UI.fill(), height = UI.fill() }),
+						{ colors = { "surface", "surfaceStrong" }, rotation = 90, transparency = { 0.55, 0.08 } }
+					),
+				})
+			)
+
+			local showroom = UI.VStack("Showroom")({
+				width = UI.fill(),
+				gap = "m",
+
+				hero,
+				heading("Choose your driver"),
+				driverGrid,
+				heading("Image backgrounds"),
+				UI.Grid("Backgrounds")(previews),
+			})
+			local raceSetup = UI.VStack("RaceSetup")({
+				width = UI.fill(),
+				gap = "m",
+
+				UI.focusSection(UI.VStack("SettingsRows")({
+					width = UI.fill(),
+					gap = "m",
+					rowAction,
+					rowToggle,
+					rowSlider,
+				})),
+				heading("Prepare a race"),
+				save,
+				UI.Text("Status")({ text = status, width = UI.fill() }),
+				heading("Set the lap count"),
+				repeatButton,
+				UI.Text("Count")({
+					text = Compose.formula(function(use)
+						return tostring(use(count)) .. " laps"
+					end),
+				}),
+				shortcut,
+				heading("Filter the grid"),
+				menu,
+				UI.Text({
+					text = Compose.formula(function(use)
+						return (if use(favorites) then "Favorites" else "All races")
+							.. " · "
+							.. use(weather)
+							.. " weather"
+					end),
+					width = UI.fill(),
+				}),
+				heading("Start or choose a mode"),
+				UI.Text("CapSplit")({
+					text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
+					textSize = "caption",
+					role = "secondary",
+					width = UI.fill(),
+				}),
+				split,
+				UI.Button("Confirm")({ label = "Confirm race…", enabled = enabled, onActivate = openDialog }),
+			})
+			local body = UI.AdaptiveStack("Sections")({
+				width = UI.fill(),
+				gap = "l",
+				align = "start",
+				axis = Compose.formula(function(use)
+					return if use(conditions.isWide) then "x" else "y"
+				end),
+				showroom,
+				raceSetup,
+			})
+			local page = UI.VStack({
+				width = UI.fill(),
+				gap = "m",
+
+				UI.Text({ text = "Actions and menus", textSize = "title", width = UI.fill() }),
+				UI.Button("Reset")({ label = "Reset", onActivate = reset }),
+				UI.Button("Enable")({
+					label = "Toggle enabled",
+					onActivate = function()
+						enabled:set(not enabled:peek())
+					end,
+				}),
+				body,
+			})
+			local scroller = UI.ScrollView("Content")({
+				width = UI.fill(),
+				height = UI.fill(),
+				navigation = {
+					focus = "target",
+					targets = { "Hero", "SettingsRows", "Drivers" },
+					target = scrollTarget,
+					progress = scrollProgress,
+					onVisibilityChanged = function(id, visible)
+						if id == "Hero" then
+							heroVisible:set(visible)
+						end
+					end,
+				},
+				page,
+			})
+			return UI.Screen("ActionControls")({ surface = "base", padding = "m", scroller })
+		end
+
+		return {
+			screen = Example,
+			states = function()
+				return {
 					{
 						id = "confirmation",
 						kind = "dialog",
@@ -444,20 +409,15 @@ return {
 			},
 			report = function()
 				return {
-					count = count:get(),
-					settings = { assistance = assist:get(), music = rowVolume:get() },
-					scrollProgress = scrollProgress:get(),
-					heroVisible = heroVisible:get(),
-					busy = busy:get(),
-					status = status:get(),
-					menu = menu.dump(),
-					split = split.dump(),
-					button = repeatButton.dump(),
+					count = count:peek(),
+					settings = { assistance = assist:peek(), music = rowVolume:peek() },
+					scrollProgress = scrollProgress:peek(),
+					heroVisible = heroVisible:peek(),
+					busy = busy:peek(),
+					status = status:peek(),
 				}
 			end,
-			dispose = function()
-				scope:dispose()
-			end,
+			dispose = function() end,
 		}
 	end,
 }

@@ -52,13 +52,14 @@ Add a spec (register it in `tests/run.luau` — see the silent-zero trap in
 
 ## 3. Implement along the one seam
 
-0. **Declare it in the schema** — `src/blueprint_schema.luau`. Since strict
-   authoring (since 0.5.0), a public property that is not in the schema is
-   REJECTED at construction with a "did you mean" diagnostic: every `UI.*` call
+0. **Declare it in the schema** — `src/blueprint_schema.luau`. Authoring is
+   strict: a public property that is not in the schema is
+   REJECTED at construction with a "did you mean" diagnostic. Every `UI.*` call
    using your new prop errors before any of the work below can run. Declare the
    property (its class, accepted types, enum values and default) first, or you
    will implement normalization, authority, renderer and adapter and then watch
-   the feature refuse to be authored at all. `new-control.md` §"Add the prop"
+   the feature refuse to be authored at all.
+   [`new-control.md` §2](new-control.md#2-design-the-controls-contract-in-the-spec-first)
    states the same obligation from the control side.
 1. **Normalization**: a pure module (or extension of
    `src/tokens/styling.luau`) turning the public spec into frozen,

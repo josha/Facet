@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE DRAG BRIDGE'S REGISTRY SEAM, MECHANISED — and the behaviour it moved.
 
 	`tools/lune/verify/data/source-cap-ledger.md` records the rule every extraction in
@@ -52,12 +53,13 @@ local src_tree = require("./lib/src_tree")
 -- because P5's Phase 0 moved three counted call sites into `render/tap_arm.luau`
 local renderer_source = require("./lib/renderer_source")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local RENDERER_PATH = "src/render/renderer.luau"
 local BRIDGE_PATH = "src/render/drag_bridge.luau"
@@ -383,14 +385,15 @@ describe("the drag-bridge seam: EXPORTED == USED, one consumer, one-way require"
 		expect(all["src/tokens/chrome_slots.luau"] ~= nil).toBe(true)
 		--[[ ...and this module DOES require two things, which is where it differs from
 			the autoscroll half. The one-way claim is therefore stated rather than
-			asserted-by-absence: it requires the write manifest and the pure drag MODEL,
-			and neither of those requires the renderer or this bridge back. ]]
+			asserted-by-absence: it requires the write manifest, the pure drag MODEL and
+			the leaf change-listener helper, and none of those requires the renderer or
+			this bridge back. ]]
 		local requires: { string } = {}
 		for path in string.gmatch(stripComments(bridge), 'require%("([^"]+)"%)') do
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "../input/drag_registry", "./authority", "./z_scope" })
+		expect(requires).toEqual({ "../core/on_change", "../input/drag_registry", "./authority", "./z_scope" })
 		for _, path in { "src/input/drag_registry.luau", "src/render/authority.luau" } do
 			local text = fs.readFile(path)
 			expect(string.find(text, "drag_bridge", 1, true)).toBe(nil)
@@ -409,7 +412,7 @@ local function surface(opts: { noDetector: boolean?, noDeclarations: boolean?, o
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	local enabled = core:signal(true)
+	local enabled = Compose.cell(true)
 	local drops: { string } = {}
 	--[[ TWO DROP TARGETS ON THE SAME BOX, AND THEIR PAINT ORDER DELIBERATELY DISAGREES
 		WITH THEIR REGISTRATION ORDER. That disagreement is the whole point of the

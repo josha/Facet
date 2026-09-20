@@ -8,9 +8,12 @@
 -- Structural regions (When/ForEach) are ordinary blueprint nodes whose mount
 -- behavior owns branch/item scopes (design §5.4).
 
+local Compose = require("./vendor/compose/core")
 local stylingLib = require("./tokens/styling")
 local chromeSlots = require("./tokens/chrome_slots")
 local schema = require("./blueprint_schema")
+local primitiveProperties = require("./primitive_properties")
+local validateButton = require("./button_properties")
 local animationPolicy = require("./motion/policy")
 export type AnimationSpec = animationPolicy.Spec
 -- the R4 icon vocabulary. Required for ONE pure predicate (`isIconName`): a
@@ -67,7 +70,7 @@ blueprint.schema = schema
 -- `blueprint_schema` disagree about a class's fields, so the editor hint and
 -- the runtime error can never drift apart.
 --
--- `Bound<T>` = a plain value OR a Signal/Memo of it. A prop typed as plain `T`
+-- `Bound<T>` = a plain value OR a Compose cell or formula of it. A prop typed as plain `T`
 -- is read once at mount and REJECTS a Readable at construction.
 
 local coreContract = require("./core/contract")
@@ -210,7 +213,7 @@ export type HStackSpec = ScreenSpec & { wrap: Bound<boolean>? }
 	`list` is the naming the finding quotes, `extent` the DECLARED px extent each
 	slot was windowed at, `axis` the list's scroll axis ("y" default), and
 	`contentFrom` the first child index that is CONTENT rather than the control's
-	own furniture (1 by default). `newVirtualList` declares this for every row it
+	own furniture (1 by default). `UI.VirtualList` declares this for every row it
 	builds; anything else that windows by `index x extent` may declare it too. ]]
 export type VirtualSlot = {
 	list: string,
@@ -485,6 +488,10 @@ export type StageSpec = BoxProps & {
 -- is the only place a caller's Instance is ever mentioned.
 export type ForeignSpec = BoxProps & {
 	surface: Bound<string>?,
+	-- ...or, without asking a controller for it: `onHost` is handed that same
+	-- `{ adopt }` seam when the node has one, and runs what it returns when the
+	-- node goes away (`src/render/foreign_content.luau` says why the prop exists)
+	onHost: ((host: any) -> (() -> ())?)?,
 }
 
 export type PathSpec = BoxProps & {
@@ -510,6 +517,10 @@ export type PathSpec = BoxProps & {
 -- `pivot` is where a scaling form (`materialize`) grows from (default centre).
 export type TransitionSpec = {
 	fromRect: { x: number, y: number, w: number, h: number }?,
+	-- a transform origin that MOVES: a mounted node path, or a rect Readable.
+	-- Read on every painted frame, so the expansion follows its source and
+	-- collapses back onto wherever the source has reached.
+	source: { path: any?, rect: any? }?,
 	content: string?,
 	enter: string,
 	exit: string?,
@@ -598,7 +609,7 @@ for name, classSpec in schema.all() do
 end
 
 local function isReadable(v: any): boolean
-	return type(v) == "table" and (v.kind == "signal" or v.kind == "memo")
+	return Compose.isReadable(v)
 end
 blueprint.isReadable = isReadable
 
@@ -622,9 +633,9 @@ blueprint.isReadable = isReadable
 
 	IT IS PURE, AND THAT IS THE WHOLE DESIGN. The gap note sketched it returning a
 	`Readable`, but building one would force the helper to take a core AND a scope
-	it has no other use for, to duplicate the `core:memo` a consumer already writes
+	it has no other use for, to duplicate the `Compose.formula` a consumer already writes
 	for every derived value. Rung 4 of the simplicity ladder: the reactive half is
-	`core:memo(function(use) return UI.sortedEntries(use(scores)) end)`, which is
+	`Compose.formula(function(use) return UI.sortedEntries(use(scores)) end)`, which is
 	the idiom already in the file.
 
 	`compare` ORDERS KEYS, NOT ENTRIES, and that is a guarantee rather than an
@@ -749,11 +760,10 @@ local function propErrorHead(class: string, key: string, modifier: string?): str
 end
 
 local function validateProp(class: string, key: string, value: any, propSpec: schema.PropSpec, modifier: string?)
-	local head = propErrorHead(class, key, modifier)
 	local dep = propSpec.deprecated
 	if dep ~= nil then
 		error(
-			`{head} is not supported (deprecated {dep.since}, removable in {dep.removeNoEarlierThan}). `
+			`{propErrorHead(class, key, modifier)} is not supported (deprecated {dep.since}, removable in {dep.removeNoEarlierThan}). `
 				.. `Use {dep.replacement}. {dep.note or ""}`,
 			0
 		)
@@ -764,7 +774,7 @@ local function validateProp(class: string, key: string, value: any, propSpec: sc
 	if isReadable(value) then
 		if not propSpec.reactive then
 			error(
-				`{head} does not accept a Signal/Memo (it is read once at mount). `
+				`{propErrorHead(class, key, modifier)} does not accept a Compose cell or formula (it is read once at mount). `
 					.. `Pass a plain value, or rebuild the subtree through UI.When/UI.ForEach.`,
 				0
 			)
@@ -775,7 +785,7 @@ local function validateProp(class: string, key: string, value: any, propSpec: sc
 	if not ok then
 		local expected = table.concat(propSpec.types, " | ")
 		error(
-			`{head} expects {expected}, got {typeof(value)}`
+			`{propErrorHead(class, key, modifier)} expects {expected}, got {typeof(value)}`
 				.. (if detail ~= nil then ` — {detail}` else "")
 				.. `. ({propSpec.doc})`,
 			0
@@ -793,15 +803,7 @@ local function make(class: string, spec: any): Blueprint
 		error(`Facet: unknown blueprint class '{class}'`, 0)
 	end
 	local known = classSpec.props
-	if spec.animation ~= nil then
-		local ok, why = animationPolicy.check(spec.animation)
-		assert(ok, `Facet UI.{class}.animation: {why or "invalid policy"}`)
-		for key in spec.animation do
-			assert(key == "layout" or known[key], `Facet UI.{class}: cannot animate unsupported property '{key}'`)
-		end
-		spec = table.clone(spec)
-		spec.animation = table.freeze(table.clone(spec.animation))
-	end
+
 	local props: { [string]: any } = {}
 	local children: { Blueprint }? = nil
 	local id: string? = nil
@@ -835,47 +837,7 @@ local function make(class: string, spec: any): Blueprint
 			props[k] = v
 		end
 	end
-	for propName, propSpec in known do
-		if propSpec.required and props[propName] == nil then
-			error(`Facet UI.{class}.{propName} is required ({propSpec.doc})`, 0)
-		end
-	end
-	-- `overflow = "clip"` IS a clip host (api-architecture-consistency F-19 /
-	-- `overflow` was accepted on nine container classes and drove
-	-- nothing at all — a second public spelling of `clipChildren` that did not do
-	-- the thing it names. It is normalized HERE, at construction, by the same
-	-- mechanism `UI.ScrollView` already uses to default the flag, so the solver
-	-- and the renderer are untouched. An explicitly authored `clipChildren` (of
-	-- either polarity) always wins, and every other overflow value stays what it
-	-- has always been: declared intent, read by the overflow diagnostic.
-	--
-	-- A BOUND `overflow` implies nothing, deliberately: `clipChildren` is
-	-- construction-only (it decides whether the adapter mounts a clip host), so a
-	-- value that can change later cannot drive it.
-	if props.overflow == "clip" and props.clipChildren == nil and known.clipChildren ~= nil then
-		props.clipChildren = true
-	end
-	-- `align = "stretch"` ON A WRAPPING STACK MEANS TWO THINGS, so it means none
-	-- (round 3 item A). On a single-line stack the word has exactly one reading —
-	-- "a child fills its line on the cross axis" — and on a wrapping one it could
-	-- equally be "the LINES grow to fill the container". One word doing two jobs is
-	-- the ambiguity `lineAlign` was created to end (§2.1), so it is refused rather
-	-- than picked for the author.
-	--
-	-- THIS CATCHES THE LITERAL CASE ONLY, and that is the whole of what a
-	-- construction check can honestly claim: both props are reactive, so a value
-	-- that only a solve can know is refused by the solver's own wrapping branch,
-	-- with the same message. Two seams, one rule; the equality below cannot see a
-	-- bound value and does not pretend to.
-	if props.wrap == true and props.align == "stretch" then
-		error(
-			`Facet UI.{class}: \`align = "stretch"\` has two readings on a wrapping stack — "each child `
-				.. `fills its line" and "the lines fill the container" — so it is refused. Put `
-				.. '`lineAlign = "stretch"` on the children that should fill their line, and use `align` '
-				.. "(start|center|end) for where the block of lines sits.",
-			0
-		)
-	end
+	primitiveProperties.normalize(class, props, known)
 	-- IMMUTABLE ALL THE WAY DOWN (api-architecture-consistency F-22 / ledger
 	-- api.md says "blueprints are immutable plain tables" and the whole
 	-- modifier-returns-a-new-blueprint contract rests on it, but the freeze was
@@ -903,19 +865,7 @@ end
 -- guess. Declared here, ahead of every constructor that calls it (ZStack
 -- below, Button further down) — a `local function` is an upvalue only to code
 -- that follows it in the source.
-local function assertCircleSquare(className: string, props: { [string]: any })
-	if props.shape ~= "circle" then
-		return
-	end
-	if props.width ~= nil and props.height ~= nil then
-		error(
-			`Facet UI.{className}: shape = "circle" takes at most ONE of \`width\` / \`height\` — the solver `
-				.. `enforces the 1:1 square, so the other axis follows and the author never does the math. `
-				.. `Fix: drop one of them (or drop both to size the disc from the control metric).`,
-			0
-		)
-	end
-end
+local assertCircleSquare = primitiveProperties.assertCircleSquare
 
 -- public constructors (§10.1 subset for Phase 1)
 function blueprint.Screen(spec: ScreenSpec): Blueprint
@@ -928,9 +878,7 @@ function blueprint.HStack(spec: HStackSpec): Blueprint
 	return make("HStack", spec)
 end
 function blueprint.ZStack(spec: ZStackSpec): Blueprint
-	local bp = make("ZStack", spec)
-	assertCircleSquare("ZStack", bp.props)
-	return bp
+	return make("ZStack", spec)
 end
 function blueprint.ScrollView(spec: ScrollViewSpec?): Blueprint
 	-- the native substrate: a scroll region is ALWAYS a clip host — on the
@@ -948,7 +896,7 @@ function blueprint.ScrollView(spec: ScrollViewSpec?): Blueprint
 		require("./controls/scroll_navigation").validate(navigation)
 		local copy = table.clone(bp)
 		local config = table.clone(navigation)
-		config.targets = table.freeze(table.clone(config.targets))
+		config.targets = table.freeze(table.clone(config.targets or {}))
 		copy.meta = table.freeze({ scrollNavigation = table.freeze(config) })
 		return table.freeze(copy)
 	end
@@ -1136,14 +1084,18 @@ local function formCarriesMeaning(node: Blueprint): boolean
 		right about a plain Box and this is a Box that has said otherwise.
 
 		AND IT IS ANY SPELLING BUT AN EXPLICIT `false` (fix round 1, review
-		MEDIUM-1). `active` is `Bound<boolean>` — a literal OR a Signal/Memo — and
+		MEDIUM-1). `active` is `Bound<boolean>` — a literal OR a Compose cell or formula — and
 		the first version tested `== true`, which is false for every reactive
-		spelling and left `UI.Box{ active = core:signal(true) }` covered, i.e. the
+		spelling and left `UI.Box{ active = Compose.cell(true) }` covered, i.e. the
 		defect verbatim under the framework's own primary idiom for a varying prop.
 		A passive Box has no reason to declare `active` at all, so declaring it in
 		any form is the author saying "presses land here"; only an explicit literal
 		`false` says the opposite. ]]
 	local active = (node.props or {}).active
+	if active == nil and (node :: any).dynamicProps ~= nil then
+		-- a live node keeps a bound `active` beside its properties
+		active = (node :: any).dynamicProps.active
+	end
 	if active ~= nil and active ~= false then
 		return true
 	end
@@ -1159,12 +1111,17 @@ end
 -- its FORMS, richest first, and the last one is its minimum-viable form — the
 -- smallest thing the author is willing to show. Declared in READING order; the
 -- `rank` is adaptation priority only, and the two are deliberately independent.
-function blueprint.Region(spec: RegionSpec): Blueprint
+local function buildRegion(UI: any, spec: RegionSpec, native: any?): Blueprint
 	if type(spec) == "table" then
 		spec = normalizeChildren(spec)
 	end
 	if type(spec) ~= "table" then
 		-- ONE owner for "that is not a spec table" — everything below reads fields
+		return make("Region", spec)
+	end
+	-- A resolved `expand` record marks a region this constructor already built:
+	-- only its properties are left to normalize.
+	if type((spec :: any).expand) == "table" then
 		return make("Region", spec)
 	end
 	if spec.id == nil then
@@ -1192,6 +1149,11 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		missing. `recover = "none"` is exactly that statement ("every form below the
 		richest still shows everything that matters"), and disclosing a form that
 		holds nothing more would be a plate that repeats the screen. ]]
+	-- The plate shows the richest form. A description mounts twice as it is; a
+	-- live node is single-use, so the plate takes a copy built under its surface.
+	local function richest(): Blueprint
+		return if native ~= nil then native.clone(forms[1]) else forms[1]
+	end
 	local authoredExpand = (spec :: any).expand
 	--[[ ...AND A DECLARATION MAY NOT CONTRADICT ITSELF (fix round 1). This was a
 		silent default: `recover = "none"` resolved `expand` to "none", and an author
@@ -1320,13 +1282,13 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		local CLOSE_INSET = expandPlate.CLOSE_INSET
 		local function closeAffordance(focusVisible: any): Blueprint
 			if spec.dismissButton == "automatic" then
-				return regionExpand.collapseButton(blueprint, "ExpandClose", function()
+				return regionExpand.collapseButton(UI, "ExpandClose", function()
 					engine.close()
 				end, spec.dismissButton, focusVisible)
 			end
 			return regionExpand.dismissAffordance(
-				blueprint,
-				blueprint.Button({
+				UI,
+				UI.Button({
 					id = "ExpandClose",
 					label = "Close",
 					-- the standard chip idiom, which is what every other dismissing
@@ -1446,16 +1408,16 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 					elseif capped then { type = "minMax", max = plate.max }
 					else { type = "hug" }
 				if spec.dismissButton == "automatic" then
-					return blueprint.ZStack({
+					return UI.ZStack({
 						id = "ExpandPanel",
 						children = {
-							blueprint.VStack({
+							UI.VStack({
 								id = "ExpandPlate",
 								surface = "raised",
 								padding = expandPlate.PADDING,
 								gap = "xs",
 								width = width,
-								children = { forms[1], closeAffordance(focusVisible) },
+								children = { richest(), closeAffordance(focusVisible) },
 							}),
 						},
 					})
@@ -1481,10 +1443,10 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 					space.m` (36 <= 45.2 near, 54 <= 67.9 at ten-foot — both sides scale
 					together), and `expand_plate.r18Clearance` is that pair of distances
 					with a spec case over every shipped package on it. ]]
-				return blueprint.ZStack({
+				return UI.ZStack({
 					id = "ExpandPanel",
 					children = {
-						blueprint.VStack({
+						UI.VStack({
 							id = "ExpandPlate",
 							surface = "raised",
 							--[[ THE PLATE'S INSETS ARE THE DECLARATION THE CAP RESERVED
@@ -1500,7 +1462,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 							margin = { top = straddle, right = straddle, bottom = 0, left = 0 },
 							gap = "xs",
 							width = width,
-							children = { forms[1] },
+							children = { richest() },
 						}),
 						closeAffordance(focusVisible),
 					},
@@ -1511,23 +1473,23 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				the composition rather than by a device name. ]]
 			sheetOf = function(focusVisible: any): Blueprint
 				local automatic = spec.dismissButton == "automatic"
-				local content = blueprint.VStack({
+				local content = UI.VStack({
 					id = "ExpandSheetPlate",
 					surface = "raised",
 					padding = if automatic then expandPlate.PADDING else expandPlate.SHEET_PADDING,
 					gap = "xs",
 					width = { type = "fill", weight = 1 },
-					children = if automatic then { forms[1], closeAffordance(focusVisible) } else { forms[1] },
+					children = if automatic then { richest(), closeAffordance(focusVisible) } else { richest() },
 				})
-				return blueprint.Screen({
+				return UI.Screen({
 					id = `ExpandSheet:{spec.id}`,
 					children = {
-						blueprint.Anchor({
+						UI.Anchor({
 							id = "Layer",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fill", weight = 1 },
 							children = {
-								blueprint.ZStack({
+								UI.ZStack({
 									id = "ExpandSheet",
 									anchor = "bottom",
 									width = { type = "fill", weight = 1 },
@@ -1542,6 +1504,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			end,
 
 			handler = expandHandler,
+			components = native ~= nil,
 		})
 		local role = if anyReducedFormCarriesMeaning then "chevron" else "cover"
 		local mark: Blueprint
@@ -1551,7 +1514,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			-- for `chevron.trailing` paints it over the glyph, and a control never names
 			-- an asset
 			mark = chromeSlots.attachHint(
-				blueprint.Text({
+				UI.Text({
 					id = "Caret",
 					text = themePackage.iconGlyph("chevron.trailing") or ">",
 					textSize = "control",
@@ -1564,7 +1527,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				this label ("expands to full Clock") is for a screen reader, not for the
 				screen. One box, no surface, so the whole affordance is a rect that takes
 				a gesture and paints not one pixel. ]]
-			mark = blueprint.Box({
+			mark = UI.Box({
 				id = "Zone",
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
@@ -1573,7 +1536,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		local children = table.clone(forms)
 		table.insert(
 			children,
-			blueprint.Button({
+			UI.Button({
 				id = "Expand",
 				-- WHAT A SCREEN READER SAYS. The region's own id is its name here, and
 				-- that is a real consequence of this design worth stating: a region id
@@ -1616,7 +1579,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 	else
 		built.expand = { mode = "none", forms = declaredForms, interactive = formInteractive }
 	end
-	local bp = make("Region", built)
+	local bp = if native ~= nil then native.make(built) else make("Region", built)
 	--[[ D7.2 — A TERMINAL FORM ON A "SELF" ROUTE MUST BE ACTIONABLE.
 		`recover = "self"` says "the reduced form IS the route: the player taps what is
 		left to get the rest". If the last form holds nothing focusable then there is
@@ -1681,10 +1644,19 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 		the per-frame geometry feed — none of which a blueprint constructor can
 		build, and all of which arrive without any consumer wiring at all. ]]
 	if engine ~= nil then
-		bp = contributionLib.attach(bp, engine.contribution)
+		bp = contributionLib.attach(
+			bp,
+			if native ~= nil then native.contribution(engine.contribution) else engine.contribution
+		)
 	end
 	return bp
 end
+function blueprint.Region(spec: RegionSpec): Blueprint
+	return buildRegion(blueprint, spec, nil)
+end
+-- The same declaration over another node vocabulary: `native` supplies `make`
+-- (the region node), `clone` (a copy of a live form) and `contribution`.
+blueprint.regionWith = buildRegion
 -- Composition: the screen-level sibling of AdaptiveStack (one bound
 -- axis) and ViewThatFits (one container's candidate). Every declaration error it
 -- can catch, it catches HERE — an unknown field, a second scroll region, a group
@@ -1730,7 +1702,11 @@ function blueprint.Composition(spec: CompositionSpec): Blueprint
 			-- must fire at the call site either way. Reading the signal here instead
 			-- would make those two errors depend on the value it happened to hold on
 			-- the frame the screen was built.
-			reserved = if isReadable(child.props.reserved) then true else child.props.reserved,
+			-- (a live node keeps the bound read beside its properties)
+			reserved = if isReadable(child.props.reserved)
+					or ((child :: any).dynamicProps ~= nil and (child :: any).dynamicProps.reserved ~= nil)
+				then true
+				else child.props.reserved,
 		})
 	end
 	-- A metric NAME inside a group is validated with the same ruling every other
@@ -1807,154 +1783,9 @@ end
 -- refusal reads it directly rather than through `isFocusable`, because a
 -- `focusable = false` Button is still a second activation surface inside a Button
 -- even though it is out of focus order.
-local function assertNoFocusableContent(children: { Blueprint }?)
-	if children == nil then
-		return
-	end
-	local function walk(node: Blueprint)
-		if CONTENT_FOCUSABLE[node.class] or (node.class == "Grip" and node.props.focusable == true) then
-			error(
-				`Facet UI.Button: custom content must stay inside one activation surface, but it `
-					.. `contains a focusable UI.{node.class} ('{node.id or "unnamed"}'). Put the control `
-					.. `beside the Button, not inside it.`,
-				0
-			)
-		end
-		for _, child in node.children or {} do
-			walk(child)
-		end
-	end
-	for _, child in children do
-		walk(child)
-	end
-end
-
--- THE CIRCLE BUTTON'S BOUNDARY RULES (feature round 2026-07-26).
---
--- A disc has room for ONE mark. Everything below is refused HERE, at
--- construction, with the field named, the rule stated and the fix spelled out —
--- rather than at paint, where the failure is a clipped label nobody sees until a
--- device screenshot. Same discipline as the focusable-content refusal above.
-local CIRCLE_MAX_CHARS = 3
-
-local function circleDrawnLabel(props: { [string]: any }, children: { Blueprint }?): (string | number)?
-	-- the label is the DRAWN content only when nothing else occupies the disc:
-	-- an `icon` puts the framework's glyph (or the theme's art) there and a
-	-- content button draws its children, and in both cases the label is purely
-	-- the semantic name — exactly as it already is for a content button.
-	if props.icon ~= nil or (children ~= nil and #children > 0) then
-		return nil
-	end
-	local label = props.label
-	if isReadable(label) then
-		return nil -- a bound label is checked when it is read, like every reactive prop
-	end
-	return label
-end
-
-local function assertShape(props: { [string]: any }, children: { Blueprint }?)
-	local shape = props.shape
-	if props.icon ~= nil and shape ~= "circle" then
-		error(
-			`Facet UI.Button.icon is only supported with shape = "circle" (got shape = `
-				.. `{if shape == nil then "nil" else `'{tostring(shape)}'`}). A circle's content is ONE mark, `
-				.. `which is what a semantic icon name describes. Fix: add shape = "circle", or put an icon `
-				.. `BESIDE a title with Facet.newLabel inside the button's children.`,
-			0
-		)
-	end
-	if props.icon ~= nil and not themePackage.isIconName(props.icon) then
-		local known: { string } = {}
-		for name in themePackage.ICON_FALLBACK_GLYPHS :: any do
-			table.insert(known, name)
-		end
-		table.sort(known)
-		error(
-			`Facet UI.Button.icon: '{tostring(props.icon)}' names no semantic icon. It must be a framework `
-				.. `name ({table.concat(known, ", ")}) or a namespaced one a package contributes ("ns:name"). `
-				.. `Fix: use a framework name, or namespace your own and declare it in the package's `
-				.. `\`icons\` map.`,
-			0
-		)
-	end
-	if shape ~= "circle" then
-		return
-	end
-	assertCircleSquare("Button", props)
-	local drawn = circleDrawnLabel(props, children)
-	if drawn == nil then
-		return
-	end
-	local text = tostring(drawn)
-	if string.find(text, "%s") ~= nil or utf8.len(text) == nil or (utf8.len(text) :: number) > CIRCLE_MAX_CHARS then
-		error(
-			`Facet UI.Button.label: '{text}' cannot be the drawn content of shape = "circle" — a disc holds `
-				.. `ONE icon or up to {CIRCLE_MAX_CHARS} characters with no spaces, and a longer label has `
-				.. `nowhere to go inside a 1:1 target. Fix: pass icon = "<semantic name>" (e.g. "more", `
-				.. `"close", "menu") and keep this label as the semantic name, shorten the label, or drop `
-				.. `shape = "circle" for the default rectangular Button.`,
-			0
-		)
-	end
-end
-
--- THE SEMANTIC HALF of the compact-label grammar. `blueprint_schema` proved the
--- SHAPE (one key from a closed set, non-empty strings); these are the rules that
--- need to know what the value MEANS, which is the same split `icon` already uses.
-local function assertCompactLabel(props: { [string]: any }, children: { Blueprint }?)
-	local compact = props.compactLabel
-	if compact == nil then
-		return
-	end
-	-- A CONTENT BUTTON DRAWS NO TEXT OF ITS OWN (B-BTN1), so it has no label to
-	-- shorten: `applyProp` writes its label as "" precisely so custom content is
-	-- not drawn over. A compact form here would be silently inert.
-	if children ~= nil and #children > 0 then
-		error(
-			`Facet UI.Button.compactLabel is not supported on a CONTENT button — a button with children `
-				.. `draws no text of its own (its label is semantics only), so there is nothing to shorten. `
-				.. `Fix: drop compactLabel, or make the content itself adapt with UI.ViewThatFits.`,
-			0
-		)
-	end
-	local text = if type(compact) == "string"
-		then compact
-		else (if type(compact) == "table" then (compact :: any).text else nil)
-	-- NO WHITESPACE, and this is the point of the whole feature rather than a nit.
-	-- A compact form is chosen BECAUSE the full label did not fit; a phrase has a
-	-- legal break point, so the engine would wrap it and the button would be
-	-- exactly as tall as the case we were escaping (director round 6, "Don"/"e").
-	if type(text) == "string" and string.find(text, "%s") ~= nil then
-		error(
-			`Facet UI.Button.compactLabel: '{text}' contains whitespace, and a compact label must be ONE `
-				.. `word. It is drawn only when the full label did not fit, and a phrase has a legal break `
-				.. `point — so the engine would wrap it and the button would be as tall as the case the `
-				.. `compact form exists to avoid. Fix: use a single word, or icon = "<semantic name>".`,
-			0
-		)
-	end
-	local icon = if type(compact) == "table" then (compact :: any).icon else nil
-	if icon ~= nil and not themePackage.isIconName(icon) then
-		local known: { string } = {}
-		for name in themePackage.ICON_FALLBACK_GLYPHS :: any do
-			table.insert(known, name)
-		end
-		table.sort(known)
-		error(
-			`Facet UI.Button.compactLabel.icon: '{tostring(icon)}' names no semantic icon. It must be a `
-				.. `framework name ({table.concat(known, ", ")}) or a namespaced one a package contributes `
-				.. `("ns:name"). Fix: use a framework name, or namespace your own and declare it in the `
-				.. `package's \`icons\` map.`,
-			0
-		)
-	end
-end
-
 function blueprint.Button(spec: ButtonSpec): Blueprint
 	local bp = make("Button", spec)
-	assertNoFocusableContent(bp.children)
-	assertShape(bp.props, bp.children)
-	assertCompactLabel(bp.props, bp.children)
+	validateButton(bp.props, bp.children)
 	return bp
 end
 function blueprint.Toggle(spec: ToggleSpec): Blueprint
@@ -2121,7 +1952,7 @@ end
 -- UI.strokeData(spec, style?) — the same normalization WITHOUT a blueprint, for
 -- the reactive idiom. Normalized style data is read once, so a pulse is a pulsing
 -- PROP rather than a Signal buried inside the data:
---   stroke = core:memo(function() return UI.strokeData({ thickness = pulse:get() }) end)
+--   stroke = Compose.formula(function() return UI.strokeData({ thickness = pulse:peek() }) end)
 function blueprint.strokeData(spec: any, style: any?): any
 	return stylingLib.normalizeStroke(spec, style)
 end
@@ -2190,6 +2021,39 @@ function blueprint.focusSection(bp: Blueprint, spec: FocusSectionSpec?): Bluepri
 	)
 	local meta = table.clone(bp.meta or {})
 	meta.focusSection = table.freeze(table.clone(options))
+	return table.freeze({
+		class = bp.class,
+		id = bp.id,
+		props = bp.props,
+		children = bp.children,
+		meta = table.freeze(meta),
+	})
+end
+
+--[[ ONE ACTIVATION TO BECOME ACTIVE. `UI.activationGate(node, { closed, onOpen })`
+	declares that while `closed` reads true, the first Activate anywhere at or
+	under this node WAKES the subtree instead of reaching what is under the
+	press. It is an input policy, not a widget: the presenter honours it on the
+	one dispatch every source arrives through, so pointer, touch, keyboard and
+	gamepad all spend their first press the same way.
+
+	`closed` is a boolean, a Readable<boolean> or a function returning one, read
+	at the press. `onOpen(path, meta)` is what the surface does to become active;
+	it receives the path the press would have reached. ]]
+export type ActivationGateSpec = { closed: any, onOpen: ((path: string?, meta: any?) -> ())? }
+function blueprint.activationGate(bp: Blueprint, spec: ActivationGateSpec): Blueprint
+	assert(type(bp) == "table" and bp.class ~= nil, "UI.activationGate requires a blueprint")
+	assert(type(spec) == "table", "UI.activationGate: expected { closed = …, onOpen = … }")
+	for key in spec :: any do
+		assert(key == "closed" or key == "onOpen", `unknown activationGate field '{key}'`)
+	end
+	assert(spec.closed ~= nil, "UI.activationGate: `closed` says when the subtree is still asleep")
+	assert(
+		spec.onOpen == nil or type(spec.onOpen) == "function",
+		"UI.activationGate: onOpen(path, meta) is what the surface does to become active"
+	)
+	local meta = table.clone(bp.meta or {})
+	meta.activationGate = table.freeze({ closed = spec.closed, onOpen = spec.onOpen })
 	return table.freeze({
 		class = bp.class,
 		id = bp.id,

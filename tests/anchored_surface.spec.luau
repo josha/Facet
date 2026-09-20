@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ D1 — THE ANCHORED-SURFACE SEAM (navigation-and-menus brief §2 D1).
 
 	A presenter surface positioned against a SOURCE VIEW'S screen rect rather
@@ -27,17 +28,18 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local anchorPlacement = require("../src/layout/anchor_placement")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local contribution = require("../src/input/contribution")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- ===== layer 1: the pure solver =========================================
 
@@ -327,7 +329,7 @@ local PANEL_TEXT = "Post Avatars to Marketplace"
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -422,7 +424,7 @@ describe("D1 anchored surface: presented against a source view's screen rect", f
 			{ id = "Tip", modal = true, anchor = { source = { path = "/Editor/Bar/Plus" } } }
 		)
 		expect(handle.kind).toBe("modal")
-		expect(pres.focus.focused:get()).toBe("/Tip/Layer/Surface/Menu/One")
+		expect(pres.focus.focused:peek()).toBe("/Tip/Layer/Surface/Menu/One")
 	end)
 
 	it("a moving source is followed on the existing refresh cadence", function()
@@ -950,7 +952,7 @@ describe("D1 anchored surface: the tap-away catcher is the presenter's own", fun
 			swallowed, so the control underneath stays operable. ]]
 		local core, _, adapter, _, pres = makeWorld()
 		pres.present(plusScreen(), { initialFocus = "none" })
-		local open = core:signal(true)
+		local open = Compose.cell(true)
 		local dismissals = 0
 		local handle: any = nil
 		local panel = contribution.attach(calloutPanel(200), {

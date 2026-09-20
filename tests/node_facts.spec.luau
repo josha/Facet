@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- NODE-SCOPED FACTS (framework-gaps-phase2 W3-C, "node-fact trio" — items 15,
 -- 37, 40). One seam answers all three: a node reporting a fact ABOUT ITSELF
 -- (its own live mounted path, its rect relative to another node, its current
@@ -20,14 +21,15 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local paths = require("../src/paths")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local virtual_list = require("../src/controls/virtual_list")
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
 
 -- ===== 15a: the pure string arithmetic ======================================
 
@@ -56,7 +58,7 @@ local function mountWhenPane()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local on = core:signal(true)
+	local on = Compose.cell(true)
 	local bp = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -191,7 +193,7 @@ describe("VirtualList.positionOf (gap 40)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local rowsSignal = core:signal(rows)
+		local rowsSignal = Compose.cell(rows)
 		local list = virtual_list.build(Facet, core, {
 			id = "List",
 			rows = rowsSignal,

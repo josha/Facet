@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A HOST IS A COORDINATE SPACE (Plan C, C1). A container whose placement is
 	REACTIVE and that has children is a real engine parent AND the origin its
 	subtree's rects are stored against. A nameplate move is then ONE stored rect
@@ -29,14 +30,15 @@ local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
 local fs = require("@lune/fs")
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local path_shapes = require("../src/controls/path_shapes")
 local fake_target = require("./lib/fake_target")
 local list_scene = require("./lib/row_host_scene")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES, CASTERS = scene.PLATES, scene.PLATES // scene.CASTER_EVERY
 -- READ OFF THE RUN AT HEAD `a46f84c4`, before this task touched `src/` — the
@@ -170,7 +172,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 				children = {
 					UI.ScrollView({
 						id = "SV",
-						offsetX = core:signal(0),
+						offsetX = Compose.cell(0),
 						width = px(200),
 						height = px(120),
 						children = { UI.Box({ id = "Row", width = px(180), height = px(400) }) },
@@ -198,7 +200,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 					UI.VStack({
 						id = "Clip",
 						clipChildren = true,
-						offsetY = core:signal(0),
+						offsetY = Compose.cell(0),
 						width = px(200),
 						height = px(120),
 						children = { UI.Box({ id = "Row", width = px(180), height = px(40) }) },
@@ -229,8 +231,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.VStack({
 								id = "Box",
 								anchor = "topLeft",
-								offsetX = core:signal(10),
-								offsetY = core:signal(20),
+								offsetX = Compose.cell(10),
+								offsetY = Compose.cell(20),
 								width = px(60),
 								height = { type = "content" },
 								children = { UI.Text({ id = "T", text = "hi", textSize = 12 }) },
@@ -238,8 +240,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.Box({
 								id = "Leaf",
 								anchor = "topLeft",
-								offsetX = core:signal(200),
-								offsetY = core:signal(20),
+								offsetX = Compose.cell(200),
+								offsetY = Compose.cell(20),
 								width = px(30),
 								height = px(30),
 							}),
@@ -278,7 +280,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a host inside a MOVED anchor keeps its subtree in its own space", function()
 		local sig: { spacer: any } = { spacer = nil }
 		local function build(core: any): any
-			local spacer = core:signal(60)
+			local spacer = Compose.cell(60)
 			sig.spacer = spacer
 			return UI.Screen({
 				id = "S",
@@ -293,7 +295,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.Box({
 								id = "Spacer",
 								width = fill(),
-								height = core:memo(function(use: any): any
+								height = Compose.formula(function(use: any): any
 									return px(use(spacer) :: number)
 								end),
 							}),
@@ -305,8 +307,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 									UI.VStack({
 										id = "Tray",
 										anchor = "topLeft",
-										offsetX = core:signal(8),
-										offsetY = core:signal(4),
+										offsetX = Compose.cell(8),
+										offsetY = Compose.cell(4),
 										padding = 0,
 										gap = 0,
 										width = px(120),
@@ -374,7 +376,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a host holding a COMPOSITION is refused as a translate descendant", function()
 		local spacers: { any } = {}
 		local function build(core: any): any
-			local spacer = core:signal(120)
+			local spacer = Compose.cell(120)
 			table.insert(spacers, spacer)
 			return UI.Screen({
 				id = "S",
@@ -389,7 +391,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.Box({
 								id = "Spacer",
 								width = fill(),
-								height = core:memo(function(use: any): any
+								height = Compose.formula(function(use: any): any
 									return px(use(spacer) :: number)
 								end),
 							}),
@@ -401,8 +403,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 									UI.ZStack({
 										id = "Wrap",
 										anchor = "topLeft",
-										offsetX = core:signal(0),
-										offsetY = core:signal(0),
+										offsetX = Compose.cell(0),
+										offsetY = Compose.cell(0),
 										width = px(400),
 										height = px(300),
 										children = {
@@ -586,7 +588,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		local function rowsForEach(core: any, kids: number): any
 			return UI.ForEach({
 				id = "Rows",
-				items = core:signal(ITEMS),
+				items = Compose.cell(ITEMS),
 				key = function(item: any): string
 					return item.key
 				end,
@@ -668,7 +670,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a hit expander under a MOVED host is composed on the same solve it moves", function()
 		local off = { sig = nil :: any }
 		local w = world(function(core: any): any
-			off.sig = core:signal(0)
+			off.sig = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -681,7 +683,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 								id = "Host",
 								anchor = "topLeft",
 								offsetX = off.sig,
-								offsetY = core:signal(0),
+								offsetY = Compose.cell(0),
 								width = px(20),
 								height = px(20),
 								children = { UI.Button({ id = "Small", label = "s", width = px(20), height = px(20) }) },
@@ -690,8 +692,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 								id = "Static",
 								label = "S",
 								anchor = "topLeft",
-								offsetX = core:signal(200),
-								offsetY = core:signal(0),
+								offsetX = Compose.cell(200),
+								offsetY = Compose.cell(0),
 								width = px(60),
 								height = px(60),
 							}),
@@ -733,7 +735,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 			`composed={sro2.x - 12},{sro2.y - 12}`
 		)
 		expect(`window={hit2.x},{hit2.y}`).toBe(`window={sro2.x - 12},{sro2.y - 12}`)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.dispose()
 	end)
 
@@ -756,8 +758,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.VStack({
 								id = "Host",
 								anchor = "topLeft",
-								offsetX = core:signal(30),
-								offsetY = core:signal(40),
+								offsetX = Compose.cell(30),
+								offsetY = Compose.cell(40),
 								width = px(200),
 								height = px(120),
 								children = {
@@ -804,7 +806,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("coverRect unions window-space boxes, not host-relative ones", function()
 		local off = { sig = nil :: any }
 		local w = world(function(core: any): any
-			off.sig = core:signal(0)
+			off.sig = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -817,7 +819,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 								id = "Host",
 								anchor = "topLeft",
 								offsetX = off.sig,
-								offsetY = core:signal(50),
+								offsetY = Compose.cell(50),
 								width = px(60),
 								height = px(40),
 								children = { UI.Box({ id = "Only", width = px(60), height = px(40) }) },
@@ -848,7 +850,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a selection indicator inside a moved host keeps its delta to the selected segment", function()
 		local off = { sig = nil :: any }
 		local w = world(function(core: any): any
-			off.sig = core:signal(0)
+			off.sig = Compose.cell(0)
 			local seg = function(id: string, width: number): any
 				return UI.Button({ id = id, label = id, width = px(width), height = px(48) })
 			end
@@ -864,7 +866,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 								id = "Host",
 								anchor = "topLeft",
 								offsetX = off.sig,
-								offsetY = core:signal(10),
+								offsetY = Compose.cell(10),
 								width = px(200),
 								height = px(48),
 								children = {
@@ -921,7 +923,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a focused node inside a moved host keeps its focus record across the move", function()
 		local off = { sig = nil :: any }
 		local w = world(function(core: any): any
-			off.sig = core:signal(0)
+			off.sig = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -934,7 +936,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 								id = "Host",
 								anchor = "topLeft",
 								offsetX = off.sig,
-								offsetY = core:signal(20),
+								offsetY = Compose.cell(20),
 								width = px(80),
 								height = px(48),
 								children = { UI.Button({ id = "Btn", label = "b", width = px(80), height = px(48) }) },
@@ -987,7 +989,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.ZStack({
 								id = "Wrap",
 								anchor = "topLeft",
-								offsetX = core:signal(0),
+								offsetX = Compose.cell(0),
 								offsetY = slide,
 								width = px(400),
 								height = px(300),
@@ -1024,7 +1026,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		local slides: { any } = {}
 		local function makeWorld(hosts: boolean): any
 			local w = world(function(core: any): any
-				local slide = core:signal(0)
+				local slide = Compose.cell(0)
 				table.insert(slides, slide)
 				return build(core, slide)
 			end, { x = 0, y = 0, w = 400, h = 600 }, if hosts then nil else { translateHosts = false })
@@ -1253,8 +1255,8 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a composition that unmounts lets its host take the move-only shortcut again", function()
 		local st = { on = nil :: any, slide = nil :: any }
 		local w = world(function(core: any): any
-			st.on = core:signal(true)
-			st.slide = core:signal(0)
+			st.on = Compose.cell(true)
+			st.slide = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -1266,7 +1268,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 							UI.ZStack({
 								id = "Wrap",
 								anchor = "topLeft",
-								offsetX = core:signal(0),
+								offsetX = Compose.cell(0),
 								offsetY = st.slide,
 								width = px(400),
 								height = px(300),
@@ -1323,7 +1325,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		slideTo(41) -- the structural solve is not the measurement; the next move is
 		local withoutComposition = slideTo(59)
 		expect(`shortcut back={withoutComposition < withComposition}`).toBe("shortcut back=true")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.dispose()
 	end)
 
@@ -1355,7 +1357,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 	it("a path leaving its clip box because its host moved is culled on that solve", function()
 		local off = { sig = nil :: any }
 		local w = world(function(core: any): any
-			off.sig = core:signal(0)
+			off.sig = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -1374,7 +1376,7 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 										id = "Host",
 										anchor = "topLeft",
 										offsetX = off.sig,
-										offsetY = core:signal(0),
+										offsetY = Compose.cell(0),
 										width = px(40),
 										height = px(40),
 										children = {

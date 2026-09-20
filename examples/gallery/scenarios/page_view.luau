@@ -14,39 +14,33 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx)
-		local Facet = ctx.Facet
-		local UI = Facet.View
+		local UI, Compose = ctx.UI, ctx.Compose
 		local copy = ctx.copy or COPY
-		local selected, setSelected, picked, setPicked
-		local Page = Facet.component(function(ui)
-			selected, setSelected = ui.state("coast")
-			picked, setPicked = ui.state("Choose a course.")
-			local viewport = ui.env("viewportRect")
+		local ids = { "coast", "forest", "summit" }
+		local selected = Compose.cell("coast")
+		local picked = Compose.cell("Choose a course.")
+		local function screen()
+			local viewport = ctx.env:get("viewportRect")
 			local pages = {}
-			for _, entry in { { "coast", "coastText" }, { "forest", "forestText" }, { "summit", "summitText" } } do
-				local key = entry[1]
+			for _, key in ids do
 				table.insert(pages, {
 					id = key,
 					title = copy[key],
-					content = UI.VStack({
-						id = "Course",
+					content = UI.VStack("Course")({
 						width = UI.fill(),
 						gap = "m",
 
 						UI.Text({ text = copy[key], textSize = "heading", width = UI.fill() }),
-						UI.ZStack({
-							id = "Preview",
+						UI.ZStack("Preview")({
 							width = UI.fill(),
 							height = { type = "fixed", px = 120 },
 
-							UI.Box({
-								id = "Backdrop",
+							UI.Box("Backdrop")({
 								width = UI.fill(),
 								height = UI.fill(),
 								tint = { role = "accent", blend = 0.2 },
 							}),
-							UI.Path({
-								id = "Circuit",
+							UI.Path("Circuit")({
 								width = UI.fill(),
 								height = UI.fill(),
 								points = {
@@ -60,60 +54,52 @@ return {
 								thickness = 4,
 							}),
 						}),
-						UI.Text({ text = copy[entry[2]], width = UI.fill() }),
-						UI.Button({
-							id = "Choose",
+						UI.Text({ text = copy[key .. "Text"], width = UI.fill() }),
+						UI.Button("Choose")({
 							label = "Choose " .. copy[key],
 							width = UI.fill(),
 							onActivate = function()
-								setPicked(copy[key])
+								picked:set(copy[key])
 							end,
 						}),
 					}),
 				})
 			end
-			local pager = UI.PageView({
-				id = "Courses",
-				selection = selected,
-				onChange = setSelected,
-				pages = pages,
-				height = function()
-					return { type = "fixed", px = math.clamp(viewport().h * 0.75, 360, 640) }
-				end,
-			})
-			return UI.Screen({
-				id = "PageView",
+			return UI.Screen("PageView")({
 				padding = "m",
 
-				UI.ScrollView({
-					id = "Page",
+				UI.ScrollView("Page")({
 					width = UI.fill(),
 					height = UI.fill(),
 					gap = "m",
 
 					UI.Text({ text = copy.title, textSize = "title" }),
 					UI.Text({ text = copy.intro, width = UI.fill() }),
-					pager,
-					UI.Text({ id = "Picked", text = picked, width = UI.fill(), disclose = true }),
+					UI.PageView("Courses")({
+						selection = selected,
+						pages = pages,
+						height = function(use)
+							return { type = "fixed", px = math.clamp(use(viewport).h * 0.75, 360, 640) }
+						end,
+					}),
+					UI.Text("Picked")({ text = picked, width = UI.fill(), disclose = true }),
 				}),
 			})
-		end)
+		end
 		return {
-			screen = Page({}),
+			screen = screen,
 			steps = {
 				next = function()
-					local ids = { "coast", "forest", "summit" }
-					setSelected(ids[math.min(3, (table.find(ids, selected()) or 1) + 1)])
+					selected:set(ids[math.min(3, (table.find(ids, selected:peek()) or 1) + 1)])
 				end,
 				reset = function()
-					setSelected("coast")
-					setPicked("Choose a course.")
+					selected:set("coast")
+					picked:set("Choose a course.")
 				end,
 			},
 			report = function()
-				return { pager = { selection = selected() }, picked = picked() }
+				return { pager = { selection = selected:peek() }, picked = picked:peek() }
 			end,
-			dispose = function() end,
 		}
 	end,
 }

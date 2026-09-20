@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE APP METRIC NAMESPACE (framework-gaps-phase2 gap 1).
 
@@ -160,12 +161,16 @@ describe("app metrics: a declared name is spellable", function()
 		expect(snapshot.isMetricPath("app.proof.tileMin")).toBe(false)
 	end)
 
-	it("a dim may carry an app metric name, and an undeclared one is refused at construction", function()
+	it("a dim may carry an app metric name, and an undeclared one is refused at mount", function()
 		withApp(PROOF, function()
-			local UI = (Facet :: any).UI
-			local form = UI.Box({ id = "Tile", width = { type = "fixed", px = "app.proof.tileMin" } })
-			expect(form ~= nil).toBe(true)
-			expect(pcall(UI.Box, { id = "Bad", width = { type = "fixed", px = "app.proof.tilemin" } })).toBe(false)
+			local UI = harness.UI
+			local function mount(px: string)
+				return harness.mount(harness.newCore(), UI.Box({ id = "Tile", width = { type = "fixed", px = px } }))
+			end
+			expect(mount("app.proof.tileMin") ~= nil).toBe(true)
+			local ok, err = pcall(mount, "app.proof.tilemin")
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "app.proof.tilemin", 1, true) ~= nil).toBe(true)
 		end)
 	end)
 
@@ -283,29 +288,29 @@ end)
 	build AFTER the environment had long since been read. ]]
 describe("app metrics: a declaration reaches a warm environment", function()
 	it("a group declared AFTER the first read is spellable on the next one", function()
-		local core = (Facet :: any).newCore()
+		local core = harness.newCore()
 		local env = (Facet :: any).newEnvironment(core)
 		-- WARM THE MEMO FIRST — that is the whole point of the case
-		local before: any = env:get("themeMetrics"):get()
+		local before: any = env:get("themeMetrics"):peek()
 		expect(before.app.late).toBe(nil)
 
 		themes.declareApp("late", { tileMin = 96 })
 		--[[ …and NOTHING ELSE IS TOUCHED. No `displaySize`, no viewport, no theme
 			commit: if the memo needs an unrelated fact to change before it will see
 			the declaration, this line is the one that fails. ]]
-		local after: any = env:get("themeMetrics"):get()
+		local after: any = env:get("themeMetrics"):peek()
 		expect(after.app.late.tileMin).toBe(96)
 		expect(snapshot.resolveNumber(after, "app.late.tileMin")).toBe(96)
 
 		-- a SECOND declaration on the same warm environment lands too
 		themes.declareApp("later", { chartH = 160 })
-		local third: any = env:get("themeMetrics"):get()
+		local third: any = env:get("themeMetrics"):peek()
 		expect(third.app.late.tileMin).toBe(96)
 		expect(third.app.later.chartH).toBe(160)
 
 		-- …and the distance transform still applies to what arrived late
 		env:set("displaySize", "Large")
-		expect(env:get("themeMetrics"):get().app.late.tileMin).toBe(144)
+		expect(env:get("themeMetrics"):peek().app.late.tileMin).toBe(144)
 
 		themes.declareApp("late", nil)
 		themes.declareApp("later", nil)
@@ -315,10 +320,10 @@ describe("app metrics: a declaration reaches a warm environment", function()
 		the same reason: a name that is no longer declared must stop being served as
 		if the process still owned it. ]]
 	it("retiring a group reaches a warm environment as well", function()
-		local core = (Facet :: any).newCore()
+		local core = harness.newCore()
 		local env = (Facet :: any).newEnvironment(core)
 		themes.declareApp("transient", { tileMin = 96 })
-		expect((env:get("themeMetrics"):get() :: any).app.transient.tileMin).toBe(96)
+		expect((env:get("themeMetrics"):peek() :: any).app.transient.tileMin).toBe(96)
 		themes.declareApp("transient", nil)
 		-- the base keeps what it already published (a still-mounted screen's
 		-- dimension must not vanish), but a FRESH resolve no longer carries it
@@ -345,8 +350,8 @@ describe("app metrics: a declaration reaches a warm environment", function()
 
 		WHAT IS *NOT* TRUE, and was claimed here until a reviewer drove the real
 		path: this is not "loud". At the throw point that actually occurs — inside a
-		memo — `core:memo`'s pull `pcall`s the compute, so the failure QUARANTINES
-		the memo and lands on `core:lastError()`; it never reaches the author's call
+		memo — `Compose.formula`'s pull `pcall`s the compute, so the failure QUARANTINES
+		the memo and lands on `core.lastError()`; it never reaches the author's call
 		site. The direct call below raises because a direct call is not inside a
 		pull. Both shapes are cases here, and the third one is the real one. ]]
 
@@ -391,7 +396,7 @@ describe("app metrics: a declaration reaches a warm environment", function()
 		function observer:set(v: number)
 			self.value = v
 		end
-		function observer:get(): number
+		function observer:peek(): number
 			return self.value
 		end
 		return observer
@@ -423,75 +428,42 @@ describe("app metrics: a declaration reaches a warm environment", function()
 	end)
 
 	it("a DIRECT call re-raises, and the vocabulary is live either way", function()
-		local core = (Facet :: any).newCore()
+		local core = harness.newCore()
 		local env = (Facet :: any).newEnvironment(core)
-		expect((env:get("themeMetrics"):get() :: any).app.probe).toBe(nil) -- warm it
+		expect((env:get("themeMetrics"):peek() :: any).app.probe).toBe(nil) -- warm it
 
 		withObservers({ explodingObserver() }, { "probe" }, function()
 			-- a DIRECT call is not inside a memo pull, so this one really does raise
 			expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
 			-- …and the environment that CAN hear it still did
-			expect((env:get("themeMetrics"):get() :: any).app.probe.tileMin).toBe(96)
+			expect((env:get("themeMetrics"):peek() :: any).app.probe.tileMin).toBe(96)
 			expect(snapshot.isMetricPath("app.probe.tileMin")).toBe(true)
 			-- the retry the short-circuit would eat is still reported
 			expect(pcall(themes.declareApp, "probe", { tileMin = 96 })).toBe(false)
 		end)
 	end)
 
-	--[[ THE REAL THROW POINT, DRIVEN THROUGH THE REAL PATH.
-
-		This is the shape the documentation used to describe wrongly. A `declareApp`
-		made from inside a memo body does NOT reach the author: `pull` `pcall`s the
-		compute, so the memo is QUARANTINED (it keeps its old value and answers
-		without erroring) and the only artifact is `core:lastError()`. The
-		environment that missed its notification stays blind — until any later
-		`declareApp` heals it, which is what makes the mistake recoverable instead of
-		terminal. ]]
-	it("a declaration made inside a memo is quarantined, recorded, and healed later", function()
-		-- `warns` (device bug fix round, director 2026-08-23, task-fix2 item 6):
-		-- this quarantine used to be "recorded" on `lastError()` alone — an author
-		-- who calls `declareApp` from the wrong place never hears about it unless
-		-- they think to poll. `core/custom.luau`'s `fail()` now warns on every
-		-- quarantine, real `warn()` by default; injected here for an exact assertion.
-		local warns: { string } = {}
-		local core = (Facet :: any).newCore({
-			warn = function(message: string)
-				table.insert(warns, message)
-			end,
-		})
-		local env = (Facet :: any).newEnvironment(core)
-		expect((env:get("themeMetrics"):get() :: any).app.inmemo).toBe(nil) -- warm it
-
-		local memo = core:memo(function()
+	it("publishes declarations to a warm native environment in one batch", function()
+		local Compose = Facet.Compose
+		local core = harness.newCore()
+		local env = Facet.newEnvironment(core)
+		local owner = Compose.createOwner(core.scene.reactor)
+		local values = {}
+		owner.watch(function(use)
+			local app = use(env:get("themeMetrics")).app
+			table.insert(values, if app.inmemo then app.inmemo.tileMin else 0)
+		end)
+		expect(#values).toBe(1)
+		env:batch(function()
 			themes.declareApp("inmemo", { tileMin = 96 })
-			return "computed"
+			themes.declareApp("inmemo", { tileMin = 112 })
 		end)
-		-- the memo answers, and NOTHING is raised at the read
-		local ok, value = pcall(function()
-			return memo:get()
-		end)
-		expect(ok).toBe(true)
-		expect(value).toBe(nil) -- quarantined on its first evaluation: no value was kept
-		-- the ONE artifact
-		expect(type(core:lastError())).toBe("string")
-		expect(string.find(tostring(core:lastError()), "memo evaluation", 1, true) ~= nil).toBe(true)
-		-- ...and now a SECOND artifact: the same string, said out loud once
-		expect(#warns).toBe(1)
-		expect(warns[1]).toBe(`Facet: quarantined - {core:lastError()}`)
-
-		-- the vocabulary IS live — which is exactly why the environment being blind
-		-- would be silent rather than obvious
+		expect(#values).toBe(2)
+		expect(values[2]).toBe(112)
 		expect(snapshot.isMetricPath("app.inmemo.tileMin")).toBe(true)
-
-		-- …and ANY later declaration heals the environment that missed it — a HEALTHY
-		-- declaration, so it must not warn again
-		themes.declareApp("healer", { chartH = 160 })
-		expect((env:get("themeMetrics"):get() :: any).app.inmemo.tileMin).toBe(96)
-		expect(#warns).toBe(1)
-
-		memo:dispose()
+		owner.dispose()
+		env:dispose()
 		themes.declareApp("inmemo", nil)
-		themes.declareApp("healer", nil)
 	end)
 
 	it("a signal whose value trails the generation is caught up by the next declaration", function()

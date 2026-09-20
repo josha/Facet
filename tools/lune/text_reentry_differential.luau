@@ -109,11 +109,8 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 
-local UI = require("../../src/blueprint")
-local mountLib = require("../../src/mount")
-local environment = require("../../src/env/environment")
-local renderer = require("../../src/render/renderer")
-local customFactory = require("../../src/core/custom")
+local Compose = require("../../src").Compose
+local nativeApp = require("../../bench/native_app")
 local fake_target = require("../../tests/lib/fake_target")
 local device_views = require("../../tests/lib/device_views")
 
@@ -142,27 +139,35 @@ end
 local ROWS = 6
 
 local function build(view: any, inline: boolean, tag: string)
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("displaySize", view.displaySize)
-	env:set("preferredInput", view.input)
+	local adapter = fake_target.new()
+	if inline then
+		-- the SETTLED live adapter: answer inside the call, on the caller's stack
+		adapter.answerTextInline(widthOf)
+	end
+	local world = nativeApp({
+		newAdapter = function()
+			return adapter
+		end,
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		env = { displaySize = view.displaySize, preferredInput = view.input },
+	})
+	local UI, env = world.UI, world.env
 
 	local strip = {}
 	for i = 1, 4 do
-		strip[i] = core:signal(`{tag}S{i}`)
+		strip[i] = Compose.cell(`{tag}S{i}`)
 	end
-	local solo = core:signal(`{tag}solo`)
-	local pinned = core:signal(`{tag}pin`)
+	local solo = Compose.cell(`{tag}solo`)
+	local pinned = Compose.cell(`{tag}pin`)
 	local rowValue = {}
 	local items = {}
 	for i = 1, ROWS do
-		rowValue[i] = core:signal(`{tag}row{i}`)
+		rowValue[i] = Compose.cell(`{tag}row{i}`)
 		table.insert(items, { id = `r{i}`, n = rowValue[i] })
 	end
-	local rows = core:signal(items)
-	local width = core:signal(px(120))
-	local dragWord = core:signal(`{tag}dragshort`)
+	local rows = Compose.cell(items)
+	local width = Compose.cell(px(120))
+	local dragWord = Compose.cell(`{tag}dragshort`)
 	-- THE CHAIN: a word revealed only by the previous word's epoch bump, bounded at
 	-- four links. This is the shape the notification ORDER differs on if the drain is
 	-- sited anywhere but at the outermost solve.
@@ -170,7 +175,7 @@ local function build(view: any, inline: boolean, tag: string)
 	for i = 1, 4 do
 		chainWords[i] = `{tag}c{string.rep("y", i)}{i}`
 	end
-	local chainLabel = core:memo(function(use)
+	local chainLabel = Compose.formula(function(use)
 		local epoch = (use(env:get("textMeasureEpoch")) :: number?) or 0
 		return chainWords[math.min(4, epoch + 1)]
 	end)
@@ -179,126 +184,102 @@ local function build(view: any, inline: boolean, tag: string)
 	local leaves: { string } = {}
 	local verdicts: { string } = {}
 
-	local bp = UI.VStack({
-		id = "Root",
-		padding = 0,
-		gap = 0,
-		width = fill(),
-		height = fill(),
-		children = {
-			UI.HStack({
-				id = "Strip",
+	local function Root()
+		return UI.VStack("Root")({
+			padding = 0,
+			gap = 0,
+			width = fill(),
+			height = fill(),
+			UI.HStack("Strip")({
 				padding = 0,
 				gap = 2,
 				height = px(20),
-				children = {
-					UI.Text({ id = "S1", textSize = 14, text = strip[1] }),
-					UI.Text({ id = "S2", textSize = 14, text = strip[2] }),
-					UI.Text({ id = "S3", textSize = 14, text = strip[3] }),
-					UI.Text({ id = "S4", textSize = 14, text = strip[4] }),
-				},
+				UI.Text("S1")({ textSize = 14, text = strip[1] }),
+				UI.Text("S2")({ textSize = 14, text = strip[2] }),
+				UI.Text("S3")({ textSize = 14, text = strip[3] }),
+				UI.Text("S4")({ textSize = 14, text = strip[4] }),
 			}),
-			UI.VStack({
-				id = "Deep",
+			UI.VStack("Deep")({
 				padding = 0,
 				gap = 0,
-				children = {
-					UI.VStack({
-						id = "Mid",
+				UI.VStack("Mid")({
+					padding = 0,
+					gap = 0,
+					UI.HStack("Inner")({
 						padding = 0,
 						gap = 0,
-						children = {
-							UI.HStack({
-								id = "Inner",
-								padding = 0,
-								gap = 0,
-								children = { UI.Text({ id = "Buried", textSize = 18, text = solo }) },
-							}),
-						},
+						UI.Text("Buried")({ textSize = 18, text = solo }),
 					}),
-				},
+				}),
 			}),
-			UI.HStack({
-				id = "Pins",
+			UI.HStack("Pins")({
 				padding = 0,
 				gap = 2,
 				height = px(24),
-				children = {
-					UI.Text({ id = "Pinned", textSize = 11, width = px(60), height = px(14), text = pinned }),
-					UI.Text({ id = "Fitted", textSize = "fit", width = px(70), height = px(20), text = solo }),
-					UI.Box({ id = "Sized", width = width, height = px(10) }),
-					UI.Text({ id = "Chain", textSize = 13, text = chainLabel }),
-				},
+				UI.Text("Pinned")({ textSize = 11, width = px(60), height = px(14), text = pinned }),
+				UI.Text("Fitted")({ textSize = "fit", width = px(70), height = px(20), text = solo }),
+				UI.Box("Sized")({ width = width, height = px(10) }),
+				UI.Text("Chain")({ textSize = 13, text = chainLabel }),
 			}),
 			-- THE DRAG ARM: a drop target whose left edge is a measured text width, so
 			-- the correction moves it, plus the draggable that acquires the session
-			UI.HStack({
-				id = "DragRow",
+			UI.HStack("DragRow")({
 				padding = 0,
 				gap = 0,
 				width = fill(),
 				height = px(60),
-				children = {
-					UI.Text({ id = "DragLabel", textSize = 16, text = dragWord }),
-					UI.dropTarget(UI.Box({ id = "Slot", width = fill(), height = px(50) }), {
-						onDrop = function() end,
-						onEnter = function()
-							table.insert(enters, "Slot")
-						end,
-						onLeave = function()
-							table.insert(leaves, "Slot")
-						end,
-					}),
-				},
+				UI.Text("DragLabel")({ textSize = 16, text = dragWord }),
+				UI.dropTarget(UI.Box("Slot")({ width = fill(), height = px(50) }), {
+					onDrop = function() end,
+					onEnter = function()
+						table.insert(enters, "Slot")
+					end,
+					onLeave = function()
+						table.insert(leaves, "Slot")
+					end,
+				}),
 			}),
-			UI.draggable(UI.Box({ id = "Card", width = px(40), height = px(40) }), { payload = "card" }),
-			UI.VStack({
-				id = "List",
+			UI.draggable(UI.Box("Card")({ width = px(40), height = px(40) }), { payload = "card" }),
+			UI.VStack("List")({
 				padding = 0,
 				gap = 1,
 				width = fill(),
-				children = {
-					UI.ForEach({
-						id = "Rows",
-						items = rows,
+				UI.ForEach("Rows")({
+					Compose.keyed({
+						from = rows,
 						key = function(item: any)
 							return item.id
 						end,
-						row = function(item: any)
-							return UI.HStack({
-								id = "Row",
+						render = function(row: any)
+							local item = row:peek()
+							return UI.HStack(`Row-{item.id}`)({
 								padding = 0,
 								gap = 2,
 								width = fill(),
 								height = px(16),
-								children = {
-									UI.Text({ id = "Name", textSize = 12, text = item.n }),
-									UI.Box({ id = "Bar", width = px(10), height = px(6) }),
-								},
+								UI.Text("Name")({ textSize = 12, text = item.n }),
+								UI.Box("Bar")({ width = px(10), height = px(6) }),
 							})
 						end,
 					}),
-				},
+				}),
 			}),
-		},
-	})
-	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
-	if inline then
-		-- the SETTLED live adapter: answer inside the call, on the caller's stack
-		adapter.answerTextInline(widthOf)
+		})
 	end
-	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+	local _, _, handle = world.app.mount(Root, { rootPolicy = "coreSafeContent" })
+	local controller = handle.controller
 	local notifies = 0
 	controller.onSolved(function()
 		notifies += 1
 	end)
 	local registry = controller.dragRegistry()
-	core:observe(registry.verdict, function(v: any)
+	local watching = Compose.createOwner()
+	watching.watch(function(use)
+		local v = use(registry.verdict)
 		table.insert(verdicts, if v == nil then "-" else tostring(v.targetId))
 	end)
 	return {
-		core = core,
+		app = world.app,
 		env = env,
 		controller = controller,
 		adapter = adapter,
@@ -336,7 +317,9 @@ local function snapshot(arm: any): string
 			if type(v) == "table" then
 				local inner = {}
 				for k2, v2 in v do
-					table.insert(inner, `{tostring(k2)}={tostring(v2)}`)
+					-- a nested table prints as a shape, never as its address: the two
+					-- outputs being diffed come from two processes
+					table.insert(inner, `{tostring(k2)}={if type(v2) == "table" then "{...}" else tostring(v2)}`)
 				end
 				table.sort(inner)
 				table.insert(props, `{k}=\{{table.concat(inner, ",")}\}`)
@@ -411,7 +394,7 @@ for _, view in device_views.VIEWS do
 		local mode = if inline then "inline" else "queued"
 		local tag = `{view.id}-{mode}-`
 		local arm = build(view, inline, tag)
-		arm.controller.initialRender()
+		arm.controller.refresh()
 		if not inline then
 			drain(arm)
 		end
@@ -462,7 +445,7 @@ for _, view in device_views.VIEWS do
 		table.insert(lines, planLine(arm, `{view.id}|{mode}|viewport`))
 		table.insert(lines, snapshot(arm))
 
-		arm.controller.dispose()
+		arm.app.dispose()
 	end
 end
 
@@ -493,154 +476,141 @@ local WIDE_LABELS = 420
 local VOCAB = 1200
 
 local function buildWide(view: any, inline: boolean, tag: string)
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("displaySize", view.displaySize)
-	env:set("preferredInput", view.input)
+	local adapter = fake_target.new()
+	if inline then
+		-- the SETTLED live adapter: answer inside the call, on the caller's stack
+		adapter.answerTextInline(widthOf)
+	end
+	local world = nativeApp({
+		newAdapter = function()
+			return adapter
+		end,
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		env = { displaySize = view.displaySize, preferredInput = view.input },
+	})
+	local UI, env = world.UI, world.env
 
 	local items = {}
 	local rowValue = {}
 	for i = 1, WIDE_ROWS do
-		rowValue[i] = core:signal(`{tag}r{i}`)
+		rowValue[i] = Compose.cell(`{tag}r{i}`)
 		items[i] = { id = `k{i}`, n = rowValue[i], nested = i == 3 }
 	end
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	local nextId = WIDE_ROWS + 1
-	local banner = core:signal(true)
-	local numeric = core:signal(1234)
-	local paragraph = core:signal(`{tag}para`)
-	local compactBox = core:signal(px(200))
+	local banner = Compose.cell(true)
+	local numeric = Compose.cell(1234)
+	local paragraph = Compose.cell(`{tag}para`)
+	local compactBox = Compose.cell(px(200))
 
-	local nested = core:signal({ { id = "n1" }, { id = "n2" }, { id = "n3" } })
+	local nested = Compose.cell({ { id = "n1" }, { id = "n2" }, { id = "n3" } })
 
-	local labels = {}
-	for i = 1, WIDE_LABELS do
-		labels[i] = UI.Text({ id = `L{i}`, textSize = 12, text = `{tag}w{i}` })
-	end
-
-	local bp = UI.VStack({
-		id = "Root",
-		padding = 0,
-		gap = 0,
-		width = fill(),
-		height = fill(),
-		children = {
+	local function Root()
+		local labels: { [any]: any } = { padding = 0, gap = 0, width = fill() }
+		for i = 1, WIDE_LABELS do
+			table.insert(labels, UI.Text(`L{i}`)({ textSize = 12, text = `{tag}w{i}` }))
+		end
+		return UI.VStack("Root")({
+			padding = 0,
+			gap = 0,
+			width = fill(),
+			height = fill(),
 			-- the branch ABOVE the list: dropping it moves every row below it
-			UI.When({
-				id = "Banner",
-				condition = banner,
-				thenView = function()
-					return UI.HStack({
-						id = "BannerRow",
+			UI.When("Banner")({
+				Compose.show(banner, function()
+					return UI.HStack("BannerRow")({
 						padding = 0,
 						gap = 0,
 						width = fill(),
 						height = px(30),
-						children = {
-							UI.Text({ id = "BannerText", textSize = 12, text = `{tag}banner` }),
-							UI.Box({ id = "BannerBox", width = px(10), height = px(6) }),
-						},
+						UI.Text("BannerText")({ textSize = 12, text = `{tag}banner` }),
+						UI.Box("BannerBox")({ width = px(10), height = px(6) }),
 					})
-				end,
+				end),
 			}),
-			UI.HStack({
-				id = "Odd",
+			UI.HStack("Odd")({
 				padding = 0,
 				gap = 2,
 				width = fill(),
 				height = px(28),
-				children = {
-					-- A NUMBER IS TEXT TOO (D6c): the label every HUD draws
-					UI.Text({ id = "Num", textSize = 12, text = numeric }),
-					-- ...and the compact ladder, in a box that shrinks under it
-					UI.HStack({
-						id = "CBox",
-						padding = 0,
-						gap = 0,
-						width = compactBox,
-						height = px(24),
-						children = {
-							UI.Button({ id = "Sub", label = "Subscribe", compactLabel = "Sub", textSize = 12 }),
-						},
+				-- A NUMBER IS TEXT TOO (D6c): the label every HUD draws
+				UI.Text("Num")({ textSize = 12, text = numeric }),
+				-- ...and the compact ladder, in a box that shrinks under it
+				UI.HStack("CBox")({
+					padding = 0,
+					gap = 0,
+					width = compactBox,
+					height = px(24),
+					UI.Button("Sub")({
+						label = "Subscribe",
+						compactLabel = "Sub",
+						textSize = 12,
+						onActivate = function() end,
 					}),
-					UI.Text({ id = "Para", textSize = 12, text = paragraph }),
-				},
+				}),
+				UI.Text("Para")({ textSize = 12, text = paragraph }),
 			}),
-			UI.VStack({
-				id = "List",
+			UI.VStack("List")({
 				padding = 0,
 				gap = 1,
 				width = fill(),
-				children = {
-					UI.ForEach({
-						id = "Rows",
-						items = rows,
+				UI.ForEach("Rows")({
+					Compose.keyed({
+						from = rows,
 						key = function(item: any)
 							return item.id
 						end,
-						row = function(item: any)
-							return UI.HStack({
-								id = "Row",
+						render = function(row: any)
+							local item = row:peek()
+							return UI.HStack(`Row-{item.id}`)({
 								padding = 0,
 								gap = 2,
 								width = fill(),
 								height = px(16),
-								children = {
-									UI.Text({ id = "Name", textSize = 12, text = item.n }),
-									if item.nested
-										then UI.VStack({
-											id = "Nest",
-											padding = 0,
-											gap = 0,
-											children = {
-												UI.ForEach({
-													id = "Sub",
-													items = nested,
-													key = function(inner: any)
-														return inner.id
-													end,
-													row = function(inner: any)
-														return UI.HStack({
-															id = "Inner",
-															padding = 0,
-															gap = 1,
-															height = px(8),
-															children = {
-																UI.Text({
-																	id = "IT",
-																	textSize = 12,
-																	text = `{tag}{inner.id}`,
-																}),
-																UI.Box({ id = "IB", width = px(4), height = px(4) }),
-															},
-														})
-													end,
-												}),
-											},
-										})
-										else UI.Box({ id = "Bar", width = px(10), height = px(6) }),
-								},
+								UI.Text("Name")({ textSize = 12, text = item.n }),
+								if item.nested
+									then UI.VStack("Nest")({
+										padding = 0,
+										gap = 0,
+										UI.ForEach("Sub")({
+											Compose.keyed({
+												from = nested,
+												key = function(inner: any)
+													return inner.id
+												end,
+												render = function(innerRow: any)
+													local inner = innerRow:peek()
+													return UI.HStack(`Inner-{inner.id}`)({
+														padding = 0,
+														gap = 1,
+														height = px(8),
+														UI.Text("IT")({
+															textSize = 12,
+															text = `{tag}{inner.id}`,
+														}),
+														UI.Box("IB")({ width = px(4), height = px(4) }),
+													})
+												end,
+											}),
+										}),
+									})
+									else UI.Box("Bar")({ width = px(10), height = px(6) }),
 							})
 						end,
 					}),
-				},
+				}),
 			}),
-			UI.VStack({ id = "Wide", padding = 0, gap = 0, width = fill(), children = labels }),
-		},
-	})
-	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
-	if inline then
-		adapter.answerTextInline(widthOf)
+			UI.VStack("Wide")(labels),
+		})
 	end
-	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+	local _, _, handle = world.app.mount(Root, { rootPolicy = "coreSafeContent" })
+	local controller = handle.controller
 	local notifies = 0
 	controller.onSolved(function()
 		notifies += 1
 	end)
 	return {
-		core = core,
+		app = world.app,
 		env = env,
 		controller = controller,
 		adapter = adapter,
@@ -693,7 +663,7 @@ for _, view in WIDE_VIEWS do
 		local mode = if inline then "inline" else "queued"
 		local tag = `{view.id}-{mode}-W-`
 		local arm = buildWide(view, inline, tag)
-		arm.controller.initialRender()
+		arm.controller.refresh()
 		if not inline then
 			drain(arm)
 		end
@@ -739,7 +709,7 @@ for _, view in WIDE_VIEWS do
 		arm.paragraph:set(paragraphOf(tag))
 		wideDrive(arm, `WIDE|{view.id}|{mode}|vocab`)
 
-		arm.controller.dispose()
+		arm.app.dispose()
 	end
 end
 

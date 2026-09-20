@@ -81,6 +81,7 @@
 --     control root), which keeps the trigger as the scope's entry so focus does
 --     not jump into the open rows on open.
 
+local Compose = require("../vendor/compose/core")
 local contribution = {}
 
 export type Bundle = {
@@ -114,7 +115,7 @@ export type Bundle = {
 	-- bindFocusGraph: hands the control the screen's FOCUS GRAPH, for the one
 	-- case a control has to MOVE focus rather than merely follow it — the data
 	-- under a focused row changed and the control's own policy says the ring
-	-- belongs somewhere else now (`newVirtualList.focusPolicy = "index"`), or
+	-- belongs somewhere else now (`UI.VirtualList.focusPolicy = "index"`), or
 	-- content about to unmount still holds focus. Bound alongside the action
 	-- system and the controller, once per discovered bundle, so a control that a
 	-- keyed region mounts late is wired the same way. It is the CANONICAL route
@@ -211,7 +212,7 @@ export type Bundle = {
 	-- "modal"`), not a lightweight overlay: it participates in
 	-- `presenter.exclusiveSurfaceActive`'s own fan-out the identical way any
 	-- other modal does. A game observing that signal to gate its own input
-	-- (RascalRally's `FacetSponsor/init.luau`: `core:observe(presenter.
+	-- (RascalRally's `FacetSponsor/init.luau`: `observeChange(presenter.
 	-- exclusiveSurfaceActive, ...)` -> `inputBridge:setModalBlocked(...)`)
 	-- sees gameplay input BLOCKED for as long as ANY control using this seam
 	-- (e.g. row_actions' own action menu) holds a presented handle open —
@@ -273,7 +274,7 @@ export type Bundle = {
 	--
 	-- Omitting it is a real choice too: an undeclared target keeps the pre-0.9 key
 	-- set (Comma/Period/L1/R1 always, plus the horizontal arrows only on a flat
-	-- screen where nothing else wants them). `newTable` omits it deliberately — its
+	-- screen where nothing else wants them). `UI.Table` omits it deliberately — its
 	-- resizable headers are navigation stops and adjust targets at once, and it
 	-- resolves the contention with a mode instead.
 	adjustRepeat: boolean?, -- opt-in bounded hold repeat for value adjustment
@@ -295,6 +296,32 @@ export type Bundle = {
 local PROP = "inputContribution"
 contribution.PROP = PROP
 
+--[[ A BUNDLE BELONGS TO THE OWNER THAT ATTACHED IT.
+
+	Every callback in a bundle closes over the state of whatever built it — a
+	control's cells and formulas, an example's measured band. That state dies with
+	an owner, and the presenter's `contributions` array does NOT: it is refreshed
+	from the mounted tree only when the structure epoch moves, while `feedGeometry`
+	runs from inside the solve, BEFORE the refresh that would have dropped a
+	contribution whose subtree just left. A tab swap therefore reached a
+	`syncGeometry` whose formulas the tab's own owner had already disposed
+	("a disposed formula cannot be read", showcase_tabs).
+
+	So the attaching owner is remembered here, weakly, and `alive` answers whether
+	the bundle still has one. `read` refuses a dead bundle outright, so no walk of
+	the mounted tree ever picks one up again, and the presenter asks `alive` on the
+	one path that can run against a stale array. Absent an owner (a bare mount in a
+	unit test) the bundle is always alive, which is what that case always did. ]]
+local owners: { [any]: any } = setmetatable({}, { __mode = "k" }) :: any
+
+function contribution.alive(bundle: any): boolean
+	local owner = owners[bundle]
+	if owner == nil then
+		return true
+	end
+	return not owner.isDisposed()
+end
+
 -- attach a bundle to a control's root blueprint, returning a NEW frozen
 -- blueprint (blueprints are immutable). Controls call this once, on their
 -- returned root, so the attachment is uniform and the magic prop name lives in
@@ -312,6 +339,14 @@ function contribution.attach(rootBlueprint: any, bundle: Bundle): any
 	end
 	local meta = if rootBlueprint.meta ~= nil then table.clone(rootBlueprint.meta) else {}
 	meta[PROP] = bundle
+	local owner = Compose.currentOwner()
+	if owner ~= nil then
+		owners[bundle] = owner
+	end
+	if Compose.custodyOf(rootBlueprint) == "owned" then
+		rootBlueprint.meta = table.freeze(meta)
+		return rootBlueprint
+	end
 	return table.freeze({
 		class = rootBlueprint.class,
 		id = rootBlueprint.id,
@@ -332,6 +367,9 @@ function contribution.read(node: any): Bundle?
 	-- contribution", not fault the presenter (architecture verifier F1)
 	local value = meta[PROP]
 	if type(value) ~= "table" then
+		return nil
+	end
+	if not contribution.alive(value) then
 		return nil
 	end
 	return value

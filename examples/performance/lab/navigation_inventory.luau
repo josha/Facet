@@ -1,74 +1,102 @@
 --!strict
+local Compose = require("../../../src/vendor/compose/core")
 -- PROBE-EXEMPT: shared benchmark workload, not an application tutorial.
 -- Shared native/headless workload: keep the artwork, responsive grid and controls
 -- identical so adapter attribution cannot silently change the work being timed.
 local inventory = {}
-function inventory.build(Facet: any, core: any, images: { string }): any
-	local UI = Facet.UI
-	local selected = core:signal("garage")
-	local customization = core:signal({ order = {}, hidden = {} })
-	local builds = 0
-	local tabs = Facet.Controls.TabView(core, {
-		id = "Tabs",
-		style = "sidebarAdaptable",
-		selection = selected,
-		customization = customization,
-		sections = { { id = "game", label = "Game" } },
-		tabs = {
-			{
-				id = "garage",
-				section = "game",
-				required = true,
-				label = "Garage",
-				content = function(pageScope)
-					builds += 1
-					local cards = {}
-					for i = 1, 24 do
-						local b = pageScope:own(Facet.Controls.Button(core, {
-							id = "Car" .. i,
-							label = "Race car " .. i,
-							subtitle = "Ready to race",
-							image = images[(i - 1) % #images + 1],
-							imageFraming = { width = 256, height = 256, focusY = 0.25 },
-							onActivate = function() end,
-						}))
-						table.insert(cards, b.blueprint)
-					end
-					return UI.ScrollView({
-						id = "Inventory",
-						width = UI.fill(),
-						height = UI.fill(),
-						navigation = { targets = { "Cars" } },
 
-						UI.focusSection(UI.Grid({
-							id = "Cars",
-							minColumnWidth = 180,
-							gap = "m",
+-- A primitive built through the raw constructor takes its children
+-- POSITIONALLY, not as a `children = {...}` field — see overlay.luau's copy of
+-- this same helper for the full story.
+local function with(props: any, children: { any }): any
+	for _, child in children do
+		table.insert(props, child)
+	end
+	return props
+end
+-- `ctx = { Facet, app, UI, Compose, env, core }` (the lab seam bench/perf_scenes.luau
+-- documents and drives) — `core` arrives on it, not as its own argument.
+function inventory.build(ctx: any, images: { string }): any
+	local UI = ctx.UI
+	local core = ctx.core
+	local selected = Compose.cell("garage")
+	local customization = Compose.cell({ order = {}, hidden = {} })
+	local builds = 0
+	-- `TabView` is a composite (docs/extending/new-control.md step 3): the call
+	-- returns only its blueprint; the record (`expandSidebar`, `dispose`, …)
+	-- arrives through `ref`.
+	local tabs: any = nil
+	local tabsOwner = core.owner.createChild()
+	local tabsBlueprint = Compose.withOwner(tabsOwner, function()
+		return UI.TabView({
+			id = "Tabs",
+			style = "sidebarAdaptable",
+			selection = selected,
+			customization = customization,
+			sections = { { id = "game", label = "Game" } },
+			tabs = {
+				{
+					id = "garage",
+					section = "game",
+					required = true,
+					label = "Garage",
+					content = function(pageScope)
+						builds += 1
+						local cards = {}
+						for i = 1, 24 do
+							local buttonBlueprint = UI.Button({
+								id = "Car" .. i,
+								label = "Race car " .. i,
+								subtitle = "Ready to race",
+								image = images[(i - 1) % #images + 1],
+								imageFraming = { width = 256, height = 256, focusY = 0.25 },
+								onActivate = function() end,
+							})
+							-- NOT explicitly owned here: `content()` already runs under
+							-- `pageScope`'s own Compose owner (TabView's page-mount contract),
+							-- so the composite wrapper's own `Compose.cleanup(built.dispose)`
+							-- (docs/extending/new-control.md step 3) already ties this
+							-- button's teardown to that scope. Registering it a second time
+							-- here double-disposes it when the page unmounts.
+							table.insert(cards, buttonBlueprint)
+						end
+						return UI.ScrollView("Inventory")({
 							width = UI.fill(),
-							children = cards,
-						})),
-					})
-				end,
+							height = UI.fill(),
+							navigation = { targets = { "Cars" } },
+
+							UI.focusSection(UI.Grid("Cars")(with({
+								minColumnWidth = 180,
+								gap = "m",
+								width = UI.fill(),
+							}, cards))),
+						})
+					end,
+				},
+				{
+					id = "race",
+					label = "Race",
+					content = function()
+						return UI.Text({ text = "Race" })
+					end,
+				},
+				{
+					id = "settings",
+					label = "Settings",
+					content = function()
+						return UI.Text({ text = "Settings" })
+					end,
+				},
 			},
-			{
-				id = "race",
-				label = "Race",
-				content = function()
-					return UI.Text({ text = "Race" })
-				end,
-			},
-			{
-				id = "settings",
-				label = "Settings",
-				content = function()
-					return UI.Text({ text = "Settings" })
-				end,
-			},
-		},
-	})
+			ref = function(record: any)
+				tabs = record.api
+			end,
+		})
+	end)
 	return {
-		screen = UI.Screen({ id = "S", tabs.blueprint }),
+		screen = UI.Screen("S")({ tabsBlueprint }),
 		tabs = tabs,
+		tabsOwner = tabsOwner,
 		selected = selected,
 		customization = customization,
 		builds = function()
@@ -81,7 +109,7 @@ function inventory.install(deps: any)
 	deps.passes.navigationReflow = function(payload: string?)
 		return deps.timed("navigationReflow", function()
 			local _, reps = deps.framesAndReps(payload, 60, 24)
-			local state = inventory.build(deps.Facet, deps.core, deps.dataset.IMAGE_KEYS)
+			local state = inventory.build(deps.Facet, deps.dataset.IMAGE_KEYS)
 			local pres = deps.ctx.presenter
 			local handle = pres.present(state.screen)
 			local ok, result = pcall(function()
@@ -123,9 +151,10 @@ function inventory.install(deps: any)
 				}
 			end)
 			pres.dismiss(handle)
-			state.tabs.dispose()
-			state.selected:dispose()
-			state.customization:dispose()
+			-- The two cells need no release of their own: a Compose cell is plain
+			-- state with no subscription to drop, and everything that READ them
+			-- died with the TabView's owner just above.
+			state.tabsOwner:dispose()
 			if not ok then
 				error(result, 0)
 			end

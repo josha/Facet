@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- UI-PARADIGM-001 (affordance matrix R§7 "three feedback layers"): the pointer
 -- HOVER layer. Interactive nodes gain a hover state on pointer, gated on the
 -- LIVE pointer class (env interactionClasses.pointer) — a pure-touch device
@@ -10,13 +11,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
 local defaultStyle = require("../src/tokens/default_style")
+local Compose = require("../src/vendor/compose/core")
 
 local POINTER_CAPS = { keyboard = true, mouse = true, touch = false, gamepad = false }
 local TOUCH_CAPS = { keyboard = false, mouse = false, touch = true, gamepad = false }
@@ -44,7 +46,7 @@ describe("UI-PARADIGM-001: pointer hover layer", function()
 		local _, _, _, adapter = build(POINTER_CAPS, "KeyboardAndMouse", function(core)
 			return {
 				UI.Button({ id = "Go", label = "Go" }),
-				UI.Toggle({ id = "Flag", label = "Flag", value = core:signal(false) }),
+				UI.Toggle({ id = "Flag", label = "Flag", value = Compose.cell(false) }),
 			}
 		end)
 		expect(adapter.node("/S/Go").hoverEnabled).toBe(true)

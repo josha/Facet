@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- `presenter.withAnimation(class, fn)` — parity round 2, Phase 1
 -- (docs/plans/parity-round2.md §Phase 1). State changes applied inside
 -- `fn` animate their visual consequences.
@@ -35,6 +36,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 local FRAME = 1 / 60
 
@@ -52,7 +55,7 @@ end
 -- clean, whole-pixel rect change with nothing else in the frame.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -63,13 +66,13 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
-	local tall = core:signal(false)
-	local headerHeight = core:memo(function(use: any)
+	local tall = Compose.cell(false)
+	local headerHeight = Compose.formula(function(use: any)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
-	local UI = Facet.UI
+	local UI = harness.UI
 	local screen = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -239,7 +242,7 @@ describe("withAnimation: refusals", function()
 	it("a call inside an already-open transaction is refused, not silently inert", function()
 		local w = world()
 		local ok, err = pcall(function()
-			w.core:transaction(function()
+			w.core.reactor:batch(function()
 				w.pres.withAnimation("container", function()
 					w.tall:set(true)
 				end)
@@ -344,8 +347,8 @@ end)
 
 --[[ RED-TEAM R2 (2026-08-13) — A CALL MADE DURING A CORE COMMIT.
 
-	`bench/cores/imperative.luau`'s `commit` opens `if committing then return end`, so
-	a `core:transaction` opened from anything the commit itself dispatches — an
+	a commit phase opens `if committing then return end`, so
+	a `reactor:batch` opened from anything the commit itself dispatches — an
 	observer, an effect, a settle chain — never flushes. The nesting probe sees the
 	same silence an outer transaction produces and cannot separate them, so the
 	refusal used to assert a transaction that was not open.
@@ -356,9 +359,9 @@ end)
 	landed, and a caller that catches the raise must not retry it. ]]
 describe("withAnimation: called during a core commit", function()
 	local function raiseFromObserver(w: any): string
-		local trigger = w.core:signal(0)
+		local trigger = Compose.cell(0)
 		local captured: string? = nil
-		local unsubscribe = w.core:observe(trigger, function()
+		local unsubscribe = observeChange(w.core.owner, trigger, function()
 			-- the `pcall(action.onAction)` shape from src/controls/row_actions.luau:
 			-- this is where the raise becomes invisible to the player
 			local ok, err = pcall(function()
@@ -393,7 +396,7 @@ describe("withAnimation: called during a core commit", function()
 		raiseFromObserver(w)
 		-- the signal `fn` set is set, and the layout settles to it on the next
 		-- ordinary refresh. A caller that "retried" would toggle it back.
-		expect(w.tall:get()).toBe(true)
+		expect(w.tall:peek()).toBe(true)
 		w.pres.refresh()
 		expect(w.adapter.node("/S/Body").rect.y).toBe(200)
 	end)
@@ -408,15 +411,15 @@ describe("withAnimation: a path that did not exist before", function()
 	-- baseline snapshot of live paths instead. Instance recycling is on by
 	-- default, so this is the shipped configuration, not a contrived one.
 	local function appearWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local shown = core:signal(false)
-		local UI = Facet.UI
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local shown = Compose.cell(false)
+		local UI = harness.UI
 		pres.present(UI.Screen({
 			id = "S",
 			padding = 0,
@@ -609,7 +612,7 @@ end)
 	own size. ]]
 local function sizeWorld(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -618,13 +621,13 @@ local function sizeWorld(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
-	local tall = core:signal(false)
-	local panelHeight = core:memo(function(use: any)
+	local tall = Compose.cell(false)
+	local panelHeight = Compose.formula(function(use: any)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
-	local UI = Facet.UI
+	local UI = harness.UI
 	-- Panel is FIRST, so its own position never changes: the only thing that can
 	-- animate about it is its SIZE. Tail sits under it and moves by exactly the
 	-- same 100 px the Panel grew, which is what makes the "one spring" assertion

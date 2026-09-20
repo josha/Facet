@@ -1,4 +1,5 @@
 --!nocheck
+local harness = require("./harness")
 --[[ THE SHOWCASE'S OWN CHIP ROW, MEASURED RATHER THAN WRITTEN DOWN (DIR wave
 	contract 5, 2026-08-18).
 
@@ -37,12 +38,14 @@
 	separately in `tests/hud_chrome_rotation.spec.luau` so neither number can drift
 	into standing for the other. ]]
 
-local UI = require("../../src/blueprint")
+local UI = harness.UI
 local demo_picker = require("../../examples/gallery/client/demo_picker")
+local scenario_app = require("./scenario_app")
 local settings_panel = require("../../examples/gallery/client/settings_panel")
 local showcase_chrome = require("../../examples/gallery/client/showcase_chrome")
 local fake_target = require("./fake_target")
 local device_views = require("./device_views")
+local Compose = require("../../src/vendor/compose/core")
 
 local showcase_chips = {}
 
@@ -71,7 +74,7 @@ function showcase_chips.rectFor(
 		return hit.rect
 	end
 
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = device_views.CORE_TOP, bottom = 0, left = 0, right = 0 })
@@ -85,11 +88,13 @@ function showcase_chips.rectFor(
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = ops == true });
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 
 	local rect: any = nil
+	local app = scenario_app.over(core, presenter)
 	local demos = demo_picker.mount({
 		Facet = Facet,
+		app = app,
 		core = core,
 		env = env,
 		presenter = presenter,
@@ -104,16 +109,17 @@ function showcase_chips.rectFor(
 		onRaise = function() end,
 		warn = function() end,
 	})
-	local settings = settings_panel.mount({ Facet = Facet, core = core, env = env })
+	local settings = settings_panel.mount({ Facet = Facet, app = app, core = core, env = env })
 	showcase_chrome.mount({
 		Facet = Facet,
+		app = app,
 		core = core,
 		env = env,
 		presenter = presenter,
 		actionSystem = system,
 		demos = demos,
 		settings = settings,
-		coreTop = core:signal(device_views.CORE_TOP),
+		coreTop = Compose.cell(device_views.CORE_TOP),
 		onChipsRect = function(r: any)
 			rect = r
 		end,

@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 -- Input action pipeline (design §9.1/9.2, UI-INPUT-001/003/004): engine-free
 -- model of contexts, typed actions, and bindings that mirrors the ENGINE
 -- semantics measured in the 2026-07-19 Studio spike exactly:
@@ -38,7 +39,7 @@ function actions.newSystem(core: any)
 			name = name,
 			type = actionType,
 			context = context,
-			state = core:signal(if actionType == "Bool" then false else nil),
+			state = Compose.cell(if actionType == "Bool" then false else nil),
 			pressedHandlers = {} :: { (any) -> () },
 			releasedHandlers = {} :: { (any) -> () },
 			bindings = {} :: { any },
@@ -97,7 +98,7 @@ function actions.newSystem(core: any)
 			if not context.enabled or context.destroyed then
 				return
 			end
-			local previous = action.state:get()
+			local previous = action.state:peek()
 			if previous == value then
 				return
 			end
@@ -287,9 +288,9 @@ function actions.newSystem(core: any)
 				-- belt-and-suspenders for that specific caller, and the ONLY fix
 				-- for every other one).
 				for _, action in context.actions do
-					if action.type == "Bool" and action.state:get() == true then
+					if action.type == "Bool" and action.state:peek() == true then
 						action.state:set(false)
-					elseif action.type == "Direction1D" and action.state:get() ~= 0 then
+					elseif action.type == "Direction1D" and action.state:peek() ~= 0 then
 						action.state:set(0)
 					end
 				end
@@ -307,7 +308,6 @@ function actions.newSystem(core: any)
 			context.destroyed = true
 			context.enabled = false
 			for _, action in context.actions do
-				action.state:dispose()
 				table.clear(action.pressedHandlers)
 				table.clear(action.releasedHandlers)
 			end
@@ -369,7 +369,7 @@ function actions.newSystem(core: any)
 	-- actually held.
 	--
 	-- Fix round 2 (platform review, MAJOR-1 — headless, independently
-	-- reproduced): the key-UP escape hatch was `action.state:get() == true`
+	-- reproduced): the key-UP escape hatch was `action.state:peek() == true`
 	-- — ACTION-scoped, not BINDING-scoped, and it stole an UNMODIFIED
 	-- sibling's own key-up. Two ways that happened, both now fixed by
 	-- making the hatch check the SPECIFIC binding rather than its action:

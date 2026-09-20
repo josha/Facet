@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_ctx = require("./lib/scenario_ctx")
 --[[ THE SHOWCASE CHROME — FOUR-INPUT REACHABILITY, THE SETTINGS SURFACE, AND
 	THE SWEEP THAT COVERS BOTH (parity round 3, item E rows 4 and 11).
 
@@ -34,7 +36,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local demo_picker = require("../examples/gallery/client/demo_picker")
@@ -44,6 +46,7 @@ local showcase_chrome = require("../examples/gallery/client/showcase_chrome")
 -- the FRAMEWORK's own menu verb, read rather than copied: a case that types its
 -- own key code proves the test's opinion, not the binding's
 local menu = require("../src/controls/menu")
+local Compose = require("../src/vendor/compose/core")
 local themes = Facet.themes
 
 -- the reference packages the showcase actually replicates, minus the
@@ -82,7 +85,7 @@ end
 	inference about somebody else's tree. ]]
 local function showcase(opts: any?): any
 	local o: any = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = o.w or 1232, h = o.h or 1067 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -102,7 +105,9 @@ local function showcase(opts: any?): any
 	local preview = require("../src/client/environment_preview").new(env)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local app =
+		scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system }).app
 
 	-- the backdrop, presented first and never raised (z-order is present order)
 	pres.present(
@@ -114,17 +119,16 @@ local function showcase(opts: any?): any
 		{ responder = "passive", rootPolicy = "edgeToEdge" }
 	)
 
-	local chipsBottom = core:signal(nil :: number?)
-	local coreTop = core:signal(o.coreTop or 0)
+	local chipsBottom = Compose.cell(nil :: number?)
+	local coreTop = Compose.cell(o.coreTop or 0)
 	local demoHandles: { any } = {}
 	local chrome: any = nil
 	local settings: any = nil
 
 	local demos = demo_picker.mount({
 		Facet = Facet,
-		core = core,
+		app = app,
 		env = env,
-		presenter = pres,
 		composed = true,
 		mountDemo = function(demo: any)
 			--[[ `o.failMount` IS THE FAILED-MOUNT PATH, DRIVEN. `demo_picker.show`
@@ -143,14 +147,14 @@ local function showcase(opts: any?): any
 				against `menu.luau` one round later. A case that needs the catalogue's
 				own contention builds the catalogue's own surface. ]]
 			if o.buildDemo ~= nil then
-				local built = o.buildDemo(demo, {
-					Facet = Facet,
+				o.demoCtx = scenario_ctx.ofHarness({
 					core = core,
 					env = env,
 					adapter = adapter,
 					presenter = pres,
-					actionSystem = system,
+					system = system,
 				})
+				local built = o.buildDemo(demo, o.demoCtx)
 				local h = pres.present(built.screen, built.present)
 				table.insert(demoHandles, h)
 				built.handle = h
@@ -199,10 +203,9 @@ local function showcase(opts: any?): any
 
 	local picker = theme_picker.mount({
 		Facet = Facet,
-		core = core,
+		app = app,
 		env = env,
 		adapter = adapter,
-		presenter = pres,
 		packages = {
 			glossy_touch = (require)("../examples/themes/glossy_touch").build(themes),
 			pixel_quest = (require)("../examples/themes/pixel_quest").build(themes),
@@ -216,7 +219,7 @@ local function showcase(opts: any?): any
 	settings = settings_panel.mount({
 		preview = preview,
 		Facet = Facet,
-		core = core,
+		app = app,
 		env = env,
 		themeSections = if picker ~= nil then picker.sections else nil,
 		copy = o.copy,
@@ -224,15 +227,15 @@ local function showcase(opts: any?): any
 
 	chrome = showcase_chrome.mount({
 		Facet = Facet,
+		app = app,
 		core = core,
 		env = env,
-		presenter = pres,
 		actionSystem = system,
 		demos = demos,
 		settings = settings,
 		coreTop = coreTop,
 		onChipsBottom = function(bottom: number)
-			if chipsBottom:get() ~= bottom then
+			if chipsBottom:peek() ~= bottom then
 				chipsBottom:set(bottom)
 			end
 		end,
@@ -246,12 +249,12 @@ local function showcase(opts: any?): any
 			-- renderer adds the overscan to every content surface on top of whatever
 			-- is published here, and the chip row already sits inside it
 			top = demo_picker.barReservation(
-				coreTop:get(),
-				chipsBottom:get(),
+				coreTop:peek(),
+				chipsBottom:peek(),
 				8,
 				showcase_chrome.overscanEdge(
-					env:get("distanceProfile"):get(),
-					env:get("effectiveOverscanInsets"):get(),
+					env:get("distanceProfile"):peek(),
+					env:get("effectiveOverscanInsets"):peek(),
 					"top"
 				)
 			),
@@ -298,8 +301,8 @@ end
 	visibly selected in the accent blue at first paint, not after an
 	interaction. It now does.
 
-	THE SEMANTIC HALF WAS NEVER THE PROBLEM. `chrome.kind:get()` reads "demos"
-	from construction (`showcase_chrome.mount`'s `kind = scope:own(core:signal
+	THE SEMANTIC HALF WAS NEVER THE PROBLEM. `chrome.kind:peek()` reads "demos"
+	from construction (`showcase_chrome.mount`'s `kind = scope.own(Compose.cell
 	("demos"))`), so `sectionPicker`'s bound value is correct from frame one —
 	there was no "nothing selected until interaction" at the DATA layer, and no
 	theme-role gap either (Facet Neutral's own `extra.controlSelected` and the
@@ -332,7 +335,7 @@ describe("showcase chrome: B4 — Demos selected under Facet Neutral, at first p
 		local w = showcase()
 		w.chrome.request("demos")
 		w.settle()
-		expect(w.chrome.kind:get()).toBe("demos")
+		expect(w.chrome.kind:peek()).toBe("demos")
 		local pillPath = "/ShowcasePanel/Dock/Column/Panel/Section/Indicator/Layer/Bar"
 		local bar = w.adapter.node(pillPath)
 		expect(`the pill's geometry is measured: {bar ~= nil and bar.rect ~= nil}`).toBe(
@@ -362,7 +365,7 @@ describe("showcase chrome (0): a closed chrome leaves the demo's own input alone
 	it("Tab reaches the demo, not the chip strip", function()
 		local w = showcase()
 		press(w.system, "Tab")
-		local focused = w.pres.focus.focused:get()
+		local focused = w.pres.focus.focused:peek()
 		expect(`Tab landed on {tostring(focused)}; inside the demo: {isPrefix("/Demo", focused)}`).toBe(
 			`Tab landed on {tostring(focused)}; inside the demo: true`
 		)
@@ -371,7 +374,7 @@ describe("showcase chrome (0): a closed chrome leaves the demo's own input alone
 	it("the d-pad reaches the demo too, and the strip is not the active focus scope", function()
 		local w = showcase()
 		press(w.system, "DPadDown")
-		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+		expect(isPrefix("/Demo", w.pres.focus.focused:peek())).toBe(true)
 		expect(w.pres.focus.activeScopeName()).toBe("Demo")
 	end)
 
@@ -381,7 +384,7 @@ describe("showcase chrome (0): a closed chrome leaves the demo's own input alone
 		expect(chips ~= nil).toBe(true)
 		expect(chips.rect.h > 0).toBe(true)
 		-- ...and it is passive, which is what keeps it out of the demo's way
-		expect(w.chrome.barHandle().responder:get()).toBe("passive")
+		expect(w.chrome.barHandle().responder:peek()).toBe("passive")
 	end)
 end)
 
@@ -442,26 +445,26 @@ describe("showcase chrome (0b): the d-pad alone reaches the chip, and Settings t
 
 	it("up from the demo lands on the demo-list chip", function()
 		local w = showcase()
-		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+		expect(isPrefix("/Demo", w.pres.focus.focused:peek())).toBe(true)
 		press(w.system, "DPadUp")
-		expect(w.pres.focus.focused:get()).toBe("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
+		expect(w.pres.focus.focused:peek()).toBe("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 	end)
 
 	it("...and down goes back to the demo, so the strip is somewhere you can leave", function()
 		local w = showcase()
 		press(w.system, "DPadUp")
 		press(w.system, "DPadDown")
-		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+		expect(isPrefix("/Demo", w.pres.focus.focused:peek())).toBe(true)
 	end)
 
 	it("ButtonA on the reached demo chip OPENS THE DEMO LIST — a pad, and nothing else", function()
 		local w = showcase()
 		press(w.system, "DPadUp")
 		press(w.system, "ButtonA")
-		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:demos")
+		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:peek()}`).toBe("open:true section:demos")
 		-- ...and the list is what the panel is showing, reachable from here on
 		w.settle()
-		expect(isPrefix("/ShowcasePanel", w.pres.focus.focused:get())).toBe(true)
+		expect(isPrefix("/ShowcasePanel", w.pres.focus.focused:peek())).toBe(true)
 	end)
 
 	it("from the opened demo list, the d-pad alone reaches the section switch's Settings option", function()
@@ -475,17 +478,17 @@ describe("showcase chrome (0b): the d-pad alone reaches the chip, and Settings t
 		press(w.system, "DPadUp")
 		press(w.system, "ButtonA")
 		w.settle()
-		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:demos")
+		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:peek()}`).toBe("open:true section:demos")
 		local function step()
-			local before = w.pres.focus.focused:get()
+			local before = w.pres.focus.focused:peek()
 			press(w.system, "DPadRight")
-			if w.pres.focus.focused:get() == before then
+			if w.pres.focus.focused:peek() == before then
 				press(w.system, "DPadDown")
 			end
 		end
 		local reached = false
 		for _ = 1, 60 do
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			if focused ~= nil and string.find(focused, "/Section/Indicator/Options/Opt2", 1, true) ~= nil then
 				reached = true
 				break
@@ -497,20 +500,20 @@ describe("showcase chrome (0b): the d-pad alone reaches the chip, and Settings t
 		)
 		press(w.system, "ButtonA")
 		w.settle()
-		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:settings")
+		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:peek()}`).toBe("open:true section:settings")
 	end)
 
 	it("the ring PAINTS when the d-pad puts it on a chip (a pad must see where it is)", function()
 		local w = showcase()
 		press(w.system, "DPadUp")
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.pres.focus.focusVisible:peek()).toBe(true)
 	end)
 
 	it("a tap still moves focus onto a chip, and still does not paint the ring", function()
 		local w = showcase()
 		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 		w.settle()
-		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		expect(w.pres.focus.focusVisible:peek()).toBe(false)
 	end)
 end)
 
@@ -524,14 +527,14 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
-		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")
-		local focused = w.pres.focus.focused:get()
+		expect(w.chrome.panelHandle().responder:peek()).toBe("engaged")
+		local focused = w.pres.focus.focused:peek()
 		expect(`focus after the toggle key: {tostring(focused)} (in the panel: {isPrefix("/ShowcasePanel", focused)})`).toBe(
 			`focus after the toggle key: {tostring(focused)} (in the panel: true)`
 		)
 		-- the ring PAINTS: a chrome opened from a key has to show where the next
 		-- press goes (api.md "Focus identity vs the focus RING")
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.pres.focus.focusVisible:peek()).toBe(true)
 	end)
 
 	it("Tab walks the panel and Return changes the demo", function()
@@ -543,7 +546,7 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 		-- panel's own focusable count so a broken scope fails instead of hanging.
 		local landed: string? = nil
 		for _ = 1, 40 do
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			-- ...and NOT the row already showing: choosing the live demo is a
 			-- documented no-op, so landing there would prove nothing
 			if
@@ -573,10 +576,10 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 		-- onto the section switch's 'Settings' option and press Space
 		local reached = false
 		for _ = 1, 40 do
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			if
 				focused ~= nil
-				and w.chrome.kind:get() == "demos"
+				and w.chrome.kind:peek() == "demos"
 				-- one level deeper since D6: the section switch is segmented, so it
 				-- carries the sliding indicator by default
 				and string.find(focused, "/Section/Indicator/Options/Opt2", 1, true) ~= nil
@@ -589,18 +592,18 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 		expect(`Tab reached the section switch: {reached}`).toBe("Tab reached the section switch: true")
 		press(w.system, "Space")
 		w.settle()
-		expect(w.chrome.kind:get()).toBe("settings")
+		expect(w.chrome.kind:peek()).toBe("settings")
 	end)
 
 	it("the theme rows are reachable from the keyboard, through settings", function()
 		local w = showcase()
 		w.chrome.request("settings")
 		w.settle()
-		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")
-		local before = w.picker.selection:get().packageId
+		expect(w.chrome.panelHandle().responder:peek()).toBe("engaged")
+		local before = w.picker.selection:peek().packageId
 		local landed: string? = nil
 		for _ = 1, 60 do
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			if focused ~= nil and string.find(focused, "/Packages/P_", 1, true) ~= nil then
 				local id = string.match(focused, "/P_([%w%-]+)$")
 				if id ~= nil and id ~= before then
@@ -615,7 +618,7 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 		)
 		press(w.system, "Return")
 		w.settle()
-		expect(`the theme changed: {w.picker.selection:get().packageId ~= before}`).toBe("the theme changed: true")
+		expect(`the theme changed: {w.picker.selection:peek().packageId ~= before}`).toBe("the theme changed: true")
 	end)
 
 	it("the toggle key closes again, and focus goes back to the demo", function()
@@ -625,7 +628,7 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(false)
-		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+		expect(isPrefix("/Demo", w.pres.focus.focused:peek())).toBe(true)
 	end)
 end)
 
@@ -646,8 +649,8 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 		press(w.system, PAD_IN)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
-		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")
-		expect(isPrefix("/ShowcasePanel", w.pres.focus.focused:get())).toBe(true)
+		expect(w.chrome.panelHandle().responder:peek()).toBe("engaged")
+		expect(isPrefix("/ShowcasePanel", w.pres.focus.focused:peek())).toBe(true)
 	end)
 
 	it("the d-pad walks the panel and ButtonA changes the demo", function()
@@ -657,7 +660,7 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 		local before = w.demos.current()
 		local landed = false
 		for _ = 1, 40 do
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			if
 				focused ~= nil
 				and string.find(focused, `/Rows/`, 1, true) ~= nil
@@ -684,12 +687,12 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 		press(w.system, "ButtonB")
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(false)
-		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+		expect(isPrefix("/Demo", w.pres.focus.focused:peek())).toBe(true)
 	end)
 
 	it("the motion setting is reachable and changeable with a pad alone", function()
 		local w = showcase({ capabilities = PAD })
-		expect(w.env:get("reducedMotion"):get() == true).toBe(false)
+		expect(w.env:get("reducedMotion"):peek() == true).toBe(false)
 		press(w.system, PAD_IN)
 		w.settle()
 		-- section switch -> Settings, then onto the motion picker's Reduced option.
@@ -701,22 +704,22 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 		-- first, falling back to Down when it does not move, is the honest "a pad
 		-- alone can reach this" walk either way.
 		local function step()
-			local before = w.pres.focus.focused:get()
+			local before = w.pres.focus.focused:peek()
 			press(w.system, "DPadRight")
-			if w.pres.focus.focused:get() == before then
+			if w.pres.focus.focused:peek() == before then
 				press(w.system, "DPadDown")
 			end
 		end
 		local ok = false
 		for _ = 1, 60 do
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			if focused == nil then
 				step()
 				continue
 			end
 			-- the section switch first (its second option is Settings)...
 			if
-				w.chrome.kind:get() == "demos"
+				w.chrome.kind:peek() == "demos"
 				and string.find(focused, "/Section/Indicator/Options/Opt2", 1, true) ~= nil
 			then
 				press(w.system, "ButtonA")
@@ -733,8 +736,8 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 			step()
 		end
 		expect(`the pad reached and pressed Reduced: {ok}`).toBe("the pad reached and pressed Reduced: true")
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
-		expect(w.settings.setting:get()).toBe("reduced")
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
+		expect(w.settings.setting:peek()).toBe("reduced")
 	end)
 end)
 
@@ -748,7 +751,7 @@ describe("showcase chrome (3): mouse and touch still work exactly as before", fu
 		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
-		expect(w.chrome.kind:get()).toBe("demos")
+		expect(w.chrome.kind:peek()).toBe("demos")
 		local before = w.demos.current()
 		local other = demo_picker.next(before, 1)
 		w.adapter.tap(`/ShowcasePanel/Dock/Column/Panel/DemosWhen/then/Rows/{other}`)
@@ -762,7 +765,7 @@ describe("showcase chrome (3): mouse and touch still work exactly as before", fu
 		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
-		expect(w.chrome.kind:get()).toBe("demos")
+		expect(w.chrome.kind:peek()).toBe("demos")
 		-- found by substring, like case (1)'s keyboard test does, rather than a
 		-- hardcoded absolute path: the claim under test is "a tap reaches it",
 		-- not "the picker's internal ids never change"
@@ -776,7 +779,7 @@ describe("showcase chrome (3): mouse and touch still work exactly as before", fu
 		expect(settingsOption ~= nil).toBe(true)
 		w.adapter.tap(settingsOption :: string)
 		w.settle()
-		expect(w.chrome.kind:get()).toBe("settings")
+		expect(w.chrome.kind:peek()).toBe("settings")
 		expect(w.chrome.isOpen()).toBe(true)
 	end)
 
@@ -800,8 +803,8 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 		-- (presenter.luau:2248), so this is the case that would give us two
 		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 		w.settle()
-		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")
-		expect(w.chrome.barHandle().responder:get()).toBe("passive")
+		expect(w.chrome.panelHandle().responder:peek()).toBe("engaged")
+		expect(w.chrome.barHandle().responder:peek()).toBe("passive")
 	end)
 
 	it("one Tab press moves the ring one step, not two", function()
@@ -817,13 +820,13 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 			end
 		end
 		expect(#order > 3).toBe(true)
-		local from = w.pres.focus.focused:get()
+		local from = w.pres.focus.focused:peek()
 		local index = table.find(order, from)
 		expect(`focus is in the panel's traversal order: {index ~= nil}`).toBe(
 			"focus is in the panel's traversal order: true"
 		)
 		press(w.system, "Tab")
-		local to = w.pres.focus.focused:get()
+		local to = w.pres.focus.focused:peek()
 		local moved = (table.find(order, to) or -99) - (index or 0)
 		expect(`one Tab moved {moved} step(s)`).toBe("one Tab moved 1 step(s)")
 	end)
@@ -867,7 +870,7 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		expect(w.chrome.isOpen()).toBe(true)
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
-		expect(`still open, other section: {w.chrome.isOpen()} {w.chrome.kind:get()}`).toBe(
+		expect(`still open, other section: {w.chrome.isOpen()} {w.chrome.kind:peek()}`).toBe(
 			"still open, other section: true settings"
 		)
 	end)
@@ -880,7 +883,7 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 		expect(w.pres.APP_CHROME_PRIORITY > 3000).toBe(true)
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		w.settle()
-		expect(w.chrome.panelHandle().responder:get()).toBe("engaged")
+		expect(w.chrome.panelHandle().responder:peek()).toBe("engaged")
 		press(w.system, showcase_chrome.TOGGLE_KEYBOARD)
 		expect(w.chrome.isOpen()).toBe(false)
 	end)
@@ -1047,10 +1050,10 @@ end)
 describe("settings surface: the motion setting survives a demo swap", function()
 	it("flipping it writes the real environment fact", function()
 		local w = showcase()
-		expect(w.env:get("reducedMotion"):get() == true).toBe(false)
+		expect(w.env:get("reducedMotion"):peek() == true).toBe(false)
 		expect(w.settings.setMode("reduced")).toBe(true)
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
-		expect(w.settings.mode:get()).toBe("reduced")
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
+		expect(w.settings.mode:peek()).toBe("reduced")
 		-- and the derived policy follows, which is what makes it a real setting
 		expect(w.pres.motionClock:isReduced()).toBe(true)
 	end)
@@ -1062,8 +1065,8 @@ describe("settings surface: the motion setting survives a demo swap", function()
 			w.demos.showNext(1)
 			w.settle()
 		end
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
-		expect(w.settings.mode:get()).toBe("reduced")
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
+		expect(w.settings.mode:peek()).toBe("reduced")
 	end)
 
 	it("a demo that drives the fact itself is a LOCAL override the setting outlives", function()
@@ -1072,10 +1075,10 @@ describe("settings surface: the motion setting survives a demo swap", function()
 		-- a demo teardown that restores what it found (with_animation's documented
 		-- behaviour) must not silently revert the preference
 		w.env:set("reducedMotion", false)
-		expect(w.settings.mode:get()).toBe("full") -- the card follows the live fact...
-		expect(w.settings.setting:get()).toBe("reduced") -- ...and the preference does not
+		expect(w.settings.mode:peek()).toBe("full") -- the card follows the live fact...
+		expect(w.settings.setting:peek()).toBe("reduced") -- ...and the preference does not
 		w.settings.apply()
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
 	end)
 
 	it("flipping it RE-SOLVES without rebuilding: mount identity and factory runs are untouched", function()
@@ -1097,16 +1100,18 @@ end)
 -- ===========================================================================
 describe("settings surface x with_animation: one fact, two editors", function()
 	local function withAnimationWorld(reduced: boolean): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("reducedMotion", reduced)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local fixture = (require)("../examples/gallery/scenarios/with_animation") :: any
 		local built = fixture.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			actionSystem = system,
@@ -1118,24 +1123,24 @@ describe("settings surface x with_animation: one fact, two editors", function()
 	end
 
 	it("the fixture still inherits whatever the place-wide setting left behind", function()
-		expect(withAnimationWorld(true).built.motionMode:get()).toBe("reduced")
-		expect(withAnimationWorld(false).built.motionMode:get()).toBe("full")
+		expect(withAnimationWorld(true).built.motionMode:peek()).toBe("reduced")
+		expect(withAnimationWorld(false).built.motionMode:peek()).toBe("full")
 	end)
 
 	it("a settings flip moves the demo's own segmented control in the same frame", function()
 		local w = withAnimationWorld(false)
-		expect(w.built.motionMode:get()).toBe("full")
+		expect(w.built.motionMode:peek()).toBe("full")
 		-- what the settings card's picker does, through the same one fact
 		w.env:set("reducedMotion", true)
-		expect(w.built.motionMode:get()).toBe("reduced")
+		expect(w.built.motionMode:peek()).toBe("reduced")
 	end)
 
 	it("the demo's own flip still restores on dispose — the trap that rule exists for", function()
 		local w = withAnimationWorld(false)
 		w.built.steps.setMotion(w.built, "reduced")
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
 		w.built.dispose()
-		expect(w.env:get("reducedMotion"):get()).toBe(false)
+		expect(w.env:get("reducedMotion"):peek()).toBe(false)
 	end)
 
 	it("and the host's re-apply is what makes the SETTING win over that restore", function()
@@ -1144,12 +1149,12 @@ describe("settings surface x with_animation: one fact, two editors", function()
 		-- host re-applies the preference on the next mount
 		local w = showcase()
 		w.settings.setMode("reduced")
-		local inherited = w.env:get("reducedMotion"):get()
+		local inherited = w.env:get("reducedMotion"):peek()
 		expect(inherited).toBe(true)
 		w.env:set("reducedMotion", false) -- the demo's restore, in miniature
 		w.demos.showNext(1) -- ...and the next mount, which calls settings.apply()
 		w.settle()
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
 	end)
 end)
 
@@ -1426,8 +1431,8 @@ describe("showcase chrome (10): the open panel stays over the demo", function()
 		w.settle()
 		w.demos.showNext(1)
 		w.settle()
-		expect(w.chrome.kind:get()).toBe("settings")
-		local focused = w.pres.focus.focused:get()
+		expect(w.chrome.kind:peek()).toBe("settings")
+		local focused = w.pres.focus.focused:peek()
 		expect(`focus is inside the panel: {isPrefix("/ShowcasePanel", focused)}`).toBe(
 			"focus is inside the panel: true"
 		)
@@ -1446,8 +1451,8 @@ describe("showcase chrome (11): the two shoulder buttons open the two sections",
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
-		expect(w.chrome.kind:get()).toBe("demos")
-		expect(`focus landed in the panel: {isPrefix("/ShowcasePanel", w.pres.focus.focused:get())}`).toBe(
+		expect(w.chrome.kind:peek()).toBe("demos")
+		expect(`focus landed in the panel: {isPrefix("/ShowcasePanel", w.pres.focus.focused:peek())}`).toBe(
 			"focus landed in the panel: true"
 		)
 	end)
@@ -1456,13 +1461,13 @@ describe("showcase chrome (11): the two shoulder buttons open the two sections",
 		local w = showcase()
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
 		w.settle()
-		expect(w.chrome.kind:get()).toBe("settings")
+		expect(w.chrome.kind:peek()).toBe("settings")
 		expect(w.chrome.isOpen()).toBe(true)
 		-- ...and the other shoulder SWITCHES rather than closing: two buttons, two
 		-- destinations, no state to remember
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		w.settle()
-		expect(w.chrome.kind:get()).toBe("demos")
+		expect(w.chrome.kind:peek()).toBe("demos")
 		expect(w.chrome.isOpen()).toBe(true)
 	end)
 
@@ -1482,7 +1487,7 @@ describe("showcase chrome (11): the two shoulder buttons open the two sections",
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(false)
 		-- the ring goes back to the screen the player was on
-		expect(`focus returned to the demo: {isPrefix("/Demo", w.pres.focus.focused:get())}`).toBe(
+		expect(`focus returned to the demo: {isPrefix("/Demo", w.pres.focus.focused:peek())}`).toBe(
 			"focus returned to the demo: true"
 		)
 	end)
@@ -1510,12 +1515,12 @@ describe("showcase chrome (12): the chip strip sits inside the television's over
 	local CONSOLE = { w = 1920, h = 1080, displaySize = "Large", preferredInput = "Gamepad" }
 
 	local function insets(w: any): any
-		return w.env:get("effectiveOverscanInsets"):get()
+		return w.env:get("effectiveOverscanInsets"):peek()
 	end
 
 	it("the console row starts at or inside the overscan inset, on both axes", function()
 		local w = showcase(CONSOLE)
-		expect(w.env:get("distanceProfile"):get()).toBe("ten-foot")
+		expect(w.env:get("distanceProfile"):peek()).toBe("ten-foot")
 		local over = insets(w)
 		expect(`overscan {over.left}/{over.top}`).toBe("overscan 90/60")
 		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
@@ -1558,7 +1563,7 @@ describe("showcase chrome (12): the chip strip sits inside the television's over
 			}
 		do
 			local w = showcase({ w = row.w, h = row.h })
-			expect(`{row.name}: {w.env:get("distanceProfile"):get()}`).toBe(`{row.name}: near`)
+			expect(`{row.name}: {w.env:get("distanceProfile"):peek()}`).toBe(`{row.name}: near`)
 			local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
 			local screen = w.adapter.node("/ShowcaseChrome")
 			-- the gutter, and nothing but the gutter — the same number the DIR-1
@@ -1606,7 +1611,7 @@ describe("showcase chrome (13): the chips carry their shoulder mark on a pad", f
 
 	it("a gamepad sees LB and RB, and they are the bindings' own display names", function()
 		local w = showcase({ preferredInput = "Gamepad" })
-		expect(w.env:get("effectiveInput"):get()).toBe("Gamepad")
+		expect(w.env:get("effectiveInput"):peek()).toBe("Gamepad")
 		expect(textAt(w, GLYPH_DEMOS)).toBe(showcase_chrome.SECTION_GLYPH.demos)
 		expect(textAt(w, GLYPH_SETTINGS)).toBe(showcase_chrome.SECTION_GLYPH.settings)
 	end)
@@ -1715,7 +1720,7 @@ describe("showcase chrome (14): a shoulder press resolves to ONE context", funct
 			local w = contending()
 			press(w.system, showcase_chrome.SECTION_GAMEPAD[section])
 			w.settle()
-			expect(`{section}: open {w.chrome.isOpen()} kind {w.chrome.kind:get()} adjustHits {w.hits.n}`).toBe(
+			expect(`{section}: open {w.chrome.isOpen()} kind {w.chrome.kind:peek()} adjustHits {w.hits.n}`).toBe(
 				`{section}: open true kind {section} adjustHits 0`
 			)
 		end
@@ -1726,22 +1731,22 @@ describe("showcase chrome (14): a shoulder press resolves to ONE context", funct
 		-- idle -> open
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		w.settle()
-		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open true kind demos")
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("open true kind demos")
 		-- other section -> SWITCH, not close
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
 		w.settle()
-		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open true kind settings")
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("open true kind settings")
 		-- same section -> close
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
 		w.settle()
-		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open false kind settings")
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("open false kind settings")
 		-- ...and back the other way, from closed
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		w.settle()
-		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open true kind demos")
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("open true kind demos")
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		w.settle()
-		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("open false kind demos")
+		expect(`open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("open false kind demos")
 		expect(`the value under the ring never moved: {w.hits.n}`).toBe("the value under the ring never moved: 0")
 	end)
 
@@ -1823,11 +1828,11 @@ describe("showcase chrome (15): the raise spends a layer only when it has to", f
 		-- walk down the list, the way a player reading it would
 		press(w.system, "DPadDown")
 		press(w.system, "DPadDown")
-		local before = w.pres.focus.focused:get()
+		local before = w.pres.focus.focused:peek()
 		expect(isPrefix("/ShowcasePanel", before)).toBe(true)
 		w.demos.showNext(1)
 		w.settle()
-		expect(`the ring stayed on {tostring(w.pres.focus.focused:get())}`).toBe(
+		expect(`the ring stayed on {tostring(w.pres.focus.focused:peek())}`).toBe(
 			`the ring stayed on {tostring(before)}`
 		)
 	end)
@@ -1897,15 +1902,16 @@ describe("showcase chrome (16): ButtonY belongs to the menu verb, not the chrome
 		expect(built ~= nil).toBe(true)
 		local function openCount(): number
 			local n = 0
-			for _, card in built.report().cards do
-				if card.open then
+			-- an application holds no handle on a menu; the world records each control
+			for _, id in { "Tap", "Chord", "Secondary", "Hold", "Blocked" } do
+				if w.opts.demoCtx.controlRecord(id).dump().open then
 					n += 1
 				end
 			end
 			return n
 		end
 		expect(openCount()).toBe(0)
-		w.pres.focus.focusOn("/MenuDemo/Page/Cards/CardChord/ChordTrigger")
+		w.pres.focus.focusOn("/MenuDemo/Page/Cards/CardChord/Chord")
 		press(w.system, "ButtonY")
 		w.settle()
 		expect(`ButtonY opened {openCount()} menu(s); chrome open {w.chrome.isOpen()}`).toBe(
@@ -1922,10 +1928,10 @@ describe("showcase chrome (16): ButtonY belongs to the menu verb, not the chrome
 		w.settle()
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.demos)
 		w.settle()
-		expect(`L1: open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("L1: open true kind demos")
+		expect(`L1: open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("L1: open true kind demos")
 		press(w.system, showcase_chrome.SECTION_GAMEPAD.settings)
 		w.settle()
-		expect(`R1: open {w.chrome.isOpen()} kind {w.chrome.kind:get()}`).toBe("R1: open true kind settings")
+		expect(`R1: open {w.chrome.isOpen()} kind {w.chrome.kind:peek()}`).toBe("R1: open true kind settings")
 	end)
 
 	it("the export says so: there is no gamepad toggle key to name", function()
@@ -1961,8 +1967,8 @@ describe("showcase chrome (17): every edge of the strip clears the overscan", fu
 		are observed, and `right` is the one that was actually wrong. ]]
 	it("the bar's box is inside the safe rectangle on all four edges", function()
 		local w = showcase(CONSOLE)
-		local over = w.env:get("effectiveOverscanInsets"):get()
-		local vp = w.env:get("viewportRect"):get()
+		local over = w.env:get("effectiveOverscanInsets"):peek()
+		local vp = w.env:get("viewportRect"):peek()
 		local bar = w.adapter.node("/ShowcaseChrome/Dock/Bar")
 		expect(bar ~= nil).toBe(true)
 		local right = bar.rect.x + bar.rect.w
@@ -1975,8 +1981,8 @@ describe("showcase chrome (17): every edge of the strip clears the overscan", fu
 
 	it("...and the ladder is offered the VISIBLE width, not the panel's", function()
 		local w = showcase(CONSOLE)
-		local over = w.env:get("effectiveOverscanInsets"):get()
-		local vp = w.env:get("viewportRect"):get()
+		local over = w.env:get("effectiveOverscanInsets"):peek()
+		local vp = w.env:get("viewportRect"):peek()
 		local chips = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
 		-- the `ViewThatFits` row is `fill`, so its width IS the offer the ladder
 		-- measures its rungs against
@@ -2022,7 +2028,7 @@ describe("showcase chrome (18): a broken raise listener is reported, not swallow
 		expect(`reported: {string.find(lines[1], "a raise listener failed", 1, true) ~= nil}`).toBe("reported: true")
 		-- ...and the chrome's OWN listener, registered first, still ran
 		expect(`the panel is still up and on top: {w.chrome.isOpen()}`).toBe("the panel is still up and on top: true")
-		expect(`no error reached the core: {tostring(w.core:lastError())}`).toBe("no error reached the core: nil")
+		expect(`no error reached the core: {tostring(w.core.lastError())}`).toBe("no error reached the core: nil")
 	end)
 end)
 
@@ -2062,14 +2068,14 @@ describe("Showcase display settings", function()
 			w.settle()
 			expect(w.demos.current()).toBe(demo)
 			expect(#w.demoHandles).toBe(count)
-			expect(w.settings.previewProfile:get()).toBe(profile)
-			expect(w.env:get("interactionClasses"):get().primary).toBe("gamepad")
-			expect(w.core:lastError()).toBe(nil)
+			expect(w.settings.previewProfile:peek()).toBe(profile)
+			expect(w.env:get("interactionClasses"):peek().primary).toBe("gamepad")
+			expect(w.core.lastError()).toBe(nil)
 			expect(#overflowsOf(w)).toBe(0)
 		end
 		w.settings.setViewingDistance("ten-foot")
 		w.settings.apply()
-		expect(w.env:get("distanceProfile"):get()).toBe("ten-foot")
+		expect(w.env:get("distanceProfile"):peek()).toBe("ten-foot")
 	end)
 end)
 

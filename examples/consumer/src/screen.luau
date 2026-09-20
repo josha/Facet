@@ -15,14 +15,14 @@ screen.PATHS = table.freeze({
 })
 
 function screen.session(Facet: any, h: any, opts: { closeAfterSeconds: number? }?)
-	local UI = Facet.View
+	local UI, Compose = h.controls, Facet.Compose
 	local closeAfterSeconds = (opts and opts.closeAfterSeconds) or 120
 	local torn = false
-	local handle
+	local close, node
 	local built: any = {} -- Commands/readbacks for the example's headless driver.
 	local function dismiss()
-		if handle then
-			h.presenter.dismiss(handle)
+		if close then
+			close()
 		end
 	end
 	local function teardown()
@@ -33,71 +33,73 @@ function screen.session(Facet: any, h: any, opts: { closeAfterSeconds: number? }
 		dismiss()
 		h.dispose()
 	end
-	local Consumer = Facet.component(function(ui)
-		local count, setCount = ui.state(0)
-		local soundOn, setSoundOn = ui.state(true)
-		local viewport = ui.env("viewportRect")
-		built.count, built.setCount = count, setCount
-		built.soundOn, built.setSoundOn = soundOn, setSoundOn
+	local function Consumer()
+		local count = Compose.cell(0)
+		local soundOn = Compose.cell(true)
+		local viewport = h.environment:get("viewportRect")
+		built.count, built.setCount = function()
+			return count:peek()
+		end, function(value)
+			count:set(value)
+		end
+		built.soundOn, built.setSoundOn =
+			function()
+				return soundOn:peek()
+			end, function(value)
+				soundOn:set(value)
+			end
 		-- External subscriptions use the same component lifetime. No second
 		-- RunService connection: the host already drives the presenter's clock.
 		local elapsed = 0
-		ui.own(h.presenter.onTick(function(dt)
+		Compose.cleanup(h.onFrame(function(dt)
 			elapsed += dt
 			if elapsed >= closeAfterSeconds then
 				teardown()
 			end
 		end))
-		return UI.Screen({
-			id = "Consumer",
+		return UI.Screen("Consumer")({
 			padding = "l",
-			UI.VStack({
-				id = "Panel",
+			UI.VStack("Panel")({
 				surface = "raised",
 				padding = "m",
 				gap = "s",
-				UI.Text({ id = "Title", text = "Facet consumer", textSize = "title" }),
-				UI.Text({
-					id = "Blurb",
+				UI.Text("Title")({ text = "Facet consumer", textSize = "title" }),
+				UI.Text("Blurb")({
 					text = "One component, local state, one theme. Press Bump and watch the count follow.",
 				}),
-				UI.VStack({
-					id = "Readout",
+				UI.VStack("Readout")({
 					gap = "xs",
-					UI.Text({
-						id = "Count",
+					UI.Text("Count")({
 						tint = { role = "accent", blend = 1 },
-						text = function()
-							return if count() == 1 then "1 tap" else `{count()} taps`
+						text = function(use)
+							return if use(count) == 1 then "1 tap" else `{use(count)} taps`
 						end,
 					}),
-					UI.Toggle({ id = "Sound", label = "Sound", value = soundOn, onChange = setSoundOn }),
+					UI.Toggle("Sound")({ label = "Sound", value = soundOn }),
 				}),
-				UI.AdaptiveStack({
-					id = "Buttons",
+				UI.AdaptiveStack("Buttons")({
 					gap = "s",
-					axis = function()
-						return Facet.adaptive.axisFor(viewport().w)
+					axis = function(use)
+						return Facet.adaptive.axisFor(use(viewport).w)
 					end,
-					UI.Button({
-						id = "Bump",
+					UI.Button("Bump")({
 						label = "Bump",
 						onActivate = function()
-							setCount(function(n)
+							count:update(function(n)
 								return n + 1
 							end)
 						end,
 					}),
-					UI.Button({ id = "Close", label = "Close", onActivate = teardown }),
+					UI.Button("Close")({ label = "Close", onActivate = teardown }),
 				}),
 			}),
 		})
-	end)
-	handle = h.presenter.present(Consumer({}))
+	end
+	close, node = h.mount(Consumer)
 	built.dispose = dismiss
 	return {
 		built = built,
-		handle = handle,
+		node = node,
 		teardown = teardown,
 		isTorn = function()
 			return torn

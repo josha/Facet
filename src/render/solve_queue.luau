@@ -218,7 +218,7 @@ local solve_queue = {}
 local SOLVE_DRAIN_ROUND_CAP = 16
 
 --[[ WHERE AN ABSORBED SOLVE'S ERROR GOES. Default is the engine's own `warn`,
-	which is the channel `core/custom.luau`'s `fail` already uses for every
+	which is the channel `core/services.luau`'s `report` already uses for every
 	quarantined write in this framework ("a silent quarantine heals the STATE and
 	tells nobody"). Replaceable for the reason `client/text_premeasure`'s scheduler
 	seam is: a spec driving this path asserts the report rather than printing
@@ -240,7 +240,7 @@ end
 	consumer may be catching and matching on, and `debug.traceback` takes a string
 	message. Annotating it would change what the caller receives; losing the trace
 	for that case is the smaller harm and the one this framework's own
-	`core/custom` quarantine already accepts. ]]
+	`core/services` containment already accepts. ]]
 local function annotate(err: any): any
 	if type(err) == "string" then
 		return debug.traceback(err, 2)

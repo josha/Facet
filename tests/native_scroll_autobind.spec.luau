@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ O-31 — A VIRTUALISED COLLECTION FOLLOWS ITS OWN ENGINE SCROLL WITH NO
 	CONSUMER CALL AT ALL.
 
@@ -59,7 +60,8 @@ local virtual_list = require("../src/controls/virtual_list")
 local virtual_grid = require("../src/controls/virtual_grid")
 local table_control = require("../src/controls/table")
 local contribution = require("../src/input/contribution")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeItems(n: number): { { id: string, label: string } }
 	local items = table.create(n)
@@ -71,12 +73,12 @@ end
 
 -- a presenter over a fake target, with NOTHING presented yet
 local function stage()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
 end
 
@@ -123,7 +125,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		local options = opts or {}
 		local list = virtual_list.build(Facet, s.core, {
 			id = "VL",
-			rows = s.core:signal(makeItems(400)),
+			rows = Compose.cell(makeItems(400)),
 			key = function(item: any)
 				return item.id
 			end,
@@ -131,10 +133,10 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			viewportExtent = 400,
 			overscan = 0,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } })
 		local handle = s.pres.present(screen, options.presentOpts)
 		s.pres.refresh()
 		return { s = s, list = list, handle = handle }
@@ -147,7 +149,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		-- control's api, and no consumer wired a mirror
 		w.s.adapter.driveScroll("/S/VL", { x = 0, y = 2000 })
 		w.s.pres.refresh()
-		expect(w.list.scrollTop:get()).toBe(2000)
+		expect(w.list.scrollTop:peek()).toBe(2000)
 		expect(w.list.debugWindow().i1).toBe(nil)
 		expect(w.list.debugWindow().i51).toBe(true)
 	end)
@@ -156,7 +158,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		local s = stage()
 		local grid = virtual_grid.build(Facet, s.core, {
 			id = "VG",
-			items = s.core:signal(makeItems(400)),
+			items = Compose.cell(makeItems(400)),
 			key = function(item: any)
 				return item.id
 			end,
@@ -169,10 +171,10 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			-- the width IS the scroll axis and the control refuses it by name
 			width = if axis == "x" then nil else { type = "fixed", px = 320 },
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } })
 		local handle = s.pres.present(screen, presentOpts)
 		s.pres.refresh()
 		return { s = s, grid = grid, handle = handle }
@@ -185,7 +187,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			expect(w.grid.debugWindow().i1).toBe(true)
 			w.s.adapter.driveScroll("/S/VG", { x = 0, y = 400 })
 			w.s.pres.refresh()
-			expect(w.grid.scrollTop:get()).toBe(400)
+			expect(w.grid.scrollTop:peek()).toBe(400)
 			expect(w.grid.debugWindow().i1).toBe(nil)
 			expect(w.grid.debugWindow().i41).toBe(true)
 		end
@@ -204,7 +206,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			expect(w.grid.debugWindow().i1).toBe(true)
 			w.s.adapter.driveScroll("/S/VG", { x = 400, y = 0 })
 			w.s.pres.refresh()
-			expect(w.grid.scrollTop:get()).toBe(400)
+			expect(w.grid.scrollTop:peek()).toBe(400)
 			expect(w.grid.debugWindow().i1).toBe(nil)
 			expect(w.grid.debugWindow().i41).toBe(true)
 		end
@@ -216,12 +218,13 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		local tbl = table_control.build(Facet, s.core, {
 			id = "T",
 			columns = { { id = "name", title = "Name", width = { type = "fill", weight = 1 } } },
-			rows = s.core:signal(makeItems(400)),
+			rows = Compose.cell(makeItems(400)),
 			key = function(item: any)
 				return item.id
 			end,
 			cellFor = function(_columnId: string, item: any)
-				return Facet.UI.Text({ id = "Value", text = item.label, textSize = 16 })
+				-- a Table cell receives its item as a readable
+				return harness.UI.Text({ id = "Value", text = item:peek().label, textSize = 16 })
 			end,
 			rowHeight = 40,
 			header = false,
@@ -229,7 +232,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			scrolls = options.scrolls,
 			env = s.env,
 		})
-		local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { tbl.blueprint } })
 		local handle = s.pres.present(screen, options.presentOpts)
 		-- two refreshes: the window is taken against the body's MEASURED height,
 		-- which only exists after a solve (see tests/table_virtualized.spec.luau)
@@ -247,10 +250,10 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		local after = w.tbl.dump()
 		expect(after.scrollTop).toBe(2000)
 		-- the WINDOW moved, not just the signal: row 1 left and a row that could
-		-- only be reached by scrolling arrived (`@0` is the row's revision suffix,
-		-- see tests/table_virtualized.spec.luau's own `rowPath`)
-		expect(w.s.adapter.node("/S/T/Main/Body/Canvas/Rows/[i1@0]/Row")).toBeNil()
-		expect(w.s.adapter.node("/S/T/Main/Body/Canvas/Rows/[i51@0]/Row") ~= nil).toBe(true)
+		-- only be reached by scrolling arrived (the keyed path is
+		-- tests/table_virtualized.spec.luau's own `rowPath`)
+		expect(w.s.adapter.node("/S/T/Main/Body/Canvas/Rows/[i1]/Row")).toBeNil()
+		expect(w.s.adapter.node("/S/T/Main/Body/Canvas/Rows/[i51]/Row") ~= nil).toBe(true)
 	end)
 
 	-- =======================================================================
@@ -267,7 +270,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			local w = listWorld({ presentOpts = { navigationGroups = DECLARED_GROUPS } })
 			w.s.adapter.driveScroll("/S/VL", { x = 0, y = 2000 })
 			w.s.pres.refresh()
-			expect(w.list.scrollTop:get()).toBe(2000)
+			expect(w.list.scrollTop:peek()).toBe(2000)
 			expect(w.list.debugWindow().i51).toBe(true)
 		end
 	)
@@ -280,13 +283,13 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		})
 		byFn.s.adapter.driveScroll("/S/VG", { x = 0, y = 400 })
 		byFn.s.pres.refresh()
-		expect(byFn.grid.scrollTop:get()).toBe(400)
+		expect(byFn.grid.scrollTop:peek()).toBe(400)
 		expect(byFn.grid.debugWindow().i41).toBe(true)
 
 		local flat = gridWorld("y", { navigationGroups = false })
 		flat.s.adapter.driveScroll("/S/VG", { x = 0, y = 400 })
 		flat.s.pres.refresh()
-		expect(flat.grid.scrollTop:get()).toBe(400)
+		expect(flat.grid.scrollTop:peek()).toBe(400)
 		expect(flat.grid.debugWindow().i41).toBe(true)
 	end)
 
@@ -301,7 +304,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 				local s = stage()
 				local grid = virtual_grid.build(Facet, s.core, {
 					id = "VG",
-					items = s.core:signal(makeItems(40)),
+					items = Compose.cell(makeItems(40)),
 					key = function(item: any)
 						return item.id
 					end,
@@ -310,7 +313,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 					viewportExtent = 400,
 					width = { type = "fixed", px = 320 },
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 				local bp = grid.blueprint
@@ -324,14 +327,9 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 				end
 				local meta = table.clone(bp.meta)
 				meta[contribution.PROP] = counted
-				bp = table.freeze({
-					class = bp.class,
-					id = bp.id,
-					props = bp.props,
-					children = bp.children,
-					meta = table.freeze(meta),
-				})
-				local screen = Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { bp } })
+				-- a native node is owned: its contribution is replaced in place
+				bp.meta = table.freeze(meta)
+				local screen = harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { bp } })
 				s.pres.present(screen, presentOpts)
 				s.pres.refresh()
 				s.pres.refresh()
@@ -372,11 +370,11 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		-- ...and the unbind the consumer is handed stops the mirror ONCE, rather
 		-- than removing its own registration and leaving the framework's behind
 		w.s.adapter.driveScroll("/S/VL", { x = 0, y = 400 })
-		expect(w.list.scrollTop:get()).toBe(400)
+		expect(w.list.scrollTop:peek()).toBe(400)
 		unbind()
 		expect(scrollObserverCount(w.s.adapter, "/S/VL")).toBe(RENDERER_CLIP_OBSERVER)
 		w.s.adapter.driveScroll("/S/VL", { x = 0, y = 800 })
-		expect(w.list.scrollTop:get()).toBe(400)
+		expect(w.list.scrollTop:peek()).toBe(400)
 	end)
 
 	it("...and a refresh after that unbind does NOT resurrect the mirror", function()
@@ -390,7 +388,7 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 		w.s.pres.refresh()
 		expect(scrollObserverCount(w.s.adapter, "/S/VL")).toBe(RENDERER_CLIP_OBSERVER)
 		w.s.adapter.driveScroll("/S/VL", { x = 0, y = 800 })
-		expect(w.list.scrollTop:get()).toBe(0)
+		expect(w.list.scrollTop:peek()).toBe(0)
 	end)
 
 	it("the same on Table, whose body path can carry a SECOND mirror observer", function()
@@ -441,17 +439,17 @@ describe("O-31: a virtualised collection follows the engine with no consumer cal
 			no such walk, so the refusal that names the alternative must survive
 			verbatim — otherwise this fix would have quietly turned a legible
 			construction-time error into a nil-deref somewhere downstream. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
-			rows = core:signal(makeItems(10)),
+			rows = Compose.cell(makeItems(10)),
 			key = function(item: any)
 				return item.id
 			end,
 			itemExtent = 40,
 			viewportExtent = 400,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local ok, err = pcall(function()

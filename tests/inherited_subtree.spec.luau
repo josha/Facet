@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ INHERITED `tint` AND INHERITED DISABLED SUBTREES (2026-09-07; design note
 	`docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`).
 
@@ -22,9 +23,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 --[[ THE SHARED HEADLESS WORLD, not a builder of this file's own (R12's follow-up
@@ -34,13 +35,14 @@ local rendererLib = require("../src/render/renderer")
 	below stays hand-rolled because it deliberately has NO presenter — it drives the
 	renderer straight, which is the only way to read what actually reached the
 	adapter. ]]
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local classContract = require("../src/class_contract")
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local default_style = require("../src/tokens/default_style")
 local light_style = require("../src/tokens/default_light_style")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function fixed(px: number)
 	return { type = "fixed", px = px }
@@ -138,16 +140,21 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		can be relying on it, and the leaf form — where the author names the node — is
 		untouched. That is the whole reason to decide it now rather than document it. ]]
 	it("a CONTAINER tint refuses `transparency`, and the refusal names the leaf form", function()
+		-- Cross-property rules run when the node joins a tree.
 		local ok, err = pcall(function()
-			return UI.VStack({
-				id = "V",
-				tint = { role = "accent", blend = 1, transparency = 0.5 },
-				children = {},
-			})
+			return harness.mount(
+				harness.newCore(),
+				UI.VStack({
+					id = "V",
+					tint = { role = "accent", blend = 1, transparency = 0.5 },
+					children = {},
+				})
+			)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "transparency", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "claim", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "CLAIM", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "on the leaf", 1, true) ~= nil).toBe(true)
 	end)
 
 	--[[ AND THE REFUSAL HAS A READ-SITE HALF. The schema check runs at
@@ -163,7 +170,7 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		would paint garbage the constructor would have refused". This is that half. ]]
 	it("a REACTIVE container tint carrying the alpha is refused at present, with the same sentence", function()
 		local w = newWorld()
-		local hue = w.core:signal({ role = "accent", blend = 1, transparency = 0.5 })
+		local hue = Compose.cell({ role = "accent", blend = 1, transparency = 0.5 })
 		local ok, err = pcall(function()
 			return w.present(UI.Screen({
 				id = "S",
@@ -178,19 +185,19 @@ describe("C: a container accepts `enabled` and `tint`", function()
 
 	it("...and a mid-life flip to an alpha is refused too, on a presented screen", function()
 		local w = newWorld()
-		local hue = w.core:signal({ role = "accent", blend = 1 })
+		local hue = Compose.cell({ role = "accent", blend = 1 })
 		w.present(UI.Screen({
 			id = "S",
 			children = { UI.VStack({ id = "Panel", tint = hue, children = { UI.Text({ id = "L", text = "hi" }) } }) },
 		}))
 		w.pres.refresh()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		hue:set({ role = "accent", blend = 1, transparency = 0.5 })
 		--[[ a mid-life set runs inside mount's own observer, so the framework's error
 			ladder QUARANTINES it (constitution §8) rather than throwing through the
 			consumer's `:set`. Refused either way, and recorded where a bug report can
 			read it. ]]
-		expect(string.find(tostring(w.core:lastError()), "inherited tint takes no `transparency`", 1, true) ~= nil).toBe(
+		expect(string.find(tostring(w.core.lastError()), "inherited tint takes no `transparency`", 1, true) ~= nil).toBe(
 			true
 		)
 	end)
@@ -201,7 +208,7 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		working, or the fix would have closed the hazard by closing the feature. ]]
 	it("a Path under a reactive container tint WITHOUT an alpha renders and repaints", function()
 		local w = newWorld()
-		local hue = w.core:signal({ role = "accent", blend = 1 })
+		local hue = Compose.cell({ role = "accent", blend = 1 })
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -221,11 +228,11 @@ describe("C: a container accepts `enabled` and `tint`", function()
 			},
 		}))
 		w.pres.refresh()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		expect((w.adapter.node("/S/Panel/Arc").props.tint :: any).role).toBe("accent")
 		hue:set({ role = "danger", blend = 1 })
 		w.pres.refresh()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		expect((w.adapter.node("/S/Panel/Arc").props.tint :: any).role).toBe("danger")
 	end)
 
@@ -407,7 +414,7 @@ describe("C: an ancestor signal flips the subtree with no remount", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -448,7 +455,7 @@ describe("C: an ancestor signal flips the subtree with no remount", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local hue = core:signal(ACCENT)
+		local hue = Compose.cell(ACCENT)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -486,8 +493,8 @@ describe("C: an ancestor signal flips the subtree with no remount", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local on = core:signal(false)
-		local shown = core:signal(false)
+		local on = Compose.cell(false)
+		local shown = Compose.cell(false)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -572,7 +579,7 @@ describe("C3: a disabled subtree blocks every input path", function()
 			system.deviceKey("DPadDown", true)
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
-			local f = pres.focus.focused:get()
+			local f = pres.focus.focused:peek()
 			if f ~= nil then
 				seen ..= f .. ","
 			end
@@ -817,32 +824,32 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 		system.deviceKey("DPadRight", true)
 		system.deviceKey("DPadRight", false)
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/Row/B")
+		expect(pres.focus.focused:peek()).toBe("/S/Row/B")
 	end)
 
 	it("initialFocus does not land inside it", function()
 		local _, _, _, _, pres = present(grouped(false, offButton()))
-		expect(tostring(pres.focus.focused:get())).never().toBe("/S/Row/Panel/Off")
+		expect(tostring(pres.focus.focused:peek())).never().toBe("/S/Row/Panel/Off")
 	end)
 
 	it("focus already inside it LEAVES when the panel is switched off", function()
 		local w = newWorld(600, 600)
 		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		pres.present(grouped(on, offButton()))
 		pres.refresh()
 		pres.focus.focusOn("/S/Row/Panel/Off")
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/Row/Panel/Off")
+		expect(pres.focus.focused:peek()).toBe("/S/Row/Panel/Off")
 		on:set(false)
 		pres.refresh()
-		expect(tostring(pres.focus.focused:get())).never().toBe("/S/Row/Panel/Off")
+		expect(tostring(pres.focus.focused:peek())).never().toBe("/S/Row/Panel/Off")
 	end)
 
 	it("...and the same holds when the live siblings are a Grid rather than a row", function()
 		local w = newWorld(600, 600)
 		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -868,7 +875,7 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 		pres.refresh()
 		on:set(false)
 		pres.refresh()
-		expect(tostring(pres.focus.focused:get())).never().toBe("/S/G/Panel/Off")
+		expect(tostring(pres.focus.focused:peek())).never().toBe("/S/G/Panel/Off")
 		for _, group in pres.focus.focusMap().navigation or {} do
 			expect(has(pathsOf(group.order or {}), "/S/G/Panel/Off")).toBe(false)
 		end
@@ -882,8 +889,8 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 	it("a Slider inside the subtree keeps its owner's value, on both Adjust keys", function()
 		local w = newWorld(600, 600)
 		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
-		local value = core:signal(0.5)
-		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1 })
+		local value = Compose.cell(0.5)
+		local slider = harness.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -913,15 +920,15 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 			system.deviceKey("DPadRight", false)
 			pres.refresh()
 		end
-		expect(value:get()).toBe(0.5)
+		expect(value:peek()).toBe(0.5)
 		slider.dispose()
 	end)
 
 	it("a Stepper inside the subtree is not a dead stop the pad can reach", function()
 		local w = newWorld(600, 600)
 		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
-		local qty = core:signal(3)
-		local stepper = Facet.Controls.Stepper(core, { id = "Qty", label = "Qty", value = qty, min = 0, max = 9 })
+		local qty = Compose.cell(3)
+		local stepper = harness.Controls.Stepper(core, { id = "Qty", label = "Qty", value = qty, min = 0, max = 9 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -935,11 +942,11 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
 		end
-		expect(string.find(tostring(pres.focus.focused:get()), "/S/Panel/", 1, true)).toBe(nil)
+		expect(string.find(tostring(pres.focus.focused:peek()), "/S/Panel/", 1, true)).toBe(nil)
 		for _, group in pres.focus.focusMap().navigation or {} do
 			expect(has(pathsOf(group.order or {}), "/S/Panel/Qty")).toBe(false)
 		end
-		expect(qty:get()).toBe(3)
+		expect(qty:peek()).toBe(3)
 		stepper.dispose()
 	end)
 end)
@@ -964,7 +971,7 @@ describe("I5: a presented surface does not inherit the presenter's disabled subt
 	it("a modal opened before the panel is switched off stays live, and api.md says so", function()
 		local w = newWorld(400, 600)
 		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -1091,14 +1098,18 @@ describe("the disabled filter runs on the BUILT groups, so it reaches every one"
 		it(`{name}`, function()
 			local livePres, live = withControl(make, true)
 			expect(ringHas(livePres, needle)).toBe(true)
-			live.dispose()
+			if live.dispose ~= nil then
+				live.dispose()
+			end
 
 			local offPres, off = withControl(make, false)
 			expect(ringHas(offPres, needle)).toBe(false)
 			if checkFocus then
-				expect(string.find(tostring(offPres.focus.focused:get()), "/S/Panel/", 1, true)).toBe(nil)
+				expect(string.find(tostring(offPres.focus.focused:peek()), "/S/Panel/", 1, true)).toBe(nil)
 			end
-			off.dispose()
+			if off.dispose ~= nil then
+				off.dispose()
+			end
 		end)
 	end
 
@@ -1106,8 +1117,8 @@ describe("the disabled filter runs on the BUILT groups, so it reaches every one"
 		"a Table's contributed row groups leave the ring, and initial focus is not a row",
 		"/S/Panel/T/",
 		function(core, _env)
-			local rows = core:signal({ { id = "r1", name = "one" }, { id = "r2", name = "two" } })
-			return Facet.Controls.Table(core, {
+			local rows = Compose.cell({ { id = "r1", name = "one" }, { id = "r2", name = "two" } })
+			return harness.Controls.Table(core, {
 				id = "T",
 				rows = rows,
 				key = function(item: any)
@@ -1136,19 +1147,21 @@ describe("the disabled filter runs on the BUILT groups, so it reaches every one"
 		for i = 1, 20 do
 			table.insert(items, { id = `r{i}`, label = `row {i}` })
 		end
-		return Facet.Controls.VirtualList(core, {
+		return harness.Controls.VirtualList(core, {
 			id = "VL",
-			rows = core:signal(items),
+			rows = Compose.cell(items),
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = 40,
-			viewportHeight = 200,
+			itemExtent = 40,
+			viewportExtent = 200,
 			-- an explicit width, so the rows are contained by the list they are in.
 			-- Without it the list hugs and every cell overflows it by 8px — real
 			-- violations the containment guard reports, and the reason this file
 			-- briefly (and wrongly) turned that guard off
 			width = fixed(300),
+			-- an activatable list is what contributes a row focus group
+			onActivate = function() end,
 			cell = function(item: any)
 				return UI.Text({ id = "L", text = item.label })
 			end,
@@ -1160,15 +1173,18 @@ describe("the disabled filter runs on the BUILT groups, so it reaches every one"
 		for i = 1, 12 do
 			table.insert(items, { id = `c{i}` })
 		end
-		return Facet.Controls.VirtualGrid(core, {
+		return harness.Controls.VirtualGrid(core, {
 			id = "VG",
-			items = core:signal(items),
+			items = Compose.cell(items),
 			key = function(item: any)
 				return item.id
 			end,
 			itemExtent = 40,
 			columns = 3,
 			viewportExtent = 200,
+			-- an explicit width, so the columns have a share to divide
+			width = fixed(300),
+			onActivate = function() end,
 			cell = function(item: any)
 				return UI.Text({ id = "C", text = item.id })
 			end,
@@ -1181,7 +1197,7 @@ describe("the disabled filter runs on the BUILT groups, so it reaches every one"
 		would ever have found. Filtering the built groups reaches it without the
 		control knowing anything about inheritance. ]]
 	ringCase("a TextInput's contributed group leaves the ring", "/S/Panel/Field", function(core, env)
-		return Facet.Controls.TextInput(core, { id = "Field", value = core:signal("hello"), env = env })
+		return harness.Controls.TextInput(core, { id = "Field", value = Compose.cell("hello"), env = env })
 	end, true)
 
 	it("a CONSUMER-declared navigationGroups map is filtered too, exactly as `hidden` is", function()
@@ -1272,7 +1288,7 @@ describe("a fully disabled Grid row is a wall; stacked rows are not", function()
 			w.system.deviceKey("DPadDown", false)
 			w.pres.refresh()
 		end
-		return tostring(w.pres.focus.focused:get())
+		return tostring(w.pres.focus.focused:peek())
 	end
 	local function cell(id: string, off: boolean?)
 		local props: any = { id = id, label = "x", width = fixed(50), height = fixed(40) }
@@ -1401,7 +1417,7 @@ describe("C3: focus restoration when the focused subtree is switched off", funct
 	it("focus leaves for a legal node and does not come back on re-enable", function()
 		local w = newWorld(400, 600)
 		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -1416,11 +1432,11 @@ describe("C3: focus restoration when the focused subtree is switched off", funct
 		pres.refresh()
 		pres.focus.focusOn("/S/Panel/Off")
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/Panel/Off")
+		expect(pres.focus.focused:peek()).toBe("/S/Panel/Off")
 
 		on:set(false)
 		pres.refresh()
-		local landed = pres.focus.focused:get()
+		local landed = pres.focus.focused:peek()
 		expect(landed).never().toBe("/S/Panel/Off")
 		expect(landed).toBe("/S/Live")
 	end)
@@ -1653,10 +1669,10 @@ describe("C: teardown", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local on = core:signal(true)
-		local root = mountLib.mount(
-			core,
-			UI.Screen({
+		local on = Compose.cell(true)
+		-- The surface owns what its component builds.
+		local root = mountLib.mount(core, function()
+			return UI.Screen({
 				id = "S",
 				children = {
 					UI.VStack({
@@ -1667,7 +1683,7 @@ describe("C: teardown", function()
 					}),
 				},
 			})
-		)
+		end)
 		local adapter = fake_target.new()
 		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()

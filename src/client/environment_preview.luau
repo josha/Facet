@@ -36,7 +36,7 @@ end
 function environment_preview.new(env: any): any
 	local live = {}
 	for _, key in KEYS do
-		live[key] = copy(env:get(key):get())
+		live[key] = copy(env:get(key):peek())
 	end
 	local profile, orientation, input = "automatic", "portrait", "automatic"
 	local depth = 0

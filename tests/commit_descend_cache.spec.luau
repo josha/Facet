@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE COMMIT'S SIBLING SCAN, PAID ONCE INSTEAD OF EIGHT TIMES (Plan C, C4).
 
 	WHAT THE PROFILE FOUND, and it is not the number P4 left behind. On
@@ -72,12 +73,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local deep = require("./lib/deep_stack_scene")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function byWalk(st: any): string
 	local keys = {}
@@ -100,7 +102,7 @@ local function fillScene(commitScope: boolean, rowCount: number?)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-	local width = core:signal(300)
+	local width = Compose.cell(300)
 	local rows: { any } = {}
 	for i = 1, rowCount or 20 do
 		rows[i] = UI.HStack({
@@ -108,7 +110,7 @@ local function fillScene(commitScope: boolean, rowCount: number?)
 			padding = 0,
 			gap = 0,
 			width = if i == 5
-				then core:memo(function(use: any)
+				then Compose.formula(function(use: any)
 					return { type = "fixed", px = use(width) :: number }
 				end)
 				else { type = "fixed", px = 300 },
@@ -264,13 +266,13 @@ describe("C4: A CLEAN CHILD OF A DIRTY PARENT is still descended", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local width = core:signal(5)
+		local width = Compose.cell(5)
 		local children = {}
 		for i = 1, 128 do
 			children[i] = UI.Box({
 				id = `B{i}`,
 				width = if i == 127
-					then core:memo(function(use: any)
+					then Compose.formula(function(use: any)
 						return { type = "fixed", px = use(width) }
 					end)
 					else { type = "fixed", px = 5 },
@@ -435,7 +437,7 @@ describe("C4: the two walks that are exempt from the cache stay exempt", functio
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
-		local hidden = core:signal(false)
+		local hidden = Compose.cell(false)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({

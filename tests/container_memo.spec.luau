@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local Compose = require("../src/vendor/compose/core")
 --[[ T13 — A CONTAINER RE-ASKS ONLY ITS DIRTY CHILDREN.
 
 	C2 (`tests/measure_serve.spec.luau`) made the ANSWER cheap: a clean node asked the
@@ -173,11 +175,11 @@ local scene = require("./lib/deep_stack_scene")
 local nameplates = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
 local solver = require("../src/layout/solver")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local ROWS = 1000
@@ -231,7 +233,7 @@ local function fitsScene(opts: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-	local rowWidth = core:signal(20)
+	local rowWidth = Compose.cell(20)
 	local rows: { any } = {}
 	for i = 1, 6 do
 		rows[i] = UI.HStack({
@@ -245,7 +247,7 @@ local function fitsScene(opts: any): any
 					then UI.Text({ id = "Long", text = "Reconfiguration" })
 					elseif i == 1 then UI.Box({
 						id = "B",
-						width = core:memo(function(use: any)
+						width = Compose.formula(function(use: any)
 							return { type = "fixed", px = use(rowWidth) :: number }
 						end),
 						height = { type = "fixed", px = 10 },

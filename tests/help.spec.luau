@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ D3a — `help`: PLAYER-PULLED, AND NOTHING ON TOUCH
 	(navigation-and-menus brief §2 D3, director ruling 2026-08-16 §6.2).
 
@@ -38,15 +39,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local textAudit = require("../src/layout/text_audit")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local HELP = "Posts this avatar to the Marketplace"
 local PLATE = "/__help__/Layer/Surface/Plate"
@@ -59,7 +61,7 @@ local NO_FOCUS = { initialFocus = "none" }
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -188,7 +190,7 @@ describe("D3a help: keyboard and gamepad get it on focus, immediately", function
 		expect(pres.help().present).toBe(true)
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Editor/Other")
+		expect(pres.focus.focused:peek()).toBe("/Editor/Other")
 		expect(pres.help().present).toBe(false)
 	end)
 end)
@@ -286,7 +288,7 @@ describe("D3a help: the plate is chrome, and the value outranks it", function()
 		for _, entry in handle.focusOrder().traversal do
 			expect(string.find(entry.path, "__help__", 1, true)).toBeNil()
 		end
-		expect(pres.focus.focused:get()).toBe("/Editor/Post")
+		expect(pres.focus.focused:peek()).toBe("/Editor/Post")
 		for _, path in adapter.paths() do
 			if string.find(path, "__help__", 1, true) ~= nil then
 				local class = adapter.node(path).class
@@ -329,7 +331,7 @@ describe("D3a help: the plate is chrome, and the value outranks it", function()
 
 	it("help is a CONSTRUCTION-ONLY string: a Readable is refused by name", function()
 		local core = customFactory.new()
-		local bound = core:signal(HELP)
+		local bound = Compose.cell(HELP)
 		local ok, err = pcall(function()
 			return UI.Button({ id = "Post", label = "Post", help = bound })
 		end)

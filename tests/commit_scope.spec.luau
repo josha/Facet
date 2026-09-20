@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE COMMIT'S OWN SKIP (perf campaign P4) — the demonstrator and its oracle.
 
 	WHAT THE PROFILE FOUND (FacetBench, headless Lune, 2026-09-01, `battle_hud` at
@@ -61,12 +62,12 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local solver = require("../src/layout/solver")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 -- the second theme package the large-text matrix ships, used here for the one
@@ -74,6 +75,7 @@ local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
 -- the deterministic ring math the stroked-path gate's case needs a real `UI.Path` for
 local path_shapes = require("../src/controls/path_shapes")
+local Compose = require("../src/vendor/compose/core")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -119,12 +121,12 @@ local function world(
 	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 	local items = {}
 	for i = 1, rowCount do
-		table.insert(items, { id = `r{i}`, n = core:signal(i) })
+		table.insert(items, { id = `r{i}`, n = Compose.cell(i) })
 	end
-	local rows = core:signal(items)
-	local wide = core:signal(false)
-	local branchOn = core:signal(true)
-	local wrapWidth = core:memo(function(use: any)
+	local rows = Compose.cell(items)
+	local wide = Compose.cell(false)
+	local branchOn = Compose.cell(true)
+	local wrapWidth = Compose.formula(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
 	local bp = UI.ScrollView({
@@ -209,7 +211,7 @@ local function world(
 									UI.Text({
 										id = "V",
 										textSize = 14,
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return tostring(use(item.n))
 										end),
 									}),
@@ -218,7 +220,7 @@ local function world(
 										textSize = 12,
 										disclose = true,
 										width = px(40),
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return `Extraordinarily Long Identity {use(item.n)}`
 										end),
 									}),
@@ -401,7 +403,7 @@ local SCRIPT: { { name: string, run: (Arm) -> () } } = {
 		name = "structure: a row is appended (no reuse set at all)",
 		run = function(arm: Arm)
 			local next_ = table.clone(arm.items)
-			table.insert(next_, { id = "rNew", n = arm.core:signal(1234) })
+			table.insert(next_, { id = "rNew", n = Compose.cell(1234) })
 			arm.items[#arm.items + 1] = next_[#next_]
 			arm.rows:set(next_)
 		end,
@@ -613,7 +615,7 @@ describe("the commit's own skip (P4)", function()
 		for _, arm in { a, b } :: { Arm } do
 			local next_ = table.clone(arm.items)
 			for i = 1, 8 do
-				table.insert(next_, { id = `x{i}`, n = arm.core:signal(i) })
+				table.insert(next_, { id = `x{i}`, n = Compose.cell(i) })
 			end
 			arm.rows:set(next_)
 			arm.controller.refresh()
@@ -644,8 +646,8 @@ describe("the commit's own skip (P4)", function()
 			local core = customFactory.new()
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
-			local hide = core:signal(false)
-			local n = core:signal(1)
+			local hide = Compose.cell(false)
+			local n = Compose.cell(1)
 			local bp = UI.VStack({
 				id = "Root",
 				padding = 0,
@@ -656,7 +658,7 @@ describe("the commit's own skip (P4)", function()
 					UI.Text({
 						id = "Driver",
 						textSize = 14,
-						text = core:memo(function(use: any)
+						text = Compose.formula(function(use: any)
 							return tostring(use(n))
 						end),
 					}),
@@ -737,8 +739,8 @@ describe("the commit's own skip (P4)", function()
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local grow = core:signal(80)
-			local tick = core:signal(1)
+			local grow = Compose.cell(80)
+			local tick = Compose.cell(1)
 			local bp = UI.Screen({
 				id = "S",
 				children = {
@@ -770,7 +772,7 @@ describe("the commit's own skip (P4)", function()
 							UI.Box({
 								id = "Grower",
 								width = px(200),
-								height = core:memo(function(use: any)
+								height = Compose.formula(function(use: any)
 									return px(use(grow))
 								end),
 							}),
@@ -779,7 +781,7 @@ describe("the commit's own skip (P4)", function()
 							UI.Text({
 								id = "Tick",
 								textSize = 12,
-								text = core:memo(function(use: any)
+								text = Compose.formula(function(use: any)
 									return tostring(use(tick))
 								end),
 							}),
@@ -842,8 +844,8 @@ describe("the commit's own skip (P4)", function()
 				local env = environment.new(core)
 				env:set("viewportRect", { x = 0, y = 0, w = 300, h = 200 })
 				env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-				local w = core:signal(authorW)
-				local tick = core:signal(1)
+				local w = Compose.cell(authorW)
+				local tick = Compose.cell(1)
 				local bp = UI.Screen({
 					id = "S",
 					children = {
@@ -865,7 +867,7 @@ describe("the commit's own skip (P4)", function()
 											anchor = "topLeft",
 											offsetX = 0,
 											offsetY = 0,
-											width = core:memo(function(use: any)
+											width = Compose.formula(function(use: any)
 												return px(use(w))
 											end),
 											height = px(44),
@@ -891,7 +893,7 @@ describe("the commit's own skip (P4)", function()
 								UI.Text({
 									id = "Tick",
 									textSize = 12,
-									text = core:memo(function(use: any)
+									text = Compose.formula(function(use: any)
 										return tostring(use(tick))
 									end),
 								}),

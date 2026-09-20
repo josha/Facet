@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- VirtualList four-input story (ui_todo §0; matrix §1c). Proves the
 -- presenter AUTO-COMPOSES VirtualList's pointer / touch / keyboard / gamepad
 -- interaction from the input-contribution bundle the control attaches to its
@@ -11,11 +12,12 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -28,12 +30,12 @@ end
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function makeHarness()
 	-- ARMED (T12): several cases in this file read adapter.takeOps()/ops().
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, ops = true })
 	return w.core, w.env, w.adapter, w.system, w.pres
@@ -42,8 +44,8 @@ end
 -- a VirtualList inside a Screen, presented with ZERO opts (full auto-composition)
 local function world(opts: any?)
 	local options = opts or {}
-	local core, env, adapter, system, pres = harness()
-	local rows = core:signal(makeRows(options.count or 100))
+	local core, env, adapter, system, pres = makeHarness()
+	local rows = Compose.cell(makeRows(options.count or 100))
 	local activations: { any } = {}
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
@@ -55,13 +57,13 @@ local function world(opts: any?)
 		viewportHeight = options.viewportHeight or 400, -- 10 visible rows
 		overscan = options.overscan or 2,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen) -- ZERO present opts
 	pres.refresh()
 	-- wire the engine CanvasPosition mirror (native-substrate NS-A2): on the live
@@ -100,11 +102,11 @@ end
 describe("VirtualList pointer input (no consumer wiring)", function()
 	it("VirtualList pointer: an engine scroll (driveScroll) slides the window", function()
 		local w = world()
-		expect(w.list.scrollTop:get()).toBe(0)
+		expect(w.list.scrollTop:peek()).toBe(0)
 		-- the engine ScrollingFrame scrolled (wheel/drag/momentum are all native
 		-- now); its CanvasPosition mirrors back through observeScroll -> scrollTop
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 120 })
-		expect(w.list.scrollTop:get()).toBe(120)
+		expect(w.list.scrollTop:peek()).toBe(120)
 		w.pres.refresh()
 		-- the window slid: r1 left, r13 entered — each mounted row sits at its
 		-- ABSOLUTE canvas offset (index-1)*40 (the engine translates by CanvasPos)
@@ -138,7 +140,7 @@ describe("VirtualList touch input (no consumer wiring)", function()
 		-- §4); headlessly the engine drive stands in for the fling. The window
 		-- slides and no row activates (a scroll is never a tap).
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 80 })
-		expect(w.list.scrollTop:get()).toBe(80)
+		expect(w.list.scrollTop:peek()).toBe(80)
 		w.pres.refresh()
 		expect(w.list.debugWindow().r12).toBe(true) -- window slid down
 		expect(#w.activations).toBe(0)
@@ -166,16 +168,16 @@ end)
 describe("VirtualList keyboard input (no consumer wiring)", function()
 	it("VirtualList keyboard: Up/Down moves focus row-by-row through the window", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1")) -- auto-focus first row
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1")) -- auto-focus first row
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r3"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r3"))
 		w.system.deviceKey("Up", true)
 		w.system.deviceKey("Up", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 	end)
 
 	it("VirtualList keyboard: focus past the window edge scrolls the row into view", function()
@@ -186,12 +188,12 @@ describe("VirtualList keyboard input (no consumer wiring)", function()
 			w.system.deviceKey("Down", false)
 			w.pres.refresh()
 		end
-		local focused = w.pres.focus.focused:get()
+		local focused = w.pres.focus.focused:peek()
 		local key = keyOf(focused) :: string
 		local index = tonumber(string.match(key, "r(%d+)")) :: number
 		expect(index > 10).toBe(true) -- advanced past the initial 10-row window
 		-- and the focused row was scrolled into the visible band
-		local top = w.list.scrollTop:get()
+		local top = w.list.scrollTop:peek()
 		expect(top > 0).toBe(true)
 		local rowTop = (index - 1) * 40
 		expect(rowTop >= top).toBe(true)
@@ -202,7 +204,7 @@ describe("VirtualList keyboard input (no consumer wiring)", function()
 		local w = world()
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false) -- focus r2
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		expect(#w.activations).toBe(1)
@@ -215,23 +217,23 @@ end)
 describe("VirtualList gamepad input (no consumer wiring)", function()
 	it("VirtualList gamepad: D-pad moves focus identically to arrows", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r3"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r3"))
 		w.system.deviceKey("DPadUp", true)
 		w.system.deviceKey("DPadUp", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 	end)
 
 	it("VirtualList gamepad: ButtonA activates the focused row", function()
 		local w = world()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false) -- focus r2
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		expect(#w.activations).toBe(1)
@@ -248,19 +250,19 @@ describe("VirtualList focus coherence + virtualization neutrality", function()
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r5"))
-		expect(w.list.focusedKey:get()).toBe("r5")
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r5"))
+		expect(w.list.focusedKey:peek()).toBe("r5")
 		-- slide the window far enough (engine scroll) that r5 unmounts but stays in
 		-- data: the KEY-based focus persists even though the row left the window
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 400 })
 		w.pres.refresh()
 		expect(w.list.debugWindow().r5).toBe(nil) -- r5 no longer mounted
-		expect(w.list.focusedKey:get()).toBe("r5") -- focus follows the KEY, not the row
+		expect(w.list.focusedKey:peek()).toBe("r5") -- focus follows the KEY, not the row
 		-- now EVICT r5 from the data: nearest surviving neighbor (following) = r6
 		local next = makeRows(30)
 		table.remove(next, 5) -- r5 gone
 		w.rows:set(next)
-		expect(w.list.focusedKey:get()).toBe("r6")
+		expect(w.list.focusedKey:peek()).toBe("r6")
 	end)
 
 	it("VirtualList scroll: window slide re-runs factories only for entering rows (survivors kept)", function()
@@ -277,31 +279,35 @@ describe("VirtualList focus coherence + virtualization neutrality", function()
 	end)
 
 	it("VirtualList registry neutrality: build/mount/present/interact/dispose returns to baseline", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
-		local rows = core:signal(makeRows(50))
-		local list = virtual_list.build(Facet, core, {
-			id = "VL",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			rowHeight = 40,
-			viewportHeight = 400,
-			overscan = 2,
-			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
-			end,
-			onActivate = function() end,
-		})
-		local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
-		local handle = pres.present(screen) -- zero opts: full auto-composition
+		local rows = Compose.cell(makeRows(50))
+		-- built inside the presented component, so the window's rows belong to the
+		-- surface and leave with it
+		local list
+		local handle = pres.present(function() -- zero opts: full auto-composition
+			list = virtual_list.build(Facet, core, {
+				id = "VL",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				rowHeight = 40,
+				viewportHeight = 400,
+				overscan = 2,
+				cell = function(item: any)
+					return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				end,
+				onActivate = function() end,
+			})
+			return harness.UI.Screen({ id = "S", children = { list.blueprint } })
+		end)
 		pres.refresh()
 		local unbindScroll = list.bindNativeScroll(handle.controller)
 
@@ -317,12 +323,9 @@ describe("VirtualList focus coherence + virtualization neutrality", function()
 		unbindScroll()
 		pres.dismiss(handle)
 		list.dispose()
-		rows:dispose()
 
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -384,11 +387,11 @@ describe("VirtualList native canvas (native scroll substrate)", function()
 	it("unbindNativeScroll stops the mirror (teardown cleanliness)", function()
 		local w = world()
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 80 })
-		expect(w.list.scrollTop:get()).toBe(80)
+		expect(w.list.scrollTop:peek()).toBe(80)
 		w.unbindScroll()
 		-- after unbind, an engine scroll no longer reaches the mirror
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 200 })
-		expect(w.list.scrollTop:get()).toBe(80)
+		expect(w.list.scrollTop:peek()).toBe(80)
 	end)
 end)
 
@@ -404,13 +407,13 @@ end)
 describe("VirtualList navigation-group overrides (SF-L4)", function()
 	-- a list plus a sibling HStack of two buttons, each side naming the other
 	local function twoGroupWorld(navigation: any?)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(makeRows(4))
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(makeRows(4))
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
@@ -421,16 +424,16 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 			viewportHeight = 400,
 			navigation = navigation,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 			onActivate = function() end,
 		})
 		local dock = Facet.contribution.attach(
-			Facet.UI.HStack({
+			harness.UI.HStack({
 				id = "Dock",
 				children = {
-					Facet.UI.Button({ id = "A", label = "A", onActivate = function() end }),
-					Facet.UI.Button({ id = "B", label = "B", onActivate = function() end }),
+					harness.UI.Button({ id = "A", label = "A", onActivate = function() end }),
+					harness.UI.Button({ id = "B", label = "B", onActivate = function() end }),
 				},
 			}),
 			{
@@ -447,7 +450,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 				end,
 			}
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint, dock } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint, dock } }))
 		pres.refresh()
 		list.bindNativeScroll(handle.controller)
 		return { pres = pres, system = system, list = list, handle = handle }
@@ -464,7 +467,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 		named.pres.focus.focusOn("/S/Dock/A")
 		named.system.deviceKey("Down", true)
 		named.system.deviceKey("Down", false)
-		expect(named.pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r1]/Row/Hit")
+		expect(named.pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r1]/Row/Hit")
 	end)
 
 	it("`exit` crosses to the named group where array-order fallthrough cannot", function()
@@ -477,14 +480,14 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 		-- entry ALONG the target group's own axis lands at the NEAR end, so a
 		-- leftward exit lands on the row's right-most member (the framework's
 		-- own entry rule, unchanged by the override)
-		expect(w.pres.focus.focused:get()).toBe("/S/Dock/B")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Dock/B")
 
 		local undeclared = twoGroupWorld()
 		undeclared.pres.focus.focusOn("/S/VL/Canvas/W/[r2]/Row/Hit")
 		undeclared.system.deviceKey("Left", true)
 		undeclared.system.deviceKey("Left", false)
 		-- without the declaration focus stays put — the case the field exists for
-		expect(undeclared.pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r2]/Row/Hit")
+		expect(undeclared.pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r2]/Row/Hit")
 	end)
 
 	it("`wrap` wraps the row ring at both ends, and absent it still stops", function()
@@ -492,27 +495,27 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 		w.pres.focus.focusOn("/S/VL/Canvas/W/[r1]/Row/Hit")
 		w.system.deviceKey("Up", true)
 		w.system.deviceKey("Up", false)
-		expect(w.pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r4]/Row/Hit")
+		expect(w.pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r4]/Row/Hit")
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r1]/Row/Hit")
+		expect(w.pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r1]/Row/Hit")
 
 		local flat = twoGroupWorld()
 		flat.pres.focus.focusOn("/S/VL/Canvas/W/[r1]/Row/Hit")
 		flat.system.deviceKey("Up", true)
 		flat.system.deviceKey("Up", false)
-		expect(flat.pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r1]/Row/Hit")
+		expect(flat.pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r1]/Row/Hit")
 	end)
 
 	it("the overrides never replace the group: the focus-skip predicates survive", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(makeRows(4))
-		local blocked = core:signal(true)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(makeRows(4))
+		local blocked = Compose.cell(true)
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
@@ -523,35 +526,35 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 			viewportHeight = 400,
 			navigation = { name = "Rows", wrap = true, exit = { left = "Nowhere" } },
 			rowFocusable = function(item: any): boolean
-				return not (blocked:get() and item.id == "r2")
+				return not (blocked:peek() and item.id == "r2")
 			end,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 			onActivate = function() end,
 		})
-		pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		pres.focus.focusOn("/S/VL/Canvas/W/[r1]/Row/Hit")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
 		-- r2 is skipped AT NAVIGATION TIME, exactly as with no overrides declared
-		expect(pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r3]/Row/Hit")
+		expect(pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r3]/Row/Hit")
 		blocked:set(false)
 		pres.focus.focusOn("/S/VL/Canvas/W/[r1]/Row/Hit")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r2]/Row/Hit")
+		expect(pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r2]/Row/Hit")
 		-- an exit naming a group that does not exist is inert, never an error
-		expect(pres.focus.focused:get()).toBe("/S/VL/Canvas/W/[r2]/Row/Hit")
+		expect(pres.focus.focused:peek()).toBe("/S/VL/Canvas/W/[r2]/Row/Hit")
 	end)
 
 	it("an unknown navigation field is refused at construction, naming the valid set", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			virtual_list.build(Facet, core, {
 				id = "VL",
-				rows = core:signal(makeRows(2)),
+				rows = Compose.cell(makeRows(2)),
 				key = function(item: any)
 					return item.id
 				end,
@@ -559,7 +562,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 				viewportHeight = 200,
 				navigation = { wrapp = true },
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end)

@@ -200,20 +200,24 @@ local APP_METRICS = {
 	wispTravelFraction = 0.16, -- a fraction of the backdrop's height
 }
 
-function Sipworks.build(Facet: any, core: any, deps: any): any
-	local UI = Facet.UI
+-- Services and state live under `appOwner`; each presented view lives under its
+-- own mount and is released when that mount closes.
+local function construct(Facet: any, deps: any, appOwner: any): any
+	local host = deps.app
+	local UI = host.controls
+	local Compose = Facet.Compose
+	local function batch(body: () -> ())
+		host.runtime:batch(body)
+	end
 	Facet.themes.declareApp("sip", APP_METRICS)
-	local presenter = deps.presenter
-	local env = deps.env
+	local presenter = host.presenter
+	local env = host.environment
 	local actions = deps.actionSystem
 	local adapter = deps.adapter
 
 	local seed = tonumber(factOf(deps, "seed")) or 1
 	local startEntry = if factOf(deps, "entry") == "compact-link" then "compact-link" else "full"
 	local startItemId = factOf(deps, "entryItemId") or "lantern-oolong"
-
-	local scope = core:scope("ref-sipworks")
-	local viewScope = scope:child("ref-sipworks-view")
 
 	-- ---- services ---------------------------------------------------------
 	local clock = fakeclock.new(0)
@@ -222,55 +226,45 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	for _, blend in catalog.blends do
 		table.insert(blendIds, blend.id)
 	end
-	local favorites = favoritesService.new({ core = core, scope = scope, seed = seed, ids = blendIds })
+	local favorites = favoritesService.new({ Compose = Compose, batch = batch, seed = seed, ids = blendIds })
 	local startEarnedFact = tonumber(factOf(deps, "startEarned"))
 	local startEarned = if startEarnedFact ~= nil then math.max(0, math.floor(startEarnedFact)) else START_EARNED
 	local startSpent = tonumber(factOf(deps, "startSpent")) or 0
 	local rewards =
-		rewardsService.new({ core = core, scope = scope, startEarned = startEarned, startSpent = startSpent })
-	local unlock = unlockService.new({ core = core, scope = scope, clock = clock })
-	local order = orderService.new({ core = core, scope = scope, clock = clock })
-	local task = taskService.new({ core = core, scope = scope, rewards = rewards, order = order })
+		rewardsService.new({ Compose = Compose, batch = batch, startEarned = startEarned, startSpent = startSpent })
+	local unlock = unlockService.new({ Compose = Compose, batch = batch, clock = clock })
+	local order = orderService.new({ Compose = Compose, batch = batch, clock = clock })
+	local task = taskService.new({ Compose = Compose, batch = batch, rewards = rewards, order = order })
 	local localeFact = if env ~= nil then env:get("locale") else nil
 	local i18n = i18nService.new({
-		core = core,
-		scope = scope,
-		locale = i18nService.localeOf(if localeFact ~= nil then localeFact:get() else nil),
+		Compose = Compose,
+		locale = i18nService.localeOf(if localeFact ~= nil then localeFact:peek() else nil),
 	})
 
 	-- ---- semantic state (the shared, server-shaped model) -----------------
 	local state = {
-		section = core:signal("menu"),
-		selectedBlendId = core:signal(nil :: string?),
-		search = core:signal(""),
-		batch = core:signal(1),
-		openBotanical = core:signal(nil :: string?),
-		entry = core:signal(startEntry),
-		entryItemId = core:signal(startItemId),
+		section = Compose.cell("menu"),
+		selectedBlendId = Compose.cell(nil :: string?),
+		search = Compose.cell(""),
+		batch = Compose.cell(1),
+		openBotanical = Compose.cell(nil :: string?),
+		entry = Compose.cell(startEntry),
+		entryItemId = Compose.cell(startItemId),
 		sealPops = {} :: { any },
 	}
-	scope:own(function()
-		state.section:dispose()
-		state.selectedBlendId:dispose()
-		state.search:dispose()
-		state.batch:dispose()
-		state.openBotanical:dispose()
-		state.entry:dispose()
-		state.entryItemId:dispose()
-	end)
 
 	-- ---- motion -----------------------------------------------------------
 	local motionClock = presenter.motionClock
 	local cardFlip = motionClock:spring(0, "object")
 	local discFlip = motionClock:spring(0, "object")
-	scope:own(function()
+	Compose.cleanup(function()
 		cardFlip:dispose()
 		discFlip:dispose()
 	end)
 	for slot = 1, rewardsService.THRESHOLD do
 		local pop = motionClock:spring(1, "reward")
 		state.sealPops[slot] = pop
-		scope:own(function()
+		Compose.cleanup(function()
 			pop:dispose()
 		end)
 	end
@@ -280,7 +274,8 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	local app: any = {}
 	app.UI = UI
 	app.Facet = Facet
-	app.core = core
+	app.Compose = Compose
+	app.host = host
 	app.env = env
 	app.presenter = presenter
 	app.adapter = adapter
@@ -298,7 +293,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		i18n = i18n,
 		task = task,
 	}
-	app.cond = Facet.adaptive.conditions(core, env, { scope = scope })
+	app.cond = Facet.adaptive.conditions(env)
 	--[[ AN `app.sip.*` NUMBER, for the four places a Luau NUMBER is what is needed
 		rather than a dimension: a comparison, an arithmetic term, a loop bound and a
 		spring target. Everywhere else the name is spelled straight into the `px`
@@ -312,7 +307,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		becomes zero, which is the class this whole channel exists to remove. ]]
 	function app.metric(name: string, use: any?): number
 		local signal = if env ~= nil then env:get("themeMetrics") else nil
-		local snap: any = if signal == nil then nil elseif use ~= nil then use(signal) else signal:get()
+		local snap: any = if signal == nil then nil elseif use ~= nil then use(signal) else signal:peek()
 		local sip = if type(snap) == "table" and type(snap.app) == "table" then snap.app.sip else nil
 		local value = if type(sip) == "table" then sip[name] else nil
 		-- the fallback is the DECLARATION, never a literal beside it: a second copy
@@ -331,17 +326,68 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- is not the same question as "can two panes stand beside each other" — at
 	-- 600 and at 640x320 the split overflowed its lane, which the solver's
 	-- overflow diagnostic reported before any screenshot could have.
-	app.paneSplit = core:memo(function(use)
+	app.paneSplit = Compose.formula(function(use)
 		return use(app.cond.viewportWidth) >= app.metric("twoPaneMin", use)
 	end)
-	scope:own(function()
-		app.paneSplit:dispose()
-	end)
 
+	-- A toast owns its body: the component runs inside the toast.
+	local function rejectionToast(name: string, textKey: string, key: string)
+		local function body()
+			return UI.Text(name)({ text = app.text(textKey), surface = "chip", textSize = "body" })
+		end
+		presenter.presentToast(body, { key = key, duration = 4, position = "bottom" })
+	end
+
+	-- A conditional region: `/<id>/then/...` or `/<id>/else/...`.
+	function app.when(id: string)
+		return function(spec: any)
+			return UI.When(id)({
+				Compose.show(
+					spec.condition,
+					function()
+						return UI.When("then")({ spec.thenView() })
+					end,
+					if spec.elseView
+						then function()
+							return UI.When("else")({ spec.elseView() })
+						end
+						else nil
+				),
+			})
+		end
+	end
+	-- A keyed collection: each row lives at `/<id>/[key]/...`.
+	function app.forEach(id: string)
+		return function(spec: any)
+			return UI.ForEach(id)({
+				Compose.keyed({
+					from = spec.items,
+					key = spec.key,
+					render = function(item: any, _, key: any)
+						local node = spec.row(item:peek())
+						node.collectionKey = `[{key}]`
+						return node
+					end,
+				}),
+			})
+		end
+	end
+	-- Appends a generated child list to a property table.
+	function app.withChildren(props: any, children: { any }): any
+		for _, child in children do
+			table.insert(props, child)
+		end
+		return props
+	end
+	-- Presents a modal component and answers its handle; dismissing the handle
+	-- releases the component.
+	function app.presentModal(component: () -> any, options: any?): any
+		local _, _, handle = host.presentModal(component, options)
+		return handle
+	end
+
+	-- A value made during a build belongs to that build's owner.
 	function app.own(readable: any): any
-		viewScope:own(function()
-			readable:dispose()
-		end)
 		return readable
 	end
 
@@ -349,14 +395,14 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		if env == nil then
 			return "full"
 		end
-		return env:get("motionPolicy"):get()
+		return env:get("motionPolicy"):peek()
 	end
 
 	-- app.text(key, params?) -> a Readable<string> that re-reads on a locale
 	-- flip. `params` may be a table or a `(use) -> table` function, so a
 	-- sentence with a live count is still ONE localized template.
 	function app.text(key: string, params: any?): any
-		return app.own(core:memo(function(use)
+		return app.own(Compose.formula(function(use)
 			local locale = use(i18n.locale)
 			local resolved = if type(params) == "function" then params(use) else params
 			return i18n.at(locale, key, resolved)
@@ -397,11 +443,8 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	function app.gatheredSignal(key: string): any
 		local hit = gathered[key]
 		if hit == nil then
-			hit = core:signal(false)
+			hit = Compose.cell(false)
 			gathered[key] = hit
-			scope:own(function()
-				hit:dispose()
-			end)
 		end
 		return hit
 	end
@@ -411,33 +454,44 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		end
 	end
 
-	-- ---- shared controls (model-owned, so they outlive a shell rebuild) ----
-	local search = Facet.Controls.TextInput(core, {
-		id = "Search",
-		value = state.search,
-		placeholder = app.text("search.placeholder"),
-		clearButtonMode = "whileEditing",
-		env = env,
-		actionSystem = actions,
-	})
-	app.search = search
-	local batch = Facet.Controls.Stepper(core, {
-		id = "Batch",
-		label = "",
-		value = state.batch,
-		min = BATCH_MIN,
-		max = BATCH_MAX,
-		step = 1,
-		-- INTEGER ONLY, deliberately. `newStepper`'s readout is a memo over the
-		-- VALUE, so a formatter that closed over the locale signal would go
-		-- stale on a locale flip with nothing to invalidate it (reported as a
-		-- framework finding). The localized plural lives beside it on a bound
-		-- `UI.Text`, where reactivity is a declared contract.
-		format = function(value: number): string
-			return tostring(math.floor(value))
-		end,
-	})
-	app.batch = batch
+	-- ---- shared controls: the model owns their values, each build makes the node
+	-- true from the first keystroke until the edit commits or cancels
+	app.searchEditing = Compose.cell(false)
+	function app.searchField(): any
+		return UI.TextInput("Search")({
+			value = state.search,
+			onChange = function()
+				app.searchEditing:set(true)
+			end,
+			onCommit = function()
+				app.searchEditing:set(false)
+			end,
+			onCancel = function()
+				app.searchEditing:set(false)
+			end,
+			placeholder = app.text("search.placeholder"),
+			clearButtonMode = "whileEditing",
+			env = env,
+			actionSystem = actions,
+		})
+	end
+	function app.batchStepper(): any
+		return UI.Stepper("Batch")({
+			label = "",
+			value = state.batch,
+			min = BATCH_MIN,
+			max = BATCH_MAX,
+			step = 1,
+			-- INTEGER ONLY, deliberately. `newStepper`'s readout is a memo over the
+			-- VALUE, so a formatter that closed over the locale signal would go
+			-- stale on a locale flip with nothing to invalidate it (reported as a
+			-- framework finding). The localized plural lives beside it on a bound
+			-- `UI.Text`, where reactivity is a declared contract.
+			format = function(value: number): string
+				return tostring(math.floor(value))
+			end,
+		})
+	end
 
 	-- ---- feedback log (evidence, not behavior) -----------------------------
 	local feedbackLog: { any } = {}
@@ -450,8 +504,8 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	-- ---- surfaces ---------------------------------------------------------
 	local shellHandle: any = nil
-	local navigationFlow: any = nil
-	local navigationPath = scope:own(core:signal({}))
+	local closeShell: (() -> ())? = nil
+	local navigationPath = Compose.cell({})
 	local cardHandle: any = nil
 	local guardHandle: any = nil
 	local placedHandle: any = nil
@@ -464,25 +518,36 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	local function closeDetailRoute()
-		if navigationFlow ~= nil then
-			navigationFlow.api.popToRoot()
-		end
+		navigationPath:set({})
 		resetGathered()
 	end
 
 	local function openDetailRoute(kind: string)
 		navigationPath:set({
-			{ id = if kind == "recipes" then "recipe" else "detail", value = state.selectedBlendId:get() },
+			{ id = if kind == "recipes" then "recipe" else "detail", value = state.selectedBlendId:peek() },
 		})
 	end
 
 	-- Shared Back/Cancel edits this caller-owned path too. Transient recipe
 	-- checkmarks retire on return; selection and service state stay in the model.
-	scope:own(core:observe(navigationPath, function(path)
+	-- Runs `onChange` when `source` changes; the current owner releases it.
+	local function observe(source: any, onChange: (any) -> ()): () -> ()
+		local first = true
+		return Compose.watch(function(use)
+			local value = use(source)
+			if first then
+				first = false
+				return
+			end
+			onChange(value)
+		end)
+	end
+	app.observe = observe
+	observe(navigationPath, function(path)
 		if #path == 0 then
 			resetGathered()
 		end
-	end))
+	end)
 
 	-- ---- commands (every on-screen verb lands here) -----------------------
 	local commands: any = {}
@@ -498,17 +563,17 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- same memo the shell mounts the pane behind — so a row Activate can never
 	-- land in the gap where neither exists.
 	local function pushesDetail(): boolean
-		return app.paneSplit:get() ~= true
+		return app.paneSplit:peek() ~= true
 	end
 
 	function commands.selectSection(section: string)
-		if section == "stamps" and not app.cond.isCompact:get() and app.entry == "full" then
+		if section == "stamps" and not app.cond.isCompact:peek() and app.entry == "full" then
 			-- the sidebar POCKET presents the rewards card rather than swapping
 			-- the section: on a wide screen the card owns its moment
 			commands.openRewards()
 			return
 		end
-		if state.section:get() == "stamps" and section ~= "stamps" then
+		if state.section:peek() == "stamps" and section ~= "stamps" then
 			commands.leaveStamps()
 		end
 		state.section:set(section)
@@ -544,7 +609,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	function commands.openBotanical(botanicalId: string)
-		local blendId = state.selectedBlendId:get()
+		local blendId = state.selectedBlendId:peek()
 		if blendId == nil then
 			return
 		end
@@ -554,7 +619,9 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		end
 		state.openBotanical:set(botanicalId)
 		cardFlip:snap(0)
-		cardHandle = presenter.presentModal(detailView.botanicalCard(app, blendId, botanicalId, cardFlip), {
+		cardHandle = app.presentModal(function()
+			return detailView.botanicalCard(app, blendId, botanicalId, cardFlip)
+		end, {
 			-- THE DECLARED HERO-CARD APPROXIMATION (ledger §D): the card
 			-- MATERIALIZES over a scrim. It does not fly from the tile, and
 			-- nothing in this proof calls it a shared-element transition.
@@ -597,7 +664,9 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		if guardHandle ~= nil then
 			return
 		end
-		guardHandle = presenter.presentModal(detailView.guardAlert(app, reasonKey), {
+		guardHandle = app.presentModal(function()
+			return detailView.guardAlert(app, reasonKey)
+		end, {
 			outsideTapCancel = false,
 			scrim = "scrim",
 			initialFocus = { id = "GuardOK" },
@@ -613,7 +682,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	function commands.orderCta()
-		local blendId = state.selectedBlendId:get()
+		local blendId = state.selectedBlendId:peek()
 		if blendId == nil then
 			return
 		end
@@ -637,7 +706,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- them to the one control that does, on the blend the task line names, through
 	-- the same section+open path a row Activate takes.
 	function commands.taskAction()
-		local blendId = task.ctaBlendId:get()
+		local blendId = task.ctaBlendId:peek()
 		if catalog.blend(blendId) == nil then
 			return
 		end
@@ -662,7 +731,9 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		if rewardsHandle ~= nil then
 			return
 		end
-		rewardsHandle = presenter.presentModal(rewardsView.modal(app), {
+		rewardsHandle = app.presentModal(function()
+			return rewardsView.modal(app)
+		end, {
 			transition = { enter = "materialize" },
 			scrim = "scrim",
 			outsideTapCancel = true,
@@ -766,7 +837,9 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 				dismiss(placedHandle)
 				placedHandle = nil
 			end
-			placedHandle = presenter.presentModal(detailView.orderPlaced(app, info.blendId, discFlip), {
+			placedHandle = app.presentModal(function()
+				return detailView.orderPlaced(app, info.blendId, discFlip)
+			end, {
 				transition = { enter = "materialize" },
 				scrim = "scrim",
 				outsideTapCancel = true,
@@ -780,15 +853,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			-- and the retry on screen — in the CTA band where the press happened,
 			-- and in the task band the player comes back to.
 			task.noteRejected()
-			presenter.presentToast(
-				UI.Text({
-					id = "OrderRejected",
-					text = app.text("order.rejected"),
-					surface = "chip",
-					textSize = "body",
-				}),
-				{ key = "order", duration = 4, position = "bottom" }
-			)
+			rejectionToast("OrderRejected", "order.rejected", "order")
 			order.acknowledge()
 		elseif event == "ready" then
 			discFlip:setTarget(1)
@@ -803,22 +868,14 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			return
 		end
 		presenter.emitFeedback({ type = "reject", reason = reason, context = { what = "unlock" } })
-		presenter.presentToast(
-			UI.Text({
-				id = "UnlockRejected",
-				text = app.text("unlock.rejected"),
-				surface = "chip",
-				textSize = "body",
-			}),
-			{ key = "unlock", duration = 4, position = "bottom" }
-		)
+		rejectionToast("UnlockRejected", "unlock.rejected", "unlock")
 		unlock.acknowledge()
 	end)
 
 	-- WIDENING WITH A COMPACT DETAIL UP POPS ITS ROUTE (spec §5): the selection
 	-- survives and the regular pane renders it. Narrowing never auto-presents.
-	local unsubscribeWidth = core:observe(app.paneSplit, function(split: boolean)
-		if split and #navigationPath:get() > 0 and app.entry == "full" then
+	local unsubscribeWidth = observe(app.paneSplit, function(split: boolean)
+		if split and #navigationPath:peek() > 0 and app.entry == "full" then
 			closeDetailRoute()
 		end
 	end)
@@ -827,7 +884,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- matrix can flip the locale through `setEnv` as well as through a step
 	local unsubscribeLocale: any = nil
 	if localeFact ~= nil then
-		unsubscribeLocale = core:observe(localeFact, function(value: any)
+		unsubscribeLocale = observe(localeFact, function(value: any)
 			i18n.setLocale(i18nService.localeOf(value))
 		end)
 	end
@@ -849,16 +906,11 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	-- Page-local views own their derived values in the NavigationStack's page
 	-- scope. Rebuilding a route never leaves an observer attached to an old page.
-	local function pageApp(pageScope: any): any
+	-- Text formulas made during a page build belong to that page.
+	local function pageApp(): any
 		local scoped = table.clone(app)
-		function scoped.own(readable: any): any
-			pageScope:own(function()
-				readable:dispose()
-			end)
-			return readable
-		end
 		function scoped.text(key: string, params: any?): any
-			return scoped.own(core:memo(function(use)
+			return scoped.own(Compose.formula(function(use)
 				local locale = use(i18n.locale)
 				return i18n.at(locale, key, if type(params) == "function" then params(use) else params)
 			end))
@@ -867,71 +919,68 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	local function buildShell()
-		navigationFlow = viewScope:own(Facet.Controls.NavigationStack(core, {
-			id = "SipworksFlow",
-			path = navigationPath,
-			backLabel = i18n.at(i18n.locale:get(), "nav.back"),
-			env = env,
-			transition = {
-				enter = "slide-left",
-				exit = "slide-right",
-				class = "container",
-				distance = env:get("viewportRect"):get().w,
-			},
-			root = {
-				content = function(pageScope)
-					local scoped = pageApp(pageScope)
-					local shell = if app.entry == "compact-link"
-						then entryCompact.build(scoped)
-						else shellView.build(scoped)
-					return UI.VStack({
-						id = "Root",
-						width = UI.fill(),
-						height = UI.fill(),
-						gap = 0,
-						children = shell.children,
-					})
-				end,
-			},
-			destinations = {
-				detail = {
-					title = app.text("detail.title"),
-					content = function(pageScope)
-						return detailView.body(
-							pageApp(pageScope),
-							{ id = "Detail", showBack = false, navigationHosted = true }
-						)
+		local close, node, handle = host.mount(function()
+			local navigationFlow = UI.NavigationStack("SipworksFlow")({
+				path = navigationPath,
+				backLabel = i18n.at(i18n.locale:peek(), "nav.back"),
+				env = env,
+				transition = {
+					enter = "slide-left",
+					exit = "slide-right",
+					class = "container",
+					distance = env:get("viewportRect"):peek().w,
+				},
+				root = {
+					content = function()
+						local scoped = pageApp()
+						local shell = if app.entry == "compact-link"
+							then entryCompact.build(scoped)
+							else shellView.build(scoped)
+						return UI.VStack("Root")(app.withChildren({
+							width = UI.fill(),
+							height = UI.fill(),
+							gap = 0,
+						}, shell.children))
 					end,
 				},
-				recipe = {
-					title = app.text("recipe.title"),
-					content = function(pageScope)
-						return bookView.recipeView(
-							pageApp(pageScope),
-							{ id = "Recipe", showBack = false, navigationHosted = true }
-						)
-					end,
+				destinations = {
+					detail = {
+						title = app.text("detail.title"),
+						content = function()
+							return detailView.body(
+								pageApp(),
+								{ id = "Detail", showBack = false, navigationHosted = true }
+							)
+						end,
+					},
+					recipe = {
+						title = app.text("recipe.title"),
+						content = function()
+							return bookView.recipeView(
+								pageApp(),
+								{ id = "Recipe", showBack = false, navigationHosted = true }
+							)
+						end,
+					},
 				},
-			},
-		}))
-		local blueprint = UI.Screen({
-			id = if app.entry == "compact-link" then "SipworksCompact" else "Sipworks",
-			padding = 0,
-			surface = "base",
-			navigationFlow.blueprint,
-		})
-		shellHandle = presenter.present(blueprint, {
+			})
+			return UI.Screen(if app.entry == "compact-link" then "SipworksCompact" else "Sipworks")({
+				padding = 0,
+				surface = "base",
+				navigationFlow,
+			})
+		end, {
 			keyboardNavigation = true,
 			initialFocus = "first",
-			-- nothing sits behind the root, so Cancel there is a no-op rather
-			-- than a dismissal that would strand the player on an empty screen
 			cancelPolicy = "none",
 		})
+		closeShell = close
+		shellHandle = handle
 		if result ~= nil then
-			result.screen = blueprint
+			result.screen = node
 			result.handle = shellHandle
 		end
-		return blueprint
+		return node
 	end
 
 	local function teardownSurfaces()
@@ -943,8 +992,9 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			rewardsHandle = nil
 		end
 		closeDetailRoute()
-		if shellHandle ~= nil then
-			dismiss(shellHandle)
+		if closeShell ~= nil then
+			closeShell()
+			closeShell = nil
 			shellHandle = nil
 		end
 	end
@@ -953,7 +1003,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- open Detail through the same path a row Activate takes — the entry flow
 	-- reuses the flow, it does not shortcut past it.
 	local function applyDeepLink()
-		local target = state.entryItemId:get()
+		local target = state.entryItemId:peek()
 		if catalog.blend(target) == nil then
 			return
 		end
@@ -974,8 +1024,6 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	local function rebuild(entry: string, itemId: string?)
 		teardownSurfaces()
-		viewScope:dispose()
-		viewScope = scope:child("ref-sipworks-view")
 		app.entry = entry
 		state.entry:set(entry)
 		if itemId ~= nil then
@@ -1033,7 +1081,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		reconcileSurfaces()
 		return {
 			shell = shellHandle ~= nil,
-			detail = #navigationPath:get() > 0,
+			detail = #navigationPath:peek() > 0,
 			card = cardHandle ~= nil,
 			guard = guardHandle ~= nil,
 			placed = placedHandle ~= nil,
@@ -1044,7 +1092,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	local function gatheredMap(): { [string]: boolean }
 		local out: { [string]: boolean } = {}
 		for key, signal in gathered do
-			if signal:get() then
+			if signal:peek() then
 				out[key] = true
 			end
 		end
@@ -1070,27 +1118,27 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			table.insert(parts, key .. "=" .. tostring(value))
 		end
 		put("entry", app.entry)
-		put("entryItemId", state.entryItemId:get())
+		put("entryItemId", state.entryItemId:peek())
 		put("seed", seed)
-		put("locale", i18n.locale:get())
-		put("section", state.section:get())
-		put("selected", state.selectedBlendId:get())
-		put("search", state.search:get())
-		put("batch", state.batch:get())
-		put("openBotanical", state.openBotanical:get())
+		put("locale", i18n.locale:peek())
+		put("section", state.section:peek())
+		put("selected", state.selectedBlendId:peek())
+		put("search", state.search:peek())
+		put("batch", state.batch:peek())
+		put("openBotanical", state.openBotanical:peek())
 		put("favorites", table.concat(favorites.ids(), ","))
-		put("earned", rewards.earned:get())
-		put("spent", rewards.spent:get())
+		put("earned", rewards.earned:peek())
+		put("spent", rewards.spent:peek())
 		put("newSlots", table.concat(rewards.newSlots(), ","))
-		put("orderStatus", order.status:get())
-		put("orderMode", order.mode:get())
-		put("orderBlend", order.blendId:get())
-		put("orderReady", order.isReady:get())
+		put("orderStatus", order.status:peek())
+		put("orderMode", order.mode:peek())
+		put("orderBlend", order.blendId:peek())
+		put("orderReady", order.isReady:peek())
 		put("orderAttempts", order.attempts())
-		put("payments", order.paymentsEnabled:get())
-		put("unlockAvailability", unlock.availability:get())
-		put("unlockStatus", unlock.status:get())
-		put("unlocked", unlock.unlocked:get())
+		put("payments", order.paymentsEnabled:peek())
+		put("unlockAvailability", unlock.availability:peek())
+		put("unlockStatus", unlock.status:peek())
+		put("unlocked", unlock.unlocked:peek())
 		put("unlockAttempts", unlock.attempts())
 		put("gathered", table.concat(sortedKeys(gatheredMap()), ","))
 		put("task", task.dump())
@@ -1178,26 +1226,26 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	-- an untracked `use` for the reads a report makes outside the reactive graph
 	local function peek(readable: any): any
-		return readable:get()
+		return readable:peek()
 	end
 
 	local function report(): any
 		local unspent = rewards.unspent()
 		return {
 			proof = "p3_sipworks",
-			navigation = navigationFlow.dump(),
+			navigation = { depth = #navigationPath:peek(), path = navigationPath:peek() },
 			title = Sipworks.title,
 			entry = app.entry,
-			entryItemId = state.entryItemId:get(),
+			entryItemId = state.entryItemId:peek(),
 			seed = seed,
-			locale = i18n.locale:get(),
+			locale = i18n.locale:peek(),
 			locales = strings.LOCALES,
-			section = state.section:get(),
-			selectedBlendId = state.selectedBlendId:get(),
-			openBotanical = state.openBotanical:get(),
-			search = state.search:get(),
-			sizeClass = app.cond.sizeClass:get(),
-			isCompact = app.cond.isCompact:get(),
+			section = state.section:peek(),
+			selectedBlendId = state.selectedBlendId:peek(),
+			openBotanical = state.openBotanical:peek(),
+			search = state.search:peek(),
+			sizeClass = app.cond.sizeClass:peek(),
+			isCompact = app.cond.isCompact:peek(),
 			motionPolicy = app.motionPolicy(),
 			visible = {
 				menu = #app.visibleBlends(peek, "menu"),
@@ -1206,8 +1254,8 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			},
 			favorites = favorites.ids(),
 			rewards = {
-				earned = rewards.earned:get(),
-				spent = rewards.spent:get(),
+				earned = rewards.earned:peek(),
+				spent = rewards.spent:peek(),
 				unspent = unspent,
 				filled = rewards.filled(),
 				away = rewards.away(),
@@ -1215,38 +1263,38 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 				newSlots = rewards.newSlots(),
 			},
 			order = {
-				status = order.status:get(),
-				mode = order.mode:get(),
-				blendId = order.blendId:get(),
-				ready = order.isReady:get(),
+				status = order.status:peek(),
+				mode = order.mode:peek(),
+				blendId = order.blendId:peek(),
+				ready = order.isReady:peek(),
 				attempts = order.attempts(),
-				paymentsEnabled = order.paymentsEnabled:get(),
+				paymentsEnabled = order.paymentsEnabled:peek(),
 				price = order.price,
-				reason = order.reason:get(),
+				reason = order.reason:peek(),
 			},
 			unlock = {
-				availability = unlock.availability:get(),
-				status = unlock.status:get(),
-				unlocked = unlock.unlocked:get(),
+				availability = unlock.availability:peek(),
+				status = unlock.status:peek(),
+				unlocked = unlock.unlocked:peek(),
 				attempts = unlock.attempts(),
 				price = unlock.product.price,
 			},
-			recipe = { batch = state.batch:get(), gathered = sortedKeys(gatheredMap()) },
+			recipe = { batch = state.batch:peek(), gathered = sortedKeys(gatheredMap()) },
 			-- the played task, published so a headless drive reads the same phase
 			-- the band paints rather than re-deriving it from four services
 			task = {
-				phase = task.phase:get(),
-				stamps = task.stamps:get(),
-				served = task.served:get(),
-				redeemed = task.redeemed:get(),
-				refused = task.refused:get(),
-				ctaBlendId = task.ctaBlendId:get(),
+				phase = task.phase:peek(),
+				stamps = task.stamps:peek(),
+				served = task.served:peek(),
+				redeemed = task.redeemed:peek(),
+				refused = task.refused:peek(),
+				ctaBlendId = task.ctaBlendId:peek(),
 				rows = task.rows(),
 				startEarned = startEarned,
 				startSpent = startSpent,
 			},
 			surfaces = surfaceMap(),
-			flip = { card = cardFlip:get(), disc = discFlip:get() },
+			flip = { card = cardFlip:peek(), disc = discFlip:peek() },
 			clock = { now = clock.now(), timers = clock.pending() },
 			feedback = feedbackLog,
 			focusPaths = focusPaths(),
@@ -1292,31 +1340,31 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	steps.section = function(_built: any, payload: string?)
 		commands.selectSection(tostring(payload))
-		return { section = state.section:get(), surfaces = surfaceMap() }
+		return { section = state.section:peek(), surfaces = surfaceMap() }
 	end
 
 	steps.search = function(_built: any, payload: string?)
 		state.search:set(if payload == nil then "" else tostring(payload))
-		local section = state.section:get()
+		local section = state.section:peek()
 		local kind = if section == "stamps" then "menu" else section
-		return { search = state.search:get(), visible = #app.visibleBlends(peek, kind) }
+		return { search = state.search:peek(), visible = #app.visibleBlends(peek, kind) }
 	end
 
 	steps.suggest = function()
-		local locale = i18n.locale:get()
-		return catalog.suggestions(state.search:get(), function(kind: string, id: string, text: string)
+		local locale = i18n.locale:peek()
+		return catalog.suggestions(state.search:peek(), function(kind: string, id: string, text: string)
 			return i18n.nameAt(locale, kind, id, text)
 		end, 6)
 	end
 
 	steps.accept = function(_built: any, payload: string?)
 		commands.acceptSuggestion(tostring(payload))
-		return { search = state.search:get() }
+		return { search = state.search:peek() }
 	end
 
 	steps.open = function(_built: any, payload: string?)
-		commands.openBlend(tostring(payload), state.section:get())
-		return { selected = state.selectedBlendId:get(), surfaces = surfaceMap() }
+		commands.openBlend(tostring(payload), state.section:peek())
+		return { selected = state.selectedBlendId:peek(), surfaces = surfaceMap() }
 	end
 
 	steps.close = function()
@@ -1338,7 +1386,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	steps.tile = function(_built: any, payload: string?)
 		commands.openBotanical(tostring(payload))
-		return { openBotanical = state.openBotanical:get(), surfaces = surfaceMap() }
+		return { openBotanical = state.openBotanical:peek(), surfaces = surfaceMap() }
 	end
 
 	steps.flip = function(_built: any, payload: string?)
@@ -1353,12 +1401,12 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	steps.order = function()
 		commands.orderCta()
-		return { order = order.status:get(), surfaces = surfaceMap() }
+		return { order = order.status:peek(), surfaces = surfaceMap() }
 	end
 
 	steps.guard = function(_built: any, payload: string?)
 		order.setPaymentsEnabled(payload ~= "on")
-		return { paymentsEnabled = order.paymentsEnabled:get() }
+		return { paymentsEnabled = order.paymentsEnabled:peek() }
 	end
 
 	steps.guardOk = function()
@@ -1368,7 +1416,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	steps.done = function()
 		commands.dismissOrderPlaced()
-		return { surfaces = surfaceMap(), order = order.status:get() }
+		return { surfaces = surfaceMap(), order = order.status:peek() }
 	end
 
 	steps.stamps = function()
@@ -1383,28 +1431,28 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	steps.unlockBuy = function()
 		commands.buyBlendBook()
-		return { unlock = unlock.status:get() }
+		return { unlock = unlock.status:peek() }
 	end
 
 	steps.batch = function(_built: any, payload: string?)
 		state.batch:set(math.clamp(tonumber(payload) or BATCH_MIN, BATCH_MIN, BATCH_MAX))
-		return { batch = state.batch:get() }
+		return { batch = state.batch:peek() }
 	end
 
 	steps.gather = function(_built: any, payload: string?)
-		local blendId = state.selectedBlendId:get()
+		local blendId = state.selectedBlendId:peek()
 		if blendId == nil then
 			return { ok = false }
 		end
 		local key = blendId .. "/" .. tostring(payload)
 		local signal = app.gatheredSignal(key)
-		signal:set(not signal:get())
-		return { key = key, value = signal:get() }
+		signal:set(not signal:peek())
+		return { key = key, value = signal:peek() }
 	end
 
 	steps.locale = function(_built: any, payload: string?)
 		local ok = commands.setLocale(tostring(payload))
-		return { ok = ok, locale = i18n.locale:get() }
+		return { ok = ok, locale = i18n.locale:peek() }
 	end
 
 	steps.tick = function(_built: any, payload: string?)
@@ -1419,9 +1467,9 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	steps.enterCompact = function(_built: any, payload: string?)
-		local itemId = if payload == nil or payload == "" then state.entryItemId:get() else tostring(payload)
+		local itemId = if payload == nil or payload == "" then state.entryItemId:peek() else tostring(payload)
 		rebuild("compact-link", itemId)
-		return { entry = app.entry, entryItemId = state.entryItemId:get(), surfaces = surfaceMap() }
+		return { entry = app.entry, entryItemId = state.entryItemId:peek(), surfaces = surfaceMap() }
 	end
 
 	steps.enterFull = function()
@@ -1435,10 +1483,8 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- determinism pin compares.
 	resetToSeed = function()
 		teardownSurfaces()
-		viewScope:dispose()
-		viewScope = scope:child("ref-sipworks-view")
 		clock.reset(0)
-		core:transaction(function()
+		batch(function()
 			state.section:set("menu")
 			state.selectedBlendId:set(nil)
 			state.search:set("")
@@ -1474,12 +1520,12 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	steps.taskAction = function()
 		commands.taskAction()
-		return { selected = state.selectedBlendId:get(), phase = task.phase:get(), surfaces = surfaceMap() }
+		return { selected = state.selectedBlendId:peek(), phase = task.phase:peek(), surfaces = surfaceMap() }
 	end
 
 	steps.serveAnother = function()
 		commands.serveAnother()
-		return { dump = dump(), phase = task.phase:get() }
+		return { dump = dump(), phase = task.phase:peek() }
 	end
 
 	-- ---- the module contract ----------------------------------------------
@@ -1521,12 +1567,19 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 				unsubscribeLocale()
 			end
 			unsubscribeTick()
-			search.dispose()
-			batch.dispose()
-			scope:dispose()
+			appOwner.dispose()
 		end,
 	}
 	return result
+end
+
+-- The proof presents itself; `deps.app` is the application it mounts into.
+function Sipworks.build(Facet: any, _core: any, deps: any): any
+	local Compose = Facet.Compose
+	local appOwner = Compose.createOwner(deps.app.runtime.reactor)
+	return Compose.withOwner(appOwner, function()
+		return construct(Facet, deps, appOwner)
+	end)
 end
 
 return Sipworks

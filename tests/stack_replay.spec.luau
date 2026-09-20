@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local Compose = require("../src/vendor/compose/core")
 --[[ T14 — A STACK RE-PLACES ONLY THE CHILDREN THAT MOVED.
 
 	T13 made a container stop ASKING its clean children (the measure side) and T13b
@@ -128,12 +130,12 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local solver = require("../src/layout/solver")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local scene = require("./lib/deep_stack_scene")
@@ -200,26 +202,26 @@ local function world(o: any): any
 	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 400, h = 600 })
 	local rowH: { any } = {}
 	local rowW: { any } = {}
-	local gap = core:signal(o.gap or 2)
-	local align = core:signal(o.align)
-	local distribute = core:signal(o.distribute)
-	local axis = core:signal("y")
-	local gateAlign = core:signal(o.gateAlign)
-	local gateWeight = core:signal(o.gateWeight)
-	local gatePriority = core:signal(o.gatePriority)
+	local gap = Compose.cell(o.gap or 2)
+	local align = Compose.cell(o.align)
+	local distribute = Compose.cell(o.distribute)
+	local axis = Compose.cell("y")
+	local gateAlign = Compose.cell(o.gateAlign)
+	local gateWeight = Compose.cell(o.gateWeight)
+	local gatePriority = Compose.cell(o.gatePriority)
 	-- the gate row's own margin, as a signal: a SPLIT change (left 11/right 7 becomes
 	-- left 7/right 11) moves the child and moves no total, which is the one shape a
 	-- margin-INCLUSIVE pair cannot see
-	local gateMargin = core:signal(11)
+	local gateMargin = Compose.cell(11)
 	-- ...and a HEADER above the list, whose height moves the LIST's own origin with its
 	-- size unchanged — the only drive here that moves `innerY` without moving `innerH`
-	local headerH = core:signal(10)
+	local headerH = Compose.cell(10)
 	local rowText: { any } = {}
 	local kids: { any } = {}
 	for i = 1, n do
-		rowText[i] = core:signal(`row {i}`)
-		rowH[i] = core:signal(if o.tall and i == gate then 40 else 20)
-		rowW[i] = core:signal(if o.wide and i == gate then 500 else 60)
+		rowText[i] = Compose.cell(`row {i}`)
+		rowH[i] = Compose.cell(if o.tall and i == gate then 40 else 20)
+		rowW[i] = Compose.cell(if o.wide and i == gate then 500 else 60)
 		local isGate = i == gate
 		--[[ ...OR A `text` ROW, which is the only shape a CALIBRATION case can be built
 			on: a calibration change moves `ctx.measureStamp` and dirties NOTHING, so the
@@ -232,7 +234,7 @@ local function world(o: any): any
 				id = `R{i}`,
 				padding = 0,
 				gap = 1,
-				width = core:memo(function(use: any)
+				width = Compose.formula(function(use: any)
 					return px(use(rowW[i]) :: number)
 				end),
 				height = { type = "content" },
@@ -248,7 +250,7 @@ local function world(o: any): any
 			-- recorded pair is not the measurement that decided its rect
 			kids[i] = UI.Box({
 				id = `R{i}`,
-				width = core:memo(function(use: any)
+				width = Compose.formula(function(use: any)
 					return px(use(rowW[i]) :: number)
 				end),
 				height = { type = "aspect", ratio = 3 },
@@ -259,7 +261,7 @@ local function world(o: any): any
 			kids[i] = UI.Text({
 				id = `R{i}`,
 				textSize = 14,
-				text = core:memo(function(use: any)
+				text = Compose.formula(function(use: any)
 					return use(rowText[i]) :: string
 				end),
 			})
@@ -267,7 +269,7 @@ local function world(o: any): any
 		end
 		kids[i] = UI.Box({
 			id = `R{i}`,
-			width = core:memo(function(use: any)
+			width = Compose.formula(function(use: any)
 				return px(use(rowW[i]) :: number)
 			end),
 			-- ...and the GATE row can be `fill` on the main axis instead, which is the
@@ -276,7 +278,7 @@ local function world(o: any): any
 			-- the error the first prototype of this arm made
 			height = if o.fill and isGate
 				then { type = "fill", weight = 1 }
-				else core:memo(function(use: any)
+				else Compose.formula(function(use: any)
 					return px(use(rowH[i]) :: number)
 				end),
 			--[[ ...and the CONTAINMENT shape, which is a MARGIN and not a width: a stack
@@ -297,23 +299,23 @@ local function world(o: any): any
 			margin = if o.negMargin and (isGate or i == gate + 3)
 				then { right = -200 }
 				elseif o.contain and isGate then { left = 340 }
-				elseif o.margin and isGate then core:memo(function(use: any)
+				elseif o.margin and isGate then Compose.formula(function(use: any)
 					local l = use(gateMargin) :: number
 					return { top = 5, right = 18 - l, bottom = 3, left = l }
 				end)
 				else nil,
 			lineAlign = if isGate
-				then core:memo(function(use: any)
+				then Compose.formula(function(use: any)
 					return use(gateAlign) :: any
 				end)
 				else nil,
 			shrinkWeight = if isGate
-				then core:memo(function(use: any)
+				then Compose.formula(function(use: any)
 					return use(gateWeight) :: any
 				end)
 				else nil,
 			layoutPriority = if isGate
-				then core:memo(function(use: any)
+				then Compose.formula(function(use: any)
 					return use(gatePriority) :: any
 				end)
 				else nil,
@@ -323,14 +325,14 @@ local function world(o: any): any
 	local list = if o.adaptive
 		then UI.AdaptiveStack({
 			id = "List",
-			axis = core:memo(function(use: any)
+			axis = Compose.formula(function(use: any)
 				return use(axis) :: any
 			end),
 			padding = 0,
-			gap = core:memo(function(use: any)
+			gap = Compose.formula(function(use: any)
 				return use(gap) :: number
 			end),
-			align = core:memo(function(use: any)
+			align = Compose.formula(function(use: any)
 				return use(align) :: any
 			end),
 			width = px(o.listW or 300),
@@ -340,13 +342,13 @@ local function world(o: any): any
 		else UI.VStack({
 			id = "List",
 			padding = 0,
-			gap = core:memo(function(use: any)
+			gap = Compose.formula(function(use: any)
 				return use(gap) :: number
 			end),
-			align = core:memo(function(use: any)
+			align = Compose.formula(function(use: any)
 				return use(align) :: any
 			end),
-			distribute = core:memo(function(use: any)
+			distribute = Compose.formula(function(use: any)
 				return use(distribute) :: any
 			end),
 			width = px(o.listW or 300),
@@ -371,7 +373,7 @@ local function world(o: any): any
 						UI.Box({
 							id = "Header",
 							width = px(o.listW or 300),
-							height = core:memo(function(use: any)
+							height = Compose.formula(function(use: any)
 								return px(use(headerH) :: number)
 							end),
 						}),
@@ -1352,8 +1354,8 @@ describe("T14: three terms whose witness took a shape of its own", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local left = core:signal({ { key = "L1" }, { key = "L2" } })
-		local right = core:signal({ { key = "R1" } })
+		local left = Compose.cell({ { key = "L1" }, { key = "L2" } })
+		local right = Compose.cell({ { key = "R1" } })
 		local function region(id: string, items: any): any
 			return UI.ForEach({
 				id = id,

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- A PADDED `UI.Text` IS DRAWN INSIDE ITS PADDING (device report 2026-08-12,
 -- IMG_3691 — the all-controls fixture's S1..S12 stat tiles).
 --
@@ -30,16 +31,17 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local function world(build: (any) -> any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	local handle = presenter.present(build(core))
 	presenter.refresh()
 	return { core = core, env = env, adapter = adapter, presenter = presenter, handle = handle }
@@ -137,13 +139,13 @@ describe("padded Text: the inset the solver measured reaches paint", function()
 		-- none is un-padded by an explicit zero write rather than by being skipped
 		-- (renderer `applyPadding`) — skipping would leave the previous row's inset
 		-- on a modifier nothing visits again.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local sides = core:signal({ top = 4, bottom = 4, left = 6, right = 6 })
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local sides = Compose.cell({ top = 4, bottom = 4, left = 6, right = 6 })
 		local handle = presenter.present(UI.Screen({
 			id = "S",
 			children = { UI.padding(UI.Text({ id = "L", text = "S1", textSize = 12 }), sides :: any) },
@@ -165,16 +167,18 @@ describe("padded Text: the inset the solver measured reaches paint", function()
 
 	it("✓ the fixture the device found it on: every adaptive_controls stat tile is inset", function()
 		local scenario = require("../examples/gallery/scenarios/adaptive_controls") :: any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 402, h = 569 })
 		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
 		env:set("preferredInput", "Touch")
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,

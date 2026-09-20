@@ -1,4 +1,7 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_ctx = require("./lib/scenario_ctx")
+local scenario_app = require("./lib/scenario_app")
 --[[ THE HIT-EXPANDER OVERHANG LIFT — the rule, not the table it was found in.
 
 	A control under the touch floor gets an invisible hit expander at
@@ -38,7 +41,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local fake_target = require("../tests/lib/fake_target")
 --[[ THE TABLE CASE MOVED SURFACES ON 2026-08-16 (navigation-and-menus D8). It used
 	to mount `examples/gallery/scenarios/table_columns`, a fixture whose only job was
@@ -53,14 +56,17 @@ type World = { core: any, env: any, adapter: any, pres: any, built: any }
 
 -- the showcase host's own fixture mount (`examples/gallery/client/init.client.luau`)
 local function mount(scenario: any, w: number, h: number): World
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local built = scenario.build({
 		Facet = Facet,
+		app = scenario_app.over(core, pres),
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		actionSystem = system,
@@ -71,28 +77,28 @@ local function mount(scenario: any, w: number, h: number): World
 			return function() end
 		end,
 	})
-	built.handle = pres.present(built.screen, built.present)
+	if built.handle == nil then
+		built.handle = pres.present(built.screen, built.present)
+	end
 	pres.refresh()
 	return { core = core, env = env, adapter = adapter, pres = pres, built = built }
 end
 
--- ...and the TUTORIAL's mount, which takes a different shape of argument
--- (`build(Facet, core, deps)`, not `build(ctx)`) because it is an example rather
--- than a scenario. The gallery client mounts each with its own contract.
+-- ...and the TUTORIAL's mount. An example builds against the same ctx a
+-- scenario does, and may present itself.
 local function mountExample(module: any, w: number, h: number): World
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local built = module.build(Facet, core, {
-		env = env,
-		actionSystem = system,
-		presenter = pres,
-		adapter = adapter,
-	})
-	built.handle = pres.present(built.screen, built.present)
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local built = module.build(
+		scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
+	)
+	if built.handle == nil then
+		built.handle = pres.present(built.screen, built.present)
+	end
 	pres.refresh()
 	return { core = core, env = env, adapter = adapter, pres = pres, built = built }
 end
@@ -193,12 +199,12 @@ local function subFloorList(rows: number): any
 end
 
 local function mountScreen(screen: any, w: number, h: number): World
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local handle = pres.present(screen)
 	pres.refresh()
 	return {
@@ -262,12 +268,12 @@ describe("hit-expander overhang: the qualifier and the stability it buys", funct
 		-- 20x20 buttons 16px apart: each floor reaches 12px past its own button,
 		-- so the two FLOORS overlap while neither floor reaches the other's
 		-- button. Under an unqualified rule each would want to outrank the other.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {

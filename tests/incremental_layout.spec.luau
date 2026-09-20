@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	INCREMENTAL LAYOUT, STAGE 2 — re-solve one absorbing box instead of the whole tree.
 
@@ -52,7 +53,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local VIEWPORT = { w = 360, h = 640 }
 -- mutation-proved elsewhere in this suite (see instance_recycling.spec): 20 reddens the
@@ -60,19 +62,19 @@ local VIEWPORT = { w = 360, h = 640 }
 local ROW_HEIGHT = 56
 
 local function world(incremental: boolean?, _unused: boolean?, rowCount: number?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local items = {}
 	for i = 1, rowCount or 300 do
-		table.insert(items, { id = `r{i}`, value = core:signal(i) })
+		table.insert(items, { id = `r{i}`, value = Compose.cell(i) })
 	end
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
-		rows = core:signal(items),
+		rows = Compose.cell(items),
 		key = function(item: any)
 			return item.id
 		end,
@@ -80,45 +82,47 @@ local function world(incremental: boolean?, _unused: boolean?, rowCount: number?
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.HStack({
+			return harness.UI.HStack({
 				id = "Row",
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fixed", px = ROW_HEIGHT },
 				children = {
 					-- the value: this is what changes
-					Facet.UI.Text({
+					harness.UI.Text({
 						id = "V",
 						textSize = 14,
-						text = core:memo(function(use)
+						text = Compose.formula(function(use)
 							return tostring(use(item.value))
 						end),
 					}),
 					-- a label that MUST truncate, with `disclose`: this is where
 					-- `textFacts.truncated` lives, and it gates full-value disclosure
-					Facet.UI.Text({
+					harness.UI.Text({
 						id = "L",
 						textSize = 12,
 						disclose = true,
 						width = { type = "fixed", px = 40 },
-						text = core:memo(function(use)
+						text = Compose.formula(function(use)
 							return `Extraordinarily Long Identity {use(item.value)}`
 						end),
 					}),
 					-- ...and a compact ladder, the other published verdict
-					Facet.UI.Button({
+					harness.UI.Button({
 						id = "B",
 						label = "Configure this row",
 						compactLabel = "C",
 						width = { type = "fixed", px = 44 },
 					}),
-					Facet.UI.Box({ id = "P", width = { type = "fill", weight = 1 } }),
+					harness.UI.Box({ id = "P", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local handle =
-		pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }), { incrementalLayout = incremental })
+	local handle = pres.present(
+		harness.UI.Screen({ id = "S", children = { list.blueprint } }),
+		{ incrementalLayout = incremental }
+	)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
 	return {

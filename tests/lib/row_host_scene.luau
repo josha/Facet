@@ -20,11 +20,10 @@
 	not. The `Button` is there so the surface declares an input sink (the hit-rect
 	walk runs, and its rects compose through the host chain); the `Box` is a plain
 	painted leaf; the two `Text`s are what a row write moves. ]]
-local UI = require("../../src/blueprint")
-local mountLib = require("../../src/mount")
+local Compose = require("../../src/vendor/compose/core")
+local scene_root = require("./scene_root")
 local environment = require("../../src/env/environment")
 local renderer = require("../../src/render/renderer")
-local customFactory = require("../../src/core/custom")
 local fake_target = require("./fake_target")
 
 local row_host_scene = {}
@@ -66,104 +65,75 @@ end
 function row_host_scene.new(opts: Opts?)
 	local o: Opts = opts or {}
 	local n = o.rows or row_host_scene.ROWS
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 400, h = 600 })
-
 	local items: { any } = {}
 	local byKey: { [string]: any } = {}
 	for i = 1, n do
-		local item = { key = `r{i}`, label = core:signal(`Row {i}`), n = core:signal(i) }
+		local item = { key = `r{i}`, label = Compose.cell(`Row {i}`), n = Compose.cell(i) }
 		items[i] = item
 		byKey[item.key] = item
 	end
-	local rows = core:signal(items)
-	local branchOn = core:signal(true)
+	local rows = Compose.cell(items)
+	local branchOn = Compose.cell(true)
 	local nextKey = n + 1
 
-	local bp = UI.Screen({
-		id = "S",
-		children = {
-			--[[ THE BANNER IS A SIBLING OF THE LIST, NOT A ROW IN IT, and that
-						placement is the whole point of the fixture. Dropping a branch INSIDE
-						the list changes the list's own child set, so the list is dirty and
-						each row becomes its own translate ROOT — the case `solver.luau` has
-						always handled (a host root records an empty run). Dropping it ABOVE
-						the list leaves the list CLEAN and only MOVED, so the list is the
-						translate root and every row is a coordinate-space DESCENDANT of one
-						— the path that had no ruling, and where the fix round found the host
-						and its subtree in two different bases. Measured: with the banner
-						inside the list, the oracle stays green with the host stop deleted.
-
-						BOTH CONTAINERS ARE FIXED-HEIGHT rather than content-sized, and that
-						is also a finding rather than a preference: a content-height stack
-						under this ScrollView diverges from a forced full solve on its own —
-						`canvas` and the stack's height go stale after structural churn —
-						WITH `hosts = false` as well as with hosts on, i.e. in the pre-D6a
-						world. Recorded in the campaign ledger with its reproduction; pinning
-						it here would make a D6a regression indistinguishable from it. ]]
-			UI.VStack({
-				id = "Body",
+	-- The banner is a sibling of the list, not a row in it: dropping it leaves the
+	-- list clean and only moved, so the list is the translate root and every row a
+	-- coordinate-space descendant of one. Both containers are fixed-height so a
+	-- content-height canvas never enters the comparison.
+	local mounted = scene_root.mount(function(UI)
+		return UI.Screen("S")({
+			UI.VStack("Body")({
 				padding = 4,
 				gap = 2,
 				width = fill(),
 				height = px(2000),
-				children = {
-					UI.When({
-						id = "Head",
-						condition = branchOn,
-						thenView = function(): any
-							return UI.Box({ id = "Banner", width = fill(), height = px(60) })
+				UI.When("Head")({
+					Compose.show(branchOn, function()
+						return UI.Box("Banner")({ width = fill(), height = px(60) })
+					end),
+				}),
+				UI.VStack("List")({
+					padding = 0,
+					gap = 2,
+					width = fill(),
+					height = px(1200),
+					scene_root.keyed(UI, "Rows", {
+						items = rows,
+						key = function(item: any): string
+							return item.key
+						end,
+						row = function(entry: any): any
+							local item = entry:peek()
+							return UI.HStack("Row")({
+								padding = 0,
+								gap = 4,
+								width = fill(),
+								height = px(28),
+								UI.Text("V")({
+									textSize = 14,
+									text = function(use: any): string
+										return tostring(use(item.n))
+									end,
+								}),
+								UI.Text("L")({ textSize = 12, text = item.label }),
+								UI.Button("B")({
+									label = "go",
+									width = px(64),
+									height = px(44),
+									onActivate = function() end,
+								}),
+								UI.Box("P")({ width = px(30), height = px(10) }),
+							})
 						end,
 					}),
-					UI.VStack({
-						id = "List",
-						padding = 0,
-						gap = 2,
-						width = fill(),
-						height = px(1200),
-						children = {
-							UI.ForEach({
-								id = "Rows",
-								items = rows,
-								key = function(item: any): string
-									return item.key
-								end,
-								row = function(item: any): any
-									return UI.HStack({
-										id = "Row",
-										padding = 0,
-										gap = 4,
-										width = fill(),
-										height = px(28),
-										children = {
-											UI.Text({
-												id = "V",
-												textSize = 14,
-												text = core:memo(function(use: any): string
-													return tostring(use(item.n))
-												end),
-											}),
-											UI.Text({ id = "L", textSize = 12, text = item.label }),
-											UI.Button({
-												id = "B",
-												label = "go",
-												width = px(64),
-												height = px(44),
-											}),
-											UI.Box({ id = "P", width = px(30), height = px(10) }),
-										},
-									})
-								end,
-							}),
-						},
-					}),
-				},
+				}),
 			}),
-		},
-	})
+		})
+	end)
+	local core, root = mounted.core, mounted.root
+	local env = environment.new(core)
+	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 400, h = 600 })
 
-	local root = mountLib.mount(core, bp)
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
@@ -196,7 +166,7 @@ function row_host_scene.new(opts: Opts?)
 	function scene.insert(at: number)
 		local key = `r{nextKey}`
 		nextKey += 1
-		local item = { key = key, label = core:signal(`Row {key}`), n = core:signal(nextKey) }
+		local item = { key = key, label = Compose.cell(`Row {key}`), n = Compose.cell(nextKey) }
 		byKey[key] = item
 		table.insert(items, math.clamp(at, 1, #items + 1), item)
 		publish()

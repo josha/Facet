@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- P1.3/P1.4 renderer tests: end-to-end headless slice — blueprint → mount →
 -- solve → adapter — minimal writes on paint updates, re-arrange on viewport
 -- change, structural add/remove through When, env per-key isolation, token
@@ -7,9 +8,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local authority = require("../src/render/authority")
@@ -19,13 +20,15 @@ local adapter_source = require("./lib/adapter_source")
 -- the renderer as ONE text: two files since the 200k `Source` write-cap split
 -- (tests/lib/renderer_source names them and says why)
 local renderer_source = require("./lib/renderer_source")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 describe("renderer path lookup locality", function()
 	it("repaints a late sibling without visiting an unrelated subtree", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local scale = core:signal(1)
+		local scale = Compose.cell(1)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -66,8 +69,8 @@ local function makeSlice()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 	env:set("coreSafeInsets", { top = 59, bottom = 34, left = 0, right = 0 })
-	local music = core:signal(false)
-	local showAdvanced = core:signal(false)
+	local music = Compose.cell(false)
+	local showAdvanced = Compose.cell(false)
 	local bp = UI.Screen({
 		id = "Settings",
 		children = {
@@ -134,7 +137,8 @@ describe("renderer: minimal updates", function()
 		local live = adapter.liveCount()
 		showAdvanced:set(true)
 		controller.refresh()
-		expect(adapter.liveCount()).toBe(live + 1)
+		-- the branch region and the node it holds
+		expect(adapter.liveCount()).toBe(live + 2)
 		expect(adapter.node("/Settings/Advanced/then/Hint") ~= nil).toBe(true)
 		showAdvanced:set(false)
 		controller.refresh()
@@ -155,10 +159,10 @@ describe("environment: per-key isolation", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		local colorFires, keyboardFires = 0, 0
-		core:observe(env:get("preferredTransparency"), function()
+		observeChange(core.owner, env:get("preferredTransparency"), function()
 			colorFires += 1
 		end)
-		core:observe(env:get("keyboardOcclusionRect"), function()
+		observeChange(core.owner, env:get("keyboardOcclusionRect"), function()
 			keyboardFires += 1
 		end)
 		env:set("keyboardOcclusionRect", { x = 0, y = 500, w = 390, h = 344 })
@@ -169,9 +173,9 @@ describe("environment: per-key isolation", function()
 	it("derived sizeClass recomputes only from viewportRect", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		expect(env:get("sizeClass"):get()).toBe("wide")
+		expect(env:get("sizeClass"):peek()).toBe("wide")
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-		expect(env:get("sizeClass"):get()).toBe("compact")
+		expect(env:get("sizeClass"):peek()).toBe("compact")
 	end)
 
 	-- the live interaction-class set, derived from capabilities +
@@ -179,7 +183,7 @@ describe("environment: per-key isolation", function()
 	it("derived interactionClasses: defaults are a pointer/keyboard desktop", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		local classes = env:get("interactionClasses"):get()
+		local classes = env:get("interactionClasses"):peek()
 		expect(classes.pointer).toBe(true)
 		expect(classes.keyboard).toBe(true)
 		expect(classes.touch).toBe(false)
@@ -191,7 +195,7 @@ describe("environment: per-key isolation", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
-		local classes = env:get("interactionClasses"):get()
+		local classes = env:get("interactionClasses"):peek()
 		expect(classes.gamepad).toBe(true)
 		expect(classes.pointer).toBe(true)
 		expect(classes.primary).toBe("pointer")
@@ -201,7 +205,7 @@ describe("environment: per-key isolation", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("preferredInput", "Gamepad")
-		local classes = env:get("interactionClasses"):get()
+		local classes = env:get("interactionClasses"):peek()
 		expect(classes.gamepad).toBe(true)
 		expect(classes.primary).toBe("gamepad")
 	end)
@@ -212,22 +216,22 @@ describe("environment: per-key isolation", function()
 	it("displaySize fact defaults to Medium and distanceProfile derives ten-foot from Large", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		expect(env:get("displaySize"):get()).toBe("Medium")
-		expect(env:get("distanceProfile"):get()).toBe("near")
+		expect(env:get("displaySize"):peek()).toBe("Medium")
+		expect(env:get("distanceProfile"):peek()).toBe("near")
 		env:set("displaySize", "Large")
-		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
+		expect(env:get("distanceProfile"):peek()).toBe("ten-foot")
 		env:set("displaySize", "garbage")
-		expect(env:get("distanceProfile"):get()).toBe("near")
+		expect(env:get("distanceProfile"):peek()).toBe("near")
 	end)
 
 	it("overscanInsets fact defaults to zero and is settable", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		local insets = env:get("overscanInsets"):get()
+		local insets = env:get("overscanInsets"):peek()
 		expect(insets.top).toBe(0)
 		expect(insets.left).toBe(0)
 		env:set("overscanInsets", { top = 27, bottom = 27, left = 48, right = 48 })
-		expect(env:get("overscanInsets"):get().left).toBe(48)
+		expect(env:get("overscanInsets"):peek().left).toBe(48)
 	end)
 end)
 
@@ -290,17 +294,17 @@ describe("Button padding reaches the adapter (playlist stars defect 2026-07-20)"
 		-- the adapter hardcoded a 12px UIPadding; a 22px star button solved
 		-- with padding=2 but rendered with a -2px text area (invisible glyph)
 		local Facet = require("../src") :: any
-		local mountLib = require("../src/mount")
+		local mountLib = harness
 		local rendererLib = require("../src/render/renderer")
 		local fake_target = require("./lib/fake_target")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local adapter = fake_target.new({ ops = true })
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Button({ id = "Tiny", label = "★", padding = 2, width = { type = "fixed", px = 22 } }),
-				Facet.UI.Button({ id = "Normal", label = "Save" }),
+				harness.UI.Button({ id = "Tiny", label = "★", padding = 2, width = { type = "fixed", px = 22 } }),
+				harness.UI.Button({ id = "Normal", label = "Save" }),
 			},
 		})
 		local root = mountLib.mount(core, screen)
@@ -318,19 +322,19 @@ describe("Toggle sizing honors its label (gallery place defect 2026-07-20)", fun
 		-- 12px inset and 16px label margin; a 56px track-only rect painted
 		-- the label UNDER the track (director screenshot, settings place)
 		local Facet = require("../src") :: any
-		local mountLib = require("../src/mount")
+		local mountLib = harness
 		local rendererLib = require("../src/render/renderer")
 		local fake_target = require("./lib/fake_target")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local adapter = fake_target.new({ ops = true })
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			padding = 16,
 			gap = 8,
 			children = {
-				Facet.UI.Toggle({ id = "Music", label = "Music", value = core:signal(false) }),
-				Facet.UI.Text({ id = "Below", text = "below", textSize = 14 }),
+				harness.UI.Toggle({ id = "Music", label = "Music", value = Compose.cell(false) }),
+				harness.UI.Text({ id = "Below", text = "below", textSize = 14 }),
 			},
 		})
 		local root = mountLib.mount(core, screen)
@@ -344,13 +348,13 @@ describe("Toggle sizing honors its label (gallery place defect 2026-07-20)", fun
 		expect(toggle.w).toBeGreaterThanOrEqual(labelWidth + 84)
 		expect(toggle.h).toBeGreaterThanOrEqual(28) -- never shorter than the track row
 		-- an explicit width still wins (the Settings-port row pattern)
-		local screen2 = Facet.UI.Screen({
+		local screen2 = harness.UI.Screen({
 			id = "T",
 			children = {
-				Facet.UI.Toggle({
+				harness.UI.Toggle({
 					id = "Wide",
 					label = "Music",
-					value = core:signal(false),
+					value = Compose.cell(false),
 					width = { type = "fixed", px = 300 },
 				}),
 			},
@@ -774,22 +778,22 @@ describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", func
 	-- disabled, so the sweep covers the state the accessibility floor paints) and
 	-- a Button beside them, all under the package's own resolved metrics
 	local function world(pkg: any)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 1067 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(pkg, nil, {}))
 		local adapter = fake_target.new({ ops = true })
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local switch = core:signal(false)
-		presenter.present(Facet.UI.Screen({
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local switch = Compose.cell(false)
+		presenter.present(harness.UI.Screen({
 			id = "S",
 			padding = 16,
 			gap = 8,
 			children = {
-				Facet.UI.Toggle({ id = "Music", label = "Music", value = switch }),
-				Facet.UI.Toggle({ id = "Locked", label = "Locked", value = switch, enabled = false }),
-				Facet.UI.Button({ id = "Save", label = "Save" }),
+				harness.UI.Toggle({ id = "Music", label = "Music", value = switch }),
+				harness.UI.Toggle({ id = "Locked", label = "Locked", value = switch, enabled = false }),
+				harness.UI.Button({ id = "Save", label = "Save" }),
 			},
 		}))
 		presenter.refresh()
@@ -879,19 +883,19 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 		-- one thing while the measure seam reserved another. A single-line label
 		-- must be MEASURED single-line or the row reserves height for a second
 		-- line nobody draws.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new({ ops = true })
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		presenter.present(Facet.UI.Screen({
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		presenter.present(harness.UI.Screen({
 			id = "S",
 			children = {
 				-- a label far too long for the column the track leaves behind, in a
 				-- row that is NOT free to grow (fill width inside a 320px screen)
-				Facet.UI.Toggle({
+				harness.UI.Toggle({
 					id = "Long",
 					label = "Ambient occlusion quality preset",
 					value = false,
@@ -928,18 +932,18 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 	it("a long label still GROWS the row where the row is free to grow", function()
 		-- "ellipsize-or-grow per the row's rules": an intrinsic-width row takes the
 		-- width its one line needs instead of wrapping into a second one
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new({ ops = true })
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		presenter.present(Facet.UI.Screen({
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		presenter.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Toggle({ id = "Short", label = "Music", value = false }),
-				Facet.UI.Toggle({ id = "Long", label = "Ambient occlusion quality", value = false }),
+				harness.UI.Toggle({ id = "Short", label = "Music", value = false }),
+				harness.UI.Toggle({ id = "Long", label = "Ambient occlusion quality", value = false }),
 			},
 		}))
 		presenter.refresh()
@@ -961,20 +965,20 @@ describe("renderer — root policy", function()
 	local Facet = require("../src") :: any
 	local themeSnapshot = require("../src/themes/snapshot")
 	local function world(insets: any)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		env:set("coreSafeInsets", insets)
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new({ ops = true })
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		return presenter, adapter
 	end
 	local function fullScreen(id: string)
-		return Facet.UI.Screen({
+		return harness.UI.Screen({
 			id = id,
 			children = {
-				Facet.UI.Spacer({
+				harness.UI.Spacer({
 					id = "Fill",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },

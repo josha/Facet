@@ -13,18 +13,19 @@ local seedData = require("../content/seed")
 local supply = {}
 
 export type Opts = {
-	core: any,
+	Compose: any,
+	rooted: (() -> any) -> any,
 	now: any, -- Readable<number>: injected world seconds
-	scope: any,
 }
 
 local KINDS = { "nectar", "dew" }
 supply.KINDS = KINDS
 
 function supply.new(opts: Opts): any
-	local core = opts.core
+	local Compose = opts.Compose
+	-- a cached formula outlives the row that first asks for it
+	local rooted = opts.rooted
 	local now = opts.now
-	local scope = opts.scope
 
 	-- semantic state: the refill stamp per glade per supply, and which nectar is
 	-- assigned to each glade. Both survive re-solve; both reset from the seed.
@@ -32,10 +33,10 @@ function supply.new(opts: Opts): any
 	local assigned: { [string]: any } = {}
 	for _, glade in seedData.GLADES do
 		stamps[glade.id] = {
-			nectar = scope:own(core:signal(-glade.nectarAge)),
-			dew = scope:own(core:signal(-glade.dewAge)),
+			nectar = Compose.cell(-glade.nectarAge),
+			dew = Compose.cell(-glade.dewAge),
 		}
-		assigned[glade.id] = scope:own(core:signal(glade.nectar))
+		assigned[glade.id] = Compose.cell(glade.nectar)
 	end
 
 	local service = {}
@@ -49,19 +50,21 @@ function supply.new(opts: Opts): any
 
 	local function elapsedOf(gladeId: string, kind: string, at: number): number
 		local stamp = stamps[gladeId][kind]
-		return at - stamp:get()
+		return at - stamp:peek()
 	end
 
 	function service.remaining(gladeId: string, kind: string): any
 		local key = gladeId .. "/" .. kind
 		local memo = remainings[key]
 		if memo == nil then
-			memo = scope:own(core:memo(function(use)
-				local at = use(now)
-				local stamp = use(stamps[gladeId][kind])
-				local left = seedData.DRAIN[kind].empty - (at - stamp)
-				return if left < 0 then 0 else left
-			end))
+			memo = rooted(function()
+				return Compose.formula(function(use)
+					local at = use(now)
+					local stamp = use(stamps[gladeId][kind])
+					local left = seedData.DRAIN[kind].empty - (at - stamp)
+					return if left < 0 then 0 else left
+				end)
+			end)
 			remainings[key] = memo
 		end
 		return memo
@@ -71,10 +74,12 @@ function supply.new(opts: Opts): any
 		local key = gladeId .. "/" .. kind
 		local memo = levels[key]
 		if memo == nil then
-			memo = scope:own(core:memo(function(use)
-				local left = use(service.remaining(gladeId, kind))
-				return left / seedData.DRAIN[kind].empty
-			end))
+			memo = rooted(function()
+				return Compose.formula(function(use)
+					local left = use(service.remaining(gladeId, kind))
+					return left / seedData.DRAIN[kind].empty
+				end)
+			end)
 			levels[key] = memo
 		end
 		return memo
@@ -87,18 +92,20 @@ function supply.new(opts: Opts): any
 		local key = gladeId .. "/" .. kind
 		local memo = states[key]
 		if memo == nil then
-			memo = scope:own(core:memo(function(use)
-				local at = use(now)
-				local stamp = use(stamps[gladeId][kind])
-				local elapsed = at - stamp
-				local drain = seedData.DRAIN[kind]
-				if elapsed >= drain.empty then
-					return "empty"
-				elseif elapsed >= drain.low then
-					return "low"
-				end
-				return "full"
-			end))
+			memo = rooted(function()
+				return Compose.formula(function(use)
+					local at = use(now)
+					local stamp = use(stamps[gladeId][kind])
+					local elapsed = at - stamp
+					local drain = seedData.DRAIN[kind]
+					if elapsed >= drain.empty then
+						return "empty"
+					elseif elapsed >= drain.low then
+						return "low"
+					end
+					return "full"
+				end)
+			end)
 			states[key] = memo
 		end
 		return memo
@@ -111,7 +118,7 @@ function supply.new(opts: Opts): any
 	-- the two mutations. Both stamp `now`, which is what makes a refill visible
 	-- as a ring returning to full and then draining again.
 	function service.refill(gladeId: string, kind: string)
-		stamps[gladeId][kind]:set(now:get())
+		stamps[gladeId][kind]:set(now:peek())
 	end
 
 	-- assigning a nectar also refills it: a fresh jar IS a full supply, and the
@@ -133,14 +140,14 @@ function supply.new(opts: Opts): any
 	function service.dump(): any
 		local out: { any } = {}
 		for _, glade in seedData.GLADES do
-			local at = now:get()
+			local at = now:peek()
 			table.insert(out, {
 				glade = glade.id,
-				nectar = assigned[glade.id]:get(),
+				nectar = assigned[glade.id]:peek(),
 				nectarElapsed = elapsedOf(glade.id, "nectar", at),
 				dewElapsed = elapsedOf(glade.id, "dew", at),
-				nectarState = service.state(glade.id, "nectar"):get(),
-				dewState = service.state(glade.id, "dew"):get(),
+				nectarState = service.state(glade.id, "nectar"):peek(),
+				dewState = service.state(glade.id, "dew"):peek(),
 			})
 		end
 		return out

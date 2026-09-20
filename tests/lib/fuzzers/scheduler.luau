@@ -3,16 +3,18 @@
 -- a random signal/memo graph mirrored by a pure model, drives it with random
 -- writes, transactions (including set-then-revert), observer/effect churn,
 -- and mid-run memo creation, then checks after every quiescent point:
---   * every memo :get() equals the model's expected value (glitch-free);
+--   * every memo :peek() equals the model's expected value (glitch-free);
 --   * observers fired only on real change (no consecutive equal values), and
 --     their last fired value is the model value (set-then-revert fires 0);
---   * core:lastError() stays nil for these legal programs;
+--   * core.lastError() stays nil for these legal programs;
 --   * full teardown returns every registry counter to the fresh-core baseline.
 -- Legal programs only — illegal ops (cycles, writes-in-memo) are fault
 -- injection's job (tests/faults.spec.luau).
 
-local customCore = require("../../../src/core/custom")
+local customCore = require("../../../src/core/services")
 local prng = require("../prng")
+local Compose = require("../../../src/vendor/compose/core")
+local observeChange = require("../../../src/core/on_change")
 
 type Prng = prng.Prng
 
@@ -56,7 +58,7 @@ type Observer = {
 
 function scheduler_fuzzer.case(rng: Prng)
 	local core = (customCore :: any).new()
-	local baseline = core:counters()
+	local baseline = core.owner.size()
 	local nodes: { ModelNode } = {}
 	local observers: { Observer } = {}
 	local effects: { { dispose: () -> (), live: boolean } } = {}
@@ -64,7 +66,7 @@ function scheduler_fuzzer.case(rng: Prng)
 
 	local function addSignal()
 		local value = rng:range(-50, 50)
-		local readable = core:signal(value)
+		local readable = Compose.cell(value)
 		table.insert(nodes, { kind = "signal", readable = readable, value = value, disposed = false })
 	end
 
@@ -87,7 +89,7 @@ function scheduler_fuzzer.case(rng: Prng)
 		for _, dep in deps do
 			table.insert(depReadables, nodes[dep].readable)
 		end
-		local readable = core:memo(function(use)
+		local readable = Compose.formula(function(use)
 			local acc = constant
 			for position, depReadable in depReadables :: { any } do
 				local v = use(depReadable)
@@ -110,7 +112,7 @@ function scheduler_fuzzer.case(rng: Prng)
 	local function addObserver()
 		local index = rng:range(1, #nodes)
 		local observer: Observer = { nodeIndex = index, fired = {}, unsubscribe = nil :: any, live = true }
-		observer.unsubscribe = core:observe(nodes[index].readable, function(value)
+		observer.unsubscribe = observeChange(core.owner, nodes[index].readable, function(value)
 			table.insert(observer.fired, value)
 		end)
 		table.insert(observers, observer)
@@ -120,7 +122,7 @@ function scheduler_fuzzer.case(rng: Prng)
 		local index = rng:range(1, #nodes)
 		local readable = nodes[index].readable
 		local handle = { dispose = nil :: any, live = true }
-		handle.dispose = core:effect(function(use)
+		handle.dispose = core.owner.watch(function(use)
 			table.insert(effectLog, use(readable))
 		end)
 		table.insert(effects, handle)
@@ -137,13 +139,13 @@ function scheduler_fuzzer.case(rng: Prng)
 	end
 
 	local function checkInvariants(context: string)
-		local coreError = core:lastError()
+		local coreError = core.lastError()
 		if coreError ~= nil then
 			error(`[{context}] core reported an internal error for a legal program: {coreError}`)
 		end
 		for i, node in nodes do
 			if node.kind == "memo" and not node.disposed then
-				local got = node.readable:get()
+				local got = node.readable:peek()
 				local want = expected(nodes, i)
 				if got ~= want then
 					error(`[{context}] memo #{i} glitch: got {got}, model expects {want}`)
@@ -207,7 +209,7 @@ function scheduler_fuzzer.case(rng: Prng)
 						break
 					end
 				end
-				core:transaction(function()
+				core.reactor:batch(function()
 					local touched: { { index: number, before: number } } = {}
 					for _ = 1, rng:range(1, 3) do
 						local index = rng:pick(signals)
@@ -219,7 +221,7 @@ function scheduler_fuzzer.case(rng: Prng)
 					end
 					if midTxMemo ~= nil then
 						-- reads inside an open transaction see fresh derived state
-						local got = nodes[midTxMemo].readable:get()
+						local got = nodes[midTxMemo].readable:peek()
 						local want = expected(nodes, midTxMemo)
 						if got ~= want then
 							error(`mid-transaction memo read got {got}, model expects {want}`)
@@ -285,20 +287,19 @@ function scheduler_fuzzer.case(rng: Prng)
 		end
 	end
 	for i = #nodes, 1, -1 do
-		if nodes[i].kind == "signal" then
+		if nodes[i].kind == "memo" then
+			-- a cell has no disposal in Compose; a formula does
 			nodes[i].readable:dispose()
 			nodes[i].disposed = true
 		end
 	end
 
-	local after = core:counters()
-	for key, value in baseline :: { [string]: number } do
-		if after[key] ~= value then
-			error(`registry '{key}' not at baseline after teardown: {after[key]} != {value}`)
-		end
+	local after = core.owner.size()
+	if after ~= baseline then
+		error(`registrations not at baseline after teardown: {after} != {baseline}`)
 	end
-	if core:lastError() ~= nil then
-		error(`core error after teardown: {core:lastError()}`)
+	if core.lastError() ~= nil then
+		error(`core error after teardown: {core.lastError()}`)
 	end
 end
 

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE PLAYER'S BACKGROUND-TRANSPARENCY PREFERENCE, HONOURED BY A PAINT PATH
 	(owed row O-26).
 
@@ -302,20 +303,20 @@ describe("an AUTHORED opacity is the author's number and the preference never sc
 		declared as decoration; it never scales a number an author or an animation
 		is driving. ]]
 	local function opacityUnder(preference: number): number
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("preferredTransparency", preference)
 		local adapter = fake_target.new()
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		pres.present(Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, adapter, system)
+		pres.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.ZStack({
+				harness.UI.ZStack({
 					id = "Fade",
 					opacity = 0.5,
-					children = { Facet.UI.Text({ id = "Label", text = "hello" }) },
+					children = { harness.UI.Text({ id = "Label", text = "hello" }) },
 				}),
 			},
 		}))
@@ -335,7 +336,7 @@ end)
 -- ===========================================================================
 describe("the renderer pushes the preference at attach and on every change", function()
 	local function world(initial: number?)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		if initial ~= nil then
@@ -343,8 +344,8 @@ describe("the renderer pushes the preference at attach and on every change", fun
 		end
 		local adapter = fake_target.new()
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		pres.present(Facet.UI.Screen({ id = "S", children = { Facet.UI.Text({ id = "L", text = "x" }) } }))
+		local pres = harness.newPresenter(core, env, adapter, system)
+		pres.present(harness.UI.Screen({ id = "S", children = { harness.UI.Text({ id = "L", text = "x" }) } }))
 		pres.refresh()
 		return core, env, adapter
 	end

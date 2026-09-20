@@ -24,7 +24,7 @@ local function trace(s: any, frames: number, dt: number?): { number }
 	local out: { number } = {}
 	for _ = 1, frames do
 		s:step(dt or FRAME)
-		table.insert(out, s:get())
+		table.insert(out, s:peek())
 	end
 	return out
 end
@@ -125,7 +125,7 @@ describe("spring solver (semi-implicit Euler)", function()
 			previous = v
 		end
 		expect(s:isSettled()).toBe(true)
-		expect(s:get()).toBeCloseTo(100, 1e-3)
+		expect(s:peek()).toBeCloseTo(100, 1e-3)
 	end)
 
 	it("the one under-damped class overshoots (earned, and only there)", function()
@@ -136,17 +136,17 @@ describe("spring solver (semi-implicit Euler)", function()
 			peak = math.max(peak, v)
 		end
 		expect(peak).toBeGreaterThan(100)
-		expect(s:get()).toBeCloseTo(100, 1e-3) -- and it still comes to rest ON target
+		expect(s:peek()).toBeCloseTo(100, 1e-3) -- and it still comes to rest ON target
 	end)
 
 	it("setTarget touches neither value nor velocity (the interruptibility invariant)", function()
 		local s = spring.new(0, classes.resolve("object"))
 		s:setTarget(100)
 		trace(s, 10)
-		local valueBefore, velocityBefore = s:get(), s:getVelocity()
+		local valueBefore, velocityBefore = s:peek(), s:getVelocity()
 		expect(velocityBefore).toBeGreaterThan(0)
 		s:setTarget(-500)
-		expect(s:get()).toBe(valueBefore)
+		expect(s:peek()).toBe(valueBefore)
 		expect(s:getVelocity()).toBe(velocityBefore)
 		expect(s:getTarget()).toBe(-500)
 	end)
@@ -162,16 +162,16 @@ describe("spring solver (semi-implicit Euler)", function()
 		cut:setTarget(100)
 		trace(carried, 10)
 		trace(cut, 10)
-		expect(carried:get()).toBeCloseTo(cut:get(), 1e-12) -- identical to here
-		local from = carried:get()
+		expect(carried:peek()).toBeCloseTo(cut:peek(), 1e-12) -- identical to here
+		local from = carried:peek()
 
 		carried:setTarget(200)
 		cut:setTarget(200)
 		cut:setVelocity(0) -- the seam
 		carried:step(FRAME)
 		cut:step(FRAME)
-		local carriedDelta = carried:get() - from
-		local cutDelta = cut:get() - from
+		local carriedDelta = carried:peek() - from
+		local cutDelta = cut:peek() - from
 		expect(carriedDelta).toBeGreaterThan(cutDelta)
 		expect(cutDelta).toBeGreaterThan(0) -- both still move: this is the gap, not a stall
 	end)
@@ -182,8 +182,8 @@ describe("spring solver (semi-implicit Euler)", function()
 		seeded:setVelocity(600) -- px/s, as a release tracker would report
 		seeded:step(FRAME)
 		resting:step(FRAME)
-		expect(resting:get()).toBe(0) -- nothing aimed, nothing seeded: nothing moves
-		local delta = seeded:get()
+		expect(resting:peek()).toBe(0) -- nothing aimed, nothing seeded: nothing moves
+		local delta = seeded:peek()
 		expect(delta).toBeGreaterThan(0)
 		-- the frame's travel is bounded above by the undamped v·dt and is a real
 		-- fraction of it: a seam would show up as ~0 travel or as a jump past it
@@ -201,21 +201,21 @@ describe("spring solver (semi-implicit Euler)", function()
 		clamped:setTarget(250)
 		spiked:step(100) -- tab-out / debugger pause
 		clamped:step(spring.MAX_DT)
-		expect(spiked:get()).toBe(clamped:get())
-		expect(spiked:get() == spiked:get()).toBeTruthy() -- not NaN
-		expect(spiked:get()).toBeLessThanOrEqual(250)
+		expect(spiked:peek()).toBe(clamped:peek())
+		expect(spiked:peek() == spiked:peek()).toBeTruthy() -- not NaN
+		expect(spiked:peek()).toBeLessThanOrEqual(250)
 	end)
 
 	it("rejects non-finite input and keeps the last good state", function()
 		local s = spring.new(0, classes.resolve("object"))
 		s:setTarget(100)
 		trace(s, 5)
-		local value, velocity = s:get(), s:getVelocity()
+		local value, velocity = s:peek(), s:getVelocity()
 		s:setTarget(0 / 0)
 		s:setVelocity(math.huge)
 		s:snap(0 / 0)
 		expect(s:getTarget()).toBe(100)
-		expect(s:get()).toBe(value)
+		expect(s:peek()).toBe(value)
 		expect(s:getVelocity()).toBe(velocity)
 	end)
 
@@ -224,7 +224,7 @@ describe("spring solver (semi-implicit Euler)", function()
 		s:setTarget(100)
 		trace(s, 5)
 		s:snap(42)
-		expect(s:get()).toBe(42)
+		expect(s:peek()).toBe(42)
 		expect(s:getTarget()).toBe(42)
 		expect(s:getVelocity()).toBe(0)
 		expect(s:isSettled()).toBe(true)
@@ -237,7 +237,7 @@ describe("spring solver (semi-implicit Euler)", function()
 			for frame = 1, 600 do
 				if s:step(FRAME) then
 					-- the settle contract, verbatim
-					expect(math.abs(s:get() - 100)).toBeLessThanOrEqual(eps or spring.DEFAULT_EPS)
+					expect(math.abs(s:peek() - 100)).toBeLessThanOrEqual(eps or spring.DEFAULT_EPS)
 					expect(math.abs(s:getVelocity())).toBeLessThanOrEqual(eps or spring.DEFAULT_EPS)
 					return frame
 				end
@@ -256,7 +256,7 @@ describe("spring solver (semi-implicit Euler)", function()
 		s:setTarget(100)
 		s:step(0)
 		s:step(-1)
-		expect(s:get()).toBe(0)
+		expect(s:peek()).toBe(0)
 		expect(s:getVelocity()).toBe(0)
 	end)
 end)

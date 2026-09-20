@@ -173,262 +173,238 @@ return {
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("nested-compositing")
+		local UI, Compose = ctx.UI, ctx.Compose
 		-- the stage's reservation, computed HERE rather than at module scope
 		-- because `Facet.layout.transformFootprint` arrives with `ctx` (see
 		-- `turnedFootprint` above). Same three constants, same numbers: a
 		-- 100x70 cluster at 1.5x / 30° is 182.40 x 165.93 plus the slack.
 		local STAGE_W, STAGE_H = turnedFootprint(Facet, CLUSTER_W, CLUSTER_H, TURN_SCALE, TURN_ROTATION)
-		-- ADAPT-L4: both comparisons below say "side by side where there is room, a
-		-- column where there is not", and until 2026-08-21 neither ever went side by
-		-- side — `UI.AdaptiveStack` defaulted to a column forever. The axis is the
-		-- surface's own fact now, and the class refuses without it. `scope` owns the
-		-- memos `conditions` builds (RR-8).
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
-
 		-- ── the two drivers, shared by both halves of each comparison ────────
-		local fade = scope:own(core:signal(FADE_DEFAULT))
-		local opacityValue = scope:own(core:memo(function(use)
+		local fade = Compose.cell(FADE_DEFAULT)
+		local opacityValue = Compose.formula(function(use)
 			return use(fade) / 100
-		end))
-		local turned = scope:own(core:signal(false))
-		local carryRotation = scope:own(core:memo(function(use)
+		end)
+		local turned = Compose.cell(false)
+		local carryRotation = Compose.formula(function(use)
 			return if use(turned) then TURN_ROTATION else 0
-		end))
-		local carryScale = scope:own(core:memo(function(use)
+		end)
+		local carryScale = Compose.formula(function(use)
 			return if use(turned) then TURN_SCALE else 1
-		end))
+		end)
 
-		local fadeStatus = scope:own(core:memo(function(use)
+		local fadeStatus = Compose.formula(function(use)
 			return `{COPY.fadeStatusPrefix}{math.floor(use(fade) + 0.5)}%`
-		end))
-		local turnStatus = scope:own(core:memo(function(use)
+		end)
+		local turnStatus = Compose.formula(function(use)
 			return if use(turned) then COPY.turnStatusOn else COPY.turnStatusOff
-		end))
-		local turnLabel = scope:own(core:memo(function(use)
+		end)
+		local turnLabel = Compose.formula(function(use)
 			return if use(turned) then COPY.turnLabelOn else COPY.turnLabelOff
-		end))
+		end)
 
-		local fadeSlider = Facet.View.Slider({
-			id = "FadeSlider",
-			label = COPY.fadeLabel,
-			value = fade,
-			min = 0,
-			max = 100,
-			step = 5,
-		})
-
-		-- ── (a) group opacity: one fade group, or two ────────────────────────
-		local function plate(spec: any, opacityProp: any?): any
-			return UI.Box({
-				id = spec.id,
-				width = { type = "fixed", px = spec.w },
-				height = { type = "fixed", px = spec.h },
-				alignH = "center",
-				alignV = "center",
-				tint = { role = spec.role, blend = 1 },
-				opacity = opacityProp,
+		local function screen()
+			-- Both comparisons sit side by side where there is room and in a column
+			-- where there is not: the axis is the surface's own fact.
+			local conditions = Facet.adaptive.conditions(ctx.env)
+			local fadeSlider = UI.Slider("FadeSlider")({
+				label = COPY.fadeLabel,
+				value = fade,
+				min = 0,
+				max = 100,
+				step = 5,
 			})
-		end
 
-		-- ONE fade group over both plates: the opacity is on the STACK.
-		local oneGroup = UI.ZStack({
-			id = "OneGroup",
-			opacity = opacityValue,
-			width = UI.fill(),
-			height = { type = "fixed", px = BACK.h },
-			plate(BACK),
-			plate(FRONT),
-		})
-
-		-- TWO fade groups over one plate each: the same value, one wrap lower —
-		-- the shape an author gets reaching for "fade the plate" instead of "fade
-		-- the picture" (`opacity` lives on Box and ZStack, so a leaf can
-		-- declare its own without a wrap, and every leaf that does becomes its own
-		-- tiny CanvasGroup).
-		local twoGroups = UI.ZStack({
-			id = "TwoGroups",
-			width = UI.fill(),
-			height = { type = "fixed", px = BACK.h },
-			plate(BACK, opacityValue),
-			plate(FRONT, opacityValue),
-		})
-
-		-- ── (b) a container that carries its contents, or does not ──────────
-		-- ONE builder for both panels: `plateTransform` authored on the ZSTACK
-		-- ITSELF is what registers it as an instance host (
-		-- `src/render/instance_boundary.luau`'s `(scale or rotation) and children`
-		-- rule); `markerTransform` authored on the LEAF is the case that rule
-		-- explicitly excludes (a leaf has no subtree to carry anything down), so
-		-- calling this once with each set of arguments builds both the "carries"
-		-- and the "alone" cluster from one declaration, exactly the way
-		-- `canvas_group.luau`'s `plate()` builds both its panels' plates.
-		local function cluster(id: string, plateTransform: any?, markerTransform: any?): any
-			local pt = plateTransform or {}
-			local mt = markerTransform or {}
-			return UI.ZStack({
-				id = id,
-				rotation = pt.rotation,
-				scale = pt.scale,
-				alignH = "center",
-				alignV = "center",
-				width = { type = "fixed", px = CLUSTER_W },
-				height = { type = "fixed", px = CLUSTER_H },
-
-				UI.Box({
-					id = "Plate",
-					width = { type = "fixed", px = PLATE_W },
-					height = { type = "fixed", px = PLATE_H },
+			-- ── (a) group opacity: one fade group, or two ────────────────────────
+			local function plate(spec: any, opacityProp: any?): any
+				return UI.Box(spec.id)({
+					width = { type = "fixed", px = spec.w },
+					height = { type = "fixed", px = spec.h },
 					alignH = "center",
 					alignV = "center",
-					tint = { role = "accent", blend = 1 },
-				}),
-				-- the far corner: the position a rigid-group carry keeps correct
-				-- and an independent leaf transform does not
-				UI.Box({
-					id = "Marker",
-					width = { type = "fixed", px = MARKER },
-					height = { type = "fixed", px = MARKER },
-					alignH = "end",
-					alignV = "start",
-					tint = { role = "danger", blend = 1 },
-					rotation = mt.rotation,
-					scale = mt.scale,
-				}),
-			})
-		end
+					tint = { role = spec.role, blend = 1 },
+					opacity = opacityProp,
+				})
+			end
 
-		-- CARRIES: the container itself is authored `rotation`/`scale`, so it is
-		-- a real instance host and the engine composes both terms
-		-- for the whole pair — the marker rides the plate's corner as it turns.
-		local carried = cluster("Carried", { rotation = carryRotation, scale = carryScale }, nil)
-		-- ALONE: the container declares NEITHER prop (stays flat and elidable —
-		-- stays unregistered), so it earns no host; the SAME rotation/scale is authored
-		-- on the marker leaf instead, which always rotates correctly on its own
-		-- and therefore spins in place, detached from the plate beside it — the
-		-- pre-nesting defect, reproduced on purpose as the control.
-		local alone = cluster("Static", nil, { rotation = carryRotation, scale = carryScale })
-
-		local turnToggle = UI.Button({
-			id = "TurnToggle",
-			label = turnLabel,
-			onActivate = function()
-				turned:set(not turned:get())
-			end,
-		})
-
-		-- THE RESERVATION, and it must sit OUTSIDE the node that scales — a box that
-		-- scales with its contents reserves nothing. Fill-width so a narrow phone's
-		-- stacked panels give it the whole column; fixed height because the vertical
-		-- overflow is what ran over the caption.
-		local function stage(body: any): any
-			return UI.ZStack({
-				id = "Stage",
+			-- ONE fade group over both plates: the opacity is on the STACK.
+			local oneGroup = UI.ZStack("OneGroup")({
+				opacity = opacityValue,
 				width = UI.fill(),
-				height = { type = "fixed", px = STAGE_H },
-				body,
+				height = { type = "fixed", px = BACK.h },
+				plate(BACK),
+				plate(FRONT),
 			})
-		end
 
-		local function panel(id: string, title: string, note: string, body: any): any
-			return UI.VStack({
-				id = id,
-				surface = "control",
-				padding = "s",
-				gap = "tight",
+			-- TWO fade groups over one plate each: the same value, one wrap lower —
+			-- the shape an author gets reaching for "fade the plate" instead of "fade
+			-- the picture" (`opacity` lives on Box and ZStack, so a leaf can
+			-- declare its own without a wrap, and every leaf that does becomes its own
+			-- tiny CanvasGroup).
+			local twoGroups = UI.ZStack("TwoGroups")({
 				width = UI.fill(),
-
-				UI.Text({ id = "Title", text = title, textSize = "caption" }),
-				body,
-				UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
+				height = { type = "fixed", px = BACK.h },
+				plate(BACK, opacityValue),
+				plate(FRONT, opacityValue),
 			})
-		end
 
-		local screen = UI.Screen({
-			id = "NestedCompositing",
-			padding = 12,
-			gap = "s",
+			-- ── (b) a container that carries its contents, or does not ──────────
+			-- ONE builder for both panels: `plateTransform` authored on the ZSTACK
+			-- ITSELF is what registers it as an instance host (
+			-- `src/render/instance_boundary.luau`'s `(scale or rotation) and children`
+			-- rule); `markerTransform` authored on the LEAF is the case that rule
+			-- explicitly excludes (a leaf has no subtree to carry anything down), so
+			-- calling this once with each set of arguments builds both the "carries"
+			-- and the "alone" cluster from one declaration, exactly the way
+			-- `canvas_group.luau`'s `plate()` builds both its panels' plates.
+			local function cluster(id: string, plateTransform: any?, markerTransform: any?): any
+				local pt = plateTransform or {}
+				local mt = markerTransform or {}
+				return UI.ZStack(id)({
+					rotation = pt.rotation,
+					scale = pt.scale,
+					alignH = "center",
+					alignV = "center",
+					width = { type = "fixed", px = CLUSTER_W },
+					height = { type = "fixed", px = CLUSTER_H },
 
-			-- THE PAGE SCROLLS, same reason as every multi-section fixture here:
-			-- two comparison rows, two controls and four caption blocks do not fit
-			-- the ~200px a 640x320 landscape phone has left under the showcase's
-			-- own chrome strip.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+					UI.Box("Plate")({
+						width = { type = "fixed", px = PLATE_W },
+						height = { type = "fixed", px = PLATE_H },
+						alignH = "center",
+						alignV = "center",
+						tint = { role = "accent", blend = 1 },
+					}),
+					-- the far corner: the position a rigid-group carry keeps correct
+					-- and an independent leaf transform does not
+					UI.Box("Marker")({
+						width = { type = "fixed", px = MARKER },
+						height = { type = "fixed", px = MARKER },
+						alignH = "end",
+						alignV = "start",
+						tint = { role = "danger", blend = 1 },
+						rotation = mt.rotation,
+						scale = mt.scale,
+					}),
+				})
+			end
+
+			-- CARRIES: the container itself is authored `rotation`/`scale`, so it is
+			-- a real instance host and the engine composes both terms
+			-- for the whole pair — the marker rides the plate's corner as it turns.
+			local carried = cluster("Carried", { rotation = carryRotation, scale = carryScale }, nil)
+			-- ALONE: the container declares NEITHER prop (stays flat and elidable —
+			-- stays unregistered), so it earns no host; the SAME rotation/scale is authored
+			-- on the marker leaf instead, which always rotates correctly on its own
+			-- and therefore spins in place, detached from the plate beside it — the
+			-- pre-nesting defect, reproduced on purpose as the control.
+			local alone = cluster("Static", nil, { rotation = carryRotation, scale = carryScale })
+
+			local turnToggle = UI.Button("TurnToggle")({
+				label = turnLabel,
+				onActivate = function()
+					turned:set(not turned:peek())
+				end,
+			})
+
+			-- THE RESERVATION, and it must sit OUTSIDE the node that scales — a box that
+			-- scales with its contents reserves nothing. Fill-width so a narrow phone's
+			-- stacked panels give it the whole column; fixed height because the vertical
+			-- overflow is what ran over the caption.
+			local function stage(body: any): any
+				return UI.ZStack("Stage")({
+					width = UI.fill(),
+					height = { type = "fixed", px = STAGE_H },
+					body,
+				})
+			end
+
+			local function panel(id: string, title: string, note: string, body: any): any
+				return UI.VStack(id)({
+					surface = "control",
+					padding = "s",
+					gap = "tight",
+					width = UI.fill(),
+
+					UI.Text("Title")({ text = title, textSize = "caption" }),
+					body,
+					UI.Text("Note")({ text = note, textSize = "caption", role = "secondary" }),
+				})
+			end
+
+			return UI.Screen("NestedCompositing")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-
-				UI.VStack({
-					id = "Opacity",
+				-- THE PAGE SCROLLS, same reason as every multi-section fixture here:
+				-- two comparison rows, two controls and four caption blocks do not fit
+				-- the ~200px a 640x320 landscape phone has left under the showcase's
+				-- own chrome strip.
+				UI.ScrollView("Page")({
+					axis = "y",
 					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					UI.Text({ id = "SectionTitle", text = COPY.opacityTitle, textSize = "label" }),
-					UI.Text({
-						id = "SectionIntro",
-						text = COPY.opacityIntro,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					fadeSlider,
-					UI.Text({
-						id = "FadeStatus",
-						text = fadeStatus,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					-- side by side where there is room, a column where there is
-					-- not — the comparison only means anything while both panels
-					-- are visible at once
-					UI.AdaptiveStack({
-						id = "Panels",
-						axis = conditions.axis,
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+
+					UI.VStack("Opacity")({
 						gap = "s",
 						width = UI.fill(),
 
-						panel("One", COPY.oneTitle, COPY.oneNote, oneGroup),
-						panel("Two", COPY.manyTitle, COPY.manyNote, twoGroups),
-					}),
-				}),
+						UI.Text("SectionTitle")({ text = COPY.opacityTitle, textSize = "label" }),
+						UI.Text("SectionIntro")({
+							text = COPY.opacityIntro,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						fadeSlider,
+						UI.Text("FadeStatus")({
+							text = fadeStatus,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						-- side by side where there is room, a column where there is
+						-- not — the comparison only means anything while both panels
+						-- are visible at once
+						UI.AdaptiveStack("Panels")({
+							axis = conditions.axis,
+							gap = "s",
+							width = UI.fill(),
 
-				UI.VStack({
-					id = "Carry",
-					gap = "s",
-					width = UI.fill(),
+							panel("One", COPY.oneTitle, COPY.oneNote, oneGroup),
+							panel("Two", COPY.manyTitle, COPY.manyNote, twoGroups),
+						}),
+					}),
 
-					UI.Text({ id = "SectionTitle", text = COPY.carryTitle, textSize = "label" }),
-					UI.Text({
-						id = "SectionIntro",
-						text = COPY.carryIntro,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					turnToggle,
-					UI.Text({
-						id = "TurnStatus",
-						text = turnStatus,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					UI.AdaptiveStack({
-						id = "Panels",
-						axis = conditions.axis,
+					UI.VStack("Carry")({
 						gap = "s",
 						width = UI.fill(),
 
-						panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),
-						panel("Alone", COPY.aloneTitle, COPY.aloneNote, stage(alone)),
+						UI.Text("SectionTitle")({ text = COPY.carryTitle, textSize = "label" }),
+						UI.Text("SectionIntro")({
+							text = COPY.carryIntro,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						turnToggle,
+						UI.Text("TurnStatus")({
+							text = turnStatus,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						UI.AdaptiveStack("Panels")({
+							axis = conditions.axis,
+							gap = "s",
+							width = UI.fill(),
+
+							panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),
+							panel("Alone", COPY.aloneTitle, COPY.aloneNote, stage(alone)),
+						}),
 					}),
 				}),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
@@ -445,24 +421,20 @@ return {
 				setFade = function(_built: any, payload: string?)
 					local value = tonumber(payload or "") or FADE_DEFAULT
 					fade:set(value)
-					return { fade = fade:get() }
+					return { fade = fade:peek() }
 				end,
 				toggleTurn = function()
-					turned:set(not turned:get())
-					return { turned = turned:get() }
+					turned:set(not turned:peek())
+					return { turned = turned:peek() }
 				end,
 			},
 
 			report = function()
 				return {
-					fade = fade:get(),
-					opacity = opacityValue:get(),
-					turned = turned:get(),
+					fade = fade:peek(),
+					opacity = opacityValue:peek(),
+					turned = turned:peek(),
 				}
-			end,
-
-			dispose = function()
-				scope:dispose()
 			end,
 		}
 	end,

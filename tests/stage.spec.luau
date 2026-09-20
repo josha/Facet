@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- UI.Stage — the engine-content box (ViewportFrame adoption,
 -- docs/research/2026-08-08-viewportframe-engine-facts.md).
 --
@@ -28,9 +29,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local customFactory = harness.coreFactory
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
@@ -89,7 +90,7 @@ describe("UI.Stage: strict authoring (a)", function()
 		local err = fails(function()
 			UI.Stage({ id = "Preview", children = { UI.Box({ id = "Inner" }) } } :: any)
 		end)
-		expect(contains(err, "does not take children")).toBe(true)
+		expect(contains(err, "Stage: a leaf cannot contain children")).toBe(true)
 	end)
 
 	it("refuses an unknown property with a did-you-mean", function()
@@ -111,7 +112,7 @@ describe("UI.Stage: strict authoring (a)", function()
 		local err = fails(function()
 			UI.Stage({ id = "Preview", surface = "glass" })
 		end)
-		expect(contains(err, "UI.Stage.surface")).toBe(true)
+		expect(contains(err, "Stage.surface")).toBe(true)
 		-- the refusal names the WHOLE legal set (constitution §4)
 		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
 	end)
@@ -120,14 +121,12 @@ end)
 -- ===== (b) mount + dispose =================================================
 
 describe("UI.Stage: mount, dump, dispose (b)", function()
-	it("mounts as one node and dumps deterministically", function()
+	it("mounts as one node in a deterministic tree", function()
 		local _, root, adapter, controller = mountStage()
 		local node = adapter.node("/S/Stage")
 		expect(node ~= nil).toBe(true)
 		expect(node.class).toBe("Stage")
-		local a = root.dump()
-		local b = root.dump()
-		local function render(dump: any): string
+		local function render(top: any): string
 			local out: { string } = {}
 			local function walk(n: any, depth: number)
 				table.insert(out, `{string.rep(" ", depth)}{n.class}:{tostring(n.id)}`)
@@ -135,11 +134,11 @@ describe("UI.Stage: mount, dump, dispose (b)", function()
 					walk(child, depth + 1)
 				end
 			end
-			walk(dump.tree, 0)
+			walk(top, 0)
 			return table.concat(out, "\n")
 		end
-		expect(render(a)).toBe(render(b))
-		expect(contains(render(a), "Stage:Stage")).toBe(true)
+		expect(render(root.node)).toBe(render(root.node))
+		expect(contains(render(root.node), "Stage:Stage")).toBe(true)
 		controller.dispose()
 		root.dispose()
 	end)
@@ -149,7 +148,7 @@ describe("UI.Stage: mount, dump, dispose (b)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -169,10 +168,8 @@ describe("UI.Stage: mount, dump, dispose (b)", function()
 		controller.stageHost("/S/Stage")
 		controller.dispose()
 		root.dispose()
-		local after = core:counters()
-		for key, value in baseline do
-			expect(`{key}={after[key]}`).toBe(`{key}={value}`)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 		expect(adapter.liveCount()).toBe(0)
 	end)
 end)

@@ -1,3 +1,4 @@
+local harness = require("./lib/harness")
 --[[ D1: THE PLAN VERDICT LIVES ON THE NODE LITERAL (Facet Plan D, 2026-09-06 —
 	FacetBench §D1/§D2).
 
@@ -37,12 +38,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/deep_stack_scene")
 local solver = require("../src/layout/solver")
 local measure_facts = require("../src/layout/measure_facts")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
-local customFactory = require("../src/core/custom")
+local Compose = require("../src/vendor/compose/core")
+local customFactory = harness.coreFactory
 
 local ROWS = 1000
 
@@ -113,7 +115,7 @@ local function flipWorld()
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
-	local boxHeight = core:signal(px(10))
+	local boxHeight = Compose.cell(px(10))
 	local rows: { any } = {}
 	for i = 1, 20 do
 		-- an explicit content height: a stack child's default height is `fill`, which

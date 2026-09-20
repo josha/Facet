@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE CIRCLE BUTTON (`UI.Button{ shape = "circle" }`, feature round 2026-07-26).
 --
 -- The director's reference is the floating round "…" action, and the whole
@@ -27,10 +28,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
 local schema = require("../src/blueprint_schema")
@@ -48,6 +49,7 @@ local adapterSource = adapter_source.live()
 -- the renderer as ONE text: two files since the 200k `Source` write-cap split
 -- (tests/lib/renderer_source names them and says why)
 local rendererSource = require("./lib/renderer_source").all()
+local Compose = require("../src/vendor/compose/core")
 
 local CIRCLE_TAG = sheet_model.TAGS.shapePrefix .. "circle"
 
@@ -101,29 +103,37 @@ end
 -- 1. THE SCHEMA BOUNDARY
 -- ===========================================================================
 
+-- Button's cross-property rules run when the node mounts, so the schema cases
+-- mount what they construct.
+local function Button(spec: any): any
+	local node = UI.Button(spec)
+	mountLib.mount(customFactory.new(), node)
+	return node
+end
+
 describe("circle Button: the accept classes", function()
 	it("takes shape = circle with a short label and constructs", function()
-		local bp = UI.Button({ id = "More", label = "...", shape = "circle" })
+		local bp = Button({ id = "More", label = "...", shape = "circle" })
 		expect(bp.props.shape).toBe("circle")
 		expect(bp.props.label).toBe("...")
 	end)
 
 	it("takes shape = rect explicitly, which is what every Button already was", function()
-		expect(UI.Button({ id = "B", label = "Save changes", shape = "rect" }).props.shape).toBe("rect")
+		expect(Button({ id = "B", label = "Save changes", shape = "rect" }).props.shape).toBe("rect")
 	end)
 
 	it("leaves an ordinary Button untouched: no shape prop at all", function()
-		expect(UI.Button({ id = "B", label = "Save changes" }).props.shape).toBe(nil)
+		expect(Button({ id = "B", label = "Save changes" }).props.shape).toBe(nil)
 	end)
 
 	it("takes a semantic icon and keeps a LONG label, because the label is then only the name", function()
-		local bp = UI.Button({ id = "More", label = "More actions", shape = "circle", icon = "more" })
+		local bp = Button({ id = "More", label = "More actions", shape = "circle", icon = "more" })
 		expect(bp.props.icon).toBe("more")
 		expect(bp.props.label).toBe("More actions")
 	end)
 
 	it("takes a long label on a CONTENT circle for the same reason", function()
-		local bp = UI.Button({
+		local bp = Button({
 			id = "C",
 			label = "Open the inventory",
 			shape = "circle",
@@ -133,23 +143,23 @@ describe("circle Button: the accept classes", function()
 	end)
 
 	it("takes a namespaced icon name a package contributes", function()
-		expect(UI.Button({ id = "G", label = "Settings", shape = "circle", icon = "ornate:settings" }).props.icon).toBe(
+		expect(Button({ id = "G", label = "Settings", shape = "circle", icon = "ornate:settings" }).props.icon).toBe(
 			"ornate:settings"
 		)
 	end)
 
 	it("takes ONE authored axis on either side", function()
-		expect(UI.Button({ id = "W", label = "x", shape = "circle", width = { type = "fixed", px = 72 } }) ~= nil).toBe(
+		expect(Button({ id = "W", label = "x", shape = "circle", width = { type = "fixed", px = 72 } }) ~= nil).toBe(
 			true
 		)
-		expect(UI.Button({ id = "H", label = "x", shape = "circle", height = { type = "fixed", px = 30 } }) ~= nil).toBe(
+		expect(Button({ id = "H", label = "x", shape = "circle", height = { type = "fixed", px = 30 } }) ~= nil).toBe(
 			true
 		)
 	end)
 
 	it("takes a BOUND label: a reactive value is checked when it is read, like every reactive prop", function()
 		local core = customFactory.new()
-		local bp = UI.Button({ id = "N", label = core:signal("1"), shape = "circle" })
+		local bp = Button({ id = "N", label = Compose.cell("1"), shape = "circle" })
 		expect(bp.props.label ~= nil).toBe(true)
 	end)
 end)
@@ -157,7 +167,7 @@ end)
 describe("circle Button: the reject classes name the field, the rule and the fix", function()
 	it("refuses a multi-word drawn label", function()
 		local err = fails(function()
-			UI.Button({ id = "B", label = "Save changes", shape = "circle" })
+			Button({ id = "B", label = "Save changes", shape = "circle" })
 		end)
 		expect(string.find(err, "UI.Button.label", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, "Save changes", 1, true) ~= nil).toBe(true)
@@ -171,23 +181,23 @@ describe("circle Button: the reject classes name the field, the rule and the fix
 
 	it("refuses a drawn label longer than three characters even without a space", function()
 		local err = fails(function()
-			UI.Button({ id = "B", label = "MENU", shape = "circle" })
+			Button({ id = "B", label = "MENU", shape = "circle" })
 		end)
 		expect(string.find(err, "UI.Button.label", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("accepts exactly three characters and refuses four", function()
-		expect(UI.Button({ id = "A", label = "...", shape = "circle" }) ~= nil).toBe(true)
-		expect(UI.Button({ id = "B", label = "99+", shape = "circle" }) ~= nil).toBe(true)
-		expect(UI.Button({ id = "C", label = 3, shape = "circle" }) ~= nil).toBe(true)
+		expect(Button({ id = "A", label = "...", shape = "circle" }) ~= nil).toBe(true)
+		expect(Button({ id = "B", label = "99+", shape = "circle" }) ~= nil).toBe(true)
+		expect(Button({ id = "C", label = 3, shape = "circle" }) ~= nil).toBe(true)
 		fails(function()
-			UI.Button({ id = "D", label = "1234", shape = "circle" })
+			Button({ id = "D", label = "1234", shape = "circle" })
 		end)
 	end)
 
 	it("refuses BOTH authored axes — that is the arithmetic the solver exists to do", function()
 		local err = fails(function()
-			UI.Button({
+			Button({
 				id = "B",
 				label = "x",
 				shape = "circle",
@@ -201,16 +211,16 @@ describe("circle Button: the reject classes name the field, the rule and the fix
 
 	it("refuses an icon on a rectangle and points at the control that owns that layout", function()
 		local err = fails(function()
-			UI.Button({ id = "B", label = "Save", icon = "more" })
+			Button({ id = "B", label = "Save", icon = "more" })
 		end)
 		expect(string.find(err, "UI.Button.icon", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, 'shape = "circle"', 1, true) ~= nil).toBe(true)
-		expect(string.find(err, "newLabel", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "UI.Label", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("refuses an icon NAME that means nothing, listing the framework vocabulary", function()
 		local err = fails(function()
-			UI.Button({ id = "B", label = "x", shape = "circle", icon = "hamburger" })
+			Button({ id = "B", label = "x", shape = "circle", icon = "hamburger" })
 		end)
 		expect(string.find(err, "names no semantic icon", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, "chevron.trailing", 1, true) ~= nil).toBe(true)
@@ -219,13 +229,13 @@ describe("circle Button: the reject classes name the field, the rule and the fix
 
 	it("refuses an asset id in `icon` — a control never names an asset", function()
 		fails(function()
-			UI.Button({ id = "B", label = "x", shape = "circle", icon = "rbxassetid://123456" })
+			Button({ id = "B", label = "x", shape = "circle", icon = "rbxassetid://123456" })
 		end)
 	end)
 
 	it("refuses an unknown shape with the closed set", function()
 		local err = fails(function()
-			UI.Button({ id = "B", label = "x", shape = "pill" })
+			Button({ id = "B", label = "x", shape = "pill" })
 		end)
 		expect(string.find(err, "circle", 1, true) ~= nil).toBe(true)
 	end)
@@ -233,9 +243,9 @@ describe("circle Button: the reject classes name the field, the rule and the fix
 	it("refuses a REACTIVE shape: a shape is what the control is, not a state it passes through", function()
 		local core = customFactory.new()
 		local err = fails(function()
-			UI.Button({ id = "B", label = "x", shape = core:signal("circle") })
+			Button({ id = "B", label = "x", shape = Compose.cell("circle") })
 		end)
-		expect(string.find(err, "Signal/Memo", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "a Compose cell or formula", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
@@ -285,7 +295,7 @@ describe("circle Button geometry: a true 1:1 box from the control metric", funct
 					children = {
 						UI.When({
 							id = "Choice",
-							condition = customFactory.new():signal(true),
+							condition = Compose.cell(true),
 							thenView = function()
 								return UI.Button({
 									id = "More",

@@ -1,31 +1,10 @@
 --!strict
---[[ THE PICKER MENU ENGINE — the popup half of `Controls.Picker` (2026-09-11),
-	and the body the deprecated `Controls.PopupButton` still runs on.
-
-	A COMPOSITE over shipped primitives: ONE focusable Button (the "trigger")
-	shows the currently-selected option's label with the up/down chevron INSIDE
-	it — the pop-up button every desktop draws and the menu picker a phone's
-	form row draws — never a separate chevron cell. Activating it presents the
-	option rows: anchored to the trigger (a popover, `presentation = "menu"`) or
-	as a bottom sheet when a gamepad or a long list on a compact/touch surface
-	asks for one (`menu_recipe.resolvePickerPresentation`). Activating a row
-	writes the OWNER-HELD selection signal, fires onChange and closes; the
-	trigger's value text is a binding, so a pick relabels with zero structural
-	churn. Outside tap, Escape and ButtonB close without touching the selection.
-	The open rows are ordinary focusable Buttons, so keyboard/gamepad users
-	navigate them and Activate to pick; closed, only the trigger is focusable.
-
-	TWO CALLERS, ONE BODY. `Controls.Picker` hands this `style = "menu" |
-	"navigationLink"`, picker-shaped options (`{ value, label }`) and its
-	`selected` signal. The legacy `Controls.PopupButton` hands `value` /
-	`selectedValues` over `{ id, label }` options and its own `presentation`
-	ladder (which still knows `inline`); everything below reads the option
-	IDENTITY through `selection_model.identity`, so both shapes share every
-	row, every route and every dismissal path. Engine-free; Lune-tested in
-	tests/picker_style.spec.luau and tests/popup_button.spec.luau. ]]
+-- Picker menus share Facet selection, focus, adaptation and row styling.
+-- Compose owns their state and the lifetime of each popup and result row.
 
 local controlContract = require("../class_contract")
 local coreContract = require("../core/contract")
+local Compose = require("../vendor/compose/core")
 local selectionModel = require("../selection_model")
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
@@ -48,7 +27,7 @@ local popup_button = {}
 --[[ AN OPTION IS A VALUE, AND `icon` / `divider` ARE ITS TWO NEW SPELLINGS
 	(navigation-and-menus D2, so `r1`'s icon rows work and both menus render from
 	one row recipe). This stays a VALUE picker — `value` is a `Signal<string>` and
-	picking writes it. A list of VERBS is `Facet.newMenu`, which is a different
+	picking writes it. A list of VERBS is `UI.Menu`, which is a different
 	control on purpose: a control that sometimes owns a value Signal and sometimes
 	does not is two controls in one.
 
@@ -75,11 +54,11 @@ export type Spec = {
 	enabled: any?,
 	id: string?,
 	options: { Option } | coreContract.Readable<{ Option }>,
-	query: coreContract.Signal<string>?,
-	selectedValues: coreContract.Signal<{ [string]: boolean }>?,
+	query: coreContract.Cell<string>?,
+	selectedValues: coreContract.Cell<{ [string]: boolean }>?,
 	placeholder: string?,
-	value: (coreContract.Signal<string> | coreContract.Signal<string?>)?, -- absent for selectedValues
-	--[[ THE PICKER SHAPE. `selected` is `Controls.Picker`'s owner-held signal of
+	value: (coreContract.Cell<string> | coreContract.Cell<string?>)?, -- absent for selectedValues
+	--[[ THE PICKER SHAPE. `selected` is `UI.Picker`'s owner-held signal of
 		an arbitrary option VALUE; `style` says which popup this is — the anchored
 		`menu` or the full-sheet `navigationLink` — and its presence is what turns
 		on the picker look (check-marked rows, no Cancel row in a popover, the
@@ -150,15 +129,14 @@ local POPUP_BUTTON_KEYS = specGuard.keySet({
 	"value",
 })
 
-function popup_button.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newPopupButton", spec, POPUP_BUTTON_KEYS, "spec")
+local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, affordanceOnly: boolean?)
+	specGuard.assertKnownKeys("UI.PopupButton", spec, POPUP_BUTTON_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "PopupButton"
-	local scope = core:scope(`popup_button-{id}`)
-	local disposed = false
 	local mountedNode: any = nil
 	local rootPath: string? = nil
 	local presentModalFn, presentAnchoredFn, dismissFn, surfaceHandle
+	local popupScope
 	-- does the surface this trigger lives on reserve the host app's own chrome
 	-- band? Bound by the presenter (`bindController`'s additive second argument);
 	-- true until then, which is what this control's room arithmetic always assumed
@@ -168,7 +146,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local triggerRect: any = nil -- the trigger's last solved rect, read at present time
 	local anchorRect: any = nil -- the rect the popover hangs from (chevron or trigger), same cadence
 	local triggerPath: () -> string
-	local dynamicOptions = type(spec.options) == "table" and spec.options.kind ~= nil
+	local dynamicOptions = selectionModel.isSource(spec.options)
 	local describedOptions = false
 	if not dynamicOptions and type(spec.options) == "table" then
 		for _, option in spec.options do
@@ -195,11 +173,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		`presentationNow`: a closure only sees the locals that exist when it is
 		made, and a later declaration would leave it reading a nil global. ]]
 	local sheetFallback = false
-	scope:own(function()
-		disposed = true
-	end)
+	local presenting, resurface = false, false
 	local function available()
-		return not disposed and not controlContract.isDisabled(mountedNode) and controlContract.enabledNow(spec.enabled)
+		return not owner.isDisposed()
+			and not controlContract.isDisabled(mountedNode)
+			and controlContract.enabledNow(spec.enabled)
 	end
 
 	local pickerMode = spec.style ~= nil
@@ -214,12 +192,15 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	)
 	local selection = if multiple then spec.selectedValues elseif pickerMode then spec.selected else spec.value
 	assert(
-		type(selection) == "table" and selection.kind == "signal",
-		"PopupButton: value or selectedValues must be a SETTABLE Signal the caller owns"
+		selectionModel.isWritable(selection),
+		"UI.PopupButton: value or selectedValues must be a writable Compose cell the caller owns"
 	)
-	assert(not multiple or type(selection:get()) == "table", "PopupButton: selectedValues must hold an identity set")
+	assert(
+		not multiple or type(selectionModel.read(selection)) == "table",
+		"PopupButton: selectedValues must hold an identity set"
+	)
 	if multiple then
-		for key, chosen in selection:get() do
+		for key, chosen in selectionModel.read(selection) do
 			assert(
 				type(key) == "string" and type(chosen) == "boolean",
 				"PopupButton: selectedValues must be a string-keyed boolean set"
@@ -227,7 +208,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 	elseif not pickerMode then
 		assert(
-			selection:get() == nil or type(selection:get()) == "string",
+			selectionModel.read(selection) == nil or type(selectionModel.read(selection)) == "string",
 			"PopupButton: value must hold a string or nil"
 		)
 	end
@@ -246,8 +227,8 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	assert(spec.placeholder == nil or type(spec.placeholder) == "string", "PopupButton: placeholder must be a string")
 	assert(
 		spec.query == nil
-			or (type(spec.query) == "table" and spec.query.kind == "signal" and type(spec.query:get()) == "string"),
-		"PopupButton: query must be a caller-owned Signal<string>"
+			or (selectionModel.isWritable(spec.query) and type(selectionModel.read(spec.query)) == "string"),
+		"UI.PopupButton: query must be a writable Compose cell holding a string"
 	)
 	assert(spec.required == nil or type(spec.required) == "boolean", "PopupButton: required must be boolean")
 	assert(spec.onChanging == nil or type(spec.onChanging) == "function", "PopupButton: onChanging must be a function")
@@ -265,7 +246,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		local seen = {}
 		for index, option in list do
-			specGuard.assertKnownKeys("newPopupButton", option, OPTION_KEYS, `spec.options[{index}]`)
+			specGuard.assertKnownKeys("UI.PopupButton", option, OPTION_KEYS, `spec.options[{index}]`)
 			assert(option.divider == nil or type(option.divider) == "boolean", "PopupButton: divider must be boolean")
 			if option.divider then
 				for key in option do
@@ -305,23 +286,23 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return list
 	end
 	validatedOptions(function(value)
-		return value:get()
+		return selectionModel.read(value)
 	end)
-	local options = scope:own(core:memo(validatedOptions))
-	options:get()
+	local options = Compose.formula(validatedOptions)
+	options:peek()
 	local function find(identity, use)
-		return selectionModel.find(if use then use(options) else options:get(), identity)
+		return selectionModel.find(if use then use(options) else options:peek(), identity)
 	end
 	-- a row's option, from the path segment its row is named by
 	local function byKey(rowKey: string, use)
-		for _, option in (if use then use(options) else options:get()) do
+		for _, option in (if use then use(options) else options:peek()) do
 			if not option.divider and keyOf(option) == rowKey then
 				return option
 			end
 		end
 		return nil
 	end
-	local results = scope:own(core:memo(function(use)
+	local results = Compose.formula(function(use)
 		local query = if spec.query then string.lower(use(spec.query)) else ""
 		local filtered = {}
 		for _, option in use(options) do
@@ -333,23 +314,23 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			end
 		end
 		return filtered
-	end))
+	end)
 	-- open/closed is the control's only owned state; selection lives in `value`
-	local open = scope:own(core:signal(false))
-	local enabled = scope:own(core:memo(function(use)
+	local open = Compose.cell(false)
+	local enabled = Compose.formula(function(use)
 		return controlContract.enabledIn(use, spec.enabled)
-	end))
-	scope:own(core:observe(enabled, function(value)
+	end)
+	owner.watchStatic(enabled, function(value)
 		if not value then
 			open:set(false)
 		end
-	end))
+	end)
 
 	-- the trigger label tracks the selected option (a binding, not a rebuild).
 	-- Fallback to the raw id keeps the button truthful if `value` holds an id
 	-- that is not (yet) among the options.
-	local selectedLabel = scope:own(core:memo(function(use)
-		local current = use(selection)
+	local selectedLabel = Compose.formula(function(use)
+		local current = selectionModel.read(selection, use)
 		if multiple then
 			local labels = {}
 			for identity, chosen in current do
@@ -365,7 +346,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return if option
 			then selectionModel.read(option.label, use)
 			else (if current == nil then (spec.placeholder or "Choose an option") else tostring(current))
-	end))
+	end)
 	local api = {} :: any
 
 	local idPattern = patternEscape(id)
@@ -376,7 +357,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		if not available() then
 			return
 		end
-		local current = selection:get()
+		local current = selectionModel.read(selection)
 		if multiple then
 			if not selectionModel.enabled(find(optionId)) then
 				return
@@ -395,7 +376,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			if not available() or not selectionModel.enabled(find(optionId)) then
 				return
 			end
-			core:transaction(function()
+			core.reactor:batch(function()
 				selection:set(nextSet)
 				if spec.onChange then
 					spec.onChange(nextSet)
@@ -403,12 +384,12 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			end)
 		else
 			local accepted, nextValue =
-				selectionModel.choose(options:get(), current, optionId, spec.required, spec.onChanging)
+				selectionModel.choose(options:peek(), current, optionId, spec.required, spec.onChanging)
 			if accepted then
 				if not available() or (optionId ~= nil and not selectionModel.enabled(find(optionId))) then
 					return
 				end
-				core:transaction(function()
+				core.reactor:batch(function()
 					selection:set(nextValue)
 					if spec.onChange then
 						spec.onChange(nextValue)
@@ -430,7 +411,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return false
 		end
 		if string.match(path, if rowForm then `/{idPattern}/Form/.*/Trigger$` else `/{idPattern}/Trigger$`) ~= nil then
-			open:set(not open:get())
+			open:set(not open:peek())
 			return true
 		end
 		if
@@ -462,7 +443,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 	function api.close()
-		if not disposed then
+		if not owner.isDisposed() then
 			open:set(false)
 		end
 	end
@@ -477,13 +458,6 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		`PopupButton '{id}': unknown presentation '{requestedPresentation}' (automatic | menu | inline | sheet)`
 	)
 	assert(not pickerMode or requestedPresentation == "automatic", "Picker menu: the style decides the presentation")
-
-	local function readFact(fact: any): any
-		if type(fact) == "table" and (fact :: any).get ~= nil then
-			return (fact :: any):get()
-		end
-		return fact
-	end
 
 	--[[ THE TWO FACTS THE LADDER RUNS ON, AND WHERE THEY COME FROM.
 
@@ -503,7 +477,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		and (spec.sizeClass == nil or spec.interactionClasses == nil)
 	then
 		local env, source = surfaceEnv.resolve(
-			if pickerMode then "newPicker" else "newPopupButton",
+			if pickerMode then "UI.Picker" else "UI.PopupButton",
 			id,
 			core,
 			spec.env,
@@ -526,7 +500,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return requestedPresentation
 		end
 		-- PRIMARY, not merely present: the one predicate, in the recipe
-		local classes = readFact(classesSource)
+		local classes = selectionModel.read(classesSource)
 		local touchLive = menuRecipe.touchPrimary(classes)
 		local gamepad = classes ~= nil and classes.primary == "gamepad"
 		-- the SELECTABLE count, not the array length: a divider is a rule between
@@ -535,21 +509,26 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			if sheetFallback then
 				return "sheet"
 			end
-			return menuRecipe.resolvePickerPresentation(#results:get(), readFact(sizeClassSource), touchLive, gamepad)
+			return menuRecipe.resolvePickerPresentation(
+				#results:peek(),
+				selectionModel.read(sizeClassSource),
+				touchLive,
+				gamepad
+			)
 		end
-		return menuRecipe.resolvePresentation(#results:get(), readFact(sizeClassSource), touchLive, gamepad)
+		return menuRecipe.resolvePresentation(#results:peek(), selectionModel.read(sizeClassSource), touchLive, gamepad)
 	end
 	api.presentation = presentationNow
 	-- the two trigger facts that follow the LIVE interaction class: a phone's
 	-- form row draws a plain value in the secondary colour, a desktop draws a
 	-- bordered pop-up button that hugs its content
-	local touchPrimary = scope:own(core:memo(function(use)
+	local touchPrimary = Compose.formula(function(use)
 		local classes = classesSource
-		if type(classes) == "table" and (classes :: any).get ~= nil then
+		if Compose.isReadable(classes) then
 			classes = use(classes)
 		end
 		return menuRecipe.touchPrimary(classes)
-	end))
+	end)
 	-- the node the popover hangs from: the chevron on a plain touch row (the
 	-- last thing the eye sees on a trigger with no visible box), the trigger's
 	-- own frame everywhere else. Declared AFTER `touchPrimary`: a closure only
@@ -558,7 +537,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local function anchorSourcePath(): string
 		-- a plain touch row hangs its menu from the chevron (the last thing the
 		-- eye sees on a row with no box); a boxed trigger hangs it from its frame
-		if rowForm and touchPrimary:get() == true then
+		if rowForm and touchPrimary:peek() == true then
 			return triggerPath() .. "/Row/Trailing/Chevron"
 		end
 		return triggerPath()
@@ -586,22 +565,33 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		compares by value, so a fresh table per solve would churn the paint channel,
 		and a resting row wants no claim on `TextColor3` at all. ]]
 	local ON_SELECTED_TINT = table.freeze({ role = "onSelected", blend = 1 })
-	local function optionRow(option, rowScope)
-		local function property(name)
-			return rowScope:own(core:memo(function(use)
-				local current = byKey(keyOf(option), use)
-				local value = if current then selectionModel.read(current[name], use) else nil
-				return if name == "description" then (value or "") else value
-			end))
+	local function optionProps(option, rowScope, currentItem)
+		local function currentOption(use)
+			return if currentItem then use(currentItem) else byKey(keyOf(option), use)
 		end
-		local selected = rowScope:own(core:memo(function(use)
-			local current = use(selection)
-			return if multiple then current[option.id] == true else current == selectionModel.identity(option)
-		end))
-		local hidden = rowScope:own(core:memo(function(use)
-			return not use(selected)
-		end))
-		return menuRecipe.row(UI, {
+		local function property(name)
+			return Compose.withOwner(rowScope, function()
+				return Compose.formula(function(use)
+					local current = currentOption(use)
+					local value = if current then selectionModel.read(current[name], use) else nil
+					return if name == "description" then (value or "") else value
+				end)
+			end)
+		end
+		local selected = Compose.withOwner(rowScope, function()
+			return Compose.formula(function(use)
+				local current = selectionModel.read(selection, use)
+				local item = currentOption(use)
+				return item ~= nil
+					and (if multiple then current[item.id] == true else current == selectionModel.identity(item))
+			end)
+		end)
+		local hidden = Compose.withOwner(rowScope, function()
+			return Compose.formula(function(use)
+				return not use(selected)
+			end)
+		end)
+		return menuRecipe.rowProps(UI, {
 			id = `Opt-{keyOf(option)}`,
 			label = property("label"),
 			description = if option.description ~= nil
@@ -615,9 +605,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			scope = rowScope,
 			selected = selected,
 			labelTint = if pickerMode
-				then rowScope:own(core:memo(function(use)
-					return if use(selected) then ON_SELECTED_TINT else nil
-				end))
+				then Compose.withOwner(rowScope, function()
+					return Compose.formula(function(use)
+						return if use(selected) then ON_SELECTED_TINT else nil
+					end)
+				end)
 				else nil,
 			textSize = spec.textSize,
 			-- the picker's rows wear the CHECK-ONLY slot (the current value, not a
@@ -633,14 +625,21 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			-- READABLE, so the edge follows the live class rather than the class at
 			-- build time (capture review 2026-09-12: rows are built once, at mount)
 			indicatorEdge = if pickerMode
-				then rowScope:own(core:memo(function(use)
-					return if use(touchPrimary) == true then "trailing" else "leading"
-				end))
+				then Compose.withOwner(rowScope, function()
+					return Compose.formula(function(use)
+						return if use(touchPrimary) == true then "trailing" else "leading"
+					end)
+				end)
 				else "leading",
 			markHidden = hidden,
 			height = "targetSizes.minimum",
 		})
 	end
+	local function optionRow(option, rowScope, currentItem)
+		-- A keyed row arrives without a scope; its own owner holds the formulas.
+		return UI.Button(optionProps(option, rowScope or Compose.currentOwner(), currentItem))
+	end
+
 	--[[ THE LIST'S HEIGHT BUDGET (picker sweep, 2026-09-11: three described
 		rows at the Larger preference under a roomy package solved to 492px on a
 		390px landscape phone and the popover ran off the screen). A picker's
@@ -652,18 +651,18 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		reads its solved rect after each solve and, when it still runs past the
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
-	local listShrink = scope:own(core:signal(0))
+	local listShrink = Compose.cell(0)
 	local feeds = 0 -- shrinks fed this open (convergence guard: the solver caps feedback at 8 rounds)
 	local function listMaxPx(presentation: string, use: any?): number
-		local shrink = if use ~= nil then use(listShrink) else listShrink:get()
+		local shrink = if use ~= nil then use(listShrink) else listShrink:peek()
 		local env = envForFacts or spec.env
-		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
+		local metrics = if env ~= nil then env:get("themeMetrics"):peek() else nil
 		local minimum = if type(metrics) == "table"
 				and type(metrics.targetSizes) == "table"
 				and type(metrics.targetSizes.minimum) == "number"
 			then metrics.targetSizes.minimum
 			else themeSnapshot.neutral().targetSizes.minimum
-		local vp = if env ~= nil then env:get("viewportRect"):get() else nil
+		local vp = if env ~= nil then env:get("viewportRect"):peek() else nil
 		local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 720
 		-- the sheet's own chrome, in the theme's metrics: the Cancel row at the
 		-- large control height, the search field at the regular one (a native
@@ -679,7 +678,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			then metrics.space.s
 			else neutral.space.s
 		-- ...and every line of that chrome grows with the text preference
-		local offsetFact = if env ~= nil then env:get("preferredTextOffset"):get() else 0
+		local offsetFact = if env ~= nil then env:get("preferredTextOffset"):peek() else 0
 		local offset = if type(offsetFact) == "number" then offsetFact else 0
 		local chrome = if presentation == "sheet"
 			then sizes.large.height
@@ -714,8 +713,8 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			-- be: it is one surface's answer, decided once in `makeHandle` (inherited
 			-- there from the source, for an anchored surface) before any contribution
 			-- is bound, and constant while this control is mounted
-			local insets = if env ~= nil then env:get("coreSafeInsets"):get() else nil
-			local hostChrome = if env ~= nil and ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
+			local insets = if env ~= nil then env:get("coreSafeInsets"):peek() else nil
+			local hostChrome = if env ~= nil and ownerReservesAppChrome then env:get("appChromeInsets"):peek() else nil
 			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
 			top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 			--[[ the panel's own chrome — the `raised` slot's content insets a package
@@ -738,16 +737,16 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return math.max(minimum * 2, budget - shrink), budget - shrink <= minimum * 2
 	end
 	-- the picker's static/dynamic row list height, reactive on the shrink
-	local listHeight = scope:own(core:memo(function(use)
+	local listHeight = Compose.formula(function(use)
 		return { type = "hug", max = listMaxPx(presentationNow(), use) }
-	end))
+	end)
 
 	--[[ the widest a popover may grow: the viewport less the screen's content
 		inset on both sides (the same `m` the anchor's `margin` keeps it inside) ]]
 	local function safeWidthNow(): number
 		local env = envForFacts or spec.env
-		local vp = if env ~= nil then env:get("viewportRect"):get() else nil
-		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
+		local vp = if env ~= nil then env:get("viewportRect"):peek() else nil
+		local metrics = if env ~= nil then env:get("themeMetrics"):peek() else nil
 		local snap = if type(metrics) == "table" and type(metrics.controls) == "table"
 			then metrics
 			else themeSnapshot.neutral()
@@ -814,7 +813,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local function widestRowEstimate(): number
 		local env = envForFacts or spec.env
 		local function fact(name: string): any
-			return if env ~= nil then env:get(name):get() else nil
+			return if env ~= nil then env:get(name):peek() else nil
 		end
 		local metrics = fact("themeMetrics")
 		local snap = if type(metrics) == "table" and type(metrics.controls) == "table"
@@ -905,15 +904,15 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			A flat package authors no shade, so the term is 0 there and the estimate
 			stays exact on the packages it was already exact on. ]]
 		local shade = shadeInsetNow(function(readable: any): any
-			return readable:get()
+			return selectionModel.read(readable)
 		end)
 		local widest = 0
-		for _, option in results:get() do
+		for _, option in results:peek() do
 			if option.divider == true then
 				continue
 			end
-			local w = lineWidth(tostring(readFact(option.label) or ""), labelPx, labelRole)
-			local description = readFact(option.description)
+			local w = lineWidth(tostring(selectionModel.read(option.label) or ""), labelPx, labelRole)
+			local description = selectionModel.read(option.description)
 			if type(description) == "string" then
 				w = math.max(w, lineWidth(description, captionPx, captionRole))
 			end
@@ -923,82 +922,77 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	end
 	local function describedPanelWidth(): number
 		local env = envForFacts or spec.env
-		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
+		local metrics = if env ~= nil then env:get("themeMetrics"):peek() else nil
 		local themed = if type(metrics) == "table"
 				and type(metrics.controls) == "table"
 				and type(metrics.controls.popup) == "table"
 				and type(metrics.controls.popup.panelWidth) == "number"
 			then metrics.controls.popup.panelWidth
 			else themeSnapshot.neutral().controls.popup.panelWidth
-		local vp = if env ~= nil then env:get("viewportRect"):get() else nil
+		local vp = if env ~= nil then env:get("viewportRect"):peek() else nil
 		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else math.huge
 		return math.max(120, math.min(themed, w - 16))
 	end
 
-	local searchField, virtualList
-	if spec.query then
-		searchField = Facet.Controls.TextInput(
-			core,
+	local function searchContent(contentScope)
+		local metrics = Compose.withOwner(contentScope, function()
+			return Compose.formula(function(use)
+				local env = envForFacts
+					or spec.env
+					or (surfaceEnv.resolve("UI.PopupButton", id, core, nil, "search results follow theme metrics"))
+				local raw = use(env:get("themeMetrics"))
+				return if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
+			end)
+		end)
+		local rowHeight = Compose.withOwner(contentScope, function()
+			return Compose.formula(function(use)
+				return use(metrics).targetSizes.minimum * 2
+			end)
+		end)
+		local viewport = Compose.withOwner(contentScope, function()
+			return Compose.formula(function(use)
+				local env = envForFacts
+					or spec.env
+					or surfaceEnv.resolve("UI.PopupButton", id, core, nil, "search viewport")
+				local budget = if pickerMode then listMaxPx("sheet", use) else use(env:get("viewportRect")).h * 0.4
+				return math.min(use(metrics).targetSizes.minimum * 5, budget)
+			end)
+		end)
+		local function rowContent(option, rowScope, currentItem)
+			local props = optionProps(option, rowScope, currentItem)
+			return UI.VStack({
+				padding = "s",
+				enabled = props.enabled,
+				width = { type = "fill", weight = 1 },
+				children = props.children,
+			})
+		end
+		local fieldSpec =
 			{ id = "Search", value = spec.query, presentation = "search", enabled = enabled, env = spec.env }
-		)
-		scope:own(searchField)
-		local metrics = scope:own(core:memo(function(use)
-			local env = envForFacts
-				or spec.env
-				or (surfaceEnv.resolve("newPopupButton", id, core, nil, "search results follow theme metrics"))
-			local raw = use(env:get("themeMetrics"))
-			return if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
-		end))
-		local rowHeight = scope:own(core:memo(function(use)
-			return use(metrics).targetSizes.minimum * 2
-		end))
-		local viewport = scope:own(core:memo(function(use)
-			local env = envForFacts
-				or spec.env
-				or surfaceEnv.resolve("newPopupButton", id, core, nil, "search viewport")
-			local budget = if pickerMode then listMaxPx("sheet", use) else use(env:get("viewportRect")).h * 0.4
-			return math.min(use(metrics).targetSizes.minimum * 5, budget)
-		end))
-		virtualList = Facet.Controls.VirtualList(core, {
+		local listSpec = {
 			id = "Results",
-			rows = results,
 			key = keyOf,
 			itemExtent = "measured",
 			estimatedItemExtent = rowHeight,
 			viewportExtent = viewport,
 			width = { type = "fill", weight = 1 },
-			rowFocusable = function(option)
-				return selectionModel.enabled(byKey(keyOf(option)))
-			end,
 			onActivate = function(option)
 				select(selectionModel.identity(option))
 			end,
-			cell = function(option, ctx)
-				local row = optionRow(option, ctx.scope)
-				-- VirtualList owns the hit target and semantic activation for this cell.
-				return UI.VStack({
-					padding = "s",
-					enabled = row.props.enabled,
-					width = { type = "fill", weight = 1 },
-					children = row.children,
-				})
-			end,
-		})
-		scope:own(virtualList)
-	end
-	local emptyHidden = scope:own(core:memo(function(use)
-		return #use(results) > 0
-	end))
-	local staticRows = {}
-	if not dynamicOptions and not multiple and spec.query == nil then
-		for index, option in options:get() do
-			if option.divider then
-				table.insert(staticRows, menuRecipe.divider(UI, `Div-{index}`))
-			else
-				table.insert(staticRows, optionRow(option, scope))
-			end
+		}
+		listSpec.rows = results
+		listSpec.rowFocusable = function(option)
+			return selectionModel.enabled(byKey(keyOf(option)))
 		end
+		listSpec.cell = function(option, ctx)
+			return rowContent(option, ctx.scope)
+		end
+		return Facet.nativeControls.TextInput(fieldSpec), Facet.nativeControls.VirtualList(listSpec)
 	end
+	local emptyHidden = Compose.formula(function(use)
+		return #use(results) > 0
+	end)
+
 	--[[ A DESCRIBED POPOVER'S WIDTH: the themed panel width, but never wider
 		than the screen it opens on. Measured on the compact phone row (2026-09-11):
 		a 360px panel on a 360px viewport was shifted to the safe box's left edge
@@ -1038,18 +1032,20 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return UI.cornersData(0)
 	end
 	local FLOATING_CORNERS = UI.cornersData("selection")
-	local function rowCorners(position: string): any
-		return scope:own(core:memo(function(use)
-			if shadeInsetNow(use) > 0 then
-				return FLOATING_CORNERS
-			end
-			return rowCornersFor(position, cardCornerRadius(use))
-		end))
+	local function rowCorners(position: string, owner: any): any
+		return Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				if shadeInsetNow(use) > 0 then
+					return FLOATING_CORNERS
+				end
+				return rowCornersFor(position, cardCornerRadius(use))
+			end)
+		end)
 	end
-	local rowMargin = scope:own(core:memo(function(use)
+	local rowMargin = Compose.formula(function(use)
 		local inset = shadeInsetNow(use)
 		return if inset > 0 then { left = inset, right = inset } else nil
-	end))
+	end)
 	--[[ NO HAIRLINE TOUCHES A FLOATING SHADE (user review 2026-09-12, Glossy
 		Touch): the card's row dividers are the theme's own hairline — Glossy's is
 		a dark navy at 0.8 — and one sat directly under the floating shade,
@@ -1057,16 +1053,29 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		the way the reference platform's menus do beside a highlighted row; the
 		flush form keeps them. `hidden` keeps the divider's 1px box, so no row
 		moves when a package swap flips the form. ]]
-	local floatingForm = scope:own(core:memo(function(use)
+	local floatingForm = Compose.formula(function(use)
 		return shadeInsetNow(use) > 0
-	end))
+	end)
 	local function popupPanel()
+		if popupScope and not popupScope.isDisposed() then
+			popupScope.dispose()
+		end
+		popupScope = owner.createChild()
+		if Facet.surfaces then
+			local owned = popupScope
+			Compose.cleanup(function()
+				if not owned.isDisposed() then
+					owned.dispose()
+				end
+			end)
+		end
 		local presentation = presentationNow()
 		local rowHeight = menuRecipe.rowHeightFor(presentation)
 		local rows = {}
-		if virtualList then
-			table.insert(rows, searchField.blueprint)
-			table.insert(rows, virtualList.blueprint)
+		if spec.query then
+			local searchField, virtualList = searchContent(popupScope)
+			table.insert(rows, searchField)
+			table.insert(rows, virtualList)
 			table.insert(rows, UI.Text({ id = "Empty", text = "No matching options", hidden = emptyHidden }))
 		else
 			local listRows = {}
@@ -1081,26 +1090,25 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					})
 				)
 			else
+				local staticOptions = options:peek()
 				local optionCount, optionIndex = 0, 0
-				for _, row in staticRows do
-					if row.class == "Button" then
+				for _, option in staticOptions do
+					if not option.divider then
 						optionCount += 1
 					end
 				end
-				for index, row in staticRows do
-					if row.class == "Button" then
+				for index, option in staticOptions do
+					if not option.divider then
 						optionIndex += 1
 						local position = if optionCount == 1
 							then "only"
 							elseif optionIndex == 1 then "first"
 							elseif optionIndex == optionCount then "last"
 							else "middle"
-						local props = table.clone(row.props)
-						props.id = row.id
+						local props = optionProps(option, popupScope)
 						props.height = if detached
 							then { type = "minMax", min = rowHeight }
 							else { type = "fixed", px = rowHeight }
-						props.children = row.children
 						if pickerMode then
 							-- the card's rows: a hairline between neighbours, a subtle
 							-- `controlSelected` fill behind the chosen one (see optionRow)
@@ -1109,7 +1117,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							end
 							local chosen = props.selected
 							-- the row and its shade wear ONE shape (see `rowCornersFor`)
-							local corners = rowCorners(position)
+							local corners = rowCorners(position, popupScope)
 							props.corners = corners
 							props.margin = rowMargin
 							table.insert(
@@ -1126,9 +1134,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 										margin = rowMargin,
 										tint = { role = "controlSelected", blend = 1 },
 										hidden = if type(chosen) == "table"
-											then scope:own(core:memo(function(use)
-												return use(chosen) ~= true
-											end))
+											then Compose.withOwner(popupScope, function()
+												return Compose.formula(function(use)
+													return use(chosen) ~= true
+												end)
+											end)
 											else true,
 									})
 								)
@@ -1137,7 +1147,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							table.insert(listRows, UI.Button(props))
 						end
 					else
-						table.insert(listRows, row)
+						table.insert(listRows, menuRecipe.divider(UI, `Div-{index}`))
 					end
 				end
 			end
@@ -1262,7 +1272,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 
 	-- the row id of the current selection, or nil when nothing is selected
 	local function currentRowId(): string?
-		local option = if multiple then nil else find(selection:get())
+		local option = if multiple then nil else find(selectionModel.read(selection))
 		return if option ~= nil and selectionModel.enabled(option) then `Opt-{keyOf(option)}` else nil
 	end
 
@@ -1272,12 +1282,19 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		if handle and dismissFn then
 			dismissFn(handle)
 		end
+		if popupScope and not popupScope.isDisposed() then
+			popupScope.dispose()
+		end
+		popupScope = nil
 	end
 	syncSurface = function()
 		if not detached then
+			if not open:peek() then
+				closeSurface()
+			end
 			return
 		end
-		if not open:get() or disposed then
+		if not open:peek() or owner.isDisposed() then
 			closeSurface()
 			sheetFallback = false
 			return
@@ -1287,27 +1304,28 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		listShrink:set(0)
 		feeds = 0
-		local panel = contribution.attach(popupPanel(), {
-			handleActivate = api.handleActivate,
-			handleCancel = function()
-				api.close()
-				return true
-			end,
-			-- the measured half of `listMaxPx`: a panel that still runs past the
-			-- viewport after a solve hands the excess to the list
-			syncGeometry = if pickerMode
-				then function(rectOf, node)
-					if node == nil then
-						return
-					end
-					local rect = rectOf(node.path)
-					local env = envForFacts or spec.env
-					local vp = if env ~= nil then env:get("viewportRect"):get() else nil
-					if type(rect) ~= "table" or type(vp) ~= "table" then
-						return
-					end
-					local over = math.max(-rect.y, rect.y + rect.h - vp.h)
-					--[[ ...AND THE ATTACHMENT IS MEASURED TOO (visual review 2026-09-11):
+		local function buildPanel()
+			return contribution.attach(popupPanel(), {
+				handleActivate = api.handleActivate,
+				handleCancel = function()
+					api.close()
+					return true
+				end,
+				-- the measured half of `listMaxPx`: a panel that still runs past the
+				-- viewport after a solve hands the excess to the list
+				syncGeometry = if pickerMode
+					then function(rectOf, node)
+						if node == nil then
+							return
+						end
+						local rect = rectOf(node.path)
+						local env = envForFacts or spec.env
+						local vp = if env ~= nil then env:get("viewportRect"):peek() else nil
+						if type(rect) ~= "table" or type(vp) ~= "table" then
+							return
+						end
+						local over = math.max(-rect.y, rect.y + rect.h - vp.h)
+						--[[ ...AND THE ATTACHMENT IS MEASURED TOO (visual review 2026-09-11):
 						the placement clamps a panel that fits on neither side of its source
 						OVER the control, so the panel must be no taller than the larger of
 						the room below the source and the room above it; whatever it is
@@ -1320,83 +1338,95 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 						times and trip the solver's feedback cap (seen on the landscape
 						phone under Fantasy Ornate). ONLY ONCE PLACED: a fresh surface's
 						first sync reports the panel at the origin. ]]
-					local source = if presentationNow() == "sheet" or rect.x <= 0.5 then nil else anchorRect
-					if type(source) == "table" and type(source.y) == "number" then
-						local metricsNow = if env ~= nil then env:get("themeMetrics"):get() else nil
-						local neutralNow = themeSnapshot.neutral()
-						local spaceNow = if type(metricsNow) == "table" and type(metricsNow.space) == "table"
-							then metricsNow.space
-							else neutralNow.space
-						local xs = if type(spaceNow.xs) == "number" then spaceNow.xs else neutralNow.space.xs
-						local m = if type(spaceNow.m) == "number" then spaceNow.m else neutralNow.space.m
-						-- both reservations, exactly as the room arithmetic above reads them
-						local insets = env:get("coreSafeInsets"):get()
-						local hostChrome = if ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
-						local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
-						top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
-						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
-						over = math.max(over, rect.h - room)
-						--[[ ...AND THE PLACED POSITION, because the presenter's safe box is
+						local source = if presentationNow() == "sheet" or rect.x <= 0.5 then nil else anchorRect
+						if type(source) == "table" and type(source.y) == "number" then
+							local metricsNow = if env ~= nil then env:get("themeMetrics"):peek() else nil
+							local neutralNow = themeSnapshot.neutral()
+							local spaceNow = if type(metricsNow) == "table"
+									and type(metricsNow.space) == "table"
+								then metricsNow.space
+								else neutralNow.space
+							local xs = if type(spaceNow.xs) == "number" then spaceNow.xs else neutralNow.space.xs
+							local m = if type(spaceNow.m) == "number" then spaceNow.m else neutralNow.space.m
+							-- both reservations, exactly as the room arithmetic above reads them
+							local insets = env:get("coreSafeInsets"):peek()
+							local hostChrome = if ownerReservesAppChrome then env:get("appChromeInsets"):peek() else nil
+							local top = if type(insets) == "table" and type(insets.top) == "number"
+								then insets.top
+								else 0
+							top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
+							local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
+							over = math.max(over, rect.h - room)
+							--[[ ...AND THE PLACED POSITION, because the presenter's safe box is
 							not this arithmetic's (its own gutters and insets differ from the
 							content margin by a few px under a themed package): a panel placed
 							ABOVE the edge it should hang from has been pushed by exactly what
 							it is too tall by. Converges because the shrink below is taken off
 							the list's measured height and the feed count is bounded. ]]
-						local below = rect.y + rect.h / 2 > source.y + source.h / 2
-						local pushed = if below
-							then (source.y + source.h + xs) - rect.y
-							else (rect.y + rect.h) - (source.y - xs)
-						over = math.max(over, pushed)
-					end
-					--[[ BOUNDED, NOT PROGRESS-GATED: a feed that shortened the LIST but not
+							local below = rect.y + rect.h / 2 > source.y + source.h / 2
+							local pushed = if below
+								then (source.y + source.h + xs) - rect.y
+								else (rect.y + rect.h) - (source.y - xs)
+							over = math.max(over, pushed)
+						end
+						--[[ BOUNDED, NOT PROGRESS-GATED: a feed that shortened the LIST but not
 						the panel (Fantasy Ornate's frame at +10 on a landscape phone: 7px
 						over the room) used to stop the loop after one round and leave the
 						menu clamped over its trigger. Six feeds is under the solver's cap
 						and more than any themed chrome has needed. ]]
-					if over > 0.5 and feeds < 6 then
-						local _, atFloor = listMaxPx(presentationNow())
-						if atFloor and not sheetFallback then
-							-- the list cannot give any more: re-present as the sheet
-							sheetFallback = true
-							closeSurface()
-							syncSurface()
-							return
-						end
-						feeds += 1
-						--[[ THE SHRINK IS TAKEN OFF THE LIST'S MEASURED HEIGHT, not off the
+						if over > 0.5 and feeds < 6 then
+							local _, atFloor = listMaxPx(presentationNow())
+							if atFloor and not sheetFallback then
+								-- the list cannot give any more: re-present as the sheet
+								sheetFallback = true
+								if presenting then
+									resurface = true
+								else
+									closeSurface()
+									syncSurface()
+								end
+								return
+							end
+							feeds += 1
+							--[[ THE SHRINK IS TAKEN OFF THE LIST'S MEASURED HEIGHT, not off the
 							budget: a hugging list already below its budget (three rows under
 							an ornate frame that is the bigger half of the panel) does not move
 							when only its ceiling comes down, so the ceiling is set to what the
 							list IS less the overrun — one feed, one fit. ]]
-						local listRect = rectOf(node.path .. "/Rows/List")
-						local ceiling = listMaxPx(presentationNow())
-						local wanted = if type(listRect) == "table" and type(listRect.h) == "number"
-							then listRect.h - math.ceil(over)
-							else ceiling - math.ceil(over)
-						listShrink:set(listShrink:get() + math.max(1, math.ceil(ceiling - wanted)))
+							local listRect = rectOf(node.path .. "/Rows/List")
+							local ceiling = listMaxPx(presentationNow())
+							local wanted = if type(listRect) == "table" and type(listRect.h) == "number"
+								then listRect.h - math.ceil(over)
+								else ceiling - math.ceil(over)
+							listShrink:set(listShrink:peek() + math.max(1, math.ceil(ceiling - wanted)))
+						end
 					end
-				end
-				else nil,
-		})
+					else nil,
+			})
+		end
 		local surfaceId = `Popup-{id}`
 		local handle
+		presenting = true
 		if presentationNow() == "sheet" then
-			handle = presentModalFn(
-				UI.Screen({
+			local function buildSheet()
+				return UI.Screen({
 					id = surfaceId,
 					children = {
 						UI.Anchor({
 							id = "Layer",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fill", weight = 1 },
-							children = { panel },
+							children = { buildPanel() },
 						}),
 					},
-				}),
+				})
+			end
+			handle = presentModalFn(
+				if Facet.surfaces then buildSheet else buildSheet(),
 				{ scrim = "scrim", outsideTapCancel = true, cancelPolicy = "none" }
 			)
 		else
-			handle = presentAnchoredFn(panel, {
+			handle = presentAnchoredFn(if Facet.surfaces then buildPanel else buildPanel(), {
 				id = surfaceId,
 				modal = true,
 				-- a form row's value sits at the trailing edge, so its menu hangs
@@ -1426,6 +1456,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				initialFocus = if pickerMode then currentRowId() else nil,
 			})
 		end
+		presenting = false
 		surfaceHandle = handle
 		if handle.onFeedback then
 			handle.onFeedback(function(event)
@@ -1435,12 +1466,18 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				end
 			end)
 		end
+		-- Placement can request a sheet during the initial presentation. Finish
+		-- attaching the first handle before replacing it so focus returns correctly.
+		if resurface then
+			resurface = false
+			closeSurface()
+			syncSurface()
+		end
 	end
-	scope:own(core:observe(open, syncSurface))
-	scope:own(closeSurface)
-	local inlineOpen = scope:own(core:memo(function(use)
+	owner.watchStatic(open, syncSurface)
+	local inlineOpen = Compose.formula(function(use)
 		return not detached and use(open)
-	end))
+	end)
 
 	--[[ THE TRIGGER: ONE BUTTON, value and chevron inside it (B-BTN1: a Button
 		is a container, so the visible text moves into content and `label` stays
@@ -1452,14 +1489,14 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		trailing chevron instead: it leads somewhere rather than dropping down. ]]
 	local navLink = spec.style == "navigationLink"
 	local chevronName = if navLink then "chevron.trailing" else "chevron.up.chevron.down"
-	local valueRole = scope:own(core:memo(function(use)
+	local valueRole = Compose.formula(function(use)
 		--[[ CONTENT on every class (measured live 2026-09-11: the secondary
 			role's gold on Fantasy Ornate and its grey on Glossy Touch both
 			vanished into their own focus glow on a plain touch trigger). The
 			plain surface is what makes the touch row read as a value rather than a
 			button; the word itself keeps the colour every other value has. ]]
 		return "content"
-	end))
+	end)
 	--[[ THE TRIGGER ALWAYS HAS A BOX (user review of the Glossy Touch capture,
 		2026-09-11: "the menu doesn't have a background, just a glow"). A plain
 		value on a touch form row is the reference platform's look on a FLAT
@@ -1469,9 +1506,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		surface on every input class — the same pop-up button the desktop draws,
 		which every package paints and whose `selected` state stays lit while the
 		menu is up. The navigation link keeps its plain row. ]]
-	local triggerSurface = scope:own(core:memo(function(use)
+	local triggerSurface = Compose.formula(function(use)
 		return if navLink and use(touchPrimary) then "plain" else "control"
-	end))
+	end)
 	--[[ THE FORM ROW GOES VERTICAL AT ACCESSIBILITY SIZES — a FACT, not a
 		measurement: at the two largest text preferences the title takes the
 		whole row and the trigger sits beneath it, which is what the reference
@@ -1481,17 +1518,17 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		localized title's longest word (~1.4x, 21px) no longer fits the room a
 		capped trigger leaves beside it on a 320px row (the picker sweep, glossy
 		phone, 2026-09-11), and a word that cannot wrap can only truncate. ]]
-	local rowAxis = scope:own(core:memo(function(use)
+	local rowAxis = Compose.formula(function(use)
 		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
 		if type(offset) ~= "number" then
 			return "x"
 		end
-		local compact = readFact(sizeClassSource) == "compact"
-		if type(sizeClassSource) == "table" and (sizeClassSource :: any).get ~= nil then
+		local compact = selectionModel.read(sizeClassSource) == "compact"
+		if Compose.isReadable(sizeClassSource) then
 			compact = use(sizeClassSource) == "compact"
 		end
 		return if offset >= 10 or (offset >= 4 and compact) then "y" else "x"
-	end))
+	end)
 	local requestedSizing = spec.sizing
 	assert(
 		requestedSizing == nil or requestedSizing == "hug" or requestedSizing == "fill",
@@ -1515,26 +1552,26 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		compact rung inside a box reserved at the large one, and the chevron sat
 		60px away from the word it belongs to. ]]
 	local CHEVRON_ROOM = 64
-	local valueWidth = scope:own(core:memo(function(use)
+	local valueWidth = Compose.formula(function(use)
 		local vp = viewportWidth(use)
 		if use(rowAxis) == "y" then
 			return { type = "hug", max = math.max(48, vp - 32 - CHEVRON_ROOM) }
 		end
 		return { type = "hug", max = math.max(48, math.floor(vp * VALUE_SHARE)) }
-	end))
+	end)
 	-- ...and the TRIGGER itself, because a theme's own padding and chevron sit
 	-- outside the value: under a roomy package the plate around a capped value
 	-- still ate the title's room (the sweep's glossy phone row, 2026-09-11)
-	local triggerCap = scope:own(core:memo(function(use)
+	local triggerCap = Compose.formula(function(use)
 		local vp = viewportWidth(use)
 		if use(rowAxis) == "y" then
 			return { type = "hug", max = math.max(96, vp - 32) }
 		end
 		return { type = "hug", max = math.max(96, math.floor(vp * TRIGGER_SHARE)) }
-	end))
+	end)
 	local TRIGGER_FILL = table.freeze({ type = "fill", weight = 1 })
 	local TRIGGER_HUG = table.freeze({ type = "content" })
-	local triggerWidthDim = scope:own(core:memo(function(use)
+	local triggerWidthDim = Compose.formula(function(use)
 		if not pickerMode or navLink then
 			-- the legacy popup and the navigation link are ROWS: they fill
 			return TRIGGER_FILL
@@ -1544,13 +1581,35 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		local sizing = requestedSizing or (if use(touchPrimary) then "fill" else "hug")
 		return if sizing == "hug" then TRIGGER_HUG else TRIGGER_FILL
-	end))
+	end)
 	--[[ THE VALUE IS ONE LINE AND MAY TRUNCATE, with the full string one engagement
 		away (`disclose`, the large-text plate) — and in the menu itself, a tap
 		away. A value that wrapped would grow the trigger past its row; a value
 		that could not shrink would push the title off the screen, which is what
 		the overflow sweep found on a 320px phone at the largest preference. ]]
 	local function valueViews(): { any }
+		--[[ AN AFFORDANCE-ONLY TRIGGER (internal; `combo_box`). The ComboBox opener
+			sits beside a text field that ALREADY shows the value, so repeating it
+			there is not merely redundant: the trigger hugs its content, so the
+			repeated value took the field's whole width on a narrow phone, while a
+			trigger clamped narrow enough to leave the field room clipped the chevron
+			itself. With no value the opener is its chevron plus the theme's own
+			padding, which is the one width that fits every package at every text
+			preference. Not a spec key: nothing outside this file's own callers may
+			ask for a trigger with nothing in it. ]]
+		if affordanceOnly then
+			return {
+				chrome_slots.attachHint(
+					UI.Text({
+						id = "Chevron",
+						text = themePackage.iconGlyph(chevronName) or (if navLink then ">" else "^v"),
+						textSize = "caption",
+						role = valueRole,
+					}),
+					{ icon = chevronName, iconSize = "small" }
+				),
+			}
+		end
 		return {
 			UI.Text({
 				id = "Value",
@@ -1596,18 +1655,18 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		return views
 	end
-	local openNow = scope:own(core:memo(function(use)
+	local openNow = Compose.formula(function(use)
 		return use(open) == true
-	end))
-	local labelWidth = scope:own(core:memo(function(use)
+	end)
+	local labelWidth = Compose.formula(function(use)
 		local alignment = spec.valueAlignment or "end"
-		if type(alignment) == "table" and type(alignment.get) == "function" then
+		if Compose.isReadable(alignment) then
 			alignment = use(alignment)
 		end
 		assert(alignment == "start" or alignment == "end", "Picker: valueAlignment must be start | end")
 		-- Stacked accessibility rows keep the full line for wrapping the title.
 		return if alignment == "start" and use(rowAxis) == "x" then UI.hug() else UI.fill()
-	end))
+	end)
 	local function labelView()
 		return UI.Text({
 			id = "Label",
@@ -1714,9 +1773,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				UI.When({ id = "TouchRow", condition = touchPrimary, thenView = touchRowTrigger }),
 				UI.When({
 					id = "PointerRow",
-					condition = scope:own(core:memo(function(use)
+					condition = Compose.formula(function(use)
 						return not use(touchPrimary)
-					end)),
+					end),
 					thenView = function()
 						return UI.AdaptiveStack({
 							id = "Row",
@@ -1739,7 +1798,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		return (rootPath :: string)
 			.. (
-				if touchPrimary:get() == true
+				if touchPrimary:peek() == true
 					then "/Form/TouchRow/then/Trigger"
 					else "/Form/PointerRow/then/Row/Trigger"
 			)
@@ -1764,7 +1823,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	-- uniform seam: every composite control exposes dump())
 	local function dump()
 		local dumpedOptions = {}
-		for _, option in options:get() do
+		for _, option in options:peek() do
 			-- a divider is reported AS a divider rather than as an option with no
 			-- id: a dump that showed `{}` here would read as a corrupt option
 			if option.divider == true then
@@ -1777,22 +1836,23 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			schema = if pickerMode then "facet-picker-menu-dump/1" else "facet-popup_button-dump/1",
 			style = spec.style,
 			presentation = presentationNow(),
-			selected = if pickerMode then selection:get() else nil,
+			selected = if pickerMode then selectionModel.read(selection) else nil,
 			rowForm = rowForm,
 			-- where the adaptive facts came from: "spec" (authored) or "core" (the
 			-- surface's environment, with no wiring at all)
 			factsFrom = factsFrom,
 			id = id,
-			open = open:get(),
-			value = if not multiple then selection:get() else nil,
-			selectedValues = if multiple then selection:get() else nil,
-			query = if spec.query then spec.query:get() else nil,
-			resultCount = #results:get(),
-			selectedLabel = selectedLabel:get(),
+			open = open:peek(),
+			value = if not multiple then selectionModel.read(selection) else nil,
+			selectedValues = if multiple then selectionModel.read(selection) else nil,
+			query = if spec.query then selectionModel.read(spec.query) else nil,
+			resultCount = #results:peek(),
+			selectedLabel = selectedLabel:peek(),
 			options = dumpedOptions,
 		}
 	end
 
+	owner.own(closeSurface)
 	return {
 		-- attach the input contribution: the presenter auto-routes open/select/
 		-- cancel Activate to handleActivate with no consumer opts.
@@ -1818,10 +1878,15 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				ownerReservesAppChrome = reserveAppChrome ~= false
 			end,
 			bindPresent = function(presentModal, dismiss, presentAnchored)
-				presentModalFn, dismissFn, presentAnchoredFn = presentModal, dismiss, presentAnchored
+				presentModalFn = if Facet.surfaces then Facet.surfaces.modal else presentModal
+				presentAnchoredFn = if Facet.surfaces then Facet.surfaces.anchored else presentAnchored
+				dismissFn = dismiss
 				syncSurface()
 			end,
 			syncGeometry = function(rectOf, node)
+				if owner.isDisposed() then
+					return
+				end
 				mountedNode = node
 				if node then
 					rootPath = node.path
@@ -1830,7 +1895,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 						triggerRect = rect
 						-- the popover's width floor is the CONTROL the eye sees: on the
 						-- touch form row that is the value + chevron, not the whole row
-						local visible = if rowForm and touchPrimary:get() == true
+						local visible = if rowForm and touchPrimary:peek() == true
 							then rectOf(triggerPath() .. "/Row/Trailing")
 							else nil
 						triggerWidth = if type(visible) == "table" and type(visible.w) == "number"
@@ -1841,13 +1906,13 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					anchorRect = if type(sourceRect) == "table" then sourceRect else rect
 				end
 				syncSurface()
-				if not available() and not disposed then
+				if not available() and not owner.isDisposed() then
 					open:set(false)
 				end
 			end,
 			handleActivate = api.handleActivate,
 			handleCancel = function(_focusedPath: string?): boolean
-				if open:get() then
+				if open:peek() then
 					open:set(false) -- close WITHOUT changing the selection
 					return true
 				end
@@ -1869,9 +1934,25 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		presentation = presentationNow,
 		dump = dump,
 		dispose = function()
-			scope:dispose()
+			closeSurface()
+			owner.dispose()
 		end,
 	}
+end
+
+-- `affordanceOnly` is an INTERNAL fourth argument, not a spec key: see
+-- `valueViews` above. `compose_controls` builds every composite with three.
+function popup_button.build(Facet, core, spec, affordanceOnly: boolean?)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return buildOwned(Facet, core, spec, owner, affordanceOnly)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 
 return popup_button

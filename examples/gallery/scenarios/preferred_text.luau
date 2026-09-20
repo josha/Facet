@@ -24,25 +24,10 @@ return {
 	title = "Preferred text: exact-once seam + large-text reflow (NS-A9/NS-A10, LT-2/LT-9)",
 	ledgerRows = { "NS-A9", "NS-A10", "LT-2", "LT-9" },
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local volume = core:signal(40)
-		local nickname = core:signal("racer")
-
-		local field = Facet.View.TextInput({
-			id = "Nickname",
-			value = nickname,
-			placeholder = "Nickname",
-		})
-		local slider = Facet.View.Slider({
-			id = "Volume",
-			value = volume,
-			min = 0,
-			max = 100,
-			step = 1,
-		})
+		local volume = Compose.cell(40)
+		local nickname = Compose.cell("racer")
 
 		local corpus = {
 			{ id = "Short", text = "Save" },
@@ -52,19 +37,6 @@ return {
 			{ id = "GermanCompound", text = "Geschwindigkeitsbegrenzungsanzeige aktivieren" },
 			{ id = "LongName", text = "Maximiliana-Wilhelmina Rennfahrerin-Steuerbord" },
 		}
-		local corpusChildren = {}
-		for _, entry in corpus do
-			table.insert(
-				corpusChildren,
-				UI.Text({
-					id = entry.id,
-					text = entry.text,
-					textSize = "control",
-					width = { type = "fixed", px = 300 },
-				})
-			)
-		end
-
 		-- THE CONTAINING REGION SCROLLS (overflow ladder rung 2). The first cut
 		-- of this fixture stacked everything on the bare Screen, and the
 		-- landscape row at Largest pushed the CTA band past 339px of height —
@@ -72,86 +44,84 @@ return {
 		-- the exact defect class this stage exists to remove. The document
 		-- region is the scrollable unit; the ladder's rung 1 (the CTA band's
 		-- own row->column reflow) still happens inside it.
-		local screen = UI.Screen({
-			id = "PrefText",
-			padding = "m",
-			gap = 10,
+		local function noop() end
+		local function screen()
+			local formRows: { any } = {
+				gap = "s",
+				UI.TextInput("Nickname")({ value = nickname, placeholder = "Nickname" }),
+				UI.Slider("Volume")({ value = volume, min = 0, max = 100, step = 1 }),
+			}
+			for _, entry in corpus do
+				table.insert(
+					formRows,
+					UI.Text(entry.id)({
+						text = entry.text,
+						textSize = "control",
+						width = { type = "fixed", px = 300 },
+					})
+				)
+			end
+			return UI.Screen("PrefText")({
+				padding = "m",
+				gap = 10,
 
-			UI.Text({ id = "Title", text = "Preferred-text corpus", textSize = 22 }),
-			UI.ScrollView({
-				id = "Doc",
-				height = UI.fill(),
+				UI.Text("Title")({ text = "Preferred-text corpus", textSize = 22 }),
+				UI.ScrollView("Doc")({
+					height = UI.fill(),
 
-				UI.VStack({
-					id = "DocRows",
-					gap = 10,
+					UI.VStack("DocRows")({
+						gap = 10,
 
-					-- a wrap-capped identity line: at Largest it must ellipsize inside
-					-- its own box (never paint through a neighbour), and `disclose`
-					-- makes the full value reachable — the live hover/long-press plate
-					-- is drivable against THIS node (LT-6 full-value access, E3)
-					UI.Text({
-						id = "Identity",
-						text = "Bartholomew 'The Unstoppable Thunderbolt' Maximilian III",
-						textSize = "body",
-						lineLimit = 1,
-						disclose = true,
-						width = { type = "fixed", px = 220 },
-					}),
-					-- the scrolling FORM region: live control state + scroll position
-					-- must survive a hot preference change (LT-2). CONTENT-TERMS
-					-- (framework-gaps-phase2 gap 3, 2026-08-23): the viewport is FIVE
-					-- ROWS of the theme's own compact-control floor, an ESTIMATE
-					-- rather than a per-row sum of the mixed content it actually
-					-- holds (a field, a slider, six corpus lines — MEASURED at
-					-- Neutral: 44+44+22+65 plus three "s" gaps, already past 180,
-					-- which is why this region scrolls at Neutral too) — the same
-					-- "how many rows should the viewport show" declaration Region
-					-- floors already make inside Composition, not a claim that five
-					-- of THESE rows fit. `5 * 36 = 180`, value-identical at Neutral,
-					-- and now grows at the ten-foot ladder where the literal it
-					-- replaces never did.
-					UI.ScrollView({
-						id = "Form",
-						height = { type = "content", rows = 5, of = "controlSizes.compact.height" },
-
-						UI.VStack({
-							id = "FormRows",
-							gap = "s",
-							children = (function()
-								local rows = {}
-								table.insert(rows, field)
-								table.insert(rows, slider)
-								for _, child in corpusChildren do
-									table.insert(rows, child)
-								end
-								return rows
-							end)(),
+						-- a wrap-capped identity line: at Largest it must ellipsize inside
+						-- its own box (never paint through a neighbour), and `disclose`
+						-- makes the full value reachable — the live hover/long-press plate
+						-- is drivable against THIS node (LT-6 full-value access, E3)
+						UI.Text("Identity")({
+							text = "Bartholomew 'The Unstoppable Thunderbolt' Maximilian III",
+							textSize = "body",
+							lineLimit = 1,
+							disclose = true,
+							width = { type = "fixed", px = 220 },
 						}),
-					}),
-					-- the CTA band: reflow FIRST (row -> column candidate); labels are
-					-- actions and may never truncate (overflow order rung 1)
-					UI.ViewThatFits({
-						id = "CtaBand",
+						-- the scrolling FORM region: live control state + scroll position
+						-- must survive a hot preference change (LT-2). CONTENT-TERMS
+						-- (framework-gaps-phase2 gap 3, 2026-08-23): the viewport is FIVE
+						-- ROWS of the theme's own compact-control floor, an ESTIMATE
+						-- rather than a per-row sum of the mixed content it actually
+						-- holds (a field, a slider, six corpus lines — MEASURED at
+						-- Neutral: 44+44+22+65 plus three "s" gaps, already past 180,
+						-- which is why this region scrolls at Neutral too) — the same
+						-- "how many rows should the viewport show" declaration Region
+						-- floors already make inside Composition, not a claim that five
+						-- of THESE rows fit. `5 * 36 = 180`, value-identical at Neutral,
+						-- and now grows at the ten-foot ladder where the literal it
+						-- replaces never did.
+						UI.ScrollView("Form")({
+							height = { type = "content", rows = 5, of = "controlSizes.compact.height" },
 
-						UI.HStack({
-							id = "CtaRow",
-							gap = "s",
-
-							UI.Button({ id = "AcceptRow", label = "Accept the invitation" }),
-							UI.Button({ id = "DeclineRow", label = "Politely decline for now" }),
+							UI.VStack("FormRows")(formRows),
 						}),
-						UI.VStack({
-							id = "CtaColumn",
-							gap = "s",
+						-- the CTA band: reflow FIRST (row -> column candidate); labels are
+						-- actions and may never truncate (overflow order rung 1)
+						UI.ViewThatFits("CtaBand")({
 
-							UI.Button({ id = "AcceptCol", label = "Accept the invitation" }),
-							UI.Button({ id = "DeclineCol", label = "Politely decline for now" }),
+							UI.HStack("CtaRow")({
+								gap = "s",
+
+								UI.Button("AcceptRow")({ label = "Accept the invitation", onActivate = noop }),
+								UI.Button("DeclineRow")({ label = "Politely decline for now", onActivate = noop }),
+							}),
+							UI.VStack("CtaColumn")({
+								gap = "s",
+
+								UI.Button("AcceptCol")({ label = "Accept the invitation", onActivate = noop }),
+								UI.Button("DeclineCol")({ label = "Politely decline for now", onActivate = noop }),
+							}),
 						}),
 					}),
 				}),
-			}),
-		})
+			})
+		end
 
 		-- the four measured per-preference constants (probe artifact); the enum
 		-- names key the steps so a Studio driver can request a preference by name
@@ -159,7 +129,7 @@ return {
 
 		local function setOffset(name: string): any
 			ctx.env:set("preferredTextOffset", MEASURED[name])
-			return { preference = name, offset = ctx.env:get("preferredTextOffset"):get() }
+			return { preference = name, offset = ctx.env:get("preferredTextOffset"):peek() }
 		end
 
 		return {
@@ -188,10 +158,10 @@ return {
 				-- offset both ways, and report what survived
 				hotSwap = function()
 					volume:set(73)
-					local before = ctx.env:get("preferredTextOffset"):get()
+					local before = ctx.env:get("preferredTextOffset"):peek()
 					setOffset("Largest")
 					setOffset("Medium")
-					return { before = before, volumeAfter = volume:get() }
+					return { before = before, volumeAfter = volume:peek() }
 				end,
 				-- DISCLOSURE engagement seams (LT-6 full-value access, E3 slice).
 				-- These drive the presenter's documented engine-adapter seams —
@@ -216,7 +186,7 @@ return {
 				-- multiplier is the INJECTABLE seam; the live path leaves it at 1)
 				injectLargestPref = function()
 					ctx.env:set("preferredTextSize", 1.45)
-					return ctx.env:get("preferredTextSize"):get()
+					return ctx.env:get("preferredTextSize"):peek()
 				end,
 				resetPref = function()
 					ctx.env:set("preferredTextSize", 1)
@@ -227,9 +197,9 @@ return {
 			report = function()
 				return {
 					corpusIds = { "Short", "Long", "CJK", "Mixed", "GermanCompound", "LongName" },
-					offset = ctx.env:get("preferredTextOffset"):get(),
+					offset = ctx.env:get("preferredTextOffset"):peek(),
 					measuredConstants = MEASURED,
-					volume = volume:get(),
+					volume = volume:peek(),
 				}
 			end,
 		}

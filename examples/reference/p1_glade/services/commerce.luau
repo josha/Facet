@@ -21,9 +21,8 @@ local strings = require("../content/strings")
 local commerce = {}
 
 export type Opts = {
-	core: any,
+	Compose: any,
 	now: any, -- Readable<number>
-	scope: any,
 }
 
 local REASONS = { "declined", "offline", "owned", "fallback" }
@@ -39,18 +38,17 @@ local function isKnownReason(reason: string): boolean
 end
 
 function commerce.new(opts: Opts): any
-	local core = opts.core
+	local Compose = opts.Compose
 	local now = opts.now
-	local scope = opts.scope
 
 	-- ---- ledger -------------------------------------------------------------
 	local satchel: { [string]: any } = {}
 	for _, nectar in seedData.NECTARS do
 		if nectar.premium then
-			satchel[nectar.id] = scope:own(core:signal(seedData.SATCHEL[nectar.id] or 0))
+			satchel[nectar.id] = Compose.cell(seedData.SATCHEL[nectar.id] or 0)
 		end
 	end
-	local charmTier = scope:own(core:signal("none"))
+	local charmTier = Compose.cell("none")
 
 	-- ---- commands -----------------------------------------------------------
 	-- One record per command id (a pack id, a charm tier id, or "restore"). The
@@ -66,8 +64,8 @@ function commerce.new(opts: Opts): any
 		local record = records[id]
 		if record == nil then
 			record = {
-				status = scope:own(core:signal("idle")),
-				reason = scope:own(core:signal(nil :: string?)),
+				status = Compose.cell("idle"),
+				reason = Compose.cell(nil :: string?),
 			}
 			records[id] = record
 		end
@@ -97,7 +95,7 @@ function commerce.new(opts: Opts): any
 	end
 
 	function service.charmRank(): number
-		return seedData.CHARM_RANK[charmTier:get()] or 0
+		return seedData.CHARM_RANK[charmTier:peek()] or 0
 	end
 
 	-- prices are SERVICE-PUBLISHED STRINGS (spec §1). The UI never composes a
@@ -129,7 +127,7 @@ function commerce.new(opts: Opts): any
 
 	local function start(id: string, family: string, outcome: string, apply: (() -> ())?): boolean
 		local record = recordFor(id)
-		if record.status:get() == "pending" then
+		if record.status:peek() == "pending" then
 			return false -- one flight per command; the control is disabled anyway
 		end
 		record.reason:set(nil)
@@ -139,7 +137,7 @@ function commerce.new(opts: Opts): any
 			family = family,
 			outcome = outcome,
 			apply = apply,
-			dueAt = now:get() + seedData.COMMAND_SECONDS,
+			dueAt = now:peek() + seedData.COMMAND_SECONDS,
 		})
 		return true
 	end
@@ -153,7 +151,7 @@ function commerce.new(opts: Opts): any
 		end
 		local outcome = nextOutcome("pack")
 		return start(packId, "pack", outcome, function()
-			satchel[pack.nectar]:set(satchel[pack.nectar]:get() + pack.quantity)
+			satchel[pack.nectar]:set(satchel[pack.nectar]:peek() + pack.quantity)
 		end)
 	end
 
@@ -224,7 +222,7 @@ function commerce.new(opts: Opts): any
 		if record == nil then
 			return
 		end
-		if record.status:get() ~= "pending" then
+		if record.status:peek() ~= "pending" then
 			record.status:set("idle")
 			record.reason:set(nil)
 		end
@@ -259,7 +257,7 @@ function commerce.new(opts: Opts): any
 		local held: { any } = {}
 		for _, nectar in seedData.NECTARS do
 			if nectar.premium then
-				table.insert(held, { nectar = nectar.id, count = satchel[nectar.id]:get() })
+				table.insert(held, { nectar = nectar.id, count = satchel[nectar.id]:peek() })
 			end
 		end
 		local commands: { any } = {}
@@ -270,13 +268,13 @@ function commerce.new(opts: Opts): any
 		table.sort(ids)
 		for _, id in ids do
 			local record = records[id]
-			if record.status:get() ~= "idle" then
-				table.insert(commands, { id = id, status = record.status:get(), reason = record.reason:get() })
+			if record.status:peek() ~= "idle" then
+				table.insert(commands, { id = id, status = record.status:peek(), reason = record.reason:peek() })
 			end
 		end
 		return {
 			satchel = held,
-			charm = charmTier:get(),
+			charm = charmTier:peek(),
 			commands = commands,
 			attempts = { pack = attempts.pack, charm = attempts.charm, restore = attempts.restore },
 			inFlight = #inFlight,

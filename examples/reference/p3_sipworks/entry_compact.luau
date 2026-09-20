@@ -26,19 +26,16 @@ local entryCompact = {}
 
 function entryCompact.build(app: any): any
 	local UI = app.UI
-	local core = app.core
 
-	local items = app.own(core:memo(function(use)
+	local items = app.own(app.Compose.formula(function(use)
 		return app.visibleBlends(use, "menu")
 	end))
 
-	return UI.Screen({
-		id = "SipworksCompact",
+	return UI.Screen("SipworksCompact")({
 		padding = 0,
 		surface = "base",
 
-		UI.VStack({
-			id = "Menu",
+		UI.VStack("Menu")({
 			gap = "s",
 			padding = "s",
 			width = dims.fill,

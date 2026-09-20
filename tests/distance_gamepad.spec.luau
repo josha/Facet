@@ -1,18 +1,20 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local fake = require("./lib/fake_target")
 local recipe = require("../src/controls/menu_recipe")
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 
 describe("distance and controller adaptation", function()
 	it("navigates nested columns by their resting geometry", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("preferredInput", "Gamepad")
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake.new(), system)
+		local pres = harness.newPresenter(core, env, fake.new(), system)
 		local function button(id)
 			return UI.Button({
 				id = id,
@@ -40,17 +42,17 @@ describe("distance and controller adaptation", function()
 		end
 		pres.focus.focusOn("/S/Panes/Sidebar/A")
 		press("DPadDown")
-		expect(pres.focus.focused:get()).toBe("/S/Panes/Sidebar/B")
+		expect(pres.focus.focused:peek()).toBe("/S/Panes/Sidebar/B")
 		press("DPadRight")
-		expect(pres.focus.focused:get()).toBe("/S/Panes/Detail/D")
+		expect(pres.focus.focused:peek()).toBe("/S/Panes/Detail/D")
 		press("DPadUp")
-		expect(pres.focus.focused:get()).toBe("/S/Panes/Detail/C")
+		expect(pres.focus.focused:peek()).toBe("/S/Panes/Detail/C")
 		press("DPadLeft")
-		expect(pres.focus.focused:get()).toBe("/S/Panes/Sidebar/A")
+		expect(pres.focus.focused:peek()).toBe("/S/Panes/Sidebar/A")
 	end)
 
 	it("uses aligned eligible geometry, live positions, and stable ties", function()
-		local graph = Facet.newFocusGraph(Facet.newCore())
+		local graph = Facet.newFocusGraph(harness.newCore())
 		local eligible = true
 		local rects = {
 			a = { x = 0, y = 0, w = 40, h = 40 },
@@ -85,21 +87,21 @@ describe("distance and controller adaptation", function()
 			},
 		})
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("b") -- the aligned beam wins over a nearer diagonal
+		expect(graph.focused:peek()).toBe("b") -- the aligned beam wins over a nearer diagonal
 		expect(reads <= 4).toBe(true) -- one mounted-candidate pass
 		graph.focusOn("a")
 		eligible = false
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c") -- ineligible is skipped; document-order tie
+		expect(graph.focused:peek()).toBe("c") -- ineligible is skipped; document-order tie
 		graph.focusOn("a")
 		eligible = true
 		rects.b.x = -120 -- changed layout/RTL without rebuilding the map
 		graph.navigateDirection("left")
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 	end)
 
 	it("keeps an explicitly wrapping group ahead of geometric fallback", function()
-		local graph = Facet.newFocusGraph(Facet.newCore())
+		local graph = Facet.newFocusGraph(harness.newCore())
 		graph.pushScope({
 			name = "S",
 			trap = false,
@@ -117,11 +119,11 @@ describe("distance and controller adaptation", function()
 		})
 		graph.focusOn("b")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 	end)
 
 	it("keeps explicit grid topology ahead of a geometry resolver", function()
-		local graph = Facet.newFocusGraph(Facet.newCore())
+		local graph = Facet.newFocusGraph(harness.newCore())
 		graph.pushScope({
 			name = "S",
 			trap = false,
@@ -138,12 +140,12 @@ describe("distance and controller adaptation", function()
 			},
 		})
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 	end)
 
 	it("adapts a mounted stack axis without waiting for a structural change", function()
-		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 1280, h = 720 } })
-		local axis = w.core:signal("y")
+		local w = require("./lib/harness_world").new({ viewport = { x = 0, y = 0, w = 1280, h = 720 } })
+		local axis = Compose.cell("y")
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -161,22 +163,24 @@ describe("distance and controller adaptation", function()
 		w.settle(1)
 		w.pres.focus.focusOn("/S/Run/A")
 		w.pres.focus.navigateDirection("down")
-		expect(w.pres.focus.focused:get()).toBe("/S/Run/A")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Run/A")
 		w.pres.focus.navigateDirection("right")
-		expect(w.pres.focus.focused:get()).toBe("/S/Run/B")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Run/B")
 	end)
 
 	it("remembers a tab's focus without retaining its content and respects pointer entry", function()
-		local w =
-			require("./lib/world").new({ viewport = { x = 0, y = 0, w = 1280, h = 720 }, preferredInput = "Gamepad" })
-		local selected = w.core:signal("gear")
+		local w = require("./lib/harness_world").new({
+			viewport = { x = 0, y = 0, w = 1280, h = 720 },
+			preferredInput = "Gamepad",
+		})
+		local selected = Compose.cell("gear")
 		local function page()
 			return UI.VStack({
 				id = "Page",
 				children = { UI.Button({ id = "A", label = "A" }), UI.Button({ id = "B", label = "B" }) },
 			})
 		end
-		local tabs = Facet.Controls.TabView(w.core, {
+		local tabs = harness.Controls.TabView(w.core, {
 			id = "Tabs",
 			selection = selected,
 			env = w.env,
@@ -205,35 +209,35 @@ describe("distance and controller adaptation", function()
 		expect(tabs.dump().contentEvictions > 0).toBe(true)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(b)
+		expect(w.pres.focus.focused:peek()).toBe(b)
 		w.pres.focus.setFocusOrigin("pointer")
 		w.pres.focus.focusOn(a)
-		expect(w.pres.focus.focused:get()).toBe(a)
+		expect(w.pres.focus.focused:peek()).toBe(a)
 		tabs.dispose()
 	end)
 
 	it("keeps authored distance independent of capabilities and input switches", function()
-		local env = Facet.newEnvironment(Facet.newCore())
+		local env = Facet.newEnvironment(harness.newCore())
 		env:set("displaySize", "Large")
 		env:set("capabilities", { touch = true, gamepad = true })
 		env:set("viewingDistance", "ten-foot")
-		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
+		expect(env:get("distanceProfile"):peek()).toBe("ten-foot")
 		env:set("preferredInput", "Touch")
-		expect(env:get("effectiveDisplaySize"):get()).toBe("Large")
-		expect(env:get("distanceProfileSource"):get()).toBe("authored")
+		expect(env:get("effectiveDisplaySize"):peek()).toBe("Large")
+		expect(env:get("distanceProfileSource"):peek()).toBe("authored")
 		env:set("viewingDistance", "near")
-		expect(env:get("effectiveDisplaySize"):get()).toBe("Medium")
+		expect(env:get("effectiveDisplaySize"):peek()).toBe("Medium")
 		env:set("viewingDistance", "automatic")
-		expect(env:get("distanceProfileSource"):get()).toBe("inferred")
-		expect(env:get("distanceProfile"):get()).toBe("near")
-		expect(env:get("displaySize"):get()).toBe("Large")
+		expect(env:get("distanceProfileSource"):peek()).toBe("inferred")
+		expect(env:get("distanceProfile"):peek()).toBe("near")
+		expect(env:get("displaySize"):peek()).toBe("Large")
 	end)
 
 	it("keeps Pixel Quest selection ornaments outside their own label box", function()
 		local pkg = require("../examples/themes/pixel_quest").build(Facet.themes)
 		local chrome = require("../src/tokens/chrome_slots")
 		local snapshot = require("../src/themes/snapshot")
-		local w = require("./lib/world").new({ themeMetrics = snapshot.resolve(pkg, nil, {}) })
+		local w = require("./lib/harness_world").new({ themeMetrics = snapshot.resolve(pkg, nil, {}) })
 		w.present(
 			UI.Screen({ id = "S", children = { UI.Button({ id = "Choice", label = "Quest", selected = true }) } })
 		)

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ SELECTION SHAPE — what a selected thing LOOKS LIKE, across the picker family
 	(user visual review, 2026-09-12). Four findings, one file, because all four
 	are the same question asked of four different nodes: what decides the corner
@@ -34,12 +35,19 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local snapshot = require("../src/themes/snapshot")
 local styling = require("../src/tokens/styling")
 local selectionIndicator = require("../src/controls/selection_indicator")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+-- Builds with the core's own control library.
+local function buildIndicator(core: any, spec: any): any
+	local _, _, library = harness.libraryOf(core)
+	return selectionIndicator.build(library, core, spec)
+end
+
+local UI = harness.UI
 
 -- ===== the harness =========================================================
 
@@ -71,7 +79,7 @@ local function world(options: any?)
 		reducedMotion = opts.reducedMotion,
 		themeMetrics = opts.metrics,
 	})
-	local selected = w.core:signal(opts.initial or "a")
+	local selected = Compose.cell(opts.initial or "a")
 	local spec: any = {
 		id = "View",
 		selected = selected,
@@ -84,7 +92,7 @@ local function world(options: any?)
 			spec[key] = opts[key]
 		end
 	end
-	local picker = Facet.Controls.Picker(w.core, spec)
+	local picker = harness.Controls.Picker(w.core, spec)
 	w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
 	local out: any = w
 	out.picker = picker
@@ -274,7 +282,7 @@ describe("item 6: a square theme gets a square selection — from its own `radii
 	it("an explicitly authored corner still wins — `corner` stays the caller's", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 480, h = 640 } })
 		local core = w.core
-		local selected = core:signal("a")
+		local selected = Compose.cell("a")
 		local strip = UI.HStack({
 			id = "Strip",
 			gap = 0,
@@ -283,7 +291,7 @@ describe("item 6: a square theme gets a square selection — from its own `radii
 				UI.Button({ id = "B", label = "B", width = { type = "fixed", px = 80 } }),
 			},
 		})
-		local ind = selectionIndicator.build(Facet, core, {
+		local ind = buildIndicator(core, {
 			id = "I",
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
@@ -398,8 +406,8 @@ describe("item 10: the level picker speaks the same shape language", function()
 		})
 		local built: any = table.clone(spec)
 		built.env = w.env
-		built.value = w.core:signal(spec.value or 2)
-		local control = Facet.Controls.LevelPicker(w.core, built)
+		built.value = Compose.cell(spec.value or 2)
+		local control = harness.Controls.LevelPicker(w.core, built)
 		w.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		local out: any = w
 		out.control = control
@@ -407,7 +415,7 @@ describe("item 10: the level picker speaks the same shape language", function()
 	end
 
 	it("`Controls.LevelPicker` is still here, and still listed in the gallery", function()
-		expect(type(Facet.Controls.LevelPicker)).toBe("function")
+		expect(type(harness.Controls.LevelPicker)).toBe("function")
 		-- the scenario index is an ENGINE module (`script:WaitForChild`), so it is
 		-- read as text rather than required: the claim is that the name is listed
 		local source = fs.readFile("examples/gallery/scenarios/init.luau")

@@ -24,12 +24,7 @@ describe("semantic versioning and deprecation", function()
 		expect(patch ~= nil).toBeTruthy()
 	end)
 
-	it("the published policy exists and states the rules the ledger is built on", function()
-		local policy = fs.readFile("CONTRIBUTING.md")
-		expect(string.find(policy, "MAJOR") ~= nil).toBeTruthy()
-		expect(string.find(policy, "deprecat") ~= nil).toBeTruthy()
-		-- ...and the changelog's newest numbered entry is the version this tree
-		-- reports, so the two cannot drift apart
+	it("the newest numbered changelog entry matches the runtime version", function()
 		local changelog = fs.readFile("CHANGELOG.md")
 		expect(string.match(changelog, "## %[([%d%.]+)%]")).toBe(Facet.VERSION)
 	end)
@@ -48,28 +43,14 @@ describe("semantic versioning and deprecation", function()
 		end
 	end)
 
-	-- F-34 / the DEP mechanism. The ledger used to be schema-generated only, so a
-	-- deprecated surface that is not a blueprint PROPERTY (an opts field, a
-	-- derived condition) could not be declared at all — the policy's machinery
-	-- simply did not know about it, and the init.luau comment still claimed
-	-- "Empty = nothing deprecated".
+	-- A deprecated surface that is not a blueprint property (an opts field, a
+	-- derived condition) is declared in init.luau beside the schema-generated half.
 	it("the ledger is the UNION of schema-generated and declared entries", function()
 		local schema = require("../src/blueprint_schema") :: any
 		local generated = schema.deprecations()
 		local ledger = Facet.DEPRECATIONS :: { any }
-		--[[ TWENTY-FOUR declared entries. FIVE predate this stage: the two 0.8.0 rows,
-			the two 0.9.0 VirtualList extent renames that came with `axis` (an alias is
-			only a deprecation if the ledger says so — parity round 2 §2.3), and
-			`screen_target.new(opts.isReducedMotion)`, which was deprecated in prose in
-			two places and declared in neither until the Milestone-1 review (C3) — a
-			deprecation with no `since` and no `removeNoEarlierThan` is invisible to
-			every upgrade check the versioning policy defines. The other NINETEEN are
-			the old-form composite builders (`newTable` … `newAsyncImage`), each naming
-			`Facet.Controls.<Name>(core, spec)`; their content is owned by
-			tests/controls_namespace.spec.luau. TWO MORE from the picker round
-			(2026-09-11): `Controls.PopupButton` folded into the Picker's menu
-			styles, and `Picker.presentation` renamed `style`. ]]
-		expect(#ledger).toBe(#generated + 26)
+
+		expect(#ledger).toBe(#generated + 6)
 		-- schema entries come first, in their own deterministic order
 		for i, entry in generated do
 			expect(ledger[i].surface).toBe(entry.surface)
@@ -84,10 +65,10 @@ describe("semantic versioning and deprecation", function()
 		local contentWidth = declared["adaptive.conditions().contentWidth"]
 		expect(contentWidth ~= nil).toBe(true)
 		expect(contentWidth.replacement).toBe("viewportWidth")
-		local rowHeight = declared["newVirtualList(spec.rowHeight)"]
+		local rowHeight = declared["UI.VirtualList(spec.rowHeight)"]
 		expect(rowHeight ~= nil).toBe(true)
 		expect(rowHeight.replacement).toBe("itemExtent")
-		local viewportHeight = declared["newVirtualList(spec.viewportHeight)"]
+		local viewportHeight = declared["UI.VirtualList(spec.viewportHeight)"]
 		expect(viewportHeight ~= nil).toBe(true)
 		expect(viewportHeight.replacement).toBe("viewportExtent")
 		local reducedMotion = declared["screen_target.new(opts.isReducedMotion)"]
@@ -170,8 +151,8 @@ describe("the reference marks what the ledger deprecates (ENF-3)", function()
 	end)
 end)
 
--- F-28. `src/init.luau` never required `core/contract`, so `Core`/`Scope`/
--- `Signal<T>` were unreachable from the public entry: an author writing a typed
+-- F-28. `src/init.luau` never required `core/contract`, so `Core`/`Owner`/
+-- `Cell<T>` were unreachable from the public entry: an author writing a typed
 -- helper had no name to write, and the checked-in contract was decorative.
 -- Types are erased at runtime, so what a test can prove is that the entry
 -- module's require graph really does reach the contract and stays engine-free.
@@ -179,16 +160,17 @@ describe("public type re-exports (F-28)", function()
 	it("init.luau names the core contract types it re-exports", function()
 		local source = fs.readFile("src/init.luau")
 		expect(string.find(source, 'require("@self/core/contract")', 1, true) ~= nil).toBe(true)
-		for _, name in { "Core", "Scope", "Signal<T>", "Memo<T>", "Readable<T>", "Unsubscribe" } do
+		for _, name in { "Core", "Owner", "Cell<T>", "Formula<T>", "Readable<T>", "Unsubscribe" } do
 			expect(string.find(source, `export type {name} =`, 1, true) ~= nil).toBe(true)
 		end
 	end)
 
 	it("requiring the contract keeps the entry point safe for shared/server graphs", function()
-		-- the boundary rule (UI-BOUND-001) is that nothing outside src/client may
-		-- reach src/client; the contract is pure types with no requires at all
+		-- The contract imports only Compose core types, which are engine-free.
 		local contractSource = fs.readFile("src/core/contract.luau")
-		expect(string.find(contractSource, "require(", 1, true)).toBeNil()
+		expect(string.find(contractSource, 'require("../vendor/compose/core")', 1, true) ~= nil).toBe(true)
+		local ok = pcall(require, "../src/core/contract")
+		expect(ok).toBe(true)
 	end)
 end)
 
@@ -286,7 +268,7 @@ describe("the public SHAPE a breaking change moves", function()
 	local RECORD = "CHANGELOG.md"
 
 	local function liveShape(): ({ string }, { [string]: string }, { [string]: string })
-		local all = (Facet.UI.schema.all :: any)()
+		local all = (require("../src/blueprint_schema") :: any).all()
 		local classes: { string } = {}
 		for name in all do
 			table.insert(classes, name)

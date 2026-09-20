@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Replication-boundary spike tests (design §4.2, §17 Phase 0 exit gate):
 -- stale/duplicate/gap/reject convergence, and TWO independent client
 -- environments rendering the same semantic snapshot with independent
@@ -7,8 +8,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local adapters = require("../src/replication/adapters")
+local Compose = require("../src/vendor/compose/core")
 
 describe("ReplicatedSnapshot", function()
 	it("applies newer, ignores stale and duplicate revisions", function()
@@ -17,7 +19,7 @@ describe("ReplicatedSnapshot", function()
 		expect(snap.ingest(3, { coins = 30 })).toBe("applied")
 		expect(snap.ingest(2, { coins = 20 })).toBe("stale")
 		expect(snap.ingest(3, { coins = 999 })).toBe("duplicate")
-		expect(snap.binding:get().coins).toBe(30)
+		expect(snap.binding:peek().coins).toBe(30)
 		expect(snap.revision()).toBe(3)
 	end)
 end)
@@ -32,8 +34,8 @@ describe("ReplicatedCollection", function()
 		expect(col.ingestPatch(2, { set = { b = 2 } })).toBe("applied")
 		expect(col.ingestPatch(2, { set = { b = 99 } })).toBe("duplicate")
 		expect(col.ingestPatch(1, { set = { a = 99 } })).toBe("stale")
-		expect(col.binding:get().a).toBe(1)
-		expect(col.binding:get().b).toBe(2)
+		expect(col.binding:peek().a).toBe(1)
+		expect(col.binding:peek().b).toBe(2)
 		expect(#resnapshotRequests).toBe(0)
 	end)
 
@@ -48,21 +50,21 @@ describe("ReplicatedCollection", function()
 		-- further patches (even in-order-looking ones) refused while awaiting
 		expect(col.ingestPatch(2, { set = { b = 2 } })).toBe("gap")
 		expect(#resnapshotRequests).toBe(1)
-		expect(col.binding:get().d).toBe(nil)
+		expect(col.binding:peek().d).toBe(nil)
 		expect(col.ingestResnapshot(5, { a = 1, b = 2, c = 3, d = 4 })).toBe("applied")
-		expect(col.binding:get().d).toBe(4)
+		expect(col.binding:peek().d).toBe(4)
 		expect(col.revision()).toBe(5)
 		-- stream resumes after the resnapshot revision
 		expect(col.ingestPatch(6, { remove = { "a" } })).toBe("applied")
-		expect(col.binding:get().a).toBe(nil)
+		expect(col.binding:peek().a).toBe(nil)
 	end)
 
 	it("reconnect = resnapshot from any newer authoritative revision", function()
 		local core = customFactory.new()
 		local col = adapters.collection(core, 7, { x = 1 }, function() end)
 		expect(col.ingestResnapshot(12, { y = 2 })).toBe("applied")
-		expect(col.binding:get().x).toBe(nil)
-		expect(col.binding:get().y).toBe(2)
+		expect(col.binding:peek().x).toBe(nil)
+		expect(col.binding:peek().y).toBe(2)
 	end)
 
 	-- F-8. `requestResnapshot(fromRevision)` is handed the CURRENT revision, so
@@ -81,10 +83,10 @@ describe("ReplicatedCollection", function()
 		-- the server answers at exactly that revision: nothing changed
 		expect(col.ingestResnapshot(4, { a = 1, b = 2 })).toBe("applied")
 		expect(col.revision()).toBe(4)
-		expect(col.binding:get().b).toBe(2)
+		expect(col.binding:peek().b).toBe(2)
 		-- and the stream resumes from there
 		expect(col.ingestPatch(5, { set = { c = 3 } })).toBe("applied")
-		expect(col.binding:get().c).toBe(3)
+		expect(col.binding:peek().c).toBe(3)
 		expect(#asked).toBe(1)
 	end)
 
@@ -93,8 +95,8 @@ describe("ReplicatedCollection", function()
 		local col = adapters.collection(core, 4, { a = 1 }, function() end)
 		expect(col.ingestResnapshot(4, { b = 2 })).toBe("stale")
 		expect(col.ingestResnapshot(3, { b = 2 })).toBe("stale")
-		expect(col.binding:get().a).toBe(1)
-		expect(col.binding:get().b).toBe(nil)
+		expect(col.binding:peek().a).toBe(1)
+		expect(col.binding:peek().b).toBe(nil)
 	end)
 
 	-- F-10. The flag was latched BEFORE the unquarantined hook call, so a
@@ -126,82 +128,82 @@ describe("Mutation", function()
 	it("optimistic apply reconciles on confirm via authoritative ingest", function()
 		local core = customFactory.new()
 		local snap = adapters.snapshot(core, 1, { music = false })
-		local draft = core:signal(false)
+		local draft = Compose.cell(false)
 		local mutation = adapters.mutation(core, {
 			optimistic = {
 				apply = function(payload)
 					draft:set(payload.music)
 				end,
 				restore = function()
-					draft:set(snap.binding:get().music)
+					draft:set(snap.binding:peek().music)
 				end,
 			},
 		})
 		local envelope = mutation.send({ music = true }, snap.revision())
-		expect(mutation.status:get()).toBe("pending")
-		expect(draft:get()).toBe(true) -- optimistic
+		expect(mutation.status:peek()).toBe("pending")
+		expect(draft:peek()).toBe(true) -- optimistic
 		-- pending never implies success: authoritative state still old
-		expect(snap.binding:get().music).toBe(false)
+		expect(snap.binding:peek().music).toBe(false)
 		-- server validates, replicates, confirms
 		snap.ingest(2, { music = true })
 		mutation.confirm(envelope.requestId, "ok")
-		expect(mutation.status:get()).toBe("confirmed")
-		expect(snap.binding:get().music).toBe(true)
+		expect(mutation.status:peek()).toBe("confirmed")
+		expect(snap.binding:peek().music).toBe(true)
 	end)
 
 	it("rejection restores optimistic state; duplicate responses are idempotent", function()
 		local core = customFactory.new()
 		local snap = adapters.snapshot(core, 1, { music = false })
-		local draft = core:signal(false)
+		local draft = Compose.cell(false)
 		local mutation = adapters.mutation(core, {
 			optimistic = {
 				apply = function(payload)
 					draft:set(payload.music)
 				end,
 				restore = function()
-					draft:set(snap.binding:get().music)
+					draft:set(snap.binding:peek().music)
 				end,
 			},
 		})
 		local envelope = mutation.send({ music = true }, snap.revision())
-		expect(draft:get()).toBe(true)
+		expect(draft:peek()).toBe(true)
 		mutation.reject(envelope.requestId, "rate-limited")
-		expect(mutation.status:get()).toBe("rejected")
-		expect(draft:get()).toBe(false) -- restored
+		expect(mutation.status:peek()).toBe("rejected")
+		expect(draft:peek()).toBe(false) -- restored
 		mutation.reject(envelope.requestId, "again") -- idempotent
 		mutation.confirm(envelope.requestId, "late-confirm") -- superseded: ignored
-		expect(mutation.status:get()).toBe("rejected")
+		expect(mutation.status:peek()).toBe("rejected")
 		-- no permanent pending/divergent state: reusable after reset
 		mutation.reset()
-		expect(mutation.status:get()).toBe("idle")
+		expect(mutation.status:peek()).toBe("idle")
 	end)
 
 	it("confirm racing ahead of the snapshot cannot leave permanent divergence", function()
 		local core = customFactory.new()
 		local snap = adapters.snapshot(core, 1, { music = false })
-		local draft = core:signal(false)
+		local draft = Compose.cell(false)
 		local mutation = adapters.mutation(core, {
 			optimistic = {
 				apply = function(payload)
 					draft:set(payload.music)
 				end,
 				restore = function()
-					draft:set(snap.binding:get().music)
+					draft:set(snap.binding:peek().music)
 				end,
 			},
 		})
 		local envelope = mutation.send({ music = true }, snap.revision())
-		expect(draft:get()).toBe(true)
+		expect(draft:peek()).toBe(true)
 		-- confirm arrives BEFORE the authoritative snapshot: optimistic state
 		-- re-syncs to current authoritative truth (old value) instead of
 		-- diverging forever with status=confirmed
 		mutation.confirm(envelope.requestId, "ok")
-		expect(mutation.status:get()).toBe("confirmed")
-		expect(draft:get()).toBe(false)
+		expect(mutation.status:peek()).toBe("confirmed")
+		expect(draft:peek()).toBe(false)
 		-- the snapshot lands later; game reconciliation reapplies it
 		snap.ingest(2, { music = true })
-		draft:set(snap.binding:get().music)
-		expect(draft:get()).toBe(true)
+		draft:set(snap.binding:peek().music)
+		expect(draft:peek()).toBe(true)
 	end)
 
 	it("send while pending is a structured error, not silent corruption", function()
@@ -213,7 +215,7 @@ describe("Mutation", function()
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "one in flight") ~= nil).toBe(true)
-		expect(mutation.status:get()).toBe("pending")
+		expect(mutation.status:peek()).toBe("pending")
 	end)
 
 	it("the envelope carries requestId and expectedRevision for server validation", function()
@@ -231,7 +233,7 @@ describe("Mutation", function()
 	-- unrecoverable.
 	it("a throwing optimistic apply still returns the envelope and leaves the mutation usable", function()
 		local core = customFactory.new()
-		local draft = core:signal("clean")
+		local draft = Compose.cell("clean")
 		local restores = 0
 		local mutation = adapters.mutation(core, {
 			optimistic = {
@@ -248,16 +250,16 @@ describe("Mutation", function()
 		expect(type(envelope) == "table").toBe(true)
 		expect(type(envelope.requestId)).toBe("number")
 		expect(envelope.expectedRevision).toBe(3)
-		expect(mutation.status:get()).toBe("pending")
+		expect(mutation.status:peek()).toBe("pending")
 		-- the failed apply already restored, un-optimistically, and the terminal
 		-- verdict still lands on the id the caller now holds
 		expect(restores).toBe(1)
 		mutation.reject(envelope.requestId, "server said no")
-		expect(mutation.status:get()).toBe("rejected")
+		expect(mutation.status:peek()).toBe("rejected")
 		expect(restores).toBe(2)
-		expect(draft:get()).toBe("clean")
+		expect(draft:peek()).toBe("clean")
 		mutation.reset()
-		expect(mutation.status:get()).toBe("idle")
+		expect(mutation.status:peek()).toBe("idle")
 		expect(type(mutation.send({ v = 2 }, nil).requestId)).toBe("number")
 	end)
 
@@ -265,7 +267,7 @@ describe("Mutation", function()
 	-- needs to escape was the one state it refused to touch.
 	it("reset() escapes a stuck pending request, restores, and the stale id stays ignored", function()
 		local core = customFactory.new()
-		local draft = core:signal(false)
+		local draft = Compose.cell(false)
 		local mutation = adapters.mutation(core, {
 			optimistic = {
 				apply = function(payload)
@@ -277,26 +279,26 @@ describe("Mutation", function()
 			},
 		})
 		local stuck = mutation.send({ on = true }, nil)
-		expect(mutation.status:get()).toBe("pending")
-		expect(draft:get()).toBe(true)
+		expect(mutation.status:peek()).toBe("pending")
+		expect(draft:peek()).toBe(true)
 		-- the server never answers; the client escapes
 		mutation.reset()
-		expect(mutation.status:get()).toBe("idle")
-		expect(draft:get()).toBe(false) -- optimistic presentation rolled back
+		expect(mutation.status:peek()).toBe("idle")
+		expect(draft:peek()).toBe(false) -- optimistic presentation rolled back
 		-- a late answer to the abandoned request is ignored in both directions
 		mutation.confirm(stuck.requestId, "late ok")
-		expect(mutation.status:get()).toBe("idle")
+		expect(mutation.status:peek()).toBe("idle")
 		mutation.reject(stuck.requestId, "late no")
-		expect(mutation.status:get()).toBe("idle")
+		expect(mutation.status:peek()).toBe("idle")
 		-- and the mutation is reusable
 		local fresh = mutation.send({ on = true }, nil)
 		expect(fresh.requestId ~= stuck.requestId).toBe(true)
-		expect(mutation.status:get()).toBe("pending")
+		expect(mutation.status:peek()).toBe("pending")
 		mutation.confirm(fresh.requestId, "ok")
-		expect(mutation.status:get()).toBe("confirmed")
+		expect(mutation.status:peek()).toBe("confirmed")
 		-- reset from a terminal state keeps working exactly as it always did
 		mutation.reset()
-		expect(mutation.status:get()).toBe("idle")
+		expect(mutation.status:peek()).toBe("idle")
 	end)
 
 	it("a throwing restore cannot unwind reset() either", function()
@@ -311,7 +313,7 @@ describe("Mutation", function()
 		})
 		mutation.send({ v = 1 }, nil)
 		mutation.reset()
-		expect(mutation.status:get()).toBe("idle")
+		expect(mutation.status:peek()).toBe("idle")
 	end)
 end)
 
@@ -329,9 +331,9 @@ describe("two clients, one semantic snapshot", function()
 			local core = customFactory.new()
 			local snap = adapters.snapshot(core, 1, { lap = 0, coins = 0 })
 			-- client-local presentation state: never replicated
-			local focusedControl = core:signal("none")
+			local focusedControl = Compose.cell("none")
 			-- device-appropriate derived view (per-client adaptation)
-			local hudText = core:memo(function(use)
+			local hudText = Compose.formula(function(use)
 				local s = use(snap.binding)
 				return if viewportWidth < 500 then `L{s.lap} C{s.coins}` else `Lap {s.lap} — Coins {s.coins}`
 			end)
@@ -358,13 +360,13 @@ describe("two clients, one semantic snapshot", function()
 		-- semantic convergence
 		expect(phone.snap.revision()).toBe(4)
 		expect(desktop.snap.revision()).toBe(4)
-		expect(phone.snap.binding:get().coins).toBe(12)
-		expect(desktop.snap.binding:get().coins).toBe(12)
+		expect(phone.snap.binding:peek().coins).toBe(12)
+		expect(desktop.snap.binding:peek().coins).toBe(12)
 		-- device-appropriate, different renderings of the SAME state
-		expect(phone.hudText:get()).toBe("L3 C12")
-		expect(desktop.hudText:get()).toBe("Lap 3 — Coins 12")
+		expect(phone.hudText:peek()).toBe("L3 C12")
+		expect(desktop.hudText:peek()).toBe("Lap 3 — Coins 12")
 		-- no presentation leakage between clients
-		expect(phone.focused:get()).toBe("SettingsButton")
-		expect(desktop.focused:get()).toBe("none")
+		expect(phone.focused:peek()).toBe("SettingsButton")
+		expect(desktop.focused:peek()).toBe("none")
 	end)
 end)

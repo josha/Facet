@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Table cross-input WIRING tests (ui_todo §0;
 -- artifacts/input-adaptation-audit/wp-b-composites.md + matrix.md §1b).
 --
@@ -19,21 +20,22 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function services()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
@@ -47,7 +49,7 @@ local function bigRows(n: number): { any }
 end
 
 local function hit(key: string): string
-	return `/S/T/Main/Body/Rows/[{key}@0]/Row/Hit`
+	return `/S/T/Main/Body/Rows/[{key}]/Row/Hit`
 end
 
 -- =============================================================================
@@ -58,9 +60,9 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 	local LAPS_SORT = "/S/T/Main/Header/Head-laps/Column"
 
 	local function sortWorld()
-		local core, env, adapter, system, pres = harness()
-		local sortOrder = core:signal(nil :: any)
-		local rows = core:signal(bigRows(3))
+		local core, env, adapter, system, pres = services()
+		local sortOrder = Compose.cell(nil :: any)
+		local rows = Compose.cell(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -89,7 +91,7 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 			rowHeight = 40,
 			sortOrder = sortOrder,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
 		pres.refresh()
 		return { system = system, adapter = adapter, pres = pres, sortOrder = sortOrder, handle = handle, tbl = tbl }
@@ -97,7 +99,7 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 
 	it("initial focus lands on the leading headers group (first sortable column)", function()
 		local w = sortWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 	end)
 
 	it("gamepad ButtonA SELECTS the column; the stick then acts on it (sort on Up/Down)", function()
@@ -107,70 +109,70 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 		-- A POINTER tap still sorts directly (that convention is older than this
 		-- table); see the mouse test in table.spec.
 		local w = sortWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.selectedColumn:get()).toBe("name")
-		expect(w.sortOrder:get()).toBeNil() -- selecting is not sorting
+		expect(w.tbl.api.selectedColumn:peek()).toBe("name")
+		expect(w.sortOrder:peek()).toBeNil() -- selecting is not sorting
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.sortOrder:get().column).toBe("name")
-		expect(w.sortOrder:get().ascending).toBe(true)
+		expect(w.sortOrder:peek().column).toBe("name")
+		expect(w.sortOrder:peek().ascending).toBe(true)
 		-- again on the SAME column flips ascending (the standard cycle)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.sortOrder:get().ascending).toBe(false)
+		expect(w.sortOrder:peek().ascending).toBe(false)
 		-- ...and Activate again releases the column
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.selectedColumn:get()).toBeNil()
+		expect(w.tbl.api.selectedColumn:peek()).toBeNil()
 	end)
 
 	it("gamepad DPadLeft/DPadRight walk between sortable headers (horizontal group)", function()
 		local w = sortWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(LAPS_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(LAPS_SORT)
 		-- select the second column and sort it: new column -> ascending
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.sortOrder:get().column).toBe("laps")
-		expect(w.sortOrder:get().ascending).toBe(true)
+		expect(w.sortOrder:peek().column).toBe("laps")
+		expect(w.sortOrder:peek().ascending).toBe(true)
 		-- release it, then walking resumes
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.system.deviceKey("DPadLeft", true)
 		w.system.deviceKey("DPadLeft", false)
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 	end)
 
 	it("gamepad DPadDown exits headers to the rows; DPadUp re-enters the headers", function()
 		local w = sortWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		w.system.deviceKey("DPadUp", true)
 		w.system.deviceKey("DPadUp", false)
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 	end)
 
 	it("keyboard Right/Return drive the header sort identically to the gamepad", function()
 		local w = sortWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(LAPS_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(LAPS_SORT)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.tbl.api.selectedColumn:get()).toBe("laps")
+		expect(w.tbl.api.selectedColumn:peek()).toBe("laps")
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.sortOrder:get().column).toBe("laps")
-		expect(w.sortOrder:get().ascending).toBe(true)
+		expect(w.sortOrder:peek().column).toBe("laps")
+		expect(w.sortOrder:peek().ascending).toBe(true)
 	end)
 end)
 
@@ -179,8 +181,8 @@ end)
 -- =============================================================================
 describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", function()
 	local function scrollWorld()
-		local core, env, adapter, system, pres = harness()
-		local rows = core:signal(bigRows(20))
+		local core, env, adapter, system, pres = services()
+		local rows = Compose.cell(bigRows(20))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -201,7 +203,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 			rowHeight = 40,
 			height = { type = "fixed", px = 200 }, -- 5 rows of 20 visible
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts
 		pres.refresh()
 		-- wire the engine CanvasPosition mirror so keep-visible can scrollTo and
@@ -228,7 +230,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(hit("r6"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r6"))
 		w.pres.refresh()
 		-- keep-visible wrote a programmatic CanvasPosition through the native seam:
 		-- r6 (canvas bottom 6*40) minus the body viewport height. Row RECTS stay at
@@ -245,7 +247,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 			w.system.deviceKey("Down", true)
 			w.system.deviceKey("Down", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(hit("r9"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r9"))
 		w.pres.refresh()
 		-- r9 (canvas bottom 9*40) into the body viewport => that minus body.h
 		expect(canvasY(w.adapter)).toBe(9 * 40 - body.h)
@@ -254,7 +256,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 			w.system.deviceKey("Up", true)
 			w.system.deviceKey("Up", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		w.pres.refresh()
 		expect(canvasY(w.adapter)).toBe(0) -- back at the top
 	end)
@@ -266,7 +268,7 @@ describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", f
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r4"))
 		w.pres.refresh()
 		expect(canvasY(w.adapter)).toBe(0) -- CanvasPosition untouched
 	end)
@@ -277,8 +279,8 @@ end)
 -- =============================================================================
 describe("table_input: touch column-resize through the grip pointer seam", function()
 	local function resizeWorld()
-		local core, env, adapter, system, pres = harness()
-		local rows = core:signal(bigRows(3))
+		local core, env, adapter, system, pres = services()
+		local rows = Compose.cell(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -308,7 +310,7 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 			selection = "single",
 			rowHeight = 40,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts (grip drag is framework-automatic)
 		pres.refresh()
 		return { adapter = adapter, pres = pres, handle = handle }
@@ -330,7 +332,7 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 		w.adapter.pointerUp(cell.x + cell.w - 100, 12, "touch")
 		w.pres.refresh()
 		expect(w.adapter.node("/S/T/ResizeWhen/then/ResizeLine")).toBe(nil)
-		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@1]/Row/Cells/Cell-name").rect.w).toBe(636)
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/Cells/Cell-name").rect.w).toBe(636)
 		expect(w.adapter.node("/S/T/Main/Header/Head-name").rect.w).toBe(636)
 	end)
 
@@ -342,7 +344,7 @@ describe("table_input: touch column-resize through the grip pointer seam", funct
 		w.pres.refresh()
 		w.adapter.pointerUp(cell.x + 10, 12, "touch")
 		w.pres.refresh()
-		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@1]/Row/Cells/Cell-name").rect.w).toBe(80)
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/Cells/Cell-name").rect.w).toBe(80)
 	end)
 end)
 
@@ -354,9 +356,9 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 	-- a REAL consumer: applies the post-removal splice so a step MOVES the data
 	local function reorderWorld(opts: any?)
 		local options = opts or {}
-		local core, env, adapter, system, pres = harness()
-		local rows = core:signal(bigRows(5))
-		local editing = core:signal(options.editing == true)
+		local core, env, adapter, system, pres = services()
+		local rows = Compose.cell(bigRows(5))
+		local editing = Compose.cell(options.editing == true)
 		local reorders: { any } = {}
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
@@ -385,7 +387,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 					movingSet[key] = true
 				end
 				local moving, staying = {}, {}
-				for _, item in rows:get() do
+				for _, item in rows:peek() do
 					table.insert(if movingSet[item.id] then moving else staying, item)
 				end
 				local out = {}
@@ -401,7 +403,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 				rows:set(out)
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts
 		pres.refresh()
 		return {
@@ -417,7 +419,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 	end
 	local function order(rows: any): { string }
 		local out = {}
-		for _, item in rows:get() do
+		for _, item in rows:peek() do
 			table.insert(out, item.id)
 		end
 		return out
@@ -427,45 +429,45 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		local w = reorderWorld() -- editing off
 		-- initial focus is on r1 but nothing is selected yet (pushScope does not
 		-- run selection-follows-focus); ButtonA proves the Activate->select path
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
-		expect(w.tbl.api.selectedKeys:get().r1).toBeNil()
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
+		expect(w.tbl.api.selectedKeys:peek().r1).toBeNil()
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r1).toBe(true)
 	end)
 
 	it("gamepad DPadDown/DPadUp navigate rows and selection follows focus", function()
 		local w = reorderWorld()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true) -- standard model: follows
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true) -- standard model: follows
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.tbl.api.selectedKeys:get().r2).toBeNil() -- replaced
-		expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBeNil() -- replaced
+		expect(w.tbl.api.selectedKeys:peek().r3).toBe(true)
 		w.system.deviceKey("DPadUp", true)
 		w.system.deviceKey("DPadUp", false)
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 	end)
 
 	it("keyboard Down + Return select the focused row", function()
 		local w = reorderWorld()
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 	end)
 
 	it("gamepad edit-mode: ButtonA grabs, DPadDown steps the row, ButtonA drops", function()
 		local w = reorderWorld({ editing = true })
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		-- ButtonA in edit mode GRABS the focused row (action-source Activate)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 		-- DPadDown now MOVES the grabbed row (navigateIntercept eats the nav)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
@@ -474,7 +476,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		expect(order(w.rows)[2]).toBe("r1")
 		-- focus stays on the grabbed row (row paths are key-based)
 		w.pres.refresh()
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 		-- another DPadDown steps again
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
@@ -483,7 +485,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		-- ButtonA DROPS: the grab clears and DPad returns to plain navigation
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.grabbedKey:get()).toBeNil()
+		expect(w.tbl.api.grabbedKey:peek()).toBeNil()
 	end)
 
 	for _, keys in { { "ButtonA", "DPadDown", "ButtonB" } } do
@@ -496,16 +498,16 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 			press(keys[1])
 			press(keys[2])
 			w.pres.refresh()
-			expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+			expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 			local original = { "r1", "r2", "r3", "r4", "r5" }
 			press(keys[3])
 			w.pres.refresh()
-			expect(w.tbl.api.grabbedKey:get()).toBeNil()
-			expect(w.editing:get()).toBe(true)
+			expect(w.tbl.api.grabbedKey:peek()).toBeNil()
+			expect(w.editing:peek()).toBe(true)
 			expect(order(w.rows)).toEqual(original)
 			press(keys[3])
 			w.pres.refresh()
-			expect(w.editing:get()).toBe(false)
+			expect(w.editing:peek()).toBe(false)
 			expect(order(w.rows)).toEqual(original)
 			w.pres.dismiss(w.handle)
 			w.tbl.dispose()
@@ -514,10 +516,10 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 
 	it("keyboard edit-mode grab is input-agnostic: Return grabs, Down steps, Return drops", function()
 		local w = reorderWorld({ editing = true })
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
 		expect(#w.reorders).toBe(1)
@@ -525,7 +527,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		expect(order(w.rows)[2]).toBe("r1")
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.tbl.api.grabbedKey:get()).toBeNil()
+		expect(w.tbl.api.grabbedKey:peek()).toBeNil()
 	end)
 end)
 
@@ -549,13 +551,13 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 	local DROP = "/S/Page/T/DropWhen/then/DropLine"
 
 	local function handlePath(key: string): string
-		return `{ROOT}/Main/Body/Rows/[{key}@0]/Row/EditWhen/then/HandleZone/Handle`
+		return `{ROOT}/Main/Body/Rows/[{key}]/Row/EditWhen/then/HandleZone/Handle`
 	end
 
 	-- the example's shape: Screen > ScrollView(Page) > [tall header block, table]
 	local function pageWorld()
-		local core, env, adapter, system, pres = harness()
-		local rows = core:signal(bigRows(12))
+		local core, env, adapter, system, pres = services()
+		local rows = Compose.cell(bigRows(12))
 		local reorders: { any } = {}
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
@@ -578,7 +580,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 			reorderable = true,
 			-- a BLOCK: the page above owns the scrolling (examples/gallery 02)
 			scrolls = false,
-			editing = core:signal(true),
+			editing = Compose.cell(true),
 			onReorder = function(keys: { string }, toIndex: number)
 				table.insert(reorders, { keys = keys, toIndex = toIndex })
 			end,
@@ -586,16 +588,16 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 				return item.name
 			end,
 		})
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.ScrollView({
+				harness.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						Facet.UI.Box({
+						harness.UI.Box({
 							id = "Header",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fixed", px = 200 },
@@ -625,12 +627,12 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 	local PAGE2 = "/S/Page"
 	local INNER = "/S/Page/T/Main/Body"
 	local function nestedHandle(key: string): string
-		return `{INNER}/Rows/[{key}@0]/Row/EditWhen/then/HandleZone/Handle`
+		return `{INNER}/Rows/[{key}]/Row/EditWhen/then/HandleZone/Handle`
 	end
 	local function nestedWorld(opts: any?)
 		local options = opts or {}
-		local core, env, adapter, system, pres = harness()
-		local rows = core:signal(bigRows(14))
+		local core, env, adapter, system, pres = services()
+		local rows = Compose.cell(bigRows(14))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -652,23 +654,23 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 			reorderable = true,
 			-- shorter than the page, and it owns a scroller of its own
 			height = { type = "fixed", px = 240 },
-			editing = core:signal(true),
+			editing = Compose.cell(true),
 			onReorder = function() end,
 			dragLabel = function(item: any)
 				return item.name
 			end,
 		})
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.ScrollView({
+				harness.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					autoscroll = if options.pageAutoscroll == false then false else nil,
 					children = {
-						Facet.UI.Box({
+						harness.UI.Box({
 							id = "Filler",
 							width = { type = "fill", weight = 1 },
 							-- pushes the table down so its BOTTOM EDGE sits inside the
@@ -679,7 +681,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 							height = { type = "fixed", px = options.fillerPx or 360 },
 						}),
 						tbl.blueprint,
-						Facet.UI.Box({
+						harness.UI.Box({
 							id = "PageTail",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fixed", px = 600 },
@@ -1016,7 +1018,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		ownEditing: boolean?,
 	}?)
 		local o = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		if o.input == "touch" then
@@ -1036,14 +1038,14 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
 		local opened: { { key: string, name: string } } = {}
-		local ownedEditing = if o.ownEditing then core:signal(false) else nil
-		local rows = core:signal(bigRows(o.rows or 3))
+		local ownedEditing = if o.ownEditing then Compose.cell(false) else nil
+		local rows = Compose.cell(bigRows(o.rows or 3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -1079,7 +1081,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 					table.insert(opened, { key = key, name = item.name })
 				end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
 		pres.refresh()
 		-- the solver's own verdict, on every fixture
@@ -1113,14 +1115,14 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		local w = primaryWorld()
 		mouseTap(w, "r2")
 		expect(#w.opened).toBe(0) -- one click selects and nothing else
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 		w.clock.t += 0.2 -- inside the 500 ms window
 		mouseTap(w, "r2")
 		expect(#w.opened).toBe(1)
 		expect(w.opened[1].key).toBe("r2")
 		expect(w.opened[1].name).toBe("Row 2")
 		-- and the row is still selected: opening is not a selection verb
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 	end)
 
 	it("Table pointer: two clicks SLOWER than the window are two single clicks, not an open", function()
@@ -1210,18 +1212,18 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 				-- here, so the assertions below are about the tap and not about a
 				-- table that was never able to select in the first place
 				w.tbl.api.select("r3")
-				expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+				expect(w.tbl.api.selectedKeys:peek().r3).toBe(true)
 				w.adapter.touchTap(hit("r1"))
 				expect(#w.opened).toBe(1)
 				expect(w.opened[1].key).toBe("r1")
 				-- the tap neither added r1, nor replaced r3 with it, nor cleared
-				expect(w.tbl.api.selectedKeys:get().r1).toBeNil()
-				expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+				expect(w.tbl.api.selectedKeys:peek().r1).toBeNil()
+				expect(w.tbl.api.selectedKeys:peek().r3).toBe(true)
 				-- tapping the SELECTED row opens it too, and still does not toggle it
 				w.adapter.touchTap(hit("r3"))
 				expect(#w.opened).toBe(2)
 				expect(w.opened[2].key).toBe("r3")
-				expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+				expect(w.tbl.api.selectedKeys:peek().r3).toBe(true)
 				expect(#w.handle.controller.diagnostics()).toBe(0)
 			end
 		end
@@ -1233,26 +1235,26 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			local w = primaryWorld({ selection = "multi", reorderable = true, input = "touch" })
 			local toggle = TOGGLE
 			-- a phone player reaches edit mode through the table's OWN affordance
-			expect(w.tbl.api.editing:get()).toBe(false)
+			expect(w.tbl.api.editing:peek()).toBe(false)
 			w.adapter.touchTap(toggle)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(true)
 			w.adapter.touchTap(hit("r2"))
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 			expect(#w.opened).toBe(0) -- activation is unreachable here, on purpose
 			w.adapter.touchTap(hit("r1"))
-			expect(w.tbl.api.selectedKeys:get().r1).toBe(true) -- additive, as multi is
+			expect(w.tbl.api.selectedKeys:peek().r1).toBe(true) -- additive, as multi is
 			expect(#w.opened).toBe(0)
 			-- THE RESTORED GESTURE: a second tap on a selected row DESELECTS it. This
 			-- is the gesture the old tap-to-open rule spent; edit mode gives it back.
 			w.adapter.touchTap(hit("r2"))
-			expect(w.tbl.api.selectedKeys:get().r2).toBeNil()
-			expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBeNil()
+			expect(w.tbl.api.selectedKeys:peek().r1).toBe(true)
 			expect(#w.opened).toBe(0)
 			-- Done, and the plain tap opens again — the mode is a mode, not a latch
 			w.adapter.touchTap(toggle)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(false)
+			expect(w.tbl.api.editing:peek()).toBe(false)
 			w.adapter.touchTap(hit("r2"))
 			expect(#w.opened).toBe(1)
 			expect(w.opened[1].key).toBe("r2")
@@ -1292,32 +1294,32 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			-- follows is a statement about the GESTURE and not about a table that could
 			-- never select in the first place
 			w.tbl.api.select("r1")
-			expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r1).toBe(true)
 			w.tbl.api.clearSelection()
-			expect(w.tbl.api.selectedKeys:get().r1).toBeNil()
+			expect(w.tbl.api.selectedKeys:peek().r1).toBeNil()
 			-- ...and in NORMAL mode a finger cannot say it: every tap opens instead
 			w.adapter.touchTap(hit("r2"))
 			expect(#w.opened).toBe(1)
-			expect(w.tbl.api.selectedKeys:get().r2).toBeNil()
+			expect(w.tbl.api.selectedKeys:peek().r2).toBeNil()
 			-- THE ROUTE: the table's own affordance, mounted on a touch session even
 			-- though nothing about this table is reorderable
 			expect(w.adapter.node(TOGGLE) ~= nil).toBe(true)
 			expect(w.adapter.node(TOGGLE).props.label).toBe("Edit")
 			w.adapter.touchTap(TOGGLE)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(true)
 			expect(w.adapter.node(TOGGLE).props.label).toBe("Done")
 			-- and NOW a finger can select, which is the entire point
 			w.adapter.touchTap(hit("r2"))
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 			w.adapter.touchTap(hit("r3"))
-			expect(w.tbl.api.selectedKeys:get().r3).toBe(true) -- additive, as multi is
+			expect(w.tbl.api.selectedKeys:peek().r3).toBe(true) -- additive, as multi is
 			expect(#w.opened).toBe(1) -- still the one from normal mode: edit taps never open
 			-- Done returns the table to opening, with the selection it just made intact
 			w.adapter.touchTap(TOGGLE)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(false)
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(false)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 			w.adapter.touchTap(hit("r2"))
 			expect(#w.opened).toBe(2)
 			expect(#w.handle.controller.diagnostics()).toBe(0)
@@ -1333,7 +1335,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			-- selects this table in NORMAL mode
 			local rect = w.adapter.node(hit("r2")).rect
 			w.adapter.tap(hit("r2"), { source = "pointer", pointer = "mouse", x = rect.x + 1, y = rect.y + 1 })
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 			expect(#w.opened).toBe(0)
 			-- and it ARRIVES the moment a touch capability goes live mid-session
 			-- (affordances follow the live class set, never a stale preference)
@@ -1366,7 +1368,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			local w = primaryWorld({ selection = "single", primaryAction = false, input = "touch" })
 			expect(w.adapter.node(TOGGLE)).toBe(nil)
 			w.adapter.touchTap(hit("r2"))
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true) -- reachable without edit mode
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true) -- reachable without edit mode
 			expect(#w.handle.controller.diagnostics()).toBe(0)
 		end
 	)
@@ -1381,7 +1383,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			w.ownedEditing:set(true)
 			w.pres.refresh()
 			w.adapter.touchTap(hit("r2"))
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 			expect(#w.opened).toBe(0)
 			expect(#w.handle.controller.diagnostics()).toBe(0)
 		end
@@ -1396,18 +1398,18 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			local w = primaryWorld({ selection = "multi", input = "touch" })
 			w.adapter.touchTap(TOGGLE)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(true)
 			-- pure pointer: touch AND gamepad both gone, preference included (a live
 			-- `preferredInput = "Touch"` forces the touch class on by itself)
 			w.env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
 			w.env:set("preferredInput", "KeyboardAndMouse")
 			w.pres.refresh()
 			expect(w.adapter.node(TOGGLE)).toBe(nil)
-			expect(w.tbl.api.editing:get()).toBe(false)
+			expect(w.tbl.api.editing:peek()).toBe(false)
 			-- and the table is back to its normal-mode behaviour, not stuck mid-mode
 			local rect = w.adapter.node(hit("r2")).rect
 			w.adapter.tap(hit("r2"), { source = "pointer", pointer = "mouse", x = rect.x + 1, y = rect.y + 1 })
-			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 			expect(#w.handle.controller.diagnostics()).toBe(0)
 		end
 	)
@@ -1416,7 +1418,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		local w = primaryWorld()
 		w.system.deviceKey("Down", true) -- focus r1 -> r2
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		expect(#w.opened).toBe(0) -- moving focus selects; it never opens
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
@@ -1431,7 +1433,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		w.system.deviceKey("DPadDown", false)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(hit("r3"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r3"))
 		expect(#w.opened).toBe(0)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
@@ -1460,22 +1462,22 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		function()
 			local w = primaryWorld({ selection = "multi", input = "gamepad" })
 			-- into edit mode through the affordance a pad actually has
-			expect(w.pres.focus.focused:get()).toBe(TOGGLE)
+			expect(w.pres.focus.focused:peek()).toBe(TOGGLE)
 			w.system.deviceKey("ButtonA", true)
 			w.system.deviceKey("ButtonA", false)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(true)
 
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
-			expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+			expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 			w.system.deviceKey("ButtonA", true)
 			w.system.deviceKey("ButtonA", false)
 			w.pres.refresh()
 			expect(#w.opened).toBe(1)
 			expect(w.opened[1].key).toBe("r1")
 			-- and no phantom grab was left behind on a table with nothing to move
-			expect(w.tbl.api.grabbedKey:get()).toBe(nil)
+			expect(w.tbl.api.grabbedKey:peek()).toBe(nil)
 			expect(#w.handle.controller.diagnostics()).toBe(0)
 		end
 	)
@@ -1487,19 +1489,19 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			w.system.deviceKey("Return", true)
 			w.system.deviceKey("Return", false)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(true)
 
 			w.system.deviceKey("Down", true)
 			w.system.deviceKey("Down", false)
 			w.system.deviceKey("Down", true)
 			w.system.deviceKey("Down", false)
-			expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+			expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 			w.system.deviceKey("Return", true)
 			w.system.deviceKey("Return", false)
 			w.pres.refresh()
 			expect(#w.opened).toBe(1)
 			expect(w.opened[1].key).toBe("r2")
-			expect(w.tbl.api.grabbedKey:get()).toBe(nil)
+			expect(w.tbl.api.grabbedKey:peek()).toBe(nil)
 			expect(#w.handle.controller.diagnostics()).toBe(0)
 		end
 	)
@@ -1517,9 +1519,9 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		expect(#w.opened).toBe(1) -- normal mode, as before
 		w.adapter.touchTap(TOGGLE)
 		w.pres.refresh()
-		expect(w.tbl.api.editing:get()).toBe(true)
+		expect(w.tbl.api.editing:peek()).toBe(true)
 		-- the ≡ handle is up (edit mode is doing its one job here)...
-		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2@0]/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBe(true)
+		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2]/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBe(true)
 		-- ...and the tap still opens, because there is no selection for it to
 		-- become instead
 		w.adapter.touchTap(hit("r2"))
@@ -1546,23 +1548,23 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		w.pres.refresh()
 		expect(#w.opened).toBe(1)
 		expect(w.opened[1].key).toBe("r2")
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(nil) -- opened, not selected
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(nil) -- opened, not selected
 		-- ...and the mouse semantics are one explicit field away, for a caller who
 		-- wants them: a single click on this same table selects and never opens
 		expect(w.adapter.driveActivate(hit("r3"), { source = "pointer", pointer = "mouse" })).toBe(true)
 		w.pres.refresh()
 		expect(#w.opened).toBe(1)
-		expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r3).toBe(true)
 	end)
 
 	it("a table with NO onPrimaryAction behaves exactly as it does today on all four inputs", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(bigRows(3))
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -1582,23 +1584,23 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			selection = "multi",
 			rowHeight = 40,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
 		-- touch: tap toggles ON, tap again toggles OFF (the Phase A idiom, intact)
 		adapter.touchTap(hit("r2"))
-		expect(tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(tbl.api.selectedKeys:peek().r2).toBe(true)
 		adapter.touchTap(hit("r2"))
-		expect(tbl.api.selectedKeys:get().r2).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().r2).toBe(nil)
 		-- keyboard/gamepad Activate still just replaces the selection: focus lands
 		-- on r3 and Return re-selects exactly it, leaving r2 behind
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe(hit("r3"))
+		expect(pres.focus.focused:peek()).toBe(hit("r3"))
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
-		expect(tbl.api.selectedKeys:get().r3).toBe(true)
-		expect(tbl.api.selectedKeys:get().r2).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().r3).toBe(true)
+		expect(tbl.api.selectedKeys:peek().r2).toBe(nil)
 	end)
 end)
 
@@ -1634,7 +1636,7 @@ end)
 -- =============================================================================
 describe("table_input: a swipe that ends with no Activated does not eat the next device press", function()
 	local function swipeWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		-- A PAD PLUS A KEYBOARD: the one session class that can drive ButtonA at
@@ -1644,7 +1646,7 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
@@ -1656,7 +1658,7 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(3)),
+				rows = Compose.cell(bigRows(3)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -1692,7 +1694,7 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 				end,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
 		local w: any = {
@@ -1717,10 +1719,10 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 
 	-- the wrapped row's own hit, and the tray the swipe reveals
 	local function wrappedHit(key: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+		return `/S/T/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Hit`
 	end
 	local function trayAction(key: string, action: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}/TrayTrailingWhen/then/TrayTrailing/Action:{action}`
+		return `/S/T/Main/Body/Rows/[{key}]/RowActions-{key}/TrayTrailingWhen/then/TrayTrailing/Action:{action}`
 	end
 
 	-- a horizontal swipe past the axis lock; `finish` is how the gesture ends
@@ -1842,7 +1844,7 @@ end)
 describe("table_input: a revealed tray and the edit minus are reachable by keyboard and pad", function()
 	local function trayWorld(opts: any?)
 		local options = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("preferredInput", "Gamepad")
@@ -1850,19 +1852,19 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
 		local fired: { string } = {}
-		local editing = core:signal(options.editing == true)
+		local editing = Compose.cell(options.editing == true)
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(3)),
+				rows = Compose.cell(bigRows(3)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -1914,7 +1916,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 				end,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = {
 			core = core,
@@ -1950,7 +1952,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 	end
 
 	local function rowRoot(key: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		return `/S/T/Main/Body/Rows/[{key}]/RowActions-{key}`
 	end
 	local function wrappedHit(key: string): string
 		return `{rowRoot(key)}/Content/Row/Hit`
@@ -1998,7 +2000,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		w.pres.focus.focusOn(wrappedHit("r1"))
 		w.pres.refresh()
 		w.press("DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(trayAction("r1", "trailing", "delete"))
+		expect(w.pres.focus.focused:peek()).toBe(trayAction("r1", "trailing", "delete"))
 		expect(w.adapter.node(trayAction("r1", "trailing", "delete")).focused).toBe(true)
 		w.press("ButtonA")
 		w.settle()
@@ -2019,7 +2021,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		w.pres.focus.focusOn(wrappedHit("r2"))
 		w.pres.refresh()
 		w.press("DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "leading", "flag"))
+		expect(w.pres.focus.focused:peek()).toBe(trayAction("r2", "leading", "flag"))
 		w.press("ButtonA")
 		w.settle()
 		expect(w.fired).toEqual({ "flag:r2" })
@@ -2040,7 +2042,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		w.pres.focus.focusOn(wrappedHit("r1"))
 		w.pres.refresh()
 		w.press("DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(minus("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(minus("r1"))
 		w.press("ButtonA")
 		w.settle()
 		expect(w.fired).toEqual({ "delete:r1" })
@@ -2062,7 +2064,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		w.pres.focus.focusOn(wrappedHit("r2"))
 		w.pres.refresh()
 		w.press("DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(minus("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(minus("r2"))
 		-- ...and it is THIS row's delete that fires, not the one above's
 		w.press("ButtonA")
 		w.settle()
@@ -2083,7 +2085,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 			w.pres.focus.focusOn(from)
 			w.pres.refresh()
 			w.press(key)
-			return w.pres.focus.focused:get()
+			return w.pres.focus.focused:peek()
 		end
 		for _, keys in { { "DPadLeft", "DPadRight" }, { "Left", "Right" } } do
 			local left, right = keys[1], keys[2]
@@ -2142,26 +2144,26 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 		return `/S/T/Main/Header/Head-{id}`
 	end
 	local function cell(key: string, id: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/Row/Cells/Cell-{id}`
+		return `/S/T/Main/Body/Rows/[{key}]/Row/Cells/Cell-{id}`
 	end
 
 	local function collapseWorld(opts: any?)
 		local options = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 500 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
 		})
-		local sortOrder = core:signal(nil :: any)
+		local sortOrder = Compose.cell(nil :: any)
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
-			rows = core:signal(bigRows(3)),
+			rows = Compose.cell(bigRows(3)),
 			key = function(r: any)
 				return r.id
 			end,
@@ -2198,7 +2200,7 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 			sortOrder = sortOrder,
 			env = env,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = { core = core, env = env, adapter = adapter, pres = pres, system = system, tbl = tbl }
 		w.handle = handle
@@ -2288,22 +2290,22 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 			dropped the player's selection every time the device turned would be a
 			worse defect than the one it fixes. ]]
 		local w = collapseWorld()
-		w.pres.focus.focusOn(`/S/T/Main/Body/Rows/[r2@0]/Row/Hit`)
+		w.pres.focus.focusOn(`/S/T/Main/Body/Rows/[r2]/Row/Hit`)
 		w.settle()
 		w.tbl.api.select("r2", { mode = "replace" })
 		w.settle()
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 
 		w.resize(393, 800)
 		expect(w.tbl.dump().hiddenColumns).toEqual({ "rating" })
 		-- the selection and the ring are exactly where they were
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe(`/S/T/Main/Body/Rows/[r2@0]/Row/Hit`)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
+		expect(w.pres.focus.focused:peek()).toBe(`/S/T/Main/Body/Rows/[r2]/Row/Hit`)
 		-- ...and the row was never rebuilt: its key still carries version 0
-		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2@0]/Row/Hit`)).never().toBeNil()
+		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2]/Row/Hit`)).never().toBeNil()
 
 		w.resize(900, 500)
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 	end)
 
 	it("a collapsed column leaves the focus ring and stops taking taps, subtree and all", function()
@@ -2358,7 +2360,7 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 
 		w.pres.focus.focusOn(CHIP)
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe(CHIP)
+		expect(w.pres.focus.focused:peek()).toBe(CHIP)
 		expect(w.tbl.dump().columnPlate).toBe("closed")
 
 		-- A OPENS
@@ -2377,7 +2379,7 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 		-- B CLOSES, and the ring comes back to the affordance that opened it
 		w.press("ButtonB")
 		expect(w.tbl.dump().columnPlate).toBe("closed")
-		expect(w.pres.focus.focused:get()).toBe(CHIP)
+		expect(w.pres.focus.focused:peek()).toBe(CHIP)
 	end)
 
 	it("a TOUCH tap opens it, and a second tap closes it — the trap a disclosure must not become", function()
@@ -2439,7 +2441,7 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 	it("a collapsed column's SORT is still selectable, from the plate", function()
 		local w = collapseWorld()
 		w.resize(393, 800)
-		expect(w.sortOrder:get()).toBeNil()
+		expect(w.sortOrder:peek()).toBeNil()
 		w.pres.focus.focusOn(CHIP)
 		w.settle()
 		w.press("Return")
@@ -2455,8 +2457,8 @@ describe("table_input: column priority-collapse and its disclosure (ADAPT-18)", 
 		w.press("Return")
 		-- the same `cycleSort` the heading would have called, on a column whose
 		-- heading is not on the screen
-		expect((w.sortOrder:get() or {}).column).toBe("rating")
-		expect((w.sortOrder:get() or {}).ascending).toBe(true)
+		expect((w.sortOrder:peek() or {}).column).toBe("rating")
+		expect((w.sortOrder:peek() or {}).ascending).toBe(true)
 	end)
 
 	it("the plate closes by itself when the columns come back", function()
@@ -2494,13 +2496,13 @@ end)
 describe("table_input: a rowActions-only table is reachable on keyboard and gamepad (ADAPT-13)", function()
 	local function actionsOnlyWorld(opts: any?)
 		local options = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clock.t
 			end,
@@ -2511,7 +2513,7 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(3)),
+				rows = Compose.cell(bigRows(3)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -2547,7 +2549,7 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 				end,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = { core = core, adapter = adapter, pres = pres, system = system, tbl = tbl, fired = fired }
 		w.handle = handle
@@ -2568,13 +2570,13 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 	end
 
 	local function wrappedHitOf(key: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+		return `/S/T/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Hit`
 	end
 
 	it("its rows are focus stops at all, which is the whole mechanism", function()
 		local w = actionsOnlyWorld()
 		-- the audit's own probe: initial focus, and the first row's group
-		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(wrappedHitOf("r1"))
 		local groups = w.handle.focusOrder().navigation
 		local rowGroups = 0
 		for _, group in groups do
@@ -2587,9 +2589,9 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 
 	it("...so Delete on a focused row fires its destructive action (keyboard)", function()
 		local w = actionsOnlyWorld()
-		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(wrappedHitOf("r1"))
 		w.press("Down")
-		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(wrappedHitOf("r2"))
 		w.press("Delete")
 		w.settle()
 		expect(w.fired).toEqual({ "delete:r2" })
@@ -2598,12 +2600,12 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 	it("...and a PAD reaches the same row and the same action", function()
 		local w = actionsOnlyWorld()
 		w.press("DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(wrappedHitOf("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(wrappedHitOf("r2"))
 		w.press("ButtonX")
 		w.settle()
 		-- ButtonX opens the row's action MENU rather than firing; what this asserts
 		-- is that the press reached the row at all, which it could not before
-		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2@0]/RowActions-r2/Content/Row/Hit`)).never().toBeNil()
+		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2]/RowActions-r2/Content/Row/Hit`)).never().toBeNil()
 	end)
 
 	it("NULL HYPOTHESIS: a table with no selection, no reorder AND no rowActions still has none", function()
@@ -2611,18 +2613,18 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 			focusable". A table that is a read-only grid of text has nothing for a
 			focus stop to do, and giving it one would put a ring on every row of every
 			static table in the framework. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(3)),
+				rows = Compose.cell(bigRows(3)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -2640,7 +2642,7 @@ describe("table_input: a rowActions-only table is reachable on keyboard and game
 				env = env,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local rowGroups = 0
 		for _, group in handle.focusOrder().navigation do
@@ -2678,19 +2680,19 @@ end)
 describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", function()
 	local function multiWorld(opts: any?)
 		local options = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local editing = core:signal(options.editing == true)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local editing = Compose.cell(options.editing == true)
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(5)),
+				rows = Compose.cell(bigRows(5)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -2710,7 +2712,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 				editing = editing,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = {
 			core = core,
@@ -2734,7 +2736,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 		end
 		function w.selected(): { string }
 			local out: { string } = {}
-			for key, on in tbl.api.selectedKeys:get() do
+			for key, on in tbl.api.selectedKeys:peek() do
 				if on then
 					table.insert(out, key)
 				end
@@ -2759,7 +2761,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 		w.press("Down")
 		w.system.deviceKey("LeftControl", false)
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r4"))
 		-- the ring travelled two rows and the selection did not move at all
 		expect(w.selected()).toEqual({ "r2" })
 	end)
@@ -2776,7 +2778,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 		w.press("Down")
 		w.system.deviceKey("LeftShift", false)
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r4"))
 		expect(w.selected()).toEqual({ "r2", "r3", "r4" })
 	end)
 
@@ -2804,7 +2806,7 @@ describe("table_input: multi-selection survives focus movement (ADAPT-14/15)", f
 		w.press("ButtonA")
 		expect(w.selected()).toEqual({ "r1" })
 		w.press("DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		expect(w.selected()).toEqual({ "r1" })
 		w.press("ButtonA")
 		expect(w.selected()).toEqual({ "r1", "r2" })
@@ -2846,7 +2848,7 @@ end)
 describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27, M-4)", function()
 	local function editWorld(opts: any?)
 		local options = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set(
@@ -2856,14 +2858,14 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 		env:set("preferredInput", options.preferredInput or "KeyboardAndMouse")
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local reorders: { any } = {}
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(3)),
+				rows = Compose.cell(bigRows(3)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -2880,7 +2882,7 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 				selection = options.selection,
 				-- an OWNER-HELD edit signal is one of the two routes into edit mode, and the
 				-- mark only mounts where a route exists (see the gate's own note)
-				editing = if options.ownEditing then core:signal(false) else nil,
+				editing = if options.ownEditing then Compose.cell(false) else nil,
 				reorderable = options.reorderable,
 				onReorder = if options.reorderable
 					then function(keys: any, toIndex: number)
@@ -2891,7 +2893,7 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 				env = env,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any =
 			{ core = core, env = env, adapter = adapter, pres = pres, system = system, tbl = tbl, reorders = reorders }
@@ -2911,7 +2913,7 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 		return w
 	end
 
-	local SELECT_MARK = "/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/SelectZone/SelectMark"
+	local SELECT_MARK = "/S/T/Main/Body/Rows/[r1]/Row/EditWhen/then/SelectZone/SelectMark"
 
 	it(
 		"ADAPT-27: a selectable table paints a leading selection mark in edit mode, and it follows the selection",
@@ -2951,7 +2953,7 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 		w.settle()
 		expect(w.adapter.node(SELECT_MARK)).toBeNil()
 		-- the ≡ handle is what that gutter holds on a reorder-only table
-		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/HandleGlyph")).never().toBeNil()
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/HandleGlyph")).never().toBeNil()
 	end)
 
 	it("ADAPT-27: a table with NO route into edit mode mounts no `When` at all — one node per ROW", function()
@@ -2963,10 +2965,10 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 			— `selection = "single"`, no owner signal, no auto toggle — and its own
 			package's contract test is what caught the extra node. ]]
 		local w = editWorld({ selection = "multi" })
-		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).toBeNil()
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/EditWhen")).toBeNil()
 		-- ...and a route that DOES exist mounts it
 		local owned = editWorld({ selection = "multi", ownEditing = true })
-		expect(owned.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).never().toBeNil()
+		expect(owned.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/EditWhen")).never().toBeNil()
 	end)
 
 	it("R1-I5: the gutter and the mark are ONE gate — a routeless table insets nothing", function()
@@ -2986,12 +2988,12 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 			a table that declares no edit capability gets a mode that is visually
 			inert, which is honest and is stated in api.md. ]]
 		local w = editWorld({ selection = "multi" })
-		local CELL = "/S/T/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name"
+		local CELL = "/S/T/Main/Body/Rows/[r1]/Row/Cells/Cell-name"
 		local before = w.adapter.node(CELL).rect.x
 		w.tbl.api.editing:set(true)
 		w.settle()
 		expect(`routeless inset: {w.adapter.node(CELL).rect.x - before}`).toBe("routeless inset: 0")
-		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen")).toBeNil()
+		expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/EditWhen")).toBeNil()
 
 		--[[ ...AND A TABLE THAT HAS A ROUTE STILL PAYS IT, which is the half that
 			keeps this from being "delete the gutter". Same spec, same width, one
@@ -3013,18 +3015,18 @@ describe("table_input: edit mode says so, and a keyboard can reach it (ADAPT-27,
 		local w = editWorld({ reorderable = true, selection = "single" })
 		local TOGGLE = "/S/T/Main/ToggleWhen/then/Toolbar/EditToggle"
 		expect(w.adapter.node(TOGGLE)).never().toBeNil()
-		expect(w.pres.focus.focused:get()).toBe(TOGGLE)
+		expect(w.pres.focus.focused:peek()).toBe(TOGGLE)
 		w.press("Return")
-		expect(w.tbl.api.editing:get()).toBe(true)
+		expect(w.tbl.api.editing:peek()).toBe(true)
 		w.press("Down")
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		w.press("Return") -- grab
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 		w.press("Down") -- step it one slot
 		expect(#w.reorders).toBe(1)
 		expect(w.reorders[1].toIndex).toBe(1)
 		w.press("Return") -- drop
-		expect(w.tbl.api.grabbedKey:get()).toBe(nil)
+		expect(w.tbl.api.grabbedKey:peek()).toBe(nil)
 	end)
 
 	it("M-4: a MOUSE session still shows nothing — it drags rows directly", function()
@@ -3066,18 +3068,18 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 	local LONG = "Drift City Nights Extended Cut Remastered Anniversary Edition"
 
 	local function discloseWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 420, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal({
+				rows = Compose.cell({
 					{ id = "r1", name = LONG },
 					{ id = "r2", name = `Another {LONG}` },
 				}),
@@ -3100,12 +3102,12 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 					},
 				},
 				selection = "single",
-				sortOrder = core:signal(nil :: any),
+				sortOrder = Compose.cell(nil :: any),
 				rowHeight = 40,
 				env = env,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = { core = core, adapter = adapter, pres = pres, system = system, tbl = tbl, handle = handle }
 		function w.settle(frames: number?)
@@ -3141,7 +3143,7 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 		--[[ Without this the three cases below are assertions about an empty set —
 			the same premise check the sweep's own dead-end control states for itself. ]]
 		local w = discloseWorld()
-		local facts = w.handle.controller.textAt("/S/T/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name/Value")
+		local facts = w.handle.controller.textAt("/S/T/Main/Body/Rows/[r1]/Row/Cells/Cell-name/Value")
 		expect(facts ~= nil).toBe(true)
 		expect(facts.truncated).toBe(true)
 		expect(facts.disclose).toBe(true)
@@ -3165,7 +3167,7 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		w.settle()
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		expect(w.plateText()).toBe(`Another {LONG}`)
 	end)
 
@@ -3182,18 +3184,18 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 		--[[ The scope widening must not turn into "every focused row raises a
 			plate": the debt is owed by a TRUNCATED disclosed label and by nothing
 			else. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal({ { id = "r1", name = "Bo" } }),
+				rows = Compose.cell({ { id = "r1", name = "Bo" } }),
 				key = function(r: any)
 					return r.id
 				end,
@@ -3213,7 +3215,7 @@ describe("table_input: a focused row discloses its own truncated cell (ADAPT-20)
 				env = env,
 			} :: any
 		)
-		pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		pres.focus.focusOn(hit("r1"))
 		for _ = 1, 30 do
@@ -3257,18 +3259,18 @@ end)
 -- =============================================================================
 describe("table_input: whatever can collapse can be disclosed (R1-H1)", function()
 	local function resizableWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 460, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local tbl = table_control.build(
 			Facet,
 			core,
 			{
 				id = "T",
-				rows = core:signal(bigRows(2)),
+				rows = Compose.cell(bigRows(2)),
 				key = function(r: any)
 					return r.id
 				end,
@@ -3308,7 +3310,7 @@ describe("table_input: whatever can collapse can be disclosed (R1-H1)", function
 				env = env,
 			} :: any
 		)
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
 		pres.refresh()
 		local w: any = { core = core, env = env, adapter = adapter, pres = pres, system = system, tbl = tbl }
 		w.handle = handle

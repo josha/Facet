@@ -17,10 +17,10 @@ function bookmarks.restoreIndex(index, slotOf, state, viewport)
 	local slot = math.clamp(slotOf(state.key) or state.index or 1, 1, index.count)
 	return math.clamp(index.offsetOf(slot) + (state.delta or 0), 0, math.max(0, index.content - viewport))
 end
-function bookmarks.new(scope)
+function bookmarks.new(own)
 	local saved, watching = {}, {}
 	local previousRoot, previousEpoch, previousGeometry
-	scope:own(function()
+	own(function()
 		for _, watch in watching do
 			watch.off()
 		end

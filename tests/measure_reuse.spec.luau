@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	CROSS-SOLVE MEASURE REUSE (perf campaign P1) — the demonstrator and its oracle.
 
@@ -61,11 +62,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
@@ -73,6 +74,7 @@ local text_metrics = require("../src/layout/text_metrics")
 -- the store itself, driven directly for the two axis-3 claims no surface can reach
 local measure_reuse = require("../src/layout/measure_reuse")
 local fs = require("@lune/fs")
+local Compose = require("../src/vendor/compose/core")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -89,17 +91,17 @@ local function world(cache: boolean, incremental: boolean, viewport: { w: number
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
-	local rows = core:signal({})
+	local rows = Compose.cell({})
 	local items = {}
 	for i = 1, rowCount do
-		table.insert(items, { id = `r{i}`, n = core:signal(i) })
+		table.insert(items, { id = `r{i}`, n = Compose.cell(i) })
 	end
 	rows:set(items)
 	-- ONE bound width, read by every row: the OFFER axis. Changing it dirties the
 	-- wrapper alone, and every row below it is offered a different width.
-	local wide = core:signal(false)
-	local branchOn = core:signal(true)
-	local wrapWidth = core:memo(function(use: any)
+	local wide = Compose.cell(false)
+	local branchOn = Compose.cell(true)
+	local wrapWidth = Compose.formula(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
 	local bp = UI.ScrollView({
@@ -191,7 +193,7 @@ local function world(cache: boolean, incremental: boolean, viewport: { w: number
 									UI.Text({
 										id = "V",
 										textSize = 14,
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return tostring(use(item.n))
 										end),
 									}),
@@ -201,7 +203,7 @@ local function world(cache: boolean, incremental: boolean, viewport: { w: number
 										textSize = 12,
 										disclose = true,
 										width = px(40),
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return `Extraordinarily Long Identity {use(item.n)}`
 										end),
 									}),
@@ -340,7 +342,7 @@ local SCRIPT: { { name: string, run: (Arm, number) -> () } } = {
 		name = "structure: a row is appended",
 		run = function(arm: Arm)
 			local next_ = table.clone(arm.value)
-			table.insert(next_, { id = "rNew", n = arm.core:signal(1234) })
+			table.insert(next_, { id = "rNew", n = Compose.cell(1234) })
 			arm.value[#arm.value + 1] = next_[#next_]
 			arm.rows:set(next_)
 		end,
@@ -635,8 +637,8 @@ describe("cross-solve measure reuse (P1)", function()
 			local core = customFactory.new()
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-			local surf = core:signal(nil :: string?)
-			local tall = core:signal(false)
+			local surf = Compose.cell(nil :: string?)
+			local tall = Compose.cell(false)
 			local bp = UI.VStack({
 				id = "S",
 				padding = 0,
@@ -645,7 +647,7 @@ describe("cross-solve measure reuse (P1)", function()
 					-- no authored dims: the badge minimum is the ONLY thing that can size it
 					UI.Box({
 						id = "X",
-						surface = core:memo(function(use: any)
+						surface = Compose.formula(function(use: any)
 							return use(surf)
 						end),
 					}),
@@ -653,7 +655,7 @@ describe("cross-solve measure reuse (P1)", function()
 					UI.Box({
 						id = "N",
 						width = px(10),
-						height = core:memo(function(use: any)
+						height = Compose.formula(function(use: any)
 							return px(if use(tall) then 90 else 30)
 						end),
 					}),
@@ -704,7 +706,7 @@ describe("cross-solve measure reuse (P1)", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local v = core:signal(1)
+		local v = Compose.cell(1)
 		local kids = {}
 		for i = 1, 5 do
 			table.insert(
@@ -724,7 +726,7 @@ describe("cross-solve measure reuse (P1)", function()
 			UI.Box({
 				id = "D",
 				width = px(30),
-				height = core:memo(function(use: any)
+				height = Compose.formula(function(use: any)
 					return px(10 + use(v))
 				end),
 			})

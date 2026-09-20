@@ -3,24 +3,21 @@ return {
 	title = "Alerts and confirmations",
 	ledgerRows = {},
 	build = function(ctx)
-		local Facet, UI = ctx.Facet, ctx.Facet.View
-		local status, setStatus, presented, setPresented
+		local UI, Compose = ctx.UI, ctx.Compose
+		local status = Compose.cell("The save is ready to replace.")
+		local presented = Compose.cell(false)
 		local function open()
-			setPresented(true)
+			presented:set(true)
 			return true
 		end
 		local function reset()
-			setPresented(false)
-			setStatus("The save is ready to replace.")
+			presented:set(false)
+			status:set("The save is ready to replace.")
 		end
-		local Example = Facet.component(function(ui)
-			status, setStatus = ui.state("The save is ready to replace.")
-			presented, setPresented = ui.state(false)
-			return UI.Screen({
-				id = "Alert",
+		local function Example()
+			return UI.Screen("Alert")({
 				padding = "m",
-				UI.ScrollView({
-					id = "Page",
+				UI.ScrollView("Page")({
 					width = UI.fill(),
 					height = UI.fill(),
 					gap = "m",
@@ -29,24 +26,22 @@ return {
 						text = "A brief decision stays compact. Cancel leads a desktop row; phones and televisions stack the actions with cancel last.",
 						width = UI.fill(),
 					}),
-					UI.Text({ id = "Status", text = status, width = UI.fill() }),
-					UI.Button({ id = "Open", label = "Replace checkpoint…", onActivate = open }),
-					UI.Button({ id = "Reset", label = "Reset", onActivate = reset }),
+					UI.Text("Status")({ text = status, width = UI.fill() }),
+					UI.Button("Open")({ label = "Replace checkpoint…", onActivate = open }),
+					UI.Button("Reset")({ label = "Reset", onActivate = reset }),
 				}),
-				UI.Alert({
-					id = "ReplaceSave",
+				UI.Alert("ReplaceSave")({
 					title = "Replace this save?",
 					severity = "critical",
 					message = "Your current progress will replace the previous checkpoint.",
 					isPresented = presented,
-					onPresentedChange = setPresented,
 					actions = {
 						{
 							id = "Cancel",
 							label = "Keep previous",
 							role = "cancel",
 							onActivate = function()
-								setStatus("Previous save kept.")
+								status:set("Previous save kept.")
 							end,
 						},
 						{
@@ -54,21 +49,21 @@ return {
 							label = "Replace save",
 							role = "destructive",
 							onActivate = function()
-								setStatus("Checkpoint replaced.")
+								status:set("Checkpoint replaced.")
 							end,
 						},
 					},
 				}),
 			})
-		end)
+		end
 		return {
-			screen = Example({}),
+			screen = Example,
 			steps = { open = open, reset = reset },
 			states = function()
 				return { { id = "confirmation", kind = "dialog", open = open } }
 			end,
 			report = function()
-				return { status = status(), alert = { presented = presented() } }
+				return { status = status:peek(), alert = { presented = presented:peek() } }
 			end,
 			dispose = function() end,
 		}

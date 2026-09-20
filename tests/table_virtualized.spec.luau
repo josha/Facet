@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	`newTable{ virtualized = true }` — THE UNIFIED COLLECTION.
 
@@ -46,6 +47,7 @@ local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local virtual_extents = require("../src/virtual_extents") :: any
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local ROW_H = 40
 -- the control's own constant; a window is `visible + OVERSCAN` on each side
@@ -72,13 +74,13 @@ type World = {
 
 local function world(opts: any): World
 	opts = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(opts.rows or racers(400))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(opts.rows or racers(400))
 	-- THE BUILD COUNTER. `cellFor` runs once per column per MOUNTED row, so it is
 	-- the honest instrument for "did this control build what it cannot show".
 	local builds = 0
@@ -93,7 +95,13 @@ local function world(opts: any): World
 		end,
 		cellFor = function(columnId: string, item: any)
 			builds += 1
-			return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+			return harness.UI.Text({
+				id = "Value",
+				text = function(use)
+					return use(item).name
+				end,
+				textSize = 16,
+			})
 		end,
 		rowHeight = opts.rowHeight or ROW_H,
 		rowGap = opts.rowGap,
@@ -106,7 +114,7 @@ local function world(opts: any): World
 		virtualized = if opts.virtualized == nil then true else opts.virtualized,
 		env = env,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 	local handle = pres.present(screen, {
 		onActivate = function(path: string, meta: any)
 			tbl.api.handleActivate(path, meta)
@@ -138,7 +146,7 @@ local function world(opts: any): World
 end
 
 local function rowPath(w: World, key: string): string
-	return `/S/Racers/Main/Body/Canvas/Rows/[{key}@0]/Row`
+	return `/S/Racers/Main/Body/Canvas/Rows/[{key}]/Row`
 end
 local function hitPath(w: World, key: string): string
 	return rowPath(w, key) .. "/Hit"
@@ -207,35 +215,41 @@ describe("Table virtualized: only the window is mounted", function()
 		bound on any body inside it — so frame one over-mounts and never under-mounts.
 		This case is the one that would have caught it. ]]
 	it("FRAME ONE already fills the body: the seed is the screen, so it over-mounts, never under", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			columns = { { id = "name", title = "R", width = { type = "fill", weight = 1 } } },
-			rows = core:signal(racers(400)),
+			rows = Compose.cell(racers(400)),
 			key = function(item: any)
 				return item.id
 			end,
 			cellFor = function(_columnId: string, item: any)
-				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return harness.UI.Text({
+					id = "Value",
+					text = function(use)
+						return use(item).name
+					end,
+					textSize = 16,
+				})
 			end,
 			rowHeight = ROW_H,
 			header = false,
 			virtualized = true,
 			env = env,
 		})
-		pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
+		pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
 		pres.refresh() -- ONE frame only
 		local body = adapter.node("/S/Racers/Main/Body").rect
 		local needed = math.ceil(body.h / ROW_H)
 		for i = 1, needed do
-			expect(adapter.node(`/S/Racers/Main/Body/Canvas/Rows/[r{i}@0]/Row`) ~= nil).toBe(true)
+			expect(adapter.node(`/S/Racers/Main/Body/Canvas/Rows/[r{i}]/Row`) ~= nil).toBe(true)
 		end
 		-- ...and still bounded by the SCREEN, not by the data
-		expect(adapter.node(`/S/Racers/Main/Body/Canvas/Rows/[r200@0]/Row`)).toBe(nil)
+		expect(adapter.node(`/S/Racers/Main/Body/Canvas/Rows/[r200]/Row`)).toBe(nil)
 	end)
 
 	--[[ OVERSCAN IS NOT PADDING, IT IS THE KEYBOARD'S FLOOR. Table's focus groups
@@ -315,9 +329,9 @@ describe("Table virtualized: one arithmetic with newVirtualList", function()
 			end,
 		})
 		local ix = oracle(heights, 0)
-		local first = w.adapter.node(`/S/Racers/Main/Body/Rows/[r1@0]/Row`).rect
+		local first = w.adapter.node(`/S/Racers/Main/Body/Rows/[r1]/Row`).rect
 		for i = 1, 6 do
-			local rect = w.adapter.node(`/S/Racers/Main/Body/Rows/[r{i}@0]/Row`).rect
+			local rect = w.adapter.node(`/S/Racers/Main/Body/Rows/[r{i}]/Row`).rect
 			expect(rect.y - first.y).toBe(ix.offsetOf(i))
 		end
 	end)
@@ -339,7 +353,7 @@ describe("Table virtualized: one arithmetic with newVirtualList", function()
 		local ix = oracle(table.create(4, ROW_H), 6)
 		local rootY = w.adapter.node("/S/Racers").rect.y
 		local bodyY = w.adapter.node("/S/Racers/Main/Body").rect.y
-		w.adapter.pointerDown(`/S/Racers/Main/Body/Rows/[r1@0]/Row/Hit`, 100, bodyY + 4)
+		w.adapter.pointerDown(`/S/Racers/Main/Body/Rows/[r1]/Row/Hit`, 100, bodyY + 4)
 		-- past r2's slot midpoint: r2 spans 46..86, its slot midpoint is 46+23 = 69
 		w.adapter.pointerMove(100, bodyY + 80)
 		w.pres.refresh()
@@ -355,10 +369,10 @@ describe("Table virtualized: model state outlives the window", function()
 		local w = world({ selection = "single" })
 		w.adapter.tap(hitPath(w, "r2"))
 		w.pres.refresh()
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true)
 		scrollTo(w, 200 * ROW_H)
 		expect(mounted(w, "r2")).toBe(false)
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true) -- the model kept it
+		expect(w.tbl.api.selectedKeys:peek().r2).toBe(true) -- the model kept it
 		scrollTo(w, 0)
 		expect(w.adapter.node(hitPath(w, "r2")).props.selected).toBe(true)
 	end)
@@ -367,7 +381,7 @@ describe("Table virtualized: model state outlives the window", function()
 		local w = world({ selection = "multi" })
 		w.tbl.api.select("r2", { mode = "replace" })
 		w.tbl.api.select("r300", { mode = "range" })
-		local selected = w.tbl.api.selectedKeys:get()
+		local selected = w.tbl.api.selectedKeys:peek()
 		expect(selected.r2).toBe(true)
 		expect(selected.r150).toBe(true)
 		expect(selected.r300).toBe(true)
@@ -537,8 +551,8 @@ describe("Table virtualized: a row's height is DERIVED, not content-sized (both 
 			columns = { { id = "name", title = "Racer", width = { type = "fill", weight = 1 } } },
 		})
 		local prefix = if virtualized then "/S/Racers/Main/Body/Canvas/Rows" else "/S/Racers/Main/Body/Rows"
-		local short = w.adapter.node(`{prefix}/[short@0]/Row`)
-		local long = w.adapter.node(`{prefix}/[long@0]/Row`)
+		local short = w.adapter.node(`{prefix}/[short]/Row`)
+		local long = w.adapter.node(`{prefix}/[long]/Row`)
 		expect(`mounted:{short ~= nil and long ~= nil}`).toBe("mounted:true")
 		-- the long string really is long enough to have grown a content-sized row
 		expect(`wraps:{#LONG * 6 > short.rect.w}`).toBe("wraps:true")
@@ -558,7 +572,7 @@ end)
 
 describe("Table virtualized: what is refused, and why", function()
 	local function refusal(opts: any): string
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			table_control.build(Facet, core, {
 				id = "T",
@@ -571,7 +585,7 @@ describe("Table virtualized: what is refused, and why", function()
 						end,
 					},
 				},
-				rows = core:signal(racers(3)),
+				rows = Compose.cell(racers(3)),
 				key = function(item: any)
 					return item.id
 				end,

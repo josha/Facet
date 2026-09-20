@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE LARGE-TEXT CONTROL MATRIX (acceptance LT-8; policy LT-6).
 
 	The plan's verification matrix says: "Headlessly sweep every public
@@ -56,12 +57,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local registry = require("./conformance/controls_registry") :: { any }
 local lt = require("./lib/large_text")
 -- the fixture table (one mountable screen per registry row) and the declared
 -- gaps its allowlists cite; see tests/lib/large_text_fixtures.luau
 local fixtureLib = require("./lib/large_text_fixtures")
+local Compose = require("../src/vendor/compose/core")
 local FIXTURES = fixtureLib.FIXTURES
 local UNSWEEPABLE = fixtureLib.UNSWEEPABLE
 
@@ -73,7 +75,9 @@ local GERMAN = lt.GERMAN_COMPOUND
 local function mountFixture(fixture: fixtureLib.Fixture, preference: lt.Preference, theme: lt.Theme): any
 	local w = lt.world({ offset = preference.offset, theme = theme, input = "touch" })
 	local blueprint = fixture.build(w.core, w)
-	w.present(UI.Screen({ id = "S", children = { blueprint } }))
+	w.present(function()
+		return UI.Screen({ id = "S", children = { blueprint } })
+	end)
 	return w
 end
 
@@ -221,18 +225,20 @@ describe("LT-8 control matrix: the sweep's own coverage and mirrors", function()
 		for _, theme in lt.THEMES do
 			for _, preference in lt.PREFERENCES do
 				local w = lt.world({ offset = preference.offset, theme = theme })
-				w.present(UI.Screen({
-					id = "S",
-					children = {
-						UI.Toggle({ id = "Row", label = PSEUDO, value = w.core:signal(false) }),
-						UI.Button({
-							id = "Tiny",
-							label = "x",
-							width = { type = "fixed", px = 20 },
-							height = { type = "fixed", px = 20 },
-						}),
-					},
-				}))
+				w.present(function()
+					return UI.Screen({
+						id = "S",
+						children = {
+							UI.Toggle({ id = "Row", label = PSEUDO, value = Compose.cell(false) }),
+							UI.Button({
+								id = "Tiny",
+								label = "x",
+								width = { type = "fixed", px = 20 },
+								height = { type = "fixed", px = 20 },
+							}),
+						},
+					})
+				end)
 				local metrics = w.metrics()
 				for path, entry in lt.auditRects(w) do
 					local expander = w.adapter.hitRectOf(path)
@@ -280,12 +286,14 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 				local lastWrappedHeight = 0
 				for _, preference in lt.PREFERENCES do
 					local w = lt.world({ offset = preference.offset, theme = theme })
-					w.present(UI.Screen({
-						id = "S",
-						children = {
-							UI.Button({ id = "Go", label = lt.PSEUDO_ACTION, width = { type = "fixed", px = 150 } }),
-						},
-					}))
+					w.present(function()
+						return UI.Screen({
+							id = "S",
+							children = {
+								UI.Button({ id = "Go", label = lt.PSEUDO_ACTION, width = { type = "fixed", px = 150 } }),
+							},
+						})
+					end)
 					local facts = w.controller.textAt("/S/Go")
 					local height = w.adapter.node("/S/Go").rect.h
 					local label = `{theme.id} @+{preference.offset}`
@@ -319,17 +327,19 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 		for _, theme in lt.THEMES do
 			for _, preference in lt.PREFERENCES do
 				local w = lt.world({ offset = preference.offset, theme = theme })
-				w.present(UI.Screen({
-					id = "S",
-					children = {
-						UI.Button({
-							id = "Save",
-							label = lt.PSEUDO_ACTION,
-							compactLabel = "OK",
-							width = { type = "fixed", px = 150 },
-						}),
-					},
-				}))
+				w.present(function()
+					return UI.Screen({
+						id = "S",
+						children = {
+							UI.Button({
+								id = "Save",
+								label = lt.PSEUDO_ACTION,
+								compactLabel = "OK",
+								width = { type = "fixed", px = 150 },
+							}),
+						},
+					})
+				end)
 				expect(w.adapter.node("/S/Save").props.label).toBe("OK")
 				expect(w.controller.textAt("/S/Save").truncated).toBe(false)
 			end
@@ -354,17 +364,19 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 		local truncatedAt: { string } = {}
 		for _, preference in lt.PREFERENCES do
 			local w = lt.world({ offset = preference.offset, theme = parchment })
-			w.present(UI.Screen({
-				id = "S",
-				children = {
-					UI.Button({
-						id = "Save",
-						label = lt.PSEUDO_ACTION,
-						compactLabel = "OK",
-						width = { type = "fixed", px = 88 },
-					}),
-				},
-			}))
+			w.present(function()
+				return UI.Screen({
+					id = "S",
+					children = {
+						UI.Button({
+							id = "Save",
+							label = lt.PSEUDO_ACTION,
+							compactLabel = "OK",
+							width = { type = "fixed", px = 88 },
+						}),
+					},
+				})
+			end)
 			-- the compact form IS what is drawn: the swap happened, and the cut is
 			-- of the last rung rather than of the full label
 			expect(w.adapter.node("/S/Save").props.label).toBe("OK")
@@ -380,16 +392,18 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 		-- cuts it — and `disclose` is what makes that legal rather than a defect
 		for _, theme in lt.THEMES do
 			local w = lt.world({ offset = lt.LARGEST, theme = theme })
-			w.present(UI.Screen({
-				id = "S",
-				children = {
-					UI.VStack({
-						id = "Cell",
-						width = { type = "fixed", px = 140 },
-						children = { UI.Text({ id = "Name", text = GERMAN, disclose = true }) },
-					}),
-				},
-			}))
+			w.present(function()
+				return UI.Screen({
+					id = "S",
+					children = {
+						UI.VStack({
+							id = "Cell",
+							width = { type = "fixed", px = 140 },
+							children = { UI.Text({ id = "Name", text = GERMAN, disclose = true }) },
+						}),
+					},
+				})
+			end)
 			local facts = w.controller.textAt("/S/Cell/Name")
 			expect(facts.truncated).toBe(true)
 			expect(facts.policy).toBe("truncate+disclose")
@@ -397,16 +411,18 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 			-- ...and the same cell WITHOUT the declaration is a finding: the check
 			-- is not passing because it cannot fire
 			local bare = lt.world({ offset = lt.LARGEST, theme = theme })
-			bare.present(UI.Screen({
-				id = "S",
-				children = {
-					UI.VStack({
-						id = "Cell",
-						width = { type = "fixed", px = 140 },
-						children = { UI.Text({ id = "Name", text = GERMAN }) },
-					}),
-				},
-			}))
+			bare.present(function()
+				return UI.Screen({
+					id = "S",
+					children = {
+						UI.VStack({
+							id = "Cell",
+							width = { type = "fixed", px = 140 },
+							children = { UI.Text({ id = "Name", text = GERMAN }) },
+						}),
+					},
+				})
+			end)
 			expect(#lt.sweep(bare).clipped).toBe(1)
 		end
 	end)
@@ -417,14 +433,16 @@ describe("LT-8 mixed scripts: CJK, emoji and latin at every preference", functio
 		for _, theme in lt.THEMES do
 			for _, preference in lt.PREFERENCES do
 				local w = lt.world({ offset = preference.offset, theme = theme })
-				w.present(UI.Screen({
-					id = "S",
-					children = {
-						UI.Text({ id = "Cjk", text = lt.CJK }),
-						UI.Text({ id = "Emoji", text = lt.EMOJI }),
-						UI.Text({ id = "Mixed", text = lt.MIXED }),
-					},
-				}))
+				w.present(function()
+					return UI.Screen({
+						id = "S",
+						children = {
+							UI.Text({ id = "Cjk", text = lt.CJK }),
+							UI.Text({ id = "Emoji", text = lt.EMOJI }),
+							UI.Text({ id = "Mixed", text = lt.MIXED }),
+						},
+					})
+				end)
 				local found = lt.sweep(w)
 				local label = `mixed-scripts @{preference.name} {theme.id}`
 				if #found.overlaps > 0 then
@@ -445,14 +463,16 @@ describe("LT-8 mixed scripts: CJK, emoji and latin at every preference", functio
 			local previous: { [string]: number } = {}
 			for _, preference in lt.PREFERENCES do
 				local w = lt.world({ offset = preference.offset, theme = theme })
-				w.present(UI.Screen({
-					id = "S",
-					children = {
-						UI.Text({ id = "Cjk", text = lt.CJK }),
-						UI.Text({ id = "Emoji", text = lt.EMOJI }),
-						UI.Text({ id = "Mixed", text = lt.MIXED }),
-					},
-				}))
+				w.present(function()
+					return UI.Screen({
+						id = "S",
+						children = {
+							UI.Text({ id = "Cjk", text = lt.CJK }),
+							UI.Text({ id = "Emoji", text = lt.EMOJI }),
+							UI.Text({ id = "Mixed", text = lt.MIXED }),
+						},
+					})
+				end)
 				for _, id in { "Cjk", "Emoji", "Mixed" } do
 					local path = `/S/{id}`
 					local h = w.adapter.node(path).rect.h
@@ -474,10 +494,12 @@ describe("LT-8 mixed scripts: CJK, emoji and latin at every preference", functio
 			local heights: { number } = {}
 			for _, offset in { 0, lt.LARGEST } do
 				local w = lt.world({ offset = offset, theme = theme })
-				w.present(UI.Screen({
-					id = "S",
-					children = { UI.Text({ id = "Line", text = lt.MIXED, width = { type = "fixed", px = 300 } }) },
-				}))
+				w.present(function()
+					return UI.Screen({
+						id = "S",
+						children = { UI.Text({ id = "Line", text = lt.MIXED, width = { type = "fixed", px = 300 } }) },
+					})
+				end)
 				table.insert(heights, w.adapter.node("/S/Line").rect.h)
 			end
 			expect(heights[2]).toBeGreaterThan(heights[1])

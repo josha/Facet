@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE HIT-RECT WALK REFUSES WHEN IT CANNOT WRITE ANYTHING (Plan D, D6b).
 
@@ -37,12 +38,13 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local ROWS = 400
 
@@ -66,7 +68,7 @@ local function world(opts: { button: boolean }): World
 	local rows: { any } = {}
 	local children: { any } = {}
 	for i = 1, ROWS do
-		rows[i] = core:signal(`row {i}`)
+		rows[i] = Compose.cell(`row {i}`)
 		children[i] = UI.VStack({
 			id = `R{i}`,
 			children = {
@@ -75,7 +77,7 @@ local function world(opts: { button: boolean }): World
 			},
 		})
 	end
-	local showButton = core:signal(opts.button)
+	local showButton = Compose.cell(opts.button)
 	local bp = UI.Screen({
 		id = "S",
 		children = {

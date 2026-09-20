@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Input-axis framework gaps (affordance matrix §D.5 / §B-Table; UI-PARADIGM-001/003).
 -- Two presenter/input-layer packages, both driven through the REAL device paths
 -- (never a direct callback):
@@ -25,13 +26,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local actionsLib = require("../src/input/actions")
 local Facet = require("../src") :: any
 local contribution = require("../src/input/contribution")
 local fake_target = require("../tests/lib/fake_target")
+local observeChange = require("../src/core/on_change")
 
 -- ===========================================================================
 -- Part 1 — axis-binding latch semantics (headless authority)
@@ -44,7 +46,7 @@ describe("input-axis: Thumbstick1 latch (deadzone + re-center, no autorepeat)", 
 		local navigate = ctx.createAction("Navigate", "Direction1D")
 		navigate.bindAxis({ axis = "Thumbstick1", component = "y", threshold = 0.5, releaseThreshold = 0.35 })
 		local steps: { number } = {}
-		core:observe(navigate.state, function(dir)
+		observeChange(core.owner, navigate.state, function(dir)
 			if dir == 1 or dir == -1 then
 				table.insert(steps, dir)
 			end
@@ -104,12 +106,12 @@ describe("input-axis: Thumbstick1 latch (deadzone + re-center, no autorepeat)", 
 		local navLow = ctxLow.createAction("Navigate", "Direction1D")
 		navLow.bindAxis({ axis = "Thumbstick1", component = "y" })
 		local hi, lo = 0, 0
-		core:observe(navHigh.state, function(d)
+		observeChange(core.owner, navHigh.state, function(d)
 			if d == 1 or d == -1 then
 				hi += 1
 			end
 		end)
-		core:observe(navLow.state, function(d)
+		observeChange(core.owner, navLow.state, function(d)
 			if d == 1 or d == -1 then
 				lo += 1
 			end
@@ -136,63 +138,63 @@ end)
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function services()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 describe("input-axis: presenter binds Thumbstick1 for Navigate (vertical, flat ring)", function()
 	it("a Thumbstick1 y push moves focus down like DPadDown, with the latch", function()
-		local _, _, _, system, pres = harness()
-		local screen = Facet.UI.Screen({
+		local _, _, _, system, pres = services()
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Button({ id = "a", label = "a" }),
-				Facet.UI.Button({ id = "b", label = "b" }),
+				harness.UI.Button({ id = "a", label = "a" }),
+				harness.UI.Button({ id = "b", label = "b" }),
 			},
 		})
 		pres.present(screen) -- ZERO opts
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/a")
+		expect(pres.focus.focused:peek()).toBe("/S/a")
 		system.deviceAxis("Thumbstick1", 0, 0.7) -- push down: one step
-		expect(pres.focus.focused:get()).toBe("/S/b")
+		expect(pres.focus.focused:peek()).toBe("/S/b")
 		system.deviceAxis("Thumbstick1", 0, 0.8) -- held: no autorepeat, focus holds
-		expect(pres.focus.focused:get()).toBe("/S/b")
+		expect(pres.focus.focused:peek()).toBe("/S/b")
 		system.deviceAxis("Thumbstick1", 0, 0.0) -- re-center
 		system.deviceAxis("Thumbstick1", 0, -0.7) -- push up: back to a
-		expect(pres.focus.focused:get()).toBe("/S/a")
+		expect(pres.focus.focused:peek()).toBe("/S/a")
 	end)
 end)
 
 describe("input-axis: presenter binds Thumbstick1 for NavigateH (horizontal, grouped)", function()
 	it("a Thumbstick1 x push walks an HStack row like DPadRight", function()
-		local _, _, _, system, pres = harness()
-		local screen = Facet.UI.Screen({
+		local _, _, _, system, pres = services()
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.HStack({
+				harness.UI.HStack({
 					id = "Row",
 					children = {
-						Facet.UI.Button({ id = "a", label = "a" }),
-						Facet.UI.Button({ id = "b", label = "b" }),
-						Facet.UI.Button({ id = "c", label = "c" }),
+						harness.UI.Button({ id = "a", label = "a" }),
+						harness.UI.Button({ id = "b", label = "b" }),
+						harness.UI.Button({ id = "c", label = "c" }),
 					},
 				}),
 			},
 		})
 		pres.present(screen) -- ZERO opts; layout-derived groups make Row the horizontal axis
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/Row/a")
+		expect(pres.focus.focused:peek()).toBe("/S/Row/a")
 		system.deviceAxis("Thumbstick1", 0.7, 0) -- right one step
-		expect(pres.focus.focused:get()).toBe("/S/Row/b")
+		expect(pres.focus.focused:peek()).toBe("/S/Row/b")
 		system.deviceAxis("Thumbstick1", 0.0, 0) -- re-center
 		system.deviceAxis("Thumbstick1", 0.7, 0) -- right again
-		expect(pres.focus.focused:get()).toBe("/S/Row/c")
+		expect(pres.focus.focused:peek()).toBe("/S/Row/c")
 	end)
 end)
 
@@ -203,11 +205,11 @@ end)
 -- declared adjustable, exactly the shape a Table grip would take (this proves
 -- the seam without touching src/controls/table.luau).
 local function fakeAdjustControl(id: string)
-	local root = Facet.UI.VStack({
+	local root = harness.UI.VStack({
 		id = id,
 		children = {
-			Facet.UI.Button({ id = "Plain", label = "Plain" }),
-			Facet.UI.Button({ id = "Adj", label = "Adj" }),
+			harness.UI.Button({ id = "Plain", label = "Plain" }),
+			harness.UI.Button({ id = "Adj", label = "Adj" }),
 		},
 	})
 	local adjustHits: { any } = {}
@@ -226,9 +228,9 @@ end
 
 describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", function()
 	local function world(presOpts: any?)
-		local _, _, adapter, system, pres = harness()
+		local _, _, adapter, system, pres = services()
 		local ctl = fakeAdjustControl("Ctl")
-		local screen = Facet.UI.Screen({ id = "S", children = { ctl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ctl.blueprint } })
 		local handle = pres.present(screen, presOpts)
 		pres.refresh()
 		return { system = system, adapter = adapter, pres = pres, handle = handle, ctl = ctl }
@@ -239,7 +241,7 @@ describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", f
 
 	it("no Adjust key is bound while focus sits on a NON-target (no gameplay shadow)", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(PLAIN)
+		expect(w.pres.focus.focused:peek()).toBe(PLAIN)
 		-- the Adjust action carries ZERO keyCode bindings: the keys are unbound,
 		-- so gameplay Left/Right/bumpers are never shadowed while focus is elsewhere
 		expect(#w.handle.actions.adjust.bindings).toBe(0)
@@ -253,7 +255,7 @@ describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", f
 		-- navigate down onto the adjustable node
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(ADJ)
+		expect(w.pres.focus.focused:peek()).toBe(ADJ)
 		expect(#w.handle.actions.adjust.bindings > 0).toBe(true) -- now bound
 	end)
 
@@ -261,7 +263,7 @@ describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", f
 		local w = world()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(ADJ)
+		expect(w.pres.focus.focused:peek()).toBe(ADJ)
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
 		expect(#w.ctl.adjustHits).toBe(1)
@@ -287,12 +289,12 @@ describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", f
 		local w = world()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(ADJ)
+		expect(w.pres.focus.focused:peek()).toBe(ADJ)
 		expect(#w.handle.actions.adjust.bindings > 0).toBe(true)
 		-- back up to the non-target
 		w.system.deviceKey("DPadUp", true)
 		w.system.deviceKey("DPadUp", false)
-		expect(w.pres.focus.focused:get()).toBe(PLAIN)
+		expect(w.pres.focus.focused:peek()).toBe(PLAIN)
 		expect(#w.handle.actions.adjust.bindings).toBe(0) -- unbound again
 	end)
 
@@ -305,7 +307,7 @@ describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", f
 		})
 		-- legacy opt: Adjust keys bound from the start, regardless of focus
 		expect(#w.handle.actions.adjust.bindings > 0).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe(PLAIN)
+		expect(w.pres.focus.focused:peek()).toBe(PLAIN)
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
 		-- the opt received the adjust; the contribution's handleAdjust did NOT

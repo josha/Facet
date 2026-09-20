@@ -21,7 +21,7 @@
 -- Field meanings
 --   types       accepted logical types (see TYPE_CHECKS below). A prop whose
 --               static value fails every entry is a construction error.
---   reactive    the prop may be a Signal/Memo. `false` means a Readable is
+--   reactive    the prop may be a Compose cell or formula. `false` means a Readable is
 --               rejected at construction rather than frozen and ignored.
 --   dirty       dirty classes pushed when a reactive value changes. Required
 --               whenever `reactive` is true; a reactive prop with no dirty
@@ -57,6 +57,7 @@ local imageFraming = require("./render/image_framing")
 local textDistance = require("./text_distance")
 
 local animationPolicy = require("./motion/policy")
+local Compose = require("./vendor/compose/core")
 local schema = {}
 
 export type Deprecation = {
@@ -234,8 +235,30 @@ local TRANSITION_KEYS: { [string]: boolean } = {
 	plate = true,
 	stagger = true,
 	fromRect = true,
+	source = true,
 	content = true,
 }
+local function isReadableValue(v: any): boolean
+	if type(v) ~= "table" then
+		return false
+	end
+	local meta = getmetatable(v)
+	return meta ~= nil and rawget(meta :: any, "__isComposeReadable") == true
+end
+
+local function finiteRect(rect: any): (boolean, string?)
+	if type(rect) ~= "table" then
+		return false, "a rect is { x, y, w, h } in window coordinates"
+	end
+	for _, key in { "x", "y", "w", "h" } do
+		local n = rect[key]
+		if type(n) ~= "number" or n ~= n or math.abs(n) == math.huge or ((key == "w" or key == "h") and n <= 0) then
+			return false, "a rect must contain finite x/y and positive w/h"
+		end
+	end
+	return true
+end
+
 -- where a scaling form (materialize) grows FROM: the node's centre unless the
 -- caller names the corner it is attached at (an anchored popover grows out of
 -- the control that opened it — picker round, 2026-09-11)
@@ -465,10 +488,10 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		return true
 	end,
 	readable = function(v)
-		if type(v) == "table" and ((v :: any).kind == "signal" or (v :: any).kind == "memo") then
+		if Compose.isReadable(v) then
 			return true
 		end
-		return false, "a Signal or Memo (create one with core:signal(...) / core:memo(...))"
+		return false, "a Compose cell or formula (create one with Compose.cell(...) / Compose.formula(...))"
 	end,
 	dim = function(v)
 		if type(v) ~= "table" then
@@ -690,7 +713,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
 					`unknown transition field '{tostring(k)}' `
-						.. `(enter | exit | class | exitClass | fade | distance | scale | pivot | plate | stagger | fromRect | content)`
+						.. `(enter | exit | class | exitClass | fade | distance | scale | pivot | plate | stagger | fromRect | source | content)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -708,20 +731,48 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			return false, "content names a relative descendant fade-group path"
 		end
 		local from = (v :: any).fromRect
-		if enter == "transform" or exit == "transform" or from ~= nil then
-			if type(from) ~= "table" then
-				return false, "transform requires fromRect = { x, y, w, h } in window coordinates"
+		--[[ THE LIVE SOURCE (shared-element expansion). `fromRect` is one rectangle
+			read once, which is right for a trigger that cannot move. A card in a
+			scrolling feed moves, so `source` names WHERE the rectangle comes from
+			instead — the same `{ path = … } | { rect = … }` spelling
+			`presenter.presentAnchored`'s `anchor.source` uses — and the coordinator
+			re-reads it every painted frame. Exactly one of the two. ]]
+		local source = (v :: any).source
+		if source ~= nil then
+			if from ~= nil then
+				return false, "a transform names its origin ONCE: fromRect (a fixed rect) or source, never both"
 			end
-			for _, key in { "x", "y", "w", "h" } do
-				local n = from[key]
-				if
-					type(n) ~= "number"
-					or n ~= n
-					or math.abs(n) == math.huge
-					or ((key == "w" or key == "h") and n <= 0)
-				then
-					return false, "fromRect must contain finite x/y and positive w/h"
+			if type(source) ~= "table" then
+				return false, 'transform source is { path = "/Feed/Card-3" } or { rect = <a rect or a Readable> }'
+			end
+			for key in source :: any do
+				if key ~= "path" and key ~= "rect" then
+					return false, `unknown transform source field '{tostring(key)}' (path | rect)`
 				end
+			end
+			if ((source :: any).path == nil) == ((source :: any).rect == nil) then
+				return false, "transform source names EXACTLY one of `path` (a mounted node) or `rect`"
+			end
+			local path = (source :: any).path
+			if path ~= nil and type(path) ~= "string" and not isReadableValue(path) then
+				return false, "transform source.path is a mounted node path, or a Readable of one"
+			end
+			local rect = (source :: any).rect
+			if rect ~= nil and not isReadableValue(rect) then
+				local ok, detail = finiteRect(rect)
+				if not ok then
+					return false, detail
+				end
+			end
+		elseif enter == "transform" or exit == "transform" or from ~= nil then
+			if type(from) ~= "table" then
+				return false,
+					"transform requires fromRect = { x, y, w, h } in window coordinates, "
+						.. 'or source = { path = "…" } | { rect = … } for an origin that moves'
+			end
+			local ok, detail = finiteRect(from)
+			if not ok then
+				return false, detail
 			end
 		end
 		local class = (v :: any).class
@@ -1590,7 +1641,7 @@ local REVEAL: PropSpec = p({
 
 	THE APP-PUSHED PLATE IS A DIFFERENT CONSTRUCT. A coach mark that pops ITSELF,
 	from eligibility rules, appears on every input class and retires permanently is
-	`Facet.newCallout` (the coach-mark construct), not this. Both plates point with
+	`UI.Callout` (the coach-mark construct), not this. Both plates point with
 	D1's arrow tail — the stem says which control the words are about, and was
 	never what told the two apart.
 
@@ -1609,7 +1660,7 @@ local HELP: PropSpec = p({
 		.. "keyboard/gamepad ring lands on it. Nothing appears on touch — no input class binds a gesture "
 		.. "to help, so it must never be the only route to something a player needs "
 		.. "(`text_audit.helpRoutes`). The plate points at this view with an arrow tail. For an "
-		.. "app-PUSHED coach mark that appears on every input class, see `newCallout`",
+		.. "app-PUSHED coach mark that appears on every input class, see `UI.Callout`",
 })
 
 -- THE FADE GROUP. Presentation transparency is offered ONLY
@@ -1843,7 +1894,7 @@ class("ZStack", {
 		-- SHAPE spec above and `blueprint.luau`'s `assertCircleSquare`.
 		shape = SHAPE,
 		--[[ "THIS CONTAINER IS ONE SLOT OF A FIXED-PITCH WINDOWED LIST" (2026-08-13).
-			Declared by `newVirtualList` on every row it builds, and available to any
+			Declared by `UI.VirtualList` on every row it builds, and available to any
 			hand-rolled surface that windows by `index x extent` — which is the only
 			shape the promise holds for. It changes NO geometry: the solver reads it to
 			check the slot's content against the extent that was declared for it, and
@@ -2098,7 +2149,7 @@ class("AdaptiveStack", {
 			enum = { "y", "x" },
 			channel = "layout",
 			doc = 'stack axis: "y" or "x" — REQUIRED, and reactive so a flip never remounts a child. Bind it '
-				.. "to `Facet.adaptive.conditions(core, env).axis`, which a surface stood up with "
+				.. "to `Facet.adaptive.conditions(env).axis`, which a surface stood up with "
 				.. "`Facet.client.host.new` supplies with no wiring; an unconditional column is `UI.VStack` "
 				.. "and an unconditional row is `UI.HStack`",
 		}),
@@ -2584,7 +2635,7 @@ class("Button", {
 		-- single mark. A NAME, never an asset id: the framework draws its own
 		-- ASCII-safe glyph and a package that ships art for that name has the
 		-- adapter paint the picture over it. Circle-only on purpose — an icon
-		-- BESIDE a title is `Facet.newLabel`, which already owns that layout.
+		-- BESIDE a title is `UI.Label`, which already owns that layout.
 		icon = p({
 			types = { "string" },
 			reactive = false,
@@ -2725,7 +2776,7 @@ class("Toggle", {
 			reactive = true,
 			dirty = { "paint", "semantics" },
 			channel = "binding",
-			doc = "boolean state; a settable Signal is AUTO-FLIPPED on Activate",
+			doc = "boolean state; a writable Compose cell is AUTO-FLIPPED on Activate",
 		}),
 		enabled = p({
 			types = { "boolean" },
@@ -2771,7 +2822,7 @@ class("TextField", {
 			reactive = true,
 			dirty = { "paint", "measure" },
 			channel = "binding",
-			doc = "current value (the owner holds the Signal; the field never creates one)",
+			doc = "current value (the caller holds the cell; the field never creates one)",
 		}),
 		placeholder = p({
 			types = { "string" },
@@ -2947,6 +2998,22 @@ class("Foreign", {
 		-- the plate BEHIND the content: a fallback while the caller's instance
 		-- loads, or a frame around it. It paints the CONTAINER, which Facet owns.
 		surface = CONTAINER_LAYOUT.surface,
+		--[[ THE CONTENT SEAM, DELIVERED RATHER THAN POLLED. `controller.foreignHost`
+			answers the same handle, but only a CONTROLLER can be asked — and a
+			component builds before its own `app.mount` returns one, so every consumer
+			was reduced to smuggling the controller through a mutable box and asking
+			for the handle on every frame until it appeared. That is a busy-wait for a
+			structural event the renderer already knows about, written out once per
+			showcase. `host` is the event: it is handed the node's own seam when the
+			node has one, and the function it returns is run when the node goes away. ]]
+		onHost = p({
+			types = { "function" },
+			reactive = false,
+			channel = "handler",
+			doc = "onHost(seam) -> cleanup? — called once, after this node is rendered, with the same "
+				.. "{ adopt } handle `controller.foreignHost(path)` answers (nil where the target has no "
+				.. "foreign seam). Return a function to run when the node is removed or the surface torn down",
+		}),
 	}),
 })
 
@@ -3001,7 +3068,7 @@ class("When", {
 			dirty = { "structure" },
 			required = true,
 			channel = "structural",
-			doc = "Signal/Memo of a boolean — mounts/unmounts the branch",
+			doc = "a Compose cell or formula of a boolean — mounts/unmounts the branch",
 		}),
 		thenView = p({
 			types = { "function" },
@@ -3024,14 +3091,14 @@ class("ForEach", {
 			dirty = { "structure" },
 			required = true,
 			channel = "structural",
-			doc = "Signal/Memo of an array",
+			doc = "a Compose cell or formula of an array",
 		}),
 		key = p({
-			types = { "function" },
+			types = { "function", "string" },
 			reactive = false,
 			required = true,
 			channel = "structural",
-			doc = "(item) -> string; duplicate keys are hard errors",
+			doc = "(item) -> string, or the name of the field holding the identity; duplicate keys are hard errors",
 		}),
 		row = p({
 			types = { "function" },

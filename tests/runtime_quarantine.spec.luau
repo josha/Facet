@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- QUARANTINE REGRESSIONS from the sponsor-framework-gaps fresh-context reviews
 -- (verifiers RR-1/RR-2/RR-4): user code that throws inside the motion clock, a
 -- teardown arriving mid-step, and a throwing scope cleanup — each used to wedge,
@@ -10,10 +11,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
 
 describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", function()
 	it("after a throwing onSettle, later motions still run and the error is recorded", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
@@ -34,7 +36,7 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 		for _ = 1, 240 do
 			clock:step(1 / 60)
 		end
-		expect(math.abs(good:get() - 100) < 1).toBe(true)
+		expect(math.abs(good:peek() - 100) < 1).toBe(true)
 		expect(clock:activeCount()).toBe(0)
 		clock:dispose()
 	end)
@@ -42,7 +44,7 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 	it("a throwing onSettle subscriber does not starve the ones after it (RR-12-R1)", function()
 		-- settle fires once per arrival: without the per-subscriber quarantine the
 		-- first throw skipped every later subscriber's ONLY notification
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
@@ -67,8 +69,8 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 		-- same guarantee on the reduced-motion announce path, which fires settle
 		-- SYNCHRONOUSLY from setTarget, outside the step pcall — the quarantine
 		-- must be fireSettle's own, not the frame's
-		local core2 = Facet.newCore()
-		local policy = core2:signal("reduced")
+		local core2 = harness.newCore()
+		local policy = Compose.cell("reduced")
 		local clock2 = Facet.motion.newClock(core2, {
 			motionPolicy = policy,
 			now = function()
@@ -90,7 +92,7 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 	end)
 
 	it("a throwing live-target function quarantines the frame, not the clock", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
@@ -110,14 +112,14 @@ describe("motion clock: a throwing callback cannot wedge the clock (RR-1)", func
 		for _ = 1, 240 do
 			clock:step(1 / 60)
 		end
-		expect(math.abs(v:get() - 50) < 1).toBe(true)
+		expect(math.abs(v:peek() - 50) < 1).toBe(true)
 		clock:dispose()
 	end)
 end)
 
 describe("motion clock: dispose during a step defers, never crashes (RR-2)", function()
 	it("an onSettle handler disposing the clock is safe and completes at the step tail", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
@@ -140,125 +142,9 @@ describe("motion clock: dispose during a step defers, never crashes (RR-2)", fun
 	end)
 end)
 
-describe("scope disposal: a throwing cleanup is quarantined (RR-4)", function()
-	it("siblings still release, counters stay exact, and no false double-dispose follows", function()
-		local core = Facet.newCore()
-		local scope = core:scope("quarantine")
-		local released: { string } = {}
-		scope:own(function()
-			table.insert(released, "first-owned") -- runs LAST (reverse order)
-		end)
-		scope:own(function()
-			error("cleanup boom")
-		end)
-		scope:own(function()
-			table.insert(released, "last-owned") -- runs FIRST
-		end)
-		local before = core:counters().scopes
-		scope:dispose()
-		-- both healthy cleanups ran despite the throw between them
-		expect(released).toEqual({ "last-owned", "first-owned" })
-		expect(core:counters().scopes).toBe(before - 1)
-		-- the quarantined error is visible
-		expect(string.find(tostring(core:lastError()), "cleanup", 1, true) ~= nil).toBe(true)
-		-- a genuine double dispose is STILL detected (the detector survived)
-		scope:dispose()
-		expect(string.find(tostring(core:lastError()), "double disposal", 1, true) ~= nil).toBe(true)
-	end)
-
-	-- RR-5-R1 (Step 5.5 disposition): the residual reported the detector as a
-	-- FALSE positive. Measured, it is not: it fires only when the same child is
-	-- owned TWICE — by the parent's own child list AND by a cleanup closure —
-	-- which is the §6.3 aliasing violation ARCH-F4 names, and reporting it is the
-	-- detector doing its job. Both directions are pinned so the decision cannot
-	-- be quietly reversed into a suppressed diagnostic.
-	it("the double-dispose report fires for an ALIASED child and stays silent otherwise (RR-5-R1)", function()
-		local core = Facet.newCore()
-		local parent = core:scope("p")
-		local child: any = nil
-		parent:own(function()
-			child:dispose() -- second owner of a scope the parent already owns
-		end)
-		child = parent:child("c")
-		local before = core:counters().scopes
-		parent:dispose()
-		expect(string.find(tostring(core:lastError()), "double disposal", 1, true) ~= nil).toBe(true)
-		-- and the walk is still SOUND: no double free, both scopes released
-		expect(core:counters().scopes).toBe(before - 2)
-
-		-- the same cleanup SHAPE over a scope the parent does not own is silent
-		local core2 = Facet.newCore()
-		local owner = core2:scope("owner")
-		local standalone = core2:scope("standalone")
-		owner:own(function()
-			standalone:dispose()
-		end)
-		owner:dispose()
-		expect(core2:lastError()).toBe(nil)
-	end)
-end)
-
--- F-13. `own` used to insert whatever it was handed and `dispose` used to fall
--- through anything it could not release, with no diagnostic — so an ownership
--- statement over an unreleasable table read as correct, reviewed as correct, and
--- did nothing. The library's own shipped gallery scenario did exactly that. The
--- accepted-but-ignored class is the failure this diagnoses AT own(), where the
--- mistake is, rather than never.
-describe("scope ownership: an unreleasable resource is refused at own() (F-13)", function()
-	it("a table with no dispose() is refused, naming the scope and the fix", function()
-		local core = Facet.newCore()
-		local scope = core:scope("ownership")
-		local ok, err = pcall(function()
-			scope:own({ pendingRequests = function() end }) -- a provider-shaped table
-		end)
-		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "Facet scope:", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "ownership", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "dispose", 1, true) ~= nil).toBe(true)
-		-- refusing is not corrupting: the scope never took it, and still works
-		local released = false
-		scope:own(function()
-			released = true
-		end)
-		scope:dispose()
-		expect(released).toBe(true)
-	end)
-
-	it("functions, child scopes, and dispose-bearing objects all stay legal", function()
-		local core = Facet.newCore()
-		local before = core:counters()
-		local scope = core:scope("legal")
-		local order: { string } = {}
-		scope:own(function()
-			table.insert(order, "function")
-		end)
-		scope:own(core:signal(1)) -- a Readable disposes itself
-		scope:own(core:memo(function()
-			return 1
-		end))
-		scope:child("kid")
-		scope:own({
-			dispose = function()
-				table.insert(order, "object")
-			end,
-		})
-		scope:dispose()
-		expect(order).toEqual({ "object", "function" })
-		expect(core:counters()).toEqual(before)
-	end)
-
-	it("`use` still borrows anything — only OWNERSHIP implies releasability", function()
-		local core = Facet.newCore()
-		local scope = core:scope("borrow")
-		local borrowed = { name = "not mine to release" }
-		expect(scope:use(borrowed)).toBe(borrowed)
-		scope:dispose()
-	end)
-end)
-
 describe("motion clock: the stats contract under a quarantined frame (RR-1-R2)", function()
 	it("transactions counts frames that really committed, never the aborted ones", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return 0
@@ -293,7 +179,7 @@ describe("motion clock: the stats contract under a quarantined frame (RR-1-R2)",
 		clock:dispose()
 
 		-- healthy clock: the two agree exactly, which is what the batching claim rests on
-		local core2 = Facet.newCore()
+		local core2 = harness.newCore()
 		local clock2 = Facet.motion.newClock(core2, {
 			now = function()
 				return 0

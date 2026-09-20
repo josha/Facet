@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE TEXT-PREMEASUREMENT SEAM, MECHANISED — what keeps `render/premeasure_round`
 	one-way.
 
@@ -69,9 +70,9 @@ local fs = require("@lune/fs")
 local src_tree = require("./lib/src_tree")
 local renderer_source = require("./lib/renderer_source")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local text_metrics = require("../src/layout/text_metrics")

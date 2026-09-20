@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A TAB STRIP DOES NOT TOUCH ITS PAGE.
 
 	WHAT WAS REPORTED (owner, 2026-09-12, Compact Pointer and others): the tab
@@ -45,12 +46,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local default_style = require("../src/tokens/default_style")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- viewport → the placement the policy resolves, but every case declares the
 -- placement it means so the measurement cannot silently move to another home
@@ -81,9 +83,9 @@ local function world(placement: string, themePackage: any?)
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 		themeMetrics = if themePackage ~= nil then Facet.themes.resolve(themePackage, nil, {}) else nil,
 	})
-	local tv = Facet.Controls.TabView(w.core, {
+	local tv = harness.Controls.TabView(w.core, {
 		id = "Tabs",
-		selection = w.core:signal("home"),
+		selection = Compose.cell("home"),
 		env = w.env,
 		placement = placement,
 		tabs = {

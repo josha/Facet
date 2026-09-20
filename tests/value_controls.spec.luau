@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Milestone B — the value-control family (docs/plans/parity-next.md
 -- investment 4; acceptance rows B-VAL1 and B-VAL3).
 --
@@ -10,15 +11,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local valueModel = require("../src/controls/value_model")
 local fake_target = require("../tests/lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
+local Compose = require("../src/vendor/compose/core")
 
 describe("B-VAL1: the shared value model", function()
 	it("clamps to its bounds", function()
@@ -168,12 +170,12 @@ local function mountStepper(specOverrides: any?)
 	local adapter = fake_target.new({ ops = true })
 	local system = actionsLib.newSystem(core)
 	local pres = presenterLib.new(core, env, adapter, system)
-	local value = core:signal(5)
+	local value = Compose.cell(5)
 	local spec: any = { id = "Volume", label = "Volume", value = value, min = 0, max = 10, step = 1 }
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.Controls.Stepper(core, spec)
+	local control = harness.Controls.Stepper(core, spec)
 	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control
@@ -184,11 +186,11 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		local _, adapter, _, pres, value = mountStepper()
 		adapter.tap("/S/Volume/Inc")
 		pres.refresh()
-		expect(value:get()).toBe(6)
+		expect(value:peek()).toBe(6)
 		adapter.tap("/S/Volume/Dec")
 		adapter.tap("/S/Volume/Dec")
 		pres.refresh()
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 	end)
 
 	it("touch: a finger tap on + steps it identically", function()
@@ -196,7 +198,7 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		adapter.pointerDown("/S/Volume/Inc", 0, 0, "touch")
 		adapter.tap("/S/Volume/Inc", { pointer = "touch" })
 		pres.refresh()
-		expect(value:get()).toBe(6)
+		expect(value:peek()).toBe(6)
 	end)
 
 	it("keyboard: Adjust on the focused control steps without touching a button", function()
@@ -207,11 +209,11 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		system.deviceKey("Period", true)
 		system.deviceKey("Period", false)
 		pres.refresh()
-		expect(value:get()).toBe(6)
+		expect(value:peek()).toBe(6)
 		system.deviceKey("Comma", true)
 		system.deviceKey("Comma", false)
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 	end)
 
 	it("gamepad: ButtonA on the focused + activates, and the bumpers Adjust", function()
@@ -222,11 +224,11 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		system.deviceKey("ButtonR1", true)
 		system.deviceKey("ButtonR1", false)
 		pres.refresh()
-		expect(value:get()).toBe(6)
+		expect(value:peek()).toBe(6)
 		system.deviceKey("ButtonL1", true)
 		system.deviceKey("ButtonL1", false)
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 	end)
 
 	it("no Adjust key is bound while focus sits outside the Stepper (no gameplay bumper shadow)", function()
@@ -237,8 +239,8 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local value = core:signal(5)
-		local control = Facet.Controls.Stepper(core, {
+		local value = Compose.cell(5)
+		local control = harness.Controls.Stepper(core, {
 			id = "Volume",
 			label = "Volume",
 			value = value,
@@ -258,7 +260,7 @@ describe("B-VAL3: Stepper reaches the same arithmetic from every input class", f
 		system.deviceKey("ButtonR1", true)
 		system.deviceKey("ButtonR1", false)
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 	end)
 end)
 
@@ -269,12 +271,12 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 			adapter.tap("/S/Volume/Inc")
 		end
 		pres.refresh()
-		expect(value:get()).toBe(10)
+		expect(value:peek()).toBe(10)
 		for _ = 1, 30 do
 			adapter.tap("/S/Volume/Dec")
 		end
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 	end)
 
 	it("the affordance at a bound is DISABLED, not silently inert", function()
@@ -283,7 +285,7 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 			adapter.tap("/S/Volume/Inc")
 		end
 		pres.refresh()
-		expect(value:get()).toBe(10)
+		expect(value:peek()).toBe(10)
 		expect(adapter.node("/S/Volume/Inc").props.enabled).toBe(false)
 		expect(adapter.node("/S/Volume/Dec").props.enabled).toBe(true)
 	end)
@@ -310,27 +312,30 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 		local _, adapter, system, pres, value = mountStepper({ enabled = false })
 		adapter.tap("/S/Volume/Inc")
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
 		system.deviceKey("Period", true)
 		system.deviceKey("Period", false)
 		pres.refresh()
-		expect(value:get()).toBe(5)
+		expect(value:peek()).toBe(5)
 	end)
 
 	it("rejects a non-settable value instead of silently owning one", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.Controls.Stepper(
+			return harness.Controls.Stepper(
 				core,
-				{ id = "X", value = core:memo(function()
+				{ id = "X", value = Compose.formula(function()
 					return 1
 				end), min = 0, max = 2 }
 			)
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+		expect(
+			string.find(tostring(err), "must be a writable Compose cell holding a number, owned by the caller", 1, true)
+				~= nil
+		).toBe(true)
 	end)
 
 	it("dump is deterministic", function()
@@ -346,9 +351,9 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local value = core:signal(5)
-		local baseline = core:counters()
-		local control = Facet.Controls.Stepper(core, {
+		local value = Compose.cell(5)
+		local baseline = core.owner.size()
+		local control = harness.Controls.Stepper(core, {
 			id = "V",
 			label = "V",
 			value = value,
@@ -357,9 +362,9 @@ describe("B-VAL3: Stepper bounds, formatting, disabled and lifecycle", function(
 			step = 1,
 		})
 		control.dispose()
-		local after = core:counters()
-		expect(after.scopes).toBe(baseline.scopes)
-		expect(after.observers).toBe(baseline.observers)
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -376,12 +381,12 @@ local function mountSlider(specOverrides: any?, fakeOpts: any?)
 	end
 	local system = actionsLib.newSystem(core)
 	local pres = presenterLib.new(core, env, adapter, system)
-	local value = core:signal(50)
+	local value = Compose.cell(50)
 	local spec: any = { id = "Vol", label = "Vol", value = value, min = 0, max = 100 }
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.Controls.Slider(core, spec)
+	local control = harness.Controls.Slider(core, spec)
 	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control, env
@@ -433,7 +438,7 @@ describe("slider: the fill and thumb show the value AT REST (director review 202
 		pres.refresh()
 		local after = adapter.node("/S/Vol/TrackHost").rect
 		expect(after.w > before).toBe(true)
-		expect(value:get()).toBe(50) -- geometry moved; the value did not
+		expect(value:peek()).toBe(50) -- geometry moved; the value did not
 		-- ONE FRAME of lag by construction, and it is the honest answer rather
 		-- than a bug: the solved rect is fed back AFTER the solve that produced
 		-- it, so a visual derived from geometry converges on the next frame. The
@@ -491,7 +496,7 @@ describe("B-VAL2: the Slider's live drag is the NATIVE detector, with a proven f
 		pres.refresh()
 		adapter.driveDragContinue("/S/Vol/TrackHost/Track", { x = track.x + track.w, y = track.y }, nil)
 		pres.refresh()
-		expect(value:get()).toBe(100)
+		expect(value:peek()).toBe(100)
 		adapter.driveDragEnd("/S/Vol/TrackHost/Track", { x = track.x + track.w, y = track.y })
 		expect(committed).toBe(100)
 	end)
@@ -504,10 +509,10 @@ describe("B-VAL2: the Slider's live drag is the NATIVE detector, with a proven f
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x + track.w // 4, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(25)
+		expect(value:peek()).toBe(25)
 		adapter.pointerMove(track.x + track.w, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(100)
+		expect(value:peek()).toBe(100)
 		adapter.pointerUp(track.x + track.w, track.y)
 	end)
 
@@ -516,7 +521,7 @@ describe("B-VAL2: the Slider's live drag is the NATIVE detector, with a proven f
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x + track.w // 2, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 		adapter.pointerUp(track.x + track.w // 2, track.y)
 	end)
 
@@ -525,7 +530,7 @@ describe("B-VAL2: the Slider's live drag is the NATIVE detector, with a proven f
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(50) -- unchanged until the drag moves
+		expect(value:peek()).toBe(50) -- unchanged until the drag moves
 		adapter.pointerUp(track.x, track.y)
 	end)
 
@@ -534,10 +539,10 @@ describe("B-VAL2: the Slider's live drag is the NATIVE detector, with a proven f
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x, track.y, "touch")
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		adapter.pointerMove(track.x + track.w // 2, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 		adapter.pointerUp(track.x + track.w // 2, track.y)
 	end)
 
@@ -556,11 +561,11 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		system.deviceKey("Period", true)
 		system.deviceKey("Period", false)
 		pres.refresh()
-		expect(value:get()).toBe(60)
+		expect(value:peek()).toBe(60)
 		system.deviceKey("Comma", true)
 		system.deviceKey("Comma", false)
 		pres.refresh()
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 	end)
 
 	it("gamepad: the bumpers Adjust the focused slider", function()
@@ -571,7 +576,7 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		system.deviceKey("ButtonR1", true)
 		system.deviceKey("ButtonR1", false)
 		pres.refresh()
-		expect(value:get()).toBe(60)
+		expect(value:peek()).toBe(60)
 	end)
 
 	it("stays inside its bounds from every route", function()
@@ -579,7 +584,7 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x - 500, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		adapter.pointerUp(track.x, track.y)
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
@@ -588,7 +593,7 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 			system.deviceKey("Comma", false)
 		end
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 	end)
 
 	it("Slider hot-switch: losing the pointer class mid-drag CANCELS back to the snapshot", function()
@@ -596,12 +601,12 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		expect(control.dump().dragging).toBe(true)
 		control.onInteractionClassLost("pointer")
 		pres.refresh()
 		-- the half-finished drag must not commit a value the player did not choose
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 		expect(control.dump().dragging).toBe(false)
 	end)
 
@@ -610,12 +615,12 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		-- the engine cancels a capture when its zone dies mid-drag; the fake mirrors
 		-- that through _cancelIfCaptured, the same path the renderer's removal uses
 		adapter._cancelIfCaptured(adapter.node("/S/Vol/TrackHost/Track"), "interrupted")
 		pres.refresh()
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 	end)
 
 	it("a disabled Slider refuses drag AND Adjust", function()
@@ -623,14 +628,14 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		local track = adapter.node("/S/Vol/TrackHost/Track").rect
 		adapter.pointerDown("/S/Vol/TrackHost/Track", track.x + track.w, track.y)
 		pres.refresh()
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 		adapter.pointerUp(track.x, track.y)
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
 		system.deviceKey("Period", true)
 		system.deviceKey("Period", false)
 		pres.refresh()
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 	end)
 
 	it("shares the value model with Stepper: identical bounds arithmetic", function()
@@ -645,13 +650,13 @@ describe("B-VAL3: Slider keyboard, gamepad, bounds and hot-switch", function()
 		local serde = require("@lune/serde")
 		local core, _, _, _, _, control = mountSlider()
 		expect(serde.encode("json", control.dump(), true)).toBe(serde.encode("json", control.dump(), true))
-		local baseline = core:counters()
-		local value2 = core:signal(1)
-		local second = Facet.Controls.Slider(core, { id = "S2", value = value2, min = 0, max = 2 })
+		local baseline = core.owner.size()
+		local value2 = Compose.cell(1)
+		local second = harness.Controls.Slider(core, { id = "S2", value = value2, min = 0, max = 2 })
 		second.dispose()
-		local after = core:counters()
-		expect(after.scopes).toBe(baseline.scopes)
-		expect(after.observers).toBe(baseline.observers)
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -666,11 +671,11 @@ describe("verifier V13: a disabled Slider leaves focus order", function()
 		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local enabled = core:signal(false)
-		local control = Facet.Controls.Slider(core, {
+		local enabled = Compose.cell(false)
+		local control = harness.Controls.Slider(core, {
 			id = "Vol",
 			label = "Vol",
-			value = core:signal(50),
+			value = Compose.cell(50),
 			min = 0,
 			max = 100,
 			enabled = enabled,
@@ -690,7 +695,7 @@ describe("verifier V13: a disabled Slider leaves focus order", function()
 				system.deviceKey("DPadDown", true)
 				system.deviceKey("DPadDown", false)
 				pres.refresh()
-				local f = pres.focus.focused:get()
+				local f = pres.focus.focused:peek()
 				if f ~= nil then
 					seen ..= f .. ","
 				end
@@ -760,7 +765,7 @@ describe("verifier V11: the hit expander is re-based by its clip host", function
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local root = require("../src/mount").mount(
+		local root = harness.mount(
 			core,
 			UI.Screen({
 				id = "S",
@@ -800,8 +805,8 @@ describe("stepper: target geometry (director review 2026-07-24)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local value = core:signal(6)
-		local stepper = Facet.Controls.Stepper(core, {
+		local value = Compose.cell(6)
+		local stepper = harness.Controls.Stepper(core, {
 			id = "Vol",
 			label = "Volume",
 			value = value,
@@ -809,7 +814,7 @@ describe("stepper: target geometry (director review 2026-07-24)", function()
 			max = 10,
 			step = 1,
 		})
-		local root = require("../src/mount").mount(core, UI.Screen({ id = "S", children = { stepper.blueprint } }))
+		local root = harness.mount(core, UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		local adapter = fake_target.new({ ops = true })
 		local controller =
 			require("../src/render/renderer").attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
@@ -831,8 +836,8 @@ describe("stepper: target geometry (director review 2026-07-24)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local value = core:signal(9)
-		local stepper = Facet.Controls.Stepper(core, {
+		local value = Compose.cell(9)
+		local stepper = harness.Controls.Stepper(core, {
 			id = "Vol",
 			label = "Volume",
 			value = value,
@@ -840,7 +845,7 @@ describe("stepper: target geometry (director review 2026-07-24)", function()
 			max = 100,
 			step = 1,
 		})
-		local root = require("../src/mount").mount(core, UI.Screen({ id = "S", children = { stepper.blueprint } }))
+		local root = harness.mount(core, UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		local adapter = fake_target.new({ ops = true })
 		local controller =
 			require("../src/render/renderer").attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
@@ -886,9 +891,9 @@ describe("Slider: the decoration slot hint and the per-view override", function(
 		-- nothing generic can infer "this Box is a slider rail": `surface =
 		-- "control"` would have given it the BUTTON skin, a button plate
 		-- stretched into a groove
-		local control = Facet.Controls.Slider(customFactory.new(), {
+		local control = harness.Controls.Slider(customFactory.new(), {
 			id = "Vol",
-			value = customFactory.new():signal(50),
+			value = Compose.cell(50),
 			min = 0,
 			max = 100,
 		})
@@ -912,9 +917,9 @@ describe("Slider: the decoration slot hint and the per-view override", function(
 
 	it("a per-view thumbImage/trackImage rides the same channel", function()
 		local core = customFactory.new()
-		local control = Facet.Controls.Slider(core, {
+		local control = harness.Controls.Slider(core, {
 			id = "Vol",
-			value = core:signal(50),
+			value = Compose.cell(50),
 			min = 0,
 			max = 100,
 			thumbImage = "rbxassetid://4242",
@@ -938,7 +943,7 @@ describe("Slider: the decoration slot hint and the per-view override", function(
 		-- package at all can still hand ONE slider a picture
 		local _, adapter, _, _, value, control = mountSlider({ thumbImage = "rbxassetid://99" })
 		expect(adapter.node("/S/Vol/TrackHost/Groove/Thumb") ~= nil).toBe(true)
-		expect(value:get()).toBe(50)
+		expect(value:peek()).toBe(50)
 		expect(control.dump().skinRung).toBe("view")
 	end)
 end)

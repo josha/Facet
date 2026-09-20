@@ -20,7 +20,7 @@ local detail = {}
 local METRICS = seedData.METRICS
 
 local function heroHeight(ctx: any, scope: any): any
-	return scope:own(ctx.core:memo(function(use)
+	return ctx.Compose.formula(function(use)
 		local class = use(ctx.conditions.sizeClass)
 		local px = METRICS.sceneMedium
 		if class == "compact" then
@@ -29,7 +29,7 @@ local function heroHeight(ctx: any, scope: any): any
 			px = METRICS.sceneTall
 		end
 		return { type = "fixed", px = px }
-	end))
+	end)
 end
 
 -- ---- a supply row ------------------------------------------------------------
@@ -38,40 +38,39 @@ end
 -- "Low"/"Empty" chip is the second, formal signal (§6). No hue changes.
 local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
 	local state = ctx.supply.state(gladeId, kind)
 	local remaining = ctx.supply.remaining(gladeId, kind)
 
-	local title = scope:own(core:memo(function(use)
+	local title = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		if kind == "dew" then
 			return ctx.Lnow("supply.dew")
 		end
 		return ctx.Lnow("nectar." .. use(ctx.supply.nectarOf(gladeId)))
-	end))
-	local caption = scope:own(core:memo(function(use)
+	end)
+	local caption = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		local left = use(remaining)
 		if left <= 0 then
 			return ctx.Lnow("supply.captionEmpty")
 		end
 		return ctx.Lnow("supply.caption", { remaining = ctx.fmt.duration(left) })
-	end))
+	end)
 	-- empty strengthens the caption's role; it never recolours the ring
-	local captionRole = scope:own(core:memo(function(use)
+	local captionRole = ctx.Compose.formula(function(use)
 		return if use(state) == "empty" then "content" else "secondary"
-	end))
-	local chipped = scope:own(core:memo(function(use)
+	end)
+	local chipped = ctx.Compose.formula(function(use)
 		return use(state) ~= "full"
-	end))
-	local chipText = scope:own(core:memo(function(use)
+	end)
+	local chipText = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow(if use(state) == "empty" then "supply.empty" else "supply.low")
-	end))
-	local actionTitle = scope:own(core:memo(function(use)
+	end)
+	local actionTitle = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow(if kind == "dew" then "detail.refillDew" else "detail.chooseNectar")
-	end))
+	end)
 
 	-- THE TRAILING AFFORDANCE. The spec asks for `newLabel` in its icon-only
 	-- presentation with the semantic title preserved; `newLabel.title` accepts
@@ -84,8 +83,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 	-- locale the verb's natural ask set the row minimum 21px past the lane.
 	-- The floor keeps the verb legible; past the cap it truncates through its
 	-- declared disclose.
-	local affordance = UI.Text({
-		id = "Affordance",
+	local affordance = UI.Text("Affordance")({
 		text = actionTitle,
 		textSize = "label",
 		role = "secondary",
@@ -94,8 +92,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 		disclose = true,
 	})
 
-	return UI.Button({
-		id = "SupplyRow_" .. kind,
+	return UI.Button("SupplyRow_" .. kind)({
 		label = actionTitle,
 		width = UI.fill(),
 		onActivate = function()
@@ -106,8 +103,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 			end
 		end,
 
-		UI.HStack({
-			id = "Row",
+		UI.HStack("Row")({
 			gap = "m",
 			align = "center",
 			width = UI.fill(),
@@ -118,19 +114,16 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 				kind = kind,
 				size = METRICS.ringLarge,
 			}),
-			UI.VStack({
-				id = "Copy",
+			UI.VStack("Copy")({
 				gap = "xs",
 				width = UI.fill(),
 
-				UI.HStack({
-					id = "TitleRow",
+				UI.HStack("TitleRow")({
 					gap = "s",
 					align = "center",
 					width = UI.fill(),
 
-					UI.Text({
-						id = "Name",
+					UI.Text("Name")({
 						text = title,
 						textSize = "label",
 						-- FILL, because lineLimit caps LINES, never the width a
@@ -142,13 +135,11 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 						lineLimit = 1,
 						disclose = true,
 					}),
-					UI.When({
-						id = "StateChip",
+					ctx.when("StateChip")({
 						condition = chipped,
 						transition = { enter = "fade", class = "container" },
 						thenView = function(): any
-							return UI.ZStack({
-								id = "ChipGroup",
+							return UI.ZStack("ChipGroup")({
 								canvasGroup = true,
 								parts.chip(ctx, "Chip", chipText),
 							})
@@ -161,8 +152,7 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 				-- 1.4x locale sets the column's minimum instead of
 				-- wrapping (the same lineLimit-is-not-a-width-cap class
 				-- as the name above)
-				UI.Text({
-					id = "Caption",
+				UI.Text("Caption")({
 					text = caption,
 					textSize = "caption",
 					role = captionRole,
@@ -188,45 +178,40 @@ end
 -- ---- the recent-visitors list ------------------------------------------------
 local function visitors(ctx: any, gladeId: string, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
 	local rows = ctx.visits.recent(gladeId)
-	local empty = scope:own(core:memo(function(use)
+	local empty = ctx.Compose.formula(function(use)
 		return #use(rows) == 0
-	end))
-	return UI.VStack({
-		id = "Visitors",
+	end)
+	return UI.VStack("Visitors")({
 		gap = "s",
 		width = UI.fill(),
 
 		parts.heading(ctx, "VisitorsTitle", ctx.L("detail.visitors")),
-		UI.When({
-			id = "NoVisitors",
+		ctx.when("NoVisitors")({
 			condition = empty,
 			thenView = function(): any
 				return parts.body(ctx, "None", ctx.L("detail.noVisitors"))
 			end,
 		}),
-		UI.ForEach({
-			id = "VisitorRows",
+		ctx.forEach("VisitorRows")({
 			items = rows,
 			key = function(visit: any): string
 				return visit.id
 			end,
 			row = function(visit: any, rowScope: any): any
-				local name = rowScope:own(core:memo(function(use)
+				local name = ctx.Compose.formula(function(use)
 					local _ = use(ctx.state.locale)
 					return ctx.Lnow("wisp." .. visit.wisp)
-				end))
-				local when = rowScope:own(core:memo(function(use)
+				end)
+				local when = ctx.Compose.formula(function(use)
 					local _ = use(ctx.state.locale)
 					return ctx.fmt.relative(use(ctx.now) - visit.finish)
-				end))
-				local activate = rowScope:own(core:memo(function(use)
+				end)
+				local activate = ctx.Compose.formula(function(use)
 					local _ = use(ctx.state.locale)
 					return ctx.Lnow("wisp.activate", { wisp = ctx.Lnow("wisp." .. visit.wisp) })
-				end))
-				return UI.Button({
-					id = "Visitor_" .. visit.id,
+				end)
+				return UI.Button("Visitor_" .. visit.id)({
 					label = activate,
 					width = UI.fill(),
 					align = "start",
@@ -234,15 +219,13 @@ local function visitors(ctx: any, gladeId: string, scope: any): any
 						ctx.nav.openWisp(visit.wisp)
 					end,
 
-					UI.HStack({
-						id = "Row",
+					UI.HStack("Row")({
 						gap = "m",
 						align = "center",
 						width = UI.fill(),
 
 						sceneLib.portrait(ctx, "Portrait", visit.wisp, METRICS.portrait),
-						UI.Text({
-							id = "Name",
+						UI.Text("Name")({
 							text = name,
 							textSize = "label",
 							-- fill for the same reason as the supply row's name:
@@ -271,18 +254,17 @@ export type BodySpec = {
 
 function detail.body(ctx: any, spec: BodySpec): any
 	local UI = ctx.UI
-	local core = ctx.core
 	local gladeId = spec.glade
-	local name = spec.scope:own(core:memo(function(use)
+	local name = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("glade." .. gladeId)
-	end))
+	end)
 
 	-- the shared back+title+trailing bar (registry item 13; W3-D):
 	-- `onBack` is nil outside compact, which is this site's OWN "nothing to go
 	-- back to" decision (the detail pane is beside the overview there, not a
 	-- pushed surface) — `Facet.navBar` never invents a verb it was not given
-	local titleBar = ctx.Facet.navBar({
+	local titleBar = parts.navBar(ctx, {
 		onBack = if spec.compact and not spec.navigationHosted
 			then function()
 				ctx.nav.closeDetail()
@@ -291,8 +273,7 @@ function detail.body(ctx: any, spec: BodySpec): any
 		backLabel = ctx.L("detail.back"),
 		title = if spec.navigationHosted then nil else name,
 		trailing = {
-			UI.Button({
-				id = "Fav",
+			UI.Button("Fav")({
 				label = ctx.L("overview.favorite"),
 				compactLabel = "★",
 				selected = ctx.state.favourites[gladeId],
@@ -305,8 +286,7 @@ function detail.body(ctx: any, spec: BodySpec): any
 		},
 	})
 
-	return UI.ScrollView({
-		id = spec.id,
+	return UI.ScrollView(spec.id)({
 		axis = "y",
 		gap = "l",
 		padding = "l",
@@ -322,8 +302,7 @@ function detail.body(ctx: any, spec: BodySpec): any
 			form = "hero",
 			height = heroHeight(ctx, spec.scope),
 		}),
-		UI.VStack({
-			id = "Supplies",
+		UI.VStack("Supplies")({
 			gap = "s",
 			width = UI.fill(),
 
@@ -340,27 +319,24 @@ end
 -- rather than reserving a dead band.
 function detail.lane(ctx: any): any
 	local UI = ctx.UI
-	local core = ctx.core
-	local items = ctx.scope:own(core:memo(function(use)
+	local items = ctx.Compose.formula(function(use)
 		local selected = use(ctx.state.selectedGlade)
 		if selected == nil or use(ctx.conditions.isCompact) then
 			return {}
 		end
 		return { { id = selected } }
-	end))
+	end)
 	-- the region's FORM has to be something that measures, so the keyed region
 	-- lives inside a stack: empty selection ⇒ the stack measures nothing ⇒ the
 	-- region is not mounted ⇒ the composition collapses the whole lane (rule 9).
-	local rows = UI.ForEach({
-		id = "DetailLane",
+	local rows = ctx.forEach("DetailLane")({
 		items = items,
 		key = function(item: any): string
 			return item.id
 		end,
 		transition = { enter = "fade", class = "container" },
 		row = function(item: any, rowScope: any): any
-			return UI.ZStack({
-				id = "Pane",
+			return UI.ZStack("Pane")({
 				canvasGroup = true,
 				width = { type = "fixed", px = METRICS.detailPaneMin },
 				height = UI.fill(),
@@ -369,7 +345,7 @@ function detail.lane(ctx: any): any
 			})
 		end,
 	})
-	return UI.VStack({ id = "DetailForm", height = UI.fill(), rows })
+	return UI.VStack("DetailForm")({ height = UI.fill(), rows })
 end
 
 return detail

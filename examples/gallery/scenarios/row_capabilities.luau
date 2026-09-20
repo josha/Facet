@@ -132,6 +132,8 @@ local SEED = {
 	{ id = "cool", nameKey = "rowCool", lock = nil },
 }
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Per-row capability opt-outs (round 3 item C)",
 	ledgerRows = {},
@@ -139,359 +141,355 @@ return {
 	seed = SEED,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
-		local scope = core:scope("row-capabilities")
-		-- THE SAME TABLE the module exports, never a snapshot of it: the
-		-- localization case mutates `module.copy` IN PLACE and runs the fixture
-		-- again, so a build that copied the strings out would be pseudo-localizing
-		-- a table nothing on screen reads (`examples_gallery.spec.luau`'s
-		-- `underPseudoLocalization`).
-		local copy: any = COPY
+		local lifetime = newLifetime(Compose)
+		return lifetime.under(function()
+			-- THE SAME TABLE the module exports, never a snapshot of it: the
+			-- localization case mutates `module.copy` IN PLACE and runs the fixture
+			-- again, so a build that copied the strings out would be pseudo-localizing
+			-- a table nothing on screen reads (`examples_gallery.spec.luau`'s
+			-- `underPseudoLocalization`).
+			local copy: any = COPY
 
-		local function nameOf(item: any): string
-			return copy[item.nameKey]
-		end
+			local function nameOf(item: any): string
+				return copy[item.nameKey]
+			end
 
-		local rows = scope:own(core:signal(table.clone(SEED)))
-		local refusal = scope:own(core:signal(copy.refusalIdle))
-		local refusals = scope:own(core:signal(0))
+			local rows = Compose.cell(table.clone(SEED))
+			local refusal = Compose.cell(copy.refusalIdle)
+			local refusals = Compose.cell(0)
 
-		-- THE NARRATOR. See the header: this is called from inside the three
-		-- predicates, never from a handler, so the line is the framework's own
-		-- question rather than this fixture's account of it.
-		local function narrate(item: any, question: string)
-			refusals:set(refusals:get() + 1)
-			refusal:set(`{nameOf(item)} — {question} {copy.answerNo}`)
-		end
+			-- THE NARRATOR. See the header: this is called from inside the three
+			-- predicates, never from a handler, so the line is the framework's own
+			-- question rather than this fixture's account of it.
+			local function narrate(item: any, question: string)
+				refusals:set(refusals:peek() + 1)
+				refusal:set(`{nameOf(item)} — {question} {copy.answerNo}`)
+			end
 
-		local function indexOf(key: string): number?
-			for i, item in rows:get() :: { any } do
-				if item.id == key then
-					return i
+			local function indexOf(key: string): number?
+				for i, item in rows:peek() :: { any } do
+					if item.id == key then
+						return i
+					end
 				end
+				return nil
 			end
-			return nil
-		end
 
-		-- `toIndex` is the 0-based insertion slot among the rows NOT being moved
-		-- (Table's own onReorder contract). The table never mutates caller rows.
-		local function reorder(keys: { string }, toIndex: number)
-			local moving: { [string]: boolean } = {}
-			for _, key in keys do
-				moving[key] = true
-			end
-			local carried, staying = {}, {}
-			for _, item in rows:get() :: { any } do
-				table.insert(if moving[item.id] then carried else staying, item)
-			end
-			local out = {}
-			for i = 1, toIndex do
-				table.insert(out, staying[i])
-			end
-			for _, item in carried do
-				table.insert(out, item)
-			end
-			for i = toIndex + 1, #staying do
-				table.insert(out, staying[i])
-			end
-			rows:set(out)
-		end
-
-		local function removeRow(key: string)
-			local out = {}
-			for _, item in rows:get() :: { any } do
-				if item.id ~= key then
+			-- `toIndex` is the 0-based insertion slot among the rows NOT being moved
+			-- (Table's own onReorder contract). The table never mutates caller rows.
+			local function reorder(keys: { string }, toIndex: number)
+				local moving: { [string]: boolean } = {}
+				for _, key in keys do
+					moving[key] = true
+				end
+				local carried, staying = {}, {}
+				for _, item in rows:peek() :: { any } do
+					table.insert(if moving[item.id] then carried else staying, item)
+				end
+				local out = {}
+				for i = 1, toIndex do
+					table.insert(out, staying[i])
+				end
+				for _, item in carried do
 					table.insert(out, item)
 				end
+				for i = toIndex + 1, #staying do
+					table.insert(out, staying[i])
+				end
+				rows:set(out)
 			end
-			rows:set(out)
-		end
 
-		local tbl = Facet.Controls.Table(core, {
-			id = "RunSheet",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			header = true,
-			-- a BLOCK: the page below owns the scrolling (see the header)
-			scrolls = false,
-			-- NO rowHeight, deliberately — the framework derives it per paradigm
-			-- and per text preference, which is what keeps a 1.4x expanded name
-			-- from painting through its neighbours
-			--[[ `value`, NOT `cell`, and the difference is load-bearing. A `value`
-				column is a Text the TABLE authors, so the table caps its lines
-				against the row height it derived; a `cell` blueprint belongs to the
-				consumer and the table "caps what it makes, not what it is given"
-				(`cellContentFor`). Measured on the first cut of this fixture, which
-				used `cell`: 1577 solver findings across the theme × viewport × text-
-				preference sweep — every one of them a row name wrapping past its own
-				row box under Parchment and Pixel Quest, at every text preference.
-				`disclose` gives the capped string its full-value path. ]]
-			columns = {
-				{
-					id = "name",
-					title = copy.colName,
-					width = UI.fill(3),
-					minWidth = 90,
-					disclose = true,
-					value = nameOf,
+			local function removeRow(key: string)
+				local out = {}
+				for _, item in rows:peek() :: { any } do
+					if item.id ~= key then
+						table.insert(out, item)
+					end
+				end
+				rows:set(out)
+			end
+
+			local tblApi, tblDump
+			local tbl = UI.Table("RunSheet")({
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				header = true,
+				-- a BLOCK: the page below owns the scrolling (see the header)
+				scrolls = false,
+				-- NO rowHeight, deliberately — the framework derives it per paradigm
+				-- and per text preference, which is what keeps a 1.4x expanded name
+				-- from painting through its neighbours
+				--[[ `value`, NOT `cell`, and the difference is load-bearing. A `value`
+					column is a Text the TABLE authors, so the table caps its lines
+					against the row height it derived; a `cell` blueprint belongs to the
+					consumer and the table "caps what it makes, not what it is given"
+					(`cellContentFor`). Measured on the first cut of this fixture, which
+					used `cell`: 1577 solver findings across the theme × viewport × text-
+					preference sweep — every one of them a row name wrapping past its own
+					row box under Parchment and Pixel Quest, at every text preference.
+					`disclose` gives the capped string its full-value path. ]]
+				columns = {
+					{
+						id = "name",
+						title = copy.colName,
+						width = UI.fill(3),
+						minWidth = 90,
+						disclose = true,
+						value = nameOf,
+					},
+					{
+						id = "lock",
+						title = copy.colLock,
+						width = UI.fill(2),
+						minWidth = 60,
+						disclose = true,
+						value = function(item: any): string
+							if item.lock == "move" then
+								return copy.lockPinned
+							elseif item.lock == "delete" then
+								return copy.lockProtected
+							elseif item.lock == "select" then
+								return copy.lockLocked
+							end
+							return copy.lockNone
+						end,
+					},
 				},
-				{
-					id = "lock",
-					title = copy.colLock,
-					width = UI.fill(2),
-					minWidth = 60,
-					disclose = true,
-					value = function(item: any): string
-						if item.lock == "move" then
-							return copy.lockPinned
-						elseif item.lock == "delete" then
-							return copy.lockProtected
-						elseif item.lock == "select" then
-							return copy.lockLocked
-						end
-						return copy.lockNone
+				selection = "single",
+				reorderable = true,
+				onReorder = reorder,
+				--[[ THE THREE PREDICATES. Positive polarity — `true` (or a forgotten
+					branch returning nil) means "this row may take part"; only an
+					explicit `false` refuses. The usual spelling for this family is negative
+					(`selectionDisabled`/`moveDisabled`/`deleteDisabled`), and the parity
+					doc carries the inverse mapping. ]]
+				rowSelectable = function(item: any): boolean
+					if item.lock ~= "select" then
+						return true
+					end
+					narrate(item, copy.askSelect)
+					return false
+				end,
+				rowMovable = function(item: any): boolean
+					if item.lock ~= "move" then
+						return true
+					end
+					narrate(item, copy.askMove)
+					return false
+				end,
+				rowDeletable = function(item: any): boolean
+					if item.lock ~= "delete" then
+						return true
+					end
+					narrate(item, copy.askDelete)
+					return false
+				end,
+				rowActions = function(item: any): any
+					return {
+						trailing = {
+							{
+								id = "flag",
+								role = "normal",
+								label = "Flag",
+								icon = "flag",
+								onAction = function() end,
+							},
+							{
+								id = "delete",
+								role = "destructive",
+								label = "Delete",
+								icon = "trash",
+								onAction = function()
+									removeRow(item.id)
+								end,
+							},
+						},
+						-- NO full swipe. A full swipe is an irrevocable commit, and on a
+						-- surface whose whole subject is "some of these refuse" a gesture
+						-- that deletes without a confirming tap makes the refused case and
+						-- the accepted case feel like different bugs rather than one rule.
+						fullSwipe = false,
+					}
+				end,
+				env = ctx.env,
+				ref = function(record)
+					tblApi = record.api
+					tblDump = record.dump
+				end,
+			})
+
+			-- the readouts. Each is a memo over the control's OWN published state, not
+			-- a second copy of it: `api.selectedKeys` is the table's live selection set
+			-- (a SET, so the readout picks the one key a single-selection table holds).
+			local selectedName = Compose.formula(function(use)
+				local keys = use(tblApi.selectedKeys)
+				for _, item in use(rows) :: { any } do
+					if keys[item.id] == true then
+						return `{copy.selectedPrefix}: {nameOf(item)}`
+					end
+				end
+				return `{copy.selectedPrefix}: {copy.selectedNone}`
+			end)
+
+			local orderLine = Compose.formula(function(use)
+				local names = {}
+				for _, item in use(rows) :: { any } do
+					table.insert(names, nameOf(item))
+				end
+				return `{copy.orderPrefix}: {table.concat(names, " · ")}`
+			end)
+
+			local refusalCount = Compose.formula(function(use)
+				return `{copy.refusedCount}: {use(refusals)}`
+			end)
+
+			-- the selected key, for the two move buttons. nil disables neither button:
+			-- a move with nothing selected is a no-op the funnel already answers, and a
+			-- disabled control that re-enables on selection is a second thing to explain.
+			local function selectedKey(): string?
+				for key, on in tblApi.selectedKeys:peek() do
+					if on then
+						return key
+					end
+				end
+				return nil
+			end
+
+			local function move(delta: number): boolean
+				local key = selectedKey()
+				if key == nil then
+					return false
+				end
+				return tblApi.moveRow(key, delta) == true
+			end
+
+			local screen = UI.Screen("RowCapabilities")({
+				padding = 12,
+				gap = "s",
+
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = copy.title, textSize = "heading" }),
+					UI.Text("Intro")({ text = copy.intro, textSize = "caption", role = "secondary" }),
+					-- WRAPPING, so two buttons whose labels expanded ~1.4x take a
+					-- second line instead of walking off a 320px phone. `wrap` is
+					-- itself round-3 vocabulary (item A) and this is what it is for.
+					UI.HStack("Toolbar")({
+						gap = "s",
+						wrap = true,
+						width = UI.fill(),
+
+						UI.Button("MoveUp")({
+							label = copy.moveUp,
+							onActivate = function()
+								move(-1)
+							end,
+						}),
+						UI.Button("MoveDown")({
+							label = copy.moveDown,
+							onActivate = function()
+								move(1)
+							end,
+						}),
+					}),
+					UI.Text("Selected")({ text = selectedName, textSize = "label" }),
+					UI.focusSection(tbl),
+					UI.Text("Order")({ text = orderLine, textSize = "caption", role = "secondary" }),
+					-- THE LINE THIS WHOLE FIXTURE IS FOR. `role = "danger"` is not
+					-- used: a refusal is information, not an error, and painting it
+					-- as one would say the table is broken — which is the exact
+					-- reading this surface exists to prevent.
+					UI.Text("Refusal")({ text = refusal, textSize = "label" }),
+					UI.Text("RefusalCount")({ text = refusalCount, textSize = "caption", role = "secondary" }),
+					UI.VStack("Legend")({
+						surface = "control",
+						padding = "s",
+						gap = "tight",
+						width = UI.fill(),
+
+						UI.Text("LegendPinned")({
+							text = copy.legendPinned,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						UI.Text("LegendProtected")({
+							text = copy.legendProtected,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						UI.Text("LegendLocked")({
+							text = copy.legendLocked,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+					UI.Text("Footer")({ text = copy.footer, textSize = "caption", role = "secondary" }),
+				}),
+			})
+
+			local function ids(): { string }
+				local out = {}
+				for _, item in rows:peek() :: { any } do
+					table.insert(out, item.id)
+				end
+				return out
+			end
+
+			return {
+				screen = screen,
+				present = {},
+				-- published for the headless suite: the control and the signals a test
+				-- drives and reads, rather than a re-implementation of them
+				table_ = { api = tblApi, dump = tblDump },
+				rows = rows,
+				refusal = refusal,
+				refusals = refusals,
+				ids = ids,
+
+				steps = {
+					-- the public funnels, exactly as a tap/key/pad press reaches them
+					select = function(_built: any, payload: string?)
+						tblApi.select(tostring(payload))
+						return { selected = tblDump().selectedKeys, refusal = refusal:peek() }
+					end,
+					moveUp = function(_built: any, payload: string?)
+						local key = if payload ~= nil and payload ~= "" then payload else selectedKey()
+						local ok = key ~= nil and tblApi.moveRow(key :: string, -1) == true
+						return { ok = ok, order = ids(), refusal = refusal:peek() }
+					end,
+					moveDown = function(_built: any, payload: string?)
+						local key = if payload ~= nil and payload ~= "" then payload else selectedKey()
+						local ok = key ~= nil and tblApi.moveRow(key :: string, 1) == true
+						return { ok = ok, order = ids(), refusal = refusal:peek() }
+					end,
+					edit = function(_built: any, payload: string?)
+						tblApi.editing:set(payload ~= "off")
+						return { editing = tblApi.editing:peek() }
 					end,
 				},
-			},
-			selection = "single",
-			reorderable = true,
-			onReorder = reorder,
-			--[[ THE THREE PREDICATES. Positive polarity — `true` (or a forgotten
-				branch returning nil) means "this row may take part"; only an
-				explicit `false` refuses. The usual spelling for this family is negative
-				(`selectionDisabled`/`moveDisabled`/`deleteDisabled`), and the parity
-				doc carries the inverse mapping. ]]
-			rowSelectable = function(item: any): boolean
-				if item.lock ~= "select" then
-					return true
-				end
-				narrate(item, copy.askSelect)
-				return false
-			end,
-			rowMovable = function(item: any): boolean
-				if item.lock ~= "move" then
-					return true
-				end
-				narrate(item, copy.askMove)
-				return false
-			end,
-			rowDeletable = function(item: any): boolean
-				if item.lock ~= "delete" then
-					return true
-				end
-				narrate(item, copy.askDelete)
-				return false
-			end,
-			rowActions = function(item: any): any
-				return {
-					trailing = {
-						{
-							id = "flag",
-							role = "normal",
-							label = "Flag",
-							icon = "flag",
-							onAction = function() end,
-						},
-						{
-							id = "delete",
-							role = "destructive",
-							label = "Delete",
-							icon = "trash",
-							onAction = function()
-								removeRow(item.id)
-							end,
-						},
-					},
-					-- NO full swipe. A full swipe is an irrevocable commit, and on a
-					-- surface whose whole subject is "some of these refuse" a gesture
-					-- that deletes without a confirming tap makes the refused case and
-					-- the accepted case feel like different bugs rather than one rule.
-					fullSwipe = false,
-				}
-			end,
-			env = ctx.env,
-		})
 
-		-- the readouts. Each is a memo over the control's OWN published state, not
-		-- a second copy of it: `api.selectedKeys` is the table's live selection set
-		-- (a SET, so the readout picks the one key a single-selection table holds).
-		local selectedName = scope:own(core:memo(function(use)
-			local keys = use(tbl.api.selectedKeys)
-			for _, item in use(rows) :: { any } do
-				if keys[item.id] == true then
-					return `{copy.selectedPrefix}: {nameOf(item)}`
-				end
-			end
-			return `{copy.selectedPrefix}: {copy.selectedNone}`
-		end))
-
-		local orderLine = scope:own(core:memo(function(use)
-			local names = {}
-			for _, item in use(rows) :: { any } do
-				table.insert(names, nameOf(item))
-			end
-			return `{copy.orderPrefix}: {table.concat(names, " · ")}`
-		end))
-
-		local refusalCount = scope:own(core:memo(function(use)
-			return `{copy.refusedCount}: {use(refusals)}`
-		end))
-
-		-- the selected key, for the two move buttons. nil disables neither button:
-		-- a move with nothing selected is a no-op the funnel already answers, and a
-		-- disabled control that re-enables on selection is a second thing to explain.
-		local function selectedKey(): string?
-			for key, on in tbl.api.selectedKeys:get() do
-				if on then
-					return key
-				end
-			end
-			return nil
-		end
-
-		local function move(delta: number): boolean
-			local key = selectedKey()
-			if key == nil then
-				return false
-			end
-			return tbl.api.moveRow(key, delta) == true
-		end
-
-		local screen = UI.Screen({
-			id = "RowCapabilities",
-			padding = 12,
-			gap = "s",
-
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = copy.title, textSize = "heading" }),
-				UI.Text({ id = "Intro", text = copy.intro, textSize = "caption", role = "secondary" }),
-				-- WRAPPING, so two buttons whose labels expanded ~1.4x take a
-				-- second line instead of walking off a 320px phone. `wrap` is
-				-- itself round-3 vocabulary (item A) and this is what it is for.
-				UI.HStack({
-					id = "Toolbar",
-					gap = "s",
-					wrap = true,
-					width = UI.fill(),
-
-					UI.Button({
-						id = "MoveUp",
-						label = copy.moveUp,
-						onActivate = function()
-							move(-1)
-						end,
-					}),
-					UI.Button({
-						id = "MoveDown",
-						label = copy.moveDown,
-						onActivate = function()
-							move(1)
-						end,
-					}),
-				}),
-				UI.Text({ id = "Selected", text = selectedName, textSize = "label" }),
-				UI.focusSection(tbl.blueprint),
-				UI.Text({ id = "Order", text = orderLine, textSize = "caption", role = "secondary" }),
-				-- THE LINE THIS WHOLE FIXTURE IS FOR. `role = "danger"` is not
-				-- used: a refusal is information, not an error, and painting it
-				-- as one would say the table is broken — which is the exact
-				-- reading this surface exists to prevent.
-				UI.Text({ id = "Refusal", text = refusal, textSize = "label" }),
-				UI.Text({ id = "RefusalCount", text = refusalCount, textSize = "caption", role = "secondary" }),
-				UI.VStack({
-					id = "Legend",
-					surface = "control",
-					padding = "s",
-					gap = "tight",
-					width = UI.fill(),
-
-					UI.Text({
-						id = "LegendPinned",
-						text = copy.legendPinned,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					UI.Text({
-						id = "LegendProtected",
-						text = copy.legendProtected,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					UI.Text({
-						id = "LegendLocked",
-						text = copy.legendLocked,
-						textSize = "caption",
-						role = "secondary",
-					}),
-				}),
-				UI.Text({ id = "Footer", text = copy.footer, textSize = "caption", role = "secondary" }),
-			}),
-		})
-
-		local function ids(): { string }
-			local out = {}
-			for _, item in rows:get() :: { any } do
-				table.insert(out, item.id)
-			end
-			return out
-		end
-
-		return {
-			screen = screen,
-			present = {},
-			-- published for the headless suite: the control and the signals a test
-			-- drives and reads, rather than a re-implementation of them
-			table_ = tbl,
-			rows = rows,
-			refusal = refusal,
-			refusals = refusals,
-			ids = ids,
-
-			steps = {
-				-- the public funnels, exactly as a tap/key/pad press reaches them
-				select = function(_built: any, payload: string?)
-					tbl.api.select(tostring(payload))
-					return { selected = tbl.dump().selectedKeys, refusal = refusal:get() }
+				report = function()
+					return {
+						order = ids(),
+						selected = tblDump().selectedKeys,
+						refusal = refusal:peek(),
+						refusals = refusals:peek(),
+						editing = tblApi.editing:peek(),
+					}
 				end,
-				moveUp = function(_built: any, payload: string?)
-					local key = if payload ~= nil and payload ~= "" then payload else selectedKey()
-					local ok = key ~= nil and tbl.api.moveRow(key :: string, -1) == true
-					return { ok = ok, order = ids(), refusal = refusal:get() }
-				end,
-				moveDown = function(_built: any, payload: string?)
-					local key = if payload ~= nil and payload ~= "" then payload else selectedKey()
-					local ok = key ~= nil and tbl.api.moveRow(key :: string, 1) == true
-					return { ok = ok, order = ids(), refusal = refusal:get() }
-				end,
-				edit = function(_built: any, payload: string?)
-					tbl.api.editing:set(payload ~= "off")
-					return { editing = tbl.api.editing:get() }
-				end,
-			},
 
-			report = function()
-				return {
-					order = ids(),
-					selected = tbl.dump().selectedKeys,
-					refusal = refusal:get(),
-					refusals = refusals:get(),
-					editing = tbl.api.editing:get(),
-				}
-			end,
-
-			dispose = function()
-				tbl.dispose()
-				scope:dispose()
-			end,
-		}
+				dispose = function()
+					lifetime.dispose()
+				end,
+			}
+		end)
 	end,
 }

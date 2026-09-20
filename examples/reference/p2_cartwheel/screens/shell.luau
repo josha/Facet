@@ -17,11 +17,12 @@
 -- shadowing the gap names.
 local data = require("../content/data")
 
+local parts = require("./parts")
 local shell = {}
 
 function shell.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 	local state = app.state
 
@@ -39,33 +40,36 @@ function shell.new(app: any): any
 	local function isSection(id: string): any
 		local existing = sectionMemos[id]
 		if existing == nil then
-			existing = core:memo(function(use)
-				return use(state.section) == id
+			-- cached across visits, so it lives under the app owner
+			existing = app.rooted(function()
+				return Compose.formula(function(use)
+					return use(state.section) == id
+				end)
 			end)
 			sectionMemos[id] = existing
 		end
 		return existing
 	end
 
-	local isPlaza = own(core:memo(function(use)
+	local isPlaza = own(Compose.formula(function(use)
 		return string.match(use(state.section), "^plaza:") ~= nil
 	end))
-	local brewOpen = own(core:memo(function(use)
+	local brewOpen = own(Compose.formula(function(use)
 		return use(state.openBrew) ~= 0
 	end))
-	local brewClosed = own(core:memo(function(use)
+	local brewClosed = own(Compose.formula(function(use)
 		return use(state.openBrew) == 0
 	end))
-	local navVisible = own(core:memo(function(use)
+	local navVisible = own(Compose.formula(function(use)
 		return not use(state.isCompact) or not use(state.compactOpen)
 	end))
-	local detailVisible = own(core:memo(function(use)
+	local detailVisible = own(Compose.formula(function(use)
 		return not use(state.isCompact) or use(state.compactOpen)
 	end))
-	local headerVisible = own(core:memo(function(use)
+	local headerVisible = own(Compose.formula(function(use)
 		return use(state.isCompact) and use(state.compactOpen)
 	end))
-	local headerTitle = own(core:memo(function(use)
+	local headerTitle = own(Compose.formula(function(use)
 		local section = use(state.section)
 		if use(state.openBrew) ~= 0 then
 			return S.t("detail.title", { id = use(state.openBrew) })
@@ -135,7 +139,7 @@ function shell.new(app: any): any
 		return UI.Button(spec)
 	end
 
-	local guildLabel = own(core:memo(function(use)
+	local guildLabel = own(Compose.formula(function(use)
 		local identity = app.services.identity
 		if use(identity.signedIn) then
 			return S.t("guild.signedIn", { name = use(identity.guildName) })
@@ -148,12 +152,11 @@ function shell.new(app: any): any
 		for _, entry in ROWS do
 			table.insert(children, navButton(entry, rail))
 		end
-		table.insert(children, UI.Divider({ id = "Rule1" }))
+		table.insert(children, UI.Divider("Rule1")({}))
 		if not rail then
 			table.insert(
 				children,
-				UI.Text({
-					id = "PotionsCaption",
+				UI.Text("PotionsCaption")({
 					text = S.t("nav.groupPotions"),
 					textSize = "caption",
 					role = "secondary",
@@ -163,12 +166,11 @@ function shell.new(app: any): any
 		for _, entry in POTION_ROWS do
 			table.insert(children, navButton(entry, rail))
 		end
-		table.insert(children, UI.Divider({ id = "Rule2" }))
+		table.insert(children, UI.Divider("Rule2")({}))
 		if not rail then
 			table.insert(
 				children,
-				UI.Text({
-					id = "PlazasCaption",
+				UI.Text("PlazasCaption")({
 					text = S.t("nav.groupPlazas"),
 					textSize = "caption",
 					role = "secondary",
@@ -178,11 +180,10 @@ function shell.new(app: any): any
 		for _, plaza in data.plazas :: any do
 			table.insert(children, plazaButton(plaza, rail))
 		end
-		table.insert(children, UI.Spacer({ id = "Gap", height = UI.fill() }))
+		table.insert(children, UI.Spacer("Gap")({ height = UI.fill() }))
 		table.insert(
 			children,
-			UI.Button({
-				id = "GuildCard",
+			UI.Button("GuildCard")({
 				label = guildLabel,
 				compactLabel = { text = "Guild" },
 				width = if rail then { type = "fixed", px = "targetSizes.minimum" } else UI.fill(),
@@ -195,46 +196,42 @@ function shell.new(app: any): any
 		return children
 	end
 
-	local sidebarFull = UI.ScrollView({
-		id = "List",
-		axis = "y",
-		gap = "xs",
-		padding = "s",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		UI.VStack({
-			id = "Rows",
+	local function sidebarFull(): any
+		return UI.ScrollView("List")({
+			axis = "y",
 			gap = "xs",
+			padding = "s",
 			width = UI.fill(),
-			children = sidebarChildren(false),
-		}),
-	})
+			height = UI.fill(),
 
-	local sidebarRail = UI.ScrollView({
-		id = "Icons",
-		axis = "y",
-		gap = "xs",
-		padding = "xs",
-		height = UI.fill(),
+			UI.VStack("Rows")(app.withChildren({
+				gap = "xs",
+				width = UI.fill(),
+			}, sidebarChildren(false))),
+		})
+	end
 
-		UI.VStack({
-			id = "Rows",
+	local function sidebarRail(): any
+		return UI.ScrollView("Icons")({
+			axis = "y",
 			gap = "xs",
-			align = "center",
-			children = sidebarChildren(true),
-		}),
-	})
+			padding = "xs",
+			height = UI.fill(),
+
+			UI.VStack("Rows")(app.withChildren({
+				gap = "xs",
+				align = "center",
+			}, sidebarChildren(true))),
+		})
+	end
 
 	-- ---- the detail host -----------------------------------------------------
 
 	local function section(id: string, condition: any, body: () -> any): any
-		return UI.When({
-			id = id .. "When",
+		return app.when(id .. "When")({
 			condition = condition,
 			thenView = function()
-				return UI.ZStack({
-					id = id .. "Section",
+				return UI.ZStack(id .. "Section")({
 					canvasGroup = true,
 					-- A SECTION PLATE CLIPS, and says so. A `canvasGroup` clips its
 					-- subtree by engine rule anyway, and declaring it here is what
@@ -252,92 +249,88 @@ function shell.new(app: any): any
 		})
 	end
 
-	local sections = UI.ZStack({
-		id = "Sections",
-		overflow = "clip",
-		width = UI.fill(),
-		height = UI.fill(),
+	local function sections(): any
+		return UI.ZStack("Sections")({
+			overflow = "clip",
+			width = UI.fill(),
+			height = UI.fill(),
 
-		section("Cart", isSection("cart"), function()
-			return app.screens.dashboard.view()
-		end),
-		section("Brews", isSection("brews"), function()
-			return UI.ZStack({
-				id = "BrewsStack",
-				overflow = "clip",
-				width = UI.fill(),
-				height = UI.fill(),
+			section("Cart", isSection("cart"), function()
+				return app.screens.dashboard.view()
+			end),
+			section("Brews", isSection("brews"), function()
+				return UI.ZStack("BrewsStack")({
+					overflow = "clip",
+					width = UI.fill(),
+					height = UI.fill(),
 
-				UI.When({
-					id = "ListWhen",
-					condition = brewClosed,
-					thenView = function()
-						return app.screens.brews.view()
-					end,
-				}),
-				UI.When({
-					id = "DetailWhen",
-					condition = brewOpen,
-					thenView = function()
-						return app.screens.brewDetail.view()
-					end,
-				}),
-			})
-		end),
-		section("Chatter", isSection("chatter"), function()
-			return app.screens.chatter.view()
-		end),
-		section("Ledger", isSection("ledger"), function()
-			return app.screens.ledger.view()
-		end),
-		section("Potions", isSection("potions"), function()
-			return app.screens.gallery.view()
-		end),
-		section("Workbench", isSection("workbench"), function()
-			return app.screens.workbench.view()
-		end),
-		section("TopFive", isSection("topfive"), function()
-			return app.screens.topfive.view()
-		end),
-		section("Plaza", isPlaza, function()
-			return app.screens.plaza.view()
-		end),
-	})
-
-	local detailHost = UI.VStack({
-		id = "Host",
-		gap = "xs",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		UI.When({
-			id = "HeaderWhen",
-			condition = headerVisible,
-			thenView = function()
-				-- registry item 13 (W3-D): was a hand-built HStack; the
-				-- shared bar takes the same Back verb and title
-				return app.Facet.navBar({
-					id = "Header",
-					padding = "s",
-					onBack = function()
-						app.actions.back()
-					end,
-					backLabel = S.t("nav.back"),
-					title = headerTitle,
+					app.when("ListWhen")({
+						condition = brewClosed,
+						thenView = function()
+							return app.screens.brews.view()
+						end,
+					}),
+					app.when("DetailWhen")({
+						condition = brewOpen,
+						thenView = function()
+							return app.screens.brewDetail.view()
+						end,
+					}),
 				})
-			end,
-		}),
-		sections,
-	})
+			end),
+			section("Chatter", isSection("chatter"), function()
+				return app.screens.chatter.view()
+			end),
+			section("Ledger", isSection("ledger"), function()
+				return app.screens.ledger.view()
+			end),
+			section("Potions", isSection("potions"), function()
+				return app.screens.gallery.view()
+			end),
+			section("Workbench", isSection("workbench"), function()
+				return app.screens.workbench.view()
+			end),
+			section("TopFive", isSection("topfive"), function()
+				return app.screens.topfive.view()
+			end),
+			section("Plaza", isPlaza, function()
+				return app.screens.plaza.view()
+			end),
+		})
+	end
+
+	local function detailHost(): any
+		return UI.VStack("Host")({
+			gap = "xs",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			app.when("HeaderWhen")({
+				condition = headerVisible,
+				thenView = function()
+					-- registry item 13 (W3-D): was a hand-built HStack; the
+					-- shared bar takes the same Back verb and title
+					return parts.navBar(app, {
+						id = "Header",
+						padding = "s",
+						onBack = function()
+							app.actions.back()
+						end,
+						backLabel = S.t("nav.back"),
+						title = headerTitle,
+					})
+				end,
+			}),
+			sections(),
+		})
+	end
 
 	-- ---- the screen ----------------------------------------------------------
 
-	local screen = UI.Screen({
-		id = "Cartwheel",
+	local screen = UI.Screen("Cartwheel")({
 		surface = "base",
 
-		UI.Composition({
-			id = "Shell",
+		UI.Composition("Shell")({
 			arrangements = { "leadFirst", "column" },
 			laneGap = "s",
 			groupGap = "s",
@@ -348,8 +341,7 @@ function shell.new(app: any): any
 				{ id = "detail", lane = "main", sizing = "fill", minWidth = "app.cartwheel.detailMin" },
 			},
 
-			UI.Region({
-				id = "Sidebar",
+			UI.Region("Sidebar")({
 				group = "nav",
 				rank = 2,
 				-- the icon rail carries every destination the full list does — a poorer
@@ -364,48 +356,41 @@ function shell.new(app: any): any
 				-- collapses (composition rule 9), and the detail takes the
 				-- whole width. That is the compact stack, with no second
 				-- layout anywhere.
-				UI.VStack({
-					id = "Full",
+				UI.VStack("Full")({
 					height = UI.fill(),
 
-					UI.When({
-						id = "Body",
+					app.when("Body")({
 						condition = navVisible,
 						thenView = function()
-							return sidebarFull
+							return sidebarFull()
 						end,
 					}),
 				}),
-				UI.VStack({
-					id = "Rail",
+				UI.VStack("Rail")({
 					height = UI.fill(),
 
-					UI.When({
-						id = "Body",
+					app.when("Body")({
 						condition = navVisible,
 						thenView = function()
-							return sidebarRail
+							return sidebarRail()
 						end,
 					}),
 				}),
 			}),
-			UI.Region({
-				id = "Detail",
+			UI.Region("Detail")({
 				group = "detail",
 				rank = 1,
 				sizing = "fill",
 				mayScroll = true,
 				floor = { lines = 4 },
 
-				UI.VStack({
-					id = "Lane",
+				UI.VStack("Lane")({
 					height = UI.fill(),
 
-					UI.When({
-						id = "Body",
+					app.when("Body")({
 						condition = detailVisible,
 						thenView = function()
-							return detailHost
+							return detailHost()
 						end,
 					}),
 				}),
@@ -424,24 +409,15 @@ function shell.new(app: any): any
 
 	function self.dump(): any
 		return {
-			section = state.section:get(),
-			openBrew = state.openBrew:get(),
-			openPotion = state.openPotion:get(),
-			compact = state.isCompact:get(),
-			compactOpen = state.compactOpen:get(),
-			navVisible = navVisible:get(),
-			detailVisible = detailVisible:get(),
-			header = headerVisible:get(),
+			section = state.section:peek(),
+			openBrew = state.openBrew:peek(),
+			openPotion = state.openPotion:peek(),
+			compact = state.isCompact:peek(),
+			compactOpen = state.compactOpen:peek(),
+			navVisible = navVisible:peek(),
+			detailVisible = detailVisible:peek(),
+			header = headerVisible:peek(),
 		}
-	end
-
-	function self.dispose()
-		for _, memo in memos do
-			memo:dispose()
-		end
-		for _, memo in sectionMemos do
-			memo:dispose()
-		end
 	end
 
 	return self

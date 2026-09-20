@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- CHROME MODEL + DECORATION SLOTS.
 --
 -- Three propositions, each of which is only worth anything if it can fail:
@@ -17,6 +18,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
+local Compose = require("../src/vendor/compose/core")
 local chrome_props = require("../src/tokens/chrome_props")
 local fake_target = require("./lib/fake_target")
 
@@ -433,11 +435,31 @@ describe("chrome_slots: classification", function()
 	end)
 
 	it("the hint round-trips through the blueprint's internal meta channel", function()
-		local UI = Facet.UI
-		local box = UI.Box({ id = "Rail", surface = "control" })
+		local UI = harness.UI
+		--[[ TWO CUSTODIES, TWO CONTRACTS, and the difference is the whole case.
+
+			A node a Compose constructor OWNS is a live node with an identity its
+			owner and its mount already hold; there is no copy of it that is still
+			the same node, so a hint attaches IN PLACE and the call answers the node
+			it was given. A PLAIN blueprint table (no custody — what a hand-built
+			descriptor or a detached recipe is) keeps the immutable contract: the
+			original is untouched and a new frozen table carries the hint. ]]
+		local owned = harness.owned(function()
+			return UI.Box({ id = "Rail", surface = "control" })
+		end)
+		expect(Compose.custodyOf(owned)).toBe("owned")
+		expect(chrome_slots.readHint(owned)).toBeNil()
+		local hintedOwned = chrome_slots.attachHint(owned, { slot = "sliderTrack", image = "rbxassetid://1" })
+		expect(hintedOwned).toBe(owned)
+		expect(chrome_slots.readHint(owned).slot).toBe("sliderTrack")
+		expect(chrome_slots.readHint(owned).image).toBe("rbxassetid://1")
+		expect(owned.props.hint).toBeNil() -- and it is NOT a public prop
+
+		local box = { class = "Box", id = "Rail", props = table.freeze({ surface = "control" }) }
 		expect(chrome_slots.readHint(box)).toBeNil()
 		local hinted = chrome_slots.attachHint(box, { slot = "sliderTrack", image = "rbxassetid://1" })
-		-- the ORIGINAL blueprint is untouched (blueprints are immutable)
+		-- the ORIGINAL blueprint is untouched (an uncustodied blueprint is immutable)
+		expect(hinted ~= box).toBe(true)
 		expect(chrome_slots.readHint(box)).toBeNil()
 		expect(chrome_slots.readHint(hinted).slot).toBe("sliderTrack")
 		expect(chrome_slots.readHint(hinted).image).toBe("rbxassetid://1")
@@ -492,14 +514,16 @@ describe("chrome_slots: the census and the fallback ledger", function()
 		-- the REAL all-controls fixture, mounted headlessly: the census below is
 		-- over what the framework actually renders, not a hand-written list
 		local scenario = require("../examples/gallery/scenarios/adaptive_controls") :: any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -667,13 +691,13 @@ describe("decoration content insets reach the solver", function()
 	end)
 
 	it("the renderer adds the chrome insets to a slotted node's padding, and nothing else", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 400 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		local screen = UI.Screen({
 			id = "InsetProbe",
 			children = {
@@ -752,13 +776,13 @@ describe("a LAYERED recipe's content insets reach the solver too", function()
 	end)
 
 	it("a content-sized button under the layered skin reserves the room its label is painted in", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 400 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		-- the reported node: a plain label button in a row that lets it size to
 		-- its own content (the fixture's toolbar shape)
 		local handle = presenter.present(UI.Screen({
@@ -1206,7 +1230,7 @@ describe("readable badges: the seal, the lift, and the inset the value sits in",
 	end)
 
 	it('`UI.Text{ surface = "badge" }` is the public authoring path, and it is NARROW', function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		-- the two READ-ONLY surfaces a label may wear...
 		for _, surface in { "badge", "chip" } do
 			local bp = UI.Text({ id = "B", text = "3", surface = surface })
@@ -1873,13 +1897,13 @@ describe("the scroll canvas reaches a theme's decoration bleed", function()
 	end)
 
 	it("the canvas a scrolling region declares grows by exactly that much", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local UI = Facet.UI
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local UI = harness.UI
 		local rows = {}
 		for i = 1, 10 do
 			table.insert(rows, UI.Box({ id = `r{i}`, surface = "raised", height = { type = "fixed", px = 40 } }))

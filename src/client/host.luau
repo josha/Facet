@@ -63,10 +63,9 @@
 ]]
 
 local specGuard = require("../spec_guard")
-local customCore = require("../core/custom")
+local services = require("../core/services")
 local environment = require("../env/environment")
 local presenterLib = require("../present/presenter")
-local surfaceEnv = require("../env/surface_env")
 
 local host = {}
 
@@ -115,6 +114,12 @@ export type Opts = {
 		one-activation-per-press guard both ride it, so a headless spec injects one
 		to put two real presses either side of the echo window. ]]
 	now: (() -> number)?,
+	-- forwarded to the presenter: arrow-key focus travel, and a supplied motion clock
+	keyboardNavigation: boolean?,
+	clock: any?,
+	-- forwarded to the presenter: how it mounts a surface it builds for itself
+	-- (scrim, catcher, disclosure plate, drag ghost, toast) into the UI runtime
+	mountComponent: ((component: (UI: any) -> any) -> any)?,
 
 	-- ===== seams (headless, Edit mode, or a consumer that owns a piece) =====
 	newCore: (() -> any)?,
@@ -145,6 +150,9 @@ local OPTS_KEYS = specGuard.keySet({
 	"themePackage",
 	"displayOrder",
 	"now",
+	"keyboardNavigation",
+	"clock",
+	"mountComponent",
 	"newCore",
 	"bindEnv",
 	"newAdapter",
@@ -165,7 +173,8 @@ local function engineAdapter(opts: Opts, env: any): any
 			canvas = surface.canvas,
 			maxDistance = surface.maxDistance,
 			style = opts.style,
-			displaySize = env:get("effectiveDisplaySize"):get(),
+			nativeStyle = opts.nativeStyle,
+			displaySize = env:get("effectiveDisplaySize"):peek(),
 		}
 		if surface.kind == "surface" then
 			common.face, common.onAdorneeLost = surface.face, surface.onAdorneeLost
@@ -195,7 +204,7 @@ local function engineAdapter(opts: Opts, env: any): any
 			touch-corrected class, the same one `typographyScale`/`metricScale`
 			already read — a PC handheld's engine-reported "Large" must not paint
 			console-scaled corners any more than it measures console-scaled type. ]]
-		displaySize = env:get("effectiveDisplaySize"):get(),
+		displaySize = env:get("effectiveDisplaySize"):peek(),
 	})
 end
 
@@ -278,9 +287,13 @@ end
 	blueprints on `presenter`; register per-frame work with `presenter.onTick`.
 
 	`dispose()` releases what the host BUILT — the frame connection, the input
-	system, the render target and the environment binding, in that order — and
+	system, the render target, the environment binding and, LAST, the core — and
 	nothing else. It is idempotent, and a piece you supplied through a seam with
 	no `dispose` of its own is left untouched.
+
+	THE CORE IS ONLY THE HOST'S WHEN THE HOST MADE IT. A caller that supplied one
+	through `newCore` keeps it: the host disposes what it owns, never what it was
+	handed.
 
 	CONSTRUCTION IS ALL-OR-NOTHING. A failure halfway through must not leave a
 	bound environment or a live root behind — a half-built host is exactly the
@@ -292,7 +305,8 @@ function host.new(opts: Opts?): Host
 	local o: Opts = opts or {}
 	validateSurface(o.surface)
 
-	local core = (if o.newCore then o.newCore() else customCore.new()) :: any
+	local ownsCore = o.newCore == nil
+	local core = (if o.newCore then o.newCore() else services.new()) :: any
 	local env = environment.new(core)
 
 	-- undo stack, innermost last: whatever succeeded is what gets torn down
@@ -306,8 +320,27 @@ function host.new(opts: Opts?): Host
 
 	local built: any = nil
 	local ok, err = pcall(function()
-		--[[ THE REGISTRATION IS THE FIRST THING ON THE STACK, so it is the LAST
-			thing released. `environment.new` above
+		--[[ THE CORE GOES ON FIRST, SO IT IS RELEASED LAST — and only when this
+			host built it. An audit found that a disposed application left the ROOT
+			COMPOSE OWNER alive: `core.owner.watch` still fired, a
+			`core.owner.createChild()` cleanup never ran, and registered settle
+			callbacks still swept. Everything the presenter hangs off that owner —
+			focus observers, `with_animation`, the drag registry, the responder
+			effects — therefore outlived the surface it belonged to, which is a leak
+			shaped exactly like a live surface. Nothing the host built may still be
+			reading the graph when the owner goes, so it goes after the environment
+			registration, which is the next thing on the stack. ]]
+		if ownsCore then
+			table.insert(undo, function()
+				-- registered settle work is not owner-scoped, so it is stopped by name
+				if core.settlePass and core.settlePass.dispose then
+					core.settlePass.dispose()
+				end
+				core.owner.dispose()
+			end)
+		end
+		--[[ THE REGISTRATION GOES ON NEXT, so it is released after everything that
+			could still read it and just before the core itself. `environment.new` above
 			published this environment against the core it was built on, which is what
 			lets every control this host mounts adapt with no wiring — and a host that
 			has been disposed is a surface that no longer exists, so leaving the entry
@@ -318,7 +351,7 @@ function host.new(opts: Opts?): Host
 			On the failure path too: `unwind` runs the same stack, so a host that
 			throws halfway leaves no registration behind either. ]]
 		table.insert(undo, function()
-			surfaceEnv.unpublish(core, env)
+			env:dispose()
 		end)
 		local boundEnv = bindingEnvironment(env, o.surface)
 		local unbindEnv = if o.bindEnv then o.bindEnv(boundEnv) else engineBindEnv(boundEnv)
@@ -350,7 +383,12 @@ function host.new(opts: Opts?): Host
 		ownIfDisposable(adapter)
 		local inputSystem = if o.newInputSystem then o.newInputSystem(core) else engineInputSystem(core)
 		ownIfDisposable(inputSystem)
-		local presenter = presenterLib.new(core, env, adapter, inputSystem, { now = o.now })
+		local presenter = presenterLib.new(core, env, adapter, inputSystem, {
+			now = o.now,
+			keyboardNavigation = o.keyboardNavigation,
+			clock = o.clock,
+			mountComponent = o.mountComponent,
+		})
 		if not o.connectFrame then
 			presenter.motionClock:setEasing(require("./motion_driver").engineEasing)
 		end
@@ -387,16 +425,16 @@ function host.new(opts: Opts?): Host
 			presenter = presenter,
 			--[[ IDEMPOTENT, AND THE FRAME GOES FIRST. `unwind` runs the stack in
 				reverse, so the order is: frame connection, input system, render
-				target, environment binding. A frame that landed between the unbind
-				and the disconnect would drive a presenter whose environment has
+				target, environment binding, core. A frame that landed between the
+				unbind and the disconnect would drive a presenter whose environment has
 				stopped answering, which is the one ordering that turns a clean
 				teardown into a mid-frame error.
 
-				WHAT IT DOES NOT DISPOSE, stated because the first version of this
-				comment over-promised: the PRESENTER and the CORE. Neither has a
-				teardown seam — the presenter's state is owned by the core's reactive
-				graph, and the core may be the caller's own (`opts.newCore`). Nor does
-				it dismiss what you presented; a handle is the consumer's. ]]
+				WHAT IT DOES NOT DISPOSE: the PRESENTER, which has no teardown seam of
+				its own because its whole state hangs off the core owner this now
+				disposes; a CORE THE CALLER SUPPLIED through `opts.newCore`, which is
+				the caller's to end; and whatever you presented — a handle is the
+				consumer's. ]]
 			dispose = function()
 				if disposed then
 					return

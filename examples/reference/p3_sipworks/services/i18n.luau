@@ -65,13 +65,9 @@ local function pluralForm(entry: any, n: number?): string
 end
 
 function i18n.new(opts: any)
-	local core = opts.core
-	local scope = opts.scope
+	local Compose = opts.Compose
 
-	local locale = core:signal(opts.locale or "en")
-	scope:own(function()
-		locale:dispose()
-	end)
+	local locale = Compose.cell(opts.locale or "en")
 
 	local nameCache: { [string]: string } = {}
 
@@ -104,7 +100,7 @@ function i18n.new(opts: any)
 	end
 
 	function self.t(key: string, params: any?): string
-		return self.at(locale:get(), key, params)
+		return self.at(locale:peek(), key, params)
 	end
 
 	function self.has(key: string): boolean
@@ -127,7 +123,7 @@ function i18n.new(opts: any)
 	end
 
 	function self.name(kind: string, id: string, text: string): string
-		return self.nameAt(locale:get(), kind, id, text)
+		return self.nameAt(locale:peek(), kind, id, text)
 	end
 
 	-- NUMBERS. The decimal separator is a locale fact, which is exactly the kind
@@ -152,7 +148,7 @@ function i18n.new(opts: any)
 	end
 
 	function self.measure(value: number, unit: string): string
-		return self.measureAt(locale:get(), value, unit)
+		return self.measureAt(locale:peek(), value, unit)
 	end
 
 	-- LISTS. "A", "A and B", "A, B, and C" — one place, so no screen ever
@@ -176,7 +172,7 @@ function i18n.new(opts: any)
 	end
 
 	function self.list(items: { string }): string
-		return self.listAt(locale:get(), items)
+		return self.listAt(locale:peek(), items)
 	end
 
 	-- COLLATION. The sort key is taken from the SOURCE title on purpose: the

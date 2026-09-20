@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE MISSING SPACING STEP (task G-SPACE; the declarative-purity
 -- audit's `gap = 6` finding). `xs` (4) and `s` (8) are the ladder's two
 -- smallest REQUIRED rungs and nothing named the value halfway between them —
@@ -21,12 +22,12 @@ local describe, it, expect = t.describe, t.it, t.expect
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local gap_metric = require("../src/controls/gap_metric")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local environment = require("../src/env/environment")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 
 local function derive(metrics: any, id: string?): any
 	local pkg, report = themes.define({

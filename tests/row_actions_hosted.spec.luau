@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- RowActions HOSTED MODE (row-actions perf mission, Task 2 —
 -- docs/plans/row-actions-hosted-mode-design.md §"Hosted mode: a closed row
 -- mounts NOTHING"). `row_actions.buildHosted` is the SAME gesture/state engine
@@ -28,10 +29,17 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
+
+-- Builds with the core's own control library.
+local function buildHosted(core: any, spec: any): any
+	local _, _, library = harness.libraryOf(core)
+	return row_actions.buildHosted(library, core, spec)
+end
 local row_actions_state = require("../src/input/row_actions_state")
 local clockLib = require("../src/motion/clock")
 local themeSnapshot = require("../src/themes/snapshot")
 local text_metrics = require("../src/layout/text_metrics")
+local Compose = require("../src/vendor/compose/core")
 
 -- THE HOST'S OWN PATHS (never this control's — a hosted row has no nodes of
 -- its own). Shaped like what VirtualList will actually hand over: a per-row
@@ -121,7 +129,7 @@ end
 type World = any
 
 local function hostedWorld(overrides: any?): World
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local fired: { string } = {}
 	local slides: { number } = {}
 	-- boxed, because `onCommitHeight(nil)` ("no override, back to content
@@ -188,14 +196,14 @@ local function hostedWorld(overrides: any?): World
 	end
 	local editing: any = nil
 	if wantsEditing then
-		editing = core:signal(false)
+		editing = Compose.cell(false)
 		spec.editing = editing
 		if spec.paths.editAffordance == nil then
 			spec.paths.editAffordance = EDIT_AFFORDANCE
 		end
 	end
 
-	local engine = row_actions.buildHosted(Facet, core, spec)
+	local engine = buildHosted(core, spec)
 	-- what a presenter hands a composite, handed over by the HOST instead —
 	-- the two binds a hosted engine cannot get through a contribution of its
 	-- own, because it has no node to attach one to.
@@ -273,7 +281,7 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		-- INSIDE the lock radius: the axis is still unresolved, so nothing slides
 		w.move(196, 20)
 		expect(#w.slides).toBe(0)
-		expect(w.engine.trayState:get()).toBeNil()
+		expect(w.engine.trayState:peek()).toBeNil()
 		w.tick(FRAME)
 		w.move(200 - LOCK - 2, 20) -- crosses the lock, horizontal
 		w.tick(FRAME)
@@ -288,12 +296,12 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		for i = 2, #w.slides do
 			expect(w.slides[i]).toBeLessThan(w.slides[i - 1])
 		end
-		local tray = w.engine.trayState:get()
+		local tray = w.engine.trayState:peek()
 		expect(tray).never().toBeNil()
 		expect(tray.edge).toBe("trailing")
 		expect(#tray.actions).toBe(1)
 		expect(tray.actions[1].id).toBe("delete")
-		expect(tray.revealPx:get()).toBe(80)
+		expect(tray.revealPx:peek()).toBe(80)
 	end)
 
 	it("(b) releasing past the open threshold leaves the row open at the tray width", function()
@@ -366,20 +374,20 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		w.engine._open("trailing")
 		w.settle()
 		expect(w.engine._isOpen()).toBe(true)
-		expect(w.engine.trayState:get()).never().toBeNil()
+		expect(w.engine.trayState:peek()).never().toBeNil()
 		w.engine.close()
 		w.settle()
 		expect(w.engine._isOpen()).toBe(false)
 		expect(w.lastSlide()).toBe(0)
 		expect(w.engine.dump().offset).toBe(0)
-		expect(w.engine.trayState:get()).toBeNil()
+		expect(w.engine.trayState:peek()).toBeNil()
 	end)
 
 	it("(e) two hosted engines share one coordinator: opening B closes A", function()
-		local core = Facet.newCore()
-		local coordinator = row_actions.newCoordinator(core)
+		local core = harness.newCore()
+		local coordinator = row_actions.newCoordinator()
 		local function engineFor(id: string, contentPath: string)
-			return row_actions.buildHosted(Facet, core, {
+			return buildHosted(core, {
 				id = id,
 				coordinator = coordinator,
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -411,12 +419,12 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		w.up(203, 20 + LOCK + 40)
 		w.settle(30)
 		expect(#w.slides).toBe(0)
-		expect(w.engine.trayState:get()).toBeNil()
+		expect(w.engine.trayState:peek()).toBeNil()
 		expect(w.engine._isOpen()).toBe(false)
 	end)
 
 	it("refuses the spec keys a hosted row cannot have (closed spec, constitution §4)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local function build(extra: any)
 			local spec: any = {
 				id = "Row-1",
@@ -428,28 +436,28 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 				spec[key] = value
 			end
 			return function()
-				row_actions.buildHosted(Facet, core, spec)
+				buildHosted(core, spec)
 			end
 		end
 		-- `content` is the HOST's, not this engine's: there is no blueprint here
 		-- to wrap it in
-		expect(build({ content = Facet.UI.Text({ id = "Body", text = "x" }) })).toThrow()
+		expect(build({ content = harness.UI.Text({ id = "Body", text = "x" }) })).toThrow()
 		expect(build({ width = { type = "fill", weight = 1 } })).toThrow()
 		expect(build({ externalGesture = true })).toThrow()
 		expect(build({ nonsense = true })).toThrow()
 	end)
 
 	it("requires `paths.content` and `onSlide` — the two things only the host can supply", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		expect(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				onSlide = function() end,
 			})
 		end).toThrow()
 		expect(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				paths = { content = ROW },
@@ -469,11 +477,11 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		w.move(100 + LOCK + 2, 20)
 		w.tick(FRAME)
 		w.move(180, 20) -- +80
-		local tray = w.engine.trayState:get()
+		local tray = w.engine.trayState:peek()
 		expect(tray).never().toBeNil()
 		expect(tray.edge).toBe("leading")
 		expect(tray.actions[1].id).toBe("flag")
-		expect(tray.revealPx:get()).toBe(80)
+		expect(tray.revealPx:peek()).toBe(80)
 		w.tick(FRAME)
 		w.up(180, 20)
 		w.settle()
@@ -485,9 +493,9 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	-- ===== fix round 1 (review findings) ====================================
 
 	it("(finding 1) refuses trailing actions with no paths.trayTrailing, by name", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				paths = { content = ROW }, -- no trayTrailing
@@ -499,9 +507,9 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	end)
 
 	it("(finding 1) refuses leading actions with no paths.trayLeading, by name", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				leading = { { id = "flag", label = "Flag", onAction = function() end } },
 				paths = { content = ROW }, -- no trayLeading
@@ -516,7 +524,7 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		local w = hostedWorld()
 		w.tick(FRAME)
 		local actionSystem = fakeActionSystem()
-		local focused = w.core:signal(nil :: string?)
+		local focused = Compose.cell(nil :: string?)
 		-- bound in the same order a presenter's own contribution walk binds
 		-- them (contribution.luau) — neither bind alone builds the context;
 		-- both fire `syncKeysEnabled`, still false (focus is nowhere yet).
@@ -540,14 +548,14 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		expect(type(w.engine.outsideDismiss)).toBe("table")
 		expect(w.engine.outsideDismiss.consume).toBe(false)
 		expect(w.engine.outsideDismiss.dismiss).toBe(w.engine.close)
-		expect(w.engine.outsideDismiss.active:get()).toBe(false)
+		expect(w.engine.outsideDismiss.active:peek()).toBe(false)
 		w.engine._open("trailing")
 		w.settle()
-		expect(w.engine.outsideDismiss.active:get()).toBe(true)
+		expect(w.engine.outsideDismiss.active:peek()).toBe(true)
 		w.engine.outsideDismiss.dismiss()
 		w.settle()
 		expect(w.engine._isOpen()).toBe(false)
-		expect(w.engine.outsideDismiss.active:get()).toBe(false)
+		expect(w.engine.outsideDismiss.active:peek()).toBe(false)
 	end)
 
 	it("(finding 4) an ordinary close with nothing to collapse sends no spurious onSlide/onCommitHeight", function()
@@ -578,9 +586,9 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	)
 
 	it("(finding 5) labels a hosted action-spec error with the hosted entry point, not the standalone one", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { label = "Delete" } }, -- missing onAction
 				paths = { content = ROW, trayTrailing = TRAY_TRAILING },
@@ -588,18 +596,18 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 			})
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
-		-- discriminates from a substring match: "newRowActions(" (with the
+		expect(string.find(err, "UI.RowActions (hosted)", 1, true)).never().toBeNil()
+		-- discriminates from a substring match: "UI.RowActions('" (with the
 		-- opening paren) only ever appears in the STANDALONE label's own
-		-- message shape (`Facet newRowActions('id')`), never inside
-		-- "newRowActionsHosted('id')".
-		expect(string.find(err, "newRowActions('", 1, true)).toBeNil()
+		-- message shape (`Facet UI.RowActions('id')`), never inside
+		-- "UI.RowActions (hosted)('id')".
+		expect(string.find(err, "UI.RowActions('", 1, true)).toBeNil()
 	end)
 
 	it("(finding 5) labels a hosted coordinator-type error with the hosted entry point too", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				coordinator = "not-a-table",
 				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
@@ -608,7 +616,7 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 			})
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+		expect(string.find(err, "UI.RowActions (hosted)", 1, true)).never().toBeNil()
 	end)
 end)
 
@@ -639,12 +647,12 @@ end)
 	    host to do but write a signal it was already handed. ]]
 describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", function()
 	it("accepts `editing` — it is no longer refused from the hosted spec by name", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
-				editing = core:signal(false),
+				editing = Compose.cell(false),
 				paths = { content = ROW, trayTrailing = TRAY_TRAILING, editAffordance = EDIT_AFFORDANCE },
 				onSlide = function() end,
 			})
@@ -674,11 +682,11 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 			expect(w2.engine.editAffordanceView).never().toBeNil()
 			expect(w2.engine.editGutterPx).never().toBeNil()
 			-- the gutter is LIVE: zero while not editing, a real reserve while editing
-			expect(w2.engine.editGutterPx:get()).toBe(0)
+			expect(w2.engine.editGutterPx:peek()).toBe(0)
 			w2.editing:set(true)
-			expect(w2.engine.editGutterPx:get()).toBeGreaterThan(0)
+			expect(w2.engine.editGutterPx:peek()).toBeGreaterThan(0)
 			w2.editing:set(false)
-			expect(w2.engine.editGutterPx:get()).toBe(0)
+			expect(w2.engine.editGutterPx:peek()).toBe(0)
 		end
 	)
 
@@ -719,25 +727,25 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 		as "Delete" (it borrows the destructive action's own accessible label) does
 		nothing at all. Refused by name, at build time, instead. ]]
 	it("refuses a hosted row that can show the minus but named no path for it", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
-				editing = core:signal(false),
+				editing = Compose.cell(false),
 				paths = { content = ROW, trayTrailing = TRAY_TRAILING },
 				onSlide = function() end,
 			})
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+		expect(string.find(err, "UI.RowActions (hosted)", 1, true)).never().toBeNil()
 		expect(string.find(err, "paths.editAffordance", 1, true)).never().toBeNil()
 	end)
 
 	it("still refuses `editing` that is not a Readable, with the hosted label", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			row_actions.buildHosted(Facet, core, {
+			buildHosted(core, {
 				id = "Row-1",
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
 				editing = true :: any,
@@ -746,7 +754,7 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 			})
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+		expect(string.find(err, "UI.RowActions (hosted)", 1, true)).never().toBeNil()
 		-- DISCRIMINATING, not just "the word editing appears": the closed-spec
 		-- refusal this replaces ALSO said `unknown spec key 'editing'`, so a check
 		-- on the word alone would have passed against the very code this stage
@@ -784,9 +792,9 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 			__editing = true,
 		})
 		expect(#w.engine.trayViews).toBe(1)
-		expect(w.engine.editGutterPx:get()).toBe(0)
+		expect(w.engine.editGutterPx:peek()).toBe(0)
 		w.editing:set(true)
-		expect(w.engine.editGutterPx:get()).toBe(expected)
+		expect(w.engine.editGutterPx:peek()).toBe(expected)
 	end)
 end)
 

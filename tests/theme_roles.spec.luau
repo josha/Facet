@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Semantic ROLE resolution end to end: blueprint props name a
 -- typography role, a spacing step or a theme metric; the renderer's layout-node
 -- builder and the solver's measure path turn those names into pixels through the
@@ -12,9 +13,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local solver = require("../src/layout/solver")
@@ -23,6 +24,7 @@ local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local defaultStyle = require("../src/tokens/default_style")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function world(build: (core: any) -> any, w: number?, h: number?)
 	local core = customFactory.new()
@@ -43,7 +45,7 @@ local function presentedWorld(build: (core: any) -> any, w: number?, h: number?)
 	env:set("viewportRect", { x = 0, y = 0, w = w or 800, h = h or 600 })
 	local adapter = fake_target.new({ ops = true })
 	local system = Facet.newActionSystem(core)
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	presenter.present(UI.Screen({ id = "S", padding = 0, children = { build(core) } }))
 	presenter.refresh()
 	return core, env, adapter, presenter
@@ -415,9 +417,9 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("Slider: 44px track, 20px thumb, 6px rail, 16px label gap, 40px readout", function()
 		local core, _, _, adapter = controlWorld(function(core)
-			return Facet.Controls.Slider(
+			return harness.Controls.Slider(
 				core,
-				{ id = "V", label = "Volume", value = core:signal(5), min = 0, max = 10 }
+				{ id = "V", label = "Volume", value = Compose.cell(5), min = 0, max = 10 }
 			).blueprint
 		end)
 		expect(core ~= nil).toBe(true)
@@ -436,7 +438,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("ProgressView: 6px track, 20px row floor, 14px label text, 8px row gap", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.Controls.ProgressView(core, { id = "P", label = "Load", value = 0.5, showValue = true }).blueprint
+			return harness.Controls.ProgressView(core, { id = "P", label = "Load", value = 0.5, showValue = true }).blueprint
 		end)
 		expect(adapter.node("/S/P/Bar").rect.h).toBe(6)
 		expect(adapter.node("/S/P").rect.h >= 20).toBe(true)
@@ -447,10 +449,10 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("PopupButton: 40px trigger, and 36/44/56 rows per presentation", function()
 		local _, _, adapter, presenter = presentedWorld(function(core)
-			return Facet.Controls.PopupButton(core, {
+			return harness.Controls.PopupButton(core, {
 				id = "M",
 				options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
-				value = core:signal("a"),
+				value = Compose.cell("a"),
 				presentation = "menu",
 			}).blueprint
 		end)
@@ -465,10 +467,10 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 	it("PopupButton inline rows are 44 and sheet rows are 56", function()
 		for presentation, height in { inline = 44, sheet = 56 } do
 			local _, _, adapter, presenter = presentedWorld(function(core)
-				return Facet.Controls.PopupButton(core, {
+				return harness.Controls.PopupButton(core, {
 					id = "M",
 					options = { { id = "a", label = "Alpha" } },
-					value = core:signal("a"),
+					value = Compose.cell("a"),
 					presentation = presentation,
 				}).blueprint
 			end)
@@ -480,15 +482,15 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("TextInput: 44px field, 28px clear button inset 8px from the right edge", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.Controls.TextInput(core, {
+			return harness.Controls.TextInput(core, {
 				id = "F",
-				value = core:signal("Ada"),
+				value = Compose.cell("Ada"),
 				placeholder = "name",
 				clearButton = true,
 			}).blueprint
 		end)
 		expect(adapter.node("/S/F").rect.h).toBe(44)
-		local clear = adapter.node("/S/F/ClearWhen/then/Clear").rect
+		local clear = adapter.node("/S/F/Clear").rect
 		expect(clear.w).toBe(28)
 		expect(clear.h).toBe(28)
 		expect(adapter.node("/S/F").rect.x + adapter.node("/S/F").rect.w - (clear.x + clear.w)).toBe(8)
@@ -496,7 +498,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("Toggle: 28px minimum height and the 44+12+16 track reservation", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return UI.Toggle({ id = "T", label = "Music", value = core:signal(true) })
+			return UI.Toggle({ id = "T", label = "Music", value = Compose.cell(true) })
 		end)
 		expect(adapter.node("/S/T").rect.h >= 28).toBe(true)
 		-- the measured box = label + right-hand track reservation (44 track,
@@ -507,10 +509,10 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("Stepper: square 44px buttons, 32px readout, 8px row gap, 16px label", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.Controls.Stepper(core, {
+			return harness.Controls.Stepper(core, {
 				id = "C",
 				label = "Count",
-				value = core:signal(3),
+				value = Compose.cell(3),
 				min = 0,
 				max = 9,
 				step = 1,
@@ -529,15 +531,15 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("Chip, DisclosureGroup and Picker rows all sit on the 44px target floor", function()
 		local _, _, _, chip = controlWorld(function(core)
-			return Facet.Controls.Chip(core, { id = "C", label = "Tag", selected = core:signal(false) }).blueprint
+			return harness.Controls.Chip(core, { id = "C", label = "Tag", selected = Compose.cell(false) }).blueprint
 		end)
 		expect(chip.node("/S/C").rect.h).toBe(46) -- the 44 floor plus the button's own text box
 
 		local _, _, _, group = controlWorld(function(core)
-			return Facet.Controls.DisclosureGroup(core, {
+			return harness.Controls.DisclosureGroup(core, {
 				id = "D",
 				label = "More",
-				expanded = core:signal(false),
+				expanded = Compose.cell(false),
 				content = function()
 					return UI.Text({ id = "B", text = "x" })
 				end,
@@ -546,11 +548,11 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		expect(group.node("/S/D/Header").rect.h).toBe(46)
 
 		local _, _, _, picker = controlWorld(function(core)
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "Q",
 				label = "Quality",
 				options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
-				selected = core:signal("low"),
+				selected = Compose.cell("low"),
 				style = "segmented",
 			}).blueprint
 		end)
@@ -571,7 +573,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("Label: 20px icon, 6px gap, 16px title", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			return Facet.Controls.Label(core, { id = "L", title = "Save", icon = "rbxassetid://1" }).blueprint
+			return harness.Controls.Label(core, { id = "L", title = "Save", icon = "rbxassetid://1" }).blueprint
 		end)
 		expect(adapter.node("/S/L/Icon").rect.w).toBe(20)
 		expect(adapter.node("/S/L/Icon").rect.h).toBe(20)
@@ -609,10 +611,9 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 			-- and ignored for the life of this test. The transport is driven through
 			-- `pendingRequests`/`complete`, never a `load` callback (ARCH-1).
 			local provider = Facet.newResourceProvider(core)
-			return Facet.Controls.AsyncImage(core, {
+			return harness.Controls.AsyncImage(core, {
 				id = "I",
 				provider = provider,
-				scope = core:scope("img"),
 				key = "rbxassetid://1",
 			}).blueprint
 		end)
@@ -622,9 +623,9 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 
 	it("Table: 28px header, 15px cell text, 2px row gap, 8px cell inset", function()
 		local _, _, _, adapter = world(function(core)
-			local control = Facet.Controls.Table(core, {
+			local control = harness.Controls.Table(core, {
 				id = "T",
-				rows = core:signal({ { id = "a", name = "Apex" } }),
+				rows = Compose.cell({ { id = "a", name = "Apex" } }),
 				key = function(row: any)
 					return row.id
 				end,

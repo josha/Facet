@@ -64,6 +64,7 @@
 local authority = require("./authority")
 local zScope = require("./z_scope")
 local dragRegistryLib = require("../input/drag_registry")
+local observeChange = require("../core/on_change")
 
 local drag_bridge = {}
 
@@ -147,7 +148,7 @@ function drag_bridge.new(ctx: DragBridgeCtx)
 				adapter.setProp(handle, "dragHeld", held, "presentation")
 			end
 			local heldPath: string? = nil
-			attachScope:own(core:observe(instance.heldSource, function(path: string?)
+			observeChange(attachScope, instance.heldSource, function(path: string?)
 				if heldPath ~= nil and heldPath ~= path then
 					setDragHeld(heldPath, false)
 				end
@@ -155,7 +156,7 @@ function drag_bridge.new(ctx: DragBridgeCtx)
 				if path ~= nil then
 					setDragHeld(path, true)
 				end
-			end))
+			end)
 		end
 		return instance
 	end

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE THREE DEPENDENCY-FREE LEAVES (reuse audit REUSE-1/3/4/6/39).
 
 	`src/num.luau`, `src/paths.luau` and `src/rect.luau` each own a question that
@@ -33,17 +34,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local num = require("../src/num")
 local paths = require("../src/paths")
 local rectLib = require("../src/rect")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("../tests/lib/fake_target")
 
 describe("num: the predicate seventeen modules wrote by hand", function()

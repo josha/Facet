@@ -1,11 +1,14 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_ctx = require("./lib/scenario_ctx")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local fake = require("./lib/fake_target")
 local catalog = require("../examples/gallery/scenarios/all_controls")
 local collections = require("../examples/gallery/scenarios/collections")
 local motion = require("../examples/gallery/scenarios/motion_layout")
+local Compose = require("../src/vendor/compose/core")
 
 local function button(w, label)
 	for _, path in w.adapter.paths() do
@@ -28,7 +31,7 @@ end
 local function navigateTo(w, target)
 	local visits = {}
 	for _ = 1, 1280 do
-		local current = w.pres.focus.focused:get()
+		local current = w.pres.focus.focused:peek()
 		if current == target then
 			return
 		end
@@ -62,23 +65,36 @@ local function make(scenario, viewport, options)
 			return adapter
 		end,
 	})
-	local built =
-		scenario.build({ Facet = Facet, core = w.core, env = w.env, presenter = w.pres, actionSystem = w.system })
+	local built = scenario.build({
+		Facet = Facet,
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
+		core = w.core,
+		env = w.env,
+		presenter = w.pres,
+		actionSystem = w.system,
+	})
 	if options.toolbar then
-		local UI = Facet.UI
-		w.navigationLayout = w.core:signal(built.navigationLayout)
+		local UI = harness.UI
+		w.navigationLayout = Compose.cell(built.navigationLayout)
 		local chrome = require("../examples/gallery/client/showcase_chrome").mount({
 			Facet = Facet,
+			app = scenario_ctx.ofHarness(w).app,
 			core = w.core,
 			env = w.env,
-			presenter = w.pres,
 			actionSystem = w.system,
-			coreTop = w.core:signal(0),
+			coreTop = Compose.cell(0),
 			navigationLayout = w.navigationLayout,
 			demos = {
-				chip = UI.Button({ id = "DemoToggle", label = "All controls" }),
-				iconChip = UI.Button({ id = "DemoToggle", label = "Demos" }),
-				rows = UI.Box({ id = "Rows" }),
+				chip = function()
+					return UI.Button({ id = "DemoToggle", label = "All controls" })
+				end,
+				iconChip = function()
+					return UI.Button({ id = "DemoToggle", label = "Demos" })
+				end,
+				rows = function()
+					return UI.Box({ id = "Rows" })
+				end,
 			},
 			settings = { sections = {} },
 			onChipsBottom = function(bottom)
@@ -104,7 +120,7 @@ t.describe("Consolidated showcase", function()
 		t.expect(w.pres.toastCounts().visible).toBe(1)
 		activate(w, "Test input: 0")
 		local probe = button(w, "Test input: 1")
-		t.expect(w.pres.focus.focused:get()).toBe(probe)
+		t.expect(w.pres.focus.focused:peek()).toBe(probe)
 		local rect = w.adapter.node(probe).rect
 		w.adapter.tap(
 			probe,
@@ -242,25 +258,25 @@ t.describe("Consolidated showcase", function()
 			-- Entering a tab group restores its bookmarked option. Walk back to
 			-- the first option before checking its adjacent D-pad destination.
 			for _ = 1, 3 do
-				if w.pres.focus.focused:get() == pageTab then
+				if w.pres.focus.focused:peek() == pageTab then
 					break
 				end
 				w.press("DPadLeft")
 			end
-			t.expect(w.pres.focus.focused:get()).toBe(pageTab)
+			t.expect(w.pres.focus.focused:peek()).toBe(pageTab)
 			w.press("DPadRight")
-			t.expect(w.pres.focus.focused:get()).toBe(button(w, "Writing"))
+			t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Writing"))
 			local firstCategory = button(w, "Inputs")
 			t.expect(w.pres.focus.focusOn(firstCategory)).toBe(true)
 			for _ = 1, 4 do
-				if w.pres.focus.focused:get() == firstCategory then
+				if w.pres.focus.focused:peek() == firstCategory then
 					break
 				end
 				w.press("DPadLeft")
 			end
-			t.expect(w.pres.focus.focused:get()).toBe(firstCategory)
+			t.expect(w.pres.focus.focused:peek()).toBe(firstCategory)
 			w.press("DPadRight")
-			t.expect(w.pres.focus.focused:get()).toBe(button(w, "Actions"))
+			t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Actions"))
 		end
 		preview.dispose()
 		built.dispose()
@@ -310,7 +326,7 @@ t.describe("Consolidated showcase", function()
 			w.pres.dismiss(w.handle)
 			w.settle(4)
 			built.dispose()
-			t.expect(w.core:lastError()).toBe(nil)
+			t.expect(w.core.lastError()).toBe(nil)
 		end
 	end)
 
@@ -344,15 +360,15 @@ t.describe("Consolidated showcase", function()
 						end
 						w.press("DPadDown")
 						w.settle(2)
-						local focused = w.pres.focus.focused:get()
+						local focused = w.pres.focus.focused:peek()
 						t.expect(focused ~= nil and w.adapter.node(focused) ~= nil).toBe(true)
-						t.expect(w.core:lastError()).toBe(nil)
+						t.expect(w.core.lastError()).toBe(nil)
 					end
 				end
 				w.pres.dismiss(w.handle)
 				w.settle(4)
 				built.dispose()
-				t.expect(w.core:lastError()).toBe(nil)
+				t.expect(w.core.lastError()).toBe(nil)
 			end
 		end
 	end)
@@ -381,7 +397,7 @@ t.describe("Consolidated showcase", function()
 		w.pres.dismiss(w.handle)
 		w.settle(4)
 		built.dispose()
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 
 	t.it("reaches both tab strips and an alert by D-pad, traps focus, then restores its launcher", function()
@@ -395,18 +411,18 @@ t.describe("Consolidated showcase", function()
 		for _, key in { "DPadRight", "DPadDown", "ButtonR1", "DPadLeft", "DPadUp" } do
 			w.press(key)
 			w.settle(2)
-			t.expect(w.pres.focus.focused:get():sub(1, 13)).toBe("/ReplaceSave/")
+			t.expect(w.pres.focus.focused:peek():sub(1, 13)).toBe("/ReplaceSave/")
 		end
 		w.press("ButtonB")
 		w.settle(4)
 		t.expect(built.report().example.alert.presented).toBe(false)
-		t.expect(w.pres.focus.focused:get()).toBe(button(w, "Replace checkpoint…"))
+		t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Replace checkpoint…"))
 		t.expect(built.report().selected.Categories).toBe("actions")
 		t.expect(built.report().active).toBe("alerts")
 		w.pres.dismiss(w.handle)
 		w.settle(4)
 		built.dispose()
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 
 	t.it("routes shoulders to the inner tabs and Back through the nested journey", function()
@@ -418,7 +434,7 @@ t.describe("Consolidated showcase", function()
 		w.press("ButtonB")
 		w.settle(4)
 		t.expect(built.report().example.navigation.depth).toBe(0)
-		t.expect(w.pres.focus.focused:get()).toBe(button(w, "Plan details"))
+		t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Plan details"))
 		w.press("ButtonR1")
 		w.settle(4)
 		t.expect(built.report().selected.Categories).toBe("navigation")
@@ -426,6 +442,6 @@ t.describe("Consolidated showcase", function()
 		w.pres.dismiss(w.handle)
 		w.settle(4)
 		built.dispose()
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 end)

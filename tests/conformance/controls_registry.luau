@@ -122,7 +122,7 @@ local registry: { Entry } = {
 		name = "ScrollBookmarks",
 		kind = "composite",
 		module = "src/controls/scroll_bookmarks.luau",
-		export = "Controls.TabView",
+		export = "UI.TabView",
 		spec = "tests/tab_scroll_bookmarks.spec.luau",
 		conformance = "tests/tab_scroll_bookmarks.spec.luau",
 		docsAnchor = "focusSection",
@@ -136,10 +136,10 @@ local registry: { Entry } = {
 		name = "NavigationStack",
 		kind = "composite",
 		module = "src/controls/navigation_stack.luau",
-		export = "Controls.NavigationStack",
+		export = "UI.NavigationStack",
 		spec = "tests/navigation_stack.spec.luau",
 		conformance = "tests/navigation_stack.spec.luau",
-		docsAnchor = "Controls.NavigationStack",
+		docsAnchor = "UI.NavigationStack",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = { "pointer Back has hover and touch Back has a minimum target through the shared navBar" },
@@ -159,10 +159,10 @@ local registry: { Entry } = {
 		name = "ToggleControl",
 		kind = "composite",
 		module = "src/controls/toggle.luau",
-		export = "Controls.Toggle",
+		export = "UI.Toggle",
 		spec = "tests/toggle_presentations.spec.luau",
 		conformance = "tests/control_family_inputs.spec.luau",
-		docsAnchor = "Controls.Toggle",
+		docsAnchor = "UI.Toggle",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -198,10 +198,10 @@ local registry: { Entry } = {
 		name = "ButtonControl",
 		kind = "composite",
 		module = "src/controls/button.luau",
-		export = "Controls.Button",
+		export = "UI.Button",
 		spec = "tests/button_behavior.spec.luau",
 		conformance = "tests/control_family_inputs.spec.luau",
-		docsAnchor = "Controls.Button",
+		docsAnchor = "UI.Button",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -237,10 +237,10 @@ local registry: { Entry } = {
 		name = "ComboBox",
 		kind = "composite",
 		module = "src/controls/combo_box.luau",
-		export = "Controls.ComboBox",
+		export = "UI.ComboBox",
 		spec = "tests/combo_box.spec.luau",
 		conformance = "tests/control_family_inputs.spec.luau",
-		docsAnchor = "Controls.ComboBox",
+		docsAnchor = "UI.ComboBox",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -278,10 +278,10 @@ local registry: { Entry } = {
 		name = "SplitButton",
 		kind = "composite",
 		module = "src/controls/split_button.luau",
-		export = "Controls.SplitButton",
+		export = "UI.SplitButton",
 		spec = "tests/split_button.spec.luau",
 		conformance = "tests/control_family_inputs.spec.luau",
-		docsAnchor = "Controls.SplitButton",
+		docsAnchor = "UI.SplitButton",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -318,10 +318,10 @@ local registry: { Entry } = {
 		name = "Table",
 		kind = "composite",
 		module = "src/controls/table.luau",
-		export = "Controls.Table",
+		export = "UI.Table",
 		spec = "tests/table.spec.luau",
 		conformance = "tests/controls_conformance.spec.luau",
-		docsAnchor = "newTable",
+		docsAnchor = "UI.Table",
 		dumpFunction = "function dump",
 		-- pointer (mouse) proofs are device-true cases in table.spec.luau;
 		-- tests/table_input.spec.luau owns the touch/keyboard/gamepad device-true
@@ -431,10 +431,10 @@ local registry: { Entry } = {
 		name = "VirtualList",
 		kind = "composite",
 		module = "src/controls/virtual_list.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/virtualization.spec.luau",
 		conformance = "tests/virtualization.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		dumpFunction = "function list.dump",
 		--[[ TWO AXES, BOTH PROVEN ON ALL FOUR CLASSES. `axis = "x"` (parity round 2
 			§2.3) is new interactive behaviour — it changes which engine coordinate
@@ -513,10 +513,10 @@ local registry: { Entry } = {
 		name = "VirtualReorder",
 		kind = "composite",
 		module = "src/controls/virtual_reorder.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/virtualization.spec.luau",
 		conformance = "tests/virtualization.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- NO INSTANCE AND NO SEPARATE STATE: every number it holds is already in
 		-- VirtualList's own dump() (`dropIndex`, `autoscroll`, the window), which is
 		-- where a drag report reads them; the slide springs are presentation-only.
@@ -547,10 +547,10 @@ local registry: { Entry } = {
 		name = "VirtualListHosted",
 		kind = "composite",
 		module = "src/controls/virtual_list_hosted.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/virtual_list_row_actions.spec.luau",
 		conformance = "tests/virtual_list_row_actions.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- NO INSTANCE: `new(deps)` returns the bag of closures VirtualList rebinds,
 		-- and every live number in it (the engaged key, the slide offset, the open
 		-- row) is already reported by list.dump() — a second copy would be the same
@@ -574,10 +574,10 @@ local registry: { Entry } = {
 		name = "VirtualWindow",
 		kind = "composite",
 		module = "src/controls/virtual_window.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/virtualization.spec.luau",
 		conformance = "tests/virtualization.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- NO INSTANCE: it returns a bag of reactive nodes VirtualList closes over,
 		-- and every number in them is already in list.dump() (contentExtent,
 		-- scrollTop, window, measuredRows/measureEpoch) — a second copy here would
@@ -602,10 +602,10 @@ local registry: { Entry } = {
 		name = "GapMetric",
 		kind = "composite",
 		module = "src/controls/gap_metric.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/collection_gap_tokens.spec.luau",
 		conformance = "tests/collection_gap_tokens.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- STATELESS MODULE: `reader(ctx)` closes over one spec value and returns two
 		-- pure reads of it; the gutter it answers with is already in each
 		-- collection's own dump().
@@ -631,10 +631,10 @@ local registry: { Entry } = {
 		name = "CardRail",
 		kind = "composite",
 		module = "src/controls/card_rail.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/paradigm_cards.spec.luau",
 		conformance = "tests/paradigm_cards.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- NOTHING DURABLE TO REPORT: the arrangement is a pure function of the live
 		-- viewport, gap and interaction class, and the host publishes the resolved
 		-- answer on its own dump() as `cardsPerView` and `itemExtent` — which is
@@ -659,10 +659,10 @@ local registry: { Entry } = {
 		name = "ScrollSnap",
 		kind = "composite",
 		module = "src/controls/scroll_snap.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/scroll_snap.spec.luau",
 		conformance = "tests/paradigm_cards.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- NO INSTANCE AND NO PERSISTENT STATE: what it holds is one travel's origin
 		-- and peak, both of which are consumed at the settle they describe, and the
 		-- consequence — where the scroller came to rest — is reported by the host
@@ -688,10 +688,10 @@ local registry: { Entry } = {
 		name = "NativeScrollBinding",
 		kind = "composite",
 		module = "src/controls/native_scroll_binding.luau",
-		export = "Controls.VirtualList",
+		export = "UI.VirtualList",
 		spec = "tests/native_scroll_autobind.spec.luau",
 		conformance = "tests/native_scroll_autobind.spec.luau",
-		docsAnchor = "newVirtualList",
+		docsAnchor = "UI.VirtualList",
 		-- NO INSTANCE AND NO STATE WORTH REPORTING: the one fact it holds is which
 		-- (controller, path) is currently mirroring, and each host already reports
 		-- the consequence — `scrollTop` and the window — through its own dump().
@@ -709,10 +709,10 @@ local registry: { Entry } = {
 		name = "PopupButton",
 		kind = "composite",
 		module = "src/controls/picker_menu.luau",
-		export = "Controls.PopupButton",
+		export = "UI.PopupButton",
 		spec = "tests/popup_button.spec.luau",
 		conformance = "tests/popup_button.spec.luau",
-		docsAnchor = "newPopupButton",
+		docsAnchor = "UI.PopupButton",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -764,10 +764,10 @@ local registry: { Entry } = {
 		name = "PopupButtonShim",
 		kind = "composite",
 		module = "src/controls/popup_button.luau",
-		export = "Controls.PopupButton",
+		export = "UI.PopupButton",
 		spec = "tests/popup_button.spec.luau",
 		conformance = "tests/popup_button.spec.luau",
-		docsAnchor = "newPopupButton",
+		docsAnchor = "UI.PopupButton",
 		dump = false,
 		reason = "a deprecated re-export of picker_menu.build: every control it builds is the engine's own and reports through that dump()",
 		inputProofs = false,
@@ -777,10 +777,10 @@ local registry: { Entry } = {
 		name = "TextInput",
 		kind = "composite",
 		module = "src/controls/text_input.luau",
-		export = "Controls.TextInput",
+		export = "UI.TextInput",
 		spec = "tests/text_input.spec.luau",
 		conformance = "tests/text_input.spec.luau",
-		docsAnchor = "newTextInput",
+		docsAnchor = "UI.TextInput",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -852,10 +852,10 @@ local registry: { Entry } = {
 		name = "ButtonShortcut",
 		kind = "composite",
 		module = "src/controls/button_shortcut.luau",
-		export = "Controls.Button",
+		export = "UI.Button",
 		spec = "tests/button_complete.spec.luau",
 		conformance = "tests/alert.spec.luau",
-		docsAnchor = "Controls.Button",
+		docsAnchor = "UI.Button",
 		dump = false,
 		reason = "stateless module: validates shortcut strings and matches semantic key chords for the owning controls",
 		inputProofs = false,
@@ -865,10 +865,10 @@ local registry: { Entry } = {
 		name = "ProgressTrail",
 		kind = "composite",
 		module = "src/controls/progress_trail.luau",
-		export = "Controls.ProgressView",
+		export = "UI.ProgressView",
 		spec = "tests/hud_meters.spec.luau",
 		conformance = "tests/hud_meters.spec.luau",
-		docsAnchor = "newProgressView",
+		docsAnchor = "UI.ProgressView",
 		dump = false,
 		reason = "internal motion helper: its current value is exposed by ProgressView.dump().trailFraction",
 		inputProofs = false,
@@ -878,10 +878,10 @@ local registry: { Entry } = {
 		name = "ProgressView",
 		kind = "composite",
 		module = "src/controls/progress_view.luau",
-		export = "Controls.ProgressView",
+		export = "UI.ProgressView",
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
-		docsAnchor = "newProgressView",
+		docsAnchor = "UI.ProgressView",
 		dumpFunction = "function api.dump",
 		-- NON-INTERACTIVE: progress reports, it does not accept input. Declared
 		-- explicitly rather than being silently absent from conformance.
@@ -892,10 +892,10 @@ local registry: { Entry } = {
 		name = "Label",
 		kind = "composite",
 		module = "src/controls/label.luau",
-		export = "Controls.Label",
+		export = "UI.Label",
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
-		docsAnchor = "newLabel",
+		docsAnchor = "UI.Label",
 		dumpFunction = "function api.dump",
 		-- NON-INTERACTIVE: a Label displays. Put it inside a Button (which takes
 		-- content) when it must be pressable — that keeps ONE activation surface.
@@ -906,10 +906,10 @@ local registry: { Entry } = {
 		name = "Picker",
 		kind = "composite",
 		module = "src/controls/picker.luau",
-		export = "Controls.Picker",
+		export = "UI.Picker",
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
-		docsAnchor = "newPicker",
+		docsAnchor = "UI.Picker",
 		dumpFunction = "function api.dump",
 		inputProofs = {
 			pointer = { "pointer: tapping an option selects it and reports through onChange" },
@@ -933,10 +933,10 @@ local registry: { Entry } = {
 		name = "DisclosureGroup",
 		kind = "composite",
 		module = "src/controls/disclosure_group.luau",
-		export = "Controls.DisclosureGroup",
+		export = "UI.DisclosureGroup",
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
-		docsAnchor = "newDisclosureGroup",
+		docsAnchor = "UI.DisclosureGroup",
 		dumpFunction = "function api.dump",
 		inputProofs = {
 			pointer = { "expanding mounts the content; collapsing unmounts it" },
@@ -960,10 +960,10 @@ local registry: { Entry } = {
 		name = "Slider",
 		kind = "composite",
 		module = "src/controls/slider.luau",
-		export = "Controls.Slider",
+		export = "UI.Slider",
 		spec = "tests/value_controls.spec.luau",
 		conformance = "tests/value_controls.spec.luau",
-		docsAnchor = "newSlider",
+		docsAnchor = "UI.Slider",
 		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch drag or tap the track; keyboard and gamepad
 		-- reach the same arithmetic through the focus-gated Adjust verb.
@@ -998,10 +998,10 @@ local registry: { Entry } = {
 		name = "Stepper",
 		kind = "composite",
 		module = "src/controls/stepper.luau",
-		export = "Controls.Stepper",
+		export = "UI.Stepper",
 		spec = "tests/value_controls.spec.luau",
 		conformance = "tests/value_controls.spec.luau",
-		docsAnchor = "newStepper",
+		docsAnchor = "UI.Stepper",
 		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch hit the two Buttons; keyboard and gamepad
 		-- reach the SAME arithmetic through the focus-gated Adjust verb.
@@ -1034,10 +1034,10 @@ local registry: { Entry } = {
 		name = "Rating",
 		kind = "composite",
 		module = "src/controls/rating.luau",
-		export = "Controls.Rating",
+		export = "UI.Rating",
 		spec = "tests/rating.spec.luau",
 		conformance = "tests/rating.spec.luau",
-		docsAnchor = "newRating",
+		docsAnchor = "UI.Rating",
 		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch land on the ONE Grip that covers the run of
 		-- glyphs (tap to set, drag to scrub); keyboard and gamepad reach the SAME
@@ -1069,10 +1069,10 @@ local registry: { Entry } = {
 		name = "Chip",
 		kind = "composite",
 		module = "src/controls/chip.luau",
-		export = "Controls.Chip",
+		export = "UI.Chip",
 		spec = "tests/chip.spec.luau",
 		conformance = "tests/chip.spec.luau",
-		docsAnchor = "newChip",
+		docsAnchor = "UI.Chip",
 		dumpFunction = "function dump",
 		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
 		-- registered spec. These cite the four stamped cases in tests/chip.spec.luau
@@ -1128,16 +1128,12 @@ local registry: { Entry } = {
 		name = "AsyncImage",
 		kind = "composite",
 		module = "src/controls/async_image.luau",
-		export = "Controls.AsyncImage",
+		export = "UI.AsyncImage",
 		spec = "tests/async_image.spec.luau",
 		conformance = "tests/async_image.spec.luau",
-		docsAnchor = "newAsyncImage",
-		-- CALLER-SCOPE SHAPE (EXC E-8): newAsyncImage owns nothing of its own — its
-		-- provider handle and resources live in the CALLER's scope and die with it,
-		-- which is why it has no dispose() either. There is no object here to hold a
-		-- dump surface; the state a bug report needs is the provider's.
+		docsAnchor = "UI.AsyncImage",
 		dump = false,
-		reason = "caller-scope shape (E-8): resources live in the owner's scope, so the control holds no instance state and exposes no dispose()",
+		reason = "resource state is available from the provider handle; disposal releases the image owner and lease",
 		inputProofs = false,
 		affordanceProofs = false,
 	},
@@ -1192,10 +1188,10 @@ local registry: { Entry } = {
 		name = "RowActions",
 		kind = "composite",
 		module = "src/controls/row_actions.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/row_actions.spec.luau",
 		conformance = "tests/row_actions.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = { "RowActions pointer: a tap on a revealed tray action activates it (device-true)" },
@@ -1293,10 +1289,10 @@ local registry: { Entry } = {
 		name = "RowActionsSpec",
 		kind = "composite",
 		module = "src/controls/row_actions_spec.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/row_actions.spec.luau",
 		conformance = "tests/row_actions.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		-- STATELESS MODULE: six pure functions of their arguments, no instance.
 		dump = false,
 		reason = "stateless module: pure ActionSpec validation and leaf string/id helpers, no instance state to summarize",
@@ -1315,10 +1311,10 @@ local registry: { Entry } = {
 		name = "TableColumns",
 		kind = "composite",
 		module = "src/controls/table_columns.luau",
-		export = "Controls.Table",
+		export = "UI.Table",
 		spec = "tests/table.spec.luau",
 		conformance = "tests/table.spec.luau",
-		docsAnchor = "newTable",
+		docsAnchor = "UI.Table",
 		-- STATELESS MODULE: one pure function of its arguments, no instance.
 		dump = false,
 		reason = "stateless module: one pure width-resolution function of (columns, overrides, available), no instance state to summarize",
@@ -1350,10 +1346,10 @@ local registry: { Entry } = {
 		name = "TableRows",
 		kind = "composite",
 		module = "src/controls/table_rows.luau",
-		export = "Controls.Table",
+		export = "UI.Table",
 		spec = "tests/table.spec.luau",
 		conformance = "tests/table.spec.luau",
-		docsAnchor = "newTable",
+		docsAnchor = "UI.Table",
 		-- NO INSTANCE OF ITS OWN: `new(deps)` returns one closure, and every piece
 		-- of state it touches is the table's — the shared `rowGesture` record, the
 		-- table's signals, the per-row `row_actions` handles Table itself owns and
@@ -1385,10 +1381,10 @@ local registry: { Entry } = {
 		name = "TableHeader",
 		kind = "composite",
 		module = "src/controls/table_header.luau",
-		export = "Controls.Table",
+		export = "UI.Table",
 		spec = "tests/table_input.spec.luau",
 		conformance = "tests/playlist_columns.spec.luau",
-		docsAnchor = "newTable",
+		docsAnchor = "UI.Table",
 		-- NO INSTANCE: `band(deps)` returns one blueprint and closes over state the
 		-- TABLE owns — the shared `resizeGesture` record, its signals, its api.
 		dump = false,
@@ -1416,10 +1412,10 @@ local registry: { Entry } = {
 		name = "TableDisclosure",
 		kind = "composite",
 		module = "src/controls/table_disclosure.luau",
-		export = "Controls.Table",
+		export = "UI.Table",
 		spec = "tests/table_input.spec.luau",
 		conformance = "tests/table_input.spec.luau",
-		docsAnchor = "newTable",
+		docsAnchor = "UI.Table",
 		-- NO INSTANCE: it returns `region_expand`'s engine, whose open/closed state
 		-- is on `newTable`'s own dump as `columnPlate` — which is where a report
 		-- reads it, beside the `hiddenColumns` that explain why it exists.
@@ -1464,10 +1460,10 @@ local registry: { Entry } = {
 		name = "RowActionsReorder",
 		kind = "composite",
 		module = "src/controls/row_actions_reorder.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/table.spec.luau",
 		conformance = "tests/table.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		-- STATELESS-BY-SHAPE: one `pending` record per LIVE gesture, local to the
 		-- returned closure and gone at pointer up. The state a report needs is the
 		-- row engine's own dump() and Table's.
@@ -1487,10 +1483,10 @@ local registry: { Entry } = {
 		name = "RowActionsMetrics",
 		kind = "composite",
 		module = "src/controls/row_actions_metrics.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/row_actions.spec.luau",
 		conformance = "tests/row_actions.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		-- NO INSTANCE: `build()` returns a bag of already-owned reactive nodes that
 		-- the row engine closes over. Their live values are already in the row's
 		-- own dump() (trayWidth/offset/phase), which is where a report reads them.
@@ -1517,10 +1513,10 @@ local registry: { Entry } = {
 		name = "RowActionsTrays",
 		kind = "composite",
 		module = "src/controls/row_actions_trays.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/row_actions.spec.luau",
 		conformance = "tests/row_actions.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		-- NO INSTANCE: `build()` returns blueprints. What a report needs about a
 		-- revealed tray — which edge is open, how far, how wide the band is — is
 		-- already in the row engine's own dump(), which owns the state these read.
@@ -1547,10 +1543,10 @@ local registry: { Entry } = {
 		name = "RowActionsRoot",
 		kind = "composite",
 		module = "src/controls/row_actions_root.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/row_actions.spec.luau",
 		conformance = "tests/row_actions.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		-- NO INSTANCE: `build()` returns one blueprint. The row engine's own dump()
 		-- reports the state these nodes are bound to (edge, offset, phase, height).
 		dump = false,
@@ -1571,10 +1567,10 @@ local registry: { Entry } = {
 		name = "RowActionsDump",
 		kind = "composite",
 		module = "src/controls/row_actions_dump.luau",
-		export = "Controls.RowActions",
+		export = "UI.RowActions",
 		spec = "tests/row_actions.spec.luau",
 		conformance = "tests/row_actions_dump_seam.spec.luau",
-		docsAnchor = "newRowActions",
+		docsAnchor = "UI.RowActions",
 		-- NO INSTANCE: `build(p)` is a pure, one-shot function of its arguments.
 		-- What it returns IS the row engine's own dump() — there is no second
 		-- state to summarize.
@@ -1587,10 +1583,10 @@ local registry: { Entry } = {
 		name = "VirtualGrid",
 		kind = "composite",
 		module = "src/controls/virtual_grid.luau",
-		export = "Controls.VirtualGrid",
+		export = "UI.VirtualGrid",
 		spec = "tests/virtual_grid.spec.luau",
 		conformance = "tests/virtual_grid_input.spec.luau",
-		docsAnchor = "newVirtualGrid",
+		docsAnchor = "UI.VirtualGrid",
 		dumpFunction = "function grid.dump",
 		--[[ THE LAZY GRID. Its reachability story is a
 			scrolling collection's — the engine ScrollingFrame owns pointer/touch
@@ -1650,10 +1646,10 @@ local registry: { Entry } = {
 		name = "SelectionIndicator",
 		kind = "composite",
 		module = "src/controls/selection_indicator.luau",
-		export = "Controls.Picker",
+		export = "UI.Picker",
 		spec = "tests/selection_indicator.spec.luau",
 		conformance = "tests/selection_indicator.spec.luau",
-		docsAnchor = "newPicker",
+		docsAnchor = "UI.Picker",
 		-- NO DUMP OF ITS OWN: an internal seam with a second schema string is a
 		-- schema a bug report has to be taught to look for. Its live state
 		-- (`state()`) is reported inside `picker.dump().indicator`.
@@ -1682,10 +1678,10 @@ local registry: { Entry } = {
 		name = "MenuRecipe",
 		kind = "composite",
 		module = "src/controls/menu_recipe.luau",
-		export = "Controls.Menu",
+		export = "UI.Menu",
 		spec = "tests/menu.spec.luau",
 		conformance = "tests/menu.spec.luau",
-		docsAnchor = "newMenu",
+		docsAnchor = "UI.Menu",
 		-- NO DUMP OF ITS OWN: it returns blueprints its three callers mount, and
 		-- every one of them already reports the rows it built through its own
 		-- dump() (`menu.dump().items`, `popup_button.dump().options`,
@@ -1709,10 +1705,10 @@ local registry: { Entry } = {
 		name = "Menu",
 		kind = "composite",
 		module = "src/controls/menu.luau",
-		export = "Controls.Menu",
+		export = "UI.Menu",
 		spec = "tests/menu.spec.luau",
 		conformance = "tests/menu.spec.luau",
-		docsAnchor = "newMenu",
+		docsAnchor = "UI.Menu",
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
@@ -1771,10 +1767,10 @@ local registry: { Entry } = {
 		name = "Callout",
 		kind = "composite",
 		module = "src/controls/callout.luau",
-		export = "Controls.Callout",
+		export = "UI.Callout",
 		spec = "tests/callout.spec.luau",
 		conformance = "tests/callout.spec.luau",
-		docsAnchor = "newCallout",
+		docsAnchor = "UI.Callout",
 		dumpFunction = "function dump",
 		--[[ FOUR-INPUT PROOFS (ui_todo §0). The verb a Callout owns is DISMISS —
 			it presents nothing else to press — and a coach mark a player cannot
@@ -1831,10 +1827,10 @@ local registry: { Entry } = {
 		name = "TabView",
 		kind = "composite",
 		module = "src/controls/tab_view.luau",
-		export = "Controls.TabView",
+		export = "UI.TabView",
 		spec = "tests/tab_view.spec.luau",
 		conformance = "tests/tab_view.spec.luau",
-		docsAnchor = "newTabView",
+		docsAnchor = "UI.TabView",
 		dumpFunction = "function api.dump",
 		-- Four-input proofs (ui_todo §0). A tab is a `newPicker` segment — the
 		-- strip IS that control (navigation-and-menus D5) — so the four verbs come
@@ -1870,10 +1866,10 @@ local registry: { Entry } = {
 		name = "LevelPicker",
 		kind = "composite",
 		module = "src/controls/level_picker.luau",
-		export = "Controls.LevelPicker",
+		export = "UI.LevelPicker",
 		spec = "tests/level_picker.spec.luau",
 		conformance = "tests/level_picker.spec.luau",
-		docsAnchor = "newLevelPicker",
+		docsAnchor = "UI.LevelPicker",
 		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch land on the ONE Grip that covers the run of
 		-- segments (tap to set, drag to scrub); keyboard and gamepad reach the SAME
@@ -1907,10 +1903,10 @@ local registry: { Entry } = {
 		name = "RadialMenu",
 		kind = "composite",
 		module = "src/controls/radial_menu.luau",
-		export = "Controls.RadialMenu",
+		export = "UI.RadialMenu",
 		spec = "tests/radial_menu.spec.luau",
 		conformance = "tests/radial_menu.spec.luau",
-		docsAnchor = "Controls.RadialMenu",
+		docsAnchor = "UI.RadialMenu",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead
@@ -1941,10 +1937,10 @@ local registry: { Entry } = {
 		name = "RadialGeometry",
 		kind = "composite",
 		module = "src/controls/radial_geometry.luau",
-		export = "Controls.RadialMenu",
+		export = "UI.RadialMenu",
 		spec = "tests/radial_geometry.spec.luau",
 		conformance = "tests/radial_geometry.spec.luau",
-		docsAnchor = "Controls.RadialMenu",
+		docsAnchor = "UI.RadialMenu",
 		dump = false,
 		reason = "pure shared sector math; RadialMenu.dump reports the solved sectors",
 		inputProofs = false,
@@ -1956,10 +1952,10 @@ local registry: { Entry } = {
 		name = "Alert",
 		kind = "composite",
 		module = "src/controls/alert.luau",
-		export = "Controls.Alert",
+		export = "UI.Alert",
 		spec = "tests/alert.spec.luau",
 		conformance = "tests/alert.spec.luau",
-		docsAnchor = "Controls.Alert",
+		docsAnchor = "UI.Alert",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead
@@ -1990,10 +1986,10 @@ local registry: { Entry } = {
 		name = "Sheet",
 		kind = "composite",
 		module = "src/controls/sheet.luau",
-		export = "Controls.Sheet",
+		export = "UI.Sheet",
 		spec = "tests/sheet.spec.luau",
 		conformance = "tests/sheet.spec.luau",
-		docsAnchor = "Controls.Sheet",
+		docsAnchor = "UI.Sheet",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead
@@ -2024,10 +2020,10 @@ local registry: { Entry } = {
 		name = "PageView",
 		kind = "composite",
 		module = "src/controls/page_view.luau",
-		export = "Controls.PageView",
+		export = "UI.PageView",
 		spec = "tests/page_view.spec.luau",
 		conformance = "tests/page_view.spec.luau",
-		docsAnchor = "Controls.PageView",
+		docsAnchor = "UI.PageView",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead
@@ -2058,10 +2054,10 @@ local registry: { Entry } = {
 		name = "CollapsibleView",
 		kind = "composite",
 		module = "src/controls/collapsible_view.luau",
-		export = "Controls.CollapsibleView",
+		export = "UI.CollapsibleView",
 		spec = "tests/collapsible_view.spec.luau",
 		conformance = "tests/collapsible_view.spec.luau",
-		docsAnchor = "Controls.CollapsibleView",
+		docsAnchor = "UI.CollapsibleView",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead

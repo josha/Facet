@@ -1,8 +1,8 @@
 --!strict
 local t = require("./lib/testkit")
-local UI = require("../src/blueprint")
 local world = require("./lib/world")
 local framing = require("../src/render/image_framing")
+local Compose = require("../src/vendor/compose/core")
 local describe, it, expect = t.describe, t.it, t.expect
 
 describe("Image framing", function()
@@ -52,21 +52,20 @@ describe("Image framing", function()
 	end)
 	it("reframes a reactive background without solving or adding focus targets", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 400, h = 300 } })
-		local spec = w.core:signal({ width = 1000, height = 500, focusX = 0 })
-		w.present(UI.Screen({
-			id = "S",
-			children = {
+		local spec = Compose.cell({ width = 1000, height = 500, focusX = 0 })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
 				UI.background(
-					UI.VStack({
-						id = "Content",
+					UI.VStack("Content")({
 						width = UI.fill(),
 						height = UI.fill(),
-						children = { UI.Button({ id = "Play", label = "Play" }) },
+						UI.Button("Play")({ label = "Play", onActivate = function() end }),
 					}),
-					UI.Image({ id = "Art", image = "rbxassetid://1", imageFraming = spec })
+					UI.Image("Art")({ image = "rbxassetid://1", imageFraming = spec })
 				),
-			},
-		}))
+			})
+		end)
 		w.settle(3)
 		local target = "/S/Content+background/Content/Play"
 		w.pres.focus.focusOn(target)
@@ -76,7 +75,7 @@ describe("Image framing", function()
 		w.settle(3)
 		expect(w.controller.stats().solves).toBe(before.solves)
 		expect(w.controller.stats().creates).toBe(before.creates)
-		expect(w.pres.focus.focused:get()).toBe(target)
+		expect(w.pres.focus.focused:peek()).toBe(target)
 		expect(w.adapter.node("/S/Content+background/Art").imagePlan.source.x > 0).toBe(true)
 		w.env:set("viewportRect", { x = 0, y = 0, w = 200, h = 400 })
 		w.settle(3)

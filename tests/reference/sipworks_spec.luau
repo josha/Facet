@@ -19,6 +19,7 @@ local Facet = require("../../src")
 -- proof's group really left it
 local themeSnapshot = require("../../src/themes/snapshot") :: any
 local fake_target = require("../../tests/lib/fake_target")
+local refWorld = require("./ref_world")
 local proof = require("../../examples/reference/p3_sipworks") :: any
 local strings = require("../../examples/reference/p3_sipworks/content/strings") :: any
 local blends = require("../../examples/reference/p3_sipworks/content/blends") :: any
@@ -30,36 +31,36 @@ local PHONE = { x = 0, y = 0, w = 360, h = 720 }
 local FRAME = 1 / 30
 
 local function world(opts: any?)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", (opts or {}).viewport or WIDE)
-	local system = Facet.newActionSystem(core)
-	-- OPT-IN, because the live engine reserves one and the headless twin does not:
-	-- a page scroller that overflows loses `scrollBar` px off its CROSS axis, and
-	-- every box downstream of it is that much narrower than a bar-less run says.
-	local adapter = fake_target.new();
-	(adapter :: any).scrollBarThickness = (opts or {}).scrollBar
-	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	local deps = {
-		env = env,
-		actionSystem = system,
-		presenter = presenter,
-		adapter = adapter,
-		entry = (opts or {}).entry,
-		entryItemId = (opts or {}).entryItemId,
-		seed = (opts or {}).seed,
-		--[[ THE STAMP SEED, and it is a FACT rather than a constant so this file can
-			pin BOTH halves. The shipped default is one stamp short of the card
-			(`rewards.THRESHOLD - 1`), because the whole point of the played task is
-			that a visitor sees the stamp ceremony, the reward and the free pour
-			without ten repetitive orders. The accrual arithmetic below — one stamp
-			per confirmed order, none for a rejected one — is a claim about the
-			SERVICE, not about the seed, so those cases ask for an empty card and
-			assert exactly what they always asserted. ]]
-		startEarned = (opts or {}).startEarned,
-	}
-	local built = proof.build(Facet, core, deps)
-	presenter.refresh()
+	local rw = refWorld.new(proof, {
+		keyboardNavigation = true,
+		before = function(env: any, adapter: any)
+			env:set("viewportRect", (opts or {}).viewport or WIDE);
+			(adapter :: any).scrollBarThickness = (opts or {}).scrollBar
+		end,
+		deps = function(env: any, system: any, presenter: any, adapter: any)
+			local deps = {
+				env = env,
+				actionSystem = system,
+				presenter = presenter,
+				adapter = adapter,
+				entry = (opts or {}).entry,
+				entryItemId = (opts or {}).entryItemId,
+				seed = (opts or {}).seed,
+				--[[ THE STAMP SEED, and it is a FACT rather than a constant so this file can
+					pin BOTH halves. The shipped default is one stamp short of the card
+					(`rewards.THRESHOLD - 1`), because the whole point of the played task is
+					that a visitor sees the stamp ceremony, the reward and the free pour
+					without ten repetitive orders. The accrual arithmetic below — one stamp
+					per confirmed order, none for a rejected one — is a claim about the
+					SERVICE, not about the seed, so those cases ask for an empty card and
+					assert exactly what they always asserted. ]]
+				startEarned = (opts or {}).startEarned,
+			}
+			return deps
+		end,
+	})
+	local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+	local built = rw.built
 	return {
 		core = core,
 		env = env,
@@ -69,6 +70,10 @@ local function world(opts: any?)
 		built = built,
 		steps = built.steps,
 		report = built.report,
+		-- the newest composite control built under `id`
+		record = function(id: string): any
+			return rw.world.record(id)
+		end,
 	}
 end
 
@@ -172,7 +177,7 @@ describe("Sipworks reference proof — module contract and first mount", functio
 		expect(r.entry).toBe("full")
 		expect(r.section).toBe("menu")
 		expect(r.visible.menu).toBe(#blends.list)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -224,7 +229,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		expect(findNode(w, TOP_BAND) ~= nil).toBe(true)
 		expect(findNode(w, BOTTOM_BAND) == nil and findNode(w, COMPACT_BAND) == nil).toBe(true)
 		expect(findNode(w, RAIL) == nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -246,7 +251,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		local contentBottom = content.rect.y + content.rect.h
 		expect(accessory.rect.y >= contentBottom - 1).toBe(true)
 		expect(tabs.rect.y >= accessory.rect.y + accessory.rect.h - 1).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -284,7 +289,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		-- ...and centered in it (midpoints within a tab's width of each other)
 		local mid = row.rect.x + row.rect.w / 2
 		expect(math.abs(mid - 540) < 120).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -306,7 +311,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		local wide = w.report()
 		expect(wide.search).toBe("gin")
 		expect(wide.selectedBlendId).toBe("copper-chai")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -321,7 +326,7 @@ describe("Sipworks §5 — the shell flips, and the model survives the flip", fu
 		local after = w.report()
 		expect(after.surfaces.detail).toBe(false)
 		expect(after.selectedBlendId).toBe("lantern-oolong")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 end)
@@ -382,7 +387,7 @@ describe("Sipworks §6 — one row blueprint, search, suggestions, favorites", f
 		expect(w.adapter.driveActivate(browse :: string)).toBe(true)
 		w.presenter.refresh()
 		expect(w.report().section).toBe("menu")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -453,7 +458,7 @@ describe("Sipworks §7 — the adaptive header, the tiles, and the facts flip", 
 		expect(find(w, "/Flip/Back/then/BackFace/Back/Rows/CardFactsClose") ~= nil).toBe(true)
 		-- the hidden face is UNMOUNTED, so it can never be focused
 		expect(find(w, "/Flip/Front/then/FrontFace/Front/Actions/CardFacts")).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -555,7 +560,7 @@ describe("Sipworks §8 — the order flow: guard, rejection, confirmation, ready
 		w.presenter.refresh()
 		expect(w.report().surfaces.placed).toBe(false)
 		expect(w.report().order.status).toBe("idle")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 end)
@@ -677,7 +682,7 @@ describe("Sipworks §10 — the Blend Book unlock and the recipe view", function
 		expect(w.report().unlock.unlocked).toBe(true)
 		expect(w.report().visible.recipes).toBe(#blends.list)
 		expect(find(w, "/Row-lantern-oolong/Line/Open") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -789,7 +794,7 @@ describe("Sipworks §13 — localization: expansion, plurals, lists, measures", 
 		expect(#(after :: string)).toBeGreaterThan(#(before :: string))
 		-- rows are RELABELLED, not rebuilt
 		expect(w.built.handle.root.counters().factoryRuns).toBe(counters.factoryRuns)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 end)
@@ -802,7 +807,7 @@ describe("Sipworks §11 — the compact entry flow shares the same blueprints", 
 		expect(r.entryItemId).toBe("lantern-oolong")
 		expect(r.selectedBlendId).toBe("lantern-oolong")
 		expect(r.surfaces.detail).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -859,7 +864,7 @@ describe("Sipworks §11 — the compact entry flow shares the same blueprints", 
 		w.presenter.refresh()
 		expect(reached).toBeGreaterThan(fullReached)
 		listModule.blendRow = original
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -931,7 +936,7 @@ describe("Sipworks §17 — reset determinism", function()
 
 		driveLoop(w)
 		expect(w.built.dump()).toBe(afterLoop)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1006,7 +1011,7 @@ describe("Sipworks — the five-view sweep the solver itself signs off", functio
 						then `{issues[1].surface}: {issues[1].issue} @ {issues[1].node}`
 						else ""
 					expect(`{#issues} {first}`).toBe("0 ")
-					expect(w.core:lastError()).toBeNil()
+					expect(w.core.lastError()).toBeNil()
 					w.built.dispose()
 				end)
 			end
@@ -1047,7 +1052,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 			end
 		end
 		expect(celebrated).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1064,7 +1069,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 			step(w, "tile", "oolong")
 			expect(w.report().surfaces.card).toBe(true)
 			expect(#w.report().diagnostics).toBe(0)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			w.built.dispose()
 		end
 	end)
@@ -1088,8 +1093,8 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		expect(w.report().surfaces.rewards).toBe(true)
 		-- ...the section never moved, and neither did the strip's own selection
 		expect(w.report().section).toBe("menu")
-		expect(findNode(w, "/Tab-stamps/then/Body")).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(findNode(w, "/Tab-stamps/Body")).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1100,8 +1105,8 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		w.adapter.tap(path :: string, { source = "pointer", pointer = "mouse" })
 		w.presenter.refresh()
 		expect(w.report().section).toBe("stamps")
-		expect(findNode(w, "/Tab-stamps/then/Body") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(findNode(w, "/Tab-stamps/Body") ~= nil).toBe(true)
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1148,7 +1153,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		expect(find(w, "/Batch/Decrement") ~= nil or find(w, "/Batch/Dec") ~= nil).toBe(true)
 		expect(find(w, "/Batch/Increment") ~= nil or find(w, "/Batch/Inc") ~= nil).toBe(true)
 		expect(find(w, "/Got-ginger") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1169,7 +1174,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		expect(w.report().navigation.depth).toBe(0)
 		expect(w.report().recipe.batch).toBe(3)
 		expect(w.report().selectedBlendId).toBe("copper-chai")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1192,20 +1197,21 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		w.system.deviceKey("ButtonB", false)
 		w.presenter.refresh()
 		advance(w, 1)
-		expect(w.presenter.focus.focused:get()).toBe(find(w, "/Row-lantern-oolong/Line/Open"))
-		local before = w.core:counters()
+		expect(w.presenter.focus.focused:peek()).toBe(find(w, "/Row-lantern-oolong/Line/Open"))
+		local before = w.core.owner.size()
 		for _ = 1, 3 do
 			step(w, "open", "lantern-oolong")
 			advance(w, 1)
 			step(w, "close")
 			advance(w, 1)
 		end
-		local after = w.core:counters()
-		expect(after.signals).toBe(before.signals)
-		expect(after.memos).toBe(before.memos)
-		expect(after.scopes).toBe(before.scopes)
-		expect(w.report().navigation.livePages).toBe(1)
-		expect(w.report().navigation.quarantined).toBe(false)
+		local after = w.core.owner.size()
+		expect(after).toBe(before)
+		expect(after).toBe(before)
+		expect(after).toBe(before)
+		local flow = w.record("SipworksFlow").dump()
+		expect(flow.livePages).toBe(1)
+		expect(flow.quarantined).toBe(false)
 		w.built.dispose()
 	end)
 
@@ -1222,19 +1228,10 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 	end)
 
 	it("build, drive and dispose are registry-neutral", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", WIDE)
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local before = core:counters()
-		local built = proof.build(Facet, core, {
-			env = env,
-			actionSystem = system,
-			presenter = presenter,
-			adapter = adapter,
-		})
+		local w = refWorld.open({ viewport = WIDE, keyboardNavigation = true })
+		local core, presenter = w.core, w.pres
+		local before = core.owner.size()
+		local built = refWorld.mount(w, proof).built
 		presenter.refresh()
 		built.steps.open(built, "lantern-oolong")
 		built.steps.tile(built, "oolong")
@@ -1248,11 +1245,11 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 			presenter.tick(FRAME)
 		end
 		presenter.refresh()
-		local after = core:counters()
-		expect(after.signals).toBe(before.signals)
-		expect(after.memos).toBe(before.memos)
-		expect(after.scopes).toBe(before.scopes)
-		expect(core:lastError()).toBeNil()
+		local after = core.owner.size()
+		expect(after).toBe(before)
+		expect(after).toBe(before)
+		expect(after).toBe(before)
+		expect(core.lastError()).toBeNil()
 	end)
 	it("the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)", function()
 		for _, vp in
@@ -1264,16 +1261,18 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = Facet.newCore()
-			local env = Facet.newEnvironment(core)
-			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system)
 			-- the proof presents itself, so `built.handle` IS the mounted surface
-			local built =
-				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			local rw = refWorld.new(proof, {
+				scrollBar = true,
+				before = function(env: any, adapter: any)
+					env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
+				end,
+				deps = function(env: any, system: any, presenter: any, adapter: any)
+					return { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
+				end,
+			})
+			local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+			local built = rw.built
 			presenter.refresh()
 			expect(#built.handle.controller.diagnostics()).toBe(0)
 			built.dispose()
@@ -1296,10 +1295,10 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 	local function ringPaths(w: any): { [string]: boolean }
 		-- walk the whole ring once around, recording every stop
 		local seen: { [string]: boolean } = {}
-		local start = w.presenter.focus.focused:get()
+		local start = w.presenter.focus.focused:peek()
 		if start == nil then
 			pressTab(w)
-			start = w.presenter.focus.focused:get()
+			start = w.presenter.focus.focused:peek()
 		end
 		local guard = 0
 		local at = start
@@ -1308,7 +1307,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 				seen[at] = true
 			end
 			pressTab(w)
-			at = w.presenter.focus.focused:get()
+			at = w.presenter.focus.focused:peek()
 			guard += 1
 		until at == start or at == nil or guard > 250
 		return seen
@@ -1397,7 +1396,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 		expect(farBox.h).toBe(nearBox.h * 1.5)
 		expect(farBox.w).toBe(nearBox.w * 1.5)
 
-		local snap: any = w.env:get("themeMetrics"):get()
+		local snap: any = w.env:get("themeMetrics"):peek()
 		local sip = snap.app.sip
 		expect(sip.rowArt).toBe(90) -- 60 * 1.5
 		expect(sip.tileArt).toBe(144) -- 96
@@ -1430,7 +1429,7 @@ describe("Sipworks nav — every placement is gamepad-traversable (enter, throug
 			w.presenter.refresh()
 		end
 		local function focused(): string
-			return tostring(w.presenter.focus.focused:get())
+			return tostring(w.presenter.focus.focused:peek())
 		end
 		-- (enter/through) DPadRight walks the whole bar left to right
 		local seen: { [string]: boolean } = { [focused()] = true }
@@ -1555,7 +1554,7 @@ describe("Sipworks — the played task: seeded start, the loop, and the reset", 
 		)
 		-- the completion state is NOT up yet
 		expect(find(w, "/TaskCard/TaskDone/then/TaskDoneGroup/TaskDoneBody/TaskReset")).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1698,7 +1697,7 @@ describe("Sipworks — the played task: seeded start, the loop, and the reset", 
 		expect(r.section).toBe("menu")
 		expect(r.search).toBe("")
 		expect(#r.favorites).toBe(#openingReport.favorites)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1759,7 +1758,7 @@ describe("Sipworks — the played task: seeded start, the loop, and the reset", 
 		-- losing the task: the card is still the first thing on the page, with the
 		-- goal, the progress, the next action and the verb.
 		local w = world({ viewport = { x = 0, y = 0, w = 640, h = 320 }, scrollBar = 8 })
-		expect(w.built.app.cond.isShort:get()).toBe(true)
+		expect(w.built.app.cond.isShort:peek()).toBe(true)
 		expect(findNode(w, "/TaskStripWhen/then/TaskStrip")).toBeNil()
 		expect(findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskGoal") ~= nil).toBe(true)
 		expect(nodeTextAt(w, findNode(w, "/TaskCard/TaskActive/then/TaskBody/TaskNext") :: string)).toBe(

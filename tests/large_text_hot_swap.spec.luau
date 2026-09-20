@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE PREFERENCE SWING, WITH THE SCREEN ALIVE (acceptance LT-2 through the
 	LT-8 matrix's own live rows).
 
@@ -26,8 +27,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local lt = require("./lib/large_text")
+local Compose = require("../src/vendor/compose/core")
 
 local FIELD = "/S/Body/Name/Field"
 local LIST = "/S/Body/List"
@@ -40,7 +42,7 @@ local function busyScreen(core: any, w: any): any
 	for i = 1, 12 do
 		table.insert(rows, UI.Text({ id = `Row{i}`, text = `{i} — {STATUS}` }))
 	end
-	local field = Facet.Controls.TextInput(core, {
+	local field = harness.Controls.TextInput(core, {
 		id = "Name",
 		value = w.fieldValue,
 		placeholder = STATUS,
@@ -78,9 +80,11 @@ local function liveWorld(opts: any?): any
 		input = "desktop", -- a hardware keyboard, so focus is a real thing to lose
 		ops = true, -- ARMED (T12): this fixture reads adapter.takeOps()
 	})
-	w.fieldValue = w.core:signal("")
+	w.fieldValue = Compose.cell("")
 	w.commits = {}
-	w.present(busyScreen(w.core, w))
+	w.present(function()
+		return busyScreen(w.core, w)
+	end)
 	-- 1. a field MID-EDIT: entered, typed into, never committed
 	w.adapter.tap(FIELD)
 	w.adapter.focusText(FIELD)
@@ -127,35 +131,35 @@ describe("LT-2 hot swap: a live screen survives the preference swing 0 -> 14 -> 
 
 	it("LTSWING-FOCUS the focused path is the same node before, during and after the swing", function()
 		local w = liveWorld()
-		local before = w.pres.focus.focused:get()
+		local before = w.pres.focus.focused:peek()
 		expect(before).toBe(FIELD)
 		w.env:set("preferredTextOffset", lt.LARGEST)
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe(before)
+		expect(w.pres.focus.focused:peek()).toBe(before)
 		w.env:set("preferredTextOffset", 0)
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe(before)
+		expect(w.pres.focus.focused:peek()).toBe(before)
 	end)
 
 	it("LTSWING-EDIT the field keeps its typed, uncommitted text and stays in edit mode", function()
 		local w = liveWorld()
-		expect(w.fieldValue:get()).toBe("Kai")
-		expect(w.field.api.editing:get()).toBe(true)
+		expect(w.fieldValue:peek()).toBe("Kai")
+		expect(w.field.api.editing:peek()).toBe(true)
 		expect(#w.commits).toBe(0)
 		w.env:set("preferredTextOffset", lt.LARGEST)
 		w.pres.refresh()
-		expect(w.fieldValue:get()).toBe("Kai")
+		expect(w.fieldValue:peek()).toBe("Kai")
 		-- INPUT OWNERSHIP survives too: the edit's sinking context is still up, so
 		-- keystrokes are still text rather than navigation
-		expect(w.field.api.editing:get()).toBe(true)
+		expect(w.field.api.editing:peek()).toBe(true)
 		-- a re-solve must not look like a focus loss to the field: an accidental
 		-- commit here is the defect that eats a half-typed racer name
 		expect(#w.commits).toBe(0)
 		expect(w.adapter.node(FIELD).props.text).toBe("Kai")
 		w.env:set("preferredTextOffset", 0)
 		w.pres.refresh()
-		expect(w.fieldValue:get()).toBe("Kai")
-		expect(w.field.api.editing:get()).toBe(true)
+		expect(w.fieldValue:peek()).toBe("Kai")
+		expect(w.field.api.editing:peek()).toBe(true)
 		expect(#w.commits).toBe(0)
 	end)
 
@@ -240,8 +244,8 @@ describe("LT-5 composition: a theme swap and the preference compose on a live sc
 		local structural = lt.structuralOps(w.adapter.takeOps())
 		expect(#structural).toBe(0)
 		expect(w.controller.stats().creates).toBe(creates)
-		expect(w.pres.focus.focused:get()).toBe(FIELD)
-		expect(w.fieldValue:get()).toBe("Kai")
+		expect(w.pres.focus.focused:peek()).toBe(FIELD)
+		expect(w.fieldValue:peek()).toBe("Kai")
 
 		local found = lt.sweep(w)
 		if #found.overlaps > 0 then
@@ -295,9 +299,11 @@ describe("LT-5 composition: a theme swap and the preference compose on a live sc
 			input = "desktop",
 			ops = true, -- ARMED (T12): this fixture reads adapter.takeOps()
 		})
-		born.fieldValue = born.core:signal("")
+		born.fieldValue = Compose.cell("")
 		born.commits = {}
-		born.present(busyScreen(born.core, born))
+		born.present(function()
+			return busyScreen(born.core, born)
+		end)
 		born.adapter.tap(FIELD)
 		born.adapter.focusText(FIELD)
 		born.adapter.typeText(FIELD, "Kai")

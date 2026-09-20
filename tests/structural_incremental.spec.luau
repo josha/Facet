@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ O6 — THE STRUCTURAL SYNC IS O(TREE) FOR AN O(1) CHANGE.
 
 	Adding one plate re-walks the whole mounted tree twice and iterates the whole
@@ -108,15 +109,16 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local path_shapes = require("../src/controls/path_shapes")
 local schema = require("../src/blueprint_schema")
 local fs = require("@lune/fs")
+local Compose = require("../src/vendor/compose/core")
 
 -- comments are not code: `mount.luau` describes what it does in prose, and a scan
 -- that counted the prose would report the very assignment the header promises is absent
@@ -313,8 +315,8 @@ local function scrollFixture(rows: number, opts: { removableRing: boolean? }?): 
 	for i = 1, rows do
 		table.insert(items, { key = `r{i}` })
 	end
-	local rowsSignal = core:signal(items)
-	local ringOn = core:signal(true)
+	local rowsSignal = Compose.cell(items)
+	local ringOn = Compose.cell(true)
 	local bp = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -378,13 +380,13 @@ local function scrollFixture(rows: number, opts: { removableRing: boolean? }?): 
 			controller.refresh()
 		end,
 		add = function()
-			local next_ = table.clone(rowsSignal:get() :: any)
+			local next_ = table.clone(rowsSignal:peek() :: any)
 			table.insert(next_, { key = `r{#next_ + 1}` })
 			rowsSignal:set(next_)
 			controller.refresh()
 		end,
 		remove = function()
-			local next_ = table.clone(rowsSignal:get() :: any)
+			local next_ = table.clone(rowsSignal:peek() :: any)
 			table.remove(next_)
 			rowsSignal:set(next_)
 			controller.refresh()
@@ -406,8 +408,8 @@ local function nestedFixture(): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 300, h = 600 })
-	local inner = core:signal({ { key = "i1" } })
-	local outer = core:signal({ { key = "a" }, { key = "b" } })
+	local inner = Compose.cell({ { key = "i1" } })
+	local outer = Compose.cell({ { key = "a" }, { key = "b" } })
 	local bp = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -497,8 +499,8 @@ local function sinkFixture(): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	local active = core:signal(true)
-	local rows = core:signal({ { key = "r1" } })
+	local active = Compose.cell(true)
+	local rows = Compose.cell({ { key = "r1" } })
 	local bp = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -603,7 +605,7 @@ local function remountFixture(): any
 	-- a PLAIN upvalue, not a signal: reading a signal inside the row factory would
 	-- make the row re-run on its own and remount the very node this case is watching
 	local withExtra = false
-	local items = core:signal({ { key = "a" }, { key = "k" } })
+	local items = Compose.cell({ { key = "a" }, { key = "k" } })
 	local bp = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -698,13 +700,13 @@ describe("O6: the two facts that let the skip test identity alone", function()
 		expect(spec.shared).toBe(true)
 	end)
 
-	it("a class change builds a NEW node table: `mount.luau` never assigns `.class`", function()
+	it("a class change builds a NEW node table: the scene host never assigns `.class`", function()
 		--[[ The other half, and it is a source pin because there is no route to drive it:
 			a mounted node's `class` is written only in the table constructors that BUILD a
 			node (`class = bp.class` and the three region literals). An assignment to
 			`something.class` would be a class changing under a live node table — the exact
 			transition the skip assumes cannot happen. ]]
-		local source = fs.readFile("src/mount.luau")
+		local source = fs.readFile("src/render/compose_scene.luau")
 		local offenders: { string } = {}
 		for line in string.gmatch(stripComments(source), "\n([^\n]*)") do
 			if string.match(line, "[%a_][%w_]*%.class%s*=[^=]") ~= nil then
@@ -825,7 +827,8 @@ describe("O6: what the bound does not re-derive still has to be true", function(
 			than a smaller tree. ]]
 		local f = scrollFixture(6, { removableRing = true })
 		local before = f.controller.stats()
-		expect(before.lastCommitVisitsByWalk.visible).toBe(14) -- latch shut: the whole surface
+		-- latch shut: the whole surface, the `When` and its mounted branch included
+		expect(before.lastCommitVisitsByWalk.visible).toBe(15)
 		f.dropRing()
 		local st = f.controller.stats()
 		expect(
@@ -939,7 +942,7 @@ describe("unused drag retirement census", function()
 	it("does not inspect retirement on a surface that never queries drag eligibility", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		local items = core:signal({ "a", "b" })
+		local items = Compose.cell({ "a", "b" })
 		local root = mountLib.mount(
 			core,
 			UI.Screen({

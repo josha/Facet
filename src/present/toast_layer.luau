@@ -1,15 +1,15 @@
 --!strict
 -- Presenter-private toast scheduling and rendering. Rows share one layout
 -- animation group; plain slides preserve native text rendering. Explicit fades
--- use a CanvasGroup. Component bodies receive the parent presenter's services.
+-- use a CanvasGroup. Each toast's body is a component that its row owns.
 
 local blueprintLib = require("../blueprint")
-local mountLib = require("../mount")
 local renderer = require("../render/renderer")
 local transitionsLib = require("../render/transitions")
 local specGuard = require("../spec_guard")
 local toast_schedule = require("./toast_schedule")
 local focusMap = require("./focus_map")
+local Compose = require("../vendor/compose/core")
 local nodeAt = focusMap.nodeAt
 
 local toast_layer = {}
@@ -40,18 +40,18 @@ local TOAST_OPTS_KEYS = specGuard.keySet({
 export type Ctx = {
 	reserveHud: ((any) -> any)?,
 	core: any,
-	presenter: any,
 	env: any,
 	adapter: any,
 	motionClock: any,
 	metricsNow: () -> any,
 	emitFeedback: (any) -> (),
 	toastDisplayOrder: number,
+	-- mounts a component, given the internal UI, into the UI runtime
+	mountComponent: ((UI: any) -> any) -> any,
 }
 
 function toast_layer.new(ctx: Ctx)
 	local core = ctx.core
-	local presenter = ctx.presenter
 	local env = ctx.env
 	local adapter = ctx.adapter
 	local motionClock = ctx.motionClock
@@ -103,30 +103,34 @@ function toast_layer.new(ctx: Ctx)
 		merged.plate = "fades"
 		return merged
 	end
-	local function acknowledgeToastPlate(coreRef: any, scope: any, declared: any, position: string): any
+	local function acknowledgeToastPlate(_coreRef: any, scope: any, declared: any, position: string): any
 		if declared == nil or declared == false then
 			return defaultToastTransition(position)
 		end
-		if type(declared) == "table" and (declared.kind == "signal" or declared.kind == "memo") then
-			return scope:own(coreRef:memo(function(use)
-				local value = use(declared)
-				if value == nil or value == false then
-					return defaultToastTransition(position)
-				end
-				return mergeToastPlate(value)
-			end))
+		if Compose.isReadable(declared) then
+			return Compose.withOwner(scope, function()
+				return Compose.formula(function(use)
+					local value = use(declared)
+					if value == nil or value == false then
+						return defaultToastTransition(position)
+					end
+					return mergeToastPlate(value)
+				end)
+			end)
 		end
 		return mergeToastPlate(declared)
 	end
 
-	local function toastRowBlueprint(entry: any): any
+	-- The row is the toast's owner: its body component runs inside the row's
+	-- render, so the body's cells and watches are released with the toast.
+	local function toastRow(UI: any, entry: any): any
 		-- Explicit fades still get the group they need; ordinary slides do not.
-		return blueprintLib.ZStack({
+		return UI.ZStack({
 			id = "Toast",
 			width = entry.data.width or blueprintLib.fill(),
 			height = { type = "content" },
 			canvasGroup = if toastFadeGroup then true else nil,
-			children = { entry.data.blueprint },
+			children = { entry.data.component() },
 		})
 	end
 
@@ -183,46 +187,49 @@ function toast_layer.new(ctx: Ctx)
 		-- one layer, one stacking direction, so a burst cannot make the strip hop
 		-- from one edge to the other mid-read
 		toastPosition = if options.position == "bottom" then "bottom" else "top"
-		local sc = core:scope("present-toast")
+		local sc = core.owner.createChild()
 		toastTransition = acknowledgeToastPlate(core, sc, options.transition, toastPosition)
 		local transition = transitionsLib.resolve(toastTransition)
 		local fading = blueprintLib.schema.TRANSITION_FADES
-		toastFadeGroup = toastTransition.kind == "signal"
-			or toastTransition.kind == "memo"
+		toastFadeGroup = Compose.isReadable(toastTransition)
 			or transition.fade
 			or fading[transition.enter] == true
 			or fading[transition.exit] == true
 		-- scope-owned, so a layer that comes and goes twenty times leaves the core's
 		-- counters exactly where it found them
-		local items = sc:own(core:signal({}))
-		local rows = blueprintLib.ForEach({
-			id = "Items",
-			items = items,
-			key = function(entry: any): string
-				return tostring(entry.id)
-			end,
-			row = toastRowBlueprint,
-			transition = toastTransition,
-		})
-		local children: { any } = {}
-		if toastPosition == "bottom" then
-			-- the strip is pushed to the far edge; nothing else in the layer paints,
-			-- so the spacer costs one transparent frame
-			table.insert(children, blueprintLib.Spacer({ id = "Push", height = { type = "fill", weight = 1 } }))
+		local items = Compose.cell({})
+		local function layer(UI: any): any
+			local children: { any } = {}
+			if toastPosition == "bottom" then
+				-- the strip is pushed to the far edge; nothing else in the layer paints,
+				-- so the spacer costs one transparent frame
+				table.insert(children, UI.Spacer({ id = "Push", height = { type = "fill", weight = 1 } }))
+			end
+			table.insert(
+				children,
+				UI.ForEach({
+					id = "Items",
+					items = items,
+					key = function(entry: any): string
+						return tostring(entry.id)
+					end,
+					row = function(entry: any)
+						return toastRow(UI, entry)
+					end,
+					transition = toastTransition,
+				})
+			)
+			-- padding lifts the strip off the surface edges: rows hugging the exact
+			-- edge collide with content pinned there and read as a debug bar
+			return UI.Screen({
+				id = "__toast__",
+				animation = { layout = "container" },
+				align = "center",
+				gap = "s",
+				padding = "m",
+				children = children,
+			})
 		end
-		table.insert(children, rows)
-		-- padding lifts the strip off the surface edges (director, sensory-feedback
-		-- round: rows
-		-- hugging the exact top edge collided with content pinned there, and
-		-- edge-to-edge rows read as a debug bar rather than a toast)
-		local bp = blueprintLib.Screen({
-			id = "__toast__",
-			animation = { layout = "container" },
-			align = "center",
-			gap = "s",
-			padding = "m",
-			children = children,
-		})
 		local surfaceRef: any = nil
 		local coordinator = transitionsLib.new({
 			core = core,
@@ -233,17 +240,10 @@ function toast_layer.new(ctx: Ctx)
 				emitFeedback(event)
 			end,
 		})
-		local root = mountLib.mount(core, bp, {
-			context = { env = env, presenter = presenter },
-			scope = sc:child("mount"),
-			transitions = coordinator,
-			-- the toast strip carries CONSUMER-authored rows, so a
-			-- `UI.sensoryFeedback` declared on one has the same seam a screen's does
-			feedback = function(event: any)
-				event.surface = surfaceRef
-				emitFeedback(event)
-			end,
-		})
+		local root = ctx.mountComponent(layer)
+		sc.own(root.dispose)
+		-- the rows' structural transitions reach this strip's coordinator
+		transitionsLib.bind(root.node, coordinator)
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = "coreSafeContent",
 			clock = motionClock,
@@ -306,10 +306,10 @@ function toast_layer.new(ctx: Ctx)
 		end
 	end
 
-	local function presentToast(blueprint: any, opts: ToastOpts?)
+	local function presentToast(component: any, opts: ToastOpts?)
 		assert(
-			type(blueprint) == "table" and type(blueprint.class) == "string",
-			"presenter.presentToast takes a blueprint (UI.*) and an options table"
+			type(component) == "function",
+			"presenter.presentToast takes a component (a function that returns the toast's node) and an options table"
 		)
 		specGuard.assertKnownKeys("presenter.presentToast", opts, TOAST_OPTS_KEYS, "opts")
 		local options: any = opts or {}
@@ -334,7 +334,7 @@ function toast_layer.new(ctx: Ctx)
 			priority = options.priority,
 			duration = options.duration,
 			readFloor = options.readFloor,
-			data = { blueprint = blueprint, context = options.context, width = width },
+			data = { component = component, context = options.context, width = width },
 		})
 		syncToastLayer()
 		return {

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Modal outside-tap dismissal — the two-zone spec
 -- (docs/research/2026-07-21-modal-dismissal-spec.md).
 --
@@ -12,7 +13,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
@@ -25,12 +26,12 @@ end
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function services()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
@@ -38,10 +39,10 @@ end
 -- a base screen with a recorded button so "clickthrough" is observable
 local function presentBase(pres: any): { string }
 	local baseHits: { string } = {}
-	local base = Facet.UI.Screen({
+	local base = harness.UI.Screen({
 		id = "Base",
 		children = {
-			Facet.UI.Button({
+			harness.UI.Button({
 				id = "B",
 				label = "B",
 				onActivate = function(path: string)
@@ -57,13 +58,13 @@ end
 -- a small painted panel modal pinned top-left (surface="raised" => the ROOT is
 -- the painted panel rect, so Zone geometry is deterministic)
 local function paintedModal(id: string?)
-	return Facet.UI.Screen({
+	return harness.UI.Screen({
 		id = id or "M",
 		surface = "raised",
 		width = FIXED(200),
 		height = FIXED(120),
 		padding = 16,
-		children = { Facet.UI.Button({ id = "OK", label = "OK" }) },
+		children = { harness.UI.Button({ id = "OK", label = "OK" }) },
 	})
 end
 
@@ -72,7 +73,7 @@ end
 -- ===========================================================================
 describe("modal dismissal: empty-space tap dismisses (Drive-F1 scrim catcher)", function()
 	it("tapping the scrim far outside the panel dismisses the top modal", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		local bp = paintedModal()
 		pres.presentModal(bp)
@@ -98,7 +99,7 @@ describe("modal dismissal: the synthesized catcher is never a skin target", func
 		-- surface beneath disappeared. Found live under the P5 reference packages;
 		-- this is the headless half so it cannot come back.
 		local chrome_slots = require("../src/tokens/chrome_slots")
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		pres.presentModal(paintedModal())
 		pres.refresh()
@@ -122,7 +123,7 @@ end)
 -- ===========================================================================
 describe("modal dismissal: 24px forgiveness ring around the painted panel", function()
 	it("a tap within 24px of the panel edge does NOT dismiss (near-miss forgiveness)", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		local h = pres.presentModal(paintedModal())
 		pres.refresh()
@@ -134,7 +135,7 @@ describe("modal dismissal: 24px forgiveness ring around the painted panel", func
 	end)
 
 	it("a tap beyond the 24px ring dismisses", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		local h = pres.presentModal(paintedModal())
 		pres.refresh()
@@ -150,20 +151,20 @@ end)
 -- ===========================================================================
 describe("modal dismissal: an invisible fullscreen root contributes nothing to Zone A", function()
 	it("a tap outside the small painted panel still dismisses, despite the fill root", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		-- fill root, TRANSPARENT (no surface); a small VISIBLE panel inside it
-		local modal = Facet.UI.Screen({
+		local modal = harness.UI.Screen({
 			id = "M",
 			width = FILL,
 			height = FILL,
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "Panel",
 					surface = "raised",
 					width = FIXED(200),
 					height = FIXED(120),
-					children = { Facet.UI.Button({ id = "OK", label = "OK" }) },
+					children = { harness.UI.Button({ id = "OK", label = "OK" }) },
 				}),
 			},
 		})
@@ -182,14 +183,14 @@ end)
 -- ===========================================================================
 describe("modal dismissal: a visible fullscreen takeover has no outside", function()
 	it("a tap anywhere lands in Zone A (the painted fullscreen panel) — no dismiss", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
-		local modal = Facet.UI.Screen({
+		local modal = harness.UI.Screen({
 			id = "M",
 			surface = "raised", -- PAINTED and fill: the panel is the whole viewport
 			width = FILL,
 			height = FILL,
-			children = { Facet.UI.Button({ id = "OK", label = "OK" }) },
+			children = { harness.UI.Button({ id = "OK", label = "OK" }) },
 		})
 		pres.presentModal(modal)
 		pres.refresh()
@@ -203,7 +204,7 @@ end)
 -- ===========================================================================
 describe("modal dismissal: outsideTapCancel=false is a true barrier (swallow)", function()
 	it("a Zone-B scrim tap neither dismisses nor clicks through", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		local baseHits = presentBase(pres)
 		pres.presentModal(paintedModal("M"), { outsideTapCancel = false })
 		pres.refresh()
@@ -213,7 +214,7 @@ describe("modal dismissal: outsideTapCancel=false is a true barrier (swallow)", 
 	end)
 
 	it("a direct tap on a lower node (path-outside) is also swallowed", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		local baseHits = presentBase(pres)
 		pres.presentModal(paintedModal("M"), { outsideTapCancel = false })
 		pres.refresh()
@@ -228,7 +229,7 @@ end)
 -- ===========================================================================
 describe("modal dismissal: stacked modals pop only the top", function()
 	it("an empty-space scrim tap pops M2, then M1, one per tap", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		pres.presentModal(paintedModal("M1"))
 		pres.presentModal(paintedModal("M2"))
@@ -246,32 +247,32 @@ end)
 -- ===========================================================================
 describe("modal dismissal: the scrim is non-focusable and absent from navigation", function()
 	it("focus stays inside the modal and never lands on the scrim", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = services()
 		presentBase(pres)
-		local modal = Facet.UI.Screen({
+		local modal = harness.UI.Screen({
 			id = "M",
 			surface = "raised",
 			children = {
-				Facet.UI.Button({ id = "Confirm", label = "Delete" }),
-				Facet.UI.Button({ id = "Cancel", label = "Cancel" }),
+				harness.UI.Button({ id = "Confirm", label = "Delete" }),
+				harness.UI.Button({ id = "Cancel", label = "Cancel" }),
 			},
 		})
 		pres.presentModal(modal)
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/M/Confirm")
+		expect(pres.focus.focused:peek()).toBe("/M/Confirm")
 		-- navigate the whole ring: it must never reach the scrim catcher path
 		local scrimRoot = "/__scrim__"
 		for _ = 1, 4 do
 			system.deviceKey("Down", true)
 			system.deviceKey("Down", false)
-			local f = pres.focus.focused:get()
+			local f = pres.focus.focused:peek()
 			expect(f).never().toBeNil()
 			expect(string.sub(f :: string, 1, #scrimRoot) == scrimRoot).toBe(false)
 		end
 	end)
 
 	it("the scrim root's DisplayOrder is beneath the top modal", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		pres.presentModal(paintedModal("M"))
 		pres.refresh()
@@ -285,7 +286,7 @@ end)
 -- ===========================================================================
 describe('modal dismissal: scrim="none" is transparent but still catches', function()
 	it("a Zone-B tap still dismisses, and the catcher renders without a scrim surface", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		pres.presentModal(paintedModal("M"), { scrim = "none" })
 		pres.refresh()
@@ -311,7 +312,7 @@ end)
 -- ===========================================================================
 describe("modal dismissal: scrim open/dismiss churn is registry-neutral", function()
 	it("live node count returns to baseline after churn (scrim disposed with the modal)", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		local baseline = adapter.liveCount()
 		for _ = 1, 10 do
@@ -336,9 +337,9 @@ end)
 -- ===========================================================================
 describe("modal dismissal: cancelPolicy", function()
 	it("the DEFAULT is unchanged — Cancel dismisses a modal and resigns an engaged HUD", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = services()
 		local hud = pres.present(
-			Facet.UI.Screen({ id = "Hud", children = { Facet.UI.Button({ id = "Go", label = "Go" }) } }),
+			harness.UI.Screen({ id = "Hud", children = { harness.UI.Button({ id = "Go", label = "Go" }) } }),
 			{ responder = "passive" }
 		)
 		pres.presentModal(paintedModal("M"))
@@ -347,14 +348,14 @@ describe("modal dismissal: cancelPolicy", function()
 		system.deviceKey("ButtonB", false)
 		expect(pres.depth()).toBe(1) -- modal dismissed
 		hud.engage()
-		expect(hud.responder:get()).toBe("engaged")
+		expect(hud.responder:peek()).toBe("engaged")
 		system.deviceKey("ButtonB", true)
 		system.deviceKey("ButtonB", false)
-		expect(hud.responder:get()).toBe("passive") -- engaged HUD resigned
+		expect(hud.responder:peek()).toBe("passive") -- engaged HUD resigned
 	end)
 
 	it("cancelPolicy='none' makes Cancel a no-op on the modal, however many times it is pressed", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = services()
 		presentBase(pres)
 		local modal = pres.presentModal(paintedModal("M"), { cancelPolicy = "none" })
 		expect(pres.depth()).toBe(2)
@@ -364,14 +365,14 @@ describe("modal dismissal: cancelPolicy", function()
 		end
 		expect(pres.depth()).toBe(2) -- still up
 		expect(modal.context.destroyed).toBe(false)
-		expect(pres.focus.focused:get()).toBe("/M/OK") -- and still owns focus
+		expect(pres.focus.focused:peek()).toBe("/M/OK") -- and still owns focus
 		-- the surface's OWNER can always take it down deliberately
 		pres.dismiss(modal)
 		expect(pres.depth()).toBe(1)
 	end)
 
 	it("cancelPolicy='none' does NOT imply a pointer barrier — the two opts are orthogonal", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = services()
 		presentBase(pres)
 		pres.presentModal(paintedModal("M"), { cancelPolicy = "none" })
 		pres.refresh()
@@ -385,10 +386,10 @@ describe("modal dismissal: cancelPolicy", function()
 	end)
 
 	it("cancelPolicy='none' still offers Cancel to the focused contribution first", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = services()
 		local consumed = 0
 		local inner = Facet.contribution.attach(
-			Facet.UI.VStack({ id = "Inner", children = { Facet.UI.Button({ id = "OK", label = "OK" }) } }),
+			harness.UI.VStack({ id = "Inner", children = { harness.UI.Button({ id = "OK", label = "OK" }) } }),
 			{
 				handleCancel = function(_focused: string?): boolean
 					consumed += 1
@@ -397,7 +398,7 @@ describe("modal dismissal: cancelPolicy", function()
 			}
 		)
 		local modal = pres.presentModal(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "M",
 				surface = "raised",
 				width = FIXED(200),
@@ -414,21 +415,21 @@ describe("modal dismissal: cancelPolicy", function()
 	end)
 
 	it("cancelPolicy='none' on a passive HUD keeps it engaged (Cancel no longer resigns)", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = services()
 		local hud = pres.present(
-			Facet.UI.Screen({ id = "Hud", children = { Facet.UI.Button({ id = "Go", label = "Go" }) } }),
+			harness.UI.Screen({ id = "Hud", children = { harness.UI.Button({ id = "Go", label = "Go" }) } }),
 			{ responder = "passive", cancelPolicy = "none" }
 		)
 		hud.engage()
 		system.deviceKey("ButtonB", true)
 		system.deviceKey("ButtonB", false)
-		expect(hud.responder:get()).toBe("engaged")
+		expect(hud.responder:peek()).toBe("engaged")
 		hud.resign() -- the owner still resigns it explicitly
-		expect(hud.responder:get()).toBe("passive")
+		expect(hud.responder:peek()).toBe("passive")
 	end)
 
 	it("an unknown cancelPolicy is refused at present time, naming the set", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = services()
 		local ok, err = pcall(function()
 			return pres.presentModal(paintedModal("M"), { cancelPolicy = "no" })
 		end)

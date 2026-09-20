@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- PER-ROW CAPABILITY OPT-OUTS — `rowSelectable` / `rowMovable` / `rowDeletable`
 -- across BOTH collection controls (parity round 3, item C; game-director ruling
 -- 2026-08-13 to ship all three).
@@ -36,6 +37,7 @@ local Facet = require("../src")
 local fake_target = require("./lib/fake_target")
 local virtual_list = require("../src/controls/virtual_list")
 local table_control = require("../src/controls/table")
+local Compose = require("../src/vendor/compose/core")
 
 local ITEMS = {
 	{ id = "a", name = "Alpha" },
@@ -49,13 +51,13 @@ end
 
 -- ── VirtualList worlds ──────────────────────────────────────────────────────
 local function vlistWorld(extra: { [string]: any }?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(ITEMS)
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(ITEMS)
 	local moved: { { key: string, to: number } } = {}
 	local selected: { string } = {}
 	local spec: any = {
@@ -73,14 +75,14 @@ local function vlistWorld(extra: { [string]: any }?)
 			table.insert(moved, { key = key, to = to })
 		end,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Cell", text = item.name })
+			return harness.UI.Text({ id = "Cell", text = item.name })
 		end,
 	}
 	for k, v in extra or {} do
 		spec[k] = v
 	end
 	local vl = virtual_list.build(Facet, core, spec)
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { vl.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { vl.blueprint } }))
 	pres.refresh()
 	return {
 		core = core,
@@ -120,9 +122,9 @@ describe("row capability opt-outs — VirtualList", function()
 			end,
 		})
 		w.vl.toggleGrab("a")
-		expect(w.vl.armedKey:get()).toBe(nil) -- refused
+		expect(w.vl.armedKey:peek()).toBe(nil) -- refused
 		w.vl.toggleGrab("c")
-		expect(w.vl.armedKey:get()).toBe("c") -- allowed
+		expect(w.vl.armedKey:peek()).toBe("c") -- allowed
 	end)
 
 	it("an absent predicate changes nothing — every row participates, byte-identical to today", function()
@@ -130,7 +132,7 @@ describe("row capability opt-outs — VirtualList", function()
 		w.vl.select("b")
 		w.vl.toggleGrab("a")
 		expect(w.selected).toEqual({ "b" })
-		expect(w.vl.armedKey:get()).toBe("a")
+		expect(w.vl.armedKey:peek()).toBe("a")
 	end)
 
 	it("a predicate that THROWS is quarantined and fails CLOSED (the row does not participate)", function()
@@ -154,15 +156,15 @@ describe("row capability opt-outs — VirtualList", function()
 			end,
 		})
 		w.vl.toggleGrab("a")
-		expect(w.vl.armedKey:get()).toBe(nil)
-		expect(w.core:lastError()).toBe(nil) -- the honest state: silent
+		expect(w.vl.armedKey:peek()).toBe(nil)
+		expect(w.core.lastError()).toBe(nil) -- the honest state: silent
 	end)
 end)
 
 describe("row capability opt-outs — construction refusals (a predicate may only subtract)", function()
 	local function buildVL(extra: { [string]: any })
-		local core = Facet.newCore()
-		local rows = core:signal(ITEMS)
+		local core = harness.newCore()
+		local rows = Compose.cell(ITEMS)
 		local spec: any = {
 			id = "VL",
 			rows = rows,
@@ -170,7 +172,7 @@ describe("row capability opt-outs — construction refusals (a predicate may onl
 			itemExtent = 40,
 			viewportExtent = 600,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Cell", text = item.name })
+				return harness.UI.Text({ id = "Cell", text = item.name })
 			end,
 		}
 		for k, v in extra do
@@ -227,13 +229,13 @@ end
 
 -- ── Table ───────────────────────────────────────────────────────────────────
 local function tableWorld(extra: { [string]: any }?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 500, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(ITEMS)
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(ITEMS)
 	local moved: { any } = {}
 	local spec: any = {
 		id = "T",
@@ -261,7 +263,7 @@ local function tableWorld(extra: { [string]: any }?)
 		spec[k] = v
 	end
 	local tbl = table_control.build(Facet, core, spec)
-	local handle = pres.present(Facet.UI.Screen({ id = "T0", children = { tbl.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "T0", children = { tbl.blueprint } }))
 	pres.refresh()
 	return { core = core, pres = pres, adapter = adapter, tbl = tbl, handle = handle, moved = moved, rows = rows }
 end
@@ -330,8 +332,8 @@ end)
 	a refusal that does not say why gets re-filed as a feature request. ]]
 describe("flow-wrap x virtualization: refused, and the refusal names the conflict", function()
 	it("newVirtualList refuses `wrap` and explains the index x itemExtent arithmetic", function()
-		local core = Facet.newCore()
-		local rows = core:signal({ { id = "a" } })
+		local core = harness.newCore()
+		local rows = Compose.cell({ { id = "a" } })
 		local ok, err = pcall(function()
 			virtual_list.build(Facet, core, {
 				id = "VL",
@@ -343,7 +345,7 @@ describe("flow-wrap x virtualization: refused, and the refusal names the conflic
 				viewportExtent = 400,
 				wrap = true,
 				cell = function()
-					return Facet.UI.Text({ id = "Cell", text = "x" })
+					return harness.UI.Text({ id = "Cell", text = "x" })
 				end,
 			})
 		end)
@@ -385,23 +387,23 @@ local ROW_KEYS_DELETE = "Delete"
 
 -- ── Table: all FOUR delete routes ───────────────────────────────────────────
 local function deletableTableWorld(protectedId: string?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clock = { t = 100 }
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clock.t
 		end,
 	})
 	local fired: { string } = {}
-	local editing = core:signal(true) -- the ⊖ route needs edit mode
+	local editing = Compose.cell(true) -- the ⊖ route needs edit mode
 	local spec: any = {
 		id = "T",
-		rows = core:signal(ITEMS),
+		rows = Compose.cell(ITEMS),
 		key = keyOf,
 		header = false,
 		rowHeight = 40,
@@ -454,7 +456,7 @@ local function deletableTableWorld(protectedId: string?)
 		end
 	end
 	local tbl = table_control.build(Facet, core, spec)
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }), {
 		onActivate = function(path, meta)
 			tbl.api.handleActivate(path, meta)
 		end,
@@ -475,7 +477,7 @@ local function deletableTableWorld(protectedId: string?)
 		w.settle(3)
 	end
 	function w.root(key: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		return `/S/T/Main/Body/Rows/[{key}]/RowActions-{key}`
 	end
 	function w.hit(key: string): string
 		return `{w.root(key)}/Content/Row/Hit`
@@ -615,14 +617,14 @@ end)
 
 -- ── hosted VirtualList: the same funnel, the other host ─────────────────────
 local function deletableVListWorld(protectedId: string?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clock = { t = 100 }
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clock.t
 		end,
@@ -630,13 +632,13 @@ local function deletableVListWorld(protectedId: string?)
 	local fired: { string } = {}
 	local spec: any = {
 		id = "VL",
-		rows = core:signal(ITEMS),
+		rows = Compose.cell(ITEMS),
 		key = keyOf,
 		rowHeight = 40,
 		viewportHeight = 400,
 		env = env,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.name, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.name, textSize = 14 })
 		end,
 		rowActions = function(item: any)
 			return {
@@ -660,7 +662,7 @@ local function deletableVListWorld(protectedId: string?)
 		end
 	end
 	local list = virtual_list.build(Facet, core, spec)
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
 	local w: any =

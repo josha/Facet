@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE STACK BRANCH GAINS THREE THINGS (docs/plans/parity-round2.md §2.1,
 	§2.4, §2.6). They are one coherent change to one branch, so they are one spec
@@ -45,10 +46,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local solver = require("../src/layout/solver")
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 

@@ -3,19 +3,22 @@ local coreContract = require("../core/contract")
 local blueprint = require("../blueprint")
 -- One view transforms between a summary button and an expanded clipping plate.
 local guard = require("../spec_guard")
+local selectionModel = require("../selection_model")
 local surfaceEnv = require("../env/surface_env")
 local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
 local regionExpand = require("../region_expand")
+local contribution = require("../input/contribution")
 local collapsible = {}
-type BooleanSignal = coreContract.Signal<boolean>
-export type Spec<V = BooleanSignal> = {
+local Compose = require("../vendor/compose/core")
+type BooleanCell = coreContract.Cell<boolean>
+export type Spec<V = BooleanCell> = {
 	id: string?,
 	label: blueprint.Bound<string>,
 	icon: blueprint.Bound<string>?,
 	image: blueprint.Bound<string>?,
-	content: blueprint.Blueprint,
+	content: blueprint.Blueprint | (() -> any),
 	expanded: V,
 	env: any?,
 	width: blueprint.Bound<blueprint.Dim>?,
@@ -37,46 +40,44 @@ local KEYS = guard.keySet({
 	"dismissButton",
 })
 function collapsible.build(Facet, core, spec: Spec)
-	guard.assertKnownKeys("Controls.CollapsibleView", spec, KEYS, "spec")
+	guard.assertKnownKeys("UI.CollapsibleView", spec, KEYS, "spec")
 	assert(
 		spec.dismissButton == nil or spec.dismissButton == "always" or spec.dismissButton == "automatic",
-		"CollapsibleView.dismissButton must be always | automatic"
+		"UI.CollapsibleView.dismissButton must be always | automatic"
 	)
 	local UI = Facet.UI
 	local id = spec.id or "CollapsibleView"
 	assert(
 		type(id) == "string" and id ~= "" and not id:find("/", 1, true),
-		"CollapsibleView.id must be a nonempty path segment"
+		"UI.CollapsibleView.id must be a nonempty path segment"
 	)
 	assert(
-		type(spec.expanded) == "table" and spec.expanded.kind == "signal" and type(spec.expanded:get()) == "boolean",
-		"CollapsibleView.expanded must be an owner-held boolean Signal"
+		selectionModel.isWritable(spec.expanded) and type(selectionModel.read(spec.expanded)) == "boolean",
+		"UI.CollapsibleView.expanded must be a writable Compose cell holding a boolean, owned by the caller"
 	)
 	assert(
-		type(spec.content) == "table" and type(spec.content.class) == "string",
-		"CollapsibleView.content must be a blueprint"
+		type(spec.content) == "function" or (type(spec.content) == "table" and type(spec.content.class) == "string"),
+		"UI.CollapsibleView.content must be a node or a content factory"
 	)
 	local function read(value)
-		return if type(value) == "table" and type(value.get) == "function" then value:get() else value
+		return selectionModel.read(value)
 	end
 	assert(
 		type(read(spec.label)) == "string" and read(spec.label) ~= "",
-		"CollapsibleView.label must contain nonempty text"
+		"UI.CollapsibleView.label must contain nonempty text"
 	)
 	assert(
 		read(spec.icon) == nil or type(read(spec.icon)) == "string",
-		"CollapsibleView.icon must contain an icon name or nil"
+		"UI.CollapsibleView.icon must contain an icon name or nil"
 	)
 	assert(spec.icon == nil or spec.image == nil, "CollapsibleView accepts icon or image, not both")
 	assert(
 		read(spec.image) == nil or type(read(spec.image)) == "string",
-		"CollapsibleView.image must contain an asset string or nil"
+		"UI.CollapsibleView.image must contain an asset string or nil"
 	)
-	UI.Button({ label = spec.label, width = spec.width, enabled = spec.enabled })
 	local env = surfaceEnv.resolve("CollapsibleView", id, core, spec.env, "presentation needs the available safe area")
-	local scope = core:scope("collapsible-view-" .. id)
 	local rootPath, presentAnchored, dismiss, handle
-	local triggerWidth = scope:own(core:signal(0))
+	local triggerWidth = Compose.cell(0)
 	local disposed = false
 	local triggerRect
 	local controller
@@ -93,7 +94,7 @@ function collapsible.build(Facet, core, spec: Spec)
 			end
 		end
 	end
-	local maxHeight = scope:own(core:memo(function(use)
+	local function maxHeightValue(use)
 		local vp = use(env:get("viewportRect"))
 		local insets = use(env:get("platformChrome")).insets
 		return {
@@ -106,8 +107,9 @@ function collapsible.build(Facet, core, spec: Spec)
 					- 2 * (themeSnapshot.resolveNumber(use(env:get("themeMetrics")), "m") or 16)
 			),
 		}
-	end))
-	local panelWidth = scope:own(core:memo(function(use)
+	end
+	local maxHeight = Compose.formula(maxHeightValue)
+	local function panelWidthValue(use)
 		local vp = use(env:get("viewportRect"))
 		local insets = use(env:get("platformChrome")).insets
 		local margin = themeSnapshot.resolveNumber(use(env:get("themeMetrics")), "m") or 16
@@ -118,9 +120,10 @@ function collapsible.build(Facet, core, spec: Spec)
 			preferred = "controls.popup.panelWidth",
 			max = maximum,
 		}
-	end))
+	end
+	local panelWidth = Compose.formula(panelWidthValue)
 	local function panel()
-		return Facet.contribution.attach(
+		return contribution.attach(
 			UI.ZStack({
 				id = "Panel",
 				canvasGroup = true,
@@ -143,7 +146,7 @@ function collapsible.build(Facet, core, spec: Spec)
 								padding = "m",
 								gap = "s",
 								children = {
-									spec.content,
+									if type(spec.content) == "function" then spec.content() else spec.content,
 									regionExpand.collapseButton(
 										UI,
 										"Collapse",
@@ -166,7 +169,7 @@ function collapsible.build(Facet, core, spec: Spec)
 		)
 	end
 	local function sync()
-		if not spec.expanded:get() then
+		if not selectionModel.read(spec.expanded) then
 			closeSurface()
 			return
 		end
@@ -177,7 +180,7 @@ function collapsible.build(Facet, core, spec: Spec)
 		if source then
 			triggerRect = table.clone(source)
 		end
-		local nextHandle = presentAnchored(panel(), {
+		local nextHandle = presentAnchored(if Facet.surfaces then panel else panel(), {
 			id = "Expanded-" .. rootPath:gsub(".", function(c)
 				return string.format("%02X", string.byte(c))
 			end),
@@ -197,42 +200,49 @@ function collapsible.build(Facet, core, spec: Spec)
 			},
 		})
 		handle = nextHandle
-		nextHandle.scope:own(function()
+		nextHandle.scope.own(function()
 			if handle == nextHandle then
 				handle = nil
 				collapse()
 			end
 		end)
 	end
-	scope:own(core:observe(spec.expanded, function(value)
-		assert(type(value) == "boolean", "CollapsibleView.expanded must remain boolean")
+	Compose.watch(function(use)
+		assert(type(use(spec.expanded)) == "boolean", "UI.CollapsibleView.expanded must remain boolean")
 		sync()
-	end))
-	scope:own(function()
+	end)
+	local function dispose()
+		if disposed then
+			return
+		end
 		disposed = true
 		closeSurface()
-	end)
-	local icons = scope:own(core:memo(function(use)
-		local value = if type(spec.icon) == "table" and spec.icon.get then use(spec.icon) else spec.icon
-		assert(value == nil or type(value) == "string", "CollapsibleView.icon must contain an icon name or nil")
+	end
+	local function iconsValue(use)
+		local value = selectionModel.read(spec.icon, use)
+		assert(value == nil or type(value) == "string", "UI.CollapsibleView.icon must contain an icon name or nil")
 		return if value then { value } else {}
-	end))
+	end
+	local icons = Compose.formula(iconsValue)
 	local function iconView(name, nodeId)
 		return chromeSlots.attachHint(
 			UI.Text({ id = nodeId, text = themePackage.iconGlyph(name) or "", textSize = "control" }),
 			{ icon = name, iconSize = "small" }
 		)
 	end
-	local imageView
-	if spec.image ~= nil then
-		imageView = UI.Image({
+	local function hasImage(use)
+		local value = selectionModel.read(spec.image, use)
+		return value ~= nil and value ~= ""
+	end
+	local function imageView()
+		return UI.Image({
 			id = "Image",
 			image = spec.image,
 			width = { type = "fixed", px = "controlSizes.regular.iconSize" },
 			height = { type = "fixed", px = "controlSizes.regular.iconSize" },
 		})
 	end
-	local blueprint = Facet.contribution.attach(
+	local blueprint = contribution.attach(
 		UI.corners(
 			UI.Button({
 				id = id,
@@ -246,26 +256,14 @@ function collapsible.build(Facet, core, spec: Spec)
 						gap = "s",
 						align = "center",
 						children = {
-							UI.When({
-								id = "CustomImage",
-								condition = scope:own(core:memo(function(use)
-									local value = if type(spec.image) == "table" and spec.image.get
-										then use(spec.image)
-										else spec.image
-									return value ~= nil and value ~= ""
-								end)),
-								thenView = function()
-									return imageView
-								end,
-							}),
-							UI.ForEach({
-								id = "Icon",
-								items = icons,
+							Compose.show(hasImage, imageView),
+							Compose.keyed({
+								from = icons,
 								key = function(name)
 									return name
 								end,
-								row = function(name)
-									return iconView(name, "Image")
+								render = function(item)
+									return iconView(item:peek(), "Image")
 								end,
 							}),
 							UI.Text({
@@ -284,7 +282,7 @@ function collapsible.build(Facet, core, spec: Spec)
 				disclose = true,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = function()
-					spec.expanded:set(not spec.expanded:get())
+					spec.expanded:set(not selectionModel.read(spec.expanded))
 				end,
 			}),
 			"pill"
@@ -298,7 +296,7 @@ function collapsible.build(Facet, core, spec: Spec)
 			end,
 			bindPresent = function(_, dismissFn, presentFn)
 				dismiss = dismissFn
-				presentAnchored = presentFn
+				presentAnchored = if Facet.surfaces then Facet.surfaces.anchored else presentFn
 				sync()
 			end,
 			syncGeometry = function(rectOf, node)
@@ -336,7 +334,7 @@ function collapsible.build(Facet, core, spec: Spec)
 		return {
 			schema = "facet-collapsible-view-dump/1",
 			id = id,
-			expanded = spec.expanded:get(),
+			expanded = selectionModel.read(spec.expanded),
 			presented = handle ~= nil,
 		}
 	end
@@ -344,9 +342,7 @@ function collapsible.build(Facet, core, spec: Spec)
 		blueprint = blueprint,
 		collapse = collapse,
 		dump = dump,
-		dispose = function()
-			scope:dispose()
-		end,
+		dispose = dispose,
 	})
 end
 return collapsible

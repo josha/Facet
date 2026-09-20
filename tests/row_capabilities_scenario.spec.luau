@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SHOWCASE SURFACE FOR THE PER-ROW CAPABILITY OPT-OUTS (parity round 3
 	item C) — `examples/gallery/scenarios/row_capabilities.luau`.
 
@@ -52,13 +53,15 @@ local module = require("../examples/gallery/scenarios/row_capabilities") :: any
 describe("row_capabilities: controller entry from Edit into sectioned table rows", function()
 	for _, editing in { false, true } do
 		it("enters the first row with editing=" .. tostring(editing), function()
-			local w = require("./lib/world").new({
+			local w = require("./lib/harness_world").new({
 				viewport = { x = 0, y = 0, w = 1280, h = 719 },
 				preferredInput = "Gamepad",
 				themeMetrics = snapshot.resolve(require("../examples/themes/pixel_quest").build(Facet.themes), nil, {}),
 			})
 			local built = module.build({
 				Facet = Facet,
+				UI = (harness.libraryOf(w.core)),
+				Compose = Facet.Compose,
 				core = w.core,
 				env = w.env,
 				adapter = w.adapter,
@@ -72,8 +75,8 @@ describe("row_capabilities: controller entry from Edit into sectioned table rows
 				w.press("ButtonA")
 			end
 			w.press("DPadDown")
-			local focused = w.pres.focus.focused:get()
-			expect(string.find(focused or "", "/Rows/[grid@0]/", 1, true) ~= nil).toBe(true)
+			local focused = w.pres.focus.focused:peek()
+			expect(string.find(focused or "", "/Rows/[grid]/", 1, true) ~= nil).toBe(true)
 			if editing then
 				w.press("ButtonB")
 				expect(built.report().editing).toBe(false)
@@ -87,12 +90,12 @@ end)
 local ROOT = "/RowCapabilities/Page/RunSheet/Main/Body/Rows"
 
 local function world(view: { w: number, h: number }, package: string?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	if package ~= nil then
 		-- built through the PUBLIC facade and resolved through the snapshot
 		-- compiler — the same pair `tests/flow_wrap.spec.luau` §9 uses
@@ -103,6 +106,8 @@ local function world(view: { w: number, h: number }, package: string?)
 	end
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -121,7 +126,7 @@ local function world(view: { w: number, h: number }, package: string?)
 		end
 	end
 	function w.rowRoot(key: string): string
-		return `{ROOT}/[{key}@0]/RowActions-{key}`
+		return `{ROOT}/[{key}]/RowActions-{key}`
 	end
 	-- the row's own Hit — a real engine GuiButton, and the surface a tap, a
 	-- Return and a ButtonA all land on
@@ -222,20 +227,20 @@ describe("row_capabilities showcase: the refusal is legible, and the PREDICATE i
 		-- what the player moves; `grid` is what the framework refuses over.
 		local w, built = world(PHONE)
 		expect(built.steps.moveUp(built, "warmup").ok).toBe(false)
-		expect(built.refusal:get()).toBe(`{module.copy.rowGrid} — {module.copy.askMove} {module.copy.answerNo}`)
+		expect(built.refusal:peek()).toBe(`{module.copy.rowGrid} — {module.copy.askMove} {module.copy.answerNo}`)
 		built.dispose()
 	end)
 
 	it("each of the three refusals writes its OWN question, so the line says which capability said no", function()
 		local w, built = world(PHONE)
 		w.tapRow("notes")
-		expect(built.refusal:get()).toBe(`{module.copy.rowNotes} — {module.copy.askSelect} {module.copy.answerNo}`)
+		expect(built.refusal:peek()).toBe(`{module.copy.rowNotes} — {module.copy.askSelect} {module.copy.answerNo}`)
 		built.steps.moveUp(built, "grid")
-		expect(built.refusal:get()).toBe(`{module.copy.rowGrid} — {module.copy.askMove} {module.copy.answerNo}`)
+		expect(built.refusal:peek()).toBe(`{module.copy.rowGrid} — {module.copy.askMove} {module.copy.answerNo}`)
 		w.swipeOpen("main")
 		w.tapTray("main", "delete")
-		expect(built.refusal:get()).toBe(`{module.copy.rowMain} — {module.copy.askDelete} {module.copy.answerNo}`)
-		expect(built.refusals:get()).toBe(3)
+		expect(built.refusal:peek()).toBe(`{module.copy.rowMain} — {module.copy.askDelete} {module.copy.answerNo}`)
+		expect(built.refusals:peek()).toBe(3)
 		built.dispose()
 	end)
 
@@ -247,8 +252,8 @@ describe("row_capabilities showcase: the refusal is legible, and the PREDICATE i
 		expect(built.steps.moveUp(built, "cool").ok).toBe(true)
 		w.swipeOpen("cool")
 		expect(w.tapTray("cool", "flag")).toBe(true)
-		expect(built.refusal:get()).toBe(module.copy.refusalIdle)
-		expect(built.refusals:get()).toBe(0)
+		expect(built.refusal:peek()).toBe(module.copy.refusalIdle)
+		expect(built.refusals:peek()).toBe(0)
 		built.dispose()
 	end)
 end)
@@ -361,7 +366,7 @@ describe("row_capabilities showcase: it holds under every shipped package", func
 				for _, finding in built.handle.controller.diagnostics() do
 					table.insert(problems, `  {name} at {view.w}x{view.h}: {finding.node} — {finding.issue}`)
 				end
-				expect(w.core:lastError()).toBeNil()
+				expect(w.core.lastError()).toBeNil()
 				built.dispose()
 			end
 		end

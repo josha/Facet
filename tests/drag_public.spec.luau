@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- The PUBLIC drag/drop contract (rows SF-D1/D2/D4/D5).
 -- `UI.draggable` / `UI.dropTarget` declared on real blueprints, mounted through
 -- the real renderer, driven through the REAL acquisition paths — the engine
@@ -12,14 +13,15 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- a board with one draggable card and two stacked slots, at known offsets so
 -- every pointer coordinate below is a fact about geometry, not a guess
 local function board(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
@@ -27,7 +29,7 @@ local function board(opts: any?)
 	if options.noDragDetector then
 		adapter.noDragDetector = true
 	end
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
 	local drops: { any } = {}
 	local enters: { string } = {}
@@ -243,7 +245,7 @@ describe("public drag: hover, legality and the predicted verdict (SF-D1)", funct
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(bx, by)
-		local verdict = b.registry.verdict:get()
+		local verdict = b.registry.verdict:peek()
 		expect(verdict.legal).toBe(false)
 		expect(verdict.targetId).toBe(nil) -- an illegal target is never "hovered"
 		expect(verdict.overId).toBe("/S/Board/SlotB") -- ...but the player IS over it
@@ -258,7 +260,7 @@ describe("public drag: hover, legality and the predicted verdict (SF-D1)", funct
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(ax, ay)
-		local verdict = b.registry.verdict:get()
+		local verdict = b.registry.verdict:peek()
 		expect(verdict.legal).toBe(true)
 		expect(verdict.targetId).toBe("/S/Board/SlotA")
 		expect(verdict.reason).toBe(nil)
@@ -270,7 +272,7 @@ describe("public drag: hover, legality and the predicted verdict (SF-D1)", funct
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(bx, by)
-		expect(b.registry.verdict:get().legal).toBe(true) -- SlotB accepts non-cards
+		expect(b.registry.verdict:peek().legal).toBe(true) -- SlotB accepts non-cards
 	end)
 end)
 
@@ -357,17 +359,17 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(ax, ay)
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotOver")
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/SlotOver")
 	end)
 
 	it("removing the hovered target mid-session leaves ONCE and clears the verdict (F5)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local present = core:signal(true)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local present = Compose.cell(true)
 		local leaves: { string } = {}
 		local card = UI.draggable(
 			UI.Box({
@@ -427,15 +429,15 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			{ x = r.x + r.w / 2, y = r.y + r.h / 2, pointerType = "mouse" },
 			{ x = 0, y = 0 }
 		)
-		expect(registry.verdict:get().targetId).toBe(slotPath)
+		expect(registry.verdict:peek().targetId).toBe(slotPath)
 
 		present:set(false)
 		pres.refresh()
 		-- the targeting ENDED with exactly one leave; the session did NOT
 		expect(leaves).toEqual({ "Slot" })
 		expect(registry.isActive()).toBe(true)
-		expect(registry.verdict:get().targetId).toBe(nil)
-		expect(registry.verdict:get().legal).toBe(false)
+		expect(registry.verdict:peek().targetId).toBe(nil)
+		expect(registry.verdict:peek().legal).toBe(false)
 	end)
 
 	it("removing the SOURCE mid-session CANCELS it — no orphan ghost, no wedge (F5's mirror)", function()
@@ -449,13 +451,13 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			underneath. Director report, 2026-08-04: "the card stayed picked up
 			outside director view and was inaccessible when I opened director view
 			up." ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local present = core:signal(true)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local present = Compose.cell(true)
 		local events: { string } = {}
 		local screen = UI.Screen({
 			id = "S",
@@ -514,7 +516,7 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			pres.tick(1 / 60)
 		end
 		pres.refresh()
-		expect(`held={registry.heldSource:get()}`).toBe("held=nil")
+		expect(`held={registry.heldSource:peek()}`).toBe("held=nil")
 	end)
 
 	it("...but a RECYCLED source keeps its session: virtualization is not removal", function()
@@ -524,13 +526,13 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			the dragged row is routinely the one that leaves. `recycled` is how the
 			only thing that knows says so. Asserted through the SAME teardown as the
 			case above, so the declaration is provably the whole difference. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local present = core:signal(true)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local present = Compose.cell(true)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -570,7 +572,7 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 		present:set(false)
 		pres.refresh()
 		expect(`stillLive={registry.isActive()}`).toBe("stillLive=true")
-		expect(`stillHeld={registry.heldSource:get()}`).toBe(`stillHeld={cardPath}`)
+		expect(`stillHeld={registry.heldSource:peek()}`).toBe(`stillHeld={cardPath}`)
 	end)
 
 	it("the source contract CARRIES `recycled` — a dropped key would be silent", function()
@@ -588,12 +590,12 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 	end)
 
 	it("a target inside a SCROLLED host hit-tests where it is DRAWN, not where it solved", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local hits: { string } = {}
 		local rowsChildren: { any } = {}
 		for i = 1, 10 do
@@ -672,11 +674,11 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 			{ x = 150, y = host.y + 50, pointerType = "mouse" },
 			{ x = 0, y = 0 }
 		)
-		expect(registry.verdict:get().targetId).toBe("/S/Board/List/Canvas/Row1")
+		expect(registry.verdict:peek().targetId).toBe("/S/Board/List/Canvas/Row1")
 		-- scroll the host 150 px: the SAME screen point is now over Row3
 		adapter.driveScroll("/S/Board/List", { x = 0, y = 150 })
 		registry.refreshTargets()
-		expect(registry.verdict:get().targetId).toBe("/S/Board/List/Canvas/Row3")
+		expect(registry.verdict:peek().targetId).toBe("/S/Board/List/Canvas/Row3")
 		adapter.driveDragEnd("/S/Board/Card", { x = 150, y = host.y + 50, pointerType = "mouse" })
 		expect(hits).toEqual({ "Row3" })
 	end)
@@ -703,7 +705,7 @@ describe("public drag: hit geometry follows the PAINT (PLAT-4)", function()
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(ax, ay - 120) -- the PAINTED centre
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotA")
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/SlotA")
 		b.dragEnd(ax, ay - 120)
 		expect(b.drops[1].id).toBe("SlotA")
 	end)
@@ -718,8 +720,8 @@ describe("public drag: hit geometry follows the PAINT (PLAT-4)", function()
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(bx, by)
-		expect(b.registry.verdict:get().targetId).toBe(nil)
-		expect(b.registry.verdict:get().overId).toBe(nil)
+		expect(b.registry.verdict:peek().targetId).toBe(nil)
+		expect(b.registry.verdict:peek().overId).toBe(nil)
 	end)
 
 	it("an ANCESTOR's slide accumulates onto its whole subtree", function()
@@ -731,7 +733,7 @@ describe("public drag: hit geometry follows the PAINT (PLAT-4)", function()
 		b.dragStart(20, 20)
 		b.dragTo(30, 20)
 		b.dragTo(ax + 40, ay - 25)
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotA")
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/SlotA")
 	end)
 
 	it("a cleared transform returns the hit rect to the solved one", function()
@@ -754,8 +756,8 @@ describe("public drag: the non-pointer paradigm (SF-D4)", function()
 		-- next renderer refresh. Slot A now occupies Slot B's former rectangle.
 		b.controller.setPresentationTransform("/S/Board", { x = 0, y = 120 })
 		b.registry.armTo("/S/Board/SlotA")
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotA")
-		expect(b.registry.verdict:get().legal).toBe(true)
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/SlotA")
+		expect(b.registry.verdict:peek().legal).toBe(true)
 		b.registry.commit()
 		expect(#b.drops).toBe(1)
 		expect(b.drops[1].id).toBe("SlotA")
@@ -768,8 +770,8 @@ describe("public drag: the non-pointer paradigm (SF-D4)", function()
 		expect(b.registry.mode()).toBe("armed")
 		expect(b.eventNames()[1]).toBe("select")
 		expect(b.registry.armTo("/S/Board/SlotA")).toBe(true)
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotA")
-		expect(b.registry.verdict:get().mode).toBe("armed")
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/SlotA")
+		expect(b.registry.verdict:peek().mode).toBe("armed")
 		b.registry.commit()
 		expect(#b.drops).toBe(1)
 		expect(b.drops[1].id).toBe("SlotA")
@@ -781,7 +783,7 @@ describe("public drag: the non-pointer paradigm (SF-D4)", function()
 		local b = board()
 		b.registry.arm("/S/Board/Card")
 		b.registry.armTo("/S/Board/SlotB")
-		expect(b.registry.verdict:get().legal).toBe(false)
+		expect(b.registry.verdict:peek().legal).toBe(false)
 		b.registry.commit()
 		expect(#b.drops).toBe(0)
 		expect(b.eventNamed("reject").reason).toBe("WRONG_KIND")
@@ -829,7 +831,7 @@ describe("public drag: the non-pointer paradigm (SF-D4)", function()
 		local writes = #moves
 		-- the aim still resolves, the verdict still publishes, and the ghost stays
 		expect(b.registry.armTo("/S/Board/SlotA")).toBe(true)
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/SlotA")
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/SlotA")
 		expect(#moves).toBe(writes) -- not one proxy write from aiming
 		b.registry.armTo("/S/Board/SlotB")
 		expect(#moves).toBe(writes)
@@ -879,12 +881,12 @@ end)
 	rule is about) on a screen that sinks navigation, so the presenter's own
 	Activate context is what hears the press. ]]
 local function padBoard()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local drops: { any } = {}
 	local activates = 0
 	local card = UI.draggable(
@@ -965,7 +967,7 @@ describe("ADAPT-16: the public drag verb has a pad and keyboard pickup by defaul
 		-- the aim follows the ring, which is what the presenter has always done
 		-- for an already-armed session
 		b.press("DPadDown")
-		expect(b.registry.verdict:get().targetId).toBe("/S/Board/Slot")
+		expect(b.registry.verdict:peek().targetId).toBe("/S/Board/Slot")
 		b.press("ButtonA")
 		expect(#b.drops).toBe(1)
 		expect(b.drops[1].payload).toBe("card")
@@ -997,12 +999,12 @@ describe("ADAPT-16: the public drag verb has a pad and keyboard pickup by defaul
 		a source that declares its own Activate keeps it. Otherwise adding a drag
 		declaration to a button would silently steal the button's press. ]]
 	it("a card with its own onActivate keeps it — the consumer's verb wins", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local presses = 0
 		local card = UI.draggable(
 			UI.Button({
@@ -1308,22 +1310,22 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 	-- loses the one thing that could tell them WHY. `enabled = false` on the node
 	-- refuses acquisition too, but it also eats the tap — so it cannot serve this.
 	local function world(gate: any)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Anchor({
+				harness.UI.Anchor({
 					id = "Board",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						Facet.UI.draggable(
-							Facet.UI.Button({
+						harness.UI.draggable(
+							harness.UI.Button({
 								id = "Card",
 								label = "Card",
 								anchor = "topLeft",
@@ -1384,8 +1386,8 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 	end)
 
 	it("the gate is LIVE: a Readable flipping true makes the same tap a pickup", function()
-		local core = Facet.newCore()
-		local gate = core:signal(false)
+		local core = harness.newCore()
+		local gate = Compose.cell(false)
 		local w = world(gate)
 		w.tap()
 		expect(w.registry.isActive()).toBe(false)
@@ -1407,7 +1409,7 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 
 	it("a non-boolean, non-Readable gate is refused at construction, naming the reason", function()
 		local ok, err = pcall(function()
-			Facet.UI.draggable(Facet.UI.Box({ id = "B" }), { payload = "x", enabled = "yes" })
+			harness.UI.draggable(harness.UI.Box({ id = "B" }), { payload = "x", enabled = "yes" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "ACQUISITION only", 1, true) ~= nil).toBe(true)
@@ -1424,11 +1426,11 @@ end)
 
 describe("F-18: a drag declaration is refused on a structural node", function()
 	local function structural(class: string): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		if class == "When" then
 			return UI.When({
 				id = "W",
-				condition = core:signal(true),
+				condition = Compose.cell(true),
 				thenView = function()
 					return UI.Box({ id = "c" })
 				end,
@@ -1436,7 +1438,7 @@ describe("F-18: a drag declaration is refused on a structural node", function()
 		elseif class == "ForEach" then
 			return UI.ForEach({
 				id = "F",
-				items = core:signal({ 1 }),
+				items = Compose.cell({ 1 }),
 				key = function(item)
 					return tostring(item)
 				end,

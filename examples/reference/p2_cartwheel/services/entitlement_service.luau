@@ -16,11 +16,11 @@
 local entitlement_service = {}
 
 function entitlement_service.new(opts: any): any
-	local core = opts.core
+	local Compose = opts.Compose
 	local self: any = {}
 
-	local chatterPlus = core:signal(false)
-	local fullLedger = core:signal(false)
+	local chatterPlus = Compose.cell(false)
+	local fullLedger = Compose.cell(false)
 	local attempts: { [string]: number } = {}
 
 	self.chatterPlus = chatterPlus
@@ -57,13 +57,10 @@ function entitlement_service.new(opts: any): any
 	end
 
 	function self.dump(): any
-		return { chatterPlus = chatterPlus:get(), fullLedger = fullLedger:get(), attempts = table.clone(attempts) }
+		return { chatterPlus = chatterPlus:peek(), fullLedger = fullLedger:peek(), attempts = table.clone(attempts) }
 	end
 
-	function self.dispose()
-		chatterPlus:dispose()
-		fullLedger:dispose()
-	end
+	function self.dispose() end
 
 	return self
 end

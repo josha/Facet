@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ C3 — A CLEAN, SAME-OFFER ANCHOR CHILD IS NOT PLACED AT ALL.
 
 	The anchor arrange branch already had a MEASURE arm (N2, `tests/anchor_arrange.spec`):
@@ -56,12 +57,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 local solver = require("../src/layout/solver")
 local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES = scene.PLATES -- 250
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
@@ -191,7 +193,7 @@ describe("C3: a clean, same-offer anchor child is not placed at all", function()
 
 	it("A VIEWPORT CHANGE IS A FULL SOLVE, so nothing is skipped", function()
 		--[[ `viewportRect` is a GEOMETRY key: the renderer's geometry memo defers to
-			`core:settle`, which solves from OUTSIDE `refresh` where the controller-level
+			`the settle pass`, which solves from OUTSIDE `refresh` where the controller-level
 			dirty closure is still nil, so `solveOpts.reuse` is never set. With no reuse
 			table there is no previous-rect map to consult and the arm is structurally
 			unreachable rather than declining — `reuse=false` is what separates those two,
@@ -283,8 +285,8 @@ local function paddedAnchorWorld(incremental: boolean, view: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local pad = core:signal({ top = 0, right = 20, bottom = 0, left = 0 } :: any)
-	local nudge = core:signal(0)
+	local pad = Compose.cell({ top = 0, right = 20, bottom = 0, left = 0 } :: any)
+	local nudge = Compose.cell(0)
 	--[[ THE OTHER TWO LEVERS, and why the anchor is no longer the root's only child.
 		`spacer` moves the anchor's BOX without touching its size; `ov` is an `overflow`
 		write, MEASURE-classed dirt on the anchor itself, which is what keeps the moved
@@ -292,8 +294,8 @@ local function paddedAnchorWorld(incremental: boolean, view: any): any
 		therefore reaches the anchor branch at all. Driven together they are the only
 		shape in the suite where an anchor's ORIGIN moves under clean children, which is
 		the case `boxUnchanged` is the only refusal for. ]]
-	local spacer = core:signal({ type = "fixed", px = 10 } :: any)
-	local ov = core:signal("visible")
+	local spacer = Compose.cell({ type = "fixed", px = 10 } :: any)
+	local ov = Compose.cell("visible")
 	local kids = {}
 	for i = 1, NESTED_KIDS do
 		if i % 3 == 0 then
@@ -435,7 +437,7 @@ local function runPaddedOracle(view: any)
 	-- ...AND THE ROW THAT FAILS WITHOUT `boxUnchanged`: the anchor's origin moves
 	-- and every child would keep the y it had
 	step("move the box", function(w)
-		w.move(60, "hidden")
+		w.move(60, "intentionalOverlap")
 	end)
 	step("move it back", function(w)
 		w.move(10, "visible")
@@ -553,7 +555,7 @@ describe("C3: the guards", function()
 			local w = paddedAnchorWorld(true, { w = 800, h = 600 })
 			w.nudge(1)
 			expect(drove(function()
-				w.move(60, "hidden")
+				w.move(60, "intentionalOverlap")
 			end)).toBe(`solves=1 skipped=0 reused={NESTED_KIDS} offered=0`)
 			expect(lastSolveWasIncremental()).toBe("reuse=true")
 			-- ...and it re-arms once the box settles
@@ -631,7 +633,7 @@ local function findingWorld(): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local nudge = core:signal(0)
+	local nudge = Compose.cell(0)
 	local root = mountLib.mount(
 		core,
 		UI.Screen({
@@ -716,7 +718,7 @@ local function compositionHostWorld(): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	local nudge = core:signal(0)
+	local nudge = Compose.cell(0)
 	local root = mountLib.mount(
 		core,
 		UI.Screen({
@@ -732,8 +734,8 @@ local function compositionHostWorld(): any
 						UI.ZStack({
 							id = "Wrap",
 							anchor = "topLeft",
-							offsetX = core:signal(0),
-							offsetY = core:signal(0),
+							offsetX = Compose.cell(0),
+							offsetY = Compose.cell(0),
 							width = { type = "fixed", px = 400 },
 							height = { type = "fixed", px = 300 },
 							children = {

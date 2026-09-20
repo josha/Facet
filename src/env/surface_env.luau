@@ -20,7 +20,7 @@
 
 	SO THE FACTS ARRIVE BY THEMSELVES, AND THE CORE IS THE CHANNEL. Every Facet
 	environment is built on a core (`environment.new(core)`), every control is
-	built on a core (`Facet.Controls.Picker(core, spec)`), and on any real surface
+	built on a core (`UI.Picker(core, spec)`), and on any real surface
 	they are the SAME core — the reactive root that owns the whole surface. So an
 	environment publishes itself against its core here, and a control that was
 	handed no facts asks. Nothing global at all: the registration lives ON the core
@@ -70,7 +70,7 @@ local surfaceEnv = {}
 	forcing collection by churning 40 x 20 000 tables through the allocator — a
 	weak-key table whose value points back at the key retained 1 of 1; the same
 	table with an unrelated value retained 0 of 1; and an environment DOES reference
-	its core (it is built from `core:signal`). So "strong value, weak key" would have
+	its core (it is built from `Compose.cell`). So "strong value, weak key" would have
 	pinned every core and every environment ever created, for the process lifetime.
 
 	SO THE CORE HOLDS ITS OWN REGISTRATION, under one reserved key. The core is the
@@ -112,7 +112,7 @@ end
 	PROXY of its one core so that everything the demo allocates is owned by a
 	per-demo scope it can dispose (`examples/gallery/client/demo_host.luau`); the
 	proxy forwards every method, so it IS the core for every purpose a control has —
-	`core:signal`, `core:memo`, `core:scope` all work through it. Then `find` asked
+	`Compose.cell`, `Compose.formula`, `an owner` all work through it. Then `find` asked
 	`rawget`, saw nothing, and every adaptive control built on a demo core refused to
 	construct: `card-rail` and `sorted-entries` both failed to mount in the shipped
 	showcase while the whole suite was green, because every spec builds a bare core

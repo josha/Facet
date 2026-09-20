@@ -6,6 +6,7 @@
 -- a color-only subscriber (per-key signals guarantee that structurally).
 -- Derived keys are memos over fact keys (typographyScale, sizeClass, ...).
 
+local Compose = require("../vendor/compose/core")
 local adaptive = require("../layout/adaptive")
 local themeSnapshot = require("../themes/snapshot")
 local surfaceEnv = require("./surface_env")
@@ -16,6 +17,8 @@ export type Env = {
 	get: (self: Env, key: string) -> any, -- Readable
 	set: (self: Env, key: string, value: any) -> (),
 	keys: (self: Env) -> { string },
+	batch: (self: Env, body: () -> ()) -> (),
+	dispose: (self: Env) -> (),
 }
 
 local FACT_DEFAULTS: { [string]: any } = {
@@ -216,19 +219,19 @@ end
 -- every theme commit, and a warning per commit is a log nobody reads
 local warnedDerivedMetricWrite = false
 
-function environment.new(core: any): Env
+local function build(core: any): Env
 	local signals: { [string]: any } = {}
 	local derived: { [string]: any } = {}
 
 	for key, default in FACT_DEFAULTS do
-		signals[key] = core:signal(default)
+		signals[key] = Compose.cell(default)
 	end
 	-- …and the one default that is not a constant (see FACT_DEFAULTS): read now,
 	-- so an environment built after an app declared its namespace is seeded with a
 	-- snapshot that can spell it
-	signals.themeMetrics = core:signal(themeSnapshot.neutral())
+	signals.themeMetrics = Compose.cell(themeSnapshot.neutral())
 	-- keys with nil defaults still need signals
-	signals.keyboardOcclusionRect = signals.keyboardOcclusionRect or core:signal(nil)
+	signals.keyboardOcclusionRect = signals.keyboardOcclusionRect or Compose.cell(nil)
 
 	--[[ THE APP-DECLARATION EDGE. NOT a fact — deliberately outside
 		`signals`, so the fact vocabulary `env:get`/`env:set` police is unchanged and
@@ -248,7 +251,7 @@ function environment.new(core: any): Env
 		`themes.declareApp` sets it on every REAL change (an identical re-declaration
 		is a no-op there), and the registry it joins is weak-keyed, so a discarded
 		environment's signal collects rather than pinning this core alive. ]]
-	local appGeneration = core:signal(themeSnapshot.appGeneration())
+	local appGeneration = Compose.cell(themeSnapshot.appGeneration())
 	themeSnapshot.observeAppDeclarations(appGeneration)
 
 	-- derived policy (§8.2): memos subscribe only to their fact keys.
@@ -271,7 +274,7 @@ function environment.new(core: any): Env
 		instead, in the same three-value vocabulary, so an existing consumer
 		migrates by swapping the key name (the same shape `effectiveInput` already
 		is for `preferredInput`, below). ]]
-	derived.effectiveDisplaySize = core:memo(function(use)
+	derived.effectiveDisplaySize = Compose.formula(function(use)
 		local distance = use(signals.viewingDistance)
 		if distance == "ten-foot" then
 			return "Large"
@@ -290,7 +293,7 @@ function environment.new(core: any): Env
 	-- theme snapshot, which carries the facts but has no env — and a second copy
 	-- that agrees today is the defect the line-box helper exists to end
 	-- (docs/plans/variable-item-extents.md).
-	derived.typographyScale = core:memo(function(use)
+	derived.typographyScale = Compose.formula(function(use)
 		return themeSnapshot.typographyScale(use(derived.effectiveDisplaySize), use(signals.preferredTextSize))
 	end)
 	-- PAINT-seam scale (the native substrate; MODEL CORRECTED by Step 8.5): the engine
@@ -301,7 +304,7 @@ function environment.new(core: any): Env
 	-- the two SCALE seams are identical and the preference travels exclusively
 	-- through `preferredTextOffset` at the measure seam; a dev/test profile
 	-- that raises the multiplier widens measurement only (over-reserve, safe).
-	derived.typographyPaintScale = core:memo(function(use)
+	derived.typographyPaintScale = Compose.formula(function(use)
 		return themeSnapshot.typographyPaintScale(use(derived.effectiveDisplaySize))
 	end)
 	--[[ THE METRIC AUTHORITY, AS PRESENTED AT THIS DISPLAY CLASS (director
@@ -330,7 +333,7 @@ function environment.new(core: any): Env
 		WHAT IS SET IS ALWAYS THE AUTHORED BASE (see `env.set`), so the round trip a
 		controller makes — read the pre-install snapshot, hold it, write it back on
 		uninstall — cannot compose the transform onto its own output. ]]
-	derived.themeMetrics = core:memo(function(use)
+	derived.themeMetrics = Compose.formula(function(use)
 		-- A DEPENDENCY, NOT A VALUE: the number is never read, only subscribed to,
 		-- so a declaration made after this memo went warm invalidates it (see the
 		-- note beside `appGeneration` above)
@@ -358,14 +361,14 @@ function environment.new(core: any): Env
 		end
 		return themeSnapshot.forDisplay(committed, use(derived.effectiveDisplaySize))
 	end)
-	derived.effectiveTransparency = core:memo(function(use)
+	derived.effectiveTransparency = Compose.formula(function(use)
 		local raw = use(signals.preferredTransparency)
 		if type(raw) ~= "number" or raw ~= raw then
 			return 1
 		end
 		return math.clamp(raw, 0, 1)
 	end)
-	derived.sizeClass = core:memo(function(use)
+	derived.sizeClass = Compose.formula(function(use)
 		local vp = use(signals.viewportRect)
 		local w = if type(vp) == "table" and type(vp.w) == "number" and vp.w == vp.w then vp.w else 1280
 		-- ONE implementation of the breakpoints and the ten-foot density floor
@@ -377,7 +380,7 @@ function environment.new(core: any): Env
 			distanceProfile = if use(derived.effectiveDisplaySize) == "Large" then "ten-foot" else "near",
 		})
 	end)
-	derived.motionPolicy = core:memo(function(use)
+	derived.motionPolicy = Compose.formula(function(use)
 		return if use(signals.reducedMotion) == true then "reduced" else "full"
 	end)
 	-- SCROLL INDICATOR POLICY (director ruling 2026-08-09, "auto-showing scroll
@@ -388,7 +391,7 @@ function environment.new(core: any): Env
 	-- so a scrollable page never reads as cut off, and fade when idle. Derived
 	-- from the same interactionClasses fact as every other input adaptation,
 	-- never from a device name.
-	derived.scrollIndicatorPolicy = core:memo(function(use)
+	derived.scrollIndicatorPolicy = Compose.formula(function(use)
 		local classes = use(derived.interactionClasses)
 		local primary = if type(classes) == "table" then classes.primary else "pointer"
 		return if primary == "pointer" then "always" else "auto"
@@ -406,10 +409,10 @@ function environment.new(core: any): Env
 	-- Automatic inference discounts a Large report on touch-capable devices.
 	-- Explicit viewing context wins: capability is not where a player sits.
 
-	derived.distanceProfileSource = core:memo(function(use)
+	derived.distanceProfileSource = Compose.formula(function(use)
 		return if use(signals.viewingDistance) == "automatic" then "inferred" else "authored"
 	end)
-	derived.distanceProfile = core:memo(function(use)
+	derived.distanceProfile = Compose.formula(function(use)
 		return if use(derived.effectiveDisplaySize) == "Large" then "ten-foot" else "near"
 	end)
 	-- effectiveOverscanInsets (director live find, Xbox emulator 2026-07-21):
@@ -417,7 +420,7 @@ function environment.new(core: any): Env
 	-- Large and no margins were AUTHORED the ten-foot defaults apply
 	-- (60 top/bottom, 90 left/right at 1080p — the console-profile numbers).
 	-- Authored values always win; the "none" sentinel opts out entirely.
-	derived.effectiveOverscanInsets = core:memo(function(use)
+	derived.effectiveOverscanInsets = Compose.formula(function(use)
 		local authored = use(signals.overscanInsets)
 		if authored == "none" then
 			return { top = 0, bottom = 0, left = 0, right = 0 }
@@ -532,7 +535,7 @@ function environment.new(core: any): Env
 		end
 		return out
 	end
-	derived.platformChrome = core:memo(function(use)
+	derived.platformChrome = Compose.formula(function(use)
 		local vp = use(signals.viewportRect)
 		local W = math.max(0, finite(if type(vp) == "table" then vp.w else nil) or 0)
 		local H = math.max(0, finite(if type(vp) == "table" then vp.h else nil) or 0)
@@ -692,7 +695,7 @@ function environment.new(core: any): Env
 	-- question only a future world target answers yes to. Unknown values clamp
 	-- to "screen" rather than propagating: a broken platform fact must not
 	-- silently put a menu in the world.
-	derived.presentationProfile = core:memo(function(use)
+	derived.presentationProfile = Compose.formula(function(use)
 		local raw = use(signals.presentationSpace)
 		local space = if raw == "billboard" or raw == "world" then raw else "screen"
 		return {
@@ -701,7 +704,7 @@ function environment.new(core: any): Env
 			world = space == "world",
 		}
 	end)
-	derived.interactionClasses = core:memo(function(use)
+	derived.interactionClasses = Compose.formula(function(use)
 		local caps = use(signals.capabilities)
 		if type(caps) ~= "table" then
 			caps = FACT_DEFAULTS.capabilities
@@ -771,7 +774,7 @@ function environment.new(core: any): Env
 	-- defect that gave a phone the dense pointer row height (see interactionClasses
 	-- above). This is the resolved answer in the platform fact's own vocabulary, so
 	-- an existing consumer swaps one key for the other and nothing else moves.
-	derived.effectiveInput = core:memo(function(use)
+	derived.effectiveInput = Compose.formula(function(use)
 		local primary = (use(derived.interactionClasses) :: any).primary
 		if primary == "touch" then
 			return "Touch"
@@ -879,7 +882,9 @@ function environment.new(core: any): Env
 				return
 			end
 		end
-		signal:set(value)
+		core.reactor:batch(function()
+			signal:set(value)
+		end)
 	end
 
 	--[[ ONE REAL CHANGE IS ONE FACT-GROUP. An adapter almost never learns one
@@ -907,7 +912,7 @@ function environment.new(core: any): Env
 		path the adapter drives synchronously; they are stated so a caller can
 		choose correctly. ]]
 	function env.batch(_self, body: () -> ())
-		core:transaction(body)
+		core.reactor:batch(body)
 	end
 
 	function env.keys(_self): { string }
@@ -939,6 +944,22 @@ function environment.new(core: any): Env
 	surfaceEnv.publish(core, env)
 
 	return env :: any
+end
+
+function environment.new(core: any): Env
+	local owner = Compose.createOwner(if core.scene then core.scene.reactor else Compose.reactor())
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(core)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	function result.dispose()
+		surfaceEnv.unpublish(core, result)
+		owner.dispose()
+	end
+	return result
 end
 
 return environment

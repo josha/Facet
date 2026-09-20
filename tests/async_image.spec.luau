@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- AsyncImage (native-substrate NS-A14, ledger rows NS-A13/NS-A14): the
 -- provider's placeholder/ready/failed states drive the composite's visuals
 -- headlessly; stale completions after release never resurrect (E1 half of the
@@ -7,10 +8,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local FacetRoot = require("../src")
 local resources = require("../src/async/resources")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
@@ -21,14 +22,13 @@ local function slice(key: string)
 	env:set("viewportRect", { x = 0, y = 0, w = 300, h = 300 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local provider = resources.newProvider(core)
-	local scope = core:scope()
-	local img = FacetRoot.Controls.AsyncImage(core, {
+	local scope = core.owner.createChild()
+	local img = harness.Controls.AsyncImage(core, {
 		id = "Avatar",
-		scope = scope,
 		provider = provider,
 		key = key,
 	})
-	local bp = FacetRoot.UI.Screen({ id = "S", children = { img.blueprint } })
+	local bp = harness.UI.Screen({ id = "S", children = { img.blueprint } })
 	local root = mountLib.mount(core, bp)
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
@@ -39,7 +39,7 @@ end
 describe("AsyncImage (NS-A14)", function()
 	it("pending shows the placeholder and an empty image", function()
 		local _, _, _, adapter, controller, img = slice("rbxthumb://type=AvatarHeadShot&id=1")
-		expect(img.state:get()).toBe("pending")
+		expect(img.state:peek()).toBe("pending")
 		expect(adapter.node("/S/Avatar/Placeholder/then/Fill") ~= nil).toBe(true)
 		expect(adapter.node("/S/Avatar/Content").props.image).toBe("")
 		expect(adapter.node("/S/Avatar/Failure/then/Mark")).toBe(nil)
@@ -52,7 +52,7 @@ describe("AsyncImage (NS-A14)", function()
 		local verdict = provider.complete(pending[1].key, pending[1].generation, pending[1].key)
 		expect(verdict).toBe("applied")
 		controller.refresh()
-		expect(img.state:get()).toBe("ready")
+		expect(img.state:peek()).toBe("ready")
 		expect(adapter.node("/S/Avatar/Content").props.image).toBe("rbxthumb://a")
 		expect(adapter.node("/S/Avatar/Placeholder/then/Fill")).toBe(nil)
 	end)
@@ -62,7 +62,7 @@ describe("AsyncImage (NS-A14)", function()
 		local pending = provider.pendingRequests()
 		provider.fail(pending[1].key, pending[1].generation, "AssetFetchStatus.Failure")
 		controller.refresh()
-		expect(img.state:get()).toBe("failed")
+		expect(img.state:peek()).toBe("failed")
 		-- P5-F2 fix: no failure glyph unless the call site opted in — the failed
 		-- state is the placeholder persisting, a complete presentable state
 		expect(adapter.node("/S/Avatar/Failure/then/Mark")).toBe(nil)

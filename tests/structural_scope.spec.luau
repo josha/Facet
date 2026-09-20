@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ BOUNDARY-ROOTED PARTIAL SOLVES FOR STRUCTURAL CHANGES (perf campaign P5) —
 	the demonstrator and its oracle.
 
@@ -111,12 +112,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
 -- the module under test, driven directly for the two refusals no surface can reach
@@ -170,12 +172,12 @@ local function world(
 	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 	local items = {}
 	for i = 1, rowCount do
-		table.insert(items, { id = `r{i}`, n = core:signal(i) })
+		table.insert(items, { id = `r{i}`, n = Compose.cell(i) })
 	end
-	local rows = core:signal(items)
-	local wide = core:signal(false)
-	local branchOn = core:signal(true)
-	local wrapWidth = core:memo(function(use: any)
+	local rows = Compose.cell(items)
+	local wide = Compose.cell(false)
+	local branchOn = Compose.cell(true)
+	local wrapWidth = Compose.formula(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
 	local bp = UI.ScrollView({
@@ -260,7 +262,7 @@ local function world(
 									UI.Text({
 										id = "V",
 										textSize = 14,
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return tostring(use(item.n))
 										end),
 									}),
@@ -269,7 +271,7 @@ local function world(
 										textSize = 12,
 										disclose = true,
 										width = px(40),
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return `Extraordinarily Long Identity {use(item.n)}`
 										end),
 									}),
@@ -452,7 +454,7 @@ local SCRIPT: { { name: string, run: (Arm) -> () } } = {
 		name = "structure: a row is appended (no reuse set at all)",
 		run = function(arm: Arm)
 			local next_ = table.clone(arm.items)
-			table.insert(next_, { id = "rNew", n = arm.core:signal(1234) })
+			table.insert(next_, { id = "rNew", n = Compose.cell(1234) })
 			arm.items[#arm.items + 1] = next_[#next_]
 			arm.rows:set(next_)
 		end,
@@ -540,8 +542,8 @@ table.insert(SCRIPT, {
 table.insert(SCRIPT, {
 	name = "structure: a row is inserted in the MIDDLE — the shifted set is a suffix",
 	run = function(arm: Arm)
-		local next_ = table.clone(arm.rows:get())
-		local fresh = { id = "rMid", n = arm.core:signal(31) }
+		local next_ = table.clone(arm.rows:peek())
+		local fresh = { id = "rMid", n = Compose.cell(31) }
 		table.insert(next_, math.max(1, #next_ // 2), fresh)
 		table.insert(arm.items, fresh)
 		arm.rows:set(next_)
@@ -612,10 +614,10 @@ local function bench(structural: boolean, rowCount: number): Bench
 	end
 	local items = {}
 	for i = 1, rowCount do
-		table.insert(items, { id = `r{i}`, n = core:signal(i) })
+		table.insert(items, { id = `r{i}`, n = Compose.cell(i) })
 	end
-	local rows = core:signal(table.clone(items))
-	local tick = core:signal(1)
+	local rows = Compose.cell(table.clone(items))
+	local tick = Compose.cell(1)
 	local bp = UI.VStack({
 		id = "Root",
 		padding = 0,
@@ -637,7 +639,7 @@ local function bench(structural: boolean, rowCount: number): Bench
 							return UI.Text({
 								id = "V",
 								textSize = 12,
-								text = core:memo(function(use: any)
+								text = Compose.formula(function(use: any)
 									return tostring(use(item.n))
 								end),
 							})
@@ -648,7 +650,7 @@ local function bench(structural: boolean, rowCount: number): Bench
 			UI.Text({
 				id = "Foot",
 				textSize = 12,
-				text = core:memo(function(use: any)
+				text = Compose.formula(function(use: any)
 					return tostring(use(tick))
 				end),
 			}),
@@ -671,8 +673,8 @@ local function bench(structural: boolean, rowCount: number): Bench
 end
 
 local function append(b: Bench)
-	local next_ = table.clone(b.rows:get())
-	local fresh = { id = `x{#next_}`, n = b.core:signal(0) }
+	local next_ = table.clone(b.rows:peek())
+	local fresh = { id = `x{#next_}`, n = Compose.cell(0) }
 	table.insert(next_, fresh)
 	table.insert(b.items, fresh)
 	b.rows:set(next_)
@@ -680,8 +682,8 @@ local function append(b: Bench)
 end
 
 local function prepend(b: Bench)
-	local next_ = table.clone(b.rows:get())
-	local fresh = { id = `y{#next_}`, n = b.core:signal(0) }
+	local next_ = table.clone(b.rows:peek())
+	local fresh = { id = `y{#next_}`, n = Compose.cell(0) }
 	table.insert(next_, 1, fresh)
 	table.insert(b.items, fresh)
 	b.rows:set(next_)
@@ -845,7 +847,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			arm.items[3].n:set(11)
 			arm.controller.refresh()
 			local next_ = table.clone(arm.items)
-			local fresh = { id = "rP5", n = arm.core:signal(5150) }
+			local fresh = { id = "rP5", n = Compose.cell(5150) }
 			table.insert(next_, fresh)
 			arm.items[#arm.items + 1] = fresh
 			arm.rows:set(next_)
@@ -883,7 +885,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 			local items = { { id = "a" }, { id = "b" } }
-			local rows = core:signal(items)
+			local rows = Compose.cell(items)
 			local region = UI.ForEach({
 				id = "Rows",
 				items = rows,
@@ -912,7 +914,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			return {
 				controller = controller,
 				add = function()
-					local next_ = table.clone(rows:get())
+					local next_ = table.clone(rows:peek())
 					table.insert(next_, { id = `k{#next_}` })
 					rows:set(next_)
 					controller.refresh()
@@ -1025,7 +1027,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 			local items = { { id = "a" }, { id = "b" }, { id = "c" } }
-			local rows = core:signal(items)
+			local rows = Compose.cell(items)
 			local bp = UI.VStack({
 				id = "Root",
 				padding = 0,
@@ -1089,7 +1091,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		local items = { { id = "a" }, { id = "b" } }
-		local rows = core:signal(items)
+		local rows = Compose.cell(items)
 		local bp = UI.VStack({
 			id = "S",
 			padding = 0,
@@ -1122,7 +1124,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 		local before = controller.analyzeBoundaries().absorbingNodes
 		expect(before > 0).toBe(true)
 		for i = 1, 3 do
-			local next_ = table.clone(rows:get())
+			local next_ = table.clone(rows:peek())
 			table.insert(next_, { id = `k{i}` })
 			rows:set(next_)
 			controller.refresh()
@@ -1132,7 +1134,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 		end
 		-- ...and the analysis disturbed neither the surface nor the store it reads
 		expect(controller.analyzeBoundaries().absorbingNodes).toBe(before + 3)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1247,7 +1249,7 @@ describe("P5 x a torn commit: refresh-scoped state does not outlive its refresh"
 				return raw(...)
 			end
 			local next_ = table.clone(arm.items)
-			local fresh = { id = "rTorn", n = arm.core:signal(77) }
+			local fresh = { id = "rTorn", n = Compose.cell(77) }
 			table.insert(next_, fresh)
 			arm.items[#arm.items + 1] = fresh
 			arm.rows:set(next_)
@@ -1293,7 +1295,7 @@ describe("P5 x a torn commit: refresh-scoped state does not outlive its refresh"
 			return raw(...)
 		end
 		local next_ = table.clone(a.items)
-		local fresh = { id = "rCount", n = a.core:signal(78) }
+		local fresh = { id = "rCount", n = Compose.cell(78) }
 		table.insert(next_, fresh)
 		a.items[#a.items + 1] = fresh
 		a.rows:set(next_)
@@ -1374,7 +1376,7 @@ describe("P5: the three invalidation claims, each on the smallest surface that c
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local builds = 0
 		local bp = UI.VStack({
 			id = "Root",
@@ -1469,7 +1471,7 @@ describe("P5: the three invalidation claims, each on the smallest surface that c
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 			local items: { any } = { { id = "a" } }
-			local rows = core:signal(items)
+			local rows = Compose.cell(items)
 			local bp = UI.VStack({
 				id = "Root",
 				padding = 0,
@@ -1509,7 +1511,7 @@ describe("P5: the three invalidation claims, each on the smallest surface that c
 				the same flush, so the geometry settle solves a tree that already holds
 				the new row and a handle map that does not. The refresh after it is the
 				structural one. ]]
-			w.core:transaction(function()
+			w.core.reactor:batch(function()
 				local next_ = table.clone(w.items)
 				table.insert(next_, { id = "b" })
 				w.rows:set(next_)
@@ -1536,7 +1538,7 @@ describe("P5: the three invalidation claims, each on the smallest surface that c
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 		local items: { any } = { { id = "a" }, { id = "bad" } }
-		local rows = core:signal(items)
+		local rows = Compose.cell(items)
 		local bp = UI.VStack({
 			id = "Root",
 			padding = 0,

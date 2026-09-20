@@ -98,551 +98,594 @@ local COPY = {
 local APP_TABS = { "pages", "inbox", "notes", "me" }
 local PAGE_TABS = { "avatars", "body", "clothing", "accessories", "backgrounds", "emotes", "bundles", "favorites" }
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Tabs, nested",
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
-		local scope = core:scope("tab-view-scenario")
-		local customization = scope:own(core:signal({ order = {}, hidden = {} }))
-		-- `adaptive.conditions`'s memos, owned, so a demo swap does not leave them behind
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
+		return lifetime.under(function()
+			local customization = Compose.cell({ order = {}, hidden = {} })
+			-- `adaptive.conditions`'s memos, owned, so a demo swap does not leave them behind
+			local conditions = lifetime.under(function()
+				return Facet.adaptive.conditions(ctx.env)
+			end)
 
-		--[[ THE TWO SELECTIONS, AND THEY ARE TWO. `selection` is the caller's
-			Signal by contract, so the app level and the page level are owned by two
-			different signals here and neither construct can see the other's — which
-			is what lets the page keep its place while the app switches away and
-			back. ]]
-		local section = scope:own(core:signal("pages"))
-		local page = scope:own(core:signal("avatars"))
+			--[[ THE TWO SELECTIONS, AND THEY ARE TWO. `selection` is the caller's
+				Signal by contract, so the app level and the page level are owned by two
+				different signals here and neither construct can see the other's — which
+				is what lets the page keep its place while the app switches away and
+				back. ]]
+			local section = Compose.cell("pages")
+			local page = Compose.cell("avatars")
 
-		-- the badge, which is the one piece of tab state that is NEVER torn down
-		local unread = scope:own(core:signal(3))
-		-- ...and the two counters the Notes tab compares. This one is owned HERE.
-		local kept = scope:own(core:signal(0))
-		-- what the tab-owned counter last read, published so a step can see it
-		local tabOwnedNow = scope:own(core:signal(0))
-		--[[ …and the tab's own press, held here only while that tab EXISTS. The
-			runner's step and the on-screen chip have to be the same press or the step
-			would prove something the player cannot do; and when the tab is evicted
-			this goes back to nil, which is the eviction stated one more way. ]]
-		local tabBump: (() -> ())? = nil
+			-- the badge, which is the one piece of tab state that is NEVER torn down
+			local unread = Compose.cell(3)
+			-- ...and the two counters the Notes tab compares. This one is owned HERE.
+			local kept = Compose.cell(0)
+			-- what the tab-owned counter last read, published so a step can see it
+			local tabOwnedNow = Compose.cell(0)
+			--[[ …and the tab's own press, held here only while that tab EXISTS. The
+				runner's step and the on-screen chip have to be the same press or the step
+				would prove something the player cannot do; and when the tab is evicted
+				this goes back to nil, which is the eviction stated one more way. ]]
+			local tabBump: (() -> ())? = nil
 
-		--[[ THE BUILD COUNTERS — this fixture's whole subject. A plain table
-			counted from inside each content factory (the only place that knows a
-			subtree was made) beside one Signal that puts the numbers on screen, which
-			is `virtual_grid`'s instrument for the same class of claim: laziness and
-			eviction are both COUNTS, and a mounted-node count cannot see either. ]]
-		local builds: { [string]: number } = {}
-		local buildLine = scope:own(core:signal(""))
-		local lifecycleLine = scope:own(core:signal(""))
-		local outer: any = nil
-		local inner: any = nil
+			--[[ THE BUILD COUNTERS — this fixture's whole subject. A plain table
+				counted from inside each content factory (the only place that knows a
+				subtree was made) beside one Signal that puts the numbers on screen, which
+				is `virtual_grid`'s instrument for the same class of claim: laziness and
+				eviction are both COUNTS, and a mounted-node count cannot see either. ]]
+			local builds: { [string]: number } = {}
+			local buildLine = Compose.cell("")
+			local lifecycleLine = Compose.cell("")
+			local outer: any = nil
+			local inner: any = nil
+			-- a trigger `placementLine`'s formula can `use()`, so its FIRST-FRAME
+			-- read (before `ref` reports either control back, see there) is
+			-- forced to recompute once the control it names actually exists.
+			local controlsReady = Compose.cell(0)
 
-		local function buildText(): string
-			local parts: { string } = {}
-			for _, id in APP_TABS do
-				table.insert(parts, `{COPY[id]} {builds[id] or 0}`)
+			local function buildText(): string
+				local parts: { string } = {}
+				for _, id in APP_TABS do
+					table.insert(parts, `{COPY[id]} {builds[id] or 0}`)
+				end
+				local pageParts: { string } = {}
+				for _, id in PAGE_TABS do
+					if (builds[id] or 0) > 0 then
+						table.insert(pageParts, `{COPY[id]} {builds[id]}`)
+					end
+				end
+				local line = COPY.builds .. table.concat(parts, " · ")
+				if #pageParts > 0 then
+					line ..= "\n" .. COPY.pageBar .. table.concat(pageParts, " · ")
+				end
+				return line
 			end
-			local pageParts: { string } = {}
-			for _, id in PAGE_TABS do
-				if (builds[id] or 0) > 0 then
-					table.insert(pageParts, `{COPY[id]} {builds[id]}`)
+
+			--[[ THE LIFECYCLE LINE reads the construct's own dump rather than counting
+				anything itself, so the fixture's numbers and the framework's can be
+				compared instead of agreeing by construction. `contentMounts` climbing
+				while `contentEvictions` stayed put is exactly what a leak looks like.
+
+				IT IS WRITTEN ONLY WHEN IT CHANGED, which is what lets the tick below
+				drive it: an unconditional `:set` of an identical string would repaint,
+				re-solve and re-enter this function every frame forever. ]]
+			local function put(signal: any, value: string)
+				if signal:peek() ~= value then
+					signal:set(value)
 				end
 			end
-			local line = COPY.builds .. table.concat(parts, " · ")
-			if #pageParts > 0 then
-				line ..= "\n" .. COPY.pageBar .. table.concat(pageParts, " · ")
+			local function readState()
+				put(buildLine, buildText())
+				if outer == nil then
+					return
+				end
+				local d = outer.dump()
+				local line = `mounts {d.contentMounts} · evictions {d.contentEvictions} · live [{table.concat(
+					d.mountedTabs,
+					", "
+				)}] · reveals {d.reveals}`
+				if inner ~= nil then
+					local i = inner.dump()
+					line ..= `\npage: mounts {i.contentMounts} · evictions {i.contentEvictions} · reveals {i.reveals}`
+				end
+				put(lifecycleLine, COPY.lifecycle .. line)
 			end
-			return line
-		end
 
-		--[[ THE LIFECYCLE LINE reads the construct's own dump rather than counting
-			anything itself, so the fixture's numbers and the framework's can be
-			compared instead of agreeing by construction. `contentMounts` climbing
-			while `contentEvictions` stayed put is exactly what a leak looks like.
-
-			IT IS WRITTEN ONLY WHEN IT CHANGED, which is what lets the tick below
-			drive it: an unconditional `:set` of an identical string would repaint,
-			re-solve and re-enter this function every frame forever. ]]
-		local function put(signal: any, value: string)
-			if signal:get() ~= value then
-				signal:set(value)
+			local function noteBuild(id: string)
+				builds[id] = (builds[id] or 0) + 1
+				readState()
 			end
-		end
-		local function readState()
-			put(buildLine, buildText())
-			if outer == nil then
-				return
+
+			-- `getControl` is a thunk, not the control itself: the two TabViews
+			-- report themselves through `ref`, which fires only after each
+			-- `UI.TabView(...)` call returns — and the app-level bar's own
+			-- content factory (its selected tab) runs DURING that call, before
+			-- the assignment lands. Reading it lazily, inside the formula, is
+			-- what lets this line report a control that is not built yet.
+			local function placementLine(prefix: string, getControl: () -> any): any
+				return Compose.formula(function(use)
+					use(controlsReady)
+					local control = getControl()
+					if control == nil then
+						-- the app-level bar's OWN initially-selected tab (this
+						-- one) builds while `UI.TabView(...)` is still running,
+						-- before `ref` can report it back here — one frame
+						-- before the control it names exists.
+						return prefix
+					end
+					local resolved = use(control.placement)
+					return `{prefix}{resolved} ({control.dump().placementSource})`
+				end)
 			end
-			local d = outer.dump()
-			local line = `mounts {d.contentMounts} · evictions {d.contentEvictions} · live [{table.concat(
-				d.mountedTabs,
-				", "
-			)}] · reveals {d.reveals}`
-			if inner ~= nil then
-				local i = inner.dump()
-				line ..= `\npage: mounts {i.contentMounts} · evictions {i.contentEvictions} · reveals {i.reveals}`
-			end
-			put(lifecycleLine, COPY.lifecycle .. line)
-		end
 
-		local function noteBuild(id: string)
-			builds[id] = (builds[id] or 0) + 1
-			readState()
-		end
-
-		local function placementLine(prefix: string, control: any): any
-			return core:memo(function(use)
-				local resolved = use(control.placement)
-				return `{prefix}{resolved} ({control.dump().placementSource})`
-			end)
-		end
-
-		local function chip(id: string, label: any, onPress: () -> ()): any
-			return UI.Button({
-				id = id,
-				label = label,
-				surface = "chip",
-				onActivate = function()
-					onPress()
-					readState()
-				end,
-			})
-		end
-
-		local function panel(id: string, children: { any }): any
-			return UI.VStack({
-				id = id,
-				surface = "control",
-				padding = "s",
-				gap = "xs",
-				width = UI.fill(),
-				children = children,
-			})
-		end
-
-		--[[ THE STATUS PANEL RIDES INSIDE EVERY TAB, AND THAT IS A MEASUREMENT
-			RATHER THAN A PREFERENCE. It stood above the TabView first, as a fixed
-			band, and the overflow sweep filed 114 findings for it: four lines of prose
-			at the +14 text preference under a ~1.4x localization measure taller than a
-			359x718 phone has to spare, so the band took the height and the construct
-			underneath it was arranged into a 0px box. Its own numbers then reported
-			nothing, on the surface whose entire job is to report them.
-
-			Inside a tab's scroller the same four lines cost nothing at any preference,
-			and the readout is no worse for it: exactly one tab is ever mounted, so it
-			is on screen either way. It is REBUILT with its tab, which is the fixture's
-			own subject happening to its own instrument. ]]
-		local function statusPanel(id: string, appLine: any?): any
-			local rows: { any } = { UI.Text({ id = "Title", text = COPY.title, textSize = "body" }) }
-			-- the page tabs pass nil: their own Placements panel already carries the
-			-- app's answer beside the page's, which is where the comparison belongs
-			if appLine ~= nil then
-				table.insert(rows, UI.Text({ id = "AppPlacement", text = appLine, textSize = "caption" }))
-			end
-			table.insert(rows, UI.Text({ id = "Builds", text = buildLine, textSize = "caption", role = "secondary" }))
-			table.insert(
-				rows,
-				UI.Text({ id = "Lifecycle", text = lifecycleLine, textSize = "caption", role = "secondary" })
-			)
-			return panel(id, rows)
-		end
-
-		--[[ THE PAGE LEVEL — `r2`'s own top bar, and it is built INSIDE the app
-			tab's content factory. That is not a stylistic choice: `content` is a
-			factory the construct invokes, so a TabView constructed during that
-			invocation IS inner, and the framework decides it from where the call
-			happens rather than from a flag the caller could get wrong. ]]
-		local function pageTabs(): { any }
-			local out: { any } = {}
-			for _, id in PAGE_TABS do
-				table.insert(out, {
-					id = id,
-					label = COPY[id],
-					content = function(pageScope: any)
-						noteBuild(id)
-						--[[ THE TWO PLACEMENT LINES LIVE ON THE PAGE, NOT ABOVE THE BAR,
-							and that was measured rather than chosen: a 320px-TALL landscape
-							has room for the app's readout, one band, one bar and a page — and
-							three text blocks between the bar and the page overflowed the page
-							body by 15px and the inner root by 46 at that viewport. Inside this
-							scroller they cost nothing, and they are still exactly where the
-							comparison wants them: the two answers next to each other, on the
-							page whose own bar is the second one.
-
-							They are owned by the PAGE scope, so they die with this tab — which
-							they must, because the control the inner one reads does. ]]
-						local outerLine = pageScope:own(placementLine(COPY.appBar, outer))
-						local innerLine = pageScope:own(placementLine(COPY.pageBar, inner))
-						return UI.ScrollView({
-							id = "PageBody",
-							axis = "y",
-							gap = "xs",
-							width = UI.fill(),
-							height = pageScope:own(core:memo(function(use)
-								return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
-							end)),
-							shrinkWeight = 1,
-
-							statusPanel("Status"),
-							UI.Text({ id = "Name", text = COPY[id], textSize = "heading" }),
-							UI.Text({
-								id = "Built",
-								text = `{COPY.builtHere}{builds[id] or 0}{COPY.times}`,
-								textSize = "caption",
-								role = "secondary",
-							}),
-							panel("Placements", {
-								UI.Text({ id = "Outer", text = outerLine, textSize = "caption" }),
-								UI.Text({ id = "Inner", text = innerLine, textSize = "caption" }),
-								UI.Text({
-									id = "Why",
-									text = COPY.nestedNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							}),
-							UI.HStack({
-								id = "Jumps",
-								gap = "xs",
-								wrap = true,
-								width = UI.fill(),
-
-								chip("JumpLast", COPY.jumpLast, function()
-									page:set(PAGE_TABS[#PAGE_TABS])
-								end),
-								chip("JumpFirst", COPY.jumpFirst, function()
-									page:set(PAGE_TABS[1])
-								end),
-							}),
-							UI.Text({
-								id = "JumpNote",
-								text = COPY.jumpNote,
-								textSize = "caption",
-								role = "secondary",
-							}),
-							UI.Text({
-								id = "Note",
-								text = COPY.pagesNote,
-								textSize = "caption",
-								role = "secondary",
-							}),
-						})
+			local function chip(id: string, label: any, onPress: () -> ()): any
+				return UI.Button(id)({
+					label = label,
+					surface = "chip",
+					onActivate = function()
+						onPress()
+						readState()
 					end,
 				})
 			end
-			return out
-		end
 
-		local function pagesBody(tabScope: any): any
-			--[[ `sizing = "hug"` IS THE OVERFLOW, DECLARED. A `fill` strip divides
-				its offer among its tabs and therefore cannot overflow — eight tabs at
-				320px would be 40px each — so an autoscroll demonstration built on the
-				filling default would demonstrate nothing. A `topBar` already hugs; it is
-				written out here because this fixture's subject is what hugging costs. ]]
-			inner = Facet.Controls.TabView(core, {
+			local function panel(id: string, children: { any }): any
+				return UI.VStack(id)({
+					surface = "control",
+					padding = "s",
+					gap = "xs",
+					width = UI.fill(),
+					table.unpack(children),
+				})
+			end
+
+			--[[ THE STATUS PANEL RIDES INSIDE EVERY TAB, AND THAT IS A MEASUREMENT
+				RATHER THAN A PREFERENCE. It stood above the TabView first, as a fixed
+				band, and the overflow sweep filed 114 findings for it: four lines of prose
+				at the +14 text preference under a ~1.4x localization measure taller than a
+				359x718 phone has to spare, so the band took the height and the construct
+				underneath it was arranged into a 0px box. Its own numbers then reported
+				nothing, on the surface whose entire job is to report them.
+
+				Inside a tab's scroller the same four lines cost nothing at any preference,
+				and the readout is no worse for it: exactly one tab is ever mounted, so it
+				is on screen either way. It is REBUILT with its tab, which is the fixture's
+				own subject happening to its own instrument. ]]
+			local function statusPanel(id: string, appLine: any?): any
+				local rows: { any } = { UI.Text("Title")({ text = COPY.title, textSize = "body" }) }
+				-- the page tabs pass nil: their own Placements panel already carries the
+				-- app's answer beside the page's, which is where the comparison belongs
+				if appLine ~= nil then
+					table.insert(rows, UI.Text("AppPlacement")({ text = appLine, textSize = "caption" }))
+				end
+				table.insert(rows, UI.Text("Builds")({ text = buildLine, textSize = "caption", role = "secondary" }))
+				table.insert(
+					rows,
+					UI.Text("Lifecycle")({ text = lifecycleLine, textSize = "caption", role = "secondary" })
+				)
+				return panel(id, rows)
+			end
+
+			--[[ THE PAGE LEVEL — `r2`'s own top bar, and it is built INSIDE the app
+				tab's content factory. That is not a stylistic choice: `content` is a
+				factory the construct invokes, so a TabView constructed during that
+				invocation IS inner, and the framework decides it from where the call
+				happens rather than from a flag the caller could get wrong. ]]
+			local function pageTabs(): { any }
+				local out: { any } = {}
+				for _, id in PAGE_TABS do
+					table.insert(out, {
+						id = id,
+						label = COPY[id],
+						content = function(pageScope: any)
+							noteBuild(id)
+							--[[ THE TWO PLACEMENT LINES LIVE ON THE PAGE, NOT ABOVE THE BAR,
+								and that was measured rather than chosen: a 320px-TALL landscape
+								has room for the app's readout, one band, one bar and a page — and
+								three text blocks between the bar and the page overflowed the page
+								body by 15px and the inner root by 46 at that viewport. Inside this
+								scroller they cost nothing, and they are still exactly where the
+								comparison wants them: the two answers next to each other, on the
+								page whose own bar is the second one.
+
+								They are owned by the PAGE scope, so they die with this tab — which
+								they must, because the control the inner one reads does. ]]
+							local outerLine = own(placementLine(COPY.appBar, function()
+								return outer
+							end))
+							local innerLine = own(placementLine(COPY.pageBar, function()
+								return inner
+							end))
+							return UI.ScrollView("PageBody")({
+								axis = "y",
+								gap = "xs",
+								width = UI.fill(),
+								height = Compose.formula(function(use)
+									return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
+								end),
+								shrinkWeight = 1,
+
+								statusPanel("Status"),
+								UI.Text("Name")({ text = COPY[id], textSize = "heading" }),
+								UI.Text("Built")({
+									text = `{COPY.builtHere}{builds[id] or 0}{COPY.times}`,
+									textSize = "caption",
+									role = "secondary",
+								}),
+								panel("Placements", {
+									UI.Text("Outer")({ text = outerLine, textSize = "caption" }),
+									UI.Text("Inner")({ text = innerLine, textSize = "caption" }),
+									UI.Text("Why")({
+										text = COPY.nestedNote,
+										textSize = "caption",
+										role = "secondary",
+									}),
+								}),
+								UI.HStack("Jumps")({
+									gap = "xs",
+									wrap = true,
+									width = UI.fill(),
+
+									chip("JumpLast", COPY.jumpLast, function()
+										page:set(PAGE_TABS[#PAGE_TABS])
+									end),
+									chip("JumpFirst", COPY.jumpFirst, function()
+										page:set(PAGE_TABS[1])
+									end),
+								}),
+								UI.Text("JumpNote")({
+									text = COPY.jumpNote,
+									textSize = "caption",
+									role = "secondary",
+								}),
+								UI.Text("Note")({
+									text = COPY.pagesNote,
+									textSize = "caption",
+									role = "secondary",
+								}),
+							})
+						end,
+					})
+				end
+				return out
+			end
+
+			local function pagesBody(tabScope: any): any
+				--[[ `sizing = "hug"` IS THE OVERFLOW, DECLARED. A `fill` strip divides
+					its offer among its tabs and therefore cannot overflow — eight tabs at
+					320px would be 40px each — so an autoscroll demonstration built on the
+					filling default would demonstrate nothing. A `topBar` already hugs; it is
+					written out here because this fixture's subject is what hugging costs. ]]
+				local innerNode = UI.TabView("Page")({
+					shoulderNavigation = "content",
+
+					selection = page,
+					indicator = "pill",
+					sizing = "hug",
+					env = ctx.env,
+					tabs = pageTabs(),
+					onChange = function()
+						readState()
+					end,
+					ref = function(record)
+						inner = record.api
+						controlsReady:set(controlsReady:peek() + 1)
+					end,
+				})
+				-- Tied to the PAGE app-tab's own scope (the ambient owner here),
+				-- not the scenario-wide `own`: it must fire when this tab is left,
+				-- not only when the whole scenario disposes, or `inner` goes stale
+				-- and `readState` reads a disposed control's `dump()`.
+				Compose.cleanup(function()
+					inner = nil
+				end)
+				-- Both themed tab bars can exceed the available height at the largest
+				-- text preference. Let the nested page scroll as a whole so its bar and
+				-- content remain reachable even inside a very short app-content slot.
+				-- A viewport-sized page gives its inner scroller a definite bound; that
+				-- scroller can shrink below its basis to share the page with the tab bar.
+				return UI.ScrollView("PageScroll")({
+					axis = "y",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.VStack("PageViewport")({
+						width = UI.fill(),
+						height = Compose.formula(function(use)
+							return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
+						end),
+						innerNode,
+					}),
+				})
+			end
+
+			local function inboxBody(tabScope: any): any
+				return UI.ScrollView("InboxBody")({
+					axis = "y",
+					gap = "xs",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					statusPanel(
+						"Status",
+						own(placementLine(COPY.appBar, function()
+							return outer
+						end))
+					),
+					UI.Text("Title")({ text = COPY.unreadTitle, textSize = "heading" }),
+					UI.Text("Note")({ text = COPY.unreadNote, textSize = "caption", role = "secondary" }),
+					UI.Text("Count")({
+						text = Compose.formula(function(use)
+							return `{COPY.inbox}: {use(unread)}`
+						end),
+						textSize = "body",
+					}),
+					chip("ClearUnread", COPY.clearUnread, function()
+						unread:set(0)
+					end),
+				})
+			end
+
+			local function notesBody(tabScope: any): any
+				--[[ THE TWO COUNTERS, AND THE ONLY DIFFERENCE BETWEEN THEM IS WHO OWNS
+					THEM. `kept` was created on this screen's scope, above; `tabOwned` is
+					created here, on the scope this factory was handed, which the framework
+					disposes the moment the tab is left. There is deliberately no `retain`
+					flag — ownership already answers the question, and this is that answer
+					with two numbers on it. ]]
+				local tabOwned = Compose.cell(0)
+				tabOwnedNow:set(0)
+				local function bumpBoth()
+					kept:set(kept:peek() + 1)
+					tabOwned:set(tabOwned:peek() + 1)
+					tabOwnedNow:set(tabOwned:peek())
+				end
+				tabBump = bumpBoth
+				-- Tied to this Notes tab's own scope (the ambient owner here), not
+				-- the scenario-wide `own`: the eviction this comments block
+				-- describes must fire when the tab is left, not only at scenario
+				-- disposal.
+				Compose.cleanup(function()
+					tabBump = nil
+					tabOwnedNow:set(0)
+				end)
+				return UI.ScrollView("NotesBody")({
+					axis = "y",
+					gap = "xs",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					statusPanel(
+						"Status",
+						own(placementLine(COPY.appBar, function()
+							return outer
+						end))
+					),
+					UI.Text("Title")({ text = COPY.keptTitle, textSize = "heading" }),
+					UI.Text("Note")({ text = COPY.keptNote, textSize = "caption", role = "secondary" }),
+					UI.Text("Kept")({
+						text = Compose.formula(function(use)
+							return COPY.kept .. tostring(use(kept))
+						end),
+						textSize = "body",
+					}),
+					UI.Text("Owned")({
+						text = Compose.formula(function(use)
+							return COPY.tabOwned .. tostring(use(tabOwned))
+						end),
+						textSize = "body",
+					}),
+					UI.HStack("Bumps")({
+						gap = "xs",
+						wrap = true,
+						width = UI.fill(),
+
+						chip("Bump", COPY.bump, bumpBoth),
+						chip("BumpUnread", COPY.bumpUnread, function()
+							unread:set(unread:peek() + 1)
+						end),
+					}),
+				})
+			end
+
+			local function meBody(tabScope: any): any
+				return UI.ScrollView("MeBody")({
+					axis = "y",
+					gap = "xs",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					statusPanel(
+						"Status",
+						own(placementLine(COPY.appBar, function()
+							return outer
+						end))
+					),
+					UI.Text("Title")({ text = COPY.meTitle, textSize = "heading" }),
+					UI.Text("Note")({ text = COPY.meNote, textSize = "caption", role = "secondary" }),
+					chip("MoveInboxFirst", COPY.moveInbox, function()
+						outer.moveTab("inbox", 1)
+					end),
+					chip("ToggleNotes", COPY.toggleNotes, function()
+						local hidden = table.find(customization:peek().hidden, "notes") ~= nil
+						outer.setTabHidden("notes", not hidden)
+					end),
+					chip("ResetNavigation", COPY.resetNavigation, function()
+						customization:set({ order = {}, hidden = {} })
+					end),
+					chip("BumpUnreadMe", COPY.bumpUnread, function()
+						unread:set(unread:peek() + 1)
+					end),
+				})
+			end
+
+			local BODIES: { [string]: (any) -> any } = {
+				pages = pagesBody,
+				inbox = inboxBody,
+				notes = notesBody,
+				me = meBody,
+			}
+
+			local appTabs: { any } = {}
+			for _, id in APP_TABS do
+				table.insert(appTabs, {
+					id = id,
+					label = COPY[id],
+					required = id == "pages" or id == "me",
+					section = if id == "pages" or id == "inbox" then "play" else "personal",
+					-- the count seal rides the OPTION, so it is part of the strip and the
+					-- strip is what never gets torn down
+					badge = if id == "inbox"
+						then Compose.formula(function(use)
+							local n = use(unread)
+							return if n > 0 then tostring(n) else ""
+						end)
+						else nil,
+					content = function(tabScope: any)
+						noteBuild(id)
+						return BODIES[id](tabScope)
+					end,
+				})
+			end
+
+			--[[ THE APP LEVEL. `placement = "automatic"` is the default and is written
+				out because it is the thing being demonstrated: the policy reads space and
+				input, never a device name, and publishes its answer as a Readable so this
+				screen can print it rather than re-deriving the rule. ]]
+			local outerNode = UI.TabView("App")({
 				shoulderNavigation = "content",
-				id = "Page",
-				selection = page,
-				indicator = "pill",
-				sizing = "hug",
+
+				style = "sidebarAdaptable",
+				customization = customization,
+				sections = {
+					{ id = "play", label = COPY.playSection },
+					{ id = "personal", label = COPY.personalSection },
+				},
+				selection = section,
+				placement = "automatic",
+				conditions = conditions,
 				env = ctx.env,
-				tabs = pageTabs(),
+				tabs = appTabs,
 				onChange = function()
 					readState()
 				end,
+				ref = function(record)
+					outer = record.api
+					controlsReady:set(controlsReady:peek() + 1)
+				end,
 			})
-			tabScope:own(inner)
-			tabScope:own(function()
-				inner = nil
-			end)
-			-- Both themed tab bars can exceed the available height at the largest
-			-- text preference. Let the nested page scroll as a whole so its bar and
-			-- content remain reachable even inside a very short app-content slot.
-			-- A viewport-sized page gives its inner scroller a definite bound; that
-			-- scroller can shrink below its basis to share the page with the tab bar.
-			return UI.ScrollView({
-				id = "PageScroll",
-				axis = "y",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.VStack({
-					id = "PageViewport",
-					width = UI.fill(),
-					height = tabScope:own(core:memo(function(use)
-						return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
-					end)),
-					inner.blueprint,
-				}),
-			})
-		end
+			readState()
 
-		local function inboxBody(tabScope: any): any
-			return UI.ScrollView({
-				id = "InboxBody",
-				axis = "y",
-				gap = "xs",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
-				UI.Text({ id = "Title", text = COPY.unreadTitle, textSize = "heading" }),
-				UI.Text({ id = "Note", text = COPY.unreadNote, textSize = "caption", role = "secondary" }),
-				UI.Text({
-					id = "Count",
-					text = core:memo(function(use)
-						return `{COPY.inbox}: {use(unread)}`
-					end),
-					textSize = "body",
-				}),
-				chip("ClearUnread", COPY.clearUnread, function()
-					unread:set(0)
-				end),
-			})
-		end
-
-		local function notesBody(tabScope: any): any
-			--[[ THE TWO COUNTERS, AND THE ONLY DIFFERENCE BETWEEN THEM IS WHO OWNS
-				THEM. `kept` was created on this screen's scope, above; `tabOwned` is
-				created here, on the scope this factory was handed, which the framework
-				disposes the moment the tab is left. There is deliberately no `retain`
-				flag — ownership already answers the question, and this is that answer
-				with two numbers on it. ]]
-			local tabOwned = tabScope:own(core:signal(0))
-			tabOwnedNow:set(0)
-			local function bumpBoth()
-				kept:set(kept:get() + 1)
-				tabOwned:set(tabOwned:get() + 1)
-				tabOwnedNow:set(tabOwned:get())
+			--[[ AND THE ONE SEAM THAT MAKES THE COUNTS TRUE RATHER THAN NEARLY TRUE.
+				`contentMounts` is incremented by the construct AFTER it invokes the
+				caller's factory, so a number read from inside that factory is always one
+				behind — the first paint of this fixture reported `mounts 0` for a page
+				bar that had just been built. Nothing the caller can subscribe to fires
+				between those two statements, so the readout re-reads on the presenter's
+				own tick, and `put` above is what makes that free: a frame in which
+				nothing moved writes nothing, repaints nothing and re-solves nothing. ]]
+			if ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
+				own(ctx.presenter.onTick(function()
+					readState()
+				end))
 			end
-			tabBump = bumpBoth
-			tabScope:own(function()
-				tabBump = nil
-				tabOwnedNow:set(0)
-			end)
-			return UI.ScrollView({
-				id = "NotesBody",
-				axis = "y",
-				gap = "xs",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
-				UI.Text({ id = "Title", text = COPY.keptTitle, textSize = "heading" }),
-				UI.Text({ id = "Note", text = COPY.keptNote, textSize = "caption", role = "secondary" }),
-				UI.Text({
-					id = "Kept",
-					text = core:memo(function(use)
-						return COPY.kept .. tostring(use(kept))
-					end),
-					textSize = "body",
-				}),
-				UI.Text({
-					id = "Owned",
-					text = tabScope:own(core:memo(function(use)
-						return COPY.tabOwned .. tostring(use(tabOwned))
-					end)),
-					textSize = "body",
-				}),
-				UI.HStack({
-					id = "Bumps",
+			--[[ THE SCREEN IS THE CONSTRUCT, with nothing above it. Every readout this
+				fixture has rides inside a tab (see `statusPanel`) rather than in a band of
+				its own, because a band of prose over a TabView is a band that takes the
+				height at a raised text preference and leaves the thing it is describing
+				arranged into nothing. ]]
+			local screen = UI.Screen("TabViewDemo")({
+				-- NO PAGE PADDING. A tab bar is chrome that belongs against its own edge
+				-- — every reference shell places one edge-to-edge — and on a 320px-tall
+				-- landscape carrying TWO of them the eight pixels are the difference
+				-- between the page fitting and not.
+
+				UI.VStack("Root")({
 					gap = "xs",
-					wrap = true,
+					align = "stretch",
 					width = UI.fill(),
-
-					chip("Bump", COPY.bump, bumpBoth),
-					chip("BumpUnread", COPY.bumpUnread, function()
-						unread:set(unread:get() + 1)
-					end),
+					height = UI.fill(),
+					outerNode,
 				}),
 			})
-		end
 
-		local function meBody(tabScope: any): any
-			return UI.ScrollView({
-				id = "MeBody",
-				axis = "y",
-				gap = "xs",
-				width = UI.fill(),
-				height = UI.fill(),
+			return {
+				screen = screen,
+				present = {},
+				section = section,
+				page = page,
+				unread = unread,
+				kept = kept,
 
-				statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
-				UI.Text({ id = "Title", text = COPY.meTitle, textSize = "heading" }),
-				UI.Text({ id = "Note", text = COPY.meNote, textSize = "caption", role = "secondary" }),
-				chip("MoveInboxFirst", COPY.moveInbox, function()
-					outer.moveTab("inbox", 1)
-				end),
-				chip("ToggleNotes", COPY.toggleNotes, function()
-					local hidden = table.find(customization:get().hidden, "notes") ~= nil
-					outer.setTabHidden("notes", not hidden)
-				end),
-				chip("ResetNavigation", COPY.resetNavigation, function()
-					customization:set({ order = {}, hidden = {} })
-				end),
-				chip("BumpUnreadMe", COPY.bumpUnread, function()
-					unread:set(unread:get() + 1)
-				end),
-			})
-		end
+				steps = {
+					select = function(_built: any, payload: string?)
+						section:set(payload or "inbox")
+						readState()
+						return { section = section:peek(), dump = outer.dump() }
+					end,
+					selectPage = function(_built: any, payload: string?)
+						page:set(payload or PAGE_TABS[#PAGE_TABS])
+						readState()
+						return { page = page:peek(), reveals = if inner ~= nil then inner.dump().reveals else nil }
+					end,
+					-- the step IS the chip: a step that wrote the signals itself would
+					-- prove a press no player can make
+					bump = function()
+						if tabBump ~= nil then
+							(tabBump :: () -> ())()
+						else
+							kept:set(kept:peek() + 1)
+						end
+						readState()
+						return { kept = kept:peek(), tabOwned = tabOwnedNow:peek(), onTab = tabBump ~= nil }
+					end,
+					bumpUnread = function()
+						unread:set(unread:peek() + 1)
+						readState()
+						return { unread = unread:peek() }
+					end,
+					customize = function()
+						outer.moveTab("inbox", 1)
+						return outer.dump()
+					end,
+					resetNavigation = function()
+						customization:set({ order = {}, hidden = {} })
+					end,
+					reread = function()
+						readState()
+						return { builds = buildLine:peek(), lifecycle = lifecycleLine:peek() }
+					end,
+				},
 
-		local BODIES: { [string]: (any) -> any } = {
-			pages = pagesBody,
-			inbox = inboxBody,
-			notes = notesBody,
-			me = meBody,
-		}
-
-		local appTabs: { any } = {}
-		for _, id in APP_TABS do
-			table.insert(appTabs, {
-				id = id,
-				label = COPY[id],
-				required = id == "pages" or id == "me",
-				section = if id == "pages" or id == "inbox" then "play" else "personal",
-				-- the count seal rides the OPTION, so it is part of the strip and the
-				-- strip is what never gets torn down
-				badge = if id == "inbox"
-					then scope:own(core:memo(function(use)
-						local n = use(unread)
-						return if n > 0 then tostring(n) else ""
-					end))
-					else nil,
-				content = function(tabScope: any)
-					noteBuild(id)
-					return BODIES[id](tabScope)
+				report = function()
+					return {
+						app = outer.dump(),
+						page = if inner ~= nil then inner.dump() else nil,
+						builds = table.clone(builds),
+						kept = kept:peek(),
+						tabOwned = tabOwnedNow:peek(),
+						unread = unread:peek(),
+					}
 				end,
-			})
-		end
 
-		--[[ THE APP LEVEL. `placement = "automatic"` is the default and is written
-			out because it is the thing being demonstrated: the policy reads space and
-			input, never a device name, and publishes its answer as a Readable so this
-			screen can print it rather than re-deriving the rule. ]]
-		outer = Facet.Controls.TabView(core, {
-			shoulderNavigation = "content",
-			id = "App",
-			style = "sidebarAdaptable",
-			customization = customization,
-			sections = { { id = "play", label = COPY.playSection }, { id = "personal", label = COPY.personalSection } },
-			selection = section,
-			placement = "automatic",
-			conditions = conditions,
-			env = ctx.env,
-			tabs = appTabs,
-			onChange = function()
-				readState()
-			end,
-		})
-		scope:own(outer)
-
-		readState()
-
-		--[[ AND THE ONE SEAM THAT MAKES THE COUNTS TRUE RATHER THAN NEARLY TRUE.
-			`contentMounts` is incremented by the construct AFTER it invokes the
-			caller's factory, so a number read from inside that factory is always one
-			behind — the first paint of this fixture reported `mounts 0` for a page
-			bar that had just been built. Nothing the caller can subscribe to fires
-			between those two statements, so the readout re-reads on the presenter's
-			own tick, and `put` above is what makes that free: a frame in which
-			nothing moved writes nothing, repaints nothing and re-solves nothing. ]]
-		if ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
-			scope:own(ctx.presenter.onTick(function()
-				readState()
-			end))
-		end
-
-		--[[ THE SCREEN IS THE CONSTRUCT, with nothing above it. Every readout this
-			fixture has rides inside a tab (see `statusPanel`) rather than in a band of
-			its own, because a band of prose over a TabView is a band that takes the
-			height at a raised text preference and leaves the thing it is describing
-			arranged into nothing. ]]
-		local screen = UI.Screen({
-			id = "TabViewDemo",
-			-- NO PAGE PADDING. A tab bar is chrome that belongs against its own edge
-			-- — every reference shell places one edge-to-edge — and on a 320px-tall
-			-- landscape carrying TWO of them the eight pixels are the difference
-			-- between the page fitting and not.
-
-			UI.VStack({
-				id = "Root",
-				gap = "xs",
-				align = "stretch",
-				width = UI.fill(),
-				height = UI.fill(),
-				outer.blueprint,
-			}),
-		})
-
-		return {
-			screen = screen,
-			present = {},
-			section = section,
-			page = page,
-			unread = unread,
-			kept = kept,
-
-			steps = {
-				select = function(_built: any, payload: string?)
-					section:set(payload or "inbox")
-					readState()
-					return { section = section:get(), dump = outer.dump() }
+				dispose = function()
+					-- the app-level control is owned by the scope above, so this is one
+					-- teardown rather than two: a second `outer.dispose()` here would be a
+					-- resource with two owners, which is the one thing §6.3 refuses
+					lifetime.dispose()
 				end,
-				selectPage = function(_built: any, payload: string?)
-					page:set(payload or PAGE_TABS[#PAGE_TABS])
-					readState()
-					return { page = page:get(), reveals = if inner ~= nil then inner.dump().reveals else nil }
-				end,
-				-- the step IS the chip: a step that wrote the signals itself would
-				-- prove a press no player can make
-				bump = function()
-					if tabBump ~= nil then
-						(tabBump :: () -> ())()
-					else
-						kept:set(kept:get() + 1)
-					end
-					readState()
-					return { kept = kept:get(), tabOwned = tabOwnedNow:get(), onTab = tabBump ~= nil }
-				end,
-				bumpUnread = function()
-					unread:set(unread:get() + 1)
-					readState()
-					return { unread = unread:get() }
-				end,
-				customize = function()
-					outer.moveTab("inbox", 1)
-					return outer.dump()
-				end,
-				resetNavigation = function()
-					customization:set({ order = {}, hidden = {} })
-				end,
-				reread = function()
-					readState()
-					return { builds = buildLine:get(), lifecycle = lifecycleLine:get() }
-				end,
-			},
-
-			report = function()
-				return {
-					app = outer.dump(),
-					page = if inner ~= nil then inner.dump() else nil,
-					builds = table.clone(builds),
-					kept = kept:get(),
-					tabOwned = tabOwnedNow:get(),
-					unread = unread:get(),
-				}
-			end,
-
-			dispose = function()
-				-- the app-level control is owned by the scope above, so this is one
-				-- teardown rather than two: a second `outer.dispose()` here would be a
-				-- resource with two owners, which is the one thing §6.3 refuses
-				scope:dispose()
-			end,
-		}
+			}
+		end)
 	end,
 }

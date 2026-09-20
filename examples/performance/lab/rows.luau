@@ -343,27 +343,18 @@ function rows.expectedWindow(
 	return math.ceil(viewportHeight / pitch) + 2 * rows.OVERSCAN + 2
 end
 
-export type CellCtx = {
-	-- the VirtualList cell scope: owns everything the row allocates, so a row
-	-- leaving the window reclaims its controls and cancels its image
-	scope: any,
+export type CellOpts = {
 	-- the async resource provider the row's image is acquired through. Required:
 	-- the cold/warm distinction is a property of the PROVIDER's cache, not of two
 	-- different row shapes, so there is no provider-less variant of this row.
 	provider: any,
-	-- owner-held state, keyed by item id, so a row that leaves and re-enters the
+	-- caller-held state, keyed by item id, so a row that leaves and re-enters the
 	-- window shows what it showed before (a control whose value resets on scroll
-	-- is a different — and much cheaper — workload)
+	-- is a different — and much cheaper — workload). The cells belong to whoever
+	-- holds these tables; dropping the tables releases them.
 	values: { [string]: any },
 	toggles: { [string]: any },
-	-- the scope that owns those signals; longer-lived than the cell scope, and
-	-- disposed when the dataset is replaced
-	ownerScope: any?,
 	onActivate: ((item: any) -> ())?,
-	-- Step 8.5: `disclose` on the identity line, so a truncated long name keeps a
-	-- full-value path. Kept ON by default — the plan forbids improving a profile
-	-- by dropping accessibility behaviour, so the expensive path is the default
-	-- path and the cheap one is not offered.
 	failImage: boolean?,
 	-- true when the row must restack for a narrow offer. Supplied by the caller from
 	-- `Facet.adaptive.conditions(...).isCompact`, so the height and the arrangement
@@ -376,39 +367,27 @@ export type CellCtx = {
 	splitControls: boolean?,
 }
 
--- Build one row. `item` is a dataset.Item.
-function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
-	local UI = Facet.UI
-	local scope = ctx.scope
+-- Build one row. `ctx` is the application context `{ UI, Compose, ... }`; `item`
+-- is a plain dataset.Item. Runs inside the VirtualList's row owner, which owns
+-- every control the row builds: a row leaving the window reclaims its controls
+-- and cancels its image.
+function rows.cell(ctx: any, item: any, opts: CellOpts): any
+	local UI, Compose = ctx.UI, ctx.Compose
 
-	-- The per-row value/toggle signals OUTLIVE the cell (a control that resets when
-	-- its row scrolls away is a different, cheaper workload), so they are owned by
-	-- the caller's longer-lived `ownerScope` rather than by `scope`. Owning them
-	-- somewhere is not optional: a live Studio reset left 488 undisposed signals on
-	-- the core because dropping the cache TABLE does not release the SIGNALS.
-	local owner = ctx.ownerScope
-	local value = ctx.values[item.id]
+	local value = opts.values[item.id]
 	if value == nil then
-		value = core:signal(item.value)
-		if owner ~= nil then
-			owner:own(value)
-		end
-		ctx.values[item.id] = value
+		value = Compose.cell(item.value)
+		opts.values[item.id] = value
 	end
-	local toggled = ctx.toggles[item.id]
+	local toggled = opts.toggles[item.id]
 	if toggled == nil then
-		toggled = core:signal(item.enabled)
-		if owner ~= nil then
-			owner:own(toggled)
-		end
-		ctx.toggles[item.id] = toggled
+		toggled = Compose.cell(item.enabled)
+		opts.toggles[item.id] = toggled
 	end
 
-	local image = Facet.Controls.AsyncImage(core, {
-		id = "Avatar",
-		scope = scope,
-		provider = ctx.provider,
-		key = if ctx.failImage then item.imageKey .. "&broken=1" else item.imageKey,
+	local image = UI.AsyncImage("Avatar")({
+		provider = opts.provider,
+		key = if opts.failImage then item.imageKey .. "&broken=1" else item.imageKey,
 		width = { type = "fixed", px = rows.IMAGE_SIZE },
 		height = { type = "fixed", px = rows.IMAGE_SIZE },
 	})
@@ -417,26 +396,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 	-- composite (label + readout + two Buttons over the shared value model), so a
 	-- row genuinely carries nested construction and the hit-floor expansion that
 	-- goes with it, and it is drivable from every input class without a pointer.
-	-- OWNERSHIP, THE PART THAT IS EASY TO GET WRONG (found live, 2026-08-04).
-	--
-	-- `newStepper` takes no `scope` key — its spec guard names the nine it accepts
-	-- — and instead builds its OWN scope and hands back a `dispose`. `newAsyncImage`
-	-- above takes the opposite shape: it accepts the cell scope and owns itself
-	-- into it. Both are legitimate; the trap is assuming the second shape applies
-	-- to the first.
-	--
-	-- The first version of this row did assume it, and the result was a control
-	-- scope per materialized row that nothing ever released: a headless probe of
-	-- 400 scroll steps over 2 000 rows took the core from 96 memos and 31 scopes to
-	-- 17 078 memos and 4 278 scopes, all still subscribed to live value signals. A
-	-- leak like that does not merely waste memory — it makes every later update
-	-- notify a crowd of dead readers, which is precisely the "updates proportional
-	-- to changed content" question the churn workload asks.
-	--
-	-- The cell scope releases it, because `scope:own` accepts any table with a
-	-- `dispose()`. Recorded as PLN-4.
-	local stepper = scope:own(Facet.Controls.Stepper(core, {
-		id = "Rate",
+	local stepper = UI.Stepper("Rate")({
 		label = "Rate",
 		value = value,
 		min = 0,
@@ -445,10 +405,9 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		format = function(v: number): string
 			return string.format("%d%%", math.floor(v * 100 + 0.5))
 		end,
-	}))
+	})
 
-	local labels = UI.VStack({
-		id = "Labels",
+	local labels = UI.VStack("Labels")({
 		gap = 2,
 		width = UI.fill(),
 
@@ -456,102 +415,63 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 		-- Removing this to make the profile prettier is exactly the "weakened
 		-- accessibility behaviour" the plan forbids.
 		-- ONE LINE EACH, ALWAYS. A VirtualList slot is a FIXED height, and these two
-		-- texts were the only things in the row free to grow: a long identity name
-		-- wrapped to a second line and the row painted 5px into its neighbour. It
-		-- showed up only in the sweep and only on a phone, because it needs a long
-		-- string AND a narrow box AND that particular row inside the window — three
-		-- coincidences, which is why the height constant looked correct for months.
-		--
-		-- This is `Text.lineLimit`'s whole reason for existing (see
-		-- a fixed px height against unfixed content): the OWNER knows the box is fixed, so
-		-- the owner caps the lines. `disclose` keeps the full name reachable once it
-		-- truncates, so nothing is hidden — the line count is bounded, not the value.
-		UI.Text({ id = "Name", text = item.name, textSize = 15, disclose = true, lineLimit = 1 }),
-		UI.Text({ id = "Detail", text = item.detail, textSize = "caption", lineLimit = 1 }),
+		-- texts are the only things in the row free to grow: a long identity name
+		-- wrapping to a second line paints the row into its neighbour. The OWNER
+		-- knows the box is fixed, so the owner caps the lines (`Text.lineLimit`).
+		-- `disclose` keeps the full name reachable once it truncates, so nothing is
+		-- hidden — the line count is bounded, not the value.
+		UI.Text("Name")({ text = item.name, textSize = 15, disclose = true, lineLimit = 1 }),
+		UI.Text("Detail")({ text = item.detail, textSize = "caption", lineLimit = 1 }),
 	})
-	local toggle = UI.Toggle({ id = "Ready", label = "Ready", value = toggled })
-	local open = UI.Button({
-		id = "Open",
+	local toggle = UI.Toggle("Ready")({ label = "Ready", value = toggled })
+	local open = UI.Button("Open")({
 		label = "Open",
 		onActivate = function()
-			if ctx.onActivate ~= nil then
-				ctx.onActivate(item)
+			if opts.onActivate ~= nil then
+				opts.onActivate(item)
 			end
 		end,
 	})
 
-	if ctx.compact == true then
+	if opts.compact == true then
 		-- TWO LINES, SAME NODES. Identity above, controls below — the arrangement a
 		-- phone can actually hold. Nothing is dropped, so a compact capture measures
 		-- the same construction, the same async image and the same disclosure as a
 		-- desktop one.
-		-- BUILT AS A LIST, not as a literal with a conditional hole in it: `{a, nil, b}`
-		-- leaves an array whose length is a border rather than 3, and the row that
-		-- vanished would be the Value line.
-		local split = ctx.splitControls == true
-		local lines = {
-			UI.HStack({
-				id = "Head",
-				gap = "s",
-				width = UI.fill(),
-				image.blueprint,
-				labels,
-			}),
-			-- THE CONTROLS STACK TOO. Two lines was not enough: the controls line
-			-- alone needs ~420px (a Toggle, a Stepper with its label, readout and
-			-- two 44px-floor buttons, and a Button), so at 320-414px it still
-			-- overflowed. The Stepper takes its own line because it is the widest
-			-- of the three by a distance.
-			--
-			-- ...and under a theme the Button leaves this line too (L-26): each control
-			-- pays the recipe's `contentInsets` across, and at 360px the pair no longer
-			-- fits. Same nodes, same ids, one more line — the arrangement moves and the
-			-- workload does not, which is the rule the split above already follows.
-			UI.HStack({
-				id = "Controls",
-				gap = "s",
-				width = UI.fill(),
-				children = if split then { toggle } else { toggle, open },
-			}),
-		}
-		if split then
-			table.insert(
-				lines,
-				UI.HStack({
-					id = "Action",
-					gap = "s",
-					width = UI.fill(),
-					open,
-				})
-			)
-		end
-		table.insert(
-			lines,
-			UI.HStack({
-				id = "Value",
-				gap = "s",
-				width = UI.fill(),
-				stepper.blueprint,
-			})
-		)
-		return UI.VStack({
-			id = "Row",
+		local split = opts.splitControls == true
+		local lines: { any } = {
 			gap = rows.COMPACT_LINE_GAP,
 			padding = rows.ROW_PADDING_STEP,
 			width = UI.fill(),
-			children = lines,
-		})
+			UI.HStack("Head")({ gap = "s", width = UI.fill(), image, labels }),
+		}
+		-- THE CONTROLS STACK TOO. The controls line alone needs ~420px (a Toggle, a
+		-- Stepper with its label, readout and two 44px-floor buttons, and a Button),
+		-- so at 320-414px it overflows. The Stepper takes its own line because it is
+		-- the widest of the three by a distance.
+		--
+		-- ...and under a theme the Button leaves this line too (L-26): each control
+		-- pays the recipe's `contentInsets` across, and at 360px the pair no longer
+		-- fits. Same nodes, same ids, one more line — the arrangement moves and the
+		-- workload does not.
+		if split then
+			table.insert(lines, UI.HStack("Controls")({ gap = "s", width = UI.fill(), toggle }))
+			table.insert(lines, UI.HStack("Action")({ gap = "s", width = UI.fill(), open }))
+		else
+			table.insert(lines, UI.HStack("Controls")({ gap = "s", width = UI.fill(), toggle, open }))
+		end
+		table.insert(lines, UI.HStack("Value")({ gap = "s", width = UI.fill(), stepper }))
+		return UI.VStack("Row")(lines)
 	end
 
-	return UI.HStack({
-		id = "Row",
+	return UI.HStack("Row")({
 		gap = "s",
 		padding = rows.ROW_PADDING_STEP,
 		width = UI.fill(),
-		image.blueprint,
+		image,
 		labels,
 		toggle,
-		stepper.blueprint,
+		stepper,
 		open,
 	})
 end

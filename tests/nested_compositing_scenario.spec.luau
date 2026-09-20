@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SHOWCASE SURFACE FOR THE NESTED TREE'S TWO CAPABILITIES —
 	`examples/gallery/scenarios/nested_compositing.luau`.
 
@@ -62,13 +63,13 @@ local NARROW_LANDSCAPE = { w = 640, h = 320 }
 local DESKTOP = { w = 1232, h = 1067 }
 
 local function fixtureWorld(view: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -78,6 +79,8 @@ end
 local function mountFixture(w: any): any
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,
@@ -171,8 +174,7 @@ describe("nested_compositing showcase: builds and paints with ZERO solver diagno
 			local w = fixtureWorld(view)
 			local built = mountFixture(w)
 			expectNoDiagnostics(`nested_compositing at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
-			built.dispose()
+			expect(w.core.lastError()).toBeNil()
 		end
 	end)
 
@@ -184,8 +186,7 @@ describe("nested_compositing showcase: builds and paints with ZERO solver diagno
 			built.turned:set(true)
 			w.presenter.refresh()
 			expectNoDiagnostics(`nested_compositing driven at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
-			built.dispose()
+			expect(w.core.lastError()).toBeNil()
 		end
 	end)
 
@@ -249,7 +250,6 @@ describe("nested_compositing showcase: builds and paints with ZERO solver diagno
 					error(`nested_compositing at {view.w}x{view.h}: {path} is a real box but marked NOT visible`, 2)
 				end
 			end
-			built.dispose()
 		end
 	end)
 
@@ -264,7 +264,6 @@ describe("nested_compositing showcase: builds and paints with ZERO solver diagno
 				local w = fixtureWorld(view)
 				local built = mountFixture(w)
 				expectNoDiagnostics(`nested_compositing pseudo-localized at {view.w}x{view.h}`, w, built)
-				built.dispose()
 			end
 		end)
 		for key, value in original do
@@ -295,8 +294,7 @@ describe("nested_compositing showcase: group opacity composites once, or twice",
 		-- ...while each of its two plates is
 		expect(groups[TWO_GROUPS .. "/Back"]).never().toBeNil()
 		expect(groups[TWO_GROUPS .. "/Front"]).never().toBeNil()
-		expect(w.core:lastError()).toBeNil()
-		built.dispose()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("every one of them carries the fade the slider's own signal drives, live", function()
@@ -314,8 +312,7 @@ describe("nested_compositing showcase: group opacity composites once, or twice",
 		w.presenter.refresh()
 		local faded = groupsOf(w)[TWO_GROUPS .. "/Front"]
 		expect(math.abs((faded :: number) - 0.85) < 0.0001).toBe(true)
-		expect(w.core:lastError()).toBeNil()
-		built.dispose()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -338,8 +335,7 @@ describe("nested_compositing showcase: a real parent, or not", function()
 		local built = mountFixture(w)
 		expect(w.adapter.isHost(CARRIED)).toBe(true)
 		expect(w.adapter.isHost(STATIC)).toBe(false)
-		expect(w.core:lastError()).toBeNil()
-		built.dispose()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it(
@@ -360,29 +356,27 @@ describe("nested_compositing showcase: a real parent, or not", function()
 			-- page's own ScrollView, the nearest ancestor that did
 			expect((aloneHost :: any).path).toBe(ROOT)
 			expect((aloneHost :: any).path).never().toBe(STATIC)
-			expect(w.core:lastError()).toBeNil()
-			built.dispose()
+			expect(w.core.lastError()).toBeNil()
 		end
 	)
 
 	it("turning the pair moves the SAME two driver signals both panels read", function()
 		local w = fixtureWorld(DESKTOP)
 		local built = mountFixture(w)
-		expect(built.turned:get()).toBe(false)
-		expect(built.carryRotation:get()).toBe(0)
-		expect(built.carryScale:get()).toBe(1)
+		expect(built.turned:peek()).toBe(false)
+		expect(built.carryRotation:peek()).toBe(0)
+		expect(built.carryScale:peek()).toBe(1)
 		built.steps.toggleTurn()
 		w.presenter.refresh()
-		expect(built.turned:get()).toBe(true)
-		expect(built.carryRotation:get()).toBe(30)
-		expect(built.carryScale:get()).toBe(1.5)
+		expect(built.turned:peek()).toBe(true)
+		expect(built.carryRotation:peek()).toBe(30)
+		expect(built.carryScale:peek()).toBe(1.5)
 		-- registration itself does not depend on the driven VALUE — the prop KEY
 		-- being authored is what registers the host, so turning
 		-- the pair back to rest must not un-register the carrying container
 		built.steps.toggleTurn()
 		w.presenter.refresh()
 		expect(w.adapter.isHost(CARRIED)).toBe(true)
-		expect(w.core:lastError()).toBeNil()
-		built.dispose()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)

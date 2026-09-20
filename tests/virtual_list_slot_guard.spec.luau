@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE LYING `itemExtent` GUARD (game-director approved 2026-08-13).
 
@@ -40,8 +41,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local virtual_list = require("../src/controls/virtual_list")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local SLOT = 56
 
@@ -154,17 +156,17 @@ local function cellFor(kind: string): (any) -> any
 end
 
 local function world(opts: WorldOpts): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 600 })
 	env:set("preferredTextOffset", opts.offset or 0)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local list = Facet.Controls.VirtualList(core, {
+	local presenter = harness.newPresenter(core, env, adapter, system)
+	local list = harness.Controls.VirtualList(core, {
 		id = "VL",
 		axis = opts.axis,
-		rows = core:signal(makeRows(60)),
+		rows = Compose.cell(makeRows(60)),
 		key = function(item: any)
 			return item.id
 		end,
@@ -320,10 +322,10 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 		-- height ladder on purpose, and a guard reading the box would shout through
 		-- the whole animation. Here the box is 20px and the declared extent 56px —
 		-- content of 40px is inside the promise and must say nothing.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
-		local presenter = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local handle = presenter.present(
 			UI.Screen({
 				id = "Root",
@@ -383,13 +385,13 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 			THE CASE IS THE ONE THAT MATTERS IN PRACTICE: a per-item extent that
 			re-derives correctly after the text preference moves. Under the bug, the
 			list that had just been FIXED went on shouting the old number. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local rows = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
-		local declared = core:signal(20)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local declared = Compose.cell(20)
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
@@ -404,14 +406,14 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 			end,
 			viewportExtent = 600,
 			cell = function()
-				return Facet.UI.Box({
+				return harness.UI.Box({
 					id = "Plate",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 60 },
 				})
 			end,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 		local function slotCount(): number
 			local n = 0
 			for _, d in handle.controller.diagnostics() do

@@ -1,7 +1,8 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 --[[ row_actions_metrics — every live pixel amount a row-actions band is made of.
 
-	WHAT THIS IS. The theme-resolved chrome of `newRowActions`: the four
+	WHAT THIS IS. The theme-resolved chrome of `UI.RowActions`: the four
 	`controls.rowActions.*` metrics, the per-action NATURAL width signals, the
 	band-width arithmetic those sum into, and the edit-mode gutter. One factory,
 	`build(...)`, returns them all as already-owned reactive nodes.
@@ -121,7 +122,7 @@ row_actions_metrics.EDIT_FOOTPRINT = EDIT_FOOTPRINT
 	`editingReadable` is `spec.editing`, read only when `hasEditAffordance`. ]]
 function row_actions_metrics.build(
 	core: any,
-	scope: any,
+	owner: any,
 	env: any,
 	leadingActions: { any }?,
 	trailingActions: { any }?,
@@ -146,24 +147,34 @@ function row_actions_metrics.build(
 	local function metricsOr(raw: any): any
 		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 	end
-	local metricsSig = scope:own(core:memo(function(use)
-		if metricsEnv == nil then
-			return themeSnapshot.neutral()
-		end
-		return metricsOr(use(metricsEnv:get("themeMetrics")))
-	end))
-	local buttonPadPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
-	end))
-	local buttonMinWidthPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
-	end))
-	local trayGapPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
-	end))
-	local rowGutterPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), ROW_GUTTER) or 0
-	end))
+	local metricsSig = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			if metricsEnv == nil then
+				return themeSnapshot.neutral()
+			end
+			return metricsOr(use(metricsEnv:get("themeMetrics")))
+		end)
+	end)
+	local buttonPadPx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
+		end)
+	end)
+	local buttonMinWidthPx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
+		end)
+	end)
+	local trayGapPx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
+		end)
+	end)
+	local rowGutterPx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return themeSnapshot.resolveNumber(use(metricsSig), ROW_GUTTER) or 0
+		end)
+	end)
 	-- A3 (device bug round 2026-08-12): a themed package's control frame is room
 	-- the label cannot use, and a tray button's natural width has to reserve it
 	-- the same way the button's own hug measure does — see `deriveNaturals`
@@ -171,44 +182,30 @@ function row_actions_metrics.build(
 	-- Zero under every flat package (`snapshot.resolve` only fills
 	-- `chromeInsets` for a nineSlice/layered slot recipe), so this is inert
 	-- until a package actually paints a frame.
-	local buttonChromePx = scope:own(core:memo(function(use)
-		local metrics = use(metricsSig)
-		local insets = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
-			then (metrics.chromeInsets :: any).control
-			else nil
-		if type(insets) ~= "table" then
-			return 0
-		end
-		local left = if type(insets.left) == "number" then insets.left else 0
-		local right = if type(insets.right) == "number" then insets.right else 0
-		return left + right
-	end))
+	local buttonChromePx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local metrics = use(metricsSig)
+			local insets = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+				then (metrics.chromeInsets :: any).control
+				else nil
+			if type(insets) ~= "table" then
+				return 0
+			end
+			local left = if type(insets.left) == "number" then insets.left else 0
+			local right = if type(insets.right) == "number" then insets.right else 0
+			return left + right
+		end)
+	end)
 
-	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
-	-- declared action, created eagerly at BUILD time rather than inside the
-	-- tray's lazy `UI.When` factory. A reactive value created INSIDE that
-	-- factory would be a FRESH `core:memo` every remount (Trays mount lazily;
-	-- a row can open and close many times), which `scope:own` would dutifully
-	-- own and never release until this whole composite disposes — a slow leak
-	-- shaped exactly like the "table with no dispose()" mistake
-	-- scope_impl.luau's own `own()` guards against, just one level up (a table
-	-- WITH a dispose(), that nothing ever calls). Building it once, here, and
-	-- having the tray factory below only ever LOOK UP an existing entry, means
-	-- every open/close cycle reuses the same handful of reactive nodes.
-	--
-	-- The signal itself is written by `syncGeometry`/`deriveNaturals` (which stay
-	-- in row_actions.luau) on EVERY sync (not frozen — see that file's own TRAY
-	-- WIDTH header comment): a plain
-	-- `core:signal`, not a memo, because the write happens from an external
-	-- hook (the presenter's geometry broadcast), not from a `use()`-tracked
-	-- computation.
+	-- Keep one measured-width cell per action across tray remounts. Geometry
+	-- updates these cells; tray formulas belong to the row's Compose owner.
 	local leadingNaturals: { [string]: any } = {}
 	for _, action in leadingActions or {} do
-		leadingNaturals[action.id] = scope:own(core:signal(nil :: number?))
+		leadingNaturals[action.id] = Compose.cell(nil :: number?)
 	end
 	local trailingNaturals: { [string]: any } = {}
 	for _, action in trailingActions or {} do
-		trailingNaturals[action.id] = scope:own(core:signal(nil :: number?))
+		trailingNaturals[action.id] = Compose.cell(nil :: number?)
 	end
 	local function sumNaturals(naturals: { [string]: any }, use: (any) -> any): number
 		local total = 0
@@ -255,12 +252,16 @@ function row_actions_metrics.build(
 		end
 		return sum + bandExtras(actions, use)
 	end
-	local leadingWidth = scope:own(core:memo(function(use)
-		return bandWidth(leadingNaturals, leadingActions, use)
-	end))
-	local trailingWidth = scope:own(core:memo(function(use)
-		return bandWidth(trailingNaturals, trailingActions, use)
-	end))
+	local leadingWidth = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return bandWidth(leadingNaturals, leadingActions, use)
+		end)
+	end)
+	local trailingWidth = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return bandWidth(trailingNaturals, trailingActions, use)
+		end)
+	end)
 
 	-- ===== Task 9: the edit-mode gutter (leading minus + content/leading-tray
 	-- shift) — built ONLY when it can ever matter (`hasEditAffordance`), so a
@@ -281,20 +282,24 @@ function row_actions_metrics.build(
 	local editAffordanceShown: any = nil
 	local editGutterPx: any = nil
 	if hasEditAffordance then
-		editAffordanceShown = scope:own(core:memo(function(use)
-			return use(editingReadable) == true
-		end))
+		editAffordanceShown = Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				return use(editingReadable) == true
+			end)
+		end)
 		-- ONE EXPRESSION, resolved once (2026-08-28; see `EDIT_FOOTPRINT` above).
 		-- This used to be `editAffordancePx + rowGutterPx` through two memos of its
 		-- own; it is the same two metrics and the same sum, said in the form the
 		-- disc's `footprint` hint also takes, so the reservation and the ceiling
 		-- cannot be edited apart.
-		editGutterPx = scope:own(core:memo(function(use)
-			if use(editAffordanceShown) then
-				return themeSnapshot.resolveTotal(use(metricsSig), EDIT_FOOTPRINT) or 0
-			end
-			return 0
-		end))
+		editGutterPx = Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				if use(editAffordanceShown) then
+					return themeSnapshot.resolveTotal(use(metricsSig), EDIT_FOOTPRINT) or 0
+				end
+				return 0
+			end)
+		end)
 	end
 
 	return {

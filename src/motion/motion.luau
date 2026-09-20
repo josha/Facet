@@ -2,7 +2,7 @@
 -- MotionValue — the public value API of the motion authority.
 -- `clock:spring(0, "object")` hands back a value that IS a
 -- `Readable<number>`: the returned table is the backing core signal itself,
--- augmented with the motion verbs. So `core:observe(value, …)`, `use(value)`
+-- augmented with the motion verbs. So `observeChange(value, …)`, `use(value)`
 -- inside a memo, and a bound blueprint prop all work on it unchanged — motion
 -- needs no second binding concept, and a screen cannot tell an animated number
 -- from any other reactive number.
@@ -53,6 +53,7 @@ local classes = require("./classes")
 local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
 local num = require("../num")
+local Compose = require("../vendor/compose/core")
 
 local motion = {}
 
@@ -194,8 +195,7 @@ local function newValue(
 
 	local core = internals.core
 	-- the value IS the signal: augmented, not wrapped (see the header)
-	local value = core:signal(initial)
-	local signalDispose = value.dispose
+	local value = Compose.cell(initial)
 	-- registered with the clock before the verbs are attached, so `release` is a
 	-- real upvalue for dispose() below
 	local release = internals.own(value)
@@ -217,7 +217,7 @@ local function newValue(
 	-- one, not to police writes while asleep).
 	local function write()
 		local v = driver.value()
-		if v ~= value:get() then
+		if v ~= value:peek() then
 			value:set(v)
 			internals.countWrite()
 		end
@@ -428,7 +428,6 @@ local function newValue(
 		leave()
 		table.clear(subs)
 		release()
-		signalDispose(value)
 	end
 
 	if autoStart then
@@ -475,7 +474,7 @@ function motion.newSpring(internals: Internals, initial: number, class: any, opt
 			sp:snap(v)
 		end,
 		value = function(): number
-			return sp:get()
+			return sp:peek()
 		end,
 		terminus = function(): number
 			return sp:getTarget()
@@ -540,7 +539,7 @@ function motion.newCounter(internals: Internals, initial: number, class: any, op
 			dir = 0
 		end,
 		value = function(): number
-			local v = whole(sp:get())
+			local v = whole(sp:peek())
 			local t = whole(sp:getTarget())
 			if dir > 0 then
 				return math.min(v, t)
@@ -559,7 +558,7 @@ function motion.newCounter(internals: Internals, initial: number, class: any, op
 			-- the target is a numeral too, so the settling frame lands ON the number
 			-- the counter shows rather than 0.4 away from it
 			local target = whole(v)
-			dir = if target > sp:get() then 1 elseif target < sp:get() then -1 else 0
+			dir = if target > sp:peek() then 1 elseif target < sp:peek() then -1 else 0
 			sp:setTarget(target)
 		end,
 		seed = function(v: number)

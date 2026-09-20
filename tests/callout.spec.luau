@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ D3b — `Callout`: THE APP-PUSHED COACH MARK (navigation-and-menus brief §2 D3,
 	director ruling 2026-08-16 §6.2).
 
@@ -36,8 +37,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local calloutLib = require("../src/controls/callout")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local TIP = "Post Avatars to Marketplace"
 local SURFACE = "/Callout/Layer/Surface"
@@ -64,7 +67,7 @@ end
 	(adapter.tap, system.deviceKey), never by calling a callback directly. ]]
 local function world(opts: any?)
 	local options: any = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.w or 390, h = options.h or 844 })
 	if options.capabilities ~= nil then
@@ -73,7 +76,7 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
 end
 
@@ -143,17 +146,18 @@ describe("D3b Callout: eligibility is the app's rule, and the caller's state", f
 		local control = build(w, { id = "Callout" })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		expect(control.api.eligible()).toBe(true)
-		expect(control.api.present()).toBe(true)
+		-- mounted and eligible, it has asked for the screen itself; asking twice is refused
+		expect(control.api.present()).toBe(false)
 		w.pres.refresh()
 		expect(control.api.state()).toBe("showing")
-		expect(control.api.isShowing:get()).toBe(true)
+		expect(control.api.isShowing:peek()).toBe(true)
 		expect(w.adapter.node(BODY).props.text).toBe(TIP)
 		expect(w.pres.callouts().showing).toBe("Callout")
 	end)
 
 	it("`seen` is the caller's record, and a seen callout is never eligible", function()
 		local w = world()
-		local seen = w.core:signal(true)
+		local seen = Compose.cell(true)
 		local control = build(w, { id = "Callout", seen = seen })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		expect(control.api.eligible()).toBe(false)
@@ -165,7 +169,7 @@ describe("D3b Callout: eligibility is the app's rule, and the caller's state", f
 
 	it("`afterSessions` holds it back until the session count reaches it", function()
 		local w = world()
-		local sessions = w.core:signal(1)
+		local sessions = Compose.cell(1)
 		local control = build(w, { id = "Callout", sessions = sessions, afterSessions = 3 })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		expect(control.api.eligible()).toBe(false)
@@ -177,7 +181,7 @@ describe("D3b Callout: eligibility is the app's rule, and the caller's state", f
 
 	it("a feature already used is never coached about", function()
 		local w = world()
-		local used = w.core:signal(true)
+		local used = Compose.cell(true)
 		local control = build(w, { id = "Callout", featureUsed = used })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		expect(control.api.eligible()).toBe(false)
@@ -188,7 +192,7 @@ end)
 describe("D3b Callout: invalidation, and the persistence boundary", function()
 	it("using the feature while it is showing takes it down and retires it FOREVER", function()
 		local w = world()
-		local used = w.core:signal(false)
+		local used = Compose.cell(false)
 		local reasons: { string } = {}
 		local control = build(w, {
 			id = "Callout",
@@ -245,9 +249,9 @@ describe("D3b Callout: invalidation, and the persistence boundary", function()
 			signal it read is exactly as the caller left it, and whether anything is
 			written is a decision that happens outside this file. ]]
 		local w = world()
-		local seen = w.core:signal(false)
+		local seen = Compose.cell(false)
 		local writes = 0
-		w.core:observe(seen, function()
+		observeChange(w.core.owner, seen, function()
 			writes += 1
 		end)
 		local reported: string? = nil
@@ -262,7 +266,7 @@ describe("D3b Callout: invalidation, and the persistence boundary", function()
 		control.api.present()
 		w.pres.refresh()
 		control.api.dismiss()
-		expect(seen:get()).toBe(false) -- NOT written
+		expect(seen:peek()).toBe(false) -- NOT written
 		expect(writes).toBe(0)
 		expect(reported).toBe("dismissed")
 		-- and the caller doing what the report asks retires it for the next session
@@ -334,8 +338,7 @@ describe("D3b Callout: at most one on screen — a queue, not a pile", function(
 			}),
 			{ initialFocus = "none" }
 		)
-		expect(first.api.present()).toBe(true)
-		expect(second.api.present()).toBe(true)
+		-- both asked for the screen as they mounted
 		w.pres.refresh()
 		local q = w.pres.callouts()
 		expect(q.showing).toBe("Callout")
@@ -437,11 +440,11 @@ describe("D3b Callout: it never blocks", function()
 		local w = world()
 		local control = build(w, { id = "Callout" })
 		w.pres.present(screenWith(control))
-		local before = w.pres.focus.focused:get()
+		local before = w.pres.focus.focused:peek()
 		expect(before).toBe("/Editor/Bar/Plus")
 		control.api.present()
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe(before)
+		expect(w.pres.focus.focused:peek()).toBe(before)
 	end)
 
 	it("THE CONTROL IT POINTS AT STAYS OPERABLE: a tap on it still activates it", function()
@@ -538,7 +541,7 @@ describe("D3b Callout: it never blocks", function()
 		control.api.present()
 		w.pres.refresh()
 		-- the base screen's ring is where it was, and its own order is intact
-		expect(w.pres.focus.focused:get()).toBe("/Editor/Bar/Plus")
+		expect(w.pres.focus.focused:peek()).toBe("/Editor/Bar/Plus")
 		local order = handle.focusOrder().traversal
 		expect(#order > 0).toBe(true)
 		for _, entry in order do
@@ -612,10 +615,10 @@ describe("D3b Callout: every input class can retire it", function()
 		local control = build(w, { id = "Callout" })
 		w.pres.present(screenWith(control))
 		showing(w, control)
-		expect(w.pres.focus.focused:get()).toBe("/Editor/Bar/Plus")
+		expect(w.pres.focus.focused:peek()).toBe("/Editor/Bar/Plus")
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(DISMISS)
+		expect(w.pres.focus.focused:peek()).toBe(DISMISS)
 	end)
 end)
 
@@ -670,8 +673,15 @@ end)
 describe("D3b Callout: the dump, and the teardown", function()
 	it("the dump carries the schema, the state and the eligibility it resolved", function()
 		local w = world()
-		local sessions = w.core:signal(4)
-		local control = build(w, { id = "Callout", sessions = sessions, afterSessions = 2, priority = 3 })
+		local sessions = Compose.cell(4)
+		local presented = Compose.cell(false)
+		local control = build(w, {
+			id = "Callout",
+			sessions = sessions,
+			afterSessions = 2,
+			priority = 3,
+			isPresented = presented,
+		})
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		local closed = control.dump()
 		expect(closed.schema).toBe("facet-callout-dump/1")
@@ -680,18 +690,19 @@ describe("D3b Callout: the dump, and the teardown", function()
 		expect(closed.eligible).toBe(true)
 		expect(closed.priority).toBe(3)
 		expect(string.find(closed.text, "waiting", 1, true) ~= nil).toBe(true)
-		control.api.present()
+		presented:set(true)
 		w.pres.refresh()
 		expect(control.dump().state).toBe("showing")
 	end)
 
 	it("the queue's own dump names what is on screen and what is waiting", function()
 		local w = world()
-		local control = build(w, { id = "Callout" })
+		local presented = Compose.cell(false)
+		local control = build(w, { id = "Callout", isPresented = presented })
 		w.pres.present(screenWith(control), { initialFocus = "none" })
 		expect(w.pres.callouts().schema).toBe("facet-callout-queue-dump/1")
 		expect(w.pres.callouts().showing).toBeNil()
-		control.api.present()
+		presented:set(true)
 		w.pres.refresh()
 		expect(w.pres.callouts().showing).toBe("Callout")
 		expect(string.find(w.pres.callouts().text, "on screen", 1, true) ~= nil).toBe(true)

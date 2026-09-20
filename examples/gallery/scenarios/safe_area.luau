@@ -17,21 +17,21 @@ return {
 	title = "Safe-area authority (NS-A1)",
 	ledgerRows = { "NS-A1" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.View
+		local UI = ctx.UI
 
-		local screen = UI.Screen({
-			id = "SafeAreaScreen",
-			padding = 0,
-			gap = "xs",
+		local function screen()
+			return UI.Screen("SafeAreaScreen")({
+				padding = 0,
+				gap = "xs",
 
-			UI.Text({ id = "TopEdge", text = "TOP-EDGE MARKER", textSize = "control" }),
-			UI.Box({
-				id = "Content",
-				surface = "raised",
-				height = UI.fill(),
-			}),
-			UI.Text({ id = "BottomEdge", text = "BOTTOM-EDGE MARKER", textSize = "control" }),
-		})
+				UI.Text("TopEdge")({ text = "TOP-EDGE MARKER", textSize = "control" }),
+				UI.Box("Content")({
+					surface = "raised",
+					height = UI.fill(),
+				}),
+				UI.Text("BottomEdge")({ text = "BOTTOM-EDGE MARKER", textSize = "control" }),
+			})
+		end
 
 		return {
 			screen = screen,
@@ -40,17 +40,17 @@ return {
 				-- env-fact drivers (labeled: state seams, not hardware evidence)
 				injectNotch = function()
 					ctx.env:set("deviceSafeInsets", { top = 0, bottom = 21, left = 47, right = 47 })
-					return ctx.env:get("deviceSafeInsets"):get()
+					return ctx.env:get("deviceSafeInsets"):peek()
 				end,
 				clearNotch = function()
 					ctx.env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-					return ctx.env:get("deviceSafeInsets"):get()
+					return ctx.env:get("deviceSafeInsets"):peek()
 				end,
 			},
 			report = function()
 				return {
-					deviceSafeInsets = ctx.env:get("deviceSafeInsets"):get(),
-					coreSafeInsets = ctx.env:get("coreSafeInsets"):get(),
+					deviceSafeInsets = ctx.env:get("deviceSafeInsets"):peek(),
+					coreSafeInsets = ctx.env:get("coreSafeInsets"):peek(),
 				}
 			end,
 		}

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- RowActions Task 5: the mouse gesture (axis lock, live drag, flick velocity,
 -- full-swipe commit). Drives pointers headlessly through the REAL adapter
 -- capture — `adapter.pointerDown/pointerMove/pointerUp` against the
@@ -37,7 +38,7 @@ local FRAME = 1 / 60
 -- open-at-half-tray and commit-at-60%-of-row thresholds land far apart
 -- rather than crowding each other at the row's bare text-hug width.
 local function content(id: string?)
-	return Facet.UI.Text({
+	return harness.UI.Text({
 		id = id or "Body",
 		text = "Row content",
 		width = { type = "fixed", px = 400 },
@@ -52,19 +53,19 @@ end
 -- composite's own `drag_velocity` tracker (src/controls/row_actions.luau
 -- `currentNow`).
 local function pointerWorld(build: (core: any) -> any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ra = build(core)
-	local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local w: any = { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
@@ -606,7 +607,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 
 	--[[ THE REUSED SPRING (found by the hosted row-actions parity sweep, Facet
 		row-actions perf mission Task 5; fixed in `onPointerUp`/`onPointerCancel`
-		with `spring:snap(offset:get())`).
+		with `spring:snap(offset:peek())`).
 
 		A live drag stops the persistent reveal spring and drives `offset` DIRECTLY,
 		and `ensureSpring` seeds a spring only when it CREATES one — so from the
@@ -733,7 +734,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		-- the tray (fullSwipe's clampDrag never clamps against the tray at
 		-- all, only the release VERDICT is bounded by rowWidth) to exactly
 		-- -100, so this flight is built and seeded from THAT live value
-		-- (`ensureSpring`'s first-ever build reads `offset:get()`) and
+		-- (`ensureSpring`'s first-ever build reads `offset:peek()`) and
 		-- animates UP toward `-trayWidth` (-83-ish) — i.e. `midFlight` sits
 		-- BETWEEN -100 and -trayWidth here, not beyond it either way.
 		expect(midFlight < 0).toBe(true)
@@ -1087,7 +1088,7 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 	-- other describe blocks' bare Text) so "does the tap land on this row's
 	-- OWN control" is provable, not just "did offset move".
 	local function rowButtonContent(id: string, fired: { string })
-		return Facet.UI.Button({
+		return harness.UI.Button({
 			id = id,
 			label = "Row " .. id,
 			width = { type = "fixed", px = 400 },
@@ -1099,13 +1100,13 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 	end
 
 	local function twoRowWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local coordinator = row_actions.newCoordinator(core)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local coordinator = row_actions.newCoordinator()
 		local firedA: { string } = {}
 		local firedB: { string } = {}
 		local function trailingRow(rowId: string, fired: { string })
@@ -1126,7 +1127,7 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 		end
 		local rowA = trailingRow("RowA", firedA)
 		local rowB = trailingRow("RowB", firedB)
-		local screen = Facet.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
 		-- sinkNavigation: the same opt-in tests/paradigm_popup.spec.luau's own
 		-- gamepad-Cancel world uses, so ButtonB reaches this screen's own
 		-- contributions rather than leaking through as ordinary gameplay input.
@@ -1304,13 +1305,13 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 	it(
 		"a VStack of wrapped rows sharing newRowActionsCoordinator gets one-open + scroll-close + no-swallow behavior",
 		function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local coordinator = row_actions.newCoordinator(core)
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local coordinator = row_actions.newCoordinator()
 			local fired: { [string]: { string } } = { RowA = {}, RowB = {}, RowC = {} }
 			local function trailingRow(rowId: string)
 				return row_actions.build(Facet, core, {
@@ -1329,14 +1330,14 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 				})
 			end
 			local rowA, rowB, rowC = trailingRow("RowA"), trailingRow("RowB"), trailingRow("RowC")
-			local screen = Facet.UI.Screen({
+			local screen = harness.UI.Screen({
 				id = "S",
 				children = {
-					Facet.UI.ScrollView({
+					harness.UI.ScrollView({
 						id = "List",
 						height = { type = "fixed", px = 100 }, -- < 3 * 48px rows: genuinely overflows
 						children = {
-							Facet.UI.VStack({
+							harness.UI.VStack({
 								id = "Rows",
 								children = { rowA.blueprint, rowB.blueprint, rowC.blueprint },
 							}),
@@ -1408,7 +1409,7 @@ local ROW_ACTIONS_KEY_FRAME = 1 / 60
 -- can. Carries its OWN `onActivate` on request, so a scoped binding that DID
 -- collide with Activate would show up in a test using it.
 local function focusableBody(id: string, fired: { string }?): any
-	return Facet.UI.Button({
+	return harness.UI.Button({
 		id = id,
 		label = "Row",
 		width = { type = "fixed", px = 400 },
@@ -1426,19 +1427,19 @@ end
 -- keyboard focus/press helpers Task 8's tests need that the pointer/touch
 -- describe blocks above did not.
 local function keyboardWorld(build: (core: any) -> any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ra = build(core)
-	local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 	local handle = pres.present(screen, { sinkNavigation = true })
 	pres.refresh()
 	local w: any = { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
@@ -1585,12 +1586,12 @@ describe("RowActions Task 8: keyboard Delete", function()
 	it(
 		"Delete does nothing when no destructive action exists anywhere — and never registers a binding (the key reaches a sibling consumer untouched)",
 		function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
+			local pres = harness.newPresenter(core, env, adapter, system)
 			local fired: { string } = {}
 			local ra = row_actions.build(Facet, core, {
 				id = "Row",
@@ -1606,7 +1607,7 @@ describe("RowActions Task 8: keyboard Delete", function()
 					},
 				},
 			})
-			local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+			local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 			pres.present(screen, { sinkNavigation = true })
 			pres.refresh()
 			-- a SIBLING consumer bound directly, bypassing row_actions entirely:
@@ -1638,13 +1639,13 @@ describe("RowActions Task 8: keyboard Delete", function()
 
 	it("Delete does nothing while focus is outside this row (scoped to the content subtree)", function()
 		local fired: { string } = {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clockTime = 0
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clockTime
 			end,
@@ -1663,13 +1664,13 @@ describe("RowActions Task 8: keyboard Delete", function()
 				},
 			},
 		})
-		local other = Facet.UI.Button({
+		local other = harness.UI.Button({
 			id = "Other",
 			label = "Other",
 			width = { type = "fixed", px = 200 },
 			height = { type = "fixed", px = 48 },
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint, other } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint, other } })
 		pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		pres.focus.focusOn("/S/Other")
@@ -1700,12 +1701,12 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		same number. This world deliberately pushes the row away from the origin on
 		BOTH axes, which is the whole instrument. ]]
 	local function offsetMenuWorld(): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
@@ -1716,16 +1717,16 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		})
 		-- padding on the screen and a tall spacer above the row: the trigger's own
 		-- screen coordinates are now (20, 148), which no origin can be mistaken for
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			padding = 20,
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "Cage",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
 					children = {
-						Facet.UI.Box({ id = "Spacer", height = { type = "fixed", px = 120 }, surface = "base" }),
+						harness.UI.Box({ id = "Spacer", height = { type = "fixed", px = 120 }, surface = "base" }),
 						ra.blueprint,
 					},
 				}),
@@ -1749,12 +1750,12 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		needs the viewport height, and both shipped hosts pass one). 20 padding + 480
 		spacer + 8 gap = a trigger at exactly y=508, which is the reported case. ]]
 	local function bottomMenuWorld(spacerPx: number, withEnv: boolean?, viewportH: number?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = viewportH or 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = focusableBody("Body"),
@@ -1764,16 +1765,16 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
 			},
 		})
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			padding = 20,
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "Cage",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
 					children = {
-						Facet.UI.Box({
+						harness.UI.Box({
 							id = "Spacer",
 							height = { type = "fixed", px = spacerPx },
 							surface = "base",
@@ -1862,7 +1863,7 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		-- flipped on a different, wrong height.
 		expect(w.ra.dump().menuHeightPx).toBe(w.menuRect().h)
 		-- ...and it is the shape it claims to be, so the pin above is not circular
-		local raw = w.env:get("themeMetrics"):get()
+		local raw = w.env:get("themeMetrics"):peek()
 		local metrics = if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 		local rowH = themeSnapshot.resolveNumber(metrics, "controlSizes.compact.height") or 0
 		local gap = themeSnapshot.resolveNumber(metrics, "strokes.hairline") or 0
@@ -1964,13 +1965,13 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			w.press("ButtonX")
 			w.pres.refresh()
 			expect(w.ra.dump().menuOpen).toBe(true)
-			expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
+			expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 			w.press("Return") -- Activate the focused (only) menu row
 			w.pres.refresh()
 			expect(fired).toEqual({ "flag" })
 			expect(w.ra.dump().menuOpen).toBe(false)
 			expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")).toBe(nil) -- rows really unmounted
-			expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored
+			expect(w.pres.focus.focused:peek()).toBe("/S/Row/Content/Body") -- restored
 		end
 	)
 
@@ -1995,11 +1996,11 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		-- order — proven by walking Navigate one step at a time rather than
 		-- reading internal state, so this is the same order a keyboard/
 		-- gamepad player actually experiences.
-		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:archive")
+		expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:archive")
 		w.press("Down")
-		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 		w.press("Down")
-		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
+		expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
 	end)
 
 	it(
@@ -2066,7 +2067,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.pres.refresh()
 		expect(#fired).toBe(0)
 		expect(w.ra.dump().menuOpen).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored to the pre-open focus
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/Content/Body") -- restored to the pre-open focus
 	end)
 
 	it("menu traps focus while open (transientScope): Navigate cannot escape into content or a sibling", function()
@@ -2086,24 +2087,24 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.press("ButtonX")
 		w.pres.refresh()
 		local menuRoot = "/RowActionsMenu-Row/Menu/MenuRows"
-		local landed = w.pres.focus.focused:get() :: string
+		local landed = w.pres.focus.focused:peek() :: string
 		expect(string.sub(landed, 1, #menuRoot)).toBe(menuRoot)
 		for _ = 1, 6 do
 			w.press("Down")
 		end
-		local afterNav = w.pres.focus.focused:get() :: string
+		local afterNav = w.pres.focus.focused:peek() :: string
 		expect(string.sub(afterNav, 1, #menuRoot)).toBe(menuRoot) -- never escaped
 		expect(afterNav).never().toBe("/S/Row/Content/Body")
 	end)
 
 	it("toggling the menu 10 times leaks nothing", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
@@ -2113,7 +2114,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
 			},
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		pres.focus.focusOn("/S/Row/Content/Body")
@@ -2131,10 +2132,8 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		pres.dismiss(handle)
 		ra.dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	-- REVIEW ROUND 1, MAJOR (reproduced deterministically): Delete used to
@@ -2177,7 +2176,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.press("ButtonX") -- open the menu; focus enters on its first (non-destructive) row
 		w.pres.refresh()
 		expect(w.ra.dump().menuOpen).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 
 		w.press("Delete") -- must be INERT: the menu owns input, not this key
 		w.settle(60)
@@ -2187,14 +2186,14 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		-- FUNCTIONAL, not just un-fired: focus is still exactly where it was
 		-- (Delete did not disturb the menu's own mount/focus state), and the
 		-- menu's own Activate still works normally.
-		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")).never().toBe(nil)
 
 		w.press("ButtonB") -- Cancel closes without firing
 		w.pres.refresh()
 		expect(w.ra.dump().menuOpen).toBe(false)
 		expect(#fired).toBe(0)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/Content/Body") -- restored
 
 		-- THEN: Delete on the focused row content commits normally (the
 		-- guard only blocks Delete while the menu is actually open).
@@ -2258,13 +2257,13 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		function()
 			local firedA: { string } = {}
 			local firedB: { string } = {}
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
 			local clockTime = 0
-			local pres = Facet.newPresenter(core, env, adapter, system, {
+			local pres = harness.newPresenter(core, env, adapter, system, {
 				now = function()
 					return clockTime
 				end,
@@ -2287,7 +2286,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			end
 			local rowA = trailingRow("RowA", firedA)
 			local rowB = trailingRow("RowB", firedB)
-			local screen = Facet.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+			local screen = harness.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
 			pres.present(screen, { sinkNavigation = true })
 			pres.refresh()
 			pres.focus.focusOn("/S/RowA/Content/Body")
@@ -2309,12 +2308,12 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		function()
 			local menuFired: { string } = {}
 			local siblingFired: { string } = {}
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
+			local pres = harness.newPresenter(core, env, adapter, system)
 			local ra = row_actions.build(Facet, core, {
 				id = "Row",
 				content = focusableBody("Body"),
@@ -2329,7 +2328,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 					},
 				},
 			})
-			local sibling = Facet.UI.Button({
+			local sibling = harness.UI.Button({
 				id = "Sibling",
 				label = "Sibling",
 				width = { type = "fixed", px = 200 },
@@ -2338,7 +2337,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 					table.insert(siblingFired, "tap")
 				end,
 			})
-			local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint, sibling } })
+			local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint, sibling } })
 			pres.present(screen, { sinkNavigation = true })
 			pres.refresh()
 			pres.focus.focusOn("/S/Row/Content/Body")
@@ -2474,7 +2473,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		w.pressShiftReturn()
 		w.pres.refresh()
 		expect(w.ra.dump().menuOpen).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:peek()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 		-- plain Return now activates the focused MENU row (the menu's own
 		-- contribution, not the Shift-gated binding) — same as the ButtonX
 		-- describe block above proves; re-asserted here to confirm the
@@ -2502,7 +2501,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		w.pressShiftReturn()
 		w.pres.refresh()
 		expect(w.ra.dump().menuOpen).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored, same as ButtonX/Cancel
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/Content/Body") -- restored, same as ButtonX/Cancel
 	end)
 
 	-- THE REGRESSION TEST THIS TASK EXISTS FOR (design constraint: "while
@@ -2668,12 +2667,12 @@ end)
 -- comment above `local function openMenu` (row_actions.luau) for the design.
 describe("RowActions redteam item 2: the menu contributes zero to row/list measure", function()
 	it("opening row A's menu leaves row B's solved rect (y, x, height) byte-identical — VStack list", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 
 		-- THREE actions (leading + two trailing), not one (re-review finding,
 		-- MAJOR): a single-action menu is ONE row at the theme's compact
@@ -2702,14 +2701,14 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 		-- a plain sibling leaf (not itself wrapped in row_actions — the
 		-- point is only to observe whether ANYTHING moves under row A, not
 		-- to exercise a second row's own actions).
-		local rowB = Facet.UI.Text({
+		local rowB = harness.UI.Text({
 			id = "RowB",
 			text = "Row B",
 			width = { type = "fixed", px = 400 },
 			height = { type = "fixed", px = 48 },
 		})
-		local list = Facet.UI.VStack({ id = "List", children = { rowA.blueprint, rowB } })
-		local screen = Facet.UI.Screen({ id = "S", children = { list } })
+		local list = harness.UI.VStack({ id = "List", children = { rowA.blueprint, rowB } })
+		local screen = harness.UI.Screen({ id = "S", children = { list } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 
@@ -2732,13 +2731,13 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 	end)
 
 	it("wrapper dispose while its menu is open dismisses the menu's own surface too — no leak", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
@@ -2747,7 +2746,7 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
 			},
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		pres.focus.focusOn("/S/Row/Content/Body")
@@ -2765,10 +2764,8 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 
 		pres.dismiss(handle)
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -3079,19 +3076,19 @@ describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commi
 	-- a normal-role "delete" — irrelevant for probing an in-flight
 	-- irrevocable COMMIT, which only a destructive full swipe ever starts).
 	local function twoDestructiveRowWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local coordinator = row_actions.newCoordinator(core)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local coordinator = row_actions.newCoordinator()
 		local firedA: { string } = {}
 		local firedB: { string } = {}
 		local function trailingRow(rowId: string, fired: { string })
 			return row_actions.build(Facet, core, {
 				id = rowId,
-				content = Facet.UI.Button({
+				content = harness.UI.Button({
 					id = "Body",
 					label = "Row " .. rowId,
 					width = { type = "fixed", px = 400 },
@@ -3115,7 +3112,7 @@ describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commi
 		end
 		local rowA = trailingRow("RowA", firedA)
 		local rowB = trailingRow("RowB", firedB)
-		local screen = Facet.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		local w: any = {
@@ -3232,12 +3229,12 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 	it(
 		"outside tap on the catcher over a passive HUD: tray closes, HUD is NOT engaged, gameplay input is still delivered",
 		function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
+			local pres = harness.newPresenter(core, env, adapter, system)
 
 			-- a fake gameplay stack UNDERNEATH the HUD (mirrors tests/responder.spec.luau's
 			-- own `gameplay` harness): a non-sinking CharacterContext with Jump<-Space.
@@ -3264,10 +3261,10 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 					},
 				},
 			})
-			local screen = Facet.UI.Screen({ id = "HUD", children = { ra.blueprint } })
+			local screen = harness.UI.Screen({ id = "HUD", children = { ra.blueprint } })
 			local handle = pres.present(screen, { responder = "passive" })
 			pres.refresh()
-			expect(handle.responder:get()).toBe("passive")
+			expect(handle.responder:peek()).toBe("passive")
 
 			-- reveal the tray (programmatic, not a gesture — the catcher's own
 			-- outsideDismiss.active reacts to this the identical way a real swipe
@@ -3293,8 +3290,8 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 			expect(#fired).toBe(0) -- a dismiss, never a commit
 			-- THE FIX: the HUD must NOT have been engaged as a side effect of a
 			-- dismiss that pressed nothing at all
-			expect(handle.responder:get()).toBe("passive")
-			expect(pres.exclusiveSurfaceActive:get()).toBe(false)
+			expect(handle.responder:peek()).toBe("passive")
+			expect(pres.exclusiveSurfaceActive:peek()).toBe(false)
 			-- ...and gameplay input is still delivered afterward (nothing sank it)
 			system.deviceKey("Space", true)
 			system.deviceKey("Space", false)
@@ -3345,12 +3342,12 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 					the single-button version). `Under` and `MarkRead` fill the same
 					rect; `MarkRead` is declared last, so it is the one painted on top
 					and the only one a press may ever reach. ]]
-				content = Facet.UI.ZStack({
+				content = harness.UI.ZStack({
 					id = "Body",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 48 },
 					children = {
-						Facet.UI.Button({
+						harness.UI.Button({
 							id = "Under",
 							label = "Under",
 							width = { type = "fill", weight = 1 },
@@ -3359,7 +3356,7 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 								table.insert(taps, "Under")
 							end,
 						}),
-						Facet.UI.Button({
+						harness.UI.Button({
 							id = "MarkRead",
 							label = "Mark read",
 							width = { type = "fill", weight = 1 },
@@ -3447,7 +3444,7 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 		w.adapter.pointerUp(rect.x + 4, rect.y - 500)
 		w.settle(30)
 		expect(w.taps).toEqual({})
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("a VERTICAL drag is declined, and a declined scroll activates nothing", function()
@@ -3516,12 +3513,12 @@ describe("RowActions ruling 6: the Grip is on top, and forwards what it does not
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				width = { type = "fill", weight = 1 },
-				content = Facet.UI.HStack({
+				content = harness.UI.HStack({
 					id = "Body",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 48 },
 					children = {
-						Facet.UI.Grip({
+						harness.UI.Grip({
 							id = "Stars",
 							width = { type = "fill", weight = 1 },
 							height = { type = "fill", weight = 1 },

@@ -1,13 +1,15 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 t.describe("Text presentations", function()
 	for _, callback in { "parse", "format", "validate" } do
 		for _, action in { "disable", "dispose" } do
 			t.it(`numeric {callback} cannot commit after it {action}s the control`, function()
 				local w = world.new()
-				local value, number, enabled = w.core:signal("1"), w.core:signal(1), w.core:signal(true)
+				local value, number, enabled = Compose.cell("1"), Compose.cell(1), Compose.cell(true)
 				local commits, callbacks = 0, 0
 				local control
 				local spec = {
@@ -29,16 +31,16 @@ t.describe("Text presentations", function()
 					end
 					return if callback == "parse" then tonumber(input) else tostring(input)
 				end
-				control = Facet.Controls.TextInput(w.core, spec)
-				w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+				control = harness.Controls.TextInput(w.core, spec)
+				w.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 				w.adapter.tap("/S/N/Input/Field")
 				w.adapter.focusText("/S/N/Input/Field")
 				-- An owner-supplied draft isolates commit validation from live edit validation.
 				value:set("2.00")
 				w.adapter.commitText("/S/N/Input/Field")
 				t.expect(callbacks).toBe(1)
-				t.expect(number:get()).toBe(1)
-				t.expect(value:get()).toBe("2.00")
+				t.expect(number:peek()).toBe(1)
+				t.expect(value:peek()).toBe("2.00")
 				t.expect(commits).toBe(0)
 				w.pres.dismiss(w.handle)
 				if action ~= "dispose" then
@@ -48,7 +50,7 @@ t.describe("Text presentations", function()
 		end
 	end
 	t.it("numeric specs refuse nonfinite bounds and invalid parser or formatter callbacks", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		Facet.newEnvironment(core)
 		for _, invalid in
 			{
@@ -59,24 +61,24 @@ t.describe("Text presentations", function()
 				{ enabled = "no" },
 				{ disabled = "no" },
 				{ clearButton = "yes" },
-				{ numericValue = core:signal(math.huge) },
+				{ numericValue = Compose.cell(math.huge) },
 			}
 		do
-			local spec = { value = core:signal("1"), numericValue = core:signal(1), presentation = "number" }
+			local spec = { value = Compose.cell("1"), numericValue = Compose.cell(1), presentation = "number" }
 			for key, value in invalid do
 				spec[key] = value
 			end
-			local ok = pcall(Facet.Controls.TextInput, core, spec)
+			local ok = pcall(harness.Controls.TextInput, core, spec)
 			t.expect(ok).toBe(false)
 		end
 	end)
 	t.it("numeric drafts accept intermediate strings and validate and format only on commit", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
 		local core, env = w.core, w.env
-		local value = core:signal("")
-		local number = core:signal(2)
+		local value = Compose.cell("")
+		local number = Compose.cell(2)
 		local commits = 0
-		local control = Facet.Controls.TextInput(core, {
+		local control = harness.Controls.TextInput(core, {
 			id = "N",
 			value = value,
 			presentation = "number",
@@ -89,27 +91,27 @@ t.describe("Text presentations", function()
 		})
 		local adapter = w.adapter
 		local pres = w.pres
-		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		adapter.tap("/S/N/Input/Field")
 		adapter.pasteText("/S/N/Input/Field", "-")
-		t.expect(value:get()).toBe("-")
+		t.expect(value:peek()).toBe("-")
 		adapter.commitText("/S/N/Input/Field")
-		t.expect(number:get()).toBe(2)
+		t.expect(number:peek()).toBe(2)
 		t.expect(commits).toBe(0)
 		t.expect(control.dump().validationError ~= "").toBe(true)
 		value:set("3.50")
 		pres.refresh()
 		adapter.tap("/S/N/Input/Field")
 		adapter.commitText("/S/N/Input/Field")
-		t.expect(number:get()).toBe(3.5)
-		t.expect(value:get()).toBe("3.5")
+		t.expect(number:peek()).toBe(3.5)
+		t.expect(value:peek()).toBe("3.5")
 		t.expect(commits).toBe(1)
 	end)
 	t.it("search presentation supplies an ordinary clearable native text field", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		Facet.newEnvironment(core)
-		local control = Facet.Controls.TextInput(core, { value = core:signal("find"), presentation = "search" })
+		local control = harness.Controls.TextInput(core, { value = Compose.cell("find"), presentation = "search" })
 		t.expect(control.dump().clearVisible).toBe(true)
 	end)
 end)

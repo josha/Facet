@@ -13,6 +13,7 @@
 --   * local pending state NEVER implies server success.
 
 local contract = require("../core/contract")
+local Compose = require("../vendor/compose/core")
 
 local adapters = {}
 
@@ -22,14 +23,14 @@ local adapters = {}
 -- really are `any` today, and the published Readables really are core Signals.
 
 export type Snapshot<T> = {
-	binding: contract.Signal<T>,
+	binding: contract.Cell<T>,
 	-- "applied" | "stale" | "duplicate"
 	ingest: (newRevision: number, data: T) -> string,
 	revision: () -> number,
 }
 
 export type Collection<K, V> = {
-	binding: contract.Signal<{ [K]: V }>,
+	binding: contract.Cell<{ [K]: V }>,
 	-- "applied" | "stale" | "duplicate" | "gap"
 	ingestPatch: (newRevision: number, patch: any) -> string,
 	-- "applied" | "stale"
@@ -53,8 +54,8 @@ export type MutationOpts = {
 
 export type Mutation = {
 	-- "idle" | "pending" | "confirmed" | "rejected"
-	status: contract.Signal<string>,
-	lastResult: contract.Signal<any>,
+	status: contract.Cell<string>,
+	lastResult: contract.Cell<any>,
 	send: (payload: any, expectedRevision: number?) -> Envelope,
 	confirm: (requestId: number, result: any) -> (),
 	reject: (requestId: number, reason: any) -> (),
@@ -64,7 +65,7 @@ export type Mutation = {
 -- ReplicatedSnapshot<T>: full-state semantic snapshots.
 function adapters.snapshot(core: any, initialRevision: number, initialData: any)
 	local revision = initialRevision
-	local signal = core:signal(initialData)
+	local signal = Compose.cell(initialData)
 	local self = {}
 	self.binding = signal
 
@@ -99,7 +100,7 @@ function adapters.collection(
 )
 	local revision = initialRevision
 	local awaitingResnapshot = false
-	local signal = core:signal(initialItems)
+	local signal = Compose.cell(initialItems)
 	local self = {}
 	self.binding = signal
 
@@ -184,7 +185,7 @@ function adapters.collection(
 			end
 			return "gap"
 		end
-		local items = table.clone(signal:get())
+		local items = table.clone(signal:peek())
 		for k, v in (patch.set or {}) :: { [any]: any } do
 			items[k] = v
 		end
@@ -254,8 +255,8 @@ end
 -- opts.optimistic (optional): { apply: (Request) -> (), restore: () -> () }.
 local nextRequestId = 0
 function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), restore: () -> () }? }?)
-	local status = core:signal("idle")
-	local lastResult = core:signal(nil)
+	local status = Compose.cell("idle")
+	local lastResult = Compose.cell(nil)
 	local activeRequestId: number? = nil
 	local self = {}
 	self.status = status
@@ -265,7 +266,7 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 	-- expectedRevision rides the envelope for SERVER-side ordering validation
 	-- (design §4.2); the client adapter does not interpret it.
 	function self.send(payload: any, expectedRevision: number?)
-		if status:get() == "pending" then
+		if status:peek() == "pending" then
 			error(
 				"Facet mutation: send() while a request is pending (one in flight per Mutation; wait for confirm/reject)",
 				0
@@ -294,10 +295,10 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 	-- idempotent: repeated confirmations/rejections of the same request are
 	-- ignored, as are responses to superseded requests
 	function self.confirm(requestId: number, result: any)
-		if requestId ~= activeRequestId or status:get() ~= "pending" then
+		if requestId ~= activeRequestId or status:peek() ~= "pending" then
 			return
 		end
-		core:transaction(function()
+		core.reactor:batch(function()
 			if opts and opts.optimistic then
 				-- reconcile: re-sync optimistic state from authoritative state
 				-- AS OF NOW. If the confirm outruns its snapshot revision, this
@@ -315,10 +316,10 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 	end
 
 	function self.reject(requestId: number, reason: any)
-		if requestId ~= activeRequestId or status:get() ~= "pending" then
+		if requestId ~= activeRequestId or status:peek() ~= "pending" then
 			return
 		end
-		core:transaction(function()
+		core.reactor:batch(function()
 			if opts and opts.optimistic then
 				opts.optimistic.restore()
 			end
@@ -335,7 +336,7 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 	-- keep claiming a success nobody confirmed), and clearing activeRequestId is
 	-- what keeps a late confirm/reject for the abandoned id ignored.
 	function self.reset()
-		if status:get() == "pending" and opts and opts.optimistic then
+		if status:peek() == "pending" and opts and opts.optimistic then
 			pcall(opts.optimistic.restore)
 		end
 		activeRequestId = nil

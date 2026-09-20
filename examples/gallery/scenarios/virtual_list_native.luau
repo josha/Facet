@@ -18,15 +18,14 @@ return {
 	title = "VirtualList on the native canvas (NS-A4)",
 	ledgerRows = { "NS-A4", "NS-A3" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.View
-		local core = ctx.core
-		local scope = core:scope("virtual-list-native")
+		local UI, Compose = ctx.UI, ctx.Compose
 
 		local items = {}
 		for i = 1, 2000 do
 			table.insert(items, { id = "r" .. i, label = "Row " .. i })
 		end
-		local rows = core:signal(items)
+		local rows = Compose.cell(items)
+		local position = Compose.cell(0)
 
 		-- THE WINDOW IS A LIVE NUMBER, not a build-time guess (overflow sweep,
 		-- 2026-08-12). A fixed `viewportHeight = 360` painted past a 338px — and a
@@ -46,7 +45,7 @@ return {
 		-- textSize 22 — generous on purpose, because over-reserving only shortens
 		-- the list (which can never overflow), while under-reserving would squeeze
 		-- the title instead.
-		local viewportExtent = scope:own(core:memo(function(use)
+		local viewportExtent = Compose.formula(function(use)
 			local vp: any = use(ctx.env:get("viewportRect"))
 			local insets: any = use(ctx.env:get("coreSafeInsets"))
 			local host: any = use(ctx.env:get("appChromeInsets"))
@@ -60,7 +59,7 @@ return {
 			local bottom = edge("bottom")
 			local chrome = 100
 			return math.clamp(math.floor(h - top - bottom - chrome), 72, 600)
-		end))
+		end)
 
 		--[[ THE ROW HEIGHT IS THE LINE BOX ITS CELL WILL MEASURE, not a constant
 			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
@@ -80,78 +79,85 @@ return {
 			cost Stage 2 could not remove. A single-line row at a known authored size is
 			also exactly the case a consumer really can predict. So it predicts, with the
 			framework's own arithmetic instead of a hand copy of it. ]]
-		local itemExtent = scope:own(core:memo(function(use)
+		local itemExtent = Compose.formula(function(use)
 			return ctx.Facet.text.lineBox({
 				facts = ctx.Facet.text.facts({ env = ctx.env, use = use }),
 				size = ROW_TEXT_SIZE,
 				lines = 1,
 			})
-		end))
+		end)
 
-		local list = ctx.Facet.Controls.VirtualList(core, {
-			id = "VL",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			itemExtent = itemExtent,
-			viewportExtent = viewportExtent,
-			overscan = 2,
-			cell = function(item: any)
-				return UI.Text({ id = "Label", text = item.label, textSize = ROW_TEXT_SIZE })
-			end,
-		})
+		local function screen()
+			return UI.Screen("VLNative")({
+				padding = "m",
+				gap = "s",
 
-		local screen = UI.Screen({
-			id = "VLNative",
-			padding = "m",
-			gap = "s",
+				UI.Text("Title")({ text = "VirtualList x2000 (native canvas)", textSize = 22 }),
+				UI.VirtualList("VL")({
+					rows = rows,
+					key = function(item: any)
+						return item.id
+					end,
+					itemExtent = itemExtent,
+					viewportExtent = viewportExtent,
+					overscan = 2,
+					scrollNavigation = { position = position },
+					cell = function(_, ctx: any)
+						-- The cell receives the item; `ctx.current` follows its edits.
+						local item = Compose.formula(ctx.current)
+						return UI.Text("Label")({
+							text = function(use)
+								return use(item).label
+							end,
+							textSize = ROW_TEXT_SIZE,
+						})
+					end,
+				}),
+			})
+		end
 
-			UI.Text({ id = "Title", text = "VirtualList x2000 (native canvas)", textSize = 22 }),
-			list.blueprint,
-		})
+		-- The rows the window holds, read from the render target.
+		local SCROLL_PATH = "/VLNative/VL"
+		local function mountedLabels(): { string }
+			local labels = {}
+			local adapter = ctx.adapter
+			if adapter ~= nil and adapter.paths ~= nil then
+				for _, path in adapter.paths() do
+					if string.match(path, "^/VLNative/VL/.+/Label$") ~= nil then
+						local node = if adapter.node ~= nil then adapter.node(path) else nil
+						table.insert(labels, if node ~= nil and node.props ~= nil then node.props.text else path)
+					end
+				end
+			end
+			return labels
+		end
 
-		local unbind: any = nil
 		return {
 			screen = screen,
 			present = {},
 			steps = {
-				bind = function(built: any)
-					unbind = list.bindNativeScroll(built.handle.controller)
-					return list.scrollPath and list.scrollPath() or "bound"
+				-- the list binds its scroll host when it mounts
+				bind = function()
+					return SCROLL_PATH
 				end,
 				focusRow1500 = function()
-					-- keep-visible: computes the canvas target and issues the ONE
-					-- programmatic scroll write through the bound controller
-					return list.focusKey("r1500")
+					position:set(1499 * itemExtent:peek())
+					return true
 				end,
 				mountedCount = function()
-					local n = 0
-					for _ in list.debugWindow() do
-						n += 1
-					end
-					return n
+					return #mountedLabels()
 				end,
 			},
 			report = function()
-				local n, keys = 0, {}
-				for key in list.debugWindow() do
-					n += 1
-					table.insert(keys, key)
-				end
-				table.sort(keys)
+				local keys = mountedLabels()
 				return {
-					mounted = n,
+					mounted = #keys,
 					firstKeys = { keys[1], keys[2], keys[3] },
-					scrollTop = list.scrollTop:get(),
+					scrollTop = position:peek(),
 				}
 			end,
-			dispose = function()
-				if unbind then
-					unbind()
-				end
-				scope:dispose()
-			end,
+			-- nothing outlives the screen
+			dispose = function() end,
 		}
 	end,
 }

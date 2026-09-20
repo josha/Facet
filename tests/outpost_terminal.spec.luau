@@ -30,6 +30,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
+local scenario_ctx = require("./lib/scenario_ctx")
 local world = require("./lib/world")
 local terminal = require("../examples/gallery/examples/outpost_terminal") :: any
 local rules = require("../examples/gallery/examples/outpost_terminal/rules") :: any
@@ -365,7 +366,7 @@ local function lab(opts: any?): any
 	})
 	local sent: { any } = {}
 	local exits: { boolean } = {}
-	local built = terminal.build(Facet, w.core, {
+	local built = terminal.build(scenario_ctx.of(w), {
 		send = if o.noTransport
 			then nil
 			else function(envelope: any)

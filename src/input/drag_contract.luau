@@ -21,6 +21,7 @@
 -- that wrote it.
 
 local motionClasses = require("../motion/classes")
+local Compose = require("../vendor/compose/core")
 
 local drag_contract = {}
 
@@ -152,7 +153,8 @@ function drag_contract.source(spec: SourceSpec): SourceSpec
 		)
 	end
 	if spec.enabled ~= nil and type(spec.enabled) ~= "boolean" then
-		local readable = type(spec.enabled) == "table" and type((spec.enabled :: any).get) == "function"
+		local gate: any = spec.enabled
+		local readable = Compose.isReadable(gate)
 		if not readable then
 			error(
 				"Facet drag: UI.draggable's `enabled` must be a boolean or a Readable<boolean> — it gates "

@@ -73,18 +73,14 @@ t.describe("world marker layout", function()
 				reducedMotion = true,
 				env = { preferredTextOffset = 14 },
 			})
-			local built = require("../examples/gallery/scenarios/world_markers").build({
-				Facet = Facet,
-				core = w.core,
-				env = w.env,
-				presenter = w.pres,
-			})
+			local built =
+				require("../examples/gallery/scenarios/world_markers").build(require("./lib/scenario_ctx").of(w))
 			w.present(built.screen, built.present)
 			w.settle(4)
 			local path = "/WorldMarkers/Controls/Move"
 			local function activate()
 				if input == "Gamepad" or input == "Keyboard" then
-					t.expect(w.pres.focus.focused:get()).toBe(path)
+					t.expect(w.pres.focus.focused:peek()).toBe(path)
 					w.press(if input == "Gamepad" then "ButtonA" else "Return")
 				else
 					local r = w.adapter.node(path).rect

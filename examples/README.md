@@ -1,15 +1,17 @@
 # Facet examples
 
-Start with [component authoring](../docs/guide/15-components.md). Maintained
-examples use ordinary Luau tables with ordered numeric children. A component
-sets up once per mount; getters update individual properties. Callbacks command
-the model. The component owns its local state, memos, effects and controls.
+Start with [component authoring](../docs/guide/15-components.md). A maintained
+example is a plain Luau function that returns a node built from `app.controls`,
+with ordered numeric children and named properties. Setup runs once per mount;
+property functions update individual properties. Callbacks command the model.
 
-The examples and bundled places use Facet’s Compose runtime. Keep using
-`ui.state`, `ui.memo`, property getters and `ui.effect`; the component owns their
-Compose resources. Shared models use `Facet.newCore()` through the same public
-API. See the [runtime contract](../src/core/README.md) for callback ordering and
-error recovery.
+State is Compose's. `Compose.cell` holds a value, `Compose.formula` derives one,
+`Compose.watch` runs a reactive external effect, and `Compose.cleanup` ties an
+external subscription to the component's lifetime. A cell created inside the
+component dies with it. A shared model's cells are created outside the component
+so they survive the screen being replaced, and the same cells are passed to each
+presentation of that model. See the [runtime contract](../src/core/README.md) for
+ownership, containment and settling.
 
 | Task | Example |
 |---|---|
@@ -23,23 +25,24 @@ error recovery.
 | Motion values and activity indicators | [Progress](gallery/scenarios/progress_ring.luau) |
 | Toast reflow, edge and width choices | [Toasts](gallery/scenarios/sponsor_toast.luau) |
 | A shared model on a world surface | [Outpost terminal](gallery/examples/outpost_terminal/init.luau) |
+| Every public control and modifier at once | [Virtual monitors](virtual_monitors/README.md) |
 
-Borrow durable application state with `ui.read`; keep view-only calculations in
-`ui.memo` or property functions. Key collections by stable identity and read the
-row's current item getter in handlers. Use `ui.animate` when a calculation needs
-an animated number, container `animation` for layout changes, and `transition`
-for insertion/removal. Arrays guarantee child order; hash-table order does not.
+Read durable application state through `use` in a property function. Keep
+view-only calculations in `Compose.formula` or in the property function itself.
+Key collections by stable identity and read the row's current item readable in
+handlers. Use `app.runtime.spring` / `.tween` when a calculation needs an
+animated number, container `animation` for layout changes, and `transition` for
+insertion and removal. Arrays guarantee child order; hash-table order does not.
 
-The gallery also contains diagnostic fixtures. A handle whose `dump`, placement,
-scroll or imperative methods are under test needs an explicit lifetime. Shared
-reference-app models, scenario drivers and performance measurements may retain
-Core signals/scopes because their state must survive screen replacement. These
-are integration boundaries, not a requirement to manually own ordinary controls.
-Use `Facet.View` for composition and `ui.own` for an external handle needed by a
-component. Custom primitive controls must explain the behavior their composite
-counterpart cannot express.
+The gallery also contains diagnostic fixtures. A composite control whose `api` or
+`dump` is under test receives them through `ref`, which is called once while the
+control is built with a frozen `{ api, dump }`. Shared reference-app models,
+scenario drivers and performance measurements keep their Compose cells and owners
+outside any one screen, because their state must survive screen replacement.
+Those are integration boundaries, not a requirement to own ordinary controls by
+hand. A custom primitive must explain the behavior its composite counterpart
+cannot express.
 
-For a new feature, update its typed View declaration, mounted scenario and guide
-together. Do not copy historical proposal snippets or the "before" half of a
-migration summary into new code. Follow [AGENTS.md](../AGENTS.md) and the
+For a new feature, update its reference entry, its mounted scenario and the guide
+together. Follow [AGENTS.md](../AGENTS.md) and the
 [extension playbooks](../docs/extending/new-control.md).

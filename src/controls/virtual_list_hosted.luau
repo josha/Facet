@@ -48,6 +48,8 @@ local row_actions = require("./row_actions")
 local row_actions_state = require("../input/row_actions_state")
 local rowCapability = require("../row_capability")
 local specGuard = require("../spec_guard")
+local Compose = require("../vendor/compose/core")
+local observeChange = require("../core/on_change")
 
 local virtual_list_hosted = {}
 
@@ -64,7 +66,7 @@ local HOSTED_TRAY_GROUP_ID = virtual_list_hosted.TRAY_GROUP_ID
 local HOSTED_NO_OVERLAY: { any } = {}
 
 -- the closed key set for whatever `spec.rowActions(item)` returns for ONE row —
--- exactly the three fields `newRowActions` exposes besides the ones this control
+-- exactly the three fields `UI.RowActions` exposes besides the ones this control
 -- supplies itself (`paths`/`coordinator`/`onSlide`/`onCommitHeight`/`id`).
 -- Checked per row, at engine build, with the row's key in the message (§4;
 -- newTable's own ROW_ACTIONS_RESULT_KEYS precedent).
@@ -174,7 +176,7 @@ function virtual_list_hosted.new(deps: Deps)
 		    `hostedNoticeMount`), because every engine captured its row/tray paths
 		    at build and those paths name the previous mount.
 		  * Disposal otherwise rides the list scope (registered below):
-		    `buildHosted` opens its own independent `core:scope()`, so nothing
+		    `buildHosted` opens its own independent `an owner`, so nothing
 		    else would ever free them. ]]
 	local hostedEngines: { [string]: any } = {}
 	--[[ key -> whatever `spec.rowActions(item)` answered, or `false` for "this
@@ -228,11 +230,11 @@ function virtual_list_hosted.new(deps: Deps)
 	local hostedCommitKey: any = nil
 	local hostedCommitPx: any = nil
 	if hostedEnabled then
-		hostedCoordinator = row_actions.newCoordinator(core)
-		engagedKey = listScope:own(core:signal(nil :: string?))
-		engagedOffset = listScope:own(core:signal(0))
-		hostedCommitKey = listScope:own(core:signal(nil :: string?))
-		hostedCommitPx = listScope:own(core:signal(0))
+		hostedCoordinator = row_actions.newCoordinator()
+		engagedKey = Compose.cell(nil :: string?)
+		engagedOffset = Compose.cell(0)
+		hostedCommitKey = Compose.cell(nil :: string?)
+		hostedCommitPx = Compose.cell(0)
 	end
 
 	-- ONE row's height, commit override included: the row box itself and the
@@ -274,7 +276,7 @@ function virtual_list_hosted.new(deps: Deps)
 		if root == nil then
 			return nil -- not presented: there are no mounted paths to answer with
 		end
-		local window = windowItems:get() :: { any }
+		local window = windowItems:peek() :: { any }
 		if hostedMapWindow ~= window or hostedMapRoot ~= root then
 			hostedMapWindow = window
 			hostedMapRoot = root
@@ -373,19 +375,19 @@ function virtual_list_hosted.new(deps: Deps)
 	local function hostedApplySlide(key: string, px: number)
 		if math.abs(px) >= HOSTED_HOME_EPS then
 			hostedSlideByKey[key] = px
-			local engaged = engagedKey:get()
+			local engaged = engagedKey:peek()
 			if engaged == key then
 				engagedOffset:set(px)
 			elseif engaged == nil or hostedActiveKey == key then
-				core:transaction(function()
+				core.reactor:batch(function()
 					engagedKey:set(key)
 					engagedOffset:set(px)
 				end)
 			end
 		else
 			hostedSlideByKey[key] = nil
-			if engagedKey:get() == key then
-				core:transaction(function()
+			if engagedKey:peek() == key then
+				core.reactor:batch(function()
 					engagedOffset:set(0)
 					engagedKey:set(nil)
 				end)
@@ -449,12 +451,12 @@ function virtual_list_hosted.new(deps: Deps)
 
 	local function hostedApplyCommitHeight(key: string, px: number?)
 		if px == nil then
-			if hostedCommitKey:get() == key then
+			if hostedCommitKey:peek() == key then
 				hostedCommitKey:set(nil)
 			end
 			return
 		end
-		core:transaction(function()
+		core.reactor:batch(function()
 			hostedCommitKey:set(key)
 			hostedCommitPx:set(px)
 		end)
@@ -478,7 +480,7 @@ function virtual_list_hosted.new(deps: Deps)
 		local fields = hostedRowActions(item)
 		if fields ~= nil then
 			specGuard.assertKnownKeys(
-				"newVirtualList",
+				"UI.VirtualList",
 				fields,
 				HOSTED_ROW_ACTIONS_KEYS,
 				`spec.rowActions result (row '{key}')`
@@ -615,7 +617,7 @@ function virtual_list_hosted.new(deps: Deps)
 		if delivery.focusGraph == nil then
 			return nil
 		end
-		local path = delivery.focusGraph.focused:get()
+		local path = delivery.focusGraph.focused:peek()
 		if path == nil then
 			return nil
 		end
@@ -665,7 +667,7 @@ function virtual_list_hosted.new(deps: Deps)
 		end)
 		ctx.setEnabled(false) -- enabled only while the ring is on an actionable row
 		hostedKeysContext = ctx
-		listScope:own(function()
+		listScope.own(function()
 			if hostedKeysContext ~= nil then
 				hostedKeysContext.destroy()
 				hostedKeysContext = nil
@@ -881,7 +883,7 @@ function virtual_list_hosted.new(deps: Deps)
 				node between a finger and the native ScrollingFrame — a touch-scroll
 				regression only a device pass could clear. Deferred to the device
 				pass with that evidence, not fixed blind. ]]
-			local engaged = engagedKey:get()
+			local engaged = engagedKey:peek()
 			if engaged ~= nil and engaged ~= key then
 				hostedCloseRow(engaged)
 			end
@@ -979,7 +981,7 @@ function virtual_list_hosted.new(deps: Deps)
 	-- the engaged row's engine, or nil — the one every list-level verb (Cancel
 	-- now; the overlay and outside-tap in Task 4) routes through
 	local function hostedEngagedEngine(): any?
-		local key = if engagedKey ~= nil then engagedKey:get() else nil
+		local key = if engagedKey ~= nil then engagedKey:peek() else nil
 		return if key ~= nil then hostedEngines[key] else nil
 	end
 
@@ -1002,13 +1004,13 @@ function virtual_list_hosted.new(deps: Deps)
 		if engine ~= nil then
 			engine.dispose()
 		end
-		if engagedKey:get() == key then
-			core:transaction(function()
+		if engagedKey:peek() == key then
+			core.reactor:batch(function()
 				engagedOffset:set(0)
 				engagedKey:set(nil)
 			end)
 		end
-		if hostedCommitKey:get() == key then
+		if hostedCommitKey:peek() == key then
 			hostedCommitKey:set(nil)
 		end
 		-- the row is gone or rebuilding: whatever it was translated by is not a
@@ -1060,13 +1062,15 @@ function virtual_list_hosted.new(deps: Deps)
 		drag pixel, which rides `engagedOffset` and the presentation channel. ]]
 	local hostedOverlayItems: any = nil
 	if hostedEnabled then
-		hostedOverlayItems = listScope:own(core:memo(function(use)
-			local key = use(engagedKey)
-			if key == nil then
-				return HOSTED_NO_OVERLAY
-			end
-			return { { key = key } }
-		end))
+		hostedOverlayItems = Compose.withOwner(listScope, function()
+			return Compose.formula(function(use)
+				local key = use(engagedKey)
+				if key == nil then
+					return HOSTED_NO_OVERLAY
+				end
+				return { { key = key } }
+			end)
+		end)
 	end
 
 	--[[ WHEN THE TRAY GOES AWAY, THE RING COMES BACK TO ITS ROW (fix round 1, R1).
@@ -1088,7 +1092,7 @@ function virtual_list_hosted.new(deps: Deps)
 		else (another control, another row) is never yanked. ]]
 	local hostedFocusRow: string? = nil
 	local function hostedRestoreFocusOnDisengage()
-		local key = engagedKey:get()
+		local key = engagedKey:peek()
 		local previous = hostedFocusRow
 		hostedFocusRow = key
 		if previous == nil or previous == key then
@@ -1098,7 +1102,7 @@ function virtual_list_hosted.new(deps: Deps)
 		if graph == nil then
 			return
 		end
-		local focused = graph.focused:get()
+		local focused = graph.focused:peek()
 		local region = hostedOverlayRowPath(previous)
 		if focused == nil or region == nil or string.sub(focused, 1, #region + 1) ~= region .. "/" then
 			return
@@ -1117,9 +1121,9 @@ function virtual_list_hosted.new(deps: Deps)
 		-- the slide, written the instant the engagement or the offset moves. Both
 		-- signals are written inside ONE transaction by `hostedApplySlide`, so a
 		-- move that changes both still resolves to a single pair of reads.
-		listScope:own(core:observe(engagedKey, hostedWriteSlide))
-		listScope:own(core:observe(engagedKey, hostedRestoreFocusOnDisengage))
-		listScope:own(core:observe(engagedOffset, hostedWriteSlide))
+		observeChange(listScope, engagedKey, hostedWriteSlide)
+		observeChange(listScope, engagedKey, hostedRestoreFocusOnDisengage)
+		observeChange(listScope, engagedOffset, hostedWriteSlide)
 		--[[ SCROLL CLOSES THE OPEN ROW (the swipe-tray convention, and
 			`newCoordinator.bindScroll`'s own rule). That coordinator method takes a render controller and a path
 			and rides `observeScroll` — but this list ALREADY owns the engine's
@@ -1128,9 +1132,9 @@ function virtual_list_hosted.new(deps: Deps)
 			is bound. So the coordinator's own code path is reused verbatim against
 			a one-method shim over that signal, rather than a second subscription to
 			the same engine scroll that could arrive later, or not at all. ]]
-		listScope:own(hostedCoordinator.bindScroll({
+		listScope.own(hostedCoordinator.bindScroll({
 			observeScroll = function(_path: string, onScroll: (any) -> ()): () -> ()
-				return core:observe(scrollTop, function(y: any)
+				return observeChange(core.owner, scrollTop, function(y: any)
 					onScroll({ x = 0, y = y })
 				end)
 			end,
@@ -1153,21 +1157,21 @@ function virtual_list_hosted.new(deps: Deps)
 			An untouched list pays NOTHING here: `hostedItemByKey` is empty until
 			a press, and `indexByKey` is a memo this control already recomputes on
 			every data change for its own focus pruning. ]]
-		listScope:own(core:observe(spec.rows, function(items: { any })
+		observeChange(listScope, spec.rows, function(items: { any })
 			if next(hostedItemByKey) == nil then
 				return
 			end
-			local index = indexByKey:get() :: { [string]: number }
+			local index = indexByKey:peek() :: { [string]: number }
 			for key, item in table.clone(hostedItemByKey) do
 				local at = index[key]
 				if at == nil or items[at] ~= item then
 					hostedDropEngine(key)
 				end
 			end
-		end))
+		end)
 		-- engines are independent scope roots (`buildHosted` opens its own), so
 		-- the list is what frees them
-		listScope:own(function()
+		listScope.own(function()
 			for key in table.clone(hostedEngines) do
 				hostedDropEngine(key)
 			end

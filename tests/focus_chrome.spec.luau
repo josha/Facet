@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ADOPTED CHROME: the surface a directional press can leave its own scope for.
 
 	=== THE GAP THIS CLOSES, AS MEASURED ===
@@ -48,17 +49,17 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local fake_target = require("./lib/fake_target")
 
 local function world()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
 	env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = true })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+	local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
 end
 
@@ -159,7 +160,7 @@ describe("adopted chrome (1): the focus map is composed, and the arrows cross in
 		for _ = 1, 12 do
 			m.press("DPadUp")
 		end
-		expect(m.focus.focused:get()).toBe("/Content/A")
+		expect(m.focus.focused:peek()).toBe("/Content/A")
 	end)
 
 	it("with `focusChrome` the ACTIVE scope's map carries the chrome's paths", function()
@@ -201,18 +202,18 @@ describe("adopted chrome (1): the focus map is composed, and the arrows cross in
 
 	it("THE D-PAD CROSSES: up from the first content row lands on the strip", function()
 		local m = mounted("top")
-		expect(m.focus.focused:get()).toBe("/Content/A")
+		expect(m.focus.focused:peek()).toBe("/Content/A")
 		m.press("DPadUp")
-		expect(m.focus.focused:get()).toBe("/Bar/Chips/Left")
+		expect(m.focus.focused:peek()).toBe("/Bar/Chips/Left")
 	end)
 
 	it("...and the strip is a ROW, so left/right walk it and down returns to the content", function()
 		local m = mounted("top")
 		m.press("DPadUp")
 		m.press("DPadRight")
-		expect(m.focus.focused:get()).toBe("/Bar/Chips/Right")
+		expect(m.focus.focused:peek()).toBe("/Bar/Chips/Right")
 		m.press("DPadDown")
-		expect(m.focus.focused:get()).toBe("/Content/A")
+		expect(m.focus.focused:peek()).toBe("/Content/A")
 	end)
 
 	--[[ THE VERTICAL ARROW MEANS VERTICAL, EVEN STANDING ON A HORIZONTAL STRIP. A
@@ -227,17 +228,17 @@ describe("adopted chrome (1): the focus map is composed, and the arrows cross in
 	it("DOWN from the first of two chips LEAVES the strip; it does not step along it", function()
 		local m = mounted("top")
 		m.press("DPadUp")
-		expect(m.focus.focused:get()).toBe("/Bar/Chips/Left")
+		expect(m.focus.focused:peek()).toBe("/Bar/Chips/Left")
 		m.press("DPadDown")
-		expect(m.focus.focused:get()).toBe("/Content/A")
+		expect(m.focus.focused:peek()).toBe("/Content/A")
 	end)
 
 	it("a `bottom` chrome is reached by pressing DOWN off the end instead", function()
 		local m = mounted("bottom")
 		m.press("DPadDown") -- A -> B
-		expect(m.focus.focused:get()).toBe("/Content/B")
+		expect(m.focus.focused:peek()).toBe("/Content/B")
 		m.press("DPadDown") -- off the end of the content, into the strip
-		expect(m.focus.focused:get()).toBe("/Bar/Chips/Left")
+		expect(m.focus.focused:peek()).toBe("/Bar/Chips/Left")
 	end)
 
 	it("Tab walks the SAME members (§9: one focus map, two readings)", function()
@@ -245,7 +246,7 @@ describe("adopted chrome (1): the focus map is composed, and the arrows cross in
 		local seen: { [string]: boolean } = {}
 		for _ = 1, 8 do
 			m.press("Tab")
-			local f = m.focus.focused:get()
+			local f = m.focus.focused:peek()
 			if f ~= nil then
 				seen[f] = true
 			end
@@ -262,9 +263,9 @@ describe("adopted chrome (2): what adoption must NOT do", function()
 		local m = mounted("top")
 		-- the content pushed its scope last and took entry focus, ahead of a chrome
 		-- that reads first in the composed order
-		expect(m.focus.focused:get()).toBe("/Content/A")
+		expect(m.focus.focused:peek()).toBe("/Content/A")
 		m.press("Tab")
-		expect(m.focus.focused:get()).toBe("/Content/B")
+		expect(m.focus.focused:peek()).toBe("/Content/B")
 	end)
 
 	it("a MODAL suspends adoption: its ring cannot leak into the strip", function()
@@ -278,7 +279,7 @@ describe("adopted chrome (2): what adoption must NOT do", function()
 		for _ = 1, 10 do
 			m.press("DPadUp")
 		end
-		expect(string.sub(tostring(m.focus.focused:get()), 1, 6)).toBe("/Sheet")
+		expect(string.sub(tostring(m.focus.focused:peek()), 1, 6)).toBe("/Sheet")
 	end)
 
 	it("dismissing the chrome takes its paths out of the composed map", function()
@@ -297,10 +298,10 @@ describe("adopted chrome (2): what adoption must NOT do", function()
 		w.pres.present(bar(pressed), { focusChrome = "top" })
 		w.pres.refresh()
 		expect(w.pres.focus.activeScopeName()).toBe("Bar")
-		expect(w.pres.focus.focused:get()).toBe("/Bar/Chips/Left")
+		expect(w.pres.focus.focused:peek()).toBe("/Bar/Chips/Left")
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe("/Bar/Chips/Right")
+		expect(w.pres.focus.focused:peek()).toBe("/Bar/Chips/Right")
 	end)
 
 	it("an edge nobody can place is refused, not silently ignored", function()
@@ -316,14 +317,14 @@ describe("adopted chrome (3): the press has to land on the chrome's OWN surface"
 	it("Activate on an adopted chip runs the CHIP's handler, not nothing", function()
 		local m = mounted("top")
 		m.press("DPadUp")
-		expect(m.focus.focused:get()).toBe("/Bar/Chips/Left")
+		expect(m.focus.focused:peek()).toBe("/Bar/Chips/Left")
 		m.press("ButtonA")
 		expect(m.pressed).toEqual({ "Left" })
 	end)
 
 	it("...and a press on the content still runs the content's own handler", function()
 		local m = mounted("top")
-		expect(m.focus.focused:get()).toBe("/Content/A")
+		expect(m.focus.focused:peek()).toBe("/Content/A")
 		m.press("ButtonA")
 		expect(m.pressed).toEqual({ "A" })
 	end)

@@ -41,6 +41,8 @@
 
 local motionClasses = require("../motion/classes")
 local motionCurves = require("../motion/curves")
+local Compose = require("../vendor/compose/core")
+local observeChange = require("../core/on_change")
 
 local with_animation = {}
 
@@ -70,11 +72,11 @@ function with_animation.new(ctx: any)
 	-- ask: it writes a scratch signal as the first act inside its own transaction
 	-- and reads whether the observer has fired by the time that transaction
 	-- returns. Observers fire post-flush, so "fired" means depth was zero.
-	local animationProbe = core:signal(0)
+	local animationProbe = Compose.cell(0)
 	local animationProbeFired = false
 	-- session-lifetime, like the presenter itself (it has no dispose); kept on self
 	-- so the ownership is visible rather than implicit
-	api.probeWatcher = core:observe(animationProbe, function()
+	api.probeWatcher = observeChange(core.owner, animationProbe, function()
 		animationProbeFired = true
 	end)
 
@@ -177,8 +179,8 @@ function with_animation.new(ctx: any)
 		animationProbeFired = false
 		inWithAnimation = true
 		local ok, err = pcall(function()
-			core:transaction(function()
-				animationProbe:set(animationProbe:get() + 1)
+			core.reactor:batch(function()
+				animationProbe:set(animationProbe:peek() + 1)
 				fn()
 			end)
 			-- THE ARMED COMMIT: exactly `fn`'s consequences, and the only commit in
@@ -202,10 +204,10 @@ function with_animation.new(ctx: any)
 		produce that:
 
 		  · an outer core TRANSACTION is open — `commit` is deferred to its close;
-		  · a core COMMIT is in flight — `bench/cores/imperative.luau`'s `commit`
+		  · a core COMMIT is in flight — a commit phase
 		    opens `if committing then return end`, so a transaction opened from an
 		    observer, effect, memo settle or any handler dispatched DURING a commit
-		    never flushes either. Reproduced from a plain `core:observe` handler.
+		    never flushes either. Reproduced from a plain `a change listener` handler.
 
 		The probe cannot separate them, so the message names both rather than
 		asserting the one that used to be assumed — it named a transaction that,

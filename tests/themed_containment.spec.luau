@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 --[[ THEMED CONTAINMENT — the invariant asked under a PACKAGE (task THEME,
 	director items 6-9, 2026-08-27).
 
@@ -73,13 +75,14 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local fake_target = require("./lib/fake_target")
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local overflow_guard = require("./lib/overflow_guard")
 local device_views = require("./lib/device_views")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
+local Compose = require("../src/vendor/compose/core")
 
 -- the showcase's own chrome reservation, read from the picker exactly as
 -- `tests/overflow_sweep.spec.luau` reads it, so both files lay out against the
@@ -156,6 +159,9 @@ end
 local function scenarioCtx(w: any): any
 	return {
 		Facet = Facet,
+		app = scenario_app.over(w.core, w.presenter),
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -190,11 +196,7 @@ end
 
 local function mountExample(w: any, name: string): any
 	local module = require(`../examples/gallery/examples/{name}`) :: any
-	local built = module.build(
-		Facet,
-		w.core,
-		{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-	)
+	local built = module.build(scenarioCtx(w))
 	if built.handle == nil and built.screen ~= nil then
 		built.handle = w.presenter.present(built.screen, built.present)
 	end
@@ -439,7 +441,7 @@ describe("themed containment: the four measurements, pinned", function()
 		w.env:set("themeMetrics", PIXEL)
 		settle(w)
 		local root =
-			"/TabViewDemo/Root/App/Content/Tab-pages/then/PageScroll/PageViewport/Page/TopHome/then/TopBandCenter/TopBand/Strip"
+			"/TabViewDemo/Root/App/Content/Tab-pages/PageScroll/PageViewport/Page/TopHome/then/TopBandCenter/TopBand/Strip"
 		local bar = w.adapter.node(`{root}/Indicator/Layer/Bar`)
 		local seg = w.adapter.node(`{root}/Indicator/Options/Opt1`)
 		expect(bar ~= nil and seg ~= nil).toBe(true)
@@ -881,7 +883,7 @@ end
 
 describe("themed containment: the count seal clears its own segment's chrome (director item 2)", function()
 	local function badgeScreen(core: any, env: any, selected: any): any
-		local picker = Facet.Controls.Picker(core, {
+		local picker = harness.Controls.Picker(core, {
 			id = "Seg",
 			label = "Segments",
 			indicator = "none",
@@ -910,7 +912,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		w: any,
 		snapshot: any?
 	): { { node: string, carved: number, rightClear: number, topClear: number } }
-		local selected = w.core:signal("a")
+		local selected = Compose.cell("a")
 		local screen = badgeScreen(w.core, w.env, selected)
 		w.presenter.present(screen, {})
 		settle(w)
@@ -922,7 +924,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		local rightCarved = carvedInsetSide(snapshot, "control", "right")
 		local out = {}
 		for _, path in w.adapter.paths() do
-			local cellPath = string.match(path, "^(.-)/HStack#1/Badge$")
+			local cellPath = string.match(path, "^(.-)/HStack#%d+/Badge$")
 			if cellPath == nil then
 				continue
 			end
@@ -977,7 +979,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		-- the fattest carving package — proving the SWEEP lane's containment
 		-- census is not already covering this class before this group existed
 		local w = world(VIEWS[1])
-		local selected = w.core:signal("a")
+		local selected = Compose.cell("a")
 		local screen = badgeScreen(w.core, w.env, selected)
 		w.presenter.present(screen, {})
 		settle(w)

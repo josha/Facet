@@ -15,7 +15,7 @@
 --   prop; a preferredInput flip re-labels with NO remount.
 --
 -- This never injects visible UI on its own. OWNERSHIP is the same idiom as this
--- helper's nearest sibling, `adaptive.conditions(core, env, opts?)`
+-- helper's nearest sibling, `adaptive.conditions(env, opts?)`
 -- (api-architecture-consistency F-33): pass `opts.scope` and the memo dies with
 -- the scope; omit it and the caller owns the memo by hand (dispose it with the
 -- rest of the screen's resources). One memo instead of twelve is a reason to
@@ -23,6 +23,7 @@
 -- different disposal disciplines.
 
 local specGuard = require("../spec_guard")
+local Compose = require("../vendor/compose/core")
 
 local hint = {}
 
@@ -62,7 +63,7 @@ function hint.inputHint(core: any, env: any, action: any, opts: Opts?): any
 	if style ~= "key" and style ~= "phrase" then
 		error(`Facet inputHint: unknown style '{tostring(style)}'. Valid: key, phrase.`, 0)
 	end
-	local memo = core:memo(function(use)
+	local memo = Compose.formula(function(use)
 		-- the RESOLVED class, not the raw platform report: a phone nobody has
 		-- touched yet still reports KeyboardAndMouse, and this label is exactly the
 		-- kind of affordance that must not say "Enter" on a touchscreen
@@ -81,7 +82,9 @@ function hint.inputHint(core: any, env: any, action: any, opts: Opts?): any
 		return if label ~= "" then `Press {label}` else ""
 	end)
 	if opts ~= nil and opts.scope ~= nil then
-		return opts.scope:own(memo)
+		opts.scope.own(function()
+			memo:dispose()
+		end)
 	end
 	return memo
 end

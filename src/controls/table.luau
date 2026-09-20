@@ -1,43 +1,17 @@
 --!strict
+local Compose = require("../vendor/compose/core")
+local selectionModel = require("../selection_model")
 local publicCore = require("../core/contract")
 local publicBlueprint = require("../blueprint")
 local publicEnv = require("../env/environment")
 
--- Table control, Phase A (NSTableView-informed). A COMPOSITE over
--- shipped primitives: every row is a ZStack [whole-row hit Button, HStack of
--- cells]; cells in every row (and the optional header) share the same column
--- dim specs, so the solver aligns columns without any new layout kind.
--- Column resize (the MODEL: setColumnWidth) works by overriding a column to a
--- fixed dim and remounting rows (cheap at list sizes; per-pixel drag preview
--- is Phase B adapter work). Selection: none | single | multi (activate
--- toggles additively in multi — the touch idiom). MODIFIER-KEY SEMANTICS
--- SHIPPED: Shift-click extends a range from the anchor and Cmd/Ctrl-click
--- toggles one row (`api.select`'s "range"/"toggle" modes below, driven by the
--- activate meta the adapter fills in, wired to real keys in screen_target and
--- covered in tests/table.spec.luau). This header said "Phase B" for both of
--- them long after they landed, the implementation comment 1800 lines below said
--- otherwise, and the stale half reached a mission brief as fact: a header
--- comment describes the path it was written for, and no other.
--- Variable row heights via rowHeight(item). Headerless mode for
--- borderless lists (director's racer-list case). Custom cells: cellFor
--- returns any Blueprint — nested interactive controls stay live because cell
--- content renders ABOVE the row hit and non-active nodes pass taps through.
+-- Table composes shared-width columns, row content and whole-row hit targets.
+-- Cells remain interactive above the row target. Selection supports single,
+-- multiple, range and toggle actions; durable selection can live in the model.
 --
--- NATIVE SCROLL (native-substrate §4/§6). The body is a UI.ScrollView — an
--- engine ScrollingFrame on the live adapter. Rows flow at their NATURAL
--- document positions (no hand-rolled offset, no row-park cull); the solver's
--- scroll-axis content sum becomes CanvasSize, and the ENGINE owns the live
--- offset (wheel, touch drag, momentum, elastic, bars), clipping partial rows
--- natively. The old per-row -scrollOffset arrange trick, the wheel handler, and
--- the touch-pan handler are RETIRED (native §4). scrollTop is now the engine
--- CanvasPosition MIRROR: written only by the mirror wiring (api.bindNativeScroll
--- after present feeds controller.observeScroll -> scrollTop) or a test. Touch on
--- the row body DECLINES the pointer capture so the native scroll owns the pan;
--- reorder on touch rides the edit-mode ≡ handle. Keyboard/gamepad scroll-into-
--- view and reorder drag math read the mirror to stay canvas-correct while
--- scrolled, and keep-visible issues the framework's ONE programmatic scroll
--- write, controller.scrollTo(scrollPath, {x,y}). Engine-free; Lune-tested in
--- tests/table.spec.luau (windowing/selection/reorder decisions stay pure).
+-- A native scrolling container owns the canvas offset and pointer scrolling.
+-- Facet supplies virtualization, keyboard visibility, column resizing and row
+-- reordering. Gesture geometry reads the same scroll offset as the renderer.
 
 local contribution = require("../input/contribution")
 local nativeScrollBinding = require("./native_scroll_binding")
@@ -50,7 +24,7 @@ local specGuard = require("../spec_guard")
 -- built on, so a table nobody handed facts to can ask instead of guessing
 local surfaceEnv = require("../env/surface_env")
 local rowCapability = require("../row_capability")
--- the running-offset index this control and `newVirtualList` now BOTH window and
+-- the running-offset index this control and `UI.VirtualList` now BOTH window and
 -- position by — see THE RUNNING-OFFSET INDEX below for why Table always takes the
 -- `variable` form
 local virtual_extents = require("../virtual_extents")
@@ -85,7 +59,7 @@ local function patternEscape(s: string): string
 end
 
 -- Task 10: row_actions.build's own wrapper interposes a known
--- `RowActions-<rowKey>/Content/` segment between a wrapped row's `[key@v]/`
+-- `RowActions-<rowKey>/Content/` segment between a wrapped row's `[key]/`
 -- ForEach slot and its own `Row/...` tree (row_actions.luau: root Anchor
 -- `id`, one child ZStack `id = "Content"`, `content` — this row's OWN
 -- blueprint — mounted inside it). `<rowKey>` makes the id UNIQUE per row —
@@ -96,7 +70,7 @@ end
 -- `patternEscape(id)`-based path matching (its own header comment: an id is
 -- interpolated into a Lua pattern) silently assumes local uniqueness, which
 -- a shared literal violates. Every row-relative path pattern below this
--- point is anchored assuming `Row/...` sits DIRECTLY under `[key@v]/` — true
+-- point is anchored assuming `Row/...` sits DIRECTLY under `[key]/` — true
 -- for every unwrapped row, false by exactly this one segment for a wrapped
 -- one. Stripping it here, once (pattern, not a literal, since the id varies
 -- per row), keeps every one of those patterns correct for both without
@@ -104,7 +78,7 @@ end
 -- never has the segment to strip, so this is a no-op for every path in the
 -- common case.
 -- how many rows past each edge of the viewport a virtualized table keeps mounted.
--- `newVirtualList.overscan`'s own default, and the same job: the row that arrow-
+-- `UI.VirtualList.overscan`'s own default, and the same job: the row that arrow-
 -- down is about to land on is already in the tree, so keyboard navigation walks
 -- off the window's edge without ever finding nothing there.
 local OVERSCAN = 2
@@ -177,6 +151,7 @@ export type Spec = {
 	rowHeight: (number | (any) -> number)?,
 	header: boolean?,
 	selection: ("none" | "single" | "multi")?,
+	selectedKeys: any?, -- caller-owned Compose cell of { [rowKey]: boolean }
 	gap: number?,
 	-- OWNER-HELD sort binding (SwiftUI Table(sortOrder:)): a Signal holding
 	-- nil | { column: string, ascending: boolean }. Tapping a sortable
@@ -246,7 +221,7 @@ export type Spec = {
 	editing: publicBlueprint.Bound<boolean>?,
 	env: publicEnv.Env?, -- optional environment for input-aware affordances
 	-- Task 10 (row-actions Table integration). Per-item callback: return
-	-- `{ leading?, trailing?, fullSwipe? }` (the same shape `newRowActions`
+	-- `{ leading?, trailing?, fullSwipe? }` (the same shape `UI.RowActions`
 	-- itself takes, minus `content`/`coordinator`/`env`/`editing` — Table
 	-- supplies all four) to wrap that row in a swipeable action tray; `nil`
 	-- (the common case) leaves the row completely unwrapped — no extra
@@ -326,17 +301,26 @@ local TABLE_KEYS = specGuard.keySet({
 	"rows",
 	"scrolls",
 	"selection",
+	"selectedKeys",
 	"sortOrder",
 	"virtualized",
 })
 
-function table_control.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newTable", spec, TABLE_KEYS, "spec")
+local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
+	specGuard.assertKnownKeys("UI.Table", spec, TABLE_KEYS, "spec")
+	-- `key` is a function or the name of the field that holds the identity, the
+	-- same rule the list engine uses. Everything below calls `spec.key(item)`.
+	local keyOf = specGuard.keyFunction("UI.Table", spec.key)
+	if keyOf ~= spec.key then
+		local normalized: any = table.clone(spec :: any)
+		normalized.key = keyOf
+		spec = normalized
+	end
 	--[[ PER-ROW OPT-OUTS MAY ONLY SUBTRACT (parity round 3, item C) — a
 		predicate narrowing a capability this table does not have would be an
 		accepted property that does nothing (constitution §4). ]]
 	rowCapability.assertNarrowsSomething(
-		"newTable",
+		"UI.Table",
 		"rowSelectable",
 		spec.rowSelectable,
 		spec.selection ~= nil and spec.selection ~= "none",
@@ -344,7 +328,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		'Declare selection = "single" or "multi", or drop spec.rowSelectable.'
 	)
 	rowCapability.assertNarrowsSomething(
-		"newTable",
+		"UI.Table",
 		"rowMovable",
 		spec.rowMovable,
 		spec.reorderable == true and spec.onReorder ~= nil,
@@ -352,7 +336,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		"Declare reorderable = true and an onReorder handler, or drop spec.rowMovable."
 	)
 	rowCapability.assertNarrowsSomething(
-		"newTable",
+		"UI.Table",
 		"rowDeletable",
 		spec.rowDeletable,
 		spec.rowActions ~= nil,
@@ -366,20 +350,20 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local virtualized = spec.virtualized == true
 	if virtualized and spec.scrolls == false then
 		error(
-			"Facet newTable: spec.virtualized needs a viewport to window against, and scrolls = false gives it none "
+			"Facet UI.Table: spec.virtualized needs a viewport to window against, and scrolls = false gives it none "
 				.. "— a BLOCK table sizes to its rows so its HOST can scroll them, so every row is on screen as far as "
 				.. "this table can tell. Drop one of the two.",
 			2
 		)
 	end
 	if virtualized and spec.rowActions ~= nil then
-		--[[ v1, and the mirror of `newVirtualList`'s own `rowActions + reorderable`
+		--[[ v1, and the mirror of `UI.VirtualList`'s own `rowActions + reorderable`
 			refusal — for the same kind of reason, from the other side. Table WRAPS
 			every actionable row in its own `row_actions` composite, and that
 			composite's lifecycle is pruned by the DATA (the `spec.rows` observer
 			below), never by the window: a row scrolling out would unmount its
 			blueprint and leave its engine, its coordinator claim and its in-flight
-			gesture behind. `newVirtualList` is the control that already solved this,
+			gesture behind. `UI.VirtualList` is the control that already solved this,
 			by HOSTING the engine instead of wrapping it (one shared dispatcher,
 			lazy per-row engines born at a gesture's axis lock, one tray overlay per
 			list — `docs/plans/row-actions-hosted-mode-design.md`). Teaching Table to
@@ -397,15 +381,15 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			windowed path alone leaves THREE row-actions integrations in the library
 			rather than converging two. ]]
 		error(
-			"Facet newTable: spec.virtualized + spec.rowActions is unsupported (v1) — Table WRAPS each actionable row "
+			"Facet UI.Table: spec.virtualized + spec.rowActions is unsupported (v1) — Table WRAPS each actionable row "
 				.. "in its own row_actions composite whose lifecycle is pruned by the data, not by the window, so a row "
-				.. "scrolling out would strand its engine. Use newVirtualList (which HOSTS row actions) for a swipeable "
+				.. "scrolling out would strand its engine. Use UI.VirtualList (which HOSTS row actions) for a swipeable "
 				.. "virtualized list, or drop spec.virtualized.",
 			2
 		)
 	end
 	local UI = Facet.UI
-	local scope = core:scope(`Table-{spec.id or "table"}`)
+	local building = true
 	local tableId = spec.id or "Table"
 	local selectionMode = spec.selection or "none"
 
@@ -565,7 +549,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		with no environment picks the neutral package at authored size, which is
 		what every headless mount in this suite has always solved and is a
 		legitimate answer for a control that must build under `mountLib.mount` with
-		no surface at all. `newLevelPicker` takes the same soft find for the same
+		no surface at all. `UI.LevelPicker` takes the same soft find for the same
 		reason. ]]
 	--[[ ...AND IT IS THE ONLY ENVIRONMENT THIS FILE READS (review round 1,
 		ISSUE-4, 2026-08-20). The first cut of ADAPT-11 adopted the implicit
@@ -584,46 +568,50 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		pins the pair that could disagree (row height and column reservation) on one
 		unwired surface. ]]
 	local surfaceEnvironment = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
-	local rowBox = scope:own(core:memo(function(use)
-		local env = surfaceEnvironment
-		if env == nil then
-			-- headless / no-environment consumers: the neutral package at authored
-			-- size and a pointer paradigm, which is what the suite has always solved
-			return rowBoxFor(nil, textFit.facts({ metrics = themeSnapshot.neutral() }))
-		end
-		--[[ the facts come from the LIVE env keys (so a preference change re-derives
+	local rowBox = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local env = surfaceEnvironment
+			if env == nil then
+				-- headless / no-environment consumers: the neutral package at authored
+				-- size and a pointer paradigm, which is what the suite has always solved
+				return rowBoxFor(nil, textFit.facts({ metrics = themeSnapshot.neutral() }))
+			end
+			--[[ the facts come from the LIVE env keys (so a preference change re-derives
 			this memo) but the SNAPSHOT is sanitized first — `metricsOr` is the §8.2
 			guard that stops a garbage `themeMetrics` fact leaking past the seam that
 			read it, and `text.facts` deliberately does not do that for its caller. ]]
-		local facts = textFit.facts({ env = env, use = use })
-		return rowBoxFor(use(env:get("interactionClasses")), {
-			scale = facts.scale,
-			offset = facts.offset,
-			metrics = metricsOr(facts.metrics),
-		}, use(env:get("distanceProfile")))
-	end))
+			local facts = textFit.facts({ env = env, use = use })
+			return rowBoxFor(use(env:get("interactionClasses")), {
+				scale = facts.scale,
+				offset = facts.offset,
+				metrics = metricsOr(facts.metrics),
+			}, use(env:get("distanceProfile")))
+		end)
+	end)
 	-- THE one row-gap answer, in pixels, live. A metric NAME resolves against the
 	-- current snapshot on every read, so a theme swap moves the gutter without a
 	-- rebuild; a number passes through unchanged; absent stays 0.
-	local rowGapPx = scope:own(core:memo(function(use)
-		local declared = spec.rowGap
-		if type(declared) == "number" then
-			return declared
-		end
-		if type(declared) ~= "string" then
-			return 0
-		end
-		local env = surfaceEnvironment
-		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-		return themeSnapshot.resolveNumber(snap, declared) or 0
-	end))
+	local rowGapPx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local declared = spec.rowGap
+			if type(declared) == "number" then
+				return declared
+			end
+			if type(declared) ~= "string" then
+				return 0
+			end
+			local env = surfaceEnvironment
+			local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+			return themeSnapshot.resolveNumber(snap, declared) or 0
+		end)
+	end)
 	-- THE one row-height answer. Every seam that reasons about row geometry — the
 	-- blueprint, the cumulative tops, the content extent, the drop slot and
 	-- keep-visible — comes through here, so the model and the paint can never
 	-- disagree about how tall a row is. `box` is passed in from inside a memo so the
 	-- read subscribes; elsewhere the current value is right.
 	local function rowHeightOf(item: any, box: any?): number
-		local live: any = box or rowBox:get()
+		local live: any = box or rowBox:peek()
 		local declared = spec.rowHeight
 		local pinned = if type(declared) == "function"
 			then (declared :: any)(item)
@@ -651,12 +639,21 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	end
 
 	-- selection state: { [rowKey]: true }
-	local selectedKeys = scope:own(core:signal({} :: { [string]: boolean }))
+	local selectedKeys = spec.selectedKeys or Compose.cell({} :: { [string]: boolean })
+	assert(selectionModel.isWritable(selectedKeys), "UI.Table.selectedKeys must be a writable Compose cell")
+	local selectedInitial = selectionModel.read(selectedKeys)
+	assert(type(selectedInitial) == "table", "UI.Table.selectedKeys must contain a key set")
+	for key, value in selectedInitial do
+		assert(
+			type(key) == "string" and type(value) == "boolean",
+			"UI.Table.selectedKeys must contain string keys and boolean values"
+		)
+	end
 	-- edit mode (touch-scroll design 2026-07-20): owner-held signal, or an
 	-- internal one when the owner does not supply it (api.editing either way).
 	-- While editing, rows grow a trailing ≡ handle; on touch, ONLY the handle
 	-- starts a reorder — the row body always pans the scroll.
-	local editingSignal = spec.editing or scope:own(core:signal(false))
+	local editingSignal = spec.editing or Compose.cell(false)
 	--[[ HOISTED TWICE (parity round 3, then again 2026-08-14 for `rowDeletable`):
 		this used to sit ~170 lines below the capability gates in `api.select` and
 		`api.moveRow`, and it now sits above the ROW BUILDER too — `table_rows`
@@ -666,7 +663,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		(and the delete gate walked straight into that trap before this move). It depends only on `spec`,
 		already in scope, so it can sit as high as its first reader needs. ]]
 	local function itemForKey(rowKey: string): any?
-		for _, item in spec.rows:get() :: { any } do
+		for _, item in spec.rows:peek() :: { any } do
 			if spec.key(item) == rowKey then
 				return item
 			end
@@ -681,21 +678,14 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- `bindScroll` (any scroll closes the open tray, iOS parity) is wired
 	-- after present through the same seam `bindNativeScroll` uses (both feed
 	-- off the identical `controller.observeScroll`).
-	local rowActionsCoordinator: any = if spec.rowActions ~= nil then row_actions.newCoordinator(core) else nil
-	-- Task 10: per-row-key row_actions instance ({ blueprint, dispose, _open,
-	-- _close, _isOpen, ... } — row_actions.build's own return). `core:scope()`
-	-- (what row_actions.build calls internally) is an INDEPENDENT root, never
-	-- an implicit child of anything — unlike `selectedMemoByKey`'s own
-	-- `scope:child(...)` entries, nothing disposes one of these for free, so
-	-- Table owns the full lifecycle explicitly: built by `table_rows`,
-	-- pruned by the SAME `spec.rows` observer that already prunes
-	-- `selectedMemoByKey` below (never a second rows observer — brief), and
-	-- swept on the table's own `dispose()`.
+	local rowActionsCoordinator: any = if spec.rowActions ~= nil then row_actions.newCoordinator() else nil
+	-- Row actions retain their own lifecycle until that control is converted.
+	-- The table releases removed entries and any remaining entries on disposal.
 	local rowActionsByKey: { [string]: any } = {}
 	-- gamepad grab mode (2026-07-20): A/Cross on a focused row while editing
 	-- GRABS it; d-pad up/down steps the row (or the selected block) one slot
 	-- per press through onReorder; A again drops. Cleared on leaving edit.
-	local grabbedKey = scope:own(core:signal(nil :: string?))
+	local grabbedKey = Compose.cell(nil :: string?)
 	-- pre-grab snapshot (matrix §C; UI-PARADIGM-002): { block, slot } captured
 	-- when a grab begins, so a mid-grab gamepad-capability loss can revert the
 	-- list order to pre-grab (CANCEL). Cleared on drop.
@@ -707,7 +697,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- flow at their natural document positions (no hand-rolled offset); the
 	-- engine translates them via CanvasPosition. Reorder drag math and
 	-- keep-visible read this mirror to stay canvas-correct while scrolled.
-	local scrollTop = scope:own(core:signal(0))
+	local scrollTop = Compose.cell(0)
 	-- native scroll seam state: the keep-visible controller + the mounted body
 	-- path, wired by api.bindNativeScroll (the control cannot reach the renderer
 	-- controller at build time). mountedRoot is captured in buildFocusGroups.
@@ -719,7 +709,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		the scroll clamp, a row's own top, the reorder insertion slot and its
 		hairline, keep-visible, and (when `virtualized`) which rows the viewport
 		touches — is answered here, by `src/virtual_extents.luau`: the same prefix
-		sum `newVirtualList` windows by.
+		sum `UI.VirtualList` windows by.
 
 		WHY IT IS THE SHARED ONE AND NOT THREE LOCAL LOOPS. It was three: a
 		key->cumulative-top memo, a `contentHeight()` that re-summed the same
@@ -727,7 +717,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		midpoint rule. Three copies of one prefix sum is the same defect class this
 		codebase already carries at a larger scale in its gesture machinery — four
 		implementations that duplicate state and math, and no file imports more than
-		one of them — being re-committed small, and it is what made `newTable`
+		one of them — being re-committed small, and it is what made `UI.Table`
 		virtualization impossible to
 		land honestly: windowing has to agree with painting to the pixel, and it
 		cannot agree with three answers.
@@ -749,24 +739,26 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 
 		`slotOf` bridges Table's KEY addressing to the index's INDEX addressing;
 		everything in this file that knows a row knows it by key. ]]
-	local layoutIndex = scope:own(core:memo(function(use)
-		-- `use`d, not read: a derived row height moves every offset below it, so a
-		-- theme swap or an accessibility text change has to re-derive these
-		local box = use(rowBox)
-		local gap = use(rowGapPx)
-		local items = use(spec.rows) :: { any }
-		local extents = table.create(math.max(#items, 1))
-		local slotOf: { [string]: number } = {}
-		local keys = table.create(math.max(#items, 1))
-		for i, item in items do
-			extents[i] = rowHeightOf(item, box)
-			keys[i] = spec.key(item)
-			slotOf[keys[i]] = i
-		end
-		return { ix = virtual_extents.variable(extents, gap), slotOf = slotOf, keys = keys }
-	end))
+	local layoutIndex = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			-- `use`d, not read: a derived row height moves every offset below it, so a
+			-- theme swap or an accessibility text change has to re-derive these
+			local box = use(rowBox)
+			local gap = use(rowGapPx)
+			local items = use(spec.rows) :: { any }
+			local extents = table.create(math.max(#items, 1))
+			local slotOf: { [string]: number } = {}
+			local keys = table.create(math.max(#items, 1))
+			for i, item in items do
+				extents[i] = rowHeightOf(item, box)
+				keys[i] = spec.key(item)
+				slotOf[keys[i]] = i
+			end
+			return { ix = virtual_extents.variable(extents, gap), slotOf = slotOf, keys = keys }
+		end)
+	end)
 	local function layoutNow(): any
-		return layoutIndex:get() :: any
+		return layoutIndex:peek() :: any
 	end
 	local function contentHeight(): number
 		return layoutNow().ix.content
@@ -775,7 +767,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		return math.clamp(value, 0, math.max(0, contentHeight() - bodyHeight))
 	end
 	--[[ ── THE VIEWPORT, AND WHY IT IS MEASURED RATHER THAN DECLARED ──────────────
-		`newVirtualList` makes the consumer hand in `viewportExtent`, because its
+		`UI.VirtualList` makes the consumer hand in `viewportExtent`, because its
 		root IS the scroll host and it has no other way to know. Table's body is a
 		`fill` child of a VStack that also holds a header and possibly a toolbar, so
 		the consumer does not know this number either — and asking for it would be
@@ -818,21 +810,23 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		if env == nil then
 			return 0
 		end
-		local rect: any = env:get("viewportRect"):get()
+		local rect: any = env:get("viewportRect"):peek()
 		return if type(rect) == "table" and type(rect.h) == "number" then rect.h else 0
 	end
-	local viewportH = scope:own(core:signal(screenSeed()))
-	local clampedTop = scope:own(core:memo(function(use)
-		local content = (use(layoutIndex) :: any).ix.content
-		return math.clamp(use(scrollTop), 0, math.max(0, content - use(viewportH)))
-	end))
+	local viewportH = Compose.cell(screenSeed())
+	local clampedTop = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local content = (use(layoutIndex) :: any).ix.content
+			return math.clamp(use(scrollTop), 0, math.max(0, content - use(viewportH)))
+		end)
+	end)
 	--[[ ── SCROLL ANCHORING (virtualized only) ────────────────────────────────────
 		THE DEFECT THIS EXISTS TO PREVENT, in Table's own vocabulary: a row's height
 		here is DERIVED, so it moves under the PLAYER — raise the accessibility text
 		preference two hundred rows into a list and every offset above the viewport
 		grows, which slides the content under the eye by however much the rows above
 		gained. This repo has the jump recorded from exactly this shape, and
-		`newVirtualList` already carries the same guard for the same reason
+		`UI.VirtualList` already carries the same guard for the same reason
 		(its variable-extent path, `docs/plans/variable-item-extents.md`).
 
 		THE RULE: remember which item is under the viewport's LEADING EDGE and how
@@ -848,7 +842,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		the solver from the top, so generalizing this would change what every
 		shipped table does when a row above the viewport grows — a behaviour change
 		no measurement has asked for. Flagged, not smuggled: it is the same
-		follow-up `newVirtualList` already carries for its uniform path. ]]
+		follow-up `UI.VirtualList` already carries for its uniform path. ]]
 	local anchorKey: string? = nil
 	local anchorDelta = 0
 	if virtualized then
@@ -859,8 +853,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			would silently become a no-op that still passes every structural check.
 			`scrollTop` is written by exactly one thing — the engine's CanvasPosition
 			mirror — so it moves when, and only when, the PLAYER moved. ]]
-		scope:own(core:observe(scrollTop, function()
-			local top = clampedTop:get() :: number
+		owner.watchStatic(scrollTop, function()
+			if building then
+				return
+			end
+			local top = clampedTop:peek() :: number
 			local layout = layoutNow()
 			if #layout.keys == 0 then
 				anchorKey = nil
@@ -872,8 +869,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			first = math.clamp(first, 1, #layout.keys)
 			anchorKey = layout.keys[first]
 			anchorDelta = top - layout.ix.offsetOf(first)
-		end))
-		scope:own(core:observe(layoutIndex, function(layout: any)
+		end)
+		owner.watchStatic(layoutIndex, function(layout: any)
+			if building then
+				return
+			end
 			local key = anchorKey
 			if key == nil or boundController == nil then
 				return
@@ -885,7 +885,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			local target =
-				math.clamp(layout.ix.offsetOf(slot) + anchorDelta, 0, math.max(0, layout.ix.content - viewportH:get()))
+				math.clamp(layout.ix.offsetOf(slot) + anchorDelta, 0, math.max(0, layout.ix.content - viewportH:peek()))
 			--[[ AGAINST THE RAW MIRROR, NOT THE CLAMPED MEMO, and it is not a
 				nicety. `clampedTop` is what the FRAMEWORK believes; `scrollTop` is
 				where the ENGINE actually is, and this observer's whole job is to move
@@ -895,11 +895,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				thousand pixels past the last row, so nothing is written and the player
 				is left staring at blank space. Measured: 400 rows shrinking 43px -> 40px
 				at the end of the list left the engine 1200px out of range. ]]
-			if math.abs(target - scrollTop:get()) < 0.5 then
+			if math.abs(target - scrollTop:peek()) < 0.5 then
 				return
 			end
 			boundController.scrollTo(boundScrollPath or ((mountedRoot or "") .. "/Main/Body"), { x = 0, y = target })
-		end))
+		end)
 	end
 	--[[ THE AUTO EDIT/DONE TOGGLE, AND THE PRINCIPLE BEHIND IT ===================
 
@@ -1023,9 +1023,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local showAutoToggle = if autoEditRoute
 		then (
 			if surfaceEnvironment ~= nil
-				then scope:own(core:memo(function(use)
-					local classes = use(surfaceEnvironment:get("interactionClasses"))
-					--[[ ...AND A KEYBOARD-ONLY SESSION THAT MUST REORDER (M-4, 2026-08-18).
+				then Compose.withOwner(owner, function()
+					return Compose.formula(function(use)
+						local classes = use(surfaceEnvironment:get("interactionClasses"))
+						--[[ ...AND A KEYBOARD-ONLY SESSION THAT MUST REORDER (M-4, 2026-08-18).
 					The union was `touch or gamepad`, on the argument written above: a
 					MOUSE user reaches both capabilities without edit mode, because they
 					drag rows directly and a plain click selects. A keyboard has neither
@@ -1042,7 +1043,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 					because a keyboard beside a mouse is a desktop session, and widening
 					this to "any keyboard" would put an Edit button on every desktop
 					table in the framework to serve a session that does not exist there. ]]
-					--[[ ...AND IT ASKS THE RAW CAPABILITY, not `classes.pointer`, because
+						--[[ ...AND IT ASKS THE RAW CAPABILITY, not `classes.pointer`, because
 						the two answer different questions. `interactionClasses` has a
 						last-resort branch — a device with no mouse, no touch and no pad is
 						called pointer-primary rather than left with no primary at all — so
@@ -1052,22 +1053,28 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 						something that can drag a row. Absent capabilities default to a
 						mouse (`environment.luau`'s own `FACT_DEFAULTS`), so an env nobody
 						has told anything to is a desktop and shows nothing, as before. ]]
-					local caps = use(surfaceEnvironment:get("capabilities"))
-					local hasMouse = if type(caps) == "table" then caps.mouse == true else true
-					local keyboardOnlyReorder = reorderNeedsEditMode and classes.keyboard == true and not hasMouse
-					return classes.touch == true or classes.gamepad == true or keyboardOnlyReorder
-				end))
-				else scope:own(core:signal(true))
+						local caps = use(surfaceEnvironment:get("capabilities"))
+						local hasMouse = if type(caps) == "table" then caps.mouse == true else true
+						local keyboardOnlyReorder = reorderNeedsEditMode and classes.keyboard == true and not hasMouse
+						return classes.touch == true or classes.gamepad == true or keyboardOnlyReorder
+					end)
+				end)
+				else Compose.cell(true)
 		)
-		else scope:own(core:signal(false))
-	scope:own(core:observe(editingSignal, function(on)
+		else Compose.cell(false)
+	owner.watchStatic(editingSignal, function(on)
+		if building then
+			return
+		end
 		if on ~= true then
 			grabbedKey:set(nil)
 		end
-	end))
-	local editToggleLabel = scope:own(core:memo(function(use)
-		return if use(editingSignal) then "Done" else "Edit"
-	end))
+	end)
+	local editToggleLabel = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return if use(editingSignal) then "Done" else "Edit"
+		end)
+	end)
 	-- edit mode insets every row's cells into a LEADING gutter for the ≡
 	-- handle (iOS list-edit convention; director 2026-07-20)
 	local HANDLE_GUTTER = 32
@@ -1098,55 +1105,55 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		bottom = "chromeInsets.selection.bottom",
 		left = "chromeInsets.selection.left",
 	}
-	local cellsEditPadding = scope:own(core:memo(function(use)
-		-- ...AND ONLY WHERE EDIT MODE HAS SOMETHING TO PUT IN THE GUTTER (ISSUE-5):
-		-- `canEditMode` gates the inset and its content together, so a table that
-		-- cannot reach the mode never insets for it. See that predicate's own note.
-		if not use(editingSignal) or not canEditMode then
-			return ROW_ART
-		end
-		-- edit mode adds the leading ≡ gutter ON TOP of the art's own inset.
-		--
-		-- It used to REPLACE it, because "a metric name and a number cannot be
-		-- added here (the metric resolves at solve time)". That is no longer true:
-		-- `snapshot.resolveSides` grew multi-metric sides on 2026-07-27 (for the
-		-- header's two stacked gutters) and every entry may be a number or a metric
-		-- name. Replacing meant that under every skinned package the first cell was
-		-- under-inset by exactly the card's carved border — 16px under Pixel Quest.
-		return {
-			top = ROW_ART.top,
-			right = ROW_ART.right,
-			bottom = ROW_ART.bottom,
-			left = { ROW_ART.left, HANDLE_GUTTER },
-		}
-	end))
+	local cellsEditPadding = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			-- ...AND ONLY WHERE EDIT MODE HAS SOMETHING TO PUT IN THE GUTTER (ISSUE-5):
+			-- `canEditMode` gates the inset and its content together, so a table that
+			-- cannot reach the mode never insets for it. See that predicate's own note.
+			if not use(editingSignal) or not canEditMode then
+				return ROW_ART
+			end
+			-- edit mode adds the leading ≡ gutter ON TOP of the art's own inset.
+			--
+			-- It used to REPLACE it, because "a metric name and a number cannot be
+			-- added here (the metric resolves at solve time)". That is no longer true:
+			-- `snapshot.resolveSides` grew multi-metric sides on 2026-07-27 (for the
+			-- header's two stacked gutters) and every entry may be a number or a metric
+			-- name. Replacing meant that under every skinned package the first cell was
+			-- under-inset by exactly the card's carved border — 16px under Pixel Quest.
+			return {
+				top = ROW_ART.top,
+				right = ROW_ART.right,
+				bottom = ROW_ART.bottom,
+				left = { ROW_ART.left, HANDLE_GUTTER },
+			}
+		end)
+	end)
 	-- column width overrides from resizing: { [columnId]: px }
-	local widthOverrides = scope:own(core:signal({} :: { [string]: number }))
-	-- bumping this remounts rows (resize commits; documented Phase A cost)
-	local widthsVersion = scope:own(core:signal(0))
+	local widthOverrides = Compose.cell({} :: { [string]: number })
 	-- Phase B resize drag: preview guide line state (commit happens on release)
-	local resizing = scope:own(core:signal(false))
-	local previewX = scope:own(core:signal(0))
+	local resizing = Compose.cell(false)
+	local previewX = Compose.cell(0)
 	-- the divider drag's live state, in one record shared BY REFERENCE with
 	-- `controls/table_header.luau` (which starts every one of these gestures) —
 	-- the same spelling, for the same reason, as `rowGesture` above
 	local resizeGesture: table_header.ResizeGesture = { drag = nil }
 	-- the row-actions ⊖ gutter: written by `table_rows` (noteEditGutter), spent by
 	-- `table_header` (headerPadding). Owned here because both halves hold it.
-	local rowEditGutter = scope:own(core:signal(0))
+	local rowEditGutter = Compose.cell(0)
 	-- Phase B row drag: drop indicator state; commits via spec.onReorder.
 	-- suppression is armed at the drag THRESHOLD (not on release) and keyed to
 	-- the origin row's path, so it neither depends on the engine's unspecified
 	-- Activated-vs-InputEnded ordering nor leaks to taps on other rows.
-	local dragging = scope:own(core:signal(false))
-	local indicatorY = scope:own(core:signal(0))
+	local dragging = Compose.cell(false)
+	local indicatorY = Compose.cell(0)
 	-- drag affordance: the row STAYS in place (director round 2 — removing it
 	-- made the table jump); the ghost chip + drop line carry the "picked up"
 	-- read, and the drop converts full-list slots to the post-removal contract
-	local ghostText = scope:own(core:signal(""))
-	local ghostCount = scope:own(core:signal(1))
-	local ghostX = scope:own(core:signal(0))
-	local ghostY = scope:own(core:signal(0))
+	local ghostText = Compose.cell("")
+	local ghostCount = Compose.cell(1)
+	local ghostX = Compose.cell(0)
+	local ghostY = Compose.cell(0)
 	--[[ THE ROW BUILDER'S LIVE GESTURE STATE, IN ONE RECORD, and it is the ONE
 		mutable cell shared across the builder extraction (2026-08-18,
 		`tools/lune/verify/data/source-cap-ledger.md`). These were two plain upvalues —
@@ -1168,7 +1175,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- cycles its sort. It exists as a first-class STATE rather than as a resize mode
 	-- because selecting a column is the thing you will want to hang the rest of the
 	-- column verbs off later.
-	local selectedColumn = scope:own(core:signal(nil :: string?))
+	local selectedColumn = Compose.cell(nil :: string?)
 	local stepColumnWidth -- assigned with the resize model below
 	local cancelDrag: () -> () -- assigned with the drag handlers below
 	-- range anchor (NSTableView semantics): the last non-range select
@@ -1255,7 +1262,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		region reserves off its BOTTOM and any sibling that must align across THAT
 		boundary drifts identically. ]]
 	local NO_BAR_GUTTER = table.freeze({ right = 0, bottom = 0 })
-	local bodyBarInset = scope:own(core:signal(NO_BAR_GUTTER))
+	local bodyBarInset = Compose.cell(NO_BAR_GUTTER)
 	-- both halves of the alignment have to exist for the gutter to mean anything:
 	-- a headerless table has nothing to line up, and a `scrolls = false` block
 	-- table has no viewport of its own to grow a bar in (its HOST's page scrolls,
@@ -1334,7 +1341,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		-- top-level spec has always refused unknown keys; columns silently
 		-- swallowed them — and `disclose` is exactly the key whose silent typo
 		-- (`disclos = true`) removes an accessibility guarantee with no error.
-		specGuard.assertKnownKeys(`newTable column '{tostring(column.id)}'`, column, COLUMN_KEYS, "column")
+		specGuard.assertKnownKeys(`UI.Table column '{tostring(column.id)}'`, column, COLUMN_KEYS, "column")
 		assert(
 			column.disclose == nil or type(column.disclose) == "boolean",
 			`Table '{tableId}': column '{tostring(column.id)}'.disclose expects boolean, got {typeof(column.disclose)}`
@@ -1375,24 +1382,34 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- AN OVERRIDE IS A COMMITMENT, NOT A GUARANTEE OF SPACE (DIR-4): the committed
 	-- px never move, what clamps is RESOLUTION, and the rule is `table_columns`.
 	-- Nil means "no measurement yet, do not clamp".
-	local availableContentWidth = scope:own(core:signal(nil :: number?))
+	local availableContentWidth = Compose.cell(nil :: number?)
 	-- what the columns do NOT get: the row's own gap and card padding (NEW-3).
 	-- The padding is theme metric NAMES until a snapshot resolves it, and a pure
 	-- rule cannot resolve them — so that half is resolved here, per solve, and
 	-- `table_columns.layout` takes the answer.
-	local cellSides = scope:own(core:memo(function(use): any
-		local env = surfaceEnvironment
-		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-		return themeSnapshot.resolveSides(snap, use(cellsEditPadding))
-	end))
+	local cellSides = Compose.withOwner(owner, function()
+		return Compose.formula(function(use): any
+			local env = surfaceEnvironment
+			local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+			return themeSnapshot.resolveSides(snap, use(cellsEditPadding))
+		end)
+	end)
 	--[[ THE WHOLE BAND'S DIVISION, DECIDED ONCE (DIR-4's own principle, one rule
 		further on). `table_columns.layout` answers for EVERY column in one pass,
 		because a floor is a claim on a shared pool: a per-column `resolveDim` could
 		clamp an override but could never know whether the fill beside it had already
 		taken the room. ADAPT-19 is that gap — see the rule's own header. ]]
-	local columnLayout = scope:own(core:memo(function(use)
-		return table_columns.layout(columns, use(widthOverrides), use(availableContentWidth), spec.gap, use(cellSides))
-	end))
+	local columnLayout = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return table_columns.layout(
+				columns,
+				use(widthOverrides),
+				use(availableContentWidth),
+				spec.gap,
+				use(cellSides)
+			)
+		end)
+	end)
 
 	-- ONE REACTIVE DIM PER COLUMN, SHARED BY THE HEADER AND THE CELLS (DIR-4): a
 	-- rotation must not remount every row, and the two halves must never divide
@@ -1401,9 +1418,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local columnDims: { [string]: any } = {}
 	local function columnDim(column: Column): any
 		if columnDims[column.id] == nil then
-			columnDims[column.id] = scope:own(core:memo(function(use)
-				return (use(columnLayout) :: any).dims[column.id]
-			end))
+			columnDims[column.id] = Compose.withOwner(owner, function()
+				return Compose.formula(function(use)
+					return (use(columnLayout) :: any).dims[column.id]
+				end)
+			end)
 		end
 		return columnDims[column.id]
 	end
@@ -1438,32 +1457,40 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local columnHiddens: { [string]: any } = {}
 	local function columnHidden(column: Column): any
 		if columnHiddens[column.id] == nil then
-			columnHiddens[column.id] = scope:own(core:memo(function(use)
-				return (use(columnLayout) :: any).hiddenSet[column.id] == true
-			end))
+			columnHiddens[column.id] = Compose.withOwner(owner, function()
+				return Compose.formula(function(use)
+					return (use(columnLayout) :: any).hiddenSet[column.id] == true
+				end)
+			end)
 		end
 		return columnHiddens[column.id]
 	end
 	-- the collapsed ids in declaration order, and the count the chip says out loud
-	local hiddenColumns = scope:own(core:memo(function(use)
-		return (use(columnLayout) :: any).hidden
-	end, function(a: any, b: any): boolean
-		if a == nil or b == nil or #a ~= #b then
-			return false
-		end
-		for i = 1, #a do
-			if a[i] ~= b[i] then
+	local hiddenColumns = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return (use(columnLayout) :: any).hidden
+		end, function(a: any, b: any): boolean
+			if a == nil or b == nil or #a ~= #b then
 				return false
 			end
-		end
-		return true
-	end))
-	local anyColumnHidden = scope:own(core:memo(function(use)
-		return #(use(hiddenColumns) :: { string }) > 0
-	end))
-	local moreLabel = scope:own(core:memo(function(use)
-		return `{#(use(hiddenColumns) :: { string })} more`
-	end))
+			for i = 1, #a do
+				if a[i] ~= b[i] then
+					return false
+				end
+			end
+			return true
+		end)
+	end)
+	local anyColumnHidden = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return #(use(hiddenColumns) :: { string }) > 0
+		end)
+	end)
+	local moreLabel = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return `{#(use(hiddenColumns) :: { string })} more`
+		end)
+	end)
 	--[[ ── ONE STATE DECIDES BOTH THE COLLAPSE AND ITS DISCLOSURE ────────────────
 		(review round 1, HIGH-1, 2026-08-20 — and this replaces a build-time
 		`canDiscloseColumns` predicate that scanned the DECLARED widths.)
@@ -1502,50 +1529,21 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	end
 	local headerDim = columnDim
 
-	-- per-row-key selected memos, each in its own child scope so removed
-	-- keys can be pruned (registry-neutral under row churn); row remounts
-	-- from width changes reuse live entries
-	local selectedMemoByKey: { [string]: { scope: any, memo: any } } = {}
-	local function selectedMemo(rowKey: string): any
-		local cached = selectedMemoByKey[rowKey]
-		if cached == nil then
-			local memoScope = scope:child(`sel-{rowKey}`)
-			cached = {
-				scope = memoScope,
-				memo = memoScope:own(core:memo(function(use)
-					-- a grabbed row shows the selected treatment (gamepad
-					-- grab-mode visual)
-					return use(selectedKeys)[rowKey] == true or use(grabbedKey) == rowKey
-				end)),
-			}
-			selectedMemoByKey[rowKey] = cached
+	-- Removed items leave neither selection nor a range anchor behind.
+	owner.watchStatic(spec.rows, function(items)
+		if building then
+			return
 		end
-		return cached.memo
-	end
-
-	-- prune stale per-key memos when rows change. This runs before the rows'
-	-- DERIVED consumers (keyedItems -> ForEach) because the core fires a
-	-- written signal's own observers before its downstream memos' observers —
-	-- removed keys dispose before their rows unmount, live keys untouched.
-	-- selection and the range anchor prune with them: removed rows must never
-	-- linger as phantom selections nor pre-select a re-added key.
-	scope:own(core:observe(spec.rows, function(items)
 		local live: { [string]: boolean } = {}
 		for _, item in items do
 			live[spec.key(item)] = true
-		end
-		for rowKey, entry in selectedMemoByKey do
-			if not live[rowKey] then
-				entry.scope:dispose()
-				selectedMemoByKey[rowKey] = nil
-			end
 		end
 		-- Task 10: a vanished row's row_actions wrapper disposes HERE — before
 		-- the ForEach itself unmounts the row (this observer's own comment,
 		-- above: "removed keys dispose before their rows unmount") — so a
 		-- commit racing a data refresh (the row's key removed mid-gesture)
 		-- sets the wrapper's `disposed` guard before anything else in this
-		-- same reactive flush can act on it. `core:scope()`-rooted (see
+		-- same reactive flush can act on it. `an owner`-rooted (see
 		-- `rowActionsByKey`'s own comment), so nothing else would free it.
 		for rowKey, instance in rowActionsByKey do
 			if not live[rowKey] then
@@ -1553,7 +1551,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				rowActionsByKey[rowKey] = nil
 			end
 		end
-		local current = selectedKeys:get()
+		local current = selectedKeys:peek()
 		local pruned: { [string]: boolean }? = nil
 		for rowKey in current do
 			if not live[rowKey] then
@@ -1571,18 +1569,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		if rowGesture.drag ~= nil and rowGesture.drag.active and not live[rowGesture.drag.rowKey] then
 			cancelDrag()
 		end
-	end))
+	end)
 
-	-- ForEach items: key carries the widths version so a committed resize
-	-- remounts rows with the new dims (pure moves/selection never remount)
-	local keyedItems = scope:own(core:memo(function(use)
-		local version = use(widthsVersion)
-		local out = {}
-		for _, item in use(spec.rows) do
-			table.insert(out, { item = item, tableKey = `{spec.key(item)}@{version}` })
-		end
-		return out
-	end))
 	--[[ ── THE WINDOW ─────────────────────────────────────────────────────────────
 		What the body actually mounts. A flowing table hands the ForEach every row
 		and this memo is never built at all — `virtualized` is construction-only, so
@@ -1593,36 +1581,38 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		re-derives `clampedTop` and re-runs this body, and without an `eq` the memo
 		would notify on every one of those — re-reconciling the ForEach, and with it
 		every row's identity — while the mounted set had not changed at all. Comparing
-		the KEY SEQUENCE means the ForEach hears only about real window changes, so a
-		same-window scroll is what it is on `newVirtualList`: zero framework writes.
+		item references means the ForEach hears about item replacements and real window changes, so a
+		same-window scroll is what it is on `UI.VirtualList`: zero framework writes.
 		(`virtual_list.luau`'s `sameWindow`, same reason, same shape.) ]]
 	local function sameWindow(a: { any }?, b: { any }?): boolean
 		if a == nil or b == nil or #a ~= #b then
 			return false
 		end
 		for i = 1, #a do
-			if a[i].tableKey ~= b[i].tableKey then
+			if a[i] ~= b[i] then
 				return false
 			end
 		end
 		return true
 	end
 	local windowedItems = if not virtualized
-		then keyedItems
-		else scope:own(core:memo(function(use)
-			local all = use(keyedItems) :: { any }
-			local first, last = (use(layoutIndex) :: any).ix.window(use(clampedTop), use(viewportH), OVERSCAN)
-			local out = {}
-			for i = first, math.min(last, #all) do
-				table.insert(out, all[i])
-			end
-			return out
-		end, sameWindow))
+		then spec.rows
+		else Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				local all = use(spec.rows) :: { any }
+				local first, last = (use(layoutIndex) :: any).ix.window(use(clampedTop), use(viewportH), OVERSCAN)
+				local out = {}
+				for i = first, math.min(last, #all) do
+					table.insert(out, all[i])
+				end
+				return out
+			end, sameWindow)
+		end)
 
 	local rowKeyForPath: { [string]: string } = {}
 
 	local function rowGapNow(): number
-		return rowGapPx:get()
+		return rowGapPx:peek()
 	end
 
 	-- insertion slot from a body-relative pointer y over the FULL list (the
@@ -1638,7 +1628,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		gap of 0 they are equal everywhere, which is every table that ships today):
 
 		  * the midpoint is the SLOT's, not the ROW's — `starts[i] + (extent+gap)/2`
-		    rather than `top + extent/2`. The index's is the rule `newVirtualList`
+		    rather than `top + extent/2`. The index's is the rule `UI.VirtualList`
 		    has always used, and the gutter belongs to neither neighbour, so
 		    splitting it is the answer that makes "which side of the boundary am I
 		    on" symmetric.
@@ -1724,11 +1714,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		local rootRect, bodyRect = liveDragRects(rowGesture.drag)
 		-- canvas-relative pointer y: add the scroll mirror so the drop slot
 		-- is correct even while the body is natively scrolled (native §4)
-		local slot, boundaryY = insertSlotAt(pos.y - bodyRect.y + scrollTop:get())
+		local slot, boundaryY = insertSlotAt(pos.y - bodyRect.y + scrollTop:peek())
 		rowGesture.drag.slot = slot
 		-- the drop indicator lives OUTSIDE the scroll region (root overlay),
 		-- so translate the canvas boundary back to viewport space by the mirror
-		indicatorY:set(bodyRect.y - rootRect.y + boundaryY - scrollTop:get())
+		indicatorY:set(bodyRect.y - rootRect.y + boundaryY - scrollTop:peek())
 		ghostX:set(pos.x - rootRect.x + 16)
 		ghostY:set(pos.y - rootRect.y - 13)
 	end
@@ -1791,11 +1781,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		columnHidden = columnHidden,
 		canEditMode = canEditMode,
 		rowEditGutter = rowEditGutter,
-		scope = scope,
+		owner = owner,
 		-- the SAME environment every other read site takes (ISSUE-4): a wrapped
 		-- row's tray metrics must not resolve against a different one
 		surfaceEnvironment = surfaceEnvironment,
-		selectedMemo = selectedMemo,
+		grabbedKey = grabbedKey,
 		itemForKey = itemForKey,
 		applyDragPosition = applyDragPosition,
 		clearPointerDrag = clearPointerDrag,
@@ -1821,21 +1811,23 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		IT IS SHARED RATHER THAN RE-DERIVED, which is the whole lesson of the two
 		defects above it: every sibling in this band that spells its own gutters is
 		one more place for the budgets to come apart. ]]
-	local bandPadding = scope:own(core:memo(function(use)
-		local gutter = use(bodyBarInset)
-		-- the glow gutter is owed only where the body is a clipper that spends it
-		-- (see THE CLIPPER'S GLOW GUTTER): a block table's body reserves nothing,
-		-- so a header that reserved it would sit inside its own rows
-		local glow: any = if bodyPaysGlowGutter then "chromeBleed" else 0
-		return {
-			left = { ROW_ART.left, glow },
-			right = { ROW_ART.right, glow, gutter.right },
-			-- an X-scrolling body reserves off its BOTTOM; Table's body is
-			-- always Y, so this is 0 today and is written from the published
-			-- side rather than assumed away
-			bottom = gutter.bottom,
-		}
-	end))
+	local bandPadding = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local gutter = use(bodyBarInset)
+			-- the glow gutter is owed only where the body is a clipper that spends it
+			-- (see THE CLIPPER'S GLOW GUTTER): a block table's body reserves nothing,
+			-- so a header that reserved it would sit inside its own rows
+			local glow: any = if bodyPaysGlowGutter then "chromeBleed" else 0
+			return {
+				left = { ROW_ART.left, glow },
+				right = { ROW_ART.right, glow, gutter.right },
+				-- an X-scrolling body reserves off its BOTTOM; Table's body is
+				-- always Y, so this is 0 today and is written from the published
+				-- side rather than assumed away
+				bottom = gutter.bottom,
+			}
+		end)
+	end)
 
 	--[[ THE BAND'S OWN ROW GAP — MAX'D AGAINST THE ACTIVE PACKAGE'S CHROME
 		GLOW (task SHOWCASE3, director repro: Samsung Galaxy S22 Ultra preset,
@@ -1870,13 +1862,15 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		class of fact: the requirement is that the seam be AT LEAST the
 		glow's reach, so a flat package (`chromeBleed` 0) leaves the literal
 		2px byte-for-byte untouched. ]]
-	local rowBandGap = scope:own(core:memo(function(use)
-		local env = surfaceEnvironment
-		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-		local base = themeSnapshot.resolveNumber(snap, "controls.table.rowGap") or 0
-		local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
-		return math.max(base, bleed)
-	end))
+	local rowBandGap = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local env = surfaceEnvironment
+			local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+			local base = themeSnapshot.resolveNumber(snap, "controls.table.rowGap") or 0
+			local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
+			return math.max(base, bleed)
+		end)
+	end)
 
 	local children = {}
 	--[[ THE HEADER BAND IS A SIBLING MODULE (2026-08-18) —
@@ -1902,7 +1896,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		canEditMode = canEditMode,
 		HANDLE_GUTTER = HANDLE_GUTTER,
 		rowEditGutter = rowEditGutter,
-		scope = scope,
+		owner = owner,
 		core = core,
 		api = api,
 		controllerOf = function()
@@ -1995,9 +1989,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local rowsForEach = UI.ForEach({
 		id = "Rows",
 		items = windowedItems,
-		key = function(entry)
-			return entry.tableKey
-		end,
+		key = spec.key,
 		row = rowBlueprint,
 	})
 	--[[ ── THE CANVAS (virtualized only) — the same shape newVirtualList uses ─────
@@ -2019,9 +2011,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		than passed through. ]]
 	local canvasHeight = if not virtualized
 		then nil
-		else scope:own(core:memo(function(use)
-			return { type = "fixed", px = (use(layoutIndex) :: any).ix.content }
-		end))
+		else Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				return { type = "fixed", px = (use(layoutIndex) :: any).ix.content }
+			end)
+		end)
 	table.insert(
 		children,
 		(if spec.scrolls == false then UI.VStack else UI.ScrollView)({
@@ -2217,7 +2211,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 					-- carries the label. The standing pattern for dragging
 					-- multiple items anywhere, never a "+N" suffix.
 					local chips = {}
-					local count = math.min(ghostCount:get(), 3)
+					local count = math.min(ghostCount:peek(), 3)
 					-- back-to-front: the deepest chip first so the front chip
 					-- paints last (deterministic z = tree-walk order)
 					for i = count, 1, -1 do
@@ -2277,7 +2271,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 
 	local function orderedKeys(): { string }
 		local keys = {}
-		for _, item in spec.rows:get() do
+		for _, item in spec.rows:peek() do
 			table.insert(keys, spec.key(item))
 		end
 		return keys
@@ -2301,10 +2295,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- grabbed row is selected, else the grabbed row alone (mirrors
 	-- handleGrabNavigate). Used to snapshot the pre-grab origin for §C revert.
 	local function computeGrabBlock(grabbed: string): ({ string }, { [string]: boolean })
-		local selected = selectedKeys:get()
+		local selected = selectedKeys:peek()
 		local block: { string } = {}
 		if selectionMode ~= "none" and selected[grabbed] == true then
-			for _, item in spec.rows:get() :: { any } do
+			for _, item in spec.rows:peek() :: { any } do
 				local key = spec.key(item)
 				if selected[key] == true then
 					table.insert(block, key)
@@ -2329,7 +2323,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local function stayingAbove(blockSet: { [string]: boolean }): number
 		local above = 0
 		local seen = false
-		for _, item in spec.rows:get() :: { any } do
+		for _, item in spec.rows:peek() :: { any } do
 			if blockSet[spec.key(item)] then
 				seen = true
 			elseif not seen then
@@ -2367,7 +2361,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		elseif mode == "range" then
 			selectedKeys:set(rangeKeys(selectionAnchor or rowKey, rowKey))
 		else -- additive toggle (touch idiom and the Phase A default)
-			local next = table.clone(selectedKeys:get())
+			local next = table.clone(selectedKeys:peek())
 			if next[rowKey] then
 				next[rowKey] = nil
 			else
@@ -2513,7 +2507,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- SwiftUI semantics: a new column sorts ascending, the same column flips. The
 	-- data owner observes the binding and re-sorts — the table never does.
 	local function cycleSort(columnId: string)
-		local current = spec.sortOrder:get()
+		local current = spec.sortOrder:peek()
 		local ascending = if current ~= nil and current.column == columnId then not current.ascending else true
 		spec.sortOrder:set({ column = columnId, ascending = ascending })
 	end
@@ -2537,6 +2531,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		isSortable = isSortable,
 		cycleSort = cycleSort,
 		cellContent = rowBuilder.cellContent,
+		components = Facet.surfaces ~= nil,
 	})
 	-- the chip's mounted path, for the anchor the plate opens against and for the
 	-- activate route below. One spelling, read by both.
@@ -2552,7 +2547,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		end
 		-- the built-in Edit/Done toggle flips edit mode
 		if string.match(path, `/{tableIdPattern}/Main/ToggleWhen/then/Toolbar/EditToggle$`) ~= nil then
-			editingSignal:set(not editingSignal:get())
+			editingSignal:set(not editingSignal:peek())
 			return true
 		end
 		--[[ gamepad/keyboard A on a focused row while editing = grab/drop —
@@ -2572,7 +2567,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			through to the ordinary device path here exactly as it does outside
 			edit mode. ]]
 		if
-			editingSignal:get()
+			editingSignal:peek()
 			and meta ~= nil
 			and meta.source == "action"
 			and spec.reorderable == true
@@ -2593,7 +2588,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
 					rowActionsInstance._close()
 				end
-				if grabbedKey:get() == rowKey then
+				if grabbedKey:peek() == rowKey then
 					grabbedKey:set(nil) -- drop
 					grabOrigin = nil
 				else
@@ -2614,7 +2609,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		local headColumn = string.match(path, `/{tableIdPattern}/Main/Header/Head%-(.-)/Column$`)
 		if headColumn ~= nil then
 			if meta ~= nil and meta.source == "action" then
-				selectedColumn:set(if selectedColumn:get() == headColumn then nil else headColumn)
+				selectedColumn:set(if selectedColumn:peek() == headColumn then nil else headColumn)
 				return true
 			end
 			if spec.sortOrder ~= nil and isSortableId(headColumn) then
@@ -2644,7 +2639,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- unambiguously, so forward straight into that row's own
 			-- dispatch via the `_handleActivate` seam it exposes for exactly
 			-- this.
-			local wrappedKey = string.match(path, `/{tableIdPattern}/{ROWS_REGION}/%[.-@%d+%]/RowActions%-(.-)/`)
+			local wrappedKey = string.match(path, `/{tableIdPattern}/{ROWS_REGION}/%[.-%]/RowActions%-(.-)/`)
 			if wrappedKey ~= nil then
 				local rowActionsInstance = rowActionsByKey[wrappedKey]
 				if rowActionsInstance ~= nil then
@@ -2716,7 +2711,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				these tables) opened the row in both modes. So: edit mode may take
 				the tap away from the primary action only when it has a selection
 				to give it to. ]]
-			if spec.onPrimaryAction ~= nil and (selectionMode == "none" or not editingSignal:get()) then
+			if spec.onPrimaryAction ~= nil and (selectionMode == "none" or not editingSignal:peek()) then
 				firePrimaryAction(rowKey)
 				return true
 			end
@@ -2742,7 +2737,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				is handed, so a branch here would be a distinction with no difference.
 				The primary action does not fire either, for the same reason a touch
 				tap's does not in edit mode — edit mode is the selection mode. ]]
-			if deviceEditSelects and meta.source == "action" and editingSignal:get() then
+			if deviceEditSelects and meta.source == "action" and editingSignal:peek() then
 				api.select(rowKey, { mode = "toggle" })
 				return true
 			end
@@ -2761,7 +2756,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		return true
 	end
 
-	-- row hit paths look like <root>/<tableId>/Main/Body/Rows/[<key>@<v>]/Row/Hit
+	-- row hit paths look like <root>/<tableId>/Main/Body/Rows/[<key>]/Row/Hit
 	-- gamepad grab-mode navigation: while a row is grabbed, d-pad up/down
 	-- steps it (or the whole selected block when the grabbed row is selected)
 	-- one slot per press through the standard onReorder contract. Returns
@@ -2772,7 +2767,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		-- resizes it, Up/Down cycles its sort — the two things you can do to a
 		-- column — and nothing else moves while it holds the selection, exactly as
 		-- a grabbed row owns Up/Down.
-		local column = selectedColumn:get()
+		local column = selectedColumn:peek()
 		if column ~= nil then
 			if direction == "left" or direction == "right" then
 				-- swallowed either way: a selection OWNS the stick, so a column with
@@ -2789,8 +2784,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- focus wander off the thing the player is editing
 			return true
 		end
-		local grabbed = grabbedKey:get()
-		if grabbed == nil or editingSignal:get() ~= true or spec.onReorder == nil then
+		local grabbed = grabbedKey:peek()
+		if grabbed == nil or editingSignal:peek() ~= true or spec.onReorder == nil then
 			return false
 		end
 		if direction ~= "up" and direction ~= "down" then
@@ -2798,10 +2793,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		end
 		-- the moving block: the selection (document order) when the grabbed
 		-- row is selected, else the grabbed row alone
-		local selected = selectedKeys:get()
+		local selected = selectedKeys:peek()
 		local block: { string } = {}
 		if selectionMode ~= "none" and selected[grabbed] == true then
-			for _, item in spec.rows:get() :: { any } do
+			for _, item in spec.rows:peek() :: { any } do
 				local key = spec.key(item)
 				if selected[key] == true then
 					table.insert(block, key)
@@ -2823,7 +2818,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		local stayingAbove = 0
 		local stayingTotal = 0
 		local seenBlock = false
-		for _, item in spec.rows:get() :: { any } do
+		for _, item in spec.rows:peek() :: { any } do
 			local key = spec.key(item)
 			if blockSet[key] then
 				seenBlock = true
@@ -2901,7 +2896,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- wrap sends Left to something painted on the right. It stays inside the row,
 	-- which is the property that matters; the honest repair is per-row `exit.up`
 	-- /`exit.down` declarations freeing the group array for edge-side groups the
-	-- way `newVirtualList` uses them (its row group is VERTICAL, so a horizontal
+	-- way `UI.VirtualList` uses them (its row group is VERTICAL, so a horizontal
 	-- strip of buttons cannot be spliced into it at all and its hosted tray needs
 	-- a group of its own). That is a navigation-model change for every table, and
 	-- it is not taken here.
@@ -2969,8 +2964,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- every OTHER caller in this file (see its own comment); it is
 			-- deliberately not used for the wrapper itself, whose real mounted
 			-- path is what focus navigation needs.
-			local wrappedKey = string.match(node.path or "", "/Rows/%[(.-)@%d+%]/RowActions%-[^/]+$")
-			local rowKey = wrappedKey or string.match(derowActionsPath(node.path or ""), "/Rows/%[(.-)@%d+%]/Row$")
+			local wrappedKey = string.match(node.path or "", "/Rows/%[(.-)%]/RowActions%-[^/]+$")
+			local rowKey = wrappedKey or string.match(derowActionsPath(node.path or ""), "/Rows/%[(.-)%]/Row$")
 			if rowKey ~= nil then
 				local order: { string } = {}
 				if wrappedKey ~= nil then
@@ -2993,7 +2988,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		-- rows in DOCUMENT order (the mounted children follow it, but a
 		-- reorder may be mid-flight: trust the data)
 		local ordered: { { key: string, order: { string } } } = {}
-		for _, item in spec.rows:get() :: { any } do
+		for _, item in spec.rows:peek() :: { any } do
 			local entry = rowByKey[spec.key(item)]
 			if entry ~= nil then
 				table.insert(ordered, entry)
@@ -3058,7 +3053,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		if encoded == nil then
 			return nil
 		end
-		return (string.match(encoded, "^(.*)@%d+$"))
+		return encoded
 	end
 
 	-- routes a presenter Adjust (keyboard arrows / dpad / bumpers) when focus
@@ -3074,7 +3069,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if column.resizable ~= true then
 					return false
 				end
-				local current = widthOverrides:get()[columnId]
+				local current = widthOverrides:peek()[columnId]
 				-- the FIRST step of a `fill` column starts from its rendered width,
 				-- not from its minimum: seeded from live geometry when a caller has
 				-- it, else from the last solve the presenter fed us
@@ -3159,7 +3154,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		end
 		local rowTop = layout.ix.offsetOf(slot)
 		local rowHeight = layout.ix.extentOf(slot)
-		local offset = scrollTop:get()
+		local offset = scrollTop:peek()
 		-- ONE implementation of the minimum-distance rule (A-SV2). The SPAN comes
 		-- from the model (a culled row has no solved rect for the renderer's shared
 		-- substrate to read); only the clamp is shared, and it used to be written
@@ -3191,7 +3186,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		player's own racer", "reveal the search hit") may have no path at all, and a
 		verb that only works for rows you can already see is not a verb.
 
-		`newVirtualList.focusKey` is the same idea one control over; this is the
+		`UI.VirtualList.focusKey` is the same idea one control over; this is the
 		half Table needs, without the focus move (Table's focus already follows
 		selection through `handleFocusMoved`). Returns false when the key is not in
 		the data, or when nothing has been mounted/bound yet to scroll. ]]
@@ -3206,11 +3201,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- contribution so the presenter offers it BEFORE its own modal-dismiss, the
 	-- same order the row grab's cancel takes.
 	function api.handleCancel(_focusedPath: string?): boolean
-		if selectedColumn:get() ~= nil then
+		if selectedColumn:peek() ~= nil then
 			selectedColumn:set(nil)
 			return true
 		end
-		if grabbedKey:get() ~= nil then
+		if grabbedKey:peek() ~= nil then
 			if grabOrigin ~= nil and spec.onReorder ~= nil then
 				spec.onReorder(grabOrigin.block, grabOrigin.slot)
 			end
@@ -3218,7 +3213,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			grabbedKey:set(nil)
 			return true
 		end
-		if editingSignal:get() == true then
+		if editingSignal:peek() == true then
 			editingSignal:set(false)
 			return true
 		end
@@ -3238,7 +3233,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- that sees every move wherever it lands, so the release cannot be leaked by a
 	-- path this control never sees.
 	local function releaseColumnOnFocusLeave(path: string?)
-		local held = selectedColumn:get()
+		local held = selectedColumn:peek()
 		if held == nil then
 			return
 		end
@@ -3293,7 +3288,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		-- stars — not just the row hit (director 2026-07-20: focusing a star
 		-- and stepping to the next row must move the selection too)
 		releaseColumnOnFocusLeave(path)
-		local rowKey = api.rowKeyForPath(path) or string.match(path, `/{tableIdPattern}/{ROWS_REGION}/%[(.-)@%d+%]/`)
+		local rowKey = api.rowKeyForPath(path) or string.match(path, `/{tableIdPattern}/{ROWS_REGION}/%[(.-)%]/`)
 		if rowKey == nil then
 			return false
 		end
@@ -3323,7 +3318,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				which is the Finder's model and is deliberately unchanged, because an
 				unmodified arrow replacing was never the defect. ]]
 			local held = heldModifiers()
-			if deviceEditSelects and editingSignal:get() then
+			if deviceEditSelects and editingSignal:peek() then
 				-- the cursor: the ring travels, the selection is Activate's business
 			elseif held.toggle then
 				-- ...and the same cursor a keyboard asks for by hand
@@ -3403,10 +3398,9 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if column.resizable ~= true then
 					return
 				end
-				local overrides = table.clone(widthOverrides:get())
+				local overrides = table.clone(widthOverrides:peek())
 				overrides[columnId] = px
 				widthOverrides:set(overrides)
-				widthsVersion:set(widthsVersion:get() + 1)
 				return
 			end
 		end
@@ -3513,7 +3507,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	function api.bindNativeScroll(controller: any, scrollPath: string?): () -> ()
 		assert(
 			scrollPath ~= nil or mountedRoot ~= nil,
-			"Table.bindNativeScroll: scroll path unknown — present the table (so its mounted path is captured) or pass it explicitly"
+			"UI.Table.bindNativeScroll: scroll path unknown — present the table (so its mounted path is captured) or pass it explicitly"
 		)
 		return mirror.bind(controller, scrollPath or api.scrollPath())
 	end
@@ -3531,12 +3525,12 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- deterministic diagnostic summary (§10.2 control contract dump form;
 	-- uniform seam: every composite control exposes dump())
 	local function dump()
-		local sort = spec.sortOrder and spec.sortOrder:get() or nil
+		local sort = spec.sortOrder and spec.sortOrder:peek() or nil
 		-- SORTED, because `selectedKeys` is a SET and a set's iteration order is
 		-- not stable across runs: an unsorted array would make the dump
 		-- non-deterministic the moment a second row was selected.
 		local selected: { string } = {}
-		for key, on in selectedKeys:get() do
+		for key, on in selectedKeys:peek() do
 			if on then
 				table.insert(selected, key)
 			end
@@ -3548,11 +3542,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			columns = (function()
 				local out = {}
 				for _, column in columns do
-					table.insert(out, { id = column.id, override = widthOverrides:get()[column.id] })
+					table.insert(out, { id = column.id, override = widthOverrides:peek()[column.id] })
 				end
 				return out
 			end)(),
-			rowCount = #(spec.rows:get() :: { any }),
+			rowCount = #(spec.rows:peek() :: { any }),
 			selection = selectionMode,
 			sortOrder = if sort then { column = sort.column, ascending = sort.ascending } else nil,
 			-- THE LIVE INTERACTION STATE A BUG REPORT NEEDS (playbook §2.5).
@@ -3560,10 +3554,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- carried none, so the largest control in the library described only
 			-- its construction. Additive keys — nothing above moved.
 			selectedKeys = selected,
-			grabbedKey = grabbedKey:get(),
-			editing = editingSignal:get(),
-			scrollTop = scrollTop:get(),
-			dragging = dragging:get(),
+			grabbedKey = grabbedKey:peek(),
+			editing = editingSignal:peek(),
+			scrollTop = scrollTop:peek(),
+			dragging = dragging:peek(),
 			reorderable = spec.reorderable == true,
 			--[[ ADAPT-18, and ONLY where the table can collapse at all — so every dump
 				this project has recorded is byte-identical (a nil field is an ABSENT
@@ -3575,7 +3569,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				same build-time predicate the band was, so the one shape that could
 				collapse silently also reported nothing — a bug report about a
 				vanished column got a nil field. A nil is not an answer here. ]]
-			hiddenColumns = hiddenColumns:get(),
+			hiddenColumns = hiddenColumns:peek(),
 			columnPlate = if columnExpand ~= nil then columnExpand.state() else nil,
 			rootPath = mountedRoot,
 			--[[ ONLY UNDER `virtualized`, so every dump this project has ever
@@ -3583,9 +3577,9 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				`table.spec`'s determinism case compares the serialized dump). What a
 				bug report needs from a windowed list is the two numbers that say
 				whether the window is doing its job: how many rows exist and how many
-				are actually in the tree. `newVirtualList.debugWindow()` is the same
+				are actually in the tree. `UI.VirtualList.debugWindow()` is the same
 				information one control over. ]]
-			windowRows = if virtualized then #(windowedItems:get() :: { any }) else nil,
+			windowRows = if virtualized then #(windowedItems:peek() :: { any }) else nil,
 			contentExtent = if virtualized then contentHeight() else nil,
 		}
 	end
@@ -3600,7 +3594,10 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- persists while touch or gamepad stays live). Keyed off the LIVE
 	-- interaction-class set, never preferredInput alone.
 	if surfaceEnvironment ~= nil then
-		scope:own(core:observe(surfaceEnvironment:get("interactionClasses"), function(classes)
+		owner.watchStatic(surfaceEnvironment:get("interactionClasses"), function(classes)
+			if building then
+				return
+			end
 			if type(classes) ~= "table" then
 				return
 			end
@@ -3621,7 +3618,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- (gamepad or keyboard) survives to step or drop the grabbed row, so
 			-- revert the list order to pre-grab and clear the grab. (A live keyboard
 			-- can still step/drop, so grab CARRIES then.)
-			if grabbedKey:get() ~= nil and classes.gamepad ~= true and classes.keyboard ~= true then
+			if grabbedKey:peek() ~= nil and classes.gamepad ~= true and classes.keyboard ~= true then
 				if grabOrigin ~= nil and spec.onReorder ~= nil then
 					(spec.onReorder :: any)(grabOrigin.block, grabOrigin.slot)
 				end
@@ -3637,12 +3634,13 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- which tables auto-show the button widens which ones can be rescued from
 			-- it by exactly the same set. An OWNER-held signal is the owner's
 			-- business — never touched here (and `autoEditRoute` is false then).
-			if autoEditRoute and editingSignal:get() == true and classes.touch ~= true and classes.gamepad ~= true then
+			if autoEditRoute and editingSignal:peek() == true and classes.touch ~= true and classes.gamepad ~= true then
 				editingSignal:set(false)
 			end
-		end))
+		end)
 	end
 
+	building = false
 	return {
 		-- attach the input contribution so the presenter auto-wires the table's
 		-- keyboard/gamepad story (2D groups, row select, grab-mode reorder,
@@ -3672,7 +3670,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				-- signal written on every refresh would re-solve the tree forever.
 				if virtualized and mountedRoot ~= nil then
 					local bodyRect = rectOf(mountedRoot .. "/Main/Body")
-					if bodyRect ~= nil and bodyRect.h ~= viewportH:get() then
+					if bodyRect ~= nil and bodyRect.h ~= viewportH:peek() then
 						viewportH:set(bodyRect.h)
 					end
 				end
@@ -3718,7 +3716,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 					local inset = renderController.scrollBarInsetOf(root .. "/Main/Body")
 					local right = if type(inset) == "table" and type(inset.right) == "number" then inset.right else 0
 					local bottom = if type(inset) == "table" and type(inset.bottom) == "number" then inset.bottom else 0
-					local current = bodyBarInset:get()
+					local current = bodyBarInset:peek()
 					if current.right ~= right or current.bottom ~= bottom then
 						bodyBarInset:set(
 							if right == 0 and bottom == 0 then NO_BAR_GUTTER else { right = right, bottom = bottom }
@@ -3731,8 +3729,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				if root ~= nil then
 					local bodyRect = rectOf(root .. "/Main/Body")
 					if type(bodyRect) == "table" and type(bodyRect.w) == "number" and bodyRect.w > 0 then
-						local width = bodyRect.w - bodyBarInset:get().right
-						if availableContentWidth:get() ~= width then
+						local width = bodyRect.w - bodyBarInset:peek().right
+						if availableContentWidth:peek() ~= width then
 							availableContentWidth:set(width)
 						end
 					end
@@ -3746,7 +3744,12 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- `UI.Region`'s plate takes, through the same seam
 			bindPresent = function(presentModal, dismiss, presentAnchored)
 				if columnExpand ~= nil then
-					columnExpand.contribution.bindPresent(presentModal, dismiss, presentAnchored)
+					local surfaces = Facet.surfaces
+					columnExpand.contribution.bindPresent(
+						if surfaces then surfaces.modal else presentModal,
+						dismiss,
+						if surfaces then surfaces.anchored else presentAnchored
+					)
 				end
 			end,
 			--[[ ADAPT-20: WHERE THIS CONTROL'S DISCLOSURE LIVES relative to its focus
@@ -3791,7 +3794,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			-- stand forever, swallowing directions it no longer owns (see
 			-- `releaseColumnOnFocusLeave`).
 			bindFocusGraph = function(graph)
-				scope:own(core:observe(graph.focused, releaseColumnOnFocusLeave))
+				owner.watchStatic(graph.focused, releaseColumnOnFocusLeave)
 			end,
 			-- THE CLOCK, FOR ONE MEASUREMENT ONLY (parity round 2 §3.4): the
 			-- double-click window. Table animates nothing, so it takes the `now`
@@ -3816,16 +3819,29 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				columnExpand.close()
 			end
 			-- Task 10: every row_actions instance is an INDEPENDENT
-			-- `core:scope()` root (see `rowActionsByKey`'s own comment) —
-			-- `scope:dispose()` below tears down everything Table itself
+			-- `an owner` root (see `rowActionsByKey`'s own comment) —
+			-- `owner.dispose()` below tears down everything Table itself
 			-- owns, but nothing cascades into these on its own.
 			for rowKey, instance in rowActionsByKey do
 				instance.dispose()
 				rowActionsByKey[rowKey] = nil
 			end
-			scope:dispose()
+			owner.dispose()
 		end,
 	}
+end
+
+function table_control.build(Facet, core, spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return buildOwned(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 
 return table_control

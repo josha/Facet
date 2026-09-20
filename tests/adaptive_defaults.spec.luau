@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ADAPT-1 — ADAPTATION ARRIVES BY ITSELF, OR THE CONTROL SAYS SO.
 
 	The audit's spine finding (`artifacts/release-candidate-review/adapt-audit/
@@ -30,15 +31,17 @@ local host = require("../src/client/host")
 local actionsLib = require("../src/input/actions")
 local surfaceEnv = require("../src/env/surface_env")
 local fake_target = require("./lib/fake_target")
+local world = require("./lib/world")
 local fs = require("@lune/fs")
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 
 local TOUCH = { touch = true, mouse = false, keyboard = false, gamepad = false }
 
 -- a surface: core, environment, presenter — in the order the world builds them,
 -- and NOTHING is passed to any control below
 local function surface(w: number, h: number, classes: any?, preferred: string?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	if classes ~= nil then
@@ -49,7 +52,7 @@ local function surface(w: number, h: number, classes: any?, preferred: string?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, system = system, pres = pres }
 end
 
@@ -67,14 +70,14 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 	end)
 
 	it("an unrelated core has nothing to find, and says which of the two reasons", function()
-		local bare = Facet.newCore()
+		local bare = harness.newCore()
 		local found, reason = surfaceEnv.find(bare)
 		expect(found).toBeNil()
 		expect(reason).toBe("none")
 	end)
 
 	it("TWO environments on one core are refused, never resolved by coin flip", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		Facet.newEnvironment(core)
 		Facet.newEnvironment(core)
 		local found, reason = surfaceEnv.find(core)
@@ -82,10 +85,10 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		expect(reason).toBe("ambiguous")
 		-- and a control on that core says so, naming the way out
 		local ok, err = pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "P",
 				options = LONG_OPTIONS,
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 			})
 		end)
 		expect(ok).toBe(false)
@@ -141,7 +144,7 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 	end
 
 	it("MEDIUM-3: an environment nothing else holds is still findable from its core", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		-- every reference to the environment is dropped with the frame that built
 		-- it. A dead local still occupies its register until the frame goes, which
 		-- is how a probe like this lies, so it is a FUNCTION and not a `do` block
@@ -159,10 +162,10 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		local found, reason = surfaceEnv.find(core)
 		expect(`the fact survived: {found ~= nil} ({tostring(reason)})`).toBe("the fact survived: true (nil)")
 		-- ...and it is not merely findable, it still answers: a control builds
-		local picker = Facet.Controls.Picker(core, {
+		local picker = harness.Controls.Picker(core, {
 			id = "P",
 			options = LONG_OPTIONS,
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 		})
 		expect(picker.dump().presentation).toBe("inline")
 		expect(picker.dump().sizeClassFrom).toBe("core")
@@ -172,7 +175,8 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 	it("MEDIUM-3: a core nothing else holds is collected, registration and all", function()
 		local probe: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 		local function build()
-			local core = Facet.newCore()
+			-- built bare: the harness keeps every core it makes for its control library
+			local core = require("../src/core/services").new()
 			probe[core] = true
 			Facet.newEnvironment(core)
 		end
@@ -196,7 +200,7 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		semantics in the answer. A reader who moves it back into a module table
 		reddens this. ]]
 	it("MEDIUM-3: the registration lives on the core, not in a module-level store", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		expect(rawget(core :: any, "__facetSurfaceEnv")).toBeNil()
 		local env = Facet.newEnvironment(core)
 		local live = rawget(core :: any, "__facetSurfaceEnv")
@@ -211,7 +215,7 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		rebuilt — a hot reload, an Edit-mode preview stood back up — was bricked for
 		every adaptive control for the rest of the session, with a build error. ]]
 	it("MEDIUM-3: unpublishing one of two environments restores the unambiguous answer", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local first = Facet.newEnvironment(core)
 		first:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		local second = Facet.newEnvironment(core)
@@ -225,10 +229,10 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		-- teardown may call it twice
 		expect(surfaceEnv.unpublish(core, first)).toBe(false)
 
-		local picker = Facet.Controls.Picker(core, {
+		local picker = harness.Controls.Picker(core, {
 			id = "P",
 			options = LONG_OPTIONS,
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 		})
 		expect(picker.dump().presentation).toBe("segmented") -- the SECOND environment's width
 		picker.dispose()
@@ -249,15 +253,15 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		phone.env:set("displaySize", "Large")
 		local wide = surface(1400, 900)
 		wide.env:set("displaySize", "Large")
-		local onPhone = Facet.Controls.Picker(phone.core, {
+		local onPhone = harness.Controls.Picker(phone.core, {
 			id = "P",
 			options = LONG_OPTIONS,
-			selected = phone.core:signal("a"),
+			selected = Compose.cell("a"),
 		})
-		local onDesktop = Facet.Controls.Picker(wide.core, {
+		local onDesktop = harness.Controls.Picker(wide.core, {
 			id = "P",
 			options = LONG_OPTIONS,
-			selected = wide.core:signal("a"),
+			selected = Compose.cell("a"),
 		})
 		-- FOUR options is the count the ladder still calls segmented; the WIDTH
 		-- axis is the one that was dead, and it is the one this asserts
@@ -271,10 +275,10 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 	it("Picker: an authored size class still wins over the surface's", function()
 		local wide = surface(1400, 900)
 		wide.env:set("displaySize", "Large")
-		local pinned = Facet.Controls.Picker(wide.core, {
+		local pinned = harness.Controls.Picker(wide.core, {
 			id = "P",
 			options = LONG_OPTIONS,
-			selected = wide.core:signal("a"),
+			selected = Compose.cell("a"),
 			sizeClass = "compact",
 		})
 		expect(pinned.dump().presentation).toBe("inline")
@@ -284,9 +288,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 
 	it("PopupButton: touch resolves the SHEET with nothing wired at all", function()
 		local phone = surface(390, 844, TOUCH, "Touch")
-		local popup = Facet.Controls.PopupButton(phone.core, {
+		local popup = harness.Controls.PopupButton(phone.core, {
 			id = "Choice",
-			value = phone.core:signal("one"),
+			value = Compose.cell("one"),
 			options = {
 				{ id = "one", label = "One" },
 				{ id = "two", label = "Two" },
@@ -299,9 +303,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		popup.dispose()
 
 		local desktop = surface(1400, 900)
-		local pointer = Facet.Controls.PopupButton(desktop.core, {
+		local pointer = harness.Controls.PopupButton(desktop.core, {
 			id = "Choice",
-			value = desktop.core:signal("one"),
+			value = Compose.cell("one"),
 			options = {
 				{ id = "one", label = "One" },
 				{ id = "two", label = "Two" },
@@ -315,7 +319,7 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 
 	it("Menu: the same rung, through the same recipe, unwired", function()
 		local phone = surface(390, 844, TOUCH, "Touch")
-		local menu = Facet.Controls.Menu(phone.core, {
+		local menu = harness.Controls.Menu(phone.core, {
 			id = "M",
 			trigger = UI.Button({ id = "T", label = "More" }),
 			items = {
@@ -335,7 +339,7 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		comparison would have passed with the fix removed. The gap is the fact.) ]]
 	it("LevelPicker: the touch run is wider than the pointer run, with no `env` key", function()
 		local function markGap(s: any): number
-			local picker = Facet.Controls.LevelPicker(s.core, { id = "L", value = s.core:signal(3), count = 5 })
+			local picker = harness.Controls.LevelPicker(s.core, { id = "L", value = Compose.cell(3), count = 5 })
 			s.pres.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
 			s.pres.refresh()
 			local first = s.adapter.node("/S/L/Levels/Level1")
@@ -359,9 +363,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 			plate." Wired, it was already correct: 44 on touch, 36 on pointer. The
 			ladder was right and nobody was climbing it. ]]
 		local function rowHeight(s: any): number
-			local tbl = Facet.Controls.Table(s.core, {
+			local tbl = harness.Controls.Table(s.core, {
 				id = "T",
-				rows = s.core:signal({ { id = "a", name = "Aria" }, { id = "b", name = "Bo" } }),
+				rows = Compose.cell({ { id = "a", name = "Aria" }, { id = "b", name = "Bo" } }),
 				key = function(item: any)
 					return item.id
 				end,
@@ -379,7 +383,7 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 			})
 			s.pres.present(UI.Screen({ id = "S", children = { tbl.blueprint } }))
 			s.pres.refresh()
-			local row = s.adapter.node("/S/T/Main/Body/Rows/[a@0]/Row")
+			local row = s.adapter.node("/S/T/Main/Body/Rows/[a]/Row")
 			expect(`row solved: {row ~= nil}`).toBe("row solved: true")
 			return row.rect.h
 		end
@@ -395,9 +399,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		-- the two escapes, because a channel that cannot be overridden is a channel
 		-- an author cannot reason about
 		local phone = surface(390, 844, TOUCH, "Touch")
-		local pinned = Facet.Controls.Table(phone.core, {
+		local pinned = harness.Controls.Table(phone.core, {
 			id = "P",
-			rows = phone.core:signal({ { id = "a", name = "Aria" } }),
+			rows = Compose.cell({ { id = "a", name = "Aria" } }),
 			key = function(item: any)
 				return item.id
 			end,
@@ -415,7 +419,7 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 		})
 		phone.pres.present(UI.Screen({ id = "S", children = { pinned.blueprint } }))
 		phone.pres.refresh()
-		expect(phone.adapter.node("/S/P/Main/Body/Rows/[a@0]/Row").rect.h).toBe(52)
+		expect(phone.adapter.node("/S/P/Main/Body/Rows/[a]/Row").rect.h).toBe(52)
 	end)
 
 	it("Table: the row box and the COLUMN RESERVATION read one environment (R1-I4)", function()
@@ -452,9 +456,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 			if themed then
 				s.env:set("themeMetrics", Facet.themes.resolve(pixelQuest.build(Facet.themes), nil, {}))
 			end
-			local tbl = Facet.Controls.Table(s.core, {
+			local tbl = harness.Controls.Table(s.core, {
 				id = "T",
-				rows = s.core:signal({ { id = "a", name = "Aria" } }),
+				rows = Compose.cell({ { id = "a", name = "Aria" } }),
 				key = function(item: any)
 					return item.id
 				end,
@@ -502,9 +506,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 
 	it("TextInput: the field lifts itself off the keyboard with no `env` key", function()
 		local phone = surface(390, 844, TOUCH, "Touch")
-		local field = Facet.Controls.TextInput(phone.core, {
+		local field = harness.Controls.TextInput(phone.core, {
 			id = "Name",
-			value = phone.core:signal("hello"),
+			value = Compose.cell("hello"),
 			actionSystem = phone.system,
 		})
 		phone.pres.present(UI.Screen({ id = "S", children = { field.blueprint } }), {
@@ -531,9 +535,9 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 
 	it("TabView: an automatic placement no longer needs the author to hand it anything", function()
 		local phone = surface(390, 844, TOUCH, "Touch")
-		local tabs = Facet.Controls.TabView(phone.core, {
+		local tabs = harness.Controls.TabView(phone.core, {
 			id = "TV",
-			selection = phone.core:signal("a"),
+			selection = Compose.cell("a"),
 			tabs = {
 				{
 					id = "a",
@@ -559,7 +563,7 @@ end)
 
 describe("ADAPT-1: a control that cannot get its facts refuses, naming the host", function()
 	local function refusal(build: (core: any) -> ()): string
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			build(core)
 		end)
@@ -570,24 +574,24 @@ describe("ADAPT-1: a control that cannot get its facts refuses, naming the host"
 	it("Picker, PopupButton, Menu and TextInput each name the fix, not the symptom", function()
 		local messages = {
 			refusal(function(core)
-				Facet.Controls.Picker(core, { id = "P", options = LONG_OPTIONS, selected = core:signal("a") })
+				harness.Controls.Picker(core, { id = "P", options = LONG_OPTIONS, selected = Compose.cell("a") })
 			end),
 			refusal(function(core)
-				Facet.Controls.PopupButton(core, {
+				harness.Controls.PopupButton(core, {
 					id = "C",
-					value = core:signal("one"),
+					value = Compose.cell("one"),
 					options = { { id = "one", label = "One" }, { id = "two", label = "Two" } },
 				})
 			end),
 			refusal(function(core)
-				Facet.Controls.Menu(core, {
+				harness.Controls.Menu(core, {
 					id = "M",
 					trigger = UI.Button({ id = "T", label = "More" }),
 					items = { { id = "a", label = "Rename", onSelect = function() end } },
 				})
 			end),
 			refusal(function(core)
-				Facet.Controls.TextInput(core, { id = "F", value = core:signal("") })
+				harness.Controls.TextInput(core, { id = "F", value = Compose.cell("") })
 			end),
 		}
 		for _, message in messages do
@@ -599,11 +603,11 @@ describe("ADAPT-1: a control that cannot get its facts refuses, naming the host"
 	end)
 
 	it("...and a DECLARED presentation consults no ladder, so it never refuses", function()
-		local core = Facet.newCore()
-		local declared = Facet.Controls.Picker(core, {
+		local core = harness.newCore()
+		local declared = harness.Controls.Picker(core, {
 			id = "P",
 			options = LONG_OPTIONS,
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 			presentation = "segmented",
 		})
 		expect(declared.dump().presentation).toBe("segmented")
@@ -646,55 +650,30 @@ describe("ADAPT-1: the client host is what makes this free on a real surface", f
 	end)
 
 	it("a hosted screen's controls adapt with zero authoring", function()
-		local adapter = fake_target.new()
-		local frames: { (dt: number) -> () } = {}
-		local h = host.new({
-			newAdapter = function()
-				return adapter
-			end,
-			newInputSystem = function(core: any)
-				return actionsLib.newSystem(core)
-			end,
-			bindEnv = function(env: any)
-				-- the engine's own facts, as the real binder would deliver them
-				env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-				env:set("capabilities", TOUCH)
-				env:set("preferredInput", "Touch")
-				return function() end
-			end,
-			connectFrame = function(fn)
-				table.insert(frames, fn)
-				return function() end
-			end,
-		})
-
+		-- the engine's own facts, as the real binder would deliver them
+		local w = world.new({ capabilities = TOUCH, preferredInput = "Touch" })
 		-- the author writes this and nothing else
-		local picker = Facet.Controls.Picker(h.core, {
-			id = "P",
-			options = LONG_OPTIONS,
-			selected = h.core:signal("a"),
-		})
-		local popup = Facet.Controls.PopupButton(h.core, {
-			id = "C",
-			value = h.core:signal("one"),
-			options = {
-				{ id = "one", label = "One" },
-				{ id = "two", label = "Two" },
-				{ id = "three", label = "Three" },
-				{ id = "four", label = "Four" },
-			},
-		})
-		h.presenter.present(UI.Screen({ id = "S", children = { picker.blueprint, popup.blueprint } }))
-		for _, fn in frames do
-			fn(1 / 60)
-		end
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Picker("P")({ options = LONG_OPTIONS, selected = w.Compose.cell("a") }),
+				w.UI.PopupButton("C")({
+					value = w.Compose.cell("one"),
+					options = {
+						{ id = "one", label = "One" },
+						{ id = "two", label = "Two" },
+						{ id = "three", label = "Three" },
+						{ id = "four", label = "Four" },
+					},
+				}),
+			})
+		end)
+		w.settle()
 		-- a nearby touch surface: the automatic picker is the MENU (2026-09-11)
+		local picker = w.record("P")
 		expect(picker.dump().presentation).toBe("menu")
 		expect(picker.dump().sizeClassFrom).toBe("core")
-		expect(popup.presentation()).toBe("sheet")
-		picker.dispose()
-		popup.dispose()
-		h.dispose()
+		expect(w.record("C").presentation()).toBe("sheet")
+		w.close()
 	end)
 end)
 
@@ -719,7 +698,7 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 
 		The first version of this guard enumerated four names by hand, which is the
 		one thing a guard against "somebody forgot" must not do: it checked the four
-		an author remembered and was blind to the fifth. `newTabView` had refused for
+		an author remembered and was blind to the fifth. `UI.TabView` had refused for
 		want of an environment since `44a495f` — under the exact criterion this
 		block's own title states — with an api.md section that named neither the
 		refusal nor the environment, and the guard could not see it.
@@ -727,12 +706,12 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 		So the input is the SOURCE. A control refuses for want of the environment in
 		exactly one of two shapes today, and both are read out of `src/controls/`:
 
-		  1. it calls the shared refusal helper, `surfaceEnv.resolve("newX", …)`,
+		  1. it calls the shared refusal helper, `surfaceEnv.resolve("UI.X", …)`,
 		     whose message always names the environment and the host — the picker,
 		     popup button, menu and text field;
 		  2. it raises its own construction error in the framework's uniform
-		     `Facet newX('<id>'): …` shape, with an environment named inside it —
-		     `newTabView`, which predates the helper and keeps its own message
+		     `Facet UI.X('<id>'): …` shape, with an environment named inside it —
+		     `UI.TabView`, which predates the helper and keeps its own message
 		     because it has three routes to report rather than two.
 
 		Shape 2 is matched through a WINDOW of characters after the error prefix,
@@ -749,10 +728,10 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 	-- the control names a single source refuses under, by the two shapes above
 	local function refusalsIn(source: string): { [string]: boolean }
 		local found: { [string]: boolean } = {}
-		for name in string.gmatch(source, 'surfaceEnv%.resolve%(%s*"(new%w+)"') do
+		for name in string.gmatch(source, 'surfaceEnv%.resolve%(%s*"(UI%.%w+)"') do
 			found[name] = true
 		end
-		for at, name in string.gmatch(source, "()Facet (new%w+)%('") do
+		for at, name in string.gmatch(source, "()Facet (UI%.%w+)%('") do
 			local window = string.sub(source, math.max(1, at - 200), at + REFUSAL_WINDOW)
 			if string.find(window, "environment", 1, true) ~= nil then
 				found[name] = true
@@ -779,12 +758,12 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 		return out
 	end
 
-	-- api.md's `### \`newX\`` sections, each running to the next heading
+	-- Match documented namespace members to constructor diagnostic names.
 	local function sectionsOf(apiText: string): { [string]: string }
 		local sections: { [string]: string } = {}
 		local order: { { name: string, at: number } } = {}
-		for at, name in string.gmatch(apiText, "()### `(new%w+)`") do
-			table.insert(order, { name = name, at = at })
+		for at, name in string.gmatch(apiText, "()### `UI%.(%w+)`") do
+			table.insert(order, { name = "UI." .. name, at = at })
 		end
 		for index, entry in order do
 			local stop = if order[index + 1] ~= nil then order[index + 1].at - 1 else #apiText
@@ -811,23 +790,10 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 		return missing
 	end
 
-	it("the refusing controls are read out of the sources, and there are seven today", function()
-		--[[ `newVirtualList` joined them in the CAROUSEL wave: `itemExtent = "cards"`
-			with no authored `cards.perView` arranges the rail from the live
-			interaction class and the space it got, so it refuses without an
-			environment rather than silently taking the large-screen answer.
-
-			`newVirtualGrid` joined on 2026-08-22 for a NARROWER reason, and
-			it is worth naming because it is the first entry here that refuses only
-			SOMETIMES. It adapts nothing; what it needs an environment for is a fact —
-			the live theme snapshot a metric-name gutter resolves against, and the
-			screen `viewportExtent = "auto"` seeds its first window from. So it
-			refuses on an AMBIGUOUS core (more than one live environment: the
-			framework would be guessing which surface this grid belongs to) and only
-			when the build actually asks for one of those two facts. A plain numeric
-			grid on the same core is built without complaint. ]]
+	it("the refusing controls are read out of the sources, and there are ten today", function()
 		expect(table.concat(refusingControls(), " ")).toBe(
-			"newMenu newPicker newPopupButton newTabView newTextInput newVirtualGrid newVirtualList"
+			"UI.Alert UI.Menu UI.Picker UI.PopupButton UI.RadialMenu UI.SplitButton UI.TabView UI.TextInput "
+				.. "UI.VirtualGrid UI.VirtualList"
 		)
 	end)
 
@@ -837,18 +803,18 @@ describe("ADAPT-1: every control that can refuse for want of the environment say
 		the guard below would pass by having nothing to check. ]]
 	it("a control that refuses in either shape is discovered by the scan itself", function()
 		local viaHelper = [[
-			local env = surfaceEnv.resolve("newSynthetic", id, core, spec.env, "it adapts")
+			local env = surfaceEnv.resolve("UI.Synthetic", id, core, spec.env, "it adapts")
 		]]
 		local viaOwnError = [[
-			error(`Facet newOther('{id}'): an automatic thing reads a policy, so it needs an environment.`, 0)
+			error(`Facet UI.Other('{id}'): an automatic thing reads a policy, so it needs an environment.`, 0)
 		]]
 		local silent = [[
-			error(`Facet newQuiet('{id}'): \`options\` must be a non-empty array`, 0)
+			error(`Facet UI.Quiet('{id}'): \`options\` must be a non-empty array`, 0)
 		]]
-		expect(refusalsIn(viaHelper).newSynthetic).toBe(true)
-		expect(refusalsIn(viaOwnError).newOther).toBe(true)
+		expect(refusalsIn(viaHelper)["UI.Synthetic"]).toBe(true)
+		expect(refusalsIn(viaOwnError)["UI.Other"]).toBe(true)
 		-- ...and a construction error that is NOT about the environment is not one
-		expect(refusalsIn(silent).newQuiet).toBeNil()
+		expect(refusalsIn(silent)["UI.Quiet"]).toBeNil()
 	end)
 
 	it("each discovered control's own section names the refusal and the environment", function()

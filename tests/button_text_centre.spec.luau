@@ -59,8 +59,6 @@ local lt = require("./lib/large_text")
 local snapshot = require("../src/themes/snapshot")
 local chrome_slots = require("../src/tokens/chrome_slots")
 
-local UI = Facet.UI
-
 -- every package the library ships as a reference, in the order `theme_sweep`
 -- and `chrome_inset_yield` already name them
 local PACKAGES = {
@@ -115,52 +113,47 @@ end
 	under the same solve, which is what makes the four numbers comparable. ]]
 local function world(name: string, offset: number)
 	local w = lt.world({ viewport = PHONE, offset = offset, theme = { id = name, metrics = metricsOf(name) } })
-	local disclosure = Facet.Controls.DisclosureGroup(w.core, {
-		id = "Advanced",
-		label = "Advanced",
-		expanded = w.core:signal(false),
-		content = function()
-			return UI.Text({ id = "Body", text = "body" })
-		end,
-	})
-	local picker = Facet.Controls.Picker(w.core, {
-		id = "Quality",
-		label = "Quality",
-		selected = w.core:signal("b"),
-		options = {
-			{ value = "a", label = "Performance" },
-			{ value = "b", label = "Balanced" },
-			{ value = "c", label = "Fidelity" },
-		},
-	})
+	local UI, Compose = w.UI, w.Compose
+	local function noop() end
 	-- THE TALL MARK IS A `Box`, NOT AN ICON, in both the Button case and its
 	-- negative control: the two arms must differ in exactly ONE way (inside a
 	-- control or not), and an icon-hinted Text is reserved at a size that varies
 	-- per package, which would make them differ in two.
 	local function mark()
-		return UI.Box({ id = "Mark", width = { type = "fixed", px = 32 }, height = { type = "fixed", px = 32 } })
+		return UI.Box("Mark")({ width = { type = "fixed", px = 32 }, height = { type = "fixed", px = 32 } })
 	end
 	local function word()
-		return UI.Text({ id = "Word", text = "Advanced" })
+		return UI.Text("Word")({ text = "Advanced" })
 	end
-	w.present(UI.Screen({
-		id = "S",
-		padding = "m",
-		children = {
-			UI.VStack({
-				id = "V",
+	w.present(function()
+		return UI.Screen("S")({
+			padding = "m",
+			UI.VStack("V")({
 				width = UI.fill(),
 				gap = "m",
-				children = {
-					UI.Button({ id = "Plain", label = "Advanced", width = UI.fill() }),
-					UI.Button({ id = "Iconed", label = "Advanced", width = UI.fill(), children = { mark(), word() } }),
-					UI.HStack({ id = "Loose", width = UI.fill(), children = { mark(), word() } }),
-					disclosure.blueprint,
-					picker.blueprint,
-				},
+				UI.Button("Plain")({ label = "Advanced", width = UI.fill(), onActivate = noop }),
+				UI.Button("Iconed")({ label = "Advanced", width = UI.fill(), onActivate = noop, mark(), word() }),
+				UI.HStack("Loose")({ width = UI.fill(), mark(), word() }),
+				UI.DisclosureGroup("Advanced")({
+					label = "Advanced",
+					expanded = Compose.cell(false),
+					content = function()
+						return UI.Text("Body")({ text = "body" })
+					end,
+				}),
+				UI.Picker("Quality")({
+					label = "Quality",
+					selected = Compose.cell("b"),
+					options = {
+						{ value = "a", label = "Performance" },
+						{ value = "b", label = "Balanced" },
+						{ value = "c", label = "Fidelity" },
+					},
+				}),
 			}),
-		},
-	}))
+		})
+	end)
+	local picker, disclosure = w.record("Quality"), w.record("Advanced")
 	w.pres.refresh()
 	return w, picker, disclosure
 end
@@ -186,9 +179,7 @@ describe("Button text centring: three control shapes x eight packages x four pre
 					`{label} the disclosure header and its title are mounted: true`
 				)
 				centred(`{label} "Advanced" header`, header.rect, title.rect)
-				picker.dispose()
-				disclosure.dispose()
-				w.pres.dismiss(w.handle)
+				w.close()
 			end
 		end
 		expect(cells).toBe(#PACKAGES * #OFFSETS)
@@ -226,9 +217,7 @@ describe("Button text centring: three control shapes x eight packages x four pre
 					rows += 1
 				end
 				expect(`{label} three option rows measured: {seen}`).toBe(`{label} three option rows measured: 3`)
-				picker.dispose()
-				disclosure.dispose()
-				w.pres.dismiss(w.handle)
+				w.close()
 			end
 		end
 		expect(rows).toBe(#PACKAGES * #OFFSETS * 3)
@@ -269,7 +258,7 @@ describe("Button text centring: three control shapes x eight packages x four pre
 			expect(`[{name}] the label-only Button mounts no content node: {content}`).toBe(
 				`[{name}] the label-only Button mounts no content node: 0`
 			)
-			w.pres.dismiss(w.handle)
+			w.close()
 		end
 		expect(`skinned control recipes measured: {skinned}`).toBe("skinned control recipes measured: 5")
 	end)
@@ -332,7 +321,7 @@ describe("Button text centring: three control shapes x eight packages x four pre
 				w.adapter.node("/S/V/Iconed").rect,
 				w.adapter.node("/S/V/Iconed/Word").rect
 			)
-			w.pres.dismiss(w.handle)
+			w.close()
 		end
 	end)
 end)

@@ -378,11 +378,11 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	local wallSeconds = os.clock() - wallStart
 	local allocGrowthKb = gcinfo() - heapFloorKb
 
-	-- live registry counters (§14.3): the reactive graph is what Facet owns
-	-- and leaks headless.
-	local counters = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0 }
+	-- live registrations (§14.3): what the application owner still holds is
+	-- what Facet owns and leaks headless. One number, because Compose keeps one.
+	local registrations = 0
 	if state.core ~= nil then
-		counters = state.core:counters()
+		registrations = state.core.owner.size()
 	end
 
 	-- M3/M4 (Step 4): the ADAPTER's own census. Headless these are virtual
@@ -485,8 +485,7 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 			connections = {
 				measured = true,
 				adapterHandlers = adapterHandlers,
-				reactiveObservers = counters.observers,
-				reactiveEffects = counters.effects,
+				reactiveRegistrations = registrations,
 				note = "adapterHandlers is the headless stand-in for engine connections: it counts the "
 					.. "handler slots Facet asked the target to hold, not engine-internal allocations",
 			},
@@ -505,8 +504,8 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 		-- gate greps do not break
 		allocRateKbPerSec = if wallSeconds > 0 then allocGrowthKb / wallSeconds else 0,
 		heapSlopeKbPerIter = slope(heapSeries),
-		liveRegistry = counters,
-		liveConnections = counters.observers + counters.effects,
+		liveRegistry = { registrations = registrations },
+		liveConnections = registrations,
 		async = async,
 		extras = extras,
 		-- floor-device honesty: headless is trend-only, never authoritative;

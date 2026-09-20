@@ -1,4 +1,6 @@
 --!strict
+local Compose = require("../vendor/compose/core")
+local Compose = require("../vendor/compose/core")
 -- THEME CONTROLLER (CLIENT-ONLY — the client-seam rule
 -- applies, and check_boundary enforces that no non-client module requires this).
 --
@@ -53,6 +55,7 @@ local defaultStyle = require("../tokens/default_style")
 local native_style_default = require("./native_style")
 local text_premeasure = require("./text_premeasure")
 local text_calibration = require("./text_calibration")
+local observeChange = require("../core/on_change")
 
 local theme_controller = {}
 
@@ -266,7 +269,7 @@ theme_controller.SELECT_BY_SETTLE_SECONDS = 0.25
 -- used — see the note in the body for why the tiebreaker it warned about moved.
 function theme_controller.profileOf(env: any, _warnFn: ((string) -> ())?): string?
 	local ok, classes = pcall(function()
-		return env:get("interactionClasses"):get()
+		return env:get("interactionClasses"):peek()
 	end)
 	if not ok or type(classes) ~= "table" then
 		return nil
@@ -385,7 +388,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			)
 		end
 		assert(
-			type(o.core) == "table" and type(o.core.observe) == "function",
+			type(o.core) == "table" and type(o.core.owner) == "table",
 			"theme_controller.install: opts.selectBy needs opts.core — the rule subscribes to the environment's "
 				.. "interaction-class fact, and the subscription has to live and die with this controller"
 		)
@@ -398,7 +401,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			return env:get("interactionClasses")
 		end)
 		assert(
-			okClasses and type(classes) == "table" and type((classes :: any).get) == "function",
+			okClasses and Compose.isReadable(classes),
 			"theme_controller.install: opts.selectBy needs the environment's 'interactionClasses' fact and this "
 				.. "environment does not publish a readable one — nothing was installed"
 		)
@@ -578,7 +581,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	liveControllers[env] = registration
 
 	-- the state to put back on uninstall, captured BEFORE the first mutation
-	local preInstallSnapshot = env:get("themeMetrics"):get()
+	local preInstallSnapshot = env:get("themeMetrics"):peek()
 	local preInstallLinkSheet: any = nil
 	local createdLink = false
 
@@ -616,7 +619,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			return (o.facts :: any).displaySize
 		end
 		local ok, value = pcall(function()
-			return env:get("effectiveDisplaySize"):get()
+			return env:get("effectiveDisplaySize"):peek()
 		end)
 		return if ok then value else nil
 	end
@@ -644,7 +647,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		end
 		local function fact(key: string): any
 			local ok, value = pcall(function()
-				return env:get(key):get()
+				return env:get(key):peek()
 			end)
 			return if ok then value else nil
 		end
@@ -1171,17 +1174,11 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	-- real client, nothing at all in a headless run). With a provider, every
 	-- install-policy content id is requested once; without one the step is
 	-- lazily skipped and the framework claims nothing about warm caches.
-	local preloadReleases: { () -> () } = {}
-	local preloadScope = {
-		own = function(_self: any, fn: () -> ())
-			table.insert(preloadReleases, fn)
-		end,
-	}
+	local preloadOwner
 	local function releasePreload()
-		local queue = preloadReleases
-		preloadReleases = {}
-		for _, release in queue do
-			pcall(release)
+		if preloadOwner then
+			preloadOwner.dispose()
+			preloadOwner = nil
 		end
 	end
 	local preloadCount = 0
@@ -1190,7 +1187,8 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		if type(provider) ~= "table" or type(provider.acquire) ~= "function" then
 			return
 		end
-		releasePreload() -- the previous package's art is no longer this screen's
+		releasePreload()
+		preloadOwner = Compose.createOwner()
 		preloadCount = 0
 		-- ONE request per distinct CONTENT ID. `assetsToPreload` dedupes by asset
 		-- NAME, and two names may legitimately point at the same upload (a shared
@@ -1202,8 +1200,8 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			if not seen[entry.contentId] then
 				seen[entry.contentId] = true
 				preloadCount += 1
-				-- the handle registers its own release on our scope shim
-				pcall(provider.acquire, preloadScope, entry.contentId)
+				-- The package owner releases each resource lease.
+				pcall(provider.acquire, preloadOwner, entry.contentId)
 			end
 		end
 	end
@@ -1495,7 +1493,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		-- half-installed controller nobody holds a handle to.
 		subscribeSelectBy = function()
 			local okObserve, observeResult = pcall(function()
-				return o.core:observe(selectByClasses, onProfileChanged)
+				return observeChange(o.core.owner, selectByClasses, onProfileChanged)
 			end)
 			if not okObserve then
 				controller.uninstall()
@@ -1677,7 +1675,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		-- silently revert a live theme that has nothing to do with this
 		-- controller — the last uninstall winning over the current truth.
 		local ok, live = pcall(function()
-			return env:get("themeMetrics"):get()
+			return env:get("themeMetrics"):peek()
 		end)
 		if not ok or live == snapshot then
 			env:set("themeMetrics", preInstallSnapshot)

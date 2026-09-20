@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- PopupButton dismissal parity (input-paradigms expansion, UI-PARADIGM-001;
 -- matrix §B PopupButton "outside-tap-dismiss GAP" + "ButtonB-closes GAP").
 --
@@ -33,6 +34,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local OPTIONS = {
 	{ id = "easy", label = "Easy" },
@@ -45,14 +47,14 @@ local OPTIONS = {
 -- multi-focusable screen the gaps only surface on (a lone control masks them:
 -- the trigger is then the sole ring survivor).
 local function world()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local changes: { string } = {}
-	local value = core:signal("normal")
+	local value = Compose.cell("normal")
 	local control = popup_button.build(Facet, core, {
 		id = "Difficulty",
 		options = OPTIONS,
@@ -61,13 +63,13 @@ local function world()
 			table.insert(changes, id)
 		end,
 	})
-	local sibling = Facet.UI.Button({
+	local sibling = harness.UI.Button({
 		id = "Outside",
 		label = "Outside",
 		width = { type = "fixed", px = 80 },
 		height = { type = "fixed", px = 40 },
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint, sibling } })
+	local screen = harness.UI.Screen({ id = "S", children = { control.blueprint, sibling } })
 	pres.present(screen, { sinkNavigation = true })
 	pres.refresh()
 	return {
@@ -100,8 +102,8 @@ describe("PopupButton parity: outside-tap dismiss", function()
 		w.adapter.tap(OUTSIDE) -- a tap outside the control's subtree
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false) -- dismissed
-		expect(w.value:get()).toBe("normal") -- selection genuinely untouched
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER) -- focus restored to the trigger
+		expect(w.value:peek()).toBe("normal") -- selection genuinely untouched
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER) -- focus restored to the trigger
 	end)
 
 	it("the synthesized catcher dismisses on a tap in EMPTY space (Zone B geometry)", function()
@@ -114,7 +116,7 @@ describe("PopupButton parity: outside-tap dismiss", function()
 		w.adapter.tap(catcher :: string, { x = 700, y = 550 })
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.value:get()).toBe("normal")
+		expect(w.value:peek()).toBe("normal")
 	end)
 
 	it("a tap on the trigger itself (inside the subtree) toggles closed, never routes to dismiss", function()
@@ -124,7 +126,7 @@ describe("PopupButton parity: outside-tap dismiss", function()
 		w.adapter.tap(TRIGGER) -- re-tap: inside the subtree -> toggle, not outside-dismiss
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.value:get()).toBe("normal")
+		expect(w.value:peek()).toBe("normal")
 	end)
 end)
 
@@ -142,8 +144,8 @@ describe("PopupButton parity: gamepad Cancel", function()
 		w.system.deviceKey("ButtonB", false)
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false) -- closed
-		expect(w.value:get()).toBe("normal") -- selection genuinely untouched
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER) -- focus restored to the trigger
+		expect(w.value:peek()).toBe("normal") -- selection genuinely untouched
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER) -- focus restored to the trigger
 	end)
 
 	it("gamepad ButtonB with the popup CLOSED does not consume Cancel (falls through)", function()
@@ -155,7 +157,7 @@ describe("PopupButton parity: gamepad Cancel", function()
 		w.system.deviceKey("ButtonB", false)
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 	end)
 end)
 
@@ -170,10 +172,10 @@ describe("PopupButton parity: focus is trapped while open", function()
 		w.pres.refresh()
 		w.system.deviceKey("Down", true) -- focus first option
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(optPath("easy"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("easy"))
 		w.control.api.close()
 		w.pres.refresh()
-		local landed = w.pres.focus.focused:get()
+		local landed = w.pres.focus.focused:peek()
 		expect(landed ~= nil).toBe(true)
 		expect(landed == TRIGGER or landed == OUTSIDE).toBe(true) -- a live node, options gone
 		expect(w.adapter.node(optPath("easy"))).toBe(nil) -- the popup really closed
@@ -184,12 +186,12 @@ describe("PopupButton parity: focus is trapped while open", function()
 		w.system.deviceKey("Return", true) -- open; focus stays on trigger
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 		w.system.deviceKey("Return", true) -- re-activate closes
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER) -- focus never left the trigger
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER) -- focus never left the trigger
 	end)
 
 	it("gamepad Navigate cannot ESCAPE the open popup into a sibling (focus trap)", function()
@@ -201,12 +203,12 @@ describe("PopupButton parity: focus is trapped while open", function()
 			w.system.deviceKey("Down", true)
 			w.system.deviceKey("Down", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		expect(w.pres.focus.focused:peek()).toBe(CANCEL)
 		w.system.deviceKey("Down", true) -- one more Down at the end of the ring
 		w.system.deviceKey("Down", false)
 		-- TRAPPED: the flat ring wraps back to the control's own trigger — it NEVER
 		-- leaks out to the sibling OUTSIDE, and the popup stays open.
-		local landed = w.pres.focus.focused:get() :: string
+		local landed = w.pres.focus.focused:peek() :: string
 		expect(landed).never().toBe(OUTSIDE)
 		expect(string.sub(landed, 1, #"/S/Difficulty")).toBe("/S/Difficulty") -- still inside
 		expect(landed).toBe(TRIGGER) -- specifically: wrapped to the trigger
@@ -225,11 +227,11 @@ describe("PopupButton parity: close restores focus to the trigger from any path"
 		w.pres.refresh()
 		w.system.deviceKey("Down", true) -- focus a row
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(optPath("easy"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("easy"))
 		w.control.api.close()
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 	end)
 
 	it("Cancel-row Activate closes without selecting and restores focus to the trigger", function()
@@ -241,13 +243,13 @@ describe("PopupButton parity: close restores focus to the trigger from any path"
 			w.system.deviceKey("Down", true)
 			w.system.deviceKey("Down", false)
 		end
-		expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		expect(w.pres.focus.focused:peek()).toBe(CANCEL)
 		w.system.deviceKey("Return", true) -- Cancel closes without selecting
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.value:get()).toBe("normal") -- non-destructive close
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER) -- restored to the invoker
+		expect(w.value:peek()).toBe("normal") -- non-destructive close
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER) -- restored to the invoker
 	end)
 
 	it("gamepad ButtonB close restores focus to the trigger from a focused row", function()
@@ -259,12 +261,12 @@ describe("PopupButton parity: close restores focus to the trigger from any path"
 		w.system.deviceKey("Down", false)
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(optPath("normal"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("normal"))
 		w.system.deviceKey("ButtonB", true) -- Cancel closes
 		w.system.deviceKey("ButtonB", false)
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 	end)
 
 	it("outside-tap close restores focus to the trigger from a focused row", function()
@@ -274,11 +276,11 @@ describe("PopupButton parity: close restores focus to the trigger from any path"
 		w.pres.refresh()
 		w.system.deviceKey("Down", true) -- focus a row
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(optPath("easy"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("easy"))
 		w.adapter.tap(OUTSIDE) -- outside-tap dismiss
 		w.pres.refresh()
 		expect(w.control.dump().open).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 	end)
 end)
 
@@ -289,33 +291,30 @@ end)
 -- ===========================================================================
 describe("PopupButton parity: dismiss-while-open is registry-neutral", function()
 	it("open popup -> pres.dismiss + dispose returns every core counter to baseline", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
-		local value = core:signal("normal")
+		local value = Compose.cell("normal")
 		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = OPTIONS,
 			value = value,
 			onChange = function() end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { control.blueprint } })
 		local handle = pres.present(screen, { sinkNavigation = true })
 		pres.refresh()
 		adapter.tap("/S/Difficulty/Trigger")
 		pres.refresh() -- popup OPEN: catcher synthesized, trap scope pushed
 		pres.dismiss(handle) -- dismiss with the popup STILL open
 		control.dispose()
-		value:dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)

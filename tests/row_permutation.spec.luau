@@ -1,26 +1,28 @@
 --!strict
+local harness = require("./lib/harness")
 -- Plan E: unchanged row order is geometry dirt, while payload dirt still measures.
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local fake = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 local function world(full: boolean, opts: any?)
 	opts = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 600, h = 1000 })
 	local items = {}
 	for i = 1, 96 do
 		items[i] = {
 			key = tostring(i),
-			height = core:signal({ type = "fixed", px = 20 + i % 3 }),
-			label = core:signal("row " .. i),
+			height = Compose.cell({ type = "fixed", px = 20 + i % 3 }),
+			label = Compose.cell("row " .. i),
 		}
 	end
-	local rows = core:signal(items)
-	local bp = Facet.UI.Screen({
+	local rows = Compose.cell(items)
+	local bp = harness.UI.Screen({
 		id = "S",
 		children = {
-			(if opts.horizontal then Facet.UI.HStack else Facet.UI.VStack)({
+			(if opts.horizontal then harness.UI.HStack else harness.UI.VStack)({
 				id = "List",
 				width = { type = "fill" },
 				height = if opts.fixedList then { type = "fixed", px = 1000 } else { type = "content" },
@@ -28,12 +30,12 @@ local function world(full: boolean, opts: any?)
 				padding = opts.padding,
 				distribute = opts.distribute,
 				children = {
-					Facet.UI.Box({
+					harness.UI.Box({
 						id = "Header",
 						width = { type = "fixed", px = 100 },
 						height = { type = "fixed", px = 17 },
 					}),
-					Facet.UI.ForEach({
+					harness.UI.ForEach({
 						id = "Rows",
 						items = rows,
 						key = function(item)
@@ -41,7 +43,7 @@ local function world(full: boolean, opts: any?)
 						end,
 						row = function(item)
 							if item.directText then
-								return Facet.UI.Text({
+								return harness.UI.Text({
 									id = "Label",
 									text = item.label,
 									width = { type = "fixed", px = 40 },
@@ -49,7 +51,7 @@ local function world(full: boolean, opts: any?)
 									textSize = 12,
 								})
 							end
-							return Facet.UI.ZStack({
+							return harness.UI.ZStack({
 								id = "Row",
 								width = if opts.contentRows
 									then { type = "content" }
@@ -59,7 +61,7 @@ local function world(full: boolean, opts: any?)
 									else if opts.horizontalKnown then { type = "fixed", px = 22 } else item.height,
 								margin = opts.margin,
 								children = {
-									Facet.UI.Box({
+									harness.UI.Box({
 										id = "A",
 										width = { type = "fixed", px = 10 },
 										height = {
@@ -68,13 +70,13 @@ local function world(full: boolean, opts: any?)
 										},
 									}),
 									if opts.withText
-										then Facet.UI.Text({
+										then harness.UI.Text({
 											id = "B",
 											text = item.label,
 											width = { type = "fixed", px = 40 },
 											textSize = 12,
 										})
-										else Facet.UI.Box({
+										else harness.UI.Box({
 											id = "B",
 											width = { type = "fixed", px = 5 },
 											height = {
@@ -90,7 +92,7 @@ local function world(full: boolean, opts: any?)
 			}),
 		},
 	})
-	local root = Facet.mount(core, bp)
+	local root = harness.mount(core, bp)
 	local adapter = fake.new()
 	local controller = Facet.renderer.attach(
 		core,
@@ -124,7 +126,7 @@ local function world(full: boolean, opts: any?)
 	end
 	local added = 0
 	local function snapshot()
-		t.expect(core:lastError()).toBeNil()
+		t.expect(core.lastError()).toBeNil()
 		local paths = adapter.paths()
 		table.sort(paths)
 		local out = {}
@@ -162,8 +164,8 @@ local function world(full: boolean, opts: any?)
 			table.insert(out, position or #out + 1, {
 				directText = opts.insertText,
 				key = "tail" .. added,
-				height = core:signal(opts.appendDim or { type = "fixed", px = 23 }),
-				label = core:signal(opts.newLabel or "new"),
+				height = Compose.cell(opts.appendDim or { type = "fixed", px = 23 }),
+				label = Compose.cell(opts.newLabel or "new"),
 			})
 			items = out
 			rows:set(out)
@@ -175,7 +177,7 @@ local function world(full: boolean, opts: any?)
 				table.remove(out, 3)
 			else
 				added += 1
-				table.insert(out, 3, { key = "added" .. added, height = core:signal({ type = "fixed", px = 23 }) })
+				table.insert(out, 3, { key = "added" .. added, height = Compose.cell({ type = "fixed", px = 23 }) })
 			end
 			items = out
 			rows:set(out)
@@ -192,7 +194,7 @@ local function world(full: boolean, opts: any?)
 		snapshot = snapshot,
 		controller = controller,
 		dispose = function()
-			t.expect(core:lastError()).toBeNil()
+			t.expect(core.lastError()).toBeNil()
 			controller.dispose()
 			root.dispose()
 		end,

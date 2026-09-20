@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./harness")
 --[[ THE LARGE-TEXT CONTROL FIXTURES — one mountable screen per
 	tests/conformance/controls_registry row (acceptance LT-8).
 
@@ -16,9 +17,10 @@
 ]]
 
 local Facet = require("../../src") :: any
-local UI = require("../../src/blueprint")
+local UI = harness.UI
 local resources = require("../../src/async/resources")
 local lt = require("./large_text")
+local Compose = require("../../src/vendor/compose/core")
 
 local fixtures = {}
 
@@ -73,9 +75,9 @@ local FIXTURES: { Fixture } = {
 		id = "NavigationStack",
 		class = "NavigationStack",
 		build = function(core)
-			return Facet.Controls.NavigationStack(core, {
+			return harness.Controls.NavigationStack(core, {
 				id = "Ctl",
-				path = core:signal({ { id = "detail" } }),
+				path = Compose.cell({ { id = "detail" } }),
 				backLabel = lt.PSEUDO_ACTION,
 				root = {
 					title = PSEUDO,
@@ -98,10 +100,10 @@ local FIXTURES: { Fixture } = {
 		id = "ToggleControl",
 		class = "ToggleControl",
 		build = function(core)
-			return Facet.Controls.Toggle(core, {
+			return harness.Controls.Toggle(core, {
 				id = "Ctl",
-				value = core:signal(false),
-				mixed = core:signal(true),
+				value = Compose.cell(false),
+				mixed = Compose.cell(true),
 				presentation = "checkbox",
 				label = PSEUDO,
 			}).blueprint
@@ -111,7 +113,7 @@ local FIXTURES: { Fixture } = {
 		id = "ButtonControl",
 		class = "ButtonControl",
 		build = function(core)
-			return Facet.Controls.Button(
+			return harness.Controls.Button(
 				core,
 				{ id = "Ctl", label = PSEUDO, width = UI.fill(), onActivate = function() end }
 			).blueprint
@@ -121,10 +123,10 @@ local FIXTURES: { Fixture } = {
 		id = "ComboBox",
 		class = "ComboBox",
 		build = function(core)
-			return Facet.Controls.ComboBox(core, {
+			return harness.Controls.ComboBox(core, {
 				id = "Ctl",
-				value = core:signal("a"),
-				text = core:signal(""),
+				value = Compose.cell("a"),
+				text = Compose.cell(""),
 				placeholder = "Choose or type",
 				options = { { id = "a", label = "Alpine" } },
 				acceptCustom = function()
@@ -137,7 +139,7 @@ local FIXTURES: { Fixture } = {
 		id = "SplitButton",
 		class = "SplitButton",
 		build = function(core)
-			return Facet.Controls.SplitButton(core, {
+			return harness.Controls.SplitButton(core, {
 				id = "Ctl",
 				label = "Start race",
 				onActivate = function() end,
@@ -232,7 +234,7 @@ local FIXTURES: { Fixture } = {
 		-- LT-G1 fix) is its declared full-value path, so the truncation files no
 		-- finding and needs no allowlist any more
 		build = function(core)
-			return UI.Toggle({ id = "Ctl", label = PSEUDO, value = core:signal(false), disclose = true })
+			return UI.Toggle({ id = "Ctl", label = PSEUDO, value = Compose.cell(false), disclose = true })
 		end,
 	},
 	{
@@ -260,10 +262,10 @@ local FIXTURES: { Fixture } = {
 		id = "Slider",
 		class = "Slider",
 		build = function(core)
-			return Facet.Controls.Slider(core, {
+			return harness.Controls.Slider(core, {
 				id = "Ctl",
 				label = PSEUDO,
-				value = core:signal(0.5),
+				value = Compose.cell(0.5),
 				min = 0,
 				max = 1,
 				step = 0.1,
@@ -274,10 +276,10 @@ local FIXTURES: { Fixture } = {
 		id = "Stepper",
 		class = "Stepper",
 		build = function(core)
-			return Facet.Controls.Stepper(core, {
+			return harness.Controls.Stepper(core, {
 				id = "Ctl",
 				label = PSEUDO,
-				value = core:signal(3),
+				value = Compose.cell(3),
 				min = 0,
 				max = 10,
 				step = 1,
@@ -288,7 +290,7 @@ local FIXTURES: { Fixture } = {
 		id = "Chip",
 		class = "Chip",
 		build = function(core)
-			return Facet.Controls.Chip(core, { id = "Ctl", label = PSEUDO, selected = core:signal(false) }).blueprint
+			return harness.Controls.Chip(core, { id = "Ctl", label = PSEUDO, selected = Compose.cell(false) }).blueprint
 		end,
 	},
 	{
@@ -301,7 +303,7 @@ local FIXTURES: { Fixture } = {
 		id = "RowActions",
 		class = "RowActions",
 		build = function(core)
-			local ra = Facet.Controls.RowActions(core, {
+			local ra = harness.Controls.RowActions(core, {
 				id = "Ctl",
 				content = UI.Text({ id = "Title", text = "Row" }),
 				trailing = { { id = "delete", label = PSEUDO, onAction = function() end } },
@@ -314,9 +316,9 @@ local FIXTURES: { Fixture } = {
 		id = "PopupButton",
 		class = "PopupButton",
 		build = function(core)
-			return Facet.Controls.PopupButton(core, {
+			return harness.Controls.PopupButton(core, {
 				id = "Ctl",
-				value = core:signal("one"),
+				value = Compose.cell("one"),
 				options = { { id = "one", label = PSEUDO }, { id = "two", label = lt.PSEUDO_SECONDARY } },
 			}).blueprint
 		end,
@@ -386,7 +388,7 @@ local FIXTURES: { Fixture } = {
 		id = "Rating",
 		class = "Rating",
 		build = function(core)
-			return Facet.Controls.Rating(core, { id = "Ctl", value = core:signal(3) }).blueprint
+			return harness.Controls.Rating(core, { id = "Ctl", value = Compose.cell(3) }).blueprint
 		end,
 	},
 	{
@@ -399,9 +401,9 @@ local FIXTURES: { Fixture } = {
 		id = "LevelPicker",
 		class = "LevelPicker",
 		build = function(core)
-			return Facet.Controls.LevelPicker(
+			return harness.Controls.LevelPicker(
 				core,
-				{ id = "Ctl", value = core:signal(4), count = 10, segment = "glyph" }
+				{ id = "Ctl", value = Compose.cell(4), count = 10, segment = "glyph" }
 			).blueprint
 		end,
 	},
@@ -409,10 +411,10 @@ local FIXTURES: { Fixture } = {
 		id = "Picker",
 		class = "Picker",
 		build = function(core)
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "Ctl",
 				label = lt.PSEUDO_ACTION,
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 				options = {
 					{ value = "a", label = lt.PSEUDO_ACTION },
 					{ value = "b", label = lt.PSEUDO_SECONDARY },
@@ -453,9 +455,9 @@ local FIXTURES: { Fixture } = {
 		id = "Picker-indicator",
 		class = "Picker",
 		build = function(core)
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "Ctl",
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 				presentation = "segmented",
 				indicator = "pill",
 				options = {
@@ -483,9 +485,9 @@ local FIXTURES: { Fixture } = {
 		id = "TabView",
 		class = "TabView",
 		build = function(core)
-			return Facet.Controls.TabView(core, {
+			return harness.Controls.TabView(core, {
 				id = "Ctl",
-				selection = core:signal("a"),
+				selection = Compose.cell("a"),
 				placement = "bottomBar",
 				tabs = {
 					{
@@ -519,10 +521,10 @@ local FIXTURES: { Fixture } = {
 		id = "DisclosureGroup",
 		class = "DisclosureGroup",
 		build = function(core)
-			return Facet.Controls.DisclosureGroup(core, {
+			return harness.Controls.DisclosureGroup(core, {
 				id = "Ctl",
 				label = lt.PSEUDO_ACTION,
-				expanded = core:signal(true),
+				expanded = Compose.cell(true),
 				content = function()
 					return UI.Text({ id = "Body", text = PSEUDO })
 				end,
@@ -533,23 +535,23 @@ local FIXTURES: { Fixture } = {
 		id = "ProgressView",
 		class = "ProgressView",
 		build = function(core)
-			return Facet.Controls.ProgressView(core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
+			return harness.Controls.ProgressView(core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
 		end,
 	},
 	{
 		id = "Label",
 		class = "Label",
 		build = function(core)
-			return Facet.Controls.Label(core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
+			return harness.Controls.Label(core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
 		end,
 	},
 	{
 		id = "TextInput",
 		class = "TextInput",
 		build = function(core, w)
-			return Facet.Controls.TextInput(core, {
+			return harness.Controls.TextInput(core, {
 				id = "Ctl",
-				value = core:signal(""),
+				value = Compose.cell(""),
 				placeholder = PSEUDO,
 				env = w.env,
 				actionSystem = w.system,
@@ -560,9 +562,9 @@ local FIXTURES: { Fixture } = {
 		id = "Table",
 		class = "Table",
 		build = function(core)
-			return Facet.Controls.Table(core, {
+			return harness.Controls.Table(core, {
 				id = "Ctl",
-				rows = core:signal({ { id = "a", name = PSEUDO }, { id = "b", name = GERMAN } }),
+				rows = Compose.cell({ { id = "a", name = PSEUDO }, { id = "b", name = GERMAN } }),
 				key = function(row: any)
 					return row.id
 				end,
@@ -604,14 +606,14 @@ local FIXTURES: { Fixture } = {
 		-- the unbroken name declares `disclose` and the row produces no finding —
 		-- the same fix the Table cannot express
 		build = function(core)
-			return Facet.Controls.VirtualList(core, {
+			return harness.Controls.VirtualList(core, {
 				id = "Ctl",
-				rows = core:signal({ { id = "a", label = PSEUDO }, { id = "b", label = GERMAN } }),
+				rows = Compose.cell({ { id = "a", label = PSEUDO }, { id = "b", label = GERMAN } }),
 				key = function(item: any)
 					return item.id
 				end,
-				rowHeight = 44,
-				viewportHeight = 200,
+				itemExtent = 44,
+				viewportExtent = 200,
 				overscan = 1,
 				cell = function(item: any)
 					return UI.Text({ id = "Label", text = item.label, disclose = true })
@@ -630,9 +632,9 @@ local FIXTURES: { Fixture } = {
 		-- case a list cannot reach, and it is why this is a fixture rather than an
 		-- UNSWEEPABLE row.
 		build = function(core)
-			return Facet.Controls.VirtualGrid(core, {
+			return harness.Controls.VirtualGrid(core, {
 				id = "Ctl",
-				items = core:signal({
+				items = Compose.cell({
 					{ id = "a", label = PSEUDO },
 					{ id = "b", label = GERMAN },
 					{ id = "c", label = PSEUDO },
@@ -656,10 +658,9 @@ local FIXTURES: { Fixture } = {
 		class = "AsyncImage",
 		build = function(core)
 			local provider = resources.newProvider(core)
-			return Facet.Controls.AsyncImage(core, {
+			return harness.Controls.AsyncImage(core, {
 				id = "Ctl",
 				provider = provider,
-				scope = core:scope("large-text-async"),
 				key = "avatar/1",
 			}).blueprint
 		end,
@@ -985,7 +986,7 @@ local FIXTURES: { Fixture } = {
 		build = function(core)
 			return UI.When({
 				id = "Ctl",
-				condition = core:signal(true),
+				condition = Compose.cell(true),
 				thenView = function()
 					return UI.Text({ id = "Shown", text = PSEUDO })
 				end,
@@ -998,7 +999,7 @@ local FIXTURES: { Fixture } = {
 		build = function(core)
 			return UI.ForEach({
 				id = "Ctl",
-				items = core:signal({ 1, 2 }),
+				items = Compose.cell({ 1, 2 }),
 				key = function(item: any)
 					return tostring(item)
 				end,
@@ -1031,7 +1032,7 @@ local FIXTURES: { Fixture } = {
 		-- the stub proves the stub, and the sweep's whole question is whether THIS
 		-- control's text still fits its boxes at +14px in a wider theme.
 		build = function(core: any)
-			return Facet.Controls.RadialMenu(
+			return harness.Controls.RadialMenu(
 				core,
 				{ id = "Ctl", items = { { id = "wave", label = "Wave", onSelect = function() end } } }
 			).blueprint
@@ -1042,7 +1043,7 @@ local FIXTURES: { Fixture } = {
 		id = "Alert",
 		class = "Alert",
 		build = function(core: any)
-			return Facet.Controls.Alert(core, {
+			return harness.Controls.Alert(core, {
 				id = "Ctl",
 				title = PSEUDO,
 				message = GERMAN,
@@ -1067,10 +1068,10 @@ local FIXTURES: { Fixture } = {
 		-- the stub proves the stub, and the sweep's whole question is whether THIS
 		-- control's text still fits its boxes at +14px in a wider theme.
 		build = function(core: any)
-			return Facet.Controls.Sheet(core, {
+			return harness.Controls.Sheet(core, {
 				id = "Ctl",
 				title = "Race briefing",
-				detent = core:signal("medium"),
+				detent = Compose.cell("medium"),
 				content = UI.Text({ text = "Choose your starting setup." }),
 			}).blueprint
 		end,
@@ -1083,9 +1084,9 @@ local FIXTURES: { Fixture } = {
 		-- the stub proves the stub, and the sweep's whole question is whether THIS
 		-- control's text still fits its boxes at +14px in a wider theme.
 		build = function(core: any)
-			return Facet.Controls.PageView(core, {
+			return harness.Controls.PageView(core, {
 				id = "Ctl",
-				selection = core:signal("one"),
+				selection = Compose.cell("one"),
 				pages = {
 					{ id = "one", title = "First course", content = UI.Text({ text = "Race along the coast." }) },
 					{ id = "two", title = "Second course", content = UI.Text({ text = "Climb to the summit." }) },
@@ -1101,10 +1102,10 @@ local FIXTURES: { Fixture } = {
 		-- the stub proves the stub, and the sweep's whole question is whether THIS
 		-- control's text still fits its boxes at +14px in a wider theme.
 		build = function(core: any)
-			return Facet.Controls.CollapsibleView(core, {
+			return harness.Controls.CollapsibleView(core, {
 				id = "Ctl",
 				label = "Choose destination",
-				expanded = core:signal(false),
+				expanded = Compose.cell(false),
 				content = UI.Text({ text = "Destination details", width = UI.fill() }),
 			}).blueprint
 		end,

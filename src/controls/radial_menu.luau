@@ -1,4 +1,6 @@
 --!strict
+local Compose = require("../vendor/compose/core")
+local selection = require("../selection_model")
 local publicCore = require("../core/contract")
 local publicBlueprint = require("../blueprint")
 local publicEnv = require("../env/environment")
@@ -33,8 +35,8 @@ export type Item = {
 	navigation: string?,
 	expansion: string?,
 	completion: string?,
-	checked: publicCore.Signal<boolean>?,
-	selected: publicCore.Signal<any>?,
+	checked: publicCore.Cell<boolean>?,
+	selected: publicCore.Cell<any>?,
 	value: any?,
 	dismiss: boolean?,
 	onSelect: (() -> ())?,
@@ -75,17 +77,6 @@ export type Spec = {
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 }
---[[ THE WEDGE'S THREE PAINTED ACCENTS (spec 2G radial), all on one transform.
-	LIFT_SCALE: how far the candidate wedge stands out of the ring. 4% is the
-	smallest step that reads as depth at a glance without breaking the seam a
-	neighbouring wedge shares with it.
-	POP_KICK: the velocity seeded into that SAME spring on commit — an overshoot
-	the `reward` class is already shaped for, so the acknowledgement is a
-	continuation of the lift rather than a second animation competing with it.
-	STAGGER_STEP / STAGGER_CAP: the bloom's rhythm. The radial design forbids a
-	long stagger — the menu is a reflex surface, and a wedge you cannot press yet
-	is a wedge that costs you the race — so the wait is capped at
-	STAGGER_STEP * STAGGER_CAP = 100 ms no matter how many wedges the ring holds. ]]
 local LIFT_SCALE, POP_KICK = 1.04, 4
 local STAGGER_STEP, STAGGER_CAP = 0.02, 5
 local KEYS = guard.keySet({
@@ -145,37 +136,37 @@ local ITEM_KEYS = guard.keySet({
 	"buttonSurface",
 })
 local function read(v: any): any
-	return if type(v) == "table" and v.kind then v:get() else v
+	return selection.read(v)
 end
 local function choice(v: any, default: string, values: { string }, name: string): string
 	v = v or default
 	assert(
 		type(v) == "string" and table.find(values, v),
-		"Controls.RadialMenu: " .. name .. " must be " .. table.concat(values, ", ")
+		"UI.RadialMenu: " .. name .. " must be " .. table.concat(values, ", ")
 	)
 	return v
 end
 local function validate(items: publicBlueprint.Bound<{ Item }>, distribution: string, ancestors: any?)
-	assert(type(items) == "table" and #items > 0, "Controls.RadialMenu: items must be a nonempty array")
+	assert(type(items) == "table" and #items > 0, "UI.RadialMenu: items must be a nonempty array")
 	local seen, stack = {}, ancestors or {}
-	assert(not stack[items], "Controls.RadialMenu: children must not contain a cycle")
+	assert(not stack[items], "UI.RadialMenu: children must not contain a cycle")
 	stack[items] = true
 	for _, item in items do
-		guard.assertKnownKeys("Controls.RadialMenu item", item, ITEM_KEYS, "item")
+		guard.assertKnownKeys("UI.RadialMenu item", item, ITEM_KEYS, "item")
 		assert(
 			type(item.id) == "string" and item.id ~= "" and item.id ~= "$navigation" and not item.id:find("/", 1, true),
-			"Controls.RadialMenu: item id must be nonempty, contain no slash, and not be $navigation"
+			"UI.RadialMenu: item id must be nonempty, contain no slash, and not be $navigation"
 		)
-		assert(not seen[item.id], "Controls.RadialMenu: duplicate item id " .. item.id)
+		assert(not seen[item.id], "UI.RadialMenu: duplicate item id " .. item.id)
 		seen[item.id] = true
 		assert(
 			type(read(item.label)) == "string" and read(item.label) ~= "",
-			"Controls.RadialMenu: every item needs an accessible label"
+			"UI.RadialMenu: every item needs an accessible label"
 		)
 		for _, key in { "enabled", "hidden" } do
 			assert(
 				item[key] == nil or type(read(item[key])) == "boolean",
-				"Controls.RadialMenu: " .. key .. " must be boolean or Readable<boolean>"
+				"UI.RadialMenu: " .. key .. " must be boolean or Readable<boolean>"
 			)
 		end
 		choice(item.navigation, "replace", { "replace", "expand" }, "item.navigation")
@@ -187,34 +178,28 @@ local function validate(items: publicBlueprint.Bound<{ Item }>, distribution: st
 			label = item.label,
 			compactLabel = item.compactLabel or (if item.icon then { icon = item.icon } else nil),
 		})
-		assert(item.labelStyle ~= "icon" or item.icon ~= nil, "Controls.RadialMenu: icon labelStyle requires icon")
+		assert(item.labelStyle ~= "icon" or item.icon ~= nil, "UI.RadialMenu: icon labelStyle requires icon")
 		local state = item.checked or item.selected
-		assert(not (item.checked and item.selected), "Controls.RadialMenu: use checked or selected, not both")
+		assert(not (item.checked and item.selected), "UI.RadialMenu: use checked or selected, not both")
 		if state then
 			assert(
-				state.kind == "signal",
-				"Controls.RadialMenu: checked/selected must be caller-owned settable Signals"
+				selection.isWritable(state),
+				"UI.RadialMenu: checked/selected must be writable Compose cells the caller owns"
 			)
 			assert(
 				not item.children and not item.onSelect,
-				"Controls.RadialMenu: a state item uses onChange, not children/onSelect"
+				"UI.RadialMenu: a state item uses onChange, not children/onSelect"
 			)
-			assert(
-				item.checked == nil or type(state:get()) == "boolean",
-				"Controls.RadialMenu: checked must hold boolean"
-			)
-			assert(item.selected == nil or item.value ~= nil, "Controls.RadialMenu: selected requires value")
+			assert(item.checked == nil or type(state:peek()) == "boolean", "UI.RadialMenu: checked must hold boolean")
+			assert(item.selected == nil or item.value ~= nil, "UI.RadialMenu: selected requires value")
 		end
 		assert(
 			item.onChange == nil or (state and type(item.onChange) == "function"),
-			"Controls.RadialMenu: onChange requires a state item"
+			"UI.RadialMenu: onChange requires a state item"
 		)
-		assert(
-			item.onSelect == nil or type(item.onSelect) == "function",
-			"Controls.RadialMenu: onSelect must be a function"
-		)
-		assert(item.dismiss == nil or type(item.dismiss) == "boolean", "Controls.RadialMenu: dismiss must be boolean")
-		assert(not (item.children and item.onSelect), "Controls.RadialMenu: use children or onSelect, not both")
+		assert(item.onSelect == nil or type(item.onSelect) == "function", "UI.RadialMenu: onSelect must be a function")
+		assert(item.dismiss == nil or type(item.dismiss) == "boolean", "UI.RadialMenu: dismiss must be boolean")
+		assert(not (item.children and item.onSelect), "UI.RadialMenu: use children or onSelect, not both")
 		if item.children then
 			validate(read(item.children), "even", stack)
 		end
@@ -224,8 +209,8 @@ local function validate(items: publicBlueprint.Bound<{ Item }>, distribution: st
 	end
 	stack[items] = nil
 end
-function radial.build(Facet: any, core: any, spec: Spec)
-	guard.assertKnownKeys("Controls.RadialMenu", spec, KEYS, "spec")
+local function build(Facet: any, core: any, spec: Spec, scope: any)
+	guard.assertKnownKeys("UI.RadialMenu", spec, KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "RadialMenu"
 	local preset = choice(
@@ -243,22 +228,19 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	local expansion = choice(spec.expansion, "fan", { "fan", "ring" }, "expansion")
 	local center = choice(spec.center, "back", { "back", "root", "close", "content", "empty" }, "center")
 	local follow = choice(spec.follow, "idle", { "idle", "always", "fixed" }, "follow")
-	assert(spec.launcher == nil or type(spec.launcher) == "boolean", "Controls.RadialMenu: launcher must be boolean")
+	assert(spec.launcher == nil or type(spec.launcher) == "boolean", "UI.RadialMenu: launcher must be boolean")
 	choice(spec.completion, "close", { "stay", "back", "root", "close" }, "completion")
 	validate(read(spec.items), distribution)
 	for _, key in { "onOpen", "onClose" } do
-		assert(
-			spec[key] == nil or type(spec[key]) == "function",
-			"Controls.RadialMenu: " .. key .. " must be a function"
-		)
+		assert(spec[key] == nil or type(spec[key]) == "function", "UI.RadialMenu: " .. key .. " must be a function")
 	end
 	assert(
 		spec.centerPassThrough == nil or type(spec.centerPassThrough) == "boolean",
-		"Controls.RadialMenu: centerPassThrough must be boolean"
+		"UI.RadialMenu: centerPassThrough must be boolean"
 	)
 	if spec.skin then
 		guard.assertKnownKeys(
-			"Controls.RadialMenu skin",
+			"UI.RadialMenu skin",
 			spec.skin,
 			guard.keySet({ "item", "launcher", "center", "background" }),
 			"skin"
@@ -266,18 +248,16 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		for _, value in spec.skin do
 			if type(value) ~= "string" then
 				local _, errors = themePackage.normalizeVariant(value, "RadialMenu skin")
-				assert(#errors == 0, "Controls.RadialMenu: invalid image skin")
+				assert(#errors == 0, "UI.RadialMenu: invalid image skin")
 			end
 		end
 	end
-	local env =
-		surfaceEnv.resolve("Controls.RadialMenu", id, core, spec.env, "radial fitting needs the surface environment")
-	local scope = core:scope("radial-" .. id)
+	local env = surfaceEnv.resolve("UI.RadialMenu", id, core, spec.env, "radial fitting needs the surface environment")
 	local function signal(v: any): any
-		return scope:own(core:signal(v))
+		return Compose.cell(v)
 	end
 	local function switch(name: string, condition: any, yes: any, no: any, owner: any?, height: any?): any
-		owner = owner or scope
+		owner = if owner then owner else (Compose.currentOwner() or scope)
 		return UI.ZStack({
 			id = name,
 			width = UI.fill(),
@@ -286,16 +266,20 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				UI.When({ id = "Yes", condition = condition, thenView = yes }),
 				UI.When({
 					id = "No",
-					condition = owner:own(core:memo(function(use)
-						return not use(condition)
-					end)),
+					condition = Compose.withOwner(owner, function()
+						return Compose.formula(function(use)
+							return not use(condition)
+						end)
+					end),
 					thenView = no,
 				}),
 			},
 		})
 	end
 	local function memo(fn: any): any
-		return scope:own(core:memo(fn))
+		return Compose.withOwner(scope, function()
+			return Compose.formula(fn)
+		end)
 	end
 	local function skin(bp: any, value: any, slot: string): any
 		if value == nil then
@@ -305,7 +289,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			return chrome.attachHint(bp, { slot = slot, image = value })
 		end
 		local variant, errors = themePackage.normalizeVariant(value, "RadialMenu skin")
-		assert(#errors == 0, "Controls.RadialMenu: invalid image state skin")
+		assert(#errors == 0, "UI.RadialMenu: invalid image state skin")
 		return chrome.attachHint(bp, { slot = slot, imageVariants = variant })
 	end
 	local holding = signal(false)
@@ -387,7 +371,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 	function api.close()
-		if disposed or not opened:get() then
+		if disposed or not opened:peek() then
 			return
 		end
 		capture = nil
@@ -415,7 +399,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		if refreshing or disposed or not rect then
 			return
 		end
-		if visible:get() and not opened:get() then
+		if visible:peek() and not opened:peek() then
 			return
 		end
 		local focal = read(spec.anchor)
@@ -439,17 +423,25 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			return
 		end
 		refreshing = true
-		local metrics = env:get("themeMetrics"):get() or snapshot.neutral()
+		local metrics = env:get("themeMetrics"):peek() or snapshot.neutral()
+		-- A package's own authored metrics (as opposed to a compiled snapshot)
+		-- has no `.type` typography table, and `snapshot.roleOf` below hard-indexes
+		-- it. Every other metric read in this function already falls back to
+		-- `snapshot.neutral()`; this eager preview-measurement path needs the same
+		-- fallback so an unopened menu never crashes under raw, unresolved metrics.
+		if metrics.type == nil then
+			metrics = snapshot.neutral()
+		end
 		local target = math.max(
 			snapshot.resolveNumber(metrics, "targetSizes.minimum") or 44,
 			snapshot.resolveNumber(metrics, "controlSizes.regular.height") or 44
 		)
-		local textScale = env:get("preferredTextSize"):get() or 1
-		target = math.max(target, target * textScale + (env:get("preferredTextOffset"):get() or 0))
+		local textScale = env:get("preferredTextSize"):peek() or 1
+		target = math.max(target, target * textScale + (env:get("preferredTextOffset"):peek() or 0))
 		local gap = snapshot.resolveNumber(metrics, "s") or 8
 		local requestedBand = snapshot.resolveNumber(metrics, read(spec.ringWidth))
 		local band = if requestedBand
-			then math.max(target * 1.4, requestedBand * textScale + (env:get("preferredTextOffset"):get() or 0) * 1.9)
+			then math.max(target * 1.4, requestedBand * textScale + (env:get("preferredTextOffset"):peek() or 0) * 1.9)
 			else math.min(96, math.max(target * 1.9, 76))
 		local labelHeight = if requestedBand then math.min(target, band * 0.45) else target
 		local start, sweep = geometry.arc(preset)
@@ -457,19 +449,22 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		if focal and type(focal.clearance) == "number" and focal.clearance >= 0 and focal.clearance < math.huge then
 			local measured = math.max(minimumClearance or 0, focal.clearance)
 			if follow == "fixed" then
-				if not opened:get() then
+				if not opened:peek() then
 					fixedClearance = measured
 				end
 				measured = fixedClearance or measured
 			elseif clock then
 				if not followRadius then
-					followRadius = scope:own(clock:spring(measured, "object"))
+					followRadius = clock:spring(measured, "object")
+					scope.own(function()
+						followRadius:dispose()
+					end)
 				end
-				if not opened:get() then
+				if not opened:peek() then
 					followRadius:snap(measured)
 				end
 				followRadius:setTarget(measured)
-				measured = math.max(minimumClearance or 0, followRadius:get())
+				measured = math.max(minimumClearance or 0, followRadius:peek())
 			end
 			minimumClearance = measured
 		end
@@ -511,30 +506,36 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				api.close()
 				return
 			end
-			if follow ~= "fixed" or not opened:get() then
+			if follow ~= "fixed" or not opened:peek() then
 				cx, cy = anchor.x - rect.x, anchor.y - rect.y
 			else
-				cx, cy = layout:get().cx, layout:get().cy
+				cx, cy = layout:peek().cx, layout:peek().cy
 			end
 		end
 		if anchor and follow ~= "fixed" and clock then
 			if not followX then
-				followX = scope:own(clock:spring(cx, "object"))
-				followY = scope:own(clock:spring(cy, "object"))
+				followX = clock:spring(cx, "object")
+				scope.own(function()
+					followX:dispose()
+				end)
+				followY = clock:spring(cy, "object")
+				scope.own(function()
+					followY:dispose()
+				end)
 			end
-			if not opened:get() then
+			if not opened:peek() then
 				followX:snap(cx)
 				followY:snap(cy)
 			end
 			followX:setTarget(cx)
 			followY:setTarget(cy)
-			cx, cy = followX:get(), followY:get()
+			cx, cy = followX:peek(), followY:peek()
 		end
 		local previewRole = snapshot.roleOf(metrics, "body")
 		local previewSize =
-			textMetrics.reservedSize(previewRole.size, textScale, env:get("preferredTextOffset"):get() or 0)
+			textMetrics.reservedSize(previewRole.size, textScale, env:get("preferredTextOffset"):peek() or 0)
 		local previewHeight =
-			Facet.text.measure("Mg", previewRole.fontKey, previewSize, math.huge, previewRole.lineHeight).height
+			textMetrics.measure("Mg", previewRole.fontKey, previewSize, math.huge, previewRole.lineHeight).height
 		local verticalReserve = math.max(32, previewHeight) + gap
 		local function fits(r: number): boolean
 			if sweep == 360 then
@@ -562,7 +563,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		end
 		local mode = if gestureSelection == "direction" or (fits(outer) and band >= target) then "radial" else "list"
 		local all, levels = {}, {}
-		local chain = path:get()
+		local chain = path:peek()
 		local list = sourceItems
 		local prefix = {}
 		local inheritedNav, inheritedExpansion = navigation, expansion
@@ -606,9 +607,9 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				if contentFit ~= "none" and appearance == "wedges" then
 					local role = snapshot.roleOf(metrics, "control")
 					local size =
-						textMetrics.reservedSize(role.size, textScale, env:get("preferredTextOffset"):get() or 0)
+						textMetrics.reservedSize(role.size, textScale, env:get("preferredTextOffset"):peek() or 0)
 					local function measure(text)
-						return Facet.text.measure(text, role.fontKey, size, math.huge, role.lineHeight)
+						return textMetrics.measure(text, role.fontKey, size, math.huge, role.lineHeight)
 					end
 					local m = table.clone(measure(if s.navigation then "x" else read(s.item.label)))
 					local compact = s.item.compactLabel
@@ -721,7 +722,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			append(depth, a, sw, ri, ro, "even")
 			outer = ro
 		end
-		local old = layout:get()
+		local old = layout:peek()
 		local same = old.cx == cx
 			and old.cy == cy
 			and old.target == target
@@ -748,8 +749,8 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			end
 		end
 		if not same then
-			if opened:get() and clock and mode ~= "list" then
-				local nextKeys, previous = {}, table.clone(retiring:get())
+			if opened:peek() and clock and mode ~= "list" then
+				local nextKeys, previous = {}, table.clone(retiring:peek())
 				local prior = {}
 				for _, v in old.sectors do
 					prior[v.key] = v
@@ -800,7 +801,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	function api.open(): boolean
 		if
 			not available()
-			or opened:get()
+			or opened:peek()
 			or (spec.anchor and (not read(spec.anchor) or read(spec.anchor).visible == false))
 		then
 			return false
@@ -814,14 +815,14 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		return true
 	end
 	function api.back()
-		if #path:get() == 0 then
+		if #path:peek() == 0 then
 			api.close()
 			return
 		end
 		capture = nil
 		gesture = false
 		analog = false
-		local chain = table.clone(path:get())
+		local chain = table.clone(path:peek())
 		local last = table.remove(chain)
 		pendingFocus = table.concat(chain, "/") .. ":" .. last
 		path:set(chain)
@@ -837,14 +838,14 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		refresh()
 	end
 	function api.toggle()
-		if opened:get() then
+		if opened:peek() then
 			api.close()
 		else
 			api.open()
 		end
 	end
 	local function commit(s: any): boolean
-		if not opened:get() or not available() or not s then
+		if not opened:peek() or not available() or not s then
 			return false
 		end
 		if s.navigation then
@@ -859,14 +860,6 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		capture = nil
 		gesture = false
 		analog = false
-		--[[ THE POP. A velocity kick on the wedge's own lift spring, not a second
-			animation: the wedge is already standing up as the candidate, so seeding
-			velocity into that same spring makes the lift and the pop ONE continuous
-			motion — the choice is acknowledged on the thing the player pushed, and
-			it reads whether the menu then closes, opens a submenu or stays. It
-			precedes the completion policy so the kick is in flight before the close
-			retires the row, and it is a no-op under reduced motion (`setVelocity`
-			refuses to seed a spring that is not animating). ]]
 		local popped = liftByKey[s.key]
 		if popped ~= nil then
 			popped:setVelocity(POP_KICK)
@@ -895,8 +888,8 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			api.root()
 		end
 		if state then
-			local value = if item.checked then not state:get() else item.value
-			if state:get() ~= value then
+			local value = if item.checked then not state:peek() else item.value
+			if state:peek() ~= value then
 				state:set(value)
 				notify(item.onChange, value)
 			end
@@ -906,23 +899,23 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		return true
 	end
 	local function candidateSector(): any
-		for _, s in layout:get().sectors do
-			if s.key == candidate:get() then
+		for _, s in layout:peek().sectors do
+			if s.key == candidate:peek() then
 				return s
 			end
 		end
 		return nil
 	end
 	function api.select(itemId: string): boolean
-		for _, s in layout:get().sectors do
-			if s.id == itemId and s.depth == #path:get() then
+		for _, s in layout:peek().sectors do
+			if s.id == itemId and s.depth == #path:peek() then
 				return commit(s)
 			end
 		end
 		return false
 	end
 	local function hit(pos: any, drag: boolean): any
-		local l = layout:get()
+		local l = layout:peek()
 		if l.mode == "list" then
 			return nil
 		end
@@ -970,12 +963,12 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			return false
 		end
 		refresh()
-		local wasClosed = not opened:get()
+		local wasClosed = not opened:peek()
 		holding:set(wasClosed)
 		if wasClosed then
 			api.open()
 		end
-		local l = layout:get()
+		local l = layout:peek()
 		local dx, dy = pos.x - rect.x - l.cx, pos.y - rect.y - l.cy
 		if
 			not wasClosed
@@ -991,7 +984,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			followX:snap(l.cx)
 			followY:snap(l.cy)
 			if followRadius then
-				followRadius:snap(followRadius:get())
+				followRadius:snap(followRadius:peek())
 			end
 		end
 		if not wasClosed then
@@ -1039,7 +1032,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				refresh()
 			end
 		elseif not was.opened then
-			local l = layout:get()
+			local l = layout:peek()
 			local dx, dy = pos.x - rect.x - l.cx, pos.y - rect.y - l.cy
 			if dx * dx + dy * dy < l.inner * l.inner then
 				centerAction()
@@ -1067,6 +1060,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		return rows
 	end)
 	local function navigationGlyph(icon: any, owner: any): any
+		owner = if owner then owner else (Compose.currentOwner() or scope)
 		return UI.ZStack({
 			id = "GlyphBox",
 			width = UI.fill(),
@@ -1076,9 +1070,11 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			children = {
 				UI.ForEach({
 					id = "GlyphVariants",
-					items = owner:own(core:memo(function(use)
-						return { use(icon) }
-					end)),
+					items = Compose.withOwner(owner, function()
+						return Compose.formula(function(use)
+							return { use(icon) }
+						end)
+					end),
 					key = function(name)
 						return name
 					end,
@@ -1108,34 +1104,43 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		return math.ceil(l.outer + l.target) * 2
 	end)
 	local function row(s: any, rs: any)
-		rs = rs or scope
+		rs = if rs then rs else (Compose.currentOwner() or scope)
 		local item = s.item
-		local current = rs:own(core:memo(function(use)
-			for _, v in use(layout).sectors do
-				if v.key == s.key then
-					return v
+		local current = Compose.withOwner(rs, function()
+			return Compose.formula(function(use)
+				for _, v in use(layout).sectors do
+					if v.key == s.key then
+						return v
+					end
 				end
-			end
-			for _, v in use(retiring) do
-				if v.key == s.key then
-					return v
+				for _, v in use(retiring) do
+					if v.key == s.key then
+						return v
+					end
 				end
-			end
-			return s
-		end))
+				return s
+			end)
+		end)
 		local function rm(fn)
-			return rs:own(core:memo(fn))
+			return Compose.withOwner(rs, function()
+				return Compose.formula(fn)
+			end)
 		end
-		local progress = if clock then rs:own(clock:spring(0, "object")) else nil
-		--[[ THE LIFT. One spring per wedge, `reward` because it also carries the
-			commit pop (`commit`, above): a candidate raises the target, a commit
-			seeds velocity, and both resolve on the same value so the wedge never
-			animates against itself. It rests at exactly 1, where the renderer drops
-			the scale entirely — an unlifted ring pays nothing. ]]
-		local lift = if clock then rs:own(clock:spring(1, "reward", { eps = 0.00001 })) else nil
+		local progress = if clock then clock:spring(0, "object") else nil
+		if progress then
+			rs.own(function()
+				progress:dispose()
+			end)
+		end
+		local lift = if clock then clock:spring(1, "reward", { eps = 0.00001 }) else nil
+		if lift then
+			rs.own(function()
+				lift:dispose()
+			end)
+		end
 		if lift then
 			liftByKey[s.key] = lift
-			rs:own(function()
+			rs.own(function()
 				if liftByKey[s.key] == lift then
 					liftByKey[s.key] = nil
 				end
@@ -1143,25 +1148,18 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			local function aimLift(key: any)
 				lift:setTarget(if key == s.key then LIFT_SCALE else 1)
 			end
-			aimLift(candidate:get())
-			rs:own(core:observe(candidate, aimLift))
+			aimLift(candidate:peek())
+			rs.watchStatic(candidate, aimLift)
 		end
-		--[[ THE BLOOM'S TURN. A flat decorative timer holds this wedge at its absent
-			place before its spring is aimed, so the ring opens as a sequence instead
-			of a slab. `from = to = 0` because only the settle EVENT is read: a ramp
-			would write a number nobody observes on every frame of the wait. Under
-			reduced motion there is no rhythm to delete — the wedge is placed
-			instantly and a hold would only postpone that landing by a frame — so
-			the delay collapses to zero and this wedge never waits. ]]
 		local waiting: any = nil
 		if progress then
-			rs:own(function()
+			rs.own(function()
 				if waiting then
 					waiting:dispose()
 					waiting = nil
 				end
 			end)
-			rs:own(core:effect(function(use)
+			rs.watch(function(use)
 				local active, ordinal = false, 0
 				for i, v in use(layout).sectors do
 					if v.key == s.key then
@@ -1179,7 +1177,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 					progress:setTarget(0)
 				elseif waiting == nil then
 					local delay = if clock:isReduced() then 0 else math.min(ordinal - 1, STAGGER_CAP) * STAGGER_STEP
-					if delay > 0 and progress:get() < 0.001 and progress:getTarget() == 0 then
+					if delay > 0 and progress:peek() < 0.001 and progress:getTarget() == 0 then
 						local hold = clock:timer({ from = 0, to = 0, duration = delay, kind = "decorative" })
 						waiting = hold
 						hold:onSettle(function()
@@ -1195,29 +1193,29 @@ function radial.build(Facet: any, core: any, spec: Spec)
 						progress:setTarget(1)
 					end
 				end
-				if not active and progress:get() < 0.015 then
+				if not active and progress:peek() < 0.015 then
 					local pending = {}
-					for _, v in retiring:get() do
+					for _, v in retiring:peek() do
 						if v.key ~= s.key then
 							table.insert(pending, v)
 						end
 					end
-					if #pending ~= #retiring:get() then
+					if #pending ~= #retiring:peek() then
 						retiring:set(pending)
 					end
 				end
-			end))
-			rs:own(core:observe(progress, function(value)
+			end)
+			rs.watchStatic(progress, function(value)
 				if value < 0.015 and progress:getTarget() == 0 then
 					local pending = {}
-					for _, v in retiring:get() do
+					for _, v in retiring:peek() do
 						if v.key ~= s.key then
 							table.insert(pending, v)
 						end
 					end
 					retiring:set(pending)
 				end
-			end))
+			end)
 		end
 		local opacity = rm(function(use)
 			return if progress then math.clamp(use(progress), 0, 1) else 1
@@ -1327,7 +1325,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			height = labelHeight,
 			help = item.description,
 			onPointerDown = function(p, pos)
-				return enabled:get() and down(p, pos)
+				return enabled:peek() and down(p, pos)
 			end,
 			onPointerMove = move,
 			onPointerUp = up,
@@ -1364,7 +1362,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				padding = 0,
 				help = item.description,
 				onPointerDown = function(p, pos)
-					return enabled:get() and down(p, pos)
+					return enabled:peek() and down(p, pos)
 				end,
 				onPointerMove = move,
 				onPointerUp = up,
@@ -1419,7 +1417,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				height = labelHeight,
 				padding = 0,
 				onPointerDown = function(p, pos)
-					return enabled:get() and down(p, pos)
+					return enabled:peek() and down(p, pos)
 				end,
 				onPointerMove = move,
 				onPointerUp = up,
@@ -1732,6 +1730,36 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		end,
 		row = row,
 	})
+	--[[ THE LIST'S OWN BOX, INSIDE THE ROOM THE CONTROL ACTUALLY HAS.
+
+		The list form is what a radial falls back to when there is no room for a
+		ring, and `layout.target` is the gap it leaves for the launcher it drops out
+		of. That gap was subtracted unconditionally, so a radial mounted INLINE —
+		the showcase's one-tap palette, 152x33 beside a caption — asked for a list
+		starting 44px down a 33px box and got a 1px scroller hanging 12px below its
+		own area: content outside its parent, which is the one thing the framework
+		refuses everywhere else.
+
+		The gap is an affordance, not a requirement: it is kept only while a row
+		still fits under it, and the list otherwise takes the whole area and
+		scrolls. Both the offset and the height come from here so they can never
+		describe different boxes. ]]
+	local function listBox(use: any): { top: number, height: number }
+		local metrics = use(env:get("themeMetrics")) or snapshot.neutral()
+		local gap = snapshot.resolveNumber(metrics, "s") or 8
+		local rowHeight = snapshot.resolveNumber(metrics, "controlSizes.large.height") or 56
+		local count = #use(content)
+		local natural = count * rowHeight + math.max(0, count - 1) * gap + gap * 2
+		local available = math.max(0, if rect then rect.h else 0)
+		local top = use(layout).target
+		-- the gap is reserved at BOTH ends, so the list is centred on the room the
+		-- launcher left it rather than pressed against the bottom edge
+		local reserved = top * 2
+		if top + rowHeight > available then
+			top, reserved = 0, 0
+		end
+		return { top = top, height = math.max(1, math.min(natural, available - reserved)) }
+	end
 	local body = switch(
 		"Presentation",
 		memo(function(use)
@@ -1754,17 +1782,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 								axis = "y",
 								width = UI.fill(),
 								height = memo(function(use)
-									local metrics = use(env:get("themeMetrics")) or snapshot.neutral()
-									local gap = snapshot.resolveNumber(metrics, "s") or 8
-									local rowHeight = snapshot.resolveNumber(metrics, "controlSizes.large.height") or 56
-									local count = #use(content)
-									local natural = count * rowHeight + math.max(0, count - 1) * gap + gap * 2
-									return fixed(
-										math.max(1, math.min(natural, (rect and rect.h or 0) - use(layout).target * 2))
-									)
+									return fixed(listBox(use).height)
 								end),
 								offsetY = memo(function(use)
-									return use(layout).target
+									return listBox(use).top
 								end),
 								padding = "s",
 								gap = "s",
@@ -1888,26 +1909,33 @@ function radial.build(Facet: any, core: any, spec: Spec)
 							return r.id
 						end,
 						row = function(r, rs)
+							rs = if rs then rs else (Compose.currentOwner() or scope)
 							local function property(key)
-								return rs:own(core:memo(function(use)
-									for _, v in use(captureRegions) do
-										if v.id == r.id then
-											return v[key]
+								return Compose.withOwner(rs, function()
+									return Compose.formula(function(use)
+										for _, v in use(captureRegions) do
+											if v.id == r.id then
+												return v[key]
+											end
 										end
-									end
-									return 0
-								end))
+										return 0
+									end)
+								end)
 							end
 							local width, height = property("w"), property("h")
 							return UI.Grip({
 								id = "Plane",
 								focusVisual = "none",
-								width = rs:own(core:memo(function(use)
-									return fixed(use(width))
-								end)),
-								height = rs:own(core:memo(function(use)
-									return fixed(use(height))
-								end)),
+								width = Compose.withOwner(rs, function()
+									return Compose.formula(function(use)
+										return fixed(use(width))
+									end)
+								end),
+								height = Compose.withOwner(rs, function()
+									return Compose.formula(function(use)
+										return fixed(use(height))
+									end)
+								end),
 								offsetX = property("x"),
 								offsetY = property("y"),
 								onPointerDown = down,
@@ -2041,7 +2069,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 											else use(layout).cy - use(navigationSize) / 2
 									end),
 									onActivate = function()
-										if isCorner and not opened:get() then
+										if isCorner and not opened:peek() then
 											api.open()
 										else
 											api.back()
@@ -2155,7 +2183,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	})
 	local function walk(node: any)
 		if node.id == "Item" then
-			for _, s in layout:get().sectors do
+			for _, s in layout:peek().sectors do
 				-- ForEach keys are single path segments; inspect the row's ancestor identity.
 				if node.path:find("/[" .. s.key .. "]/", 1, true) then
 					focusPaths[s.key] = node.path
@@ -2168,7 +2196,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			walk(child)
 		end
 	end
-	blueprint = Facet.contribution.attach(blueprint, {
+	blueprint = require("../input/contribution").attach(blueprint, {
 		bindController = function(c)
 			controller = c
 		end,
@@ -2183,12 +2211,15 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			clock = c
-			fade = scope:own(c:spring(alpha:get(), "object"))
-			scope:own(core:observe(fade, function()
-				alpha:set(fade:get())
-			end))
-			scope:own(fade:onSettle(function()
-				if not opened:get() then
+			fade = c:spring(alpha:peek(), "object")
+			scope.own(function()
+				fade:dispose()
+			end)
+			scope.watchStatic(fade, function()
+				alpha:set(fade:peek())
+			end)
+			scope.own(fade:onSettle(function()
+				if not opened:peek() then
 					visible:set(false)
 					retiring:set({})
 				end
@@ -2199,19 +2230,19 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			delivery = s
-			scope:own(s.onTick(function()
+			scope.own(s.onTick(function()
 				if disposed then
 					return
 				end
-				if not available() and opened:get() then
+				if not available() and opened:peek() then
 					cancel()
 					api.close()
 				end
 				if pendingFocus and graph then
 					local dest = focusPaths[pendingFocus]
 					if pendingFocus == "first" then
-						for _, v in layout:get().sectors do
-							if v.depth == #path:get() then
+						for _, v in layout:peek().sectors do
+							if v.depth == #path:peek() then
 								dest = focusPaths[v.key]
 								break
 							end
@@ -2241,7 +2272,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			axisUpdate = radialInput.bind(core, scope, system, opened, function()
-				return available() and opened:get()
+				return available() and opened:peek()
 			end, function(x, y)
 				if gesture then
 					return
@@ -2257,12 +2288,12 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				end
 				local entering = not analog
 				analog = true
-				local l = layout:get()
+				local l = layout:peek()
 				if entering and followX and follow ~= "always" then
 					followX:snap(l.cx)
 					followY:snap(l.cy)
 					if followRadius then
-						followRadius:snap(followRadius:get())
+						followRadius:snap(followRadius:peek())
 					end
 				end
 				local level = l.levels[#l.levels]
@@ -2294,7 +2325,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				previewPath = node.path
 				detachPreview = controller.attachContextGestures(node.path, {
 					onHover = function(pos)
-						if opened:get() and not gesture and not analog and available() then
+						if opened:peek() and not gesture and not analog and available() then
 							setCandidate(hit(pos, false))
 						end
 					end,
@@ -2342,7 +2373,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		end,
 		handleActivate = function(p, meta)
 			if
-				(p == focusPaths.Launcher or (layout:get().mode == "radial" and p:match("/Item$")))
+				(p == focusPaths.Launcher or (layout:peek().mode == "radial" and p:match("/Item$")))
 				and meta
 				and (meta.pointer or meta.pointerType or meta.kind == "pointer")
 			then
@@ -2353,7 +2384,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				api.toggle()
 				return true
 			end
-			for _, s in layout:get().sectors do
+			for _, s in layout:peek().sectors do
 				if focusPaths[s.key] == p then
 					return commit(s)
 				end
@@ -2363,51 +2394,13 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		navigateIntercept = function(direction)
 			-- Linear fallback uses the presenter's standard navigation and
 			-- scroll-to-visible path; only radial geometry needs this intercept.
-			if not opened:get() or not graph or layout:get().mode == "list" then
+			if not opened:peek() or not graph or layout:peek().mode == "list" then
 				return false
 			end
-			--[[ AN ANALOG AIM OWNS THE RING, AND A HELD STICK IS NOT A REPEAT.
-
-				The presenter's d-pad/analog auto-repeat glue (`presenter.luau`,
-				DPAD_REPEAT_DELAY_S = 0.4 then DPAD_REPEAT_INTERVAL_S = 0.1)
-				re-dispatches a HELD gamepad direction as a fresh
-				`navigateHorizontal`/`navigateVertical` every repeat interval, so
-				that a held d-pad steps a menu row by row. A list wants that. A ring
-				does not: the stick's ANGLE names the wedge absolutely, the
-				Direction2D binding in `bindActionSystem` below already re-aims from
-				that angle, and a second, INCREMENTAL opinion about "the next wedge
-				along" can only fight it.
-
-				MEASURED (tests/radial_hold_resolve.spec.luau, 2026-09-13). With the
-				stick parked due east and never touched again, the repeats walked
-				focus `:point` -> `:call` -> `:point` -> `:call` — an invisible ring
-				step every repeat interval, leaving the painted candidate on a wedge
-				the stick was not pointing at — and every step cost a full layout
-				solve: 7 solves across 60 otherwise idle frames, one at the 0.4 s
-				delay and one every 0.1 s after it.
-
-				CLAIMED (`true`), NOT DECLINED: declining hands the same repeat to
-				`graph.navigateDirection` instead, which is the identical defect one
-				layer down. Only the ANALOG case is claimed — a discrete d-pad press
-				with the stick centred still steps the ring geometrically below,
-				exactly as before, and so does the FIRST delivery of a stick push
-				(the presenter's context outranks this control's, so it is dispatched
-				before the aim sets `analog`). `analog` is cleared by the stick
-				re-centring (magnitude < 0.25) and by every close/back/root/commit/
-				cancel/dispose path, so it cannot strand the ring — a released stick
-				puts the ring straight back on the geometric branch below.
-
-				THE AIM IS MODAL TO THE RING (ruling, 2026-09-13). This claims EVERY
-				direction while the stick is aiming, not only the ones a wedge lies
-				along — so a held stick can never yank focus out of an open radial and
-				into whatever control happens to sit beside it. That is the same
-				ownership the `best == nil` case below states for the d-pad: while
-				focus is inside an open ring, the ring owns the directional verbs, and
-				Cancel/B is how you leave. ]]
 			if analog then
 				return true
 			end
-			local from = focusRects[graph.focused:get()]
+			local from = focusRects[graph.focused:peek()]
 			if not from then
 				return false
 			end
@@ -2418,7 +2411,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			end
 			local best, score = nil, math.huge
 			for p, r in focusRects do
-				if r and p ~= graph.focused:get() then
+				if r and p ~= graph.focused:peek() then
 					local dx, dy = r.x + r.w / 2 - from.x - from.w / 2, r.y + r.h / 2 - from.y - from.h / 2
 					local along = dx * v[1] + dy * v[2]
 					local cross = math.abs(dx * v[2] - dy * v[1])
@@ -2429,28 +2422,8 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 			if best then
-				--[[ ONE WRITER MOVES FOCUS AND THE HIGHLIGHT TOGETHER.
-
-					This branch used to move focus with a bare `graph.focusOn` and
-					never touch `candidate`, and the presenter does NOT report a move
-					an intercept claimed back through `focusMoved` — so a d-pad or
-					keyboard step left the two disagreeing. Measured 2026-09-13: one
-					`DPadRight` on a fresh compass ring focused `:point` with
-					`candidate` still nil, and a later step sat on `:point` with
-					`candidate` reading `:call`. `candidate` is not decoration — it is
-					what a hold-action release commits (`commit(candidateSector())`)
-					and what the lift/tint paint from, so the pad user could commit a
-					wedge that was never the one lit up.
-
-					`setCandidate` is the analog path's writer and it does both halves
-					in one call, so the two routes into the ring now agree by
-					construction. It declines a disabled/hidden item; `focusRects`'s
-					census above already applies that SAME predicate (the wedge
-					Button's `enabled` IS the item's `eligible`), so a censused path
-					cannot be one it refuses. The fallback is for a focusable that is
-					not a wedge at all — the Launcher. ]]
 				local picked = nil
-				for _, s in layout:get().sectors do
+				for _, s in layout:peek().sectors do
 					if focusPaths[s.key] == best then
 						picked = s
 						break
@@ -2463,32 +2436,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				end
 				return true
 			end
-			--[[ NOTHING LIES THAT WAY, SO THE RING HOLDS — IT DOES NOT FALL THROUGH.
-
-				This `return false` used to hand the direction to the presenter's
-				`graph.navigateDirection`, which walks the focus RING in declaration
-				order and therefore WRAPS. That wrap is what made a held direction
-				unstable, and it is the real root of the auto-repeat flip-flop:
-				measured 2026-09-13 on a compass ring, a held `DPadRight` went
-				`:point` -(no wedge to the right, fall through, wrap)-> `:call`
-				-(the search above: `:point` IS to the right of `:call`)-> `:point`,
-				for SEVEN focus changes and eight solves across a 60-tick hold, for
-				a player holding one key.
-
-				Holding makes the repeat provably terminating instead of patching the
-				cadence: every step this intercept takes requires `along > 1`, i.e. a
-				STRICT advance along the pressed direction, so over a finite ring the
-				walk is monotone and must stop. Only the wrap could re-enter a wedge
-				it had already left. A held direction now steps as far as the ring
-				goes that way and then rests — no state, no last-direction memo, and
-				a multi-wedge ring still repeat-steps the whole way across.
-
-				The ring only claims while focus is INSIDE it: `from` is nil for any
-				path this control did not census, and that returns false above. ]]
 			return true
 		end,
 		handleCancel = function()
-			if opened:get() then
+			if opened:peek() then
 				api.back()
 				return true
 			end
@@ -2517,7 +2468,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		end
 		return { items = items }
 	end)
-	scope:own(core:observe(facts, function(value)
+	scope.watchStatic(facts, function(value)
 		local ok, err = pcall(validate, value.items, distribution)
 		if not ok then
 			callbacksError = tostring(err)
@@ -2527,7 +2478,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		end
 		sourceItems = value.items
 		local chain = {}
-		for _, hop in path:get() do
+		for _, hop in path:peek() do
 			if
 				not itemAt(chain, hop)
 				or not itemAt(chain, hop).children
@@ -2538,7 +2489,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			end
 			table.insert(chain, hop)
 		end
-		if #chain ~= #path:get() then
+		if #chain ~= #path:peek() then
 			cancel()
 			path:set(chain)
 		end
@@ -2546,23 +2497,23 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			cancel()
 			api.close()
 		end
-		if candidate:get() then
+		if candidate:peek() then
 			local s = candidateSector()
 			if not s or not itemAt(s.chain, s.id) or read(itemAt(s.chain, s.id).enabled) == false then
 				setCandidate(nil)
 			end
 		end
 		refresh()
-	end))
+	end)
 	if spec.holdAction then
 		assert(
 			type(spec.holdAction.onPressed) == "function" and type(spec.holdAction.onReleased) == "function",
-			"Controls.RadialMenu: holdAction must be a semantic Bool action"
+			"UI.RadialMenu: holdAction must be a semantic Bool action"
 		)
-		scope:own(spec.holdAction.onPressed(function()
+		scope.own(spec.holdAction.onPressed(function()
 			api.open()
 		end))
-		scope:own(spec.holdAction.onReleased(function()
+		scope.own(spec.holdAction.onReleased(function()
 			if analog then
 				commit(candidateSector())
 			else
@@ -2570,7 +2521,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			end
 		end))
 	end
-	scope:own(function()
+	scope.own(function()
 		disposed = true
 		if detachPreview then
 			detachPreview()
@@ -2584,7 +2535,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	api.isVisible = visible
 	api.openPath = path
 	local function dump()
-		local l = layout:get()
+		local l = layout:peek()
 		local sectors = {}
 		for _, s in l.sectors do
 			table.insert(sectors, {
@@ -2607,9 +2558,9 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		return {
 			schema = "facet-radial_menu-dump/1",
 			id = id,
-			open = opened:get(),
-			visible = visible:get(),
-			openPath = table.clone(path:get()),
+			open = opened:peek(),
+			visible = visible:peek(),
+			openPath = table.clone(path:peek()),
 			presentation = l.mode,
 			preset = preset,
 			appearance = appearance,
@@ -2620,11 +2571,11 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			windowRect = rect,
 			centerX = l.cx,
 			centerY = l.cy,
-			candidate = candidate:get(),
+			candidate = candidate:peek(),
 			captured = gesture,
 			analog = analog,
 			sectors = sectors,
-			opacity = alpha:get(),
+			opacity = alpha:peek(),
 			lastError = callbacksError,
 		}
 	end
@@ -2635,9 +2586,21 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		dispose = function()
 			if not disposed then
 				api.close()
-				scope:dispose()
+				scope.dispose()
 			end
 		end,
 	})
+end
+function radial.build(Facet: any, core: any, spec: Spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 return radial

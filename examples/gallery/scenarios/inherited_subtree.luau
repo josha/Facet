@@ -1,8 +1,7 @@
 --!strict
 --[[ Scenario 'inherited_subtree' — the showcase surface for the two INHERITED
-	container properties (Facet stabilization pass, stream D; stream C's design
-	note `docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`, its
-	implementation `src/mount.luau`/`src/class_contract.luau`, and its docs at
+	container properties (design note
+	`docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`; docs at
 	`docs/reference/api.md#inherited-properties-enabled-and-tint` and
 	`docs/guide/05-styling.md`).
 
@@ -130,10 +129,7 @@ return {
 		caption = CAPTION_PATH,
 	},
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("inherited-subtree")
+		local UI, Compose = ctx.UI, ctx.Compose
 
 		-- the panel's OWN state: whether it is on, and how far its tint blends
 		-- toward `accent`. `blendPercent` is the SLIDER's own value (a whole
@@ -142,151 +138,138 @@ return {
 		-- column at 320px under two shipped packages, caught by
 		-- `tests/lib/world`'s containment guard); `blend` is the 0..1 fraction
 		-- the public `tint` value actually wants, derived from it.
-		local live = scope:own(core:signal(true))
-		local blendPercent = scope:own(core:signal(35))
-		local blend = scope:own(core:memo(function(use)
+		local live = Compose.cell(true)
+		local blendPercent = Compose.cell(35)
+		local blend = Compose.formula(function(use)
 			return use(blendPercent) / 100
-		end))
+		end)
 		-- how many times `Go` has actually fired Activate — the observable proof
 		-- that the panel being "on" is not merely a paint state: this is what a
 		-- pointer, a touch, a keyboard Return or a gamepad A actually reaches
 		-- when the panel is enabled, and never reaches when it is not.
-		local engaged = scope:own(core:signal(0))
+		local engaged = Compose.cell(0)
 
-		local panelTint = scope:own(core:memo(function(use)
+		local panelTint = Compose.formula(function(use)
 			return { role = "accent", blend = use(blend) }
-		end))
+		end)
 
-		local status = scope:own(core:memo(function(use)
+		local status = Compose.formula(function(use)
 			local pct = use(blendPercent)
 			return `{COPY.statusPrefix}{if use(live) then COPY.statusOn else COPY.statusOff} — blend {pct}%`
-		end))
+		end)
 
-		local slider = Facet.View.Slider({
-			id = "BlendSlider",
-			label = COPY.blendLabel,
-			value = blendPercent,
-			min = 0,
-			max = 100,
-			step = 5,
-		})
-
-		local screen = UI.Screen({
-			id = "InheritedSubtree",
-			padding = 12,
-			gap = "s",
-
-			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-			-- title, two controls, a seven-node panel and a status line do not fit
-			-- the ~200px a 640x320 landscape phone has left once the showcase
-			-- reserves its chip strip.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function screen()
+			return UI.Screen("InheritedSubtree")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				UI.Toggle({ id = "PowerToggle", label = COPY.powerLabel, value = live }),
-				slider,
-				UI.VStack({
-					id = "Panel",
-					-- THE TWO INHERITED PROPS, ON ONE CONTAINER. Everything below
-					-- this line that names no `tint`/`enabled` of its own takes
-					-- these; anything that names its own wins over them.
-					enabled = live,
-					tint = panelTint,
-					surface = "control",
-					padding = "s",
-					gap = "tight",
+				-- THE PAGE SCROLLS, for the reason every other fixture here does: a
+				-- title, two controls, a seven-node panel and a status line do not fit
+				-- the ~200px a 640x320 landscape phone has left once the showcase
+				-- reserves its chip strip.
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					-- BEAT 1: NESTED INHERITANCE, two levels below Panel.
-					UI.HStack({
-						id = "Row",
-						gap = "s",
-						-- a `fill` child needs a determinate parent to fill: a
-						-- `hug` HStack sizes to its content, so `HeroTitle`'s
-						-- `fill` had nothing to expand into and solved to a
-						-- zero-width box (caught by `tests/lib/world`'s
-						-- containment guard, not by `controller.diagnostics()`,
-						-- which reports overflow, never underflow)
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					UI.Toggle("PowerToggle")({ label = COPY.powerLabel, value = live }),
+					UI.Slider("BlendSlider")({
+						label = COPY.blendLabel,
+						value = blendPercent,
+						min = 0,
+						max = 100,
+						step = 5,
+					}),
+					UI.VStack("Panel")({
+						-- THE TWO INHERITED PROPS, ON ONE CONTAINER. Everything below
+						-- this line that names no `tint`/`enabled` of its own takes
+						-- these; anything that names its own wins over them.
+						enabled = live,
+						tint = panelTint,
+						surface = "control",
+						padding = "s",
+						gap = "tight",
 						width = UI.fill(),
 
-						UI.Text({
-							id = "HeroTitle",
-							text = COPY.heroText,
-							textSize = "control",
+						-- BEAT 1: NESTED INHERITANCE, two levels below Panel.
+						UI.HStack("Row")({
+							gap = "s",
+							-- a `fill` child needs a determinate parent to fill: a
+							-- `hug` HStack sizes to its content, so `HeroTitle`'s
+							-- `fill` had nothing to expand into and solved to a
+							-- zero-width box (caught by `tests/lib/world`'s
+							-- containment guard, not by `controller.diagnostics()`,
+							-- which reports overflow, never underflow)
 							width = UI.fill(),
-						}),
-						UI.Image({
-							id = "Crest",
-							width = { type = "fixed", px = 28 },
-							height = { type = "fixed", px = 28 },
-						}),
-					}),
-					UI.Text({
-						id = "CrestCaption",
-						text = COPY.crestLabel,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					-- BEAT 2a: LEAF OVERRIDE — its own tint beats the inherited one.
-					UI.Text({
-						id = "Note",
-						text = COPY.noteText,
-						textSize = "caption",
-						tint = { role = "danger", blend = 1 },
-					}),
-					-- BEAT 2b: NESTED-CONTAINER OVERRIDE — `Inner`'s own tint
-					-- replaces `Panel`'s for everything under `Inner`; `Sub`
-					-- names none of its own, so it takes `Inner`'s, not `Panel`'s.
-					UI.VStack({
-						id = "Inner",
-						tint = { role = "contentSecondary", blend = 1 },
-						gap = "tight",
 
-						UI.Text({ id = "Sub", text = COPY.innerSubText, textSize = "caption" }),
+							UI.Text("HeroTitle")({
+								text = COPY.heroText,
+								textSize = "control",
+								width = UI.fill(),
+							}),
+							UI.Image("Crest")({
+								width = { type = "fixed", px = 28 },
+								height = { type = "fixed", px = 28 },
+							}),
+						}),
+						UI.Text("CrestCaption")({
+							text = COPY.crestLabel,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						-- BEAT 2a: LEAF OVERRIDE — its own tint beats the inherited one.
+						UI.Text("Note")({
+							text = COPY.noteText,
+							textSize = "caption",
+							tint = { role = "danger", blend = 1 },
+						}),
+						-- BEAT 2b: NESTED-CONTAINER OVERRIDE — `Inner`'s own tint
+						-- replaces `Panel`'s for everything under `Inner`; `Sub`
+						-- names none of its own, so it takes `Inner`'s, not `Panel`'s.
+						UI.VStack("Inner")({
+							tint = { role = "contentSecondary", blend = 1 },
+							gap = "tight",
+
+							UI.Text("Sub")({ text = COPY.innerSubText, textSize = "caption" }),
+						}),
+						-- THE ONE LITERAL FORM, CLEARLY LABELLED. Every other tint on
+						-- this screen is a theme role; this is the `direct` escape
+						-- hatch, named in its own text so nobody mistakes it for the
+						-- rule rather than the exception.
+						UI.Text("DirectDemo")({
+							text = COPY.directText,
+							textSize = "caption",
+							tint = { direct = "#3388ff" },
+						}),
+						-- BEAT 3: THE CONTROL BOUNDARY. `Go`'s role paint and its own
+						-- `Caption` content take neither `Panel`'s tint nor a
+						-- descendant's — a control's interior is not tinted, ever.
+						UI.Button("Go")({
+							label = COPY.goLabel,
+							onActivate = function()
+								engaged:set(engaged:peek() + 1)
+							end,
+							UI.Text("Caption")({ text = COPY.goCaption }),
+						}),
+						UI.Text("ControlNote")({
+							text = COPY.controlBoundaryNote,
+							textSize = "caption",
+							role = "secondary",
+						}),
 					}),
-					-- THE ONE LITERAL FORM, CLEARLY LABELLED. Every other tint on
-					-- this screen is a theme role; this is the `direct` escape
-					-- hatch, named in its own text so nobody mistakes it for the
-					-- rule rather than the exception.
-					UI.Text({
-						id = "DirectDemo",
-						text = COPY.directText,
-						textSize = "caption",
-						tint = { direct = "#3388ff" },
-					}),
-					-- BEAT 3: THE CONTROL BOUNDARY. `Go`'s role paint and its own
-					-- `Caption` content take neither `Panel`'s tint nor a
-					-- descendant's — a control's interior is not tinted, ever.
-					UI.Button({
-						id = "Go",
-						label = COPY.goLabel,
-						onActivate = function()
-							engaged:set(engaged:get() + 1)
-						end,
-						UI.Text({ id = "Caption", text = COPY.goCaption }),
-					}),
-					UI.Text({
-						id = "ControlNote",
-						text = COPY.controlBoundaryNote,
-						textSize = "caption",
-						role = "secondary",
-					}),
+					UI.Text("Status")({ text = status, textSize = "caption", role = "secondary" }),
+					-- BEATS 4/5: a legal focus stop AFTER the panel. With the panel on,
+					-- Tab from `BlendSlider` stops at `Go` first; with it off, Tab lands
+					-- here directly — the panel is skipped, not merely unreachable by
+					-- one route.
+					UI.Button("After")({ label = COPY.afterLabel, onActivate = function() end }),
+					UI.Text("AfterNote")({ text = COPY.afterNote, textSize = "caption", role = "secondary" }),
 				}),
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-				-- BEATS 4/5: a legal focus stop AFTER the panel. With the panel on,
-				-- Tab from `BlendSlider` stops at `Go` first; with it off, Tab lands
-				-- here directly — the panel is skipped, not merely unreachable by
-				-- one route.
-				UI.Button({ id = "After", label = COPY.afterLabel }),
-				UI.Text({ id = "AfterNote", text = COPY.afterNote, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
@@ -296,7 +279,7 @@ return {
 			-- gamepad both do to a disabled subtree, so it opts in exactly like
 			-- `keyboard_navigation.luau` does.
 			present = { keyboardNavigation = true },
-			-- published for the headless suite: the signals a spec drives and
+			-- published for the headless suite: the cells a spec drives and
 			-- reads directly, rather than a re-implementation of them
 			live = live,
 			blend = blend,
@@ -311,10 +294,10 @@ return {
 					elseif payload == "off" then
 						live:set(false)
 					else
-						live:set(not live:get())
+						live:set(not live:peek())
 					end
 					ctx.presenter.refresh()
-					return { enabled = live:get() }
+					return { enabled = live:peek() }
 				end,
 
 				-- the reactive tint's driver. payload is the blend fraction as text
@@ -328,7 +311,7 @@ return {
 						blendPercent:set(math.clamp(v, 0, 1) * 100)
 					end
 					ctx.presenter.refresh()
-					return { blend = blend:get(), applied = v ~= nil }
+					return { blend = blend:peek(), applied = v ~= nil }
 				end,
 
 				-- REAL Tab presses (the keyboard Traverse action), from a known
@@ -342,14 +325,14 @@ return {
 					ctx.presenter.focus.setFocusOrigin("navigation")
 					ctx.presenter.refresh()
 					for _ = 1, hops do
-						if ctx.presenter.focus.focused:get() == GO_PATH then
+						if ctx.presenter.focus.focused:peek() == GO_PATH then
 							break
 						end
 						ctx.actionSystem.deviceKey("Tab", true)
 						ctx.actionSystem.deviceKey("Tab", false)
 						ctx.presenter.refresh()
 					end
-					return { focus = ctx.presenter.focus.focused:get() }
+					return { focus = ctx.presenter.focus.focused:peek() }
 				end,
 
 				-- BEAT 5, as one atomic step: call this AFTER `tabInto` has put
@@ -357,34 +340,30 @@ return {
 				-- the focused node and reports both sides of the jump, which is
 				-- the only way this beat is visible at all.
 				disableWhileFocused = function(_built: any, _payload: string?)
-					local before = ctx.presenter.focus.focused:get()
+					local before = ctx.presenter.focus.focused:peek()
 					live:set(false)
 					ctx.presenter.refresh()
-					local after = ctx.presenter.focus.focused:get()
+					local after = ctx.presenter.focus.focused:peek()
 					return { before = before, after = after }
 				end,
 			},
 
 			report = function()
 				return {
-					enabled = live:get(),
-					blend = blend:get(),
-					engaged = engaged:get(),
-					focus = ctx.presenter.focus.focused:get(),
+					enabled = live:peek(),
+					blend = blend:peek(),
+					engaged = engaged:peek(),
+					focus = ctx.presenter.focus.focused:peek(),
 					-- WHAT THIS SCENARIO ITSELF DECLARED, not a re-derivation of an
 					-- internal predicate: the panel is disabled exactly when `live`
 					-- is false, by construction, and everything under it inherits
 					-- that same verdict.
-					disabled = { panelPath = PANEL_PATH, panel = not live:get() },
+					disabled = { panelPath = PANEL_PATH, panel = not live:peek() },
 					-- the tint this container is CURRENTLY cascading to `HeroTitle`
 					-- and `Crest`, two levels down, by declaration — the same value
 					-- `panelTint` hands the framework this frame.
-					heroTint = { role = "accent", blend = blend:get(), path = HERO_PATH },
+					heroTint = { role = "accent", blend = blend:peek(), path = HERO_PATH },
 				}
-			end,
-
-			dispose = function()
-				scope:dispose()
 			end,
 		}
 	end,

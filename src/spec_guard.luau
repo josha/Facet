@@ -6,7 +6,7 @@
 -- modifier specs and control specs exactly as to UI.* props". It did not: the
 -- blueprint layer refused junk, but every composite control spec and every
 -- service/model opts table accepted it silently, so
--- `newSlider(…, { tapToPositon = false })` built a slider that ignored the
+-- `UI.Slider(…, { tapToPositon = false })` built a slider that ignored the
 -- option, and `newResourceProvider(core, { maxConcurent = 8 })` capped nothing.
 -- That is the accepted-and-ignored class the strict boundary exists to remove,
 -- and it is worse on an opts table than on a prop: a misspelled option is
@@ -15,7 +15,7 @@
 --
 -- ONE helper, engine-free, no dependencies, so it is legal from any layer:
 --
---   guard.assertKnownKeys("newSlider", spec, SLIDER_KEYS, "spec")
+--   guard.assertKnownKeys("UI.Slider", spec, SLIDER_KEYS, "spec")
 --
 -- Contract:
 --   * nil and empty tables are legal — every guarded boundary already decides
@@ -63,7 +63,7 @@ end
 
 -- assertKnownKeys(where, tbl, known, kind)
 --   where — the PUBLIC name of the boundary as the author typed it
---           ("newSlider", "presenter.present", "UI.mount"), never the internal
+--           ("UI.Slider", "presenter.present", "UI.mount"), never the internal
 --           module path: the error has to be greppable from the call site.
 --   kind  — "spec" | "opts", so the sentence reads the way the API does.
 function spec_guard.assertKnownKeys(where: string, tbl: any, known: KeySet, kind: string)
@@ -88,6 +88,28 @@ function spec_guard.keySet(names: { string }): KeySet
 		set[name] = true
 	end
 	return table.freeze(set)
+end
+
+--[[ ONE `key` RULE FOR EVERY KEYED COLLECTION. A collection identifies its
+	items either with a function or with the NAME of the field that holds the
+	identity, and the two spellings mean the same thing everywhere: a field name
+	reads `item[field]` and passes it through `tostring`, because a key is a path
+	segment and a path segment is a string. `where` names the boundary for the
+	refusal (`UI.ForEach`, `UI.Table`, …). ]]
+function spec_guard.keyFunction(where: string, key: any): (any) -> string
+	if type(key) == "function" then
+		return key
+	end
+	if type(key) == "string" and key ~= "" then
+		return function(item: any): string
+			return tostring(item[key])
+		end
+	end
+	error(
+		`Facet {where}: \`key\` identifies an item — pass (item) -> string, or the name of the field `
+			.. `that holds the identity (key = "id"). Got {typeof(key)}.`,
+		0
+	)
 end
 
 return table.freeze(spec_guard)

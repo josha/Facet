@@ -71,8 +71,12 @@
 	   and is meant to be this client's `PlayerGui`.
 
 	Clipping, the native scroll host's canvas writes, and `TextService` text bounds
-	all behaved exactly as they do on a screen. The StyleSheet cascade is NOT yet
-	proved — see `nativeStyle` below.
+	all behaved exactly as they do on a screen. The virtual monitors Studio
+	probe additionally verifies native StyleSheet palette swaps and Stage content.
+	The paged discovery drive (2026-09-19) additionally measured native wheel
+	scrolling from 0 to 2270 px, CanvasSize growth from 2694 to 5406 px, and
+	12 mounted card hits after paging. Selection and Back preserved 2270 px.
+	Touch inertia and spatial pointer input need separate evidence.
 ]]
 
 --[[ THE SCREEN TARGET IS RESOLVED INSIDE `new`, NOT AT MODULE SCOPE.
@@ -107,6 +111,7 @@ export type Opts = {
 		The consumer resigns the surface; this adapter only tells it. ]]
 	onAdorneeLost: (() -> ())?,
 	style: any?,
+	nativeStyle: any?,
 	-- the display class, forwarded verbatim like `style` (paint-family lockstep,
 	-- the ten-foot ladder's paint half), for the same reason billboards forward it: a surface
 	-- that painted near while its own layout measured far would re-open the
@@ -147,20 +152,11 @@ function surface_target.new(opts: Opts)
 		style = opts.style,
 		displaySize = opts.displaySize,
 		isReducedMotion = opts.isReducedMotion,
-		--[[ The native scroll host stays OFF until a live surface drive proves a
-			user-driven scroll, not merely a scripted one. The spike wrote
-			`CanvasPosition` on a ScrollingFrame over a surface and it took
-			(0,120 on a 200x600 canvas in a 200x100 window) — but a scripted write
-			is not a wheel, a drag or a touch flick, and those are what a consumer
-			would actually get. Clip-only until measured, same as the billboard. ]]
-		forceScrollFallback = true,
-		--[[ Native paint is UNPROVEN on a world surface and this is the one open
-			question the spike could not close. Two attempts to apply a hand-built
-			StyleRule through a StyleLink failed to apply on the SCREEN control as
-			well, so the setup was wrong and a shared null proves nothing about the
-			cascade. `false` keeps the library's default flip from sweeping surfaces
-			before `native_style` itself has been driven on one. ]]
-		nativeStyle = false,
+		-- Roblox owns wheel/pan coordinates and inertia inside the SurfaceGui.
+		-- The same CanvasPosition observer drives Facet's virtualized window.
+		forceScrollFallback = false,
+		-- Share the screen paint path: native sheets also style SurfaceGui roots.
+		nativeStyle = opts.nativeStyle,
 		--[[ Native drag acquisition needs a canvas-space pointer mapping. The spike
 			proved ACTIVATION reaches a surface control; it did not prove what
 			coordinates a capture would carry, and on a SurfaceGui the ScreenGui
@@ -246,9 +242,8 @@ function surface_target.new(opts: Opts)
 	-- pointer capture and native gestures: canvas-space mapping unproven (above)
 	adapter.setPointerHandlers = nil
 	adapter.setTouchGestureHandlers = nil
-	-- a ViewportFrame rendering its own scene inside a canvas that is itself a
-	-- world surface is a composition nobody has measured, at any distance
-	adapter.stageHost = nil
+	-- Stage content uses the same owned ViewportFrame seam as a screen.
+	-- The virtual_monitors showcase exercises this composition in Studio.
 	-- ...and a caller's own GuiObject inside that canvas is the same unmeasured
 	-- question. `controller.foreignHost` answers nil — the documented
 	-- degrade, an empty reserved box or the author's own fallback plate.

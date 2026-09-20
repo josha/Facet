@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- A CONTROL NARROWER THAN ITS OWN CHROME (director report, 2026-07-28, defect 3:
 -- "in glossy touch, all controls, the compact glyph doesn't appear at all.
 -- Compact item text is also funky").
@@ -30,11 +31,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local snapshot = require("../src/themes/snapshot")
@@ -412,7 +413,7 @@ describe("a carved scroller keeps the package's whole reach on its cross axis", 
 			bleed = metrics.chromeBleed,
 			carve = metrics.chromeInsets.panel.left,
 			canvas = if isX then card.scrollRegion.contentW else card.scrollRegion.contentH,
-			error = core:lastError(),
+			error = core.lastError(),
 		}
 		controller.dispose()
 		root.dispose()

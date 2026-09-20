@@ -28,6 +28,7 @@
 --     consumer that must reserve space in a sibling or skip a whole surface
 --     before either arrangement is built.
 
+local Compose = require("../vendor/compose/core")
 local specGuard = require("../spec_guard")
 
 local adaptive = {}
@@ -467,25 +468,22 @@ export type Conditions = {
 	atLeast: (target: string) -> any, -- (target: string) -> Readable<boolean>
 }
 
---[[ THE MOST IMPORTANT ARGUMENT IS NOW IN A TYPE (F-29). `conditions` used to
-	declare an inline intersection `(AxisOpts & { scope: any? })?` and read the
-	scope through two `(opts :: any)` casts, so the one argument that stops an
-	eighteen-memo leak was undiscoverable from the exported types and a rename would
-	not have been caught. ]]
-export type ConditionsOpts = {
-	stackAbove: number?, -- AxisOpts: width at or above which the axis becomes "x"
-	scope: any?, -- owns every memo this function creates (see the note below)
-}
+export type ConditionsOpts = { stackAbove: number? }
 
--- conditions(core, env, opts?) -> Conditions
--- Readables the caller owns; they are memos over the environment, so they cost
--- nothing until read and re-resolve in place when a fact changes.
--- CLOSED OPTS (constitution §4). `scope` is the leak fix below, and a
--- misspelled one leaks eighteen memos per mount without a word.
-local CONDITIONS_OPTS_KEYS = specGuard.keySet({ "scope", "stackAbove" })
+-- Formulas belong to the active Compose owner. Later atLeast calls use the
+-- same owner, so a component cannot leave a derived condition behind.
+local CONDITIONS_OPTS_KEYS = specGuard.keySet({ "stackAbove" })
 
-function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Conditions
+function adaptive.conditions(env: any, opts: ConditionsOpts?): Conditions
 	specGuard.assertKnownKeys("adaptive.conditions", opts, CONDITIONS_OPTS_KEYS, "opts")
+	local owner = Compose.currentOwner()
+	local function formula(body)
+		return if owner
+			then Compose.withOwner(owner, function()
+				return Compose.formula(body)
+			end)
+			else Compose.formula(body)
+	end
 	local viewportRect = env:get("viewportRect")
 	-- delegate to the env memo so the breakpoints have exactly one implementation
 	local sizeClass = env:get("sizeClass")
@@ -497,44 +495,29 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	-- `adaptive.effectiveDisplaySize`'s own header
 	local displaySize = env:get("effectiveDisplaySize")
 
-	-- OWNERSHIP: this function creates EIGHTEEN memos (six until declared-content
-	-- added the height half, twelve until navPlacement, eighteen since gap 7
-	-- added the four nav-home predicates plus `isRegularOrWider` —
-	-- `isCompactOnly` is an ALIAS of the existing `isCompact` memo, not a
-	-- nineteenth), and a caller that rebuilds per mount without owning them
-	-- leaks eighteen per cycle — measured in the sponsor fixtures under a
-	-- long-lived core. Pass `opts.scope` and the memos die with the caller;
-	-- omitted, the caller owns them by hand (§6.3 — every resource has exactly
-	-- one owner either way).
-	local function owned<T>(resource: T): T
-		if opts ~= nil and opts.scope ~= nil then
-			return opts.scope:own(resource)
-		end
-		return resource
-	end
-	local contentWidth = owned(core:memo(function(use)
+	local contentWidth = formula(function(use)
 		local vp = use(viewportRect)
 		return if type(vp) == "table" then safeWidth(vp.w) else 0
-	end))
+	end)
 	local function is(name: string)
-		return owned(core:memo(function(use)
+		return formula(function(use)
 			return use(sizeClass) == name
-		end))
+		end)
 	end
-	local contentHeight = owned(core:memo(function(use)
+	local contentHeight = formula(function(use)
 		local vp = use(viewportRect)
 		return if type(vp) == "table" then safeWidth(vp.h) else 0
-	end))
+	end)
 	-- the height class delegates to the same pure function the width class does,
 	-- and reads the distance profile from the same env fact, so the ten-foot cap
 	-- has exactly ONE implementation on each axis
-	local heightClass = owned(core:memo(function(use)
+	local heightClass = formula(function(use)
 		return adaptive.heightClass(use(contentHeight), { distanceProfile = use(distanceProfile) })
-	end))
-	local orientation = owned(core:memo(function(use)
+	end)
+	local orientation = formula(function(use)
 		return adaptive.orientationFor(use(contentWidth), use(contentHeight))
-	end))
-	local navPlacementSignal = owned(core:memo(function(use)
+	end)
+	local navPlacementSignal = formula(function(use)
 		return adaptive.navPlacement({
 			sizeClass = use(sizeClass),
 			heightClass = use(heightClass),
@@ -545,14 +528,14 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 			end)(),
 			displaySize = use(displaySize),
 		})
-	end))
+	end)
 	-- GAP 7a: the same equality-check idiom `is(name)` above already uses for
 	-- `sizeClass`, over `navPlacementSignal` instead — promoted from
 	-- `tab_view.luau`'s private `isPlacement(name)`, not reinvented.
 	local function navIs(name: string)
-		return owned(core:memo(function(use)
+		return formula(function(use)
 			return use(navPlacementSignal) == name
-		end))
+		end)
 	end
 	-- GAP 7b: the general ranked form, and the memo `isRegularOrWider` binds.
 	-- Not `owned` at the point of definition — `owned` wraps a NEW memo each
@@ -560,9 +543,9 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	-- named `isRegularOrWider`) gets that same per-call ownership, exactly as
 	-- `is(name)` already does above.
 	local function atLeast(target: string): any
-		return owned(core:memo(function(use)
+		return formula(function(use)
 			return adaptive.sizeClassAtLeast(use(sizeClass), target)
-		end))
+		end)
 	end
 	local isCompactMemo = is("compact")
 	return {
@@ -570,9 +553,9 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 		isCompact = isCompactMemo,
 		isRegular = is("regular"),
 		isWide = is("wide"),
-		isTenFoot = owned(core:memo(function(use)
+		isTenFoot = formula(function(use)
 			return use(distanceProfile) == "ten-foot"
-		end)),
+		end),
 		-- NOTE (verifier finding V16): this is the RAW viewport width — it does NOT
 		-- subtract safe insets or overscan. In the console matrix row it reads 1920
 		-- while overscan removes 106px per side. Near a breakpoint a screen can
@@ -581,21 +564,21 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 		-- decision that must respect insets belongs in ViewThatFits, which measures.
 		viewportWidth = contentWidth,
 		contentWidth = contentWidth,
-		axis = owned(core:memo(function(use)
+		axis = formula(function(use)
 			return adaptive.axisFor(use(contentWidth), opts)
-		end)),
+		end),
 		heightClass = heightClass,
-		isShort = owned(core:memo(function(use)
+		isShort = formula(function(use)
 			return use(heightClass) == "short"
-		end)),
-		isTall = owned(core:memo(function(use)
+		end),
+		isTall = formula(function(use)
 			return use(heightClass) == "tall"
-		end)),
+		end),
 		viewportHeight = contentHeight,
 		orientation = orientation,
-		isLandscape = owned(core:memo(function(use)
+		isLandscape = formula(function(use)
 			return use(orientation) == "landscape"
-		end)),
+		end),
 		navPlacement = navPlacementSignal,
 		-- GAP 7a: promoted off the equality-check idiom `tab_view.luau` already
 		-- computed privately for itself (`isPlacement(name)`) — same technique,
@@ -689,14 +672,14 @@ function adaptive.fits(core: any, spec: FitsSpec): any
 	)
 	--[[ WHAT IS CHECKED WHERE, and it is forced by the reactive core rather than
 		chosen: a memo's compute is pcall-quarantined, so an `assert` inside one
-		records `core:lastError()` and answers `nil` instead of unwinding. A LOUD
+		records `core.lastError()` and answers `nil` instead of unwinding. A LOUD
 		refusal therefore has to happen HERE, at construction, and it can — every
 		STATIC part is knowable now. A part that arrives as a live Readable can only
 		be judged when it resolves, and there the assert reaches the core's own
 		error channel and the decision answers falsy, which is the conservative
 		direction: never reserve room the container has not been shown to have. ]]
 	local function isReadable(raw: any): boolean
-		return type(raw) == "table" and (raw.kind == "signal" or raw.kind == "memo")
+		return Compose.isReadable(raw)
 	end
 	local function checkStatic(raw: any, what: string)
 		if raw == nil or isReadable(raw) then
@@ -746,24 +729,43 @@ function adaptive.fits(core: any, spec: FitsSpec): any
 		)
 		return value
 	end
-	local memo = core:memo(function(use)
-		local needs = 0
-		if isList then
-			local parts = rawNeeds :: { any }
-			for i = 1, #parts do
-				needs += px(parts[i], use, `spec.needs[{i}]`)
+	--[[ A LIVE PART THAT RESOLVES TO NONSENSE IS REPORTED, NOT THROWN, and the
+		decision HOLDS ITS LAST GOOD ANSWER. Compose lets a formula's failure reach
+		whoever pulled it, which here would be a layout read: the caller of a
+		fits() decision has no more idea what to do about a bad `needs` than the
+		solver does. So the refusal is contained where it is understood — the
+		message goes to the core's error channel, and the verdict cannot move
+		while its input is unreadable, which is the conservative direction: never
+		reserve room the container has not been shown to have. ]]
+	local lastGood: any = false
+	local memo = Compose.formula(function(use)
+		local ok, value = pcall(function()
+			local needs = 0
+			if isList then
+				local parts = rawNeeds :: { any }
+				for i = 1, #parts do
+					needs += px(parts[i], use, `spec.needs[{i}]`)
+				end
+				if #parts > 1 and spec.gap ~= nil then
+					needs += px(spec.gap, use, "spec.gap") * (#parts - 1)
+				end
+			else
+				needs = px(rawNeeds, use, "spec.needs")
 			end
-			if #parts > 1 and spec.gap ~= nil then
-				needs += px(spec.gap, use, "spec.gap") * (#parts - 1)
-			end
-		else
-			needs = px(rawNeeds, use, "spec.needs")
+			local clearance = if spec.clearance == nil then 0 else px(spec.clearance, use, "spec.clearance")
+			return adaptive.fitsIn(needs, px(spec.container, use, "spec.container"), clearance)
+		end)
+		if not ok then
+			core.report(value)
+			return lastGood
 		end
-		local clearance = if spec.clearance == nil then 0 else px(spec.clearance, use, "spec.clearance")
-		return adaptive.fitsIn(needs, px(spec.container, use, "spec.container"), clearance)
+		lastGood = value
+		return value
 	end)
 	if spec.scope ~= nil then
-		return spec.scope:own(memo)
+		spec.scope.own(function()
+			memo:dispose()
+		end)
 	end
 	return memo
 end

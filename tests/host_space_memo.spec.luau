@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ── EVERY PATH THROUGH `createOptsFor` DECIDES THE FIELD (RED-TEAM C-10) ──────
 
 	`render/instance_boundary.createOptsFor` answers two callers that are not ordered
@@ -50,9 +51,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src")
-local UI = Facet.UI
-local worldLib = require("./lib/world")
+local UI = harness.UI
+local worldLib = require("./lib/harness_world")
 local instance_boundary = require("../src/render/instance_boundary")
+local Compose = require("../src/vendor/compose/core")
 
 local ROWS = 40
 -- the row that fades. Its neighbours are byte-identical apart from the prop, which is
@@ -70,12 +72,12 @@ local function makeWorld(): any
 			.. "fixture measures the coordinate-space memo, not containment",
 	})
 	local core = w.core
-	local fade = core:signal(0.5)
+	local fade = Compose.cell(0.5)
 	local items = {}
 	for i = 1, ROWS do
 		items[i] = { id = `k{i}`, n = i, fade = i == FADE_ROW }
 	end
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	w.present(UI.Screen({
 		id = "S",
 		children = {
@@ -245,12 +247,12 @@ local function makeLateWorld(prop: string): any
 			.. "fixture measures the coordinate-space memo, not containment",
 	})
 	local core = w.core
-	local late = core:signal(nil)
+	local late = Compose.cell(nil)
 	local items = {}
 	for i = 1, ROWS do
 		items[i] = { id = `k{i}`, n = i, fade = i == FADE_ROW }
 	end
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	w.present(UI.Screen({
 		id = "S",
 		children = {

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	A MEASURE→PUBLISH CYCLE SETTLES INSIDE ONE FLUSH (optimization-log L-31;
 	L-29 residual 1, priced tier 3 in
@@ -38,7 +39,7 @@
 	`resizeStorm` step against the device's 3.03 / 7.12 / 2.00 — and now runs
 	2 react, 6 arrange, 1 mount.
 
-	WHAT THE FIX IS. `core:settle` (src/core/contract.luau) — terminal work runs
+	WHAT THE FIX IS. `the settle pass` (src/core/contract.luau) — terminal work runs
 	after propagation quiesces, and a settle callback's writes re-enter the SAME
 	flush and are drained before the next callback runs. The renderer's geometry
 	re-solve and the presenter's geometry feed both became settle work, so the
@@ -55,6 +56,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src")
 local profile = require("../src/core/profile")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 -- Scopes ship OFF, so a counter has to turn them on and put them back, or one
 -- case leaks instrumentation into every spec that runs after it
@@ -98,29 +101,30 @@ type Scene = {
 	and publishes that height as `coreSafeInsets.bottom`. `roundTrip=false` builds
 	the identical pair with the publication removed — the control. ]]
 local function scene(roundTrip: boolean): Scene
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
+	local pres = harness.newPresenter(core, env, fake_target.new(), system)
 
 	local rows = {}
 	for i = 1, 24 do
 		table.insert(
 			rows,
-			Facet.UI.HStack({
+			harness.UI.HStack({
 				id = "R" .. i,
 				width = { type = "fill", weight = 1 },
 				children = {
-					Facet.UI.Text({ id = "A", text = "Row " .. i }),
-					Facet.UI.Spacer({ id = "S" }),
-					Facet.UI.Text({ id = "B", text = "value " .. i }),
+					harness.UI.Text({ id = "A", text = "Row " .. i }),
+					harness.UI.Spacer({ id = "S" }),
+					harness.UI.Text({ id = "B", text = "value " .. i }),
 				},
 			})
 		)
 	end
-	local content =
-		pres.present(Facet.UI.Screen({ id = "W", children = { Facet.UI.VStack({ id = "List", children = rows }) } }))
+	local content = pres.present(
+		harness.UI.Screen({ id = "W", children = { harness.UI.VStack({ id = "List", children = rows }) } })
+	)
 
 	--[[ The equality guard reads the LIVE fact, never a remembered one — the
 		platform adapter is the author of `coreSafeInsets` and rewrites all four
@@ -132,7 +136,7 @@ local function scene(roundTrip: boolean): Scene
 	local function reserveBottom(px: number)
 		local want = math.max(0, math.floor(px))
 		reservedBottom = want
-		local live = env:get("coreSafeInsets"):get()
+		local live = env:get("coreSafeInsets"):peek()
 		local other = if type(live) == "table" then live else {}
 		if (other.bottom or 0) == want then
 			return
@@ -146,14 +150,14 @@ local function scene(roundTrip: boolean): Scene
 	end
 
 	local dock = pres.present(
-		Facet.UI.Screen({
+		harness.UI.Screen({
 			id = "D",
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "Dock",
 					children = {
-						Facet.UI.Spacer({ id = "Push" }),
-						Facet.UI.VStack({
+						harness.UI.Spacer({ id = "Push" }),
+						harness.UI.VStack({
 							id = "Panel",
 							-- the dock's height DEPENDS ON THE VIEWPORT, exactly as the
 							-- performance lab's own panel does. This is what makes the
@@ -162,8 +166,8 @@ local function scene(roundTrip: boolean): Scene
 							-- cycle has to run and the only question is how much it costs
 							height = { type = "percent", fraction = 0.34, min = 96, max = 260 },
 							children = {
-								Facet.UI.Text({ id = "T1", text = "dock line one" }),
-								Facet.UI.Text({ id = "T2", text = "dock line two" }),
+								harness.UI.Text({ id = "T1", text = "dock line one" }),
+								harness.UI.Text({ id = "T2", text = "dock line two" }),
 							},
 						}),
 					},
@@ -311,7 +315,7 @@ describe("a measure→publish cycle settles inside one flush", function()
 			expect(type(onReturn)).toBe("table")
 			expect((onReturn :: any).h).toBe((nextFrame :: any).h)
 		end
-		expect(loop.core:lastError()).toBeNil()
+		expect(loop.core.lastError()).toBeNil()
 	end)
 
 	it("...and the published reservation is REALLY applied — the fix is not 'never publish'", function()
@@ -354,8 +358,8 @@ describe("a measure→publish cycle settles inside one flush", function()
 		local s = scene(false)
 		-- created after both surfaces are presented, so its observer is notified
 		-- after their geometry memos (observers fire in node CREATION order)
-		local late = s.core:signal(0)
-		s.core:observe(late, function(v: number)
+		local late = Compose.cell(0)
+		observeChange(s.core.owner, late, function(v: number)
 			s.env:set("coreSafeInsets", { top = 0, bottom = v, left = 0, right = 0 })
 		end)
 
@@ -371,8 +375,8 @@ describe("a measure→publish cycle settles inside one flush", function()
 		-- again afterwards.
 		expect(s.solves() - before).toBe(2)
 		-- ...and the inset really landed, so "never write" cannot pass this either
-		expect((s.env:get("coreSafeInsets"):get() :: any).bottom).toBe(24)
-		expect(s.core:lastError()).toBeNil()
+		expect((s.env:get("coreSafeInsets"):peek() :: any).bottom).toBe(24)
+		expect(s.core.lastError()).toBeNil()
 	end)
 
 	it("a round trip that will not converge is a LOUD error, not a hang or a silent frame", function()
@@ -381,10 +385,13 @@ describe("a measure→publish cycle settles inside one flush", function()
 			pass is a non-convergent measure→publish cycle — the runaway shape a
 			real consumer reaches by publishing a value derived from a rect that
 			its own publication moves. It must terminate, and it must say so. ]]
-		local core = Facet.newCore()
-		local sig = core:signal(0)
+		local core = harness.newCore()
+		local sig = Compose.cell(0)
+		-- the surface reads what the settle publishes, which is what makes the
+		-- write a flush — the runaway renderer shape this stands in for
+		core.owner.watchStatic(sig, function() end)
 		local passes = 0
-		core:settle(function()
+		core.settlePass.register(function()
 			passes += 1
 			sig:set(passes)
 		end)
@@ -392,7 +399,7 @@ describe("a measure→publish cycle settles inside one flush", function()
 		expect(passes > 1).toBe(true)
 		-- bounded: nowhere near unbounded, and the flush RETURNED
 		expect(passes < 200).toBe(true)
-		local err = core:lastError()
+		local err = core.lastError()
 		expect(type(err)).toBe("string")
 		expect(string.find(tostring(err), "iteration cap") ~= nil).toBe(true)
 	end)
@@ -407,7 +414,7 @@ end)
 
 	A consumer that publishes into one of its OWN NODE'S PROPS took a different
 	road and still paid a frame. `mount.luau` binds a reactive prop through
-	`core:observe`, which writes `node.props` and pushes a dirty entry — and that
+	`a change listener`, which writes `node.props` and pushes a dirty entry — and that
 	queue is drained by `controller.refresh()`, on the host's NEXT frame. So the
 	solve that produced the measurement laid the tree out against the OLD prop,
 	and the correction arrived a frame later. Shipped instance:
@@ -436,29 +443,29 @@ type PropScene = {
 }
 
 local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
+	local pres = harness.newPresenter(core, env, fake_target.new(), system)
 
 	-- the published number, bound to the probe's HEIGHT — a `measure`-class
 	-- reactive prop (src/blueprint_schema.luau BOX.height), which is exactly the
 	-- channel a Table's header padding uses
-	local published = core:signal(0)
-	local probeHeight = core:memo(function(use)
+	local published = Compose.cell(0)
+	local probeHeight = Compose.formula(function(use)
 		return { type = "fixed", px = use(published) }
 	end)
 	-- an ordinary reactive `measure` prop that moves the MEASURED node without
 	-- touching the environment: the only way to drive this cycle through
 	-- `controller.refresh`'s incremental-layout path (`dirtyContains`)
-	local margin = core:signal(0)
-	local barMargin = core:memo(function(use)
+	local margin = Compose.cell(0)
+	local barMargin = Compose.formula(function(use)
 		local m = use(margin)
 		return { top = 0, bottom = 0, left = m, right = m }
 	end)
 
-	local screen = Facet.UI.Screen({
+	local screen = harness.UI.Screen({
 		id = "P",
 		children = {
 			--[[ TWO SIBLING SUBTREES, deliberately — the Table's own shape, where the
@@ -468,11 +475,11 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 				`Published`, so a re-solve that reused that set would skip the very
 				subtree the publication moved. A probe parented under the dirty node's
 				own parent is re-measured for free and proves nothing. ]]
-			Facet.UI.VStack({
+			harness.UI.VStack({
 				id = "Col",
 				width = { type = "fill", weight = 1 },
 				children = {
-					Facet.UI.Anchor({
+					harness.UI.Anchor({
 						id = "Measured",
 						width = { type = "fill", weight = 1 },
 						-- the margin rides the WRAPPER, because the VStack is the node
@@ -485,7 +492,7 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 							-- converge in one step (the same structural argument the
 							-- Table's gutter makes about a `lineLimit = 1` title in a
 							-- `minMax`-floored band).
-							Facet.UI.Anchor({
+							harness.UI.Anchor({
 								id = "Bar",
 								width = { type = "fill", weight = 1 },
 								height = { type = "fixed", px = 40 },
@@ -500,12 +507,12 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 						able to strand this subtree: `arrange`'s skip fires when a
 						subtree lands on the rect it already had, so a wrapper that
 						grows with its content re-walks for free and proves nothing. ]]
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Published",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fixed", px = 200 },
 						children = {
-							Facet.UI.Anchor({
+							harness.UI.Anchor({
 								id = "Probe",
 								width = { type = "fill", weight = 1 },
 								height = probeHeight,
@@ -527,7 +534,7 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 				-- DIVERGENT ARM: the publication is derived from the rect the
 				-- publication itself moves, so every solve produces a new number.
 				local want = if diverge then (source.h :: number) + 4 else math.floor((source.w :: number) / 10)
-				if published:get() ~= want then
+				if published:peek() ~= want then
 					published:set(want)
 				end
 			end
@@ -541,7 +548,7 @@ local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
 		handle = handle,
 		margin = margin,
 		published = function()
-			return published:get()
+			return published:peek()
 		end,
 		probeH = function()
 			local r = handle.controller.rectOf("/P/Col/Published/Probe")
@@ -567,14 +574,14 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		-- ...and the SOLVED tree already carries it. Before this change the probe
 		-- read 0 here and only the first `pres.refresh()` corrected it.
 		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
-		expect(s.core:lastError()).toBeNil()
+		expect(s.core.lastError()).toBeNil()
 	end)
 
 	it("...and the control publishes nothing, so the check cannot pass on an empty scene", function()
 		local s = propScene(false)
 		expect(`published:{s.published()}`).toBe("published:0")
 		expect(`probe:{s.probeH()}`).toBe("probe:0")
-		expect(s.core:lastError()).toBeNil()
+		expect(s.core.lastError()).toBeNil()
 	end)
 
 	it("it converges: two more refreshes move nothing and cost no extra solve", function()
@@ -587,7 +594,7 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		-- an idle refresh after convergence solves at most the one the pending
 		-- prop dirty asks for, and never grows without bound
 		expect(`solves<=+2:{s.solves() - after <= 2}`).toBe("solves<=+2:true")
-		expect(s.core:lastError()).toBeNil()
+		expect(s.core.lastError()).toBeNil()
 	end)
 
 	it("the feedback solve is COUNTED, and the control counts none", function()
@@ -611,7 +618,7 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		expect(`want:{want}`).toBe("want:50")
 		expect(`published:{s.published()}`).toBe(`published:{want}`)
 		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
-		expect(s.core:lastError()).toBeNil()
+		expect(s.core.lastError()).toBeNil()
 	end)
 
 	it("...and so does an ordinary reactive prop change, through refresh's incremental set", function()
@@ -627,7 +634,7 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		expect(`want:{want}`).toBe("want:80")
 		expect(`published:{s.published()}`).toBe(`published:{want}`)
 		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
-		expect(s.core:lastError()).toBeNil()
+		expect(s.core.lastError()).toBeNil()
 	end)
 
 	it("a prop round trip that will not converge is a LOUD error, not a hang", function()
@@ -642,8 +649,8 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 end)
 
 describe("feedback closures preserve independent publications", function()
-	local world = require("./lib/world")
-	local UI = Facet.UI
+	local world = require("./lib/harness_world")
+	local UI = harness.UI
 	local function px(n: number): any
 		return { type = "fixed", px = n }
 	end
@@ -652,12 +659,12 @@ describe("feedback closures preserve independent publications", function()
 		local w = world.new({
 			viewport = { x = 0, y = 0, w = 600, h = 500 },
 		})
-		local trigger = w.core:signal(px(10))
-		local width = w.core:signal(px(40))
-		local words = w.core:signal("Before")
-		local scale = w.core:signal(1)
-		local shown = w.core:signal(false)
-		local root = require("../src/mount").mount(
+		local trigger = Compose.cell(px(10))
+		local width = Compose.cell(px(40))
+		local words = Compose.cell("Before")
+		local scale = Compose.cell(1)
+		local shown = Compose.cell(false)
+		local root = harness.mount(
 			w.core,
 			UI.Screen({
 				id = "Feedback",
@@ -747,7 +754,7 @@ describe("feedback closures preserve independent publications", function()
 		local solves = w.controller.stats().solves
 		settle(3)
 		expect(w.controller.stats().solves).toBe(solves)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.controller.dispose()
 		root.dispose()
 		return { immediate = immediate, settled = settled }
@@ -765,32 +772,32 @@ end)
 
 describe("settled layout dirt retains newer work", function()
 	it("partial feedback drains without a repeated solve while paint, structure and later layout still land", function()
-		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
-		local width = w.core:signal({ type = "fixed", px = 200 })
-		local probe = w.core:signal({ type = "fixed", px = 20 })
-		local label = w.core:signal("Initial")
-		local shown = w.core:signal(false)
+		local w = require("./lib/harness_world").new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
+		local width = Compose.cell({ type = "fixed", px = 200 })
+		local probe = Compose.cell({ type = "fixed", px = 20 })
+		local label = Compose.cell("Initial")
+		local shown = Compose.cell(false)
 		w.present(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
 				children = {
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Source",
 						width = width,
 						height = { type = "fixed", px = 50 },
-						children = { Facet.UI.Text({ text = "Measure" }) },
+						children = { harness.UI.Text({ text = "Measure" }) },
 					}),
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Destination",
 						height = { type = "fixed", px = 200 },
 						children = {
-							Facet.UI.Box({ id = "Probe", height = probe }),
-							Facet.UI.Text({ id = "Label", text = label }),
-							Facet.UI.When({
+							harness.UI.Box({ id = "Probe", height = probe }),
+							harness.UI.Text({ id = "Label", text = label }),
+							harness.UI.When({
 								id = "Gate",
 								condition = shown,
 								thenView = function()
-									return Facet.UI.Button({ id = "Added", label = "Added" })
+									return harness.UI.Button({ id = "Added", label = "Added" })
 								end,
 							}),
 						},
@@ -800,7 +807,7 @@ describe("settled layout dirt retains newer work", function()
 			{
 				onGeometry = function(rectOf)
 					local source = rectOf("/S/Source")
-					if source and probe:get().px ~= source.w / 10 then
+					if source and probe:peek().px ~= source.w / 10 then
 						probe:set({ type = "fixed", px = source.w / 10 })
 						label:set("Width " .. tostring(source.w))
 					end
@@ -831,7 +838,7 @@ describe("settled layout dirt retains newer work", function()
 		w.pres.refresh()
 		expect(w.adapter.node("/S/Destination/Gate/then/Added")).toBeNil()
 		expect(w.adapter.node("/S/Destination/Label").props.text).toBe("Final")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.pres.dismiss(w.handle)
 	end)
 end)

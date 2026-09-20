@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Edge-floor knob (FIX-4 item 2, director ruling 2026-08-23): "If
 -- the user truly specifies edge-to-edge we should do so with no padding.
 -- Ensure the user can specify padding; perhaps even default so things don't
@@ -27,7 +28,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local themeSnapshot = require("../src/themes/snapshot")
 local fake_target = require("./lib/fake_target")
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 -- the 400x300 viewport + insets shape every case below shares, plus the two
 -- ten-foot-isolation facts (see the "rides the ten-foot ladder" case): `Large`
@@ -48,10 +49,10 @@ local function newWorld(insets: any, metrics: any?, displaySize: string?): any
 end
 
 local function fullScreen(id: string)
-	return Facet.UI.Screen({
+	return harness.UI.Screen({
 		id = id,
 		children = {
-			Facet.UI.Spacer({
+			harness.UI.Spacer({
 				id = "Fill",
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
@@ -82,13 +83,13 @@ describe("renderer/presenter — edgeFloor knob (FIX-4 item 2)", function()
 	end)
 
 	it("the SAME refusal fires straight off renderer.attach, not just through the presenter", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
 		local bp = fullScreen("Direct")
-		local root = Facet.mount(core, bp)
+		local root = harness.mount(core, bp)
 		local adapter = fake_target.new()
 		local renderer = require("../src/render/renderer")
 		local ok, err = pcall(function()

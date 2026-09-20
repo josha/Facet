@@ -134,7 +134,7 @@ local COPY = {
 	run = "Animate",
 	decorative = "Decorative — reduced motion removes the travel",
 	colorLabel = "The puck's color follows state and uses the current theme",
-	informational = "Informational — keeps running, in 250 ms steps",
+	informational = "Informational — a known terminus keeps easing; the rest pauses",
 	-- the two indeterminate shapes (§3.1). Player-facing copy, so it has to
 	-- survive ~1.4x pseudo-localization without clipping like every other string
 	-- in this file — both labels wrap inside the progress row rather than truncate.
@@ -161,61 +161,68 @@ local COPY = {
 	wrapButton = "Locked",
 }
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "withAnimation + reduced motion",
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("with-animation")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
+		-- The host may expose a control's record; the report reads phases from it.
+		local function phaseOf(id: string): any
+			local control = if ctx.controlRecord ~= nil then ctx.controlRecord(id) else nil
+			return if control ~= nil then control.dump().phase else nil
+		end
 
 		-- ===== state ========================================================
-		local laneRight = scope:own(core:signal(false)) -- (1) the thing that MOVES
-		local cardTall = scope:own(core:signal(false)) -- (2) the thing that GROWS
-		local detailOpen = scope:own(core:signal(false)) -- (3) the thing that APPEARS
-		local chipOrder = scope:own(core:signal(CHIPS)) -- (4) the thing that RE-ORDERS
-		local runs = scope:own(core:signal(0))
+		local laneRight = Compose.cell(false) -- (1) the thing that MOVES
+		local cardTall = Compose.cell(false) -- (2) the thing that GROWS
+		local detailOpen = Compose.cell(false) -- (3) the thing that APPEARS
+		local chipOrder = Compose.cell(CHIPS) -- (4) the thing that RE-ORDERS
+		local runs = Compose.cell(0)
 		-- State-driven paint composes with the existing two-role tint channel.
 		-- This scalar has its own scoped binding; withAnimation still owns the
 		-- shared layout flight, and no theme color is cached by this screen.
-		local colorTarget = scope:own(core:memo(function(use)
-			return if use(laneRight) then 1 else 0
-		end))
-		local color = clock:animate(colorTarget, "object", { scope = scope })
-		local colorTint = scope:own(core:memo(function(use)
+		local color = own(clock:spring(if laneRight:peek() then 1 else 0, "object"))
+		lifetime.watch(function(use)
+			color:setTarget(if use(laneRight) then 1 else 0)
+		end)
+		local colorTint = Compose.formula(function(use)
 			return { from = "contentSecondary", role = "accent", blend = math.clamp(use(color), 0, 1) }
-		end))
+		end)
 		-- (5) THE PAINT, shared by the badge and the wrapped row below it. ONE memo
 		-- rather than two identical ones, because the two rows arriving at the same
 		-- alpha on the same frame is the thing they are together to show: the badge
 		-- is a node that CAN carry an opacity, the row is a subtree that cannot and
 		-- is wrapped instead, and both are the same authored term on the same spring.
-		local paintOpacity = scope:own(core:memo(function(use)
+		local paintOpacity = Compose.formula(function(use)
 			return if use(laneRight) then 0.3 else 1
-		end))
+		end)
 
 		-- THE INFORMATIONAL HALF. A glide rather than a spring, because what it
 		-- models is a job with a duration — and `kind = "informational"` is the
 		-- declaration that reduced motion must not delete it. Under `full` it is a
 		-- smooth ramp; under `reduced` it runs the same 1.4 s and publishes in
 		-- 250 ms steps (the default quantum, `motion.luau` DEFAULT_QUANTUM).
-		local charge = scope:own(clock:glide(0, { duration = CHARGE_SECONDS, kind = "informational" }))
+		local charge = own(clock:glide(0, { duration = CHARGE_SECONDS, kind = "informational" }))
 		local chargeTarget = 0
 
 		-- ===== the reduced-motion control ===================================
 		-- The value the fixture FOUND, so dispose can put it back (see the header).
-		local inheritedReduced = env:get("reducedMotion"):get() == true
-		local motionMode = scope:own(core:signal(if inheritedReduced then "reduced" else "full"))
+		local inheritedReduced = env:get("reducedMotion"):peek() == true
+		local motionMode = Compose.cell(if inheritedReduced then "reduced" else "full")
 
 		local function applyMotionMode(value: string)
 			-- `motionPolicy` is DERIVED from this fact and refuses a direct write,
 			-- which is the right refusal: there is one source of truth and this is it.
-			if (env:get("reducedMotion"):get() == true) ~= (value == "reduced") then
+			if (env:get("reducedMotion"):peek() == true) ~= (value == "reduced") then
 				env:set("reducedMotion", value == "reduced")
 			end
 		end
@@ -235,31 +242,32 @@ return {
 			every other demo in reduced motion, and the showcase host re-applies the
 			place-wide PREFERENCE after every demo mount, so leaving this demo returns
 			the place to the setting whichever control was touched last. ]]
-		scope:own(core:observe(env:get("reducedMotion"), function(value: any)
+		lifetime.observe(env:get("reducedMotion"), function(value: any)
 			local live = if value == true then "reduced" else "full"
-			if motionMode:get() ~= live then
+			if motionMode:peek() ~= live then
 				motionMode:set(live)
 			end
-		end))
+		end)
 
-		local motionPicker = Facet.View.Picker({
-			id = "MotionMode",
-			label = COPY.motionLabel,
-			-- SEGMENTED, declared rather than adaptive: two short labels shown side
-			-- by side ARE the teaching — "Full" and "Reduced" as peers, neither of
-			-- them an off switch.
-			style = "segmented",
-			options = {
-				{ value = "full", label = COPY.full },
-				{ value = "reduced", label = COPY.reduced },
-			},
-			selected = motionMode,
-			-- NO `onChange`. `selected` is a Signal this fixture owns, and the
-			-- observe below is the ONE place the environment fact is written — so
-			-- the picker press and the scripted `setMotion` step take the identical
-			-- route. An `onChange` here would be a second writer for one of them
-			-- only, which is how the two paths quietly stop agreeing.
-		})
+		local function motionPicker()
+			return UI.Picker("MotionMode")({
+				label = COPY.motionLabel,
+				-- SEGMENTED, declared rather than adaptive: two short labels shown side
+				-- by side ARE the teaching — "Full" and "Reduced" as peers, neither of
+				-- them an off switch.
+				style = "segmented",
+				options = {
+					{ value = "full", label = COPY.full },
+					{ value = "reduced", label = COPY.reduced },
+				},
+				selected = motionMode,
+				-- NO `onChange`. `selected` is a Signal this fixture owns, and the
+				-- observe below is the ONE place the environment fact is written — so
+				-- the picker press and the scripted `setMotion` step take the identical
+				-- route. An `onChange` here would be a second writer for one of them
+				-- only, which is how the two paths quietly stop agreeing.
+			})
+		end
 
 		-- ===== the one animated mutation ====================================
 		local function animate()
@@ -269,16 +277,16 @@ return {
 			-- `withAnimation` — so this is the mutation site itself, not a wrapper
 			-- around one.
 			pres.withAnimation("container", function()
-				laneRight:set(not laneRight:get())
-				cardTall:set(not cardTall:get())
-				detailOpen:set(not detailOpen:get())
-				local order = chipOrder:get() :: { string }
+				laneRight:set(not laneRight:peek())
+				cardTall:set(not cardTall:peek())
+				detailOpen:set(not detailOpen:peek())
+				local order = chipOrder:peek() :: { string }
 				local reversed = {}
 				for i = #order, 1, -1 do
 					table.insert(reversed, order[i])
 				end
 				chipOrder:set(reversed)
-				runs:set(runs:get() + 1)
+				runs:set(runs:peek() + 1)
 			end)
 			-- ...and the informational value is aimed OUTSIDE the call, on purpose.
 			-- It is not a layout consequence of `fn`, it is a second motion running
@@ -289,45 +297,42 @@ return {
 		end
 
 		-- ===== the two columns ==============================================
-		local decorative = UI.VStack({
-			id = "Decorative",
-			gap = "xs",
-			width = UI.fill(),
-
-			UI.Text({
-				id = "Caption",
-				text = COPY.decorative,
-				textSize = "caption",
-				role = "secondary",
-			}),
-			UI.Text({ id = "ColorCaption", text = COPY.colorLabel, textSize = "caption", role = "secondary" }),
-			-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
-			-- re-arranges one node without re-measuring it; the rect changes,
-			-- which is exactly what `withAnimation` records.
-			--
-			-- THE LANE/PUCK ARE `controls.decorative.minimum` NOW (gap 34, W3-B):
-			-- the raw 40 this pair hardened by hand against
-			-- `tests/overflow_sweep.spec.luau` — the same number `time_curves.luau`'s
-			-- puck independently reached for — is the theme-owned decorative-chrome
-			-- floor, so it ten-foot-scales instead of staying pinned.
-			UI.Anchor({
-				id = "Lane",
-				surface = "control",
+		local function decorative()
+			return UI.VStack("Decorative")({
+				gap = "xs",
 				width = UI.fill(),
-				height = { type = "fixed", px = "controls.decorative.minimum" },
 
-				UI.Box({
-					id = "Puck",
-					surface = "accent",
-					tint = colorTint,
-					anchor = scope:own(core:memo(function(use)
-						return if use(laneRight) then "topRight" else "topLeft"
-					end)),
-					width = { type = "fixed", px = "controls.decorative.minimum" },
-					height = UI.fill(),
+				UI.Text("Caption")({
+					text = COPY.decorative,
+					textSize = "caption",
+					role = "secondary",
 				}),
-			}),
-			--[[ (2) THE GROW — the consequence round 3 added, and the one this
+				UI.Text("ColorCaption")({ text = COPY.colorLabel, textSize = "caption", role = "secondary" }),
+				-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
+				-- re-arranges one node without re-measuring it; the rect changes,
+				-- which is exactly what `withAnimation` records.
+				--
+				-- THE LANE/PUCK ARE `controls.decorative.minimum` NOW (gap 34, W3-B):
+				-- the raw 40 this pair hardened by hand against
+				-- `tests/overflow_sweep.spec.luau` — the same number `time_curves.luau`'s
+				-- puck independently reached for — is the theme-owned decorative-chrome
+				-- floor, so it ten-foot-scales instead of staying pinned.
+				UI.Anchor("Lane")({
+					surface = "control",
+					width = UI.fill(),
+					height = { type = "fixed", px = "controls.decorative.minimum" },
+
+					UI.Box("Puck")({
+						surface = "accent",
+						tint = colorTint,
+						anchor = Compose.formula(function(use)
+							return if use(laneRight) then "topRight" else "topLeft"
+						end),
+						width = { type = "fixed", px = "controls.decorative.minimum" },
+						height = UI.fill(),
+					}),
+				}),
+				--[[ (2) THE GROW — the consequence round 3 added, and the one this
 					fixture exists to make legible.
 
 					`height` is bound to a memo, so flipping `cardTall` changes this
@@ -351,37 +356,34 @@ return {
 					labels inside it and the sweep caught exactly that (9px past its
 					own box at 320x640, +0 offset, before any text growth at all). The
 					caption above carries the words; the box carries the motion. ]]
-			UI.Text({
-				id = "CardCaption",
-				text = COPY.cardLabel,
-				textSize = "caption",
-				role = "secondary",
-			}),
-			UI.VStack({
-				id = "Card",
-				surface = "raised",
-				-- THEME-OPT-OUT: this card's HEIGHT is the demo — a memo animating it between
-				-- two fixed px — so its inside is pinned by the same decision. MEASURED with
-				-- `padding = "s"` instead: the ten-foot ladder scales the step, the 20px pip no
-				-- longer clears it, and the card paints 4px past its own box on a 1920x1078
-				-- console at +0 under Facet Neutral. It waits on a height a box can declare in
-				-- CONTENT terms (purity audit MOVE §3); until then the pinned box and the
-				-- pinned padding are one decision, not two.
-				padding = 8,
-				gap = 2,
-				width = UI.fill(),
-				height = scope:own(core:memo(function(use)
-					return { type = "fixed", px = if use(cardTall) then 76 else 40 }
-				end)),
-
-				UI.Box({
-					id = "Pip",
-					surface = "accent",
-					width = { type = "fixed", px = 24 },
-					height = { type = "fixed", px = 20 },
+				UI.Text("CardCaption")({
+					text = COPY.cardLabel,
+					textSize = "caption",
+					role = "secondary",
 				}),
-			}),
-			--[[ (5) THE PAINT — opacity, scale and rotation, authored.
+				UI.VStack("Card")({
+					surface = "raised",
+					-- THEME-OPT-OUT: this card's HEIGHT is the demo — a memo animating it between
+					-- two fixed px — so its inside is pinned by the same decision. MEASURED with
+					-- `padding = "s"` instead: the ten-foot ladder scales the step, the 20px pip no
+					-- longer clears it, and the card paints 4px past its own box on a 1920x1078
+					-- console at +0 under Facet Neutral. It waits on a height a box can declare in
+					-- CONTENT terms (purity audit MOVE §3); until then the pinned box and the
+					-- pinned padding are one decision, not two.
+					padding = 8,
+					gap = 2,
+					width = UI.fill(),
+					height = Compose.formula(function(use)
+						return { type = "fixed", px = if use(cardTall) then 76 else 40 }
+					end),
+
+					UI.Box("Pip")({
+						surface = "accent",
+						width = { type = "fixed", px = 24 },
+						height = { type = "fixed", px = 20 },
+					}),
+				}),
+				--[[ (5) THE PAINT — opacity, scale and rotation, authored.
 
 					These are the consequence the director asked for: *"should opacity,
 					transparency, and scale get owned/influenced by facet? it seems
@@ -423,34 +425,31 @@ return {
 					decorative, the end state carries every fact, and a scale is NOT
 					substituted by a cross-fade (deleting the zoom is strictly less
 					motion than replacing it with another animation). ]]
-			UI.Text({
-				id = "EffectsCaption",
-				text = COPY.effectsLabel,
-				textSize = "caption",
-				role = "secondary",
-			}),
-			UI.Anchor({
-				id = "Effects",
-				surface = "control",
-				width = UI.fill(),
-				height = { type = "fixed", px = 60 },
-
-				UI.Box({
-					id = "Badge",
-					surface = "accent",
-					anchor = "center",
-					width = { type = "fixed", px = 40 },
-					height = { type = "fixed", px = 40 },
-					opacity = paintOpacity,
-					scale = scope:own(core:memo(function(use)
-						return if use(laneRight) then 0.6 else 1
-					end)),
-					rotation = scope:own(core:memo(function(use)
-						return if use(laneRight) then 45 else 0
-					end)),
+				UI.Text("EffectsCaption")({
+					text = COPY.effectsLabel,
+					textSize = "caption",
+					role = "secondary",
 				}),
-			}),
-			--[[ (5b) THE WRAP — the spelling for everything the badge is not
+				UI.Anchor("Effects")({
+					surface = "control",
+					width = UI.fill(),
+					height = { type = "fixed", px = 60 },
+
+					UI.Box("Badge")({
+						surface = "accent",
+						anchor = "center",
+						width = { type = "fixed", px = 40 },
+						height = { type = "fixed", px = 40 },
+						opacity = paintOpacity,
+						scale = Compose.formula(function(use)
+							return if use(laneRight) then 0.6 else 1
+						end),
+						rotation = Compose.formula(function(use)
+							return if use(laneRight) then 45 else 0
+						end),
+					}),
+				}),
+				--[[ (5b) THE WRAP — the spelling for everything the badge is not
 					(director round 2026-08-15).
 
 					`opacity` is offered on `Box` and `ZStack` and REFUSED by name
@@ -481,13 +480,12 @@ return {
 					It rides `paintOpacity`, the badge's own memo, so the two rows
 					reach the same alpha on the same frame — one authored term, one
 					spring, two nodes that had to spell it differently. ]]
-			UI.Text({
-				id = "WrapCaption",
-				text = COPY.wrapLabel,
-				textSize = "caption",
-				role = "secondary",
-			}),
-			--[[ IT HUGS AND IT WRAPS, and the sweep is why (2026-08-15). The first
+				UI.Text("WrapCaption")({
+					text = COPY.wrapLabel,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				--[[ IT HUGS AND IT WRAPS, and the sweep is why (2026-08-15). The first
 					draft copied the badge's shape — a fixed 60px `UI.Anchor` lane with
 					a centred, content-sized group inside it — and
 					`tests/overflow_sweep.spec.luau` filed 16 findings at once: at
@@ -498,200 +496,198 @@ return {
 					a fixed lane because a 40px square is 40px in every package; a row
 					of TEXT is not. So this one fills the column, wraps to a second
 					line when it must, and takes its height from its content. ]]
-			UI.ZStack({
-				id = "Wrapped",
-				surface = "control",
-				padding = "s",
-				width = UI.fill(),
-				opacity = paintOpacity,
-
-				UI.HStack({
-					id = "Row",
-					gap = "s",
-					align = "center",
-					wrap = true,
+				UI.ZStack("Wrapped")({
+					surface = "control",
+					padding = "s",
 					width = UI.fill(),
+					opacity = paintOpacity,
 
-					UI.Text({ id = "Label", text = COPY.wrapText, textSize = 13 }),
-					UI.Button({ id = "Locked", label = COPY.wrapButton, enabled = false }),
-				}),
-			}),
-			-- (3) THE APPEARANCE. The panel itself belongs to the transition
-			-- system and installs no record; what flies is the chips below it,
-			-- which it pushes down.
-			UI.When({
-				id = "Detail",
-				condition = detailOpen,
-				thenView = function()
-					return UI.VStack({
-						id = "Panel",
-						surface = "raised",
-						padding = "s",
-						gap = 2,
+					UI.HStack("Row")({
+						gap = "s",
+						align = "center",
+						wrap = true,
 						width = UI.fill(),
 
-						UI.Text({ id = "Head", text = COPY.detailHead, textSize = 13 }),
-						UI.Text({
-							id = "Body",
-							text = COPY.detailBody,
-							textSize = "caption",
-							role = "secondary",
-						}),
-					})
-				end,
-			}),
-			-- (4) THE RE-ORDER. One keyed ForEach: the chips keep their identity
-			-- (and their paths) while their slots swap, so each one travels to
-			-- its new place instead of being destroyed and rebuilt there.
-			UI.HStack({
-				id = "Chips",
-				gap = "xs",
-				width = UI.fill(),
-
-				UI.ForEach({
-					id = "Order",
-					items = chipOrder,
-					key = function(name: any)
-						return name
-					end,
-					row = function(name: any)
-						return UI.VStack({
-							id = "Chip",
+						UI.Text("Label")({ text = COPY.wrapText, textSize = 13 }),
+						UI.Button("Locked")({ label = COPY.wrapButton, enabled = false, onActivate = function() end }),
+					}),
+				}),
+				-- (3) THE APPEARANCE. The panel itself belongs to the transition
+				-- system and installs no record; what flies is the chips below it,
+				-- which it pushes down.
+				UI.When("Detail")({
+					Compose.show(detailOpen, function()
+						return UI.VStack("Panel")({
 							surface = "raised",
-							padding = "tight",
+							padding = "s",
+							gap = 2,
 							width = UI.fill(),
 
-							UI.Text({
-								id = "Label",
-								text = name,
+							UI.Text("Head")({ text = COPY.detailHead, textSize = 13 }),
+							UI.Text("Body")({
+								text = COPY.detailBody,
 								textSize = "caption",
-								textAlign = "center",
-								lineLimit = 1,
+								role = "secondary",
 							}),
 						})
-					end,
+					end),
 				}),
-			}),
-		})
+				-- (4) THE RE-ORDER. One keyed ForEach: the chips keep their identity
+				-- (and their paths) while their slots swap, so each one travels to
+				-- its new place instead of being destroyed and rebuilt there.
+				UI.HStack("Chips")({
+					gap = "xs",
+					width = UI.fill(),
 
-		local chargeBar = Facet.View.ProgressView({
-			id = "Charge",
-			label = COPY.chargeLabel,
-			value = charge,
-			min = 0,
-			max = 1,
-			showValue = true,
-			format = function(value: number): string
-				return string.format("%d%%", math.floor(value * 100 + 0.5))
-			end,
-		})
+					UI.ForEach("Order")({
+						Compose.keyed({
+							from = chipOrder,
+							key = function(name: any)
+								return name
+							end,
+							render = function(name: any)
+								return UI.VStack("Chip-" .. name:peek())({
+									surface = "raised",
+									padding = "tight",
+									width = UI.fill(),
+
+									UI.Text("Label")({
+										text = name,
+										textSize = "caption",
+										textAlign = "center",
+										lineLimit = 1,
+									}),
+								})
+							end,
+						}),
+					}),
+				}),
+			})
+		end
+
+		local function chargeBar()
+			return UI.ProgressView("Charge")({
+				label = COPY.chargeLabel,
+				value = charge,
+				min = 0,
+				max = 1,
+				showValue = true,
+				format = function(value: number): string
+					return string.format("%d%%", math.floor(value * 100 + 0.5))
+				end,
+			})
+		end
 
 		-- THE INDETERMINATE PAIR (parity round 2 §3.1). The charge bar above is
 		-- informational motion with a KNOWN terminus; these two are informational
 		-- motion with NO terminus at all — the only thing on the screen saying
 		-- "work is still happening". They belong in this demo precisely because
-		-- the reduced-motion picker above is what proves the claim: flip it to
-		-- Reduced and the puck stops travelling while these two go on sweeping,
-		-- four steps a second instead of sixty. A demo that showed the decorative
-		-- half alone would teach that reduced motion means no motion.
+		-- the reduced-motion picker above is what proves the native contract
+		-- (`src/controls/progress_view.luau`'s indeterminate cycle, proven by
+		-- `tests/native_progress.spec.luau` and
+		-- `tests/progress_reduced_motion.spec.luau`): Reduced QUANTIZES the
+		-- cycle — the same wall clock, written on a 250 ms tick instead of every
+		-- frame — for all three presentations. It never freezes them, because a
+		-- frozen indicator and a hung process look identical, which is the whole
+		-- reason informational motion steps where decorative motion snaps (see
+		-- this file's header). `motionClock` is accepted here but unused by the
+		-- indeterminate cycle; it is declared for source parity with the charge
+		-- bar's determinate path, not because it changes this behavior.
 		-- ...and each names its OWNER. An indeterminate view runs a motion cycle
 		-- for as long as it exists, so `scope` is required exactly as it is for
 		-- newAsyncImage's provider handle: this scenario's scope already retires
 		-- everything else it built, and now retires these two cycles with it.
-		local busyBar = Facet.Controls.ProgressView(core, {
-			id = "Busy",
-			label = COPY.busyLabel,
-			motionClock = clock,
-			scope = scope,
-		})
-		local busySpinner = Facet.Controls.ProgressView(core, {
-			id = "Working",
-			label = COPY.spinnerLabel,
-			presentation = "spinner",
-			motionClock = clock,
-			scope = scope,
-		})
+		local function busyBar()
+			return UI.ProgressView("Busy")({
+				label = COPY.busyLabel,
+				motionClock = clock,
+			})
+		end
+		local function busySpinner()
+			return UI.ProgressView("Working")({
+				label = COPY.spinnerLabel,
+				presentation = "spinner",
+				motionClock = clock,
+			})
+		end
 
-		local informational = UI.VStack({
-			id = "Informational",
-			gap = "xs",
-			width = UI.fill(),
+		local function informational()
+			return UI.VStack("Informational")({
+				gap = "xs",
+				width = UI.fill(),
 
-			UI.Text({
-				id = "Caption",
-				text = COPY.informational,
-				textSize = "caption",
-				role = "secondary",
-			}),
-			chargeBar,
-			busyBar.blueprint,
-			busySpinner.blueprint,
-		})
+				UI.Text("Caption")({
+					text = COPY.informational,
+					textSize = "caption",
+					role = "secondary",
+				}),
+				chargeBar(),
+				busyBar(),
+				busySpinner(),
+			})
+		end
 
 		-- ONE declaration, two arrangements (A-AL2): an AdaptiveStack re-solves in
 		-- place on a rotation instead of remounting the subtree the way a
 		-- VStack/HStack swap behind `UI.When` would — which matters here, because
 		-- a remount mid-flight would throw away the very motion under observation.
-		local stageAxis = scope:own(core:memo(function(use)
+		local stageAxis = Compose.formula(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 800
 			return if w >= TWO_COLUMN_MIN_WIDTH then "x" else "y"
-		end))
+		end)
 
-		local statusLine = scope:own(core:memo(function(use)
+		local statusLine = Compose.formula(function(use)
 			local mode = use(motionMode)
 			return `Motion: {mode} · runs: {use(runs)}`
-		end))
+		end)
 
-		local screen = UI.Screen({
-			id = "MotionDemo",
-			padding = 12,
-			gap = "tight",
+		local function screen()
+			return UI.Screen("MotionDemo")({
+				padding = 12,
+				gap = "tight",
 
-			-- THE PAGE SCROLLS. Two motion categories, a picker, a button and a
-			-- status line do not fit in the ~200px a 640x320 landscape phone has
-			-- left after the showcase reserves its chip strip — and the named
-			-- recurring defect in this repo is content that overflows with
-			-- nothing to scroll it. A scroll host is the framework's own answer
-			-- and costs the wide viewports nothing.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({
-					id = "Title",
-					text = COPY.title,
-					textSize = "control",
-				}),
-				motionPicker,
-				UI.Button({
-					id = "Run",
-					label = COPY.run,
-					width = UI.fill(),
-					onActivate = animate,
-				}),
-				UI.AdaptiveStack({
-					id = "Stage",
-					axis = stageAxis,
+				-- THE PAGE SCROLLS. Two motion categories, a picker, a button and a
+				-- status line do not fit in the ~200px a 640x320 landscape phone has
+				-- left after the showcase reserves its chip strip — and the named
+				-- recurring defect in this repo is content that overflows with
+				-- nothing to scroll it. A scroll host is the framework's own answer
+				-- and costs the wide viewports nothing.
+				UI.ScrollView("Page")({
+					axis = "y",
 					gap = "s",
 					width = UI.fill(),
-					decorative,
-					informational,
+					height = UI.fill(),
+
+					UI.Text("Title")({
+						text = COPY.title,
+						textSize = "control",
+					}),
+					motionPicker(),
+					UI.Button("Run")({
+						label = COPY.run,
+						width = UI.fill(),
+						onActivate = animate,
+					}),
+					UI.AdaptiveStack("Stage")({
+						axis = stageAxis,
+						gap = "s",
+						width = UI.fill(),
+						decorative(),
+						informational(),
+					}),
+					UI.Text("Status")({ text = statusLine, textSize = "caption", role = "secondary" }),
 				}),
-				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		-- the mode signal and the environment fact are one fact with two readers;
 		-- keep them together whichever way the change arrived (a picker press, or
 		-- the `setMotion` step below)
-		scope:own(core:observe(motionMode, function(value: any)
+		lifetime.observe(motionMode, function(value: any)
 			applyMotionMode(tostring(value))
-		end))
-		applyMotionMode(motionMode:get())
+		end)
+		applyMotionMode(motionMode:peek())
 
 		return {
 			screen = screen,
@@ -712,11 +708,11 @@ return {
 				animate = function()
 					animate()
 					return {
-						runs = runs:get(),
+						runs = runs:peek(),
 						reduced = clock:isReduced(),
 						records = pres.animationRecordCount(),
-						color = color:get(),
-						colorTarget = colorTarget:get(),
+						color = color:peek(),
+						colorTarget = if laneRight:peek() then 1 else 0,
 					}
 				end,
 				setMotion = function(_built: any, payload: string?)
@@ -732,32 +728,32 @@ return {
 					for _ = 1, math.clamp(math.floor(frames), 1, 600) do
 						pres.tick(1 / 60)
 					end
-					return { charge = charge:get(), color = color:get(), records = pres.animationRecordCount() }
+					return { charge = charge:peek(), color = color:peek(), records = pres.animationRecordCount() }
 				end,
 			},
 
 			report = function()
 				return {
-					motion = motionMode:get(),
+					motion = motionMode:peek(),
 					reduced = clock:isReduced(),
-					runs = runs:get(),
+					runs = runs:peek(),
 					records = pres.animationRecordCount(),
-					laneRight = laneRight:get(),
-					cardTall = cardTall:get(),
-					detailOpen = detailOpen:get(),
-					chipOrder = table.clone(chipOrder:get() :: { string }),
+					laneRight = laneRight:peek(),
+					cardTall = cardTall:peek(),
+					detailOpen = detailOpen:peek(),
+					chipOrder = table.clone(chipOrder:peek() :: { string }),
 					-- the authored presentation triple this run is aimed at, so a
 					-- headless spec reads the DECLARED destination rather than
 					-- re-deriving it
-					badgeOpacity = if laneRight:get() then 0.3 else 1,
-					badgeScale = if laneRight:get() then 0.6 else 1,
-					badgeRotation = if laneRight:get() then 45 else 0,
-					charge = charge:get(),
-					color = color:get(),
-					colorTarget = colorTarget:get(),
+					badgeOpacity = if laneRight:peek() then 0.3 else 1,
+					badgeScale = if laneRight:peek() then 0.6 else 1,
+					badgeRotation = if laneRight:peek() then 45 else 0,
+					charge = charge:peek(),
+					color = color:peek(),
+					colorTarget = if laneRight:peek() then 1 else 0,
 					chargeTarget = chargeTarget,
-					busyPhase = busyBar.dump().phase,
-					spinnerPhase = busySpinner.dump().phase,
+					busyPhase = phaseOf("Busy"),
+					spinnerPhase = phaseOf("Working"),
 				}
 			end,
 
@@ -765,9 +761,7 @@ return {
 				-- PUT THE WORLD BACK (see the header): the persistent place-wide
 				-- toggle is the settings surface's job, not this demo's side effect
 				env:set("reducedMotion", inheritedReduced)
-				busyBar.dispose()
-				busySpinner.dispose()
-				scope:dispose()
+				lifetime.dispose()
 			end,
 		}
 	end,

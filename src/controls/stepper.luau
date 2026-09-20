@@ -1,4 +1,6 @@
 --!strict
+local Compose = require("../vendor/compose/core")
+local read = require("../selection_model").read
 local coreContract = require("../core/contract")
 local blueprint = require("../blueprint")
 -- Stepper: a labelled value with discrete decrement/increment affordances
@@ -46,11 +48,11 @@ local INCREMENT = themePackage.iconGlyph("increment") or "+"
 
 local stepper = {}
 
-type NumberSignal = coreContract.Signal<number>
-export type Spec<V = NumberSignal> = {
+type NumberCell = coreContract.Cell<number>
+export type Spec<V = NumberCell> = {
 	id: string?,
 	label: string?,
-	value: V, -- owner-held Signal<number>
+	value: V, -- the caller's writable cell of a number
 	min: number,
 	max: number,
 	step: number?, -- defaults to 1 (a Stepper is discrete by definition)
@@ -74,17 +76,16 @@ local STEPPER_KEYS = specGuard.keySet({
 })
 
 function stepper.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newStepper", spec, STEPPER_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.Stepper", spec, STEPPER_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Stepper"
-	local scope = core:scope("stepper-" .. tostring(id))
 	local value = spec.value
 	-- a read-only Memo has kind "memo" and a :set that asserts, so a bare
 	-- "settable" duck-type check would pass and then blow up on the first press —
 	-- reject it at BUILD, exactly as TextInput does
-	if type(value) ~= "table" or (value :: any).kind ~= "signal" then
+	if not (Compose.isReadable(value) and type(value.set) == "function") then
 		error(
-			`Facet newStepper('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
+			`Facet UI.Stepper('{id}'): \`value\` must be a writable Compose cell holding a number, owned by the caller `
 				.. `(the control never creates it, because the value must outlive the control)`,
 			0
 		)
@@ -111,7 +112,7 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 			return false
 		end
 		local resolved = model.quantize(next_)
-		if resolved == value:get() then
+		if resolved == read(value) then
 			return false
 		end
 		value:set(resolved)
@@ -122,30 +123,30 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 	end
 
 	local function adjust(direction: number): boolean
-		return apply(model.stepped(value:get(), direction))
+		return apply(model.stepped(read(value), direction))
 	end
 
-	local readout = scope:own(core:memo(function(use)
-		return model.format(use(value))
-	end))
+	local readout = Compose.formula(function(use)
+		return model.format(read(value, use))
+	end)
 	-- semantic value text (B-VAL1): the value IN ITS RANGE, so a ten-foot readout
 	-- or an assistive layer never gets a bare number with no context
-	local semantic = scope:own(core:memo(function(use)
-		return model.semanticText(use(value))
-	end))
+	local semantic = Compose.formula(function(use)
+		return model.semanticText(read(value, use))
+	end)
 
-	local decEnabled = scope:own(core:memo(function(use)
+	local decEnabled = Compose.formula(function(use)
 		if not controlContract.enabledIn(use, spec.enabled) then
 			return false
 		end
-		return not model.atMin(use(value))
-	end))
-	local incEnabled = scope:own(core:memo(function(use)
+		return not model.atMin(read(value, use))
+	end)
+	local incEnabled = Compose.formula(function(use)
 		if not controlContract.enabledIn(use, spec.enabled) then
 			return false
 		end
-		return not model.atMax(use(value))
-	end))
+		return not model.atMax(read(value, use))
+	end)
 
 	local root = UI.HStack({
 		id = id,
@@ -261,7 +262,7 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 	api.semanticText = semantic
 
 	function api.dump()
-		local v = value:get()
+		local v = read(value)
 		return {
 			schema = "facet-stepper-dump/1",
 			id = id,
@@ -278,7 +279,10 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 	end
 
 	function api.dispose()
-		scope:dispose()
+		readout:dispose()
+		semantic:dispose()
+		decEnabled:dispose()
+		incEnabled:dispose()
 	end
 
 	return api

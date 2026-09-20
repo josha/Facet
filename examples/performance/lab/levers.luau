@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../../../src/vendor/compose/core")
 -- PROBE-EXEMPT: a benchmark WORKLOAD and its dev control surface — INSTRUMENT,
 -- NOT EXAMPLE. Everything here exists to make a named cost measurable, so it
 -- optimizes for a stable, repeatable tree rather than for the way an app should
@@ -53,6 +54,17 @@
 --    so the phone's status line reads `arrange=24 mount=0` BEFORE a dump is spent.
 
 local levers = {}
+
+-- props plus a generated child list, in order. A primitive built through the
+-- raw constructor (`ctx.UI.<Name>` for anything that is not a composite) takes
+-- its children POSITIONALLY, not as a `children = {...}` field — see
+-- `overlay.luau`'s copy of this same helper for the full story.
+local function with(props: any, children: { any }): any
+	for _, child in children do
+		table.insert(props, child)
+	end
+	return props
+end
 
 --[[ ── WHAT `arrange-shapes` CAN AND CANNOT SEE, stated before the arms ────────
 
@@ -256,7 +268,6 @@ levers.HOST_CELLS_PER_ROW = HOST_CELLS_PER_ROW
 	  passes                     the table to install into
 ]]
 function levers.install(deps: any)
-	local Facet = deps.Facet
 	local core = deps.core
 	local ctx = deps.ctx
 	local labScope = deps.labScope
@@ -270,7 +281,9 @@ function levers.install(deps: any)
 	local framesAndReps = deps.framesAndReps
 	local viewportH = deps.viewportH
 	local passes = deps.passes
-	local U = Facet.UI
+	-- `deps.Facet` is actually the lab's `{ UI, Compose }` seam (perf_lab.luau's
+	-- `labUICtx`) — named `Facet` here for history, not because it is the module.
+	local U = deps.Facet.UI
 	local clock = telemetry.clock
 
 	-- ================================================================
@@ -281,16 +294,14 @@ function levers.install(deps: any)
 	-- between two arms is the container they hang under.
 	local function leaf(i: number, kind: string, item: any): any
 		if kind == "text" then
-			return U.Text({
-				id = `L{i}`,
+			return U.Text(`L{i}`)({
 				text = item.name,
 				textSize = "caption",
 				lineLimit = 1,
 				height = { type = "fixed", px = SHAPE_LEAF_H },
 			})
 		end
-		return U.Box({
-			id = `L{i}`,
+		return U.Box(`L{i}`)({
 			width = { type = "fixed", px = SHAPE_LEAF_W },
 			height = if kind == "fill" then U.fill() else { type = "fixed", px = SHAPE_LEAF_H },
 		})
@@ -313,14 +324,12 @@ function levers.install(deps: any)
 		-- the scroller `scroll` and `deepScroll` share. It owns the padding so the
 		-- provocation stays on the outermost container in every arm.
 		local function scroller(child: any): any
-			return U.ScrollView({
-				id = "Shape",
+			return U.ScrollView("Shape")(with({
 				axis = "y",
 				padding = pad,
 				width = U.fill(),
 				height = { type = "fixed", px = math.max(100, viewportH()) },
-				children = { child },
-			})
+			}, { child }))
 		end
 		if kind == "deep" or kind == "deepScroll" then
 			-- LEAVES PER LEVEL, not one leaf per level: a chain of 240 single-child
@@ -338,59 +347,51 @@ function levers.install(deps: any)
 				if inner ~= nil then
 					table.insert(children, inner)
 				end
-				inner = U.VStack({
-					id = `D{level}`,
+				inner = U.VStack(`D{level}`)(with({
 					gap = 0,
 					-- the outermost level owns the provocation UNLESS a scroller is
 					-- wrapping it, in which case the scroller does
 					padding = if level == 1 and kind == "deep" then pad else 0,
 					width = U.fill(),
-					children = children,
-				})
+				}, children))
 			end
 			return if kind == "deepScroll" then scroller(inner) else inner
 		end
 		if kind == "zstack" then
-			return U.ZStack({ id = "Shape", padding = pad, children = leaves })
+			return U.ZStack("Shape")(with({ padding = pad }, leaves))
 		end
 		if kind == "wrap" then
-			return U.HStack({
-				id = "Shape",
+			return U.HStack("Shape")(with({
 				wrap = true,
 				gap = 0,
 				padding = pad,
 				width = U.fill(),
-				children = leaves,
-			})
+			}, leaves))
 		end
 		if kind == "scroll" then
 			-- the FLAT tree, moved inside a scroller. The vstack below is byte-identical
 			-- to the `flat` arm's root except that it no longer owns the padding.
-			return scroller(U.VStack({ id = "Inner", gap = 0, width = U.fill(), children = leaves }))
+			return scroller(U.VStack("Inner")(with({ gap = 0, width = U.fill() }, leaves)))
 		end
-		return U.VStack({
-			id = "Shape",
+		return U.VStack("Shape")(with({
 			gap = 0,
 			padding = pad,
 			width = U.fill(),
-			children = leaves,
-		})
+		}, leaves))
 	end
 
 	local function shapeArm(kind: string, payload: string?): any
 		local _, REPS = framesAndReps(payload, 60, 24)
-		local armScope = labScope:child(`shape-arm-{kind}`)
+		local armScope = labScope.createChild()
 		-- OWNED AND DISPOSED. The pass loops under `Profile 1`, so an un-owned signal
 		-- per lap is a leak the soak row would eventually report as a framework trend.
-		local pad = armScope:own(core:signal(2))
+		local pad = Compose.cell(2)
 		local items = dataset.build({ count = SHAPE_LEAVES, seed = settings.seed, content = "normal" })
 		local handle = ctx.presenter.present(
-			U.Screen({
-				id = "ShapeArm",
+			U.Screen("ShapeArm")(with({
 				padding = 0,
 				gap = 0,
-				children = { shapeTree(kind, pad, items) },
-			}),
+			}, { shapeTree(kind, pad, items) })),
 			{
 				recycleInstances = settings.recycle == true,
 				-- INCREMENTAL LAYOUT IS OFF IN EVERY LEVER-1 ARM, and not because that is
@@ -528,48 +529,52 @@ function levers.install(deps: any)
 
 	local function editArm(where: string, incremental: boolean, payload: string?): any
 		local _, REPS = framesAndReps(payload, 60, 24)
-		local armScope = labScope:child(`edit-arm-{where}-{tostring(incremental)}`)
+		local armScope = labScope.createChild()
 		local base = dataset.build({ count = EDIT_ROWS, seed = settings.seed, content = "normal" })
-		local armRows = armScope:own(core:signal(base))
+		local armRows = Compose.cell(base)
 		local listH = math.max(100, viewportH())
-		local list = Facet.Controls.VirtualList(core, {
-			id = "EditRows",
-			rows = armRows,
-			key = function(item: any)
-				return item.id
-			end,
-			itemExtent = 28,
-			rowGap = 0,
-			viewportExtent = listH,
-			overscan = rows.OVERSCAN,
-			cell = function(item: any)
-				return U.VStack({
-					id = "Row",
-					-- THEME-OPT-OUT: this padding is the second half of `itemExtent = 28`
-					-- above. A virtualized list's declared extent is a PROMISE about what
-					-- the cell measures, and a theme name rides the distance ladder while
-					-- a literal 28 does not: measured at 1920x1078 / `displaySize = Large`,
-					-- naming this grew the row 30 -> 34px against that unmoved 28px slot
-					-- (review 2026-08-22, HIGH-1, second instance). A lever's cell is a
-					-- deliberately cheap, deliberately IDENTICAL leaf — a stable tree is
-					-- its whole subject — so the literal is what belongs here, and the
-					-- lint's coupling detector reports this file for exactly that reason.
-					padding = 4,
-					gap = 2,
-					width = U.fill(),
-					children = {
-						U.Text({ id = "N", text = item.name, textSize = "caption", lineLimit = 1 }),
-					},
-				})
-			end,
-		})
-		local handle =
-			ctx.presenter.present(U.Screen({ id = "EditArm", padding = 0, gap = 0, children = { list.blueprint } }), {
-				recycleInstances = settings.recycle == true,
-				-- HARD-CODED PER ARM, not read from the selector. Two arms that both
-				-- read `settings.incremental` are one arm measured twice.
-				incrementalLayout = incremental,
+		-- `VirtualList` is a composite (docs/extending/new-control.md step 3): the
+		-- call returns only its blueprint, and its record (`dispose`,
+		-- `bindNativeScroll`, `debugWindow`, …) arrives through `ref`.
+		local list: any = nil
+		local listNode = Compose.withOwner(armScope, function()
+			return U.VirtualList({
+				id = "EditRows",
+				rows = armRows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = 28,
+				rowGap = 0,
+				viewportExtent = listH,
+				overscan = rows.OVERSCAN,
+				cell = function(item: any)
+					return U.VStack("Row")(with({
+						-- THEME-OPT-OUT: this padding is the second half of `itemExtent = 28`
+						-- above. A virtualized list's declared extent is a PROMISE about what
+						-- the cell measures, and a theme name rides the distance ladder while
+						-- a literal 28 does not: measured at 1920x1078 / `displaySize = Large`,
+						-- naming this grew the row 30 -> 34px against that unmoved 28px slot
+						-- (review 2026-08-22, HIGH-1, second instance). A lever's cell is a
+						-- deliberately cheap, deliberately IDENTICAL leaf — a stable tree is
+						-- its whole subject — so the literal is what belongs here, and the
+						-- lint's coupling detector reports this file for exactly that reason.
+						padding = 4,
+						gap = 2,
+						width = U.fill(),
+					}, { U.Text("N")({ text = item.name, textSize = "caption", lineLimit = 1 }) }))
+				end,
+				ref = function(record: any)
+					list = record.api
+				end,
 			})
+		end)
+		local handle = ctx.presenter.present(U.Screen("EditArm")(with({ padding = 0, gap = 0 }, { listNode })), {
+			recycleInstances = settings.recycle == true,
+			-- HARD-CODED PER ARM, not read from the selector. Two arms that both
+			-- read `settings.incremental` are one arm measured twice.
+			incrementalLayout = incremental,
+		})
 		local unbind: any = nil
 		if list.bindNativeScroll ~= nil and handle.controller ~= nil then
 			local okBind, bound = pcall(list.bindNativeScroll, handle.controller)
@@ -583,7 +588,6 @@ function levers.install(deps: any)
 				unbind()
 			end
 			ctx.presenter.dismiss(handle)
-			list.dispose()
 			armScope:dispose()
 		end
 
@@ -618,7 +622,7 @@ function levers.install(deps: any)
 			local measureBefore = scopeCount("measure")
 			local partialBefore = s0.partialSolves
 			for i = 1, REPS do
-				local next_ = table.clone(armRows:get() :: { any })
+				local next_ = table.clone(armRows:peek() :: { any })
 				if where == "off" then
 					-- ONE INSERT, ~475 rows below the last mounted row. The same
 					-- arithmetic `collection-churn/insert` uses, at one per FRAME
@@ -662,7 +666,7 @@ function levers.install(deps: any)
 				edit = where,
 				incremental = incremental,
 				reps = REPS,
-				logicalRows = #(armRows:get() :: { any }),
+				logicalRows = #(armRows:peek() :: { any }),
 				mountedRows = windowed,
 				editMs = editMs,
 				arrangePerEdit = (scopeCount("arrange") - arrangeBefore) / REPS,
@@ -729,12 +733,12 @@ function levers.install(deps: any)
 
 	local function hostArm(kind: string, hosted: boolean, rowCount: number, payload: string?): any
 		local _, REPS = framesAndReps(payload, 60, 24)
-		local armScope = labScope:child(`host-arm-{kind}`)
+		local armScope = labScope.createChild()
 		-- OWNED AND DISPOSED, same discipline as `shapeArm`'s `pad`: the pass loops
 		-- under `Profile 1`, so an un-owned signal per lap is a leak the soak row
 		-- would eventually report as a framework trend.
-		local headerTall = armScope:own(core:signal(true))
-		local headerDim = core:memo(function(use)
+		local headerTall = Compose.cell(true)
+		local headerDim = Compose.formula(function(use)
 			return { type = "fixed", px = if use(headerTall) then HOST_HEADER_HI else HOST_HEADER_LO }
 		end)
 
@@ -743,52 +747,44 @@ function levers.install(deps: any)
 			for r = 1, rowCount do
 				local cells = table.create(HOST_CELLS_PER_ROW)
 				for c = 1, HOST_CELLS_PER_ROW do
-					cells[c] = U.Box({
-						id = `C{c}`,
+					cells[c] = U.Box(`C{c}`)({
 						width = { type = "fixed", px = HOST_CELL_W },
 						height = { type = "fixed", px = HOST_CELL_H },
 					})
 				end
-				out[r] = U.HStack({
-					id = `R{r}`,
+				out[r] = U.HStack(`R{r}`)(with({
 					gap = 2,
 					width = U.fill(),
-					children = cells,
-				})
+				}, cells))
 			end
 			return out
 		end
 
-		local list = U.VStack({
-			id = "List",
+		local list = U.VStack("List")(with({
 			gap = 2,
 			width = U.fill(),
-			children = buildRows(),
-		})
+		}, buildRows()))
 		-- HOSTED wraps the SAME list in a `ScrollView` — a clip host BY CONSTRUCTION
 		-- (the first host trigger), no `clipChildren` / `opacity` /
 		-- `scale` needed. UNHOSTED presents `list` directly: same rows, same cells,
 		-- no host anywhere above them.
 		local body = if hosted
-			then U.ScrollView({
-				id = "Rows",
+			then U.ScrollView("Rows")(with({
 				axis = "y",
 				padding = 0,
 				width = U.fill(),
 				height = { type = "fixed", px = math.max(100, viewportH()) },
-				children = { list },
-			})
+			}, { list }))
 			else list
-		local header = U.Box({ id = "Header", width = U.fill(), height = headerDim })
-		local handle =
-			ctx.presenter.present(U.Screen({ id = "HostArm", padding = 0, gap = 0, children = { header, body } }), {
-				recycleInstances = settings.recycle == true,
-				-- OFF for the same reason `shapeArm` fixes it off: the header's height
-				-- moves the list's rect every rep regardless, so there is nothing for
-				-- the reuse path to skip and this arm's question is what a FULL solve
-				-- costs, hosted against unhosted.
-				incrementalLayout = false,
-			})
+		local header = U.Box("Header")({ width = U.fill(), height = headerDim })
+		local handle = ctx.presenter.present(U.Screen("HostArm")(with({ padding = 0, gap = 0 }, { header, body })), {
+			recycleInstances = settings.recycle == true,
+			-- OFF for the same reason `shapeArm` fixes it off: the header's height
+			-- moves the list's rect every rep regardless, so there is nothing for
+			-- the reuse path to skip and this arm's question is what a FULL solve
+			-- costs, hosted against unhosted.
+			incrementalLayout = false,
+		})
 
 		local function finish()
 			ctx.presenter.dismiss(handle)

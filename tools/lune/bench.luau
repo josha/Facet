@@ -81,11 +81,16 @@ local failed = false
 local function measure(scenario: any): any?
 	local entry: any = nil
 	local ok, err = pcall(function()
+		-- A scenario whose one iteration is tens of milliseconds declares its own
+		-- counts: its p95 is not at the mercy of a single collector pause, and the
+		-- default would spend minutes on it.
+		local sampleCount: number = scenario.samples or SAMPLES
+		local warmupCount: number = scenario.warmup or WARMUP
 		local state = scenario.setup()
-		for _ = 1, WARMUP do
+		for _ = 1, warmupCount do
 			scenario.run(state)
 		end
-		local samples = table.create(SAMPLES, 0)
+		local samples = table.create(sampleCount, 0)
 		--[[ HEAP: SAMPLED, AND PUBLISHED WITH ITS SWING (measured 2026-08-16).
 
 			This used to be one `gcinfo()` at each end, reported as `heapDeltaKb`.
@@ -108,10 +113,10 @@ local function measure(scenario: any): any?
 			net (the note below) the net is inside the collector's cycle and means
 			nothing on its own. Compare NETS ACROSS RUNS; never read one sign. ]]
 		local CHECKPOINTS = 10
-		local every = SAMPLES // CHECKPOINTS
+		local every = math.max(1, sampleCount // CHECKPOINTS)
 		local heapFirst = gcinfo()
 		local heapLast, heapMin, heapMax = heapFirst, heapFirst, heapFirst
-		for i = 1, SAMPLES do
+		for i = 1, sampleCount do
 			local t0 = os.clock()
 			scenario.run(state)
 			samples[i] = (os.clock() - t0) * 1000
@@ -128,8 +133,8 @@ local function measure(scenario: any): any?
 		entry = {
 			name = scenario.name,
 			requirement = scenario.requirement,
-			samples = SAMPLES,
-			warmup = WARMUP,
+			samples = sampleCount,
+			warmup = warmupCount,
 			p50_ms = percentile(samples, 0.50),
 			p95_ms = percentile(samples, 0.95),
 			p99_ms = percentile(samples, 0.99),

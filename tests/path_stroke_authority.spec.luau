@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ── THE STROKE IS AN ENGINE OBJECT THIS TARGET CREATED, AND IT OWNS IT ───────
 	(2026-09-07, found while root-causing the HUD chrome-rotation paint loss.)
 
@@ -40,9 +41,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local test_world = require("./lib/world")
+local test_world = require("./lib/harness_world")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- a unit-box ring, in the normalized shape `UI.Path` takes
 local function ringPoints(n: number): { any }

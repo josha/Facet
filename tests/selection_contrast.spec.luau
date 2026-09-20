@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ EVERY SHIPPED THEME, ASKED WHETHER ITS SELECTED TEXT CAN BE READ (user
 	review, 2026-09-12: *"Glossy Touch: selected-row text paints black on the blue
 	selection fill — illegible"*).
@@ -51,8 +52,9 @@ local Facet = require("../src") :: any
 local tokens = require("../src/tokens/tokens")
 local sheet_model = require("../src/tokens/sheet_model")
 local menuRecipe = require("../src/controls/menu_recipe")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- the eight shipped packages, the same list `tests/overflow_sweep.spec.luau`
 -- sweeps, so a ninth package joins both or neither
@@ -134,8 +136,11 @@ local function roleColor(theme: any, role: string?): any
 end
 
 local function readFact(value: any): any
+	if type(value) == "function" then
+		return value(readFact)
+	end
 	if type(value) == "table" and (value.kind == "signal" or value.kind == "memo") then
-		return value:get()
+		return value:peek()
 	end
 	return value
 end
@@ -166,19 +171,21 @@ end
 	blueprint rather than restating the constants is what makes this a measurement
 	of the shipped row instead of a restatement of this file. ]]
 local function cardRowPaint(selected: boolean): { fill: string?, label: string }
-	local core = Facet.newCore()
-	local scope = core:scope("selection-contrast")
-	local signal = scope:own(core:signal(selected))
-	local row = menuRecipe.cardRow(UI, core, scope, {
+	local core = harness.newCore()
+	local scope = core.owner.createChild()
+	local signal = Compose.cell(selected)
+	local row = menuRecipe.cardRow(UI, {
 		id = "Item:probe",
 		label = "Probe",
 		-- a CHECK row: the shape a menu marks a current value with, and the shape
 		-- whose label is a child `UI.Text` rather than the button's own text
 		indicator = "check",
 		selected = signal,
-		markHidden = scope:own(core:memo(function(use)
-			return not use(signal)
-		end)),
+		markHidden = Compose.withOwner(scope, function()
+			return Compose.formula(function(use)
+				return not use(signal)
+			end)
+		end),
 		platedSelection = true,
 		core = core,
 		scope = scope,

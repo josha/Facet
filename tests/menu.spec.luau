@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ D2 — THE `Menu` CONSTRUCT (navigation-and-menus brief §2 D2).
 
 	A freestanding ACTION menu: items are VERBS, not values. It attaches to any
@@ -33,8 +34,9 @@ local menuLib = require("../src/controls/menu")
 local menuRecipe = require("../src/controls/menu_recipe")
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local ITEMS = {
 	{ id = "accessory", label = "Accessory Adjustment", icon = "edit", onSelect = function() end },
@@ -49,13 +51,13 @@ local ITEMS = {
 	system.deviceKey), never by calling a control callback directly. ]]
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.w or 800, h = options.h or 600 })
 	local system = Facet.newActionSystem(core)
 	-- ARMED (T12): the "no orphaned nodes once closed" case reads `.ops()`.
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local ran: { string } = {}
 	local control = menuLib.build(Facet, core, {
 		id = "M",
@@ -135,7 +137,7 @@ local NESTED = {
 
 describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", function()
 	it("an unknown spec key is an authoring error, named with the whole legal set", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
 				Facet,
@@ -153,7 +155,7 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("declaring BOTH children and onSelect is a spec error, never a precedence rule", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
 				Facet,
@@ -177,7 +179,7 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("an item with neither an action nor children is refused rather than silently inert", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
 				Facet,
@@ -194,7 +196,7 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("Guidance: icons for ALL items in a group, or none — a half-iconned group is refused", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
 				Facet,
@@ -214,7 +216,7 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("...and a DIVIDER starts a new group, so the two sides may differ", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
 		Facet.newEnvironment(core)
 		local control = menuLib.build(
@@ -234,7 +236,7 @@ describe("D2 Menu: the spec is closed, and an ambiguous item is a refusal", func
 	end)
 
 	it("a menu that drops `activate` without both key triggers is unreachable, and refused", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			menuLib.build(
 				Facet,
@@ -256,7 +258,7 @@ end)
 
 describe("D2 Menu: submenus nest without a cap, and say so past one level", function()
 	it("a three-level tree BUILDS, and depth >= 2 is diagnosed rather than refused", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
 		Facet.newEnvironment(core)
 		local control = menuLib.build(
@@ -280,7 +282,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 	end)
 
 	it("one level of submenu is silent — the diagnostic is advice, not noise", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
 		Facet.newEnvironment(core)
 		local control = menuLib.build(
@@ -302,7 +304,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 	end)
 
 	it("Guidance: a group of more than about five items is diagnosed as wanting its own menu", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		Facet.newEnvironment(core)
 		local many = {}
 		for i = 1, 6 do
@@ -322,7 +324,7 @@ describe("D2 Menu: submenus nest without a cap, and say so past one level", func
 	end)
 
 	it("Guidance: a destructive item that is not last is diagnosed", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		-- the surface's environment, which an automatic presentation reads (ADAPT-1)
 		Facet.newEnvironment(core)
 		local control = menuLib.build(
@@ -349,7 +351,7 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		local w = world()
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		local trigger = w.adapter.node(TRIGGER).rect
 		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
 		-- D1 placed it: below the source, not at a parent corner
@@ -361,7 +363,7 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		local w = world()
 		expect(w.adapter.driveSecondaryActivate(TRIGGER)).toBe(true)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		expect(w.adapter.node(rowPath(0, "body")) ~= nil).toBe(true)
 	end)
 
@@ -371,18 +373,18 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		-- `touch_gestures.normalize("longPress", { positions, state })`
 		w.adapter.driveTouchGesture(TRIGGER, { kind = "longPress", state = "began", positions = {} })
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		-- ...and the RELEASE does not re-toggle it shut under the finger
 		w.adapter.driveTouchGesture(TRIGGER, { kind = "longPress", state = "ended", positions = {} })
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 
 	it("a tap gesture is NOT a long press: the menu stays shut", function()
 		local w = world()
 		w.adapter.driveTouchGesture(TRIGGER, { kind = "tap", state = "ended", positions = {} })
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(false)
+		expect(w.control.api.isOpen:peek()).toBe(false)
 	end)
 
 	it("the keyboard context chord opens the menu, and Return activates the focused item", function()
@@ -390,13 +392,13 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		w.system.deviceKey("Menu", true)
 		w.system.deviceKey("Menu", false)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		-- the open rows are ordinary focusables, so the ring is already on the first
-		expect(w.pres.focus.focused:get()).toBe(rowPath(0, "accessory"))
+		expect(w.pres.focus.focused:peek()).toBe(rowPath(0, "accessory"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(false)
+		expect(w.control.api.isOpen:peek()).toBe(false)
 	end)
 
 	it("the gamepad menu button opens it, and ButtonB closes ONE level", function()
@@ -404,16 +406,16 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		w.system.deviceKey("ButtonY", true)
 		w.system.deviceKey("ButtonY", false)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		w.control.api.select("adjust")
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(1)
+		expect(#w.control.api.openPath:peek()).toBe(1)
 		-- ONE level, not all of them
 		w.system.deviceKey("ButtonB", true)
 		w.system.deviceKey("ButtonB", false)
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(0)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 
 	it("activating an item runs its onSelect exactly once and closes the menu", function()
@@ -432,7 +434,7 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		w.adapter.tap(rowPath(0, "go"))
 		w.pres.refresh()
 		expect(runs).toBe(1)
-		expect(w.control.api.isOpen:get()).toBe(false)
+		expect(w.control.api.isOpen:peek()).toBe(false)
 		expect(w.pres.anchoredSurfaces().count).toBe(0)
 	end)
 
@@ -441,10 +443,10 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		expect(w.adapter.driveSecondaryActivate(TRIGGER)).toBe(false)
 		w.adapter.driveTouchGesture(TRIGGER, { kind = "longPress", state = "began", positions = {} })
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(false)
+		expect(w.control.api.isOpen:peek()).toBe(false)
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 end)
 
@@ -464,7 +466,7 @@ describe("D2 Menu: a menu whose every item is disabled still OPENS", function()
 		})
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		expect(w.adapter.node(rowPath(0, "a")) ~= nil).toBe(true)
 		-- ...and the rows are visibly unavailable, not merely inert
 		expect(w.adapter.node(rowPath(0, "a")).props.enabled).toBe(false)
@@ -489,7 +491,7 @@ describe("D2 Menu: a menu whose every item is disabled still OPENS", function()
 		w.pres.refresh()
 		w.control.api.select("a")
 		expect(ran).toBe(false)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 end)
 
@@ -504,12 +506,12 @@ describe("D2 Menu: Cancel closes one level, tap-away closes all", function()
 		w.pres.refresh()
 		w.control.api.select("layer")
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(2)
+		expect(#w.control.api.openPath:peek()).toBe(2)
 		expect(w.pres.anchoredSurfaces().count).toBe(3)
 		-- a tap on a node OUTSIDE the menu: the presenter's own outside-tap path
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(false)
+		expect(w.control.api.isOpen:peek()).toBe(false)
 		expect(w.pres.anchoredSurfaces().count).toBe(0)
 	end)
 
@@ -520,33 +522,33 @@ describe("D2 Menu: Cancel closes one level, tap-away closes all", function()
 		w.control.api.select("adjust")
 		w.control.api.select("layer")
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(2)
+		expect(#w.control.api.openPath:peek()).toBe(2)
 		w.control.api.closeLevel()
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(1)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(1)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		w.control.api.closeLevel()
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(0)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		w.control.api.closeLevel()
 		w.pres.refresh()
-		expect(w.control.api.isOpen:get()).toBe(false)
+		expect(w.control.api.isOpen:peek()).toBe(false)
 	end)
 
 	it("Right enters the focused submenu and Left leaves it, in document order", function()
 		local w = world({ items = NESTED })
 		w.control.api.open()
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe(rowPath(0, "adjust"))
+		expect(w.pres.focus.focused:peek()).toBe(rowPath(0, "adjust"))
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
 		w.pres.refresh()
-		expect(w.control.api.openPath:get()[1]).toBe("adjust")
+		expect(w.control.api.openPath:peek()[1]).toBe("adjust")
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
+		expect(#w.control.api.openPath:peek()).toBe(0)
 	end)
 
 	it("Right on a plain ACTION row is not the menu's arrow, so the ring keeps it", function()
@@ -556,8 +558,8 @@ describe("D2 Menu: Cancel closes one level, tap-away closes all", function()
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(0)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 end)
 
@@ -629,8 +631,8 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 		w.pres.refresh()
 		w.adapter.tap("/Menu-M/Layer/Panel/Back")
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(0)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		expect(w.adapter.node(sheetRow("adjust")) ~= nil).toBe(true)
 	end)
 
@@ -652,13 +654,13 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 	end)
 
 	it("a live class flip while a submenu is open CARRIES the open path into the new presentation", function()
-		local core = Facet.newCore()
-		local classes = core:signal({ pointer = true, primary = "pointer" })
+		local core = harness.newCore()
+		local classes = Compose.cell({ pointer = true, primary = "pointer" })
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -682,7 +684,7 @@ describe("D2 Menu: touch does not nest — the sheet replaces its contents", fun
 		pres.refresh()
 		expect(control.presentation()).toBe("sheet")
 		-- the CHAIN survived; only the idiom changed
-		expect(control.api.openPath:get()[1]).toBe("adjust")
+		expect(control.api.openPath:peek()[1]).toBe("adjust")
 		expect(control.dump().surfaces).toBe(1)
 		expect(adapter.node("/Menu-M/Layer/Panel/Item:head") ~= nil).toBe(true)
 	end)
@@ -754,8 +756,8 @@ describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch"
 			expect(w.adapter.node("/Menu-M/Layer/Panel/Back") ~= nil).toBe(true)
 			w.adapter.tap("/Menu-M/Layer/Panel/Back")
 			w.pres.refresh()
-			expect(#w.control.api.openPath:get()).toBe(0)
-			expect(w.control.api.isOpen:get()).toBe(true)
+			expect(#w.control.api.openPath:peek()).toBe(0)
+			expect(w.control.api.isOpen:peek()).toBe(true)
 		end
 	)
 
@@ -766,20 +768,20 @@ describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch"
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(1)
+		expect(#w.control.api.openPath:peek()).toBe(1)
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(0)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 		w.control.api.select("adjust")
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(1)
+		expect(#w.control.api.openPath:peek()).toBe(1)
 		w.system.deviceKey("ButtonB", true)
 		w.system.deviceKey("ButtonB", false)
 		w.pres.refresh()
-		expect(#w.control.api.openPath:get()).toBe(0)
-		expect(w.control.api.isOpen:get()).toBe(true)
+		expect(#w.control.api.openPath:peek()).toBe(0)
+		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 
 	it(
@@ -791,10 +793,10 @@ describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch"
 			w.control.api.select("adjust")
 			w.control.api.select("layer")
 			w.pres.refresh()
-			expect(#w.control.api.openPath:get()).toBe(2)
+			expect(#w.control.api.openPath:peek()).toBe(2)
 			w.adapter.tap(TRIGGER)
 			w.pres.refresh()
-			expect(w.control.api.isOpen:get()).toBe(false)
+			expect(w.control.api.isOpen:peek()).toBe(false)
 			expect(w.control.dump().surfaces).toBe(0)
 		end
 	)
@@ -812,15 +814,15 @@ describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch"
 			-- "head" instead, which is the defect this proves closed
 			w.control.api.select("layer")
 			w.pres.refresh()
-			expect(#w.control.api.openPath:get()).toBe(2)
+			expect(#w.control.api.openPath:peek()).toBe(2)
 			w.control.api.closeLevel()
 			w.pres.refresh()
-			expect(#w.control.api.openPath:get()).toBe(1)
-			expect(w.pres.focus.focused:get()).toBe(sheetRow("layer"))
+			expect(#w.control.api.openPath:peek()).toBe(1)
+			expect(w.pres.focus.focused:peek()).toBe(sheetRow("layer"))
 			w.control.api.closeLevel()
 			w.pres.refresh()
-			expect(#w.control.api.openPath:get()).toBe(0)
-			expect(w.pres.focus.focused:get()).toBe(sheetRow("adjust"))
+			expect(#w.control.api.openPath:peek()).toBe(0)
+			expect(w.pres.focus.focused:peek()).toBe(sheetRow("adjust"))
 		end
 	)
 
@@ -962,13 +964,13 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 	end)
 
 	it("a Readable forcing 'sheet' opens sheeted even on a desktop-shaped surface", function()
-		local core = Facet.newCore()
-		local forced = core:signal("sheet")
+		local core = harness.newCore()
+		local forced = Compose.cell("sheet")
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -989,13 +991,13 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 	end)
 
 	it("flipping the Readable while OPEN re-presents through the same hot-switch the automatic case uses", function()
-		local core = Facet.newCore()
-		local forced = core:signal("menu")
+		local core = harness.newCore()
+		local forced = Compose.cell("menu")
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local control = menuLib.build(
 			Facet,
 			core,
@@ -1015,21 +1017,21 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 		forced:set("sheet")
 		pres.refresh()
 		expect(control.presentation()).toBe("sheet")
-		expect(control.api.isOpen:get()).toBe(true) -- the surface survived the switch
+		expect(control.api.isOpen:peek()).toBe(true) -- the surface survived the switch
 		expect(adapter.node(sheetRow("accessory")) ~= nil).toBe(true)
 	end)
 
 	it(
 		"a Readable can flip INTO 'automatic', resolving the size/interaction facts as if authored from the start",
 		function()
-			local core = Facet.newCore()
-			local forced = core:signal("sheet")
-			local classes = core:signal({ pointer = true, primary = "pointer" })
+			local core = harness.newCore()
+			local forced = Compose.cell("sheet")
+			local classes = Compose.cell({ pointer = true, primary = "pointer" })
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
+			local pres = harness.newPresenter(core, env, adapter, system)
 			local control = menuLib.build(
 				Facet,
 				core,
@@ -1052,38 +1054,38 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 		end
 	)
 
-	--[[ THE DOMAIN CHECK LIVES INSIDE `presentationMemo` — a `core:memo`, not
+	--[[ THE DOMAIN CHECK LIVES INSIDE `presentationMemo` — a `Compose.formula`, not
 		`readAuthoredPresentation`'s plain renderer-side call (the path
 		`scale`/`rotation`/`opacity` use, which genuinely throws OUT of
 		`pres.refresh()`, per `authored_presentation.spec.luau`'s equivalent
 		case). The reactive core QUARANTINES a memo compute error by design
-		(`src/core/custom.luau`: "an equality callback error quarantined... it
+		(the core's containment: an equality callback error is reported, and it
 		must never unwind a writer or wedge the flush loop") — one screen's
 		malformed reactive value must not crash an unrelated surface mid-frame.
-		So the refusal here is loud on `core:lastError()`, and the menu HOLDS
+		So the refusal here is loud on `core.lastError()`, and the menu HOLDS
 		its last valid presentation rather than adopting the bad one — never a
 		silent, undiagnosed acceptance of "bogus" as if it were a real idiom. ]]
 	it(
-		"a reactive value out of domain is refused loudly on core:lastError(), and the menu HOLDS its last valid state",
+		"a reactive value out of domain is refused loudly on core.lastError(), and the menu HOLDS its last valid state",
 		function()
 			-- `warns` (device bug fix round, director 2026-08-23, task-fix2 item 6):
 			-- a quarantine used to be recorded on `lastError()` and nowhere else — an
 			-- author who never thinks to poll it never hears about a bad reactive
-			-- `presentation` value. `core/custom.luau`'s `fail()` now calls this on
+			-- `presentation` value. `core/services.luau`'s `report()` now calls this on
 			-- every quarantine, real `warn()` by default; injected here so the
 			-- assertion below is exact rather than a print the suite has to eyeball.
 			local warns: { string } = {}
-			local core = Facet.newCore({
+			local core = harness.newCore({
 				warn = function(message: string)
 					table.insert(warns, message)
 				end,
 			})
-			local forced = core:signal("menu")
+			local forced = Compose.cell("menu")
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
+			local pres = harness.newPresenter(core, env, adapter, system)
 			local control = menuLib.build(
 				Facet,
 				core,
@@ -1097,14 +1099,14 @@ describe("D2: newMenu.presentation is a Readable<string> (gap 20)", function()
 			pres.present(UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
 			pres.refresh()
 			expect(control.presentation()).toBe("menu")
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 			-- the healthy path never warns: building and presenting a VALID menu
 			-- must not print anything, or a warning becomes noise nobody trusts
 			expect(#warns).toBe(0)
 			forced:set("bogus")
 			pres.refresh()
-			expect(string.find(tostring(core:lastError()), "unknown presentation", 1, true) ~= nil).toBe(true)
-			expect(string.find(tostring(core:lastError()), "bogus", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(core.lastError()), "unknown presentation", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(core.lastError()), "bogus", 1, true) ~= nil).toBe(true)
 			expect(control.presentation()).toBe("menu") -- HELD, not silently accepted
 			-- ...and NOW it warns — once, naming the same failure `lastError` holds
 			expect(#warns).toBe(1)
@@ -1145,7 +1147,7 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 		expect(row.props.label).toBe("Accessory")
 		expect(row.props.compactLabel.icon).toBe("edit")
 		expect(row.props.compactLabel.prefer).toBeNil()
-		expect(row.children).toBeNil()
+		expect(#row.children).toBe(0)
 	end)
 
 	it("a SUBMENU row carries a trailing chevron, and keeps its label semantic", function()
@@ -1159,13 +1161,13 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 	end)
 
 	it("`icon` and a divider joined popup_button.Option, and both render from the recipe", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local value = core:signal("a")
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local value = Compose.cell("a")
 		local control = popup_button.build(
 			Facet,
 			core,
@@ -1194,7 +1196,7 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 	end)
 
 	it("popup_button refuses a half-iconned group through the SAME lint the Menu uses", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			popup_button.build(
 				Facet,
@@ -1202,7 +1204,7 @@ describe("D2: one menu row recipe, and one presentation rule", function()
 				{
 					id = "P",
 					options = { { id = "a", label = "A", icon = "edit" }, { id = "b", label = "B" } },
-					value = core:signal("a"),
+					value = Compose.cell("a"),
 				} :: any
 			)
 		end)
@@ -1226,7 +1228,7 @@ describe("D2: long-press ownership, settled in code", function()
 		These two cases are the alarm in both directions. If `help` (D3a) ever binds
 		long-press, the first one fails; if the carve-out is dropped, the second does. ]]
 	local function discloseWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		-- a pure-touch world, declared the way every other spec does: the CLASSES
@@ -1235,7 +1237,7 @@ describe("D2: long-press ownership, settled in code", function()
 		env:set("preferredInput", "Touch")
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		return core, env, adapter, system, pres
 	end
 
@@ -1261,7 +1263,7 @@ describe("D2: long-press ownership, settled in code", function()
 		pres._discloseLongPress("/S/Name")
 		expect(pres.disclosure().present).toBe(true)
 		expect(pres.disclosure().source).toBe("touch")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("...and inside a Menu trigger the MENU owns it: one gesture, one construct", function()
@@ -1301,7 +1303,7 @@ describe("D2: long-press ownership, settled in code", function()
 		-- and the gesture that DID arrive opens the menu
 		adapter.driveTouchGesture("/S/Trigger", { kind = "longPress", state = "began", positions = {} })
 		pres.refresh()
-		expect(control.api.isOpen:get()).toBe(true)
+		expect(control.api.isOpen:peek()).toBe(true)
 		expect(system ~= nil).toBe(true)
 	end)
 
@@ -1372,7 +1374,7 @@ describe("D2: long-press ownership, settled in code", function()
 		pres.refresh()
 		pres._discloseLongPress("/S/Trigger/Name")
 		expect(pres.disclosure().present).toBe(true)
-		expect(control.api.isOpen:get()).toBe(false)
+		expect(control.api.isOpen:peek()).toBe(false)
 	end)
 end)
 
@@ -1405,7 +1407,7 @@ describe("D2 Menu: the dump says what is on screen", function()
 		w.control.dispose()
 		w.pres.refresh()
 		expect(w.pres.anchoredSurfaces().count).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1443,8 +1445,8 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		{ id = "c", label = "Gamma", onSelect = function() end },
 	}
 	local function cardWorld()
-		local core = Facet.newCore()
-		local checked = core:signal(true)
+		local core = harness.newCore()
+		local checked = Compose.cell(true)
 		local items = table.clone(CHECKED)
 		items[2] = { id = "b", label = "Beta", checked = checked }
 		local w = world({ items = items, presentation = "menu" })
@@ -1526,7 +1528,16 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 
 	it("the selected row's LABEL is painted for the fill it now sits on", function()
 		local w, checked = cardWorld()
-		local label = `{rowPath(0, "b")}/HStack#1/VStack#2/Label`
+		-- the row's content stacks are unnamed, so the label is found under the row
+		local label
+		for _, path in w.adapter.paths() do
+			if
+				string.sub(path, 1, #rowPath(0, "b") + 1) == rowPath(0, "b") .. "/"
+				and string.sub(path, -6) == "/Label"
+			then
+				label = path
+			end
+		end
 		local tint = w.adapter.node(label).props.tint
 		expect(tint.role).toBe(menuRecipe.SELECTED_LABEL_ROLE)
 		expect(tint.blend).toBe(1)
@@ -1539,8 +1550,8 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 	end)
 
 	it("the SHEET keeps the shape it had — the card is a presentation branch", function()
-		local core = Facet.newCore()
-		local checked = core:signal(true)
+		local core = harness.newCore()
+		local checked = Compose.cell(true)
 		local w = world({
 			items = {
 				{ id = "a", label = "Alpha", onSelect = function() end },

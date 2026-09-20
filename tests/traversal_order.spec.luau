@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- TAB TRAVERSES IN DOCUMENT ORDER, AND THE FOCUS CHAIN IS INSPECTABLE
 -- (roadmap Step 8 follow-up; docs/plans/traversal-document-order.md; acceptance
 -- rows TD-1..TD-12 in artifacts/traversal-document-order/acceptance.md).
@@ -21,13 +22,14 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = Facet.UI
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local focus_graph = require("../src/focus/focus_graph")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function harnessWithAdapter(presenterOpts: any?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 	local system = Facet.newActionSystem(core)
@@ -36,12 +38,12 @@ local function harnessWithAdapter(presenterOpts: any?)
 	if opts.keyboardNavigation == nil then
 		opts.keyboardNavigation = true
 	end
-	local pres = Facet.newPresenter(core, env, adapter, system, opts)
+	local pres = harness.newPresenter(core, env, adapter, system, opts)
 	pres.adapter = adapter -- test-local convenience, never a framework field
 	return core, env, system, pres
 end
 
-local function harness(presenterOpts: any?)
+local function world(presenterOpts: any?)
 	local core, env, system, pres = harnessWithAdapter(presenterOpts)
 	return core, env, system, pres
 end
@@ -58,7 +60,7 @@ local function focusedPath(adapter: any, paths: { string }): string?
 end
 
 local function slider(core: any, id: string)
-	return Facet.Controls.Slider(core, { id = id, value = core:signal(0.5), min = 0, max = 1, step = 0.1 })
+	return harness.Controls.Slider(core, { id = id, value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 })
 end
 
 local function button(id: string, extra: any?)
@@ -93,10 +95,10 @@ end
 -- walk the WHOLE ring by pressing Tab, so the assertion is about what pressing
 -- Tab actually does and not only about what the dump says it will do
 local function tabRing(graph: any, n: number): { string }
-	local seen = { graph.focused:get() }
+	local seen = { graph.focused:peek() }
 	for _ = 2, n do
 		graph.traverse(1)
-		table.insert(seen, graph.focused:get())
+		table.insert(seen, graph.focused:peek())
 	end
 	return seen
 end
@@ -115,7 +117,7 @@ end
 	from the arbitrated `system.deviceKey` path, and unlike the adapter's focus ring
 	it sees a Slider's track (which declares `focusVisual = "none"`). ]]
 local function tabPresses(build: (core: any) -> any, n: number, presentOpts: any?): { string }
-	local core, _, system, pres = harness()
+	local core, _, system, pres = world()
 	local moves: { string } = {}
 	local opts: any = if presentOpts ~= nil then table.clone(presentOpts) else {}
 	opts.onFocusNav = function(path)
@@ -151,7 +153,7 @@ describe("a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)", functi
 	end
 
 	it("Tab visits the Slider's track in DOCUMENT position, not last", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(screenWithSliderInTheMiddle(core))
 		expect(table.concat(traversalOf(handle), " ")).toBe(
 			"/S/Reset /S/Volume/TrackHost/Track /S/Row1 /S/Row2 /S/Row3"
@@ -159,7 +161,7 @@ describe("a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)", functi
 	end)
 
 	it("arrows also reach the Slider in document position", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(screenWithSliderInTheMiddle(core))
 		expect(table.concat(navigationOf(handle), " ")).toBe(
 			"/S/Reset /S/Volume/TrackHost/Track /S/Row1 /S/Row2 /S/Row3"
@@ -167,7 +169,7 @@ describe("a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)", functi
 	end)
 
 	it("the two readings cover the SAME SET — traversal reorders, never adds or drops", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(screenWithSliderInTheMiddle(core))
 		local a, b = traversalOf(handle), navigationOf(handle)
 		table.sort(a)
@@ -187,7 +189,7 @@ describe("a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)", functi
 	-- so it can paint its own focused treatment, so the one path this test exists
 	-- to catch never wears the adapter ring at all.
 	it("pressing Tab really moves focus in that order (onFocusNav, not the dump)", function()
-		local core, _, system, pres = harness()
+		local core, _, system, pres = world()
 		local moves: { string } = {}
 		local handle = pres.present(screenWithSliderInTheMiddle(core), {
 			onFocusNav = function(path)
@@ -221,7 +223,7 @@ describe("every focusable Grip traverses in document position — no exceptions 
 	end
 
 	it("a bare focusable Grip declared between buttons traverses between them", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(gripBetweenButtons(core))
 		expect(table.concat(traversalOf(handle), " ")).toBe("/S/Before /S/Resize /S/After")
 		expect(table.concat(navigationOf(handle), " ")).toBe("/S/Before /S/Resize /S/After")
@@ -236,8 +238,8 @@ describe("every focusable Grip traverses in document position — no exceptions 
 	-- other, and a rule that happened to work for one control and not the other
 	-- would be the same purpose-derived special case TDN-1 refused.
 	it("newRating's strip Grip traverses in document position too", function()
-		local core, _, _, pres = harness()
-		local rating = Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3), count = 5 })
+		local core, _, _, pres = world()
+		local rating = harness.Controls.Rating(core, { id = "Stars", value = Compose.cell(3), count = 5 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { button("Before"), rating.blueprint, button("After") },
@@ -260,7 +262,7 @@ describe("traversalPriority is a sort TIER, not an index (TD-5, TD-6)", function
 	end
 
 	it("a positive tier pushes one control to the back without moving the others", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		expect(table.concat(traversalOf(pres.present(tiered(nil))), " ")).toBe("/S/A /S/B /S/C /S/Submit")
 	end)
 
@@ -269,7 +271,7 @@ describe("traversalPriority is a sort TIER, not an index (TD-5, TD-6)", function
 	end)
 
 	it("a negative tier pulls one to the front", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { button("A"), button("B"), button("Skip", { traversalPriority = -1 }) },
@@ -278,7 +280,7 @@ describe("traversalPriority is a sort TIER, not an index (TD-5, TD-6)", function
 	end)
 
 	it("within one tier, DOCUMENT order always wins", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -291,7 +293,7 @@ describe("traversalPriority is a sort TIER, not an index (TD-5, TD-6)", function
 	end)
 
 	it("the tier does NOT reach the arrows", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { button("A"), button("Submit", { traversalPriority = 1 }), button("B") },
@@ -300,7 +302,7 @@ describe("traversalPriority is a sort TIER, not an index (TD-5, TD-6)", function
 	end)
 
 	it("a tier moves a GRIP relative to document order too", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -328,9 +330,9 @@ describe("traversalPriority refuses what it cannot honour (TD-8)", function()
 	end)
 
 	it("a BOUND value is refused: the prop is construction-only", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local err = refusal(function()
-			UI.Button({ id = "B", label = "B", traversalPriority = core:signal(1) })
+			UI.Button({ id = "B", label = "B", traversalPriority = Compose.cell(1) })
 		end)
 		expect(string.find(err, "traversalPriority") ~= nil).toBe(true)
 	end)
@@ -349,7 +351,7 @@ end)
 
 describe("an explicit navigationGroups map is NOT re-ranked (TD-7)", function()
 	it("the declared order survives exactly, grips and all", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local s = slider(core, "Volume")
 		local handle = pres.present(
 			UI.Screen({
@@ -384,7 +386,7 @@ describe("an explicit navigationGroups map is NOT re-ranked (TD-7)", function()
 	end)
 
 	it("navigationGroups = false is NOT a declared map: the flat ring is still ranked", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(
 			UI.Screen({
 				id = "S",
@@ -403,7 +405,7 @@ end)
 
 describe("handle.focusOrder() (TD-9, TD-10)", function()
 	it("carries its schema and both readings", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local dump = pres.present(UI.Screen({
 			id = "S",
 			children = { button("A"), slider(core, "V").blueprint },
@@ -416,7 +418,7 @@ describe("handle.focusOrder() (TD-9, TD-10)", function()
 	end)
 
 	it("is deterministic: two calls with nothing changed are equal", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { button("A"), slider(core, "V").blueprint, button("B") },
@@ -425,7 +427,7 @@ describe("handle.focusOrder() (TD-9, TD-10)", function()
 	end)
 
 	it("is frozen — an inspector cannot mutate the map it is inspecting", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		local dump = pres.present(UI.Screen({ id = "S", children = { button("A") } })).focusOrder()
 		expect(pcall(function()
 			(dump :: any).traversal = {}
@@ -433,7 +435,7 @@ describe("handle.focusOrder() (TD-9, TD-10)", function()
 	end)
 
 	it("reports the AUTHORED tier per entry", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		local dump = pres.present(UI.Screen({
 			id = "S",
 			children = { button("A"), button("Late", { traversalPriority = 3 }) },
@@ -447,7 +449,7 @@ describe("handle.focusOrder() (TD-9, TD-10)", function()
 	end)
 
 	it("survives dispose: an overlay outliving its surface gets an empty map, not a throw", function()
-		local _, _, _, pres = harness()
+		local _, _, _, pres = world()
 		local handle = pres.present(UI.Screen({ id = "S", children = { button("A") } }))
 		pres.dismiss(handle)
 		local dump = handle.focusOrder()
@@ -463,7 +465,7 @@ end)
 
 describe("traversal skips exactly what the arrows skip (TD-3)", function()
 	it("a disabled control leaves BOTH readings", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -478,7 +480,7 @@ describe("traversal skips exactly what the arrows skip (TD-3)", function()
 	end)
 
 	it("focusable = false leaves both readings", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -494,8 +496,8 @@ end)
 
 describe("structural churn re-ranks on the next press (TD-11)", function()
 	it("a row mounted after present() takes its document position, not the end", function()
-		local core, _, _, pres = harness()
-		local show = core:signal(false)
+		local core, _, _, pres = world()
+		local show = Compose.cell(false)
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -528,7 +530,7 @@ end)
 
 describe("a modal traverses in document order too, and still traps (TD-12)", function()
 	it("a Grip inside a modal takes its document position within the modal", function()
-		local core, _, _, pres = harness()
+		local core, _, _, pres = world()
 		pres.present(UI.Screen({ id = "Base", children = { button("BaseBtn") } }))
 		local modal = pres.presentModal(UI.Screen({
 			id = "M",
@@ -573,7 +575,7 @@ describe("graph.traverse sorts by rank without changing membership (TDN-2)", fun
 	-- first document-order node is a Grip; the ledger records it as not claimed.
 	it("ENTRY focus still reads the unranked order, by design", function()
 		local graph = ranked({ "a", "b", "c" }, { a = 3, b = 1, c = 2 })
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 	end)
 
 	it("an INCOMPLETE rank is ignored entirely rather than applied to half the ring", function()
@@ -587,9 +589,9 @@ describe("graph.traverse sorts by rank without changing membership (TDN-2)", fun
 
 	it("the arrows never read the rank", function()
 		local graph = ranked({ "a", "b", "c" }, { a = 3, b = 1, c = 2 })
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 	end)
 
 	it("the graph keeps its OWN copy of the rank (F-14)", function()

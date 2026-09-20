@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE ADAPTERS' RECOVERY AND HONESTY CONTRACTS — release-candidate platform
 	review PLAT-7, PLAT-9, PLAT-11, PLAT-21, PLAT-22, PLAT-24, PLAT-25, PLAT-26.
@@ -37,10 +38,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local adapters = require("../src/replication/adapters")
+local Compose = require("../src/vendor/compose/core")
 
 describe("a lost resnapshot reply is a bounded retry, not a wedge (PLAT-7)", function()
 	local function rig()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local asks: { number } = {}
 		local col = adapters.collection(core, 1, { a = 1 }, function(from: number)
 			table.insert(asks, from)
@@ -88,12 +90,12 @@ describe("a lost resnapshot reply is a bounded retry, not a wedge (PLAT-7)", fun
 		expect(diagnostics.attempts).toBe(0)
 		-- patching resumes at the new revision
 		expect(col.ingestPatch(10, { set = { y = 1 } })).toBe("applied")
-		expect(col.binding:get().y).toBe(1)
+		expect(col.binding:peek().y).toBe(1)
 		expect(#asks <= 5).toBe(true)
 	end)
 
 	it("a throwing hook still un-latches immediately, as it always did", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local asks = 0
 		local col = adapters.collection(core, 1, {}, function()
 			asks += 1
@@ -110,15 +112,15 @@ end)
 
 describe("patch.remove is an array of keys, loudly (PLAT-25)", function()
 	local function newCollection()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		return adapters.collection(core, 1, { a = 1, b = 2, [3] = "three" }, function() end)
 	end
 
 	it("an array remove applies", function()
 		local col = newCollection()
 		expect(col.ingestPatch(2, { remove = { "a" } })).toBe("applied")
-		expect(col.binding:get().a).toBe(nil)
-		expect(col.binding:get().b).toBe(2)
+		expect(col.binding:peek().a).toBe(nil)
+		expect(col.binding:peek().b).toBe(2)
 	end)
 
 	it("a set-shaped remove is REFUSED by name instead of silently removing nothing", function()
@@ -127,7 +129,7 @@ describe("patch.remove is an array of keys, loudly (PLAT-25)", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "must be an ARRAY of keys", 1, true) ~= nil).toBe(true)
 		-- and nothing moved: the collection is exactly where it was
-		expect(col.binding:get().a).toBe(1)
+		expect(col.binding:peek().a).toBe(1)
 		expect(col.revision()).toBe(1)
 	end)
 
@@ -135,7 +137,7 @@ describe("patch.remove is an array of keys, loudly (PLAT-25)", function()
 		local col = newCollection()
 		expect(col.ingestPatch(2, { remove = {} })).toBe("applied")
 		expect(col.ingestPatch(3, { set = { c = 3 } })).toBe("applied")
-		expect(col.binding:get().c).toBe(3)
+		expect(col.binding:peek().c).toBe(3)
 	end)
 end)
 
@@ -270,13 +272,13 @@ describe("the touch-controls suppression is refcounted (PLAT-22)", function()
 	end
 
 	local function newPresenterStub(core: any)
-		local active = core:signal(false)
+		local active = Compose.cell(false)
 		return { exclusiveSurfaceActive = active }, active
 	end
 
 	it("two binders share one suppression, and the SECOND release restores the prior value", function()
 		withFakeGuiService(function(state)
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local first, firstActive = newPresenterStub(core)
 			local second, secondActive = newPresenterStub(core)
 			local unbindFirst = responder_effects.bind(core, first)
@@ -309,7 +311,7 @@ describe("the touch-controls suppression is refcounted (PLAT-22)", function()
 
 	it("unbinding while suppressed releases exactly one reference", function()
 		withFakeGuiService(function(state)
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local first, firstActive = newPresenterStub(core)
 			local second, secondActive = newPresenterStub(core)
 			local unbindFirst = responder_effects.bind(core, first)
@@ -337,7 +339,7 @@ describe("the touch-controls suppression is refcounted (PLAT-22)", function()
 			-- answers — with a boolean property they are indistinguishable any other
 			-- way, which is how this half went uncovered
 			state.value = false
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local presenter, active = newPresenterStub(core)
 			local unbind = responder_effects.bind(core, presenter)
 			active:set(true)
@@ -359,7 +361,7 @@ describe("the touch-controls suppression is refcounted (PLAT-22)", function()
 		-- the negative control for the case above: without it, "never restores"
 		-- would pass the same assertions
 		withFakeGuiService(function(state)
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local presenter, active = newPresenterStub(core)
 			local unbind = responder_effects.bind(core, presenter)
 			active:set(true)
@@ -381,7 +383,7 @@ describe("the touch-controls suppression is refcounted (PLAT-22)", function()
 		responder_effects.writeTouchControls = function(): boolean
 			return true
 		end
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local presenter, active = newPresenterStub(core)
 		local unbind = responder_effects.bind(core, presenter)
 		active:set(true)

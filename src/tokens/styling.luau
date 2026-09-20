@@ -18,6 +18,7 @@
 
 local default_style = require("./default_style")
 local num = require("../num")
+local Compose = require("../vendor/compose/core")
 
 local styling = {}
 
@@ -638,14 +639,14 @@ function styling.normalizeStroke(spec: any, style: any?): any
 	-- A READABLE FIELD IS REFUSED, and the message names the working idiom. A
 	-- Signal frozen INSIDE normalized data would never be read again: the mount
 	-- layer subscribes PROPS, not fields, so a pulsing thickness has to be a
-	-- pulsing `stroke` prop — `stroke = core:memo(function() return
-	-- UI.strokeData({ thickness = t:get() }) end)`.
+	-- pulsing `stroke` prop — `stroke = Compose.formula(function() return
+	-- UI.strokeData({ thickness = t:peek() }) end)`.
 	for _, key in { "thickness", "color", "transparency" } do
 		local v = (spec :: any)[key]
-		if type(v) == "table" and (v.kind == "signal" or v.kind == "memo") then
+		if Compose.isReadable(v) then
 			error(
-				`Facet UI.stroke: '{key}' cannot be a Signal/Memo — normalized style data is read once. `
-					.. "Bind the whole prop instead: stroke = core:memo(function() return "
+				`Facet UI.stroke: '{key}' cannot be a Compose cell or formula — normalized style data is read once. `
+					.. "Bind the whole prop instead: stroke = Compose.formula(function() return "
 					.. `UI.strokeData(\{ {key} = … }) end)`,
 				0
 			)

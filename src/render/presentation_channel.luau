@@ -59,6 +59,7 @@ local authority = require("./authority")
 local presentation = require("./presentation")
 local declarativeLib = require("./declarative_animation")
 local motionPolicy = require("../motion/policy")
+local observeChange = require("../core/on_change")
 
 local presentation_channel = {}
 
@@ -249,7 +250,7 @@ function presentation_channel.new(deps: {
 		if authoredN > 0 then
 			local rec = animationRecords[path]
 			o, s, r, offsetX, offsetY =
-				presentation.effective(authored[path], rec, if rec ~= nil then rec.set.spring:get() else 0)
+				presentation.effective(authored[path], rec, if rec ~= nil then rec.set.spring:peek() else 0)
 		end
 		if automatic.count() > 0 then
 			o, s, r, offsetX, offsetY = automatic.effective(path, o, s, r, offsetX, offsetY)
@@ -397,7 +398,7 @@ function presentation_channel.new(deps: {
 	-- single `p` — a uniform interpolation that provably cannot TEAR a subtree.
 	-- `transitions.luau`'s ratified shape (its header, "one spring per transition").
 	local function animationWrite(set: any)
-		local p = set.spring:get()
+		local p = set.spring:peek()
 		for path in set.paths do
 			local rec = animationRecords[path]
 			if rec ~= nil and rec.set == set then
@@ -493,7 +494,7 @@ function presentation_channel.new(deps: {
 				sets[selected] = set
 				-- the write rides the VALUE, not the clock step, exactly as a
 				-- transition's does, so an instantly-placed value lands the same way
-				set.unobserve = core:observe(set.spring, function()
+				set.unobserve = observeChange(core.owner, set.spring, function()
 					animationWrite(set)
 				end)
 				set.spring:onSettle(function()
@@ -506,7 +507,7 @@ function presentation_channel.new(deps: {
 				-- INTERRUPTION (design §Interruption): carry the offset this path is
 				-- painted at right now into the new record, so a path claimed by two
 				-- calls re-targets instead of jumping, and hand it to the new spring
-				local p = prev.set.spring:get()
+				local p = prev.set.spring:peek()
 				-- all four components are PIXELS on the same progress spring, so the
 				-- dominant magnitude is the largest of the four, not the largest offset
 				local mag = math.max(math.abs(prev.x), math.abs(prev.y), math.abs(prev.w), math.abs(prev.h))

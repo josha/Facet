@@ -1,41 +1,68 @@
-# Facet’s Compose runtime
+# Facet on Compose
 
-`Facet.newCore` uses `compose.luau`. Native Compose cells and formulas are the
-readables themselves; native watches and the reactor handle dependency delivery,
-batching and scheduling. Native owners store cleanup and unlink children in
-constant time. There is no second reactive graph, ordered observer queue, foreign
-Signals bridge or retained Signals export/vendor. `custom.luau` is only the old
-internal module-path alias used by development fixtures.
+Facet has no reactive runtime of its own. State is `Compose.cell`, derivation is
+`Compose.formula`, observation is `Compose.watch` / `owner.watchStatic`, lifetime
+is a Compose owner, and batching is the reactor's. There is no Facet signal, memo
+or scope type, and no second graph, observer queue or Signals bridge.
 
-Facet retains NaN-safe equality, counters, explicit readable disposal, diagnostics,
-component getter tracking, and layout settling. Layout settling repeats after
-geometry publication; Compose’s `reactor:settle` only drains reactive work and
-cannot replace that renderer phase. Formula disposal uses pinned graph internals
-because the public formula API has no disposal method.
+## What is in this directory
+
+`services.luau` builds the per-application service bag. It carries no reactive
+API. It holds the scene runtime a surface's nodes mount into, the application's
+root owner, the reactor, the error boundary, and the layout settle pass.
+
+`on_change.luau` is one function: `owner.watchStatic` with the registration
+delivery suppressed, because a Facet listener reacts to a surface MOVING and
+Compose's watch always delivers once when it is created.
+
+`contract.luau` is types only. `Signal<T>`, `Memo<T>`, `Readable<T>` and `Scope`
+are type aliases for Compose's `Cell`, `Formula`, `Readable` and `Owner`, and
+`src/init.luau` re-exports them. They exist so a typed helper or an out-of-repo
+control can name a Compose value without requiring the vendored snapshot. They
+are an interop spelling, not an authoring API: write `Compose.cell`,
+`Compose.formula` and a Compose owner. `contract.luau` also declares `Core`, the
+shape of the service bag `services.luau` builds.
+
+`profile.luau` is the span accounting the perf lab reads; it is not reactive.
+
+## Error containment
+
+A throwing binding must not take a surface down. `services.new` guards the
+application owner with a Compose boundary, so a watch body that throws is caught
+and reported rather than unwound into whoever wrote; every child owner inherits
+it, and `core.guard(owner)` applies it to an owner created outside that tree. A
+drain that throws is contained at the reactor's own `settle`, because the writer
+that opened it is ordinary application code with no way to handle another node's
+failure. The last valid value stays painted, because the binding that failed
+delivered nothing. `core.lastError()` reads the last contained failure; it is
+sticky and never cleared.
+
+## Layout settling
+
+Geometry feeds back: a surface solves, publishes what it measured, and the
+publication can change what it must solve. `render/settle_pass.luau` drives that
+to a fixed point inside the flush that opened it, so a top-level `env:set`
+returns with the surface solved. Callbacks run after the drain in registration
+order; one that writes ends the pass and the pass restarts from the first, until
+a pass writes nothing, under a 100-pass cap. "Wrote something" is Compose's own
+write clock. Compose drains watches but has no hook for untracked terminal work,
+so the pass decorates the reactor instance Facet owns; the vendored source is
+never touched.
 
 ## Native scheduling contract
 
 - Delivery is dependency-registration FIFO, not a total node-creation sort.
-- A drain is capped at 1,000,000 watch runs; layout has its separate 100-pass cap.
-  Compose abandons remaining work at its cap. Dispose and re-register affected
-  watches, or remount their owner, to resume. Changing a cell alone can leave an
-  abandoned watch stale. This is a limitation of the pinned upstream runtime.
-- Failed formulas keep their cached value and dependencies reached during the
-  failing run; a changed read sequence can drop old edges before failure. There
-  is no rollback to the previous successful dependency set.
-- Reactive callbacks and transactions must be synchronous. Components keep their
-  public state/getter API. `Facet.Signals` and raw Signals getter interop are removed.
+- A drain is capped at 1,000,000 watch runs; the settle pass has its own 100-pass
+  cap. Compose abandons remaining work at its cap and lets a later source write
+  wake the affected watches.
+- A formula that throws keeps its cached value and the dependencies it reached
+  during the failing run. There is no rollback to the previous dependency set.
+- Reactive bodies and batches must be synchronous.
 
-## Ownership and composition
+## The pin
 
-`scope_impl.luau` delegates storage and child unlinking to Compose owners. Facet’s
-structural reconciler remains because it retains exiting rows, supports identity
-on re-entry, and publishes a consistent surviving tree when a row factory throws.
-Compose’s host/block keyed reconciler has different lifetime and failure behavior;
-substituting it would change those visible features, not just replace bookkeeping.
-
-The source pin, full MIT notice, two local lifetime fixes and exact integrity
-inventory live in `../vendor/compose`. `tests/compose_lifetime.spec.luau` covers
-final-listener detachment, reads after self-disposal, and cap re-registration.
-These internals are not consumer entry points. Use the Facet table and documented
-client modules.
+The exact pin and integrity inventory live in `../vendor/compose`. Setup
+materializes ignored source from that commit; no dependency source is committed,
+and there is no Facet patch overlay. The full MIT notice travels in the package.
+These internals are not consumer entry points: use the Facet table and the
+documented client modules.

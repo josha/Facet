@@ -1,0 +1,79 @@
+{
+  "name": "Virtual Monitors",
+  "emitLegacyScripts": true,
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "ReplicatedStorage": {
+      "Facet": {
+        "$path": "../../src"
+      },
+      "VirtualMonitors": {
+        "$className": "Folder",
+        "screens": {
+          "$path": "screens.luau"
+        },
+        "scenes": {
+          "$path": "scenes.luau"
+        },
+        "theme": {
+          "$path": "theme.luau"
+        },
+        "chat_model": {
+          "$path": "chat_model.luau"
+        },
+        "catalog": {
+          "$path": "catalog.luau"
+        },
+        "desktop": {
+          "$path": "desktop.luau"
+        },
+        "icons": {
+          "$path": "icons.luau"
+        }
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "VirtualMonitors": {
+          "$path": "main.client.luau"
+        }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future",
+        "ClockTime": 14,
+        "Brightness": 2,
+        "Ambient": [
+          0.4,
+          0.4,
+          0.45
+        ],
+        "OutdoorAmbient": [
+          0.5,
+          0.5,
+          0.55
+        ]
+      }
+    },
+    "StarterGui": {
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
+    }
+  }
+}

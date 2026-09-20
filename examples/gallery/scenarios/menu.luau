@@ -34,12 +34,9 @@
 	session on one machine ONLY at a regular width or wider — narrow this window
 	past compact and Panel stops being reachable, on purpose:
 
-	  · panel — each submenu level is its own surface anchored to its parent ROW,
-	    and `surfaces` in the readout climbs with the chain;
-	  · sheet — the touch idiom, and now also the compact-width idiom, where a
-	    submenu REPLACES the sheet's contents and grows a Back row. `surfaces`
-	    stays 1 at any depth, which is the only way to tell the two apart
-	    without looking.
+	  · panel — each submenu level is its own surface anchored to its parent ROW;
+	  · sheet — the touch idiom, and also the compact-width idiom, where a
+	    submenu REPLACES the sheet's contents and grows a Back row.
 
 	AND ONE CARD EXISTS FOR A REFUSAL: a menu whose every item is disabled still
 	OPENS. The guidance: if all of a menu's items are unavailable, the menu itself needs
@@ -96,10 +93,9 @@ local COPY = {
 	openedTitle = "What opened, and what this app can tell about it",
 	nothingYet = "nothing yet — open one of the cards above",
 	closed = "closed",
+	open = "open",
 	stateTitle = "What the framework reports",
 	countsTitle = "Opens per card",
-	diagTitle = "What the framework advises about this menu",
-	noDiags = "nothing — the list is within the interface guidance",
 	ranTitle = "Last verb run",
 	ranNothing = "none — a disabled item runs nothing, which is the whole point of the last card",
 	honestTitle = "The one thing this readout cannot say",
@@ -115,16 +111,13 @@ return {
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("menu-scenario")
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local lastOpen = scope:own(core:signal(COPY.nothingYet))
-		local ran = scope:own(core:signal(COPY.ranNothing))
+		local lastOpen = Compose.cell(COPY.nothingYet)
+		local ran = Compose.cell(COPY.ranNothing)
 		local counts: { [string]: number } = {}
-		local countsLine = scope:own(core:signal(""))
-		local idiom = scope:own(core:signal("auto"))
+		local countsLine = Compose.cell("")
+		local idiom = Compose.cell("auto")
 
 		--[[ THE ONE FACT THE PRESENTATION RULE READS. `resolvePresentation` takes a
 			`touchLive` boolean off the caller's interaction classes, so forcing an
@@ -134,7 +127,7 @@ return {
 			unchanged in every other respect: a keyboard is still live under the sheet
 			idiom, which is what keeps the sheet's rows reachable. ]]
 		local liveClasses = ctx.env:get("interactionClasses")
-		local classes = scope:own(core:memo(function(use)
+		local classes = Compose.formula(function(use)
 			local live: any = use(liveClasses)
 			local mode = use(idiom)
 			if mode == "auto" then
@@ -144,7 +137,7 @@ return {
 			forced.touch = mode == "sheet"
 			forced.primary = if mode == "sheet" then "touch" else "pointer"
 			return forced
-		end))
+		end)
 
 		--[[ THE LIST, and it is one function rather than four copies — an `Item` is
 			plain data with no state on it, so every card can hand the control its own
@@ -164,10 +157,8 @@ return {
 			`f1`'s, one verb short.
 
 			THE DESTRUCTIVE VERB IS LAST because anything else is diagnosed, and the
-			nesting goes two levels deep on purpose: `api.diagnostics()` quotes the
-			the guidance at depth >= 2 and never refuses. That
-			advice is printed on the screen below rather than swallowed — it is the
-			one diagnostic this list is meant to raise. ]]
+			nesting goes two levels deep on purpose: the control advises against
+			depth >= 2 and never refuses it. ]]
 		local function verbs(): { any }
 			local function run(key: string)
 				return function()
@@ -226,223 +217,167 @@ return {
 			}
 		end
 
-		local cards: { any } = {}
-		local function card(id: string, label: string, routes: string, triggers: { string }?, items: { any })
-			local control = Facet.Controls.Menu(core, {
-				id = id,
-				--[[ AN ORDINARY LABELLED BUTTON, and it carries NO `onActivate`. That
-					absence is load-bearing rather than an omission: the presenter's
-					activate dispatch tries a leaf's own `props.onActivate` BEFORE any
-					contribution, so a trigger that declares one silently stops opening its
-					own menu. The words matter more than a glyph here anyway — this card
-					is a route, and its name is how a tester knows what to do to it.
-
-					AND IT FILLS THE CARD, which is the half a device found (review
-					2026-08-16, F1): *"I would expect that I could do the action in each
-					thing on the entire row, not just the text."* A Button with no `width`
-					HUGS its label, so this card read as a full-width row and took a press
-					on 58 of its 312 pixels — the 44px floor's own defect family, turned
-					ninety degrees. `newMenu` deliberately never touches its trigger's
-					layout ("the contribution rides it; its layout is untouched"), so the
-					row width is the AUTHOR's to declare and this is where it belongs. ]]
-				trigger = UI.Button({
-					id = `{id}Trigger`,
-					label = label,
-					width = UI.fill(),
-				}),
-				items = items,
-				triggers = triggers,
-				sizeClass = conditions.sizeClass,
-				interactionClasses = classes,
-				onOpen = function()
-					counts[id] = (counts[id] or 0) + 1
-					--[[ THE HONEST READOUT. The card names the routes it accepts; the
-						environment names the input classes that were live at the instant it
-						opened. The framework names neither, which is the note at the foot of
-						this screen. ]]
-					local live: any = liveClasses:get()
-					local names: { string } = {}
-					for _, name in { "pointer", "touch", "keyboard", "gamepad" } do
-						if type(live) == "table" and live[name] == true then
-							table.insert(names, name)
-						end
-					end
-					lastOpen:set(
-						`{label} · routes: {routes} · live input: {if type(live) == "table"
-							then tostring(live.primary)
-							else "?"} ({table.concat(names, ", ")})`
-					)
-					local parts: { string } = {}
-					for _, entry in cards do
-						table.insert(parts, `{entry.label} {counts[entry.id] or 0}`)
-					end
-					countsLine:set(table.concat(parts, " · "))
-				end,
-			})
-			scope:own(control)
-			table.insert(cards, { id = id, label = label, routes = routes, control = control })
-			return control
-		end
-
-		local avatar = card("Tap", COPY.tap, COPY.tapRoutes, { "activate" }, verbs())
-		-- Context commands act only on the focused card.
-
-		card("Chord", COPY.chord, COPY.chordRoutes, { "keyboard", "gamepad" }, verbs())
-		card("Secondary", COPY.secondary, COPY.secondaryRoutes, { "secondary", "keyboard", "gamepad" }, verbs())
-		card("Hold", COPY.hold, COPY.holdRoutes, { "activate", "longPress" }, verbs())
-		local blocked = card("Blocked", COPY.disabled, COPY.disabledRoutes, { "activate" }, unavailable())
-
-		local parts: { string } = {}
-		for _, entry in cards do
-			table.insert(parts, `{entry.label} 0`)
-		end
-		countsLine:set(table.concat(parts, " · "))
-
-		--[[ THE LIVE STATE LINE, and `surfaces` is the number it exists for: it
-			climbs with the chain under `panel` and stays at 1 at any depth under
-			`sheet`, where a submenu REPLACES the sheet rather than floating a second
-			one over it. The two idioms are otherwise the same tree and the same
-			verbs, so this count is the only thing on the screen that tells them apart.
-
-			IT IS A TICK-REFRESHED SIGNAL RATHER THAN A MEMO OVER `isOpen`, and that
-			was measured rather than assumed: a memo recomputes when its dependencies
-			change, and `isOpen` is set to true BEFORE the first surface is presented
-			— so the root level read `0 surface(s)` for as long as it stayed open, and
-			a live idiom flip (which changes no signal this line reads, and really
-			does rebuild the surfaces at the depth the player reached) never moved it
-			at all. `put` is what makes the tick free: a frame in which the sentence
-			did not change writes nothing and repaints nothing. ]]
-		local stateLine = scope:own(core:signal(COPY.closed))
-		local function put(signal: any, value: string)
-			if signal:get() ~= value then
-				signal:set(value)
-			end
-		end
-		local function readState()
-			for _, entry in cards do
-				if entry.control.api.isOpen:get() then
-					local chain = entry.control.api.openPath:get()
-					local d = entry.control.dump()
-					local where = if #chain == 0 then "root" else table.concat(chain, " ▸ ")
-					put(
-						stateLine,
-						`{entry.label}: {d.presentation} · depth {#chain} ({where}) · {d.surfaces} surface(s)`
-					)
-					return
-				end
-			end
-			put(stateLine, COPY.closed)
-		end
-		readState()
-		if ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
-			scope:own(ctx.presenter.onTick(readState))
-		end
-
-		local diagLine = scope:own(core:signal(COPY.noDiags))
-		do
-			local diags = avatar.api.diagnostics()
-			if #diags > 0 then
-				diagLine:set(table.concat(diags, "\n"))
-			end
-		end
-
-		-- it wired the size class AND declared the presentation, so the fact it
-		-- carried could never be consulted (ADAPT-1 call-site review). The class
-		-- stays — this screen drives it deliberately — and the ladder decides
-		local idiomPicker = Facet.View.Picker({
-			id = "Idiom",
-			label = COPY.idiomTitle,
-			-- a SEGMENTED strip, declared: this is a live switch the page wants
-			-- visible beside its readouts, not a value folded behind a menu
-			style = "segmented",
-			options = {
-				{ value = "auto", label = COPY.idiomAuto },
-				{ value = "panel", label = COPY.idiomPanel },
-				{ value = "sheet", label = COPY.idiomSheet },
+		--[[ THE FIVE CARDS, as data. Each names the routes it accepts, and the
+			readout prints the same string, so the screen and the readout can never
+			disagree about what a card takes. ]]
+		local CARDS = {
+			{ id = "Tap", label = COPY.tap, routes = COPY.tapRoutes, triggers = { "activate" }, items = verbs },
+			{
+				id = "Chord",
+				label = COPY.chord,
+				routes = COPY.chordRoutes,
+				triggers = { "keyboard", "gamepad" },
+				items = verbs,
 			},
-			selected = idiom,
-			sizeClass = conditions.sizeClass,
-		})
+			{
+				id = "Secondary",
+				label = COPY.secondary,
+				routes = COPY.secondaryRoutes,
+				triggers = { "secondary", "keyboard", "gamepad" },
+				items = verbs,
+			},
+			{
+				id = "Hold",
+				label = COPY.hold,
+				routes = COPY.holdRoutes,
+				triggers = { "activate", "longPress" },
+				items = verbs,
+			},
+			{
+				id = "Blocked",
+				label = COPY.disabled,
+				routes = COPY.disabledRoutes,
+				triggers = { "activate" },
+				items = unavailable,
+			},
+		}
 
-		local function readout(id: string, title: string, body: any): any
-			return UI.VStack({
-				id = id,
+		local function countsText(): string
+			local parts: { string } = {}
+			for _, entry in CARDS do
+				table.insert(parts, `{entry.label} {counts[entry.id] or 0}`)
+			end
+			return table.concat(parts, " · ")
+		end
+		countsLine:set(countsText())
+
+		-- Which card is open, from the two callbacks the control gives its caller.
+		local stateLine = Compose.cell(COPY.closed)
+
+		local function card(entry: any, conditions: any): any
+			--[[ THE TRIGGER IS THE MENU'S OWN LABELLED BUTTON, and it fills the card
+				(review 2026-08-16, F1: a Button with no `width` HUGS its label, so the
+				card read as a full-width row and took a press on 58 of its 312 pixels).
+				The control never touches its trigger's layout, so the row width is the
+				AUTHOR's to declare, and this is where it belongs. ]]
+			local menu = UI.frame(
+				UI.Menu(entry.id)({
+					label = entry.label,
+					items = entry.items(),
+					triggers = entry.triggers,
+					sizeClass = conditions.sizeClass,
+					interactionClasses = classes,
+					onOpen = function()
+						counts[entry.id] = (counts[entry.id] or 0) + 1
+						--[[ THE HONEST READOUT. The card names the routes it accepts; the
+							environment names the input classes that were live at the instant
+							it opened. The framework names neither, which is the note at the
+							foot of this screen. ]]
+						local live: any = liveClasses:peek()
+						local names: { string } = {}
+						for _, name in { "pointer", "touch", "keyboard", "gamepad" } do
+							if type(live) == "table" and live[name] == true then
+								table.insert(names, name)
+							end
+						end
+						lastOpen:set(
+							`{entry.label} · routes: {entry.routes} · live input: {if type(live) == "table"
+								then tostring(live.primary)
+								else "?"} ({table.concat(names, ", ")})`
+						)
+						countsLine:set(countsText())
+						stateLine:set(`{entry.label}: {COPY.open}`)
+					end,
+					onClose = function()
+						stateLine:set(COPY.closed)
+					end,
+				}),
+				{ maxWidth = "infinity" }
+			)
+			return UI.VStack(`Card{entry.id}`)({
 				surface = "control",
 				padding = "s",
 				gap = "xs",
 				width = UI.fill(),
 
-				UI.Text({ id = "Title", text = title, textSize = "caption" }),
-				UI.Text({ id = "Body", text = body, textSize = "caption", role = "secondary" }),
+				menu,
+				UI.Text("Routes")({ text = entry.routes, textSize = "caption", role = "secondary" }),
 			})
 		end
 
-		--[[ EACH TRIGGER IS A LABELLED CARD rather than a bare button, because the
-			routes it accepts are the only thing that tells a tester what to DO to it
-			— and they are read off the same `routes` string the readout prints, so
-			the screen and the readout can never disagree about what a card takes. ]]
-		local triggerCards: { any } = {}
-		for _, entry in cards do
-			table.insert(
-				triggerCards,
-				UI.VStack({
-					id = `Card{entry.id}`,
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
-
-					entry.control.blueprint,
-					UI.Text({ id = "Routes", text = entry.routes, textSize = "caption", role = "secondary" }),
-				})
-			)
-		end
-
-		local screen = UI.Screen({
-			id = "MenuDemo",
-			padding = "xs",
-			gap = "xs",
-
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function readout(id: string, title: string, body: any): any
+			return UI.VStack(id)({
+				surface = "control",
+				padding = "s",
 				gap = "xs",
 				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				UI.VStack({
-					id = "Cards",
-					gap = "xs",
-					align = "stretch",
-					width = UI.fill(),
-					children = triggerCards,
-				}),
-				UI.VStack({
-					id = "IdiomBox",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
+				UI.Text("Title")({ text = title, textSize = "caption" }),
+				UI.Text("Body")({ text = body, textSize = "caption", role = "secondary" }),
+			})
+		end
 
-					idiomPicker,
-					UI.Text({
-						id = "IdiomNote",
-						text = COPY.idiomNote,
-						textSize = "caption",
-						role = "secondary",
+		local function screen()
+			local conditions = Facet.adaptive.conditions(ctx.env)
+			local cardRow: { any } = { gap = "xs", align = "stretch", width = UI.fill() }
+			for _, entry in CARDS do
+				table.insert(cardRow, card(entry, conditions))
+			end
+			return UI.Screen("MenuDemo")({
+				padding = "xs",
+				gap = "xs",
+
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "xs",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = COPY.title, textSize = "heading" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					UI.VStack("Cards")(cardRow),
+					UI.VStack("IdiomBox")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.Picker("Idiom")({
+							label = COPY.idiomTitle,
+							style = "segmented",
+							options = {
+								{ value = "auto", label = COPY.idiomAuto },
+								{ value = "panel", label = COPY.idiomPanel },
+								{ value = "sheet", label = COPY.idiomSheet },
+							},
+							selected = idiom,
+							sizeClass = conditions.sizeClass,
+						}),
+						UI.Text("IdiomNote")({
+							text = COPY.idiomNote,
+							textSize = "caption",
+							role = "secondary",
+						}),
 					}),
+					readout("Opened", COPY.openedTitle, lastOpen),
+					readout("State", COPY.stateTitle, stateLine),
+					readout("Counts", COPY.countsTitle, countsLine),
+					readout("Ran", COPY.ranTitle, ran),
+					UI.Text("DepthNote")({ text = COPY.depthNote, textSize = "caption", role = "secondary" }),
+					readout("Honest", COPY.honestTitle, COPY.honest),
 				}),
-				readout("Opened", COPY.openedTitle, lastOpen),
-				readout("State", COPY.stateTitle, stateLine),
-				readout("Counts", COPY.countsTitle, countsLine),
-				readout("Ran", COPY.ranTitle, ran),
-				readout("Diag", COPY.diagTitle, diagLine),
-				UI.Text({ id = "DepthNote", text = COPY.depthNote, textSize = "caption", role = "secondary" }),
-				readout("Honest", COPY.honestTitle, COPY.honest),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
@@ -451,75 +386,20 @@ return {
 			ran = ran,
 
 			steps = {
-				--[[ `api.open()` IS NOT A SIXTH TRIGGER and the readout says so: it is
-					the caller opening its own menu, which every gesture route ends in. A
-					headless step can reach this; only a person with the hardware can
-					reach the four routes above it. ]]
-				open = function(_built: any, payload: string?)
-					local want = payload or "Tap"
-					for _, entry in cards do
-						if entry.id == want then
-							local opened = entry.control.api.open()
-							readState()
-							return { opened = opened, dump = entry.control.dump(), state = stateLine:get() }
-						end
-					end
-					return { opened = false }
-				end,
-				enter = function(_built: any, payload: string?)
-					for _, entry in cards do
-						if entry.control.api.isOpen:get() then
-							local selected = entry.control.api.select(payload or "layering")
-							readState()
-							return { selected = selected, dump = entry.control.dump(), state = stateLine:get() }
-						end
-					end
-					return { selected = false }
-				end,
-				back = function()
-					for _, entry in cards do
-						if entry.control.api.isOpen:get() then
-							entry.control.api.closeLevel()
-							readState()
-							return { dump = entry.control.dump(), state = stateLine:get() }
-						end
-					end
-					return {}
-				end,
-				close = function()
-					for _, entry in cards do
-						entry.control.api.close()
-					end
-					readState()
-					return { state = stateLine:get() }
-				end,
 				idiom = function(_built: any, payload: string?)
 					idiom:set(if payload ~= nil and table.find(IDIOMS, payload) ~= nil then payload else "auto")
-					readState()
-					return { idiom = idiom:get(), presentation = avatar.presentation(), state = stateLine:get() }
+					return { idiom = idiom:peek() }
 				end,
 			},
 
 			report = function()
-				readState()
-				local dumps: { any } = {}
-				for _, entry in cards do
-					table.insert(dumps, entry.control.dump())
-				end
 				return {
-					cards = dumps,
-					idiom = idiom:get(),
-					presentation = avatar.presentation(),
-					blockedPresentation = blocked.presentation(),
-					diagnostics = avatar.api.diagnostics(),
-					ran = ran:get(),
-					lastOpen = lastOpen:get(),
-					state = stateLine:get(),
+					idiom = idiom:peek(),
+					ran = ran:peek(),
+					lastOpen = lastOpen:peek(),
+					state = stateLine:peek(),
+					counts = table.clone(counts),
 				}
-			end,
-
-			dispose = function()
-				scope:dispose()
 			end,
 		}
 	end,

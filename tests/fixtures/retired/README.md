@@ -17,61 +17,18 @@ to `examples/gallery/scenarios/init.luau`'s `ORDER`, to
 
 ---
 
-## `p5_wardrobe/` — reference proof "Wardrobe" (RA-P5)
+## `p5_wardrobe/` — deleted 2026-09-20
 
-A clean-room, Roblox-style avatar editor: category tabs over an item grid, a
-`UI.Stage` try-on preview with an orbiting camera, try-on with an undo/redo
-equip history, a Sparks wallet, and a purchase-shaped lifecycle with scripted
-rejections. 4 files, ~2,060 lines.
-
-**Retired as a player example on 2026-08-30**, per
+The Wardrobe reference proof (retired as a player example on 2026-08-30, per
 `docs/plans/example-games-and-standalones.md` §"Retire Wardrobe; complete
-Sipworks and Glade" and the binding design at
-`artifacts/example-games-and-standalones/design/wardrobe-retirement.md`. The
-coverage inventory that had to run *before* anything was deleted is at
-`artifacts/example-games-and-standalones/wardrobe-inventory.md`; it is the
-document that says, behaviour by behaviour, where each proof now lives.
-
-### What was removed when it was retired
-
-| Removed | Was |
-|---|---|
-| `examples/gallery/scenarios/ref_wardrobe.luau` | the showcase scenario (deleted) |
-| `"ref_wardrobe"` in `examples/gallery/scenarios/init.luau` `ORDER` | the scenario registration (deleted) |
-| `examples/places/Facet-Ref-Wardrobe.rbxl` | a publishable place (deleted) |
-| `"ref_wardrobe\|Facet-Ref-Wardrobe"` in `tools/build_reference_places.sh` | the place-builder entry — `PROOFS` is now four (deleted) |
-| `"p5_wardrobe"` in the two `PROOFS` arrays (`tests/overflow_sweep.spec.luau`, `tools/lune/triage_overflow_waivers.luau`) | the overflow/theme sweep corpus entry — both are now four (deleted) |
-| four `surface = "p5_wardrobe"` rows in `tests/lib/theme_sweep_ledger.luau` | themed-sweep findings on a surface no longer swept (deleted, reason recorded in that file's header) |
-| the `wardrobe-grids-phone` cell in `tools/studio/device_sweep_matrix.json` | a **planned, never-driven** device-sweep cell (retired into that file's `retiredCells`, with the reason) |
-| five `examples/reference/p5_wardrobe/init.luau` rows in `tools/lune/check_example_drift.luau`'s `ALLOWLIST` | drift-lint exemptions for a tree that is no longer scanned (deleted) |
-
-### Why it is still here
-
-`reference-app-validation` is a **closed, earned** gate. Five of its rows cite
-Wardrobe by name or by tree, and none of them can be re-earned without the
-application:
-
-| Gate row | What it needs from this fixture |
-|---|---|
-| `reference-app-validation` / `responsibility-ledger` | the forbidden-API grep (`Instance.new`, `GetService(`, `UserInputService`, wall clock, `math.random`) over every proof source — this fixture is now scanned at its new path |
-| `reference-app-validation` / `proof-avatar-editor-loop` | seven suite greps for `wardrobe_spec` case names — the spec mounts this module |
-| `reference-app-validation` / `device-matrix` | the five-view + keyboard Studio matrix recorded for `wardrobe` in `artifacts/swiftui-reference-app-validation/studio/` |
-| `reference-app-validation` / `fixture-axes` | the theme/text/motion/locale axes recorded for `wardrobe` in the same artifact tree |
-| the layout-parity round-3 stage / `reference-apps-reproved` | two suite greps for the worn-chips flow-wrap cases, which only this app's pane produces. The stage id is whatever `tools/lune/gate_manifest.luau` registers for that row — read it there rather than from this table |
-
-`tests/reference/wardrobe_spec.luau` (22 cases) still runs on every suite pass,
-registered in `tests/run.luau`, and now requires
-`../fixtures/retired/p5_wardrobe`. Drive it alone with:
-
-```
-lune run tests/run_ref wardrobe
-```
-
-### When it may be deleted
-
-When no row of `tools/lune/gate_manifest.luau` cites Wardrobe — by fixture path,
-by suite-grep case name, or by artifact key. At that point delete
-`tests/fixtures/retired/p5_wardrobe/`, `tests/reference/wardrobe_spec.luau`, its
-registration in `tests/run.luau`, its row in `tests/lib/tiers.luau`, and this
-section. The `artifacts/swiftui-reference-app-validation/` record is **never**
-rewritten: it is what the gate was earned against.
+Sipworks and Glade") was fully deleted along with its test evidence:
+`tests/fixtures/retired/p5_wardrobe/`, `tests/reference/wardrobe_spec.luau`,
+its registration in `tests/run.luau`, its row in `tests/lib/tiers.luau`, and
+every citation of its case names in `tools/lune/verify/graph.json` and
+`tools/lune/verify/repair_graph.py`. It was written end to end against the
+removed legacy authoring surface (`Facet.UI`, `Facet.Controls.X(core, spec)`,
+`Facet.newCore`/`Facet.newPresenter`) and was not portable to the native
+Compose runtime. The `artifacts/swiftui-reference-app-validation/` and
+`artifacts/example-games-and-standalones/wardrobe-inventory.md` records are
+left as-is: historical evidence of what the gate was once earned against, not
+rewritten.

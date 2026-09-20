@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE LARGE-TEXT LAYOUT MATRIX (acceptance LT-8; policy LT-6 — the plan's
 	"Layout and overflow order").
 
@@ -31,9 +32,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local adaptive = require("../src/layout/adaptive")
 local lt = require("./lib/large_text")
+local Compose = require("../src/vendor/compose/core")
 
 local PRIMARY = lt.PSEUDO_ACTION -- an ACTION label: never an ellipsis, at any preference
 local SECONDARY = lt.PSEUDO_SECONDARY
@@ -98,16 +100,16 @@ end
 -- and the honest answer is a scrollable form, not a smaller one.
 
 local function formScreen(core: any, w: any): any
-	local name = core:signal("")
-	local volume = core:signal(0.5)
-	local field = Facet.Controls.TextInput(core, {
+	local name = Compose.cell("")
+	local volume = Compose.cell(0.5)
+	local field = harness.Controls.TextInput(core, {
 		id = "Name",
 		value = name,
 		placeholder = STATUS,
 		env = w.env,
 		actionSystem = w.system,
 	})
-	local slider = Facet.Controls.Slider(core, {
+	local slider = harness.Controls.Slider(core, {
 		id = "Volume",
 		label = STATUS,
 		value = volume,
@@ -167,7 +169,9 @@ describe("LT-6 order: a form in a ScrollView reflows, then scrolls, and never tr
 	it("LT6-FORM the form's action pair reflows and the region scrolls — no clip at any of the 32 rows", function()
 		for _, row in rows() do
 			local w = world(row)
-			w.present(formScreen(w.core, w))
+			w.present(function()
+				return formScreen(w.core, w)
+			end)
 			assertClean(w, row.id)
 			local candidate = chosenCandidate(w, "/S/Form/Actions", { "Row", "Col" })
 			local actions = if candidate == 1
@@ -193,7 +197,9 @@ describe("LT-6 order: a form in a ScrollView reflows, then scrolls, and never tr
 				local viewportHeight: number? = nil
 				for _, preference in lt.PREFERENCES do
 					local w = lt.world({ viewport = viewport.rect, theme = theme, offset = preference.offset })
-					w.present(formScreen(w.core, w))
+					w.present(function()
+						return formScreen(w.core, w)
+					end)
 					local region = w.adapter.scrollRegionOf("/S/Form")
 					local box = w.adapter.node("/S/Form").rect
 					expect(region.contentH).toBeGreaterThanOrEqual(previousContent)
@@ -253,7 +259,9 @@ describe("LT-6 order: a ViewThatFits CTA band steps down before anything is cut"
 				for _, preference in lt.PREFERENCES do
 					local rowId = `{viewport.id}/{theme.id}/{preference.name}`
 					local w = lt.world({ viewport = viewport.rect, theme = theme, offset = preference.offset })
-					w.present(bandScreen())
+					w.present(function()
+						return bandScreen()
+					end)
 					assertClean(w, rowId)
 					local candidate = chosenCandidate(w, "/S/Cta", { "Row", "Col" })
 					if candidate < previous then
@@ -286,7 +294,9 @@ describe("LT-6 order: a ViewThatFits CTA band steps down before anything is cut"
 			-- that silently stopped reflowing cannot hide behind "flips > 0"
 			local function candidateAt(offset: number): number
 				local w = lt.world({ viewport = lt.PHONE_PORTRAIT, theme = lt.THEMES[1], offset = offset })
-				w.present(bandScreen())
+				w.present(function()
+					return bandScreen()
+				end)
 				return chosenCandidate(w, "/S/Cta", { "Row", "Col" })
 			end
 			expect(candidateAt(0)).toBe(1)
@@ -313,7 +323,9 @@ describe("LT-6 order: a ViewThatFits CTA band steps down before anything is cut"
 	it("LT6-LADDER nothing is truncated while the band still has a cheaper candidate to take", function()
 		for _, row in rows() do
 			local w = lt.world({ viewport = row.viewport, theme = row.theme, offset = row.preference.offset })
-			w.present(bandScreen())
+			w.present(function()
+				return bandScreen()
+			end)
 			local violation = ladderViolation(w, row.id, { "Row", "Col" })
 			if violation ~= nil then
 				error(violation, 0)
@@ -350,32 +362,34 @@ describe("LT-6 order: a ViewThatFits CTA band steps down before anything is cut"
 		-- narrower than the word "three" — which is a clamp, the shape the solver now
 		-- refuses, and the case would fail for the opposite reason.)
 		local PHRASE = "one two three four five six"
-		w.present(UI.Screen({
-			id = "S",
-			children = {
-				UI.ViewThatFits({
-					id = "Cta",
-					children = {
-						UI.HStack({
-							id = "Row",
-							gap = 8,
-							children = {
-								UI.Text({
-									id = "RowSave",
-									text = PHRASE,
-									lineLimit = 1,
-									width = { type = "fixed", px = 140 },
-								}),
-							},
-						}),
-						UI.VStack({
-							id = "Col",
-							children = { UI.Text({ id = "ColSave", text = PHRASE }) },
-						}),
-					},
-				}),
-			},
-		}))
+		w.present(function()
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.ViewThatFits({
+						id = "Cta",
+						children = {
+							UI.HStack({
+								id = "Row",
+								gap = 8,
+								children = {
+									UI.Text({
+										id = "RowSave",
+										text = PHRASE,
+										lineLimit = 1,
+										width = { type = "fixed", px = 140 },
+									}),
+								},
+							}),
+							UI.VStack({
+								id = "Col",
+								children = { UI.Text({ id = "ColSave", text = PHRASE }) },
+							}),
+						},
+					}),
+				},
+			})
+		end)
 		expect(chosenCandidate(w, "/S/Cta", { "Row", "Col" })).toBe(1)
 		expect(w.controller.textAt("/S/Cta/Row/RowSave").truncated).toBe(true)
 		--[[ ...AND IT REALLY IS THE AUTHOR'S CAP RATHER THAN A CLAMP, or this case
@@ -395,7 +409,7 @@ end)
 -- ── screen 3: an AdaptiveStack split ────────────────────────────────────────
 
 local function splitScreen(core: any, env: any): any
-	local conditions = adaptive.conditions(core, env)
+	local conditions = adaptive.conditions(env)
 	return UI.Screen({
 		id = "S",
 		children = {
@@ -428,7 +442,9 @@ describe("LT-6 order: an AdaptiveStack split holds at every preference", functio
 	it("LT6-SPLIT the split's axis is space-driven and its panes never overlap or cut essential text", function()
 		for _, row in rows() do
 			local w = world(row)
-			w.present(splitScreen(w.core, w.env))
+			w.present(function()
+				return splitScreen(w.core, w.env)
+			end)
 			assertClean(w, row.id)
 			assertActionsIntact(w, row.id, { "/S/Split/Aside/Go" })
 			-- the axis follows the WIDTH the screen was given, and the preference
@@ -450,7 +466,9 @@ describe("LT-6 order: an AdaptiveStack split holds at every preference", functio
 				local shapes: { string } = {}
 				for _, offset in { 0, lt.LARGEST } do
 					local w = lt.world({ viewport = viewport.rect, theme = theme, offset = offset })
-					w.present(splitScreen(w.core, w.env))
+					w.present(function()
+						return splitScreen(w.core, w.env)
+					end)
 					local detail = w.adapter.node("/S/Split/Detail").rect
 					local aside = w.adapter.node("/S/Split/Aside").rect
 					table.insert(shapes, if detail.y == aside.y then "x" else "y")
@@ -578,7 +596,9 @@ describe("LT-6 order: a Composition steps its arrangement down, never its CTA", 
 				for _, preference in lt.PREFERENCES do
 					local rowId = `{viewport.id}/{theme.id}/{preference.name}`
 					local w = lt.world({ viewport = viewport.rect, theme = theme, offset = preference.offset })
-					w.present(compositionScreen())
+					w.present(function()
+						return compositionScreen()
+					end)
 					assertClean(w, rowId)
 					local dump = w.controller.compositionAt("/S/Results")
 					local rank = ARRANGEMENT_RANK[dump.arrangement]
@@ -604,7 +624,9 @@ describe("LT-6 order: a Composition steps its arrangement down, never its CTA", 
 	it("LT6-COMPOSEWITNESS the small-landscape composition is threeLane at Medium and steps down at Largest", function()
 		local function arrangementAt(offset: number): string
 			local w = lt.world({ viewport = lt.SMALL_LANDSCAPE, theme = lt.THEMES[1], offset = offset })
-			w.present(compositionScreen())
+			w.present(function()
+				return compositionScreen()
+			end)
 			return w.controller.compositionAt("/S/Results").arrangement
 		end
 		expect(arrangementAt(0)).toBe("threeLane")
@@ -617,7 +639,9 @@ describe("LT-6 order: a Composition steps its arrangement down, never its CTA", 
 		-- Largest rather than having been dropped or stepped out of existence
 		for _, row in rows() do
 			local w = lt.world({ viewport = row.viewport, theme = row.theme, offset = row.preference.offset })
-			w.present(compositionScreen())
+			w.present(function()
+				return compositionScreen()
+			end)
 			expect(w.controller.hiddenRoots()["/S/Results/Field"]).toBeNil()
 			local region = w.adapter.scrollRegionOf("/S/Results/Field/Body")
 			if region == nil then
@@ -635,14 +659,18 @@ describe("LT-8 reduced motion: the same geometry, and a policy independent of th
 		-- single rect, one of the two had leaked into the other.
 		for _, row in rows() do
 			local full = lt.world({ viewport = row.viewport, theme = row.theme, offset = row.preference.offset })
-			full.present(compositionScreen())
+			full.present(function()
+				return compositionScreen()
+			end)
 			local reduced = lt.world({
 				viewport = row.viewport,
 				theme = row.theme,
 				offset = row.preference.offset,
 				reducedMotion = true,
 			})
-			reduced.present(compositionScreen())
+			reduced.present(function()
+				return compositionScreen()
+			end)
 			local a, b = lt.geometryOf(full), lt.geometryOf(reduced)
 			for path, rect in a do
 				if b[path] ~= rect then
@@ -658,9 +686,9 @@ describe("LT-8 reduced motion: the same geometry, and a policy independent of th
 	it("LT8-REDUCEDPOLICY motionPolicy answers from the motion fact alone, at every preference", function()
 		for _, preference in lt.PREFERENCES do
 			local full = lt.world({ offset = preference.offset })
-			expect(full.env:get("motionPolicy"):get()).toBe("full")
+			expect(full.env:get("motionPolicy"):peek()).toBe("full")
 			local reduced = lt.world({ offset = preference.offset, reducedMotion = true })
-			expect(reduced.env:get("motionPolicy"):get()).toBe("reduced")
+			expect(reduced.env:get("motionPolicy"):peek()).toBe("reduced")
 		end
 	end)
 
@@ -672,7 +700,9 @@ describe("LT-8 reduced motion: the same geometry, and a policy independent of th
 				offset = row.preference.offset,
 				reducedMotion = true,
 			})
-			w.present(bandScreen())
+			w.present(function()
+				return bandScreen()
+			end)
 			assertClean(w, `reduced/{row.id}`)
 			local formWorld = lt.world({
 				viewport = row.viewport,
@@ -680,7 +710,9 @@ describe("LT-8 reduced motion: the same geometry, and a policy independent of th
 				offset = row.preference.offset,
 				reducedMotion = true,
 			})
-			formWorld.present(formScreen(formWorld.core, formWorld))
+			formWorld.present(function()
+				return formScreen(formWorld.core, formWorld)
+			end)
 			assertClean(formWorld, `reduced-form/{row.id}`)
 		end
 	end)

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- ASYNC COMPLETENESS (acceptance rows SF-A1, SF-A2, SF-A3).
 -- Everything here is scripted: a fake transport answers the provider's pending
 -- window, and a fake clock decides when a spaced retry is due — so "two attempts,
@@ -20,9 +21,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local resources = require("../src/async/resources")
 local async_image = require("../src/controls/async_image")
+local Compose = require("../src/vendor/compose/core")
 
 type Fixture = {
 	core: any,
@@ -44,7 +46,7 @@ local function fixture(opts: any?): Fixture
 	return {
 		core = core,
 		provider = provider,
-		scope = core:scope("async"),
+		scope = core.owner.createChild(),
 		advance = function(seconds: number)
 			now += seconds
 			provider.tick()
@@ -67,19 +69,19 @@ describe("bounded retry: the schedule", function()
 	it("a failure retries up to `count` times and then reports failed", function()
 		local f = fixture({ retry = { count = 2 } })
 		local handle = f.provider.acquire(f.scope, "avatar")
-		expect(handle.state:get()).toBe("pending")
+		expect(handle.state:peek()).toBe("pending")
 		local first = f.window()[1]
 		expect(first.attempt).toBe(1)
 		expect(f.provider.fail("avatar", first.generation, "boom")).toBe("retrying")
 		local second = f.window()[1]
 		expect(second.attempt).toBe(2)
-		expect(handle.state:get()).toBe("pending") -- still trying: nothing visible changed
+		expect(handle.state:peek()).toBe("pending") -- still trying: nothing visible changed
 		expect(f.provider.fail("avatar", second.generation, "boom")).toBe("retrying")
 		local third = f.window()[1]
 		expect(third.attempt).toBe(3)
 		expect(f.provider.fail("avatar", third.generation, "gone")).toBe("failed")
-		expect(handle.state:get()).toBe("failed")
-		expect(handle.error:get()).toBe("gone")
+		expect(handle.state:peek()).toBe("failed")
+		expect(handle.error:peek()).toBe("gone")
 	end)
 
 	it("a retry that succeeds resolves normally, and the failed attempt stays stale", function()
@@ -90,8 +92,8 @@ describe("bounded retry: the schedule", function()
 		local retry = f.window()[1]
 		expect(f.provider.complete("avatar", first.generation, "zombie")).toBe("stale")
 		expect(f.provider.complete("avatar", retry.generation, "real")).toBe("applied")
-		expect(handle.state:get()).toBe("ready")
-		expect(handle.value:get()).toBe("real")
+		expect(handle.state:peek()).toBe("ready")
+		expect(handle.value:peek()).toBe("real")
 	end)
 
 	it("a spaced retry is invisible to the transport until its delay has elapsed", function()
@@ -125,14 +127,14 @@ describe("bounded retry: the give-up is permanent for the session", function()
 		local handle = f.provider.acquire(f.scope, "avatar")
 		f.failAll("boom")
 		f.failAll("boom again")
-		expect(handle.state:get()).toBe("failed")
+		expect(handle.state:peek()).toBe("failed")
 		expect(f.provider.gaveUp("avatar")).toBe(true)
 
 		-- a fresh consumer of the same key inherits the failure instead of
 		-- re-opening the transport
 		local later = f.provider.acquire(f.scope, "avatar")
-		expect(later.state:get()).toBe("failed")
-		expect(later.error:get()).toBe("boom again")
+		expect(later.state:peek()).toBe("failed")
+		expect(later.error:peek()).toBe("boom again")
 		expect(#f.window()).toBe(0)
 	end)
 
@@ -144,7 +146,7 @@ describe("bounded retry: the give-up is permanent for the session", function()
 		f.provider.invalidate("avatar")
 		expect(f.provider.gaveUp("avatar")).toBe(false)
 		local again = f.provider.acquire(f.scope, "avatar")
-		expect(again.state:get()).toBe("pending")
+		expect(again.state:peek()).toBe("pending")
 		expect(#f.window()).toBe(1)
 	end)
 
@@ -153,10 +155,10 @@ describe("bounded retry: the give-up is permanent for the session", function()
 		local handle = f.provider.acquire(f.scope, "avatar")
 		f.failAll("boom")
 		f.failAll("boom")
-		expect(handle.state:get()).toBe("failed")
+		expect(handle.state:peek()).toBe("failed")
 		expect(f.provider.gaveUp("avatar")).toBe(false)
 		local again = f.provider.acquire(f.scope, "avatar")
-		expect(again.state:get()).toBe("pending")
+		expect(again.state:peek()).toBe("pending")
 	end)
 
 	it("a per-acquire retry overrides the provider's policy for that key", function()
@@ -174,7 +176,7 @@ end)
 -- class of impossible option in silence. `maxConcurrent = 0` is the sharp one:
 -- `promote()` can never activate anything, so every request queues forever and
 -- the UI simply never loads, with no diagnostic anywhere — not even
--- `core:lastError()`. Refusing it at construction IS the fix.
+-- `core.lastError()`. Refusing it at construction IS the fix.
 describe("provider construction is strict (F-12)", function()
 	local function build(opts: any): (boolean, string)
 		local core = customFactory.new()
@@ -253,8 +255,8 @@ describe("preload: warming a declared set", function()
 		local request = f.window()[1]
 		f.provider.complete("avatar", request.generation, "content://avatar")
 		local handle = f.provider.acquire(f.scope, "avatar")
-		expect(handle.state:get()).toBe("ready")
-		expect(handle.value:get()).toBe("content://avatar")
+		expect(handle.state:peek()).toBe("ready")
+		expect(handle.value:peek()).toBe("content://avatar")
 		warm.release()
 	end)
 
@@ -266,7 +268,7 @@ describe("preload: warming a declared set", function()
 		local request = f.window()[1]
 		expect(request ~= nil).toBe(true)
 		f.provider.complete("avatar", request.generation, "content://avatar")
-		expect(handle.state:get()).toBe("ready")
+		expect(handle.state:peek()).toBe("ready")
 	end)
 
 	it("preload never re-opens a cached or given-up key", function()
@@ -297,10 +299,9 @@ describe("AsyncImage: silent failure and the dim treatment", function()
 	local function build(spec: any)
 		local core = customFactory.new()
 		local provider = resources.newProvider(core, spec.providerOpts)
-		local scope = core:scope("img")
+		local scope = core.owner.createChild()
 		local image = async_image.build(Facet, core, {
 			id = "Avatar",
-			scope = scope,
 			provider = provider,
 			key = "rbxthumb://user",
 			retry = spec.retry,
@@ -326,10 +327,10 @@ describe("AsyncImage: silent failure and the dim treatment", function()
 		local _, provider, image = build({})
 		local request = provider.pendingRequests()[1]
 		provider.fail(request.key, request.generation, "no such user")
-		expect(image.state:get()).toBe("failed")
+		expect(image.state:peek()).toBe("failed")
 		-- the placeholder branch's condition is still true, and the content stays empty
 		local content = nodeById(image.blueprint, "Content")
-		expect(content.props.image:get()).toBe("")
+		expect(content.props.image).toBe("")
 	end)
 
 	it("a retry option reaches the provider for that key alone", function()
@@ -339,28 +340,27 @@ describe("AsyncImage: silent failure and the dim treatment", function()
 		local retry = provider.pendingRequests()[1]
 		expect(retry.attempt).toBe(2)
 		provider.complete(retry.key, retry.generation, "content://ok")
-		expect(image.state:get()).toBe("ready")
+		expect(image.state:peek()).toBe("ready")
 	end)
 
 	it("a bound `dimmed` blends the image toward the surface, and back", function()
 		local core = customFactory.new()
 		local provider = resources.newProvider(core)
-		local scope = core:scope("img")
-		local dimmed = core:signal(false)
+		local scope = core.owner.createChild()
+		local dimmed = Compose.cell(false)
 		local image = async_image.build(Facet, core, {
 			id = "Avatar",
-			scope = scope,
 			provider = provider,
 			key = "rbxthumb://user",
 			dimmed = dimmed,
 		})
 		local content = nodeById(image.blueprint, "Content")
-		expect(content.props.tint:get().blend).toBe(0) -- the identity blend
+		expect(content.props.tint.blend).toBe(0) -- the identity blend
 		dimmed:set(true)
-		expect(content.props.tint:get().blend).toBe(0.35)
-		expect(content.props.tint:get().role).toBe("surface")
+		expect(content.props.tint.blend).toBe(0.35)
+		expect(content.props.tint.role).toBe("surface")
 		dimmed:set(false)
-		expect(content.props.tint:get().blend).toBe(0)
+		expect(content.props.tint.blend).toBe(0)
 	end)
 
 	it("an image with no `dimmed` declaration claims no continuous colour at all", function()

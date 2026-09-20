@@ -456,11 +456,11 @@ describe("the guide index catalogs the live public surface", function()
 	end)
 
 	it("fails when the catalog stops naming a shipped control", function()
-		local dropped = string.gsub(index, "| `Controls%.Chip` |[^\n]*\n", "", 1)
+		local dropped = string.gsub(index, "| `UI%.Chip` |[^\n]*\n", "", 1)
 		expect(dropped ~= index).toBe(true)
 		local result = checker.check({ fileOverrides = { [INDEX] = dropped } })
 		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "does not name 'Controls.Chip'")).toBe(1)
+		expect(problemsMentioning(result, "does not name 'UI.Chip'")).toBe(1)
 	end)
 
 	it("fails when the catalog advertises something the library does not export", function()
@@ -478,7 +478,7 @@ describe("the guide index catalogs the live public surface", function()
 		capability COLUMN of every catalog row, which is the bound that lets it
 		judge a bare name as a claim rather than as prose. ]]
 	it("fails when the catalog invents a top-level export", function()
-		local invented = string.gsub(index, "| `mount` |", "| `newSparkle` | `mount` |", 1)
+		local invented = string.gsub(index, "| `renderer` |", "| `newSparkle` | `renderer` |", 1)
 		expect(invented ~= index).toBe(true)
 		local result = checker.check({ fileOverrides = { [INDEX] = invented } })
 		expect(result.ok).toBe(false)

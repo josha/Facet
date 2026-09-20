@@ -22,30 +22,39 @@ project and connect from Studio.
 | File | What it is |
 |---|---|
 | `default.project.json` | Maps `src/` of the library to `ReplicatedStorage.Facet`, the screen module to `ReplicatedStorage.FacetConsumerScreen`, and the client script to `StarterPlayer.StarterPlayerScripts.FacetConsumer`. It also sets `Workspace.PlayerScriptsUseInputActionSystem`, which Facet's input layer requires and which cannot be set from code. |
-| `src/screen.luau` | The screen itself: component state, property recipes, and the view — plus `session`, which presents it, wires both ways out of it, and tears it down in the right order. Takes `Facet` as an argument so the same module can be mounted by Roblox and by a headless test. |
-| `src/main.client.luau` | The client script: wait for the DataModel, stand up a host, hand it to `screen.session`. Three statements. |
+| `src/screen.luau` | The screen itself: Compose cells, property bindings, and the view — plus `session(Facet, app, opts)`, which mounts it, wires both ways out of it, and tears it down in the right order. It takes the library and the application as arguments, so the same module runs under Roblox and under a headless test. |
+| `src/main.client.luau` | The client script: wait for the DataModel, call `Facet.new()`, and hand the application to `screen.session`. |
 
 ## What it demonstrates
 
 - **A theme, applied.** The panel takes the `raised` surface and the count takes
   the accent tint, both resolved from the active theme rather than from a colour
   written here. Swap the theme and both follow with no rebuild.
-- **Local state with automatic ownership.** `ui.state` returns a getter and setter.
-  The count label is a recipe; the toggle uses `value` and `onChange`. Facet’s
-  Compose runtime tracks these getters and releases their resources on unmount.
-- **Adaptation with no device branch.** `ui.env("viewportRect")` tracks the available
-  viewport, and `Facet.adaptive.axisFor` selects the stack axis.
-- **The player's text size.** The blurb uses the body role and follows accessibility preferences.
+- **One Compose authoring model.** The component is an ordinary function.
+  `Compose.cell` holds state, property functions read it with `use`, and controls
+  come from `app.controls`. Every constructor here carries an optional name, so
+  the example's test paths stay readable.
+- **A caller-owned value control.** `UI.Toggle` takes the `soundOn` cell
+  directly and writes it back.
+- **Adaptation with no device branch.** `app.environment:get("viewportRect")`
+  supplies the available viewport, and `Facet.adaptive.axisFor` selects the
+  `UI.AdaptiveStack` axis.
+- **One frame source.** `app.onFrame` follows the host frame driver.
+  `Compose.cleanup` ties its unsubscribe function to the component lifetime. The
+  same callback closes the screen after `closeAfterSeconds`, which is 120 by
+  default.
+- **The player's text size.** The blurb uses the body role and follows
+  accessibility preferences.
 - **Teardown that leaves nothing.** Dismissing the component releases its state,
   bindings and owned frame subscription. Close is a command callback. The session
-  dismisses the surface before disposing the host, and both Close and the timer
+  closes its mount before disposing the application, and both Close and the timer
   use that same teardown path.
 
 ## The proof
 
 `tests/consumer_standalone.spec.luau` requires the same `src/screen.luau`, mounts
 it against the headless fake render target, and proves it mounts, wears a theme,
-answers a button press through the public input path, repaints when a signal
+answers a button press through the public input path, repaints when a cell
 changes, re-solves when the viewport and the preferred text size change, and
 returns the reactive registries to their baseline after teardown. It also drives
 Close through the same `session` the client script uses, rather than tearing down

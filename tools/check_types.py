@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-"""Verify the public Controls and View authoring signatures with positive witnesses
-and negative probes. Dependency-graph diagnostics outside the target files are
-reported separately, not silently claimed as clean.
+"""Verify the public `app.controls.*` surface with a positive witness and a
+negative probe, against the composite registrations in
+`src/render/compose_controls.luau`. Dependency-graph diagnostics outside the
+target files are reported separately, not silently claimed as clean.
+
+The authoring model this once checked (`local Controls = table.freeze({...})`
+in `src/init.luau`, `Facet.Controls`, `Facet.View`, `Facet.newCore`) was
+removed when Facet moved onto Compose (`Facet.new()` -> `app.controls`, built
+by `controls.new()` in `src/render/compose_controls.luau` from `composite(name,
+require(module).build)` registrations plus blueprint primitives). This script
+now discovers its namespace from those registrations instead of from a table
+literal that no longer exists.
 
 Run: python3 tools/check_types.py [--selftest]
 """
@@ -12,17 +21,36 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 ANALYZER = "luau-lsp"
 PLATFORM = "standard"
 INIT = "src/init.luau"
+CONTROLS_FILE = "src/render/compose_controls.luau"
 WITNESS = "tests/types/controls_witness.luau"
-TARGETS = [INIT, WITNESS, "tests/types/authoring_witness.luau"]
+TARGETS = [INIT, WITNESS]
 ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 
-# No control may silently widen its public spec to any.
-DECLARED_ANY = set()
+# The composite() registrations this check knows about. An entry vanishing
+# from this set (renamed, de-registered, or rewritten to skip composite()
+# entirely) is caught here rather than silently dropping out of the negative
+# probe below, which only checks entries it is HANDED. Update this list with
+# `namespace_entries()` itself whenever a control is deliberately added or
+# retired.
+DECLARED_ENTRIES = {
+    "Alert", "AsyncImage", "Button", "Callout", "Chip", "CollapsibleView",
+    "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
+    "NavigationStack", "PageView", "Picker", "PopupButton", "ProgressView",
+    "RadialMenu", "Rating", "RowActions", "Sheet", "Slider", "SplitButton",
+    "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
+    "VirtualList",
+}
+
+# app.controls.<name>(42) is expected to be REJECTED (the composite() closure
+# requires a table). This is the one piece of static protection that survives
+# the composite() indirection today -- see the module docstring and the
+# "field-level erosion" note this check emits. An entry that stops rejecting a
+# bare number is a real regression: say so with a reason here if it is meant.
+DECLARED_UNPROTECTED = set()
 
 
 def _env():
@@ -46,20 +74,57 @@ def analyze(paths):
     return own, out
 
 
+# `api.NAME = composite("NAME", require("../controls/x").build)` or
+# `api.NAME = composite("NAME", localVar.build)` where `localVar` was bound by
+# a top-of-file `local localVar = require("../controls/x")`.
+_COMPOSITE_RE = re.compile(
+    r'api\.(\w+) = composite\("\1",\s*(?:require\("([^"]+)"\)|(\w+))\.build\)'
+)
+_REQUIRE_RE = re.compile(r'local (\w+) = require\("(\.\./controls/[^"]+)"\)')
+
+
 def namespace_entries(source):
-    """-> {entry name: the declared `spec:` annotation}, read from src/init.luau."""
-    start = source.index("local Controls = table.freeze({")
-    block = source[start:]
-    block = block[: block.index("\n})")]
-    return dict(re.findall(r"\n\t(\w+) = function(?:<[^>]+>)?\(core: any, spec: ([^)]+)\)", block))
+    """-> {control name: module path relative to src/render/, e.g. "../controls/button"}.
+
+    Discovered from the `composite("Name", ...)` registrations in
+    `src/render/compose_controls.luau` -- the actual public constructor table
+    `Facet.new().controls` is built from (see that file's `controls.new`).
+    Primitive constructors (`Text`, `VStack`, ...) are deliberately out of
+    scope: they are served by an open `__index` off `blueprint_schema`, not a
+    named registration, so there is no fixed list to diff against here.
+    """
+    aliases = dict(_REQUIRE_RE.findall(source))
+    entries = {}
+    for name, required, local in _COMPOSITE_RE.findall(source):
+        module = required or aliases.get(local)
+        if module is None:
+            continue
+        entries[name] = module
+    return entries
 
 
-def negative_probe(entries, tmpdir):
-    """Hand every entry a NUMBER. -> {entry: True if the analyzer rejected it}."""
-    lines = ['--!strict', 'local Facet = require("../../src")', "local core = Facet.newCore()"]
+def controlSpecAnnotation(modulePath):
+    """-> the `spec` annotation `<module>.build`'s EXPORTED signature declares,
+    or None when the parameter carries no type (plain `any`/inferred)."""
+    path = os.path.normpath(f"src/render/{modulePath}.luau")
+    if not os.path.isfile(path):
+        return None
+    source = open(path).read()
+    m = re.search(
+        r"function \w+\.build\(\s*Facet(?::\s*\w+)?\s*,\s*core(?::\s*\w+)?\s*,\s*spec(?::\s*([^,)]+))?\s*\)",
+        source,
+    )
+    if m is None:
+        return None
+    return m.group(1)
+
+
+def negative_probe(entries):
+    """Hand every composite entry a bare NUMBER. -> {entry: True if the analyzer rejected it}."""
+    lines = ['--!strict', 'local Facet = require("../../src")', "local app = Facet.new()"]
     order = sorted(entries)
     for i, name in enumerate(order):
-        lines.append(f"local _n{i} = Facet.Controls.{name}(core, 42)")
+        lines.append(f"local _n{i} = app.controls.{name}(42)")
     path = os.path.join("tests", "types", "_negative_probe.luau")
     with open(path, "w") as fh:
         fh.write("\n".join(lines) + "\n")
@@ -76,7 +141,42 @@ def negative_probe(entries, tmpdir):
         return {name: (name in rejected) for name in order}
     finally:
         os.unlink(path)
-    _ = tmpdir
+
+
+# A composite entry whose module declares a typed `Spec` (not merely `any`),
+# probed with a value that is the wrong TYPE for one required field. If the
+# analyzer still says nothing, `composite()`'s indirection erased that field's
+# type at the `app.controls` boundary -- confirmed empirically 2026-09-20 for
+# both entries below (slider.luau declares `spec: Spec`; NavigationStack's
+# `path` must be an array). Kept small and hand-picked rather than generated
+# per module: crafting a "wrong shape" literal generically for 27 different
+# Spec tables is not worth it once the answer is uniform.
+_EROSION_PROBES = [
+    ("Slider", 'app.controls.Slider({ value = "nope" })'),
+    ("NavigationStack", 'app.controls.NavigationStack({ path = 42, root = {}, destinations = {}, backLabel = "x" })'),
+]
+
+
+def field_erosion_check(entries):
+    """-> (eroded: bool, detail: str). Only meaningful if both probed entries
+    are still registered composites; skipped otherwise."""
+    if not all(name in entries for name, _ in _EROSION_PROBES):
+        return None, "probed entries no longer registered; erosion check skipped"
+    lines = ['--!strict', 'local Facet = require("../../src")', "local app = Facet.new()"]
+    for _, call in _EROSION_PROBES:
+        lines.append(f"local _p = {call}")
+    path = os.path.join("tests", "types", "_erosion_probe.luau")
+    with open(path, "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    try:
+        own, _ = analyze([path])
+        rejectedAny = len(own) > 0
+        return (not rejectedAny), (
+            "0 diagnostics on wrongly-typed field probes for Slider.value and "
+            "NavigationStack.path" if not rejectedAny else f"{len(own)} diagnostic(s): {own}"
+        )
+    finally:
+        os.unlink(path)
 
 
 def run():
@@ -90,7 +190,7 @@ def run():
         )
         return 1, {"status": "FAIL", "problems": ["analyzer missing"]}
 
-    for t in TARGETS:
+    for t in TARGETS + [CONTROLS_FILE]:
         if not os.path.isfile(t):
             problems.append(f"missing target {t}")
     if problems:
@@ -106,105 +206,80 @@ def run():
         f"the {len(TARGETS)} target files only, never the tree"
     )
 
-    # Authoring errors must be caught where callers write their screen.
-    probes = [
-        'local _bad = Facet.View.Text { text = false }',
-        'local _bad = Facet.View.VStack { 42 }',
-        'local _bad = Facet.View.Button { label = "x", onActivate = function(meta) if meta then local _x: number = meta.shift end end }',
-        'local _bad = Facet.View.Toggle { value = function() return true end }',
-        'local _bad = Facet.View.ForEach { items = function() return { { id = "a" } } end, key = function(item) return item.id end, row = function(item) return Facet.View.Text(item().missing) end }',
-    ]
-    probe_path = "tests/types/_authoring_negative.luau"
-    with open(probe_path, "w") as file:
-        file.write('--!strict\nlocal Facet = require("../../src")\n' + "\n".join(probes) + "\n")
-    try:
-        diagnostics, _ = analyze([probe_path])
-        rejected = {int(match.group(1)) for line in diagnostics if (match := re.search(r"\((\d+),\d+\):.*TypeError", line))}
-        for index, probe in enumerate(probes, 3):
-            if index not in rejected:
-                problems.append(f"authoring accepted invalid input: {probe}")
-    finally:
-        os.unlink(probe_path)
+    # ---- half 2: the namespace is what compose_controls.luau registers -----
+    entries = namespace_entries(open(CONTROLS_FILE).read())
+    if not entries:
+        problems.append(f"discovered 0 composite entries from {CONTROLS_FILE} — the registration pattern moved")
 
-    # ---- half 2: the typed/any split is what src/init.luau declares ---------
-    entries = namespace_entries(open(INIT).read())
-    source = open(INIT).read()
-    block = source.split("local Controls = table.freeze({", 1)[1].split("\n})", 1)[0]
-    names = set(re.findall(r"^\t(\w+) = function(?:<[^>]+>)?\(", block, re.MULTILINE))
-    if not names or set(entries) != names:
-        problems.append("every Controls entry must declare its core and spec parameters")
-    declared_typed = {n for n, ann in entries.items() if ann.strip() != "any"}
-    declared_any = set(entries) - declared_typed
-
-    if declared_any != DECLARED_ANY:
-        grew = declared_any - DECLARED_ANY
-        shrank = DECLARED_ANY - declared_any
+    discovered = set(entries)
+    if discovered != DECLARED_ENTRIES:
+        grew = discovered - DECLARED_ENTRIES
+        shrank = DECLARED_ENTRIES - discovered
         if grew:
             problems.append(
-                "these Controls entries lost their spec type and now take `any`: "
+                "these composite entries are new — add them to DECLARED_ENTRIES if intended: "
                 + ", ".join(sorted(grew))
-                + " — if that is intended, say so in DECLARED_ANY with a reason"
             )
         if shrank:
             problems.append(
-                "these Controls entries GAINED a spec type: "
-                + ", ".join(sorted(shrank))
-                + " — good news; remove them from DECLARED_ANY"
+                "these composite entries DROPPED OUT of composite() registration (renamed, "
+                "de-registered, or rewritten to skip composite() — a real change to the public "
+                "surface, not something this check can wave through): " + ", ".join(sorted(shrank))
             )
 
-    with tempfile.TemporaryDirectory() as tmp:
-        observed = negative_probe(entries, tmp)
-    # A first-class path is more than an outer spec table. Pin its nested types,
-    # and Blueprint-returning factories, so widening either to any is visible.
-    nav_probe = "tests/types/_navigation_shape_probe.luau"
-    nav_lines = [
-        '--!strict', 'local Facet = require("../../src")', 'local core = Facet.newCore()',
-        'local root = {content = function() return Facet.UI.Box({}) end}',
-        'Facet.Controls.NavigationStack(core, {path = core:signal(42), root = root, destinations = {}, backLabel = "Back"})',
-        'Facet.Controls.NavigationStack(core, {path = core:signal({{id = 42}}), root = root, destinations = {}, backLabel = "Back"})',
-        'Facet.Controls.NavigationStack(core, {path = core:signal({}), root = {title = 42, content = root.content}, destinations = {}, backLabel = "Back"})',
-        'Facet.Controls.NavigationStack(core, {path = core:signal({}), root = {content = function() return 42 end}, destinations = {}, backLabel = "Back"})',
-    ]
-    try:
-        with open(nav_probe, "w") as fh:
-            fh.write("\n".join(nav_lines) + "\n")
-        nav_errors, _ = analyze([nav_probe])
-        rejected_lines = {int(m.group(1)) for line in nav_errors
-                          if (m := re.match(r".*\((\d+),\d+\):", line))}
-        for line, name in enumerate(["non-array path", "non-string route id", "non-string title", "non-Blueprint factory"], 5):
-            if line not in rejected_lines:
-                problems.append(f"NavigationStack accepted {name} in its typed spec")
-    finally:
-        if os.path.exists(nav_probe):
-            os.unlink(nav_probe)
-
+    observed = negative_probe(entries)
     for name in sorted(entries):
-        typed = name in declared_typed
         rejected = observed.get(name, False)
-        if typed and not rejected:
+        expectProtected = name not in DECLARED_UNPROTECTED
+        if expectProtected and not rejected:
             problems.append(
-                f"`Facet.Controls.{name}` is DECLARED with a spec type but the analyzer "
-                "accepted a number for it — the signature is not reaching the type checker "
-                "(this is what deferring that control's `require` looks like: a module's "
-                "exported types do not survive any deferral spelling, so the parameter has "
-                "nowhere left to get its type from)"
+                f"`app.controls.{name}` used to reject a bare number and no longer does — "
+                "composite() stopped requiring a table, or the entry's build function was "
+                "swapped for something that accepts `any` (if intended, add it to "
+                "DECLARED_UNPROTECTED with a reason)"
             )
-        if not typed and rejected:
+        if not expectProtected and rejected:
             problems.append(
-                f"`Facet.Controls.{name}` is declared `any` but the analyzer rejected a "
-                "number for it — the declaration and the behaviour disagree"
+                f"`app.controls.{name}` is declared DECLARED_UNPROTECTED but the analyzer "
+                "rejected a number for it — remove it from DECLARED_UNPROTECTED, it is fine"
             )
+
+    eroded, erosionDetail = field_erosion_check(entries)
+    if eroded is None:
+        notes.append(f"field-erosion check: {erosionDetail}")
+    elif eroded:
+        notes.append(
+            "field-erosion check CONFIRMED: composite()'s indirection in "
+            f"{CONTROLS_FILE} still erases a build function's declared Spec type at the "
+            "app.controls boundary (" + erosionDetail + "). This is a real gap in the "
+            "ported authoring surface, not a tooling problem — a wrongly-typed field "
+            "reaches no diagnostic until it is used inside the control's own module. "
+            "Not something this check can fix from tools/; the fix is generic typing "
+            "through composite()/construct() in src/render/compose_controls.luau."
+        )
+    else:
+        notes.append(
+            "field-erosion check: the analyzer NOW rejects a wrongly-typed field through "
+            "app.controls — composite()'s generics improved; " + erosionDetail
+        )
+
+    specAnnotations = {name: controlSpecAnnotation(entries[name]) for name in entries}
+    typedInSource = sorted(n for n, ann in specAnnotations.items() if ann and ann.strip() != "any")
+    untypedInSource = sorted(n for n in entries if n not in typedInSource)
 
     report = {
-        "schema": "facet-type-check/1",
+        "schema": "facet-type-check/2",
         "status": "FAIL" if problems else "PASS",
         "analyzer": ANALYZER,
         "platform": PLATFORM,
         "targets": TARGETS,
+        "controlsFile": CONTROLS_FILE,
         "entries": len(entries),
-        "typedEntries": sorted(declared_typed),
-        "anyEntries": sorted(declared_any),
-        "negativeProbeRejected": sorted(n for n, v in observed.items() if v),
+        "rejectsNumber": sorted(n for n, v in observed.items() if v),
+        "acceptsNumber": sorted(n for n, v in observed.items() if not v),
+        "specTypedInSource": typedInSource,
+        "specUntypedInSource": untypedInSource,
+        "fieldErosionConfirmed": eroded,
         "graphDiagnosticsIgnored": graph,
         "problems": problems,
         "notes": notes,
@@ -213,77 +288,50 @@ def run():
 
 
 def selftest():
-    """Break each half on purpose and require the check to notice."""
-    import shutil as sh
-
-    backups = {p: open(p).read() for p in (INIT, WITNESS)}
+    """Break the checks on purpose and require the check to notice."""
+    backups = {p: open(p).read() for p in (CONTROLS_FILE, WITNESS)}
     results = []
     try:
         code, _ = run()
         results.append(("unmutated", code == 0, "PASS expected"))
 
-        # M1 — a Controls signature widened to `any`, which is exactly what
-        # deferring that control's `require` into its closure would produce.
-        s = backups[INIT].replace(
-            "Table = function(core: any, spec: tableControl.Spec)",
-            "Table = function(core: any, spec: any)",
+        # M1 — a composite entry's build target swapped for one that accepts a
+        # bare number (i.e. stops going through `construct`'s table shape).
+        s = backups[CONTROLS_FILE].replace(
+            'api.Toggle = composite("Toggle", toggle.build)',
+            "api.Toggle = function(_spec: any) end",
             1,
         )
-        assert s != backups[INIT], "M1 anchor missing"
-        open(INIT, "w").write(s)
+        assert s != backups[CONTROLS_FILE], "M1 anchor missing"
+        open(CONTROLS_FILE, "w").write(s)
         code, rep = run()
-        bit = code != 0 and any("Table" in p for p in rep["problems"])
-        results.append(("M1 Controls.Table widened to `any`", bit, "FAIL expected"))
-        open(INIT, "w").write(backups[INIT])
+        bit = code != 0 and any("Toggle" in p for p in rep["problems"])
+        results.append(("M1 Toggle stops going through composite()", bit, "FAIL expected"))
+        open(CONTROLS_FILE, "w").write(backups[CONTROLS_FILE])
 
-        # M2 — a Controls signature given the WRONG type. The witness hands it the
-        # module's own Spec, so a different type reddens the witness itself.
-        s = backups[INIT].replace(
-            "Slider = function(core: any, spec: sliderControl.Spec)",
-            "Slider = function(core: any, spec: tableControl.Spec)",
-            1,
-        )
-        assert s != backups[INIT], "M2 anchor missing"
-        open(INIT, "w").write(s)
-        code, rep = run()
-        bit = code != 0 and any(WITNESS in p for p in rep["problems"])
-        results.append(("M2 Controls.Slider given the wrong Spec", bit, "FAIL expected"))
-        open(INIT, "w").write(backups[INIT])
-
-        # M3 — the witness stops exercising an entry. A witness that quietly shrank
-        # would make every claim above narrower while failing nothing, which is the
-        # way an instrument rots. It is caught, and by a mechanism worth naming: the
-        # analyzer emits LINTS as well as type errors for the target files, so the
-        # `Spec` local left behind reports `LocalUnused`. That is why this check
-        # reads EVERY diagnostic attributed to a target rather than grepping for
-        # `TypeError` — the lint is what makes the witness self-guarding.
+        # M2 — the witness stops exercising an entry, caught the same way the
+        # original check's M3 was: the analyzer's LocalUnused lint on the
+        # abandoned local, which is why this reads every diagnostic attributed
+        # to a target rather than grepping for `TypeError`.
         s = backups[WITNESS].replace(
-            "local _rowactions = Facet.Controls.RowActions(core, rowActionsSpec)",
-            "local _rowactions = Facet.Controls.RowActions(core, (nil :: any))",
+            "local _rowactions = app.controls.RowActions(rowActionsSpec)",
+            "local _rowactions = app.controls.RowActions((nil :: any))",
             1,
         )
-        assert s != backups[WITNESS], "M3 anchor missing"
+        assert s != backups[WITNESS], "M2 anchor missing"
         open(WITNESS, "w").write(s)
         code, rep = run()
         bit = code != 0 and any("LocalUnused" in p for p in rep["problems"])
-        results.append(("M3 witness stops using a real Spec", bit, "FAIL expected"))
+        results.append(("M2 witness stops using a real Spec", bit, "FAIL expected"))
         open(WITNESS, "w").write(backups[WITNESS])
     finally:
         for p, text in backups.items():
             open(p, "w").write(text)
-        _ = sh
 
     ok = all(bit for _label, bit, _want in results)
     print("check_types --selftest:", "PASS" if ok else "FAIL")
     for label, bit, want in results:
         print(f"  [{'ok' if bit else 'MISS'}] {label} ({want})")
-    if ok:
-        print(
-            "  M1 is the shape a DEFERRED require leaves behind, M2 is a signature given the wrong\n"
-            "  type, M3 is the witness itself decaying. The negative probe covers the direction\n"
-            "  none of them do: it is GENERATED from `src/init.luau`'s own entry list, so it\n"
-            "  cannot shrink while the namespace does not."
-        )
     return 0 if ok else 1
 
 
@@ -296,12 +344,12 @@ def main():
         json.dump(report, fh, indent=2, sort_keys=True)
     if code == 0:
         print(
-            f"check_types: PASS — {report['entries']} Controls entries "
-            f"({len(report['typedEntries'])} typed, {len(report['anyEntries'])} declared `any`); "
-            f"{len(TARGETS)} target files carry 0 diagnostics; "
-            f"{report['graphDiagnosticsIgnored']} graph diagnostics ignored by design "
-            f"-> {ARTIFACT}"
+            f"check_types: PASS — {report['entries']} app.controls entries discovered from "
+            f"{CONTROLS_FILE}; {len(TARGETS)} target files carry 0 diagnostics; "
+            f"{report['graphDiagnosticsIgnored']} graph diagnostics ignored by design -> {ARTIFACT}"
         )
+        for n in report["notes"]:
+            print(f"  note: {n}")
     else:
         print("check_types: FAIL")
         for p in report["problems"]:

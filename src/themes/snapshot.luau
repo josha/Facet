@@ -590,8 +590,8 @@ local function publishAppGeneration(): any
 	local failure: any = nil
 	for signal in appGenerationSignals do
 		local current: any = nil
-		if type(signal.get) == "function" then
-			local ok, value = pcall(signal.get, signal)
+		if type(signal.peek) == "function" then
+			local ok, value = pcall(signal.peek, signal)
 			current = if ok then value else nil
 		end
 		if current ~= declaredAppGeneration then
@@ -633,27 +633,9 @@ end
 	the whole section is what `isMetricPath` spells against and what a caller
 	inspecting the namespace wants to see.
 
-	CALL IT AT BOOT, FROM ORDINARY CODE — never from inside a memo, an effect body
-	or anything else the reactive core is evaluating. It WRITES reactive state (the
-	generation every environment's metric memo subscribes to) and the core refuses
-	a write made during an evaluation.
-
-	AND THAT FAILURE IS QUIET, WHICH IS THE REASON THIS PARAGRAPH IS LONG. An
-	earlier draft of this comment said the call "raises" — it does when you call it
-	DIRECTLY, and that is not the shape that happens. Inside a memo, `core`'s
-	`pull` `pcall`s the compute (`core/custom.luau`: "Never throws to the caller:
-	compute errors, cycles, and illegal writes quarantine the node"), so what you
-	actually get is: the memo QUARANTINED with its old value, `m:get()` answering
-	as if nothing happened, and ONE artifact — `core:lastError()`.
-
-	The vocabulary is live by then (the namespace, the generation and the dropped
-	neutral memo are applied before the publish), so an environment that missed its
-	notification is blind while `isMetricPath` answers true. That is why the publish
-	below is SELF-HEALING rather than merely careful: it is the only thing standing
-	between a mistake nobody can see and a permanently wrong surface. Any later
-	`declareApp` — including one for an unrelated group — catches the stranded
-	observer up. Guard: `tests/app_metrics.spec.luau`, "a declaration made inside a
-	memo is quarantined, recorded, and healed later".
+	Declare at boot or from an explicit application command, outside formulas.
+	The generation is a Compose cell. Publication notifies all live environments
+	and a later declaration retries any notification that failed.
 
 	AN IDENTICAL RE-DECLARATION IS NOT A CHANGE, and the short-circuit is not
 	tidiness. `TableMetrics.installTypeRamp` and `ResultsParts.declareMetrics`
@@ -700,16 +682,8 @@ function snapshot.declareApp(namespace: any, metrics: any): any
 	-- the neutral snapshot is what `isMetricPath` spells names against, so it
 	-- cannot outlive the vocabulary it was resolved with
 	neutralCache = nil
-	--[[ …and every live environment's metric memo has to be told, or it serves the
-		warm value it computed before the vocabulary existed (see the note above).
-
-		THE FAILURE IS REPORTED — re-raised to a DIRECT caller, and recorded on
-		`core:lastError()` when the call came from inside a memo (see `declareApp`'s
-		header: the core quarantines rather than propagates, so "loud" is only true
-		of the direct shape). Either way the state stays applied and the next
-		`declareApp` — including the identical retry — heals whoever missed it.
-		Swallowing it here would leave the quarantined shape with NO artifact at
-		all. ]]
+	-- Report notification failures after attempting every live environment.
+	-- The vocabulary remains applied; a later declaration retries publication.
 	local failure = publishAppGeneration()
 	if failure ~= nil then
 		error(failure, 0)

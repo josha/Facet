@@ -265,11 +265,7 @@ end
 -- result can name its interactive rects (large-text accessibility diagnostics), and `pushHitRects`
 -- spends the same number as real hit geometry. They were two copies of this
 -- arithmetic for exactly one commit.
-local function effectiveHitFloor(class: string, metrics: any): number?
-	local c = controlContract.forClass(class)
-	local declared = if c ~= nil then c.minHitSize else nil
-	return if declared ~= nil then math.max(declared, metrics.targetSizes.minimum) else nil
-end
+local effectiveHitFloor = controlContract.effectiveHitFloor
 
 -- THE CIRCLE IS A SOLVER FACT (feature round 2026-07-26 on Button; GENERALIZED
 -- to ZStack, task PAINT 2026-08-27, director items 11/12). `shape = "circle"`
@@ -356,12 +352,10 @@ end
 	WHAT VALIDATES THE COPY, in three layers, none of which walks the children:
 	  1. the container's own children table, compared by IDENTITY by the caller's gate
 	     (`prior.kids == node.children`) — the same term the kept array rides;
-	  2. each spliced REGION's children table, compared by identity AND length here.
-	     That pair is exact: `mount.luau` replaces a region's array wholesale at `:450`,
-	     `:218` and `:234` (identity moves) and mutates it IN PLACE only by
-	     `table.remove` at `:197` and `:465` (length moves). There is no in-place
-	     insertion or replacement anywhere in the mount layer, so identity+length sees
-	     every writer;
+	  2. each spliced REGION's children table, length and structural version.
+	     Compose may insert or reorder native blocks without replacing the array;
+	     the scene host increments childrenVersion and publishes structure dirt
+	     on every mutation. Identity and length alone cannot detect a permutation;
 	  3. on the pass that BUILDS the index a stronger check is available for free —
 	     `store.byNode[child].built` must be the very layout node standing at that
 	     position — so the FIRST patch of an array verifies every slot against the
@@ -378,8 +372,8 @@ end
 local function indexKids(node: any, childArray: { any }, store: any): ({ [string]: number }?, { any }?, { any }?)
 	local index: { [string]: number } = {}
 	local mounts: { any } = {}
-	-- flat triples: the region NODE, the children table it had, and that table's
-	-- length. Re-read and compared on every later patch of this array.
+	-- Flat records: region node, children table, length and structural version.
+	-- Re-read and compared on every later patch of this array.
 	local regions: { any } = {}
 	local n = 0
 	local ok = true
@@ -389,6 +383,7 @@ local function indexKids(node: any, childArray: { any }, store: any): ({ [string
 			regions[#regions + 1] = child
 			regions[#regions + 1] = kids
 			regions[#regions + 1] = #kids
+			regions[#regions + 1] = child.childrenVersion or 0
 			for _, grandchild in kids do
 				visit(grandchild)
 			end
@@ -482,9 +477,13 @@ local function patchIndices(store: any, node: any, prior: any): { number }?
 		prior.kidRegions = regions
 	else
 		local regions = prior.kidRegions
-		for i = 1, #regions, 3 do
+		for i = 1, #regions, 4 do
 			local kids = regions[i].children
-			if kids ~= regions[i + 1] or #kids ~= regions[i + 2] then
+			if
+				kids ~= regions[i + 1]
+				or #kids ~= regions[i + 2]
+				or (regions[i].childrenVersion or 0) ~= regions[i + 3]
+			then
 				return nil
 			end
 		end
@@ -607,6 +606,12 @@ local function toLayoutNode(
 			the counter and nothing else. ]]
 		if store.reuse then
 			local hit = store.byNode[node]
+			-- A node mounted at another path describes a different place: its
+			-- layout node, and every array built under it, carries the old path.
+			if hit ~= nil and hit.built.id ~= node.path then
+				store.byNode[node] = nil
+				hit = nil
+			end
 			if
 				hit ~= nil
 				and not store.dirty[node.path]
@@ -1546,7 +1551,7 @@ local function toLayoutNode(
 			RE-READ PER SOLVE, which is the whole reason it lives here rather than in
 			a control's props: the answer is a fact about the INSTALLED package, and a
 			control that decided it at construction was right until the player
-			swapped theme. `Controls.Alert` used to carry a build-time
+			swapped theme. `UI.Alert` used to carry a build-time
 			`chromeReserve` for this and no longer does. A scroller that declares
 			`chromeReserve = "none"` outright (a menu card's list) still skips the
 			whole block — that is a claim about its CONTENT, not about the art
@@ -1779,19 +1784,12 @@ local function toLayoutNode(
 			returns immediately, so the loop is a five-figure count of cheap operations
 			for a tree whose shape did not move.
 
-			THE GATE IS TABLE IDENTITY *PLUS A `store.dirty` CHILD SCAN*, and the
-			identity half alone is only a conservative superset (ruling A-14). Two things
-			that look true here are not. `mount.luau:450` `node.children = newChildren`
-			runs on EVERY `ForEach` reconcile, including when neither `changed` nor
-			`orderChanged` is set (`:439-450`), so identity goes cold on frames where
-			nothing moved — a silent loss of the arm, not a defect. And `node.children`
-			IS mutated in place, at `mount.luau:197` (When exit-finish) and `:465`
-			(ForEach exit-finish), each followed by `pushDirty(path, "structure")`
-			(`:202`, `:470`). What identity means is therefore "the shape under me is the
-			shape I built for, OR something changed that I will ALSO see in
-			`store.dirty`" — and the scan below is what closes it. A LENGTH compare would
-			accept a swap and hand a downstream reader a lost or duplicated node; a
-			per-element compare would cost the loop it replaces.
+			THE GATE IS CHILDREN IDENTITY AND STRUCTURAL VERSION, plus a
+			`store.dirty` child scan. Native Compose blocks mutate the mounted
+			children array in place; the scene host increments childrenVersion on
+			every insert, remove and move. The version protects both this reuse arm
+			and the container measurement memo from same-length permutations.
+			The child scan separately invalidates changed descendant content.
 
 			THE AXIS AND CLIP THE CHILDREN WERE BUILT UNDER ARE THEIR OWN TERMS, and
 			the plan's reasoning for leaving them out was FALSE — the suite caught it.
@@ -1840,6 +1838,7 @@ local function toLayoutNode(
 		if store ~= nil and prior ~= nil then
 			local gated = store.builtIds == nil -- a build that COLLECTS never reuses
 				and prior.kids == node.children
+				and prior.kidsVersion == node.childrenVersion
 				and prior.childArray ~= nil
 				-- what the CHILDREN were built under, which is the correctness half
 				and prior.kidsAxis == childAxis
@@ -2174,6 +2173,7 @@ local function toLayoutNode(
 		or layoutNode.align == "lastTextBaseline"
 	local cmemo = if prior ~= nil
 			and prior.kids == node.children
+			and prior.kidsVersion == node.childrenVersion
 			and prior.axis == parentAxis
 			and prior.clip == (insideClipper == true)
 		then prior.cmemo
@@ -2207,6 +2207,7 @@ local function toLayoutNode(
 			-- iterated.
 			cmemo = cmemo,
 			kids = node.children,
+			kidsVersion = node.childrenVersion,
 			--[[ ...and the built array itself (T15), under the SAME `kids`/`axis`/
 				`clip` gate the memo above rides, plus a `store.dirty` scan over the
 				mount children. Compared by nothing — it is a VALUE the next build may

@@ -1,4 +1,11 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_ctx = require("./lib/scenario_ctx")
+
+-- The application a client module mounts into, over a service-level world.
+local function appOf(core: any, env: any, adapter: any, presenter: any): any
+	return scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = presenter }).app
+end
 -- The showcase demo picker's PURE half (examples/gallery/client/demo_picker).
 --
 -- The picker exists so one published place can be explored hands-on across
@@ -196,29 +203,30 @@ end)
 -- ===========================================================================
 describe("the showcase demo list scrolls rather than running off the screen", function()
 	local Facet = require("../src") :: any
-	local UI = require("../src/blueprint")
+	local UI = harness.UI
 	local fake_target = require("./lib/fake_target")
 	local themes = Facet.themes
 
 	local function listGeometry(pkgName: string, w: number, h: number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local picker = demo_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, pres),
 			env = env,
-			presenter = pres,
 			composed = true,
 			mountDemo = function()
 				return nil
 			end,
 		} :: any)
 		picker.open:set(true)
-		pres.present(UI.Screen({ id = "S", padding = 0, children = { picker.list } }))
+		pres.present(function()
+			return UI.Screen({ id = "S", padding = 0, children = { picker.list() } })
+		end)
 		pres.refresh()
 		env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{pkgName}`).build(themes), nil, {}))
 		pres.refresh()
@@ -267,7 +275,7 @@ end)
 -- ===========================================================================
 describe("the showcase strip reserves what its chips MEASURE, not a literal", function()
 	local Facet = require("../src") :: any
-	local UI = require("../src/blueprint")
+	local UI = harness.UI
 	local fake_target = require("./lib/fake_target")
 	local theme_picker = require("../examples/gallery/client/theme_picker")
 	local themes = Facet.themes
@@ -279,21 +287,20 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 	-- HStack, in a full-width column placed at the live topbar inset. The chip row
 	-- does NOT sit inside the reservation — that is what makes measuring it safe.
 	local function chipRowBottom(pkgName: string?, textOffset: number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 852 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("preferredTextOffset", textOffset)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		if pkgName ~= nil then
 			env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{pkgName}`).build(themes), nil, {}))
 		end
 		local demos = demo_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, pres),
 			env = env,
-			presenter = pres,
 			composed = true,
 			mountDemo = function()
 				return nil
@@ -301,10 +308,9 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 		} :: any)
 		local picker = theme_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, pres),
 			env = env,
 			adapter = adapter,
-			presenter = pres,
 			packages = { glossy_touch = (require)("../examples/themes/glossy_touch").build(themes) },
 			themeController = {
 				install = function()
@@ -322,8 +328,8 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 			collapsible = true,
 			warn = function() end,
 		} :: any)
-		pres.present(
-			UI.Screen({
+		pres.present(function()
+			return UI.Screen({
 				id = "ShowcaseChrome",
 				padding = "s",
 				children = {
@@ -344,15 +350,14 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 								-- here by the §2.1 placement audit; zero rects move, so every assertion
 								-- below is unchanged)
 								children = {
-									UI.HStack({ id = "Chips", gap = "s", children = { demos.chip, picker.chip } }),
+									UI.HStack({ id = "Chips", gap = "s", children = { demos.chip(), picker.chip() } }),
 								},
 							}),
 						},
 					}),
 				},
-			}),
-			{ responder = "passive", rootPolicy = "edgeToEdge" }
-		)
+			})
+		end, { responder = "passive", rootPolicy = "edgeToEdge" })
 		pres.refresh()
 		local row = adapter.node("/ShowcaseChrome/Dock/Bar/Chips")
 		return row.rect.y + row.rect.h
@@ -465,14 +470,14 @@ local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 -- the picker's MINIMAL ctx (init.client.luau `mountDemo`, kind == "fixture"):
--- {Facet, core, env, actionSystem, presenter} — no adapter, no record, no flags
+-- {Facet, UI, Compose, core, env, actionSystem, presenter} — no adapter, no record, no flags
 local function pickerWorld(viewport: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", viewport)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, system = system, adapter = adapter, presenter = presenter }
 end
 
@@ -489,6 +494,8 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			local scenario = require(`../examples/gallery/scenarios/{demo.module}`) :: any
 			local built = scenario.build({
 				Facet = Facet,
+				UI = (harness.libraryOf(w.core)),
+				Compose = Facet.Compose,
 				core = w.core,
 				env = w.env,
 				actionSystem = w.system,
@@ -520,7 +527,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 				withOpts += 1
 				expect(seen[1].opts).never().toBeNil()
 			end
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 		end
 		-- 25 until `table-columns` was retired on 2026-08-16 (D8), and 25 again the
 		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
@@ -535,21 +542,14 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 	-- the source is the contract for the half a headless world cannot mount
 	-- (init.client.luau is a client script: it reaches engine globals at load)
 	it("no `present` call in the shipped host drops its opts", function()
+		-- every demo is presented by `demo_host.mount`, which forwards the built
+		-- table's own opts; the host presents no built screen by hand
 		local source = fs.readFile("examples/gallery/client/init.client.luau")
-		local calls = 0
-		for args in string.gmatch(source, "pres%.present%((built%.[^\n]*)%)") do
-			calls += 1
-			local hasOpts = string.find(args, ",", 1, true) ~= nil
-			expect(`present({args}) has opts:{hasOpts}`).toBe(`present({args}) has opts:true`)
-		end
-		-- Every built-description call forwards its companion opts. Inline
-		-- components own their handlers and need no extra presentation options.
-		expect(calls).toBe(3)
-		-- and the DEMO branches are the ones this is really about: the picker's
-		-- fixture branch, the picker's tutorial branch, and the single-demo mount
-		-- path must all forward the built table's own opts
-		local _, forwards = string.gsub(source, "pres%.present%(built%.screen, built%.present%)", "")
-		expect(forwards).toBe(3)
+		expect(string.find(source, "pres%.present%(built") == nil).toBe(true)
+		local _, mounts = string.gsub(source, "demo_host%.mount%(", "")
+		expect(mounts).toBe(2)
+		local host = fs.readFile("examples/gallery/client/demo_host.luau")
+		expect(string.find(host, "end, built.present)", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
@@ -575,6 +575,8 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 		local scenario = require("../examples/gallery/scenarios/row_actions") :: any
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			actionSystem = w.system,
@@ -598,10 +600,10 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 			w.presenter.refresh()
 		end
 
-		local pane = w.adapter.node("/MailActions/VListWhen/then/VListPane")
+		local pane = w.adapter.node("/MailActions/VListWhen/VListPane")
 		expect(pane).never().toBeNil()
-		local list = w.adapter.node("/MailActions/VListWhen/then/VListPane/VList")
-			or w.adapter.node("/MailActions/VListWhen/then/VListPane/MailVList")
+		local list = w.adapter.node("/MailActions/VListWhen/VListPane/VList")
+			or w.adapter.node("/MailActions/VListWhen/VListPane/MailVList")
 		-- whatever the list node is called, it must live INSIDE the pane: that is
 		-- the whole point of feeding the window from the pane
 		local bottom = if list ~= nil then list.rect.y + list.rect.h else nil
@@ -620,7 +622,7 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 		end
 		-- and it is not the literal by accident: this pane is far shorter than 336
 		expect(pane.rect.h < LITERAL).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -668,6 +670,8 @@ local function hostMountFixture(w: any, module: string, bind: boolean): any
 	local scenario = require(`../examples/gallery/scenarios/{module}`) :: any
 	local built = scenario.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,
@@ -753,7 +757,7 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 				)
 				bound += 1
 			end
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 		end
 		-- a count, so that a catalogue whose controls all stopped publishing
 		-- themselves cannot make this case pass by testing nothing
@@ -784,7 +788,7 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 			)
 		end
 		expect(after.scrollTop).toBe(2000)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("...and the virtualized Table's, which publishes the seam under `api`", function()
@@ -798,7 +802,7 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 		-- `dump` is flat on a Table while `bindNativeScroll` is under `api` — the
 		-- two spellings the host's binder probe exists for
 		expect(built.table_.dump().scrollTop).toBe(1200)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	--[[ THE MINIMAL CTX IS A CONTRACT, and this is the half a headless world
@@ -820,10 +824,9 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 	it("the shipped host runs the auto-bind loop in every demo branch", function()
 		local source = fs.readFile("examples/gallery/client/init.client.luau")
 		local _, calls = string.gsub(source, "nativeScrollBinderOf%(value%)", "")
-		-- three branches mount a demo and three must bind: the picker's FIXTURE
-		-- branch (this section's defect), the picker's tutorial branch, and the
-		-- single-example path further down the file
-		expect(calls).toBe(3)
+		-- two paths mount a demo and both must bind: the picker's, which serves
+		-- fixtures and tutorial examples alike, and the single-example path
+		expect(calls).toBe(2)
 	end)
 end)
 
@@ -871,7 +874,7 @@ describe("showcase fixture: one fade group, or three (canvas_group)", function()
 			end
 		end
 		expect(`per-plate fade groups: {perPlate}`).toBe("per-plate fade groups: 3")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("...and every one of them carries the opacity the chips set", function()
@@ -890,38 +893,32 @@ describe("showcase fixture: one fade group, or three (canvas_group)", function()
 		w.presenter.refresh()
 		local faded = groupsOf(w)["/CanvasGroup/Page/Panels/Many/ThreeGroups/FrontGroup"]
 		expect(math.abs((faded :: number) - 0.85) < 0.0001).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
-	it("the transition panel declares the group and writes no opacity of its own", function()
+	it("the arriving panel is a declared group", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
 		local built = hostMountFixture(w, FIXTURE, true)
 		w.presenter.refresh()
 		built.showFading:set(true)
 		w.presenter.refresh()
-		local path = "/CanvasGroup/Page/Transition/FadingGate/then/FadingPanel"
+		local path = "/CanvasGroup/Page/Transition/FadingGate/FadingPanel"
 		expect(w.adapter.node(path)).never().toBeNil()
-		-- it IS a CanvasGroup — a fading form needs the arriving node to already be
-		-- one — and the transition owns the alpha, so the fixture never writes it
+		-- it IS a CanvasGroup, so the tween on its opacity fades the panel as one image
 		expect(groupsOf(w)[path]).never().toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
-	it("the refusal on screen is the framework's own sentence, captured at build", function()
-		local scenario = require(`../examples/gallery/scenarios/{FIXTURE}`) :: any
+	it("the refusal on screen is the framework's own sentence, captured at mount", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
-		local built = scenario.build({
-			Facet = Facet,
-			core = w.core,
-			env = w.env,
-			actionSystem = w.system,
-			presenter = w.presenter,
-		})
+		local built = hostMountFixture(w, FIXTURE, false)
+		local refusal = built.refusal:peek()
 		-- it names the class it was reached for, says the prop is refused rather
 		-- than missing, and names the one line that works
-		expect(string.find(built.refusal, "'opacity' is REFUSED on UI.Text", 1, true) ~= nil).toBe(true)
-		expect(string.find(built.refusal, "not missing", 1, true) ~= nil).toBe(true)
-		expect(string.find(built.refusal, "UI.ZStack{ opacity = 0.4", 1, true) ~= nil).toBe(true)
+		expect(string.find(refusal, "'opacity' is REFUSED on UI.Text", 1, true) ~= nil).toBe(true)
+		expect(string.find(refusal, "not missing", 1, true) ~= nil).toBe(true)
+		expect(string.find(refusal, "UI.ZStack{ opacity = 0.4", 1, true) ~= nil).toBe(true)
+		expect(w.adapter.node("/CanvasGroup/Page/Refusal").props.text).toBe(refusal)
 		expect(built.report().refusalNamesTheClass).toBe(true)
 	end)
 end)
@@ -985,12 +982,7 @@ local function hostMountDemo(w: any, demo: any): any
 		return hostMountFixture(w, demo.module, true)
 	end
 	local module = require(`../examples/gallery/examples/{demo.module}`) :: any
-	local built = module.build(Facet, w.core, {
-		env = w.env,
-		actionSystem = w.system,
-		presenter = w.presenter,
-		adapter = w.adapter,
-	})
+	local built = module.build(scenario_ctx.ofHarness(w))
 	if built.handle == nil and built.screen ~= nil then
 		built.handle = w.presenter.present(built.screen, built.present)
 	end
@@ -1013,9 +1005,8 @@ end
 local function sweepPicker(w: any, mountDemo: (any) -> any): any
 	return demo_picker.mount({
 		Facet = Facet,
-		core = w.core,
+		app = scenario_ctx.ofHarness(w).app,
 		env = w.env,
-		presenter = w.presenter,
 		composed = true,
 		mountDemo = mountDemo,
 		warn = function() end,
@@ -1073,7 +1064,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 			expect(`{id}: picker reports mounted {tostring(picker.mounted())}`).toBe(
 				`{id}: picker reports mounted {id}`
 			)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			picker.showNext(1)
 		end
 		-- the drive really walked the whole catalogue in ORDER and wrapped

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- STEP-5 PRESENTER INTEGRATION (the lead's glue between packages): what a
 -- surface gets WITHOUT wiring anything — the feedback
 -- bus on drag events, the shared motion clock driving terminal flights, the
@@ -12,16 +13,17 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local function rig()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
 	local drops: { any } = {}
 	local screen = UI.Screen({
@@ -154,7 +156,7 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 			constitution §11 makes about the renderer. The instrument is the manifest
 			itself: move `dragHeld` to another authority and the write must be
 			REFUSED (quarantined by the observer that made it, so the diagnostic is
-			`core:lastError`) rather than landing anyway. This is the existing
+			`core.lastError`) rather than landing anyway. This is the existing
 			authority-parity idiom — `authority.manifest()` hands back the live table
 			on purpose, so a checker can read it. ]]
 		local authority = require("../src/render/authority")
@@ -165,8 +167,8 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 			local b = rig()
 			b.registry.arm("/S/Board/Card")
 			expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBeNil()
-			expect(string.find(tostring(b.core:lastError()), "presentation tried to write", 1, true) ~= nil).toBe(true)
-			expect(string.find(tostring(b.core:lastError()), "dragHeld", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(b.core.lastError()), "presentation tried to write", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(b.core.lastError()), "dragHeld", 1, true) ~= nil).toBe(true)
 		end)
 		manifest.common.dragHeld = restore
 		expect(ok).toBe(true)
@@ -175,7 +177,7 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 		local b = rig()
 		b.registry.arm("/S/Board/Card")
 		expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(true)
-		expect(b.core:lastError()).toBeNil()
+		expect(b.core.lastError()).toBeNil()
 	end)
 
 	it("...and the RELEASE site pays the same assert (ARCH-3)", function()
@@ -189,7 +191,7 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 		local b = rig()
 		b.registry.arm("/S/Board/Card")
 		expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(true)
-		expect(b.core:lastError()).toBeNil()
+		expect(b.core.lastError()).toBeNil()
 
 		-- move the property mid-session, so ONLY the clear meets the changed
 		-- manifest — the pickup already happened under the shipping one
@@ -199,14 +201,14 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 			b.registry.cancel("done")
 			for _ = 1, 240 do
 				b.pres.tick(1 / 60)
-				if b.core:lastError() ~= nil then
+				if b.core.lastError() ~= nil then
 					break
 				end
 			end
 			-- the clear was REFUSED, so the node is still wearing the held state
 			expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(true)
-			expect(string.find(tostring(b.core:lastError()), "presentation tried to write", 1, true) ~= nil).toBe(true)
-			expect(string.find(tostring(b.core:lastError()), "dragHeld", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(b.core.lastError()), "presentation tried to write", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(b.core.lastError()), "dragHeld", 1, true) ~= nil).toBe(true)
 		end)
 		manifest.common.dragHeld = restore
 		expect(ok).toBe(true)
@@ -223,7 +225,7 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 			end
 		end
 		expect(c.adapter.node("/S/Board/Card").props.dragHeld).toBe(false)
-		expect(c.core:lastError()).toBeNil()
+		expect(c.core.lastError()).toBeNil()
 	end)
 
 	it("the ghost layer mounts on pickup and is GONE after the flight (registry-neutral)", function()
@@ -267,11 +269,11 @@ describe("detector taps are never eaten (SF-D3 live half)", function()
 	-- "tap" for an under-threshold detector release and the renderer dispatches
 	-- it through the SAME node-tap path a native tap takes.
 	it("an under-threshold detector release dispatches Activate exactly once", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -323,11 +325,11 @@ describe("detector taps are never eaten (SF-D3 live half)", function()
 		-- drop); the consumer's onActivate is NOT called — the pickup is the
 		-- activation. A tap while a session is live flows to the consumer
 		-- unchanged (put-back and row commits stay consumer/list semantics).
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -395,11 +397,11 @@ describe("detector taps are never eaten (SF-D3 live half)", function()
 	end)
 
 	it("one press cannot activate twice when BOTH signals arrive (PLAT-1 echo guard)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local activations = 0
 		local screen = UI.Screen({
 			id = "S",
@@ -476,7 +478,7 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 		-- post-teardown numbers are what "left nothing behind" means here.
 		local control = rig()
 		control.pres.dismiss(control.handle)
-		local expected = control.core:counters()
+		local expected = control.core.owner.size()
 
 		local b = rig()
 		local registry = b.registry
@@ -498,10 +500,7 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 		expect(b.pres.motionClock:activeCount()).toBe(0)
 		-- and the flights' own core resources went back (SF-C1 neutrality)
 		b.pres.dismiss(b.handle)
-		local after = b.core:counters()
-		for key, value in expected :: any do
-			expect(`{key}={(after :: any)[key]}`).toBe(`{key}={value}`)
-		end
+		expect(b.core.owner.size()).toBe(expected)
 	end)
 
 	for _, warm in { false, true } do
@@ -510,12 +509,12 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 				then "a RETIRING drop target leaves resolution and returns on re-entry (ARCH-F2)"
 				else "a first drag query excludes an already RETIRING target and accepts its re-entry",
 			function()
-				local core = Facet.newCore()
+				local core = harness.newCore()
 				local env = Facet.newEnvironment(core)
 				env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 				local adapter = fake_target.new()
-				local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-				local slotOn = core:signal(true)
+				local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+				local slotOn = Compose.cell(true)
 				local dropped = 0
 				local screen = UI.Screen({
 					id = "S",
@@ -603,12 +602,12 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 
 	it("a retiring '/S/Slot' never excludes its live SIBLING '/S/SlotA' (P2-2)", function()
 		-- the segment-boundary rule: exclusion is by subtree, not by string prefix
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local slotOn = core:signal(true)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local slotOn = Compose.cell(true)
 		local droppedA = 0
 		local function target(id: string, y: number, onDrop: () -> ())
 			return UI.dropTarget(
@@ -688,12 +687,12 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 	end)
 
 	it("a DISABLED draggable acquires no session (P2-3), and re-enabling restores it", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local enabled = core:signal(false)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local enabled = Compose.cell(false)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -736,10 +735,10 @@ end)
 
 describe("presenter frame hook (onTick)", function()
 	it("hooks run inside tick with the frame dt, and unsubscribe cleanly", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local seen: { number } = {}
 		local unsub = pres.onTick(function(dt: number)
 			table.insert(seen, dt)

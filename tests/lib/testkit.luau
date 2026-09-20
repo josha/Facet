@@ -76,6 +76,19 @@ function testkit.describe(name: string, body: () -> ())
 	currentSuite = prev
 end
 
+--[[ ONE PER-CASE TEARDOWN HOOK, for a shared fixture that has to release what a
+	case built and FAIL the case when it cannot. It exists for exactly one caller
+	(`tests/lib/harness.luau`'s leak check) and is deliberately not a `beforeEach`
+	/ `afterEach` pair a spec writes against: a case's own teardown belongs in the
+	case, where the reader is. A hook that throws fails the case it ran after,
+	which is the whole point — a leak nobody can see is indistinguishable from no
+	leak. Hooks run in registration order, after the case body, pass or fail. ]]
+local afterEachHooks: { () -> () } = {}
+
+function testkit.afterEach(fn: () -> ())
+	table.insert(afterEachHooks, fn)
+end
+
 function testkit.it(name: string, fn: () -> (), options: CaseOptions?)
 	assert(currentSuite, "it() must be called inside describe()")
 	table.insert((currentSuite :: Suite).cases, { name = name, fn = fn, id = if options then options.id else nil })
@@ -215,6 +228,14 @@ function testkit.run(options: RunOptions?): boolean
 		for _, case in suite.cases do
 			local caseStart = os.clock()
 			local ok, err = pcall(case.fn)
+			-- the teardown runs whatever the case did, and its own failure is the
+			-- case's failure when the body itself had none
+			for _, hook in afterEachHooks do
+				local hookOk, hookErr = pcall(hook)
+				if not hookOk and ok then
+					ok, err = false, hookErr
+				end
+			end
 			-- ROUNDED, because a raw double here is a hash's problem later: the
 			-- structured result is hashed, and a value whose shortest decimal
 			-- form does not parse back to the same double makes that hash a coin

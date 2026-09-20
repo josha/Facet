@@ -1,4 +1,11 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_ctx = require("./lib/scenario_ctx")
+
+-- The application a client module mounts into, over a service-level world.
+local function appOf(core: any, env: any, adapter: any, presenter: any): any
+	return scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = presenter }).app
+end
 -- GALLERY THEME PICKER (director review 2026-07-25: "no idea how to swap
 -- themes"). The overlay itself is proved live in Studio — it is an engine
 -- surface. What is proved HERE is the part that decides things: the listing a
@@ -267,26 +274,27 @@ end
 -- structure rather than the pixels, so the guarantee is checked headlessly.
 describe("theme picker: composed pieces carry their own handlers", function()
 	local function composed(): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local m = theme_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, presenter),
 			env = env,
 			adapter = adapter,
-			presenter = presenter,
 			packages = pickablePackages(),
 			themeController = { install = stubController },
 			collapsible = true,
 			composed = true,
 			warn = function() end,
 		})
-		local shown = presenter.present(Facet.View.Screen({ id = "Test", m.chip, m.panel }))
+		local shown = presenter.present(function()
+			return harness.UI.Screen({ id = "Test", m.chip(), m.panel() })
+		end)
 		presenter.refresh()
 		m.node = function(prefix)
 			presenter.refresh()
@@ -329,7 +337,7 @@ describe("theme picker: composed pieces carry their own handlers", function()
 		end
 		expect(`a name longer than the clip exists: {long ~= nil}`).toBe("a name longer than the clip exists: true")
 		m.node(`P_{long.id}`).onActivate()
-		expect(m.open:get()).toBe(false) -- so the chip is showing the NAME, not "Theme ×"
+		expect(m.open:peek()).toBe(false) -- so the chip is showing the NAME, not "Theme ×"
 		local text = tostring(m.node("ThemeToggle").props.label)
 		expect(`chip shows the whole name: {text == long.displayName}`).toBe("chip shows the whole name: true")
 		expect(`chip is clipped: {string.find(text, "…", 1, true) ~= nil}`).toBe("chip is clipped: false")
@@ -341,11 +349,11 @@ describe("theme picker: composed pieces carry their own handlers", function()
 		local handler = m.node("ThemeToggle").onActivate
 		expect(type(handler)).toBe("function")
 		-- and it really is the open/close, not a placeholder
-		expect(m.open:get()).toBe(false)
+		expect(m.open:peek()).toBe(false)
 		handler()
-		expect(m.open:get()).toBe(true)
+		expect(m.open:peek()).toBe(true)
 		handler()
-		expect(m.open:get()).toBe(false)
+		expect(m.open:peek()).toBe(false)
 		m.dispose()
 	end)
 
@@ -359,7 +367,7 @@ describe("theme picker: composed pieces carry their own handlers", function()
 
 	it("changes the selection when a package row's own handler runs", function()
 		local m = composed()
-		local before = m.selection:get().packageId
+		local before = m.selection:peek().packageId
 		local other
 		for _, entry in m.entries do
 			if entry.id ~= before then
@@ -371,26 +379,25 @@ describe("theme picker: composed pieces carry their own handlers", function()
 		local row = m.node(`P_{other}`)
 		expect(row ~= nil).toBe(true)
 		row.onActivate()
-		expect(m.selection:get().packageId).toBe(other)
+		expect(m.selection:peek().packageId).toBe(other)
 		m.dispose()
 	end)
 end)
 
 -- mount the picker under `pkg`'s metrics and return the solved geometry
 local function pickerUnder(pkg: any, w: number, h: number): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	env:set("themeMetrics", snapshot.resolve(pkg, nil, {}))
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+	local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 	local mounted = theme_picker.mount({
 		Facet = Facet,
-		core = core,
+		app = appOf(core, env, adapter, presenter),
 		env = env,
 		adapter = adapter,
-		presenter = presenter,
 		packages = pickablePackages(),
 		themeController = { install = stubController },
 		warn = function() end,
@@ -746,28 +753,31 @@ end)
 -- ===========================================================================
 describe("theme picker: the composed panel hugs, and scrolls when it must", function()
 	local function panelUnder(viewportH: number, pkg: any?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = viewportH })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(pkg or themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local mounted = theme_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, presenter),
 			env = env,
 			adapter = adapter,
-			presenter = presenter,
 			packages = pickablePackages(),
 			themeController = { install = stubController },
 			collapsible = true,
 			composed = true,
 			warn = function() end,
 		})
-		presenter.present(Facet.UI.Screen({ id = "Host", children = { mounted.panel } }))
+		local panel
+		presenter.present(function()
+			panel = mounted.panel()
+			return harness.UI.Screen({ id = "Host", children = { panel } })
+		end)
 		presenter.refresh()
-		return adapter.node("/Host/Panel"), mounted.panel
+		return adapter.node("/Host/Panel"), panel
 	end
 
 	it("the panel declares `hug` on BOTH axes, not fill", function()
@@ -801,50 +811,51 @@ describe("theme picker: the composed panel hugs, and scrolls when it must", func
 		-- BELOW a row of chips, inside an offset Anchor. A `hug` child used to be
 		-- measured against that column's whole height rather than the part its
 		-- siblings had left it, so it overflowed by exactly the chip row.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 500 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local mounted = theme_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, presenter),
 			env = env,
 			adapter = adapter,
-			presenter = presenter,
 			packages = pickablePackages(),
 			themeController = { install = stubController },
 			collapsible = true,
 			composed = true,
 			warn = function() end,
 		})
-		local UI = Facet.UI
-		presenter.present(UI.Screen({
-			id = "ShowcaseChrome",
-			children = {
-				UI.Anchor({
-					id = "Dock",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = {
-						UI.VStack({
-							id = "Bar",
-							anchor = "topLeft",
-							offsetY = 20, -- the CoreGui topbar reservation the host carries
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
-							gap = "s",
-							children = {
-								UI.HStack({ id = "Chips", gap = "s", children = { mounted.chip } }),
-								mounted.panel,
-							},
-						}),
-					},
-				}),
-			},
-		}))
+		local UI = harness.UI
+		presenter.present(function()
+			return UI.Screen({
+				id = "ShowcaseChrome",
+				children = {
+					UI.Anchor({
+						id = "Dock",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							UI.VStack({
+								id = "Bar",
+								anchor = "topLeft",
+								offsetY = 20, -- the CoreGui topbar reservation the host carries
+								width = { type = "fill", weight = 1 },
+								height = { type = "fill", weight = 1 },
+								gap = "s",
+								children = {
+									UI.HStack({ id = "Chips", gap = "s", children = { mounted.chip() } }),
+									mounted.panel(),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end)
 		presenter.refresh()
 		local bar = adapter.node("/ShowcaseChrome/Dock/Bar").rect
 		local panel = adapter.node("/ShowcaseChrome/Dock/Bar/Panel").rect
@@ -880,19 +891,18 @@ end)
 -- ============================================================================
 describe("theme picker: the standalone collapsed shell stays out of the example's way", function()
 	local function collapsed(w: number, h: number): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local mounted = theme_picker.mount({
 			Facet = Facet,
-			core = core,
+			app = appOf(core, env, adapter, presenter),
 			env = env,
 			adapter = adapter,
-			presenter = presenter,
 			packages = pickablePackages(),
 			themeController = { install = stubController },
 			collapsible = true,
@@ -945,7 +955,7 @@ describe("theme picker: the standalone collapsed shell stays out of the example'
 
 	it("opening the panel is a `When`, not a rebuild of the shell", function()
 		local s = collapsed(907, 986)
-		expect(s.mounted.open:get()).toBe(false)
+		expect(s.mounted.open:peek()).toBe(false)
 		local shellBefore = s.adapter.node("/GalleryThemePicker/Dock/Shell")
 		s.mounted.open:set(true)
 		s.presenter.refresh()
@@ -964,7 +974,7 @@ describe("theme picker: the standalone collapsed shell stays out of the example'
 		local s = collapsed(907, 986)
 		expect(type(s.mounted.pickPackage)).toBe("function")
 		expect(s.mounted.open ~= nil).toBe(true)
-		local before = s.mounted.selection:get().packageId
+		local before = s.mounted.selection:peek().packageId
 		local other
 		for _, entry in s.mounted.entries do
 			if entry.id ~= before then
@@ -973,7 +983,7 @@ describe("theme picker: the standalone collapsed shell stays out of the example'
 			end
 		end
 		expect(s.mounted.pickPackage(other)).toBe(true)
-		expect(s.mounted.selection:get().packageId).toBe(other)
+		expect(s.mounted.selection:peek().packageId).toBe(other)
 		s.mounted.dispose()
 	end)
 

@@ -143,13 +143,10 @@ return {
 	stops = STOPS,
 	sortCompact = SORT_COMPACT,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("text-degrade")
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local stop = scope:own(core:signal("roomy"))
-		local rowWidth = scope:own(core:memo(function(use)
+		local stop = Compose.cell("roomy")
+		local rowWidth = Compose.formula(function(use)
 			local chosen = use(stop)
 			for _, entry in STOPS do
 				if entry.value == chosen then
@@ -157,26 +154,27 @@ return {
 				end
 			end
 			return UI.fill()
-		end))
-		local columnWidth = scope:own(core:memo(function(use)
+		end)
+		local columnWidth = Compose.formula(function(use)
 			return { type = "fixed", px = WRAP_COLUMN[use(stop)] or WRAP_COLUMN.roomy }
-		end))
+		end)
 
-		local widthPicker = Facet.View.Picker({
-			id = "Room",
-			label = COPY.widthLabel,
-			-- SEGMENTED, declared: four peers named for how much room there is,
-			-- never for the rung — a player is choosing a box, and the row's answer
-			-- to it is the thing being shown
-			style = "segmented",
-			options = {
-				{ value = "roomy", label = COPY.roomy },
-				{ value = "snug", label = COPY.snug },
-				{ value = "tight", label = COPY.tight },
-				{ value = "impossible", label = COPY.impossible },
-			},
-			selected = stop,
-		})
+		local function widthPicker()
+			return UI.Picker("Room")({
+				label = COPY.widthLabel,
+				-- SEGMENTED, declared: four peers named for how much room there is,
+				-- never for the rung — a player is choosing a box, and the row's answer
+				-- to it is the thing being shown
+				style = "segmented",
+				options = {
+					{ value = "roomy", label = COPY.roomy },
+					{ value = "snug", label = COPY.snug },
+					{ value = "tight", label = COPY.tight },
+					{ value = "impossible", label = COPY.impossible },
+				},
+				selected = stop,
+			})
+		end
 
 		-- THE PAGE SCROLLS, because this surface is a stack of panels and a 320x640
 		-- phone under the showcase's own chrome does not have room for all of them —
@@ -184,83 +182,77 @@ return {
 		-- loses on the next theme. "Wrap it in a ScrollView, or give it room" is the
 		-- solver's own advice when a column runs long, and it is what a real screen
 		-- does; example 03 is built the same way.
-		local screen = UI.Screen({
-			id = "TextDegrade",
-			padding = "m",
+		local function screen()
+			return UI.Screen("TextDegrade")({
+				padding = "m",
 
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "m",
-				width = UI.fill(),
-				height = UI.fill(),
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "m",
+					width = UI.fill(),
+					height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "title", disclose = true }),
-				UI.Text({ id = "Lead", text = COPY.lead, textSize = "caption", role = "secondary" }),
-				widthPicker,
+					UI.Text("Title")({ text = COPY.title, textSize = "title", disclose = true }),
+					UI.Text("Lead")({ text = COPY.lead, textSize = "caption", role = "secondary" }),
+					widthPicker(),
 
-				UI.VStack({
-					id = "RowPanel",
-					surface = "raised",
-					padding = "m",
-					gap = "s",
+					UI.VStack("RowPanel")({
+						surface = "raised",
+						padding = "m",
+						gap = "s",
 
-					UI.Text({
-						id = "RowHeading",
-						text = COPY.rowHeading,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					-- THE ROW ITSELF. `clipChildren` is NOT declared: the crop at the
-					-- last stop is the solver's, on the rects, which is what every
-					-- headless sweep in this repo can actually read. Declaring an
-					-- engine clip host here would hide the same geometry from them.
-					UI.HStack({
-						id = "Row",
-						width = rowWidth,
-						gap = "xs",
-
-						-- A BUTTON, because `compactLabel` is a Button prop: a compact
-						-- representation is what a CONTROL has. The cascade's compact
-						-- rung reads exactly that declaration, so the public surface
-						-- for rung 2 is a control with something shorter to say.
-						UI.Button({
-							id = "Sort",
-							label = COPY.sortLabel,
-							compactLabel = SORT_COMPACT,
-							shrinkWeight = 1,
+						UI.Text("RowHeading")({
+							text = COPY.rowHeading,
+							textSize = "caption",
+							role = "secondary",
 						}),
-						UI.Text({ id = "Rank", text = COPY.rankLabel, shrinkWeight = 1 }),
-						-- the authored floor: a contract the cascade may not
-						-- descend below, which is what leaves a residual deficit
-						-- for the clip rung to answer at the last stop
-						UI.Text({
-							id = "Date",
-							text = COPY.dateLabel,
-							width = { type = "minMax", min = 60, preferred = 60 },
-							shrinkWeight = 1,
+						-- THE ROW ITSELF. `clipChildren` is NOT declared: the crop at the
+						-- last stop is the solver's, on the rects, which is what every
+						-- headless sweep in this repo can actually read. Declaring an
+						-- engine clip host here would hide the same geometry from them.
+						UI.HStack("Row")({
+							width = rowWidth,
+							gap = "xs",
+
+							-- A BUTTON, because `compactLabel` is a Button prop: a compact
+							-- representation is what a CONTROL has. The cascade's compact
+							-- rung reads exactly that declaration, so the public surface
+							-- for rung 2 is a control with something shorter to say.
+							UI.Button("Sort")({
+								label = COPY.sortLabel,
+								compactLabel = SORT_COMPACT,
+								shrinkWeight = 1,
+								onActivate = function() end,
+							}),
+							UI.Text("Rank")({ text = COPY.rankLabel, shrinkWeight = 1 }),
+							-- the authored floor: a contract the cascade may not
+							-- descend below, which is what leaves a residual deficit
+							-- for the clip rung to answer at the last stop
+							UI.Text("Date")({
+								text = COPY.dateLabel,
+								width = { type = "minMax", min = 60, preferred = 60 },
+								shrinkWeight = 1,
+							}),
 						}),
 					}),
-				}),
 
-				UI.VStack({
-					id = "WrapPanel",
-					surface = "raised",
-					padding = "m",
-					gap = "s",
+					UI.VStack("WrapPanel")({
+						surface = "raised",
+						padding = "m",
+						gap = "s",
 
-					UI.Text({
-						id = "WrapHeading",
-						text = COPY.wrapHeading,
-						textSize = "caption",
-						role = "secondary",
+						UI.Text("WrapHeading")({
+							text = COPY.wrapHeading,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						UI.Text("WrapBody")({ text = COPY.wrapBody, width = columnWidth, disclose = true }),
 					}),
-					UI.Text({ id = "WrapBody", text = COPY.wrapBody, width = columnWidth, disclose = true }),
-				}),
 
-				UI.Text({ id = "Footnote", text = COPY.footnote, textSize = "caption", role = "secondary" }),
-			}),
-		})
+					UI.Text("Footnote")({ text = COPY.footnote, textSize = "caption", role = "secondary" }),
+				}),
+			})
+		end
 
 		return {
 			screen = screen,
@@ -280,17 +272,15 @@ return {
 						end
 					end
 					stop:set(if known then value else "roomy")
-					return { stop = stop:get() }
+					return { stop = stop:peek() }
 				end,
 			},
 
 			report = function()
-				return { stop = stop:get(), stops = #STOPS }
+				return { stop = stop:peek(), stops = #STOPS }
 			end,
-
-			dispose = function()
-				scope:dispose()
-			end,
+			-- nothing outlives the screen
+			dispose = function() end,
 		}
 	end,
 }

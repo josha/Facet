@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A ROW'S HIT TARGET IS NOT A CONTROL PLATE.
 
 	WHAT WAS REPORTED. The swipe-actions gallery fixture's virtualized surface,
@@ -69,13 +70,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local virtual_grid = require("../src/controls/virtual_grid")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local glossy_mobile = require("../examples/themes/glossy_mobile")
+local Compose = require("../src/vendor/compose/core")
 
 local SURFACE_CONTROL = "facet-surface-control"
 
@@ -90,7 +92,7 @@ end
 local function listWorld(spec: any?)
 	local options = spec or {}
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-	local rows = w.core:signal(makeRows(20))
+	local rows = Compose.cell(makeRows(20))
 	local list = virtual_list.build(Facet, w.core, {
 		id = "VL",
 		rows = rows,
@@ -103,10 +105,10 @@ local function listWorld(spec: any?)
 		selection = options.selection,
 		selectionPaint = options.selectionPaint,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
-	local handle = w.pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = w.pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 	w.pres.refresh()
 	return w, list, handle
 end
@@ -168,7 +170,7 @@ describe("row hit paint: a hit target that paints no selection is plain", functi
 
 	it("a virtual grid's cell hit is the same node with the same job", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local items = w.core:signal(makeRows(40))
+		local items = Compose.cell(makeRows(40))
 		local grid = virtual_grid.build(Facet, w.core, {
 			id = "VG",
 			items = items,
@@ -180,10 +182,10 @@ describe("row hit paint: a hit target that paints no selection is plain", functi
 			viewportExtent = 400,
 			width = { type = "fixed", px = 320 },
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		w.pres.present(Facet.UI.Screen({ id = "S", children = { grid.blueprint } }))
+		w.pres.present(harness.UI.Screen({ id = "S", children = { grid.blueprint } }))
 		w.pres.refresh()
 		expect(hasTag(w.adapter, "/S/VG/Canvas/Band/W/[r1]/Cell/Hit", SURFACE_CONTROL)).toBe(false)
 		expect(slotOf(w.adapter, "/S/VG/Canvas/Band/W/[r1]/Cell/Hit")).toBe(nil)

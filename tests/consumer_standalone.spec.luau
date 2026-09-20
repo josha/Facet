@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE STANDALONE CONSUMER, PROVED.
 
 	`examples/consumer/` is the smallest complete Facet project: a Rojo project
@@ -18,12 +19,12 @@
 
 	WHY IT SHARES THE MODULE RATHER THAN RESTATING IT. An example that only Roblox
 	can run is an example that rots: the guide keeps teaching it and nothing
-	notices when the library moves underneath. `screen.session(Facet, host, opts)`
+	notices when the library moves underneath. `screen.session(Facet, app, opts)`
 	takes the library as an argument precisely so the client script can reach it
 	through the instance tree while this file reaches it by path, and both mount
 	the identical description.
 
-	The host is the real one, `src/client/host.luau`, driven through its own
+	The application is the real `Facet.new()` entry point, driven through its
 	documented seams: a hand-cranked frame source, the public action system, and
 	the fake target. Nothing here reaches a Facet internal that a consumer could
 	not.
@@ -33,11 +34,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local host = require("../src/client/host") :: any
 local sheet_model = require("../src/tokens/sheet_model") :: any
 local fake_target = require("./lib/fake_target")
 local consumerScreen = require("../examples/consumer/src/screen") :: any
 local parchment = require("../examples/themes/fantasy_parchment") :: any
+local Compose = require("../src/vendor/compose/core")
 
 local PATHS = consumerScreen.PATHS
 
@@ -82,7 +83,11 @@ type Stand = {
 local function stand(viewport: { w: number, h: number }): Stand
 	local frames = newFrames()
 	local adapter = fake_target.new()
-	local h = host.new({
+	local core = harness.newCore()
+	local app = Facet.new({
+		newCore = function()
+			return core
+		end,
 		newAdapter = function()
 			return adapter
 		end,
@@ -96,17 +101,28 @@ local function stand(viewport: { w: number, h: number }): Stand
 		connectFrame = frames.connect,
 	})
 
+	local h = {
+		core = core,
+		env = app.environment,
+		dispose = app.dispose,
+		presenter = {
+			refresh = function()
+				frames.step(0)
+			end,
+		},
+	}
+
 	--[[ The baseline is taken with the host standing and NOTHING presented, which
 		is the only honest comparison for "the screen left nothing behind": the
 		host's own environment and presenter are supposed to survive until
 		`h.dispose()`. ]]
-	local baseline = h.core:counters()
+	local baseline = h.core.owner.size()
 
 	--[[ THE SAME ENTRY POINT THE CLIENT SCRIPT CALLS. `session` presents the
 		screen, wires the Close button and the timer, and owns both subscriptions
 		on the screen's scope. Standing the surface up any other way here would
 		test an arrangement no consumer runs. ]]
-	local session = consumerScreen.session(Facet, h, { closeAfterSeconds = CLOSE_AFTER })
+	local session = consumerScreen.session(Facet, app, { closeAfterSeconds = CLOSE_AFTER })
 	frames.step(1 / 60)
 
 	return {
@@ -139,7 +155,7 @@ describe("examples/consumer: the standalone project mounts", function()
 			expect(node ~= nil).toBe(true)
 			expect(node.rect ~= nil and node.rect.w > 0 and node.rect.h > 0).toBe(true)
 		end
-		expect(s.h.core:lastError()).toBe(nil)
+		expect(s.h.core.lastError()).toBe(nil)
 		s.teardown()
 	end)
 
@@ -182,7 +198,7 @@ describe("examples/consumer: input and state", function()
 
 		expect(s.built.count()).toBe(1)
 		expect(s.adapter.node(PATHS.count).props.text).toBe("1 tap")
-		expect(s.h.core:lastError()).toBe(nil)
+		expect(s.h.core.lastError()).toBe(nil)
 		s.teardown()
 	end)
 
@@ -239,7 +255,7 @@ describe("examples/consumer: it adapts by re-solving", function()
 		expect(after ~= before).toBe(true)
 		-- the same nodes, moved: a rebuild would have changed the node set
 		expect(#s.adapter.paths()).toBe(created)
-		expect(s.h.core:lastError()).toBe(nil)
+		expect(s.h.core.lastError()).toBe(nil)
 		s.teardown()
 	end)
 
@@ -266,9 +282,9 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 
 		s.teardown()
 
-		local after = s.h.core:counters()
-		expect(after.observers).toBe(s.baseline.observers)
-		expect(after.scopes).toBe(s.baseline.scopes)
+		local after = s.h.core.owner.size()
+		expect(after).toBe(s.baseline)
+		expect(after).toBe(s.baseline)
 	end)
 
 	it("takes every node off the render target", function()
@@ -291,14 +307,14 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 
 		expect(s.session.isTorn()).toBe(true)
 		expect(s.adapter.rootCount()).toBe(0)
-		local after = s.h.core:counters()
-		expect(after.observers).toBe(s.baseline.observers)
-		expect(after.scopes).toBe(s.baseline.scopes)
-		expect(s.h.core:lastError()).toBe(nil)
+		local after = s.h.core.owner.size()
+		expect(after).toBe(s.baseline)
+		expect(after).toBe(s.baseline)
+		expect(s.h.core.lastError()).toBe(nil)
 
 		-- and it is idempotent: the timer route arriving late must not run it twice
 		s.session.teardown()
-		expect(s.h.core:counters().scopes).toBe(s.baseline.scopes)
+		expect(s.h.core.owner.size()).toBe(s.baseline)
 	end)
 
 	--[[ THE HALF THE TWO ROUTES ABOVE CANNOT SEE, and the reason the session owns
@@ -314,7 +330,7 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 		gone — and this one would eventually fire the timer and tear the host down
 		underneath its next occupant.
 
-		Mutation-proved: dropping `built.own` from around the `onTick` reddens this
+		Mutation-proved: dropping `Compose.cleanup` from around the `onTick` reddens this
 		case, and reddens nothing else in this file. ]]
 	it("disposing the screen alone releases the frame hook it registered", function()
 		local s = stand(COMPACT)
@@ -342,9 +358,9 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 		end
 		expect(s.session.isTorn()).toBe(true)
 		expect(s.adapter.rootCount()).toBe(0)
-		local after = s.h.core:counters()
-		expect(after.observers).toBe(s.baseline.observers)
-		expect(after.scopes).toBe(s.baseline.scopes)
-		expect(s.h.core:lastError()).toBe(nil)
+		local after = s.h.core.owner.size()
+		expect(after).toBe(s.baseline)
+		expect(after).toBe(s.baseline)
+		expect(s.h.core.lastError()).toBe(nil)
 	end)
 end)

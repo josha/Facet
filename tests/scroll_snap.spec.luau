@@ -5,23 +5,31 @@
 	    boundaries, flicks, the end of the list, an item taller than the viewport —
 	    against a real `virtual_extents` index in both its forms, so the uniform and
 	    variable arithmetics are held to the same answers;
-	  * the WIRED control, driven through the ENGINE. Every case here scrolls with
-	    `adapter.driveScroll` (the headless stand-in for a wheel, a finger and the
-	    momentum after it) and reads the offset back off the control's own
-	    `scrollTop` mirror, because a settle that moves a signal nothing paints is
-	    not the feature.
+	  * the WIRED control, driven through the ENGINE. Every case in (b)/(c) scrolls
+	    with `adapter.driveScroll` (the headless stand-in for a wheel, a finger and
+	    the momentum after it) and reads the offset back off the control's own
+	    `scrollTop` mirror, because a settle that moves a cell nothing paints is not
+	    the feature;
+	  * the snap ENGINE's travel, sampled against a held pointer. A wired host is
+	    also `ScrollView.navigation.snap`, which `tests/scroll_navigation.spec.luau`
+	    drives.
 
 	THE CLOCK IS SCRIPTED, always. `w.settle(n)` steps the presenter's motion clock
 	by exactly 1/60 s per frame, and the snap machine times itself off that same
 	clock (its quiet ramp), so a flick's speed is a number this file chooses rather
 	than a wall-clock accident.
+
+	CONSTRUCTION IS NATIVE. The lists below are built through the same composite
+	constructors an application reaches on `app.controls` (the harness hands the
+	control's record back); there is no second authoring path left to test.
 ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
-local Facet = require("../src") :: any
+local harness = require("./lib/harness")
+local worldLib = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 local scroll_snap = require("../src/controls/scroll_snap")
 local virtual_extents = require("../src/virtual_extents")
 
@@ -168,9 +176,9 @@ local function listWorld(opts: ListOpts?)
 		viewport = { x = 0, y = 0, w = 390, h = 844 },
 		reducedMotion = o.reducedMotion,
 	})
-	local list = Facet.Controls.VirtualList(w.core, {
+	local list = harness.Controls.VirtualList(w.core, {
 		id = "VL",
-		rows = w.core:signal(rows(o.count or COUNT)),
+		rows = Compose.cell(rows(o.count or COUNT)),
 		key = function(item: any)
 			return item.id
 		end,
@@ -179,10 +187,10 @@ local function listWorld(opts: ListOpts?)
 		overscan = 0,
 		snap = o.snap,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "L", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "L", text = item.label, textSize = 14 })
 		end,
 	})
-	w.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
+	w.present(harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
 	return w, list
 end
 
@@ -211,14 +219,14 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		local w, list = listWorld({ snap = "item" })
 		driveTo(w, 77)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 	end)
 
 	it("a FLICK that dies inside the first item still advances one card", function()
 		local w, list = listWorld({ snap = "item" })
 		flick(w, 0, 40, 4) -- 10px/frame = 600px/s, well past the flick floor
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 	end)
 
 	it("REDUCED MOTION places the offset with zero travel, on the settling frame", function()
@@ -227,18 +235,18 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		-- one quiet window and one frame: enough to detect the settle, far short of
 		-- a spring's flight
 		w.settle(10)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 	end)
 
 	it("...and full motion TRAVELS: the same ten frames leave it still in flight", function()
 		local w, list = listWorld({ snap = "item" })
 		driveTo(w, 77)
 		w.settle(10)
-		local mid = list.scrollTop:get()
+		local mid = list.scrollTop:peek()
 		expect(mid).toBeGreaterThan(77)
 		expect(mid).toBeLessThan(100)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 	end)
 
 	it("the END of the list holds, with no overscroll oscillation", function()
@@ -246,14 +254,14 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		local maxScroll = COUNT * ITEM - RAIL_VIEWPORT
 		driveTo(w, maxScroll)
 		w.settle(60)
-		expect(list.scrollTop:get()).toBe(maxScroll)
+		expect(list.scrollTop:peek()).toBe(maxScroll)
 	end)
 
 	it("keep-visible lands the focused row ON a boundary", function()
 		local w, list = listWorld({ snap = "item" })
 		list.focusKey("i9")
 		w.settle(40)
-		local top = list.scrollTop:get()
+		local top = list.scrollTop:peek()
 		expect(top % ITEM).toBe(0)
 		-- ...and row 9 is inside the window it landed on
 		expect(top).toBeLessThanOrEqual(800)
@@ -264,14 +272,14 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		local w, list = listWorld({ snap = "item" })
 		list.scrollTo(w.controller, 640)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(600)
+		expect(list.scrollTop:peek()).toBe(600)
 	end)
 
 	it("a row TALLER than the viewport is left where the player parked it", function()
 		local w, list = listWorld({ snap = "item", itemExtent = 400 })
 		driveTo(w, 77)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(77)
+		expect(list.scrollTop:peek()).toBe(77)
 	end)
 
 	it("VARIABLE extents snap to the boundaries the window itself uses", function()
@@ -286,7 +294,7 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		})
 		driveTo(w, 180)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 	end)
 
 	it("a hand landing on a moving rail wins: the flight is abandoned where the finger is", function()
@@ -295,9 +303,9 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		w.settle(10) -- mid-flight
 		driveTo(w, 640) -- the player grabbed it
 		w.settle(3)
-		expect(list.scrollTop:get()).toBeGreaterThanOrEqual(600)
+		expect(list.scrollTop:peek()).toBeGreaterThanOrEqual(600)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(600)
+		expect(list.scrollTop:peek()).toBe(600)
 	end)
 
 	--[[ THE FRAMEWORK'S OWN WRITES ARE NOT GESTURES. A variable-extent list whose
@@ -307,12 +315,11 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		which is the whole reason every internal write announces a REST first. ]]
 	it("an anchor correction lands where the anchor says, not one card further", function()
 		local extents = { 100, 100, 100, 100, 100, 100, 100, 100 }
-		local live = nil :: any
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		live = w.core:signal(1)
-		local list = Facet.Controls.VirtualList(w.core, {
+		local live = Compose.cell(1)
+		local list = harness.Controls.VirtualList(w.core, {
 			id = "VL",
-			rows = w.core:signal(rows(#extents)),
+			rows = Compose.cell(rows(#extents)),
 			key = function(item: any)
 				return item.id
 			end,
@@ -323,18 +330,18 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 			overscan = 0,
 			snap = "item",
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "L", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "L", text = item.label, textSize = 14 })
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
 		driveTo(w, 300) -- exactly on item 4's boundary
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(300)
+		expect(list.scrollTop:peek()).toBe(300)
 		-- every row grows by half: the anchor puts item 4's leading edge back under
 		-- the viewport's, which is 450 — a 150px jump the flick rule must not read
 		live:set(1.5)
 		w.settle(60)
-		expect(list.scrollTop:get()).toBe(450)
+		expect(list.scrollTop:peek()).toBe(450)
 	end)
 
 	--[[ THE END IS A RESTING PLACE THAT NO ITEM STARTS AT. With a 250px viewport
@@ -348,11 +355,11 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		expect(maxScroll % ITEM).never().toBe(0) -- the end is NOT a boundary here
 		driveTo(w, maxScroll - 5)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(maxScroll)
+		expect(list.scrollTop:peek()).toBe(maxScroll)
 		-- ...and a settle nearer the last boundary still goes there
 		driveTo(w, 1710)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(1700)
+		expect(list.scrollTop:peek()).toBe(1700)
 	end)
 
 	it("a decisive drag back from the end still leaves it", function()
@@ -363,7 +370,7 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		flick(w, maxScroll, maxScroll - 60, 4)
 		w.settle(40)
 		-- one whole card back from the page the end was showing, not a bounce
-		expect(list.scrollTop:get()).toBe(1700)
+		expect(list.scrollTop:peek()).toBe(1700)
 	end)
 
 	--[[ THE QUIET RAMP IS THE VELOCITY'S CLOCK, AND A SECOND FLICK IS WHERE THAT
@@ -383,13 +390,13 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		-- gesture one: a small drag that rounds back, leaving the ramp settled
 		driveTo(w, 40)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(0)
+		expect(list.scrollTop:peek()).toBe(0)
 		-- gesture two: 5px per frame is exactly 300 px/s, comfortably over the flick
 		-- floor and comfortably UNDER it if the window is priced as a whole one
 		flick(w, 0, 25, 5)
 		expect(list._snapDebug().peak).toBeGreaterThanOrEqual(scroll_snap.FLICK_PX_S)
 		w.settle(40)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 	end)
 
 	--[[ A WRITE THE FRAMEWORK MADE IS A REST, NOT A TRAVEL. Every internal scroll
@@ -411,7 +418,7 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 		local w, list = listWorld({ snap = "item" })
 		driveTo(w, 77)
 		w.settle(60)
-		expect(list.scrollTop:get()).toBe(100)
+		expect(list.scrollTop:peek()).toBe(100)
 		local clock = w.pres.motionClock
 		expect(clock:activeCount()).toBe(0)
 		local before = clock:stats().writes
@@ -423,9 +430,9 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 	it("a snap value the vocabulary does not contain is refused at construction", function()
 		local w = worldLib.new()
 		expect(function()
-			Facet.Controls.VirtualList(w.core, {
+			harness.Controls.VirtualList(w.core, {
 				id = "VL",
-				rows = w.core:signal(rows(4)),
+				rows = Compose.cell(rows(4)),
 				key = function(item: any)
 					return item.id
 				end,
@@ -433,7 +440,7 @@ describe("ADAPT-17 (b): a list with snap = 'item', driven by the engine", functi
 				viewportExtent = RAIL_VIEWPORT,
 				snap = "paging",
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end).toThrow()
@@ -445,9 +452,9 @@ describe("ADAPT-17 (c): the same substrate on a VirtualGrid's scroll axis", func
 
 	local function gridWorld(snap: any?)
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local grid = Facet.Controls.VirtualGrid(w.core, {
+		local grid = harness.Controls.VirtualGrid(w.core, {
 			id = "VG",
-			items = w.core:signal(rows(40)),
+			items = Compose.cell(rows(40)),
 			key = function(item: any)
 				return item.id
 			end,
@@ -458,10 +465,10 @@ describe("ADAPT-17 (c): the same substrate on a VirtualGrid's scroll axis", func
 			snap = snap,
 			width = { type = "fixed", px = 320 },
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "L", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "L", text = item.label, textSize = 14 })
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { grid.blueprint } }))
 		return w, grid
 	end
 
@@ -469,25 +476,24 @@ describe("ADAPT-17 (c): the same substrate on a VirtualGrid's scroll axis", func
 		local w, grid = gridWorld("item")
 		w.adapter.driveScroll(GRID, { x = 0, y = 77 })
 		w.settle(40)
-		expect(grid.scrollTop:get()).toBe(100)
+		expect(grid.scrollTop:peek()).toBe(100)
 	end)
 
 	it("...and a grid nobody asked keeps the engine's own offset", function()
 		local w, grid = gridWorld()
 		w.adapter.driveScroll(GRID, { x = 0, y = 77 })
 		w.settle(40)
-		expect(grid.scrollTop:get()).toBe(77)
+		expect(grid.scrollTop:peek()).toBe(77)
 	end)
 end)
 
 describe("mouse hold during snap travel", function()
 	it("an unchanged offset still takes over a pending flight and waits for release", function()
 		local w = worldLib.new({ reducedMotion = false })
-		local scope = w.core:scope("held-snap")
+		local scope = w.core.owner.createChild()
 		local writes = {}
 		local snap = scroll_snap.new({
-			core = w.core,
-			scope = scope,
+			owner = scope,
 			index = function()
 				return nil
 			end,

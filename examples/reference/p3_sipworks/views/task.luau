@@ -46,31 +46,30 @@ local NEXT_KEY: { [string]: string } = {
 -- one memo set per mount, built from the services the band binds. `app.own` ties
 -- every one of them to the view scope, so a shell rebuild retires them.
 local function model(app: any): any
-	local core = app.core
 	local i18n = app.services.i18n
 	local rewards = app.services.rewards
 	local catalog = app.services.catalog
 	local task = app.services.task
 
 	local m: any = {}
-	m.isDone = app.own(core:memo(function(use)
+	m.isDone = app.own(app.Compose.formula(function(use)
 		return use(task.phase) == "done"
 	end))
-	m.isActive = app.own(core:memo(function(use)
+	m.isActive = app.own(app.Compose.formula(function(use)
 		return use(task.phase) ~= "done"
 	end))
 	-- the CTA is dead while the counter is answering: a verb that fires into a
 	-- pending command is a verb that lies about what it did
-	m.ctaEnabled = app.own(core:memo(function(use)
+	m.ctaEnabled = app.own(app.Compose.formula(function(use)
 		return use(task.phase) ~= "placing"
 	end))
-	m.nextLine = app.own(core:memo(function(use)
+	m.nextLine = app.own(app.Compose.formula(function(use)
 		local locale = use(i18n.locale)
 		return i18n.at(locale, NEXT_KEY[use(task.phase)] or NEXT_KEY.order)
 	end))
 	-- the CTA NAMES its blend, because "choose a blend" with nothing named is a
 	-- first action a player has to hunt for
-	m.ctaLabel = app.own(core:memo(function(use)
+	m.ctaLabel = app.own(app.Compose.formula(function(use)
 		local locale = use(i18n.locale)
 		local blendId = use(task.ctaBlendId)
 		local blend = catalog.blend(blendId)
@@ -79,7 +78,7 @@ local function model(app: any): any
 	end))
 	-- the strip's own headline: the task's name while it runs, and what was
 	-- accomplished once it is finished
-	m.stripTitle = app.own(core:memo(function(use)
+	m.stripTitle = app.own(app.Compose.formula(function(use)
 		local locale = use(i18n.locale)
 		return i18n.at(locale, if use(task.phase) == "done" then "task.done.title" else "task.title")
 	end))
@@ -106,11 +105,10 @@ end
 function taskView.strip(app: any): any
 	local UI = app.UI
 	local m = model(app)
-	local roomy = app.own(app.core:memo(function(use)
+	local roomy = app.own(app.Compose.formula(function(use)
 		return not use(app.cond.isShort)
 	end))
-	return UI.When({
-		id = "TaskStripWhen",
+	return app.when("TaskStripWhen")({
 		condition = roomy,
 		thenView = function()
 			return taskView.stripBody(app, m)
@@ -120,24 +118,21 @@ end
 
 function taskView.stripBody(app: any, m: any): any
 	local UI = app.UI
-	return UI.HStack({
-		id = "TaskStrip",
+	return UI.HStack("TaskStrip")({
 		surface = "raised",
 		padding = "xs",
 		gap = "s",
 		align = "center",
 		width = dims.fill,
 
-		UI.Text({
-			id = "TaskLabel",
+		UI.Text("TaskLabel")({
 			text = m.stripTitle,
 			textSize = "strong",
 			width = dims.fill,
 			lineLimit = 1,
 			disclose = true,
 		}),
-		UI.Text({
-			id = "TaskProgress",
+		UI.Text("TaskProgress")({
 			text = m.progress,
 			textSize = "caption",
 			role = "secondary",
@@ -158,51 +153,46 @@ end
 
 function taskView.card(app: any): any
 	local UI = app.UI
-	local core = app.core
 	local m = model(app)
-	local showsOpen = app.own(core:signal(false))
+	local showsOpen = app.own(app.Compose.cell(false))
 
-	local active = UI.When({
-		id = "TaskActive",
+	local active = app.when("TaskActive")({
 		condition = m.isActive,
 		thenView = function()
-			return UI.VStack({
-				id = "TaskBody",
+			return UI.VStack("TaskBody")({
 				gap = "s",
 				width = dims.fill,
 
-				UI.Text({
-					id = "TaskTitle",
+				UI.Text("TaskTitle")({
 					text = app.text("task.title"),
 					textSize = "heading",
 					width = dims.fill,
 				}),
 				-- THE GOAL, in one sentence, on the opening screen
-				UI.Text({
-					id = "TaskGoal",
+				UI.Text("TaskGoal")({
 					text = app.text("task.intro"),
 					textSize = "body",
 					role = "secondary",
 					width = dims.fill,
 				}),
 				-- ...and the next action, which is the line that changes
-				UI.Text({
-					id = "TaskNext",
+				UI.Text("TaskNext")({
 					text = m.nextLine,
 					textSize = "body",
 					width = dims.fill,
 				}),
-				UI.Button({
-					id = "TaskAct",
-					label = m.ctaLabel,
-					enabled = m.ctaEnabled,
-					surface = "accent",
-					corners = UI.cornersData("pill"),
-					width = dims.fill,
-					onActivate = function()
-						app.commands.taskAction()
-					end,
-				}),
+				UI.corners(
+					UI.Button("TaskAct")({
+						label = m.ctaLabel,
+						enabled = m.ctaEnabled,
+						surface = "accent",
+						width = dims.fill,
+						onActivate = function()
+							app.commands.taskAction()
+						end,
+					}),
+					UI.cornersData("pill")
+				),
 			})
 		end,
 	})
@@ -210,51 +200,46 @@ function taskView.card(app: any): any
 	-- THE COMPLETION STATE, and it replaces the task rather than sitting beside
 	-- it: a finished task still showing its next action is a task a player cannot
 	-- tell they finished.
-	local done = UI.When({
-		id = "TaskDone",
+	local done = app.when("TaskDone")({
 		condition = m.isDone,
 		transition = { enter = "fade" },
 		thenView = function()
-			return UI.ZStack({
-				id = "TaskDoneGroup",
+			return UI.ZStack("TaskDoneGroup")({
 				canvasGroup = true,
 				width = dims.fill,
 
-				UI.VStack({
-					id = "TaskDoneBody",
+				UI.VStack("TaskDoneBody")({
 					gap = "s",
 					width = dims.fill,
 
-					UI.Text({
-						id = "TaskDoneTitle",
+					UI.Text("TaskDoneTitle")({
 						text = app.text("task.done.title"),
 						textSize = "heading",
 						width = dims.fill,
 					}),
-					UI.Text({
-						id = "TaskDoneCopy",
+					UI.Text("TaskDoneCopy")({
 						text = app.text("task.done.body"),
 						textSize = "body",
 						role = "secondary",
 						width = dims.fill,
 					}),
-					UI.Button({
-						id = "TaskReset",
-						label = app.text("task.done.reset"),
-						surface = "accent",
-						corners = UI.cornersData("pill"),
-						width = dims.fill,
-						onActivate = function()
-							app.commands.serveAnother()
-						end,
-					}),
+					UI.corners(
+						UI.Button("TaskReset")({
+							label = app.text("task.done.reset"),
+							surface = "accent",
+							width = dims.fill,
+							onActivate = function()
+								app.commands.serveAnother()
+							end,
+						}),
+						UI.cornersData("pill")
+					),
 				}),
 			})
 		end,
 	})
 
-	return UI.VStack({
-		id = "TaskCard",
+	return UI.VStack("TaskCard")({
 		surface = "raised",
 		corners = UI.cornersData("panel"),
 		stroke = UI.strokeData({}),
@@ -266,27 +251,23 @@ function taskView.card(app: any): any
 		done,
 		-- ...and the Facet lesson LAST, collapsed, optional: it explains the
 		-- app after the play task rather than instead of it.
-		UI.Button({
-			id = "TaskShows",
+		UI.Button("TaskShows")({
 			label = app.text("task.shows.open"),
 			selected = showsOpen,
 			align = "start",
 			onActivate = function()
-				showsOpen:set(not showsOpen:get())
+				showsOpen:set(not showsOpen:peek())
 			end,
 		}),
-		UI.When({
-			id = "TaskShowsWhen",
+		app.when("TaskShowsWhen")({
 			condition = showsOpen,
 			transition = { enter = "fade" },
 			thenView = function()
-				return UI.ZStack({
-					id = "TaskShowsGroup",
+				return UI.ZStack("TaskShowsGroup")({
 					canvasGroup = true,
 					width = dims.fill,
 
-					UI.Text({
-						id = "TaskShowsBody",
+					UI.Text("TaskShowsBody")({
 						text = app.text("task.shows.body"),
 						textSize = "caption",
 						role = "secondary",

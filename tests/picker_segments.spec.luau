@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Segmented Picker upgrades (navigation-and-menus brief §2 D6) — icons on
 -- `Option`, a real VERTICAL pill, and the D4 indicator adopted as the segmented
 -- presentation's DEFAULT paint.
@@ -30,8 +31,10 @@ local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
 local selectionIndicatorLib = require("../src/controls/selection_indicator")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- ===== the harness ========================================================
 -- One mounted picker on a real presenter. Every case here is about the
@@ -40,10 +43,10 @@ local UI = Facet.UI
 -- (tests/picker_style.spec.luau owns that ladder). A case that wants the
 -- automatic style passes `automatic = true` and gets a nearby GAMEPAD surface,
 -- where two short options resolve segmented and the automatic root wraps the
--- strip one level down (`/Strip/then/Body`).
+-- strip one level down (`/StripBody`).
 local function world(spec: any?)
 	local options = spec or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.viewport or 480, h = 640 })
 	if options.automatic then
@@ -53,8 +56,8 @@ local function world(spec: any?)
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local selected = core:signal(options.initial or "grid")
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local selected = Compose.cell(options.initial or "grid")
 	local built: any = {
 		id = "View",
 		selected = selected,
@@ -72,7 +75,7 @@ local function world(spec: any?)
 	if built.presentation == nil and not options.automatic then
 		built.presentation = "segmented"
 	end
-	local p = Facet.Controls.Picker(core, built)
+	local p = harness.Controls.Picker(core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 	pres.refresh()
 	return {
@@ -114,7 +117,7 @@ describe("D6: the segmented presentation ADOPTS the sliding indicator", function
 		-- a short strip; the automatic root wraps it one level down.)
 		local w = world({ automatic = true })
 		expect(w.picker.dump().presentation).toBe("segmented")
-		expect(w.adapter.node("/S/View/Strip/then/Body/Indicator/Layer/Bar") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/View/StripBody/Indicator/Layer/Bar") ~= nil).toBe(true)
 	end)
 
 	it("the default drops the `selected` style tag, because a tag AND a chip say it twice", function()
@@ -176,12 +179,12 @@ describe("D6: the segmented presentation ADOPTS the sliding indicator", function
 	it("`automatic` is a legal spelling and the refusal message names the whole set", function()
 		local w = world({ presentation = "segmented", indicator = "automatic" })
 		expect(w.adapter.node(BAR) ~= nil).toBe(true)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
-				selected = core:signal(1),
+				selected = Compose.cell(1),
 				indicator = "glow",
 			})
 		end)
@@ -236,13 +239,13 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	end)
 
 	it("a nameless option is an AUTHORING ERROR — an icon with no name announces nothing", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		for _, bad in { "", nil :: any } do
 			local ok, err = pcall(function()
-				return Facet.Controls.Picker(core, {
+				return harness.Controls.Picker(core, {
 					id = "X",
 					options = { { value = "a", label = bad, icon = "shop:bag" } },
-					selected = core:signal("a"),
+					selected = Compose.cell("a"),
 				})
 			end)
 			expect(ok).toBe(false)
@@ -251,15 +254,15 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	end)
 
 	it("Guidance: icons for ALL options in a group, or none — a half-iconned group is refused", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "X",
 				options = {
 					{ value = "a", label = "Alpha", icon = "shop:bag" },
 					{ value = "b", label = "Beta" },
 				},
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 			})
 		end)
 		expect(ok).toBe(false)
@@ -268,10 +271,10 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 		-- reads the environment this core publishes (ADAPT-1); the refusal above
 		-- fires first because the icon rule is checked before any fact is asked for.
 		Facet.newEnvironment(core)
-		local none = Facet.Controls.Picker(core, {
+		local none = harness.Controls.Picker(core, {
 			id = "Y",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 			style = "segmented",
 		})
 		expect(none.dump().iconCount).toBe(0)
@@ -279,12 +282,12 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 	end)
 
 	it("`iconOnly` with nothing to draw is refused rather than silently ignored", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "X",
 				options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 				iconOnly = true,
 			})
 		end)
@@ -386,7 +389,7 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		-- adaptive picker asked for `axis = "y"` is a rail only while it is
 		-- segmented; a live space change that stacks it must not leave a 44px
 		-- column standing where a full-width row list belongs.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -396,11 +399,11 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		env:set("displaySize", "Large")
 		env:set("overscanInsets", "none")
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local sizeClass = core:signal("regular")
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local sizeClass = Compose.cell("regular")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
-			selected = core:signal("grid"),
+			selected = Compose.cell("grid"),
 			axis = "y",
 			sizeClass = sizeClass,
 			-- long labels, so a COMPACT space is what stacks them (the space rule,
@@ -428,7 +431,7 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		local w = world({ presentation = "segmented", axis = "y", options = ICONS, iconOnly = true })
 		w.adapter.tap(optPath(w, 2))
 		w.pres.refresh()
-		expect(w.selected:get()).toBe("list")
+		expect(w.selected:peek()).toBe("list")
 		local sys = Facet.newActionSystem
 		expect(type(sys)).toBe("function")
 	end)
@@ -448,19 +451,19 @@ describe("D6: the dump keeps schema /1 and stays deterministic", function()
 	end)
 
 	it("dispose is registry-neutral with icons, a rail and an indicator all on", function()
-		local core = Facet.newCore()
-		local baseline = core:counters()
-		local p = Facet.Controls.Picker(core, {
+		local core = harness.newCore()
+		local baseline = core.owner.size()
+		local p = harness.Controls.Picker(core, {
 			id = "X",
 			options = ICONS,
-			selected = core:signal("grid"),
+			selected = Compose.cell("grid"),
 			presentation = "segmented",
 			axis = "y",
 			iconOnly = true,
 		})
 		p.dispose()
-		expect(core:counters().scopes).toBe(baseline.scopes)
-		expect(core:counters().observers).toBe(baseline.observers)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
 	end)
 end)
 
@@ -505,17 +508,17 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 		local sizing = nil
 		local w = nil
 		do
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-			sizing = core:signal("fill")
-			local p = Facet.Controls.Picker(core, {
+			local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+			sizing = Compose.cell("fill")
+			local p = harness.Controls.Picker(core, {
 				id = "View",
 				options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
-				selected = core:signal("grid"),
+				selected = Compose.cell("grid"),
 				presentation = "segmented",
 				sizing = sizing,
 				env = env,
@@ -537,12 +540,12 @@ describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
 	end)
 
 	it("an unknown `sizing` is an authoring error, not a silent fill", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			Facet.Controls.Picker(core, {
+			harness.Controls.Picker(core, {
 				id = "X",
 				options = { { value = "a", label = "A" } },
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 				sizing = "shrinkwrap",
 			})
 		end)
@@ -553,17 +556,17 @@ end)
 
 describe("D5 seam: `axis` is REACTIVE, because a placement flip is a re-solve", function()
 	it("a live axis flip turns the band into a rail without rebuilding an option", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local axis = core:signal("x")
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local axis = Compose.cell("x")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
-			selected = core:signal("grid"),
+			selected = Compose.cell("grid"),
 			presentation = "segmented",
 			axis = axis,
 			env = env,
@@ -598,16 +601,28 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 		local base = if w.picker.dump().indicator == "none" then "/S/View/Options" else "/S/View/Indicator/Options"
 		return `{base}/Opt{n}Cell`
 	end
+	-- The Button's content row is unnamed, so its id is assigned at construction.
+	local function rowPath(adapter: any, button: string): string
+		for _, path in adapter.paths() do
+			if
+				string.sub(path, 1, #button + 1) == button .. "/"
+				and string.match(string.sub(path, #button + 2), "^HStack#%d+$")
+			then
+				return path
+			end
+		end
+		error(`no content row under {button}`)
+	end
 
 	it('a badged option wears a `surface = "badge"` plate; an unbadged one wears nothing', function()
 		local w = world({ presentation = "segmented", options = BADGED })
-		local plate = w.adapter.node(cellPath(w, 2) .. "/Opt2/HStack#1/Badge")
+		local plate = w.adapter.node(rowPath(w.adapter, cellPath(w, 2) .. "/Opt2") .. "/Badge")
 		expect(plate ~= nil).toBe(true)
 		expect(plate.props.surface).toBe("badge")
 		-- the COUNT is a node inside the plate (2026-09-12): a seal and the number
 		-- in it are two rects, which is what lets a test measure one against the
 		-- other (tests/badge_centering.spec.luau)
-		expect(w.adapter.node(cellPath(w, 2) .. "/Opt2/HStack#1/Badge/Count").props.text).toBe("3")
+		expect(w.adapter.node(rowPath(w.adapter, cellPath(w, 2) .. "/Opt2") .. "/Badge/Count").props.text).toBe("3")
 		-- the UNBADGED option gained no cell and no plate at all
 		expect(w.adapter.node(cellPath(w, 1))).toBeNil()
 		expect(w.adapter.node(optPath(w, 1)) ~= nil).toBe(true)
@@ -616,8 +631,8 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 
 	it("the badge is on the UNSELECTED option and stays live — that is the point of a badge", function()
 		local w = world({ presentation = "segmented", options = BADGED, initial = "grid" })
-		expect(w.selected:get()).toBe("grid")
-		expect(w.adapter.node(cellPath(w, 2) .. "/Opt2/HStack#1/Badge/Count").props.text).toBe("3")
+		expect(w.selected:peek()).toBe("grid")
+		expect(w.adapter.node(rowPath(w.adapter, cellPath(w, 2) .. "/Opt2") .. "/Badge/Count").props.text).toBe("3")
 	end)
 
 	it("the seal is a DECORATION: no focus stop, no second activation site", function()
@@ -629,9 +644,13 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 		local badged = world({ presentation = "segmented", options = BADGED })
 		local plain = world({ presentation = "segmented" })
 		expect(badged.adapter.node(cellPath(badged, 2)).class).toBe("ZStack")
-		expect(badged.adapter.node(cellPath(badged, 2) .. "/Opt2/HStack#1").class).toBe("HStack")
-		expect(badged.adapter.node(cellPath(badged, 2) .. "/Opt2/HStack#1/Badge").class).toBe("ZStack")
-		expect(badged.adapter.node(cellPath(badged, 2) .. "/Opt2/HStack#1/Badge/Count").class).toBe("Text")
+		expect(badged.adapter.node(rowPath(badged.adapter, cellPath(badged, 2) .. "/Opt2")).class).toBe("HStack")
+		expect(badged.adapter.node(rowPath(badged.adapter, cellPath(badged, 2) .. "/Opt2") .. "/Badge").class).toBe(
+			"ZStack"
+		)
+		expect(badged.adapter.node(rowPath(badged.adapter, cellPath(badged, 2) .. "/Opt2") .. "/Badge/Count").class).toBe(
+			"Text"
+		)
 		local badgedFocus: { string } = {}
 		local plainFocus: { string } = {}
 		focus_map.collectFocusables(badged.handle.root.node, badgedFocus)
@@ -641,27 +660,29 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 	end)
 
 	it("a badge VALUE is reactive, and an empty one hides the plate rather than painting a bubble", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local count = core:signal("")
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local count = Compose.cell("")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing", badge = count } },
-			selected = core:signal("grid"),
+			selected = Compose.cell("grid"),
 			presentation = "segmented",
 			env = env,
 		})
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
-		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge")).toBe(false)
+		expect(adapter.visibleOf(rowPath(adapter, "/S/View/Indicator/Options/Opt2Cell/Opt2") .. "/Badge")).toBe(false)
 		count:set("12")
 		pres.refresh()
-		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge")).toBe(true)
-		expect(adapter.node("/S/View/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge/Count").props.text).toBe("12")
+		expect(adapter.visibleOf(rowPath(adapter, "/S/View/Indicator/Options/Opt2Cell/Opt2") .. "/Badge")).toBe(true)
+		expect(adapter.node(rowPath(adapter, "/S/View/Indicator/Options/Opt2Cell/Opt2") .. "/Badge/Count").props.text).toBe(
+			"12"
+		)
 		p.dispose()
 	end)
 
@@ -672,7 +693,7 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 		local w = world({ presentation = "segmented", options = BADGED, initial = "grid" })
 		w.adapter.tap(cellPath(w, 2) .. "/Opt2")
 		w.pres.refresh()
-		expect(w.selected:get()).toBe("list")
+		expect(w.selected:peek()).toBe("list")
 	end)
 
 	it("a picker with NO badges mounts no badge node at all — the paths are unchanged", function()
@@ -685,13 +706,13 @@ end)
 
 describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names the row", function()
 	it("a bound label satisfies the non-empty lint and is what dump() announces", function()
-		local core = Facet.newCore()
-		local name = core:signal("Listing")
-		local p = Facet.Controls.Picker(core, {
+		local core = harness.newCore()
+		local name = Compose.cell("Listing")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			label = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = name } },
-			selected = core:signal("list"),
+			selected = Compose.cell("list"),
 			presentation = "segmented",
 		})
 		expect(p.dump().selectedLabel).toBe("Listing")
@@ -703,12 +724,12 @@ describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names t
 	end)
 
 	it("a bound label that is EMPTY right now is still the authoring error it would be as a string", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok = pcall(function()
-			Facet.Controls.Picker(core, {
+			harness.Controls.Picker(core, {
 				id = "X",
-				options = { { value = "a", label = core:signal("") } },
-				selected = core:signal("a"),
+				options = { { value = "a", label = Compose.cell("") } },
+				selected = Compose.cell("a"),
 			})
 		end)
 		expect(ok).toBe(false)
@@ -757,17 +778,17 @@ describe("D5 found: a segmented strip navigates ACROSS on a pad, not down", func
 	end)
 
 	it("a LIVE axis flip re-derives the group with it", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local axis = core:signal("x")
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local axis = Compose.cell("x")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
-			selected = core:signal("grid"),
+			selected = Compose.cell("grid"),
 			presentation = "segmented",
 			axis = axis,
 			env = env,
@@ -803,16 +824,16 @@ describe("§6 seam: a segment carries the strip's declared type role", function(
 	end)
 
 	it("...and it is REACTIVE, because the home a strip sits in moves under a rotation", function()
-		local core = Facet.newCore()
-		local role = core:signal("caption")
+		local core = harness.newCore()
+		local role = Compose.cell("caption")
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local p = harness.Controls.Picker(core, {
 			id = "View",
-			selected = core:signal("grid"),
+			selected = Compose.cell("grid"),
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 			presentation = "segmented",
 			textSize = role,
@@ -839,18 +860,18 @@ end)
 	is not a destination). ]]
 describe("§6 seam: a selection and its onChange are ONE transaction", function()
 	it("a redirect inside onChange never reaches an observer at all", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local selected = core:signal("grid")
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selected = Compose.cell("grid")
 		local seen: { any } = {}
-		core:observe(selected, function(value: any)
+		observeChange(core.owner, selected, function(value: any)
 			table.insert(seen, value)
 		end)
-		local p = Facet.Controls.Picker(core, {
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -865,10 +886,10 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 		pres.refresh()
 		adapter.tap("/S/View/Indicator/Options/Opt2", { source = "pointer", pointer = "mouse" })
 		pres.refresh()
-		expect(selected:get()).toBe("grid")
+		expect(selected:peek()).toBe("grid")
 		-- ZERO, not two: the value the app undid never left the turn
 		expect(#seen).toBe(0)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		p.dispose()
 	end)
 
@@ -894,19 +915,19 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 	end)
 
 	it("...and a pick that STANDS still notifies exactly once", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local selected = core:signal("grid")
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selected = Compose.cell("grid")
 		local seen: { any } = {}
-		core:observe(selected, function(value: any)
+		observeChange(core.owner, selected, function(value: any)
 			table.insert(seen, value)
 		end)
 		local changed: { any } = {}
-		local p = Facet.Controls.Picker(core, {
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -915,7 +936,7 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 			onChange = function(value: any)
 				-- the callback still reads the NEW value: a transaction defers the
 				-- flush, never the read
-				table.insert(changed, `{value}/{selected:get()}`)
+				table.insert(changed, `{value}/{selected:peek()}`)
 			end,
 		})
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))

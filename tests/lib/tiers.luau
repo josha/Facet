@@ -155,17 +155,6 @@ tiers.SLOW = {
 		ms = 693,
 		why = "long-scroll pool-bound workload (a single case scrolls far enough to prove the pool cannot grow)",
 	},
-	{
-		spec = "reference/wardrobe_spec",
-		ms = 497,
-		-- UNCHANGED BY THE 2026-08-30 WARDROBE RETIREMENT, deliberately: the spec keeps
-		-- its name, its path and its cost — only the app it mounts moved, to
-		-- tests/fixtures/retired/p5_wardrobe. It is the one reference proof that is no
-		-- longer a player example; it still runs because the closed
-		-- reference-app-validation gate cites it. Delete this row when that fixture goes
-		-- (the condition is in tests/fixtures/retired/README.md).
-		why = "clean-room reference proof (now a RETIRED fixture): try-on history, the purchase lifecycle, the stage seam and the split-to-stacked Composition flip with state survival",
-	},
 } :: { Exclusion }
 
 -- Specs the fast tier must ALWAYS carry, named rather than inferred: the smoke

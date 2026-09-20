@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenarioCtx = require("./lib/scenario_ctx")
 -- THE SPONSOR FIXTURES, HEADLESS HALF (roadmap Step 5, gate sponsor-framework-gaps).
 --
 -- The Studio phase proves the PIXELS; this proves that every one of the eight
@@ -13,7 +15,7 @@
 -- scenario is the one under test — and the scenario modules are the same files
 -- Studio loads.
 --
--- P5-F1 FIXED (scope_impl: a parent's teardown walk skips early-disposed
+-- P5-F1 FIXED (Compose owners: a parent's teardown walk skips early-disposed
 -- children, and a disposed child deregisters from its parent): the cycle
 -- assertions below now require a CLEAN core — no tolerated error remains.
 
@@ -108,7 +110,7 @@ local ROOT_PATH: { [string]: string } = {
 
 local function makeWorld(name: string, opts: any?): any
 	local options: any = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", options.viewport or { x = 0, y = 0, w = 900, h = 760 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -120,36 +122,18 @@ local function makeWorld(name: string, opts: any?): any
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
-	local ctx: any = {
-		Facet = Facet,
-		core = core,
-		env = env,
-		adapter = adapter,
-		presenter = pres,
-		actionSystem = system,
-		record = function() end,
-		flags = {},
-		-- shaped exactly like the runner's: solved rects for MOUNTED paths only, so
-		-- an absent entry means "that node is not in the tree"
-		geometry = function(paths: { string }): { [string]: any }
-			local out: { [string]: any } = {}
-			for _, path in paths do
-				local node = adapter.node(path)
-				if node ~= nil and node.rect ~= nil then
-					out[path] = { x = node.rect.x, y = node.rect.y, w = node.rect.w, h = node.rect.h }
-				end
-			end
-			return out
-		end,
-		-- the engine-only seams a headless host does not have. Their absence is the
-		-- point: every scenario must degrade with a reason instead of erroring.
-		instanceAt = nil,
-		nativeStyle = nil,
-		bindResourceTransport = nil,
-		billboard = nil,
-	}
+	-- shaped exactly like the runner's. `geometry` answers solved rects for
+	-- MOUNTED paths only, so an absent entry means "that node is not in the tree".
+	local ctx: any =
+		scenarioCtx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
+	-- the engine-only seams a headless host does not have. Their absence is the
+	-- point: every scenario must degrade with a reason instead of erroring.
+	ctx.instanceAt = nil
+	ctx.nativeStyle = nil
+	ctx.bindResourceTransport = nil
+	ctx.billboard = nil
 
 	local built = MODULES[name].build(ctx)
 	if built.screen ~= nil and built.handle == nil then
@@ -199,43 +183,29 @@ describe("sponsor fixtures: long-lived-core churn (RR-8)", function()
 	-- leaking 132 memos/cycle (the unowned newAsyncImage memos — now scope-owned)
 	for _, name in { "sponsor_motion", "sponsor_drop", "sponsor_avatars" } do
 		it(`{name}: three build/dispose cycles in one core leave zero residue`, function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 900, h = 760 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local ctx: any = {
-				Facet = Facet,
-				core = core,
-				env = env,
-				adapter = adapter,
-				presenter = pres,
-				actionSystem = system,
-				record = function() end,
-				flags = {},
-				geometry = function()
-					return {}
-				end,
-			}
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local ctx: any =
+				scenarioCtx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
 			local baseline: any = nil
 			for cycle = 1, 3 do
 				local built = MODULES[name].build(ctx)
 				if built.dispose ~= nil then
 					built.dispose()
 				end
-				local counters = core:counters()
+				local counters = core.owner.size()
 				if baseline == nil then
 					baseline = counters
 				else
-					expect(counters.memos).toBe(baseline.memos)
-					expect(counters.signals).toBe(baseline.signals)
-					expect(counters.scopes).toBe(baseline.scopes)
-					expect(counters.observers).toBe(baseline.observers)
+					expect(counters).toBe(baseline)
 				end
 			end
-			expect(benignError(core:lastError())).toBe(true)
+			expect(benignError(core.lastError())).toBe(true)
 		end)
 	end
 end)
@@ -283,7 +253,7 @@ describe("sponsor fixtures: the module contract", function()
 		for _, name in SCENARIOS do
 			local w = makeWorld(name)
 			expect(w.adapter.node(ROOT_PATH[name]) ~= nil).toBe(true)
-			expect(benignError(w.core:lastError())).toBe(true)
+			expect(benignError(w.core.lastError())).toBe(true)
 			w.teardown()
 		end
 	end)
@@ -296,7 +266,7 @@ describe("sponsor fixtures: the module contract", function()
 				w.step(stepName)
 				w.frames(4)
 			end
-			expect(benignError(w.core:lastError())).toBe(true)
+			expect(benignError(w.core.lastError())).toBe(true)
 			w.teardown()
 		end
 	end)
@@ -306,7 +276,11 @@ describe("sponsor fixtures: the module contract", function()
 			local w = makeWorld(name)
 			local report = w.report()
 			expect(type(report.ledger)).toBe("string")
-			expect(type(report.counters)).toBe("table")
+			-- `counters` IS the core's live-owner size, one number, since the core
+			-- flattened onto Compose: the four-registry table (`core:counters()`)
+			-- went with the facade, and every fixture reports `core.owner.size()`.
+			-- The cycle cases above already compare it as a scalar.
+			expect(type(report.counters)).toBe("number")
 			w.teardown()
 		end
 	end)
@@ -325,7 +299,7 @@ describe("sponsor fixtures: 20 mount/reset/dispose cycles return the core to bas
 			warm.frames(2)
 			warm.teardown()
 
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local baseline: any = nil
 			for cycle = 1, 20 do
 				local w = makeWorld(name)
@@ -333,16 +307,13 @@ describe("sponsor fixtures: 20 mount/reset/dispose cycles return the core to bas
 				w.frames(3)
 				w.report()
 				w.teardown()
-				local counts = w.core:counters()
+				local counts = w.core.owner.size()
 				if cycle == 1 then
 					baseline = counts
 				else
-					expect(counts.signals).toBe(baseline.signals)
-					expect(counts.memos).toBe(baseline.memos)
-					expect(counts.observers).toBe(baseline.observers)
-					expect(counts.scopes).toBe(baseline.scopes)
+					expect(counts).toBe(baseline)
 				end
-				expect(benignError(w.core:lastError())).toBe(true)
+				expect(benignError(w.core.lastError())).toBe(true)
 			end
 			local _ = core
 		end)
@@ -891,7 +862,7 @@ describe("sponsor_drop (SF-D1..D5, SF-L2, SF-P4, SF-M2)", function()
 		expect(reg.mode()).toBe("armed")
 		-- arming lands focus on the first eligible row AND the auto-aim follows
 		-- it (the presenter's focused-observer aims while armed)
-		expect(w.pres.focus.focused:get()).toBe(hitOf("row-02"))
+		expect(w.pres.focus.focused:peek()).toBe(hitOf("row-02"))
 		expect(reg.interactionTarget()).toBe(hitOf("row-02"))
 		-- the ghost HOPS to the aim: let the hop springs settle, then the slot
 		-- sits centered on the aimed row (fake adapter: rect + own transform)
@@ -908,7 +879,7 @@ describe("sponsor_drop (SF-D1..D5, SF-L2, SF-P4, SF-M2)", function()
 		press("DPadDown")
 		press("DPadDown")
 		expect(reg.interactionTarget()).toBe(hitOf("row-04"))
-		expect(w.pres.focus.focused:get()).toBe(hitOf("row-04"))
+		expect(w.pres.focus.focused:peek()).toBe(hitOf("row-04"))
 		-- while armed, a row that refuses the card DIMS (the visible answer to
 		-- "why did the arm skip row 01"): row-03 is odd = refuses A
 		local dim = w.adapter.node(hitOf("row-03") :: string)
@@ -942,12 +913,12 @@ describe("sponsor_drop (SF-D1..D5, SF-L2, SF-P4, SF-M2)", function()
 		press("ButtonB") -- CANCEL: the session ends, presentation restores
 		expect(reg.isActive()).toBe(false)
 		expect(w.adapter.node(card).props.selected).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(card) -- focus handed home
+		expect(w.pres.focus.focused:peek()).toBe(card) -- focus handed home
 		w.frames(120) -- the fly-home flight settles and releases the ghost
 		press("ButtonA") -- RE-ARM: a completely fresh session
 		expect(reg.mode()).toBe("armed")
 		expect(w.adapter.node(card).props.selected).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe("/DropLab/Main/ListZone/Rows/Canvas/W/[row-02]/Row/Hit")
+		expect(w.pres.focus.focused:peek()).toBe("/DropLab/Main/ListZone/Rows/Canvas/W/[row-02]/Row/Hit")
 		press("ButtonB")
 		expect(reg.isActive()).toBe(false)
 		w.teardown()
@@ -966,11 +937,11 @@ describe("sponsor_drop (SF-D1..D5, SF-L2, SF-P4, SF-M2)", function()
 		end
 		w.pres.focus.focusOn("/DropLab/Main/Hand/CardA")
 		press("DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/DropLab/Main/Hand/CardB")
+		expect(w.pres.focus.focused:peek()).toBe("/DropLab/Main/Hand/CardB")
 		press("DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/DropLab/Main/Hand/CardC")
+		expect(w.pres.focus.focused:peek()).toBe("/DropLab/Main/Hand/CardC")
 		press("DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe("/DropLab/Main/Hand/CardB")
+		expect(w.pres.focus.focused:peek()).toBe("/DropLab/Main/Hand/CardB")
 		w.teardown()
 	end)
 
@@ -1082,11 +1053,11 @@ describe("sponsor_toast (SF-T1/T2/T3/M6)", function()
 
 	it("a toast never joins the stack and never moves focus (SF-T1)", function()
 		local w = makeWorld("sponsor_toast")
-		local before = w.pres.focus.focused:get()
+		local before = w.pres.focus.focused:peek()
 		local out = w.step("showOne")
 		expect(out.counts.visible).toBe(1)
 		expect(out.depth).toBe(1)
-		expect(w.pres.focus.focused:get()).toBe(before)
+		expect(w.pres.focus.focused:peek()).toBe(before)
 		w.teardown()
 	end)
 
@@ -1197,9 +1168,8 @@ describe("sponsor_toast (SF-T1/T2/T3/M6)", function()
 		local read = w.step("unmountCapRead")
 		expect(read.counts.visible).toBe(0)
 		expect(read.counts.queued).toBe(0)
-		expect(read.after.signals).toBe(read.baseline.signals)
-		expect(read.after.memos).toBe(read.baseline.memos)
-		expect(read.after.scopes).toBe(read.baseline.scopes)
+		expect(read.after).toBe(read.baseline)
+		expect(read.after).toBe(read.baseline)
 		w.teardown()
 	end)
 
@@ -1305,7 +1275,7 @@ describe("sponsor_avatars (SF-A1..A4, SF-P2)", function()
 		for _, path in w.adapter.paths() do
 			if
 				content == nil
-				and string.find(path, "[av-01#", 1, true) ~= nil
+				and string.find(path, "/Avatar-av-01#", 1, true) ~= nil
 				and string.sub(path, -8) == "/Content"
 			then
 				content = path
@@ -1389,13 +1359,13 @@ describe("sponsor_markers (SF-P5)", function()
 
 	it("marker #12 carries the DECLARED theming-exempt hue, and nothing else does", function()
 		local w = makeWorld("sponsor_markers")
-		local direct = w.adapter.node("/MarkerLab/Stage/Overlay/Markers/[m-12]/Dot")
+		local direct = w.adapter.node("/MarkerLab/Stage/Overlay/Markers/Dot-m-12")
 		expect(direct.props.tint.direct).toBe("#3fa9f5")
 		-- the TRACKED marker spends the accent surface and no tint at all...
-		expect(w.adapter.node("/MarkerLab/Stage/Overlay/Markers/[m-01]/Dot").props.tint).toBeNil()
+		expect(w.adapter.node("/MarkerLab/Stage/Overlay/Markers/Dot-m-01").props.tint).toBeNil()
 		-- ...and an untracked one is neutral THEME content (§8.7), never a second
 		-- identity hue: it names a role, so a package restyles it
-		local plain = w.adapter.node("/MarkerLab/Stage/Overlay/Markers/[m-02]/Dot")
+		local plain = w.adapter.node("/MarkerLab/Stage/Overlay/Markers/Dot-m-02")
 		expect(plain.props.tint.direct).toBeNil()
 		expect(plain.props.tint.role).toBe("contentSecondary")
 		expect(plain.props.surface).toBeNil()

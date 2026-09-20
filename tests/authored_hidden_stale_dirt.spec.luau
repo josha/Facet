@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ── AN AUTHORED `hidden` WRITTEN INSIDE A SOLVE IS SWALLOWED (stabilization B4-R) ──
 
 	THE DEFECT, picker-free. A node whose `hidden` is bound flips it from inside a
@@ -53,8 +54,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src")
-local UI = Facet.UI
-local worldLib = require("./lib/world")
+local UI = harness.UI
+local worldLib = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 
 local BAR = "/S/P/Bar"
 local OTHER = "/S/P/Other"
@@ -70,10 +72,10 @@ end
 	inside it. ]]
 local function mountCase(): any
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-	local shown = w.core:signal(false)
-	local barW = w.core:signal(px(40))
-	local otherW = w.core:signal(px(10))
-	local hiddenMemo = w.core:memo(function(use: any)
+	local shown = Compose.cell(false)
+	local barW = Compose.cell(px(40))
+	local otherW = Compose.cell(px(10))
+	local hiddenMemo = Compose.formula(function(use: any)
 		return not use(shown)
 	end)
 	w.present(UI.Screen({
@@ -196,11 +198,11 @@ describe("B4-R: an authored `hidden` flipped inside a solve reaches the adapter"
 		proof that `dirtySeq` moved) and the value the drain re-reads has not. ]]
 	it("...and a `hidden` entry whose re-read value did not move buys no solve either", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local shown = w.core:signal(false)
-		local hiddenMemo = w.core:memo(function(use: any)
+		local shown = Compose.cell(false)
+		local hiddenMemo = Compose.formula(function(use: any)
 			return not use(shown)
 		end)
-		local otherW = w.core:signal(px(10))
+		local otherW = Compose.cell(px(10))
 		w.present(UI.Screen({
 			id = "S",
 			children = {

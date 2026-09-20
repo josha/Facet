@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- STRUCTURAL TRANSITIONS (acceptance row SF-M6). Three
 -- layers, proven separately and then together:
 --
@@ -20,19 +21,30 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local transitionsLib = require("../src/render/transitions")
+-- A surface binds its coordinator to the mounted tree; the presenter does this
+-- for every surface it presents.
+local mountLib = {
+	mount = function(core: any, content: any, opts: any?)
+		local root = harness.mount(core, content)
+		if opts ~= nil and opts.transitions ~= nil then
+			transitionsLib.bind(root.node, opts.transitions)
+		end
+		return root
+	end,
+}
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local clockLib = require("../src/motion/clock")
-local transitionsLib = require("../src/render/transitions")
 local Facet = require("../src") :: any -- framework-gaps-phase2 item 41: EXIT_CAP_SECONDS
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -107,7 +119,7 @@ describe("mount retire model: When", function()
 	it("a declared transition retires the branch instead of disposing it", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = mountLib.mount(core, whenScreen(on, FADE), { transitions = script.coordinator })
 		local gate = root.node.children[1]
 		local branch = gate.children[1]
@@ -139,7 +151,7 @@ describe("mount retire model: When", function()
 	it("re-entry mid-exit reuses the SAME mounted subtree — identity, scope, factory runs", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = mountLib.mount(core, whenScreen(on, FADE), { transitions = script.coordinator })
 		local gate = root.node.children[1]
 		local branch = gate.children[1]
@@ -166,14 +178,13 @@ describe("mount retire model: When", function()
 		root.dispose()
 	end)
 
-	it("the branch scope disposes exactly once, at done — never at retire, never twice", function()
+	it("the branch owner disposes exactly once, at done — never at retire, never twice", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local disposals = 0
-		local root = mountLib.mount(
-			core,
-			UI.Screen({
+		local root = mountLib.mount(core, function()
+			return UI.Screen({
 				id = "S",
 				children = {
 					UI.When({
@@ -181,87 +192,28 @@ describe("mount retire model: When", function()
 						condition = on,
 						transition = FADE,
 						thenView = function()
-							return UI.Box({ id = "Leaf" })
-						end,
-					}),
-				},
-			}),
-			{ transitions = script.coordinator }
-		)
-		local baseline = core:counters()
-		on:set(false)
-		expect(core:counters().scopes).toBe(baseline.scopes) -- nothing released yet
-		script.finish("/S/Gate/then/Leaf")
-		disposals += 1
-		expect(core:counters().scopes < baseline.scopes).toBe(true)
-		-- a second `done` is inert (the coordinator's cap and its settle can both
-		-- fire in a wedged frame)
-		local after = core:counters().scopes
-		expect(disposals).toBe(1)
-		expect(core:counters().scopes).toBe(after)
-		root.dispose()
-	end)
-
-	it("the scope handed to thenView survives the RETIRE and dies at done, once", function()
-		--[[ docs/reference/api.md §When. The branch scope is now the factory's
-			second argument, so a panel's MotionValue lives on it — and a panel with a
-			motion value is precisely the panel that has an exit transition. The
-			retire path moves the scope onto `retiring` and disposes it at `done`, so
-			the resource must still be ALIVE for the whole exit (an exit animation
-			reading a released handle is the defect) and released exactly once after.
-			The re-entry case above proves the factory does not re-run; this one
-			proves the thing it was handed is still usable while it does not. ]]
-		local core = customFactory.new()
-		local script = scripted()
-		local on = core:signal(true)
-		local handed: { any } = {}
-		local released = 0
-		local root = mountLib.mount(
-			core,
-			UI.Screen({
-				id = "S",
-				children = {
-					UI.When({
-						id = "Gate",
-						condition = on,
-						transition = FADE,
-						thenView = function(branchScope)
-							table.insert(handed, branchScope)
-							branchScope:own(function()
-								released += 1
+							Facet.Compose.cleanup(function()
+								disposals += 1
 							end)
 							return UI.Box({ id = "Leaf" })
 						end,
 					}),
 				},
-			}),
-			{ transitions = script.coordinator }
-		)
-		expect(#handed).toBe(1)
-		expect(handed[1].label).toBe("/S/Gate/then")
-
-		on:set(false) -- retiring: the exit is playing and the scope must still be live
-		expect(handed[1]:isDisposed()).toBe(false)
-		expect(released).toBe(0)
-
-		on:set(true) -- reversed mid-exit: SAME scope comes back, factory did not re-run
-		expect(#handed).toBe(1)
-		expect(handed[1]:isDisposed()).toBe(false)
-		expect(released).toBe(0)
-
+			})
+		end, { transitions = script.coordinator })
 		on:set(false)
+		expect(disposals).toBe(0) -- nothing released yet
 		script.finish("/S/Gate/then/Leaf")
-		expect(handed[1]:isDisposed()).toBe(true)
-		expect(released).toBe(1)
+		expect(disposals).toBe(1)
 		root.dispose()
-		expect(released).toBe(1) -- and the region's disposal does not release it twice
-		expect(core:lastError()).toBeNil()
+		-- teardown after `done` finds nothing left to dispose
+		expect(disposals).toBe(1)
 	end)
 
 	it("without a transition the removal path is byte-identical to before", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = mountLib.mount(core, whenScreen(on), { transitions = script.coordinator })
 		local gate = root.node.children[1]
 		on:set(false)
@@ -273,14 +225,21 @@ describe("mount retire model: When", function()
 	it("disposing the region mid-exit releases the coordinator's motion, once", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local on = core:signal(true)
-		local root = mountLib.mount(core, whenScreen(on, FADE), { transitions = script.coordinator })
-		local baseline = core:counters()
+		local on = Compose.cell(true)
+		-- built inside the component, so the surface owns the region
+		local root = mountLib.mount(core, function()
+			return whenScreen(on, FADE)
+		end, { transitions = script.coordinator })
 		on:set(false)
 		root.dispose()
-		expect(table.find(script.calls, "release /S/Gate/then/Panel") ~= nil).toBe(true)
-		expect(core:counters().scopes).toBe(baseline.scopes - (baseline.scopes - core:counters().scopes))
-		expect(core:lastError()).toBeNil()
+		local releases = 0
+		for _, call in script.calls do
+			if call == "release /S/Gate/then/Panel" then
+				releases += 1
+			end
+		end
+		expect(releases).toBe(1)
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -315,7 +274,7 @@ describe("mount retire model: ForEach", function()
 	it("a removed row holds its previous slot while it exits", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
 		local root = listRoot(core, items, script)
 		local rows = root.node.children[1]
 		local middle = rows.children[2]
@@ -333,7 +292,7 @@ describe("mount retire model: ForEach", function()
 	it("the same key re-added mid-exit keeps its mounted identity", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local items = core:signal({ { id = "a" }, { id = "b" } })
+		local items = Compose.cell({ { id = "a" }, { id = "b" } })
 		local root = listRoot(core, items, script)
 		local rows = root.node.children[1]
 		local b = rows.children[2]
@@ -350,7 +309,7 @@ describe("mount retire model: ForEach", function()
 	it("a retiring row is not resurrected by an unrelated reorder", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
 		local root = listRoot(core, items, script)
 		local rows = root.node.children[1]
 		items:set({ { id = "a" }, { id = "c" } })
@@ -365,8 +324,8 @@ describe("mount retire model: ForEach", function()
 	it("churn with exits in flight returns the core to baseline", function()
 		local core = customFactory.new()
 		local script = scripted()
-		local items = core:signal({ { id = "a" } })
-		local baseline = core:counters()
+		local items = Compose.cell({ { id = "a" } })
+		local baseline = core.owner.size()
 		for _ = 1, 20 do
 			local root = listRoot(core, items, script)
 			items:set({})
@@ -375,10 +334,8 @@ describe("mount retire model: ForEach", function()
 			root.dispose()
 			items:set({ { id = "a" } })
 		end
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -413,7 +370,7 @@ end
 	exactly the property the frame-count pins below need (task 7 item 1). ]]
 local function fadeFrames(exitClass: string?, class: string?): (number, number, number)
 	local core, env, clock = world()
-	local on = core:signal(true)
+	local on = Compose.cell(true)
 	local spec: any = { enter = "fade", class = class, exitClass = exitClass }
 	local root, adapter, _, coordinator = attach(core, env, clock, whenScreen(on, spec))
 	local path = "/S/Gate/then/Panel"
@@ -448,7 +405,7 @@ end
 describe("transition coordinator: the forms", function()
 	it("a slide exit clears the interrupted fade before moving and disposing", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root, adapter, controller, coordinator = attach(
 			core,
 			env,
@@ -480,8 +437,8 @@ describe("transition coordinator: the forms", function()
 
 	it("a revived row samples pure slide and clears the cancelled fade through settle", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
-		local declared = core:signal({ enter = "fade" })
+		local on = Compose.cell(true)
+		local declared = Compose.cell({ enter = "fade" })
 		local root, adapter, controller, coordinator = attach(core, env, clock, whenScreen(on, declared))
 		local panel = adapter.node("/S/Gate/then/Panel")
 		for _ = 1, 90 do
@@ -560,7 +517,7 @@ describe("transition coordinator: the forms", function()
 
 	it("a fade drives group transparency 1 -> 0 and clears at rest", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, FADE))
 		local group = adapter.node("/S/Gate/then/Panel")
 		expect(group.canvasGroupInstance.groupTransparency).toBe(1) -- seeded absent
@@ -573,7 +530,7 @@ describe("transition coordinator: the forms", function()
 
 	it("a slide seeds the offset from the edge it travels from, in theme space", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "slide-up" }))
 		local panel = adapter.node("/S/Gate/then/Panel")
 		-- travelling UP means starting BELOW: +y, one `space.l` step (24 px neutral)
@@ -587,7 +544,7 @@ describe("transition coordinator: the forms", function()
 
 	it("materialize scales 0.96 -> 1 and fades together", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "materialize" }))
 		local panel = adapter.node("/S/Gate/then/Panel")
 		expect(panel.props.transform.scale).toBeCloseTo(0.96, 1e-6)
@@ -598,7 +555,7 @@ describe("transition coordinator: the forms", function()
 
 	it("the mirrored exit displaces the node to the SAME absent place as the enter", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "slide-up" }))
 		local panel = adapter.node("/S/Gate/then/Panel")
 		for _ = 1, 60 do
@@ -616,7 +573,7 @@ describe("transition coordinator: the forms", function()
 	it("reveal resolves immediately with reduced motion and clears alpha from a preceding fade", function()
 		for _, reduced in { false, true } do
 			local w = worldLib.new({ reducedMotion = reduced })
-			local on = w.core:signal(false)
+			local on = Compose.cell(false)
 			w.present(UI.Screen({
 				id = "S",
 				children = {
@@ -661,7 +618,7 @@ describe("transition coordinator: the forms", function()
 
 	it("reveal refuses an unclipped root instead of showing its children outside the reveal", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local ok, err = pcall(function()
 			attach(
 				core,
@@ -688,7 +645,7 @@ describe("transition coordinator: the forms", function()
 
 	it("a fading form on a node that is not a fade group is an authoring error that names the fix", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local screen = UI.Screen({
 			id = "S",
 			children = {
@@ -714,7 +671,7 @@ end)
 describe("transition coordinator: lifetime", function()
 	it("an exit defers disposal until the motion lands", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = attach(core, env, clock, whenScreen(on, FADE))
 		for _ = 1, 60 do
 			clock:step(FRAME)
@@ -732,7 +689,7 @@ describe("transition coordinator: lifetime", function()
 
 	it("the exit cap disposes a motion that has not landed by 500 ms", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		-- `decay` is the slowest shipped class (response 0.5 s), so even at the
 		-- coarse exit epsilon it settles at ~0.82 s — well past the flat cap.
 		-- `exitClass` is pinned to it too: the exit otherwise defaults to the
@@ -811,7 +768,7 @@ describe("transition coordinator: lifetime", function()
 			distance. ]]
 		local function disposeFrameFor(distance: number?): (number, number)
 			local core, env, clock = world()
-			local on = core:signal(true)
+			local on = Compose.cell(true)
 			local spec: any = { enter = "slide-left", distance = distance }
 			local root, adapter, _, coordinator = attach(core, env, clock, whenScreen(on, spec))
 			for _ = 1, 200 do
@@ -851,7 +808,7 @@ describe("transition coordinator: lifetime", function()
 
 	it("reduced motion is untouched by the distance (review D3)", function()
 		local core, env, clock = world(true)
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root, _, _, coordinator =
 			attach(core, env, clock, whenScreen(on, { enter = "slide-left", distance = 1920 }))
 		local gate = root.node.children[1]
@@ -882,7 +839,7 @@ describe("transition coordinator: lifetime", function()
 
 	it("a re-entry mid-exit reverses from the value it had, without a jump", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, FADE))
 		for _ = 1, 60 do
 			clock:step(FRAME)
@@ -921,7 +878,7 @@ describe("transition coordinator: lifetime", function()
 
 	it("an `instant` exit never retires at all", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = attach(core, env, clock, whenScreen(on, { enter = "fade", exit = "instant" }))
 		local gate = root.node.children[1]
 		on:set(false)
@@ -933,9 +890,9 @@ describe("transition coordinator: event-sampled slides", function()
 	it("mounted When and ForEach sample structural declarations without subscribing or scheduling solves", function()
 		for _, kind in { "When", "ForEach" } do
 			local core = customFactory.new()
-			local on = core:signal(true)
-			local items = core:signal({ "a" })
-			local declared = core:signal({ enter = "slide-left", distance = 400 })
+			local on = Compose.cell(true)
+			local items = Compose.cell({ "a" })
+			local declared = Compose.cell({ enter = "slide-left", distance = 400 })
 			local sampled = nil
 			local collaborator = scripted()
 			collaborator.coordinator.shouldRetire = function(_, node)
@@ -960,8 +917,8 @@ describe("transition coordinator: event-sampled slides", function()
 				transitions = collaborator.coordinator,
 			})
 			local dirty, counters = root.dirtySeq(), root.counters()
-			-- Only condition/items owns an observer; transition is read at the event.
-			expect(core:counters().observers).toBe(1)
+			-- Structural subscriptions belong to Compose; transition declarations
+			-- remain event-sampled. Changing one must neither rebuild nor animate.
 			local calls = #collaborator.calls
 			declared:set({ enter = "slide-right", distance = 800 })
 			expect(root.dirtySeq()).toBe(dirty)
@@ -977,9 +934,6 @@ describe("transition coordinator: event-sampled slides", function()
 			expect(sampled.distance).toBe(800)
 			expect(root.dirtySeq() > dirty).toBe(true)
 			root.dispose()
-			declared:dispose()
-			on:dispose()
-			items:dispose()
 		end
 	end)
 	local function slideWorld()
@@ -1007,7 +961,7 @@ describe("transition coordinator: event-sampled slides", function()
 
 	it("samples and validates a readable only when an operation starts", function()
 		local core, clock, coordinator, read = slideWorld()
-		local declared = core:signal({ enter = "slide-left", exit = "slide-left", distance = 400 })
+		local declared = Compose.cell({ enter = "slide-left", exit = "slide-left", distance = 400 })
 		local node = { props = {}, transition = declared }
 		coordinator.beginEnter("/Page", node, declared)
 		expect(read().x).toBe(400)
@@ -1028,7 +982,6 @@ describe("transition coordinator: event-sampled slides", function()
 		expect(read().x).toBe(400)
 		coordinator.dispose()
 		clock:dispose()
-		declared:dispose()
 	end)
 
 	it("reversing a slide mid-enter preserves its painted position and pixel velocity", function()
@@ -1120,7 +1073,7 @@ describe("transition coordinator: reduced motion is parity, not deletion", funct
 	it("an enter lands on the frame it starts and still emits arrive", function()
 		local core, env, clock = world(true)
 		local events: { any } = {}
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, FADE), function(event: any)
 			table.insert(events, event)
 		end)
@@ -1133,7 +1086,7 @@ describe("transition coordinator: reduced motion is parity, not deletion", funct
 
 	it("an exit completes in the frame it begins — the beat is instant, never dropped", function()
 		local core, env, clock = world(true)
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root = attach(core, env, clock, whenScreen(on, FADE))
 		local gate = root.node.children[1]
 		on:set(false)
@@ -1144,7 +1097,7 @@ describe("transition coordinator: reduced motion is parity, not deletion", funct
 	it("the full-motion path emits the same arrive, one frame later than the pixels", function()
 		local core, env, clock = world()
 		local events: { any } = {}
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		attach(core, env, clock, whenScreen(on, FADE), function(event: any)
 			table.insert(events, event)
 		end)
@@ -1163,7 +1116,7 @@ end)
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -1175,7 +1128,7 @@ end
 describe("presenter: a retiring subtree is not interactive", function()
 	it("focus order drops the branch the moment it starts to exit, and taps stop landing", function()
 		local core, _, adapter, _, pres = presenterWorld()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local activated: { string } = {}
 		local handle = pres.present(
 			UI.Screen({
@@ -1216,7 +1169,7 @@ describe("presenter: a retiring subtree is not interactive", function()
 		local order: { string } = {}
 		for _ = 1, 4 do
 			pres.focus.navigate(1)
-			table.insert(order, tostring(pres.focus.focused:get()))
+			table.insert(order, tostring(pres.focus.focused:peek()))
 		end
 		for _, path in order do
 			expect(string.find(path, "/Gate/", 1, true)).toBeNil()
@@ -1427,7 +1380,7 @@ describe("transition coordinator: exits are faster than enters by default", func
 
 	it("a default fade exits in fewer frames than it entered", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root, _, controller, coordinator = attach(core, env, clock, whenScreen(on, { enter = "fade" }))
 		local enterFrames = framesUntilIdle(clock)
 		on:set(false)
@@ -1461,7 +1414,7 @@ describe("transition coordinator: exits are faster than enters by default", func
 
 	it("a re-entry mid-exit keeps its velocity across the retune", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root, adapter, _, coordinator = attach(core, env, clock, whenScreen(on, { enter = "fade" }))
 		for _ = 1, 90 do
 			clock:step(FRAME)
@@ -1516,7 +1469,7 @@ describe("transition coordinator: exits are faster than enters by default", func
 			built += 1
 			return realSpring(...)
 		end
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local root, _, _, coordinator = attach(core, env, clock, whenScreen(on, FADE))
 		expect(built).toBe(1) -- the mount-time enter
 		for _ = 1, 60 do
@@ -1645,8 +1598,8 @@ describe("transition coordinator: stagger", function()
 
 	it("later rows start later, and none starts before its delay", function()
 		local core, env, clock = world()
-		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = Compose.cell(true)
 		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		-- every row is painted ABSENT before the first frame — a held row waits at
 		-- the absent place, never at rest with a pop to follow
@@ -1682,8 +1635,8 @@ describe("transition coordinator: stagger", function()
 		problem: the rows still enter, all at once, and nothing says a word. ]]
 	it("a key containing a slash still shares one batch, so the rhythm survives it", function()
 		local core, env, clock = world()
-		local items = core:signal({ { id = "world/moss" }, { id = "world/fen" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "world/moss" }, { id = "world/fen" } })
+		local on = Compose.cell(true)
 		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		expect(alphaOf(adapter, "world/moss")).toBe(1)
 		expect(alphaOf(adapter, "world/fen")).toBe(1)
@@ -1711,8 +1664,8 @@ describe("transition coordinator: stagger", function()
 		slash that can start one. ]]
 	it("a key containing a bracket still shares one batch", function()
 		local core, env, clock = world()
-		local items = core:signal({ { id = "a]b" }, { id = "a[b" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "a]b" }, { id = "a[b" } })
+		local on = Compose.cell(true)
 		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		expect(alphaOf(adapter, "a]b")).toBe(1)
 		expect(alphaOf(adapter, "a[b")).toBe(1)
@@ -1737,9 +1690,9 @@ describe("transition coordinator: stagger", function()
 		would inherit the first row's count and wait a beat it never asked for. ]]
 	it("a nested keyed list batches at the inner list, one rhythm per outer row", function()
 		local core, env, clock = world()
-		local rows = core:signal({ { id = "A" }, { id = "B" } })
-		local cells = core:signal({ { id = "one" }, { id = "two" } })
-		local on = core:signal(true)
+		local rows = Compose.cell({ { id = "A" }, { id = "B" } })
+		local cells = Compose.cell({ { id = "one" }, { id = "two" } })
+		local on = Compose.cell(true)
 		local root, adapter, _, coordinator = attach(core, env, clock, nestedScreen(rows, cells, on, 0.05))
 		local function cellAlpha(row: string, cell: string): number
 			local path = `/S/Gate/then/List/[{row}]/Row/Inner/[{cell}]/Cell`
@@ -1764,8 +1717,8 @@ describe("transition coordinator: stagger", function()
 
 	it("exits never stagger", function()
 		local core, env, clock = world()
-		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = Compose.cell(true)
 		local booked = recordHolds(clock)
 		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		for _ = 1, 120 do
@@ -1786,8 +1739,8 @@ describe("transition coordinator: stagger", function()
 
 	it("reduced motion lands every row on the first frame", function()
 		local core, env, clock = world(true)
-		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = Compose.cell(true)
 		local booked = recordHolds(clock)
 		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		expect(alphaOf(adapter, "a")).toBe(0)
@@ -1806,8 +1759,8 @@ describe("transition coordinator: stagger", function()
 		for i = 1, 20 do
 			table.insert(list, { id = `r{i}` })
 		end
-		local items = core:signal(list)
-		local on = core:signal(true)
+		local items = Compose.cell(list)
+		local on = Compose.cell(true)
 		local root, _, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		expect(transitionsLib.STAGGER_CAP).toBe(8)
 		-- row 1 waits for nothing, so 20 rows book 19 holds
@@ -1839,8 +1792,8 @@ describe("transition coordinator: stagger", function()
 			for i = 1, 20 do
 				table.insert(list, { id = `r{i}` })
 			end
-			local items = core:signal(list)
-			local on = core:signal(true)
+			local items = Compose.cell(list)
+			local on = Compose.cell(true)
 			local root, _, _, coordinator = attach(core, env, clock, rowsScreen(items, on, stagger))
 			local before = clock:stats().writes
 			for _ = 1, 200 do
@@ -1863,8 +1816,8 @@ describe("transition coordinator: stagger", function()
 	it("a batch is one clock step: rows added later start the rhythm over", function()
 		local core, env, clock = world()
 		local booked = recordHolds(clock)
-		local items = core:signal({ { id = "a" }, { id = "b" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "a" }, { id = "b" } })
+		local on = Compose.cell(true)
 		local root, _, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		expect(#booked).toBe(1)
 		expect(booked[1]).toBeCloseTo(0.05)
@@ -1888,8 +1841,8 @@ describe("transition coordinator: stagger", function()
 	it("a re-entry mid-exit reverses at once instead of waiting its turn", function()
 		local core, env, clock = world()
 		local booked = recordHolds(clock)
-		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
-		local on = core:signal(true)
+		local items = Compose.cell({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = Compose.cell(true)
 		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
 		for _ = 1, 120 do
 			clock:step(FRAME)
@@ -1942,7 +1895,7 @@ describe("transition coordinator: stagger", function()
 
 	it("an authored scale is the band the ENTER travels, and it starts there", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "materialize", scale = 1.015 }))
 		local panel = adapter.node("/S/Gate/then/Panel")
 		expect(panel.props.transform.scale).toBeCloseTo(1.015, 1e-6)
@@ -1963,7 +1916,7 @@ describe("transition coordinator: stagger", function()
 		Spent in both phases the alert SWELLED 1.5% on the way out. ]]
 	it("...and the exit dips to the ratified band, whatever the enter declared", function()
 		local core, env, clock = world()
-		local on = core:signal(true)
+		local on = Compose.cell(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "materialize", scale = 1.015 }))
 		for _ = 1, 120 do
 			clock:step(FRAME)

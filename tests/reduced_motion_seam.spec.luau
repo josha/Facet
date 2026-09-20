@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- REDUCED MOTION REACHES THE TARGET (C1, adversarial review 2026-08-12).
 --
 -- WHY THIS FILE EXISTS. `screen_target.new` declared `opts.isReducedMotion` and
@@ -32,18 +33,18 @@ local Facet = require("../src") :: any
 local target_contract = require("../src/render/target_contract")
 local fake_target = require("./lib/fake_target")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- ONE BUTTON, PRESENTED THE WAY A CONSUMER PRESENTS ONE — with no motion opts of
 -- any kind. That absence is the point: the fix is framework-side, so the fact has
 -- to arrive without this world asking for it.
 local function world(): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	local pressed = 0
 	local handle = presenter.present(UI.Screen({
 		id = "S",
@@ -80,7 +81,7 @@ describe("reduced motion: the fact reaches the target with NO consumer wiring", 
 		expect(#ops).toBe(1)
 		expect(ops[1].kind).toBe("tween")
 		expect(w.presses()).toBe(1)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	-- THE CASE THE DEFECT COULD NOT PASS. Nothing here passes an
@@ -97,7 +98,7 @@ describe("reduced motion: the fact reaches the target with NO consumer wiring", 
 		-- the control still WORKS: reduced motion removes the animation, never
 		-- the action (the accessibility failure mode nobody notices in review)
 		expect(w.presses()).toBe(1)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	-- LIVE, not construction-time. A closure captured at `new` could never do
@@ -111,25 +112,25 @@ describe("reduced motion: the fact reaches the target with NO consumer wiring", 
 		w.env:set("reducedMotion", false)
 		w.adapter.tap("/S/Go")
 		expect(w.adapter.takeMotionOps()[1].kind).toBe("tween")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	-- the fact is pushed at ATTACH, before anything is presented or pressed: a
 	-- player who set the preference before the game booted must not see one
 	-- full-motion frame
 	it("a surface attached while the preference is already ON is born reduced", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
 		env:set("reducedMotion", true)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		expect(adapter.reducedMotion()).toBe(false) -- nothing has told it yet
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		presenter.present(UI.Screen({ id = "S", children = { UI.Text({ id = "T", text = "hi" }) } }))
 		presenter.refresh()
 		expect(adapter.reducedMotion()).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	-- BOTH halves ride one observation (renderer.luau). The sheet half was
@@ -145,17 +146,17 @@ describe("reduced motion: the fact reaches the target with NO consumer wiring", 
 
 	-- the declared degrade: an adapter without the method is not a crash
 	it("a target WITHOUT setReducedMotion degrades by name", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new();
 		(adapter :: any).setReducedMotion = nil
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		presenter.present(UI.Screen({ id = "S", children = { UI.Text({ id = "T", text = "hi" }) } }))
 		presenter.refresh()
 		env:set("reducedMotion", true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		-- and the seam is DECLARED, so the absence is a reported degrade
 		local absent = target_contract.check(adapter).optionalAbsent
 		expect(table.concat(absent, ",")).toBe("setReducedMotion")

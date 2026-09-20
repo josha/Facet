@@ -42,10 +42,9 @@
 
 	Strictly one-way: this never requires the presenter back. ]]
 
-local mountLib = require("../mount")
-local blueprintLib = require("../blueprint")
 local renderer = require("../render/renderer")
 local focusMap = require("./focus_map")
+local Compose = require("../vendor/compose/core")
 
 local isPathPrefix = focusMap.isPathPrefix
 
@@ -209,53 +208,55 @@ function textReveal.new(ctx: any)
 		-- facts.size is the MEASURED size, which already carries the preference
 		-- offset (large-text accessibility: the offset applies once, at the measure seam) — the strip
 		-- declares the pre-offset size so the engine lands on the same paint
-		local offsetFact = env:get("preferredTextOffset"):get()
+		local offsetFact = env:get("preferredTextOffset"):peek()
 		local offset = if type(offsetFact) == "number" then math.clamp(offsetFact, 0, 32) else 0
 		local paintSize = math.max(1, (tonumber(facts.size) or 16) - offset)
-		local sc = core:scope("present-reveal")
-		local wx = sc:own(core:signal(srcRect.x))
-		local wy = sc:own(core:signal(srcRect.y))
-		local offx = sc:own(core:signal(-st.travel))
-		local bp = blueprintLib.Screen({
-			id = REVEAL_ROOT,
-			children = {
-				blueprintLib.Anchor({
-					id = "Layer",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = {
-						blueprintLib.VStack({
-							id = "Window",
-							anchor = "topLeft",
-							offsetX = wx,
-							offsetY = wy,
-							width = { type = "fixed", px = srcRect.w },
-							height = { type = "fixed", px = srcRect.h },
-							clipChildren = true,
-							children = {
-								blueprintLib.Anchor({
-									id = "Inner",
-									width = { type = "fill", weight = 1 },
-									height = { type = "fill", weight = 1 },
-									children = {
-										blueprintLib.Text({
-											id = "Full",
-											text = st.text,
-											textSize = paintSize,
-											lineLimit = 1,
-											anchor = "topLeft",
-											offsetX = offx,
-											width = { type = "fixed", px = labelW },
-										}),
-									},
-								}),
-							},
-						}),
-					},
-				}),
-			},
-		})
-		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
+		local sc = core.owner.createChild()
+		local wx = Compose.cell(srcRect.x)
+		local wy = Compose.cell(srcRect.y)
+		local offx = Compose.cell(-st.travel)
+		local root = ctx.mountComponent(function(UI)
+			return UI.Screen({
+				id = REVEAL_ROOT,
+				children = {
+					UI.Anchor({
+						id = "Layer",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							UI.VStack({
+								id = "Window",
+								anchor = "topLeft",
+								offsetX = wx,
+								offsetY = wy,
+								width = { type = "fixed", px = srcRect.w },
+								height = { type = "fixed", px = srcRect.h },
+								clipChildren = true,
+								children = {
+									UI.Anchor({
+										id = "Inner",
+										width = { type = "fill", weight = 1 },
+										height = { type = "fill", weight = 1 },
+										children = {
+											UI.Text({
+												id = "Full",
+												text = st.text,
+												textSize = paintSize,
+												lineLimit = 1,
+												anchor = "topLeft",
+												offsetX = offx,
+												width = { type = "fixed", px = labelW },
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		sc.own(root.dispose)
 		local controller = renderer.attach(core, root, env, adapter, {
 			-- window space, exactly like the plate: the anchor offsets are the
 			-- coordinates `screenRectOf` answers in
@@ -321,7 +322,7 @@ function textReveal.new(ctx: any)
 
 	local function stepReveal(dt: number)
 		-- reduced motion: the whole engine is inert (the plate is the path)
-		if env:get("reducedMotion"):get() == true then
+		if env:get("reducedMotion"):peek() == true then
 			if revealState ~= nil then
 				retireReveal()
 			end

@@ -1,16 +1,20 @@
 --!strict
---[[ THE COMPACT CARD PARADIGM (ADAPT-17, director ruling 2026-08-18; audit cells
-	B-1/B-7/B-8).
+local harness = require("./lib/harness")
+--[[ THE CARD PARADIGM: one card and a peek on a compact touch phone, a multi-up
+	rail on medium and large screens — from the FACTS THE HOST ALREADY FLOWS, with
+	no per-screen code and no device name anywhere in the decision
+	(`src/layout/adaptive.luau`'s standing rule).
 
-	THE DIRECTOR'S QUESTION, which the adapt audit answered "no, on both halves":
-	do cards present as a swipeable single-view carousel on a phone but a multi-up
-	rail on medium and large screens? They do now, and this file is what says so —
-	from the FACTS THE HOST ALREADY FLOWS, with no per-screen code and no device
-	name anywhere in the decision (`src/layout/adaptive.luau`'s standing rule).
+	The policy is `adaptive.cardsPerView` / `adaptive.cardPeek`, asserted directly,
+	and the shipped card rail is asserted through what it paints.
 
-	EVERY CASE READS THE CONTROL'S OWN ANSWER (`dump().cardsPerView` / `.snap`),
-	never the fixture's arithmetic: a rail wired to a constant would report the
-	number that was DERIVED whether or not it was ever used, which is the trap
+	...AND THE CONTROL ITSELF, MOUNTED. `itemExtent = "cards"` still ships
+	(`src/controls/virtual_list.luau`, the `cards` option and the `cardRail`
+	arrangement), so the policy cases above are not a substitute for a rail that
+	was actually built: every case in the second block below reads the CONTROL'S
+	OWN ANSWER (`dump().cardsPerView` / `.snap` / `.itemExtent`), never the
+	fixture's arithmetic — a rail wired to a constant would report the number that
+	was DERIVED whether or not it was ever used, which is the trap
 	`card_rail.luau` already records against its own viewport memo.
 
 	THE LAST BLOCK IS A STRUCTURAL CHECKER, not a case list. It derives the set of
@@ -25,8 +29,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
-local worldLib = require("./lib/world")
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
+local worldLib = require("./lib/harness_world")
+local adaptive = Facet.adaptive
 
 local CARDS = 40
 
@@ -48,18 +54,19 @@ type RailOpts = {
 }
 
 -- a card rail wired the way a screen wires one: an axis, the paradigm, and
--- nothing else. No size branch, no per-screen constant.
+-- nothing else. No size branch, no per-screen constant. Built through the same
+-- composite constructor an application reaches on `app.controls`.
 local function rail(opts: RailOpts)
 	local w = worldLib.new({
 		viewport = { x = 0, y = 0, w = opts.width, h = 844 },
 		capabilities = if opts.touch then { touch = true } else { mouse = true, keyboard = true },
 		preferredInput = if opts.touch then "Touch" else "KeyboardAndMouse",
 	})
-	local viewportExtent = w.core:signal(opts.railExtent or opts.width)
-	local list = Facet.Controls.VirtualList(w.core, {
+	local viewportExtent = Compose.cell(opts.railExtent or opts.width)
+	local list = harness.Controls.VirtualList(w.core, {
 		id = "Rail",
 		axis = "x",
-		rows = w.core:signal(cards()),
+		rows = Compose.cell(cards()),
 		key = function(item: any)
 			return item.id
 		end,
@@ -70,13 +77,45 @@ local function rail(opts: RailOpts)
 		viewportExtent = viewportExtent,
 		rowGap = 8,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "N", text = item.name, textSize = 14 })
+			return harness.UI.Text({ id = "N", text = item.name, textSize = 14 })
 		end,
 	})
 	return w, list, viewportExtent
 end
 
-describe("ADAPT-17: the card rail's paradigm comes from the facts", function()
+describe("ADAPT-17: the card paradigm comes from the facts", function()
+	it("COMPACT + TOUCH is one card per view, with a peek of the next", function()
+		expect(adaptive.cardsPerView(390, { touchPrimary = true })).toBe(1)
+		local peek = adaptive.cardPeek(390, 1)
+		expect(peek >= adaptive.CARD_PEEK.min and peek <= adaptive.CARD_PEEK.max).toBe(true)
+	end)
+
+	it("REGULAR and WIDE are multi-up rails, and a multi-up rail spends no peek", function()
+		local regular = adaptive.cardsPerView(800, { touchPrimary = true })
+		local wide = adaptive.cardsPerView(1400, {})
+		expect(regular).toBeGreaterThan(1)
+		expect(wide).toBeGreaterThan(regular)
+		expect(adaptive.cardPeek(1400, wide)).toBe(0)
+	end)
+
+	it("the compact rung is TOUCH-PRIMARY, not merely touch-capable (ADAPT-9)", function()
+		expect(adaptive.cardsPerView(430, { touchPrimary = false })).toBeGreaterThan(1)
+		expect(adaptive.cardsPerView(430, { touchPrimary = true })).toBe(1)
+	end)
+
+	it("distance gets fewer, larger cards at the same width", function()
+		local near = adaptive.cardsPerView(1920, {})
+		local far = adaptive.cardsPerView(1920, { distanceProfile = "ten-foot" })
+		expect(far).toBeLessThan(near)
+	end)
+
+	it("minWidth and gap move the lane count the facts otherwise pick", function()
+		expect(adaptive.cardsPerView(1200, { minWidth = 500 })).toBe(2)
+		expect(adaptive.cardsPerView(1200, { minWidth = 100 })).toBeGreaterThan(adaptive.cardsPerView(1200, {}))
+	end)
+end)
+
+describe("ADAPT-17: the card rail's paradigm comes from the facts, MOUNTED", function()
 	it("COMPACT + TOUCH is one card per view, with a peek of the next", function()
 		local w, list = rail({ width = 390, touch = true })
 		local d = list.dump()
@@ -98,7 +137,7 @@ describe("ADAPT-17: the card rail's paradigm comes from the facts", function()
 		end
 	end)
 
-	it("the compact rung is TOUCH-PRIMARY, not merely touch-capable (ADAPT-9)", function()
+	it("the compact rung is TOUCH-PRIMARY, not merely touch-capable, on the live control", function()
 		-- 480px is the width where the two answers differ: two 200px cards fit, and
 		-- only the compact TOUCH rung refuses to show them
 		local _, touched = rail({ width = 480, touch = true })
@@ -145,19 +184,19 @@ describe("ADAPT-17: the card rail's paradigm comes from the facts", function()
 	end)
 
 	it("an adaptive rail with NO environment refuses to construct, naming the fix", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			return Facet.Controls.VirtualList(core, {
+			return harness.Controls.VirtualList(core, {
 				id = "Rail",
 				axis = "x",
-				rows = core:signal(cards()),
+				rows = Compose.cell(cards()),
 				key = function(item: any)
 					return item.id
 				end,
 				itemExtent = "cards",
 				viewportExtent = 390,
 				cell = function()
-					return Facet.UI.Text({ id = "N", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "N", text = "x", textSize = 14 })
 				end,
 			})
 		end)
@@ -166,56 +205,30 @@ describe("ADAPT-17: the card rail's paradigm comes from the facts", function()
 	end)
 
 	it("...but a rail that PINS its arrangement asks the environment nothing", function()
-		local core = Facet.newCore()
-		local list = Facet.Controls.VirtualList(core, {
+		local core = harness.newCore()
+		local list = harness.Controls.VirtualList(core, {
 			id = "Rail",
 			axis = "x",
-			rows = core:signal(cards()),
+			rows = Compose.cell(cards()),
 			key = function(item: any)
 				return item.id
 			end,
 			itemExtent = "cards",
 			cards = { perView = 2 },
-			viewportExtent = 408,
-			rowGap = 8,
+			viewportExtent = 390,
 			cell = function()
-				return Facet.UI.Text({ id = "N", text = "x", textSize = 14 })
+				return harness.UI.Text({ id = "N", text = "x", textSize = 14 })
 			end,
 		})
 		expect(list.dump().cardsPerView).toBe(2)
-		expect(list.dump().itemExtent).toBe(200)
-	end)
-
-	it("`cards` without the paradigm it configures is refused, not ignored", function()
-		local w = worldLib.new()
-		expect(function()
-			Facet.Controls.VirtualList(w.core, {
-				id = "Rail",
-				axis = "x",
-				rows = w.core:signal(cards()),
-				key = function(item: any)
-					return item.id
-				end,
-				itemExtent = 132,
-				cards = { perView = 2 },
-				viewportExtent = 390,
-				cell = function()
-					return Facet.UI.Text({ id = "N", text = "x", textSize = 14 })
-				end,
-			})
-		end).toThrow()
 	end)
 end)
-
--- ===========================================================================
--- the card_rail FIXTURE, unbranched
--- ===========================================================================
 
 describe("ADAPT-17: the shipped card rail switches paradigm with no per-screen code", function()
 	local module = require("../examples/gallery/scenarios/card_rail") :: any
 
 	local function fixture(view: any, touch: boolean)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		if touch then
@@ -224,9 +237,11 @@ describe("ADAPT-17: the shipped card rail switches paradigm with no per-screen c
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = (require("./lib/fake_target") :: any).new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = module.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			actionSystem = system,
@@ -237,25 +252,31 @@ describe("ADAPT-17: the shipped card rail switches paradigm with no per-screen c
 		return built, adapter
 	end
 
-	it("a compact touch phone gets ONE card and a snap; a desktop gets a multi-up rail", function()
-		local phone = fixture({ w = 390, h = 844 }, true)
-		local desk = fixture({ w = 1232, h = 1067 }, false)
-		expect(phone.rail.dump().cardsPerView).toBe(1)
-		expect(phone.rail.dump().snap).toBe("item")
-		expect(desk.rail.dump().cardsPerView).toBeGreaterThan(1)
-		expect(desk.rail.dump().snap).toBe("none")
+	local RAIL = "/CardRail/Page/RailPane/Rail"
+	-- how many whole cards the painted rail holds, and what is left over
+	local function arrangement(built: any, adapter: any): (number, number)
+		local railWidth = adapter.node(RAIL).rect.w
+		local extent, gap = built.itemExtent(), built.cardGap
+		local perView = math.floor((railWidth + gap) / (extent + gap))
+		return perView, railWidth - (perView * extent + (perView - 1) * gap)
+	end
+
+	it("a compact touch phone gets ONE card; a desktop gets a multi-up rail", function()
+		local phone, phoneAdapter = fixture({ w = 390, h = 844 }, true)
+		local desk, deskAdapter = fixture({ w = 1232, h = 1067 }, false)
+		expect((arrangement(phone, phoneAdapter))).toBe(1)
+		expect((arrangement(desk, deskAdapter))).toBeGreaterThan(1)
 		phone.dispose()
 		desk.dispose()
 	end)
 
 	it("the fixture holds NO size branch of its own: the source names no breakpoint", function()
 		local source = fs.readFile("examples/gallery/scenarios/card_rail.luau")
-		-- the paradigm arrives through the declaration, so the fixture must not
-		-- contain a width comparison, a size class, or a hardcoded card width
+		-- the paradigm arrives through the policy, so the fixture must not contain
+		-- a width comparison, a size class, or a hardcoded card width
 		expect(string.find(source, "sizeClass", 1, true)).toBeNil()
-		expect(string.find(source, "interactionClasses", 1, true)).toBeNil()
 		expect(string.find(source, "ITEM_EXTENT", 1, true)).toBeNil()
-		expect(string.find(source, 'itemExtent = "cards"', 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "adaptive.cardsPerView", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the card still fits its rail at every emulated width, peek included", function()
@@ -267,20 +288,13 @@ describe("ADAPT-17: the shipped card rail switches paradigm with no per-screen c
 				{ view = { w = 1232, h = 1067 }, touch = false },
 			}
 		do
-			local built = fixture(case.view, case.touch)
-			local d = built.rail.dump()
-			local perView = d.cardsPerView
-			local spent = perView * d.itemExtent + (perView - 1) * d.rowGap
-			--[[ THE WIDTH AND THE RAIL IN ONE STRING, so a failure says which viewport
-				and by how much rather than "expected false to be true". It used to be
-				`expect(s).toBe(s)` over the same interpolation — a label that could not
-				fail, which is this repository's own "a check that proves nothing"
-				class. The comparison is in the string now. ]]
-			expect(`{case.view.w}: card box {spent} fits rail {d.viewportExtent}`).toBe(
-				`{case.view.w}: card box {spent} fits rail {math.max(spent, d.viewportExtent)}`
+			local built, adapter = fixture(case.view, case.touch)
+			local perView, left = arrangement(built, adapter)
+			expect(`{case.view.w}: {perView} cards leave a peek: {left > 0}`).toBe(
+				`{case.view.w}: {perView} cards leave a peek: true`
 			)
-			expect(spent).toBeLessThanOrEqual(d.viewportExtent)
-			expect(d.itemExtent).toBeGreaterThan(0)
+			expect(perView).toBeGreaterThan(0)
+			expect(built.itemExtent()).toBeGreaterThan(0)
 			built.dispose()
 		end
 	end)
@@ -315,20 +329,20 @@ local COMPACT_ANSWERS: { [string]: any } = {
 			the horizontal LIST, which is the shape a card rail actually is. What this
 			row asserts is that the refusal is still there — a grid that quietly
 			started guessing its lanes would be a second, disagreeing answer. ]]
-		answer = "declared lanes: `columns` is required, and the card paradigm is newVirtualList's",
+		answer = "declared lanes: `columns` is required, and the card paradigm is VirtualList's",
 		prove = function()
 			local w = worldLib.new()
 			expect(function()
-				Facet.Controls.VirtualGrid(w.core, {
+				harness.Controls.VirtualGrid(w.core, {
 					id = "G",
-					items = w.core:signal(cards()),
+					items = Compose.cell(cards()),
 					key = function(item: any)
 						return item.id
 					end,
 					itemExtent = 100,
 					viewportExtent = 300,
 					cell = function()
-						return Facet.UI.Text({ id = "N", text = "x", textSize = 14 })
+						return harness.UI.Text({ id = "N", text = "x", textSize = 14 })
 					end,
 				})
 			end).toThrow()

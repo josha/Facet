@@ -1,16 +1,18 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 local trigger = "/S/View"
 local body = "/Expanded-2F532F56696577/Layer/Surface/Panel/Content/Body"
 local function mount(options, dismissButton)
 	local w = world.new(options or { viewport = { x = 0, y = 0, w = 600, h = 400 }, reducedMotion = true })
-	local expanded = w.core:signal(false)
-	local label = w.core:signal("Select course")
-	local chosen = w.core:signal(false)
-	local c = Facet.Controls.CollapsibleView(w.core, {
+	local expanded = Compose.cell(false)
+	local label = Compose.cell("Select course")
+	local chosen = Compose.cell(false)
+	local c = harness.Controls.CollapsibleView(w.core, {
 		id = "View",
 		dismissButton = dismissButton,
 		label = label,
@@ -27,7 +29,7 @@ local function mount(options, dismissButton)
 						expanded:set(false)
 					end,
 				}),
-				UI.Toggle({ id = "Toggle", label = "Club member", value = w.core:signal(false) }),
+				UI.Toggle({ id = "Toggle", label = "Club member", value = Compose.cell(false) }),
 			},
 		}),
 	})
@@ -43,7 +45,7 @@ end
 local function opened(w, c)
 	w.settle(5)
 	t.expect(c.dump().presented).toBe(true)
-	t.expect(w.pres.focus.focused:get():find("/Expanded-", 1, true) ~= nil).toBe(true)
+	t.expect(w.pres.focus.focused:peek():find("/Expanded-", 1, true) ~= nil).toBe(true)
 end
 t.describe("CollapsibleView control", function()
 	t.it("transforms its clipping plate monotonically while text keeps its solved size", function()
@@ -79,8 +81,8 @@ t.describe("CollapsibleView control", function()
 	end)
 	t.it("uses the live scrolled position for both ends of the transformation", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, reducedMotion = false })
-		local expanded = w.core:signal(false)
-		local c = Facet.Controls.CollapsibleView(w.core, {
+		local expanded = Compose.cell(false)
+		local c = harness.Controls.CollapsibleView(w.core, {
 			id = "View",
 			label = "Open",
 			expanded = expanded,
@@ -148,10 +150,10 @@ t.describe("CollapsibleView control", function()
 		opened(w, c)
 		w.adapter.tap(body .. "/Options/One")
 		w.settle(5)
-		t.expect(chosen:get()).toBe(true)
+		t.expect(chosen:peek()).toBe(true)
 		t.expect(c.dump().presented).toBe(false)
-		t.expect(label:get()).toBe("Coastal circuit")
-		t.expect(w.pres.focus.focused:get()).toBe(trigger)
+		t.expect(label:peek()).toBe("Coastal circuit")
+		t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 		cleanup(w, c)
 	end)
 	t.it("CollapsibleView pointer: a tap activates through the presenter (device-true)", function()
@@ -210,12 +212,12 @@ t.describe("CollapsibleView control", function()
 		w.pres.focus.focusOn(trigger)
 		w.press("Return")
 		opened(w, c)
-		local first = w.pres.focus.focused:get()
+		local first = w.pres.focus.focused:peek()
 		w.press("Down")
-		t.expect(w.pres.focus.focused:get() ~= first).toBe(true)
+		t.expect(w.pres.focus.focused:peek() ~= first).toBe(true)
 		w.adapter.tap(body .. "/Collapse")
 		w.settle(5)
-		t.expect(w.pres.focus.focused:get()).toBe(trigger)
+		t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 		cleanup(w, c)
 	end)
 	t.it("CollapsibleView gamepad affordance: focus, grab mode, A and B, ten-foot ring", function()
@@ -232,7 +234,7 @@ t.describe("CollapsibleView control", function()
 		w.press("ButtonB")
 		w.settle(5)
 		t.expect(c.dump().expanded).toBe(false)
-		t.expect(w.pres.focus.focused:get()).toBe(trigger)
+		t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 		cleanup(w, c)
 	end)
 	t.it("CollapsibleView hot-switch: in-flight state resolves CARRY or CANCEL on a class flip", function()
@@ -252,15 +254,15 @@ t.describe("CollapsibleView control", function()
 		e:set(true)
 		opened(w, c)
 		cleanup(w, c)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 end)
 
 t.describe("TabView collapsed style", function()
 	t.it("sets up the generic control with selected-tab summary and focused menu", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
-		local selected = w.core:signal("one")
-		local c = Facet.Controls.TabView(w.core, {
+		local selected = Compose.cell("one")
+		local c = harness.Controls.TabView(w.core, {
 			id = "Tabs",
 			style = "collapsible",
 			selection = selected,
@@ -287,31 +289,31 @@ t.describe("TabView collapsed style", function()
 		w.pres.focus.focusOn(path)
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(w.pres.focus.focused:get():find("/Expanded-", 1, true) ~= nil).toBe(true)
+		t.expect(w.pres.focus.focused:peek():find("/Expanded-", 1, true) ~= nil).toBe(true)
 		w.press("DPadDown")
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(selected:get()).toBe("two")
-		t.expect(w.pres.focus.focused:get()).toBe(path)
+		t.expect(selected:peek()).toBe("two")
+		t.expect(w.pres.focus.focused:peek()).toBe(path)
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(w.pres.focus.focused:get():match("([^/]+)$")).toBe("Opt2")
+		t.expect(w.pres.focus.focused:peek():match("([^/]+)$")).toBe("Opt2")
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(selected:get()).toBe("two")
-		t.expect(w.pres.focus.focused:get()).toBe(path)
+		t.expect(selected:peek()).toBe("two")
+		t.expect(w.pres.focus.focused:peek()).toBe(path)
 
 		cleanup(w, c)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 	t.it("customized tabs without an indicator focus and reselect the selected destination", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, reducedMotion = true })
-		local selected = w.core:signal("one")
-		local c = Facet.Controls.TabView(w.core, {
+		local selected = Compose.cell("one")
+		local c = harness.Controls.TabView(w.core, {
 			id = "Tabs",
 			style = "collapsible",
 			indicator = "none",
-			customization = w.core:signal({ order = {}, hidden = {} }),
+			customization = Compose.cell({ order = {}, hidden = {} }),
 			selection = selected,
 			tabs = {
 				{
@@ -336,22 +338,22 @@ t.describe("TabView collapsed style", function()
 		w.pres.focus.focusOn(path)
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(w.pres.focus.focused:get():find("/Expanded-", 1, true) ~= nil).toBe(true)
+		t.expect(w.pres.focus.focused:peek():find("/Expanded-", 1, true) ~= nil).toBe(true)
 		w.press("DPadDown")
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(selected:get()).toBe("two")
-		t.expect(w.pres.focus.focused:get()).toBe(path)
+		t.expect(selected:peek()).toBe("two")
+		t.expect(w.pres.focus.focused:peek()).toBe(path)
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(w.pres.focus.focused:get():match("([^/]+)$")).toBe("Option-two")
+		t.expect(w.pres.focus.focused:peek():match("([^/]+)$")).toBe("Option-two")
 		w.press("ButtonA")
 		w.settle(5)
-		t.expect(selected:get()).toBe("two")
-		t.expect(w.pres.focus.focused:get()).toBe(path)
+		t.expect(selected:peek()).toBe("two")
+		t.expect(w.pres.focus.focused:peek()).toBe(path)
 
 		cleanup(w, c)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 end)
 
@@ -362,8 +364,8 @@ t.describe("CollapsibleView safe geometry", function()
 			safeInsets = { left = 20, right = 20, top = 30, bottom = 25 },
 			reducedMotion = true,
 		})
-		local expanded = w.core:signal(false)
-		local c = Facet.Controls.CollapsibleView(w.core, {
+		local expanded = Compose.cell(false)
+		local c = harness.Controls.CollapsibleView(w.core, {
 			id = "View",
 			label = "Settings",
 			expanded = expanded,
@@ -384,12 +386,12 @@ end)
 t.describe("CollapsibleView lifetime and identity", function()
 	t.it("separate mounted parents may use the same local control id", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, reducedMotion = true })
-		local ea, eb = w.core:signal(false), w.core:signal(false)
-		local a = Facet.Controls.CollapsibleView(
+		local ea, eb = Compose.cell(false), Compose.cell(false)
+		local a = harness.Controls.CollapsibleView(
 			w.core,
 			{ label = "A", expanded = ea, content = UI.Button({ id = "Action", label = "A action" }) }
 		)
-		local b = Facet.Controls.CollapsibleView(
+		local b = harness.Controls.CollapsibleView(
 			w.core,
 			{ label = "B", expanded = eb, content = UI.Button({ id = "Action", label = "B action" }) }
 		)
@@ -406,28 +408,28 @@ t.describe("CollapsibleView lifetime and identity", function()
 		w.settle(3)
 		ea:set(true)
 		w.settle(5)
-		local af = w.pres.focus.focused:get()
+		local af = w.pres.focus.focused:peek()
 		eb:set(true)
 		w.settle(5)
-		local bf = w.pres.focus.focused:get()
+		local bf = w.pres.focus.focused:peek()
 		t.expect(af ~= bf).toBe(true)
 		t.expect(a.dump().presented).toBe(true)
 		t.expect(b.dump().presented).toBe(true)
 		eb:set(false)
 		w.settle(5)
-		t.expect(w.pres.focus.focused:get()).toBe(af)
+		t.expect(w.pres.focus.focused:peek()).toBe(af)
 		ea:set(false)
 		w.settle(5)
 		w.pres.dismiss(w.handle)
 		a.dispose()
 		b.dispose()
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 	end)
 	t.it("normal-motion cycles and bound icon changes release all owned resources", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, reducedMotion = false })
-		local expanded, label, icon = w.core:signal(false), w.core:signal("Settings"), w.core:signal("flag")
-		local baseline = w.core:counters()
-		local c = Facet.Controls.CollapsibleView(w.core, {
+		local expanded, label, icon = Compose.cell(false), Compose.cell("Settings"), Compose.cell("flag")
+		local baseline = w.core.owner.size()
+		local c = harness.Controls.CollapsibleView(w.core, {
 			id = "View",
 			label = label,
 			icon = icon,
@@ -449,25 +451,25 @@ t.describe("CollapsibleView lifetime and identity", function()
 		label:set("Club settings")
 		icon:set("check")
 		w.settle(3)
-		t.expect(w.pres.focus.focused:get()).toBe(trigger)
+		t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 		icon:set(nil)
 		w.settle(3)
 		cleanup(w, c)
-		t.expect(w.core:lastError()).toBe(nil)
-		t.expect(w.core:counters()).toEqual(baseline)
+		t.expect(w.core.lastError()).toBe(nil)
+		t.expect(w.core.owner.size()).toEqual(baseline)
 	end)
 end)
 
 t.describe("CollapsibleView custom image", function()
 	t.it("binds an asset image without replacing the trigger", function()
 		local w = world.new({ reducedMotion = true })
-		local source = w.core:signal("rbxassetid://123")
+		local source = Compose.cell("rbxassetid://123")
 		local content = UI.Text({ text = "Details" })
-		local c = Facet.Controls.CollapsibleView(w.core, {
+		local c = harness.Controls.CollapsibleView(w.core, {
 			id = "View",
 			label = "Course",
 			image = source,
-			expanded = w.core:signal(false),
+			expanded = Compose.cell(false),
 			content = content,
 		})
 		w.present(UI.Screen({ id = "S", children = { c.blueprint } }))
@@ -475,8 +477,8 @@ t.describe("CollapsibleView custom image", function()
 		w.pres.focus.focusOn(trigger)
 		source:set("rbxassetid://456")
 		w.settle(3)
-		t.expect(w.adapter.node(trigger .. "/Summary/CustomImage/then/Image").props.image).toBe("rbxassetid://456")
-		t.expect(w.pres.focus.focused:get()).toBe(trigger)
+		t.expect(w.adapter.node(trigger .. "/Summary/Image").props.image).toBe("rbxassetid://456")
+		t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 		cleanup(w, c)
 	end)
 end)

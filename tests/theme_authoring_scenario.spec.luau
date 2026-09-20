@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THEME SCENARIO, HEADLESS HALF (stage theme-packages-and-skinning).
 -- The Studio scenario proves the PAINT; this proves that every step is
 -- drivable, that a swap re-solves a mounted screen without rebuilding it, and
@@ -37,12 +38,12 @@ local PACKAGES = {
 }
 
 local function makeWorld(flags: any?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 760 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 
 	-- the adapter's decoration surface, stubbed over the SAME pure state
 	-- machine screen_target drives, so the census here is the census there
@@ -50,6 +51,8 @@ local function makeWorld(flags: any?)
 	local ctx: any
 	ctx = {
 		Facet = Facet,
+		UI = harness.libraryOf(core),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -161,7 +164,7 @@ describe("theme_authoring scenario: it mounts the shared fixture and exposes eve
 		expect(world.adapter.node("/AdaptiveScreen") ~= nil).toBe(true)
 		expect(world.adapter.node(SAVE) ~= nil).toBe(true)
 		expect(world.adapter.node("/AdaptiveScreen/BodyScroll/Body/Settings/Volume") ~= nil).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -298,7 +301,7 @@ describe("theme_authoring scenario: it mounts the shared fixture and exposes eve
 		expect(second.resolved.height ~= first.resolved.height).toBe(true)
 		-- the same node object survived the swap
 		expect(world.adapter.node(dialPath)).toBe(dial)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 
 		-- CONFORMANCE, BOTH DIRECTIONS, from the framework gate
 		local coverage = world.built.steps.gaugeCoverage()
@@ -380,7 +383,7 @@ describe("theme_authoring scenario: it mounts the shared fixture and exposes eve
 		expect(glossy.nodes.dots.square).toBe(true)
 		expect(glossy.nodes.dots.box.w).toBe(glossy.diameterMetric)
 		expect(world.adapter.node("/CircleProbe/Row/Dots")).toBe(dots)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 
 		world.built.steps.dismissCircleFixture()
 		expect(world.adapter.node("/CircleProbe/Row/Dots")).toBeNil()
@@ -408,7 +411,7 @@ describe("theme_authoring scenario: installing and swapping", function()
 		-- SAME node object: a re-solve, never a remount
 		expect(world.adapter.node(SAVE)).toBe(before)
 		expect(world.adapter.node(SAVE).rect.h ~= beforeHeight).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -469,7 +472,7 @@ describe("theme_authoring scenario: live authoring and export degrade without th
 		expect(result.controller).toBe("absent")
 		expect(result.spaceM).toBe(32)
 		world.built.steps.restoreMetric()
-		expect(world.env:get("themeMetrics"):get().space.m).toBe(Facet.themes.neutral().space.m)
+		expect(world.env:get("themeMetrics"):peek().space.m).toBe(Facet.themes.neutral().space.m)
 		teardown(world)
 	end)
 
@@ -524,7 +527,7 @@ describe("theme_authoring scenario: the failure fixtures", function()
 				expect(after.w).toBeGreaterThanOrEqual(before.w - 1)
 			end
 		end
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -542,7 +545,7 @@ describe("theme_authoring scenario: the failure fixtures", function()
 			named = named or entry.class == "schemaVersion"
 		end
 		expect(named).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 

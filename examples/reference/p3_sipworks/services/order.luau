@@ -21,27 +21,20 @@ order.RESOLVE_AFTER = 0.6
 order.READY_AFTER = 4.0
 
 function order.new(opts: any)
-	local core = opts.core
-	local scope = opts.scope
+	local Compose = opts.Compose
+	-- groups several writes into one update
+	local batch = opts.batch
 	local clock = opts.clock
 
-	local status = core:signal("idle") -- idle | pending | confirmed | rejected
-	local mode = core:signal("paid") -- paid | redeem
-	local blendId = core:signal(nil :: string?)
-	local isReady = core:signal(false)
-	local reason = core:signal(nil :: string?)
-	local paymentsEnabled = core:signal(opts.paymentsEnabled ~= false)
+	local status = Compose.cell("idle") -- idle | pending | confirmed | rejected
+	local mode = Compose.cell("paid") -- paid | redeem
+	local blendId = Compose.cell(nil :: string?)
+	local isReady = Compose.cell(false)
+	local reason = Compose.cell(nil :: string?)
+	local paymentsEnabled = Compose.cell(opts.paymentsEnabled ~= false)
 	local attempts = 0
 	local readyHandle: any = nil
 	local listeners: { (string, any) -> () } = {}
-	scope:own(function()
-		status:dispose()
-		mode:dispose()
-		blendId:dispose()
-		isReady:dispose()
-		reason:dispose()
-		paymentsEnabled:dispose()
-	end)
 
 	local self = {}
 	self.status = status
@@ -82,7 +75,7 @@ function order.new(opts: any)
 	-- the guard, as a VALUE rather than a branch: a caller asks, and the answer
 	-- carries the reason key the alert body is written from
 	function self.guard(): { allowed: boolean, reasonKey: string? }
-		if paymentsEnabled:get() then
+		if paymentsEnabled:peek() then
 			return { allowed = true }
 		end
 		return { allowed = false, reasonKey = self.guardReasonKey }
@@ -97,14 +90,14 @@ function order.new(opts: any)
 		if not guard.allowed then
 			return { started = false, reasonKey = guard.reasonKey }
 		end
-		if status:get() == "pending" then
+		if status:peek() == "pending" then
 			return { started = false, reasonKey = nil }
 		end
 		if readyHandle ~= nil then
 			readyHandle.cancel()
 			readyHandle = nil
 		end
-		core:transaction(function()
+		batch(function()
 			blendId:set(id)
 			mode:set(requestedMode)
 			status:set("pending")
@@ -115,7 +108,7 @@ function order.new(opts: any)
 		clock.after(order.RESOLVE_AFTER, function()
 			attempts += 1
 			if rejects(attempts) then
-				core:transaction(function()
+				batch(function()
 					status:set("rejected")
 					reason:set("counterClosed")
 				end)
@@ -135,8 +128,8 @@ function order.new(opts: any)
 	-- the CTA returns to idle: after a rejection has been read, and when the
 	-- Order-Placed surface is dismissed
 	function self.acknowledge()
-		if status:get() == "rejected" then
-			core:transaction(function()
+		if status:peek() == "rejected" then
+			batch(function()
 				status:set("idle")
 				reason:set(nil)
 			end)
@@ -148,7 +141,7 @@ function order.new(opts: any)
 			readyHandle.cancel()
 			readyHandle = nil
 		end
-		core:transaction(function()
+		batch(function()
 			status:set("idle")
 			isReady:set(false)
 			reason:set(nil)

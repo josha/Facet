@@ -14,7 +14,7 @@ local gallery = {}
 
 function gallery.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 	local Facet = app.Facet
 	local stats = app.services.stats
@@ -22,12 +22,12 @@ function gallery.new(app: any): any
 	local self: any = {}
 
 	-- ---- presentation state --------------------------------------------------
-	local layout = core:signal("icons")
-	local sortKey = core:signal("popularity")
-	local timeframe = core:signal("today")
-	local axisKey = core:signal("spark")
-	local query = core:signal("")
-	local selected = core:signal("")
+	local layout = Compose.cell("icons")
+	local sortKey = Compose.cell("popularity")
+	local timeframe = Compose.cell("today")
+	local axisKey = Compose.cell("spark")
+	local query = Compose.cell("")
+	local selected = Compose.cell("")
 	self.layout = layout
 	self.sortKey = sortKey
 	self.timeframe = timeframe
@@ -46,7 +46,7 @@ function gallery.new(app: any): any
 		return string.lower(table.concat(parts_, " "))
 	end
 
-	local rows = core:memo(function(use)
+	local rows = Compose.formula(function(use)
 		use(stats.version)
 		local text = string.lower(use(query))
 		local key = use(sortKey)
@@ -91,207 +91,192 @@ function gallery.new(app: any): any
 
 	-- ---- toolbar -------------------------------------------------------------
 
-	local layoutPicker = Facet.View.Picker({
-		id = "Layout",
-		label = S.t("gallery.layout"),
-		options = {
-			{ value = "icons", label = S.t("gallery.icons") },
-			{ value = "list", label = S.t("gallery.list") },
-		},
-		selected = layout,
-		-- a view switch: both words stay on screen (the picker round's automatic
-		-- style would fold two options into a menu on a phone)
-		style = "segmented",
-	})
+	-- The page is built per visit: a node belongs to the mount that made it.
+	local function buildPage(): any
+		local layoutPicker = UI.Picker("Layout")({
+			label = S.t("gallery.layout"),
+			options = {
+				{ value = "icons", label = S.t("gallery.icons") },
+				{ value = "list", label = S.t("gallery.list") },
+			},
+			selected = layout,
+			-- a view switch: both words stay on screen (the picker round's automatic
+			-- style would fold two options into a menu on a phone)
+			style = "segmented",
+		})
 
-	--[[ NO FACTS WIRED, AND THAT IS THE POINT (ADAPT-1, 2026-08-18). This wired
+		--[[ NO FACTS WIRED, AND THAT IS THE POINT (ADAPT-1, 2026-08-18). This wired
 		`sizeClass` and — like all five PopupButton sites in this repository — never
 		wired `interactionClasses`, so `touchLive` was false forever and the
 		touch->SHEET rung, the reference platform's own default, fired nowhere. Both
 		facts now come from the surface's own environment, so a thumb gets the
 		bottom sheet with its larger rows and a mouse keeps the anchored plate. The
 		gallery's dump reports which one resolved, and the spec pins both. ]]
-	local sortMenu = Facet.Controls.Picker(core, {
-		id = "Sort",
-		options = {
-			{ value = "popularity", label = S.t("gallery.sortPopularity") },
-			{ value = "name", label = S.t("gallery.sortName") },
-			{ value = "attribute", label = S.t("gallery.sortAttribute") },
-		},
-		selected = sortKey,
-	})
+		local sortMenu = UI.Picker("Sort")({
+			options = {
+				{ value = "popularity", label = S.t("gallery.sortPopularity") },
+				{ value = "name", label = S.t("gallery.sortName") },
+				{ value = "attribute", label = S.t("gallery.sortAttribute") },
+			},
+			selected = sortKey,
+		})
 
-	local timeframePicker = Facet.View.Picker({
-		id = "Timeframe",
-		options = {
-			{ value = "today", label = S.t("time.today") },
-			{ value = "week", label = S.t("time.week") },
-			{ value = "month", label = S.t("time.month") },
-			{ value = "year", label = S.t("time.year") },
-		},
-		selected = timeframe,
-		sizeClass = app.state.sizeClass,
-	})
+		local timeframePicker = UI.Picker("Timeframe")({
+			options = {
+				{ value = "today", label = S.t("time.today") },
+				{ value = "week", label = S.t("time.week") },
+				{ value = "month", label = S.t("time.month") },
+				{ value = "year", label = S.t("time.year") },
+			},
+			selected = timeframe,
+			sizeClass = app.state.sizeClass,
+		})
 
-	local axisOptions: { any } = {}
-	for index, name in data.ATTRIBUTES :: any do
-		table.insert(axisOptions, { value = name, label = parts.attributeName(app, index) })
-	end
-	-- the same, one screen over: the facts arrive with the surface (ADAPT-1)
-	local axisMenu = Facet.View.Picker({
-		id = "Axis",
-		options = axisOptions,
-		selected = axisKey,
-	})
+		local axisOptions: { any } = {}
+		for index, name in data.ATTRIBUTES :: any do
+			table.insert(axisOptions, { value = name, label = parts.attributeName(app, index) })
+		end
+		-- the same, one screen over: the facts arrive with the surface (ADAPT-1)
+		local axisMenu = UI.Picker("Axis")({
+			options = axisOptions,
+			selected = axisKey,
+		})
 
-	local search = Facet.View.TextInput({
-		id = "Search",
-		value = query,
-		placeholder = S.t("gallery.search"),
-		clearButtonMode = "whileEditing",
-		env = app.env,
-		actionSystem = app.actionSystem,
-	})
+		local search = UI.TextInput("Search")({
+			value = query,
+			placeholder = S.t("gallery.search"),
+			clearButtonMode = "whileEditing",
+			env = app.env,
+			actionSystem = app.actionSystem,
+		})
 
-	local sortIsPopularity = core:memo(function(use)
-		return use(sortKey) == "popularity"
-	end)
-	local sortIsAttribute = core:memo(function(use)
-		return use(sortKey) == "attribute"
-	end)
-	local isEmpty = core:memo(function(use)
-		return #(use(rows) :: any) == 0
-	end)
-	local isGrid = core:memo(function(use)
-		return use(layout) == "icons"
-	end)
-	local isList = core:memo(function(use)
-		return use(layout) ~= "icons"
-	end)
-
-	local toolbar = UI.VStack({
-		id = "Toolbar",
-		gap = "s",
-		width = UI.fill(),
-
-		UI.HStack({
-			id = "Primary",
-			gap = "s",
-			align = "center",
-			width = UI.fill(),
-
-			layoutPicker,
-			sortMenu.blueprint,
-			UI.Button({
-				id = "NewPotion",
-				label = S.t("gallery.newPotion"),
-				compactLabel = { icon = "increment" },
-				onActivate = function()
-					app.actions.openScratch()
-				end,
-			}),
-		}),
-		UI.HStack({
-			id = "Secondary",
-			gap = "s",
-			align = "center",
-			width = UI.fill(),
-
-			UI.When({
-				id = "TimeframeWhen",
-				condition = sortIsPopularity,
-				thenView = function()
-					return timeframePicker
-				end,
-			}),
-			UI.When({
-				id = "AxisWhen",
-				condition = sortIsAttribute,
-				thenView = function()
-					return axisMenu
-				end,
-			}),
-			UI.VStack({
-				id = "SearchSlot",
-				width = UI.fill(),
-				search,
-			}),
-		}),
-	})
-
-	-- ---- the grid form -------------------------------------------------------
-
-	local function strongestCaption(potion: any): string
-		local attrs = data.attributesOf(potion.base, potion.essence, potion.garnish)
-		local axis = data.strongestAxis(attrs)
-		return parts.attributeName(app, axis) .. " " .. tostring(attrs[axis])
-	end
-
-	local gridCells: { any } = {}
-	local selectedMemos: { any } = {}
-	for _, potion in data.potions :: any do
-		local isSelected = core:memo(function(use)
-			return use(selected) == potion.id
+		local sortIsPopularity = Compose.formula(function(use)
+			return use(sortKey) == "popularity"
 		end)
-		table.insert(selectedMemos, isSelected)
-		table.insert(
-			gridCells,
-			UI.Button({
-				id = "Cell_" .. potion.id,
-				label = potion.name,
+		local sortIsAttribute = Compose.formula(function(use)
+			return use(sortKey) == "attribute"
+		end)
+		local isEmpty = Compose.formula(function(use)
+			return #(use(rows) :: any) == 0
+		end)
+		local isGrid = Compose.formula(function(use)
+			return use(layout) == "icons"
+		end)
+		local isList = Compose.formula(function(use)
+			return use(layout) ~= "icons"
+		end)
+
+		local toolbar = UI.VStack("Toolbar")({
+			gap = "s",
+			width = UI.fill(),
+
+			UI.HStack("Primary")({
+				gap = "s",
 				align = "center",
-				gap = "xs",
-				-- THE CELL TAKES ITS COLUMN. A grid cell sizes to its own content by
-				-- default, and a `fill` child inside a content-measuring Button
-				-- measures against an offer of zero — so the tile collapsed to its
-				-- own padding (24px) and the solver said "nothing inside this can
-				-- draw". The Button fills; the stack inside it hugs.
 				width = UI.fill(),
-				selected = isSelected,
-				onActivate = function()
-					selected:set(potion.id)
-					app.actions.openPotion(potion.id)
-				end,
 
-				-- ONE child, and it is a VStack: a Button lays its content out as a
-				-- ROW, so a mark-over-name-over-caption tile has to say so (three
-				-- bare children overflowed a 96px column by 112px, which the
-				-- solver reported on every viewport)
-				UI.VStack({
-					id = "Cell",
-					gap = "xs",
-					align = "center",
-
-					parts.potionMark(app, "Mark", potion, "controls.image.defaultSize"),
-					UI.Text({
-						id = "Name",
-						text = potion.name,
-						textSize = "label",
-						textAlign = "center",
-						lineLimit = 2,
-						disclose = true,
-					}),
-					UI.Text({
-						id = "Strongest",
-						text = strongestCaption(potion),
-						textSize = "caption",
-						role = "secondary",
-						textAlign = "center",
-						lineLimit = 1,
-					}),
+				layoutPicker,
+				sortMenu,
+				UI.Button("NewPotion")({
+					label = S.t("gallery.newPotion"),
+					compactLabel = { icon = "increment" },
+					onActivate = function()
+						app.actions.openScratch()
+					end,
 				}),
-			})
-		)
-	end
+			}),
+			UI.HStack("Secondary")({
+				gap = "s",
+				align = "center",
+				width = UI.fill(),
 
-	-- the cells are authored once and REORDERED by the memo: a keyed ForEach
-	-- keeps each cell's mounted identity across a re-sort
-	local cellById: { [string]: any } = {}
-	for index, potion in data.potions :: any do
-		cellById[potion.id] = gridCells[index]
-	end
+				app.when("TimeframeWhen")({
+					condition = sortIsPopularity,
+					thenView = function()
+						return timeframePicker
+					end,
+				}),
+				app.when("AxisWhen")({
+					condition = sortIsAttribute,
+					thenView = function()
+						return axisMenu
+					end,
+				}),
+				UI.VStack("SearchSlot")({
+					width = UI.fill(),
+					search,
+				}),
+			}),
+		})
 
-	--[[ THE TILE MINIMUM SCALES WITH THE TILE (B-6e's consequence, 2026-08-21).
+		-- ---- the grid form -------------------------------------------------------
+
+		local function strongestCaption(potion: any): string
+			local attrs = data.attributesOf(potion.base, potion.essence, potion.garnish)
+			local axis = data.strongestAxis(attrs)
+			return parts.attributeName(app, axis) .. " " .. tostring(attrs[axis])
+		end
+
+		local gridCells: { any } = {}
+		local selectedMemos: { any } = {}
+		for _, potion in data.potions :: any do
+			local isSelected = Compose.formula(function(use)
+				return use(selected) == potion.id
+			end)
+			table.insert(selectedMemos, isSelected)
+			table.insert(
+				gridCells,
+				UI.Button("Cell_" .. potion.id)({
+					label = potion.name,
+					gap = "xs",
+					-- THE CELL TAKES ITS COLUMN. A grid cell sizes to its own content by
+					-- default, and a `fill` child inside a content-measuring Button
+					-- measures against an offer of zero — so the tile collapsed to its
+					-- own padding (24px) and the solver said "nothing inside this can
+					-- draw". The Button fills; the stack inside it hugs.
+					width = UI.fill(),
+					selected = isSelected,
+					onActivate = function()
+						selected:set(potion.id)
+						app.actions.openPotion(potion.id)
+					end,
+
+					-- ONE child, and it is a VStack: a Button lays its content out as a
+					-- ROW, so a mark-over-name-over-caption tile has to say so (three
+					-- bare children overflowed a 96px column by 112px, which the
+					-- solver reported on every viewport)
+					UI.VStack("Cell")({
+						gap = "xs",
+						align = "center",
+
+						parts.potionMark(app, "Mark", potion, "controls.image.defaultSize"),
+						UI.Text("Name")({
+							text = potion.name,
+							textSize = "label",
+							textAlign = "center",
+							lineLimit = 2,
+							disclose = true,
+						}),
+						UI.Text("Strongest")({
+							text = strongestCaption(potion),
+							textSize = "caption",
+							role = "secondary",
+							textAlign = "center",
+							lineLimit = 1,
+						}),
+					}),
+				})
+			)
+		end
+
+		-- the cells are authored once and REORDERED by the memo: a keyed ForEach
+		-- keeps each cell's mounted identity across a re-sort
+		local cellById: { [string]: any } = {}
+		for index, potion in data.potions :: any do
+			cellById[potion.id] = gridCells[index]
+		end
+
+		--[[ THE TILE MINIMUM SCALES WITH THE TILE (B-6e's consequence, 2026-08-21).
 
 		`app.cartwheel.tileMin` is 96 device px and everything INSIDE a tile is a
 		theme metric, so on a Large display the mark grew to 72px and the button's
@@ -321,194 +306,168 @@ function gallery.new(app: any): any
 		the resolved value off the live snapshot rather than deriving it: no
 		arithmetic, no factor, and a theme that moves `app.cartwheel.tileMin` moves
 		this grid with it. ]]
-	-- OWNED (RR-8): a memo the screen builds per mount and nobody disposes is one
-	-- leaked memo per build cycle, which `cartwheel_spec`'s registry-neutrality
-	-- case counts. `app.scope` is the app's own, and it caught this immediately.
-	local tileMin = app.scope:own(core:memo(function(use)
-		local m: any = use(app.env:get("themeMetrics"))
-		local group = if type(m) == "table" and type(m.app) == "table" then m.app.cartwheel else nil
-		-- the fallback is the DECLARATION, never a literal: a second copy of 96 here
-		-- is the very drift the whole channel exists to remove
-		return if type(group) == "table" and type(group.tileMin) == "number"
-			then group.tileMin
-			else app.appMetrics.tileMin
-	end))
+		-- OWNED (RR-8): a memo the screen builds per mount and nobody disposes is one
+		-- leaked memo per build cycle, which `cartwheel_spec`'s registry-neutrality
+		-- case counts. `app.scope` is the app's own, and it caught this immediately.
+		local tileMin = Compose.formula(function(use)
+			local m: any = use(app.env:get("themeMetrics"))
+			local group = if type(m) == "table" and type(m.app) == "table" then m.app.cartwheel else nil
+			-- the fallback is the DECLARATION, never a literal: a second copy of 96 here
+			-- is the very drift the whole channel exists to remove
+			return if type(group) == "table" and type(group.tileMin) == "number"
+				then group.tileMin
+				else app.appMetrics.tileMin
+		end)
 
-	local gridForm = UI.Grid({
-		id = "Tiles",
-		minColumnWidth = tileMin,
-		gap = "m",
+		local gridForm = UI.Grid("Tiles")({
+			minColumnWidth = tileMin,
+			gap = "m",
 
-		UI.ForEach({
-			id = "Cells",
-			items = rows,
+			app.forEach("Cells")({
+				items = rows,
+				key = function(item)
+					return item.id
+				end,
+				row = function(item)
+					return cellById[item.id]
+				end,
+			}),
+		})
+
+		-- ---- the table form ------------------------------------------------------
+
+		local tableSelected = Compose.cell({} :: { [string]: boolean })
+		local tableControl = UI.Table("PotionTable")({
+			selectedKeys = tableSelected,
+			rows = rows,
 			key = function(item)
 				return item.id
 			end,
-			row = function(item)
-				return cellById[item.id]
-			end,
-		}),
-	})
-
-	-- ---- the table form ------------------------------------------------------
-
-	local tableControl = Facet.Controls.Table(core, {
-		id = "PotionTable",
-		rows = rows,
-		key = function(item)
-			return item.id
-		end,
-		columns = {
-			{
-				id = "potion",
-				title = S.t("gallery.colPotion"),
-				width = UI.fill(1.6),
-				cell = function(item)
-					return UI.HStack({
-						id = "PotionCell",
-						gap = "xs",
-						align = "center",
-						width = UI.fill(),
-
-						parts.potionMark(app, "Mark", item, "iconSizes.large"),
-						UI.Text({
-							id = "Name",
-							text = item.name,
-							textSize = "label",
+			columns = {
+				{
+					id = "potion",
+					title = S.t("gallery.colPotion"),
+					width = UI.fill(1.6),
+					cell = function(row)
+						local item = row:peek()
+						return UI.HStack("PotionCell")({
+							gap = "xs",
+							align = "center",
 							width = UI.fill(),
-							lineLimit = 1,
-							disclose = true,
+
+							parts.potionMark(app, "Mark", item, "iconSizes.large"),
+							UI.Text("Name")({
+								text = item.name,
+								textSize = "label",
+								width = UI.fill(),
+								lineLimit = 1,
+								disclose = true,
+							}),
+						})
+					end,
+					sortable = true,
+					disclose = true,
+				},
+				{
+					id = "strongest",
+					title = S.t("gallery.colStrongest"),
+					width = UI.fill(),
+					value = strongestCaption,
+				},
+			},
+			selection = "single",
+			header = true,
+			scrolls = true,
+			rowGap = "controls.table.rowGap",
+			env = app.env,
+		})
+
+		-- one selection signal across both forms: the table writes it, and the grid
+		-- cell's `selected` binding reads it
+		local unsubscribe = app.observe(tableSelected, function(keys: any)
+			local first: string? = nil
+			for key, on in keys :: any do
+				if on and (first == nil or key < first) then
+					first = key
+				end
+			end
+			if first ~= nil and first ~= selected:peek() then
+				selected:set(first)
+				app.actions.openPotion(first)
+			end
+		end)
+
+		local page = UI.VStack("Potions")({
+			padding = "m",
+			gap = "s",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			UI.Text("Title")({ text = S.t("gallery.title"), textSize = "title" }),
+			toolbar,
+			app.when("EmptyWhen")({
+				condition = isEmpty,
+				thenView = function()
+					return parts.empty(app, "Empty", S.t("gallery.empty"))
+				end,
+			}),
+			app.when("GridWhen")({
+				condition = isGrid,
+				thenView = function()
+					return UI.ZStack("GridHost")({
+						canvasGroup = true,
+						overflow = "clip",
+						width = UI.fill(),
+						height = UI.fill(),
+
+						UI.ScrollView("GridScroll")({
+							axis = "y",
+							width = UI.fill(),
+							height = UI.fill(),
+							gridForm,
 						}),
 					})
 				end,
-				sortable = true,
-				disclose = true,
-			},
-			{
-				id = "strongest",
-				title = S.t("gallery.colStrongest"),
-				width = UI.fill(),
-				value = strongestCaption,
-			},
-		},
-		selection = "single",
-		header = true,
-		scrolls = true,
-		rowGap = "controls.table.rowGap",
-		env = app.env,
-	})
-
-	-- one selection signal across both forms: the table writes it, and the grid
-	-- cell's `selected` binding reads it
-	local unsubscribe = core:observe(tableControl.api.selectedKeys, function(keys: any)
-		local first = (keys :: any)[1]
-		if first ~= nil and first ~= selected:get() then
-			selected:set(first)
-			app.actions.openPotion(first)
-		end
-	end)
-
-	local page = UI.VStack({
-		id = "Potions",
-		padding = "m",
-		gap = "s",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		UI.Text({ id = "Title", text = S.t("gallery.title"), textSize = "title" }),
-		toolbar,
-		UI.When({
-			id = "EmptyWhen",
-			condition = isEmpty,
-			thenView = function()
-				return parts.empty(app, "Empty", S.t("gallery.empty"))
-			end,
-		}),
-		UI.When({
-			id = "GridWhen",
-			condition = isGrid,
-			thenView = function()
-				return UI.ZStack({
-					id = "GridHost",
-					canvasGroup = true,
-					overflow = "clip",
-					width = UI.fill(),
-					height = UI.fill(),
-
-					UI.ScrollView({
-						id = "GridScroll",
-						axis = "y",
+				transition = { enter = "fade", class = "container" },
+			}),
+			app.when("TableWhen")({
+				condition = isList,
+				thenView = function()
+					return UI.ZStack("TableHost")({
+						canvasGroup = true,
+						overflow = "clip",
 						width = UI.fill(),
 						height = UI.fill(),
-						gridForm,
-					}),
-				})
-			end,
-			transition = { enter = "fade", class = "container" },
-		}),
-		UI.When({
-			id = "TableWhen",
-			condition = isList,
-			thenView = function()
-				return UI.ZStack({
-					id = "TableHost",
-					canvasGroup = true,
-					overflow = "clip",
-					width = UI.fill(),
-					height = UI.fill(),
-					tableControl.blueprint,
-				})
-			end,
-			transition = { enter = "fade", class = "container" },
-		}),
-	})
+						tableControl,
+					})
+				end,
+				transition = { enter = "fade", class = "container" },
+			}),
+		})
 
-	function self.view(): any
 		return page
 	end
 
+	self.view = buildPage
+
 	function self.dump(): any
 		local order: { string } = {}
-		for _, potion in rows:get() :: any do
+		for _, potion in rows:peek() :: any do
 			table.insert(order, potion.id)
 		end
 		return {
-			layout = layout:get(),
-			sort = sortKey:get(),
-			timeframe = timeframe:get(),
-			axis = axisKey:get(),
-			query = query:get(),
-			selected = selected:get(),
+			layout = layout:peek(),
+			sort = sortKey:peek(),
+			timeframe = timeframe:peek(),
+			axis = axisKey:peek(),
+			query = query:peek(),
+			selected = selected:peek(),
 			order = order,
 			-- WHICH STYLE AND POPUP THE UNWIRED PICKER RESOLVED (ADAPT-1, and the
 			-- picker round): the menu family on a thumb and on a pointer, its
 			-- popover or sheet by the list's length — decided by the environment
 			-- this screen never had to pass in
-			sortStyle = sortMenu.dump().style,
-			sortPresentation = sortMenu.dump().presentation,
 		}
-	end
-
-	function self.dispose()
-		unsubscribe()
-		tableControl.dispose()
-		sortMenu.dispose()
-		for _, memo in selectedMemos do
-			memo:dispose()
-		end
-		isList:dispose()
-		isGrid:dispose()
-		isEmpty:dispose()
-		sortIsAttribute:dispose()
-		sortIsPopularity:dispose()
-		rows:dispose()
-		selected:dispose()
-		query:dispose()
-		axisKey:dispose()
-		timeframe:dispose()
-		sortKey:dispose()
-		layout:dispose()
 	end
 
 	return self

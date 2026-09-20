@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- EXACT TEXT MEASUREMENT (text-measurement milestone, 2026-07-24).
 --
 -- The estimator's error is VARIANCE, not font: an average-glyph model cannot
@@ -20,9 +21,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local text_metrics = require("../src/layout/text_metrics")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
@@ -254,18 +255,18 @@ describe("renderer: engine premeasurement round", function()
 		text_metrics.resetMeasured()
 		local env, root, adapter = actionSlice()
 		local epoch = env:get("textMeasureEpoch")
-		local before = epoch:get()
+		local before = epoch:peek()
 		adapter.deliverTextWidths(engineWidth)
 		-- EXACTLY one, not merely "more": an epoch that over-counts re-derives
 		-- every dependent memo more often than the store actually changed
-		expect(`bumped={epoch:get() - before}`).toBe("bumped=1")
+		expect(`bumped={epoch:peek() - before}`).toBe("bumped=1")
 		--[[ ...and a SECOND delivery that teaches nothing does not bump it. This is
 			the half that keeps the fact honest: an epoch that ticked on every round
 			would re-derive every dependent memo forever, which trades a pop for a
 			permanent cost. ]]
-		local settled = epoch:get()
+		local settled = epoch:peek()
 		adapter.deliverTextWidths(engineWidth)
-		expect(`quiet={epoch:get()}`).toBe(`quiet={settled}`)
+		expect(`quiet={epoch:peek()}`).toBe(`quiet={settled}`)
 		root.dispose()
 		text_metrics.resetMeasured()
 	end)
@@ -508,7 +509,7 @@ end)
 -- worse failure than a jumpy one.
 -- ---------------------------------------------------------------------------
 
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 
 local function gatedScreen(opts: any)

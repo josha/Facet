@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A COLLECTION MEASURES THE BOX IT WAS GIVEN — `viewportExtent = "auto"` on
 	`newVirtualList` and `newVirtualGrid`, and `crossExtent` on the list.
 
@@ -44,7 +45,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local virtual_grid = require("../src/controls/virtual_grid")
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = table.create(n)
@@ -61,15 +64,15 @@ end
 	the next spec that would ADD a presenter builder migrates instead). ]]
 local function pane(opts: any)
 	local w = worldLib.new({ viewport = opts.screen or { x = 0, y = 0, w = 800, h = 600 } })
-	local rows = w.core:signal(makeRows(opts.count or 40))
-	local paneMain = w.core:signal(opts.pane or 240)
+	local rows = Compose.cell(makeRows(opts.count or 40))
+	local paneMain = Compose.cell(opts.pane or 240)
 	local built = opts.build(w.core, w.env, rows)
 	if opts.beforePresent ~= nil then
 		-- the frame before any solve exists, which is the only place a SEED can be
 		-- observed at all
 		opts.beforePresent(built)
 	end
-	local paneDim = w.core:memo(function(use)
+	local paneDim = Compose.formula(function(use)
 		return { type = "fixed", px = use(paneMain) }
 	end)
 	--[[ `wrap` REPLACES the pane, for the cases whose whole subject is an ancestor
@@ -77,7 +80,7 @@ local function pane(opts: any)
 		default is the pane, so every other case reads the same. ]]
 	local inner = if opts.wrap ~= nil
 		then opts.wrap(built.blueprint)
-		else Facet.UI.VStack({
+		else harness.UI.VStack({
 			id = "Pane",
 			padding = 0,
 			gap = 0,
@@ -88,7 +91,7 @@ local function pane(opts: any)
 			height = paneDim,
 			children = { built.blueprint },
 		})
-	w.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { inner } }))
+	w.present(harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { inner } }))
 	return {
 		core = w.core,
 		env = w.env,
@@ -118,7 +121,7 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 					viewportExtent = "auto",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 			end,
@@ -139,10 +142,10 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 			box is never bigger than the surface that contains it, so the screen is a
 			sound UPPER bound and the first frame is a strict SUPERSET of what the
 			viewport touches. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local rows = core:signal(makeRows(400))
+		local rows = Compose.cell(makeRows(400))
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
@@ -154,7 +157,7 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 			viewportExtent = "auto",
 			overscan = 0,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		-- no presenter, no solve: this is the seed, and it is the screen's height
@@ -163,17 +166,17 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 		list.dispose()
 		-- ...and with no environment at all there is no screen to ask, which is the
 		-- headless case and is 0
-		local bare = Facet.newCore()
+		local bare = harness.newCore()
 		local headless = virtual_list.build(Facet, bare, {
 			id = "VL",
-			rows = bare:signal(makeRows(10)),
+			rows = Compose.cell(makeRows(10)),
 			key = function(item: any)
 				return item.id
 			end,
 			itemExtent = 40,
 			viewportExtent = "auto",
 			cell = function()
-				return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+				return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 			end,
 		})
 		expect(headless.dump().viewportExtent).toBe(0)
@@ -195,7 +198,7 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 					viewportExtent = "auto",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 			end,
@@ -212,7 +215,7 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 			not being written to its own value on every frame (which would re-solve
 			the tree forever). ]]
 		local writes = 0
-		w.core:observe((w.control :: any).viewportExtent, function()
+		observeChange(w.core.owner, (w.control :: any).viewportExtent, function()
 			writes += 1
 		end)
 		w.pres.refresh()
@@ -238,7 +241,7 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 					viewportExtent = "auto",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 			end,
@@ -250,8 +253,8 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 	end)
 
 	it("a number and a Readable still work, and are still refused when they are neither", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local function build(viewport: any)
 			return virtual_list.build(Facet, core, {
 				id = "VL",
@@ -262,12 +265,12 @@ describe('viewportExtent = "auto": the list measures the box it was given', func
 				itemExtent = 40,
 				viewportExtent = viewport,
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end
 		expect(build(200).dump().viewportExtent).toBe(200)
-		expect(build(core:signal(120)).dump().viewportExtent).toBe(120)
+		expect(build(Compose.cell(120)).dump().viewportExtent).toBe(120)
 		-- a word that is not "auto" is an authoring mistake, not a silent fallback
 		expect(pcall(function()
 			build("tall")
@@ -313,12 +316,12 @@ describe('viewportExtent = "auto": the measurement that is NOT a viewport', func
 					viewportExtent = "auto",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 			end,
 			wrap = function(blueprint: any)
-				return Facet.UI.ScrollView({
+				return harness.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					padding = 0,
@@ -360,7 +363,7 @@ describe('viewportExtent = "auto": the measurement that is NOT a viewport', func
 					viewportExtent = "auto",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 			end,
@@ -386,12 +389,12 @@ describe('viewportExtent = "auto": the measurement that is NOT a viewport', func
 					viewportExtent = "auto",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 					end,
 				})
 			end,
 			wrap = function(blueprint: any)
-				return Facet.UI.ScrollView({
+				return harness.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					padding = 0,
@@ -437,7 +440,7 @@ describe('viewportExtent = "auto" + itemExtent = "cards": the seed is not an arr
 					rowGap = 8,
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14, lineLimit = 1 })
+						return harness.UI.Text({ id = "Label", text = item.label, textSize = 14, lineLimit = 1 })
 					end,
 				})
 			end,
@@ -458,12 +461,12 @@ describe('viewportExtent = "auto" + itemExtent = "cards": the seed is not an arr
 	it("NEGATIVE CONTROL: a plain list still seeds from the screen and over-fills", function()
 		-- the narrowing is to `cards` alone; every other list keeps the seed and the
 		-- superset it buys, which is the case this pair would otherwise silently lose
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
-			rows = core:signal(makeRows(400)),
+			rows = Compose.cell(makeRows(400)),
 			env = env,
 			key = function(item: any)
 				return item.id
@@ -472,7 +475,7 @@ describe('viewportExtent = "auto" + itemExtent = "cards": the seed is not an arr
 			viewportExtent = "auto",
 			overscan = 0,
 			cell = function()
-				return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+				return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 			end,
 		})
 		expect(`{list.dump().viewportExtent}|{#list.dump().window}`).toBe("600|15")
@@ -495,12 +498,12 @@ describe("crossExtent: the axis the list does not scroll", function()
 			crossExtent = crossExtent,
 			overscan = 0,
 			cell = function(item: any)
-				return Facet.UI.VStack({
+				return harness.UI.VStack({
 					id = "Card",
 					padding = 8,
 					gap = 0,
 					width = { type = "fill", weight = 1 },
-					children = { Facet.UI.Text({ id = "Label", text = item.label, textSize = 14, lineLimit = 1 }) },
+					children = { harness.UI.Text({ id = "Label", text = item.label, textSize = 14, lineLimit = 1 }) },
 				})
 			end,
 		})
@@ -535,7 +538,7 @@ describe("crossExtent: the axis the list does not scroll", function()
 		expect(box.h).toBe(card.h)
 		expect(box.h < 200).toBe(true)
 		-- ...and the number is reported, so a consumer never has to re-derive it
-		expect((w.control :: any).crossExtent:get()).toBe(box.h)
+		expect((w.control :: any).crossExtent:peek()).toBe(box.h)
 		w.control.dispose()
 	end)
 
@@ -548,10 +551,10 @@ describe("crossExtent: the axis the list does not scroll", function()
 			end,
 		})
 		expect(w.rect("/S/Pane/VL").h).toBe(200)
-		expect((w.control :: any).crossExtent:get()).toBe(200)
+		expect((w.control :: any).crossExtent:peek()).toBe(200)
 		w.paneMain:set(120)
 		w.pres.refresh()
-		expect((w.control :: any).crossExtent:get()).toBe(120)
+		expect((w.control :: any).crossExtent:peek()).toBe(120)
 		w.control.dispose()
 	end)
 
@@ -562,8 +565,8 @@ describe("crossExtent: the axis the list does not scroll", function()
 			which is the exact class this control already refuses `cards` and
 			`estimatedItemExtent` for. `"measured"` does not touch the dim, so it
 			COMPOSES with `width` and is deliberately not refused. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local function build(crossExtent: any, width: any)
 			return virtual_list.build(Facet, core, {
 				id = "VL",
@@ -576,7 +579,7 @@ describe("crossExtent: the axis the list does not scroll", function()
 				crossExtent = crossExtent,
 				width = width,
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end
@@ -612,11 +615,11 @@ describe("crossExtent: the axis the list does not scroll", function()
 					crossExtent = "hug",
 					overscan = 0,
 					cell = function(item: any)
-						return Facet.UI.HStack({
+						return harness.UI.HStack({
 							id = "Card",
 							padding = 8,
 							gap = 0,
-							children = { Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 }) },
+							children = { harness.UI.Text({ id = "Label", text = item.label, textSize = 14 }) },
 						})
 					end,
 				})
@@ -630,13 +633,13 @@ describe("crossExtent: the axis the list does not scroll", function()
 		expect(box.w < 800).toBe(true)
 		-- ...and the scroll axis is untouched: it is still the number handed in
 		expect(box.h).toBe(200)
-		expect((w.control :: any).crossExtent:get()).toBe(box.w)
+		expect((w.control :: any).crossExtent:peek()).toBe(box.w)
 		w.control.dispose()
 	end)
 
 	it("an unknown word is refused, naming the two that are legal", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local ok, err = pcall(function()
 			rail(core, nil, rows, "shrink")
 		end)

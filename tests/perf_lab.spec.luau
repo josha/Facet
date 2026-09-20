@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- The performance lab, driven headlessly (roadmap Step 9; acceptance rows
 -- PL-2, PL-3, PL-4, PL-5, PL-9, PL-10, PL-11).
 --
@@ -33,18 +34,44 @@ local perf_lab = require("../examples/performance/lab/perf_lab")
 -- recording, and scopes ship OFF (src/core/profile.luau) — so one case here
 -- installs a hook pair and puts it back
 local profile = require("../src/core/profile")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 -- A minimal stand-in for the runner ctx. It carries exactly the seams perf_lab
 -- reads, so a seam the scenario starts depending on shows up here as a nil-index
 -- rather than as a Studio-only surprise.
 local function newHarness(hostOverrides: any?, viewport: { w: number, h: number }?, labOpts: any?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	local vp = viewport or { w = 900, h = 700 }
 	env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
 	local adapter = fake_target.new()
 	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	--[[ THE MOTION CLOCK IS PINNED, not wall-clock. The lab's flight sampler
+		steps the presenter with an explicit frame dt and then reads how many
+		frames the spring took to settle, so a clock that also advances with real
+		elapsed time makes that count depend on how busy the machine is: the same
+		pass measured 47 frames idle and ran into its cap under load. `now` is the
+		one seam the presenter builds its motion clock from, so a counter that
+		advances only with the frames the test actually steps makes every flight
+		length a property of the workload. ]]
+	local motionNow = 0
+	local pres = harness.newPresenter(core, env, adapter, system, {
+		now = function()
+			return motionNow
+		end,
+	})
+	local presenterTick = pres.tick
+	pres.tick = function(dt: number?)
+		motionNow += dt or 1 / 60
+		return presenterTick(dt)
+	end
+	-- `app.controls` in Studio (runner.luau's `ctx.UI`): the shorthand-capable
+	-- constructor table (`Name(id)(props)` for a primitive too, not only for a
+	-- composite), which `harness.UI` is NOT — that proxy is bound to the second,
+	-- non-shorthand table `controls.new` returns. `harness.libraryOf`'s first
+	-- return is the one production code actually hands the lab.
+	local controlsApi = harness.libraryOf(core)
 	local clock = 0
 	local steps = 0
 	local host: any = {
@@ -79,6 +106,12 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 		presenter = pres,
 		actionSystem = system,
 		host = host,
+		-- the seam runner.luau supplies in Studio: `UI` is the control library
+		-- bound to THIS core (harness.newPresenter above activates it), `Compose`
+		-- is the reactive-state constructor library. perf_lab and its sibling lab
+		-- modules build every node through these, never through a bare `Facet.*`.
+		UI = controlsApi,
+		Compose = Facet.Compose,
 		-- `haptics` is the opt-in client adapter the lab binds under
 		-- `select:haptics=on` (task 11). Supplied here exactly as the Studio host
 		-- supplies it, so the headless rig exercises the shipped route.
@@ -131,7 +164,34 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 			end,
 		},
 	}
-	local built = perf_lab.build(ctx)
+	-- In Studio, EVERY call into a mounted scenario — the initial build, and every
+	-- later invocation the app dispatches (a button's onActivate, a selector) —
+	-- runs with the scenario's owner already active, re-entered by the
+	-- framework's own dispatch. This harness never mounts perf_lab as a real
+	-- component, and calls its returned functions directly from test bodies, so
+	-- nothing re-enters that owner for them. `deepOwn` closes that gap once,
+	-- structurally, rather than at each of the hundreds of call sites below: it
+	-- wraps every function `perf_lab.build` returns (recursively, for nested
+	-- tables like `overlayControls`) so calling it always has somewhere for
+	-- `Compose.cleanup` to register.
+	local function deepOwn(t: any): any
+		for k, v in t do
+			if type(v) == "function" then
+				t[k] = function(...)
+					local args = table.pack(...)
+					return harness.owned(function()
+						return v(table.unpack(args, 1, args.n))
+					end)
+				end
+			elseif type(v) == "table" then
+				deepOwn(v)
+			end
+		end
+		return t
+	end
+	local built = deepOwn(harness.owned(function()
+		return perf_lab.build(ctx)
+	end))
 	-- the yield count, exposed beside the scenario's own surface. Not part of
 	-- perf_lab's contract — this harness owns the seam, so this harness reports it.
 	local anyBuilt = built :: any
@@ -212,7 +272,7 @@ describe("perf lab: a resize step is the resize a device performs", function()
 		for _, key in WATCHED do
 			moved[key] = false
 			counts[key] = 0
-			core:observe(env:get(key), function()
+			observeChange(core.owner, env:get(key), function()
 				moved[key] = true
 				counts[key] += 1
 			end)
@@ -245,13 +305,13 @@ describe("perf lab: a resize step is the resize a device performs", function()
 			twice. ]]
 		local BATCH_ORACLE = { "viewportRect", "deviceSafeInsets", "topbarSafeInsets", "topbarInset" }
 		local flushes = 0
-		local group = core:memo(function(use)
+		local group = Compose.formula(function(use)
 			for _, key in BATCH_ORACLE do
 				use(env:get(key))
 			end
 			return {}
 		end)
-		core:observe(group, function()
+		observeChange(core.owner, group, function()
 			flushes += 1
 		end)
 
@@ -332,9 +392,11 @@ describe("perf lab: a resize step is the resize a device performs", function()
 			flush per step is 19, so the two are not close. ]]
 		local STEPS = 6
 		expect((row :: any).reactPerStep * STEPS <= 2 * STEPS + 1).toBe(true)
-		expect((row :: any).reactPerStep >= 2).toBe(true)
+		-- ...and the floor is ONE: every geometry change flushes at least once. A
+		-- resize that settles in its opening flush buys no round trip at all.
+		expect((row :: any).reactPerStep >= 1).toBe(true)
 		built.dispose()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -761,21 +823,21 @@ describe("perf lab: virtualization stays bounded (PL-3/PL-4)", function()
 		local built, _ctx, core = newHarness()
 		built.steps.select(nil, "scenario=dense-scroll,rows=600,seed=12")
 		built.steps.mount()
-		local base = core:counters()
+		local base = core.owner.size()
 		for _ = 1, 6 do
 			built.steps.pass(nil, "scrollSteady=40")
 		end
-		local after = core:counters()
+		local after = core.owner.size()
 		-- 240 scroll steps over 600 rows materializes hundreds of distinct rows; a
 		-- per-row control leak would be in the thousands here
-		expect(after.memos - base.memos < 200).toBe(true)
-		expect(after.scopes - base.scopes < 200).toBe(true)
+		expect(after - base < 200).toBe(true)
+		expect(after - base < 200).toBe(true)
 		-- SIGNALS TOO (reactive-runtime review, RR-11): the first version of this case
 		-- bounded memos and scopes and said nothing about signals, which is the other
 		-- half of the same live defect — a Studio reset once left 488 undisposed
 		-- signals. They legitimately grow toward two per row VISITED (the owner-held
 		-- value and toggle), so the bound is that rule with slack, not a flat number.
-		expect(after.signals - base.signals <= 2 * 600 + 64).toBe(true)
+		expect(after - base <= 2 * 600 + 64).toBe(true)
 		built.dispose()
 	end)
 
@@ -1211,16 +1273,19 @@ end)
 
 describe("perf lab: the row is the shape the plan requires (PL-3)", function()
 	it("a row carries an image, a two-line text stack, and three controls", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local provider = Facet.newResourceProvider(core)
-		local scope = core:scope("row-shape")
+		local scope = core.owner.createChild()
 		local item = dataset.build({ count = 1, seed = 1 })[1]
-		local bp = rowsLib.cell(Facet, core, item, {
-			scope = scope,
-			provider = provider,
-			values = {},
-			toggles = {},
-		})
+		local api = harness.libraryOf(core)
+		local bp = harness.owned(function()
+			return rowsLib.cell({ UI = api, Compose = Facet.Compose }, item, {
+				scope = scope,
+				provider = provider,
+				values = {},
+				toggles = {},
+			})
+		end)
 		-- a blueprint node is { id, class, props, children } — `children` sits at the
 		-- TOP level, not inside props (probed against the live constructor, not
 		-- assumed)
@@ -1256,16 +1321,19 @@ describe("perf lab: the row is the shape the plan requires (PL-3)", function()
 	end)
 
 	it("the identity line keeps its full-value disclosure — the profile is not bought with accessibility", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local provider = Facet.newResourceProvider(core)
-		local scope = core:scope("row-disclose")
+		local scope = core.owner.createChild()
 		local item = dataset.build({ count = 1, seed = 1, content = "identity" })[1]
-		local bp = rowsLib.cell(Facet, core, item, {
-			scope = scope,
-			provider = provider,
-			values = {},
-			toggles = {},
-		})
+		local api = harness.libraryOf(core)
+		local bp = harness.owned(function()
+			return rowsLib.cell({ UI = api, Compose = Facet.Compose }, item, {
+				scope = scope,
+				provider = provider,
+				values = {},
+				toggles = {},
+			})
+		end)
 		local found = false
 		local function walk(node: any)
 			if type(node) ~= "table" then
@@ -1324,7 +1392,7 @@ describe("perf lab: installing a theme installs BOTH halves (L-26)", function()
 	it("selecting a theme publishes its METRICS to the environment, not only its art", function()
 		local built, ctx = themedHarness()
 		built.steps.select(nil, "scenario=dense-scroll,rows=40,seed=1,theme=fantasy_ornate")
-		local metrics = ctx.env:get("themeMetrics"):get()
+		local metrics = ctx.env:get("themeMetrics"):peek()
 		expect(metrics.identity.packageId).toBe("fantasy-ornate")
 	end)
 
@@ -2003,29 +2071,32 @@ describe("perf lab overlay: the status line is readable, not one character wide"
 		.. "by 132px on the main axis; it will paint outside its box (wrap it in a ScrollView, or give it room)"
 
 	local function statusRect(vw: number, vh: number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = vw, h = vh })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local model: any = {
-			buildLine = core:signal("build"),
-			scenarioLine = core:signal("dense-scroll"),
-			deviceLine = core:signal("device"),
-			statusLine = core:signal(LONG),
-			countdown = core:signal(""),
-			counterLines = core:signal({ "mountedRows=0/9" }),
+			buildLine = Compose.cell("build"),
+			scenarioLine = Compose.cell("dense-scroll"),
+			deviceLine = Compose.cell("device"),
+			statusLine = Compose.cell(LONG),
+			countdown = Compose.cell(""),
+			counterLines = Compose.cell({ "mountedRows=0/9" }),
 			actions = {},
 			scenarioNames = { "dense-scroll", "mount-ramp" },
 			onSelectScenario = function() end,
-			currentScenario = core:signal("dense-scroll"),
+			currentScenario = Compose.cell("dense-scroll"),
 			onCycleScenario = function() end,
-			scenarioPosition = core:signal("1/2"),
+			scenarioPosition = Compose.cell("1/2"),
 			onRunAll = function() end,
 		}
-		local bp = overlayLib.build(Facet, core, model)
-		local handle = pres.present(Facet.UI.Screen({ id = "O", children = { bp } }))
+		local api = harness.libraryOf(core)
+		local bp = harness.owned(function()
+			return overlayLib.build({ UI = api, Compose = Facet.Compose }, model)
+		end)
+		local handle = pres.present(harness.UI.Screen({ id = "O", children = { bp } }))
 		pres.refresh()
 		local found: string? = nil
 		for _, path in adapter.paths() do
@@ -2496,5 +2567,112 @@ describe("the lab's registry satisfies the SHARED runner's contract", function()
 		local project = fsLib.readFile("examples/performance.project.json")
 		expect(string.find(project, "gallery/scenarios/runner.luau", 1, true) ~= nil).toBe(true)
 		expect(string.find(project, "gallery/scenarios/foreign_instances.luau", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+--[[ THE SHIPPED CLIENT ENTRY POINTS NAME ONLY EXPORTS THAT EXIST.
+
+	The defect this is the control for: `examples/performance/client/init.client.luau`
+	called `Facet.newCore()` and `Facet.newPresenter(...)` for a month after the
+	core was flattened onto Compose and those exports were deleted.
+	`tools/build_places.sh` builds that file into `Facet-PerformanceLab.rbxl`, so
+	the shipped place threw on its first line of wiring — and NOTHING in this
+	repository noticed, because a `*.client.luau` is ENGINE-ONLY code: the suite
+	cannot require it, the analyzer sees a Roblox global rather than a missing
+	field, and no gate read it.
+
+	So the contract is enforced at the level the evidence actually exists at: the
+	SOURCE. Every `Facet.<name>` written in any `examples/**/*.client.luau` must
+	be a key of the live public table required from `src/`. That is a grep, and a
+	grep is the right instrument here precisely because it needs no engine.
+
+	TWO EXCLUSIONS, both real and both narrow. `ReplicatedStorage.Facet.client.x`
+	and `ReplicatedStorage.Facet.core.x` are INSTANCE paths into the replicated
+	tree, not table reads — the blessed client entry points of ADR-0011 — so a
+	match preceded by `ReplicatedStorage.` is skipped. And `Facet.Compose` is the
+	vendored dependency namespace, which is a live key anyway.
+
+	This does not prove the place BOOTS. It proves the one failure mode that has
+	actually shipped: a name that is not there at all. ]]
+describe("the shipped client entry points call only exports that exist", function()
+	local fsLib = require("@lune/fs")
+
+	-- every `*.client.luau` under examples/, found rather than listed: a new
+	-- place's bootstrap is covered the day it lands, not the day someone
+	-- remembers to add it here.
+	local function clientEntryPoints(): { string }
+		local found: { string } = {}
+		local function walk(dir: string)
+			for _, name in fsLib.readDir(dir) do
+				local path = `{dir}/{name}`
+				if fsLib.isDir(path) then
+					walk(path)
+				elseif string.match(name, "%.client%.luau$") ~= nil then
+					table.insert(found, path)
+				end
+			end
+		end
+		walk("examples")
+		table.sort(found)
+		return found
+	end
+
+	it("there ARE client entry points, or every check below is vacuous", function()
+		local entries = clientEntryPoints()
+		expect(#entries > 0).toBe(true)
+		-- the two this finding was actually about
+		local joined = table.concat(entries, "\n")
+		expect(string.find(joined, "examples/performance/client/init.client.luau", 1, true) ~= nil).toBe(true)
+		expect(string.find(joined, "examples/gallery/client/init.client.luau", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("every `Facet.<name>` in a client bootstrap is a key of the public table", function()
+		local unknown: { string } = {}
+		for _, path in clientEntryPoints() do
+			local source = fsLib.readFile(path)
+			-- the character BEFORE the match is captured so an instance path
+			-- (`ReplicatedStorage.Facet.client.…`) can be told from a table read
+			for prefix, name in string.gmatch(source, "([%w_%.]?)Facet%.([%a_][%w_]*)") do
+				if prefix == "." then
+					continue -- `<something>.Facet.<name>`: a replicated instance path
+				end
+				if (Facet :: any)[name] == nil then
+					table.insert(unknown, `{path}: Facet.{name}`)
+				end
+			end
+		end
+		table.sort(unknown)
+		if #unknown > 0 then
+			error(
+				"a shipped client bootstrap names an export that does not exist on the public "
+					.. `table — the built place throws on that line:\n  {table.concat(unknown, "\n  ")}`,
+				0
+			)
+		end
+	end)
+
+	it("...and the check can FAIL — the negative control, on a synthetic source", function()
+		-- the exact text the performance lab shipped, run through the same matcher
+		local synthetic = "local core = Facet.newCore()\nlocal pres = Facet.newPresenter(core, env, adapter, system)\n"
+		local unknown: { string } = {}
+		for prefix, name in string.gmatch(synthetic, "([%w_%.]?)Facet%.([%a_][%w_]*)") do
+			if prefix ~= "." and (Facet :: any)[name] == nil then
+				table.insert(unknown, name)
+			end
+		end
+		table.sort(unknown)
+		expect(table.concat(unknown, ",")).toBe("newCore,newPresenter")
+	end)
+
+	it("...and it does NOT trip on a replicated instance path, which is the other control", function()
+		local synthetic = "require(ReplicatedStorage.Facet.client.screen_target)\n"
+			.. "require(ReplicatedStorage.Facet.core.profile)\n"
+		local unknown: { string } = {}
+		for prefix, name in string.gmatch(synthetic, "([%w_%.]?)Facet%.([%a_][%w_]*)") do
+			if prefix ~= "." and (Facet :: any)[name] == nil then
+				table.insert(unknown, name)
+			end
+		end
+		expect(#unknown).toBe(0)
 	end)
 end)

@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local Compose = require("../src/vendor/compose/core")
 --[[ C2 — A CLEAN NODE ANSWERS FROM ITS OWN LAST ANSWER, AND NEVER REACHES THE MEMO.
 
 	`measure`'s per-solve memo is cheap but it is not free: a hit costs a
@@ -182,12 +184,12 @@ local device_views = require("./lib/device_views")
 local solver = require("../src/layout/solver")
 local layout_node = require("../src/render/layout_node")
 local themeSnapshot = require("../src/themes/snapshot")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local text_metrics = require("../src/layout/text_metrics")
 
 local ROWS = 1000
@@ -483,7 +485,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local scrollH = core:signal(200)
+		local scrollH = Compose.cell(200)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -493,7 +495,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 						id = "SV",
 						axis = "y",
 						width = { type = "fixed", px = 100 },
-						height = core:memo(function(use: any)
+						height = Compose.formula(function(use: any)
 							return { type = "fixed", px = use(scrollH) :: number }
 						end),
 						children = {
@@ -564,7 +566,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 400 })
-		local fitsH = core:signal(60)
+		local fitsH = Compose.cell(60)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -575,7 +577,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 						width = { type = "fixed", px = 400 },
 						-- the drive: it dirties `Fits` and NOTHING below it, so the
 						-- candidate ladder re-runs over a clean subtree
-						height = core:memo(function(use: any)
+						height = Compose.formula(function(use: any)
 							return { type = "fixed", px = use(fitsH) :: number }
 						end),
 						children = {
@@ -823,7 +825,7 @@ describe("C2: the slot lives on the layout node, and a rebuilt node has none", f
 			absent. Anything less than a fresh table here and the serve would need an
 			epoch of its own. ]]
 		local core = customFactory.new()
-		local width = core:signal({ type = "fixed", px = 40 })
+		local width = Compose.cell({ type = "fixed", px = 40 })
 		local root = mountLib.mount(
 			core,
 			UI.Screen({

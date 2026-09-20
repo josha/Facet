@@ -15,16 +15,14 @@ local parts = {}
 -- a card: the raised plate every dashboard glance and every detail block sits on
 function parts.card(app: any, spec: any): any
 	local UI = app.UI
-	local card = UI.VStack({
-		id = spec.id,
+	local card = UI.VStack(spec.id)(app.withChildren({
 		surface = "raised",
 		padding = "m",
 		gap = "s",
 		width = spec.width or UI.fill(),
 		height = spec.height,
 		align = spec.align,
-		children = spec.children,
-	})
+	}, spec.children))
 	card = UI.corners(card, "panel")
 	return UI.shadow(card, "raised")
 end
@@ -32,16 +30,14 @@ end
 -- a plain sub-plate (the Workbench preview box, a flavor block)
 function parts.plate(app: any, spec: any): any
 	local UI = app.UI
-	local plate = UI.VStack({
-		id = spec.id,
+	local plate = UI.VStack(spec.id)(app.withChildren({
 		surface = "base",
 		padding = spec.padding or "s",
 		gap = spec.gap or "xs",
 		width = spec.width or UI.fill(),
 		height = spec.height,
 		align = spec.align,
-		children = spec.children,
-	})
+	}, spec.children))
 	return UI.corners(plate, "control")
 end
 
@@ -51,8 +47,7 @@ end
 function parts.potionMark(app: any, id: string, potion: any, size: string?): any
 	local UI = app.UI
 	local px = size or "iconSizes.large"
-	return UI.Image({
-		id = id,
+	return UI.Image(id)({
 		image = potion.mark.image,
 		scaleMode = "fit",
 		tint = { direct = potion.hue },
@@ -75,8 +70,7 @@ function parts.thumbStack(app: any, id: string, items: { any }, size: string?): 
 		if potion == nil then
 			continue
 		end
-		children[index] = UI.Image({
-			id = "Mark" .. index,
+		children[index] = UI.Image("Mark" .. index)({
 			image = potion.mark.image,
 			scaleMode = "fit",
 			tint = { direct = potion.hue },
@@ -87,19 +81,16 @@ function parts.thumbStack(app: any, id: string, items: { any }, size: string?): 
 			height = { type = "fixed", px = "iconSizes.medium" },
 		})
 	end
-	return UI.Anchor({
-		id = id,
+	return UI.Anchor(id)(app.withChildren({
 		width = { type = "fixed", px = box },
 		height = { type = "fixed", px = box },
-		children = children,
-	})
+	}, children))
 end
 
 -- a state chip. `chip` is the read-only surface a Text may wear, so a status
 -- never borrows a control treatment and never spends a second hue (invariant 3).
 function parts.chip(app: any, id: string, text: any, role: string?): any
-	return app.UI.Text({
-		id = id,
+	return app.UI.Text(id)({
 		text = text,
 		textSize = "caption",
 		surface = "chip",
@@ -110,8 +101,7 @@ end
 
 -- a count. `badge` is the counter seal; the value is centred on it.
 function parts.badge(app: any, id: string, text: any): any
-	return app.UI.Text({
-		id = id,
+	return app.UI.Text(id)({
 		text = text,
 		textSize = "caption",
 		surface = "badge",
@@ -155,18 +145,14 @@ end
 -- adapts through what is inside it instead).
 function parts.cardHeaderButton(app: any, spec: any): any
 	local UI = app.UI
-	return UI.Button({
-		id = spec.id,
+	return UI.Button(spec.id)({
 		label = spec.label,
 		onActivate = spec.onActivate,
 		width = UI.fill(),
-		align = "center",
-		gap = "s",
 
-		UI.Text({ id = "Title", text = spec.title, textSize = "heading" }),
-		UI.Spacer({ id = "Gap", width = UI.fill() }),
-		UI.Image({
-			id = "Chevron",
+		UI.Text("Title")({ text = spec.title, textSize = "heading" }),
+		UI.Spacer("Gap")({ width = UI.fill() }),
+		UI.Image("Chevron")({
 			image = app.art.marks.chevronRight.image,
 			scaleMode = "fit",
 			tint = { role = "contentSecondary", blend = 1 },
@@ -177,8 +163,41 @@ function parts.cardHeaderButton(app: any, spec: any): any
 end
 
 -- an empty state. A list with nothing in it says so, in words.
+-- The surface's top bar: a Back verb, a one-line title, then trailing nodes.
+function parts.navBar(app: any, spec: any): any
+	local UI = app.UI
+	local props: any = { gap = spec.gap or "s", align = "center", padding = spec.padding, width = UI.fill() }
+	if spec.onBack ~= nil then
+		table.insert(
+			props,
+			UI.Button("Back")({
+				label = spec.backLabel,
+				compactLabel = { icon = "chevron.leading", prefer = true },
+				onActivate = spec.onBack,
+			})
+		)
+	end
+	if spec.title ~= nil then
+		table.insert(
+			props,
+			UI.Text("Title")({
+				text = spec.title,
+				textSize = spec.titleSize or "title",
+				lineLimit = 1,
+				disclose = true,
+				width = spec.titleWidth,
+			})
+		)
+	end
+	table.insert(props, UI.Spacer("Push")({}))
+	for _, node in spec.trailing or {} do
+		table.insert(props, node)
+	end
+	return UI.HStack(spec.id or "NavBar")(props)
+end
+
 function parts.empty(app: any, id: string, text: string): any
-	return app.UI.Text({ id = id, text = text, textSize = "body", role = "secondary", padding = "m" })
+	return app.UI.Text(id)({ text = text, textSize = "body", role = "secondary", padding = "m" })
 end
 
 return parts

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE CLOSED-KEY SWEEP (constitution §4; architecture finding ARCH-1).
 --
 -- §4 has claimed since the stage opened that "an unknown key ... is an immediate
@@ -6,7 +7,7 @@
 -- to modifier specs and control specs exactly as to UI.* props". A live probe at
 -- HEAD proved the claim false for most of the surface: every composite control
 -- spec and every service/model opts table accepted junk without a word, so
--- `newSlider{ tapToPositon = false }` and `newResourceProvider(core,
+-- `UI.Slider{ tapToPositon = false }` and `newResourceProvider(core,
 -- { maxConcurent = 8 })` were working code that ignored the option.
 --
 -- This spec is the mechanical form of the claim. It is deliberately ONE file and
@@ -25,6 +26,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local BOGUS = "definitelyNotAKey"
 
@@ -41,7 +43,7 @@ local function contains(haystack: string, needle: string): boolean
 end
 
 local function world()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	return core, env
@@ -71,22 +73,22 @@ local function controlRow(name: string, buildSpec: (core: any, env: any) -> any)
 		local core, env = world()
 		return { core, buildSpec(core, env) }, 2
 	end, function(args)
-		Facet[name](Facet, args[1], args[2])
+		harness.Controls[string.gsub(name, "^UI%.", "")](args[1], args[2])
 	end)
 end
 
-controlRow("newChip", function(core)
-	return { id = "C", label = "Filter", selected = core:signal(false) }
+controlRow("UI.Chip", function(core)
+	return { id = "C", label = "Filter", selected = Compose.cell(false) }
 end)
 
-controlRow("newLabel", function()
+controlRow("UI.Label", function()
 	return { id = "L", title = "Lap" }
 end)
 
-controlRow("newTable", function(core)
+controlRow("UI.Table", function(core)
 	return {
 		id = "T",
-		rows = core:signal({ { id = "a", name = "Apex" } }),
+		rows = Compose.cell({ { id = "a", name = "Apex" } }),
 		key = function(item: any)
 			return item.id
 		end,
@@ -96,32 +98,37 @@ controlRow("newTable", function(core)
 				title = "Name",
 				width = { type = "fill", weight = 1 },
 				cell = function(item: any)
-					return Facet.UI.Text({ id = "n", text = item.name })
+					return harness.UI.Text({
+						id = "n",
+						text = function(use)
+							return use(item).name
+						end,
+					})
 				end,
 			},
 		},
 	}
 end)
 
-controlRow("newVirtualList", function(core)
+controlRow("UI.VirtualList", function(core)
 	return {
 		id = "V",
-		rows = core:signal({ { id = "a" } }),
+		rows = Compose.cell({ { id = "a" } }),
 		key = function(item: any)
 			return item.id
 		end,
 		rowHeight = 32,
 		viewportHeight = 200,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "r", text = tostring(item.id) })
+			return harness.UI.Text({ id = "r", text = tostring(item.id) })
 		end,
 	}
 end)
 
-controlRow("newVirtualGrid", function(core)
+controlRow("UI.VirtualGrid", function(core)
 	return {
 		id = "G",
-		items = core:signal({ { id = "a" } }),
+		items = Compose.cell({ { id = "a" } }),
 		key = function(item: any)
 			return item.id
 		end,
@@ -129,63 +136,62 @@ controlRow("newVirtualGrid", function(core)
 		itemExtent = 32,
 		viewportExtent = 200,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "r", text = tostring(item.id) })
+			return harness.UI.Text({ id = "r", text = tostring(item.id) })
 		end,
 	}
 end)
 
-controlRow("newPopupButton", function(core)
+controlRow("UI.PopupButton", function(core)
 	return {
 		id = "P",
-		value = core:signal("a"),
+		value = Compose.cell("a"),
 		options = { { id = "a", label = "A" }, { id = "b", label = "B" } },
 	}
 end)
 
-controlRow("newStepper", function(core)
-	return { id = "S", label = "Laps", value = core:signal(3), min = 1, max = 9 }
+controlRow("UI.Stepper", function(core)
+	return { id = "S", label = "Laps", value = Compose.cell(3), min = 1, max = 9 }
 end)
 
-controlRow("newSlider", function(core)
-	return { id = "S", label = "Volume", value = core:signal(0.5), min = 0, max = 1 }
+controlRow("UI.Slider", function(core)
+	return { id = "S", label = "Volume", value = Compose.cell(0.5), min = 0, max = 1 }
 end)
 
-controlRow("newRating", function(core)
-	return { id = "R", value = core:signal(3) }
+controlRow("UI.Rating", function(core)
+	return { id = "R", value = Compose.cell(3) }
 end)
 
-controlRow("newProgressView", function(core)
-	return { id = "P", label = "Load", value = core:signal(0.5) }
+controlRow("UI.ProgressView", function(core)
+	return { id = "P", label = "Load", value = Compose.cell(0.5) }
 end)
 
-controlRow("newPicker", function(core)
+controlRow("UI.Picker", function(core)
 	return {
 		id = "P",
 		label = "Track",
 		options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
-		selected = core:signal("a"),
+		selected = Compose.cell("a"),
 	}
 end)
 
-controlRow("newDisclosureGroup", function(core)
+controlRow("UI.DisclosureGroup", function(core)
 	return {
 		id = "D",
 		label = "Details",
-		expanded = core:signal(false),
+		expanded = Compose.cell(false),
 		content = function()
-			return Facet.UI.Text({ id = "T", text = "body" })
+			return harness.UI.Text({ id = "T", text = "body" })
 		end,
 	}
 end)
 
-controlRow("newTextInput", function(core)
-	return { id = "F", value = core:signal("") }
+controlRow("UI.TextInput", function(core)
+	return { id = "F", value = Compose.cell("") }
 end)
 
-controlRow("newAsyncImage", function(core)
+controlRow("UI.AsyncImage", function(core)
 	return {
 		id = "I",
-		scope = core:scope("img"),
 		provider = Facet.newResourceProvider(core),
 		key = "rbxassetid://1",
 	}
@@ -218,7 +224,7 @@ row("provider.acquire", "opts", function()
 	local provider = Facet.newResourceProvider(core)
 	return { core, provider, { retry = { count = 1 } } }, 3
 end, function(args)
-	args[2].acquire(args[1]:scope("acq"), "rbxassetid://1", args[3])
+	args[2].acquire(args[1].owner.createChild(), "rbxassetid://1", args[3])
 end)
 
 row("provider.preload", "opts", function()
@@ -230,9 +236,9 @@ end)
 
 row("adaptive.conditions", "opts", function()
 	local core, env = world()
-	return { core, env, { scope = core:scope("cond"), stackAbove = 600 } }, 3
+	return { env, { stackAbove = 600 } }, 2
 end, function(args)
-	Facet.adaptive.conditions(args[1], args[2], args[3])
+	Facet.adaptive.conditions(args[1], args[2])
 end)
 
 row("inputHint", "opts", function()
@@ -287,18 +293,11 @@ end, function(args)
 	Facet.newDragRegistry(args[1])
 end)
 
-row("mount", "opts", function()
-	local core = world()
-	return { core, { scope = core:scope("mount") } }, 2
-end, function(args)
-	Facet.mount(args[1], Facet.UI.Screen({ id = "S", children = {} }), args[2])
-end)
-
 row("renderer.attach", "opts", function()
 	local core, env = world()
 	return { core, env, { rootPolicy = "edgeToEdge" } }, 3
 end, function(args)
-	local root = Facet.mount(args[1], Facet.UI.Screen({ id = "S", children = {} }))
+	local root = harness.mount(args[1], harness.UI.Screen({ id = "S", children = {} }))
 	Facet.renderer.attach(args[1], root, args[2], fake_target.new(), args[3])
 end)
 
@@ -313,20 +312,20 @@ row("newPresenter", "opts", function()
 	local core, env = world()
 	return { core, env, { now = os.clock } }, 3
 end, function(args)
-	Facet.newPresenter(args[1], args[2], fake_target.new(), Facet.newActionSystem(args[1]), args[3])
+	harness.newPresenter(args[1], args[2], fake_target.new(), Facet.newActionSystem(args[1]), args[3])
 end)
 
 local function presenterRow(name: string, method: string, opts: any)
 	row(name, "opts", function()
 		local core, env = world()
-		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		-- a FRESH opts table per build: the bogus run mutates the table it is
 		-- handed, and a shared literal would leak the stray key into the legal run
 		return { pres, table.clone(opts) }, 2
 	end, function(args)
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = `S{math.random(1, 1e6)}`,
-			children = { Facet.UI.Text({ id = "T", text = "hi" }) },
+			children = { harness.UI.Text({ id = "T", text = "hi" }) },
 		})
 		if method == "presentCritical" then
 			args[1].presentCritical(function()
@@ -342,7 +341,7 @@ presenterRow("presenter.present", "present", { rootPolicy = "edgeToEdge" })
 presenterRow("presenter.presentModal", "presentModal", { scrim = "none", cancelPolicy = "none" })
 presenterRow("presenter.presentCritical", "presentCritical", {
 	fallbackScreen = function()
-		return Facet.UI.Screen({ id = "Fallback", children = {} })
+		return harness.UI.Screen({ id = "Fallback", children = {} })
 	end,
 })
 presenterRow("presenter.presentToast", "presentToast", { duration = 2, readFloor = 1, position = "top" })
@@ -358,20 +357,20 @@ describe("ARCH-1: every guarded boundary refuses an unknown key", function()
 		end
 		for _, required in
 			{
-				"newChip",
-				"newLabel",
-				"newTable",
-				"newVirtualList",
-				"newVirtualGrid",
-				"newPopupButton",
-				"newStepper",
-				"newSlider",
-				"newRating",
-				"newProgressView",
-				"newPicker",
-				"newDisclosureGroup",
-				"newTextInput",
-				"newAsyncImage",
+				"UI.Chip",
+				"UI.Label",
+				"UI.Table",
+				"UI.VirtualList",
+				"UI.VirtualGrid",
+				"UI.PopupButton",
+				"UI.Stepper",
+				"UI.Slider",
+				"UI.Rating",
+				"UI.ProgressView",
+				"UI.Picker",
+				"UI.DisclosureGroup",
+				"UI.TextInput",
+				"UI.AsyncImage",
 				"valueModel.new",
 				"newResourceProvider",
 				"adaptive.conditions",
@@ -380,7 +379,6 @@ describe("ARCH-1: every guarded boundary refuses an unknown key", function()
 				"newDragVelocity",
 				"newDragSession",
 				"newDragRegistry",
-				"mount",
 				"renderer.attach",
 				"motion.newClock",
 				"newPresenter",

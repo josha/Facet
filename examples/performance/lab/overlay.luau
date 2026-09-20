@@ -48,15 +48,24 @@ export type Model = {
 	splitAction: boolean?,
 }
 
-function overlay.build(Facet: any, core: any, model: Model): any
-	local UI = Facet.UI
+-- props plus a generated child list, in order
+local function with(props: any, children: { any }): any
+	for _, child in children do
+		table.insert(props, child)
+	end
+	return props
+end
+
+-- Builds the overlay screen. `ctx` is the application context `{ UI, Compose }`;
+-- call it inside the component that is mounted.
+function overlay.build(ctx: any, model: Model): any
+	local UI, Compose = ctx.UI, ctx.Compose
 
 	local chips = {}
 	for _, name in model.scenarioNames do
 		table.insert(
 			chips,
-			UI.Button({
-				id = `S_{string.gsub(name, "%-", "_")}`,
+			UI.Button(`S_{string.gsub(name, "%-", "_")}`)({
 				label = name,
 				onActivate = function()
 					model.onSelectScenario(name)
@@ -77,8 +86,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	for _, action in model.actions do
 		table.insert(
 			actionButtons,
-			UI.Button({
-				id = action.id,
+			UI.Button(action.id)({
 				label = action.label,
 				onActivate = action.run,
 			})
@@ -95,13 +103,11 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	-- `minColumnWidth = "intrinsic"` asks the solver for the width it already
 	-- measured for the widest button and fits as many as the real box allows, on
 	-- every solve. No viewport read, no rebuild, nothing to keep in sync.
-	local actionRow = UI.Grid({
-		id = "Actions",
+	local actionRow = UI.Grid("Actions")(with({
 		minColumnWidth = "intrinsic",
 		gap = "tight",
 		width = UI.fill(),
-		children = actionButtons,
-	})
+	}, actionButtons))
 
 	-- ONE TEXT NODE PER LINE, not one node holding newlines (found live
 	-- 2026-08-04: embedded newlines measure as one line). The first version
@@ -143,23 +149,20 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	-- Both lines are still above the picker, so the guarantee the paragraph above is
 	-- about survives.
 	local splitAction = model.splitAction == true
-	local runAll = UI.Button({
-		id = "RunAllTop",
+	local runAll = UI.Button("RunAllTop")({
 		label = "▶ Run all",
 		onActivate = function()
 			model.onRunAll()
 		end,
 	})
 	local cycleChildren = {
-		UI.Button({
-			id = "Prev",
+		UI.Button("Prev")({
 			label = "◀",
 			onActivate = function()
 				model.onCycleScenario(-1)
 			end,
 		}),
-		UI.Text({
-			id = "Current",
+		UI.Text("Current")({
 			text = model.currentScenario,
 			textSize = 15,
 			textAlign = "center",
@@ -169,9 +172,8 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			lineLimit = 1,
 			width = UI.fill(),
 		}),
-		UI.Text({ id = "Position", text = model.scenarioPosition, textSize = "caption" }),
-		UI.Button({
-			id = "Next",
+		UI.Text("Position")({ text = model.scenarioPosition, textSize = "caption" }),
+		UI.Button("Next")({
 			label = "▶",
 			onActivate = function()
 				model.onCycleScenario(1)
@@ -181,20 +183,17 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	if not splitAction then
 		table.insert(cycleChildren, runAll)
 	end
-	local cycleRow = UI.HStack({
-		id = "Cycle",
+	local cycleRow = UI.HStack("Cycle")(with({
 		gap = "tight",
 		width = UI.fill(),
-		children = cycleChildren,
-	})
+	}, cycleChildren))
 	-- The primary action's own line, inserted directly under the cycler so it is
 	-- still above the fold the paragraph above is about. Appended to a LIST rather
 	-- than written as a conditional element of the stack's literal: `{a, nil, b}`
 	-- leaves an array whose length is a border, and the element that would vanish is
 	-- the status line.
 	local actionLine = if splitAction
-		then UI.HStack({
-			id = "PrimaryAction",
+		then UI.HStack("PrimaryAction")({
 			gap = "tight",
 			width = UI.fill(),
 			runAll,
@@ -207,11 +206,11 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	local COUNTER_LINES = 7
 	local counterTexts = {}
 	for i = 1, COUNTER_LINES do
-		local line = core:memo(function(use)
+		local line = Compose.formula(function(use)
 			local lines = use(model.counterLines)
 			return lines[i] or ""
 		end)
-		table.insert(counterTexts, UI.Text({ id = `C{i}`, text = line, textSize = "caption" }))
+		table.insert(counterTexts, UI.Text(`C{i}`)({ text = line, textSize = "caption" }))
 	end
 
 	-- ORDER IS REACHABILITY. The panel is bounded and scrolls, so whatever sits below
@@ -230,8 +229,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	end
 	table.insert(
 		stackChildren,
-		UI.HStack({
-			id = "Status",
+		UI.HStack("Status")({
 			gap = "s",
 			-- FILL, or the `fill` child below collapses. A `fill` child asks its
 			-- parent for the leftover main-axis space, and a HUGGING parent has
@@ -254,31 +252,28 @@ function overlay.build(Facet: any, core: any, model: Model): any
 					is what a diagnostic has to do — a status line that can only ever
 					show its first sixty characters cannot carry a node path AND what
 					went wrong. ]]
-			UI.Text({
-				id = "State",
+			UI.Text("State")({
 				text = model.statusLine,
 				textSize = 15,
 				width = UI.fill(),
 			}),
-			UI.Text({ id = "Countdown", text = model.countdown, textSize = 15 }),
+			UI.Text("Countdown")({ text = model.countdown, textSize = 15 }),
 		})
 	)
 	table.insert(
 		stackChildren,
-		UI.VStack({
-			id = "Head",
+		UI.VStack("Head")({
 			gap = 2,
 
-			UI.Text({ id = "Build", text = model.buildLine, textSize = 13 }),
-			UI.Text({ id = "Scenario", text = model.scenarioLine, textSize = 13 }),
-			UI.Text({ id = "Device", text = model.deviceLine, textSize = 13 }),
+			UI.Text("Build")({ text = model.buildLine, textSize = 13 }),
+			UI.Text("Scenario")({ text = model.scenarioLine, textSize = 13 }),
+			UI.Text("Device")({ text = model.deviceLine, textSize = 13 }),
 		})
 	)
 	table.insert(stackChildren, actionRow)
 	table.insert(
 		stackChildren,
-		UI.ScrollView({
-			id = "Picker",
+		UI.ScrollView("Picker")({
 			axis = "y",
 			-- FIXED, deliberately: a `percent` here is measured against the panel's own
 			-- scroll axis, which has no bound, and the solver rightly refused it (caught
@@ -286,10 +281,10 @@ function overlay.build(Facet: any, core: any, model: Model): any
 			-- fixed picker cannot trap a control off-screen.
 			height = { type = "fixed", px = 110 },
 			width = UI.fill(),
-			UI.VStack({ id = "Chips", gap = "xs", children = chips }),
+			UI.VStack("Chips")(with({ gap = "xs" }, chips)),
 		})
 	)
-	table.insert(stackChildren, UI.VStack({ id = "Counters", gap = 0, children = counterTexts }))
+	table.insert(stackChildren, UI.VStack("Counters")(with({ gap = 0 }, counterTexts)))
 
 	-- ANCHORED TO THE BOTTOM, NOT FLOATING OVER THE WORKLOAD (found in the first
 	-- live capture, 2026-08-04). Two `present()` surfaces stack in present order and
@@ -304,17 +299,14 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	-- landscape phone it left no room for the list at all. Capping it at a fraction of
 	-- the viewport (the caller measures it) keeps every control reachable by scrolling
 	-- while guaranteeing the workload always gets the majority of the screen.
-	return UI.Screen({
-		id = "PerfLabOverlay",
+	return UI.Screen("PerfLabOverlay")({
 		padding = "s",
 
-		UI.Anchor({
-			id = "Dock",
+		UI.Anchor("Dock")({
 			width = UI.fill(),
 			height = UI.fill(),
 
-			UI.ScrollView({
-				id = "Panel",
+			UI.ScrollView("Panel")({
 				axis = "y",
 				anchor = "bottomLeft",
 				-- OPAQUE. Two presented surfaces do not composite into one
@@ -330,12 +322,10 @@ function overlay.build(Facet: any, core: any, model: Model): any
 				-- solver, so rotation just re-solves it.
 				height = { type = "percent", fraction = 0.34, min = 96, max = 260 },
 
-				UI.VStack({
-					id = "Stack",
+				UI.VStack("Stack")(with({
 					width = UI.fill(),
 					gap = "tight",
-					children = stackChildren,
-				}),
+				}, stackChildren)),
 			}),
 		}),
 	})

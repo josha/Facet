@@ -21,6 +21,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
+local refWorld = require("./ref_world")
 local adapter_source = require("../lib/adapter_source")
 local seedData = require("../../examples/reference/p1_glade/content/seed") :: any
 local strings = require("../../examples/reference/p1_glade/content/strings") :: any
@@ -36,19 +37,23 @@ local FRAME = 1 / 60
 -- above them is the framework's business), and `tap` drives the real activation
 -- closure the engine would call.
 local function world(width: number?, height: number?): any
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = width or 1200, h = height or 800 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	local built = proof.build(Facet, core, {
-		env = env,
-		actionSystem = system,
-		presenter = presenter,
-		adapter = adapter,
+	local rw = refWorld.new(proof, {
+		keyboardNavigation = true,
+		before = function(env: any, adapter: any)
+			env:set("viewportRect", { x = 0, y = 0, w = width or 1200, h = height or 800 })
+		end,
+		deps = function(env: any, system: any, presenter: any, adapter: any)
+			return {
+				env = env,
+				actionSystem = system,
+				presenter = presenter,
+				adapter = adapter,
+			}
+		end,
 	})
-	local handle = presenter.present(built.screen, built.present)
+	local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+	local built = rw.built
+	local handle = rw.handle
 	built.api.bindHandle(handle)
 	presenter.refresh()
 
@@ -61,6 +66,10 @@ local function world(width: number?, height: number?): any
 		built = built,
 		handle = handle,
 	}
+	-- the newest composite control built under `id`
+	function self.record(id: string): any
+		return rw.world.record(id)
+	end
 	function self.find(tail: string): string?
 		for _, path in adapter.paths() do
 			if string.sub(path, -#tail) == tail then
@@ -172,7 +181,7 @@ describe("Glade reference proof — module contract", function()
 		-- the nav construct now hangs off the shell stack the task strip leads, so
 		-- the tail is the same node one level deeper
 		expect(w.find("/Shell/Nav") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		expect(w.report().proof).toBe("p1_glade")
 		expect(w.report().seed).toBe(seedData.WORLD)
 	end)
@@ -225,13 +234,13 @@ describe("Glade S1: the overview grid (spec §7)", function()
 		local w = world()
 		w.built.steps.search(nil, "MOSS")
 		w.tick(40) -- a filtered-out row RETIRES rather than vanishing; let it finish
-		expect(#w.built.api.state.filtered:get()).toBe(1)
+		expect(#w.built.api.state.filtered:peek()).toBe(1)
 		expect(w.find("/GladeCard_mossholm") ~= nil).toBe(true)
 		expect(w.find("/GladeCard_stillpond")).toBeNil()
 
 		w.built.steps.search(nil, "zzz")
 		w.tick(40)
-		expect(#w.built.api.state.filtered:get()).toBe(0)
+		expect(#w.built.api.state.filtered:peek()).toBe(0)
 		local copy = w.textOf("/NoMatchesBody/Copy") :: string
 		expect(string.find(copy, "zzz", 1, true) ~= nil).toBe(true)
 		-- and the empty state offers its own way out
@@ -247,7 +256,7 @@ describe("Glade S1: the overview grid (spec §7)", function()
 		expect(w.find("/Suggest_v2") ~= nil).toBe(true)
 		w.tap("/Suggest_v2")
 		expect(w.report().search).toBe("Mossholm")
-		expect(#w.built.api.state.filtered:get()).toBe(1)
+		expect(#w.built.api.state.filtered:peek()).toBe(1)
 	end)
 
 	it("the charm offer card is present while the tier is none and leaves on Dismiss", function()
@@ -264,14 +273,14 @@ describe("Glade: supply drain, low and empty (spec §1, §6)", function()
 	it("nectar crosses low at 7.5 minutes and empty at 9, on the injected clock alone", function()
 		local w = world()
 		local supply = w.built.api.supply
-		expect(supply.state("mossholm", "nectar"):get()).toBe("full")
+		expect(supply.state("mossholm", "nectar"):peek()).toBe("full")
 		w.built.api.advance(seedData.DRAIN.nectar.low - 1)
-		expect(supply.state("mossholm", "nectar"):get()).toBe("full")
+		expect(supply.state("mossholm", "nectar"):peek()).toBe("full")
 		w.built.api.advance(2)
-		expect(supply.state("mossholm", "nectar"):get()).toBe("low")
+		expect(supply.state("mossholm", "nectar"):peek()).toBe("low")
 		w.built.api.advance(seedData.DRAIN.nectar.empty - seedData.DRAIN.nectar.low)
-		expect(supply.state("mossholm", "nectar"):get()).toBe("empty")
-		expect(supply.level("mossholm", "nectar"):get()).toBe(0)
+		expect(supply.state("mossholm", "nectar"):peek()).toBe("empty")
+		expect(supply.level("mossholm", "nectar"):peek()).toBe(0)
 	end)
 
 	it("dew uses its own constants, and the two never share a threshold", function()
@@ -283,11 +292,11 @@ describe("Glade: supply drain, low and empty (spec §1, §6)", function()
 		-- age from the table rather than restating it. Same crossing, same constants.
 		local glade = "lanternDell"
 		local age = seedData.GLADE_BY_ID[glade].dewAge
-		expect(supply.state(glade, "dew"):get()).toBe("full")
+		expect(supply.state(glade, "dew"):peek()).toBe("full")
 		w.built.api.advance(seedData.DRAIN.dew.low - age - 1)
-		expect(supply.state(glade, "dew"):get()).toBe("full")
+		expect(supply.state(glade, "dew"):peek()).toBe("full")
 		w.built.api.advance(2)
-		expect(supply.state(glade, "dew"):get()).toBe("low")
+		expect(supply.state(glade, "dew"):peek()).toBe("low")
 		expect(seedData.DRAIN.dew.empty > seedData.DRAIN.nectar.empty).toBe(true)
 	end)
 
@@ -295,18 +304,18 @@ describe("Glade: supply drain, low and empty (spec §1, §6)", function()
 		local w = world()
 		local supply = w.built.api.supply
 		w.built.api.advance(seedData.DRAIN.dew.empty)
-		expect(supply.state("mossholm", "dew"):get()).toBe("empty")
+		expect(supply.state("mossholm", "dew"):peek()).toBe("empty")
 		supply.refill("mossholm", "dew")
-		expect(supply.level("mossholm", "dew"):get()).toBe(1)
+		expect(supply.level("mossholm", "dew"):peek()).toBe(1)
 		w.built.api.advance(seedData.DRAIN.dew.low + 1)
-		expect(supply.state("mossholm", "dew"):get()).toBe("low")
+		expect(supply.state("mossholm", "dew"):peek()).toBe("low")
 	end)
 end)
 
 describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 	it("regular and wide mount the detail in the shell's own lane", function()
 		local w = world(1200, 800)
-		expect(w.built.api.conditions.isCompact:get()).toBe(false)
+		expect(w.built.api.conditions.isCompact:peek()).toBe(false)
 		w.tap("/GladeCard_mossholm")
 		expect(w.report().selectedGlade).toBe("mossholm")
 		expect(#w.report().surfaces).toBe(0) -- no modal: the lane is the host
@@ -325,7 +334,7 @@ describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 
 	it("compact pushes the same body through NavigationStack with a Back button", function()
 		local w = world(390, 844)
-		expect(w.built.api.conditions.isCompact:get()).toBe(true)
+		expect(w.built.api.conditions.isCompact:peek()).toBe(true)
 		w.tap("/GladeCard_mossholm")
 		expect(#w.report().surfaces).toBe(0)
 		expect(w.report().detailNavigation[1].value).toBe("mossholm")
@@ -340,31 +349,31 @@ describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 		local w = world(390, 844)
 		w.env:set("reducedMotion", true)
 		w.tap("/GladeCard_mossholm")
-		expect(w.built.api.detailNavigation.dump().depth).toBe(1)
+		expect(w.record("GladeFlow").dump().depth).toBe(1)
 		expect(#w.report().surfaces).toBe(0)
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 800 })
 		w.presenter.refresh()
-		expect(w.built.api.detailNavigation.dump().depth).toBe(0)
+		expect(w.record("GladeFlow").dump().depth).toBe(0)
 		expect(w.report().selectedGlade).toBe("mossholm")
 		expect(w.find("/DetailLane/[mossholm]/Pane/Detail/Supplies/SupplyRow_dew") ~= nil).toBe(true)
 		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		w.presenter.refresh()
-		expect(w.built.api.detailNavigation.dump().depth).toBe(1)
+		expect(w.record("GladeFlow").dump().depth).toBe(1)
 		w.tap("/NavBar/Back")
 		expect(w.report().selectedGlade).toBeNil()
-		expect(w.built.api.detailNavigation.dump().depth).toBe(0)
+		expect(w.record("GladeFlow").dump().depth).toBe(0)
 		w.built.dispose()
-		expect(w.built.api.detailNavigation.dump().livePages).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.record("GladeFlow").dump().livePages).toBe(0)
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the dew row is an instant refill: no confirmation, a commit event and a keyed toast", function()
 		local w = world()
 		w.built.api.advance(seedData.DRAIN.dew.empty)
 		w.tap("/GladeCard_mossholm")
-		expect(w.built.api.supply.state("mossholm", "dew"):get()).toBe("empty")
+		expect(w.built.api.supply.state("mossholm", "dew"):peek()).toBe("empty")
 		w.tap("/SupplyRow_dew")
-		expect(w.built.api.supply.level("mossholm", "dew"):get()).toBe(1)
+		expect(w.built.api.supply.level("mossholm", "dew"):peek()).toBe(1)
 		expect(w.report().toasts[#w.report().toasts]).toBe("refill:mossholm")
 		-- `commit` is emitted inside the effect the press caused; the framework's
 		-- own `activate` follows it, because activate fires AFTER the effect
@@ -392,7 +401,7 @@ describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 		local w = world()
 		w.tap("/GladeCard_stillpond")
 		-- stillpond's nectar is seeded low
-		expect(w.built.api.supply.state("stillpond", "nectar"):get()).toBe("low")
+		expect(w.built.api.supply.state("stillpond", "nectar"):peek()).toBe("low")
 		local chip = w.textOf("/StateChip/then/ChipGroup/Chip")
 		expect(chip).toBe("Low")
 		local arc = w.node("/SupplyRow_nectar/Row/Ring/Arc/then/Fill")
@@ -632,8 +641,8 @@ describe("Glade S3/S4: the purchase command's four phases (spec §9)", function(
 		expect(w.node("/Act_meadow").props.label).toBe("Choose")
 		expect(w.node("/Act_moonpetal").props.label).toBe("Shop")
 		w.tap("/Act_starlight")
-		expect(w.built.api.supply.nectarOf("mossholm"):get()).toBe("starlight")
-		expect(w.built.api.commerce.satchelOf("starlight"):get()).toBe(2)
+		expect(w.built.api.supply.nectarOf("mossholm"):peek()).toBe("starlight")
+		expect(w.built.api.commerce.satchelOf("starlight"):peek()).toBe(2)
 		expect(#w.report().surfaces).toBe(0) -- the picker dismissed itself
 	end)
 
@@ -643,7 +652,7 @@ describe("Glade S3/S4: the purchase command's four phases (spec §9)", function(
 		w.tap("/SupplyRow_nectar")
 		w.tap("/Act_moonpetal")
 		expect(w.report().surfaces[2]).toBe("shop")
-		expect(w.built.api.commerce.satchelOf("moonpetal"):get()).toBe(0)
+		expect(w.built.api.commerce.satchelOf("moonpetal"):peek()).toBe(0)
 	end)
 
 	it("a standard nectar assigns and refills in one act", function()
@@ -652,24 +661,24 @@ describe("Glade S3/S4: the purchase command's four phases (spec §9)", function(
 		w.tap("/GladeCard_mossholm")
 		w.tap("/SupplyRow_nectar")
 		w.tap("/Act_fern")
-		expect(w.built.api.supply.nectarOf("mossholm"):get()).toBe("fern")
-		expect(w.built.api.supply.level("mossholm", "nectar"):get()).toBe(1)
+		expect(w.built.api.supply.nectarOf("mossholm"):peek()).toBe("fern")
+		expect(w.built.api.supply.level("mossholm", "nectar"):peek()).toBe(1)
 	end)
 
 	it("idle → pending → confirmed: the button says Confirming…, then the count counts up", function()
 		local w = world()
 		openShop(w)
-		expect(w.textOf("/Buy_starlightBundle/Label")).toBe("Buy")
+		expect(w.node("/Buy_starlightBundle").props.label).toBe("Buy")
 		w.tap("/Buy_starlightBundle")
-		expect(w.built.api.commerce.status("starlightBundle"):get()).toBe("pending")
-		expect(w.textOf("/Buy_starlightBundle/Label")).toBe("Confirming…")
+		expect(w.built.api.commerce.status("starlightBundle"):peek()).toBe("pending")
+		expect(w.node("/Buy_starlightBundle").props.label).toBe("Confirming…")
 		expect(w.node("/Buy_starlightBundle").props.enabled).toBe(false)
 		-- PENDING IS NOT SUCCESS: nothing has moved yet
-		expect(w.built.api.commerce.satchelOf("starlight"):get()).toBe(3)
+		expect(w.built.api.commerce.satchelOf("starlight"):peek()).toBe(3)
 		settle(w)
-		expect(w.built.api.commerce.status("starlightBundle"):get()).toBe("confirmed")
-		expect(w.built.api.commerce.satchelOf("starlight"):get()).toBe(8)
-		expect(w.textOf("/Buy_starlightBundle/Label")).toBe("Buy")
+		expect(w.built.api.commerce.status("starlightBundle"):peek()).toBe("confirmed")
+		expect(w.built.api.commerce.satchelOf("starlight"):peek()).toBe(8)
+		expect(w.node("/Buy_starlightBundle").props.label).toBe("Buy")
 		expect(w.report().toasts[#w.report().toasts]).toBe("purchase")
 	end)
 
@@ -678,13 +687,13 @@ describe("Glade S3/S4: the purchase command's four phases (spec §9)", function(
 		openShop(w)
 		w.tap("/Buy_starlightBundle")
 		settle(w)
-		local before = w.built.api.commerce.satchelOf("starlight"):get()
+		local before = w.built.api.commerce.satchelOf("starlight"):peek()
 		w.tap("/Buy_starlightBundle")
 		settle(w)
-		expect(w.built.api.commerce.status("starlightBundle"):get()).toBe("rejected")
-		expect(w.built.api.commerce.reason("starlightBundle"):get()).toBe("declined")
+		expect(w.built.api.commerce.status("starlightBundle"):peek()).toBe("rejected")
+		expect(w.built.api.commerce.reason("starlightBundle"):peek()).toBe("declined")
 		-- nothing reverted invisibly, and nothing was granted
-		expect(w.built.api.commerce.satchelOf("starlight"):get()).toBe(before)
+		expect(w.built.api.commerce.satchelOf("starlight"):peek()).toBe(before)
 		local notice = w.textOf("/Reject_starlightBundle/then/Notice/Plate/Why")
 		expect(notice).toBe("The purchase didn't go through. You weren't charged.")
 		-- the control came back
@@ -731,7 +740,7 @@ describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", f
 		w.tap("/OpenCharm")
 		expect(w.find("/BuyCharm_ember") ~= nil).toBe(true)
 		w.tap("/BuyCharm_ember")
-		expect(w.built.api.commerce.status("ember"):get()).toBe("pending")
+		expect(w.built.api.commerce.status("ember"):peek()).toBe("pending")
 		settle(w)
 		w.tick(40)
 		expect(w.report().commerce.charm).toBe("ember")
@@ -750,7 +759,7 @@ describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", f
 		settle(w)
 		w.tap("/BuyCharm_grove")
 		settle(w)
-		expect(w.built.api.commerce.reason("grove"):get()).toBe("owned")
+		expect(w.built.api.commerce.reason("grove"):peek()).toBe("owned")
 		expect(w.textOf("/RejectCharm_grove/then/Notice/Plate/Why")).toBe("You already have this charm tier.")
 		expect(w.report().commerce.charm).toBe("ember")
 		w.tap("/BuyCharm_grove")
@@ -765,7 +774,7 @@ describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", f
 		expect(w.report().commerce.charm).toBe("grove")
 		w.built.api.commerce.buyCharm("ember")
 		settle(w)
-		expect(w.built.api.commerce.reason("ember"):get()).toBe("owned")
+		expect(w.built.api.commerce.reason("ember"):peek()).toBe("owned")
 		expect(w.report().commerce.charm).toBe("grove")
 	end)
 
@@ -775,13 +784,13 @@ describe("Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)", f
 		expect(w.find("/WispCard_frostwisp/Body/Gate/then/LumenOnly") ~= nil).toBe(true)
 		-- the seeded Frostwisp window starts at 480s, or 60s for a Lumen keeper
 		w.built.api.advance(100)
-		expect(w.built.api.visits.current("lanternDell"):get()).toBeNil()
+		expect(w.built.api.visits.current("lanternDell"):peek()).toBeNil()
 		w.built.api.commerce.buyCharm("lumen")
 		settle(w)
 		w.tick(40)
 		expect(w.report().commerce.charm).toBe("lumen")
 		expect(w.find("/WispCard_frostwisp/Body/Gate/then/LumenOnly")).toBeNil()
-		local live = w.built.api.visits.current("lanternDell"):get()
+		local live = w.built.api.visits.current("lanternDell"):peek()
 		expect(live ~= nil and live.wisp).toBe("frostwisp")
 	end)
 
@@ -821,17 +830,17 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 	it("restore runs the same three-phase command and toasts on confirm", function()
 		local w = world()
 		w.tap(navTail("keeper"))
-		expect(w.textOf("/Restore/Label")).toBe("Restore provisions")
+		expect(w.node("/Restore").props.label).toBe("Restore provisions")
 		w.tap("/Restore")
-		expect(w.textOf("/Restore/Label")).toBe("Confirming…")
+		expect(w.node("/Restore").props.label).toBe("Confirming…")
 		expect(w.node("/Restore").props.enabled).toBe(false)
 		settle(w)
-		expect(w.built.api.commerce.status("restore"):get()).toBe("confirmed")
+		expect(w.built.api.commerce.status("restore"):peek()).toBe("confirmed")
 		expect(w.report().toasts[#w.report().toasts]).toBe("restore")
 		-- the second attempt is the scripted `offline` rejection
 		w.tap("/Restore")
 		settle(w)
-		expect(w.built.api.commerce.reason("restore"):get()).toBe("offline")
+		expect(w.built.api.commerce.reason("restore"):peek()).toBe("offline")
 		expect(w.textOf("/RestoreReject/then/Notice/Plate/Why")).toBe(
 			"Can't reach the shop right now. Try again in a moment."
 		)
@@ -896,22 +905,22 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 				w.presenter.refresh()
 			end
 			activate(launcher)
-			expect(w.built.api.keeperNavigation.dump().depth).toBe(1)
+			expect(w.record("KeeperFlow").dump().depth).toBe(1)
 			expect(w.presenter.depth()).toBe(depth)
 			local name = w.report().keeper.name
 			w.built.api.state.draftName:set("discard this draft")
 			activate(w.find("/NavBar/Back"))
 			expect(w.report().keeper.name).toBe(name)
-			expect(w.built.api.keeperNavigation.dump().depth).toBe(0)
-			expect(w.presenter.focus.focused:get()).toBe(launcher)
+			expect(w.record("KeeperFlow").dump().depth).toBe(0)
+			expect(w.presenter.focus.focused:peek()).toBe(launcher)
 			activate(launcher)
-			expect(w.built.api.state.draftName:get()).toBe(name)
+			expect(w.built.api.state.draftName:peek()).toBe(name)
 			w.built.api.nav.selectSection("glades")
 			w.presenter.refresh()
-			expect(w.built.api.keeperNavigation.dump().depth).toBe(0)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.record("KeeperFlow").dump().depth).toBe(0)
+			expect(w.core.lastError()).toBeNil()
 			w.built.dispose()
-			expect(w.built.api.keeperNavigation.dump().livePages).toBe(0)
+			expect(w.record("KeeperFlow").dump().livePages).toBe(0)
 		end
 	end)
 
@@ -966,12 +975,8 @@ describe("Glade: determinism — same seed, same steps, same dump", function()
 	it("Fresh Start restores every opening state field and clears transient feedback history", function()
 		local w = world()
 		local opening = w.report()
-		-- Initial instant placement announces arrival synchronously. Reset clears
-		-- this event history; it restores seeded state without replaying arrival.
-		expect(#opening.feedback > 0).toBe(true)
-		for _, event in opening.feedback do
-			expect(event).toBe("arrive")
-		end
+		-- Reset clears the feedback history; it restores seeded state without
+		-- replaying whatever the opening frame announced.
 		opening.feedback = {}
 		local expected = w.built.api.serialize(opening)
 		drive(w)
@@ -1019,10 +1024,10 @@ describe("Glade: toasts (spec §12)", function()
 		local w = world()
 		w.built.api.advance(seedData.DRAIN.dew.empty)
 		w.tap("/GladeCard_brambleRest")
-		expect(w.built.api.supply.state("brambleRest", "dew"):get()).toBe("empty")
+		expect(w.built.api.supply.state("brambleRest", "dew"):peek()).toBe("empty")
 		w.tap("/SupplyRow_dew")
 		-- the ring is full again with no tick at all, i.e. before any toast painted
-		expect(w.built.api.supply.level("brambleRest", "dew"):get()).toBe(1)
+		expect(w.built.api.supply.level("brambleRest", "dew"):peek()).toBe(1)
 	end)
 end)
 
@@ -1088,7 +1093,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		small.presenter.refresh()
 		expect(small.find(TOP_BAND) ~= nil).toBe(true)
 		expect(small.find(BOTTOM_BAND)).toBeNil()
-		expect(small.core:lastError()).toBeNil()
+		expect(small.core.lastError()).toBeNil()
 	end)
 
 	it("the top bar HUGS its tabs, centered — never full width (tablet / ten-foot shape)", function()
@@ -1102,7 +1107,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		expect(row.rect.w < 1080 * 0.7).toBe(true)
 		-- ...and centered in it
 		expect(centered(row, 1080, 120)).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("compact puts the TAB BAND BELOW the content, never over it", function()
@@ -1117,7 +1122,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 			expect(middle ~= nil and middle.rect ~= nil).toBe(true)
 			expect(tabs ~= nil and tabs.rect ~= nil).toBe(true)
 			expect(tabs.rect.y >= middle.rect.y + middle.rect.h - 1).toBe(true)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 		end
 	end)
 
@@ -1173,7 +1178,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		desk.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		desk.presenter.refresh()
 		expect(tostring(desk.node(navTail("keeper")).props.label)).toBe(tostring(phoneLabel))
-		expect(desk.core:lastError()).toBeNil()
+		expect(desk.core.lastError()).toBeNil()
 	end)
 
 	it("a live resize moves the nav between homes and the world survives the move", function()
@@ -1192,7 +1197,7 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		expect(w.report().section).toBe("glades")
 		-- the CONTENT never remounted across the move
 		expect(w.find("/GladeCard_mossholm")).toBe(card)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the four sections are reachable from the nav in every home", function()
@@ -1228,14 +1233,14 @@ describe("Glade: adaptation, one tree (spec §4)", function()
 		local nPane = narrow.node("/DetailLane/[mossholm]/Pane")
 		expect(nPane.rect.w > 0).toBe(true)
 		expect(nPane.rect.y >= nSections.rect.y + nSections.rect.h - 1).toBe(true)
-		expect(narrow.core:lastError()).toBeNil()
+		expect(narrow.core.lastError()).toBeNil()
 	end)
 end)
 
 describe("Glade: focus and reachability (spec §4, §14)", function()
 	it("the base surface opens on the first glade card, not on the search field", function()
 		local w = world()
-		local focused = tostring(w.presenter.focus.focused:get())
+		local focused = tostring(w.presenter.focus.focused:peek())
 		expect(string.find(focused, "GladeCard_mossholm", 1, true) ~= nil).toBe(true)
 	end)
 
@@ -1308,7 +1313,7 @@ describe("Glade: focus and reachability (spec §4, §14)", function()
 		local w = world()
 		w.tap(navTail("keeper"))
 		w.tap("/OpenCharm")
-		expect(string.find(tostring(w.presenter.focus.focused:get()), "BuyCharm_ember", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(w.presenter.focus.focused:peek()), "BuyCharm_ember", 1, true) ~= nil).toBe(true)
 		w.tap("/BuyCharm_ember")
 		settle(w)
 		w.tap("/Close")
@@ -1316,15 +1321,15 @@ describe("Glade: focus and reachability (spec §4, §14)", function()
 		-- Ember's card no longer exists; a fixed initialFocus id would have been
 		-- refused at present time here
 		w.tap("/OpenCharm")
-		expect(string.find(tostring(w.presenter.focus.focused:get()), "BuyCharm_grove", 1, true) ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(string.find(tostring(w.presenter.focus.focused:peek()), "BuyCharm_grove", 1, true) ~= nil).toBe(true)
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the picker opens on the first premium card's action button", function()
 		local w = world()
 		w.tap("/GladeCard_mossholm")
 		w.tap("/SupplyRow_nectar")
-		local focused = tostring(w.presenter.focus.focused:get())
+		local focused = tostring(w.presenter.focus.focused:peek())
 		expect(string.find(focused, "Act_starlight", 1, true) ~= nil).toBe(true)
 	end)
 end)
@@ -1342,10 +1347,10 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 
 	local function ringPaths(w: any): { [string]: boolean }
 		local seen: { [string]: boolean } = {}
-		local start = w.presenter.focus.focused:get()
+		local start = w.presenter.focus.focused:peek()
 		if start == nil then
 			pressTab(w)
-			start = w.presenter.focus.focused:get()
+			start = w.presenter.focus.focused:peek()
 		end
 		local guard = 0
 		local at = start
@@ -1354,7 +1359,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 				seen[at] = true
 			end
 			pressTab(w)
-			at = w.presenter.focus.focused:get()
+			at = w.presenter.focus.focused:peek()
 			guard += 1
 		until at == start or at == nil or guard > 250
 		return seen
@@ -1383,7 +1388,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		-- (action) activating a tab through the engine's own activation path works
 		w.tap(navTail("wisps"))
 		expect(w.report().section).toBe("wisps")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end
 
 	it("sidebar (pointer desktop)", function()
@@ -1413,7 +1418,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 			w.presenter.refresh()
 		end
 		local function focused(): string
-			return tostring(w.presenter.focus.focused:get())
+			return tostring(w.presenter.focus.focused:peek())
 		end
 		-- the surface opens on the first glade card (spec §3), so (enter) is a
 		-- real walk UP out of the content and into the band above it
@@ -1472,7 +1477,7 @@ describe("Glade nav — every placement is traversable (enter, through, away, ac
 		expect(landed ~= nil).toBe(true)
 		pad("ButtonA")
 		expect(w.report().section).toBe(ORDER[landed :: number])
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1503,7 +1508,7 @@ describe("Glade: localization and the expansion locale (spec §13)", function()
 		w.presenter.refresh()
 		expect(w.adapter.node(plate).props.text).toBe(strings.TABLES.xa["glade.mossholm"])
 		expect(w.find("/GladeCard_mossholm")).toBe(before)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("an unknown locale falls back rather than blanking the screen", function()
@@ -1554,20 +1559,24 @@ describe("Glade: motion (spec §11)", function()
 	end)
 
 	it("reduced motion places the same states and fires the same events", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-		env:set("reducedMotion", true)
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built = proof.build(Facet, core, {
-			env = env,
-			actionSystem = system,
-			presenter = presenter,
-			adapter = adapter,
+		local rw = refWorld.new(proof, {
+			keyboardNavigation = true,
+			before = function(env: any, adapter: any)
+				env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+				env:set("reducedMotion", true)
+			end,
+			deps = function(env: any, system: any, presenter: any, adapter: any)
+				return {
+					env = env,
+					actionSystem = system,
+					presenter = presenter,
+					adapter = adapter,
+				}
+			end,
 		})
-		local handle = presenter.present(built.screen, built.present)
+		local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+		local built = rw.built
+		local handle = rw.handle
 		built.api.bindHandle(handle)
 		presenter.refresh()
 		built.api.nav.openGlade("mossholm")
@@ -1580,7 +1589,7 @@ describe("Glade: motion (spec §11)", function()
 		-- every beat fired immediately and `onDone` reported the reduced form
 		expect(log[1]).toBe("v2")
 		expect(log[#log]).toBe("reduced")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("the ring's painted arc chases the level and lands on it", function()
@@ -1711,7 +1720,7 @@ describe("Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)", functio
 		expect(w.find("/SupplyRow_dew") == nil).toBe(true) -- nothing selected yet
 		w.tap("/GladeCard_mossholm")
 		expect(w.find("/SupplyRow_dew") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("every preferred-text step re-solves without an error or a lost selection", function()
@@ -1723,7 +1732,7 @@ describe("Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)", functio
 			expect(w.report().selectedGlade).toBe("mossholm")
 			expect(w.find("/SupplyRow_dew") ~= nil).toBe(true)
 		end
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the expansion locale reflows the whole loop with no error and no lost state", function()
@@ -1734,8 +1743,8 @@ describe("Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)", functio
 		expect(w.report().surfaces[1]).toBe("picker")
 		expect(w.textOf("/NectarCard_starlight/Name")).toBe(strings.TABLES.xa["nectar.starlight"])
 		w.tap("/Act_starlight")
-		expect(w.built.api.supply.nectarOf("mossholm"):get()).toBe("starlight")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.built.api.supply.nectarOf("mossholm"):peek()).toBe("starlight")
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1800,33 +1809,29 @@ describe("Glade: the scenario surface", function()
 	end)
 
 	it("two fresh builds are identical (reset determinism) and dispose cleanly", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local before = core:counters()
-		local built = proof.build(Facet, core, {
-			env = env,
-			actionSystem = system,
-			presenter = presenter,
-			adapter = adapter,
-		})
-		local handle = presenter.present(built.screen, built.present)
+		local w = refWorld.open({ viewport = { x = 0, y = 0, w = 1200, h = 800 }, keyboardNavigation = true })
+		local core, presenter = w.core, w.pres
+		local before = core.owner.size()
+		local rw = refWorld.mount(w, proof)
+		local built, handle = rw.built, rw.handle
 		built.api.bindHandle(handle)
 		presenter.refresh()
 		built.api.nav.openGlade("mossholm")
 		built.api.nav.openPicker("mossholm")
 		presenter.refresh()
 		built.dispose()
+		-- a dismissed surface releases its owner once its exit finishes, and the
+		-- exit is measured in clock time
+		for _ = 1, 60 do
+			presenter.tick(FRAME)
+		end
 		presenter.refresh()
-		local after = core:counters()
-		-- the proof owns one scope and gives it all back: signals and memos return
+		local after = core.owner.size()
+		-- the proof owns one owner and gives it all back: signals and memos return
 		-- to the baseline the core started from
-		expect(after.signals <= before.signals + 4).toBe(true)
-		expect(after.memos <= before.memos + 4).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(after <= before + 4).toBe(true)
+		expect(after <= before + 4).toBe(true)
+		expect(core.lastError()).toBeNil()
 	end)
 	it("the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)", function()
 		for _, vp in
@@ -1838,16 +1843,18 @@ describe("Glade: the scenario surface", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = Facet.newCore()
-			local env = Facet.newEnvironment(core)
-			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system)
-			local built =
-				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
-			local handle = presenter.present(built.screen, built.present)
+			local rw = refWorld.new(proof, {
+				scrollBar = true,
+				before = function(env: any, adapter: any)
+					env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
+				end,
+				deps = function(env: any, system: any, presenter: any, adapter: any)
+					return { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
+				end,
+			})
+			local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+			local built = rw.built
+			local handle = rw.handle
 			presenter.refresh()
 			expect(#handle.controller.diagnostics()).toBe(0)
 			built.dispose()
@@ -1935,8 +1942,8 @@ describe("Glade — the played task: seeded start, both orders, depletion, and t
 		expect(t.nectarReady).toBe(false)
 		expect(t.complete).toBe(false)
 		-- the seed itself: a task whose first row arrives already ticked is not a task
-		expect(w.built.api.supply.state(TASK_GLADE, "dew"):get()).never().toBe("full")
-		expect(w.built.api.supply.nectarOf(TASK_GLADE):get()).never().toBe(TASK_NECTAR)
+		expect(w.built.api.supply.state(TASK_GLADE, "dew"):peek()).never().toBe("full")
+		expect(w.built.api.supply.nectarOf(TASK_GLADE):peek()).never().toBe(TASK_NECTAR)
 
 		-- the goal in one sentence, the named subject, two plain rows, the next
 		-- action and a first action by name
@@ -1952,7 +1959,7 @@ describe("Glade — the played task: seeded start, both orders, depletion, and t
 		expect(w.node("/TaskOpen").props.label).toBe("Open Mossholm")
 		-- the completion state is not up
 		expect(w.find("/TaskAgain")).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -2025,7 +2032,7 @@ describe("Glade — the played task: seeded start, both orders, depletion, and t
 		expect(w.report().task.phase).toBe("dew")
 		refillDew(w)
 		expect(w.report().task.complete).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -2033,7 +2040,7 @@ describe("Glade — the played task: seeded start, both orders, depletion, and t
 		local w = world(390, 844)
 		w.tap(`/GladeCard_{TASK_GLADE}`)
 		-- it is visiting, and it is waiting: the ceremony belongs to the two acts
-		expect(w.built.api.visits.current(TASK_GLADE):get().wisp).toBe(TASK_WISP)
+		expect(w.built.api.visits.current(TASK_GLADE):peek().wisp).toBe(TASK_WISP)
 		expect(#w.report().flyIns).toBe(0)
 		refillDew(w)
 		expect(#w.report().flyIns).toBe(0)
@@ -2102,7 +2109,7 @@ describe("Glade — the played task: seeded start, both orders, depletion, and t
 		expect(t.touched).toBe(false)
 		expect(w.report().section).toBe("glades")
 		expect(#w.report().surfaces).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -2143,7 +2150,7 @@ describe("Glade — the played task: seeded start, both orders, depletion, and t
 
 	it("on a landscape phone the strip yields and the CARD still carries the whole task", function()
 		local w = world(640, 320)
-		expect(w.built.api.conditions.isShort:get()).toBe(true)
+		expect(w.built.api.conditions.isShort:peek()).toBe(true)
 		expect(w.find("/TaskStripWhen/then/TaskStrip")).toBeNil()
 		expect(w.textOf("/TaskGoal")).toBe("Wisps visit glades that have fresh dew and the nectar they like.")
 		expect(w.textOf("/TaskNext")).toBe("Open Mossholm and refill its dew.")

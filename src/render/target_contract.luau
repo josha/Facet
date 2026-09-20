@@ -313,6 +313,8 @@ target_contract.FUTURE = table.freeze({
 		--[[ ANSWERED BY THE SPIKE. Two of these corrected this file's own premises,
 			and both corrections matter to anyone reading it next. ]]
 		answered = table.freeze({
+			"native scrolling: virtual monitors wheel input moved CanvasPosition from 0 to 2270; the catalog paged from 36 to 72 items with 12 mounted card hits, and Back preserved the offset",
+			"stylesheets: the virtual monitors Studio probe drives native_style through three SurfaceGui roots; per-target Light/Dark palette swaps preserve the mounted controls and ViewportFrames",
 			"canvas mapping: SizingMode = FixedSize gives a canvas INVARIANT to the part — 8x5, 4x2.5, 16x10 and 8x2 studs all reported the same 400x250 — and descendants read in canvas pixels, so the solver is handed one exact rect and a part resize costs no re-solve",
 			"interactivity precondition: WRONG AS ORIGINALLY WRITTEN. A SurfaceGui parented INTO the part is NOT display-only on Studio 0.736 — both topologies took input (activated=1, inputBegan=2 each). PlayerGui + Adornee is still required, on OWNERSHIP grounds: a SurfaceGui inside a Workspace part replicates to every player, and shared UI is what Facet must never build",
 			"local ownership: unchanged and now load-bearing — it is the whole reason for the topology above",
@@ -323,15 +325,13 @@ target_contract.FUTURE = table.freeze({
 			"clipping: a child overflowing the canvas still reports its full AbsoluteSize, so clipping is a paint fact and the solver's overflow diagnostics keep meaning what they mean, exactly as on a ScreenGui",
 			"text measurement: TextService takes no target, so there is no per-target text question — GetTextBoundsAsync answered identically",
 		}),
-		--[[ STILL OPEN. Each is here because nothing has measured it, not because
-			nobody thought of it; the adapter withholds the matching capability by
-			name rather than shipping an unproven one. ]]
+		-- Outstanding evidence. Custom capture and foreign-content seams stay
+		-- withheld; additional input/device checks remain for the native paths.
 		openQuestions = table.freeze({
-			"stylesheets: whether a StyleLink under a SurfaceGui resolves the same rules with the same cascade — the spike could not close this, because its hand-built StyleRule failed to apply on the SCREEN control too and a shared null proves nothing. It closes with native_style itself driven on a surface; until then the adapter passes nativeStyle = false",
 			"pointer coordinates: activation reaches a surface control, but what coordinates a CAPTURE carries is unmeasured — and on a SurfaceGui the ScreenGui inset correction is not merely wrong, it is the wrong KIND of correction. setPointerHandlers and setTouchGestureHandlers are withheld until a mapping is measured",
-			"the native scroll host: a scripted CanvasPosition write took, but a wheel, a drag and a touch flick are what a consumer gets and none has been driven. forceScrollFallback stays true",
+			"touch scrolling: native ScrollingFrame wheel delivery and virtualized windowing are verified, but touch pan and inertia still need a live device check",
 			"focus visuals: whether a focus ring is legible at the distances and angles a world surface is viewed from",
-			"engine content: a ViewportFrame (UI.Stage) or a caller's own GuiObject (UI.Foreign) inside a canvas that is itself a world surface is a composition nobody has looked at. Both hosts are withheld",
+			"foreign content: a caller's own GuiObject (UI.Foreign) inside a world surface remains unverified; foreignHost is withheld. Stage uses the shared ViewportFrame content seam",
 			"performance: a world surface renders every frame the part is visible; the cost has to be measured against the same scene at idle, not assumed",
 			"retail client: every answer above is Studio Play with an injected pointer. The real client remains a named device row",
 		}),

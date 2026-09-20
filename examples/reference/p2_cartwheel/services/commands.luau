@@ -28,10 +28,9 @@ export type Submit = {
 }
 
 function commands.new(opts: any): any
-	local core = opts.core
+	local Compose = opts.Compose
 	local clock = opts.clock
 	local presenter = opts.presenter
-	local Facet = opts.Facet
 	local S = opts.strings
 	local latency: number = opts.latency or 0.25
 
@@ -44,7 +43,7 @@ function commands.new(opts: any): any
 	local function statusSignal(id: string): any
 		local existing = statuses[id]
 		if existing == nil then
-			existing = core:signal("idle")
+			existing = Compose.cell("idle")
 			statuses[id] = existing
 		end
 		return existing
@@ -53,7 +52,7 @@ function commands.new(opts: any): any
 	local function reasonSignal(id: string): any
 		local existing = reasons[id]
 		if existing == nil then
-			existing = core:signal("")
+			existing = Compose.cell("")
 			reasons[id] = existing
 		end
 		return existing
@@ -68,31 +67,15 @@ function commands.new(opts: any): any
 	end
 
 	function self.isPending(id: string): boolean
-		return statusSignal(id):get() == "pending"
+		return statusSignal(id):peek() == "pending"
 	end
 
 	-- the toast a rejection owes the player. `key = id` so a retry SUPERSEDES
 	-- its predecessor instead of stacking a second copy of the same sentence.
 	local function toast(id: string, message: string)
-		if presenter == nil or presenter.presentToast == nil or Facet == nil then
-			return
+		if opts.toast ~= nil then
+			opts.toast(id, message)
 		end
-		local UI = Facet.UI
-		presenter.presentToast(
-			UI.ZStack({
-				id = "CartwheelToast",
-				canvasGroup = true,
-
-				UI.Box({
-					id = "Plate",
-					surface = "raised",
-					width = UI.fill(),
-					height = { type = "content" },
-				}),
-				UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),
-			}),
-			{ key = id, position = "bottom", duration = 4 }
-		)
 	end
 
 	local function emit(kind: string, id: string, reason: string?)
@@ -152,12 +135,6 @@ function commands.new(opts: any): any
 	end
 
 	function self.dispose()
-		for _, signal in statuses do
-			signal:dispose()
-		end
-		for _, signal in reasons do
-			signal:dispose()
-		end
 		statuses = {}
 		reasons = {}
 	end

@@ -22,21 +22,21 @@ local list = {}
 -- ---------------------------------------------------------------------------
 
 function list.blendRow(app: any, blendId: string, opts: any): any
-	local BlendRow = app.Facet.component(function(ui)
-		local localeNow = ui.read(app.services.i18n.locale)
-		local selectedBlend = ui.read(app.state.selectedBlendId)
+	local function BlendRow(): any
+		local localeNow = app.services.i18n.locale
+		local selectedBlend = app.state.selectedBlendId
 		-- Custom row/circle geometry uses the primitive Button; mounted getters
 		-- and cleanup still belong to this component.
-		local UI = app.Facet.View
+		local UI = app.UI
 		local catalog = app.services.catalog
 		local i18n = app.services.i18n
 		local blend = catalog.blend(blendId)
 		local options = opts or {}
-		local title = ui.memo(function()
-			return i18n.nameAt(localeNow(), "blend", blendId, blend.title)
+		local title = app.Compose.formula(function(use)
+			return i18n.nameAt(use(localeNow), "blend", blendId, blend.title)
 		end)
-		local botanicalLine = ui.memo(function()
-			local locale = localeNow()
+		local botanicalLine = app.Compose.formula(function(use)
+			local locale = use(localeNow)
 			local names: { string } = {}
 			for _, botanicalId in catalog.tileBotanicals(blendId) do
 				local botanical = catalog.botanical(botanicalId)
@@ -44,15 +44,14 @@ function list.blendRow(app: any, blendId: string, opts: any): any
 			end
 			return i18n.listAt(locale, names)
 		end)
-		local caffeineLine = ui.memo(function()
-			return i18n.at(localeNow(), "row.caffeine", { n = catalog.caffeineMg(blendId) })
+		local caffeineLine = app.Compose.formula(function(use)
+			return i18n.at(use(localeNow), "row.caffeine", { n = catalog.caffeineMg(blendId) })
 		end)
-		local selected = ui.memo(function()
-			return selectedBlend() == blendId
+		local selected = app.Compose.formula(function(use)
+			return use(selectedBlend) == blendId
 		end)
 		local children: { any } = {
-			app.Facet.UI.Button({
-				id = "Open",
+			UI.Button("Open")({
 				label = title,
 				selected = selected,
 				width = dims.fill,
@@ -66,21 +65,18 @@ function list.blendRow(app: any, blendId: string, opts: any): any
 					width = dims.fixed("app.sip.rowArt"),
 					height = dims.fixed("app.sip.rowArt"),
 				}),
-				UI.VStack({
-					id = "Lines",
+				UI.VStack("Lines")({
 					gap = "xs",
 					width = dims.fill,
-					UI.Text({ id = "Title", text = title, textSize = "strong", lineLimit = 1, disclose = true }),
-					UI.Text({
-						id = "Botanicals",
+					UI.Text("Title")({ text = title, textSize = "strong", lineLimit = 1, disclose = true }),
+					UI.Text("Botanicals")({
 						text = botanicalLine,
 						role = "secondary",
 						textSize = "caption",
 						lineLimit = 2,
 						disclose = true,
 					}),
-					UI.Text({
-						id = "Caffeine",
+					UI.Text("Caffeine")({
 						text = caffeineLine,
 						role = "secondary",
 						textSize = "caption",
@@ -93,51 +89,49 @@ function list.blendRow(app: any, blendId: string, opts: any): any
 		if app.entry == "full" then
 			table.insert(children, list.favoriteButton(app, blendId, "Favorite"))
 		end
-		return UI.ZStack({
-			id = "Row-" .. blendId,
+		return UI.ZStack("Row-" .. blendId)({
 			canvasGroup = true,
 			width = dims.fill,
-			UI.HStack({ id = "Line", gap = "s", align = "center", width = dims.fill, children = children }),
+			UI.HStack("Line")(app.withChildren({ gap = "s", align = "center", width = dims.fill }, children)),
 		})
-	end)
-	return BlendRow({})
+	end
+	return BlendRow()
 end
 
 -- the favorite affordance: a circle Button whose MARK changes with the state,
 -- so the fact is carried by form and not by hue alone
 function list.favoriteButton(app: any, blendId: string, id: string): any
-	local FavoriteButton = app.Facet.component(function(ui)
-		local localeNow = ui.read(app.services.i18n.locale)
-		local favoriteSet = ui.read(app.services.favorites.set)
+	local function FavoriteButton(): any
+		local localeNow = app.services.i18n.locale
+		local favoriteSet = app.services.favorites.set
 		-- Custom row/circle geometry uses the primitive Button; mounted getters
 		-- and cleanup still belong to this component.
-		local UI = app.Facet.View
+		local UI = app.UI
 		local i18n = app.services.i18n
 		local favorites = app.services.favorites
 		local blend = app.services.catalog.blend(blendId)
-		local isFavorite = ui.memo(function()
-			return favoriteSet()[blendId] == true
+		local isFavorite = app.Compose.formula(function(use)
+			return use(favoriteSet)[blendId] == true
 		end)
-		local label = ui.memo(function()
-			local locale = localeNow()
-			local key = if isFavorite() then "row.unfavorite" else "row.favorite"
+		local label = app.Compose.formula(function(use)
+			local locale = use(localeNow)
+			local key = if use(isFavorite) then "row.unfavorite" else "row.favorite"
 			return i18n.at(locale, key, { title = i18n.nameAt(locale, "blend", blendId, blend.title) })
 		end)
-		local mark = ui.memo(function()
-			return if isFavorite() then "*" else "+"
+		local mark = app.Compose.formula(function(use)
+			return if use(isFavorite) then "*" else "+"
 		end)
-		return app.Facet.UI.Button({
-			id = id,
+		return UI.Button(id)({
 			label = label,
 			shape = "circle",
 			selected = isFavorite,
 			onActivate = function()
 				app.commands.toggleFavorite(blendId)
 			end,
-			UI.Text({ id = "Mark", text = mark, textSize = "strong", textAlign = "center" }),
+			UI.Text("Mark")({ text = mark, textSize = "strong", textAlign = "center" }),
 		})
-	end)
-	return FavoriteButton({})
+	end
+	return FavoriteButton()
 end
 
 -- ---------------------------------------------------------------------------
@@ -145,67 +139,59 @@ end
 -- ---------------------------------------------------------------------------
 
 function list.searchBar(app: any): any
-	local SearchBar = app.Facet.component(function(ui)
-		local UI = app.Facet.View
+	local function SearchBar(): any
+		local UI = app.UI
 		local i18n, catalog = app.services.i18n, app.services.catalog
-		-- The app retains the field handle to submit/cancel edits from navigation.
-		local field = app.search
-		local locale, query = ui.read(i18n.locale), ui.read(app.state.search)
-		local editing = ui.read(field.api.editing)
-		local suggestions = ui.memo(function()
-			local currentLocale = locale()
-			return catalog.suggestions(query(), function(kind, id, text)
+		local locale, query = i18n.locale, app.state.search
+		local editing = app.searchEditing
+		local suggestions = app.Compose.formula(function(use)
+			local currentLocale = use(locale)
+			return catalog.suggestions(use(query), function(kind, id, text)
 				return i18n.nameAt(currentLocale, kind, id, text)
 			end, 6)
 		end)
-		return UI.VStack({
-			id = "SearchBar",
+		return UI.VStack("SearchBar")({
 			gap = "xs",
 			width = dims.fill,
-			field.blueprint,
-			UI.When({
-				id = "Suggestions",
-				condition = function()
-					return editing() and #suggestions() > 0
+			app.searchField(),
+			app.when("Suggestions")({
+				condition = function(use)
+					return use(editing) and #use(suggestions) > 0
 				end,
-				transition = { enter = "fade" },
-				UI.ZStack({
-					id = "SuggestBox",
-					canvasGroup = true,
-					width = dims.fill,
-					UI.VStack({
-						id = "SuggestList",
-						gap = "xs",
+				thenView = function()
+					return UI.ZStack("SuggestBox")({
+						canvasGroup = true,
 						width = dims.fill,
-						surface = "raised",
-						padding = "xs",
-						UI.ForEach({
-							id = "Rows",
-							items = suggestions,
-							key = function(id)
-								return id
-							end,
-							row = function(item)
-								local id = item()
-								local botanical = catalog.botanical(id)
-								return UI.Button({
-									id = "Suggest-" .. id,
-									width = dims.fill,
-									label = function()
-										return i18n.nameAt(locale(), "botanical", item(), botanical.name)
-									end,
-									onActivate = function()
-										app.commands.acceptSuggestion(item())
-									end,
-								})
-							end,
+						UI.VStack("SuggestList")({
+							gap = "xs",
+							width = dims.fill,
+							surface = "raised",
+							padding = "xs",
+							app.forEach("Rows")({
+								items = suggestions,
+								key = function(id)
+									return id
+								end,
+								row = function(id: string)
+									local botanical = catalog.botanical(id)
+									return UI.Button("Suggest-" .. id)({
+										width = dims.fill,
+										label = function(use)
+											return i18n.nameAt(use(locale), "botanical", id, botanical.name)
+										end,
+										onActivate = function()
+											app.commands.acceptSuggestion(id)
+										end,
+									})
+								end,
+							}),
 						}),
-					}),
-				}),
+					})
+				end,
 			}),
 		})
-	end)
-	return SearchBar({})
+	end
+	return SearchBar()
 end
 
 -- ---------------------------------------------------------------------------
@@ -217,33 +203,30 @@ end
 -- on a phone — the solver reported the list solving to 0px tall and the pane
 -- overflowing by 161px.
 function list.blendList(app: any, spec: any): any
-	local UI = app.Facet.View
+	local UI = app.UI
 	local children: { any } = {}
 	if spec.leading ~= nil then
 		table.insert(children, spec.leading)
 	end
 	table.insert(
 		children,
-		UI.ForEach({
-			id = "Rows",
+		app.forEach("Rows")({
 			items = spec.items,
 			key = function(id: string)
 				return id
 			end,
 			transition = { enter = "materialize" },
-			row = function(blendId)
-				return list.blendRow(app, blendId(), { onActivate = spec.onActivate })
+			row = function(blendId: string)
+				return list.blendRow(app, blendId, { onActivate = spec.onActivate })
 			end,
 		})
 	)
-	return UI.ScrollView({
-		id = spec.id,
+	return UI.ScrollView(spec.id)(app.withChildren({
 		axis = "y",
 		gap = "xs",
 		width = dims.fill,
 		height = dims.fill,
-		children = children,
-	})
+	}, children))
 end
 
 return list

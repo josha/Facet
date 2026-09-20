@@ -37,35 +37,25 @@
 
 local process = require("@lune/process")
 
-local customFactory = require("../../src/core/custom")
-local UI = require("../../src/blueprint")
-local mountLib = require("../../src/mount")
-local environment = require("../../src/env/environment")
-local rendererLib = require("../../src/render/renderer")
-local fake_target = require("../../tests/lib/fake_target")
+local nativeApp = require("../../bench/native_app")
+local Compose = require("../../src").Compose
 
 -- the measured surface, verbatim: 20 rows of
 -- `HStack[ Box, VStack[Box, Box], Spacer, Box ]` = 142 nodes.
-local function rows(rotation: number?): { any }
-	local out: { any } = {}
+local function rows(UI: any, rotation: number?): { [any]: any }
+	local out: { [any]: any } = {}
 	for i = 1, 20 do
 		table.insert(
 			out,
-			UI.HStack({
-				id = `Row{i}`,
+			UI.HStack(`Row{i}`)({
 				rotation = rotation,
-				children = {
-					UI.Box({ id = "Lead", surface = "raised" }),
-					UI.VStack({
-						id = "Text",
-						children = {
-							UI.Box({ id = "T1", surface = "raised" }),
-							UI.Box({ id = "T2", surface = "raised" }),
-						},
-					}),
-					UI.Spacer({ id = "Gap" }),
-					UI.Box({ id = "Trail", surface = "raised" }),
-				},
+				UI.Box("Lead")({ surface = "raised" }),
+				UI.VStack("Text")({
+					UI.Box("T1")({ surface = "raised" }),
+					UI.Box("T2")({ surface = "raised" }),
+				}),
+				UI.Spacer("Gap")({}),
+				UI.Box("Trail")({ surface = "raised" }),
 			})
 		)
 	end
@@ -77,38 +67,35 @@ end
 -- against. SAME REASON AS `ROTATED`: registering a host means materialising it, so
 -- the 20 row containers leave the elidable set, and the delta is published rather
 -- than discovered later.
-local function translatedRows(core: any): { any }
-	local out: { any } = {}
+local function translatedRows(UI: any): { [any]: any }
+	local out: { [any]: any } = {}
 	for i = 1, 20 do
-		local offset = core:signal(0)
 		table.insert(
 			out,
-			UI.VStack({
-				id = `Row{i}`,
+			UI.VStack(`Row{i}`)({
 				anchor = "topLeft",
-				offsetY = offset,
-				children = {
-					UI.Text({ id = "A", text = `row {i}`, textSize = 12 }),
-					UI.Text({ id = "B", text = "sub", textSize = 12 }),
-				},
+				offsetY = Compose.cell(0),
+				UI.Text("A")({ text = `row {i}`, textSize = 12 }),
+				UI.Text("B")({ text = "sub", textSize = 12 }),
 			})
 		)
 	end
 	return out
 end
 
--- `screen` is either a blueprint or a function of the core (a fixture that needs
--- reactive props has to be built against the core the census mounts on)
-local function census(screen: any): { creates: number, elided: number, guiObjects: number, pct: number }
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local root = mountLib.mount(core, if type(screen) == "function" then screen(core) else screen)
-	local adapter = fake_target.new()
-	local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
-	controller.initialRender()
-	local stats = controller.stats()
+-- `list(UI)` builds the one child of the census screen
+local function census(list: (UI: any) -> any): { creates: number, elided: number, guiObjects: number, pct: number }
+	local world = nativeApp({
+		viewport = { x = 0, y = 0, w = 400, h = 600 },
+		env = { coreSafeInsets = { top = 0, bottom = 0, left = 0, right = 0 } },
+	})
+	local UI = world.UI
+	local _, _, handle = world.app.mount(function()
+		return UI.Screen("S")({ padding = 0, gap = 0, list(UI) })
+	end, { rootPolicy = "edgeToEdge" })
+	world.pres.refresh()
+	local stats = handle.controller.stats()
+	world.app.dispose()
 	local guiObjects = stats.creates - stats.elided
 	return {
 		creates = stats.creates,
@@ -118,21 +105,15 @@ local function census(screen: any): { creates: number, elided: number, guiObject
 	}
 end
 
-local FLAT = census(UI.Screen({
-	id = "S",
-	padding = 0,
-	gap = 0,
-	children = { UI.VStack({ id = "List", children = rows() }) },
-}))
+local FLAT = census(function(UI)
+	return UI.VStack("List")(rows(UI))
+end)
 
 -- the same rows inside a real instance host. A `ScrollView` defaults
 -- `clipChildren = true`, so this is the one shape that is ALREADY nested today.
-local SCROLLED = census(UI.Screen({
-	id = "S",
-	padding = 0,
-	gap = 0,
-	children = { UI.ScrollView({ id = "List", children = rows() }) },
-}))
+local SCROLLED = census(function(UI)
+	return UI.ScrollView("List")(rows(UI))
+end)
 
 -- ...and the same rows with an authored `rotation` on each one, which nesting
 -- Decision 4 turns into a real instance parent so the engine carries the term
@@ -140,20 +121,12 @@ local SCROLLED = census(UI.Screen({
 -- Registering a host means materialising it, so the 20 row containers leave the
 -- elidable set; publishing that delta beside the flat number is the difference
 -- between a priced trade and a quiet retreat.
-local ROTATED = census(UI.Screen({
-	id = "S",
-	padding = 0,
-	gap = 0,
-	children = { UI.VStack({ id = "List", children = rows(30) }) },
-}))
+local ROTATED = census(function(UI)
+	return UI.VStack("List")(rows(UI, 30))
+end)
 
-local TRANSLATED = census(function(core: any): any
-	return UI.Screen({
-		id = "S",
-		padding = 0,
-		gap = 0,
-		children = { UI.Anchor({ id = "List", children = translatedRows(core) }) },
-	})
+local TRANSLATED = census(function(UI)
+	return UI.Anchor("List")(translatedRows(UI))
 end)
 
 -- the live Studio probe. Exact, not a floor — see the header.

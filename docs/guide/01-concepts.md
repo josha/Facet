@@ -13,22 +13,31 @@ This creates "when this changes, remember to also update that" rules. As the
 screen grows, the number of these rules grows even faster than the screen
 does. They are easy to get wrong.
 
-Facet is *declarative*. A component describes its structure once per mount.
-Property getters describe the values that may change. Facet tracks what those
-getters read and updates the affected properties; it does not rerun the entire
-component or rebuild its tree for each change.
+Facet is *declarative*. A component is a plain Luau function that returns a
+node. It describes its structure once per mount. A reactive property describes a
+value that may change. Facet tracks what that property reads and updates only
+the affected property; it does not rerun the component or rebuild its tree.
 
-Use constructors on `Facet.View` for application UI. Each returns an inert
-**blueprint**, including controls whose resources will be created at mount.
+Create an application, then use its constructors:
 
 ```luau
-local UI = Facet.View
-local screen = UI.Screen {
-    id = "Menu", padding = "m", gap = "s",
-    UI.Text { id = "Title", text = "Main Menu", textSize = "title" },
-    UI.Button { id = "Play", label = "Play", onActivate = startGame },
-}
+local Facet = require(game.ReplicatedStorage.Facet)
+local app = Facet.new()
+local UI = app.controls
+
+local function Menu()
+    return UI.Screen {
+        padding = "m", gap = "s",
+        UI.Text { text = "Main Menu", textSize = "title" },
+        UI.Button { label = "Play", onActivate = startGame },
+    }
+end
+
+local close = app.mount(Menu)
 ```
+
+Numeric entries in the property table are children, in the order you write
+them. Named fields are properties.
 
 `padding` and `gap` take a theme spacing token: `"xs"`, `"s"`, `"m"`, `"l"`, or
 `"xl"`. These resolve to 4, 8, 16, 24 and 40 pixels under the default theme.
@@ -41,13 +50,14 @@ A plain number is legal in any of these places, and it stays exactly that
 number. It will not follow a theme swap or the player's text setting, and it
 will not grow on a television.
 
-That `screen` value is inert data. Turning it into something live is a
-separate step (mounting — see [chapter 3](03-getting-started.md)).
+`app.mount(Menu)` runs the component under a Compose owner and presents its one
+root. It returns a `close` function that removes that screen. See
+[chapter 3](03-getting-started.md) for the whole mounting story.
 
 ### A description names the shape, not the numbers
 
-Because a blueprint is a description, it names *what the control is*, not the
-arithmetic that draws it. `Facet.UI.Button{ shape = "circle" }` is the clearest
+Because a node is a description, it names *what the control is*, not the
+arithmetic that draws it. `UI.Button { shape = "circle" }` is the clearest
 case. It is the floating round "…" action. You never compute a diameter, a
 radius, or a square.
 
@@ -67,10 +77,9 @@ stays legible under every theme. A theme that ships art for the name paints
 that picture over the glyph. `label` stays the button's real name for screen
 readers and ten-foot readouts.
 
-```lua
--- This custom icon target uses the primitive geometry API.
-Facet.UI.Button {
-    id = "More", label = "More actions", shape = "circle", icon = "more",
+```luau
+UI.Button {
+    label = "More actions", shape = "circle", icon = "more",
     onActivate = openActions,
 }
 ```
@@ -80,11 +89,12 @@ are in [the API reference](../reference/api.md#button).
 
 ### Stable identity
 
-Every node can carry an `id`. Sibling nodes with the same parent must have
-different ids. Duplicate ids are a hard error. If you omit an `id`, Facet
-generates a stable one from the node's class and position (for example
-`Button#2`). Ids matter because they are how Facet recognizes "this is the same
-button as last time, just with new text" versus "this is a brand-new button."
+An ordinary control needs no identifier. Pass a constructor name when another
+API needs a stable path to the node: `UI.Button("Save") { label = "Save",
+onActivate = save }`. Sibling nodes under the same parent must have different
+names; a duplicate is a hard error. Without a name, Facet derives a stable path
+segment from the node's class and position. Paths are how focus, tests, dumps
+and transition sources address one node.
 
 ## 1.2 Two kinds of state: semantic vs. presentation
 
@@ -109,55 +119,66 @@ device. **It must never be sent over the network** (more in
 
 ## 1.3 The reactive runtime
 
-State changes; the interface follows. Inside a component, `ui.state(initial)`
-returns a getter and setter. Calling the getter in a reactive property subscribes
-that property. Calling the setter requests a new value.
+State changes; the interface follows. Facet's reactive values are Compose's, and
+they are reached through `Facet.Compose`. `Compose.cell(initial)` creates a
+writable value. A reactive property is a function that receives `use`; calling
+`use(value)` subscribes that property to the value.
 
 ```luau
-local Counter = Facet.component(function(ui)
-    local count, setCount = ui.state(0)
-    local doubled = ui.memo(function() return count() * 2 end)
+local Compose = Facet.Compose
+
+local function Counter()
+    local count = Compose.cell(0)
+    local doubled = Compose.formula(function(use) return use(count) * 2 end)
     return UI.VStack {
-        UI.Text(function() return `Count {count()}, doubled {doubled()}` end),
+        UI.Text {
+            text = function(use) return `Count {use(count)}, doubled {use(doubled)}` end,
+        },
         UI.Button {
             label = "Add one",
-            onActivate = function() setCount(function(n) return n + 1 end) end,
+            onActivate = function() count:update(function(n) return n + 1 end) end,
         },
     }
-end)
+end
 ```
 
-An ordinary getter is enough for a short derived property. Use `ui.memo` when
-work is shared or expensive. `ui.watch(getter, callback)` reacts to changes;
-`ui.effect(function)` also runs initially and may return a cleanup function.
-`ui.batch(function)` groups related writes so dependents see a consistent result.
-A user command belongs in a callback, even when it requests the same value twice.
+Write with `:set(value)` or `:update(function)`. Read without subscribing with
+`:peek()`, which is what an event callback usually wants. A short derived value
+can stay inline in the property; use `Compose.formula` when the work is shared or
+expensive. `Compose.watch(function(use) ... end)` runs initially and reruns when
+the values it read change. `app.runtime:batch(function() ... end)` groups related
+writes so dependents see one consistent result. A user command belongs in a
+callback, even when it requests the same value twice.
 
-Compose owns the dependency graph, scheduling and ownership. Facet adds
-its readable API, error diagnostics and layout settling. Core remains available for model state that must
-outlive any particular screen: `core:signal`, `core:memo`, `core:observe` and
-`core:scope`. Borrow such state with `ui.read(model.balance)` inside a component;
-`model.balance:get()` is an untracked snapshot, not a reactive property recipe.
-The [Core reference](../reference/api.md#reactive-core) documents that explicit boundary.
+Compose owns the dependency graph, scheduling and ownership. Facet adds the
+controls, layout, themes, input and layout settling. Model state that must
+outlive any particular screen is an ordinary `Compose.cell` or `Compose.formula`
+created outside the component; pass it in and read it with `use` like any other
+value.
 
 ### Ownership follows the mounted component
 
-Every mount owns its `ui.state`, `ui.memo`, `ui.watch` and `ui.effect` resources.
-Unmounting releases them. `ui.own` adds an external subscription or an explicitly
-needed control handle to that lifetime. You do not write an owner around each
-ordinary control declaration.
+A mount owns every cell, formula and watch created while the component ran.
+Closing the surface releases them. `Compose.cleanup(fn)` adds an engine
+connection or another external resource to that same lifetime. You do not write
+an owner around each ordinary control declaration.
 
 ```luau
-UI.When { condition = isOpen, Details { item = selectedItem } }
-UI.ForEach {
-    items = rows, key = "id",
+UI.When("Details")({
+    condition = isOpen,
+    thenView = function() return Details { item = selectedItem } end,
+})
+UI.ForEach("Rows")({
+    items = rows,
+    key = function(item) return item.id end,
     row = function(item) return ItemRow { item = item } end,
-}
+})
 ```
 
 `Details` and `ItemRow` are components. Their state belongs to the visible branch
-or keyed row. The row's `item()` getter reads the current record, including a
-replacement with the same key. Keep state that must survive filtering or
+or keyed row. `ForEach` calls `row(item, _, itemReadable)`: the first argument is
+the record as it stands, and the third is a readable that follows a replacement
+with the same key. Keep state that must survive filtering or
 virtualization in the model. Numeric children are a dense array and retain their
 declared order; dictionary iteration does not define visual order.
 
@@ -166,7 +187,7 @@ policies, and [getting started](03-getting-started.md) for mounting and teardown
 
 ## 1.4 The client-local runtime
 
-**Everything described so far — the reactive core, the blueprints, layout,
+**Everything described so far — the reactive values, the controls, layout,
 navigation, and rendering — runs on each individual player's own machine (the
 client).** There is no shared UI running on the server. When two players are in
 the same game, each of their clients independently builds and displays its own
@@ -174,7 +195,7 @@ interface from whatever data that client has.
 
 This is not an implementation detail you can ignore. It is the mental model.
 "What does the screen look like?" is always a *local* computation. The same
-blueprint produces different pixel rectangles on a phone and a desktop. The
+description produces different pixel rectangles on a phone and a desktop. The
 reason: local device facts, like screen size and input type, differ. Facet
 computes both locally, from the same description.
 
@@ -188,7 +209,7 @@ tampered with. Never trust a client to declare its own rewards.
 Facet's model for this has two directions:
 
 - **Down (server → client):** the server sends **semantic state** to the
-  client. The client feeds it into a signal, and the UI reads that signal
+  client. The client feeds it into a cell, and the UI reads that cell
   like any other. Facet provides **replication adapters** (`Facet.replication`)
   that receive these updates in order and recover from dropped messages.
   Covered in [chapter 6](06-client-server.md).
@@ -299,7 +320,7 @@ most of the work:
 
 | Scale | Primitive | What it decides | From what |
 |---|---|---|---|
-| one axis | `UI.AdaptiveStack` | should this stack run down or across? | a `Readable` **you** bind |
+| one axis | `UI.AdaptiveStack` | should this stack run down or across? | a Compose readable **you** bind |
 | one container | `UI.ViewThatFits` | which of these candidate layouts fits here? | the space **that container** received |
 | a whole screen | `UI.Composition` | which arrangement, and which form of each region? | the box **it** received, on **both** axes |
 
@@ -307,12 +328,11 @@ The first two are enough for a toolbar or an action row. They are not enough
 for a results screen, a summary, or an inspector — any surface with a lot to
 say and a priority order among it.
 
-Screens like that have all historically been written the same way: a
-hand-rolled ladder of viewport-height guesses. For example: "if the screen is
-shorter than 520, collapse the hero; shorter than 440, hide the callout."
-That ladder is wrong on the next device, every time. The reason is structural: it re-derives
-the screen's box from the *viewport*, and a windowed pane, a notched phone,
-and an overscanned TV all lie about that.
+The usual answer is a hand-rolled ladder of viewport-height guesses: "if the
+screen is shorter than 520, collapse the hero; shorter than 440, hide the
+callout." That ladder is wrong on the next device, every time. The reason is
+structural: it re-derives the screen's box from the *viewport*, and a windowed
+pane, a notched phone, and an overscanned TV all lie about that.
 
 `UI.Composition` replaces the ladder with a **declaration**. You write down what
 the screen has to say:
@@ -365,7 +385,7 @@ Six ideas, and that is the whole model:
 - **A lane with nothing in it is not there.** When every region in a lane
   resolves to nothing — empty, at rest, or dropped — the lane **collapses**,
   and its width goes to the lane that fills. This is why `reserved` takes a
-  `Readable<boolean>` as well as `true`. `reserved` holds this region's box so
+  a Compose readable as well as `true`. `reserved` holds this region's box so
   a finishing transient never moves its neighbours. Bind it to "can my
   schedule still produce a piece." It then keeps the box still *between*
   pieces. It lets the whole column go once there is nothing left to say.
@@ -399,8 +419,7 @@ survive a landscape phone" into a unit test, not a device round.
 #### Adapting without dead ends
 
 Everything above decides **what to show**. This section decides what happens
-to what it stopped showing. That is the half that used to be left to the
-author.
+to what it stopped showing.
 
 Two things can happen to a region: it steps DOWN to a poorer form, or it is
 DROPPED. From the player's side, those are one event — content this screen
@@ -432,19 +451,11 @@ claimed the tap, so it keeps its meaning. Here, the affordance becomes a
 One gesture, one meaning. The arrow exists exactly for that disambiguation,
 and nowhere else.
 
-> **The framework puts nothing of its own above your content.** A device run
-> paid for that rule. A cover laid OVER the compact form once rendered every
-> stepped-down zone on the HUD demo as an **empty pill**. No headless
-> instrument in this repository could see the bug. The model reported a
-> correct rect and `visible = true` for every one of those labels. The claim
-> "it is transparent, so it is harmless" is about the ENGINE — and nothing
-> here can make that claim or check it.
->
-> The cover now obeys the rule, instead of being an exception to it. It is
-> declared with `zIndex = -1`, so it paints **under** every form. The
-> framework only synthesizes it where nothing above it is interactive. That is
-> why the gesture still reaches it: a Facet node that is not interactive is
-> not an `Active` GuiObject, and it is the GuiButton that sinks.
+> **The framework puts nothing of its own above your content.** The whole-form
+> affordance is declared with `zIndex = -1`, so it paints **under** every form,
+> and the framework synthesizes it only where nothing above it is interactive.
+> The gesture still reaches it: a Facet node that is not interactive is not an
+> `Active` GuiObject, and it is the GuiButton that sinks.
 
 The resolution still reports `formInteractive`: whether the standing form
 contributes a focus stop or a semantic action. This is read off the class
@@ -459,9 +470,9 @@ inside it.**
 
 The `formInteractive` fact is still worth reading. It tells you whether the
 player has two things to press in that box — even though, for these four
-classes, both answers now get the same mark.
+classes, both answers get the same mark.
 
-Activating it presents the region's **richest form** — the same blueprint, by
+Activating it presents the region's **richest form** — the same node, by
 identity — in a transient plate at the region's own anchor. That plate is
 sized by the same solve that chose the ladder rung. Where the richest form
 cannot meet its floor in a plate, Facet presents the identical content as a
@@ -568,9 +579,7 @@ matter:
   the opposite of "a lane with nothing in it is not there." A HUD wants that
   opposite, because its lane positions *are* its coordinate system.
 - **Losing height degrades; it does not collapse.** A browser URL bar opening
-  takes ~67px off the box. (Measured against Chrome 151: a location-bar row
-  equals `outerHeight - innerHeight` on a popup window.) The ladder above
-  runs, in descending rank. The least important zone, in the column that ran
+  takes roughly 67 pixels off the box. The ladder above runs, in descending rank. The least important zone, in the column that ran
   out of space, gives up its richest form and then leaves. Nothing lands on
   anything.
 - **...and what it gave up is still reachable.** Every multi-form region
@@ -592,7 +601,7 @@ matter:
 The showcase's **Screen-anchored HUD** demo is exactly this, with a "URL bar"
 switch so you can watch it happen.
 
-Sometimes a screen still wants coarse facts. `Facet.adaptive.conditions` now
+Sometimes a screen still wants coarse facts. `Facet.adaptive.conditions`
 classifies **both** axes: `sizeClass` / `heightClass`, plus `orientation`. No
 screen has to invent its own height threshold. These stay viewport-relative,
 and therefore coarse. When the answer must depend on the space a particular

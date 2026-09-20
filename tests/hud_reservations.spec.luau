@@ -1,40 +1,42 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 
 t.describe("HUD reservations", function()
 	t.it("coordinates independent surfaces and releases their measured space", function()
 		local w = world.new()
-		local owner = w.core:scope("banner")
+		local owner = w.core.owner.createChild()
 		local reserved = w.pres.reserveHud({ id = "Banner", edge = "top", scope = owner })
 		reserved.update({ x = 0, y = 30, w = 390, h = 60 })
 		local insets = Facet.layout.hudInsets({
 			bounds = { x = 0, y = 50, w = 390, h = 500 },
-			reservations = w.pres.hudReservations:get(),
+			reservations = w.pres.hudReservations:peek(),
 		})
 		t.expect(insets.top).toBe(40)
 		t.expect(insets.bottom).toBe(0)
 		reserved.update({ x = 0, y = 30, w = 390, h = 80 })
-		t.expect(#w.pres.hudReservations:get()).toBe(1)
+		t.expect(#w.pres.hudReservations:peek()).toBe(1)
 		owner:dispose()
-		t.expect(#w.pres.hudReservations:get()).toBe(0)
+		t.expect(#w.pres.hudReservations:peek()).toBe(0)
 		reserved.dispose()
 	end)
 	t.it("toasts reserve space until their final exit and never claim focus", function()
 		local w = world.new({ reducedMotion = true })
-		w.present(Facet.UI.Screen({ id = "S", children = { Facet.UI.Button({ id = "B", label = "Play" }) } }))
-		local focused = w.pres.focus.focused:get()
-		local toast = w.pres.presentToast(Facet.UI.Text({ text = "Saved" }), { position = "bottom" })
+		w.present(harness.UI.Screen({ id = "S", children = { harness.UI.Button({ id = "B", label = "Play" }) } }))
+		local focused = w.pres.focus.focused:peek()
+		local toast = w.pres.presentToast(harness.UI.Text({ text = "Saved" }), { position = "bottom" })
 		w.settle()
-		local rows = w.pres.hudReservations:get()
+		local rows = w.pres.hudReservations:peek()
 		t.expect(#rows).toBe(1)
 		t.expect(rows[1].edge).toBe("bottom")
 		t.expect(rows[1].rect.h > 0).toBe(true)
-		t.expect(w.pres.focus.focused:get()).toBe(focused)
+		t.expect(w.pres.focus.focused:peek()).toBe(focused)
 		toast.dismiss()
 		w.settle(10)
-		t.expect(#w.pres.hudReservations:get()).toBe(0)
+		t.expect(#w.pres.hudReservations:peek()).toBe(0)
 	end)
 	t.it("insets ignore outside reservations and never consume more than the box", function()
 		local bounds = { x = 10, y = 20, w = 100, h = 80 }
@@ -50,25 +52,25 @@ t.describe("HUD reservations", function()
 	end)
 	t.it("refusing a disposed owner leaves the reservation ID reusable", function()
 		local w = world.new()
-		local scope = w.core:scope("already-closed")
+		local scope = w.core.owner.createChild()
 		scope:dispose()
 		t.expect(pcall(function()
 			w.pres.reserveHud({ id = "Banner", edge = "top", scope = scope })
 		end)).toBe(false)
 		local reservation = w.pres.reserveHud({ id = "Banner", edge = "top" })
 		reservation.update({ x = 0, y = 0, w = 390, h = 30 })
-		t.expect(#w.pres.hudReservations:get()).toBe(1)
+		t.expect(#w.pres.hudReservations:peek()).toBe(1)
 		reservation.dispose()
 	end)
 
 	t.it("an invalid toast does not retain its HUD reservation", function()
 		local w = world.new()
 		t.expect(pcall(function()
-			w.pres.presentToast(Facet.UI.Text({ text = "Invalid" }), { transition = "wrong" })
+			w.pres.presentToast(harness.UI.Text({ text = "Invalid" }), { transition = "wrong" })
 		end)).toBe(false)
-		local toast = w.pres.presentToast(Facet.UI.Text({ text = "Valid" }))
+		local toast = w.pres.presentToast(harness.UI.Text({ text = "Valid" }))
 		w.settle()
-		t.expect(#w.pres.hudReservations:get()).toBe(1)
+		t.expect(#w.pres.hudReservations:peek()).toBe(1)
 		toast.dismiss()
 		w.settle(20)
 	end)
@@ -82,6 +84,9 @@ t.describe("HUD reservations", function()
 			})
 			local built = require("../examples/gallery/scenarios/hud").build({
 				Facet = Facet,
+				app = scenario_app.over(w.core, w.pres),
+				UI = (harness.libraryOf(w.core)),
+				Compose = Facet.Compose,
 				core = w.core,
 				env = w.env,
 				presenter = w.pres,
@@ -122,8 +127,8 @@ t.describe("HUD reservations", function()
 			activate(trigger)
 			activate(pathEnding("/Item:notice"))
 			t.expect(w.pres.toastCounts().visible).toBe(1)
-			t.expect(#w.pres.hudReservations:get()).toBe(1)
-			local notice = w.pres.hudReservations:get()[1].rect
+			t.expect(#w.pres.hudReservations:peek()).toBe(1)
+			local notice = w.pres.hudReservations:peek()[1].rect
 			local overlaps = require("../src/rect").overlaps
 			for _, path in w.adapter.paths() do
 				if path:match("^/HudScreen/Hud/[^/]+$") then
@@ -134,7 +139,7 @@ t.describe("HUD reservations", function()
 				end
 			end
 			if input == "Gamepad" or input == "Keyboard" then
-				t.expect(w.pres.focus.focused:get()).toBe(trigger)
+				t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 				activate(trigger)
 				if input == "Gamepad" then
 					w.press("ButtonB")
@@ -142,12 +147,12 @@ t.describe("HUD reservations", function()
 					activate(pathEnding("/Item:close"))
 				end
 				w.settle(4)
-				t.expect(w.pres.focus.focused:get()).toBe(trigger)
+				t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 			end
 			w.pres.dismiss(w.handle)
 			built.dispose()
 			w.settle(10)
-			t.expect(#w.pres.hudReservations:get()).toBe(0)
+			t.expect(#w.pres.hudReservations:peek()).toBe(0)
 		end)
 	end
 
@@ -162,6 +167,9 @@ t.describe("HUD reservations", function()
 			})
 			local built = require("../examples/gallery/scenarios/hud").build({
 				Facet = Facet,
+				app = scenario_app.over(w.core, w.pres),
+				UI = (harness.libraryOf(w.core)),
+				Compose = Facet.Compose,
 				core = w.core,
 				env = w.env,
 				presenter = w.pres,
@@ -170,7 +178,7 @@ t.describe("HUD reservations", function()
 			w.settle(4)
 			local visits, reached = {}, false
 			for _ = 1, 1280 do
-				local current = w.pres.focus.focused:get()
+				local current = w.pres.focus.focused:peek()
 				assert(current, "HUD lost focus")
 				if current:match("/R1$") then
 					reached = true
@@ -188,14 +196,14 @@ t.describe("HUD reservations", function()
 				w.press(nextKey)
 			end
 			t.expect(reached).toBe(true)
-			local trigger = w.pres.focus.focused:get()
+			local trigger = w.pres.focus.focused:peek()
 			w.press("ButtonA")
 			w.settle(4)
-			t.expect(w.pres.focus.focused:get():match("/Item:damage$") ~= nil).toBe(true)
+			t.expect(w.pres.focus.focused:peek():match("/Item:damage$") ~= nil).toBe(true)
 			w.press("ButtonA")
 			w.settle(4)
 			t.expect(built.report().healthMeter.fraction < 0.84).toBe(true)
-			t.expect(w.pres.focus.focused:get()).toBe(trigger)
+			t.expect(w.pres.focus.focused:peek()).toBe(trigger)
 			w.pres.dismiss(w.handle)
 			built.dispose()
 		end)

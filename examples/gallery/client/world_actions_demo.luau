@@ -97,7 +97,7 @@ function demo.mount(host: any, showWorld: (boolean) -> (), triggered: () -> ()):
 		end,
 		dump = function()
 			return {
-				anchor = binding.anchor:get(),
+				anchor = binding.anchor:peek(),
 				placed = placed,
 				open = opened,
 				promptEnabled = prompt.Enabled,

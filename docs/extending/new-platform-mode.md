@@ -3,9 +3,9 @@
 Audience: an agent or developer with no prior repository context.
 
 **Facet does not currently support VR.** The worked future case in this playbook is
-spatial UI, and nothing in it is a support claim. What Facet has, as of roadmap Step
-4, is the *seam*: presentation-space facts, an optional spatial payload on normalized
-events, and a declared-but-unimplemented world render target. The gate below is what a
+spatial UI, and nothing in it is a support claim. What Facet has is the *seam*:
+presentation-space facts, an optional spatial payload on normalized events, and a
+flat world render target (`src/client/surface_target.luau`). The gate below is what a
 support claim would first have to pass, and none of it has been run.
 
 Read [`../reference/constitution.md`](../reference/constitution.md) first — the
@@ -22,7 +22,7 @@ run happens; no emulator, preview profile or headless test can close one.
 
 | Gate | The question | What exists today | Status |
 |---|---|---|---|
-| Contracts | Can spatial input and world surfaces be added without rewriting screens? | `presentationSpace` fact + `presentationProfile` policy; `Facet.spatial` optional event payload; `capabilities.spatialPointer`; `target_contract.FUTURE.surface`, now shipped as `surface_target` — a FLAT world surface, which is not a spatial claim | **Shipped** (contracts, plus one flat world target) |
+| Contracts | Can spatial input and world surfaces be added without rewriting screens? | `presentationSpace` fact + `presentationProfile` policy; `Facet.spatial` optional event payload; `capabilities.spatialPointer`; `target_contract.FUTURE.surface`, shipped as `surface_target` — a FLAT world surface, which is not a spatial claim | **Shipped** (contracts, plus one flat world target) |
 | Focus | Does logical focus stay coherent when the pointing device is a ray or a hand that can leave the surface entirely? | Facet's focus graph is device-agnostic and untested against a spatial pointer | PENDING_PHYSICAL |
 | Hover | Is hover distinguishable from selection at arm's length, and does it stay stable under natural hand tremor? | hover is pointer-class-gated and has no spatial notion | PENDING_PHYSICAL |
 | Occlusion | What does a control do when its surface is behind geometry, edge-on, or off-view? | measured for a FLAT surface under an ordinary pointer: geometry in front blocks input, and `AlwaysOnTop = true` defeats that, which is why `surface_target` pins it false. Undefined for a spatial pointer, which is what this row asks | PENDING_PHYSICAL |

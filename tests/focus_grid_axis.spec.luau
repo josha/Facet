@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SECOND AXIS OF A FOCUS GROUP (design §9.3, UI-FOCUS-001).
 
 	A grid's focus ring is TWO-dimensional and the focus graph's ring was not, so
@@ -26,7 +27,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local focus_graph = require("../src/focus/focus_graph")
 local fuzz = require("./lib/fuzz")
 local prng = require("./lib/prng")
@@ -64,13 +65,13 @@ describe("focus graph: a 2-D group answers the perpendicular direction itself", 
 	it("the perpendicular direction moves a whole LINE, not one cell", function()
 		-- 12 cells, 4 lanes: the vertical grid shape. Down from c1 must be c5.
 		local graph = gridScope(12, 4)
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c5") -- NOT c2
+		expect(graph.focused:peek()).toBe("c5") -- NOT c2
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c9")
+		expect(graph.focused:peek()).toBe("c9")
 		graph.navigateDirection("up")
-		expect(graph.focused:get()).toBe("c5")
+		expect(graph.focused:peek()).toBe("c5")
 	end)
 
 	it("the LANE axis is untouched: ±1 in document order, crossing lines row-major", function()
@@ -79,14 +80,14 @@ describe("focus graph: a 2-D group answers the perpendicular direction itself", 
 		-- what row-major document order means and what the shipped grids do today.
 		local graph = gridScope(12, 4)
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c2")
+		expect(graph.focused:peek()).toBe("c2")
 		graph.navigateDirection("right")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c4") -- the end of line 1
+		expect(graph.focused:peek()).toBe("c4") -- the end of line 1
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c5") -- ...and over into line 2
+		expect(graph.focused:peek()).toBe("c5") -- ...and over into line 2
 		graph.navigateDirection("left")
-		expect(graph.focused:get()).toBe("c4")
+		expect(graph.focused:peek()).toBe("c4")
 	end)
 
 	it("TRANSPOSE: on a `vertical` lane axis the LINE move is Right/Left", function()
@@ -96,11 +97,11 @@ describe("focus graph: a 2-D group answers the perpendicular direction itself", 
 		-- is one field rather than two intercepts.
 		local graph = gridScope(12, 4, "vertical")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c2") -- a LANE step
+		expect(graph.focused:peek()).toBe("c2") -- a LANE step
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c6") -- a LINE step
+		expect(graph.focused:peek()).toBe("c6") -- a LINE step
 		graph.navigateDirection("left")
-		expect(graph.focused:get()).toBe("c2")
+		expect(graph.focused:peek()).toBe("c2")
 	end)
 
 	it("a 2-D group answers all FOUR directions, so `navigate(±1)` means down/up", function()
@@ -113,13 +114,13 @@ describe("focus graph: a 2-D group answers the perpendicular direction itself", 
 			own reading: down/up. ]]
 		local vgrid = gridScope(12, 4, "horizontal")
 		vgrid.navigate(1)
-		expect(vgrid.focused:get()).toBe("c5") -- down a line, not right a cell
+		expect(vgrid.focused:peek()).toBe("c5") -- down a line, not right a cell
 		vgrid.navigate(-1)
-		expect(vgrid.focused:get()).toBe("c1")
+		expect(vgrid.focused:peek()).toBe("c1")
 		-- ...and on the transpose "down" is the LANE axis, so the same verb steps one
 		local hgrid = gridScope(12, 4, "vertical")
 		hgrid.navigate(1)
-		expect(hgrid.focused:get()).toBe("c2")
+		expect(hgrid.focused:peek()).toBe("c2")
 	end)
 end)
 
@@ -135,36 +136,36 @@ describe("focus graph: a ragged last line has an answer in both directions", fun
 		local graph = gridScope(10, 4)
 		graph.focusOn("c7")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c10") -- the nearest lane that exists
+		expect(graph.focused:peek()).toBe("c10") -- the nearest lane that exists
 		graph.focusOn("c8")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c10")
+		expect(graph.focused:peek()).toBe("c10")
 	end)
 
 	it("...and clamping is NOT a wrap: from the last line itself the move exits", function()
 		local graph = gridScope(10, 4)
 		graph.focusOn("c9")
 		graph.navigateDirection("down") -- already in the last line: nothing below
-		expect(graph.focused:get()).toBe("c9")
+		expect(graph.focused:peek()).toBe("c9")
 	end)
 
 	it("BACKWARD needs no clamp — only the last line can be short", function()
 		local graph = gridScope(10, 4)
 		graph.focusOn("c10") -- line 3, lane 2
 		graph.navigateDirection("up")
-		expect(graph.focused:get()).toBe("c6") -- line 2, lane 2: the lane is kept
+		expect(graph.focused:peek()).toBe("c6") -- line 2, lane 2: the lane is kept
 		graph.navigateDirection("up")
-		expect(graph.focused:get()).toBe("c2")
+		expect(graph.focused:peek()).toBe("c2")
 		graph.navigateDirection("up")
-		expect(graph.focused:get()).toBe("c2") -- the top: the move exits, focus stays
+		expect(graph.focused:peek()).toBe("c2") -- the top: the move exits, focus stays
 	end)
 
 	it("a single short line is still a line (fewer cells than lanes)", function()
 		local graph = gridScope(3, 4)
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c2")
+		expect(graph.focused:peek()).toBe("c2")
 	end)
 end)
 
@@ -190,9 +191,9 @@ describe("focus graph: 2-D edges, eligibility and wrap", function()
 			trap = false,
 			groups = { { name = "Cells", axis = "horizontal", columns = 4, order = order } },
 		})
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 		graph.navigateDirection("down") -- c5 and c9 are out; c13 is the lane's survivor
-		expect(graph.focused:get()).toBe("c13")
+		expect(graph.focused:peek()).toBe("c13")
 	end)
 
 	it("...and the ragged clamp still fires when the walk REACHED the last line by skipping", function()
@@ -223,7 +224,7 @@ describe("focus graph: 2-D edges, eligibility and wrap", function()
 		})
 		graph.focusOn("c2")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c13")
+		expect(graph.focused:peek()).toBe("c13")
 	end)
 
 	it("`wrap` governs the group's DECLARED axis only; the perpendicular exits", function()
@@ -244,10 +245,10 @@ describe("focus graph: 2-D edges, eligibility and wrap", function()
 		})
 		graph.focusOn("c8")
 		graph.navigateDirection("right") -- the lane axis wraps, as declared
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 		graph.focusOn("c6")
 		graph.navigateDirection("down") -- the perpendicular does NOT
-		expect(graph.focused:get()).toBe("ok")
+		expect(graph.focused:peek()).toBe("ok")
 	end)
 
 	it("exiting perpendicular hands the LANE on, so the column survives the crossing", function()
@@ -268,7 +269,7 @@ describe("focus graph: 2-D edges, eligibility and wrap", function()
 		})
 		graph.focusOn("c7") -- line 2, lane 3
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c") -- lane 3 of the row below, not "d" (index 7 clamped)
+		expect(graph.focused:peek()).toBe("c") -- lane 3 of the row below, not "d" (index 7 clamped)
 	end)
 end)
 
@@ -287,7 +288,7 @@ describe("focus graph: perpendicular ENTRY into a 2-D group is the near LINE", f
 		})
 		graph.focusOn("c") -- ordinal 3
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c3") -- line 1, lane 3
+		expect(graph.focused:peek()).toBe("c3") -- line 1, lane 3
 	end)
 
 	it("entering UPWARD lands in the LAST line, at the ordinal lane", function()
@@ -308,7 +309,7 @@ describe("focus graph: perpendicular ENTRY into a 2-D group is the near LINE", f
 		})
 		graph.focusOn("c") -- ordinal 3
 		graph.navigateDirection("up")
-		expect(graph.focused:get()).toBe("c11") -- line 3, lane 3
+		expect(graph.focused:peek()).toBe("c11") -- line 3, lane 3
 	end)
 
 	it("entering upward into a RAGGED last line clamps to the lane that exists", function()
@@ -324,7 +325,7 @@ describe("focus graph: perpendicular ENTRY into a 2-D group is the near LINE", f
 		})
 		graph.focusOn("d") -- ordinal 4; the last line holds c9, c10
 		graph.navigateDirection("up")
-		expect(graph.focused:get()).toBe("c10")
+		expect(graph.focused:peek()).toBe("c10")
 	end)
 
 	it("entry ALONG the lane axis is unchanged: the near END of the order", function()
@@ -340,7 +341,7 @@ describe("focus graph: perpendicular ENTRY into a 2-D group is the near LINE", f
 		})
 		graph.focusOn("b")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 	end)
 end)
 
@@ -355,13 +356,13 @@ describe("focus graph: the rectangle invariant", function()
 			is what every 2-D emitter does on refresh. ]]
 		local graph = gridScope(12, 4)
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c5")
+		expect(graph.focused:peek()).toBe("c5")
 		graph.remove("c2")
 		graph.focusOn("c1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c1") -- the perpendicular no longer answers
+		expect(graph.focused:peek()).toBe("c1") -- the perpendicular no longer answers
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("c3") -- ...and the lane axis still does
+		expect(graph.focused:peek()).toBe("c3") -- ...and the lane axis still does
 	end)
 
 	it("the HIDDEN filter punches the same hole, and drops the field the same way", function()
@@ -387,7 +388,7 @@ describe("focus graph: the rectangle invariant", function()
 		graph.replaceGroups("S", { { name = "Cells", axis = "horizontal", columns = 3, order = cells(9) } })
 		graph.focusOn("c1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c4") -- three lanes now, not four
+		expect(graph.focused:peek()).toBe("c4") -- three lanes now, not four
 	end)
 
 	it("`setGroupOrder` carries the lane count with the order, or clears it", function()
@@ -398,11 +399,11 @@ describe("focus graph: the rectangle invariant", function()
 		graph.setGroupOrder("S", "Cells", cells(9), 3)
 		graph.focusOn("c1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c4")
+		expect(graph.focused:peek()).toBe("c4")
 		graph.setGroupOrder("S", "Cells", cells(9))
 		graph.focusOn("c1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("c1") -- no claim, no second axis
+		expect(graph.focused:peek()).toBe("c1") -- no claim, no second axis
 	end)
 end)
 
@@ -421,7 +422,7 @@ describe("focus graph: a group with no `columns` is unchanged", function()
 			local seen: { string? } = {}
 			for _, direction in { "right", "down", "right", "up", "left", "down", "left" } do
 				graph.navigateDirection(direction)
-				table.insert(seen, graph.focused:get())
+				table.insert(seen, graph.focused:peek())
 			end
 			return seen
 		end
@@ -438,7 +439,7 @@ describe("focus graph: a group with no `columns` is unchanged", function()
 		for _, bad in { 0, -2, 1.5, "4", true } do
 			local graph = gridScope(12, 4, "horizontal", { columns = bad })
 			graph.navigateDirection("down")
-			expect(graph.focused:get()).toBe("c1")
+			expect(graph.focused:peek()).toBe("c1")
 		end
 	end)
 end)
@@ -540,7 +541,7 @@ local function oracleCase(rng: prng.Prng)
 	local predict = model(count, columns, axis, eligible)
 	-- start wherever the graph's own entry rule put the ring; if everything is
 	-- ineligible there is nothing to walk
-	local at = graph.focused:get()
+	local at = graph.focused:peek()
 	if at == nil then
 		return
 	end
@@ -549,7 +550,7 @@ local function oracleCase(rng: prng.Prng)
 		local from = tonumber(string.match(at :: string, "c(%d+)")) :: number
 		local want = predict(from, direction)
 		graph.navigateDirection(direction)
-		local got = graph.focused:get()
+		local got = graph.focused:peek()
 		-- a move that leaves the one-group scope has nowhere to go, so the ring stays
 		local expected = want or at
 		if got ~= expected then

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- UI-PARADIGM-002 (affordance matrix §C, text-entry rows): hot-switch transition
 -- semantics for a field that is EDITING (sinking context up) when the live
 -- interaction-class set flips mid-edit.
@@ -24,6 +25,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local text_input = require("../src/controls/text_input")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 local FIELD = "/S/Name/Field"
 
@@ -34,7 +37,7 @@ local KEYBOARD_ONLY = { keyboard = true, mouse = false, touch = false, gamepad =
 
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if options.caps ~= nil then
@@ -45,10 +48,10 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
 	local commits: { { text: string, reason: string } } = {}
-	local value = core:signal(options.initial or "")
+	local value = Compose.cell(options.initial or "")
 	local control = text_input.build(Facet, core, {
 		id = "Name",
 		value = value,
@@ -58,7 +61,7 @@ local function world(opts: any?)
 		env = env,
 		actionSystem = system,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { control.blueprint } })
 	local handle = pres.present(screen, {
 		sinkNavigation = true,
 		onActivate = function(path, meta)
@@ -90,7 +93,7 @@ local function probe(w: any)
 	local nav = ctx.createAction("ProbeNav", "Direction1D")
 	nav.bind({ keyCode = "DPadDown", direction = 1 })
 	local fired = { n = 0 }
-	w.core:observe(nav.state, function(dir)
+	observeChange(w.core.owner, nav.state, function(dir)
 		if dir == 1 then
 			fired.n += 1
 		end
@@ -104,11 +107,11 @@ describe("UI-PARADIGM-002 text entry: CARRY when a device arrives mid-edit", fun
 		w.adapter.tap(FIELD, { pointer = "touch" })
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "hi")
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- a gamepad ARRIVES (class added) — never ends editing
 		w.env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = true })
-		expect(w.control.api.editing:get()).toBe(true)
-		expect(w.value:get()).toBe("hi")
+		expect(w.control.api.editing:peek()).toBe(true)
+		expect(w.value:peek()).toBe("hi")
 		expect(#w.commits).toBe(0)
 	end)
 
@@ -117,10 +120,10 @@ describe("UI-PARADIGM-002 text entry: CARRY when a device arrives mid-edit", fun
 		w.adapter.tap(FIELD, { pointer = "touch" })
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "hi")
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- touch leaves but the hardware keyboard remains: editing continues
 		w.env:set("capabilities", KEYBOARD_ONLY)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		expect(#w.commits).toBe(0)
 	end)
 end)
@@ -131,17 +134,17 @@ describe("UI-PARADIGM-002 text entry: CANCEL -> commit when the editing surface 
 		w.adapter.tap(FIELD, { pointer = "touch" })
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "hi")
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- DOCK: handheld -> TV. Touch capability lost, no hardware keyboard, gamepad
 		-- becomes primary so touch is not force-live; the on-screen keyboard is gone.
 		w.env:set("preferredInput", "Gamepad")
 		w.env:set("capabilities", GAMEPAD_ONLY)
 		-- the edit ended through the ordinary commit path
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		expect(#w.commits).toBe(1)
 		expect(w.commits[1].reason).toBe("focusLost")
 		-- the value model kept the last accepted text — never dropped
-		expect(w.value:get()).toBe("hi")
+		expect(w.value:peek()).toBe("hi")
 	end)
 
 	it("after the editing-surface loss the sink context comes down and navigation resumes", function()
@@ -157,7 +160,7 @@ describe("UI-PARADIGM-002 text entry: CANCEL -> commit when the editing surface 
 		-- editing-surface loss (dock) commits and brings the sink down
 		w.env:set("preferredInput", "Gamepad")
 		w.env:set("capabilities", GAMEPAD_ONLY)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		-- navigation resumes: the probe fires again
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
@@ -167,16 +170,16 @@ describe("UI-PARADIGM-002 text entry: CANCEL -> commit when the editing surface 
 	it("the keep-visible offset resets when the on-screen keyboard clears on dock (mid-edit)", function()
 		local w = world({ caps = TOUCH_ONLY, preferredInput = "Touch" })
 		w.adapter.tap(FIELD, { pointer = "touch" })
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		local rect = w.handle.controller.rectOf(FIELD)
 		local keyboardTop = rect.y + rect.h - 20
 		w.env:set("keyboardOcclusionRect", { x = 0, y = keyboardTop, w = 800, h = 600 - keyboardTop })
-		expect(w.control.api.keepVisibleOffset:get()).toBeGreaterThan(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBeGreaterThan(0)
 		-- DOCK: the OSK is dismissed (occlusion clears) and touch leaves
 		w.env:set("preferredInput", "Gamepad")
 		w.env:set("keyboardOcclusionRect", nil)
 		w.env:set("capabilities", GAMEPAD_ONLY)
-		expect(w.control.api.keepVisibleOffset:get()).toBe(0)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.keepVisibleOffset:peek()).toBe(0)
+		expect(w.control.api.editing:peek()).toBe(false)
 	end)
 end)

@@ -17,16 +17,19 @@
 -- `retargetMidFlight` proves SF-M2 against a target that genuinely moved rather
 -- than a scripted number.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Motion lab (SF-M1/M2/M3/M5/M7/M8)",
 	ledgerRows = { "SF-M1", "SF-M2", "SF-M3", "SF-M5", "SF-M7", "SF-M8", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-motion")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
 
 		local SCREEN = "/MotionLab"
@@ -47,7 +50,7 @@ return {
 		local function note(kind: string, info: any?)
 			table.insert(trace, { at = elapsed, kind = kind, info = info })
 		end
-		scope:own(pres.onFeedback(function(event: any)
+		own(pres.onFeedback(function(event: any)
 			table.insert(trace, {
 				at = elapsed,
 				kind = "feedback:" .. tostring(event.type),
@@ -56,20 +59,20 @@ return {
 		end))
 
 		-- ===== state ========================================================
-		local panelOpen = scope:own(core:signal(false))
-		local stressOn = scope:own(core:signal(false))
+		local panelOpen = Compose.cell(false)
+		local stressOn = Compose.cell(false)
 		-- SlotB's own placement, so `retargetMidFlight` moves a real box through a
 		-- real re-solve rather than by editing the number the chase reads
-		local slotBAlignV = scope:own(core:signal("end"))
+		local slotBAlignV = Compose.cell("end")
 
 		-- the four classes, one subject each. `scope:own` takes them because a
 		-- MotionValue is scope-owned (`value:dispose()`), and SF-C1 is the row
 		-- that fails if any of them survives a reset.
-		local puckX = scope:own(clock:spring(0, "object"))
-		local puckY = scope:own(clock:spring(0, "object"))
-		local rewardScale = scope:own(clock:spring(1, "reward"))
+		local puckX = own(clock:spring(0, "object"))
+		local puckY = own(clock:spring(0, "object"))
+		local rewardScale = own(clock:spring(1, "reward"))
 		-- the decay class: attack is a CUT (snap), decay is the spring
-		local energy = scope:own(clock:spring(0, "decay"))
+		local energy = own(clock:spring(0, "decay"))
 
 		local chase: any = nil
 		local arrivals: { any } = {}
@@ -77,12 +80,12 @@ return {
 		local stressTimeline: any = nil
 		local cloneValues: { any } = {}
 
-		local wash = scope:own(core:memo(function(use)
+		local wash = Compose.formula(function(use)
 			-- SF-P1's value blend in its simplest form: control -> accent driven by
 			-- a scalar a `decay` spring owns. A role blend, never a raw colour, so
 			-- the theme still owns both ends.
 			return { role = "accent", from = "control", blend = math.clamp(use(energy), 0, 1) }
-		end))
+		end)
 
 		-- ===== the scripted schedule ========================================
 		-- Steps that mean "do this, then that, a few frames later" (an interrupt
@@ -122,17 +125,17 @@ return {
 			return if handle ~= nil then handle.controller else nil
 		end
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			runDue()
 			local ctrl = controller()
 			if ctrl == nil then
 				return
 			end
-			ctrl.setPresentationTransform(PUCK, { x = puckX:get(), y = puckY:get() })
-			ctrl.setPresentationTransform(CHIP, { x = 0, y = 0, scale = rewardScale:get() })
+			ctrl.setPresentationTransform(PUCK, { x = puckX:peek(), y = puckY:peek() })
+			ctrl.setPresentationTransform(CHIP, { x = 0, y = 0, scale = rewardScale:peek() })
 			for _, clone in cloneValues do
-				ctrl.setPresentationTransform(clone.path, { x = clone.x:get(), y = clone.y:get() })
+				ctrl.setPresentationTransform(clone.path, { x = clone.x:peek(), y = clone.y:peek() })
 			end
 		end))
 
@@ -186,113 +189,109 @@ return {
 		end
 
 		-- ===== the stage ====================================================
-		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
+		-- the adaptive facts die with the fixture
+		local conditions = lifetime.under(function()
+			return Facet.adaptive.conditions(env)
+		end)
 		local SLOT: any = { type = "fixed", px = "targetSizes.minimum" }
 
 		local function slot(id: string, alignH: string, alignV: any)
 			return UI.corners(
-				UI.Box({ id = id, surface = "control", alignH = alignH, alignV = alignV, width = SLOT, height = SLOT }),
+				UI.Box(id)({ surface = "control", alignH = alignH, alignV = alignV, width = SLOT, height = SLOT }),
 				"control"
 			)
 		end
 
-		local clones = {}
-		for i = 1, 20 do
-			table.insert(
-				clones,
-				UI.corners(
-					UI.Box({
-						id = `Clone{i}`,
-						surface = "accent",
-						alignH = "center",
-						alignV = "center",
-						width = { type = "fixed", px = "iconSizes.small" },
-						height = { type = "fixed", px = "iconSizes.small" },
-					}),
-					"pill"
+		local function clones(): { any }
+			local out = {}
+			for i = 1, 20 do
+				table.insert(
+					out,
+					UI.corners(
+						UI.Box(`Clone{i}`)({
+							surface = "accent",
+							alignH = "center",
+							alignV = "center",
+							width = { type = "fixed", px = "iconSizes.small" },
+							height = { type = "fixed", px = "iconSizes.small" },
+						}),
+						"pill"
+					)
 				)
-			)
+			end
+			return out
 		end
 
-		local stage = UI.ZStack({
-			id = "Stage",
-			width = UI.fill(),
-			height = UI.fill(),
-
-			UI.Box({
-				id = "StageSurface",
-				surface = "base",
+		local function stage()
+			return UI.ZStack("Stage")({
 				width = UI.fill(),
 				height = UI.fill(),
-			}),
-			slot("SlotA", "start", "start"),
-			slot("SlotB", "end", slotBAlignV),
-			UI.corners(
-				UI.Box({
-					id = "Puck",
-					surface = "accent",
-					alignH = "start",
-					alignV = "start",
-					width = SLOT,
-					height = SLOT,
+
+				UI.Box("StageSurface")({
+					surface = "base",
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
-				"pill"
-			),
-			-- THE CONTAINER CLASS, on a structural region. `materialize` is a
-			-- fading form, so its child is the declared fade group — that is the
-			-- framework's rule, and a plain Box here is an authoring error.
-			UI.When({
-				id = "PanelRegion",
-				condition = panelOpen,
-				transition = { enter = "materialize", class = "container" },
-				thenView = function()
-					return UI.shadow(
-						UI.corners(
-							UI.Box({
-								id = "Panel",
-								surface = "raised",
-								canvasGroup = true,
-								alignH = "center",
-								alignV = "center",
-								width = { type = "percent", fraction = 0.7 },
-								height = { type = "percent", fraction = 0.6 },
-							}),
-							"panel"
-						),
-						"overlay"
-					)
-				end,
-			}),
-			UI.corners(
-				UI.Box({
-					id = "RewardChip",
-					surface = "control",
-					alignH = "center",
-					alignV = "end",
-					width = { type = "fixed", px = "controlSizes.regular.height" },
-					height = { type = "fixed", px = "controlSizes.compact.height" },
+				slot("SlotA", "start", "start"),
+				slot("SlotB", "end", slotBAlignV),
+				UI.corners(
+					UI.Box("Puck")({
+						surface = "accent",
+						alignH = "start",
+						alignV = "start",
+						width = SLOT,
+						height = SLOT,
+					}),
+					"pill"
+				),
+				-- THE CONTAINER CLASS, on a structural region. `materialize` is a
+				-- fading form, so its child is the declared fade group — that is the
+				-- framework's rule, and a plain Box here is an authoring error.
+				UI.When("PanelRegion")({
+					transition = { enter = "materialize", class = "container" },
+					Compose.show(panelOpen, function()
+						return UI.shadow(
+							UI.corners(
+								UI.Box("Panel")({
+									surface = "raised",
+									canvasGroup = true,
+									alignH = "center",
+									alignV = "center",
+									width = { type = "percent", fraction = 0.7 },
+									height = { type = "percent", fraction = 0.6 },
+								}),
+								"panel"
+							),
+							"overlay"
+						)
+					end),
 				}),
-				"control"
-			),
-			-- SF-M8's dense scene: ≥20 concurrent springs, mounted only while the
-			-- stress step is on so the resting cost of the lab stays honest
-			UI.When({
-				id = "CloneRegion",
-				condition = stressOn,
-				thenView = function()
-					return UI.ZStack({
-						id = "Clones",
-						width = UI.fill(),
-						height = UI.fill(),
-						children = clones,
-					})
-				end,
-			}),
-		})
+				UI.corners(
+					UI.Box("RewardChip")({
+						surface = "control",
+						alignH = "center",
+						alignV = "end",
+						width = { type = "fixed", px = "controlSizes.regular.height" },
+						height = { type = "fixed", px = "controlSizes.compact.height" },
+					}),
+					"control"
+				),
+				-- SF-M8's dense scene: ≥20 concurrent springs, mounted only while the
+				-- stress step is on so the resting cost of the lab stays honest
+				UI.When("CloneRegion")({
+					Compose.show(stressOn, function()
+						return UI.ZStack("Clones")({
+							width = UI.fill(),
+							height = UI.fill(),
+							table.unpack(clones()),
+						})
+					end),
+				}),
+			})
+		end
 
 		local function control(id: string, label: string, onActivate: () -> ())
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = onActivate,
@@ -321,7 +320,7 @@ return {
 			-- rather than ratcheting the second hit down.
 			energy:snap(1)
 			energy:setTarget(0)
-			note("wash:hit", { energy = energy:get() })
+			note("wash:hit", { energy = energy:peek() })
 		end
 		-- TOSS ALTERNATES (director SFH-1: "the Ball doesn't reset, so I have no
 		-- idea what it's doing"). Every press is a visible flight: the puck tosses
@@ -349,100 +348,95 @@ return {
 			return { vx = vx, vy = vy, target = tossedTo }
 		end
 
-		local screen = UI.Screen({
-			id = "MotionLab",
-			padding = "m",
-			gap = "m",
-
-			UI.Text({ id = "Title", text = "Motion lab", textSize = "heading" }),
-			-- ONE tree, two intents: portrait stacks the stage over the controls,
-			-- landscape puts the controls in a trailing column. The Grid derives
-			-- its own column count, which is how the control row "wraps into two
-			-- rows" on a compact viewport without a device branch.
-			UI.AdaptiveStack({
-				id = "Main",
-				axis = conditions.axis,
+		local function screen()
+			return UI.Screen("MotionLab")({
+				padding = "m",
 				gap = "m",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.VStack({
-					id = "StageColumn",
-					gap = "s",
+				UI.Text("Title")({ text = "Motion lab", textSize = "heading" }),
+				-- ONE tree, two intents: portrait stacks the stage over the controls,
+				-- landscape puts the controls in a trailing column. The Grid derives
+				-- its own column count, which is how the control row "wraps into two
+				-- rows" on a compact viewport without a device branch.
+				UI.AdaptiveStack("Main")({
+					axis = conditions.axis,
+					gap = "m",
 					width = UI.fill(),
 					height = UI.fill(),
 
-					stage,
-					-- the decay-wash subject, LABELED (director SFH-2: "decay
-					-- wash doesn't seem to do anything" — it worked, but an
-					-- anonymous strip gave the eye nothing to find). The label
-					-- names the button that drives it.
-					UI.ZStack({
-						id = "WashRow",
+					UI.VStack("StageColumn")({
+						gap = "s",
 						width = UI.fill(),
-						height = { type = "fixed", px = "targetSizes.minimum" },
+						height = UI.fill(),
 
-						UI.Box({
-							id = "WashFill",
-							surface = "control",
-							tint = wash,
+						stage(),
+						-- the decay-wash subject, LABELED (director SFH-2: "decay
+						-- wash doesn't seem to do anything" — it worked, but an
+						-- anonymous strip gave the eye nothing to find). The label
+						-- names the button that drives it.
+						UI.ZStack("WashRow")({
 							width = UI.fill(),
-							height = UI.fill(),
-						}),
-						UI.Text({
-							id = "WashLabel",
-							text = "energy wash — press Hit",
-							role = "secondary",
-							alignH = "center",
-							alignV = "center",
+							height = { type = "fixed", px = "targetSizes.minimum" },
+
+							UI.Box("WashFill")({
+								surface = "control",
+								tint = wash,
+								width = UI.fill(),
+								height = UI.fill(),
+							}),
+							UI.Text("WashLabel")({
+								text = "energy wash — press Hit",
+								role = "secondary",
+								alignH = "center",
+								alignV = "center",
+							}),
 						}),
 					}),
-				}),
-				UI.Grid({
-					id = "Controls",
-					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-					-- lets the WIDEST verb decide every column, so one long label costs this lab a
-					-- whole column on a 320px phone: the control grid doubles in height and the
-					-- `fill` stage column above it collapses to zero. This number asks the other
-					-- question — how many controls fit a row — and lets a long label compact.
-					minColumnWidth = 96,
-					gap = "s",
-					rowGap = "s",
-					width = UI.fill(),
+					UI.Grid("Controls")({
+						-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+						-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+						-- lets the WIDEST verb decide every column, so one long label costs this lab a
+						-- whole column on a 320px phone: the control grid doubles in height and the
+						-- `fill` stage column above it collapses to zero. This number asks the other
+						-- question — how many controls fit a row — and lets a long label compact.
+						minColumnWidth = 96,
+						gap = "s",
+						rowGap = "s",
+						width = UI.fill(),
 
-					control("BtnPanel", "Panel", function()
-						if panelOpen:get() then
-							closePanel()
-						else
-							openPanel()
-						end
-					end),
-					control("BtnFly", "Fly", function()
-						flyTo(SLOT_B, "SlotB")
-					end),
-					control("BtnToss", "Toss", function()
-						toss()
-					end),
-					control("BtnPop", "Pop", pop),
-					control("BtnHit", "Hit", hit),
-					control("BtnStress", "Stress", function()
-						stressOn:set(not stressOn:get())
-					end),
+						control("BtnPanel", "Panel", function()
+							if panelOpen:peek() then
+								closePanel()
+							else
+								openPanel()
+							end
+						end),
+						control("BtnFly", "Fly", function()
+							flyTo(SLOT_B, "SlotB")
+						end),
+						control("BtnToss", "Toss", function()
+							toss()
+						end),
+						control("BtnPop", "Pop", pop),
+						control("BtnHit", "Hit", hit),
+						control("BtnStress", "Stress", function()
+							stressOn:set(not stressOn:peek())
+						end),
+					}),
 				}),
-			}),
-		})
+			})
+		end
 
 		local function startStress()
 			if stressScope ~= nil then
 				return #cloneValues
 			end
 			stressOn:set(true)
-			stressScope = core:scope("sponsor-motion-stress")
+			stressScope = newLifetime(Compose)
 			cloneValues = {}
 			for i = 1, 20 do
-				local x = stressScope:own(clock:spring(0, "object"))
-				local y = stressScope:own(clock:spring(0, "object"))
+				local x = stressScope.own(clock:spring(0, "object"))
+				local y = stressScope.own(clock:spring(0, "object"))
 				x:setTarget(math.cos(i) * 90)
 				y:setTarget(math.sin(i) * 60)
 				table.insert(cloneValues, { path = `{STAGE}/CloneRegion/Clones/Clone{i}`, x = x, y = y })
@@ -494,7 +488,7 @@ return {
 			end
 			cloneValues = {}
 			if stressScope ~= nil then
-				stressScope:dispose()
+				stressScope.dispose()
 				stressScope = nil
 			end
 			stressOn:set(false)
@@ -506,11 +500,11 @@ return {
 		result.steps = {
 			openPanel = function()
 				openPanel()
-				return { open = panelOpen:get() }
+				return { open = panelOpen:peek() }
 			end,
 			closePanel = function()
 				closePanel()
-				return { open = panelOpen:get() }
+				return { open = panelOpen:peek() }
 			end,
 			-- open -> close -> open INSIDE one settle. The two later flips are
 			-- scheduled on the presenter's clock (0.08s apart, well inside the
@@ -554,21 +548,21 @@ return {
 			end,
 			rewardPop = function()
 				pop()
-				return { scale = rewardScale:get(), target = rewardScale:getTarget() }
+				return { scale = rewardScale:peek(), target = rewardScale:getTarget() }
 			end,
 			-- two hits, the second INSIDE the first's decay: the re-set must reach 1
 			-- again, not the remainder of the first (WRONG: a dimmer second hit)
 			hitDecay = function()
 				hit()
-				local first = energy:get()
+				local first = energy:peek()
 				schedule(0.1, function()
 					hit()
-					note("wash:second", { energy = energy:get() })
+					note("wash:second", { energy = energy:peek() })
 				end)
 				return { first = first, scheduled = 1 }
 			end,
 			stress = function()
-				if stressOn:get() then
+				if stressOn:peek() then
 					stopStress()
 					return { on = false, clones = 0, active = clock:activeCount() }
 				end
@@ -598,12 +592,12 @@ return {
 				elapsed = elapsed,
 				trace = trace,
 				arrivals = arrivals,
-				panelOpen = panelOpen:get(),
-				energy = energy:get(),
+				panelOpen = panelOpen:peek(),
+				energy = energy:peek(),
 				energySettled = energy:isSettled(),
 				puck = {
-					x = puckX:get(),
-					y = puckY:get(),
+					x = puckX:peek(),
+					y = puckY:peek(),
 					targetX = puckX:getTarget(),
 					targetY = puckY:getTarget(),
 					velocityX = puckX:getVelocity(),
@@ -611,24 +605,24 @@ return {
 					settled = puckX:isSettled() and puckY:isSettled(),
 					chasing = chase ~= nil,
 				},
-				reward = { scale = rewardScale:get(), settled = rewardScale:isSettled() },
-				reducedMotion = env:get("reducedMotion"):get(),
-				motionPolicy = env:get("motionPolicy"):get(),
+				reward = { scale = rewardScale:peek(), settled = rewardScale:isSettled() },
+				reducedMotion = env:get("reducedMotion"):peek(),
+				motionPolicy = env:get("motionPolicy"):peek(),
 				reducedForm = { puck = puckX:reducedForm(), energyKind = energy:motionKind() },
 				motion = { active = clock:activeCount(), stats = clock:stats() },
-				stress = { on = stressOn:get(), clones = #cloneValues },
+				stress = { on = stressOn:peek(), clones = #cloneValues },
 				geometry = if ctrl ~= nil
 					then { puck = ctrl.rectOf(PUCK), slotA = ctrl.rectOf(SLOT_A), slotB = ctrl.rectOf(SLOT_B) }
 					else nil,
 				authority = styled,
-				counters = core:counters(),
-				coreError = core:lastError(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
 			endChase()
 			stopStress()
-			scope:dispose()
+			lifetime.dispose()
 		end
 		return result
 	end,

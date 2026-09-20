@@ -41,11 +41,9 @@ specification:
 - **OPTIONAL** — feature-detected with `~= nil`. Each absence is ONE named
   degrade, never a crash. The list below is the one in
   `src/render/target_contract.luau`, and a drift check in
-  `tests/render_target_contract.spec.luau` fails when the two disagree — it was
-  transcribed by hand until 2026-08-17 and had already fallen five names behind
-  (MAINT-8b), which is the same silent hole the contract itself exists to close.
-  Read the per-method consequence comments in that file; this is the roster, not
-  the specification.
+  `tests/render_target_contract.spec.luau` fails when the two disagree. Read the
+  per-method consequence comments in that file; this is the roster, not the
+  specification.
 
 <!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->
   `setActivateHandler`, `setFocusVisual`, `enableHover`, `enableDisclosure`,
@@ -68,10 +66,9 @@ specification:
   Implement `setReducedMotion` if your target animates anything itself — without
   it a player's reduced-motion setting silently does nothing.
   Decide each deliberately — "not implemented yet" is a legal answer, a
-  silently missing method is not. (Five of these were CALLED by the renderer
-  and undeclared until 0.8.0, so a target could pass the checker with
-  `#optionalAbsent == 0` and still ship with no hit-target floor, no wheel
-  channel and no display order.)
+  silently missing method is not. A method the renderer calls but the contract
+  does not declare is a hole: the checker reports `#optionalAbsent == 0` while
+  the target ships without that capability. Declare every one you implement.
 - **THEME** — `nativeStyleInfo`, `themeRootGui`, `setThemePackage`,
   `relinkThemeSheet`. Without them `theme_controller.install` cannot theme this
   target: it degrades to fallback paint, and in native mode ERRORS unless the

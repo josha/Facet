@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SYNTHESIZED POPUP CATCHER MUST BE INVISIBLE (device bug, director,
 	2026-08-13: "in the showcase when i swipe from left to right in swipe row
 	actions/table, some random thing appears over the top of the screen blocking
@@ -51,6 +52,7 @@ local row_actions = require("../src/controls/row_actions")
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("./lib/fake_target")
 local chrome_slots = require("../src/tokens/chrome_slots")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -83,20 +85,20 @@ describe("popup catcher paint: an open row-actions tray", function()
 		programmatic: the catcher appears because a real gesture left a real tray
 		open, which is when the director saw the plate. ]]
 	local function leadingWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clockTime = 0
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clockTime
 			end,
 		})
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
-			content = Facet.UI.Text({
+			content = harness.UI.Text({
 				id = "Body",
 				text = "Row content",
 				width = { type = "fixed", px = 400 },
@@ -106,7 +108,7 @@ describe("popup catcher paint: an open row-actions tray", function()
 				{ id = "read", label = "Mark Read", onAction = function() end },
 			},
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		local w: any =
@@ -158,19 +160,19 @@ end)
 -- ===========================================================================
 describe("popup catcher paint: an open PopupButton", function()
 	it("the same catcher, reached through the other outsideDismiss owner, is equally unpainted", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = { { id = "easy", label = "Easy" }, { id = "normal", label = "Normal" } },
-			value = core:signal("normal"),
+			value = Compose.cell("normal"),
 			onChange = function() end,
 		})
-		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+		pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
 		pres.refresh()
 		adapter.tap("/S/Difficulty/Trigger")
 		pres.refresh()
@@ -188,19 +190,19 @@ describe("popup catcher paint: an open PopupButton", function()
 		blocking the demo picker") stays explained by a measured fact rather than
 		by this comment alone. ]]
 	it("sits beneath its owner's DisplayOrder — which is why only the uncovered chrome band showed it", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local control = popup_button.build(Facet, core, {
 			id = "Difficulty",
 			options = { { id = "easy", label = "Easy" } },
-			value = core:signal("easy"),
+			value = Compose.cell("easy"),
 			onChange = function() end,
 		})
-		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
+		pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }), { sinkNavigation = true })
 		pres.refresh()
 		adapter.tap("/S/Difficulty/Trigger")
 		pres.refresh()
@@ -258,8 +260,8 @@ end)
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
 local light_style = require("../src/tokens/default_light_style")
-local worldLib = require("./lib/world")
-local UI = Facet.UI
+local worldLib = require("./lib/harness_world")
+local UI = harness.UI
 
 local function neutralSheet(): any
 	return sheet_model.build({

@@ -14,16 +14,16 @@ function radialInput.bind(
 	ctx.setEnabled(false)
 	local action = ctx.createAction("Navigate", "Direction2D")
 	action.bindAxis({ axis = "Thumbstick1" })
-	scope:own(core:observe(action.state, function(value)
+	scope.watchStatic(action.state, function(value)
 		if available() and type(value) == "table" then
 			direction(value.x or 0, value.y or 0)
 		end
-	end))
+	end)
 	-- Availability changes with the presenter's responder and the menu signal.
-	scope:own(core:effect(function(use)
+	scope.watch(function(use)
 		ctx.setEnabled(use(active) and available())
-	end))
-	scope:own(function()
+	end)
+	scope.own(function()
 		ctx.destroy()
 	end)
 	return function()

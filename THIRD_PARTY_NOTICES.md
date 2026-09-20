@@ -9,12 +9,14 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`cce9b99590fd3bec3bb9cb60f378184e28fab71d`, `src/core`.
+`5f6bf7d081bab39971b116e47d6eb9ccf5877282`, `src/core` and `src/roblox`.
 
-**Distribution.** `src/vendor/compose` contains the pinned source, exact inventory
-and local lifetime fixes in `UPSTREAM.patch`. The MIT notice is also a
-ModuleScript so it travels inside the Roblox model. Compose owns the reactive
-graph, scheduling and scopes; Facet keeps its public facade and layout settling.
+**Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
+commit. `UPSTREAM.lock` records the commit and a SHA-256 for every file. There
+are no local patches. `skills/compose` holds the upstream agent skill and API
+reference from the same commit. The MIT notice is also a ModuleScript, so it
+travels inside the Roblox model. Compose provides reactive state, ownership,
+scheduling, collections and animation. Facet provides the UI domain on top.
 
 ```text
 MIT License

@@ -45,12 +45,11 @@
 	Strictly one-way: this never requires the presenter back. ]]
 
 local aperture = require("../render/input_aperture")
-local mountLib = require("../mount")
-local blueprintLib = require("../blueprint")
 local chrome_slots = require("../tokens/chrome_slots")
 local renderer = require("../render/renderer")
 local modalZones = require("./modal_zones")
 local focusMap = require("./focus_map")
+local Compose = require("../vendor/compose/core")
 
 local modalInZoneA = modalZones.modalInZoneA
 local zoneAContains = modalZones.zoneAContains
@@ -65,6 +64,8 @@ function catchers.new(ctx: any)
 	local stack = ctx.stack
 	local presenter = ctx.presenter
 	local metricsNow = ctx.metricsNow
+	-- mounts a component, given the internal UI, into the UI runtime
+	local mountComponent = ctx.mountComponent
 
 	-- ===== synthesized scrim / catcher (modal-dismissal spec §2.2/§3.1) ========
 	-- The presenter mounts ONE full-viewport catcher beneath the top EXCLUSIVE
@@ -92,7 +93,7 @@ function catchers.new(ctx: any)
 	local function currentExclusive(): any?
 		for i = #stack, 1, -1 do
 			local h = stack[i]
-			if h.kind == "modal" or (h.isPassive and h.responder:get() == "engaged") then
+			if h.kind == "modal" or (h.isPassive and h.responder:peek() == "engaged") then
 				return h
 			end
 		end
@@ -116,7 +117,7 @@ function catchers.new(ctx: any)
 		end
 		local x = if type(meta) == "table" then meta.x else nil
 		local y = if type(meta) == "table" then meta.y else nil
-		local resigning = owner.isPassive and owner.responder:get() == "engaged"
+		local resigning = owner.isPassive and owner.responder:peek() == "engaged"
 		--[[ ZONE A IS DISMISSAL FORGIVENESS, AND A RESIGN IS NOT A DISMISSAL
 			(director playtest 2026-08-03 round 7: "i have the slider selected. i
 			click on the world. the slider still shows focus. left/right go to the
@@ -219,7 +220,7 @@ function catchers.new(ctx: any)
 
 		Full write-up, with the live same-adapter A/B that measured it:
 		an invisible surface has to declare its own invisibility. ]]
-	local function catcherScreen(rootId: string, surface: string): any
+	local function catcherScreen(UI: any, rootId: string, surface: string): any
 		local catcher: { [string]: any } = {
 			id = "catcher",
 			label = "",
@@ -228,16 +229,18 @@ function catchers.new(ctx: any)
 			focusable = false,
 			surface = surface,
 		}
-		local catcherBlueprint = chrome_slots.attachHint(blueprintLib.Button(catcher), { slot = chrome_slots.NO_SLOT })
-		return blueprintLib.Screen({ id = rootId, children = { catcherBlueprint } })
+		local button = chrome_slots.attachHint(UI.Button(catcher), { slot = chrome_slots.NO_SLOT })
+		return UI.Screen({ id = rootId, children = { button } })
 	end
 
 	-- mount the catcher beneath `owner`. mode "scrim" = dim at scrimOpacity
 	-- (modals); "none" = transparent but still catching (engaged HUDs, §3.6).
 	local function mountScrim(owner: any, mode: string): any
-		local bp = catcherScreen("__scrim__", if mode ~= "none" then "scrim" else "plain")
-		local sc = core:scope("present-scrim")
-		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
+		local sc = core.owner.createChild()
+		local root = mountComponent(function(UI)
+			return catcherScreen(UI, "__scrim__", if mode ~= "none" then "scrim" else "plain")
+		end)
+		sc.own(root.dispose)
 		local controller = renderer.attach(core, root, env, adapter, {
 			-- edge-to-edge: the dim/barrier covers the whole viewport (incl. insets)
 			rootPolicy = "edgeToEdge",
@@ -300,7 +303,7 @@ function catchers.new(ctx: any)
 			local h = stack[i]
 			for _, c in h.contributions or {} do
 				local od = c.bundle.outsideDismiss
-				if od ~= nil and od.active ~= nil and od.active:get() == true then
+				if od ~= nil and od.active ~= nil and od.active:peek() == true then
 					return h, c
 				end
 			end
@@ -355,7 +358,7 @@ function catchers.new(ctx: any)
 		end
 		-- captured BEFORE `dismiss()`: the popup's own `active` readable
 		-- flipping false can synchronously fan out through `syncPopupCatcher`
-		-- (`core:observe`'s own subscriber, wired below) and dispose THIS
+		-- (`a change listener`'s own subscriber, wired below) and dispose THIS
 		-- `popupCatcher` — reading `.consume` off it AFTER the call risks
 		-- indexing an already-nil'd local (caught live: exactly this crashed
 		-- PopupButton's own "dismisses on a tap in EMPTY space" test, whose
@@ -363,7 +366,7 @@ function catchers.new(ctx: any)
 		-- regardless).
 		-- captured BEFORE `dismiss()`: the popup's own `active` readable
 		-- flipping false can synchronously fan out through `syncPopupCatcher`
-		-- (`core:observe`'s own subscriber, wired below) and dispose THIS
+		-- (`a change listener`'s own subscriber, wired below) and dispose THIS
 		-- `popupCatcher` — reading `.consume` off it AFTER the call risks
 		-- indexing an already-nil'd local (caught live: exactly this crashed
 		-- PopupButton's own "dismisses on a tap in EMPTY space" test, whose
@@ -413,50 +416,56 @@ function catchers.new(ctx: any)
 			(the demo picker and Settings) is exactly where it does not.
 			tests/popup_catcher_paint.spec.luau pins it from both live
 			`outsideDismiss` owners. ]]
-		local bp = catcherScreen("__popupcatcher__", "plain")
-		local sc = core:scope("present-popup-catcher")
-		if hole then
-			local regions = sc:own(core:memo(function(use)
-				return aperture.rects(use(env:get("viewportRect")), use(hole))
-			end))
-			bp = blueprintLib.Screen({
+		local sc = core.owner.createChild()
+		local regions = if hole
+			then Compose.withOwner(sc, function()
+				return Compose.formula(function(use)
+					return aperture.rects(use(env:get("viewportRect")), use(hole))
+				end)
+			end)
+			else nil
+		local root = mountComponent(function(UI)
+			if not regions then
+				return catcherScreen(UI, "__popupcatcher__", "plain")
+			end
+			return UI.Screen({
 				id = "__popupcatcher__",
 				children = {
-					blueprintLib.Anchor({
+					UI.Anchor({
 						id = "catcher",
 						width = { type = "fill" },
 						height = { type = "fill" },
 						children = {
-							blueprintLib.ForEach({
+							UI.ForEach({
 								id = "Regions",
 								items = regions,
 								key = function(r)
 									return r.id
 								end,
-								row = function(r, rs)
+								row = function(r)
 									local function value(key)
-										return rs:own(core:memo(function(use)
+										return function(use)
 											for _, v in use(regions) do
 												if v.id == r.id then
 													return v[key]
 												end
 											end
 											return 0
-										end))
+										end
 									end
 									local width, height = value("w"), value("h")
 									return chrome_slots.attachHint(
-										blueprintLib.Button({
+										UI.Button({
 											id = "Hit",
 											label = "",
 											surface = "plain",
 											focusable = false,
-											width = rs:own(core:memo(function(use)
-												return { type = "fixed", px = use(width) }
-											end)),
-											height = rs:own(core:memo(function(use)
-												return { type = "fixed", px = use(height) }
-											end)),
+											width = function(use)
+												return { type = "fixed", px = width(use) }
+											end,
+											height = function(use)
+												return { type = "fixed", px = height(use) }
+											end,
 											offsetX = value("x"),
 											offsetY = value("y"),
 										}),
@@ -468,8 +477,8 @@ function catchers.new(ctx: any)
 					}),
 				},
 			})
-		end
-		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
+		end)
+		sc.own(root.dispose)
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = "edgeToEdge",
 			onNodeTap = function(_path: string, meta: any?)
@@ -489,7 +498,7 @@ function catchers.new(ctx: any)
 				on the base handle, so the two expressions agree exactly and this change
 				moves neither.
 
-				`newCallout` is the first `outsideDismiss` owner that is itself a
+				`UI.Callout` is the first `outsideDismiss` owner that is itself a
 				PRESENTED SURFACE ABOVE the base screen. Its anchored surface sits at
 				base + 100 (`presenter.luau`'s `displayLayer += 100`), so `- 50` put this
 				full-viewport, input-SINKING `Button` at base + 50 — over every control

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Milestone B — completing Button as the base control (docs/plans/parity-next.md
 -- investment 3; acceptance rows B-BTN1..B-BTN4).
 --
@@ -10,16 +11,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local sheetModel = require("../src/tokens/sheet_model")
 local defaultStyle = require("../src/tokens/default_style")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function fixed(px: number)
 	return { type = "fixed", px = px }
@@ -103,17 +105,17 @@ describe("B-BTN1: Button supports custom content behind one activation surface",
 
 	it("the label stays REQUIRED even for an icon-only button", function()
 		expect(pcall(function()
-			return UI.Button({ id = "B", children = { UI.Image({ id = "I", image = "x" }) } })
+			return renderOnly(UI.Button({ id = "B", children = { UI.Image({ id = "I", image = "x" }) } }))
 		end)).toBe(false)
 	end)
 
 	it("a focusable inside the content is rejected: one activation surface, one focus site", function()
 		local ok, err = pcall(function()
-			return UI.Button({
+			return renderOnly(UI.Button({
 				id = "B",
 				label = "Outer",
 				children = { UI.Button({ id = "Inner", label = "Inner" }) },
-			})
+			}))
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "one activation surface", 1, true) ~= nil).toBe(true)
@@ -122,13 +124,13 @@ describe("B-BTN1: Button supports custom content behind one activation surface",
 
 	it("a focusable nested DEEPER in the content is also rejected", function()
 		expect(pcall(function()
-			return UI.Button({
+			return renderOnly(UI.Button({
 				id = "B",
 				label = "Outer",
 				children = {
 					UI.HStack({ id = "Row", children = { UI.Toggle({ id = "T", label = "t" }) } }),
 				},
-			})
+			}))
 		end)).toBe(false)
 	end)
 
@@ -190,7 +192,7 @@ describe("B-BTN2: semantic roles ride tags and style rules", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local role = core:signal("default")
+		local role = Compose.cell("default")
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -359,7 +361,7 @@ describe("B-BTN3: the hit-target floor is enforced in solved/hit geometry", func
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local h = core:signal(fixed(20))
+		local h = Compose.cell(fixed(20))
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -405,7 +407,7 @@ describe("B-BTN4: disabled is consistent across focus, activation, appearance an
 			system.deviceKey("DPadDown", true)
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
-			local f = pres.focus.focused:get()
+			local f = pres.focus.focused:peek()
 			if f ~= nil then
 				seen ..= f .. ","
 			end
@@ -467,7 +469,7 @@ describe("B-BTN4: disabled is consistent across focus, activation, appearance an
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local enabled = core:signal(false)
+		local enabled = Compose.cell(false)
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
@@ -487,7 +489,7 @@ describe("B-BTN4: disabled is consistent across focus, activation, appearance an
 			system.deviceKey("DPadDown", true)
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
-			local f = pres.focus.focused:get()
+			local f = pres.focus.focused:peek()
 			if f ~= nil then
 				seen ..= f .. ","
 			end
@@ -542,12 +544,12 @@ describe("B-BTN4: disabled is consistent across focus, activation, appearance an
 		controller.initialRender()
 		-- baseline AFTER the long-lived harness (env memos, renderer attach scope):
 		-- only the CONTROL must be neutral (house pattern, tests/table.spec.luau)
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local root2 = mountLib.mount(core, UI.Button({ id = "B2", label = "y", role = "cancel" }))
 		root2.dispose()
-		local after = core:counters()
-		expect(after.scopes).toBe(baseline.scopes)
-		expect(after.observers).toBe(baseline.observers)
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -604,7 +606,7 @@ describe("verifier V10: structural remount forgets the per-path caches", functio
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 200, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local show = core:signal(true)
+		local show = Compose.cell(true)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -654,7 +656,7 @@ describe("verifier V10: structural remount forgets the per-path caches", functio
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local show = core:signal(true)
+		local show = Compose.cell(true)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({

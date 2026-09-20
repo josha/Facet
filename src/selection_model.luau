@@ -1,14 +1,21 @@
 --!strict
 -- Shared selection decisions. Rendering never reconciles caller-owned values.
+local Compose = require("./vendor/compose/core")
 local model = {}
 function model.read(value, use)
 	if type(value) == "function" then
-		return value()
+		return if use then value(use) else Compose.sample(value)
 	end
-	if type(value) == "table" and (value.kind == "signal" or value.kind == "memo") then
-		return if use then use(value) else value:get()
+	if Compose.isReadable(value) then
+		return if use then use(value) else value:peek()
 	end
 	return value
+end
+function model.isSource(value)
+	return type(value) == "function" or Compose.isReadable(value)
+end
+function model.isWritable(value)
+	return type(value) == "table" and type(value.set) == "function" and Compose.isReadable(value)
 end
 function model.identity(option)
 	return if option.value ~= nil then option.value else option.id

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ WHAT MUST NOT DRIFT WHILE THE TREE IS STILL FLAT.
 
 	These are instruments, not features. The nested-tree migration is measured
@@ -40,14 +41,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local profile = require("../src/core/profile")
 local screen_presentation = require("../src/client/screen_presentation")
+local Compose = require("../src/vendor/compose/core")
 require("./lib/gui_value_shim").install()
 
 -- `tapAt` IS A DRIVE, NOT A QUERY, and it says so by answering `nil` when the
@@ -498,7 +500,7 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 
 	it("a LAYOUT-only change opens commit once, and writes no props", function()
 		local core = customFactory.new()
-		local tall = core:signal(true)
+		local tall = Compose.cell(true)
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -512,7 +514,7 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 					UI.Box({
 						id = "Header",
 						surface = "raised",
-						height = core:memo(function(use)
+						height = Compose.formula(function(use)
 							return { type = "fixed", px = if use(tall) then 60 else 20 }
 						end),
 					}),
@@ -541,7 +543,7 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 
 	it("NEGATIVE CONTROL: a PAINT change still opens the prop pass", function()
 		local core = customFactory.new()
-		local label = core:signal("one")
+		local label = Compose.cell("one")
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -551,9 +553,11 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 				id = "S",
 				padding = 0,
 				gap = 0,
-				children = { UI.Text({ id = "T", text = core:memo(function(use)
-					return use(label)
-				end) }) },
+				children = {
+					UI.Text({ id = "T", text = Compose.formula(function(use)
+						return use(label)
+					end) }),
+				},
 			})
 		)
 		local adapter = fake_target.new()

@@ -29,6 +29,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
+local scenario_ctx = require("./lib/scenario_ctx")
 local worldLib = require("./lib/world")
 local sheet_model = require("../src/tokens/sheet_model")
 local tokens = require("../src/tokens/tokens")
@@ -49,12 +50,12 @@ local rules = tileGame.rules
 	ever runs against an unset 1x1 viewport. ]]
 local function makeWorld(viewport: any?)
 	local w = worldLib.new({ viewport = viewport or { x = 0, y = 0, w = 800, h = 600 } })
-	local deps = { env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
+	local deps = scenario_ctx.of(w)
 	return w.core, deps, w.adapter
 end
 
 local function newGame(core: any, deps: any): any
-	return tileGame.build(Facet, core, deps)
+	return tileGame.build(deps)
 end
 
 -- A board written as seven strings, because a crossword rule is about a PICTURE
@@ -446,7 +447,7 @@ describe("examples/06 crossword — nine refusals, nine sentences, on screen", f
 		game.submit()
 		expect(said(game, deps, adapter)).toBe("Your first word has to cover the starred centre square.")
 		expect(game.turn()).toBe(1)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -629,7 +630,7 @@ describe("examples/06 crossword — commit, refill, undo, budget", function()
 		-- the refill came from the bag, in slot order, so the five spent slots
 		-- hold five NEW letters rather than the five that were played
 		expect(game.turn()).toBe(2)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -687,7 +688,7 @@ describe("examples/06 crossword — commit, refill, undo, budget", function()
 		game.select(3)
 		game.place(4, 6)
 		local before = game.dump()
-		local counters = core:counters()
+		local counters = core.owner.size()
 		game.submit()
 		expect(game.dump()).toBe(before)
 		expect(game.score()).toBe(0)
@@ -702,7 +703,7 @@ describe("examples/06 crossword — commit, refill, undo, budget", function()
 			game.submit()
 		end
 		expect(game.dump()).toBe(before)
-		expect(core:counters().signals).toBe(counters.signals)
+		expect(core.owner.size()).toBe(counters)
 		game.dispose()
 	end)
 
@@ -772,7 +773,7 @@ describe("examples/06 crossword — both endings, and the way back", function()
 		adapter.tap(game.resetPath)
 		expect(game.phase()).toBe("playing")
 		expect(game.score()).toBe(0)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -813,7 +814,7 @@ describe("examples/06 crossword — both endings, and the way back", function()
 		-- ...and the board is genuinely playable again, from the same first move
 		play(game, WIN_SCRIPT, 1)
 		expect(game.score()).toBe(16)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)
@@ -879,22 +880,20 @@ describe("examples/06 crossword — robustness", function()
 		expect(game.score()).toBe(0)
 		expect(game.turn()).toBe(1)
 		expect(game.phase()).toBe("playing")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps, adapter = makeWorld()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local game = newGame(core, deps)
 		play(game, WIN_SCRIPT, 2)
 		adapter.tap(game.rackPath(1))
 		adapter.tap(game.cellPath(1, 1))
 		game.dispose()
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -1040,8 +1039,8 @@ describe("examples/06 crossword — forty-nine cells that are actually there, in
 		for _, state in { "idle", "legal", "centre", "pending", "committed" } do
 			expect(seen[state]).toBe(true)
 		end
-		expect(coreA:lastError()).toBeNil()
-		expect(coreB:lastError()).toBeNil()
+		expect(coreA.lastError()).toBeNil()
+		expect(coreB.lastError()).toBeNil()
 	end)
 
 	it("...and the floor BITES: the plate the word game used to paint clears it nowhere", function()
@@ -1132,7 +1131,7 @@ describe("examples/06 crossword — committed versus uncommitted is not a colour
 		local before = game.dump()
 		adapter.tap(game.rackPath(1))
 		expect(game.dump()).toBe(before)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)

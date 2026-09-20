@@ -21,20 +21,16 @@ unlock.AVAILABLE_AFTER = 1.0
 unlock.RESOLVE_AFTER = 0.6
 
 function unlock.new(opts: any)
-	local core = opts.core
-	local scope = opts.scope
+	local Compose = opts.Compose
+	-- groups several writes into one update
+	local batch = opts.batch
 	local clock = opts.clock
 
-	local availability = core:signal("pending")
-	local status = core:signal("idle")
-	local unlocked = core:signal(opts.startUnlocked == true)
+	local availability = Compose.cell("pending")
+	local status = Compose.cell("idle")
+	local unlocked = Compose.cell(opts.startUnlocked == true)
 	local attempts = 0
 	local listeners: { (boolean, string?) -> () } = {}
-	scope:own(function()
-		availability:dispose()
-		status:dispose()
-		unlocked:dispose()
-	end)
 
 	local self = {}
 	self.availability = availability
@@ -76,7 +72,7 @@ function unlock.new(opts: any)
 	end
 
 	function self.canBuy(): boolean
-		return availability:get() == "available" and not unlocked:get() and status:get() ~= "pending"
+		return availability:peek() == "available" and not unlocked:peek() and status:peek() ~= "pending"
 	end
 
 	function self.purchase(): boolean
@@ -92,7 +88,7 @@ function unlock.new(opts: any)
 					fn(false, "declined")
 				end
 			else
-				core:transaction(function()
+				batch(function()
 					unlocked:set(true)
 					status:set("confirmed")
 				end)
@@ -106,7 +102,7 @@ function unlock.new(opts: any)
 
 	-- the card returns to idle after a rejection has been read
 	function self.acknowledge()
-		if status:get() == "rejected" then
+		if status:peek() == "rejected" then
 			status:set("idle")
 		end
 	end
@@ -117,7 +113,7 @@ function unlock.new(opts: any)
 
 	function self.reset()
 		attempts = 0
-		core:transaction(function()
+		batch(function()
 			status:set("idle")
 			unlocked:set(opts.startUnlocked == true)
 		end)

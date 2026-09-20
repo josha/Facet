@@ -12,6 +12,9 @@ CONTRIBUTING.md
 SECURITY.md
 AGENTS.md
 .gitignore
+.gitattributes
+# ^ marks src/vendor/compose/** and skills/compose/** as generated, so a diff
+#   view collapses the vendored pin instead of reading as hand-written code.
 rokit.toml
 stylua.toml
 .styluaignore

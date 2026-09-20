@@ -16,16 +16,19 @@
 -- Activate action on the focused button — so the headless run and the Studio
 -- VirtualInput run compare against the same block.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Toasts",
 	ledgerRows = { "SF-T1", "SF-T2", "SF-T3", "SF-M6", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.View
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-toast")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 
 		local SCREEN = "/ToastLab"
 		local BENEATH = SCREEN .. "/Stage/Beneath"
@@ -37,7 +40,7 @@ return {
 		local function note(kind: string, info: any?)
 			table.insert(trace, { at = elapsed, kind = kind, info = info })
 		end
-		scope:own(pres.onFeedback(function(event: any)
+		own(pres.onFeedback(function(event: any)
 			table.insert(trace, {
 				at = elapsed,
 				kind = "feedback:" .. tostring(event.type),
@@ -50,13 +53,9 @@ return {
 			end
 		end))
 
-		local beneathPresses, setBeneathPresses
-		local position = function()
-			return "top"
-		end
-		local widthMode = function()
-			return "fill"
-		end
+		local beneathPresses = Compose.cell(0)
+		local position = Compose.cell("top")
+		local widthMode = Compose.cell("fill")
 
 		-- the schedule trace: every change in what the layer is showing/queuing,
 		-- sampled on the presenter's own tick (SF-T2's evidence)
@@ -74,7 +73,7 @@ return {
 			return if handle ~= nil then handle.controller else nil
 		end
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			local counts = pres.toastCounts()
 			if
@@ -95,16 +94,14 @@ return {
 			end
 		end))
 
-		local ToastBody = Facet.component(function(_, props)
+		local function ToastBody(props: any)
 			local contentWidth = if props.fit then UI.hug() else UI.fill()
-			return UI.ZStack({
-				id = "Plate",
+			return UI.ZStack("Plate")({
 				width = contentWidth,
 				height = UI.hug(),
 				UI.shadow(
 					UI.corners(
-						UI.Box({
-							id = "PlateFill",
+						UI.Box("PlateFill")({
 							surface = "raised",
 							width = UI.fill(),
 							height = UI.fill(),
@@ -113,27 +110,23 @@ return {
 					),
 					"overlay"
 				),
-				UI.HStack({
-					id = "Body",
+				UI.HStack("Body")({
 					padding = "m",
 					gap = "s",
 					width = contentWidth,
 					UI.corners(
-						UI.Box({
-							id = "Glyph",
+						UI.Box("Glyph")({
 							surface = "chip",
 							width = { type = "fixed", px = "iconSizes.medium" },
 							height = { type = "fixed", px = "iconSizes.medium" },
 						}),
 						"pill"
 					),
-					UI.VStack({
-						id = "Lines",
+					UI.VStack("Lines")({
 						gap = "xs",
 						width = contentWidth,
-						UI.Text({ id = "Title", text = props.title, textSize = "body", width = contentWidth }),
-						UI.Text({
-							id = "Detail",
+						UI.Text("Title")({ text = props.title, textSize = "body", width = contentWidth }),
+						UI.Text("Detail")({
 							text = props.detail,
 							textSize = "body",
 							role = "secondary",
@@ -142,7 +135,7 @@ return {
 					}),
 				}),
 			})
-		end)
+		end
 
 		-- `subject` IS THE OPTION'S NAME HERE (review R2-F10). §3.1 calls the
 		-- same-message identity a SUBJECT — "the message updated where it stands" —
@@ -156,12 +149,13 @@ return {
 				options.key = options.subject
 				options.subject = nil
 			end
-			options.position = options.position or position()
-			options.width = options.width or (if widthMode() == "hug" then UI.hug({ max = 560 }) else UI.fill())
-			local handle = pres.presentToast(
-				ToastBody({ title = title, detail = detail, fit = options.width.type == "hug" }),
-				options
-			)
+			options.position = options.position or position:peek()
+			options.width = options.width or (if widthMode:peek() == "hug" then UI.hug({ max = 560 }) else UI.fill())
+			-- the toast owns its body: the component runs inside the toast
+			local fit = options.width.type == "hug"
+			local handle = pres.presentToast(function()
+				return ToastBody({ title = title, detail = detail, fit = fit })
+			end, options)
 			table.insert(handles, { id = handle.id, title = title, opts = opts, at = elapsed, handle = handle })
 			note("toast:present", { title = title, opts = opts })
 			return handle
@@ -169,8 +163,7 @@ return {
 
 		-- ===== the screen ===================================================
 		local function control(id: string, label: string, onActivate: () -> ())
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = onActivate,
@@ -178,36 +171,29 @@ return {
 		end
 
 		local burstIndex = 0
-		local ToastLab = Facet.component(function(ui)
-			beneathPresses, setBeneathPresses = ui.state(0)
-			local setPosition, setWidthMode
-			position, setPosition = ui.state("top")
-			widthMode, setWidthMode = ui.state("fill")
-			return UI.Screen({
-				id = "ToastLab",
+		local function ToastLab()
+			return UI.Screen("ToastLab")({
 				padding = "m",
 				gap = "m",
 
 				-- the toast strip owns the TOP lane (director SFH-3: the title used
 				-- to sit exactly under the first toast row); the lab's own chrome
 				-- lives below the stage
-				UI.ZStack({
-					id = "Stage",
+				UI.ZStack("Stage")({
 					width = UI.fill(),
 					height = UI.fill(),
 
 					UI.alignment(
-						UI.Button({
-							id = "Beneath",
-							label = function()
-								return `Test input: {beneathPresses()}`
+						UI.Button("Beneath")({
+							label = function(use)
+								return `Test input: {use(beneathPresses)}`
 							end,
 							height = { type = "minMax", min = "targetSizes.minimum" },
 							onActivate = function()
 								-- the control UNDER the toast: it must activate normally
 								-- while a toast is showing over it (SF-T1)
-								setBeneathPresses(beneathPresses() + 1)
-								note("beneath:activate", { presses = beneathPresses() })
+								beneathPresses:set(beneathPresses:peek() + 1)
+								note("beneath:activate", { presses = beneathPresses:peek() })
 							end,
 						}),
 						"center",
@@ -223,42 +209,35 @@ return {
 					nothing to scroll it back. Splitting the leftover between two fills
 					gives the stage a lane that can always seat one target, and hands the
 					chrome a window it can scroll inside instead of pushing the page. ]]
-				UI.ScrollView({
-					id = "Chrome",
+				UI.ScrollView("Chrome")({
 					axis = "y",
 					gap = "m",
 					width = UI.fill(),
 					height = UI.fill(),
 
-					UI.Text({ id = "Title", text = "Toasts", textSize = "heading" }),
-					UI.Text({
-						id = "Status",
+					UI.Text("Title")({ text = "Toasts", textSize = "heading" }),
+					UI.Text("Status")({
 						text = "Show a toast, then try Test input. Its count increases while the toast stays visible; notifications leave your controls usable.",
 						textSize = "body",
 						role = "secondary",
 						width = UI.fill(),
 					}),
-					UI.Picker({
-						id = "Position",
+					UI.Picker("Position")({
 						label = "Edge for new stacks",
 						style = "segmented",
 						selected = position,
-						onChange = setPosition,
 						options = { { value = "top", label = "Top" }, { value = "bottom", label = "Bottom" } },
 					}),
-					UI.Picker({
-						id = "Width",
+					UI.Picker("Width")({
 						label = "Toast width",
 						style = "segmented",
 						selected = widthMode,
-						onChange = setWidthMode,
 						options = {
 							{ value = "fill", label = "Wide" },
 							{ value = "hug", label = "Fit content" },
 						},
 					}),
-					UI.Grid({
-						id = "Controls",
+					UI.Grid("Controls")({
 						-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
 						-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
 						-- lets the WIDEST verb decide every column, so one long label costs this lab a
@@ -304,8 +283,8 @@ return {
 					}),
 				}),
 			})
-		end)
-		local screen = ToastLab({})
+		end
+		local screen = ToastLab
 
 		local function focusBeneath(): boolean
 			return pres.focus.focusOn(BENEATH)
@@ -337,19 +316,19 @@ return {
 			showOne = function()
 				local handle = show("Notice", "A single transient message")
 				local counts = pres.toastCounts()
-				return { id = handle.id, counts = counts, focus = pres.focus.focused:get(), depth = pres.depth() }
+				return { id = handle.id, counts = counts, focus = pres.focus.focused:peek(), depth = pres.depth() }
 			end,
 			-- SF-T1: the layer is structurally incapable of taking input. The focus
 			-- graph reads identically before, during and after, the presenter stack
 			-- never grew, and the button underneath still activates.
 			inputPassthrough = function()
 				focusBeneath()
-				local focusBefore = pres.focus.focused:get()
+				local focusBefore = pres.focus.focused:peek()
 				local depthBefore = pres.depth()
-				local pressesBefore = beneathPresses()
+				local pressesBefore = beneathPresses:peek()
 				show("Over the button", "Tap through me", { duration = 6 })
 				pres.refresh()
-				local focusDuring = pres.focus.focused:get()
+				local focusDuring = pres.focus.focused:peek()
 				local beneathRect = rectOf(BENEATH)
 				fireActivate()
 				local entry = {
@@ -369,7 +348,7 @@ return {
 					focusDuring = focusDuring,
 					depthBefore = depthBefore,
 					depthDuring = pres.depth(),
-					pressDelta = beneathPresses() - pressesBefore,
+					pressDelta = beneathPresses:peek() - pressesBefore,
 				}
 				table.insert(expectations, expectation)
 				entry.expected = expectation
@@ -427,7 +406,7 @@ return {
 			-- the flat 500 ms cap: no exit may defer disposal past it, and the
 			-- fixture's own counters must return to where they started
 			unmountCap = function()
-				counterBaseline = core:counters()
+				counterBaseline = core.owner.size()
 				local capped: { any } = {}
 				for i = 1, 3 do
 					table.insert(capped, show(`Capped {i}`, "Dismissed immediately", { readFloor = 0, duration = 4 }))
@@ -443,7 +422,7 @@ return {
 			-- read after ticking past the cap: the layer is gone and the counters are
 			-- back (the caller ticks; the runner refreshes between steps)
 			unmountCapRead = function()
-				counterAfter = core:counters()
+				counterAfter = core.owner.size()
 				return {
 					baseline = counterBaseline,
 					after = counterAfter,
@@ -474,7 +453,7 @@ return {
 					layerWasEmpty = layerWasEmpty,
 					id = handle.id,
 					counts = pres.toastCounts(),
-					focus = pres.focus.focused:get(),
+					focus = pres.focus.focused:peek(),
 					depth = pres.depth(),
 				}
 			end,
@@ -507,26 +486,26 @@ return {
 				end)(),
 				aim = aim,
 				expectations = expectations,
-				beneathPresses = beneathPresses(),
-				position = position(),
-				width = widthMode(),
+				beneathPresses = beneathPresses:peek(),
+				position = position:peek(),
+				width = widthMode:peek(),
 				beneathRect = rectOf(BENEATH),
-				focusPath = pres.focus.focused:get(),
+				focusPath = pres.focus.focused:peek(),
 				depth = pres.depth(),
 				surfaceDisplayOrder = if result.handle ~= nil then result.handle.displayOrder else nil,
 				counterBaseline = counterBaseline,
 				counterAfter = counterAfter,
-				reducedMotion = env:get("reducedMotion"):get(),
-				motionPolicy = env:get("motionPolicy"):get(),
-				counters = core:counters(),
-				coreError = core:lastError(),
+				reducedMotion = env:get("reducedMotion"):peek(),
+				motionPolicy = env:get("motionPolicy"):peek(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
 			for _, entry in handles do
 				entry.handle.dismiss()
 			end
-			scope:dispose()
+			lifetime.dispose()
 		end
 		return result
 	end,

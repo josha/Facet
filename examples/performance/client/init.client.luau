@@ -13,9 +13,9 @@
 --      come from one implementation;
 --   2. the LAB MODULES (`deps.lab`): the engine-free dataset/row/capture/overlay
 --      modules, handed in so `perf_lab` never touches `script`;
---   3. a MicroProfiler-visible frame scope around the presenter tick, so a
---      capture can see the lab's own driving separately from the framework's
---      phases.
+--   3. a MicroProfiler-visible frame scope around the application's own frame
+--      (the `connectFrame` seam, which wraps the one tick+refresh), so a capture
+--      can see the lab's own driving separately from the framework's phases.
 --
 -- IT PUBLISHES NOTHING TO PLAYERS. This is a development place; there is no
 -- game, no character, and no player-facing surface.
@@ -87,28 +87,96 @@ end)()
 -- overhead is never compared against one taken without it.
 profile.setEnabled(true)
 
-local core = Facet.newCore()
-local env = Facet.newEnvironment(core)
-local unbindEnv = roblox_env.bind(env)
--- THE LAB OPTS OUT ON PURPOSE, and after the 2026-08-21 default flip that
--- `false` is doing real work rather than restating the default. Every
--- budget (bench/perf_budgets.json) and capture
--- (artifacts/performance-stress-places/) was measured with the adapter as the
--- only writer of every paint property; taking the sheet path here would move the
--- instance counts and the paint timings under numbers recorded against the other
--- painter, so the lab keeps the explicit-write arm until a re-baseline says
--- otherwise. `Facet_NativeStyle = true` still A/Bs it (the place file ships the
--- attribute set to `false` so the opt-out is visible in Studio, not implied).
-local adapter = screen_target.new({
-	-- the distance the lab is watched from: the paint family scales at ten-foot
-	-- and a target takes its class at construction. Near is the IDENTITY, so every
-	-- budget in bench/perf_budgets.json was measured at the value this now states.
-	displaySize = env:get("displaySize"):get(),
-	nativeStyle = workspace:GetAttribute("Facet_NativeStyle") == true and { transitions = false } or false,
+--[[ ONE APPLICATION STANDS THE SURFACE UP, exactly as the gallery bootstrap does
+	(examples/gallery/client/init.client.luau). `Facet.new` is the only authoring
+	entry point there is: it builds the core, the environment, the render target,
+	the input system and the presenter behind three seams, and it drives the frame
+	itself. The lab configures all four seams because it owns all four objects —
+	the environment binding (a scenario freezes its facts through `unbindEnv`), the
+	render target (the lab's paint arm is a measured decision, below), the input
+	system, and the FRAME, which is the one seam no other place supplies.
+
+	THIS FILE USED TO CALL the old `newCore()` AND `newPresenter(...)` exports, which
+	have not existed since the core was flattened onto Compose — so the built
+	place (`tools/build_places.sh` -> Facet-PerformanceLab.rbxl) threw on its
+	first line of wiring and the lab could not be opened at all. The headless
+	contract in `tests/perf_lab.spec.luau` is what this must match: the runner ctx
+	is `{ Facet, app, UI, Compose, env, core, … }`, and `UI` is `app.controls`. ]]
+local core: any, env: any, adapter: any, system: any
+-- Stops the platform feeding the environment, once; a scenario freezes its facts
+-- with it, and the application calls it again, harmlessly, when it is disposed.
+local unbindEnv: () -> ()
+local app = Facet.new({
+	bindEnv = function(bound: any)
+		env = bound
+		unbindEnv = roblox_env.bind(bound)
+		return unbindEnv
+	end,
+	-- THE LAB OPTS OUT ON PURPOSE, and after the 2026-08-21 default flip that
+	-- `false` is doing real work rather than restating the default. Every
+	-- budget (bench/perf_budgets.json) and capture
+	-- (artifacts/performance-stress-places/) was measured with the adapter as the
+	-- only writer of every paint property; taking the sheet path here would move the
+	-- instance counts and the paint timings under numbers recorded against the other
+	-- painter, so the lab keeps the explicit-write arm until a re-baseline says
+	-- otherwise. `Facet_NativeStyle = true` still A/Bs it (the place file ships the
+	-- attribute set to `false` so the opt-out is visible in Studio, not implied).
+	newAdapter = function()
+		adapter = screen_target.new({
+			-- the distance the lab is watched from: the paint family scales at ten-foot
+			-- and a target takes its class at construction. Near is the IDENTITY, so every
+			-- budget in bench/perf_budgets.json was measured at the value this now states.
+			-- Read AFTER `bindEnv` above, so it is the engine's own `ViewportDisplaySize`.
+			displaySize = env:get("displaySize"):peek(),
+			nativeStyle = workspace:GetAttribute("Facet_NativeStyle") == true and { transitions = false } or false,
+		})
+		return adapter
+	end,
+	newInputSystem = function(value: any)
+		core = value
+		system = roblox_input.newSystem(value)
+		return system
+	end,
+	--[[ THE ONE SEAM THIS PLACE SUPPLIES AND NO OTHER PLACE DOES: a MicroProfiler
+		frame scope around the application's own per-frame work, so a capture shows
+		the lab's driving separately from the framework's phases. `Facet/scenario` is
+		a declared phase, and that separation is what stops "the lab is slow" from
+		being read as "Facet is slow".
+
+		IT IS A WRAPPER, NOT A SECOND DRIVER. The application ticks and refreshes
+		inside `fn`, on PreRender — which is where it belongs, because Heartbeat runs
+		AFTER render and ticking there adds a frame of latency to every visual the
+		tick drives. This file used to `motion_driver.bind(pres)` AND drive
+		`pres.refresh()` from its own Heartbeat, and the first physical-device capture
+		is what made that visible (game director, 2026-08-13, Galaxy A10e): the dump
+		showed `Facet/present` and `Facet/tick` each occurring SIXTY times across
+		thirty frames, costing 0.279 ms/frame — 45% of ALL Facet time in the capture.
+		The application now claims the frame driver itself (`claimFrameDriver`), so a
+		second bind is refused rather than merely discouraged; the reusable finding
+		stays recorded here, because a guard that polices one spelling does not police
+		the behaviour.
+
+		NOTE FOR THE NEXT CAPTURE: `present` was ALSO occurring twice per frame and
+		only one of those was the refresh. The second has not been traced to its call
+		site and is NOT claimed fixed — re-read the scope counts on the next device
+		dump and see whether `present` is 30 or 60. ]]
+	connectFrame = function(fn: (dt: number) -> ())
+		local conn = RunService.PreRender:Connect(function(dt: number)
+			profile.span("scenario", function()
+				fn(dt)
+			end)
+		end)
+		return function()
+			conn:Disconnect()
+		end
+	end,
 })
-local system = roblox_input.newSystem(core)
-local pres = Facet.newPresenter(core, env, adapter, system)
-motion_driver.bind(pres)
+local pres = app.presenter
+-- `client.host` installs the engine easing only when it supplied the frame
+-- itself; this place supplies its own, so it installs the same easing by hand
+-- rather than measuring a lab whose springs step differently from every other
+-- place's.
+pres.motionClock:setEasing(motion_driver.engineEasing)
 
 -- UI-only place: free ButtonA and the Tab key exactly as the gallery does, for
 -- the same reason and with the same scope limit (docs/guide/07-input.md §7.3/§7.4).
@@ -261,47 +329,21 @@ local host = {
 local registry = require(ReplicatedStorage:WaitForChild("FacetScenarios")) :: any
 local runner = require(registry.runner) :: any
 
--- ONE frame scope around the lab's own driving. `Facet/scenario` is a declared
--- phase, so the capture shows the driver's per-frame share beside the framework's
--- — which is what stops "the lab is slow" from being mistaken for "Facet is slow".
---[[ THE TICK IS NOT DRIVEN HERE — `motion_driver.bind(pres)` above already does
-	it, on PreRender, which is where it belongs (Heartbeat runs AFTER render, so
-	ticking there adds a frame of latency to every visual the tick drives).
-
-	IT USED TO BE DRIVEN IN BOTH PLACES, and the first physical-device capture is
-	what made that visible (game director, 2026-08-13, Galaxy A10e). The dump
-	showed `Facet/present` and `Facet/tick` each occurring SIXTY times across
-	thirty frames — twice per frame — with `Facet/scenario` wrapping exactly one
-	of each pair. Measured cost of the duplication on that device: 0.072 ms/frame
-	of duplicate tick plus 0.208 ms/frame of duplicate present+focusmap, i.e.
-	0.279 ms/frame, which was 45% of ALL Facet time in the capture.
-
-	`motion_driver`'s own header already called this out — "a second bind of the
-	same presenter is a mistake the double-tick would make visible, so it is
-	rejected loudly" — but its guard only refuses a second BIND. A bind plus a
-	hand-rolled `tick` on another signal walks straight past it, which is what
-	happened here. Recorded rather than only fixed, because the guard's shape is
-	the reusable finding: a rule that polices one spelling does not police the
-	behaviour.
-
-	NOTE FOR THE NEXT CAPTURE: `present` was ALSO occurring twice per frame, and
-	only one of those is the `refresh` below. The second has not been traced to
-	its call site and is NOT claimed fixed by this change — re-read the scope
-	counts on the next device dump and see whether `present` is 30 or 60. ]]
-local heartbeat = RunService.Heartbeat:Connect(function(_dt: number)
-	profile.span("scenario", function()
-		pres.refresh()
-	end)
-end)
-
+-- THE FRAME SCOPE IS NOT TAKEN HERE any more: it is the application's own
+-- `connectFrame` seam at the top of this file, which wraps the ONE tick+refresh
+-- the application drives on PreRender. A second driver on Heartbeat is what the
+-- 2026-08-13 device capture caught, and the note recording that measurement now
+-- lives beside the seam that replaced it.
 local api = runner.start({
 	Facet = Facet,
 	registry = registry,
 	scenarioName = "perf_lab",
+	-- the application the scenario authors against: `app.controls` is `ctx.UI`,
+	-- `app.presenter` serves the drivers, `app.mount` presents
+	app = app,
 	core = core,
 	env = env,
 	adapter = adapter,
-	presenter = pres,
 	actionSystem = system,
 	unbindEnv = unbindEnv,
 	host = host,
@@ -319,4 +361,4 @@ print(
 		.. `drive via workspace.FacetScenarioAPI (list/steps/step/report/reset)`
 )
 
-local _keep = { heartbeat, api, unbindEnv, Players.LocalPlayer }
+local _keep = { app, api, unbindEnv, Players.LocalPlayer }

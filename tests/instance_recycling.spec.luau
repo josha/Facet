@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	INSTANCE RECYCLING — a scrolling list rebuilds an identical row at one end every
 	time the window slides, for no reason except that the row's PATH changed.
@@ -31,7 +32,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- The row's pitch. A VirtualList windows on a FIXED height by contract, so this has
 -- to be a number — but it must be a number the row actually fits in, not one that
@@ -75,13 +77,13 @@ local function assertClean(handle: any, where: string)
 end
 
 local function world(recycle: boolean?, ragged: boolean?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(makeItems(400))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(makeItems(400))
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
@@ -96,15 +98,15 @@ local function world(recycle: boolean?, ragged: boolean?)
 		cell = function(item: any)
 			local n = tonumber(string.match(item.id, "%d+")) or 0
 			local odd = ragged == true and n % 3 == 0
-			return Facet.UI.HStack({
+			return harness.UI.HStack({
 				id = "Row",
 				gap = 6,
 				children = {
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Labels",
 						gap = 2,
 						children = {
-							Facet.UI.Text({
+							harness.UI.Text({
 								id = "Name",
 								text = item.label,
 								textSize = 15,
@@ -113,15 +115,15 @@ local function world(recycle: boolean?, ragged: boolean?)
 								-- centre-aligned label in a row that never asked for one
 								textAlign = if odd then "center" else nil,
 							}),
-							Facet.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
+							harness.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
 						},
 					}),
-					Facet.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
+					harness.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	-- `nil` presents with NO recycling opt at all, which is the path every ordinary
 	-- consumer takes and therefore the one the default has to be proven on
 	local handle = pres.present(screen, if recycle == nil then nil else { recycleInstances = recycle })
@@ -322,16 +324,16 @@ end)
 	adding a fresh set is one remove -> add cycle over a host per row, which is
 	exactly the `removeItem-plates` / `addItem-plates` pair the measurement names. ]]
 local function plateWorld(recycle: boolean?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
 	-- ARMED (T12): `opsFor` and the deepest-first order test below both read
 	-- `.ops()` off this world's adapter.
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal({})
-	local rotRows = core:signal({})
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell({})
+	local rotRows = Compose.cell({})
 	--[[ TWO LISTS, ONE POOL, and that is the whole reason the second one exists.
 		`Plates` roots are COORDINATE SPACES (a reactive placement); `Rotated` roots
 		are the OTHER trigger `instance_boundary.createOptsFor` has for the same plain
@@ -342,7 +344,7 @@ local function plateWorld(recycle: boolean?)
 		cross-space adoption `hostSpace` has to be re-derived for. ]]
 	local function plateRow(rotated: boolean)
 		return function(item: any)
-			return Facet.UI.VStack({
+			return harness.UI.VStack({
 				id = "Plate",
 				rotation = if rotated then 12 else nil,
 				anchor = if rotated then nil else "topLeft",
@@ -353,8 +355,8 @@ local function plateWorld(recycle: boolean?)
 				width = { type = "fixed", px = 120 },
 				height = { type = "content" },
 				children = {
-					Facet.UI.Text({ id = "Name", text = item.label, textSize = 14 }),
-					Facet.UI.Box({
+					harness.UI.Text({ id = "Name", text = item.label, textSize = 14 }),
+					harness.UI.Box({
 						id = "Hp",
 						width = { type = "fixed", px = 40 },
 						height = { type = "fixed", px = 6 },
@@ -366,16 +368,16 @@ local function plateWorld(recycle: boolean?)
 	local function keyOf(item: any)
 		return item.id
 	end
-	local screen = Facet.UI.Screen({
+	local screen = harness.UI.Screen({
 		id = "S",
 		children = {
-			Facet.UI.Anchor({
+			harness.UI.Anchor({
 				id = "Canvas",
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				children = {
-					Facet.UI.ForEach({ id = "Plates", items = rows, key = keyOf, row = plateRow(false) }),
-					Facet.UI.ForEach({ id = "Rotated", items = rotRows, key = keyOf, row = plateRow(true) }),
+					harness.UI.ForEach({ id = "Plates", items = rows, key = keyOf, row = plateRow(false) }),
+					harness.UI.ForEach({ id = "Rotated", items = rotRows, key = keyOf, row = plateRow(true) }),
 				},
 			}),
 		},
@@ -388,8 +390,8 @@ local function plateWorld(recycle: boolean?)
 			table.insert(items, {
 				id = id,
 				label = `Plate {id}`,
-				x = core:signal((i * 37) % 300),
-				y = core:signal((i * 53) % 500),
+				x = Compose.cell((i * 37) % 300),
+				y = Compose.cell((i * 53) % 500),
 			})
 		end
 		return items
@@ -607,29 +609,29 @@ end)
 	host branch and was never exposed. ]]
 describe("recycling: an adopted node belongs to its OWN surface", function()
 	local function twoSurfaceWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 
-		local alphaItems = core:signal({ { id = "a1" }, { id = "a2" }, { id = "a3" } })
+		local alphaItems = Compose.cell({ { id = "a1" }, { id = "a2" }, { id = "a3" } })
 		local alpha = pres.present(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "Alpha",
 				children = {
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Col",
 						children = {
-							Facet.UI.ForEach({
+							harness.UI.ForEach({
 								id = "Rows",
 								items = alphaItems,
 								key = function(item: any)
 									return item.id
 								end,
 								row = function(item: any)
-									return Facet.UI.Text({ id = "RowText", text = item.id, textSize = 15 })
+									return harness.UI.Text({ id = "RowText", text = item.id, textSize = 15 })
 								end,
 							}),
 						},
@@ -642,8 +644,8 @@ describe("recycling: an adopted node belongs to its OWN surface", function()
 
 		-- the second surface, presented ON TOP exactly as the gallery's own
 		-- showcase screen is presented over a scenario's
-		local betaCount = core:signal(0)
-		local betaItems = core:memo(function(use: any)
+		local betaCount = Compose.cell(0)
+		local betaItems = Compose.formula(function(use: any)
 			local out = {}
 			for i = 1, use(betaCount) do
 				table.insert(out, { id = `b{i}` })
@@ -651,20 +653,20 @@ describe("recycling: an adopted node belongs to its OWN surface", function()
 			return out
 		end)
 		pres.present(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "Beta",
 				children = {
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "BetaCol",
 						children = {
-							Facet.UI.ForEach({
+							harness.UI.ForEach({
 								id = "BetaItems",
 								items = betaItems,
 								key = function(item: any)
 									return item.id
 								end,
 								row = function(item: any)
-									return Facet.UI.Text({ id = "BetaText", text = item.id, textSize = 15 })
+									return harness.UI.Text({ id = "BetaText", text = item.id, textSize = 15 })
 								end,
 							}),
 						},

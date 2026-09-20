@@ -1,3 +1,4 @@
+local harness = require("./lib/harness")
 --[[ THE HIGHLIGHT SHAPE IS A THEME TOKEN (user ruling 2026-09-12).
 
 	`radii.selection` decides the shape of every selection highlight — the
@@ -11,10 +12,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local snapshot = require("../src/themes/snapshot")
 local styling = require("../src/tokens/styling")
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 
 local function packageOf(name: string): any
 	return (require)(`../examples/themes/{name}`).build(Facet.themes)
@@ -70,9 +72,9 @@ describe("radii.selection: the segmented fill follows the package's own token", 
 			safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 			themeMetrics = metrics,
 		})
-		local picker = Facet.Controls.Picker(w.core, {
+		local picker = harness.Controls.Picker(w.core, {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "One" }, { value = "b", label = "Two" }, { value = "c", label = "Tri" } },
 			env = w.env,
 			presentation = "segmented",
@@ -148,7 +150,7 @@ describe("radii.selection: a menu card's row wears the card's clipped corners, s
 			table.insert(options, { value = `o{i}`, label = `Option {i}` })
 		end
 		local picker =
-			Facet.Controls.Picker(w.core, { id = "P", selected = w.core:signal("o1"), options = options, env = w.env })
+			harness.Controls.Picker(w.core, { id = "P", selected = Compose.cell("o1"), options = options, env = w.env })
 		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
 		w.pres.refresh()
 		return w, picker
@@ -354,14 +356,14 @@ describe("radii.selection: a menu card's row wears the card's clipped corners, s
 		w.pres.refresh()
 		expect(picker.dump().open).toBe(true)
 		-- the tap set the pointer origin, so the focus ring does not paint
-		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		expect(w.pres.focus.focusVisible:peek()).toBe(false)
 		local chosenFill = rows(w)[1]
 		local chosenRow = string.gsub(chosenFill, "/Fill$", "/Opt-o1")
 		expect(w.adapter.node(chosenRow).focused ~= true).toBe(true)
 		-- a navigation act brings the ring back, on the row's own clipped corners
 		w.pres.focus.setFocusOrigin("navigation")
 		w.pres.refresh()
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.pres.focus.focusVisible:peek()).toBe(true)
 		expect(w.adapter.node(chosenRow).focused).toBe(true)
 		expect(w.adapter.node(chosenRow).props.corners == w.adapter.node(chosenFill).props.corners).toBe(true)
 		expect(shapeOf(w, chosenFill)).toBe(`{expectedRadius(nil)},{expectedRadius(nil)},0,0`)

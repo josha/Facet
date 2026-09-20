@@ -4,7 +4,7 @@
 Learn one control, service, or extension seam and the rules here tell you what the
 next one looks like. The [API reference](api.md) documents each item; this document
 governs the *patterns*;
-[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation) governs
+[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning) governs
 how any of it may change. Every current public item follows a named rule below or
 appears in [§16 Exceptions](#16-exceptions) with the reason uniformity would be worse.
 
@@ -25,19 +25,19 @@ Every feature is exactly one of these kinds. Choose by the question, not by tast
 | **Blueprint primitive** | a node class the solver/renderer understand natively | needs its own layout/paint/input semantics an existing class cannot compose | `UI.Text`, `UI.ScrollView`, `UI.Grip`, `UI.Path` |
 | **Structural region** | the only things that may mount/unmount nodes later | its job is presence, not paint | `UI.When`, `UI.ForEach`, `UI.ErrorBoundary` |
 | **Modifier** | `(blueprint, …) -> new frozen Blueprint` | it decorates or re-frames an existing node | `UI.shadow`, `UI.frame`, `UI.draggable`, `contribution.attach` |
-| **Composite control** | primitives assembled behind `build(Facet, core, spec)` | it could be written outside the library with public API only | `newTable`, `newStepper`, `newChip` |
-| **Service** | a stateful runtime collaborator created per client/surface | it owns live state and a lifetime | `newCore`, `newPresenter`, `newEnvironment`, `renderer.attach` |
+| **Composite control** | primitives assembled behind one `app.controls` constructor | it could be written outside the library with public API only | `UI.Table`, `UI.Stepper`, `UI.Chip` |
+| **Service** | a stateful runtime collaborator created per client/surface | it owns live state and a lifetime | `Facet.new`, `newEnvironment`, `newResourceProvider`, `renderer.attach` |
 | **Pure decision module** | engine-free functions + frozen data, no ownership | the whole contract is (input → answer) | `adaptive`, `composition`, `valueModel`, `interactionTokens`, `text` |
 | **Engine adapter** | the only code that touches Instances / real input / device facts | it would not compile under Lune | `client/screen_target`, `client/roblox_env` |
 | **Theme data** | inspectable declarative data, never code | a designer could write it | `themes.define` packages |
 
-A feature that seems to need two kinds is two features (Slider = a composite control
-over the `valueModel` decision module plus adapter seams).
+A feature that seems to need two kinds is two features (`UI.Slider` = a composite
+control over the `valueModel` decision module plus adapter seams).
 
 ## 2. Naming
 
 - **`newX(…)`** — a factory returning a stateful object you may have to dispose
-  (`newCore`, `newTable`, `newDragSession`). Nothing else starts with `new`.
+  (`newEnvironment`, `newFocusGraph`, `newDragSession`). Nothing else starts with `new`.
 - **`UI.Pascal{ spec }`** — blueprint constructors. **`UI.lowerCase(bp, …)`** —
   modifiers.
 - **lowercase namespaces** (`motion`, `text`, `themes`, `adaptive`, `composition`,
@@ -60,16 +60,16 @@ over the `valueModel` decision module plus adapter seams).
 
 ## 3. Constructors and argument order
 
-- Services: **`(core, …collaborators, opts?)`** — core first, options last
-  (`mount(core, blueprint, opts?)`, `newPresenter(core, env, adapter, actionSystem, opts?)`).
-- Composite controls: **`build(Facet, core, spec)`** — the library table is
-  injected so an out-of-repo control uses the identical seam. The canonical
-  *public* call is **`Facet.Controls.<Name>(core, spec)`**: the namespace closes
-  over the library, so a caller never writes the library's name twice. Every
-  built-in composite whose builder takes `(library, core, spec)` has an entry
-  there; `Facet.new<X>` stays the vocabulary for infrastructure whose creation and
-  ownership is the important fact (`newCore`, `newPresenter`, `newDragSession`),
-  and those take no library argument.
+- Services: **`(core, …collaborators, opts?)`** — the service bag first, options
+  last (`renderer.attach(core, root, env, adapter, opts?)`,
+  `newResourceProvider(core, opts?)`).
+- Composite controls: the public call is **`UI.<Name> { ... }`** on
+  `app.controls`. It returns the control's node. The control's record arrives
+  through **`ref = function(record) ... end`**, called once while the control is
+  built. An optional constructor name gives a stable path:
+  `UI.<Name>("Id")({ ... })`. `Facet.new<X>` stays the vocabulary for
+  infrastructure whose creation and ownership is the important fact
+  (`newEnvironment`, `newFocusGraph`, `newDragSession`).
 - Pure models: **`new(opts?)`** single table (`newAutoscroll`, `newDragVelocity`,
   `motion.newValueReveal`).
 - Modifiers: **`(blueprint, spec, style?)`** and always return a **new frozen**
@@ -86,7 +86,7 @@ legal set, with a did-you-mean where possible:
 
 ```
 UI.Button: unknown property 'lable'. Did you mean 'label'?
-Facet newStepper('Volume'): spec.value must be a settable Signal you own — a Memo cannot be set.
+UI.Alert: isPresented must be a settable Signal
 ```
 
 Rules:
@@ -108,14 +108,16 @@ Rules:
 
 ## 5. Reactive values
 
-- `Signal<T>` (settable), `Memo<T>` (derived), `Readable<T>` (either) — the types
-  are exported from `src/init.luau`. `UI.isReadable` is the one public predicate.
-  Readables come from `core:signal`/`core:memo`; the framework does not accept
+- There are three reactive shapes, and all three are Compose's: a writable cell
+  (`Compose.cell`), a read-only formula (`Compose.formula`), and a readable, which
+  is either. A reactive property is a readable or a `function(use) ... end`.
+  `UI.isReadable` is the one public predicate. The framework does not accept
   hand-rolled get/set tables (PKT-4 tracks a future adapter seam).
 - **Durable state is owner-held.** A control never creates state that must outlive
-  it: `value`, `selected`, `expanded`, `sortOrder` are settable Signals the caller
-  owns; the control reads and writes them and holds only presentation state in its
-  own scope. A control REJECTS a read-only Memo where it must write.
+  it: `value`, `selected`, `expanded`, `sortOrder` are writable cells the caller
+  owns; the control reads and writes them and holds only presentation state under
+  its own Compose owner. A control REJECTS a read-only formula where it must
+  write.
 - A prop is reactive when it answers a question about **state**; it is
   construction-only when it answers what the node **is** (`shape = "circle"`,
   `canvasGroup`). The schema declares which; binding a
@@ -123,13 +125,13 @@ Rules:
 
 ## 6. Result objects
 
-- Composite controls return a frozen table
-  **`{ blueprint, …extras, dump, dispose }`**. `dump()` is deterministic (two
-  calls, identical result), carries a `schema = "facet-<name>-dump/N"` string, and
-  reflects the state a bug report needs. `dispose()` tears down the control scope
-  and nothing else. Control-specific verbs either sit flat (few) or under `api`
-  (many) — today both exist (see §16/PKT-1); new controls put extra surface under
-  **`api`** once it exceeds two members.
+- A composite control returns its node. Its record is delivered to `ref` as a
+  frozen **`{ api, dump }`**. `dump()` is deterministic (two calls, identical
+  result), carries a `schema = "facet-<name>-dump/N"` string, and reflects the
+  state a bug report needs. Teardown is the Compose owner's: disposing the owner
+  releases the control. A control that publishes its verbs on its own record is
+  its own `api`; new controls put extra surface under **`api`** once it exceeds
+  two members.
 - Services return their instance directly (`Controller`, `Presenter`, `Env`);
   subscription methods return an **unsubscribe closure** and nothing else.
 - Validators return `(value?, report)` (`tokens.compile`, `themes.define`); state
@@ -141,7 +143,7 @@ Rules:
 ## 7. Callbacks
 
 - `onChange(value)` fires per accepted live change; `onCommit(value, reason?)`
-  fires once at a terminal; the two may coexist (`newSlider`, `newTextInput`).
+  fires once at a terminal; the two may coexist (`UI.Slider`, `UI.TextInput`).
 - `onActivate(path, meta)` is the semantic Activate verb — one activation site per
   control: when a contribution declares `handleActivate`, inner focusables carry no
   `onActivate` (double-fire).
@@ -154,19 +156,16 @@ Rules:
 
 ## 8. Ownership, lifecycle, errors
 
-- **Scopes own everything.** Every subscription, memo, handle, and child scope is
-  owned by a scope; disposal is reverse-order, exactly-once, double-dispose
-  detected. `dispose()` = `scope:dispose()` and nothing else. `scope:own` refuses a
-  resource it cannot dispose.
-- **The caller owns what it is handed.** The canonical spellings, in order of
-  preference: pass `opts.scope` and the helper owns its resources there
-  (`adaptive.conditions`, `inputHint`); else `scope:own(handle)` the returned
-  object (`motion.newClock`); else the return IS an unsubscribe you own
-  (`presenter.onTick`). A helper that builds more than one resource MUST offer
-  `opts.scope`.
-- Session-lifetime services (`newPresenter`, `newFocusGraph`, `newEnvironment`)
-  are built once per client session and have no dispose today — that contract is
-  stated in their reference entries (PKT-3 tracks adding teardown).
+- **Compose owners govern lifetime.** Components own their watches, formulas,
+  child owners and registered cleanup. Dispose the owner to release them.
+  Native cells hold data; subscriptions belong to their consumers.
+- **Helpers declare ownership.** `adaptive.conditions` uses the active Compose
+  owner. Helpers that accept `opts.scope` attach their resources there.
+  Explicit handles and unsubscribe functions must be registered with the owning
+  component or session.
+- Session services are created once per host. Host teardown releases its
+  presenter, input bindings and environment after mounted consumers unwind.
+  A standalone environment must be disposed by its caller.
 - **Error ladder**: refuse at construction → quarantine user callbacks at runtime
   (recorded via `lastError`, sticky until read source is rebuilt — never cleared)
   → `UI.ErrorBoundary` contains a subtree → `presentCritical` contains a screen.
@@ -193,7 +192,7 @@ Rules:
 - **One focus map, read two ways.** Directional Navigate and linear Traverse
   (Tab/Shift+Tab) walk the *same* scope order. A second order, derived from
   Instances or maintained alongside, is the defect — the two would disagree the
-  first time a node was hidden. Scope-level policy (traversal wrap, trap) is
+  first time a node was hidden. Focus-scope policy (traversal wrap, trap) is
   declared by the surface; a control may not invent its own.
 - **A key belongs to one action at a time.** Where two verbs want the same key,
   the presenter *moves the binding* (a focused value control's declared
@@ -222,9 +221,10 @@ Rules:
 ## 11. Styling and property authority
 
 - Every engine render property has exactly **one** authority (layout / style /
-  binding / presentation, declared in `render/authority.luau`); the renderer
-  asserts every write. Motion drives **signals only** and reaches pixels through
-  the presentation channel; a fade needs a declared `canvasGroup`.
+  binding / presentation / host, declared in `render/authority.luau`); the
+  renderer asserts every write. `host` covers only what Facet claims over an
+  instance it does not own. Motion drives **readables only** and reaches pixels
+  through the presentation channel; a fade needs a declared `canvasGroup`.
 - Paint is data: token roles, theme packages, decoration slots, style tags. A
   finite state is a **tag** (`selected`, roles); `tint` is the one continuous
   channel and it *claims* its properties, permanently and on the record.
@@ -239,16 +239,14 @@ Rules:
   Facet table — are exactly: `host`, `screen_target`, `billboard_target`,
   `roblox_env`, `roblox_input`, `roblox_resources`, `theme_controller`,
   `edit_preview`, `motion_driver`, `haptics`, `gamepad_contention`,
-  `responder_effects`, `surface_target`, `world_anchor`. That is **fourteen**. `tools/lune/check_boundary.luau` holds
+  `responder_effects`, `surface_target`, `world_anchor`, `scene`. `tools/lune/check_boundary.luau` holds
   the same list in code and is the authority; api.md §Client entry points
-  documents each one. Everything else under `src/` is internal to consumers.
-  (`haptics` was blessed with the round-2 feedback bus; `gamepad_contention` and
-  `responder_effects` on 2026-08-17, because the guide had been teaching a direct
-  require of both while the checker refused it — neither engine-level side effect
-  has a `Facet.*` route, so the list moved rather than the guide. `host` was
-  added 0.10.0 as the FIRST of these: it composes the other four a bootstrap
-  needs, and the getting-started guide teaches it rather than the six-step
-  sequence that three of four shipped bootstraps got wrong — REUSE-109.)
+  documents each one. Everything else under `src/` is internal to consumers. A
+  module joins this list when it owns an engine-level side effect that no
+  `Facet.*` route reaches; the list moves, never the guide. `host` is the
+  bootstrap entry point: it composes the environment, input, theme and mount a
+  client needs, and the getting-started guide teaches it instead of that
+  sequence.
 - A render target implements `render/target_contract.luau`: six REQUIRED methods,
   the OPTIONAL set (each absence degrades one named behavior), and the THEME set
   (required for `theme_controller.install`). Engine facts are **measured, then
@@ -278,7 +276,7 @@ foreign names, it resolves or falls back visibly.
 ## 14. Versioning, deprecation, documentation
 
 - The versioning and deprecation policy
-  ([`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation)) is
+  ([`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning)) is
   binding: `VERSION` single-sourced in `src/init.luau`; `Facet.DEPRECATIONS` is the
   machine-readable ledger (schema-generated property entries plus declared
   entries), frozen; a deprecated surface keeps working for ≥ one MINOR unless it
@@ -326,14 +324,14 @@ Approved deviations. Each is deliberate; making it uniform would make the API wo
 | E-4 | `Screen` duplicates `VStack`'s schema | a Screen *means* presenter-root (safe-area resolved, fill-defaulted); the meaning, not the prop set, is the API |
 | E-5 | `Region` takes no BOX props | a Region IS its ranked forms; a width on it would be a second source of truth against the composition's own resolution |
 | E-6 | `ScrollView.axis`, `AdaptiveStack.axis` and `Divider.axis` are reactive; virtual collection axes remain construction-only | ordinary scroll hosts retain identity and update geometry/navigation when their axis changes; active named travel retargets on the new axis without restoring cancelled focus. Virtual collections still construct an axis-specific windowing/input configuration |
-| E-7 | Colon methods vs dot functions split | colon = reactive-graph objects and pure stepped models (`core`, signals, scopes, `clock`, drag/velocity/autoscroll models); dot = services, controllers, namespaces. The line is "does the object's identity matter to every call". Written here; per-entry api.md notes the convention where confusion was recorded |
-| E-8 | `newAsyncImage` takes `spec.scope`, returns no `dump`/`dispose` | its resources must die with the owner's scope alongside the provider handle; a control-owned scope would be a second teardown path racing the first |
-| E-9 | `core:signal(initial, eq?)` / `core:memo(fn, eq?)` take a positional optional | the hottest constructors in the library, one option; an opts table would tax every call site for one rare argument |
+| E-7 | Colon methods vs dot functions split | colon = reactive-graph objects and pure stepped models (Compose cells and formulas, `clock`, drag/velocity/autoscroll models); dot = services, controllers, namespaces. The line is "does the object's identity matter to every call". Written here; per-entry api.md notes the convention where confusion was recorded |
+| E-8 | `UI.AsyncImage` publishes no teardown verb of its own | its lease and bindings must die with the mounted Compose owner alongside the provider handle; a control-owned teardown would be a second path racing the first |
+| E-9 | `Compose.cell(initial, eq?)` / `Compose.formula(fn, eq?)` take a positional optional | the hottest constructors in the library, one option; an opts table would tax every call site for one rare argument |
 | E-10 | `renderer.attach` is not `newRenderer` | the module is also the adapter-conformance data (`EMITTED_PROPS`, …); `attach` names what happens — a controller bound to an existing mount's lifetime |
 | E-11 | `edit_preview.start(Facet, opts)` | dev tooling injected like a composite so the plugin can hand in the game's own library table |
 | E-12 | `themes.define` / `composition.normalize` / `arrangementOf` accept `any` in | they are validators; ruling on malformed input is their job. Their *outputs* are typed/frozen |
 | E-13 | `valueModel.new` is the one `.new` a consumer types | it is a namespace module's factory (like `motion.newClock`), kept beside its `defaultFormat` constant |
-| E-14 | `mount.dump()` nests under `tree`; `composition.dump()` is flat | a mount dump IS a tree; a resolution is a record. Forcing either shape flattens meaning |
+| E-14 | a mounted root's `dump()` nests under `tree`; `composition.dump()` is flat | a mount dump IS a tree; a resolution is a record. Forcing either shape flattens meaning |
 | E-15 | `text.measure` keeps its six-positional form (spec-table form added, canonical) | it is the solver's own hot seam, called thousands of times per solve; the positional form stays for the solver, the spec form is the public idiom |
 | E-16 | `replication` verbs: `ingest` / `ingestPatch` / `ingestResnapshot` | the three names encode *what arrives* (a whole state, a delta, a recovery), which call sites branch on; one overloaded verb would hide the protocol |
 | E-17 | `context.destroy()` (input contexts) keeps its name | grandfathered pre-1.0; renaming now costs every consumer more than the inconsistency does. PKT-2 proposes the 1.0 unification |
@@ -352,12 +350,16 @@ document, in the same commit as the rule-affecting change.*
 
 ## Reactive implementation and authoring
 
-Compose supplies dependency tracking, native FIFO delivery, batching and ownership,
-pinned at `cce9b99590fd3bec3bb9cb60f378184e28fab71d` with the lifetime patch in
-`src/vendor/compose/UPSTREAM.patch`. Facet retains explicit readable disposal,
-diagnostics and convergent layout settling. Native scheduling and failed-evaluation
-semantics are documented in `src/core/README.md`; the Signals export is removed.
-Component setup creates an owned description once; property recipes drive changes.
-`Facet.View` reuses the existing control mechanisms. Numeric children are dense,
-validated and visited by index. The upstream MIT notice ships in the source and
-the Roblox model. The dependency gate admits only this pinned vendor.
+Facet sits directly on Compose. Compose supplies dependency tracking, native FIFO
+delivery, batching and ownership. `src/vendor/compose` is a generated, read-only
+snapshot of one upstream commit. `src/vendor/compose/UPSTREAM.lock` is the
+authority: it names the commit and holds a hash for every file, and there is no
+patch overlay. The gate is `python3 tools/sync_compose.py --check`, which fails
+when any file differs from the lock, and it admits only this pinned vendor.
+
+Facet retains explicit readable disposal, diagnostics and convergent layout
+settling. Native scheduling and failed-evaluation semantics are documented in
+`src/core/README.md`. Component setup creates an owned description once, and
+property recipes drive changes after that. Numeric children are dense, validated
+and visited by index. The upstream MIT notice ships in the source and the Roblox
+model.

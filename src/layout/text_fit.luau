@@ -228,7 +228,7 @@ end
 	Change either seam and this moves with it, which is the whole point.
 
 	WHEN NOT TO REACH FOR IT. If the row can measure itself, let it:
-	`newVirtualList { itemExtent = "measured" }` removes the prediction instead of
+	`UI.VirtualList { itemExtent = "measured" }` removes the prediction instead of
 	making it easier, and a cell that is wrapped text at a live size should stop
 	declaring. This is for the consumer that genuinely must predict — a perf
 	harness baseline, a composition floor, a list whose windowing has to be O(1) —
@@ -249,13 +249,13 @@ export type FactsSpec = {
 	env: any?,
 	--[[ THE MEMO'S OWN `use`, and it is REQUIRED with `env` — not optional.
 
-		Reading a live fact with `:get()` is right once and registers no
+		Reading a live fact with `:peek()` is right once and registers no
 		dependency, so the answer goes silently stale the moment the player raises
 		their text size, swaps the theme or the screen lands on a ten-foot display.
 		That silent staleness is the failure mode this whole feature exists to end,
 		so the correct spelling is the only spelling the signature offers. A caller
 		that genuinely wants a one-shot read writes it out —
-		`use = function(r) return r:get() end` — and is thereby saying so. ]]
+		`use = function(r) return r:peek() end` — and is thereby saying so. ]]
 	use: any?,
 	-- ...or a ThemeSnapshot on its own, for a caller with no env. The snapshot
 	-- carries the three facts it was resolved from (`preferredText`, `density`),
@@ -290,7 +290,7 @@ function text_fit.facts(spec: FactsSpec): TextFacts
 	local use = spec.use
 	assert(
 		type(use) == "function",
-		"text.facts: { env } requires `use` — the enclosing memo's reader. An extent that reads a live fact with `:get()` is right once and then goes silently stale; pass `use = function(r) return r:get() end` if you really mean a one-shot read"
+		"text.facts: { env } requires `use` — the enclosing memo's reader. An extent that reads a live fact with `:peek()` is right once and then goes silently stale; pass `use = function(r) return r:peek() end` if you really mean a one-shot read"
 	)
 	local env = spec.env
 	-- the two DERIVED keys, not the raw facts: a fault profile or a device

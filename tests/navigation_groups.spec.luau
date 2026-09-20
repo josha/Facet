@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Phase 4 richer navigation groups (design §9.3; UI-FOCUS-001): scopes may
 -- structure their focusables into NavigationGroups with an axis, a wrap
 -- policy, containment, entry policy ("first" | "restore" | "nearest"), and
@@ -10,8 +11,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 local focus_graph = require("../src/focus/focus_graph")
+local Compose = require("../src/vendor/compose/core")
 
 local function newGraph()
 	local core = (customCore :: any).new()
@@ -57,29 +59,29 @@ describe("navigation groups (§9.3)", function()
 	it("moves along the group axis; the orthogonal axis does not move within the group", function()
 		local graph = newGraph()
 		graph.pushScope(groupedScope())
-		expect(graph.focused:get()).toBe("/S/Tab1") -- first group, first item
+		expect(graph.focused:peek()).toBe("/S/Tab1") -- first group, first item
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("/S/Tab2")
+		expect(graph.focused:peek()).toBe("/S/Tab2")
 		graph.navigateDirection("up") -- no exit up from header, no axis move
-		expect(graph.focused:get()).toBe("/S/Tab2")
+		expect(graph.focused:peek()).toBe("/S/Tab2")
 	end)
 
 	it("wrap=false stops at the edge; wrap=true wraps inside the group", function()
 		local graph = newGraph()
 		graph.pushScope(groupedScope())
 		graph.navigateDirection("left") -- at Tab1 already, wrap=false
-		expect(graph.focused:get()).toBe("/S/Tab1")
+		expect(graph.focused:peek()).toBe("/S/Tab1")
 		-- sidebar wraps
 		graph.focusOn("/S/Side2")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("/S/Side1")
+		expect(graph.focused:peek()).toBe("/S/Side1")
 	end)
 
 	it("a per-direction exit override crosses groups with the target's entry policy", function()
 		local graph = newGraph()
 		graph.pushScope(groupedScope())
 		graph.navigateDirection("down") -- header -> list (entry=first)
-		expect(graph.focused:get()).toBe("/S/Row1")
+		expect(graph.focused:peek()).toBe("/S/Row1")
 	end)
 
 	it("entry='restore' returns to the group's last-focused item", function()
@@ -88,7 +90,7 @@ describe("navigation groups (§9.3)", function()
 		graph.navigateDirection("right") -- Tab2
 		graph.navigateDirection("down") -- list Row1
 		graph.navigateDirection("up") -- back to header: restores Tab2, not Tab1
-		expect(graph.focused:get()).toBe("/S/Tab2")
+		expect(graph.focused:peek()).toBe("/S/Tab2")
 	end)
 
 	it("containment blocks implicit exits; only declared exits leave the group", function()
@@ -96,9 +98,9 @@ describe("navigation groups (§9.3)", function()
 		graph.pushScope(groupedScope())
 		graph.focusOn("/S/Side1")
 		graph.navigateDirection("left") -- contained, no exit.left: stays
-		expect(graph.focused:get()).toBe("/S/Side1")
+		expect(graph.focused:peek()).toBe("/S/Side1")
 		graph.navigateDirection("right") -- declared exit
-		expect(graph.focused:get()).toBe("/S/Row1")
+		expect(graph.focused:peek()).toBe("/S/Row1")
 	end)
 
 	it("without containment, an axis edge falls through to the neighboring group in order", function()
@@ -106,7 +108,7 @@ describe("navigation groups (§9.3)", function()
 		graph.pushScope(groupedScope())
 		graph.focusOn("/S/Row3")
 		graph.navigateDirection("down") -- list edge, no exit.down: next group (sidebar)
-		expect(graph.focused:get()).toBe("/S/Side1")
+		expect(graph.focused:peek()).toBe("/S/Side1")
 	end)
 
 	it("a modal trap keeps direction navigation inside the modal scope", function()
@@ -119,13 +121,13 @@ describe("navigation groups (§9.3)", function()
 				{ name = "buttons", axis = "horizontal", wrap = true, order = { "/M/Ok", "/M/Cancel" } },
 			},
 		})
-		expect(graph.focused:get()).toBe("/M/Ok")
+		expect(graph.focused:peek()).toBe("/M/Ok")
 		graph.navigateDirection("down") -- nowhere to go: stays inside the trap
-		expect(graph.focused:get()).toBe("/M/Ok")
+		expect(graph.focused:peek()).toBe("/M/Ok")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("/M/Cancel")
+		expect(graph.focused:peek()).toBe("/M/Cancel")
 		graph.popScope()
-		expect(graph.focused:get()).toBe("/S/Tab1") -- previous focus restored
+		expect(graph.focused:peek()).toBe("/S/Tab1") -- previous focus restored
 	end)
 
 	it("replacing a group's order keeps focus or lands on the nearest survivor", function()
@@ -133,9 +135,9 @@ describe("navigation groups (§9.3)", function()
 		graph.pushScope(groupedScope())
 		graph.focusOn("/S/Row2")
 		graph.setGroupOrder("screen", "list", { "/S/Row1", "/S/Row3" }) -- Row2 gone
-		expect(graph.focused:get()).toBe("/S/Row3") -- nearest surviving, prefers following
+		expect(graph.focused:peek()).toBe("/S/Row3") -- nearest surviving, prefers following
 		graph.setGroupOrder("screen", "list", { "/S/Row1", "/S/Row3", "/S/Row9" })
-		expect(graph.focused:get()).toBe("/S/Row3") -- untouched when focus survives
+		expect(graph.focused:peek()).toBe("/S/Row3") -- untouched when focus survives
 	end)
 
 	it("presenter: navigationGroups opt drives grouped, direction-aware navigation end to end", function()
@@ -143,18 +145,18 @@ describe("navigation groups (§9.3)", function()
 		-- through the PUBLIC presenter, not only by hand-driving the graph
 		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local screen = Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local screen = harness.UI.Screen({
 			id = "Board",
 			children = {
-				Facet.UI.Button({ id = "A", label = "A" }),
-				Facet.UI.Button({ id = "B", label = "B" }),
-				Facet.UI.Button({ id = "C", label = "C" }),
-				Facet.UI.Button({ id = "D", label = "D" }),
+				harness.UI.Button({ id = "A", label = "A" }),
+				harness.UI.Button({ id = "B", label = "B" }),
+				harness.UI.Button({ id = "C", label = "C" }),
+				harness.UI.Button({ id = "D", label = "D" }),
 			},
 		})
 		local handle = pres.present(screen, {
@@ -163,13 +165,13 @@ describe("navigation groups (§9.3)", function()
 				{ name = "row2", axis = "horizontal", order = { "/Board/C", "/Board/D" } },
 			},
 		})
-		expect(pres.focus.focused:get()).toBe("/Board/A")
+		expect(pres.focus.focused:peek()).toBe("/Board/A")
 		system.deviceKey("Right", true)
 		system.deviceKey("Right", false)
-		expect(pres.focus.focused:get()).toBe("/Board/B")
+		expect(pres.focus.focused:peek()).toBe("/Board/B")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Board/C") -- fell through to row2
+		expect(pres.focus.focused:peek()).toBe("/Board/C") -- fell through to row2
 		system.deviceKey("Left", true)
 		system.deviceKey("Left", false)
 		-- uncontained axis edge falls through the group array. ENTRY ALONG THE
@@ -177,7 +179,7 @@ describe("navigation groups (§9.3)", function()
 		-- leftward travel off row2's left edge arrives at row1's RIGHT end —
 		-- reading-order navigation, the same rule that makes "right into the
 		-- hand" always land on the first card
-		expect(pres.focus.focused:get()).toBe("/Board/B")
+		expect(pres.focus.focused:peek()).toBe("/Board/B")
 		pres.dismiss(handle)
 		expect(pres.depth()).toBe(0)
 	end)
@@ -189,32 +191,32 @@ describe("navigation groups (§9.3)", function()
 		graph.replaceGroups("screen", {
 			{ name = "list", axis = "vertical", order = { "/S/Row1", "/S/Row2" } },
 		})
-		expect(graph.focused:get()).toBe("/S/Row2") -- survived
+		expect(graph.focused:peek()).toBe("/S/Row2") -- survived
 		graph.replaceGroups("screen", {
 			{ name = "list", axis = "vertical", order = { "/S/RowX", "/S/RowY" } },
 		})
-		expect(graph.focused:get()).toBe("/S/RowX") -- entry of the new map
+		expect(graph.focused:peek()).toBe("/S/RowX") -- entry of the new map
 	end)
 
 	it("presenter: D-PAD navigates (grouped scopes) and a groups FUNCTION re-derives on refresh", function()
 		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local extra = core:signal(false)
-		local screen = Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local extra = Compose.cell(false)
+		local screen = harness.UI.Screen({
 			id = "G",
 			children = {
-				Facet.UI.Button({ id = "A", label = "A" }),
-				Facet.UI.Button({ id = "B", label = "B" }),
-				Facet.UI.When({
+				harness.UI.Button({ id = "A", label = "A" }),
+				harness.UI.Button({ id = "B", label = "B" }),
+				harness.UI.When({
 					id = "W",
 					condition = extra,
 					thenView = function()
-						return Facet.UI.Button({ id = "C", label = "C" })
+						return harness.UI.Button({ id = "C", label = "C" })
 					end,
 				}),
 			},
@@ -236,13 +238,13 @@ describe("navigation groups (§9.3)", function()
 				return { { name = "all", axis = "vertical", order = order } }
 			end,
 		})
-		expect(pres.focus.focused:get()).toBe("/G/A")
+		expect(pres.focus.focused:peek()).toBe("/G/A")
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
-		expect(pres.focus.focused:get()).toBe("/G/B")
+		expect(pres.focus.focused:peek()).toBe("/G/B")
 		system.deviceKey("DPadUp", true)
 		system.deviceKey("DPadUp", false)
-		expect(pres.focus.focused:get()).toBe("/G/A")
+		expect(pres.focus.focused:peek()).toBe("/G/A")
 		-- structure change: the groups fn re-derives on refresh
 		extra:set(true)
 		pres.refresh()
@@ -251,25 +253,25 @@ describe("navigation groups (§9.3)", function()
 		system.deviceKey("DPadDown", false)
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
-		expect(pres.focus.focused:get()).toBe("/G/W/then/C") -- the new button is reachable
+		expect(pres.focus.focused:peek()).toBe("/G/W/then/C") -- the new button is reachable
 	end)
 
 	it("the INITIAL focus paints its ring (gamepad users must see where focus starts)", function()
 		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("preferredInput", "Gamepad")
 		env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local screen = Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local screen = harness.UI.Screen({
 			id = "R",
-			children = { Facet.UI.Button({ id = "First", label = "F" }) },
+			children = { harness.UI.Button({ id = "First", label = "F" }) },
 		})
 		pres.present(screen, {})
-		expect(pres.focus.focused:get()).toBe("/R/First")
+		expect(pres.focus.focused:peek()).toBe("/R/First")
 		expect(adapter.node("/R/First").focused).toBe(true) -- ring visible NOW
 	end)
 
@@ -289,15 +291,15 @@ describe("navigation groups (§9.3)", function()
 		local fake_target = require("./lib/fake_target")
 		local focus_map = require("../src/present/focus_map")
 		local function railGroups(axis: string): { any }
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-			local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+			local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 			local cards: { any } = {}
 			for index = 1, 4 do
 				table.insert(
 					cards,
-					Facet.UI.Button({
+					harness.UI.Button({
 						id = `Card{index}`,
 						label = `Card {index}`,
 						width = { type = "fixed", px = 120 },
@@ -305,9 +307,9 @@ describe("navigation groups (§9.3)", function()
 					})
 				)
 			end
-			local handle = pres.present(Facet.UI.Screen({
+			local handle = pres.present(harness.UI.Screen({
 				id = "S",
-				children = { Facet.UI.ScrollView({ id = "Rail", axis = axis, children = cards }) },
+				children = { harness.UI.ScrollView({ id = "Rail", axis = axis, children = cards }) },
 			}))
 			pres.refresh()
 			return focus_map.autoGroups(handle.root.node)
@@ -327,22 +329,22 @@ describe("navigation groups (§9.3)", function()
 		local Facet = require("../src") :: any
 		local fake_target = require("./lib/fake_target")
 		local focus_map = require("../src/present/focus_map")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
-		local handle = pres.present(Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local handle = pres.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.ScrollView({
+				harness.UI.ScrollView({
 					id = "Rail",
 					axis = "x",
 					children = {
-						Facet.UI.VStack({
+						harness.UI.VStack({
 							id = "Column",
 							children = {
-								Facet.UI.Button({ id = "A", label = "A" }),
-								Facet.UI.Button({ id = "B", label = "B" }),
+								harness.UI.Button({ id = "A", label = "A" }),
+								harness.UI.Button({ id = "B", label = "B" }),
 							},
 						}),
 					},
@@ -360,10 +362,10 @@ describe("navigation groups (§9.3)", function()
 		local graph = newGraph()
 		graph.pushScope({ name = "flat", trap = false, order = { "/F/A", "/F/B" } })
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("/F/B")
+		expect(graph.focused:peek()).toBe("/F/B")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("/F/A") -- wraps
+		expect(graph.focused:peek()).toBe("/F/A") -- wraps
 		graph.navigateDirection("down") -- directions map onto the ring for flat scopes
-		expect(graph.focused:get()).toBe("/F/B")
+		expect(graph.focused:peek()).toBe("/F/B")
 	end)
 end)

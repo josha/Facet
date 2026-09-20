@@ -94,7 +94,10 @@ local function checkFile(filePath: string)
 		if resolved == "src" then
 			table.insert(violations, { file = filePath, target = resolved, rule = "src-module-requires-library-root" })
 		end
-		if not insideClient and string.match(resolved, "^src/client/") then
+		-- The public application factory resolves this one engine-free bootstrap
+		-- lazily; requiring the shared Facet table still starts no client services.
+		local applicationFactory = filePath == "src/init.luau" and resolved == "src/client/application"
+		if not insideClient and not applicationFactory and string.match(resolved, "^src/client/") then
 			table.insert(violations, { file = filePath, target = resolved, rule = "non-client-requires-client" })
 		end
 
@@ -140,6 +143,7 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 		and three of the four shipped ones drove `refresh()` without `tick(dt)` —
 		a frozen motion clock that no dump can distinguish from a settled one. ]]
 	host = true,
+	scene = true,
 	world_anchor = true,
 	screen_target = true,
 	roblox_env = true,

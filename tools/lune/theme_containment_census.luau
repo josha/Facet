@@ -65,6 +65,7 @@ local process = require("@lune/process")
 
 local Facet = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
+local nativeApp = require("../../bench/native_app")
 local overflow_guard = require("../../tests/lib/overflow_guard")
 local device_views = require("../../tests/lib/device_views")
 local demo_picker = require("../../examples/gallery/client/demo_picker") :: any
@@ -168,18 +169,22 @@ end
 -- ── the world (`overflow_sweep.spec.luau`'s, field for field) ────────────────
 
 local function world(view: any): any
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
-	env:set("displaySize", view.displaySize)
-	env:set("preferredInput", view.input)
-	env:set("capabilities", device_views.CAPABILITIES[view.input])
-	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new() :: any
 	adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
+	local w = nativeApp({
+		newAdapter = function()
+			return adapter
+		end,
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		env = {
+			coreSafeInsets = { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 },
+			displaySize = view.displaySize,
+			preferredInput = view.input,
+			capabilities = device_views.CAPABILITIES[view.input],
+		},
+	})
+	w.presenter = w.pres
+	return w
 end
 
 local function settle(w: any)
@@ -188,16 +193,23 @@ local function settle(w: any)
 	end
 end
 
+-- a surface answers `{ screen = component, present = options? }`, or mounts its
+-- own screen inside `build` and answers the `handle`
 local function present(w: any, built: any): any
 	if built.handle == nil and built.screen ~= nil then
-		built.handle = w.presenter.present(built.screen, built.present)
+		local _, _, handle = w.app.mount(built.screen, built.present)
+		built.handle = handle
 	end
 	return built
 end
 
-local function scenarioCtx(w: any): any
+-- what every gallery surface builds against
+local function surfaceCtx(w: any): any
 	return {
 		Facet = Facet,
+		app = w.app,
+		UI = w.UI,
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -230,7 +242,7 @@ for _, name in scenarioNames() do
 		kind = "scenario",
 		name = name,
 		mount = function(w)
-			return present(w, module.build(scenarioCtx(w)))
+			return present(w, module.build(surfaceCtx(w)))
 		end,
 	})
 end
@@ -240,14 +252,7 @@ for _, name in exampleNames() do
 		kind = "example",
 		name = name,
 		mount = function(w)
-			return present(
-				w,
-				module.build(
-					Facet,
-					w.core,
-					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-				)
-			)
+			return present(w, module.build(surfaceCtx(w)))
 		end,
 	})
 end
@@ -259,11 +264,13 @@ for _, name in proofNames() do
 		mount = function(w)
 			return present(
 				w,
-				module.build(
-					Facet,
-					w.core,
-					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-				)
+				module.build(Facet, w.core, {
+					app = w.app,
+					env = w.env,
+					actionSystem = w.system,
+					presenter = w.presenter,
+					adapter = w.adapter,
+				})
 			)
 		end,
 	})

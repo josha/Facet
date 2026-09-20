@@ -11,102 +11,92 @@ return {
 	title = "Loading profile pictures",
 	ledgerRows = { "NS-A13", "NS-A14" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.View
-		local core = ctx.core
-		local scope = core:scope()
-		local provider = ctx.Facet.newResourceProvider(core)
+		local UI, Compose = ctx.UI, ctx.Compose
+		local provider = ctx.Facet.newResourceProvider(ctx.core)
 		local unbindTransport = ctx.bindResourceTransport(provider)
 
-		local imgs = {
-			ctx.Facet.Controls.AsyncImage(core, {
-				id = "AvatarRoblox",
-				scope = scope,
-				provider = provider,
-				key = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48",
-			}),
-			ctx.Facet.Controls.AsyncImage(core, {
-				id = "AvatarBuilderman",
-				scope = scope,
-				provider = provider,
-				key = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48",
-			}),
-			ctx.Facet.Controls.AsyncImage(core, {
-				id = "BadAsset",
-				scope = scope,
-				provider = provider,
-				key = "rbxassetid://999999999999999",
-			}),
+		local pictures = {
+			{ id = "AvatarRoblox", key = "rbxthumb://type=AvatarHeadShot&id=1&w=48&h=48" },
+			{ id = "AvatarBuilderman", key = "rbxthumb://type=AvatarHeadShot&id=156&w=48&h=48" },
+			{ id = "BadAsset", key = "rbxassetid://999999999999999" },
 		}
+		-- The page keeps its own lease on each key, so the status line and the
+		-- report read the same state the pictures show.
+		local leases: { any } = {}
+		local secondShown = Compose.cell(true)
 
-		local statusLine = core:memo(function(use)
-			return string.format(
-				"Roblox: %s • Builderman: %s • Unavailable picture: %s",
-				use(imgs[1].state),
-				use(imgs[2].state),
-				use(imgs[3].state)
-			)
-		end)
+		local function picture(index: number)
+			return UI.AsyncImage(pictures[index].id)({ provider = provider, key = pictures[index].key })
+		end
 
-		local screen = UI.Screen({
-			id = "AsyncImages",
-			padding = "m",
-			gap = 12,
-
-			-- THE PAGE SCROLLS, and it did not until this fixture entered the demo
-			-- picker (round-3 O-30). A title at 22pt, a status line and a row of
-			-- thumbnails came to 25px more than a 640x320 landscape phone has, and
-			-- 143px more under the largest text preference — a recorded, waived
-			-- overflow for as long as the only thing that mounted this was a sweep.
-			-- A surface a player can select does not get to overflow, so the waiver
-			-- and its themed ledger row are deleted rather than re-recorded.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function Example()
+			local owner = Compose.currentOwner()
+			for index, entry in pictures do
+				leases[index] = provider.acquire(owner, entry.key)
+			end
+			local statusLine = Compose.formula(function(use)
+				return string.format(
+					"Roblox: %s • Builderman: %s • Unavailable picture: %s",
+					use(leases[1].state),
+					use(leases[2].state),
+					use(leases[3].state)
+				)
+			end)
+			return UI.Screen("AsyncImages")({
+				padding = "m",
 				gap = 12,
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = "Loading profile pictures", textSize = "title" }),
-				UI.Text({
-					id = "Explanation",
-					text = "Pictures can arrive later than the page. These keep their space while loading; an unavailable picture keeps a placeholder.",
-					textSize = "body",
-				}),
-				UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
-				UI.HStack({
-					id = "Row",
+				-- The page scrolls: a title, a status line and a row of thumbnails
+				-- exceed a 640x320 landscape phone, more so under large text.
+				UI.ScrollView("Page")({
+					axis = "y",
 					gap = 12,
-					wrap = true,
 					width = UI.fill(),
-					imgs[1].blueprint,
-					imgs[2].blueprint,
-					imgs[3].blueprint,
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = "Loading profile pictures", textSize = "title" }),
+					UI.Text("Explanation")({
+						text = "Pictures can arrive later than the page. These keep their space while loading; an unavailable picture keeps a placeholder.",
+						textSize = "body",
+					}),
+					UI.Text("Status")({ text = statusLine, textSize = "label" }),
+					UI.HStack("Row")({
+						gap = 12,
+						wrap = true,
+						width = UI.fill(),
+						picture(1),
+						Compose.show(secondShown, function()
+							return picture(2)
+						end),
+						picture(3),
+					}),
 				}),
-			}),
-		})
+			})
+		end
 
 		return {
-			screen = screen,
+			screen = Example,
 			present = {},
 			steps = {
-				-- honest-cancellation driver: release the second avatar's handle
-				-- and try a stale completion against its old generation
+				-- honest-cancellation driver: release every lease on the second
+				-- avatar and try a stale completion against its old generation
 				releaseSecond = function()
-					local key = imgs[2].handle.key
-					imgs[2].handle.release()
-					local verdict = provider.complete(key, 1, key)
-					return { verdict = verdict, stateAfter = imgs[2].state:get() }
+					local lease = leases[2]
+					secondShown:set(false)
+					lease.release()
+					local verdict = provider.complete(lease.key, 1, lease.key)
+					return { verdict = verdict, stateAfter = lease.state:peek() }
 				end,
 			},
 			report = function()
 				return {
-					states = { imgs[1].state:get(), imgs[2].state:get(), imgs[3].state:get() },
-					errors = { tostring(imgs[3].handle.error:get()) },
+					states = { leases[1].state:peek(), leases[2].state:peek(), leases[3].state:peek() },
+					errors = { tostring(leases[3].error:peek()) },
 				}
 			end,
 			dispose = function()
 				unbindTransport()
-				scope:dispose()
+				provider.dispose()
 			end,
 		}
 	end,

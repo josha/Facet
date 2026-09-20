@@ -1,25 +1,8 @@
 --!strict
--- Chip: a small toggleable tag/filter pill. Renders as ONE shipped primitive —
--- a rounded UI.Button whose `selected` surface reflects the owner-held
--- `selected` signal. Activate (pointer tap / click / keyboard Return / gamepad
--- ButtonA) flips `selected` and calls the optional `onToggle`.
---
--- THREE AXES (affordance matrix §A; UI-PARADIGM-001..003):
---   1. UI (layout)   — a single pill; the Button primitive sizes to its label
---                      and honours the ten-foot text/focus scaling for free.
---   2. INPUT (reach) — every input class reaches the same Activate verb: the
---                      presenter auto-dispatches a focus+Activate (Return/ButtonA)
---                      and a pointer/touch tap to the root contribution's
---                      handleActivate, which is the ONE flip site.
---   3. PARADIGM      — pointer: the free hover preview layer the renderer wires
---                      onto interactive Buttons when the pointer class is live;
---                      touch: the Button's 44px minHitSize floor; keyboard:
---                      focus ring + Navigate→Activate; gamepad: focus + A with a
---                      strengthened ten-foot focus profile at a Large display.
---
--- OWNERSHIP: `selected` is the CALLER's data model (it must outlive the control),
--- so the chip never creates it — it only reads and flips it. The control scope
--- owns nothing persistent here; dispose() = scope:dispose() and nothing else.
+local Compose = require("../vendor/compose/core")
+local read = require("../selection_model").read
+-- A filter pill borrows selection state and routes activation through Facet input.
+-- It owns no reactive resources; disposal only disables its callback.
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
@@ -38,28 +21,24 @@ local CHIP_KEYS = specGuard.keySet({
 })
 
 function chip.build(Facet: any, core: any, spec: any)
-	specGuard.assertKnownKeys("newChip", spec, CHIP_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.Chip", spec, CHIP_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Chip"
-	local scope = core:scope("chip-" .. tostring(id))
-	local disposed = false
-	scope:own(function()
-		disposed = true
-	end)
-	local selected = spec.selected -- owner-held Signal<boolean>
+	local selected = spec.selected -- the caller's writable cell of a boolean
 	-- AUTHORING IS STRICT: fail at BUILD, not at first render (docs/extending/new-control.md §2). `selected` is required AND is the
 	-- control's single mutation site, so a missing one used to surface as
 	-- "attempt to index nil" on the user's first tap and a read-only Memo as
 	-- "cannot set a memo" from deep inside core — both unattributable. Same
 	-- check, same wording, as Stepper/Slider/Rating/Picker/DisclosureGroup/
 	-- TextInput.
-	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
+	if not (Compose.isReadable(selected) and type(selected.set) == "function") then
 		error(
-			`Facet newChip('{id}'): \`selected\` must be a SETTABLE Signal<boolean> the caller owns `
+			`Facet UI.Chip('{id}'): \`selected\` must be a writable Compose cell holding a boolean, owned by the caller `
 				.. `(the control never creates it, because the selection must outlive the control)`,
 			0
 		)
 	end
+	local disposed = false
 	local label = spec.label or ""
 
 	-- the SINGLE Activate site: every input class routes here through the
@@ -68,7 +47,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		if disposed or not controlContract.enabledNow(spec.enabled) then
 			return
 		end
-		local nextValue = not selected:get()
+		local nextValue = not read(selected)
 		selected:set(nextValue)
 		if spec.onToggle ~= nil then
 			spec.onToggle(nextValue)
@@ -110,7 +89,7 @@ function chip.build(Facet: any, core: any, spec: any)
 			schema = "facet-chip-dump/1",
 			id = id,
 			label = label,
-			selected = selected:get(),
+			selected = read(selected),
 			enabled = controlContract.enabledNow(spec.enabled),
 		}
 	end
@@ -119,7 +98,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		blueprint = blueprint,
 		dump = dump,
 		dispose = function()
-			scope:dispose()
+			disposed = true
 		end,
 	}
 end

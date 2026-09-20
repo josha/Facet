@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- UI.Foreign — the bounded escape hatch to a Roblox GuiObject Facet does not
 -- wrap (docs/reference/api.md §Foreign).
 --
@@ -31,9 +32,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local customFactory = harness.coreFactory
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
@@ -110,7 +111,7 @@ describe("UI.Foreign: strict authoring (a)", function()
 		local err = fails(function()
 			UI.Foreign({ id = "Video", children = { UI.Box({ id = "Inner" }) } } :: any)
 		end)
-		expect(contains(err, "does not take children")).toBe(true)
+		expect(contains(err, "Foreign: a leaf cannot contain children")).toBe(true)
 	end)
 
 	it("refuses an unknown property with a did-you-mean", function()
@@ -159,7 +160,7 @@ describe("UI.Foreign: strict authoring (a)", function()
 		local err = fails(function()
 			UI.Foreign({ id = "Video", surface = "glass" })
 		end)
-		expect(contains(err, "UI.Foreign.surface")).toBe(true)
+		expect(contains(err, "Foreign.surface")).toBe(true)
 		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
 	end)
 end)
@@ -172,7 +173,7 @@ describe("UI.Foreign: mount, elision, dispose (b)", function()
 		local node = adapter.node("/S/Foreign")
 		expect(node ~= nil).toBe(true)
 		expect(node.class).toBe("Foreign")
-		local function render(dump: any): string
+		local function render(tree: any): string
 			local out: { string } = {}
 			local function walk(n: any, depth: number)
 				table.insert(out, `{string.rep(" ", depth)}{n.class}:{tostring(n.id)}`)
@@ -180,11 +181,11 @@ describe("UI.Foreign: mount, elision, dispose (b)", function()
 					walk(child, depth + 1)
 				end
 			end
-			walk(dump.tree, 0)
+			walk(tree, 0)
 			return table.concat(out, "\n")
 		end
-		expect(render(root.dump())).toBe(render(root.dump()))
-		expect(contains(render(root.dump()), "Foreign:Foreign")).toBe(true)
+		expect(render(root.node)).toBe(render(root.node))
+		expect(contains(render(root.node), "Foreign:Foreign")).toBe(true)
 		controller.dispose()
 		root.dispose()
 	end)
@@ -222,7 +223,7 @@ describe("UI.Foreign: mount, elision, dispose (b)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -243,10 +244,8 @@ describe("UI.Foreign: mount, elision, dispose (b)", function()
 		host.adopt(stub("VideoFrame"))
 		controller.dispose()
 		root.dispose()
-		local after = core:counters()
-		for key, value in baseline do
-			expect(`{key}={after[key]}`).toBe(`{key}={value}`)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 		expect(adapter.liveCount()).toBe(0)
 	end)
 end)
@@ -621,13 +620,15 @@ describe("UI.Foreign: layout (e)", function()
 	it("every SHIPPED foreign descriptor crosses the seam with the types the engine takes", function()
 		local materializer = require("../examples/gallery/scenarios/foreign_instances") :: any
 		local scenario = require("../examples/gallery/scenarios/foreign_content") :: any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local presenter = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -702,12 +703,12 @@ describe("UI.Foreign: containment (f)", function()
 		a focus stop composes one AROUND the box, exactly as a Stage does. ]]
 	it("takes no focus stop: inserting one does not change traversal order", function()
 		local function orderOf(withForeign: boolean): string
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+			local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 			local children: { any } = { UI.Button({ id = "A", label = "A" }) }
 			if withForeign then
 				table.insert(

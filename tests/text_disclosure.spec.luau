@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- FULL-VALUE DISCLOSURE (decision LTN-4; the plan's overflow rung 3). A
 -- `UI.Text{ disclose = true }` that truncated owes the reader the whole string,
 -- and the PRESENTER pays that debt: engaging the label presents one STATIC plate
@@ -15,14 +16,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local LONG_NAME = "Bartholomewwwwwwwwwwwwwwwwww" -- one word, far wider than a 120px cell
 local PLATE = "/__disclose__/Layer/Plate"
@@ -32,7 +34,7 @@ local PLATE_LABEL = "/__disclose__/Layer/Plate/Full"
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -219,7 +221,7 @@ describe("LTN-4 disclosure: at most one plate, and it leaves when engagement doe
 		expect(pres.disclosure().source).toBe("focus")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Roster/Other")
+		expect(pres.focus.focused:peek()).toBe("/Roster/Other")
 		expect(pres.disclosure().present).toBe(false)
 	end)
 
@@ -244,7 +246,7 @@ describe("LTN-4 disclosure: at most one plate, and it leaves when engagement doe
 
 	it("unmounting the source node removes the plate on the next refresh", function()
 		local core, _, _, _, pres = makeWorld()
-		local showRow = core:signal(true)
+		local showRow = Compose.cell(true)
 		pres.present(
 			roster({
 				UI.When({
@@ -266,7 +268,7 @@ describe("LTN-4 disclosure: at most one plate, and it leaves when engagement doe
 
 	it("a re-solve that makes room for the label removes the plate", function()
 		local core, _, _, _, pres = makeWorld()
-		local name = core:signal(LONG_NAME)
+		local name = Compose.cell(LONG_NAME)
 		pres.present(roster({ row("RowA", name) }), NO_FOCUS)
 		pres._discloseLongPress("/Roster/RowA")
 		expect(pres.disclosure().present).toBe(true)
@@ -294,7 +296,7 @@ describe("LTN-4 disclosure: the plate is presentation chrome, never a surface", 
 			end
 		end
 		-- Tab/arrow traversal walks the surface's own ring and never reaches it
-		expect(pres.focus.focused:get()).toBe("/Roster/RowA")
+		expect(pres.focus.focused:peek()).toBe("/Roster/RowA")
 	end)
 
 	it("the plate paints above its owner and wears the theme's raised surface", function()
@@ -430,7 +432,12 @@ describe("LT-G1: a Toggle's one-line label discloses its full value", function()
 						id = "Narrow",
 						width = { type = "fixed", px = 160 },
 						children = {
-							UI.Toggle({ id = "Music", label = LONG_LABEL, value = core:signal(false), disclose = true }),
+							UI.Toggle({
+								id = "Music",
+								label = LONG_LABEL,
+								value = Compose.cell(false),
+								disclose = true,
+							}),
 						},
 					}),
 				},
@@ -456,7 +463,7 @@ describe("LT-G1: a Toggle's one-line label discloses its full value", function()
 						id = "Narrow",
 						width = { type = "fixed", px = 160 },
 						children = {
-							UI.Toggle({ id = "Music", label = LONG_LABEL, value = core:signal(false) }),
+							UI.Toggle({ id = "Music", label = LONG_LABEL, value = Compose.cell(false) }),
 						},
 					}),
 				},
@@ -529,7 +536,7 @@ describe("fresh-review closures: the plate answers for the label as it IS", func
 	it("the pointer dwell RE-ASKS at expiry: a re-solve that made room presents nothing", function()
 		-- architecture review F-2: the hover-time snapshot must never present
 		local core, _, _, _, pres = makeWorld()
-		local name = core:signal(LONG_NAME)
+		local name = Compose.cell(LONG_NAME)
 		pres.present(roster({ row("RowA", name) }), NO_FOCUS)
 		pres._discloseHover("/Roster/RowA")
 		pres.tick(0.2)
@@ -541,7 +548,7 @@ describe("fresh-review closures: the plate answers for the label as it IS", func
 
 	it("...and a value that changed during the dwell discloses the CURRENT string, not the snapshot", function()
 		local core, _, adapter, _, pres = makeWorld()
-		local name = core:signal(LONG_NAME .. "-OLD")
+		local name = Compose.cell(LONG_NAME .. "-OLD")
 		pres.present(roster({ row("RowA", name) }), NO_FOCUS)
 		pres._discloseHover("/Roster/RowA")
 		pres.tick(0.2)

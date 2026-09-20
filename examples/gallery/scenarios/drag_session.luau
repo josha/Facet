@@ -13,70 +13,53 @@ return {
 	title = "Native drag session (NS-A5/NS-A6)",
 	ledgerRows = { "NS-A5", "NS-A6", "NS-I2" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.View
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local status = core:signal("idle")
-		local statusText = core:memo(function(use)
+		local status = Compose.cell("idle")
+		local statusText = Compose.formula(function(use)
 			return "drag: " .. use(status)
 		end)
-		local hoverTarget = core:signal("")
-		local hoverText = core:memo(function(use)
+		local hoverTarget = Compose.cell("")
+		local hoverText = Compose.formula(function(use)
 			local h = use(hoverTarget)
 			return if h == "" then "over: none" else "over: " .. h
 		end)
 
-		local screen = UI.Screen({
-			id = "DragLab",
-			padding = "m",
-			-- 8, not 10 (2026-08-12): the `Board` below is a horizontal scroller, and
-			-- since the scrollbar reserve became policy-independent that scroller hugs
-			-- 8px taller — the height the engine actually charges for its bar. At the
-			-- narrowest landscape (640x320, under the showcase picker's 120px strip)
-			-- this page had 7px of slack, so it went 1px over and the overflow sweep
-			-- said so. The room comes out of the inter-row gap, which is the cheapest
-			-- pixel on a four-row lab page; nothing here is a token.
-			gap = "s",
+		local function slot(id: string, surface: string, width: number)
+			return UI.Box(id)({
+				surface = surface,
+				width = { type = "fixed", px = width },
+				height = { type = "fixed", px = 70 },
+			})
+		end
 
-			UI.Text({ id = "Title", text = "Drag session lab", textSize = 22 }),
-			UI.Text({ id = "Status", text = statusText, textSize = "label" }),
-			UI.Text({ id = "Hover", text = hoverText, textSize = "label" }),
-			-- The board's four fixed-width slots (Card + three targets, ~640px
-			-- with gaps) never fit a phone's width and must stay side by side —
-			-- the drag targets' geometry is meaningless if they wrap or shrink.
-			-- A horizontal ScrollView keeps them all reachable instead of letting
-			-- the row paint past the screen edge (overflow sweep, 2026-08-12).
-			UI.ScrollView({
-				id = "Board",
-				axis = "x",
-				gap = "m",
+		local function Example()
+			return UI.Screen("DragLab")({
+				padding = "m",
+				-- The `Board` below is a horizontal scroller that hugs the height the
+				-- engine charges for its bar. At the narrowest landscape (640x320,
+				-- under the showcase picker's strip) the room comes out of the
+				-- inter-row gap, the cheapest pixel on a four-row lab page.
+				gap = "s",
 
-				UI.Box({
-					id = "Card",
-					surface = "control",
-					width = { type = "fixed", px = 110 },
-					height = { type = "fixed", px = 70 },
+				UI.Text("Title")({ text = "Drag session lab", textSize = 22 }),
+				UI.Text("Status")({ text = statusText, textSize = "label" }),
+				UI.Text("Hover")({ text = hoverText, textSize = "label" }),
+				-- The board's four fixed-width slots (Card + three targets, ~640px
+				-- with gaps) never fit a phone's width and must stay side by side —
+				-- the drag targets' geometry is meaningless if they wrap or shrink.
+				-- A horizontal ScrollView keeps them all reachable.
+				UI.ScrollView("Board")({
+					axis = "x",
+					gap = "m",
+
+					slot("Card", "control", 110),
+					slot("RowA", "raised", 160),
+					slot("RowB", "raised", 160),
+					slot("Locked", "base", 160),
 				}),
-				UI.Box({
-					id = "RowA",
-					surface = "raised",
-					width = { type = "fixed", px = 160 },
-					height = { type = "fixed", px = 70 },
-				}),
-				UI.Box({
-					id = "RowB",
-					surface = "raised",
-					width = { type = "fixed", px = 160 },
-					height = { type = "fixed", px = 70 },
-				}),
-				UI.Box({
-					id = "Locked",
-					surface = "base",
-					width = { type = "fixed", px = 160 },
-					height = { type = "fixed", px = 70 },
-				}),
-			}),
-		})
+			})
+		end
 
 		local session: any = nil
 		local trace: { string } = {}
@@ -118,7 +101,7 @@ return {
 		end
 
 		return {
-			screen = screen,
+			screen = Example,
 			present = {},
 			-- the runner hands us the presenter handle after build; wireDrag is a
 			-- step so evidence can distinguish native vs fallback wiring
@@ -229,8 +212,8 @@ return {
 			},
 			report = function()
 				return {
-					status = status:get(),
-					hover = hoverTarget:get(),
+					status = status:peek(),
+					hover = hoverTarget:peek(),
 					wired = wired,
 					trace = trace,
 					gestures = gestures,

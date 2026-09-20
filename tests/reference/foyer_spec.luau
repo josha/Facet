@@ -11,34 +11,15 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../../src") :: any
 local fake_target = require("../lib/fake_target")
+local refWorld = require("./ref_world")
 local proof = require("../../examples/reference/p4_foyer") :: any
 
 local function makeWorld(viewportW: number?)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = viewportW or 1400, h = 900 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-	local built = proof.build(Facet, core, deps)
-	local handle = presenter.present(built.screen, built.present)
-	presenter.refresh()
-	return {
-		core = core,
-		env = env,
-		adapter = adapter,
-		presenter = presenter,
-		built = built,
-		handle = handle,
-	}
+	return refWorld.new(proof, { viewport = { x = 0, y = 0, w = viewportW or 1400, h = 900 } })
 end
 
 local function teardown(w: any)
-	if w.built.dispose then
-		w.built.dispose()
-	end
-	w.presenter.dismiss(w.handle)
+	w.close()
 end
 
 local function findPath(adapter: any, needle: string): string?
@@ -57,7 +38,7 @@ end
 	— which is the point: the home is a policy answer, and a case that hard-codes
 	one is testing the shell rather than the placement. ]]
 local NAV = "/Foyer/Root/Nav"
-local HOME = NAV .. "/Content/Tab-home/then/HomeBody"
+local HOME = NAV .. "/Content/Tab-home/HomeBody"
 local HOMES: { [string]: string } = {
 	sidebar = NAV .. "/RailHome/then/Rail",
 	topBar = NAV .. "/TopHome/then/TopBandCenter/TopBand",
@@ -88,7 +69,7 @@ end
 describe("Foyer proof — mount and structure (RA-P4)", function()
 	it("mounts the home body with all four sections and no core error", function()
 		local w = makeWorld()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		for _, section in { "picked", "continue", "new", "friends" } do
 			expect(findPath(w.adapter, "Sections/[" .. section .. "]") ~= nil).toBe(true)
 		end
@@ -131,28 +112,8 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 	-- wrong place. The top CHROME bar (brand, search, refresh, profile, bell)
 	-- is a separate band and must stay put on every one of them.
 	local function shaped(viewport: any, facts: any?): any
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", viewport)
-		for key, value in facts or {} do
-			env:set(key, value)
-		end
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built =
-			proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
-		local handle = presenter.present(built.screen, built.present)
-		presenter.refresh()
-		local self: any = {
-			core = core,
-			env = env,
-			adapter = adapter,
-			presenter = presenter,
-			system = system,
-			built = built,
-			handle = handle,
-		}
+		local self = refWorld.new(proof, { viewport = viewport, facts = facts, keyboardNavigation = true })
+		local adapter = self.adapter
 		function self.node(needle: string): any
 			local path = findPath(adapter, needle)
 			return if path ~= nil then adapter.node(path) else nil
@@ -216,7 +177,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		)
 		expect(small.node(HOMES.topBar) ~= nil).toBe(true)
 		expect(small.node(HOMES.bottomBar)).toBeNil()
-		expect(small.core:lastError()).toBeNil()
+		expect(small.core.lastError()).toBeNil()
 		teardown(small)
 	end)
 
@@ -252,7 +213,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			w.built.steps.search(nil, "moss")
 			w.presenter.refresh()
 			expect(findPath(w.adapter, "Rows/[moss-kingdom]") ~= nil).toBe(true)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			teardown(w)
 		end
 	end)
@@ -339,7 +300,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		w.system.deviceKey("Tab", true)
 		w.system.deviceKey("Tab", false)
 		w.presenter.refresh()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		teardown(w)
 	end)
 
@@ -352,10 +313,10 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		end
 		local function walk(w: any): { [string]: boolean }
 			local seen: { [string]: boolean } = {}
-			local start = w.presenter.focus.focused:get()
+			local start = w.presenter.focus.focused:peek()
 			if start == nil then
 				pressTab(w)
-				start = w.presenter.focus.focused:get()
+				start = w.presenter.focus.focused:peek()
 			end
 			local guard, at = 0, start
 			repeat
@@ -363,7 +324,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 					seen[at] = true
 				end
 				pressTab(w)
-				at = w.presenter.focus.focused:get()
+				at = w.presenter.focus.focused:peek()
 				guard += 1
 			until at == start or at == nil or guard > 250
 			return seen
@@ -410,7 +371,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			w.adapter.tap(wing :: string)
 			w.presenter.refresh()
 			expect(w.built.report().destination).toBe("forge")
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			teardown(w)
 		end
 	end)
@@ -430,7 +391,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			w.presenter.refresh()
 		end
 		local function focused(): string
-			return tostring(w.presenter.focus.focused:get())
+			return tostring(w.presenter.focus.focused:peek())
 		end
 		-- (enter) walk DOWN into the band from wherever the surface opened
 		local WING = "/Strip/Indicator/Options/"
@@ -491,7 +452,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		expect(landed ~= nil).toBe(true)
 		pad("ButtonA")
 		expect(w.built.report().destination).toBe(ORDER[landed :: number])
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		teardown(w)
 	end)
 end)
@@ -546,7 +507,7 @@ describe("Foyer proof — tabs, search, stubs", function()
 		w.presenter.refresh()
 		-- ...and the home body is EVICTED, not hidden: the construct disposes the
 		-- previous tab's subtree, so its nodes are gone from the tree entirely
-		expect(findPath(w.adapter, "Tab-crews/then/StubPlate") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "Tab-crews/StubPlate") ~= nil).toBe(true)
 		expect(w.adapter.node(HOME)).toBeNil()
 		w.built.steps.destination(nil, "home")
 		w.presenter.refresh()
@@ -660,11 +621,11 @@ describe("Foyer proof — notices, locale, images, determinism", function()
 	it("the scripted transport resolves art deterministically: two keys stay failed, the rest ready", function()
 		local w = makeWorld()
 		local internals = w.built._internals
-		local h1 = internals.provider.acquire(w.core:scope("probe1"), "thumb:moss-kingdom")
-		local h2 = internals.provider.acquire(w.core:scope("probe2"), "thumb:signal-lost")
+		local h1 = internals.provider.acquire(w.core.owner.createChild(), "thumb:moss-kingdom")
+		local h2 = internals.provider.acquire(w.core.owner.createChild(), "thumb:signal-lost")
 		internals.settleImages()
-		expect(h1.state:get()).toBe("ready")
-		expect(h2.state:get()).toBe("failed")
+		expect(h1.state:peek()).toBe("ready")
+		expect(h2.state:peek()).toBe("failed")
 		teardown(w)
 	end)
 
@@ -689,27 +650,23 @@ describe("Foyer proof — notices, locale, images, determinism", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = Facet.newCore()
-			local env = Facet.newEnvironment(core)
-			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system)
-			local built =
-				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
-			local handle = presenter.present(built.screen, built.present)
-			presenter.refresh()
-			expect(#handle.controller.diagnostics()).toBe(0)
-			built.dispose()
-			presenter.dismiss(handle)
+			local w = refWorld.new(proof, {
+				viewport = { x = 0, y = 0, w = vp.w, h = vp.h },
+				newAdapter = function()
+					local adapter = fake_target.new();
+					(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
+					return adapter
+				end,
+			})
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+			w.close()
 		end
 	end)
 
 	it("dispose tears the proof down without a core error", function()
 		local w = makeWorld()
 		teardown(w)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -730,18 +687,10 @@ describe("Foyer — the tile meta row WRAPS where it used to ladder (parity roun
 	local SPONSORED = "Sections/[new]/Body/Grid/Tiles/[harbor-watch]/harbor-watch/Col/MetaFits"
 
 	local function worldAtText(offset: number)
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1400, h = 900 })
-		env:set("preferredTextSize", offset)
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local built =
-			proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
-		local handle = presenter.present(built.screen, built.present)
-		presenter.refresh()
-		return { built = built, adapter = adapter, handle = handle, presenter = presenter }
+		return refWorld.new(proof, {
+			viewport = { x = 0, y = 0, w = 1400, h = 900 },
+			facts = { preferredTextSize = offset },
+		})
 	end
 
 	local function rectOf(w: any, needle: string): any
@@ -899,19 +848,17 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 		trees by hand. This one does, through the presenter's own `presentToast`. ]]
 	it("a toast raised in this app counts zero findings — the layer acknowledges its own plate", function()
 		local backdropSweep = require("../lib/backdrop_sweep")
-		local UI = Facet.UI
 		local w: any
 		local findings, all = backdropSweep.capture(function()
 			w = makeWorld()
-			w.presenter.presentToast(
-				UI.VStack({
-					id = "Snack",
+			local UI = w.app.controls
+			w.presenter.presentToast(function()
+				return UI.VStack("Snack")({
 					surface = "raised",
 					padding = 10,
-					children = { UI.Text({ id = "Line", text = "Saved to your shelf" }) },
-				}),
-				{ duration = 20, readFloor = 0, transition = { enter = "fade" } }
-			)
+					UI.Text("Line")({ text = "Saved to your shelf" }),
+				})
+			end, { duration = 20, readFloor = 0, transition = { enter = "fade" } })
 			w.presenter.refresh()
 			w.presenter.tick(1 / 60)
 		end)
@@ -950,23 +897,27 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 	it("an Alert opened in this app counts zero findings — its card acknowledges its own plate", function()
 		local backdropSweep = require("../lib/backdrop_sweep")
 		local w: any
-		local alert: any
+		local closeAlert: any
 		local findings = backdropSweep.capture(function()
 			w = makeWorld()
-			alert = Facet.Controls.Alert(w.core, {
-				id = "FoyerConfirm",
-				title = "Leave the foyer?",
-				message = "Your place in the queue is kept for two minutes.",
-				actions = { { id = "Leave", label = "Leave", role = "destructive" }, { id = "Stay", label = "Stay" } },
-			})
-			alert.present(w.presenter)
+			closeAlert = w.app.mount(function()
+				return w.app.controls.Alert("FoyerConfirm")({
+					isPresented = Facet.Compose.cell(true),
+					title = "Leave the foyer?",
+					message = "Your place in the queue is kept for two minutes.",
+					actions = {
+						{ id = "Leave", label = "Leave", role = "destructive" },
+						{ id = "Stay", label = "Stay" },
+					},
+				})
+			end)
 			w.presenter.refresh()
 			-- it really did mount, and through the fade group the gate reads
 			expect(w.adapter.node("/FoyerConfirm/Center").canvasGroupInstance ~= nil).toBe(true)
 			expect(w.adapter.node("/FoyerConfirm/Center/Card").props.surface).toBe("raised")
 		end)
 		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
-		alert.dispose()
+		closeAlert()
 		teardown(w)
 	end)
 end)

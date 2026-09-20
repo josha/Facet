@@ -20,6 +20,7 @@ return {
 		end
 		local proof = require(module) :: any
 		local built = proof.build(ctx.Facet, ctx.core, {
+			app = ctx.app,
 			env = ctx.env,
 			actionSystem = ctx.actionSystem,
 			presenter = ctx.presenter,
@@ -45,7 +46,7 @@ return {
 						table.insert(actionLog, { type = event.type, path = event.path })
 					end)
 				end
-				return { armed = true, focus = ctx.presenter.focus.focused:get() }
+				return { armed = true, focus = ctx.presenter.focus.focused:peek() }
 			end
 			built.steps.readKeys = function()
 				ctx.presenter.refresh()
@@ -53,7 +54,7 @@ return {
 				return {
 					rawInput = ctx.telemetry.keyLog.read(),
 					actions = actionLog,
-					focus = ctx.presenter.focus.focused:get(),
+					focus = ctx.presenter.focus.focused:peek(),
 				}
 			end
 			built.steps.focusOrder = function(b: any)

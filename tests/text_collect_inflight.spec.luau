@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	AN IN-FLIGHT WORD STOPS EATING THE COLLECTOR BUDGET (Plan D, D3a — scout S2,
 	FacetBench §8b).
@@ -58,13 +59,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local text_metrics = require("../src/layout/text_metrics")
+local Compose = require("../src/vendor/compose/core")
 
 -- over `COLLECT_CAP` (1024) by 176: the tail is the quantity every pin below is a
 -- function of, and it is stated here rather than spelled into each one
@@ -99,7 +101,7 @@ local function world(opts: { prefix: string, count: number? }): World
 	local texts: { any } = {}
 	local children: { any } = {}
 	for i = 1, count do
-		texts[i] = core:signal(wordAt(opts.prefix, i))
+		texts[i] = Compose.cell(wordAt(opts.prefix, i))
 		children[i] = UI.Text({ id = `T{i}`, textSize = SIZE, text = texts[i] })
 	end
 	local bp = UI.Screen({
@@ -518,11 +520,11 @@ describe("the collector budget: a word the budget refused is held for the next c
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 720 })
-		local body = core:signal("alpha beta gamma")
+		local body = Compose.cell("alpha beta gamma")
 		local rows: { any } = {}
 		local rowChildren: { any } = {}
 		for i = 1, BOOT_ROWS do
-			rows[i] = core:signal(rowWordAt(i))
+			rows[i] = Compose.cell(rowWordAt(i))
 			-- a SECOND size, so the rows and the body do not share a (font,size) key:
 			-- the row edits below must not be the thing that re-measures the body
 			rowChildren[i] = UI.Text({ id = `R{i}`, textSize = 14, text = rows[i] })
@@ -703,9 +705,9 @@ describe("the collector budget: a word the budget refused is held for the next c
 
 	it("RED-TEAM C-8: ...and the same thing through a solve that actually throws", function()
 		--[[ THE SHAPE, not the mechanism. A settled 300-row surface takes a 1,200-word
-			body, holds 176 past the budget, and then the NEXT solve throws — a row's text
-			signal handed a table, which `text_metrics.measure` raises on from inside the
-			solve, so `beginCollect` has run and `endCollect` has not. The recovery solve
+			body, holds 176 past the budget, and then the NEXT solve throws —
+			`text_metrics.measure` raises on a row's text from inside the solve, so
+			`beginCollect` has run and `endCollect` has not. The recovery solve
 			after it must still ask for the held tail.
 
 			`pcall` around `refresh` is the whole point: this is what a consumer's own
@@ -738,11 +740,21 @@ describe("the collector budget: a word the budget refused is held for the next c
 		end
 		local firstRound = bodyAsked()
 
-		-- THE THROWING SOLVE: a row's text is handed a table, which the measure raises on
-		w.rows[1]:set({ notAString = true } :: any)
+		-- THE THROWING SOLVE: the measure raises on one row's new text. A node refuses
+		-- a non-string text at the write, so the raise is armed on the measure itself.
+		local POISON = "zqxpoison"
+		local realMeasure = text_metrics.measure;
+		(text_metrics :: any).measure = function(text: any, ...)
+			if text == POISON then
+				error("measure raised", 0)
+			end
+			return realMeasure(text, ...)
+		end
+		w.rows[1]:set(POISON)
 		local ok = pcall(function()
 			w.controller.refresh()
-		end)
+		end);
+		(text_metrics :: any).measure = realMeasure
 		-- the row is put back so the recovery solve is an ordinary one
 		w.rows[1]:set(rowWordAt(1))
 		w.controller.refresh()

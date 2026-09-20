@@ -56,10 +56,11 @@ local chrome_slots = require("../tokens/chrome_slots")
 
 local guard = require("../spec_guard")
 local selection = require("../selection_model")
+local Compose = require("../vendor/compose/core")
 local menu_recipe = {}
 -- Shared content for semantic setting/action rows. Accessories are inert; the
 -- owning Button, Toggle or Slider retains the single input identity.
-function menu_recipe.semantic(UI, core, scope, label, spec, value)
+function menu_recipe.semantic(UI, label, spec, value)
 	guard.assertKnownKeys("control.row", spec, guard.keySet({ "description", "icon", "value" }), "row")
 	for _, key in { "description", "icon", "value" } do
 		local v = selection.read(spec[key])
@@ -72,8 +73,6 @@ function menu_recipe.semantic(UI, core, scope, label, spec, value)
 		description = spec.description or "",
 		icon = spec.icon,
 		value = value or spec.value,
-		core = core,
-		scope = scope,
 	}).children)
 end
 
@@ -199,7 +198,7 @@ end
 	reference-platform-shaped picker presents its options ANCHORED to the trigger — the
 	menu that pops from a form row on a phone and from a pop-up button on a
 	desktop — and only reaches for the bottom sheet when the list cannot be a
-	popover: a gamepad (one panel, focus-navigable, the same call `newMenu`
+	popover: a gamepad (one panel, focus-navigable, the same call `UI.Menu`
 	makes), or more rows than a thumb-sized panel holds on a compact or touch
 	surface. `inline` is deliberately absent: a picker that wanted rows in place
 	declares `style = "inline"`, which is a strip, not a popup. Pure, exported,
@@ -238,8 +237,6 @@ export type Row = {
 	width: any?,
 	textSize: any?,
 	iconOnly: boolean?,
-	core: any?, -- required with scope for readable icon or badge
-	scope: any?,
 	badge: any?, -- string | number | Readable; empty removes the badge paint
 	surface: any?,
 	value: any?,
@@ -270,19 +267,15 @@ export type Row = {
 --[[ ONE MENU ROW. `UI` is the blueprint library the caller already holds
 	(`Facet.UI`), passed rather than required so this module stays free of the
 	init cycle every control avoids the same way. ]]
-function menu_recipe.row(UI: any, row: Row): any
+function menu_recipe.rowProps(UI: any, row: Row): any
 	local height = { type = "fixed", px = row.height or menu_recipe.ROW_HEIGHT }
 	local function readable(value)
-		return type(value) == "function"
-			or (type(value) == "table" and (value.kind == "signal" or value.kind == "memo"))
+		return type(value) == "function" or Compose.isReadable(value) or Compose.isReadable(value)
 	end
 	local function read(value, use)
 		return selection.read(value, use)
 	end
 	local liveIcon = readable(row.icon)
-	if liveIcon or readable(row.badge) then
-		assert(row.core and row.scope, "menu row: readable icon and badge require core and scope")
-	end
 	-- see `platedSelection`: the tag is the SHEET's selection paint, and a card row
 	-- has already painted its own
 	local buttonSelected = if row.platedSelection == true then nil else row.selected
@@ -361,14 +354,13 @@ function menu_recipe.row(UI: any, row: Row): any
 				— so no phantom box is reserved on the other side; a plain string
 				keeps the static placement every other caller pins. ]]
 			if readable(row.indicatorEdge) then
-				assert(row.core and row.scope, "menu row: a readable indicatorEdge requires core and scope")
 				local edge = row.indicatorEdge
-				local trailing = row.scope:own(row.core:memo(function(use)
-					return use(edge) == "trailing"
-				end))
-				local leading = row.scope:own(row.core:memo(function(use)
-					return not use(trailing)
-				end))
+				local trailing = function(use)
+					return read(edge, use) == "trailing"
+				end
+				local leading = function(use)
+					return not trailing(use)
+				end
 				local view = indicatorView
 				table.insert(
 					content,
@@ -405,10 +397,10 @@ function menu_recipe.row(UI: any, row: Row): any
 			)
 		end
 		if liveIcon then
-			local icons = row.scope:own(row.core:memo(function(use)
+			local icons = function(use)
 				local icon = read(row.icon, use)
 				return if icon == nil or icon == "" then {} else { icon }
-			end))
+			end
 			table.insert(
 				content,
 				UI.ForEach({
@@ -446,15 +438,15 @@ function menu_recipe.row(UI: any, row: Row): any
 					width = { type = "fill", weight = 1 },
 				})
 			end
-			if readable(row.description) and row.core and row.scope then
+			if readable(row.description) then
 				table.insert(
 					labels,
 					UI.When({
 						id = "DescriptionWhen",
-						condition = row.scope:own(row.core:memo(function(use)
+						condition = function(use)
 							local value = read(row.description, use)
 							return value ~= nil and value ~= ""
-						end)),
+						end,
 						thenView = description,
 					})
 				)
@@ -484,15 +476,15 @@ function menu_recipe.row(UI: any, row: Row): any
 		end
 		if row.badge ~= nil then
 			local badge = if readable(row.badge)
-				then row.scope:own(row.core:memo(function(use)
+				then function(use)
 					local value = read(row.badge, use)
 					return if value == nil then "" else tostring(value)
-				end))
+				end
 				else tostring(row.badge)
 			local hidden = if readable(badge)
-				then row.scope:own(row.core:memo(function(use)
-					return use(badge) == ""
-				end))
+				then function(use)
+					return read(badge, use) == ""
+				end
 				else badge == ""
 			table.insert(
 				content,
@@ -572,7 +564,7 @@ function menu_recipe.row(UI: any, row: Row): any
 		if trailingSlot and indicatorView ~= nil then
 			table.insert(content, indicatorView)
 		end
-		return UI.Button({
+		return {
 			id = row.id,
 			label = row.label,
 			role = row.role or "default",
@@ -589,11 +581,11 @@ function menu_recipe.row(UI: any, row: Row): any
 					children = content,
 				}),
 			},
-		})
+		}
 	end
 	if row.submenu ~= true then
 		-- THE SHIPPED LEAF ROW, unchanged from `row_actions.buildMenuRows`.
-		return UI.Button({
+		return {
 			id = row.id,
 			label = row.label,
 			-- `icon` alone needs `shape = "circle"`, and a menu row keeps its label,
@@ -608,7 +600,7 @@ function menu_recipe.row(UI: any, row: Row): any
 			selected = buttonSelected,
 			width = { type = "fill", weight = 1 },
 			height = height,
-		})
+		}
 	end
 	--[[ THE SUBMENU ROW: a CONTENT button (B-BTN1). The visible label moves into a
 		child so the chevron can sit after it, and `label` stays the semantic name.
@@ -617,7 +609,7 @@ function menu_recipe.row(UI: any, row: Row): any
 		over the character and a package that ships none still reads (the semantic-icon rule —
 		`disclosure_group`'s caret makes the identical argument). ]]
 	local glyph = themePackage.iconGlyph("chevron.trailing") or ">"
-	return UI.Button({
+	return {
 		id = row.id,
 		label = row.label,
 		role = if row.role == "destructive" then "destructive" else "default",
@@ -645,7 +637,11 @@ function menu_recipe.row(UI: any, row: Row): any
 				{ icon = "chevron.trailing" }
 			),
 		},
-	})
+	}
+end
+
+function menu_recipe.row(UI: any, row: Row): any
+	return UI.Button(menu_recipe.rowProps(UI, row))
 end
 
 --[[ WHERE A ROW SITS IN THE CARD, as the four radii it therefore carries.
@@ -685,20 +681,21 @@ end
 	Naming the resting end costs one property write and cannot be stale. It is also
 	free of the disabled state: that dims `TextTransparency` (`Disabled subtree
 	text`), never the colour, so a colour claim takes nothing away from it. ]]
-function menu_recipe.cardRow(UI: any, core: any, scope: any, row: Row, position: string): any
+function menu_recipe.cardRow(UI: any, row: Row, position: string): any
 	local spec: any = table.clone(row)
 	local selected = row.selected
-	if type(selected) == "table" and (selected.kind == "signal" or selected.kind == "memo") then
-		assert(core ~= nil and scope ~= nil, "menu card row: a reactive `selected` requires core and scope")
-		spec.surface = scope:own(core:memo(function(use)
-			return if use(selected) then menu_recipe.SELECTED_SURFACE else menu_recipe.RESTING_SURFACE
-		end))
-		spec.labelTint = scope:own(core:memo(function(use)
+	if type(selected) == "function" or Compose.isReadable(selected) or Compose.isReadable(selected) then
+		spec.surface = function(use)
+			return if selection.read(selected, use) then menu_recipe.SELECTED_SURFACE else menu_recipe.RESTING_SURFACE
+		end
+		spec.labelTint = function(use)
 			return {
-				role = if use(selected) then menu_recipe.SELECTED_LABEL_ROLE else menu_recipe.RESTING_LABEL_ROLE,
+				role = if selection.read(selected, use)
+					then menu_recipe.SELECTED_LABEL_ROLE
+					else menu_recipe.RESTING_LABEL_ROLE,
 				blend = 1,
 			}
-		end))
+		end
 	else
 		local on = selected == true
 		spec.surface = if on then menu_recipe.SELECTED_SURFACE else menu_recipe.RESTING_SURFACE

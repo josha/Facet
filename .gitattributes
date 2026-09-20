@@ -1,0 +1,5 @@
+# Generated from the Compose pin by tools/sync_compose.py. Do not edit.
+src/vendor/compose/** linguist-generated=true
+src/vendor/compose/UPSTREAM.lock linguist-generated=false
+src/vendor/compose/README.md linguist-generated=false
+skills/compose/** linguist-generated=true

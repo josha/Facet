@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ `placement.anchorPlace` + `placement.innerBox` (Plan C, T2) — THE ONE COPY of
 	the corner-anchor maths and the padded-content-box derivation, pinned by hand
 	arithmetic so a caller other than the solver (T5's translate lane) can trust the
@@ -27,11 +28,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local placement = require("../src/layout/placement")
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local function px(n: number): any
