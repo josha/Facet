@@ -34,7 +34,7 @@ local calloutControl = require("../../src/controls/callout")
 
 local app = Facet.new()
 
-local _button = app.controls.Button("W")({
+local _button = app.controls.Button({
 	label = "Repeat",
 	busy = Facet.Compose.cell(false),
 	repeatDelay = 0.4,
@@ -51,7 +51,7 @@ local _toggle = app.controls.Toggle("W")({
 	onChange = function(_value: boolean) end,
 })
 
-local _combo = app.controls.ComboBox("W")({
+local _combo = app.controls.ComboBox({
 	value = Facet.Compose.cell("a"),
 	text = Facet.Compose.cell("Alpine"),
 	options = { { id = "a", label = "Alpine", description = "Mountain" } },
@@ -67,7 +67,7 @@ local _split = app.controls.SplitButton("W")({
 	items = { { id = "practice", label = "Practice", onSelect = function() end } },
 })
 
-local _navigation = app.controls.NavigationStack("W")({
+local _navigation = app.controls.NavigationStack({
 	-- a path is a cell of entries; say so, because a cell is invariant in what it holds
 	path = Facet.Compose.cell({ { id = "details", value = { name = "Alder" } } } :: { navigationStackControl.Entry }),
 	backLabel = "Back",
@@ -111,7 +111,7 @@ local _livePicker = app.controls.Picker("W")({
 local popupButtonSpec: popupMenuControl.Spec = nil :: any
 local _popupbutton = app.controls.PopupButton(popupButtonSpec)
 
-local _multiPopup = app.controls.PopupButton("W")({
+local _multiPopup = app.controls.PopupButton({
 	options = { { id = "a", label = "Alpine" } },
 	selectedValues = Facet.Compose.cell({ a = true }),
 	onChange = function(chosen: { [string]: boolean })
@@ -123,7 +123,7 @@ local menuControlSpec: menuControl.Spec = nil :: any
 local _menu = app.controls.Menu(menuControlSpec)
 
 local _statefulMenu = app.controls.Menu("W")({
-	trigger = app.controls.Button("W")({ label = "Filters" }) :: any,
+	trigger = app.controls.Button({ label = "Filters" }) :: any,
 	items = {
 		{
 			id = "a",
@@ -149,7 +149,7 @@ local _rating = app.controls.Rating(ratingControlSpec)
 local textInputSpec: textInputControl.Spec = nil :: any
 local _textinput = app.controls.TextInput(textInputSpec)
 
-local _numericText = app.controls.TextInput("W")({
+local _numericText = app.controls.TextInput({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),
 	presentation = "number",
@@ -189,7 +189,7 @@ local _virtuallist = app.controls.VirtualList("W")({
 	itemExtent = 40,
 })
 
-local _virtualgrid = app.controls.VirtualGrid("W")({
+local _virtualgrid = app.controls.VirtualGrid({
 	items = Facet.Compose.cell({ "a" }),
 	key = function(item: string)
 		return item

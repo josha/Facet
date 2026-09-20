@@ -326,12 +326,11 @@ export type SplitButtonSpec = {
 -- ride the open indexer.
 export type Node = any
 export type Record<Api> = { api: Api, dump: (() -> any)? }
--- THE NAMED FORM IS THE CHECKED ONE. `UI.Button("Go")({ … })` checks every field
--- of the spec where it is written. The anonymous form `UI.Button({ … })` is
--- accepted as any table: Luau turns off literal inference for an overloaded
--- call, so typing that overload as `S` refuses valid specs (a `Cell<T>` where a
--- `Readable<T>` is asked for) instead of checking them.
-export type Constructor<S> = ((id: string) -> (spec: S) -> Node) & ((spec: { [any]: any }) -> Node)
+-- BOTH FORMS CHECK THEIR SPEC: `UI.Button({ … })` and `UI.Button("Go")({ … })`.
+-- Luau checks an overloaded call without an expected type, so a spec field has
+-- to name what authors pass it; that is why `Readable<T>` and `Bound<T>` spell
+-- out `Cell<T>`, `Formula<T>` and `(use) -> T`.
+export type Constructor<S> = ((spec: S) -> Node) & ((id: string) -> (spec: S) -> Node)
 export type Controls = {
 	Button: Constructor<ButtonSpec>,
 	Toggle: Constructor<ToggleSpec>,

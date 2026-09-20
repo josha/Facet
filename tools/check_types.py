@@ -152,10 +152,16 @@ def negative_probe(entries):
 # per module: crafting a "wrong shape" literal generically for 27 different
 # Spec tables is not worth it once the answer is uniform.
 _EROSION_PROBES = [
-    # The NAMED form is the field-checked one (src/control_types.luau says why).
+    # BOTH spellings must check their spec: the anonymous form the README uses,
+    # and the named form. A probe that passes in one form and is only rejected in
+    # the other is exactly the gap this list exists to catch.
+    ("Slider", 'app.controls.Slider({ value = "nope", min = 0, max = 1 })'),
     ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
+    ("NavigationStack", 'app.controls.NavigationStack({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
     ("NavigationStack", 'app.controls.NavigationStack("N")({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
+    ("Button", 'app.controls.Button({ label = 42 })'),
     ("Button", 'app.controls.Button("B")({ label = 42 })'),
+    ("Toggle", 'app.controls.Toggle({ value = "on" })'),
     ("Toggle", 'app.controls.Toggle("T")({ value = "on" })'),
 ]
 
@@ -179,7 +185,7 @@ def field_erosion_check(entries):
         for offset, (name, _call) in enumerate(_EROSION_PROBES):
             line = 4 + offset
             if not any(f"({line}," in ln for ln in own):
-                missed.append(name)
+                missed.append(f"{name} ({_call.split(chr(40))[0]}, probe {offset + 1})")
         return (len(missed) > 0), (
             "no diagnostic for a wrongly-typed field on: " + ", ".join(missed)
             if missed

@@ -79,7 +79,9 @@ export type ActivationMetadata = activationMetadata.Metadata
 
 export type Readable<T> = coreContract.Readable<T>
 export type Value<T> = T | Readable<T>
-export type Bound<T> = Value<T> | (() -> T)
+-- ONE function member: it takes a binding written `function()` or `function(use)`,
+-- and a union of two function types could not be called.
+export type Bound<T> = Value<T> | ((use: any?) -> T)
 
 -- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",

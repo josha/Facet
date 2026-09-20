@@ -40,8 +40,10 @@ export type Formula<T> = Compose.Formula<T>
 -- STRUCTURAL ON PURPOSE. Compose types each method's `self` as its own table, so
 -- a `Compose.Cell<T>` does not convert to a `Compose.Readable<T>` and a spec
 -- field typed `Readable<T>` would refuse the cell every author passes it. What a
--- control needs from a readable is `peek`, and that is all this asks for.
-export type Readable<T> = { peek: (self: any) -> T }
+-- control needs from a readable is `peek`, and that is all this asks for. Cell
+-- and Formula are NAMED as well: an overloaded constructor checks its argument
+-- without an expected type, and there only an exact union member matches.
+export type Readable<T> = { peek: (self: any) -> T } | Compose.Cell<T> | Compose.Formula<T>
 export type Owner = Compose.Owner
 
 -- `use` pulls a dependency's current value and registers the dependency for
