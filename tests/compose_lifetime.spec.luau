@@ -1,7 +1,7 @@
 --!strict
 local t = require("./lib/testkit")
-local Compose = require("../src/vendor/compose")
-local Graph = require("../src/vendor/compose/reactive/graph")
+local Compose = require("../src/vendor/compose/core")
+local Graph = require("../src/vendor/compose/core/reactive/graph")
 
 t.describe("native Compose lifetime and recovery", function()
 	t.it("detaches the final direct listener, including repeated subscribe cycles", function()
@@ -36,7 +36,7 @@ t.describe("native Compose lifetime and recovery", function()
 		owner.dispose()
 	end)
 
-	t.it("a watch abandoned at the native drain cap can be replaced", function()
+	t.it("a watch abandoned at the native drain cap wakes on the next write", function()
 		local reactor = Compose.reactor()
 		local owner = Compose.createOwner(reactor)
 		local source = Compose.cell(0)
@@ -54,13 +54,8 @@ t.describe("native Compose lifetime and recovery", function()
 		end)
 		t.expect(ok).toBe(false)
 		t.expect(reactor:pending()).toBe(0)
-		-- Native Compose leaves abandoned watches stale. Recovery from this
-		-- scheduling failure requires disposing and registering the watch again.
-		stop()
+		-- The same subscription wakes after feedback stops; no replacement watch.
 		looping = false
-		owner.watch(function(use)
-			seen = use(source)
-		end)
 		source:set(-2)
 		t.expect(seen).toBe(-2)
 		owner.dispose()

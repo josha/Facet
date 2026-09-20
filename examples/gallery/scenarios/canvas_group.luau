@@ -24,16 +24,14 @@
 	hold — which is the point. The difference is a picture, and until now no
 	surface a player can select painted it.
 
-	AND THE OTHER HALF OF THE PROP: `canvasGroup = true` with NO opacity beside
-	it. A fading transition needs the node arriving or leaving to BE a group
-	already (`blueprint_schema`: "Fading forms need the child to be a declared
-	canvasGroup node"), so the third panel declares the group and never writes an
-	opacity — the `enter = "fade"` transition writes it.
+	AND THE ARRIVING PANEL: a branch that fades in. The third panel is a declared
+	group whose opacity follows an `app.runtime.tween`, so the whole panel arrives
+	as one image rather than as three fading children.
 
 	...AND THE REFUSAL, VERBATIM. `opacity` lives on `Box` and `ZStack` and
 	nowhere else, and every other class answers a reach for it by NAME rather than
 	through the unknown-property path. The sentence on screen is
-	captured at BUILD from a real refused construction — the framework's own
+	captured at MOUNT from a real refused construction — the framework's own
 	words, not a paraphrase this file could let go stale.
 
 	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT: the plates are fixed px
@@ -74,10 +72,10 @@ local COPY = {
 	manyTitle = "Three groups — the same fade on each plate",
 	manyNote = "Each plate fades against what is behind it, so every overlap composes twice.",
 	stopsLabel = "Opacity",
-	transitionTitle = "A group with no opacity of its own",
-	transitionNote = 'enter = "fade" needs the arriving node to already BE a group. This one declares it and writes no opacity.',
+	transitionTitle = "A group that fades in as it arrives",
+	transitionNote = "The arriving panel is one group, so a tween on its opacity fades the whole panel at once.",
 	transitionButton = "Show / hide the fading panel",
-	transitionBody = "canvasGroup = true, and the transition owns the alpha.",
+	transitionBody = "canvasGroup = true, and a tween owns the alpha.",
 	refusalTitle = "Where the prop is refused, and what it says",
 	statusLabel = "Now",
 }
@@ -89,38 +87,26 @@ return {
 	stops = STOPS,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("canvas-group")
-		-- ADAPT-L4: the comparison below claims to go side by side where there is
-		-- room, and until 2026-08-21 it never did — `UI.AdaptiveStack` defaulted to
-		-- a column and stayed one on a television. The axis is the surface's own
-		-- fact now; the class refuses to construct without it. `scope` owns the
-		-- memos `conditions` builds (RR-8), so they die with the fixture.
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local opacity = scope:own(core:signal(STOPS[3]))
-		local showFading = scope:own(core:signal(false))
+		local opacity = Compose.cell(STOPS[3])
+		local showFading = Compose.cell(false)
 
-		--[[ THE REFUSAL, CAPTURED FROM THE FRAMEWORK AT BUILD.
+		--[[ THE REFUSAL, CAPTURED FROM THE FRAMEWORK AT MOUNT.
 
 			A construction is the whole check: `opacity` on any class other than Box
-			or ZStack throws BY NAME, at the point of use, before anything is
-			mounted. Quoting the message into this file would have made it a string
-			that ages; reading it here means the panel says whatever the framework
-			says today, including "not missing", which is the part that matters. ]]
-		local _, refusalError = pcall(function()
-			return UI.Text({ id = "NeverMounted", text = COPY.title, opacity = 0.5 })
-		end)
-		local refusal = tostring(refusalError)
+			or ZStack throws BY NAME, at the point of use. Reading the message here
+			means the panel says whatever the framework says today, including "not
+			missing", which is the part that matters. A constructor needs an owner,
+			so the screen captures the sentence as it mounts. ]]
+		local refusal = Compose.cell("")
 
-		local status = scope:own(core:memo(function(use)
+		local status = Compose.formula(function(use)
 			return `{COPY.statusLabel}: {math.floor(use(opacity) * 100 + 0.5)}%`
-		end))
+		end)
 
 		local function plate(spec: any): any
-			return UI.Box({
-				id = spec.id,
+			return UI.Box(spec.id)({
 				width = { type = "fixed", px = spec.px },
 				height = { type = "fixed", px = spec.px },
 				alignH = "center",
@@ -130,206 +116,184 @@ return {
 		end
 
 		-- ONE fade group over all three plates: the opacity is on the STACK.
-		local onePanel = UI.ZStack({
-			id = "OneGroup",
-			opacity = opacity,
-			width = UI.fill(),
-			height = { type = "fixed", px = PLATES[1].px },
-			plate(PLATES[1]),
-			plate(PLATES[2]),
-			plate(PLATES[3]),
-		})
+		-- The arriving panel's alpha: a tween from clear to solid that starts when the
+		-- branch mounts. A host without an application runtime shows it solid.
+		local function arrival(): any
+			local runtime = ctx.app and ctx.app.runtime
+			if runtime == nil then
+				return 1
+			end
+			local shown = Compose.cell(0)
+			local fade = runtime.tween(function(use)
+				return use(shown)
+			end, { seconds = 0.2 })
+			shown:set(1)
+			return fade
+		end
 
-		-- THREE fade groups over one plate each: the same value, one wrap lower.
-		-- The wrapper is a ZStack for the reason the refusal above gives — it is
-		-- one of the two classes that can BE a group, so this is the shape an
-		-- author gets when they fade "the plate" instead of "the picture".
-		local manyPanel = UI.ZStack({
-			id = "ThreeGroups",
-			width = UI.fill(),
-			height = { type = "fixed", px = PLATES[1].px },
-			children = (function()
-				local kids = {}
-				for _, spec in PLATES do
-					table.insert(
-						kids,
-						UI.ZStack({
-							id = `{spec.id}Group`,
-							opacity = opacity,
-							alignH = "center",
-							alignV = "center",
-							plate(spec),
-						})
-					)
-				end
-				return kids
-			end)(),
-		})
+		local function Example()
+			-- The axis is the surface's own fact: side by side where there is room.
+			local conditions = Facet.adaptive.conditions(ctx.env)
+			local _, refusalError = pcall(function()
+				return UI.Text("NeverMounted")({ text = COPY.title, opacity = 0.5 })
+			end)
+			refusal:set(tostring(refusalError))
 
-		local function panel(id: string, title: string, note: string, body: any): any
-			return UI.VStack({
-				id = id,
-				surface = "control",
-				padding = "s",
-				gap = "tight",
+			local onePanel = UI.ZStack("OneGroup")({
+				opacity = opacity,
 				width = UI.fill(),
-
-				UI.Text({ id = "Title", text = title, textSize = "caption" }),
-				body,
-				UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
+				height = { type = "fixed", px = PLATES[1].px },
+				plate(PLATES[1]),
+				plate(PLATES[2]),
+				plate(PLATES[3]),
 			})
-		end
 
-		local stopChips = {}
-		for _, stop in STOPS do
-			table.insert(
-				stopChips,
-				UI.Button({
-					id = `Stop{math.floor(stop * 100 + 0.5)}`,
-					label = `{math.floor(stop * 100 + 0.5)}%`,
-					selected = scope:own(core:memo(function(use)
-						return use(opacity) == stop
-					end)),
-					onActivate = function()
-						opacity:set(stop)
-					end,
-				})
-			)
-		end
+			-- THREE fade groups over one plate each: the same value, one wrap lower.
+			-- The wrapper is a ZStack for the reason the refusal above gives — it is
+			-- one of the two classes that can BE a group, so this is the shape an
+			-- author gets when they fade "the plate" instead of "the picture".
+			local manyProps: { [any]: any } = { width = UI.fill(), height = { type = "fixed", px = PLATES[1].px } }
+			for _, spec in PLATES do
+				table.insert(
+					manyProps,
+					UI.ZStack(`{spec.id}Group`)({
+						opacity = opacity,
+						alignH = "center",
+						alignV = "center",
+						plate(spec),
+					})
+				)
+			end
+			local manyPanel = UI.ZStack("ThreeGroups")(manyProps)
 
-		local screen = UI.Screen({
-			id = "CanvasGroup",
-			padding = 12,
-			gap = "s",
-
-			-- THE PAGE SCROLLS, for the reason every other fixture here does: two
-			-- 132px panels, a chip row, a transition panel and the framework's own
-			-- refusal sentence do not fit the ~200px a 640x320 landscape phone has
-			-- left once the showcase reserves its chip strip.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				UI.HStack({
-					id = "Stops",
-					gap = "tight",
-					wrap = true,
-					width = UI.fill(),
-					children = (function()
-						local row = { UI.Text({ id = "StopsLabel", text = COPY.stopsLabel, textSize = "caption" }) }
-						for _, chip in stopChips do
-							table.insert(row, chip)
-						end
-						return row
-					end)(),
-				}),
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-				-- side by side where there is room, a column where there is not:
-				-- the two panels are only a comparison while both are visible,
-				-- and a 320px phone cannot hold two 132px plates in one line
-				UI.AdaptiveStack({
-					id = "Panels",
-					axis = conditions.axis,
-					gap = "s",
-					width = UI.fill(),
-
-					panel("One", COPY.oneTitle, COPY.oneNote, onePanel),
-					panel("Many", COPY.manyTitle, COPY.manyNote, manyPanel),
-				}),
-
-				UI.VStack({
-					id = "Transition",
+			local function panel(id: string, title: string, note: string, body: any): any
+				return UI.VStack(id)({
 					surface = "control",
 					padding = "s",
 					gap = "tight",
 					width = UI.fill(),
 
-					UI.Text({ id = "Title", text = COPY.transitionTitle, textSize = "caption" }),
-					UI.Button({
-						id = "ToggleFading",
-						label = COPY.transitionButton,
-						onActivate = function()
-							showFading:set(not showFading:get())
-						end,
-					}),
-					UI.When({
-						id = "FadingGate",
-						condition = showFading,
-						transition = { enter = "fade", class = "container" },
-						thenView = function()
-							-- a ZStack rather than a Box because this one holds
-							-- content: `UI.Box` is the plate form of the same
-							-- capability and takes neither padding nor children
-							return UI.ZStack({
-								id = "FadingPanel",
-								surface = "raised",
-								-- THE DECLARATION, with no opacity beside it
-								canvasGroup = true,
-								padding = "s",
-								width = UI.fill(),
+					UI.Text("Title")({ text = title, textSize = "caption" }),
+					body,
+					UI.Text("Note")({ text = note, textSize = "caption", role = "secondary" }),
+				})
+			end
 
-								UI.Text({
-									id = "Body",
-									text = COPY.transitionBody,
-									textSize = "caption",
-								}),
-							})
-						end,
+			return UI.Screen("CanvasGroup")({
+				padding = 12,
+				gap = "s",
+
+				-- THE PAGE SCROLLS, for the reason every other fixture here does: two
+				-- 132px panels, a chip row, a transition panel and the framework's own
+				-- refusal sentence do not fit the ~200px a 640x320 landscape phone has
+				-- left once the showcase reserves its chip strip.
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					UI.Picker("Stops")({
+						label = COPY.stopsLabel,
+						style = "segmented",
+						selected = opacity,
+						options = (function()
+							local options = {}
+							for _, stop in STOPS do
+								table.insert(options, { value = stop, label = `{math.floor(stop * 100 + 0.5)}%` })
+							end
+							return options
+						end)(),
 					}),
-					UI.Text({
-						id = "Note",
-						text = COPY.transitionNote,
-						textSize = "caption",
-						role = "secondary",
+					UI.Text("Status")({ text = status, textSize = "caption", role = "secondary" }),
+					-- side by side where there is room, a column where there is not:
+					-- the two panels are only a comparison while both are visible,
+					-- and a 320px phone cannot hold two 132px plates in one line
+					UI.AdaptiveStack("Panels")({
+						axis = conditions.axis,
+						gap = "s",
+						width = UI.fill(),
+
+						panel("One", COPY.oneTitle, COPY.oneNote, onePanel),
+						panel("Many", COPY.manyTitle, COPY.manyNote, manyPanel),
 					}),
+
+					UI.VStack("Transition")({
+						surface = "control",
+						padding = "s",
+						gap = "tight",
+						width = UI.fill(),
+
+						UI.Text("Title")({ text = COPY.transitionTitle, textSize = "caption" }),
+						UI.Button("ToggleFading")({
+							label = COPY.transitionButton,
+							onActivate = function()
+								showFading:set(not showFading:peek())
+							end,
+						}),
+						UI.When("FadingGate")({
+							Compose.show(showFading, function()
+								return UI.ZStack("FadingPanel")({
+									surface = "raised",
+									canvasGroup = true,
+									opacity = arrival(),
+									padding = "s",
+									width = UI.fill(),
+
+									UI.Text("Body")({ text = COPY.transitionBody, textSize = "caption" }),
+								})
+							end),
+						}),
+						UI.Text("Note")({
+							text = COPY.transitionNote,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+
+					UI.Text("RefusalTitle")({ text = COPY.refusalTitle, textSize = "caption" }),
+					UI.Text("Refusal")({ text = refusal, textSize = "caption", role = "secondary" }),
 				}),
-
-				UI.Text({ id = "RefusalTitle", text = COPY.refusalTitle, textSize = "caption" }),
-				UI.Text({ id = "Refusal", text = refusal, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		return {
-			screen = screen,
+			screen = Example,
 			present = {},
 			-- published for the headless suite: the live signal and the framework's
 			-- own refusal text, rather than a re-implementation of either
 			opacity = opacity,
 			showFading = showFading,
+			-- the framework's sentence, readable once the screen has mounted
 			refusal = refusal,
 
 			steps = {
 				setOpacity = function(_built: any, payload: string?)
 					local value = tonumber(payload or "") or STOPS[#STOPS]
 					opacity:set(value)
-					return { opacity = opacity:get() }
+					return { opacity = opacity:peek() }
 				end,
 				toggleFading = function()
-					showFading:set(not showFading:get())
-					return { showing = showFading:get() }
+					showFading:set(not showFading:peek())
+					return { showing = showFading:peek() }
 				end,
 				refusal = function()
-					return { refused = refusal }
+					return { refused = refusal:peek() }
 				end,
 			},
 
 			report = function()
 				return {
-					opacity = opacity:get(),
-					showing = showFading:get(),
+					opacity = opacity:peek(),
+					showing = showFading:peek(),
 					plates = #PLATES,
-					refusalNamesTheClass = string.find(refusal, "REFUSED on UI.Text", 1, true) ~= nil,
+					refusalNamesTheClass = string.find(refusal:peek(), "REFUSED on UI.Text", 1, true) ~= nil,
 				}
 			end,
 
-			dispose = function()
-				scope:dispose()
-			end,
+			dispose = function() end,
 		}
 	end,
 }

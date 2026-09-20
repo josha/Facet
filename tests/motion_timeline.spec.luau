@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Timeline (acceptance rows SF-M4, SF-M5). A choreographed
 -- sequence that a scripted clock can drive frame by frame, that can be
 -- interrupted at ANY frame, and that always resolves to a declared end state.
@@ -11,14 +12,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 local clockLib = require("../src/motion/clock")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 64 -- exact in binary: beat times land where they are declared
 
 local function fixture()
 	local core = customCore.new()
-	local policy = core:signal("full")
+	local policy = Compose.cell("full")
 	local clock = clockLib.new(core, {
 		motionPolicy = policy,
 		now = function()
@@ -223,7 +225,7 @@ describe("motion timeline: interrupt and skip", function()
 
 	it("a beat may start motion on the same clock, and it runs from that frame", function()
 		local core, _, clock = fixture()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local moved: { number } = {}
 		local value: any = nil
 		clock:timeline({
@@ -234,7 +236,7 @@ describe("motion timeline: interrupt and skip", function()
 						value = clock:spring(0, "reward")
 						value:setTarget(100)
 						value:onSettle(function()
-							table.insert(moved, value:get())
+							table.insert(moved, value:peek())
 						end)
 					end,
 					terminal = function()
@@ -247,12 +249,12 @@ describe("motion timeline: interrupt and skip", function()
 		})
 		stepN(clock, 16) -- the beat fires on the frame elapsed reaches 0.25
 		expect(value).never().toBeNil()
-		expect(value:get()).toBeGreaterThan(0) -- it advanced in the SAME step
+		expect(value:peek()).toBeGreaterThan(0) -- it advanced in the SAME step
 		stepN(clock, 200)
 		expect(moved).toEqual({ 100 })
 		expect(clock:activeCount()).toBe(0)
 		clock:dispose()
-		expect(core:counters()).toEqual(baseline)
+		expect(core.owner.size()).toEqual(baseline)
 	end)
 
 	it("beats with no declared terminal are simply not painted over by interrupt", function()

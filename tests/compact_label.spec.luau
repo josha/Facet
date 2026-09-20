@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- `compactLabel` — a Button says less when it has less room (director, 2026-07-27).
 --
 -- The ladder under test:
@@ -18,19 +19,20 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 -- packages are BUILT through the public facade (`Facet.themes` carries
 -- `neutralPackage`, which every reference package derives from); the bare package
 -- module is the compiler and is what owns the glyph table.
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local standard_icons = require("../src/themes/standard_icons")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- the eight shipped reference packages plus the flat theme = the nine
 -- configurations every geometry claim in this repo is measured against
@@ -286,7 +288,7 @@ describe("compactLabel: one decision, two seams", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 60, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new({ ops = true })
-		local shown = core:signal(true)
+		local shown = Compose.cell(true)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -355,10 +357,14 @@ describe("compactLabel: one decision, two seams", function()
 end)
 
 describe("compactLabel: the closed grammar", function()
+	-- A Button's cross-property rules run when the node joins a tree.
+	local function place(node: any)
+		return harness.mount(customFactory.new(), node)
+	end
 	local function refused(compact: any): boolean
 		return not (
 			pcall(function()
-				return UI.Button({ id = "B", label = "Edit item", compactLabel = compact })
+				return place(UI.Button({ id = "B", label = "Edit item", compactLabel = compact }))
 			end)
 		)
 	end
@@ -392,7 +398,7 @@ describe("compactLabel: the closed grammar", function()
 	it("refuses whitespace in a compact string, naming the reason", function()
 		expect(refused("Save it")).toBe(true)
 		local ok, err = pcall(function()
-			return UI.Button({ id = "B", label = "Save changes", compactLabel = "Save it" })
+			return place(UI.Button({ id = "B", label = "Save changes", compactLabel = "Save it" }))
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "must be ONE word", 1, true) ~= nil).toBe(true)
@@ -402,7 +408,7 @@ describe("compactLabel: the closed grammar", function()
 	it("refuses an icon name the framework cannot resolve, listing the ones it knows", function()
 		expect(refused({ icon = "pencil" })).toBe(true)
 		local ok, err = pcall(function()
-			return UI.Button({ id = "B", label = "Edit", compactLabel = { icon = "pencil" } })
+			return place(UI.Button({ id = "B", label = "Edit", compactLabel = { icon = "pencil" } }))
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "names no semantic icon", 1, true) ~= nil).toBe(true)
@@ -413,12 +419,12 @@ describe("compactLabel: the closed grammar", function()
 
 	it("refuses a compact form on a CONTENT button, which draws no text to shorten", function()
 		local ok, err = pcall(function()
-			return UI.Button({
+			return place(UI.Button({
 				id = "B",
 				label = "Edit item",
 				compactLabel = "Ed",
 				children = { UI.Text({ id = "T", text = "hi" }) },
-			})
+			}))
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "CONTENT button", 1, true) ~= nil).toBe(true)
@@ -427,7 +433,7 @@ describe("compactLabel: the closed grammar", function()
 	it("is NOT reactive: a compact representation is what the control HAS", function()
 		local core = customFactory.new()
 		local ok = pcall(function()
-			return UI.Button({ id = "B", label = "Edit item", compactLabel = core:signal("Ed") :: any })
+			return UI.Button({ id = "B", label = "Edit item", compactLabel = Compose.cell("Ed") :: any })
 		end)
 		expect(ok).toBe(false)
 	end)
@@ -531,12 +537,12 @@ describe("compactLabel: the table's Edit/Done toggle, its first consumer", funct
 	local TOGGLE = "/S/Racers/Main/ToggleWhen/then/Toolbar/EditToggle"
 
 	local function tableWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local rows = core:signal({ { id = "r1", name = "Ada", laps = 3 } })
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell({ { id = "r1", name = "Ada", laps = 3 } })
 		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			columns = { { id = "name", title = "Racer", width = { type = "fill", weight = 1 } } },
@@ -545,7 +551,7 @@ describe("compactLabel: the table's Edit/Done toggle, its first consumer", funct
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return UI.Text({ id = "Value", text = item:peek().name, textSize = 16 })
 			end,
 			rowHeight = 40,
 			header = true,

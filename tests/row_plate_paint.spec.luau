@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A LIST ROW READS AGAINST A PLATE, IN EVERY THEME.
 
 	WHAT WAS REPORTED (owner, 2026-09-12, live capture of the showcase under Pixel
@@ -74,7 +75,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local chrome_slots = require("../src/tokens/chrome_slots")
@@ -83,14 +84,14 @@ local default_style = require("../src/tokens/default_style")
 
 local rowActions = require("../examples/gallery/scenarios/row_actions") :: any
 
-local PLATE_PATH = "/MailActions/ListWhen/then/ListPlate"
-local ROW_PATH = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row"
+local PLATE_PATH = "/MailActions/ListWhen/ListPlate"
+local ROW_PATH = "/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row"
 
 -- the engine instance each node class is materialized as, so a bare class
 -- selector in the sheet can be matched headlessly (`src/client/screen_vocabulary
 -- .luau`'s `CLASS_TO_INSTANCE`; only the two classes this spec reads)
 local ENGINE_CLASS: { [string]: string } = { Button = "TextButton", VStack = "Frame" }
-local TOP_LINE = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text/TopLine"
+local TOP_LINE = "/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text/TopLine"
 
 local PACKAGES: { { name: string, module: any } } = {
 	{ name = "classic_desktop", module = require("../examples/themes/classic_desktop") },
@@ -111,6 +112,8 @@ local function scenarioWorld(module: any, viewport: any?, textOffset: number?, m
 	})
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -419,8 +422,7 @@ describe("list row plate: the fixture declares the plate it paints", function()
 			truncates instead of wrapping the row taller. ]]
 		local w = scenarioWorld(rowActions)
 		local top = w.adapter.node(TOP_LINE)
-		local column =
-			w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text")
+		local column = w.adapter.node("/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text")
 		local from = w.adapter.node(TOP_LINE .. "/From")
 		assert(top ~= nil and column ~= nil and from ~= nil, "the row did not mount its sender line")
 		expect(top.rect.w).toBe(column.rect.w)

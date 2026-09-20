@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Table control Phase A tests: column alignment via shared dims,
 -- variable row heights, headerless mode, selection single/multi through the
 -- activate path + keyboard focus, custom cells with live nested controls,
@@ -12,6 +13,7 @@ local Facet = require("../src")
 local table_control = require("../src/controls/table")
 local snapshot = require("../src/themes/snapshot")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local RACERS = {
 	{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -29,7 +31,7 @@ local function hasColumnCells(columns: { any }): boolean
 end
 
 local function world(spec: any)
-	local core = spec.core or Facet.newCore()
+	local core = spec.core or harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
@@ -46,8 +48,8 @@ local function world(spec: any)
 	-- decayed to). Reorder's own drag math never reads velocity at all,
 	-- which is why no table.spec.luau test needed this before row_actions
 	-- rode the same harness.
-	local pres = Facet.newPresenter(core, env, adapter, system, if spec.now then { now = spec.now } else nil)
-	local rows = core:signal(spec.rowsOverride or RACERS)
+	local pres = harness.newPresenter(core, env, adapter, system, if spec.now then { now = spec.now } else nil)
+	local rows = Compose.cell(spec.rowsOverride or RACERS)
 	local tbl = table_control.build(Facet, core, {
 		id = "Racers",
 		columns = spec.columns or {
@@ -66,9 +68,11 @@ local function world(spec: any)
 				or (spec.columns and hasColumnCells(spec.columns))
 			then spec.cellFor
 			else function(columnId, item)
-				return Facet.UI.Text({
+				return harness.UI.Text({
 					id = "Value",
-					text = if columnId == "name" then item.name else tostring(item.laps),
+					text = function(use)
+						return if columnId == "name" then use(item).name else tostring(use(item).laps)
+					end,
 					textSize = 16,
 				})
 			end,
@@ -94,7 +98,7 @@ local function world(spec: any)
 		env = if spec.passEnv == false then nil else env,
 		height = spec.height,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 	local handle = pres.present(screen, {
 		-- this legacy harness drives the table's FLAT-ring story (grip in the
 		-- ring, wrap-around, shift+Navigate reorder); it opts out of the
@@ -121,11 +125,11 @@ end
 
 -- Phase B: the table root is an Anchor (overlay host for resize/drop guides)
 -- with the content under /Main — paths carry that segment
-local function rowHitPath(version: number, key: string): string
-	return `/S/Racers/Main/Body/Rows/[{key}@{version}]/Row/Hit`
+local function rowHitPath(key: string): string
+	return `/S/Racers/Main/Body/Rows/[{key}]/Row/Hit`
 end
-local function cellPath(version: number, key: string, columnId: string): string
-	return `/S/Racers/Main/Body/Rows/[{key}@{version}]/Row/Cells/Cell-{columnId}`
+local function cellPath(key: string, columnId: string): string
+	return `/S/Racers/Main/Body/Rows/[{key}]/Row/Cells/Cell-{columnId}`
 end
 
 describe("Table: layout", function()
@@ -135,8 +139,8 @@ describe("Table: layout", function()
 		local headerLaps = adapter.node("/S/Racers/Main/Header/Head-laps").rect
 		expect(headerLaps.w).toBe(64)
 		for _, racer in RACERS do
-			local nameCell = adapter.node(cellPath(0, racer.id, "name")).rect
-			local lapsCell = adapter.node(cellPath(0, racer.id, "laps")).rect
+			local nameCell = adapter.node(cellPath(racer.id, "name")).rect
+			local lapsCell = adapter.node(cellPath(racer.id, "laps")).rect
 			expect(nameCell.x).toBe(headerName.x)
 			expect(nameCell.w).toBe(headerName.w)
 			expect(lapsCell.x).toBe(headerLaps.x)
@@ -180,7 +184,7 @@ describe("Table: layout", function()
 
 	it("columns stay aligned in edit mode: the ≡ gutter", function()
 		local _, adapter = editAlignmentWorld({ reorderable = true, onReorder = function() end })
-		expectAligned(adapter, cellPath(0, "razz", "name"))
+		expectAligned(adapter, cellPath("razz", "name"))
 	end)
 
 	-- ...and the ◉/◯ half of the same gutter, on the OTHER route into edit mode:
@@ -188,9 +192,9 @@ describe("Table: layout", function()
 	-- without it this arm would assert alignment on a table that never insets at
 	-- all — a case that cannot fail. `world` forwards `spec.editing` verbatim.
 	it("columns stay aligned in edit mode: the selection gutter", function()
-		local core = Facet.newCore()
-		local _, adapter = editAlignmentWorld({ core = core, selection = "multi", editing = core:signal(false) })
-		expectAligned(adapter, cellPath(0, "razz", "name"))
+		local core = harness.newCore()
+		local _, adapter = editAlignmentWorld({ core = core, selection = "multi", editing = Compose.cell(false) })
+		expectAligned(adapter, cellPath("razz", "name"))
 	end)
 
 	--[[ THE THIRD ARM — a row WRAPPED by `row_actions` for its destructive action.
@@ -227,64 +231,39 @@ describe("Table: layout", function()
 				}
 			end,
 		})
-		expectAligned(adapter, "/S/Racers/Main/Body/Rows/[razz@0]/RowActions-razz/Content/Row/Cells/Cell-name")
+		expectAligned(adapter, "/S/Racers/Main/Body/Rows/[razz]/RowActions-razz/Content/Row/Cells/Cell-name")
 	end)
 
-	--[[ THE SUBSCRIPTION ITSELF, NOT JUST THE NUMBER THE ARM ABOVE CHECKS
-		(review finding on the fix above, FIX-SHOW round 2). `noteEditGutter`'s
-		`core:observe(source, ...)` (`controls/table_rows.luau`) was never wrapped
-		in `scope:own`, unlike every other `core:observe` call site in that file's
-		pair. Its hand-rolled `unbindEditGutter` releases the PREVIOUS row's
-		observer on every rebuild — so churn alone never leaked, which is why the
-		"row churn + dispose are registry-neutral" case elsewhere in this file
-		never caught it — but the LAST wrapped row built has no second owner:
-		`tbl.dispose()` tears down `rowActionsByKey` (each row_actions instance's
-		OWN independent scope) and then Table's own `scope`, and neither ever held
-		this one. `9c76f99` moved `editGutterPx`'s publication outside
-		`if isHosted`, so this is live at HEAD for any DISPOSED table with a
-		destructive `rowActions` entry.
-
-		WHY THIS CASE BUILDS ITS OWN CORE rather than taking `world()`'s default
-		`Facet.newCore()` (measured, not assumed — see the investigation this case
-		is written from). `src/core/custom.luau` — the production default — makes a
-		disposed signal/memo's OWN `node.dispose()` walk ITS OWN `node.observers`
-		and decrement `counts.observers` for every one of them (its own comment:
-		"live observers die with their node... their unsubscribe becomes a
-		no-op"). `row_actions.luau` owns `editGutterPx` in ITS OWN scope, and
-		`tbl.dispose()` always disposes every `rowActionsByKey` entry before
-		Table's own `scope` — so under `custom`, THIS SPECIFIC ordering-dependent
-		bug is invisible to `counts.observers` today, on every reachable path
-		through the public API, fix or no fix (proved by running this exact case
-		on `Facet.newCore()`: identical counters either way). `bench/cores/
-		imperative.luau` — the OTHER conforming core this repo keeps as a
-		development fixture and runs the SAME control suite against
-		(`tests/conformance/cli.luau <imperative>`) — makes no such promise: an
-		observer released only through the disposer
-		`core:observe` returned is the WHOLE contract (`core/contract.luau`), and
-		nothing else may stand in for it. `table_rows.luau`'s own idiom
-		(`scope:own(core:observe(...))`, all seven other call sites) is written to
-		hold under EITHER core; this one case is the one place in the framework
-		that already needs it not to matter which. Using `imperative` here is what
-		makes `counts.observers` the load-bearing diagnostic the fix requirement
-		names, instead of a check a production-core run cannot fail.
-
-		ONE ROW, NOT THREE, and a FULL teardown (`tbl.dispose()` AND `handle.root.
-		dispose()`, releasing the mount tree `tbl.dispose()` alone does not touch)
-		— both chosen to make the arithmetic exact rather than approximate.
-		Measured: after a full teardown, CONTROL (no `rowActions`, so nothing for
-		`noteEditGutter` to ever subscribe to) and SUBJECT (one destructive row)
-		land on byte-identical `scopes`/`signals`/`memos`/`effects` in every run,
-		fixed or not — `row_actions.luau`'s own disposal is clean. `observers`
-		alone carries a flat +1 over CONTROL that is there in BOTH cases (a live
-		per-wrapped-row registration this fix does not touch or own — out of
-		scope for this file, unrelated to `editGutterPx`) PLUS this bug's own +1,
-		present only on the unfixed source. The assertion below is exactly that
-		arithmetic: `CONTROL + 1` on the fix, `CONTROL + 2` on HEAD before it. ]]
+	-- Count explicit releases, even when native source disposal independently
+	-- stops delivery. This catches a missing scope:own on the edit-gutter watch
+	-- without depending on an alternate reactive runtime's bookkeeping.
 	it("disposing a table with a destructive rowActions entry frees the edit-gutter observer", function()
-		local imperativeCore = require("../bench/cores/imperative")
+		--[[ Count the change listeners the surface still holds, by decorating the
+			application owner's own `watchStatic`. That is where every Facet change
+			listener is created now, so an unreleased one shows up here. ]]
+		local function trackedCore()
+			local core = harness.newCore()
+			local watchStatic = core.owner.watchStatic
+			local outstanding = 0
+			core.owner.watchStatic = function(source, callback, afterDispose)
+				local stop = watchStatic(source, callback, afterDispose)
+				outstanding += 1
+				local released = false
+				return function()
+					if not released then
+						released = true
+						outstanding -= 1
+					end
+					stop()
+				end
+			end
+			return core, function()
+				return outstanding
+			end
+		end
 		local ONE_RACER = { { id = "razz", name = "Razz Raccoon", laps = 3 } }
 
-		local controlCore = imperativeCore.new()
+		local controlCore, controlOutstanding = trackedCore()
 		local _, _, _, controlTbl, _, controlHandle = world({
 			core = controlCore,
 			reorderable = true,
@@ -293,9 +272,9 @@ describe("Table: layout", function()
 		})
 		controlTbl.dispose()
 		controlHandle.root.dispose()
-		local controlAfter = controlCore:counters()
+		local controlAfter = controlCore.owner.size()
 
-		local subjectCore = imperativeCore.new()
+		local subjectCore, subjectOutstanding = trackedCore()
 		local _, _, subjectPres, subjectTbl, _, subjectHandle = world({
 			core = subjectCore,
 			reorderable = true,
@@ -313,13 +292,13 @@ describe("Table: layout", function()
 		subjectPres.refresh()
 		subjectTbl.dispose()
 		subjectHandle.root.dispose()
-		local subjectAfter = subjectCore:counters()
+		local subjectAfter = subjectCore.owner.size()
 
-		expect(subjectAfter.scopes).toBe(controlAfter.scopes)
-		expect(subjectAfter.signals).toBe(controlAfter.signals)
-		expect(subjectAfter.memos).toBe(controlAfter.memos)
-		expect(subjectAfter.effects).toBe(controlAfter.effects)
-		expect(subjectAfter.observers).toBe(controlAfter.observers + 1)
+		--[[ THE DESTRUCTIVE GUTTER COSTS EXACTLY ONE MORE OF EACH, and nothing
+			beyond it: one change listener the control does not open, and the one
+			registration that listener is. A missing release shows up as more. ]]
+		expect(subjectOutstanding()).toBe(controlOutstanding() + 1)
+		expect(subjectAfter).toBe(controlAfter + 1)
 	end)
 
 	it("variable row heights position rows correctly", function()
@@ -329,9 +308,9 @@ describe("Table: layout", function()
 			end,
 			header = false,
 		})
-		local razz = adapter.node(rowHitPath(0, "razz")).rect
-		local bolt = adapter.node(rowHitPath(0, "bolt")).rect
-		local josh = adapter.node(rowHitPath(0, "josh")).rect
+		local razz = adapter.node(rowHitPath("razz")).rect
+		local bolt = adapter.node(rowHitPath("bolt")).rect
+		local josh = adapter.node(rowHitPath("josh")).rect
 		expect(razz.h).toBe(40)
 		expect(josh.h).toBe(72)
 		expect(bolt.y).toBe(razz.y + 40)
@@ -341,7 +320,7 @@ describe("Table: layout", function()
 	it("headerless mode renders no header row (the racer-list shape)", function()
 		local _, adapter = world({ header = false })
 		expect(adapter.node("/S/Racers/Main/Header")).toBe(nil)
-		expect(adapter.node(rowHitPath(0, "razz")) ~= nil).toBe(true)
+		expect(adapter.node(rowHitPath("razz")) ~= nil).toBe(true)
 	end)
 end)
 
@@ -349,45 +328,45 @@ describe("Table: selection", function()
 	it("single: activate selects exactly one; selection survives without remount", function()
 		local _, adapter, pres, tbl, _, handle, system = world({ selection = "single" })
 		local runsBefore = handle.root.counters().factoryRuns
-		adapter.tap(rowHitPath(0, "bolt"))
+		adapter.tap(rowHitPath("bolt"))
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
-		expect(adapter.node(rowHitPath(0, "bolt")).props.selected).toBe(true)
-		adapter.tap(rowHitPath(0, "josh"))
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
+		expect(adapter.node(rowHitPath("bolt")).props.selected).toBe(true)
+		adapter.tap(rowHitPath("josh"))
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().bolt).toBe(nil) -- single: replaced
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
-		expect(adapter.node(rowHitPath(0, "bolt")).props.selected).toBe(false)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(nil) -- single: replaced
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
+		expect(adapter.node(rowHitPath("bolt")).props.selected).toBe(false)
 		expect(handle.root.counters().factoryRuns).toBe(runsBefore) -- state-driven
 	end)
 
 	it("multi: activates toggle additively (tap idiom)", function()
 		local _, adapter, pres, tbl = world({ selection = "multi" })
-		adapter.tap(rowHitPath(0, "razz"))
-		adapter.tap(rowHitPath(0, "josh"))
+		adapter.tap(rowHitPath("razz"))
+		adapter.tap(rowHitPath("josh"))
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
-		adapter.tap(rowHitPath(0, "razz")) -- toggle off
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
+		adapter.tap(rowHitPath("razz")) -- toggle off
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(nil)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 
 	it("keyboard: focus walks row hits and Activate selects", function()
 		local _, _, pres, tbl, _, _, system = world({ selection = "single" })
 		-- THE COLUMN HANDLE LEADS (director 2026-07-29): a resizable column's header
 		-- is its single focus stop, and the header precedes the rows.
-		expect(pres.focus.focused:get()).toBe("/S/Racers/Main/Header/Head-name/Column")
+		expect(pres.focus.focused:peek()).toBe("/S/Racers/Main/Header/Head-name/Column")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "razz"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("razz"))
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "bolt"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("bolt"))
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
 	end)
 end)
 
@@ -397,30 +376,43 @@ describe("Table: custom cells and resize model", function()
 			header = false,
 			cellFor = function(columnId, item)
 				if columnId == "name" then
-					return Facet.UI.Toggle({ id = "Fav", label = item.name, value = false })
+					return harness.UI.Toggle({
+						id = "Fav",
+						label = function(use)
+							return use(item).name
+						end,
+						value = false,
+					})
 				end
-				return Facet.UI.Text({ id = "Value", text = tostring(item.laps), textSize = 16 })
+				return harness.UI.Text({
+					id = "Value",
+					text = function(use)
+						return tostring(use(item).laps)
+					end,
+					textSize = 16,
+				})
 			end,
 		})
-		local favPath = cellPath(0, "razz", "name") .. "/Fav"
+		local favPath = cellPath("razz", "name") .. "/Fav"
 		expect(adapter.node(favPath) ~= nil).toBe(true)
 		expect(adapter.node(favPath).props.label).toBe("Razz Raccoon")
 		-- the nested control keeps its own tap handler (renders above the hit)
 		expect(adapter.node(favPath).onActivate ~= nil).toBe(true)
 	end)
 
-	it("setColumnWidth commits a new width to every row and the header", function()
+	it("setColumnWidth updates dimensions without replacing mounted rows", function()
 		local _, adapter, pres, tbl = world({})
+		local originalHit = adapter.node(rowHitPath("razz"))
 		tbl.api.setColumnWidth("name", 200)
 		pres.refresh()
-		-- version bumped: rows remounted under @1 keys
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(200)
-		expect(adapter.node(cellPath(1, "bolt", "name")).rect.w).toBe(200)
-		expect(adapter.node(rowHitPath(0, "razz"))).toBe(nil) -- old rows gone
+		-- The same row instances receive the committed width.
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(200)
+		expect(adapter.node(cellPath("bolt", "name")).rect.w).toBe(200)
+		expect(adapter.node(rowHitPath("razz"))).toBe(originalHit)
 		-- non-resizable columns refuse
 		tbl.api.setColumnWidth("laps", 200)
 		pres.refresh()
-		expect(adapter.node(cellPath(1, "razz", "laps")).rect.w).toBe(64)
+		expect(adapter.node(cellPath("razz", "laps")).rect.w).toBe(64)
 	end)
 
 	--[[ DIR-4 (director device round 2026-08-17): resize Name and Artist wide in
@@ -731,8 +723,8 @@ describe("Table: custom cells and resize model", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 600 })
 		pres.refresh()
 		pres.refresh() -- the measurement lands on the solve, the floor on the next
-		local laps = adapter.node(cellPath(0, "razz", "laps"))
-		local name = adapter.node(cellPath(0, "razz", "name"))
+		local laps = adapter.node(cellPath("razz", "laps"))
+		local name = adapter.node(cellPath("razz", "name"))
 		expect(laps ~= nil and name ~= nil).toBe(true)
 		expect(laps.rect.w >= 100).toBe(true)
 		-- ...and the pin did not turn the table into two equal columns: the survivor
@@ -767,17 +759,17 @@ describe("Table: custom cells and resize model", function()
 		})
 		tbl.api.setColumnWidth("name", 600)
 		pres.refresh()
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(600)
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(600)
 
 		-- THE ROTATION: the 800px landscape window becomes a 393px portrait one
 		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 800 })
 		pres.refresh()
 		pres.refresh() -- the measurement lands on the solve, the clamp on the next
-		local clamped = adapter.node(cellPath(1, "razz", "name")).rect.w
+		local clamped = adapter.node(cellPath("razz", "name")).rect.w
 		expect(clamped < 600).toBe(true)
 		expect(clamped >= 60).toBe(true)
 		-- the LOCKED column is still on screen at its declared width
-		local laps = adapter.node(cellPath(1, "razz", "laps"))
+		local laps = adapter.node(cellPath("razz", "laps"))
 		expect(laps.rect.w).toBe(64)
 		expect(laps.rect.x + laps.rect.w <= 393 + 0.001).toBe(true)
 		-- ...and the header divides the SAME width as the cells
@@ -787,8 +779,8 @@ describe("Table: custom cells and resize model", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		pres.refresh()
 		pres.refresh()
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(600)
-		expect(tbl.api.columnWidthOverrides:get().name).toBe(600)
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(600)
+		expect(tbl.api.columnWidthOverrides:peek().name).toBe(600)
 	end)
 
 	it("the clamp reserves the row's own GAP, so the last column still fits (NEW-3)", function()
@@ -821,8 +813,8 @@ describe("Table: custom cells and resize model", function()
 		pres.refresh()
 		pres.refresh()
 
-		local laps = adapter.node(cellPath(1, "razz", "laps"))
-		local name = adapter.node(cellPath(1, "razz", "name"))
+		local laps = adapter.node(cellPath("razz", "laps"))
+		local name = adapter.node(cellPath("razz", "name"))
 		expect(laps ~= nil and name ~= nil).toBe(true)
 		-- the gap really is spent between them — otherwise this proves nothing
 		expect(math.abs((laps.rect.x - (name.rect.x + name.rect.w)) - GAP) <= 0.001).toBe(true)
@@ -855,7 +847,7 @@ describe("Table: custom cells and resize model", function()
 		expect(crushed.b).toBe(40)
 	end)
 
-	it("remounted rows keep hits painted beneath cell content (deterministic z-order)", function()
+	it("resized rows keep hits painted beneath cell content (deterministic z-order)", function()
 		-- the flat sibling render relies on paint order; creation order is NOT
 		-- deterministic across a structural sync, so z-order must be assigned
 		-- explicitly from the tree walk (live-found defect, 2026-07-19)
@@ -863,8 +855,8 @@ describe("Table: custom cells and resize model", function()
 		tbl.api.setColumnWidth("name", 200)
 		pres.refresh()
 		for _, key in { "razz", "bolt", "josh" } do
-			local hit = adapter.node(rowHitPath(1, key))
-			local value = adapter.node(cellPath(1, key, "name") .. "/Value")
+			local hit = adapter.node(rowHitPath(key))
+			local value = adapter.node(cellPath(key, "name") .. "/Value")
 			expect(hit.z ~= nil).toBe(true)
 			expect(value.z ~= nil).toBe(true)
 			expect(hit.z < value.z).toBe(true)
@@ -873,24 +865,24 @@ describe("Table: custom cells and resize model", function()
 
 	it("removed rows are pruned from the selection and anchor", function()
 		local _, adapter, pres, tbl, rows = world({ selection = "multi", header = false })
-		adapter.tap(rowHitPath(0, "razz"))
-		adapter.tap(rowHitPath(0, "josh"))
+		adapter.tap(rowHitPath("razz"))
+		adapter.tap(rowHitPath("josh"))
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
 		rows:set({ RACERS[2] }) -- only bolt survives
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(nil)
-		expect(tbl.api.selectedKeys:get().josh).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(nil)
 	end)
 
 	it("table ids containing Lua pattern magic still route rows and grips", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(RACERS)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(RACERS)
 		local tbl = table_control.build(Facet, core, {
 			id = "results-list", -- '-' is pattern magic
 			columns = {
@@ -907,12 +899,18 @@ describe("Table: custom cells and resize model", function()
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return harness.UI.Text({
+					id = "Value",
+					text = function(use)
+						return use(item).name
+					end,
+					textSize = 16,
+				})
 			end,
 			rowHeight = 40,
 			selection = "single",
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen, {
 			onActivate = function(path, meta)
 				tbl.api.handleActivate(path, meta)
@@ -922,40 +920,34 @@ describe("Table: custom cells and resize model", function()
 			end,
 		})
 		pres.refresh()
-		adapter.tap("/S/results-list/Main/Body/Rows/[razz@0]/Row/Hit")
+		adapter.tap("/S/results-list/Main/Body/Rows/[razz]/Row/Hit")
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
 		tbl.dispose()
 	end)
 
-	it("row churn + dispose are registry-neutral and dumps deterministic", function()
+	it("row churn + dispose are registry-neutral", function()
 		local core, adapter, pres, tbl, rows, handle = world({ header = false })
-		local d1 = serde.encode("json", handle.root.dump(), true)
-		expect(d1).toBe(serde.encode("json", handle.root.dump(), true))
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		for i = 1, 10 do
 			rows:set({ RACERS[1], RACERS[2], RACERS[3], { id = `extra{i}`, name = "X", laps = 0 } })
 			pres.refresh()
 			rows:set(RACERS)
 			pres.refresh()
 		end
-		local after = core:counters()
-		for k, v in baseline :: any do
-			expect((after :: any)[k]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
-	-- CTRL-08a (api-architecture-consistency F-25). Every `.dump()` in this file
-	-- was `handle.root.dump()` — the MOUNT tree — so the CONTROL's own dump, the
-	-- largest one in the library, was never exercised at all and its schema
-	-- string appeared nowhere in the repo.
+	-- CTRL-08a (api-architecture-consistency F-25). The CONTROL's own dump is the
+	-- largest one in the library; this pins its determinism and its schema string.
 	it("the CONTROL dump is deterministic and carries its schema string", function()
 		local _, adapter, pres, tbl = world({})
 		expect(tbl.dump().schema).toBe("facet-table-dump/1")
 		local d1 = serde.encode("json", tbl.dump(), true)
 		expect(d1).toBe(serde.encode("json", tbl.dump(), true))
 		-- ...and it stays deterministic after live interaction moved the state
-		adapter.tap(rowHitPath(0, "razz"))
+		adapter.tap(rowHitPath("razz"))
 		pres.refresh()
 		local d2 = serde.encode("json", tbl.dump(), true)
 		expect(d2).toBe(serde.encode("json", tbl.dump(), true))
@@ -972,7 +964,7 @@ describe("Table: custom cells and resize model", function()
 		expect(d.grabbedKey).toBeNil()
 		expect(d.editing).toBe(false)
 		expect(d.scrollTop).toBe(0)
-		adapter.tap(rowHitPath(0, "razz"))
+		adapter.tap(rowHitPath("razz"))
 		pres.refresh()
 		expect(tbl.dump().selectedKeys).toEqual({ "razz" })
 		local _ = core
@@ -1014,8 +1006,8 @@ describe("Table: column-owned columns (director round 5)", function()
 				{ id = "laps", title = "Laps", width = 64, alignment = { h = "trailing" } },
 			},
 		})
-		local lapsCell = adapter.node(cellPath(0, "razz", "laps"))
-		local lapsText = adapter.node(cellPath(0, "razz", "laps") .. "/Value")
+		local lapsCell = adapter.node(cellPath("razz", "laps"))
+		local lapsText = adapter.node(cellPath("razz", "laps") .. "/Value")
 		-- trailing: content hugs the cell's right inset (cellPadding 8)
 		expect(lapsText.rect.x + lapsText.rect.w).toBe(lapsCell.rect.x + lapsCell.rect.w - 8)
 		-- vertical center stays the default
@@ -1023,8 +1015,8 @@ describe("Table: column-owned columns (director round 5)", function()
 		local bottomGap = (lapsCell.rect.y + lapsCell.rect.h) - (lapsText.rect.y + lapsText.rect.h)
 		expect(math.abs(topGap - bottomGap) <= 1).toBe(true)
 		-- leading (default) column content keeps the left inset
-		local nameText = adapter.node(cellPath(0, "razz", "name") .. "/Value")
-		expect(nameText.rect.x).toBe(adapter.node(cellPath(0, "razz", "name")).rect.x + 8)
+		local nameText = adapter.node(cellPath("razz", "name") .. "/Value")
+		expect(nameText.rect.x).toBe(adapter.node(cellPath("razz", "name")).rect.x + 8)
 	end)
 
 	-- api-architecture-consistency F-27: `column.alignment` was honoured on the
@@ -1064,8 +1056,8 @@ describe("Table: column-owned columns (director round 5)", function()
 		clearance alone), and it is paid by a LEADING title too. The leading half is
 		asserted below, since it was the case with no coverage at all. ]]
 	it("a trailing title on a SORTABLE column clears the sort mark", function()
-		local core = Facet.newCore()
-		local sortOrder = core:signal({ column = "laps", ascending = true })
+		local core = harness.newCore()
+		local sortOrder = Compose.cell({ column = "laps", ascending = true })
 		local _, adapter = world({
 			core = core,
 			sortOrder = sortOrder,
@@ -1116,8 +1108,8 @@ describe("Table: column-owned columns (director round 5)", function()
 	-- localization case, which this asserts by measuring the box rather than by
 	-- hoping the corpus contains a long enough word.
 	it("a LEADING title on a sortable column reserves the mark's room too", function()
-		local core = Facet.newCore()
-		local sortOrder = core:signal({ column = "laps", ascending = true })
+		local core = harness.newCore()
+		local sortOrder = Compose.cell({ column = "laps", ascending = true })
 		local _, adapter = world({
 			core = core,
 			sortOrder = sortOrder,
@@ -1155,7 +1147,13 @@ describe("Table: column-owned columns (director round 5)", function()
 					id = "name",
 					width = { type = "fill", weight = 1 },
 					cell = function(item)
-						return Facet.UI.Text({ id = "Custom", text = item.name, textSize = 15 })
+						return harness.UI.Text({
+							id = "Custom",
+							text = function(use)
+								return use(item).name
+							end,
+							textSize = 15,
+						})
 					end,
 				},
 				{
@@ -1167,8 +1165,8 @@ describe("Table: column-owned columns (director round 5)", function()
 				},
 			},
 		})
-		expect(adapter.node(cellPath(0, "razz", "name") .. "/Custom").props.text).toBe("Razz Raccoon")
-		expect(adapter.node(cellPath(0, "razz", "laps") .. "/Value").props.text).toBe("3")
+		expect(adapter.node(cellPath("razz", "name") .. "/Custom").props.text).toBe("Razz Raccoon")
+		expect(adapter.node(cellPath("razz", "laps") .. "/Value").props.text).toBe("3")
 	end)
 
 	it("width sugar: a number is fixed px; {min, ideal, max} is a minMax band", function()
@@ -1179,7 +1177,7 @@ describe("Table: column-owned columns (director round 5)", function()
 				{ id = "laps", width = { min = 50, ideal = 80, max = 100 } },
 			},
 		})
-		expect(adapter.node(cellPath(0, "razz", "laps")).rect.w).toBe(80)
+		expect(adapter.node(cellPath("razz", "laps")).rect.w).toBe(80)
 	end)
 
 	it("partial width sugar defaults the band's preferred ({min} alone is valid)", function()
@@ -1190,16 +1188,16 @@ describe("Table: column-owned columns (director round 5)", function()
 				{ id = "laps", width = { min = 50 } },
 			},
 		})
-		expect(adapter.node(cellPath(0, "razz", "laps")).rect.w).toBe(50)
+		expect(adapter.node(cellPath("razz", "laps")).rect.w).toBe(50)
 	end)
 
 	it("a content-less column asserts AT BUILD, even with zero rows; ids must be path-safe", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local okEmpty = pcall(function()
 			table_control.build(Facet, core, {
 				id = "Bare",
 				columns = { { id = "name", width = { type = "fill", weight = 1 } } },
-				rows = core:signal({}),
+				rows = Compose.cell({}),
 				key = function(item)
 					return item.id
 				end,
@@ -1215,11 +1213,11 @@ describe("Table: column-owned columns (director round 5)", function()
 						id = "a/b",
 						width = { type = "fill", weight = 1 },
 						cell = function()
-							return Facet.UI.Text({ id = "X", text = "", textSize = 12 })
+							return harness.UI.Text({ id = "X", text = "", textSize = 12 })
 						end,
 					},
 				},
-				rows = core:signal({}),
+				rows = Compose.cell({}),
 				key = function(item)
 					return item.id
 				end,
@@ -1237,7 +1235,13 @@ describe("Table: column-owned columns (director round 5)", function()
 					id = "name",
 					width = { type = "fill", weight = 1 },
 					cell = function(item)
-						return Facet.UI.Text({ id = "Custom", text = item.name, textSize = 15 })
+						return harness.UI.Text({
+							id = "Custom",
+							text = function(use)
+								return use(item).name
+							end,
+							textSize = 15,
+						})
 					end,
 				},
 				{
@@ -1249,12 +1253,12 @@ describe("Table: column-owned columns (director round 5)", function()
 				},
 			},
 		})
-		expect(adapter.node(cellPath(0, "razz", "laps") .. "/Value").props.text).toBe("3")
+		expect(adapter.node(cellPath("razz", "laps") .. "/Value").props.text).toBe("3")
 	end)
 
 	it("header taps cycle the owner-held sortOrder; the table never sorts the data", function()
-		local core = Facet.newCore()
-		local sortOrder = core:signal(nil :: any)
+		local core = harness.newCore()
+		local sortOrder = Compose.cell(nil :: any)
 		local _, adapter, pres, tbl, rows = world({
 			core = core,
 			sortOrder = sortOrder,
@@ -1265,7 +1269,13 @@ describe("Table: column-owned columns (director round 5)", function()
 					width = { type = "fill", weight = 1 },
 					-- a `cell` column WITHOUT sortable=true stays out of sorting
 					cell = function(item)
-						return Facet.UI.Text({ id = "Custom", text = item.name, textSize = 16 })
+						return harness.UI.Text({
+							id = "Custom",
+							text = function(use)
+								return use(item).name
+							end,
+							textSize = 16,
+						})
 					end,
 				},
 				{
@@ -1280,18 +1290,18 @@ describe("Table: column-owned columns (director round 5)", function()
 		})
 		local sortHit = "/S/Racers/Main/Header/Head-laps/Column"
 		expect(adapter.node(sortHit) ~= nil).toBe(true)
-		local razzYBefore = adapter.node(rowHitPath(0, "razz")).rect.y
+		local razzYBefore = adapter.node(rowHitPath("razz")).rect.y
 		adapter.tap(sortHit, { pointer = "mouse" })
 		pres.refresh()
-		expect(sortOrder:get().column).toBe("laps")
-		expect(sortOrder:get().ascending).toBe(true)
+		expect(sortOrder:peek().column).toBe("laps")
+		expect(sortOrder:peek().ascending).toBe(true)
 		expect(adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").props.text).toBe("▲")
 		adapter.tap(sortHit, { pointer = "mouse" })
 		pres.refresh()
-		expect(sortOrder:get().ascending).toBe(false)
+		expect(sortOrder:peek().ascending).toBe(false)
 		expect(adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").props.text).toBe("▼")
 		-- The DATA OWNER applies the sort — rows untouched
-		expect(adapter.node(rowHitPath(0, "razz")).rect.y).toBe(razzYBefore)
+		expect(adapter.node(rowHitPath("razz")).rect.y).toBe(razzYBefore)
 		-- non-sortable columns expose no sort hit
 		expect(adapter.node("/S/Racers/Main/Header/Head-name/Column")).toBe(nil)
 		-- INVERTED (ui_todo §0; artifacts/input-adaptation-audit/wp-b-composites.md
@@ -1303,7 +1313,7 @@ describe("Table: column-owned columns (director round 5)", function()
 		-- (navigationGroups=false) it is the first focusable in document order
 		-- (header precedes the body), so initial focus lands on it. The grouped
 		-- "headers" NavigationGroup path is proven device-true in table_input.spec.
-		expect(pres.focus.focused:get()).toBe(sortHit)
+		expect(pres.focus.focused:peek()).toBe(sortHit)
 	end)
 end)
 
@@ -1319,12 +1329,12 @@ describe("Table: row gaps (director round 4 — cards must not touch)", function
 			end,
 		})
 		-- rows at 40px + 4px gaps: razz 0, bolt 44, josh 88
-		expect(adapter.node(rowHitPath(0, "razz")).rect.y).toBe(0)
-		expect(adapter.node(rowHitPath(0, "bolt")).rect.y).toBe(44)
-		expect(adapter.node(rowHitPath(0, "josh")).rect.y).toBe(88)
+		expect(adapter.node(rowHitPath("razz")).rect.y).toBe(0)
+		expect(adapter.node(rowHitPath("bolt")).rect.y).toBe(44)
+		expect(adapter.node(rowHitPath("josh")).rect.y).toBe(88)
 		-- drag razz below bolt's midpoint (44+20=64): slot 2 full-list,
 		-- indicator centered in the gap after bolt (44+40+2 = 86)
-		adapter.pointerDown(rowHitPath(0, "razz"), 100, 20)
+		adapter.pointerDown(rowHitPath("razz"), 100, 20)
 		adapter.pointerMove(100, 70)
 		pres.refresh()
 		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(86)
@@ -1355,8 +1365,8 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		-- (the table jump read badly) — the ghost chip + drop line carry the
 		-- "picked up" read; the row stays until the drop commits
 		local reorders, adapter, pres, _, _, _, core = dragWorld()
-		local baseline = core:counters()
-		local razzPath = rowHitPath(0, "razz")
+		local baseline = core.owner.size()
+		local razzPath = rowHitPath("razz")
 		adapter.pointerDown(razzPath, 100, 20)
 		adapter.pointerMove(100, 24) -- below the drag threshold
 		pres.refresh()
@@ -1365,7 +1375,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		pres.refresh()
 		-- the origin row STAYS in the flow
 		expect(adapter.node(razzPath) ~= nil).toBe(true)
-		expect(adapter.node(rowHitPath(0, "bolt")).rect.y).toBe(40)
+		expect(adapter.node(rowHitPath("bolt")).rect.y).toBe(40)
 		-- ghost + indicator present; y=90 sits past razz(20) and bolt(60) mids
 		-- single-row drag: exactly one chip, label on the front chip
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost/Chip1/Label").props.text).toBe("Razz Raccoon")
@@ -1381,10 +1391,8 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost")).toBe(nil)
 		expect(adapter.node("/S/Racers/DropWhen/then/DropLine")).toBe(nil)
 		pres.refresh()
-		local after = core:counters()
-		for k, v in baseline :: any do
-			expect((after :: any)[k]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	it("dragging a selected row drags the WHOLE selection as a block (director example)", function()
@@ -1412,7 +1420,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 			end,
 		})
 		local function hit(key: string): string
-			return `/S/Racers/Main/Body/Rows/[{key}@0]/Row/Hit`
+			return `/S/Racers/Main/Body/Rows/[{key}]/Row/Hit`
 		end
 		adapter.tap(hit("r1"), { pointer = "mouse" })
 		adapter.tap(hit("r3"), { pointer = "mouse", toggle = true })
@@ -1482,7 +1490,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 			end,
 		})
 		local function hit(key: string): string
-			return `/S/Racers/Main/Body/Rows/[{key}@0]/Row/Hit`
+			return `/S/Racers/Main/Body/Rows/[{key}]/Row/Hit`
 		end
 		for _, key in { "r1", "r2", "r3", "r4", "r5" } do
 			adapter.tap(hit(key), { pointer = "mouse", toggle = true })
@@ -1498,25 +1506,25 @@ describe("Table: row drag-and-drop (Phase B)", function()
 
 	it("dragging an UNSELECTED row drags only that row", function()
 		local reorders, adapter, pres, tbl = dragWorld()
-		adapter.tap(rowHitPath(0, "josh"), { pointer = "mouse" }) -- select josh
+		adapter.tap(rowHitPath("josh"), { pointer = "mouse" }) -- select josh
 		pres.refresh()
-		adapter.pointerDown(rowHitPath(0, "razz"), 100, 20) -- drag razz (unselected)
+		adapter.pointerDown(rowHitPath("razz"), 100, 20) -- drag razz (unselected)
 		adapter.pointerMove(100, 90)
 		pres.refresh()
 		adapter.pointerUp(100, 90)
 		expect(#reorders).toBe(1)
 		expect(#reorders[1].keys).toBe(1)
 		expect(reorders[1].keys[1]).toBe("razz")
-		expect(tbl.api.selectedKeys:get().josh).toBe(true) -- selection untouched
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true) -- selection untouched
 	end)
 
 	it("a group drop that reproduces the current order commits nothing", function()
 		local reorders, adapter, pres, tbl = dragWorld()
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "mouse" })
-		adapter.tap(rowHitPath(0, "bolt"), { pointer = "mouse", toggle = true })
+		adapter.tap(rowHitPath("razz"), { pointer = "mouse" })
+		adapter.tap(rowHitPath("bolt"), { pointer = "mouse", toggle = true })
 		pres.refresh()
 		-- dragging the razz+bolt block to the very top is a no-op
-		adapter.pointerDown(rowHitPath(0, "razz"), 100, 20)
+		adapter.pointerDown(rowHitPath("razz"), 100, 20)
 		adapter.pointerMove(100, 10)
 		pres.refresh()
 		adapter.pointerUp(100, 10)
@@ -1526,7 +1534,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 
 	it("dropping a row back onto itself commits nothing", function()
 		local reorders, adapter, pres = dragWorld()
-		adapter.pointerDown(rowHitPath(0, "bolt"), 100, 60)
+		adapter.pointerDown(rowHitPath("bolt"), 100, 60)
 		adapter.pointerMove(100, 70) -- past the threshold, still within bolt
 		pres.refresh()
 		adapter.pointerUp(100, 70)
@@ -1540,7 +1548,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		-- be intercepted — instead ANY pointer capture aborts when the menu
 		-- opens (adapter-level, all draggables)
 		local reorders, adapter, pres, tbl = dragWorld()
-		adapter.pointerDown(rowHitPath(0, "razz"), 100, 20)
+		adapter.pointerDown(rowHitPath("razz"), 100, 20)
 		adapter.pointerMove(100, 90)
 		pres.refresh()
 		expect(adapter.node("/S/Racers/DropWhen/then/DropLine") ~= nil).toBe(true)
@@ -1551,14 +1559,14 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost")).toBe(nil)
 		expect(#reorders).toBe(0)
 		-- and the table is fully usable afterwards
-		adapter.tap(rowHitPath(0, "bolt"), { pointer = "mouse" })
+		adapter.tap(rowHitPath("bolt"), { pointer = "mouse" })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
 	end)
 
 	it("an invalid drop (outside the table) commits nothing", function()
 		local reorders, adapter, pres = dragWorld()
-		local razzPath = rowHitPath(0, "razz")
+		local razzPath = rowHitPath("razz")
 		adapter.pointerDown(razzPath, 100, 20)
 		adapter.pointerMove(100, 90)
 		pres.refresh()
@@ -1573,7 +1581,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		-- full-list mids: razz 20, bolt 60, josh 100; y=115 -> full slot 3 ->
 		-- dragged bolt (0-based 1) sits above it -> post-removal slot 2
 		local reorders, adapter, pres = dragWorld()
-		adapter.pointerDown(rowHitPath(0, "bolt"), 100, 60)
+		adapter.pointerDown(rowHitPath("bolt"), 100, 60)
 		adapter.pointerMove(100, 115)
 		pres.refresh()
 		expect(adapter.node("/S/Racers/DropWhen/then/DropLine").rect.y).toBe(120)
@@ -1584,7 +1592,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 
 	it("keyboard: shift+Navigate moves the focused row without moving focus", function()
 		local reorders, adapter, pres, tbl, rows, system = dragWorld()
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "razz"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("razz"))
 		system.deviceKey("LeftShift", true)
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
@@ -1592,11 +1600,11 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		expect(#reorders).toBe(1)
 		expect(reorders[1].keys[1]).toBe("razz")
 		expect(reorders[1].toIndex).toBe(1) -- down one: post-removal slot = i
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "razz"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("razz"))
 		-- plain Navigate still walks focus
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "bolt"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("bolt"))
 	end)
 
 	it("an impossible shift+Navigate reorder moves NOTHING — not the row, not focus", function()
@@ -1604,13 +1612,13 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		-- the failed reorder into navigate(), which now WRAPS — teleporting
 		-- focus to the bottom. Shift+arrow means "move the row", never focus.
 		local reorders, adapter, pres, tbl, rows, system = dragWorld()
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "razz")) -- top row
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("razz")) -- top row
 		system.deviceKey("LeftShift", true)
 		system.deviceKey("Up", true)
 		system.deviceKey("Up", false)
 		system.deviceKey("LeftShift", false)
 		expect(#reorders).toBe(0)
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "razz")) -- unmoved
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("razz")) -- unmoved
 	end)
 
 	it("dismissing the screen mid-drag tears the capture down", function()
@@ -1623,7 +1631,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 				table.insert(reorders, { key = key, toIndex = toIndex })
 			end,
 		})
-		adapter.pointerDown(rowHitPath(0, "razz"), 100, 20)
+		adapter.pointerDown(rowHitPath("razz"), 100, 20)
 		adapter.pointerMove(100, 90)
 		pres.refresh()
 		pres.dismiss(handle) -- destroys the root mid-drag
@@ -1633,7 +1641,7 @@ describe("Table: row drag-and-drop (Phase B)", function()
 
 	it("non-reorderable tables ignore row drags entirely", function()
 		local _, adapter, pres, tbl = world({ header = false })
-		local razzPath = rowHitPath(0, "razz")
+		local razzPath = rowHitPath("razz")
 		adapter.pointerDown(razzPath, 100, 20)
 		adapter.pointerMove(100, 90)
 		pres.refresh()
@@ -1644,10 +1652,10 @@ end)
 describe("Table: standard-model focus and selection (director round 2)", function()
 	it("clicking a row moves keyboard focus there", function()
 		local _, adapter, pres, tbl = world({ selection = "single" })
-		expect(pres.focus.focused:get()).toBe("/S/Racers/Main/Header/Head-name/Column")
-		adapter.tap(rowHitPath(0, "bolt"), { pointer = "mouse" })
+		expect(pres.focus.focused:peek()).toBe("/S/Racers/Main/Header/Head-name/Column")
+		adapter.tap(rowHitPath("bolt"), { pointer = "mouse" })
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "bolt"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("bolt"))
 		-- navigation continues from the clicked row
 		local _, _, _, _, _, _, system = nil, nil, nil, nil, nil, nil, nil
 	end)
@@ -1659,13 +1667,13 @@ describe("Table: standard-model focus and selection (director round 2)", functio
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "bolt"))
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true) -- selection followed
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("bolt"))
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true) -- selection followed
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().bolt).toBe(nil) -- replaced
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(nil) -- replaced
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 
 	it("arrow-selection anchors the range: arrow to a later row, shift-click an earlier one", function()
@@ -1677,68 +1685,68 @@ describe("Table: standard-model focus and selection (director round 2)", functio
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false) -- josh selected + anchored by arrows
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "mouse", shift = true })
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
+		adapter.tap(rowHitPath("razz"), { pointer = "mouse", shift = true })
 		pres.refresh()
 		-- reverse range: prior row up to the anchor
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 
 	it("shift-clicking from a later row to a prior one range-selects (reversed)", function()
 		local _, adapter, pres, tbl = world({ selection = "multi" })
-		adapter.tap(rowHitPath(0, "josh"), { pointer = "mouse" }) -- anchor = josh
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "mouse", shift = true })
+		adapter.tap(rowHitPath("josh"), { pointer = "mouse" }) -- anchor = josh
+		adapter.tap(rowHitPath("razz"), { pointer = "mouse", shift = true })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 end)
 
 describe("Table: modifier selection semantics (Phase B)", function()
 	it("plain mouse click replaces a multi selection", function()
 		local _, adapter, pres, tbl = world({ selection = "multi" })
-		adapter.tap(rowHitPath(0, "razz"))
-		adapter.tap(rowHitPath(0, "bolt"))
+		adapter.tap(rowHitPath("razz"))
+		adapter.tap(rowHitPath("bolt"))
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
-		adapter.tap(rowHitPath(0, "josh"), { pointer = "mouse" })
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
+		adapter.tap(rowHitPath("josh"), { pointer = "mouse" })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(nil)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(nil)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 
 	it("ctrl/cmd-click toggles rows in and out of a multi selection", function()
 		local _, adapter, pres, tbl = world({ selection = "multi" })
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "mouse" })
-		adapter.tap(rowHitPath(0, "josh"), { pointer = "mouse", toggle = true })
+		adapter.tap(rowHitPath("razz"), { pointer = "mouse" })
+		adapter.tap(rowHitPath("josh"), { pointer = "mouse", toggle = true })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "mouse", toggle = true })
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
+		adapter.tap(rowHitPath("razz"), { pointer = "mouse", toggle = true })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(nil)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 
 	it("shift-click extends a contiguous range from the anchor", function()
 		local _, adapter, pres, tbl = world({ selection = "multi" })
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "mouse" }) -- anchor
-		adapter.tap(rowHitPath(0, "josh"), { pointer = "mouse", shift = true })
+		adapter.tap(rowHitPath("razz"), { pointer = "mouse" }) -- anchor
+		adapter.tap(rowHitPath("josh"), { pointer = "mouse", shift = true })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true) -- between anchor and target
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true) -- between anchor and target
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 		-- a new shift-click re-ranges from the SAME anchor
-		adapter.tap(rowHitPath(0, "bolt"), { pointer = "mouse", shift = true })
+		adapter.tap(rowHitPath("bolt"), { pointer = "mouse", shift = true })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().bolt).toBe(true)
-		expect(tbl.api.selectedKeys:get().josh).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().bolt).toBe(true)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(nil)
 	end)
 
 	it("keyboard Activate honors held modifiers from the action system", function()
@@ -1751,21 +1759,21 @@ describe("Table: modifier selection semantics (Phase B)", function()
 		system.deviceKey("Down", false)
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false) -- plain: replace-select razz
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
 		system.deviceKey("LeftControl", true)
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false) -- ctrl: toggle razz back off
 		system.deviceKey("LeftControl", false)
-		expect(tbl.api.selectedKeys:get().razz).toBe(nil)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(nil)
 	end)
 
 	it("touch taps keep the additive-toggle idiom (no modifier keys on device)", function()
 		local _, adapter, pres, tbl = world({ selection = "multi" })
-		adapter.tap(rowHitPath(0, "razz"), { pointer = "touch" })
-		adapter.tap(rowHitPath(0, "josh"), { pointer = "touch" })
+		adapter.tap(rowHitPath("razz"), { pointer = "touch" })
+		adapter.tap(rowHitPath("josh"), { pointer = "touch" })
 		pres.refresh()
-		expect(tbl.api.selectedKeys:get().razz).toBe(true)
-		expect(tbl.api.selectedKeys:get().josh).toBe(true)
+		expect(tbl.api.selectedKeys:peek().razz).toBe(true)
+		expect(tbl.api.selectedKeys:peek().josh).toBe(true)
 	end)
 end)
 
@@ -1789,12 +1797,12 @@ describe("Table: column resize interaction (Phase B)", function()
 		local line = adapter.node("/S/Racers/ResizeWhen/then/ResizeLine")
 		expect(line ~= nil).toBe(true)
 		expect(line.rect.x).toBe(636) -- guide sits at the dragged boundary
-		-- preview only: rows still mounted under @0 keys until release
-		expect(adapter.node(cellPath(0, "razz", "name")) ~= nil).toBe(true)
+		-- Preview changes only the guide; row widths change on release.
+		expect(adapter.node(cellPath("razz", "name")) ~= nil).toBe(true)
 		adapter.pointerUp(cellRect.x + cellRect.w - 100, 12)
 		pres.refresh()
 		expect(adapter.node("/S/Racers/ResizeWhen/then/ResizeLine")).toBe(nil)
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(636)
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(636)
 		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(636)
 	end)
 
@@ -1804,26 +1812,26 @@ describe("Table: column resize interaction (Phase B)", function()
 		-- column's header is (director 2026-07-29) — and it LEADS rather than
 		-- trails, because a header precedes its rows.
 		local _, _, pres, _, _, _, system = world({})
-		expect(pres.focus.focused:get()).toBe("/S/Racers/Main/Header/Head-name/Column")
+		expect(pres.focus.focused:peek()).toBe("/S/Racers/Main/Header/Head-name/Column")
 		for _ = 1, 3 do
 			system.deviceKey("Down", true)
 			system.deviceKey("Down", false)
 		end
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "josh"))
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("josh"))
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/S/Racers/Main/Header/Head-name/Column") -- wrapped
+		expect(pres.focus.focused:peek()).toBe("/S/Racers/Main/Header/Head-name/Column") -- wrapped
 		system.deviceKey("Up", true)
 		system.deviceKey("Up", false)
-		expect(pres.focus.focused:get()).toBe(rowHitPath(0, "josh")) -- and back
+		expect(pres.focus.focused:peek()).toBe(rowHitPath("josh")) -- and back
 	end)
 
 	it("cells inset content from the left and center it vertically; headers read at full contrast", function()
 		-- hand-test findings 2026-07-20: header text was unreadable (secondary
 		-- tint over the world) and cell content sat flush at the cell origin
 		local _, adapter = world({})
-		local cellNode = adapter.node(cellPath(0, "razz", "name"))
-		local value = adapter.node(cellPath(0, "razz", "name") .. "/Value")
+		local cellNode = adapter.node(cellPath("razz", "name"))
+		local value = adapter.node(cellPath("razz", "name") .. "/Value")
 		expect(value.rect.x).toBe(cellNode.rect.x + 8) -- default cellPadding
 		-- vertically centered within the row (± rounding)
 		local topGap = value.rect.y - cellNode.rect.y
@@ -1839,19 +1847,19 @@ describe("Table: column resize interaction (Phase B)", function()
 	it("gamepad/keyboard: a focused column handle resizes its column via the Adjust action", function()
 		local _, adapter, pres, tbl, _, _, system = world({})
 		-- the column handle leads the ring; Adjust binds only while it holds focus
-		expect(pres.focus.focused:get()).toBe("/S/Racers/Main/Header/Head-name/Column")
+		expect(pres.focus.focused:peek()).toBe("/S/Racers/Main/Header/Head-name/Column")
 		-- keyboard Left: one 16px step narrower, committed through the model
 		system.deviceKey("Left", true)
 		system.deviceKey("Left", false)
 		pres.refresh()
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(720)
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(720)
 		expect(adapter.node("/S/Racers/Main/Header/Head-name").rect.w).toBe(720)
 		-- gamepad bumper: another step (the virtual cursor ignores MouseIcon,
 		-- so this focus+bumper path IS the gamepad resize affordance)
 		system.deviceKey("ButtonL1", true)
 		system.deviceKey("ButtonL1", false)
 		pres.refresh()
-		expect(adapter.node(cellPath(2, "razz", "name")).rect.w).toBe(704)
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(704)
 	end)
 
 	it("grip drag clamps to the column minWidth", function()
@@ -1863,7 +1871,7 @@ describe("Table: column resize interaction (Phase B)", function()
 		pres.refresh()
 		adapter.pointerUp(cellRect.x + 10, 12)
 		pres.refresh()
-		expect(adapter.node(cellPath(1, "razz", "name")).rect.w).toBe(80) -- minWidth
+		expect(adapter.node(cellPath("razz", "name")).rect.w).toBe(80) -- minWidth
 	end)
 end)
 
@@ -1884,14 +1892,14 @@ describe("Table: capture ownership (playlist place defect 2026-07-20)", function
 				return item.name
 			end,
 		})
-		local razzPath = rowHitPath(0, "razz")
+		local razzPath = rowHitPath("razz")
 		adapter.pointerDown(razzPath, 100, 20)
 		adapter.pointerMove(100, 60) -- past the threshold: drag is live
 		pres.refresh()
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost") ~= nil).toBe(true)
 		-- the pointer crosses ANOTHER row's hit zone: the engine can deliver a
 		-- fresh began there — it must be IGNORED while a capture is live
-		adapter.pointerDown(rowHitPath(0, "bolt"), 100, 62)
+		adapter.pointerDown(rowHitPath("bolt"), 100, 62)
 		adapter.pointerMove(100, 90)
 		adapter.pointerUp(100, 90)
 		pres.refresh()
@@ -1929,7 +1937,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 		return reorders, adapter, pres, tbl, core, env
 	end
 	local function hit(key: string): string
-		return `/S/Racers/Main/Body/Rows/[{key}@0]/Row/Hit`
+		return `/S/Racers/Main/Body/Rows/[{key}]/Row/Hit`
 	end
 
 	it("a touch drag on the row body defers to the native scroll and never reorders", function()
@@ -1970,18 +1978,18 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 
 	it("edit mode shows a LEADING ≡ glyph and insets the cells into a gutter", function()
 		local _, adapter, pres, tbl = scrollWorld()
-		local cellBefore = adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name").rect.x
+		local cellBefore = adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/Cells/Cell-name").rect.x
 		tbl.api.editing:set(true)
 		pres.refresh()
-		local glyph = adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/HandleGlyph")
+		local glyph = adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/HandleGlyph")
 		expect(glyph ~= nil).toBe(true)
 		expect(glyph.props.text).toBe("≡")
 		-- the handle gutter is LEADING: cells shift right to clear it
-		local cellAfter = adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name").rect.x
+		local cellAfter = adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/Cells/Cell-name").rect.x
 		expect(cellAfter).toBe(cellBefore + 32)
 		tbl.api.editing:set(false)
 		pres.refresh()
-		expect(adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name").rect.x).toBe(cellBefore)
+		expect(adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/Cells/Cell-name").rect.x).toBe(cellBefore)
 	end)
 
 	it("the ≡ handle clears the row CARD, not just the row rect (skinned themes)", function()
@@ -2014,15 +2022,15 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 			end
 			tbl.api.editing:set(true)
 			pres.refresh()
-			local row = adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row").rect
-			local zone = adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone").rect
+			local row = adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row").rect
+			local zone = adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone").rect
 			expect(`{config.name}: zone starts at +{zone.x - row.x}, card at +{inset}`).toBe(
 				`{config.name}: zone starts at +{inset}, card at +{inset}`
 			)
 			-- ...and the cells clear the handle AND the card, not one instead of
 			-- the other: the gutter used to REPLACE the art inset rather than stack
 			-- on it, so under a skinned package the first cell was under-inset too
-			local cell = adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/Cells/Cell-name").rect
+			local cell = adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/Cells/Cell-name").rect
 			expect(`{config.name}: cell at +{cell.x - row.x}`).toBe(`{config.name}: cell at +{inset + 32}`)
 		end
 	end)
@@ -2035,7 +2043,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 		local reorders, adapter, pres, tbl = scrollWorld()
 		tbl.api.editing:set(true)
 		pres.refresh()
-		local handlePath = "/S/Racers/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/Handle"
+		local handlePath = "/S/Racers/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/Handle"
 		local handleRect = adapter.node(handlePath).rect
 		-- engine order A: hit first, then grip — the hit must decline
 		adapter.pointerDown(hit("r1"), handleRect.x + 5, handleRect.y + 5, "touch")
@@ -2064,7 +2072,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 		tbl.api.handleActivate(hit("r1"), nil)
 		tbl.api.handleActivate(hit("r3"), nil)
 		pres.refresh()
-		local handlePath = "/S/Racers/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/Handle"
+		local handlePath = "/S/Racers/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/Handle"
 		local handleRect = adapter.node(handlePath).rect
 		adapter.pointerDown(handlePath, handleRect.x + 5, handleRect.y + 5, "touch")
 		adapter.pointerMove(handleRect.x + 5, handleRect.y + 175, "touch")
@@ -2079,7 +2087,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 
 	it("edit mode grows a trailing handle per row; a TOUCH drag on the handle reorders", function()
 		local reorders, adapter, pres, tbl = scrollWorld()
-		local handlePath = "/S/Racers/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/Handle"
+		local handlePath = "/S/Racers/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/Handle"
 		expect(adapter.node(handlePath)).toBe(nil) -- not editing yet
 		tbl.api.editing:set(true)
 		pres.refresh()
@@ -2132,7 +2140,7 @@ describe("Table: touch scroll vs edit-mode reorder (director design 2026-07-20)"
 		tbl.api.handleActivate(togglePath, nil)
 		pres.refresh()
 		expect(adapter.node(togglePath).props.label).toBe("Done")
-		expect(adapter.node("/S/Racers/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/Handle") ~= nil).toBe(true)
+		expect(adapter.node("/S/Racers/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/Handle") ~= nil).toBe(true)
 	end)
 
 	-- REGRESSION (director live repro 2026-07-21, example 02): a physical
@@ -2195,7 +2203,7 @@ describe("Table: gamepad support (director 2026-07-20 — every input, every con
 					movingSet[key] = true
 				end
 				local moving, staying = {}, {}
-				for _, item in rowsRef:get() do
+				for _, item in rowsRef:peek() do
 					table.insert(if movingSet[item.id] then moving else staying, item)
 				end
 				local out = {}
@@ -2219,7 +2227,7 @@ describe("Table: gamepad support (director 2026-07-20 — every input, every con
 		return reorders, adapter, pres, tbl, rows, handle, env, core
 	end
 	local function hit(key: string): string
-		return `/S/Racers/Main/Body/Rows/[{key}@0]/Row/Hit`
+		return `/S/Racers/Main/Body/Rows/[{key}]/Row/Hit`
 	end
 
 	it("buildFocusGroups maps the toggle plus one horizontal group per row, in document order", function()
@@ -2244,32 +2252,32 @@ describe("Table: gamepad support (director 2026-07-20 — every input, every con
 		pres.refresh()
 		-- gamepad activate = action source
 		tbl.api.handleActivate(hit("r2"), { source = "action" })
-		expect(tbl.api.grabbedKey:get()).toBe("r2")
+		expect(tbl.api.grabbedKey:peek()).toBe("r2")
 		pres.refresh()
 		expect(adapter.node(hit("r2")).props.selected).toBe(true) -- grabbed visual
 		-- d-pad down: the grabbed row moves one slot; the move is CONSUMED
 		expect(tbl.api.handleGrabNavigate("down")).toBe(true)
 		local order = {}
-		for _, item in rows:get() do
+		for _, item in rows:peek() do
 			table.insert(order, item.id)
 		end
 		expect(order[2]).toBe("r3") -- r2 stepped below r3
 		expect(order[3]).toBe("r2")
 		expect(tbl.api.handleGrabNavigate("up")).toBe(true)
 		local back = {}
-		for _, item in rows:get() do
+		for _, item in rows:peek() do
 			table.insert(back, item.id)
 		end
 		expect(back[2]).toBe("r2") -- stepped back
 		-- drop with A again
 		tbl.api.handleActivate(hit("r2"), { source = "action" })
-		expect(tbl.api.grabbedKey:get()).toBeNil()
+		expect(tbl.api.grabbedKey:peek()).toBeNil()
 		expect(tbl.api.handleGrabNavigate("down")).toBe(false) -- nothing grabbed
 		-- grab is edit-mode only: leaving edit clears it
 		tbl.api.handleActivate(hit("r2"), { source = "action" })
-		expect(tbl.api.grabbedKey:get()).toBe("r2")
+		expect(tbl.api.grabbedKey:peek()).toBe("r2")
 		tbl.api.editing:set(false)
-		expect(tbl.api.grabbedKey:get()).toBeNil()
+		expect(tbl.api.grabbedKey:peek()).toBeNil()
 		local _ = reorders
 	end)
 
@@ -2280,7 +2288,7 @@ describe("Table: gamepad support (director 2026-07-20 — every input, every con
 		pres.refresh()
 		expect(adapter.node(hit("r1")).props.selected).toBe(true)
 		-- focus lands on a cell DESCENDANT of r2 (not the hit): selection follows
-		tbl.api.handleFocusMoved("/S/Racers/Main/Body/Rows/[r2@0]/Row/Cells/Cell-name/Value")
+		tbl.api.handleFocusMoved("/S/Racers/Main/Body/Rows/[r2]/Row/Cells/Cell-name/Value")
 		pres.refresh()
 		expect(adapter.node(hit("r2")).props.selected).toBe(true)
 		expect(adapter.node(hit("r1")).props.selected).toBe(false) -- replace-select
@@ -2298,10 +2306,10 @@ describe("Table: gamepad support (director 2026-07-20 — every input, every con
 		tbl.api.handleActivate(hit("r1"), { pointer = "mouse" })
 		tbl.api.handleActivate(hit("r3"), { pointer = "mouse", toggle = true })
 		tbl.api.handleActivate(hit("r1"), { source = "action" }) -- grab r1 (selected)
-		expect(tbl.api.grabbedKey:get()).toBe("r1")
+		expect(tbl.api.grabbedKey:peek()).toBe("r1")
 		expect(tbl.api.handleGrabNavigate("down")).toBe(true)
 		local order = {}
-		for _, item in rows:get() do
+		for _, item in rows:peek() do
 			table.insert(order, item.id)
 		end
 		-- block {r1,r3} inserted after r2: r2, r1, r3, r4, r5
@@ -2329,13 +2337,13 @@ describe("table rows sit inside the theme's own selection card", function()
 	local themes = Facet.themes
 
 	local function cellXUnder(pkgModule: any?): (number, number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(RACERS)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(RACERS)
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
@@ -2347,9 +2355,11 @@ describe("table rows sit inside the theme's own selection card", function()
 				return item.id
 			end,
 			cellFor = function(columnId, item)
-				return Facet.UI.Text({
+				return harness.UI.Text({
 					id = "Value",
-					text = if columnId == "name" then item.name else tostring(item.laps),
+					text = function(use)
+						return if columnId == "name" then use(item).name else tostring(use(item).laps)
+					end,
 					textSize = 16,
 				})
 			end,
@@ -2357,13 +2367,13 @@ describe("table rows sit inside the theme's own selection card", function()
 			header = true,
 			selection = "multi",
 		})
-		pres.present(Facet.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		pres.refresh()
 		if pkgModule ~= nil then
 			env:set("themeMetrics", themes.resolve(pkgModule, nil, {}))
 			pres.refresh()
 		end
-		return adapter.node("/S/T/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name").rect.x,
+		return adapter.node("/S/T/Main/Body/Rows/[razz]/Row/Cells/Cell-name").rect.x,
 			adapter.node("/S/T/Main/Header/Head-name").rect.x
 	end
 
@@ -2411,13 +2421,13 @@ end)
 -- ===========================================================================
 describe("Table: `scrolls = false` makes it a block for a scrolling host", function()
 	local function blockWorld(scrolls: boolean?, w: number, h: number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local rows = core:signal(RACERS)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell(RACERS)
 		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			env = env,
@@ -2430,21 +2440,27 @@ describe("Table: `scrolls = false` makes it a block for a scrolling host", funct
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 15 })
+				return harness.UI.Text({
+					id = "Value",
+					text = function(use)
+						return use(item).name
+					end,
+					textSize = 15,
+				})
 			end,
 		})
-		pres.present(Facet.UI.Screen({
+		pres.present(harness.UI.Screen({
 			id = "S",
 			padding = 8,
 			children = {
-				Facet.UI.ScrollView({
+				harness.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
-						Facet.UI.Text({ id = "Title", text = "Racers", textSize = 24 }),
+						harness.UI.Text({ id = "Title", text = "Racers", textSize = 24 }),
 						tbl.blueprint,
 					},
 				}),
@@ -2487,7 +2503,7 @@ describe("Table: `scrolls = false` makes it a block for a scrolling host", funct
 	it("every row is laid out rather than clipped to a window", function()
 		local adapter = blockWorld(false, 844, 390)
 		for _, racer in RACERS do
-			expect(adapter.node(`/S/Page/Racers/Main/Body/Rows/[{racer.id}@0]/Row`) ~= nil).toBe(true)
+			expect(adapter.node(`/S/Page/Racers/Main/Body/Rows/[{racer.id}]/Row`) ~= nil).toBe(true)
 		end
 	end)
 
@@ -2538,7 +2554,7 @@ describe("Table column disclosure (Step 8.5 LT-G2)", function()
 		-- construction-only props never reach the adapter; the solve's textFacts
 		-- are the observable channel (the same one the presenter's plate reads)
 		local _, _, _, _, _, handle = discloseWorld(true)
-		local cell = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value")
+		local cell = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz]/Row/Cells/Cell-name/Value")
 		expect(cell ~= nil).toBe(true)
 		expect((cell :: any).disclose).toBe(true)
 		expect((cell :: any).truncated).toBe(true) -- the LONG fixture really is cut
@@ -2549,9 +2565,9 @@ describe("Table column disclosure (Step 8.5 LT-G2)", function()
 
 	it("...and an ordinary column stamps nothing — the default is byte-identical", function()
 		local _, _, _, _, _, handle = discloseWorld(nil)
-		local cell = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value")
+		local cell = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz]/Row/Cells/Cell-name/Value")
 		expect((cell :: any).disclose ~= true).toBe(true)
-		local laps = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-laps/Value")
+		local laps = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz]/Row/Cells/Cell-laps/Value")
 		expect((laps :: any).disclose ~= true).toBe(true)
 	end)
 
@@ -2566,7 +2582,7 @@ describe("Table column disclosure (Step 8.5 LT-G2)", function()
 			rather than one of them being arranged away. ]]
 		local _, adapter, pres, _tbl, _rows, _handle, _system = discloseWorld(true)
 		pres.focus.setFocusOrigin("navigation")
-		local CELL = "/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value"
+		local CELL = "/S/Racers/Main/Body/Rows/[razz]/Row/Cells/Cell-name/Value"
 		-- FOCUS already answered for it, which is ADAPT-20 and is what makes the
 		-- ten-foot combination reachable at all
 		expect(pres.disclosure().present).toBe(true)
@@ -2581,7 +2597,7 @@ describe("Table column disclosure (Step 8.5 LT-G2)", function()
 		-- ...and the TOUCH route stands on its own: move the ring off every
 		-- disclosing label, then press and release
 		-- `bolt`'s name is short, so the row the ring lands on owes nothing
-		pres.focus.focusOn(rowHitPath(0, "bolt"))
+		pres.focus.focusOn(rowHitPath("bolt"))
 		for _ = 1, 40 do
 			pres.tick(1 / 60)
 			pres.refresh()
@@ -2600,10 +2616,10 @@ end)
 
 describe("Table column boundary is strict (architecture review F-4)", function()
 	local function build(column: any)
-		return table_control.build(Facet, Facet.newCore(), {
+		return table_control.build(Facet, harness.newCore(), {
 			id = "T",
 			columns = { column },
-			rows = Facet.newCore():signal({}),
+			rows = Compose.cell({}),
 			key = function(item: any)
 				return item.id
 			end,
@@ -2661,8 +2677,8 @@ end)
 describe("Table.rowGap: a number or a theme metric name", function()
 	local function gapBetweenFirstTwoRows(rowGap: any): number
 		local _, adapter = world({ rowGap = rowGap, header = false })
-		local first = adapter.node(rowHitPath(0, RACERS[1].id)).rect
-		local second = adapter.node(rowHitPath(0, RACERS[2].id)).rect
+		local first = adapter.node(rowHitPath(RACERS[1].id)).rect
+		local second = adapter.node(rowHitPath(RACERS[2].id)).rect
 		return second.y - (first.y + first.h)
 	end
 
@@ -2691,8 +2707,8 @@ describe("Table.rowGap: a number or a theme metric name", function()
 		-- and divides the gap in half to centre the drop indicator
 		local core, adapter, pres = world({ rowGap = "controls.table.rowGap", reorderable = true, header = false })
 		pres.refresh()
-		expect(adapter.node(rowHitPath(0, RACERS[2].id)) ~= nil).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(adapter.node(rowHitPath(RACERS[2].id)) ~= nil).toBe(true)
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("a name that resolves to NOTHING is refused at the authoring boundary, naming it", function()
@@ -2736,7 +2752,7 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 	-- one real table, solved on a compact phone with the auto toolbar showing;
 	-- returns the three band rects plus the solver's own verdict
 	local function solveChrome(offset: number, viewport: any): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", viewport)
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -2745,9 +2761,9 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 		env:set("preferredTextOffset", offset)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 
-		local rows = core:signal({ { id = "a", name = "Drift City Nights" }, { id = "b", name = "Neon Overpass" } })
+		local rows = Compose.cell({ { id = "a", name = "Drift City Nights" }, { id = "b", name = "Neon Overpass" } })
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
@@ -2778,7 +2794,7 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 			onReorder = function() end,
 			env = env,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		local rectOf = handle.controller.rectOf
 		local out = {
 			toolbar = rectOf("/S/T/Main/ToggleWhen/then/Toolbar"),
@@ -2794,7 +2810,6 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 		}
 		pres.dismiss(handle)
 		tbl.dispose()
-		rows:dispose()
 		return out
 	end
 
@@ -2881,11 +2896,11 @@ end)
 
 -- ============================================================================
 -- Task 10: `spec.rowActions` — Table integration (docs/plans/row-actions-
--- implementation.md). A wrapped row mounts at `.../[key@v]/RowActions-<key>/...`
+-- implementation.md). A wrapped row mounts at `.../[key]/RowActions-<key>/...`
 -- (row_actions.build's own root `id = "RowActions-<rowKey>"`, one `Content` ZStack
 -- inside it, THIS row's own blueprint — Hit/Cells/EditWhen, unchanged —
 -- mounted inside THAT); an unwrapped row (nil `rowActions`, or the callback
--- returns nil for that item) stays exactly `.../[key@v]/Row/...`, byte-
+-- returns nil for that item) stays exactly `.../[key]/Row/...`, byte-
 -- identical to every table before this task (the PERF directive: zero new
 -- nodes, zero new subscriptions per row when unused).
 describe("Table: row actions (Task 10)", function()
@@ -2894,18 +2909,18 @@ describe("Table: row actions (Task 10)", function()
 	-- id corrupted each other's in-flight gesture state (see
 	-- `derowActionsPath`'s own comment in table.luau for the live-found repro
 	-- this test suite caught it with).
-	local function rowActionsRoot(version: number, key: string): string
-		return `/S/Racers/Main/Body/Rows/[{key}@{version}]/RowActions-{key}`
+	local function rowActionsRoot(key: string): string
+		return `/S/Racers/Main/Body/Rows/[{key}]/RowActions-{key}`
 	end
-	local function wrappedRowHitPath(version: number, key: string): string
-		return `{rowActionsRoot(version, key)}/Content/Row/Hit`
+	local function wrappedRowHitPath(key: string): string
+		return `{rowActionsRoot(key)}/Content/Row/Hit`
 	end
-	local function trayButtonPath(version: number, key: string, edge: "leading" | "trailing", actionId: string): string
+	local function trayButtonPath(key: string, edge: "leading" | "trailing", actionId: string): string
 		local tid = if edge == "leading" then "TrayLeading" else "TrayTrailing"
-		return `{rowActionsRoot(version, key)}/{tid}When/then/{tid}/Action:{actionId}`
+		return `{rowActionsRoot(key)}/{tid}When/then/{tid}/Action:{actionId}`
 	end
-	local function editAffordancePath(version: number, key: string): string
-		return `{rowActionsRoot(version, key)}/EditAffordanceWhen/then/EditAffordance`
+	local function editAffordancePath(key: string): string
+		return `{rowActionsRoot(key)}/EditAffordanceWhen/then/EditAffordance`
 	end
 	local function deleteAction(fired: { string }?, opts: any?): any
 		opts = opts or {}
@@ -2974,12 +2989,12 @@ describe("Table: row actions (Task 10)", function()
 				return nil
 			end,
 		})
-		expect(adapter.node(rowActionsRoot(0, "razz")) ~= nil).toBe(true)
-		expect(adapter.node(wrappedRowHitPath(0, "razz")) ~= nil).toBe(true)
+		expect(adapter.node(rowActionsRoot("razz")) ~= nil).toBe(true)
+		expect(adapter.node(wrappedRowHitPath("razz")) ~= nil).toBe(true)
 		-- unwrapped rows are byte-identical to an ordinary table: no RowActions
 		-- node at all, `Row` sits directly under the ForEach slot
-		expect(adapter.node(rowActionsRoot(0, "bolt"))).toBe(nil)
-		expect(adapter.node(rowHitPath(0, "bolt")) ~= nil).toBe(true)
+		expect(adapter.node(rowActionsRoot("bolt"))).toBe(nil)
+		expect(adapter.node(rowHitPath("bolt")) ~= nil).toBe(true)
 	end)
 
 	it("unknown keys inside the returned action table error at build, naming the offending row", function()
@@ -3009,8 +3024,8 @@ describe("Table: row actions (Task 10)", function()
 				return { trailing = { deleteAction() }, fullSwipe = false }
 			end,
 		})
-		local razzHit = wrappedRowHitPath(0, "razz")
-		local boltHit = wrappedRowHitPath(0, "bolt")
+		local razzHit = wrappedRowHitPath("razz")
+		local boltHit = wrappedRowHitPath("bolt")
 		--[[ COMPOSED, NOT STORED (Plan C, C1). A row-actions row slides by a REACTIVE
 			`offsetX` on its content, which makes that container a COORDINATE SPACE: its
 			subtree's rects are stored relative to it, so the hit surface's own stored
@@ -3053,7 +3068,7 @@ describe("Table: row actions (Task 10)", function()
 				return { trailing = { deleteAction() } }
 			end,
 		})
-		local razzHit = wrappedRowHitPath(0, "razz")
+		local razzHit = wrappedRowHitPath("razz")
 		w.adapter.pointerDown(razzHit, 100, 20)
 		w.adapter.pointerMove(100, 90) -- purely vertical, well past the reorder threshold
 		w.pres.refresh()
@@ -3082,8 +3097,8 @@ describe("Table: row actions (Task 10)", function()
 					return { trailing = { deleteAction() } }
 				end,
 			})
-			expect(w.adapter.node(wrappedRowHitPath(0, "razz")) ~= nil).toBe(true) -- Table's own Hit: present
-			expect(w.adapter.node(`{rowActionsRoot(0, "razz")}/Content/Hit`)).toBe(nil) -- row_actions' OWN Grip: gone
+			expect(w.adapter.node(wrappedRowHitPath("razz")) ~= nil).toBe(true) -- Table's own Hit: present
+			expect(w.adapter.node(`{rowActionsRoot("razz")}/Content/Hit`)).toBe(nil) -- row_actions' OWN Grip: gone
 		end
 	)
 
@@ -3097,7 +3112,7 @@ describe("Table: row actions (Task 10)", function()
 				return { trailing = { deleteAction() } }
 			end,
 		})
-		expect(w.adapter.node(`{rowActionsRoot(0, "razz")}/Content/Hit`) ~= nil).toBe(true)
+		expect(w.adapter.node(`{rowActionsRoot("razz")}/Content/Hit`) ~= nil).toBe(true)
 	end)
 
 	it("mouse horizontal drag on the same reorderable + wrapped row reveals actions instead of reordering", function()
@@ -3112,7 +3127,7 @@ describe("Table: row actions (Task 10)", function()
 				return { trailing = { deleteAction() }, fullSwipe = false }
 			end,
 		})
-		local razzHit = wrappedRowHitPath(0, "razz")
+		local razzHit = wrappedRowHitPath("razz")
 		local closedX = w.adapter.composedRect(razzHit).x
 		w.adapter.pointerDown(razzHit, 100, 20)
 		w.tick(0.01)
@@ -3150,7 +3165,7 @@ describe("Table: row actions (Task 10)", function()
 				return { trailing = { deleteAction(fired, { role = "normal" }) }, fullSwipe = false }
 			end,
 		})
-		local razzHit = wrappedRowHitPath(0, "razz")
+		local razzHit = wrappedRowHitPath("razz")
 		-- reveal (not commit) the tray via an ordinary horizontal drag
 		w.adapter.pointerDown(razzHit, 100, 20, "mouse")
 		w.tick(0.01)
@@ -3162,7 +3177,7 @@ describe("Table: row actions (Task 10)", function()
 		w.settle()
 		expect(#fired).toBe(0) -- revealed, not fired
 
-		w.adapter.tap(trayButtonPath(0, "razz", "trailing", "delete"))
+		w.adapter.tap(trayButtonPath("razz", "trailing", "delete"))
 		expect(fired).toEqual({ "fired" })
 	end)
 
@@ -3176,8 +3191,8 @@ describe("Table: row actions (Task 10)", function()
 	it(
 		"starting a reorder-handle drag on a row whose tray is open closes the tray FIRST, before reorder proceeds",
 		function()
-			local core = Facet.newCore()
-			local editingSignal = core:signal(true) -- edit mode: the ≡ handle is mounted
+			local core = harness.newCore()
+			local editingSignal = Compose.cell(true) -- edit mode: the ≡ handle is mounted
 			local w = raWorld({
 				core = core,
 				header = false,
@@ -3188,7 +3203,7 @@ describe("Table: row actions (Task 10)", function()
 					return { trailing = { deleteAction() }, fullSwipe = false }
 				end,
 			})
-			local razzHit = wrappedRowHitPath(0, "razz")
+			local razzHit = wrappedRowHitPath("razz")
 			local closedX = w.adapter.composedRect(razzHit).x
 
 			-- open the tray via an ordinary horizontal drag on the row's own Hit
@@ -3207,7 +3222,7 @@ describe("Table: row actions (Task 10)", function()
 			-- begins) — `_close()` retargets the same reveal spring the
 			-- gesture itself rides, so the pixel position animates back over
 			-- subsequent frames rather than snapping; settle to observe it.
-			local handlePath = `{rowActionsRoot(0, "razz")}/Content/Row/EditWhen/then/HandleZone/Handle`
+			local handlePath = `{rowActionsRoot("razz")}/Content/Row/EditWhen/then/HandleZone/Handle`
 			w.adapter.pointerDown(handlePath, 100, 20, "mouse")
 			w.settle()
 			expect(w.adapter.composedRect(razzHit).x).toBe(closedX)
@@ -3250,7 +3265,7 @@ describe("Table: row actions (Task 10)", function()
 				return { trailing = { deleteAction() } }
 			end,
 		})
-		local razzHit = wrappedRowHitPath(0, "razz")
+		local razzHit = wrappedRowHitPath("razz")
 		local closedX = w.adapter.composedRect(razzHit).x
 
 		-- open the tray via an ordinary horizontal drag on the row's own Hit
@@ -3291,7 +3306,7 @@ describe("Table: row actions (Task 10)", function()
 			})
 			w.tbl.api.editing:set(true) -- grab is edit-mode only
 			w.pres.refresh()
-			local razzHit = wrappedRowHitPath(0, "razz")
+			local razzHit = wrappedRowHitPath("razz")
 			local closedX = w.adapter.composedRect(razzHit).x
 
 			w.adapter.pointerDown(razzHit, 100, 20, "mouse")
@@ -3305,15 +3320,15 @@ describe("Table: row actions (Task 10)", function()
 			expect(w.adapter.composedRect(razzHit).x < closedX).toBe(true) -- open
 
 			w.tbl.api.handleActivate(razzHit, { source = "action" }) -- grab
-			expect(w.tbl.api.grabbedKey:get()).toBe("razz")
+			expect(w.tbl.api.grabbedKey:peek()).toBe("razz")
 			w.settle()
 			expect(w.adapter.composedRect(razzHit).x).toBe(closedX) -- tray closed, not stranded
 		end
 	)
 
 	it("editing signal shows the minus on rows with a destructive action", function()
-		local core = Facet.newCore()
-		local editingSignal = core:signal(false)
+		local core = harness.newCore()
+		local editingSignal = Compose.cell(false)
 		local _, adapter, pres = world({
 			core = core,
 			header = false,
@@ -3325,14 +3340,14 @@ describe("Table: row actions (Task 10)", function()
 				return nil
 			end,
 		})
-		expect(adapter.node(editAffordancePath(0, "razz"))).toBe(nil) -- not editing yet
+		expect(adapter.node(editAffordancePath("razz"))).toBe(nil) -- not editing yet
 		editingSignal:set(true)
 		pres.refresh()
-		expect(adapter.node(editAffordancePath(0, "razz")) ~= nil).toBe(true)
+		expect(adapter.node(editAffordancePath("razz")) ~= nil).toBe(true)
 	end)
 
 	it("rows removed from spec.rows dispose their wrapper (no leak)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local _, adapter, pres, _tbl, rows = world({
 			core = core,
 			header = false,
@@ -3344,17 +3359,15 @@ describe("Table: row actions (Task 10)", function()
 				return nil
 			end,
 		})
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		rows:set({ RACERS[1], RACERS[2] }) -- add bolt: wraps
 		pres.refresh()
-		expect(adapter.node(rowActionsRoot(0, "bolt")) ~= nil).toBe(true)
+		expect(adapter.node(rowActionsRoot("bolt")) ~= nil).toBe(true)
 		rows:set({ RACERS[1] }) -- remove bolt: wrapper must dispose
 		pres.refresh()
-		expect(adapter.node(rowActionsRoot(0, "bolt"))).toBe(nil)
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		expect(adapter.node(rowActionsRoot("bolt"))).toBe(nil)
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	it("a data refresh mid-gesture cancels: onAction never fires for a key removed mid-commit", function()
@@ -3368,7 +3381,7 @@ describe("Table: row actions (Task 10)", function()
 				return nil
 			end,
 		})
-		local razzHit = wrappedRowHitPath(0, "razz")
+		local razzHit = wrappedRowHitPath("razz")
 		local rowW = w.adapter.node(razzHit).rect.w
 		w.adapter.pointerDown(razzHit, 100, 20)
 		w.tick(0.01)
@@ -3391,7 +3404,7 @@ describe("Table: row actions (Task 10)", function()
 
 	it("Delete key on a focused row deletes via the row's destructive action", function()
 		local fired: { string } = {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local _, adapter, pres, _tbl, _rows, _handle, system = world({
 			core = core,
 			header = false,
@@ -3402,7 +3415,7 @@ describe("Table: row actions (Task 10)", function()
 				return nil
 			end,
 		})
-		pres.focus.focusOn(wrappedRowHitPath(0, "razz"))
+		pres.focus.focusOn(wrappedRowHitPath("razz"))
 		system.deviceKey("Delete", true)
 		system.deviceKey("Delete", false)
 		pres.refresh()
@@ -3434,7 +3447,7 @@ describe("Table: row actions (Task 10)", function()
 					return nil
 				end,
 			})
-			local razzHit = wrappedRowHitPath(0, "razz")
+			local razzHit = wrappedRowHitPath("razz")
 			local closedX = w.adapter.composedRect(razzHit).x
 			w.adapter.pointerDown(razzHit, 100, 20)
 			w.tick(0.01)
@@ -3456,7 +3469,7 @@ describe("Table: row actions (Task 10)", function()
 
 			w.adapter.tap(razzHit) -- a genuine tap/Activate on the row's own content
 			w.pres.refresh()
-			expect(w.tbl.api.selectedKeys:get().razz).toBe(nil) -- no select
+			expect(w.tbl.api.selectedKeys:peek().razz).toBe(nil) -- no select
 			w.settle()
 			expect(w.adapter.composedRect(razzHit).x).toBe(closedX) -- tray closed
 		end
@@ -3479,8 +3492,8 @@ describe("Table: row actions (Task 10)", function()
 				the end-of-tick sample it replaces. ]]
 			local heightAtFire: number? = nil
 			local wRef: any = nil
-			local razzHit = wrappedRowHitPath(0, "razz")
-			local razzOuter = rowActionsRoot(0, "razz")
+			local razzHit = wrappedRowHitPath("razz")
+			local razzOuter = rowActionsRoot("razz")
 			local w = raWorld({
 				header = false,
 				rowActions = function(item)
@@ -3499,7 +3512,7 @@ describe("Table: row actions (Task 10)", function()
 				end,
 			})
 			wRef = w
-			local boltYBefore = w.adapter.node(rowHitPath(0, "bolt")).rect.y
+			local boltYBefore = w.adapter.node(rowHitPath("bolt")).rect.y
 			local razzHeightBefore = w.adapter.node(razzOuter).rect.h
 			expect(razzHeightBefore > 0).toBe(true)
 
@@ -3548,7 +3561,7 @@ describe("Table: row actions (Task 10)", function()
 				if h < razzHeightBefore then
 					sawShrink = true -- the row's OWN box shrank
 				end
-				if w.adapter.node(rowHitPath(0, "bolt")).rect.y < boltYBefore then
+				if w.adapter.node(rowHitPath("bolt")).rect.y < boltYBefore then
 					sawBoltUp = true -- ...and bolt moved up behind it
 				end
 			end
@@ -3566,13 +3579,13 @@ describe("Table: row actions (Task 10)", function()
 			w.rows:set({ RACERS[2], RACERS[3] })
 			w.pres.refresh()
 			expect(w.adapter.node(razzHit)).toBe(nil)
-			expect(w.adapter.node(rowHitPath(0, "bolt")) ~= nil).toBe(true)
+			expect(w.adapter.node(rowHitPath("bolt")) ~= nil).toBe(true)
 		end
 	)
 
 	it("edit mode shows BOTH the row_actions minus and Table's own reorder handle at once", function()
-		local core = Facet.newCore()
-		local editingSignal = core:signal(true) -- start in edit mode
+		local core = harness.newCore()
+		local editingSignal = Compose.cell(true) -- start in edit mode
 		local _, adapter = world({
 			core = core,
 			header = false,
@@ -3586,10 +3599,8 @@ describe("Table: row actions (Task 10)", function()
 				return nil
 			end,
 		})
-		expect(adapter.node(editAffordancePath(0, "razz")) ~= nil).toBe(true) -- the minus
-		expect(adapter.node(`{rowActionsRoot(0, "razz")}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBe(
-			true
-		) -- Table's own reorder handle, still there
+		expect(adapter.node(editAffordancePath("razz")) ~= nil).toBe(true) -- the minus
+		expect(adapter.node(`{rowActionsRoot("razz")}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBe(true) -- Table's own reorder handle, still there
 	end)
 
 	-- REDTEAM ITEM 2 (BLOCKER): the director's own regression test's TABLE
@@ -3615,9 +3626,9 @@ describe("Table: row actions (Task 10)", function()
 					-- clean oracle for "did anything about a sibling change"
 				end,
 			})
-			local razzHit = wrappedRowHitPath(0, "razz")
-			local boltPath = rowHitPath(0, "bolt")
-			local joshPath = rowHitPath(0, "josh")
+			local razzHit = wrappedRowHitPath("razz")
+			local boltPath = rowHitPath("bolt")
+			local joshPath = rowHitPath("josh")
 			local boltBefore = (w.adapter.node(boltPath) :: any).rect
 			local joshBefore = (w.adapter.node(joshPath) :: any).rect
 
@@ -3643,7 +3654,7 @@ describe("Table: row actions (Task 10)", function()
 			-- razz's own row keeps Table's authored rowHeight too — the
 			-- exact 48px->73px repro number the red team's own charter
 			-- names, now pinned at zero delta rather than merely "smaller."
-			local razzRoot = w.adapter.node(rowActionsRoot(0, "razz")) :: any
+			local razzRoot = w.adapter.node(rowActionsRoot("razz")) :: any
 			expect(razzRoot.rect.h).toBe(40) -- world()'s own default rowHeight
 		end
 	)
@@ -3668,19 +3679,19 @@ end)
 	page" as the shipped shape). ]]
 describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", function()
 	local function pageWorld(spec: any)
-		local core = spec.core or Facet.newCore()
+		local core = spec.core or harness.newCore()
 		local clockTime = 0
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system, {
+		local pres = harness.newPresenter(core, env, adapter, system, {
 			now = function()
 				return clockTime
 			end,
 		})
-		local rows = core:signal(RACERS)
+		local rows = Compose.cell(RACERS)
 		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
 			env = env,
@@ -3693,7 +3704,13 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 				return item.id
 			end,
 			cellFor = function(_columnId, item)
-				return Facet.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+				return harness.UI.Text({
+					id = "Value",
+					text = function(use)
+						return use(item).name
+					end,
+					textSize = 16,
+				})
 			end,
 			rowActions = function(_item)
 				return {
@@ -3705,10 +3722,10 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 		-- THE HOST OWNS THE SCROLLING (the shipped playlist's own shape,
 		-- examples/gallery/examples/02_playlist_table.luau): a page ScrollView
 		-- wrapping a table that is a block inside it.
-		local handle = pres.present(Facet.UI.Screen({
+		local handle = pres.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.ScrollView({
+				harness.UI.ScrollView({
 					id = "Page",
 					axis = "y",
 					width = { type = "fill", weight = 1 },
@@ -3732,7 +3749,7 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 	end
 
 	local function rowHit(key: string): string
-		return `/S/Page/Racers/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+		return `/S/Page/Racers/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Hit`
 	end
 
 	-- open razz's trailing tray with a real horizontal drag on its own Hit
@@ -3794,17 +3811,17 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 	end)
 
 	it("binding a BLOCK table still reports the mount error when it was never presented", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local tbl = table_control.build(Facet, core, {
 			id = "Loose",
 			scrolls = false,
 			columns = { { id = "name", title = "N", width = { type = "fill", weight = 1 } } },
-			rows = core:signal(RACERS),
+			rows = Compose.cell(RACERS),
 			key = function(item)
 				return item.id
 			end,
 			cellFor = function()
-				return Facet.UI.Text({ id = "V", text = "x", textSize = 16 })
+				return harness.UI.Text({ id = "V", text = "x", textSize = 16 })
 			end,
 		})
 		local ok, err = pcall(function()

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A SCALE-ONLY TRANSFORM WRITE IS ONE NODE'S PAINT, NOT A SUBTREE RE-APPLY
 	(perf round 2026-09-11).
 
@@ -21,7 +22,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local adapter_source = require("./lib/adapter_source")
 
 local ROWS = 12
@@ -31,7 +32,7 @@ local function mount()
 		viewport = { x = 0, y = 0, w = 400, h = 600 },
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 	})
-	local UI = Facet.UI
+	local UI = harness.UI
 	local rows = {}
 	for i = 1, ROWS do
 		table.insert(rows, UI.Text({ id = `R{i}`, text = `Row {i}` }))

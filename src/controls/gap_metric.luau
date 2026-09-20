@@ -1,11 +1,13 @@
 --!strict
+local Compose = require("../vendor/compose/core")
+local readSource = require("../selection_model").read
 --[[ A GAP THAT MAY BE A THEME TOKEN — one vocabulary, one refusal, one live read,
 	shared by every collection that spends a gutter in Luau arithmetic.
 
-	WHY IT EXISTS. `newTable.rowGap` has taken a theme metric name since 2026-08-06,
+	WHY IT EXISTS. `UI.Table.rowGap` has taken a theme metric name since 2026-08-06,
 	for a reason its own comment states plainly: the gap "is used in ARITHMETIC", so
-	a name that reached `cum += height + rowGap` used to throw. `newVirtualList` and
-	`newVirtualGrid` did the arithmetic too and took only a number (and, on
+	a name that reached `cum += height + rowGap` used to throw. `UI.VirtualList` and
+	`UI.VirtualGrid` did the arithmetic too and took only a number (and, on
 	`VirtualGrid.gap`, not even a `Readable`), so a consumer who wanted a
 	theme-tracking gutter on a virtualized collection had exactly one legal route:
 	hand-write a memo that reads the live snapshot and hands back pixels. That memo
@@ -21,14 +23,14 @@
 	  · a `Readable` — the consumer's own live number (or name), read reactively.
 
 	AN UNRESOLVABLE NAME IS REFUSED BY NAME, WHICH IS WHERE THIS DIVERGES FROM
-	`newTable` AND DELIBERATELY SO. `table.luau` resolves a string and falls back to
+	`UI.Table` AND DELIBERATELY SO. `table.luau` resolves a string and falls back to
 	`0`, so `rowGap = "6"` — a number somebody quoted — is silently no gutter at
 	all. Constitution §4's rule for a spec field is the opposite: an unknown value
 	is an authoring mistake, never a silent no-op, and this is a field whose wrong
 	answer is invisible (a gutter of zero looks exactly like a gutter nobody asked
 	for). So the name is resolved ONCE at construction, against the snapshot the
 	control can actually see, and a name that answers nothing names itself in the
-	refusal. Every spelling `newTable` accepts and MEANS still works here; the only
+	refusal. Every spelling `UI.Table` accepts and MEANS still works here; the only
 	thing refused is the spelling that meant nothing there either.
 
 	THE LIVE READ CANNOT REFUSE, and does not pretend to: a package swapped at
@@ -102,7 +104,7 @@ function gap_metric.reader(ctx: Ctx): Reader
 		}
 	end
 
-	local isLive = type(value) == "table" and type((value :: any).get) == "function"
+	local isLive = Compose.isReadable(value) or type(value) == "function"
 	assert(
 		isLive or type(value) == "number" or type(value) == "string",
 		`{ctx.label} must be a non-negative number, a theme metric name ("xs".."xl" or a dotted path such as `
@@ -122,7 +124,7 @@ function gap_metric.reader(ctx: Ctx): Reader
 			return themeSnapshot.neutral()
 		end
 		local key = env:get("themeMetrics")
-		return metricsOr(if use ~= nil then use(key) else key:get())
+		return metricsOr(if use ~= nil then use(key) else key:peek())
 	end
 
 	if type(value) == "string" then
@@ -149,7 +151,7 @@ function gap_metric.reader(ctx: Ctx): Reader
 		also switching) works without a second contract. `resolveNumber` returns a
 		number unchanged, so the number case costs one type test. ]]
 	local function read(use: any?): number
-		local raw: any = if isLive then (if use ~= nil then use(value) else (value :: any):get()) else value
+		local raw: any = readSource(value, use)
 		if type(raw) == "number" then
 			return if raw == raw and raw >= 0 then raw else default
 		end

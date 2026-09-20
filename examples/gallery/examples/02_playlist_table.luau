@@ -10,19 +10,22 @@ local TRACKS = {
 	{ id = "photo", name = "Photo Finish", artist = "Bad Weather", length = 201, rating = 0 },
 	{ id = "apex", name = "Apex Bloom", artist = "Nine Volt", length = 176, rating = 3 },
 }
-function example.build(Facet: any, core: any, deps: any)
-	local UI = Facet.View
-	local model = core:scope("playlist-model")
+function example.build(ctx: any)
+	local UI, Compose = ctx.UI, ctx.Compose
 	local built: any = {}
-	local baseRows = model:own(core:signal(table.clone(TRACKS)))
-	local filterText = model:own(core:signal(""))
-	local nowPlaying = model:own(core:signal(nil :: string?))
-	local sortOrder = model:own(core:signal(nil :: { column: string, ascending: boolean }?))
+	-- Table hands a custom cell the row's readable and every other callback the record.
+	local function plain(item: any): any
+		return if Compose.isReadable(item) then item:peek() else item
+	end
+	local baseRows = Compose.cell(table.clone(TRACKS))
+	local filterText = Compose.cell("")
+	local nowPlaying = Compose.cell(nil :: string?)
+	local sortOrder = Compose.cell(nil :: { column: string, ascending: boolean }?)
 	local ratings: { [string]: any } = {}
 	for _, track in TRACKS do
-		ratings[track.id] = model:own(core:signal(track.rating))
+		ratings[track.id] = Compose.cell(track.rating)
 	end
-	local sortedRows = model:own(core:memo(function(use)
+	local sortedRows = Compose.formula(function(use)
 		local all = use(baseRows) :: { any }
 		local order = use(sortOrder)
 		if order == nil then
@@ -54,8 +57,8 @@ function example.build(Facet: any, core: any, deps: any)
 			return av > bv
 		end)
 		return out
-	end))
-	local filteredRows = model:own(core:memo(function(use)
+	end)
+	local filteredRows = Compose.formula(function(use)
 		local query = string.lower(use(filterText))
 		local all = use(sortedRows) :: { any }
 		if query == "" then
@@ -68,41 +71,35 @@ function example.build(Facet: any, core: any, deps: any)
 			end
 		end
 		return out
-	end))
+	end)
 	local function bakeManualOrder(): { any }
-		if sortOrder:get() ~= nil then
-			baseRows:set(table.clone(sortedRows:get() :: { any }))
+		if sortOrder:peek() ~= nil then
+			baseRows:set(table.clone(sortedRows:peek() :: { any }))
 			sortOrder:set(nil)
 		end
-		return baseRows:get() :: { any }
+		return baseRows:peek() :: { any }
 	end
-	local filterControl = UI.TextInput({
-		id = "Filter",
-		value = filterText,
-		presentation = "search",
-		placeholder = "Filter tracks",
-	})
 	local function starCell(item: any)
-		return UI.Rating({ id = "Rating", value = ratings[item.id], count = 5 })
+		return UI.Rating("Rating")({ value = ratings[plain(item).id], count = 5 })
 	end
 
 	local function removeTrack(id: string)
 		local out = {}
-		for _, track in baseRows:get() :: { any } do
+		for _, track in baseRows:peek() :: { any } do
 			if track.id ~= id then
 				table.insert(out, track)
 			end
 		end
 		baseRows:set(out)
 		for _, track in TRACKS do
-			if track.id == id and nowPlaying:get() == track.name then
+			if track.id == id and nowPlaying:peek() == track.name then
 				nowPlaying:set(nil)
 			end
 		end
 	end
 	local function moveToTop(id: string)
 		local present = false
-		for _, track in baseRows:get() :: { any } do
+		for _, track in baseRows:peek() :: { any } do
 			if track.id == id then
 				present = true
 				break
@@ -123,7 +120,7 @@ function example.build(Facet: any, core: any, deps: any)
 		baseRows:set(rest)
 	end
 	local function reorder(keys: { string }, toIndex: number)
-		if filterText:get() ~= "" then
+		if filterText:peek() ~= "" then
 			return -- a filter is active: moves are disabled, and the sort stays
 		end
 		if #keys == 0 then
@@ -149,12 +146,8 @@ function example.build(Facet: any, core: any, deps: any)
 		end
 		baseRows:set(out)
 	end
-	local Playlist = Facet.component(function(ui)
-		-- This example displays the table's live column widths and selected header.
-		-- An explicit handle is appropriate for those imperative diagnostics; the
-		-- mounted component owns it. Ordinary tables can use UI.Table directly.
-		local tbl = ui.own(Facet.Controls.Table(core, {
-			id = "Tracks",
+	function built.screen()
+		local tracks = UI.Table("Tracks")({
 			columns = {
 				{
 					id = "name",
@@ -164,7 +157,7 @@ function example.build(Facet: any, core: any, deps: any)
 					resizable = true,
 					disclose = true,
 					value = function(item)
-						return item.name
+						return plain(item).name
 					end,
 				},
 				{
@@ -175,7 +168,7 @@ function example.build(Facet: any, core: any, deps: any)
 					resizable = true,
 					disclose = true,
 					value = function(item)
-						return item.artist
+						return plain(item).artist
 					end,
 				},
 				{
@@ -189,21 +182,21 @@ function example.build(Facet: any, core: any, deps: any)
 			scrolls = false,
 			rows = filteredRows,
 			key = function(item)
-				return item.id
+				return plain(item).id
 			end,
 			rowGap = "controls.table.rowGap",
 			header = true,
 			sortOrder = sortOrder,
 			selection = "multi",
 			onPrimaryAction = function(item: any, _key: string)
-				nowPlaying:set(item.name)
+				nowPlaying:set(plain(item).name)
 			end,
 			reorderable = true,
 			dragLabel = function(item)
-				return item.name
+				return plain(item).name
 			end,
 			rowActions = function(item: any)
-				local id = item.id
+				local id = plain(item).id
 				return {
 					leading = {
 						{
@@ -230,7 +223,10 @@ function example.build(Facet: any, core: any, deps: any)
 				}
 			end,
 			onReorder = reorder,
-		}))
+		})
+		-- The widths line and the selected-column hint read the table's own
+		-- diagnostics, which a host that records its controls provides.
+		local tbl = if ctx.controlRecord ~= nil then ctx.controlRecord("Tracks") else nil
 		local function restore()
 			filterText:set("")
 			sortOrder:set(nil)
@@ -241,11 +237,9 @@ function example.build(Facet: any, core: any, deps: any)
 			end
 		end
 		local COLUMN_LABELS = { { "name", "Name", true }, { "artist", "Artist", true }, { "rating", "Rating", false } }
-		local columnWidths, hiddenColumns = ui.read(tbl.api.columnWidthOverrides), ui.read(tbl.api.hiddenColumns)
-		local selectedColumn, playing = ui.read(tbl.api.selectedColumn), ui.read(nowPlaying)
-		local widthsText = ui.memo(function()
-			local overrides = columnWidths() :: { [string]: number }
-			local hidden = hiddenColumns() :: { string }
+		local widthsText = Compose.formula(function(use)
+			local overrides = (if tbl then use(tbl.api.columnWidthOverrides) else {}) :: { [string]: number }
+			local hidden = (if tbl then use(tbl.api.hiddenColumns) else {}) :: { string }
 			local hiddenSet: { [string]: boolean } = {}
 			for _, id in hidden do
 				hiddenSet[id] = true
@@ -264,8 +258,8 @@ function example.build(Facet: any, core: any, deps: any)
 			local line = table.concat(parts, " · ")
 			return if #hidden > 0 then `{line} · {#hidden} hidden` else line
 		end)
-		local hintText = function()
-			local selected = selectedColumn() :: string?
+		local hintText = Compose.formula(function(use)
+			local selected = (if tbl then use(tbl.api.selectedColumn) else nil) :: string?
 			if selected == nil then
 				return "Type to filter · tap a heading to sort · drag a divider to resize · swipe a row for its actions"
 			end
@@ -276,48 +270,47 @@ function example.build(Facet: any, core: any, deps: any)
 				end
 			end
 			return `{label} has the keys: , and . resize it, ↑/↓ sorts`
-		end
-		local nowPlayingText = function()
-			local track = playing()
+		end)
+		local nowPlayingText = function(use)
+			local track = use(nowPlaying)
 			if track == nil then
 				return "Nothing playing — double-click a row, or press Return on a focused one"
 			end
 			return `Now playing — {track}`
 		end
-		local screen = UI.Screen({
-			id = "Playlist",
+		local screen = UI.Screen("Playlist")({
 			surface = "base",
 			padding = "m",
-			UI.ScrollView({
-				id = "Page",
+			UI.ScrollView("Page")({
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
 				height = UI.fill(),
-				UI.Text({ id = "Title", text = "Playlist", textSize = "title" }),
-				filterControl,
-				UI.Text({
-					id = "Hint",
+				UI.Text("Title")({ text = "Playlist", textSize = "title" }),
+				UI.TextInput("Filter")({
+					value = filterText,
+					presentation = "search",
+					placeholder = "Filter tracks",
+				}),
+				UI.Text("Hint")({
 					text = hintText,
 					textSize = "label",
 					role = "secondary",
 					disclose = true,
 				}),
-				UI.Text({
-					id = "NowPlaying",
+				UI.Text("NowPlaying")({
 					text = nowPlayingText,
 					textSize = "label",
 					role = "secondary",
 				}),
-				UI.Text({
-					id = "Widths",
+				UI.Text("Widths")({
 					text = widthsText,
 					textSize = "label",
 					role = "secondary",
 					disclose = true,
 				}),
-				tbl.blueprint,
-				UI.Button({ id = "Restore", label = "Restore the original playlist", onActivate = restore }),
+				tracks,
+				UI.Button("Restore")({ label = "Restore the original playlist", onActivate = restore }),
 			}),
 		})
 		local exports = {
@@ -325,8 +318,14 @@ function example.build(Facet: any, core: any, deps: any)
 			sortedRows = sortedRows, -- the full playlist in DISPLAY order (sort, no filter)
 			baseRows = baseRows, -- the full STORED order (a reorder writes here)
 			sortOrder = sortOrder, -- the owner-held sort binding the header cycles
-			widths = widthsText, -- the live per-column width sentence
-			hint = hintText, -- the instruction / selected-column readout
+			-- the live per-column width sentence
+			widths = function(): string
+				return widthsText:peek()
+			end,
+			-- the instruction / selected-column readout
+			hint = function(): string
+				return hintText:peek()
+			end,
 			reorder = reorder, -- the drop command the Table calls on a commit
 			moveToTop = moveToTop, -- the leading swipe action's command
 			removeTrack = removeTrack, -- the trailing swipe action's command
@@ -345,11 +344,8 @@ function example.build(Facet: any, core: any, deps: any)
 			built[key] = value
 		end
 		return screen
-	end)
-	built.screen = Playlist({})
-	built.dispose = function()
-		model:dispose()
 	end
+	built.dispose = function() end
 	return built
 end
 return example

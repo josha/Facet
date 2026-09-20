@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- P1.2 solver v1 completion tests (UI-LAYOUT-002): ZStack, Grid (fixed +
 -- adaptive), Anchor, minMax/aspect dims, margins, cross-axis alignment,
 -- aspect-on-both-axes diagnostic.
@@ -198,23 +199,23 @@ end)
 describe("UI.Grid blueprint (architecture verifier F3: §10.1 v1 control)", function()
 	it("UI.Grid mounts and renders through the solver's grid kind", function()
 		local Facet = require("../src") :: any
-		local mountLib = require("../src/mount")
+		local mountLib = harness
 		local rendererLib = require("../src/render/renderer")
 		local fake_target = require("./lib/fake_target")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local adapter = fake_target.new()
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grid({
+				harness.UI.Grid({
 					id = "G",
 					columns = 2,
 					gap = 4,
 					children = {
-						Facet.UI.Box({ id = "A", height = { type = "fixed", px = 30 } }),
-						Facet.UI.Box({ id = "B", height = { type = "fixed", px = 30 } }),
-						Facet.UI.Box({ id = "C", height = { type = "fixed", px = 30 } }),
+						harness.UI.Box({ id = "A", height = { type = "fixed", px = 30 } }),
+						harness.UI.Box({ id = "B", height = { type = "fixed", px = 30 } }),
+						harness.UI.Box({ id = "C", height = { type = "fixed", px = 30 } }),
 					},
 				}),
 			},

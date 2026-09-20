@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE COMMIT ASKS `entryVerdict` ONLY WHERE IT CANNOT ANSWER FOR ITSELF
 	(Plan C, C14).
 
@@ -83,12 +84,13 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local deep = require("./lib/deep_stack_scene")
 local device_views = require("./lib/device_views")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function byWalk(st: any): string
 	local keys = {}
@@ -112,7 +114,7 @@ local function fillScene(commitScope: boolean)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-	local width = core:signal(300)
+	local width = Compose.cell(300)
 	local rows: { any } = {}
 	for i = 1, 20 do
 		rows[i] = UI.HStack({
@@ -120,7 +122,7 @@ local function fillScene(commitScope: boolean)
 			padding = 0,
 			gap = 0,
 			width = if i == 5
-				then core:memo(function(use: any)
+				then Compose.formula(function(use: any)
 					return { type = "fixed", px = use(width) :: number }
 				end)
 				else { type = "fixed", px = 300 },

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("../lib/harness")
 -- Accessibility / localization CORPUS runner (design §8.4, §17 Phase 4).
 -- Runs the corpus against the reference (custom) core, writes the deterministic
 -- corpus dump + per-check results to artifacts/phase-4/a11y-l10n-corpus.json,
@@ -11,7 +12,7 @@ local process = require("@lune/process")
 
 local artifact = require("../../tools/lune/artifact")
 local corpus = require("./a11y_l10n_corpus")
-local customFactory = require("../../src/core/custom")
+local customFactory = harness.coreFactory
 
 local results = {}
 local passed, failed = 0, 0

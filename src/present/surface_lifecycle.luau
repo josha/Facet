@@ -215,7 +215,7 @@ function surfaceLifecycle.new(ctx: any)
 		-- THE RING IS A NAVIGATION ANSWER, NOT A FOCUS ANSWER (the device round's
 		-- pointer-vs-navigation rule): a pointer/touch-driven focus move tracks
 		-- focus without drawing it.
-		local ringVisible = graph.focusVisible:get() ~= false
+		local ringVisible = graph.focusVisible:peek() ~= false
 		for _, handle in stack do
 			local rootPath = "/" .. (handle.blueprint.id or "")
 			--[[ SEGMENT-ALIGNED, because `/Menu` is a raw string prefix of
@@ -242,7 +242,7 @@ function surfaceLifecycle.new(ctx: any)
 			-- `currentExclusive`, so there is no catcher and the click is never seen.
 			-- Gating on ownership fixes both halves at once — nothing to clear,
 			-- because nothing was ever drawn.
-			local ownsInput = not handle.isPassive or handle.responder:get() == "engaged"
+			local ownsInput = not handle.isPassive or handle.responder:peek() == "engaged"
 			handle.controller.setFocusPath(if owns then path else nil, ringVisible and ownsInput)
 			-- focus-gated Adjust bindings (matrix §B-Table): bind/unbind as focus
 			-- enters/leaves a declared adjust target so gameplay keys are never
@@ -657,7 +657,7 @@ function surfaceLifecycle.new(ctx: any)
 		-- belongs back exactly where it was, not reset to the scope's own
 		-- first eligible node just because re-topping happens to reuse the
 		-- push machinery that normally seeds a BRAND NEW scope
-		local currentFocus = graph.focused:get()
+		local currentFocus = graph.focused:peek()
 		local derived = focusDerivation(handle)
 		graph.removeScope(scopeName)
 		graph.pushScope({

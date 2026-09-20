@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local Compose = require("../src/vendor/compose/core")
 --[[ D2a — A REBUILT CONTAINER PATCHES ITS KEPT CHILDREN ARRAY AT THE DIRTY INDICES.
 
 	T15 gave a container the licence to keep the children array it built last tick, and
@@ -130,11 +132,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/deep_stack_scene")
 local device_views = require("./lib/device_views")
 local layout_node = require("../src/render/layout_node")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local NEUTRAL = (require("../src/themes/snapshot") :: any).neutral()
@@ -585,10 +587,10 @@ local function foreachRows(rows: number)
 	local items: { any } = {}
 	local signals: { any } = {}
 	for i = 1, rows do
-		signals[i] = core:signal(`row {i}`)
+		signals[i] = Compose.cell(`row {i}`)
 		items[i] = { key = `k{i}`, at = i }
 	end
-	local list = core:signal(items)
+	local list = Compose.cell(items)
 	local root = mountLib.mount(
 		core,
 		UI.Screen({

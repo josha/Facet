@@ -6,6 +6,8 @@
 -- (UI-LIFE-002). Same Check shape as suite.luau.
 
 local contract = require("../../src/core/contract")
+local Compose = require("../../src/vendor/compose/core")
+local observeChange = require("../../src/core/on_change")
 type Core = contract.Core
 
 export type Check = {
@@ -19,28 +21,30 @@ local checks: { Check } = {
 		name = "micro-settings-row",
 		requirement = "UI-RUNTIME-001",
 		run = function(core)
-			local scope = core:scope("SettingsRow")
+			local scope = core.owner.createChild()
 			local factoryRuns = 0
 			-- the "component": builds the row's state graph exactly once
 			local function rowFactory()
 				factoryRuns += 1
-				local draft = scope:own(core:signal(false))
-				local status = scope:own(core:signal("idle"))
-				local label = scope:own(core:memo(function(use)
-					return `music: {use(draft) and "on" or "off"} ({use(status)})`
-				end))
+				local draft = Compose.cell(false)
+				local status = Compose.cell("idle")
+				local label = Compose.withOwner(scope, function()
+					return Compose.formula(function(use)
+						return `music: {use(draft) and "on" or "off"} ({use(status)})`
+					end)
+				end)
 				return { draft = draft, status = status, label = label }
 			end
 			local row = rowFactory()
 			local renders = 0
-			scope:own(core:observe(row.label, function()
+			observeChange(scope, row.label, function()
 				renders += 1
-			end))
+			end)
 			-- non-structural updates: toggle five times, then a save mutation
 			for _ = 1, 5 do
-				row.draft:set(not row.draft:get())
+				row.draft:set(not row.draft:peek())
 			end
-			core:transaction(function()
+			core.reactor:batch(function()
 				row.status:set("pending")
 			end)
 			row.status:set("confirmed")
@@ -58,26 +62,28 @@ local checks: { Check } = {
 		name = "micro-live-hud-value",
 		requirement = "UI-RUNTIME-001",
 		run = function(core)
-			local scope = core:scope("HudValue")
+			local scope = core.owner.createChild()
 			local factoryRuns = 0
 			local function hudFactory()
 				factoryRuns += 1
-				local speed = scope:own(core:signal(0))
-				local shown = scope:own(core:memo(function(use)
-					return `{math.floor(use(speed))} sps`
-				end))
+				local speed = Compose.cell(0)
+				local shown = Compose.withOwner(scope, function()
+					return Compose.formula(function(use)
+						return `{math.floor(use(speed))} sps`
+					end)
+				end)
 				return { speed = speed, shown = shown }
 			end
 			local hud = hudFactory()
 			local renderWrites = 0
-			scope:own(core:observe(hud.shown, function()
+			observeChange(scope, hud.shown, function()
 				renderWrites += 1
-			end))
+			end)
 			for i = 1, 100 do
 				hud.speed:set(i)
 			end
 			local individual = renderWrites
-			core:transaction(function()
+			core.reactor:batch(function()
 				for i = 101, 200 do
 					hud.speed:set(i)
 				end
@@ -100,10 +106,10 @@ local checks: { Check } = {
 		name = "micro-keyed-collection",
 		requirement = "UI-RUNTIME-002",
 		run = function(core)
-			local baseline = core:counters()
-			local root = core:scope("Collection")
+			local baseline = core.owner.size()
+			local root = core.owner.createChild()
 			-- ForEach-at-core-scale: keyed item scopes; add/remove/move only.
-			local items: { [string]: { scope: contract.Scope, runs: number } } = {}
+			local items: { [string]: { scope: contract.Owner, runs: number } } = {}
 			local factoryRuns: { [string]: number } = {}
 			local function apply(keys: { string })
 				local wanted: { [string]: boolean } = {}
@@ -119,8 +125,8 @@ local checks: { Check } = {
 				for _, k in keys do
 					if items[k] == nil then
 						factoryRuns[k] = (factoryRuns[k] or 0) + 1
-						local itemScope = root:child(k)
-						itemScope:own(core:signal(k))
+						local itemScope = root.createChild()
+						Compose.cell(k)
 						items[k] = { scope = itemScope, runs = factoryRuns[k] }
 					end
 				end
@@ -136,11 +142,10 @@ local checks: { Check } = {
 			end
 			apply({})
 			root:dispose()
-			local after = core:counters()
-			for k, v in baseline :: any do
-				if (after :: any)[k] ~= v then
-					return false, `counter {k} leaked: {v} -> {(after :: any)[k]}`
-				end
+			-- a Compose owner's size is one number: what it still holds
+			local after = core.owner.size()
+			if after ~= baseline then
+				return false, `owner leaked: {baseline} -> {after}`
 			end
 			return true, nil
 		end,

@@ -14,16 +14,19 @@
 -- a fixture quietly waiving that floor is exactly what the contract-level
 -- declaration exists to prevent.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Marker lab (SF-P5)",
 	ledgerRows = { "SF-P5", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-markers")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 
 		local SCREEN = "/MarkerLab"
 		local OVERLAY = SCREEN .. "/Stage/Overlay"
@@ -52,8 +55,8 @@ return {
 			return out
 		end
 
-		local markers = scope:own(core:signal(makeSet(START_COUNT)))
-		local orbiting = scope:own(core:signal(false))
+		local markers = Compose.cell(makeSet(START_COUNT))
+		local orbiting = Compose.cell(false)
 
 		-- u,v live in ONE signal per marker: a jump is one write, and the two
 		-- offsets read the same value, so no frame can ever show x from this update
@@ -64,10 +67,10 @@ return {
 				return existing
 			end
 			local angle = (index / START_COUNT) * math.pi * 2
-			local signal = scope:own(core:signal({
+			local signal = Compose.cell({
 				u = 0.5 + 0.32 * math.cos(angle),
 				v = 0.5 + 0.32 * math.sin(angle),
-			}))
+			})
 			positions[key] = signal
 			return signal
 		end
@@ -77,22 +80,23 @@ return {
 		local DIRECT_HUE = "#3fa9f5"
 		local MARKER: any = { type = "fixed", px = "iconSizes.small" }
 
-		local function markerView(item: any, itemScope: any): any
+		-- `entry` is a readable of the marker record; key and index never change.
+		local function markerView(entry: any): any
+			local item = entry:peek()
 			factoryRuns[item.key] = (factoryRuns[item.key] or 0) + 1
 			local position = ensurePosition(item.key, item.index)
 			-- the fraction is spent at ARRANGE against the anchor's inner box; the
 			-- `-s` offset is half a marker (the theme's own step), so the dot is
 			-- centred on its point instead of hanging off it
-			local offsetX = itemScope:own(core:memo(function(use)
+			local function offsetX(use)
 				return { scale = (use(position) :: any).u, offset = "-s" }
-			end))
-			local offsetY = itemScope:own(core:memo(function(use)
+			end
+			local function offsetY(use)
 				return { scale = (use(position) :: any).v, offset = "-s" }
-			end))
+			end
 			local tracked = item.index == 1
 			local direct = item.index == 12
-			local box = UI.Box({
-				id = "Dot",
+			local box = UI.Box("Dot-" .. item.key)({
 				-- a fade needs a fade group, and a marker is a single plate
 				canvasGroup = true,
 				-- THE UNTRACKED MARKER IS NEUTRAL CONTENT, NOT A CONTROL SURFACE
@@ -133,16 +137,16 @@ return {
 		end
 
 		local orbitPhase = 0
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
-			if not orbiting:get() then
+			if not orbiting:peek() then
 				return
 			end
 			orbitPhase += dt
 			-- ONE transaction per frame for the whole set: twelve markers move
 			-- together, so the arrange pass runs once
-			core:transaction(function()
-				for _, item in markers:get() :: { any } do
+			ctx.core.reactor:batch(function()
+				for _, item in markers:peek() :: { any } do
 					local angle = (item.index / START_COUNT) * math.pi * 2 + orbitPhase * 1.2
 					setPosition(item.key, 0.5 + 0.32 * math.cos(angle), 0.5 + 0.32 * math.sin(angle))
 				end
@@ -150,8 +154,7 @@ return {
 		end))
 
 		local function control(id: string, label: string, onActivate: () -> ())
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = onActivate,
@@ -159,22 +162,22 @@ return {
 		end
 
 		local function toggleOrbit()
-			orbiting:set(not orbiting:get())
-			note("orbit", { on = orbiting:get() })
+			orbiting:set(not orbiting:peek())
+			note("orbit", { on = orbiting:peek() })
 		end
 
 		local function burst()
-			core:transaction(function()
-				for _, item in markers:get() :: { any } do
+			ctx.core.reactor:batch(function()
+				for _, item in markers:peek() :: { any } do
 					local angle = item.index * 2.399963 -- the golden angle: a real scatter
 					setPosition(item.key, 0.5 + 0.42 * math.cos(angle), 0.5 + 0.42 * math.sin(angle))
 				end
 			end)
-			note("burst", { markers = #(markers:get() :: any) })
+			note("burst", { markers = #(markers:peek() :: any) })
 		end
 
 		local function addRemove()
-			local current = markers:get() :: { any }
+			local current = markers:peek() :: { any }
 			local next: { any } = {}
 			for _, item in current do
 				-- 3 and 4 leave...
@@ -197,68 +200,66 @@ return {
 			note("addRemove", { count = #next })
 		end
 
-		local screen = UI.Screen({
-			id = "MarkerLab",
-			padding = "m",
-			gap = "s",
+		local function screen()
+			return UI.Screen("MarkerLab")({
+				padding = "m",
+				gap = "s",
 
-			UI.Text({ id = "Title", text = "Marker lab", textSize = "heading" }),
-			UI.ZStack({
-				id = "Stage",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.corners(
-					UI.Box({
-						id = "Map",
-						surface = "raised",
-						width = UI.fill(),
-						height = UI.fill(),
-					}),
-					"panel"
-				),
-				UI.Anchor({
-					id = "Overlay",
+				UI.Text("Title")({ text = "Marker lab", textSize = "heading" }),
+				UI.ZStack("Stage")({
 					width = UI.fill(),
 					height = UI.fill(),
 
-					UI.ForEach({
-						id = "Markers",
-						items = markers,
-						key = function(item: any)
-							return item.key
-						end,
-						row = markerView,
-						transition = { enter = "fade", class = "container" },
+					UI.corners(
+						UI.Box("Map")({
+							surface = "raised",
+							width = UI.fill(),
+							height = UI.fill(),
+						}),
+						"panel"
+					),
+					UI.Anchor("Overlay")({
+						width = UI.fill(),
+						height = UI.fill(),
+
+						UI.ForEach("Markers")({
+							transition = { enter = "fade", class = "container" },
+							Compose.keyed({
+								from = markers,
+								key = function(item: any)
+									return item.key
+								end,
+								render = markerView,
+							}),
+						}),
 					}),
 				}),
-			}),
-			UI.Grid({
-				id = "Controls",
-				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-				-- lets the WIDEST verb decide every column, so one long label costs this lab a
-				-- whole column on a 320px phone: the control grid doubles in height and the
-				-- `fill` stage column above it collapses to zero. This number asks the other
-				-- question — how many controls fit a row — and lets a long label compact.
-				minColumnWidth = 104,
-				gap = "s",
-				rowGap = "s",
-				width = UI.fill(),
+				UI.Grid("Controls")({
+					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+					-- lets the WIDEST verb decide every column, so one long label costs this lab a
+					-- whole column on a 320px phone: the control grid doubles in height and the
+					-- `fill` stage column above it collapses to zero. This number asks the other
+					-- question — how many controls fit a row — and lets a long label compact.
+					minColumnWidth = 104,
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
 
-				control("BtnOrbit", "Orbit", toggleOrbit),
-				control("BtnBurst", "Burst", burst),
-				control("BtnAddRemove", "AddRemove", addRemove),
-			}),
-		})
+					control("BtnOrbit", "Orbit", toggleOrbit),
+					control("BtnBurst", "Burst", burst),
+					control("BtnAddRemove", "AddRemove", addRemove),
+				}),
+			})
+		end
 
 		local function geometryNow(): any
 			if ctx.geometry == nil then
 				return nil
 			end
 			local paths: { string } = {}
-			for _, item in markers:get() :: { any } do
-				table.insert(paths, `{OVERLAY}/Markers/[{item.key}]/Dot`)
+			for _, item in markers:peek() :: { any } do
+				table.insert(paths, `{OVERLAY}/Markers/Dot-{item.key}`)
 			end
 			table.insert(paths, SCREEN .. "/Stage/Map")
 			return ctx.geometry(paths)
@@ -282,7 +283,7 @@ return {
 				updateWrites = 0
 				orbiting:set(true)
 				note("orbit:start", { counters = before })
-				return { orbiting = true, countersBefore = before, markers = #(markers:get() :: any) }
+				return { orbiting = true, countersBefore = before, markers = #(markers:peek() :: any) }
 			end,
 			stopOrbit = function()
 				orbiting:set(false)
@@ -312,7 +313,7 @@ return {
 					factoryRunsAfter = factoryRuns,
 					keys = (function()
 						local out: { string } = {}
-						for _, item in markers:get() :: { any } do
+						for _, item in markers:peek() :: { any } do
 							table.insert(out, item.key)
 						end
 						return out
@@ -322,14 +323,14 @@ return {
 			-- the corner check the matrix WRONG names: u,v = 0 and 1 must sit exactly
 			-- on the map surface's corners at any aspect ratio
 			corners = function()
-				local set = markers:get() :: { any }
+				local set = markers:peek() :: { any }
 				local aims = {
 					{ key = set[1].key, u = 0, v = 0 },
 					{ key = set[2].key, u = 1, v = 0 },
 					{ key = set[3].key, u = 0, v = 1 },
 					{ key = set[4].key, u = 1, v = 1 },
 				}
-				core:transaction(function()
+				ctx.core.reactor:batch(function()
 					for _, aim in aims do
 						setPosition(aim.key, aim.u, aim.v)
 					end
@@ -344,7 +345,7 @@ return {
 				local checks: { any } = {}
 				if map ~= nil and ctrl ~= nil then
 					for _, aim in aims do
-						local rect = ctrl.rectOf(`{OVERLAY}/Markers/[{aim.key}]/Dot`)
+						local rect = ctrl.rectOf(`{OVERLAY}/Markers/Dot-{aim.key}`)
 						if rect ~= nil then
 							local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
 							table.insert(checks, {
@@ -372,12 +373,12 @@ return {
 				ledger = "SF-P5",
 				elapsed = elapsed,
 				trace = trace,
-				orbiting = orbiting:get(),
+				orbiting = orbiting:peek(),
 				updateWrites = updateWrites,
-				markerCount = #(markers:get() :: any),
+				markerCount = #(markers:peek() :: any),
 				keys = (function()
 					local out: { string } = {}
-					for _, item in markers:get() :: { any } do
+					for _, item in markers:peek() :: { any } do
 						table.insert(out, item.key)
 					end
 					return out
@@ -388,7 +389,7 @@ return {
 				positions = (function()
 					local out: { [string]: any } = {}
 					for key, signal in positions do
-						out[key] = signal:get()
+						out[key] = signal:peek()
 					end
 					return out
 				end)(),
@@ -397,14 +398,14 @@ return {
 				directHue = { key = "m-12", value = DIRECT_HUE, themingExempt = true },
 				markerSizeMetric = "iconSizes.small",
 				interactive = false,
-				reducedMotion = env:get("reducedMotion"):get(),
-				counters = core:counters(),
-				coreError = core:lastError(),
+				reducedMotion = env:get("reducedMotion"):peek(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
 			orbiting:set(false)
-			scope:dispose()
+			lifetime.dispose()
 		end
 		return result
 	end,

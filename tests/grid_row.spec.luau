@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE ROW GRID (docs/plans/parity-round2.md §2.2).
 
@@ -37,11 +38,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local solver = require("../src/layout/solver")
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local schema = require("../src/blueprint_schema")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local Facet = require("../src") :: any
@@ -483,40 +484,40 @@ describe("GridRow through the public authoring surface", function()
 		-- and a row grid has none — so the same code read a 2x2 board as ONE row four
 		-- cells wide, and Down went nowhere. `emitGridGroups` now uses the `GridRow`
 		-- children when the Grid has them (`src/present/focus_map.luau`).
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake_target.new(), system)
+		local pres = harness.newPresenter(core, env, fake_target.new(), system)
 		local function rowOf(n: number): any
-			return Facet.UI.GridRow({
+			return harness.UI.GridRow({
 				id = `R{n}`,
 				children = {
-					Facet.UI.Button({ id = `b{n}1`, label = `b{n}1` }),
-					Facet.UI.Button({ id = `b{n}2`, label = `b{n}2` }),
+					harness.UI.Button({ id = `b{n}1`, label = `b{n}1` }),
+					harness.UI.Button({ id = `b{n}2`, label = `b{n}2` }),
 				},
 			})
 		end
-		pres.present(Facet.UI.Screen({
+		pres.present(harness.UI.Screen({
 			id = "S",
-			children = { Facet.UI.Grid({ id = "G", gap = 8, children = { rowOf(1), rowOf(2) } }) },
+			children = { harness.UI.Grid({ id = "G", gap = 8, children = { rowOf(1), rowOf(2) } }) },
 		}))
 		pres.refresh()
 		local function press(key: string)
 			system.deviceKey(key, true)
 			system.deviceKey(key, false)
 		end
-		expect(pres.focus.focused:get()).toBe("/S/G/R1/b11")
+		expect(pres.focus.focused:peek()).toBe("/S/G/R1/b11")
 		press("DPadRight")
-		expect(pres.focus.focused:get()).toBe("/S/G/R1/b12")
+		expect(pres.focus.focused:peek()).toBe("/S/G/R1/b12")
 		-- ...and DOWN crosses to the second ROW, keeping the column. Without the
 		-- declared-row derivation this stayed on b12 forever.
 		press("DPadDown")
-		expect(pres.focus.focused:get()).toBe("/S/G/R2/b22")
+		expect(pres.focus.focused:peek()).toBe("/S/G/R2/b22")
 		press("DPadLeft")
-		expect(pres.focus.focused:get()).toBe("/S/G/R2/b21")
+		expect(pres.focus.focused:peek()).toBe("/S/G/R2/b21")
 		press("DPadUp")
-		expect(pres.focus.focused:get()).toBe("/S/G/R1/b11")
+		expect(pres.focus.focused:peek()).toBe("/S/G/R1/b11")
 	end)
 
 	it("`gridSpan` is a SHARED box prop, so any cell can carry it", function()

@@ -25,8 +25,7 @@ function parts.artPlate(app: any, kind: string, id: string, opts: any?): any
 	local box = options.width or dims.fill
 	local height = options.height or box
 	local children: { any } = {
-		UI.Box({
-			id = "Plate",
+		UI.Box("Plate")({
 			width = dims.fill,
 			height = dims.fill,
 			tint = { role = a.role, blend = a.blend },
@@ -37,8 +36,7 @@ function parts.artPlate(app: any, kind: string, id: string, opts: any?): any
 	if a.image ~= nil then
 		table.insert(
 			children,
-			UI.Image({
-				id = "Art",
+			UI.Image("Art")({
 				image = a.image,
 				scaleMode = "crop",
 				width = dims.fill,
@@ -49,8 +47,7 @@ function parts.artPlate(app: any, kind: string, id: string, opts: any?): any
 	else
 		table.insert(
 			children,
-			UI.Text({
-				id = "Mark",
+			UI.Text("Mark")({
 				text = a.mark,
 				textSize = options.markSize or "heading",
 				textAlign = "center",
@@ -62,14 +59,12 @@ function parts.artPlate(app: any, kind: string, id: string, opts: any?): any
 			})
 		)
 	end
-	return UI.ZStack({
-		id = options.id or "Art",
+	return UI.ZStack(options.id or "Art")(app.withChildren({
 		width = box,
 		height = height,
 		alignH = "center",
 		alignV = "center",
-		children = children,
-	})
+	}, children))
 end
 
 -- ---------------------------------------------------------------------------
@@ -87,36 +82,33 @@ end
 -- ---------------------------------------------------------------------------
 
 function parts.flipPlate(app: any, spec: any): any
-	local FlipPlate = app.Facet.component(function(ui)
-		local UI = app.Facet.View
-		local progress = ui.read(spec.progress)
+	local function FlipPlate(): any
+		local UI = app.UI
+		local progress = spec.progress
 
-		local showBack = ui.memo(function()
-			return progress() >= 0.5
+		local showBack = app.Compose.formula(function(use)
+			return use(progress) >= 0.5
 		end)
-		local showFront = ui.memo(function()
-			return progress() < 0.5
+		local showFront = app.Compose.formula(function(use)
+			return use(progress) < 0.5
 		end)
-		local frontWidth = ui.memo(function()
-			return dims.percent(math.max(0.02, 1 - 2 * progress()))
+		local frontWidth = app.Compose.formula(function(use)
+			return dims.percent(math.max(0.02, 1 - 2 * use(progress)))
 		end)
-		local backWidth = ui.memo(function()
-			return dims.percent(math.max(0.02, 2 * progress() - 1))
+		local backWidth = app.Compose.formula(function(use)
+			return dims.percent(math.max(0.02, 2 * use(progress) - 1))
 		end)
 
-		return UI.ZStack({
-			id = spec.id,
+		return UI.ZStack(spec.id)({
 			width = spec.width,
 			height = spec.height,
 			alignH = "center",
 			alignV = "center",
 
-			UI.When({
-				id = "Front",
+			app.when("Front")({
 				condition = showFront,
 				thenView = function()
-					return UI.ZStack({
-						id = "FrontFace",
+					return UI.ZStack("FrontFace")({
 						width = frontWidth,
 						height = dims.fill,
 						alignH = "center",
@@ -125,12 +117,10 @@ function parts.flipPlate(app: any, spec: any): any
 					})
 				end,
 			}),
-			UI.When({
-				id = "Back",
+			app.when("Back")({
 				condition = showBack,
 				thenView = function()
-					return UI.ZStack({
-						id = "BackFace",
+					return UI.ZStack("BackFace")({
 						width = backWidth,
 						height = dims.fill,
 						alignH = "center",
@@ -140,8 +130,8 @@ function parts.flipPlate(app: any, spec: any): any
 				end,
 			}),
 		})
-	end)
-	return FlipPlate({})
+	end
+	return FlipPlate()
 end
 
 -- ---------------------------------------------------------------------------
@@ -194,15 +184,14 @@ function parts.steamBackdrop(app: any, id: string): any
 			end
 			spring:onSettle(retarget)
 			retarget()
-			offset = app.own(app.core:memo(function(use)
+			offset = app.own(app.Compose.formula(function(use)
 				return { scale = use(spring) }
 			end))
 		end
 
 		table.insert(
 			wisps,
-			UI.Box({
-				id = "Wisp" .. i,
+			UI.Box("Wisp" .. i)({
 				anchor = "topLeft",
 				offsetX = { scale = x },
 				offsetY = offset,
@@ -213,7 +202,7 @@ function parts.steamBackdrop(app: any, id: string): any
 			})
 		)
 	end
-	return UI.Anchor({ id = id, width = dims.fill, height = dims.fill, children = wisps })
+	return UI.Anchor(id)(app.withChildren({ width = dims.fill, height = dims.fill }, wisps))
 end
 
 -- ---------------------------------------------------------------------------
@@ -223,22 +212,53 @@ end
 
 function parts.factRow(app: any, id: string, label: any, value: any): any
 	local UI = app.UI
-	return UI.HStack({
-		id = id,
+	return UI.HStack(id)({
 		gap = "xs",
 		align = "center",
 		width = dims.fill,
 
-		UI.Text({
-			id = "Label",
+		UI.Text("Label")({
 			text = label,
 			textSize = "body",
 			width = dims.fill,
 			lineLimit = 2,
 			disclose = true,
 		}),
-		UI.Text({ id = "Value", text = value, textSize = "numeral", textAlign = "end" }),
+		UI.Text("Value")({ text = value, textSize = "numeral", textAlign = "end" }),
 	})
+end
+
+-- The surface's top bar: a Back verb, a one-line title, then trailing nodes.
+function parts.navBar(app: any, spec: any): any
+	local UI = app.UI
+	local props: any = { gap = spec.gap or "s", align = "center", padding = spec.padding, width = UI.fill() }
+	if spec.onBack ~= nil then
+		table.insert(
+			props,
+			UI.Button("Back")({
+				label = spec.backLabel,
+				compactLabel = { icon = "chevron.leading", prefer = true },
+				onActivate = spec.onBack,
+			})
+		)
+	end
+	if spec.title ~= nil then
+		table.insert(
+			props,
+			UI.Text("Title")({
+				text = spec.title,
+				textSize = spec.titleSize or "title",
+				lineLimit = 1,
+				disclose = true,
+				width = spec.titleWidth,
+			})
+		)
+	end
+	table.insert(props, UI.Spacer("Push")({}))
+	for _, node in spec.trailing or {} do
+		table.insert(props, node)
+	end
+	return UI.HStack(spec.id or "NavBar")(props)
 end
 
 return parts

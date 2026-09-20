@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- LAYERED DECORATION SLOTS (rich-skinning-v2 package P1).
 --
 -- A slot recipe may declare a bounded STACK of layers — fill, frame, corners,
@@ -943,16 +944,16 @@ end)
 -- paint, not layout, which is why only a device showed it.
 -- ===========================================================================
 describe("a clipping scroll container reserves the package's shadow bleed", function()
-	local UI = Facet.UI
+	local UI = harness.UI
 	local fake = require("./lib/fake_target")
 
 	local function widestChildOvershoot(pkgName: string): (number, number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		pres.present(UI.Screen({
 			id = "S",
 			padding = 0,
@@ -1035,12 +1036,12 @@ describe("a clipping scroll container reserves the package's shadow bleed", func
 		control `9eb095a` did not carry — the squeeze that broke it — proving
 		the floor now gives the reservation back instead of collapsing the box. ]]
 	local function firstChildTopOvershoot(pkgName: string, pageHeight: number?): (number, number, boolean)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			padding = 0,

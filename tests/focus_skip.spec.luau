@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Focus-skip by live predicate + the active-interaction exemption (row SF-L3). The predicate is evaluated AT NAVIGATION TIME, so
 -- every case here flips eligibility between presses without touching the order —
 -- which is the whole point: a row that becomes ineligible while a card is armed
@@ -11,7 +12,7 @@ local Facet = require("../src") :: any
 local focus_graph = require("../src/focus/focus_graph")
 
 local function graphWith(entries: { any }, opts: any?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local graph = focus_graph.new(core)
 	local options = opts or {}
 	if options.grouped then
@@ -25,9 +26,9 @@ end
 describe("focus-skip: the live predicate (SF-L3)", function()
 	it("bare string entries stay eligible forever (every pre-existing caller)", function()
 		local graph = graphWith({ "a", "b", "c" })
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		expect(graph.isFocusable("b")).toBe(true)
 	end)
 
@@ -42,9 +43,9 @@ describe("focus-skip: the live predicate (SF-L3)", function()
 			},
 			"c",
 		})
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("c") -- b was skipped
+		expect(graph.focused:peek()).toBe("c") -- b was skipped
 	end)
 
 	it("the predicate is re-read every navigation, never cached", function()
@@ -60,15 +61,15 @@ describe("focus-skip: the live predicate (SF-L3)", function()
 			"c",
 		})
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 		eligible = false -- the flip happens with the order untouched
 		graph.navigate(-1)
-		expect(graph.focused:get()).toBe("a") -- b is gone from the ring now
+		expect(graph.focused:peek()).toBe("a") -- b is gone from the ring now
 		eligible = true
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b") -- ...and back the moment it flips
+		expect(graph.focused:peek()).toBe("b") -- ...and back the moment it flips
 	end)
 
 	it("entry focus lands on the first ELIGIBLE node", function()
@@ -87,7 +88,7 @@ describe("focus-skip: the live predicate (SF-L3)", function()
 			},
 			"c",
 		})
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 	end)
 
 	it("a ring with nothing eligible leaves focus where it stands", function()
@@ -102,13 +103,13 @@ describe("focus-skip: the live predicate (SF-L3)", function()
 			},
 		})
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		live = false
 		-- a is still eligible, so this lands on a; then nothing else is
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("a") -- the only eligible node: no move
+		expect(graph.focused:peek()).toBe("a") -- the only eligible node: no move
 	end)
 
 	it("skipping never turns a step into a jump: a ±1 press advances ONE eligible slot", function()
@@ -130,9 +131,9 @@ describe("focus-skip: the live predicate (SF-L3)", function()
 			"e",
 		})
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("d")
+		expect(graph.focused:peek()).toBe("d")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("e")
+		expect(graph.focused:peek()).toBe("e")
 	end)
 
 	it("pointer focus REFUSES an ineligible node — but that is not refusing the tap", function()
@@ -146,7 +147,7 @@ describe("focus-skip: the live predicate (SF-L3)", function()
 			},
 		})
 		expect(graph.focusOn("b")).toBe(false)
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		expect(graph.focusOn("a")).toBe(true)
 	end)
 end)
@@ -174,9 +175,9 @@ describe("focus-skip: grouped scopes (SF-L3)", function()
 
 	it("steps along the axis skipping ineligible entries", function()
 		local graph = graphWith(grouped(), { grouped = true })
-		expect(graph.focused:get()).toBe("L1")
+		expect(graph.focused:peek()).toBe("L1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("L3")
+		expect(graph.focused:peek()).toBe("L3")
 	end)
 
 	it("wrap finds the next eligible entry around the ring", function()
@@ -200,9 +201,9 @@ describe("focus-skip: grouped scopes (SF-L3)", function()
 		}
 		local graph = graphWith(groups, { grouped = true })
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("C")
+		expect(graph.focused:peek()).toBe("C")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("A") -- wrapped past the ineligible B
+		expect(graph.focused:peek()).toBe("A") -- wrapped past the ineligible B
 	end)
 
 	it("a group with NO eligible entries is transparent to navigation", function()
@@ -229,9 +230,9 @@ describe("focus-skip: grouped scopes (SF-L3)", function()
 			{ name = "bottom", axis = "vertical", order = { "B1" } },
 		}
 		local graph = graphWith(groups, { grouped = true })
-		expect(graph.focused:get()).toBe("T1")
+		expect(graph.focused:peek()).toBe("T1")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("B1") -- the whole dead group was skipped
+		expect(graph.focused:peek()).toBe("B1") -- the whole dead group was skipped
 	end)
 
 	it('entry = "nearest" lands on the nearest ELIGIBLE index', function()
@@ -259,7 +260,7 @@ describe("focus-skip: grouped scopes (SF-L3)", function()
 		-- index 2 is ineligible; R1 and R3 are equidistant, and a tie goes to the
 		-- FOLLOWING item — the same preference §9.3 applies everywhere else focus
 		-- has to pick a survivor
-		expect(graph.focused:get()).toBe("R3")
+		expect(graph.focused:peek()).toBe("R3")
 	end)
 
 	it('entry = "restore" ignores a remembered node that is no longer eligible', function()
@@ -285,11 +286,11 @@ describe("focus-skip: grouped scopes (SF-L3)", function()
 		local graph = graphWith(groups, { grouped = true })
 		graph.navigateDirection("right")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("R2") -- remembered
+		expect(graph.focused:peek()).toBe("R2") -- remembered
 		graph.navigateDirection("left")
 		ok = false
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("R1") -- the remembered node is ineligible
+		expect(graph.focused:peek()).toBe("R1") -- the remembered node is ineligible
 	end)
 end)
 
@@ -307,21 +308,21 @@ describe("focus-skip: the active-interaction exemption (SF-L3, binding)", functi
 			"c",
 		})
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		-- a card is armed: every row of b's class becomes ineligible...
 		armed = true
 		-- ...but b is what the gesture is aiming at, so it is exempt
 		graph.beginInteraction("b")
 		expect(graph.isFocusable("b")).toBe(true)
 		graph.navigate(-1)
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b") -- still reachable mid-gesture
+		expect(graph.focused:peek()).toBe("b") -- still reachable mid-gesture
 		-- the flip takes effect when the interaction ENDS, not before
 		graph.endInteraction()
 		expect(graph.isFocusable("b")).toBe(false)
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 	end)
 
 	it("the exemption MOVES with the target: the graph holds exactly one", function()
@@ -387,7 +388,7 @@ describe("focus-skip: structural updates carry predicates", function()
 			"c",
 		})
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 	end)
 
 	it("setGroupOrder replaces one group's predicates and lands on an eligible fallback", function()
@@ -395,7 +396,7 @@ describe("focus-skip: structural updates carry predicates", function()
 		local graph = graphWith(groups, { grouped = true })
 		graph.navigateDirection("down")
 		graph.navigateDirection("down")
-		expect(graph.focused:get()).toBe("g3")
+		expect(graph.focused:peek()).toBe("g3")
 		graph.setGroupOrder("s", "g", {
 			"g1",
 			{
@@ -407,7 +408,7 @@ describe("focus-skip: structural updates carry predicates", function()
 		})
 		-- g3 is gone: the fallback clamps to the old index and skips the
 		-- ineligible neighbour rather than parking on it
-		expect(graph.focused:get()).toBe("g1")
+		expect(graph.focused:peek()).toBe("g1")
 	end)
 
 	it("replaceGroups normalizes predicates on the new map", function()
@@ -427,7 +428,7 @@ describe("focus-skip: structural updates carry predicates", function()
 				},
 			},
 		})
-		expect(graph.focused:get()).toBe("n2")
+		expect(graph.focused:peek()).toBe("n2")
 	end)
 
 	it("a removed node's predicate is dropped with it (no stale entry for a reused id)", function()
@@ -443,6 +444,6 @@ describe("focus-skip: structural updates carry predicates", function()
 		graph.remove("b")
 		graph.setOrder("s", { "a", "b" })
 		graph.navigate(1)
-		expect(graph.focused:get()).toBe("b") -- plain again: the old predicate is gone
+		expect(graph.focused:peek()).toBe("b") -- plain again: the old predicate is gone
 	end)
 end)

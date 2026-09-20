@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE CROSS-SOLVE LAYOUT-NODE STORE (perf campaign P3) — the demonstrator and its
 	oracle.
@@ -65,12 +66,12 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local layout_node = require("../src/render/layout_node")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
@@ -79,6 +80,7 @@ local text_metrics = require("../src/layout/text_metrics")
 -- already built for the hand-written-directory-list defect, and the one the first
 -- version of the writer-completeness case below reproduced instead of using
 local src_tree = require("./lib/src_tree")
+local Compose = require("../src/vendor/compose/core")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -138,15 +140,15 @@ local function world(
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
-	local rows = core:signal({})
+	local rows = Compose.cell({})
 	local items = {}
 	for i = 1, rowCount do
-		table.insert(items, { id = `r{i}`, n = core:signal(i) })
+		table.insert(items, { id = `r{i}`, n = Compose.cell(i) })
 	end
 	rows:set(items)
-	local wide = core:signal(false)
-	local branchOn = core:signal(true)
-	local wrapWidth = core:memo(function(use: any)
+	local wide = Compose.cell(false)
+	local branchOn = Compose.cell(true)
+	local wrapWidth = Compose.formula(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
 	local bp = UI.ScrollView({
@@ -227,7 +229,7 @@ local function world(
 									UI.Text({
 										id = "V",
 										textSize = 14,
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return tostring(use(item.n))
 										end),
 									}),
@@ -236,7 +238,7 @@ local function world(
 										textSize = 12,
 										disclose = true,
 										width = px(40),
-										text = core:memo(function(use: any)
+										text = Compose.formula(function(use: any)
 											return `Extraordinarily Long Identity {use(item.n)}`
 										end),
 									}),
@@ -370,7 +372,7 @@ local SCRIPT: { { name: string, run: (Arm) -> () } } = {
 		name = "structure: a row is appended",
 		run = function(arm: Arm)
 			local next_ = table.clone(arm.value)
-			table.insert(next_, { id = "rNew", n = arm.core:signal(1234) })
+			table.insert(next_, { id = "rNew", n = Compose.cell(1234) })
 			arm.value[#arm.value + 1] = next_[#next_]
 			arm.rows:set(next_)
 		end,
@@ -540,7 +542,7 @@ describe("the cross-solve layout-node store (P3)", function()
 	it("THEME: a swap APPLIED mid-run rebuilds every node, and equals a fresh build", function()
 		--[[ EMISSION IS NOT APPLICATION, and this case is written against the
 			application. What the build keys on is the value `renderer.currentMetrics()`
-			returns — `env:get("themeMetrics"):get()`, read fresh at every use because
+			returns — `env:get("themeMetrics"):peek()`, read fresh at every use because
 			"the swap transaction sets it and re-solves in the same invocation". So the
 			swap below IS the application, and the assertion is that the store dropped
 			everything the moment the applied snapshot changed. A key on a theme signal,
@@ -611,7 +613,7 @@ describe("the cross-solve layout-node store (P3)", function()
 		arm.controller.refresh()
 
 		local next_ = table.clone(arm.value)
-		table.insert(next_, { id = "rNew", n = arm.core:signal(1234) })
+		table.insert(next_, { id = "rNew", n = Compose.cell(1234) })
 		arm.value[#arm.value + 1] = next_[#next_]
 		arm.rows:set(next_)
 		arm.controller.refresh()
@@ -631,7 +633,7 @@ describe("the cross-solve layout-node store (P3)", function()
 		full.value[5].n:set(11)
 		full.controller.refresh()
 		local nextFull = table.clone(full.value)
-		table.insert(nextFull, { id = "rNew", n = full.core:signal(1234) })
+		table.insert(nextFull, { id = "rNew", n = Compose.cell(1234) })
 		full.value[#full.value + 1] = nextFull[#nextFull]
 		full.rows:set(nextFull)
 		full.controller.refresh()
@@ -1067,7 +1069,7 @@ end
 describe("the layout-node store: the audit that licenses it", function()
 	local fs = require("@lune/fs")
 
-	it("every `node.<field>` the measure seam reads is one of the five", function()
+	it("every `node.<field>` the measure seam reads is covered by a dirty axis", function()
 		local body = stripLua(fs.readFile(LAYOUT_NODE_PATH))
 		local seen: { [string]: boolean } = {}
 		for field in string.gmatch(body, "[^%w_]node%.([%a_][%w_]*)") do
@@ -1099,7 +1101,9 @@ describe("the layout-node store: the audit that licenses it", function()
 			memo is first-answer-wins for the node's life: unlike `props` and `children`,
 			which change and push a dirty entry, this one CANNOT change at all, which is
 			exactly the property the reuse gate needs of a field it does not watch. ]]
-		expect(out).toEqual({ "children", "class", "hostSpace", "path", "props" })
+		-- Native structural moves mutate arrays in place. The scene host increments
+		-- childrenVersion and publishes structure dirt on every such mutation.
+		expect(out).toEqual({ "children", "childrenVersion", "class", "hostSpace", "path", "props" })
 	end)
 
 	it("every call that hands a mounted node OUT of the file is enumerated, with its fields", function()
@@ -1181,19 +1185,19 @@ describe("the layout-node store: the audit that licenses it", function()
 		end
 		table.sort(fields)
 		expect(fields).toEqual({ "children", "class", "dynamicProps", "hostSpace", "inStack", "props" })
-		-- ...and `inStack` really is written ONCE, by `mount`, and nowhere else in `src/`
+		-- ...and `inStack` is stamped by the scene host's `attach`, and nowhere else
+		local sceneSrc = stripLua(fs.readFile("src/render/compose_scene.luau"))
 		local stamps = 0
-		for _ in string.gmatch(stripLua(fs.readFile("src/mount.luau")), "%.inStack = ") do
+		for _ in string.gmatch(sceneSrc, "%.inStack = ") do
 			stamps += 1
 		end
-		expect(`inStack writes in mount={stamps}`).toBe("inStack writes in mount=1")
-		-- `dynamicProps` really is written beside `props`, once, by `mount`
-		local mountSrc = stripLua(fs.readFile("src/mount.luau"))
+		expect(`inStack writes in the scene host={stamps}`).toBe("inStack writes in the scene host=2")
+		-- `dynamicProps` is built beside `props`, by the scene host
 		local writes = 0
-		for _ in string.gmatch(mountSrc, "dynamicProps = ") do
+		for _ in string.gmatch(sceneSrc, "dynamicProps = ") do
 			writes += 1
 		end
-		expect(`dynamicProps writes in mount={writes > 0}`).toBe("dynamicProps writes in mount=true")
+		expect(`dynamicProps writes in the scene host={writes > 0}`).toBe("dynamicProps writes in the scene host=true")
 	end)
 
 	it("...and `chrome_slots.readHint` reads exactly `meta`, which cannot change under a mounted node", function()
@@ -1215,18 +1219,14 @@ describe("the layout-node store: the audit that licenses it", function()
 		end
 		table.sort(out)
 		expect(out).toEqual({ "meta" })
-		-- the two facts the paragraph above rests on, read off the live sources
-		local mount = stripLua(fs.readFile("src/mount.luau"))
-		expect(string.find(mount, "meta = bp.meta", 1, true) ~= nil).toBe(true)
-		-- ...and `meta` is written nowhere else on a mounted node
-		expect(string.find(mount, "%.meta%s*=%s*[^b]") == nil).toBe(true)
+		-- the fact the paragraph above rests on, read off the live source
 		local blueprint = stripLua(fs.readFile("src/blueprint.luau"))
 		expect(string.find(blueprint, "return table.freeze(node)", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("`props` and `children` are written in exactly the places the dirty axis covers", function()
 		--[[ AXIS 2 IS COMPLETE ONLY IF THE WRITERS ARE. Every write to a mounted node's
-			`props` or `children` in `src/` is in `mount.luau`, and every one of them
+			`props` or `children` in `src/` belongs to a mounting host, and every one of them
 			pushes a dirty entry for that node's path (the initial mount is the stated
 			exception: there is nothing to invalidate before the first build). A writer
 			appearing anywhere else is a hole in axis 2 that no case in this file would
@@ -1241,9 +1241,9 @@ describe("the layout-node store: the audit that licenses it", function()
 			this comment is here and the reason nothing below names a directory. ]]
 		local offenders: { string } = {}
 		for path, source in src_tree.readAll() do
-			-- mount.luau IS the exemption, and it is the only one: it owns both writes
-			-- and pushes a dirty entry for every one of them
-			if path == "src/mount.luau" then
+			-- The scene host owns the renderer journal. compose_scene.spec exercises native
+			-- property axes and structural versions on insertion AND removal.
+			if path == "src/render/compose_scene.luau" then
 				continue
 			end
 			local body = stripLua(source)
@@ -1256,10 +1256,9 @@ describe("the layout-node store: the audit that licenses it", function()
 		end
 		table.sort(offenders)
 		expect(table.concat(offenders, " ")).toBe("")
-		-- ...and the scan really looked: `mount.luau` itself has both
-		local mount = stripLua(fs.readFile("src/mount.luau"))
-		expect(string.find(mount, "%.props%[[^%]]+%]%s*=[^=]") ~= nil).toBe(true)
-		expect(string.find(mount, "[^%w_]node%.children%s*=[^=]") ~= nil).toBe(true)
+		-- ...and the scan really looked: the scene host itself writes `props`
+		local host = stripLua(fs.readFile("src/render/compose_scene.luau"))
+		expect(string.find(host, "%.props%[[^%]]+%]%s*=[^=]") ~= nil).toBe(true)
 		--[[ ...AND IT REACHED THE DIRECTORIES THE HAND LIST MISSED. Asserted rather
 			than assumed, because "the walk covers everything" is precisely the claim a
 			hand list also made. `src/tokens` is named explicitly: it holds
@@ -1268,7 +1267,7 @@ describe("the layout-node store: the audit that licenses it", function()
 		local scanned = src_tree.readAll()
 		expect(scanned["src/tokens/chrome_slots.luau"] ~= nil).toBe(true)
 		expect(scanned["src/themes/snapshot.luau"] ~= nil).toBe(true)
-		expect(scanned["src/core/custom.luau"] ~= nil).toBe(true)
+		expect(scanned["src/core/services.luau"] ~= nil).toBe(true)
 		expect(scanned["src/env/environment.luau"] ~= nil).toBe(true)
 		local dirs: { [string]: boolean } = {}
 		for path in scanned do

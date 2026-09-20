@@ -13,22 +13,22 @@ local clock = {}
 
 export type Scheduled = { at: number, seq: number, fn: () -> (), cancelled: boolean }
 
-function clock.new(core: any, opts: { start: number? }?): any
+function clock.new(Compose: any, opts: { start: number? }?): any
 	local options = opts or {}
-	local nowSignal = core:signal(options.start or 0)
+	local nowSignal = Compose.cell(options.start or 0)
 	local scheduled: { Scheduled } = {}
 	local seq = 0
 	local self: any = { nowSignal = nowSignal }
 
 	function self.now(): number
-		return nowSignal:get()
+		return nowSignal:peek()
 	end
 
 	-- run `fn` once, `delay` seconds of domain time from now. The returned
 	-- handle cancels it — a command that is superseded must not resolve twice.
 	function self.after(delay: number, fn: () -> ()): any
 		seq += 1
-		local entry: Scheduled = { at = nowSignal:get() + math.max(0, delay), seq = seq, fn = fn, cancelled = false }
+		local entry: Scheduled = { at = nowSignal:peek() + math.max(0, delay), seq = seq, fn = fn, cancelled = false }
 		table.insert(scheduled, entry)
 		return {
 			cancel = function()
@@ -43,7 +43,7 @@ function clock.new(core: any, opts: { start: number? }?): any
 	-- reproducible. A callback that schedules another due callback is picked up
 	-- by the same drain (bounded, so a self-rescheduling loop cannot wedge it).
 	function self.advance(dt: number): number
-		local target = nowSignal:get() + math.max(0, dt or 0)
+		local target = nowSignal:peek() + math.max(0, dt or 0)
 		nowSignal:set(target)
 		local fired = 0
 		for _ = 1, 1000 do
@@ -86,7 +86,6 @@ function clock.new(core: any, opts: { start: number? }?): any
 
 	function self.dispose()
 		scheduled = {}
-		nowSignal:dispose()
 	end
 
 	return self

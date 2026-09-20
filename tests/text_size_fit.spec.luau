@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	`textSize = "fit"` — the declarative face of `Facet.text.fit` (audit §10,
 	framework-gaps-phase2). THE HIGHEST-SEVERITY GAP IN THAT AUDIT, because unlike
@@ -26,15 +27,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
 local textMetrics = require("../src/layout/text_metrics")
 local textFit = require("../src/layout/text_fit")
 local themeSnapshot = require("../src/themes/snapshot")
+local Compose = require("../src/vendor/compose/core")
 
 describe('the two constants, copied wrong — the class `textSize = "fit"` closes', function()
 	--[[ DEFECT 1: A LINE-HEIGHT FACTOR OF 1.25 AGAINST THE LIBRARY'S 1.2.
@@ -298,7 +300,7 @@ describe('textSize = "fit": every class that carries a textSize', function()
 				UI.Toggle({
 					id = "Tg",
 					label = "Enable the long option name",
-					value = customFactory.new():signal(false),
+					value = Compose.cell(false),
 					onActivate = function() end,
 					width = { type = "fixed", px = 200 },
 					height = { type = "fixed", px = 40 },

@@ -1,28 +1,15 @@
 --!strict
--- Registers the conformance suite + micro-screens against the CUSTOM core in
--- the main test loop: the reference implementation must pass every check on
--- every ./run-tests.sh. The imperative baseline's scorecard comes from
--- tests/conformance/cli.luau, which runs the same checks without asserting.
+local harness = require("../lib/harness")
+-- Registers the micro-screens and the a11y/l10n corpus in the main test loop.
+-- Both are about what Facet's CONTROLS do; the core-conformance kit that used to
+-- head this file certified a pluggable Core contract that no longer exists.
 
 local t = require("../lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local suite = require("./suite")
 local microScreens = require("./micro_screens")
 local a11yL10nCorpus = require("./a11y_l10n_corpus")
-local customFactory = require("../../src/core/custom")
-
-describe("core conformance (custom)", function()
-	for _, check in suite do
-		it(`{check.name} [{check.requirement}]`, function()
-			local ok, note = check.run(customFactory.new())
-			if not ok then
-				print(`    note: {note}`)
-			end
-			expect(ok).toBe(true)
-		end)
-	end
-end)
+local customFactory = harness.coreFactory
 
 describe("micro-screens (custom)", function()
 	for _, check in microScreens do

@@ -58,6 +58,7 @@ return {
 	ledgerRows = { "TP-A1", "TP-A2", "TP-A3", "TP-A4", "TP-A5" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
+		local UI, Compose = ctx.UI, ctx.Compose
 		local themes = Facet.themes
 		local packages: { [string]: any } = ctx.themePackages or {}
 		local customControl = packages.custom_control
@@ -103,47 +104,47 @@ return {
 				}
 			end
 			local core = ctx.core
-			local themed = Facet.Controls.Slider(core, {
-				id = "ThemedSlider",
-				label = "Theme",
-				value = core:signal(40),
-				min = 0,
-				max = 100,
-			})
-			local overridden = Facet.Controls.Slider(core, {
-				id = "ViewSlider",
-				label = "View",
-				value = core:signal(60),
-				min = 0,
-				max = 100,
-				-- ONE grammar, both rungs: the same per-state map shape a recipe's
-				-- `asset` accepts, normalized by the same function
-				thumbImage = probe.thumbVariants,
-			})
-			local field = Facet.Controls.TextInput(core, {
-				id = "ProbeField",
-				value = core:signal("edit me"),
-				placeholder = "layered field",
-			})
-			-- the DISABLED state, reached through a public prop rather than a raw
-			-- Interactable poke: `field` is a layered slot, so this is the live proof
-			-- that `:NonInteractable > .<layerTag>` matches a LAYER. The test package
-			-- supplies no `disabled` ART, which is the point — the accessibility floor
-			-- still applies over `default`.
-			local disabledField = Facet.Controls.TextInput(core, {
-				id = "DisabledField",
-				value = core:signal("disabled"),
-				disabled = true,
-			})
+			-- built inside the deferred component below (Compose.create needs an
+			-- active owner, which only exists once the presenter mounts it)
+			local themed, overridden, field, disabledField
+			probe.handle = ctx.presenter.present(function()
+				themed = UI.Slider("ThemedSlider")({
+					label = "Theme",
+					value = Compose.cell(40),
+					min = 0,
+					max = 100,
+				})
+				overridden = UI.Slider("ViewSlider")({
+					label = "View",
+					value = Compose.cell(60),
+					min = 0,
+					max = 100,
+					-- ONE grammar, both rungs: the same per-state map shape a recipe's
+					-- `asset` accepts, normalized by the same function
+					thumbImage = probe.thumbVariants,
+				})
+				field = UI.TextInput("ProbeField")({
+					value = Compose.cell("edit me"),
+					placeholder = "layered field",
+				})
+				-- the DISABLED state, reached through a public prop rather than a raw
+				-- Interactable poke: `field` is a layered slot, so this is the live
+				-- proof that `:NonInteractable > .<layerTag>` matches a LAYER. The test
+				-- package supplies no `disabled` ART, which is the point — the
+				-- accessibility floor still applies over `default`.
+				disabledField = UI.TextInput("DisabledField")({
+					value = Compose.cell("disabled"),
+					disabled = true,
+				})
+				return UI.Screen("LayerProbe")({
+					surface = "raised",
+					themed,
+					overridden,
+					field,
+					disabledField,
+				})
+			end)
 			probe.controls = { themed, overridden, field, disabledField }
-			probe.handle = ctx.presenter.present(Facet.UI.Screen({
-				id = "LayerProbe",
-				surface = "raised",
-				themed.blueprint,
-				overridden.blueprint,
-				field.blueprint,
-				disabledField.blueprint,
-			}))
 			ctx.presenter.refresh()
 			return {
 				presented = true,
@@ -248,9 +249,9 @@ return {
 				return { alreadyPresented = true, paths = VALUE_PATHS }
 			end
 			local core = ctx.core
-			values.progress = core:signal(0.5)
-			values.switch = core:signal(false)
-			values.count = core:signal(3)
+			values.progress = Compose.cell(0.5)
+			values.switch = Compose.cell(false)
+			values.count = Compose.cell(3)
 			-- NO READOUT, deliberately (live-found while writing the sweep): with
 			-- `showValue` the row carries a text node whose reserved width changes
 			-- between "0", "0.5" and "1", and the fill-weight track absorbs the
@@ -258,23 +259,26 @@ return {
 			-- "the caps never moved" would have been measuring text reflow. The
 			-- sweep has to isolate the CLIP; the readout is the adaptive fixture's
 			-- job and is proven there.
-			local bar = Facet.Controls.ProgressView(core, { id = "Load", label = "Health", value = values.progress })
-			local steps =
-				Facet.Controls.Stepper(core, { id = "Qty", label = "Potions", value = values.count, min = 0, max = 9 })
-			values.controls = { bar, steps }
-			values.handle = ctx.presenter.present(Facet.UI.Screen({
-				id = "ValueProbe",
-				surface = "raised",
+			-- built inside the deferred component below (Compose.create needs an
+			-- active owner, which only exists once the presenter mounts it)
+			local bar, steps
+			values.handle = ctx.presenter.present(function()
+				bar = UI.ProgressView("Load")({ label = "Health", value = values.progress })
+				steps = UI.Stepper("Qty")({ label = "Potions", value = values.count, min = 0, max = 9 })
+				return UI.Screen("ValueProbe")({
+					surface = "raised",
 
-				bar.blueprint,
-				Facet.UI.Toggle({ id = "Switch", label = "Candlelight", value = values.switch }),
-				-- the DISABLED state, reached through the public prop rather than
-				-- a raw Interactable poke. The test package supplies no `disabled`
-				-- toggle art, which is the point: the accessibility floor still
-				-- applies over `default`.
-				Facet.UI.Toggle({ id = "SwitchOff", label = "Locked", value = values.switch, enabled = false }),
-				steps.blueprint,
-			}))
+					bar,
+					UI.Toggle("Switch")({ label = "Candlelight", value = values.switch }),
+					-- the DISABLED state, reached through the public prop rather than
+					-- a raw Interactable poke. The test package supplies no `disabled`
+					-- toggle art, which is the point: the accessibility floor still
+					-- applies over `default`.
+					UI.Toggle("SwitchOff")({ label = "Locked", value = values.switch, enabled = false }),
+					steps,
+				})
+			end)
+			values.controls = { bar, steps }
 			ctx.presenter.refresh()
 			return { presented = true, paths = VALUE_PATHS }
 		end
@@ -478,7 +482,7 @@ return {
 				return {
 					ok = false,
 					rejected = true,
-					stillMounted = ctx.presenter.focus.focused:get() ~= nil or true,
+					stillMounted = ctx.presenter.focus.focused:peek() ~= nil or true,
 					activePackage = installed.package.identity.id,
 					errors = report.errors,
 				}
@@ -494,7 +498,7 @@ return {
 		end
 
 		local function snapshotIdentity(): any
-			local snap = ctx.env:get("themeMetrics"):get()
+			local snap = ctx.env:get("themeMetrics"):peek()
 			return {
 				packageId = snap.identity.packageId,
 				version = snap.identity.version,
@@ -538,46 +542,45 @@ return {
 			if adjacency.handle ~= nil then
 				return { alreadyPresented = true, paths = ADJ_PATHS }
 			end
-			local UI = Facet.UI
-			local function cell(id: string): any
-				-- `raised` classifies as the PANEL slot, so each cell wears the
-				-- installed package's own plate: a 1px gap between two plates is a
-				-- visible seam, not just a number in a dump. Both dimensions are
-				-- declared — a leaf Box with no height solves to zero, which is how
-				-- the first drive of this probe measured four cells of width 0.
-				return UI.Box({
-					id = id,
-					surface = "raised",
-					width = UI.fill(),
-					height = { type = "fixed", px = 40 },
-				})
-			end
-			adjacency.handle = ctx.presenter.present(Facet.UI.Screen({
-				id = "AdjacencyProbe",
-				padding = 0,
+			-- deferred: Compose.create needs an active owner, which only exists
+			-- once the presenter mounts this component
+			adjacency.handle = ctx.presenter.present(function()
+				local function cell(id: string): any
+					-- `raised` classifies as the PANEL slot, so each cell wears the
+					-- installed package's own plate: a 1px gap between two plates is a
+					-- visible seam, not just a number in a dump. Both dimensions are
+					-- declared — a leaf Box with no height solves to zero, which is
+					-- how the first drive of this probe measured four cells of width 0.
+					return UI.Box(id)({
+						surface = "raised",
+						width = UI.fill(),
+						height = { type = "fixed", px = 40 },
+					})
+				end
+				return UI.Screen("AdjacencyProbe")({
+					padding = 0,
 
-				-- ONE ODD HOST per row, and the row IS the host: 401 halves to
-				-- 200.5 and thirds to 133.67, so both are asking the solver for a
-				-- fraction the engine cannot draw. `gap = 0` leaves nothing
-				-- between the cells but the boundary itself.
-				UI.HStack({
-					id = "HostTwo",
-					width = { type = "fixed", px = 401 },
-					height = { type = "fixed", px = 40 },
-					gap = 0,
-					cell("A"),
-					cell("B"),
-				}),
-				UI.HStack({
-					id = "HostThree",
-					width = { type = "fixed", px = 401 },
-					height = { type = "fixed", px = 40 },
-					gap = 0,
-					cell("C"),
-					cell("D"),
-					cell("E"),
-				}),
-			}))
+					-- ONE ODD HOST per row, and the row IS the host: 401 halves to
+					-- 200.5 and thirds to 133.67, so both are asking the solver for a
+					-- fraction the engine cannot draw. `gap = 0` leaves nothing
+					-- between the cells but the boundary itself.
+					UI.HStack("HostTwo")({
+						width = { type = "fixed", px = 401 },
+						height = { type = "fixed", px = 40 },
+						gap = 0,
+						cell("A"),
+						cell("B"),
+					}),
+					UI.HStack("HostThree")({
+						width = { type = "fixed", px = 401 },
+						height = { type = "fixed", px = 40 },
+						gap = 0,
+						cell("C"),
+						cell("D"),
+						cell("E"),
+					}),
+				})
+			end)
 			ctx.presenter.refresh()
 			return { presented = true, paths = ADJ_PATHS }
 		end
@@ -643,7 +646,7 @@ return {
 					end)(),
 				}
 			end
-			local snap = ctx.env:get("themeMetrics"):get()
+			local snap = ctx.env:get("themeMetrics"):peek()
 			return {
 				package = installed.package.identity.id,
 				rendering = installed.package.identity.rendering,
@@ -700,53 +703,54 @@ return {
 				return { alreadyPresented = true, paths = GAUGE_PATHS }
 			end
 			local core = ctx.core
-			local snap = ctx.env:get("themeMetrics"):get()
+			local snap = ctx.env:get("themeMetrics"):peek()
 			local resolved = module.resolve(snap, installed.package, installed.theme)
-			gauge.fraction = core:signal(0.62)
-			gauge.heightPx = core:signal(resolved.height)
+			gauge.fraction = Compose.cell(0.62)
+			gauge.heightPx = Compose.cell(resolved.height)
 			gauge.builtUnder = installed.package.identity.id
-			gauge.handle = ctx.presenter.present(Facet.UI.Screen({
-				id = "GaugeProbe",
-				surface = "raised",
-				-- clears the Roblox topbar, and keeps the end caps off the very
-				-- edge of the viewport so a capture shows the dial's whole width
-				padding = { top = 56, right = 32, bottom = 32, left = 32 },
+			-- deferred: Compose.create needs an active owner, which only exists
+			-- once the presenter mounts this component
+			gauge.handle = ctx.presenter.present(function()
+				return UI.Screen("GaugeProbe")({
+					surface = "raised",
+					-- clears the Roblox topbar, and keeps the end caps off the very
+					-- edge of the viewport so a capture shows the dial's whole width
+					padding = { top = 56, right = 32, bottom = 32, left = 32 },
 
-				module.blueprint(Facet.UI, core, resolved, {
-					id = "Gauge",
-					label = "Boiler pressure (gauge:dial)",
-					fraction = gauge.fraction,
-					heightPx = gauge.heightPx,
-				}),
-				-- RUNG 2, the whole modifier set on one node. The gradient is
-				-- the charter's cap-11 per-view wash: bounded data, one
-				-- adapter-owned `FacetGradient` child, and it must survive a
-				-- package swap while the theme keeps painting this node's
-				-- surface, corner and everything around it.
-				Facet.UI.shadow(
-					Facet.UI.gradient(
-						Facet.UI.VStack({
-							id = "WashCard",
-							surface = "raised",
-							width = Facet.UI.fill(),
-							height = { type = "fixed", px = 96 },
-							padding = { top = 12, right = 16, bottom = 12, left = 16 },
+					module.blueprint(UI, core, resolved, {
+						id = "Gauge",
+						label = "Boiler pressure (gauge:dial)",
+						fraction = gauge.fraction,
+						heightPx = gauge.heightPx,
+					}),
+					-- RUNG 2, the whole modifier set on one node. The gradient is
+					-- the charter's cap-11 per-view wash: bounded data, one
+					-- adapter-owned `FacetGradient` child, and it must survive a
+					-- package swap while the theme keeps painting this node's
+					-- surface, corner and everything around it.
+					UI.shadow(
+						UI.gradient(
+							UI.VStack("WashCard")({
+								surface = "raised",
+								width = UI.fill(),
+								height = { type = "fixed", px = 96 },
+								padding = { top = 12, right = 16, bottom = 12, left = 16 },
 
-							Facet.UI.Text({
-								id = "WashLabel",
-								text = "Rung 2: UI.gradient on this card only",
-								textSize = "caption",
+								UI.Text("WashLabel")({
+									text = "Rung 2: UI.gradient on this card only",
+									textSize = "caption",
+								}),
 							}),
-						}),
-						{
-							colors = { "surfaceStrong", "accent" },
-							rotation = 90,
-							transparency = { 0.1, 0.3 },
-						}
+							{
+								colors = { "surfaceStrong", "accent" },
+								rotation = 90,
+								transparency = { 0.1, 0.3 },
+							}
+						),
+						"raised"
 					),
-					"raised"
-				),
-			}))
+				})
+			end)
 			ctx.presenter.refresh()
 			return { presented = true, paths = GAUGE_PATHS, resolved = resolved, builtUnder = gauge.builtUnder }
 		end
@@ -786,33 +790,33 @@ return {
 			if circle.handle ~= nil then
 				return { alreadyPresented = true, paths = CIRCLE_PATHS }
 			end
-			local UI = Facet.UI
-			circle.handle = ctx.presenter.present(UI.Screen({
-				id = "CircleProbe",
-				surface = "raised",
-				-- clears the Roblox topbar so a capture shows the whole row
-				padding = { top = 56, right = 24, bottom = 24, left = 24 },
-				gap = "m",
-
-				UI.Text({ id = "Title", text = "shape = circle", textSize = "heading" }),
-				UI.HStack({
-					id = "Row",
+			-- deferred: Compose.create needs an active owner, which only exists
+			-- once the presenter mounts this component
+			circle.handle = ctx.presenter.present(function()
+				return UI.Screen("CircleProbe")({
+					surface = "raised",
+					-- clears the Roblox topbar so a capture shows the whole row
+					padding = { top = 56, right = 24, bottom = 24, left = 24 },
 					gap = "m",
-					align = "center",
 
-					UI.Button({ id = "Dots", label = "...", shape = "circle" }),
-					UI.Button({ id = "Close", label = "Dismiss", shape = "circle", icon = "close" }),
-					UI.Button({ id = "Menu", label = "Open menu", shape = "circle", icon = "menu" }),
-					UI.Button({
-						id = "Wide",
-						label = "9+",
-						shape = "circle",
-						width = { type = "fixed", px = 72 },
+					UI.Text("Title")({ text = "shape = circle", textSize = "heading" }),
+					UI.HStack("Row")({
+						gap = "m",
+						align = "center",
+
+						UI.Button("Dots")({ label = "...", shape = "circle" }),
+						UI.Button("Close")({ label = "Dismiss", shape = "circle", icon = "close" }),
+						UI.Button("Menu")({ label = "Open menu", shape = "circle", icon = "menu" }),
+						UI.Button("Wide")({
+							label = "9+",
+							shape = "circle",
+							width = { type = "fixed", px = 72 },
+						}),
+						UI.Button("Accent")({ label = "OK", shape = "circle", surface = "accent" }),
+						UI.Button("Rect")({ label = "Rect" }),
 					}),
-					UI.Button({ id = "Accent", label = "OK", shape = "circle", surface = "accent" }),
-					UI.Button({ id = "Rect", label = "Rect" }),
-				}),
-			}))
+				})
+			end)
 			ctx.presenter.refresh()
 			return { presented = true, paths = CIRCLE_PATHS }
 		end
@@ -830,7 +834,7 @@ return {
 		-- whether a picture landed. Paired with the diameter metric that produced
 		-- them, so a capture can be joined to a number.
 		local function circleReport(): any
-			local snap = ctx.env:get("themeMetrics"):get()
+			local snap = ctx.env:get("themeMetrics"):peek()
 			local out: any = {
 				package = installed.package.identity.id,
 				theme = installed.theme,
@@ -910,7 +914,7 @@ return {
 			if module == nil then
 				return { unavailable = "examples/themes/ornate_gauge is not in this build" }
 			end
-			local snap = ctx.env:get("themeMetrics"):get()
+			local snap = ctx.env:get("themeMetrics"):peek()
 			local resolved = module.resolve(snap, installed.package, installed.theme)
 			local out: any = {
 				package = installed.package.identity.id,
@@ -1100,7 +1104,7 @@ return {
 						installed.editUndo = ts:GetAttribute("Space_m")
 						ts:SetAttribute("Space_m", 32)
 						task.wait() -- let the watcher's re-resolve land
-						local snap = ctx.env:get("themeMetrics"):get()
+						local snap = ctx.env:get("themeMetrics"):peek()
 						return { via = "sheet-attribute", spaceM = snap.space.m, sheet = ts:GetFullName() }
 					end
 					-- headless / controller-absent: the override seam drives the
@@ -1116,7 +1120,7 @@ return {
 						ts:SetAttribute("Space_m", installed.editUndo)
 						installed.editUndo = nil
 						task.wait()
-						local snap = ctx.env:get("themeMetrics"):get()
+						local snap = ctx.env:get("themeMetrics"):peek()
 						return { via = "sheet-attribute", spaceM = snap.space.m }
 					end
 					local snapshot = themes.resolve(installed.package, installed.theme, {})
@@ -1159,7 +1163,7 @@ return {
 						installed = result,
 						failureReported = reported,
 						census = ctx.themeChrome.census(),
-						focusPath = ctx.presenter.focus.focused:get(),
+						focusPath = ctx.presenter.focus.focused:peek(),
 						geometry = ctx.geometry(GEOMETRY_PATHS),
 					}
 				end,
@@ -1242,7 +1246,7 @@ return {
 					end
 					local covering = (packages.glossy_mobile :: any).build(themes)
 					local uncovering = (packages.classic_desktop :: any).build(themes)
-					local snap = ctx.env:get("themeMetrics"):get()
+					local snap = ctx.env:get("themeMetrics"):peek()
 					return {
 						covered = customControl.check(covering),
 						uncovered = customControl.check(uncovering),
@@ -1333,7 +1337,7 @@ return {
 						installed = result,
 						failureReported = reported,
 						layers = layerReports(2),
-						focusPath = ctx.presenter.focus.focused:get(),
+						focusPath = ctx.presenter.focus.focused:peek(),
 						geometry = ctx.geometry(GEOMETRY_PATHS),
 					}
 				end,
@@ -1536,7 +1540,7 @@ return {
 						end
 					end
 					return {
-						on = values.switch:get(),
+						on = values.switch:peek(),
 						noReflow = {
 							-- the verdict a matrix row can read without joining two dumps
 							ok = #moved == 0,
@@ -1555,7 +1559,7 @@ return {
 				-- press walks are sampled with
 				toggleProbe = function()
 					return {
-						on = if values.switch ~= nil then values.switch:get() else nil,
+						on = if values.switch ~= nil then values.switch:peek() else nil,
 						toggle = artReport(VALUE_PATHS.toggle),
 						track = artReport(VALUE_PATHS.toggle .. "/Track"),
 						knob = artReport(VALUE_PATHS.toggle .. "/Knob"),
@@ -1627,7 +1631,7 @@ return {
 							},
 						}
 					end
-					local snap = ctx.env:get("themeMetrics"):get()
+					local snap = ctx.env:get("themeMetrics"):peek()
 					return {
 						package = installed.package.identity.id,
 						iconSizes = snap.iconSizes,
@@ -1642,7 +1646,7 @@ return {
 				-- is a multiple of the unit" is arithmetic on a dump rather than a
 				-- claim about a capture.
 				pixelProbe = function()
-					local snap = ctx.env:get("themeMetrics"):get()
+					local snap = ctx.env:get("themeMetrics"):peek()
 					local offGrid: { string } = {}
 					local unit = snap.pixelUnit
 					if type(unit) == "number" then
@@ -1772,11 +1776,11 @@ return {
 					installed.chromeChanged = ctx.themeChrome.setPackage(installed.package)
 					ctx.presenter.refresh()
 					return {
-						profile = (ctx.env:get("interactionClasses"):get() :: any).primary,
+						profile = (ctx.env:get("interactionClasses"):peek() :: any).primary,
 						inspect = made.inspect().selectBy,
 						package = made.inspect().package.id,
 						identity = ctx.nativeStyle.mountIdentity(),
-						focusPath = ctx.presenter.focus.focused:get(),
+						focusPath = ctx.presenter.focus.focused:peek(),
 					}
 				end,
 				-- the FORCED PARADIGM seam (input-paradigms): a fact change, not a
@@ -1811,10 +1815,10 @@ return {
 					ctx.presenter.refresh()
 					return {
 						preferredInput = wanted,
-						classes = ctx.env:get("interactionClasses"):get(),
+						classes = ctx.env:get("interactionClasses"):peek(),
 						snapshot = snapshotIdentity(),
 						identity = ctx.nativeStyle.mountIdentity(),
-						focusPath = ctx.presenter.focus.focused:get(),
+						focusPath = ctx.presenter.focus.focused:peek(),
 						selectBy = if installed.controller ~= nil then installed.controller.inspect().selectBy else nil,
 					}
 				end,
@@ -1829,7 +1833,7 @@ return {
 						snapshot = snapshotIdentity(),
 						geometry = ctx.geometry(GEOMETRY_PATHS),
 						identity = ctx.nativeStyle.mountIdentity(),
-						focusPath = ctx.presenter.focus.focused:get(),
+						focusPath = ctx.presenter.focus.focused:peek(),
 						census = ctx.themeChrome.census(),
 					}
 				end,
@@ -1887,13 +1891,13 @@ return {
 					installed.chromeChanged = ctx.themeChrome.setPackage(installed.package)
 					ctx.presenter.refresh()
 					return {
-						profile = (ctx.env:get("interactionClasses"):get() :: any).primary,
+						profile = (ctx.env:get("interactionClasses"):peek() :: any).primary,
 						inspect = made.inspect().selectBy,
 						package = made.inspect().package.id,
 						snapshot = snapshotIdentity(),
 						geometry = ctx.geometry(GEOMETRY_PATHS),
 						identity = ctx.nativeStyle.mountIdentity(),
-						focusPath = ctx.presenter.focus.focused:get(),
+						focusPath = ctx.presenter.focus.focused:peek(),
 						census = ctx.themeChrome.census(),
 					}
 				end,
@@ -1967,7 +1971,7 @@ return {
 					geometry = ctx.geometry(GEOMETRY_PATHS),
 					snapshot = snapshotIdentity(),
 					census = ctx.themeChrome.census(),
-					focusPath = ctx.presenter.focus.focused:get(),
+					focusPath = ctx.presenter.focus.focused:peek(),
 					mountIdentity = ctx.nativeStyle.mountIdentity(),
 					chromeProbe = chromeProbe(),
 					installed = {

@@ -1,21 +1,23 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 t.describe("Native multiline input contract", function()
 	for _, presentation in { "plain", "search", "number" } do
 		t.it(presentation .. " keeps its frame outside the focused native editor", function()
 			local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 			local w = world.new({ themeMetrics = Facet.themes.resolve(ornate) })
-			local enabled = w.core:signal(true)
-			local c = Facet.Controls.TextInput(w.core, {
+			local enabled = Compose.cell(true)
+			local c = harness.Controls.TextInput(w.core, {
 				id = "Editor",
-				value = w.core:signal("3"),
+				value = Compose.cell("3"),
 				presentation = presentation,
 				enabled = enabled,
-				numericValue = if presentation == "number" then w.core:signal(3) else nil,
+				numericValue = if presentation == "number" then Compose.cell(3) else nil,
 			})
-			w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+			w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 			local path = "/S/Editor" .. (if presentation == "number" then "/Input" else "")
 			local frame = w.adapter.node(path)
 			local field = w.adapter.node(path .. "/Field")
@@ -41,8 +43,8 @@ t.describe("Native multiline input contract", function()
 	t.it("a short ornate editor fills its viewport without a shadow scroll tail", function()
 		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 		local w = world.new({ themeMetrics = Facet.themes.resolve(ornate) })
-		local c = Facet.Controls.TextInput(w.core, { id = "Editor", value = w.core:signal("Notes"), multiline = true })
-		w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+		local c = harness.Controls.TextInput(w.core, { id = "Editor", value = Compose.cell("Notes"), multiline = true })
+		w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 		local viewport = w.adapter.node("/S/Editor/Viewport")
 		local field = w.adapter.node("/S/Editor/Viewport/Field")
 		t.expect(field.rect.y).toBe(viewport.rect.y)
@@ -54,11 +56,11 @@ t.describe("Native multiline input contract", function()
 	t.it("a caller's fixed field height gives back unaffordable border insets", function()
 		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 		local w = world.new({ themeMetrics = Facet.themes.resolve(ornate) })
-		local field = Facet.Controls.TextInput(
+		local field = harness.Controls.TextInput(
 			w.core,
-			{ id = "Fixed", value = w.core:signal("Write"), height = { type = "fixed", px = 44 } }
+			{ id = "Fixed", value = Compose.cell("Write"), height = { type = "fixed", px = 44 } }
 		)
-		w.present(Facet.UI.Screen({ id = "S", children = { field.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { field.blueprint } }))
 		local node = w.adapter.node("/S/Fixed/Field")
 		t.expect(w.adapter.node("/S/Fixed").rect.h).toBe(44)
 		t.expect(node.rect.h >= node.props.textSize).toBe(true)
@@ -68,8 +70,8 @@ t.describe("Native multiline input contract", function()
 	t.it("the multiline frame stays outside the scrolling native editor while editing", function()
 		local w = world.new()
 		local editor =
-			Facet.Controls.TextInput(w.core, { id = "Editor", value = w.core:signal("Notes"), multiline = true })
-		w.present(Facet.UI.Screen({ id = "S", children = { editor.blueprint } }))
+			harness.Controls.TextInput(w.core, { id = "Editor", value = Compose.cell("Notes"), multiline = true })
+		w.present(harness.UI.Screen({ id = "S", children = { editor.blueprint } }))
 		local frame = w.adapter.node("/S/Editor")
 		local field = w.adapter.node("/S/Editor/Viewport/Field")
 		t.expect(frame.decorationHint.slot).toBe("field")
@@ -85,10 +87,10 @@ t.describe("Native multiline input contract", function()
 		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
 		local w = world.new({ themeMetrics = Facet.themes.resolve(ornate) })
 		local editor =
-			Facet.Controls.TextInput(w.core, { id = "Editor", value = w.core:signal("Write"), multiline = true })
+			harness.Controls.TextInput(w.core, { id = "Editor", value = Compose.cell("Write"), multiline = true })
 		local search =
-			Facet.Controls.TextInput(w.core, { id = "Search", value = w.core:signal(""), presentation = "search" })
-		w.present(Facet.UI.Screen({ id = "S", children = { editor.blueprint, search.blueprint } }))
+			harness.Controls.TextInput(w.core, { id = "Search", value = Compose.cell(""), presentation = "search" })
+		w.present(harness.UI.Screen({ id = "S", children = { editor.blueprint, search.blueprint } }))
 		for _, path in { "/S/Editor/Viewport/Field", "/S/Search/Field" } do
 			local padding = w.adapter.node(path).props.padding
 			local isEditor = string.find(path, "/Viewport/", 1, true) ~= nil
@@ -115,18 +117,18 @@ t.describe("Native multiline input contract", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 750, h = 362 } })
 		local core, env = w.core, w.env
 		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
-		local value = core:signal("First line\nSecond line")
-		local control = Facet.Controls.TextInput(core, { id = "Editor", value = value, multiline = true })
+		local value = Compose.cell("First line\nSecond line")
+		local control = harness.Controls.TextInput(core, { id = "Editor", value = value, multiline = true })
 		local adapter = w.adapter
 		local pres = w.pres
-		local handle = pres.present(Facet.UI.Screen({
+		local handle = pres.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.ScrollView({
+				harness.UI.ScrollView({
 					id = "Page",
-					width = Facet.UI.fill(),
-					height = Facet.UI.fill(),
-					children = { Facet.UI.Box({ height = { type = "fixed", px = 260 } }), control.blueprint },
+					width = harness.UI.fill(),
+					height = harness.UI.fill(),
+					children = { harness.UI.Box({ height = { type = "fixed", px = 260 } }), control.blueprint },
 				}),
 			},
 		}))
@@ -137,7 +139,7 @@ t.describe("Native multiline input contract", function()
 		pres.refresh()
 		t.expect(adapter.node("/S/Page/Editor").rect.h <= 93).toBe(true)
 		t.expect(adapter.node("/S/Page/Editor/Viewport/Field")).toBe(field)
-		t.expect(value:get()).toBe("First line\nSecond line")
+		t.expect(value:peek()).toBe("First line\nSecond line")
 		t.expect(control.dump().editing).toBe(true)
 		local page = handle.controller.screenRectOf("/S/Page")
 		local editorRect = handle.controller.screenRectOf("/S/Page/Editor")
@@ -148,9 +150,9 @@ t.describe("Native multiline input contract", function()
 	t.it("multiline forwards to the adapter and preserves newlines until explicit submit", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 		local core, env = w.core, w.env
-		local value = core:signal("")
+		local value = Compose.cell("")
 		local commits = 0
-		local control = Facet.Controls.TextInput(core, {
+		local control = harness.Controls.TextInput(core, {
 			id = "Editor",
 			value = value,
 			multiline = true,
@@ -161,13 +163,13 @@ t.describe("Native multiline input contract", function()
 		})
 		local adapter = w.adapter
 		local pres = w.pres
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		t.expect(adapter.node("/S/Editor/Viewport/Field").props.multiline).toBe(true)
 		adapter.tap("/S/Editor/Viewport/Field")
 		adapter.pasteText("/S/Editor/Viewport/Field", "first\nsecond")
 		pres.refresh()
-		t.expect(value:get()).toBe("first\nsecond")
+		t.expect(value:peek()).toBe("first\nsecond")
 		t.expect(control.dump().editing).toBe(true)
 		t.expect(commits).toBe(0)
 		control.api.submit()
@@ -179,13 +181,13 @@ t.describe("Native multiline input contract", function()
 	t.it("long multiline text has a native scroll viewport and a content-sized editor", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 400, h = 600 } })
 		local core, env = w.core, w.env
-		local control = Facet.Controls.TextInput(
+		local control = harness.Controls.TextInput(
 			core,
-			{ id = "Editor", value = core:signal(string.rep("A line of notes.\n", 30)), multiline = true }
+			{ id = "Editor", value = Compose.cell(string.rep("A line of notes.\n", 30)), multiline = true }
 		)
 		local adapter = w.adapter
 		local pres = w.pres
-		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		t.expect(adapter.node("/S/Editor/Viewport").class).toBe("ScrollView")
 		local field = adapter.node("/S/Editor/Viewport/Field")
@@ -193,9 +195,9 @@ t.describe("Native multiline input contract", function()
 	end)
 	t.it("native edits grow a wide viewport for hard breaks and a final empty line", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1600, h = 1000 } })
-		local value = w.core:signal("Lap")
-		local control = Facet.Controls.TextInput(w.core, { id = "Editor", value = value, multiline = true })
-		w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		local value = Compose.cell("Lap")
+		local control = harness.Controls.TextInput(w.core, { id = "Editor", value = value, multiline = true })
+		w.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		local path = "/S/Editor/Viewport/Field"
 		w.adapter.tap(path)
 		w.adapter.pasteText(path, string.rep("\nLap", 20))
@@ -212,12 +214,12 @@ t.describe("Native multiline input contract", function()
 	end)
 	t.it("native caret geometry reveals its line through the existing scroll authority", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1200, h = 1000 } })
-		local c = Facet.Controls.TextInput(w.core, {
+		local c = harness.Controls.TextInput(w.core, {
 			id = "Editor",
-			value = w.core:signal(string.rep("Lap\n", 30)),
+			value = Compose.cell(string.rep("Lap\n", 30)),
 			multiline = true,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 		local path = "/S/Editor/Viewport/Field"
 		local field = w.adapter.node(path)
 		local viewport = w.adapter.node("/S/Editor/Viewport")

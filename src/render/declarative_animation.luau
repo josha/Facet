@@ -2,6 +2,7 @@
 -- Per-property motion contributes values to the existing presentation channel.
 -- It never writes an adapter, dirties layout, or owns a second frame driver.
 local policy = require("../motion/policy")
+local observeChange = require("../core/on_change")
 local declarative = {}
 local fields: { [string]: number } = { opacity = 1, scale = 1, rotation = 0, offsetX = 0, offsetY = 0 }
 local function keyOf(field: string): string
@@ -56,9 +57,12 @@ function declarative.new(core: any, clock: any, repaint: (string) -> ())
 						row = row or {}
 						motions[path] = row
 						local value = policy.value(clock, initial, preset)
-						entry = { value = value, stop = core:observe(value, function()
-							repaint(path)
-						end) }
+						entry = {
+							value = value,
+							stop = observeChange(core.owner, value, function()
+								repaint(path)
+							end),
+						}
 						row[field] = entry
 						value:onSettle(function()
 							clear(path, field)
@@ -74,11 +78,11 @@ function declarative.new(core: any, clock: any, repaint: (string) -> ())
 		if not row then
 			return o, s, r, x, y
 		end
-		return if row.opacity then row.opacity.value:get() else o,
-			if row.scale then row.scale.value:get() else s,
-			if row.rotation then row.rotation.value:get() else r,
-			if row.offsetX then row.offsetX.value:get() else x,
-			if row.offsetY then row.offsetY.value:get() else y
+		return if row.opacity then row.opacity.value:peek() else o,
+			if row.scale then row.scale.value:peek() else s,
+			if row.rotation then row.rotation.value:peek() else r,
+			if row.offsetX then row.offsetX.value:peek() else x,
+			if row.offsetY then row.offsetY.value:peek() else y
 	end
 	function api.forget(path: string)
 		for field in fields do

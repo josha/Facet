@@ -1,7 +1,9 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 t.describe("Control family inputs", function()
 	t.it(
 		"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
@@ -9,8 +11,8 @@ t.describe("Control family inputs", function()
 			for _, kind in { "Toggle", "Button", "ComboBox", "SplitButton" } do
 				for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
 					local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
-					local enabled = w.core:signal(true)
-					local value = w.core:signal(false)
+					local enabled = Compose.cell(true)
+					local value = Compose.cell(false)
 					local calls = 0
 					local function onActivate()
 						calls += 1
@@ -23,7 +25,7 @@ t.describe("Control family inputs", function()
 							enabled = enabled,
 							label = "Test checkbox",
 							value = value,
-							mixed = w.core:signal(true),
+							mixed = Compose.cell(true),
 							presentation = "checkbox",
 							onChange = onActivate,
 						}
@@ -36,17 +38,17 @@ t.describe("Control family inputs", function()
 						spec = {
 							id = "C",
 							enabled = enabled,
-							value = w.core:signal("a"),
-							text = w.core:signal("A"),
+							value = Compose.cell("a"),
+							text = Compose.cell("A"),
 							options = { { id = "a", label = "A" } },
 							acceptCustom = function()
 								return true
 							end,
 						}
-						path ..= "/Editor/Field"
+						path ..= "/Row/Editor/Field"
 					end
-					local c = Facet.Controls[kind](w.core, spec)
-					w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+					local c = harness.Controls[kind](w.core, spec)
+					w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 					w.pres.refresh()
 					w.tick(0)
 					local function activate(target)

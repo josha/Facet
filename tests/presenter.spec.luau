@@ -8,97 +8,86 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local worldLib = require("./lib/world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local environment = require("../src/env/environment")
-local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
-local fake_target = require("../tests/lib/fake_target")
-
---[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
-	`tests/lib/world.luau` owns the construction and its two invariants — the
-	viewport is set before anything can solve, and one presenter per adapter. The
-	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
-	files used to swap positions three and four with the same five names, so a line
-	copied between two neighbouring specs bound an action system to a variable
-	called `adapter` and said nothing. ]]
 local function makeWorld()
-	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-	return w.core, w.env, w.adapter, w.system, w.pres
+	return worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+end
+local function noop() end
+
+local function settingsScreen(w: any)
+	local UI = w.UI
+	return function()
+		return UI.Screen("Settings")({
+			UI.Text("Title")({ text = "Settings", textSize = 24 }),
+			UI.Button("Music")({ label = "Music", onActivate = noop }),
+			UI.Button("Sfx")({ label = "Sfx", onActivate = noop }),
+			UI.Button("Save")({ label = "Save", onActivate = noop }),
+		})
+	end
 end
 
-local function settingsScreen()
-	return UI.Screen({
-		id = "Settings",
-		children = {
-			UI.Text({ id = "Title", text = "Settings", textSize = 24 }),
-			UI.Toggle({ id = "Music", label = "Music", value = false }),
-			UI.Toggle({ id = "Sfx", label = "Sfx", value = true }),
-			UI.Button({ id = "Save", label = "Save" }),
-		},
-	})
-end
-
-local function confirmModal()
-	return UI.Screen({
-		id = "Confirm",
-		children = {
-			UI.Text({ id = "Prompt", text = "Discard changes?", textSize = 18 }),
-			UI.Button({ id = "Yes", label = "Yes" }),
-			UI.Button({ id = "No", label = "No" }),
-		},
-	})
+local function confirmModal(w: any)
+	local UI = w.UI
+	return function()
+		return UI.Screen("Confirm")({
+			UI.Text("Prompt")({ text = "Discard changes?", textSize = 18 }),
+			UI.Button("Yes")({ label = "Yes", onActivate = noop }),
+			UI.Button("No")({ label = "No", onActivate = noop }),
+		})
+	end
 end
 
 describe("presenter: screens and modals", function()
 	it("presents a screen with document-order focus and device navigation", function()
-		local _, _, _, system, pres = makeWorld()
-		pres.present(settingsScreen())
-		expect(pres.focus.focused:get()).toBe("/Settings/Music")
+		local w = makeWorld()
+		local system, pres = w.system, w.pres
+		w.present(settingsScreen(w))
+		expect(pres.focus.focused:peek()).toBe("/Settings/Music")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
+		expect(pres.focus.focused:peek()).toBe("/Settings/Sfx")
 	end)
 
 	it("a modal sinks navigation from the base screen and traps focus", function()
-		local _, _, _, system, pres = makeWorld()
-		pres.present(settingsScreen())
-		pres.presentModal(confirmModal())
-		expect(pres.focus.focused:get()).toBe("/Confirm/Yes")
+		local w = makeWorld()
+		local system, pres = w.system, w.pres
+		w.present(settingsScreen(w))
+		w.presentModal(confirmModal(w))
+		expect(pres.focus.focused:peek()).toBe("/Confirm/Yes")
 		-- device navigation reaches ONLY the modal (sink)
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Confirm/No")
+		expect(pres.focus.focused:peek()).toBe("/Confirm/No")
 		-- wraps inside the trap, never escapes to Settings
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Confirm/Yes")
+		expect(pres.focus.focused:peek()).toBe("/Confirm/Yes")
 	end)
 
 	it("Cancel dismisses the modal, restores focus, and disposes its context", function()
-		local core, _, _, system, pres = makeWorld()
-		pres.present(settingsScreen())
+		local w = makeWorld()
+		local core, system, pres = w.core, w.system, w.pres
+		w.present(settingsScreen(w))
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false) -- focus Sfx
-		local modal = pres.presentModal(confirmModal())
+		local modal = w.presentModal(confirmModal(w))
 		expect(pres.depth()).toBe(2)
 		system.deviceKey("ButtonB", true)
 		system.deviceKey("ButtonB", false)
 		expect(pres.depth()).toBe(1)
-		expect(pres.focus.focused:get()).toBe("/Settings/Sfx") -- restored
+		expect(pres.focus.focused:peek()).toBe("/Settings/Sfx") -- restored
 		-- destroyed context: firing its old bindings is a silent no-op
 		expect(modal.context.destroyed).toBe(true)
 		-- navigation returns to the base screen
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Settings/Save")
+		expect(pres.focus.focused:peek()).toBe("/Settings/Save")
 	end)
 
 	it("activate routes to the focused control of the top scope", function()
-		local _, _, _, system, pres = makeWorld()
+		local w = makeWorld()
+		local system, pres = w.system, w.pres
 		local activated: { string } = {}
-		pres.present(settingsScreen(), {
+		w.present(settingsScreen(w), {
 			onActivate = function(path)
 				table.insert(activated, path)
 			end,
@@ -109,32 +98,28 @@ describe("presenter: screens and modals", function()
 	end)
 
 	it("open/close churn is registry-neutral across the whole slice", function()
-		local core, _, adapter, _, pres = makeWorld()
-		pres.present(settingsScreen())
-		local baseline = core:counters()
+		local w = makeWorld()
+		local core, adapter, pres = w.core, w.adapter, w.pres
+		w.present(settingsScreen(w))
+		local baseline = core.owner.size()
 		local liveBaseline = adapter.liveCount()
 		for _ = 1, 20 do
-			local modal = pres.presentModal(confirmModal())
+			local modal = w.presentModal(confirmModal(w))
 			pres.dismiss(modal)
 		end
-		local after = core:counters()
-		for k, v in baseline :: any do
-			expect((after :: any)[k]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 		expect(adapter.liveCount()).toBe(liveBaseline)
 	end)
 end)
 
 describe("presenter: re-entrant dismiss (phase-2 verifier F-2)", function()
 	it("dismissing a modal from inside its own onActivate is safe", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
-		pres.present(settingsScreen())
+		local w = makeWorld()
+		local system, pres = w.system, w.pres
+		w.present(settingsScreen(w))
 		local modal
-		modal = pres.presentModal(confirmModal(), {
+		modal = w.presentModal(confirmModal(w), {
 			onActivate = function(_path)
 				pres.dismiss(modal) -- close from within the action dispatch
 			end,
@@ -146,7 +131,7 @@ describe("presenter: re-entrant dismiss (phase-2 verifier F-2)", function()
 		-- base screen navigation still works after the re-entrant dismiss
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
+		expect(pres.focus.focused:peek()).toBe("/Settings/Sfx")
 	end)
 end)
 
@@ -160,9 +145,10 @@ end)
 	silently DIMMED the screen). Both now fail at the call site like their sibling. ]]
 describe("presenter: unknown string-enum opts fail at the call site (F-15)", function()
 	it("an unknown responder names the opt and its legal set", function()
-		local _, _, _, _, pres = makeWorld()
+		local w = makeWorld()
+		local pres = w.pres
 		local ok, err = pcall(function()
-			pres.present(settingsScreen(), { responder = "Passive" } :: any)
+			w.present(settingsScreen(w), { responder = "Passive" } :: any)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "responder", 1, true) ~= nil).toBe(true)
@@ -173,9 +159,10 @@ describe("presenter: unknown string-enum opts fail at the call site (F-15)", fun
 	end)
 
 	it("an unknown scrim names the opt and its legal set", function()
-		local _, _, _, _, pres = makeWorld()
+		local w = makeWorld()
+		local pres = w.pres
 		local ok, err = pcall(function()
-			pres.presentModal(confirmModal(), { scrim = "None" } :: any)
+			w.presentModal(confirmModal(w), { scrim = "None" } :: any)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "scrim", 1, true) ~= nil).toBe(true)
@@ -185,76 +172,15 @@ describe("presenter: unknown string-enum opts fail at the call site (F-15)", fun
 	end)
 
 	it("the legal values still present: responder passive, scrim scrim/none", function()
-		local _, _, _, _, pres = makeWorld()
-		local hud = pres.present(settingsScreen(), { responder = "passive" })
-		expect(hud.responder:get()).toBe("passive")
-		local modal = pres.presentModal(confirmModal(), { scrim = "none" })
+		local w = makeWorld()
+		local pres = w.pres
+		local hud = w.present(settingsScreen(w), { responder = "passive" })
+		expect(hud.responder:peek()).toBe("passive")
+		local modal = w.presentModal(confirmModal(w), { scrim = "none" })
 		expect(modal.scrimMode).toBe("none")
-		local plain = pres.presentModal(confirmModal(), { scrim = "scrim" })
+		local plain = w.presentModal(confirmModal(w), { scrim = "scrim" })
 		expect(plain.scrimMode).toBe("scrim")
 		expect(pres.depth()).toBe(3)
-	end)
-end)
-
---[[ THE FALLBACK IS PRESENTED WITH THE CALLER'S OPTS
-	(api-architecture-consistency F-16). `presentCritical` used to hand the
-	fallback `{ onActivate = opts.onActivate }` and nothing else, so a critical
-	screen declared `rootPolicy = "edgeToEdge"` (or navigationGroups, transition,
-	sinkNavigation, …) lost all of it exactly when things had already gone wrong —
-	the fallback rendered under the wrong root policy, a second failure stacked on
-	the first. ]]
-describe("presenter: presentCritical carries the caller's opts to the fallback (F-16)", function()
-	local function criticalWorld()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-		env:set("coreSafeInsets", { top = 36, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		return adapter, presenterLib.new(core, env, adapter, system)
-	end
-
-	local function fallbackScreen()
-		return UI.Screen({
-			id = "SafeMode",
-			children = { UI.Button({ id = "Retry", label = "Retry" }) },
-		})
-	end
-
-	it("a critical fallback under rootPolicy=edgeToEdge resolves the edge-to-edge rect", function()
-		local adapter, pres = criticalWorld()
-		local handle = pres.presentCritical(function()
-			error("screen construction failed")
-		end, {
-			rootPolicy = "edgeToEdge",
-			fallbackScreen = fallbackScreen,
-		})
-		expect(handle.blueprint.id).toBe("SafeMode")
-		-- edgeToEdge clears the 36px CoreGui inset; the default would not
-		expect(adapter.node("/SafeMode/Retry").rect.y).toBe(0)
-	end)
-
-	it("without the opt the fallback keeps the default content inset", function()
-		local adapter, pres = criticalWorld()
-		pres.presentCritical(function()
-			error("screen construction failed")
-		end, { fallbackScreen = fallbackScreen })
-		expect(adapter.node("/SafeMode/Retry").rect.y).toBe(36)
-	end)
-
-	it("the fallback screen is not asked to present itself as its own fallback", function()
-		-- `fallbackScreen` is the one opt that must NOT ride along: the fallback
-		-- presents as an ordinary screen, and its own errors stay hard (§17).
-		local _, pres = criticalWorld()
-		local handle = pres.presentCritical(function()
-			error("boom")
-		end, {
-			responder = "passive",
-			fallbackScreen = fallbackScreen,
-		})
-		expect(handle.blueprint.id).toBe("SafeMode")
-		expect(handle.responder:get()).toBe("passive") -- the caller's opt survived
-		expect((handle.blueprint :: any).fallbackScreen).toBeNil()
 	end)
 end)
 
@@ -266,8 +192,9 @@ end)
 	presenter-level unit coverage the seam itself needs. ]]
 describe("presenter: raise re-bands a live surface without dismiss+re-present", function()
 	it("bumps a base screen into a fresh band slot, in place", function()
-		local _, _, adapter, _, pres = makeWorld()
-		local handle = pres.present(settingsScreen())
+		local w = makeWorld()
+		local adapter, pres = w.adapter, w.pres
+		local handle = w.present(settingsScreen(w))
 		local before = adapter.rootDisplayOrder("Settings")
 		pres.raise(handle)
 		local after = adapter.rootDisplayOrder("Settings")
@@ -276,9 +203,10 @@ describe("presenter: raise re-bands a live surface without dismiss+re-present", 
 	end)
 
 	it("raises within the MODAL band, never the base band", function()
-		local _, _, _, _, pres = makeWorld()
-		pres.present(settingsScreen())
-		local modal = pres.presentModal(confirmModal())
+		local w = makeWorld()
+		local pres = w.pres
+		w.present(settingsScreen(w))
+		local modal = w.presentModal(confirmModal(w))
 		pres.raise(modal)
 		-- a base-band mistake would land far below this floor (~10000+N*100
 		-- against a 40000 floor), so this is the branch assertion, not just "it
@@ -287,9 +215,10 @@ describe("presenter: raise re-bands a live surface without dismiss+re-present", 
 	end)
 
 	it("re-homes an owned scrim's displayOrder along with the surface it belongs to", function()
-		local _, _, adapter, _, pres = makeWorld()
-		pres.present(settingsScreen())
-		local modal = pres.presentModal(confirmModal())
+		local w = makeWorld()
+		local adapter, pres = w.adapter, w.pres
+		w.present(settingsScreen(w))
+		local modal = w.presentModal(confirmModal(w))
 		local scrimBefore = adapter.rootDisplayOrder("__scrim__")
 		pres.raise(modal)
 		local scrimAfter = adapter.rootDisplayOrder("__scrim__")
@@ -300,8 +229,9 @@ describe("presenter: raise re-bands a live surface without dismiss+re-present", 
 	end)
 
 	it("REFUSES a handle already dismissed — silently, matching `dismiss`'s own shape", function()
-		local _, _, _, _, pres = makeWorld()
-		local handle = pres.present(settingsScreen())
+		local w = makeWorld()
+		local pres = w.pres
+		local handle = w.present(settingsScreen(w))
 		pres.dismiss(handle)
 		local before = handle.displayOrder
 		pres.raise(handle)
@@ -309,27 +239,27 @@ describe("presenter: raise re-bands a live surface without dismiss+re-present", 
 	end)
 
 	it("REFUSES nil without erroring — a defensive caller must not be punished", function()
-		local _, _, _, _, pres = makeWorld()
-		pres.present(settingsScreen())
+		local w = makeWorld()
+		local pres = w.pres
+		w.present(settingsScreen(w))
 		pres.raise(nil :: any)
 	end)
 
 	it("never remounts: zero instance churn and focus never moves", function()
-		local core, _, adapter, system, pres = makeWorld()
-		local handle = pres.present(settingsScreen())
+		local w = makeWorld()
+		local core, adapter, system, pres = w.core, w.adapter, w.system, w.pres
+		local handle = w.present(settingsScreen(w))
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
-		local baseline = core:counters()
+		expect(pres.focus.focused:peek()).toBe("/Settings/Sfx")
+		local baseline = core.owner.size()
 		local liveBaseline = adapter.liveCount()
 		pres.raise(handle)
-		local after = core:counters()
-		for k, v in baseline :: any do
-			expect((after :: any)[k]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 		expect(adapter.liveCount()).toBe(liveBaseline)
 		-- the ring never moved, because nothing capable of moving it ran
-		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
+		expect(pres.focus.focused:peek()).toBe("/Settings/Sfx")
 	end)
 end)
 
@@ -352,24 +282,23 @@ end)
 describe("presenter: a surface's transition is resolved at present, never again (D1)", function()
 	local function boundWorld(value: any)
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local declared = w.core:signal(value)
-		local screen = UI.Screen({
-			id = "Bound",
-			children = {
-				UI.ZStack({
-					id = "Content",
+		local UI = w.UI
+		local declared = w.Compose.cell(value)
+		local function screen()
+			return UI.Screen("Bound")({
+				UI.ZStack("Content")({
 					canvasGroup = true,
-					children = { UI.Button({ id = "Ok", label = "Ok" }) },
+					UI.Button("Ok")({ label = "Ok", onActivate = noop }),
 				}),
-			},
-		})
+			})
+		end
 		return w, declared, screen
 	end
 
 	it("a Readable that goes invalid mid-surface still dismisses cleanly", function()
 		local w, declared, screen = boundWorld({ enter = "fade" })
 		local rootsBefore = w.adapter.rootCount()
-		local handle = w.pres.present(screen, { transition = declared })
+		local handle = w.present(screen, { transition = declared })
 		for _ = 1, 90 do
 			w.pres.tick(1 / 60)
 		end
@@ -389,13 +318,12 @@ describe("presenter: a surface's transition is resolved at present, never again 
 			w.pres.refresh()
 		end
 		expect(w.adapter.rootCount()).toBe(rootsBefore)
-		declared:dispose()
 	end)
 
 	it("...and the id can be presented again afterwards", function()
 		local w, declared, screen = boundWorld({ enter = "fade" })
 		local rootsBefore = w.adapter.rootCount()
-		local handle = w.pres.present(screen, { transition = declared })
+		local handle = w.present(screen, { transition = declared })
 		for _ = 1, 90 do
 			w.pres.tick(1 / 60)
 		end
@@ -412,7 +340,7 @@ describe("presenter: a surface's transition is resolved at present, never again 
 		-- — at the boundary that can still say so — rather than half way through a
 		-- dismissal that has already destroyed the context
 		local refused = pcall(function()
-			w.pres.present(screen, { transition = declared })
+			w.present(screen, { transition = declared })
 		end)
 		expect(refused).toBe(false)
 		--[[ a `present()` that RAISES leaves the root it had already built — a
@@ -421,7 +349,7 @@ describe("presenter: a surface's transition is resolved at present, never again 
 			rather than pretending the refusal was free. Ledgered in the report. ]]
 		local afterRefusal = w.adapter.rootCount()
 		declared:set({ enter = "fade" })
-		local again = w.pres.present(screen, { transition = declared })
+		local again = w.present(screen, { transition = declared })
 		expect(again ~= nil).toBe(true)
 		expect(w.adapter.rootCount()).toBe(afterRefusal + 1)
 		-- ...and it is a LIVE surface, not a husk: it dismisses the ordinary way
@@ -431,7 +359,6 @@ describe("presenter: a surface's transition is resolved at present, never again 
 			w.pres.refresh()
 		end
 		expect(w.adapter.rootCount()).toBe(afterRefusal)
-		declared:dispose()
 	end)
 
 	it("a Readable that changes mid-surface applies to the NEXT present, not this exit", function()
@@ -440,7 +367,7 @@ describe("presenter: a surface's transition is resolved at present, never again 
 			while the surface is up does NOT make this dismissal instant. ]]
 		local w, declared, screen = boundWorld({ enter = "fade" })
 		local rootsBefore = w.adapter.rootCount()
-		local handle = w.pres.present(screen, { transition = declared })
+		local handle = w.present(screen, { transition = declared })
 		for _ = 1, 90 do
 			w.pres.tick(1 / 60)
 		end
@@ -456,14 +383,13 @@ describe("presenter: a surface's transition is resolved at present, never again 
 		expect(w.adapter.rootCount()).toBe(rootsBefore)
 
 		-- ...and the NEXT present takes the new value: an instant exit now
-		local second = w.pres.present(screen, { transition = declared })
+		local second = w.present(screen, { transition = declared })
 		for _ = 1, 90 do
 			w.pres.tick(1 / 60)
 		end
 		w.pres.dismiss(second)
 		w.pres.refresh()
 		expect(w.adapter.rootCount()).toBe(rootsBefore)
-		declared:dispose()
 	end)
 end)
 
@@ -477,51 +403,57 @@ describe("presenter: two LIVE surfaces under one id are noted, once (D4)", funct
 		A DIAGNOSTIC, NOT A REFUSAL (controller ruling): refusing would break
 		whatever ships today doing this by accident. The refusal is ledgered as a
 		follow-up. ]]
-	local function twin(id: string)
-		return UI.Screen({ id = id, children = { UI.Button({ id = "Ok", label = "Ok" }) } })
+	local function twin(w: any, id: string)
+		return function()
+			return w.UI.Screen(id)({ w.UI.Button("Ok")({ label = "Ok", onActivate = noop }) })
+		end
 	end
 
 	it("the second present under a live id notes it, and the third does not repeat it", function()
-		local _, _, _, _, pres = makeWorld()
+		local w = makeWorld()
+		local pres = w.pres
 		expect(#pres.surfaceIdNotes()).toBe(0)
-		pres.present(twin("Twin"))
+		w.present(twin(w, "Twin"))
 		-- one surface is not a collision
 		expect(#pres.surfaceIdNotes()).toBe(0)
-		pres.present(twin("Twin"))
+		w.present(twin(w, "Twin"))
 		local notes = pres.surfaceIdNotes()
 		expect(#notes).toBe(1)
 		expect(string.find(notes[1], "already presented under the id 'Twin'", 1, true) ~= nil).toBe(true)
 		expect(string.find(notes[1], "/Twin", 1, true) ~= nil).toBe(true)
 		-- ...and it is ONCE PER ID, not once per collision: a session that opens
 		-- the same duplicate repeatedly says it once
-		pres.present(twin("Twin"))
-		pres.present(twin("Twin"))
+		w.present(twin(w, "Twin"))
+		w.present(twin(w, "Twin"))
 		expect(#pres.surfaceIdNotes()).toBe(1)
 	end)
 
 	it("a DIFFERENT duplicated id gets its own note", function()
-		local _, _, _, _, pres = makeWorld()
-		pres.present(twin("A"))
-		pres.present(twin("A"))
-		pres.present(twin("B"))
-		pres.present(twin("B"))
+		local w = makeWorld()
+		local pres = w.pres
+		w.present(twin(w, "A"))
+		w.present(twin(w, "A"))
+		w.present(twin(w, "B"))
+		w.present(twin(w, "B"))
 		expect(#pres.surfaceIdNotes()).toBe(2)
 	end)
 
 	it("presenting under an id whose surface has been DISMISSED is not a collision", function()
 		-- the ordinary re-present, which is the shape `flushPendingExit` exists
 		-- for: the first surface is gone from the stack, so nothing is noted
-		local _, _, _, _, pres = makeWorld()
-		local first = pres.present(twin("Solo"))
+		local w = makeWorld()
+		local pres = w.pres
+		local first = w.present(twin(w, "Solo"))
 		pres.dismiss(first)
-		pres.present(twin("Solo"))
+		w.present(twin(w, "Solo"))
 		expect(#pres.surfaceIdNotes()).toBe(0)
 	end)
 
 	it("the read is a COPY, like every other diagnostic read", function()
-		local _, _, _, _, pres = makeWorld()
-		pres.present(twin("C"))
-		pres.present(twin("C"))
+		local w = makeWorld()
+		local pres = w.pres
+		w.present(twin(w, "C"))
+		w.present(twin(w, "C"))
 		local notes = pres.surfaceIdNotes()
 		table.clear(notes)
 		expect(#pres.surfaceIdNotes()).toBe(1)

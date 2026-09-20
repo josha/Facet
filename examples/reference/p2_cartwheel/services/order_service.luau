@@ -25,7 +25,7 @@ local BREW_SECONDS = 60
 local NEWEST_PLACED = 16 * 60 + 2
 
 function order_service.new(opts: any): any
-	local core = opts.core
+	local Compose = opts.Compose
 	local clock = opts.clock
 	local seed: number = opts.seed or 1
 	local random = rng.new(seed)
@@ -82,13 +82,13 @@ function order_service.new(opts: any): any
 		table.insert(backlog, makeBrew(id, status, placed))
 		placed -= random.int(7, 19)
 	end
-	local brews = core:signal(backlog)
+	local brews = Compose.cell(backlog)
 	self.brews = brews
 
 	-- ---- reads ---------------------------------------------------------------
 
 	function self.byId(id: number): any?
-		for _, brew in brews:get() :: any do
+		for _, brew in brews:peek() :: any do
 			if brew.id == id then
 				return brew
 			end
@@ -97,7 +97,7 @@ function order_service.new(opts: any): any
 	end
 
 	function self.count(): number
-		return #(brews:get() :: any)
+		return #(brews:peek() :: any)
 	end
 
 	-- everything a search must match: the brew number, its potions and their
@@ -141,7 +141,7 @@ function order_service.new(opts: any): any
 	-- every other row keeps its identity.
 
 	local function replace(id: number, mutate: (any) -> ())
-		local current = brews:get() :: any
+		local current = brews:peek() :: any
 		local out = table.create(#current)
 		for _, brew in current do
 			if brew.id == id then
@@ -259,7 +259,7 @@ function order_service.new(opts: any): any
 		arrived += 1
 		local minutes = NEWEST_PLACED + math.floor(clock.now() / 60) + arrived
 		local brew = makeBrew(id, "new", minutes)
-		local current = brews:get() :: any
+		local current = brews:peek() :: any
 		local out = table.create(#current + 1)
 		table.insert(out, brew)
 		for _, existing in current do
@@ -293,7 +293,7 @@ function order_service.new(opts: any): any
 	function self.dump(): any
 		local counts = { new = 0, brewing = 0, ready = 0, done = 0 }
 		local ids: { number } = {}
-		for _, brew in brews:get() :: any do
+		for _, brew in brews:peek() :: any do
 			counts[brew.status] = (counts[brew.status] or 0) + 1
 			table.insert(ids, brew.id)
 		end
@@ -307,9 +307,7 @@ function order_service.new(opts: any): any
 		}
 	end
 
-	function self.dispose()
-		brews:dispose()
-	end
+	function self.dispose() end
 
 	return self
 end

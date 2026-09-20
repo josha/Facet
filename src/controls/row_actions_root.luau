@@ -1,7 +1,8 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 --[[ row_actions_root — the standalone/Table row node, composed.
 
-	WHAT THIS IS. The node tree `newRowActions` mounts when it is NOT in hosted
+	WHAT THIS IS. The node tree `UI.RowActions` mounts when it is NOT in hosted
 	mode: the root `UI.Anchor`, the trays under it in paint order, the `Content`
 	ZStack that slides over them (with its sign-following anchor, its edit gutter
 	padding and its collapse `overflow` declaration), the drag hit Grip on top,
@@ -53,8 +54,7 @@ local row_actions_root = {}
 
 export type Params = {
 	UI: any,
-	core: any,
-	scope: any,
+	owner: any,
 	id: string,
 	-- `spec.width`: nil leaves the root content-sized (every standalone caller);
 	-- Table passes its own `{ type = "fill", weight = 1 }` straight through
@@ -202,8 +202,7 @@ end
 
 function row_actions_root.build(p: Params): any
 	local UI = p.UI
-	local core = p.core
-	local scope = p.scope
+	local owner = p.owner
 	local id = p.id
 	local width = p.width
 	local content = p.content
@@ -305,14 +304,18 @@ function row_actions_root.build(p: Params): any
 		and `anchor` is an arrange-only prop (blueprint_schema BOX.anchor,
 		`dirty = { "arrange" }`), the same class `offsetX` itself is in, so the
 		flip costs one node's re-arrange and no re-measure. ]]
-	local contentAnchor = scope:own(core:memo(function(use)
-		return if use(offset) > 0 then "topRight" else "topLeft"
-	end))
+	local contentAnchor = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return if use(offset) > 0 then "topRight" else "topLeft"
+		end)
+	end)
 	local contentPadding: any = nil
 	if hasEditAffordance then
-		contentPadding = scope:own(core:memo(function(use)
-			return { left = use(editGutterPx) }
-		end))
+		contentPadding = Compose.withOwner(owner, function()
+			return Compose.formula(function(use)
+				return { left = use(editGutterPx) }
+			end)
+		end)
 	end
 	-- REDTEAM FIX (item 15, LOW). This block used to ALWAYS mount the
 	-- hit-surface Grip below, even under `externalGesture = true`, with
@@ -426,9 +429,11 @@ function row_actions_root.build(p: Params): any
 				that is not collapsing declares nothing, and a real overflow
 				on a resting row still reports.
 			]]
-			overflow = scope:own(core:memo(function(use)
-				return if use(rowHeightOverride) ~= nil then "intentionalOverlap" else nil
-			end)),
+			overflow = Compose.withOwner(owner, function()
+				return Compose.formula(function(use)
+					return if use(rowHeightOverride) ~= nil then "intentionalOverlap" else nil
+				end)
+			end),
 			children = contentChildren,
 		})
 	)
@@ -459,13 +464,15 @@ function row_actions_root.build(p: Params): any
 	-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
 	-- when absent") for every row that never commits, byte-identical to
 	-- Tasks 3-4 (no `height` prop existed on the root before this task).
-	local heightPx = scope:own(core:memo(function(use)
-		local px = use(rowHeightOverride)
-		if px == nil then
-			return nil
-		end
-		return { type = "fixed", px = px }
-	end))
+	local heightPx = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local px = use(rowHeightOverride)
+			if px == nil then
+				return nil
+			end
+			return { type = "fixed", px = px }
+		end)
+	end)
 	return UI.Anchor({ id = id, width = width, height = heightPx, children = children })
 end
 

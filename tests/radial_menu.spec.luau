@@ -1,8 +1,10 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local it, expect = t.it, t.expect
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
 local function setup(extra: any?)
 	local w = world.new({
 		viewport = { x = 0, y = 0, w = 800, h = 650 },
@@ -35,8 +37,8 @@ local function setup(extra: any?)
 	for k, v in extra or {} do
 		spec[k] = v
 	end
-	local c = Facet.Controls.RadialMenu(w.core, spec)
-	w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+	local c = harness.Controls.RadialMenu(w.core, spec)
+	w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 	w.settle(2)
 	return w, c, fired
 end
@@ -64,16 +66,16 @@ end
 t.describe("RadialMenu control", function()
 	it("a new radial launcher waits for its solved position before painting", function()
 		local w = world.new()
-		local c = Facet.Controls.RadialMenu(w.core, {
+		local c = harness.Controls.RadialMenu(w.core, {
 			id = "Ctl",
 			preset = "donut",
 			items = { { id = "look", label = "Look" } },
 		})
-		local shown = w.core:signal(false)
-		w.pres.present(Facet.UI.Screen({
+		local shown = Compose.cell(false)
+		w.pres.present(harness.UI.Screen({
 			id = "Initial",
 			children = {
-				Facet.UI.When({
+				harness.UI.When({
 					condition = shown,
 					thenView = function()
 						return c.blueprint
@@ -159,7 +161,7 @@ t.describe("RadialMenu control", function()
 		end
 		noLauncher()
 		expect(c.api.open()).toBe(true)
-		expect(c.api.isVisible:get()).toBe(true)
+		expect(c.api.isVisible:peek()).toBe(true)
 		w.settle(30)
 		local s = sector(c, "wave")
 		w.adapter.tap(s.path)
@@ -169,8 +171,8 @@ t.describe("RadialMenu control", function()
 	end)
 
 	it("projected clearance fits atomically and freezes with pointer selection", function()
-		local core = Facet.newCore()
-		local anchor = core:signal({ x = 400, y = 325, clearance = 115 })
+		local core = harness.newCore()
+		local anchor = Compose.cell({ x = 400, y = 325, clearance = 115 })
 		local w, c = setup({ anchor = anchor, clearance = 80, center = "empty" })
 		tapOpen(w, c)
 		w.settle(60)
@@ -188,8 +190,8 @@ t.describe("RadialMenu control", function()
 		expect(math.abs(sector(c, "wave").inner - 140) < 0.1).toBe(true)
 	end)
 	it("fixed following preserves opening clearance until the next opening", function()
-		local core = Facet.newCore()
-		local anchor = core:signal({ x = 400, y = 325, clearance = 115 })
+		local core = harness.newCore()
+		local anchor = Compose.cell({ x = 400, y = 325, clearance = 115 })
 		local w, c = setup({ anchor = anchor, follow = "fixed" })
 		tapOpen(w, c)
 		anchor:set({ x = 440, y = 325, clearance = 140 })
@@ -585,7 +587,7 @@ t.describe("RadialMenu control", function()
 			local w, c = setup({ appearance = appearance })
 			tapOpen(w, c)
 			w.settle(60)
-			expect(w.core:lastError()).toBe(nil)
+			expect(w.core.lastError()).toBe(nil)
 			local p = sector(c, "wave").path
 			local visual = p:match("^(.-/Visual)/")
 			expect(visual ~= nil).toBe(true)
@@ -644,7 +646,7 @@ t.describe("RadialMenu control", function()
 		w.settle(1)
 		c.api.select("gear")
 		w.settle(90)
-		expect(w.core:lastError()).toBe(nil)
+		expect(w.core.lastError()).toBe(nil)
 		expect(
 			w.adapter.node(sector(c, "tool").path:match("^(.-/Visual)/")).canvasGroupInstance.groupTransparency < 0.01
 		).toBe(true)
@@ -819,7 +821,7 @@ t.describe("RadialMenu control", function()
 			w.env:set("viewingDistance", "ten-foot")
 			tapOpen(w, c)
 			w.settle(60)
-			local minimum = w.env:get("themeMetrics"):get().iconSizes.medium
+			local minimum = w.env:get("themeMetrics"):peek().iconSizes.medium
 			for _, sector in c.dump().sectors do
 				if not sector.navigation then
 					local n = w.adapter.node(sector.path)
@@ -1015,7 +1017,7 @@ t.describe("RadialMenu control", function()
 		w.pres.focus.focusOn(sector(c, "wave").path)
 		w.press("Tab")
 		w.settle(2)
-		expect(w.pres.focus.focused:get() ~= nil).toBe(true)
+		expect(w.pres.focus.focused:peek() ~= nil).toBe(true)
 		w.press("ButtonB")
 		expect(c.dump().open).toBe(false)
 	end)
@@ -1114,8 +1116,8 @@ t.describe("RadialMenu capture, fitting and lifetime", function()
 		expect(c.dump().open).toBe(false)
 	end)
 	it("eligibility is checked again after a captured drag", function()
-		local core = Facet.newCore()
-		local enabled = core:signal(true)
+		local core = harness.newCore()
+		local enabled = Compose.cell(true)
 		local calls = 0
 		local w, c = setup({
 			distribution = "even",
@@ -1140,8 +1142,8 @@ t.describe("RadialMenu capture, fitting and lifetime", function()
 		expect(calls).toBe(0)
 	end)
 	it("moving focal anchors freeze under capture and disappearing targets dismiss", function()
-		local core = Facet.newCore()
-		local anchor = core:signal({ x = 400, y = 325 })
+		local core = harness.newCore()
+		local anchor = Compose.cell({ x = 400, y = 325 })
 		local w, c = setup({ anchor = anchor })
 		local l = c.dump()
 		w.adapter.pointerDown(launcher(w), l.centerX, l.centerY, "touch")
@@ -1207,7 +1209,7 @@ t.describe("RadialMenu capture, fitting and lifetime", function()
 		w.press("ButtonB")
 		w.settle(4)
 		expect(#c.dump().openPath).toBe(1)
-		expect(w.pres.focus.focused:get()).toBe(sector(c, "tools").path)
+		expect(w.pres.focus.focused:peek()).toBe(sector(c, "tools").path)
 	end)
 	it("callback disposal retires input before executing and cannot fire twice", function()
 		local calls = 0
@@ -1266,6 +1268,72 @@ t.describe("RadialMenu capture, fitting and lifetime", function()
 	end)
 end)
 
+--[[ A KEYED ROW THAT SWAPS AN OPEN RADIAL MENU LEAVES NOTHING BEHIND.
+
+	`Compose.keyed` whose `render` sets no `collectionKey` puts the new branch at
+	the SAME path the retired one held, and the renderer answered that by parking
+	the replaced node and adopting it for the new occupant — while its DESCENDANTS
+	stayed mounted, because `sweepDeparted` clears `childNodesOf[path]` and that map
+	is the only record of who the old node's children were. Nothing swept them, so
+	an open menu's whole ring went on being solved under the new branch's root: two
+	RadialMenus on one path, which is what tripped the containment invariant in the
+	showcase (`render/renderer.luau`, `sweepReplaced`).
+
+	The menu is OPEN across the swap on purpose: closed, the retired subtree is
+	small enough that the leak hides inside the new branch's own node count. ]]
+t.describe("RadialMenu under a keyed swap", function()
+	it("a keyed row swapping an OPEN menu returns the tree to its baseline", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 650 } })
+		local UI = (harness.libraryOf(w.core))
+		local which = Compose.cell("a")
+		local records = {}
+		w.present(function()
+			return UI.Screen("S")({
+				padding = "m",
+				UI.ForEach("Rows")({
+					Compose.keyed({
+						from = Compose.formula(function(use)
+							return { { id = use(which) } }
+						end),
+						key = function(row)
+							return row.id
+						end,
+						render = function()
+							return UI.RadialMenu("Menu")({
+								label = "Quick",
+								ref = function(record)
+									table.insert(records, record)
+								end,
+								items = { { id = "one", label = "One" }, { id = "two", label = "Two" } },
+							})
+						end,
+					}),
+				}),
+			})
+		end)
+		w.settle(3)
+		local closedBaseline = w.adapter.liveCount()
+		records[1].api.open()
+		w.settle(30)
+		expect(w.adapter.liveCount() > closedBaseline).toBe(true)
+		which:set("b")
+		w.settle(6)
+		-- the new branch is a CLOSED menu, so the tree is the closed baseline again
+		expect(w.adapter.liveCount()).toBe(closedBaseline)
+		expect(#records).toBe(2)
+		-- ...and nothing from the retired menu is still painting under the new one
+		for _, path in w.adapter.paths() do
+			expect(`a retired ring node survived: {path}`).toBe(
+				`a retired ring node survived: {if path:find("/Presentation", 1, true) then "" else path}`
+			)
+		end
+		-- the SURVIVOR still works
+		records[2].api.open()
+		w.settle(30)
+		expect(records[2].dump().open).toBe(true)
+	end)
+end)
+
 t.describe("Quick actions Showcase fitting", function()
 	local scenario = require("../examples/gallery/scenarios/radial_menu")
 	for _, size in { { 359, 718 }, { 844, 390 }, { 320, 568 }, { 600, 320 } } do
@@ -1277,7 +1345,13 @@ t.describe("Quick actions Showcase fitting", function()
 						preferredTextOffset = offset,
 					},
 				})
-				local built = scenario.build({ Facet = Facet, core = w.core, env = w.env })
+				local built = scenario.build({
+					Facet = Facet,
+					UI = (harness.libraryOf(w.core)),
+					Compose = Facet.Compose,
+					core = w.core,
+					env = w.env,
+				})
 				w.present(built.screen)
 				w.settle(3)
 				built.steps.open()
@@ -1314,8 +1388,8 @@ t.describe("RadialMenu aperture and live data", function()
 		expect(count).toBe(8)
 	end)
 	it("removing an ancestor restores the nearest valid logical page", function()
-		local core = Facet.newCore()
-		local items = core:signal({ { id = "gear", label = "Gear", children = { { id = "go", label = "Go" } } } })
+		local core = harness.newCore()
+		local items = Compose.cell({ { id = "gear", label = "Gear", children = { { id = "go", label = "Go" } } } })
 		local w, c = setup({ distribution = "even", items = items })
 		tapOpen(w, c)
 		w.adapter.tap(sector(c, "gear").path)
@@ -1337,7 +1411,7 @@ t.describe("RadialMenu aperture and live data", function()
 		local held = ctx.createAction("QuickActions", "Bool")
 		held.bind({ keyCode = "ButtonR2" })
 		local calls = 0
-		local c = Facet.Controls.RadialMenu(w.core, {
+		local c = harness.Controls.RadialMenu(w.core, {
 			holdAction = held,
 			items = { {
 				id = "go",
@@ -1347,7 +1421,7 @@ t.describe("RadialMenu aperture and live data", function()
 				end,
 			} },
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 		w.settle(2)
 		w.system.deviceKey("ButtonR2", true)
 		w.settle(3)
@@ -1363,8 +1437,8 @@ end)
 t.describe("RadialMenu teardown and compact navigation", function()
 	it("dismiss during animation returns all core registries to baseline", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 800 } })
-		local before = w.core:counters()
-		local c = Facet.Controls.RadialMenu(w.core, {
+		local before = w.core.owner.size()
+		local c = harness.Controls.RadialMenu(w.core, {
 			id = "Ctl",
 			center = "empty",
 			items = {
@@ -1376,7 +1450,7 @@ t.describe("RadialMenu teardown and compact navigation", function()
 				},
 			},
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 		w.settle(2)
 		c.api.open()
 		w.settle(2)
@@ -1386,10 +1460,8 @@ t.describe("RadialMenu teardown and compact navigation", function()
 		w.pres.dismiss(w.handle)
 		c.dispose()
 		c.dispose()
-		local after = w.core:counters()
-		for key, value in before do
-			expect(after[key]).toBe(value)
-		end
+		local after = w.core.owner.size()
+		expect(after).toBe(before)
 	end)
 	it("round navigation keeps themed image corners inside the disc throughout transitions", function()
 		for _, theme in { require("../examples/themes/pixel_quest"), require("../examples/themes/fantasy_ornate") } do
@@ -1483,11 +1555,13 @@ t.describe("Quick actions narrow focal movement", function()
 		local disposed, staleUpdates = false, 0
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			worldActions = function()
 				return {
-					anchor = w.core:signal({ x = 400, y = 350, clearance = 60 }),
+					anchor = Compose.cell({ x = 400, y = 350, clearance = 60 }),
 					place = function() end,
 					setOpen = function()
 						if disposed then
@@ -1515,7 +1589,13 @@ t.describe("Quick actions narrow focal movement", function()
 	it("wandering on a narrow phone keeps a fitting ring instead of oscillating into a list", function()
 		local scenario = require("../examples/gallery/scenarios/radial_menu")
 		local w = world.new({ viewport = { x = 0, y = 0, w = 359, h = 718 } })
-		local built = scenario.build({ Facet = Facet, core = w.core, env = w.env })
+		local built = scenario.build({
+			Facet = Facet,
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
+			core = w.core,
+			env = w.env,
+		})
 		w.present(built.screen)
 		w.settle(3)
 		built.steps.character()

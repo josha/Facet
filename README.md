@@ -1,19 +1,59 @@
 # Facet
 
-Facet is a user-interface library for Roblox, written entirely in Luau. You hand
-it a plain-data description of the screen you want, and it decides which real
-objects to create, when to change them, and when to destroy them — you never write
-`Instance.new("Frame")` or set a `Position` by hand.
+Facet is a user-interface library for Roblox, written in Luau. Compose supplies
+the authoring model and manages reactive updates and lifetimes. Facet adds
+controls, layout, themes, adaptation and input.
 
-Layout, state, focus, and adaptation are ordinary Luau, so a test can check them
-exactly without a running engine. A thin adapter edge turns the result into real
-Roblox user interface through the engine's own scrolling, styling, and input. One
-description adapts from a phone to a console without a per-device branch, and every
-control it ships is reachable by pointer, touch, keyboard, and gamepad.
+Layout, focus and adaptation run in Luau and can be tested without Roblox Studio.
+Client adapters create Roblox objects and connect scrolling, styling and input.
+The same screen adapts to available space and input capabilities.
 
-Facet uses Compose for reactive values, scheduling and scoped ownership,
-with Facet layout settling. Write new interfaces with
-[`Facet.component` and `Facet.View`](docs/guide/15-components.md).
+Use Compose cells, functions, collections and motion with Facet controls.
+Facet does not require IDs for ordinary controls.
+
+## A small working screen
+
+After [installing Facet](#installing), put this in a LocalScript under
+`StarterPlayer.StarterPlayerScripts`:
+
+```lua
+local Facet = require(game.ReplicatedStorage:WaitForChild("Facet"))
+local Compose = Facet.Compose
+local app = Facet.new()
+local UI = app.controls
+
+local function Counter()
+    local count = Compose.cell(0)
+    return UI.Screen {
+        padding = "m", gap = "s",
+        UI.Text {
+            text = function(use) return `Clicked {use(count)} times` end,
+        },
+        UI.Button {
+            label = "Add one",
+            onActivate = function()
+                count:update(function(n) return n + 1 end)
+            end,
+        },
+    }
+end
+
+local close = app.mount(Counter)
+```
+
+Compose tracks `use(count)` and updates the bound property when the cell changes.
+A component is an ordinary function. Facet supplies the controls, layout, styling,
+input and frame driver. `close()` removes the screen and releases its owned
+resources; `app.dispose()` closes the application, including any remaining screens.
+Anonymous controls need no IDs. Changing collections use Compose's stable keys.
+`app.environment` supplies adaptive facts; `app.onFrame(callback)` subscribes to
+the host frame driver and returns a cleanup function. Inside a component, pass
+that function to `Compose.cleanup` to release it on unmount.
+
+Enable `Workspace.PlayerScriptsUseInputActionSystem` in Studio or your Rojo
+project. The button works with pointer, touch, keyboard and gamepad. See
+[getting started](docs/guide/03-getting-started.md) for setup and
+[components](docs/guide/15-components.md) for state, collections and animation.
 
 ## What it runs on
 
@@ -26,9 +66,13 @@ there are three places a solved screen can land:
 - **A world-fixed surface** — the same flat, two-dimensional screen on a
   `SurfaceGui` attached to a part, which a player walks up to and uses.
 
-That last one is a flat screen in the world and nothing more. Facet has no
-declarative three-dimensional layout, no virtual-reality mode, and no ray, hand, or
-gaze input path.
+World-fixed surfaces remain two-dimensional interfaces. For embedded 3D, place a
+`UI.Stage` and mount scene content into `controller.stageHost(path).contentRoot()`.
+The same Compose model can also drive game-owned geometry through `client.scene`.
+The
+[Virtual Monitors showcase](examples/virtual_monitors) combines these features
+in a shared-state screen and spatial desktop. VR pointer support is not yet
+verified.
 
 The main library table is safe to require from server or shared code. The modules
 that create Roblox objects, read the real input device, and read the real viewport
@@ -88,8 +132,18 @@ without looking is what you actually want.
 
 ### Git and Rojo
 
-Clone the repository and map `src/` into your place with
-[Rojo](https://rojo.space/). A project file needs two things:
+Clone the repository, materialize the pinned Compose dependency, and map `src/`
+into your place with [Rojo](https://rojo.space/):
+
+```sh
+python3 tools/sync_compose.py
+```
+
+The repository stores Compose's commit and file hashes, not its source. The
+sync command downloads that exact revision and verifies it. For an offline local
+checkout, use `python3 tools/sync_compose.py --source ../compose`.
+
+A project file needs two things:
 
 ```json
 {
@@ -107,7 +161,7 @@ property Facet's input layer needs.
 
 ### A source copy
 
-Copy `src/` into your own repository and map it the same way. Facet's internal
+After running the dependency sync above, copy the materialized `src/` into your own repository and map it the same way. Facet's internal
 requires are relative, so the same source runs headless under Lune and mounted in
 Roblox with no changes. Record `Facet.VERSION` somewhere you will see it, so you
 know what you have.
@@ -120,58 +174,15 @@ File**. Maintainers regenerate it with `tools/build_model.sh`.
 [Guide 8](docs/guide/08-without-rojo.md) covers this route, the one structural
 rule it depends on, and what a no-Rojo workflow costs.
 
-## The five-minute screen
-
-One client script under `StarterPlayer.StarterPlayerScripts` — a **Script**
-with `RunContext = Client` (a plain `LocalScript` works too):
-
-```lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
--- the client-only modules are not on the Facet table; require them directly
-local host = require(ReplicatedStorage.Facet.client.host)
-
--- one call stands up a core, a bound environment, a render target, an input
--- system and a presenter, and drives both halves of the frame
-local h = host.new()
-local UI = Facet.View
-local Counter = Facet.component(function(ui)
-    local count, setCount = ui.state(0)
-    return UI.Screen {
-        id = "Counter", padding = "m", gap = "s",
-        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
-        UI.Button {
-            id = "Bump", label = "Bump",
-            onActivate = function() setCount(function(n) return n + 1 end) end,
-        },
-    }
-end)
-
-local handle = h.presenter.present(Counter {})
--- At the application's lifetime boundary:
--- h.presenter.dismiss(handle)
--- h.dispose()
-```
-
-The `text` function reads `count()`; Facet tracks that read and updates the
-label when `setCount` changes it. The component owns its state and bindings. Press Play, and clicking, pressing
-Enter, or pressing gamepad A all bump the count.
-
-**One checkbox first.** Tick `Workspace.PlayerScriptsUseInputActionSystem` in
-Studio's Properties panel, or declare it in your project file as the snippet above
-does. Facet's input layer is built on Roblox's Input Action System, and with the
-property off, Roblox's own scripts hold some keys where no Facet binding can reach
-them. [Guide 3](docs/guide/03-getting-started.md) explains this in full.
-
-The same screen as a standalone, runnable Rojo project is
-[`examples/consumer/`](examples/consumer/), and a headless spec mounts that exact
-screen and proves it works.
-
 ## Examples
 
+- **[`examples/virtual_monitors/`](examples/virtual_monitors/)** — three floating
+  desktop panels: game discovery, a 3D avatar editor and a simulated agent chat.
+  Shared light/dark themes and Compose-driven motion. Build and try it locally
+  in Studio using the example's README.
+
 - **[`examples/consumer/`](examples/consumer/)** — the smallest complete project.
-  One theme, one adaptive screen, one signal, one teardown.
+  One theme, one adaptive screen, one Compose cell, one teardown.
 - **`examples/gallery/`** — the showcase place: a picker that switches between
   every demo and every shipped theme on the device in your hand. Build it with
   `rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl`.
@@ -190,21 +201,21 @@ screen and proves it works.
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository has to follow. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
 | [`docs/extending/`](docs/extending/) | One playbook per kind of addition: a control, a primitive, a theme, a skinned control, an engine feature, a render target, a platform mode. |
-| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each version, and every behavior change riding the unreleased one. |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each version. |
 | [`AGENTS.md`](AGENTS.md) | The routing table for an automated coding agent working with Facet. |
 
 ## Development
 
 ```sh
 rokit install                        # the pinned toolchain: Rojo, luau-lsp, Lune, StyLua
+python3 tools/sync_compose.py         # the exact Compose revision
 tools/verify.sh affected             # the smallest safe set for what you changed
 tools/verify.sh fast                 # the inner-loop tier
 tools/verify.sh full                 # every deterministic check, exactly once
 tools/verify.sh release              # full, plus the build, package and evidence producers
 ```
 
-The suite also runs the way it always has, and a single spec file is the loop to
-work in:
+The suite also runs directly, and a single spec file is the loop to work in:
 
 ```sh
 ./run-tests.sh                       # the complete suite
@@ -228,18 +239,11 @@ publishing the asset requires an explicit confirmation flag and a credential tha
 is never stored in this repository; [`package/README.md`](package/README.md) is
 the reference.
 
-## Versioning and compatibility
+## Versioning
 
-Facet follows semantic versioning, and the policy is
-[`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation). The version lives in one
-place, `src/init.luau`, and is readable as `Facet.VERSION` — currently `0.10.0`.
-
-While Facet is pre-1.0, a minor version may change public behavior. Nothing public
-disappears without an entry in `Facet.DEPRECATIONS` naming its replacement and the
-earliest version that may remove it. [`CHANGELOG.md`](CHANGELOG.md) records what
-changed and when.
-
-Check `Facet.DEPRECATIONS` after any upgrade.
+`Facet.VERSION` reports the version defined in `src/init.luau`. Before 1.0, a minor
+version may change public behavior. The [versioning policy](CONTRIBUTING.md#6-versioning)
+sets the rules for changes, and the [changelog](CHANGELOG.md) records them.
 
 ## Contributing, security, and license
 

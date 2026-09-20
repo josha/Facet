@@ -39,6 +39,7 @@ local compositionLib = require("./composition")
 -- the expand plate's chrome, declared once beside the padding `blueprint` writes
 -- on the plate; resolved into the composition's resolve context below
 local expandPlate = require("./expand_plate")
+local Compose = require("../vendor/compose/core")
 
 local compositionResolve = {}
 
@@ -281,9 +282,9 @@ function compositionResolve.resolve(
 		local resolved = {}
 		for _, a in arrangements do
 			local gate = if type(a) == "table" then (a :: any).eligible else nil
-			if type(gate) == "table" and type((gate :: any).get) == "function" then
+			if Compose.isReadable(gate) then
 				local copy = table.clone(a :: any)
-				copy.eligible = (gate :: any):get() == true
+				copy.eligible = (gate :: any):peek() == true
 				table.insert(resolved, copy)
 			else
 				table.insert(resolved, a)

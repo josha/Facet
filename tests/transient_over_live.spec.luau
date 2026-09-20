@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A TRANSIENT OPENED FROM A CONTROL APPEARS OVER THE LIVE SCREEN.
 
 	THE DIRECTOR'S RULE (2026-08-21, from a live showcase session): a menu, a
@@ -55,8 +56,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = Facet.UI
-local worldLib = require("./lib/world")
+local UI = harness.UI
+local worldLib = require("./lib/harness_world")
+local scenario_ctx = require("./lib/scenario_ctx")
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
 local light_style = require("../src/tokens/default_light_style")
@@ -64,6 +66,7 @@ local themes = Facet.themes
 local demo_picker = require("../examples/gallery/client/demo_picker")
 local settings_panel = require("../examples/gallery/client/settings_panel")
 local showcase_chrome = require("../examples/gallery/client/showcase_chrome")
+local Compose = require("../src/vendor/compose/core")
 
 -- the eight packages the showcase ships, minus the deliberately-degenerate
 -- fixtures — the same list `gallery_chrome.spec` sweeps
@@ -104,7 +107,7 @@ local VIEWPORT = { x = 0, y = 0, w = 390, h = 844 }
 	only one reports the other as a violation of a rule it is not breaking. ]]
 local function opaqueCovers(w: any, base: { [string]: boolean }): { string }
 	local out: { string } = {}
-	local vp = w.env:get("viewportRect"):get()
+	local vp = w.env:get("viewportRect"):peek()
 	local minW = (if type(vp) == "table" and type(vp.w) == "number" then vp.w else VIEWPORT.w) * 0.9
 	local minH = (if type(vp) == "table" and type(vp.h) == "number" then vp.h else VIEWPORT.h) * 0.9
 	for _, path in w.adapter.paths() do
@@ -361,11 +364,11 @@ describe("the standing rule, on the surface that commissioned it", function()
 		)
 		local chrome: any = nil
 		local settings: any = nil
+		local app = scenario_ctx.ofHarness(w).app
 		local demos = demo_picker.mount({
 			Facet = Facet,
-			core = w.core,
+			app = app,
 			env = w.env,
-			presenter = w.pres,
 			composed = true,
 			mountDemo = function(demo: any)
 				-- A DEMO ROOT THAT DECLARES ITS OWN OPAQUE BASE, which is what the
@@ -395,18 +398,18 @@ describe("the standing rule, on the surface that commissioned it", function()
 		})
 		settings = settings_panel.mount({
 			Facet = Facet,
-			core = w.core,
+			app = app,
 			env = w.env,
 		})
 		chrome = showcase_chrome.mount({
 			Facet = Facet,
+			app = app,
 			core = w.core,
 			env = w.env,
-			presenter = w.pres,
 			actionSystem = w.system,
 			demos = demos,
 			settings = settings,
-			coreTop = w.core:signal(0),
+			coreTop = Compose.cell(0),
 		})
 		demos.show(demos.current())
 		for _ = 1, 3 do

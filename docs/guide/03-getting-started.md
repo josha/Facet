@@ -1,342 +1,226 @@
 # 3. Getting started
 
-This chapter builds the smallest useful screen and wires it two ways: first as a
-headless test (no Roblox needed), then inside Roblox Studio. Working through both
-shows exactly which pieces are engine-free and which live only on the client.
+This chapter mounts a small screen in Studio and in a headless test. Both use
+ordinary Compose functions and the same Facet controls.
 
 ## 3.1 The pieces, in order
 
-For a Roblox application, start with three pieces:
+A Facet application has three parts:
 
-1. **A component** — `Facet.component(function(ui) ... end)` describes a view once per mount.
-2. **State and recipes** — `ui.state` holds local values; property functions read them.
-3. **A host** — `client.host.new()` supplies the environment, renderer, input and presenter. Present the component with `h.presenter.present(Counter {})`.
+1. `Facet.new()` creates the environment, renderer, input system and frame driver.
+2. A component function creates Compose state and returns Facet controls.
+3. `app.mount(Component)` runs that function and presents its root.
 
-Use `local UI = Facet.View`. Numeric children keep their declared order. Facet owns
-component state, controls and subscriptions until unmount. A changed property
-updates that property; it does not run the whole component again.
+Use `app.controls` for controls and layouts. Use `Facet.Compose` for state,
+reactive calculations, ownership, collections and motion primitives.
 
-The headless setup below assembles the host's underlying pieces explicitly so a
-test can supply a recording adapter. That setup is an integration boundary, not
-boilerplate to repeat in every screen. See [component authoring](15-components.md)
-for collections, memos, effects and animation.
+Component setup runs once per mount. A changed value updates the properties that
+read it. It does not run the whole component again.
 
 ## 3.2 The smallest screen, headless
 
-The headless path needs no Roblox process. Instead of the real render target you
-supply a **fake adapter**: a plain table that implements the adapter interface.
-The one below does nothing but count the nodes it is asked to create. This is exactly
-how `tests/smoke.spec.luau` proves the whole library wires together.
+The headless path needs a clone of this repository and the pinned toolchain.
+Install the tools and fetch the pinned Compose source:
 
-```lua
-local Facet = require("../src") -- relative require: runs under Lune
-local UI = Facet.View
-
-local core   = Facet.newCore()
-local env    = Facet.newEnvironment(core)
-local system = Facet.newActionSystem(core)
-
-local Hello = Facet.component(function(ui)
-    local count, setCount = ui.state(0)
-    return UI.Screen {
-        id = "S",
-        UI.Button {
-            id = "Go", label = function() return `Go ({count()})` end,
-            onActivate = function() setCount(function(n) return n + 1 end) end,
-        },
-    }
-end)
-
--- a do-nothing render target that records how many nodes were created
-local created = 0
-local adapter = {
-    createRoot   = function() return {} end,
-    create       = function() created += 1; return {} end,
-    setRect      = function() end,
-    setProp      = function() end,
-    remove       = function() end,
-    destroyRoot  = function() end,
-}
-
-local presenter = Facet.newPresenter(core, env, adapter, system)
-local handle = presenter.present(Hello {})
-
-assert(created == 3)                              -- Screen, Button, Label
-assert(presenter.focus.focused:get() == "/S/Go")    -- focus landed on the button
+```sh
+rokit install
+python3 tools/sync_compose.py
 ```
 
-Two things to notice:
+The repository includes a read-only snapshot of Compose. The dependency script
+checks every file against the pinned revision and its hashes. The distributed
+Facet model includes the source needed to run in Roblox.
 
-- **The adapter interface is tiny.** The six functions above are the minimum. The
-  real client adapter implements the same six plus a few optional extras (focus
-  visuals, tap handlers). Because the interface is small, headless tests can
-  fully drive a screen.
-- **Focus was assigned for free.** The presenter walked the mounted tree, found
-  the one focusable control, built a focus scope, and set focus to it. The path
-  `"/S/Go"` is the node's identity: the screen `id` `"S"`, then the button `id`
-  `"Go"`.
+The example below uses the repository's fake target. Save it under `tests/`
+and run it with Lune from the repository root. Its explicit host options replace
+engine services for the test; normal Studio applications do not need them.
+
+```luau
+local Facet = require("../src")
+local fake = require("./lib/fake_target")
+local Compose = Facet.Compose
+local adapter = fake.new()
+local input, frame
+
+local app = Facet.new {
+    newAdapter = function() return adapter end,
+    newInputSystem = function(core)
+        input = Facet.newActionSystem(core)
+        return input
+    end,
+    bindEnv = function(env)
+        env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+        return function() end
+    end,
+    connectFrame = function(callback)
+        frame = callback
+        return function() frame = nil end
+    end,
+}
+local UI = app.controls
+
+local function Counter()
+    local count = Compose.cell(0)
+    return UI.Screen {
+        padding = "m", gap = "s",
+        UI.Text {
+            text = function(use) return `Count: {use(count)}` end,
+        },
+        UI.Button {
+            label = "Add one",
+            onActivate = function()
+                count:update(function(n) return n + 1 end)
+            end,
+        },
+    }
+end
+
+local close, node = app.mount(Counter)
+frame(1 / 60)
+input.deviceKey("Return", true)
+input.deviceKey("Return", false)
+frame(1 / 60)
+assert(adapter.node(node.children[1].path).props.text == "Count: 1")
+close()
+assert(adapter.rootCount() == 0)
+app.dispose()
+assert(frame == nil)
+```
+
+The presenter gives focus to the button. The Return key activates it through the
+input system. The frame callback advances motion and applies rendering changes.
 
 ## 3.2b Testing your screen
 
-The adapter above is a teaching toy: it counts nodes and does nothing else. It
-cannot press a button, read a rectangle back, or wear a theme, so it can prove
-that a screen mounts and nothing more.
+The [fake target](../../tests/lib/fake_target.luau) records nodes, geometry,
+properties and input. It ships in the repository, not in the Roblox model.
+Clone the repository alongside your game if you need this test instrument.
 
-**The real headless instrument is `tests/lib/fake_target.luau`.** It implements
-the same adapter contract the client target implements, and it records the tree:
-every node, every rectangle, every property write. It also drives input, which is
-the half that matters — a test that cannot press the button is testing the
-blueprint, not the screen.
+The [standalone consumer spec](../../tests/consumer_standalone.spec.luau) mounts
+the same screen module as the Studio example. It checks input, state, themes,
+adaptive layout and cleanup.
 
-The canonical worked example is
-[`tests/consumer_standalone.spec.luau`](../../tests/consumer_standalone.spec.luau),
-which mounts [`examples/consumer/`](../../examples/consumer/) and proves it end to
-end. Read that file next; it is short, and it is the shape to copy.
-
-The verbs you will reach for first:
-
-| Call | What it does |
+| Call | Purpose |
 |---|---|
-| `adapter.node(path)` | one node: its `rect`, its `props`, its resolved paint |
-| `adapter.paths()` / `adapter.liveCount()` | everything currently on the target |
-| `adapter.tap(path)` | activate a control the way a pointer would |
-| `adapter.pointerDown(x, y, kind)` / `pointerMove` / `pointerUp` | a raw gesture, including touch |
-| `adapter.driveDragStart` / `driveDragContinue` / `driveDragEnd` | a drag through the native detector seam |
-| `adapter.typeText(path, s)` / `commitText(path)` | text entry |
-| `adapter.setThemePackage(package, themeName)` | commit a theme and repaint |
-| `adapter.rootCount()` | what is left after teardown — the leak check |
+| `adapter.node(path)` | Inspect a node's rectangle, properties and paint. |
+| `adapter.paths()` / `adapter.liveCount()` | Inspect the mounted nodes. |
+| `adapter.tap(path)` | Activate a control through pointer input. |
+| `adapter.pointerDown(x, y, kind)` / `pointerMove` / `pointerUp` | Drive a raw pointer or touch gesture. |
+| `adapter.typeText(path, text)` / `commitText(path)` | Enter and commit text. |
+| `adapter.setThemePackage(package, themeName)` | Apply a theme package. |
+| `adapter.rootCount()` | Check that disposal removed the surfaces. |
 
-A test drives the frame by hand. `presenter.refresh()` applies what the frame
-dirtied; `presenter.tick(dt)` advances the motion clock. Both, in that order, are
-what a real frame does.
+Headless checks prove Facet's layout and input decisions. They do not prove
+Roblox `StyleSheet` rendering, device behavior or engine performance. Those
+checks need Studio evidence.
 
-> **The fake target ships in the repository, not in the library.** It lives under
-> `tests/`, so a clone has it and the built `build/Facet.rbxm` and the Roblox
-> Package do not — they carry `src/` and nothing else. If you installed Facet as
-> a Package or a model file and you want headless tests, clone the repository
-> alongside your game and point Lune at it.
-
-**Where your spec lives.** In **your own project**, next to the screen it
-covers. Run it from your own Lune entry point: a file that requires each of your
-specs and then runs them. That is all `tests/run.luau` is. Facet imposes no
-layout on you.
-
-Inside **this repository** the rule is narrower. It matters if you are
-contributing rather than consuming. `lune run tests/run_one <name>` resolves
-`tests/<name>.spec` and nothing else, so a spec lives directly under `tests/`.
-Every spec file must also be registered in `tests/run.luau`. An unregistered spec
-is a silent zero, and the registration checker fails a run that has one.
-
-**What a headless theme test does and does not prove.** Committing a package
-through `adapter.setThemePackage` exercises two things. The first is the metric
-half: the resolved snapshot, the re-solve, and every geometry consequence. The
-second is the **fallback** paint arm, where the palette is written property by
-property. It does not
-exercise Roblox `StyleSheet` paint, which needs a running engine; that is a
-Studio claim, and `controller.inspect().mode` is what reports which arm is live.
+Keep your game's tests in your own project. Facet imposes no test directory
+structure on consumers. Inside this repository, put specs under `tests/` and
+register them in `tests/run.luau`. Run one with `lune run tests/run_one <name>`.
 
 ## 3.3 Where state lives, and making the screen react
 
-Keep temporary interface state inside its component. Give a changing property a
-function that reads the state; give a control a callback that changes it.
+`Compose.cell(value)` stores a value. A property function receives `use`; call
+`use(cell)` to subscribe that property to the cell. Use `cell:peek()` for an
+untracked read in an event callback.
+
+Use `cell:set(value)` to replace the value. Use `cell:update(function)` to derive
+a new value from the current one. A writable cell can also bind directly to a
+value control:
 
 ```luau
-local UI = Facet.View
-local Counter = Facet.component(function(ui)
-    local count, setCount = ui.state(0)
-    return UI.Screen {
-        id = "Counter", padding = "m", gap = "s",
-        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
-        UI.Button {
-            id = "Bump", label = "Bump",
-            onActivate = function() setCount(function(n) return n + 1 end) end,
-        },
-    }
-end)
-local handle = presenter.present(Counter {})
+local music = Compose.cell(true)
+return UI.Toggle { label = "Music", value = music }
 ```
 
-`count()` reads the current value. `setCount` changes it. Facet tracks reads made
-by the `text` recipe and updates the label after a write. A literal property stays
-fixed. Use `ui.memo` for expensive or shared calculations; this short label needs
-only a function. Use `ui.watch` for an external reaction, not to copy a value into
-another property.
+Create local state inside the component. Create shared model state outside it
+when the value must survive navigation. Multiple screens can read the same cells.
 
-Component setup runs once per mount. Dismissing the handle releases its local
-state and bindings. State that must survive navigation belongs in your model;
-borrow a Core readable with `ui.read(model.coins)`. Never use `:get()` inside a
-reactive recipe: that read is untracked.
-
-Touch, mouse, keyboard and gamepad all reach `onActivate`. Commands belong in
-callbacks, including commands that must run when a value has not changed.
+Use `Compose.formula` for a shared derived value. Use `Compose.watch` for a
+reactive external effect. Register external resource cleanup with
+`Compose.cleanup`. The [component guide](15-components.md) covers these lifetimes.
 
 ## 3.4 Wiring inside Roblox Studio
 
-> ### ⚠️ One checkbox first: Facet requires the Input Action System
->
-> Before any of the code below, open the **Workspace** in Studio's Explorer and
-> tick **`PlayerScriptsUseInputActionSystem`** in the Properties panel (category
-> *Behavior*). Roblox describes it as controlling "whether the built-in player
-> scripts are updated to use the Input Action System"
-> ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
->
-> **The shipped example places already carry it** — it is declared in every
-> `examples/*.project.json`, so a `rojo build` bakes it in and a rebuild cannot
-> silently undo it. That needs Rojo **7.7.0 or newer**: 7.7.0-rc.1's reflection
-> database does not know the property and fails the build with *"Unknown
-> property"*. `rokit.toml` pins it; run `rojo` through rokit rather than a
-> `/usr/local/bin` copy.
->
-> Facet's input layer is built entirely on the Input Action System and never
-> reaches into `ContextActionService`. Roblox's *own* scripts do. With this
-> box unticked they hold keys outside the Input Action System, where no Facet
-> binding can reach them. The default camera keeps `Left`/`Right` (bound as `RbxCameraKeypress` at
-> priority 2000, sinking), and the legacy control scripts keep gamepad
-> `ButtonA`. Screens built on this page still *render* perfectly — the input
-> just silently never arrives, which is the hard part to diagnose later.
->
-> Do it once per place. It is not scriptable and not Rojo-syncable, so no code
-> here — Facet's included — can set it or check it for you; it is genuinely a
-> human checkbox. The whole story, including why a higher priority number is not
-> an alternative, is [chapter 7](07-input.md).
+Enable `Workspace.PlayerScriptsUseInputActionSystem` in Studio before testing
+input. Facet uses Roblox's Input Action System. The built-in player scripts must
+use that system too, so they do not intercept keys outside Facet's input contexts.
 
-The Studio path swaps the fake adapter for the real one and adds the two other
-client-only adapters (real device facts, real input). The complete, working
-reference is `examples/gallery/client/init.client.luau`; here is its shape.
+The maintained example projects set this property in their Rojo configuration.
+Use the repository's pinned Rojo version when building them. See
+[Input](07-input.md) for setup and input limits.
 
 ### Project mapping (Rojo)
 
-> **Not using Rojo?** Rojo is not a dependency. It only turns the source folder
-> into an `Instance` tree. [Chapter 8](08-without-rojo.md) covers the same setup
-> with no external toolchain. Insert the official Roblox Package — the
-> recommended route, and the one that can take a new version with *Get Latest
-> Package* — or drag in the prebuilt `build/Facet.rbxm`. Then skip to
-> [§3.4 The client script](#the-client-script), which is identical either way.
+The [standalone project](../../examples/consumer/default.project.json) maps
+Facet to `ReplicatedStorage.Facet` and a LocalScript to
+`StarterPlayer.StarterPlayerScripts`. It also sets the required Workspace property.
+Use that file as a complete starting point.
 
-Facet and its client-context bootstrap Script are placed under `ReplicatedStorage`. The example project file
-`examples/gallery.project.json` does exactly this:
-
-```json
-{
-  "name": "Facet-Gallery",
-  "emitLegacyScripts": false,
-  "globIgnorePaths": ["**/*.spec.luau"],
-  "tree": {
-    "$className": "DataModel",
-    "ReplicatedStorage": {
-      "Facet": { "$path": "../src" },
-      "Gallery": { "$path": "gallery/client" }
-    }
-  }
-}
-```
-
-Note `globIgnorePaths` drops the `*.spec.luau` test files from the synced build,
-and `"$path": "../src"` maps the whole library folder to a `ReplicatedStorage.Facet`
-`Instance`. The library's internal requires are relative, so the *same* source
-runs headless under Lune and mounted under Rojo with no changes.
-
-### The client script
-
-```lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
-
--- the client-only modules are NOT on the Facet table; require them directly
-local host = require(ReplicatedStorage.Facet.client.host)
-
--- ONE call stands the whole thing up: a core, an environment BOUND to the
--- engine, a render target under PlayerGui, an input system, a presenter — and
--- one PreRender connection driving both halves of the frame.
-local h = host.new()
-local UI = Facet.View
-local Counter = Facet.component(function(ui)
-    local count, setCount = ui.state(0)
-    return UI.Screen {
-        id = "Counter", padding = "m", gap = "s",
-        UI.Text { id = "Label", text = function() return `Clicked {count()} times` end },
-        UI.Button {
-            id = "Bump", label = "Bump",
-            onActivate = function() setCount(function(n) return n + 1 end) end,
-        },
-    }
-end)
-
-local handle = h.presenter.present(Counter {})
--- At the application's lifetime boundary:
--- h.presenter.dismiss(handle)
--- h.dispose()
-```
-
-The three differences from the headless version are the only differences that
-ever matter between test and production:
-
-1. **The client-only require.** `host` comes from `src/client/*`, *not* from the
-   `Facet` table, and neither do the four modules it composes (`screen_target`,
-   `roblox_env`, `roblox_input`, and the render target's collaborators). Keeping
-   them off the public table lets server and shared code `require` the main
-   library safely. Nothing engine-touching loads unless a client asks for it. You can still build the pieces by hand (see
-   [api.md §Client entry points](../reference/api.md#client-entry-points)); the
-   host is what those steps compose to, in the order they have to happen.
-2. **The environment is BOUND.** `host.new` calls `roblox_env.bind(env)` for
-   you, which connects the environment's fact keys to real engine values and
-   keeps them live. In the headless test the environment just used its defaults.
-3. **The per-frame `tick(dt)` + `refresh()`, which the host owns.** As explained
-   in [chapter 2](02-architecture.md), changes accumulate in a dirty queue and are
-   applied when `refresh()` runs. **`tick(dt)` is the other half, and it is not
-   optional.** It advances the presenter's motion clock. Transitions, toast
-   expiry and every spring or timer on that clock move only on frames you
-   tick. A surface that drives `refresh` alone paints correctly and never
-   animates — and nothing reports it, because a frozen clock and a settled one
-   look identical. (This is not hypothetical. An earlier version of this
-   guide taught a hand-rolled `refresh`-only loop, and three shipped surfaces in
-   a production game had frozen motion because of it. The host exists so that
-   loop cannot be copied out of this page again.) In a test you call both by
-   hand: `presenter.tick(1/60)` to advance time, then `presenter.refresh()` after
-   changing state. Inspect the result afterwards.
-
-**Per-frame work of your own** — polling a model, stepping a game clock — goes on
-`presenter.onTick(fn)`, which returns its own unsubscribe. It runs on the same
-frame, after the motion step, so it reads this frame's settled values and
-whatever it writes is solved before the frame ends. A second `RunService`
-connection is the thing to avoid: the audit that produced the host found thirteen
-game modules driving three different signals for what is conceptually one UI
-frame.
-
-## 3.5 Where does *semantic* state come from?
-
-In these examples `count` is a local signal — fine for self-contained UI state.
-When the server owns the value — a coin balance, an inventory — do not hold it
-in a bare signal. Hold it in a **replication adapter**, whose signal you read the
-same way. That is the subject of [chapter 6](06-client-server.md).
-The blueprint and its control-local `onActivate` behavior do not change — only where the signal's
-value originates.
-
-## 3.6 The same screen, as a project you can run
-
-Everything above is in [`examples/consumer/`](../../examples/consumer/) as a
-complete standalone project. It has three parts: a Rojo project file that maps
-the library and sets the workspace property from §3.4, a client script, and the
-screen itself as one module. Build it, press Play, then change it.
+Fetch Compose before using Rojo with a source checkout:
 
 ```sh
+python3 tools/sync_compose.py
 rojo build examples/consumer/default.project.json -o build/Facet-Consumer.rbxl
 ```
 
-`tests/consumer_standalone.spec.luau` mounts that same screen module headlessly.
-It proves six things:
+Open the generated place in Studio and press Play. For a package or model
+installation, follow [Without Rojo](08-without-rojo.md), then use the same client
+script below.
 
-- the screen mounts;
-- it wears a theme;
-- it answers a button press;
-- it repaints when a signal changes;
-- it re-solves when the viewport or the preferred text size changes; and
-- it leaves nothing behind when it is disposed.
+### The client script
 
-So the example cannot drift away from the library without a test going red.
+Put this LocalScript under `StarterPlayer.StarterPlayerScripts`:
 
-Next: [chapter 4](04-tutorial-examples.md) walks the eight example programs.
-Read [chapter 8](08-without-rojo.md) first if you build directly in Studio with
-no file sync. It replaces the Rojo project mapping above with a one-file install,
-and lists the traps of a hand-built instance tree.
+```luau
+local Facet = require(game.ReplicatedStorage:WaitForChild("Facet"))
+local Compose = Facet.Compose
+local app = Facet.new()
+local UI = app.controls
+
+local function Counter()
+    local count = Compose.cell(0)
+    return UI.Screen {
+        padding = "m", gap = "s",
+        UI.Text {
+            text = function(use) return `Count: {use(count)}` end,
+        },
+        UI.Button {
+            label = "Add one",
+            onActivate = function()
+                count:update(function(n) return n + 1 end)
+            end,
+        },
+    }
+end
+
+local close = app.mount(Counter)
+-- Call close() to remove this screen.
+-- Call app.dispose() when the application ends.
+```
+
+`Facet.new()` connects engine input, environment facts and the frame driver.
+Requiring Facet from shared code does not create those client services. They load
+when the client creates an application.
+
+Register work that must run each frame with `app.onFrame(callback)`. Inside a
+component, pass its returned disconnect function to `Compose.cleanup`. The
+callback uses the application's existing frame driver.
+
+## 3.5 Where does semantic state come from?
+
+The counter holds local UI state. A server-owned balance or inventory needs a
+model that receives validated server updates. Controls display that model and
+send change requests through callbacks. The server decides whether to accept them.
+
+See [Client and server](06-client-server.md) for the replication boundary.
+
+## 3.6 The same screen, as a project you can run
+
+The [standalone consumer](../../examples/consumer/) contains the Rojo mapping,
+client script and a reusable screen module. Its headless tests exercise that
+module directly. They check mounting, theme changes, button activation, reactive
+text, adaptive layout and cleanup.
+
+Read [Components](15-components.md) next for branches, collections and animation.
+The [tutorial index](04-tutorial-examples.md) describes the maintained examples.

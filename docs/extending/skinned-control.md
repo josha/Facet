@@ -29,8 +29,9 @@ one module and it is the whole answer.
   commands, because a relative path run against the wrong working directory is
   the single most expensive mistake recorded here).
 - **Public API only.** A control written outside this repository gets
-  `Facet.UI`, `Facet.themes`, the resolved snapshot, and the compiled package's
-  own plain data. That is the whole seam. If your control needs
+  `app.controls` (bind it as `local UI = app.controls`), `Facet.Compose`,
+  `Facet.themes`, the resolved snapshot, and the compiled package's own plain
+  data. That is the whole seam. If your control needs
   `src/tokens/chrome_slots` or any other internal require, stop: that is a hole
   in the public API, and the honest move is to file it rather than to reach
   through it.
@@ -176,10 +177,8 @@ the folder: it belongs to a control, so `upload-manifest.json` carries
 declares `"control": "<YourControl>"` with `"package": null` registers the whole
 directory: `tools/lune/skinned_controls.luau` enumerates every such root, and
 `check_docs_cli` then requires each file the manifest's own `assets` table names,
-plus `provenance.md`, plus every generator under `source/`. Until 2026-08-17 that
-enforcement was hardcoded to `assets/themes/ornate-gauge`, so this section
-promised a contributor a check that only ever ran on the worked example
-(MAINT-8d). Get the manifest right and your art is protected; get it wrong — a
+plus `provenance.md`, plus every generator under `source/`.
+Get the manifest right and your art is protected; get it wrong — a
 missing `control`, a non-null `package` — and the directory is silently
 unenforced, which is why the field values above are not decoration.
 
@@ -228,15 +227,15 @@ exactly that reason, and inside Pixel Quest's wooden one under the other package
 A framework control re-solves on a package swap because it reads the snapshot.
 Yours can too — bind the values you resolved to **reactive props**:
 
-```lua
--- `height` is reactive, so writing the new resolved height into this signal
+```luau
+-- `height` is reactive, so writing the new resolved height into this cell
 -- re-sizes the control in the same frame, with no rebuild and no remount
-local height, setHeight = ui.state(initialHeightPx)
-local function dialHeight() return { type = "fixed", px = height() } end
+local height = Compose.cell(initialHeightPx)
+local dialHeight = function(use) return { type = "fixed", px = use(height) } end
 ```
 
-Then, from your `controller.onChange` handler, re-run `resolve(...)` and write
-`setHeight(resolved.height)`. The component owns this local state.
+Then, from your `controller.onChange` handler, re-run `resolve(...)` and call
+`height:set(resolved.height)`. The component's Compose owner owns this cell.
 
 **What does NOT update that way, and why:** `UI.shadow` and `UI.corners` are
 functions that normalize eagerly and return a new blueprint — they are not

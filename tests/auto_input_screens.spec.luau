@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Framework-layer input auto-adaptation, screen level (ui_todo §0).
 -- Closes the remaining FRAMEWORK-AUTOMATIC cells the audit left open on PLAIN
 -- screens (no input-contribution composites):
@@ -17,20 +18,21 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function newWorld()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
@@ -45,14 +47,14 @@ end
 -- ===========================================================================
 describe("auto-screens WP-1: a Grid of Buttons gets 2D D-pad navigation, zero opts", function()
 	local function gridWorld()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local cells = {}
 		for i = 1, 9 do
-			cells[i] = Facet.UI.Button({ id = "b" .. i, label = "b" .. i })
+			cells[i] = harness.UI.Button({ id = "b" .. i, label = "b" .. i })
 		end
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
-			children = { Facet.UI.Grid({ id = "G", columns = 3, children = cells }) },
+			children = { harness.UI.Grid({ id = "G", columns = 3, children = cells }) },
 		})
 		local handle = pres.present(screen) -- ZERO present opts
 		pres.refresh()
@@ -65,35 +67,35 @@ describe("auto-screens WP-1: a Grid of Buttons gets 2D D-pad navigation, zero op
 
 	it("initial focus lands on the first grid cell", function()
 		local w = gridWorld()
-		expect(w.pres.focus.focused:get()).toBe(cell(1))
+		expect(w.pres.focus.focused:peek()).toBe(cell(1))
 	end)
 
 	it("Left/Right move within a row (DPad); Up/Down cross rows keeping the column", function()
 		local w = gridWorld()
 		-- across row 1: b1 -> b2 -> b3
 		press(w.system, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(cell(2))
+		expect(w.pres.focus.focused:peek()).toBe(cell(2))
 		press(w.system, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(cell(3))
+		expect(w.pres.focus.focused:peek()).toBe(cell(3))
 		-- down keeps column 3: b3 -> b6 -> b9
 		press(w.system, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(cell(6))
+		expect(w.pres.focus.focused:peek()).toBe(cell(6))
 		press(w.system, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(cell(9))
+		expect(w.pres.focus.focused:peek()).toBe(cell(9))
 		-- back up the column, then left, then up: b9 -> b6 -> b5 -> b2
 		press(w.system, "DPadUp")
-		expect(w.pres.focus.focused:get()).toBe(cell(6))
+		expect(w.pres.focus.focused:peek()).toBe(cell(6))
 		press(w.system, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(cell(5))
+		expect(w.pres.focus.focused:peek()).toBe(cell(5))
 		press(w.system, "DPadUp")
-		expect(w.pres.focus.focused:get()).toBe(cell(2))
+		expect(w.pres.focus.focused:peek()).toBe(cell(2))
 	end)
 
 	it("Left at the start of a row is contained (grid 2D nav, no cross-row wrap)", function()
 		local w = gridWorld()
-		expect(w.pres.focus.focused:get()).toBe(cell(1))
+		expect(w.pres.focus.focused:peek()).toBe(cell(1))
 		press(w.system, "DPadLeft") -- b1 is the first column: contained, stays put
-		expect(w.pres.focus.focused:get()).toBe(cell(1))
+		expect(w.pres.focus.focused:peek()).toBe(cell(1))
 	end)
 end)
 
@@ -110,17 +112,17 @@ end)
 -- ===========================================================================
 describe("auto-screens WP-1: a Grid is linked into the page around it", function()
 	local function pageWorld()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local cells = {}
 		for i = 1, 9 do
-			cells[i] = Facet.UI.Button({ id = "b" .. i, label = "b" .. i })
+			cells[i] = harness.UI.Button({ id = "b" .. i, label = "b" .. i })
 		end
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Button({ id = "Before", label = "Before" }),
-				Facet.UI.Grid({ id = "G", columns = 3, children = cells }),
-				Facet.UI.Button({ id = "After", label = "After" }),
+				harness.UI.Button({ id = "Before", label = "Before" }),
+				harness.UI.Grid({ id = "G", columns = 3, children = cells }),
+				harness.UI.Button({ id = "After", label = "After" }),
 			},
 		})
 		local handle = pres.present(screen)
@@ -130,23 +132,23 @@ describe("auto-screens WP-1: a Grid is linked into the page around it", function
 
 	it("Down from the LAST row leaves the grid and reaches what follows it", function()
 		local w = pageWorld()
-		expect(w.pres.focus.focused:get()).toBe("/S/Before")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Before")
 		press(w.system, "DPadDown") -- into the grid
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b1")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b1")
 		press(w.system, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b4")
 		press(w.system, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b7")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b7")
 		press(w.system, "DPadDown") -- OUT of the grid: this used to stay on b7 forever
-		expect(w.pres.focus.focused:get()).toBe("/S/After")
+		expect(w.pres.focus.focused:peek()).toBe("/S/After")
 	end)
 
 	it("Up from the FIRST row leaves the grid the other way", function()
 		local w = pageWorld()
 		press(w.system, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b1")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b1")
 		press(w.system, "DPadUp")
-		expect(w.pres.focus.focused:get()).toBe("/S/Before")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Before")
 	end)
 
 	it("the inner rows still navigate as a grid, and left/right are still contained", function()
@@ -154,72 +156,72 @@ describe("auto-screens WP-1: a Grid is linked into the page around it", function
 		local w = pageWorld()
 		press(w.system, "DPadDown")
 		press(w.system, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b2")
 		press(w.system, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b5") -- column preserved
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b5") -- column preserved
 		press(w.system, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b4")
 		press(w.system, "DPadLeft") -- first column: contained, no wrap to b6
-		expect(w.pres.focus.focused:get()).toBe("/S/G/b4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/G/b4")
 	end)
 
 	it("two adjacent grids hand off to each other at the seam", function()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local function grid(id: string, prefix: string)
 			local cells = {}
 			for i = 1, 4 do
-				cells[i] = Facet.UI.Button({ id = prefix .. i, label = prefix .. i })
+				cells[i] = harness.UI.Button({ id = prefix .. i, label = prefix .. i })
 			end
-			return Facet.UI.Grid({ id = id, columns = 2, children = cells })
+			return harness.UI.Grid({ id = id, columns = 2, children = cells })
 		end
-		local screen = Facet.UI.Screen({ id = "S", children = { grid("G1", "a"), grid("G2", "c") } })
+		local screen = harness.UI.Screen({ id = "S", children = { grid("G1", "a"), grid("G2", "c") } })
 		pres.present(screen)
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/G1/a1")
+		expect(pres.focus.focused:peek()).toBe("/S/G1/a1")
 		press(system, "DPadDown")
-		expect(pres.focus.focused:get()).toBe("/S/G1/a3")
+		expect(pres.focus.focused:peek()).toBe("/S/G1/a3")
 		press(system, "DPadDown") -- across the seam into the SECOND grid
-		expect(pres.focus.focused:get()).toBe("/S/G2/c1")
+		expect(pres.focus.focused:peek()).toBe("/S/G2/c1")
 		press(system, "DPadUp")
-		expect(pres.focus.focused:get()).toBe("/S/G1/a3")
+		expect(pres.focus.focused:peek()).toBe("/S/G1/a3")
 		local _ = { core, adapter }
 	end)
 
 	it("a grid alone on a screen is unchanged: its boundary rows stay contained", function()
 		-- no neighbours means no exits to invent, so the original behaviour holds
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local cells = {}
 		for i = 1, 9 do
-			cells[i] = Facet.UI.Button({ id = "b" .. i, label = "b" .. i })
+			cells[i] = harness.UI.Button({ id = "b" .. i, label = "b" .. i })
 		end
-		pres.present(Facet.UI.Screen({
+		pres.present(harness.UI.Screen({
 			id = "S",
-			children = { Facet.UI.Grid({ id = "G", columns = 3, children = cells }) },
+			children = { harness.UI.Grid({ id = "G", columns = 3, children = cells }) },
 		}))
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/G/b1")
+		expect(pres.focus.focused:peek()).toBe("/S/G/b1")
 		press(system, "DPadUp")
-		expect(pres.focus.focused:get()).toBe("/S/G/b1")
+		expect(pres.focus.focused:peek()).toBe("/S/G/b1")
 		for _ = 1, 5 do
 			press(system, "DPadDown")
 		end
-		expect(pres.focus.focused:get()).toBe("/S/G/b7")
+		expect(pres.focus.focused:peek()).toBe("/S/G/b7")
 		local _ = { core, adapter }
 	end)
 end)
 
 describe("auto-screens WP-1: an HStack row navigates horizontally, zero opts", function()
 	local function rowWorld()
-		local core, _, adapter, system, pres = harness()
-		local screen = Facet.UI.Screen({
+		local core, _, adapter, system, pres = newWorld()
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.HStack({
+				harness.UI.HStack({
 					id = "Row",
 					children = {
-						Facet.UI.Button({ id = "a", label = "a" }),
-						Facet.UI.Button({ id = "b", label = "b" }),
-						Facet.UI.Button({ id = "c", label = "c" }),
+						harness.UI.Button({ id = "a", label = "a" }),
+						harness.UI.Button({ id = "b", label = "b" }),
+						harness.UI.Button({ id = "c", label = "c" }),
 					},
 				}),
 			},
@@ -231,65 +233,65 @@ describe("auto-screens WP-1: an HStack row navigates horizontally, zero opts", f
 
 	it("Right/Left (keyboard) walk the row; the row is the horizontal axis", function()
 		local w = rowWorld()
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/a")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/a")
 		press(w.system, "Right")
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/b")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/b")
 		press(w.system, "Right")
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/c")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/c")
 		press(w.system, "Left")
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/b")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/b")
 	end)
 
 	it("DPadLeft/DPadRight drive the same horizontal row (gamepad)", function()
 		local w = rowWorld()
 		press(w.system, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/b")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row/b")
 	end)
 end)
 
 describe("auto-screens WP-1: a plain vertical screen keeps the byte-identical flat ring", function()
 	it("Down advances in document order and WRAPS at the end (unchanged flat behavior)", function()
-		local core, _, _, system, pres = harness()
-		local screen = Facet.UI.Screen({
+		local core, _, _, system, pres = newWorld()
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Button({ id = "a", label = "a" }),
-				Facet.UI.Button({ id = "b", label = "b" }),
-				Facet.UI.Button({ id = "c", label = "c" }),
+				harness.UI.Button({ id = "a", label = "a" }),
+				harness.UI.Button({ id = "b", label = "b" }),
+				harness.UI.Button({ id = "c", label = "c" }),
 			},
 		})
 		pres.present(screen) -- ZERO present opts
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/a")
+		expect(pres.focus.focused:peek()).toBe("/S/a")
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe("/S/b")
+		expect(pres.focus.focused:peek()).toBe("/S/b")
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe("/S/c")
+		expect(pres.focus.focused:peek()).toBe("/S/c")
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe("/S/a") -- WRAP: flat ring, not grouped
+		expect(pres.focus.focused:peek()).toBe("/S/a") -- WRAP: flat ring, not grouped
 		local _ = core
 	end)
 end)
 
 describe("auto-screens WP-1: refresh re-derives auto layout groups after a structural change", function()
 	it("a grid row added after present becomes reachable through the derived groups", function()
-		local core, _, _, system, pres = harness()
-		local items = core:signal({ { k = "a" }, { k = "b" }, { k = "c" }, { k = "d" } })
-		local screen = Facet.UI.Screen({
+		local core, _, _, system, pres = newWorld()
+		local items = Compose.cell({ { k = "a" }, { k = "b" }, { k = "c" }, { k = "d" } })
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grid({
+				harness.UI.Grid({
 					id = "G",
 					columns = 2,
 					children = {
-						Facet.UI.ForEach({
+						harness.UI.ForEach({
 							id = "Cells",
 							items = items,
 							key = function(x: any)
 								return x.k
 							end,
 							row = function(x: any)
-								return Facet.UI.Button({ id = "cell", label = x.k })
+								return harness.UI.Button({ id = "cell", label = x.k })
 							end,
 						}),
 					},
@@ -298,16 +300,15 @@ describe("auto-screens WP-1: refresh re-derives auto layout groups after a struc
 		})
 		pres.present(screen) -- ZERO present opts
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/G/Cells/[a]/cell")
+		expect(pres.focus.focused:peek()).toBe("/S/G/Cells/[a]/cell")
 		-- add a third row (e, f)
 		items:set({ { k = "a" }, { k = "b" }, { k = "c" }, { k = "d" }, { k = "e" }, { k = "f" } })
 		pres.refresh() -- groups re-derived here
 		-- column 1 downward: a -> c -> e (the new bottom row)
 		press(system, "DPadDown")
-		expect(pres.focus.focused:get()).toBe("/S/G/Cells/[c]/cell")
+		expect(pres.focus.focused:peek()).toBe("/S/G/Cells/[c]/cell")
 		press(system, "DPadDown")
-		expect(pres.focus.focused:get()).toBe("/S/G/Cells/[e]/cell")
-		items:dispose()
+		expect(pres.focus.focused:peek()).toBe("/S/G/Cells/[e]/cell")
 	end)
 end)
 
@@ -316,12 +317,12 @@ end)
 -- ===========================================================================
 describe("auto-screens WP-2: an outside tap dismisses the top modal, never clicks through", function()
 	local function stackWorld()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local baseHits: { string } = {}
-		local base = Facet.UI.Screen({
+		local base = harness.UI.Screen({
 			id = "Base",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -331,13 +332,13 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 			},
 		})
 		pres.present(base)
-		local m1 = Facet.UI.Screen({ id = "M1", children = { Facet.UI.Button({ id = "X", label = "X" }) } })
+		local m1 = harness.UI.Screen({ id = "M1", children = { harness.UI.Button({ id = "X", label = "X" }) } })
 		local hm1 = pres.presentModal(m1)
 		local topHits: { string } = {}
-		local m2 = Facet.UI.Screen({
+		local m2 = harness.UI.Screen({
 			id = "M2",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "Y",
 					label = "Y",
 					onActivate = function(path: string)
@@ -386,12 +387,12 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 		-- synthesized scrim catches and EATS the tap. The pre-spec behavior let an
 		-- outsideTapCancel=false outside tap fall through to the lower surface; the
 		-- spec closes that (other views disabled, plus a scrim).
-		local core, _, adapter, _, pres = harness()
+		local core, _, adapter, _, pres = newWorld()
 		local baseHits: { string } = {}
-		local base = Facet.UI.Screen({
+		local base = harness.UI.Screen({
 			id = "Base",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -401,7 +402,7 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 			},
 		})
 		pres.present(base)
-		local modal = Facet.UI.Screen({ id = "M", children = { Facet.UI.Button({ id = "X", label = "X" }) } })
+		local modal = harness.UI.Screen({ id = "M", children = { harness.UI.Button({ id = "X", label = "X" }) } })
 		pres.presentModal(modal, { outsideTapCancel = false })
 		expect(pres.depth()).toBe(2)
 		adapter.tap("/Base/B") -- outside the modal: the barrier swallows it
@@ -411,12 +412,12 @@ describe("auto-screens WP-2: an outside tap dismisses the top modal, never click
 	end)
 
 	it("with NO modal, base taps route normally (unchanged)", function()
-		local core, _, adapter, _, pres = harness()
+		local core, _, adapter, _, pres = newWorld()
 		local baseHits: { string } = {}
-		local base = Facet.UI.Screen({
+		local base = harness.UI.Screen({
 			id = "Base",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -438,18 +439,18 @@ end)
 -- ===========================================================================
 describe("auto-screens WP-3: a modal's close button is keyboard-reachable and Activate-dismisses", function()
 	it("Navigate reaches the close Button; Return activates it and dismisses the modal end-to-end", function()
-		local core, _, _, system, pres = harness()
-		pres.present(Facet.UI.Screen({
+		local core, _, _, system, pres = newWorld()
+		pres.present(harness.UI.Screen({
 			id = "Base",
-			children = { Facet.UI.Button({ id = "Open", label = "Open" }) },
+			children = { harness.UI.Button({ id = "Open", label = "Open" }) },
 		}))
 		local modal
-		modal = pres.presentModal(Facet.UI.Screen({
+		modal = pres.presentModal(harness.UI.Screen({
 			id = "Sheet",
 			children = {
-				Facet.UI.Text({ id = "Msg", text = "Delete this?" }),
-				Facet.UI.Button({ id = "Confirm", label = "Delete" }),
-				Facet.UI.Button({
+				harness.UI.Text({ id = "Msg", text = "Delete this?" }),
+				harness.UI.Button({ id = "Confirm", label = "Delete" }),
+				harness.UI.Button({
 					id = "Close",
 					label = "Cancel",
 					onActivate = function()
@@ -460,13 +461,13 @@ describe("auto-screens WP-3: a modal's close button is keyboard-reachable and Ac
 		}))
 		expect(pres.depth()).toBe(2)
 		-- the ring reaches every focusable in the modal: Confirm -> Close
-		expect(pres.focus.focused:get()).toBe("/Sheet/Confirm")
+		expect(pres.focus.focused:peek()).toBe("/Sheet/Confirm")
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe("/Sheet/Close")
+		expect(pres.focus.focused:peek()).toBe("/Sheet/Close")
 		-- keyboard Return activates the focused close affordance -> dismiss
 		press(system, "Return")
 		expect(pres.depth()).toBe(1)
-		expect(pres.focus.focused:get()).toBe("/Base/Open") -- focus restored
+		expect(pres.focus.focused:peek()).toBe("/Base/Open") -- focus restored
 		local _ = core
 	end)
 end)
@@ -476,18 +477,18 @@ end)
 -- ===========================================================================
 describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", function()
 	it("the hint text prop follows env preferredInput via preferredBinding; zero factory reruns", function()
-		local core, env, adapter, system, pres = harness()
+		local core, env, adapter, system, pres = newWorld()
 		local ctx = system.createContext({ name = "Nav" })
 		local activate = ctx.createAction("Activate", "Bool")
 		activate.bind({ keyCode = "Return", displayName = "Enter" })
 		activate.bind({ uiButton = "ActivateButton", displayName = "Tap" })
 
 		local hint = Facet.inputHint(core, env, activate)
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
-				Facet.UI.Button({ id = "Go", label = "Go" }),
+				harness.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+				harness.UI.Button({ id = "Go", label = "Go" }),
 			},
 		})
 		local handle = pres.present(screen)
@@ -510,35 +511,35 @@ describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", f
 		-- would be any uses of preferred input outside it". A key label alone could
 		-- not remove the consumer's branch, because touch differs by VERB, not by
 		-- key — you tap, you do not press Enter.
-		local core, env, _, system, _ = harness()
+		local core, env, _, system, _ = newWorld()
 		local ctx = system.createContext({ name = "Nav3" })
 		local activate = ctx.createAction("Activate", "Bool")
 		activate.bind({ keyCode = "Return", displayName = "Enter" })
 		activate.bind({ uiButton = "ActivateButton", displayName = "Tap" })
 		local phrase = Facet.inputHint(core, env, activate, { style = "phrase" })
-		expect(phrase:get()).toBe("Press Enter")
+		expect(phrase:peek()).toBe("Press Enter")
 		env:set("preferredInput", "Gamepad")
 		env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
-		expect(phrase:get()).toBe("Press Enter") -- gamepad takes the keyCode binding
+		expect(phrase:peek()).toBe("Press Enter") -- gamepad takes the keyCode binding
 		env:set("preferredInput", "Touch")
-		expect(phrase:get()).toBe("Tap")
+		expect(phrase:peek()).toBe("Tap")
 		-- ...and a TOUCH device that has not been touched yet is still "Tap": the
 		-- resolved class comes from capability, not from the last input used
 		env:set("preferredInput", "KeyboardAndMouse")
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
-		expect(phrase:get()).toBe("Tap")
+		expect(phrase:peek()).toBe("Tap")
 		phrase:dispose()
 	end)
 
 	it("displayName-less bindings fall back to the key/button name, and nil is tolerated", function()
-		local core, env, _, system, _ = harness()
+		local core, env, _, system, _ = newWorld()
 		local ctx = system.createContext({ name = "Nav2" })
 		local adjust = ctx.createAction("Adjust", "Bool")
 		adjust.bind({ keyCode = "Period" }) -- no displayName
 		local hint = Facet.inputHint(core, env, adjust)
-		expect(hint:get()).toBe("Period")
+		expect(hint:peek()).toBe("Period")
 		env:set("preferredInput", "Touch")
-		expect(hint:get()).toBe("") -- no uiButton binding for Touch: empty, not an error
+		expect(hint:peek()).toBe("") -- no uiButton binding for Touch: empty, not an error
 		hint:dispose()
 	end)
 end)

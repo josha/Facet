@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- DisclosureGroup: the caret turns, the content reveals, and — with a presenter
 -- — the siblings it displaces glide (task 12, transitions round, spec 2I).
 --
@@ -11,8 +12,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -27,16 +29,16 @@ end
 describe("disclosure: caret turns, content reveals", function()
 	it("the caret rotates toward 90 on expand and back on collapse", function()
 		local w = makeWorld()
-		local expanded = w.core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
 			content = function()
-				return Facet.UI.Text({ id = "Body", text = "hello" })
+				return harness.UI.Text({ id = "Body", text = "hello" })
 			end,
 		})
-		w.pres.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		w.pres.present(harness.UI.Screen({ id = "S", children = { group.blueprint } }))
 		w.pres.refresh()
 		local caret = w.adapter.node("/S/Adv/Header/Caret")
 		expect(caret.rotation or 0).toBe(0)
@@ -51,7 +53,7 @@ describe("disclosure: caret turns, content reveals", function()
 			w.pres.refresh()
 		end
 		expect(math.abs((caret.rotation or 0) - 90) < 0.5).toBe(true)
-		expect(w.adapter.node("/S/Adv/Content/then/Reveal/Body") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Adv/Reveal/Body") ~= nil).toBe(true)
 		expanded:set(false)
 		for _ = 1, 60 do
 			w.pres.tick(FRAME)
@@ -74,23 +76,23 @@ end)
 describe("disclosure: a presenter glides the sibling it displaces", function()
 	it("with presenter given, a sibling below the group travels to its new place", function()
 		local w = makeWorld()
-		local expanded = w.core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
 			presenter = w.pres,
 			content = function()
-				return Facet.UI.Box({ id = "Body", height = { type = "fixed", px = 80 } })
+				return harness.UI.Box({ id = "Body", height = { type = "fixed", px = 80 } })
 			end,
 		})
-		w.pres.present(Facet.UI.Screen({
+		w.pres.present(harness.UI.Screen({
 			id = "S",
 			padding = 0,
 			gap = 0,
 			children = {
 				group.blueprint,
-				Facet.UI.Box({ id = "Sibling", height = { type = "fixed", px = 40 } }),
+				harness.UI.Box({ id = "Sibling", height = { type = "fixed", px = 40 } }),
 			},
 		}))
 		w.pres.refresh()
@@ -123,22 +125,22 @@ describe("disclosure: a presenter glides the sibling it displaces", function()
 
 	it("with no presenter, the same sibling jumps instantly — no flight to compare against", function()
 		local w = makeWorld()
-		local expanded = w.core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
 			content = function()
-				return Facet.UI.Box({ id = "Body", height = { type = "fixed", px = 80 } })
+				return harness.UI.Box({ id = "Body", height = { type = "fixed", px = 80 } })
 			end,
 		})
-		w.pres.present(Facet.UI.Screen({
+		w.pres.present(harness.UI.Screen({
 			id = "S",
 			padding = 0,
 			gap = 0,
 			children = {
 				group.blueprint,
-				Facet.UI.Box({ id = "Sibling", height = { type = "fixed", px = 40 } }),
+				harness.UI.Box({ id = "Sibling", height = { type = "fixed", px = 40 } }),
 			},
 		}))
 		w.pres.refresh()
@@ -157,16 +159,16 @@ end)
 describe("disclosure: reduced motion snaps the caret instead of turning it", function()
 	it("the caret reaches 90 on the very first frame, not gradually", function()
 		local w = makeWorld({ reducedMotion = true })
-		local expanded = w.core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
 			content = function()
-				return Facet.UI.Text({ id = "Body", text = "hello" })
+				return harness.UI.Text({ id = "Body", text = "hello" })
 			end,
 		})
-		w.pres.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		w.pres.present(harness.UI.Screen({ id = "S", children = { group.blueprint } }))
 		w.pres.refresh()
 		local caret = w.adapter.node("/S/Adv/Header/Caret")
 		expect(caret.rotation or 0).toBe(0)
@@ -180,23 +182,23 @@ end)
 describe("disclosure content exit", function()
 	it("keeps a long expanded list out of rasterized fade groups", function()
 		local w = makeWorld()
-		local expanded = w.core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "UI laboratory",
 			expanded = expanded,
 			content = function()
 				local rows = {}
 				for i = 1, 80 do
-					table.insert(rows, Facet.UI.Button({ id = "Row" .. i, label = "Laboratory entry " .. i }))
+					table.insert(rows, harness.UI.Button({ id = "Row" .. i, label = "Laboratory entry " .. i }))
 				end
-				return Facet.UI.VStack({ id = "Rows", children = rows })
+				return harness.UI.VStack({ id = "Rows", children = rows })
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { group.blueprint } }))
 		expanded:set(true)
 		w.pres.refresh()
-		local path = "/S/Adv/Content/then/Reveal"
+		local path = "/S/Adv/Reveal"
 		local content = w.adapter.node(path)
 		expect(content.canvasGroupInstance).toBeNil()
 		expect(content.presentedSize.h < 1).toBe(true)
@@ -226,26 +228,25 @@ describe("disclosure content exit", function()
 
 	it("starts clipping while the caret closes instead of disappearing after it", function()
 		local w = makeWorld()
-		local expanded = w.core:signal(true)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(true)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
 			content = function()
-				return Facet.UI.Text({ id = "Body", text = "Additional settings" })
+				return harness.UI.Text({ id = "Body", text = "Additional settings" })
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { group.blueprint } }))
 		w.settle(120)
 		expanded:set(false)
 		w.settle(5)
-		local content = w.adapter.node("/S/Adv/Content/then/Reveal")
-			or w.adapter.node("/S/Adv/Content/then/Reveal/Body")
+		local content = w.adapter.node("/S/Adv/Reveal") or w.adapter.node("/S/Adv/Reveal/Body")
 		expect(content ~= nil).toBe(true)
 		expect(content.canvasGroupInstance).toBeNil()
 		expect(content.presentedSize.h < content.rect.h * 0.95).toBe(true)
 		w.settle(60)
-		expect(w.adapter.node("/S/Adv/Content/then/Reveal")).toBeNil()
+		expect(w.adapter.node("/S/Adv/Reveal")).toBeNil()
 		w.pres.dismiss(w.handle)
 	end)
 end)
@@ -253,23 +254,23 @@ end)
 describe("disclosure opening stays within its endpoints", function()
 	it("never overshoots the caret or slides content past its resting position", function()
 		local w = makeWorld()
-		local expanded = w.core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(w.core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(w.core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
 			content = function()
-				return Facet.UI.Text({ id = "Body", text = "Additional settings" })
+				return harness.UI.Text({ id = "Body", text = "Additional settings" })
 			end,
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { group.blueprint } }))
 		expanded:set(true)
 		for _ = 1, 90 do
 			w.pres.tick(FRAME)
 			w.pres.refresh()
 			local angle = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 			expect(angle >= 0 and angle <= 90).toBe(true)
-			local content = w.adapter.node("/S/Adv/Content/then/Reveal")
+			local content = w.adapter.node("/S/Adv/Reveal")
 			expect(content.presentedPosition.y).toBe(content.rect.y)
 		end
 		w.pres.dismiss(w.handle)

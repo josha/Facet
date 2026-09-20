@@ -2218,7 +2218,7 @@ function screen_target.new(opts: Opts?)
 	-- The two that are not a rename — `capturedHandle`, `disposeGlobals` — exist
 	-- because `activeCapture` and the cursor hints are MUTABLE UPVALUES and cannot
 	-- be shared by reference the way a record table is.
-	local pointer = screen_pointer.new({ handlesByPath = handlesByPath })
+	local pointer = screen_pointer.new({ handlesByPath = handlesByPath, ensureInstance = ensureInstance })
 	adapter.setActivateHandler = pointer.setActivateHandler
 	adapter.setPointerHandlers = pointer.setPointerHandlers
 	adapter.setPointerPreview = pointer.setPointerPreview
@@ -2512,8 +2512,14 @@ function screen_target.new(opts: Opts?)
 		if not hasUIDragDetector or opts ~= nil and (opts :: any).forceDragFallback == true then
 			return nil
 		end
+		-- A DETECTOR IS A REASON TO EXIST. Elision is creation-time and cannot
+		-- know a layout-only node will be handed a drag; `ensureInstance` is how
+		-- everything else gets its object back, and returning nil here instead
+		-- would silently downgrade a draggable container to the pointer fallback
+		-- for the whole session.
+		ensureInstance(handle)
 		local instance = handle.instance
-		if not instance:IsA("GuiObject") then
+		if instance == nil or not instance:IsA("GuiObject") then
 			return nil
 		end
 		local detector = Instance.new("UIDragDetector")

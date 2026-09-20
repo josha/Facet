@@ -14,19 +14,19 @@ local parts = {}
 -- truncates by contract (spec §13) — `lineLimit = 1` with no `disclose` would
 -- ellipsize, so these deliberately declare neither and are allowed to wrap.
 function parts.chip(ctx: any, id: string, text: any): any
-	return ctx.UI.Text({ id = id, text = text, surface = "chip", textSize = "caption" })
+	return ctx.UI.Text(id)({ text = text, surface = "chip", textSize = "caption" })
 end
 
 function parts.heading(ctx: any, id: string, text: any): any
-	return ctx.UI.Text({ id = id, text = text, textSize = "heading" })
+	return ctx.UI.Text(id)({ text = text, textSize = "heading" })
 end
 
 function parts.body(ctx: any, id: string, text: any): any
-	return ctx.UI.Text({ id = id, text = text, textSize = "body", role = "secondary" })
+	return ctx.UI.Text(id)({ text = text, textSize = "body", role = "secondary" })
 end
 
 function parts.caption(ctx: any, id: string, text: any): any
-	return ctx.UI.Text({ id = id, text = text, textSize = "caption", role = "secondary" })
+	return ctx.UI.Text(id)({ text = text, textSize = "caption", role = "secondary" })
 end
 
 -- THE PURCHASE-COMMAND BUTTON (spec §9's lifecycle table), used by every
@@ -54,66 +54,63 @@ export type CommandSpec = {
 }
 
 function parts.commandButton(ctx: any, spec: CommandSpec): any
-	local CommandButton = ctx.Facet.component(function(ui)
-		local status = ui.read(ctx.commerce.status(spec.commandId))
-		local locale = ui.read(ctx.state.locale)
-		local idle = if ctx.Facet.UI.isReadable(spec.label) then ui.read(spec.label) else spec.label
-		return ctx.Facet.View.Button({
-			id = spec.id,
-			label = function()
-				locale()
-				if status() == "pending" then
+	local function CommandButton(): any
+		local status = (ctx.commerce.status(spec.commandId))
+		local locale = ctx.state.locale
+		local UI = ctx.UI
+		local idle = spec.label
+		return UI.Button(spec.id)({
+			label = function(use)
+				use(locale)
+				if use(status) == "pending" then
 					return ctx.Lnow("picker.pending")
 				end
-				return if type(idle) == "function" then idle() else idle
+				return if ctx.Compose.isReadable(idle) then use(idle) else idle
 			end,
-			enabled = function()
-				return status() ~= "pending"
+			enabled = function(use)
+				return use(status) ~= "pending"
 			end,
 			role = spec.role,
 			onActivate = spec.onActivate,
 		})
-	end)
-	return CommandButton({})
+	end
+	return CommandButton()
 end
 
 -- This branch owns its notice; rejected state remains in the shared model.
 function parts.rejectionNotice(ctx: any, id: string, commandId: string): any
-	local Notice = ctx.Facet.component(function(ui)
-		local UI = ctx.Facet.View
-		local status, reason = ui.read(ctx.commerce.status(commandId)), ui.read(ctx.commerce.reason(commandId))
-		local locale = ui.read(ctx.state.locale)
-		return UI.When({
-			id = id,
-			condition = function()
-				return status() == "rejected"
+	local function Notice(): any
+		local UI = ctx.UI
+		local status, reason = (ctx.commerce.status(commandId)), (ctx.commerce.reason(commandId))
+		local locale = ctx.state.locale
+		return ctx.when(id)({
+			condition = function(use)
+				return use(status) == "rejected"
 			end,
-			transition = { enter = "slide-down", fade = true, class = "container" },
-			UI.ZStack({
-				id = "Notice",
-				canvasGroup = true,
-				width = UI.fill(),
-				UI.stroke(
-					UI.VStack({
-						id = "Plate",
-						surface = "raised",
-						padding = "s",
-						width = UI.fill(),
-						UI.Text({
-							id = "Why",
-							textSize = "body",
-							text = function()
-								locale()
-								return ctx.Lnow("reject." .. (reason() or "fallback"))
-							end,
+			thenView = function()
+				return UI.ZStack("Notice")({
+					canvasGroup = true,
+					width = UI.fill(),
+					UI.stroke(
+						UI.VStack("Plate")({
+							surface = "raised",
+							padding = "s",
+							width = UI.fill(),
+							UI.Text("Why")({
+								textSize = "body",
+								text = function(use)
+									use(locale)
+									return ctx.Lnow("reject." .. (use(reason) or "fallback"))
+								end,
+							}),
 						}),
-					}),
-					{}
-				),
-			}),
+						{}
+					),
+				})
+			end,
 		})
-	end)
-	return Notice({})
+	end
+	return Notice()
 end
 
 -- A round well behind a piece of scene art. The proof's one avatar/jar treatment,
@@ -122,8 +119,7 @@ end
 function parts.well(ctx: any, id: string, art: { number }, size: number, children: { any }?): any
 	local kids: { any } = {
 		ctx.UI.corners(
-			ctx.UI.Box({
-				id = "Fill",
+			ctx.UI.Box("Fill")({
 				tint = ctx.tint(art),
 				width = ctx.UI.fill(),
 				height = ctx.UI.fill(),
@@ -137,15 +133,46 @@ function parts.well(ctx: any, id: string, art: { number }, size: number, childre
 		end
 	end
 	return ctx.UI.corners(
-		ctx.UI.ZStack({
-			id = id,
+		ctx.UI.ZStack(id)(ctx.withChildren({
 			surface = "raised",
 			width = { type = "fixed", px = size },
 			height = { type = "fixed", px = size },
-			children = kids,
-		}),
+		}, kids)),
 		"pill"
 	)
+end
+
+-- The surface's top bar: a Back verb, a one-line title, then trailing nodes.
+function parts.navBar(ctx: any, spec: any): any
+	local UI = ctx.UI
+	local props: any = { gap = spec.gap or "s", align = "center", padding = spec.padding, width = UI.fill() }
+	if spec.onBack ~= nil then
+		table.insert(
+			props,
+			UI.Button("Back")({
+				label = spec.backLabel,
+				compactLabel = { icon = "chevron.leading", prefer = true },
+				onActivate = spec.onBack,
+			})
+		)
+	end
+	if spec.title ~= nil then
+		table.insert(
+			props,
+			UI.Text("Title")({
+				text = spec.title,
+				textSize = spec.titleSize or "title",
+				lineLimit = 1,
+				disclose = true,
+				width = spec.titleWidth,
+			})
+		)
+	end
+	table.insert(props, UI.Spacer("Push")({}))
+	for _, node in spec.trailing or {} do
+		table.insert(props, node)
+	end
+	return UI.HStack(spec.id or "NavBar")(props)
 end
 
 return parts

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	`newVirtualList.focusPolicy` — DOES THE CURSOR FOLLOW THE ITEM OR THE SLOT?
 
@@ -32,7 +33,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -50,13 +53,13 @@ end
 -- so the focus graph reaches the control the way it does on a real surface)
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(options.rows or makeRows(options.count or 8))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(options.rows or makeRows(options.count or 8))
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
@@ -73,11 +76,11 @@ local function world(opts: any?)
 		onReorder = if options.reorderable then function() end else nil,
 		grabOnActivate = if options.reorderable then false else nil,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function() end,
 	})
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
 	local w: any = {
@@ -98,11 +101,11 @@ local function world(opts: any?)
 		system.deviceKey("DPadDown", false)
 		system.deviceKey("DPadUp", true)
 		system.deviceKey("DPadUp", false)
-		assert(pres.focus.focused:get() == hit(key), `pad did not land on {key}`)
-		assert(list.focusedKey:get() == key, `logical focus did not land on {key}`)
+		assert(pres.focus.focused:peek() == hit(key), `pad did not land on {key}`)
+		assert(list.focusedKey:peek() == key, `logical focus did not land on {key}`)
 	end
 	function w.reverse()
-		local items = rows:get() :: { any }
+		local items = rows:peek() :: { any }
 		local out: { any } = {}
 		for i = #items, 1, -1 do
 			table.insert(out, items[i])
@@ -125,8 +128,8 @@ describe('VirtualList focusPolicy "key" (the default: focus follows the ITEM)', 
 		w.padTo("r2")
 		w.reverse() -- r8..r1, so r2 falls from slot 2 to slot 7
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r2")
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		-- and no pin was ever taken: the policy's machinery is not allocated
 		expect(w.list.dump().pinnedSlot).toBe(nil)
 	end)
@@ -136,8 +139,8 @@ describe('VirtualList focusPolicy "key" (the default: focus follows the ITEM)', 
 		w.padTo("r2")
 		w.reverse()
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r2")
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		expect(w.list.dump().focusPolicy).toBe("key")
 	end)
 
@@ -147,7 +150,7 @@ describe('VirtualList focusPolicy "key" (the default: focus follows the ITEM)', 
 		local next = makeRows(8)
 		table.remove(next, 5) -- r5 gone; slot 5 is now r6
 		w.rows:set(next)
-		expect(w.list.focusedKey:get()).toBe("r6")
+		expect(w.list.focusedKey:peek()).toBe("r6")
 	end)
 end)
 
@@ -160,10 +163,10 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		w.reverse() -- r8..r1: slot 2 is now r7, and r2 fell to slot 7
 		w.pres.refresh()
 		-- the LOGICAL focus is the row that now occupies slot 2…
-		expect(w.list.focusedKey:get()).toBe("r7")
+		expect(w.list.focusedKey:peek()).toBe("r7")
 		-- …and so is the GRAPH's, which is the half that paints the ring and the
 		-- half Activate dispatches against. One authority, no consumer loop.
-		expect(w.pres.focus.focused:get()).toBe(hit("r7"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r7"))
 		expect(w.list.dump().pinnedSlot).toBe(2)
 	end)
 
@@ -175,8 +178,8 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 			w.pres.refresh()
 		end
 		-- four reverses = the original order, and the cursor never left slot 3
-		expect(w.list.focusedKey:get()).toBe("r3")
-		expect(w.pres.focus.focused:get()).toBe(hit("r3"))
+		expect(w.list.focusedKey:peek()).toBe("r3")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r3"))
 		expect(w.list.dump().pinnedSlot).toBe(3)
 	end)
 
@@ -185,13 +188,13 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		w.padTo("r2")
 		-- relabel every row: a fresh array, same order, same keys
 		local same: { any } = {}
-		for i, item in w.rows:get() :: { any } do
+		for i, item in w.rows:peek() :: { any } do
 			table.insert(same, { id = item.id, label = `Row {i}!` })
 		end
 		w.rows:set(same)
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r2")
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 	end)
 
 	it("SHRINK clamps the pin to the last slot", function()
@@ -202,8 +205,8 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		-- no longer exists: the pin clamps to the last one
 		w.rows:set({ { id = "r6", label = "Row 6" }, { id = "r1", label = "Row 1" }, { id = "r2", label = "Row 2" } })
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r2") -- the last slot
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2") -- the last slot
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		expect(w.list.dump().pinnedSlot).toBe(3)
 	end)
 
@@ -214,7 +217,7 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		table.remove(next, 5)
 		w.rows:set(next)
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r6") -- whoever took slot 5
+		expect(w.list.focusedKey:peek()).toBe("r6") -- whoever took slot 5
 		expect(w.list.dump().pinnedSlot).toBe(5)
 	end)
 
@@ -230,8 +233,8 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		w.reverse() -- slot 2 would become r7, which is out of play
 		w.pres.refresh()
 		-- parking the ring where Activate can do nothing is worse than the jump
-		expect(w.list.focusedKey:get()).toBe("r2")
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 	end)
 
 	it("it never fights a LIVE DRAG: a re-sort mid-session leaves the aim alone", function()
@@ -245,18 +248,18 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		expect(w.handle.controller.dragRegistry().isActive()).toBe(true)
 		w.reverse() -- the owner re-sorts underneath the live drag
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r2")
-		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r2"))
 		-- …and the pin RESUMES once the session is over: rotate the (already
 		-- reversed) order by one, which puts r6 on the still-pinned slot 2
 		w.adapter.driveDragEnd(hit("r4"), { x = 100, y = y + 10, pointerType = "mouse" })
 		w.pres.refresh()
-		local rotated = table.clone(w.rows:get() :: { any })
+		local rotated = table.clone(w.rows:peek() :: { any })
 		table.insert(rotated, table.remove(rotated, 1))
 		w.rows:set(rotated)
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r6")
-		expect(w.pres.focus.focused:get()).toBe(hit("r6"))
+		expect(w.list.focusedKey:peek()).toBe("r6")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r6"))
 	end)
 
 	it("the retarget is an ORDINARY focus move: keep-visible applies", function()
@@ -274,8 +277,8 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		w.adapter.takeOps()
 		w.reverse() -- slot 5 becomes r4
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r4")
-		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		expect(w.list.focusedKey:peek()).toBe("r4")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r4"))
 		-- the framework issued its ONE programmatic scroll write to bring the newly
 		-- focused SLOT into the band, on the pitch (54 + 6), not the row height
 		local sawPos = false
@@ -287,7 +290,7 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		expect(sawPos).toBe(true)
 		-- minimal downward scroll: slot 5's TOP is (5-1)*pitch and its own box is
 		-- rowHeight tall — keep-visible owes a visible ROW, never the trailing gutter
-		expect(w.list.scrollTop:get()).toBe((5 - 1) * 60 + 54 - 200)
+		expect(w.list.scrollTop:peek()).toBe((5 - 1) * 60 + 54 - 200)
 	end)
 
 	it("an EXPLICIT focus move answering the same update WINS over the pin", function()
@@ -298,12 +301,12 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		-- the case the (key, slot) PAIR exists for.
 		local w = world({ count = 8, focusPolicy = "index" })
 		w.padTo("r2")
-		w.core:observe(w.rows, function(current: { any })
+		observeChange(w.core.owner, w.rows, function(current: { any })
 			w.list.focusKey(current[1].id)
 		end)
 		w.reverse() -- slot 2 would become r7; the consumer asks for slot 1's r8
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r8")
+		expect(w.list.focusedKey:peek()).toBe("r8")
 		expect(w.list.dump().pinnedSlot).toBe(1)
 	end)
 
@@ -312,13 +315,13 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		w.padTo("r2")
 		-- a tap is a pointer act: focus still MOVES, but the ring goes away (DB-3b)
 		w.adapter.tap(hit("r2"))
-		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		expect(w.pres.focus.focusVisible:peek()).toBe(false)
 		w.reverse()
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r7")
-		expect(w.pres.focus.focused:get()).toBe(hit("r7"))
+		expect(w.list.focusedKey:peek()).toBe("r7")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r7"))
 		-- the retarget answered no navigation question, so it paints no ring
-		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		expect(w.pres.focus.focusVisible:peek()).toBe(false)
 	end)
 
 	it("the RING is only moved when it was on the retargeted row (live canary 2026-08-02)", function()
@@ -336,21 +339,21 @@ describe('VirtualList focusPolicy "index" (focus stays on the SLOT)', function()
 		})
 		w.pres.focus.focusOn(hit("r4"))
 		w.adapter.tap(hit("r2")) -- activates, sets the logical key, refuses the ring
-		expect(w.list.focusedKey:get()).toBe("r2")
-		expect(w.pres.focus.focused:get()).toBe(hit("r4"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r4"))
 		w.reverse() -- r2 leaves slot 2; slot 2's new occupant is r7 (eligible)
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r7")
-		expect(w.pres.focus.focused:get()).toBe(hit("r4")) -- the ring stayed put
+		expect(w.list.focusedKey:peek()).toBe("r7")
+		expect(w.pres.focus.focused:peek()).toBe(hit("r4")) -- the ring stayed put
 	end)
 
 	it("with nothing focused, a re-sort focuses nothing", function()
 		local w = world({ count = 8, focusPolicy = "index" })
 		w.pres.focus.focusOn(hit("r1")) -- graph only; the control was never told
-		expect(w.list.focusedKey:get()).toBe(nil)
+		expect(w.list.focusedKey:peek()).toBe(nil)
 		w.reverse()
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe(nil)
+		expect(w.list.focusedKey:peek()).toBe(nil)
 		expect(w.list.dump().pinnedSlot).toBe(nil)
 	end)
 end)
@@ -358,11 +361,11 @@ end)
 -- ===========================================================================
 describe("VirtualList focusPolicy validation (constitution §4)", function()
 	it("an illegal value is refused at construction, naming BOTH legal ones", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			virtual_list.build(Facet, core, {
 				id = "VL",
-				rows = core:signal(makeRows(2)),
+				rows = Compose.cell(makeRows(2)),
 				key = function(item: any)
 					return item.id
 				end,
@@ -370,7 +373,7 @@ describe("VirtualList focusPolicy validation (constitution §4)", function()
 				viewportHeight = 200,
 				focusPolicy = "slot",
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end)
@@ -382,11 +385,11 @@ describe("VirtualList focusPolicy validation (constitution §4)", function()
 	end)
 
 	it("the closed spec set knows the field: a near-miss is refused by name", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			virtual_list.build(Facet, core, {
 				id = "VL",
-				rows = core:signal(makeRows(2)),
+				rows = Compose.cell(makeRows(2)),
 				key = function(item: any)
 					return item.id
 				end,
@@ -394,7 +397,7 @@ describe("VirtualList focusPolicy validation (constitution §4)", function()
 				viewportHeight = 200,
 				focusPolicey = "index",
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end)

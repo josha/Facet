@@ -32,9 +32,11 @@ function showcase_chrome.toggle(open: boolean, current: string, want: string?): 
 end
 export type MountOpts = {
 	Facet: any,
+	-- the application the chrome mounts its bar and panel into
+	app: any,
+	-- the application's core, which `Facet.inputHint` derives its labels on
 	core: any,
 	env: any,
-	presenter: any,
 	actionSystem: any,
 	demos: any,
 	settings: any,
@@ -45,16 +47,14 @@ export type MountOpts = {
 	copy: { [string]: string }?,
 }
 function showcase_chrome.mount(opts: MountOpts): any
-	local Facet = opts.Facet
-	local UI = Facet.View
-	local core = opts.core
-	local presenter = opts.presenter
+	local Facet, app = opts.Facet, opts.app
+	local UI, Compose = app.controls, Facet.Compose
+	local presenter = app.presenter
 	-- This host model coordinates independently mounted bar and panel surfaces.
 	-- View-only state and calculations belong to the components below.
-	local scope = core:scope("showcase-chrome")
 	local COPY: any = opts.copy or showcase_chrome.COPY
-	local kind = scope:own(core:signal("demos"))
-	local open = scope:own(core:signal(false))
+	local kind = Compose.cell("demos")
+	local open = Compose.cell(false)
 	local self: any = {}
 	local PANEL_ID = showcase_chrome.PANEL_ID
 	local toggleContext = opts.actionSystem.createContext({
@@ -81,32 +81,86 @@ function showcase_chrome.mount(opts: MountOpts): any
 	end
 	local hintLabel: { [string]: any } = {}
 	for _, kindName in showcase_chrome.KINDS do
-		hintLabel[kindName] = Facet.inputHint(core, opts.env, sectionAction[kindName], { scope = scope })
+		hintLabel[kindName] = Facet.inputHint(opts.core, opts.env, sectionAction[kindName])
 	end
-	local Bar = Facet.component(function(ui)
-		local input = ui.env("effectiveInput")
-		local distanceProfile, overscanInsets = ui.env("distanceProfile"), ui.env("effectiveOverscanInsets")
-		local gamepadActive = function()
-			return input() == "Gamepad"
+	local function when(id: string, condition: any, thenView: () -> any): any
+		return UI.When(id)({
+			Compose.show(condition, function()
+				return UI.When("then")({ thenView() })
+			end),
+		})
+	end
+	local barHandle: any = nil
+	local closeBar: (() -> ())? = nil
+	local panelHandle = Compose.cell(nil :: any)
+	local closePanelSurface: (() -> ())? = nil
+	local closing = false
+	local lastPanelFocus: string? = nil
+	local PANEL_ROOT = `/{PANEL_ID}`
+	local function isPanelPath(path: any): boolean
+		if type(path) ~= "string" then
+			return false
+		end
+		return path == PANEL_ROOT or string.sub(path, 1, #PANEL_ROOT + 1) == `{PANEL_ROOT}/`
+	end
+	local function closePanel()
+		if panelHandle:peek() == nil then
+			return
+		end
+		closing = true
+		panelHandle:set(nil)
+		local close = closePanelSurface
+		closePanelSurface = nil
+		if close ~= nil then
+			close()
+		end
+		closing = false
+		lastPanelFocus = nil
+		open:set(false)
+	end
+	local function Bar()
+		local input = opts.env:get("effectiveInput")
+		local distanceProfile = opts.env:get("distanceProfile")
+		local overscanInsets = opts.env:get("effectiveOverscanInsets")
+		-- The chrome's watches live as long as the bar, which is the whole session.
+		Compose.watch(function(use)
+			local path = use(presenter.focus.focused)
+			if isPanelPath(path) then
+				lastPanelFocus = path
+			end
+		end)
+		Compose.watch(function(use)
+			local handle = use(panelHandle)
+			if handle ~= nil and use(handle.responder) == "passive" and not closing then
+				closePanel()
+			end
+		end)
+		Compose.watch(function(use)
+			local flag = use(open) and use(kind) == "demos"
+			if opts.demos.open ~= nil and opts.demos.open:peek() ~= flag then
+				opts.demos.open:set(flag)
+			end
+		end)
+		local function gamepadActive(use)
+			return use(input) == "Gamepad"
 		end
 		local function shoulderHint(kindName: string): any
 			local text = hintLabel[kindName]
-			return UI.When({
-				id = `{string.upper(string.sub(kindName, 1, 1))}{string.sub(kindName, 2)}Hint`,
-				condition = gamepadActive,
-				thenView = function()
-					return UI.Text({
-						id = "Glyph",
+			return when(
+				`{string.upper(string.sub(kindName, 1, 1))}{string.sub(kindName, 2)}Hint`,
+				gamepadActive,
+				function()
+					return UI.Text("Glyph")({
 						text = text,
 						textSize = "caption",
 						role = "secondary",
 					})
-				end,
-			})
+				end
+			)
 		end
-		local overscanPadding = ui.memo(function()
-			local profile = distanceProfile()
-			local insets = overscanInsets()
+		local overscanPadding = Compose.formula(function(use)
+			local profile = use(distanceProfile)
+			local insets = use(overscanInsets)
 			return {
 				top = showcase_chrome.overscanEdge(profile, insets, "top"),
 				bottom = showcase_chrome.overscanEdge(profile, insets, "bottom"),
@@ -119,138 +173,105 @@ function showcase_chrome.mount(opts: MountOpts): any
 			if opts.navigationLayout == nil then
 				return nil
 			end
-			local navigationNow = ui.read(opts.navigationLayout)
-			local function placement()
-				local navigation = navigationNow()
-				return if navigation then ui.read(navigation.placement)() else nil
+			local function placement(use)
+				local navigation = use(opts.navigationLayout)
+				return if navigation then use(navigation.placement) else nil
 			end
-			return UI.When({
-				id = "NavigationChoice",
-				condition = function()
-					local current = placement()
-					return distanceProfile() ~= "ten-foot" and (current == "sidebar" or current == "topBar")
-				end,
-				UI.Button({
-					id = "ToggleSidebar",
-					label = function()
-						return if placement() == "sidebar" then "Use top tabs" else "Use sidebar"
-					end,
-					onActivate = function()
-						local navigation = navigationNow()
-						if navigation then
-							navigation.toggle()
-						end
-						self.barHandle().resign()
-					end,
-				}),
+			return UI.When("NavigationChoice")({
+				Compose.show(function(use)
+					local current = placement(use)
+					return use(distanceProfile) ~= "ten-foot" and (current == "sidebar" or current == "topBar")
+				end, function()
+					return UI.Button("ToggleSidebar")({
+						label = function(use)
+							return if placement(use) == "sidebar" then "Use top tabs" else "Use sidebar"
+						end,
+						onActivate = function()
+							local navigation = opts.navigationLayout:peek()
+							if navigation then
+								navigation.toggle()
+							end
+							self.barHandle().resign()
+						end,
+					})
+				end),
 			})
 		end
-		local chipRow = UI.ViewThatFits({
-			id = "Chips",
-			width = UI.fill(),
-			UI.HStack({
-				id = "Full",
-				gap = "s",
-				width = NATURAL,
-				shoulderHint("demos"),
-				opts.demos.chip,
-				shoulderHint("settings"),
-				layoutChoice(),
-			}),
-			UI.HStack({
-				id = "Icons",
-				gap = "s",
-				width = NATURAL,
-				shoulderHint("demos"),
-				opts.demos.iconChip,
-				shoulderHint("settings"),
-				layoutChoice(),
-			}),
-		})
-		return UI.Screen({
-			id = "ShowcaseChrome",
+		return UI.Screen("ShowcaseChrome")({
 			padding = "gutter",
-			UI.Anchor({
-				id = "Dock",
+			UI.Anchor("Dock")({
 				padding = overscanPadding,
 				width = UI.fill(),
 				height = UI.fill(),
-				UI.VStack({
-					id = "Bar",
+				UI.VStack("Bar")({
 					anchor = "topLeft",
 					offsetY = opts.coreTop,
 					width = UI.fill(),
-					chipRow,
-				}),
-			}),
-		})
-	end)
-	local barScreen = Bar({})
-	local Panel = Facet.component(function(ui)
-		local section = ui.read(kind)
-		local sectionPicker = UI.Picker({
-			id = "Section",
-			label = COPY.section,
-			style = "segmented",
-			options = {
-				{ value = "demos", label = COPY.demos },
-				{ value = "settings", label = COPY.settings },
-			},
-			selected = kind,
-		})
-		return UI.Screen({
-			id = PANEL_ID,
-			padding = "gutter",
-			UI.Anchor({
-				id = "Dock",
-				width = UI.fill(),
-				height = UI.fill(),
-				UI.VStack({
-					id = "Column",
-					anchor = "topLeft",
-					width = UI.fill(),
-					height = UI.fill(),
-					UI.ScrollView({
-						id = "Panel",
-						surface = "raised",
-						padding = "s",
-						gap = "s",
-						width = UI.hug(),
-						height = UI.hug(),
-						sectionPicker,
-						UI.When({
-							id = "DemosWhen",
-							condition = function()
-								return section() == "demos"
-							end,
-							thenView = function()
-								return opts.demos.rows
-							end,
+					UI.ViewThatFits("Chips")({
+						width = UI.fill(),
+						UI.HStack("Full")({
+							gap = "s",
+							width = NATURAL,
+							shoulderHint("demos"),
+							opts.demos.chip(),
+							shoulderHint("settings"),
+							layoutChoice(),
 						}),
-						UI.When({
-							id = "SettingsWhen",
-							condition = function()
-								return section() == "settings"
-							end,
-							thenView = function()
-								return UI.VStack({
-									id = "Settings",
-									width = UI.fill(),
-									gap = "m",
-									children = opts.settings.sections,
-								})
-							end,
+						UI.HStack("Icons")({
+							gap = "s",
+							width = NATURAL,
+							shoulderHint("demos"),
+							opts.demos.iconChip(),
+							shoulderHint("settings"),
+							layoutChoice(),
 						}),
 					}),
 				}),
 			}),
 		})
-	end)
-	local panelScreen = Panel({})
-	local barHandle: any = nil
-	local panelHandle: any = nil
-	local panelWatch: (() -> ())? = nil
-	local closing = false
+	end
+	local function Panel()
+		return UI.Screen(PANEL_ID)({
+			padding = "gutter",
+			UI.Anchor("Dock")({
+				width = UI.fill(),
+				height = UI.fill(),
+				UI.VStack("Column")({
+					anchor = "topLeft",
+					width = UI.fill(),
+					height = UI.fill(),
+					UI.ScrollView("Panel")({
+						surface = "raised",
+						padding = "s",
+						gap = "s",
+						width = UI.hug(),
+						height = UI.hug(),
+						UI.Picker("Section")({
+							label = COPY.section,
+							style = "segmented",
+							options = {
+								{ value = "demos", label = COPY.demos },
+								{ value = "settings", label = COPY.settings },
+							},
+							selected = kind,
+						}),
+						when("DemosWhen", function(use)
+							return use(kind) == "demos"
+						end, opts.demos.rows),
+						when("SettingsWhen", function(use)
+							return use(kind) == "settings"
+						end, function()
+							local settings: { any } = { width = UI.fill(), gap = "m" }
+							for _, section in opts.settings.sections do
+								table.insert(settings, section())
+							end
+							return UI.VStack("Settings")(settings)
+						end),
+					}),
+				}),
+			}),
+		})
+	end
 	local barOpts = {
 		responder = "passive",
 		focusChrome = "top",
@@ -277,120 +298,83 @@ function showcase_chrome.mount(opts: MountOpts): any
 			end
 		end,
 	}
-	local lastPanelFocus: string? = nil
-	local PANEL_ROOT = `/{PANEL_ID}`
-	local function isPanelPath(path: any): boolean
-		if type(path) ~= "string" then
-			return false
-		end
-		return path == PANEL_ROOT or string.sub(path, 1, #PANEL_ROOT + 1) == `{PANEL_ROOT}/`
-	end
-	scope:own(core:observe(presenter.focus.focused, function(path: any)
-		if isPanelPath(path) then
-			lastPanelFocus = path
-		end
-	end))
-	local function closePanel()
-		if panelHandle == nil then
-			return
-		end
-		closing = true
-		if panelWatch ~= nil then
-			panelWatch()
-			panelWatch = nil
-		end
-		presenter.dismiss(panelHandle)
-		panelHandle = nil
-		closing = false
-		lastPanelFocus = nil
-		open:set(false)
-	end
 	local function openPanel()
-		if panelHandle ~= nil then
+		if panelHandle:peek() ~= nil then
 			return
 		end
 		if barHandle ~= nil then
 			barHandle.resign()
 		end
-		panelHandle = presenter.present(panelScreen, {
+		local close, _, handle = app.mount(Panel, {
 			responder = "passive",
 			initialFocus = "first",
 		})
-		panelHandle.engage()
+		closePanelSurface = close
+		handle.engage()
 		open:set(true)
-		panelWatch = core:observe(panelHandle.responder, function(state: any)
-			if state == "passive" and not closing then
-				closePanel()
-			end
-		end)
+		panelHandle:set(handle)
 	end
 	local function raisePanel(demoHandle: any?)
-		if panelHandle == nil then
+		local handle = panelHandle:peek()
+		if handle == nil then
 			return
 		end
 		if demoHandle == nil then
 			return
 		end
 		local wantFocus = lastPanelFocus
-		presenter.raise(panelHandle)
+		presenter.raise(handle)
 		if wantFocus ~= nil then
 			presenter.focus.focusOn(wantFocus)
 		end
 	end
+	local unwatchRaise: (() -> ())? = nil
 	if opts.demos ~= nil and opts.demos.watchRaise ~= nil then
-		scope:own(opts.demos.watchRaise(raisePanel))
+		unwatchRaise = opts.demos.watchRaise(raisePanel)
 	end
 	local function apply(command: ToggleCommand)
 		if command.action == "close" then
 			closePanel()
 			return
 		end
-		if kind:get() ~= command.kind then
+		if kind:peek() ~= command.kind then
 			kind:set(command.kind)
 		end
 		openPanel()
 	end
 	function self.request(want: string?)
-		apply(showcase_chrome.toggle(open:get(), kind:get(), want))
+		apply(showcase_chrome.toggle(open:peek(), kind:peek(), want))
 	end
 	function self.requestFromNavigation(want: string?)
 		presenter.focus.setFocusOrigin("navigation")
 		self.request(want)
 	end
-	local function syncDemoOpen()
-		local flag = open:get() and kind:get() == "demos"
-		if opts.demos.open ~= nil and opts.demos.open:get() ~= flag then
-			opts.demos.open:set(flag)
-		end
-	end
-	scope:own(core:observe(open, syncDemoOpen))
-	scope:own(core:observe(kind, syncDemoOpen))
-	syncDemoOpen()
-	barHandle = presenter.present(barScreen, barOpts)
+	local mountedClose, _, mountedHandle = app.mount(Bar, barOpts)
+	closeBar, barHandle = mountedClose, mountedHandle
 	self.open = open
 	self.kind = kind
-	self.barScreen = barScreen
-	self.panelScreen = panelScreen
 	function self.barHandle()
 		return barHandle
 	end
 	function self.panelHandle()
-		return panelHandle
+		return panelHandle:peek()
 	end
 	function self.isOpen(): boolean
-		return panelHandle ~= nil
+		return panelHandle:peek() ~= nil
 	end
 	function self.close()
 		closePanel()
 	end
 	function self.dispose()
 		closePanel()
-		if barHandle ~= nil then
-			presenter.dismiss(barHandle)
-			barHandle = nil
+		if unwatchRaise ~= nil then
+			unwatchRaise()
+		end
+		if closeBar ~= nil then
+			closeBar()
+			closeBar, barHandle = nil, nil
 		end
 		toggleContext.destroy()
-		scope:dispose()
 	end
 	return self
 end

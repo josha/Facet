@@ -25,6 +25,8 @@
 -- so every cancel path (the action, a modal, an illegal commit) restores the
 -- surface without the fixture hooking each call site.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Drop lab (SF-D1..D5/L2/P4/M2)",
 	ledgerRows = {
@@ -43,13 +45,16 @@ return {
 	},
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-drop")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
-		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
+		local conditions = lifetime.under(function()
+			return Facet.adaptive.conditions(env)
+		end) -- RR-8: eighteen memos die with the fixture
 
 		local SCREEN = "/DropLab"
 		local LIST = SCREEN .. "/Main/ListZone/Rows"
@@ -67,12 +72,12 @@ return {
 		-- the ARMED SOURCE (§5.5): the path of the card an armed session is holding,
 		-- nil while nothing is armed. Cards bind their `selected` state to it, and it
 		-- is also where focus goes home to on the terminal.
-		local armedSource = scope:own(core:signal(nil :: string?))
+		local armedSource = Compose.cell(nil :: string?)
 		-- the armed card's payload, for the rows to read: while it is set, a row
 		-- that would REFUSE the card dims — which is also the visible answer to
 		-- "why did the pickup land my focus on row 02" (director round: the
 		-- skipped rows gave no cue that they had refused)
-		local armedPayload = scope:own(core:signal(nil :: any))
+		local armedPayload = Compose.cell(nil :: any)
 
 		local armFocus: { any } = {}
 		-- the focus exemption this fixture opened on arm (nil = none of ours)
@@ -80,7 +85,7 @@ return {
 		-- declared before the bus handler, defined once the list exists
 		local armPresent: (source: string, payload: any) -> ()
 		local armRelease: (how: string) -> ()
-		scope:own(pres.onFeedback(function(event: any)
+		own(pres.onFeedback(function(event: any)
 			table.insert(trace, {
 				at = elapsed,
 				kind = "feedback:" .. tostring(event.type),
@@ -117,7 +122,7 @@ return {
 		-- before the surface exists) can bind to it. Kept in sync by an observer on
 		-- the registry's own Readable, so a retarget reaches the paint on the frame
 		-- it happened rather than on the next tick.
-		local registryVerdict = scope:own(core:signal(nil :: any))
+		local registryVerdict = Compose.cell(nil :: any)
 
 		-- ===== data =========================================================
 		local FULL_COUNT, SHORT_COUNT = 12, 4
@@ -128,20 +133,20 @@ return {
 			end
 			return out
 		end
-		local rows = scope:own(core:signal(makeRows(FULL_COUNT)))
-		local verdictLine = scope:own(core:signal("verdict: (idle)"))
+		local rows = Compose.cell(makeRows(FULL_COUNT))
+		local verdictLine = Compose.cell("verdict: (idle)")
 		-- THE LANDED WASH (director fix round, RR parity): a successful drop has no
 		-- commit flight by default — the card vanishes at the drop point, and the
 		-- ROW carries the confirmation as a decay-class tint wash, exactly the
 		-- shipped Sponsor `celebration:rowWash` beat expressed through public API.
-		local landedKey = scope:own(core:signal(nil :: string?))
+		local landedKey = Compose.cell(nil :: string?)
 		local landedWash = if clock ~= nil then clock:spring(0, "decay") else nil
 		if landedWash ~= nil then
-			scope:own(function()
+			own(function()
 				landedWash:dispose()
 			end)
 			landedWash:onSettle(function()
-				if landedWash:get() < 0.01 then
+				if landedWash:peek() < 0.01 then
 					landedKey:set(nil)
 				end
 			end)
@@ -153,8 +158,8 @@ return {
 				landedWash:setTarget(0)
 			end
 		end
-		local activations = scope:own(core:signal(0))
-		local returnedHome = scope:own(core:signal(0))
+		local activations = Compose.cell(0)
+		local returnedHome = Compose.cell(0)
 
 		local drops: { any } = {}
 		local sessionIds: { string } = {}
@@ -191,7 +196,7 @@ return {
 		end
 
 		-- ===== the list =====================================================
-		local itemExtent = scope:own(core:memo(function(use)
+		local itemExtent = Compose.formula(function(use)
 			--[[ THE LINE BOX COMES FROM THE FRAMEWORK (`Facet.text.facts` /
 				`Facet.text.lineBox`, adopted 2026-08-15). The copy that was here read
 				`typographyScale` alone; the measure seam reserves at
@@ -205,7 +210,7 @@ return {
 			end
 			local lineBox = Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
 			return math.max(metrics.targetSizes.minimum or 44, lineBox + 2 * (metrics.space.s or 8))
-		end))
+		end)
 
 		--[[ THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
 			Readable viewport height, so the window is a memo over the environment's
@@ -231,11 +236,11 @@ return {
 			`scenarios/row_actions.luau` and `scenarios/card_rail.luau` migrated in
 			the same round because neither has a number calibrated against its own
 			window. ]]
-		local viewportExtent = scope:own(core:memo(function(use)
+		local viewportExtent = Compose.formula(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760
 			return math.clamp(math.floor(h * 0.5), 160, 420)
-		end))
+		end)
 
 		local list: any = nil
 		local ICON: any = { type = "fixed", px = "iconSizes.medium" }
@@ -256,7 +261,7 @@ return {
 			-- carries `overId` and the refusal `reason` as well as the legal target,
 			-- which is what lets a row paint "you are over me and I am refusing you"
 			-- with the game's own code.
-			local verdict = itemScope:own(core:memo(function(use)
+			local verdict = Compose.formula(function(use)
 				local v: any = use(registryVerdict)
 				if v == nil or v.overId == nil then
 					return nil
@@ -265,7 +270,7 @@ return {
 					return nil
 				end
 				return if v.legal then "legal" else "illegal"
-			end))
+			end)
 			-- THE VERDICT WASH RIDES THE ROLE-BLEND CHANNEL (review R2-F6). It used to
 			-- paint `raised` — an ELEVATION role carrying an interaction state, which
 			-- is the one-meaning-per-channel erosion I-5 exists to stop. `tint` blends
@@ -274,7 +279,7 @@ return {
 			-- the fill of the node it is written to, and the card's fill belongs to
 			-- the theme's `control` surface; at rest the blend is 0, which IS that
 			-- surface, so a row with no verdict is byte-identical to an untinted one.
-			local verdictTint = itemScope:own(core:memo(function(use)
+			local verdictTint = Compose.formula(function(use)
 				local state = use(verdict)
 				if state == "legal" then
 					return { role = "accent", from = "control", blend = 0.35 }
@@ -301,12 +306,12 @@ return {
 					end
 				end
 				return { role = "accent", from = "control", blend = 0 }
-			end))
+			end)
 			-- the wash node exists ONLY while it has something to say (director
 			-- round three): an always-mounted tint paints its `from` colour at
 			-- blend 0, which covered the row's own plate — and the native
 			-- `controlSelected` state under it — with a second slab of "control"
-			local washOn = itemScope:own(core:memo(function(use)
+			local washOn = Compose.formula(function(use)
 				if use(verdict) ~= nil then
 					return true
 				end
@@ -318,8 +323,8 @@ return {
 					return true
 				end
 				return false
-			end))
-			local strokeData = itemScope:own(core:memo(function(use)
+			end)
+			local strokeData = Compose.formula(function(use)
 				local state = use(verdict)
 				if state == "legal" then
 					return UI.strokeData({ thickness = 2, color = "accent" })
@@ -327,47 +332,41 @@ return {
 					return UI.strokeData({ thickness = 2, color = "danger" })
 				end
 				return nil
-			end))
+			end)
 			-- the §4.2 VERDICT GLYPH SLOT: a second channel, never colour alone. The
 			-- refusal reads as a blocked mark rather than a slash (review R2-F16).
-			local glyph = itemScope:own(core:memo(function(use)
+			local glyph = Compose.formula(function(use)
 				local state = use(verdict)
 				return if state == "legal" then "+" elseif state == "illegal" then "×" else ""
-			end))
+			end)
 
 			-- ONE PLATE PER ROW (director round three): the full-row hit Button IS
 			-- the row's surface — a second `control` plate here, inset by a margin,
 			-- was the "text on a darker band over a lighter row" artifact, and it
 			-- painted over the hit's native selected state
-			return UI.ZStack({
-				id = "Card",
+			return UI.ZStack("Card")({
 				stroke = strokeData,
 				width = UI.fill(),
 				height = UI.fill(),
 
-				UI.When({
-					id = "WashWhen",
-					condition = washOn,
-					thenView = function()
-						return UI.Box({
-							id = "Wash",
+				UI.When("WashWhen")({
+					Compose.show(washOn, function()
+						return UI.Box("Wash")({
 							tint = verdictTint,
 							width = UI.fill(),
 							height = UI.fill(),
 						})
-					end,
+					end),
 				}),
-				UI.HStack({
-					id = "Row",
+				UI.HStack("Row")({
 					padding = "s",
 					gap = "s",
 					width = UI.fill(),
 					height = UI.fill(),
 
-					UI.Text({ id = "Name", text = item.name, textSize = "body" }),
-					UI.Spacer({ id = "Gap" }),
-					UI.Text({
-						id = "VerdictGlyph",
+					UI.Text("Name")({ text = item.name, textSize = "body" }),
+					UI.Spacer("Gap")({}),
+					UI.Text("VerdictGlyph")({
 						text = glyph,
 						textSize = "body",
 						textAlign = "center",
@@ -378,40 +377,49 @@ return {
 			})
 		end
 
-		list = Facet.Controls.VirtualList(core, {
-			id = "Rows",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			itemExtent = itemExtent,
-			viewportExtent = viewportExtent,
-			overscan = 2,
-			selection = "single",
-			rowDropTarget = function(item: any)
-				local key = item.id
-				return {
-					accepts = acceptsFor(key),
-					onDrop = function(payload: any, info: any)
-						table.insert(drops, { key = key, card = payload.card, index = info.index })
-						verdictLine:set(`verdict: {payload.card} landed on {key}`)
-						washRow(key)
-						note("drop", { key = key, card = payload.card })
-					end,
-				}
-			end,
-			onActivate = function(item: any, _meta: any)
-				-- THE NON-POINTER COMMIT (§5.5): Activate on a target aims the live
-				-- session at it and commits — the same session, the same legality.
-				local reg = registry()
-				if reg ~= nil and reg.isActive() then
-					reg.armTo(rowHit(item.id))
-					reg.commit()
-					note("nonpointer:commit", { key = item.id })
-				end
-			end,
-			cell = cell,
-		})
+		-- deferred: Compose.create needs an active owner, which only exists once
+		-- the presenter mounts the screen. `ref` hands back the list's `{api,
+		-- dump}` record after the whole control (including its initially
+		-- windowed rows) is built; `list` is only ever read from callbacks the
+		-- presenter drives AFTER mount, so it is always populated by then.
+		local function listNode(): any
+			return UI.VirtualList("Rows")({
+				ref = function(record: any)
+					list = record.api
+				end,
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = itemExtent,
+				viewportExtent = viewportExtent,
+				overscan = 2,
+				selection = "single",
+				rowDropTarget = function(item: any)
+					local key = item.id
+					return {
+						accepts = acceptsFor(key),
+						onDrop = function(payload: any, info: any)
+							table.insert(drops, { key = key, card = payload.card, index = info.index })
+							verdictLine:set(`verdict: {payload.card} landed on {key}`)
+							washRow(key)
+							note("drop", { key = key, card = payload.card })
+						end,
+					}
+				end,
+				onActivate = function(item: any, _meta: any)
+					-- THE NON-POINTER COMMIT (§5.5): Activate on a target aims the live
+					-- session at it and commits — the same session, the same legality.
+					local reg = registry()
+					if reg ~= nil and reg.isActive() then
+						reg.armTo(rowHit(item.id))
+						reg.commit()
+						note("nonpointer:commit", { key = item.id })
+					end
+				end,
+				cell = cell,
+			})
+		end
 
 		-- ===== the §5.5 arm presentation ====================================
 		-- THE FOCUS HANDOFF, THROUGH PUBLIC SEAMS ONLY. Arming with a gamepad has to
@@ -423,7 +431,7 @@ return {
 		-- row the live session is aiming at keeps its focusability even if the game's
 		-- predicate turns against it mid-gesture.
 		local function firstEligibleRow(payload: any): string?
-			for _, item in rows:get() :: { any } do
+			for _, item in rows:peek() :: { any } do
 				local ok = acceptsFor(item.id)(payload)
 				if ok then
 					return item.id
@@ -436,7 +444,7 @@ return {
 			armedSource:set(source)
 			armedPayload:set(payload)
 			local key = firstEligibleRow(payload)
-			local focusBefore = pres.focus.focused:get()
+			local focusBefore = pres.focus.focused:peek()
 			local landed: string? = nil
 			if key ~= nil then
 				list.focusKey(key)
@@ -455,10 +463,10 @@ return {
 		end
 
 		function armRelease(how: string)
-			if armedSource:get() == nil then
+			if armedSource:peek() == nil then
 				return
 			end
-			local source = armedSource:get()
+			local source = armedSource:peek()
 			armedSource:set(nil)
 			armedPayload:set(nil)
 			if armExemption ~= nil then
@@ -487,13 +495,12 @@ return {
 			-- selection channel: `selected` rides a style tag the theme paints, so a
 			-- gamepad player can see which card is up without the fixture inventing a
 			-- fill. Multi-channel by construction — the proxy is the second channel.
-			local armed = scope:own(core:memo(function(use)
+			local armed = Compose.formula(function(use)
 				return use(armedSource) == path
-			end))
+			end)
 			return UI.draggable(
 				UI.corners(
-					UI.Button({
-						id = id,
+					UI.Button(id)({
 						-- the slot EMPTIES while its card is held — that is the
 						-- framework's `dragHeld` guarantee (registry -> renderer ->
 						-- `facet-drag-held` rule), NOT fixture code: proof by absence
@@ -503,7 +510,7 @@ return {
 						width = UI.fill(),
 						height = { type = "minMax", min = "targetSizes.minimum" },
 						onActivate = function(_path: string, meta: any?)
-							activations:set(activations:get() + 1)
+							activations:set(activations:peek() + 1)
 							local reg = registry()
 							if reg == nil then
 								return
@@ -546,15 +553,13 @@ return {
 					-- "Card C is in my hand"). A display composite — the card's
 					-- own label on the same raised plate a real game ghost wears.
 					proxy = function()
-						return UI.ZStack({
-							id = "GhostCard",
+						return UI.ZStack("GhostCard")({
 							width = UI.fill(),
 							height = UI.fill(),
 
 							UI.shadow(
 								UI.corners(
-									UI.Box({
-										id = "GhostPlate",
+									UI.Box("GhostPlate")({
 										surface = "raised",
 										width = UI.fill(),
 										height = UI.fill(),
@@ -563,8 +568,7 @@ return {
 								),
 								"overlay"
 							),
-							UI.Text({
-								id = "GhostLabel",
+							UI.Text("GhostLabel")({
 								text = label,
 								alignH = "center",
 								alignV = "center",
@@ -575,43 +579,44 @@ return {
 			)
 		end
 
-		local hand = UI.dropTarget(
-			UI.corners(
-				UI.HStack({
-					id = "Hand",
-					surface = "raised",
-					gap = "s",
-					padding = "s",
-					width = UI.fill(),
+		-- deferred alongside `listNode`, for the same reason
+		local function handNode(): any
+			return UI.dropTarget(
+				UI.corners(
+					UI.HStack("Hand")({
+						surface = "raised",
+						gap = "s",
+						padding = "s",
+						width = UI.fill(),
 
-					card("CardA", "A", "Card A"),
-					card("CardB", "B", "Card B", "flyToTarget"),
-					card("CardC", "C", "Card C"),
-				}),
-				"panel"
-			),
-			{
-				-- TOUCH HAS NO CANCEL KEY (I-7): the hand itself always reads as a
-				-- legal "put it back" target while a card is up, which is the visible
-				-- cancel affordance for a finger.
-				accepts = function(payload: any): (boolean, string?)
-					return type(payload) == "table" and payload.kind == "sponsor-card", "demo-blocked-3"
-				end,
-				onDrop = function(payload: any, _info: any)
-					returnedHome:set(returnedHome:get() + 1)
-					verdictLine:set(`verdict: {payload.card} returned to the hand`)
-					note("returned", { card = payload.card })
-				end,
-			}
-		)
+						card("CardA", "A", "Card A"),
+						card("CardB", "B", "Card B", "flyToTarget"),
+						card("CardC", "C", "Card C"),
+					}),
+					"panel"
+				),
+				{
+					-- TOUCH HAS NO CANCEL KEY (I-7): the hand itself always reads as a
+					-- legal "put it back" target while a card is up, which is the visible
+					-- cancel affordance for a finger.
+					accepts = function(payload: any): (boolean, string?)
+						return type(payload) == "table" and payload.kind == "sponsor-card", "demo-blocked-3"
+					end,
+					onDrop = function(payload: any, _info: any)
+						returnedHome:set(returnedHome:peek() + 1)
+						verdictLine:set(`verdict: {payload.card} returned to the hand`)
+						note("returned", { card = payload.card })
+					end,
+				}
+			)
+		end
 
 		-- ===== chevrons (the autoscroll affordance, neutral channel only) =====
 		-- A DECLARED FADE GROUP, because the affordance's whole vocabulary is
 		-- opacity (hidden / 40% armed / 100% active + pulse) and the presentation
 		-- channel fades a group, never a node's own paint.
 		local function chevron(id: string, anchor: string, glyph: string)
-			return UI.ZStack({
-				id = id,
+			return UI.ZStack(id)({
 				canvasGroup = true,
 				anchor = anchor,
 				offsetX = 0,
@@ -619,8 +624,7 @@ return {
 				width = CHEV_ICON,
 				height = CHEV_ICON,
 
-				UI.Text({
-					id = "Glyph",
+				UI.Text("Glyph")({
 					text = glyph,
 					textSize = "caption",
 					textAlign = "center",
@@ -630,40 +634,40 @@ return {
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "DropLab",
-			padding = "m",
-			gap = "s",
-
-			UI.Text({ id = "Title", text = "Drop lab", textSize = "heading" }),
-			UI.Text({ id = "VerdictLine", text = verdictLine, textSize = "caption", role = "secondary" }),
-			-- ONE tree, two intents: portrait docks the hand under the list (thumb
-			-- zone), landscape puts it in a side column. It is one child ORDER
-			-- either way, because a structural swap would remount both halves.
-			UI.AdaptiveStack({
-				id = "Main",
-				axis = conditions.axis,
+		-- deferred: Compose.create needs an active owner, which only exists once
+		-- the presenter mounts this component
+		local function screen(): any
+			return UI.Screen("DropLab")({
+				padding = "m",
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.ZStack({
-					id = "ListZone",
+				UI.Text("Title")({ text = "Drop lab", textSize = "heading" }),
+				UI.Text("VerdictLine")({ text = verdictLine, textSize = "caption", role = "secondary" }),
+				-- ONE tree, two intents: portrait docks the hand under the list (thumb
+				-- zone), landscape puts it in a side column. It is one child ORDER
+				-- either way, because a structural swap would remount both halves.
+				UI.AdaptiveStack("Main")({
+					axis = conditions.axis,
+					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					list.blueprint,
-					UI.Anchor({
-						id = "Chevrons",
+					UI.ZStack("ListZone")({
 						width = UI.fill(),
-						height = UI.fill(),
 
-						chevron("ChevTop", "top", "^"),
-						chevron("ChevBottom", "bottom", "v"),
+						listNode(),
+						UI.Anchor("Chevrons")({
+							width = UI.fill(),
+							height = UI.fill(),
+
+							chevron("ChevTop", "top", "^"),
+							chevron("ChevBottom", "bottom", "v"),
+						}),
 					}),
+					handNode(),
 				}),
-				hand,
-			}),
-		})
+			})
+		end
 
 		-- ===== registry plumbing ============================================
 		local unbindScroll: any = nil
@@ -681,8 +685,8 @@ return {
 			end
 			if unbindVerdict == nil then
 				local reg = ctrl.dragRegistry()
-				registryVerdict:set(reg.verdict:get())
-				unbindVerdict = core:observe(reg.verdict, function(v: any)
+				registryVerdict:set(reg.verdict:peek())
+				unbindVerdict = core.owner.watchStatic(reg.verdict, function(v: any)
 					registryVerdict:set(v)
 				end)
 			end
@@ -720,7 +724,7 @@ return {
 			end
 		end
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			ensureWired()
 			local ctrl = controller()
@@ -733,14 +737,14 @@ return {
 			local step = list.stepAutoscroll(elapsed)
 			local reg = registry()
 			if step ~= nil and reg ~= nil and #autoscrollTrace < 600 then
-				local v: any = reg.verdict:get()
+				local v: any = reg.verdict:peek()
 				table.insert(autoscrollTrace, {
 					at = elapsed,
 					state = step.state,
-					band = list.autoscroll:get().band,
+					band = list.autoscroll:peek().band,
 					delta = step.delta,
 					justArmed = step.justArmed,
-					scrollTop = list.scrollTop:get(),
+					scrollTop = list.scrollTop:peek(),
 					overId = if v ~= nil then v.overId else nil,
 					legal = if v ~= nil then v.legal else nil,
 					reason = if v ~= nil then v.reason else nil,
@@ -761,8 +765,8 @@ return {
 			local dump = list.dump()
 			local maxScroll = math.max(0, dump.totalRows * dump.itemExtent - dump.viewportExtent)
 			local atEnd = { top = dump.scrollTop <= 0.5, bottom = dump.scrollTop >= maxScroll - 0.5 }
-			local state = list.autoscroll:get()
-			local reduced = env:get("motionPolicy"):get() == "reduced"
+			local state = list.autoscroll:peek()
+			local reduced = env:get("motionPolicy"):peek() == "reduced"
 			local function targetFor(edge: string): number
 				if state.band ~= edge or atEnd[edge] then
 					return 1 -- hidden
@@ -847,7 +851,7 @@ return {
 			if reg == nil then
 				return nil
 			end
-			local v: any = reg.verdict:get()
+			local v: any = reg.verdict:peek()
 			return if v == nil
 				then nil
 				else { targetId = v.targetId, overId = v.overId, legal = v.legal, reason = v.reason, mode = v.mode }
@@ -871,7 +875,7 @@ return {
 		local function schedule(delay: number, run: () -> ())
 			table.insert(plan, { at = elapsed + delay, run = run })
 		end
-		scope:own(pres.onTick(function(_dt: number)
+		own(pres.onTick(function(_dt: number)
 			if #plan == 0 then
 				return
 			end
@@ -891,7 +895,7 @@ return {
 		end))
 
 		local function churnOnce()
-			local current = rows:get() :: { any }
+			local current = rows:peek() :: { any }
 			local next: { any } = {}
 			for i = 2, #current do
 				table.insert(next, current[i])
@@ -937,13 +941,11 @@ return {
 				local target = rowHit("row-02")
 				recordAim("promoteAndHover", { cardPath, target })
 				dragTo(cardPath, target, "mouse")
-				pres.presentToast(
-					UI.VStack({
-						id = "Body",
-						UI.Text({ id = "Line", text = "Toast during drag", textSize = "body" }),
-					}),
-					{ key = "drag-layer", duration = 6 }
-				)
+				pres.presentToast(function()
+					return UI.VStack("Body")({
+						UI.Text("Line")({ text = "Toast during drag", textSize = "body" }),
+					})
+				end, { key = "drag-layer", duration = 6 })
 				local reg = registry()
 				return {
 					active = reg ~= nil and reg.isActive(),
@@ -988,8 +990,8 @@ return {
 					verdictWhileHovering = before,
 					drops = #drops,
 					active = registry().isActive(),
-					landedKey = landedKey:get(),
-					washNow = if landedWash ~= nil then landedWash:get() else nil,
+					landedKey = landedKey:peek(),
+					washNow = if landedWash ~= nil then landedWash:peek() else nil,
 				}
 			end,
 			-- SF-D5: an illegal drop rejects exactly once with the fixture's reason
@@ -1061,7 +1063,7 @@ return {
 					if reg ~= nil and reg.isActive() then
 						reg.cancel("short-content-end")
 					end
-					note("shortContent:end", { samples = #autoscrollTrace, state = list.autoscroll:get() })
+					note("shortContent:end", { samples = #autoscrollTrace, state = list.autoscroll:peek() })
 				end)
 				return { rows = SHORT_COUNT, pending = true }
 			end,
@@ -1086,7 +1088,7 @@ return {
 				end
 				local after = verdictNow()
 				note("churnWhileDragging", { before = before, after = after })
-				return { before = before, after = after, sameFrame = true, order = (rows:get() :: any)[1].id }
+				return { before = before, after = after, sameFrame = true, order = (rows:peek() :: any)[1].id }
 			end,
 			-- SF-D4: arm -> navigate -> commit, and arm -> navigate -> cancel, both
 			-- through ONE session object and one legality model
@@ -1103,12 +1105,12 @@ return {
 				-- was before the arm, where the arm put it, and where the terminal
 				-- returned it (review R2-F4)
 				pres.focus.focusOn(cardPath)
-				local focusBefore = pres.focus.focused:get()
+				local focusBefore = pres.focus.focused:peek()
 				reg.arm(cardPath)
 				sessionMark()
 				local armedSession = tostring(reg.session())
-				local focusDuring = pres.focus.focused:get()
-				local armedSourceDuring = armedSource:get()
+				local focusDuring = pres.focus.focused:peek()
+				local armedSourceDuring = armedSource:peek()
 				reg.armTo(rowHit("row-02")) -- legal for A
 				local hovering = verdictNow()
 				reg.armTo(rowHit("row-03")) -- odd: refuses A
@@ -1116,16 +1118,16 @@ return {
 				reg.armTo(rowHit("row-02"))
 				local committed = reg.commit()
 				local dropsAfterCommit = #drops
-				local focusAfterCommit = pres.focus.focused:get()
-				local armedSourceAfterCommit = armedSource:get()
+				local focusAfterCommit = pres.focus.focused:peek()
+				local armedSourceAfterCommit = armedSource:peek()
 
 				reg.arm(cardPath)
 				sessionMark()
 				local secondSession = tostring(reg.session())
-				local focusDuringSecond = pres.focus.focused:get()
+				local focusDuringSecond = pres.focus.focused:peek()
 				reg.armTo(rowHit("row-04"))
 				local cancelled = reg.cancel("nonpointer-cancel")
-				local focusAfterCancel = pres.focus.focused:get()
+				local focusAfterCancel = pres.focus.focused:peek()
 				note("nonPointerFlow", { hovering = hovering, illegalHover = illegalHover })
 				return {
 					armedSession = armedSession,
@@ -1176,7 +1178,7 @@ return {
 				table.insert(out, {
 					path = "touch-release-over-source",
 					active = registry().isActive(),
-					returned = returnedHome:get(),
+					returned = returnedHome:peek(),
 				})
 
 				-- (3) the Cancel action, through the presenter's own action
@@ -1200,12 +1202,17 @@ return {
 				local sx, sy = centerOf(cardPath)
 				moveCard(cardPath, (sx or 0) + 20, (sy or 0) + 20, "mouse")
 				local activeBefore = registry().isActive()
-				local modal = pres.presentModal(UI.Screen({
-					id = "MidDragModal",
-					UI.Button({ id = "Ok", label = "Ok", onActivate = function() end }),
-				}))
+				-- A modal is MOUNTED, not handed over as a pre-built node: a Button is
+				-- a composite and registers its own cleanup, so constructing one
+				-- outside an owner has nothing to release it. `app.presentModal`
+				-- mounts the component and answers its dismissal.
+				local dismissModal = ctx.app.presentModal(function()
+					return UI.Screen("MidDragModal")({
+						UI.Button("Ok")({ label = "Ok", onActivate = function() end }),
+					})
+				end)
 				local activeAfter = registry().isActive()
-				pres.dismiss(modal)
+				dismissModal()
 				note("modalCancelsDrag", { before = activeBefore, after = activeAfter })
 				return { activeBefore = activeBefore, activeAfter = activeAfter }
 			end,
@@ -1224,39 +1231,39 @@ return {
 				aim = aim,
 				expectations = expectations,
 				autoscrollTrace = autoscrollTrace,
-				autoscroll = list.autoscroll:get(),
+				autoscroll = list.autoscroll:peek(),
 				autoscrollOptions = autoscrollDefaults,
 				promotionTokens = Facet.interactionTokens.dragPromotionPx,
 				promotionRange = Facet.interactionTokens.dragPromotionRangePx,
 				drops = drops,
 				rejects = rejects,
 				sessionIds = sessionIds,
-				returnedHome = returnedHome:get(),
-				activations = activations:get(),
+				returnedHome = returnedHome:peek(),
+				activations = activations:peek(),
 				verdict = verdictNow(),
 				registry = if reg ~= nil then reg.dump() else nil,
 				surfaceDisplayOrder = if result.handle ~= nil then result.handle.displayOrder else nil,
 				proxyLayerPath = PROXY_LAYER,
 				window = window,
-				itemExtent = itemExtent:get(),
-				viewportExtent = viewportExtent:get(),
-				armedSource = armedSource:get(),
+				itemExtent = itemExtent:peek(),
+				viewportExtent = viewportExtent:peek(),
+				armedSource = armedSource:peek(),
 				armFocus = armFocus,
 				chevronFade = { top = chevFade.top, bottom = chevFade.bottom, seconds = CHEV_FADE_S },
-				scrollTop = list.scrollTop:get(),
+				scrollTop = list.scrollTop:peek(),
 				scrollPath = list.scrollPath(),
 				order = (function()
 					local out: { string } = {}
-					for _, item in rows:get() :: { any } do
+					for _, item in rows:peek() :: { any } do
 						table.insert(out, item.id)
 					end
 					return out
 				end)(),
-				focusPath = pres.focus.focused:get(),
-				reducedMotion = env:get("reducedMotion"):get(),
+				focusPath = pres.focus.focused:peek(),
+				reducedMotion = env:get("reducedMotion"):peek(),
 				motion = { active = clock:activeCount(), stats = clock:stats() },
-				counters = core:counters(),
-				coreError = core:lastError(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
@@ -1276,8 +1283,12 @@ return {
 				unbindScroll()
 				unbindScroll = nil
 			end
-			list.dispose()
-			scope:dispose()
+			-- NOT `list.dispose()`: the control registered its own disposal with
+			-- Compose.cleanup at construct time, so the owning scope already
+			-- disposes it when the mounted surface unmounts; calling it again
+			-- here double-disposes the same scope.
+			list = nil
+			lifetime.dispose()
 		end
 		return result
 	end,

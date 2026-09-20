@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE CLASSIFICATION-TAG SYNC, DRIVEN RATHER THAN READ.
 
 	This is the regression the sticky-tag defect (SCREEN-X) did not
@@ -28,13 +29,14 @@ local describe, it, expect = t.describe, t.it, t.expect
 local tag_sync = require("../src/render/tag_sync")
 local sheet_model = require("../src/tokens/sheet_model")
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local adapter_source = require("./lib/adapter_source")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- one Button on a Screen, its interesting prop on a signal, mounted through the
 -- real presenter and renderer onto the headless target
@@ -100,7 +102,7 @@ end)
 describe("tag_sync: mounted, state changed, tag removed", function()
 	it("a Button that stops being selected LOSES facet-selected", function()
 		local core = customFactory.new()
-		local selected = core:signal(true)
+		local selected = Compose.cell(true)
 		local _, pres, target = mountButton("TagSel", { selected = selected })
 		local dressed = target.tagsOf("/TagSel/Btn")
 		expect(table.find(dressed, "facet-selected") ~= nil).toBe(true)
@@ -130,7 +132,7 @@ describe("tag_sync: mounted, state changed, tag removed", function()
 			the SURFACE tag and the fill it drags in; the exact-set form asserted a
 			second thing nobody had measured, and then held the mirror to it. ]]
 		local core = customFactory.new()
-		local surface = core:signal("control")
+		local surface = Compose.cell("control")
 		local _, pres, target = mountButton("TagSurf", { surface = surface })
 		expect(table.find(target.tagsOf("/TagSurf/Btn"), "facet-surface-control") ~= nil).toBe(true)
 
@@ -144,7 +146,7 @@ describe("tag_sync: mounted, state changed, tag removed", function()
 
 	it("a surface change swaps the surface tag rather than accumulating one", function()
 		local core = customFactory.new()
-		local surface = core:signal("control")
+		local surface = Compose.cell("control")
 		local _, pres, target = mountButton("TagSwap", { surface = surface })
 		surface:set("accent")
 		pres.refresh()
@@ -157,7 +159,7 @@ describe("tag_sync: mounted, state changed, tag removed", function()
 
 	it("a destructive Button returning to the default role LOSES the role tag", function()
 		local core = customFactory.new()
-		local role = core:signal("destructive")
+		local role = Compose.cell("destructive")
 		local _, pres, target = mountButton("TagRole", { role = role })
 		expect(table.find(target.tagsOf("/TagRole/Btn"), "facet-role-destructive") ~= nil).toBe(true)
 

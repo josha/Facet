@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE SETTLE RE-SOLVE GOES THROUGH THE DIRTY CLOSURE (Plan C, T18-A —
 	rulings L-10/L-11/L-12, T17's second finding, FacetBench §C16).
@@ -41,14 +42,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local text_metrics = require("../src/layout/text_metrics")
+local Compose = require("../src/vendor/compose/core")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -119,29 +121,29 @@ local function world(
 	env:set("viewportRect", { x = 0, y = 0, w = opts.viewport.w, h = opts.viewport.h })
 	local strip = {}
 	for i = 1, 4 do
-		strip[i] = core:signal(`S{i}`)
+		strip[i] = Compose.cell(`S{i}`)
 	end
-	local solo = core:signal("solo")
+	local solo = Compose.cell("solo")
 	--[[ THE NODE WHOSE RECT CANNOT MOVE. A fixed width, so the box is 60px whatever
 		the string measures — but the TRUNCATION verdict is a function of the measured
 		width against that box, so a correction flips a published fact while the
 		adapter's rect channel says nothing happened. The commit's harvest prunes on an
 		ENTRY VERDICT (settled/moved), not on the dirty set, so this is the node that
 		says whether the settle still owes the walks its paths. ]]
-	local pinned = core:signal("pinnedstart")
+	local pinned = Compose.cell("pinnedstart")
 	--[[ ...AND THE `textSize = "fit"` NODE, which is the one place the recorded key is
 		not the whole truth: the ladder measures its string at SEVERAL sizes inside the
 		band before choosing one, and the index files the size it CHOSE. A width learned
 		at a size it merely probed can change the rung, so fit nodes join every push
 		(`render/text_index`'s conservative `always` set). ]]
-	local fitted = core:signal("fitstart")
+	local fitted = Compose.cell("fitstart")
 	local rowValue = {}
 	local items = {}
 	for i = 1, opts.rows do
-		rowValue[i] = core:signal(`row {i}`)
+		rowValue[i] = Compose.cell(`row {i}`)
 		table.insert(items, { id = `r{i}`, n = rowValue[i] })
 	end
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	local rootId = opts.prefix or "Root"
 	local bp = UI.VStack({
 		id = rootId,
@@ -504,7 +506,7 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 
 			OWED ROW 14 — the `onSolved` COUNT. The argument was structural and correct:
 			the settle solve was already an outermost solve of its own (it runs from
-			`core:settle`), T18-A built no defer, and T18-B's queue fires one
+			`the settle pass`), T18-A built no defer, and T18-B's queue fires one
 			notification per solve against the finished tree. But "unchanged" was never
 			counted, and a consumer that measures this surface sees exactly this number.
 			One per solve, and the settle's solve is the second of the two the drive
@@ -658,7 +660,7 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		arm.controller.refresh()
 		local quiet = stats(arm)
 		expect(text_metrics.setMeasured("BuilderSans", SIZE_UNUSED, "t18aNobodyDrawsThis", 37)).toBe(true)
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		local st = stats(arm)
 		expect(`the settle solved: {st.solves - quiet.solves}`).toBe("the settle solved: 1")
 		expect(`pushed={st.lastTextDirtyPaths} measured={st.lastMeasured} arranged={st.lastArranged}`).toBe(
@@ -693,10 +695,10 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 			takes. That is what makes this a control rather than a different experiment:
 			same route, same bare settle solve, and the only difference is which
 			generation moved. ]]
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		local st = table.clone(stats(arm))
 		text_metrics.resetCalibration()
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		--[[ THE WHOLE TREE, on the same terms the oracle's control uses: every layout
 			node arranged, nothing skipped, every node measured. A narrowing that had
 			swallowed the global axis would read the settled floor here instead. ]]
@@ -1016,11 +1018,11 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 			key is untouched, so this is the index forgetting twelve paths rather than
 			the whole push machinery having gone quiet. ]]
 		expect(text_metrics.setMeasured("BuilderSans", SIZE_ROW, "t18aChurnWordB", 29)).toBe(true)
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		expect(`after unmount={stats(arm).lastTextDirtyPaths}`).toBe("after unmount=0")
 		-- THE CONTROL: the strip's key still names its four, so the push path is live
 		expect(text_metrics.setMeasured("BuilderSans", SIZE_STRIP, "t18aChurnWordC", 31)).toBe(true)
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		expect(`the strip still pushes={stats(arm).lastTextDirtyPaths}`).toBe("the strip still pushes=4")
 	end)
 end)
@@ -1157,7 +1159,7 @@ describe("the settle oracle: identical geometry, whatever the tick did (T18-A)",
 			a.strip[1]:set(WORD)
 			a.controller.refresh()
 			-- the viewport moves in the SAME flush the correction lands in
-			a.core:transaction(function()
+			a.core.reactor:batch(function()
 				a.env:set("viewportRect", { x = 0, y = 0, w = 640, h = 480 })
 				a.adapter.deliverTextWidths(function(word: string, size: number): number?
 					return if word == WORD then 55 else math.max(1, #word * size * 0.5)

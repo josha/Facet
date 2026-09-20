@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE THREE PROCESS-GLOBAL STORES, AND WHO OWNS THEM
 	(architecture review ARCH-23 / ARCH-24).
 
@@ -52,7 +53,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 local textMetrics = require("../src/layout/text_metrics")
 local Facet = require("../src") :: any
 

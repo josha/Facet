@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	ONE VIEWPORT CHANGE IS ONE SOLVE (docs/plans/parity-round3.md, item E
 	-- the measurement story).
@@ -51,6 +52,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 -- the eight facts the renderer re-solves for, and a distinct value for each
 local GEOMETRY: { { key: string, a: any, b: any } } = {
@@ -77,30 +80,31 @@ local GEOMETRY: { { key: string, a: any, b: any } } = {
 	{ key = "themeMetrics", a = nil, b = { density = 2 } },
 }
 
-local function harness(rowCount: number?)
-	local core = Facet.newCore()
+local function fixture(rowCount: number?)
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, fake_target.new(), system)
+	local pres = harness.newPresenter(core, env, fake_target.new(), system)
 
 	local rows = {}
 	for i = 1, rowCount or 40 do
 		table.insert(
 			rows,
-			Facet.UI.HStack({
+			harness.UI.HStack({
 				id = "R" .. i,
 				width = { type = "fill", weight = 1 },
 				children = {
-					Facet.UI.Text({ id = "A", text = "Row " .. i }),
-					Facet.UI.Spacer({ id = "S" }),
-					Facet.UI.Text({ id = "B", text = "value " .. i }),
+					harness.UI.Text({ id = "A", text = "Row " .. i }),
+					harness.UI.Spacer({ id = "S" }),
+					harness.UI.Text({ id = "B", text = "value " .. i }),
 				},
 			})
 		)
 	end
-	local handle =
-		pres.present(Facet.UI.Screen({ id = "S", children = { Facet.UI.VStack({ id = "List", children = rows }) } }))
+	local handle = pres.present(
+		harness.UI.Screen({ id = "S", children = { harness.UI.VStack({ id = "List", children = rows }) } })
+	)
 	pres.refresh()
 
 	local function solves(): number
@@ -112,7 +116,7 @@ end
 
 describe("one geometry change is one solve", function()
 	it("a batched geometry change is ONE solve", function()
-		local _core, env, pres, solves = harness()
+		local _core, env, pres, solves = fixture()
 
 		-- exactly the shape of roblox_env.pushViewport(): several facts, one
 		-- real resize. Unbatched + per-key observers, this measured 5.
@@ -136,7 +140,7 @@ describe("one geometry change is one solve", function()
 
 	it("every geometry key still re-solves", function()
 		for _, fact in GEOMETRY do
-			local _core, env, pres, solves = harness(8)
+			local _core, env, pres, solves = fixture(8)
 			env:set(fact.key, fact.a)
 			pres.refresh()
 
@@ -161,7 +165,7 @@ describe("one geometry change is one solve", function()
 
 			Drive it through its real dependency, at values that actually move the
 			derived scale. ]]
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 		env:set("preferredTextSize", 1)
 		pres.refresh()
 
@@ -178,7 +182,7 @@ describe("one geometry change is one solve", function()
 			re-solve, the surface going silently deaf. Any table-valued field now
 			returns false instead. `themeMetrics` is the one key that takes an
 			arbitrary table, so it is the one that can carry the shape. ]]
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 		local shared = { a = 1 }
 		env:set("themeMetrics", { nested = shared, density = 1 })
 		pres.refresh()
@@ -224,29 +228,29 @@ describe("one geometry change is one solve", function()
 		    — carries the same pair of assertions against the shipped surface.) ]]
 		local PATHS = { "/S", "/S/List", "/S/List/R1", "/S/List/R1/A", "/S/List/R4/B", "/S/List/R8" }
 		local function edgeToEdgeRects(inset: number): { [string]: string }
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 			env:set("coreSafeInsets", { top = inset, bottom = inset, left = inset, right = inset })
 			env:set("deviceSafeInsets", { top = inset, bottom = inset, left = inset, right = inset })
-			local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+			local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 			local rows = {}
 			for i = 1, 8 do
 				table.insert(
 					rows,
-					Facet.UI.HStack({
+					harness.UI.HStack({
 						id = "R" .. i,
 						width = { type = "fill", weight = 1 },
 						children = {
-							Facet.UI.Text({ id = "A", text = "Row " .. i }),
-							Facet.UI.Spacer({ id = "S" }),
-							Facet.UI.Text({ id = "B", text = "value " .. i }),
+							harness.UI.Text({ id = "A", text = "Row " .. i }),
+							harness.UI.Spacer({ id = "S" }),
+							harness.UI.Text({ id = "B", text = "value " .. i }),
 						},
 					})
 				)
 			end
 			local handle = pres.present(
-				Facet.UI.Screen({ id = "S", children = { Facet.UI.VStack({ id = "List", children = rows }) } }),
+				harness.UI.Screen({ id = "S", children = { harness.UI.VStack({ id = "List", children = rows }) } }),
 				{ rootPolicy = "edgeToEdge" }
 			)
 			pres.refresh()
@@ -266,12 +270,12 @@ describe("one geometry change is one solve", function()
 		end
 
 		-- ...and therefore the re-solve is waste, and is gone
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
-		local pres = Facet.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
+		local pres = harness.newPresenter(core, env, fake_target.new(), Facet.newActionSystem(core))
 		local handle = pres.present(
-			Facet.UI.Screen({ id = "S", children = { Facet.UI.Text({ id = "T", text = "edge" }) } }),
+			harness.UI.Screen({ id = "S", children = { harness.UI.Text({ id = "T", text = "edge" }) } }),
 			{ rootPolicy = "edgeToEdge" }
 		)
 		pres.refresh()
@@ -290,7 +294,7 @@ describe("one geometry change is one solve", function()
 	end)
 
 	it("a non-geometry write does not solve", function()
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 		local before = solves()
 		env:set("reducedMotion", true)
 		env:set("preferredTransparency", 0.5)
@@ -301,12 +305,12 @@ describe("one geometry change is one solve", function()
 	it("a set-and-revert inside one batch costs NOTHING", function()
 		--[[ RED-TEAM 2026-08-13. The first cut of the coalescing memo returned a
 			fresh `{}` per recompute, so identity-inequality meant "recomputed",
-			not "changed". That discarded both guarantees `src/core/custom.luau`
+			not "changed". That discarded both guarantees `src/core/services.luau`
 			states in its own header — "set-and-revert transactions and unchanged
 			recomputes [are] fire-free" — and it discarded them in the exact
 			dimension this whole entry exists to reduce. Measured then: 1 solve
 			where there had been 0. ]]
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 		local before = solves()
 		env:batch(function()
 			env:set("viewportRect", { x = 0, y = 0, w = 500, h = 700 })
@@ -320,7 +324,7 @@ describe("one geometry change is one solve", function()
 		-- `typographyScale` is a memo over displaySize + preferredTextOffset and
 		-- clamps: two different preferredTextSize values can produce the SAME
 		-- scale. Recomputed-but-unchanged must not re-solve the surface.
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 		env:set("preferredTextSize", 4)
 		pres.refresh()
 		local before = solves()
@@ -335,7 +339,7 @@ describe("one geometry change is one solve", function()
 			every time it runs, and it runs on `TopbarInset` changes as well as on
 			resizes. Under table-identity comparison, a topbar change alone
 			re-solved the whole surface for a viewport that had not moved. ]]
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 		local before = solves()
 		for _ = 1, 3 do
 			env:batch(function()
@@ -362,14 +366,14 @@ describe("one geometry change is one solve", function()
 			memos do not: without the sort this reads `4,10,6,9,8,12,11,7,3,2,5,1`,
 			then `1,11,7,2,6,3,5,9,12,10,4,8`, then `4,11,1,9,7,3,2,12,6,8,5,10`.
 			That is the shape a determinism check has to have — seen to fail. ]]
-		local core = Facet.newCore()
-		local sig = core:signal(0)
+		local core = harness.newCore()
+		local sig = Compose.cell(0)
 		local order: { number } = {}
 		for i = 1, 12 do
-			local m = core:memo(function(use)
+			local m = Compose.formula(function(use)
 				return use(sig) + i
 			end)
-			core:observe(m, function()
+			observeChange(core.owner, m, function()
 				table.insert(order, i)
 			end)
 		end
@@ -383,7 +387,7 @@ describe("one geometry change is one solve", function()
 	end)
 
 	it("env:batch is the general mechanism", function()
-		local _core, env, pres, solves = harness(8)
+		local _core, env, pres, solves = fixture(8)
 
 		-- nested batches collapse to the outermost, and the batch is the core's
 		-- own transaction: a write inside is not visible to an observer until
@@ -453,25 +457,25 @@ describe("a geometry change that also moves a bound layout prop", function()
 	-- the shipped shape: a layout prop bound to a memo over the viewport that
 	-- returns a fresh table of the SAME numbers
 	local function boundWidthHarness(pxFor: (number) -> number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 		-- the second driver: a plain signal, so the px can move with NO geometry
 		-- change and `refresh` is the only thing that can solve for it
-		local nudge = core:signal(0)
-		local width = core:memo(function(use)
+		local nudge = Compose.cell(0)
+		local width = Compose.formula(function(use)
 			local vp = use(env:get("viewportRect")) :: any
 			return { type = "fixed", px = pxFor(vp.w) + (use(nudge) :: number) }
 		end)
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake_target.new(), system)
-		local handle = pres.present(Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, fake_target.new(), system)
+		local handle = pres.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "Card",
 					children = {
-						Facet.UI.Text({ id = "Sub", text = "cause chaos", width = width }),
+						harness.UI.Text({ id = "Sub", text = "cause chaos", width = width }),
 					},
 				}),
 			},

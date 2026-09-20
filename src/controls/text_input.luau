@@ -1,36 +1,9 @@
 --!strict
-local blueprint = require("../blueprint")
--- TextInput control (§17 Phase 5 expansion; the single-line text-field
--- informed). A COMPOSITE over shipped primitives: a ZStack of the new
--- `TextField` leaf primitive (the headless seam the engine maps to a TextBox)
--- plus an optional trailing clear Button shown via the ONE structural seam
--- (UI.When on a `clearVisible` memo). The OWNER holds the `value` signal — the
--- control never creates it (§10.5: state that must outlive the control belongs
--- to the caller). The field's `text` prop is a binding on `value`, so an
--- accepted edit relabels the field with zero structural churn.
---
--- Text-entry-mode handshake (the load-bearing design work): while a field is
--- EDITING, keystrokes are text, not semantic actions. Entering edit raises a
--- high-priority SINKING InputContext that swallows the navigation vocabulary
--- (arrows / D-pad) so typing never moves focus, and binds Cancel (ButtonB) to
--- revert. Activate (Return / ButtonA) is deliberately NOT sunk: re-activating
--- while editing is an idempotent no-op, and sinking the presenter's shared
--- Activate release would corrupt its Bool state and break keyboard/gamepad
--- re-entry. Commit-on-Enter and focus-loss arrive from the ENGINE through the
--- render-adapter text seam (setTextInputHandlers -> onFocusLost), matching a
--- real TextBox which consumes Return itself. Desktop Escape is engine-reserved
--- (D1): the adapter reports it as onFocusLost("cancel").
---
--- Value model: every proposed edit (typing, clear, engine-reported text) is
--- rejected if it is not valid UTF-8, then clamped at the maxLength boundary,
--- then validated; only an accepted change writes `value` and fires onChange.
--- The engine view may briefly diverge past
--- the model when an edit is rejected/clamped; commit/blur reconciles it (the
--- model keeps the last accepted value). Engine-free; Lune-tested in
--- tests/text_input.spec.luau.
+-- Controlled text entry with validation, keyboard avoidance and semantic input.
+-- While editing, navigation keys are sunk; Activate remains available so the
+-- presenter can receive its matching release. Engine focus loss commits or cancels.
 
 local controlContract = require("../class_contract")
-local coreContract = require("../core/contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
@@ -39,98 +12,35 @@ local rectLib = require("../rect")
 local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
-
--- a node id is interpolated into a Lua PATTERN below, so its magic characters
--- have to be escaped first. Module scope, not per-instance: it is a pure
--- function of its argument and every `build()` used to allocate its own
--- (Step 5.5 cleanup ledger C-06).
 local patternEscape = paths.escape
 
 local text_input = {}
 
-type StringSignal = coreContract.Signal<string>
-export type Spec<V = StringSignal> = {
-	presentation: ("plain" | "search" | "number")?,
-	numericValue: coreContract.Signal<number>?,
-	min: number?,
-	max: number?,
-	parse: ((string) -> number?)?,
-	format: ((number) -> string)?,
-	multiline: boolean?,
-	height: blueprint.Bound<blueprint.Dim>?,
-	onCancel: (() -> ())?,
-	enabled: (boolean | coreContract.Readable<boolean>)?,
-	id: string?,
-	value: V, -- Signal<string>: the field text (owner-held)
-	onChange: ((text: string) -> ())?, -- live: every accepted edit while typing
-	onCommit: ((text: string, reason: "enter" | "focusLost" | "submit") -> ())?, -- Enter / focus loss
-	placeholder: string?,
-	disabled: blueprint.Bound<boolean>?, -- boolean | Signal<boolean>
-	-- Intent metadata only; Roblox has no public native keyboard-type setter.
-	keyboardType: ("default" | "numeric" | "email" | "phone")?,
-	-- submitLabel: declared Return-key label hint (data). There is NO reachable
-	-- public engine surface for it — TextBox.ReturnKeyType is [Hidden,
-	-- NotScriptable] (platform verifier correction 2026-07-21; robloxapi.github
-	-- .io/ref/class/TextBox.html) — so it is never applied to the engine (justified engine-absent
-	-- exception), carried as intent parity with keyboardType-as-data.
-	submitLabel: ("default" | "done" | "go" | "next" | "search" | "send")?,
-	clearButton: boolean?, -- trailing × affordance; sugar for clearButtonMode = "always"
-	-- WHEN the trailing ✕ is offered, spelled the way the platform convention spells it
-	-- (the conventional clear-button modes), because that vocabulary already exists in
-	-- every designer's head and the four states are the four real answers:
-	--   "never"          no affordance at all (the default)
-	--   "whileEditing"   only while the field has focus — the search-field
-	--                    convention, and the one that stops a static list of
-	--                    filled fields from being a wall of ✕ glyphs
-	--   "unlessEditing"  only while it does NOT have focus (a settings row that
-	--                    offers "clear this" at rest and gets out of the way once
-	--                    you are typing)
-	--   "always"         whenever there is text to clear
-	-- Every mode is additionally gated on "there is text" and "not disabled":
-	-- an empty field has nothing to clear and a disabled one may not.
-	clearButtonMode: ("never" | "whileEditing" | "unlessEditing" | "always")?,
-	maxLength: number?, -- accepted text clamped at the value-model boundary
-	validate: ((proposed: string) -> string?)?, -- accept(normalized) | nil=reject
-	-- CALLER-OWNED VALIDITY. A false->true edge shakes the field once (see the
-	-- shake block in `build`); the LEVEL is never painted, so the caller still owns
-	-- whatever the player reads — the number presentation's own danger-tinted
-	-- message is the model. Decorative by construction: reduced motion drops it.
-	invalid: coreContract.Readable<boolean>?,
-	env: any?, -- Environment: enables keyboard-occlusion keep-visible
-	actionSystem: any?, -- injected: enables the text-entry sinking context
-}
-
--- the closed set for `clearButtonMode`. A mode nobody recognises must be an
--- error at BUILD and not a field that silently never offers a ✕ — the enum-props-
--- accept-any-string lesson, applied to a spec field the schema never sees.
+local specTypes = require("../spec_types/text_input")
+type StringCell = specTypes.StringCell
+export type Spec<V = StringCell> = specTypes.Spec<V>
 local CLEAR_MODES: { [string]: boolean } = {
 	never = true,
 	whileEditing = true,
 	unlessEditing = true,
 	always = true,
 }
-
--- theme metrics, resolved on every solve
 local FIELD_HEIGHT = "controls.textInput.fieldHeight"
 local CLEAR_SIZE = "controls.textInput.clearSize"
--- gap between the trailing clear × and the field's right edge; negative because
--- the button is anchored to that edge and pulled inward
 local CLEAR_INSET = "-s"
--- NOT a theme metric: this is the safety margin between the field and the
--- ENGINE's on-screen keyboard, a platform distance rather than a style choice
 local KEEP_VISIBLE_MARGIN = 8 -- px gap kept between field bottom and keyboard top
--- above the presenter's modal band (base nav 1500; each modal +500 from 2000):
--- a text field's keystrokes must out-sink every navigation context beneath it.
 local TEXT_ENTRY_PRIORITY = 10000
 
+local Compose = require("../vendor/compose/core")
+local read = require("../selection_model").read
 local function isReadable(v: any): boolean
-	return type(v) == "table" and (v.kind == "signal" or v.kind == "memo")
+	return Compose.isReadable(v)
+end
+local function isWritable(v: any): boolean
+	return isReadable(v) and type(v.set) == "function"
 end
 
 local rectsEqual = rectLib.equal
-
--- clamp `s` to at most `maxLen` Unicode scalars (grapheme-approximate; the
--- engine reports whole graphemes so this matches at the value boundary)
 local function truncate(s: string, maxLen: number?): string
 	if maxLen == nil then
 		return s
@@ -145,9 +55,6 @@ local function truncate(s: string, maxLen: number?): string
 	end
 	return string.sub(s, 1, endOffset - 1)
 end
-
--- CLOSED SPEC (constitution §4). Exactly the fields this control
--- reads — an unknown one is an authoring mistake, never a silent no-op.
 local TEXT_INPUT_KEYS = specGuard.keySet({
 	"presentation",
 	"numericValue",
@@ -176,8 +83,8 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"value",
 })
 
-function text_input.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newTextInput", spec, TEXT_INPUT_KEYS, "spec")
+local function build(Facet: any, core: any, spec: Spec, owner: any)
+	specGuard.assertKnownKeys("UI.TextInput", spec, TEXT_INPUT_KEYS, "spec")
 	assert(
 		spec.enabled == nil or spec.disabled == nil,
 		"TextInput: do not specify both enabled and disabled; use enabled"
@@ -185,16 +92,13 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	assert(spec.multiline == nil or type(spec.multiline) == "boolean", "TextInput: multiline must be a boolean")
 
 	for _, name in { "enabled", "disabled" } do
-		local value = spec[name]
-		if isReadable(value) then
-			value = value:get()
-		end
+		local value = read(spec[name])
 		assert(value == nil or type(value) == "boolean", `TextInput: {name} must be boolean or readable boolean`)
 	end
 	assert(spec.clearButton == nil or type(spec.clearButton) == "boolean", "TextInput: clearButton must be boolean")
 	assert(
-		spec.invalid == nil or (isReadable(spec.invalid) and type(spec.invalid:get()) == "boolean"),
-		"TextInput: invalid must be a caller-owned Signal<boolean> (a readable boolean; a memo over the value is fine)"
+		spec.invalid == nil or (isReadable(spec.invalid) and type(read(spec.invalid)) == "boolean"),
+		"UI.TextInput: invalid must be a writable Compose cell holding a boolean (a readable boolean; a formula over the value is fine)"
 	)
 
 	local presentation = spec.presentation or "plain"
@@ -204,12 +108,11 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	)
 	if presentation == "number" then
 		assert(
-			type(spec.numericValue) == "table"
-				and spec.numericValue.kind == "signal"
-				and type(spec.numericValue:get()) == "number"
-				and spec.numericValue:get() == spec.numericValue:get()
-				and math.abs(spec.numericValue:get()) < math.huge,
-			"TextInput: numericValue must be a caller-owned Signal<number>"
+			isWritable(spec.numericValue)
+				and type(read(spec.numericValue)) == "number"
+				and read(spec.numericValue) == read(spec.numericValue)
+				and math.abs(read(spec.numericValue)) < math.huge,
+			"UI.TextInput: numericValue must be a writable Compose cell holding a number"
 		)
 		assert(spec.multiline ~= true, "TextInput: numeric entry must be single-line")
 		assert(
@@ -246,18 +149,12 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	)
 	local UI = Facet.UI
 	local id = spec.id or "TextInput"
-	local scope = core:scope(`text_input-{id}`)
-
-	-- must be a SETTABLE signal: the control calls value:set on every accepted
-	-- edit, so a read-only Memo (kind "memo", whose :set asserts) would pass a
-	-- bare readable check and then error on the first keystroke — reject it at
-	-- BUILD
 	assert(
-		type(spec.value) == "table" and (spec.value :: any).kind == "signal",
-		`TextInput '{id}': value must be a settable Signal of the field text (owner-held); `
-			.. `a read-only Memo cannot be edited (it would error on the first keystroke)`
+		isWritable(spec.value),
+		`UI.TextInput '{id}': value must be a writable Compose cell of the field text (owner-held); `
+			.. `a read-only formula cannot be edited (it would error on the first keystroke)`
 	)
-	assert(type(spec.value:get()) == "string", "TextInput: value must hold a string")
+	assert(type(read(spec.value)) == "string", "TextInput: value must hold a string")
 	local KEYBOARD_TYPES = { default = true, numeric = true, email = true, phone = true }
 	assert(
 		spec.keyboardType == nil or KEYBOARD_TYPES[spec.keyboardType] == true,
@@ -269,52 +166,58 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		`TextInput '{id}': submitLabel must be one of default|done|go|next|search|send (got '{tostring(spec.submitLabel)}')`
 	)
 
-	--[[ THE ENVIRONMENT THIS FIELD ADAPTS TO. `env` was an optional key
-		and three behaviours were gated on it: the keep-visible offset that lifts
-		the field off the on-screen keyboard, the touch-at-edit-start snapshot, and
-		the dock-mid-edit commit. Without it `occlusionOffset` stayed 0 — measured:
-		the field sits UNDER the keyboard and nothing says so — which is the audit's
-		D-3 cell. The surface publishes its environment on the core this control was
-		built with, so it now arrives with no authoring; a field with no environment
-		anywhere refuses to construct, in `tab_view`'s shape, because a text field
-		that cannot see the keyboard is the one control whose silent degradation the
-		player meets first. ]]
 	local env = (
 		surfaceEnv.resolve(
-			"newTextInput",
+			"UI.TextInput",
 			id,
 			core,
 			spec.env,
 			"a text field lifts itself off the on-screen keyboard, and ends an edit when the editing surface goes away"
 		)
 	)
+	local validationError = Compose.cell("")
 
-	-- control-owned state (selection/value lives in the owner's signal)
-	local validationError = scope:own(core:signal(""))
-	--[[ THE SHAKE (transitions round 2026-09-12). Four legs on the paint-only
-		`offset`, +/-8 px, at 0/80/140/200/240 ms. It is a NUDGE, not a move: the
-		solver never sees `offset`, so the rect the hit test, the focus order and
-		every sibling's layout read stays exactly where it was for the whole
-		sequence.
-
-		The shake is DECORATIVE — the information is the danger-tinted message
-		(number presentation) or whatever the caller shows beside the field — so a
-		reduced-motion session drops it whole. That is the timeline's own policy and
-		not a second branch here: under `reduced` it fast-forwards every beat and
-		every terminal on the frame it starts, which lands on 0 with nothing painted
-		in between.
-
-		Every beat declares `terminal = leg(0)`, so an `interrupt()` — a second
-		invalid edge arriving mid-shake — puts the field back at rest on the
-		interrupt frame instead of stranding it 8 px off centre. ]]
-	local shakeOffset = scope:own(core:signal(0))
+	local nativeTimeline = if Facet.runtime and (spec.invalid ~= nil or presentation == "number")
+		then Facet.runtime.timeline({ duration = 0.24, autoplay = false })
+		else nil
+	local shakeOffset
+	if nativeTimeline then
+		nativeTimeline:seek(0.24)
+		-- Smoothly interpolate the nudge; the solved hit target stays fixed.
+		shakeOffset = Compose.formula(function(use)
+			if use(env:get("motionPolicy")) == "reduced" then
+				return 0
+			end
+			local elapsed = use(nativeTimeline.progress) * 0.24
+			local times, positions = { 0, 0.08, 0.14, 0.2, 0.24 }, { -8, 8, -4, 2, 0 }
+			for index = 2, #times do
+				if elapsed < times[index] then
+					local fraction = (elapsed - times[index - 1]) / (times[index] - times[index - 1])
+					return positions[index - 1] + (positions[index] - positions[index - 1]) * fraction
+				end
+			end
+			return 0
+		end)
+		owner.watch(function(use)
+			if use(env:get("motionPolicy")) == "reduced" then
+				nativeTimeline:pause()
+				nativeTimeline:seek(0.24)
+			end
+		end)
+	else
+		shakeOffset = Compose.cell(0)
+	end
 	local motionClock: any = nil
 	local shaking: any = nil
 	local SHAKE_PX = 8
 	local function shake()
+		if nativeTimeline then
+			if read(env:get("motionPolicy")) ~= "reduced" then
+				nativeTimeline:restart()
+			end
+			return
+		end
 		if motionClock == nil then
-			-- no presenter, no clock, no motion (the same degradation
-			-- `bindActionSystem`/`bindController` already declare)
 			return
 		end
 		if shaking ~= nil then
@@ -340,107 +243,74 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				shakeOffset:set(0)
 			end,
 		})
-		-- a reduced-motion (or already-complete) timeline ran inside the call
-		-- above, so `onDone` fired BEFORE this assignment: only a still-running
-		-- one is worth holding on to for the next `interrupt()`
 		if not playing:isDone() then
 			shaking = playing
 		end
 	end
-	-- the number presentation's own invalid edge. Every rejected commit shakes,
-	-- including a repeat of the same rejection — that retry is exactly when the
-	-- nudge is worth the most.
 	local function rejectWith(message: string)
 		validationError:set(message)
 		shake()
 	end
 	if spec.invalid ~= nil then
-		-- the EDGE, not the level: a field that is already invalid when it mounts
-		-- has nothing to announce, and a caller re-setting `true` over `true` is
-		-- not a new rejection. `core:observe` baselines on the current value and
-		-- de-duplicates, so this only ever sees a real change.
-		local was = spec.invalid:get()
-		scope:own(core:observe(spec.invalid, function(now)
+		local was = read(spec.invalid)
+		owner.watch(function(use)
+			local now = read(spec.invalid, use)
 			if now == true and was ~= true then
 				shake()
 			end
 			was = now
-		end))
+		end)
 	end
 	local disposed = false
-	local editing = scope:own(core:signal(false))
-	local fieldRect = scope:own(core:signal(nil :: any)) -- solved rect (occlusion)
+	local editing = Compose.cell(false)
+	local fieldRect = Compose.cell(nil :: any) -- solved rect (occlusion)
 	local editSnapshot: string = "" -- value at edit-entry (cancel target)
 	local fieldFullPath: string? = nil -- learned from the activate that begins editing
-	local viewportHeight = if spec.multiline then scope:own(core:signal(0)) else nil
+	local viewportHeight = if spec.multiline then Compose.cell(0) else nil
 	local latestRectOf: ((string) -> any)? = nil
 	local renderController: any = nil
-	-- does the surface this field lives on reserve the host app's own chrome band?
-	-- Bound by the presenter (`bindController`'s additive second argument); true
-	-- until then, which is what the keep-visible arithmetic always assumed
 	local ownerReservesAppChrome = true
-	-- hot-switch (UI-PARADIGM-002): was touch (the on-screen-keyboard entry
-	-- surface) live when this edit began? Used to detect the dock CANCEL — touch
-	-- leaving mid-edit with no hardware keyboard to supersede it.
 	local touchLiveAtEditStart = false
-
-	-- disabled resolves a boolean or a Signal<boolean> to a plain memo; the
-	-- field's enabled/focusable ride its negation
-	local inheritedDisabled = scope:own(core:signal(false))
-	local disabledMemo = scope:own(core:memo(function(use)
+	local inheritedDisabled = Compose.cell(false)
+	local disabledMemo = Compose.formula(function(use)
 		if use(inheritedDisabled) then
 			return true
 		end
 		if spec.enabled ~= nil then
-			return (if isReadable(spec.enabled) then use(spec.enabled) else spec.enabled) == false
+			return read(spec.enabled, use) == false
 		end
-		local d = spec.disabled
-		if d == nil then
-			return false
-		end
-		if isReadable(d) then
-			return use(d) == true
-		end
-		return d == true
-	end))
-	local enabledMemo = scope:own(core:memo(function(use)
+		return read(spec.disabled, use) == true
+	end)
+	local enabledMemo = Compose.formula(function(use)
 		return not use(disabledMemo)
-	end))
-	-- the clear affordance: the declared MODE, then the two gates every mode
-	-- shares — there must be something to clear, and a disabled field may not.
+	end)
 	local clearMode = spec.clearButtonMode
 		or (if spec.clearButton or presentation == "search" then "always" else "never")
 	if CLEAR_MODES[clearMode] == nil then
 		error(
-			`Facet newTextInput('{id}'): clearButtonMode '{tostring(spec.clearButtonMode)}' is not a mode `
+			`Facet UI.TextInput('{id}'): clearButtonMode '{tostring(spec.clearButtonMode)}' is not a mode `
 				.. `(never | whileEditing | unlessEditing | always)`,
 			0
 		)
 	end
-	local clearVisible = scope:own(core:memo(function(use)
+	local clearVisible = Compose.formula(function(use)
 		if clearMode == "never" then
 			return false
 		end
 		if use(disabledMemo) then
 			return false
 		end
-		if use(spec.value) == "" then
+		if read(spec.value, use) == "" then
 			return false
 		end
-		-- the two focus-sensitive modes read `editing`, so the affordance appears
-		-- and disappears with the caret and nothing else has to drive it
 		if clearMode == "whileEditing" then
 			return use(editing) == true
 		elseif clearMode == "unlessEditing" then
 			return use(editing) ~= true
 		end
 		return true
-	end))
-
-	-- keep-visible offset: while editing with an env, the minimal upward dy that
-	-- keeps the field fully above the on-screen keyboard (+ margin); 0 when
-	-- clear. fieldRect is read reactively but is stable during an edit.
-	local keepVisibleOffset = scope:own(core:memo(function(use)
+	end)
+	local keepVisibleOffset = Compose.formula(function(use)
 		if not use(editing) then
 			return 0
 		end
@@ -454,13 +324,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		end
 		local overlap = (rect.y + rect.h) + KEEP_VISIBLE_MARGIN - occ.y
 		return if overlap > 0 then overlap else 0
-	end))
-
-	-- ---- edit-mode sinking context (lazy; owned by the control scope) -------
-	-- the action system that raises the sink context: either injected via
-	-- spec.actionSystem (back-compat) OR bound by the presenter at present time
-	-- via api.bindActionSystem (auto-wiring seam). First writer wins,
-	-- so injection + auto-binding never double-create the context.
+	end)
 	local actionSystemRef: any = spec.actionSystem
 	local editContext: any = nil
 	local cancelEdit -- forward
@@ -473,8 +337,6 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			priority = TEXT_ENTRY_PRIORITY,
 			sink = true,
 		})
-		-- swallow the navigation vocabulary: arrows/D-pad must not move focus
-		-- while editing (Activate is intentionally left un-sunk — see header)
 		local swallow = ctx.createAction("Swallow", "Direction1D")
 		for _, key in { "Up", "Down", "Left", "Right", "DPadUp", "DPadDown", "DPadLeft", "DPadRight" } do
 			swallow.bind({ keyCode = key, direction = 0 })
@@ -486,22 +348,15 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		end)
 		ctx.setEnabled(false) -- enabled only while editing
 		editContext = ctx
-		scope:own(function()
+		owner.own(function()
 			if editContext ~= nil then
 				editContext.destroy()
 				editContext = nil
 			end
 		end)
 	end
-
-	-- ---- value pipeline ------------------------------------------------------
-	-- reject-invalid-UTF-8 -> clamp -> validate -> accept; returns true iff
-	-- `value` actually changed. INVARIANT: the model never accepts a byte
-	-- sequence that is not valid UTF-8 — a malformed engine report is rejected
-	-- outright (value unchanged, no onChange), the same as a validate-nil, and
-	-- so can never slip past maxLength via a truncate no-op.
 	local function applyProposed(proposed: string): boolean
-		if disposed or disabledMemo:get() then
+		if disposed or disabledMemo:peek() then
 			return false
 		end
 		if utf8.len(proposed) == nil then
@@ -515,7 +370,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		if accepted == nil then
 			return false -- rejected: value unchanged, no onChange
 		end
-		if accepted ~= spec.value:get() then
+		if accepted ~= read(spec.value) then
 			spec.value:set(accepted)
 			if spec.onChange ~= nil then
 				spec.onChange(accepted)
@@ -524,40 +379,31 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		end
 		return false -- accepted but unchanged (e.g. clamp produced the same text)
 	end
-
-	-- ---- editing lifecycle ---------------------------------------------------
 	local function beginEditing()
 		if disposed then
-			-- a late Activate racing dispose (stale tap/handle) must be a
-			-- harmless no-op, never an own-into-disposed-scope fault
-			-- (Studio drive F2, 2026-07-21)
 			return
 		end
-		if disabledMemo:get() then
+		if disabledMemo:peek() then
 			return -- disabled fields are not editable
 		end
-		if editing:get() then
+		if editing:peek() then
 			return -- idempotent: a second Activate while editing is a no-op
 		end
-		editSnapshot = spec.value:get()
-		-- snapshot whether touch was the live entry surface at edit-start, so a
-		-- later touch-loss (dock) can be told apart from a device that was never
-		-- part of this edit (hot-switch CANCEL gate, UI-PARADIGM-002)
-		local classes = env:get("interactionClasses"):get()
+		editSnapshot = read(spec.value)
+		local classes = env:get("interactionClasses"):peek()
 		touchLiveAtEditStart = type(classes) == "table" and classes.touch == true
 		editing:set(true)
 		ensureEditContext()
 		if editContext ~= nil then
 			editContext.setEnabled(true)
 		end
-		-- capture the field's solved rect for keep-visible (learned path)
 		if latestRectOf ~= nil and fieldFullPath ~= nil then
 			fieldRect:set(latestRectOf(fieldFullPath))
 		end
 	end
 
 	local function endEditing()
-		if not editing:get() then
+		if not editing:peek() then
 			return
 		end
 		editing:set(false)
@@ -566,23 +412,21 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
-	scope:own(core:observe(disabledMemo, function(disabled)
+	owner.watch(function(use)
+		local disabled = use(disabledMemo)
 		if disabled then
 			endEditing()
 		end
-	end))
-
-	-- commit (Enter / focus-loss): validate the committed text defensively (all
-	-- edits already validated, so this is normally a no-op), fire onCommit
+	end)
 	local function commit(reason: string)
-		if disposed or disabledMemo:get() or not editing:get() then
+		if disposed or disabledMemo:peek() or not editing:peek() then
 			return
 		end
 
-		local text = spec.value:get()
+		local text = read(spec.value)
 		if presentation == "number" then
 			local ok, number = pcall(spec.parse or tonumber, text)
-			if disposed or disabledMemo:get() then
+			if disposed or disabledMemo:peek() then
 				return
 			end
 			local message = ""
@@ -599,7 +443,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			local formattedOk, formatted = pcall(spec.format or tostring, number)
-			if disposed or disabledMemo:get() then
+			if disposed or disabledMemo:peek() then
 				return
 			end
 			if not formattedOk or type(formatted) ~= "string" then
@@ -609,7 +453,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			end
 			if spec.validate ~= nil then
 				local valid, normalized = pcall(spec.validate, formatted)
-				if disposed or disabledMemo:get() then
+				if disposed or disabledMemo:peek() then
 					return
 				end
 				if not valid or type(normalized) ~= "string" or utf8.len(normalized) == nil then
@@ -625,7 +469,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			validationError:set("")
-			core:transaction(function()
+			core.reactor:batch(function()
 				spec.numericValue:set(number)
 				spec.value:set(formatted)
 			end)
@@ -643,15 +487,11 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			spec.onCommit(text, reason :: any)
 		end
 	end
-
-	-- cancel: restore the pre-edit snapshot. The revert writes `value` directly
-	-- (owner + field binding update) but fires NO onChange — onChange is for
-	-- user edits, not the revert; and NO onCommit.
 	cancelEdit = function()
-		if not editing:get() then
+		if not editing:peek() then
 			return
 		end
-		if spec.value:get() ~= editSnapshot then
+		if read(spec.value) ~= editSnapshot then
 			spec.value:set(editSnapshot)
 		end
 		endEditing()
@@ -659,50 +499,28 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			spec.onCancel()
 		end
 	end
-
-	-- ---- hot-switch: in-flight class-flip semantics (matrix §C; UI-PARADIGM-002)
-	-- Text entry CARRIES across a device ARRIVING mid-edit (a hardware keyboard
-	-- supersedes the on-screen one; editing + the sinking context survive with the
-	-- text intact) — nothing to do, the edit is class-agnostic. The one CANCEL: the
-	-- editing SURFACE class goes away mid-edit — a dock dismisses the on-screen
-	-- keyboard (touch was live at edit-start, touch leaves the live set) and no
-	-- hardware keyboard remains to supersede it. The engine may not report that as
-	-- a FocusLost, so end the edit through the EXISTING commit path: the sink
-	-- context comes down (endEditing), navigation resumes, and the value model
-	-- keeps the last accepted text (never dropped). Keyed off the LIVE class set, never preferredInput alone.
 	do
-		scope:own(core:observe(env:get("interactionClasses"), function(classes)
+		owner.watch(function(use)
+			local classes = use(env:get("interactionClasses"))
 			if type(classes) ~= "table" then
 				return
 			end
-			if editing:get() and touchLiveAtEditStart and classes.touch ~= true and classes.keyboard ~= true then
+			if editing:peek() and touchLiveAtEditStart and classes.touch ~= true and classes.keyboard ~= true then
 				commit("focusLost")
 			end
-		end))
+		end)
 	end
-
-	-- clear affordance: empties the value as a USER edit (runs the pipeline so
-	-- validate/maxLength apply); fires onChange, does NOT commit. Focus returns
-	-- to the field naturally: the clear button vanishes (value empty) and the
-	-- focus graph moves to the nearest survivor on the next refresh.
 	local function clearValue()
-		if disabledMemo:get() then
+		if disabledMemo:peek() then
 			return
 		end
 		applyProposed("")
 	end
-
-	-- ---- render-adapter text handlers (engine -> model) ----------------------
 	local function onTextChanged(text: string)
-		if editing:get() then
+		if editing:peek() then
 			applyProposed(text)
 		end
 	end
-	-- engine-initiated focus (native TextBox tap / gamepad A on the real engine):
-	-- learn the field's full path HERE — on that path handleActivate never runs
-	-- (setActivateHandler is a no-op for a non-GuiButton), so this is the only
-	-- place the path is learned, and beginEditing must end up occlusion-capable
-	-- (F1). Idempotent with the activate path (which also learns the path).
 	local function onFocusGained(path: string?)
 		if path ~= nil then
 			fieldFullPath = path
@@ -716,8 +534,6 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			commit(reason)
 		end
 	end
-
-	-- ---- public api ----------------------------------------------------------
 	local api = {} :: any
 	api.editing = editing
 	api.submit = function()
@@ -729,39 +545,20 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		renderController = controller
 		ownerReservesAppChrome = reserveAppChrome ~= false
 	end
-
-	-- presenter auto-wiring seam: bind the action system that raises
-	-- the edit-mode sink context. Idempotent + guarded so spec.actionSystem
-	-- injection and this never double-create the context (first writer wins).
 	function api.bindActionSystem(sys: any)
 		if actionSystemRef == nil then
 			actionSystemRef = sys
 		end
 	end
-
-	-- TAB LEAVES THROUGH THE COMMIT PATH (roadmap Step 8). Desktop Tab out
-	-- of a text field means "I am done with this field" — so it runs the SAME
-	-- commit the Return key and a focus loss run (defensive re-validate, then
-	-- `onCommit`), ends the edit, and returns false so the presenter advances the
-	-- ring. It never types a tab character (the field is out of editing before the
-	-- ring moves, and every accepted value still goes through `applyProposed`), and
-	-- it never advances out of a still-open edit. Not editing: nothing to consume,
-	-- so Tab is plain traversal.
-	-- (the presenter only offers this to contributions whose mounted path is a
-	-- prefix of the focused one, so `path` is always inside this control)
 	function api.handleTraverse(_path: string, _direction: number): boolean
-		if not editing:get() then
+		if not editing:peek() then
 			return false
 		end
 		commit("focusLost")
 		return false -- the edit is closed: let the ring move on
 	end
-
-	-- the field is a single-cell focus group (one horizontal group); a disabled
-	-- field contributes nothing (its field opts out of focus). rootNode is the
-	-- control's mounted root (the Anchor), so the field path is <root>/Field.
 	function api.focusGroups(rootNode: any): { any }
-		if not enabledMemo:get() then
+		if not enabledMemo:peek() then
 			return {}
 		end
 		return {
@@ -780,25 +577,18 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	end
 
 	local idPattern = patternEscape(id) .. (if presentation == "number" then "/Input" else "")
-
-	-- routes a presenter/tap Activate; returns true when the path was ours.
-	-- The field enters editing; the clear affordance empties the value.
 	function api.handleActivate(path: string, _meta: any?): boolean
 		if string.match(path, `/{idPattern}{if spec.multiline then "/Viewport" else ""}/Field$`) ~= nil then
 			fieldFullPath = path -- learn our full path for keep-visible
 			beginEditing()
 			return true
 		end
-		if string.match(path, `/{idPattern}/ClearWhen/then/Clear$`) ~= nil then
+		if string.match(path, `/{idPattern}/Clear$`) ~= nil then
 			clearValue()
 			return true
 		end
 		return false
 	end
-
-	-- fed the controller's rectOf after each layout (presenter onGeometry seam):
-	-- store it (so beginEditing can capture) and refresh the field rect while
-	-- editing, guarded by equality so a stable rect never churns the memo
 	function api.syncGeometry(rectOf: (string) -> any, rootNode: any?)
 		if disposed then
 			return
@@ -809,42 +599,31 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		latestRectOf = rectOf
 		if spec.multiline and rootNode then
 			local frame = rectOf(rootNode.path)
-			local metrics = env:get("themeMetrics"):get()
+			local metrics = env:get("themeMetrics"):peek()
 			local inset = metrics.chromeInsets and metrics.chromeInsets.field
 			local height = if frame then math.max(0, frame.h - (if inset then inset.top + inset.bottom else 0)) else 0
-			if height ~= viewportHeight:get() then
+			if height ~= viewportHeight:peek() then
 				viewportHeight:set(height)
 			end
 		end
-		if fieldFullPath ~= nil and editing:get() then
+		if fieldFullPath ~= nil and editing:peek() then
 			local r = rectOf(if spec.multiline and rootNode then rootNode.path else fieldFullPath)
 			if spec.multiline and rootNode and renderController then
-				-- Reveal the editor viewport inside its ancestor scroller before lifting
-				-- the surface. Translating an already clipped field cannot reveal it.
 				renderController.scrollToVisible(rootNode.path)
 				local painted = renderController.screenRectOf(rootNode.path)
 				if painted then
-					r = { x = painted.x, y = painted.y + keepVisibleOffset:get(), w = painted.w, h = painted.h }
+					r = { x = painted.x, y = painted.y + keepVisibleOffset:peek(), w = painted.w, h = painted.h }
 				end
 			end
-			if not rectsEqual(fieldRect:get(), r) then
+			if not rectsEqual(fieldRect:peek(), r) then
 				fieldRect:set(r)
 			end
 		end
 	end
-
-	-- ---- blueprint -----------------------------------------------------------
-	-- The composite is an Anchor overlay: the TextField fills it (a fill child
-	-- stretches to the full anchor), and the clear button is anchored to the
-	-- RIGHT edge (vertically centered) and pulled IN by CLEAR_INSET via offsetX.
-	-- (An Anchor honors per-child anchor/offsetX — a ZStack does not, and a
-	-- ZStack right-padding insets the field AND the ✕ equally, leaving no gap
-	-- between them — the WP7 drive defect.) The ✕ glyph is × (U+00D7): the
-	-- dingbat ✕ (U+2715) is absent from BuilderSans and rendered as tofu
-	-- (live-confirmed in the gallery drive).
 	local function clearButtonView(): any
 		return UI.Button({
 			id = "Clear",
+			onActivate = clearValue,
 			label = "Clear",
 			align = "center",
 			children = {
@@ -862,42 +641,15 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			},
 			anchor = "right",
 			offsetX = CLEAR_INSET,
-			-- A GLYPH CHIP IS NOT A LABELLED BUTTON, and it was being geometried
-			-- like one (director round 10, found live 2026-07-26).
-			--
-			-- `padding = 0`: a Button's default text inset is `controls.button.padding`
-			-- — 12 a side — which exists to keep a WORD off a plate's edge. Spent on a
-			-- 28px box it leaves 4px for the ×, so the glyph drew at its natural size
-			-- outside its own plate. A chip whose entire content is one centred glyph
-			-- wants no inset at all.
-			--
-			-- `minMax`, not `fixed`: 28 is the FLOOR, so flat themes are unchanged to
-			-- the pixel, but a package that skins `control` with inset-bearing art
-			-- (Glossy Touch reserves 14 a side, Pixel Quest 16) can grow the box for
-			-- its own frame instead of reserving that frame out of the glyph's room —
-			-- which is how the ✕ ended up outside the button on both of them.
 			padding = 0,
 			width = { type = "minMax", min = CLEAR_SIZE },
-			-- ...AND A CEILING ON THE AXIS THAT HAS ONE (measured 2026-07-27). A
-			-- floor alone let the box grow past the thing it lives INSIDE: Pixel
-			-- Quest reserves 16px a side, which took a 28px chip to 52 inside a
-			-- 44px field, so the ✕ hung out of the field top and bottom. The field's
-			-- own height is the honest ceiling, and it is the same metric the field
-			-- is built from, so a package that makes its fields taller gets a taller
-			-- chip for free. Width needs no ceiling: a field is always far wider
-			-- than a glyph plus a frame.
 			height = { type = "minMax", min = CLEAR_SIZE, max = FIELD_HEIGHT },
-			-- CHIP, so it is not the field's own colour on the field's own
-			-- colour. With the default control surface this button was a plate
-			-- the same shade as the field it sits inside — invisible on an
-			-- a physical phone, where the reporter could not find the clear
-			-- affordance at all while a filter was active.
 			surface = "chip",
 		})
 	end
 
 	local defaultHeight = if spec.multiline
-		then scope:own(core:memo(function(use)
+		then Compose.formula(function(use)
 			local raw = use(env:get("themeMetrics"))
 			local metrics = if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
 			local height = metrics.controls.textInput.multilineHeight
@@ -905,47 +657,30 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
 				local insets = use(env:get("coreSafeInsets"))
-				--[[ ...and the host's own reserved band when the OWNER surface reserves it:
-					above this field for the same reason the platform's row is, and absent
-					inside a modal, which takes the screen (`appChromeInsets`, 2026-09-13).
 
-					THE CONDITIONAL `use()` IS SAFE, and that is a claim about the flag
-					rather than about this memo. `ownerReservesAppChrome` is not reactive
-					and cannot become so: it is one surface's answer, decided once in
-					`makeHandle` before a single contribution is bound (and, for an
-					anchored surface, INHERITED there from its source), so it is constant
-					for as long as this field is mounted. A dependency that appears or
-					disappears with a value that can change would be the trap — this one
-					changes only by re-presenting the surface, which rebuilds the memo. ]]
 				local hostChrome = if ownerReservesAppChrome then use(env:get("appChromeInsets")) else nil
 				local hostTop = if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 				local room = occlusion.y - viewport.y - (insets.top or 0) - hostTop - KEEP_VISIBLE_MARGIN
 				height = math.min(height, math.max(metrics.controls.textInput.fieldHeight, room))
 			end
 			return { type = "fixed", px = height }
-		end))
+		end)
 		else { type = "minMax", min = FIELD_HEIGHT }
 	local rootView = UI.Anchor
 	local rootSpec = {
 		id = if presentation == "number" then "Input" else id,
 		width = { type = "fill", weight = 1 },
 		height = spec.height or defaultHeight,
-		-- the shake, on the FIELD (never the number presentation's outer stack):
-		-- the message beneath it is the information and must hold still while the
-		-- field it describes moves. `nil` at rest keeps every resting field off the
-		-- presentation channel's composition path entirely.
-		offset = scope:own(core:memo(function(use)
+		offset = Compose.formula(function(use)
 			local x = use(shakeOffset)
 			return if x == 0 then nil else { x = x, y = 0 }
-		end)),
+		end),
 		children = {
 			UI.TextField({
 				id = "Field",
 				text = spec.value,
 				multiline = spec.multiline,
 				surface = "plain",
-				-- A centered single line needs horizontal inset; the skin owns
-				-- vertical clearance. Multiline keeps its inset on all four sides.
 				padding = if spec.multiline
 					then nil
 					else { left = "controls.textInput.padding", right = "controls.textInput.padding" },
@@ -958,21 +693,16 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				keyboardType = spec.keyboardType or "default",
 				width = { type = "fill", weight = 1 },
 				height = if spec.multiline
-					then scope:own(core:memo(function(use)
+					then Compose.formula(function(use)
 						return { type = "minMax", min = use(viewportHeight) }
-					end))
+					end)
 					else UI.fill(),
-				-- engine -> model seam (functions, not engine writes)
 				onTextChanged = onTextChanged,
 				onFocusGained = onFocusGained,
 				onFocusLost = onFocusLost,
 			}),
 
-			UI.When({
-				id = "ClearWhen",
-				condition = clearVisible,
-				thenView = clearButtonView,
-			}),
+			Compose.show(clearVisible, clearButtonView),
 		},
 	}
 	if presentation == "search" then
@@ -994,9 +724,9 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	rootSpec.surface = "chip"
 	rootSpec.enabled = if spec.enabled ~= nil
 		then spec.enabled
-		elseif spec.disabled ~= nil then scope:own(core:memo(function(use)
-			return (if isReadable(spec.disabled) then use(spec.disabled) else spec.disabled) ~= true
-		end))
+		elseif spec.disabled ~= nil then Compose.formula(function(use)
+			return read(spec.disabled, use) ~= true
+		end)
 		else nil
 	rootSpec.children[1] = chromeSlots.attachHint(rootSpec.children[1], { slot = chromeSlots.NO_SLOT })
 	if spec.multiline then
@@ -1004,9 +734,9 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		rootSpec.children[1] = UI.ScrollView({
 			id = "Viewport",
 			width = UI.fill(),
-			height = scope:own(core:memo(function(use)
+			height = Compose.formula(function(use)
 				return { type = "fixed", px = use(viewportHeight) }
-			end)),
+			end),
 			padding = { right = "s" },
 			children = { field },
 		})
@@ -1026,40 +756,34 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 					tint = { role = "danger", blend = 1 },
 					textSize = "caption",
 					width = UI.fill(),
-					hidden = scope:own(core:memo(function(use)
+					hidden = Compose.formula(function(use)
 						return use(validationError) == ""
-					end)),
+					end),
 				}),
 			},
 		})
 	end
-	-- deterministic diagnostic summary (§10.2 control contract dump form)
 	local function dump()
 		return {
 			schema = "facet-text_input-dump/1",
 			presentation = presentation,
-			validationError = validationError:get(),
-			numericValue = if spec.numericValue then spec.numericValue:get() else nil,
+			validationError = validationError:peek(),
+			numericValue = if spec.numericValue then read(spec.numericValue) else nil,
 			id = id,
-			value = spec.value:get(),
+			value = read(spec.value),
 			multiline = spec.multiline == true,
-			editing = editing:get(),
-			disabled = disabledMemo:get(),
-			placeholderVisible = spec.value:get() == "",
-			clearVisible = clearVisible:get(),
+			editing = editing:peek(),
+			disabled = disabledMemo:peek(),
+			placeholderVisible = read(spec.value) == "",
+			clearVisible = clearVisible:peek(),
 			clearButtonMode = clearMode,
-			occlusionOffset = keepVisibleOffset:get(),
-			-- declared engine-intent hints (data). keyboardType is applied to the
-			-- engine behind capability detection; submitLabel has no reachable public
-			-- engine surface (justified engine-absent exception) — both stay valid data.
+			occlusionOffset = keepVisibleOffset:peek(),
 			keyboardType = spec.keyboardType or "default",
 			submitLabel = spec.submitLabel or "default",
 		}
 	end
 
 	return {
-		-- attach the input contribution to the root so the presenter auto-wires
-		-- the field's four-input story with no consumer opts
 		blueprint = contribution.attach(blueprint, {
 			focusGroups = api.focusGroups,
 			handleActivate = api.handleActivate,
@@ -1068,9 +792,6 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			bindActionSystem = api.bindActionSystem,
 			bindController = api.bindController,
 			handleTraverse = api.handleTraverse,
-			-- the presenter's own motion clock (contribution.luau bindMotion): the
-			-- shake's only time source, so it is headlessly deterministic and a
-			-- control mounted WITHOUT a presenter simply never shakes
 			bindMotion = function(clock: any)
 				motionClock = clock
 			end,
@@ -1078,25 +799,32 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		api = api,
 		dump = dump,
 		dispose = function()
-			-- restore any keep-visible offset BEFORE teardown: ending editing
-			-- drives keepVisibleOffset back to 0 while the memo and the
-			-- presenter's observer are still live, so disposing the control
-			-- mid-occlusion (screen still presented) never leaves the screen
-			-- root frozen shifted up. A no-op when not editing
-			-- (offset is already 0).
+			if disposed then
+				return
+			end
 			endEditing()
 			disposed = true
-			-- ...and stop any shake before the scope goes: the timeline is attached to
-			-- the PRESENTER's clock, which outlives this control, so a beat left armed
-			-- would keep firing for a node that is no longer in the tree and write a
-			-- signal this line is about to dispose
 			if shaking ~= nil then
 				shaking:interrupt()
 				shaking = nil
 			end
-			scope:dispose()
+			owner.dispose()
 		end,
 	}
+end
+
+-- The handle owns one Compose lifetime, including callbacks created after mount.
+function text_input.build(Facet: any, core: any, spec: Spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 
 return text_input

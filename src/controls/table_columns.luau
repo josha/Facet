@@ -1,7 +1,7 @@
 --!strict
 --[[ COLUMN-WIDTH RESOLUTION for `controls/table.luau` — the pure half.
 
-	One rule lives here, and it is here rather than inside `newTable` for the
+	One rule lives here, and it is here rather than inside `UI.Table` for the
 	reason the source-cap ledger states about that file: every large block in it
 	closes over mutable instance state, so nothing can be reasoned about at a
 	viewport nobody is holding. This takes the columns, the committed overrides

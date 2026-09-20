@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ W1b — A RECYCLED INSTANCE DOES NOT KEEP A STYLE PROP IT NEVER DECLARED.
 
 	W1 (`fa289d5a`) deleted `propSigCache`, keyed on the props TABLE identity and
@@ -112,7 +113,8 @@ local fs = require("@lune/fs")
 local src_tree = require("./lib/src_tree")
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 
 describe("W1b/R2: the cache stays gone, and the signature is BINDING ∪ STYLE", function()
 	it("`propSigCache` is not a declared local anywhere in the renderer or the seam", function()
@@ -709,14 +711,14 @@ end)
 -- THE DRIVEN REPRODUCTION: a virtualized list (200 rows, VIEWPORT 360x640,
 -- ROW_HEIGHT 56, overscan 2), ragged the way `instance_recycling.spec.luau`
 -- established the term — every third row ("odd", `n % 3 == 0`) wires `shadow`
--- as a reactive `core:signal(nil)` on its outer HStack; every other row never
+-- as a reactive `Compose.cell(nil)` on its outer HStack; every other row never
 -- declares `shadow` at all.
 -- ============================================================================
 
 local ROW_HEIGHT = 56
 local VIEWPORT = { w = 360, h = 640 }
 local ROW_COUNT = 200
-local REAL_SHADOW = Facet.UI.shadowData({ blurRadius = { scale = 0, offset = 8 } })
+local REAL_SHADOW = harness.UI.shadowData({ blurRadius = { scale = 0, offset = 8 } })
 
 local function makeItems(n: number)
 	local out = {}
@@ -738,10 +740,10 @@ local function buildWorld()
 	for _, item in items do
 		local n = tonumber(string.match(item.id, "%d+")) :: number
 		if n % 3 == 0 then
-			shadowSignals[item.id] = w.core:signal(nil :: any)
+			shadowSignals[item.id] = Compose.cell(nil :: any)
 		end
 	end
-	local rows = w.core:signal(items)
+	local rows = Compose.cell(items)
 	local list = virtual_list.build(Facet, w.core, {
 		id = "VL",
 		rows = rows,
@@ -752,20 +754,20 @@ local function buildWorld()
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.HStack({
+			return harness.UI.HStack({
 				id = "Row",
 				gap = 6,
 				-- declared on EVERY odd row (reactive, starts nil); ABSENT on
 				-- every other row
 				shadow = shadowSignals[item.id],
 				children = {
-					Facet.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
-					Facet.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
+					harness.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
+					harness.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
 				},
 			})
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	w.present(screen)
 	list.bindNativeScroll(w.controller)
 	local wAny = w :: any
@@ -809,7 +811,7 @@ local function flipVisibleOdds(w: any)
 		local n = itemOf(path)
 		if n ~= nil and n % 6 == 0 then
 			local sig = w.shadowSignals[`r{n}`]
-			if sig:get() == nil then
+			if sig:peek() == nil then
 				sig:set(REAL_SHADOW)
 				flipped = true
 			end
@@ -886,7 +888,7 @@ describe("W1b: the brief's own reproduction, now green", function()
 			if
 				n ~= nil
 				and n % 3 == 0
-				and (w :: any).shadowSignals[`r{n}`]:get() == nil
+				and (w :: any).shadowSignals[`r{n}`]:peek() == nil
 				and (node.props :: any).shadow ~= nil
 			then
 				table.insert(offenders, path)
@@ -966,10 +968,10 @@ describe("W1b: no risk at all when a row's declared props never cross nil", func
 		for _, item in items do
 			local n = tonumber(string.match(item.id, "%d+")) :: number
 			if n % 3 == 0 then
-				shadowSignals[item.id] = w.core:signal(REAL_SHADOW)
+				shadowSignals[item.id] = Compose.cell(REAL_SHADOW)
 			end
 		end
-		local rows = w.core:signal(items)
+		local rows = Compose.cell(items)
 		local list = virtual_list.build(Facet, w.core, {
 			id = "VL",
 			rows = rows,
@@ -980,18 +982,18 @@ describe("W1b: no risk at all when a row's declared props never cross nil", func
 			viewportHeight = VIEWPORT.h,
 			overscan = 2,
 			cell = function(item: any)
-				return Facet.UI.HStack({
+				return harness.UI.HStack({
 					id = "Row",
 					gap = 6,
 					shadow = shadowSignals[item.id],
 					children = {
-						Facet.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
-						Facet.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
+						harness.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
+						harness.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
 					},
 				})
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 		w.present(screen)
 		list.bindNativeScroll(w.controller)
 		walkAndChurn(w)
@@ -1027,7 +1029,7 @@ describe("T8 R2, Critical 1: the create-time key signs BINDING as well as STYLE"
 	it("a row that never declares `enabled` does not adopt an instance wearing a stale `enabled = false`", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h } })
 		local items = makeItems(ROW_COUNT)
-		local rows = w.core:signal(items)
+		local rows = Compose.cell(items)
 		local list = virtual_list.build(Facet, w.core, {
 			id = "VL",
 			rows = rows,
@@ -1039,7 +1041,7 @@ describe("T8 R2, Critical 1: the create-time key signs BINDING as well as STYLE"
 			overscan = 2,
 			cell = function(item: any)
 				local n = tonumber(string.match(item.id, "%d+")) :: number
-				return Facet.UI.Button({
+				return harness.UI.Button({
 					id = "Row",
 					label = item.label,
 					-- declared (false) on every third row only; ABSENT (nil, not
@@ -1049,7 +1051,7 @@ describe("T8 R2, Critical 1: the create-time key signs BINDING as well as STYLE"
 				})
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 		w.present(screen)
 		list.bindNativeScroll(w.controller)
 		walkAndChurn(w)
@@ -1094,7 +1096,7 @@ describe(
 		it("a row that never declares `padding` does not adopt an instance wearing a stale text inset", function()
 			local w = world.new({ viewport = { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h } })
 			local items = makeItems(ROW_COUNT)
-			local rows = w.core:signal(items)
+			local rows = Compose.cell(items)
 			local list = virtual_list.build(Facet, w.core, {
 				id = "VL",
 				rows = rows,
@@ -1106,14 +1108,14 @@ describe(
 				overscan = 2,
 				cell = function(item: any)
 					local n = tonumber(string.match(item.id, "%d+")) :: number
-					return Facet.UI.Text({
+					return harness.UI.Text({
 						id = "Row",
 						text = item.label,
 						padding = if n % 3 == 0 then 8 else nil,
 					})
 				end,
 			})
-			local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+			local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 			w.present(screen)
 			list.bindNativeScroll(w.controller)
 			walkAndChurn(w)
@@ -1173,7 +1175,7 @@ describe("T8 R2, Important 2: the compact ladder's derived writes route through 
 	it("an image-form row never adopts an icon-form row's stray `icon`", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h } })
 		local items = makeItems(ROW_COUNT)
-		local rows = w.core:signal(items)
+		local rows = Compose.cell(items)
 		local list = virtual_list.build(Facet, w.core, {
 			id = "VL",
 			rows = rows,
@@ -1187,7 +1189,7 @@ describe("T8 R2, Important 2: the compact ladder's derived writes route through 
 				local n = tonumber(string.match(item.id, "%d+")) :: number
 				local longLabel = `This label is far too long to fit in fifty pixels, row {item.id}`
 				local compactLabel = if n % 2 == 0 then { icon = "flag" } else { image = "rbxassetid://1" }
-				return Facet.UI.Button({
+				return harness.UI.Button({
 					id = "Row",
 					label = longLabel,
 					compactLabel = compactLabel,
@@ -1196,7 +1198,7 @@ describe("T8 R2, Important 2: the compact ladder's derived writes route through 
 				})
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 		w.present(screen)
 		list.bindNativeScroll(w.controller)
 		walkAndChurn(w)

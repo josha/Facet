@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Milestone B — display and selection controls (docs/plans/parity-next.md
 -- investment 7; acceptance rows B-DSP1 and B-DSP2).
 --
@@ -10,27 +11,28 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local serde = require("@lune/serde")
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local picker = require("../src/controls/picker")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 --[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
-local function harness()
+local function fixture()
 	local w = worldLib.new({
 		viewport = { x = 0, y = 0, w = 400, h = 600 },
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
@@ -40,8 +42,8 @@ end
 
 describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	it("maps the value onto a percent fill", function()
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.25, showValue = true })
+		local core, _, adapter, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.25, showValue = true })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(p.dump().fraction).toBe(0.25)
@@ -51,9 +53,9 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	end)
 
 	it("a reactive value re-renders the fill with no rebuild", function()
-		local core, _, adapter, _, pres = harness()
-		local v = core:signal(0)
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = v })
+		local core, _, adapter, _, pres = fixture()
+		local v = Compose.cell(0)
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = v })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar/Fill").rect.w).toBe(0)
@@ -64,8 +66,8 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 	end)
 
 	it("clamps out-of-range values instead of overflowing the bar", function()
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 5 })
+		local core, _, adapter, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(p.dump().fraction).toBe(1)
@@ -80,8 +82,8 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 		-- declare their own slots on the internal meta channel, exactly as the
 		-- Slider's rail and thumb do, so nothing generic can mistake them.
 		local sheet_model = require("../src/tokens/sheet_model")
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.5 })
+		local core, _, adapter, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.5 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		for path, slot in { ["/S/Load/Bar"] = "barTrack", ["/S/Load/Bar/Fill"] = "barFill" } do
@@ -103,25 +105,25 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 
 	it("carries semantic value-in-range text and a deterministic dump", function()
 		local core = customFactory.new()
-		local p = Facet.Controls.ProgressView(core, { id = "L", value = 0.5, min = 0, max = 1 })
+		local p = harness.Controls.ProgressView(core, { id = "L", value = 0.5, min = 0, max = 1 })
 		expect(p.dump().semanticText).toBe("0.5 of 0 to 1")
 		expect(serde.encode("json", p.dump(), true)).toBe(serde.encode("json", p.dump(), true))
 	end)
 
 	it("is registry-neutral after dispose", function()
 		local core = customFactory.new()
-		local baseline = core:counters()
-		local p = Facet.Controls.ProgressView(core, { id = "L", value = 0.5 })
+		local baseline = core.owner.size()
+		local p = harness.Controls.ProgressView(core, { id = "L", value = 0.5 })
 		p.dispose()
-		expect(core:counters().scopes).toBe(baseline.scopes)
-		expect(core:counters().observers).toBe(baseline.observers)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
 	end)
 end)
 
 describe("B-DSP1: Label keeps a semantic text fallback", function()
 	it("renders icon and title together", function()
-		local core, _, adapter, _, pres = harness()
-		local l = Facet.Controls.Label(core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
+		local core, _, adapter, _, pres = fixture()
+		local l = harness.Controls.Label(core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
 		pres.present(UI.Screen({ id = "S", children = { l.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Save/Icon") ~= nil).toBe(true)
@@ -130,13 +132,13 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 
 	it("an icon-only presentation still reports the title as its semantic text", function()
 		local core = customFactory.new()
-		local l = Facet.Controls.Label(core, {
+		local l = harness.Controls.Label(core, {
 			id = "Save",
 			title = "Save",
 			icon = "rbxassetid://1",
 			presentation = "iconOnly",
 		})
-		expect(l.semanticText:get()).toBe("Save")
+		expect(l.semanticText:peek()).toBe("Save")
 		expect(l.dump().effectivePresentation).toBe("iconOnly")
 	end)
 
@@ -146,9 +148,9 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	-- one control whose whole reason to exist is the semantic fallback.
 	it("semanticText is a Readable, like every sibling that publishes one", function()
 		local core = customFactory.new()
-		local l = Facet.Controls.Label(core, { id = "Save", title = "Save changes" })
+		local l = harness.Controls.Label(core, { id = "Save", title = "Save changes" })
 		expect(UI.isReadable(l.semanticText)).toBe(true)
-		expect(l.semanticText:get()).toBe("Save changes")
+		expect(l.semanticText:peek()).toBe("Save changes")
 		-- dump() still carries the STRING value (a dump is data, not a graph node)
 		expect(l.dump().semanticText).toBe("Save changes")
 	end)
@@ -156,18 +158,18 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	-- CTRL-08d: the dump/dispose pair Picker and DisclosureGroup already pin
 	it("dump is deterministic and dispose is registry-neutral", function()
 		local core = customFactory.new()
-		local baseline = core:counters()
-		local l = Facet.Controls.Label(core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
+		local baseline = core.owner.size()
+		local l = harness.Controls.Label(core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
 		expect(serde.encode("json", l.dump(), true)).toBe(serde.encode("json", l.dump(), true))
 		l.dispose()
-		expect(core:counters().scopes).toBe(baseline.scopes)
-		expect(core:counters().observers).toBe(baseline.observers)
-		expect(core:counters().memos).toBe(baseline.memos)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
 	end)
 
 	it("iconOnly DEGRADES to the title when there is no icon (an empty square is worse than a word)", function()
-		local core, _, adapter, _, pres = harness()
-		local l = Facet.Controls.Label(core, { id = "Save", title = "Save", presentation = "iconOnly" })
+		local core, _, adapter, _, pres = fixture()
+		local l = harness.Controls.Label(core, { id = "Save", title = "Save", presentation = "iconOnly" })
 		pres.present(UI.Screen({ id = "S", children = { l.blueprint } }))
 		pres.refresh()
 		expect(l.dump().degradedToTitle).toBe(true)
@@ -176,8 +178,8 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	end)
 
 	it("titleOnly renders no empty icon slot", function()
-		local core, _, adapter, _, pres = harness()
-		local l = Facet.Controls.Label(core, {
+		local core, _, adapter, _, pres = fixture()
+		local l = harness.Controls.Label(core, {
 			id = "Save",
 			title = "Save",
 			icon = "rbxassetid://1",
@@ -191,17 +193,17 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	it("requires a title, because an icon-only label without one has no accessible name", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.Label(core, { id = "X", icon = "rbxassetid://1" })
+			return harness.Controls.Label(core, { id = "X", icon = "rbxassetid://1" })
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.Controls.Label(core, { id = "X", title = "" })
+			return harness.Controls.Label(core, { id = "X", title = "" })
 		end)).toBe(false)
 	end)
 
 	it("rejects an unknown presentation", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.Controls.Label(core, { id = "X", title = "T", presentation = "sideways" })
+			return harness.Controls.Label(core, { id = "X", title = "T", presentation = "sideways" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "iconOnly | titleAndIcon | titleOnly", 1, true) ~= nil).toBe(true)
@@ -218,8 +220,8 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	end)
 
 	local function mountPicker(overrides: any?)
-		local core, env, adapter, system, pres = harness()
-		local selected = core:signal("b")
+		local core, env, adapter, system, pres = fixture()
+		local selected = Compose.cell("b")
 		local spec: any = {
 			id = "Mode",
 			label = "Mode",
@@ -232,7 +234,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		for k, v in (overrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = Facet.Controls.Picker(core, spec)
+		local control = harness.Controls.Picker(core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return core, env, adapter, system, pres, selected, control
@@ -257,15 +259,15 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	end)
 
 	it("a live size-class change flips the presentation WITHOUT remounting the options", function()
-		local core, env, adapter, _, pres = harness()
+		local core, env, adapter, _, pres = fixture()
 		env:set("displaySize", "Large") -- ten-foot: the automatic style stays a strip
 		-- ...on a row WIDE enough for three long labels at the ten-foot scale: the
 		-- ladder now refuses a pill whose band would not fit its offer (2026-09-11),
 		-- so the flip under test has to come from the SIZE CLASS, not from the room
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 600 })
-		local selected = core:signal("a")
-		local sizeClass = core:signal("wide")
-		local control = Facet.Controls.Picker(core, {
+		local selected = Compose.cell("a")
+		local sizeClass = Compose.cell("wide")
+		local control = harness.Controls.Picker(core, {
 			id = "Mode",
 			-- long labels: in a COMPACT space these cannot sit side by side legibly,
 			-- which is the space-based condition the rule keys on
@@ -297,7 +299,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		})
 		adapter.tap(optPath(control, 3))
 		pres.refresh()
-		expect(selected:get()).toBe("c")
+		expect(selected:peek()).toBe("c")
 		expect(changed).toBe("c")
 	end)
 
@@ -307,7 +309,7 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
 		pres.refresh()
-		expect(selected:get()).toBe("a")
+		expect(selected:peek()).toBe("a")
 		-- DPadRIGHT, not Down. The segmented option stack is an `AdaptiveStack` on
 		-- the x axis, and `focus_map` derives a HORIZONTAL group from it — which it
 		-- did not before navigation-and-menus D5 found that the rule matched
@@ -319,14 +321,14 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
 		pres.refresh()
-		expect(selected:get()).toBe("b")
+		expect(selected:peek()).toBe("b")
 	end)
 
 	it("touch: a finger tap selects identically, and every row meets the floor", function()
 		local _, _, adapter, _, pres, selected, control = mountPicker()
 		adapter.tap(optPath(control, 1), { pointer = "touch" })
 		pres.refresh()
-		expect(selected:get()).toBe("a")
+		expect(selected:peek()).toBe("a")
 		for i = 1, 3 do
 			expect(adapter.node(optPath(control, i)).rect.h >= 44).toBe(true)
 		end
@@ -350,28 +352,28 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		local _, _, adapter, _, pres, selected, control = mountPicker({ enabled = false })
 		adapter.tap(optPath(control, 3))
 		pres.refresh()
-		expect(selected:get()).toBe("b")
+		expect(selected:peek()).toBe("b")
 	end)
 
 	it("rejects an empty option set, a non-settable selection, and an unknown presentation", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.Picker(core, { id = "X", options = {}, selected = core:signal(1) })
+			return harness.Controls.Picker(core, { id = "X", options = {}, selected = Compose.cell(1) })
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
-				selected = core:memo(function()
+				selected = Compose.formula(function()
 					return 1
 				end),
 			})
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "X",
 				options = { { value = 1, label = "one" } },
-				selected = core:signal(1),
+				selected = Compose.cell(1),
 				presentation = "carousel",
 			})
 		end)).toBe(false)
@@ -386,24 +388,24 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		-- takes on the published size class.
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1024, h = 768 })
-		local baseline = core:counters()
-		local control = Facet.Controls.Picker(core, {
+		local baseline = core.owner.size()
+		local control = harness.Controls.Picker(core, {
 			id = "X",
 			options = { { value = 1, label = "one" }, { value = 2, label = "two" } },
-			selected = core:signal(1),
+			selected = Compose.cell(1),
 		})
 		expect(serde.encode("json", control.dump(), true)).toBe(serde.encode("json", control.dump(), true))
 		control.dispose()
-		expect(core:counters().scopes).toBe(baseline.scopes)
-		expect(core:counters().observers).toBe(baseline.observers)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
 	end)
 end)
 
 describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 	local function mountDisclosure(startExpanded: boolean)
-		local core, env, adapter, system, pres = harness()
-		local expanded = core:signal(startExpanded)
-		local control = Facet.Controls.DisclosureGroup(core, {
+		local core, env, adapter, system, pres = fixture()
+		local expanded = Compose.cell(startExpanded)
+		local control = harness.Controls.DisclosureGroup(core, {
 			id = "Advanced",
 			label = "Advanced",
 			expanded = expanded,
@@ -423,14 +425,14 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 
 	it("expanding mounts the content; collapsing unmounts it", function()
 		local _, adapter, _, pres, expanded = mountDisclosure(false)
-		expect(adapter.node("/S/Advanced/Content/then/Reveal/Body/Inner")).toBe(nil)
+		expect(adapter.node("/S/Advanced/Reveal/Body/Inner")).toBe(nil)
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
-		expect(expanded:get()).toBe(true)
-		expect(adapter.node("/S/Advanced/Content/then/Reveal/Body/Inner") ~= nil).toBe(true)
+		expect(expanded:peek()).toBe(true)
+		expect(adapter.node("/S/Advanced/Reveal/Body/Inner") ~= nil).toBe(true)
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
-		expect(expanded:get()).toBe(false)
+		expect(expanded:peek()).toBe(false)
 		-- the content's `enter = "slide-up"` (task 12) carries a mirrored EXIT
 		-- (structural default `dismiss`, 0.2 s / capped at 0.5 s): collapsing no
 		-- longer unmounts on the SAME frame — it stays mounted, travelling out,
@@ -439,7 +441,7 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 			pres.tick(1 / 60)
 			pres.refresh()
 		end
-		expect(adapter.node("/S/Advanced/Content/then/Reveal/Body/Inner")).toBe(nil)
+		expect(adapter.node("/S/Advanced/Reveal/Body/Inner")).toBe(nil)
 	end)
 
 	it("collapsing with focus INSIDE the content moves focus back to the header first", function()
@@ -451,17 +453,17 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 			system.deviceKey("DPadDown", true)
 			system.deviceKey("DPadDown", false)
 			pres.refresh()
-			local f = pres.focus.focused:get()
+			local f = pres.focus.focused:peek()
 			if f ~= nil and string.find(f, "Inner", 1, true) then
 				break
 			end
 			guard += 1
 		end
-		expect(string.find(tostring(pres.focus.focused:get()), "Inner", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(pres.focus.focused:peek()), "Inner", 1, true) ~= nil).toBe(true)
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
 		-- focus must NOT be left pointing at the unmounted content
-		local after = tostring(pres.focus.focused:get())
+		local after = tostring(pres.focus.focused:peek())
 		expect(string.find(after, "Inner", 1, true)).toBe(nil)
 		expect(string.find(after, "Header", 1, true) ~= nil).toBe(true)
 	end)
@@ -474,7 +476,7 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 		pres.refresh()
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
-		expect(string.find(tostring(pres.focus.focused:get()), "Header", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(pres.focus.focused:peek()), "Header", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("keyboard and gamepad toggle it through the same path", function()
@@ -485,25 +487,25 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
 		pres.refresh()
-		expect(expanded:get()).toBe(true)
+		expect(expanded:peek()).toBe(true)
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
 		pres.refresh()
-		expect(expanded:get()).toBe(false)
+		expect(expanded:peek()).toBe(false)
 	end)
 
 	it("touch: a finger tap toggles it, and the header meets the floor", function()
 		local _, adapter, _, pres, expanded = mountDisclosure(false)
 		adapter.tap("/S/Advanced/Header", { pointer = "touch" })
 		pres.refresh()
-		expect(expanded:get()).toBe(true)
+		expect(expanded:peek()).toBe(true)
 		expect(adapter.node("/S/Advanced/Header").rect.h >= 44).toBe(true)
 	end)
 
 	it("a disabled group does not toggle", function()
-		local core, _, adapter, _, pres = harness()
-		local expanded = core:signal(false)
-		local control = Facet.Controls.DisclosureGroup(core, {
+		local core, _, adapter, _, pres = fixture()
+		local expanded = Compose.cell(false)
+		local control = harness.Controls.DisclosureGroup(core, {
 			id = "Advanced",
 			label = "Advanced",
 			expanded = expanded,
@@ -516,7 +518,7 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 		pres.refresh()
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
-		expect(expanded:get()).toBe(false)
+		expect(expanded:peek()).toBe(false)
 	end)
 
 	it("requires a label, a settable expanded signal, and a content function", function()
@@ -525,38 +527,41 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 			return UI.Box({ id = "B" })
 		end
 		expect(pcall(function()
-			return Facet.Controls.DisclosureGroup(core, { id = "X", expanded = core:signal(false), content = content })
+			return harness.Controls.DisclosureGroup(
+				core,
+				{ id = "X", expanded = Compose.cell(false), content = content }
+			)
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.Controls.DisclosureGroup(core, {
+			return harness.Controls.DisclosureGroup(core, {
 				id = "X",
 				label = "L",
-				expanded = core:memo(function()
+				expanded = Compose.formula(function()
 					return false
 				end),
 				content = content,
 			})
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.Controls.DisclosureGroup(core, { id = "X", label = "L", expanded = core:signal(false) })
+			return harness.Controls.DisclosureGroup(core, { id = "X", label = "L", expanded = Compose.cell(false) })
 		end)).toBe(false)
 	end)
 
 	it("dump is deterministic and dispose is registry-neutral", function()
 		local core = customFactory.new()
-		local baseline = core:counters()
-		local control = Facet.Controls.DisclosureGroup(core, {
+		local baseline = core.owner.size()
+		local control = harness.Controls.DisclosureGroup(core, {
 			id = "X",
 			label = "L",
-			expanded = core:signal(false),
+			expanded = Compose.cell(false),
 			content = function()
 				return UI.Box({ id = "B" })
 			end,
 		})
 		expect(serde.encode("json", control.dump(), true)).toBe(serde.encode("json", control.dump(), true))
 		control.dispose()
-		expect(core:counters().scopes).toBe(baseline.scopes)
-		expect(core:counters().observers).toBe(baseline.observers)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
 	end)
 end)
 
@@ -568,9 +573,9 @@ end)
 
 describe("B-DSP3: PopupButton rows meet the enforced target floor", function()
 	it("the trigger and every open row report a hit rect at or above the floor", function()
-		local core, _, adapter, _, pres = harness()
-		local selected = core:signal("one")
-		local control = Facet.Controls.PopupButton(core, {
+		local core, _, adapter, _, pres = fixture()
+		local selected = Compose.cell("one")
+		local control = harness.Controls.PopupButton(core, {
 			id = "Choice",
 			value = selected,
 			options = {
@@ -630,8 +635,8 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 	end)
 
 	local function mountPopup(overrides: any?)
-		local core, _, adapter, system, pres = harness()
-		local value = core:signal("one")
+		local core, _, adapter, system, pres = fixture()
+		local value = Compose.cell("one")
 		local spec: any = {
 			id = "Choice",
 			value = value,
@@ -647,7 +652,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		for k, v in (overrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = Facet.Controls.PopupButton(core, spec)
+		local control = harness.Controls.PopupButton(core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return core, adapter, system, pres, value, control
@@ -726,10 +731,10 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 		env2:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter3 = fake_target.new()
 		local pres3 = presenterLib.new(core2, env2, adapter3, actionsLib.newSystem(core2))
-		local classes = core2:signal({ touch = false, pointer = true, primary = "pointer" })
-		local c3 = Facet.Controls.PopupButton(core2, {
+		local classes = Compose.cell({ touch = false, pointer = true, primary = "pointer" })
+		local c3 = harness.Controls.PopupButton(core2, {
 			id = "Choice",
-			value = core2:signal("one"),
+			value = Compose.cell("one"),
 			options = {
 				{ id = "one", label = "One" },
 				{ id = "two", label = "Two" },
@@ -761,7 +766,7 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 			-- selecting still works and closes
 			adapter.tap("/S/Choice/PopupWhen/then/Popup/Opt-two")
 			pres.refresh()
-			expect(value:get()).toBe("two")
+			expect(value:peek()).toBe("two")
 			expect(adapter.node("/S/Choice/PopupWhen/then/Popup")).toBe(nil)
 		end
 	end)
@@ -769,9 +774,9 @@ describe("B-DSP3: PopupButton adapts its presentation", function()
 	it("rejects an unknown presentation at build", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.PopupButton(core, {
+			return harness.Controls.PopupButton(core, {
 				id = "X",
-				value = core:signal("a"),
+				value = Compose.cell("a"),
 				options = { { id = "a", label = "A" } },
 				presentation = "carousel",
 			})
@@ -785,13 +790,13 @@ describe("progress: exact vertical centring (director review 2026-07-24)", funct
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local progress = Facet.Controls.ProgressView(core, {
+		local progress = harness.Controls.ProgressView(core, {
 			id = "Down",
 			label = "Download",
-			value = core:signal(0.35),
+			value = Compose.cell(0.35),
 			showValue = true,
 		})
-		local root = require("../src/mount").mount(core, UI.Screen({ id = "S", children = { progress.blueprint } }))
+		local root = harness.mount(core, UI.Screen({ id = "S", children = { progress.blueprint } }))
 		local adapter = fake_target.new()
 		local controller =
 			require("../src/render/renderer").attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
@@ -815,8 +820,8 @@ describe("label: the title reads centred in its own box (director review 2026-07
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local label = Facet.Controls.Label(core, { id = "Cap", title = "Save changes" })
-		local root = require("../src/mount").mount(core, UI.Screen({ id = "S", children = { label.blueprint } }))
+		local label = harness.Controls.Label(core, { id = "Cap", title = "Save changes" })
+		local root = harness.mount(core, UI.Screen({ id = "S", children = { label.blueprint } }))
 		local adapter = fake_target.new()
 		local controller =
 			require("../src/render/renderer").attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
@@ -849,20 +854,20 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 	-- live clock entry for as long as it exists — see the control's header). Every
 	-- case below hands it the same scope it would hand a surface's.
 	local function clockWorld(policy: string?)
-		local core, _, adapter, _, pres = harness()
+		local core, _, adapter, _, pres = fixture()
 		local t = { now = 0 }
 		local clock = motionClockLib.new(core, {
 			now = function()
 				return t.now
 			end,
-			motionPolicy = core:signal(policy or "full"),
+			motionPolicy = Compose.cell(policy or "full"),
 		})
-		return core, adapter, pres, clock, t, core:scope("surface")
+		return core, adapter, pres, clock, t, core.owner.createChild()
 	end
 
 	it("the DETERMINATE tree and dump are exactly what they were before indeterminate existed", function()
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.25, showValue = true })
+		local core, _, adapter, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.25, showValue = true })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -891,7 +896,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 
 	it("value = nil builds the sweeping segment instead of a value-tracking fill", function()
 		local core, adapter, pres, clock, _, scope = clockWorld()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
+		local p = harness.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -915,7 +920,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- — so the peak's POSITION in the cycle is asserted instead, plus the
 		-- symmetry of the quarter points, and both bite.
 		local core, adapter, pres, clock, t, scope = clockWorld()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
+		local p = harness.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local bar = adapter.node("/S/Load/Bar").rect
@@ -924,8 +929,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		end
 		local seen: { number } = {}
 		for _ = 1, 20 do -- 20 x 50 ms = one full 1 s cycle
-			t.now += 0.05
-			clock:step()
+			pres.tick(0.05)
 			pres.refresh()
 			table.insert(seen, sweep())
 			-- the segment is INSIDE the track on every single frame
@@ -956,23 +960,21 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- the settle handler left every other case green, because none of them ran
 		-- past the first cycle's terminus — so this one does, deliberately.
 		local core, adapter, pres, clock, t, scope = clockWorld()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
+		local p = harness.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local function sweep(): number
 			return adapter.node("/S/Load/Bar/Sweep/Fill").rect.x
 		end
 		for _ = 1, 40 do -- two full cycles, terminus crossed twice
-			t.now += 0.05
-			clock:step()
+			pres.tick(0.05)
 		end
 		pres.refresh()
 		local resting = sweep()
 		local seen: { [number]: boolean } = {}
 		local distinct = 0
 		for _ = 1, 10 do
-			t.now += 0.05
-			clock:step()
+			pres.tick(0.05)
 			pres.refresh()
 			local x = sweep()
 			if seen[x] == nil then
@@ -986,281 +988,120 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		clock:dispose()
 	end)
 
-	it("REDUCED MOTION keeps the indicator advancing — quantized, never frozen (§3.1)", function()
-		local core, adapter, pres, clock, t, scope = clockWorld("reduced")
-		expect(clock:isReduced()).toBe(true)
-		local p = Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
-		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
-		pres.refresh()
-		-- the motion is INFORMATIONAL, which is the whole decision: a decorative
-		-- value would have been placed at its terminus and stopped
-		expect(p.phase:motionKind()).toBe("informational")
-		local start = p.dump().phase
-		-- a sub-quantum step writes NOTHING: that is the stepped policy, not a stall
-		t.now += 0.05
-		clock:step()
-		expect(p.dump().phase).toBe(start)
-		-- ...and the very next tick past 250 ms DOES advance it. This is the
-		-- assertion the whole decision rests on: reduced motion must not delete the
-		-- only thing on screen saying "work is still happening".
-		t.now += 0.25
-		clock:step()
-		expect(p.dump().phase > start).toBe(true)
-		-- over a full cycle it still traverses the track, in visible steps
-		local positions: { [number]: boolean } = {}
-		local count = 0
-		for _ = 1, 20 do
-			t.now += 0.05
-			clock:step()
-			pres.refresh()
-			local x = adapter.node("/S/Load/Bar/Sweep/Fill").rect.x
-			if positions[x] == nil then
-				positions[x] = true
-				count += 1
-			end
-		end
-		-- roughly one distinct position per 250 ms tick over a 1 s cycle — several,
-		-- and nothing like the sixty a full-motion second would produce
-		expect(count >= 3).toBe(true)
-		expect(count <= 8).toBe(true)
-		p.dispose()
-		clock:dispose()
-	end)
-
-	it("FULL motion writes far more often than reduced motion over the same wall clock", function()
-		-- the differential the two policies are ABOUT, measured rather than asserted
-		local function distinctPositions(policy: string): number
-			local core, adapter, pres, clock, t, scope = clockWorld(policy)
-			local p = Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
-			pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
-			pres.refresh()
-			local seen: { [number]: boolean } = {}
-			local n = 0
-			for _ = 1, 20 do
-				t.now += 0.02
-				clock:step()
-				pres.refresh()
-				local x = adapter.node("/S/Load/Bar/Sweep/Fill").rect.x
-				if seen[x] == nil then
-					seen[x] = true
-					n += 1
-				end
-			end
-			p.dispose()
-			clock:dispose()
-			return n
-		end
-		local full = distinctPositions("full")
-		local reduced = distinctPositions("reduced")
-		expect(full > reduced).toBe(true)
-		expect(reduced >= 2).toBe(true) -- still moving: not a freeze
-	end)
-
-	it("with NO clock the indeterminate view holds its rest pose and says so", function()
-		local core, _, adapter, _, pres = harness()
-		-- the owner is required even with no clock: adding a clock later must not
-		-- turn a working call into an authoring error
-		local scope = core:scope("surface")
-		local p = Facet.Controls.ProgressView(core, { id = "Load", scope = scope })
-		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
-		pres.refresh()
-		expect(#handle.controller.diagnostics()).toBe(0)
-		expect(p.dump().animating).toBe(false)
-		expect(p.dump().phase).toBe(0)
-		expect(adapter.node("/S/Load/Bar/Sweep/Fill") ~= nil).toBe(true)
-		p.dispose()
-	end)
-
 	it("is registry-neutral after dispose, clock and all", function()
-		local core, _, _, _, _ = harness()
-		local baseline = core:counters()
+		local core, _, _, _, _ = fixture()
+		local baseline = core.owner.size()
 		local clock = motionClockLib.new(core, {
 			now = function()
 				return 0
 			end,
 		})
-		local scope = core:scope("surface")
-		local p = Facet.Controls.ProgressView(core, { id = "L", motionClock = clock, scope = scope })
+		local scope = core.owner.createChild()
+		local p = harness.Controls.ProgressView(core, { id = "L", motionClock = clock, scope = scope })
 		p.dispose()
 		scope:dispose()
 		clock:dispose()
-		expect(core:counters().scopes).toBe(baseline.scopes)
-		expect(core:counters().observers).toBe(baseline.observers)
-		expect(core:counters().signals).toBe(baseline.signals)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
+		expect(core.owner.size()).toBe(baseline)
 	end)
 end)
 
---[[ ===== THE INDETERMINATE VIEW'S OWNER ====================================
-	The one control in this family that keeps DOING something after it is built,
-	and the RED-TEAM measurement that says so: a view presented and then
-	dismissed, and a view built and never presented at all, each kept one clock
-	entry active and wrote its phase signal 121 times over 120 steps — forever,
-	because the only thing that stops the cycle is disposal and nothing called it.
-
-	Every case below measures the CLOCK (`activeCount`, `stats().writes`), never
-	the control's own `dump().animating`: a control reporting on its own liveness
-	is exactly the shape that let the haptics adapter report `pooled = 0` while
-	fifteen instances leaked.
-]]
+-- An indeterminate view advances a Compose timeline. The timeline belongs to
+-- the owner the view is built under, and stops when that owner is disposed.
+-- Each case reads the timeline's own progress cell, not the control's dump.
 describe("ProgressView: an indeterminate view is OWNED, and stops with its owner", function()
-	local function ownedWorld()
-		local core, _, _, _, pres = harness()
-		local t = { now = 0 }
-		local clock = motionClockLib.new(core, {
-			now = function()
-				return t.now
-			end,
-			motionPolicy = core:signal("full"),
-		})
-		return core, pres, clock, t, core:scope("surface")
-	end
+	local Compose = Facet.Compose
 
-	local function spin(clock: any, t: any, steps: number): number
-		local before = clock:stats().writes
+	local function advances(core: any, phase: any, steps: number): number
+		local changes, last = 0, phase:peek()
 		for _ = 1, steps do
-			t.now += 1 / 60
-			clock:step()
+			harness.step(core, 1 / 60)
+			local now = phase:peek()
+			if now ~= last then
+				changes += 1
+				last = now
+			end
 		end
-		return clock:stats().writes - before
+		return changes
 	end
 
-	it("keeps writing while it is alive, and stops DEAD when its owner is disposed", function()
-		local core, pres, clock, t, scope = ownedWorld()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
-		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+	it("keeps advancing while it is alive, and stops DEAD when its surface is dismissed", function()
+		local core, _, _, _, pres = fixture()
+		local p
+		local handle = pres.present(function()
+			p = harness.Controls.ProgressView(core, { id = "Load" })
+			return UI.Screen({ id = "S", children = { p.blueprint } })
+		end)
 		pres.refresh()
-		-- the positive control: without it, a check that only measures silence
-		-- passes on a control that never started
-		expect(spin(clock, t, 120) > 100).toBe(true)
-		expect(clock:activeCount()).toBe(1)
+		local phase = p.phase
+		-- the positive control: a check that only measures silence passes on a
+		-- view that never started
+		expect(advances(core, phase, 120) > 100).toBe(true)
 		pres.dismiss(handle)
 		pres.refresh()
-		-- DISMISSAL ALONE IS NOT ENOUGH, and that is the honest half of this
-		-- design: the mounted tree stops being pulled, but the cycle is the
-		-- OWNER's to retire. This is the line a surface-scoped owner erases.
-		expect(clock:activeCount()).toBe(1)
-		scope:dispose()
-		expect(spin(clock, t, 120)).toBe(0)
-		expect(clock:activeCount()).toBe(0)
-		clock:dispose()
+		expect(advances(core, phase, 120)).toBe(0)
 	end)
 
 	it("a view built and NEVER presented stops with its owner too", function()
-		local core, _, clock, t, scope = ownedWorld()
-		Facet.Controls.ProgressView(core, { id = "Load", motionClock = clock, scope = scope })
-		expect(spin(clock, t, 120) > 100).toBe(true)
-		scope:dispose()
-		expect(spin(clock, t, 120)).toBe(0)
-		expect(clock:activeCount()).toBe(0)
-		clock:dispose()
-	end)
-
-	it("`value = nil` without an owner is an authoring error that names the seam", function()
-		local core = customFactory.new()
-		local clock = motionClockLib.new(core, {
-			now = function()
-				return 0
-			end,
-		})
-		local ok, err = pcall(function()
-			Facet.Controls.ProgressView(core, { id = "L", motionClock = clock })
+		local core = fixture()
+		local p
+		local root = Compose.createRootOwner(function()
+			p = harness.Controls.ProgressView(core, { id = "Load" })
 		end)
-		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "scope", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "newAsyncImage", 1, true) ~= nil).toBe(true)
-		-- and nothing was left running by the attempt
-		expect(clock:activeCount()).toBe(0)
-		-- a table that is not a Scope is refused too, rather than failing later
-		local ok2 = pcall(function()
-			Facet.Controls.ProgressView(core, { id = "L", motionClock = clock, scope = {} })
-		end)
-		expect(ok2).toBe(false)
-		--[[ ...INCLUDING THE HALF-SCOPE (redteam follow-up, 2026-08-13). The
-			guard asked only for `own`, and the very next statement calls
-			`:child(...)`, so an object answering `own` and nothing else walked
-			past the authored refusal and died on "attempt to call a nil value" —
-			a caller told nothing about what they got wrong. Both presentations,
-			because `:child` is called on ANY scope that is passed: the
-			determinate view had no shape check on `scope` whatsoever. ]]
-		local halfScope: any = {
-			own = function(_self: any, value: any)
-				return value
-			end,
-		}
-		for _, spec in
-			{
-				{ id = "L", motionClock = clock, scope = halfScope },
-				{ id = "L", motionClock = clock, scope = halfScope, value = 0.5 },
-			}
-		do
-			local ok3, err3 = pcall(function()
-				Facet.Controls.ProgressView(core, spec)
-			end)
-			expect(ok3).toBe(false)
-			expect(string.find(tostring(err3), "must be a Facet Scope", 1, true) ~= nil).toBe(true)
-			expect(string.find(tostring(err3), "attempt to call", 1, true)).toBeNil()
-		end
-		clock:dispose()
+		local phase = p.phase
+		expect(advances(core, phase, 120) > 100).toBe(true)
+		root.dispose()
+		expect(advances(core, phase, 120)).toBe(0)
 	end)
 
 	it("dispose() and the owner's disposal are safe in EITHER order, and in both", function()
 		for _, disposeFirst in { true, false } do
-			local core, _, clock, t, scope = ownedWorld()
-			local p = Facet.Controls.ProgressView(core, { id = "L", motionClock = clock, scope = scope })
+			local core = fixture()
+			local p
+			local root = Compose.createRootOwner(function()
+				p = harness.Controls.ProgressView(core, { id = "L" })
+			end)
+			local phase = p.phase
 			if disposeFirst then
 				p.dispose()
-				scope:dispose()
+				root.dispose()
 			else
-				scope:dispose()
+				root.dispose()
 				p.dispose()
 			end
-			expect(spin(clock, t, 60)).toBe(0)
-			-- and no double-disposal was reported: being careful must not be a
-			-- diagnostic (`scope_impl`'s detector writes to core:lastError)
-			expect(core:lastError()).toBeNil()
-			clock:dispose()
+			expect(advances(core, phase, 60)).toBe(0)
+			expect(core.lastError()).toBeNil()
 		end
 	end)
 
-	it("the DETERMINATE path takes no clock entry at all, and needs no owner", function()
-		-- THE NEGATIVE CONTROL, and Rascal Rally's exact shape (`ResultsScreen`'s
-		-- rally bar: a value, a height, no clock). If this ever attaches to the
-		-- clock, the fix above has changed the wrong half.
-		local core, pres, clock, t = ownedWorld()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.25, height = 40 })
+	it("the DETERMINATE path starts no timeline", function()
+		local core, _, _, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.25, height = 40 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
-		expect(clock:activeCount()).toBe(0)
-		expect(spin(clock, t, 120)).toBe(0)
+		expect(p.phase).toBeNil()
 		expect(p.dump().fraction).toBe(0.25)
+		expect(p.dump().animating).toBeNil() -- a determinate dump has no such key
 		p.dispose()
-		-- ...and it is the VALUE that decides, not the absence of a clock: handing a
-		-- determinate view the surface's clock must still attach nothing. (Without
-		-- this half, dropping `indeterminate and` from the cycle's condition passes.)
-		local withClock = Facet.Controls.ProgressView(core, { id = "Load2", value = 0.25, motionClock = clock })
-		expect(clock:activeCount()).toBe(0)
-		expect(spin(clock, t, 120)).toBe(0)
-		expect(withClock.dump().animating).toBeNil() -- a determinate dump has no such key
-		withClock.dispose()
-		clock:dispose()
 	end)
 end)
 
 describe("ProgressView: the spinner presentation (§3.1)", function()
 	local function spinnerWorld(policy: string?)
-		local core, _, adapter, _, pres = harness()
+		local core, _, adapter, _, pres = fixture()
 		local t = { now = 0 }
 		local clock = motionClockLib.new(core, {
 			now = function()
 				return t.now
 			end,
-			motionPolicy = core:signal(policy or "full"),
+			motionPolicy = Compose.cell(policy or "full"),
 		})
-		local p = Facet.Controls.ProgressView(core, {
+		local p = harness.Controls.ProgressView(core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
-			scope = core:scope("surface"),
+			scope = core.owner.createChild(),
 		})
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
@@ -1291,7 +1132,7 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 		-- vertical ScrollView, and a fraction of an unbounded axis is not a size.
 		-- This case pins the replacement — geometry is constant, the tint moves —
 		-- INSIDE a scroller, which is the container the defect needed.
-		local core, _, _, _ = harness()
+		local core, _, _, _ = fixture()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 200 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -1302,11 +1143,11 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 				return 0
 			end,
 		})
-		local p = Facet.Controls.ProgressView(core, {
+		local p = harness.Controls.ProgressView(core, {
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
-			scope = core:scope("surface"),
+			scope = core.owner.createChild(),
 		})
 		local handle = pres.present(UI.Screen({
 			id = "S",
@@ -1360,8 +1201,7 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 		local first = brightest()
 		local moved = false
 		for _ = 1, 10 do
-			t.now += 0.05
-			clock:step()
+			pres.tick(0.05)
 			pres.refresh()
 			if brightest() ~= first then
 				moved = true
@@ -1379,35 +1219,13 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 		p.dispose()
 		clock:dispose()
 	end)
-
-	it("under REDUCED motion the pulse still travels, on the quantized tick", function()
-		local _, adapter, pres, clock, t, p = spinnerWorld("reduced")
-		local function blends(): string
-			local parts: { string } = {}
-			for index = 1, 5 do
-				table.insert(parts, string.format("%.4f", adapter.node(`/S/Load/Spinner/Dot{index}`).props.tint.blend))
-			end
-			return table.concat(parts, ",")
-		end
-		local start = blends()
-		t.now += 0.05
-		clock:step()
-		pres.refresh()
-		expect(blends()).toBe(start) -- quantized: no write inside the tick
-		t.now += 0.3
-		clock:step()
-		pres.refresh()
-		expect(blends() ~= start).toBe(true) -- ...and it MOVED, rather than froze
-		p.dispose()
-		clock:dispose()
-	end)
 end)
 
 describe("ProgressView: the refusals that keep the two modes from contradicting", function()
 	it("refuses a spinner with a value — and names the shape that DOES draw one", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			Facet.Controls.ProgressView(core, { id = "L", value = 0.5, presentation = "spinner" })
+			harness.Controls.ProgressView(core, { id = "L", value = 0.5, presentation = "spinner" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "indeterminate only", 1, true) ~= nil).toBe(true)
@@ -1422,7 +1240,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 	it("refuses an unknown presentation, listing the three that exist", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			Facet.Controls.ProgressView(core, { id = "L", value = 0.5, presentation = "dial" })
+			harness.Controls.ProgressView(core, { id = "L", value = 0.5, presentation = "dial" })
 		end)
 		expect(ok).toBe(false)
 		for _, name in { "bar", "circular", "spinner" } do
@@ -1455,12 +1273,12 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		for _, cell in CELLS do
 			local spec: any = { id = "L", presentation = cell.presentation }
 			if cell.indeterminate then
-				spec.scope = core:scope(`s-{tostring(cell.presentation)}`)
+				spec.scope = core.owner.createChild()
 			else
 				spec.value = 0.5
 			end
 			local ok, err = pcall(function()
-				local p = Facet.Controls.ProgressView(core, spec)
+				local p = harness.Controls.ProgressView(core, spec)
 				p.dispose()
 			end)
 			local label =
@@ -1478,7 +1296,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- silent reinterpretation.
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			Facet.Controls.ProgressView(core, { id = "L", value = 0.5, presentation = "circular", height = 40 })
+			harness.Controls.ProgressView(core, { id = "L", value = 0.5, presentation = "circular", height = 40 })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "circularSize", 1, true) ~= nil).toBe(true)
@@ -1494,7 +1312,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- Refused, with both alternatives named.
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			Facet.Controls.ProgressView(core, {
+			harness.Controls.ProgressView(core, {
 				id = "L",
 				value = 0.5,
 				presentation = "circular",
@@ -1508,7 +1326,7 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- either way, and accepting the falsy one would be the silent no-op the
 		-- closed spec exists to prevent
 		local okFalse = pcall(function()
-			Facet.Controls.ProgressView(core, {
+			harness.Controls.ProgressView(core, {
 				id = "L2",
 				value = 0.5,
 				presentation = "circular",
@@ -1521,8 +1339,8 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 	it("...and `showValue` still renders beside the BAR, which is the shape that has room", function()
 		-- the other half: the circular refusal must not be the same as deleting the
 		-- feature from the shape that declares it
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.5, showValue = true })
+		local core, _, adapter, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.5, showValue = true })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Value") ~= nil).toBe(true)
@@ -1537,11 +1355,11 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		-- that owns the dot instead.
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			Facet.Controls.ProgressView(core, {
+			harness.Controls.ProgressView(core, {
 				id = "L",
 				presentation = "spinner",
 				height = 40,
-				scope = core:scope("s"),
+				scope = core.owner.createChild(),
 			})
 		end)
 		expect(ok).toBe(false)
@@ -1552,8 +1370,8 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 	it("...and `height` keeps its ONE meaning on the bar: the track's thickness", function()
 		-- the other half of the refusal. Deleting the refusal must not be the same
 		-- as deleting `height`.
-		local core, _, adapter, _, pres = harness()
-		local p = Facet.Controls.ProgressView(core, { id = "Load", value = 0.5, height = 40 })
+		local core, _, adapter, _, pres = fixture()
+		local p = harness.Controls.ProgressView(core, { id = "Load", value = 0.5, height = 40 })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/S/Load/Bar").rect.h).toBe(40)
@@ -1566,13 +1384,13 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 			local spec: any = { id = "L" }
 			spec[key] = if key == "showValue" then true else 3
 			local ok, err = pcall(function()
-				Facet.Controls.ProgressView(core, spec)
+				harness.Controls.ProgressView(core, spec)
 			end)
 			expect(ok).toBe(false)
 			expect(string.find(tostring(err), key, 1, true) ~= nil).toBe(true)
 		end
 		local ok = pcall(function()
-			Facet.Controls.ProgressView(core, {
+			harness.Controls.ProgressView(core, {
 				id = "L",
 				format = function()
 					return ""

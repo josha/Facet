@@ -75,51 +75,35 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.View
-		local core = ctx.core
-		local scope = core:scope("level-picker-scenario")
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local balanced = scope:own(core:signal(2))
-		local fidelity = scope:own(core:signal(0))
-		local difficulty = scope:own(core:signal(3))
-		local trophies = scope:own(core:signal(1))
-		local tinted = scope:own(core:signal(6))
+		local balanced = Compose.cell(2)
+		local fidelity = Compose.cell(0)
+		local difficulty = Compose.cell(3)
+		local trophies = Compose.cell(1)
+		local tinted = Compose.cell(6)
 
-		local controls: { any } = {}
-		local function keep(control: any): any
-			table.insert(controls, control)
-			return control
-		end
-
-		--[[ ONE ROW = ONE PICKER + ONE STEPPER OVER ONE SIGNAL. The stepper's
+		--[[ ONE ROW = ONE PICKER + ONE STEPPER OVER ONE CELL. The stepper's
 			bounds are the picker's: `min` is 0 when zero is allowed and `max` is the
 			count, so the two controls cannot disagree about what the value may be.
 			Neither is told about the other — they both just read and write the
-			signal, which is the whole claim this fixture exists to make. ]]
-		local function row(id: string, label: string, hint: string, value: any, spec: any): any
+			cell, which is the whole claim this fixture exists to make. ]]
+		local function row(id: string, label: string, hint: string, value: any, pickerId: string, spec: any): any
 			-- EVERY picker gets the live environment, which is not boilerplate: the
 			-- gap between marks is derived from the theme's own icon ladder and
 			-- WIDENS under touch, so a phone respaces these runs live on a hot
 			-- switch. Without `env` they would all take the pointer spacing and the
 			-- one thing this fixture exists to be looked at on would be missing.
 			spec.env = ctx.env
-			local picker = keep(Facet.Controls.LevelPicker(core, spec))
-			local stepper = keep(Facet.Controls.Stepper(core, {
-				id = `{id}Step`,
-				value = value,
-				min = if spec.allowZero == false then 1 else 0,
-				max = spec.count,
-			}))
-			return UI.VStack({
-				id = id,
+			spec.value = value
+			return UI.VStack(id)({
 				surface = "control",
 				padding = "s",
 				gap = "tight",
 				width = UI.fill(),
 
-				UI.Text({ id = "Label", text = label, textSize = "caption" }),
-				UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
+				UI.Text("Label")({ text = label, textSize = "caption" }),
+				UI.Text("Hint")({ text = hint, textSize = "caption", role = "secondary" }),
 				--[[ THE STRIP TAKES THE LEFTOVER, and that is the whole layout.
 						The stepper is content-sized (two 44px targets and a readout
 						whose width is a theme metric), the picker is `fill`, so the
@@ -131,8 +115,7 @@ return {
 						finding on all five rows at every viewport: a `fill` child on a
 						wrapping stack's MAIN axis takes a whole line to itself, so the
 						wrap could never do anything except cost a line. ]]
-				UI.HStack({
-					id = "Pair",
+				UI.HStack("Pair")({
 					-- THEME-OPT-OUT: this row is pinned between a `fill` picker and a stepper that
 					-- is content-sized from two 44px targets and a theme-metric readout, and the
 					-- comment above records why it may not wrap. There is no slack for a step that
@@ -141,94 +124,88 @@ return {
 					gap = 8,
 					align = "center",
 					width = UI.fill(),
-					picker.blueprint,
-					stepper.blueprint,
+					UI.LevelPicker(pickerId)(spec),
+					UI.Stepper(`{id}Step`)({
+						value = value,
+						min = if spec.allowZero == false then 1 else 0,
+						max = spec.count,
+					}),
 				}),
 			})
 		end
 
-		local rows = {
-			row("Balanced", COPY.balanced, COPY.balancedHint, balanced, {
-				id = "BalancedBars",
-				value = balanced,
-				count = 10,
-				segment = "bar",
-			}),
-			row("Fidelity", COPY.fidelity, COPY.fidelityHint, fidelity, {
-				id = "FidelityBars",
-				value = fidelity,
-				count = 3,
-				segment = "bar",
-			}),
-			row("Difficulty", COPY.difficulty, COPY.difficultyHint, difficulty, {
-				id = "DifficultyGlyphs",
-				value = difficulty,
-				count = 5,
-				segment = "glyph",
-				glyphs = GLYPHS,
-			}),
-			row("Trophies", COPY.trophies, COPY.trophiesHint, trophies, {
-				id = "TrophyIcons",
-				value = trophies,
-				count = 3,
-				segment = "image",
-				images = IMAGES,
-			}),
-			row("Tinted", COPY.tinted, COPY.tintedHint, tinted, {
-				id = "TintedBars",
-				value = tinted,
-				count = 10,
-				segment = "bar",
-				tint = { filled = { direct = "#7ad4a0" }, empty = { direct = "#2a3340" } },
-			}),
-		}
+		local function rows(): { any }
+			return {
+				row("Balanced", COPY.balanced, COPY.balancedHint, balanced, "BalancedBars", {
+					count = 10,
+					segment = "bar",
+				}),
+				row("Fidelity", COPY.fidelity, COPY.fidelityHint, fidelity, "FidelityBars", {
+					count = 3,
+					segment = "bar",
+				}),
+				row("Difficulty", COPY.difficulty, COPY.difficultyHint, difficulty, "DifficultyGlyphs", {
+					count = 5,
+					segment = "glyph",
+					glyphs = GLYPHS,
+				}),
+				row("Trophies", COPY.trophies, COPY.trophiesHint, trophies, "TrophyIcons", {
+					count = 3,
+					segment = "image",
+					images = IMAGES,
+				}),
+				row("Tinted", COPY.tinted, COPY.tintedHint, tinted, "TintedBars", {
+					count = 10,
+					segment = "bar",
+					tint = { filled = { direct = "#7ad4a0" }, empty = { direct = "#2a3340" } },
+				}),
+			}
+		end
 
 		-- THE READOUT IS `semanticText`, not the raw numbers, and that is the
 		-- deliberate choice: a strip of ten rectangles says nothing to a non-visual
 		-- consumer, so the one string the control publishes for them is the one
 		-- printed here where a human can check it says the right thing.
-		local readout = scope:own(core:memo(function(use)
+		local readout = Compose.formula(function(use)
 			return `{COPY.balanced}: {use(balanced)} of 10  ·  {COPY.fidelity}: {use(fidelity)} of 3  ·  `
 				.. `{COPY.difficulty}: {use(difficulty)} of 5  ·  {COPY.trophies}: {use(trophies)} of 3  ·  `
 				.. `{COPY.tinted}: {use(tinted)} of 10`
-		end))
+		end)
 
-		local page: { any } = {
-			UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-			UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-		}
-		for _, node in rows do
-			table.insert(page, node)
-		end
-		table.insert(
-			page,
-			UI.VStack({
-				id = "Readout",
-				surface = "control",
-				padding = "s",
-				gap = "xs",
-				width = UI.fill(),
-
-				UI.Text({ id = "ReadoutTitle", text = COPY.readoutTitle, textSize = "caption" }),
-				UI.Text({ id = "ReadoutBody", text = readout, textSize = "caption", role = "secondary" }),
-			})
-		)
-		table.insert(page, UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }))
-
-		local screen = UI.Screen({
-			id = "LevelPickerDemo",
-			padding = 12,
-			gap = "s",
-
-			UI.ScrollView({
-				id = "Page",
+		local function screen()
+			local page: { any } = {
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
 				height = UI.fill(),
-				children = page,
-			}),
-		})
+
+				UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+				UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+			}
+			for _, node in rows() do
+				table.insert(page, node)
+			end
+			table.insert(
+				page,
+				UI.VStack("Readout")({
+					surface = "control",
+					padding = "s",
+					gap = "xs",
+					width = UI.fill(),
+
+					UI.Text("ReadoutTitle")({ text = COPY.readoutTitle, textSize = "caption" }),
+					UI.Text("ReadoutBody")({ text = readout, textSize = "caption", role = "secondary" }),
+				})
+			)
+			table.insert(page, UI.Text("Note")({ text = COPY.note, textSize = "caption", role = "secondary" }))
+
+			return UI.Screen("LevelPickerDemo")({
+				padding = 12,
+				gap = "s",
+
+				UI.ScrollView("Page")(page),
+			})
+		end
 
 		return {
 			screen = screen,
@@ -237,64 +214,34 @@ return {
 			fidelity = fidelity,
 
 			steps = {
-				-- the two ends of the run, driven through the SIGNAL the stepper and
+				-- the two ends of the run, driven through the CELL the stepper and
 				-- the picker share, so a step proves the sharing rather than one
 				-- control's own arithmetic
 				zero = function()
 					balanced:set(0)
-					return { balanced = balanced:get() }
+					return { balanced = balanced:peek() }
 				end,
 				full = function()
 					balanced:set(10)
-					return { balanced = balanced:get() }
+					return { balanced = balanced:peek() }
 				end,
 				reference = function()
 					balanced:set(2)
 					fidelity:set(0)
-					return { balanced = balanced:get(), fidelity = fidelity:get() }
-				end,
-				reread = function()
-					local out: { any } = {}
-					for _, control in controls do
-						if control.dump ~= nil then
-							table.insert(out, control.dump())
-						end
-					end
-					return { dumps = out }
+					return { balanced = balanced:peek(), fidelity = fidelity:peek() }
 				end,
 			},
 
 			report = function()
-				local dumps: { any } = {}
-				local notes: { string } = {}
-				for _, control in controls do
-					if control.dump ~= nil then
-						table.insert(dumps, control.dump())
-					end
-					if control.diagnostics ~= nil then
-						for _, note in control.diagnostics() do
-							table.insert(notes, note)
-						end
-					end
-				end
 				return {
-					dumps = dumps,
-					diagnostics = notes,
 					values = {
-						balanced = balanced:get(),
-						fidelity = fidelity:get(),
-						difficulty = difficulty:get(),
-						trophies = trophies:get(),
-						tinted = tinted:get(),
+						balanced = balanced:peek(),
+						fidelity = fidelity:peek(),
+						difficulty = difficulty:peek(),
+						trophies = trophies:peek(),
+						tinted = tinted:peek(),
 					},
 				}
-			end,
-
-			dispose = function()
-				for _, control in controls do
-					control.dispose()
-				end
-				scope:dispose()
 			end,
 		}
 	end,

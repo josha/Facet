@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- `UI.sensoryFeedback(bp, { trigger, event })` — the authored half of the
 -- semantic feedback seam (docs/plans/parity-round2.md §3.3, the
 -- `.sensoryFeedback(_:trigger:)`).
@@ -23,15 +24,16 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local mountLib = harness
 local feedbackLib = require("../src/present/feedback")
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- a mount with a scripted feedback sink: the presenter supplies the real one,
 -- and this is the same seam scripted, exactly as the transitions collaborator is
@@ -49,7 +51,7 @@ end
 describe("UI.sensoryFeedback: the declaration is ruled on at the call site", function()
 	it("refuses an event outside the closed twelve, listing the vocabulary", function()
 		local core = customFactory.new()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		local ok, err = pcall(function()
 			UI.sensoryFeedback(UI.Box({ id = "B" }), { trigger = trigger, event = "sparkle" })
 		end)
@@ -64,7 +66,7 @@ describe("UI.sensoryFeedback: the declaration is ruled on at the call site", fun
 
 	it("accepts every one of the twelve verbs", function()
 		local core = customFactory.new()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		for _, name in feedbackLib.TYPES do
 			local bp = UI.sensoryFeedback(UI.Box({ id = "B" }), { trigger = trigger, event = name })
 			expect(bp.meta[feedbackLib.SENSORY_PROP][1].event).toBe(name)
@@ -84,7 +86,7 @@ describe("UI.sensoryFeedback: the declaration is ruled on at the call site", fun
 		local ok, err = pcall(function()
 			UI.sensoryFeedback(
 				UI.Box({ id = "B" }),
-				{ trigger = core:signal(0), event = "select", intensity = "heavy" } :: any
+				{ trigger = Compose.cell(0), event = "select", intensity = "heavy" } :: any
 			)
 		end)
 		expect(ok).toBe(false)
@@ -93,12 +95,12 @@ describe("UI.sensoryFeedback: the declaration is ruled on at the call site", fun
 
 	it("refuses a structural region — it would mount no node to emit for", function()
 		local core = customFactory.new()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		local ok, err = pcall(function()
 			UI.sensoryFeedback(
 				UI.When({
 					id = "W",
-					condition = core:signal(true),
+					condition = Compose.cell(true),
 					thenView = function()
 						return UI.Box({ id = "B" })
 					end,
@@ -110,20 +112,21 @@ describe("UI.sensoryFeedback: the declaration is ruled on at the call site", fun
 		expect(string.find(tostring(err), "UI.When", 1, true) ~= nil).toBeTruthy()
 	end)
 
-	it("returns a NEW frozen blueprint and leaves the original untouched", function()
+	it("declares on the node it is given, in frozen metadata", function()
 		local core = customFactory.new()
 		local base = UI.Box({ id = "B" })
-		local out = UI.sensoryFeedback(base, { trigger = core:signal(0), event = "select" })
-		expect(out == base).toBe(false)
-		expect(base.meta == nil or base.meta[feedbackLib.SENSORY_PROP] == nil).toBeTruthy()
-		expect(table.isfrozen(out)).toBe(true)
+		local out = UI.sensoryFeedback(base, { trigger = Compose.cell(0), event = "select" })
+		expect(out == base).toBe(true)
+		expect(#out.meta[feedbackLib.SENSORY_PROP]).toBe(1)
+		expect(table.isfrozen(out.meta)).toBe(true)
+		expect(table.isfrozen(out.meta[feedbackLib.SENSORY_PROP])).toBe(true)
 	end)
 end)
 
 describe("UI.sensoryFeedback: what reaches the bus", function()
 	it("emits the declared verb with the mounted path when the trigger changes", function()
 		local core = customFactory.new()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		local events: { any } = {}
 		local root = mountLib.mount(
 			core,
@@ -149,7 +152,7 @@ describe("UI.sensoryFeedback: what reaches the bus", function()
 
 	it("fires once per change, and not at all for a write of the same value", function()
 		local core = customFactory.new()
-		local trigger = core:signal("a")
+		local trigger = Compose.cell("a")
 		local events: { any } = {}
 		local root =
 			mountLib.mount(core, UI.sensoryFeedback(UI.Box({ id = "B" }), { trigger = trigger, event = "adjust" }), {
@@ -166,7 +169,7 @@ describe("UI.sensoryFeedback: what reaches the bus", function()
 
 	it("emits synchronously inside the write that moved the trigger", function()
 		local core = customFactory.new()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		local seen: { number } = {}
 		local root = mountLib.mount(
 			core,
@@ -176,7 +179,7 @@ describe("UI.sensoryFeedback: what reaches the bus", function()
 			}),
 			{
 				feedback = function()
-					table.insert(seen, trigger:get())
+					table.insert(seen, trigger:peek())
 				end,
 			}
 		)
@@ -189,8 +192,8 @@ describe("UI.sensoryFeedback: what reaches the bus", function()
 
 	it("stops emitting the moment the node unmounts", function()
 		local core = customFactory.new()
-		local trigger = core:signal(0)
-		local show = core:signal(true)
+		local trigger = Compose.cell(0)
+		local show = Compose.cell(true)
 		local events: { any } = {}
 		local root = mountLib.mount(
 			core,
@@ -222,7 +225,7 @@ describe("UI.sensoryFeedback: what reaches the bus", function()
 
 	it("composes: two declarations on one node both fire", function()
 		local core = customFactory.new()
-		local a, b = core:signal(0), core:signal(0)
+		local a, b = Compose.cell(0), Compose.cell(0)
 		local bp = UI.sensoryFeedback(
 			UI.sensoryFeedback(UI.Box({ id = "B" }), { trigger = a, event = "select" }),
 			{ trigger = b, event = "reject" }
@@ -240,28 +243,28 @@ describe("UI.sensoryFeedback: what reaches the bus", function()
 		-- the baseline: the same node with no declaration at all
 		local plainCore = customFactory.new()
 		local plainRoot = mountLib.mount(plainCore, UI.Box({ id = "B" }))
-		local baseline = plainCore:counters().observers
+		local baseline = plainCore.owner.size()
 
 		-- no presentation layer, so there is no bus to emit on: the declaration
 		-- must not buy an observer nobody can hear (and must not throw)
 		local bareCore = customFactory.new()
-		local bareTrigger = bareCore:signal(0)
+		local bareTrigger = Compose.cell(0)
 		local bareRoot = mountLib.mount(
 			bareCore,
 			UI.sensoryFeedback(UI.Box({ id = "B" }), { trigger = bareTrigger, event = "select" })
 		)
-		expect(bareCore:counters().observers).toBe(baseline)
+		expect(bareCore.owner.size()).toBe(baseline)
 		bareTrigger:set(1)
 
 		-- with a sink, exactly one observer more than the bare tree
 		local wiredCore = customFactory.new()
-		local wiredTrigger = wiredCore:signal(0)
+		local wiredTrigger = Compose.cell(0)
 		local wiredRoot = mountLib.mount(
 			wiredCore,
 			UI.sensoryFeedback(UI.Box({ id = "B" }), { trigger = wiredTrigger, event = "select" }),
 			{ feedback = function() end }
 		)
-		expect(wiredCore:counters().observers).toBe(baseline + 1)
+		expect(wiredCore.owner.size()).toBe(baseline + 1)
 
 		plainRoot.dispose()
 		bareRoot.dispose()
@@ -282,7 +285,7 @@ describe("UI.sensoryFeedback: through the real presenter", function()
 
 	it("reaches presenter.onFeedback, carrying the surface it happened on", function()
 		local core, pres = world()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		local events: { any } = {}
 		pres.onFeedback(function(event: any)
 			table.insert(events, event)
@@ -302,7 +305,7 @@ describe("UI.sensoryFeedback: through the real presenter", function()
 
 	it("is visible on handle.onFeedback, the per-surface filter", function()
 		local core, pres = world()
-		local trigger = core:signal(0)
+		local trigger = Compose.cell(0)
 		local mine: { any } = {}
 		local handle = pres.present(UI.Screen({
 			id = "S",

@@ -10,9 +10,10 @@
 -- confirmations are ignored, status transitions stay legal, optimistic
 -- presentation restores on resolution, and send-while-pending is refused.
 
-local customCore = require("../../../src/core/custom")
+local customCore = require("../../../src/core/services")
 local adapters = require("../../../src/replication/adapters")
 local prng = require("../prng")
+local Compose = require("../../../src/vendor/compose/core")
 
 type Prng = prng.Prng
 
@@ -134,7 +135,7 @@ function replication_fuzzer.case(rng: Prng)
 
 	-- mutation under test: optimistic presentation over a client signal
 	local base = rng:range(0, 9)
-	local presentation = core:signal(base)
+	local presentation = Compose.cell(base)
 	local mutation = adapters.mutation(core, {
 		optimistic = {
 			apply = function(payload: any)
@@ -175,7 +176,7 @@ function replication_fuzzer.case(rng: Prng)
 			deliverSome()
 		elseif roll <= 90 then
 			-- client mutation traffic
-			local status = mutation.status:get()
+			local status = mutation.status:peek()
 			assert(legalStatus(status), `illegal mutation status {status}`)
 			if status == "pending" then
 				-- one in flight: a second send must be refused
@@ -186,26 +187,26 @@ function replication_fuzzer.case(rng: Prng)
 				-- resolve it (sometimes after a wrong-id/duplicate attempt)
 				if rng:bool(0.4) then
 					mutation.confirm((activeEnvelope.requestId :: number) + 1000, "wrong-id")
-					assert(mutation.status:get() == "pending", "wrong-id confirm must be ignored")
+					assert(mutation.status:peek() == "pending", "wrong-id confirm must be ignored")
 				end
 				if rng:bool(0.5) then
 					mutation.confirm(activeEnvelope.requestId, "ok")
 					mutation.confirm(activeEnvelope.requestId, "dup") -- idempotent
-					assert(mutation.status:get() == "confirmed", "confirm did not land")
+					assert(mutation.status:peek() == "confirmed", "confirm did not land")
 				else
 					mutation.reject(activeEnvelope.requestId, "no")
 					mutation.reject(activeEnvelope.requestId, "dup")
-					assert(mutation.status:get() == "rejected", "reject did not land")
+					assert(mutation.status:peek() == "rejected", "reject did not land")
 				end
-				table.insert(resolvedStatuses, mutation.status:get())
-				assert(presentation:get() == base, "optimistic presentation must restore on resolution")
+				table.insert(resolvedStatuses, mutation.status:peek())
+				assert(presentation:peek() == base, "optimistic presentation must restore on resolution")
 				mutation.reset()
-				assert(mutation.status:get() == "idle", "reset after resolution must return to idle")
+				assert(mutation.status:peek() == "idle", "reset after resolution must return to idle")
 			else
 				local payload = rng:range(10, 99)
 				activeEnvelope = mutation.send(payload, lastClientRev)
-				assert(mutation.status:get() == "pending", "send must move status to pending")
-				assert(presentation:get() == payload, "optimistic apply must show the payload")
+				assert(mutation.status:peek() == "pending", "send must move status to pending")
+				assert(presentation:peek() == payload, "optimistic apply must show the payload")
 				assert(
 					activeEnvelope.requestId ~= nil and activeEnvelope.expectedRevision == lastClientRev,
 					"envelope must carry requestId and expectedRevision"
@@ -218,10 +219,10 @@ function replication_fuzzer.case(rng: Prng)
 	end
 
 	-- leave no mutation pending (pending never implies success — resolve it)
-	if mutation.status:get() == "pending" then
+	if mutation.status:peek() == "pending" then
 		mutation.reject(activeEnvelope.requestId, "teardown")
-		assert(mutation.status:get() == "rejected", "teardown reject did not land")
-		assert(presentation:get() == base, "optimistic presentation must restore on teardown reject")
+		assert(mutation.status:peek() == "rejected", "teardown reject did not land")
+		assert(presentation:peek() == base, "optimistic presentation must restore on teardown reject")
 	end
 
 	-- quiesce the network (random order), then reconnect-style resnapshot
@@ -238,12 +239,12 @@ function replication_fuzzer.case(rng: Prng)
 	end
 
 	-- convergence: client == authoritative
-	local clientItems = collection.binding:get()
+	local clientItems = collection.binding:peek()
 	if serialize(clientItems) ~= serialize(serverItems) then
 		error(`client diverged: client=[{serialize(clientItems)}] server=[{serialize(serverItems)}]`)
 	end
 	assert(collection.revision() == serverRev, `client rev {collection.revision()} != server rev {serverRev}`)
-	assert(core:lastError() == nil, `core error during replication fuzz: {tostring(core:lastError())}`)
+	assert(core.lastError() == nil, `core error during replication fuzz: {tostring(core.lastError())}`)
 end
 
 return replication_fuzzer

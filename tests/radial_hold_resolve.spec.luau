@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A HELD DIRECTION COSTS THE RING ONE STEP, NOT A STEP EVERY TENTH OF A SECOND.
 
 	The presenter's gamepad auto-repeat glue (`presenter.luau`,
@@ -51,7 +52,7 @@
 	that one alone goes red. ]]
 local t = require("./lib/testkit")
 local it, expect = t.it, t.expect
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
 
 local COMPASS = { { "wave", "N" }, { "point", "E" }, { "call", "S" }, { "hide", "W" } }
@@ -76,10 +77,10 @@ local function setup()
 			end,
 		})
 	end
-	local c = Facet.Controls.RadialMenu(w.core, { id = "Ctl", distribution = "compass", items = items })
-	w.present(Facet.UI.Screen({
+	local c = harness.Controls.RadialMenu(w.core, { id = "Ctl", distribution = "compass", items = items })
+	w.present(harness.UI.Screen({
 		id = "S",
-		children = { c.blueprint, Facet.UI.Button({ id = "Outside", label = "Outside" }) },
+		children = { c.blueprint, harness.UI.Button({ id = "Outside", label = "Outside" }) },
 	}))
 	w.settle(2)
 	return w, c, fired
@@ -101,8 +102,8 @@ local function evenSetup(n: number)
 	for i = 1, n do
 		table.insert(items, { id = `i{i}`, label = `Item {i}`, onSelect = function() end })
 	end
-	local c = Facet.Controls.RadialMenu(w.core, { id = "Ctl", distribution = "even", items = items })
-	w.present(Facet.UI.Screen({ id = "S", children = { c.blueprint } }))
+	local c = harness.Controls.RadialMenu(w.core, { id = "Ctl", distribution = "even", items = items })
+	w.present(harness.UI.Screen({ id = "S", children = { c.blueprint } }))
 	w.settle(2)
 	return w, c
 end
@@ -159,13 +160,13 @@ t.describe("RadialMenu held-direction cost", function()
 	it("a held D-PAD steps the ring once and then rests", function()
 		local w, c, fired = setup()
 		open(w, c)
-		expect(wedgeOf(w.pres.focus.focused:get())).toBe(":wave")
+		expect(wedgeOf(w.pres.focus.focused:peek())).toBe(":wave")
 
 		-- DOWN, never up: the key stays held for the whole window, exactly the way
 		-- tests/dpad_repeat.spec.luau drives a hold.
 		w.system.deviceKey("DPadRight", true)
 		w.settle(3) -- the one legitimate step, and its solve, spent before the window
-		local landed = w.pres.focus.focused:get()
+		local landed = w.pres.focus.focused:peek()
 		expect(wedgeOf(landed)).toBe(":point")
 
 		local before = w.controller.stats().solves
@@ -174,7 +175,7 @@ t.describe("RadialMenu held-direction cost", function()
 		for _ = 1, 60 do
 			w.tick()
 			w.pres.refresh()
-			local now = w.pres.focus.focused:get()
+			local now = w.pres.focus.focused:peek()
 			if now ~= previous then
 				changes += 1
 				previous = now
@@ -183,7 +184,7 @@ t.describe("RadialMenu held-direction cost", function()
 		local delta = w.controller.stats().solves - before
 
 		expect(`held-dpad focusChanges={changes} solves={delta}`).toBe("held-dpad focusChanges=0 solves=0")
-		expect(wedgeOf(w.pres.focus.focused:get())).toBe(":point")
+		expect(wedgeOf(w.pres.focus.focused:peek())).toBe(":point")
 		expect(#fired).toBe(0)
 		w.system.deviceKey("DPadRight", false)
 		c.dispose()
@@ -196,14 +197,14 @@ t.describe("RadialMenu held-direction cost", function()
 
 		w.press("DPadRight")
 		w.settle(2)
-		expect(wedgeOf(w.pres.focus.focused:get())).toBe(":point")
+		expect(wedgeOf(w.pres.focus.focused:peek())).toBe(":point")
 		expect(c.dump().candidate).toBe(":point")
 
 		-- and again, on a step the GEOMETRIC branch takes rather than the wrap:
 		-- `:wave` is the wedge above `:call`, and `:call` is below `:point`
 		w.press("DPadDown")
 		w.settle(2)
-		expect(c.dump().candidate).toBe(wedgeOf(w.pres.focus.focused:get()))
+		expect(c.dump().candidate).toBe(wedgeOf(w.pres.focus.focused:peek()))
 		expect(c.dump().candidate).toBe(":call")
 		c.dispose()
 	end)
@@ -219,7 +220,7 @@ t.describe("RadialMenu held-direction cost", function()
 		for _ = 1, 60 do
 			w.tick()
 			w.pres.refresh()
-			local focused = w.pres.focus.focused:get()
+			local focused = w.pres.focus.focused:peek()
 			if focused == "/S/Outside" then
 				escaped = true
 			end
@@ -246,13 +247,13 @@ t.describe("RadialMenu held-direction cost", function()
 		w.system.deviceAxis("Thumbstick1", 0.6, -1.04)
 		w.settle(3)
 		expect(c.dump().candidate).toBe(":i1")
-		expect(wedgeOf(w.pres.focus.focused:get())).toBe(":i1")
+		expect(wedgeOf(w.pres.focus.focused:peek())).toBe(":i1")
 
 		local wandered = false
 		for _ = 1, 60 do
 			w.tick()
 			w.pres.refresh()
-			if wedgeOf(w.pres.focus.focused:get()) ~= ":i1" or c.dump().candidate ~= ":i1" then
+			if wedgeOf(w.pres.focus.focused:peek()) ~= ":i1" or c.dump().candidate ~= ":i1" then
 				wandered = true
 			end
 		end
@@ -272,10 +273,10 @@ t.describe("RadialMenu held-direction cost", function()
 		expect(c.dump().analog).toBe(false)
 
 		-- ...so the geometric branch is live again and a discrete press navigates
-		local before = w.pres.focus.focused:get()
+		local before = w.pres.focus.focused:peek()
 		w.press("DPadUp")
 		w.settle(2)
-		expect(w.pres.focus.focused:get() ~= before).toBe(true)
+		expect(w.pres.focus.focused:peek() ~= before).toBe(true)
 		c.dispose()
 	end)
 end)

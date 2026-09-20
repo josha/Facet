@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ CROSS-SURFACE OVERLAP — the alarm for two surfaces covering each other.
 
 	The director, 2026-08-14, watching a leftover debug probe interleave with a
@@ -32,7 +33,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local overlap = require("../src/render/surface_overlap")
 local fake_target = require("./lib/fake_target")
 
@@ -183,7 +184,7 @@ describe("cross-surface overlap: what counts as declaring an intent to cover", f
 	it(
 		"the four SURFACE_LAYER bands land in four DISTINCT bands — the presenter's table and this scan agree",
 		function()
-			local layers = (require("../src/present/presenter") :: any).SURFACE_LAYER
+			local layers = (harness.presenterLib :: any).SURFACE_LAYER
 			local bands: { [number]: string } = {}
 			local names = {}
 			for name in layers do
@@ -208,13 +209,13 @@ end)
 --[[ ── C / D / E. THE LIVE MECHANISM ───────────────────────────────────────── ]]
 
 local function world()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = pres, system = system }
 end
 
@@ -373,7 +374,7 @@ describe("cross-surface overlap: it arrives through controller.diagnostics()", f
 	it("a raw renderer.attach surface leaves at dispose — nothing needs a presenter", function()
 		local w = world()
 		local a = w.presenter.present(panel("Hud"))
-		local mounted = require("../src/mount").mount(w.core, panel("Probe"))
+		local mounted = harness.mount(w.core, panel("Probe"))
 		local ctrl = require("../src/render/renderer").attach(w.core, mounted, w.env, w.adapter, {})
 		ctrl.initialRender()
 		w.presenter.refresh()
@@ -398,7 +399,7 @@ describe("cross-surface overlap: it arrives through controller.diagnostics()", f
 		w.presenter.present(panel("Hud"))
 		expect(overlap.count(w.adapter)).toBe(1)
 		for i = 1, 5 do
-			local mounted = require("../src/mount").mount(w.core, panel(`Probe{i}`))
+			local mounted = harness.mount(w.core, panel(`Probe{i}`))
 			local ctrl = require("../src/render/renderer").attach(w.core, mounted, w.env, w.adapter, {})
 			ctrl.initialRender()
 			ctrl.dispose()

@@ -21,6 +21,8 @@
 --   bus.emit({ type, path?, surface?, reason?, context? })
 --   bus.count()                       -- live subscriber count (leak assertions)
 
+local Compose = require("../vendor/compose/core")
+
 local feedback = {}
 
 -- v1, closed. `arrive` is any chase/transition reaching its live target (a MOTION
@@ -78,9 +80,10 @@ export type Bus = {
 -- reason `drag_contract.luau` gives for its own: a declaration validated where
 -- the vocabulary is defined can never drift from it, and the alternative — a
 -- second copy of the twelve names in the authoring layer — is exactly the
--- sprawl the closed taxonomy exists to refuse. This module requires nothing at
--- all, so `blueprint.luau`/`mount.luau` reading it is a data dependency on the
--- vocabulary, not a layer inversion: no presentation code comes with it.
+-- sprawl the closed taxonomy exists to refuse. This module requires only the
+-- reactive core, so `blueprint.luau` and the scene reading it is a data
+-- dependency on the vocabulary, not a layer inversion: no presentation code
+-- comes with it.
 --
 -- IT STILL PLAYS NOTHING. The declaration produces one event on one bus. What a
 -- game does with `select` is the game's business (a sound, a haptic, nothing) —
@@ -136,12 +139,10 @@ export type SensoryFeedbackSpec = {
 
 local SENSORY_KEYS: { string } = { "trigger", "event", "activation" }
 
--- the same predicate as `blueprint.isReadable`, restated rather than imported
--- because `blueprint.luau` requires THIS module (importing back would be a
--- cycle). Deliberately narrow: `mount` observes the trigger through the core, so
--- a duck-typed object with a `get` is not enough — it must be a core node.
+-- A trigger is something a surface can watch for a change: a Compose readable
+-- or a core signal/memo. A duck-typed object with a `get` is not enough.
 local function isReadable(v: any): boolean
-	return type(v) == "table" and (v.kind == "signal" or v.kind == "memo")
+	return Compose.isReadable(v)
 end
 
 function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
@@ -206,7 +207,7 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	end
 	if not isReadable(spec.trigger) then
 		error(
-			`Facet UI.sensoryFeedback: \`trigger\` must be a Signal or Memo (got {typeof(spec.trigger)}). `
+			`Facet UI.sensoryFeedback: \`trigger\` must be a Compose cell or formula (got {typeof(spec.trigger)}). `
 				.. "The modifier fires on a CHANGE, so a plain value could never fire at all — the declaration "
 				.. "would be accepted and inert.",
 			0

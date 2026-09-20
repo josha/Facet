@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Native scroll host conformance (native-substrate NS-A2, ledger rows
 -- NS-A2/NS-I1/NS-I2): the solver keeps owning content geometry (E1 here);
 -- the adapter receives the scroll REGION (canvas extent) and the framework's
@@ -9,9 +10,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
@@ -365,7 +366,7 @@ end)
 -- contribution, no opts, and no control-specific scroll arithmetic.
 
 describe("A-SV1: focus keep-visible through the shared substrate", function()
-	local presenterLib = require("../src/present/presenter")
+	local presenterLib = harness.presenterLib
 	local actionsLib = require("../src/input/actions")
 
 	local function makeFocusSlice()
@@ -454,19 +455,19 @@ describe("A-SV2: the keep-visible clamp exists exactly once", function()
 		expect(solverLib.keepVisibleOffset(300, 400, 0, 100)).toBe(600)
 	end)
 
-	it("all three consumers call it — no second implementation survives", function()
+	it("both consumers call it — no second implementation survives", function()
 		local fs = require("@lune/fs")
 		--[[ THE RENDERER'S OWN CALL LEFT `renderer.luau` FOR `render/scroll_into_view.luau`
 			(wicked-fast T8's Phase 0), so "the renderer uses it" is read over
 			`renderer_source.all()` — every part the renderer has shed, joined — rather
 			than over the one file, the same move `commit_walks_seam`'s own pin needed the
-			first time a walk moved out from under it. The other two consumers are not
-			part of that split and stay direct file reads. ]]
+			first time a walk moved out from under it. The Table is not part of that
+			split and stays a direct file read. ]]
 		local renderer_source = require("./lib/renderer_source")
 		if string.find(renderer_source.all(), "keepVisibleOffset", 1, true) == nil then
 			error("the renderer (across its own parts) does not use the shared keepVisibleOffset")
 		end
-		for _, file in { "src/controls/virtual_list.luau", "src/controls/table.luau" } do
+		for _, file in { "src/controls/table.luau" } do
 			local source = fs.readFile(file)
 			if string.find(source, "keepVisibleOffset", 1, true) == nil then
 				error(`{file} does not use the shared keepVisibleOffset`)

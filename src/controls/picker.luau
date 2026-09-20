@@ -1,183 +1,10 @@
 --!strict
-local blueprint = require("../blueprint")
--- Picker: single-selection from an option set — the ONE selection control
--- (2026-09-11: the popup button, the split trigger and the radio spelling fold
--- into it, the way the reference platform's picker carries every picker style). Six styles
--- over ONE selection model:
---
---   menu           ONE integrated trigger (value + up/down chevron inside one
---                  button; beside its `label` in a form row) that presents the
---                  options anchored to itself — the pop-up button on a desktop,
---                  the menu picker on a phone. `src/controls/picker_menu.luau`.
---   navigationLink a row that leads to a full list (a sheet) — the shape for a
---                  long or searchable list (`query`).
---   segmented      options side by side, always visible. 2–4 short options.
---   inline         options stacked as rows. Longer labels, more options.
---   radioGroup     the inline rows wearing a radio mark.
---   automatic      the DEFAULT: `picker.resolveStyle` below, a pure function of
---                  PUBLISHED FACTS — size class, viewing distance and the primary
---                  interaction class — never a device name.
---
--- THE AUTOMATIC LADDER, stated once (and pinned by tests/picker_style.spec):
---
---     searchable (a `query`)              -> navigationLink
---     ten-foot                            -> segmented (≤4 short), inline up to
---                                            the popover limit (6), else menu
---     nearby gamepad                      -> segmented when it fits; else inline
---                                            with room (up to 6), else menu
---     nearby touch or pointer             -> menu
---
--- WHY. A ten-foot player navigates by focus, so a SHORT list stays on screen and
--- one press picks it (the television platform's own default is segmented); a long list would eat
--- the page as rows, so it folds into the menu, which under a gamepad is one
--- focus-navigable panel. A nearby gamepad keeps a short strip for the same
--- reason and folds a long list, or any list on a handheld's compact screen,
--- into the menu. A thumb or a mouse gets what a phone's form row and a
--- desktop's pop-up button both are: a menu (the phone's and the desktop's own default). A
--- screen that must NOT adapt declares its style, exactly as before.
---
--- `presentation` is the DEPRECATED spelling of `style` (`Facet.DEPRECATIONS`):
--- `radio` reads as `radioGroup`, the rest keep their names.
---
--- THREE AXES: every option is a focusable Button, so reachability and the 44px
--- floor come from the primitive; the selected option carries `selected`, which is
--- a style TAG, not a bespoke fill. hotSwitch = false (selection is atomic).
---
--- OWNERSHIP: `selected` is the CALLER's Signal.
---
--- ===== THE SLIDING INDICATOR (navigation-and-menus D4, adopted in D6) ======
---
--- `indicator = "automatic" (default) | "none" | "underline" | "pill"` is the
--- PUBLIC authoring surface for the D4 seam — the mechanism is internal
--- (`src/controls/selection_indicator.luau`) and nobody instantiates it directly.
--- When it is on, the selection chip or bar SLIDES from the previously selected
--- option's solved rect to the new one instead of the fill cross-fading.
---
--- `"automatic"` RESOLVES TO THE PILL unless the caller declared the stacked row
--- list. D4 shipped the property defaulting to `"none"` so that nothing already
--- on screen moved, which was right for a stage whose job was the mechanism; it
--- is wrong to leave, because a mechanism nobody consumes by default is an
--- unproven mechanism, and every reference screenshot of a segmented control
--- (r3, f1's top pill, f1's left rail) draws a chip. So:
---
---     presentation "inline" DECLARED  ->  "none"   (the row list never wore one)
---     anything else                   ->  "pill"
---
--- The second rule deliberately covers `presentation = "automatic"`, which is
--- what most callers write: a default that only reached a DECLARED `segmented`
--- would change almost nothing. An adaptive picker that flips to its stacked form
--- therefore carries its chip down with it — ONE selection paint re-solved, which
--- is what the A-AL2 rule (a presentation flip is a re-solve, not a rebuild)
--- already promises for everything else about this control. `indicator = "none"`
--- is the documented escape hatch back to the static style tag.
---
--- Two consequences, both deliberate and both stated here because they change
--- what the control paints:
---
---   * THE INDICATOR IS THEN THE SELECTION PAINT. The option Buttons stop
---     carrying the `selected` style tag and are declared `surface = "plain"`,
---     because a tag AND a chip is the same statement twice — and worse, an
---     opaque Button would paint OVER the chip that is meant to sit behind its
---     label. Selection stays fully reported by `dump()`.
---   * `axis` becomes meaningful. `axis = "y"` with the SEGMENTED presentation is
---     f1's vertical rail: a real vertical pill, which is a different shape from
---     the `inline` row list and does not overload it — see below.
---
--- ===== THE VERTICAL PILL IS NOT THE INLINE ROW LIST (D6) ==================
---
--- Both stack their options along y, so both report `axis = "y"`, and that is
--- exactly why they are computed as two separate facts here (`verticalPill` and
--- `axis`) rather than one. What tells them apart is the CONTAINER:
---
---     vertical pill   a content-sized RAIL with a 44px floor: as wide as its
---                     widest segment and no wider, so it sits at the edge of a
---                     screen the way f1's left rail does. Its segments are
---                     cross-axis `fill`, so they all share that one width.
---     inline row list a FULL-WIDTH column: each row spans the offer, which is
---                     what makes it a list of rows rather than a control.
---
--- The floor matters because an icon-only rail has nothing wide in it: three
--- glyphs solve to 36px, which is under the tap target, and the height floor on
--- the segments cannot see it. `dump().verticalPill` reports the distinction so a
--- bug report about "the picker is full width" has a field to name.
---
--- ===== ICONS ON AN OPTION (D6) ============================================
---
--- `Option.icon` is a SEMANTIC ICON NAME, never an asset id — the same currency
--- `row_actions.ActionSpec.icon` spends, so a package that ships art for that
--- name paints it and one that does not draws the framework's ASCII-safe glyph.
--- It rides `compactLabel` on the option Button, because `Button.icon` (the
--- top-level prop) is circle-only and a segment is a rectangle.
---
--- WHICH REPRESENTATION IS THE DEFAULT is the device-round director ruling of
--- 2026-08-12, and this control follows it rather than writing a second one:
---
---     iconOnly = false (default)  the segment KEEPS ITS WORD and wears the glyph
---                                 only when the word does not fit — the MENU-ROW
---                                 reading (`row_actions.luau:1774`: "a menu row
---                                 is a list of names; it is where the words
---                                 live"). Authoring both is authoring a ladder.
---     iconOnly = true             `prefer = true`: the glyph is what every
---                                 segment wears at every width — the TRAY
---                                 reading (`row_actions_trays.luau:346`), and
---                                 what f1's top pill and left rail both draw.
---
--- It is a GROUP decision, not a per-option one, for the same reason the tray
--- ruling gives: a per-segment verdict makes one plate wear a glyph while its
--- neighbour wears a word. The menu guidance says the same — "provide
--- icons for all menu items in a group, or none of them — so a half-iconned
--- group is an authoring ERROR here, not a look somebody has to notice.
---
--- `label` stays REQUIRED and non-empty whatever is drawn: it is the semantic
--- name, it is what `dump().semanticText` announces, and an icon with no name is
--- unreadable to every non-visual consumer.
---
--- ===== D5 COMPOSES THIS STRIP =============================================
---
--- "A segmented picker used as a tab bar IS a TabView" — so D5's TabView builds
--- its strip out of THIS control rather than reimplementing the row (director
--- call, `artifacts/navigation-and-menus/additive-vs-net-new.md` §6). Keep the
--- option row reusable: no tab-specific knowledge belongs in here, and anything
--- a strip needs (icons, the axis, the indicator) is a property.
---
--- D5 took that literally. It needed four things and every one of them landed
--- HERE, as a property or a widening, rather than as a second option row:
---
---   sizing = "fill" | "hug"   `fill` (the default, and what every pre-D5 caller
---                             gets) divides the offer among the segments, which
---                             is why a `fill` strip CAN NEVER OVERFLOW: five
---                             tabs at 320px are 64px each. An overflowing tab
---                             strip — f1's `Avatars / Body / Clothing /
---                             Accessories / Backg…` — is a `hug` one, whose
---                             segments take their natural widths and whose band
---                             takes theirs, so it can be wider than the offer and
---                             a scroll host has something to scroll.
---   axis   as a Readable      a tab bar's HOME moves under a live rotation
---                             (`adaptive.navPlacement`: sidebar -> a vertical
---                             rail, bottom bar -> a horizontal band), and the
---                             A-AL2 rule says an arrangement change is a
---                             RE-SOLVE, not a rebuild. A build-time axis would
---                             have forced two strips under two `When`s, which
---                             is exactly the hand-assembly D5 exists to delete.
---                             `sizing` is a Readable for the same reason.
---   Option.badge              the count seal. Not tab-specific at all: a
---                             segmented control over a message list wants one
---                             too, and `surface = "badge"` is a shipped Text
---                             token, so this adds no primitive.
---   Option.label as Readable  the reference shells carry a SECOND localized
---                             string for the thumb zone ("nav.menu.short") and
---                             flip between them live, which a build-time string
---                             cannot follow. `compactLabel` is deliberately not
---                             reactive (a compact form is what a control HAS),
---                             so the binding has to be the label itself.
---
--- Badged options use the shared row recipe: icon/name and count reserve separate
--- space inside one Button. The semantic Button id and its optional cell remain
--- stable, so focus and the selection indicator still track the same option.
--- Unbadged options retain the primitive compact-label degrade ladder.
-
+local Compose = require("../vendor/compose/core")
+-- Picker presents one selection model as a menu, a segmented strip or rows.
+-- The automatic style follows available space, input and viewing distance.
+-- Static and keyed strips use Compose ownership; their controls retain Facet's
+-- focus, selection validation, themes and layout rules.
 local chrome_slots = require("../tokens/chrome_slots")
-local coreContract = require("../core/contract")
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
@@ -197,68 +24,11 @@ local picker = {}
 -- and a terse localized name live). `badge` is the count seal — a string, a
 -- number, or a Readable of either; an empty one hides the plate rather than
 -- painting an empty bubble.
-type AnySignal = coreContract.Signal<any>
-export type Option = {
-	id: string?,
-	value: any,
-	label: any,
-	icon: string?,
-	badge: any?,
-	enabled: blueprint.Bound<boolean>?,
-	description: any?,
-	sectionTitle: any?,
-}
+local specTypes = require("../spec_types/picker")
+type AnyCell = specTypes.AnyCell
+export type Option = specTypes.Option
 
-export type Spec<V = AnySignal> = {
-	required: boolean?,
-	onChanging: ((any, any) -> boolean)?,
-	id: string?,
-	label: blueprint.Bound<string>?,
-	valueAlignment: blueprint.Bound<string>?, -- start | end (default), or Readable; labeled menu rows
-	options: { Option } | coreContract.Readable<{ Option }>,
-	selected: V, -- owner-held Signal
-	-- "automatic" (default) | "menu" | "segmented" | "inline" | "radioGroup" |
-	-- "navigationLink" — see the header for the ladder
-	style: string?,
-	presentation: string?, -- DEPRECATED alias of `style` ("radio" reads as "radioGroup")
-	-- a caller-owned Signal<string>: the search text of a navigationLink list.
-	-- Its presence makes the automatic style the navigation link.
-	query: coreContract.Signal<string>?,
-	placeholder: string?, -- the trigger's word when nothing is selected (menu styles)
-	-- "automatic" (default) | "none" | "underline" | "pill" — the D4 sliding
-	-- selection indicator. "automatic" is the PILL unless `presentation =
-	-- "inline"` was declared, in which case it is "none" (see the header).
-	indicator: string?,
-	-- "x" (default) | "y" — the SEGMENTED presentation's axis, or a Readable of
-	-- either. "y" is a vertical PILL (f1's left rail), which is a different shape
-	-- from the `inline` row list and deliberately does not overload it. Inert
-	-- under `inline`, which is a column by definition. REACTIVE because a tab
-	-- bar's home moves under a live rotation and an arrangement change is a
-	-- re-solve, not a rebuild (A-AL2).
-	axis: blueprint.Bound<string>?,
-	-- "fill" (default) | "hug", or a Readable of either. `fill` divides the offer
-	-- among the segments — the shape every pre-D5 caller has; `hug` gives the band
-	-- and every segment its natural width, which is what lets a strip be WIDER
-	-- than its offer and therefore scroll (f1's overflowing tab strip). Inert on
-	-- the vertical rail, which is content-sized by definition.
-	sizing: blueprint.Bound<string>?,
-	-- true makes the option ICON what every segment wears at every width, with
-	-- `label` staying the semantic name (f1's icon-only pill and rail). Default
-	-- false: the segment keeps its word and degrades to the glyph. A GROUP
-	-- decision — see the header on why it cannot be per-option.
-	iconOnly: boolean?,
-	-- the TYPE ROLE every segment wears (a `TypeRole` name or a number, or a
-	-- Readable of either), passed straight to each segment's Button. Nil is the
-	-- Button's own default, which is what every caller before §6 had. REACTIVE for
-	-- the same reason `axis` and `sizing` are: a strip's home moves under a live
-	-- rotation and a tab bar in the thumb zone is caption-sized while the same
-	-- strip on a rail is not.
-	textSize: blueprint.Bound<number | string>?,
-	sizeClass: blueprint.Bound<string>?, -- string | Readable<string> from Facet.adaptive.conditions
-	env: any?, -- optional environment, so the indicator's metrics follow a live theme
-	enabled: blueprint.Bound<boolean>?,
-	onChange: ((value: any) -> ())?,
-}
+export type Spec<V = AnyCell> = specTypes.Spec<V>
 
 local PRESENTATIONS: { [string]: boolean } = { automatic = true, segmented = true, inline = true, radio = true }
 -- the PUBLIC style names, and the strip builder's own vocabulary for the three
@@ -389,16 +159,7 @@ end
 
 --[[ THE AUTOMATIC STYLE, as a pure function of facts (see the header). Exported
 	so a screen can predict what it will get, and pinned by tests/picker_style. ]]
-export type StyleFacts = {
-	optionCount: number,
-	longestLabel: number,
-	sizeClass: string?,
-	distanceProfile: string?, -- "near" | "ten-foot"
-	primaryInput: string?, -- "touch" | "pointer" | "gamepad"
-	searchable: boolean?,
-	hasDescription: boolean?, -- any option carries a description (a row, never a segment)
-	fits: boolean?, -- the estimated segmented band fits the offer at the current text size (nil = unknown)
-}
+export type StyleFacts = specTypes.StyleFacts
 function picker.resolveStyle(facts: StyleFacts): string
 	if facts.searchable == true then
 		return "navigationLink"
@@ -471,12 +232,7 @@ local PICKER_KEYS = specGuard.keySet({
 -- same reason: `axis`/`sizing` arrive as a Signal from a test and as a MEMO from
 -- a TabView whose placement is derived, and reading only one kind hands the
 -- caller back the node itself.
-local function readValue(source: any, use: any?): any
-	if type(source) == "table" and ((source :: any).kind == "signal" or (source :: any).kind == "memo") then
-		return if use ~= nil then use(source) else (source :: any):get()
-	end
-	return source
-end
+local readValue = require("../selection_model").read
 
 local OPTION_KEYS =
 	specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled", "sectionTitle" })
@@ -530,12 +286,12 @@ end
 	reactively, because a theme swap re-carves it and a flip to a row form
 	takes the plate away. Nothing is read without an environment (a declared
 	strip with none stays flat, as the neutral package carves nothing). ]]
-local function trackPaddingFor(core: any, scope: any, spec: any, presentation: any): any
+local function trackPaddingFor(core: any, spec: any, presentation: any): any
 	local env = spec.env or surfaceEnv.find(core)
 	if env == nil then
 		return nil
 	end
-	return scope:own(core:memo(function(use)
+	return function(use)
 		if use(presentation) ~= "segmented" then
 			return 0
 		end
@@ -551,17 +307,13 @@ local function trackPaddingFor(core: any, scope: any, spec: any, presentation: a
 			bottom = tonumber(plate.bottom) or 0,
 			left = tonumber(plate.left) or 0,
 		}
-	end))
+	end
 end
 
-local function buildLive(Facet, core, spec, requested: string, onReselect)
+local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, owner)
 	local UI = Facet.UI
-	local scope = core:scope("live-picker")
 	local id = spec.id or "Picker"
-	assert(
-		type(spec.selected) == "table" and spec.selected.kind == "signal",
-		"Picker: selected must be a SETTABLE Signal"
-	)
+	assert(selectionModel.isWritable(spec.selected), "UI.Picker: selected must be a writable Compose cell")
 	assert(PRESENTATIONS[requested], "Picker: presentation must be automatic | segmented | inline | radio")
 	assert(spec.indicator == nil or INDICATORS[spec.indicator], "Picker: invalid live indicator")
 	local slides = requested == "segmented" and (spec.indicator == "pill" or spec.indicator == "underline")
@@ -569,11 +321,7 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 	for _, option in readValue(spec.options) do
 		sectioned = sectioned or option.sectionTitle ~= nil
 	end
-	local disposed = false
 	local mountedNode
-	scope:own(function()
-		disposed = true
-	end)
 	local function key(option)
 		return option.id or tostring(option.value)
 	end
@@ -600,15 +348,15 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 		return list
 	end
 	validateOptions(readValue(spec.options))
-	local options = scope:own(core:memo(function(use)
-		return validateOptions(use(spec.options), use)
-	end))
-	options:get()
+	local options = Compose.formula(function(use)
+		return validateOptions(readValue(spec.options, use), use)
+	end)
+	options:peek()
 	local env = spec.env
 	if requested == "automatic" and not spec.sizeClass then
-		env = surfaceEnv.resolve("newPicker", id, core, env, "automatic selection adapts to available space")
+		env = surfaceEnv.resolve("UI.Picker", id, core, env, "automatic selection adapts to available space")
 	end
-	local presentation = scope:own(core:memo(function(use)
+	local presentation = Compose.formula(function(use)
 		if requested ~= "automatic" then
 			return requested
 		end
@@ -635,31 +383,35 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 			longest,
 			described
 		)
-	end))
-	local axis = scope:own(core:memo(function(use)
+	end)
+	local axis = Compose.formula(function(use)
 		return if use(presentation) == "inline" or use(presentation) == "radio"
 			then "y"
 			else (readValue(spec.axis, use) or "x")
-	end))
+	end)
 	local function sizingNow(use)
 		local value = readValue(spec.sizing, use)
 		return if SIZINGS[value] then value else "fill"
 	end
-	local verticalPill = scope:own(core:memo(function(use)
+	local verticalPill = Compose.formula(function(use)
 		return use(presentation) == "segmented" and use(axis) == "y"
-	end))
-	local groupWidth = scope:own(core:memo(function(use)
+	end)
+	local groupWidth = Compose.formula(function(use)
 		return if use(verticalPill) then RAIL_WIDTH elseif sizingNow(use) == "hug" then NATURAL_WIDTH else BAND_WIDTH
-	end))
-	local segmentWidth = scope:own(core:memo(function(use)
+	end)
+	local segmentWidth = Compose.formula(function(use)
 		return if use(verticalPill) or sizingNow(use) == "fill" then SEGMENT_FILL else SEGMENT_NATURAL
-	end))
+	end)
 	local function choose(identity)
-		if disposed or controlContract.isDisabled(mountedNode) or not controlContract.enabledNow(spec.enabled) then
+		if
+			owner.isDisposed()
+			or controlContract.isDisabled(mountedNode)
+			or not controlContract.enabledNow(spec.enabled)
+		then
 			return
 		end
 		local option
-		for _, item in options:get() do
+		for _, item in options:peek() do
 			if key(item) == identity then
 				option = item
 				break
@@ -668,15 +420,20 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 		if not option then
 			return
 		end
-		local accepted, nextValue =
-			selectionModel.choose(options:get(), spec.selected:get(), option.value, spec.required, spec.onChanging)
+		local accepted, nextValue = selectionModel.choose(
+			options:peek(),
+			readValue(spec.selected),
+			option.value,
+			spec.required,
+			spec.onChanging
+		)
 		if
 			accepted
-			and not disposed
+			and not owner.isDisposed()
 			and not controlContract.isDisabled(mountedNode)
 			and controlContract.enabledNow(spec.enabled)
 		then
-			core:transaction(function()
+			core.reactor:batch(function()
 				spec.selected:set(nextValue)
 				if spec.onChange then
 					spec.onChange(nextValue)
@@ -688,57 +445,49 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 		id = "Rows",
 		items = options,
 		key = key,
-		row = function(initial, rowScope)
+		row = function(initial, _, current)
 			local identity = key(initial)
-			local current = rowScope:own(core:memo(function(use)
-				for _, option in use(options) do
-					if key(option) == identity then
-						return option
-					end
-				end
-				return initial
-			end))
+			-- Compose supplies the current record for this key. Each row reads
+			-- that record directly instead of searching the entire option list.
 			local function prop(name, fallback)
-				return rowScope:own(core:memo(function(use)
+				return function(use)
 					local value = readValue(use(current)[name], use)
 					return if value == nil then fallback else value
-				end))
+				end
 			end
-			local selected = rowScope:own(core:memo(function(use)
-				return use(spec.selected) == use(current).value
-			end))
-			local enabled = rowScope:own(core:memo(function(use)
+			local selected = function(use)
+				return selectionModel.read(spec.selected, use) == use(current).value
+			end
+			local enabled = function(use)
 				return controlContract.enabledIn(use, spec.enabled)
 					and controlContract.enabledIn(use, use(current).enabled)
-			end))
+			end
 			local row = menuRecipe.row(UI, {
-				id = if slides or onReselect then "Option-" .. identity else "Option",
+				id = "Option-" .. identity,
 				wrap = true,
 				surface = if slides then "plain" else nil,
 				labelTint = if slides and spec.indicator == "pill"
-					then rowScope:own(core:memo(function(use)
-						return { role = if use(selected) then "onAccent" else "content", blend = 1 }
-					end))
+					then function(use)
+						return { role = if selected(use) then "onAccent" else "content", blend = 1 }
+					end
 					else nil,
 				label = prop("label"),
 				description = prop("description", ""),
 				icon = prop("icon"),
 				badge = prop("badge", ""),
-				core = core,
-				scope = rowScope,
 				width = segmentWidth,
 				textSize = spec.textSize,
 				iconOnly = spec.iconOnly,
 				selected = if slides then nil else selected,
 				enabled = enabled,
 				indicator = if requested == "radio" then "radio" else nil,
-				markHidden = rowScope:own(core:memo(function(use)
-					return not use(selected)
-				end)),
+				markHidden = function(use)
+					return not selected(use)
+				end,
 			})
 			row = contribution.attach(row, {
 				handleActivate = function()
-					if onReselect and spec.selected:get() == current:get().value and enabled:get() then
+					if onReselect and readValue(spec.selected) == readValue(current).value and readValue(enabled) then
 						onReselect()
 					else
 						choose(identity)
@@ -750,11 +499,11 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 				return row
 			end
 			local heading = prop("sectionTitle", "")
-			local showHeading = rowScope:own(core:memo(function(use)
-				return use(axis) == "y" and use(heading) ~= ""
-			end))
+			local showHeading = function(use)
+				return use(axis) == "y" and heading(use) ~= ""
+			end
 			return UI.VStack({
-				id = "SectionRow",
+				id = "SectionRow-" .. identity,
 				width = segmentWidth,
 				gap = "xs",
 				children = {
@@ -781,21 +530,19 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 		axis = axis,
 		gap = "xs",
 		width = groupWidth,
-		padding = if slides and (spec :: any).track ~= false
-			then trackPaddingFor(core, scope, spec, presentation)
-			else nil,
+		padding = if slides and (spec :: any).track ~= false then trackPaddingFor(core, spec, presentation) else nil,
 		children = { rows },
 	})
 	local indicatorApi
 	if slides then
-		local segments = scope:own(core:memo(function(use)
+		local segments = Compose.formula(function(use)
 			local out = {}
 			for _, option in use(options) do
 				table.insert(out, { id = "Option-" .. key(option), value = option.value })
 			end
 			return out
-		end))
-		indicatorApi = scope:own(selectionIndicator.build(Facet, core, {
+		end)
+		indicatorApi = selectionIndicator.build(Facet, core, {
 			id = "Indicator",
 			content = group,
 			segments = segments,
@@ -806,7 +553,10 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 			width = groupWidth,
 			-- the container the fill has to match; see the other build site below
 			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
-		}))
+		})
+		owner.own(function()
+			indicatorApi:dispose()
+		end)
 		group = indicatorApi.blueprint
 	end
 	local children = { group }
@@ -822,12 +572,12 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 		return {
 			schema = "facet-picker-dump/1",
 			id = id,
-			selected = spec.selected:get(),
-			presentation = presentation:get(),
-			axis = axis:get(),
+			selected = readValue(spec.selected),
+			presentation = presentation:peek(),
+			axis = axis:peek(),
 			sizing = sizingNow(),
 			iconOnly = spec.iconOnly == true,
-			optionCount = #options:get(),
+			optionCount = #options:peek(),
 			indicator = if indicatorApi then indicatorApi.state() else nil,
 		}
 	end
@@ -836,9 +586,22 @@ local function buildLive(Facet, core, spec, requested: string, onReselect)
 		presentation = presentation,
 		dump = dump,
 		dispose = function()
-			scope:dispose()
+			owner.dispose()
 		end,
 	}
+end
+
+local function buildLive(Facet, core, spec, requested, onReselect)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return buildLiveOwned(Facet, core, spec, requested, onReselect, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 
 -- ===== the option lint (D6), shared by every style =========================
@@ -874,12 +637,12 @@ local function lintStaticOptions(spec: Spec, id: string): any
 		optionIds[optionId] = true
 		optionValues[option.value] = true
 		if type(option) ~= "table" then
-			error(`Facet newPicker('{id}'): option {index} must be a table of value / label / optional icon`, 0)
+			error(`Facet UI.Picker('{id}'): option {index} must be a table of value / label / optional icon`, 0)
 		end
 		local labelText = labelNow(option)
 		if type(labelText) ~= "string" or labelText == "" then
 			error(
-				`Facet newPicker('{id}'): option {index} needs a non-empty \`label\`. It is the SEMANTIC name — `
+				`Facet UI.Picker('{id}'): option {index} needs a non-empty \`label\`. It is the SEMANTIC name — `
 					.. "what `dump().semanticText` announces and what an icon-only segment has instead of "
 					.. "readable text. An icon with no name is unreadable to every non-visual consumer.",
 				0
@@ -889,7 +652,7 @@ local function lintStaticOptions(spec: Spec, id: string): any
 			local badgeText = readValue(option.badge)
 			if type(badgeText) ~= "string" and type(badgeText) ~= "number" then
 				error(
-					`Facet newPicker('{id}'): option {index}'s \`badge\` must be a string or a number (or a `
+					`Facet UI.Picker('{id}'): option {index}'s \`badge\` must be a string or a number (or a `
 						.. "Readable of one) — the COUNT the seal shows. An empty one hides the plate rather "
 						.. "than painting an empty bubble.",
 					0
@@ -900,7 +663,7 @@ local function lintStaticOptions(spec: Spec, id: string): any
 		if option.icon ~= nil then
 			if type(option.icon) ~= "string" or option.icon == "" then
 				error(
-					`Facet newPicker('{id}'): option {index}'s \`icon\` must be a semantic icon NAME `
+					`Facet UI.Picker('{id}'): option {index}'s \`icon\` must be a semantic icon NAME `
 						.. '("close", "chevron.trailing", "ns:name"), never an asset id.',
 					0
 				)
@@ -911,19 +674,19 @@ local function lintStaticOptions(spec: Spec, id: string): any
 	end
 	if iconCount > 0 and iconCount < #spec.options then
 		error(
-			`Facet newPicker('{id}'): {iconCount} of {#spec.options} options carry an \`icon\`. Provide icons for `
+			`Facet UI.Picker('{id}'): {iconCount} of {#spec.options} options carry an \`icon\`. Provide icons for `
 				.. "all options in a group, or none of them — a half-iconned group reads as a "
 				.. "mistake at every width except the one it was authored at.",
 			0
 		)
 	end
 	if spec.iconOnly ~= nil and type(spec.iconOnly) ~= "boolean" then
-		error(`Facet newPicker('{id}'): \`iconOnly\` must be a boolean`, 0)
+		error(`Facet UI.Picker('{id}'): \`iconOnly\` must be a boolean`, 0)
 	end
 	local iconOnly = spec.iconOnly == true
 	if iconOnly and iconCount == 0 then
 		error(
-			`Facet newPicker('{id}'): \`iconOnly\` was asked for but no option carries an \`icon\`, so there `
+			`Facet UI.Picker('{id}'): \`iconOnly\` was asked for but no option carries an \`icon\`, so there `
 				.. "would be nothing to draw. Give every option an icon, or drop `iconOnly`.",
 			0
 		)
@@ -938,27 +701,22 @@ local function lintStaticOptions(spec: Spec, id: string): any
 	}
 end
 
-local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, onReselect)
+local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: string, onReselect, owner)
 	local UI = Facet.UI
 	local id = spec.id or "Picker"
-	local scope = core:scope("picker-" .. tostring(id))
-	local disposed = false
 	local mountedNode
-	scope:own(function()
-		disposed = true
-	end)
 	if type(spec.options) ~= "table" or #spec.options == 0 then
-		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+		error(`Facet UI.Picker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
 	end
 	validateArray(spec.options)
 	local selected = spec.selected
-	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
-		error(`Facet newPicker('{id}'): \`selected\` must be a SETTABLE Signal the caller owns`, 0)
+	if not selectionModel.isWritable(selected) then
+		error(`Facet UI.Picker('{id}'): \`selected\` must be a writable Compose cell the caller owns`, 0)
 	end
 	local indicatorRequest = spec.indicator or "automatic"
 	if not INDICATORS[indicatorRequest] then
 		error(
-			`Facet newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
+			`Facet UI.Picker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
 				.. "One of automatic | none | underline | pill. "
 				.. "The sliding indicator is a PROPERTY of this control, not a construct you build yourself.",
 			0
@@ -987,7 +745,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	end
 	if not AXES[readValue(axisSource)] then
 		error(
-			`Facet newPicker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
+			`Facet UI.Picker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
 				.. '`axis = "y"` is the VERTICAL segmented pill; the stacked row list is `presentation = "inline"`.',
 			0
 		)
@@ -999,7 +757,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	end
 	if not SIZINGS[readValue(sizingSource)] then
 		error(
-			`Facet newPicker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
+			`Facet UI.Picker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
 				.. "`fill` divides the offer among the segments (and therefore can never overflow); `hug` gives "
 				.. "the band and every segment its natural width, which is what an overflowing tab strip is.",
 			0
@@ -1028,7 +786,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	local sizeClassFrom = if spec.sizeClass ~= nil then "spec" else "none"
 	if requested == "automatic" and sizeClassSource == nil then
 		local env, source =
-			surfaceEnv.resolve("newPicker", id, core, spec.env, "an automatic presentation adapts to the size class")
+			surfaceEnv.resolve("UI.Picker", id, core, spec.env, "an automatic presentation adapts to the size class")
 		sizeClassSource = env:get("sizeClass")
 		sizeClassFrom = source
 	end
@@ -1039,7 +797,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			return nil
 		end
 		if type(sc) == "table" then
-			return if use ~= nil then use(sc) else (sc :: any):get()
+			return readValue(sc, use)
 		end
 		return sc :: string
 	end
@@ -1051,7 +809,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 		facts, which is how a wrapper could say "inline" while its strip drew a
 		pill. A declared strip resolves for itself, as it always did. ]]
 	local presentationSource: any = (spec :: any)._presentationSource
-	local presentation = scope:own(core:memo(function(use)
+	local presentation = Compose.formula(function(use)
 		if requested ~= "automatic" then
 			return requested
 		end
@@ -1060,23 +818,23 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			return if resolved == "radioGroup" then "radio" else resolved
 		end
 		return picker.resolvePresentation(#spec.options, readSizeClass(use), longest, lint.hasDescription)
-	end))
+	end)
 
 	-- ONE class with a reactive axis, so a presentation flip is a re-solve and the
 	-- option buttons keep their identity, focus and state (the A-AL2 rule).
 	-- `axis = "y"` on the SEGMENTED presentation is the vertical PILL; `inline` is
 	-- a column by definition and ignores it.
-	local axis = scope:own(core:memo(function(use)
+	local axis = Compose.formula(function(use)
 		return if use(presentation) == "segmented" or use(presentation) == "radio" then axisNow(use) else "y"
-	end))
+	end)
 
 	-- ...and the fact `axis` alone CANNOT express, because the vertical pill and
 	-- the inline row list both answer "y". Two names for two facts is the whole
 	-- guard against confusing them; it also drives the container shape below and
 	-- is reported by `dump()`.
-	local verticalPill = scope:own(core:memo(function(use)
+	local verticalPill = Compose.formula(function(use)
 		return use(presentation) == "segmented" and axisNow(use) == "y"
-	end))
+	end)
 
 	-- the RAIL hugs (floored at the tap target); a HUGGING band takes its natural
 	-- width; the filling band and the row list take the offer. Reactive because
@@ -1084,12 +842,12 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	-- give the offer back, and a tab bar that moves from a bottom band to a
 	-- centered cluster must stop filling — a build-time width would leave a 44px
 	-- column standing where a full-width row list belongs.
-	local groupWidth = scope:own(core:memo(function(use)
+	local groupWidth = Compose.formula(function(use)
 		if use(verticalPill) then
 			return RAIL_WIDTH
 		end
 		return if sizingNow(use) == "hug" then NATURAL_WIDTH else BAND_WIDTH
-	end))
+	end)
 
 	-- the SEGMENT's own width, and it is a different question from the group's.
 	-- On the rail this is the CROSS axis, where `fill` is what makes every segment
@@ -1097,27 +855,29 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	-- where `fill` divides the offer equally. Only a HUGGING band lets a segment
 	-- take its own word's width — which is what makes "For you" wider than
 	-- "Charts", and what a strip has to do before it can overflow at all.
-	local segmentWidth = scope:own(core:memo(function(use)
+	local segmentWidth = Compose.formula(function(use)
 		if use(verticalPill) then
 			return SEGMENT_FILL
 		end
 		return if sizingNow(use) == "hug" then SEGMENT_NATURAL else SEGMENT_FILL
-	end))
+	end)
 
 	-- the contract's one reading of `enabled` (a one-shot read: never subscribes)
 	local function isEnabled(): boolean
-		return not disposed and not controlContract.isDisabled(mountedNode) and controlContract.enabledNow(spec.enabled)
+		return not owner.isDisposed()
+			and not controlContract.isDisabled(mountedNode)
+			and controlContract.enabledNow(spec.enabled)
 	end
 
 	local function choose(value: any): boolean
 		if not isEnabled() then
 			return false
 		end
-		local accepted = selectionModel.choose(spec.options, selected:get(), value, spec.required, spec.onChanging)
+		local accepted = selectionModel.choose(spec.options, readValue(selected), value, spec.required, spec.onChanging)
 		if not isEnabled() or not accepted then
 			return false
 		end
-		core:transaction(function()
+		core.reactor:batch(function()
 			selected:set(value)
 			if spec.onChange ~= nil then
 				spec.onChange(value)
@@ -1190,15 +950,14 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 		frame (motion I-4). The lift still happens; it simply does not fly. ]]
 	local ROW_LIFT = 1.05
 	local liftEnv = spec.env or surfaceEnv.find(core)
-	local tenFootRows = scope:own(core:memo(function(use)
+	local tenFootRows = Compose.formula(function(use)
 		if liftEnv == nil then
 			return false
 		end
 		local p = use(presentation)
 		return (p == "inline" or p == "radio") and use(liftEnv:get("distanceProfile")) == "ten-foot"
-	end))
-	local focusedLeaf = scope:own(core:signal(nil :: any))
-	local liftClock: any = nil
+	end)
+	local focusedLeaf = Compose.cell(nil :: any)
 
 	--[[ one row's lift, built the shape `button.luau` proved: a TARGET memo over
 		the two facts, a settled signal the prop reads, and a spring created lazily
@@ -1207,53 +966,29 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 		because a resting `scale = 1` is still an authored presentation transform
 		and would put one on every row of every row list at every distance. ]]
 	local function liftScaleFor(optionId: string): any
-		local target = scope:own(core:memo(function(use)
+		local target = Compose.formula(function(use)
 			return if use(tenFootRows) and use(focusedLeaf) == optionId then ROW_LIFT else 1
-		end))
-		local settled = scope:own(core:signal(target:get()))
-		local spring: any = nil
-		scope:own(core:observe(target, function(next_: number)
-			if spring == nil and liftClock ~= nil then
-				spring = scope:own(liftClock:spring(settled:get(), "object", { eps = 0.00001 }))
-				scope:own(core:observe(spring, function()
-					settled:set(math.clamp(spring:get(), 1, ROW_LIFT))
-				end))
-			end
-			if spring ~= nil then
-				spring:setTarget(next_)
-			else
-				settled:set(next_)
-			end
-		end))
-		return scope:own(core:memo(function(use)
-			local v = use(settled)
-			return if v <= 1.0001 then nil else v
-		end))
-	end
-
-	--[[ THE ROW RECIPE'S BUTTON, PLUS THIS CONTROL'S OWN PAINT. `menu_recipe.row`
-		returns a `UI.Button` and takes no `corners`/`scale`, and widening a recipe
-		four controls share for one caller's silhouette is how a shared recipe
-		becomes a union of its callers. The button is re-emitted instead — exactly
-		the move the badged branch below already makes to put its own children
-		inside one — which is safe because every branch of that recipe returns a
-		bare Button with no metadata channel of its own. ]]
-	local function withRowPaint(bp: any, extra: { [string]: any }): any
-		local props = table.clone(bp.props)
-		props.id = bp.id
-		props.children = bp.children
-		for key, value in extra do
-			props[key] = value
+		end)
+		local moving = if Facet.runtime.host.frames
+			then Facet.runtime.spring(function(use)
+				return use(target)
+			end, { period = 0.28, damping = 1 })
+			else target
+		return function(use)
+			local reduced = liftEnv ~= nil and use(liftEnv:get("motionPolicy")) == "reduced"
+			local value = math.clamp(if reduced then use(target) else use(moving), 1, ROW_LIFT)
+			return if value <= 1.0001 then nil else value
 		end
-		return UI.Button(props)
 	end
 
+	-- A row option is the shared recipe's props plus this control's own corners
+	-- and scale, emitted once so every bound prop keeps its binding.
 	local rows: { any } = {}
 	local byId: { [string]: any } = {}
 	local segments: { any } = {}
 	if requested == "segmented" and lint.hasDescription then
 		error(
-			`Facet newPicker('{id}'): a segmented picker's options cannot carry \`description\`. `
+			`Facet UI.Picker('{id}'): a segmented picker's options cannot carry \`description\`. `
 				.. "A segment is a label and nothing else (the reference platform draws the same); "
 				.. 'a described option is a row — use `style = "inline"`, `"radioGroup"` or `"menu"`, '
 				.. "or leave `style` automatic and the ladder picks a row form for you.",
@@ -1275,17 +1010,17 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 		cornersX[i], cornersY[i], cornersRow[i] = cornerX, cornerY, rowCorners
 		local optionCorners: any = rowCorners
 		if tracked then
-			optionCorners = scope:own(core:memo(function(use)
+			optionCorners = Compose.formula(function(use)
 				if use(presentation) ~= "segmented" then
 					return rowCorners
 				end
 				return if axisNow(use) == "y" then cornerY else cornerX
-			end))
+			end)
 		end
 		-- the lift is a ROW treatment, so a declared segmented strip never carries
 		-- the machinery at all
 		local liftScale = if requested ~= "segmented" then liftScaleFor(optionId) else nil
-		local button = UI.Button({
+		local buttonProps: any = {
 			id = optionId,
 			-- ALWAYS the semantic name, whatever gets drawn (the row_actions
 			-- ruling): `dump().semanticText` reads it, and the renderer's own
@@ -1298,16 +1033,16 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 				then nil
 				elseif iconOnly then { icon = option.icon, prefer = true }
 				else { icon = option.icon },
-			enabled = scope:own(core:memo(function(use)
+			enabled = Compose.formula(function(use)
 				return controlContract.enabledIn(use, spec.enabled) and controlContract.enabledIn(use, option.enabled)
-			end)),
+			end),
 			textSize = spec.textSize,
 			surface = if slides then "plain" else nil,
 			selected = if slides
 				then nil
-				else scope:own(core:memo(function(use)
-					return use(selected) == option.value
-				end)),
+				else Compose.formula(function(use)
+					return selectionModel.read(selected, use) == option.value
+				end),
 			-- THE PLATE'S OWN CONTENT COLOUR, on whichever option the chip is under
 			-- right now (see `platedRole` above). Reactive, and it names BOTH ends:
 			-- a bound role that resolved to nil on the way back would drop the prop
@@ -1316,9 +1051,9 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			-- option the chip LEAVES is written "default", the role nothing tags.
 			role = if platedRole == nil
 				then nil
-				else scope:own(core:memo(function(use)
-					return if use(selected) == option.value then platedRole else "default"
-				end)),
+				else Compose.formula(function(use)
+					return if selectionModel.read(selected, use) == option.value then platedRole else "default"
+				end),
 			-- inside a badge wrapper the Button FILLS the cell, so the cell's own
 			-- width (the reactive one) is the single place the segment's size is
 			-- decided and the two can never disagree
@@ -1339,44 +1074,46 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			-- (`track = false`): a tab bar runs its own compact ladder, and the
 			-- plate's reservation is height a fixed bar does not have.
 			disclose = if slides and (spec :: any).track ~= false then true else nil,
-		})
+		}
 		if requested == "radio" or option.description ~= nil then
-			button = menuRecipe.row(UI, {
+			buttonProps = menuRecipe.rowProps(UI, {
 				id = optionId,
 				label = option.label,
 				textSize = spec.textSize,
 				description = option.description,
 				icon = option.icon,
 				indicator = if requested == "radio" then "radio" else nil,
-				markHidden = scope:own(core:memo(function(use)
-					return use(selected) ~= option.value
-				end)),
-				selected = scope:own(core:memo(function(use)
-					return use(selected) == option.value
-				end)),
-				enabled = scope:own(core:memo(function(use)
+				markHidden = Compose.formula(function(use)
+					return selectionModel.read(selected, use) ~= option.value
+				end),
+				selected = Compose.formula(function(use)
+					return selectionModel.read(selected, use) == option.value
+				end),
+				enabled = Compose.formula(function(use)
 					return controlContract.enabledIn(use, spec.enabled)
 						and controlContract.enabledIn(use, option.enabled)
-				end)),
+				end),
 			})
-			button = withRowPaint(button, { corners = optionCorners, scale = liftScale })
+			buttonProps.corners = optionCorners
+			buttonProps.scale = liftScale
 		end
 		if not badged then
-			table.insert(rows, button)
+			table.insert(rows, UI.Button(buttonProps))
 		else
 			-- The shared row recipe measures label and badge in separate lanes.
 			-- Overlaying a count on a short tab obscures its label, especially
 			-- with distant metrics and an image-backed theme badge.
-			local row = menuRecipe.row(UI, {
+			local row = menuRecipe.rowProps(UI, {
 				id = optionId,
-				core = core,
-				scope = scope,
 				label = option.label,
 				labelTint = if platedRole == nil
 					then nil
-					else scope:own(core:memo(function(use)
-						return { role = if use(selected) == option.value then "onAccent" else "content", blend = 1 }
-					end)),
+					else Compose.formula(function(use)
+						return {
+							role = if selectionModel.read(selected, use) == option.value then "onAccent" else "content",
+							blend = 1,
+						}
+					end),
 				textSize = spec.textSize,
 				icon = option.icon,
 				iconOnly = iconOnly,
@@ -1384,19 +1121,19 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 				wrap = true,
 				description = option.description,
 				indicator = if requested == "radio" then "radio" else nil,
-				selected = scope:own(core:memo(function(use)
-					return use(selected) == option.value
-				end)),
-				markHidden = scope:own(core:memo(function(use)
-					return use(selected) ~= option.value
-				end)),
+				selected = Compose.formula(function(use)
+					return selectionModel.read(selected, use) == option.value
+				end),
+				markHidden = Compose.formula(function(use)
+					return selectionModel.read(selected, use) ~= option.value
+				end),
 			})
-			local props = table.clone(button.props)
+			local props = table.clone(buttonProps)
 			props.id = optionId
 			props.compactLabel = nil
 			props.height = SEGMENT_HEIGHT
 			props.children = row.children
-			button = UI.Button(props)
+			local button = UI.Button(props)
 			table.insert(
 				rows,
 				UI.ZStack({
@@ -1423,32 +1160,32 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			row form's spacing instead (see SEAM_HAIRLINE). ]]
 		if tracked and i < segmentCount then
 			local nextValue = spec.options[i + 1].value
-			local seamMain = scope:own(core:memo(function(use)
+			local seamMain = Compose.formula(function(use)
 				return if use(presentation) == "segmented" then SEAM_HAIRLINE else SEAM_ROW_GAP
-			end))
-			local vertical = scope:own(core:memo(function(use)
+			end)
+			local vertical = Compose.formula(function(use)
 				return use(axis) == "y"
-			end))
+			end)
 			table.insert(
 				rows,
 				UI.Divider({
 					id = `Sep{i}`,
-					width = scope:own(core:memo(function(use)
+					width = Compose.formula(function(use)
 						return if use(vertical) then SEAM_CROSS else use(seamMain)
-					end)),
-					height = scope:own(core:memo(function(use)
+					end),
+					height = Compose.formula(function(use)
 						return if use(vertical) then use(seamMain) else SEAM_CROSS
-					end)),
-					margin = scope:own(core:memo(function(use)
+					end),
+					margin = Compose.formula(function(use)
 						return if use(vertical) then SEAM_MARGIN_Y else SEAM_MARGIN_X
-					end)),
-					hidden = scope:own(core:memo(function(use)
+					end),
+					hidden = Compose.formula(function(use)
 						if use(presentation) ~= "segmented" then
 							return true
 						end
-						local value = use(selected)
+						local value = selectionModel.read(selected, use)
 						return value == option.value or value == nextValue
-					end)),
+					end),
 				})
 			)
 		end
@@ -1473,9 +1210,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			gives the hairline seams their full run. ]]
 		align = if tracked then "stretch" else nil,
 		width = groupWidth,
-		padding = if slides and (spec :: any).track ~= false
-			then trackPaddingFor(core, scope, spec, presentation)
-			else nil,
+		padding = if slides and (spec :: any).track ~= false then trackPaddingFor(core, spec, presentation) else nil,
 		children = rows,
 	})
 
@@ -1537,12 +1272,14 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 					corners = UI.cornersData(SEGMENT_RADIUS),
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
-					hidden = scope:own(core:memo(function(use)
+					hidden = Compose.formula(function(use)
 						return use(presentation) ~= "segmented"
-					end)),
+					end),
 				}),
 		})
-		scope:own(indicatorApi) -- the seam's whole lifetime is this control's
+		owner.own(function()
+			indicatorApi.dispose()
+		end) -- the seam's whole lifetime is this control's
 		group = indicatorApi.blueprint
 	end
 
@@ -1589,16 +1326,13 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 				return
 			end
 			focusBound = true
-			scope:own(core:observe(graph.focused, readFocused))
-			readFocused(graph.focused:get())
-		end,
-		bindMotion = function(clock: any)
-			liftClock = clock
+			owner.watchStatic(graph.focused, readFocused)
+			readFocused(graph.focused:peek())
 		end,
 		handleActivate = function(path: string): boolean
 			local leaf = string.match(path, "([^/]+)$")
 			if leaf ~= nil and byId[leaf] ~= nil then
-				if onReselect and byId[leaf] == selected:get() and isEnabled() then
+				if onReselect and byId[leaf] == readValue(selected) and isEnabled() then
 					onReselect()
 				else
 					choose(byId[leaf])
@@ -1629,7 +1363,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	-- schema string exists to warn about an INCOMPATIBLE shape, and there is not
 	-- one here. (D4 added `indicator` and `axis` on the same reasoning.)
 	function api.dump()
-		local current = selected:get()
+		local current = readValue(selected)
 		local chosenLabel: string? = nil
 		local chosenIcon: string? = nil
 		for _, option in spec.options do
@@ -1647,17 +1381,17 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 			id = id,
 			optionCount = #spec.options,
 			requestedPresentation = requested,
-			presentation = presentation:get(),
+			presentation = presentation:peek(),
 			-- WHERE THE ADAPTIVE FACT CAME FROM: "spec" (the author wired
 			-- it), "core" (the surface's own environment answered, no wiring), or
 			-- "none" (a declared presentation, which consults no ladder at all). A
 			-- screen can be audited for adaptation it never had to author.
 			sizeClassFrom = sizeClassFrom,
-			axis = axis:get(),
+			axis = axis:peek(),
 			-- THE FIELD THAT TELLS THE TWO "y" SHAPES APART. A vertical pill and an
 			-- inline row list both report `axis = "y"`; only this says which one is
 			-- on screen, so a report of "the picker went full width" is answerable.
-			verticalPill = verticalPill:get(),
+			verticalPill = verticalPill:peek(),
 			-- what was ASKED for beside what it resolved to, exactly as
 			-- `requestedPresentation`/`presentation` already pair
 			requestedIndicator = indicatorRequest,
@@ -1682,10 +1416,23 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 	end
 
 	function api.dispose()
-		scope:dispose()
+		owner.dispose()
 	end
 
 	return api
+end
+
+local function buildStrip(Facet, core, spec, requested, onReselect)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return buildStripOwned(Facet, core, spec, requested, onReselect, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 
 -- ===== THE STYLE ROUTER (2026-09-11) =======================================
@@ -1705,14 +1452,14 @@ local function requestedStyle(spec: Spec, id: string): string
 	if spec.presentation ~= nil then
 		if style ~= nil then
 			error(
-				`Facet newPicker('{id}'): \`presentation\` is the deprecated spelling of \`style\`; pass one, not both.`,
+				`Facet UI.Picker('{id}'): \`presentation\` is the deprecated spelling of \`style\`; pass one, not both.`,
 				0
 			)
 		end
 		local legacy = spec.presentation
 		if not PRESENTATIONS[legacy] then
 			error(
-				`Facet newPicker('{id}'): unknown presentation '{tostring(legacy)}'. \`presentation\` is deprecated — `
+				`Facet UI.Picker('{id}'): unknown presentation '{tostring(legacy)}'. \`presentation\` is deprecated — `
 					.. `write \`style\` ({STYLE_LIST}).`,
 				0
 			)
@@ -1722,7 +1469,7 @@ local function requestedStyle(spec: Spec, id: string): string
 	style = style or "automatic"
 	if not STYLES[style] then
 		error(
-			`Facet newPicker('{id}'): unknown style '{tostring(style)}'. One of {STYLE_LIST}. `
+			`Facet UI.Picker('{id}'): unknown style '{tostring(style)}'. One of {STYLE_LIST}. `
 				.. "There is no wheel or palette: a short list is `segmented`, a long one is `menu` or `navigationLink`.",
 			0
 		)
@@ -1763,16 +1510,17 @@ local function stripSpec(spec: Spec, id: string): any
 end
 
 local function buildMenu(Facet: any, core: any, spec: Spec, style: string, id: string): any
-	local scope = core:scope("picker-menu-" .. id)
-	local inner = scope:own(pickerMenu.build(Facet, core, menuSpec(spec, style, id)))
+	local inner = pickerMenu.build(Facet, core, menuSpec(spec, style, id))
+	local presentation = Compose.formula(function()
+		return style
+	end)
 	local api: any = {
 		blueprint = inner.blueprint,
 		api = inner.api,
-		presentation = scope:own(core:memo(function()
-			return style
-		end)),
+		presentation = presentation,
 		dispose = function()
-			scope:dispose()
+			inner.dispose()
+			presentation:dispose()
 		end,
 	}
 	function api.dump()
@@ -1790,21 +1538,20 @@ end
 
 local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string, onReselect): any
 	local strip = if style == "automatic" then "automatic" else STRIP_NAME[style]
-	local live = type(spec.options) == "table" and (spec.options :: any).kind ~= nil
-	local scope = core:scope("picker-strip-" .. id)
-	local inner = scope:own(
-		if live
-			then buildLive(Facet, core, stripSpec(spec, id), strip, onReselect)
-			else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect)
-	)
+	local live = selectionModel.isSource(spec.options)
+	local inner = if live
+		then buildLive(Facet, core, stripSpec(spec, id), strip, onReselect)
+		else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect)
+	local presentation = Compose.formula(function(use)
+		return PUBLIC_NAME[use(inner.presentation)] or use(inner.presentation)
+	end)
 	local api: any = {
 		blueprint = inner.blueprint,
 		segments = inner.segments,
-		presentation = scope:own(core:memo(function(use)
-			return PUBLIC_NAME[use(inner.presentation)] or use(inner.presentation)
-		end)),
+		presentation = presentation,
 		dispose = function()
-			scope:dispose()
+			inner.dispose()
+			presentation:dispose()
 		end,
 	}
 	function api.dump()
@@ -1816,11 +1563,10 @@ local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string
 	return api
 end
 
-local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): any
+local function buildAutomaticOwned(Facet: any, core: any, spec: Spec, id: string, owner: any): any
 	local UI = Facet.UI
-	local scope = core:scope("picker-auto-" .. id)
 	local env = surfaceEnv.resolve(
-		"newPicker",
+		"UI.Picker",
 		id,
 		core,
 		spec.env,
@@ -1828,16 +1574,8 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 	)
 	local sizeClassSource: any = spec.sizeClass or env:get("sizeClass")
 	local searchable = spec.query ~= nil
-	--[[ THE OFFER, MEASURED (visual review 2026-09-11, the console settings page
-		under Fantasy Ornate at the largest preference). Whether a segmented band
-		FITS is a fact about this control's own row, which no published fact names
-		— a two-column page hands it half the viewport, a form row all of it. The
-		wrapper's solved width is that offer, fed back once per solve; both families
-		it can mount fill their row (`BAND_WIDTH`), so the measurement is the same
-		number whichever branch is up and the ladder cannot oscillate on its own
-		answer. A hugging strip (`sizing = "hug"`) reports its NATURAL width, which
-		is not an offer, so that shape keeps the viewport as its budget. ]]
-	local offerWidth = scope:own(core:signal(nil :: number?))
+
+	local offerWidth = Compose.cell(nil :: number?)
 	local function bandEstimate(use: any, list: { any }): number
 		local metrics = use(env:get("themeMetrics"))
 		local snap = if type(metrics) == "table" and type(metrics.controls) == "table"
@@ -1868,7 +1606,7 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 		end
 		return total + gap * math.max(0, #list - 1)
 	end
-	local style = scope:own(core:memo(function(use)
+	local style = Compose.formula(function(use)
 		local list = readValue(spec.options, use)
 		local longest = 0
 		local described = false
@@ -1897,20 +1635,8 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			-- width and the row has nothing to refuse it on
 			fits = vertical or bandEstimate(use, list) <= offer,
 		})
-	end))
-	local isMenu = scope:own(core:memo(function(use)
-		return MENU_STYLES[use(style)] == true
-	end))
-	local isStrip = scope:own(core:memo(function(use)
-		return not use(isMenu)
-	end))
-	--[[ THE ROOT'S OWN WIDTH follows the family on screen, so a caller placing
-		this beside content reads the same rect the declared control would give:
-		the menu family fills its row; a vertical pill is a content-sized RAIL; a
-		hugging band takes its natural width; everything else takes the offer —
-		the same three shapes `buildStrip` resolves, restated here because the
-		wrapper stands OUTSIDE the branch that knows them. ]]
-	local rootWidth = scope:own(core:memo(function(use)
+	end)
+	local rootWidth = Compose.formula(function(use)
 		local current = use(style)
 		if MENU_STYLES[current] then
 			return BAND_WIDTH
@@ -1919,43 +1645,41 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			return RAIL_WIDTH
 		end
 		return if readValue(spec.sizing, use) == "hug" then NATURAL_WIDTH else BAND_WIDTH
-	end))
+	end)
 	local live: any = nil
-	local function branch(build: (any) -> any)
-		return function(branchScope: any)
-			local inner = build(branchScope)
-			branchScope:own(inner)
+	local nativeContent = Compose.keyed({
+		from = function(use)
+			local current = use(style)
+			return { { key = if MENU_STYLES[current] then current else "strip", style = current } }
+		end,
+		key = function(item)
+			return item.key
+		end,
+		render = function(item)
+			local selected = item:peek()
+			local inner
+			if selected.key == "strip" then
+				local handed = table.clone(spec)
+				handed._presentationSource = style
+				inner = buildStripFamily(Facet, core, handed, "automatic", "StripBody")
+			else
+				inner = buildMenu(Facet, core, spec, selected.style, "MenuBody")
+			end
 			live = inner
-			branchScope:own(function()
+			Compose.cleanup(function()
 				if live == inner then
 					live = nil
 				end
+				inner.dispose()
 			end)
 			return inner.blueprint
-		end
-	end
+		end,
+	})
 	local blueprint = contribution.attach(
 		UI.VStack({
 			id = id,
 			width = rootWidth,
-			children = {
-				UI.When({
-					id = "Menu",
-					condition = isMenu,
-					thenView = branch(function()
-						return buildMenu(Facet, core, spec, style:get(), "Body")
-					end),
-				}),
-				UI.When({
-					id = "Strip",
-					condition = isStrip,
-					thenView = branch(function()
-						local handed: any = table.clone(spec :: any)
-						handed._presentationSource = style
-						return buildStripFamily(Facet, core, handed, "automatic", "Body")
-					end),
-				}),
-			},
+			children = { nativeContent },
 		}),
 		{
 			syncGeometry = function(rectOf, node)
@@ -1963,7 +1687,12 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 					return
 				end
 				local rect = rectOf(node.path)
-				if type(rect) == "table" and type(rect.w) == "number" and rect.w > 0 and offerWidth:get() ~= rect.w then
+				if
+					type(rect) == "table"
+					and type(rect.w) == "number"
+					and rect.w > 0
+					and offerWidth:peek() ~= rect.w
+				then
 					offerWidth:set(rect.w)
 				end
 			end,
@@ -1992,7 +1721,7 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			end,
 		},
 		dispose = function()
-			scope:dispose()
+			owner.dispose()
 		end,
 	}
 	function api.dump()
@@ -2000,7 +1729,7 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 		out.schema = "facet-picker-dump/1"
 		out.id = id
 		out.requestedStyle = "automatic"
-		out.style = style:get()
+		out.style = style:peek()
 		-- before a branch has mounted, the resolved style IS the presentation
 		if out.presentation == nil then
 			out.presentation = out.style
@@ -2009,15 +1738,27 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			out.indicator = "none"
 		end
 		out.sizeClassFrom = if spec.sizeClass ~= nil then "spec" else "core"
-		out.selected = spec.selected:get()
+		out.selected = readValue(spec.selected)
 		return out
 	end
 	return api
 end
+local function buildAutomatic(Facet, core, spec, id)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return buildAutomaticOwned(Facet, core, spec, id, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
+end
 
 -- Internal tab-host hook: accepting the current destination completes its chooser without a change event.
 function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?)
-	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.Picker", spec, PICKER_KEYS, "spec")
 	local id = spec.id or "Picker"
 	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
 	for _, name in { "onChanging", "onChange" } do
@@ -2068,9 +1809,7 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 			local themeEnv: any = spec.env or surfaceEnv.find(core)
 			if type(themeEnv) == "table" and type(themeEnv.get) == "function" then
 				local metrics: any = themeEnv:get("themeMetrics")
-				local snap: any = if type(metrics) == "table" and type(metrics.get) == "function"
-					then metrics:get()
-					else nil
+				local snap: any = if Compose.isReadable(metrics) then metrics:peek() else nil
 				liveRadii = if type(snap) == "table" and type(snap.radii) == "table" then snap.radii else nil
 			end
 		end
@@ -2080,7 +1819,7 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 				else " No theme is in hand at this call, so that vocabulary is the BASE style's: "
 					.. "a radius a package adds of its own can be named from a themed surface."
 			error(
-				`Facet newPicker('{id}'): stripCorner must name a container radius `
+				`Facet UI.Picker('{id}'): stripCorner must name a container radius `
 					.. `({styling.selectionContainerList(liveRadii)}) — the vocabulary the selected fill resolves `
 					.. `through \`radii.selection:<container>\`. Got '{tostring(declared)}'.{source}`,
 				0
@@ -2088,7 +1827,7 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 		end
 		if (spec :: any).track ~= false then
 			error(
-				`Facet newPicker('{id}'): stripCorner names the plate AROUND this strip, and a tracked `
+				`Facet UI.Picker('{id}'): stripCorner names the plate AROUND this strip, and a tracked `
 					.. `strip draws its own plate. Either pass \`track = false\` (the band owns the plate) `
 					.. `or drop \`stripCorner\` (this picker's own track is the container).`,
 				0
@@ -2096,9 +1835,8 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 		end
 	end
 	assert(
-		spec.query == nil
-			or (type(spec.query) == "table" and spec.query.kind == "signal" and type(spec.query:get()) == "string"),
-		"Picker: query must be a caller-owned Signal<string>"
+		spec.query == nil or (selectionModel.isWritable(spec.query) and type(readValue(spec.query)) == "string"),
+		"UI.Picker: query must be a writable Compose cell holding a string"
 	)
 	assert(spec.placeholder == nil or type(spec.placeholder) == "string", "Picker: placeholder must be a string")
 	local style = requestedStyle(spec, id)
@@ -2109,24 +1847,24 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	local indicatorRequest = spec.indicator or "automatic"
 	if not INDICATORS[indicatorRequest] then
 		error(
-			`Facet newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
+			`Facet UI.Picker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
 				.. "One of automatic | none | underline | pill. "
 				.. "The sliding indicator is a PROPERTY of this control, not a construct you build yourself.",
 			0
 		)
 	end
-	if type(spec.options) ~= "table" then
-		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+	if type(spec.options) ~= "table" and not selectionModel.isSource(spec.options) then
+		error(`Facet UI.Picker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
 	end
-	if (spec.options :: any).kind == nil then
+	if not selectionModel.isSource(spec.options) then
 		if #spec.options == 0 then
-			error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+			error(`Facet UI.Picker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
 		end
 		validateArray(spec.options)
 		lintStaticOptions(spec, id)
 	end
 	if spec.query ~= nil and style ~= "automatic" and style ~= "navigationLink" then
-		error(`Facet newPicker('{id}'): \`query\` (a searchable list) belongs to the navigationLink style.`, 0)
+		error(`Facet UI.Picker('{id}'): \`query\` (a searchable list) belongs to the navigationLink style.`, 0)
 	end
 	if MENU_STYLES[style] then
 		return buildMenu(Facet, core, spec, style, id)

@@ -113,338 +113,343 @@ local GRID_PANE = "/VirtualGrid/GridPane"
 	tall paints over the frame a player sees first. ]]
 local SEED_WINDOW = 96
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Lazy grid (newVirtualGrid)",
 	ledgerRows = { "R3-VGRID" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
-		local scope = core:scope("virtual-grid")
+		local lifetime = newLifetime(Compose)
+		return lifetime.under(function()
+			local cells = table.create(ITEM_COUNT)
+			for i = 1, ITEM_COUNT do
+				cells[i] = { id = `c{i}`, label = tostring(i) }
+			end
+			local items = Compose.cell(cells)
+			local lanes = Compose.cell(DEFAULT_LANES)
 
-		local cells = table.create(ITEM_COUNT)
-		for i = 1, ITEM_COUNT do
-			cells[i] = { id = `c{i}`, label = tostring(i) }
-		end
-		local items = scope:own(core:signal(cells))
-		local lanes = scope:own(core:signal(DEFAULT_LANES))
+			--[[ THE BUILD COUNTER — the fixture's whole subject, and the same
+				instrument `tests/virtual_grid.spec.luau` proves the feature with. It is a
+				COUNT OF `cell` CALLS, not a timer and not a mounted-node count: those two
+				answer "how big is the tree", and the question a lazy grid is answering is
+				"how many were ever made". The plain number is what `report()` publishes;
+				the Signal beside it is what puts the number on screen, and it is written
+				from the factory rather than derived, because nothing else in the tree
+				knows a cell was built. ]]
+			local built = 0
+			local builtCount = Compose.cell(0)
 
-		--[[ THE BUILD COUNTER — the fixture's whole subject, and the same
-			instrument `tests/virtual_grid.spec.luau` proves the feature with. It is a
-			COUNT OF `cell` CALLS, not a timer and not a mounted-node count: those two
-			answer "how big is the tree", and the question a lazy grid is answering is
-			"how many were ever made". The plain number is what `report()` publishes;
-			the Signal beside it is what puts the number on screen, and it is written
-			from the factory rather than derived, because nothing else in the tree
-			knows a cell was built. ]]
-		local built = 0
-		local builtCount = scope:own(core:signal(0))
+			local viewportExtent = Compose.cell(SEED_WINDOW)
 
-		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
+			-- `UI.VirtualGrid(...)` (the app's `api`-flavoured control library)
+			-- answers only the blueprint node; the control's own verbs, its
+			-- `.blueprint` and its `dump()` snapshot arrive through `ref`, per the
+			-- round-2 addendum's contract. `VirtualGrid` never sets its own `api`
+			-- field, so `record.api` falls back to the whole built record.
+			local grid: any
+			local gridNode = UI.VirtualGrid("Cells")({
+				items = items,
+				key = function(item: any): string
+					return item.id
+				end,
+				columns = lanes,
+				itemExtent = LINE_EXTENT,
+				gap = CELL_GAP,
+				rowGap = LINE_GAP,
+				viewportExtent = viewportExtent,
+				overscan = 2,
+				cell = function(item: any): any
+					built += 1
+					builtCount:set(built)
+					--[[ THE PLATE IS `fill` ON BOTH AXES AND HOLDS ONE SHORT LINE. Both
+						halves matter to the solver: a `fill` axis is granted exactly the
+						cell's box at arrange, so the overlap guard excuses it, and
+						`lineLimit = 1` is what makes "one line" a contract rather than a
+						hope — a label that wrapped would be free to outgrow the slot at a
+						lane count nobody swept.
 
-		local grid = ctx.Facet.Controls.VirtualGrid(core, {
-			id = "Cells",
-			items = items,
-			key = function(item: any): string
-				return item.id
-			end,
-			columns = lanes,
-			itemExtent = LINE_EXTENT,
-			gap = CELL_GAP,
-			rowGap = LINE_GAP,
-			viewportExtent = viewportExtent,
-			overscan = 2,
-			cell = function(item: any): any
-				built += 1
-				builtCount:set(built)
-				--[[ THE PLATE IS `fill` ON BOTH AXES AND HOLDS ONE SHORT LINE. Both
-					halves matter to the solver: a `fill` axis is granted exactly the
-					cell's box at arrange, so the overlap guard excuses it, and
-					`lineLimit = 1` is what makes "one line" a contract rather than a
-					hope — a label that wrapped would be free to outgrow the slot at a
-					lane count nobody swept.
-
-					THE FACE IS A `tint`ED BOX AND NOT A `surface`, AND THAT IS THE FIRST
-					THING THE SWEEP TAUGHT THIS FIXTURE. `surface = "raised"` was here,
-					and a themed surface brings its package's chrome `contentInsets` with
-					it: under fantasy-ornate the panel slot is 40px a side, which on a
-					70px cell collapsed the content box to 0px on BOTH axes and made the
-					cell measure 97px against its own 96px slot — 790 findings, all of
-					them that one word. `tint` is the continuous-colour channel and
-					carries no chrome at all, so the plate is paint and the geometry stays
-					this fixture's own. ]]
-				return UI.ZStack({
-					id = "Plate",
-					width = UI.fill(),
-					height = UI.fill(),
-					padding = CELL_PADDING,
-					alignH = "center",
-					alignV = "center",
-
-					UI.Box({
-						id = "Face",
+						THE FACE IS A `tint`ED BOX AND NOT A `surface`, AND THAT IS THE FIRST
+						THING THE SWEEP TAUGHT THIS FIXTURE. `surface = "raised"` was here,
+						and a themed surface brings its package's chrome `contentInsets` with
+						it: under fantasy-ornate the panel slot is 40px a side, which on a
+						70px cell collapsed the content box to 0px on BOTH axes and made the
+						cell measure 97px against its own 96px slot — 790 findings, all of
+						them that one word. `tint` is the continuous-colour channel and
+						carries no chrome at all, so the plate is paint and the geometry stays
+						this fixture's own. ]]
+					return UI.ZStack("Plate")({
 						width = UI.fill(),
 						height = UI.fill(),
-						tint = { role = "accent", blend = 0.35 },
-					}),
-					UI.Text({
-						id = "N",
-						text = item.label,
-						textSize = LABEL_SIZE,
-						textAlign = "center",
-						lineLimit = 1,
-						width = UI.fill(),
-					}),
-				})
-			end,
-		})
+						padding = CELL_PADDING,
+						alignH = "center",
+						alignV = "center",
 
-		--[[ THE STATUS LINE IS THE INSTRUMENT, and it reads three live signals so
-			that it re-derives on every one of the three things a player can do here:
-			scroll (the engine's offset, mirrored into `grid.scrollTop`), change the
-			lane count, and cause a cell to be built. `dump()` is then read for its
-			current answer — it is a snapshot, not a Readable, so the `use` calls above
-			it are what make the snapshot arrive at the right moment. ]]
-		local status = scope:own(core:memo(function(use)
-			local n = use(builtCount)
-			use(grid.scrollTop)
-			use(lanes)
-			local d = grid.dump()
-			return `cells built: {n} of {ITEM_COUNT} — window {#d.window} in {d.lanes} lanes, `
-				.. `lines {d.lines[1]}-{d.lines[2]} of {d.lineCount}, canvas {d.content}px`
-		end))
-
-		local laneChips = {}
-		for _, count in LANE_CHOICES do
-			table.insert(
-				laneChips,
-				UI.Button({
-					id = `Lanes{count}`,
-					label = tostring(count),
-					selected = scope:own(core:memo(function(use)
-						return use(lanes) == count
-					end)),
-					onActivate = function()
-						lanes:set(count)
-					end,
-				})
-			)
-		end
-
-		-- reach a cell no window has ever held, through the control's own public
-		-- route: `revealItem` computes the canvas offset from the index and issues
-		-- the framework's one programmatic scroll write
-		local function jumpTo(index: number): string?
-			return grid.revealItem(`c{index}`)
-		end
-
-		local screen = UI.Screen({
-			id = "VirtualGrid",
-			padding = "s",
-			gap = "tight",
-
-			--[[ THERE IS NO PAGE TITLE, AND ITS ABSENCE IS THE SECOND THING THE
-					SWEEP TAUGHT THIS FIXTURE. A 640x320 landscape phone leaves this
-					surface a 640x200 box once the CoreGui topbar and the showcase's chip
-					strip are taken out, and at the Largest text preference a title, a
-					button row and two status lines need 7-32px more than that under six
-					of the eight shipped packages — with the grid already windowed down
-					to zero. The page CANNOT delegate its scrolling (the grid is the
-					scroll host; nesting one inside another is a gesture with two owners),
-					so something had to go, and the title was the one line here that says
-					nothing the status line does not. The fixture's name is already on the
-					picker chip and in `title` above. ]]
-			--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
-					`variable_extents` records: the grid IS a scroll host, and nesting one
-					inside another is a gesture with two owners. ]]
-			UI.HStack({
-				id = "Controls",
-				wrap = true,
-				gap = "tight",
-				width = UI.fill(),
-				children = (function()
-					local kids: { any } = {}
-					for _, chip in laneChips do
-						table.insert(kids, chip)
-					end
-					table.insert(
-						kids,
-						UI.Button({
-							id = "Deep",
-							label = "Jump",
-							onActivate = function()
-								jumpTo(DEEP_INDEX)
-							end,
-						})
-					)
-					table.insert(
-						kids,
-						UI.Button({
-							id = "Top",
-							label = "Top",
-							onActivate = function()
-								jumpTo(1)
-							end,
-						})
-					)
-					return kids
-				end)(),
-			}),
-			-- capped at two lines so a longer status string can never be the thing
-			-- that pushes the grid out of its own page
-			UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
-			-- the pane whose solved height IS the grid's window (see `onGeometry`
-			-- below). `fill` is what makes it the screen's decision, never the
-			-- grid's
-			UI.VStack({
-				id = "GridPane",
-				width = UI.fill(),
-				height = UI.fill(),
-				grid.blueprint,
-			}),
-		})
-
-		local unbind: any = nil
-		return {
-			screen = screen,
-			present = {
-				-- `onGeometry` is a broadcast the presenter makes after every solve, so
-				-- reading one rect here costs the rest of the screen nothing
-				onGeometry = function(rectOf: (string) -> any)
-					local pane = rectOf(GRID_PANE)
-					if pane == nil or type(pane.h) ~= "number" then
-						return
-					end
-					local window = math.max(0, math.floor(pane.h))
-					if window ~= viewportExtent:get() then
-						viewportExtent:set(window)
-					end
+						UI.Box("Face")({
+							width = UI.fill(),
+							height = UI.fill(),
+							tint = { role = "accent", blend = 0.35 },
+						}),
+						UI.Text("N")({
+							text = item.label,
+							textSize = LABEL_SIZE,
+							textAlign = "center",
+							lineLimit = 1,
+							width = UI.fill(),
+						}),
+					})
 				end,
-			},
-			-- published for the headless suite and for the showcase host's
-			-- native-scroll auto-bind, which probes a returned table's values for a
-			-- flat `bindNativeScroll`
-			grid = grid,
-			lanes = lanes,
-			builtCount = builtCount,
+				ref = function(record: any)
+					grid = record.api
+				end,
+			})
 
-			steps = {
-				bind = function(b: any)
-					unbind = grid.bindNativeScroll(b.handle.controller)
-					return grid.scrollPath() or "bound"
-				end,
-				--[[ THE LAZINESS, AS ONE DRIVE. Jump four thousand cells down the
-					collection and report the built count either side: the window moves
-					by its own size and the counter moves by a band, not by four
-					thousand. ]]
-				scrollDeep = function(_b: any, payload: string?)
-					local index = tonumber(payload or DEEP_INDEX) or DEEP_INDEX
-					local before = built
-					local path = jumpTo(index)
-					local d = grid.dump()
-					return {
-						builtBefore = before,
-						builtAfter = built,
-						builtByThisJump = built - before,
-						itemCount = ITEM_COUNT,
-						path = path,
-						lines = d.lines,
-						scrollTop = d.scrollTop,
-						window = #d.window,
-					}
-				end,
-				--[[ THE REFLOW, AS ONE DRIVE. The lane count is the destabilizer only
-					a grid has, so both `narrow` and `widen` report the anchored key and
-					the offset either side: the item under the viewport's leading edge is
-					the same item afterwards, at whatever offset its NEW line sits at.
-
-					ONE HONEST EDGE, MEASURED HERE ON A REAL PRESENTER (2026-08-15) AND
-					REPORTED RATHER THAN HIDDEN. Narrowing MULTIPLIES the canvas — 4 lanes
-					to 2 doubles it — and the anchor's scroll write goes through the render
-					controller, which clamps against the canvas of the LAST solve. So an
-					item in the last screenful of the old canvas cannot be restored on the
-					frame the lanes change: from 80% down a 4-lane grid, `narrow` lands at
-					the old canvas end instead of the item's new offset. Anywhere else, and
-					in the widening direction (where the canvas shrinks) at any offset, the
-					item is held exactly — `c77` at 2 033px comes back at 3 971px, its new
-					line plus the same 95px into it. The steps report both keys, so the
-					drive shows which of the two happened rather than asserting one. ]]
-				narrow = function()
-					local before = grid.dump()
-					lanes:set(LANE_CHOICES[1])
-					local after = grid.dump()
-					return {
-						lanesBefore = before.lanes,
-						lanesAfter = after.lanes,
-						anchorBefore = before.anchorKey,
-						anchorAfter = after.anchorKey,
-						scrollBefore = before.scrollTop,
-						scrollAfter = after.scrollTop,
-						firstBefore = before.window[1],
-						firstAfter = after.window[1],
-						contentAfter = after.content,
-						built = built,
-					}
-				end,
-				widen = function()
-					local before = grid.dump()
-					lanes:set(LANE_CHOICES[#LANE_CHOICES])
-					local after = grid.dump()
-					return {
-						lanesBefore = before.lanes,
-						lanesAfter = after.lanes,
-						anchorBefore = before.anchorKey,
-						anchorAfter = after.anchorKey,
-						scrollBefore = before.scrollTop,
-						scrollAfter = after.scrollTop,
-						firstBefore = before.window[1],
-						firstAfter = after.window[1],
-						contentAfter = after.content,
-						built = built,
-					}
-				end,
-				setLanes = function(_b: any, payload: string?)
-					lanes:set(tonumber(payload or DEFAULT_LANES) or DEFAULT_LANES)
-					return { lanes = grid.dump().lanes, content = grid.dump().content }
-				end,
-				focusCell = function(_b: any, payload: string?)
-					return grid.focusKey(payload or `c{DEEP_INDEX}`)
-				end,
-				-- back to the seed state. The build counter is NOT reset: it is the
-				-- fixture's cumulative evidence, and zeroing it would erase the very
-				-- thing the other steps are producing
-				reset = function()
-					lanes:set(DEFAULT_LANES)
-					jumpTo(1)
-					local d = grid.dump()
-					return { lanes = d.lanes, scrollTop = d.scrollTop, built = built }
-				end,
-			},
-
-			report = function()
+			--[[ THE STATUS LINE IS THE INSTRUMENT, and it reads three live signals so
+				that it re-derives on every one of the three things a player can do here:
+				scroll (the engine's offset, mirrored into `grid.scrollTop`), change the
+				lane count, and cause a cell to be built. `dump()` is then read for its
+				current answer — it is a snapshot, not a Readable, so the `use` calls above
+				it are what make the snapshot arrive at the right moment. ]]
+			local status = Compose.formula(function(use)
+				local n = use(builtCount)
+				use(grid.scrollTop)
+				use(lanes)
 				local d = grid.dump()
-				return {
-					built = built,
-					itemCount = d.itemCount,
-					lanes = d.lanes,
-					window = d.window,
-					mounted = #d.window,
-					lines = d.lines,
-					lineCount = d.lineCount,
-					scrollTop = d.scrollTop,
-					content = d.content,
-					itemExtentMode = d.itemExtentMode,
-					anchorKey = d.anchorKey,
-					viewportExtent = viewportExtent:get(),
-				}
-			end,
+				return `cells built: {n} of {ITEM_COUNT} — window {#d.window} in {d.lanes} lanes, `
+					.. `lines {d.lines[1]}-{d.lines[2]} of {d.lineCount}, canvas {d.content}px`
+			end)
 
-			dispose = function()
-				if unbind then
-					unbind()
-				end
-				grid.dispose()
-				scope:dispose()
-			end,
-		}
+			local laneChips = {}
+			for _, count in LANE_CHOICES do
+				table.insert(
+					laneChips,
+					UI.Button(`Lanes{count}`)({
+						label = tostring(count),
+						selected = Compose.formula(function(use)
+							return use(lanes) == count
+						end),
+						onActivate = function()
+							lanes:set(count)
+						end,
+					})
+				)
+			end
+
+			-- reach a cell no window has ever held, through the control's own public
+			-- route: `revealItem` computes the canvas offset from the index and issues
+			-- the framework's one programmatic scroll write
+			local function jumpTo(index: number): string?
+				return grid.revealItem(`c{index}`)
+			end
+
+			local screen = UI.Screen("VirtualGrid")({
+				padding = "s",
+				gap = "tight",
+
+				--[[ THERE IS NO PAGE TITLE, AND ITS ABSENCE IS THE SECOND THING THE
+						SWEEP TAUGHT THIS FIXTURE. A 640x320 landscape phone leaves this
+						surface a 640x200 box once the CoreGui topbar and the showcase's chip
+						strip are taken out, and at the Largest text preference a title, a
+						button row and two status lines need 7-32px more than that under six
+						of the eight shipped packages — with the grid already windowed down
+						to zero. The page CANNOT delegate its scrolling (the grid is the
+						scroll host; nesting one inside another is a gesture with two owners),
+						so something had to go, and the title was the one line here that says
+						nothing the status line does not. The fixture's name is already on the
+						picker chip and in `title` above. ]]
+				--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
+						`variable_extents` records: the grid IS a scroll host, and nesting one
+						inside another is a gesture with two owners. ]]
+				UI.HStack("Controls")({
+					wrap = true,
+					gap = "tight",
+					width = UI.fill(),
+					table.unpack((function()
+						local kids: { any } = {}
+						for _, chip in laneChips do
+							table.insert(kids, chip)
+						end
+						table.insert(
+							kids,
+							UI.Button("Deep")({
+								label = "Jump",
+								onActivate = function()
+									jumpTo(DEEP_INDEX)
+								end,
+							})
+						)
+						table.insert(
+							kids,
+							UI.Button("Top")({
+								label = "Top",
+								onActivate = function()
+									jumpTo(1)
+								end,
+							})
+						)
+						return kids
+					end)()),
+				}),
+				-- capped at two lines so a longer status string can never be the thing
+				-- that pushes the grid out of its own page
+				UI.Text("Status")({ text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
+				-- the pane whose solved height IS the grid's window (see `onGeometry`
+				-- below). `fill` is what makes it the screen's decision, never the
+				-- grid's
+				UI.VStack("GridPane")({
+					width = UI.fill(),
+					height = UI.fill(),
+					gridNode,
+				}),
+			})
+
+			local unbind: any = nil
+			return {
+				screen = screen,
+				present = {
+					-- `onGeometry` is a broadcast the presenter makes after every solve, so
+					-- reading one rect here costs the rest of the screen nothing
+					onGeometry = function(rectOf: (string) -> any)
+						local pane = rectOf(GRID_PANE)
+						if pane == nil or type(pane.h) ~= "number" then
+							return
+						end
+						local window = math.max(0, math.floor(pane.h))
+						if window ~= viewportExtent:peek() then
+							viewportExtent:set(window)
+						end
+					end,
+				},
+				-- published for the headless suite and for the showcase host's
+				-- native-scroll auto-bind, which probes a returned table's values for a
+				-- flat `bindNativeScroll`
+				grid = grid,
+				lanes = lanes,
+				builtCount = builtCount,
+
+				steps = {
+					bind = function(b: any)
+						unbind = grid.bindNativeScroll(b.handle.controller)
+						return grid.scrollPath() or "bound"
+					end,
+					--[[ THE LAZINESS, AS ONE DRIVE. Jump four thousand cells down the
+						collection and report the built count either side: the window moves
+						by its own size and the counter moves by a band, not by four
+						thousand. ]]
+					scrollDeep = function(_b: any, payload: string?)
+						local index = tonumber(payload or DEEP_INDEX) or DEEP_INDEX
+						local before = built
+						local path = jumpTo(index)
+						local d = grid.dump()
+						return {
+							builtBefore = before,
+							builtAfter = built,
+							builtByThisJump = built - before,
+							itemCount = ITEM_COUNT,
+							path = path,
+							lines = d.lines,
+							scrollTop = d.scrollTop,
+							window = #d.window,
+						}
+					end,
+					--[[ THE REFLOW, AS ONE DRIVE. The lane count is the destabilizer only
+						a grid has, so both `narrow` and `widen` report the anchored key and
+						the offset either side: the item under the viewport's leading edge is
+						the same item afterwards, at whatever offset its NEW line sits at.
+
+						ONE HONEST EDGE, MEASURED HERE ON A REAL PRESENTER (2026-08-15) AND
+						REPORTED RATHER THAN HIDDEN. Narrowing MULTIPLIES the canvas — 4 lanes
+						to 2 doubles it — and the anchor's scroll write goes through the render
+						controller, which clamps against the canvas of the LAST solve. So an
+						item in the last screenful of the old canvas cannot be restored on the
+						frame the lanes change: from 80% down a 4-lane grid, `narrow` lands at
+						the old canvas end instead of the item's new offset. Anywhere else, and
+						in the widening direction (where the canvas shrinks) at any offset, the
+						item is held exactly — `c77` at 2 033px comes back at 3 971px, its new
+						line plus the same 95px into it. The steps report both keys, so the
+						drive shows which of the two happened rather than asserting one. ]]
+					narrow = function()
+						local before = grid.dump()
+						lanes:set(LANE_CHOICES[1])
+						local after = grid.dump()
+						return {
+							lanesBefore = before.lanes,
+							lanesAfter = after.lanes,
+							anchorBefore = before.anchorKey,
+							anchorAfter = after.anchorKey,
+							scrollBefore = before.scrollTop,
+							scrollAfter = after.scrollTop,
+							firstBefore = before.window[1],
+							firstAfter = after.window[1],
+							contentAfter = after.content,
+							built = built,
+						}
+					end,
+					widen = function()
+						local before = grid.dump()
+						lanes:set(LANE_CHOICES[#LANE_CHOICES])
+						local after = grid.dump()
+						return {
+							lanesBefore = before.lanes,
+							lanesAfter = after.lanes,
+							anchorBefore = before.anchorKey,
+							anchorAfter = after.anchorKey,
+							scrollBefore = before.scrollTop,
+							scrollAfter = after.scrollTop,
+							firstBefore = before.window[1],
+							firstAfter = after.window[1],
+							contentAfter = after.content,
+							built = built,
+						}
+					end,
+					setLanes = function(_b: any, payload: string?)
+						lanes:set(tonumber(payload or DEFAULT_LANES) or DEFAULT_LANES)
+						return { lanes = grid.dump().lanes, content = grid.dump().content }
+					end,
+					focusCell = function(_b: any, payload: string?)
+						return grid.focusKey(payload or `c{DEEP_INDEX}`)
+					end,
+					-- back to the seed state. The build counter is NOT reset: it is the
+					-- fixture's cumulative evidence, and zeroing it would erase the very
+					-- thing the other steps are producing
+					reset = function()
+						lanes:set(DEFAULT_LANES)
+						jumpTo(1)
+						local d = grid.dump()
+						return { lanes = d.lanes, scrollTop = d.scrollTop, built = built }
+					end,
+				},
+
+				report = function()
+					local d = grid.dump()
+					return {
+						built = built,
+						itemCount = d.itemCount,
+						lanes = d.lanes,
+						window = d.window,
+						mounted = #d.window,
+						lines = d.lines,
+						lineCount = d.lineCount,
+						scrollTop = d.scrollTop,
+						content = d.content,
+						itemExtentMode = d.itemExtentMode,
+						anchorKey = d.anchorKey,
+						viewportExtent = viewportExtent:peek(),
+					}
+				end,
+
+				-- the control's own `dispose` is registered with `Compose.cleanup` by
+				-- the framework at construction (`ref` only carries the built record,
+				-- never a second disposer to call by hand) — releasing this
+				-- scenario's own lifetime tears the grid down with it.
+				dispose = function()
+					if unbind then
+						unbind()
+					end
+					lifetime.dispose()
+				end,
+			}
+		end)
 	end,
 }

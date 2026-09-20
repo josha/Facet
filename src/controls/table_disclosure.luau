@@ -21,7 +21,7 @@
 	(`tools/lune/verify/data/source-cap-ledger.md`): `table.luau` is the densest control in
 	the framework and the collapse paradigm is the second feature in a row to want
 	room in it. This block is one-way by the checker's own test — it reads no
-	mutable upvalue of `newTable`, every fact arrives as an argument, and it
+	mutable upvalue of `UI.Table`, every fact arrives as an argument, and it
 	requires `table.luau` nowhere.
 ]]
 
@@ -54,6 +54,8 @@ export type Deps = {
 	-- the row builder's OWN cell-content rule, so a disclosed value is the value
 	-- the row would have shown rather than a second reading of the same spec
 	cellContent: (any, any, any) -> any,
+	-- true where the plate is presented as a component (`region_expand.Config`)
+	components: boolean?,
 }
 
 --[[ Returns the `region_expand` engine, or NIL for a table that can never
@@ -113,7 +115,7 @@ function table_disclosure.new(deps: Deps): any
 	end
 	local function hiddenColumnRows(): { any }
 		local out: { any } = {}
-		for _, columnId in hiddenColumns:get() :: { string } do
+		for _, columnId in hiddenColumns:peek() :: { string } do
 			local column = columnById[columnId]
 			if column == nil then
 				continue
@@ -136,8 +138,7 @@ function table_disclosure.new(deps: Deps): any
 			else
 				table.insert(out, UI.Text({ id = `Head-{columnId}`, text = title, textSize = "label" }))
 			end
-			for _, entry in windowedItems:get() :: { any } do
-				local item = entry.item
+			for _, item in windowedItems:peek() :: { any } do
 				table.insert(
 					out,
 					UI.HStack({
@@ -223,12 +224,13 @@ function table_disclosure.new(deps: Deps): any
 	end
 	columnExpand = regionExpand.new({
 		id = `{tableId}-columns`,
+		components = deps.components,
 		factsOf = function(): any
-			local ids = hiddenColumns:get() :: { string }
+			local ids = hiddenColumns:peek() :: { string }
 			if #ids == 0 then
 				return { expandable = false, activeForm = 1, plate = nil }
 			end
-			local measured = availableContentWidth:get()
+			local measured = availableContentWidth:peek()
 			--[[ THE PLATE IS AS WIDE AS THE TABLE, CAPPED. It is a list of
 				identity/value pairs, so it wants the table's own reading width and
 				no more; and below a width where two columns of text can sit side by

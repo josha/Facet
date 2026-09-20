@@ -18,26 +18,25 @@ local book = {}
 
 function book.unlockCard(app: any): any
 	local UI = app.UI
-	local core = app.core
 	local unlock = app.services.unlock
 
-	local locked = app.own(core:memo(function(use)
+	local locked = app.own(app.Compose.formula(function(use)
 		return not use(unlock.unlocked)
 	end))
-	local loading = app.own(core:memo(function(use)
+	local loading = app.own(app.Compose.formula(function(use)
 		return use(unlock.availability) ~= "available"
 	end))
-	local available = app.own(core:memo(function(use)
+	local available = app.own(app.Compose.formula(function(use)
 		return use(unlock.availability) == "available"
 	end))
-	local buyLabel = app.own(core:memo(function(use)
+	local buyLabel = app.own(app.Compose.formula(function(use)
 		local locale = use(app.services.i18n.locale)
 		if use(unlock.status) == "pending" then
 			return app.services.i18n.at(locale, "unlock.pending")
 		end
 		return app.services.i18n.at(locale, "unlock.buy", { price = unlock.product.price })
 	end))
-	local buyEnabled = app.own(core:memo(function(use)
+	local buyEnabled = app.own(app.Compose.formula(function(use)
 		return use(unlock.status) ~= "pending"
 	end))
 
@@ -49,30 +48,25 @@ function book.unlockCard(app: any): any
 		stays the outer, non-canvasGroup plate; `Group` is the ONE new
 		canvasGroup, nested one level in, wrapping what used to be `Card`'s
 		direct children. ]]
-	return UI.When({
-		id = "Unlock",
+	return app.when("Unlock")({
 		condition = locked,
 		transition = { enter = "materialize" },
 		thenView = function()
-			return UI.ZStack({
-				id = "UnlockBox",
+			return UI.ZStack("UnlockBox")({
 				width = dims.fill,
 
-				UI.VStack({
-					id = "Card",
+				UI.VStack("Card")({
 					surface = "raised",
 					corners = UI.cornersData("panel"),
 					stroke = UI.strokeData({}),
 					gap = 0,
 					width = dims.fill,
 
-					UI.ZStack({
-						id = "Group",
+					UI.ZStack("Group")({
 						canvasGroup = true,
 						width = dims.fill,
 
-						UI.VStack({
-							id = "GroupStack",
+						UI.VStack("GroupStack")({
 							gap = 0,
 							width = dims.fill,
 
@@ -82,8 +76,7 @@ function book.unlockCard(app: any): any
 								height = dims.aspect(2.4),
 								markSize = "title",
 							}),
-							UI.VStack({
-								id = "Bar",
+							UI.VStack("Bar")({
 								-- the translucent bar is the MATERIALS adaptation: a
 								-- `raised` plate, never a blur
 								surface = "raised",
@@ -91,13 +84,11 @@ function book.unlockCard(app: any): any
 								gap = "xs",
 								width = dims.fill,
 
-								UI.Text({
-									id = "Name",
+								UI.Text("Name")({
 									text = app.text(unlock.product.nameKey),
 									textSize = "heading",
 								}),
-								UI.Text({
-									id = "Description",
+								UI.Text("Description")({
 									text = app.text(unlock.product.descriptionKey),
 									role = "secondary",
 									textSize = "body",
@@ -108,33 +99,31 @@ function book.unlockCard(app: any): any
 								-- WHILE THE PRODUCT IS STILL LOADING NO BUY BUTTON
 								-- IS MOUNTED (spec §10): a price nobody knows yet
 								-- must not be pressable.
-								UI.When({
-									id = "Loading",
+								app.when("Loading")({
 									condition = loading,
 									thenView = function()
-										return UI.Text({
-											id = "Price",
+										return UI.Text("Price")({
 											text = app.text("unlock.loading"),
 											role = "secondary",
 											textSize = "caption",
 										})
 									end,
 								}),
-								UI.When({
-									id = "Offer",
+								app.when("Offer")({
 									condition = available,
 									thenView = function()
-										return UI.Button({
-											id = "UnlockBuy",
-											label = buyLabel,
-											enabled = buyEnabled,
-											surface = "accent",
-											corners = UI.cornersData("pill"),
-											width = dims.fill,
-											onActivate = function()
-												app.commands.buyBlendBook()
-											end,
-										})
+										return UI.corners(
+											UI.Button("UnlockBuy")({
+												label = buyLabel,
+												enabled = buyEnabled,
+												surface = "accent",
+												width = dims.fill,
+												onActivate = function()
+													app.commands.buyBlendBook()
+												end,
+											}),
+											UI.cornersData("pill")
+										)
 									end,
 								}),
 							}),
@@ -152,19 +141,18 @@ end
 
 function book.recipeView(app: any, opts: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 	local options = opts or {}
 
-	local title = app.own(core:memo(function(use)
+	local title = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		if blendId == nil then
 			return ""
 		end
 		return i18n.nameAt(use(i18n.locale), "blend", blendId, catalog.blend(blendId).title)
 	end))
-	local measures = app.own(core:memo(function(use)
+	local measures = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		if blendId == nil then
 			return {}
@@ -175,7 +163,7 @@ function book.recipeView(app: any, opts: any): any
 		end
 		return out
 	end))
-	local heroId = app.own(core:memo(function(use)
+	local heroId = app.own(app.Compose.formula(function(use)
 		local blendId = use(app.state.selectedBlendId)
 		return if blendId == nil then {} else { blendId }
 	end))
@@ -187,13 +175,12 @@ function book.recipeView(app: any, opts: any): any
 	-- The title's bounded width (identity text, truncating into its
 	-- disclosure rather than widening the pane) is this site's own dim,
 	-- passed through verbatim.
-	return UI.VStack({
-		id = options.id or "Recipe",
+	return UI.VStack(options.id or "Recipe")({
 		gap = "s",
 		width = dims.fill,
 		height = dims.fill,
 
-		app.Facet.navBar({
+		parts.navBar(app, {
 			id = "TopBar",
 			padding = if options.navigationHosted then 0 else "m",
 			onBack = if options.showBack
@@ -206,21 +193,18 @@ function book.recipeView(app: any, opts: any): any
 			titleSize = "heading",
 			titleWidth = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 		}),
-		UI.ScrollView({
-			id = "Page",
+		UI.ScrollView("Page")({
 			axis = "y",
 			gap = "m",
 			padding = if options.navigationHosted then 0 else "m",
 			width = dims.fill,
 			height = dims.fill,
 
-			UI.ZStack({
-				id = "Hero",
+			UI.ZStack("Hero")({
 				width = dims.fill,
 				height = dims.aspect(1.5),
 
-				UI.ForEach({
-					id = "HeroArt",
+				app.forEach("HeroArt")({
 					items = heroId,
 					key = function(blendId: string)
 						return blendId
@@ -237,16 +221,14 @@ function book.recipeView(app: any, opts: any): any
 				-- the batch stepper rides the hero's lower edge on an
 				-- `Anchor`, which is placement and not layout: the hero
 				-- keeps its whole box
-				UI.Anchor({
-					id = "BatchAnchor",
+				UI.Anchor("BatchAnchor")({
 					width = dims.fill,
 					height = dims.fill,
 
-					UI.ZStack({
-						id = "BatchHost",
+					UI.ZStack("BatchHost")({
 						anchor = "bottom",
 						offsetY = "-m",
-						app.batch.blueprint,
+						app.batchStepper(),
 					}),
 				}),
 			}),
@@ -254,19 +236,16 @@ function book.recipeView(app: any, opts: any): any
 			-- still MEASURES the width its string wants, so a 1.4x heading at
 			-- the largest text preference made the whole recipe pane 114px
 			-- wider than the pane it sits in.
-			UI.Text({
-				id = "Heading",
+			UI.Text("Heading")({
 				text = app.text("ingredients.recipe"),
 				textSize = "heading",
 				width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 			}),
-			UI.VStack({
-				id = "Measures",
+			UI.VStack("Measures")({
 				gap = "xs",
 				width = dims.fill,
 
-				UI.ForEach({
-					id = "Rows",
+				app.forEach("Rows")({
 					items = measures,
 					key = function(entry: any)
 						return entry.key
@@ -284,32 +263,28 @@ end
 -- gathered check
 function book.measureRow(app: any, entry: any, itemScope: any): any
 	local UI = app.UI
-	local core = app.core
 	local i18n = app.services.i18n
 	local catalog = app.services.catalog
 	local botanical = catalog.botanical(entry.measure.botanicalId)
 
+	-- the row owns what this builder makes
 	local function own(readable: any): any
-		itemScope:own(function()
-			readable:dispose()
-		end)
 		return readable
 	end
 
-	local name = own(core:memo(function(use)
+	local name = own(app.Compose.formula(function(use)
 		return i18n.nameAt(use(i18n.locale), "botanical", botanical.id, botanical.name)
 	end))
 	-- THE DERIVED QUANTITY: it re-formats live on every Adjust of the stepper,
 	-- with no remount, because it is a memo over the batch signal.
-	local quantity = own(core:memo(function(use)
+	local quantity = own(app.Compose.formula(function(use)
 		local locale = use(i18n.locale)
 		local batch = use(app.state.batch)
 		return i18n.measureAt(locale, entry.measure.value * batch, entry.measure.unit)
 	end))
 	local gathered = app.gatheredSignal(entry.key)
 
-	return UI.HStack({
-		id = "Row-" .. botanical.id,
+	return UI.HStack("Row-" .. botanical.id)({
 		-- THE TIGHTEST LEGAL GAP, because this row cannot compress. Its three
 		-- columns are a fixed thumbnail, a `minMax` name floor and the gathered
 		-- check's own capped band — none of them yields — so the gaps are the only
@@ -329,17 +304,15 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 		-- it lives in (1.4x copy at the largest text preference, in the tablet
 		-- two-pane row). A `minMax` floor is what lets the row compress and the
 		-- name truncate into its disclosure.
-		UI.VStack({
-			id = "Lines",
+		UI.VStack("Lines")({
 			gap = "xs",
 			width = dims.minMax("app.sip.tileArt", "app.sip.tileArt", "app.sip.listPaneMax"),
 
-			UI.Text({ id = "Name", text = name, textSize = "strong", lineLimit = 1, disclose = true }),
+			UI.Text("Name")({ text = name, textSize = "strong", lineLimit = 1, disclose = true }),
 			-- a measured quantity is ONE short token; capping it keeps the row
 			-- the height of its own thumbnail at every text preference, and
 			-- `disclose` keeps the whole value reachable if it ever truncates
-			UI.Text({
-				id = "Quantity",
+			UI.Text("Quantity")({
 				text = quantity,
 				role = "secondary",
 				textSize = "caption",
@@ -348,15 +321,15 @@ function book.measureRow(app: any, entry: any, itemScope: any): any
 				width = dims.fill,
 			}),
 		}),
-		UI.Toggle({
-			id = "Got-" .. botanical.id,
-			width = dims.fixed("app.sip.gatherToggle"),
-			label = own(core:memo(function(use)
-				return i18n.at(use(i18n.locale), "recipe.gathered", { name = use(name) })
-			end)),
-			value = gathered,
-			disclose = true,
-		}),
+		UI.frame(
+			UI.Toggle("Got-" .. botanical.id)({
+				label = own(app.Compose.formula(function(use)
+					return i18n.at(use(i18n.locale), "recipe.gathered", { name = use(name) })
+				end)),
+				value = gathered,
+			}),
+			{ width = "app.sip.gatherToggle" }
+		),
 	})
 end
 

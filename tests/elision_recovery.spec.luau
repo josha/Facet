@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 --[[ ELISION MUST DISCLOSE, NOT DELETE (navigation-and-menus D7).
 
 	ADAPTATION MAY CHANGE HOW MUCH OF SOMETHING IS SHOWN, AND WHAT IT COSTS TO
@@ -36,7 +38,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local composition = require("../src/layout/composition")
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local deviceViews = require("./lib/device_views")
@@ -481,7 +483,7 @@ local PICKER_STRIP = 62
 local SINK_PATH = "/HudScreen/Hud/Rounds/RoundStrip/R3"
 
 local function drive(view: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = CORE_TOP + PICKER_STRIP, bottom = 0, left = 0, right = 0 })
@@ -494,10 +496,13 @@ local function drive(view: any): any
 	)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	local handle: any = nil
 	local built = hudScenario.build({
 		Facet = Facet,
+		app = scenario_app.over(core, presenter),
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -755,7 +760,7 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 		local step = w.built.steps.openUrlBar()
 		w.refresh()
 		local after = (w.adapter.node("/HudScreen/Hud") :: any).rect.h
-		local bar = w.adapter.node("/HudScreen/UrlBarWhen/then/UrlBarChrome") :: any
+		local bar = w.adapter.node("/HudScreen/UrlBarWhen/UrlBarChrome") :: any
 		expect(bar ~= nil).toBe(true)
 		-- ONE number: the drawn band and the room the HUD lost cannot drift
 		expect(`drawn {bar.rect.h} == stolen {step.lostPx}`).toBe(`drawn {step.lostPx} == stolen {step.lostPx}`)
@@ -774,7 +779,7 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 		)
 		-- the FIELD inside it is the control ladder's own box, so no band height can
 		-- ever paint an empty plate again
-		local field = w.adapter.node("/HudScreen/UrlBarWhen/then/UrlBarChrome/UrlBarBody/UrlBarFieldPlate") :: any
+		local field = w.adapter.node("/HudScreen/UrlBarWhen/UrlBarChrome/UrlBarBody/UrlBarFieldPlate") :: any
 		expect(field ~= nil).toBe(true)
 		expect(`field {field.rect.h} < band {bar.rect.h}: {field.rect.h < bar.rect.h}`).toBe(
 			`field {field.rect.h} < band {bar.rect.h}: true`
@@ -824,10 +829,10 @@ describe("D7 — the HUD showcase discloses what it stops showing", function()
 		duplicate it, it pins the size the report was taken at. ]]
 	it("the objective chip is inside the platform's band at 749x380, not above the screen", function()
 		local w = drive({ id = "baseline", w = 749, h = 380 })
-		local band = (w.env:get("platformChrome"):get() :: any).band
+		local band = (w.env:get("platformChrome"):peek() :: any).band
 		expect(band ~= nil).toBe(true)
 		-- the path moved with the band-policy migration; the claim did not
-		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripChip/then/StripRow/StripFit/Objective") :: any
+		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripChip/StripRow/StripFit/Objective") :: any
 		expect(chip ~= nil).toBe(true)
 		expect(`chip y {chip.rect.y} >= band y {band.y}: {chip.rect.y >= band.y}`).toBe(
 			`chip y {chip.rect.y} >= band y {band.y}: true`

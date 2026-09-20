@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Picker `style` — the reference-platform-shaped selection control (2026-09-11).
 --
 -- ONE control, six styles, and an `automatic` that resolves from PUBLISHED
@@ -21,10 +22,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local pickerLib = require("../src/controls/picker")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local THREE = {
 	{ value = "easy", label = "Easy" },
@@ -79,9 +81,9 @@ local function mount(device: string, spec: any)
 	local w = world.new(FACTS[device])
 	local built = table.clone(spec)
 	built.id = built.id or "P"
-	built.selected = built.selected or w.core:signal("normal")
+	built.selected = built.selected or Compose.cell("normal")
 	built.options = built.options or THREE
-	local picker = Facet.Controls.Picker(w.core, built)
+	local picker = harness.Controls.Picker(w.core, built)
 	w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
 	w.pres.refresh()
 	return w, picker
@@ -158,7 +160,7 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 		-- the label sits BESIDE the trigger in one row, the reference platform's form-row shape
 		expect(suffixNode(w, "/Label").props.text).toBe("Difficulty")
 		-- the closed control is a single focusable: the trigger, never a chevron cell
-		expect(w.pres.focus.focused:get()).toBe(suffixPath(w, "/Trigger"))
+		expect(w.pres.focus.focused:peek()).toBe(suffixPath(w, "/Trigger"))
 		w.overflowGuard()
 	end)
 	it("on a desktop the trigger hugs its content like a pop-up button and opens ANCHORED", function()
@@ -188,7 +190,7 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 		expect(markVisible("hard")).toBe(false)
 		expect(suffixPath(w, "/Cancel")).toBe(nil)
 		-- ...and the menu opens with the CURRENT value focused, the pop-up rule
-		expect(w.pres.focus.focused:get()).toBe(suffixPath(w, "/Opt-normal"))
+		expect(w.pres.focus.focused:peek()).toBe(suffixPath(w, "/Opt-normal"))
 		-- the panel is at least as wide as the trigger (the pop-up button rule)
 		local panel = w.adapter.node(suffixPath(w, "/Popup") :: string).rect
 		expect(panel.w + 0.5 >= trigger.w).toBe(true)
@@ -229,7 +231,7 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 		expect(w.pres.anchoredSurfaces().count).toBe(1)
 		picker.api.close()
 		w.pres.refresh()
-		local w2, long = mount("phone", { options = SEVEN, selected = w.core:signal("v1") })
+		local w2, long = mount("phone", { options = SEVEN, selected = Compose.cell("v1") })
 		w2.adapter.tap(suffixPath(w2, "/Trigger") :: string, { inputType = "Touch" })
 		w2.pres.refresh()
 		expect(long.dump().presentation).toBe("sheet")
@@ -270,7 +272,13 @@ describe("Picker menu: the check's edge follows the LIVE interaction class", fun
 			error(`no mark under Opt-{key}`)
 		end
 		local function labelX(key: string): number
-			return w.adapter.node(suffixPath(w, `/Opt-{key}/HStack#1/VStack#2/Label`) :: string).rect.x
+			-- the row's content stacks are unnamed; the label is the one under the option
+			for _, path in w.adapter.paths() do
+				if string.find(path, `/Opt-{key}/`, 1, true) ~= nil and string.sub(path, -6) == "/Label" then
+					return w.adapter.node(path).rect.x
+				end
+			end
+			error(`no label under Opt-{key}`)
 		end
 		expect(edgeOf("normal")).toBe("leading")
 		expect(markX("normal") < labelX("normal")).toBe(true)
@@ -295,10 +303,10 @@ end)
 describe("Picker style: a described popover never paints past the phone", function()
 	it("caps the themed panel width at the viewport less a gutter each side", function()
 		local w = world.new(FACTS.phone)
-		local picker = Facet.Controls.Picker(w.core, {
+		local picker = harness.Controls.Picker(w.core, {
 			id = "P",
 			label = "Race group",
-			selected = w.core:signal("open"),
+			selected = Compose.cell("open"),
 			options = {
 				{ value = "open", label = "Open races" },
 				{ value = "club", label = "Club races", description = "Join a club to unlock." },
@@ -318,10 +326,10 @@ describe("Picker style: a described popover never paints past the phone", functi
 			capabilities = { touch = true },
 			preferredInput = "Touch",
 		})
-		local narrow = Facet.Controls.Picker(n.core, {
+		local narrow = harness.Controls.Picker(n.core, {
 			id = "P",
 			label = "Race group",
-			selected = n.core:signal("open"),
+			selected = Compose.cell("open"),
 			options = {
 				{ value = "open", label = "Open races" },
 				{
@@ -351,9 +359,9 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 		expect(picker.dump().presentation).toBe("segmented")
 		local six = table.clone(SEVEN)
 		table.remove(six)
-		local _, rows = mount("tv", { options = six, selected = Facet.newCore():signal("v1") })
+		local _, rows = mount("tv", { options = six, selected = Compose.cell("v1") })
 		expect(rows.dump().style).toBe("inline")
-		local w, long = mount("tv", { options = SEVEN, selected = Facet.newCore():signal("v1") })
+		local w, long = mount("tv", { options = SEVEN, selected = Compose.cell("v1") })
 		expect(long.dump().style).toBe("menu")
 		-- ...and under a gamepad that menu is ONE panel, focus-navigable
 		long.api.open()
@@ -363,7 +371,7 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 	it("a handheld (compact + gamepad) keeps three short options segmented and sends seven to the menu", function()
 		local _, picker = mount("handheld", {})
 		expect(picker.dump().style).toBe("segmented")
-		local _, long = mount("handheld", { options = SEVEN, selected = Facet.newCore():signal("v1") })
+		local _, long = mount("handheld", { options = SEVEN, selected = Compose.cell("v1") })
 		expect(long.dump().style).toBe("menu")
 	end)
 	it('`presentation = "radio"` still builds, as the radioGroup style, and is declared deprecated', function()
@@ -372,7 +380,7 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 		expect(picker.dump().requestedStyle).toBe("radioGroup")
 		local found = false
 		for _, entry in Facet.DEPRECATIONS do
-			if entry.surface == "Picker.presentation" then
+			if entry.surface == "UI.Picker.presentation" then
 				found = true
 			end
 		end
@@ -390,11 +398,11 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 	end)
 	it("the navigation link presents a full sheet with its search field", function()
 		local w = world.new(FACTS.phone)
-		local query = w.core:signal("")
-		local picker = Facet.Controls.Picker(w.core, {
+		local query = Compose.cell("")
+		local picker = harness.Controls.Picker(w.core, {
 			id = "P",
 			label = "Track",
-			selected = w.core:signal("v1"),
+			selected = Compose.cell("v1"),
 			options = SEVEN,
 			query = query,
 		})
@@ -411,12 +419,12 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 		-- ...and on a desktop the row still fills (a hugging row would give its
 		-- fill title nothing)
 		local d = world.new(FACTS.desktop)
-		local desk = Facet.Controls.Picker(d.core, {
+		local desk = harness.Controls.Picker(d.core, {
 			id = "P",
 			label = "Track",
-			selected = d.core:signal("v1"),
+			selected = Compose.cell("v1"),
 			options = SEVEN,
-			query = d.core:signal(""),
+			query = Compose.cell(""),
 		})
 		d.present(UI.Screen({ id = "S", children = { desk.blueprint } }))
 		d.pres.refresh()
@@ -463,7 +471,7 @@ local SHIPPED = {
 
 local function readFact(value: any): any
 	if type(value) == "table" and (value.kind == "signal" or value.kind == "memo") then
-		return value:get()
+		return value:peek()
 	end
 	return value
 end
@@ -494,11 +502,11 @@ describe("Picker menu: the chosen row is readable on its own selection fill", fu
 					preferredInput = FACTS.phone.preferredInput,
 					themeMetrics = snapshot.resolve(pkg, theme.name, {}),
 				})
-				local picker = Facet.Controls.Picker(w.core, {
+				local picker = harness.Controls.Picker(w.core, {
 					id = "P",
 					label = "Quality",
 					style = "menu",
-					selected = w.core:signal("normal"),
+					selected = Compose.cell("normal"),
 					options = THREE,
 				})
 				w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
@@ -546,14 +554,14 @@ end)
 describe("Picker value alignment", function()
 	it("moves a labeled menu value next to its label without remounting the picker", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 700 }, preferredInput = "KeyboardAndMouse" })
-		local alignment = w.core:signal("end")
-		local p = Facet.Controls.Picker(w.core, {
+		local alignment = Compose.cell("end")
+		local p = harness.Controls.Picker(w.core, {
 			id = "P",
 			label = "Difficulty",
 			style = "menu",
 			valueAlignment = alignment,
 			options = THREE,
-			selected = w.core:signal("normal"),
+			selected = Compose.cell("normal"),
 		})
 		w.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		w.settle(3)
@@ -575,7 +583,7 @@ describe("Picker value alignment", function()
 		end)
 		w.settle(3)
 		expect(trigger.rect.y >= label.rect.y + label.rect.h).toBe(true)
-		expect(w.core:lastError()).toBe(nil)
+		expect(w.core.lastError()).toBe(nil)
 		w.pres.dismiss(w.handle)
 		p.dispose()
 	end)

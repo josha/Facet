@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 --[[ ANCHORED SURFACES — a presented surface positioned against a SOURCE VIEW'S
 	screen rect rather than a parent corner (navigation-and-menus brief §2 D1).
 	The substrate for the Menu (D2), `help` (D3a) and the Callout (D3b).
@@ -94,9 +95,7 @@
 ]]
 
 local anchorPlacement = require("../layout/anchor_placement")
-local blueprintLib = require("../blueprint")
 local chrome_slots = require("../tokens/chrome_slots")
-local mountLib = require("../mount")
 local rendererLib = require("../render/renderer")
 local specGuard = require("../spec_guard")
 local themeSnapshot = require("../themes/snapshot")
@@ -277,7 +276,7 @@ function anchored.new(ctx: any)
 		if marginPx > 0 then
 			-- a FLOOR on each side's inset, not a second gutter stacked on the
 			-- presenter's own: the box is the viewport less max(inset, margin)
-			local vp = env:get("viewportRect"):get()
+			local vp = env:get("viewportRect"):peek()
 			if type(vp) == "table" then
 				local left = math.max(safe.x, (tonumber(vp.x) or 0) + marginPx)
 				local right = math.min(safe.x + safe.w, (tonumber(vp.x) or 0) + (tonumber(vp.w) or 0) - marginPx)
@@ -302,7 +301,7 @@ function anchored.new(ctx: any)
 		record.placement = placement
 		record.placed = true
 
-		local moved = record.ox:get() ~= placement.x or record.oy:get() ~= placement.y
+		local moved = record.ox:peek() ~= placement.x or record.oy:peek() ~= placement.y
 		record.ox:set(placement.x)
 		record.oy:set(placement.y)
 		if tailPx > 0 then
@@ -312,7 +311,7 @@ function anchored.new(ctx: any)
 			local tailCentreY = placement.tailY or placement.y
 			local tx = tailCentreX - tailPx / 2
 			local ty = tailCentreY - tailPx / 2
-			moved = moved or record.tx:get() ~= tx or record.ty:get() ~= ty
+			moved = moved or record.tx:peek() ~= tx or record.ty:peek() ~= ty
 			record.tx:set(tx)
 			record.ty:set(ty)
 
@@ -331,21 +330,21 @@ function anchored.new(ctx: any)
 			-- COMPARED BY VALUE, never by table identity: a fresh `{}` every frame
 			-- would redirty the band's measure on a settled surface
 			moved = moved
-				or record.sx:get() ~= sx
-				or record.sy:get() ~= sy
-				or record.sw:get().px ~= seamW
-				or record.sh:get().px ~= seamH
+				or record.sx:peek() ~= sx
+				or record.sy:peek() ~= sy
+				or record.sw:peek().px ~= seamW
+				or record.sh:peek().px ~= seamH
 			record.sx:set(sx)
 			record.sy:set(sy)
-			if record.sw:get().px ~= seamW then
+			if record.sw:peek().px ~= seamW then
 				record.sw:set({ type = "fixed", px = seamW })
 			end
-			if record.sh:get().px ~= seamH then
+			if record.sh:peek().px ~= seamH then
 				record.sh:set({ type = "fixed", px = seamH })
 			end
 
 			local hide = placement.tailSuppressed
-			moved = moved or record.tailHidden:get() ~= hide
+			moved = moved or record.tailHidden:peek() ~= hide
 			record.tailHidden:set(hide)
 		end
 		if moved then
@@ -400,15 +399,21 @@ function anchored.new(ctx: any)
 		}
 	end
 
-	local function present(panel: any, opts: any): any
+	local function present(panel: any, opts: any, mountSurface: any?): any
 		specGuard.assertKnownKeys("presenter.presentAnchored", opts, optsKeys, "opts")
-		if type(panel) ~= "table" then
+		if type(panel) ~= "function" then
 			error(
-				"Facet presenter.presentAnchored: the first argument is the PANEL blueprint — any node, not a "
-					.. "`UI.Screen`. The surface around it is synthesized here.",
+				"Facet presenter.presentAnchored: the first argument is the PANEL component — a function that "
+					.. "returns any node, not a `UI.Screen`. The surface around it is synthesized here.",
 				0
 			)
 		end
+		-- The caller's seam mounts the synthesized surface inside its own
+		-- lifetime; absent, the surface mounts straight into the UI runtime.
+		local mountScreen = mountSurface
+			or function(build: any, presentOptions: any, presentSurface: any)
+				return presentSurface(ctx.mountComponent(build), presentOptions)
+			end
 		local anchor = normalizeAnchor(if opts ~= nil then opts.anchor else nil)
 		local id = (opts and opts.id) or "Anchored"
 		--[[ WINDOW SPACE OR NOTHING. The offsets below are the same coordinates
@@ -427,20 +432,29 @@ function anchored.new(ctx: any)
 			)
 		end
 
-		local scope = core:scope(`present-anchored-{id}`)
-		local ox = scope:own(core:signal(0))
-		local oy = scope:own(core:signal(0))
-		local tx = scope:own(core:signal(0))
-		local ty = scope:own(core:signal(0))
+		local chrome = opts ~= nil and opts.chrome == true
+		if chrome and opts ~= nil and opts.modal == true then
+			error(
+				"Facet presenter.presentAnchored: `chrome` and `modal` are opposites. A chrome layer takes no "
+					.. "input and pushes no focus scope; a modal exists to trap both.",
+				0
+			)
+		end
+
+		local scope = core.owner.createChild()
+		local ox = Compose.cell(0)
+		local oy = Compose.cell(0)
+		local tx = Compose.cell(0)
+		local ty = Compose.cell(0)
 		-- the seam band's window-space box, solved per placement (see `place`). The
 		-- two DIMENSIONS are whole reactive dims rather than reactive numbers: a `px`
 		-- field inside a dim is read ONCE at construction, so publishing a number
 		-- there sizes the band at mount and never again (measured: 0x0 forever).
-		local sx = scope:own(core:signal(0))
-		local sy = scope:own(core:signal(0))
-		local sw = scope:own(core:signal({ type = "fixed", px = 0 }))
-		local sh = scope:own(core:signal({ type = "fixed", px = 0 }))
-		local tailHidden = scope:own(core:signal(true))
+		local sx = Compose.cell(0)
+		local sy = Compose.cell(0)
+		local sw = Compose.cell({ type = "fixed", px = 0 })
+		local sh = Compose.cell({ type = "fixed", px = 0 })
+		local tailHidden = Compose.cell(true)
 
 		local tailSpec: any = if type(anchor.tail) == "table" then anchor.tail else {}
 		local wantsTail = anchor.tail ~= nil and anchor.tail ~= false
@@ -451,129 +465,131 @@ function anchored.new(ctx: any)
 		local tailMetric = tailSpec.size or DEFAULT_TAIL_SIZE
 		local tailInsetMetric = tailSpec.cornerInset or TAIL_CORNER_METRIC
 
-		local children: { any } = {}
-		if wantsTail then
-			-- DECLARED FIRST, SO IT PAINTS BEHIND (renderer `syncZOrder`: document
-			-- order becomes increasing z). The half of the wedge that overlaps the
-			-- panel is covered by it; the half that protrudes is the arrow.
-			--[[ A ROTATED NODE TAKES THE PANEL'S FILL AND REFUSES ITS FRAME (device
-				review 2026-08-16, F5). Director, under Fantasy Ornate: the tail painted
-				as *"a long diagonal slab with the package's gold border running down
-				both of its long edges"* — a rotated nine-slice, not a wedge.
+		local function buildScreen(UI)
+			local children: { any } = {}
+			if wantsTail then
+				-- DECLARED FIRST, SO IT PAINTS BEHIND (renderer `syncZOrder`: document
+				-- order becomes increasing z). The half of the wedge that overlaps the
+				-- panel is covered by it; the half that protrudes is the arrow.
+				--[[ A ROTATED NODE TAKES THE PANEL'S FILL AND REFUSES ITS FRAME (device
+					review 2026-08-16, F5). Director, under Fantasy Ornate: the tail painted
+					as *"a long diagonal slab with the package's gold border running down
+					both of its long edges"* — a rotated nine-slice, not a wedge.
 
-				THE RULE THIS ENCODES, and it is general rather than a patch for one
-				package: A ROTATED NODE MUST NOT WEAR A SKIN WHOSE DECORATION IS
-				ORIENTATION-DEPENDENT. A nine-slice frame, a directional gradient and
-				corner ornaments are all wrong at 45°, and every image-driven package
-				ships at least one of them. `surface = "raised"` was chosen so a theme
-				swap moved the wedge with the panel, which is right — but `raised`
-				classifies into the `panel` chrome slot, and `panel` under an ornate
-				package is six layers including a frame and four corner ornaments, not
-				a fill. The flat default materializes no decoration at all, which is
-				exactly why this shipped.
+					THE RULE THIS ENCODES, and it is general rather than a patch for one
+					package: A ROTATED NODE MUST NOT WEAR A SKIN WHOSE DECORATION IS
+					ORIENTATION-DEPENDENT. A nine-slice frame, a directional gradient and
+					corner ornaments are all wrong at 45°, and every image-driven package
+					ships at least one of them. `surface = "raised"` was chosen so a theme
+					swap moved the wedge with the panel, which is right — but `raised`
+					classifies into the `panel` chrome slot, and `panel` under an ornate
+					package is six layers including a frame and four corner ornaments, not
+					a fill. The flat default materializes no decoration at all, which is
+					exactly why this shipped.
 
-				SO THE SURFACE STAYS AND THE SLOT GOES. `NO_SLOT` is the shipped way to
-				say "this is not a decoration surface" (`chrome_slots.NO_SLOT`, the same
-				declaration the synthesized catchers carry after the twin defect in
-				`popup_catcher_paint.spec` — a node that never said what it was, dressed
-				by a package that had no way to know better). What remains is the NATIVE
-				sheet paint of `.facet-surface-raised`, which every package restyles with
-				its own `surfaceStrong`: the wedge keeps following the theme, in the
-				panel's own colour, and can no longer inherit its geometry. ]]
+					SO THE SURFACE STAYS AND THE SLOT GOES. `NO_SLOT` is the shipped way to
+					say "this is not a decoration surface" (`chrome_slots.NO_SLOT`, the same
+					declaration the synthesized catchers carry after the twin defect in
+					`popup_catcher_paint.spec` — a node that never said what it was, dressed
+					by a package that had no way to know better). What remains is the NATIVE
+					sheet paint of `.facet-surface-raised`, which every package restyles with
+					its own `surfaceStrong`: the wedge keeps following the theme, in the
+					panel's own colour, and can no longer inherit its geometry. ]]
+				table.insert(
+					children,
+					chrome_slots.attachHint(
+						UI.corners(
+							UI.Box({
+								id = TAIL_ID,
+								anchor = "topLeft",
+								offsetX = tx,
+								offsetY = ty,
+								width = { type = "fixed", px = tailMetric },
+								height = { type = "fixed", px = tailMetric },
+								rotation = 45,
+								-- the SAME surface role the panel wears, so the wedge is the
+								-- panel's own fill continuing past its edge rather than a second
+								-- colour that a theme swap could desynchronize — AND so its two
+								-- protruding edges carry the theme's own hairline (header)
+								surface = tailSpec.surface or "raised",
+								hidden = tailHidden,
+							}),
+							-- A WEDGE, NOT A BLOB. Without this the panel's phantom
+							-- `::UICorner` rounds a 16px box by `radii.panel` = 12, the engine
+							-- clamps that to half the side, and the arrow is a circle (header).
+							0
+						),
+						{ slot = chrome_slots.NO_SLOT }
+					)
+				)
+			end
 			table.insert(
 				children,
-				chrome_slots.attachHint(
-					blueprintLib.corners(
-						blueprintLib.Box({
-							id = TAIL_ID,
-							anchor = "topLeft",
-							offsetX = tx,
-							offsetY = ty,
-							width = { type = "fixed", px = tailMetric },
-							height = { type = "fixed", px = tailMetric },
-							rotation = 45,
-							-- the SAME surface role the panel wears, so the wedge is the
-							-- panel's own fill continuing past its edge rather than a second
-							-- colour that a theme swap could desynchronize — AND so its two
-							-- protruding edges carry the theme's own hairline (header)
-							surface = tailSpec.surface or "raised",
-							hidden = tailHidden,
-						}),
-						-- A WEDGE, NOT A BLOB. Without this the panel's phantom
-						-- `::UICorner` rounds a 16px box by `radii.panel` = 12, the engine
-						-- clamps that to half the side, and the arrow is a circle (header).
-						0
-					),
-					{ slot = chrome_slots.NO_SLOT }
-				)
+				UI.VStack({
+					id = SURFACE_ID,
+					anchor = "topLeft",
+					offsetX = ox,
+					offsetY = oy,
+					width = { type = "hug" },
+					height = { type = "hug" },
+					children = { panel(UI) },
+				})
 			)
-		end
-		table.insert(
-			children,
-			blueprintLib.VStack({
-				id = SURFACE_ID,
-				anchor = "topLeft",
-				offsetX = ox,
-				offsetY = oy,
-				width = { type = "hug" },
-				height = { type = "hug" },
-				children = { panel },
+			if wantsTail then
+				--[[ DECLARED LAST, SO IT PAINTS OVER THE PANEL'S BORDER — the mirror of the
+					wedge's "declared first, so it paints behind". This is the seam fix: the
+					panel's hairline stops being drawn across the arrow's base, so the plate
+					and the arrow read as ONE shape (director, 2026-08-17: *"can we eliminate
+					the line at the bottom of the triangle?"*).
+
+					`surface = "base"` is the ONE native surface with neither a phantom corner
+					NOR a phantom stroke, so the band can never round its ends or grow a
+					border; the tint puts it in the panel's own colour. That tint is a SECOND
+					AUTHORITY over a value `.facet-surface-raised` already owns, and the two
+					resolve through different paths — so `sheet_seam_authority.spec.luau` pins
+					them equal across every shipped package. Without that guard this is a
+					defect only a live `GetStyled` could ever see. ]]
+				table.insert(
+					children,
+					chrome_slots.attachHint(
+						UI.corners(
+							UI.Box({
+								id = TAIL_SEAM_ID,
+								anchor = "topLeft",
+								offsetX = sx,
+								offsetY = sy,
+								width = sw,
+								height = sh,
+								surface = "base",
+								tint = { role = "surfaceStrong", blend = 1 },
+								-- one suppression rule, not two: a plate the clamp carried off
+								-- its source drops the wedge, and the band goes with it
+								hidden = tailHidden,
+							}),
+							0
+						),
+						{ slot = chrome_slots.NO_SLOT }
+					)
+				)
+			end
+
+			return UI.Screen({
+				id = id,
+				children = {
+					UI.Anchor({
+						id = LAYER_ID,
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = children,
+					}),
+				},
 			})
-		)
-		if wantsTail then
-			--[[ DECLARED LAST, SO IT PAINTS OVER THE PANEL'S BORDER — the mirror of the
-				wedge's "declared first, so it paints behind". This is the seam fix: the
-				panel's hairline stops being drawn across the arrow's base, so the plate
-				and the arrow read as ONE shape (director, 2026-08-17: *"can we eliminate
-				the line at the bottom of the triangle?"*).
-
-				`surface = "base"` is the ONE native surface with neither a phantom corner
-				NOR a phantom stroke, so the band can never round its ends or grow a
-				border; the tint puts it in the panel's own colour. That tint is a SECOND
-				AUTHORITY over a value `.facet-surface-raised` already owns, and the two
-				resolve through different paths — so `sheet_seam_authority.spec.luau` pins
-				them equal across every shipped package. Without that guard this is a
-				defect only a live `GetStyled` could ever see. ]]
-			table.insert(
-				children,
-				chrome_slots.attachHint(
-					blueprintLib.corners(
-						blueprintLib.Box({
-							id = TAIL_SEAM_ID,
-							anchor = "topLeft",
-							offsetX = sx,
-							offsetY = sy,
-							width = sw,
-							height = sh,
-							surface = "base",
-							tint = { role = "surfaceStrong", blend = 1 },
-							-- one suppression rule, not two: a plate the clamp carried off
-							-- its source drops the wedge, and the band goes with it
-							hidden = tailHidden,
-						}),
-						0
-					),
-					{ slot = chrome_slots.NO_SLOT }
-				)
-			)
 		end
-
-		local screen = blueprintLib.Screen({
-			id = id,
-			children = {
-				blueprintLib.Anchor({
-					id = LAYER_ID,
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = children,
-				}),
-			},
-		})
 
 		local passthrough: any = {}
 		if opts ~= nil then
 			for key, value in opts do
-				if key ~= "anchor" and key ~= "id" and key ~= "modal" then
+				if key ~= "anchor" and key ~= "id" and key ~= "modal" and key ~= "chrome" then
 					passthrough[key] = value
 				end
 			end
@@ -606,17 +622,10 @@ function anchored.new(ctx: any)
 			passthrough.transition = copy
 		end
 
-		local chrome = opts ~= nil and opts.chrome == true
-		if chrome and opts ~= nil and opts.modal == true then
-			error(
-				"Facet presenter.presentAnchored: `chrome` and `modal` are opposites. A chrome layer takes no "
-					.. "input and pushes no focus scope; a modal exists to trap both.",
-				0
-			)
-		end
-		local handle
-		if chrome then
-			--[[ CHROME MODE (D3a): A LAYER, NOT A SURFACE.
+		local function presentScreen(screen, presentOptions)
+			local handle
+			if chrome then
+				--[[ CHROME MODE (D3a): A LAYER, NOT A SURFACE.
 
 				A presented surface is the right shape for a Menu or a Callout — it
 				pushes a focus scope, creates an input context and joins the stack, and
@@ -638,28 +647,37 @@ function anchored.new(ctx: any)
 				pins it: the offsets are window space. The display order sits just
 				above whichever surface owns the source, so a plate over a modal's
 				control is above THAT modal rather than behind it. ]]
-			local mounted = mountLib.mount(core, screen, { scope = scope:child("mount") })
-			local controller = rendererLib.attach(core, mounted, env, adapter, { rootPolicy = "edgeToEdge" })
-			controller.initialRender()
-			if controller.setDisplayOrder ~= nil then
-				local owner = if anchor.source.path ~= nil then handleByPath(anchor.source.path :: string) else nil
-				local base = if owner ~= nil and type(owner.displayOrder) == "number"
-					then owner.displayOrder
-					else baseDisplayOrder
-				controller.setDisplayOrder(base + 25)
+				local mounted = screen
+				local controller = rendererLib.attach(core, mounted, env, adapter, { rootPolicy = "edgeToEdge" })
+				controller.initialRender()
+				if controller.setDisplayOrder ~= nil then
+					local owner = if anchor.source.path ~= nil then handleByPath(anchor.source.path :: string) else nil
+					local base = if owner ~= nil and type(owner.displayOrder) == "number"
+						then owner.displayOrder
+						else baseDisplayOrder
+					controller.setDisplayOrder(base + 25)
+				end
+				handle = {
+					chrome = true,
+					id = id,
+					blueprint = screen,
+					root = mounted,
+					controller = controller,
+				}
+			else
+				local inherited = reservesAppChromeFor(anchor)
+				handle = if opts ~= nil and opts.modal == true
+					then presenter.presentModal(screen, presentOptions, inherited)
+					else presenter.present(screen, presentOptions, inherited)
 			end
-			handle = {
-				chrome = true,
-				id = id,
-				blueprint = screen,
-				root = mounted,
-				controller = controller,
-			}
-		else
-			local inherited = reservesAppChromeFor(anchor)
-			handle = if opts ~= nil and opts.modal == true
-				then presenter.presentModal(screen, passthrough, inherited)
-				else presenter.present(screen, passthrough, inherited)
+			return handle
+		end
+		local ok, handle = pcall(function()
+			return mountScreen(buildScreen, passthrough, presentScreen)
+		end)
+		if not ok then
+			scope:dispose()
+			error(handle, 0)
 		end
 
 		local record = {
@@ -720,6 +738,7 @@ function anchored.new(ctx: any)
 			if record.handle == handle then
 				table.remove(live, i)
 				record.handle.controller.dispose()
+				record.handle.root.dispose()
 				record.scope:dispose()
 				return true
 			end

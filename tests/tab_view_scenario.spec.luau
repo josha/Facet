@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SHOWCASE SURFACE FOR `newTabView` — `examples/gallery/scenarios/tab_view.luau`.
 
 	`tests/tab_view.spec.luau` proves the CONSTRUCT against hand-built worlds.
@@ -42,16 +43,33 @@ local APP = "/TabViewDemo/Root/App"
 local BOTTOM = `{APP}/BottomHome/then/BottomBand/Strip/Indicator/Options`
 -- The nested page has a bounded viewport inside an outer scroll host, so both
 -- its tab bar and content remain reachable in a short app-content slot.
-local PAGE = `{APP}/Content/Tab-pages/then/PageScroll/PageViewport/Page`
+local PAGE = `{APP}/Content/Tab-pages/PageScroll/PageViewport/Page`
 local PAGE_BAND = `{PAGE}/TopHome/then/TopBandCenter/TopBand`
 local PAGE_OPTS = `{PAGE_BAND}/Strip/Indicator/Options`
 local function pageBody(tab: string): string
-	return `{PAGE}/Content/Tab-{tab}/then/PageBody`
+	return `{PAGE}/Content/Tab-{tab}/PageBody`
+end
+
+--[[ The HStack wrapping an option's icon/label is unnamed, so it paints under
+	the scene's own running `#N` counter — process-wide, not per-test, since
+	the harness shares one Compose domain across the whole spec file. A literal
+	number would drift with anything earlier in the file, so the badge's cell
+	is found by walking the live tree instead. ]]
+local function badgeCountPath(w: any, optionPath: string): string
+	for _, path in w.adapter.paths() do
+		if
+			string.sub(path, 1, #optionPath) == optionPath
+			and string.match(string.sub(path, #optionPath + 1), "^/HStack#%d+/Badge/Count$") ~= nil
+		then
+			return path
+		end
+	end
+	error("missing badge count under " .. optionPath)
 end
 
 local function world(view: { w: number, h: number }, opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -60,9 +78,11 @@ local function world(view: { w: number, h: number }, opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -92,7 +112,7 @@ describe("scenario 'tab_view': the surface D5 shipped without", function()
 		expect(#catalog.groups > 1 and #catalog.groups[1].tabs > 1).toBe(true)
 		local w = world(PHONE)
 		expect(w.adapter.node("/TabViewDemo") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("mounts pill selection in adaptable app navigation and nested page tabs", function()
@@ -122,7 +142,7 @@ describe("scenario 'tab_view': two levels, and each one SAYS where it landed", f
 		expect(w.text(`{pageBody("avatars")}/Placements/Inner`)).toBe("Page bar: topBar (nested)")
 		expect(w.text(`{pageBody("avatars")}/Placements/Outer`)).toBe("App bar: bottomBar (policy)")
 		-- ...and the two bars really are in different homes
-		expect(w.adapter.node(`{BOTTOM}/Rows/[pages]/SectionRow/Option-pages`) ~= nil).toBe(true)
+		expect(w.adapter.node(`{BOTTOM}/Rows/[pages]/SectionRow-pages/Option-pages`) ~= nil).toBe(true)
 		expect(w.adapter.node(`{PAGE_OPTS}/Opt1`) ~= nil).toBe(true)
 	end)
 
@@ -142,13 +162,13 @@ describe("scenario 'tab_view': two levels, and each one SAYS where it landed", f
 		-- status panel every tab mounts
 		w.built.steps.select(w.built, "notes")
 		w.settle()
-		expect(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Status/AppPlacement`)).toBe("App bar: sidebar (policy)")
+		expect(w.text(`{APP}/Content/Tab-notes/NotesBody/Status/AppPlacement`)).toBe("App bar: sidebar (policy)")
 	end)
 
 	it("no focus scope is claimed by either level, and the back() stack is untouched", function()
 		local w = world(PHONE)
 		expect(w.pres.depth()).toBe(1)
-		expect(w.pres.focus.trapped == nil or w.pres.focus.trapped:get() == nil).toBe(true)
+		expect(w.pres.focus.trapped == nil or w.pres.focus.trapped:peek() == nil).toBe(true)
 		w.built.steps.select(w.built, "notes")
 		w.built.steps.select(w.built, "pages")
 		w.built.steps.selectPage(w.built, "emotes")
@@ -164,14 +184,14 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		w.built.steps.select(w.built, "notes")
 		w.settle()
 		expect(w.built.report().builds.notes).toBe(1)
-		expect(string.find(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Status/Builds`) :: string, "Notes 1") ~= nil).toBe(
+		expect(string.find(w.text(`{APP}/Content/Tab-notes/NotesBody/Status/Builds`) :: string, "Notes 1") ~= nil).toBe(
 			true
 		)
 		w.built.steps.select(w.built, "me")
 		w.built.steps.select(w.built, "notes")
 		w.settle()
 		expect(w.built.report().builds.notes).toBe(2)
-		expect(string.find(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Status/Builds`) :: string, "Notes 2") ~= nil).toBe(
+		expect(string.find(w.text(`{APP}/Content/Tab-notes/NotesBody/Status/Builds`) :: string, "Notes 2") ~= nil).toBe(
 			true
 		)
 		--[[ AND THE FRAMEWORK'S OWN COUNT MOVES WITH IT, which is what makes the
@@ -195,13 +215,13 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		w.built.steps.bump(w.built)
 		w.built.steps.bump(w.built)
 		w.settle()
-		expect(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Kept`)).toBe("Kept outside the TabView: 2")
-		expect(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Owned`)).toBe("Owned by this tab's scope: 2")
+		expect(w.text(`{APP}/Content/Tab-notes/NotesBody/Kept`)).toBe("Kept outside the TabView: 2")
+		expect(w.text(`{APP}/Content/Tab-notes/NotesBody/Owned`)).toBe("Owned by this tab's scope: 2")
 		w.built.steps.select(w.built, "me")
 		w.built.steps.select(w.built, "notes")
 		w.settle()
-		expect(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Kept`)).toBe("Kept outside the TabView: 2")
-		expect(w.text(`{APP}/Content/Tab-notes/then/NotesBody/Owned`)).toBe("Owned by this tab's scope: 0")
+		expect(w.text(`{APP}/Content/Tab-notes/NotesBody/Kept`)).toBe("Kept outside the TabView: 2")
+		expect(w.text(`{APP}/Content/Tab-notes/NotesBody/Owned`)).toBe("Owned by this tab's scope: 0")
 	end)
 
 	--[[ THE STRIP IS NEVER EVICTED, which is the entire reason a badge is worth
@@ -210,7 +230,8 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		local w = world(PHONE)
 		-- the count is a node INSIDE the seal (2026-09-12) — see
 		-- tests/badge_centering.spec.luau for why the seal and its number are two
-		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge/Count`)).toBe("3")
+		local inboxOption = `{BOTTOM}/Rows/[inbox]/SectionRow-inbox/Option-inbox`
+		expect(w.text(badgeCountPath(w, inboxOption))).toBe("3")
 		expect(w.built.report().app.mountedTabs[1]).toBe("pages")
 		w.built.steps.select(w.built, "me")
 		w.built.steps.bumpUnread(w.built)
@@ -218,8 +239,8 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		w.settle()
 		-- inbox has never been mounted at all, and its seal has still moved twice
 		expect(w.built.report().builds.inbox).toBeNil()
-		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge/Count`)).toBe("5")
-		expect(w.adapter.node(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox`) ~= nil).toBe(true)
+		expect(w.text(badgeCountPath(w, inboxOption))).toBe("5")
+		expect(w.adapter.node(`{BOTTOM}/Rows/[inbox]/SectionRow-inbox/Option-inbox`) ~= nil).toBe(true)
 		-- ...and the badge empties rather than painting a zero, from the tab itself
 		w.built.steps.select(w.built, "inbox")
 		w.settle()
@@ -267,7 +288,7 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 		-- the page's own content for the same reason — so the ring walks the inner
 		-- level first and lands on the app bar at the end.
 		expect(#paths).toBe(14)
-		expect(paths[11]).toBe(`{BOTTOM}/Rows/[pages]/SectionRow/Option-pages`)
+		expect(paths[11]).toBe(`{BOTTOM}/Rows/[pages]/SectionRow-pages/Option-pages`)
 		for _, path in paths do
 			local node = w.adapter.node(path)
 			expect(`{path}: {node.class}`).toBe(`{path}: Button`)
@@ -282,7 +303,7 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 		-- the ring starts on the page bar's first tab, because that band is painted
 		-- before the page's own content and read where it is painted
 		local first = `{PAGE_OPTS}/Opt1`
-		expect(w.pres.focus.focused:get()).toBe(first)
+		expect(w.pres.focus.focused:peek()).toBe(first)
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
 		w.system.deviceKey("Return", true)
@@ -332,7 +353,7 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 			-- a count is a NUMBER, not copy: it has no localized string and never
 			-- had one. It draws inside the seal now rather than on it, so the skip
 			-- follows it down one node (2026-09-12).
-			local isBadge = string.find(path, "/HStack#1/Badge/Count$") ~= nil
+			local isBadge = string.find(path, "/HStack#%d+/Badge/Count$") ~= nil
 			if
 				string.find(path, "^/TabViewDemo/") ~= nil
 				and not isBadge

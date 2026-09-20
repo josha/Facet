@@ -13,6 +13,72 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+### One authoring model (breaking)
+
+Facet has one way to build an interface. `local app = Facet.new(opts)` builds the
+application and `local UI = app.controls` is its constructor table. A component
+is a plain Luau function that returns a node. State is `Compose.cell`,
+`Compose.formula`, `Compose.watch` and `Compose.cleanup`, and lifetime is a
+Compose owner. Present with `app.mount`, `app.presentModal`,
+`app.presentAnchored` and `app.presentToast`.
+
+This lands before 0.11.0's first publish, so the surfaces below are removed
+directly rather than deprecated for a minor version
+([`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation)). Each row
+names what moved and why a caller breaks.
+
+| Removed | Use instead | Why a caller breaks |
+|---|---|---|
+| `Facet.UI.<Class>({ id, children, … })` | `app.controls.<Class>("Id")({ …, child, child })` | The blueprint constructors are gone. Children are positional and the identity is the constructor name. |
+| `Facet.Controls.<Name>(core, spec)` and `.blueprint` | `app.controls.<Name>(spec)`, which returns the node | A control is built under an application, not a core. Its record arrives through `ref`. |
+| `Facet.View`, `Facet.component` | A plain function that returns a node | There is no component wrapper and no separate state API. |
+| `Facet.mount(core, blueprint)` | `app.mount(component)` | Mounting belongs to the application, which owns the surface and its teardown. |
+| `Facet.newCore`, `Facet.newPresenter`, `Facet.newEnvironment` as entry points | `Facet.new(opts)`; reach `app.environment` and `app.presenter` from it | The application builds and releases these together. |
+| `core:signal`, `core:memo`, `scope:own` | `Compose.cell`, `Compose.formula`, `Compose.cleanup` / a Compose owner | State and ownership are Compose's. `:get()` reads become `:peek()` or a tracked `use(...)`. |
+| `Facet.preload` | Nothing; controls load with the application | The deferred control loader is gone. |
+| A composite's `dispose` and `blueprint` on its record | The owner the control was built under | `ref` publishes `{ api, dump }` only. |
+
+New public API:
+
+- `UI.activationGate(node, { closed, onOpen })`. While `closed` reads true, the
+  first Activate at or under the node wakes the subtree instead of reaching what
+  is under the press. `onOpen(path, meta)` receives the path that press would
+  have reached. One dispatch covers pointer, touch, keyboard and gamepad.
+- `Facet.motion.newTextReveal({ value, cursor?, placeholder?, policy? })`. It
+  publishes `text` and `revealed`, never splits a codepoint, paints
+  `placeholder` only while nothing is revealed, and lands the whole value when
+  `policy` reads `"reduced"`.
+- `transition.source` on `UI.When` and `UI.ForEach`. With `enter = "transform"`,
+  `{ path = "…" }` or `{ rect = … }` expands the region from a shared element.
+  The source rect is re-read on every painted frame, so a moving source is
+  tracked. Either field may itself be a readable.
+- `app.newResourceProvider(options?)` returns `provider, release`. `options.bind`
+  replaces the Roblox transport.
+- `app.presentToast(component, options)` runs the component inside the toast's
+  own row.
+- `ref` on a composite control's spec. It must be a function, and it is called
+  once while the control is built, with a frozen `{ api, dump }` record.
+- `UI.PageView` `summary` and `controls`. Both are booleans; `false` removes that
+  row.
+- `UI.VirtualList` `follow` accepts a readable.
+- `UI.Slider` `step` accepts a readable.
+- `UI.ComboBox` puts the field and its opener on a single row.
+- `UI.DisclosureGroup` does not draw an expanded header as selected.
+- `UI.ForEach` and `UI.When` are public and take schema-shaped specs:
+  `items`/`row`/`key`, `condition`/`thenView`/`elseView`, and `transition`.
+
+Focus and enablement:
+
+- `enabled = false` means the node and its whole subtree.
+- A presentation refuses when `initialFocus` names a disabled control, on every
+  screen. The error lists the focusables that are available. Name a control that
+  is live, or use `"first"` or `"none"`.
+- The arrows cannot cross a `Grid` row whose every cell is disabled. A grid names
+  each row group's `up`/`down` exit by index, so an emptied row is still the
+  named neighbour and everything below it is unreachable by the arrows and the
+  pad. The same content as stacked `HStack` rows is crossed cleanly, and
+  `UI.When` removes the row outright. Tab is unaffected.
+
 - Replace Signals and Facet’s duplicate scheduler and
   ownership storage with pinned Compose cells, formulas, watches, batching and
   owners. Remove the unused `Facet.Signals` export and raw-getter bridge.

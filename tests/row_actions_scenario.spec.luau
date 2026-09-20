@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Scenario 'row_actions', HEADLESS HALF (roadmap Task 11, docs/plans/
 -- row-actions-implementation.md). The Studio scenario proves the paint and
 -- the device-matrix geometry; this proves the fixture BUILDS + MOUNTS clean
@@ -23,7 +24,7 @@ local scenario = require("../examples/gallery/scenarios/row_actions") :: any
 -- presenter would seed drag_velocity with near-zero real-time deltas between
 -- two synchronous pushes.
 local function makeWorld(envSetup: ((any) -> ())?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 700 })
 	if envSetup ~= nil then
@@ -32,13 +33,15 @@ local function makeWorld(envSetup: ((any) -> ())?)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local presenter = Facet.newPresenter(core, env, adapter, system, {
+	local presenter = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ctx: any = {
 		Facet = Facet,
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -115,7 +118,7 @@ describe("row_actions scenario: it builds and mounts clean", function()
 	end)
 	it("mounts headlessly with no core error and empty diagnostics", function()
 		local world = makeWorld()
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		expect(world.adapter.node("/MailActions") ~= nil).toBe(true)
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 		teardown(world)
@@ -123,15 +126,15 @@ describe("row_actions scenario: it builds and mounts clean", function()
 
 	it("opens on the list surface; the table pane is not mounted at all (lazy UI.When)", function()
 		local world = makeWorld()
-		expect(world.adapter.node("/MailActions/ListWhen/then/ListPlate/List") ~= nil).toBe(true)
-		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane")).toBe(nil)
+		expect(world.adapter.node("/MailActions/ListWhen/ListPlate/List") ~= nil).toBe(true)
+		expect(world.adapter.node("/MailActions/TableWhen/TablePane")).toBe(nil)
 		teardown(world)
 	end)
 
 	it("every seed row mounts as a wrapped RowActions node with a unique id", function()
 		local world = makeWorld()
 		for _, id in { "m1", "m2", "m3", "m4", "m5", "m6" } do
-			expect(world.adapter.node(`/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{id}]/{id}`) ~= nil).toBe(
+			expect(world.adapter.node(`/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[{id}]/{id}`) ~= nil).toBe(
 				true
 			)
 		end
@@ -346,7 +349,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 			end
 		end
 		expect(found).toBe(false)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -355,7 +358,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		local result = step(world, "menuList", "m5")
 		expect(result.ok).toBe(true)
 		expect(result.dump.menuOpen).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -372,7 +375,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		need building — it was already shipping, broken. ]]
 	it("RULING 6: the mail row's content is a Button, and the row still swipes AND still taps", function()
 		local world = makeWorld()
-		local row = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1"
+		local row = "/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1"
 		local grip = `{row}/Content/Hit`
 		local content = `{row}/Content/Row`
 		expect(`content is a Button: {world.adapter.node(content) ~= nil}`).toBe("content is a Button: true")
@@ -395,7 +398,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		-- TAP: and the button underneath is still reachable through the same Grip.
 		-- `markRead` retires the unread dot, which is the row's own visible proof.
 		local fresh = makeWorld()
-		local dot = `{row}/Content/Row/DotWhen/then/Dot`
+		local dot = `{row}/Content/Row/DotWhen/Dot`
 		expect(`unread before: {fresh.adapter.node(dot) ~= nil}`).toBe("unread before: true")
 		local r2 = fresh.adapter.node(`{row}/Content/Hit`).rect
 		local tx, ty = r2.x + r2.w / 2, r2.y + r2.h / 2
@@ -406,7 +409,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		expect(`unread after the forwarded tap: {fresh.adapter.node(dot) ~= nil}`).toBe(
 			"unread after the forwarded tap: false"
 		)
-		expect(fresh.core:lastError()).toBeNil()
+		expect(fresh.core.lastError()).toBeNil()
 		teardown(fresh)
 		teardown(world)
 	end)
@@ -416,7 +419,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		local result = step(world, "bindScroll")
 		expect(result.ok).toBe(true)
 		step(world, "open", "m1:trailing")
-		world.adapter.driveScroll("/MailActions/ListWhen/then/ListPlate/List", { x = 0, y = 20 })
+		world.adapter.driveScroll("/MailActions/ListWhen/ListPlate/List", { x = 0, y = 20 })
 		local report = world.built.report()
 		expect(report.listRowDumps.m1.phase).toBe("closed")
 		teardown(world)
@@ -432,9 +435,9 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 
 	it("switching to table mode mounts the Table and unmounts the list", function()
 		local world = tableWorld()
-		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane/MailTable") ~= nil).toBe(true)
-		expect(world.adapter.node("/MailActions/ListWhen/then/ListPlate/List")).toBe(nil)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.adapter.node("/MailActions/TableWhen/TablePane/MailTable") ~= nil).toBe(true)
+		expect(world.adapter.node("/MailActions/ListWhen/ListPlate/List")).toBe(nil)
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -446,8 +449,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 	-- the tray gestures proved untouched by it.
 	it("the table surface's onPrimaryAction opens a row on a double-click, and one click only selects", function()
 		local world = tableWorld()
-		local rowHit =
-			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+		local rowHit = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m1]/RowActions-m1/Content/Row/Hit"
 		local rect = world.adapter.node(rowHit).rect
 		local function click()
 			world.adapter.tap(rowHit, {
@@ -464,7 +466,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		world.tick(1 / 60) -- well inside the 500 ms double-click window
 		click()
 		expect(world.built.report().tableOpenedKey).toBe("m1")
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 		teardown(world)
 	end)
@@ -472,7 +474,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 	it("Edit toggle flips the editing signal and the report reflects it", function()
 		local world = tableWorld()
 		expect(world.built.report().tableEditing).toBe(false)
-		world.adapter.tap("/MailActions/TableWhen/then/TablePane/TableToolbar/EditToggle")
+		world.adapter.tap("/MailActions/TableWhen/TablePane/TableToolbar/EditToggle")
 		world.presenter.refresh()
 		expect(world.built.report().tableEditing).toBe(true)
 		teardown(world)
@@ -498,25 +500,23 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		local result = step(world, "padMinusTable", "m2")
 		expect(result.ok).toBe(true)
 		expect(result.focused).toBe(
-			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m2@0]/RowActions-m2/EditAffordanceWhen/then/EditAffordance"
+			"/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m2]/RowActions-m2/EditAffordanceWhen/then/EditAffordance"
 		)
 		local after = world.built.report().tableIds
 		expect(#after).toBe(#before - 1)
 		for _, id in after do
 			expect(id).never().toBe("m2")
 		end
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
 	it("rows still reorder via mouse drag: a vertical drag on the row moves it, not the tray", function()
 		local world = tableWorld()
-		local rowHit =
-			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+		local rowHit = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m1]/RowActions-m1/Content/Row/Hit"
 		local before = world.built.report().tableIds
 		local firstRect = world.adapter.node(rowHit).rect
-		local secondHit =
-			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m2@0]/RowActions-m2/Content/Row/Hit"
+		local secondHit = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m2]/RowActions-m2/Content/Row/Hit"
 		local secondRect = world.adapter.node(secondHit).rect
 		world.adapter.pointerDown(rowHit, firstRect.x + 10, firstRect.y + 2, "mouse")
 		world.adapter.pointerMove(firstRect.x + 10, secondRect.y + secondRect.h - 2, "mouse") -- purely vertical, past the reorder threshold
@@ -526,14 +526,13 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		local after = world.built.report().tableIds
 		expect(after[1]).toBe(before[2])
 		expect(after[2]).toBe(before[1])
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
 	it("a horizontal drag on the same table row reveals its tray instead of reordering", function()
 		local world = tableWorld()
-		local rowHit =
-			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+		local rowHit = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m1]/RowActions-m1/Content/Row/Hit"
 		local before = world.built.report().tableIds
 		local rect = world.adapter.node(rowHit).rect
 		world.adapter.pointerDown(rowHit, rect.x + 10, rect.y + rect.h / 2, "mouse")
@@ -546,7 +545,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		-- never seeding table's reorder drag at all
 		expect(after[1]).toBe(before[1])
 		expect(after[2]).toBe(before[2])
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -579,11 +578,10 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		actions for). Both orders are driven below, on both edges and both pointer
 		kinds — sixteen releases, none of them silent.
 	]]
-	local RA_ROW_HIT =
-		"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+	local RA_ROW_HIT = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m1]/RowActions-m1/Content/Row/Hit"
 	local function raTrayPath(edge: string, action: string): string
 		local band = if edge == "leading" then "TrayLeading" else "TrayTrailing"
-		return `/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/{band}When/then/{band}/Action:{action}`
+		return `/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m1]/RowActions-m1/{band}When/then/{band}/Action:{action}`
 	end
 	--[[ ONE swipe helper for this surface, and the ONLY way this file swipes a
 		Table row. `activate` is the order the engine's own `Activated` lands in
@@ -656,7 +654,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 				either way). A swipe selects nothing on ANY pointer kind, so this
 				belongs on all four cases and only reads as redundant on two. ]]
 			expect(world.built.report().tableSelectedKeys).toEqual({})
-			expect(world.core:lastError()).toBeNil()
+			expect(world.core.lastError()).toBeNil()
 			expect(#world.handle.controller.diagnostics()).toBe(0)
 			teardown(world)
 
@@ -672,7 +670,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 			expect(lead.built.report().tableOpenedKey).toBe(nil)
 			expect(lead.built.report().tableIds[1]).toBe("m1")
 			expect(lead.built.report().tableSelectedKeys).toEqual({})
-			expect(lead.core:lastError()).toBeNil()
+			expect(lead.core.lastError()).toBeNil()
 			expect(#lead.handle.controller.diagnostics()).toBe(0)
 			teardown(lead)
 		end)
@@ -707,7 +705,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		world.adapter.touchTap(RA_ROW_HIT)
 		world.settle(120)
 		expect(world.adapter.node(raTrayPath("trailing", "delete"))).toBe(nil) -- the tap was heard
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -720,7 +718,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		world.settle(120)
 		expect(world.adapter.node(raTrayPath("trailing", "delete"))).toBe(nil) -- closed by the tap
 		expect(world.built.report().tableOpenedKey).toBe(nil) -- and the close consumed it
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 end)
@@ -734,10 +732,10 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 
 	it("switching to vlist mode mounts the VirtualList and unmounts the other two surfaces", function()
 		local world = vlistWorld()
-		expect(world.adapter.node("/MailActions/VListWhen/then/VListPane/VList") ~= nil).toBe(true)
-		expect(world.adapter.node("/MailActions/ListWhen/then/ListPlate/List")).toBe(nil)
-		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane")).toBe(nil)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.adapter.node("/MailActions/VListWhen/VListPane/VList") ~= nil).toBe(true)
+		expect(world.adapter.node("/MailActions/ListWhen/ListPlate/List")).toBe(nil)
+		expect(world.adapter.node("/MailActions/TableWhen/TablePane")).toBe(nil)
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -751,7 +749,7 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 
 	it("a horizontal drag on a row reveals its trailing tray; a full swipe commits Delete end to end", function()
 		local world = vlistWorld()
-		local rowHit = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[m1]/Row/Hit"
+		local rowHit = "/MailActions/VListWhen/VListPane/VList/Canvas/W/[m1]/Row/Hit"
 		local before = world.built.report().vlistIds
 		local rect = world.adapter.node(rowHit).rect
 		local startX = rect.x + rect.w - 10
@@ -773,7 +771,7 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 		end
 		expect(found).toBe(false)
 		expect(#after).toBe(#before - 1)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -799,7 +797,7 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 			expect(id).never().toBe("m3")
 		end
 		expect(world.built.steps.vlistDebug(world.built).engineCount).toBe(0) -- and dropped with the row
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -815,7 +813,7 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 		end
 		expect(menuNodes > 0).toBe(true)
 		expect(result.hosted.engineCount).toBe(1)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		teardown(world)
 	end)
 
@@ -825,14 +823,14 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 			-- M8 (final whole-branch review): the original version of this case
 			-- disposed a list with NO gesture ever started, so `hostedEngines` was
 			-- empty and the hosted teardown loop
-			-- (`listScope:own(function() for key in table.clone(hostedEngines) do
+			-- (`listScope.own(function() for key in table.clone(hostedEngines) do
 			-- hostedDropEngine(key) end end)`, virtual_list.luau) ran zero
 			-- iterations — "cleanly" was proven by nothing. Swipe a row open first
 			-- (mid-gesture, no release needed) so the engine, the shared tray
 			-- overlay and the presentation slide transform all genuinely exist
 			-- when dispose runs.
 			local world = vlistWorld()
-			local rowHit = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[m1]/Row/Hit"
+			local rowHit = "/MailActions/VListWhen/VListPane/VList/Canvas/W/[m1]/Row/Hit"
 			local rect = world.adapter.node(rowHit).rect
 			local startX = rect.x + rect.w - 10
 			local endX = startX - rect.w * 0.3
@@ -851,11 +849,11 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 				.never()
 				.toThrow()
 			-- a QUARANTINED cleanup error (a throwing owned resource inside the
-			-- scope walk, src/core/scope_impl.luau) never surfaces as a thrown
+			-- owner walk, Compose's own teardown) never surfaces as a thrown
 			-- error from dispose() — it is caught and reported through
-			-- `core:lastError()` instead, so `never().toThrow()` alone cannot see
+			-- `core.lastError()` instead, so `never().toThrow()` alone cannot see
 			-- a broken hosted-engine teardown. This is the assertion that does.
-			expect(world.core:lastError()).toBeNil()
+			expect(world.core.lastError()).toBeNil()
 		end
 	)
 end)
@@ -869,14 +867,16 @@ describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogu
 	-- ctx shape builds, presents, ticks, and disposes clean — the contract the
 	-- "row-actions" catalogue row (demo_picker.luau) depends on.
 	it("builds, presents, ticks and disposes under the picker's ctx", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 700 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			actionSystem = system,
@@ -895,15 +895,15 @@ describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogu
 		for _ = 1, 5 do
 			presenter.refresh()
 		end
-		expect(adapter.node("/MailActions/ListWhen/then/ListPlate/List") ~= nil).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(adapter.node("/MailActions/ListWhen/ListPlate/List") ~= nil).toBe(true)
+		expect(core.lastError()).toBeNil()
 		-- the picker's own teardown order (init.client.luau mountDemo): the
 		-- fixture's dispose first, then the presented surface goes down
 		if built.dispose ~= nil then
 			built.dispose()
 		end
 		presenter.dismiss(built.handle)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -927,16 +927,18 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 	local SHOWCASE_TOP = 120 -- demo_picker.barReservation(58, nil, 8) — the strip the picker reserves
 
 	local function shortLandscape(mode: string): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 640, h = 320 })
 		env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
 		env:set("preferredInput", "Touch")
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			adapter = adapter,
@@ -963,11 +965,11 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 
 	it("✓ the heading is dropped on a short viewport and kept on a tall one", function()
 		local short = shortLandscape("list")
-		expect(short.adapter.node("/MailActions/HeadingWhen/then/Title")).toBe(nil)
+		expect(short.adapter.node("/MailActions/HeadingWhen/Title")).toBe(nil)
 		short.presenter.dismiss(short.built.handle)
 
 		local world = makeWorld() -- 400x700: not short
-		expect(world.adapter.node("/MailActions/HeadingWhen/then/Title") ~= nil).toBe(true)
+		expect(world.adapter.node("/MailActions/HeadingWhen/Title") ~= nil).toBe(true)
 		teardown(world)
 	end)
 
@@ -978,18 +980,18 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 	local SURFACES = {
 		{
 			mode = "list",
-			body = "/MailActions/ListWhen/then/ListPlate/List",
-			row = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1",
+			body = "/MailActions/ListWhen/ListPlate/List",
+			row = "/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1",
 		},
 		{
 			mode = "table",
-			body = "/MailActions/TableWhen/then/TablePane/MailTable",
-			row = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row",
+			body = "/MailActions/TableWhen/TablePane/MailTable",
+			row = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[m1]/RowActions-m1/Content/Row",
 		},
 		{
 			mode = "vlist",
-			body = "/MailActions/VListWhen/then/VListPane/VList",
-			row = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[m1]/Row",
+			body = "/MailActions/VListWhen/VListPane/VList",
+			row = "/MailActions/VListWhen/VListPane/VList/Canvas/W/[m1]/Row",
 		},
 	}
 
@@ -1026,7 +1028,7 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 			-- ...and the screen still says nothing overflows, so the height it got
 			-- was given to it rather than painted past its box
 			expect(#w.built.handle.controller.diagnostics()).toBe(0)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			w.presenter.dismiss(w.built.handle)
 		end)
 	end
@@ -1048,20 +1050,15 @@ describe("Glossy Mobile row surface remounts", function()
 			w.settle(4)
 		end
 		round()
-		local baseline = w.core:counters()
-		local first = w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content").rect
+		local baseline = w.core.owner.size()
+		local first = w.adapter.node("/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content").rect
 		for i = 1, 3 do
 			round()
-			expect(w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content").rect).toEqual(
+			expect(w.adapter.node("/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content").rect).toEqual(
 				first
 			)
 			expect(#w.built.report().listIds).toBe(6)
-			for key, value in baseline do
-				assert(
-					w.core:counters()[key] == value,
-					key .. ": " .. tostring(w.core:counters()[key]) .. " vs " .. tostring(value)
-				)
-			end
+			assert(w.core.owner.size() == baseline, `registrations: {w.core.owner.size()} vs {baseline}`)
 		end
 		teardown(w)
 	end)

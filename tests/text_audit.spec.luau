@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- LARGE-TEXT AUTHORING SAFETY (docs/plans/large-text-accessibility.md
 -- "Diagnostics and authoring safety"; decision LTN-4). Two halves:
 --
@@ -16,15 +17,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
 local solver = require("../src/layout/solver")
 local dump = require("../src/layout/dump")
 local audit = require("../src/layout/text_audit")
+local Compose = require("../src/vendor/compose/core")
 
 local LONG_NAME = "Bartholomewwwwwwwwwwwwwwwwww" -- one word, far wider than a 120px cell
 local LONG_PHRASE = "a much longer phrase that will certainly wrap several times over"
@@ -127,7 +129,7 @@ describe("LTN-4 text facts: the solve reports what it truncated", function()
 	it("UI.Text refuses a bound disclose, naming the prop and the rebuild idiom", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			UI.Text({ id = "N", text = "x", disclose = core:signal(true) })
+			UI.Text({ id = "N", text = "x", disclose = Compose.cell(true) })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "disclose") ~= nil).toBe(true)

@@ -50,8 +50,8 @@
 -- Everything runs headless: no engine calls, so the same file drives the tests
 -- and a real Roblox client unchanged.
 --
--- deps used: presenter (opens the screen), actionSystem (the hardware-letter
--- convenience). See 01's header for the shared module shape.
+-- ctx used: app (mounts the screen), actionSystem (the hardware-letter
+-- convenience). `build(ctx)` is the shape every example shares.
 --
 -- data used: `./words`, the shared generated English word data both word games
 -- run on. It is EXAMPLE CONTENT, not framework code — `src/` does not know it
@@ -732,36 +732,31 @@ local CELL_MARK: { [string]: string } = {
 
 -- ===========================================================================
 
-function example.build(Facet: any, core: any, deps: any)
-	local UI = Facet.View
-	local pres = deps.presenter
-	local actions = deps.actionSystem
+function example.build(ctx: any)
+	local UI, Compose, app = ctx.UI, ctx.Compose, ctx.app
+	local pres = app.presenter
+	local actions = ctx.actionSystem
 	-- Game state and hardware input survive view branches and result overlays.
 	-- Only this model boundary owns a Core scope; view calculations belong to ui.
-	local gameScope = core:scope("example-06-tile-game")
-	local function reg(readable: any): any
-		gameScope:own(readable)
-		return readable
-	end
-	local seedSig = reg(core:signal(DEFAULT_SEED))
-	local boardSig = reg(core:signal({} :: { [string]: string }))
-	local pendingSig = reg(core:signal({} :: { [string]: string }))
-	local rackSig = reg(core:signal({} :: { [number]: string }))
-	local originSig = reg(core:signal({} :: { [string]: number }))
-	local selectedSig = reg(core:signal(nil :: number?))
-	local scoreSig = reg(core:signal(0))
-	local turnSig = reg(core:signal(1))
-	local phaseSig = reg(core:signal("playing"))
-	local noticeSig = reg(core:signal(""))
+	local seedSig = Compose.cell(DEFAULT_SEED)
+	local boardSig = Compose.cell({} :: { [string]: string })
+	local pendingSig = Compose.cell({} :: { [string]: string })
+	local rackSig = Compose.cell({} :: { [number]: string })
+	local originSig = Compose.cell({} :: { [string]: number })
+	local selectedSig = Compose.cell(nil :: number?)
+	local scoreSig = Compose.cell(0)
+	local turnSig = Compose.cell(1)
+	local phaseSig = Compose.cell("playing")
+	local noticeSig = Compose.cell("")
 	local bag: { string } = {}
 	local bagAt = 1
 	local opening: string? = nil
 	local dealAttempts = 0
 	local function playing(): boolean
-		return phaseSig:get() == "playing"
+		return phaseSig:peek() == "playing"
 	end
 	local function restart(seed: number?)
-		local nextSeed = if seed ~= nil then math.floor(seed) else seedSig:get()
+		local nextSeed = if seed ~= nil then math.floor(seed) else seedSig:peek()
 		local rng = rules.makeRng(nextSeed)
 		local dealt = rules.deal(rng)
 		bag = dealt.bag
@@ -772,7 +767,7 @@ function example.build(Facet: any, core: any, deps: any)
 		for i = 1, RACK_SIZE do
 			rack[i] = dealt.rack[i]
 		end
-		core:transaction(function()
+		app.runtime:batch(function()
 			seedSig:set(nextSeed)
 			boardSig:set({})
 			pendingSig:set({})
@@ -789,11 +784,11 @@ function example.build(Facet: any, core: any, deps: any)
 		if not playing() then
 			return
 		end
-		if rackSig:get()[slot] == nil then
+		if rackSig:peek()[slot] == nil then
 			return
 		end
-		core:transaction(function()
-			selectedSig:set(if selectedSig:get() == slot then nil else slot)
+		app.runtime:batch(function()
+			selectedSig:set(if selectedSig:peek() == slot then nil else slot)
 			noticeSig:set("")
 		end)
 	end
@@ -805,22 +800,22 @@ function example.build(Facet: any, core: any, deps: any)
 			return
 		end
 		local key = rules.key(r, c)
-		local slot = selectedSig:get()
-		local committed = boardSig:get()[key]
-		local pendingLetter = pendingSig:get()[key]
+		local slot = selectedSig:peek()
+		local committed = boardSig:peek()[key]
+		local pendingLetter = pendingSig:peek()[key]
 		if slot == nil then
 			if committed ~= nil then
 				noticeSig:set(rules.SAY.committed)
 				return
 			end
 			if pendingLetter ~= nil then
-				local origin = table.clone(originSig:get())
-				local rack = table.clone(rackSig:get())
-				local pending = table.clone(pendingSig:get())
+				local origin = table.clone(originSig:peek())
+				local rack = table.clone(rackSig:peek())
+				local pending = table.clone(pendingSig:peek())
 				rack[origin[key]] = pendingLetter
 				pending[key] = nil
 				origin[key] = nil
-				core:transaction(function()
+				app.runtime:batch(function()
 					rackSig:set(rack)
 					pendingSig:set(pending)
 					originSig:set(origin)
@@ -835,17 +830,17 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set(rules.SAY.occupied)
 			return
 		end
-		local letter = rackSig:get()[slot]
+		local letter = rackSig:peek()[slot]
 		if letter == nil then
 			return
 		end
-		local rack = table.clone(rackSig:get())
-		local pending = table.clone(pendingSig:get())
-		local origin = table.clone(originSig:get())
+		local rack = table.clone(rackSig:peek())
+		local pending = table.clone(pendingSig:peek())
+		local origin = table.clone(originSig:peek())
 		rack[slot] = nil
 		pending[key] = letter
 		origin[key] = slot
-		core:transaction(function()
+		app.runtime:batch(function()
 			rackSig:set(rack)
 			pendingSig:set(pending)
 			originSig:set(origin)
@@ -857,17 +852,17 @@ function example.build(Facet: any, core: any, deps: any)
 		if not playing() then
 			return
 		end
-		local pending = pendingSig:get()
+		local pending = pendingSig:peek()
 		if next(pending) == nil then
 			noticeSig:set(rules.SAY.nothingPlaced)
 			return
 		end
-		local rack = table.clone(rackSig:get())
-		local origin = originSig:get()
+		local rack = table.clone(rackSig:peek())
+		local origin = originSig:peek()
 		for key, letter in pending do
 			rack[origin[key]] = letter
 		end
-		core:transaction(function()
+		app.runtime:batch(function()
 			rackSig:set(rack)
 			pendingSig:set({})
 			originSig:set({})
@@ -879,9 +874,9 @@ function example.build(Facet: any, core: any, deps: any)
 		if not playing() then
 			return
 		end
-		local board = boardSig:get()
-		local pending = pendingSig:get()
-		local verdict = rules.validate(board, pending, turnSig:get())
+		local board = boardSig:peek()
+		local pending = pendingSig:peek()
+		local verdict = rules.validate(board, pending, turnSig:peek())
 		if not verdict.ok then
 			noticeSig:set(verdict.message)
 			return
@@ -890,22 +885,22 @@ function example.build(Facet: any, core: any, deps: any)
 		for key, letter in pending do
 			nextBoard[key] = letter
 		end
-		local rack = table.clone(rackSig:get())
+		local rack = table.clone(rackSig:peek())
 		for slot = 1, RACK_SIZE do
 			if rack[slot] == nil and bagAt <= #bag then
 				rack[slot] = bag[bagAt]
 				bagAt += 1
 			end
 		end
-		local nextScore = scoreSig:get() + (verdict.score :: number)
-		local nextTurn = turnSig:get() + 1
+		local nextScore = scoreSig:peek() + (verdict.score :: number)
+		local nextTurn = turnSig:peek() + 1
 		local phase = "playing"
 		if nextScore >= GOAL then
 			phase = "won"
 		elseif nextTurn > TURNS then
 			phase = "lost"
 		end
-		core:transaction(function()
+		app.runtime:batch(function()
 			boardSig:set(nextBoard)
 			pendingSig:set({})
 			originSig:set({})
@@ -925,111 +920,100 @@ function example.build(Facet: any, core: any, deps: any)
 	local wordText: any
 	local hintText: any
 	local cellStateOf: { [string]: any } = {}
-	local Crossword = Facet.component(function(ui)
-		local boardSigNow = ui.read(boardSig)
-		local pendingSigNow = ui.read(pendingSig)
-		local rackSigNow = ui.read(rackSig)
-		local selectedSigNow = ui.read(selectedSig)
-		local scoreSigNow = ui.read(scoreSig)
-		local turnSigNow = ui.read(turnSig)
-		local phaseSigNow = ui.read(phaseSig)
-		local noticeSigNow = ui.read(noticeSig)
-		-- Custom board/keyboard hit targets use Facet.UI.Button for surface and
+	local function Crossword()
+		-- Custom board/keyboard hit targets use UI.Button for surface and
 		-- compact glyph sizing; ordinary actions use UI.Button.
-		turnsLeft = ui.memo(function()
-			return math.max(0, TURNS - (turnSigNow() - 1))
+		turnsLeft = Compose.formula(function(use)
+			return math.max(0, TURNS - (use(turnSig) - 1))
 		end)
-		scoreText = ui.memo(function()
-			return `{scoreSigNow()} of {GOAL} points`
+		scoreText = Compose.formula(function(use)
+			return `{use(scoreSig)} of {GOAL} points`
 		end)
-		progressText = ui.memo(function()
-			local left = turnsLeft()
+		progressText = Compose.formula(function(use)
+			local left = use(turnsLeft)
 			return `{left} {if left == 1 then "turn" else "turns"} left`
 		end)
-		verdictSig = ui.memo(function()
-			local pending = pendingSigNow()
+		verdictSig = Compose.formula(function(use)
+			local pending = use(pendingSig)
 			if next(pending) == nil then
 				return nil
 			end
-			return rules.validate(boardSigNow(), pending, turnSigNow())
+			return rules.validate(use(boardSig), pending, use(turnSig))
 		end)
-		wordText = ui.memo(function()
-			local notice = noticeSigNow()
+		wordText = Compose.formula(function(use)
+			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
 			end
-			local verdict = verdictSig()
+			local verdict = use(verdictSig)
 			if verdict == nil then
 				return "No tiles placed this turn."
 			end
 			return verdict.message
 		end)
-		hintText = ui.memo(function()
-			local phase = phaseSigNow()
+		hintText = Compose.formula(function(use)
+			local phase = use(phaseSig)
 			if phase == "won" then
-				return `You reached {scoreSigNow()} points in {turnSigNow() - 1} of {TURNS} turns — you win! `
+				return `You reached {use(scoreSig)} points in {use(turnSig) - 1} of {TURNS} turns — you win! `
 					.. "Press Start over to play again."
 			elseif phase == "lost" then
-				return `Out of turns at {scoreSigNow()} of {GOAL} points. Press Start over to play again.`
+				return `Out of turns at {use(scoreSig)} of {GOAL} points. Press Start over to play again.`
 			end
-			local slot = selectedSigNow()
+			local slot = use(selectedSig)
 			if slot ~= nil then
-				return `Placing {rackSigNow()[slot]} — choose a square.`
+				return `Placing {use(rackSig)[slot]} — choose a square.`
 			end
-			if turnSigNow() <= 1 and next(boardSigNow()) == nil then
+			if use(turnSig) <= 1 and next(use(boardSig)) == nil then
 				return "Cover the starred square with a word to begin."
 			end
 			return "Pick a letter from your rack, then choose a square."
 		end)
-		local cells = {}
+		local cells: { any } = { columns = SIZE, itemSizing = "uniform", gap = "xs", rowGap = "xs" }
 		for r = 1, SIZE do
 			for c = 1, SIZE do
 				local rr, cc = r, c
 				local key = rules.key(r, c)
-				local state = ui.memo(function()
-					if pendingSigNow()[key] ~= nil then
+				local state = Compose.formula(function(use)
+					if use(pendingSig)[key] ~= nil then
 						return "pending"
 					end
-					if boardSigNow()[key] ~= nil then
+					if use(boardSig)[key] ~= nil then
 						return "committed"
 					end
-					if rules.legalCells(boardSigNow(), pendingSigNow(), turnSigNow())[key] then
+					if rules.legalCells(use(boardSig), use(pendingSig), use(turnSig))[key] then
 						return if rr == CENTRE and cc == CENTRE then "centre" else "legal"
 					end
 					return if rr == CENTRE and cc == CENTRE then "centre" else "idle"
 				end)
 				cellStateOf[key] = state
-				local label = ui.memo(function()
-					return letterAt(boardSigNow(), pendingSigNow(), rr, cc) or ""
+				local label = Compose.formula(function(use)
+					return letterAt(use(boardSig), use(pendingSig), rr, cc) or ""
 				end)
-				local tint = ui.memo(function()
-					return CELL_TINT[state()]
+				local tint = Compose.formula(function(use)
+					return CELL_TINT[use(state)]
 				end)
-				local surface = ui.memo(function()
-					return CELL_SURFACE[state()]
+				local surface = Compose.formula(function(use)
+					return CELL_SURFACE[use(state)]
 				end)
-				local mark = ui.memo(function()
-					return CELL_MARK[state()]
+				local mark = Compose.formula(function(use)
+					return CELL_MARK[use(state)]
 				end)
 				table.insert(
 					cells,
-					UI.ZStack({
-						id = `cell{r}_{c}`,
+					UI.ZStack(`cell{r}_{c}`)({
 						width = CELL,
 						height = CELL,
 						alignH = "center",
 						alignV = "center",
-						UI.Box({ id = "plate", width = FILL, height = FILL, tint = tint, surface = surface }),
-						UI.Text({
-							id = "mark",
+						UI.Box("plate")({ width = FILL, height = FILL, tint = tint, surface = surface }),
+						UI.Text("mark")({
 							text = mark,
 							textSize = "caption",
 							role = "secondary",
 							alignH = "end",
 							alignV = "end",
 						}),
-						Facet.UI.Button({
-							id = "tap",
+						UI.Button("tap")({
 							label = label,
 							surface = "plain",
 							padding = 0,
@@ -1044,31 +1028,23 @@ function example.build(Facet: any, core: any, deps: any)
 				)
 			end
 		end
-		local board = UI.Grid({
-			id = "board",
-			columns = SIZE,
-			itemSizing = "uniform",
-			gap = "xs",
-			rowGap = "xs",
-			children = cells,
-		})
-		local rackTiles = {}
+		local board = UI.Grid("board")(cells)
+		local rackTiles: { any } = { columns = RACK_SIZE, itemSizing = "uniform", gap = "xs" }
 		for i = 1, RACK_SIZE do
 			local slot = i
-			local letter = ui.memo(function()
-				return rackSigNow()[slot]
+			local letter = Compose.formula(function(use)
+				return use(rackSig)[slot]
 			end)
-			local label = ui.memo(function()
-				return letter() or "·"
+			local label = Compose.formula(function(use)
+				return use(letter) or "·"
 			end)
-			local enabled = ui.memo(function()
-				return letter() ~= nil and phaseSigNow() == "playing"
+			local enabled = Compose.formula(function(use)
+				return use(letter) ~= nil and use(phaseSig) == "playing"
 			end)
-			local isSelected = ui.memo(function()
-				return selectedSigNow() == slot
+			local isSelected = Compose.formula(function(use)
+				return use(selectedSig) == slot
 			end)
-			rackTiles[i] = Facet.UI.Button({
-				id = "rt" .. i,
+			rackTiles[i] = UI.Button("rt" .. i)({
 				label = label,
 				enabled = enabled,
 				selected = isSelected,
@@ -1080,52 +1056,40 @@ function example.build(Facet: any, core: any, deps: any)
 				end,
 			})
 		end
-		local rack = UI.Grid({
-			id = "rack",
-			columns = RACK_SIZE,
-			itemSizing = "uniform",
-			gap = "xs",
-			children = rackTiles,
-		})
-		return UI.Screen({
-			id = "TileGame",
+		local rack = UI.Grid("rack")(rackTiles)
+		return UI.Screen("TileGame")({
 			surface = "base",
 			padding = "m",
-			UI.ScrollView({
-				id = "Page",
+			UI.ScrollView("Page")({
 				axis = "y",
 				gap = "s",
 				width = FILL,
 				height = FILL,
-				UI.Text({ id = "Title", text = "Facet Crossword", textSize = "title" }),
-				UI.Grid({
-					id = "Stats",
+				UI.Text("Title")({ text = "Facet Crossword", textSize = "title" }),
+				UI.Grid("Stats")({
 					minColumnWidth = "intrinsic",
 					gap = "s",
 					width = FILL,
-					UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
-					UI.Text({
-						id = "Progress",
+					UI.Text("Score")({ text = scoreText, textSize = "numeral" }),
+					UI.Text("Progress")({
 						text = progressText,
 						textSize = "label",
 						role = "secondary",
 					}),
 				}),
-				UI.Text({ id = "Hint", text = hintText, textSize = "body", role = "secondary" }),
-				UI.Text({ id = "Word", text = wordText, textSize = "label" }),
+				UI.Text("Hint")({ text = hintText, textSize = "body", role = "secondary" }),
+				UI.Text("Word")({ text = wordText, textSize = "label" }),
 				board,
-				UI.Text({ id = "RackLabel", text = "Your rack", textSize = "label", role = "secondary" }),
+				UI.Text("RackLabel")({ text = "Your rack", textSize = "label", role = "secondary" }),
 				rack,
-				UI.Grid({
-					id = "Actions",
+				UI.Grid("Actions")({
 					minColumnWidth = "intrinsic",
 					gap = "s",
 					width = FILL,
-					UI.Button({ id = "Submit", label = "Submit word", onActivate = submit }),
-					UI.Button({ id = "Undo", label = "Undo turn", onActivate = undo }),
+					UI.Button("Submit")({ label = "Submit word", onActivate = submit }),
+					UI.Button("Undo")({ label = "Undo turn", onActivate = undo }),
 				}),
-				UI.Button({
-					id = "Reset",
+				UI.Button("Reset")({
 					label = "Start over",
 					onActivate = function()
 						restart(DEFAULT_SEED)
@@ -1133,11 +1097,10 @@ function example.build(Facet: any, core: any, deps: any)
 				}),
 			}),
 		})
-	end)
-	local screen = Crossword({})
-	local handle = pres.present(screen)
+	end
+	local close, _, handle = app.mount(Crossword)
 	local focusedCell = function(): (number?, number?)
-		local path = pres.focus.focused:get()
+		local path = pres.focus.focused:peek()
 		if type(path) ~= "string" then
 			return nil, nil
 		end
@@ -1152,7 +1115,7 @@ function example.build(Facet: any, core: any, deps: any)
 		if r == nil or c == nil then
 			return
 		end
-		local rack = rackSig:get()
+		local rack = rackSig:peek()
 		for slot = 1, RACK_SIZE do
 			if rack[slot] == letter then
 				selectedSig:set(slot)
@@ -1162,13 +1125,10 @@ function example.build(Facet: any, core: any, deps: any)
 		end
 		noticeSig:set(`There is no {letter} on your rack.`)
 	end
-	local ctx = actions.createContext({ name = "CrosswordInput", priority = 2000, sink = true })
-	gameScope:own(function()
-		ctx.destroy()
-	end)
+	local input = actions.createContext({ name = "CrosswordInput", priority = 2000, sink = true })
 	for i = 0, 25 do
 		local letter = string.char(65 + i)
-		local action = ctx.createAction("Type_" .. letter, "Bool")
+		local action = input.createAction("Type_" .. letter, "Bool")
 		action.bind({ keyCode = letter })
 		action.onPressed(function()
 			typeLetter(letter)
@@ -1176,7 +1136,6 @@ function example.build(Facet: any, core: any, deps: any)
 	end
 	return {
 		title = example.title,
-		screen = screen,
 		handle = handle,
 		rules = rules,
 		press = function(keyCode: string)
@@ -1191,7 +1150,7 @@ function example.build(Facet: any, core: any, deps: any)
 			restart(seed or DEFAULT_SEED)
 		end,
 		seed = function(): number
-			return seedSig:get()
+			return seedSig:peek()
 		end,
 		opening = function(): string?
 			return opening
@@ -1200,83 +1159,83 @@ function example.build(Facet: any, core: any, deps: any)
 			return dealAttempts
 		end,
 		letterAt = function(r: number, c: number): string?
-			return letterAt(boardSig:get(), pendingSig:get(), r, c)
+			return letterAt(boardSig:peek(), pendingSig:peek(), r, c)
 		end,
 		committedAt = function(r: number, c: number): string?
-			return boardSig:get()[rules.key(r, c)]
+			return boardSig:peek()[rules.key(r, c)]
 		end,
 		pendingAt = function(r: number, c: number): string?
-			return pendingSig:get()[rules.key(r, c)]
+			return pendingSig:peek()[rules.key(r, c)]
 		end,
 		cellState = function(r: number, c: number): string
-			return cellStateOf[rules.key(r, c)]()
+			return cellStateOf[rules.key(r, c)]:peek()
 		end,
 		cellTint = function(r: number, c: number): any
-			return CELL_TINT[cellStateOf[rules.key(r, c)]()]
+			return CELL_TINT[cellStateOf[rules.key(r, c)]:peek()]
 		end,
 		cellSurface = function(r: number, c: number): string
-			return CELL_SURFACE[cellStateOf[rules.key(r, c)]()]
+			return CELL_SURFACE[cellStateOf[rules.key(r, c)]:peek()]
 		end,
 		cellMark = function(r: number, c: number): string
-			return CELL_MARK[cellStateOf[rules.key(r, c)]()]
+			return CELL_MARK[cellStateOf[rules.key(r, c)]:peek()]
 		end,
 		rackLetter = function(slot: number): string?
-			return rackSig:get()[slot]
+			return rackSig:peek()[slot]
 		end,
 		rackCount = function(): number
 			local n = 0
 			for slot = 1, RACK_SIZE do
-				if rackSig:get()[slot] ~= nil then
+				if rackSig:peek()[slot] ~= nil then
 					n += 1
 				end
 			end
 			return n
 		end,
 		selected = function(): number?
-			return selectedSig:get()
+			return selectedSig:peek()
 		end,
 		score = function(): number
-			return scoreSig:get()
+			return scoreSig:peek()
 		end,
 		turn = function(): number
-			return turnSig:get()
+			return turnSig:peek()
 		end,
 		turnsLeft = function(): number
-			return turnsLeft()
+			return turnsLeft:peek()
 		end,
 		phase = function(): string
-			return phaseSig:get()
+			return phaseSig:peek()
 		end,
 		hintText = function(): string
-			return hintText()
+			return hintText:peek()
 		end,
 		wordText = function(): string
-			return wordText()
+			return wordText:peek()
 		end,
 		scoreText = function(): string
-			return scoreText()
+			return scoreText:peek()
 		end,
 		progressText = function(): string
-			return progressText()
+			return progressText:peek()
 		end,
 		verdict = function(): any
-			return verdictSig()
+			return verdictSig:peek()
 		end,
 		dump = function(): string
 			local out: { string } = {}
 			for r = 1, SIZE do
 				local row: { string } = {}
 				for c = 1, SIZE do
-					table.insert(row, letterAt(boardSig:get(), pendingSig:get(), r, c) or ".")
+					table.insert(row, letterAt(boardSig:peek(), pendingSig:peek(), r, c) or ".")
 				end
 				table.insert(out, table.concat(row))
 			end
 			local rack: { string } = {}
 			for slot = 1, RACK_SIZE do
-				table.insert(rack, rackSig:get()[slot] or ".")
+				table.insert(rack, rackSig:peek()[slot] or ".")
 			end
 			return table.concat(out, "/")
-				.. `|rack={table.concat(rack)}|score={scoreSig:get()}|turn={turnSig:get()}|phase={phaseSig:get()}`
+				.. `|rack={table.concat(rack)}|score={scoreSig:peek()}|turn={turnSig:peek()}|phase={phaseSig:peek()}`
 		end,
 		cellPath = function(r: number, c: number): string
 			return `/TileGame/Page/board/cell{r}_{c}/tap`
@@ -1296,8 +1255,8 @@ function example.build(Facet: any, core: any, deps: any)
 		undoPath = "/TileGame/Page/Actions/Undo",
 		resetPath = "/TileGame/Page/Reset",
 		dispose = function()
-			pres.dismiss(handle)
-			gameScope:dispose()
+			input.destroy()
+			close()
 		end,
 	}
 end

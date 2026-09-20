@@ -35,15 +35,12 @@ local METRICS = seedData.METRICS
 -- still carries the whole card's slide/scale as one rigid unit (transform
 -- needs no group at all; only alpha does).
 local function sheet(ctx: any, id: string, children: { any }): any
-	return ctx.UI.Screen({
-		id = id,
+	return ctx.UI.Screen(id)({
 
-		ctx.UI.ZStack({
-			id = "Sheet",
+		ctx.UI.ZStack("Sheet")(ctx.withChildren({
 			width = ctx.UI.fill(),
 			height = ctx.UI.fill(),
-			children = children,
-		}),
+		}, children)),
 	})
 end
 
@@ -54,25 +51,21 @@ shop.sheet = sheet
 -- content in its own `canvasGroup` (`PageContent`) so the plate paints at its
 -- own, immediate opacity while the content fades in over it (task POP).
 local function page(ctx: any, children: { any }): any
-	return ctx.UI.ScrollView({
-		id = "Page",
+	return ctx.UI.ScrollView("Page")({
 		axis = "y",
 		padding = "l",
 		surface = "raised",
 		width = ctx.UI.fill(),
 		height = ctx.UI.fill(),
 
-		ctx.UI.ZStack({
-			id = "PageContent",
+		ctx.UI.ZStack("PageContent")({
 			canvasGroup = true,
 			width = ctx.UI.fill(),
 
-			ctx.UI.VStack({
-				id = "PageBody",
+			ctx.UI.VStack("PageBody")(ctx.withChildren({
 				gap = "l",
 				width = ctx.UI.fill(),
-				children = children,
-			}),
+			}, children)),
 		}),
 	})
 end
@@ -85,31 +78,30 @@ shop.page = page
 -- action is disabled and says "Confirming…" — pending never reads as success,
 -- and it never reads as "go ahead and use one" either.
 local function pendingFor(ctx: any, nectarId: string, scope: any): any
-	return scope:own(ctx.core:memo(function(use)
+	return ctx.Compose.formula(function(use)
 		for _, pack in seedData.packsFor(nectarId) do
 			if use(ctx.commerce.status(pack.id)) == "pending" then
 				return true
 			end
 		end
 		return false
-	end))
+	end)
 end
 
 local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
-	local name = scope:own(core:memo(function(use)
+	local name = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("nectar." .. nectar.id)
-	end))
-	local summary = scope:own(core:memo(function(use)
+	end)
+	local summary = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("summary." .. nectar.id)
-	end))
+	end)
 	local pending = pendingFor(ctx, nectar.id, scope)
 	local owned = if nectar.premium then ctx.commerce.satchelOf(nectar.id) else nil
 
-	local mode = scope:own(core:memo(function(use)
+	local mode = ctx.Compose.formula(function(use)
 		if use(pending) then
 			return "pending"
 		end
@@ -117,8 +109,8 @@ local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): a
 			return "choose"
 		end
 		return if use(owned) > 0 then "use" else "shop"
-	end))
-	local actionLabel = scope:own(core:memo(function(use)
+	end)
+	local actionLabel = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		local phase = use(mode)
 		if phase == "pending" then
@@ -129,25 +121,24 @@ local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): a
 			return ctx.Lnow("picker.shop")
 		end
 		return ctx.Lnow("picker.choose")
-	end))
-	local actionEnabled = scope:own(core:memo(function(use)
+	end)
+	local actionEnabled = ctx.Compose.formula(function(use)
 		return use(mode) ~= "pending"
-	end))
+	end)
 
 	local well: { any } = {}
 	if nectar.premium then
 		-- the owned count, counted UP on the badge when a purchase confirms
-		local counter = scope:own(ctx.clock:counter(owned:get(), "reward"))
-		scope:own(core:observe(owned, function(value: number)
+		local counter = ctx.ownMotion(ctx.clock:counter(owned:peek(), "reward"))
+		ctx.observe(owned, function(value: number)
 			counter:setTarget(value)
-		end))
-		local countText = scope:own(core:memo(function(use)
+		end)
+		local countText = ctx.Compose.formula(function(use)
 			return tostring(math.floor(use(counter)))
-		end))
+		end)
 		table.insert(
 			well,
-			UI.Text({
-				id = "Count",
+			UI.Text("Count")({
 				text = countText,
 				surface = "badge",
 				textSize = "numeral",
@@ -159,19 +150,17 @@ local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): a
 	end
 
 	return UI.shadow(
-		UI.VStack({
-			id = "NectarCard_" .. nectar.id,
+		UI.VStack("NectarCard_" .. nectar.id)({
 			surface = "raised",
 			padding = "m",
 			gap = "s",
 			width = { type = "fixed", px = METRICS.nectarCardMin },
 
 			parts.well(ctx, "Art", nectar.art, METRICS.portrait, well),
-			UI.Text({ id = "Name", text = name, textSize = "label", lineLimit = 1, disclose = true }),
+			UI.Text("Name")({ text = name, textSize = "label", lineLimit = 1, disclose = true }),
 			-- two lines are RESERVED by the layout so a shelf of cards never
 			-- jitters as summaries of different lengths scroll past
-			UI.Text({
-				id = "Summary",
+			UI.Text("Summary")({
 				text = summary,
 				textSize = "body",
 				role = "secondary",
@@ -182,13 +171,12 @@ local function nectarCard(ctx: any, nectar: any, gladeId: string, scope: any): a
 			-- construction-only compact form cannot follow it (see
 			-- `parts.commandButton`). An ellipsized "Confirming…" is honest;
 			-- the word "Shop" drawn during a pending purchase is not.
-			UI.Button({
-				id = "Act_" .. nectar.id,
+			UI.Button("Act_" .. nectar.id)({
 				label = actionLabel,
 				enabled = actionEnabled,
 				width = UI.fill(),
 				onActivate = function()
-					local phase = mode:get()
+					local phase = mode:peek()
 					if phase == "shop" then
 						ctx.nav.openShop()
 					elseif phase == "use" or phase == "choose" then
@@ -206,29 +194,25 @@ local function shelf(ctx: any, id: string, nectars: { any }, gladeId: string, sc
 	for _, nectar in nectars do
 		table.insert(children, nectarCard(ctx, nectar, gladeId, scope))
 	end
-	return ctx.UI.ScrollView({
-		id = id,
+	return ctx.UI.ScrollView(id)(ctx.withChildren({
 		axis = "x",
 		gap = "m",
 		width = ctx.UI.fill(),
-		children = children,
-	})
+	}, children))
 end
 
 function shop.picker(ctx: any, gladeId: string, scope: any): any
 	local UI = ctx.UI
 	return sheet(ctx, "NectarPicker", {
 		page(ctx, {
-			UI.HStack({
-				id = "TitleRow",
+			UI.HStack("TitleRow")({
 				gap = "s",
 				align = "center",
 				width = UI.fill(),
 
 				parts.heading(ctx, "Title", ctx.L("picker.title")),
-				UI.Spacer({ id = "Push" }),
-				UI.Button({
-					id = "Done",
+				UI.Spacer("Push")({}),
+				UI.Button("Done")({
 					label = ctx.L("picker.done"),
 					compactLabel = "OK",
 					onActivate = function()
@@ -236,8 +220,7 @@ function shop.picker(ctx: any, gladeId: string, scope: any): any
 					end,
 				}),
 			}),
-			UI.Button({
-				id = "ShopRow",
+			UI.Button("ShopRow")({
 				label = ctx.L("picker.shopRow"),
 				width = UI.fill(),
 				align = "start",
@@ -257,21 +240,20 @@ end
 
 local function packCard(ctx: any, pack: any, wide: boolean, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
-	local nectarName = scope:own(core:memo(function(use)
+	local nectarName = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("nectar." .. pack.nectar)
-	end))
-	local sizeLabel = scope:own(core:memo(function(use)
+	end)
+	local sizeLabel = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow(if pack.quantity > 1 then "shop.bundle" else "shop.single")
-	end))
+	end)
 	local price = ctx.commerce.priceOf(pack.id)
 
 	local width = if wide then UI.fill() else { type = "fixed", px = METRICS.packCardMin }
 	local body: { any } = {
 		parts.well(ctx, "Art", pack.art, METRICS.portrait),
-		UI.Text({ id = "Name", text = nectarName, textSize = "label", lineLimit = 1, disclose = true }),
+		UI.Text("Name")({ text = nectarName, textSize = "label", lineLimit = 1, disclose = true }),
 		parts.caption(ctx, "Size", sizeLabel),
 		-- the price NEVER truncates and is never composed in UI copy: the service
 		-- publishes the whole string
@@ -300,8 +282,7 @@ local function packCard(ctx: any, pack: any, wide: boolean, scope: any): any
 				spelling that would deliver it and it WOULD move pixels, so the prop is
 				deleted and the intent is queued in
 				`docs/plans/unfulfilled-placement-intents.md`. ]]
-			UI.Text({
-				id = "BestValue",
+			UI.Text("BestValue")({
 				text = ctx.L("shop.bestValue"),
 				surface = "chip",
 				textSize = "caption",
@@ -311,14 +292,12 @@ local function packCard(ctx: any, pack: any, wide: boolean, scope: any): any
 	end
 
 	return UI.shadow(
-		UI.VStack({
-			id = "Pack_" .. pack.id,
+		UI.VStack("Pack_" .. pack.id)(ctx.withChildren({
 			surface = "raised",
 			padding = "m",
 			gap = "s",
 			width = width,
-			children = body,
-		}),
+		}, body)),
 		"raised"
 	)
 end
@@ -334,16 +313,14 @@ function shop.provisions(ctx: any, scope: any): any
 	end
 	table.insert(
 		children,
-		UI.HStack({
-			id = "TitleRow",
+		UI.HStack("TitleRow")({
 			gap = "s",
 			align = "center",
 			width = UI.fill(),
 
 			parts.heading(ctx, "Title", ctx.L("shop.title")),
-			UI.Spacer({ id = "Push" }),
-			UI.Button({
-				id = "Close",
+			UI.Spacer("Push")({}),
+			UI.Button("Close")({
 				label = ctx.L("wisp.close"),
 				compactLabel = { icon = "close" },
 				onActivate = function()
@@ -361,20 +338,18 @@ function shop.provisions(ctx: any, scope: any): any
 		for _, pack in seedData.packsFor(nectar.id) do
 			table.insert(row, packCard(ctx, pack, false, scope))
 		end
-		local name = scope:own(ctx.core:memo(function(use)
+		local name = ctx.Compose.formula(function(use)
 			local _ = use(ctx.state.locale)
 			return ctx.Lnow("nectar." .. nectar.id)
-		end))
+		end)
 		table.insert(children, parts.caption(ctx, "Shelf_" .. nectar.id .. "_Title", name))
 		table.insert(
 			children,
-			UI.ScrollView({
-				id = "Shelf_" .. nectar.id,
+			UI.ScrollView("Shelf_" .. nectar.id)(ctx.withChildren({
 				axis = "x",
 				gap = "m",
 				width = UI.fill(),
-				children = row,
-			})
+			}, row))
 		)
 	end
 
@@ -385,35 +360,33 @@ end
 
 function shop.charm(ctx: any, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
-	local upgrading = scope:own(core:memo(function(use)
+	local upgrading = ctx.Compose.formula(function(use)
 		return use(ctx.commerce.charmTier()) ~= "none"
-	end))
-	local pitch = scope:own(core:memo(function(use)
+	end)
+	local pitch = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow(if use(upgrading) then "charm.upgradePitch" else "charm.pitch")
-	end))
+	end)
 
 	local tiers: { any } = {}
 	for _, tier in seedData.CHARM_TIERS do
 		-- UPGRADE-ONLY MODE: a tier at or below the one held is not offered. The
 		-- gate is a `When` over the tier fact, so buying Grove takes Ember's card
 		-- off the screen with no rebuild and no branch in a factory.
-		local offered = scope:own(core:memo(function(use)
+		local offered = ctx.Compose.formula(function(use)
 			return tier.rank > (seedData.CHARM_RANK[use(ctx.commerce.charmTier())] or 0)
-		end))
-		local name = scope:own(core:memo(function(use)
+		end)
+		local name = ctx.Compose.formula(function(use)
 			local _ = use(ctx.state.locale)
 			return ctx.Lnow("charm.tier." .. tier.id)
-		end))
-		local tagline = scope:own(core:memo(function(use)
+		end)
+		local tagline = ctx.Compose.formula(function(use)
 			local _ = use(ctx.state.locale)
 			return ctx.Lnow("charm.tagline." .. tier.id)
-		end))
+		end)
 		table.insert(
 			tiers,
-			UI.When({
-				id = "TierGate_" .. tier.id,
+			ctx.when("TierGate_" .. tier.id)({
 				condition = offered,
 				transition = { enter = "fade", class = "container" },
 				thenView = function(): any
@@ -422,27 +395,23 @@ function shop.charm(ctx: any, scope: any): any
 					-- never of the fade group, so it paints immediately; `TierContent`
 					-- is the one canvasGroup `resolveAlphaTarget` finds one level
 					-- further in, and only its rows ramp in over the plate.
-					return UI.ZStack({
-						id = "TierGroup",
+					return UI.ZStack("TierGroup")({
 						width = UI.fill(),
 
-						UI.VStack({
-							id = "Tier_" .. tier.id,
+						UI.VStack("Tier_" .. tier.id)({
 							surface = "raised",
 							padding = "m",
 							width = UI.fill(),
 
-							UI.ZStack({
-								id = "TierContent",
+							UI.ZStack("TierContent")({
 								canvasGroup = true,
 								width = UI.fill(),
 
-								UI.VStack({
-									id = "TierBody",
+								UI.VStack("TierBody")({
 									gap = "s",
 									width = UI.fill(),
 
-									UI.Text({ id = "Name", text = name, textSize = "heading" }),
+									UI.Text("Name")({ text = name, textSize = "heading" }),
 									parts.body(ctx, "Tagline", tagline),
 									parts.chip(ctx, "Price", ctx.commerce.charmPriceOf(tier.id)),
 									parts.commandButton(ctx, {
@@ -465,15 +434,13 @@ function shop.charm(ctx: any, scope: any): any
 
 	return sheet(ctx, "CharmShop", {
 		page(ctx, {
-			UI.HStack({
-				id = "TitleRow",
+			UI.HStack("TitleRow")({
 				gap = "s",
 				align = "center",
 				width = UI.fill(),
 
-				UI.Spacer({ id = "Push" }),
-				UI.Button({
-					id = "Close",
+				UI.Spacer("Push")({}),
+				UI.Button("Close")({
 					label = ctx.L("wisp.close"),
 					compactLabel = { icon = "close" },
 					onActivate = function()
@@ -482,13 +449,11 @@ function shop.charm(ctx: any, scope: any): any
 				}),
 			}),
 			-- the marketing header: the hero species floating over a soft glow
-			UI.ZStack({
-				id = "Header",
+			UI.ZStack("Header")({
 				width = UI.fill(),
 
 				UI.corners(
-					UI.Box({
-						id = "Glow",
+					UI.Box("Glow")({
 						surface = "raised",
 						alignH = "center",
 						alignV = "center",
@@ -497,23 +462,20 @@ function shop.charm(ctx: any, scope: any): any
 					}),
 					"pill"
 				),
-				UI.VStack({
-					id = "HeaderCopy",
+				UI.VStack("HeaderCopy")({
 					gap = "s",
 					align = "center",
 					width = UI.fill(),
 
 					sceneLib.portrait(ctx, "Hero", "tidewisp", METRICS.heroPortrait),
-					UI.Text({ id = "Title", text = ctx.L("charm.title"), textSize = "title" }),
+					UI.Text("Title")({ text = ctx.L("charm.title"), textSize = "title" }),
 					parts.body(ctx, "Pitch", pitch),
 				}),
 			}),
-			UI.VStack({
-				id = "Tiers",
+			UI.VStack("Tiers")(ctx.withChildren({
 				gap = "m",
 				width = UI.fill(),
-				children = tiers,
-			}),
+			}, tiers)),
 		}),
 	})
 end
@@ -522,17 +484,16 @@ end
 
 function shop.wisp(ctx: any, wispId: string, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
 	local species = seedData.WISP_BY_ID[wispId]
-	local name = scope:own(core:memo(function(use)
+	local name = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("wisp." .. wispId)
-	end))
-	local line = scope:own(core:memo(function(use)
+	end)
+	local line = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("species." .. wispId)
-	end))
-	local seen = scope:own(core:memo(function(use)
+	end)
+	local seen = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		local at = use(ctx.now)
 		local last = ctx.visits.lastSeen(wispId)
@@ -543,14 +504,14 @@ function shop.wisp(ctx: any, wispId: string, scope: any): any
 			when = ctx.fmt.relative(at - last.at),
 			glade = ctx.Lnow("glade." .. last.glade),
 		})
-	end))
-	local favourite = scope:own(core:memo(function(use)
+	end)
+	local favourite = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("wisp.favourite", { nectar = ctx.Lnow("nectar." .. species.favourite) })
-	end))
-	local gated = scope:own(core:memo(function(use)
+	end)
+	local gated = ctx.Compose.formula(function(use)
 		return species.lumenOnly == true and use(ctx.commerce.charmTier()) ~= "lumen"
-	end))
+	end)
 
 	return sheet(ctx, "WispInfo", {
 		-- `Panel` is the opaque plate and is NEVER inside the fade group (task
@@ -560,31 +521,26 @@ function shop.wisp(ctx: any, wispId: string, scope: any): any
 		-- canvasGroup `resolveAlphaTarget` finds and fades — the card still
 		-- slides/scales as a single rigid unit (`Panel`'s own `UIScale`), only its
 		-- CONTENT ramps in over the plate that was always there.
-		UI.VStack({
-			id = "Panel",
+		UI.VStack("Panel")({
 			surface = "raised",
 			padding = "l",
 			width = UI.fill(),
 
-			UI.ZStack({
-				id = "PanelContent",
+			UI.ZStack("PanelContent")({
 				canvasGroup = true,
 				width = UI.fill(),
 
-				UI.VStack({
-					id = "PanelBody",
+				UI.VStack("PanelBody")({
 					gap = "m",
 					align = "center",
 					width = UI.fill(),
 
-					UI.HStack({
-						id = "TitleRow",
+					UI.HStack("TitleRow")({
 						gap = "s",
 						width = UI.fill(),
 
-						UI.Spacer({ id = "Push" }),
-						UI.Button({
-							id = "Close",
+						UI.Spacer("Push")({}),
+						UI.Button("Close")({
 							label = ctx.L("wisp.close"),
 							compactLabel = { icon = "close" },
 							onActivate = function()
@@ -593,27 +549,23 @@ function shop.wisp(ctx: any, wispId: string, scope: any): any
 						}),
 					}),
 					sceneLib.portrait(ctx, "Portrait", wispId, METRICS.heroPortrait),
-					UI.Text({ id = "Name", text = name, textSize = "heading" }),
+					UI.Text("Name")({ text = name, textSize = "heading" }),
 					parts.body(ctx, "Species", line),
 					parts.caption(ctx, "Seen", seen),
 					parts.chip(ctx, "Favourite", favourite),
-					UI.When({
-						id = "LumenGate",
+					ctx.when("LumenGate")({
 						condition = gated,
 						transition = { enter = "fade", class = "container" },
 						thenView = function(): any
-							return UI.ZStack({
-								id = "GateGroup",
+							return UI.ZStack("GateGroup")({
 								canvasGroup = true,
 
-								UI.VStack({
-									id = "GateBody",
+								UI.VStack("GateBody")({
 									gap = "s",
 									align = "center",
 
 									parts.chip(ctx, "LumenChip", ctx.L("wisp.lumenPitch")),
-									UI.Button({
-										id = "SeeCharm",
+									UI.Button("SeeCharm")({
 										label = ctx.L("offer.cta"),
 										onActivate = function()
 											ctx.nav.openCharm()

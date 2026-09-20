@@ -235,6 +235,8 @@ local Runner = {}
 
 function Runner.start(deps: { [string]: any })
 	local Facet = deps.Facet
+	-- the application scenarios author against; its presenter serves the drivers
+	local presenter = deps.app.presenter
 	local registry = deps.registry
 	local name = deps.scenarioName :: string
 	local mod = registry.modules[name]
@@ -332,17 +334,24 @@ function Runner.start(deps: { [string]: any })
 			-- ...and the sibling modules a registry chose to expose, for the same
 			-- reason: a scenario that required `script.Parent` would be Roblox-only.
 			lab = deps.lab,
+			-- the application the scenario authors against: `app.controls` builds
+			-- nodes, `Facet.Compose` holds state, `app.mount` presents
+			app = deps.app,
+			UI = deps.app.controls,
+			Compose = Facet.Compose,
 			core = deps.core,
+			-- a control's `{ api, dump }` record by id, when the bootstrap keeps one
+			controlRecord = deps.controlRecord,
 			worldActions = function(triggered)
 				return require(game:GetService("ReplicatedStorage").Gallery.world_actions_demo).mount(
-					{ core = deps.core, presenter = deps.presenter },
+					{ app = deps.app, core = deps.core, presenter = presenter },
 					function() end,
 					triggered
 				)
 			end,
 			env = deps.env,
 			adapter = deps.adapter,
-			presenter = deps.presenter,
+			presenter = presenter,
 			actionSystem = deps.actionSystem,
 			record = function(key: string, value: any)
 				table.insert(
@@ -375,7 +384,6 @@ function Runner.start(deps: { [string]: any })
 					end
 					local ok, built = pcall(function()
 						local ReplicatedStorage = game:GetService("ReplicatedStorage")
-						local billboardTarget = require(ReplicatedStorage.Facet.client.billboard_target) :: any
 						local canvas = spec.canvas or { w = 320, h = 220 }
 						local part = Instance.new("Part")
 						part.Name = "Facet_BillboardAnchor"
@@ -389,25 +397,21 @@ function Runner.start(deps: { [string]: any })
 						-- display-only, but PlayerGui-parented with an Adornee: that is the
 						-- documented topology, and a fixture that used another
 						-- parent would be proving a path no consumer uses
-						local adapter = billboardTarget.new({
+						-- a second application whose render target is the billboard and
+						-- whose solver world IS the canvas (scale units mean studs here)
+						local app = Facet.new({
 							parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
-							adornee = part,
-							canvas = canvas,
-							alwaysOnTop = true,
+							surface = { kind = "billboard", target = part, canvas = canvas, alwaysOnTop = true },
 						})
-						-- the solver's world IS the canvas (scale units mean studs here)
-						local billboardEnv = Facet.newEnvironment(deps.core)
-						billboardEnv:set("viewportRect", billboardTarget.canvasRect(canvas))
-						local root = Facet.mount(deps.core, spec.blueprint)
-						local controller =
-							Facet.renderer.attach(deps.core, root, billboardEnv, adapter, { rootPolicy = "edgeToEdge" })
-						controller.initialRender()
+						-- `spec.screen(UI)` builds the content with THIS application's controls
+						local close, _, handle = app.mount(function()
+							return spec.screen(app.controls)
+						end, { rootPolicy = "edgeToEdge" })
 						return {
 							part = part,
-							adapter = adapter,
-							env = billboardEnv,
-							root = root,
-							controller = controller,
+							app = app,
+							close = close,
+							controller = handle.controller,
 							canvas = canvas,
 						}
 					end)
@@ -461,7 +465,6 @@ function Runner.start(deps: { [string]: any })
 						billboardGuis = guiCount,
 						billboardDescendants = descendants,
 						anchors = anchors,
-						rootCounters = state.root.counters(),
 					}
 				end
 				function api.teardown(): any
@@ -470,12 +473,8 @@ function Runner.start(deps: { [string]: any })
 					end
 					local dying = state
 					state = nil
-					pcall(function()
-						dying.controller.dispose()
-					end)
-					pcall(function()
-						dying.root.dispose()
-					end)
+					pcall(dying.close)
+					pcall(dying.app.dispose)
 					pcall(function()
 						dying.part:Destroy()
 					end)
@@ -492,16 +491,11 @@ function Runner.start(deps: { [string]: any })
 				behalf. On a host with no engine the seam is simply absent and every
 				scenario step says so instead of pretending it ran.
 
-				WHAT THIS ONE OWNS THAT THE BILLBOARD DOES NOT. A billboard is
-				display-only, so it can live on a raw `renderer.attach`. This surface is
-				OPERATED, so it needs a whole second Facet host — its own core, env,
-				render target, input system and presenter — and the reason it needs its
-				OWN CORE rather than sharing `deps.core` is not style: `environment.new`
-				publishes onto the core it is built on, and two live environments on one
-				core make `surface_env.find` answer "ambiguous", at which point every
-				adaptive control REFUSES TO CONSTRUCT. `client.host` assembles all six
-				pieces and disposes them in the right order, so this seam uses it rather
-				than re-deriving the sequence.
+				BOTH WORLD SEAMS ARE A SECOND APPLICATION. `Facet.new` with a `surface`
+				builds its own environment, render target, input system and presenter
+				and disposes them in the right order. It is a separate application
+				rather than a mount on `deps.app` because an environment belongs to one
+				application: the solver's world here is the canvas, not the screen.
 
 				THE FIXTURE ITSELF IS THE SERVER'S (design §10). A console this client
 				built would be a console only this client can see and a door only this
@@ -528,12 +522,6 @@ function Runner.start(deps: { [string]: any })
 					Top = Vector3.new(0, 1, 0),
 					Bottom = Vector3.new(0, -1, 0),
 				}
-
-				-- the device facts the world surface mirrors from the SCREEN host's
-				-- environment. Not the viewport and not the insets: the solver's world
-				-- IS the canvas, and a console has no notch.
-				local MIRRORED_FACTS =
-					{ "preferredInput", "capabilities", "reducedMotion", "preferredTextSize", "displaySize" }
 
 				function api.available(): boolean
 					return true
@@ -601,17 +589,6 @@ function Runner.start(deps: { [string]: any })
 					}
 				end
 
-				local function mirrorFacts(target: any)
-					for _, fact in MIRRORED_FACTS do
-						local ok, value = pcall(function()
-							return deps.env:get(fact):get()
-						end)
-						if ok then
-							target:set(fact, value)
-						end
-					end
-				end
-
 				--[[ EVERY EXIT LANDS HERE. Cancel, the Exit control, walking out of
 					range, losing line of sight, a removed character, a destroyed or
 					streamed-out adornee, a scenario switch and teardown: eight ways in,
@@ -628,7 +605,7 @@ function Runner.start(deps: { [string]: any })
 					state.lastExit = reason
 					-- 1. the framework's own resign: context disabled, sink dropped,
 					--    focus scope no longer the one receiving Navigate/Activate
-					if state.handle ~= nil and state.handle.responder:get() == "engaged" then
+					if state.handle ~= nil and state.handle.responder:peek() == "engaged" then
 						pcall(function()
 							state.handle.resign()
 						end)
@@ -768,8 +745,6 @@ function Runner.start(deps: { [string]: any })
 					end
 					local ok, built = pcall(function()
 						local ReplicatedStorage = game:GetService("ReplicatedStorage")
-						local clientHost = require(ReplicatedStorage.Facet.client.host) :: any
-						local surfaceTarget = require(ReplicatedStorage.Facet.client.surface_target) :: any
 						local canvas = spec.canvas or { w = 640, h = 480 }
 						local faceName = spec.face or "Back"
 						assert(FACE_NORMALS[faceName] ~= nil, `surface: unknown face '{tostring(faceName)}'`)
@@ -814,48 +789,36 @@ function Runner.start(deps: { [string]: any })
 						local console = wireConsole(spec)
 						assert(console ~= nil, "surface: Workspace.Outpost.Console is not a BasePart")
 
-						local hostHandle = clientHost.new({
-							newAdapter = function(): any
-								return surfaceTarget.new({
-									parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
-									adornee = console,
-									face = (Enum.NormalId :: any)[faceName],
-									canvas = canvas,
-									maxDistance = spec.maxDistance,
-									--[[ `.Adornee` STILL NAMES A DESTROYED PART (measured), so
-										the reference outlives the instance and polling it can
-										never notice. This is the adapter telling us; resigning
-										is ours to do. ]]
-									onAdorneeLost = function()
-										api.release("adornee-lost")
-									end,
-								})
-							end,
-							--[[ NOT `roblox_env.bind`, and this is the load-bearing line of
-								the whole seam. That binder republishes `viewportRect` from
-								`Camera.ViewportSize` on every viewport and topbar change, which
-								would overwrite the canvas rect with the player's screen and
-								re-solve the terminal against a rectangle it does not live in.
-								The solver's world IS the canvas here. The DEVICE facts are
-								still real — mirrored below, every frame, so a hot switch from
-								keyboard to gamepad moves this surface exactly as it moves a
-								screen. ]]
-							bindEnv = function(env: any): () -> ()
-								env:set("viewportRect", surfaceTarget.canvasRect(canvas))
-								env:set("presentationSpace", "world")
-								mirrorFacts(env)
-								return function() end
-							end,
+						-- a second application on the console's face. The host keeps
+						-- screen-space geometry off a world canvas and still binds the
+						-- device facts, so a hot switch from keyboard to gamepad moves this
+						-- surface exactly as it moves a screen.
+						local surfaceApp = Facet.new({
+							parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
+							surface = {
+								kind = "surface",
+								target = console,
+								face = (Enum.NormalId :: any)[faceName],
+								canvas = canvas,
+								maxDistance = spec.maxDistance,
+								--[[ `.Adornee` STILL NAMES A DESTROYED PART (measured), so
+									the reference outlives the instance and polling it can
+									never notice. This is the adapter telling us; resigning
+									is ours to do. ]]
+								onAdorneeLost = function()
+									api.release("adornee-lost")
+								end,
+							},
 						})
-						state.host = hostHandle
+						state.app = surfaceApp
 
 						local surfaceCtx = {
 							Facet = Facet,
-							core = hostHandle.core,
-							env = hostHandle.env,
-							adapter = hostHandle.adapter,
-							presenter = hostHandle.presenter,
-							actionSystem = hostHandle.inputSystem,
+							app = surfaceApp,
+							UI = surfaceApp.controls,
+							Compose = Facet.Compose,
+							env = surfaceApp.environment,
+							presenter = surfaceApp.presenter,
 							canvas = canvas,
 							-- the wire, and the only one the terminal ever sees
 							send = function(envelope: any)
@@ -871,28 +834,23 @@ function Runner.start(deps: { [string]: any })
 						}
 						local terminal = spec.build(surfaceCtx)
 						state.built = terminal
-						state.handle = hostHandle.presenter.present(terminal.screen, terminal.present)
+						local closeTerminal, _, terminalHandle = surfaceApp.mount(terminal.screen, terminal.present)
+						state.close = closeTerminal
+						state.handle = terminalHandle
 
 						--[[ THE RESPONDER IS WATCHED, NOT ASSUMED. Cancel and the platform
 							back action resign an engaged-from-passive surface inside the
 							presenter, so the only honest way to learn the session ended that
 							way is to observe the handle's own signal. ]]
-						table.insert(
-							state.connections,
-							{
-								Disconnect = hostHandle.core:observe(state.handle.responder, function(value: string)
-									if value ~= "engaged" and state ~= nil and state.engaged then
-										api.release("cancel")
-									end
-								end),
-							} :: any
-						)
-						-- the device facts, kept live on the surface's own frame
-						hostHandle.presenter.onTick(function()
-							if state ~= nil then
-								mirrorFacts(hostHandle.env)
-							end
+						local responderWatch = Facet.Compose.createRootOwner(function()
+							Facet.Compose.watch(function(use)
+								local value = use(terminalHandle.responder)
+								if value ~= "engaged" and state ~= nil and state.engaged then
+									api.release("cancel")
+								end
+							end)
 						end)
+						table.insert(state.connections, { Disconnect = responderWatch.dispose } :: any)
 						--[[ CHARACTER REMOVAL IS A REAL EXIT PATH HERE, not a hypothetical
 							one: the scenario's own teardown removes the character, so the
 							control that switches demos exercises it. ]]
@@ -947,7 +905,7 @@ function Runner.start(deps: { [string]: any })
 						face = state.faceName,
 						faceCheck = api.faceCheck(),
 						engaged = state.engaged,
-						responder = if state.handle ~= nil then state.handle.responder:get() else nil,
+						responder = if state.handle ~= nil then state.handle.responder:peek() else nil,
 						lastExit = state.lastExit,
 						token = state.token,
 						allocation = state.allocation,
@@ -1027,15 +985,11 @@ function Runner.start(deps: { [string]: any })
 					if dying.built ~= nil and dying.built.dispose ~= nil then
 						pcall(dying.built.dispose)
 					end
-					if dying.host ~= nil and dying.handle ~= nil then
-						pcall(function()
-							dying.host.presenter.dismiss(dying.handle)
-						end)
+					if dying.close ~= nil then
+						pcall(dying.close)
 					end
-					if dying.host ~= nil then
-						pcall(function()
-							dying.host.dispose()
-						end)
+					if dying.app ~= nil then
+						pcall(dying.app.dispose)
 					end
 					local ev = remote()
 					if ev ~= nil then
@@ -1776,9 +1730,17 @@ function Runner.start(deps: { [string]: any })
 				end,
 			},
 		}
-		session.built = scenario.build(ctx)
-		if session.built.screen ~= nil and session.built.handle == nil then
-			session.built.handle = deps.presenter.present(session.built.screen, session.built.present)
+		-- `build` answers a table whose `screen` is a component function, or the
+		-- component function alone. A scenario that presents for itself sets
+		-- `handle` (and `close`) and is left as it is.
+		local built = scenario.build(ctx)
+		if type(built) == "function" then
+			built = { screen = built }
+		end
+		session.built = built
+		if built.screen ~= nil and built.handle == nil then
+			local close, _, handle = deps.app.mount(built.screen, built.present)
+			built.close, built.handle = close, handle
 		end
 		-- A KEYBOARD-FIRST SCENARIO RELEASES THE DEFAULT CAMERA'S ARROW KEYS.
 		-- Roblox's default CameraModule binds Left/Right (action name
@@ -1826,8 +1788,8 @@ function Runner.start(deps: { [string]: any })
 			return
 		end
 		-- BOTH, not either/or (director review 2026-07-24). A scenario's `dispose`
-		-- releases the CONTROLS it owns; the presenter handle owns the mounted
-		-- ScreenGui. The `elseif` meant that any scenario declaring a dispose (all
+		-- releases the state it keeps outside its screen; closing the mount
+		-- releases the ScreenGui. The `elseif` meant that any scenario declaring a dispose (all
 		-- the interesting ones) never had its handle dismissed, so `reset()` built a
 		-- second tree on top of the first and left both live and painting. It showed
 		-- up as ghosted glyphs — a stale "10" behind a fresh "6" — and any geometry
@@ -1835,12 +1797,12 @@ function Runner.start(deps: { [string]: any })
 		if session.built.dispose ~= nil then
 			session.built.dispose()
 		end
-		-- `dismiss` is a PRESENTER method taking the handle, not a method on the
-		-- handle. The old `session.built.handle.dismiss()` branch referenced a
-		-- field that has never existed, so it could not fire even when it was
-		-- reached: every reset() left its ScreenGui mounted and painting.
-		if session.built.handle ~= nil and deps.presenter.dismiss ~= nil then
-			deps.presenter.dismiss(session.built.handle)
+		-- Closing dismisses the surface and releases the component's owner. A
+		-- scenario that presented for itself leaves a handle and no `close`.
+		if session.built.close ~= nil then
+			session.built.close()
+		elseif session.built.handle ~= nil then
+			deps.app.presenter.dismiss(session.built.handle)
 		end
 		session.built = nil
 	end
@@ -1861,7 +1823,7 @@ function Runner.start(deps: { [string]: any })
 	local GENERIC_STEPS: { [string]: (any, string?) -> any } = {
 		expand = function(_built: any, payload: string?)
 			assert(payload ~= nil and payload ~= "", "step 'expand' needs a region path payload")
-			local opened = deps.presenter.expand(payload)
+			local opened = presenter.expand(payload)
 			return { path = payload, opened = opened }
 		end,
 	}
@@ -1929,7 +1891,7 @@ function Runner.start(deps: { [string]: any })
 				if not ok then
 					error(opened)
 				end
-				deps.presenter.refresh()
+				presenter.refresh()
 				return { id = id, opened = opened == true }
 			end
 		end
@@ -1954,7 +1916,7 @@ function Runner.start(deps: { [string]: any })
 		if not ok then
 			error(result)
 		end
-		deps.presenter.refresh()
+		presenter.refresh()
 		return result
 	end
 
@@ -1997,7 +1959,7 @@ function Runner.start(deps: { [string]: any })
 			end
 		end
 		table.sort(applied)
-		deps.presenter.refresh()
+		presenter.refresh()
 		return { applied = applied, failed = failed }
 	end
 
@@ -2005,13 +1967,13 @@ function Runner.start(deps: { [string]: any })
 		teardown()
 		session.stepLog = {}
 		build()
-		deps.presenter.refresh()
+		presenter.refresh()
 		workspace:SetAttribute("Facet_ScenarioState", "ready")
 		return true
 	end
 
 	function api.report(opts: { tree: boolean? }?): string
-		deps.presenter.refresh()
+		presenter.refresh()
 		local lp = Players.LocalPlayer
 		local envFacts: { [string]: any } = {}
 		for _, k in ENV_FACT_KEYS do
@@ -2019,7 +1981,7 @@ function Runner.start(deps: { [string]: any })
 				return deps.env:get(k)
 			end)
 			if ok and sig ~= nil then
-				envFacts[k] = serializeValue(sig:get())
+				envFacts[k] = serializeValue(sig:peek())
 			end
 		end
 		local envDerived: { [string]: any } = {}
@@ -2028,7 +1990,7 @@ function Runner.start(deps: { [string]: any })
 				return deps.env:get(k)
 			end)
 			if ok and sig ~= nil then
-				envDerived[k] = serializeValue(sig:get())
+				envDerived[k] = serializeValue(sig:peek())
 			end
 		end
 		local trees = {}
@@ -2115,7 +2077,7 @@ function Runner.start(deps: { [string]: any })
 			envFrozen = session.envFrozen,
 			env = envFacts,
 			derived = envDerived,
-			focusPath = deps.presenter.focus.focused:get(),
+			focusPath = presenter.focus.focused:peek(),
 			selectedObject = if GuiService.SelectedObject then GuiService.SelectedObject:GetFullName() else nil,
 			stepLog = session.stepLog,
 			custom = if session.built and session.built.report then session.built.report() else nil,

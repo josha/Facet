@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	ViewThatFits and the `hug` trap (framework-gaps-phase2 §2a).
 
@@ -34,7 +35,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local solver = require("../src/layout/solver")
 local adaptive = require("../src/layout/adaptive")
-local customFactory = require("../src/core/custom")
+local Compose = require("../src/vendor/compose/core")
+local customFactory = harness.coreFactory
 
 local function fixed(px: number): solver.Dim
 	return { type = "fixed", px = px }
@@ -229,7 +231,7 @@ describe("adaptive.fits — the container-relative decision as a value", functio
 		local disagreements = {}
 		for offerW = 120, 400, 20 do
 			local decides = adaptive.fits(core, { needs = { 100, 100, 100 }, gap = 10, container = offerW })
-			local asValue = if decides:get() then "rich" else "plain"
+			local asValue = if decides:peek() then "rich" else "plain"
 			if asValue ~= laddersChoice(offerW) then
 				table.insert(disagreements, `{offerW}:value={asValue},ladder={laddersChoice(offerW)}`)
 			end
@@ -246,17 +248,17 @@ describe("adaptive.fits — the container-relative decision as a value", functio
 			follows it — the constant's whole failure mode, closed by naming the
 			parts instead of adding them up once. ]]
 		local core = customFactory.new()
-		local dial = core:signal(200)
+		local dial = Compose.cell(200)
 		local decides = adaptive.fits(core, { needs = { 100, dial }, gap = 10, container = 320 })
-		expect(`at 200: {decides:get()}`).toBe("at 200: true")
+		expect(`at 200: {decides:peek()}`).toBe("at 200: true")
 		dial:set(300) -- the ten-foot ladder moving the dial 1.5x
-		expect(`at 300: {decides:get()}`).toBe("at 300: false")
+		expect(`at 300: {decides:peek()}`).toBe("at 300: false")
 	end)
 
 	it("clearance is subtracted from the container, not from the content", function()
 		local core = customFactory.new()
-		expect(`exact: {adaptive.fits(core, { needs = 310, container = 310 }):get()}`).toBe("exact: true")
-		expect(`with 24 clearance: {adaptive.fits(core, { needs = 310, container = 310, clearance = 24 }):get()}`).toBe(
+		expect(`exact: {adaptive.fits(core, { needs = 310, container = 310 }):peek()}`).toBe("exact: true")
+		expect(`with 24 clearance: {adaptive.fits(core, { needs = 310, container = 310, clearance = 24 }):peek()}`).toBe(
 			"with 24 clearance: false"
 		)
 	end)
@@ -270,7 +272,7 @@ describe("adaptive.fits — the container-relative decision as a value", functio
 		reports a fit — so the helper that replaces the sum may not reproduce it. ]]
 	--[[ A LIVE PART THAT RESOLVES TO nil CANNOT BE REFUSED AT CONSTRUCTION, so it
 		is refused where it resolves — and a memo's compute is pcall-quarantined by
-		the reactive core, which means the refusal lands on `core:lastError()` and
+		the reactive core, which means the refusal lands on `core.lastError()` and
 		the decision holds its LAST GOOD answer rather than unwinding. That is the
 		core's universal contract for a contained failure, not a rule this helper
 		invented, and it is exactly the difference from the hand sum: `a + b + c`
@@ -278,18 +280,18 @@ describe("adaptive.fits — the container-relative decision as a value", functio
 		last honest one and says on the core that it could not be recomputed. ]]
 	it("a live part that resolves to nil reaches the core's error channel", function()
 		local core = customFactory.new()
-		local gone = core:signal(200 :: any)
+		local gone = Compose.cell(200 :: any)
 		local decides = adaptive.fits(core, { needs = { 100, gone }, gap = 10, container = 400 })
-		expect(`while the part is there: {decides:get()}`).toBe("while the part is there: true")
+		expect(`while the part is there: {decides:peek()}`).toBe("while the part is there: true")
 		gone:set(nil)
-		decides:get()
-		expect(`core recorded it: {string.find(tostring(core:lastError()), "spec.needs", 1, true) ~= nil}`).toBe(
+		decides:peek()
+		expect(`core recorded it: {string.find(tostring(core.lastError()), "spec.needs", 1, true) ~= nil}`).toBe(
 			"core recorded it: true"
 		)
 		--[[ ...AND IT DID NOT INVENT A NEW ANSWER. The hand sum's failure is that a
 			missing part makes the total SMALLER and the verdict MORE permissive; here
 			the verdict cannot move at all while the input is unreadable. ]]
-		expect(`held its last good answer: {decides:get()}`).toBe("held its last good answer: true")
+		expect(`held its last good answer: {decides:peek()}`).toBe("held its last good answer: true")
 	end)
 
 	it("refuses a static part that is not a number, at construction", function()

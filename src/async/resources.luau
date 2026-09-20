@@ -10,6 +10,7 @@
 -- key is stale and is rejected ("stale"), never applied — cancelled or
 -- superseded requests cannot resurrect (§10.3, §15.1 async stale completion).
 
+local Compose = require("../vendor/compose/core")
 local specGuard = require("../spec_guard")
 
 local profile = require("../core/profile")
@@ -80,7 +81,7 @@ end
 -- public surface. `maxConcurrent = 0` is truthy in Lua, so it used to be accepted
 -- and then `promote()` could never activate anything: every request queued
 -- silently forever and the UI simply never loaded, with no diagnostic anywhere —
--- not even `core:lastError()`. An impossible option is a typo, and a typo is
+-- not even `core.lastError()`. An impossible option is a typo, and a typo is
 -- worth an error at the one moment the author is looking at the call site.
 local function requireIntegerAtLeast(value: any, minimum: number, name: string)
 	if value == nil then
@@ -194,11 +195,11 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			-- a key that spent its retry budget opens FAILED, with the message that
 			-- ended it: the give-up is a state a late acquirer inherits, not a fact
 			-- only the original waiter was told
-			state = core:signal(
+			state = Compose.cell(
 				if cache[key] ~= nil then "ready" elseif gaveUp[key] ~= nil then "failed" else "pending"
 			),
-			value = core:signal(cache[key]),
-			error = core:signal(gaveUp[key]),
+			value = Compose.cell(cache[key]),
+			error = Compose.cell(gaveUp[key]),
 			refs = 1,
 		}
 		keyState[key] = entry
@@ -212,9 +213,6 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 		end
 		entry.refs -= 1
 		if entry.refs <= 0 then
-			entry.state:dispose()
-			entry.value:dispose()
-			entry.error:dispose()
 			keyState[key] = nil
 		end
 	end
@@ -269,7 +267,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	-- request (its generation becomes stale). `opts.retry` overrides the provider's
 	-- policy FOR THIS KEY (RL-19: the mechanism is the framework's, the counts and
 	-- the spacing are the call site's).
-	function provider.acquire(scope: any, key: string, acquireOpts: { retry: RetryOpts? }?)
+	function provider.acquire(owner: Compose.Owner, key: string, acquireOpts: { retry: RetryOpts? }?)
 		specGuard.assertKnownKeys("provider.acquire", acquireOpts, CALL_OPTS_KEYS, "opts")
 		--[[ A DISPOSED SESSION DOES NOT RESURRECT (see `provider.dispose`). The
 			handle is a real one so the caller's binding still reads a value rather
@@ -277,9 +275,9 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			key will never fill, and that is what the placeholder should say. ]]
 		if disposed then
 			return {
-				state = core:signal("failed"),
-				value = core:signal(nil),
-				error = core:signal("resource provider disposed"),
+				state = Compose.cell("failed"),
+				value = Compose.cell(nil),
+				error = Compose.cell("resource provider disposed"),
 				release = function() end,
 			}
 		end
@@ -302,8 +300,8 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			if request == nil then
 				request = beginRequest(key, retry)
 				-- a key that previously failed re-requests on demand
-				if entry.state:get() ~= "pending" then
-					core:transaction(function()
+				if entry.state:peek() ~= "pending" then
+					core.reactor:batch(function()
 						entry.error:set(nil)
 						entry.state:set("pending")
 					end)
@@ -340,7 +338,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			releaseState(key)
 			syncCounters()
 		end
-		scope:own(handle.release)
+		owner.own(handle.release)
 		syncCounters()
 		return handle
 	end
@@ -384,7 +382,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			evictOverBudget()
 			local entry = keyState[key]
 			if entry ~= nil then
-				core:transaction(function()
+				core.reactor:batch(function()
 					entry.value:set(value)
 					entry.error:set(nil)
 					entry.state:set("ready")
@@ -447,7 +445,7 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 			end
 			local entry = keyState[key]
 			if entry ~= nil then
-				core:transaction(function()
+				core.reactor:batch(function()
 					entry.error:set(tostring(message))
 					entry.state:set("failed")
 				end)

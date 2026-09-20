@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- DESKTOP KEYBOARD FOCUS-CHAIN BEHAVIOR (roadmap Step 8;
 -- docs/plans/desktop-keyboard-navigation.md; acceptance rows DK-1..DK-16 in
 -- artifacts/desktop-keyboard-navigation/acceptance.md).
@@ -20,14 +21,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
-local UI = Facet.UI
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local focus_graph = require("../src/focus/focus_graph")
 local fake_target = require("../tests/lib/fake_target")
 local default_style = require("../src/tokens/default_style")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 -- ===========================================================================
 -- PURE: the traversal decision (DK-1..DK-6)
@@ -43,15 +46,15 @@ end
 describe("keyboard traversal: the order comes from the mounted focus graph (DK-1)", function()
 	it("traverse(+1) walks the flat scope forward and traverse(-1) walks it back", function()
 		local graph = flatGraph({ "a", "b", "c" })
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		expect(graph.traverse(1)).toBe(true)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 		expect(graph.traverse(-1)).toBe(true)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		graph.traverse(-1)
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 	end)
 
 	-- architecture review ARCH-9: the enter branch used to ignore the direction, so
@@ -76,17 +79,17 @@ describe("keyboard traversal: the order comes from the mounted focus graph (DK-1
 
 	it("Shift+Tab into a scope with no focus enters at the LAST eligible node", function()
 		local graph, live = scopeEnteredWithNoFocus()
-		expect(graph.focused:get()).toBeNil()
+		expect(graph.focused:peek()).toBeNil()
 		live[1] = true
 		expect(graph.traverse(-1)).toBe(true)
-		expect(graph.focused:get()).toBe("z")
+		expect(graph.focused:peek()).toBe("z")
 	end)
 
 	it("...and Tab into the same scope enters at the first", function()
 		local graph, live = scopeEnteredWithNoFocus()
 		live[1] = true
 		expect(graph.traverse(1)).toBe(true)
-		expect(graph.focused:get()).toBe("x")
+		expect(graph.focused:peek()).toBe("x")
 	end)
 
 	it("traversal with no focus enters the scope at its first eligible node", function()
@@ -95,9 +98,9 @@ describe("keyboard traversal: the order comes from the mounted focus graph (DK-1
 		graph.remove("b") -- empty ring, focus nil
 		graph.setOrder("S", { "x", "y" })
 		-- setOrder on an empty ring leaves focus nil; Tab must ENTER, not no-op
-		expect(graph.focused:get() == nil or graph.focused:get() == "x").toBe(true)
+		expect(graph.focused:peek() == nil or graph.focused:peek() == "x").toBe(true)
 		graph.traverse(1)
-		expect(graph.focused:get() ~= nil).toBe(true)
+		expect(graph.focused:peek() ~= nil).toBe(true)
 	end)
 end)
 
@@ -118,26 +121,26 @@ describe("keyboard traversal crosses navigation groups in group order (DK-2)", f
 
 	it("Tab leaves a CONTAINED group that the arrows cannot leave sideways", function()
 		local graph = grouped()
-		expect(graph.focused:get()).toBe("r1")
+		expect(graph.focused:peek()).toBe("r1")
 		-- the arrows are contained: right from r2 stays inside the row
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("r2")
+		expect(graph.focused:peek()).toBe("r2")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("r2")
+		expect(graph.focused:peek()).toBe("r2")
 		-- Tab crosses the group boundary in group order
 		expect(graph.traverse(1)).toBe(true)
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("c2")
+		expect(graph.focused:peek()).toBe("c2")
 	end)
 
 	it("Shift+Tab crosses back into the previous group at its LAST node", function()
 		local graph = grouped()
 		graph.traverse(1)
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("c1")
+		expect(graph.focused:peek()).toBe("c1")
 		graph.traverse(-1)
-		expect(graph.focused:get()).toBe("r2")
+		expect(graph.focused:peek()).toBe("r2")
 	end)
 end)
 
@@ -145,19 +148,19 @@ describe("the SCOPE declares the traversal wrap policy (DK-3)", function()
 	it("wraps by default at both ends", function()
 		local graph = flatGraph({ "a", "b" })
 		graph.traverse(-1)
-		expect(graph.focused:get()).toBe("b") -- wrapped backward off the first
+		expect(graph.focused:peek()).toBe("b") -- wrapped backward off the first
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("a") -- and forward off the last
+		expect(graph.focused:peek()).toBe("a") -- and forward off the last
 	end)
 
 	it("traversalWrap = false stops at the ends and reports that it did not move", function()
 		local graph = flatGraph({ "a", "b" }, false)
 		expect(graph.traverse(-1)).toBe(false)
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		expect(graph.traverse(1)).toBe(false)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 	end)
 
 	it("a GROUPED scope's wrap policy is the scope's, not any group's", function()
@@ -176,11 +179,11 @@ describe("the SCOPE declares the traversal wrap policy (DK-3)", function()
 		})
 		graph.navigateDirection("right")
 		graph.navigateDirection("right")
-		expect(graph.focused:get()).toBe("r1") -- the GROUP wraps for the arrows
+		expect(graph.focused:peek()).toBe("r1") -- the GROUP wraps for the arrows
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("r2")
+		expect(graph.focused:peek()).toBe("r2")
 		expect(graph.traverse(1)).toBe(false) -- the SCOPE does not wrap for Tab
-		expect(graph.focused:get()).toBe("r2")
+		expect(graph.focused:peek()).toBe("r2")
 	end)
 end)
 
@@ -195,10 +198,10 @@ describe("traversal skips exactly what navigation skips (DK-4)", function()
 		}, "c" })
 		eligible = false
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 		eligible = true
 		graph.traverse(-1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 	end)
 
 	it("focus stays put when nothing else in the scope is eligible", function()
@@ -209,7 +212,7 @@ describe("traversal skips exactly what navigation skips (DK-4)", function()
 			end,
 		} })
 		expect(graph.traverse(1)).toBe(false)
-		expect(graph.focused:get()).toBe("a")
+		expect(graph.focused:peek()).toBe("a")
 	end)
 end)
 
@@ -218,14 +221,14 @@ describe("traversal survives structural churn (DK-5)", function()
 		local graph = flatGraph({ "a", "b", "c" })
 		graph.remove("b")
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("c")
+		expect(graph.focused:peek()).toBe("c")
 	end)
 
 	it("re-ordering the scope re-reads the order on the very next press", function()
 		local graph = flatGraph({ "a", "b", "c" })
 		graph.setOrder("S", { "a", "z", "b", "c" })
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("z")
+		expect(graph.focused:peek()).toBe("z")
 	end)
 end)
 
@@ -233,17 +236,17 @@ describe("modal scopes trap traversal and restore focus (DK-6)", function()
 	it("Tab cannot leave a trapped scope and the prior focus is restored on pop", function()
 		local graph = flatGraph({ "a", "b", "c" })
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("b")
+		expect(graph.focused:peek()).toBe("b")
 		graph.pushScope({ name = "M", trap = true, order = { "m1", "m2" } })
-		expect(graph.focused:get()).toBe("m1")
+		expect(graph.focused:peek()).toBe("m1")
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("m2")
+		expect(graph.focused:peek()).toBe("m2")
 		graph.traverse(1)
-		expect(graph.focused:get()).toBe("m1") -- wrapped INSIDE the trap
+		expect(graph.focused:peek()).toBe("m1") -- wrapped INSIDE the trap
 		graph.traverse(-1)
-		expect(graph.focused:get()).toBe("m2")
+		expect(graph.focused:peek()).toBe("m2")
 		graph.popScope()
-		expect(graph.focused:get()).toBe("b") -- restored, not re-entered
+		expect(graph.focused:peek()).toBe("b") -- restored, not re-entered
 	end)
 end)
 
@@ -258,7 +261,7 @@ end)
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
@@ -266,7 +269,7 @@ end)
 
 	KEYBOARD NAVIGATION DEFAULTS ON in this file, which is what it is about — the
 	one thing the shared substrate does not decide for it. ]]
-local function harness(presenterOpts: any?)
+local function fixture(presenterOpts: any?)
 	local opts = if presenterOpts ~= nil then table.clone(presenterOpts) else {}
 	if opts.keyboardNavigation == nil then
 		opts.keyboardNavigation = true
@@ -313,16 +316,16 @@ describe("Tab traverses a presented screen with zero consumer wiring (DK-1/DK-16
 				presenterOpts = { keyboardNavigation = true },
 			})
 			w.present(formScreen({}))
-			expect(w.pres.focus.focused:get()).toBe("/F/one")
-			expect(w.pres.focus.focusVisible:get()).toBe(false)
+			expect(w.pres.focus.focused:peek()).toBe("/F/one")
+			expect(w.pres.focus.focusVisible:peek()).toBe(false)
 			expect(w.adapter.node("/F/one").focused == true).toBe(false)
 			w.press("Tab")
-			expect(w.pres.focus.focusVisible:get()).toBe(true)
+			expect(w.pres.focus.focusVisible:peek()).toBe(true)
 			expect(w.adapter.node("/F/two").focused).toBe(true)
 			w.adapter.tap("/F/three")
-			expect(w.pres.focus.focusVisible:get()).toBe(false)
+			expect(w.pres.focus.focusVisible:peek()).toBe(false)
 			w.press("DPadUp")
-			expect(w.pres.focus.focusVisible:get()).toBe(true)
+			expect(w.pres.focus.focusVisible:peek()).toBe(true)
 			w.pres.dismiss(w.handle)
 		end
 	end)
@@ -333,47 +336,47 @@ describe("Tab traverses a presented screen with zero consumer wiring (DK-1/DK-16
 			capabilities = { mouse = true, keyboard = true, touch = false, gamepad = true },
 		})
 		w.present(formScreen({}))
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.pres.focus.focusVisible:peek()).toBe(true)
 		expect(w.adapter.node("/F/one").focused).toBe(true)
 		w.adapter.tap("/F/two")
 		w.env:set("preferredInput", "KeyboardAndMouse")
 		w.env:set("preferredInput", "Gamepad")
-		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		expect(w.pres.focus.focusVisible:peek()).toBe(false)
 		w.press("DPadDown")
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.pres.focus.focusVisible:peek()).toBe(true)
 		w.pres.dismiss(w.handle)
 	end)
 
 	it("Tab and Shift+Tab move the focus ring through a plain form", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/F/one")
+		expect(pres.focus.focused:peek()).toBe("/F/one")
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 		shiftTab(system)
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 	end)
 
 	it("a traversal move restores the focus RING that a tap put away", function()
-		local _, _, adapter, system, pres = harness()
+		local _, _, adapter, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
 		adapter.tap("/F/two")
-		expect(pres.focus.focusVisible:get()).toBe(false)
+		expect(pres.focus.focusVisible:peek()).toBe(false)
 		tab(system)
-		expect(pres.focus.focusVisible:get()).toBe(true)
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focusVisible:peek()).toBe(true)
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 	end)
 end)
 
 describe("traversal calls the SHARED keep-visible service (DK-7)", function()
 	local function scrollSlice()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		local rows = {}
@@ -385,7 +388,7 @@ describe("traversal calls the SHARED keep-visible service (DK-7)", function()
 		end
 		local adapter = fake_target.new()
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.ScrollView({ id = "List", height = { type = "fixed", px = 160 }, children = rows }) },
@@ -407,7 +410,7 @@ end)
 
 describe("Space activates alongside Return, once per press (DK-8)", function()
 	it("Space activates the focused control exactly once", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -418,7 +421,7 @@ describe("Space activates alongside Return, once per press (DK-8)", function()
 	end)
 
 	it("Return still activates, and the two keys do not double-count one press", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -431,7 +434,7 @@ describe("Space activates alongside Return, once per press (DK-8)", function()
 	end)
 
 	it("a disabled control consumes Space and does nothing", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		local fired = 0
 		pres.present(UI.Screen({
 			id = "F",
@@ -449,7 +452,7 @@ describe("Space activates alongside Return, once per press (DK-8)", function()
 		}))
 		pres.refresh()
 		-- a disabled control is not even in the focus order
-		expect(pres.focus.focused:get()).toBe("/F/on")
+		expect(pres.focus.focused:peek()).toBe("/F/on")
 		press(system, "Space")
 		expect(fired).toBe(0)
 	end)
@@ -460,7 +463,7 @@ describe("exactly one Activate per press across the IAS and native-tap paths (DK
 	-- GuiService.SelectedObject: the engine then fires the selected GuiButton's
 	-- own Activated for the same key press IAS delivered as Activate
 	local function bridgedModal(nowFn: () -> number)
-		local _, _, adapter, system, pres = harness({ now = nowFn })
+		local _, _, adapter, system, pres = fixture({ now = nowFn })
 		local acts: { [string]: number } = {}
 		pres.presentModal(
 			UI.Screen({
@@ -536,7 +539,7 @@ describe("exactly one Activate per press across the IAS and native-tap paths (DK
 
 	it("a surface with no selection bridge never collapses a tap next to a key press", function()
 		local now = 100
-		local _, _, adapter, system, pres = harness({
+		local _, _, adapter, system, pres = fixture({
 			now = function()
 				return now
 			end,
@@ -554,14 +557,14 @@ describe("a focused value control consumes its declared axis (DK-10/DK-11)", fun
 	-- a GROUPED screen (an HStack of two buttons engages the layout derivation),
 	-- which is exactly where Left/Right used to belong permanently to NavigateH
 	local function sliderScreen()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local value = core:signal(0.5)
-		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local value = Compose.cell(0.5)
+		local slider = harness.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -580,42 +583,42 @@ describe("a focused value control consumes its declared axis (DK-10/DK-11)", fun
 		local _, system, pres, value = sliderScreen()
 		-- reach the slider's track (a focusable Grip: last in the derived order)
 		for _ = 1, 6 do
-			if string.find(tostring(pres.focus.focused:get()), "Track") ~= nil then
+			if string.find(tostring(pres.focus.focused:peek()), "Track") ~= nil then
 				break
 			end
 			tab(system)
 		end
-		expect(string.find(tostring(pres.focus.focused:get()), "Track") ~= nil).toBe(true)
-		local before = value:get()
+		expect(string.find(tostring(pres.focus.focused:peek()), "Track") ~= nil).toBe(true)
+		local before = value:peek()
 		press(system, "Right")
-		expect(value:get() > before).toBe(true)
+		expect(value:peek() > before).toBe(true)
 		press(system, "Left")
-		expect(math.abs(value:get() - before) < 1e-9).toBe(true)
+		expect(math.abs(value:peek() - before) < 1e-9).toBe(true)
 	end)
 
 	it("the OTHER axis still navigates while the value control holds focus", function()
 		local _, system, pres, value = sliderScreen()
 		for _ = 1, 6 do
-			if string.find(tostring(pres.focus.focused:get()), "Track") ~= nil then
+			if string.find(tostring(pres.focus.focused:peek()), "Track") ~= nil then
 				break
 			end
 			tab(system)
 		end
-		local at = pres.focus.focused:get()
-		local before = value:get()
+		local at = pres.focus.focused:peek()
+		local before = value:peek()
 		press(system, "Up")
-		expect(pres.focus.focused:get() ~= at).toBe(true) -- Navigate, not Adjust
-		expect(value:get()).toBe(before)
+		expect(pres.focus.focused:peek() ~= at).toBe(true) -- Navigate, not Adjust
+		expect(value:peek()).toBe(before)
 	end)
 
 	it("the Adjust keys are UNBOUND while focus sits off a declared target", function()
 		local _, system, pres, value, _, handle = sliderScreen()
 		-- focus is on the first button, NOT the track
-		expect(string.find(tostring(pres.focus.focused:get()), "Track")).toBe(nil)
+		expect(string.find(tostring(pres.focus.focused:peek()), "Track")).toBe(nil)
 		expect(#handle.actions.adjust.bindings).toBe(0)
-		local before = value:get()
+		local before = value:peek()
 		press(system, "Right")
-		expect(value:get()).toBe(before) -- nothing adjusted
+		expect(value:peek()).toBe(before) -- nothing adjusted
 	end)
 end)
 
@@ -634,14 +637,14 @@ end)
 	is why the suite was blind. This one deliberately does not. ]]
 describe("a value control claims Adjust only inside its own subtree (DK-11)", function()
 	local function mixedScreen()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local count = core:signal(3)
-		local stepper = Facet.Controls.Stepper(core, { id = "Qty", value = count, min = 0, max = 10, step = 1 })
+		local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local count = Compose.cell(3)
+		local stepper = harness.Controls.Stepper(core, { id = "Qty", value = count, min = 0, max = 10, step = 1 })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -666,7 +669,7 @@ describe("a value control claims Adjust only inside its own subtree (DK-11)", fu
 		pres.focus.focusOn("/S/Save")
 		expect(#handle.actions.adjust.bindings).toBe(0)
 		press(system, "Right")
-		expect(count:get()).toBe(3) -- nothing was adjusted
+		expect(count:peek()).toBe(3) -- nothing was adjusted
 	end)
 
 	--[[ THE SURFACE THAT DID NOT ASK FOR KEYBOARD NAVIGATION KEEPS ITS HANDS OFF.
@@ -677,11 +680,11 @@ describe("a value control claims Adjust only inside its own subtree (DK-11)", fu
 		playtest found the opposite (Space jumped the avatar while the UI had
 		focus), which is why the feature became opt-in at all. ]]
 	it("with keyboard navigation OFF the surface binds nothing and sinks nothing", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake_target.new(), system) -- no opt
+		local pres = harness.newPresenter(core, env, fake_target.new(), system) -- no opt
 		local acts: { [string]: number } = {}
 		local handle = pres.present(formScreen(acts))
 		pres.refresh()
@@ -695,7 +698,7 @@ describe("a value control claims Adjust only inside its own subtree (DK-11)", fu
 		jump.onPressed(function()
 			jumps += 1
 		end)
-		core:observe(steer.state, function(d)
+		observeChange(core.owner, steer.state, function(d)
 			if d == 1 then
 				steers += 1
 			end
@@ -711,9 +714,9 @@ describe("a value control claims Adjust only inside its own subtree (DK-11)", fu
 			expect(b.keyCode ~= "Space").toBe(true)
 		end
 
-		local at = pres.focus.focused:get()
+		local at = pres.focus.focused:peek()
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe(at) -- no traversal
+		expect(pres.focus.focused:peek()).toBe(at) -- no traversal
 		press(system, "Space")
 		expect(next(acts)).toBe(nil) -- no activation
 		expect(jumps).toBe(1) -- ...and the game kept its key
@@ -738,14 +741,14 @@ end)
 	answers it in its own palette. ]]
 describe("a focused Slider draws its own treatment, on the thumb (DK-20)", function()
 	it("the thumb takes a focus stroke while the track holds focus, and drops it after", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local value = core:signal(0.5)
-		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local value = Compose.cell(0.5)
+		local slider = harness.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.Button({ id = "before", label = "before" }), slider.blueprint },
@@ -759,7 +762,7 @@ describe("a focused Slider draws its own treatment, on the thumb (DK-20)", funct
 			return node ~= nil and node.strokeInstance or nil
 		end
 		-- resting: no ring on the thumb
-		expect(pres.focus.focused:get()).toBe("/S/before")
+		expect(pres.focus.focused:peek()).toBe("/S/before")
 		expect(thumbStroke()).toBeNil()
 
 		-- Navigate to the track before testing its focus paint.
@@ -805,21 +808,21 @@ describe("a focused Slider draws its own treatment, on the thumb (DK-20)", funct
 		its focus ring thickens it for both and a Slider's ring can never stop
 		matching every other control on the screen. ]]
 	it('the "focusRing" thickness alias resolves to the adapter\'s own ring weight', function()
-		local resolved = Facet.UI.strokeData({ thickness = "focusRing" })
+		local resolved = harness.UI.strokeData({ thickness = "focusRing" })
 		expect(resolved.thickness).toBe(default_style.extra.focusRingThickness)
 		expect(resolved.thickness > default_style.strokes.hairline).toBe(true)
 		-- ...and it is still a CLOSED set: a made-up token is refused by name
 		local ok, err = pcall(function()
-			return Facet.UI.strokeData({ thickness = "focusRingg" })
+			return harness.UI.strokeData({ thickness = "focusRingg" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "focusRingg") ~= nil).toBe(true)
 	end)
 
 	it("the track declares that the adapter must not paint a focused state", function()
-		local core = Facet.newCore()
-		local value = core:signal(0.5)
-		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+		local core = harness.newCore()
+		local value = Compose.cell(0.5)
+		local slider = harness.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 		local found = nil
 		local function walk(bp: any)
 			if bp.id == "Track" and bp.class == "Grip" then
@@ -836,56 +839,56 @@ end)
 
 describe("a Stepper is driven by Activate, not by the arrows (DK-10)", function()
 	it("Space on the focused button steps the value, in both directions", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local value = core:signal(3)
-		local stepper = Facet.Controls.Stepper(core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
+		local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local value = Compose.cell(3)
+		local stepper = harness.Controls.Stepper(core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
 		pres.present(UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		pres.refresh()
 		-- focus lands on Dec first; Space decrements
-		expect(string.find(tostring(pres.focus.focused:get()), "/Dec") ~= nil).toBe(true)
+		expect(string.find(tostring(pres.focus.focused:peek()), "/Dec") ~= nil).toBe(true)
 		press(system, "Space")
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 		-- the arrows MOVE between the buttons rather than changing the value
 		press(system, "Right")
-		expect(string.find(tostring(pres.focus.focused:get()), "/Inc") ~= nil).toBe(true)
-		expect(value:get()).toBe(2)
+		expect(string.find(tostring(pres.focus.focused:peek()), "/Inc") ~= nil).toBe(true)
+		expect(value:peek()).toBe(2)
 		press(system, "Space")
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 
 	it("the axis-independent Adjust keys still reach the same arithmetic", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
-		local value = core:signal(3)
-		local stepper = Facet.Controls.Stepper(core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
+		local pres = harness.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
+		local value = Compose.cell(3)
+		local stepper = harness.Controls.Stepper(core, { id = "Qty", value = value, min = 0, max = 10, step = 1 })
 		pres.present(UI.Screen({ id = "S", children = { stepper.blueprint } }))
 		pres.refresh()
 		press(system, "Period")
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 		press(system, "Comma")
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 	end)
 end)
 
 describe("text editing owns Space and the arrows; Tab commits then advances (DK-12)", function()
 	local function fieldScreen()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local value = core:signal("hi")
+		local pres = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local value = Compose.cell("hi")
 		local commits: { string } = {}
-		local field = Facet.Controls.TextInput(core, {
+		local field = harness.Controls.TextInput(core, {
 			id = "Name",
 			value = value,
 			onCommit = function(text: string)
@@ -912,19 +915,19 @@ describe("text editing owns Space and the arrows; Tab commits then advances (DK-
 		local _, system, _, pres, _, field, commits = fieldScreen()
 		press(system, "Return")
 		expect(field.dump().editing).toBe(true)
-		local at = pres.focus.focused:get()
+		local at = pres.focus.focused:peek()
 		tab(system)
 		expect(field.dump().editing).toBe(false) -- the edit ended
 		expect(#commits).toBe(1) -- through the commit path, not a silent drop
-		expect(pres.focus.focused:get() ~= at).toBe(true) -- and focus advanced
+		expect(pres.focus.focused:peek() ~= at).toBe(true) -- and focus advanced
 	end)
 
 	it("the arrows stay with the field's own sinking context while editing", function()
 		local _, system, _, pres, _, field = fieldScreen()
 		press(system, "Return")
-		local at = pres.focus.focused:get()
+		local at = pres.focus.focused:peek()
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe(at) -- swallowed, focus did not move
+		expect(pres.focus.focused:peek()).toBe(at) -- swallowed, focus did not move
 		expect(field.dump().editing).toBe(true)
 	end)
 end)
@@ -947,23 +950,23 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end
 
 	it("a PASSIVE HUD binds no Tab and no Space: gameplay is untouched", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = fixture()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
 		pres.refresh()
-		local at = pres.focus.focused:get()
+		local at = pres.focus.focused:peek()
 		press(system, "Tab")
 		press(system, "Space")
 		expect(counts.menu).toBe(1)
 		expect(counts.jump).toBe(1)
-		expect(pres.focus.focused:get()).toBe(at)
+		expect(pres.focus.focused:peek()).toBe(at)
 		expect(next(acts)).toBe(nil)
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 	end)
 
 	it("engage() binds them and resign() gives them back, with no residue", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = fixture()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
@@ -972,9 +975,9 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		-- a passive surface now mounts with NO focus (round 6), so the first Tab
 		-- ENTERS the scope and the second is the one that moves along it
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe("/F/one")
+		expect(pres.focus.focused:peek()).toBe("/F/one")
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 		expect(counts.menu).toBe(0) -- sunk from gameplay while engaged
 		press(system, "Space")
 		expect(acts.two).toBe(1)
@@ -1001,14 +1004,14 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		been presented engaged-open, where `resign()` is a no-op and no outside-tap
 		catcher is ever mounted, so the surface held Tab and Space forever. ]]
 	it("a tap on the UI takes the keyboard, and a tap OUTSIDE gives it back", function()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = fixture()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
 		pres.refresh()
 
 		-- at rest: the surface binds nothing gameplay-contended
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 		press(system, "Tab")
 		press(system, "Space")
 		expect(counts.menu).toBe(1)
@@ -1017,25 +1020,25 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		-- FIRST TAP ON UI -> the responder chain takes focus
 		adapter.tap("/F/one")
 		pres.refresh()
-		expect(h.responder:get()).toBe("engaged")
+		expect(h.responder:peek()).toBe("engaged")
 		press(system, "Tab")
 		expect(counts.menu).toBe(1) -- still 1: sunk from gameplay now
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 
 		-- TAP OUTSIDE (the catcher an engaged surface mounts) -> it lets go
 		local scrimPath = pres.topScrimPath()
 		expect(scrimPath ~= nil).toBe(true)
 		adapter.tap(scrimPath :: string, { x = 1250, y = 700 })
 		pres.refresh()
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 
 		-- ...and the keyboard is the game's again, with no residue
-		local focusBefore = pres.focus.focused:get()
+		local focusBefore = pres.focus.focused:peek()
 		press(system, "Tab")
 		press(system, "Space")
 		expect(counts.menu).toBe(2)
 		expect(counts.jump).toBe(2)
-		expect(pres.focus.focused:get()).toBe(focusBefore) -- Tab moved nothing
+		expect(pres.focus.focused:peek()).toBe(focusBefore) -- Tab moved nothing
 	end)
 
 	--[[ THE RING IS A CLAIM ABOUT WHO OWNS INPUT (director playtest 2026-08-03
@@ -1054,14 +1057,14 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		The assertion is on the ADAPTER's painted state, not on a signal, because
 		"is a ring drawn" is the whole question. ]]
 	it("a PASSIVE surface paints no focus ring: the ring never claims input it lacks", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = fixture()
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
 		pres.refresh()
 
 		-- a passive surface now takes NO initial focus at all (round 6), so there
 		-- is nothing to paint and nothing claiming the keyboard
-		expect(pres.focus.focused:get()).toBeNil()
+		expect(pres.focus.focused:peek()).toBeNil()
 		expect(adapter.node("/F/one").focused).toBeNil()
 
 		-- give it focus the way a player would, then engage: the ring comes up on
@@ -1080,11 +1083,11 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		h.resign()
 		pres.refresh()
 		expect(adapter.node("/F/one").focused).toBe(false)
-		expect(pres.focus.focused:get()).toBe("/F/one") -- identity survives; only the paint went
+		expect(pres.focus.focused:peek()).toBe("/F/one") -- identity survives; only the paint went
 	end)
 
 	it("an ordinary engaged screen paints its ring after keyboard navigation", function()
-		local _, _, adapter, system, pres = harness()
+		local _, _, adapter, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), {})
 		pres.refresh()
@@ -1096,10 +1099,10 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		2026-08-03 round 5). Before this, every scope put focus on its first
 		focusable and an author had no say. The default is unchanged. ]]
 	it("initialFocus defaults to the first focusable — every existing caller unmoved", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		pres.present(formScreen({}), {})
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/F/one")
+		expect(pres.focus.focused:peek()).toBe("/F/one")
 	end)
 
 	--[[ THE DEFAULT FOLLOWS THE RESPONDER (director, round 6, revising round 5).
@@ -1108,51 +1111,51 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		claiming any. Both halves are pinned, because the whole value of the rule is
 		that it is different for the two kinds. ]]
 	it("a PASSIVE surface defaults to NO initial focus", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		pres.present(formScreen({}), { responder = "passive" })
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBeNil()
+		expect(pres.focus.focused:peek()).toBeNil()
 	end)
 
 	it("...while an engaged-open screen still defaults to its first focusable", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		pres.present(formScreen({}), {})
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/F/one")
+		expect(pres.focus.focused:peek()).toBe("/F/one")
 	end)
 
 	it("an explicit initialFocus still wins on a passive surface", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		pres.present(formScreen({}), { responder = "passive", initialFocus = "two" })
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 	end)
 
 	it('initialFocus = "none" mounts the surface with NO focus', function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = fixture()
 		pres.present(formScreen({}), { initialFocus = "none" })
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBeNil()
+		expect(pres.focus.focused:peek()).toBeNil()
 		expect(adapter.node("/F/one").focused).toBeNil()
 	end)
 
 	it("...and Tab still ENTERS such a scope rather than no-opping", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		pres.present(formScreen({}), { initialFocus = "none" })
 		pres.refresh()
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe("/F/one")
+		expect(pres.focus.focused:peek()).toBe("/F/one")
 	end)
 
 	it("initialFocus names a control by id, without the author knowing its path", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		pres.present(formScreen({}), { initialFocus = "three" })
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 	end)
 
 	it("focus lands there ONCE — the ring never appears elsewhere first", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		local seen: { string? } = {}
 		pres.present(formScreen({}), {
 			initialFocus = "three",
@@ -1164,11 +1167,11 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		-- the push decides; a presenter that set "first" and then corrected it
 		-- would have moved focus twice and flashed a ring on /F/one
 		expect(#seen <= 1).toBe(true)
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 	end)
 
 	it("an initialFocus id that names nothing is refused, listing what is available", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		local ok, err = pcall(function()
 			pres.present(formScreen({}), { initialFocus = "Sve" })
 		end)
@@ -1182,7 +1185,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		`initialFocus = "first"` mean two things, and guessing either way is the
 		accepted-and-ignored class the strict boundary exists to remove. ]]
 	it('a focusable actually named "first" makes the keyword ambiguous, and it says so', function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		local screen = UI.Screen({
 			id = "A",
 			children = { UI.Button({ id = "first", label = "f" }), UI.Button({ id = "b", label = "b" }) },
@@ -1195,14 +1198,14 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("...and { id = … } is the escape hatch that means the CONTROL", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		local screen = UI.Screen({
 			id = "A",
 			children = { UI.Button({ id = "b", label = "b" }), UI.Button({ id = "first", label = "f" }) },
 		})
 		pres.present(screen, { initialFocus = { id = "first" } })
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/A/first")
+		expect(pres.focus.focused:peek()).toBe("/A/first")
 	end)
 
 	--[[ GIVING FOCUS UP WHEN THE VIEW GOES AWAY (round 5). Dismissal already
@@ -1213,7 +1216,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		transition the tree stays mounted for the whole animation, so the ring sat
 		on a surface that had already stopped taking input. ]]
 	it("a dismissed surface gives up its focus ring immediately, mid-exit-transition", function()
-		local _, _, adapter, system, pres = harness()
+		local _, _, adapter, system, pres = fixture()
 		local screen = UI.Screen({
 			id = "D",
 			children = {
@@ -1231,7 +1234,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 
 		pres.dismiss(h)
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBeNil() -- identity released
+		expect(pres.focus.focused:peek()).toBeNil() -- identity released
 		expect(adapter.node("/D/G/Save") ~= nil).toBe(true) -- still mounted: exit playing
 		expect(adapter.node("/D/G/Save").focused).toBe(false) -- ...and no longer painted
 	end)
@@ -1251,10 +1254,10 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		that is the only control that paints its own focus today — if another one
 		ever does, it belongs here too. ]]
 	it("a self-painted focus ring clears when the surface resigns", function()
-		local core, _, adapter, _, pres = harness()
-		local slider = Facet.Controls.Slider(core, {
+		local core, _, adapter, _, pres = fixture()
+		local slider = harness.Controls.Slider(core, {
 			id = "Vol",
-			value = core:signal(0.5),
+			value = Compose.cell(0.5),
 			min = 0,
 			max = 1,
 			step = 0.1,
@@ -1276,15 +1279,15 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		pres.focus.focusOn("/P/Vol/TrackHost/Track")
 		pres.focus.setFocusOrigin("navigation")
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/P/Vol/TrackHost/Track")
+		expect(pres.focus.focused:peek()).toBe("/P/Vol/TrackHost/Track")
 		expect(thumbRing() ~= nil).toBe(true) -- engaged and focused: painted
 
 		-- the world click: the responder hands the keyboard back...
 		h.resign()
 		pres.refresh()
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 		-- ...and the control's OWN ring goes with it, though focus identity stays
-		expect(pres.focus.focused:get()).toBe("/P/Vol/TrackHost/Track")
+		expect(pres.focus.focused:peek()).toBe("/P/Vol/TrackHost/Track")
 		expect(thumbRing()).toBeNil()
 
 		-- and it comes back on re-engage, without focus having moved
@@ -1306,20 +1309,20 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		outside the content. This one taps INSIDE the painted region's bbox, which is
 		the case that was broken. ]]
 	it("an engaged HUD resigns on an outside tap even CLOSE to its own content", function()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = fixture()
 		local counts = gameplay(system, core)
 		local h = pres.present(formScreen({}), { responder = "passive" })
 		pres.refresh()
 		adapter.tap("/F/one")
 		pres.refresh()
-		expect(h.responder:get()).toBe("engaged")
+		expect(h.responder:peek()).toBe("engaged")
 
 		-- a few px off the content — Zone A territory, and a resign must not care
 		local scrimPath = pres.topScrimPath()
 		expect(scrimPath ~= nil).toBe(true)
 		adapter.tap(scrimPath :: string, { x = 5, y = 5 })
 		pres.refresh()
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 		press(system, "Tab")
 		press(system, "Space")
 		expect(counts.menu).toBe(1) -- the keyboard really went back
@@ -1327,7 +1330,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("...while a MODAL keeps its dismissal forgiveness", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, _, pres = fixture()
 		local modal = pres.presentModal(UI.Screen({
 			id = "M",
 			children = { UI.Button({ id = "ok", label = "OK" }) },
@@ -1347,10 +1350,10 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		— the second half of "left/right go to the slider". It is inert today only
 		because a passive context is disabled, which is luck rather than design. ]]
 	it("a resigned surface unbinds the Adjust keys it had claimed", function()
-		local core, _, adapter, _, pres = harness()
-		local slider = Facet.Controls.Slider(core, {
+		local core, _, adapter, _, pres = fixture()
+		local slider = harness.Controls.Slider(core, {
 			id = "Vol",
-			value = core:signal(0.5),
+			value = Compose.cell(0.5),
 			min = 0,
 			max = 1,
 			step = 0.1,
@@ -1385,23 +1388,23 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		h.resign()
 		pres.refresh()
 		expect(adjustKeys()).toBe(0) -- ...and given back, not merely made undeliverable
-		expect(pres.focus.focused:get()).toBe("/P/Vol/TrackHost/Track") -- identity kept
+		expect(pres.focus.focused:peek()).toBe("/P/Vol/TrackHost/Track") -- identity kept
 	end)
 
 	it("keyboard hot-plug adds and removes the bindings with no stuck sink", function()
-		local core, env, _, system, pres = harness()
+		local core, env, _, system, pres = fixture()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), { sinkNavigation = true })
 		pres.refresh()
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 		expect(counts.menu).toBe(0)
 
 		-- the keyboard goes away (a pad-only handheld, a docked tablet)
 		env:set("capabilities", { keyboard = false, mouse = true, touch = true, gamepad = false })
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe("/F/two") -- no traversal
+		expect(pres.focus.focused:peek()).toBe("/F/two") -- no traversal
 		expect(counts.menu).toBe(1) -- and no stuck sink: gameplay got it back
 		press(system, "Space")
 		expect(counts.jump).toBe(1)
@@ -1409,12 +1412,12 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		-- and back again
 		env:set("capabilities", { keyboard = true, mouse = true, touch = true, gamepad = false })
 		press(system, "Tab")
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 		expect(counts.menu).toBe(1)
 	end)
 
 	it("gameplayGuard = false leaves Space to the game even while engaged", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = fixture()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), { responder = "passive", gameplayGuard = false })
@@ -1435,11 +1438,11 @@ end)
 	the character jumps; sinking = UI activates and the character gets nothing. ]]
 describe("keyboard navigation is opt-in, globally and per surface (DK-19)", function()
 	local function world(presenterOpts: any?)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake_target.new(), system, presenterOpts)
+		local pres = harness.newPresenter(core, env, fake_target.new(), system, presenterOpts)
 		return system, pres
 	end
 	local function keys(handle: any): { [string]: boolean }
@@ -1490,11 +1493,11 @@ describe("keyboard navigation is opt-in, globally and per surface (DK-19)", func
 	end)
 
 	it("an engaged surface EATS the contended keys instead of sharing them", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 		local system = Facet.newActionSystem(core)
-		local pres = Facet.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
+		local pres = harness.newPresenter(core, env, fake_target.new(), system, { keyboardNavigation = true })
 		-- the avatar stack, underneath, exactly as the responder chain describes it
 		local char = system.createContext({ name = "Character", priority = 150, sink = false })
 		local jump = char.createAction("Jump", "Bool")
@@ -1505,7 +1508,7 @@ describe("keyboard navigation is opt-in, globally and per surface (DK-19)", func
 		jump.onPressed(function()
 			jumps += 1
 		end)
-		core:observe(move.state, function(d)
+		observeChange(core.owner, move.state, function(d)
 			if d == 1 then
 				moves += 1
 			end
@@ -1532,7 +1535,7 @@ end)
 
 describe("teardown removes every keyboard binding (DK-14)", function()
 	it("a dismissed screen stops eating Tab and Space", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = fixture()
 		local ctx = system.createContext({ name = "Char", priority = 1000, sink = false })
 		local menu = ctx.createAction("Menu", "Bool")
 		menu.bind({ keyCode = "Tab" })
@@ -1553,42 +1556,42 @@ end)
 
 describe("a modal traps traversal and restores focus through the presenter (DK-6)", function()
 	it("Tab stays inside the modal and the base screen's focus comes back", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/F/two")
+		expect(pres.focus.focused:peek()).toBe("/F/two")
 		local modal = pres.presentModal(UI.Screen({
 			id = "M",
 			children = { UI.Button({ id = "ok", label = "ok" }), UI.Button({ id = "cancel", label = "cancel" }) },
 		}))
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/M/ok")
+		expect(pres.focus.focused:peek()).toBe("/M/ok")
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/M/cancel")
+		expect(pres.focus.focused:peek()).toBe("/M/cancel")
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/M/ok") -- trapped: wrapped inside
+		expect(pres.focus.focused:peek()).toBe("/M/ok") -- trapped: wrapped inside
 		pres.dismiss(modal)
-		expect(pres.focus.focused:get()).toBe("/F/two") -- restored
+		expect(pres.focus.focused:peek()).toBe("/F/two") -- restored
 	end)
 end)
 
 describe("traversal wrap is declarable per presented surface (DK-3)", function()
 	it("present({ traversalWrap = false }) stops Tab at the last control", function()
-		local _, _, _, system, pres = harness()
+		local _, _, _, system, pres = fixture()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), { traversalWrap = false })
 		pres.refresh()
 		tab(system)
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 		tab(system)
-		expect(pres.focus.focused:get()).toBe("/F/three")
+		expect(pres.focus.focused:peek()).toBe("/F/three")
 	end)
 
 	it("an unknown present() opt is still refused by name", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = fixture()
 		local acts: { [string]: number } = {}
 		expect(function()
 			pres.present(formScreen(acts), { traversalWarp = false } :: any)

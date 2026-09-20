@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	VARIABLE ITEM EXTENTS — `newVirtualList.itemExtent` as a per-item function.
 
@@ -39,9 +40,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local mountLib = require("../src/mount")
-local fake_target = require("../tests/lib/fake_target")
+local mountLib = harness
+local fake_target = require("./lib/fake_target")
 local virtual_extents = require("../src/virtual_extents") :: any
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -87,20 +89,20 @@ local function newList(core: any, opts: any)
 		reorderable = opts.reorderable,
 		onReorder = opts.onReorder,
 		cell = opts.cell or function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
 
 -- a PRESENTED list, so the real solver gives rects to measure row boxes against
 local function world(opts: any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(opts.rows or makeRows(8))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(opts.rows or makeRows(8))
 	local list = newList(core, {
 		rows = rows,
 		itemExtent = opts.itemExtent,
@@ -111,7 +113,7 @@ local function world(opts: any)
 		onReorder = opts.onReorder,
 		cell = opts.cell,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
@@ -139,8 +141,8 @@ end
 
 describe("VirtualList variable extents: what the spec accepts", function()
 	it("accepts a per-item function, and the dump says which arithmetic is running", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(6))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(6))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent })
 		local d = list.dump()
 		expect(d.itemExtentMode).toBe("variable")
@@ -153,8 +155,8 @@ describe("VirtualList variable extents: what the spec accepts", function()
 	end)
 
 	it("a uniform list still reports its one number, and says so", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(6))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(6))
 		local list = newList(core, { rows = rows, itemExtent = 56 })
 		local d = list.dump()
 		expect(d.itemExtentMode).toBe("uniform")
@@ -165,8 +167,8 @@ describe("VirtualList variable extents: what the spec accepts", function()
 	end)
 
 	it("refuses a per-item extent that is not a positive number, naming the row", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local function build(fn: any)
 			local list = newList(core, { rows = rows, itemExtent = fn })
 			-- the extents resolve lazily with the index memo; asking for the window
@@ -213,8 +215,8 @@ describe("VirtualList variable extents: the geometry is the running offset", fun
 	end)
 
 	it("the content extent is the sum plus the gutters, with none trailing", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent, rowGap = 6, viewportExtent = 200 })
 		list.bindNativeScroll(scrollStub(), "/VL")
 		-- the scroll clamp is the whole truth about the content extent
@@ -236,8 +238,8 @@ describe("VirtualList variable extents: the geometry is the running offset", fun
 	end)
 
 	it("keep-visible measures the row's OWN extent, not an average", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 300 })
 		local ctrl = scrollStub()
 		list.bindNativeScroll(ctrl, "/VL")
@@ -254,8 +256,8 @@ end)
 
 describe("VirtualList variable extents: virtualization stays bounded", function()
 	it("a viewport inside ONE tall row windows that row alone", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(40))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(40))
 		local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 120, overscan = 0 })
 		-- row 2 spans 84..333; a 120px viewport parked at 100 is entirely inside it
 		list.scrollTop:set(100)
@@ -268,8 +270,8 @@ describe("VirtualList variable extents: virtualization stays bounded", function(
 			is one of the two candidate designs the parity doc recorded, and this is
 			the check that refuses it: a build counter, not a timer. Two candidate
 			designs, and the one that pays O(N) MEASUREMENT cannot pass this. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(10000))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(10000))
 		local built = 0
 		local list = newList(core, {
 			rows = rows,
@@ -277,7 +279,7 @@ describe("VirtualList variable extents: virtualization stays bounded", function(
 			viewportExtent = 498,
 			cell = function(item: any)
 				built += 1
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local root = mountLib.mount(core, list.blueprint)
@@ -303,9 +305,9 @@ describe("VirtualList variable extents: the scroll does not jump when extents ch
 			lengthens under a fixed pixel offset and the player is somewhere else in
 			the list — the recorded jump class. The anchor is the item under the
 			viewport's leading edge, and the offset INTO it. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(200))
-		local grow = core:signal(0)
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(200))
+		local grow = Compose.cell(0)
 		local list = newList(core, {
 			rows = rows,
 			viewportExtent = 400,
@@ -339,9 +341,9 @@ describe("VirtualList variable extents: the scroll does not jump when extents ch
 		The instrument is the SCROLL STUB, because the defect is exactly "no write
 		was made": `lastPos()` is what the framework actually told the engine. ]]
 	it("shrinking the items at the END of the list still corrects the ENGINE, not just the memo", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(200))
-		local grow = core:signal(28)
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(200))
+		local grow = Compose.cell(28)
 		local list = newList(core, {
 			rows = rows,
 			viewportExtent = 400,
@@ -368,9 +370,9 @@ describe("VirtualList variable extents: the scroll does not jump when extents ch
 	end)
 
 	it("the extents re-derive through `use`, and the canvas follows", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
-		local grow = core:signal(0)
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
+		local grow = Compose.cell(0)
 		local list = newList(core, {
 			rows = rows,
 			viewportExtent = 400,
@@ -404,9 +406,9 @@ describe("VirtualList variable extents: the rest of the control agrees with the 
 		-- pointer just above it is still slot 1 and just below it is slot 2
 		local r2 = w.rect("r2")
 		w.adapter.driveDragContinue(path, { x = 100, y = r2.y + 120, pointerType = "mouse" }, { x = 0, y = 0 })
-		expect(w.list.dropIndex:get()).toBe(1)
+		expect(w.list.dropIndex:peek()).toBe(1)
 		w.adapter.driveDragContinue(path, { x = 100, y = r2.y + 130, pointerType = "mouse" }, { x = 0, y = 0 })
-		expect(w.list.dropIndex:get()).toBe(2)
+		expect(w.list.dropIndex:peek()).toBe(2)
 	end)
 
 	it("the declared slot is PER ROW: the guard names that row's own number", function()
@@ -422,7 +424,7 @@ describe("VirtualList variable extents: the rest of the control agrees with the 
 				return if index == 2 then 20 else 200
 			end,
 			cell = function(item: any)
-				return Facet.UI.Box({ id = "Plate", height = { type = "fixed", px = 60 } })
+				return harness.UI.Box({ id = "Plate", height = { type = "fixed", px = 60 } })
 			end,
 		})
 		local found = nil
@@ -473,9 +475,9 @@ describe("VirtualList variable extents: an edit that moves no geometry rebuilds 
 
 	it("a uniform list rebuilds its index only when the geometry moves", function()
 		countingExtents(function(counts)
-			local core = Facet.newCore()
-			local rows = core:signal(makeRows(20))
-			local extent = core:signal(56)
+			local core = harness.newCore()
+			local rows = Compose.cell(makeRows(20))
+			local extent = Compose.cell(56)
 			local list = newList(core, { rows = rows, itemExtent = extent, viewportExtent = 300 })
 			list.dump() -- force the first build
 			local built = counts.uniform
@@ -501,8 +503,8 @@ describe("VirtualList variable extents: an edit that moves no geometry rebuilds 
 
 	it("a variable list rebuilds only when an EXTENT moves, not when an item does", function()
 		countingExtents(function(counts)
-			local core = Facet.newCore()
-			local rows = core:signal(makeRows(20))
+			local core = harness.newCore()
+			local rows = Compose.cell(makeRows(20))
 			local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 300 })
 			list.dump()
 			local built = counts.variable

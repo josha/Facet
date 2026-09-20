@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- UI-PARADIGM-003 + affordance matrix D.1/D.3/D.4: the console 10-foot
 -- PRESENTATION consumers. When distanceProfile == "ten-foot" (displaySize ==
 -- "Large") the presentation must (D.1) scale rendered text by the type-scale
@@ -10,13 +11,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
 local adaptive = require("../src/layout/adaptive")
+local Compose = require("../src/vendor/compose/core")
 
 local function attach(displaySize: string?, childrenFn: (any) -> { any })
 	local core = customFactory.new()
@@ -37,24 +39,24 @@ describe("environment ten-foot derivations (matrix D.1/D.3)", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("preferredTextSize", 2)
-		expect(env:get("typographyScale"):get()).toBe(2) -- Medium: accessibility preference only
+		expect(env:get("typographyScale"):peek()).toBe(2) -- Medium: accessibility preference only
 		env:set("displaySize", "Large")
-		expect(env:get("typographyScale"):get()).toBe(3) -- 2 * 1.5 ten-foot floor
+		expect(env:get("typographyScale"):peek()).toBe(3) -- 2 * 1.5 ten-foot floor
 		env:set("preferredTextSize", 1)
-		expect(env:get("typographyScale"):get()).toBe(1.5)
+		expect(env:get("typographyScale"):peek()).toBe(1.5)
 		env:set("displaySize", "Medium")
-		expect(env:get("typographyScale"):get()).toBe(1) -- restores to preference only
+		expect(env:get("typographyScale"):peek()).toBe(1) -- restores to preference only
 	end)
 
 	it("sizeClass caps at regular on a ten-foot Large display even on a wide viewport", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
-		expect(env:get("sizeClass"):get()).toBe("wide")
+		expect(env:get("sizeClass"):peek()).toBe("wide")
 		env:set("displaySize", "Large")
-		expect(env:get("sizeClass"):get()).toBe("regular") -- density floor: never the densest at 3m
+		expect(env:get("sizeClass"):peek()).toBe("regular") -- density floor: never the densest at 3m
 		env:set("displaySize", "Medium")
-		expect(env:get("sizeClass"):get()).toBe("wide")
+		expect(env:get("sizeClass"):peek()).toBe("wide")
 	end)
 end)
 
@@ -119,13 +121,13 @@ describe("ADAPT-7: the ten-foot type floor reaches UNAUTHORED text (matrix D.1)"
 		local _, _, _, near = attach("Medium", function(core)
 			return {
 				UI.Button({ id = "B", label = "Play" }),
-				UI.Toggle({ id = "G", label = "Music", value = core:signal(false) }),
+				UI.Toggle({ id = "G", label = "Music", value = Compose.cell(false) }),
 			}
 		end)
 		local _, _, _, far = attach("Large", function(core)
 			return {
 				UI.Button({ id = "B", label = "Play" }),
-				UI.Toggle({ id = "G", label = "Music", value = core:signal(false) }),
+				UI.Toggle({ id = "G", label = "Music", value = Compose.cell(false) }),
 			}
 		end)
 		expect(far.node("/S/B").props.textSize).toBe(near.node("/S/B").props.textSize * 1.5)
@@ -186,8 +188,8 @@ describe("verifier F1: Toggle honors an explicit textSize at the MEASURE seam", 
 	it("a Toggle with an explicit textSize measures taller than the 16pt default (measure/paint agree)", function()
 		local _, _, _, adapter = attach(nil, function(core)
 			return {
-				UI.Toggle({ id = "Small", label = "Music", value = core:signal(false) }),
-				UI.Toggle({ id = "Big", label = "Music", value = core:signal(false), textSize = 32 }),
+				UI.Toggle({ id = "Small", label = "Music", value = Compose.cell(false) }),
+				UI.Toggle({ id = "Big", label = "Music", value = Compose.cell(false), textSize = 32 }),
 			}
 		end)
 		local small = adapter.node("/S/Small").rect
@@ -250,7 +252,7 @@ describe("ten-foot focus lift is capped to bounds that fit the screen (director 
 	it("a label on a separate indicator retains its ring without lifting away from its plate", function()
 		local role
 		local _, _, root, adapter, controller = attach("Large", function(core)
-			role = core:signal("default")
+			role = Compose.cell("default")
 			return {
 				UI.Button({
 					id = "Option",
@@ -304,23 +306,23 @@ describe("ten-foot default overscan margins (director live find: edge-flush UI o
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
-		expect(env:get("effectiveOverscanInsets"):get().left).toBe(0) -- near: no margins
+		expect(env:get("effectiveOverscanInsets"):peek().left).toBe(0) -- near: no margins
 		env:set("displaySize", "Large")
-		local insets = env:get("effectiveOverscanInsets"):get()
+		local insets = env:get("effectiveOverscanInsets"):peek()
 		expect(insets.top).toBe(60)
 		expect(insets.bottom).toBe(60)
 		expect(insets.left).toBe(90)
 		expect(insets.right).toBe(90)
 		-- the same profile, on a display that is not the reference one
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local small = env:get("effectiveOverscanInsets"):get()
+		local small = env:get("effectiveOverscanInsets"):peek()
 		expect(`{small.top}/{small.left}`).toBe("40/60")
 		-- authored values win
 		env:set("overscanInsets", { top = 10, bottom = 10, left = 20, right = 20 })
-		expect(env:get("effectiveOverscanInsets"):get().left).toBe(20)
+		expect(env:get("effectiveOverscanInsets"):peek().left).toBe(20)
 		-- explicit opt-out
 		env:set("overscanInsets", "none")
-		expect(env:get("effectiveOverscanInsets"):get().left).toBe(0)
+		expect(env:get("effectiveOverscanInsets"):peek().left).toBe(0)
 	end)
 
 	it("an unauthored Large display insets the solved tree by the default margins", function()
@@ -383,7 +385,7 @@ describe("ADAPT-10: the table row box has a ten-foot rung, and distance selects 
 	it("a table on a Large display gets a TALLER row than the same table near", function()
 		local Facet = require("../src") :: any
 		local function rowHeight(displaySize: string?): number
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 			if displaySize ~= nil then
@@ -391,10 +393,10 @@ describe("ADAPT-10: the table row box has a ten-foot rung, and distance selects 
 			end
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local tbl = Facet.Controls.Table(core, {
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local tbl = harness.Controls.Table(core, {
 				id = "T",
-				rows = core:signal({ { id = "a", name = "Aria" } }),
+				rows = Compose.cell({ { id = "a", name = "Aria" } }),
 				key = function(item: any)
 					return item.id
 				end,
@@ -412,7 +414,7 @@ describe("ADAPT-10: the table row box has a ten-foot rung, and distance selects 
 			})
 			pres.present(UI.Screen({ id = "S", children = { tbl.blueprint } }))
 			pres.refresh()
-			local row = adapter.node("/S/T/Main/Body/Rows/[a@0]/Row")
+			local row = adapter.node("/S/T/Main/Body/Rows/[a]/Row")
 			expect(`row solved: {row ~= nil}`).toBe("row solved: true")
 			return row.rect.h
 		end
@@ -478,16 +480,16 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 		"1920x1080 + gamepad + touch + engine-reported Large reads NEAR, with handheld-appropriate (1x) type scale",
 		function()
 			local _, env = envFor("Large", true, true)
-			expect(env:get("effectiveDisplaySize"):get()).toBe("Medium")
-			expect(env:get("distanceProfile"):get()).toBe("near")
-			expect(env:get("typographyScale"):get()).toBe(1) -- NOT 1.5 — the director's own ask
-			expect(env:get("typographyPaintScale"):get()).toBe(1)
-			expect(env:get("themeMetrics"):get().metricScale).toBe(1) -- the whole ladder, not just type
-			expect(env:get("effectiveOverscanInsets"):get()).toEqual({ top = 0, bottom = 0, left = 0, right = 0 })
+			expect(env:get("effectiveDisplaySize"):peek()).toBe("Medium")
+			expect(env:get("distanceProfile"):peek()).toBe("near")
+			expect(env:get("typographyScale"):peek()).toBe(1) -- NOT 1.5 — the director's own ask
+			expect(env:get("typographyPaintScale"):peek()).toBe(1)
+			expect(env:get("themeMetrics"):peek().metricScale).toBe(1) -- the whole ladder, not just type
+			expect(env:get("effectiveOverscanInsets"):peek()).toEqual({ top = 0, bottom = 0, left = 0, right = 0 })
 			-- the WIDTH-only breakpoint is untouched by this fix — it is a
 			-- separate axis (raw viewport pixels), deliberately out of this
 			-- round's scope; see the scoping note above
-			expect(env:get("sizeClass"):get()).toBe("wide")
+			expect(env:get("sizeClass"):peek()).toBe("wide")
 		end
 	)
 
@@ -496,12 +498,12 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- does not have one. This must stay byte-identical to today.
 	it("a PS5-shaped device (1920x1080, gamepad, NO touch) stays ten-foot — unchanged", function()
 		local _, env = envFor("Large", false, true)
-		expect(env:get("effectiveDisplaySize"):get()).toBe("Large")
-		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
-		expect(env:get("typographyScale"):get()).toBe(1.5)
-		expect(env:get("themeMetrics"):get().metricScale).toBe(1.5)
-		expect(env:get("effectiveOverscanInsets"):get()).toEqual({ top = 60, bottom = 60, left = 90, right = 90 })
-		expect(env:get("sizeClass"):get()).toBe("regular") -- the pre-existing density cap
+		expect(env:get("effectiveDisplaySize"):peek()).toBe("Large")
+		expect(env:get("distanceProfile"):peek()).toBe("ten-foot")
+		expect(env:get("typographyScale"):peek()).toBe(1.5)
+		expect(env:get("themeMetrics"):peek().metricScale).toBe(1.5)
+		expect(env:get("effectiveOverscanInsets"):peek()).toEqual({ top = 60, bottom = 60, left = 90, right = 90 })
+		expect(env:get("sizeClass"):peek()).toBe("regular") -- the pre-existing density cap
 	end)
 
 	-- THE DIRECTOR'S OWN SUSPICION, DIRECTLY DISPROVED: gamepad input alone
@@ -511,8 +513,8 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	it("gamepad input alone never changes the classing (the director's suspicion, measured false)", function()
 		local _, gamepadSession = envFor("Large", false, true)
 		local _, keyboardSession = envFor("Large", false, false)
-		expect(gamepadSession:get("distanceProfile"):get()).toBe(keyboardSession:get("distanceProfile"):get())
-		expect(gamepadSession:get("distanceProfile"):get()).toBe("ten-foot")
+		expect(gamepadSession:get("distanceProfile"):peek()).toBe(keyboardSession:get("distanceProfile"):peek())
+		expect(gamepadSession:get("distanceProfile"):peek()).toBe("ten-foot")
 	end)
 
 	-- A DEVICE THE ENGINE HONESTLY REPORTS AS SMALL (the happy path a real
@@ -521,8 +523,8 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- depends on the correction firing.
 	it("an honestly-reported Small handheld is untouched by the correction", function()
 		local _, env = envFor("Small", true, true)
-		expect(env:get("effectiveDisplaySize"):get()).toBe("Small")
-		expect(env:get("distanceProfile"):get()).toBe("near")
+		expect(env:get("effectiveDisplaySize"):peek()).toBe("Small")
+		expect(env:get("distanceProfile"):peek()).toBe("near")
 	end)
 
 	-- ITEM 5.4'S OWN NAMED EXAMPLE, AUDITED: "what Large means for a
@@ -536,7 +538,7 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	it("navPlacement's gamepad branch is unchanged by this fix (audited, not altered)", function()
 		local coreAlly, envAlly = envFor("Large", true, true)
 		local corePs5, envPs5 = envFor("Large", false, true)
-		expect(adaptive.conditions(coreAlly, envAlly).navPlacement:get()).toBe("topBar")
-		expect(adaptive.conditions(corePs5, envPs5).navPlacement:get()).toBe("topBar")
+		expect(adaptive.conditions(envAlly).navPlacement:peek()).toBe("topBar")
+		expect(adaptive.conditions(envPs5).navPlacement:peek()).toBe("topBar")
 	end)
 end)

@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../../../src/vendor/compose/core")
 -- PROBE-EXEMPT: a benchmark WORKLOAD and its shared fixtures — INSTRUMENT, NOT
 -- EXAMPLE. The gallery scenarios are the teaching surface.
 --
@@ -49,23 +50,33 @@ end
 
 -- the base every fixture opens over: one button, so the surface underneath has
 -- a focusable to give focus back to
-local function base(Facet: any, id: string)
-	local UI = Facet.UI
-	return UI.Screen({ id = id, padding = 12, UI.Button({ id = "Open", label = "Open" }) })
+local function base(ctx: any, id: string)
+	local UI = ctx.UI
+	return UI.Screen(id)({ padding = 12, UI.Button({ id = "Open", label = "Open" }) })
 end
 
-local function buildAlert(Facet: any, core: any): Fixture
-	local alert = Facet.Controls.Alert(core, {
-		id = "Confirm",
-		title = "Delete this save?",
-		message = "The save slot is cleared and the run restarts from the last checkpoint.",
-		actions = {
-			{ id = "Delete", label = "Delete", role = "destructive" },
-			{ id = "Keep", label = "Keep a copy" },
-			{ id = "Cancel", label = "Cancel", role = "cancel" },
-		},
-	})
+local function buildAlert(ctx: any): Fixture
+	local core = ctx.core
+	-- Built under this fixture's own owner, so disposing it is the teardown.
+	local alert: any = nil
+	local alertScope = core.owner.createChild()
+	ctx.Compose.withOwner(alertScope, function()
+		return ctx.UI.Alert({
+			id = "Confirm",
+			title = "Delete this save?",
+			message = "The save slot is cleared and the run restarts from the last checkpoint.",
+			actions = {
+				{ id = "Delete", label = "Delete", role = "destructive" },
+				{ id = "Keep", label = "Keep a copy" },
+				{ id = "Cancel", label = "Cancel", role = "cancel" },
+			},
+			ref = function(record: any)
+				alert = record.api
+			end,
+		})
+	end)
 	local baseHandle: any = nil
+	local presenter: any = nil
 	local handle: any = nil
 	local lastHandle: any = nil
 	local presents = 0
@@ -81,8 +92,9 @@ local function buildAlert(Facet: any, core: any): Fixture
 	local represents = 0
 	return {
 		present = function(pres)
+			presenter = pres
 			if baseHandle == nil then
-				baseHandle = pres.present(base(Facet, "AlertBase"))
+				baseHandle = pres.present(base(ctx, "AlertBase"))
 				pres.refresh()
 				pres.focus.focusOn("/AlertBase/Open")
 			end
@@ -110,47 +122,68 @@ local function buildAlert(Facet: any, core: any): Fixture
 			return { presents = presents, represents = represents, actions = 3 }
 		end,
 		dispose = function()
-			alert.dispose()
+			if baseHandle ~= nil then
+				presenter.dismiss(baseHandle)
+				baseHandle = nil
+			end
+			alertScope:dispose()
 		end,
 	}
 end
 
-local function buildPicker(Facet: any, core: any): Fixture
-	local UI = Facet.UI
+local function buildPicker(ctx: any): Fixture
+	local core = ctx.core
+	local UI = ctx.UI
 	local options = {}
 	for i = 1, transientSurfaces.PICKER_OPTIONS do
 		table.insert(options, { value = `q{i}`, label = `Quality {i}` })
 	end
-	local selected = core:signal("q3")
-	local picker = Facet.Controls.Picker(core, {
-		id = "Quality",
-		label = "Quality",
-		style = "menu",
-		options = options,
-		selected = selected,
-	})
+	local selected = Compose.cell("q3")
+	-- Picker's `menu` style wraps `pickerMenu.build` and re-exposes it as a
+	-- NESTED `.api` (picker.luau's `buildMenu`), so — unlike Alert above — the
+	-- composite record's `ref` gives `record.api` = that inner api, not the
+	-- outer table, and does not carry `.blueprint` or `.dispose`. Building under
+	-- an explicit owner (this fixture's own scope) is what makes `.dispose()`
+	-- reachable: the ambient Compose owner is who `Compose.cleanup` registers
+	-- the real teardown with.
+	local pickerScope = core.owner.createChild()
+	local pickerRecord: any = nil
+	local pickerBlueprint = ctx.Compose.withOwner(pickerScope, function()
+		return UI.Picker({
+			id = "Quality",
+			label = "Quality",
+			style = "menu",
+			options = options,
+			selected = selected,
+			ref = function(record: any)
+				pickerRecord = record
+			end,
+		})
+	end)
 	local baseHandle: any = nil
+	local presenter: any = nil
 	local opens = 0
 	local presentation: string? = nil
 	return {
 		present = function(pres)
+			presenter = pres
 			if baseHandle == nil then
-				baseHandle = pres.present(UI.Screen({ id = "PickerBase", padding = 12, picker.blueprint }))
+				baseHandle = pres.present(UI.Screen("PickerBase")({ padding = 12, pickerBlueprint }))
 				tickAndRefresh(pres, 1)
 			end
 		end,
 		open = function(pres)
-			picker.api.open()
+			pickerRecord.api.open()
 			tickAndRefresh(pres, 1)
-			local dump = picker.dump()
+			local dump = pickerRecord.dump()
 			assert(dump.open == true, "the picker menu must be open after api.open")
 			presentation = dump.presentation
 			opens += 1
 		end,
 		close = function(pres)
-			picker.api.close()
+			pickerRecord.api.close()
 			tickAndRefresh(pres, 1)
-			assert(picker.dump().open == false, "the picker menu must be closed after api.close")
+			assert(pickerRecord.dump().open == false, "the picker menu must be closed after api.close")
 		end,
 		proof = function(pres)
 			return {
@@ -161,61 +194,84 @@ local function buildPicker(Facet: any, core: any): Fixture
 			}
 		end,
 		dispose = function()
-			picker.dispose()
+			if baseHandle ~= nil then
+				presenter.dismiss(baseHandle)
+				baseHandle = nil
+			end
+			pickerScope:dispose()
 		end,
 	}
 end
 
-local function buildRadial(Facet: any, core: any): Fixture
-	local UI = Facet.UI
+local function buildRadial(ctx: any): Fixture
+	local core = ctx.core
+	local UI = ctx.UI
 	local items = {}
 	for i, slot in { "N", "NE", "E", "S", "SW", "W" } do
 		table.insert(items, { id = `act{i}`, label = `Action {i}`, slot = slot })
 	end
-	local menu = Facet.Controls.RadialMenu(core, {
-		id = "Radial",
-		preset = "donut",
-		distribution = "compass",
-		items = items,
-	})
+	-- Same nested-`.api` shape as Picker's menu style (radial_menu.luau's own
+	-- `build` sets a top-level `.api` field), so the same owner-scoped build is
+	-- what makes `.dispose()` reachable.
+	local radialScope = core.owner.createChild()
+	local menuRecord: any = nil
+	local menuBlueprint = ctx.Compose.withOwner(radialScope, function()
+		return UI.RadialMenu({
+			id = "Radial",
+			preset = "donut",
+			distribution = "compass",
+			items = items,
+			ref = function(record: any)
+				menuRecord = record
+			end,
+		})
+	end)
 	local baseHandle: any = nil
+	local presenter: any = nil
 	local opens = 0
 	return {
 		present = function(pres)
+			presenter = pres
 			if baseHandle == nil then
-				baseHandle = pres.present(UI.Screen({ id = "RadialBase", menu.blueprint }))
+				baseHandle = pres.present(UI.Screen("RadialBase")({ menuBlueprint }))
 				-- the launcher paints only once its position is solved (three ticks)
 				tickAndRefresh(pres, 3)
 			end
 		end,
 		open = function(pres)
-			local opened = menu.api.open()
+			local opened = menuRecord.api.open()
 			tickAndRefresh(pres, 2)
-			assert(opened == true and menu.dump().open == true, "the radial must open from its solved launcher")
+			assert(opened == true and menuRecord.dump().open == true, "the radial must open from its solved launcher")
 			opens += 1
 		end,
 		close = function(pres)
-			menu.api.close()
+			menuRecord.api.close()
 			tickAndRefresh(pres, 2)
-			assert(menu.dump().open == false, "the radial must be closed after api.close")
+			assert(menuRecord.dump().open == false, "the radial must be closed after api.close")
 		end,
 		proof = function(_pres)
-			return { opens = opens, sectors = #menu.dump().sectors }
+			return { opens = opens, sectors = #menuRecord.dump().sectors }
 		end,
 		dispose = function()
-			menu.dispose()
+			if baseHandle ~= nil then
+				presenter.dismiss(baseHandle)
+				baseHandle = nil
+			end
+			radialScope:dispose()
 		end,
 	}
 end
 
--- `kind` is "alert" | "picker" | "radial"; anything else is refused by name
-function transientSurfaces.build(Facet: any, core: any, kind: string): Fixture
+-- `kind` is "alert" | "picker" | "radial"; anything else is refused by name.
+-- `ctx = { Facet, app, UI, Compose, env, core }` (bench/perf_scenes.luau's
+-- `labContext`) — `core` arrives on it, not as its own argument.
+function transientSurfaces.build(ctx: any, kind: string): Fixture
 	if kind == "alert" then
-		return buildAlert(Facet, core)
+		return buildAlert(ctx)
 	elseif kind == "picker" then
-		return buildPicker(Facet, core)
+		return buildPicker(ctx)
 	elseif kind == "radial" then
-		return buildRadial(Facet, core)
+		return buildRadial(ctx)
 	end
 	error(`transient_surfaces: unknown fixture '{tostring(kind)}' (alert | picker | radial)`)
 end
@@ -228,7 +284,7 @@ function transientSurfaces.install(deps: any)
 		deps.passes[name] = function(payload: string?)
 			return deps.timed(name, function()
 				local _, reps = deps.framesAndReps(payload, 60, 24)
-				local fixture = transientSurfaces.build(deps.Facet, deps.core, kind)
+				local fixture = transientSurfaces.build(deps.Facet, kind)
 				local pres = deps.ctx.presenter
 				local ok, result = pcall(function()
 					fixture.present(pres)

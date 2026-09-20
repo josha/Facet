@@ -1,10 +1,12 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local fake = require("./lib/fake_target")
 local Facet = require("../src") :: any
 local actions = require("../examples/gallery/scenarios/action_controls")
 local tabs = require("../examples/gallery/scenarios/tab_view")
+local Compose = require("../src/vendor/compose/core")
 local function newAdapter()
 	local a = fake.new()
 	a.scrollBarThickness = fake.SCROLL_BAR_THICKNESS
@@ -24,8 +26,8 @@ t.describe("actions layout adaptation", function()
 	t.it("measures fill columns at their placed pixel widths for aspect images", function()
 		for width = 500, 510 do
 			local w = world.new({ viewport = { x = 0, y = 0, w = width, h = 900 } })
-			local U = Facet.UI
-			local art = Facet.Controls.Button(w.core, {
+			local U = harness.UI
+			local art = harness.Controls.Button(w.core, {
 				id = "Art",
 				label = "Art",
 				image = "rbxassetid://1",
@@ -54,7 +56,14 @@ t.describe("actions layout adaptation", function()
 
 	t.it("uses a compact centered confirmation with horizontal desktop actions", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 800 }, newAdapter = newAdapter })
-		local built = actions.build({ Facet = Facet, core = w.core, env = w.env, presenter = w.pres })
+		local built = actions.build({
+			Facet = Facet,
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
+			core = w.core,
+			env = w.env,
+			presenter = w.pres,
+		})
 		w.present(built.screen)
 		w.adapter.tap(pathEnding(w, "/Confirm"))
 		w.settle(4)
@@ -71,7 +80,14 @@ t.describe("actions layout adaptation", function()
 	end)
 	t.it("reflows showroom and race setup when a desktop switches to distant viewing", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1440, h = 900 }, newAdapter = newAdapter })
-		local built = actions.build({ Facet = Facet, core = w.core, env = w.env, presenter = w.pres })
+		local built = actions.build({
+			Facet = Facet,
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
+			core = w.core,
+			env = w.env,
+			presenter = w.pres,
+		})
 		w.present(built.screen)
 		local function boxes()
 			return w.adapter.node(pathEnding(w, "/Showroom")).rect, w.adapter.node(pathEnding(w, "/RaceSetup")).rect
@@ -82,7 +98,7 @@ t.describe("actions layout adaptation", function()
 		w.settle(4)
 		a, b = boxes()
 		t.expect(a.y + a.h <= b.y).toBe(true)
-		t.expect(w.env:get("interactionClasses"):get().primary).toBe("pointer")
+		t.expect(w.env:get("interactionClasses"):peek().primary).toBe("pointer")
 		w.pres.dismiss(w.handle)
 		built.dispose()
 	end)
@@ -117,6 +133,8 @@ t.describe("navigation visual containment", function()
 					})
 					local built = fixture[2].build({
 						Facet = Facet,
+						UI = (harness.libraryOf(w.core)),
+						Compose = Facet.Compose,
 						core = w.core,
 						env = w.env,
 						presenter = w.pres,
@@ -156,21 +174,21 @@ t.describe("navigation capsule art", function()
 				viewingDistance = "ten-foot",
 			},
 		})
-		local tab = Facet.Controls.TabView(w.core, {
+		local tab = harness.Controls.TabView(w.core, {
 			env = w.env,
-			selection = w.core:signal("a"),
+			selection = Compose.cell("a"),
 			style = "sidebarAdaptable",
 			tabs = {
 				{
 					id = "a",
 					label = "Garage",
 					content = function()
-						return Facet.UI.Button({ id = "Play", label = "Play" })
+						return harness.UI.Button({ id = "Play", label = "Play" })
 					end,
 				},
 			},
 		})
-		w.present(Facet.UI.Screen({ id = "S", children = { tab.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { tab.blueprint } }))
 		tab.collapseSidebar()
 		w.settle(4)
 		local found
@@ -202,6 +220,8 @@ t.describe("navigation capsule adaptive paint order", function()
 			})
 			local built = tabs.build({
 				Facet = Facet,
+				UI = (harness.libraryOf(w.core)),
+				Compose = Facet.Compose,
 				core = w.core,
 				env = w.env,
 				presenter = w.pres,

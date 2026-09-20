@@ -1,4 +1,6 @@
 --!strict
+local Compose = require("../../../src/vendor/compose/core")
+local observeChange = require("../../../src/core/on_change")
 -- PROBE-EXEMPT: the performance lab's harness — INSTRUMENT, NOT EXAMPLE. It
 -- mounts workloads, counts instances, drives scripted flings and prices them.
 -- Where it predicts geometry by hand it does so because measuring would be
@@ -291,6 +293,16 @@ local WORKLOADS = {
 	},
 }
 
+-- A primitive built through the raw constructor takes its children
+-- POSITIONALLY, not as a `children = {...}` field — see overlay.luau's copy of
+-- this same helper for the full story.
+local function with(props: any, children: { any }): any
+	for _, child in children do
+		table.insert(props, child)
+	end
+	return props
+end
+
 local WORKLOAD_BY_ID: { [string]: any } = {}
 local WORKLOAD_ORDER: { string } = {}
 for _, w in WORKLOADS do
@@ -333,6 +345,14 @@ return {
 		local core = ctx.core
 		local env = ctx.env
 		local host = ctx.host or {}
+		-- the seam `rows.cell` / `overlayLib.build` expect: `{ UI, Compose }`. Built
+		-- once so the per-row `cell` callback (called on every VirtualList render,
+		-- not just on mount) does not allocate a fresh table per row.
+		-- the lab seam bench/perf_scenes.luau documents and drives directly:
+		-- `ctx = { Facet, app, UI, Compose, env, core }`. `rows.cell`/`overlay.build`
+		-- read only `UI`/`Compose`; `navigation_inventory`/`transient_surfaces`
+		-- also read `core` off it, matching the bench module's own `labContext`.
+		local labUICtx = { Facet = Facet, UI = ctx.UI, Compose = ctx.Compose, env = env, core = core }
 		-- SIBLING MODULES ARRIVE THROUGH ctx, never through `script.Parent`. A
 		-- scenario module that reached for `script` would be Roblox-only, and the
 		-- whole point of the shared dataset/row definitions is that the SAME files
@@ -391,7 +411,7 @@ return {
 				end,
 			}
 
-		local labScope = core:scope("perf-lab")
+		local labScope = core.owner.createChild()
 		-- ONE ADAPTIVE DECISION, read by BOTH the row's arrangement and the list's
 		-- fixed row height. A VirtualList windows on a fixed pitch, so two decisions
 		-- here would be the split brain that paints a 152px row into a 56px slot —
@@ -400,39 +420,45 @@ return {
 		-- forces the one-line arrangement onto a width that cannot hold it — the exact
 		-- shape that shipped — so the audit can be seen to bite rather than assumed to.
 		local labOptions = ctx.labOptions or {}
-		local isCompact = labScope:own(core:memo(function(use)
-			if labOptions.forceOneLineRow == true then
-				return false
-			end
-			local vp = use(env:get("viewportRect"))
-			local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
-			return rows.compactFor(w)
-		end))
+		local isCompact = Compose.withOwner(labScope, function()
+			return Compose.formula(function(use)
+				if labOptions.forceOneLineRow == true then
+					return false
+				end
+				local vp = use(env:get("viewportRect"))
+				local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
+				return rows.compactFor(w)
+			end)
+		end)
 		-- THE THEME IS A ROW-GEOMETRY FACT (L-26). `themeMetrics` rides the
 		-- environment, so reading it through `use` is what makes a theme swap re-derive
 		-- the arrangement, the row height and the window bound in the same commit that
 		-- repaints — the alternative is a themed surface laid out for a flat one, which
 		-- is exactly what shipped.
-		local splitControls = labScope:own(core:memo(function(use)
-			if use(isCompact) ~= true then
-				return false
-			end
-			local vp = use(env:get("viewportRect"))
-			local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
-			return rows.splitControlsFor(w, use(env:get("themeMetrics")))
-		end))
-		local itemExtent = labScope:own(core:memo(function(use)
-			return rows.heightFor(
-				use(isCompact) == true,
-				use(env:get("typographyScale")),
-				use(env:get("themeMetrics")),
-				use(splitControls),
-				-- the fourth input, added 2026-08-13 after a device refused to mount:
-				-- `use`d, so raising the preference re-solves the pitch live rather
-				-- than leaving every row overflowing a slot measured at Medium
-				use(env:get("preferredTextOffset"))
-			)
-		end))
+		local splitControls = Compose.withOwner(labScope, function()
+			return Compose.formula(function(use)
+				if use(isCompact) ~= true then
+					return false
+				end
+				local vp = use(env:get("viewportRect"))
+				local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
+				return rows.splitControlsFor(w, use(env:get("themeMetrics")))
+			end)
+		end)
+		local itemExtent = Compose.withOwner(labScope, function()
+			return Compose.formula(function(use)
+				return rows.heightFor(
+					use(isCompact) == true,
+					use(env:get("typographyScale")),
+					use(env:get("themeMetrics")),
+					use(splitControls),
+					-- the fourth input, added 2026-08-13 after a device refused to mount:
+					-- `use`d, so raising the preference re-solves the pitch live rather
+					-- than leaving every row overflowing a slot measured at Medium
+					use(env:get("preferredTextOffset"))
+				)
+			end)
+		end)
 		-- forward: `listHeight` needs `viewportH`, which is declared with the window
 		-- bound below; a later `local` would be nil at build time
 		local listHeight: any
@@ -530,12 +556,12 @@ return {
 			end
 		end
 
-		labScope:own(releaseHaptics)
+		labScope.own(releaseHaptics)
 
 		-- ---- live state ---------------------------------------------------
 		local mounted: any = nil -- the ONE mounted implementation
 		local items = dataset.build({ count = settings.rows, seed = settings.seed, content = settings.content })
-		local rowsSignal = labScope:own(core:signal(items))
+		local rowsSignal = Compose.cell(items)
 		local provider = Facet.newResourceProvider(core, { maxConcurrent = 8 })
 		local unbindTransport: (() -> ())? = nil
 		-- OWNED, so a reset RELEASES them (found live 2026-08-04). The per-row value
@@ -545,7 +571,7 @@ return {
 		-- the old ones must go. Dropping the TABLE is not disposing the SIGNALS: the
 		-- first reset left 488 live signals on the core with nothing referencing
 		-- them, which is exactly the trend a soak row is supposed to catch.
-		local dataScope = labScope:child("perf-lab-data")
+		local dataScope = labScope.createChild()
 		local values: { [string]: any } = {}
 		local toggles: { [string]: any } = {}
 		local passLog: { any } = {}
@@ -585,10 +611,10 @@ return {
 		local lastCapture: any = nil
 
 		-- overlay model signals
-		local statusLine = labScope:own(core:signal("idle"))
-		local countdown = labScope:own(core:signal(""))
-		local counterLines = labScope:own(core:signal({ "no workload mounted" }))
-		local currentScenario = labScope:own(core:signal(settings.scenario))
+		local statusLine = Compose.cell("idle")
+		local countdown = Compose.cell("")
+		local counterLines = Compose.cell({ "no workload mounted" })
+		local currentScenario = Compose.cell(settings.scenario)
 		local overlayHandle: any = nil
 		-- forward: `mount` raises the overlay, and the overlay helpers are defined
 		-- below it (they need the step table). A plain later `local` would be nil at
@@ -644,11 +670,11 @@ return {
 		-- margin will add a fact, and this will be wrong again — which is why the audit
 		-- below is the thing that actually holds the line, not this function.
 		local function solverInsetsV(): number
-			local insets = env:get("coreSafeInsets"):get()
+			local insets = env:get("coreSafeInsets"):peek()
 			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
 			local bottom = if type(insets) == "table" and type(insets.bottom) == "number" then insets.bottom else 0
-			if env:get("distanceProfile"):get() == "ten-foot" then
-				local overscan = env:get("effectiveOverscanInsets"):get()
+			if env:get("distanceProfile"):peek() == "ten-foot" then
+				local overscan = env:get("effectiveOverscanInsets"):peek()
 				if type(overscan) == "table" then
 					top += if type(overscan.top) == "number" then overscan.top else 0
 					bottom += if type(overscan.bottom) == "number" then overscan.bottom else 0
@@ -657,35 +683,37 @@ return {
 			return top + bottom
 		end
 		local function chromeV(): number
-			local scale = env:get("typographyScale"):get()
+			local scale = env:get("typographyScale"):peek()
 			local s = if type(scale) == "number" and scale == scale then math.clamp(scale, 0.5, 3) else 1
 			return 2 * SCREEN_PADDING + SCREEN_GAP + math.ceil(HEAD_H * s) + solverInsetsV()
 		end
 		local function viewportH(): number
-			local vp = env:get("viewportRect"):get()
+			local vp = env:get("viewportRect"):peek()
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 720
 			return math.max(MIN_LIST_H, math.floor(h - chromeV()))
 		end
 		local function windowBound(): number
 			return rows.expectedWindow(
 				viewportH(),
-				isCompact:get() == true,
-				env:get("typographyScale"):get(),
-				env:get("themeMetrics"):get(),
-				splitControls:get()
+				isCompact:peek() == true,
+				env:get("typographyScale"):peek(),
+				env:get("themeMetrics"):peek(),
+				splitControls:peek()
 			)
 		end
 
-		listHeight = labScope:own(core:memo(function(use)
-			-- SUBSCRIBE to every fact the height depends on, then read the shared
-			-- function: two copies of this arithmetic is how the first version drifted
-			use(env:get("viewportRect"))
-			use(env:get("coreSafeInsets"))
-			use(env:get("typographyScale"))
-			use(env:get("distanceProfile"))
-			use(env:get("effectiveOverscanInsets"))
-			return viewportH()
-		end))
+		listHeight = Compose.withOwner(labScope, function()
+			return Compose.formula(function(use)
+				-- SUBSCRIBE to every fact the height depends on, then read the shared
+				-- function: two copies of this arithmetic is how the first version drifted
+				use(env:get("viewportRect"))
+				use(env:get("coreSafeInsets"))
+				use(env:get("typographyScale"))
+				use(env:get("distanceProfile"))
+				use(env:get("effectiveOverscanInsets"))
+				return viewportH()
+			end)
+		end)
 
 		local function mountedRowCount(): number
 			if mounted == nil then
@@ -802,7 +830,7 @@ return {
 				return nil
 			end
 			return `[perf lab] virtualization is NOT bounded at {where}: {n} rows mounted for a {viewportH()}px viewport `
-				.. `(bound {bound}, logical {#rowsSignal:get()}). A window that grows with the logical collection is `
+				.. `(bound {bound}, logical {#rowsSignal:peek()}). A window that grows with the logical collection is `
 				.. `the defect this scenario exists to catch.`
 		end
 
@@ -823,43 +851,53 @@ return {
 
 		-- ---- implementations ----------------------------------------------
 		local function buildFacet()
-			local list = Facet.Controls.VirtualList(core, {
-				id = "Rows",
-				rows = rowsSignal,
-				key = function(item: any)
-					return item.id
-				end,
-				itemExtent = itemExtent,
-				rowGap = rows.ROW_GAP,
-				viewportExtent = listHeight,
-				overscan = if settings.faultWindow then #rowsSignal:get() else rows.OVERSCAN,
-				selection = "single",
-				cell = function(item: any, cellCtx: any)
-					return rows.cell(Facet, core, item, {
-						scope = cellCtx.scope,
-						compact = isCompact:get(),
-						splitControls = splitControls:get(),
-						-- the row creates its value/toggle signals lazily; they outlive the
-						-- CELL scope on purpose and die with the DATA scope instead
-						ownerScope = dataScope,
-						provider = provider,
-						values = values,
-						toggles = toggles,
-						failImage = settings.resourceState == "failing",
-					})
-				end,
-			})
-			local screen = Facet.UI.Screen({
-				id = "PerfWorkload",
+			-- `VirtualList(spec)` returns only its blueprint node (composite
+			-- convention); the rich record — `scrollTo`, `select`, `dispose`, etc. —
+			-- arrives through `ref`, as every other composite control publishes it
+			-- (docs/extending/new-control.md step 3).
+			local list: any = nil
+			-- the list lives under its own owner; disposing that owner is its teardown
+			local listOwner = labScope.createChild()
+			local listNode = Compose.withOwner(listOwner, function()
+				return ctx.UI.VirtualList({
+					id = "Rows",
+					rows = rowsSignal,
+					key = function(item: any)
+						return item.id
+					end,
+					itemExtent = itemExtent,
+					rowGap = rows.ROW_GAP,
+					viewportExtent = listHeight,
+					overscan = if settings.faultWindow then #rowsSignal:peek() else rows.OVERSCAN,
+					selection = "single",
+					cell = function(item: any, cellCtx: any)
+						return rows.cell(labUICtx, item, {
+							scope = cellCtx.scope,
+							compact = isCompact:peek(),
+							splitControls = splitControls:peek(),
+							-- the row creates its value/toggle signals lazily; they outlive the
+							-- CELL scope on purpose and die with the DATA scope instead
+							ownerScope = dataScope,
+							provider = provider,
+							values = values,
+							toggles = toggles,
+							failImage = settings.resourceState == "failing",
+						})
+					end,
+					ref = function(record: any)
+						list = record.api
+					end,
+				})
+			end)
+			local screen = ctx.UI.Screen("PerfWorkload")({
 				padding = SCREEN_PADDING,
 				gap = SCREEN_GAP,
 
-				Facet.UI.Text({
-					id = "Head",
-					text = `Facet · {#rowsSignal:get()} rows`,
+				ctx.UI.Text("Head")({
+					text = `Facet · {#rowsSignal:peek()} rows`,
 					textSize = "label",
 				}),
-				list.blueprint,
+				listNode,
 			})
 			local handle = ctx.presenter.present(screen, {
 				recycleInstances = settings.recycle == true,
@@ -882,7 +920,7 @@ return {
 						unbindScroll()
 					end
 					ctx.presenter.dismiss(handle)
-					list.dispose()
+					listOwner:dispose()
 				end,
 			}
 		end
@@ -894,7 +932,7 @@ return {
 					.. "it is unavailable in this environment, so the native implementation cannot be mounted here"
 			)
 			local built = host.nativeList.mount({
-				items = rowsSignal:get(),
+				items = rowsSignal:peek(),
 				rowHeight = rows.ROW_HEIGHT,
 				rowGap = rows.ROW_GAP,
 				imageSize = rows.IMAGE_SIZE,
@@ -959,7 +997,7 @@ return {
 				mounted = settings.implementation,
 				mountedRows = mountedRowCount(),
 				windowBound = windowBound(),
-				logicalRows = #rowsSignal:get(),
+				logicalRows = #rowsSignal:peek(),
 			}
 		end
 
@@ -985,7 +1023,7 @@ return {
 		-- rotation into a 359px-wide, 152px-tall portrait slot. The `itemExtent` memo
 		-- updated; the cells did not. Twelve layout findings.
 		--
-		-- This is the same hazard the reactive-runtime review named as RR-9 (a `:get()`
+		-- This is the same hazard the reactive-runtime review named as RR-9 (a `:peek()`
 		-- at build time inside a keyed list), in a second place. `UI.When` cannot switch
 		-- the arrangement here because it has no `elseView` and the row's HEIGHT has to
 		-- move with it anyway — a VirtualList windows on a fixed pitch, so the height
@@ -1007,7 +1045,7 @@ return {
 			-- with their scope, and a fresh child takes over. Clearing the tables
 			-- alone would leave one live signal per retired row.
 			dataScope:dispose()
-			dataScope = labScope:child("perf-lab-data")
+			dataScope = labScope.createChild()
 			values = {}
 			toggles = {}
 			rowsSignal:set(items)
@@ -1141,8 +1179,8 @@ return {
 			return timed("scrollSteady", function()
 				local frames = tonumber(payload or "") or 60
 				local m = requireList()
-				local pitch = itemExtent:get() + rows.ROW_GAP
-				local extent = math.max(0, #rowsSignal:get() * pitch - viewportH())
+				local pitch = itemExtent:peek() + rows.ROW_GAP
+				local extent = math.max(0, #rowsSignal:peek() * pitch - viewportH())
 				-- 40px/frame at 60Hz is ~2 400px/s: a brisk flick, and about 0.7 of a
 				-- row per frame at this pitch
 				local rate = 40
@@ -1174,7 +1212,7 @@ return {
 					frameWaitExcluded = true,
 					mountedRows = mountedRowCount(),
 					windowBound = windowBound(),
-					logicalRows = #rowsSignal:get(),
+					logicalRows = #rowsSignal:peek(),
 					implementation = m.kind,
 					drive = "programmatic-steady",
 				}
@@ -1189,8 +1227,8 @@ return {
 			return timed("scrollSeek", function()
 				local steps = tonumber(payload or "") or 60
 				local m = requireList()
-				local pitch = itemExtent:get() + rows.ROW_GAP
-				local extent = math.max(0, #rowsSignal:get() * pitch - viewportH())
+				local pitch = itemExtent:peek() + rows.ROW_GAP
+				local extent = math.max(0, #rowsSignal:peek() * pitch - viewportH())
 				local worstWrite, worstRefresh, worstTotal = 0, 0, 0
 				for i = 1, steps do
 					local y = (i / steps) * extent
@@ -1226,7 +1264,7 @@ return {
 					frameWaitExcluded = true,
 					mountedRows = mountedRowCount(),
 					windowBound = windowBound(),
-					logicalRows = #rowsSignal:get(),
+					logicalRows = #rowsSignal:peek(),
 					implementation = m.kind,
 					drive = "programmatic-seek",
 					note = "every step replaces the whole mounted window. Pointer-wheel and touch-pan rows are NATIVE "
@@ -1241,7 +1279,7 @@ return {
 		-- injected gesture and reports what the engine actually did.
 		passes.scrollObserve = function(payload: string?)
 			local m = requireList()
-			local before = if m.kind == "native" then m.native.canvasPosition() else m.list.scrollTop:get()
+			local before = if m.kind == "native" then m.native.canvasPosition() else m.list.scrollTop:peek()
 			return {
 				pass = "scrollObserve",
 				armedAt = clock(),
@@ -1262,7 +1300,7 @@ return {
 					"[perf lab] focus traversal is a Facet pass; the reference has no focus graph"
 				)
 				local list = m.list
-				local all = rowsSignal:get()
+				local all = rowsSignal:peek()
 				-- SAME FRAME RULE AS `scrollTo`. `focusKey` issues the keep-visible
 				-- scroll write and answers `pathOf(key)` immediately, which is nil
 				-- while the row is still off-window — and on the live engine it is
@@ -1295,7 +1333,7 @@ return {
 			return timed("keepVisible", function()
 				local m = requireList()
 				assert(m.kind == "facet", "[perf lab] keep-visible is a Facet pass")
-				local all = rowsSignal:get()
+				local all = rowsSignal:peek()
 				local target = all[math.max(1, math.floor(#all * 0.75))]
 				m.list.focusKey(target.id)
 				telemetry.step()
@@ -1305,7 +1343,7 @@ return {
 				return {
 					key = target.id,
 					path = path,
-					scrollTop = m.list.scrollTop:get(),
+					scrollTop = m.list.scrollTop:peek(),
 					mountedRows = mountedRowCount(),
 				}
 			end)
@@ -1315,7 +1353,7 @@ return {
 			return timed("selectRow", function()
 				local count = tonumber(payload or "") or 20
 				local m = requireList()
-				local all = rowsSignal:get()
+				local all = rowsSignal:peek()
 				for i = 1, count do
 					local item = all[((i - 1) * 13) % #all + 1]
 					if m.kind == "native" then
@@ -1427,61 +1465,56 @@ return {
 				for i = 1, MOTION_FLIGHT_ROWS do
 					initial[i] = i
 				end
-				local order = core:signal(initial)
-				local tall = core:signal(false)
+				local order = Compose.cell(initial)
+				local tall = Compose.cell(false)
 				-- the AUTHORED PAINT triple, one signal so arm D moves all
 				-- three on every row at once and its record count matches B's and C's
-				local lit = core:signal(false)
-				local rowOpacity = core:memo(function(use: any)
+				local lit = Compose.cell(false)
+				local rowOpacity = Compose.formula(function(use: any)
 					return if use(lit) then 0.4 else 1
 				end)
-				local rowScale = core:memo(function(use: any)
+				local rowScale = Compose.formula(function(use: any)
 					return if use(lit) then 0.9 else 1
 				end)
-				local rowRotation = core:memo(function(use: any)
+				local rowRotation = Compose.formula(function(use: any)
 					return if use(lit) then 6 else 0
 				end)
 				-- ONE height memo shared by every row, so arm C resizes all N at once
 				-- and its record count matches arm B's rather than being a smaller
 				-- experiment wearing the same axis
-				local rowDim = core:memo(function(use: any)
+				local rowDim = Compose.formula(function(use: any)
 					return { type = "fixed", px = if use(tall) then 44 else 28 }
 				end)
-				local U = Facet.UI
-				local handle = ctx.presenter.present(U.Screen({
-					id = "MotionFlight",
+				local U = ctx.UI
+				local handle = ctx.presenter.present(U.Screen("MotionFlight")(with({
 					padding = "s",
 					gap = "xs",
-					children = {
-						U.ForEach({
-							id = "Flight",
-							items = order,
-							key = function(item: any): string
-								return `r{item}`
-							end,
-							row = function(item: any)
-								-- A ZStack RATHER THAN A VStack, and the change is the
-								-- measurement: an authored `opacity` is a fade-group
-								-- declaration, so every row here is a real `CanvasGroup`
-								-- with its own render buffer. That is the cost the paint
-								-- arm exists to price, and hiding it behind a wrapper
-								-- would have measured a cheaper thing than the one an
-								-- author gets. Arms B and C were re-baselined by it on
-								-- 2026-08-14; a one-child ZStack arranges like a one-child
-								-- VStack, and A/A' brackets the whole run either way.
-								return U.ZStack({
-									id = "Row",
-									padding = 0,
-									height = rowDim,
-									opacity = rowOpacity,
-									scale = rowScale,
-									rotation = rowRotation,
-									children = { U.Text({ id = "L", text = `row {item}`, textSize = "caption" }) },
-								})
-							end,
-						}),
-					},
-				}))
+				}, {
+					U.ForEach("Flight")({
+						items = order,
+						key = function(item: any): string
+							return `r{item}`
+						end,
+						row = function(item: any)
+							-- A ZStack RATHER THAN A VStack, and the change is the
+							-- measurement: an authored `opacity` is a fade-group
+							-- declaration, so every row here is a real `CanvasGroup`
+							-- with its own render buffer. That is the cost the paint
+							-- arm exists to price, and hiding it behind a wrapper
+							-- would have measured a cheaper thing than the one an
+							-- author gets. Arms B and C were re-baselined by it on
+							-- 2026-08-14; a one-child ZStack arranges like a one-child
+							-- VStack, and A/A' brackets the whole run either way.
+							return U.ZStack("Row")(with({
+								padding = 0,
+								height = rowDim,
+								opacity = rowOpacity,
+								scale = rowScale,
+								rotation = rowRotation,
+							}, { U.Text("L")({ text = `row {item}`, textSize = "caption" }) }))
+						end,
+					}),
+				})))
 
 				local function sampleIdle(n: number): { number }
 					local out = table.create(n)
@@ -1533,30 +1566,25 @@ return {
 					feature it never used — and that is what a delta at or below the
 					spread says. ]]
 				local function samplePlainIdle(n: number): { number }
-					local plainOrder = core:signal(initial)
-					local plain = ctx.presenter.present(U.Screen({
-						id = "MotionFlightPlain",
+					local plainOrder = Compose.cell(initial)
+					local plain = ctx.presenter.present(U.Screen("MotionFlightPlain")(with({
 						padding = "s",
 						gap = "xs",
-						children = {
-							U.ForEach({
-								id = "Flight",
-								items = plainOrder,
-								key = function(item: any): string
-									return `r{item}`
-								end,
-								row = function(item: any)
-									return U.VStack({
-										id = "Row",
-										padding = 0,
-										gap = 0,
-										height = { type = "fixed", px = 28 },
-										children = { U.Text({ id = "L", text = `row {item}`, textSize = "caption" }) },
-									})
-								end,
-							}),
-						},
-					}))
+					}, {
+						U.ForEach("Flight")({
+							items = plainOrder,
+							key = function(item: any): string
+								return `r{item}`
+							end,
+							row = function(item: any)
+								return U.VStack("Row")(with({
+									padding = 0,
+									gap = 0,
+									height = { type = "fixed", px = 28 },
+								}, { U.Text("L")({ text = `row {item}`, textSize = "caption" }) }))
+							end,
+						}),
+					})))
 					local out = table.create(n)
 					for i = 1, n do
 						local t0 = clock()
@@ -1660,7 +1688,7 @@ return {
 		passes.sensoryCascade = function(payload: string?)
 			return timed("sensoryCascade", function()
 				local presses = math.clamp(math.floor(tonumber(payload or "") or 60), 5, 400)
-				local U = Facet.UI
+				local U = ctx.UI
 
 				-- one arm: `decorate` decides where (if anywhere) the declaration goes
 				local function arm(decorate: string): any
@@ -1671,15 +1699,13 @@ return {
 							then U.sensoryFeedback(button, { activation = "commit" })
 							else button
 					end
-					local page = U.ScrollView({
-						id = "Page",
+					local page = U.ScrollView("Page")(with({
 						axis = "y",
 						gap = 2,
 						width = U.fill(),
 						height = U.fill(),
-						children = children,
-					})
-					local screen = U.Screen({ id = "SensoryCascade", padding = "s", children = { page } })
+					}, children))
+					local screen = U.Screen("SensoryCascade")(with({ padding = "s" }, { page }))
 					if decorate == "root" then
 						screen = U.sensoryFeedback(screen, { activation = "commit" })
 					end
@@ -1841,7 +1867,7 @@ return {
 			it is a separate module (the 200,000-char live-sync cap) and for what each
 			arm isolates. ]]
 		leversLib.install({
-			Facet = Facet,
+			Facet = labUICtx,
 			core = core,
 			ctx = ctx,
 			labScope = labScope,
@@ -1858,7 +1884,7 @@ return {
 		})
 
 		lab.navigationInventory.install({
-			Facet = Facet,
+			Facet = labUICtx,
 			core = core,
 			ctx = ctx,
 			dataset = dataset,
@@ -1870,7 +1896,7 @@ return {
 		})
 
 		lab.transientSurfaces.install({
-			Facet = Facet,
+			Facet = labUICtx,
 			core = core,
 			ctx = ctx,
 			telemetry = telemetry,
@@ -1883,7 +1909,7 @@ return {
 		passes.extentArms = function(payload: string?)
 			return timed("extentArms", function()
 				local frames, EDITS = framesAndReps(payload, 60, 24)
-				local U = Facet.UI
+				local U = ctx.UI
 
 				--[[ ONE ARM. `mode` picks the arithmetic and the raggedness; everything
 					else — the item count, the cell class, the viewport, the overscan,
@@ -1912,54 +1938,57 @@ return {
 					-- `Profile 1`, so an un-owned signal per arm is a leak the soak row
 					-- would eventually report as a framework trend — the exact shape
 					-- `dataScope` was added for after a reset left 488 live signals.
-					local armScope = labScope:child(`extent-arm-{mode}`)
-					local armRows = armScope:own(core:signal(base))
+					local armScope = labScope.createChild()
+					local armRows = Compose.cell(base)
 					local function linesOf(item: any): number
 						return if ragged then extentLines(item.rank) else 1
 					end
-					local list = Facet.Controls.VirtualList(core, {
-						id = "ExtentRows",
-						rows = armRows,
-						key = function(item: any)
-							return item.id
-						end,
-						-- THE ONLY LINE THAT DIFFERS BETWEEN THE ARMS
-						itemExtent = if measured
-							then "measured"
-							elseif variable then function(item: any)
-								return extentFor(linesOf(item))
-							end
-							else EXTENT_UNIFORM_PX,
-						-- ...and the one field only arm D takes. The estimate is the
-						-- SHORTEST row on purpose: it is the pessimal seed (every row it is
-						-- wrong about is wrong in the direction that needs correcting), so
-						-- this arm pays the maximum convergence work rather than a flattering
-						-- amount of it.
-						estimatedItemExtent = if measured then EXTENT_UNIFORM_PX else nil,
-						rowGap = 0,
-						viewportExtent = listHeight,
-						overscan = rows.OVERSCAN,
-						cell = function(item: any)
-							local n = linesOf(item)
-							local children = table.create(n)
-							for i = 1, n do
-								children[i] = U.Text({
-									id = `L{i}`,
-									text = if i == 1 then item.name else item.detail,
-									textSize = "caption",
-									lineLimit = 1,
-									height = { type = "fixed", px = EXTENT_LINE_H },
-								})
-							end
-							return U.VStack({
-								id = "Row",
-								padding = EXTENT_PAD,
-								gap = EXTENT_GAP,
-								width = U.fill(),
-								children = children,
-							})
-						end,
-					})
+					local list: any = nil
+					local listNode = Compose.withOwner(armScope, function()
+						return U.VirtualList({
+							id = "ExtentRows",
+							rows = armRows,
+							key = function(item: any)
+								return item.id
+							end,
+							-- THE ONLY LINE THAT DIFFERS BETWEEN THE ARMS
+							itemExtent = if measured
+								then "measured"
+								elseif variable then function(item: any)
+									return extentFor(linesOf(item))
+								end
+								else EXTENT_UNIFORM_PX,
+							-- ...and the one field only arm D takes. The estimate is the
+							-- SHORTEST row on purpose: it is the pessimal seed (every row it is
+							-- wrong about is wrong in the direction that needs correcting), so
+							-- this arm pays the maximum convergence work rather than a flattering
+							-- amount of it.
+							estimatedItemExtent = if measured then EXTENT_UNIFORM_PX else nil,
+							rowGap = 0,
+							viewportExtent = listHeight,
+							overscan = rows.OVERSCAN,
+							cell = function(item: any)
+								local n = linesOf(item)
+								local children = table.create(n)
+								for i = 1, n do
+									children[i] = U.Text(`L{i}`)({
+										text = if i == 1 then item.name else item.detail,
+										textSize = "caption",
+										lineLimit = 1,
+										height = { type = "fixed", px = EXTENT_LINE_H },
+									})
+								end
+								return U.VStack("Row")(with({
+									padding = EXTENT_PAD,
+									gap = EXTENT_GAP,
+									width = U.fill(),
+								}, children))
+							end,
+							ref = function(record: any)
+								list = record.api
+							end,
+						})
+					end)
 					--[[ THE PRESENT OPTIONS COME FROM THE SELECTORS, exactly as
 						`buildFacet` takes them. A self-mounting pass that presents
 						with no options silently ignores `select:recycle=off` and
@@ -1969,12 +1998,10 @@ return {
 						-32% on a flat scroll (L-27), so this is not a small thing to
 						leave un-selectable. ]]
 					local handle = ctx.presenter.present(
-						U.Screen({
-							id = "ExtentArm",
+						U.Screen("ExtentArm")(with({
 							padding = 0,
 							gap = 0,
-							children = { list.blueprint },
-						}),
+						}, { listNode })),
 						{
 							recycleInstances = settings.recycle == true,
 							incrementalLayout = settings.incremental == true,
@@ -1993,7 +2020,6 @@ return {
 							unbind()
 						end
 						ctx.presenter.dismiss(handle)
-						list.dispose()
 						armScope:dispose()
 					end
 
@@ -2026,7 +2052,7 @@ return {
 						-- cache hits and this is the O(N) extent walk alone.
 						local sameCount = {}
 						for i = 1, EDITS do
-							local next_ = table.clone(armRows:get() :: { any })
+							local next_ = table.clone(armRows:peek() :: { any })
 							local at = ((i - 1) * 97) % #next_ + 1
 							local row = table.clone(next_[at])
 							row.value = (row.value + 0.01) % 1
@@ -2043,7 +2069,7 @@ return {
 						local grow = {}
 						local arrangeBeforeGrow = scopeCount("arrange")
 						for i = 1, EDITS do
-							local next_ = table.clone(armRows:get() :: { any })
+							local next_ = table.clone(armRows:peek() :: { any })
 							local added = table.clone(next_[1])
 							added.id = `grow{i}`
 							added.rank = #next_ + 1
@@ -2092,7 +2118,7 @@ return {
 									w <= bound,
 									`[perf lab] extent arm '{mode}' is NOT bounded at scroll frame {i}: {w} rows `
 										.. `mounted for a {viewportH()}px viewport (bound {bound}, logical `
-										.. `{#(armRows:get() :: { any })})`
+										.. `{#(armRows:peek() :: { any })})`
 								)
 							end
 						end
@@ -2210,118 +2236,127 @@ return {
 		passes.tableUnified = function(payload: string?)
 			return timed("tableUnified", function()
 				local frames, reps = framesAndReps(payload, 60, 12)
-				local U = Facet.UI
+				local U = ctx.UI
 				local base = dataset.build({ count = TABLE_ROWS, seed = settings.seed, content = "normal" })
 				-- owned, for the reason `extentArms` records: this pass loops under
 				-- `Profile 1`, so one un-owned signal per lap is an unbounded trend
-				local passScope = labScope:child("table-unified")
-				local tableRows = passScope:own(core:signal(base))
+				local passScope = labScope.createChild()
+				local tableRows = Compose.cell(base)
 				local function keyOf(rank: number): string
 					return `r{rank}`
 				end
 
-				local tbl = Facet.Controls.Table(core, {
-					id = "UnifiedRows",
-					rows = tableRows,
-					key = function(item: any)
-						return item.id
-					end,
-					-- HEADERLESS for the same reason `table_virtualized.luau` is: a
-					-- header band is a minMax FLOOR, and this lab runs at phone
-					-- viewports where that floor is most of the list.
-					header = false,
-					virtualized = true,
-					selection = "multi",
-					reorderable = true,
-					onReorder = function(keys: { string }, toIndex: number)
-						local moving: { [string]: boolean } = {}
-						for _, k in keys do
-							moving[k] = true
-						end
-						local carried, staying = {}, {}
-						for _, item in tableRows:get() :: { any } do
-							table.insert(if moving[item.id] then carried else staying, item)
-						end
-						local out = {}
-						for i = 1, toIndex do
-							table.insert(out, staying[i])
-						end
-						for _, item in carried do
-							table.insert(out, item)
-						end
-						for i = toIndex + 1, #staying do
-							table.insert(out, staying[i])
-						end
-						tableRows:set(out)
-					end,
-					-- NO rowHeight: the framework derives it per paradigm and per text
-					-- preference, which is exactly why a virtualized Table needs no
-					-- consumer-side extent prediction (docs/plans/variable-item-extents.md)
-					columns = {
-						{
-							id = "name",
-							title = "Entrant",
-							width = U.fill(4),
-							minWidth = 90,
-							disclose = true,
-							value = function(item: any)
-								return item.name
-							end,
+				-- `Table` is a composite control (docs/extending/new-control.md
+				-- step 3): the call returns only its blueprint, and its record
+				-- (`api`, `dump`) arrives through `ref`. Unlike VirtualList, Table's
+				-- own `dispose` is NOT re-exposed on that record — its teardown is
+				-- the ambient Compose owner's job — so the build runs under
+				-- `passScope`'s owner explicitly, and disposing `passScope` (below,
+				-- in `finish`) is what tears the Table down between arms.
+				local tblRecord: any = nil
+				local tblBlueprint = ctx.Compose.withOwner(passScope, function()
+					return U.Table({
+						id = "UnifiedRows",
+						rows = tableRows,
+						key = function(item: any)
+							return item.id
+						end,
+						-- HEADERLESS for the same reason `table_virtualized.luau` is: a
+						-- header band is a minMax FLOOR, and this lab runs at phone
+						-- viewports where that floor is most of the list.
+						header = false,
+						virtualized = true,
+						selection = "multi",
+						reorderable = true,
+						onReorder = function(keys: { string }, toIndex: number)
+							local moving: { [string]: boolean } = {}
+							for _, k in keys do
+								moving[k] = true
+							end
+							local carried, staying = {}, {}
+							for _, item in tableRows:peek() :: { any } do
+								table.insert(if moving[item.id] then carried else staying, item)
+							end
+							local out = {}
+							for i = 1, toIndex do
+								table.insert(out, staying[i])
+							end
+							for _, item in carried do
+								table.insert(out, item)
+							end
+							for i = toIndex + 1, #staying do
+								table.insert(out, staying[i])
+							end
+							tableRows:set(out)
+						end,
+						-- NO rowHeight: the framework derives it per paradigm and per text
+						-- preference, which is exactly why a virtualized Table needs no
+						-- consumer-side extent prediction (docs/plans/variable-item-extents.md)
+						columns = {
+							{
+								id = "name",
+								title = "Entrant",
+								width = U.fill(4),
+								minWidth = 90,
+								disclose = true,
+								value = function(item: any)
+									return item.name
+								end,
+							},
+							{
+								id = "team",
+								title = "Team",
+								width = U.fill(3),
+								minWidth = 70,
+								disclose = true,
+								value = function(item: any)
+									return item.team
+								end,
+							},
+							{
+								id = "rank",
+								title = "#",
+								width = U.fill(2),
+								minWidth = 40,
+								value = function(item: any)
+									return tostring(item.rank)
+								end,
+							},
 						},
-						{
-							id = "team",
-							title = "Team",
-							width = U.fill(3),
-							minWidth = 70,
-							disclose = true,
-							value = function(item: any)
-								return item.team
-							end,
-						},
-						{
-							id = "rank",
-							title = "#",
-							width = U.fill(2),
-							minWidth = 40,
-							value = function(item: any)
-								return tostring(item.rank)
-							end,
-						},
-					},
-					env = env,
-				})
+						env = env,
+						ref = function(record: any)
+							tblRecord = record
+						end,
+					})
+				end)
 
 				-- the selectors, for the reason `extentArms` records: a pass that
 				-- presents with no options makes `select:recycle=off` a no-op
 				local handle = ctx.presenter.present(
-					U.Screen({
-						id = "TableUnified",
+					U.Screen("TableUnified")(with({
 						padding = 0,
 						gap = 0,
-						children = {
-							U.ZStack({
-								id = "Pane",
-								width = U.fill(),
-								height = U.fill(),
-								children = { tbl.blueprint },
-							}),
-						},
-					}),
+					}, {
+						U.ZStack("Pane")(with({
+							width = U.fill(),
+							height = U.fill(),
+						}, { tblBlueprint })),
+					})),
 					{
 						recycleInstances = settings.recycle == true,
 						incrementalLayout = settings.incremental == true,
 					}
 				)
 				local unbind: any = nil
-				if tbl.api.bindNativeScroll ~= nil and handle.controller ~= nil then
-					local ok, result = pcall(tbl.api.bindNativeScroll, handle.controller)
+				if tblRecord.api.bindNativeScroll ~= nil and handle.controller ~= nil then
+					local ok, result = pcall(tblRecord.api.bindNativeScroll, handle.controller)
 					if ok then
 						unbind = result
 					end
 				end
 
 				local function windowNow(): number
-					local d = tbl.dump()
+					local d = tblRecord.dump()
 					return d.windowRows or -1
 				end
 				local function assertBounded(where: string)
@@ -2336,7 +2371,7 @@ return {
 					assert(
 						w >= 0 and w <= math.max(64, math.ceil(TABLE_ROWS / 10)),
 						`[perf lab] the virtualized Table is NOT bounded at {where}: {w} rows mounted of `
-							.. `{#(tableRows:get() :: { any })} logical`
+							.. `{#(tableRows:peek() :: { any })} logical`
 					)
 				end
 
@@ -2345,7 +2380,6 @@ return {
 						unbind()
 					end
 					ctx.presenter.dismiss(handle)
-					tbl.dispose()
 					passScope:dispose()
 				end
 
@@ -2417,9 +2451,9 @@ return {
 					local idleA = sampleIdle(20)
 
 					-- ---- steady scroll, through the engine's own canvas ----------
-					local d0 = tbl.dump()
+					local d0 = tblRecord.dump()
 					local extent = math.max(1, (d0.contentExtent or 0) - viewportH())
-					local scrollPath = tbl.api.scrollPath()
+					local scrollPath = tblRecord.api.scrollPath()
 					local y = 0
 					local steps = {}
 					for i = 1, frames do
@@ -2443,7 +2477,7 @@ return {
 					-- ---- the three verbs, each reaching an unmounted row ---------
 					local reveals = 0
 					local reveal = verb(reps, function(n)
-						if tbl.api.revealRow(keyOf(FAR_ROWS[(n - 1) % #FAR_ROWS + 1])) then
+						if tblRecord.api.revealRow(keyOf(FAR_ROWS[(n - 1) % #FAR_ROWS + 1])) then
 							reveals += 1
 						end
 					end)
@@ -2453,18 +2487,18 @@ return {
 						-- position — a range that happened to be mounted would be a
 						-- different, cheaper measurement
 						local shift = ((n - 1) % 5) * 100
-						tbl.api.select(keyOf(TABLE_RANGE_FROM + shift), { mode = "replace" })
-						tbl.api.select(keyOf(TABLE_RANGE_TO + shift), { mode = "range" })
+						tblRecord.api.select(keyOf(TABLE_RANGE_FROM + shift), { mode = "replace" })
+						tblRecord.api.select(keyOf(TABLE_RANGE_TO + shift), { mode = "range" })
 					end)
 					local selected = 0
-					for _, on in tbl.api.selectedKeys:get() do
+					for _, on in tblRecord.api.selectedKeys:peek() do
 						if on then
 							selected += 1
 						end
 					end
 					local moves = 0
 					local move = verb(reps, function(n)
-						if tbl.api.moveRow(keyOf(FAR_ROWS[(n - 1) % #FAR_ROWS + 1]), -1) then
+						if tblRecord.api.moveRow(keyOf(FAR_ROWS[(n - 1) % #FAR_ROWS + 1]), -1) then
 							moves += 1
 						end
 					end)
@@ -2486,7 +2520,7 @@ return {
 					)
 
 					local idleB = sampleIdle(20)
-					local final = tbl.dump()
+					local final = tblRecord.dump()
 					local a1, a2 = summarize(idleA), summarize(idleB)
 					return {
 						rows = TABLE_ROWS,
@@ -2524,7 +2558,7 @@ return {
 			return timed("updateOne", function()
 				local count = tonumber(payload or "") or 60
 				local m = requireList()
-				local all = rowsSignal:get()
+				local all = rowsSignal:peek()
 				local worst = 0
 				for i = 1, count do
 					local item = all[((i - 1) * 3) % #all + 1]
@@ -2556,12 +2590,12 @@ return {
 			return timed("updateBatch", function()
 				local batches = tonumber(payload or "") or 10
 				local m = requireList()
-				local all = rowsSignal:get()
+				local all = rowsSignal:peek()
 				for b = 1, batches do
 					if m.kind == "native" then
 						m.native.updateBatch(b)
 					else
-						core:transaction(function()
+						core.reactor:batch(function()
 							for i = 1, 40 do
 								local item = all[((b * 40 + i) % #all) + 1]
 								local sig = values[item.id]
@@ -2581,7 +2615,7 @@ return {
 			return timed("insert", function()
 				local n = tonumber(payload or "") or 25
 				for i = 1, n do
-					local list = table.clone(rowsSignal:get())
+					local list = table.clone(rowsSignal:peek())
 					local at = math.max(1, math.floor(#list * 0.25))
 					table.insert(list, at, {
 						id = `ins{i}-{at}`,
@@ -2597,7 +2631,7 @@ return {
 					ctx.presenter.refresh()
 				end
 				assertBoundedWindow("insert")
-				return { inserted = n, logicalRows = #rowsSignal:get(), mountedRows = mountedRowCount() }
+				return { inserted = n, logicalRows = #rowsSignal:peek(), mountedRows = mountedRowCount() }
 			end)
 		end
 
@@ -2605,7 +2639,7 @@ return {
 			return timed("remove", function()
 				local n = tonumber(payload or "") or 25
 				for _ = 1, n do
-					local list = table.clone(rowsSignal:get())
+					local list = table.clone(rowsSignal:peek())
 					if #list > 1 then
 						table.remove(list, math.max(1, math.floor(#list * 0.25)))
 						rowsSignal:set(list)
@@ -2613,7 +2647,7 @@ return {
 					end
 				end
 				assertBoundedWindow("remove")
-				return { removed = n, logicalRows = #rowsSignal:get(), mountedRows = mountedRowCount() }
+				return { removed = n, logicalRows = #rowsSignal:peek(), mountedRows = mountedRowCount() }
 			end)
 		end
 
@@ -2621,7 +2655,7 @@ return {
 			return timed("reorder", function()
 				local n = tonumber(payload or "") or 20
 				for i = 1, n do
-					local list = table.clone(rowsSignal:get())
+					local list = table.clone(rowsSignal:peek())
 					if #list > 4 then
 						local from = ((i * 7) % (#list - 1)) + 1
 						local item = table.remove(list, from)
@@ -2631,7 +2665,7 @@ return {
 					end
 				end
 				assertBoundedWindow("reorder")
-				return { moves = n, logicalRows = #rowsSignal:get(), mountedRows = mountedRowCount() }
+				return { moves = n, logicalRows = #rowsSignal:peek(), mountedRows = mountedRowCount() }
 			end)
 		end
 
@@ -2676,7 +2710,7 @@ return {
 			return timed("resizeStorm", function()
 				local steps = math.clamp(math.floor(tonumber(payload or "") or 40), 1, 400)
 				local m = requireList()
-				local original = env:get("viewportRect"):get()
+				local original = env:get("viewportRect"):peek()
 				local baseW = if type(original) == "table" then original.w else 360
 				local baseH = if type(original) == "table" then original.h else 640
 				local stats = if m.kind == "facet"
@@ -2874,7 +2908,7 @@ return {
 
 		passes.resize = function()
 			return timed("resize", function()
-				local original = env:get("viewportRect"):get()
+				local original = env:get("viewportRect"):peek()
 				local shapes = {
 					{ x = 0, y = 0, w = 390, h = 844 },
 					{ x = 0, y = 0, w = 844, h = 390 },
@@ -3101,7 +3135,7 @@ return {
 		passes.imagesReuse = function(payload: string?)
 			return timed("imagesReuse", function()
 				local cycles = tonumber(payload or "") or 8
-				local pitch = itemExtent:get() + rows.ROW_GAP
+				local pitch = itemExtent:peek() + rows.ROW_GAP
 				for i = 1, cycles do
 					scrollTo(((i % 2) == 0 and 0 or 40) * pitch)
 					ctx.presenter.refresh()
@@ -3138,7 +3172,7 @@ return {
 					findings = #findings,
 					movingSurfaceFindings = moving,
 					maxAllowedMovingLabels = 1,
-					reducedMotion = env:get("reducedMotion") and env:get("reducedMotion"):get() or nil,
+					reducedMotion = env:get("reducedMotion") and env:get("reducedMotion"):peek() or nil,
 					note = "the audit's own moving-text rule caps ACTIVE moving surfaces at one; a finding here means "
 						.. "the cap was exceeded, which is the proliferation this row exists to bound",
 				}
@@ -3212,7 +3246,7 @@ return {
 						guiObjects = telemetry.instances().guiObjects,
 						connections = telemetry.connections(),
 						luaHeapKb = telemetry.memory().luaHeapKb,
-						coreCounters = core:counters(),
+						coreCounters = core.owner.size(),
 					})
 				end
 				return {
@@ -3342,11 +3376,11 @@ return {
 			return {
 				mountedRows = mountedRowCount(),
 				windowBound = windowBound(),
-				logicalRows = #rowsSignal:get(),
+				logicalRows = #rowsSignal:peek(),
 				instances = telemetry.instances(),
 				connections = telemetry.connections(),
 				memory = telemetry.memory(),
-				core = core:counters(),
+				core = core.owner.size(),
 				profiler = profile.counters(),
 				provider = provider.counters and provider.counters() or nil,
 				render = renderStats(),
@@ -3363,7 +3397,7 @@ return {
 			local lines = {
 				`impl={settings.implementation} rows={settings.rows} seed={settings.seed} content={settings.content}`,
 				`theme={settings.theme} resources={settings.resourceState} clean={tostring(settings.cleanCapture)}`,
-				`mountedRows={mountedRowCount()}/{windowBound()} logical={#rowsSignal:get()}`,
+				`mountedRows={mountedRowCount()}/{windowBound()} logical={#rowsSignal:peek()}`,
 				`guiObjects={tostring(instances.guiObjects)} screenGuis={tostring(instances.screenGuis)}`,
 				`scopes opens={scopes.opens} balanced={tostring(scopes.balanced)} engine={tostring(scopes.engine)}`,
 				`passes={#passLog} ramp={rampIndex} stopped={tostring(emergencyStopped)}`,
@@ -3377,13 +3411,13 @@ return {
 		end
 
 		local overlayModel = {
-			buildLine = core:memo(function()
+			buildLine = Compose.formula(function()
 				return `Facet {Facet.VERSION} · {SCENARIO_VERSION} · {dataset.VERSION} · {rows.VERSION}`
 			end),
-			scenarioLine = core:memo(function(use)
+			scenarioLine = Compose.formula(function(use)
 				return `scenario: {use(currentScenario)}`
 			end),
-			deviceLine = core:memo(function(use)
+			deviceLine = Compose.formula(function(use)
 				local vp = use(env:get("viewportRect"))
 				local input = use(env:get("preferredInput"))
 				return `viewport {math.floor(vp.w)}x{math.floor(vp.h)} · input {tostring(input)}`
@@ -3402,7 +3436,7 @@ return {
 			onSelectScenario = function(_name: string) end,
 			onCycleScenario = function(_delta: number) end,
 			onRunAll = function() end,
-			scenarioPosition = core:memo(function(use)
+			scenarioPosition = Compose.formula(function(use)
 				local name = use(currentScenario)
 				for i, id in WORKLOAD_ORDER do
 					if id == name then
@@ -3456,7 +3490,7 @@ return {
 		local function reserveBottom(px: number)
 			local want = math.max(0, math.floor(px))
 			reservedBottom = want
-			local live = env:get("coreSafeInsets"):get()
+			local live = env:get("coreSafeInsets"):peek()
 			local other = if type(live) == "table" then live else {}
 			if (other.bottom or 0) == want then
 				return
@@ -3511,8 +3545,8 @@ return {
 		local function forgetReservation()
 			reserveBottom(0)
 		end
-		labScope:own(core:observe(env:get("viewportRect"), forgetReservation))
-		labScope:own(core:observe(env:get("typographyScale"), forgetReservation))
+		observeChange(labScope, env:get("viewportRect"), forgetReservation)
+		observeChange(labScope, env:get("typographyScale"), forgetReservation)
 
 		local function overlayOpts(): any
 			return {
@@ -3539,8 +3573,8 @@ return {
 				-- is built once. So it is read here, at build time, and `applyThemeByName`
 				-- drops the cached blueprint when the answer changes — which on a flat
 				-- package it never does, because a flat package charges nothing.
-				overlayModel.splitAction = rows.themeInset(env:get("themeMetrics"):get()).x > 0
-				overlayBlueprint = overlayLib.build(Facet, core, overlayModel)
+				overlayModel.splitAction = rows.themeInset(env:get("themeMetrics"):peek()).x > 0
+				overlayBlueprint = overlayLib.build(labUICtx, overlayModel)
 			end
 			return overlayBlueprint
 		end
@@ -3579,7 +3613,7 @@ return {
 		-- assigned to the forward declaration above `applyThemeByName`, which is defined
 		-- earlier in this function and cannot close over a later local
 		rebuildOverlayForTheme = function()
-			local want = rows.themeInset(env:get("themeMetrics"):get()).x > 0
+			local want = rows.themeInset(env:get("themeMetrics"):peek()).x > 0
 			if overlayBlueprint == nil or overlayModel.splitAction == want then
 				return
 			end
@@ -3705,7 +3739,7 @@ return {
 			return {
 				applied = applied,
 				settings = table.clone(settings),
-				datasetDigest = dataset.digest(rowsSignal:get()),
+				datasetDigest = dataset.digest(rowsSignal:peek()),
 				workload = WORKLOAD_BY_ID[settings.scenario],
 			}
 		end
@@ -3956,7 +3990,7 @@ return {
 				guiObjects = telemetry.instances().guiObjects,
 				connections = telemetry.connections(),
 				luaHeapKb = telemetry.memory().luaHeapKb,
-				core = core:counters(),
+				core = core.owner.size(),
 			}
 			unmount()
 			settings.implementation = "none"
@@ -3976,7 +4010,7 @@ return {
 				guiObjects = telemetry.instances().guiObjects,
 				connections = telemetry.connections(),
 				luaHeapKb = telemetry.memory().luaHeapKb,
-				core = core:counters(),
+				core = core.owner.size(),
 			}
 			refreshCounters()
 			statusLine:set("idle")
@@ -4031,7 +4065,7 @@ return {
 				seed = settings.seed,
 				content = settings.content,
 				theme = settings.theme,
-				datasetDigest = dataset.digest(rowsSignal:get()),
+				datasetDigest = dataset.digest(rowsSignal:peek()),
 				resourceState = settings.resourceState,
 				-- conditions. NOT defaulted: a fact the host did not supply must arrive
 				-- here as nil so `capture.problems` refuses the row. Substituting
@@ -4311,7 +4345,7 @@ return {
 					w.implementation or "facet"
 				)}' `
 					.. `rows={settings.rows} theme='{tostring(settings.theme)}' viewport={(function()
-						local v = env:get("viewportRect"):get()
+						local v = env:get("viewportRect"):peek()
 						return `{math.floor(v.w)}x{math.floor(v.h)}`
 					end)()}`
 			)
@@ -4589,7 +4623,7 @@ return {
 			end)
 		end
 		overlayModel.onCycleScenario = function(delta: number)
-			local current = currentScenario:get()
+			local current = currentScenario:peek()
 			local index = 1
 			for i, id in WORKLOAD_ORDER do
 				if id == current then
@@ -4607,11 +4641,20 @@ return {
 				return
 			end
 			local impl = settings.implementation
-			unmount()
-			settings.implementation = impl
-			mount()
+			-- Fires from `a change listener`'s legacy reactive flush, which a caller
+			-- outside `built.steps.*` (a direct `env:set` + `presenter.refresh()`
+			-- from a test body, or a real device rotation) reaches with no
+			-- ambient Compose owner active — unlike Studio's own dispatch, which
+			-- re-enters the scenario's owner for every callback. `labScope`
+			-- is that same owner (created once, in `build`), so re-entering it
+			-- here mirrors what the framework's dispatch already does.
+			ctx.Compose.withOwner(labScope, function()
+				unmount()
+				settings.implementation = impl
+				mount()
+			end)
 		end
-		labScope:own(core:observe(isCompact, function()
+		observeChange(labScope, isCompact, function()
 			local ok, err = pcall(remountForArrangement)
 			if not ok then
 				-- A REMOUNT THAT FAILS SILENTLY IS WORSE THAN THE DEFECT. The observer
@@ -4623,7 +4666,7 @@ return {
 			else
 				lastRemountError = nil
 			end
-		end))
+		end)
 
 		if ctx.bindResourceTransport ~= nil then
 			local ok, unbind = pcall(ctx.bindResourceTransport, provider)
@@ -4664,10 +4707,10 @@ return {
 					return overlayModel.onSelectScenario(name)
 				end,
 				currentScenario = function(): string
-					return currentScenario:get()
+					return currentScenario:peek()
 				end,
 				scenarioPosition = function(): string
-					return overlayModel.scenarioPosition:get()
+					return overlayModel.scenarioPosition:peek()
 				end,
 				-- THE ARM SELECTOR, for the same reason the cycler is here: an arm
 				-- comparison needs one dump per arm, the operator is holding a phone,
@@ -4682,7 +4725,7 @@ return {
 					return selectedArmPayload()
 				end,
 				status = function(): string
-					return statusLine:get()
+					return statusLine:peek()
 				end,
 				-- THE COUNTER SET THE OVERLAY RENDERS, refreshed and handed back. It is
 				-- here for the same reason as everything else in this table: the panel
@@ -4690,7 +4733,7 @@ return {
 				-- a person can read is a number only a person can catch when it lies.
 				counterLines = function(): { string }
 					refreshCounters()
-					return counterLines:get()
+					return counterLines:peek()
 				end,
 			},
 			report = function()
@@ -4699,12 +4742,12 @@ return {
 					scenarioVersion = SCENARIO_VERSION,
 					datasetVersion = dataset.VERSION,
 					rowVersion = rows.VERSION,
-					datasetDigest = dataset.digest(rowsSignal:get()),
+					datasetDigest = dataset.digest(rowsSignal:peek()),
 					workloads = WORKLOAD_ORDER,
 					mountedImplementation = if mounted ~= nil then mounted.kind else "none",
 					mountedRows = mountedRowCount(),
 					windowBound = windowBound(),
-					logicalRows = #rowsSignal:get(),
+					logicalRows = #rowsSignal:peek(),
 					overlayMounted = overlayHandle ~= nil,
 					emergencyStopped = emergencyStopped,
 					passes = passLog,

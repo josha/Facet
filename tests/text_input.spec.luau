@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- TextInput control tests (composite over UI.* primitives; the first Phase-5
 -- expansion). The control is a ZStack of a new TextField leaf primitive (the
 -- headless seam the engine maps to a TextBox) plus an optional trailing clear
@@ -19,9 +20,11 @@ local serde = require("@lune/serde")
 local Facet = require("../src") :: any
 local text_input = require("../src/controls/text_input")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 local FIELD = "/S/Name/Field"
-local CLEAR = "/S/Name/ClearWhen/then/Clear"
+local CLEAR = "/S/Name/Clear"
 
 -- headless world: mount the control under a Screen and present it, wiring the
 -- presenter's Activate to the control's router and the two occlusion seams
@@ -31,7 +34,7 @@ local CLEAR = "/S/Name/ClearWhen/then/Clear"
 -- direct callback).
 local function world(opts: any?)
 	local options = opts or {}
-	local core = options.core or Facet.newCore()
+	local core = options.core or harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if options.reducedMotion == true then
@@ -41,11 +44,11 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
 	local changes: { string } = {}
 	local commits: { { text: string, reason: string } } = {}
-	local value = options.value or core:signal(options.initial or "")
+	local value = options.value or Compose.cell(options.initial or "")
 
 	local spec: any = {
 		id = "Name",
@@ -74,7 +77,7 @@ local function world(opts: any?)
 	}
 	local control = text_input.build(Facet, core, spec)
 
-	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { control.blueprint } })
 	local handle = pres.present(screen, {
 		sinkNavigation = true,
 		onActivate = function(path, meta)
@@ -105,7 +108,7 @@ describe("TextInput: build + render (TextField primitive wired headless)", funct
 		local w = world({ placeholder = "Your name" })
 		expect(w.control.blueprint ~= nil).toBe(true)
 		expect(w.adapter.node(FIELD) ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the field shows the owner value as its text binding and the placeholder as data", function()
@@ -115,15 +118,15 @@ describe("TextInput: build + render (TextField primitive wired headless)", funct
 	end)
 
 	it("a bare TextField primitive mounts and renders text/placeholder through the renderer", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		local adapter = fake_target.new({ ops = true })
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
-				children = { Facet.UI.TextField({ id = "F", text = "hi", placeholder = "type", maxLength = 10 }) },
+				children = { harness.UI.TextField({ id = "F", text = "hi", placeholder = "type", maxLength = 10 }) },
 			})
 		)
 		local controller = Facet.renderer.attach(core, root, env, adapter, {})
@@ -148,23 +151,23 @@ describe("TextInput: build + render (TextField primitive wired headless)", funct
 		local w = world({ env = false, initial = "" })
 		expect(w.adapter.node(FIELD) ~= nil).toBe(true)
 		w.adapter.tap(FIELD)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "abc")
-		expect(w.value:get()).toBe("abc")
+		expect(w.value:peek()).toBe("abc")
 		w.adapter.commitText(FIELD)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		expect(w.commits[1].text).toBe("abc")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
 describe("TextInput: pointer (tap to edit, type, commit)", function()
 	it("tapping the field enters editing (the control-owned handshake)", function()
 		local w = world({ initial = "" })
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		w.adapter.tap(FIELD)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- the engine adapter learns to CaptureFocus from the editing binding,
 		-- flushed on the next presenter refresh (the client refreshes per frame)
 		w.pres.refresh()
@@ -176,7 +179,7 @@ describe("TextInput: pointer (tap to edit, type, commit)", function()
 		w.adapter.tap(FIELD)
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "abc")
-		expect(w.value:get()).toBe("abc")
+		expect(w.value:peek()).toBe("abc")
 		expect(#w.changes).toBe(3)
 		expect(w.changes[1]).toBe("a")
 		expect(w.changes[3]).toBe("abc")
@@ -193,7 +196,7 @@ describe("TextInput: pointer (tap to edit, type, commit)", function()
 		expect(#w.commits).toBe(1)
 		expect(w.commits[1].text).toBe("hi")
 		expect(w.commits[1].reason).toBe("enter")
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		expect(w.adapter.node(FIELD).props.editing).toBe(false)
 	end)
 
@@ -220,7 +223,7 @@ describe("TextInput: keyboard (Activate enters, sink blocks navigation, Enter co
 		nav.bind({ keyCode = "DPadDown", direction = 1 })
 		local fired = { n = 0 }
 		nav.onReleased(function() end)
-		w.core:observe(nav.state, function(dir)
+		observeChange(w.core.owner, nav.state, function(dir)
 			if dir == 1 then
 				fired.n += 1
 			end
@@ -230,10 +233,10 @@ describe("TextInput: keyboard (Activate enters, sink blocks navigation, Enter co
 
 	it("focused field + Activate (Return) enters editing", function()
 		local w = world({ initial = "" })
-		expect(w.pres.focus.focused:get()).toBe(FIELD)
+		expect(w.pres.focus.focused:peek()).toBe(FIELD)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 	end)
 
 	it("while editing, navigation keys are sunk: a lower Navigate probe never fires and focus stays", function()
@@ -246,12 +249,12 @@ describe("TextInput: keyboard (Activate enters, sink blocks navigation, Enter co
 		-- enter editing
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- now DPadDown is swallowed by the edit context's sink
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		expect(fired.n).toBe(1) -- unchanged: never fired while editing
-		expect(w.pres.focus.focused:get()).toBe(FIELD) -- focus did not move
+		expect(w.pres.focus.focused:peek()).toBe(FIELD) -- focus did not move
 	end)
 
 	it("Enter commits, editing ends, and navigation works again (probe fires post-edit)", function()
@@ -262,7 +265,7 @@ describe("TextInput: keyboard (Activate enters, sink blocks navigation, Enter co
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "hi")
 		w.adapter.commitText(FIELD)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		expect(w.commits[1].reason).toBe("enter")
 		-- navigation resumes
 		w.system.deviceKey("DPadDown", true)
@@ -274,11 +277,11 @@ describe("TextInput: keyboard (Activate enters, sink blocks navigation, Enter co
 		local w = world({ initial = "" })
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- second Activate must not commit, must not change value, stays editing
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		expect(#w.commits).toBe(0)
 		expect(#w.changes).toBe(0)
 	end)
@@ -287,22 +290,22 @@ end)
 describe("TextInput: gamepad (D-pad focus, A enters, D-pad sunk, B cancels-revert, A re-enters)", function()
 	it("ButtonA enters editing; D-pad does not navigate; ButtonB cancels reverting to the snapshot", function()
 		local w = world({ initial = "seed" })
-		expect(w.pres.focus.focused:get()).toBe(FIELD)
+		expect(w.pres.focus.focused:peek()).toBe(FIELD)
 		-- A enters edit
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- edit the value
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "X")
-		expect(w.value:get()).toBe("seedX")
+		expect(w.value:peek()).toBe("seedX")
 		expect(#w.changes).toBe(1)
 		-- ButtonB cancels: revert to the pre-edit snapshot, end editing, focus stays
 		w.system.deviceKey("ButtonB", true)
 		w.system.deviceKey("ButtonB", false)
-		expect(w.value:get()).toBe("seed") -- reverted
-		expect(w.control.api.editing:get()).toBe(false)
-		expect(w.pres.focus.focused:get()).toBe(FIELD) -- focus unchanged
+		expect(w.value:peek()).toBe("seed") -- reverted
+		expect(w.control.api.editing:peek()).toBe(false)
+		expect(w.pres.focus.focused:peek()).toBe(FIELD) -- focus unchanged
 		-- cancel fires NEITHER onCommit NOR an onChange for the revert
 		expect(#w.commits).toBe(0)
 		expect(#w.changes).toBe(1) -- still just the one edit, none for the revert
@@ -314,10 +317,10 @@ describe("TextInput: gamepad (D-pad focus, A enters, D-pad sunk, B cancels-rever
 		w.system.deviceKey("ButtonA", false)
 		w.system.deviceKey("ButtonB", true)
 		w.system.deviceKey("ButtonB", false)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 	end)
 end)
 
@@ -339,9 +342,9 @@ describe("TextInput: value model (onChange live, onCommit modes coexist, maxLeng
 		w.adapter.tap(FIELD)
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "hello") -- exactly at the limit
-		expect(w.value:get()).toBe("hello")
+		expect(w.value:peek()).toBe("hello")
 		w.adapter.typeText(FIELD, "world") -- would exceed: each char clamped away
-		expect(w.value:get()).toBe("hello")
+		expect(w.value:peek()).toBe("hello")
 	end)
 
 	it("maxLength clamps a paste-like multi-char append to the boundary", function()
@@ -349,7 +352,7 @@ describe("TextInput: value model (onChange live, onCommit modes coexist, maxLeng
 		w.adapter.tap(FIELD)
 		w.adapter.focusText(FIELD)
 		w.adapter.pasteText(FIELD, "cdefgh") -- one TextChanged: "abcdefgh" -> clamp
-		expect(w.value:get()).toBe("abcde")
+		expect(w.value:peek()).toBe("abcde")
 	end)
 
 	it("engine reports over-long text -> model clamps -> commit reconciles to the clamped value", function()
@@ -360,7 +363,7 @@ describe("TextInput: value model (onChange live, onCommit modes coexist, maxLeng
 		-- the engine view diverges (its buffer holds more) but the model holds
 		-- the last accepted value; the text the adapter is told to show is clamped
 		w.adapter.pasteText(FIELD, "XYZ") -- engine buffer now "helloXYZ"
-		expect(w.value:get()).toBe("hello") -- model never accepted the overflow
+		expect(w.value:peek()).toBe("hello") -- model never accepted the overflow
 		-- the adapter is told to show the clamped model value (reconciled on the
 		-- next refresh); the engine buffer's overflow never reaches the model
 		w.pres.refresh()
@@ -374,7 +377,7 @@ describe("TextInput: value model (onChange live, onCommit modes coexist, maxLeng
 		w.adapter.tap(FIELD)
 		w.adapter.focusText(FIELD)
 		w.adapter.pasteText(FIELD, "\xC3(") -- lead byte with no valid continuation
-		expect(w.value:get()).toBe("ok") -- never accepted a non-UTF-8 byte sequence
+		expect(w.value:peek()).toBe("ok") -- never accepted a non-UTF-8 byte sequence
 		expect(#w.changes).toBe(0)
 	end)
 
@@ -383,7 +386,7 @@ describe("TextInput: value model (onChange live, onCommit modes coexist, maxLeng
 		w.adapter.tap(FIELD)
 		w.adapter.focusText(FIELD)
 		w.adapter.pasteText(FIELD, "\xC3(")
-		expect(w.value:get()).toBe("ok")
+		expect(w.value:peek()).toBe("ok")
 		expect(#w.changes).toBe(0)
 	end)
 
@@ -400,10 +403,10 @@ describe("TextInput: value model (onChange live, onCommit modes coexist, maxLeng
 		w.adapter.tap(FIELD)
 		w.adapter.focusText(FIELD)
 		w.adapter.typeText(FIELD, "ab")
-		expect(w.value:get()).toBe("AB") -- normalized
+		expect(w.value:peek()).toBe("AB") -- normalized
 		expect(#w.changes).toBe(2)
 		w.adapter.pasteText(FIELD, "9") -- rejected
-		expect(w.value:get()).toBe("AB") -- unchanged
+		expect(w.value:peek()).toBe("AB") -- unchanged
 		expect(#w.changes).toBe(2) -- no onChange for the rejected edit
 	end)
 end)
@@ -416,14 +419,14 @@ describe("TextInput: clear affordance", function()
 			expect(w.adapter.node(CLEAR) ~= nil).toBe(true)
 			w.adapter.tap(CLEAR)
 			w.pres.refresh()
-			expect(w.value:get()).toBe("")
+			expect(w.value:peek()).toBe("")
 			-- clearing is a user edit: fires onChange, does NOT commit
 			expect(#w.changes).toBe(1)
 			expect(#w.commits).toBe(0)
 			-- the affordance is gone now that the value is empty
 			expect(w.adapter.node(CLEAR)).toBe(nil)
 			-- focus returns to the field (the vanished clear's nearest survivor)
-			expect(w.pres.focus.focused:get()).toBe(FIELD)
+			expect(w.pres.focus.focused:peek()).toBe(FIELD)
 		end
 	)
 
@@ -470,10 +473,10 @@ describe("TextInput: disabled", function()
 	it("a disabled field is not focusable, tap does nothing, and shows no clear button", function()
 		local w = world({ initial = "locked", disabled = true, clearButton = true })
 		-- not focusable: the presenter's initial focus is not the field
-		expect(w.pres.focus.focused:get()).never().toBe(FIELD)
+		expect(w.pres.focus.focused:peek()).never().toBe(FIELD)
 		-- tap does nothing: editing never begins
 		w.adapter.tap(FIELD)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		-- no clear affordance while disabled
 		expect(w.adapter.node(CLEAR)).toBe(nil)
 	end)
@@ -496,11 +499,11 @@ describe("TextInput: keyboardType", function()
 	end)
 
 	it("an unknown keyboardType is a build error", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok = pcall(function()
 			text_input.build(Facet, core, {
 				id = "Bad",
-				value = core:signal(""),
+				value = Compose.cell(""),
 				keyboardType = "frobnicate",
 			})
 		end)
@@ -557,11 +560,11 @@ describe("TextInput: submitLabel (declared Return-key hint; engine-absent clean 
 	end)
 
 	it("an unknown submitLabel is a build error", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok = pcall(function()
 			text_input.build(Facet, core, {
 				id = "Bad",
-				value = core:signal(""),
+				value = Compose.cell(""),
 				submitLabel = "frobnicate",
 			})
 		end)
@@ -575,7 +578,7 @@ describe("TextInput: keyboard-occlusion keep-visible", function()
 		local w = world({ initial = "" })
 		-- enter editing so the keep-visible policy is active
 		w.adapter.tap(FIELD)
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		local rect = w.handle.controller.rectOf(FIELD)
 		expect(rect ~= nil).toBe(true)
 		w.adapter.takeOps()
@@ -584,7 +587,7 @@ describe("TextInput: keyboard-occlusion keep-visible", function()
 		local keyboardTop = rect.y + rect.h - 20 -- overlaps the field's bottom by 20
 		w.env:set("keyboardOcclusionRect", { x = 0, y = keyboardTop, w = 800, h = 600 - keyboardTop })
 		-- the control exposes a positive keep-visible offset
-		expect(w.control.api.keepVisibleOffset:get()).toBeGreaterThan(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBeGreaterThan(0)
 		-- the presented screen shifts up via a presentation transform...
 		expect(w.adapter.node("/S").props.transform ~= nil).toBe(true)
 		expect(w.adapter.node("/S").props.transform.y).toBeLessThan(0)
@@ -596,13 +599,13 @@ describe("TextInput: keyboard-occlusion keep-visible", function()
 		end
 		-- keyboard dismisses: the offset restores to zero
 		w.env:set("keyboardOcclusionRect", nil)
-		expect(w.control.api.keepVisibleOffset:get()).toBe(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBe(0)
 	end)
 
 	it("no occlusion offset when not editing, even if the keyboard rect is set", function()
 		local w = world({ initial = "" })
 		w.env:set("keyboardOcclusionRect", { x = 0, y = 0, w = 800, h = 600 })
-		expect(w.control.api.keepVisibleOffset:get()).toBe(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBe(0)
 	end)
 
 	it("disposing the control mid-occlusion restores the screen's presentation transform to 0 (ARCH-TI-2)", function()
@@ -611,7 +614,7 @@ describe("TextInput: keyboard-occlusion keep-visible", function()
 		local rect = w.handle.controller.rectOf(FIELD)
 		local keyboardTop = rect.y + rect.h - 20
 		w.env:set("keyboardOcclusionRect", { x = 0, y = keyboardTop, w = 800, h = 600 - keyboardTop })
-		expect(w.control.api.keepVisibleOffset:get()).toBeGreaterThan(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBeGreaterThan(0)
 		expect(w.adapter.node("/S").props.transform.y).toBeLessThan(0) -- shifted up
 		-- dispose the CONTROL while the screen stays PRESENTED (not dismissed):
 		-- the presentation offset must not stay frozen at -dy
@@ -627,12 +630,12 @@ describe("TextInput: keyboard-occlusion keep-visible", function()
 		-- exactly the touch path where occlusion matters most.
 		local w = world({ initial = "" })
 		w.adapter.focusText(FIELD) -- engine-initiated focus; NO tap/activate first
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		local rect = w.handle.controller.rectOf(FIELD)
 		expect(rect ~= nil).toBe(true)
 		local keyboardTop = rect.y + rect.h - 20
 		w.env:set("keyboardOcclusionRect", { x = 0, y = keyboardTop, w = 800, h = 600 - keyboardTop })
-		expect(w.control.api.keepVisibleOffset:get()).toBeGreaterThan(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBeGreaterThan(0)
 	end)
 end)
 
@@ -642,18 +645,18 @@ describe("TextInput: touch (activation + keep-visible, end to end)", function()
 		-- activate via a TOUCH pointer (tap meta { pointer = "touch" }); touch
 		-- rides the same onNodeTap seam as mouse (touch parity by construction)
 		w.adapter.tap(FIELD, { pointer = "touch" })
-		expect(w.control.api.editing:get()).toBe(true)
+		expect(w.control.api.editing:peek()).toBe(true)
 		-- the on-screen keyboard rises and overlaps the field's lower edge
 		local rect = w.handle.controller.rectOf(FIELD)
 		expect(rect ~= nil).toBe(true)
 		local keyboardTop = rect.y + rect.h - 20
 		w.env:set("keyboardOcclusionRect", { x = 0, y = keyboardTop, w = 800, h = 600 - keyboardTop })
-		expect(w.control.api.keepVisibleOffset:get()).toBeGreaterThan(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBeGreaterThan(0)
 		-- tapping away commits by focus loss and dismisses; the offset restores
 		w.adapter.blurText(FIELD)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 		expect(w.commits[1].reason).toBe("focusLost")
-		expect(w.control.api.keepVisibleOffset:get()).toBe(0)
+		expect(w.control.api.keepVisibleOffset:peek()).toBe(0)
 	end)
 end)
 
@@ -691,15 +694,15 @@ describe("TextInput: conformance (reactive discipline, dump, registry neutrality
 	end)
 
 	it("build/mount/interact/dispose returns every registry to its baseline (incl. a mid-edit dispose)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
-		local value = core:signal("")
+		local value = Compose.cell("")
 		local control = text_input.build(Facet, core, {
 			id = "Name",
 			value = value,
@@ -711,7 +714,7 @@ describe("TextInput: conformance (reactive discipline, dump, registry neutrality
 			env = env,
 			actionSystem = system,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { control.blueprint } })
 		local handle = pres.present(screen, {
 			sinkNavigation = true,
 			onActivate = function(path, meta)
@@ -729,22 +732,19 @@ describe("TextInput: conformance (reactive discipline, dump, registry neutrality
 		adapter.focusText(FIELD)
 		adapter.typeText(FIELD, "abc")
 		env:set("keyboardOcclusionRect", { x = 0, y = 0, w = 800, h = 600 })
-		expect(control.api.editing:get()).toBe(true)
+		expect(control.api.editing:peek()).toBe(true)
 
 		pres.dismiss(handle)
 		control.dispose()
-		value:dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
 describe("TextInput: build-time contract", function()
-	it("value is required and must be a Signal/Memo (owner-held)", function()
-		local core = Facet.newCore()
+	it("value is required and must be a Compose cell the caller owns", function()
+		local core = harness.newCore()
 		expect(pcall(function()
 			text_input.build(Facet, core, { id = "NoValue" })
 		end)).toBe(false)
@@ -753,18 +753,18 @@ describe("TextInput: build-time contract", function()
 		end)).toBe(false)
 	end)
 
-	it("value must be a SETTABLE signal — a read-only Memo is a build error (ARCH-TI-1)", function()
-		local core = Facet.newCore()
-		local memo = core:memo(function()
+	it("value must be a WRITABLE cell — a read-only formula is a build error (ARCH-TI-1)", function()
+		local core = harness.newCore()
+		local memo = Compose.formula(function()
 			return "x"
 		end)
-		-- a Memo passes a bare readable check but errors on the first edit
+		-- a formula passes a bare readable check but errors on the first edit
 		-- (value:set); fail loudly at BUILD instead
 		local ok, err = pcall(function()
 			text_input.build(Facet, core, { id = "M", value = memo })
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "settable", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "writable Compose cell", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
@@ -783,7 +783,7 @@ describe("TextInput: activate after dispose is a harmless no-op", function()
 		end)
 		expect(ok).toBe(true)
 		expect(err).toBe(nil)
-		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.control.api.editing:peek()).toBe(false)
 	end)
 end)
 
@@ -801,25 +801,25 @@ describe("TextInput: the clear chip sizes for its glyph, in every theme", functi
 	local themes = Facet.themes
 
 	local function clearRect(pkgModule: any?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local control = Facet.Controls.TextInput(core, {
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local control = harness.Controls.TextInput(core, {
 			id = "F",
-			value = core:signal("typed"),
+			value = Compose.cell("typed"),
 			placeholder = "filter",
 			clearButton = true,
 		})
-		pres.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		if pkgModule ~= nil then
 			env:set("themeMetrics", themes.resolve(pkgModule, nil, {}))
 			pres.refresh()
 		end
-		return adapter.node("/S/F/ClearWhen/then/Clear").rect
+		return adapter.node("/S/F/Clear").rect
 	end
 
 	it("a flat theme keeps the historic 28px chip exactly", function()
@@ -861,7 +861,7 @@ end)
 -- textField.clearButtonMode = .whileEditing")
 -- ===========================================================================
 describe("TextInput: clearButtonMode", function()
-	local CLEAR_PATH = "/S/Name/ClearWhen/then/Clear"
+	local CLEAR_PATH = "/S/Name/Clear"
 
 	local function modeWorld(mode: any, initial: string?)
 		local w = world({ initial = initial or "typed", clearButtonMode = mode })
@@ -924,11 +924,11 @@ describe("TextInput: clearButtonMode", function()
 	end)
 
 	it("an unrecognised mode is a build error, not a field that never offers a ✕", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		expect(pcall(function()
-			return Facet.Controls.TextInput(core, {
+			return harness.Controls.TextInput(core, {
 				id = "Bad",
-				value = core:signal(""),
+				value = Compose.cell(""),
 				clearButtonMode = "sometimes",
 			})
 		end)).toBe(false)
@@ -961,12 +961,11 @@ describe("TextInput: themed search art", function()
 				-- The prior ornate picture reserved 32px; opting out removes that floor.
 				expect(node.rect.w < Facet.themes.resolve(ornate, nil, {}).iconSizes.medium).toBe(true)
 			end
-			expect(w.value:get()).toBe("kept")
-			expect(w.core:lastError()).toBeNil()
+			expect(w.value:peek()).toBe("kept")
+			expect(w.core.lastError()).toBeNil()
 		end
 		w.pres.dismiss(w.handle)
 		w.control.dispose()
-		w.value:dispose()
 	end)
 end)
 
@@ -997,8 +996,8 @@ describe("TextInput: the invalid shake", function()
 	end
 
 	it("a false->true edge nudges the root sideways and returns to rest", function()
-		local core = Facet.newCore()
-		local invalid = core:signal(false)
+		local core = harness.newCore()
+		local invalid = Compose.cell(false)
 		local w = world({ core = core, invalid = invalid })
 		local restX = w.adapter.node("/S/Name").rect.x
 		local restY = w.adapter.node("/S/Name").rect.y
@@ -1024,46 +1023,45 @@ describe("TextInput: the invalid shake", function()
 		expect(sawPositive).toBe(true)
 		expect(paintedShift(w, "/S/Name")).toBe(0)
 		expect(w.adapter.node("/S/Name").rect.x).toBe(restX)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.control.dispose()
 	end)
 
 	--[[ A SECOND EDGE MID-SHAKE RESTARTS IT — and the proof is not "it ends at
 		rest" (two racing timelines end at rest too), it is that the restarted shake
-		holds its OWN first leg. That leg lasts 80 ms — five frames at 60 Hz — so the
-		displacement must not change across them; a shake left running underneath
-		would have reached its own next beat inside that window and shown through
-		(measured: `-8 -8 2 2` instead of `-8 -8 -8 -8`). ]]
+		retraces a fresh shake's first frames exactly. The nudge is interpolated, so
+		a shake left running underneath would show through as a different
+		displacement on those frames. ]]
 	it("a second edge mid-shake restarts it rather than racing the one already running", function()
-		local core = Facet.newCore()
-		local invalid = core:signal(false)
+		local core = harness.newCore()
+		local invalid = Compose.cell(false)
 		local w = world({ core = core, invalid = invalid })
 		invalid:set(true)
-		for _ = 1, 10 do
+		local fresh: { number } = {}
+		for index = 1, 10 do
 			frame(w)
+			fresh[index] = paintedShift(w, "/S/Name")
 		end
+		expect(fresh[1] ~= 0).toBe(true)
 		invalid:set(false)
 		invalid:set(true)
-		frame(w)
-		local firstLeg = paintedShift(w, "/S/Name")
-		expect(firstLeg ~= 0).toBe(true)
-		for _ = 1, 3 do
+		for index = 1, 4 do
 			frame(w)
-			expect(paintedShift(w, "/S/Name")).toBe(firstLeg)
+			expect(paintedShift(w, "/S/Name")).toBe(fresh[index])
 		end
 		for _ = 1, 40 do
 			frame(w)
 		end
 		expect(paintedShift(w, "/S/Name")).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.control.dispose()
 	end)
 
 	it("reduced motion keeps the message and drops the shake", function()
-		local core = Facet.newCore()
-		local invalid = core:signal(false)
+		local core = harness.newCore()
+		local invalid = Compose.cell(false)
 		local w = world({ core = core, invalid = invalid, reducedMotion = true })
-		expect(w.env:get("motionPolicy"):get()).toBe("reduced")
+		expect(w.env:get("motionPolicy"):peek()).toBe("reduced")
 		invalid:set(true)
 		w.pres.refresh()
 		-- not "settles at rest" but "never leaves it", on EVERY frame the shake
@@ -1073,13 +1071,13 @@ describe("TextInput: the invalid shake", function()
 			frame(w)
 			expect(paintedShift(w, "/S/Name")).toBe(0)
 		end
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.control.dispose()
 	end)
 
 	it("a rejected numeric commit shakes the field and leaves the message beneath it still", function()
-		local core = Facet.newCore()
-		local number = core:signal(2)
+		local core = harness.newCore()
+		local number = Compose.cell(2)
 		local w = world({ core = core, presentation = "number", numericValue = number, min = 0, max = 10 })
 		local messageX = w.adapter.node("/S/Name/Validation").rect.x
 		expect(paintedShift(w, "/S/Name/Input")).toBe(0)
@@ -1098,41 +1096,45 @@ describe("TextInput: the invalid shake", function()
 			frame(w)
 		end
 		expect(paintedShift(w, "/S/Name/Input")).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.control.dispose()
 	end)
 
-	--[[ THE TIMELINE OUTLIVES THE CONTROL IF NOBODY STOPS IT: it is attached to
-		the PRESENTER's clock, which the control does not own. Disposing mid-shake
-		must leave nothing armed — no beat firing for a node that has left the tree,
-		no write to a signal the same teardown just disposed. ]]
-	it("disposing mid-shake leaves nothing armed on the presenter's clock", function()
-		local core = Facet.newCore()
-		local invalid = core:signal(false)
+	--[[ THE TIMELINE BELONGS TO THE CONTROL'S OWNER, so disposing mid-shake ends
+		it: no beat fires afterwards, no write reaches a cell the same teardown just
+		disposed, and the presenter's own clock never carried it. ]]
+	it("disposing mid-shake leaves nothing armed", function()
+		local core = harness.newCore()
+		local invalid = Compose.cell(false)
 		local w = world({ core = core, invalid = invalid })
 		local atRest = w.pres.motionClock:activeCount()
 		invalid:set(true)
 		frame(w)
 		expect(paintedShift(w, "/S/Name") ~= 0).toBe(true)
-		expect(w.pres.motionClock:activeCount() > atRest).toBe(true)
 		w.control.dispose()
-		-- the count, not just "no error": the timeline is attached to a clock the
-		-- control does not own, so only a detach can end it
+		-- no beat fires after the dispose: the displacement stays where the
+		-- teardown left it, on every frame the shake would still have played
+		local held = paintedShift(w, "/S/Name")
+		for _ = 1, 10 do
+			frame(w)
+			expect(paintedShift(w, "/S/Name")).toBe(held)
+		end
+		-- the presenter's clock carries nothing of the control's
 		expect(w.pres.motionClock:activeCount()).toBe(atRest)
 		w.pres.dismiss(w.handle)
 		for _ = 1, 40 do
 			w.pres.tick(FRAME)
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		expect(w.pres.motionClock:lastError()).toBeNil()
 	end)
 
 	it("invalid refuses anything but a readable boolean", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		Facet.newEnvironment(core)
-		for _, bad in { true, "yes", 1, core:signal("no") } do
+		for _, bad in { true, "yes", 1, Compose.cell("no") } do
 			local ok, err =
-				pcall(Facet.Controls.TextInput, core, { id = "Name", value = core:signal(""), invalid = bad })
+				pcall(harness.Controls.TextInput, core, { id = "Name", value = Compose.cell(""), invalid = bad })
 			expect(ok).toBe(false)
 			expect(string.find(tostring(err), "invalid", 1, true) ~= nil).toBe(true)
 		end

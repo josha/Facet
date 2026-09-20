@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ C5 — THE PAINT-ORDER WALK IS THE LAST WHOLE-TREE PASS IN A STRUCTURAL SYNC.
 
 	After O6 bounded `ensureTree`, `livePaths` and the removal sweep, adding one plate
@@ -63,13 +64,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local themeSnapshot = require("../src/themes/snapshot")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES = scene.PLATES
 local PER = scene.NODES_PER_PLATE
@@ -216,7 +218,7 @@ describe("C5: the differential — a bounded walk paints in the order a full one
 			return (seed % n) + 1
 		end
 		local function reorder(s: any, from: number, to: number)
-			local rows = table.clone(s.rows:get() :: any)
+			local rows = table.clone(s.rows:peek() :: any)
 			table.insert(rows, to, table.remove(rows, from) :: any)
 			s.rows:set(rows)
 			s.controller.refresh()
@@ -401,8 +403,8 @@ local function memoScene(): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	local a = core:signal({ "a1" })
-	local b = core:signal({ "b1", "b2" })
+	local a = Compose.cell({ "a1" })
+	local b = Compose.cell({ "b1", "b2" })
 	local function region(id: string, items: any): any
 		return UI.ForEach({
 			id = id,
@@ -674,7 +676,7 @@ describe("C5: what the bound does NOT survive — a reorder", function()
 			local s = scene.new()
 			s.controller.dragRegistry()
 			local before = s.stats()
-			local rows = table.clone(s.rows:get() :: any)
+			local rows = table.clone(s.rows:peek() :: any)
 			table.insert(rows, to, table.remove(rows, from) :: any)
 			s.rows:set(rows)
 			s.controller.refresh()

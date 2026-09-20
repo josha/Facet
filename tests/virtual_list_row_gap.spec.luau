@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	`newVirtualList.rowGap` — THE VERTICAL GUTTER BETWEEN ROW SLOTS.
 
@@ -28,8 +29,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local mountLib = require("../src/mount")
-local fake_target = require("../tests/lib/fake_target")
+local mountLib = harness
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -73,7 +75,7 @@ local function newList(core: any, opts: any)
 		viewportHeight = opts.viewportHeight or 498,
 		overscan = opts.overscan or 2,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
@@ -82,13 +84,13 @@ end
 -- the gutter against (a dump can only report the numbers it was handed)
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(makeRows(options.count or 8))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(makeRows(options.count or 8))
 	local reorders: { any } = {}
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
@@ -107,10 +109,10 @@ local function world(opts: any?)
 			end
 			else nil,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
@@ -146,8 +148,8 @@ end
 
 describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", function()
 	it("is refused unless it is a non-negative number or a Readable<number>", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		expect(pcall(function()
 			newList(core, { rows = rows, rowGap = -1 })
 		end)).toBe(false)
@@ -162,13 +164,13 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("carries the resolved gutter in the dump", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, { rows = rows, rowGap = 6 })
 		local d = list.dump()
 		expect(`{d.rowHeight}|{d.rowGap}`).toBe("56|6")
 		-- and a LIVE gutter re-derives with its Readable, exactly like rowHeight
-		local gap = core:signal(6)
+		local gap = Compose.cell(6)
 		local live = newList(core, { rows = rows, rowGap = gap })
 		expect(live.dump().rowGap).toBe(6)
 		gap:set(10)
@@ -178,8 +180,8 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("the CONTENT EXTENT is N*rowHeight + (N-1)*rowGap — no trailing gutter", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		-- legacy's own racer list: 8 rows of 56 on a 62 pitch
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 200 })
 		list.bindNativeScroll(scrollStub(), "/VL")
@@ -195,8 +197,8 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("window membership steps on the PITCH, not the row height", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(200))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(200))
 		-- 62 pitch, a 124 px viewport = exactly 2 whole slots, no overscan
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 124, overscan = 0 })
 		expect(list.dump().window).toEqual({ "r1", "r2" })
@@ -212,8 +214,8 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 	end)
 
 	it("keep-visible brings the ROW into the band, measured on the pitch", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(100))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(100))
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 200 })
 		local ctrl = scrollStub()
 		list.bindNativeScroll(ctrl, "/VL")
@@ -246,8 +248,8 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 		local b = w.rect("r2")
 		expect(b.y - a.y).toBe(56)
 		expect(b.y - (a.y + a.h)).toBe(0)
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, { rows = rows, viewportHeight = 200 })
 		list.bindNativeScroll(scrollStub(), "/VL")
 		list.scrollTop:set(100000)
@@ -262,15 +264,15 @@ describe("VirtualList.rowGap: the gutter is in the PITCH, never in the row", fun
 		-- the gutter BELOW row 4 is the boundary between slot 4 and slot 5; with
 		-- the dragged r1 removed first, landing there is index 4
 		w.moveTo("r1", r4.y + r4.h + 3)
-		expect(w.list.dropIndex:get()).toBe(4)
+		expect(w.list.dropIndex:peek()).toBe(4)
 		-- the middle of row 6 is past its own midpoint boundary
 		w.moveTo("r1", w.rowY("r6") + 20)
-		expect(w.list.dropIndex:get()).toBe(6)
+		expect(w.list.dropIndex:peek()).toBe(6)
 	end)
 
 	it("a bounded window is still bounded with a gutter (the canvas never mounts the list)", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(1000))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(1000))
 		local list = newList(core, { rows = rows, rowGap = 6, viewportHeight = 620 })
 		local root = mountLib.mount(core, list.blueprint)
 		local mounted = 0

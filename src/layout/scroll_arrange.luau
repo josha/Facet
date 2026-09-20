@@ -252,7 +252,7 @@ function scroll_arrange.arrange(
 		must not be paid for), which is exactly the conditionality a sibling
 		cannot re-derive for itself.
 
-		READ BY: `renderer.controller.scrollBarInsetOf` -> `newTable`'s header
+		READ BY: `renderer.controller.scrollBarInsetOf` -> `UI.Table`'s header
 		padding. A fixed box cannot hold a theme's frame, and the general rule
 		this is the far end of is: reserving room is only half
 		of it, something has to SPEND the reservation — and here the node that

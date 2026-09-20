@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- The UNIFIED COLLECTION (rows SF-L1/L2/L3): one
 -- VirtualList that windows, selects, reorders, accepts drops and edge-scrolls at
 -- the same time. Reorder and drop ride the PUBLIC drag contract, so every case
@@ -13,7 +14,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -26,14 +28,14 @@ end
 -- a reorderable / droppable VirtualList presented with ZERO opts
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
-	local rows = core:signal(makeRows(options.count or 40))
+	local rows = Compose.cell(makeRows(options.count or 40))
 	local reorders: { any } = {}
 	local drops: { any } = {}
 	local selections: { any } = {}
@@ -60,7 +62,7 @@ local function world(opts: any?)
 				table.insert(reorders, { key = key, toIndex = toIndex })
 				-- APPLY the requested move, like an owner would: order is owner
 				-- state, and the list renders what it is handed
-				local current = rows:get() :: { any }
+				local current = rows:peek() :: { any }
 				local next: { any } = {}
 				local moved: any = nil
 				for _, item in current do
@@ -81,11 +83,11 @@ local function world(opts: any?)
 		motionClock = options.motionClock,
 		reorderMotion = options.reorderMotion,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = options.onActivate,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
@@ -139,7 +141,7 @@ local function world(opts: any?)
 	end
 	function w.order(): { string }
 		local out: { string } = {}
-		for _, item in rows:get() :: { any } do
+		for _, item in rows:peek() :: { any } do
 			table.insert(out, item.id)
 		end
 		return out
@@ -158,14 +160,14 @@ describe("unified collection: selection (SF-L1)", function()
 	it('selection defaults to "none": activation never selects', function()
 		local w = world()
 		w.adapter.tap(w.hitPath("r3"))
-		expect(w.list.selectedKey:get()).toBe(nil)
+		expect(w.list.selectedKey:peek()).toBe(nil)
 		expect(w.list.dump().selection).toBe("none")
 	end)
 
 	it("single selection: an Activate from ANY paradigm selects the row", function()
 		local w = world({ selection = "single" })
 		w.adapter.tap(w.hitPath("r3")) -- pointer
-		expect(w.list.selectedKey:get()).toBe("r3")
+		expect(w.list.selectedKey:peek()).toBe("r3")
 		-- ...then walk the graph focus down two rows and press ButtonA
 		for _ = 1, 2 do
 			w.system.deviceKey("DPadDown", true)
@@ -173,42 +175,42 @@ describe("unified collection: selection (SF-L1)", function()
 		end
 		w.system.deviceKey("ButtonA", true) -- gamepad
 		w.system.deviceKey("ButtonA", false)
-		expect(w.list.selectedKey:get()).toBe("r5")
+		expect(w.list.selectedKey:peek()).toBe("r5")
 		expect(w.selections).toEqual({ "r3", "r5" })
 	end)
 
 	it("selection PRUNES with the data: a removed row is never a phantom selection", function()
 		local w = world({ selection = "single" })
 		w.list.select("r3")
-		expect(w.list.selectedKey:get()).toBe("r3")
+		expect(w.list.selectedKey:peek()).toBe("r3")
 		local next = {}
-		for _, item in w.rows:get() :: { any } do
+		for _, item in w.rows:peek() :: { any } do
 			if item.id ~= "r3" then
 				table.insert(next, item)
 			end
 		end
 		w.rows:set(next)
-		expect(w.list.selectedKey:get()).toBe(nil)
+		expect(w.list.selectedKey:peek()).toBe(nil)
 	end)
 
 	it("selection survives a re-sort that keeps the row", function()
 		local w = world({ selection = "single" })
 		w.list.select("r5")
 		local reversed = {}
-		local items = w.rows:get() :: { any }
+		local items = w.rows:peek() :: { any }
 		for i = #items, 1, -1 do
 			table.insert(reversed, items[i])
 		end
 		w.rows:set(reversed)
 		w.pres.refresh()
-		expect(w.list.selectedKey:get()).toBe("r5")
+		expect(w.list.selectedKey:peek()).toBe("r5")
 	end)
 
 	it("clearSelection empties it", function()
 		local w = world({ selection = "single" })
 		w.list.select("r2")
 		w.list.clearSelection()
-		expect(w.list.selectedKey:get()).toBe(nil)
+		expect(w.list.selectedKey:peek()).toBe(nil)
 	end)
 
 	it("the SELECTED row declares the native state, so the theme paints it (R2-F6)", function()
@@ -242,14 +244,14 @@ describe("unified collection: selection (SF-L1)", function()
 		w.list.select("r3")
 		w.pres.refresh()
 		-- the selection is REAL...
-		expect(w.list.selectedKey:get()).toBe("r3")
+		expect(w.list.selectedKey:peek()).toBe("r3")
 		-- ...and no row declares the native state, so no theme can paint one
 		expect(w.adapter.node(w.hitPath("r3")).props.selected).toBeNil()
 		expect(w.adapter.node(w.hitPath("r4")).props.selected).toBeNil()
 		-- and selecting elsewhere still moves it, silently
 		w.list.select("r4")
 		w.pres.refresh()
-		expect(w.list.selectedKey:get()).toBe("r4")
+		expect(w.list.selectedKey:peek()).toBe("r4")
 		expect(w.adapter.node(w.hitPath("r4")).props.selected).toBeNil()
 	end)
 
@@ -306,7 +308,7 @@ describe("unified collection: pointer reorder over the public contract (SF-L1)",
 		local before = #w.adapter.takeOps()
 		w.lift("r1")
 		w.moveTo("r1", w.rowY("r4") + 5)
-		expect(w.list.dropIndex:get()).toBe(4)
+		expect(w.list.dropIndex:peek()).toBe(4)
 		local ops = w.adapter.takeOps()
 		local sawTransform = false
 		for _, op in ops do
@@ -318,7 +320,7 @@ describe("unified collection: pointer reorder over the public contract (SF-L1)",
 		expect(before >= 0).toBe(true)
 		-- and it is parked again on the terminal
 		w.release("r1", w.rowY("r4") + 5)
-		expect(w.list.dropIndex:get()).toBe(nil)
+		expect(w.list.dropIndex:peek()).toBe(nil)
 	end)
 
 	it("touch DECLINES the row body so the native pan keeps scrolling", function()
@@ -340,18 +342,18 @@ describe("unified collection: the armed (non-pointer) reorder (SF-D4)", function
 		local w = world({ reorderable = true })
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.list.armedKey:get()).toBe("r1")
+		expect(w.list.armedKey:peek()).toBe("r1")
 		expect(w.registry().mode()).toBe("armed")
 		-- three Navigates move the predicted target, NOT focus
 		for _ = 1, 3 do
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
 		end
-		expect(w.list.dropIndex:get()).toBe(4)
+		expect(w.list.dropIndex:peek()).toBe(4)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		expect(w.reorders[1]).toEqual({ key = "r1", toIndex = 4 })
-		expect(w.list.armedKey:get()).toBe(nil)
+		expect(w.list.armedKey:peek()).toBe(nil)
 		expect(w.order()[4]).toBe("r1")
 	end)
 
@@ -359,10 +361,10 @@ describe("unified collection: the armed (non-pointer) reorder (SF-D4)", function
 		local w = world({ reorderable = true })
 		w.list.focusKey("r2")
 		expect(w.list.toggleGrab()).toBe(true)
-		expect(w.list.armedKey:get()).toBe("r2")
+		expect(w.list.armedKey:peek()).toBe("r2")
 		w.system.deviceKey("ButtonB", true)
 		w.system.deviceKey("ButtonB", false)
-		expect(w.list.armedKey:get()).toBe(nil)
+		expect(w.list.armedKey:peek()).toBe(nil)
 		expect(#w.reorders).toBe(0)
 		expect(w.order()[2]).toBe("r2")
 	end)
@@ -386,7 +388,7 @@ describe("unified collection: the armed (non-pointer) reorder (SF-D4)", function
 			w.system.deviceKey("DPadDown", false)
 			w.pres.refresh()
 		end
-		expect(w.list.dropIndex:get()).toBe(16)
+		expect(w.list.dropIndex:peek()).toBe(16)
 		expect(w.list.debugWindow().r16).toBe(true) -- materialized by keep-visible
 		w.list.toggleGrab()
 		expect(w.reorders[1].toIndex).toBe(16)
@@ -418,7 +420,7 @@ describe("unified collection: rows as drop targets (SF-L1)", function()
 		registry.registerSource("/S/VL", { payload = "card", dragMotion = "object", declineTouch = false })
 		expect(registry.arm("/S/VL")).toBe(true)
 		expect(registry.armTo(w.hitPath("r4"))).toBe(true)
-		expect(registry.verdict:get().legal).toBe(true)
+		expect(registry.verdict:peek().legal).toBe(true)
 		registry.commit()
 		expect(#landed).toBe(1)
 		expect(landed[1].key).toBe("r4")
@@ -441,8 +443,8 @@ describe("unified collection: rows as drop targets (SF-L1)", function()
 		registry.registerSource("/S/VL", { payload = "card" })
 		registry.arm("/S/VL")
 		registry.armTo(w.hitPath("r2"))
-		expect(registry.verdict:get().legal).toBe(false)
-		expect(registry.verdict:get().reason).toBe("FULL")
+		expect(registry.verdict:peek().legal).toBe(false)
+		expect(registry.verdict:peek().reason).toBe("FULL")
 		registry.commit()
 		local reject: any = nil
 		for _, entry in w.events do
@@ -459,8 +461,8 @@ describe("unified collection: rows as drop targets (SF-L1)", function()
 		registry.registerSource("/S/VL", { payload = { kind = "__facet_reorder", key = "x", list = "OtherList" } })
 		registry.arm("/S/VL")
 		registry.armTo(w.hitPath("r2"))
-		expect(registry.verdict:get().legal).toBe(false)
-		expect(registry.verdict:get().reason).toBe("FOREIGN_LIST")
+		expect(registry.verdict:peek().legal).toBe(false)
+		expect(registry.verdict:peek().reason).toBe("FOREIGN_LIST")
 	end)
 
 	it("the hit-test is over VISIBLE rows only: an unmounted row is not a target", function()
@@ -488,16 +490,16 @@ describe("unified collection: edge autoscroll wired to the host (SF-L2)", functi
 		-- dwell: nothing moves before 300 ms
 		expect(w.list.stepAutoscroll(0).delta).toBe(0)
 		expect(w.list.stepAutoscroll(0.2).delta).toBe(0)
-		expect(w.list.scrollTop:get()).toBe(0)
+		expect(w.list.scrollTop:peek()).toBe(0)
 		local armed = w.list.stepAutoscroll(0.35)
 		expect(armed.state).toBe("active")
 		expect(armed.justArmed).toBe(true)
-		local before = w.list.scrollTop:get()
+		local before = w.list.scrollTop:peek()
 		w.list.stepAutoscroll(0.6)
-		expect(w.list.scrollTop:get() > before).toBe(true)
+		expect(w.list.scrollTop:peek() > before).toBe(true)
 		-- the verdict now names a row further down the list, on the SAME frame as
 		-- the scroll write — not one frame behind it
-		expect(w.list.dropIndex:get() ~= nil).toBe(true)
+		expect(w.list.dropIndex:peek() ~= nil).toBe(true)
 	end)
 
 	it("short content is inert: a list with nothing to scroll never arms", function()
@@ -507,7 +509,7 @@ describe("unified collection: edge autoscroll wired to the host (SF-L2)", functi
 		w.moveTo("r1", host.y + host.h - 5)
 		w.list.stepAutoscroll(0)
 		expect(w.list.stepAutoscroll(1).state).toBe("idle")
-		expect(w.list.scrollTop:get()).toBe(0)
+		expect(w.list.scrollTop:peek()).toBe(0)
 	end)
 
 	it("a NON-pointer (armed) session never autoscrolls: focus-follow already does", function()
@@ -516,13 +518,13 @@ describe("unified collection: edge autoscroll wired to the host (SF-L2)", functi
 		w.list.toggleGrab()
 		w.list.stepAutoscroll(0)
 		expect(w.list.stepAutoscroll(1)).toBe(nil)
-		expect(w.list.autoscroll:get().state).toBe("idle")
+		expect(w.list.autoscroll:peek().state).toBe("idle")
 	end)
 
 	it("with no session at all the model is reset, not left armed", function()
 		local w = world({ reorderable = true })
 		expect(w.list.stepAutoscroll(0)).toBe(nil)
-		expect(w.list.autoscroll:get().state).toBe("idle")
+		expect(w.list.autoscroll:peek().state).toBe("idle")
 	end)
 
 	it("autoscroll is off by default on a plain list (no drag, no bands)", function()
@@ -539,7 +541,7 @@ describe("unified collection: identity and focus under live churn (SF-L1)", func
 		local mountedBefore = w.list.debugWindow()
 		local factoryBefore = w.handle.root.counters().factoryRuns
 		-- the owner re-sorts underneath the drag (a 250 ms server tick)
-		local items = w.rows:get() :: { any }
+		local items = w.rows:peek() :: { any }
 		local churned = table.clone(items)
 		table.remove(churned, 2)
 		table.insert(churned, 5, items[2])
@@ -560,15 +562,15 @@ describe("unified collection: identity and focus under live churn (SF-L1)", func
 		w.list.select("r6")
 		w.list.focusKey("r6")
 		w.lift("r1")
-		local items = w.rows:get() :: { any }
+		local items = w.rows:peek() :: { any }
 		local reversed = {}
 		for i = #items, 1, -1 do
 			table.insert(reversed, items[i])
 		end
 		w.rows:set(reversed)
 		w.pres.refresh()
-		expect(w.list.selectedKey:get()).toBe("r6")
-		expect(w.list.focusedKey:get()).toBe("r6")
+		expect(w.list.selectedKey:peek()).toBe("r6")
+		expect(w.list.focusedKey:peek()).toBe("r6")
 		expect(w.registry().isActive()).toBe(true)
 	end)
 
@@ -576,9 +578,9 @@ describe("unified collection: identity and focus under live churn (SF-L1)", func
 		local w = world({ reorderable = true })
 		w.lift("r1")
 		w.moveTo("r1", w.rowY("r4"))
-		expect(w.registry().verdict:get().targetId ~= nil).toBe(true)
+		expect(w.registry().verdict:peek().targetId ~= nil).toBe(true)
 		local next = {}
-		for _, item in w.rows:get() :: { any } do
+		for _, item in w.rows:peek() :: { any } do
 			if item.id ~= "r4" then
 				table.insert(next, item)
 			end
@@ -593,7 +595,7 @@ describe("unified collection: identity and focus under live churn (SF-L1)", func
 
 	it("reorder motion slides the moved rows through presentation, never a re-solve", function()
 		local now = 0
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local clock = Facet.motion.newClock(core, {
 			now = function()
 				return now
@@ -602,7 +604,7 @@ describe("unified collection: identity and focus under live churn (SF-L1)", func
 		local w = world({ reorderable = true, motionClock = clock, reorderMotion = "object" })
 		local solvesBefore = w.handle.controller.stats().solves
 		w.list.select("r1")
-		local items = w.rows:get() :: { any }
+		local items = w.rows:peek() :: { any }
 		local churned = table.clone(items)
 		table.remove(churned, 1)
 		table.insert(churned, 3, items[1])
@@ -635,7 +637,7 @@ describe("unified collection: focus-skip on rows (SF-L3)", function()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r3") -- r2 was skipped
+		expect(w.list.focusedKey:peek()).toBe("r3") -- r2 was skipped
 		-- ...and r2 is still fully inspectable
 		w.adapter.tap(w.hitPath("r2"))
 		expect(activated).toEqual({ "r2" })
@@ -650,12 +652,12 @@ describe("unified collection: focus-skip on rows (SF-L3)", function()
 		})
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.list.focusedKey:get()).toBe("r2")
+		expect(w.list.focusedKey:peek()).toBe("r2")
 		blocked.r3 = true
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
 		w.pres.refresh()
-		expect(w.list.focusedKey:get()).toBe("r4")
+		expect(w.list.focusedKey:peek()).toBe("r4")
 	end)
 
 	it("the row a live session is aiming at never loses focusability mid-gesture", function()
@@ -675,7 +677,7 @@ describe("unified collection: focus-skip on rows (SF-L3)", function()
 		-- the predicted slot does not move out from under the player
 		w.pres.refresh()
 		expect(w.registry().interactionTarget()).toBe(w.hitPath("r4"))
-		expect(w.list.dropIndex:get()).toBe(4)
+		expect(w.list.dropIndex:peek()).toBe(4)
 		-- and the commit still lands: an exempt row resolves through the session,
 		-- it never vanishes mid-gesture
 		w.release("r1", w.rowY("r4"))
@@ -685,14 +687,14 @@ end)
 
 describe("unified collection: uniform derived row height (finding F13)", function()
 	it("accepts a Readable row height and re-derives the whole list from it", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rowHeight = core:signal(40)
-		local rows = core:signal(makeRows(40))
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rowHeight = Compose.cell(40)
+		local rows = Compose.cell(makeRows(40))
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
@@ -703,10 +705,10 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			viewportHeight = 400,
 			overscan = 0,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		expect(list.dump().rowHeight).toBe(40)
 		local windowAt40 = 0
@@ -730,14 +732,14 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 		-- is wrong for the rest of the session the moment the device turns. Both
 		-- consumers of the number move together — the painted host box and the
 		-- windowing arithmetic — or the list paints rows it did not mount.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(makeRows(60))
-		local viewportHeight = core:memo(function(use)
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(makeRows(60))
+		local viewportHeight = Compose.formula(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			return math.floor(vp.h * 0.5)
 		end)
@@ -751,10 +753,10 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			viewportHeight = viewportHeight,
 			overscan = 0,
 			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
-		pres.present(Facet.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } }))
 		pres.refresh()
 		expect(list.dump().viewportHeight).toBe(400)
 		local tall = 0
@@ -789,8 +791,8 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			happens when a caller hands in a function" is still a contract this file
 			owns — it is now a running-offset index, and the numbers below are what
 			that means. `virtual_list_variable_extents.spec` holds the whole feature. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(6))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(6))
 		local list = virtual_list.build(Facet, core, {
 			id = "VL",
 			rows = rows,
@@ -802,7 +804,7 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 			end,
 			viewportHeight = 400,
 			cell = function()
-				return Facet.UI.Text({ id = "L", text = "x" })
+				return harness.UI.Text({ id = "L", text = "x" })
 			end,
 		})
 		local d = list.dump()
@@ -814,34 +816,199 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 	end)
 end)
 
+describe('unified collection: following the tail (follow = "end")', function()
+	local function followWorld(follow: any, threshold: number?)
+		local core = harness.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local adapter = fake_target.new({ ops = true })
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell(makeRows(40))
+		local list
+		pres.present(function()
+			list = virtual_list.build(Facet, core, {
+				id = "VL",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = 40,
+				viewportExtent = 400,
+				follow = follow,
+				followThreshold = threshold,
+				cell = function(item: any)
+					return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				end,
+			})
+			return harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } })
+		end)
+		local w: any = { adapter = adapter, pres = pres, rows = rows }
+		function w.settle()
+			for _ = 1, 3 do
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.offset(): number
+			return adapter.scrollPositionOf("/S/VL").y
+		end
+		function w.grow(count: number)
+			rows:set(makeRows(count))
+			w.settle()
+		end
+		w.settle()
+		return w
+	end
+
+	it("opens on the tail and re-pins it as rows are appended", function()
+		local w = followWorld("end", 8)
+		expect(w.offset()).toBe(40 * 40 - 400)
+		w.grow(43)
+		expect(w.offset()).toBe(43 * 40 - 400)
+	end)
+
+	it("a reader who scrolled away keeps their place, and rejoins by returning to the end", function()
+		local w = followWorld("end", 8)
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 480 })
+		w.settle()
+		w.grow(44)
+		expect(w.offset()).toBe(480)
+		-- within the threshold of the end counts as reading the tail again
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 44 * 40 - 400 - 6 })
+		w.settle()
+		w.grow(45)
+		expect(w.offset()).toBe(45 * 40 - 400)
+	end)
+
+	it("NEGATIVE CONTROL: a list that does not follow never moves on growth", function()
+		local w = followWorld(nil)
+		expect(w.offset()).toBe(0)
+		w.grow(43)
+		expect(w.offset()).toBe(0)
+	end)
+
+	it("an illegal follow, and a threshold with nothing to follow, are refused at construction", function()
+		local function build(extra: any)
+			local core = harness.newCore()
+			local spec: any = {
+				id = "VL",
+				rows = Compose.cell(makeRows(4)),
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = 40,
+				viewportExtent = 400,
+				cell = function(item: any)
+					return harness.UI.Text({ id = "Label", text = item.label })
+				end,
+			}
+			for key, value in extra do
+				spec[key] = value
+			end
+			return pcall(virtual_list.build, Facet, core, spec)
+		end
+		local ok, err = build({ follow = "start" })
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), '"end"', 1, true) ~= nil).toBe(true)
+		local okThreshold, errThreshold = build({ followThreshold = 8 })
+		expect(okThreshold).toBe(false)
+		expect(string.find(tostring(errThreshold), "followThreshold", 1, true) ~= nil).toBe(true)
+		expect((build({ follow = "end", followThreshold = -1 }))).toBe(false)
+	end)
+
+	it("a live follow flip stops tail-following and resumes it, without remounting the list", function()
+		local core = harness.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local adapter = fake_target.new({ ops = true })
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell(makeRows(40))
+		local follow = Compose.cell("end")
+		local list
+		pres.present(function()
+			list = virtual_list.build(Facet, core, {
+				id = "VL",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = 40,
+				viewportExtent = 400,
+				follow = follow,
+				followThreshold = 8,
+				cell = function(item: any)
+					return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				end,
+			})
+			return harness.UI.Screen({ id = "S", padding = 0, gap = 0, children = { list.blueprint } })
+		end)
+		local mountedList = list
+		local function settle()
+			for _ = 1, 3 do
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		local function offset(): number
+			return adapter.scrollPositionOf("/S/VL").y
+		end
+		settle()
+		expect(offset()).toBe(40 * 40 - 400)
+		-- Flip live to "none": growth no longer re-pins the tail.
+		follow:set("none")
+		settle()
+		rows:set(makeRows(42))
+		settle()
+		expect(offset()).toBe(40 * 40 - 400)
+		-- Still parked near the (moved) tail, so flipping back "end" resumes
+		-- immediately — the same live-flip moment `followThreshold` already
+		-- measures against for an engine-reported scroll.
+		adapter.driveScroll("/S/VL", { x = 0, y = 42 * 40 - 400 - 6 })
+		settle()
+		follow:set("end")
+		settle()
+		expect(offset()).toBe(42 * 40 - 400)
+		rows:set(makeRows(45))
+		settle()
+		expect(offset()).toBe(45 * 40 - 400)
+		-- Never remounted: same control record throughout the flips.
+		expect(list).toBe(mountedList)
+	end)
+end)
+
 describe("unified collection: teardown", function()
 	it("build/mount/reorder/drop/dispose returns the core to baseline", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
-		local rows = core:signal(makeRows(30))
-		local list = virtual_list.build(Facet, core, {
-			id = "VL",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			rowHeight = 40,
-			viewportHeight = 400,
-			selection = "single",
-			reorderable = true,
-			onReorder = function() end,
-			dropSurface = true,
-			cell = function(item: any)
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
-			end,
-		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local rows = Compose.cell(makeRows(30))
+		-- built inside the presented component, so the window's rows belong to the
+		-- surface and leave with it
+		local list
+		local handle = pres.present(function()
+			list = virtual_list.build(Facet, core, {
+				id = "VL",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				rowHeight = 40,
+				viewportHeight = 400,
+				selection = "single",
+				reorderable = true,
+				onReorder = function() end,
+				dropSurface = true,
+				cell = function(item: any)
+					return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				end,
+			})
+			return harness.UI.Screen({ id = "S", children = { list.blueprint } })
+		end)
 		pres.refresh()
 		local unbind = list.bindNativeScroll(handle.controller)
 		local hit = "/S/VL/Canvas/W/[r1]/Row/Hit"
@@ -855,12 +1022,9 @@ describe("unified collection: teardown", function()
 		unbind()
 		pres.dismiss(handle)
 		list.dispose()
-		rows:dispose()
 
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 

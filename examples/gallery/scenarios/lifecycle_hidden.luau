@@ -78,22 +78,19 @@ return {
 	copy = COPY,
 	logLines = LOG_LINES,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("lifecycle-hidden")
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local showing = scope:own(core:signal(true))
-		-- `hidden` is the INVERSE of the switch, and it is a memo rather than a
-		-- second signal so the two panels can never disagree about what the player
+		local showing = Compose.cell(true)
+		-- `hidden` is the INVERSE of the switch, and it is a formula rather than a
+		-- second cell so the two panels can never disagree about what the player
 		-- asked for
-		local isHidden = scope:own(core:memo(function(use)
+		local isHidden = Compose.formula(function(use)
 			return not use(showing)
-		end))
+		end)
 
-		local logText = scope:own(core:signal(COPY.logEmpty))
-		local appearCount = scope:own(core:signal(0))
-		local disappearCount = scope:own(core:signal(0))
+		local logText = Compose.cell(COPY.logEmpty)
+		local appearCount = Compose.cell(0)
+		local disappearCount = Compose.cell(0)
 		local lines: { string } = {}
 
 		local function note(event: string)
@@ -104,110 +101,103 @@ return {
 			logText:set(table.concat(lines, "\n"))
 		end
 
-		local counts = scope:own(core:memo(function(use)
+		local counts = Compose.formula(function(use)
 			return `{COPY.countsPrefix}: {use(appearCount)}   {COPY.countsMiddle}: {use(disappearCount)}`
-		end))
+		end)
 
+		-- the badge is a chip-dressed label: what it demonstrates is whether it is
+		-- there, so it takes no press
 		local function badge(id: string, extra: { [string]: any }): any
-			local props: any = { id = id, label = COPY.badge, surface = "chip" }
+			local props: any = { text = COPY.badge, textSize = "caption", surface = "chip", padding = "s" }
 			for key, value in extra do
 				props[key] = value
 			end
-			return UI.Button(props)
+			return UI.Text(id)(props)
 		end
 
-		local screen = UI.Screen({
-			id = "LifecycleHidden",
-			padding = 12,
-			gap = "s",
-
-			-- THE PAGE SCROLLS, for the reason every other fixture here does: a
-			-- title, a switch, two panels and a log do not fit the ~200px a
-			-- 640x320 landscape phone has left once the showcase reserves its chip
-			-- strip, and content that overflows with nothing to scroll it is this
-			-- repo's named recurring defect.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function screen()
+			return UI.Screen("LifecycleHidden")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				UI.Toggle({ id = "ShowToggle", label = COPY.toggleLabel, value = showing }),
-				-- PANEL ONE, AND THE ORDER IS THE DEMO. The kept slot goes FIRST so
-				-- that "this line never moves" is literally true on screen: a panel
-				-- whose height changes must sit BELOW everything claiming to be
-				-- still, or the still one is pushed around by its neighbour and the
-				-- comparison reads as noise. (Measured, not reasoned: with the
-				-- panels the other way round the kept caption moved 52 px.)
-				UI.VStack({
-					id = "Reserved",
-					surface = "control",
-					padding = "s",
-					gap = "tight",
+				-- THE PAGE SCROLLS: a title, a switch, two panels and a log do not
+				-- fit the ~200px a 640x320 landscape phone has left once the showcase
+				-- reserves its chip strip.
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					UI.Text({ id = "ReservedTitle", text = COPY.reservedTitle, textSize = "caption" }),
-					badge("Ghost", { hidden = isHidden }),
-					UI.Text({
-						id = "ReservedNote",
-						text = COPY.reservedNote,
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					UI.Toggle("ShowToggle")({ label = COPY.toggleLabel, value = showing }),
+					-- PANEL ONE, AND THE ORDER IS THE DEMO. The kept slot goes FIRST so
+					-- that "this line never moves" is literally true on screen: a panel
+					-- whose height changes must sit BELOW everything claiming to be
+					-- still, or the still one is pushed around by its neighbour and the
+					-- comparison reads as noise. (Measured, not reasoned: with the
+					-- panels the other way round the kept caption moved 52 px.)
+					UI.VStack("Reserved")({
+						surface = "control",
+						padding = "s",
+						gap = "tight",
+						width = UI.fill(),
+
+						UI.Text("ReservedTitle")({ text = COPY.reservedTitle, textSize = "caption" }),
+						badge("Ghost", { hidden = isHidden }),
+						UI.Text("ReservedNote")({
+							text = COPY.reservedNote,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+					-- PANEL TWO, AND IT IS SECOND ON PURPOSE (see above): the node
+					-- really leaves here, so this panel's own height changes — and
+					-- because it sits BELOW the kept slot, nothing above it moves.
+					UI.VStack("Removed")({
+						surface = "control",
+						padding = "s",
+						gap = "tight",
+						width = UI.fill(),
+
+						UI.Text("RemovedTitle")({ text = COPY.removedTitle, textSize = "caption" }),
+						UI.When("Gate")({
+							Compose.show(showing, function()
+								return badge("Badge", {
+									onAppear = function()
+										appearCount:set(appearCount:peek() + 1)
+										note(COPY.appeared)
+									end,
+									onDisappear = function()
+										disappearCount:set(disappearCount:peek() + 1)
+										note(COPY.disappeared)
+									end,
+								})
+							end),
+						}),
+						UI.Text("RemovedNote")({
+							text = COPY.removedNote,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+					UI.Text("LogTitle")({ text = COPY.logTitle, textSize = "caption" }),
+					UI.Text("Log")({ text = logText, textSize = "caption", role = "secondary" }),
+					UI.Text("Counts")({ text = counts, textSize = "caption", role = "secondary" }),
+					UI.Text("NoFire")({
+						text = COPY.hiddenFiresNothing,
 						textSize = "caption",
 						role = "secondary",
 					}),
 				}),
-				-- PANEL TWO, AND IT IS SECOND ON PURPOSE (see above): the node
-				-- really leaves here, so this panel's own height changes — and
-				-- because it sits BELOW the kept slot, nothing above it moves.
-				UI.VStack({
-					id = "Removed",
-					surface = "control",
-					padding = "s",
-					gap = "tight",
-					width = UI.fill(),
-
-					UI.Text({ id = "RemovedTitle", text = COPY.removedTitle, textSize = "caption" }),
-					UI.When({
-						id = "Gate",
-						condition = showing,
-						thenView = function()
-							return badge("Badge", {
-								onAppear = function()
-									appearCount:set(appearCount:get() + 1)
-									note(COPY.appeared)
-								end,
-								onDisappear = function()
-									disappearCount:set(disappearCount:get() + 1)
-									note(COPY.disappeared)
-								end,
-							})
-						end,
-					}),
-					UI.Text({
-						id = "RemovedNote",
-						text = COPY.removedNote,
-						textSize = "caption",
-						role = "secondary",
-					}),
-				}),
-				UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = "caption" }),
-				UI.Text({ id = "Log", text = logText, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "Counts", text = counts, textSize = "caption", role = "secondary" }),
-				UI.Text({
-					id = "NoFire",
-					text = COPY.hiddenFiresNothing,
-					textSize = "caption",
-					role = "secondary",
-				}),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
 			present = {},
-			-- published for the headless suite: the signals a test drives and reads,
+			-- published for the headless suite: the cells a test drives and reads,
 			-- rather than a re-implementation of them
 			showing = showing,
 			appearCount = appearCount,
@@ -218,21 +208,17 @@ return {
 				-- the switch, as the player's own press fires it
 				setShowing = function(_built: any, payload: string?)
 					showing:set(payload ~= "off")
-					return { showing = showing:get() }
+					return { showing = showing:peek() }
 				end,
 			},
 
 			report = function()
 				return {
-					showing = showing:get(),
-					appeared = appearCount:get(),
-					disappeared = disappearCount:get(),
-					log = logText:get(),
+					showing = showing:peek(),
+					appeared = appearCount:peek(),
+					disappeared = disappearCount:peek(),
+					log = logText:peek(),
 				}
-			end,
-
-			dispose = function()
-				scope:dispose()
 			end,
 		}
 	end,

@@ -10,11 +10,10 @@ one.
 Read [`../reference/constitution.md`](../reference/constitution.md) first — the
 rules every public addition must follow. This page assumes them.
 
-Until 2026-08-17 this path had no playbook — `new-control.md` deferred it to
-[`new-engine-feature.md`](new-engine-feature.md), which only covers adding a
-*property* or a *modifier* to a class that already exists — and no checker.
-`tools/lune/check_primitives.luau` is that checker now; every step below is a
-thing it can see.
+[`new-engine-feature.md`](new-engine-feature.md) covers adding a *property* or a
+*modifier* to a class that already exists; this page covers a whole new class.
+`tools/lune/check_primitives.luau` is the checker for it, and every step below
+is a thing that checker can see.
 
 **Before you start:** a primitive is a permanent widening of the public surface
 and of every render target's obligations. Three questions, in order:

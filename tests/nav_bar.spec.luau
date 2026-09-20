@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- `Facet.navBar` — the presenter-side surface-chrome seam (registry item 13;
 -- W3-D). Pure blueprint assembly: no core, no scope, no presenter,
 -- so this spec inspects the returned Blueprint table directly rather than
@@ -15,7 +16,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local UI = harness.UI
 
 local function childIds(bp: any): { string }
 	local out: { string } = {}

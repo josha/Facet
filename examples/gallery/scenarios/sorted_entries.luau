@@ -98,11 +98,7 @@ return {
 	playerCount = PLAYER_COUNT,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("sorted-entries")
-		-- scope-owned so the eighteen memos die with the fixture (RR-8)
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
+		local UI, Compose = ctx.UI, ctx.Compose
 
 		-- THE THREE CONSTRUCTIONS. Same twelve pairs out of all three; only the
 		-- history that produced the table differs.
@@ -126,25 +122,25 @@ return {
 			return map
 		end
 
-		local kind = scope:own(core:signal("ascending"))
-		local scores = scope:own(core:signal(build("ascending")))
-		local status = scope:own(core:signal(COPY.firstBuild))
+		local kind = Compose.cell("ascending")
+		local scores = Compose.cell(build("ascending"))
+		local status = Compose.cell(COPY.firstBuild)
 		local lastRawOrder: string? = nil
 
 		-- THE RAW FLATTEN, verbatim: the three lines the gap note says every
 		-- consumer writes, kept exactly as a consumer would write them so the
 		-- fixture is showing the real thing rather than a caricature of it.
-		local rawEntries = scope:own(core:memo(function(use)
+		local rawEntries = Compose.formula(function(use)
 			local out: { { key: string, value: number } } = {}
 			for key, value in use(scores) do
 				table.insert(out, { key = key, value = value })
 			end
 			return out
-		end))
+		end)
 
-		local sortedEntries = scope:own(core:memo(function(use)
+		local sortedEntries = Compose.formula(function(use)
 			return UI.sortedEntries(use(scores))
-		end))
+		end)
 
 		local function orderOf(entries: { { key: string, value: number } }): string
 			local names: { string } = {}
@@ -159,7 +155,7 @@ return {
 		local function select(next: string)
 			kind:set(next)
 			scores:set(build(next))
-			local order = orderOf(rawEntries:get())
+			local order = orderOf(rawEntries:peek())
 			if lastRawOrder == nil then
 				status:set(COPY.firstBuild)
 			elseif order ~= lastRawOrder then
@@ -169,7 +165,7 @@ return {
 			end
 			lastRawOrder = order
 		end
-		lastRawOrder = orderOf(rawEntries:get())
+		lastRawOrder = orderOf(rawEntries:peek())
 
 		--[[ THE DISABLE IS GONE (ADAPT-1 call-site review, 2026-08-18). This
 			declared `presentation = "segmented"` with no reason beside it, which is
@@ -177,94 +173,97 @@ return {
 			that could not work anyway, because no fact ever reached it. Three short
 			labels still resolve segmented wherever there is room; on a compact
 			screen they now become the row list, which is what the ladder is for. ]]
-		local picker = Facet.View.Picker({
-			id = "Construction",
-			label = COPY.pick,
-			options = {
-				{ value = "ascending", label = COPY.ascending },
-				{ value = "descending", label = COPY.descending },
-				{ value = "churn", label = COPY.churn },
-			},
-			selected = kind,
-			onChange = select,
-		})
+		local function picker()
+			return UI.Picker("Construction")({
+				label = COPY.pick,
+				options = {
+					{ value = "ascending", label = COPY.ascending },
+					{ value = "descending", label = COPY.descending },
+					{ value = "churn", label = COPY.churn },
+				},
+				selected = kind,
+				onChange = select,
+			})
+		end
 
 		-- ONE column builder for both, so the ONLY difference on screen is which
 		-- entry list it is handed
 		local function column(id: string, title: string, note: string, items: any): any
-			return UI.VStack({
-				id = id,
+			return UI.VStack(id)({
 				surface = "control",
 				padding = "s",
 				gap = "xs",
 				width = UI.fill(),
 
-				UI.Text({ id = "Title", text = title, textSize = "caption" }),
-				UI.Text({ id = "Note", text = note, textSize = "caption", role = "secondary" }),
-				UI.VStack({
-					id = "Rows",
+				UI.Text("Title")({ text = title, textSize = "caption" }),
+				UI.Text("Note")({ text = note, textSize = "caption", role = "secondary" }),
+				UI.VStack("Rows")({
 					gap = 2,
 					width = UI.fill(),
 
-					UI.ForEach({
-						id = "List",
-						items = items,
-						key = function(entry: any): string
-							return entry.key
-						end,
-						row = function(entry: any): any
-							return UI.Text({
-								id = "Row",
-								text = `{entry.key}  {entry.value}`,
-								textSize = "caption",
-							})
-						end,
+					UI.ForEach("List")({
+						Compose.keyed({
+							from = items,
+							key = function(entry: any): string
+								return entry.key
+							end,
+							render = function(entry: any): any
+								return UI.Text("Row-" .. entry:peek().key)({
+									text = function(use)
+										local current = use(entry)
+										return `{current.key}  {current.value}`
+									end,
+									textSize = "caption",
+								})
+							end,
+						}),
 					}),
 				}),
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "SortedEntries",
-			padding = 12,
-			gap = "s",
-
-			-- THE PAGE SCROLLS, for the reason every other fixture here does:
-			-- twelve rows in each of two columns plus a picker and a status line do
-			-- not fit the ~200px a 640x320 landscape phone has left once the
-			-- showcase reserves its chip strip.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function screen()
+			-- stacked without room, side by side with it
+			local conditions = Facet.adaptive.conditions(ctx.env)
+			return UI.Screen("SortedEntries")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				picker,
-				-- SIDE BY SIDE WITH ROOM, STACKED WITHOUT, and the axis is bound
-				-- rather than branched: an `AdaptiveStack` re-solves in place, so
-				-- flipping a 320px phone does not remount twenty-four rows and
-				-- lose the comparison the fixture exists for. (`wrap` was the
-				-- first draft and the solver refused it, correctly: a wrapping
-				-- stack has no single leftover to share, so a `fill` child on the
-				-- main axis takes a whole line and the columns were never beside
-				-- each other at any width.)
-				UI.AdaptiveStack({
-					id = "Columns",
-					axis = conditions.axis,
+				-- THE PAGE SCROLLS, for the reason every other fixture here does:
+				-- twelve rows in each of two columns plus a picker and a status line do
+				-- not fit the ~200px a 640x320 landscape phone has left once the
+				-- showcase reserves its chip strip.
+				UI.ScrollView("Page")({
+					axis = "y",
 					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					column("Raw", COPY.rawTitle, COPY.rawNote, rawEntries),
-					column("Sorted", COPY.sortedTitle, COPY.sortedNote, sortedEntries),
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					picker(),
+					-- SIDE BY SIDE WITH ROOM, STACKED WITHOUT, and the axis is bound
+					-- rather than branched: an `AdaptiveStack` re-solves in place, so
+					-- flipping a 320px phone does not remount twenty-four rows and
+					-- lose the comparison the fixture exists for. (`wrap` was the
+					-- first draft and the solver refused it, correctly: a wrapping
+					-- stack has no single leftover to share, so a `fill` child on the
+					-- main axis takes a whole line and the columns were never beside
+					-- each other at any width.)
+					UI.AdaptiveStack("Columns")({
+						axis = conditions.axis,
+						gap = "s",
+						width = UI.fill(),
+
+						column("Raw", COPY.rawTitle, COPY.rawNote, rawEntries),
+						column("Sorted", COPY.sortedTitle, COPY.sortedNote, sortedEntries),
+					}),
+					UI.Text("StatusTitle")({ text = COPY.statusTitle, textSize = "caption" }),
+					UI.Text("Status")({ text = status, textSize = "caption", role = "secondary" }),
+					UI.Text("Note")({ text = COPY.note, textSize = "caption", role = "secondary" }),
 				}),
-				UI.Text({ id = "StatusTitle", text = COPY.statusTitle, textSize = "caption" }),
-				UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
@@ -277,10 +276,10 @@ return {
 			rawEntries = rawEntries,
 			sortedEntries = sortedEntries,
 			rawOrder = function()
-				return orderOf(rawEntries:get())
+				return orderOf(rawEntries:peek())
 			end,
 			sortedOrder = function()
-				return orderOf(sortedEntries:get())
+				return orderOf(sortedEntries:peek())
 			end,
 
 			steps = {
@@ -288,22 +287,21 @@ return {
 				setConstruction = function(_built: any, payload: string?)
 					local next = if payload == "descending" or payload == "churn" then payload else "ascending"
 					select(next)
-					return { kind = next, raw = orderOf(rawEntries:get()), sorted = orderOf(sortedEntries:get()) }
+					return { kind = next, raw = orderOf(rawEntries:peek()), sorted = orderOf(sortedEntries:peek()) }
 				end,
 			},
 
 			report = function()
 				return {
-					kind = kind:get(),
-					raw = orderOf(rawEntries:get()),
-					sorted = orderOf(sortedEntries:get()),
-					status = status:get(),
+					kind = kind:peek(),
+					raw = orderOf(rawEntries:peek()),
+					sorted = orderOf(sortedEntries:peek()),
+					status = status:peek(),
 				}
 			end,
 
-			dispose = function()
-				scope:dispose()
-			end,
+			-- nothing outlives the screen
+			dispose = function() end,
 		}
 	end,
 }

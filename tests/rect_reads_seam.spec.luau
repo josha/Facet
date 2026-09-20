@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE RECT_READS SEAM, MECHANISED — what keeps `render/rect_reads.luau` one-way.
 
 	THE LIVE SEAM (Plan C, T1). Unlike every prior renderer split, this one is not
@@ -24,11 +25,11 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local RECT_READS_PATH = "src/render/rect_reads.luau"

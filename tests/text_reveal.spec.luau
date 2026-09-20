@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE AUTO REVEAL (director ruling 2026-08-04, superseding LTN-2 for declared
 -- surfaces; the plan's overflow rung 4). A `UI.Text{ reveal = "auto" }` that
 -- TRUNCATED auto-scrolls its full value: the string rests in its engine
@@ -22,15 +23,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local text_audit = require("../src/layout/text_audit")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- the production string this ships for: the finish-screen recap tally
 local TALLY = "0 passes created · 0 recoveries sparked · Drama Score 0"
@@ -40,7 +42,7 @@ local FULL = "/__reveal__/Layer/Window/Inner/Full"
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -197,7 +199,7 @@ describe("reveal: the auto cycle", function()
 
 	it("a re-solve that makes room retires the reveal cleanly", function()
 		local core, _, adapter, _, pres = makeWorld()
-		local text = core:signal(TALLY)
+		local text = Compose.cell(TALLY)
 		local bp = UI.Screen({
 			id = "Results",
 			children = {

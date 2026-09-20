@@ -38,6 +38,7 @@
 	control has to do.
 ]]
 
+local readValue = require("./selection_model").read
 local contract = {}
 
 export type ControlContract = {
@@ -194,23 +195,11 @@ local CONTROLS: { [string]: ControlContract } = {
 --   enabledIn(use, e)  inside a memo/effect — MUST subscribe, or a control stays
 --                      interactive after its own `enabled` signal flips
 function contract.enabledNow(enabled: any): boolean
-	if enabled == nil then
-		return true
-	end
-	if type(enabled) == "table" then
-		return (enabled :: any):get() ~= false
-	end
-	return enabled ~= false
+	return readValue(enabled) ~= false
 end
 
 function contract.enabledIn(use: (any) -> any, enabled: any): boolean
-	if enabled == nil then
-		return true
-	end
-	if type(enabled) == "table" then
-		return use(enabled) ~= false
-	end
-	return enabled ~= false
+	return readValue(enabled, use) ~= false
 end
 
 --[[ ...AND THE THIRD SPELLING: THE MOUNTED-NODE READING (stabilization pass
@@ -274,6 +263,13 @@ end
 
 function contract.all(): { [string]: ControlContract }
 	return CONTROLS
+end
+
+-- A theme can enlarge a target, but cannot shrink its declared minimum.
+function contract.effectiveHitFloor(class: string, metrics: any): number?
+	local c = contract.forClass(class)
+	local declared = if c ~= nil then c.minHitSize else nil
+	return if declared ~= nil then math.max(declared, metrics.targetSizes.minimum) else nil
 end
 
 return contract

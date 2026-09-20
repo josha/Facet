@@ -6,6 +6,29 @@ local process = require("@lune/process")
 local testkit = require("./lib/testkit")
 
 -- Register all specs. Add new spec files here.
+require("./compose_scene.spec")
+require("./native_progress.spec")
+require("./native_text_input.spec")
+require("./native_button.spec")
+require("./native_selection_indicator.spec")
+require("./native_table.spec")
+require("./native_row_actions.spec")
+require("./native_page_view.spec")
+require("./native_menu.spec")
+require("./native_async_image.spec")
+require("./native_navigation_stack.spec")
+require("./native_sheet.spec")
+require("./native_callout.spec")
+require("./native_toast.spec")
+require("./native_alert.spec")
+require("./native_radial_menu.spec")
+require("./native_combo_box.spec")
+require("./native_regions_feedback.spec")
+require("./virtual_monitors.spec")
+-- the showcase's two layout defects (below-the-fold detail page, `hidden`
+-- stealing the Saved shelf's height) and its focus cycle
+require("./virtual_monitors_layout.spec")
+require("./virtual_monitors_focus.spec")
 require("./hud_meters.spec")
 require("./hud_reservations.spec")
 require("./world_markers.spec")
@@ -24,7 +47,6 @@ require("./text_presentations.spec")
 require("./studio_sync_bootstrap.spec")
 require("./smoke.spec")
 require("./conformance/conformance.spec")
-require("./scope_ownership.spec")
 require("./replication.spec")
 require("./layout.spec")
 require("./baseline_spacer.spec")
@@ -219,6 +241,13 @@ require("./fine_grained_reactivity.spec")
 require("./reactive_recovery.spec")
 require("./compose_backend.spec")
 require("./compose_lifetime.spec")
+--[[ what Facet RELIES ON from the vendored runtime and from its own services —
+	the glitch-free diamond, one delivery per batch, containment that keeps the
+	last valid value, an owner's final and idempotent disposal, and the settle
+	pass's 100-round cap with its quarantine. The replacement for the 28
+	pluggable-core conformance checks, minus the ones whose subject was the
+	pluggability itself ]]
+require("./compose_contract.spec")
 require("./components.spec")
 require("./declarative_animation.spec")
 --[[ the PLATFORM ADAPTER driven by a fake engine (release-candidate platform
@@ -340,6 +369,8 @@ require("./stage.spec")
 -- (`Foreign.Parent`, on the reserved `host` authority), everything else the
 -- caller's
 require("./foreign.spec")
+-- `UI.Foreign{ onHost }` — the content seam delivered rather than polled
+require("./foreign_host_prop.spec")
 require("./async_image.spec")
 require("./selection_bridge.spec")
 require("./text_calibration.spec")
@@ -688,11 +719,14 @@ require("./auto_input.spec")
 require("./table_input.spec")
 require("./virtual_list_input.spec")
 require("./virtual_list_row_actions.spec")
+--[[ ...and what keeps `controls/virtual_list_hosted.luau` ONE-WAY: READ ==
+	DECLARED == PASSED across the seam, the one shared write surface, and the
+	no-stale-twin rule, each with its own negative control ]]
+require("./virtual_list_hosted_seam.spec")
 -- ...and the SHIPPING DIFFERENTIAL the hosted-mode charter asks for: a plain
 -- list and a `rowActions` list built from one builder, diffed node for node
 -- (paths, classes, solved rects) and over the whole engage/disengage lifecycle
 require("./virtual_list_row_actions_identity.spec")
-require("./virtual_list_hosted_seam.spec")
 -- ...and what a row's full-bleed hit target may PAINT: nothing, unless it is the
 -- surface the list's selection is drawn on (defect report 2026-09-11)
 require("./row_hit_paint.spec")
@@ -763,6 +797,15 @@ require("./geometry_solve_coalescing.spec")
 -- priced at ~4 of 7.12 solves per step. Two arms in every case — with the round
 -- trip and without — so a change that slows both cannot pass
 require("./measure_publish_settle.spec")
+--[[ ...and the three things about the pass nobody was looking at: WHEN it runs
+	(never inside the writing watch's body), WHAT it is built on (private Compose
+	hooks, now asserted at install), and that a contained failure stays audible
+	instead of being suppressed for the life of the core ]]
+require("./settle_containment.spec")
+-- a host disposes the core it BUILT — and never one it was handed
+require("./host_core_lifetime.spec")
+-- a node replaced at a live path is swept, and not because the collector was late
+require("./replaced_occupant.spec")
 -- view lifecycle hooks + the space-reserving hide (round 3, item D): the two
 -- capabilities the completeness audit ranked highest per line of work —
 -- `onAppear`/`onDisappear` (zero hits in `src/` before this) and `hidden`,
@@ -870,6 +913,8 @@ require("./disclosure_group.spec")
 -- parity round 3 D2: the circular progress indicator, both forms — the geometry,
 -- the paint-only contract, the zero off-path cost and the per-theme stroke fit
 require("./progress_circular.spec")
+-- reduced motion STEPS the indeterminate indicator; it never freezes it
+require("./progress_reduced_motion.spec")
 require("./theme_package.spec")
 require("./theme_snapshot.spec")
 require("./theme_roles.spec")
@@ -962,6 +1007,21 @@ require("./reduced_motion_seam.spec")
 -- model, the coordinator over the presentation channel, and the presenter's own
 -- surface enter/exit — row SF-M6)
 require("./transitions.spec")
+-- the shared-element form: a transform whose origin is a LIVE source (a mounted
+-- node's painted rect or a rect Readable), re-read every painted frame
+require("./shared_element.spec")
+-- the text twin of `motion.newValueReveal`: a codepoint-safe prefix, a
+-- placeholder that is not a value, and a reduced-motion landing
+require("./text_reveal_stream.spec")
+-- "this subtree takes one activation to become active", honoured on the one
+-- Activate dispatch pointer, touch, keyboard and gamepad all arrive through
+require("./activation_gate.spec")
+-- `Slider.step` takes a readable: the grid is a setting, resolved per
+-- quantization rather than once at construction
+require("./slider_live_step.spec")
+-- an interactive container is never left without an engine object: a drag or a
+-- hit rect on an ELIDED layout node materialises it
+require("./elided_handlers.spec")
 -- ...and the LAW every motion in the 2026-09-12 transitions round has to obey
 -- (spec §3.1/§3.3): a motion frame writes the presentation channel and NEVER runs
 -- the solver. `controller.stats().solves` is the counter that carries it — every
@@ -1176,7 +1236,6 @@ require("./reference/glade_spec")
 require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")
 require("./reference/foyer_spec")
-require("./reference/wardrobe_spec")
 -- parity round 2 Phase 6: the fast tier's guards — the tier is derived
 -- from THIS file's require list, every exclusion must name a spec this file
 -- really runs, and the inner-loop runner has to keep announcing itself
@@ -1248,6 +1307,8 @@ require("./hit_expander_z_band.spec")
 	control case is that an ORDINARY sub-floor control keeps its whole floor ]]
 require("./hit_floor_region_clamp.spec")
 require("./tab_view.spec")
+-- ...and its page transition means what its refusal says it means
+require("./tab_view_transition.spec")
 -- ...and the boundary between the strip and the page it names: a theme-sized
 -- gap at every placement, not only beside a rail (owner report 2026-09-12)
 require("./tab_strip_gap.spec")
@@ -1258,6 +1319,11 @@ require("./level_picker.spec")
 	publishes, because an entry wired to the wrong builder (or to the right one
 	with the wrong library) still returns a perfectly plausible table ]]
 require("./controls_namespace.spec")
+--[[ ...and the ONE public handle an application has on a composite: `ref`,
+	called exactly once per build with a frozen record that carries `api` and
+	`dump` and NEITHER the node nor a disposer. Every registered composite, with
+	the list derived from `src/render/compose_controls.luau` itself ]]
+require("./ref_contract.spec")
 --[[ the three dependency-free leaves (num/paths/rect) plus the live defect they
 	closed: two presented screens named `Menu` and `MenuBar` routed each other's
 	taps, because the presenter imported the segment-aligned prefix test at line

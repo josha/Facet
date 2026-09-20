@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE THEME CONTROLLER.
 --
 -- What this spec pins, all of it headless:
@@ -29,9 +30,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local luau = require("@lune/luau")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local themes = require("../src/themes/package")
@@ -230,7 +231,7 @@ describe("theme_controller.install: per-target, all-or-nothing", function()
 		expect(info.package.id).toBe("install-native")
 		expect(info.snapshot.space.m).toBe(40)
 		-- the commit reached the environment and the mounted surface re-solved
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(40)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(40)
 		expect(w.renderer.stats().solves).toBe(before + 1)
 	end)
 
@@ -267,7 +268,7 @@ describe("theme_controller.install: per-target, all-or-nothing", function()
 		expect(info.sheet.present).toBe(false)
 		expect(info.link.present).toBe(false)
 		-- the metrics landed anyway, which is where every layout value lives
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(40)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(40)
 		-- ...and the compiled bespoke style is available for screen_target.new{style=}
 		expect(info.style.colors.surface.r).toBe(defaultStyle.colors.surface.r)
 		expect(info.style.extra.hairlineOpacity).toBe(defaultStyle.extra.hairlineOpacity)
@@ -279,13 +280,13 @@ describe("theme_controller.install: capability errors leave everything untouched
 	local function untouched(w: any, before: any, run: () -> ())
 		local ok, err = pcall(run)
 		expect(ok).toBe(false)
-		expect(w.env:get("themeMetrics"):get()).toBe(before)
+		expect(w.env:get("themeMetrics"):peek()).toBe(before)
 		return tostring(err)
 	end
 
 	it("a package requiring native paint on a fallback target names the capability", function()
 		local w = world(screen)
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local pkg = definePackage("needs-native", nil, { compatibility = { capabilities = { "nativeStyleSheets" } } })
 		local err = untouched(w, before, function()
 			theme_controller.install(w.adapter, pkg, { env = w.env })
@@ -296,7 +297,7 @@ describe("theme_controller.install: capability errors leave everything untouched
 
 	it("a target that cannot expose its root fails, naming rootGui and themeRootGui", function()
 		local w = world(screen)
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local native = fakeNative()
 		local blind = w.adapter
 		blind.nativeStyleInfo = function()
@@ -311,7 +312,7 @@ describe("theme_controller.install: capability errors leave everything untouched
 
 	it("an unknown required capability names the set this build knows", function()
 		local w = world(screen)
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local pkg = definePackage("unknown-cap", nil, { compatibility = { capabilities = { "holograms" } } })
 		local err = untouched(w, before, function()
 			theme_controller.install(w.adapter, pkg, { env = w.env })
@@ -323,7 +324,7 @@ describe("theme_controller.install: capability errors leave everything untouched
 
 	it("a package built against another schema is refused before anything is touched", function()
 		local w = world(screen)
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local compiled = definePackage("future")
 		local fromTheFuture = table.clone(compiled)
 		fromTheFuture.identity = table.clone(compiled.identity)
@@ -433,14 +434,14 @@ describe("the swap transaction: one solve, zero rebuilds", function()
 
 	it("swapping to an unknown theme names the declared themes and changes nothing", function()
 		local w, controller = installed()
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local ok, err = pcall(function()
 			controller.swap("Sepia")
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "Dark", 1, true) ~= nil).toBe(true)
 		expect(string.find(tostring(err), "Light", 1, true) ~= nil).toBe(true)
-		expect(w.env:get("themeMetrics"):get()).toBe(before)
+		expect(w.env:get("themeMetrics"):peek()).toBe(before)
 		expect(controller.current()).toBe("Dark")
 	end)
 
@@ -463,10 +464,10 @@ describe("the swap transaction: one solve, zero rebuilds", function()
 	it("uninstall restores the pre-install snapshot and link, and drops every connection", function()
 		local w, controller, _, state = installed({ space = { m = 40 } })
 		local neutral = snapshot.neutral()
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(40)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(40)
 		expect(state.live).toBe(1)
 		controller.uninstall()
-		expect(w.env:get("themeMetrics"):get()).toBe(neutral)
+		expect(w.env:get("themeMetrics"):peek()).toBe(neutral)
 		expect(state.live).toBe(0)
 		expect(state.lastLink.destroyed).toBe(true)
 		-- a controller that was uninstalled refuses to keep driving the target
@@ -901,7 +902,7 @@ describe("sheet overrides belong to the theme being resolved TO (A2)", function(
 		expect(controller.current()).toBe("Light")
 		expect(controller.inspect().snapshot.space.m).toBe(16)
 		expect(next(controller.inspect().overrides)).toBeNil()
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(16)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(16)
 
 		-- ...and going back to Dark still finds the designer's edit
 		controller.swap("Dark")
@@ -917,7 +918,7 @@ describe("swapPackage is all-or-nothing (A3)", function()
 			env = w.env,
 			nativeStyle = native,
 		})
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 
 		local ok, err = pcall(function()
 			controller.swapPackage(definePackage("other"), "NoSuchTheme")
@@ -931,7 +932,7 @@ describe("swapPackage is all-or-nothing (A3)", function()
 		expect(controller.current()).toBe("Dark")
 		expect(controller.inspect().connections).toBe(1)
 		expect(state.live).toBe(1)
-		expect(w.env:get("themeMetrics"):get()).toBe(before)
+		expect(w.env:get("themeMetrics"):peek()).toBe(before)
 		-- and it still WORKS afterwards
 		controller.swap("Light")
 		expect(controller.current()).toBe("Light")
@@ -947,7 +948,7 @@ describe("one live controller per environment (A4)", function()
 			env = w.env,
 			nativeStyle = nativeA,
 		})
-		local live = w.env:get("themeMetrics"):get()
+		local live = w.env:get("themeMetrics"):peek()
 
 		local ok, err = pcall(function()
 			theme_controller.install(nativeAdapter(fake_target.new(), {}), definePackage("intruder"), {
@@ -960,7 +961,7 @@ describe("one live controller per environment (A4)", function()
 		expect(string.find(tostring(err), "themeMetrics", 1, true) ~= nil).toBe(true)
 		-- nothing was touched: no sheet materialized, environment intact
 		expect(stateB.ensures).toBe(0)
-		expect(w.env:get("themeMetrics"):get()).toBe(live)
+		expect(w.env:get("themeMetrics"):peek()).toBe(live)
 		expect(first.inspect().package.id).toBe("incumbent")
 	end)
 
@@ -968,13 +969,13 @@ describe("one live controller per environment (A4)", function()
 		local w = world(screen)
 		local nativeA = fakeNative()
 		local nativeB = fakeNative()
-		local pre = w.env:get("themeMetrics"):get()
+		local pre = w.env:get("themeMetrics"):peek()
 		local first = theme_controller.install(nativeAdapter(w.adapter, {}), definePackage("first-owner"), {
 			env = w.env,
 			nativeStyle = nativeA,
 		})
 		first.uninstall()
-		expect(w.env:get("themeMetrics"):get()).toBe(pre)
+		expect(w.env:get("themeMetrics"):peek()).toBe(pre)
 		local second = theme_controller.install(nativeAdapter(fake_target.new(), {}), definePackage("second-owner"), {
 			env = w.env,
 			nativeStyle = nativeB,
@@ -994,7 +995,7 @@ describe("one live controller per environment (A4)", function()
 		local foreign = snapshot.neutral()
 		w.env:set("themeMetrics", foreign)
 		controller.uninstall()
-		expect(w.env:get("themeMetrics"):get()).toBe(foreign)
+		expect(w.env:get("themeMetrics"):peek()).toBe(foreign)
 	end)
 end)
 
@@ -1046,7 +1047,7 @@ describe("change listeners are observers, never drivers (A5)", function()
 		controller.swap("Light")
 		expect(reached).toBe(true)
 		expect(controller.current()).toBe("Light")
-		expect(w.env:get("themeMetrics"):get()).toBe(controller.inspect().snapshot)
+		expect(w.env:get("themeMetrics"):peek()).toBe(controller.inspect().snapshot)
 		expect(#warns).toBe(1)
 		expect(string.find(warns[1], "listener", 1, true) ~= nil).toBe(true)
 		-- warned ONCE per listener, however many commits it ruins
@@ -1074,7 +1075,7 @@ describe("install validates before it mutates (A6)", function()
 	it("an opts.theme the package does not declare materializes nothing", function()
 		local w = world(screen)
 		local native, state = fakeNative()
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local ok, err = pcall(function()
 			theme_controller.install(nativeAdapter(w.adapter, {}), definePackage("typo"), {
 				env = w.env,
@@ -1087,7 +1088,7 @@ describe("install validates before it mutates (A6)", function()
 		expect(string.find(tostring(err), "Dark, Light", 1, true) ~= nil).toBe(true)
 		expect(state.ensures).toBe(0)
 		expect(state.links).toBe(0)
-		expect(w.env:get("themeMetrics"):get()).toBe(before)
+		expect(w.env:get("themeMetrics"):peek()).toBe(before)
 	end)
 
 	it("a throwing calibrator leaves a live, working controller", function()
@@ -1241,7 +1242,7 @@ describe("font preflight has a lifecycle (A8)", function()
 		local controller: any = nil
 		local disposeNext = false
 		local solvesAtDispose: number? = nil
-		local pre = w.env:get("themeMetrics"):get()
+		local pre = w.env:get("themeMetrics"):peek()
 		controller = theme_controller.install(nativeAdapter(w.adapter, {}), definePackage("mid-flight"), {
 			env = w.env,
 			nativeStyle = native,
@@ -1269,7 +1270,7 @@ describe("font preflight has a lifecycle (A8)", function()
 		expect(solvesAtDispose ~= nil).toBe(true)
 		-- no post-dispose commit: the environment kept the restored snapshot and
 		-- the surface did not re-solve behind the uninstall
-		expect(w.env:get("themeMetrics"):get()).toBe(pre)
+		expect(w.env:get("themeMetrics"):peek()).toBe(pre)
 		expect(w.renderer.stats().solves).toBe(solvesAtDispose :: number)
 		expect(controller.inspect().disposed).toBe(true)
 	end)
@@ -1459,7 +1460,7 @@ describe("a sheet edit is sanitized before it reaches the resolver (A10)", funct
 		expect(controller.inspect().overrides["space.l"]).toBeNil()
 		expect(controller.inspect().overrides["space.m"]).toBe(40)
 		expect(string.find(warns[1], "NaN", 1, true) ~= nil).toBe(true)
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(40)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(40)
 	end)
 end)
 
@@ -1471,7 +1472,7 @@ describe("native transitions are provided only when opted into (A11)", function(
 	it("a package requiring styleTransitions fails install without opts.transitions", function()
 		local w = world(screen)
 		local native = fakeNative()
-		local before = w.env:get("themeMetrics"):get()
+		local before = w.env:get("themeMetrics"):peek()
 		local ok, err = pcall(function()
 			theme_controller.install(nativeAdapter(w.adapter, {}), transitionPackage("needs-transitions"), {
 				env = w.env,
@@ -1480,7 +1481,7 @@ describe("native transitions are provided only when opted into (A11)", function(
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "styleTransitions", 1, true) ~= nil).toBe(true)
-		expect(w.env:get("themeMetrics"):get()).toBe(before)
+		expect(w.env:get("themeMetrics"):peek()).toBe(before)
 	end)
 
 	it("...and installs when the target opts in", function()
@@ -1702,7 +1703,7 @@ describe("the install-policy preload list is requested through the provider (A12
 				released = true
 				state.live -= 1
 			end
-			scope:own(handle.release)
+			scope.own(handle.release)
 			return handle
 		end
 		return api, state

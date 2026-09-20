@@ -18,64 +18,62 @@ return {
 	ledgerRows = { "NS-A2", "NS-I2" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local scope = ctx.core:scope("scroll-host")
-		-- "the vertical room is scarce", the framework's own Readable for it
-		-- (`adaptive.HEIGHT_BREAKPOINTS`) — a Readable, so a rotation
-		-- re-resolves it instead of freezing whichever orientation booted first
-		local conditions = Facet.adaptive.conditions(ctx.core, ctx.env, { scope = scope })
-		local showTitle = scope:own(ctx.core:memo(function(use)
-			return not use(conditions.isShort)
-		end))
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local rows = {}
-		for i = 1, 20 do
-			table.insert(
-				rows,
-				UI.Text({
-					id = "Row" .. i,
-					text = "List row " .. i,
-					textSize = "control",
-					height = { type = "fixed", px = 36 },
-				})
-			)
-		end
+		local function screen()
+			-- "the vertical room is scarce", the framework's own Readable for it
+			-- (`adaptive.HEIGHT_BREAKPOINTS`) — a Readable, so a rotation
+			-- re-resolves it instead of freezing whichever orientation booted first
+			local conditions = Facet.adaptive.conditions(ctx.env)
+			local function showTitle(use)
+				return not use(conditions.isShort)
+			end
 
-		-- A-SV1: the HORIZONTAL axis, and focusable rows so the shared
-		-- keep-visible substrate can be driven through real navigation
-		local strip = {}
-		for i = 1, 12 do
-			table.insert(
-				strip,
-				UI.Box({
-					id = "Cell" .. i,
-					surface = "control",
-					width = { type = "fixed", px = 70 },
-					height = UI.fill(),
-				})
-			)
-		end
-		local focusRows = {}
-		for i = 1, 15 do
-			table.insert(
-				focusRows,
-				UI.Button({
-					id = "Focus" .. i,
-					label = "Focusable " .. i,
-					-- the theme's own touch floor rather than the 44 it happens to be, so
-					-- the row adapts at distance (wave TEN-FOOT, 2026-08-20)
-					height = { type = "fixed", px = "targetSizes.minimum" },
-					width = UI.fill(),
-				})
-			)
-		end
+			local rows = {}
+			for i = 1, 20 do
+				table.insert(
+					rows,
+					UI.Text("Row" .. i)({
+						text = "List row " .. i,
+						textSize = "control",
+						height = { type = "fixed", px = 36 },
+					})
+				)
+			end
 
-		local screen = UI.Screen({
-			id = "ScrollHost",
-			padding = "m",
-			gap = "s",
+			-- A-SV1: the HORIZONTAL axis, and focusable rows so the shared
+			-- keep-visible substrate can be driven through real navigation
+			local strip = {}
+			for i = 1, 12 do
+				table.insert(
+					strip,
+					UI.Box("Cell" .. i)({
+						surface = "control",
+						width = { type = "fixed", px = 70 },
+						height = UI.fill(),
+					})
+				)
+			end
+			local focusRows = {}
+			for i = 1, 15 do
+				table.insert(
+					focusRows,
+					UI.Button("Focus" .. i)({
+						label = "Focusable " .. i,
+						-- the theme's own touch floor rather than the 44 it happens to be, so
+						-- the row adapts at distance (wave TEN-FOOT, 2026-08-20)
+						height = { type = "fixed", px = "targetSizes.minimum" },
+						width = UI.fill(),
+						onActivate = function() end,
+					})
+				)
+			end
 
-			--[[ THE TITLE GOES WHEN THE ROOM DOES (O-21, measured 2026-08-15) —
+			return UI.Screen("ScrollHost")({
+				padding = "m",
+				gap = "s",
+
+				--[[ THE TITLE GOES WHEN THE ROOM DOES (O-21, measured 2026-08-15) —
 					the same call `row_actions` makes, for the same reason: the demo
 					picker's own chip already names this demo on screen, so on a short
 					viewport it is the one piece of chrome that says nothing the player
@@ -83,78 +81,68 @@ return {
 					this page came to 194px of a 168px content box with all three regions
 					already windowed to ZERO, and the `BELOW-LIST MARKER` — the node this
 					fixture asserts must never move — ended 10px under the fold. ]]
-			UI.When({
-				id = "TitleWhen",
-				condition = showTitle,
-				thenView = function()
-					return UI.Text({ id = "Title", text = "Native scroll host", textSize = 22 })
-				end,
-			}),
-			-- The three demo regions below used to be FIXED px (260/56/140) —
-			-- taller together than a short landscape phone's whole safe area,
-			-- with nothing to scroll the PAGE (overflow_sweep, device bug round
-			-- 2026-08-12). Wrapping the page in a second y-ScrollView would nest
-			-- a y-scroller inside the y-scrollers this fixture exists to prove
-			-- (NS-A2/NS-I2/A-SV1), so instead each region states its SHARE of
-			-- whatever height the viewport actually has (`fill`, weighted
-			-- roughly by its original px so List stays the tallest demo and
-			-- Strip the shortest) rather than a constant that stops fitting
-			-- below ~640px. Every region's own content (20/12/15 items) still
-			-- outgrows its box at any weight share, so the scroll/keep-visible
-			-- behavior under test is unchanged — only the box gets smaller.
-			UI.ScrollView({
-				id = "List",
-				height = UI.fill(3),
-				width = { type = "fixed", px = 280 },
-				padding = "s",
-				gap = 0,
-				children = rows,
-			}),
-			-- the two region labels go with the title, and for the same 26px: with
-			-- only the title gone the LIST region came out 13px tall against 8+8 of
-			-- its own padding, i.e. a scroll host with no content box at all. Three
-			-- regions that read at 55/18/37px beat four labels over nothing.
-			UI.When({
-				id = "StripLabelWhen",
-				condition = showTitle,
-				thenView = function()
-					return UI.Text({
-						id = "StripLabel",
-						text = "horizontal axis",
-						textSize = "label",
-						role = "secondary",
-					})
-				end,
-			}),
-			UI.ScrollView({
-				id = "Strip",
-				axis = "x",
-				gap = "s",
-				width = { type = "fixed", px = 280 },
-				height = UI.fill(),
-				children = strip,
-			}),
-			UI.When({
-				id = "KeepLabelWhen",
-				condition = showTitle,
-				thenView = function()
-					return UI.Text({
-						id = "KeepLabel",
-						text = "keep-visible (focusable rows)",
-						textSize = "label",
-						role = "secondary",
-					})
-				end,
-			}),
-			UI.ScrollView({
-				id = "FocusList",
-				height = UI.fill(2),
-				width = { type = "fixed", px = 280 },
-				gap = 2,
-				children = focusRows,
-			}),
-			UI.Text({ id = "Below", text = "BELOW-LIST MARKER (must never move)", textSize = "label" }),
-		})
+				UI.When("TitleWhen")({
+					Compose.show(showTitle, function()
+						return UI.Text("Title")({ text = "Native scroll host", textSize = 22 })
+					end),
+				}),
+				-- The three demo regions below used to be FIXED px (260/56/140) —
+				-- taller together than a short landscape phone's whole safe area,
+				-- with nothing to scroll the PAGE (overflow_sweep, device bug round
+				-- 2026-08-12). Wrapping the page in a second y-ScrollView would nest
+				-- a y-scroller inside the y-scrollers this fixture exists to prove
+				-- (NS-A2/NS-I2/A-SV1), so instead each region states its SHARE of
+				-- whatever height the viewport actually has (`fill`, weighted
+				-- roughly by its original px so List stays the tallest demo and
+				-- Strip the shortest) rather than a constant that stops fitting
+				-- below ~640px. Every region's own content (20/12/15 items) still
+				-- outgrows its box at any weight share, so the scroll/keep-visible
+				-- behavior under test is unchanged — only the box gets smaller.
+				UI.ScrollView("List")({
+					height = UI.fill(3),
+					width = { type = "fixed", px = 280 },
+					padding = "s",
+					gap = 0,
+					table.unpack(rows),
+				}),
+				-- the two region labels go with the title, and for the same 26px: with
+				-- only the title gone the LIST region came out 13px tall against 8+8 of
+				-- its own padding, i.e. a scroll host with no content box at all. Three
+				-- regions that read at 55/18/37px beat four labels over nothing.
+				UI.When("StripLabelWhen")({
+					Compose.show(showTitle, function()
+						return UI.Text("StripLabel")({
+							text = "horizontal axis",
+							textSize = "label",
+							role = "secondary",
+						})
+					end),
+				}),
+				UI.ScrollView("Strip")({
+					axis = "x",
+					gap = "s",
+					width = { type = "fixed", px = 280 },
+					height = UI.fill(),
+					table.unpack(strip),
+				}),
+				UI.When("KeepLabelWhen")({
+					Compose.show(showTitle, function()
+						return UI.Text("KeepLabel")({
+							text = "keep-visible (focusable rows)",
+							textSize = "label",
+							role = "secondary",
+						})
+					end),
+				}),
+				UI.ScrollView("FocusList")({
+					height = UI.fill(2),
+					width = { type = "fixed", px = 280 },
+					gap = 2,
+					table.unpack(focusRows),
+				}),
+				UI.Text("Below")({ text = "BELOW-LIST MARKER (must never move)", textSize = "label" }),
+			})
+		end
 
 		return {
 			screen = screen,

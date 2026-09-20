@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE HEADLESS WORLD, AND THE ORDER THAT MAY NOT COME BACK
 	(reuse audit REUSE-88; controller ruling R12; `tests/lib/world.luau`).
 
@@ -16,7 +17,7 @@
 	nobody had touched.
 
 	The twelve moved onto the sixteen's order, which is the order
-	`Facet.newPresenter(core, env, adapter, system)` itself takes. THIS FILE IS
+	`harness.newPresenter(core, env, adapter, system)` itself takes. THIS FILE IS
 	WHAT KEEPS IT AT ONE. A checker would have been the other option and would
 	have been worse: the rule is about the test suite's own source, the suite
 	already reads its own source in a dozen places, and a rule that only runs
@@ -34,7 +35,7 @@ local fs = require("@lune/fs")
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 --[[ EVERY FILE WHOSE TOP-LEVEL BUILDER IS NOW `tests/lib/world.luau`.
 
@@ -92,7 +93,7 @@ local SELF = "world_substrate.spec.luau"
 describe("the headless world substrate (REUSE-88)", function()
 	it("builds the six pieces, viewport first, one presenter per adapter", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
-		expect(w.env:get("viewportRect"):get().w).toBe(800)
+		expect(w.env:get("viewportRect"):peek().w).toBe(800)
 		expect(w.core ~= nil).toBe(true)
 		expect(w.adapter ~= nil).toBe(true)
 		expect(w.system ~= nil).toBe(true)
@@ -107,7 +108,7 @@ describe("the headless world substrate (REUSE-88)", function()
 
 	it("the default viewport is a phone portrait, and every named fact is optional", function()
 		local w = worldLib.new()
-		local vp = w.env:get("viewportRect"):get()
+		local vp = w.env:get("viewportRect"):peek()
 		expect(`{vp.w}x{vp.h}`).toBe("390x844")
 	end)
 
@@ -120,15 +121,15 @@ describe("the headless world substrate (REUSE-88)", function()
 			reducedMotion = true,
 			env = { preferredTextOffset = 10 },
 		})
-		expect(w.env:get("coreSafeInsets"):get().top).toBe(5)
-		expect(w.env:get("preferredInput"):get()).toBe("Touch")
-		expect(w.env:get("displaySize"):get()).toBe("Large")
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
-		expect(w.env:get("preferredTextOffset"):get()).toBe(10)
+		expect(w.env:get("coreSafeInsets"):peek().top).toBe(5)
+		expect(w.env:get("preferredInput"):peek()).toBe("Touch")
+		expect(w.env:get("displaySize"):peek()).toBe("Large")
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
+		expect(w.env:get("preferredTextOffset"):peek()).toBe(10)
 	end)
 
 	it("settle is N frames of clock AND solve, and never zero of them", function()
-		local UI = require("../src/blueprint")
+		local UI = harness.UI
 		local w = worldLib.new()
 		local ticks = 0
 		w.present(UI.Screen({ id = "S", children = { UI.Button({ id = "B", label = "B" }) } }))
@@ -148,7 +149,7 @@ describe("the headless world substrate (REUSE-88)", function()
 		not an edge at all and simply does not arrive. The case presses twice for
 		exactly that reason — one press proves nothing about the release. ]]
 	it("press is both edges, so the same key twice is two activations", function()
-		local UI = require("../src/blueprint")
+		local UI = harness.UI
 		local w = worldLib.new({ presenterOpts = { keyboardNavigation = true } })
 		local fired = 0
 		w.present(UI.Screen({
@@ -197,7 +198,7 @@ describe("REUSE-88: the retired tuple order stays retired", function()
 		table.sort(offenders)
 		--[[ THE MESSAGE IS THE FIX, because the author who trips this is writing a
 			builder and copying it from somewhere. `core, env, adapter, system, pres`
-			is the order `Facet.newPresenter` takes; `tests/lib/world.luau` is where
+			is the order `harness.newPresenter` takes; `tests/lib/world.luau` is where
 			the construction lives. ]]
 		expect(`files returning the retired order: {table.concat(offenders, ", ")}`).toBe(
 			"files returning the retired order: "
@@ -225,7 +226,7 @@ describe("REUSE-88: the retired tuple order stays retired", function()
 		over-approximation rather than a census — which is all a ratchet needs, so
 		long as the pin is what THIS detector sees rather than a number measured
 		some other way. ]]
-	local HAND_ROLLED_BUILDERS = 78
+	local HAND_ROLLED_BUILDERS = 69
 
 	it("the count of hand-rolled presenter builders only ever falls (R12 trigger)", function()
 		local live: { string } = {}
@@ -239,7 +240,7 @@ describe("REUSE-88: the retired tuple order stays retired", function()
 				or string.find(source, "local function harness", 1, true) ~= nil
 			local buildsPresenter = string.find(source, "presenterLib.newPresenter(", 1, true) ~= nil
 				or string.find(source, "presenterLib.new(", 1, true) ~= nil
-				or string.find(source, "Facet.newPresenter(", 1, true) ~= nil
+				or string.find(source, "harness.newPresenter(", 1, true) ~= nil
 			if hasBuilder and buildsPresenter then
 				table.insert(live, name)
 			end
@@ -264,7 +265,11 @@ describe("REUSE-88: the retired tuple order stays retired", function()
 		local missing: { string } = {}
 		for _, name in MIGRATED do
 			local source = fs.readFile(`tests/{name}.spec.luau`)
-			if string.find(source, 'require("./lib/world")', 1, true) == nil then
+			-- either shared substrate: the service-level world, or the native one
+			if
+				string.find(source, 'require("./lib/harness_world")', 1, true) == nil
+				and string.find(source, 'require("./lib/world")', 1, true) == nil
+			then
 				table.insert(missing, name)
 			end
 		end

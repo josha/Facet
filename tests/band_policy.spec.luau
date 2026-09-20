@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE FOURTH CASE ON `rootPolicy` — `bandSafeContent` (framework-gaps §9).
 
 	THE HOLE THIS CLOSES, in the audit's own words: *"`platformChrome.bandInsets`
@@ -26,8 +27,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local composition = require("../src/layout/composition")
@@ -63,7 +64,7 @@ end
 local function mountUnder(blueprint: any, policy: string, profile: any?): any
 	local core = customFactory.new()
 	local env = envWith(core, profile or LIVE)
-	local mountLib = require("../src/mount")
+	local mountLib = harness
 	local root = mountLib.mount(core, blueprint)
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = policy })
@@ -88,7 +89,7 @@ describe("§9: `bandSafeContent` is the policy that spends `platformChrome.bandI
 		expect(w.adapter.node("/S").rect ~= nil).toBe(true)
 		local core = customFactory.new()
 		local env = envWith(core, LIVE)
-		local mountLib = require("../src/mount")
+		local mountLib = harness
 		local root = mountLib.mount(core, plainScreen())
 		local ok, err = pcall(function()
 			renderer.attach(core, root, env, fake_target.new(), { rootPolicy = "bandSafeContnt" })
@@ -99,7 +100,7 @@ describe("§9: `bandSafeContent` is the policy that spends `platformChrome.bandI
 
 	it("its content rect starts where the BAND starts, not below the platform's whole row", function()
 		local w = mountUnder(plainScreen(), "bandSafeContent")
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		-- the fact the audit says nothing spent
 		expect(chrome.bandInsets.top).toBe(0)
 		expect(chrome.insets.top).toBe(58)
@@ -122,7 +123,7 @@ describe("§9: `bandSafeContent` is the policy that spends `platformChrome.bandI
 		}
 		local band = mountUnder(plainScreen(), "bandSafeContent", NO_STRIP)
 		local device = mountUnder(plainScreen(), "deviceSafeContent", NO_STRIP)
-		expect(band.env:get("platformChrome"):get().band).toBe(nil)
+		expect(band.env:get("platformChrome"):peek().band).toBe(nil)
 		local a, b = band.adapter.node("/S").rect, device.adapter.node("/S").rect
 		--[[ THE TOP IS THE WHOLE CLAIM: with no band, `bandInsets` IS `insets`, so a
 			consumer needs no branch for a platform that reports no strip. The other
@@ -242,7 +243,7 @@ end
 describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the framework", function()
 	it("the row sits INSIDE the free strip — level with the platform's buttons, never on them", function()
 		local w = mountUnder(hudScreen(true), "bandSafeContent")
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		local strip = w.adapter.node("/S/H/Strip").rect
 		expect(strip.x).toBe(chrome.band.x)
 		expect(strip.w).toBe(chrome.band.w)
@@ -252,7 +253,7 @@ describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the frame
 
 	it("...and the lanes start BELOW the band, so the top-left cluster is clear by construction", function()
 		local w = mountUnder(hudScreen(true), "bandSafeContent")
-		local chrome = w.env:get("platformChrome"):get()
+		local chrome = w.env:get("platformChrome"):peek()
 		local btn = w.adapter.node("/S/H/Left").rect
 		expect(btn.y).toBe(chrome.band.y + chrome.band.h)
 	end)
@@ -292,7 +293,7 @@ describe("§9: the `topbar` zone is inset to `platformChrome.band`, by the frame
 			bar = { x = 0, y = 0, w = 0, h = 0 },
 		}
 		local w = mountUnder(hudScreen(true), "bandSafeContent", NO_STRIP)
-		expect(w.env:get("platformChrome"):get().band).toBe(nil)
+		expect(w.env:get("platformChrome"):peek().band).toBe(nil)
 		local strip = w.adapter.node("/S/H/Strip").rect
 		-- the composition's own offer, not a free-strip rect nobody published —
 		-- the byte-identical answer a composition with NO `topbar` region gets

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- TOAST PRESENTATION (acceptance rows SF-T1, SF-T3). The
 -- scheduler's rules are proven in `toast_schedule.spec`; this file proves the
 -- SURFACE — and every assertion here is about something a toast must NOT do:
@@ -15,14 +16,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -30,7 +32,7 @@ local FRAME = 1 / 60
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -131,32 +133,6 @@ describe("toast presentation: continuity and readable sizing", function()
 		expect(adapter.node("/__toast__/Items/[1]/Toast").canvasGroupInstance).toBeNil()
 	end)
 
-	it("component toast bodies receive the same services and lifetime as a screen", function()
-		local Facet = require("../src")
-		local _, _, adapter, _, pres = world(true)
-		local disposed = false
-		local Body = Facet.component(function(ui)
-			local reduced = ui.env("reducedMotion")
-			local amount = ui.animate(function()
-				return 12
-			end, "object")
-			ui.own(function()
-				disposed = true
-			end)
-			return Facet.View.Text({
-				id = "Amount",
-				text = function()
-					return `{amount()} / {tostring(reduced())}`
-				end,
-			})
-		end)
-		local h = pres.presentToast(Body({}))
-		expect(visibleTexts(adapter)[1]).toBe("12 / true")
-		h.dismiss()
-		pres.tick(FRAME)
-		expect(disposed).toBe(true)
-	end)
-
 	it("invalid placement and width fail before a toast joins the scheduler", function()
 		local _, _, _, _, pres = world()
 		for _, opts in { { position = "middle" }, { width = { type = "unknown" } } } do
@@ -197,23 +173,23 @@ describe("toast presentation: the layer is input-transparent", function()
 		pres.present(baseScreen())
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		local before = pres.focus.focused:get()
+		local before = pres.focus.focused:peek()
 		local scopeBefore = pres.focus.activeScopeName()
 
 		local handle = pres.presentToast(toastBody("Lap 2"), { duration = 1, readFloor = 0 })
 		pres.tick(FRAME)
-		expect(pres.focus.focused:get()).toBe(before)
+		expect(pres.focus.focused:peek()).toBe(before)
 		-- and navigation still moves within the BASE screen's ring only
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		local moved = pres.focus.focused:get()
+		local moved = pres.focus.focused:peek()
 		expect(string.find(tostring(moved), "__toast__", 1, true)).toBeNil()
 
 		handle.dismiss()
 		for _ = 1, 90 do
 			pres.tick(FRAME)
 		end
-		expect(string.find(tostring(pres.focus.focused:get()), "__toast__", 1, true)).toBeNil()
+		expect(string.find(tostring(pres.focus.focused:peek()), "__toast__", 1, true)).toBeNil()
 		-- the scope stack is exactly what it was: a toast pushes nothing
 		expect(pres.focus.activeScopeName()).toBe(scopeBefore)
 	end)
@@ -271,7 +247,7 @@ describe("toast presentation: stacking", function()
 		expect(first.y < aloneY).toBe(true)
 		expect(second.y > first.y).toBe(true)
 		-- ...and the strip stops at the inset, never under the home indicator
-		local viewport: any = env:get("viewportRect"):get()
+		local viewport: any = env:get("viewportRect"):peek()
 		expect(second.y + second.h <= viewport.h - 34).toBe(true)
 	end)
 
@@ -388,7 +364,7 @@ describe("toast presentation: the layer's lifetime", function()
 	it("churning toasts through mount and retire returns the core to baseline", function()
 		local core, _, _, _, pres = world()
 		pres.present(baseScreen())
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		for i = 1, 20 do
 			local handle = pres.presentToast(toastBody(`t{i}`), { duration = 0.2, readFloor = 0 })
 			pres.tick(FRAME)
@@ -397,10 +373,8 @@ describe("toast presentation: the layer's lifetime", function()
 				pres.tick(FRAME)
 			end
 		end
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -534,7 +508,7 @@ describe("toast presentation: reduced motion keeps the whole information surface
 
 	it("a READABLE transition is merged at the read, and still tracks its signal", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local declared = w.core:signal({ enter = "fade" })
+		local declared = Compose.cell({ enter = "fade" })
 		local counted = backdropSweep.capture(function()
 			w.present(baseScreen())
 			w.pres.presentToast(snack("Lap 2"), { transition = declared, duration = 20, readFloor = 0 })

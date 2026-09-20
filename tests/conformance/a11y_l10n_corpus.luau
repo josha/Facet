@@ -51,8 +51,8 @@ end
 local POINTER_FACTOR = 0.727
 local function effectiveTargetMin(env: any, tokensTbl: any): number
 	local base = tokensTbl.targetSizes.minimum
-	local input = env:get("preferredInput"):get()
-	local caps = env:get("capabilities"):get()
+	local input = env:get("preferredInput"):peek()
+	local caps = env:get("capabilities"):peek()
 	local touchPrimary = input == "Touch" or (caps and caps.touch == true)
 	local factor = if touchPrimary then 1.0 else POINTER_FACTOR
 	return base * factor
@@ -135,7 +135,7 @@ local function dumpCore(core: any): any
 		local env = buildEnv(core, profile)
 		displayClass[#displayClass + 1] = {
 			id = profile.id,
-			sizeClass = env:get("sizeClass"):get(),
+			sizeClass = env:get("sizeClass"):peek(),
 			effectiveTargetMin = round3(effectiveTargetMin(env, fx.tokens)),
 		}
 	end
@@ -145,7 +145,7 @@ local function dumpCore(core: any): any
 		local env = buildEnv(core)
 		for _, scale in fx.textScales do
 			env:set("preferredTextSize", scale)
-			local ts = env:get("typographyScale"):get()
+			local ts = env:get("typographyScale"):peek()
 			scaleHeights[#scaleHeights + 1] = {
 				scale = scale,
 				typographyScale = ts,
@@ -291,7 +291,7 @@ local checks: { Check } = {
 			local heights = {}
 			for _, scale in fx.textScales do
 				env:set("preferredTextSize", scale)
-				local ts = env:get("typographyScale"):get()
+				local ts = env:get("typographyScale"):peek()
 				if ts ~= scale then
 					return false,
 						`[text-scale] typographyScale {ts} != preferredTextSize {scale}; hint: derived scale must track the preference`
@@ -320,7 +320,7 @@ local checks: { Check } = {
 		run = function(core)
 			for _, profile in fx.displayProfiles do
 				local env = buildEnv(core, profile)
-				local sc = env:get("sizeClass"):get()
+				local sc = env:get("sizeClass"):peek()
 				if sc ~= profile.expectSizeClass then
 					return false,
 						`[{profile.id}] sizeClass {sc} != {profile.expectSizeClass}; hint: sizeClass derives from viewportRect`
@@ -376,7 +376,7 @@ local checks: { Check } = {
 		run = function(core)
 			local env = buildEnv(core)
 			env:set("preferredTransparency", 0.0) -- user prefers reduced transparency
-			if env:get("preferredTransparency"):get() ~= 0.0 then
+			if env:get("preferredTransparency"):peek() ~= 0.0 then
 				return false, "[transparency] preference not observable through the environment"
 			end
 			-- readable fallback: the decorative surface substitutes a SOLID backing;
@@ -395,14 +395,14 @@ local checks: { Check } = {
 		run = function(core)
 			local env = buildEnv(core)
 			env:set("reducedMotion", false)
-			if env:get("motionPolicy"):get() ~= "full" then
+			if env:get("motionPolicy"):peek() ~= "full" then
 				return false, "[reduced-motion] motionPolicy not 'full' when reducedMotion=false"
 			end
 			if resolveMotion("full", fx.tokens.motion.normal) ~= fx.tokens.motion.normal then
 				return false, "[reduced-motion] full policy altered the token duration"
 			end
 			env:set("reducedMotion", true)
-			if env:get("motionPolicy"):get() ~= "reduced" then
+			if env:get("motionPolicy"):peek() ~= "reduced" then
 				return false,
 					"[reduced-motion] motionPolicy did not flip to 'reduced'; hint: env memo over reducedMotion"
 			end
@@ -490,7 +490,7 @@ local checks: { Check } = {
 			local env = buildEnv(core)
 			for _, scale in fx.textScales do
 				env:set("preferredTextSize", scale)
-				local ts = env:get("typographyScale"):get()
+				local ts = env:get("typographyScale"):peek()
 				local m = measure("Preferences and audio", SIZE * ts, 400)
 				if not (finiteNonNeg(m.width) and finiteNonNeg(m.height)) then
 					return false, `[text-scale {scale}] non-finite rect`

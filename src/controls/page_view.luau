@@ -1,61 +1,53 @@
 --!strict
-local publicCore = require("../core/contract")
-local publicBlueprint = require("../blueprint")
+local Compose = require("../vendor/compose/core")
+local selectionModel = require("../selection_model")
 local publicEnv = require("../env/environment")
 
 -- Finite content pages share selection with native scrolling and page indicators.
 local guard = require("../spec_guard")
 local pageView = {}
-export type Page = { id: string, title: string, content: publicBlueprint.Blueprint }
-type StringSignal = publicCore.Signal<string>
-export type Spec<V = StringSignal> = {
-	id: string?,
-	pages: { Page },
-	selection: V,
-	height: publicBlueprint.Bound<publicBlueprint.Dim>?,
-	indicators: boolean?,
-}
-local KEYS = guard.keySet({ "id", "pages", "selection", "height", "indicators" })
-function pageView.build(Facet, core, spec: Spec)
-	guard.assertKnownKeys("Controls.PageView", spec, KEYS, "spec")
+local specTypes = require("../spec_types/page_view")
+export type Page = specTypes.Page
+type StringCell = specTypes.StringCell
+export type Spec<V = StringCell> = specTypes.Spec<V>
+local KEYS = guard.keySet({ "id", "pages", "selection", "height", "indicators", "summary", "controls" })
+local function build(Facet, core, spec: Spec, owner)
+	guard.assertKnownKeys("UI.PageView", spec, KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "PageView"
-	assert(type(id) == "string" and id ~= "", "Controls.PageView.id must be a nonempty string")
-	assert(
-		type(spec.selection) == "table" and spec.selection.kind == "signal",
-		"Controls.PageView.selection must be an owner-held Signal"
-	)
-	assert(type(spec.pages) == "table" and #spec.pages > 0, "Controls.PageView.pages must be a nonempty array")
-	assert(spec.indicators == nil or type(spec.indicators) == "boolean", "Controls.PageView.indicators must be boolean")
+	assert(type(id) == "string" and id ~= "", "UI.PageView.id must be a nonempty string")
+	assert(selectionModel.isWritable(spec.selection), "UI.PageView.selection must be a writable Compose cell")
+	assert(type(spec.pages) == "table" and #spec.pages > 0, "UI.PageView.pages must be a nonempty array")
+	assert(spec.indicators == nil or type(spec.indicators) == "boolean", "UI.PageView.indicators must be boolean")
+	assert(spec.summary == nil or type(spec.summary) == "boolean", "UI.PageView.summary must be boolean")
+	assert(spec.controls == nil or type(spec.controls) == "boolean", "UI.PageView.controls must be boolean")
 	local pages, ids, indices = {}, {}, {}
 	for index, page in spec.pages do
 		assert(
 			type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #spec.pages,
-			"Controls.PageView.pages must be a dense array"
+			"UI.PageView.pages must be a dense array"
 		)
-		guard.assertKnownKeys("Controls.PageView.pages", page, guard.keySet({ "id", "title", "content" }), "page")
+		guard.assertKnownKeys("UI.PageView.pages", page, guard.keySet({ "id", "title", "content" }), "page")
 		assert(
 			type(page.id) == "string" and page.id ~= "" and not page.id:find("/", 1, true) and not indices[page.id],
-			"Controls.PageView page IDs must be unique nonempty names without /"
+			"UI.PageView page IDs must be unique nonempty names without /"
 		)
-		assert(type(page.title) == "string" and page.title ~= "", "Controls.PageView page title must be nonempty text")
+		assert(type(page.title) == "string" and page.title ~= "", "UI.PageView page title must be nonempty text")
 		assert(
 			type(page.content) == "table" and type(page.content.class) == "string",
-			"Controls.PageView page content must be a blueprint"
+			"UI.PageView page content must be a blueprint"
 		)
 		indices[page.id] = index
 		ids[index] = page.id
 		pages[index] = table.clone(page)
 	end
-	assert(indices[spec.selection:get()] ~= nil, "Controls.PageView.selection must name a declared page")
-	UI.Box({ height = spec.height or UI.fill() })
-	local scope = core:scope("page-view-" .. id)
-	local target = scope:own(core:signal(spec.selection:get()))
+	assert(indices[spec.selection:peek()] ~= nil, "UI.PageView.selection must name a declared page")
+	local target = Compose.cell(spec.selection:peek())
 	local writing = false
 	local scrollSelection
 	local pendingSelection
 	local function select(key)
-		if key == spec.selection:get() then
+		if key == spec.selection:peek() then
 			target:set(nil)
 			target:set(key)
 		else
@@ -63,7 +55,7 @@ function pageView.build(Facet, core, spec: Spec)
 		end
 	end
 	local function adjust(direction)
-		local index = indices[spec.selection:get()]
+		local index = indices[spec.selection:peek()]
 		local nextIndex = math.clamp(index + direction, 1, #ids)
 		if nextIndex == index then
 			return false
@@ -71,8 +63,12 @@ function pageView.build(Facet, core, spec: Spec)
 		select(ids[nextIndex])
 		return true
 	end
-	scope:own(core:observe(spec.selection, function(key)
-		assert(indices[key] ~= nil, "Controls.PageView.selection must name a declared page")
+	local observingSelection = false
+	owner.watchStatic(spec.selection, function(key)
+		if not observingSelection then
+			return
+		end
+		assert(indices[key] ~= nil, "UI.PageView.selection must name a declared page")
 		if key == scrollSelection then
 			scrollSelection = nil
 		elseif not writing then
@@ -80,7 +76,8 @@ function pageView.build(Facet, core, spec: Spec)
 			pendingSelection = key
 			target:set(key)
 		end
-	end))
+	end)
+	observingSelection = true
 	local cards, dots = {}, {}
 	for i, page in pages do
 		table.insert(
@@ -96,9 +93,9 @@ function pageView.build(Facet, core, spec: Spec)
 				{ axis = "horizontal", fraction = 1 }
 			)
 		)
-		local selected = scope:own(core:memo(function(use)
+		local selected = Compose.formula(function(use)
 			return use(spec.selection) == page.id
-		end))
+		end)
 		table.insert(
 			dots,
 			UI.Button({
@@ -122,12 +119,12 @@ function pageView.build(Facet, core, spec: Spec)
 									id = "Mark",
 									width = { type = "fixed", px = "space.s" },
 									height = { type = "fixed", px = "space.s" },
-									tint = scope:own(core:memo(function(use)
+									tint = Compose.formula(function(use)
 										return {
 											role = if use(selected) then "accent" else "contentSecondary",
 											blend = 1,
 										}
-									end)),
+									end),
 									alignH = "center",
 									alignV = "center",
 								}),
@@ -139,13 +136,13 @@ function pageView.build(Facet, core, spec: Spec)
 			})
 		)
 	end
-	local summary = scope:own(core:memo(function(use)
+	local summary = Compose.formula(function(use)
 		local n = indices[use(spec.selection)]
 		return "Page " .. n .. " of " .. #pages .. ": " .. pages[n].title
-	end))
+	end)
 	local controller, rootPath, lastWidth, graph, offScroll, offIntent, subscribedPath
 	local frameworkPosition
-	scope:own(function()
+	owner.own(function()
 		if offIntent then
 			offIntent()
 		end
@@ -153,13 +150,23 @@ function pageView.build(Facet, core, spec: Spec)
 			offScroll()
 		end
 	end)
-	local blueprint = Facet.contribution.attach(
+	-- Optional chrome leaves gaps in the authored list; layout reads a dense one.
+	local function dense(list: { any }, slots: number): { any }
+		local out = {}
+		for index = 1, slots do
+			if list[index] ~= nil then
+				table.insert(out, list[index])
+			end
+		end
+		return out
+	end
+	local blueprint = require("../input/contribution").attach(
 		UI.VStack({
 			id = id,
 			width = UI.fill(),
 			height = spec.height or UI.fill(),
 			gap = "s",
-			children = {
+			children = dense({
 				UI.ScrollView({
 					id = "Pages",
 					axis = "x",
@@ -173,7 +180,7 @@ function pageView.build(Facet, core, spec: Spec)
 					},
 					children = cards,
 				}),
-				UI.Text({ id = "Summary", text = summary, disclose = true }),
+				if spec.summary == false then nil else UI.Text({ id = "Summary", text = summary, disclose = true }),
 				UI.HStack({
 					id = "Indicators",
 					distribute = "center",
@@ -183,40 +190,42 @@ function pageView.build(Facet, core, spec: Spec)
 					align = "center",
 					children = dots,
 				}),
-				UI.HStack({
-					id = "Controls",
-					width = UI.fill(),
-					gap = "s",
-					children = {
-						UI.Button({
-							id = "Previous",
-							disclose = true,
-							label = "Previous",
-							width = UI.fill(),
-							height = { type = "minMax", min = "targetSizes.minimum" },
-							enabled = scope:own(core:memo(function(use)
-								return indices[use(spec.selection)] > 1
-							end)),
-							onActivate = function()
-								adjust(-1)
-							end,
-						}),
-						UI.Button({
-							id = "Next",
-							disclose = true,
-							label = "Next",
-							width = UI.fill(),
-							height = { type = "minMax", min = "targetSizes.minimum" },
-							enabled = scope:own(core:memo(function(use)
-								return indices[use(spec.selection)] < #pages
-							end)),
-							onActivate = function()
-								adjust(1)
-							end,
-						}),
-					},
-				}),
-			},
+				if spec.controls == false
+					then nil
+					else UI.HStack({
+						id = "Controls",
+						width = UI.fill(),
+						gap = "s",
+						children = {
+							UI.Button({
+								id = "Previous",
+								disclose = true,
+								label = "Previous",
+								width = UI.fill(),
+								height = { type = "minMax", min = "targetSizes.minimum" },
+								enabled = Compose.formula(function(use)
+									return indices[use(spec.selection)] > 1
+								end),
+								onActivate = function()
+									adjust(-1)
+								end,
+							}),
+							UI.Button({
+								id = "Next",
+								disclose = true,
+								label = "Next",
+								width = UI.fill(),
+								height = { type = "minMax", min = "targetSizes.minimum" },
+								enabled = Compose.formula(function(use)
+									return indices[use(spec.selection)] < #pages
+								end),
+								onActivate = function()
+									adjust(1)
+								end,
+							}),
+						},
+					}),
+			}, 4),
 		}),
 		{
 			adjustAxis = "horizontal",
@@ -241,22 +250,22 @@ function pageView.build(Facet, core, spec: Spec)
 				local prefix = rootPath .. "/Pages/"
 				if path:sub(1, #prefix) == prefix then
 					local key = path:sub(#prefix + 1):match("^([^/]+)")
-					if indices[key] and key ~= spec.selection:get() then
+					if indices[key] and key ~= spec.selection:peek() then
 						select(key)
 					end
 				end
 			end,
 			bindInputScope = function(input)
-				scope:own(input.onTick(function()
+				owner.own(input.onTick(function()
 					if not graph or not controller or not rootPath then
 						return
 					end
-					local focused = graph.focused:get()
+					local focused = graph.focused:peek()
 					local prefix = rootPath .. "/Pages/"
 					if not focused or focused:sub(1, #prefix) ~= prefix then
 						return
 					end
-					local key = spec.selection:get()
+					local key = spec.selection:peek()
 					local current = prefix .. key .. "/"
 					if focused:sub(1, #current) == current then
 						return
@@ -334,7 +343,7 @@ function pageView.build(Facet, core, spec: Spec)
 							return
 						end
 						local index = math.clamp(math.floor(pos.x / host.rect.w + 0.5) + 1, 1, #pages)
-						if ids[index] ~= spec.selection:get() then
+						if ids[index] ~= spec.selection:peek() then
 							writing = true
 							scrollSelection = ids[index]
 							spec.selection:set(ids[index])
@@ -351,7 +360,7 @@ function pageView.build(Facet, core, spec: Spec)
 					writing = true
 					controller.scrollTo(
 						rootPath .. "/Pages",
-						{ x = (indices[spec.selection:get()] - 1) * width, y = 0 }
+						{ x = (indices[spec.selection:peek()] - 1) * width, y = 0 }
 					)
 					writing = false
 				end
@@ -363,8 +372,8 @@ function pageView.build(Facet, core, spec: Spec)
 		return {
 			schema = "facet-page-view-dump/1",
 			id = id,
-			selection = spec.selection:get(),
-			index = indices[spec.selection:get()],
+			selection = spec.selection:peek(),
+			index = indices[spec.selection:peek()],
 			count = #pages,
 		}
 	end
@@ -372,8 +381,20 @@ function pageView.build(Facet, core, spec: Spec)
 		blueprint = blueprint,
 		dump = dump,
 		dispose = function()
-			scope:dispose()
+			owner.dispose()
 		end,
 	})
+end
+function pageView.build(Facet, core, spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 return pageView

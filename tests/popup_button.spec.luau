@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- PopupButton control tests (composite over UI.* primitives). The control is
 -- a closed, single-focusable button showing the currently-selected option;
 -- activating it opens a popup listing the options (each an activatable row).
@@ -16,6 +17,13 @@ local serde = require("@lune/serde")
 local Facet = require("../src") :: any
 local popup_button = require("../src/controls/popup_button")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
+
+-- Builds with the core's own control library.
+local function build(core: any, spec: any): any
+	local _, _, library = harness.libraryOf(core)
+	return popup_button.build(library, core, spec)
+end
 
 local OPTIONS = {
 	{ id = "easy", label = "Easy" },
@@ -28,15 +36,15 @@ local OPTIONS = {
 -- host screen routes activation, exactly as tests/table.spec.luau does).
 local function world(opts: any?)
 	local options = opts or {}
-	local core = options.core or Facet.newCore()
+	local core = options.core or harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local changes: { string } = {}
-	local value = options.value or core:signal(options.initial or "normal")
-	local control = popup_button.build(Facet, core, {
+	local value = options.value or Compose.cell(options.initial or "normal")
+	local control = build(core, {
 		id = "Difficulty",
 		options = options.options or OPTIONS,
 		value = value,
@@ -44,7 +52,7 @@ local function world(opts: any?)
 			table.insert(changes, id)
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { control.blueprint } })
 	local handle = pres.present(screen, {
 		sinkNavigation = true,
 		onActivate = function(path, meta)
@@ -78,7 +86,7 @@ describe("PopupButton: build + render", function()
 		local w = world()
 		expect(w.control.blueprint ~= nil).toBe(true)
 		expect(w.adapter.node(TRIGGER) ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("the closed button shows the currently-selected option's label", function()
@@ -90,11 +98,11 @@ describe("PopupButton: build + render", function()
 
 	it("the closed control is a SINGLE focusable (only the trigger)", function()
 		local w = world()
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 		-- one Down wraps back to the trigger: nothing else is focusable closed
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 	end)
 end)
 
@@ -129,7 +137,7 @@ describe("PopupButton: pointer interaction (the real tap path)", function()
 		w.pres.refresh()
 		w.adapter.tap(optPath("hard"))
 		w.pres.refresh()
-		expect(w.value:get()).toBe("hard")
+		expect(w.value:peek()).toBe("hard")
 		expect(#w.changes).toBe(1)
 		expect(w.changes[1]).toBe("hard")
 		-- popup closed
@@ -146,7 +154,7 @@ describe("PopupButton: pointer interaction (the real tap path)", function()
 		w.adapter.tap(TRIGGER) -- toggle closed
 		w.pres.refresh()
 		expect(w.adapter.node(optPath("normal"))).toBe(nil)
-		expect(w.value:get()).toBe("easy")
+		expect(w.value:peek()).toBe("easy")
 		expect(#w.changes).toBe(0)
 	end)
 
@@ -158,7 +166,7 @@ describe("PopupButton: pointer interaction (the real tap path)", function()
 		w.adapter.tap(CANCEL)
 		w.pres.refresh()
 		expect(w.adapter.node(optPath("easy"))).toBe(nil)
-		expect(w.value:get()).toBe("normal")
+		expect(w.value:peek()).toBe("normal")
 		expect(#w.changes).toBe(0)
 	end)
 
@@ -168,7 +176,7 @@ describe("PopupButton: pointer interaction (the real tap path)", function()
 		w.pres.refresh()
 		w.adapter.tap(optPath("normal")) -- already selected
 		w.pres.refresh()
-		expect(w.value:get()).toBe("normal")
+		expect(w.value:peek()).toBe("normal")
 		expect(#w.changes).toBe(0) -- no change fired
 		expect(w.adapter.node(optPath("normal"))).toBe(nil) -- still closes
 	end)
@@ -185,19 +193,19 @@ describe("PopupButton: keyboard / gamepad", function()
 		-- Down walks trigger -> first option -> second option
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(optPath("easy"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("easy"))
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(optPath("normal"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("normal"))
 		-- Activate selects the focused option
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
-		expect(w.value:get()).toBe("normal")
+		expect(w.value:peek()).toBe("normal")
 		expect(w.changes[1]).toBe("normal")
 		-- popup closed; focus returns to the (single) trigger
 		expect(w.adapter.node(optPath("normal"))).toBe(nil)
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
 	end)
 
 	it("gamepad ButtonA drives the same open+select path", function()
@@ -211,11 +219,11 @@ describe("PopupButton: keyboard / gamepad", function()
 		w.system.deviceKey("Down", false) -- to normal
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false) -- to hard
-		expect(w.pres.focus.focused:get()).toBe(optPath("hard"))
+		expect(w.pres.focus.focused:peek()).toBe(optPath("hard"))
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.pres.refresh()
-		expect(w.value:get()).toBe("hard")
+		expect(w.value:peek()).toBe("hard")
 	end)
 end)
 
@@ -254,22 +262,22 @@ describe("PopupButton: reactive discipline", function()
 		-- so the baseline is taken AFTER the harness exists — exactly as
 		-- tests/table.spec.luau does. This isolates the CONTROL's neutrality:
 		-- build + mount + open/select/open/cancel churn + dismiss + dispose.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
-		local value = core:signal("normal")
-		local control = popup_button.build(Facet, core, {
+		local value = Compose.cell("normal")
+		local control = build(core, {
 			id = "Difficulty",
 			options = OPTIONS,
 			value = value,
 			onChange = function() end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { control.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { control.blueprint } })
 		local handle = pres.present(screen, {
 			sinkNavigation = true,
 			onActivate = function(path, meta)
@@ -288,23 +296,20 @@ describe("PopupButton: reactive discipline", function()
 		pres.refresh()
 		pres.dismiss(handle)
 		control.dispose()
-		value:dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
 describe("PopupButton: build-time contract", function()
 	it("option ids must be path-safe (a '/' would corrupt path routing)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok = pcall(function()
-			popup_button.build(Facet, core, {
+			build(core, {
 				id = "Bad",
 				options = { { id = "a/b", label = "Nope" } },
-				value = core:signal("a/b"),
+				value = Compose.cell("a/b"),
 			})
 		end)
 		expect(ok).toBe(false)
@@ -316,12 +321,12 @@ describe("PopupButton: build-time contract", function()
 	-- sibling — Stepper, Slider, Rating, Picker, DisclosureGroup, TextInput —
 	-- rejects exactly this at BUILD.
 	it("rejects a read-only Memo `value` at BUILD, naming the control and the field", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			popup_button.build(Facet, core, {
+			build(core, {
 				id = "Difficulty",
 				options = OPTIONS,
-				value = core:memo(function()
+				value = Compose.formula(function()
 					return "normal"
 				end),
 			})
@@ -329,15 +334,15 @@ describe("PopupButton: build-time contract", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "PopupButton", 1, true) ~= nil).toBe(true)
 		expect(string.find(tostring(err), "value", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "must be a writable Compose cell the caller owns", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("rejects a non-signal `value` at BUILD", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			popup_button.build(Facet, core, { id = "Difficulty", options = OPTIONS, value = "normal" :: any })
+			build(core, { id = "Difficulty", options = OPTIONS, value = "normal" :: any })
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "must be a writable Compose cell the caller owns", 1, true) ~= nil).toBe(true)
 	end)
 end)

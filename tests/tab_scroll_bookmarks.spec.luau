@@ -1,14 +1,16 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local UI = harness.UI
+local Compose = Facet.Compose
 t.describe("destination scroll bookmarks", function()
 	t.it("restores a keyed descendant after reorder without retaining the page", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
-		local selection = w.core:signal("a")
-		local items = w.core:signal({ "a", "b", "c", "d", "e", "f" })
-		local tabs = Facet.Controls.TabView(w.core, {
+		local selection = Compose.cell("a")
+		local items = Compose.cell({ "a", "b", "c", "d", "e", "f" })
+		local tabs = harness.Controls.TabView(w.core, {
 			id = "Tabs",
 			selection = selection,
 			placement = "topBar",
@@ -52,7 +54,7 @@ t.describe("destination scroll bookmarks", function()
 			},
 		})
 		w.present(UI.Screen({ id = "S", children = { tabs.blueprint } }))
-		local path = "/S/Tabs/Content/Tab-a/then/Inventory"
+		local path = "/S/Tabs/Content/Tab-a/Inventory"
 		w.controller.scrollTo(path, { x = 0, y = 450 })
 		selection:set("b")
 		w.settle(2)
@@ -73,26 +75,27 @@ t.describe("destination scroll bookmarks", function()
 		tabs.dispose()
 	end)
 	for _, kind in { "VirtualList", "VirtualGrid", "Table" } do
-		for _, editing in (if kind == "VirtualGrid" then { false } else { false, true }) do
+		-- Only Table has an editing mode; the virtual collections do not reorder.
+		for _, editing in (if kind == "Table" then { false, true } else { false }) do
 			t.it("restores " .. kind .. " keys with editing=" .. tostring(editing), function()
 				local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, preferredInput = "Gamepad" })
 				local data = {}
 				for i = 1, 100 do
 					data[i] = { id = tostring(i), label = "Item " .. i }
 				end
-				local rows = w.core:signal(data)
-				local selected = w.core:signal("a")
-				local edit = w.core:signal(editing)
+				local rows = Compose.cell(data)
+				local selected = Compose.cell("a")
+				local edit = Compose.cell(editing)
 				local builds = 0
 				local control
-				local tabs = Facet.Controls.TabView(w.core, {
+				local tabs = harness.Controls.TabView(w.core, {
 					id = "Tabs",
 					selection = selected,
 					placement = "topBar",
 					tabs = {
 						{
 							id = "a",
-							content = function(scope)
+							content = function()
 								local spec = {
 									id = "Collection",
 									key = function(item)
@@ -101,7 +104,18 @@ t.describe("destination scroll bookmarks", function()
 								}
 								local cell = function(item)
 									builds += 1
-									return UI.Text({ id = "Label", text = item.label, textSize = 14 })
+									return UI.Text({
+										id = "Label",
+										text = function(use)
+											return use(item).label
+										end,
+										textSize = 14,
+									})
+								end
+								-- A virtual collection's cell receives the item; `ctx.current`
+								-- follows its edits.
+								local virtualCell = function(_, ctx)
+									return cell(Compose.formula(ctx.current))
 								end
 								if kind == "Table" then
 									spec.rows = rows
@@ -123,16 +137,14 @@ t.describe("destination scroll bookmarks", function()
 									spec.viewportExtent = 300
 									spec.gap = 0
 									spec.rowGap = 0
-									spec.cell = cell
+									spec.cell = virtualCell
 								else
 									spec.rows = rows
 									spec.itemExtent = 100
 									spec.viewportExtent = 300
-									spec.cell = cell
-									spec.reorderable = editing
-									spec.onReorder = function() end
+									spec.cell = virtualCell
 								end
-								control = scope:own(Facet.Controls[kind](w.core, spec))
+								control = harness.Controls[kind](w.core, spec)
 								return UI.focusSection(control.blueprint)
 							end,
 						},
@@ -145,7 +157,7 @@ t.describe("destination scroll bookmarks", function()
 					},
 				})
 				w.present(UI.Screen({ id = "S", children = { tabs.blueprint } }))
-				local path = "/S/Tabs/Content/Tab-a/then/Collection" .. (if kind == "Table" then "/Main/Body" else "")
+				local path = "/S/Tabs/Content/Tab-a/Collection" .. (if kind == "Table" then "/Main/Body" else "")
 				w.adapter.driveScroll(path, { x = 0, y = 2050 })
 				w.settle(2)
 				selected:set("b")

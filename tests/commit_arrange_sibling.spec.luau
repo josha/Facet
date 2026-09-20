@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ── THE COMMIT-CLASS WRITE THAT SITS BESIDE A PURE-ARRANGE ONE ───────────────
 
 	THE AXIS THIS FILE ADDS, and why the suite had a hole exactly its shape. The
@@ -42,13 +43,14 @@
 	(wrap, compact) flips on the width the viewport hands it and 320x640 is the
 	narrowest box this framework supports. ]]
 local testkit = require("./lib/testkit")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
+local Compose = require("../src/vendor/compose/core")
 local describe, it, expect = testkit.describe, testkit.it, testkit.expect
 
 local function px(n: number): any
@@ -74,13 +76,13 @@ local function world(o: Opts): any
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	local from = if o.settled then FINAL else START
-	local pad = core:signal(from.pad)
-	local size = core:signal(from.size)
-	local width = core:signal(from.width)
-	local rows = core:signal(from.rows)
+	local pad = Compose.cell(from.pad)
+	local size = Compose.cell(from.size)
+	local width = Compose.cell(from.width)
+	local rows = Compose.cell(from.rows)
 	-- the pure-arrange sibling's own signal, mounted at 0 on every arm so the
 	-- from-scratch arm carries the drive's translate too
-	local offset = core:signal(if o.settled then 40 else 0)
+	local offset = Compose.cell(if o.settled then 40 else 0)
 
 	local channelChild: any
 	if o.channel == "padding" then
@@ -88,7 +90,7 @@ local function world(o: Opts): any
 			id = "X",
 			text = "bbb",
 			textSize = 12,
-			padding = core:memo(function(use: any)
+			padding = Compose.formula(function(use: any)
 				return use(pad) :: number
 			end),
 		})
@@ -96,7 +98,7 @@ local function world(o: Opts): any
 		channelChild = UI.Text({
 			id = "X",
 			text = "bbb",
-			textSize = core:memo(function(use: any)
+			textSize = Compose.formula(function(use: any)
 				return use(size) :: number
 			end),
 		})
@@ -107,7 +109,7 @@ local function world(o: Opts): any
 			id = "X",
 			text = "wrappable phrase here",
 			textSize = 12,
-			width = core:memo(function(use: any)
+			width = Compose.formula(function(use: any)
 				return px(use(width) :: number)
 			end),
 		})
@@ -117,7 +119,7 @@ local function world(o: Opts): any
 			id = "X",
 			label = "Minimize",
 			compactLabel = { text = "\u{2013}" },
-			width = core:memo(function(use: any)
+			width = Compose.formula(function(use: any)
 				return px(use(width) :: number)
 			end),
 			height = px(30),
@@ -135,7 +137,7 @@ local function world(o: Opts): any
 				UI.Box({
 					id = "Fill",
 					width = px(60),
-					height = core:memo(function(use: any)
+					height = Compose.formula(function(use: any)
 						return px(20 * (use(rows) :: number))
 					end),
 				}),
@@ -158,7 +160,7 @@ local function world(o: Opts): any
 						text = "ccc",
 						textSize = 12,
 						padding = 2,
-						offsetX = core:memo(function(use: any)
+						offsetX = Compose.formula(function(use: any)
 							return use(offset) :: number
 						end),
 					}),

@@ -55,10 +55,9 @@ end
 
 -- one memo set per mount, owned by the caller's scope
 local function copy(ctx: any, scope: any): any
-	local core = ctx.core
 	local model = ctx.task
 	local function line(key: string, extra: ((any) -> { [string]: string })?): any
-		return scope:own(core:memo(function(use)
+		return ctx.Compose.formula(function(use)
 			local _ = use(ctx.state.locale)
 			local params = subs(ctx)
 			if extra ~= nil then
@@ -67,7 +66,7 @@ local function copy(ctx: any, scope: any): any
 				end
 			end
 			return ctx.Lnow(key, params)
-		end))
+		end)
 	end
 
 	local m: any = {}
@@ -76,32 +75,32 @@ local function copy(ctx: any, scope: any): any
 	m.rowNectar = line("task.row.nectar")
 	m.open = line("task.open")
 	m.doneTitle = line("task.done.title")
-	m.doneBody = scope:own(core:memo(function(use)
+	m.doneBody = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow("task.done.body")
-	end))
-	m.next = scope:own(core:memo(function(use)
+	end)
+	m.next = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow(NEXT_KEY[use(model.phase)] or NEXT_KEY.start, subs(ctx))
-	end))
-	m.progress = scope:own(core:memo(function(use)
+	end)
+	m.progress = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		local ready = (if use(model.dewReady) then 1 else 0) + (if use(model.nectarReady) then 1 else 0)
 		return ctx.Lnow("task.progress", { n = tostring(ready) })
-	end))
-	m.stripTitle = scope:own(core:memo(function(use)
+	end)
+	m.stripTitle = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		if use(model.complete) then
 			return ctx.Lnow("task.done.title", subs(ctx))
 		end
 		return ctx.Lnow("task.title")
-	end))
-	m.isDone = scope:own(core:memo(function(use)
+	end)
+	m.isDone = ctx.Compose.formula(function(use)
 		return use(model.complete)
-	end))
-	m.isActive = scope:own(core:memo(function(use)
+	end)
+	m.isActive = ctx.Compose.formula(function(use)
 		return not use(model.complete)
-	end))
+	end)
 	return m
 end
 
@@ -118,11 +117,10 @@ end
 function task.strip(ctx: any): any
 	local UI = ctx.UI
 	local m = copy(ctx, ctx.scope)
-	local roomy = ctx.scope:own(ctx.core:memo(function(use)
+	local roomy = ctx.Compose.formula(function(use)
 		return not use(ctx.conditions.isShort)
-	end))
-	return UI.When({
-		id = "TaskStripWhen",
+	end)
+	return ctx.when("TaskStripWhen")({
 		condition = roomy,
 		thenView = function(): any
 			return task.stripBody(ctx, m)
@@ -132,24 +130,21 @@ end
 
 function task.stripBody(ctx: any, m: any): any
 	local UI = ctx.UI
-	return UI.HStack({
-		id = "TaskStrip",
+	return UI.HStack("TaskStrip")({
 		surface = "raised",
 		padding = "xs",
 		gap = "s",
 		align = "center",
 		width = UI.fill(),
 
-		UI.Text({
-			id = "TaskLabel",
+		UI.Text("TaskLabel")({
 			text = m.stripTitle,
 			textSize = "label",
 			width = UI.fill(),
 			lineLimit = 1,
 			disclose = true,
 		}),
-		UI.Text({
-			id = "TaskProgress",
+		UI.Text("TaskProgress")({
 			text = m.progress,
 			textSize = "caption",
 			role = "secondary",
@@ -170,36 +165,31 @@ end
 
 local function progressRow(ctx: any, id: string, label: any, done: any, scope: any): any
 	local UI = ctx.UI
-	local core = ctx.core
-	local chipText = scope:own(core:memo(function(use)
+	local chipText = ctx.Compose.formula(function(use)
 		local _ = use(ctx.state.locale)
 		return ctx.Lnow(if use(done) then "task.row.done" else "task.row.todo")
-	end))
-	return UI.HStack({
-		id = id,
+	end)
+	return UI.HStack(id)({
 		gap = "s",
 		align = "center",
 		width = UI.fill(),
 
-		UI.Text({ id = "RowLabel", text = label, textSize = "body", width = UI.fill() }),
+		UI.Text("RowLabel")({ text = label, textSize = "body", width = UI.fill() }),
 		parts.chip(ctx, "RowState", chipText),
 	})
 end
 
 function task.card(ctx: any): any
 	local UI = ctx.UI
-	local core = ctx.core
 	local scope = ctx.scope
 	local model = ctx.task
 	local m = copy(ctx, scope)
-	local showsOpen = scope:own(core:signal(false))
+	local showsOpen = ctx.Compose.cell(false)
 
-	local active = UI.When({
-		id = "TaskActive",
+	local active = ctx.when("TaskActive")({
 		condition = m.isActive,
 		thenView = function(): any
-			return UI.VStack({
-				id = "TaskBody",
+			return UI.VStack("TaskBody")({
 				gap = "s",
 				width = UI.fill(),
 
@@ -207,18 +197,16 @@ function task.card(ctx: any): any
 				-- THE GOAL, in one sentence, on the opening screen
 				parts.body(ctx, "TaskGoal", ctx.L("task.intro")),
 				-- ...and the named subject: a glade, a wisp, and what it likes
-				UI.Text({ id = "TaskSubject", text = m.subject, textSize = "label", width = UI.fill() }),
-				UI.VStack({
-					id = "TaskRows",
+				UI.Text("TaskSubject")({ text = m.subject, textSize = "label", width = UI.fill() }),
+				UI.VStack("TaskRows")({
 					gap = "xs",
 					width = UI.fill(),
 
 					progressRow(ctx, "TaskRowDew", m.rowDew, model.dewReady, scope),
 					progressRow(ctx, "TaskRowNectar", m.rowNectar, model.nectarReady, scope),
 				}),
-				UI.Text({ id = "TaskNext", text = m.next, textSize = "body", width = UI.fill() }),
-				UI.Button({
-					id = "TaskOpen",
+				UI.Text("TaskNext")({ text = m.next, textSize = "body", width = UI.fill() }),
+				UI.Button("TaskOpen")({
 					label = m.open,
 					width = UI.fill(),
 					onActivate = function()
@@ -232,30 +220,25 @@ function task.card(ctx: any): any
 	-- THE COMPLETION STATE, and it replaces the task rather than standing beside
 	-- it: a finished task still showing its next action is a task a player cannot
 	-- tell they finished.
-	local done = UI.When({
-		id = "TaskSettled",
+	local done = ctx.when("TaskSettled")({
 		condition = m.isDone,
 		transition = { enter = "fade", class = "container" },
 		thenView = function(): any
-			return UI.ZStack({
-				id = "TaskSettledGroup",
+			return UI.ZStack("TaskSettledGroup")({
 				canvasGroup = true,
 				width = UI.fill(),
 
-				UI.VStack({
-					id = "TaskSettledBody",
+				UI.VStack("TaskSettledBody")({
 					gap = "s",
 					width = UI.fill(),
 
-					UI.Text({
-						id = "TaskSettledTitle",
+					UI.Text("TaskSettledTitle")({
 						text = m.doneTitle,
 						textSize = "heading",
 						width = UI.fill(),
 					}),
 					parts.body(ctx, "TaskSettledCopy", m.doneBody),
-					UI.Button({
-						id = "TaskAgain",
+					UI.Button("TaskAgain")({
 						label = ctx.L("task.done.reset"),
 						width = UI.fill(),
 						onActivate = function()
@@ -267,8 +250,7 @@ function task.card(ctx: any): any
 		end,
 	})
 
-	return UI.VStack({
-		id = "TaskCard",
+	return UI.VStack("TaskCard")({
 		surface = "raised",
 		padding = "m",
 		gap = "s",
@@ -278,22 +260,19 @@ function task.card(ctx: any): any
 		done,
 		-- ...and the Facet lesson LAST, collapsed, optional: it explains the app
 		-- after the play task rather than instead of it.
-		UI.Button({
-			id = "TaskShows",
+		UI.Button("TaskShows")({
 			label = ctx.L("task.shows.open"),
 			selected = showsOpen,
 			align = "start",
 			onActivate = function()
-				showsOpen:set(not showsOpen:get())
+				showsOpen:set(not showsOpen:peek())
 			end,
 		}),
-		UI.When({
-			id = "TaskShowsWhen",
+		ctx.when("TaskShowsWhen")({
 			condition = showsOpen,
 			transition = { enter = "fade", class = "container" },
 			thenView = function(): any
-				return UI.ZStack({
-					id = "TaskShowsGroup",
+				return UI.ZStack("TaskShowsGroup")({
 					canvasGroup = true,
 					width = UI.fill(),
 					parts.caption(ctx, "TaskShowsBody", ctx.L("task.shows.body")),

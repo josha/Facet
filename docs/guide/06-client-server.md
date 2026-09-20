@@ -13,17 +13,20 @@ A ground rule first: **Facet does not move bytes.** Your game already has a way
 to send data between server and client (remote events, or whatever transport you
 use). The adapters sit *on top of* that transport. Your networking code calls the
 adapter's `ingest`/`confirm`/`reject` functions, and the adapter turns the raw
-messages into consistent, well-ordered signals your UI can read. This keeps
+messages into consistent, well-ordered Compose cells your UI can read. This keeps
 Facet transport-agnostic.
+
+Each adapter takes the application's Compose runtime as its first argument, so
+pass `app.runtime` from the application you created with `Facet.new`.
 
 ## 6.1 Receiving whole-state: the snapshot adapter
 
 The simplest case: the server owns a chunk of semantic state and sends the whole
-thing each time it changes. `Facet.replication.snapshot(core, initialRevision,
-initialData)` gives you:
+thing each time it changes. `Facet.replication.snapshot(app.runtime,
+initialRevision, initialData)` gives you:
 
-- `snapshot.binding` — a signal holding the current data. Read it from blueprints
-  like any signal.
+- `snapshot.binding` — a Compose cell holding the current data. Read it in a
+  property function with `use`, like any readable.
 - `snapshot.ingest(revision, data)` — call this from your networking code when the
   server sends an update.
 - `snapshot.revision()` — the current revision number.
@@ -32,7 +35,7 @@ The adapter enforces **monotonic revisions**. Every update carries an
 ever-increasing revision number. `ingest` returns one of three strings so your
 networking layer knows what happened:
 
-- `"applied"` — a newer revision; the signal was updated.
+- `"applied"` — a newer revision; the cell was updated.
 - `"duplicate"` — the same revision you already have; ignored.
 - `"stale"` — an *older* revision (arrived out of order); ignored.
 
@@ -43,11 +46,11 @@ flaky network cannot make the UI flicker backward to old state.
 
 For a set of keyed items — a leaderboard, an inventory — the server often sends
 small **patches** instead of the whole set each time: "item 7 changed, item 3 was
-removed". `Facet.replication.collection(core, initialRevision, initialItems,
+removed". `Facet.replication.collection(app.runtime, initialRevision, initialItems,
 requestResnapshot)` handles this. It is stricter about ordering than the other
 adapters, because a missed patch would silently corrupt the set.
 
-- `collection.binding` — a signal holding the current `{ key -> item }` table.
+- `collection.binding` — a Compose cell holding the current `{ key -> item }` table.
 - `collection.ingestPatch(revision, patch)` — apply a patch. A patch is
   `{ set = { [key] = value }, remove = { key, ... } }` and must arrive at
   *exactly* the next revision.
@@ -85,12 +88,12 @@ dead collection.
 ## 6.3 Sending a change: the mutation adapter
 
 A client must **never** change authoritative state directly. It sends a request
-and waits for the server's verdict. `Facet.replication.mutation(core, opts?)`
+and waits for the server's verdict. `Facet.replication.mutation(app.runtime, opts?)`
 models this:
 
-- `mutation.status` — a signal moving through `"idle" → "pending" →
+- `mutation.status` — a Compose cell moving through `"idle" → "pending" →
   "confirmed"` or `"rejected"`.
-- `mutation.lastResult` — a signal holding the server's result or rejection
+- `mutation.lastResult` — a Compose cell holding the server's result or rejection
   reason.
 - `mutation.send(payload, expectedRevision?)` — begin a request. Returns an
   **envelope** `{ requestId, payload, expectedRevision }` that *your* networking
@@ -127,14 +130,14 @@ immediately, then reconcile with what the server actually says. You opt in by
 passing an `optimistic` handler to `mutation`:
 
 ```lua
-local draftMusic = core:signal(false)   -- what the UI shows right now
+local draftMusic = Compose.cell(false)   -- what the UI shows right now
 
-local mutation = Facet.replication.mutation(core, {
+local mutation = Facet.replication.mutation(app.runtime, {
     optimistic = {
         -- called the instant send() runs: show the expected result
         apply = function(payload) draftMusic:set(payload.music) end,
         -- called on confirm AND on reject: re-sync from authoritative truth
-        restore = function() draftMusic:set(snapshot.binding:get().music) end,
+        restore = function() draftMusic:set(snapshot.binding:peek().music) end,
     },
 })
 ```

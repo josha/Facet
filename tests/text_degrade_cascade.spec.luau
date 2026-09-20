@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE DEGRADE CASCADE AND THE WRAP RULE — director rulings 1 and 5, 2026-08-13
 	(docs/handoff/2026-08-13-rulings-needed.md §1 and §5).
 
@@ -41,10 +42,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local solver = require("../src/layout/solver")
 local text_metrics = require("../src/layout/text_metrics")
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local l10n = require("./fixtures/a11y_l10n_fixtures")

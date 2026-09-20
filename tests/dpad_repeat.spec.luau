@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Gamepad d-pad auto-repeat (director item 4). Holding a gamepad
 -- direction must repeatedly advance focus after an initial delay, matching
 -- platform convention, exactly the way CoreGui's own selection navigator does
@@ -31,11 +32,12 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
-local customFactory = require("../src/core/custom")
+local worldLib = require("./lib/harness_world")
+local customFactory = harness.coreFactory
 local actionsLib = require("../src/input/actions")
 local Facet = require("../src") :: any
 local contribution = require("../src/input/contribution")
+local Compose = require("../src/vendor/compose/core")
 
 -- ===========================================================================
 -- Part 1 — actions.luau: gamepad-source classification (the repeat gate's
@@ -92,14 +94,14 @@ end)
 -- Part 2 — presenter-level repeat behavior
 -- ===========================================================================
 local function fiveRowScreen()
-	return Facet.UI.Screen({
+	return harness.UI.Screen({
 		id = "S",
 		children = {
-			Facet.UI.Button({ id = "Row1", label = "Row1" }),
-			Facet.UI.Button({ id = "Row2", label = "Row2" }),
-			Facet.UI.Button({ id = "Row3", label = "Row3" }),
-			Facet.UI.Button({ id = "Row4", label = "Row4" }),
-			Facet.UI.Button({ id = "Row5", label = "Row5" }),
+			harness.UI.Button({ id = "Row1", label = "Row1" }),
+			harness.UI.Button({ id = "Row2", label = "Row2" }),
+			harness.UI.Button({ id = "Row3", label = "Row3" }),
+			harness.UI.Button({ id = "Row4", label = "Row4" }),
+			harness.UI.Button({ id = "Row5", label = "Row5" }),
 		},
 	})
 end
@@ -108,24 +110,24 @@ describe("d-pad auto-repeat: presenter cadence and gating", function()
 	it("holding DPadDown steps once immediately, then repeats after 0.4s, then every 0.1s", function()
 		local w = worldLib.new()
 		w.present(fiveRowScreen())
-		expect(w.pres.focus.focused:get()).toBe("/S/Row1")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row1")
 
 		w.system.deviceKey("DPadDown", true) -- immediate single step (pre-existing)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 
 		w.tick(0.39) -- just under the initial delay: no repeat yet
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 		w.tick(0.01) -- crosses 0.4s: first repeat
-		expect(w.pres.focus.focused:get()).toBe("/S/Row3")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row3")
 
 		w.tick(0.09) -- under the 0.1s steady interval: no repeat yet
-		expect(w.pres.focus.focused:get()).toBe("/S/Row3")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row3")
 		w.tick(0.01) -- crosses: second repeat
-		expect(w.pres.focus.focused:get()).toBe("/S/Row4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row4")
 
 		w.system.deviceKey("DPadDown", false) -- release
 		w.tick(1) -- long past another interval: nothing moves after release
-		expect(w.pres.focus.focused:get()).toBe("/S/Row4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row4")
 	end)
 
 	it("a slow first frame catches up: a dt spanning several intervals fires every owed step in one tick", function()
@@ -133,7 +135,7 @@ describe("d-pad auto-repeat: presenter cadence and gating", function()
 		w.present(fiveRowScreen())
 		w.system.deviceKey("DPadDown", true) -- Row1 -> Row2
 		w.tick(0.4 + 0.1 + 0.1) -- delay + two full intervals owed in one tick
-		expect(w.pres.focus.focused:get()).toBe("/S/Row5")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row5")
 	end)
 
 	it("bounds catch-up after a long game frame and drops the excess debt", function()
@@ -141,25 +143,25 @@ describe("d-pad auto-repeat: presenter cadence and gating", function()
 		w.present(fiveRowScreen())
 		w.system.deviceKey("DPadDown", true)
 		w.tick(10)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row5") -- at most three repeated steps
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row5") -- at most three repeated steps
 		w.tick(0)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row5") -- no queued burst next frame
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row5") -- no queued burst next frame
 	end)
 
 	it("holding a keyboard arrow repeats at the navigation cadence and stops on release", function()
 		local w = worldLib.new()
 		w.present(fiveRowScreen())
 		w.system.deviceKey("Down", true) -- immediate single step only
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 		w.tick(0.39)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 		w.tick(0.01)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row3")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row3")
 		w.tick(0.1)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row4")
 		w.system.deviceKey("Down", false)
 		w.tick(1)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row4")
 	end)
 
 	it("releasing before the initial delay elapses cancels the repeat entirely", function()
@@ -167,9 +169,9 @@ describe("d-pad auto-repeat: presenter cadence and gating", function()
 		w.present(fiveRowScreen())
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 		w.tick(1)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 	end)
 
 	it("repeat honors the ring's OWN wrap policy exactly like a single press would", function()
@@ -185,25 +187,25 @@ describe("d-pad auto-repeat: presenter cadence and gating", function()
 		w.tick(0.1) -- Row4
 		w.tick(0.1) -- Row5
 		w.tick(0.1) -- past the last item: wraps to Row1, same as a single press would
-		expect(w.pres.focus.focused:get()).toBe("/S/Row1")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row1")
 	end)
 
 	it("a held Thumbstick1 push repeats through the SAME glue, at the SAME cadence — no double-fire", function()
 		local w = worldLib.new()
 		w.present(fiveRowScreen())
 		w.system.deviceAxis("Thumbstick1", 0, 0.8) -- cross+latch: one step
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 		w.tick(0.4) -- exactly one repeat, not two
-		expect(w.pres.focus.focused:get()).toBe("/S/Row3")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row3")
 		w.tick(0.1) -- exactly one more repeat
-		expect(w.pres.focus.focused:get()).toBe("/S/Row4")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row4")
 	end)
 
 	it("dismissing the surface mid-repeat stops it (scope-owned, no leaked timer)", function()
 		local w = worldLib.new()
 		w.present(fiveRowScreen())
 		w.system.deviceKey("DPadDown", true)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 		expect(w.pres.depth()).toBe(1)
 		w.pres.dismiss(w.handle)
 		expect(w.pres.depth()).toBe(0)
@@ -220,12 +222,12 @@ end)
 -- ===========================================================================
 describe("d-pad auto-repeat + the axis-suspend Adjust seam (found while building item 4)", function()
 	local function fakeVerticalAdjustControl(id: string)
-		local root = Facet.UI.VStack({
+		local root = harness.UI.VStack({
 			id = id,
 			children = {
-				Facet.UI.Button({ id = "Row1", label = "Row1" }),
-				Facet.UI.Button({ id = "Row2", label = "Row2" }),
-				Facet.UI.Button({ id = "Adj", label = "Adj" }),
+				harness.UI.Button({ id = "Row1", label = "Row1" }),
+				harness.UI.Button({ id = "Row2", label = "Row2" }),
+				harness.UI.Button({ id = "Adj", label = "Adj" }),
 			},
 		})
 		local adjustHits: { any } = {}
@@ -246,18 +248,18 @@ describe("d-pad auto-repeat + the axis-suspend Adjust seam (found while building
 	it("a repeat that lands focus on a vertical-adjust target stops cleanly, with no stuck Direction1D", function()
 		local w = worldLib.new()
 		local ctl = fakeVerticalAdjustControl("Ctl")
-		w.present(Facet.UI.Screen({ id = "S", children = { ctl.blueprint } }))
-		expect(w.pres.focus.focused:get()).toBe("/S/Ctl/Row1")
+		w.present(harness.UI.Screen({ id = "S", children = { ctl.blueprint } }))
+		expect(w.pres.focus.focused:peek()).toBe("/S/Ctl/Row1")
 
 		w.system.deviceKey("DPadDown", true) -- held; immediate step Row1 -> Row2
-		expect(w.pres.focus.focused:get()).toBe("/S/Ctl/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Ctl/Row2")
 
 		w.tick(0.4) -- first repeat: Row2 -> Adj, which SUSPENDS navigate's vertical keys
-		expect(w.pres.focus.focused:get()).toBe(ctl.adjPath)
+		expect(w.pres.focus.focused:peek()).toBe(ctl.adjPath)
 
 		-- the axis is now owned by Adjust: navigate no longer claims a held
 		-- direction (the fix — without it this reads 1, stuck forever)
-		expect(w.handle.actions.navigate.state:get()).toBe(0)
+		expect(w.handle.actions.navigate.state:peek()).toBe(0)
 		-- and the DPadDown/DPadUp bindings genuinely left `navigate`
 		local stillBound = false
 		for _, b in w.handle.actions.navigate.bindings do
@@ -270,7 +272,7 @@ describe("d-pad auto-repeat + the axis-suspend Adjust seam (found while building
 		-- further ticks do NOT keep moving focus past the target (no leaked repeat)
 		w.tick(1)
 		w.tick(1)
-		expect(w.pres.focus.focused:get()).toBe(ctl.adjPath)
+		expect(w.pres.focus.focused:peek()).toBe(ctl.adjPath)
 
 		-- the physical release now routes to Adjust (which owns the keyCode), not
 		-- Navigate — and does not error
@@ -295,9 +297,9 @@ describe("d-pad auto-repeat + RED-TEAM C1: ownership can be lost mid-hold withou
 		-- navigate event on it seeds ENTRY focus (Row1) rather than moving
 		-- relative to a prior one — `engage()` alone does not
 		w.system.deviceKey("DPadDown", true)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row1")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row1")
 		w.tick(0.4) -- repeat active: Row2
-		expect(w.pres.focus.focused:get()).toBe("/S/Row2")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Row2")
 
 		-- Cancel (ButtonB) WHILE DPadDown is still physically held: resign()
 		w.system.deviceKey("ButtonB", true)
@@ -306,50 +308,50 @@ describe("d-pad auto-repeat + RED-TEAM C1: ownership can be lost mid-hold withou
 		-- the fix: context.setEnabled(false) now zeros Direction1D too, so this
 		-- is 0 immediately — not left stuck at 1 forever (the review's own
 		-- measurement of the pre-fix state)
-		expect(w.handle.actions.navigate.state:get()).toBe(0)
+		expect(w.handle.actions.navigate.state:peek()).toBe(0)
 
 		-- 13 is deliberately NOT a multiple of the 5-row ring (the review's own
 		-- note: 20 gave a false negative by coincidence, landing back on the
 		-- start row); focus must not move AT ALL after resign
-		local afterResign = w.pres.focus.focused:get()
+		local afterResign = w.pres.focus.focused:peek()
 		for _ = 1, 13 do
 			w.tick(0.1)
 		end
-		expect(w.pres.focus.focused:get()).toBe(afterResign)
+		expect(w.pres.focus.focused:peek()).toBe(afterResign)
 	end)
 
 	it(
 		"Variant B — a modal opening mid-hold stops the BACKGROUNDED repeat instead of hijacking the modal's own ring",
 		function()
 			local w = worldLib.new()
-			w.present(Facet.UI.Screen({
+			w.present(harness.UI.Screen({
 				id = "Base",
 				children = {
-					Facet.UI.Button({ id = "Row1", label = "Row1" }),
-					Facet.UI.Button({ id = "Row2", label = "Row2" }),
-					Facet.UI.Button({ id = "Row3", label = "Row3" }),
-					Facet.UI.Button({ id = "Row4", label = "Row4" }),
-					Facet.UI.Button({ id = "Row5", label = "Row5" }),
+					harness.UI.Button({ id = "Row1", label = "Row1" }),
+					harness.UI.Button({ id = "Row2", label = "Row2" }),
+					harness.UI.Button({ id = "Row3", label = "Row3" }),
+					harness.UI.Button({ id = "Row4", label = "Row4" }),
+					harness.UI.Button({ id = "Row5", label = "Row5" }),
 				},
 			}))
 			local baseHandle = w.handle
 
 			w.system.deviceKey("DPadDown", true) -- Row1 -> Row2
 			w.tick(0.4) -- repeat active: Base/Row3
-			expect(w.pres.focus.focused:get()).toBe("/Base/Row3")
+			expect(w.pres.focus.focused:peek()).toBe("/Base/Row3")
 
-			local modalHandle = w.pres.presentModal(Facet.UI.Screen({
+			local modalHandle = w.pres.presentModal(harness.UI.Screen({
 				id = "Modal",
 				children = {
-					Facet.UI.Button({ id = "Row1", label = "Row1" }),
-					Facet.UI.Button({ id = "Row2", label = "Row2" }),
-					Facet.UI.Button({ id = "Row3", label = "Row3" }),
-					Facet.UI.Button({ id = "Row4", label = "Row4" }),
-					Facet.UI.Button({ id = "Row5", label = "Row5" }),
+					harness.UI.Button({ id = "Row1", label = "Row1" }),
+					harness.UI.Button({ id = "Row2", label = "Row2" }),
+					harness.UI.Button({ id = "Row3", label = "Row3" }),
+					harness.UI.Button({ id = "Row4", label = "Row4" }),
+					harness.UI.Button({ id = "Row5", label = "Row5" }),
 				},
 			}))
 			w.pres.refresh()
-			expect(w.pres.focus.focused:get()).toBe("/Modal/Row1")
+			expect(w.pres.focus.focused:peek()).toBe("/Modal/Row1")
 
 			-- release the physical key: arbitration routes this to the MODAL's own
 			-- (higher-priority, sinking) Navigate context — Base's context never
@@ -362,13 +364,13 @@ describe("d-pad auto-repeat + RED-TEAM C1: ownership can be lost mid-hold withou
 			for _ = 1, 4 do
 				w.tick(0.1)
 			end
-			expect(w.pres.focus.focused:get()).toBe("/Modal/Row1")
-			expect(baseHandle.actions.navigate.state:get()).toBe(0)
+			expect(w.pres.focus.focused:peek()).toBe("/Modal/Row1")
+			expect(baseHandle.actions.navigate.state:peek()).toBe(0)
 
 			-- and the modal's OWN navigation is untouched by any of this
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
-			expect(w.pres.focus.focused:get()).toBe("/Modal/Row2")
+			expect(w.pres.focus.focused:peek()).toBe("/Modal/Row2")
 			w.pres.dismiss(modalHandle)
 		end
 	)
@@ -377,11 +379,11 @@ end)
 describe("controller value hold", function()
 	it("repeats a held slider adjustment and stops at focus transfer", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, preferredInput = "Gamepad" })
-		local value = w.core:signal(0)
-		local slider = Facet.Controls.Slider(w.core, { id = "Value", value = value, min = 0, max = 100, step = 1 })
-		w.present(Facet.UI.Screen({
+		local value = Compose.cell(0)
+		local slider = harness.Controls.Slider(w.core, { id = "Value", value = value, min = 0, max = 100, step = 1 })
+		w.present(harness.UI.Screen({
 			id = "S",
-			children = { slider.blueprint, Facet.UI.Button({ id = "Other", label = "Other" }) },
+			children = { slider.blueprint, harness.UI.Button({ id = "Other", label = "Other" }) },
 		}))
 		local map = w.pres.focus.focusMap()
 		local path
@@ -393,14 +395,14 @@ describe("controller value hold", function()
 		end
 		w.pres.focus.focusOn(path)
 		w.system.deviceKey("DPadRight", true)
-		expect(value:get()).toBe(1)
+		expect(value:peek()).toBe(1)
 		w.tick(0.4)
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 		w.tick(0.1)
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		w.pres.focus.focusOn("/S/Other")
 		w.tick(1)
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		w.system.deviceKey("DPadRight", false)
 		w.pres.dismiss(w.handle)
 		slider.dispose()
@@ -411,15 +413,15 @@ describe("value repeat interruption ownership", function()
 	for _, kind in { "Slider", "Stepper", "Rating" } do
 		it(kind .. " abandons a held adjustment when a modal owns input, including after dismissal", function()
 			local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, preferredInput = "Gamepad" })
-			local value = w.core:signal(1)
+			local value = Compose.cell(1)
 			local spec = { id = "Value", value = value }
 			if kind ~= "Rating" then
 				spec.min = 0
 				spec.max = 10
 				spec.step = 1
 			end
-			local control = Facet.Controls[kind](w.core, spec)
-			w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+			local control = harness.Controls[kind](w.core, spec)
+			w.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 			local suffix = if kind == "Slider" then "/Track" elseif kind == "Rating" then "/Strip" else "/Dec"
 			for _, entry in w.pres.focus.focusMap().traversal do
 				if string.sub(entry.path, -#suffix) == suffix then
@@ -428,35 +430,35 @@ describe("value repeat interruption ownership", function()
 				end
 			end
 			w.system.deviceKey("ButtonR1", true)
-			expect(value:get()).toBe(2)
+			expect(value:peek()).toBe(2)
 			w.tick(0.4)
-			expect(value:get()).toBe(3)
+			expect(value:peek()).toBe(3)
 			local modal = w.pres.presentModal(
-				Facet.UI.Screen({ id = "Modal", children = { Facet.UI.Button({ id = "Close", label = "Close" }) } })
+				harness.UI.Screen({ id = "Modal", children = { harness.UI.Button({ id = "Close", label = "Close" }) } })
 			)
 			w.pres.refresh()
 			w.tick(0.6)
-			expect(value:get()).toBe(3)
-			expect(w.pres.focus.focused:get()).toBe("/Modal/Close")
+			expect(value:peek()).toBe(3)
+			expect(w.pres.focus.focused:peek()).toBe("/Modal/Close")
 			w.system.deviceKey("ButtonR1", false)
 			w.pres.dismiss(modal)
 			w.tick(0.6)
-			expect(value:get()).toBe(3)
+			expect(value:peek()).toBe(3)
 			w.press("ButtonR1")
-			expect(value:get()).toBe(4)
+			expect(value:peek()).toBe(4)
 			w.pres.dismiss(w.handle)
 			control.dispose()
 		end)
 	end
 	it("a higher priority gameplay binding cancels value repeat and receives the next press", function()
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, preferredInput = "Gamepad" })
-		local value = w.core:signal(1)
-		local control = Facet.Controls.Slider(w.core, { id = "Value", value = value, min = 0, max = 10, step = 1 })
-		w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		local value = Compose.cell(1)
+		local control = harness.Controls.Slider(w.core, { id = "Value", value = value, min = 0, max = 10, step = 1 })
+		w.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		w.pres.focus.focusOn("/S/Value/Track")
 		w.system.deviceKey("ButtonR1", true)
 		w.tick(0.4)
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		local context = w.system.createContext({ name = "Gameplay", priority = 100000, sink = true })
 		local action = context.createAction("Boost", "Bool")
 		action.bind({ keyCode = "ButtonR1" })
@@ -465,16 +467,16 @@ describe("value repeat interruption ownership", function()
 			presses += 1
 		end)
 		w.tick(0.6)
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		w.system.deviceKey("ButtonR1", false)
 		w.press("ButtonR1")
 		expect(presses).toBe(1)
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		context.destroy()
 		w.tick(0.6)
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		w.press("ButtonR1")
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 		w.pres.dismiss(w.handle)
 		control.dispose()
 	end)

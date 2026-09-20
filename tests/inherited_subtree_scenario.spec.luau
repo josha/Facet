@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SHOWCASE SURFACE FOR INHERITED `enabled`/`tint` —
 	`examples/gallery/scenarios/inherited_subtree.luau` (Facet stabilization
 	pass, stream D; stream C's own mechanism spec is
@@ -55,7 +56,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local test_world = require("./lib/world")
+local test_world = require("./lib/harness_world")
 local fake_target = require("./lib/fake_target")
 local snapshot = require("../src/themes/snapshot") :: any
 local l10n = require("./fixtures/a11y_l10n_fixtures")
@@ -111,6 +112,8 @@ local function world(
 	})
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(tw.core)),
+		Compose = Facet.Compose,
 		core = tw.core,
 		env = tw.env,
 		actionSystem = tw.system,
@@ -127,7 +130,10 @@ end
 -- path a screen swap or a modal close takes — not a hand-rolled substitute.
 local function teardown(w: any, built: any)
 	w.presenter.dismiss(built.handle)
-	built.dispose()
+	for _ = 1, 60 do
+		w.presenter.tick(1 / 60)
+		w.presenter.refresh()
+	end
 end
 
 describe("inherited_subtree showcase: beat 1 — nested inheritance, two levels down", function()
@@ -201,7 +207,7 @@ describe("inherited_subtree showcase: beat 4 — the dynamic toggle, per paradig
 				w.adapter.tap(P.go)
 			end
 			w.presenter.refresh()
-			expect(built.engaged:get()).toBe(1)
+			expect(built.engaged:peek()).toBe(1)
 
 			built.steps.toggleEnabled(built, "off")
 			w.presenter.refresh()
@@ -219,7 +225,7 @@ describe("inherited_subtree showcase: beat 4 — the dynamic toggle, per paradig
 				w.adapter.tap(P.go)
 			end
 			w.presenter.refresh()
-			expect(built.engaged:get()).toBe(1)
+			expect(built.engaged:peek()).toBe(1)
 			teardown(w, built)
 		end)
 	end
@@ -237,7 +243,7 @@ describe("inherited_subtree showcase: beat 4 — the dynamic toggle, per paradig
 			w.system.deviceKey(key, true)
 			w.system.deviceKey(key, false)
 			w.presenter.refresh()
-			local f = w.presenter.focus.focused:get()
+			local f = w.presenter.focus.focused:peek()
 			if f ~= nil then
 				table.insert(seen, f)
 			end
@@ -297,7 +303,7 @@ describe("inherited_subtree showcase: beat 4 — the dynamic toggle, per paradig
 		expect(w.adapter.node(P.go).props.enabled).toBe(false)
 		w.adapter.tap(P.go)
 		w.presenter.refresh()
-		expect(built.engaged:get()).toBe(0)
+		expect(built.engaged:peek()).toBe(0)
 		teardown(w, built)
 	end)
 end)
@@ -329,7 +335,7 @@ describe("inherited_subtree showcase: beat 5 — focus restoration", function()
 		-- proves at the mechanism level
 		built.steps.toggleEnabled(built, "on")
 		w.presenter.refresh()
-		expect(w.presenter.focus.focused:get()).toBe(P.after)
+		expect(w.presenter.focus.focused:peek()).toBe(P.after)
 		teardown(w, built)
 	end)
 
@@ -352,14 +358,14 @@ describe("inherited_subtree showcase: beat 5 — focus restoration", function()
 		w.presenter.focus.setFocusOrigin("navigation")
 		w.presenter.refresh()
 		for _ = 1, 8 do
-			if w.presenter.focus.focused:get() == P.go then
+			if w.presenter.focus.focused:peek() == P.go then
 				break
 			end
 			w.system.deviceKey("DPadDown", true)
 			w.system.deviceKey("DPadDown", false)
 			w.presenter.refresh()
 		end
-		expect(w.presenter.focus.focused:get()).toBe(P.go)
+		expect(w.presenter.focus.focused:peek()).toBe(P.go)
 		local flip = built.steps.disableWhileFocused(built)
 		expect(flip.before).toBe(P.go)
 		expect(flip.after).toBe(P.after)
@@ -396,7 +402,7 @@ describe("inherited_subtree showcase: beat 6 — lifecycle", function()
 		-- clean before teardown: the solver has no complaint about the
 		-- fixture in its dimmed state
 		expect(#built.handle.controller.diagnostics()).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		teardown(w, built)
 		expect(w.adapter.liveCount()).toBe(0)
 	end)
@@ -449,7 +455,7 @@ end)
 	loops alone (every other describe block in this file leaves it ON, at a
 	settled desktop viewport where it never fires). REASON, MEASURED, NOT
 	THIS FIXTURE'S OWN: at these two loops' narrow/short viewports the page
-	genuinely needs to scroll, and once it does, `Facet.Controls.Slider`'s own
+	genuinely needs to scroll, and once it does, `harness.Controls.Slider`'s own
 	full-width row (`width = { type = "fill", weight = 1 }`, `src/controls/
 	slider.luau`) resolves its fill against the ScrollView's outer box rather
 	than its narrower scrollbar WINDOW — an 8px right-edge overhang reproduced
@@ -485,7 +491,7 @@ describe("inherited_subtree showcase: it holds under every shipped package", fun
 				for _, finding in built.handle.controller.diagnostics() do
 					table.insert(problems, `  {name} at {view.w}x{view.h}: {finding.node} — {finding.issue}`)
 				end
-				expect(w.core:lastError()).toBeNil()
+				expect(w.core.lastError()).toBeNil()
 				teardown(w, built)
 			end
 		end

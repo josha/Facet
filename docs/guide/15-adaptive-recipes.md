@@ -1,8 +1,17 @@
 # 15. Adaptive layout recipes
 
 Thirteen small problems that come up once a screen has to work on more than one
-device. Snippets use `local UI = Facet.View`; state/getter snippets run inside
-a `Facet.component(function(ui) ... end)`. See [component authoring](15-components.md).
+device. Every snippet assumes this preamble:
+
+```luau
+local Facet = require(game.ReplicatedStorage.Facet)
+local Compose = Facet.Compose
+local app = Facet.new()
+local UI = app.controls
+```
+
+A component is a plain Luau function that returns a node. State is a Compose
+cell. See [component authoring](15-components.md).
 
 This chapter is a reference, not a lesson. Read
 [chapter 1 §1.9](01-concepts.md#19-adapting-a-whole-screen-you-declare-the-content-not-the-layout)
@@ -14,16 +23,16 @@ reach for. Come here when you have a specific problem from the list below.
 | a row is tight and something has to give | [§15.1](#151-deciding-who-gives-way-when-a-row-is-too-tight-layoutpriority-shrinkweight) |
 | a card should be a fraction of the visible width | [§15.2](#152-sizing-against-the-container-not-the-parent-containerrelativeframe) |
 | columns should line up across rows | [§15.3](#153-lining-columns-up-across-rows-uigridrow-and-gridspan) |
-| a state change should animate | [§15.4](#154-animating-a-state-change-presenterwithanimation) |
+| a state change should animate | [§15.4](#154-animating-a-state-change-layout-animation) |
 | a row is simply too long | [§15.5](#155-when-a-row-is-simply-too-long-wrap) |
 | the data is a dictionary, not an array | [§15.6](#156-listing-a-dictionary-uisortedentries) |
-| a long list needs to scroll cheaply | [§15.7](#157-promising-a-rows-height-newvirtuallist-and-itemextent) |
+| a long list needs to scroll cheaply | [§15.7](#157-promising-a-rows-height-uivirtuallist-and-itemextent) |
 | one card per swipe on a phone, a row on a desktop | [§15.8](#158-cards-and-rails-one-card-per-swipe-on-a-phone-a-row-of-them-on-a-desktop) |
 | something should disappear without moving its neighbours | [§15.9](#159-hiding-something-without-moving-everything-else-hidden) |
 | code should run when a node arrives or leaves | [§15.10](#1510-knowing-when-something-arrives-and-leaves-onappear--ondisappear) |
 | swapping text should read as an event, not a snap | [§15.11](#1511-swapping-text-without-a-jump-cut-keyed-uiforeach) |
 | one icon should hand off to another | [§15.12](#1512-icon-swap-a-uiwhen-pair) |
-| a card growing should not shove its neighbours instantly | [§15.13](#1513-growing-a-card-without-its-neighbours-jumping-presenterwithanimation) |
+| a card growing should not shove its neighbours instantly | [§15.13](#1513-growing-a-card-without-its-neighbours-jumping-layout-animation) |
 
 ## 15.1 Deciding who gives way when a row is too tight: `layoutPriority`, `shrinkWeight`
 
@@ -43,13 +52,15 @@ happen instead:
 They compose: Facet checks the tiers first, then the weights inside the tier
 that is currently giving way.
 
-```lua
-UI.HStack{ id = "Row",
-    UI.Text{ id = "Name",  text = playerName, shrinkWeight = 3 },  -- squeezes most
-    UI.Text{ id = "Note",  text = subtitle,   shrinkWeight = 1 },
-    UI.Text{ id = "Score", text = score,      layoutPriority = 1 }, -- survives longest
- }
+```luau
+UI.HStack("Row")({
+    UI.Text("Name")({ text = playerName, shrinkWeight = 3 }),  -- squeezes most
+    UI.Text("Note")({ text = subtitle, shrinkWeight = 1 }),
+    UI.Text("Score")({ text = score, layoutPriority = 1 }),    -- survives longest
+})
 ```
+
+A constructor name is optional. Use one where a stable path helps, as here.
 
 ## 15.2 Sizing against the container, not the parent: `containerRelativeFrame`
 
@@ -59,7 +70,7 @@ measures against the nearest ancestor that owns a **viewport** — a `ScrollView
 content window, or the surface root. So a card can be "half the visible width"
 however deeply it is nested:
 
-```lua
+```luau
 UI.containerRelativeFrame(card, { axis = "horizontal", count = 2, span = 1, spacing = 8 })
 ```
 
@@ -67,8 +78,9 @@ That is the **paging** form: divide the container into `count` slots, take `span
 of them, and leave `spacing` px between. Two-up cards on a phone, four-up on a
 desktop, from one declaration. The other form is **fractional** —
 `{ axis, fraction }`. Use exactly one of the two per call. Declaring both, or
-neither, is an error at the call site. (What it does *not* do is make the
-scroller **land** on those slots — snapping is not shipped.)
+neither, is an error at the call site. Sizing is all it does: to make the
+scroller **land** on those slots, declare `snap = "item"` on the collection
+([§15.8](#158-cards-and-rails-one-card-per-swipe-on-a-phone-a-row-of-them-on-a-desktop)).
 
 ## 15.3 Lining columns up across rows: `UI.GridRow` and `gridSpan`
 
@@ -77,33 +89,37 @@ a table of stats line up without hand-picked widths. `UI.GridRow` is one row of
 it. `gridSpan` on a cell lets it cover more than one column — a title band above
 a three-column stat block, for example:
 
-```lua
-UI.Grid{ id = "Stats",
-    UI.GridRow{ id = "Head",  UI.Text{ id = "T", text = "Lap times", gridSpan = 3 }  },
-    UI.GridRow{ id = "R1",    lapCell, timeCell, deltaCell  },
- }
+```luau
+UI.Grid("Stats")({
+    UI.GridRow("Head")({ UI.Text("T")({ text = "Lap times", gridSpan = 3 }) }),
+    UI.GridRow("R1")({ lapCell, timeCell, deltaCell }),
+})
 ```
 
-## 15.4 Animating a state change: `presenter.withAnimation`
+## 15.4 Animating a state change: layout animation
 
 Declare ordinary coordination on the layout that owns it:
 
 ```luau
+local expanded = Compose.cell(false)
+
 UI.VStack {
     animation = { layout = "container" },
-    UI.Toggle { label = "Details", value = expanded, onChange = setExpanded },
-    UI.When { condition = expanded, Details {} },
+    UI.Toggle { label = "Details", value = expanded },
+    UI.When("Details")({
+        condition = expanded,
+        thenView = Details,
+    }),
     Footer {},
 }
 ```
 
 Changing `expanded` moves surviving nodes toward their new solved rectangles.
-Insertion/removal is a separate `transition` declaration. A local paint policy,
-such as `animation = { scale = "object" }`, animates that node's scale getter.
-Use `ui.animate(target, "object")` only when another calculation needs an animated
-number. `ui.withAnimation` remains available for exceptional action-specific
-coordination; ordinary commands need no animation wrapper. The historical heading
-is retained for incoming links. See [motion policy](15-components.md#animate-where-the-layout-lives).
+Insertion and removal are a separate `transition` declaration. A local paint
+policy, such as `animation = { scale = "object" }`, animates that node's scale
+property. Use `app.runtime.spring` or `app.runtime.tween` only when another
+calculation needs an animated number. See
+[motion policy](15-components.md#animate-values-with-the-compose-runtime).
 
 ## 15.5 When a row is simply too long: `wrap`
 
@@ -112,9 +128,15 @@ a different arrangement. Sometimes there is nothing to choose. You have fourteen
 tags, or nine filter chips. They do not fit across the screen. For that there is
 one word:
 
-```lua
-UI.HStack{ id = "Tags", wrap = true, gap = 6, children = tags }
+```luau
+local row = { wrap = true, gap = 6 }
+for i, tag in tags do
+    row[i] = UI.Text { text = tag }
+end
+UI.HStack("Tags")(row)
 ```
+
+Numeric entries are children. Named fields are properties.
 
 **In plain terms:** a normal `UI.HStack` is one line. It puts its children side
 by side, across the row. If they run past the edge, they run past the edge: the
@@ -134,7 +156,8 @@ Three things follow, and none of them is a new idea to learn:
   does;
 - **each line is as tall as its tallest child**, so a ragged row of chips does not
   reserve the tallest chip's height for every line;
-- **it is a prop, not a class.** So you can *bind* it. `wrap = conditions.compact`
+- **it is a prop, not a class.** So you can *bind* it. `wrap = conditions.isCompact`
+  (from `Facet.adaptive.conditions(app.environment)`)
   wraps the row on a phone and keeps it on one line on a desktop. The flip
   re-arranges the same nodes rather than rebuilding them. Nothing loses its focus,
   its scroll position or its in-flight animation.
@@ -146,7 +169,7 @@ container". A word that means two things is a bug waiting to be written. Put
 `lineAlign = "stretch"` on the children that should fill their line instead.
 
 If a single child is wider than the whole line, it gets a line to itself and is
-clamped to the line. The solver reports this on `controller.diagnostics()`, along
+clamped to the line. The solver reports this on `handle.controller.diagnostics()`, along
 with the case where you have more lines than the box is tall. Wrapping removes
 the main-axis overflow; it does not remove the need to have room.
 
@@ -171,9 +194,9 @@ will look completely stable while you test it, because building the same table
 the same way twice really does iterate the same way twice. The instant a player
 leaves and rejoins, the rows move.
 
-```lua
-local rows = ui.memo(function()
-    return UI.sortedEntries(scores())
+```luau
+local rows = Compose.formula(function(use)
+    return UI.sortedEntries(use(scores))
 end)
 ```
 
@@ -184,7 +207,7 @@ The comparator gets **keys**, not entries. That is what makes the ordering
 deterministic no matter what you pass. To rank by *value*, sort the array it
 returns and break ties on the key.
 
-## 15.7 Promising a row's height: `newVirtualList` and `itemExtent`
+## 15.7 Promising a row's height: `UI.VirtualList` and `itemExtent`
 
 A long list only builds the rows you can see. To do that it has to know, without
 building anything, where row 700 will be — so it multiplies: row *i* sits at
@@ -206,7 +229,7 @@ every time.
 
 So the framework checks the promise. Every solve, it measures what you actually
 put in the row and compares it with the extent you declared. If your content is
-**taller** than its slot, `controller.diagnostics()` says so, in those words:
+**taller** than its slot, `handle.controller.diagnostics()` says so, in those words:
 
 > newVirtualList 'Racers' declares itemExtent = 56, but this row's content
 > measures 74px on the list's y axis — 18px taller than the slot it is windowed
@@ -239,7 +262,7 @@ nothing and measures nothing, so only the rows you can see are ever created.
 The one thing to get right is `use`. It is the third argument. It is how the
 list learns that your extents depend on the player's text size: read the
 setting through it, and every row re-derives when the setting moves. Read it
-with `:get()` instead and you get the right answer once and never again. The
+with `:peek()` instead and you get the right answer once and never again. The
 list then quietly windows against heights that are no longer true. When the
 extents do move, the list keeps the post that was under the top edge under the
 top edge. Changing text size does not lose the player's place.
@@ -257,15 +280,15 @@ screen that shows cards, and the branch is where it goes stale.
 Declare the *arrangement* instead of the width:
 
 ```luau
-local rail = UI.VirtualList {
-    id = "Liveries",
+local rail = UI.VirtualList("Liveries")({
     axis = "x",                 -- a rail runs sideways
-    items = liveries,
+    rows = liveries,
     key = "id",
     itemExtent = "cards",       -- how many belong in view, not how wide one is
+    viewportExtent = "auto",    -- measure the width the solver gave the rail
     rowGap = 8,
-    row = function(item) return LiveryCard { item = item } end,
-}
+    cell = function(item) return LiveryCard { item = item } end,
+})
 ```
 
 That is the whole difference. On a compact, touch-driven surface the rail
@@ -283,17 +306,16 @@ If you want to pin part of it, `cards` is the options table:
 
 Anything you write there wins.
 
-**A rail that adapts needs the facts, and says so if it cannot find them.** A screen
-stood up with `Facet.client.host.new` publishes its environment for free, so the
-snippet above is all you write there. Building one by hand — a test, a tool, a
-bespoke bootstrap — means supplying the facts yourself, one of three ways:
+**A rail that adapts needs the facts, and says so if it cannot find them.** An
+application built with `Facet.new` publishes its environment, so the snippet
+above is all you write there. A rail on a core that carries no environment, or
+more than one, supplies the facts itself:
 
-- build the environment first (`local env = Facet.newEnvironment(core)`)
-- pass `env` to the rail
-- pin `cards = { perView = n }`, which asks for no facts at all
+- pass `env = app.environment` to the rail
+- or pin `cards = { perView = n }`, which asks for no facts at all
 
-Leave all three out, and the rail refuses to construct. It names which of them
-to add. Adaptation never fails silently.
+Leave both out on such a core and the rail refuses to construct. It names which
+of them to add. Adaptation never fails silently.
 
 **Snapping is its own key, and it works without cards.** `snap = "item"` works on
 any scrolling collection — a list, a rail, a grid on its scroll axis. It means
@@ -338,11 +360,11 @@ still reserved; nothing else moves. Use it for:
 - a locked item you still want to leave a gap for.
 - a badge that comes and goes on a row whose height must never change.
 
-```lua
-UI.Button{ id = "Badge", label = "New", hidden = notEarnedYet }
+```luau
+UI.Button("Badge")({ label = "New", hidden = notEarnedYet })
 ```
 
-It is a normal prop, so you can bind it to a signal and flip it live. When it
+It is a normal prop, so you can bind it to a Compose cell and flip it live. When it
 flips, nothing is destroyed and nothing is rebuilt — the same button is there the
 whole time, keeping its focus, its animation and its place.
 
@@ -358,12 +380,11 @@ away. For example: start a countdown, log that a screen was opened, play a
 sound, or stop a sound. Every rendered node takes two optional callbacks for
 exactly that:
 
-```lua
-UI.Box{
-    id = "Card",
+```luau
+UI.Box("Card")({
     onAppear = function(path) startPreviewAnimation() end,
     onDisappear = function(path) stopPreviewAnimation() end,
-}
+})
 ```
 
 **In plain terms:** `onAppear` runs once, the first time this node is actually
@@ -374,7 +395,7 @@ Three details worth knowing, because they are what make the pair safe to rely on
 
 - **`onAppear` runs after layout finishes.** By the time your code runs, the
   node already has its real size and position. You can ask
-  `controller.rectOf(path)` and get an answer. Nothing has reached the player's
+  `handle.controller.rectOf(path)` and get an answer. Nothing has reached the player's
   screen yet either way;
 - **`onDisappear` runs after the node is gone.** The path is no longer mounted:
   do not try to read or write it. This hook is for *your* cleanup, not for a
@@ -388,23 +409,31 @@ it never left. If you want an event, use `UI.When`, which really does remove it.
 
 ## 15.11 Swapping text without a jump-cut: keyed `UI.ForEach`
 
-An ordinary reactive `UI.Text` overwrites its string on the frame the signal
+An ordinary reactive `UI.Text` overwrites its string on the frame the cell
 changes — no transition, because nothing structural happened. Wrap the value in
 a one-row `ForEach` keyed by the text itself, and a *different string* becomes a
 different row instead:
 
-```lua
-local rows = ui.memo(function()
-    return { { id = status() } }  -- one row; its key is the text
+```luau
+local rows = Compose.formula(function(use)
+    return { { id = use(status) } }  -- one row; its key is the text
 end)
-UI.ForEach({
-    items = rows, key = "id",
-    row = function(r)
-        return UI.ZStack({ canvasGroup = true,  UI.Text(function() return r().id end)  })
+UI.ForEach("Status")({
+    items = rows,
+    key = function(row) return row.id end,
+    row = function(_, _, row)
+        return UI.ZStack("Row")({
+            canvasGroup = true,
+            UI.Text("Line")({ text = function(use) return use(row).id end }),
+        })
     end,
     transition = { enter = "slide-up", fade = true, distance = 8 },
 })
 ```
+
+`UI.ForEach` needs a constructor name to take this schema-shaped spec, and its
+`key` is a function of the item. `row` receives the item's current value and,
+as its third argument, the item readable.
 
 **In plain terms:** each distinct string mounts and unmounts its own row. The
 old one exits on the mirrored form (`slide-down`, since only `enter` is
@@ -417,21 +446,25 @@ the moment the row mounts.
 ## 15.12 Icon swap: a `UI.When` pair
 
 Two `UI.When` branches on the same boolean, each fading in, briefly overlap
-while retiring — the round's one sanctioned *extra instance*:
+while the outgoing one retires:
 
-```lua
+```luau
 local function icon(image)
-    return UI.ZStack({ canvasGroup = true,  UI.Image({ image = image })  })
+    return UI.ZStack("Icon")({ canvasGroup = true, UI.Image("Art")({ image = image }) })
 end
-local unmuted = function() return not muted() end
-UI.ZStack({
 
-        UI.When({ condition = muted, transition = { enter = "fade" },
-            icon(mutedIcon) }),
-        UI.When({ condition = unmuted, transition = { enter = "fade" },
-            icon(speakerIcon) }),
-
-})
+UI.ZStack {
+    UI.When("Muted")({
+        condition = muted,
+        transition = { enter = "fade" },
+        thenView = function() return icon(mutedIcon) end,
+    }),
+    UI.When("Unmuted")({
+        condition = function(use) return not use(muted) end,
+        transition = { enter = "fade" },
+        thenView = function() return icon(speakerIcon) end,
+    }),
+}
 ```
 
 **In plain terms:** `fade` needs a fade group, so each branch's icon is wrapped
@@ -440,11 +473,11 @@ other; the closing one keeps painting through its structural default exit
 (`dismiss`) instead of vanishing, so the two icons overlap for one `dismiss`
 beat rather than popping straight across.
 
-## 15.13 Growing a card without its neighbours jumping: `presenter.withAnimation`
+## 15.13 Growing a card without its neighbours jumping: layout animation
 
 Put `animation = { layout = "container" }` on the common ancestor of the
-expanding card and its siblings, as in [§15.4](#154-animating-a-state-change-presenterwithanimation).
-Then call `setExpanded(true)` normally. All surviving nodes whose positions
+expanding card and its siblings, as in [§15.4](#154-animating-a-state-change-layout-animation).
+Then call `expanded:set(true)` normally. All surviving nodes whose positions
 change share the policy. New and removed branches keep their own transition.
 The preset and reduced-motion behavior come from the host's motion authority.
 

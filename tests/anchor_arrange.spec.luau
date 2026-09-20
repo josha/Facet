@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ N2 — THE SINGLE-UPDATE FLOOR IS THE CONTAINER, NOT THE CHANGE.
 
 	There is no "list" layout node: `ForEach` splices its children into the parent
@@ -39,12 +40,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 local solver = require("../src/layout/solver")
 local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES = scene.PLATES -- 250
 
@@ -432,7 +434,7 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			is worth having but is not that.
 
 			`viewportRect` is a GEOMETRY key (`env/geometry_facts.luau`), and the
-			renderer's geometry memo defers to `core:settle`, which calls `solveAndApply()`
+			renderer's geometry memo defers to `the settle pass`, which calls `solveAndApply()`
 			from OUTSIDE `refresh` — where the controller-level `dirtyContains` is still
 			nil, so `solveOpts.reuse` is never set. The `env:set` therefore solves the
 			surface itself, as a FULL solve, and the `refresh()` after it has no dirt and
@@ -510,8 +512,8 @@ local function nestedAnchorWorld(incremental: boolean, view: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local pad = core:signal(0)
-	local nudge = core:signal(0)
+	local pad = Compose.cell(0)
+	local nudge = Compose.cell(0)
 	local kids = {}
 	for i = 1, NESTED_KIDS do
 		if i % 3 == 0 then
@@ -766,9 +768,10 @@ describe("N2 oracle: byte-equal to a full solve, every view, every step kind", f
 						because the `measureContains` gate widened what this arm serves:
 						`hide` is arrange-classed (the plate keeps its size), `align` is a
 						container-level word this anchor's children carry, and `nudgeLabel`
-						rewrites a plate's NAME — a text write, the measure-classed dirt the
-						gate must let through. A child served a stale size after any of the
-						three would show up here as a rect diverging from a full solve. ]]
+						realigns a text leaf INSIDE a plate — dirt below the anchor's child
+						that the gate must let through. A child served a stale size after
+						any of the three would show up here as a rect diverging from a full
+						solve. ]]
 					step(`hide {round}`, false, function(w)
 						w.hide(2, round % 2 == 1)
 					end)
@@ -776,7 +779,7 @@ describe("N2 oracle: byte-equal to a full solve, every view, every step kind", f
 						w.align(if round % 2 == 1 then "center" else "start")
 					end)
 					step(`nudgeLabel {round}`, false, function(w)
-						w.nudgeLabel(4, `Renamed {round}`)
+						w.nudgeLabel(4, if round % 2 == 1 then "end" else "start")
 					end)
 					--[[ ...AND A VIEWPORT CHANGE, which is the step the other two oracles
 						in this repository do not take and the one this arm is most exposed

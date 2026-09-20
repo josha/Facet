@@ -65,6 +65,9 @@ local function scenarioWorld(module: any)
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 1232, h = 1067 } })
 	local built = module.build({
 		Facet = Facet,
+		UI = w.UI,
+		app = w.app,
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -79,7 +82,15 @@ local function scenarioWorld(module: any)
 			return function() end
 		end,
 	})
-	built.handle = w.pres.present(built.screen, built.present)
+	-- `screen` is a function on some scenario modules and an already-built
+	-- node on others (row_actions.luau) — `w.present` needs a component
+	-- function either way.
+	local screen = if type(built.screen) == "function"
+		then built.screen
+		else function()
+			return built.screen
+		end
+	built.handle = w.present(screen, built.present)
 	for _ = 1, 4 do
 		w.pres.refresh()
 	end
@@ -162,8 +173,8 @@ describe("surface slot precedence: the premise, and the two surfaces that carrie
 
 	it("the swipe-actions list rows sit a hairline apart, so a control shadow would land on the next row", function()
 		local w, built = scenarioWorld(rowActions)
-		local first = w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1")
-		local second = w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m2]/m2")
+		local first = w.adapter.node("/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m1]/m1")
+		local second = w.adapter.node("/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[m2]/m2")
 		assert(first ~= nil and second ~= nil, "the list surface did not mount its rows")
 		local gap = second.rect.y - (first.rect.y + first.rect.h)
 		expect(gap < 4).toBe(true)
@@ -173,7 +184,7 @@ describe("surface slot precedence: the premise, and the two surfaces that carrie
 	it("...and each of those rows declares `base`, so it takes no slot", function()
 		local w = scenarioWorld(rowActions)
 		for _, key in { "m1", "m2", "m3", "m4", "m5", "m6" } do
-			local path = `/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{key}]/{key}/Content/Row`
+			local path = `/MailActions/ListWhen/ListPlate/List/Rows/RowsForEach/[{key}]/{key}/Content/Row`
 			expect(w.adapter.node(path).props.surface).toBe("base")
 			expect(slotOfMounted(w.adapter, path)).toBe(nil)
 		end

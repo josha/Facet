@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- MicroProfiler phase scopes (roadmap Step 9, acceptance PL-8).
 --
 -- WHY THESE CASES EXIST. An unbalanced `debug.profilebegin` does not lose one
@@ -19,6 +20,7 @@ local describe, it, expect = testkit.describe, testkit.it, testkit.expect
 local Facet = require("../src")
 local profile = require("../src/core/profile")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- a recording engine: every begin/end lands in one ordered log, so BALANCE is a
 -- property of the log rather than a claim about the code
@@ -281,24 +283,34 @@ end)
 describe("a real render pass emits the phase set and stays balanced", function()
 	it("mount -> solve -> commit produces only declared labels, and closes them all", function()
 		withRecorder(function(log)
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 			local adapter = fake_target.new()
 			local system = Facet.newActionSystem(core)
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local n = core:signal(0)
-			local label = core:memo(function(use)
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local n = Compose.cell(0)
+			local label = Compose.formula(function(use)
 				return `n={use(n)}`
 			end)
-			local handle = pres.present(Facet.UI.Screen({
+			local handle = pres.present(harness.UI.Screen({
 				id = "S",
 				children = {
-					Facet.UI.Text({ id = "T", text = label }),
-					Facet.UI.Button({ id = "B", label = "go" }),
+					harness.UI.Text({ id = "T", text = label }),
+					harness.UI.Button({ id = "B", label = "go" }),
+					-- the mount phase is Instance churn, so the pass mounts something
+					harness.UI.When({
+						id = "Gate",
+						condition = Compose.formula(function(use)
+							return use(n) > 0
+						end),
+						thenView = function()
+							return harness.UI.Text({ id = "Late", text = "late" })
+						end,
+					}),
 				},
 			}))
-			core:transaction(function()
+			core.reactor:batch(function()
 				n:set(1)
 			end)
 			pres.refresh()
@@ -339,17 +351,17 @@ describe("a real render pass emits the phase set and stays balanced", function()
 		-- capture is a per-node log wearing a closed set's clothes
 		local function opensFor(rows: number): number
 			return withRecorder(function(log)
-				local core = Facet.newCore()
+				local core = harness.newCore()
 				local env = Facet.newEnvironment(core)
 				env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 				local adapter = fake_target.new()
 				local system = Facet.newActionSystem(core)
-				local pres = Facet.newPresenter(core, env, adapter, system)
+				local pres = harness.newPresenter(core, env, adapter, system)
 				local children = {}
 				for i = 1, rows do
-					table.insert(children, Facet.UI.Text({ id = `T{i}`, text = `row {i}` }))
+					table.insert(children, harness.UI.Text({ id = `T{i}`, text = `row {i}` }))
 				end
-				pres.present(Facet.UI.Screen({ id = "S", children = children }))
+				pres.present(harness.UI.Screen({ id = "S", children = children }))
 				pres.refresh()
 				local n = 0
 				for _, entry in log do

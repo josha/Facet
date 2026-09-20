@@ -33,6 +33,7 @@
 
 local autoscrollLib = require("../input/autoscroll")
 local rowCapability = require("../row_capability")
+local observeChange = require("../core/on_change")
 
 local virtual_reorder = {}
 
@@ -118,7 +119,7 @@ function virtual_reorder.new(deps: Deps)
 		if type(rect) ~= "table" then
 			return nil
 		end
-		return pointerMain - mainOf(rect) + clampedTop:get()
+		return pointerMain - mainOf(rect) + clampedTop:peek()
 	end
 
 	-- the canvas offset the insertion LINE is drawn at for a 0-based slot: the
@@ -155,7 +156,7 @@ function virtual_reorder.new(deps: Deps)
 
 	-- ===== reorder ===========================================================
 	local function indexOfKey(key: string): number?
-		return (indexByKey:get() :: { [string]: number })[key]
+		return (indexByKey:peek() :: { [string]: number })[key]
 	end
 
 	--[[ HOISTED (parity round 3): this used to sit ~110 lines further down, and
@@ -169,7 +170,7 @@ function virtual_reorder.new(deps: Deps)
 		if index == nil then
 			return nil
 		end
-		return (spec.rows:get() :: { any })[index]
+		return (spec.rows:peek() :: { any })[index]
 	end
 
 	-- move `key` so it occupies 1-based index `to` in the resulting order. A
@@ -190,7 +191,7 @@ function virtual_reorder.new(deps: Deps)
 		if from == nil then
 			return
 		end
-		local count = #(spec.rows:get() :: { any })
+		local count = #(spec.rows:peek() :: { any })
 		local index = math.clamp(to, 1, math.max(1, count))
 		if index == from then
 			return
@@ -246,13 +247,13 @@ function virtual_reorder.new(deps: Deps)
 		if value == nil then
 			value = motionClock:spring(fromDelta, reorderMotion)
 			slideValues[key] = value
-			slideUnsubs[key] = core:observe(value, function()
+			slideUnsubs[key] = observeChange(core.owner, value, function()
 				local ctrl = controller()
 				local path = mountedRowPath(key)
 				if ctrl == nil or path == nil or type(ctrl.setPresentationTransform) ~= "function" then
 					return
 				end
-				ctrl.setPresentationTransform(path, vec(value:get()))
+				ctrl.setPresentationTransform(path, vec(value:peek()))
 			end)
 		else
 			-- keep the value where it is and re-aim: interruptibility is the whole
@@ -262,7 +263,7 @@ function virtual_reorder.new(deps: Deps)
 		value:setTarget(0)
 	end
 	if reorderable then
-		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
+		observeChange(listScope, indexByKey, function(map: { [string]: number })
 			-- the slide is the distance between the two SLOTS, gutter included. On a
 			-- uniform list that is `(previous - index) * pitch` exactly as it was; on a
 			-- variable one the slots are different sizes, so it is the difference of
@@ -281,7 +282,7 @@ function virtual_reorder.new(deps: Deps)
 				end
 			end
 			lastIndexByKey = table.clone(map)
-		end))
+		end)
 	end
 
 	-- ===== drop targets ======================================================
@@ -398,7 +399,7 @@ function virtual_reorder.new(deps: Deps)
 		-- focus ring would answer the same question twice.
 		if reg == nil or ctrl == nil or host == nil or not reg.isActive() or reg.mode() ~= "pointer" then
 			autoscrollModel:reset()
-			if autoscrollState:get().state ~= "idle" then
+			if autoscrollState:peek().state ~= "idle" then
 				autoscrollState:set({ state = "idle", band = nil })
 			end
 			return nil
@@ -408,11 +409,11 @@ function virtual_reorder.new(deps: Deps)
 			now = now,
 			pointerPos = autoscrollPoint(reg.pointerPosition()),
 			hostRect = autoscrollRect(hostRect),
-			canvasPos = clampedTop:get(),
+			canvasPos = clampedTop:peek(),
 			maxScroll = maxTop(),
 		})
 		if step.delta ~= 0 then
-			ctrl.scrollTo(host, vec(clampedTop:get() + step.delta))
+			ctrl.scrollTo(host, vec(clampedTop:peek() + step.delta))
 			-- THE FRAME-ACCURATE RE-RESOLVE (the correctness core): the rects
 			-- the session hit-tests against are the solver's, shifted by the LIVE
 			-- scroll offset — so re-running the hover immediately after the write,
@@ -420,7 +421,7 @@ function virtual_reorder.new(deps: Deps)
 			-- rows at the top speed.
 			reg.refreshTargets()
 		end
-		local current = autoscrollState:get()
+		local current = autoscrollState:peek()
 		local band = autoscrollBand()
 		if current.state ~= step.state or current.band ~= band then
 			autoscrollState:set({ state = step.state, band = band })

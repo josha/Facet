@@ -33,25 +33,25 @@ return {
 	ledgerRows = { "XP-B2", "XP-B3", "XP-B4", "XP-B5", "XP-B6", "XP-C1", "XP-C2" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("perf-capture")
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
+		local UI, Compose = ctx.UI, ctx.Compose
+		-- the surface's adaptive facts, read under the mounted screen's owner
+		local conditions: any = nil
+		-- the roster's live window, counted by the row component itself
+		local windowedRows = 0
 
-		-- ---- owner-held state -------------------------------------------
 		local readouts = {}
 		for i = 1, 8 do
-			readouts[i] = core:signal(0)
+			readouts[i] = Compose.cell(0)
 		end
-		local lap = core:signal(0.35)
-		local boosts = core:signal(0)
-		local roster = core:signal({})
+		local lap = Compose.cell(0.35)
+		local boosts = Compose.cell(0)
+		local roster = Compose.cell({})
 		local faults = { layout = false, input = false }
 		-- the layout fault has to be REACTIVE to change a solved width without a
 		-- remount, so it rides a signal rather than the plain flag table
-		local faultsSignal = core:signal(false)
+		local faultsSignal = Compose.cell(false)
 		-- M6's visible end: the text a player would see change
-		local boostText = core:memo(function(use)
+		local boostText = Compose.formula(function(use)
 			return `Boost x{use(boosts)}`
 		end)
 
@@ -71,11 +71,9 @@ return {
 		-- own box. So the fault is an absurd fixed HEIGHT, which pushes the
 		-- pinned action bar below the screen and out of reach — a defect a
 		-- player would feel and a capture alone would not necessarily show.
-		local actionHeight = core:memo(function(use)
+		local actionHeight = Compose.formula(function(use)
 			return if use(faultsSignal) then { type = "fixed", px = 2400 } else nil
 		end)
-
-		local progress = Facet.Controls.ProgressView(core, { id = "Lap", value = lap, label = "Lap" })
 
 		--[[ THE ROSTER ROW'S HEIGHT — a design FLOOR that grows with the text
 			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
@@ -101,7 +99,7 @@ return {
 			while fixing an accessibility defect. The floor keeps the row byte-identical
 			everywhere it was already honest, and the line box takes over exactly where
 			it stopped being. ]]
-		local itemExtent = core:memo(function(use)
+		local itemExtent = Compose.formula(function(use)
 			local facts = Facet.text.facts({ env = ctx.env, use = use })
 			local content = math.max(
 				Facet.text.lineBox({ facts = facts, size = ROSTER_NAME_SIZE, lines = 1 }),
@@ -110,16 +108,62 @@ return {
 			return math.max(ROSTER_ROW_FLOOR, content + 2 * ROSTER_ROW_PADDING)
 		end)
 
-		local list = Facet.Controls.VirtualList(core, {
-			id = "Roster",
-			rows = roster,
-			key = function(item)
-				return item.id
-			end,
-			itemExtent = itemExtent,
-			viewportExtent = 220,
-			cell = function(item)
-				--[[ THE DETAIL SHRINKS AND DISCLOSES (O-21, 2026-08-15), and it may
+		local function screen()
+			conditions = Facet.adaptive.conditions(ctx.env)
+			local readoutRow: { any } = { gap = "tight", wrap = true, width = UI.fill() }
+			for i = 1, 8 do
+				local value = readouts[i]
+				table.insert(
+					readoutRow,
+					UI.Text(`R{i}`)({
+						text = function(use)
+							return `{use(value)}`
+						end,
+						textSize = "label",
+					})
+				)
+			end
+			table.insert(readoutRow, UI.Text("BoostCount")({ text = boostText, textSize = "body" }))
+			return UI.Screen("PerfCapture")({
+				padding = 12,
+				gap = "s",
+
+				--[[ ONE READOUT BAND, WRAPPING (O-21, measured 2026-08-15). The eight
+					live numbers and the boost count are the same kind of thing and used
+					to take two lines of the page's own stack regardless: on a 640x320
+					landscape at +10 that second line was 44px of a 176px content box the
+					page did not have, `Body` had already windowed to ZERO, and the
+					pinned action bar went 11px under the fold — so `Boost`, the labelled
+					control this fixture's own injected input fault is ABOUT, was already
+					out of reach with no fault injected at all.
+					Sharing one row costs a landscape viewport nothing (186 + 149 of a
+					616px band) and `wrap = true` keeps a 320px portrait phone at the two
+					lines it always had. It is strictly cheaper under every theme
+					package, which a second pinned line would not have been. ]]
+				UI.HStack("Readouts")(readoutRow),
+				UI.ProgressView("Lap")({ value = lap, label = "Lap" }),
+				UI.ScrollView("Body")({
+					axis = "y",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.AdaptiveStack("Split")({
+						axis = conditions.axis,
+						gap = 12,
+						width = UI.fill(),
+						UI.VirtualList("Roster")({
+							rows = roster,
+							key = "id",
+							itemExtent = itemExtent,
+							viewportExtent = 220,
+							cell = function(_, ctx)
+								-- The cell receives the item; `ctx.current` follows its edits.
+								local item = Compose.formula(ctx.current)
+								windowedRows += 1
+								Compose.cleanup(function()
+									windowedRows -= 1
+								end)
+								--[[ THE DETAIL SHRINKS AND DISCLOSES (O-21, 2026-08-15), and it may
 					not WRAP. Name + detail at the Largest text preference measure past
 					a 320px phone's roster column, and with a Spacer between them and
 					nothing shrinkable the row painted `Lap 2 · P1` — the half that
@@ -132,125 +176,69 @@ return {
 					`newVirtualList declares itemExtent` one. Shrinking keeps the row one
 					line, and `disclose` is the way back to the whole string, which is
 					what makes a cut label a degrade rather than lost copy. ]]
-				return UI.HStack({
-					id = "Row",
-					gap = "s",
-					padding = ROSTER_ROW_PADDING,
+								return UI.HStack("Row")({
+									gap = "s",
+									padding = ROSTER_ROW_PADDING,
 
-					-- ...AND SO DOES THE NAME (O-21 round 2, 2026-08-15). With only the
-					-- detail carrying a weight the row still ran 14px past its slot
-					-- under Sci-Fi HUD on a 320px phone at +14 — the solver's own
-					-- "every shrinkable child is already at its floor" case, because
-					-- there was exactly one shrinkable child. `Racer 200` is as
-					-- degradable as `Lap 2 · P1` and gets the same treatment: one
-					-- line, a weight, and a `disclose` back to the whole string.
-					UI.Text({
-						id = "Name",
-						text = item.name,
-						textSize = ROSTER_NAME_SIZE,
-						lineLimit = 1,
-						disclose = true,
-						shrinkWeight = 1,
+									-- ...AND SO DOES THE NAME (O-21 round 2, 2026-08-15). With only the
+									-- detail carrying a weight the row still ran 14px past its slot
+									-- under Sci-Fi HUD on a 320px phone at +14 — the solver's own
+									-- "every shrinkable child is already at its floor" case, because
+									-- there was exactly one shrinkable child. `Racer 200` is as
+									-- degradable as `Lap 2 · P1` and gets the same treatment: one
+									-- line, a weight, and a `disclose` back to the whole string.
+									UI.Text("Name")({
+										text = function(use)
+											return use(item).name
+										end,
+										textSize = ROSTER_NAME_SIZE,
+										lineLimit = 1,
+										disclose = true,
+										shrinkWeight = 1,
+									}),
+									UI.Spacer("Gap")({}),
+									UI.Text("Detail")({
+										text = function(use)
+											return use(item).detail
+										end,
+										textSize = ROSTER_DETAIL_SIZE,
+										lineLimit = 1,
+										disclose = true,
+										shrinkWeight = 1,
+									}),
+								})
+							end,
+						}),
 					}),
-					UI.Spacer({ id = "Gap" }),
-					UI.Text({
-						id = "Detail",
-						text = item.detail,
-						textSize = ROSTER_DETAIL_SIZE,
-						lineLimit = 1,
-						disclose = true,
-						shrinkWeight = 1,
-					}),
-				})
-			end,
-		})
+				}),
+				UI.HStack("Actions")({
+					-- THEME-OPT-OUT: this row is ALREADY in the overflow ledger for not fitting a
+					-- 320x640 phone at the Largest text preference (126px over, waived). Spending
+					-- the theme's own step here does not make it fit — measured with `gap = "s"` it
+					-- makes the recorded defect 2px worse under glossy-touch — so the step waits on
+					-- the row's own fix rather than landing on top of it.
+					gap = 8,
+					height = actionHeight,
 
-		local readoutViews = {}
-		for i = 1, 8 do
-			local sig = readouts[i]
-			local text = core:memo(function(use)
-				return `{use(sig)}`
-			end)
-			table.insert(readoutViews, UI.Text({ id = `R{i}`, text = text, textSize = "label" }))
+					UI.Button("Boost")({
+						label = "Boost",
+						onActivate = function()
+							-- faultInput suppresses only the EFFECT, not the
+							-- activation: the press still happens, the screen
+							-- just stops reflecting it. That is the failure a
+							-- capture alone cannot see and a paired trace can.
+							if not faults.input then
+								boosts:set(boosts:peek() + 1)
+							end
+						end,
+					}),
+					UI.Button("Reset")({ label = "Reset", onActivate = function() end }),
+				}),
+			})
 		end
-
-		local screen = UI.Screen({
-			id = "PerfCapture",
-			padding = 12,
-			gap = "s",
-
-			--[[ ONE READOUT BAND, WRAPPING (O-21, measured 2026-08-15). The eight
-					live numbers and the boost count are the same kind of thing and used
-					to take two lines of the page's own stack regardless: on a 640x320
-					landscape at +10 that second line was 44px of a 176px content box the
-					page did not have, `Body` had already windowed to ZERO, and the
-					pinned action bar went 11px under the fold — so `Boost`, the labelled
-					control this fixture's own injected input fault is ABOUT, was already
-					out of reach with no fault injected at all.
-					Sharing one row costs a landscape viewport nothing (186 + 149 of a
-					616px band) and `wrap = true` keeps a 320px portrait phone at the two
-					lines it always had. It is strictly cheaper under every theme
-					package, which a second pinned line would not have been. ]]
-			UI.HStack({
-				id = "Readouts",
-				gap = "tight",
-				wrap = true,
-				width = UI.fill(),
-				children = (function()
-					local kids: { any } = table.clone(readoutViews)
-					table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = "body" }))
-					return kids
-				end)(),
-			}),
-			progress.blueprint,
-			UI.ScrollView({
-				id = "Body",
-				axis = "y",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.AdaptiveStack({
-					id = "Split",
-					axis = conditions.axis,
-					gap = 12,
-					width = UI.fill(),
-					list.blueprint,
-				}),
-			}),
-			UI.HStack({
-				id = "Actions",
-				-- THEME-OPT-OUT: this row is ALREADY in the overflow ledger for not fitting a
-				-- 320x640 phone at the Largest text preference (126px over, waived). Spending
-				-- the theme's own step here does not make it fit — measured with `gap = "s"` it
-				-- makes the recorded defect 2px worse under glossy-touch — so the step waits on
-				-- the row's own fix rather than landing on top of it.
-				gap = 8,
-				height = actionHeight,
-
-				UI.Button({
-					id = "Boost",
-					label = "Boost",
-					onActivate = function()
-						-- faultInput suppresses only the EFFECT, not the
-						-- activation: the press still happens, the screen
-						-- just stops reflecting it. That is the failure a
-						-- capture alone cannot see and a paired trace can.
-						if not faults.input then
-							boosts:set(boosts:get() + 1)
-						end
-					end,
-				}),
-				UI.Button({ id = "Reset", label = "Reset" }),
-			}),
-		})
 
 		return {
 			screen = screen,
-			dispose = function()
-				progress.dispose()
-				list.dispose()
-				scope:dispose()
-			end,
 			steps = {
 				-- ---- the capture (XP-C1) --------------------------------
 				-- Drives a fixed workload and records the metric ledger. Frame
@@ -330,8 +318,8 @@ return {
 					local target = geo["/PerfCapture/Actions/Boost"]
 					return {
 						armed = true,
-						boostsBefore = boosts:get(),
-						boostTextBefore = boostText:get(),
+						boostsBefore = boosts:peek(),
+						boostTextBefore = boostText:peek(),
 						geometry = geo,
 						-- the centre of the activation surface in the SAME space the
 						-- geometry above is in. A caller injecting native input adds
@@ -415,8 +403,8 @@ return {
 						rawPair = pair,
 						paintWatch = paint,
 						inputToVisibleMs = latency,
-						boosts = boosts:get(),
-						boostText = boostText:get(),
+						boosts = boosts:peek(),
+						boostText = boostText:peek(),
 						effectVisible = painted,
 					}
 				end,
@@ -488,31 +476,25 @@ return {
 
 				snapshot = function()
 					return {
-						boosts = boosts:get(),
-						lap = lap:get(),
-						readouts = readouts[1]:get(),
+						boosts = boosts:peek(),
+						lap = lap:peek(),
+						readouts = readouts[1]:peek(),
 						faults = { layout = faults.layout, input = faults.input },
 					}
 				end,
 			},
 			report = function()
 				return {
-					sizeClass = conditions.sizeClass:get(),
-					axis = conditions.axis:get(),
-					isTenFoot = conditions.isTenFoot:get(),
-					contentWidth = conditions.contentWidth:get(),
+					sizeClass = conditions.sizeClass:peek(),
+					axis = conditions.axis:peek(),
+					isTenFoot = conditions.isTenFoot:peek(),
+					contentWidth = conditions.contentWidth:peek(),
 					virtualRows = 200,
-					windowedRows = (function()
-						local n = 0
-						for _ in list.debugWindow() do
-							n += 1
-						end
-						return n
-					end)(),
-					boosts = boosts:get(),
-					boostText = boostText:get(),
+					windowedRows = windowedRows,
+					boosts = boosts:peek(),
+					boostText = boostText:peek(),
 					faults = { layout = faults.layout, input = faults.input },
-					progress = progress.dump(),
+					progress = { value = lap:peek() },
 				}
 			end,
 		}

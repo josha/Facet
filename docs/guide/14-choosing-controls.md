@@ -10,18 +10,18 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Player's task | Start with | Reason |
 |---|---|---|
 | Perform one primary action | `UI.Button` | Keep the action visible and directly reachable. |
-| Choose a few familiar contextual commands without losing sight of a character or object | `Controls.RadialMenu` | Directional choices surround the focal point and support tap or a single marking gesture. |
-| Keep a compact set of occasional commands at a screen edge | `Controls.RadialMenu` with a corner preset | A small launcher opens inward and returns to the same corner. |
-| Read many commands, unfamiliar names, or long descriptions | `Controls.Menu` or a labeled list | Reading and scanning need predictable linear space. A radial menu should not become a dense inventory. |
+| Choose a few familiar contextual commands without losing sight of a character or object | `UI.RadialMenu` | Directional choices surround the focal point and support tap or a single marking gesture. |
+| Keep a compact set of occasional commands at a screen edge | `UI.RadialMenu` with a corner preset | A small launcher opens inward and returns to the same corner. |
+| Read many commands, unfamiliar names, or long descriptions | `UI.Menu` or a labeled list | Reading and scanning need predictable linear space. A radial menu should not become a dense inventory. |
 | Keep frequently used actions visible | Buttons in a toolbar/stack | Avoid making players open a menu for every repeated action. |
-| Choose one value from a list | `Controls.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `navigationLink` for a long or searchable list. |
+| Choose one value from a list | `UI.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `navigationLink` for a long or searchable list. |
 | Choose a persistent value | Picker, Toggle, or Slider as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
-| Run one action with alternatives | `Controls.Button` beside a `Picker`, or `Controls.SplitButton` | The split joins a chevron segment to the button under a pointer and becomes one long-press button under touch; when the alternatives must be discoverable on a phone, a Picker beside the Button says them out loud. |
+| Run one action with alternatives | `UI.Button` beside a `Picker`, or `UI.SplitButton` | The split joins a chevron segment to the button under a pointer and becomes one long-press button under touch; when the alternatives must be discoverable on a phone, a Picker beside the Button says them out loud. |
 | Browse inventory, compare items, or search a large collection | Grid/list/table with filtering | Item discovery and comparison need more content than directional quick actions. |
-| Switch peer destinations such as Garage, Races, and Settings | `Controls.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |
-| Choose a visually recognizable vehicle, character, map, or item | `Controls.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
-| Navigate destinations or complete a multi-step form | `Controls.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
-| Confirm a consequential action | `Controls.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
+| Switch peer destinations such as Garage, Races, and Settings | `UI.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |
+| Choose a visually recognizable vehicle, character, map, or item | `UI.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
+| Navigate destinations or complete a multi-step form | `UI.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
+| Confirm a consequential action | `UI.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
 
 For a labeled Picker in a settings form, `valueAlignment = "start"` places its
 menu value close to the label. The default `"end"` keeps values trailing. This
@@ -36,7 +36,7 @@ comparison, or frequent traversal of deep branches, choose a linear surface.
 
 Inspect the host's toolbar, settings, navigation, and shared builders before
 adding UI. Choose both the existing Facet control and where the action belongs:
-use `Controls.Button` in the existing toolbar for a command, Picker for a value,
+use `UI.Button` in the existing toolbar for a command, Picker for a value,
 and a documented API preference for presentation policy. A supported accessory
 slot is a composition option, not a reason to create another piece of chrome.
 
@@ -57,7 +57,7 @@ Use `TabView.style = "sidebarAdaptable"` for peer destinations in a lobby,
 collection browser, or management screen. Roomy touch screens start with top tabs;
 mouse windows start with a sidebar. Bind `sidebarPreference` (`automatic`,
 `sidebar`, or `topBar`) when the application has a nearby layout preference.
-TabView adds no toggle button. The Showcase places a `Controls.Button` in its
+TabView adds no toggle button. The Showcase places a `UI.Button` in its
 existing toolbar and binds it to the active demo's preference. Use that host
 composition for demo actions; do not create extra navigation chrome for them.
 Distant screens show top tab pills, independently of pointer or gamepad input.
@@ -79,13 +79,13 @@ tasks and should not be interchanged merely to copy a streaming-app screenshot.
 
 Choose by role, not by labels such as "app", "game", or "demo". In the Showcase,
 All controls' Inputs, Actions, Indicators and Navigation are peer destinations
-organizing the whole screen. They use `Controls.TabView` with
+organizing the whole screen. They use `UI.TabView` with
 `style = "sidebarAdaptable"` and automatic placement. The example choices inside
 each destination are ordinary nested TabViews. Collections and Motion and layout
 use the same structure.
 
-```lua
-local UI = Facet.View
+```luau
+local UI = app.controls
 local categories = UI.TabView {
     style = "sidebarAdaptable",
     tabs = {
@@ -95,7 +95,7 @@ local categories = UI.TabView {
         -- Other peer destinations use the same content factory pattern.
     },
 }
--- Include categories in your component's view tree; mount owns both levels.
+-- Return categories from your component; the mount owns both levels.
 ```
 
 Leave placement automatic at both levels. Building the inner control inside the
@@ -110,20 +110,20 @@ compact touch, nearby gamepad and distant viewing. Check D-pad reachability
 between levels, the nearest eligible shoulder handler, Back, and focus restoration.
 Changing the navigation home must preserve the active page; changing destinations
 still follows TabView's lazy eviction rules. See the
-[TabView contract](../reference/api.md#newtabview) and
+[TabView contract](../reference/api.md#uitabview) and
 [shared demo composition](../../examples/gallery/scenarios/demo_tabs.luau).
 
 ### Decisions and page composition
 
-Use `Controls.Alert` for a brief confirmation or acknowledgement with one to three
-choices. Supply the title, message and semantic action roles, then call
-`alert.present(presenter)`. The shared component owns content-sized centering,
+Use `UI.Alert` for a brief confirmation or acknowledgement with one to three
+choices. Declare `UI.Alert` in the screen with its title, message, semantic
+action roles and an `isPresented` cell. The shared component owns content-sized centering,
 role-placed actions (a centered row, or a full-width stack with cancel last on
 phones, televisions, three-action decisions and large text), constrained
 scrolling, safe initial focus and cancellation.
 Use a game theme/StyleSheet to customize its appearance. A full-screen `Screen`
 with a vertical button stack is not a confirmation recipe. Reserve an authored
-`presentModal` surface for a substantial editor or multi-step task.
+`app.presentModal` surface for a substantial editor or multi-step task.
 
 Viewing distance changes layout policy as well as typography: top navigation and
 lower content density apply to Distant TV with mouse/keyboard too. It does not
@@ -179,16 +179,16 @@ row complexity, update frequency and available space all affect the cost.
 
 | Collection | Starting choice |
 |---|---|
-| Large scrolling inventory, leaderboard or comparison table | `Controls.Table` with `virtualized = true`, when its supported row features fit. |
-| Long feed or custom rows | `Controls.VirtualList`; use known extents when available, or `itemExtent = "measured"` with `estimatedItemExtent` for content-sized rows. |
-| Large catalog arranged in lanes | `Controls.VirtualGrid` when its extent and interaction contracts fit; see the API's explicit limitations. |
-| Horizontal card shelf | `Controls.VirtualList` with `axis = "x"`, `itemExtent = "cards"` and adaptive card options. |
+| Large scrolling inventory, leaderboard or comparison table | `UI.Table` with `virtualized = true`, when its supported row features fit. |
+| Long feed or custom rows | `UI.VirtualList`; use known extents when available, or `itemExtent = "measured"` with `estimatedItemExtent` for content-sized rows. |
+| Large catalog arranged in lanes | `UI.VirtualGrid` when its extent and interaction contracts fit; see the API's explicit limitations. |
+| Horizontal card shelf | `UI.VirtualList` with `axis = "x"`, `itemExtent = "cards"` and adaptive card options. |
 | Small settings group, short menu, or content-sized section inside a scrolling page | Ordinary stacks/`UI.ForEach`, or a nonvirtual Table with `scrolls = false`. Keeping every row mounted is appropriate here. |
 
 Virtualization mounts only the visible window plus overscan. **It changes
-lifetime**: off-screen cells unmount, their scopes dispose, and their local state
-and scoped async work end. Keep selection, drafts and other durable values in
-owner-held state keyed by stable item IDs. Do not use appearance hooks to own
+lifetime**: off-screen cells unmount, their Compose owners release, and their
+local state and owned async work end. Keep selection, drafts and other durable
+values in model-owned cells keyed by stable item IDs. Do not use appearance hooks to own
 gameplay state. If a row must stay mounted during an interaction, address that
 lifetime requirement before windowing it.
 
@@ -196,7 +196,8 @@ Give the collection a definite extent along its scrolling axis. Prefer
 `viewportExtent = "auto"` inside a bounded pane over calculating screen-space
 subtractions in game code. An unbounded same-axis parent scroller can make the
 inner viewport cover the entire collection, defeating virtualization. Check
-`dump().diagnostics` and the mounted window after layout. A virtual Table owns
+`dump().diagnostics` and the mounted window after layout; a composite control
+hands you its `{ api, dump }` record through `ref = function(record) ... end`. A virtual Table owns
 its scrolling viewport; `scrolls = false` and `rowActions` cannot be combined
 with `virtualized = true`. Use VirtualList's supported row actions where needed,
 and respect its documented combinations.
@@ -214,8 +215,8 @@ VirtualList and VirtualGrid already window automatically, and Table does so when
 item-count threshold: adding one item must not unexpectedly destroy off-screen
 editing state or change supported interactions. Prefer the virtual form from the
 start for collections expected to grow; it also handles a small initial dataset.
-See the [VirtualList API](../reference/api.md#newvirtuallist),
-[VirtualGrid API](../reference/api.md#newvirtualgrid), and
+See the [VirtualList API](../reference/api.md#uivirtuallist),
+[VirtualGrid API](../reference/api.md#uivirtualgrid), and
 [performance guide](12-performance-lab.md).
 
 ## Choose radial options deliberately
@@ -252,7 +253,7 @@ or passive `"content"` around an object; Back/Close then belongs in the ring.
 Corner Back/Close replaces the launcher, and list fallback has one navigation
 control above the list. Leave `centerPassThrough` off unless touching the focal
 scene through the hole is an intentional part of the game. Its exact rectangular
-aperture is documented in the [API](../reference/api.md#controlsradialmenu).
+aperture is documented in the [API](../reference/api.md#uiradialmenu).
 
 Commands close by default. Checks/radio selections stay open. Set per-item
 `completion` to `"stay"`, `"back"`, `"root"`, or `"close"` to match the player's
@@ -322,7 +323,7 @@ destinations to benefit from organization. Mark essential play/exit/settings rou
 required as appropriate. Offer reorder and show/hide commands through normal buttons
 or menus so they remain usable on touch and gamepad. Store preferences in game-owned
 state. TabView restores scroll by key across lazy page eviction; keep editing,
-selection and domain values in owner-held signals as before.
+selection and domain values in cells your model owns.
 
 ### Implementation order for game UI
 
@@ -337,19 +338,19 @@ focus, input, theme and lifecycle seams. Starting with native Roblox behavior ou
 of convenience skips the design contract. A supported Facet foreign-content host
 is still composition and should be considered before a custom system.
 
-Use `Controls.Sheet` for a substantial briefing or editor that benefits from
+Use `UI.Sheet` for a substantial briefing or editor that benefits from
 several heights. The header supports dragging; its Size button provides the same
 choices through focus and activation. Content gestures scroll. Distant screens
 center the sheet, while nearby gamepads retain bottom placement. Use Alert for a
 brief decision with a few actions.
 
-Use `Controls.PageView` for a short finite sequence of previews or guided pages.
+Use `UI.PageView` for a short finite sequence of previews or guided pages.
 Dots show position and offer direct selection; the summary and Previous/Next
 remain readable on every input class. Supply a definite height inside a vertical
 scrolling page. Keep card rails for catalogs that benefit from seeing adjacent
 choices at once.
 
-Use `Controls.CollapsibleView` when a compact summary should expand into arbitrary
+Use `UI.CollapsibleView` when a compact summary should expand into arbitrary
 content. Its plate grows from the compact position while content fades in at its
 final size; collapsing reverses that motion. It supplies one collapse affordance
 and gamepad Back, so avoid adding a second Done button unless it commits a draft.
@@ -361,7 +362,7 @@ It shares overlap placement and automatic dismissal behavior with CollapsibleVie
 its `"always"` preference retains the offset corner Close.
 Bind its label and icon to the selected value, or keep them static. Bind
 `expanded` to close on the choice that completes the task. For sibling destinations,
-`Controls.TabView` with `style = "collapsible"` supplies that wiring; the demo
+`UI.TabView` with `style = "collapsible"` supplies that wiring; the demo
 **All controls → Navigation → Disclosure** shows both forms. A NavigationStack still represents drill-down
 and Back, so keep that hierarchy visible alongside a destination chooser.
 
@@ -373,7 +374,7 @@ circular gauges keep their value at the preferred text size and move it below
 the ring when necessary. Keep meters informational; put actions in the existing
 HUD menu or toolbar so ordinary focus and activation paths remain available.
 
-Use presenter toasts for brief, noninteractive feedback. They automatically
+Use `app.presentToast` for brief, noninteractive feedback. They automatically
 publish their measured HUD reservation without claiming focus. Screens can feed
 those rectangles into Composition top-lane exclusions; use layout.hudInsets for
 other edges. The Screen-anchored HUD's action menu demonstrates this coordination.
@@ -384,12 +385,17 @@ own width. Other rows slide into place when one leaves. Default slides preserve
 native text clarity; opt into fading only when that treatment is needed.
 
 ```luau
-local UI = Facet.View
-presenter.presentToast(UI.VStack {
-    surface = "raised", padding = "m", width = UI.hug(),
-    UI.Text "Checkpoint reached",
-}, { position = "bottom", width = UI.hug({ max = 560 }) })
+local UI = app.controls
+app.presentToast(function()
+    return UI.VStack {
+        surface = "raised", padding = "m", width = UI.hug(),
+        UI.Text { text = "Checkpoint reached" },
+    }
+end, { position = "bottom", width = UI.hug({ max = 560 }) })
 ```
+
+The body is a component function, not a built node: the toast runs it inside its
+own row and releases it with that row.
 
 
 Use client.world_anchor with offscreen retention to project objectives, and

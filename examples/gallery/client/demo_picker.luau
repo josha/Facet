@@ -273,9 +273,9 @@ end
 
 export type MountOpts = {
 	Facet: any,
-	core: any,
+	-- the application the picker mounts into and builds its controls from
+	app: any,
 	env: any,
-	presenter: any,
 	composed: boolean?,
 	-- (demo) -> built | nil; the host owns HOW a demo mounts, because that
 	-- differs between the tutorial contract and the scenario contract
@@ -296,12 +296,10 @@ export type MountOpts = {
 
 -- mount(opts) -> { handle, selection, current, dispose }
 function demo_picker.mount(opts: MountOpts): any
-	local Facet = opts.Facet
-	local UI = Facet.View
-	local core = opts.core
-	local scope = core:scope("gallery-demo-picker")
-	local selection = scope:own(core:signal(demo_picker.initialSelection()))
-	local open = scope:own(core:signal(false))
+	local app = opts.app
+	local UI, Compose = app.controls, opts.Facet.Compose
+	local selection = Compose.cell(demo_picker.initialSelection())
+	local open = Compose.cell(false)
 	local mounted: any = nil
 	local mountedId: string? = nil
 	local raise: () -> ()
@@ -315,7 +313,7 @@ function demo_picker.mount(opts: MountOpts): any
 			pcall(mounted.dispose)
 		end
 		if mounted.handle ~= nil then
-			pcall(opts.presenter.dismiss, mounted.handle)
+			pcall(app.presenter.dismiss, mounted.handle)
 		end
 		mounted = nil
 	end
@@ -341,21 +339,20 @@ function demo_picker.mount(opts: MountOpts): any
 	end
 	-- Selection and open state belong to the host because the picker remounts
 	-- when another demo is raised. Each mounted view owns its derived bindings.
-	local Rows = Facet.component(function(ui, props)
-		local current = ui.read(selection)
-		local rows = {}
+	local function Rows(props: { scroll: boolean? })
+		local rows: { any } = if props.scroll
+			then { gap = "xs", surface = "raised", padding = "s", width = UI.hug(), height = UI.hug() }
+			else { gap = "xs", width = UI.fill() }
 		for _, demo in demo_picker.DEMOS do
 			table.insert(
 				rows,
-				Facet.UI.Button({
-					id = demo.id,
+				UI.Button(demo.id)({
 					label = demo.title,
-					-- The primitive exposes selected paint for this navigation row.
-					selected = function()
-						return current() == demo.id
+					selected = function(use)
+						return use(selection) == demo.id
 					end,
 					onActivate = function()
-						local command = demo_picker.choose(current(), demo.id)
+						local command = demo_picker.choose(selection:peek(), demo.id)
 						if command.action == "swap" then
 							selection:set(command.selection)
 							show(command.selection)
@@ -369,49 +366,45 @@ function demo_picker.mount(opts: MountOpts): any
 				})
 			)
 		end
-		if props.scroll then
-			return UI.ScrollView({
-				id = "Rows",
-				gap = "xs",
-				surface = "raised",
-				padding = "s",
-				width = UI.hug(),
-				height = UI.hug(),
-				children = rows,
-			})
-		end
-		return UI.VStack({ id = "Rows", gap = "xs", width = UI.fill(), children = rows })
-	end)
+		return if props.scroll then UI.ScrollView("Rows")(rows) else UI.VStack("Rows")(rows)
+	end
 	local function pressChip()
 		if opts.onChip ~= nil then
 			opts.onChip()
 		else
-			open:set(not open:get())
+			open:set(not open:peek())
 		end
 	end
-	local Chip = Facet.component(function(ui, props)
-		local current, expanded = ui.read(selection), ui.read(open)
-		local label = ui.memo(function()
-			if expanded() then
+	local function Chip(props: { id: string, icon: boolean? })
+		local label = Compose.formula(function(use)
+			if use(open) then
 				return "Close"
 			end
-			local demo = demo_picker.find(current())
+			local demo = demo_picker.find(use(selection))
 			local title = if demo then demo.title else "—"
 			return if opts.composed then title else demo_picker.clip(title, demo_picker.CHIP_LABEL_CHARS)
 		end)
-		-- These primitive hit targets need chip paint and a circular icon form.
-		return Facet.UI.Button({
-			id = props.id,
+		return UI.Button(props.id)({
 			label = label,
 			surface = "chip",
 			shape = if props.icon then "circle" else nil,
 			icon = if props.icon then "menu" else nil,
 			onActivate = pressChip,
 		})
-	end)
-	local chip = Chip({ id = if opts.composed then "DemoToggle" else "Toggle" })
-	local iconChip = Chip({ id = "DemoToggleIcon", icon = true })
-	local list, rowsStack = Rows({ scroll = true }), Rows({})
+	end
+	-- Each piece is a component: the host that places it builds it in its own mount.
+	local function chip()
+		return Chip({ id = if opts.composed then "DemoToggle" else "Toggle" })
+	end
+	local function iconChip()
+		return Chip({ id = "DemoToggleIcon", icon = true })
+	end
+	local function list()
+		return Rows({ scroll = true })
+	end
+	local function rowsStack()
+		return Rows({})
+	end
 	if opts.composed == true then
 		raise = function()
 			if opts.onRaise ~= nil then
@@ -443,55 +436,52 @@ function demo_picker.mount(opts: MountOpts): any
 			end,
 			show = show,
 			current = function()
-				return selection:get()
+				return selection:peek()
 			end,
 			mounted = mountedDemo,
 			showNext = function(step: number): boolean
-				local id = demo_picker.next(selection:get(), step)
+				local id = demo_picker.next(selection:peek(), step)
 				selection:set(id)
 				return show(id)
 			end,
-			dispose = function()
-				disposeMounted()
-				scope:dispose()
-			end,
+			dispose = disposeMounted,
 		}
 	end
-	local screen = UI.Screen({
-		id = "ShowcaseDemos",
-		padding = "s",
-		UI.Anchor({
-			id = "Dock",
-			width = UI.fill(),
-			height = UI.fill(),
-			UI.VStack({
-				id = "Panel",
-				anchor = "topLeft",
-				offsetY = -demo_picker.BAR_HEIGHT,
-				gap = "xs",
-				chip,
-				UI.When({
-					id = "List",
-					condition = open,
-					thenView = function()
-						return list
-					end,
+	local function screen()
+		return UI.Screen("ShowcaseDemos")({
+			padding = "s",
+			UI.Anchor("Dock")({
+				width = UI.fill(),
+				height = UI.fill(),
+				UI.VStack("Panel")({
+					anchor = "topLeft",
+					offsetY = -demo_picker.BAR_HEIGHT,
+					gap = "xs",
+					chip(),
+					UI.When("List")({
+						Compose.show(open, function()
+							return UI.When("then")({ list() })
+						end),
+					}),
 				}),
 			}),
-		}),
-	})
+		})
+	end
+	local close: (() -> ())? = nil
 	local handle: any = nil
+	-- A demo presented after the picker covers it, so the picker is presented again.
 	function raise()
-		if handle ~= nil then
-			opts.presenter.dismiss(handle)
+		if close ~= nil then
+			close()
 		end
-		handle = opts.presenter.present(screen, { responder = "passive" })
+		local nextClose, _, nextHandle = app.mount(screen, { responder = "passive" })
+		close, handle = nextClose, nextHandle
 		if opts.onRaise ~= nil then
 			opts.onRaise()
 		end
 	end
 	raise()
-	show(selection:get())
+	show(selection:peek())
 	return {
 		handleOf = function()
 			return handle
@@ -499,20 +489,19 @@ function demo_picker.mount(opts: MountOpts): any
 		selection = selection,
 		open = open,
 		current = function()
-			return selection:get()
+			return selection:peek()
 		end,
 		mounted = mountedDemo,
 		showNext = function(step: number): boolean
-			local id = demo_picker.next(selection:get(), step)
+			local id = demo_picker.next(selection:peek(), step)
 			selection:set(id)
 			return show(id)
 		end,
 		dispose = function()
 			disposeMounted()
-			if handle ~= nil then
-				opts.presenter.dismiss(handle)
+			if close ~= nil then
+				close()
 			end
-			scope:dispose()
 		end,
 	}
 end

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE PREMEASURE ANSWER STOPS RUNNING ON THE SOLVE THAT ASKED FOR IT
 	(Plan C, T18-B — ruling L-13, T17's third finding, FacetBench §C16).
@@ -65,14 +66,16 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local solve_queue = require("../src/render/solve_queue")
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
 
 local function fill(): any
 	return { type = "fill", weight = 1 }
@@ -161,8 +164,8 @@ local function surface(
 		the recursion runs THROUGH the shared `textMeasureEpoch` fact — exactly the
 		configuration T9b's two-workload run overflowed in. ]]
 	local stride = opts.stride
-	local bound = core:signal(opts.mountAt or opts.chain)
-	local label = core:memo(function(use)
+	local bound = Compose.cell(opts.mountAt or opts.chain)
+	local label = Compose.formula(function(use)
 		local epoch = (use(env:get("textMeasureEpoch")) :: number?) or 0
 		local index = if stride ~= nil then 1 + (epoch + stride) // 2 else epoch + 1
 		return words[math.min(opts.chain, use(bound) :: number, index)]
@@ -266,7 +269,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		expect(arm.adapter.textAnswerDepth()).toBe(1)
 		-- the chain really ran: four words learned, five solves (see the header)
 		expect(arm.controller.stats().solves).toBe(5)
-		expect((arm.env:get("textMeasureEpoch"):get() :: any) or 0).toBe(4)
+		expect((arm.env:get("textMeasureEpoch"):peek() :: any) or 0).toBe(4)
 	end)
 
 	--[[ THE BOUNDED-STACK WITNESS, AND IT IS T9b's OVERFLOW AS A CASE. Two workloads
@@ -305,7 +308,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 				b.controller.refresh()
 			end
 			-- ...and the cycle really did run, through the shared fact and nothing else
-			expect((env:get("textMeasureEpoch"):get() :: any) or 0).toBeGreaterThanOrEqual(chain)
+			expect((env:get("textMeasureEpoch"):peek() :: any) or 0).toBeGreaterThanOrEqual(chain)
 			return { a = a, b = b }
 		end
 
@@ -394,10 +397,10 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		AND IT IS THE ORDINARY ONE-WORD SETTLE (`solves = 2`), not a deep chain — the
 		correction IS the second solve. ]]
 	it("a live drag's public drop-target callbacks see one set of rects per frame", function()
-		local UI2 = Facet.UI
+		local UI2 = harness.UI
 		local SHORT = "rrT18bShort"
 		local LONG = string.rep("m", 400)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 400 })
 		local adapter = fake_target.new()
@@ -407,7 +410,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		adapter.answerTextInline(function(word: string): number?
 			return if word == LONG then 20 else math.max(1, #word * 4)
 		end)
-		local label = core:signal(SHORT)
+		local label = Compose.cell(SHORT)
 		local enters: { string } = {}
 		local leaves: { string } = {}
 		local verdicts: { string } = {}
@@ -451,7 +454,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
 		controller.initialRender()
 		local registry = controller.dragRegistry()
-		core:observe(registry.verdict, function(v: any)
+		observeChange(core.owner, registry.verdict, function(v: any)
 			table.insert(verdicts, if v == nil then "-" else tostring(v.targetId))
 		end)
 
@@ -462,7 +465,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		adapter.driveDragStart("/S/Card", { x = x - 30, y = y, pointerType = "mouse" })
 		adapter.driveDragContinue("/S/Card", { x = x, y = y, pointerType = "mouse" }, { x = 0, y = 0 })
 		expect(registry.isActive()).toBe(true)
-		expect(`hovering {tostring(registry.verdict:get().targetId)}`).toBe("hovering /S/Row/Slot")
+		expect(`hovering {tostring(registry.verdict:peek().targetId)}`).toBe("hovering /S/Row/Slot")
 		local entersBefore, leavesBefore, verdictsBefore = #enters, #leaves, #verdicts
 
 		--[[ ...AND THE SETTLE, IN ONE `refresh()`: the label learns its word, the answer
@@ -689,8 +692,8 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			for i = 1, CHAIN do
 				words[i] = `{tag}{string.rep("x", i)}{i}`
 			end
-			local bound = core:signal(2)
-			local label = core:memo(function(use)
+			local bound = Compose.cell(2)
+			local label = Compose.formula(function(use)
 				local epoch = (use(env:get("textMeasureEpoch")) :: number?) or 0
 				return words[math.min(use(bound) :: number, epoch + 1)]
 			end)
@@ -770,7 +773,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 				"a converged refresh adds nothing: 0"
 			)
 			-- ...and the whole vocabulary really was learned, one epoch bump per word
-			expect(`epoch {(env:get("textMeasureEpoch"):get() :: any) or 0}`).toBe(`epoch {CHAIN}`)
+			expect(`epoch {(env:get("textMeasureEpoch"):peek() :: any) or 0}`).toBe(`epoch {CHAIN}`)
 			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
 			expect(#reports).toBe(1)
 			--[[ ...and this arm still reads PENDING, which is the BOOT WINDOW and not the
@@ -822,7 +825,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 				for _ = 1, 8 do
 					arm.controller.refresh()
 				end
-				local epoch = (arm.env:get("textMeasureEpoch"):get() :: any) or 0
+				local epoch = (arm.env:get("textMeasureEpoch"):peek() :: any) or 0
 				expect(`{name}: epoch {epoch}`).toBe(`{name}: epoch {CHAIN}`)
 				--[[ ...AND THE BOX IS THE LAST WORD'S OWN WIDTH. The epoch alone would pass
 					on a surface that learned every width and never re-laid itself out, which
@@ -960,7 +963,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 					`pending false` — the reveal gate open, `textRevealedExact` stamped, 29
 					words short of the geometry it claims. ]]
 				arm.controller.refresh()
-				local mid = (arm.env:get("textMeasureEpoch"):get() :: any) or 0
+				local mid = (arm.env:get("textMeasureEpoch"):peek() :: any) or 0
 				table.insert(seen, `{name} one frame on: moved {mid > CAP + 3} pending {arm.controller.textPending()}`)
 				table.insert(want, `{name} one frame on: moved true pending true`)
 				-- ...and ordinary frames finish it
@@ -977,7 +980,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 				local r = arm.controller.rectOf("/Root/Chain")
 				table.insert(
 					seen,
-					`{name} converged: epoch {(arm.env:get("textMeasureEpoch"):get() :: any) or 0} `
+					`{name} converged: epoch {(arm.env:get("textMeasureEpoch"):peek() :: any) or 0} `
 						.. `w {if r ~= nil then r.w else -1} pending {arm.controller.textPending()}`
 				)
 				table.insert(

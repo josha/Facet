@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE DIRTY TABLE IS LOAD-BEARING, SO IT IS AUDITED — not read and trusted.
 
@@ -50,13 +51,14 @@ local schema = require("../src/blueprint_schema")
 
 -- ...and the machinery THE SPLIT'S OWN AUDIT at the foot of this file needs: it
 -- MOUNTS each arrange-only prop rather than grepping for it.
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
+local Compose = require("../src/vendor/compose/core")
 
 local SOURCE = "src/render/layout_node.luau"
 -- the classes a change must reach the SOLVER through. `paint`/`semantics` reach the
@@ -393,7 +395,7 @@ local function driveArm(prop: string, view: any, control: boolean, incremental: 
 	if not control then
 		a, b = valuesFor("VStack", prop)
 	end
-	local sig = core:signal(a)
+	local sig = Compose.cell(a)
 	local function kid(id: string, bind: boolean): any
 		local props: any = {
 			id = id,

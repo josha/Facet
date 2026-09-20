@@ -1,127 +1,78 @@
 --!strict
---[[ THE SHOWCASE HOST PATH — the one mount path in this repository that had no
-	headless coverage, and the two demos that died on it (live Studio session,
-	2026-08-20).
+--[[ The showcase host path: every catalogue demo, mounted through the SHIPPED
+	`demo_host.mount` (required, not copied) against a host-shaped application.
 
-	WHAT HAPPENED. `card-rail` and `sorted-entries` FAILED TO MOUNT in the shipped
-	showcase while the whole suite was green. Both build an adaptive control that
-	asks the core it was built on for its environment (ADAPT-1: the facts arrive by
-	themselves, or the control refuses rather than silently taking the large-screen
-	answer). The showcase DOES publish one — `Facet.newEnvironment(core)` at the top
-	of `init.client.luau` — but a demo is not built on that core. It is built on the
-	per-demo PROXY that installs a disposal scope
-	(`examples/gallery/client/demo_host.luau`), and a proxy that hides the
-	registration is a core with no environment as far as the framework can tell.
+	A demo builds against the host's context, so the adaptive facts it needs
+	arrive from the host's environment with no wiring. This file sweeps the whole
+	catalogue rather than the two demos a live session once reported: the next
+	adaptive control to appear in any of them is the one nobody will be looking at.
 
-	WHY EVERY SPEC MISSED IT. They all build their own bare core and their own
-	environment — which is the correct shape for a unit test and the wrong shape
-	for this question. The gap was never a missing fact; it was that nothing
-	exercised the path where the fact has to travel one hop. So this file mounts
-	demos through the SHIPPED proxy (`demo_host.scopedCore`, required, not copied)
-	against a host-shaped core, and it sweeps the WHOLE catalogue rather than the
-	two that were reported: the next adaptive control to appear in any of the
-	thirty-six is the one nobody will be looking at.
-
-	IT IS NOT A TEST OF THE REFUSAL. The last case is the negative control: a core
-	with genuinely no environment anywhere must still refuse, or this file would be
-	evidence that ADAPT-1's whole guarantee had been quietly turned off.
-]]
+	The last case of the first block is the negative control: a core with no
+	environment anywhere must still refuse, or this file would be evidence that the
+	guarantee had been quietly turned off. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
-local Facet = require("../src") :: any
-local fake_target = require("./lib/fake_target")
+local scenario_ctx = require("./lib/scenario_ctx")
+local harness = require("./lib/harness")
+local world = require("./lib/world")
 local demo_host = require("../examples/gallery/client/demo_host")
 local demo_picker = require("../examples/gallery/client/demo_picker")
+local Compose = require("../src/vendor/compose/core")
 
---[[ THE SHOWCASE'S OWN BOOTSTRAP, in the order `init.client.luau` runs it: one
-	core, one environment published against it, one action system, one adapter, one
-	presenter. The viewport is a phone, because that is the combination the compact
-	rungs actually resolve on and the one a device pass holds. ]]
+--[[ The showcase's own bootstrap: one application, its environment set to a
+	phone, because that is the combination the compact rungs resolve on and the
+	one a device pass holds. ]]
 local function showcaseHost(opts: any?): any
 	local options: any = opts or {}
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = options.w or 390, h = options.h or 844 })
-	if options.touch ~= false then
-		env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
-		env:set("preferredInput", "Touch")
-	end
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	return { core = core, env = env, system = system, adapter = adapter, pres = pres }
+	local w: any = world.new({
+		viewport = { x = 0, y = 0, w = options.w or 390, h = options.h or 844 },
+		capabilities = if options.touch ~= false
+			then { touch = true, mouse = false, keyboard = false, gamepad = false }
+			else nil,
+		preferredInput = if options.touch ~= false then "Touch" else nil,
+		hostOpts = { keyboardNavigation = true },
+		overflowGuardOff = "this sweep asks whether each demo mounts, not how it lays out",
+	})
+	--[[ The engine seams, degraded honestly. The shipped host binds
+		`roblox_resources` and adopts real Instances through `foreign`; a Lune
+		process has neither, and `async_images` calls the transport binder at build. ]]
+	w.ctx = scenario_ctx.of(w, {
+		foreign = {
+			adopt = function(): any
+				return nil
+			end,
+		},
+	})
+	return w
 end
 
---[[ `mountDemo`'s two branches, reduced to what a Lune process can run: the
-	per-demo scope, the SHIPPED proxy over it, and each kind's own build contract
-	(a fixture takes one ctx table and hands back a screen; a tutorial example
-	takes `(Facet, core, opts)` and may present itself). Everything this leaves out
-	— replicated folders, the foreign-instance seam, the live geometry probe — is
-	Instances, and none of it touches the question this file asks. ]]
 local function mountDemo(host: any, demo: any): any
-	local demoScope = host.core:scope(`showcase-demo-{demo.id}`)
-	local demoCore = demo_host.scopedCore(host.core, demoScope)
-	local built: any
-	if demo.kind == "fixture" then
-		local mod = require(`../examples/gallery/scenarios/{demo.module}`) :: any
-		built = mod.build({
-			Facet = Facet,
-			core = demoCore,
-			env = host.env,
-			actionSystem = host.system,
-			presenter = host.pres,
-			--[[ THE ENGINE SEAMS, DEGRADED HONESTLY. The shipped host binds
-				`roblox_resources` here and adopts real Instances through `foreign`; a
-				Lune process has neither, and `async_images` calls the transport binder
-				unconditionally at build. A stub that returns a no-op unbind is what the
-				fixture's own header already describes for the absent case ("degrades
-				honestly when it is absent"), and it keeps this sweep about the question
-				it asks — does the demo BUILD on this core — rather than about
-				ContentProvider. ]]
-			bindResourceTransport = function(): () -> ()
-				return function() end
-			end,
-			foreign = {
-				adopt = function(): any
-					return nil
-				end,
-			},
-		})
-		built.handle = host.pres.present(built.screen, built.present)
-	else
-		local mod = require(`../examples/gallery/examples/{demo.module}`) :: any
-		built = mod.build(Facet, demoCore, {
-			env = host.env,
-			actionSystem = host.system,
-			presenter = host.pres,
-			adapter = host.adapter,
-		})
-		if built.handle == nil and built.screen ~= nil then
-			built.handle = host.pres.present(built.screen, built.present)
-		end
-	end
+	local folder = if demo.kind == "fixture" then "scenarios" else "examples"
+	local mod = require(`../examples/gallery/{folder}/{demo.module}`) :: any
+	local built = demo_host.mount(host.ctx, mod)
 	host.pres.refresh()
-	demo_host.ownLifetime(built, host.pres, demoScope)
 	return built
 end
 
-describe("the showcase host path: a demo core is the core it delegates to", function()
-	--[[ THE TWO THE LIVE SESSION REPORTED, named individually and ahead of the
-		sweep, because a sweep that goes red says "something" and these two say what.
-		Each one's adaptive control is different — a card rail arranging itself, a
-		picker choosing its presentation — so they are two independent witnesses to
-		one root cause rather than one defect counted twice. ]]
+local function settle(host: any)
+	for _ = 1, 120 do
+		host.pres.tick(1 / 60)
+		host.pres.refresh()
+	end
+end
+
+describe("the showcase host path: a demo builds on the host's own facts", function()
 	it("card-rail mounts through the host path, and arranges itself from the host's facts", function()
 		local host = showcaseHost()
 		local built = mountDemo(host, { id = "card-rail", kind = "fixture", module = "card_rail" })
-		local d = built.rail.dump()
-		-- the compact touch rung, resolved from an environment nobody handed it
-		expect(d.cardsPerView).toBe(1)
-		expect(d.snap).toBe("item")
-		expect(host.core:lastError()).toBeNil()
+		host.pres.refresh()
+		-- the compact touch rung, resolved from the host's facts: one card and a peek
+		local railWidth = host.adapter.node("/CardRail/Page/RailPane/Rail").rect.w
+		expect(built.itemExtent() < railWidth and built.itemExtent() * 2 > railWidth).toBe(true)
+		expect(host.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
@@ -129,14 +80,10 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 		local host = showcaseHost()
 		local built = mountDemo(host, { id = "sorted-entries", kind = "fixture", module = "sorted_entries" })
 		expect(built.screen).never().toBeNil()
-		expect(host.core:lastError()).toBeNil()
+		expect(host.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
-	--[[ ...AND THE WHOLE CATALOGUE, because the two above are symptoms of a path,
-		not of themselves. Every demo the picker offers is mounted through the same
-		proxy and disposed; a build error surfaces with the demo's id, which is the
-		only thing that makes a 36-way sweep debuggable. ]]
 	it("every demo in the catalogue mounts through the host path", function()
 		local demos = demo_picker.list()
 		expect(#demos).toBeGreaterThan(0)
@@ -147,15 +94,12 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 			local ok, err = pcall(function()
 				built = mountDemo(host, demo)
 			end)
-			local mountError = host.core:lastError()
+			local mountError = host.core.lastError()
 			if built ~= nil then
 				pcall(built.dispose)
-				for _ = 1, 120 do
-					host.pres.tick(1 / 60)
-					host.pres.refresh()
-				end
+				settle(host)
 			end
-			local teardownError = host.core:lastError()
+			local teardownError = host.core.lastError()
 			if not ok then
 				table.insert(broken, `{demo.id} ({demo.kind}/{demo.module}): {tostring(err)}`)
 			elseif mountError ~= nil then
@@ -166,121 +110,82 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 		end
 		if #broken > 0 then
 			error(
-				`{#broken} of {#demos} demos do not mount on the SHOWCASE HOST PATH (they may still mount on a `
-					.. `bare spec core, which is why the suite was green):\n  {table.concat(broken, "\n  ")}`,
+				`{#broken} of {#demos} demos do not mount on the SHOWCASE HOST PATH:\n  {table.concat(broken, "\n  ")}`,
 				0
 			)
 		end
 	end)
 
-	--[[ THE PROPERTY, ASSERTED DIRECTLY. Everything above is a consequence of it,
-		and a consequence can be made to pass by accident (an adaptive control could
-		stop adapting). A demo core must ANSWER for its host's environment while
-		owning none of its own — one owner, one registration, one hop. ]]
-	it("the proxy answers with the host's environment, and publishes none of its own", function()
-		local host = showcaseHost()
-		local scope = host.core:scope("probe")
-		local demoCore = demo_host.scopedCore(host.core, scope)
-		local surfaceEnv = require("../src/env/surface_env")
-		local found, reason = surfaceEnv.find(demoCore)
-		expect(`reason={tostring(reason)}`).toBe("reason=nil")
-		expect(found).toBe(host.env)
-		-- ...and it did not acquire one by being asked: the registration still lives
-		-- on the core the environment was built on, which is what makes disposal and
-		-- ambiguity answerable in one place
-		expect(rawget(demoCore :: any, "__facetSurfaceEnv")).toBeNil()
-		scope:dispose()
-	end)
-
-	--[[ THE NEGATIVE CONTROL. If a core with no environment ANYWHERE stopped
-		refusing, every case above would still be green and ADAPT-1's guarantee would
-		be gone — the failure this file exists to prevent, arriving through the fix
-		for it. ]]
 	it("a core with no environment at all still REFUSES, naming the environment", function()
-		local bare = Facet.newCore()
-		local scope = bare:scope("bare")
-		local proxied = demo_host.scopedCore(bare, scope)
+		local bare = harness.newCore()
 		local ok, err = pcall(function()
-			return Facet.Controls.VirtualList(proxied, {
-				id = "Rail",
-				axis = "x",
-				rows = bare:signal({ { id = "a" } }),
-				key = function(item: any): string
-					return item.id
-				end,
-				itemExtent = "cards",
-				viewportExtent = 390,
-				cell = function(): any
-					return Facet.UI.Text({ id = "N", text = "x", textSize = 14 })
-				end,
+			return harness.Controls.Picker(bare, {
+				id = "Choice",
+				label = "Choice",
+				selected = Compose.cell("a"),
+				options = { { value = "a", label = "A" } },
 			})
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "environment", 1, true) ~= nil).toBe(true)
-		scope:dispose()
 	end)
 
-	--[[ AND THE SPEC'S OWN HONESTY: the proxy driven above is the SHIPPED one. If
-		`init.client.luau` ever inlines its own again, this file goes back to testing
-		a copy — which is the exact state the defect was found in. ]]
-	it("the shipped host uses this module rather than its own proxy", function()
+	it("the shipped host uses this module rather than its own mount path", function()
 		local source = fs.readFile("examples/gallery/client/init.client.luau")
-		expect(string.find(source, "demo_host.scopedCore", 1, true) ~= nil).toBe(true)
-		expect(string.find(source, "setmetatable({}, {", 1, true)).toBeNil()
+		expect(string.find(source, "demo_host.mount", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
 describe("showcase cleanup ordering", function()
 	it("keeps demo resources alive until the presented tree has unmounted", function()
 		local host = showcaseHost()
+		local released = false
+		local built = demo_host.mount(host.ctx, {
+			build = function(ctx: any)
+				return {
+					screen = function()
+						return ctx.UI.Screen("Held")({ ctx.UI.Text("T")({ text = "held" }) })
+					end,
+					dispose = function()
+						released = true
+					end,
+				}
+			end,
+		})
+		host.pres.refresh()
+		built.dispose()
+		-- the demo's own resources are released with the screen's owner, not before it
+		expect(released).toBe(host.adapter.node("/Held") == nil)
+		settle(host)
+		expect(released).toBe(true)
+		expect(host.adapter.node("/Held")).toBeNil()
+		expect(host.core.lastError()).toBe(nil)
+	end)
+
+	it("a demo disposed and dismissed in the same frame leaves no core error", function()
+		local host = showcaseHost()
 		local built = mountDemo(host, demo_picker.find("all-controls"))
 		built.dispose()
 		host.pres.dismiss(built.handle)
-		for _ = 1, 120 do
-			host.pres.tick(1 / 60)
-			host.pres.refresh()
-		end
-		expect(host.core:lastError()).toBe(nil)
+		settle(host)
+		expect(host.core.lastError()).toBe(nil)
 	end)
 
-	it("fallback cleanup tolerates controls adopting a previously created child", function()
-		local core = Facet.newCore()
-		local owner = core:scope("demo")
-		local proxy = demo_host.scopedCore(core, owner)
-		local child = proxy:scope("child")
-		local parent = proxy:scope("parent")
-		parent:own({
-			dispose = function()
-				child:dispose()
+	it("a demo that presents itself is disposed by its own dispose, once", function()
+		local host = showcaseHost()
+		local disposals = 0
+		local built = demo_host.mount(host.ctx, {
+			build = function()
+				return {
+					handle = {},
+					dispose = function()
+						disposals += 1
+					end,
+				}
 			end,
 		})
-		owner:dispose()
-		expect(core:lastError()).toBe(nil)
-	end)
-
-	it("ordinary double disposal still reports an error through the proxy", function()
-		local core = Facet.newCore()
-		local owner = core:scope("demo")
-		local proxy = demo_host.scopedCore(core, owner)
-		local child = proxy:scope("child")
-		child:dispose()
-		child:dispose()
-		expect(string.find(tostring(core:lastError()), "double disposal", 1, true) ~= nil).toBe(true)
-		owner:dispose()
-	end)
-
-	it("releases parent-owned controls before its fallback child-scope cleanup", function()
-		local core = Facet.newCore()
-		local owner = core:scope("demo")
-		local proxy = demo_host.scopedCore(core, owner)
-		local parent = proxy:scope("parent")
-		local child = proxy:scope("child")
-		parent:own({
-			dispose = function()
-				child:dispose()
-			end,
-		})
-		owner:dispose()
-		expect(core:lastError()).toBe(nil)
+		built.dispose()
+		built.dispose()
+		expect(disposals).toBe(1)
 	end)
 end)

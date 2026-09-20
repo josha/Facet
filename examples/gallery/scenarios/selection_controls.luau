@@ -3,14 +3,23 @@ return {
 	title = "Choices and filters",
 	ledgerRows = { "CONTROL-SELECTION" },
 	build = function(ctx)
-		local Facet, core = ctx.Facet, ctx.core
-		local UI = Facet.UI
-		local scope = core:scope("selection-controls")
-		local function signal(value)
-			return scope:own(core:signal(value))
+		local UI, Compose = ctx.UI, ctx.Compose
+		local signal = Compose.cell
+		-- The host may expose a control's record for drivers and reports.
+		local function record(id: string): any
+			return if ctx.controlRecord ~= nil then ctx.controlRecord(id) else nil
 		end
-		local function own(control)
-			return scope:own(control)
+		local function open(id: string): boolean
+			local control = record(id)
+			if control == nil then
+				return false
+			end
+			control.api.open()
+			return true
+		end
+		local function dumpOf(id: string): any
+			local control = record(id)
+			return if control ~= nil then control.dump() else nil
 		end
 		local enabled = signal(true)
 		local checked = signal(false)
@@ -44,21 +53,26 @@ return {
 				),
 			})
 		end
-		local switch = own(Facet.Controls.Toggle(core, { id = "Switch", label = "Enable choices", value = enabled }))
-		local checkbox = own(Facet.Controls.Toggle(core, {
-			id = "Checkbox",
-			label = "Include night races and their full race results",
-			value = checked,
-			mixed = mixed,
-			presentation = "checkbox",
-			enabled = enabled,
-		}))
-		local toggle = own(
-			Facet.Controls.Toggle(
-				core,
-				{ id = "Boost", label = "Boost mode", value = boost, presentation = "button", enabled = enabled }
-			)
-		)
+		local function switch()
+			return UI.Toggle("Switch")({ label = "Enable choices", value = enabled })
+		end
+		local function checkbox()
+			return UI.Toggle("Checkbox")({
+				label = "Include night races and their full race results",
+				value = checked,
+				mixed = mixed,
+				presentation = "checkbox",
+				enabled = enabled,
+			})
+		end
+		local function toggle()
+			return UI.Toggle("Boost")({
+				label = "Boost mode",
+				value = boost,
+				presentation = "button",
+				enabled = enabled,
+			})
+		end
 		--[[ ONE SELECTION CONTROL, FOUR STYLES (picker round, 2026-09-11). The
 			same `selected` signal drives a radio group, a segmented strip and the
 			DEFAULT — `style = "automatic"`, which is the menu on this phone and on
@@ -66,67 +80,77 @@ return {
 			options anchored to it) and a focus-navigable strip on a television. A
 			searchable list is the navigation link; a set of independent checks is
 			a `Menu` with `checked` items, because a picker holds ONE value. ]]
-		local radio = own(Facet.Controls.Picker(core, {
-			id = "Radio",
-			selected = selected,
-			options = choices,
-			style = "radioGroup",
-			enabled = enabled,
-		}))
-		local segmented = own(Facet.Controls.Picker(core, {
-			id = "Segments",
-			selected = selected,
-			options = { { value = "open", label = "Open" }, { value = "club", label = "Club", enabled = club } },
-			style = "segmented",
-			enabled = enabled,
-		}))
-		local popup = own(Facet.Controls.Picker(core, {
-			id = "Popup",
-			label = "Race group",
-			selected = selected,
-			options = {
-				{ value = "open", label = "Open races" },
-				{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
-			},
-			enabled = enabled,
-		}))
+		local function radio()
+			return UI.Picker("Radio")({
+				selected = selected,
+				options = choices,
+				style = "radioGroup",
+				enabled = enabled,
+			})
+		end
+		local function segmented()
+			return UI.Picker("Segments")({
+				selected = selected,
+				options = { { value = "open", label = "Open" }, { value = "club", label = "Club", enabled = club } },
+				style = "segmented",
+				enabled = enabled,
+			})
+		end
+		local function popup()
+			return UI.Picker("Popup")({
+				label = "Race group",
+				selected = selected,
+				options = {
+					{ value = "open", label = "Open races" },
+					{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
+				},
+				enabled = enabled,
+			})
+		end
 		local trackOptions = {}
 		for _, item in tracks do
 			table.insert(trackOptions, { value = item.id, label = item.label })
 		end
-		local search = own(Facet.Controls.Picker(core, {
-			id = "Tracks",
-			label = "Track",
-			selected = track,
-			options = trackOptions,
-			query = query,
-			enabled = enabled,
-		}))
-		local multi = own(Facet.Controls.Menu(core, {
-			id = "Tags",
-			trigger = UI.Button({ id = "Trigger", label = "Scenery filters", enabled = enabled }),
-			items = {
-				{ id = "coastal", label = "Coastal", checked = tagCoastal },
-				{ id = "forest", label = "Forest", checked = tagForest },
-				{
-					id = "snow",
-					label = "Snow",
-					checked = tagSnow,
-					enabled = false,
-					description = "Winter routes are closed.",
+		local function search()
+			return UI.Picker("Tracks")({
+				label = "Track",
+				selected = track,
+				options = trackOptions,
+				query = query,
+				enabled = enabled,
+			})
+		end
+		local function multi()
+			return UI.Menu("Tags")({
+				trigger = UI.Button("Trigger")({
+					label = "Scenery filters",
+					enabled = enabled,
+					onActivate = function() end,
+				}),
+				items = {
+					{ id = "coastal", label = "Coastal", checked = tagCoastal },
+					{ id = "forest", label = "Forest", checked = tagForest },
+					{
+						id = "snow",
+						label = "Snow",
+						checked = tagSnow,
+						enabled = false,
+						description = "Winter routes are closed.",
+					},
 				},
-			},
-		}))
-		local combo = own(Facet.Controls.ComboBox(core, {
-			id = "Vehicle",
-			value = comboValue,
-			text = comboText,
-			options = { { id = "road", label = "Road" }, { id = "rally", label = "Rally" } },
-			enabled = enabled,
-			acceptCustom = function(text)
-				return #text >= 3 and #text <= 24, "Use 3 to 24 characters."
-			end,
-		}))
+			})
+		end
+		local function combo()
+			return UI.ComboBox("Vehicle")({
+				value = comboValue,
+				text = comboText,
+				options = { { id = "road", label = "Road" }, { id = "rally", label = "Rally" } },
+				enabled = enabled,
+				acceptCustom = function(text)
+					return #text >= 3 and #text <= 24, "Use 3 to 24 characters."
+				end,
+			})
+		end
 		local function reset()
 			enabled:set(true)
 			checked:set(false)
@@ -150,54 +174,56 @@ return {
 			One caption above every control — the control and the style it was
 			asked for — so a screenshot names its own subjects. ]]
 		local function caption(id: string, text: string)
-			return UI.Text({ id = id, text = text, textSize = "caption", role = "secondary", width = UI.fill() })
+			return UI.Text(id)({ text = text, textSize = "caption", role = "secondary", width = UI.fill() })
 		end
 
-		local body = UI.VStack({
-			width = UI.fill(),
-			gap = "m",
+		local function body()
+			return UI.VStack("Body")({
+				width = UI.fill(),
+				gap = "m",
 
-			UI.Text({ text = "Choices and filters", textSize = "title", width = UI.fill() }),
-			UI.Button({ id = "Reset", label = "Reset", onActivate = reset }),
-			caption("CapSwitch", "Toggle · switch"),
-			switch.blueprint,
-			heading("Check and toggle"),
-			caption("CapCheck", "Checkbox · mixed state"),
-			checkbox.blueprint,
-			caption("CapToggle", "Toggle · button presentation"),
-			toggle.blueprint,
-			heading("Choose a race group"),
-			caption("CapRadio", "Picker · radioGroup"),
-			radio.blueprint,
-			caption("CapSegments", "Picker · segmented"),
-			segmented.blueprint,
-			caption("CapPopup", "Picker · automatic (menu on touch and pointer; rows on a television)"),
-			popup.blueprint,
-			UI.Button({
-				id = "Join",
-				label = "Toggle club membership",
-				onActivate = function()
-					club:set(not club:get())
-				end,
-			}),
-			heading("Search 250 tracks"),
-			caption("CapSearch", "Picker · navigationLink (searchable sheet)"),
-			search.blueprint,
-			heading("Filter by scenery"),
-			caption("CapMenu", "Menu · checked items"),
-			multi.blueprint,
-			heading("Choose or name a vehicle class"),
-			caption("CapCombo", "ComboBox · suggestions with custom text"),
-			combo.blueprint,
-		})
-		local screen = UI.Screen({
-			id = "SelectionControls",
-			surface = "base",
-			padding = "m",
-			gap = "s",
+				UI.Text({ text = "Choices and filters", textSize = "title", width = UI.fill() }),
+				UI.Button("Reset")({ label = "Reset", onActivate = reset }),
+				caption("CapSwitch", "Toggle · switch"),
+				switch(),
+				heading("Check and toggle"),
+				caption("CapCheck", "Checkbox · mixed state"),
+				checkbox(),
+				caption("CapToggle", "Toggle · button presentation"),
+				toggle(),
+				heading("Choose a race group"),
+				caption("CapRadio", "Picker · radioGroup"),
+				radio(),
+				caption("CapSegments", "Picker · segmented"),
+				segmented(),
+				caption("CapPopup", "Picker · automatic (menu on touch and pointer; rows on a television)"),
+				popup(),
+				UI.Button("Join")({
+					label = "Toggle club membership",
+					onActivate = function()
+						club:set(not club:peek())
+					end,
+				}),
+				heading("Search 250 tracks"),
+				caption("CapSearch", "Picker · navigationLink (searchable sheet)"),
+				search(),
+				heading("Filter by scenery"),
+				caption("CapMenu", "Menu · checked items"),
+				multi(),
+				heading("Choose or name a vehicle class"),
+				caption("CapCombo", "ComboBox · suggestions with custom text"),
+				combo(),
+			})
+		end
+		local function screen()
+			return UI.Screen("SelectionControls")({
+				surface = "base",
+				padding = "m",
+				gap = "s",
 
-			UI.ScrollView({ id = "Content", width = UI.fill(), height = UI.fill(), body }),
-		})
+				UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), body() }),
+			})
+		end
 		return {
 			screen = screen,
 			states = function()
@@ -206,8 +232,7 @@ return {
 						id = "search",
 						kind = "popup",
 						open = function()
-							search.api.open()
-							return true
+							return open("Tracks")
 						end,
 					},
 					{
@@ -215,24 +240,21 @@ return {
 						kind = "popup",
 						open = function()
 							query:set("unlisted")
-							search.api.open()
-							return true
+							return open("Tracks")
 						end,
 					},
 					{
 						id = "multiple",
 						kind = "popup",
 						open = function()
-							multi.api.open()
-							return true
+							return open("Tags")
 						end,
 					},
 					{
 						id = "race-group",
 						kind = "popup",
 						open = function()
-							popup.api.open()
-							return true
+							return open("Popup")
 						end,
 					},
 				}
@@ -254,17 +276,16 @@ return {
 			},
 			report = function()
 				return {
-					checkbox = checkbox.dump(),
-					radio = radio.dump(),
-					popup = popup.dump(),
-					search = search.dump(),
-					multiple = multi.dump(),
-					combo = combo.dump(),
+					checkbox = dumpOf("Checkbox"),
+					radio = dumpOf("Radio"),
+					popup = dumpOf("Popup"),
+					search = dumpOf("Tracks"),
+					multiple = dumpOf("Tags"),
+					combo = dumpOf("Vehicle"),
 				}
 			end,
-			dispose = function()
-				scope:dispose()
-			end,
+			-- nothing outlives the screen
+			dispose = function() end,
 		}
 	end,
 }

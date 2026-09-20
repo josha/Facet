@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Theme SNAPSHOT resolution: one frozen metric authority,
 -- composed EXACTLY ONCE in the documented order. The composition order is the
 -- whole contract — the ten-foot floor and the preferred-text reservation are
@@ -11,8 +12,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local defaultStyle = require("../src/tokens/default_style")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
+local observeChange = require("../src/core/on_change")
 
 local function derive(metrics: any, id: string?): any
 	local pkg, report = themes.define({
@@ -263,20 +265,20 @@ describe("the themeMetrics environment fact", function()
 	it("defaults to Facet Neutral and is a plain per-key signal", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		expect(env:get("themeMetrics"):get()).toBe(snapshot.neutral())
+		expect(env:get("themeMetrics"):peek()).toBe(snapshot.neutral())
 		local swapped = snapshot.resolve(derive({ space = { m = 24 } }, "wide"), nil, {})
 		env:set("themeMetrics", swapped)
-		expect(env:get("themeMetrics"):get().space.m).toBe(24)
+		expect(env:get("themeMetrics"):peek().space.m).toBe(24)
 	end)
 
 	it("a themeMetrics change notifies only its own subscribers", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		local themeSeen, viewportSeen = 0, 0
-		core:observe(env:get("themeMetrics"), function()
+		observeChange(core.owner, env:get("themeMetrics"), function()
 			themeSeen += 1
 		end)
-		core:observe(env:get("viewportRect"), function()
+		observeChange(core.owner, env:get("viewportRect"), function()
 			viewportSeen += 1
 		end)
 		env:set("themeMetrics", snapshot.resolve(derive({ space = { m = 24 } }, "wide2"), nil, {}))

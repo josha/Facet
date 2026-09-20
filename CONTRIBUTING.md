@@ -17,6 +17,7 @@ Facet pins its tools in [`rokit.toml`](rokit.toml) and installs them with
 
 ```sh
 rokit install                 # Rojo, luau-lsp, Lune, and StyLua at the pinned versions
+python3 tools/sync_compose.py  # materialize the exact Compose dependency
 python3 --version             # 3.9 or newer; several checks are Python
 tools/doctor.sh               # verifies the toolchain and the library invariants
 ```
@@ -64,16 +65,17 @@ every approved exception named.
 ### Examples teach the public API
 
 Read [component authoring](docs/guide/15-components.md) before writing a screen,
-guide snippet or feature scenario. Use `Facet.component`, `Facet.View`, ordered
-numeric children, property getters and explicit change callbacks. Put view state
-and derived work in the mounted component; borrow application state with
-`ui.read`. Declare layout animation on the container and enter/exit on the branch.
+guide snippet or feature scenario. Use `local app = Facet.new(opts)`,
+`app.controls`, ordered numeric children, property functions and explicit change
+callbacks. Put view state and derived work in `Facet.Compose.cell`/`formula`;
+borrow application state with a Compose readable. Declare layout animation on
+the container and enter/exit on the branch.
 
-Use an explicit Core scope for a model that outlives its views, or a control
-handle when the example actually calls its imperative API. Explain that need
+Reach a composite control's own record with `ref = function(record) ... end`,
+or hold a Compose owner for a model that outlives its views. Explain that need
 beside the code. Do not copy diagnostic harness ownership into an ordinary
 screen. The [example index](examples/README.md) identifies the starting points.
-Update the View types, current example and guide with each public feature.
+Update the current example and guide with each public feature.
 
 ## 3. Verify what you changed
 
@@ -108,7 +110,7 @@ Two loops sit underneath the tiers and are worth knowing:
 
 ```sh
 lune run tests/run_one <spec-name>   # one spec file, for the edit-and-run loop
-./run-tests.sh                       # the complete suite, the way it has always run
+./run-tests.sh                       # the complete suite
 ./run-tests.sh --fast                # the same list minus the slowest files
 ```
 
@@ -215,6 +217,11 @@ own: a property flipping to required, and a documented default changing value,
 both generate no ledger row. So `tests/api_surface.spec.luau` pins the required set
 and every documented default *by value*, and reddens when either moves without a
 changelog row.
+
+**From 1.0 onward the promise is strict.** A surface that ships in 1.x keeps
+working for the whole of 1.x. Removing or changing it takes a major version, a
+`Facet.DEPRECATIONS` entry that names its replacement, and at least one minor
+release in which both spellings work.
 
 ## 7. Reporting a problem
 

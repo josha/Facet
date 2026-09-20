@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Evidence-class discipline (roadmap Step 4, ledger rows XP-A1/XP-A4/XP-A7).
 --
 -- This spec exists for one failure mode: a fast desktop number quietly becoming
@@ -22,7 +23,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local perf_runner = require("../bench/perf_runner")
 local perf_profiles = require("../bench/perf_profiles")
 local environment = require("../src/env/environment")
-local custom = require("../src/core/custom")
+local Compose = require("../src/vendor/compose/core")
+local custom = harness.coreFactory
 
 local function tinyScene(name: string?)
 	return {
@@ -31,7 +33,7 @@ local function tinyScene(name: string?)
 		dataset = "1 signal; 3 writes per iteration",
 		setup = function(_profile: any)
 			local core = custom.new()
-			local s = core:signal(0)
+			local s = Compose.cell(0)
 			return { core = core, s = s, n = 0 }
 		end,
 		run = function(state: any): { [string]: number }?
@@ -328,13 +330,13 @@ describe("console / ten-foot profile (UI-PARADIGM-003, XP-A1)", function()
 		local env = environment.new(core)
 		local profile = perf_profiles.get("consoleTenFoot")
 		perf_profiles.apply(env, profile)
-		expect(env:get("displaySize"):get()).toBe("Large")
-		expect(env:get("preferredInput"):get()).toBe("Gamepad")
+		expect(env:get("displaySize"):peek()).toBe("Large")
+		expect(env:get("preferredInput"):peek()).toBe("Gamepad")
 		-- the derived ten-foot policy really engages: type floor and overscan
-		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
-		expect(env:get("typographyScale"):get()).toBe(1.5)
-		expect(env:get("effectiveOverscanInsets"):get().left).toBeGreaterThan(0)
-		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
+		expect(env:get("distanceProfile"):peek()).toBe("ten-foot")
+		expect(env:get("typographyScale"):peek()).toBe(1.5)
+		expect(env:get("effectiveOverscanInsets"):peek().left).toBeGreaterThan(0)
+		expect(env:get("interactionClasses"):peek().primary).toBe("gamepad")
 	end)
 
 	it("declares a frame target for every profile, so a ceiling can be derived", function()

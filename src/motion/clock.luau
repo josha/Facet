@@ -41,7 +41,8 @@ local timelineLib = require("./timeline")
 local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
 local num = require("../num")
-local tracking = require("../core/tracking")
+local observeChange = require("../core/on_change")
+local Compose = require("../vendor/compose/core")
 
 local clock = {}
 
@@ -101,9 +102,28 @@ export type Clock = {
 local CLOCK_OPTS_KEYS = specGuard.keySet({ "motionPolicy", "now" })
 local ANIMATE_OPTS_KEYS = specGuard.keySet({ "scope", "kind", "quantum", "reducedMotion", "eps" })
 
+--[[ WHO WROTE THIS PROPERTY? (`render/presentation_channel`'s `beginAutomatic`.)
+
+	A layout change a motion clock produced is ALREADY animating — the value moves
+	a little every frame, on a curve somebody chose. Wrapping it in the declarative
+	`animation = { layout = ... }` session the same subtree declares animates the
+	animation: two curves on one number, and a record installed and snapped on
+	every one of sixty frames.
+
+	The renderer's dirty journal has always carried an `origin` for exactly this
+	distinction and nothing ever set it, so every motion-driven measure read as an
+	author's own state change. This is the one writer that can answer: the flag is
+	raised around the COMMIT batch, which is where a motion's value reaches the
+	graph, and `render/compose_scene` stamps whatever that batch dirties. Counted
+	rather than boolean, because a clock's commit may drive a second clock. ]]
+local committing = 0
+function clock.isCommitting(): boolean
+	return committing > 0
+end
+
 function clock.new(core: any, opts: Opts?): Clock
 	specGuard.assertKnownKeys("motion.newClock", opts, CLOCK_OPTS_KEYS, "opts")
-	assert(type(core) == "table" and type(core.transaction) == "function", "Facet motion: newClock needs a core")
+	assert(type(core) == "table" and type(core.reactor) == "table", "Facet motion: newClock needs a core")
 	local options: Opts = opts or {}
 	local now = options.now or os.clock
 	local policy = options.motionPolicy
@@ -155,7 +175,7 @@ function clock.new(core: any, opts: Opts?): Clock
 			end
 		end,
 		isReduced = function(): boolean
-			return policy ~= nil and policy:get() == "reduced"
+			return policy ~= nil and policy:peek() == "reduced"
 		end,
 		countWrite = function()
 			writes += 1
@@ -201,6 +221,9 @@ function clock.new(core: any, opts: Opts?): Clock
 		end
 		steps += 1
 		stepping = true
+		-- restored unconditionally below: the step body is pcall'ed, and a throw
+		-- inside the commit batch must not leave every later write mis-attributed
+		local committingBefore = committing
 
 		-- QUARANTINE, NEVER WEDGE. Every phase runs USER code —
 		-- live-target functions, onSettle handlers, timeline beats — and an
@@ -228,16 +251,16 @@ function clock.new(core: any, opts: Opts?): Clock
 
 			n = #active
 			transactions += 1
-			tracking.withOrigin("motion", function()
-				core:transaction(function()
-					for i = 1, n do
-						local entry = active[i]
-						if entry ~= nil and entry.detached ~= true and entry.commit ~= nil then
-							entry.commit()
-						end
+			committing += 1
+			core.reactor:batch(function()
+				for i = 1, n do
+					local entry = active[i]
+					if entry ~= nil and entry.detached ~= true and entry.commit ~= nil then
+						entry.commit()
 					end
-				end)
+				end
 			end)
+			committing -= 1
 
 			n = #active
 			for i = 1, n do
@@ -247,6 +270,7 @@ function clock.new(core: any, opts: Opts?): Clock
 				end
 			end
 		end)
+		committing = committingBefore
 		stepping = false
 		if not ok then
 			lastStepError = tostring(err)
@@ -262,7 +286,7 @@ function clock.new(core: any, opts: Opts?): Clock
 	end
 
 	-- the last error a step quarantined, nil when healthy (the instrument —
-	-- mirrors core:lastError so a wedged-motion report is diagnosable)
+	-- mirrors core.lastError so a wedged-motion report is diagnosable)
 	function self.lastError(_: any): string?
 		return lastStepError
 	end
@@ -329,9 +353,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		assert(not disposed, "Facet motion: cannot animate state on a disposed clock")
 		specGuard.assertKnownKeys("clock:animate", animateOpts, ANIMATE_OPTS_KEYS, "opts")
 		assert(
-			type(source) == "table"
-				and (source.kind == "signal" or source.kind == "memo")
-				and type(source.get) == "function",
+			type(source) == "table" and Compose.isReadable(source),
 			"Facet clock:animate: source must be a Facet Readable<number>; pass a signal or memo"
 		)
 		local options = animateOpts or {}
@@ -344,7 +366,7 @@ function clock.new(core: any, opts: Opts?): Clock
 					and type(scope.isDisposed) == "function"
 					and not scope:isDisposed()
 				),
-			"Facet clock:animate: opts.scope must be a live ownership scope"
+			"Facet clock:animate: opts.scope must be a live Compose owner"
 		)
 		for _, field in { "quantum", "eps" } do
 			local value = (options :: any)[field]
@@ -353,7 +375,7 @@ function clock.new(core: any, opts: Opts?): Clock
 				`Facet clock:animate: opts.{field} must be a positive finite number`
 			)
 		end
-		local initial = source:get()
+		local initial = source:peek()
 		assert(num.isFinite(initial), "Facet clock:animate: source must contain a finite number")
 		local valueOpts = {
 			kind = options.kind,
@@ -364,7 +386,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		local value = if type(class) == "string" and curvesLib.isRegistered(class)
 			then self:tween(initial, class, valueOpts)
 			else self:spring(initial, class, valueOpts)
-		local unsubscribe = core:observe(source, function(target: any)
+		local unsubscribe = observeChange(core.owner, source, function(target: any)
 			if not num.isFinite(target) then
 				internals.noteError(
 					"Facet clock:animate: source must remain a finite number; retaining the last valid target"
@@ -379,7 +401,9 @@ function clock.new(core: any, opts: Opts?): Clock
 			disposeValue(value)
 		end
 		if scope ~= nil then
-			scope:own(value)
+			scope.own(function()
+				value:dispose()
+			end)
 		end
 		return value
 	end
@@ -406,7 +430,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		return timelineLib.new(internals, spec)
 	end
 
-	-- scope-owned: `scope:own(clock)` disposes it in reverse order with the rest
+	-- scope-owned: `scope.own(clock)` disposes it in reverse order with the rest
 	-- of the surface. Every value the clock built is disposed here, so the core's
 	-- signal counter returns to baseline across mount/reset churn.
 	function self.dispose(_: any)

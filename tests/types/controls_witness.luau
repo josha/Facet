@@ -1,152 +1,157 @@
 --!strict
--- Public consumer witnesses: real specs must survive the namespace signatures.
--- Negative probes in check_types.py separately catch widening to any.
+-- Public consumer witness for the Compose-authored surface: `Facet.new()` ->
+-- `app.controls.X(spec)`. One call per composite registered in
+-- `src/render/compose_controls.luau`, so a rename, a dropped registration or a
+-- broken `require` inside a control module (rather than merely inside its own
+-- file, which the graph-diagnostics half already ignores by design) shows up
+-- here as a target-file diagnostic.
+--
+-- THIS IS NOT A DEEP TYPE WITNESS. `tools/check_types.py` found empirically
+-- (2026-09-20) that `composite()`'s indirection in compose_controls.luau
+-- erases every build function's declared `Spec` type at this boundary: even
+-- `app.controls.Slider("W")({ value = "nope" })`, where slider.luau declares
+-- `spec: Spec`, draws no diagnostic here. The per-field annotations below are
+-- for a human reader and for the modules that still export their `Spec` type,
+-- not because the analyzer enforces them through `app.controls`.
 
 local Facet = require("../../src")
+local navigationStackControl = require("../../src/controls/navigation_stack")
 local tableControl = require("../../src/controls/table")
 local sliderControl = require("../../src/controls/slider")
 local stepperControl = require("../../src/controls/stepper")
 local pickerControl = require("../../src/controls/picker")
-local popupButton = require("../../src/controls/popup_button")
+local popupMenuControl = require("../../src/controls/picker_menu")
 local menuControl = require("../../src/controls/menu")
 local tabView = require("../../src/controls/tab_view")
 local labelControl = require("../../src/controls/label")
 local ratingControl = require("../../src/controls/rating")
-local textInput = require("../../src/controls/text_input")
+local textInputControl = require("../../src/controls/text_input")
 local progressView = require("../../src/controls/progress_view")
 local levelPicker = require("../../src/controls/level_picker")
 local disclosureGroup = require("../../src/controls/disclosure_group")
 local rowActions = require("../../src/controls/row_actions")
 local calloutControl = require("../../src/controls/callout")
 
-local core = Facet.newCore()
+local app = Facet.new()
 
--- The new deferred controls publish their specs directly at the entry point.
--- Concrete values exercise required fields, owned signals and callback results.
-local buttonSpec: Facet.ButtonSpec = {
+local _button = app.controls.Button({
 	label = "Repeat",
-	busy = core:signal(false),
+	busy = Facet.Compose.cell(false),
 	repeatDelay = 0.4,
 	shortcut = { keyCode = "F6", modifiers = { shift = true } },
 	dialogAction = "default",
 	onActivate = function() end,
-}
-local _button = Facet.Controls.Button(core, buttonSpec)
-local toggleSpec: Facet.ToggleSpec = {
+})
+
+local _toggle = app.controls.Toggle("W")({
 	label = "Select all",
-	value = core:signal(false),
-	mixed = core:signal(true),
+	value = Facet.Compose.cell(false),
+	mixed = Facet.Compose.cell(true),
 	presentation = "checkbox",
 	onChange = function(_value: boolean) end,
-}
-local _toggle = Facet.Controls.Toggle(core, toggleSpec)
-local comboSpec: Facet.ComboBoxSpec = {
-	value = core:signal("a"),
-	text = core:signal("Alpine"),
+})
+
+local _combo = app.controls.ComboBox({
+	value = Facet.Compose.cell("a"),
+	text = Facet.Compose.cell("Alpine"),
 	options = { { id = "a", label = "Alpine", description = "Mountain" } },
 	acceptCustom = function(text: string): (boolean, string?)
 		return #text > 2, "Use at least three characters."
 	end,
 	onChange = function(_value: string) end,
-}
-local _combo = Facet.Controls.ComboBox(core, comboSpec)
-local splitSpec: Facet.SplitButtonSpec = {
+})
+
+local _split = app.controls.SplitButton("W")({
 	label = "Start",
 	onActivate = function() end,
 	items = { { id = "practice", label = "Practice", onSelect = function() end } },
-}
-local _split = Facet.Controls.SplitButton(core, splitSpec)
+})
 
-local routes: { Facet.NavigationEntry } = { { id = "details", value = { name = "Alder" } } }
-local navigationSpec: Facet.NavigationStackSpec = {
-	path = core:signal(routes),
+local _navigation = app.controls.NavigationStack({
+	-- a path is a cell of entries; say so, because a cell is invariant in what it holds
+	path = Facet.Compose.cell({ { id = "details", value = { name = "Alder" } } } :: { navigationStackControl.Entry }),
 	backLabel = "Back",
 	root = {
-		title = core:signal("Home"),
-		content = function(scope: Facet.Scope)
-			local title = scope:own(core:signal("Welcome"))
-			return Facet.UI.Text({ text = title })
+		title = Facet.Compose.cell("Home"),
+		content = function(_owner)
+			return app.controls.Text({ text = "Welcome" })
 		end,
 	},
 	destinations = {
 		details = {
 			title = "Details",
-			content = function(_scope: Facet.Scope, entry: Facet.NavigationEntry?)
-				return Facet.UI.Text({ text = if entry then entry.id else "Root" })
+			content = function(_owner, entry: any)
+				return app.controls.Text({ text = if entry then entry.id else "Root" })
 			end,
 		},
 	},
 	transition = { enter = "slide-left", distance = 100 },
-}
-local _navigation = Facet.Controls.NavigationStack(core, navigationSpec)
+})
 
 local tableControlSpec: tableControl.Spec = nil :: any
-local _table = Facet.Controls.Table(core, tableControlSpec)
+local _table = app.controls.Table(tableControlSpec)
 
 local sliderControlSpec: sliderControl.Spec = nil :: any
-local _slider = Facet.Controls.Slider(core, sliderControlSpec)
+local _slider = app.controls.Slider(sliderControlSpec)
 
 local stepperControlSpec: stepperControl.Spec = nil :: any
-local _stepper = Facet.Controls.Stepper(core, stepperControlSpec)
+local _stepper = app.controls.Stepper(stepperControlSpec)
 
 local pickerControlSpec: pickerControl.Spec = nil :: any
-local _picker = Facet.Controls.Picker(core, pickerControlSpec)
+local _picker = app.controls.Picker(pickerControlSpec)
 
 local initialPickerOptions: { pickerControl.Option } = { { id = "a", value = "a", label = "Alpine" } }
-local livePickerOptions: Facet.Signal<{ pickerControl.Option }> = core:signal(initialPickerOptions)
-local livePickerSpec: pickerControl.Spec = {
+local livePickerOptions = Facet.Compose.cell(initialPickerOptions)
+local _livePicker = app.controls.Picker("W")({
 	options = livePickerOptions,
-	selected = core:signal("a"),
+	selected = Facet.Compose.cell("a"),
 	presentation = "radio",
-}
-local _livePicker = Facet.Controls.Picker(core, livePickerSpec)
+})
 
-local popupButtonSpec: popupButton.Spec = nil :: any
-local _popupbutton = Facet.Controls.PopupButton(core, popupButtonSpec)
+local popupButtonSpec: popupMenuControl.Spec = nil :: any
+local _popupbutton = app.controls.PopupButton(popupButtonSpec)
 
-local multiPopupSpec: popupButton.Spec = {
+local _multiPopup = app.controls.PopupButton({
 	options = { { id = "a", label = "Alpine" } },
-	selectedValues = core:signal({ a = true }),
+	selectedValues = Facet.Compose.cell({ a = true }),
 	onChange = function(chosen: { [string]: boolean })
 		local _selected: boolean? = chosen.a
 	end,
-}
-local _multiPopup = Facet.Controls.PopupButton(core, multiPopupSpec)
+})
 
 local menuControlSpec: menuControl.Spec = nil :: any
-local _menu = Facet.Controls.Menu(core, menuControlSpec)
+local _menu = app.controls.Menu(menuControlSpec)
 
-local statefulMenuSpec: menuControl.Spec = {
-	trigger = Facet.UI.Button({ label = "Filters" }),
+local _statefulMenu = app.controls.Menu("W")({
+	trigger = app.controls.Button({ label = "Filters" }) :: any,
 	items = {
 		{
 			id = "a",
 			label = "Alpine",
-			description = core:signal("Mountain"),
-			checked = core:signal(false),
+			description = Facet.Compose.cell("Mountain"),
+			checked = Facet.Compose.cell(false),
 			onChange = function(_checked: boolean) end,
 		},
 	},
-}
-local _statefulMenu = Facet.Controls.Menu(core, statefulMenuSpec)
+})
 
 local tabViewSpec: tabView.Spec = nil :: any
-local _tabview = Facet.Controls.TabView(core, tabViewSpec)
+local _tabview = app.controls.TabView(tabViewSpec)
 
 local labelControlSpec: labelControl.Spec = nil :: any
-local _label = Facet.Controls.Label(core, labelControlSpec)
+local _label = app.controls.Label(labelControlSpec)
 
-local _chip = Facet.Controls.Chip(core, { selected = core:signal(false), label = "Tag" })
+local _chip = app.controls.Chip("W")({ selected = Facet.Compose.cell(false), label = "Tag" })
 
 local ratingControlSpec: ratingControl.Spec = nil :: any
-local _rating = Facet.Controls.Rating(core, ratingControlSpec)
+local _rating = app.controls.Rating(ratingControlSpec)
 
-local textInputSpec: textInput.Spec = nil :: any
-local _textinput = Facet.Controls.TextInput(core, textInputSpec)
+local textInputSpec: textInputControl.Spec = nil :: any
+local _textinput = app.controls.TextInput(textInputSpec)
 
-local numericTextSpec: textInput.Spec = {
-	value = core:signal("1"),
-	numericValue = core:signal(1),
+local _numericText = app.controls.TextInput({
+	value = Facet.Compose.cell("1"),
+	numericValue = Facet.Compose.cell(1),
 	presentation = "number",
 	min = 0,
 	max = 10,
@@ -158,49 +163,69 @@ local numericTextSpec: textInput.Spec = {
 	end,
 	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
 	onCancel = function() end,
-}
-local _numericText = Facet.Controls.TextInput(core, numericTextSpec)
+})
 
 local progressViewSpec: progressView.Spec = nil :: any
-local _progressview = Facet.Controls.ProgressView(core, progressViewSpec)
+local _progressview = app.controls.ProgressView(progressViewSpec)
 
 local levelPickerSpec: levelPicker.Spec = nil :: any
-local _levelpicker = Facet.Controls.LevelPicker(core, levelPickerSpec)
+local _levelpicker = app.controls.LevelPicker(levelPickerSpec)
 
 local disclosureGroupSpec: disclosureGroup.Spec = nil :: any
-local _disclosuregroup = Facet.Controls.DisclosureGroup(core, disclosureGroupSpec)
+local _disclosuregroup = app.controls.DisclosureGroup(disclosureGroupSpec)
 
-local _virtuallist = Facet.Controls.VirtualList(core, {
-	rows = core:signal({ "a" }),
+local collapsibleControl = require("../../src/controls/collapsible_view")
+local collapsibleSpec: collapsibleControl.Spec = nil :: any
+local _collapsible = app.controls.CollapsibleView(collapsibleSpec)
+
+local _virtuallist = app.controls.VirtualList("W")({
+	rows = Facet.Compose.cell({ "a" }),
 	key = function(item: string)
 		return item
 	end,
 	cell = function(item: string)
-		return Facet.UI.Text(item)
+		return app.controls.Text({ text = item })
 	end,
 	itemExtent = 40,
 })
 
-local _virtualgrid = Facet.Controls.VirtualGrid(core, {
-	items = core:signal({ "a" }),
+local _virtualgrid = app.controls.VirtualGrid({
+	items = Facet.Compose.cell({ "a" }),
 	key = function(item: string)
 		return item
 	end,
 	cell = function(item: string)
-		return Facet.UI.Text(item)
+		return app.controls.Text({ text = item })
 	end,
 	columns = 2,
 	itemExtent = 40,
 })
 
 local rowActionsSpec: rowActions.Spec = nil :: any
-local _rowactions = Facet.Controls.RowActions(core, rowActionsSpec)
+local _rowactions = app.controls.RowActions(rowActionsSpec)
 
 local calloutControlSpec: calloutControl.Spec = nil :: any
-local _callout = Facet.Controls.Callout(core, calloutControlSpec)
+local _callout = app.controls.Callout(calloutControlSpec)
 
 local _asyncimage =
-	Facet.Controls.AsyncImage(core, { id = "Art", scope = core:scope(), provider = nil :: any, key = "image" })
+	app.controls.AsyncImage("W")({ id = "Art", scope = nil :: any, provider = nil :: any, key = "image" })
+
+local radialControl = require("../../src/controls/radial_menu")
+local radialSpec: radialControl.Spec = nil :: any
+local _radial = app.controls.RadialMenu(radialSpec)
+
+local alertControl = require("../../src/controls/alert")
+local alertSpec: alertControl.Spec = nil :: any
+local _alert = app.controls.Alert(alertSpec)
+
+local sheetControl = require("../../src/controls/sheet")
+local sheetSpec: sheetControl.Spec = nil :: any
+local _sheet = app.controls.Sheet(sheetSpec)
+
+local pageViewControl = require("../../src/controls/page_view")
+local pageViewSpec: pageViewControl.Spec = nil :: any
+local _pageview = app.controls.PageView(pageViewSpec)
+
 --[[ The results are bound so an entry that stopped returning anything at all
 	would be visible here too. They are deliberately not annotated: the builders'
 	return types are what they are, and pinning them in this file would make it a
@@ -220,10 +245,15 @@ local _bound = {
 	progressview = _progressview,
 	levelpicker = _levelpicker,
 	disclosuregroup = _disclosuregroup,
+	collapsible = _collapsible,
 	virtuallist = _virtuallist,
 	virtualgrid = _virtualgrid,
 	rowactions = _rowactions,
 	callout = _callout,
 	asyncimage = _asyncimage,
+	radial = _radial,
+	alert = _alert,
+	sheet = _sheet,
+	pageview = _pageview,
 }
 local _keep: any = _bound

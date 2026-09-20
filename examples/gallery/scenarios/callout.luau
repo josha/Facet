@@ -75,152 +75,181 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 		local presenter = ctx.presenter
-		local scope = core:scope("callout-scenario")
 
-		--[[ THIS FIXTURE'S OWN SAVE FILE. Two plain signals standing in for
+		--[[ THIS FIXTURE'S OWN SAVE FILE. Two plain cells standing in for
 			whatever a real game would persist. The framework READS them and never
 			writes them; the only thing it ever says back is `onRetire(reason)`, and
 			what happens next is the two `:set` calls below — in this file, not in
 			the framework. ]]
-		local seen = scope:own(core:signal(false))
-		local featureUsed = scope:own(core:signal(false))
-		local saved = scope:own(core:signal(COPY.saveNothing))
-		local reported = scope:own(core:signal("—"))
-		local presses = scope:own(core:signal(0))
-		local pressLine = scope:own(core:memo(function(use)
+		local seen = Compose.cell(false)
+		local featureUsed = Compose.cell(false)
+		local saved = Compose.cell(COPY.saveNothing)
+		local reported = Compose.cell("—")
+		local presses = Compose.cell(0)
+		local pressLine = Compose.formula(function(use)
 			return COPY.pressed .. tostring(use(presses))
-		end))
+		end)
 
 		local function plate(title: string, sub: string): any
-			return UI.VStack({
-				id = "Body",
+			return UI.VStack("Body")({
 				gap = "xs",
 
-				UI.Text({ id = "Title", text = title, textSize = "body" }),
-				UI.Text({ id = "Sub", text = sub, textSize = "caption", role = "secondary" }),
+				UI.Text("Title")({ text = title, textSize = "body" }),
+				UI.Text("Sub")({ text = sub, textSize = "caption", role = "secondary" }),
 			})
 		end
 
-		--[[ THE SESSION, AND WHY THE TWO COACH MARKS ARE NOT REBUILT (device review
-			2026-08-16, F2). Director, round one: *"the tooltips also showed up the first
-			time I pressed the buttons but then they stopped appearing."* Round two, on
-			the fix: *"note that clicking start a fresh session removes the two buttons
-			the tips attach to."*
+		--[[ THE SESSION. `retired` is permanent BY CONTRACT: once a plate has been put
+			away or its feature used, the construct refuses to present again. A demo of
+			a once-per-player mechanism that can only be run once per launch is not a
+			device pass, so this screen can start a new session.
 
-			The first half was a framework defect (the tap-away catcher mounted OVER the
-			screen it points at — fixed in `src/present/catchers.luau`). The second half
-			is this construct working exactly as specified: `retired` is permanent BY
-			CONTRACT, so once a plate has been put away or its feature used, `present()`
-			refuses for the rest of the session. A demo of a once-per-player mechanism
-			that can only be run once per launch is not a device pass.
+			A NEW SESSION IS A NEW PAIR OF CONSTRUCTS UNDER THE SAME NAMES. A coach
+			mark's anchor is a PATH, so the pair is rebuilt by a bare `Compose.keyed`,
+			which adds no path segment: `/CalloutDemo/Bar/PlusSlot/Plus` is the same
+			path in every session, and anything anchored to it stays anchored. ]]
+		local generation = Compose.cell(1)
 
-			THE FIRST ANSWER WAS A KEYED `ForEach` OVER A SESSION NUMBER, and it is the
-			one the director caught. Re-creating a callout re-creates the node it POINTS
-			AT, and a coach mark's anchor is a PATH: every path under the row went from
-			`[gen-1]/…` to `[gen-2]/…`, so anything already anchored to the old one was
-			stranded. Measured with the ring on the left button — the focus-driven help
-			plate re-presented against a path that did not have a rect yet and was placed
-			at the viewport ORIGIN: a 284x55 raised plate at 0,0 sitting on an 80x46
-			button at 12,12. From the couch that is the button disappearing.
+		-- What the screen knows about one coach mark: whether the app has asked for
+		-- it, and what the construct has reported back through its callbacks.
+		local function mark(id: string)
+			return {
+				id = id,
+				requested = Compose.cell(false),
+				showing = Compose.cell(false),
+				retired = Compose.cell(false),
+			}
+		end
+		local tip, second = mark("AvatarTip"), mark("ShareTip")
+		local function stateOf(entry: any): string
+			if entry.retired:peek() then
+				return "retired"
+			elseif entry.showing:peek() then
+				return "showing"
+			elseif entry.requested:peek() then
+				return "queued"
+			end
+			return "waiting"
+		end
+		local function ask(entry: any)
+			if not entry.retired:peek() then
+				entry.requested:set(true)
+			end
+		end
+		local function callbacks(entry: any, onRetire: (string) -> ())
+			return {
+				onShow = function()
+					entry.showing:set(true)
+				end,
+				onHide = function()
+					entry.showing:set(false)
+					entry.requested:set(false)
+				end,
+				onRetire = function(reason: string)
+					entry.retired:set(true)
+					entry.requested:set(false)
+					onRetire(reason)
+				end,
+			}
+		end
 
-			SO NOTHING ON THIS SCREEN IS REBUILT. The two anchors are permanent
-			furniture, built once, at paths that never move; the session state is the two
-			CONSTRUCTS, and `api.rearm()` is the framework's word for "the session the
-			app persisted for is over" (the coach-mark datastore reset). The reset
-			clears the save file and re-arms them in place. ]]
-		local generation = scope:own(core:signal(1))
-
-		--[[ THE f1 ANCHOR: a 44px `+` hard against the TOP-RIGHT corner, which is
-			what makes the placement interesting — a centred plate under it would run a
+		--[[ THE f1 ANCHOR: a `+` hard against the TOP-RIGHT corner, which is what
+			makes the placement interesting — a centred plate under it would run a
 			hundred pixels off the screen, so the solver shifts the body left and keeps
 			the arrow over the button. It also carries `help`, so the same node
 			demonstrates both mechanisms: hover it and the pulled plate appears; press
-			"Show the coach mark" and the pushed one does. ]]
-		local tip = scope:own(Facet.Controls.Callout(core, {
-			id = "AvatarTip",
-			anchor = UI.Button({
-				id = "Plus",
-				label = COPY.plus,
-				help = COPY.helpPlus,
-				anchor = "topRight",
-				-- NOT a pinned 44px square. The 44 in the reference is a fact about the
-				-- SCREENSHOT and it is asserted where it belongs, in
-				-- `tests/callout.spec.luau`'s f1 case; pinning it here instead means a
-				-- theme whose control chrome wants more room than that has to give its own
-				-- border back, which the overflow sweep files as a finding on every
-				-- viewport. The theme sizes its own controls.
-				onActivate = function()
-					presses:set(presses:get() + 1)
-				end,
-			}),
-			content = plate(COPY.tipTitle, COPY.tipSub),
-			dismissLabel = COPY.dismiss,
-			seen = seen,
-			featureUsed = featureUsed,
-			priority = 1,
-			onRetire = function(reason: string)
+			"Show the coach mark" and the pushed one does. The theme sizes the button:
+			the 44 in the reference is asserted in `tests/callout.spec.luau`. ]]
+		local function avatarTip()
+			local events = callbacks(tip, function(reason: string)
 				-- THE WHOLE OF THE FRAMEWORK'S SIDE: one report, once.
 				reported:set(reason)
 				-- ...and the whole of the app's side, which is this line and only this
 				-- line. Delete it and the tip comes back next session.
 				seen:set(true)
 				saved:set(`seen = true (because the framework reported "{reason}")`)
-			end,
-		}))
+			end)
+			return UI.HStack("PlusSlot")({
+				anchor = "topRight",
+				UI.Callout("AvatarTip")({
+					anchor = UI.Button("Plus")({
+						label = COPY.plus,
+						help = COPY.helpPlus,
+						onActivate = function()
+							presses:set(presses:peek() + 1)
+						end,
+					}),
+					content = function()
+						return plate(COPY.tipTitle, COPY.tipSub)
+					end,
+					dismissLabel = COPY.dismiss,
+					isPresented = tip.requested,
+					seen = seen,
+					featureUsed = featureUsed,
+					priority = 1,
+					onShow = events.onShow,
+					onHide = events.onHide,
+					onRetire = events.onRetire,
+				}),
+			})
+		end
 
 		-- a SECOND coach mark, so the queue is something a player can see rather than
 		-- a claim in a document: ask for both and only one is ever up.
-		local second = scope:own(Facet.Controls.Callout(core, {
-			id = "ShareTip",
-			anchor = UI.Button({
-				id = "Share",
-				label = COPY.share,
-				help = COPY.helpShare,
+		local function shareTip()
+			local events = callbacks(second, function() end)
+			return UI.HStack("ShareSlot")({
 				anchor = "topLeft",
-			}),
-			content = plate(COPY.secondTitle, COPY.secondSub),
-			dismissLabel = COPY.dismiss,
-			priority = 0,
-			onRetire = function() end,
-		}))
+				UI.Callout("ShareTip")({
+					anchor = UI.Button("Share")({
+						label = COPY.share,
+						help = COPY.helpShare,
+						onActivate = function() end,
+					}),
+					content = function()
+						return plate(COPY.secondTitle, COPY.secondSub)
+					end,
+					dismissLabel = COPY.dismiss,
+					isPresented = second.requested,
+					priority = 0,
+					onShow = events.onShow,
+					onHide = events.onHide,
+					onRetire = events.onRetire,
+				}),
+			})
+		end
 
-		local queueLine = scope:own(core:signal("—"))
-		local stateLine = scope:own(core:signal("—"))
-		-- ONE PAIR, FOR THE LIFE OF THE SCREEN, so this readout can close over them:
-		-- the previous shape rebuilt the constructs on every reset and had to route
-		-- every read through a live-pair table to avoid printing a disposed control's
-		-- dump. Nothing is replaced now, so there is nothing to chase.
+		local queueLine = Compose.cell("—")
+		local stateLine = Compose.cell("—")
 		local function readState()
 			if presenter == nil then
 				return
 			end
 			queueLine:set(presenter.callouts().text)
-			stateLine:set(`{tip.dump().text}\n{second.dump().text}`)
+			stateLine:set(`{tip.id}: {stateOf(tip)}\n{second.id}: {stateOf(second)}`)
 		end
 		readState()
 
 		--[[ THE RESET, AND THE ORDER IS LOAD-BEARING. The save file is cleared BEFORE
-			the constructs are re-armed, because `seen` and `featureUsed` are READ by
-			`eligible()` and never written by the framework: re-arming first would leave
-			two tips that answer "waiting" and refuse to present, which looks exactly
-			like the defect this button exists to end. ]]
+			the new pair is built, because a construct reads `seen` and `featureUsed`
+			as it is built: built first, the pair would open already retired. ]]
 		local function resetSession()
 			seen:set(false)
 			featureUsed:set(false)
 			saved:set(COPY.saveNothing)
 			reported:set("—")
-			generation:set(generation:get() + 1)
-			tip.api.rearm()
-			second.api.rearm()
+			for _, entry in { tip, second } do
+				entry.requested:set(false)
+				entry.showing:set(false)
+				entry.retired:set(false)
+			end
+			generation:set(generation:peek() + 1)
 		end
 
 		local function pick(id: string, label: string, onPress: () -> ()): any
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				surface = "chip",
 				onActivate = function()
@@ -230,162 +259,160 @@ return {
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "CalloutDemo",
-			padding = 12,
-			gap = "s",
-
-			-- THE PERMANENT FURNITURE. Two anchors, built once, at paths that never
-			-- move — which is what makes a coach mark's anchor (a PATH) survive a reset.
-			UI.Anchor({
-				id = "Bar",
-				width = UI.fill(),
-				height = UI.hug(),
-				second.blueprint,
-				tip.blueprint,
-			}),
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+		local function Example()
+			return UI.Screen("CalloutDemo")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-				UI.HStack({
-					id = "Picks",
-					gap = "tight",
-					wrap = true,
+				-- THE TWO ANCHORS, at paths that never move — which is what lets a
+				-- coach mark's anchor (a PATH) survive a reset.
+				UI.Anchor("Bar")({
 					width = UI.fill(),
-
-					pick("Show", COPY.show, function()
-						tip.api.present()
-					end),
-					pick("ShowSecond", COPY.showSecond, function()
-						second.api.present()
-					end),
-					pick("Use", COPY.use, function()
-						featureUsed:set(true)
-					end),
-					-- the button that makes this screen testable more than once
-					pick("Reset", COPY.reset, resetSession),
-				}),
-				UI.Text({ id = "Presses", text = pressLine, textSize = "caption" }),
-				UI.Text({ id = "ResetNote", text = COPY.resetNote, textSize = "caption", role = "secondary" }),
-				UI.VStack({
-					id = "Queue",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
-
-					UI.Text({ id = "QueueTitle", text = COPY.queueTitle, textSize = "caption" }),
-					UI.Text({
-						id = "QueueBody",
-						text = queueLine,
-						textSize = "caption",
-						role = "secondary",
+					height = UI.hug(),
+					Compose.keyed({
+						from = function(use)
+							local session = use(generation)
+							return {
+								{ key = `share-{session}`, build = shareTip },
+								{ key = `plus-{session}`, build = avatarTip },
+							}
+						end,
+						key = function(entry)
+							return entry.key
+						end,
+						render = function(entry)
+							return entry:peek().build()
+						end,
 					}),
 				}),
-				UI.VStack({
-					id = "State",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					UI.Text({ id = "StateTitle", text = COPY.stateTitle, textSize = "caption" }),
-					UI.Text({
-						id = "StateBody",
-						text = stateLine,
-						textSize = "caption",
-						role = "secondary",
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					UI.Text("Intro")({ text = COPY.intro, textSize = "caption", role = "secondary" }),
+					UI.HStack("Picks")({
+						gap = "tight",
+						wrap = true,
+						width = UI.fill(),
+
+						pick("Show", COPY.show, function()
+							ask(tip)
+						end),
+						pick("ShowSecond", COPY.showSecond, function()
+							ask(second)
+						end),
+						pick("Use", COPY.use, function()
+							featureUsed:set(true)
+						end),
+						-- the button that makes this screen testable more than once
+						pick("Reset", COPY.reset, resetSession),
 					}),
-					UI.Text({ id = "Reported", text = reported, textSize = "caption", role = "secondary" }),
-				}),
-				UI.VStack({
-					id = "Save",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
+					UI.Text("Presses")({ text = pressLine, textSize = "caption" }),
+					UI.Text("ResetNote")({ text = COPY.resetNote, textSize = "caption", role = "secondary" }),
+					UI.VStack("Queue")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
 
-					UI.Text({ id = "SaveTitle", text = COPY.saveTitle, textSize = "caption" }),
-					UI.Text({ id = "SaveBody", text = saved, textSize = "caption", role = "secondary" }),
-				}),
-				UI.VStack({
-					id = "Help",
-					surface = "control",
-					padding = "s",
-					gap = "xs",
-					width = UI.fill(),
-
-					UI.Text({ id = "HelpTitle", text = COPY.helpTitle, textSize = "caption" }),
-					UI.Text({
-						id = "HelpBody",
-						text = COPY.helpNote,
-						textSize = "caption",
-						role = "secondary",
+						UI.Text("QueueTitle")({ text = COPY.queueTitle, textSize = "caption" }),
+						UI.Text("QueueBody")({
+							text = queueLine,
+							textSize = "caption",
+							role = "secondary",
+						}),
 					}),
+					UI.VStack("State")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.Text("StateTitle")({ text = COPY.stateTitle, textSize = "caption" }),
+						UI.Text("StateBody")({
+							text = stateLine,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						UI.Text("Reported")({ text = reported, textSize = "caption", role = "secondary" }),
+					}),
+					UI.VStack("Save")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.Text("SaveTitle")({ text = COPY.saveTitle, textSize = "caption" }),
+						UI.Text("SaveBody")({ text = saved, textSize = "caption", role = "secondary" }),
+					}),
+					UI.VStack("Help")({
+						surface = "control",
+						padding = "s",
+						gap = "xs",
+						width = UI.fill(),
+
+						UI.Text("HelpTitle")({ text = COPY.helpTitle, textSize = "caption" }),
+						UI.Text("HelpBody")({
+							text = COPY.helpNote,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					}),
+					UI.Text("Note")({ text = COPY.note, textSize = "caption", role = "secondary" }),
 				}),
-				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		return {
-			screen = screen,
+			screen = Example,
 			present = {},
 			presses = presses,
 			seen = seen,
 
-			-- The steps drive the SAME two constructs the buttons do, for the life of
-			-- the screen: a reset re-arms them rather than replacing them, so there is no
-			-- "which build is live" question left for a step to get wrong.
+			-- The steps write the SAME cells the buttons do.
 			steps = {
 				show = function()
-					tip.api.present()
+					ask(tip)
 					readState()
-					return { state = tip.api.state() }
+					return { state = stateOf(tip) }
 				end,
 				showSecond = function()
-					second.api.present()
+					ask(second)
 					readState()
 					return { showing = presenter and presenter.callouts().showing }
 				end,
 				use = function()
 					featureUsed:set(true)
 					readState()
-					return { state = tip.api.state(), saved = saved:get() }
+					return { state = stateOf(tip), saved = saved:peek() }
 				end,
 				reset = function()
 					resetSession()
 					readState()
-					return { generation = generation:get() }
+					return { generation = generation:peek() }
 				end,
 				reread = function()
 					readState()
-					return { queue = queueLine:get() }
+					return { queue = queueLine:peek() }
 				end,
 			},
 
 			report = function()
 				return {
-					tip = tip.dump(),
-					second = second.dump(),
+					tip = { id = tip.id, state = stateOf(tip) },
+					second = { id = second.id, state = stateOf(second) },
 					queue = if presenter ~= nil then presenter.callouts() else nil,
-					presses = presses:get(),
-					seen = seen:get(),
-					saved = saved:get(),
-					generation = generation:get(),
+					presses = presses:peek(),
+					seen = seen:peek(),
+					saved = saved:peek(),
+					generation = generation:peek(),
 				}
 			end,
 
-			-- the two constructs are the scope's (`scope:own`), so this is the whole
-			-- teardown: one owner, one call, no bookkeeping list to keep in step
-			dispose = function()
-				scope:dispose()
-			end,
+			dispose = function() end,
 		}
 	end,
 }

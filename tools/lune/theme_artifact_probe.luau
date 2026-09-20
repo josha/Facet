@@ -31,7 +31,7 @@
 	     package anybody reviewed;
 	  3. `themes.checkCoverage` accepts it as a compiled package, and is LIVE
 	     rather than always-true (an undeclared namespaced need is reported);
-	  4. `theme_controller.install` installs it on a bare adapter and one real
+	  4. `app.installTheme` installs it on a headless application and one real
 	     control MOUNTS under it, once per theme the package declares;
 	  5. the same mount at a TEN-FOOT display class resolves the metric ladder:
 	     every scalable metric moves by `themes.metricScale`, and a
@@ -45,7 +45,6 @@ local serde = require("@lune/serde")
 
 local Facet = require("../../src") :: any
 local world = require("../../tests/lib/world")
-local theme_controller = require("../../src/client/theme_controller")
 
 local themes = Facet.themes
 
@@ -70,14 +69,13 @@ local expected: any = serde.decode("json", fs.readFile("installed/expected.json"
 -- a real screen, not a marker: a Button is themed on every axis this proves
 -- (control size, radius, stroke, palette, typography), so a package that
 -- resolves but paints nothing has somewhere to fail
-local function screen(): any
-	return Facet.UI.Screen({
-		id = "S",
-		children = {
-			Facet.UI.Text({ id = "Title", text = "Theme artifact" }),
-			Facet.UI.Button({ id = "Go", label = "Play" }),
-		},
-	})
+local function screen(UI: any): () -> any
+	return function()
+		return UI.Screen("S")({
+			UI.Text("Title")({ text = "Theme artifact" }),
+			UI.Button("Go")({ label = "Play", onActivate = function() end }),
+		})
+	end
 end
 
 local function mountedRect(w: any, path: string): any
@@ -150,7 +148,7 @@ local function inspect(entry: any)
 	for _, themeName in entry.themes do
 		local w = world.new({ viewport = { x = 0, y = 0, w = 960, h = 600 } })
 		local installed, controller = pcall(function(): any
-			return theme_controller.install(w.adapter, pkg, { env = w.env, theme = themeName })
+			return w.app.installTheme(pkg, { theme = themeName })
 		end)
 		if not installed then
 			table.insert(failures, `{name}/{themeName}: install failed — {tostring(controller)}`)
@@ -160,13 +158,13 @@ local function inspect(entry: any)
 			(controller :: any).current() == themeName,
 			`{name}/{themeName}: the controller settled on '{tostring((controller :: any).current())}'`
 		)
-		local snap = w.env:get("themeMetrics"):get()
+		local snap = w.env:get("themeMetrics"):peek()
 		check(
 			snap.identity.packageId == entry.packageId and snap.identity.themeName == themeName,
 			`{name}/{themeName}: the committed snapshot names {tostring(snap.identity.packageId)}/`
 				.. `{tostring(snap.identity.themeName)}`
 		)
-		w.present(screen())
+		w.present(screen(w.UI))
 		local rect = mountedRect(w, "/S/Go")
 		check(
 			rect ~= nil and rect.w > 0 and rect.h > 0,
@@ -182,12 +180,12 @@ local function inspect(entry: any)
 		IDENTITY, never the number — `metricScale` is the published factor and the
 		ladder either follows it or it does not. ]]
 	local near = world.new({ viewport = { x = 0, y = 0, w = 1920, h = 1080 } })
-	theme_controller.install(near.adapter, pkg, { env = near.env })
-	local nearSnap = near.env:get("themeMetrics"):get()
+	near.app.installTheme(pkg)
+	local nearSnap = near.env:get("themeMetrics"):peek()
 
 	local far = world.new({ viewport = { x = 0, y = 0, w = 1920, h = 1080 }, displaySize = "Large" })
-	theme_controller.install(far.adapter, pkg, { env = far.env })
-	local farSnap = far.env:get("themeMetrics"):get()
+	far.app.installTheme(pkg)
+	local farSnap = far.env:get("themeMetrics"):peek()
 
 	local factor = themes.metricScale("Large")
 	check(factor > 1, `metricScale reports {factor} at a Large display class — the ladder is inert`)
@@ -236,13 +234,13 @@ local function inspect(entry: any)
 	)
 
 	-- ...and a control still mounts at three metres
-	far.present(screen())
+	far.present(screen(far.UI))
 	local farRect = mountedRect(far, "/S/Go")
 	check(farRect ~= nil and farRect.h > 0, `{name}: the button did not mount at a ten-foot display class`)
 	if farRect ~= nil then
 		local nearWorld = world.new({ viewport = { x = 0, y = 0, w = 1920, h = 1080 } })
-		theme_controller.install(nearWorld.adapter, pkg, { env = nearWorld.env })
-		nearWorld.present(screen())
+		nearWorld.app.installTheme(pkg)
+		nearWorld.present(screen(nearWorld.UI))
 		local nearRect = mountedRect(nearWorld, "/S/Go")
 		check(
 			nearRect ~= nil and farRect.h > nearRect.h,

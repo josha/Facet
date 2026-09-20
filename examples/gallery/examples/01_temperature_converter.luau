@@ -8,71 +8,71 @@ local function toCelsius(text: string): number?
 	local n = tonumber(text)
 	return if n then (n - 32) * 5 / 9 else nil
 end
-function example.build(Facet: any, _core: any, _deps: any)
-	local UI = Facet.View
-	local built: any = { clearPath = "/TempConverter/Page/Clear", dispose = function() end }
-	local Converter = Facet.component(function(ui)
-		local fahrenheit, setFahrenheit = ui.state("")
-		local celsius, setCelsius = ui.state(nil :: number?)
-		-- This derived number is shared by the preview and the driver's report.
-		local liveCelsius = ui.memo(function()
-			return toCelsius(fahrenheit())
+function example.build(ctx: any)
+	local UI, Compose = ctx.UI, ctx.Compose
+	local fahrenheit = Compose.cell("")
+	local celsius = Compose.cell(nil :: number?)
+	-- This derived number is shared by the preview and the driver's report.
+	local liveCelsius = Compose.formula(function(use)
+		return toCelsius(use(fahrenheit))
+	end)
+	local function clear()
+		ctx.app.runtime:batch(function()
+			fahrenheit:set("")
+			celsius:set(nil)
 		end)
-		local function clear()
-			ui.batch(function()
-				setFahrenheit("")
-				setCelsius(nil)
-			end)
-		end
-		built.fahrenheitText, built.liveCelsius, built.celsius = fahrenheit, liveCelsius, celsius
-		built.clear = clear
-		return UI.Screen({
-			id = "TempConverter",
+	end
+	local built: any = { clearPath = "/TempConverter/Page/Clear", dispose = function() end, clear = clear }
+	function built.fahrenheitText()
+		return fahrenheit:peek()
+	end
+	function built.liveCelsius()
+		return liveCelsius:peek()
+	end
+	function built.celsius()
+		return celsius:peek()
+	end
+	function built.screen()
+		return UI.Screen("TempConverter")({
 			surface = "base",
 			padding = "m",
-			UI.ScrollView({
-				id = "Page",
+			UI.ScrollView("Page")({
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
 				height = UI.fill(),
-				UI.Text({ id = "Title", text = "Fahrenheit → Celsius", textSize = "title" }),
-				UI.Text({ id = "Prompt", text = "Enter a temperature in °F:", textSize = "label", role = "secondary" }),
-				UI.TextInput({
-					id = "Fahrenheit",
+				UI.Text("Title")({ text = "Fahrenheit → Celsius", textSize = "title" }),
+				UI.Text("Prompt")({ text = "Enter a temperature in °F:", textSize = "label", role = "secondary" }),
+				UI.TextInput("Fahrenheit")({
 					value = fahrenheit,
-					onChange = setFahrenheit,
 					placeholder = "e.g. 212",
 					keyboardType = "numeric",
 					validate = acceptNumeric,
 					onCommit = function(text)
-						setCelsius(toCelsius(text))
+						celsius:set(toCelsius(text))
 					end,
 				}),
-				UI.Text({
-					id = "Preview",
+				UI.Text("Preview")({
 					textSize = "body",
 					role = "secondary",
-					text = function()
-						local c = liveCelsius()
+					text = function(use)
+						local c = use(liveCelsius)
 						return if c == nil
 							then "Preview: —"
 							else string.format("Preview: %g °C  (live, as you type)", c)
 					end,
 				}),
-				UI.Text({
-					id = "Result",
+				UI.Text("Result")({
 					textSize = "heading",
-					text = function()
-						local c = celsius()
+					text = function(use)
+						local c = use(celsius)
 						return if c == nil then "Result: —" else string.format("Result: %g °C", c)
 					end,
 				}),
-				UI.Button({ id = "Clear", label = "Clear", onActivate = clear }),
+				UI.Button("Clear")({ label = "Clear", onActivate = clear }),
 			}),
 		})
-	end)
-	built.screen = Converter({})
+	end
 	return built
 end
 return example

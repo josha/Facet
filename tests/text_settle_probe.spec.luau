@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	OVER THE CAP, THE LEAVES ARE ASKED BEFORE THE TREE IS (Plan D, D3c; scout S2 §4b).
 
@@ -51,13 +52,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local text_metrics = require("../src/layout/text_metrics")
+local Compose = require("../src/vendor/compose/core")
 
 local FONT = "BuilderSans"
 -- the WIDE key: every row label and the pinned label sit at this size, so one
@@ -118,7 +120,7 @@ local function world(
 	local rowValue = {}
 	local rowChildren = {}
 	for i = 1, opts.rows do
-		rowValue[i] = core:signal(if i <= (opts.phrases or 0) then `phrase {i} here` else opts.words(i))
+		rowValue[i] = Compose.cell(if i <= (opts.phrases or 0) then `phrase {i} here` else opts.words(i))
 		rowChildren[i] = UI.HStack({
 			id = `R{i}`,
 			padding = 0,
@@ -131,8 +133,8 @@ local function world(
 			},
 		})
 	end
-	local pinned = core:signal(opts.pin or "pin")
-	local solo = core:signal("solo")
+	local pinned = Compose.cell(opts.pin or "pin")
+	local solo = Compose.cell("solo")
 	table.insert(rowChildren, UI.Text({ id = "Pinned", textSize = SIZE_ROW, width = px(60), text = pinned }))
 	table.insert(
 		rowChildren,
@@ -149,7 +151,7 @@ local function world(
 		is no longer drawing. `CBox` is dirty on that write and the BUTTON is not, so
 		`layout_node.build`'s kept arm hands the same literal — and the stale number
 		with it. ]]
-	local compactBox = core:signal(px(200))
+	local compactBox = Compose.cell(px(200))
 	if opts.compactBtn then
 		table.insert(
 			rowChildren,
@@ -253,7 +255,7 @@ end
 -- `textMeasureEpoch` geometry fact — the BARE route, no caller closure standing
 local function learn(arm: Arm, word: string, width: number)
 	expect(text_metrics.setMeasured(FONT, SIZE_ROW, word, width)).toBe(true)
-	arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+	arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 end
 
 -- ---- the oracle's channels ------------------------------------------------
@@ -485,7 +487,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 			the probe never runs. That is the whole under-cap contract: byte-identical
 			to the parent SHA, which is what keeps the differential md5 still. ]]
 		expect(text_metrics.setMeasured(FONT, SIZE_SOLO, "t18dSoloWord", 44)).toBe(true)
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		local st = stats(arm)
 		expect(`solves={st.solves - before} probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe(
 			"solves=1 probes=0 paths=1"
@@ -638,7 +640,7 @@ describe("the probe's oracle: identical channels, whatever the push did (D3c)", 
 	-- one correction, applied to the store once and seen by both arms; each arm is
 	-- then told about it the way a premeasurement round tells one — the geometry fact
 	local function announceTo(arm: Arm)
-		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 	end
 
 	it("a narrowed over-cap settle equals a forced cold one, channel for channel", function()
@@ -962,7 +964,7 @@ describe("RED-TEAM C-1: a leaf drawing its COMPACT form stays in the push", func
 			answer rather than a missed optimisation. ]]
 		expect(text_metrics.setMeasured(FONT, SIZE_ROW, "Sub", 10)).toBe(true)
 		for _, arm in { hot, cold } do
-			arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+			arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 		end
 
 		local st = stats(hot)

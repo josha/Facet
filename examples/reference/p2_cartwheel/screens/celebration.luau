@@ -14,22 +14,25 @@ local celebration = {}
 
 function celebration.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 
 	local self: any = {}
-	local brewId = core:signal(0)
-	local corkIn = core:signal(false)
+	local brewId = Compose.cell(0)
+	local corkIn = Compose.cell(false)
 	local handle: any = nil
 	local timeline: any = nil
 	local dip = app.motionClock:spring(0, "object")
+	Compose.cleanup(function()
+		dip:dispose()
+	end)
 	self.corkIn = corkIn
 	self.brewId = brewId
 
-	local titleText = core:memo(function(use)
+	local titleText = Compose.formula(function(use)
 		return S.t("celebrate.title", { id = use(brewId) })
 	end)
-	local detailText = core:memo(function(use)
+	local detailText = Compose.formula(function(use)
 		local brew = app.services.orders.byId(use(brewId))
 		if brew == nil then
 			return ""
@@ -50,99 +53,90 @@ function celebration.new(app: any): any
 	-- neighbouring pulse already uses for `scale`. See that file's comment for
 	-- the fuller "reach for the write only when there is no prop" argument;
 	-- this is the site it was written FOR.
-	local bottleOffset = app.scope:own(core:memo(function(use)
+	local bottleOffset = Compose.formula(function(use)
 		return { x = 0, y = use(dip) * 12 }
-	end))
+	end)
 
 	local function view(): any
-		local brew = app.services.orders.byId(brewId:get())
+		local brew = app.services.orders.byId(brewId:peek())
 		local potion = if brew ~= nil and brew.items[1] ~= nil then data.potionById(brew.items[1].potion) else nil
-		return UI.Screen({
-			id = "CartwheelCelebration",
+		return UI.Screen("CartwheelCelebration")({
 			padding = "l",
 
 			-- the surface transition FADES, and a fade needs a fade group: a
 			-- `Screen` is not one, so the presenter looks for the root's single
 			-- declared canvasGroup child and this is it
-			UI.ZStack({
-				id = "Group",
+			UI.ZStack("Group")({
 				canvasGroup = true,
 				width = UI.fill(),
 				height = UI.fill(),
 
-				UI.VStack({
-					id = "Card",
+				UI.VStack("Card")({
 					gap = "m",
 					align = "center",
 					padding = "l",
 					surface = "raised",
 
-					UI.Button({
-						id = "Bottle",
-						label = S.t("celebrate.title", { id = brewId:get() }),
-						gap = "xs",
-						align = "center",
+					-- the dip moves a wrapper: the Button owns no presentation offset
+					UI.ZStack("BottleDip")({
 						offset = bottleOffset,
-						onActivate = function()
-							-- an idempotent toy: activating the bottle re-toggles
-							-- the cork and nothing else
-							corkIn:set(not corkIn:get())
-						end,
+						UI.Button("Bottle")({
+							label = S.t("celebrate.title", { id = brewId:peek() }),
+							gap = "xs",
+							onActivate = function()
+								-- an idempotent toy: activating the bottle re-toggles
+								-- the cork and nothing else
+								corkIn:set(not corkIn:peek())
+							end,
 
-						UI.ZStack({
-							id = "Art",
-							width = { type = "fixed", px = "controls.image.defaultSize" },
-							height = { type = "fixed", px = "controls.image.defaultSize" },
+							UI.ZStack("Art")({
+								width = { type = "fixed", px = "controls.image.defaultSize" },
+								height = { type = "fixed", px = "controls.image.defaultSize" },
 
-							UI.Image({
-								id = "Glass",
-								image = app.art.marks.menu.image,
-								scaleMode = "fit",
-								tint = { role = "contentSecondary", blend = 0.8 },
-								width = UI.fill(),
-								height = UI.fill(),
-							}),
-							if potion ~= nil
-								then parts.potionMark(app, "Potion", potion, "iconSizes.medium")
-								else UI.Spacer({ id = "Potion" }),
-							UI.When({
-								id = "CorkWhen",
-								condition = corkIn,
-								thenView = function()
-									return UI.ZStack({
-										id = "Cork",
-										canvasGroup = true,
-										width = { type = "fixed", px = "iconSizes.small" },
-										height = { type = "fixed", px = "iconSizes.small" },
+								UI.Image("Glass")({
+									image = app.art.marks.menu.image,
+									scaleMode = "fit",
+									tint = { role = "contentSecondary", blend = 0.8 },
+									width = UI.fill(),
+									height = UI.fill(),
+								}),
+								if potion ~= nil
+									then parts.potionMark(app, "Potion", potion, "iconSizes.medium")
+									else UI.Spacer("Potion")({}),
+								app.when("CorkWhen")({
+									condition = corkIn,
+									thenView = function()
+										return UI.ZStack("Cork")({
+											canvasGroup = true,
+											width = { type = "fixed", px = "iconSizes.small" },
+											height = { type = "fixed", px = "iconSizes.small" },
 
-										UI.Image({
-											id = "Mark",
-											image = app.art.marks.chevronDown.image,
-											scaleMode = "fit",
-											tint = { role = "accent", blend = 1 },
-											width = UI.fill(),
-											height = UI.fill(),
-										}),
-									})
-								end,
-								transition = {
-									enter = "slide-down",
-									fade = true,
-									class = "container",
-								},
+											UI.Image("Mark")({
+												image = app.art.marks.chevronDown.image,
+												scaleMode = "fit",
+												tint = { role = "accent", blend = 1 },
+												width = UI.fill(),
+												height = UI.fill(),
+											}),
+										})
+									end,
+									transition = {
+										enter = "slide-down",
+										fade = true,
+										class = "container",
+									},
+								}),
 							}),
 						}),
 					}),
-					UI.Text({ id = "Title", text = titleText, textSize = "title", textAlign = "center" }),
-					UI.Text({
-						id = "Detail",
+					UI.Text("Title")({ text = titleText, textSize = "title", textAlign = "center" }),
+					UI.Text("Detail")({
 						text = detailText,
 						textSize = "caption",
 						role = "secondary",
 						textAlign = "center",
 					}),
-					UI.Button({
-						id = "Done",
+					UI.Button("Done")({
 						label = S.t("celebrate.done"),
 						surface = "accent",
 						onActivate = function()
@@ -165,7 +159,9 @@ function celebration.new(app: any): any
 		brewId:set(id)
 		corkIn:set(false)
 		dip:snap(0)
-		handle = app.presenter.presentModal(view(), {
+		handle = app.presentModal(function()
+			return view()
+		end, {
 			outsideTapCancel = true,
 			initialFocus = "Done",
 			transition = { enter = "materialize", fade = true, class = "container" },
@@ -227,16 +223,7 @@ function celebration.new(app: any): any
 	end
 
 	function self.dump(): any
-		return { open = handle ~= nil, brew = brewId:get(), cork = corkIn:get() }
-	end
-
-	function self.dispose()
-		self.dismiss()
-		dip:dispose()
-		detailText:dispose()
-		titleText:dispose()
-		corkIn:dispose()
-		brewId:dispose()
+		return { open = handle ~= nil, brew = brewId:peek(), cork = corkIn:peek() }
 	end
 
 	return self

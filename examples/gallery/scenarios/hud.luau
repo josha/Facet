@@ -359,8 +359,8 @@ local PROBE_ROWS: { { name: string, paths: { string } } } = {
 	{
 		name = "Objective",
 		paths = {
-			PROBE_HUD .. "/Strip/StripChip/then/StripRow/StripFit/Objective/Plate",
-			PROBE_HUD .. "/Strip/StripChip/then/StripRow/StripFit/ObjectiveShort/Plate",
+			PROBE_HUD .. "/Strip/StripChip/StripRow/StripFit/Objective/Plate",
+			PROBE_HUD .. "/Strip/StripChip/StripRow/StripFit/ObjectiveShort/Plate",
 		},
 	},
 	-- ALL THREE DISCS, not just the first: they are siblings rather than forms,
@@ -527,20 +527,26 @@ return {
 	valueText = VALUE_TEXT,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
-		local scope = core:scope("hud")
+		local UI, Compose = ctx.UI, ctx.Compose
+		--[[ THE HUD IS ONE COMPONENT. Its cells, its formulas and the two surfaces
+			it raises live under the mounted screen's owner and go with it. The host
+			presents `result.screen` with `result.present` and writes `handle` back
+			onto this table; the component publishes `steps`, `report`, `states` and
+			`dispose` onto it when it mounts. ]]
+		local result: any = { present = { rootPolicy = "bandSafeContent" } }
+		local function component(): any
+			-- the HUD's own owner: what a cached formula and a late-built notice belong to
+			local owner = Compose.currentOwner()
+			local urlBar = Compose.cell(false)
+			-- the author's own decision, and the demo's second comparison: a HUD that
+			-- RIDES the platform's free strip against the same HUD that does not
+			local ride = Compose.cell(true)
 
-		local urlBar = scope:own(core:signal(false))
-		-- the author's own decision, and the demo's second comparison: a HUD that
-		-- RIDES the platform's free strip against the same HUD that does not
-		local ride = scope:own(core:signal(true))
+			local env = ctx.env
+			local chromeFact = env:get("platformChrome")
+			local viewportFact = env:get("viewportRect")
 
-		local env = ctx.env
-		local chromeFact = env:get("platformChrome")
-		local viewportFact = env:get("viewportRect")
-
-		--[[ MODELLING A PLATFORM THAT IS NOT THERE (headless only). The engine
+			--[[ MODELLING A PLATFORM THAT IS NOT THERE (headless only). The engine
 			publishes `topbarInset` through `roblox_env`; a Lune suite and the
 			always-on overflow sweep have no engine, so `platformChrome.band` is nil
 			and every rung below would be the no-strip one — the mechanism would ship
@@ -551,27 +557,27 @@ return {
 
 			`flags.noTopbarStrip` opts out, which is how a test drives the OTHER
 			platform — the one with no strip at all — through this same fixture. ]]
-		local modelStrip = (ctx.flags == nil or ctx.flags.noTopbarStrip ~= true)
-			and (chromeFact:get() :: any).band == nil
-		if modelStrip then
-			local vp = viewportFact:get()
-			local coreTop = (env:get("coreSafeInsets"):get() or {}).top or 0
-			if coreTop > 0 and vp.w > MODELLED_CLUSTER_PX * 2 then
-				env:set("topbarInset", {
-					x = MODELLED_CLUSTER_PX,
-					y = 0,
-					w = vp.w - MODELLED_CLUSTER_PX,
-					h = math.min(MODELLED_STRIP_PX, coreTop),
-				})
+			local modelStrip = (ctx.flags == nil or ctx.flags.noTopbarStrip ~= true)
+				and (chromeFact:peek() :: any).band == nil
+			if modelStrip then
+				local vp = viewportFact:peek()
+				local coreTop = (env:get("coreSafeInsets"):peek() or {}).top or 0
+				if coreTop > 0 and vp.w > MODELLED_CLUSTER_PX * 2 then
+					env:set("topbarInset", {
+						x = MODELLED_CLUSTER_PX,
+						y = 0,
+						w = vp.w - MODELLED_CLUSTER_PX,
+						h = math.min(MODELLED_STRIP_PX, coreTop),
+					})
+				end
 			end
-		end
 
-		-- ONE fact, read four ways. Nothing below knows 164, or 58, or a device.
-		local riding = scope:own(core:memo(function(use)
-			return use(ride) == true and (use(chromeFact) :: any).band ~= nil
-		end))
+			-- ONE fact, read four ways. Nothing below knows 164, or 58, or a device.
+			local riding = Compose.formula(function(use)
+				return use(ride) == true and (use(chromeFact) :: any).band ~= nil
+			end)
 
-		--[[ ═══ WHAT USED TO BE HERE, AND WHY IT IS NOT (framework-gaps §9 + §8) ═══
+			--[[ ═══ WHAT USED TO BE HERE, AND WHY IT IS NOT (framework-gaps §9 + §8) ═══
 
 			~150 lines: a `margin` that spent `platformChrome.bandInsets` by hand, a
 			`screenPadding` that floored each of the other three edges against the
@@ -601,7 +607,7 @@ return {
 			rects and the exclusion are in scope at the same moment, so there is no
 			loop to bound and nothing to keep in sync. ]]
 
-		--[[ ...AND THE APP'S OWN CHROME, RESERVED PER COLUMN — BY THE FRAMEWORK NOW
+			--[[ ...AND THE APP'S OWN CHROME, RESERVED PER COLUMN — BY THE FRAMEWORK NOW
 			(framework-gaps §8).
 
 			`appChromeRects` is the general mechanism (src/env/environment.luau): a
@@ -627,19 +633,19 @@ return {
 			the MEASUREMENT — does any of this lane's own content share an x range with
 			a declared rect — which is exactly what the latch was converging towards
 			and what the framework can now answer without converging at all. ]]
-		local appChromeFact = env:get("appChromeRects")
-		local coordinatedExclusions = scope:own(core:memo(function(use)
-			local out = table.clone(use(appChromeFact) or {})
-			if ctx.presenter and ctx.presenter.hudReservations then
-				for _, entry in use(ctx.presenter.hudReservations) do
-					if entry.edge == "top" then
-						table.insert(out, entry.rect)
+			local appChromeFact = env:get("appChromeRects")
+			local coordinatedExclusions = Compose.formula(function(use)
+				local out = table.clone(use(appChromeFact) or {})
+				if ctx.presenter and ctx.presenter.hudReservations then
+					for _, entry in use(ctx.presenter.hudReservations) do
+						if entry.edge == "top" then
+							table.insert(out, entry.rect)
+						end
 					end
 				end
-			end
-			return out
-		end))
-		--[[ ...AND THE FLOOR THE SIMULATED BAR MAY NEVER EAT THROUGH — WHICH THE
+				return out
+			end)
+			--[[ ...AND THE FLOOR THE SIMULATED BAR MAY NEVER EAT THROUGH — WHICH THE
 			APP'S OWN CHROME IS A TERM OF (measured 2026-08-15).
 
 			`HUD_FLOOR_PX` is a SUM, and its own note names the terms: the platform's
@@ -661,7 +667,7 @@ return {
 			three memos to say so. A host that declares no chrome of its own reserves 0
 			and this is `HUD_FLOOR_PX` exactly — byte for byte what such a host has
 			always had (the control is in tests/hud_chrome_rotation.spec.luau). ]]
-		--[[ HOW TALL THIS SURFACE'S OWN BOX IS, which is the one number the policy
+			--[[ HOW TALL THIS SURFACE'S OWN BOX IS, which is the one number the policy
 			does not publish (§9 follow-up candidate).
 
 			The instrument below caps the simulated bar against the room the screen
@@ -679,42 +685,42 @@ return {
 			`rootPolicy` resolved without sampling a solved rect — and it is BOOKED as
 			such in docs/handoff/G8G9-OWED-LIVE-WORK.md. It is the fixture's
 			instrument, not its layout: nothing the HUD paints reads it. ]]
-		local function boxHeight(use: any): number
-			local vp = use(viewportFact) :: any
-			local chrome = use(chromeFact) :: any
-			local metrics = use(env:get("themeMetrics"))
-			local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
-			local gutter = if type(space.gutter) == "number" then space.gutter else 8
-			return math.max(0, vp.h - chrome.bandInsets.top - math.max(chrome.insets.bottom, gutter))
-		end
-		local function urlBarPx(use: any): number
-			if not use(urlBar) then
-				return 0
+			local function boxHeight(use: any): number
+				local vp = use(viewportFact) :: any
+				local chrome = use(chromeFact) :: any
+				local metrics = use(env:get("themeMetrics"))
+				local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
+				local gutter = if type(space.gutter) == "number" then space.gutter else 8
+				return math.max(0, vp.h - chrome.bandInsets.top - math.max(chrome.insets.bottom, gutter))
 			end
-			local chrome = use(chromeFact) :: any
-			local band = chrome.band
-			local spent = if use(riding) and band ~= nil then band.y + band.h else chrome.insets.top
-			local reserved = 0
-			local declared = use(appChromeFact)
-			if type(declared) == "table" then
-				for _, r in declared :: any do
-					if type(r) == "table" and type(r.y) == "number" and type(r.h) == "number" then
-						reserved = math.max(reserved, r.y + r.h - spent)
+			local function urlBarPx(use: any): number
+				if not use(urlBar) then
+					return 0
+				end
+				local chrome = use(chromeFact) :: any
+				local band = chrome.band
+				local spent = if use(riding) and band ~= nil then band.y + band.h else chrome.insets.top
+				local reserved = 0
+				local declared = use(appChromeFact)
+				if type(declared) == "table" then
+					for _, r in declared :: any do
+						if type(r) == "table" and type(r.y) == "number" and type(r.h) == "number" then
+							reserved = math.max(reserved, r.y + r.h - spent)
+						end
 					end
 				end
+				reserved = math.max(0, reserved)
+				return math.min(URL_BAR_STEAL_PX, math.max(0, boxHeight(use) - HUD_FLOOR_PX - reserved))
 			end
-			reserved = math.max(0, reserved)
-			return math.min(URL_BAR_STEAL_PX, math.max(0, boxHeight(use) - HUD_FLOOR_PX - reserved))
-		end
-		-- ...and whether this screen has room for the fixture's own caption (see the
-		-- `UI.When` at the bottom). It reads the SAME two facts the HUD's margin
-		-- does — the viewport and the simulated URL bar — so "the instrument yields
-		-- first" is derived from the demo's own state rather than from a second
-		-- guess about screen size.
-		local roomForCaption = scope:own(core:memo(function(use)
-			return (boxHeight(use) - urlBarPx(use)) >= CAPTION_FLOOR
-		end))
-		--[[ ...AND THE SWITCHES YIELD ONE RUNG BEFORE THE CAPTION DOES (§9 migration,
+			-- ...and whether this screen has room for the fixture's own caption (see the
+			-- `UI.When` at the bottom). It reads the SAME two facts the HUD's margin
+			-- does — the viewport and the simulated URL bar — so "the instrument yields
+			-- first" is derived from the demo's own state rather than from a second
+			-- guess about screen size.
+			local roomForCaption = Compose.formula(function(use)
+				return (boxHeight(use) - urlBarPx(use)) >= CAPTION_FLOOR
+			end)
+			--[[ ...AND THE SWITCHES YIELD ONE RUNG BEFORE THE CAPTION DOES (§9 migration,
 			2026-08-22). Same rule, same reason: they are chrome ABOUT the demo, so on a
 			screen with no room to spare they go before any zone does.
 
@@ -732,21 +738,21 @@ return {
 			which is what the second term says. The sweep and the specs drive the demo
 			through `steps.*` rather than through these switches, so nothing that
 			measures this fixture depends on them being on screen. ]]
-		local roomForDrivers = scope:own(core:memo(function(use)
-			local offset = use(env:get("preferredTextOffset"))
-			if type(offset) ~= "number" or offset <= 10 then
-				return true
-			end
-			return (boxHeight(use) - urlBarPx(use)) >= DRIVERS_FLOOR
-		end))
-		-- the DRAWN bar's box, and it is the same number the HUD lost — one memo,
-		-- so the picture and the geometry cannot disagree (item 5)
-		local barHeight = scope:own(core:memo(function(use)
-			return { type = "fixed", px = urlBarPx(use) }
-		end))
+			local roomForDrivers = Compose.formula(function(use)
+				local offset = use(env:get("preferredTextOffset"))
+				if type(offset) ~= "number" or offset <= 10 then
+					return true
+				end
+				return (boxHeight(use) - urlBarPx(use)) >= DRIVERS_FLOOR
+			end)
+			-- the DRAWN bar's box, and it is the same number the HUD lost — one memo,
+			-- so the picture and the geometry cannot disagree (item 5)
+			local barHeight = Compose.formula(function(use)
+				return { type = "fixed", px = urlBarPx(use) }
+			end)
 
-		-- ---- the material ------------------------------------------------
-		--[[ THE HUD'S ONE PLATE. Everything a player sees here sits on this
+			-- ---- the material ------------------------------------------------
+			--[[ THE HUD'S ONE PLATE. Everything a player sees here sits on this
 			construction and on no other, which is what makes nine independently
 			degrading zones read as one interface:
 
@@ -762,16 +768,16 @@ return {
 			child, and `arrange` then grants the plate the box that produced. So the
 			glass is always exactly as big as what is on it, at every text
 			preference and in every theme, with nobody sizing it. ]]
-		--
-		-- `width` is the ONE thing a caller may state: a plate that has to SPAN
-		-- something (the health bar's lane) cannot hug, and a ZStack that hugs would
-		-- measure a `fill` child as nothing and collapse it. Everything else about
-		-- the construction is fixed here on purpose.
-		-- `height` joins `width` for the one caller that has to STATE a box rather
-		-- than hug one: the pseudo URL bar is as tall as the height it is taking,
-		-- and a hugging stack is capped by what the parent had left over — which
-		-- drew a 171px bar for a 200px loss (measured 2026-08-15).
-		--[[ ...AND `padding`, WHICH IS THE ONE THING A CALLER MAY NOT KEEP FOR ITSELF
+			--
+			-- `width` is the ONE thing a caller may state: a plate that has to SPAN
+			-- something (the health bar's lane) cannot hug, and a ZStack that hugs would
+			-- measure a `fill` child as nothing and collapse it. Everything else about
+			-- the construction is fixed here on purpose.
+			-- `height` joins `width` for the one caller that has to STATE a box rather
+			-- than hug one: the pseudo URL bar is as tall as the height it is taking,
+			-- and a hugging stack is capped by what the parent had left over — which
+			-- drew a 171px bar for a 200px loss (measured 2026-08-15).
+			--[[ ...AND `padding`, WHICH IS THE ONE THING A CALLER MAY NOT KEEP FOR ITSELF
 			(director report 2026-08-29: "the 'win a round' text, '84' text, '12' at
 			the top, and the circular progress bar ... all overlap the chrome. we
 			should not allow this overlap").
@@ -790,7 +796,7 @@ return {
 			the slot this plate actually classifies into. `math.max`, never `+`: the
 			gutter is the HUD's own breathing room and the frame is a floor under it,
 			so a flat package spends exactly what it spent before. ]]
-		--[[ WHICH SLOT A SMALL PLATE IS — the THEME question that round
+			--[[ WHICH SLOT A SMALL PLATE IS — the THEME question that round
 			deferred, and the answer is that A PLATE THIS SMALL IS NOT A WINDOW.
 
 			Reserving a window's frame on a chip is the repair that round measured and
@@ -818,103 +824,100 @@ return {
 			with its `tint` (blend 1) and the corner with the `UI.corners` above it.
 			The hairline rules are byte-identical. See `src/tokens/sheet_model.luau`
 			"Raised panel"/"Chip". ]]
-		local WINDOW_SURFACE, WINDOW_SLOT = "raised", "panel"
-		local CHIP_SURFACE, CHIP_SLOT = "chip", "control"
-		-- one side of the authored gutter, as a number: a token ("s") resolves
-		-- against the LIVE snapshot's own space scale, so this never learns a px
-		local function gutterPx(metrics: any, value: any): number
-			if type(value) == "number" then
-				return value
-			end
-			if type(value) == "string" then
-				local space = if type(metrics) == "table" then (metrics :: any).space else nil
-				local px = if type(space) == "table" then (space :: any)[value] else nil
-				return if type(px) == "number" then px else 0
-			end
-			return 0
-		end
-		--[[ ONE MEMO PER DISTINCT (slot, gutter), NOT ONE PER `glass` CALL.
-
-			Five of this fixture's plates are built inside a `thenView` closure — the
-			objective chip, the URL bar and its field, the paint probe, the recovery
-			panel — so `glass` runs again every time that branch re-evaluates. A memo
-			minted per call would be owned by the HUD's own scope (the closure captures
-			it lexically) and therefore live until the whole surface disposes, which
-			makes flipping the topbar-strip switch a leak that grows without bound.
-
-			The answer is the one every hoisted blueprint in this file already uses:
-			the value is a pure function of (slot, gutter), so it is built once per
-			DISTINCT pair and handed back. Nine constructions collapse to a handful of
-			memos, and a plate rebuilt a thousand times mints none. ]]
-		local plateInsetMemos: { [string]: any } = {}
-		local function plateInsets(slot: string, authored: any): any
-			local key = slot
-			if type(authored) == "table" then
-				key = `{slot}|{tostring(authored.top)}|{tostring(authored.right)}|`
-					.. `{tostring(authored.bottom)}|{tostring(authored.left)}`
-			else
-				key = `{slot}|{tostring(authored)}`
-			end
-			local cached = plateInsetMemos[key]
-			if cached ~= nil then
-				return cached
-			end
-			local memo = scope:own(core:memo(function(use)
-				local metrics = use(env:get("themeMetrics"))
-				local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
-				local carve = if type(insets) == "table" then (insets :: any)[slot] else nil
-				local function side(name: string): number
-					local declared = if type(authored) == "table" and authored[name] ~= nil
-						then (authored :: any)[name]
-						else authored
-					local px = if type(carve) == "table" then (carve :: any)[name] else nil
-					return math.max(gutterPx(metrics, declared), if type(px) == "number" then px else 0)
+			local WINDOW_SURFACE, WINDOW_SLOT = "raised", "panel"
+			local CHIP_SURFACE, CHIP_SLOT = "chip", "control"
+			-- one side of the authored gutter, as a number: a token ("s") resolves
+			-- against the LIVE snapshot's own space scale, so this never learns a px
+			local function gutterPx(metrics: any, value: any): number
+				if type(value) == "number" then
+					return value
 				end
-				return { top = side("top"), right = side("right"), bottom = side("bottom"), left = side("left") }
-			end))
-			plateInsetMemos[key] = memo
-			return memo
-		end
-		local function glass(
-			id: string,
-			radius: string,
-			content: any,
-			padding: any,
-			opts: { width: any?, height: any?, plate: string? }?
-		): any
-			local isWindow = if opts ~= nil and opts.plate ~= nil then opts.plate == "window" else radius == "panel"
-			return UI.ZStack({
-				id = id,
-				width = if opts ~= nil then opts.width else nil,
-				height = if opts ~= nil then opts.height else nil,
+				if type(value) == "string" then
+					local space = if type(metrics) == "table" then (metrics :: any).space else nil
+					local px = if type(space) == "table" then (space :: any)[value] else nil
+					return if type(px) == "number" then px else 0
+				end
+				return 0
+			end
+			--[[ ONE MEMO PER DISTINCT (slot, gutter), NOT ONE PER `glass` CALL.
 
-				UI.corners(
-					UI.Box({
-						id = "Plate",
-						width = UI.fill(),
-						height = UI.fill(),
-						surface = if isWindow then WINDOW_SURFACE else CHIP_SURFACE,
-						tint = { role = "surface", blend = 1, transparency = GLASS },
+			Five of this fixture's plates are built inside a `Compose.show` branch — the
+			objective chip, the URL bar and its field, the paint probe, the recovery
+			panel — so `glass` runs again every time that branch re-evaluates. A formula
+			minted there would die with the branch while the cache still held it.
+
+			The value is a pure function of (slot, gutter), so it is built once per
+			DISTINCT pair, under the HUD's own owner, and handed back. Nine
+			constructions collapse to a handful of formulas, and a plate rebuilt a
+			thousand times mints none. ]]
+			local plateInsetMemos: { [string]: any } = {}
+			local function plateInsets(slot: string, authored: any): any
+				local key = slot
+				if type(authored) == "table" then
+					key = `{slot}|{tostring(authored.top)}|{tostring(authored.right)}|`
+						.. `{tostring(authored.bottom)}|{tostring(authored.left)}`
+				else
+					key = `{slot}|{tostring(authored)}`
+				end
+				local cached = plateInsetMemos[key]
+				if cached ~= nil then
+					return cached
+				end
+				local memo = Compose.withOwner(owner, function()
+					return Compose.formula(function(use)
+						local metrics = use(env:get("themeMetrics"))
+						local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+						local carve = if type(insets) == "table" then (insets :: any)[slot] else nil
+						local function side(name: string): number
+							local declared = if type(authored) == "table" and authored[name] ~= nil
+								then (authored :: any)[name]
+								else authored
+							local px = if type(carve) == "table" then (carve :: any)[name] else nil
+							return math.max(gutterPx(metrics, declared), if type(px) == "number" then px else 0)
+						end
+						return { top = side("top"), right = side("right"), bottom = side("bottom"), left = side("left") }
+					end)
+				end)
+				plateInsetMemos[key] = memo
+				return memo
+			end
+			local function glass(
+				id: string,
+				radius: string,
+				content: any,
+				padding: any,
+				opts: { width: any?, height: any?, plate: string? }?
+			): any
+				local isWindow = if opts ~= nil and opts.plate ~= nil then opts.plate == "window" else radius == "panel"
+				return UI.ZStack(id)({
+					width = if opts ~= nil then opts.width else nil,
+					height = if opts ~= nil then opts.height else nil,
+
+					UI.corners(
+						UI.Box("Plate")({
+							width = UI.fill(),
+							height = UI.fill(),
+							surface = if isWindow then WINDOW_SURFACE else CHIP_SURFACE,
+							tint = { role = "surface", blend = 1, transparency = GLASS },
+						}),
+						radius
+					),
+					UI.padding(content, plateInsets(if isWindow then WINDOW_SLOT else CHIP_SLOT, padding)),
+				})
+			end
+
+			-- a glass PILL of one line of text: the HUD's smallest unit, used for the
+			-- objective chip, the scores, the readout and every caption that needs to
+			-- lift off the world behind it
+			local function pill(id: string, text: any, size: string): any
+				return glass(
+					id,
+					"pill",
+					UI.HStack(id .. "Row")({
+						align = "center",
+						UI.Text(id .. "T")({ text = text, textSize = size }),
 					}),
-					radius
-				),
-				UI.padding(content, plateInsets(if isWindow then WINDOW_SLOT else CHIP_SLOT, padding)),
-			})
-		end
-
-		-- a glass PILL of one line of text: the HUD's smallest unit, used for the
-		-- objective chip, the scores, the readout and every caption that needs to
-		-- lift off the world behind it
-		local function pill(id: string, text: any, size: string): any
-			return glass(
-				id,
-				"pill",
-				UI.HStack({
-					id = id .. "Row",
-					align = "center",
-					UI.Text({ id = id .. "T", text = text, textSize = size }),
-				}),
-				--[[ FOUR, NOT TEN (device round follow-up, 2026-08-21). A HUD pill's
+					--[[ FOUR, NOT TEN (device round follow-up, 2026-08-21). A HUD pill's
 					gutter yields before its VALUE does: the expand mark now stands beside
 					these pills inside the same third of the screen, and at the largest
 					text preference on a 320px phone those six px per side were the
@@ -925,62 +928,65 @@ return {
 					It is `glass`'s argument now rather than the row's own prop, because
 					four is a FLOOR and a carving package's frame is the other one — see
 					`plateInsets`. ]]
-				{ top = 4, right = 4, bottom = 4, left = 4 }
-			)
-		end
+					{ top = 4, right = 4, bottom = 4, left = 4 }
+				)
+			end
 
-		--[[ HOW BIG A ROUND ICON BUTTON HAS TO BE UNDER THE INSTALLED PACKAGE, and
+			--[[ HOW BIG A ROUND ICON BUTTON HAS TO BE UNDER THE INSTALLED PACKAGE, and
 			ONE MEMO PER CONTROL-SIZE RUNG for the reason `plateInsets` above is one per
 			(slot, gutter): a disc is built inside closures that re-run, and a dimension
 			minted per call would be owned by this scope and live until the whole
 			surface disposes. The rule it answers is written out at the call site
 			below. ]]
-		local roundBoxMemos: { [string]: any } = {}
-		local function roundBox(rung: string): any
-			local cached = roundBoxMemos[rung]
-			if cached ~= nil then
-				return cached
-			end
-			local memo = scope:own(core:memo(function(use)
-				local facts = Facet.text.facts({ env = env, use = use })
-				local metrics: any = facts.metrics
-				local rungs: any = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
-				local entry: any = if type(rungs) == "table" then (rungs :: any)[rung] else nil
-				local named = if type(entry) == "table" and type(entry.height) == "number" then entry.height else 0
-				local insets: any = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
-				local carve: any = if type(insets) == "table" then (insets :: any).control else nil
-				local function side(name: string): number
-					local px = if type(carve) == "table" then (carve :: any)[name] else nil
-					return if type(px) == "number" then px else 0
+			local roundBoxMemos: { [string]: any } = {}
+			local function roundBox(rung: string): any
+				local cached = roundBoxMemos[rung]
+				if cached ~= nil then
+					return cached
 				end
-				local frame = math.max(side("left") + side("right"), side("top") + side("bottom"))
-				local mark = Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
-				return { type = "fixed", px = math.max(named, frame + mark) }
-			end))
-			roundBoxMemos[rung] = memo
-			return memo
-		end
+				local memo = Compose.withOwner(owner, function()
+					return Compose.formula(function(use)
+						local facts = Facet.text.facts({ env = env, use = use })
+						local metrics: any = facts.metrics
+						local rungs: any = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
+						local entry: any = if type(rungs) == "table" then (rungs :: any)[rung] else nil
+						local named = if type(entry) == "table" and type(entry.height) == "number"
+							then entry.height
+							else 0
+						local insets: any = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+						local carve: any = if type(insets) == "table" then (insets :: any).control else nil
+						local function side(name: string): number
+							local px = if type(carve) == "table" then (carve :: any)[name] else nil
+							return if type(px) == "number" then px else 0
+						end
+						local frame = math.max(side("left") + side("right"), side("top") + side("bottom"))
+						local mark = Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
+						return { type = "fixed", px = math.max(named, frame + mark) }
+					end)
+				end)
+				roundBoxMemos[rung] = memo
+				return memo
+			end
 
-		-- THE ROUND ICON BUTTON, the face of both clusters. `shape = "circle"` +
-		-- `icon` is the only icon affordance in the library that takes a SEMANTIC
-		-- NAME rather than an asset (a package that ships art for that name paints
-		-- it; every other package draws the framework's own ASCII-safe glyph) — so
-		-- this HUD invents no art at all. The `label` is the accessible name and is
-		-- deliberately not drawn on a circle.
-		--
-		-- `size` names a CONTROL-SIZE RUNG, never a number: the bottom-right cluster
-		-- is the thumb-sized one and the top-left strip is the compact one, and both
-		-- follow whatever the installed package thinks those two sizes are — see
-		-- `roundBox` above for what a disc does when the package's own frame does not
-		-- fit inside the rung it named.
-		local function roundButton(id: string, label: string, icon: string, size: string, onActivate: any?): any
-			return UI.Button({
-				id = id,
-				label = label,
-				icon = icon,
-				shape = "circle",
-				surface = "chip",
-				--[[ A DISC IS ITS PACKAGE'S FRAME PLUS ROOM FOR ITS OWN MARK, WHENEVER
+			-- THE ROUND ICON BUTTON, the face of both clusters. `shape = "circle"` +
+			-- `icon` is the only icon affordance in the library that takes a SEMANTIC
+			-- NAME rather than an asset (a package that ships art for that name paints
+			-- it; every other package draws the framework's own ASCII-safe glyph) — so
+			-- this HUD invents no art at all. The `label` is the accessible name and is
+			-- deliberately not drawn on a circle.
+			--
+			-- `size` names a CONTROL-SIZE RUNG, never a number: the bottom-right cluster
+			-- is the thumb-sized one and the top-left strip is the compact one, and both
+			-- follow whatever the installed package thinks those two sizes are — see
+			-- `roundBox` above for what a disc does when the package's own frame does not
+			-- fit inside the rung it named.
+			local function roundButton(id: string, label: string, icon: string, size: string, onActivate: any?): any
+				return UI.Button(id)({
+					label = label,
+					icon = icon,
+					shape = "circle",
+					surface = "chip",
+					--[[ A DISC IS ITS PACKAGE'S FRAME PLUS ROOM FOR ITS OWN MARK, WHENEVER
 					THAT IS BIGGER THAN THE RUNG THE PACKAGE NAMED (2026-09-11, the
 					widest-viewport themed cell).
 
@@ -1034,23 +1040,26 @@ return {
 					A GROWN DISC HAS SOMEWHERE TO GO on both clusters that use it: `RoundStrip`
 					is `wrap = true`, so a wider disc takes a second line rather than a
 					neighbour's pixels, and `ActionsCol` is a bottom-anchored VStack. ]]
-				height = roundBox(size),
-				-- THE SINK'S TRIGGER RIDES THIS (D7.3). Optional, so the two clusters
-				-- that are pure decoration stay exactly what they were.
-				onActivate = onActivate,
-			})
-		end
+					height = roundBox(size),
+					-- THE SINK'S TRIGGER RIDES THIS (D7.3). Optional, so the two clusters
+					-- that are pure decoration stay exactly what they were.
+					onActivate = onActivate or function() end,
+				})
+			end
 
-		-- ---- the task panel ------------------------------------------------
-		-- each row: a mark, the task, its bar, and what it pays. The MARK is a small
-		-- accent disc rather than an icon, and that is a decision rather than an
-		-- omission: the shipped icon set has no "task" glyph, the only icon
-		-- affordance is a Button (which would put three focus stops in a HUD that
-		-- has none), and this fixture is not allowed to invent art.
-		local taskBars = {}
-		local taskRows = {}
-		for i, key in { "task1", "task2", "task3" } do
-			--[[ THE ROW IS THE CONTROL'S OWN ROW, and that is the second thing the
+			-- ---- the task panel ------------------------------------------------
+			-- each row: a mark, the task, its bar, and what it pays. The MARK is a small
+			-- accent disc rather than an icon, and that is a decision rather than an
+			-- omission: the shipped icon set has no "task" glyph, the only icon
+			-- affordance is a Button (which would put three focus stops in a HUD that
+			-- has none), and this fixture is not allowed to invent art.
+			local taskProgress = { Compose.cell(0.2), Compose.cell(0.4), Compose.cell(0.6) }
+			local function taskBar(i: number): any
+				return UI.ProgressView(`Task{i}`)({ value = taskProgress[i] })
+			end
+			local function taskRow(i: number): any
+				local key = `task{i}`
+				--[[ THE ROW IS THE CONTROL'S OWN ROW, and that is the second thing the
 				sweep decided. The reference screenshot stacks the label ABOVE the bar,
 				so the first cut did too — and a stacked label WRAPS: it measured as
 				one line where the lane is unbounded and arranged as three where the
@@ -1063,15 +1072,7 @@ return {
 				`shrinkWeight = 1` so it gives up pixels instead of lines (O-23). A
 				task row is therefore the control plus a mark and a reward, and the one
 				thing on it that can grow is the one thing that is allowed to. ]]
-			local view = Facet.Controls.ProgressView(core, {
-				id = `Task{i}`,
-				value = scope:own(core:signal(0.2 * i)),
-			})
-			table.insert(taskBars, view)
-			table.insert(
-				taskRows,
-				UI.HStack({
-					id = `TaskRow{i}`,
+				return UI.HStack(`TaskRow{i}`)({
 					gap = "s",
 					align = "center",
 					width = UI.fill(),
@@ -1092,8 +1093,7 @@ return {
 							focus stops in a HUD that has none), and this fixture is not
 							allowed to invent art. ]]
 					UI.corners(
-						UI.Box({
-							id = `Mark{i}`,
+						UI.Box(`Mark{i}`)({
 							width = { type = "fixed", px = "controls.progress.spinnerDotSize" },
 							height = { type = "fixed", px = "controls.progress.spinnerDotSize" },
 							tint = { role = "accent", blend = 1 },
@@ -1109,128 +1109,117 @@ return {
 							and needed 267. Measure and arrange have to agree about height,
 							and `lineLimit = 1` is what makes them: this label gives up
 							pixels, then characters, and never lines. ]]
-					UI.Text({
-						id = `TaskName{i}`,
+					UI.Text(`TaskName{i}`)({
 						text = (COPY :: any)[key],
 						textSize = "caption",
 						lineLimit = 1,
 						shrinkWeight = 1,
 					}),
-					view.blueprint,
-					UI.Text({
-						id = `Reward{i}`,
+					taskBar(i),
+					UI.Text(`Reward{i}`)({
 						text = (COPY :: any)[`reward{i}`],
 						textSize = "caption",
 						surface = "chip",
 						padding = { top = 2, right = 6, bottom = 2, left = 6 },
 					}),
 				})
-			)
-		end
-
-		-- ---- the round timer -------------------------------------------------
-		-- A RING IS A CLOCK. `presentation = "circular"` over the fraction of the
-		-- round still to run — the shape the reference screenshots use, and the one
-		-- the theme packages now size themselves (`controls.progress.circularSize` /
-		-- `circularThickness`, authored by all eight since 2026-08-14).
-		--
-		-- NO `label` and NO `showValue`: the ring's own row would put the text
-		-- BEFORE the ring, and `showValue` is refused on this shape outright (the
-		-- ring is theme-sized and small, so a readout has no size it is guaranteed
-		-- to fit). The time therefore sits beside it as this fixture's own Text, in
-		-- the `numeral` role — the type role that exists for a figure that has to
-		-- read at a glance.
-		local roundLeft = scope:own(core:signal(0.62))
-		local timerRing = Facet.Controls.ProgressView(core, {
-			id = "TimerRing",
-			value = roundLeft,
-			presentation = "circular",
-		})
-
-		local health = scope:own(core:signal(0.84))
-		local healthBar = Facet.Controls.ProgressView(core, {
-			id = "HealthBar",
-			value = health,
-			segments = 4,
-			trail = if ctx.presenter then { delay = 0.3, duration = 0.35 } else nil,
-			motionClock = if ctx.presenter then ctx.presenter.motionClock else nil,
-		})
-		local healthText = scope:own(core:memo(function(use)
-			return tostring(math.floor(use(health) * 100 + 0.5))
-		end))
-		local notices = {}
-		local function notify()
-			if not ctx.presenter then
-				return
 			end
-			table.insert(
-				notices,
-				ctx.presenter.presentToast(
-					UI.VStack({
-						id = "SupplyNotice",
-						surface = "raised",
-						padding = "m",
-						width = UI.fill(),
-						UI.Text({ text = "Supplies delivered", textSize = "label" }),
-					}),
-					{ key = "hud-supplies", duration = 4 }
+
+			-- ---- the round timer -------------------------------------------------
+			-- A RING IS A CLOCK. `presentation = "circular"` over the fraction of the
+			-- round still to run — the shape the reference screenshots use, and the one
+			-- the theme packages now size themselves (`controls.progress.circularSize` /
+			-- `circularThickness`, authored by all eight since 2026-08-14).
+			--
+			-- NO `label` and NO `showValue`: the ring's own row would put the text
+			-- BEFORE the ring, and `showValue` is refused on this shape outright (the
+			-- ring is theme-sized and small, so a readout has no size it is guaranteed
+			-- to fit). The time therefore sits beside it as this fixture's own Text, in
+			-- the `numeral` role — the type role that exists for a figure that has to
+			-- read at a glance.
+			local roundLeft = Compose.cell(0.62)
+
+			local health = Compose.cell(0.84)
+
+			-- what a meter over `value` shows: the clamped fraction the bar paints
+			local function meter(value: any): { fraction: number }
+				return { fraction = math.clamp(value:peek(), 0, 1) }
+			end
+			local healthText = Compose.formula(function(use)
+				return tostring(math.floor(use(health) * 100 + 0.5))
+			end)
+			local notices = {}
+			local function notify()
+				if not ctx.presenter then
+					return
+				end
+				table.insert(
+					notices,
+					ctx.presenter.presentToast(
+						-- the toast owns its notice
+						function()
+							return UI.VStack("SupplyNotice")({
+								surface = "raised",
+								padding = "m",
+								width = UI.fill(),
+								UI.Text({ text = "Supplies delivered", textSize = "label" }),
+							})
+						end,
+						{ key = "hud-supplies", duration = 4 }
+					)
 				)
-			)
-		end
-		scope:own(function()
-			for _, notice in notices do
-				notice.dismiss()
 			end
-		end)
-		local hudActions = Facet.View.Menu({
-			id = "HudActions",
-			trigger = roundButton("R1", COPY.round1, "menu", "compact"),
-			sizeClass = env:get("sizeClass"),
-			interactionClasses = env:get("interactionClasses"),
-			items = {
-				{
-					id = "damage",
-					label = "Take damage",
-					onSelect = function()
-						health:set(math.max(0, health:get() - 0.25))
-					end,
+			Compose.cleanup(function()
+				for _, notice in notices do
+					notice.dismiss()
+				end
+			end)
+			local hudActions = UI.Menu("HudActions")({
+				trigger = roundButton("R1", COPY.round1, "menu", "compact"),
+				sizeClass = env:get("sizeClass"),
+				interactionClasses = env:get("interactionClasses"),
+				items = {
+					{
+						id = "damage",
+						label = "Take damage",
+						onSelect = function()
+							health:set(math.max(0, health:peek() - 0.25))
+						end,
+					},
+					{
+						id = "heal",
+						label = "Restore health",
+						onSelect = function()
+							health:set(1)
+						end,
+					},
+					{ id = "notice", label = "Show notification", onSelect = notify },
+					{ id = "close", label = "Close", onSelect = function() end },
 				},
-				{
-					id = "heal",
-					label = "Restore health",
-					onSelect = function()
-						health:set(1)
-					end,
-				},
-				{ id = "notice", label = "Show notification", onSelect = notify },
-				{ id = "close", label = "Close", onSelect = function() end },
-			},
-		})
+			})
 
-		-- ---- the weapon rail -------------------------------------------------
-		local function weaponChip(id: string, name: string, ammo: string): any
-			return glass(
-				id,
-				"control",
-				UI.HStack({
-					id = id .. "Row",
-					gap = "s",
-					align = "center",
+			-- ---- the weapon rail -------------------------------------------------
+			local function weaponChip(id: string, name: string, ammo: string): any
+				return glass(
+					id,
+					"control",
+					UI.HStack(id .. "Row")({
+						gap = "s",
+						align = "center",
 
-					UI.Text({ id = id .. "Name", text = name, textSize = "caption", shrinkWeight = 1 }),
-					UI.Text({
-						id = id .. "Ammo",
-						text = ammo,
-						textSize = "caption",
-						surface = "badge",
-						padding = { top = 1, right = 5, bottom = 1, left = 5 },
+						UI.Text(id .. "Name")({ text = name, textSize = "caption", shrinkWeight = 1 }),
+						UI.Text(id .. "Ammo")({
+							text = ammo,
+							textSize = "caption",
+							surface = "badge",
+							padding = { top = 1, right = 5, bottom = 1, left = 5 },
+						}),
 					}),
-				}),
-				{ top = 4, right = 8, bottom = 4, left = 8 }
-			)
-		end
+					{ top = 4, right = 8, bottom = 4, left = 8 }
+				)
+			end
 
-		--[[ ── EVERY ZONE'S RICHEST FORM, BUILT ONCE AND NAMED ────────────────────
+			--[[ ── EVERY ZONE'S RICHEST FORM, BUILT ONCE AND NAMED ────────────────────
 			(director device review 2026-08-16, second finding: *"I'd expect when I
 			press on 'win a round' to see the same contents I see in landscape when it's
 			expanded."*)
@@ -1243,57 +1232,57 @@ return {
 			chip — so the route reached a different, lesser thing than the form it was
 			disclosing, and the two copies could drift apart with nothing to notice.
 
-			ONE OBJECT, NOT TWO EQUAL ONES, is what makes drift impossible rather than
-			merely unlikely: there is no second construction to keep in step, and a zone
-			whose rich form gains a row gains it on the route in the same edit. The same
-			blueprint standing at two PATHS is the idiom `TasksOne` already used for
-			`taskBars[1]` — a blueprint is a frozen descriptor and its identity in the
-			tree is its path, so mounting one twice is two nodes, not one shared node.
+			ONE COMPONENT, NOT TWO EQUAL ONES, is what makes drift impossible rather
+			than merely unlikely: each rich form is a function, the HUD and the route
+			both call it, and a zone whose rich form gains a row gains it on the route
+			in the same edit. Every call builds a fresh node at its own path.
 
-			The bars are the live `newProgressView` blueprints, so the disclosed bar
-			reads the same signal the HUD's does and cannot show a stale figure. ]]
-		local clockStack = UI.HStack({
-			id = "ClockStack",
-			gap = "tight",
-			align = "center",
-
-			pill("ScoreHome", COPY.scoreHome, "numeral"),
-			glass(
-				"TimerPod",
-				"pill",
-				UI.HStack({
-					id = "TimerRow",
+			The bars read the same cells the HUD's do, so a disclosed bar cannot show
+			a stale figure. ]]
+			local function clockStack(): any
+				return UI.HStack("ClockStack")({
 					gap = "tight",
 					align = "center",
 
-					-- THE RING NEEDS A BOX, for the reason the health bar does one
-					-- zone over: `newProgressView`'s row is `fill` on purpose, so
-					-- inside a HUGGING pod it measures as nothing and the ring inside
-					-- it overflows by exactly its own diameter (measured: "content
-					-- overflows this hstack by 24px"). The box is the THEME's ring
-					-- metric, so a package that draws a 44px ring gets a 44px box and
-					-- this fixture never learns a number.
-					UI.HStack({
-						id = "TimerRingBox",
-						width = { type = "fixed", px = "controls.progress.circularSize" },
-						timerRing.blueprint,
-					}),
-					UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
-				}),
-				{ top = 4, right = 12, bottom = 4, left = 12 }
-			),
-			pill("ScoreAway", COPY.scoreAway, "numeral"),
-		})
-		local healthPod = glass(
-			"HealthPod",
-			"pill",
-			UI.HStack({
-				id = "HealthRow",
-				gap = "s",
-				align = "center",
+					pill("ScoreHome", COPY.scoreHome, "numeral"),
+					glass(
+						"TimerPod",
+						"pill",
+						UI.HStack("TimerRow")({
+							gap = "tight",
+							align = "center",
 
-				UI.Text({ id = "HealthNum", text = healthText, textSize = "numeral" }),
-				--[[ THE BAR NEEDS A BOX, and this pod HUGS.
+							-- THE RING NEEDS A BOX, for the reason the health bar does one
+							-- zone over: `newProgressView`'s row is `fill` on purpose, so
+							-- inside a HUGGING pod it measures as nothing and the ring inside
+							-- it overflows by exactly its own diameter (measured: "content
+							-- overflows this hstack by 24px"). The box is the THEME's ring
+							-- metric, so a package that draws a 44px ring gets a 44px box and
+							-- this fixture never learns a number.
+							UI.HStack("TimerRingBox")({
+								width = { type = "fixed", px = "controls.progress.circularSize" },
+								UI.ProgressView("TimerRing")({
+									value = roundLeft,
+									presentation = "circular",
+								}),
+							}),
+							UI.Text("TimerText")({ text = COPY.timer, textSize = "numeral" }),
+						}),
+						{ top = 4, right = 12, bottom = 4, left = 12 }
+					),
+					pill("ScoreAway", COPY.scoreAway, "numeral"),
+				})
+			end
+			local function healthPod(): any
+				return glass(
+					"HealthPod",
+					"pill",
+					UI.HStack("HealthRow")({
+						gap = "s",
+						align = "center",
+
+						UI.Text("HealthNum")({ text = healthText, textSize = "numeral" }),
+						--[[ THE BAR NEEDS A BOX, and this pod HUGS.
 						`newProgressView`'s row is `fill` by construction — a bar spans
 						whatever it is given — so inside a hugging pod it measures as
 						nothing and vanishes.
@@ -1308,37 +1297,50 @@ return {
 						— and inside a DROPPED region it costs nothing, because the adapter
 						writes `Visible = false` down the whole subtree (proved in
 						tests/hud_composition.spec). ]]
-				UI.HStack({
-					id = "HealthBarBox",
-					width = { type = "fixed", px = 96 },
-					healthBar.blueprint,
-				}),
-			}),
-			{ top = 4, right = 12, bottom = 4, left = 12 }
-		)
-		local railTall = UI.VStack({
-			id = "RailTall",
-			gap = "xs",
-			align = "end",
+						UI.HStack("HealthBarBox")({
+							width = { type = "fixed", px = 96 },
+							UI.ProgressView("HealthBar")({
+								value = health,
+								segments = 4,
+								trail = if ctx.presenter then { delay = 0.3, duration = 0.35 } else nil,
+								motionClock = if ctx.presenter then ctx.presenter.motionClock else nil,
+							}),
+						}),
+					}),
+					{ top = 4, right = 12, bottom = 4, left = 12 }
+				)
+			end
+			local function railTall(): any
+				return UI.VStack("RailTall")({
+					gap = "xs",
+					align = "end",
 
-			weaponChip("W1", COPY.weapon1, COPY.ammo1),
-			weaponChip("W2", COPY.weapon2, COPY.ammo2),
-			weaponChip("W3", COPY.weapon3, COPY.ammo3),
-		})
-		local actionsCol = UI.VStack({
-			id = "ActionsCol",
-			gap = "s",
-			align = "end",
+					weaponChip("W1", COPY.weapon1, COPY.ammo1),
+					weaponChip("W2", COPY.weapon2, COPY.ammo2),
+					weaponChip("W3", COPY.weapon3, COPY.ammo3),
+				})
+			end
+			local function actionsCol(): any
+				return UI.VStack("ActionsCol")({
+					gap = "s",
+					align = "end",
 
-			roundButton("A1", COPY.action1, "more", "large"),
-			roundButton("A2", COPY.action2, "menu", "large"),
-			roundButton("A3", COPY.action3, "checkmark", "large"),
-		})
-		local feedLine = UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" })
-		local readoutText = UI.Text({ id = "ReadoutText", text = COPY.readout, textSize = "caption" })
-		local weaponText = UI.Text({ id = "WeaponText", text = COPY.weaponName, textSize = "caption" })
+					roundButton("A1", COPY.action1, "more", "large"),
+					roundButton("A2", COPY.action2, "menu", "large"),
+					roundButton("A3", COPY.action3, "checkmark", "large"),
+				})
+			end
+			local function feedLine(): any
+				return UI.Text("FeedLine")({ text = COPY.feed, textSize = "caption" })
+			end
+			local function readoutText(): any
+				return UI.Text("ReadoutText")({ text = COPY.readout, textSize = "caption" })
+			end
+			local function weaponText(): any
+				return UI.Text("WeaponText")({ text = COPY.weaponName, textSize = "caption" })
+			end
 
-		--[[ ── THE OVERFLOW SINK (D7.3) ─────────────────────────────────────────
+			--[[ ── THE OVERFLOW SINK (D7.3) ─────────────────────────────────────────
 			DROPPING STOPS MEANING DELETING. Every zone that is not showing everything
 			it has is listed here, and the list is the FRAMEWORK's
 			(`resolution.unshown`, D7.1) rather than this fixture's own re-derivation
@@ -1360,7 +1362,7 @@ return {
 			the one control that recovers everything else was the one control nobody
 			could reach. It now lives in a rank-1 region with ONE form, so there is no
 			losing form for it to sit in and no rank below it to be dropped for. ]]
-		--[[ ...AND WHAT THE ROUTE REACHES IS THE FORM ITSELF (director round 2,
+			--[[ ...AND WHAT THE ROUTE REACHES IS THE FORM ITSELF (director round 2,
 			2026-08-16). Each entry is the zone's RICHEST form, by object identity —
 			the same blueprints the HUD mounts, hoisted above. It used to be a table
 			of hand-written strings, and that is the defect this closes: a route that
@@ -1371,62 +1373,61 @@ return {
 			IS a bare figure beside a bar on a HUD where its position says what it is,
 			and on a panel of eight zones it needs a name. That is the one addition;
 			nothing is subtracted anywhere. ]]
-		local RECOVERED: { [string]: () -> { any } } = {
-			Tasks = function()
-				return {
-					UI.Text({ id = "RecoveredTasksTitle", text = COPY.tasksTitle, textSize = "label" }),
-					taskRows[1],
-					taskRows[2],
-					taskRows[3],
-				}
-			end,
-			Health = function()
-				return {
-					UI.Text({
-						id = "RecoveredHealthLabel",
-						text = COPY.healthLabel,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					healthPod,
-				}
-			end,
-			-- the SCORES, which is the case no re-rank could have fixed: the Clock is
-			-- in the centre lane and the readout it is compared against is in the
-			-- right one, and rule 3 only ever spends the currency of the lane that
-			-- does not fit
-			Clock = function()
-				return { clockStack }
-			end,
-			Rail = function()
-				return { railTall }
-			end,
-			Actions = function()
-				return { actionsCol }
-			end,
-			Feed = function()
-				return { feedLine }
-			end,
-			Readout = function()
-				return { readoutText }
-			end,
-			Weapon = function()
-				return { weaponText }
-			end,
-		}
+			local RECOVERED: { [string]: () -> { any } } = {
+				Tasks = function()
+					return {
+						UI.Text("RecoveredTasksTitle")({ text = COPY.tasksTitle, textSize = "label" }),
+						taskRow(1),
+						taskRow(2),
+						taskRow(3),
+					}
+				end,
+				Health = function()
+					return {
+						UI.Text("RecoveredHealthLabel")({
+							text = COPY.healthLabel,
+							textSize = "caption",
+							role = "secondary",
+						}),
+						healthPod(),
+					}
+				end,
+				-- the SCORES, which is the case no re-rank could have fixed: the Clock is
+				-- in the centre lane and the readout it is compared against is in the
+				-- right one, and rule 3 only ever spends the currency of the lane that
+				-- does not fit
+				Clock = function()
+					return { clockStack() }
+				end,
+				Rail = function()
+					return { railTall() }
+				end,
+				Actions = function()
+					return { actionsCol() }
+				end,
+				Feed = function()
+					return { feedLine() }
+				end,
+				Readout = function()
+					return { readoutText() }
+				end,
+				Weapon = function()
+					return { weaponText() }
+				end,
+			}
 
-		-- the last solve's resolution, through the runner's own accessor (the same
-		-- one `composition` uses) — nil before anything has solved
-		local function state(): any
-			return if ctx.composition ~= nil then ctx.composition("/HudScreen/Hud") else nil
-		end
+			-- the last solve's resolution, through the runner's own accessor (the same
+			-- one `composition` uses) — nil before anything has solved
+			local function state(): any
+				return if ctx.composition ~= nil then ctx.composition("/HudScreen/Hud") else nil
+			end
 
-		--[[ WHAT IS HIDDEN, FROM THE FRAMEWORK'S OWN LIST. The ids on a resolution
+			--[[ WHAT IS HIDDEN, FROM THE FRAMEWORK'S OWN LIST. The ids on a resolution
 			are NODE PATHS (`/HudScreen/Hud/Tasks`), because that is what addresses a
 			rect, a form and a focus ring; the leaf is what this fixture named its
 			zones. Splitting it here rather than storing paths in `RECOVERED` keeps
 			the recovery table readable and independent of where the HUD is mounted. ]]
-		--[[ ...AND WHETHER THE ZONE CAN SHOW IT ITSELF (wave REVEAL). `unshown` says
+			--[[ ...AND WHETHER THE ZONE CAN SHOW IT ITSELF (wave REVEAL). `unshown` says
 			WHAT is missing and where it went; the region rows of the same dump say
 			whether the zone standing on screen can DISCLOSE it where it stands. The
 			two are joined here, once, by the path they are both keyed on — a census
@@ -1437,49 +1438,51 @@ return {
 			that a SIMPLIFIED zone gets a row that opens the zone's own plate, while a
 			DROPPED zone — which has no form left on screen to disclose anything —
 			still has its content carried here. ]]
-		local function hiddenNow(): { { id: string, path: string, reason: string, route: string, expandable: boolean } }
-			local dump = state()
-			local expandable: { [string]: boolean } = {}
-			for _, row in (if dump ~= nil then dump.regions else nil) or {} do
-				expandable[row.id] = row.expandable == true
+			local function hiddenNow(): { { id: string, path: string, reason: string, route: string, expandable: boolean } }
+				local dump = state()
+				local expandable: { [string]: boolean } = {}
+				for _, row in (if dump ~= nil then dump.regions else nil) or {} do
+					expandable[row.id] = row.expandable == true
+				end
+				local out = {}
+				for _, entry in (if dump ~= nil then dump.unshown else nil) or {} do
+					local leaf = string.match(entry.id, "([^/]+)$") or entry.id
+					table.insert(out, {
+						id = leaf,
+						path = entry.id,
+						reason = entry.reason,
+						route = entry.route,
+						expandable = expandable[entry.id] == true,
+					})
+				end
+				return out
 			end
-			local out = {}
-			for _, entry in (if dump ~= nil then dump.unshown else nil) or {} do
-				local leaf = string.match(entry.id, "([^/]+)$") or entry.id
-				table.insert(out, {
-					id = leaf,
-					path = entry.id,
-					reason = entry.reason,
-					route = entry.route,
-					expandable = expandable[entry.id] == true,
-				})
+
+			-- the open panel's close, or nil while it is shut
+			local overflowHandle: (() -> ())? = nil
+			local overflowOpen = Compose.cell(false)
+
+			local function closeOverflow()
+				if overflowHandle ~= nil then
+					overflowHandle()
+				end
+				overflowHandle = nil
+				overflowOpen:set(false)
 			end
-			return out
-		end
 
-		local overflowHandle: any = nil
-		local overflowOpen = scope:own(core:signal(false))
-
-		local function closeOverflow()
-			if overflowHandle ~= nil and ctx.presenter ~= nil and ctx.presenter.dismiss ~= nil then
-				ctx.presenter.dismiss(overflowHandle)
-			end
-			overflowHandle = nil
-			overflowOpen:set(false)
-		end
-
-		local function overflowPanel(): any
-			local rows: { any } = {
-				UI.Text({ id = "OverflowTitle", text = COPY.overflowTitle, textSize = "label" }),
-				UI.Text({
-					id = "OverflowNote",
-					text = COPY.overflowNote,
-					textSize = "caption",
-					role = "secondary",
-				}),
-			}
-			local hidden = hiddenNow()
-			--[[ ...AND "NOTHING IS HIDDEN" MEANS NOTHING IS HIDDEN (fix round 1). The
+			local function overflowPanel(): any
+				local rows: { any } = {
+					gap = "tight",
+					width = UI.fill(),
+					UI.Text("OverflowTitle")({ text = COPY.overflowTitle, textSize = "label" }),
+					UI.Text("OverflowNote")({
+						text = COPY.overflowNote,
+						textSize = "caption",
+						role = "secondary",
+					}),
+				}
+				local hidden = hiddenNow()
+				--[[ ...AND "NOTHING IS HIDDEN" MEANS NOTHING IS HIDDEN (fix round 1). The
 				line used to print whenever `unshown` was empty, and `unshown` excludes a
 				`recover = "none"` route by construction — so a zone standing on a REDUCED
 				form could be on the screen while this panel said every zone was showing
@@ -1489,27 +1492,26 @@ return {
 				(a loop over `dump.regions` checking `activeForm > 1` by hand, the exact
 				census this field was built to replace) — and the empty line waits for both
 				to be silent. ]]
-			local steppedDown = 0
-			do
-				local dump = state()
-				steppedDown = if dump ~= nil then #(dump.simplified or {}) else 0
-			end
-			if #hidden == 0 and steppedDown == 0 then
-				-- ...AND THE EMPTY STATE IS NOT AN EMPTY PANEL. A sink that opens onto
-				-- nothing reads as broken; a sink that says "nothing is hidden" is the
-				-- demonstration finishing its own sentence.
-				table.insert(
-					rows,
-					UI.Text({
-						id = "OverflowEmpty",
-						text = COPY.overflowEmpty,
-						textSize = "caption",
-						role = "secondary",
-					})
-				)
-			end
-			for _, entry in hidden do
-				--[[ A SIMPLIFIED ZONE IS A ROW, NOT A COPY (wave REVEAL). The zone is
+				local steppedDown = 0
+				do
+					local dump = state()
+					steppedDown = if dump ~= nil then #(dump.simplified or {}) else 0
+				end
+				if #hidden == 0 and steppedDown == 0 then
+					-- ...AND THE EMPTY STATE IS NOT AN EMPTY PANEL. A sink that opens onto
+					-- nothing reads as broken; a sink that says "nothing is hidden" is the
+					-- demonstration finishing its own sentence.
+					table.insert(
+						rows,
+						UI.Text("OverflowEmpty")({
+							text = COPY.overflowEmpty,
+							textSize = "caption",
+							role = "secondary",
+						})
+					)
+				end
+				for _, entry in hidden do
+					--[[ A SIMPLIFIED ZONE IS A ROW, NOT A COPY (wave REVEAL). The zone is
 					standing on screen in a poorer form and the framework has already put an
 					affordance on it, so this sink's job is to SAY SO and to open that same
 					plate — `presenter.expand(path)` reaches the region's own contribution by
@@ -1520,120 +1522,113 @@ return {
 					A DROPPED zone still gets its content inline, and that asymmetry is the
 					whole point: dropped means there is no form left on screen to disclose
 					anything FROM. ]]
-				if entry.expandable then
-					table.insert(
-						rows,
-						UI.Button({
-							id = `OverflowExpand{entry.id}`,
-							label = `{entry.id} — {COPY.overflowSimplified}`,
-							surface = "chip",
-							textSize = "caption",
-							width = UI.fill(),
-							onActivate = function()
-								local path = entry.path
-								closeOverflow()
-								if ctx.presenter ~= nil and ctx.presenter.expand ~= nil then
-									ctx.presenter.expand(path)
-								end
-							end,
-						})
-					)
-					continue
-				end
-				local build = RECOVERED[entry.id]
-				if build == nil then
-					continue
-				end
-				--[[ THE FORM ITSELF, not a description of it. Every child here is a
+					if entry.expandable then
+						table.insert(
+							rows,
+							UI.Button(`OverflowExpand{entry.id}`)({
+								label = `{entry.id} — {COPY.overflowSimplified}`,
+								surface = "chip",
+								textSize = "caption",
+								width = UI.fill(),
+								onActivate = function()
+									local path = entry.path
+									closeOverflow()
+									if ctx.presenter ~= nil and ctx.presenter.expand ~= nil then
+										ctx.presenter.expand(path)
+									end
+								end,
+							})
+						)
+						continue
+					end
+					local build = RECOVERED[entry.id]
+					if build == nil then
+						continue
+					end
+					--[[ THE FORM ITSELF, not a description of it. Every child here is a
 					blueprint the HUD mounts too, so the panel cannot show less than the
 					zone it is disclosing and cannot drift from it. The rows are `fill`
 					width and their labels already shrink (O-23 / `lineLimit = 1`), so a
 					240px plate holds them at 1.4x exactly as a HUD lane does. ]]
-				for _, view in build() do
-					table.insert(rows, view)
+					for _, view in build() do
+						table.insert(rows, view)
+					end
 				end
-			end
-			table.insert(
-				rows,
-				UI.Button({
-					id = "OverflowClose",
-					label = COPY.overflowClose,
-					surface = "chip",
-					onActivate = function()
-						closeOverflow()
-					end,
-				})
-			)
-			--[[ A TAP AWAY CLOSES IT, through the shipped contribution seam rather than
+				table.insert(
+					rows,
+					UI.Button("OverflowClose")({
+						label = COPY.overflowClose,
+						surface = "chip",
+						onActivate = function()
+							closeOverflow()
+						end,
+					})
+				)
+				--[[ A TAP AWAY CLOSES IT, through the shipped contribution seam rather than
 				a presenter option: `outsideDismiss.dismiss` is THIS fixture's own
 				`closeOverflow`, so the handle, the signal and the screen can never
 				disagree about whether the sink is open. `consume = false` is the
 				row-actions mode — the tap still reaches whatever it landed on — because
 				a HUD's own controls stay live while a disclosure plate is up. ]]
-			return Facet.contribution.attach(
-				glass(
-					"OverflowPanel",
-					"panel",
-					UI.VStack({
-						id = "OverflowBody",
-						gap = "tight",
-						width = UI.fill(),
-						children = rows,
-					}),
-					12,
-					-- a fixed panel width is an APP-level decision (a plate a thumb can
-					-- read without covering the screen), which is the kind of literal an
-					-- app is allowed and a framework control is not — and it is what gives
-					-- every line above something to wrap inside
-					{ width = { type = "fixed", px = 240 } }
-				),
-				{
-					outsideDismiss = {
-						active = scope:own(core:memo(function(use)
-							return use(overflowOpen) == true
-						end)),
-						dismiss = function()
-							closeOverflow()
-						end,
-						consume = false,
+				return Facet.contribution.attach(
+					glass(
+						"OverflowPanel",
+						"panel",
+						UI.VStack("OverflowBody")(rows),
+						12,
+						-- a fixed panel width is an APP-level decision (a plate a thumb can
+						-- read without covering the screen), which is the kind of literal an
+						-- app is allowed and a framework control is not — and it is what gives
+						-- every line above something to wrap inside
+						{ width = { type = "fixed", px = 240 } }
+					),
+					{
+						outsideDismiss = {
+							active = Compose.formula(function(use)
+								return use(overflowOpen) == true
+							end),
+							dismiss = function()
+								closeOverflow()
+							end,
+							consume = false,
+						},
+					}
+				)
+			end
+
+			local function openOverflow()
+				if overflowHandle ~= nil then
+					closeOverflow()
+					return
+				end
+				if ctx.app == nil then
+					return
+				end
+				overflowHandle = ctx.app.presentAnchored(overflowPanel, {
+					id = "HudOverflow",
+					anchor = {
+						source = { path = "/HudScreen/Hud/Rounds/RoundStrip/R3" },
+						edge = "bottom",
+						align = "start",
+						gap = "s",
+						tail = true,
 					},
-				}
-			)
-		end
-
-		local function openOverflow()
-			if overflowHandle ~= nil then
-				closeOverflow()
-				return
+					-- EDGE TO EDGE because an anchored surface is placed in WINDOW space and
+					-- anything else is refused; the placement honours the safe area itself
+					rootPolicy = "edgeToEdge",
+				})
+				overflowOpen:set(true)
 			end
-			if ctx.presenter == nil or ctx.presenter.presentAnchored == nil then
-				return
-			end
-			overflowHandle = ctx.presenter.presentAnchored(overflowPanel(), {
-				id = "HudOverflow",
-				anchor = {
-					source = { path = "/HudScreen/Hud/Rounds/RoundStrip/R3" },
-					edge = "bottom",
-					align = "start",
-					gap = "s",
-					tail = true,
-				},
-				-- EDGE TO EDGE because an anchored surface is placed in WINDOW space and
-				-- anything else is refused; the placement honours the safe area itself
-				rootPolicy = "edgeToEdge",
-			})
-			overflowOpen:set(true)
-		end
 
-		-- PROBE-EXEMPT BEGIN: the paint probe's own surface — INSTRUMENT, NOT EXAMPLE.
-		-- Roughly 800 of this file's lines are the device-defect instrument described
-		-- in the banner below, and they live inside the exemplar's `build` because the
-		-- thing they watch is this exemplar. Nothing between here and `raiseProbe()` is
-		-- a pattern to copy: it reads the ENGINE side through `adapter` seams on
-		-- purpose, spends measured pixels against this HUD's own rail on purpose, and
-		-- exists to disagree with the framework's model. The teaching half of this file
-		-- is everything OUTSIDE this region.
-		--[[ ══ THE PAINT PROBE, ON A SURFACE OF ITS OWN (NM-H4a) ══════════════
+			-- PROBE-EXEMPT BEGIN: the paint probe's own surface — INSTRUMENT, NOT EXAMPLE.
+			-- Roughly 800 of this file's lines are the device-defect instrument described
+			-- in the banner below, and they live inside the exemplar's `build` because the
+			-- thing they watch is this exemplar. Nothing between here and `raiseProbe()` is
+			-- a pattern to copy: it reads the ENGINE side through `adapter` seams on
+			-- purpose, spends measured pixels against this HUD's own rail on purpose, and
+			-- exists to disagree with the framework's model. The teaching half of this file
+			-- is everything OUTSIDE this region.
+			--[[ ══ THE PAINT PROBE, ON A SURFACE OF ITS OWN (NM-H4a) ══════════════
 
 			WHAT IT IS FOR. A device-only defect no instrument in this repository can
 			see: on a real phone, opening this demo in portrait, toggling the URL bar on
@@ -1674,23 +1669,23 @@ return {
 			Pressing `Hold` off re-arms it. That ordering matters — a manual freeze
 			captures the state AFTER the press, and a press on this fixture's own screen
 			re-solves the very surface under diagnosis. ]]
-		local probeHeld = scope:own(core:signal(false))
-		--[[ AN UPVALUE AND NOT A FIELD ON `probeReport`, because that table is
+			local probeHeld = Compose.cell(false)
+			--[[ AN UPVALUE AND NOT A FIELD ON `probeReport`, because that table is
 			REPLACED wholesale on every sample — a flag written onto it is gone by the
 			next one, which is how this rule silently did nothing the first time it was
 			written. ]]
-		local probeEverHealthy = false
-		local probeHead = scope:own(core:signal(COPY.probeTitle))
-		--[[ THE PLATE COLLAPSES, because at full height there is nowhere on this HUD it
+			local probeEverHealthy = false
+			local probeHead = Compose.cell(COPY.probeTitle)
+			--[[ THE PLATE COLLAPSES, because at full height there is nowhere on this HUD it
 			does not cover something (see the note beside `ProbeSlot`). Closed it is the
 			head and the counts — the verdict a reader needs to know something is wrong.
 			Open it is every line, which is a thing the reader asked for. ]]
-		local probeExpanded = scope:own(core:signal(false))
-		local probeHeadLabel = scope:own(core:memo(function(use)
-			return `{use(probeHead)}{if use(probeExpanded) then " -" else " +"}`
-		end))
-		local probeBody = scope:own(core:signal(COPY.probeWaiting))
-		--[[ ONE TEXT NODE PER LINE, AND THAT IS THE ANSWER TO "WHY IS IT CUT OFF"
+			local probeExpanded = Compose.cell(false)
+			local probeHeadLabel = Compose.formula(function(use)
+				return `{use(probeHead)}{if use(probeExpanded) then " -" else " +"}`
+			end)
+			local probeBody = Compose.cell(COPY.probeWaiting)
+			--[[ ONE TEXT NODE PER LINE, AND THAT IS THE ANSWER TO "WHY IS IT CUT OFF"
 			(director, 2026-08-17: *"why isn't facet handling the overlap in the popup
 			so that it's not cutoff right?"*).
 
@@ -1714,112 +1709,106 @@ return {
 			must not churn the tree it is diagnosing, and the line count is bounded by
 			construction (`probeSampleBody` emits at most six). An absent line is a
 			`When` that mounts nothing, so an empty slot costs no height and no node. ]]
-		--[[ A PATH'S LAST TWO SEGMENTS, plus whatever suffix the verdict attached
+			--[[ A PATH'S LAST TWO SEGMENTS, plus whatever suffix the verdict attached
 			(`@dx,dy`, `off screen`). Every node here lives under `/HudScreen/Hud/`, so
 			the head is shared by all of them and the tail is the only part that names
 			one. Spending 208px on the shared prefix is how four photographs arrived
 			truncated at the answer. ]]
-		local function probeTail(path: string): string
-			local body, suffix = string.match(path, "^(%S+)(%s.*)$")
-			local p = body or path
-			local segs = string.split(p, "/")
-			local out = if #segs >= 2 then `…/{segs[#segs - 1]}/{segs[#segs]}` else p
-			return out .. (suffix or "")
-		end
+			local function probeTail(path: string): string
+				local body, suffix = string.match(path, "^(%S+)(%s.*)$")
+				local p = body or path
+				local segs = string.split(p, "/")
+				local out = if #segs >= 2 then `…/{segs[#segs - 1]}/{segs[#segs]}` else p
+				return out .. (suffix or "")
+			end
 
-		-- head aside, the plate can emit: wanted, skipped, the NOT PAINTED count, two
-		-- culprits, a culprit overflow, the capped roll-call, and the first painted row
-		local PROBE_LINE_SLOTS = 9
-		--[[ CLOSED, THE PLATE KEEPS THE LINES A READER NEEDS TO KNOW SOMETHING IS
+			-- head aside, the plate can emit: wanted, skipped, the NOT PAINTED count, two
+			-- culprits, a culprit overflow, the capped roll-call, and the first painted row
+			local PROBE_LINE_SLOTS = 9
+			--[[ CLOSED, THE PLATE KEEPS THE LINES A READER NEEDS TO KNOW SOMETHING IS
 			WRONG: the denominator it watched and the count that failed. `probeBody`
 			always carries every line — `report().paintProbe.plate` is the full readout
 			for a scripted driver either way — and this decides only what the SURFACE
 			shows. ]]
-		-- head + the denominator + whatever anomaly line follows it. A closed plate
-		-- that showed only counts is what let `14 of 14 painting` be the whole story.
-		local PROBE_CLOSED_LINES = 3
-		local probeLine: { any } = {}
-		for i = 1, PROBE_LINE_SLOTS do
-			probeLine[i] = scope:own(core:memo(function(use)
-				if i > PROBE_CLOSED_LINES and not use(probeExpanded) then
-					return nil
-				end
-				local body = use(probeBody) :: string
-				return string.split(body, "\n")[i]
-			end))
-		end
-		-- the switch says which way it goes, because a button labelled with its own
-		-- state reads as a claim about now rather than as an action
-		local probeButtonLabel = scope:own(core:memo(function(use)
-			return if use(probeHeld) then COPY.probeArm else COPY.probeFreeze
-		end))
-		-- THE HANDLE THIS FIXTURE IS PRESENTED ON, which the fixture does not own:
-		-- the HOST presents `screen` and writes `handle` back onto the table returned
-		-- below (`scenarios/runner.luau`, the showcase host, and the sweep all do).
-		-- Forward-declared and read LAZILY for that reason — `row_actions` reaches its
-		-- own controller the same way.
-		local result: any
-		local probeReport: any = {
-			lost = {},
-			unmeasured = {},
-			skipped = {},
-			mismatched = {},
-			firstPainted = nil,
-			hiddenUnder = nil,
-			painting = 0,
-			wanted = 0,
-			declared = #PROBE_ROWS,
-			expected = 0,
-			latches = 0,
-			samples = 0,
-			engine = false,
-			solves = 0,
-			viewport = "",
-			head = COPY.probeTitle,
-			plate = COPY.probeWaiting,
-		}
+			-- head + the denominator + whatever anomaly line follows it. A closed plate
+			-- that showed only counts is what let `14 of 14 painting` be the whole story.
+			local PROBE_CLOSED_LINES = 3
+			local probeLine: { any } = {}
+			for i = 1, PROBE_LINE_SLOTS do
+				probeLine[i] = Compose.formula(function(use)
+					if i > PROBE_CLOSED_LINES and not use(probeExpanded) then
+						return nil
+					end
+					local body = use(probeBody) :: string
+					return string.split(body, "\n")[i]
+				end)
+			end
+			-- the switch says which way it goes, because a button labelled with its own
+			-- state reads as a claim about now rather than as an action
+			local probeButtonLabel = Compose.formula(function(use)
+				return if use(probeHeld) then COPY.probeArm else COPY.probeFreeze
+			end)
+			local probeReport: any = {
+				lost = {},
+				unmeasured = {},
+				skipped = {},
+				mismatched = {},
+				firstPainted = nil,
+				hiddenUnder = nil,
+				painting = 0,
+				wanted = 0,
+				declared = #PROBE_ROWS,
+				expected = 0,
+				latches = 0,
+				samples = 0,
+				engine = false,
+				solves = 0,
+				viewport = "",
+				head = COPY.probeTitle,
+				plate = COPY.probeWaiting,
+			}
 
-		--[[ RE-ENTRANCY, because this now runs from TWO clocks (below) and it writes
+			--[[ RE-ENTRANCY, because this now runs from TWO clocks (below) and it writes
 			the signals that paint its own surface. A sample taken inside a sample
 			would read the same frame twice and could recur. ]]
-		local probeSampling = false
-		--[[ THE TWO-SAMPLE RULE FOR POSITION (see `enginePaints`). `driftHeld` is what
+			local probeSampling = false
+			--[[ THE TWO-SAMPLE RULE FOR POSITION (see `enginePaints`). `driftHeld` is what
 			the LAST CONFIRMING sample saw drifting; `driftNow` is what this one sees. A
 			path in both has stood still through a whole tick of the clock that belongs
 			to neither surface, which no frame of engine lag can do. Only a confirming
 			sample rolls one into the other, so two solves in the same frame cannot
 			promote each other. ]]
-		local driftHeld: { [string]: string } = {}
-		local driftNow: { [string]: string } = {}
-		local function probeSampleBody(confirming: boolean)
-			table.clear(driftNow)
-			local handle = if result ~= nil then result.handle else nil
-			local ctrl = if handle ~= nil then handle.controller else nil
-			if ctrl == nil or ctrl.screenRectOf == nil or ctrl.hiddenRoots == nil then
-				return
-			end
-			--[[ THE MODEL SIDE: what the framework BELIEVES it is painting. A node
+			local driftHeld: { [string]: string } = {}
+			local driftNow: { [string]: string } = {}
+			local function probeSampleBody(confirming: boolean)
+				table.clear(driftNow)
+				local handle = if result ~= nil then result.handle else nil
+				local ctrl = if handle ~= nil then handle.controller else nil
+				if ctrl == nil or ctrl.screenRectOf == nil or ctrl.hiddenRoots == nil then
+					return
+				end
+				--[[ THE MODEL SIDE: what the framework BELIEVES it is painting. A node
 				paints when it has a real solved rect and neither it nor any ancestor is
 				a hidden root — `hiddenRoots()` is documented as the ROOT set (the solver
 				marks candidate roots and the renderer carries the verdict down), so the
 				prefix walk here is how a caller consumes it. ]]
-			local hiddenRoots = ctrl.hiddenRoots()
-			local function modelPaints(path: string): boolean
-				local rect = ctrl.screenRectOf(path)
-				if rect == nil or rect.w < 1 or rect.h < 1 then
-					return false
-				end
-				if hiddenRoots[path] == true then
-					return false
-				end
-				for _, up in probeAncestors(path) do
-					if hiddenRoots[up] == true then
+				local hiddenRoots = ctrl.hiddenRoots()
+				local function modelPaints(path: string): boolean
+					local rect = ctrl.screenRectOf(path)
+					if rect == nil or rect.w < 1 or rect.h < 1 then
 						return false
 					end
+					if hiddenRoots[path] == true then
+						return false
+					end
+					for _, up in probeAncestors(path) do
+						if hiddenRoots[up] == true then
+							return false
+						end
+					end
+					return true
 				end
-				return true
-			end
-			--[[ THE ENGINE SIDE, through the host's own seam — the fixture never touches
+				--[[ THE ENGINE SIDE, through the host's own seam — the fixture never touches
 				an Instance.
 
 				IT IS TRI-STATE, AND THE FIRST CUT OF THIS PROBE WAS NOT. With no seam it
@@ -1844,15 +1833,15 @@ return {
 				healthy. The name it returns is the one thing worth typing into a bug
 				report — seven rows all lost UNDER ONE node is a different defect from
 				seven rows each hidden on their own. ]]
-			local geo = if ctx.geometry ~= nil then ctx.geometry(PROBE_QUERY) else nil
-			local answered = 0
-			if geo ~= nil then
-				for _ in geo do
-					answered += 1
+				local geo = if ctx.geometry ~= nil then ctx.geometry(PROBE_QUERY) else nil
+				local answered = 0
+				if geo ~= nil then
+					for _ in geo do
+						answered += 1
+					end
 				end
-			end
 
-			--[[ THE TWO SIDES ARE NOT IN THE SAME COORDINATE SPACE, AND THAT COST TWO
+				--[[ THE TWO SIDES ARE NOT IN THE SAME COORDINATE SPACE, AND THAT COST TWO
 				DEVICE ROUNDS (director, 2026-08-17: `@0,-58` on every row of a screen
 				that was WORKING).
 
@@ -1874,36 +1863,36 @@ return {
 
 				Refused below three measured rows: a mode over two samples is not a mode,
 				and a check that cannot calibrate must not accuse. ]]
-			local spaceDX, spaceDY = 0, 0
-			local spaceKnown = false
-			if geo ~= nil then
-				local tally: { [string]: number } = {}
-				local counted = 0
-				for path, own in geo do
-					local want = ctrl.screenRectOf(path)
-					if want ~= nil then
-						local key = `{math.floor(own.x - want.x + 0.5)}|{math.floor(own.y - want.y + 0.5)}`
-						tally[key] = (tally[key] or 0) + 1
-						counted += 1
+				local spaceDX, spaceDY = 0, 0
+				local spaceKnown = false
+				if geo ~= nil then
+					local tally: { [string]: number } = {}
+					local counted = 0
+					for path, own in geo do
+						local want = ctrl.screenRectOf(path)
+						if want ~= nil then
+							local key = `{math.floor(own.x - want.x + 0.5)}|{math.floor(own.y - want.y + 0.5)}`
+							tally[key] = (tally[key] or 0) + 1
+							counted += 1
+						end
+					end
+					local bestKey, bestN = nil, 0
+					for key, n in tally do
+						if n > bestN then
+							bestKey, bestN = key, n
+						end
+					end
+					if bestKey ~= nil and counted >= 3 then
+						local sx, sy = string.match(bestKey, "^(-?%d+)|(-?%d+)$")
+						spaceDX, spaceDY = tonumber(sx) or 0, tonumber(sy) or 0
+						spaceKnown = true
 					end
 				end
-				local bestKey, bestN = nil, 0
-				for key, n in tally do
-					if n > bestN then
-						bestKey, bestN = key, n
-					end
-				end
-				if bestKey ~= nil and counted >= 3 then
-					local sx, sy = string.match(bestKey, "^(-?%d+)|(-?%d+)$")
-					spaceDX, spaceDY = tonumber(sx) or 0, tonumber(sy) or 0
-					spaceKnown = true
-				end
-			end
-			local engineRead = geo ~= nil and answered > 0
+				local engineRead = geo ~= nil and answered > 0
 
-			local mismatched: { string } = {}
-			local culprits: { string } = {}
-			--[[ ...AND `Visible` IS NOT "PAINTING", which is the other half the first
+				local mismatched: { string } = {}
+				local culprits: { string } = {}
+				--[[ ...AND `Visible` IS NOT "PAINTING", which is the other half the first
 				cut collected and never read. The seam has always answered
 				`AbsoluteSize`; the verdict looked only at the paint bit. A node the
 				engine is drawing at zero pixels — a parked corpse still in the path
@@ -1918,54 +1907,54 @@ return {
 				never fires — so a disagreement is REPORTED, by name, and the row still
 				counts as painting. Zero pixels is the unambiguous half, and that one
 				is a loss. ]]
-			local function enginePaints(path: string): (boolean, string?)
-				local own = geo[path]
-				if own == nil then
-					-- every watched leaf is a non-elidable class, so "no Instance" here is
-					-- "not materialised", never "elided and fine"
-					return false, path
-				end
-				local chain = probeAncestors(path)
-				for i = #chain, 1, -1 do
-					local up = geo[chain[i]]
-					if up ~= nil then
-						-- a SURFACE ROOT is `ScreenGui.Enabled`, not `GuiObject.Visible`, and
-						-- every watched path is a GuiObject: without this a whole screen goes
-						-- dark with all fourteen rows still reporting `Visible = true`
-						if up.enabled == false then
-							return false, chain[i]
-						end
-						if up.visible == false then
-							return false, chain[i]
-						end
-						if up.groupAlpha ~= nil and up.groupAlpha >= 1 - 1e-6 then
-							return false, `{chain[i]} faded`
-						end
-						if up.clippedBy ~= nil then
-							return false, `{chain[i]} clipped by {up.clippedBy}`
+				local function enginePaints(path: string): (boolean, string?)
+					local own = geo[path]
+					if own == nil then
+						-- every watched leaf is a non-elidable class, so "no Instance" here is
+						-- "not materialised", never "elided and fine"
+						return false, path
+					end
+					local chain = probeAncestors(path)
+					for i = #chain, 1, -1 do
+						local up = geo[chain[i]]
+						if up ~= nil then
+							-- a SURFACE ROOT is `ScreenGui.Enabled`, not `GuiObject.Visible`, and
+							-- every watched path is a GuiObject: without this a whole screen goes
+							-- dark with all fourteen rows still reporting `Visible = true`
+							if up.enabled == false then
+								return false, chain[i]
+							end
+							if up.visible == false then
+								return false, chain[i]
+							end
+							if up.groupAlpha ~= nil and up.groupAlpha >= 1 - 1e-6 then
+								return false, `{chain[i]} faded`
+							end
+							if up.clippedBy ~= nil then
+								return false, `{chain[i]} clipped by {up.clippedBy}`
+							end
 						end
 					end
-				end
-				if own.enabled == false or own.visible == false then
-					return false, path
-				end
-				--[[ THE TWO WAYS A PERFECT RECT PAINTS NOTHING (`IMG_3759`, 2026-08-17:
+					if own.enabled == false or own.visible == false then
+						return false, path
+					end
+					--[[ THE TWO WAYS A PERFECT RECT PAINTS NOTHING (`IMG_3759`, 2026-08-17:
 					`14 of 14 painting` over a screen missing six zones, every rect, size,
 					`Visible` and `Enabled` correct). A `CanvasGroup` ancestor faded to
 					nothing renders its whole subtree into a buffer drawn at nothing; an
 					ancestor that CLIPS and does not contain this node simply never draws
 					it. Neither touches a single property this probe was reading. ]]
-				if own.groupAlpha ~= nil and own.groupAlpha >= 1 - 1e-6 then
-					return false, `{path} faded`
-				end
-				if own.clippedBy ~= nil then
-					return false, `{path} clipped by {own.clippedBy}`
-				end
-				if own.w < 1 or own.h < 1 then
-					return false, path
-				end
-				local want = ctrl.screenRectOf(path)
-				--[[ WHERE, NOT JUST HOW BIG (director, device, 2026-08-17: `a1.jpeg`).
+					if own.groupAlpha ~= nil and own.groupAlpha >= 1 - 1e-6 then
+						return false, `{path} faded`
+					end
+					if own.clippedBy ~= nil then
+						return false, `{path} clipped by {own.clippedBy}`
+					end
+					if own.w < 1 or own.h < 1 then
+						return false, path
+					end
+					local want = ctrl.screenRectOf(path)
+					--[[ WHERE, NOT JUST HOW BIG (director, device, 2026-08-17: `a1.jpeg`).
 					The plate read `14 of 14 painting` over a screen missing its whole left
 					column. This function had the engine's `x`/`y` in hand the entire time
 					and compared only `w`/`h` — so a node the engine draws at a STALE
@@ -1983,16 +1972,16 @@ return {
 					OFF THE VIEWPORT IS THE SAME DEFECT WEARING ITS WORST CASE, and it is
 					checked separately because a node can be exactly where the solver put it
 					while the solver's own box is off-screen. ]]
-				if want ~= nil then
-					if
-						(math.abs(own.w - want.w) > 1 or math.abs(own.h - want.h) > 1)
-						and table.find(mismatched, path) == nil
-					then
-						table.insert(mismatched, path)
-					end
-					local dx, dy = own.x - want.x - spaceDX, own.y - want.y - spaceDY
-					if spaceKnown and (math.abs(dx) > 2 or math.abs(dy) > 2) then
-						--[[ A DRIFT IS NOT A LOSS UNTIL A SECOND SAMPLE AGREES, and shipping
+					if want ~= nil then
+						if
+							(math.abs(own.w - want.w) > 1 or math.abs(own.h - want.h) > 1)
+							and table.find(mismatched, path) == nil
+						then
+							table.insert(mismatched, path)
+						end
+						local dx, dy = own.x - want.x - spaceDX, own.y - want.y - spaceDY
+						if spaceKnown and (math.abs(dx) > 2 or math.abs(dy) > 2) then
+							--[[ A DRIFT IS NOT A LOSS UNTIL A SECOND SAMPLE AGREES, and shipping
 							it as one broke this instrument for a whole device pass
 							(`b.jpeg`: latched at solve 2 on a plate that then read a portrait
 							viewport forever). `present.onGeometry` fires from the HUD's own
@@ -2005,110 +1994,110 @@ return {
 							needs to catch up, so a drift still standing on the next tick is a
 							write that never landed rather than a frame of lag. Recorded on
 							every sample, promoted only by the tick. ]]
-						driftNow[path] = `{math.floor(dx + 0.5)},{math.floor(dy + 0.5)}`
+							driftNow[path] = `{math.floor(dx + 0.5)},{math.floor(dy + 0.5)}`
+							if driftHeld[path] ~= nil then
+								return false, `{path} @{driftNow[path]}`
+							end
+							return true, nil
+						end
+					end
+					local vp = viewportFact:peek() :: any
+					local wx, wy = own.x - spaceDX, own.y - spaceDY
+					if spaceKnown and (wx + own.w <= 0 or wy + own.h <= 0 or wx >= vp.w or wy >= vp.h) then
+						driftNow[path] = "off screen"
 						if driftHeld[path] ~= nil then
-							return false, `{path} @{driftNow[path]}`
+							return false, `{path} off screen`
 						end
 						return true, nil
 					end
-				end
-				local vp = viewportFact:get() :: any
-				local wx, wy = own.x - spaceDX, own.y - spaceDY
-				if spaceKnown and (wx + own.w <= 0 or wy + own.h <= 0 or wx >= vp.w or wy >= vp.h) then
-					driftNow[path] = "off screen"
-					if driftHeld[path] ~= nil then
-						return false, `{path} off screen`
-					end
 					return true, nil
 				end
-				return true, nil
-			end
 
-			local lost: { string } = {}
-			local unmeasured: { string } = {}
-			local skipped: { string } = {}
-			local firstPainted: string? = nil
-			local hiddenUnder: string? = nil
-			local painting = 0
-			local wanted = 0
-			for _, row in PROBE_ROWS do
-				local wants: { string } = {}
-				for _, path in row.paths do
-					if modelPaints(path) then
-						table.insert(wants, path)
+				local lost: { string } = {}
+				local unmeasured: { string } = {}
+				local skipped: { string } = {}
+				local firstPainted: string? = nil
+				local hiddenUnder: string? = nil
+				local painting = 0
+				local wanted = 0
+				for _, row in PROBE_ROWS do
+					local wants: { string } = {}
+					for _, path in row.paths do
+						if modelPaints(path) then
+							table.insert(wants, path)
+						end
 					end
-				end
-				if #wants == 0 then
-					--[[ NOT A DEFECT AND NOT A PASS EITHER. This row has no form the
+					if #wants == 0 then
+						--[[ NOT A DEFECT AND NOT A PASS EITHER. This row has no form the
 						framework expects on screen at this size, so there is nothing here to
 						hold the engine to — but it used to `continue`, which took the row out
 						of the denominator with nothing said. That is how `13 of 13 painting`
 						was printed over fourteen declared rows, and it is the same false
 						negative as an unmeasurable verdict: a row nobody proved is NAMED,
 						never omitted. `report().unshown` is the framework's own half of it. ]]
-					table.insert(skipped, row.name)
-					continue
-				end
-				wanted += 1
-				if not engineRead then
-					table.insert(unmeasured, row.name)
-					continue
-				end
-				--[[ EVERY PATH THE MODEL WANTS, not any of them. Alternate forms read the
+						table.insert(skipped, row.name)
+						continue
+					end
+					wanted += 1
+					if not engineRead then
+						table.insert(unmeasured, row.name)
+						continue
+					end
+					--[[ EVERY PATH THE MODEL WANTS, not any of them. Alternate forms read the
 					same either way (the model picks exactly one); siblings do not, and
 					`Rounds` is three of them. ]]
-				local painted = true
-				local culprit: string? = nil
-				for _, path in wants do
-					local ok, where = enginePaints(path)
-					if not ok then
-						painted = false
-						if culprit == nil then
-							culprit = where
+					local painted = true
+					local culprit: string? = nil
+					for _, path in wants do
+						local ok, where = enginePaints(path)
+						if not ok then
+							painted = false
+							if culprit == nil then
+								culprit = where
+							end
 						end
 					end
-				end
-				if painted then
-					painting += 1
-					if #lost > 0 and firstPainted == nil then
-						firstPainted = row.name
-					end
-				else
-					table.insert(lost, row.name)
-					-- ...and the question is "what is the first painted row AFTER the run",
-					-- so a later loss re-opens it
-					firstPainted = nil
-					if hiddenUnder == nil then
-						hiddenUnder = culprit
-					end
-					--[[ AND EVERY DISTINCT ONE, because that is the whole reason this line
+					if painted then
+						painting += 1
+						if #lost > 0 and firstPainted == nil then
+							firstPainted = row.name
+						end
+					else
+						table.insert(lost, row.name)
+						-- ...and the question is "what is the first painted row AFTER the run",
+						-- so a later loss re-opens it
+						firstPainted = nil
+						if hiddenUnder == nil then
+							hiddenUnder = culprit
+						end
+						--[[ AND EVERY DISTINCT ONE, because that is the whole reason this line
 						exists: six rows lost under ONE node is a different defect from six
 						lost separately, and a plate that names only the first cannot tell
 						them apart (`c4.jpeg`, 2026-08-17 — `hidden under:` named Objective's
 						culprit while Rounds, Feed and Readout were lost somewhere else
 						entirely, and nothing on the plate said so). ]]
-					if culprit ~= nil and table.find(culprits, culprit) == nil then
-						table.insert(culprits, culprit)
+						if culprit ~= nil and table.find(culprits, culprit) == nil then
+							table.insert(culprits, culprit)
+						end
 					end
 				end
-			end
 
-			local stats = if ctrl.stats ~= nil then ctrl.stats() else nil
-			local vp = viewportFact:get() :: any
-			--[[ THE HEAD HAS TO FIT ONE LINE OF THE COLUMN. `Paint probe · 393x759 ·
+				local stats = if ctrl.stats ~= nil then ctrl.stats() else nil
+				local vp = viewportFact:peek() :: any
+				--[[ THE HEAD HAS TO FIT ONE LINE OF THE COLUMN. `Paint probe · 393x759 ·
 				solve 2 · HELD` wrapped to two and pushed the verdict down the plate on
 				three of the director's photographs running. The words are the reader's,
 				the space is not negotiable, so the words go. ]]
-			local head = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`
-				.. ` s{if stats ~= nil then stats.solves else 0}`
-				.. (if #lost > 0 then ` {COPY.probeHeldTag}` else "")
+				local head = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`
+					.. ` s{if stats ~= nil then stats.solves else 0}`
+					.. (if #lost > 0 then ` {COPY.probeHeldTag}` else "")
 
-			--[[ THE PLATE. The denominator it actually watched comes FIRST and always,
+				--[[ THE PLATE. The denominator it actually watched comes FIRST and always,
 				because a count over a shrinking denominator is the defect this readout
 				shipped; and when the engine side could not be read the count is
 				REPLACED, not annotated. A reader who skims and finds a number has been
 				told a fact. ]]
-			--[[ THE SOLVER'S OWN COMPLAINT, WHICH THIS PLATE HAS NEVER SHOWN
+				--[[ THE SOLVER'S OWN COMPLAINT, WHICH THIS PLATE HAS NEVER SHOWN
 				(director, 2026-08-17: `f.jpeg` — `14 of 14 painting` over a broken screen,
 				with a dark sliver drawn in the left safe-area gutter where no zone
 				belongs).
@@ -2123,110 +2112,113 @@ return {
 				has been sitting there the whole time. It goes on the plate, in
 				the CLOSED set, because a reader who is told "14 of 14 painting" and
 				nothing else has been told the wrong thing. ]]
-			local findings = if ctrl.diagnostics ~= nil then ctrl.diagnostics() else {}
-			local lines: { string } = { `{wanted} {COPY.probeOf} {#PROBE_ROWS} {COPY.probeRows}` }
-			if #findings > 0 then
-				local first = findings[1]
-				table.insert(lines, `{COPY.probeSolver} {#findings}: {probeTail(tostring(first.node or "?"))}`)
-			end
-			if #skipped > 0 then
-				table.insert(lines, `{COPY.probeSkipped} {table.concat(skipped, " · ")}`)
-			end
-			--[[ ...AND WHY, WHEN THE ANSWER IS A PLATFORM FACT RATHER THAN THE LADDER.
+				local findings = if ctrl.diagnostics ~= nil then ctrl.diagnostics() else {}
+				local lines: { string } = { `{wanted} {COPY.probeOf} {#PROBE_ROWS} {COPY.probeRows}` }
+				if #findings > 0 then
+					local first = findings[1]
+					table.insert(lines, `{COPY.probeSolver} {#findings}: {probeTail(tostring(first.node or "?"))}`)
+				end
+				if #skipped > 0 then
+					table.insert(lines, `{COPY.probeSkipped} {table.concat(skipped, " · ")}`)
+				end
+				--[[ ...AND WHY, WHEN THE ANSWER IS A PLATFORM FACT RATHER THAN THE LADDER.
 				`Objective` is behind `UI.When{ condition = riding }`, and `riding` is
 				`ride AND platformChrome.band ~= nil`. A band the engine has not published
 				(or has withdrawn) takes that row out of the denominator with nothing said,
 				and the two states are indistinguishable on a photograph — which is exactly
 				what happened on 2026-08-17. The INPUT goes on the plate beside the
 				verdict. ]]
-			local platformBand = (chromeFact:get() :: any).band
-			if not riding:get() then
-				local why = if ride:get() ~= true then COPY.probeRideOff else COPY.probeNoBand
-				local coreTop = ((env:get("coreSafeInsets"):get() or {}) :: any).top or 0
-				table.insert(lines, `{COPY.probeNotRiding} {why} · {COPY.probeBandInput}{math.floor(coreTop + 0.5)}`)
-			end
-			if not engineRead then
-				table.insert(lines, COPY.probeNoEngine)
-			else
-				if #lost == 0 then
-					table.insert(lines, `{painting} {COPY.probeOf} {wanted} {COPY.probePainting}`)
+				local platformBand = (chromeFact:peek() :: any).band
+				if not riding:peek() then
+					local why = if ride:peek() ~= true then COPY.probeRideOff else COPY.probeNoBand
+					local coreTop = ((env:get("coreSafeInsets"):peek() or {}) :: any).top or 0
+					table.insert(
+						lines,
+						`{COPY.probeNotRiding} {why} · {COPY.probeBandInput}{math.floor(coreTop + 0.5)}`
+					)
+				end
+				if not engineRead then
+					table.insert(lines, COPY.probeNoEngine)
 				else
-					table.insert(lines, `{#lost} {COPY.probeOf} {wanted} {COPY.probeNotPainted}`)
-					--[[ THE CULPRIT LINE COMES BEFORE THE NAMES, and that ordering is a
+					if #lost == 0 then
+						table.insert(lines, `{painting} {COPY.probeOf} {wanted} {COPY.probePainting}`)
+					else
+						table.insert(lines, `{#lost} {COPY.probeOf} {wanted} {COPY.probeNotPainted}`)
+						--[[ THE CULPRIT LINE COMES BEFORE THE NAMES, and that ordering is a
 						device finding rather than taste (`b3.jpeg`, 2026-08-17). The plate
 						read `6 of 14 NOT PAINTED / Objective · Rounds · Tasks · Feed ·…` and
 						the ONE line that says why — the node they are lost under, or the
 						offset the engine is drawing them at — was below the fold. The names
 						say WHICH; this says WHAT HAPPENED, and only one of those can be
 						guessed from the screen itself. ]]
-					--[[ THE TAIL, NOT THE HEAD. Every path on this surface begins
+						--[[ THE TAIL, NOT THE HEAD. Every path on this surface begins
 						`/HudScreen/Hud/`, which carries no information and ate the column
 						four photographs running — `hidden under: /HudScreen/Hud/Strip/Stri…`
 						truncated exactly where the answer starts. The last two segments are
 						what identify a node to a reader, so those are what the plate spends
 						its width on. ]]
-					for i, one in culprits do
-						if i > 2 then
-							table.insert(lines, `+{#culprits - 2} more`)
-							break
+						for i, one in culprits do
+							if i > 2 then
+								table.insert(lines, `+{#culprits - 2} more`)
+								break
+							end
+							table.insert(lines, `{COPY.probeHiddenUnder} {probeTail(one)}`)
 						end
-						table.insert(lines, `{COPY.probeHiddenUnder} {probeTail(one)}`)
-					end
-					--[[ ...AND THE NAMES ARE CAPPED. Six row names is two wrapped lines that
+						--[[ ...AND THE NAMES ARE CAPPED. Six row names is two wrapped lines that
 						push everything after them off a plate a phone can show, and the
 						fourth name has never once changed what the reader does next. ]]
-					local shown = if #lost > 4 then 4 else #lost
-					local names: { string } = {}
-					for i = 1, shown do
-						table.insert(names, lost[i])
+						local shown = if #lost > 4 then 4 else #lost
+						local names: { string } = {}
+						for i = 1, shown do
+							table.insert(names, lost[i])
+						end
+						if #lost > shown then
+							table.insert(names, `+{#lost - shown}`)
+						end
+						table.insert(lines, table.concat(names, " · "))
+						if firstPainted ~= nil then
+							table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
+						end
 					end
-					if #lost > shown then
-						table.insert(names, `+{#lost - shown}`)
-					end
-					table.insert(lines, table.concat(names, " · "))
-					if firstPainted ~= nil then
-						table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
+					if #mismatched > 0 then
+						table.insert(lines, `{COPY.probeSizeDiffers} {mismatched[1]}`)
 					end
 				end
-				if #mismatched > 0 then
-					table.insert(lines, `{COPY.probeSizeDiffers} {mismatched[1]}`)
-				end
-			end
-			local plate = table.concat(lines, "\n")
+				local plate = table.concat(lines, "\n")
 
-			probeReport = {
-				lost = lost,
-				unmeasured = unmeasured,
-				skipped = skipped,
-				-- the two platform facts the `skipped` list can turn on, published so a
-				-- scripted driver reads the same reason a reader sees on the plate
-				riding = riding:get(),
-				band = platformBand,
-				mismatched = mismatched,
-				firstPainted = firstPainted,
-				culprits = culprits,
-				hiddenUnder = hiddenUnder,
-				painting = painting,
-				wanted = wanted,
-				declared = #PROBE_ROWS,
-				-- the old name for `wanted`, kept so a driver written against the first
-				-- cut still reads the number it was reading
-				expected = wanted,
-				latches = probeReport.latches,
-				samples = probeReport.samples + 1,
-				engine = engineRead,
-				solves = if stats ~= nil then stats.solves else 0,
-				viewport = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`,
-				head = head,
-				plate = plate,
-			}
+				probeReport = {
+					lost = lost,
+					unmeasured = unmeasured,
+					skipped = skipped,
+					-- the two platform facts the `skipped` list can turn on, published so a
+					-- scripted driver reads the same reason a reader sees on the plate
+					riding = riding:peek(),
+					band = platformBand,
+					mismatched = mismatched,
+					firstPainted = firstPainted,
+					culprits = culprits,
+					hiddenUnder = hiddenUnder,
+					painting = painting,
+					wanted = wanted,
+					declared = #PROBE_ROWS,
+					-- the old name for `wanted`, kept so a driver written against the first
+					-- cut still reads the number it was reading
+					expected = wanted,
+					latches = probeReport.latches,
+					samples = probeReport.samples + 1,
+					engine = engineRead,
+					solves = if stats ~= nil then stats.solves else 0,
+					viewport = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`,
+					head = head,
+					plate = plate,
+				}
 
-			-- ...and the HEAD carries the hold state, because the switch beside the
-			-- URL-bar toggle is an icon-only circle: a state nobody can read is a
-			-- state nobody has
-			probeHead:set(head)
-			probeBody:set(plate)
-			--[[ A LOSS IS ONLY A LOSS AGAINST A SCREEN THAT ONCE WORKED (director,
+				-- ...and the HEAD carries the hold state, because the switch beside the
+				-- URL-bar toggle is an icon-only circle: a state nobody can read is a
+				-- state nobody has
+				probeHead:set(head)
+				probeBody:set(plate)
+				--[[ A LOSS IS ONLY A LOSS AGAINST A SCREEN THAT ONCE WORKED (director,
 				device, 2026-08-17: `c3.jpeg`, `11 of 11 NOT PAINTED` latched at solve 3
 				and froze the plate on a portrait frame for the rest of the session).
 
@@ -2240,68 +2232,70 @@ return {
 				It still REPORTS, on every sample: the plate says what it sees from the
 				first frame. What it will not do is spend its one capture on a screen
 				that had not been built yet. ]]
-			if #lost == 0 and #unmeasured == 0 and wanted > 0 then
-				probeEverHealthy = true
-			end
-			if #lost > 0 and not probeEverHealthy then
-				return
-			end
-			if #lost > 0 then
-				-- THE LATCH. Recorded first, held second: the plate is already showing
-				-- the failing frame before anything on this screen can move.
-				--
-				-- IT DOES NOT LATCH ON `unmeasured`: a host with no engine seam is in
-				-- that state permanently and for a reason the plate already shouts, so
-				-- freezing there would spend the one capture on a known limitation.
-				probeReport.latches += 1
-				probeHeld:set(true)
-			end
-		end
-
-		local function probeSample(confirming: boolean?)
-			if probeHeld:get() or probeSampling then
-				return
-			end
-			probeSampling = true
-			probeSampleBody(confirming == true)
-			probeSampling = false
-			if confirming == true then
-				table.clear(driftHeld)
-				for path, delta in driftNow do
-					driftHeld[path] = delta
+				if #lost == 0 and #unmeasured == 0 and wanted > 0 then
+					probeEverHealthy = true
+				end
+				if #lost > 0 and not probeEverHealthy then
+					return
+				end
+				if #lost > 0 then
+					-- THE LATCH. Recorded first, held second: the plate is already showing
+					-- the failing frame before anything on this screen can move.
+					--
+					-- IT DOES NOT LATCH ON `unmeasured`: a host with no engine seam is in
+					-- that state permanently and for a reason the plate already shouts, so
+					-- freezing there would spend the one capture on a known limitation.
+					probeReport.latches += 1
+					probeHeld:set(true)
 				end
 			end
-		end
 
-		--[[ THE SLOTS, BUILT ONCE. A `When` per line: an absent line mounts nothing,
+			local function probeSample(confirming: boolean?)
+				if probeHeld:peek() or probeSampling then
+					return
+				end
+				probeSampling = true
+				probeSampleBody(confirming == true)
+				probeSampling = false
+				if confirming == true then
+					table.clear(driftHeld)
+					for path, delta in driftNow do
+						driftHeld[path] = delta
+					end
+				end
+			end
+
+			--[[ THE SLOTS, BUILT ONCE. A `When` per line: an absent line mounts nothing,
 			so an empty slot costs no node and no height, and the count is bounded by
 			what `probeSampleBody` can emit. ]]
-		local probeLineViews: { any } = {}
-		for i = 1, PROBE_LINE_SLOTS do
-			local readable = probeLine[i]
-			table.insert(
-				probeLineViews,
-				UI.When({
-					id = `ProbeLine{i}`,
-					condition = scope:own(core:memo(function(use)
-						return use(readable) ~= nil
-					end)),
-					thenView = function()
-						return UI.Text({
-							id = "Line",
-							text = readable,
-							textSize = "caption",
-							width = UI.fill(),
+			local function probeLines(): any
+				local probeLineViews: { any } = { gap = 1, width = UI.fill() }
+				for i = 1, PROBE_LINE_SLOTS do
+					local readable = probeLine[i]
+					table.insert(
+						probeLineViews,
+						UI.When(`ProbeLine{i}`)({
+							Compose.show(
+								Compose.formula(function(use)
+									return use(readable) ~= nil
+								end),
+								function()
+									return UI.Text("Line")({
+										text = readable,
+										textSize = "caption",
+										width = UI.fill(),
+									})
+								end
+							),
 						})
-					end,
-				})
-			)
-		end
+					)
+				end
+				return UI.VStack("ProbeLines")(probeLineViews)
+			end
 
-		local function probeScreen(): any
-			return UI.Screen({
-				id = "PaintProbe",
-				--[[ THE RIGHT INSET CLEARS THE HUD'S ACTION RAIL, and it is a MEASURED
+			local function probeScreen(): any
+				return UI.Screen("PaintProbe")({
+					--[[ THE RIGHT INSET CLEARS THE HUD'S ACTION RAIL, and it is a MEASURED
 					number rather than a margin of taste. `Actions` is a 56px column of
 					discs pinned to the right edge with the weapon caption under it; a plate
 					anchored hard right sits exactly on top of them, which is how a working
@@ -2315,14 +2309,13 @@ return {
 
 					The probe surface is describing THIS HUD, so knowing where this HUD
 					keeps its controls is the fixture's business and not a leak. ]]
-				padding = { top = 8, right = 104, bottom = 8, left = 8 },
+					padding = { top = 8, right = 104, bottom = 8, left = 8 },
 
-				UI.Anchor({
-					id = "ProbeField",
-					width = UI.fill(),
-					height = UI.fill(),
+					UI.Anchor("ProbeField")({
+						width = UI.fill(),
+						height = UI.fill(),
 
-					--[[ SMALL BY DEFAULT, AND THAT IS THE FIX (director, 2026-08-17:
+						--[[ SMALL BY DEFAULT, AND THAT IS THE FIX (director, 2026-08-17:
 							*"this round seems to have regressed as the buttons on the right
 							disappeared"* — `IMG_3759`). They had not. The plate had grown a
 							line at a time until it covered them: the action rail and the
@@ -2340,64 +2333,55 @@ return {
 							reader ASKED for rather than a thing the instrument did to them.
 							An instrument that hides the screen it is describing is not an
 							instrument. ]]
-					UI.HStack({
-						id = "ProbeSlot",
-						anchor = "right",
+						UI.HStack("ProbeSlot")({
+							anchor = "right",
 
-						glass(
-							"ProbePlate",
-							"panel",
-							UI.VStack({
-								id = "ProbeBody",
-								gap = 2,
-								width = UI.fill(),
-
-								-- COMPACT: the head is the toggle, so it must not cost a control's
-								-- full chrome height on a plate that has to stay out of the way
-								UI.Button({
-									id = "ProbeHead",
-									label = probeHeadLabel,
-									surface = "plain",
-									textSize = "caption",
-									padding = 0,
+							glass(
+								"ProbePlate",
+								"panel",
+								UI.VStack("ProbeBody")({
+									gap = 2,
 									width = UI.fill(),
-									onActivate = function()
-										probeExpanded:set(not probeExpanded:get())
-									end,
-								}),
-								--[[ ONE TEXT PER LINE (see `probeLine` above). Each line is
+
+									-- COMPACT: the head is the toggle, so it must not cost a control's
+									-- full chrome height on a plate that has to stay out of the way
+									UI.Button("ProbeHead")({
+										label = probeHeadLabel,
+										surface = "plain",
+										textSize = "caption",
+										padding = 0,
+										width = UI.fill(),
+										onActivate = function()
+											probeExpanded:set(not probeExpanded:peek())
+										end,
+									}),
+									--[[ ONE TEXT PER LINE (see `probeLine` above). Each line is
 													measured, wrapped and placed on its own, so a line that grows
 													pushes the button DOWN instead of being drawn under it. ]]
-								UI.VStack({
-									id = "ProbeLines",
-									gap = 1,
-									width = UI.fill(),
-									children = probeLineViews,
-								}),
-								--[[ RELEASE / RE-ARM, and never the capture itself. On the
+									probeLines(),
+									--[[ RELEASE / RE-ARM, and never the capture itself. On the
 													plate's own surface it costs the HUD nothing — this
 													surface has room the HUD does not — and it is an ordinary
 													`UI.Button`, so the 44px target floor is the framework's
 													to enforce. Touch and pointer reach it; keyboard and
 													gamepad reach the same signal through `steps.holdProbe`
 													and `steps.armProbe` until cross-surface traversal exists. ]]
-								UI.Button({
-									id = "ProbeHold",
-									label = probeButtonLabel,
-									surface = "chip",
-									width = UI.fill(),
-									onActivate = function()
-										if probeHeld:get() then
-											probeHeld:set(false)
-											probeSample()
-										else
-											probeHeld:set(true)
-										end
-									end,
+									UI.Button("ProbeHold")({
+										label = probeButtonLabel,
+										surface = "chip",
+										width = UI.fill(),
+										onActivate = function()
+											if probeHeld:peek() then
+												probeHeld:set(false)
+												probeSample()
+											else
+												probeHeld:set(true)
+											end
+										end,
+									}),
 								}),
-							}),
-							"s",
-							--[[ a plate a thumb can read without covering the screen it is
+								"s",
+								--[[ a plate a thumb can read without covering the screen it is
 											describing.
 
 											THE COMMENT USED TO NAME TWO NUMBERS THIS LINE HAS NEVER HELD,
@@ -2416,37 +2400,38 @@ return {
 											it. `tests/hud_paint_probe.spec` holds the PROPERTY in both
 											orientations rather than either number, so the pair may be
 											re-measured without this comment going stale a second time. ]]
-							{ width = { type = "fixed", px = 164 } }
-						),
+								{ width = { type = "fixed", px = 164 } }
+							),
+						}),
 					}),
-				}),
-			})
-		end
+				})
+			end
 
-		local probeHandle: any = nil
-		local function dropProbe()
-			if probeHandle ~= nil and ctx.presenter ~= nil and ctx.presenter.dismiss ~= nil then
-				ctx.presenter.dismiss(probeHandle)
+			local closeProbe: (() -> ())? = nil
+			local function dropProbe()
+				if closeProbe ~= nil then
+					closeProbe()
+				end
+				closeProbe = nil
 			end
-			probeHandle = nil
-		end
-		local function raiseProbe()
-			if ctx.presenter == nil or ctx.presenter.present == nil then
-				return
+			local function raiseProbe()
+				if ctx.app == nil then
+					return
+				end
+				dropProbe()
+				local probeHandle
+				closeProbe, _, probeHandle = ctx.app.mount(probeScreen, {
+					responder = "passive",
+					-- content, not decoration: it must clear a notch and a home indicator in
+					-- both orientations, which is the whole point of reading it on a phone
+					rootPolicy = "deviceSafeContent",
+				})
+				local controller = probeHandle.controller
+				if controller ~= nil and controller.setDisplayOrder ~= nil and ctx.presenter.SURFACE_LAYER ~= nil then
+					controller.setDisplayOrder(ctx.presenter.SURFACE_LAYER.toast + 100)
+				end
 			end
-			dropProbe()
-			probeHandle = ctx.presenter.present(probeScreen(), {
-				responder = "passive",
-				-- content, not decoration: it must clear a notch and a home indicator in
-				-- both orientations, which is the whole point of reading it on a phone
-				rootPolicy = "deviceSafeContent",
-			})
-			local controller = probeHandle.controller
-			if controller ~= nil and controller.setDisplayOrder ~= nil and ctx.presenter.SURFACE_LAYER ~= nil then
-				controller.setDisplayOrder(ctx.presenter.SURFACE_LAYER.toast + 100)
-			end
-		end
-		--[[ THE CARD IS A NON-SHIPPED SWITCH (stabilization B2, 2026-09-07). This
+			--[[ THE CARD IS A NON-SHIPPED SWITCH (stabilization B2, 2026-09-07). This
 			plate is a device-defect INSTRUMENT for NM-H4a, not a player-facing
 			feature, and it was presenting on top of every player who opened this
 			demo — the "Freeze"/"Live again" card and its `N of N rows wanted`
@@ -2462,13 +2447,13 @@ return {
 			`steps.holdProbe`/`armProbe`/`sampleProbe` all keep answering with the
 			switch off, because a comparison a driver can query is not the same thing
 			as a card put in front of a player. ]]
-		local paintProbeOn = ctx.flags ~= nil and ctx.flags.paintProbe == true
-		if paintProbeOn then
-			raiseProbe()
-		end
-		-- PROBE-EXEMPT END
+			local paintProbeOn = ctx.flags ~= nil and ctx.flags.paintProbe == true
+			if paintProbeOn then
+				raiseProbe()
+			end
+			-- PROBE-EXEMPT END
 
-		--[[ THE SECOND CLOCK, AND IT IS PART OF THE HONESTY (2026-08-16).
+			--[[ THE SECOND CLOCK, AND IT IS PART OF THE HONESTY (2026-08-16).
 			`present.onGeometry` below fires from the HUD's OWN solve — which is the
 			responsive clock, and which is also the thing under diagnosis. A surface
 			that stops solving stops sampling, and the plate then displays its last
@@ -2485,47 +2470,45 @@ return {
 
 			The presenter's tick is absent headlessly (the suite has no frame clock and
 			drives `steps.sampleProbe` instead), so this is the shipped host's half. ]]
-		local unbindProbeTick: (() -> ())? = nil
-		if paintProbeOn and ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
-			local since = 0
-			unbindProbeTick = ctx.presenter.onTick(function(dt: number)
-				since += dt
-				if since < 0.25 then
-					return
-				end
-				since = 0
-				probeSample(true)
-			end)
-		end
+			local unbindProbeTick: (() -> ())? = nil
+			if paintProbeOn and ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
+				local since = 0
+				unbindProbeTick = ctx.presenter.onTick(function(dt: number)
+					since += dt
+					if since < 0.25 then
+						return
+					end
+					since = 0
+					probeSample(true)
+				end)
+			end
 
-		-- ---- the HUD -----------------------------------------------------
-		local hud = UI.Composition({
-			id = "Hud",
-			width = UI.fill(),
-			height = UI.fill(),
-			groups = Facet.composition.HUD_GROUPS,
-			arrangements = { Facet.composition.HUD },
-			--[[ THE HOST'S OWN CHROME, DECLARED (§8). One prop where ~90 lines of
+			-- ---- the HUD -----------------------------------------------------
+			local hud = UI.Composition("Hud")({
+				width = UI.fill(),
+				height = UI.fill(),
+				groups = Facet.composition.HUD_GROUPS,
+				arrangements = { Facet.composition.HUD },
+				--[[ THE HOST'S OWN CHROME, DECLARED (§8). One prop where ~90 lines of
 				epoch token, monotone latch and per-column reserve regions were. The
 				rects are the ones the showcase host publishes into `appChromeRects`,
 				in WINDOW space, which is the space the framework states its own chrome
 				and its own solved rects in — so this fixture converts nothing and needs
 				to know nothing about where its composition landed. ]]
-			exclusions = coordinatedExclusions,
+				exclusions = coordinatedExclusions,
 
-			-- THE PLATFORM'S OWN ROW. A `span = "above"` group, so it
-			-- is one full-width row above every lane in every arrangement — which
-			-- is what makes the nine anchored zones start BELOW the platform's
-			-- band instead of being told to avoid it. Its content is inset to the
-			-- free band's own left edge, so it sits level with Roblox's buttons
-			-- and cannot be on them; when nothing is riding, `UI.When` closes the
-			-- row entirely and the composition is byte-identical to the HUD that
-			-- never had the zone.
-			UI.Region({
-				id = "Strip",
-				group = "topbar",
-				rank = 6,
-				--[[ RESERVED, AND THIS IS THE ONE THAT WAS FOUND BY THE CHECK.
+				-- THE PLATFORM'S OWN ROW. A `span = "above"` group, so it
+				-- is one full-width row above every lane in every arrangement — which
+				-- is what makes the nine anchored zones start BELOW the platform's
+				-- band instead of being told to avoid it. Its content is inset to the
+				-- free band's own left edge, so it sits level with Roblox's buttons
+				-- and cannot be on them; when nothing is riding, `UI.When` closes the
+				-- row entirely and the composition is byte-identical to the HUD that
+				-- never had the zone.
+				UI.Region("Strip")({
+					group = "topbar",
+					rank = 6,
+					--[[ RESERVED, AND THIS IS THE ONE THAT WAS FOUND BY THE CHECK.
 						With `mayDrop` the row was droppable, so on a 213px-tall window
 						the ladder dropped it (rank 6, 58px bought) — and every lane then
 						climbed into the space it left, which is THE PLATFORM'S BAND. The
@@ -2533,50 +2516,46 @@ return {
 						not this HUD has anything to put in it. `reserved` is rule 7's own
 						word for exactly that, and it is live, so the row reserves nothing
 						at all on the rung that is not riding. ]]
-				reserved = riding,
-				-- the floor a reserved region owes: content-expressed, like every
-				-- floor. The row's real height is the band's (a platform fact the
-				-- form carries); this is only what it may never fall below.
-				floor = { targets = 1 },
-				--[[ `fill`, SO THE REGION IS THE BAND. The row's box is a PLATFORM
+					reserved = riding,
+					-- the floor a reserved region owes: content-expressed, like every
+					-- floor. The row's real height is the band's (a platform fact the
+					-- form carries); this is only what it may never fall below.
+					floor = { targets = 1 },
+					--[[ `fill`, SO THE REGION IS THE BAND. The row's box is a PLATFORM
 						fact now — `bandSafeContent` lays the `topbar` zone into
 						`platformChrome.band` — and `sizing = "fill"` is what asks for it,
 						the same word it means in a lane (rule 6). The chip then centres in
 						the strip instead of sitting at the top of it. ]]
-				sizing = "fill",
+					sizing = "fill",
 
-				--[[ AND THE WHOLE ROW IS BEHIND THE RIDE SWITCH, which is what makes
+					--[[ AND THE WHOLE ROW IS BEHIND THE RIDE SWITCH, which is what makes
 							the not-riding rung byte-identical to `deviceSafeContent`: with
 							nothing paintable in it the region resolves to nothing (rule 9), the
 							band row is inactive, and the composition reserves the platform's
 							whole top reservation instead of the free strip. Two spacers as wide
 							as the platform's cluster used to live here; the framework holds that
 							space open now, because it is the one that knows where the strip is. ]]
-				UI.When({
-					id = "StripChip",
-					condition = riding,
-					thenView = function()
-						return UI.HStack({
-							id = "StripRow",
-							width = UI.fill(),
-							height = UI.fill(),
-							align = "center",
-							distribute = "center",
+					UI.When("StripChip")({
+						Compose.show(riding, function()
+							return UI.HStack("StripRow")({
+								width = UI.fill(),
+								height = UI.fill(),
+								align = "center",
+								distribute = "center",
 
-							-- the band can be narrow (a 320px phone has ~156px of
-							-- it), so the fit is the framework's decision and not
-							-- an authored width guess
-							UI.ViewThatFits({
-								id = "StripFit",
+								-- the band can be narrow (a 320px phone has ~156px of
+								-- it), so the fit is the framework's decision and not
+								-- an authored width guess
+								UI.ViewThatFits("StripFit")({
 
-								pill("Objective", COPY.objective, "caption"),
-								pill("ObjectiveShort", COPY.objectiveShort, "caption"),
-							}),
-						})
-					end,
+									pill("Objective", COPY.objective, "caption"),
+									pill("ObjectiveShort", COPY.objectiveShort, "caption"),
+								}),
+							})
+						end),
+					}),
 				}),
-			}),
-			--[[ UPPER LEFT — the round-button strip, AND THE SINK THAT LIVES IN IT.
+				--[[ UPPER LEFT — the round-button strip, AND THE SINK THAT LIVES IN IT.
 					ONE FORM, and that is the D7 repair rather than a simplification.
 
 					It used to be two: a two-across `RoundStrip` and a three-down
@@ -2602,39 +2581,36 @@ return {
 					where it is not, at every width, with no ladder and no device branch.
 					Height is what it spends, and height is what a narrow portrait phone
 					has. ]]
-			UI.Region({
-				id = "Rounds",
-				group = "topLeft",
-				rank = 1,
+				UI.Region("Rounds")({
+					group = "topLeft",
+					rank = 1,
 
-				UI.HStack({
-					id = "RoundStrip",
-					gap = "tight",
-					wrap = true,
+					UI.HStack("RoundStrip")({
+						gap = "tight",
+						wrap = true,
 
-					hudActions,
-					roundButton("R2", COPY.round2, "flag", "compact"),
-					-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
-					-- rather than elided — the four things that make "a host always
-					-- exists" true in code instead of true in a comment. Its 36px
-					-- disc still delivers a 44px hit rect: `Button` carries a
-					-- `minHitSize` clamped up to `targetSizes.minimum`, which is the
-					-- three-axes floor this affordance owes on touch.
-					roundButton("R3", COPY.round3, "more", "compact", openOverflow),
+						hudActions,
+						roundButton("R2", COPY.round2, "flag", "compact"),
+						-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
+						-- rather than elided — the four things that make "a host always
+						-- exists" true in code instead of true in a comment. Its 36px
+						-- disc still delivers a 44px hit rect: `Button` carries a
+						-- `minHitSize` clamped up to `targetSizes.minimum`, which is the
+						-- three-axes floor this affordance owes on touch.
+						roundButton("R3", COPY.round3, "more", "compact", openOverflow),
+					}),
 				}),
-			}),
-			-- MIDDLE LEFT — the task panel, three forms richest first. This is
-			-- the panel that landed on the round buttons in the screenshot.
-			UI.Region({
-				id = "Tasks",
-				dismissButton = "automatic",
-				group = "left",
-				-- RE-RANKED 8 -> 7 (D7.4): the fps readout below used to survive
-				-- longer than three tasks and their rewards, which is a developer's
-				-- telemetry outliving the player's progression
-				rank = 7,
-				mayDrop = true,
-				--[[ "SELF" — THE CHIP IT STEPS DOWN TO IS THE ROUTE (D7.2). While this
+				-- MIDDLE LEFT — the task panel, three forms richest first. This is
+				-- the panel that landed on the round buttons in the screenshot.
+				UI.Region("Tasks")({
+					dismissButton = "automatic",
+					group = "left",
+					-- RE-RANKED 8 -> 7 (D7.4): the fps readout below used to survive
+					-- longer than three tasks and their rewards, which is a developer's
+					-- telemetry outliving the player's progression
+					rank = 7,
+					mayDrop = true,
+					--[[ "SELF" — THE CHIP IT STEPS DOWN TO IS THE ROUTE (D7.2). While this
 						zone is standing in a reduced form, the reduced form is what the player
 						is looking at, and the thing left behind has to be reachable FROM
 						there: an overflow sink is for when a zone is GONE, not an excuse for a
@@ -2643,23 +2619,22 @@ return {
 						what turned `TasksChip` from a glass pill of two `UI.Text` into a
 						Button. When the ladder runs out of steps and drops this zone entirely,
 						the sink carries it — `mayDrop` now means "moves to the sink". ]]
-				recover = "self",
-				floor = { lines = 1 },
+					recover = "self",
+					floor = { lines = 1 },
 
-				glass(
-					"TasksFull",
-					"panel",
-					UI.VStack({
-						id = "TasksFullBody",
-						gap = "tight",
-						width = UI.fill(),
+					glass(
+						"TasksFull",
+						"panel",
+						UI.VStack("TasksFullBody")({
+							gap = "tight",
+							width = UI.fill(),
 
-						UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
-						taskRows[1],
-						taskRows[2],
-						taskRows[3],
-					}),
-					--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
+							UI.Text("TasksTitle")({ text = COPY.tasksTitle, textSize = "label" }),
+							taskRow(1),
+							taskRow(2),
+							taskRow(3),
+						}),
+						--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
 								7, IMG_3786: the `+50`/`+120`/`+300` reward chips painting over
 								the plank's right border under Pixel Quest).
 
@@ -2671,9 +2646,9 @@ return {
 								this one was the exception to and `glass` took the whole job — one
 								authority for "a plate's content clears its frame" instead of one
 								panel that remembered and nine chips that did not. ]]
-					10
-				),
-				--[[ ONE TASK, AND NOTHING AROUND IT. Two measurements chose this
+						10
+					),
+					--[[ ONE TASK, AND NOTHING AROUND IT. Two measurements chose this
 							form, in order:
 
 							  * the HEADING went first. With the panel title kept over a
@@ -2695,49 +2670,47 @@ return {
 							What survives is the control's own row, whose label shrinks by
 							construction (O-23). The rich row is what the FULL form is for,
 							and the full form is what a screen with room gets. ]]
-				--[[ ...AND IT NEEDS NO ROUTE OF ITS OWN EITHER (wave REVEAL). A MIDDLE
+					--[[ ...AND IT NEEDS NO ROUTE OF ITS OWN EITHER (wave REVEAL). A MIDDLE
 							rung is a rung — `recover = "self"` is checked against every form below
 							the richest, and this one is what a mid-sized screen is left with, two
 							tasks and their rewards short. It used to carry a Button for that. The
 							region's one affordance covers whichever reduced form is standing, so
 							the middle rung is served by the same construct as the last one and
 							this form goes back to being content. ]]
-				glass(
-					"TasksOne",
-					"panel",
-					--[[ ONE ROW, NOT A ROW INSIDE A ROW, and the measurement outlived the
+					glass(
+						"TasksOne",
+						"panel",
+						--[[ ONE ROW, NOT A ROW INSIDE A ROW, and the measurement outlived the
 								Button it was first written for. An inner `fill` HStack between this
 								box and its children contributes nothing to the outer measure: the
 								plate hugged to 16px and the solver said so ("content box collapses
 								to 0px on x: padding 8 + 8 on a 16px width", measured
 								pseudo-localized at 320x640). The children go straight on the row. ]]
-					UI.HStack({
-						id = "TasksOneBody",
-						gap = "s",
-						align = "center",
-						width = UI.fill(),
+						UI.HStack("TasksOneBody")({
+							gap = "s",
+							align = "center",
+							width = UI.fill(),
 
-						-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With the row
-						-- alone the plate hugged to 16px — a bar is `fill`, so it
-						-- measures as nothing and there was nothing else in here to
-						-- measure. One non-fill child is what a hugging panel needs,
-						-- and the task's name is the one worth having.
-						UI.Text({
-							id = "TasksOneName",
-							text = COPY.task1,
-							textSize = "caption",
-							lineLimit = 1,
-							shrinkWeight = 1,
+							-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With the row
+							-- alone the plate hugged to 16px — a bar is `fill`, so it
+							-- measures as nothing and there was nothing else in here to
+							-- measure. One non-fill child is what a hugging panel needs,
+							-- and the task's name is the one worth having.
+							UI.Text("TasksOneName")({
+								text = COPY.task1,
+								textSize = "caption",
+								lineLimit = 1,
+								shrinkWeight = 1,
+							}),
+							taskBar(1),
 						}),
-						taskBars[1].blueprint,
-					}),
-					"s",
-					-- ONE ROW IS NOT A WINDOW. The corner is a panel's; the FRAME
-					-- this has to clear is a chip's — see `glass` for why the two are
-					-- allowed to disagree on exactly this pod.
-					{ plate = "chip" }
-				),
-				--[[ THE TERMINAL FORM, AND IT IS A PILL AGAIN (wave REVEAL). It was a
+						"s",
+						-- ONE ROW IS NOT A WINDOW. The corner is a panel's; the FRAME
+						-- this has to clear is a chip's — see `glass` for why the two are
+						-- allowed to disagree on exactly this pod.
+						{ plate = "chip" }
+					),
+					--[[ THE TERMINAL FORM, AND IT IS A PILL AGAIN (wave REVEAL). It was a
 							`pill(...)`; D7.2 turned it into a Button because a `self` route needs
 							something focusable in every reduced form and only the author could
 							supply one. The framework supplies it now — `UI.Region` appends one
@@ -2751,52 +2724,49 @@ return {
 							screen. The expand opens THIS region's own form 1: the task panel,
 							by identity, at this region's own anchor. Zero lines of route code in
 							this fixture is the product claim; a shorter route is the bonus. ]]
-				pill("TasksChip", COPY.tasksChip, "caption"),
-			}),
-			-- LOWER LEFT — the health bar, and under it the kill feed.
-			UI.Region({
-				id = "Health",
-				group = "bottomLeft",
-				rank = 5,
-				-- ITS REDUCED FORM LOSES THE BAR, and a pill with a figure on it is not
-				-- something to tap, so the sink is the honest route rather than "self"
-				recover = "overflow",
-				-- DROPPABLE, and the measurement is why. The left lane's irreducible
-				-- floor is the round-button strip (rank 1, never dropped) plus
-				-- whatever else in that lane cannot leave; with the health pod pinned
-				-- that floor was 66px and a 735x213 window offers the lanes 30.
-				-- Nothing could give, so the whole arrangement went illegal and rule 8
-				-- showed the declared fallback — the same shape the weapon rail's own
-				-- `mayDrop` note records, one lane over. A health read-out is worth
-				-- more than a kill feed (rank 5 vs 9) and less than the buttons the
-				-- player is reaching for (rank 1), and saying so is what lets the
-				-- ladder finish.
-				mayDrop = true,
+					pill("TasksChip", COPY.tasksChip, "caption"),
+				}),
+				-- LOWER LEFT — the health bar, and under it the kill feed.
+				UI.Region("Health")({
+					group = "bottomLeft",
+					rank = 5,
+					-- ITS REDUCED FORM LOSES THE BAR, and a pill with a figure on it is not
+					-- something to tap, so the sink is the honest route rather than "self"
+					recover = "overflow",
+					-- DROPPABLE, and the measurement is why. The left lane's irreducible
+					-- floor is the round-button strip (rank 1, never dropped) plus
+					-- whatever else in that lane cannot leave; with the health pod pinned
+					-- that floor was 66px and a 735x213 window offers the lanes 30.
+					-- Nothing could give, so the whole arrangement went illegal and rule 8
+					-- showed the declared fallback — the same shape the weapon rail's own
+					-- `mayDrop` note records, one lane over. A health read-out is worth
+					-- more than a kill feed (rank 5 vs 9) and less than the buttons the
+					-- player is reaching for (rank 1), and saying so is what lets the
+					-- ladder finish.
+					mayDrop = true,
 
-				-- the RICH form, hoisted above and shared with the recovery panel
-				healthPod,
-				-- the bar ALONE is the compact form: the figure is what a player
-				-- reads in a glance and the bar is what they read in a fight, so
-				-- when the pod cannot have both the FIGURE is what survives
-				pill("HealthOnly", healthText, "numeral"),
-			}),
-			-- LOWER LEFT — the kill feed, droppable: the first thing a real HUD
-			-- gives up, and the least missed.
-			UI.Region({
-				id = "Feed",
-				group = "bottomLeft",
-				-- RE-RANKED 9 -> 8 (D7.4): a kill feed is thin, but it is something that
-				-- happened in the match, and the fps readout is not
-				rank = 8,
-				mayDrop = true,
-				feedLine,
-			}),
-			-- UPPER CENTRE — the round clock and the two team scores.
-			UI.Region({
-				id = "Clock",
-				group = "top",
-				rank = 2,
-				--[[ THE SCORES ARE THE CASE NO RE-RANK COULD HAVE FIXED (D7.4). This
+					-- the RICH form, hoisted above and shared with the recovery panel
+					healthPod(),
+					-- the bar ALONE is the compact form: the figure is what a player
+					-- reads in a glance and the bar is what they read in a fight, so
+					-- when the pod cannot have both the FIGURE is what survives
+					pill("HealthOnly", healthText, "numeral"),
+				}),
+				-- LOWER LEFT — the kill feed, droppable: the first thing a real HUD
+				-- gives up, and the least missed.
+				UI.Region("Feed")({
+					group = "bottomLeft",
+					-- RE-RANKED 9 -> 8 (D7.4): a kill feed is thin, but it is something that
+					-- happened in the match, and the fps readout is not
+					rank = 8,
+					mayDrop = true,
+					feedLine(),
+				}),
+				-- UPPER CENTRE — the round clock and the two team scores.
+				UI.Region("Clock")({
+					group = "top",
+					rank = 2,
+					--[[ THE SCORES ARE THE CASE NO RE-RANK COULD HAVE FIXED (D7.4). This
 						zone's second form is deliberately "the clock and the ring, WITHOUT the
 						scores", so `12` and `9` cease to exist the moment the centre lane runs
 						short — while the fps readout, a whole region, is still standing in the
@@ -2804,40 +2774,36 @@ return {
 						fit, so no ranking makes the right lane pay the centre lane's deficit.
 						The scoreboard's recovery is the disclosure route, which is exactly
 						what "tap for detail" is for. ]]
-				recover = "overflow",
+					recover = "overflow",
 
-				-- the RICH form, hoisted above and shared with the recovery panel
-				clockStack,
-				-- the clock and the ring, WITHOUT the scores: the Studio canary
-				-- is why this exists. With the URL bar open on a 735x413 window
-				-- the centre column has 61px and the full row needs more. What a
-				-- real HUD gives up on a squeezed screen is the score, not the
-				-- clock.
-				glass(
-					"TimerOnlyPod",
-					"pill",
-					UI.HStack({
-						id = "TimerOnlyRow",
-						gap = "tight",
-						align = "center",
+					-- the RICH form, hoisted above and shared with the recovery panel
+					clockStack(),
+					-- the clock and the ring, WITHOUT the scores: the Studio canary
+					-- is why this exists. With the URL bar open on a 735x413 window
+					-- the centre column has 61px and the full row needs more. What a
+					-- real HUD gives up on a squeezed screen is the score, not the
+					-- clock.
+					glass(
+						"TimerOnlyPod",
+						"pill",
+						UI.HStack("TimerOnlyRow")({
+							gap = "tight",
+							align = "center",
 
-						--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
+							--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
 										`COPY.timerShort` for why a timer is not allowed the
 										ellipsis every other string on this HUD may take. ]]
-						UI.ViewThatFits({
-							id = "TimerOnlyFit",
+							UI.ViewThatFits("TimerOnlyFit")({
 
-							UI.Text({
-								id = "TimerOnlyText",
-								text = COPY.timer,
-								textSize = "numeral",
-							}),
-							UI.Text({
-								id = "TimerOnlyShort",
-								text = COPY.timerShort,
-								textSize = "numeral",
-							}),
-							--[[ A THIRD RUNG, AND THE WAVE IS WHY (2026-08-21). The
+								UI.Text("TimerOnlyText")({
+									text = COPY.timer,
+									textSize = "numeral",
+								}),
+								UI.Text("TimerOnlyShort")({
+									text = COPY.timerShort,
+									textSize = "numeral",
+								}),
+								--[[ A THIRD RUNG, AND THE WAVE IS WHY (2026-08-21). The
 												expand mark now stands beside this pod inside the same
 												third of the screen, and at the LARGEST text preference on
 												a 320px phone even `2m` no longer fits what that leaves —
@@ -2850,112 +2816,103 @@ return {
 												the zone gives way. It reads as "two minutes left" on a
 												dial with room for one character, and it is still a
 												NUMBER — which `2:1…` never was. ]]
-							UI.Text({
-								id = "TimerOnlyTiny",
-								text = COPY.timerTiny,
-								textSize = "numeral",
+								UI.Text("TimerOnlyTiny")({
+									text = COPY.timerTiny,
+									textSize = "numeral",
+								}),
 							}),
 						}),
-					}),
-					-- the same ruling as `pill`'s gutter above, for the same reason
-					{ top = 4, right = 4, bottom = 4, left = 4 }
-				),
-			}),
-			-- UPPER RIGHT — the weapon rail, two forms, and the readout beside
-			-- it. In the screenshot these two are what ran into each other.
-			UI.Region({
-				id = "Rail",
-				group = "topRight",
-				rank = 4,
-				-- the compact form is ONE weapon name with no ammo count, so two
-				-- weapons and three counts are what it stops showing
-				recover = "overflow",
-				-- DROPPABLE, and the Studio canary is why. On a 735x413 window with
-				-- the URL bar open the right column has 61px and holds a 31px rail
-				-- over a 46px button: neither could give any more, so the whole
-				-- arrangement went illegal and rule 8 showed the DECLARED FALLBACK —
-				-- correct by contract, and 16px of HUD painted below its own box. A
-				-- weapon rail is more expendable than the action buttons (rank 4 vs
-				-- 3), so saying so is what lets the ladder finish instead of falling
-				-- back.
-				mayDrop = true,
+						-- the same ruling as `pill`'s gutter above, for the same reason
+						{ top = 4, right = 4, bottom = 4, left = 4 }
+					),
+				}),
+				-- UPPER RIGHT — the weapon rail, two forms, and the readout beside
+				-- it. In the screenshot these two are what ran into each other.
+				UI.Region("Rail")({
+					group = "topRight",
+					rank = 4,
+					-- the compact form is ONE weapon name with no ammo count, so two
+					-- weapons and three counts are what it stops showing
+					recover = "overflow",
+					-- DROPPABLE, and the Studio canary is why. On a 735x413 window with
+					-- the URL bar open the right column has 61px and holds a 31px rail
+					-- over a 46px button: neither could give any more, so the whole
+					-- arrangement went illegal and rule 8 showed the DECLARED FALLBACK —
+					-- correct by contract, and 16px of HUD painted below its own box. A
+					-- weapon rail is more expendable than the action buttons (rank 4 vs
+					-- 3), so saying so is what lets the ladder finish instead of falling
+					-- back.
+					mayDrop = true,
 
-				-- the RICH form, hoisted above and shared with the recovery panel
-				railTall,
-				-- the compact form is NARROWER, not merely shorter: a HUD column
-				-- is a third of the screen, so a horizontal compact form is the
-				-- wrong ladder in a column (the sweep found this at 320px)
-				pill("W1c", COPY.weapon1, "caption"),
-			}),
-			UI.Region({
-				id = "Readout",
-				group = "topRight",
-				--[[ RE-RANKED 7 -> 9, THE FIRST THING TO GIVE WAY (D7.4). Measured live
+					-- the RICH form, hoisted above and shared with the recovery panel
+					railTall(),
+					-- the compact form is NARROWER, not merely shorter: a HUD column
+					-- is a third of the screen, so a horizontal compact form is the
+					-- wrong ladder in a column (the sweep found this at 320px)
+					pill("W1c", COPY.weapon1, "caption"),
+				}),
+				UI.Region("Readout")({
+					group = "topRight",
+					--[[ RE-RANKED 7 -> 9, THE FIRST THING TO GIVE WAY (D7.4). Measured live
 						with the URL bar open at 749x380: `60 FPS · 42 ms` was on screen while
 						all three tasks, their rewards, the health figure and the kill feed were
 						gone. A frame counter is what the developer wants and what the player
 						never asked for; it goes first. ]]
-				rank = 9,
-				mayDrop = true,
-				readoutText,
-			}),
-			-- LOWER RIGHT — the action buttons, two forms (column, then one), at
-			-- the thumb size the theme names.
-			UI.Region({
-				id = "Actions",
-				group = "bottomRight",
-				rank = 3,
-				-- its compact form is ONE disc where the full form is three, so two
-				-- actions are what it stops showing
-				recover = "overflow",
+					rank = 9,
+					mayDrop = true,
+					readoutText(),
+				}),
+				-- LOWER RIGHT — the action buttons, two forms (column, then one), at
+				-- the thumb size the theme names.
+				UI.Region("Actions")({
+					group = "bottomRight",
+					rank = 3,
+					-- its compact form is ONE disc where the full form is three, so two
+					-- actions are what it stops showing
+					recover = "overflow",
 
-				-- the RICH form, hoisted above and shared with the recovery panel
-				actionsCol,
-				roundButton("A1r", COPY.action1, "more", "regular"),
-			}),
-			-- ...and the weapon name over them, which is where the screenshot puts
-			-- it. Droppable: a player who cannot see the name of the gun in their
-			-- own hands has lost the least of everything on this screen.
-			UI.Region({
-				id = "Weapon",
-				group = "bottomRight",
-				rank = 6,
-				mayDrop = true,
-				weaponText,
-			}),
-		})
+					-- the RICH form, hoisted above and shared with the recovery panel
+					actionsCol(),
+					roundButton("A1r", COPY.action1, "more", "regular"),
+				}),
+				-- ...and the weapon name over them, which is where the screenshot puts
+				-- it. Droppable: a player who cannot see the name of the gun in their
+				-- own hands has lost the least of everything on this screen.
+				UI.Region("Weapon")({
+					group = "bottomRight",
+					rank = 6,
+					mayDrop = true,
+					weaponText(),
+				}),
+			})
 
-		-- The switches are the FIXTURE'S DRIVERS, not HUD content, so they sit under
-		-- the HUD rather than in a zone: a Toggle does not fit a third of a 320px
-		-- phone, and putting the instrument inside the thing it measures would have
-		-- made the narrowest swept viewport a test of the instrument.
-		--
-		-- The screen is `edgeToEdge` (the HUD needs the top band), so the three edges
-		-- with no hole in them are spent HERE, once, from the same fact — which is
-		-- also what keeps these two drivers off a home indicator.
-		local screen = UI.Screen({
-			id = "HudScreen",
-			--[[ NO PADDING. The three edges with no hole in them used to be spent here,
+			-- The switches are the FIXTURE'S DRIVERS, not HUD content, so they sit under
+			-- the HUD rather than in a zone: a Toggle does not fit a third of a 320px
+			-- phone, and putting the instrument inside the thing it measures would have
+			-- made the narrowest swept viewport a test of the instrument.
+			--
+			-- The screen is `edgeToEdge` (the HUD needs the top band), so the three edges
+			-- with no hole in them are spent HERE, once, from the same fact — which is
+			-- also what keeps these two drivers off a home indicator.
+			local screen = UI.Screen("HudScreen")({
+				--[[ NO PADDING. The three edges with no hole in them used to be spent here,
 				per-edge max of the platform's inset and the theme's gutter; that IS the
 				`bandSafeContent` policy now (§9), so spending it again would double it. ]]
-			gap = "xs",
+				gap = "xs",
 
-			hud,
-			-- two switches WRAP rather than run off a 320px phone at the largest
-			-- text preference — found by the always-on sweep the moment the second
-			-- one was added, which is the sweep doing its job on the instrument
-			UI.When({
-				id = "DriversWhen",
-				condition = roomForDrivers,
-				thenView = function()
-					return UI.HStack({
-						id = "Drivers",
-						gap = 12,
-						wrap = true,
+				hud,
+				-- two switches WRAP rather than run off a 320px phone at the largest
+				-- text preference — found by the always-on sweep the moment the second
+				-- one was added, which is the sweep doing its job on the instrument
+				UI.When("DriversWhen")({
+					Compose.show(roomForDrivers, function()
+						return UI.HStack("Drivers")({
+							gap = 12,
+							wrap = true,
 
-						UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
-						UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
-						--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
+							UI.Toggle("UrlBar")({ label = COPY.urlBarOn, value = urlBar }),
+							UI.Toggle("RideStrip")({ label = COPY.rideOn, value = ride }),
+							--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
 							MEASUREMENT AND A REPORTED FRAMEWORK GAP (NM-H4a).
 
 							It belongs here on the four-input rule: a second base surface's
@@ -2980,10 +2937,10 @@ return {
 							scripted route — and neither is the capture. The probe LATCHES ITSELF
 							on the frame the disagreement appears, so no input class can miss the
 							evidence; what the switch buys is releasing and re-arming it. ]]
-					})
-				end,
-			}),
-			--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
+						})
+					end),
+				}),
+				--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
 					step down is only a demonstration if the viewer can see why THAT
 					zone was the one chosen, and the rank is otherwise only in the source
 					and in `report()`.
@@ -2998,7 +2955,7 @@ return {
 					declared fallback painted a weapon chip into Roblox's own button
 					cluster. An instrument that eats the thing it measures is exactly
 					what the comment above this Screen warns about, one level up. ]]
-			--[[ THE URL BAR, DRAWN (director 2026-08-15, item 5: *"when we enable
+				--[[ THE URL BAR, DRAWN (director 2026-08-15, item 5: *"when we enable
 					url bar, we should show a pseudo url bar"*).
 
 					It used to be a `margin.bottom` on the HUD: the height went away and
@@ -3012,13 +2969,13 @@ return {
 					drawn bar and the room the HUD lost are one number and cannot drift —
 					including the short-screen cap (a simulated bar may not eat more than
 					the screen has, see HUD_FLOOR_PX). ]]
-			UI.When({
-				id = "UrlBarWhen",
-				condition = scope:own(core:memo(function(use)
-					return use(urlBar) == true
-				end)),
-				thenView = function()
-					--[[ ONE LINE THAT SHRINKS, and the sweep is why it is not two.
+				UI.When("UrlBarWhen")({
+					Compose.show(
+						Compose.formula(function(use)
+							return use(urlBar) == true
+						end),
+						function()
+							--[[ ONE LINE THAT SHRINKS, and the sweep is why it is not two.
 							The bar's height is capped on a short window (HUD_FLOOR_PX), so
 							at 735x213 with the switch on it is 53px — and a field over a
 							caption, pseudo-localized at 1.4x, needed 7px more than that.
@@ -3026,7 +2983,7 @@ return {
 							screen it is explaining. The field carries `lineLimit = 1` and
 							`shrinkWeight` for the same reason every other row in this
 							fixture does: it gives up pixels, then characters, never lines. ]]
-					--[[ THE BAND IS THE BROWSER'S FACT; THE FIELD IS THE THEME'S (D7.5).
+							--[[ THE BAND IS THE BROWSER'S FACT; THE FIELD IS THE THEME'S (D7.5).
 							The band still spans exactly the height the HUD lost — one memo, so
 							the picture and the geometry cannot drift (2026-08-15, item 5) — but
 							the FIELD inside it is a control, so its box is the control-size
@@ -3036,68 +2993,61 @@ return {
 							(measured 733x158 at 749x380, 42% of the viewport). Now the slab
 							cannot happen at any band height, because the field never grows to
 							fill one. ]]
-					return glass(
-						"UrlBarChrome",
-						"control",
-						UI.HStack({
-							id = "UrlBarBody",
-							width = UI.fill(),
-							height = UI.fill(),
-							align = "center",
-
-							glass(
-								"UrlBarFieldPlate",
+							return glass(
+								"UrlBarChrome",
 								"control",
-								UI.HStack({
-									id = "UrlBarFieldRow",
+								UI.HStack("UrlBarBody")({
 									width = UI.fill(),
 									height = UI.fill(),
 									align = "center",
 
-									UI.Text({
-										id = "UrlBarField",
-										text = COPY.urlBarField,
-										textSize = "caption",
-										role = "secondary",
-										lineLimit = 1,
-										shrinkWeight = 1,
-									}),
+									glass(
+										"UrlBarFieldPlate",
+										"control",
+										UI.HStack("UrlBarFieldRow")({
+											width = UI.fill(),
+											height = UI.fill(),
+											align = "center",
+
+											UI.Text("UrlBarField")({
+												text = COPY.urlBarField,
+												textSize = "caption",
+												role = "secondary",
+												lineLimit = 1,
+												shrinkWeight = 1,
+											}),
+										}),
+										{ top = 2, right = 8, bottom = 2, left = 8 },
+										{
+											width = UI.fill(),
+											height = { type = "fixed", px = "controlSizes.compact.height" },
+										}
+									),
 								}),
-								{ top = 2, right = 8, bottom = 2, left = 8 },
-								{
-									width = UI.fill(),
-									height = { type = "fixed", px = "controlSizes.compact.height" },
-								}
-							),
-						}),
-						{ top = 4, right = 10, bottom = 4, left = 10 },
-						{ width = UI.fill(), height = barHeight }
-					)
-				end,
-			}),
-			UI.When({
-				id = "LadderWhen",
-				condition = roomForCaption,
-				thenView = function()
-					return UI.VStack({
-						id = "LadderLines",
-						gap = 2,
-						width = UI.fill(),
+								{ top = 4, right = 10, bottom = 4, left = 10 },
+								{ width = UI.fill(), height = barHeight }
+							)
+						end
+					),
+				}),
+				UI.When("LadderWhen")({
+					Compose.show(roomForCaption, function()
+						return UI.VStack("LadderLines")({
+							gap = 2,
+							width = UI.fill(),
 
-						UI.Text({
-							id = "Ladder",
-							text = COPY.ladder,
-							textSize = "caption",
-							role = "secondary",
-						}),
-					})
-				end,
-			}),
-		})
+							UI.Text("Ladder")({
+								text = COPY.ladder,
+								textSize = "caption",
+								role = "secondary",
+							}),
+						})
+					end),
+				}),
+			})
 
-		result = {
-			screen = screen,
-			--[[ BAND-SAFE CONTENT (§9). This surface used to present
+			local published: any = {
+				--[[ BAND-SAFE CONTENT (§9). This surface used to present
 				`edgeToEdge` — the DECORATION policy, which drops all four insets — and
 				re-spend every one of them by hand, because `bandInsets` was a published
 				fact no policy applied. It asks for the fact by name now: the top comes
@@ -3107,7 +3057,7 @@ return {
 				solver. `deviceSafeContent` would still spend the whole band and put the
 				topbar row out of reach; that rung is what this HUD gets when the ride
 				switch is off, and it gets it from the same policy. ]]
-			--[[ ...AND THE PAINT PROBE'S SAMPLE CLOCK RIDES THE SAME OPTS (NM-H4a).
+				--[[ ...AND THE PAINT PROBE'S SAMPLE CLOCK RIDES THE SAME OPTS (NM-H4a).
 				`onGeometry` is fed once per frame from `refreshBody` AND from this
 				surface's own `onSolved`, and `onSolved` is announced AFTER the
 				visibility walk has run — so a sample always reads the writes the solve
@@ -3115,19 +3065,18 @@ return {
 				live-geometry seam, which is why the probe needs no clock of its own and
 				no second RunService connection. Every host passes `present` through, so
 				the sample runs in the runner, in the sweep and in the shipped showcase. ]]
-			present = {
-				rootPolicy = "bandSafeContent",
-				--[[ ...AND THE GIVE-WAY SAMPLE IS GONE FROM THIS SEAM (§8). It used to
+				present = {
+					--[[ ...AND THE GIVE-WAY SAMPLE IS GONE FROM THIS SEAM (§8). It used to
 					take a second reading here — "where did my own zones actually land" —
 					because that was the only honest input to "does this column reach into
 					the app's chrome", and it needed an epoch token and a monotone latch to
 					stop the feedback oscillating. The framework answers it inside one
 					`resolve` now, so the seam carries the paint probe alone. ]]
-				onGeometry = function(_rectOf: (string) -> any)
-					probeSample()
-				end,
-			},
-			--[[ WHAT THIS SURFACE CAN BE OPENED INTO (overflow guard layer 3,
+					onGeometry = function(_rectOf: (string) -> any)
+						probeSample()
+					end,
+				},
+				--[[ WHAT THIS SURFACE CAN BE OPENED INTO (overflow guard layer 3,
 				2026-08-21). A sweep mounts and settles, and everything reachable only
 				through a TAP is invisible to it — which is how the region-expand plate
 				painted its `9` 8px past its own panel edge through a green 180-cell
@@ -3147,239 +3096,244 @@ return {
 
 				A driver that wants one by name uses the runner's `expand` step; this
 				list is for the driver that wants ALL of them. ]]
-			states = function(): { { id: string, kind: string, open: () -> boolean } }
-				local out: { { id: string, kind: string, open: () -> boolean } } = {}
-				local dump = state()
-				for _, row in (if dump ~= nil then dump.regions else nil) or {} do
-					if row.expandable ~= true then
-						continue
+				states = function(): { { id: string, kind: string, open: () -> boolean } }
+					local out: { { id: string, kind: string, open: () -> boolean } } = {}
+					local dump = state()
+					for _, row in (if dump ~= nil then dump.regions else nil) or {} do
+						if row.expandable ~= true then
+							continue
+						end
+						local path = row.id
+						table.insert(out, {
+							id = `expand:{string.match(path, "([^/]+)$") or path}`,
+							kind = "expand",
+							open = function(): boolean
+								if ctx.presenter == nil or ctx.presenter.expand == nil then
+									return false
+								end
+								return ctx.presenter.expand(path) ~= nil
+							end,
+						})
 					end
-					local path = row.id
-					table.insert(out, {
-						id = `expand:{string.match(path, "([^/]+)$") or path}`,
-						kind = "expand",
-						open = function(): boolean
-							if ctx.presenter == nil or ctx.presenter.expand == nil then
-								return false
-							end
-							return ctx.presenter.expand(path) ~= nil
-						end,
-					})
-				end
-				--[[ ...AND THE SINK ITSELF, which is the same class of surface for the
+					--[[ ...AND THE SINK ITSELF, which is the same class of surface for the
 					same reason: it is a presented panel that exists only after the
 					affordance is used, so no settle has ever laid eyes on it. ]]
-				table.insert(out, {
-					id = "overflow",
-					kind = "disclosure",
-					open = function(): boolean
+					table.insert(out, {
+						id = "overflow",
+						kind = "disclosure",
+						open = function(): boolean
+							if overflowHandle == nil then
+								openOverflow()
+							end
+							return overflowOpen:peek()
+						end,
+					})
+					return out
+				end,
+				steps = {
+					showNotification = function()
+						notify()
+						return { shown = true }
+					end,
+					heal = function()
+						health:set(1)
+						return meter(health)
+					end,
+					openUrlBar = function()
+						urlBar:set(true)
+						-- the EFFECTIVE loss, not the constant: on a screen shorter than
+						-- `URL_BAR_STEAL_PX + HUD_FLOOR_PX` the simulated bar is capped, and a
+						-- driver reading this number has to be told what actually happened
+						return { urlBar = true, lostPx = urlBarPx(function(r)
+							return r:peek()
+						end) }
+					end,
+					closeUrlBar = function()
+						urlBar:set(false)
+						return { urlBar = false, lostPx = 0 }
+					end,
+					rideStrip = function()
+						ride:set(true)
+						return { riding = riding:peek(), band = (chromeFact:peek() :: any).band }
+					end,
+					leaveStrip = function()
+						ride:set(false)
+						return { riding = false }
+					end,
+					-- the two live values a driver can watch move: the round clock's ring
+					-- and the health bar. Both are ordinary ProgressViews, so this is the
+					-- fixture proving its own indicators are bound rather than painted.
+					takeDamage = function()
+						health:set(math.max(0, health:peek() - 0.25))
+						return { health = health:peek(), fraction = meter(health).fraction }
+					end,
+					tickRound = function()
+						roundLeft:set(math.max(0, roundLeft:peek() - 0.2))
+						return { roundLeft = roundLeft:peek(), fraction = meter(roundLeft).fraction }
+					end,
+					-- THE RECOVERY ROUTE, DRIVEN (D7.3). A driver opens the sink and reads
+					-- back exactly what it is disclosing, so "the content is reachable" is
+					-- an observation rather than a claim about a button existing.
+					openOverflow = function()
 						if overflowHandle == nil then
 							openOverflow()
 						end
-						return overflowOpen:get()
+						return { open = overflowOpen:peek(), hidden = hiddenNow() }
 					end,
-				})
-				return out
-			end,
-			steps = {
-				showNotification = function()
-					notify()
-					return { shown = true }
-				end,
-				heal = function()
-					health:set(1)
-					return healthBar.dump()
-				end,
-				openUrlBar = function()
-					urlBar:set(true)
-					-- the EFFECTIVE loss, not the constant: on a screen shorter than
-					-- `URL_BAR_STEAL_PX + HUD_FLOOR_PX` the simulated bar is capped, and a
-					-- driver reading this number has to be told what actually happened
-					return { urlBar = true, lostPx = urlBarPx(function(r)
-						return r:get()
-					end) }
-				end,
-				closeUrlBar = function()
-					urlBar:set(false)
-					return { urlBar = false, lostPx = 0 }
-				end,
-				rideStrip = function()
-					ride:set(true)
-					return { riding = riding:get(), band = (chromeFact:get() :: any).band }
-				end,
-				leaveStrip = function()
-					ride:set(false)
-					return { riding = false }
-				end,
-				-- the two live values a driver can watch move: the round clock's ring
-				-- and the health bar. Both are ordinary ProgressViews, so this is the
-				-- fixture proving its own indicators are bound rather than painted.
-				takeDamage = function()
-					health:set(math.max(0, health:get() - 0.25))
-					return { health = health:get(), fraction = healthBar.dump().fraction }
-				end,
-				tickRound = function()
-					roundLeft:set(math.max(0, roundLeft:get() - 0.2))
-					return { roundLeft = roundLeft:get(), fraction = timerRing.dump().fraction }
-				end,
-				-- THE RECOVERY ROUTE, DRIVEN (D7.3). A driver opens the sink and reads
-				-- back exactly what it is disclosing, so "the content is reachable" is
-				-- an observation rather than a claim about a button existing.
-				openOverflow = function()
-					if overflowHandle == nil then
-						openOverflow()
-					end
-					return { open = overflowOpen:get(), hidden = hiddenNow() }
-				end,
-				closeOverflow = function()
-					closeOverflow()
-					return { open = overflowOpen:get() }
-				end,
-				--[[ THE PROBE, DRIVEN (NM-H4a). The switch and these two are one signal,
+					closeOverflow = function()
+						closeOverflow()
+						return { open = overflowOpen:peek() }
+					end,
+					--[[ THE PROBE, DRIVEN (NM-H4a). The switch and these two are one signal,
 					so a scripted sweep and a thumb reach the same state — and `probeSample`
 					is exposed because a headless caller has no frame clock to wait for. ]]
-				holdProbe = function()
-					probeHeld:set(true)
-					return { held = true, probe = probeReport }
-				end,
-				armProbe = function()
-					probeHeld:set(false)
-					probeSample()
-					return { held = probeHeld:get(), probe = probeReport }
-				end,
-				sampleProbe = function()
-					-- the scripted stand-in for the 4Hz tick: a headless caller has no
-					-- frame clock, so its own sample is the confirming one
-					probeSample(true)
-					return { held = probeHeld:get(), probe = probeReport }
-				end,
-			},
-			report = function()
-				local dump = state()
-				local forms: { [string]: number } = {}
-				local dropped: { string } = {}
-				if dump ~= nil then
-					for _, r in dump.regions do
-						forms[r.id] = r.form
-						if r.dropped then
-							table.insert(dropped, r.id)
+					holdProbe = function()
+						probeHeld:set(true)
+						return { held = true, probe = probeReport }
+					end,
+					armProbe = function()
+						probeHeld:set(false)
+						probeSample()
+						return { held = probeHeld:peek(), probe = probeReport }
+					end,
+					sampleProbe = function()
+						-- the scripted stand-in for the 4Hz tick: a headless caller has no
+						-- frame clock, so its own sample is the confirming one
+						probeSample(true)
+						return { held = probeHeld:peek(), probe = probeReport }
+					end,
+				},
+				report = function()
+					local dump = state()
+					local forms: { [string]: number } = {}
+					local dropped: { string } = {}
+					if dump ~= nil then
+						for _, r in dump.regions do
+							forms[r.id] = r.form
+							if r.dropped then
+								table.insert(dropped, r.id)
+							end
 						end
 					end
-				end
-				local elided: { string } = {}
-				--[[ ...AND WHICH OF THEM CAN BE ASKED FOR THE REST WHERE THEY STAND
+					local elided: { string } = {}
+					--[[ ...AND WHICH OF THEM CAN BE ASKED FOR THE REST WHERE THEY STAND
 					(wave REVEAL). A driver reading this can tell the two kinds of "showing
 					less" apart without a screenshot: an elided zone with an expand is a
 					disclosure away from its full self, and one without is either the
 					authored escape or a dead end the sweep would already have failed on. ]]
-				local expandable: { string } = {}
-				if dump ~= nil then
-					for _, r in dump.regions do
-						if r.elided then
-							table.insert(elided, r.id)
-						end
-						if r.expandable then
-							table.insert(expandable, r.id)
+					local expandable: { string } = {}
+					if dump ~= nil then
+						for _, r in dump.regions do
+							if r.elided then
+								table.insert(elided, r.id)
+							end
+							if r.expandable then
+								table.insert(expandable, r.id)
+							end
 						end
 					end
-				end
-				local chrome = chromeFact:get() :: any
-				return {
-					urlBar = urlBar:get(),
-					arrangement = if dump ~= nil then dump.arrangement else nil,
-					fallback = if dump ~= nil then dump.fallback else nil,
-					-- the whole point, in one number: a HUD that adapted has ZERO
-					-- collisions at every size, and the ones that gave way are named
-					collisions = if dump ~= nil then #dump.collisions else nil,
-					forms = forms,
-					dropped = dropped,
-					--[[ AND THE D7 HALF: what this screen has stopped showing, and where
+					local chrome = chromeFact:peek() :: any
+					return {
+						urlBar = urlBar:peek(),
+						arrangement = if dump ~= nil then dump.arrangement else nil,
+						fallback = if dump ~= nil then dump.fallback else nil,
+						-- the whole point, in one number: a HUD that adapted has ZERO
+						-- collisions at every size, and the ones that gave way are named
+						collisions = if dump ~= nil then #dump.collisions else nil,
+						forms = forms,
+						dropped = dropped,
+						--[[ AND THE D7 HALF: what this screen has stopped showing, and where
 						the rest is. `unshown` is the FRAMEWORK's list, verbatim — a driver
 						that re-derived it from `forms` and `dropped` would be re-implementing
 						the three rules the seam exists to hold in one place. `elided` beside
 						`dropped` is the other half of the same fact. ]]
-					elided = elided,
-					unshown = if dump ~= nil then dump.unshown else nil,
-					-- the zones standing on a reduced form that carry their own route back
-					expandable = expandable,
-					overflowOpen = overflowOpen:get(),
-					-- ...and the OTHER whole point, in three: what the platform kept,
-					-- what it left free, and whether this HUD is using it. The rects
-					-- nothing may touch are `chromeRects`; the regression check that
-					-- nothing does is tests/hud_composition.spec.luau.
-					riding = riding:get(),
-					band = chrome.band,
-					chromeRects = chrome.rects,
-					-- the two bound indicators, so a canary can assert the ring and the
-					-- bar are reading their signals rather than sitting at a constant
-					roundLeft = timerRing.dump().fraction,
-					health = healthBar.dump().fraction,
-					healthMeter = healthBar.dump(),
-					reservations = if ctx.presenter then ctx.presenter.hudReservations:get() else {},
-					--[[ AND THE PAINT PROBE'S OWN ANSWER (NM-H4a), so a scripted device
+						elided = elided,
+						unshown = if dump ~= nil then dump.unshown else nil,
+						-- the zones standing on a reduced form that carry their own route back
+						expandable = expandable,
+						overflowOpen = overflowOpen:peek(),
+						-- ...and the OTHER whole point, in three: what the platform kept,
+						-- what it left free, and whether this HUD is using it. The rects
+						-- nothing may touch are `chromeRects`; the regression check that
+						-- nothing does is tests/hud_composition.spec.luau.
+						riding = riding:peek(),
+						band = chrome.band,
+						chromeRects = chrome.rects,
+						-- the two bound indicators, so a canary can assert the ring and the
+						-- bar are reading their signals rather than sitting at a constant
+						roundLeft = meter(roundLeft).fraction,
+						health = meter(health).fraction,
+						healthMeter = meter(health),
+						reservations = if ctx.presenter then ctx.presenter.hudReservations:peek() else {},
+						--[[ AND THE PAINT PROBE'S OWN ANSWER (NM-H4a), so a scripted device
 						sweep reads the same disagreement the plate is showing rather than
 						re-deriving it. `held` is the latch; `latches` counts how many times
 						it has fired since this fixture mounted, which is the difference
 						between "it happened once" and "it happens every rotation". ]]
-					--[[ ...AND ALL THREE STATES, plus the rows nobody could hold the engine
+						--[[ ...AND ALL THREE STATES, plus the rows nobody could hold the engine
 						to. `painting + #lost + #unmeasured` is `wanted`, and
 						`wanted + #skipped` is `declared` — a driver that reads only
 						`painting` can no longer be told a screen is healthy by a
 						denominator that quietly moved. `plate` is the readout VERBATIM, so
 						a scripted device sweep asserts what a thumb is actually reading
 						rather than re-deriving it and agreeing with itself. ]]
-					paintProbe = {
-						held = probeHeld:get(),
-						lost = probeReport.lost,
-						unmeasured = probeReport.unmeasured,
-						skipped = probeReport.skipped,
-						-- ...and WHY a row was skipped, when the answer is a platform fact
-						-- rather than the ladder: `Objective` leaves the denominator exactly
-						-- when the engine publishes no top band (NM-H4a round 2)
-						riding = probeReport.riding,
-						band = probeReport.band,
-						-- has this probe ever seen the screen healthy? Until it has, a loss
-						-- is a screen that has not been built yet, and it may not latch
-						everHealthy = probeEverHealthy,
-						culprits = probeReport.culprits,
-						mismatched = probeReport.mismatched,
-						firstPainted = probeReport.firstPainted,
-						hiddenUnder = probeReport.hiddenUnder,
-						painting = probeReport.painting,
-						wanted = probeReport.wanted,
-						declared = probeReport.declared,
-						expected = probeReport.expected,
-						latches = probeReport.latches,
-						samples = probeReport.samples,
-						engine = probeReport.engine,
-						solves = probeReport.solves,
-						viewport = probeReport.viewport,
-						head = probeReport.head,
-						plate = probeReport.plate,
-					},
-				}
-			end,
-			dispose = function()
-				-- the sink is a SURFACE of this fixture's own, so teardown retires it
-				-- before the scope goes: a live anchored panel outliving the screen it
-				-- discloses is the leak class this fixture would otherwise ship
-				closeOverflow()
-				-- ...and so is the probe, for exactly the same reason — its surface AND
-				-- the frame clock it rides, which is owned by the presenter and would
-				-- otherwise keep sampling a disposed controller
-				if unbindProbeTick ~= nil then
-					unbindProbeTick()
-					unbindProbeTick = nil
-				end
-				dropProbe()
-				for _, view in taskBars do
-					view.dispose()
-				end
-				timerRing.dispose()
-				healthBar.dispose()
-				scope:dispose()
-			end,
-		}
+						paintProbe = {
+							held = probeHeld:peek(),
+							lost = probeReport.lost,
+							unmeasured = probeReport.unmeasured,
+							skipped = probeReport.skipped,
+							-- ...and WHY a row was skipped, when the answer is a platform fact
+							-- rather than the ladder: `Objective` leaves the denominator exactly
+							-- when the engine publishes no top band (NM-H4a round 2)
+							riding = probeReport.riding,
+							band = probeReport.band,
+							-- has this probe ever seen the screen healthy? Until it has, a loss
+							-- is a screen that has not been built yet, and it may not latch
+							everHealthy = probeEverHealthy,
+							culprits = probeReport.culprits,
+							mismatched = probeReport.mismatched,
+							firstPainted = probeReport.firstPainted,
+							hiddenUnder = probeReport.hiddenUnder,
+							painting = probeReport.painting,
+							wanted = probeReport.wanted,
+							declared = probeReport.declared,
+							expected = probeReport.expected,
+							latches = probeReport.latches,
+							samples = probeReport.samples,
+							engine = probeReport.engine,
+							solves = probeReport.solves,
+							viewport = probeReport.viewport,
+							head = probeReport.head,
+							plate = probeReport.plate,
+						},
+					}
+				end,
+				dispose = function()
+					-- the sink is a SURFACE of this fixture's own, so teardown retires it
+					-- before the scope goes: a live anchored panel outliving the screen it
+					-- discloses is the leak class this fixture would otherwise ship
+					closeOverflow()
+					-- ...and so is the probe, for exactly the same reason — its surface AND
+					-- the frame clock it rides, which is owned by the presenter and would
+					-- otherwise keep sampling a disposed controller
+					if unbindProbeTick ~= nil then
+						unbindProbeTick()
+						unbindProbeTick = nil
+					end
+					dropProbe()
+				end,
+			}
+			result.present.onGeometry = published.present.onGeometry
+			published.present = nil
+			for key, value in published do
+				result[key] = value
+			end
+			-- the two surfaces this component raised go with it, and so does the
+			-- frame clock the probe rides
+			Compose.cleanup(published.dispose)
+			return screen
+		end
+		result.screen = component
 		return result
 	end,
 }

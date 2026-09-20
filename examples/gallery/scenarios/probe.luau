@@ -18,67 +18,53 @@ return {
 	title = "Verification-surface probe",
 	ledgerRows = { "NS-A2:baseline" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
-		local core = ctx.core
-		local counter = core:signal(0)
-		local counterText = core:memo(function(use)
+		local UI, Compose = ctx.UI, ctx.Compose
+		local counter = Compose.cell(0)
+		local counterText = Compose.formula(function(use)
 			return "count=" .. tostring(use(counter))
 		end)
-
-		local rows = {}
-		for i = 1, 12 do
-			table.insert(
-				rows,
-				UI.Text({
-					id = "ProbeRow" .. i,
-					text = "Probe row " .. i,
-					textSize = 16,
-					height = { type = "fixed", px = 30 },
-				})
-			)
+		local function bump()
+			counter:set(counter:peek() + 1)
 		end
 
-		local screen = UI.Screen({
-			id = "ProbeScreen",
-			padding = 16,
-			gap = 8,
+		local function screen()
+			-- `fill` so the ScrollView takes whatever is left of the page after
+			-- Title/Counter/Bump. The 12 rows outgrow any share it gets, so it
+			-- overflows ITS OWN box, the NS-A2 baseline this scenario freezes,
+			-- at every viewport and never the page's.
+			local scroll: { any } = { height = UI.fill() }
+			for i = 1, 12 do
+				table.insert(
+					scroll,
+					UI.Text("ProbeRow" .. i)({
+						text = "Probe row " .. i,
+						textSize = 16,
+						height = { type = "fixed", px = 30 },
+					})
+				)
+			end
+			return UI.Screen("ProbeScreen")({
+				padding = 16,
+				gap = 8,
 
-			UI.Text({ id = "Title", text = "Scenario probe", textSize = 22 }),
-			UI.Text({ id = "Counter", text = counterText, textSize = 14 }),
-			UI.Button({ id = "Bump", label = "Bump" }),
-			-- `fill` (not the fixed 200px this used to be) so the ScrollView
-			-- takes whatever's left of the page after Title/Counter/Bump —
-			-- a fixed 200px was taller than a short landscape phone's whole
-			-- safe area with nothing to scroll the PAGE itself
-			-- (overflow_sweep, device bug round 2026-08-12). The 12 rows
-			-- still outgrow any share this gets, so it keeps overflowing
-			-- ITS OWN box — the NS-A2 baseline this scenario exists to
-			-- freeze — at every viewport, just never the page's.
-			UI.ScrollView({
-				id = "ProbeScroll",
-				height = UI.fill(),
-				children = rows,
-			}),
-		})
+				UI.Text("Title")({ text = "Scenario probe", textSize = 22 }),
+				UI.Text("Counter")({ text = counterText, textSize = 14 }),
+				UI.Button("Bump")({ label = "Bump", onActivate = bump }),
+				UI.ScrollView("ProbeScroll")(scroll),
+			})
+		end
 
 		return {
 			screen = screen,
-			present = {
-				onActivate = function(path: string)
-					if path == "/ProbeScreen/Bump" then
-						counter:set(counter:get() + 1)
-					end
-				end,
-			},
 			steps = {
 				-- state/action drivers (labeled: NOT hardware-input evidence)
 				bump = function()
-					counter:set(counter:get() + 1)
-					return counter:get()
+					bump()
+					return counter:peek()
 				end,
 			},
 			report = function()
-				return { counter = counter:get() }
+				return { counter = counter:peek() }
 			end,
 		}
 	end,

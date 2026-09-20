@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE CIRCLE SHAPE, GENERALIZED FROM BUTTON TO ZSTACK (task PAINT, director
 -- item 12: OddOverlapNotRound.png + whatisthis.png — "circles need a better
 -- approach than what we have"). `tests/button_shape.spec.luau` proved the
@@ -28,16 +29,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
 local schema = require("../src/blueprint_schema")
 local snapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local CIRCLE_TAG = sheet_model.TAGS.shapePrefix .. "circle"
 
@@ -93,13 +95,17 @@ end)
 
 describe("circle ZStack: the reject classes name the field, the rule and the fix", function()
 	it("refuses BOTH authored axes — the same rule the circle Button refuses by", function()
+		-- cross-property rules run when the node joins a tree
 		local err = fails(function()
-			UI.ZStack({
-				id = "Z",
-				shape = "circle",
-				width = { type = "fixed", px = 56 },
-				height = { type = "fixed", px = 56 },
-			})
+			mountLib.mount(
+				customFactory.new(),
+				UI.ZStack({
+					id = "Z",
+					shape = "circle",
+					width = { type = "fixed", px = 56 },
+					height = { type = "fixed", px = 56 },
+				})
+			)
 		end)
 		expect(string.find(err, "UI.ZStack", 1, true) ~= nil).toBe(true)
 		expect(string.find(err, "at most ONE of", 1, true) ~= nil).toBe(true)
@@ -116,9 +122,9 @@ describe("circle ZStack: the reject classes name the field, the rule and the fix
 	it("refuses a REACTIVE shape: a shape is what the container is, not a state it passes through", function()
 		local core = customFactory.new()
 		local err = fails(function()
-			UI.ZStack({ id = "Z", shape = core:signal("circle") })
+			UI.ZStack({ id = "Z", shape = Compose.cell("circle") })
 		end)
-		expect(string.find(err, "Signal/Memo", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "a Compose cell or formula", 1, true) ~= nil).toBe(true)
 	end)
 end)
 

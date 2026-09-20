@@ -7,7 +7,7 @@
 	`_close()`/`_closeMenu()` on rows through their PUBLIC handle and never reads
 	a single one of `buildEngine`'s upvalues.
 
-	PUBLIC INTERFACE: `new(core) -> { claim, release, bindScroll }`.
+	PUBLIC INTERFACE: `new() -> { claim, release, bindScroll }`.
 	`row_actions.luau` re-exports it as `row_actions.newCoordinator`, which
 	`src/init.luau` publishes as `newRowActionsCoordinator` — the export shape is
 	unchanged, byte for byte.
@@ -26,7 +26,7 @@ local row_actions_coordinator = {}
 -- 2026-08-09): at most one row open per shared list surface. A VStack/
 -- ScrollView list builds its own and passes it to every wrapped row's
 -- `coordinator` spec key; Table (Task 10) does the identical wiring for its
--- own `rowActions` rows automatically. Standalone `newRowActions` use with no
+-- own `rowActions` rows automatically. Standalone `UI.RowActions` use with no
 -- coordinator stays valid — every claim/release call in `buildEngine`
 -- (row_actions.luau) is already guarded on `coordinator ~= nil`, so an instance
 -- with none only ever manages itself, byte-identical to Tasks 3-6.
@@ -36,11 +36,10 @@ local row_actions_coordinator = {}
 -- object a caller already holds) — never a second wrapper/id scheme
 -- `claim`/`release` would have to keep in sync with the real one.
 --
--- `core` is accepted (not `_core`) for the same construction signature every
--- other `new*` factory in this module family uses, though nothing here reads
--- it today: the registry is three closures over one plain local, not
--- reactive state — there is nothing here a caller could usefully `core:observe`.
-function row_actions_coordinator.new(core: any): any
+-- THE COORDINATOR TAKES NOTHING. The registry is three closures over one plain
+-- local, not reactive state, so there is no core to read and the signature says
+-- so: `Facet.newRowActionsCoordinator()`.
+function row_actions_coordinator.new(): any
 	local claimed: any = nil -- the currently-open row instance's own API table, or nil
 
 	-- called from a row (see `open`/`onPointerMove`'s axis-lock crossing in

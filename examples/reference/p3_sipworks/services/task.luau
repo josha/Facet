@@ -41,27 +41,23 @@ task.FREE_POUR_BLEND = "mistral-mint"
 task.PHASES = { "order", "placing", "rejected", "redeem", "done" }
 
 export type Opts = {
-	core: any,
-	scope: any,
+	Compose: any,
+	batch: (() -> ()) -> (),
 	rewards: any,
 	order: any,
 }
 
 function task.new(opts: Opts): any
-	local core = opts.core
-	local scope = opts.scope
+	local Compose = opts.Compose
+	-- groups several writes into one update
+	local batch = opts.batch
 	local rewards = opts.rewards
 	local order = opts.order
 
 	-- the two latched events (see the header): both are cleared by `reset`
-	local served = core:signal(false)
-	local redeemed = core:signal(false)
-	local refused = core:signal(false)
-	scope:own(function()
-		served:dispose()
-		redeemed:dispose()
-		refused:dispose()
-	end)
+	local served = Compose.cell(false)
+	local redeemed = Compose.cell(false)
+	local refused = Compose.cell(false)
 
 	local self = {}
 	self.served = served
@@ -72,10 +68,10 @@ function task.new(opts: Opts): any
 
 	-- how many of the card's ten seals are stamped right now. The number IS the
 	-- lesson here — a stamp card is a counter — so it is on the player surface.
-	local stamps = core:memo(function(use)
+	local stamps = Compose.formula(function(use)
 		return math.clamp(use(rewards.earned) - use(rewards.spent), 0, rewardsService.THRESHOLD)
 	end)
-	local phase = core:memo(function(use)
+	local phase = Compose.formula(function(use)
 		if use(redeemed) then
 			return "done"
 		end
@@ -92,13 +88,8 @@ function task.new(opts: Opts): any
 	end)
 	-- the blend the CTA names, which is the step's own subject: the first order,
 	-- then a different blend for the free pour
-	local ctaBlendId = core:memo(function(use)
+	local ctaBlendId = Compose.formula(function(use)
 		return if use(phase) == "redeem" then task.FREE_POUR_BLEND else task.FIRST_BLEND
-	end)
-	scope:own(function()
-		stamps:dispose()
-		phase:dispose()
-		ctaBlendId:dispose()
 	end)
 	self.stamps = stamps
 	self.phase = phase
@@ -129,7 +120,7 @@ function task.new(opts: Opts): any
 	end
 
 	function self.reset()
-		core:transaction(function()
+		batch(function()
 			served:set(false)
 			redeemed:set(false)
 			refused:set(false)
@@ -139,18 +130,18 @@ function task.new(opts: Opts): any
 	-- the two checklist rows, as data: id + done, in the order they are walked
 	function self.rows(): { { id: string, done: boolean } }
 		return {
-			{ id = "serve", done = served:get() },
-			{ id = "redeem", done = redeemed:get() },
+			{ id = "serve", done = served:peek() },
+			{ id = "redeem", done = redeemed:peek() },
 		}
 	end
 
 	function self.dump(): string
 		return table.concat({
-			phase:get(),
-			tostring(stamps:get()),
-			tostring(served:get()),
-			tostring(redeemed:get()),
-			tostring(refused:get()),
+			phase:peek(),
+			tostring(stamps:peek()),
+			tostring(served:peek()),
+			tostring(redeemed:peek()),
+			tostring(refused:peek()),
 		}, "/")
 	end
 

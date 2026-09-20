@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE PER-CONTROL SENSORY HOOK — `UI.sensoryFeedback(bp, { activation = verb })`
 -- (director request 2026-08-13: "when you press a button you get haptic
 -- feedback"; the comparison document §7.1).
@@ -36,30 +37,32 @@ local fs = require("@lune/fs")
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
+local scenarioCtx = require("./lib/scenario_ctx")
 
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local mountLib = harness
 local feedbackLib = require("../src/present/feedback")
 local hapticsLib = require("../src/client/haptics")
 local sensoryProfile = require("../src/client/sensory_profile")
 local controlContract = require("../src/class_contract")
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local fake_target = require("./lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 --[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -136,7 +139,7 @@ describe("the per-control declaration is ruled on at the call site", function()
 		local ok, err = pcall(function()
 			UI.sensoryFeedback(
 				UI.Button({ id = "B", label = "b" }),
-				{ trigger = core:signal(0), event = "select", activation = "commit" } :: any
+				{ trigger = Compose.cell(0), event = "select", activation = "commit" } :: any
 			)
 		end)
 		expect(ok).toBe(false)
@@ -168,7 +171,7 @@ describe("the per-control declaration is ruled on at the call site", function()
 		local core = customFactory.new()
 		local bp = UI.sensoryFeedback(
 			UI.sensoryFeedback(UI.Button({ id = "B", label = "b" }), { activation = "commit" }),
-			{ trigger = core:signal(0), event = "select" }
+			{ trigger = Compose.cell(0), event = "select" }
 		)
 		local list = bp.meta[feedbackLib.SENSORY_PROP]
 		expect(#list).toBe(2)
@@ -182,7 +185,7 @@ describe("the per-control declaration is ruled on at the call site", function()
 			UI.sensoryFeedback(
 				UI.ForEach({
 					id = "F",
-					items = core:signal({}),
+					items = Compose.cell({}),
 					key = function(v: any): string
 						return tostring(v)
 					end,
@@ -262,7 +265,7 @@ describe("the cascade: nearest declaration wins, and costs nothing when absent",
 
 	it("crosses a structural region: a When branch inherits from outside it", function()
 		local core = customFactory.new()
-		local show = core:signal(true)
+		local show = Compose.cell(true)
 		local root = mountLib.mount(
 			core,
 			UI.sensoryFeedback(
@@ -291,7 +294,7 @@ describe("the cascade: nearest declaration wins, and costs nothing when absent",
 
 	it("crosses a ForEach: every row inherits, including rows added later", function()
 		local core = customFactory.new()
-		local items = core:signal({ "a" })
+		local items = Compose.cell({ "a" })
 		local root = mountLib.mount(
 			core,
 			UI.sensoryFeedback(
@@ -339,7 +342,7 @@ describe("the cascade: nearest declaration wins, and costs nothing when absent",
 	it("buys NO observer: the control form has no Readable to watch", function()
 		local plainCore = customFactory.new()
 		local plainRoot = mountLib.mount(plainCore, UI.Button({ id = "B", label = "b" }), { feedback = function() end })
-		local baseline = plainCore:counters().observers
+		local baseline = plainCore.owner.size()
 
 		local declaredCore = customFactory.new()
 		local declaredRoot = mountLib.mount(
@@ -347,7 +350,7 @@ describe("the cascade: nearest declaration wins, and costs nothing when absent",
 			UI.sensoryFeedback(UI.Button({ id = "B", label = "b" }), { activation = "commit" }),
 			{ feedback = function() end }
 		)
-		expect(declaredCore:counters().observers).toBe(baseline)
+		expect(declaredCore.owner.size()).toBe(baseline)
 		plainRoot.dispose()
 		declaredRoot.dispose()
 	end)
@@ -432,8 +435,8 @@ describe("what a press emits", function()
 		pres.onFeedback(function(event: any)
 			table.insert(events, event)
 		end)
-		local on = core:signal(false)
-		local chip = Facet.Controls.Chip(core, { id = "C", label = "Wet", selected = on })
+		local on = Compose.cell(false)
+		local chip = harness.Controls.Chip(core, { id = "C", label = "Wet", selected = on })
 		pres.present(UI.Screen({
 			id = "S",
 			children = { UI.sensoryFeedback(chip.blueprint, { activation = "select" }) },
@@ -513,7 +516,7 @@ describe("the render seam publishes the resolved verb", function()
 		-- `stats().recycled` is asserted below so this cannot quietly become a test
 		-- of two fresh instances — which is exactly what its first version was.
 		local core, _, adapter, _, pres = world()
-		local items = core:signal({ { key = "a", declared = true } })
+		local items = Compose.cell({ { key = "a", declared = true } })
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -886,12 +889,12 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 
 			Both facts the mirror needs are checked at the same seam: the hit rect IS
 			pushed for this control, and its declared verb IS published for it. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -947,26 +950,24 @@ describe("the showcase fixture drives the real thing", function()
 	local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
 
 	local function mountUnder(pkgName: string?, view: any): (any, any)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		if pkgName ~= nil then
 			env:set(
 				"themeMetrics",
 				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
 			)
 		end
-		local built = scenario.build({
-			Facet = Facet,
-			core = core,
-			env = env,
-			actionSystem = system,
-			presenter = pres,
-		})
+		local ctx = scenarioCtx.ofHarness({ core = core, env = env, adapter = adapter, pres = pres, system = system })
+		-- the scenario builds its screen at once, so the nodes take the harness owner
+		local built = harness.owned(function()
+			return scenario.build(ctx)
+		end)
 		built.handle = pres.present(built.screen, built.present)
 		for _ = 1, 3 do
 			pres.refresh()
@@ -1022,8 +1023,8 @@ describe("the showcase fixture drives the real thing", function()
 		for _, entry in scenario.declared do
 			w.adapter.tap(`/SensoryFeedback/Page/Leaves/LeafRow/{entry.id}`)
 		end
-		local log = built.historyText:get()
-		expect(built.requests:get()).toBe(4)
+		local log = built.historyText:peek()
+		expect(built.requests:peek()).toBe(4)
 		for _, verb in { "commit", "reject", "select", "activate" } do
 			expect(`{verb} logged:{string.find(log, verb, 1, true) ~= nil}`).toBe(`{verb} logged:true`)
 		end
@@ -1037,8 +1038,8 @@ describe("the showcase fixture drives the real thing", function()
 		for _, path in { `{base}/First`, `{base}/Nested/Second`, `{base}/Nested/Third` } do
 			w.adapter.tap(path)
 		end
-		expect(built.requests:get()).toBe(3)
-		local _, count = string.gsub(built.historyText:get(), "pickup", "")
+		expect(built.requests:peek()).toBe(3)
+		local _, count = string.gsub(built.historyText:peek(), "pickup", "")
 		expect(count).toBe(3)
 		built.dispose()
 	end)
@@ -1051,11 +1052,11 @@ describe("the showcase fixture drives the real thing", function()
 		-- point, which is the seam a game's session code uses.
 		local w, built = mountUnder(nil, { w = 390, h = 844 })
 		w.pres.emitFeedback({ type = "commit", path = "/SensoryFeedback/Page/Leaves/LeafRow/Buy" })
-		expect(built.requests:get()).toBe(0)
-		expect(built.historyText:get()).toBe(scenario.copy.historyEmpty)
+		expect(built.requests:peek()).toBe(0)
+		expect(built.historyText:peek()).toBe(scenario.copy.historyEmpty)
 		-- ...and a real press on the same path still does
 		w.adapter.tap("/SensoryFeedback/Page/Leaves/LeafRow/Buy")
-		expect(built.requests:get()).toBe(1)
+		expect(built.requests:peek()).toBe(1)
 		built.dispose()
 	end)
 
@@ -1067,9 +1068,9 @@ describe("the showcase fixture drives the real thing", function()
 		local w, built = mountUnder(nil, { w = 390, h = 844 })
 		w.pres.present(UI.Screen({ id = "Chrome", children = { UI.Button({ id = "Pick", label = "p" }) } }))
 		w.adapter.tap("/Chrome/Pick")
-		expect(built.requests:get()).toBe(0)
+		expect(built.requests:peek()).toBe(0)
 		w.adapter.tap("/SensoryFeedback/Page/Leaves/LeafRow/Buy")
-		expect(built.requests:get()).toBe(1)
+		expect(built.requests:peek()).toBe(1)
 		built.dispose()
 	end)
 
@@ -1086,7 +1087,7 @@ describe("the showcase fixture drives the real thing", function()
 				if #parts > 0 then
 					table.insert(problems, `  {name} at {view.w}x{view.h}: {table.concat(parts, " | ")}`)
 				end
-				expect(w.core:lastError()).toBeNil()
+				expect(w.core.lastError()).toBeNil()
 				built.dispose()
 			end
 		end
@@ -1325,12 +1326,12 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 	end
 
 	local function mountDemo(viewport: any?): (any, any)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", viewport or { x = 0, y = 0, w = 390, h = 844 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		--[[ THE BUS CENSUS, taken at the seam rather than from the fixture. Every
 			`bind(presenter)` is one `onFeedback` subscription and every unbind
 			releases one, so the LIVE count answers "how many adapters are listening
@@ -1347,7 +1348,11 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 				unsubscribe()
 			end
 		end
-		local built = scenario.build({ Facet = Facet, core = core, env = env, actionSystem = system, presenter = pres })
+		local ctx = scenarioCtx.ofHarness({ core = core, env = env, adapter = adapter, pres = pres, system = system })
+		-- the scenario builds its screen at once, so the nodes take the harness owner
+		local built = harness.owned(function()
+			return scenario.build(ctx)
+		end)
 		built.handle = pres.present(built.screen, built.present)
 		for _ = 1, 3 do
 			pres.refresh()
@@ -1374,7 +1379,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 
 	local function lines(built: any): { string }
 		local out: { string } = {}
-		local text = built.historyText:get()
+		local text = built.historyText:peek()
 		if text == scenario.copy.historyEmpty then
 			return out
 		end
@@ -1398,9 +1403,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local w, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		expect(built.playHaptics:get()).toBe(true)
+		expect(built.playHaptics:peek()).toBe(true)
 		expect(built.hapticsAdapter() ~= nil).toBe(true)
-		expect(built.hapticsState:get()).toBe("requested")
+		expect(built.hapticsState:peek()).toBe("requested")
 		-- EXACTLY ONE adapter is listening to the presenter (the other subscriber
 		-- is the fixture's own history), and exactly one is attached to the root
 		expect(`bus subscribers:{w.busSubscribers()}`).toBe("bus subscribers:2")
@@ -1419,7 +1424,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		expect(`...and that Facet does not:{string.find(library, "Facet", 1, true) ~= nil}`).toBe(
 			"...and that Facet does not:true"
 		)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
@@ -1520,7 +1525,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 			end
 			for _, offset in { 0, large_text.LARGEST } do
 				for _, state in STATES do
-					local core = Facet.newCore()
+					local core = harness.newCore()
 					local env = Facet.newEnvironment(core)
 					env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 					env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -1530,14 +1535,18 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 					env:set("capabilities", device_views.CAPABILITIES[view.input])
 					local system = Facet.newActionSystem(core)
 					local adapter = fake_target.new()
-					local pres = Facet.newPresenter(core, env, adapter, system)
-					local built = scenario.build({
-						Facet = Facet,
+					local pres = harness.newPresenter(core, env, adapter, system)
+					local ctx = scenarioCtx.ofHarness({
 						core = core,
 						env = env,
-						actionSystem = system,
-						presenter = pres,
+						adapter = adapter,
+						pres = pres,
+						system = system,
 					})
+					-- the scenario builds its screen at once, so the nodes take the harness owner
+					local built = harness.owned(function()
+						return scenario.build(ctx)
+					end)
 					built.handle = pres.present(built.screen, built.present)
 					built.hapticsHeadline:set(state.headline)
 					built.hapticsDetail:set(state.detail)
@@ -1581,12 +1590,12 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = false })
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		expect(built.hapticsState:get()).toBe("refused")
-		expect(built.hapticsHeadline:get()).toBe(scenario.copy.stateRefusedHeadline)
+		expect(built.hapticsState:peek()).toBe("refused")
+		expect(built.hapticsHeadline:peek()).toBe(scenario.copy.stateRefusedHeadline)
 		-- THE REQUESTED TOGGLE DOES NOT MOVE. A demo that switched itself off on a
 		-- refusal would be reporting a device fact by changing a player's setting.
-		expect(built.playHaptics:get()).toBe(true)
-		expect(string.find(built.hapticsEvidence:get(), "unsupported", 1, true) ~= nil).toBe(true)
+		expect(built.playHaptics:peek()).toBe(true)
+		expect(string.find(built.hapticsEvidence:peek(), "unsupported", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
 
@@ -1594,12 +1603,12 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local engine = fakeEngine({ pads = {}, vibration = true })
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		expect(built.hapticsState:get()).toBe("undetermined")
-		expect(built.playHaptics:get()).toBe(true)
+		expect(built.hapticsState:peek()).toBe("undetermined")
+		expect(built.playHaptics:peek()).toBe(true)
 		-- the press effects DID go out, which is why "nothing happened" and "this
 		-- device cannot" are not the same sentence
 		expect(built.hapticsAdapter().diagnostics().decorated > 0).toBe(true)
-		expect(string.find(built.hapticsEvidence:get(), "unknown", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsEvidence:peek(), "unknown", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
 
@@ -1607,8 +1616,8 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		expect(built.hapticsState:get()).toBe("requested")
-		local line = string.lower(built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get())
+		expect(built.hapticsState:peek()).toBe("requested")
+		local line = string.lower(built.hapticsHeadline:peek() .. " " .. built.hapticsDetail:peek())
 		expect(`says installed:{string.find(line, "installed", 1, true) ~= nil}`).toBe("says installed:true")
 		expect(`claims played:{string.find(line, "played", 1, true) ~= nil}`).toBe("claims played:false")
 		built.dispose()
@@ -1619,9 +1628,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
 		built.playHaptics:set(false)
-		expect(built.hapticsState:get()).toBe("off")
+		expect(built.hapticsState:peek()).toBe("off")
 		expect(built.hapticsAdapter()).toBeNil()
-		local line = built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get()
+		local line = built.hapticsHeadline:peek() .. " " .. built.hapticsDetail:peek()
 		for _, forbidden in { "cannot", "supported", "refus" } do
 			expect(`off line mentions '{forbidden}':{string.find(string.lower(line), forbidden, 1, true) ~= nil}`).toBe(
 				`off line mentions '{forbidden}':false`
@@ -1727,11 +1736,11 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 			"2 is the down edge:true"
 		)
 		-- ...and the row says so where a device session can read it
-		expect(built.releaseOutcome:get()).toBe(scenario.copy.stateCancelled)
+		expect(built.releaseOutcome:peek()).toBe(scenario.copy.stateCancelled)
 		local after = built.steps.readRows()
 		expect(`release plays:{after.releasePlays}`).toBe("release plays:0")
 		-- a "(no request)" line is not a request, and the counter agrees
-		expect(built.requests:get()).toBe(1)
+		expect(built.requests:peek()).toBe(1)
 		built.dispose()
 	end)
 
@@ -1771,7 +1780,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		engine.advance(1)
 		w.adapter.tap(SOFT)
 		expect(built.steps.readRows().selectPlays).toBe(2)
-		expect(built.choice:get()).toBe("ChoiceSoft")
+		expect(built.choice:peek()).toBe("ChoiceSoft")
 		built.dispose()
 	end)
 
@@ -1968,7 +1977,7 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		end
 		built.playHaptics:set(false)
 		expect(engine.live()).toBe(0)
-		expect(built.hapticsState:get()).toBe("off")
+		expect(built.hapticsState:peek()).toBe("off")
 		expect(built.hapticsAdapter()).toBeNil()
 		expect(built.overrideAdapter()).toBeNil()
 		for _, button in engine.buttons do
@@ -1994,9 +2003,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local second = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local _, two = mountDemo()
 		two.useScriptedEngine(second.overrides)
-		expect(two.playHaptics:get()).toBe(true)
+		expect(two.playHaptics:peek()).toBe(true)
 		expect(two.hapticsAdapter() ~= nil).toBe(true)
-		expect(two.hapticsState:get()).toBe("requested")
+		expect(two.hapticsState:peek()).toBe("requested")
 		two.dispose()
 	end)
 
@@ -2078,9 +2087,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		})
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		expect(built.hapticsState:get()).toBe("refused")
-		expect(string.find(built.hapticsEvidence:get(), "absent", 1, true) ~= nil).toBe(true)
-		expect(string.find(built.hapticsEvidence:get(), "Unable to create", 1, true) ~= nil).toBe(true)
+		expect(built.hapticsState:peek()).toBe("refused")
+		expect(string.find(built.hapticsEvidence:peek(), "absent", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsEvidence:peek(), "Unable to create", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
 
@@ -2092,19 +2101,19 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		})
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		expect(built.hapticsState:get()).toBe("undetermined")
-		expect(string.find(built.hapticsEvidence:get(), "blocked", 1, true) ~= nil).toBe(true)
+		expect(built.hapticsState:peek()).toBe("undetermined")
+		expect(string.find(built.hapticsEvidence:peek(), "blocked", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
 
 	it("an adapter that could not be LOADED is undetermined, not a platform claim", function()
 		local _, built = mountDemo()
 		built.useScriptedEngine({ moduleError = "Facet.client.haptics is not replicated here" })
-		expect(built.hapticsState:get()).toBe("undetermined")
-		expect(string.find(built.hapticsEvidence:get(), "not replicated", 1, true) ~= nil).toBe(true)
+		expect(built.hapticsState:peek()).toBe("undetermined")
+		expect(string.find(built.hapticsEvidence:peek(), "not replicated", 1, true) ~= nil).toBe(true)
 		expect(built.hapticsAdapter()).toBeNil()
 		-- ...and the request is still on: a build fact is not a device fact
-		expect(built.playHaptics:get()).toBe(true)
+		expect(built.playHaptics:peek()).toBe(true)
 		built.dispose()
 	end)
 
@@ -2158,9 +2167,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		local w, built = mountDemo()
 		expect(built.hapticsAdapter() ~= nil).toBe(true)
 		expect(built.overrideAdapter() ~= nil).toBe(true)
-		expect(built.hapticsState:get()).toBe("undetermined")
+		expect(built.hapticsState:peek()).toBe("undetermined")
 		expect(built.hapticsAdapter().diagnostics().decorated).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		built.playHaptics:set(false)
 		built.dispose()
 	end)
@@ -2186,12 +2195,12 @@ end)
 ]]
 describe("control feedback: composing the change form and the control form", function()
 	local function world()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		local system = Facet.newActionSystem(core)
 		local target = fake_target.new()
-		local pres = Facet.newPresenter(core, env, target, system)
+		local pres = harness.newPresenter(core, env, target, system)
 		return core, target, pres
 	end
 
@@ -2236,14 +2245,14 @@ describe("control feedback: composing the change form and the control form", fun
 	it("a tap on a control declaring BOTH raises two causes, and both are felt", function()
 		local core, target, pres = world()
 		local hap = boundAdapter(pres)
-		local picked = core:signal(1)
+		local picked = Compose.cell(1)
 		local button = (UI :: any).sensoryFeedback(
 			(UI :: any).sensoryFeedback(
 				UI.Button({
 					id = "Both",
 					label = "Pick",
 					onActivate = function()
-						picked:set(picked:get() + 1)
+						picked:set(picked:peek() + 1)
 					end,
 				}),
 				{ trigger = picked, event = "select" }
@@ -2276,14 +2285,14 @@ describe("control feedback: composing the change form and the control form", fun
 			added. ]]
 		local core, target, pres = world()
 		local hap = boundAdapter(pres)
-		local picked = core:signal(1)
+		local picked = Compose.cell(1)
 		local button = (UI :: any).sensoryFeedback(
 			(UI :: any).sensoryFeedback(
 				UI.Button({
 					id = "Quiet",
 					label = "Pick",
 					onActivate = function()
-						picked:set(picked:get() + 1)
+						picked:set(picked:peek() + 1)
 					end,
 				}),
 				{ trigger = picked, event = "select" }

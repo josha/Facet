@@ -28,70 +28,14 @@ return {
 	title = "Desktop keyboard focus chain",
 	ledgerRows = { "DK-17" },
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local fieldValue = core:signal("racer")
-		local commits = core:signal(0)
-		local volume = core:signal(0.5)
-		local count = core:signal(3)
-		local saved = core:signal(0)
+		local fieldValue = Compose.cell("racer")
+		local commits = Compose.cell(0)
+		local volume = Compose.cell(0.5)
+		local count = Compose.cell(3)
+		local saved = Compose.cell(0)
 
-		local field = Facet.Controls.TextInput(core, {
-			id = "Name",
-			value = fieldValue,
-			placeholder = "Name",
-			onCommit = function()
-				commits:set(commits:get() + 1)
-			end,
-		})
-		local slider = Facet.View.Slider({
-			id = "Volume",
-			value = volume,
-			min = 0,
-			max = 1,
-			step = 0.1,
-		})
-		local stepper = Facet.View.Stepper({
-			id = "Count",
-			value = count,
-			min = 0,
-			max = 10,
-			step = 1,
-		})
-
-		local rows = {}
-		for i = 1, 12 do
-			table.insert(
-				rows,
-				UI.Button({
-					id = "Row" .. i,
-					label = "Row " .. i,
-					--[[ A FLOOR, NOT A BOX (wave TEN-FOOT, 2026-08-20). This was a
-						literal `fixed 36`, which is Facet Neutral's compact rung spelled
-						as a number — so it neither followed a denser package down nor the
-						ten-foot ladder up, and at distance the scaled button padding
-						(12 -> 18, twice) filled the 36px row exactly and left the label
-						nowhere to draw. A row is "at least a compact control, and taller
-						if its own label needs it", which is what this says. ]]
-					height = { type = "minMax", min = "controlSizes.compact.height" },
-				})
-			)
-		end
-
-		-- the viewport's own row count, in CONTENT TERMS (framework-gaps-phase2
-		-- gap 3, 2026-08-23): `List` below used to pin its viewport at a literal
-		-- `150` — a "roughly four rows, with a bit of the fifth peeking through
-		-- to hint it scrolls" guess that never moved with anything. `rows` names
-		-- the SAME metric a row's own floor already cites two lines above
-		-- (`controlSizes.compact.height`), so the two cannot drift apart, and
-		-- the reservation now grows at the ten-foot ladder — `4 * 36 = 144` at
-		-- Neutral (was 150; the four-and-a-peek guess is gone, not preserved:
-		-- MEASURED, `Row1`..`Row4` at Neutral desktop are 46px each with no
-		-- gap between them, so even the OLD 150px literal never actually held
-		-- four full rows — `4 * 46 = 184 > 150`. 144 keeps the identical
-		-- partial-row-peek shape at a slightly smaller, now-principled number).
 		local LIST_VISIBLE_ROWS = 4
 
 		-- THE SCREEN BODY SCROLLS (BodyScroll precedent, adaptive_controls.luau).
@@ -102,47 +46,143 @@ return {
 		-- 705x338 and 640x320 (221px/239px over). `List` keeps its own inner
 		-- ScrollView unchanged (it is the DK-17 plan's own scrollable-list
 		-- surface); this only gives the PAGE a second, outer place to go.
-		local screen = UI.Screen({
-			id = "KbdNav",
-			-- THEME-OPT-OUT: the page's own gutter is what leaves this screen 242px of
-			-- usable width on a 320px phone, and the Actions row below is already recorded
-			-- in the overflow ledger as 145px too wide there at +14. `padding = "m"` under
-			-- glossy-touch narrows it further and measured 149px. The gutter waits on the
-			-- row it squeezes.
-			padding = 16,
+		local function noop() end
+		local mounted = Compose.cell(nil)
 
-			UI.ScrollView({
-				id = "Body",
-				axis = "y",
-				gap = 10,
-				width = UI.fill(),
-				height = UI.fill(),
+		-- ---- the traces -----------------------------------------------------
+		local actionLog: { any } = {}
+		local focusLog: { any } = {}
+		local closeModal: (() -> ())? = nil
+		local characterCounts = { jump = 0, move = 0 }
+		local characterConns: { any }? = nil
 
-				UI.Text({ id = "Title", text = "Desktop keyboard focus chain", textSize = 22 }),
-				field.blueprint,
-				-- an HStack of two focusables is what engages the LAYOUT group
-				-- derivation, so this fixture is a GROUPED screen — the case
-				-- where Left/Right used to belong permanently to NavigateH
-				UI.HStack({
-					id = "Actions",
-					-- THEME-OPT-OUT: same standing as the page padding above — this two-button row
-					-- is already 145px past a 320x640 phone at +14 in the overflow ledger, and
-					-- `gap = "s"` under glossy-touch measured 151px. A theme step cannot fix a row
-					-- that does not fit; it can only make the recorded number worse.
-					gap = 8,
+		local function focusNow(): string?
+			return ctx.presenter.focus.focused:peek()
+		end
 
-					UI.Button({ id = "Save", label = "Save" }),
-					UI.Button({ id = "Reset", label = "Reset" }),
+		local function note(action: string, detail: any)
+			table.insert(actionLog, {
+				n = #actionLog + 1,
+				action = action,
+				detail = detail,
+				focus = focusNow(),
+				at = os.clock(),
+			})
+		end
+
+		-- the semantic actions, straight off the surface's own InputContext, so
+		-- the trace says which VERB a key resolved to rather than only what moved
+		local function screen()
+			local rows: { any } = {
+				height = { type = "content", rows = LIST_VISIBLE_ROWS, of = "controlSizes.compact.height" },
+			}
+			for i = 1, 12 do
+				table.insert(
+					rows,
+					UI.Button("Row" .. i)({
+						label = "Row " .. i,
+						onActivate = noop,
+						--[[ A FLOOR, NOT A BOX (wave TEN-FOOT, 2026-08-20). This was a
+						literal `fixed 36`, which is Facet Neutral's compact rung spelled
+						as a number — so it neither followed a denser package down nor the
+						ten-foot ladder up, and at distance the scaled button padding
+						(12 -> 18, twice) filled the 36px row exactly and left the label
+						nowhere to draw. A row is "at least a compact control, and taller
+						if its own label needs it", which is what this says. ]]
+						height = { type = "minMax", min = "controlSizes.compact.height" },
+					})
+				)
+			end
+
+			-- the viewport's own row count, in CONTENT TERMS (framework-gaps-phase2
+			-- gap 3, 2026-08-23): `List` below used to pin its viewport at a literal
+			-- `150` — a "roughly four rows, with a bit of the fifth peeking through
+			-- to hint it scrolls" guess that never moved with anything. `rows` names
+			-- the SAME metric a row's own floor already cites two lines above
+			-- (`controlSizes.compact.height`), so the two cannot drift apart, and
+			-- the reservation now grows at the ten-foot ladder — `4 * 36 = 144` at
+			-- Neutral (was 150; the four-and-a-peek guess is gone, not preserved:
+			-- MEASURED, `Row1`..`Row4` at Neutral desktop are 46px each with no
+			-- gap between them, so even the OLD 150px literal never actually held
+			-- four full rows — `4 * 46 = 184 > 150`. 144 keeps the identical
+			-- partial-row-peek shape at a slightly smaller, now-principled number).
+			-- The surface's actions exist once it is mounted, so the traces wait
+			-- for the handle and then follow its action states.
+			Compose.watch(function(use)
+				local surface = use(mounted)
+				if surface == nil then
+					return
+				end
+				local dir = use(surface.actions.adjust.state)
+				if dir == 1 or dir == -1 then
+					note("Adjust", { direction = dir })
+				end
+			end)
+			Compose.watch(function(use)
+				local surface = use(mounted)
+				if surface == nil then
+					return
+				end
+				local dir = use(surface.actions.navigate.state)
+				if dir == 1 or dir == -1 then
+					note("Navigate", { axis = "vertical", direction = dir })
+				end
+			end)
+			local seeded = false
+			Compose.watch(function(use)
+				local path = use(ctx.presenter.focus.focused)
+				if seeded then
+					table.insert(focusLog, { n = #focusLog + 1, path = path, at = os.clock() })
+				end
+				seeded = true
+			end)
+
+			return UI.Screen("KbdNav")({
+				-- THEME-OPT-OUT: the page's own gutter is what leaves this screen 242px of
+				-- usable width on a 320px phone, and the Actions row below is already recorded
+				-- in the overflow ledger as 145px too wide there at +14. `padding = "m"` under
+				-- glossy-touch narrows it further and measured 149px. The gutter waits on the
+				-- row it squeezes.
+				padding = 16,
+
+				UI.ScrollView("Body")({
+					axis = "y",
+					gap = 10,
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = "Desktop keyboard focus chain", textSize = 22 }),
+					UI.TextInput("Name")({
+						value = fieldValue,
+						placeholder = "Name",
+						onCommit = function()
+							commits:set(commits:peek() + 1)
+						end,
+					}),
+					-- an HStack of two focusables is what engages the LAYOUT group
+					-- derivation, so this fixture is a GROUPED screen — the case
+					-- where Left/Right used to belong permanently to NavigateH
+					UI.HStack("Actions")({
+						-- THEME-OPT-OUT: same standing as the page padding above — this two-button row
+						-- is already 145px past a 320x640 phone at +14 in the overflow ledger, and
+						-- `gap = "s"` under glossy-touch measured 151px. A theme step cannot fix a row
+						-- that does not fit; it can only make the recorded number worse.
+						gap = 8,
+
+						UI.Button("Save")({
+							label = "Save",
+							onActivate = function()
+								saved:set(saved:peek() + 1)
+							end,
+						}),
+						UI.Button("Reset")({ label = "Reset", onActivate = noop }),
+					}),
+					UI.Slider("Volume")({ value = volume, min = 0, max = 1, step = 0.1 }),
+					UI.Stepper("Count")({ value = count, min = 0, max = 10, step = 1 }),
+					UI.ScrollView("List")(rows),
 				}),
-				slider,
-				stepper,
-				UI.ScrollView({
-					id = "List",
-					height = { type = "content", rows = LIST_VISIBLE_ROWS, of = "controlSizes.compact.height" },
-					children = rows,
-				}),
-			}),
-		})
+			})
+		end
 
 		-- keyboard navigation is OPT-IN (director playtest 2026-08-03) and this is
 		-- the fixture for it, so it asks. Turning it on also makes this surface
@@ -160,50 +200,15 @@ return {
 		-- screen is not `currentExclusive`, so it gets no outside-tap catcher, and
 		-- `resign()` is a no-op for it. With `keyboardNavigation` also forcing the
 		-- sink, the fixture held the keyboard permanently.
-		local handle = ctx.presenter.present(screen, { keyboardNavigation = true, responder = "passive" })
+		local _, _, handle = ctx.app.mount(screen, { keyboardNavigation = true, responder = "passive" })
+		mounted:set(handle)
 
-		-- ---- the traces -----------------------------------------------------
-		local actionLog: { any } = {}
-		local focusLog: { any } = {}
-		local modalHandle: any = nil
-		local characterCounts = { jump = 0, move = 0 }
-		local characterConns: { any }? = nil
-
-		local function focusNow(): string?
-			return ctx.presenter.focus.focused:get()
-		end
-
-		local function note(action: string, detail: any)
-			table.insert(actionLog, {
-				n = #actionLog + 1,
-				action = action,
-				detail = detail,
-				focus = focusNow(),
-				at = os.clock(),
-			})
-		end
-
-		-- the semantic actions, straight off the surface's own InputContext, so
-		-- the trace says which VERB a key resolved to rather than only what moved
 		handle.actions.traverse.onPressed(function()
 			local mods = if ctx.actionSystem.modifiers ~= nil then ctx.actionSystem.modifiers() else nil
 			note("Traverse", { shift = mods and mods.shift, focusBefore = focusNow() })
 		end)
 		handle.actions.activate.onPressed(function()
 			note("Activate", { focusBefore = focusNow() })
-		end)
-		core:observe(handle.actions.adjust.state, function(dir)
-			if dir == 1 or dir == -1 then
-				note("Adjust", { direction = dir })
-			end
-		end)
-		core:observe(handle.actions.navigate.state, function(dir)
-			if dir == 1 or dir == -1 then
-				note("Navigate", { axis = "vertical", direction = dir })
-			end
-		end)
-		core:observe(ctx.presenter.focus.focused, function(path)
-			table.insert(focusLog, { n = #focusLog + 1, path = path, at = os.clock() })
 		end)
 		ctx.presenter.onFeedback(function(event)
 			if event.type == "activate" then
@@ -248,6 +253,13 @@ return {
 		return {
 			screen = screen,
 			handle = handle,
+			-- dismissing `handle` releases the screen; only the modal is left to close
+			dispose = function()
+				if closeModal ~= nil then
+					closeModal()
+					closeModal = nil
+				end
+			end,
 			steps = {
 				-- state/action drivers (labeled: NOT hardware-input evidence)
 				armKeys = function()
@@ -308,38 +320,33 @@ return {
 					return { ok = ok, focus = focusNow() }
 				end,
 				openModal = function()
-					if modalHandle ~= nil then
+					if closeModal ~= nil then
 						return { open = true, focus = focusNow() }
 					end
-					modalHandle = ctx.presenter.presentModal(UI.Screen({
-						id = "KbdModal",
-						padding = 20,
-						gap = "s",
-						width = { type = "fixed", px = 320 },
-						height = { type = "fixed", px = 180 },
+					closeModal = ctx.app.presentModal(function()
+						return UI.Screen("KbdModal")({
+							padding = 20,
+							gap = "s",
+							width = { type = "fixed", px = 320 },
+							height = { type = "fixed", px = 180 },
 
-						UI.Text({ id = "MTitle", text = "Confirm", textSize = "heading" }),
-						UI.Button({ id = "Ok", label = "OK" }),
-						UI.Button({ id = "Nope", label = "Cancel" }),
-					}))
+							UI.Text("MTitle")({ text = "Confirm", textSize = "heading" }),
+							UI.Button("Ok")({ label = "OK", onActivate = noop }),
+							UI.Button("Nope")({ label = "Cancel", onActivate = noop }),
+						})
+					end)
 					ctx.presenter.refresh()
 					return { open = true, focus = focusNow(), depth = ctx.presenter.depth() }
 				end,
 				closeModal = function()
-					if modalHandle == nil then
+					if closeModal == nil then
 						return { open = false }
 					end
-					ctx.presenter.dismiss(modalHandle)
-					modalHandle = nil
+					closeModal()
+					closeModal = nil
 					ctx.presenter.refresh()
 					return { open = false, focus = focusNow(), depth = ctx.presenter.depth() }
 				end,
-				-- SINK ARBITRATION (director playtest 2026-08-03). The surface's own
-				-- Sink, toggled through the sanctioned seam, so "does a sinking
-				-- surface still receive its own keys, and does the character stop
-				-- receiving them" is measured on the ONE surface whose VirtualInput
-				-- delivery is already proven reliable — ad-hoc probe presenters gave
-				-- inconsistent answers and are not trustworthy here.
 				setSink = function(_self, payload: string?)
 					local want = payload == "true"
 					handle.context.setSink(want)
@@ -389,29 +396,28 @@ return {
 				-- and read back which keys the surface holds either side of it
 				keyboardOff = function()
 					ctx.env:set("capabilities", { keyboard = false, mouse = true, touch = true, gamepad = false })
-					return { bound = boundKeys(), classes = ctx.env:get("interactionClasses"):get() }
+					return { bound = boundKeys(), classes = ctx.env:get("interactionClasses"):peek() }
 				end,
 				keyboardOn = function()
 					ctx.env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
-					return { bound = boundKeys(), classes = ctx.env:get("interactionClasses"):get() }
+					return { bound = boundKeys(), classes = ctx.env:get("interactionClasses"):peek() }
 				end,
 			},
 			report = function()
 				return {
 					focus = focusNow(),
-					focusVisible = ctx.presenter.focus.focusVisible:get(),
-					responder = handle.responder:get(),
+					focusVisible = ctx.presenter.focus.focusVisible:peek(),
+					responder = handle.responder:peek(),
 					depth = ctx.presenter.depth(),
-					modalOpen = modalHandle ~= nil,
+					modalOpen = closeModal ~= nil,
 					bound = boundKeys(),
 					scroll = scrollState(),
 					state = {
-						field = fieldValue:get(),
-						editing = field.dump().editing,
-						commits = commits:get(),
-						volume = volume:get(),
-						count = count:get(),
-						saved = saved:get(),
+						field = fieldValue:peek(),
+						commits = commits:peek(),
+						volume = volume:peek(),
+						count = count:peek(),
+						saved = saved:peek(),
 					},
 					actions = actionLog,
 					focusLog = focusLog,

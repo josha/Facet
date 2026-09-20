@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE SCROLL HOST'S WINDOW IS NOT ITS FRAME — the instrument, and the
 -- disagreement it makes visible (device round 2026-08-12).
 --
@@ -85,7 +86,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
-local UI = Facet.UI
+local UI = harness.UI
 local BAR = fake_target.SCROLL_BAR_THICKNESS
 -- ...and the LAYOUT number, which is one pixel wider since 2026-08-30 (director
 -- report: "1 pixel of padding would help a lot between the left edge of the
@@ -103,7 +104,7 @@ local POINTER = { touch = false, mouse = true, keyboard = true, gamepad = false 
 -- one scroll host, filled with `rows` fill-width children of `rowHeight`
 local function world(caps: any, preferred: string, rows: number, opts: any?): any
 	local options: any = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 400 })
 	env:set("capabilities", caps)
@@ -118,7 +119,7 @@ local function world(caps: any, preferred: string, rows: number, opts: any?): an
 	-- boot policy.
 	local adapter = fake_target.new();
 	(adapter :: any).scrollBarThickness = RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	local children = {}
 	for i = 1, rows do
 		-- the child FILLS the cross axis and is fixed along the scroll axis, so

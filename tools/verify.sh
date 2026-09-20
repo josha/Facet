@@ -29,4 +29,10 @@ cd "$(dirname "$0")/.."
 # shadowed the rokit-managed one for months and failed builds that the pinned
 # toolchain built fine (measured 2026-08-15).
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# --check, not a bare materialize: verification GATES the vendored Compose
+# dependency instead of quietly rewriting it back into agreement. A mismatch
+# here is a finding ("run python3 tools/sync_compose.py"), not something this
+# command fixes for you — the same reasoning tools/verify.sh applies to every
+# other producer's recorded evidence.
+python3 tools/sync_compose.py --check || exit $?
 exec lune run tools/lune/verify_cli "$@"

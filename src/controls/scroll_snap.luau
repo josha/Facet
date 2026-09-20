@@ -68,6 +68,7 @@
 ]]
 
 local num = require("../num")
+local Compose = require("../vendor/compose/core")
 
 local scroll_snap = {}
 
@@ -116,7 +117,7 @@ local isFinite = num.isFinite
 	THE `snap` KEY, READ THE SAME WAY BY EVERY COLLECTION THAT HAS ONE. Both
 	scrolling collections accept a string or a Readable of one, refuse anything
 	outside the vocabulary by name, and fall back to a DEFAULT that the control may
-	derive from something of its own (`newVirtualList`'s card arrangement: a rail
+	derive from something of its own (`UI.VirtualList`'s card arrangement: a rail
 	resolved to one card per view is a pager, and pages snap). Two copies of that
 	would be two places for the refusal message and the precedence to drift, which
 	is the shape `native_scroll_binding.luau` already refuses for the mirror.
@@ -130,7 +131,7 @@ function scroll_snap.modeReader(
 	declared: any,
 	fallback: ((use: any?) -> string)?
 ): (use: any?) -> string
-	local isLive = type(declared) == "table" and type((declared :: any).get) == "function"
+	local isLive = Compose.isReadable(declared)
 	local function check(value: any): string
 		if type(value) ~= "string" or scroll_snap.MODES[value] == nil then
 			error(
@@ -147,7 +148,7 @@ function scroll_snap.modeReader(
 	end
 	return function(use: any?): string
 		if declared ~= nil then
-			return check(if isLive then (if use ~= nil then use(declared) else (declared :: any):get()) else declared)
+			return check(if isLive then (if use ~= nil then use(declared) else (declared :: any):peek()) else declared)
 		end
 		if fallback ~= nil then
 			return (fallback :: any)(use)
@@ -323,10 +324,9 @@ end
 -- ===== the state machine ===================================================
 
 export type Ctx = {
-	core: any,
-	-- the control's own scope: every motion value built here is owned by it, so a
+	-- The control owner releases all motion resources.
 	-- disposed control leaves nothing registered on the presenter's clock
-	scope: any,
+	owner: any,
 	-- the live extent index and viewport, read at settle time (never cached: a
 	-- rotation or a text-size change moves both between one sample and the next)
 	index: () -> any,
@@ -489,16 +489,22 @@ function scroll_snap.new(ctx: Ctx): Snap
 			flick at up to eight times its real speed. A per-frame quantum costs one
 			number write per frame while a finger is on the rail and nothing at all
 			at rest. ]]
-		quiet = ctx.scope:own(clock:glide(0, { duration = quietS, kind = "informational", quantum = 1 / 240 }))
+		quiet = clock:glide(0, { duration = quietS, kind = "informational", quantum = 1 / 240 })
+		ctx.owner.own(function()
+			quiet:dispose()
+		end)
 		quietRelease = quiet:onSettle(attemptSnap)
-		ctx.scope:own(function()
+		ctx.owner.own(function()
 			if quietRelease ~= nil then
 				quietRelease()
 				quietRelease = nil
 			end
 		end)
-		flight = ctx.scope:own(clock:spring(0, scroll_snap.TRAVEL_CLASS))
-		ctx.scope:own(ctx.core:observe(flight, onFlightValue))
+		flight = clock:spring(0, scroll_snap.TRAVEL_CLASS)
+		ctx.owner.own(function()
+			flight:dispose()
+		end)
+		ctx.owner.watchStatic(flight, onFlightValue)
 		return true
 	end
 
@@ -543,7 +549,7 @@ function scroll_snap.new(ctx: Ctx): Snap
 			right now IS the fraction of a window that has passed since then. Two
 			samples in one frame read 0 and are skipped rather than dividing by it. ]]
 		if hasPrevious then
-			local sinceS = math.max(0, math.min(1, quiet:get())) * quietS
+			local sinceS = math.max(0, math.min(1, quiet:peek())) * quietS
 			if sinceS > 0 then
 				peak = math.max(peak, math.abs(offset - lastOffset) / sinceS)
 			end

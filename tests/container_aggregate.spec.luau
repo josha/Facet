@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE CONTAINER STOPS WALKING THE CHILDREN IT DID NOT RE-MEASURE (Plan C, T13b —
 	rulings L-7 and L-8). `tests/container_memo.spec.luau` is the sibling of this file
 	and the two claims are deliberately different: T13 made the WORK inside
@@ -95,12 +96,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/deep_stack_scene")
 local device_views = require("./lib/device_views")
 local solver = require("../src/layout/solver")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local ROWS = 1000
 local GATE_ROW = scene.GATE_ROW
@@ -162,18 +164,18 @@ local function flexScene(opts: any): any
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 	local n = opts.rows or 8
-	local axis = core:signal(opts.axis or "y")
-	local fillOn = core:signal(false)
-	local extra = core:signal(false)
+	local axis = Compose.cell(opts.axis or "y")
+	local fillOn = Compose.cell(false)
+	local extra = Compose.cell(false)
 	local heights: { any } = {}
 	local kids: { any } = {}
 	for i = 1, n do
-		heights[i] = core:signal(if opts.fractional then 10 + i / 8 else 10 + i)
+		heights[i] = Compose.cell(if opts.fractional then 10 + i / 8 else 10 + i)
 		local idx = i
 		kids[i] = UI.Box({
 			id = `B{idx}`,
 			width = { type = "fixed", px = 20 },
-			height = core:memo(function(use: any)
+			height = Compose.formula(function(use: any)
 				if idx == 2 and (use(fillOn) :: boolean) then
 					return { type = "fill", weight = 1 }
 				end
@@ -186,7 +188,7 @@ local function flexScene(opts: any): any
 		children = {
 			UI.AdaptiveStack({
 				id = "List",
-				axis = core:memo(function(use: any)
+				axis = Compose.formula(function(use: any)
 					return use(axis) :: string
 				end),
 				gap = 0,
@@ -196,7 +198,7 @@ local function flexScene(opts: any): any
 				children = {
 					UI.When({
 						id = "W",
-						condition = core:memo(function(use: any)
+						condition = Compose.formula(function(use: any)
 							return use(extra) :: boolean
 						end),
 						thenView = function()
@@ -276,7 +278,7 @@ local function fitsScene(opts: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-	local rowWidth = core:signal(20)
+	local rowWidth = Compose.cell(20)
 	--[[ ...AND A `ScrollView` THAT ARRIVES STRUCTURALLY INSIDE THE TRUNCATING ROW (fix
 		round 1, I-2). `UI.When`'s every arm ends in `pushDirty(path, "structure")`, so
 		flipping it is the one refresh class on which `hit` can be TRUE while the
@@ -285,7 +287,7 @@ local function fitsScene(opts: any): any
 		TABLE it recorded last epoch — and row 2 leaves the record set on that pass,
 		because `subtreeHasScroll` makes it always-visit. Whether its `mIds` entry is
 		retracted on the way out is what this fixture exists to see. ]]
-	local scrollOn = core:signal(false)
+	local scrollOn = Compose.cell(false)
 	local rows: { any } = {}
 	--[[ FORTY ROWS, NOT SIX, AND THE RUN IS WHAT SAID SO. The probe budget is
 		`math.max(4, n // 4)`, and this drive's `reuse.measureContains` holds six entries
@@ -313,7 +315,7 @@ local function fitsScene(opts: any): any
 							UI.Text({ id = "Long", text = "Reconfiguration" }),
 							UI.When({
 								id = "W",
-								condition = core:memo(function(use: any)
+								condition = Compose.formula(function(use: any)
 									return use(scrollOn) :: boolean
 								end),
 								thenView = function()
@@ -336,7 +338,7 @@ local function fitsScene(opts: any): any
 					})
 					elseif i == 1 then UI.Box({
 						id = "B",
-						width = core:memo(function(use: any)
+						width = Compose.formula(function(use: any)
 							return { type = "fixed", px = use(rowWidth) :: number }
 						end),
 						height = { type = "fixed", px = 10 },

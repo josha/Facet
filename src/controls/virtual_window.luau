@@ -35,6 +35,7 @@
 	every export to a local of its original name so no call site in that file
 	changed. ]]
 
+local Compose = require("../vendor/compose/core")
 local virtual_extents = require("../virtual_extents")
 -- `rect.sameFlatValue`: the framework's one field-for-field equality for a FLAT
 -- record. Used here as the canvas Dim's memo eq (see `canvasDim`); the renderer
@@ -42,6 +43,51 @@ local virtual_extents = require("../virtual_extents")
 local rect = require("../rect")
 
 local virtual_window = {}
+
+--[[ SPEC READABLES, IN THE ENGINE'S OWN VOCABULARY. The engine reads its live
+	inputs with `:peek()` and `use(...)`, which is a core readable's contract. An
+	app hands in a Compose readable or a `function(use)` getter, so each live field
+	is wrapped in ONE core memo here and every read below this line is uniform.
+	`getters` names the fields where a function IS a reactive getter; on the others
+	(`itemExtent`) a function is a per-item callback and is left alone. Returns the
+	adopted spec and the memos the control owns. ]]
+function virtual_window.adopt(core: any, spec: any, fields: { string }, getters: { [string]: boolean })
+	local adopted: any, owned: { any } = nil, {}
+	for _, field in fields do
+		local value = spec[field]
+		local wrap: any = nil
+		if type(value) == "function" and getters[field] then
+			wrap = value
+		elseif Compose.isReadable(value) then
+			wrap = function(use)
+				return use(value)
+			end
+		end
+		if wrap ~= nil then
+			adopted = adopted or table.clone(spec)
+			--[[ HELD BY THE APPLICATION, RELEASED BY THE LIST. This wrapper is the
+				list's, not the caller's and not the row's: adopting under whatever
+				owner happens to be building would let a row's teardown dispose a
+				readable the list still reads. The control releases them on its own
+				scope (`virtual_list`/`virtual_grid`, beside `listScope`). ]]
+			local memo = Compose.withOwner(core.owner, function()
+				return Compose.formula(wrap)
+			end)
+			adopted[field] = memo
+			table.insert(owned, memo)
+		end
+	end
+	if type(spec.key) == "string" then
+		-- `key = "id"` names the field that holds the identity. The engine keys
+		-- rows by STRING (a key is a path segment), so a numeric id is spelled out.
+		local field = spec.key
+		adopted = adopted or table.clone(spec)
+		adopted.key = function(item: any)
+			return tostring(item[field])
+		end
+	end
+	return adopted or spec, owned
+end
 
 export type Deps = {
 	core: any,
@@ -62,7 +108,38 @@ export type Deps = {
 	estimateIn: (any) -> number,
 	rowGapIn: (any) -> number,
 	viewportIn: (any) -> number,
+	-- where the scroll mirror starts, before the engine has reported anything
+	initialTop: number?,
 }
+
+--[[ ONE SCROLL HOST, TWO CONTRIBUTIONS. `scrollNavigation` rides the control's
+	own ScrollView, which attaches its bundle before the control attaches its own.
+	Every hook the two share is a bind or a geometry sync, so both run: the
+	control's first (the window is current), then navigation's (it restores and
+	publishes the shared position against that window). ]]
+function virtual_window.mergeInherited(inheritedBundle: any?, bundle: any, geometryReady: (() -> boolean)?): any
+	for name, inherited in inheritedBundle or {} do
+		local own = bundle[name]
+		if own == nil then
+			bundle[name] = inherited
+		elseif name == "syncGeometry" and geometryReady ~= nil then
+			-- a measured list restores its position only against measured rows:
+			-- restoring against estimates would land on different content
+			bundle[name] = function(...)
+				own(...)
+				if geometryReady() then
+					inherited(...)
+				end
+			end
+		else
+			bundle[name] = function(...)
+				own(...)
+				inherited(...)
+			end
+		end
+	end
+	return bundle
+end
 
 function virtual_window.new(deps: Deps)
 	local core = deps.core
@@ -122,7 +199,7 @@ function virtual_window.new(deps: Deps)
 		an epoch bump producing the same numbers rebuilds no index either. ]]
 	local measured: { [string]: number } = {}
 	local measuredCount = 0
-	local measuredEpoch = listScope:own(core:signal(0))
+	local measuredEpoch = Compose.cell(0)
 	local function extentsFor(use: any): { number }
 		local items = use(spec.rows) :: { any }
 		local out = table.create(math.max(#items, 1))
@@ -142,7 +219,7 @@ function virtual_window.new(deps: Deps)
 				-- the key is a scavenger hunt, and the key is what the consumer's own
 				-- data is addressed by.
 				error(
-					`newVirtualList '{id}': spec.itemExtent(item, {i}) returned {tostring(px)} for row `
+					`UI.VirtualList '{id}': spec.itemExtent(item, {i}) returned {tostring(px)} for row `
 						.. `'{tostring(spec.key(items[i]))}' — a per-item extent must be a positive number of px `
 						.. "(the item's size along the list's own axis).",
 					0
@@ -158,7 +235,7 @@ function virtual_window.new(deps: Deps)
 		An index is six closures and a table. Building one is cheap; building one on
 		every DATA EDIT is a tax every shipped list pays, and a list is edited far
 		more often than its geometry moves (a rename, a live value ticking, a re-sort
-		of equal-height rows). The obvious fix — hand `core:memo` an equality — does
+		of equal-height rows). The obvious fix — hand `Compose.formula` an equality — does
 		NOT do this: a memo's `eq` is OBSERVER-facing only (`src/core/custom.luau`,
 		`notify`); `markMemosStale` invalidates the whole downstream subtree
 		unconditionally and `pull` overwrites `node.value` without comparing. So the
@@ -190,21 +267,23 @@ function virtual_window.new(deps: Deps)
 	end
 	local cachedInputs: any = nil
 	local cachedIndex: any = nil
-	local layoutIndex = listScope:own(core:memo(function(use)
-		local inputs: any = if itemExtentIsVariable
-			then { extents = extentsFor(use), gap = rowGapIn(use) }
-			else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
-		if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
+	local layoutIndex = Compose.withOwner(listScope, function()
+		return Compose.formula(function(use)
+			local inputs: any = if itemExtentIsVariable
+				then { extents = extentsFor(use), gap = rowGapIn(use) }
+				else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
+			if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
+				return cachedIndex
+			end
+			cachedInputs = inputs
+			cachedIndex = if itemExtentIsVariable
+				then virtual_extents.variable(inputs.extents, inputs.gap)
+				else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
 			return cachedIndex
-		end
-		cachedInputs = inputs
-		cachedIndex = if itemExtentIsVariable
-			then virtual_extents.variable(inputs.extents, inputs.gap)
-			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
-		return cachedIndex
-	end))
+		end)
+	end)
 	local function layoutNow(): any
-		return layoutIndex:get() :: any
+		return layoutIndex:peek() :: any
 	end
 	--[[ VALIDATE THE CURRENT DATA AT THE CALL SITE. A throwing memo body is
 		QUARANTINED by the core (`src/core/custom.luau`'s `fail`) — it records the
@@ -220,7 +299,7 @@ function virtual_window.new(deps: Deps)
 		wrong) fail where it was written. ]]
 	if itemExtentIsPerItem then
 		extentsFor(function(readable: any): any
-			return readable:get()
+			return readable:peek()
 		end)
 	end
 	--[[ ── THE DECLARED SLOT, HANDED TO THE SOLVER (2026-08-13) ────────────────────
@@ -263,14 +342,16 @@ function virtual_window.new(deps: Deps)
 	local SLOT_CONTENT_FROM = 2
 	local slotDeclaration = if itemExtentIsVariable
 		then nil
-		else listScope:own(core:memo(function(use)
-			return {
-				list = id,
-				axis = axis,
-				extent = itemExtentIn(use),
-				contentFrom = SLOT_CONTENT_FROM,
-			}
-		end))
+		else Compose.withOwner(listScope, function()
+			return Compose.formula(function(use)
+				return {
+					list = id,
+					axis = axis,
+					extent = itemExtentIn(use),
+					contentFrom = SLOT_CONTENT_FROM,
+				}
+			end)
+		end)
 	--[[ scrollTop: the engine CanvasPosition MIRROR (the native substrate). Fed
 		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
 
@@ -279,15 +360,17 @@ function virtual_window.new(deps: Deps)
 		is kept anyway, deliberately: it is public API that consumers and tests
 		read by name, and renaming it would be a breaking change this field does
 		not need. Read it as "the offset from the start of the canvas". ]]
-	local scrollTop = listScope:own(core:signal(0))
+	local scrollTop = Compose.cell(deps.initialTop or 0)
 	-- key -> 1-based index in the CURRENT data
-	local indexByKey = listScope:own(core:memo(function(use)
-		local map: { [string]: number } = {}
-		for i, item in use(spec.rows) :: { any } do
-			map[spec.key(item)] = i
-		end
-		return map
-	end))
+	local indexByKey = Compose.withOwner(listScope, function()
+		return Compose.formula(function(use)
+			local map: { [string]: number } = {}
+			for i, item in use(spec.rows) :: { any } do
+				map[spec.key(item)] = i
+			end
+			return map
+		end)
+	end)
 
 	--[[ ONE ROW'S DECLARED EXTENT, BY KEY — what the row's box is sized to and
 		what its slot declaration promises the solver.
@@ -340,20 +423,24 @@ function virtual_window.new(deps: Deps)
 		already the same function — and it REFUSES a nested field rather than
 		half-comparing it, which is exactly right for a Dim: `fixed` carries a
 		number, and any richer Dim shape reports "changed" and propagates. ]]
-	local canvasDim = listScope:own(core:memo(function(use)
-		return { type = "fixed", px = use(layoutIndex).content }
-	end, rect.sameFlatValue))
+	local canvasDim = Compose.withOwner(listScope, function()
+		return Compose.formula(function(use)
+			return { type = "fixed", px = use(layoutIndex).content }
+		end, rect.sameFlatValue)
+	end)
 
 	-- scroll clamped into the content band, so garbage/overshoot mirror values
 	-- cannot mount phantom windows
-	local clampedTop = listScope:own(core:memo(function(use)
-		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
-		local raw = use(scrollTop)
-		if type(raw) ~= "number" or raw ~= raw then
-			return 0
-		end
-		return math.clamp(raw, 0, maxTopPx)
-	end))
+	local clampedTop = Compose.withOwner(listScope, function()
+		return Compose.formula(function(use)
+			local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
+			local raw = use(scrollTop)
+			if type(raw) ~= "number" or raw ~= raw then
+				return 0
+			end
+			return math.clamp(raw, 0, maxTopPx)
+		end)
+	end)
 
 	-- the window: visible rows + overscan, keyed. Equality compares the KEY
 	-- SEQUENCE, so a same-window scroll delta never fires the ForEach.
@@ -368,18 +455,20 @@ function virtual_window.new(deps: Deps)
 		end
 		return true
 	end
-	local windowItems = listScope:own(core:memo(function(use)
-		local items = use(spec.rows) :: { any }
-		local top = use(clampedTop)
-		-- SLOTS, not rows, and the index owns which arithmetic that is: division
-		-- on a uniform list, a binary search over the prefix sums on a variable one
-		local first, last = use(layoutIndex).window(top, viewportIn(use), overscan)
-		local window = {}
-		for i = first, last do
-			table.insert(window, { key = spec.key(items[i]), item = items[i] })
-		end
-		return window
-	end, sameWindow))
+	local windowItems = Compose.withOwner(listScope, function()
+		return Compose.formula(function(use)
+			local items = use(spec.rows) :: { any }
+			local top = use(clampedTop)
+			-- SLOTS, not rows, and the index owns which arithmetic that is: division
+			-- on a uniform list, a binary search over the prefix sums on a variable one
+			local first, last = use(layoutIndex).window(top, viewportIn(use), overscan)
+			local window = {}
+			for i = first, last do
+				table.insert(window, { key = spec.key(items[i]), item = items[i] })
+			end
+			return window
+		end, sameWindow)
+	end)
 
 	-- ONE definition of a row's path shape under a given root (`{root}` is the
 	-- standalone `/{id}` for the public form and the mounted ScrollView path for
@@ -390,7 +479,7 @@ function virtual_window.new(deps: Deps)
 		return `{root}/Canvas/W/[{key}]/Row`
 	end
 	local function pathOf(key: string): string?
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			if entry.key == key then
 				return rowPathUnder(`/{id}`, key)
 			end

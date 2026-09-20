@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE TRANSLATE LANE (Plan C, C6): a refresh whose only layout-class dirt is a
 	placement prop on coordinate-space hosts SOLVES NOTHING. Per host the lane
 	re-places it with `placement.anchorPlace` — the solver's own function — writes
@@ -23,15 +24,16 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local path_shapes = require("../src/controls/path_shapes")
 local fake_target = require("./lib/fake_target")
 local fs = require("@lune/fs")
 local motionClock = require("../src/motion/clock")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES, CASTERS = scene.PLATES, scene.PLATES // scene.CASTER_EVERY
 
@@ -134,7 +136,7 @@ describe("translate lane: an all-placement tick solves nothing", function()
 	it("...and a METRIC-NAME offset is refused: the theme, not the lane, resolves it", function()
 		local sig
 		local w = world(function(core: any): any
-			sig = core:signal("space.s")
+			sig = Compose.cell("space.s")
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -260,7 +262,7 @@ describe("translate lane: an all-placement tick solves nothing", function()
 			WINDOW-space origin" goes red on the first slide. ]]
 		local slide
 		local w = world(function(core: any): any
-			slide = core:signal(0)
+			slide = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -272,7 +274,7 @@ describe("translate lane: an all-placement tick solves nothing", function()
 							UI.ZStack({
 								id = "Wrap",
 								anchor = "topLeft",
-								offsetX = core:signal(0),
+								offsetX = Compose.cell(0),
 								offsetY = slide,
 								width = px(300),
 								height = px(200),
@@ -416,7 +418,7 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 	local function overhangWorld(): (any, any)
 		local sig
 		local w = world(function(core: any): any
-			sig = core:signal(0)
+			sig = Compose.cell(0)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -489,8 +491,8 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 		local function nestedWorld(attachOpts: any?): (any, any, any)
 			local offset, inner
 			local w = world(function(core: any): any
-				offset = core:signal(0)
-				inner = core:signal(true)
+				offset = Compose.cell(0)
+				inner = Compose.cell(true)
 				return UI.Screen({
 					id = "S",
 					children = {
@@ -517,7 +519,7 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 												return UI.VStack({
 													id = "A",
 													anchor = "topLeft",
-													offsetX = core:signal(4),
+													offsetX = Compose.cell(4),
 													offsetY = 0,
 													width = px(60),
 													height = px(40),
@@ -542,7 +544,7 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 		end
 		local function verdict(w: any, offset: any): string
 			local before = (w.stats() :: any).solves
-			offset:set((offset:get() :: number) + 1)
+			offset:set((offset:peek() :: number) + 1)
 			w.controller.refresh()
 			local st = w.stats() :: any
 			return `solves={st.solves - before} lane={st.lastLaneTranslates}`
@@ -575,9 +577,9 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 			leave 3, and the host would never lane again. ]]
 		local offset, extra, hasPath
 		local w = world(function(core: any): any
-			offset = core:signal(0)
-			extra = core:signal(false)
-			hasPath = core:signal(true)
+			offset = Compose.cell(0)
+			extra = Compose.cell(false)
+			hasPath = Compose.cell(true)
 			return UI.Screen({
 				id = "S",
 				children = {
@@ -628,7 +630,7 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 			table.insert(
 				gated,
 				deltas(w, function()
-					offset:set(offset:get() + 1)
+					offset:set(offset:peek() + 1)
 					w.controller.refresh()
 				end)
 			)
@@ -641,7 +643,7 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 		hasPath:set(false)
 		w.controller.refresh()
 		expect(deltas(w, function()
-			offset:set(offset:get() + 1)
+			offset:set(offset:peek() + 1)
 			w.controller.refresh()
 		end)).toBe("solves=0 lane=1 rectWrites=1 engineWrites=1")
 		w.dispose()

@@ -1,9 +1,11 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local fake = require("./lib/fake_target")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 local function fixture(opts, spec)
 	local o = opts or {}
 	o.newAdapter = function()
@@ -37,7 +39,7 @@ local function fixture(opts, spec)
 				},
 			},
 		}
-	local alert = Facet.Controls.Alert(w.core, s)
+	local alert = harness.Controls.Alert(w.core, s)
 	w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
 	w.pres.focus.focusOn("/Base/Open")
 	local handle = alert.present(w.pres)
@@ -57,7 +59,7 @@ end
 t.describe("Alert control", function()
 	t.it("bounds the fade buffer to the card on a desktop", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1920, h = 1080 } })
-		local a = Facet.Controls.Alert(w.core, {
+		local a = harness.Controls.Alert(w.core, {
 			id = "Crisp",
 			title = "Replace save?",
 			message = "Keep a readable confirmation on desktop.",
@@ -83,7 +85,7 @@ t.describe("Alert control", function()
 		t.expect(math.abs(card.y + card.h / 2 - 400) < 1).toBe(true)
 		-- the platform row: cancel on the leading side whatever the author order
 		t.expect(a.y == b.y and b.x + b.w <= a.x).toBe(true)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 		clean(w, alert)
 	end)
 	t.it("Alert pointer: a tap activates through the presenter (device-true)", function()
@@ -92,7 +94,7 @@ t.describe("Alert control", function()
 		w.settle(3)
 		t.expect(events).toEqual({ "delete" })
 		t.expect(alert.dump().presented).toBe(false)
-		t.expect(w.pres.focus.focused:get()).toBe("/Base/Open")
+		t.expect(w.pres.focus.focused:peek()).toBe("/Base/Open")
 		clean(w, alert)
 	end)
 	t.it("Alert touch: a touch tap/pan drives the control (device-true)", function()
@@ -111,7 +113,7 @@ t.describe("Alert control", function()
 	do
 		t.it(case[1], function()
 			local w, alert, events = fixture({ preferredInput = case[3] })
-			t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+			t.expect(w.pres.focus.focused:peek()).toBe(CANCEL)
 			w.press(case[2])
 			t.expect(events).toEqual({ "cancel" })
 			t.expect(alert.dump().presented).toBe(false)
@@ -139,18 +141,18 @@ t.describe("Alert control", function()
 	end)
 	t.it("Alert keyboard affordance: safe initial focus and trapped navigation", function()
 		local w, alert = fixture({ preferredInput = "MouseKeyboard" })
-		t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		t.expect(w.pres.focus.focused:peek()).toBe(CANCEL)
 		t.expect(w.adapter.node(CANCEL).focused == true).toBe(false) -- no navigation yet
 		-- a compact phone stacks the actions, cancel at the bottom
 		w.press("Up")
-		t.expect(w.pres.focus.focused:get()).toBe(DELETE)
+		t.expect(w.pres.focus.focused:peek()).toBe(DELETE)
 		w.press("Tab")
-		t.expect(w.pres.focus.focused:get():sub(1, 9)).toBe("/Confirm/")
+		t.expect(w.pres.focus.focused:peek():sub(1, 9)).toBe("/Confirm/")
 		w.press("Escape") -- reserved for Roblox
 		t.expect(alert.dump().presented).toBe(true)
 		w.pres.focus.focusOn(CANCEL)
 		w.press("Return")
-		t.expect(w.pres.focus.focused:get()).toBe("/Base/Open")
+		t.expect(w.pres.focus.focused:peek()).toBe("/Base/Open")
 		clean(w, alert)
 	end)
 	t.it("Alert gamepad affordance: safe focus, B cancellation and ten-foot ring", function()
@@ -179,9 +181,9 @@ t.describe("Alert control", function()
 			w.adapter.node(action("Save")).rect, w.adapter.node(action("Delete")).rect, w.adapter.node(CANCEL).rect
 		t.expect(save.y + save.h <= delete.y and delete.y + delete.h <= cancel.y).toBe(true)
 		t.expect(save.x == cancel.x and save.w == cancel.w and delete.w == cancel.w).toBe(true)
-		t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		t.expect(w.pres.focus.focused:peek()).toBe(CANCEL)
 		w.press("Up")
-		t.expect(w.pres.focus.focused:get()).toBe(action("Delete"))
+		t.expect(w.pres.focus.focused:peek()).toBe(action("Delete"))
 		clean(w, alert)
 	end)
 	t.it("ten-foot stacks two actions full width like a television alert", function()
@@ -212,11 +214,11 @@ t.describe("Alert control", function()
 		t.expect(w.adapter.node(CANCEL)).toBe(cancel)
 		t.expect(w.adapter.node(DELETE)).toBe(delete)
 		t.expect(cancel.rect.y > delete.rect.y).toBe(true)
-		t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		t.expect(w.pres.focus.focused:peek()).toBe(CANCEL)
 		w.env:set("viewingDistance", "near")
 		w.settle(4)
 		t.expect(cancel.rect.x < delete.rect.x and cancel.rect.y == delete.rect.y).toBe(true)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 		clean(w, alert)
 	end)
 	t.it("Alert hot-switch: carries the open decision without remounting actions", function()
@@ -246,14 +248,12 @@ t.describe("Alert control", function()
 	t.it("disposing an open alert restores the registry and prevents reopening", function()
 		local w = world.new()
 		w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
-		local before = w.core:counters()
-		local alert = Facet.Controls.Alert(w.core, { title = "Continue?", actions = { { id = "ok", label = "OK" } } })
+		local before = w.core.owner.size()
+		local alert = harness.Controls.Alert(w.core, { title = "Continue?", actions = { { id = "ok", label = "OK" } } })
 		alert.present(w.pres)
 		alert.dispose()
 		w.settle(4)
-		for key, value in before do
-			t.expect(w.core:counters()[key]).toBe(value)
-		end
+		t.expect(w.core.owner.size()).toBe(before)
 		t.expect(pcall(function()
 			alert.present(w.pres)
 		end)).toBe(false)
@@ -316,9 +316,9 @@ t.describe("Alert control", function()
 	end)
 	t.it("binds presentation in both directions without stacking or action callbacks", function()
 		local w = world.new()
-		local shown = w.core:signal(false)
+		local shown = Compose.cell(false)
 		local calls = 0
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			title = "Continue?",
 			isPresented = shown,
 			presenter = w.pres,
@@ -344,16 +344,15 @@ t.describe("Alert control", function()
 		t.expect(calls).toBe(0)
 		shown:set(true)
 		w.press("ButtonB")
-		t.expect(shown:get()).toBe(false)
+		t.expect(shown:peek()).toBe(false)
 		t.expect(calls).toBe(1)
 		alert.dispose()
-		shown:dispose()
 	end)
 	t.it("snapshots presented data for labels and callbacks and waits for a nonnil item", function()
 		local w = world.new()
-		local item = w.core:signal(nil)
+		local item = Compose.cell(nil)
 		local chosen = nil
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Data",
 			presenter = w.pres,
 			item = item,
@@ -380,9 +379,8 @@ t.describe("Alert control", function()
 		w.pres.refresh()
 		w.adapter.tap("/Data/Center/Decision/then/Card/Actions/Order/[delete]/delete")
 		t.expect(chosen).toBe("Alpha")
-		t.expect(item:get()).toBe(nil)
+		t.expect(item:peek()).toBe(nil)
 		alert.dispose()
-		item:dispose()
 	end)
 
 	t.it("refuses misspelled fields and ambiguous action identities or cancel roles", function()
@@ -407,7 +405,7 @@ t.describe("Alert control", function()
 			}
 		do
 			t.expect(pcall(function()
-				Facet.Controls.Alert(w.core, spec)
+				harness.Controls.Alert(w.core, spec)
 			end)).toBe(false)
 		end
 	end)
@@ -449,7 +447,7 @@ t.describe("Alert custom content and shortcuts", function()
 	t.it("contains a bad data factory and allows a corrected item to present", function()
 		local w = world.new()
 		local bad = true
-		local a = Facet.Controls.Alert(w.core, {
+		local a = harness.Controls.Alert(w.core, {
 			title = function()
 				if bad then
 					error("bad datum")
@@ -472,22 +470,22 @@ t.describe("Alert presentation features", function()
 	t.it("provides error copy and critical artwork and clears its error binding on Back", function()
 		local w = world.new({ reducedMotion = true })
 		local problem =
-			w.core:signal({ errorDescription = "Save failed", recoverySuggestion = "Reconnect and try again." })
-		local a = Facet.Controls.Alert(w.core, { id = "Error", error = problem, presenter = w.pres })
+			Compose.cell({ errorDescription = "Save failed", recoverySuggestion = "Reconnect and try again." })
+		local a = harness.Controls.Alert(w.core, { id = "Error", error = problem, presenter = w.pres })
 		w.settle(2)
 		t.expect(w.adapter.node("/Error/Center/Decision/then/Card/Header/Title").props.text).toBe("Save failed")
 		t.expect(w.adapter.node("/Error/Center/Decision/then/Card/Message").props.text).toBe("Reconnect and try again.")
 		t.expect(a.dump().severity).toBe("critical")
 		w.press("ButtonB")
 		w.settle(2)
-		t.expect(problem:get()).toBe(nil)
+		t.expect(problem:peek()).toBe(nil)
 		t.expect(a.dump().presented).toBe(false)
 		a.dispose()
 	end)
 	t.it("contains an initially bound bad factory without stranding the binding", function()
 		local w = world.new()
-		local shown = w.core:signal(true)
-		local ok, a = pcall(Facet.Controls.Alert, w.core, {
+		local shown = Compose.cell(true)
+		local ok, a = pcall(harness.Controls.Alert, w.core, {
 			isPresented = shown,
 			presenter = w.pres,
 			title = function()
@@ -495,7 +493,7 @@ t.describe("Alert presentation features", function()
 			end,
 		})
 		t.expect(ok).toBe(true)
-		t.expect(shown:get()).toBe(false)
+		t.expect(shown:peek()).toBe(false)
 		t.expect(a.dump().lastError ~= nil).toBe(true)
 		a.dispose()
 	end)
@@ -522,22 +520,29 @@ t.describe("Alert content lifetime", function()
 	t.it("contains a failing content factory and releases its resources before retry", function()
 		local w = world.new()
 		local bad = true
-		local a = Facet.Controls.Alert(w.core, {
+		local live = 0
+		local a = harness.Controls.Alert(w.core, {
 			title = "Edit name",
 			content = function(scope)
-				local value = scope:own(w.core:signal("Name"))
+				local value = Facet.Compose.cell("Name")
+				live += 1
+				Facet.Compose.cleanup(function()
+					live -= 1
+				end)
 				if bad then
 					error("bad content")
 				end
 				return UI.Text({ id = "Name", text = value })
 			end,
 		})
-		local before = w.core:counters()
+		local before = w.core.owner.size()
 		t.expect(pcall(a.present, w.pres)).toBe(true)
 		t.expect(a.dump().presented).toBe(false)
-		t.expect(w.core:counters()).toEqual(before)
+		t.expect(live).toBe(0)
+		t.expect(w.core.owner.size()).toEqual(before)
 		bad = false
 		t.expect(a.present(w.pres) ~= nil).toBe(true)
+		t.expect(live).toBe(1)
 		a.dismiss()
 		-- the modal now dips out on a real (if brief) exit transition, so its
 		-- surface scope survives past the `dismiss()` call until the coordinator's
@@ -546,7 +551,7 @@ t.describe("Alert content lifetime", function()
 		for _ = 1, 40 do
 			w.pres.tick(1 / 60)
 		end
-		t.expect(w.core:counters()).toEqual(before)
+		t.expect(w.core.owner.size()).toEqual(before)
 		a.dispose()
 	end)
 end)
@@ -596,7 +601,7 @@ t.describe("alert: the modal materializes", function()
 			the fade crosses 95% in each direction, plus the fact that the exit
 			is ended by its own spring rather than by the cap. ]]
 		local w = world.new()
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Confirm",
 			title = "Delete?",
 			actions = { { id = "ok", label = "OK" } },
@@ -650,7 +655,7 @@ t.describe("alert: the modal materializes", function()
 		local w = world.new()
 		for _, bad in { "instant", 7, { enter = "swirl" }, { enter = "fade", class = 3 } } do
 			local ok, err = pcall(function()
-				Facet.Controls.Alert(w.core, {
+				harness.Controls.Alert(w.core, {
 					id = "Bad",
 					title = "Hi",
 					actions = { { id = "ok", label = "OK" } },
@@ -658,16 +663,16 @@ t.describe("alert: the modal materializes", function()
 				})
 			end)
 			t.expect(ok).toBe(false)
-			t.expect(string.find(tostring(err), "Controls.Alert", 1, true) ~= nil).toBe(true)
+			t.expect(string.find(tostring(err), "UI.Alert", 1, true) ~= nil).toBe(true)
 			t.expect(string.find(tostring(err), "transition", 1, true) ~= nil).toBe(true)
 		end
 	end)
 
 	t.it("a BOUND alert refuses it at build too, not silently inside its observer", function()
 		local w = world.new()
-		local isPresented = w.core:signal(false)
+		local isPresented = Compose.cell(false)
 		local ok, err = pcall(function()
-			Facet.Controls.Alert(w.core, {
+			harness.Controls.Alert(w.core, {
 				id = "Bound",
 				title = "Hi",
 				actions = { { id = "ok", label = "OK" } },
@@ -677,14 +682,13 @@ t.describe("alert: the modal materializes", function()
 			})
 		end)
 		t.expect(ok).toBe(false)
-		t.expect(string.find(tostring(err), "Controls.Alert", 1, true) ~= nil).toBe(true)
-		isPresented:dispose()
+		t.expect(string.find(tostring(err), "UI.Alert", 1, true) ~= nil).toBe(true)
 	end)
 
 	t.it("the message names the shape that WAS meant, so `instant` is one edit away", function()
 		local w = world.new()
 		local _, err = pcall(function()
-			Facet.Controls.Alert(w.core, {
+			harness.Controls.Alert(w.core, {
 				id = "Bad",
 				title = "Hi",
 				actions = { { id = "ok", label = "OK" } },
@@ -700,7 +704,7 @@ t.describe("alert: the modal materializes", function()
 			default at the present site — only the BUILD check disagreed, refusing
 			the value the very next line was about to ignore. ]]
 		local w = world.new()
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Falsey",
 			title = "Hi",
 			actions = { { id = "ok", label = "OK" } },
@@ -720,8 +724,8 @@ t.describe("alert: the modal materializes", function()
 			and dynamic-data failures beside it, because for a BOUND alert this
 			read happens inside an observer, where a raise is quarantined. ]]
 		local w = world.new()
-		local declared = w.core:signal({ enter = "swirl" } :: any)
-		local alert = Facet.Controls.Alert(w.core, {
+		local declared = Compose.cell({ enter = "swirl" } :: any)
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Late",
 			title = "Hi",
 			actions = { { id = "ok", label = "OK" } },
@@ -736,14 +740,13 @@ t.describe("alert: the modal materializes", function()
 		-- ...with the reason recorded, by name
 		t.expect(alert.dump().presented).toBe(false)
 		local recorded = tostring(alert.dump().lastError)
-		t.expect(string.find(recorded, "Controls.Alert: transition:", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(recorded, "UI.Alert: transition:", 1, true) ~= nil).toBe(true)
 		t.expect(string.find(recorded, "swirl", 1, true) ~= nil).toBe(true)
 		-- ...and a corrected value opens it, so the control is not wedged
 		declared:set({ enter = "fade" } :: any)
 		t.expect(alert.present(w.pres) ~= nil).toBe(true)
 		t.expect(alert.dump().presented).toBe(true)
 		alert.dispose()
-		declared:dispose()
 	end)
 
 	t.it("a BOUND alert records the refusal and resets its binding (D2)", function()
@@ -754,9 +757,9 @@ t.describe("alert: the modal materializes", function()
 			"silently never opened", which is the exact failure task 7 item 5
 			existed to remove. ]]
 		local w = world.new()
-		local declared = w.core:signal({ enter = "swirl" } :: any)
-		local isPresented = w.core:signal(false)
-		local alert = Facet.Controls.Alert(w.core, {
+		local declared = Compose.cell({ enter = "swirl" } :: any)
+		local isPresented = Compose.cell(false)
+		local alert = harness.Controls.Alert(w.core, {
 			id = "BoundBad",
 			title = "Hi",
 			actions = { { id = "ok", label = "OK" } },
@@ -767,22 +770,20 @@ t.describe("alert: the modal materializes", function()
 		isPresented:set(true)
 		t.expect(alert.dump().presented).toBe(false)
 		-- the binding is RESET, so the flag and the screen agree again
-		t.expect(isPresented:get()).toBe(false)
+		t.expect(isPresented:peek()).toBe(false)
 		local recorded = tostring(alert.dump().lastError)
-		t.expect(string.find(recorded, "Controls.Alert: transition:", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(recorded, "UI.Alert: transition:", 1, true) ~= nil).toBe(true)
 		-- ...and the same binding opens once the value is valid
 		declared:set({ enter = "fade" } :: any)
 		isPresented:set(true)
 		t.expect(alert.dump().presented).toBe(true)
 		alert.dispose()
-		isPresented:dispose()
-		declared:dispose()
 	end)
 
 	t.it("the refusal reads as one sentence, not a splice (N5)", function()
 		local w = world.new()
 		local _, err = pcall(function()
-			Facet.Controls.Alert(w.core, {
+			harness.Controls.Alert(w.core, {
 				id = "Splice",
 				title = "Hi",
 				actions = { { id = "ok", label = "OK" } },
@@ -791,20 +792,19 @@ t.describe("alert: the modal materializes", function()
 		end)
 		-- `resolve`'s own detail begins lower-case ("unknown enter form …"), so
 		-- the address needs its colon or the two run together
-		t.expect(string.find(tostring(err), "Controls.Alert: transition: unknown enter form", 1, true) ~= nil)
-			.toBe(true)
+		t.expect(string.find(tostring(err), "UI.Alert: transition: unknown enter form", 1, true) ~= nil).toBe(true)
 	end)
 
 	t.it("a VALID transition still builds, and the default (absent) one is untouched", function()
 		local w = world.new()
-		local a = Facet.Controls.Alert(w.core, {
+		local a = harness.Controls.Alert(w.core, {
 			id = "Ok1",
 			title = "Hi",
 			actions = { { id = "ok", label = "OK" } },
 			transition = { enter = "instant" },
 		})
 		a.dispose()
-		local b = Facet.Controls.Alert(w.core, {
+		local b = harness.Controls.Alert(w.core, {
 			id = "Ok2",
 			title = "Hi",
 			actions = { { id = "ok", label = "OK" } },
@@ -829,7 +829,7 @@ t.describe("alert: the modal materializes", function()
 	t.it("the modal card classifies as a PANEL, not as a scroll track", function()
 		local chrome_slots = require("../src/tokens/chrome_slots")
 		local w = world.new()
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Slot",
 			title = "Delete?",
 			actions = { { id = "ok", label = "OK" } },
@@ -868,7 +868,7 @@ t.describe("alert: the modal materializes", function()
 		the spec, because the spec is what was wrong about this before. ]]
 	t.it("the modal's enter never rasterizes its text a pixel small", function()
 		local w = world.new()
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Settle",
 			title = "Replace this save?",
 			message = "Your current progress will replace the previous checkpoint.",
@@ -909,7 +909,7 @@ t.describe("alert: the modal materializes", function()
 		-- materializes on the first frame of the enter IS the band that was resolved
 		local function bandOf(declared: any): number
 			local w = world.new()
-			local alert = Facet.Controls.Alert(w.core, {
+			local alert = harness.Controls.Alert(w.core, {
 				id = "Band",
 				title = "Hi",
 				actions = { { id = "ok", label = "OK" } },
@@ -932,7 +932,7 @@ t.describe("alert: the modal materializes", function()
 
 	t.it("transition = 'instant' opts out", function()
 		local w = world.new()
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Quick",
 			title = "Hi",
 			actions = { { id = "ok", label = "OK" } },
@@ -954,7 +954,7 @@ end)
 t.describe("Alert header: a mark is punctuation, and the title is centred", function()
 	local function open(spec: any, opts: any?)
 		local w = world.new(opts or { viewport = { x = 0, y = 0, w = 1280, h = 800 } })
-		local alert = Facet.Controls.Alert(w.core, spec)
+		local alert = harness.Controls.Alert(w.core, spec)
 		alert.present(w.pres)
 		w.settle(4)
 		return w, alert
@@ -993,7 +993,7 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 			severity = "critical",
 			actions = { { id = "ok", label = "OK" } },
 		})
-		local metrics = w.env:get("themeMetrics"):get()
+		local metrics = w.env:get("themeMetrics"):peek()
 		local caution = w.adapter.node("/Mark/Center/Card/Header/Caution").rect
 		t.expect(`{caution.w}x{caution.h}`).toBe(`{metrics.iconSizes.medium}x{metrics.iconSizes.medium}`)
 		-- ...and that really is the height of the heading it leads, not a hit floor
@@ -1039,7 +1039,7 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 			t.expect(w.adapter.node("/Blank/Center/Card/Header/Title")).toBe(nil)
 			-- ...and the card is still a card: the message and the action are there
 			t.expect(w.adapter.node("/Blank/Center/Card/Message") ~= nil).toBe(true)
-			t.expect(w.core:lastError()).toBe(nil)
+			t.expect(w.core.lastError()).toBe(nil)
 			alert.dispose()
 		end
 		-- a title with any glyph at all still mounts
@@ -1067,7 +1067,7 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		local message = w.adapter.node("/NoRow/Center/Card/Message").rect
 		-- the message is the card's first child now: the only thing above it is the
 		-- card's own top padding, with no row and no gap in between
-		local metrics = w.env:get("themeMetrics"):get()
+		local metrics = w.env:get("themeMetrics"):peek()
 		t.expect(message.y - card.y).toBe(metrics.space.m)
 		alert.dispose()
 	end)
@@ -1079,8 +1079,8 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		back when the signal does. ]]
 	t.it("a READABLE title that is blank, or goes blank, draws nothing and comes back", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local title = w.core:signal("Replace this save?")
-		local alert = Facet.Controls.Alert(w.core, {
+		local title = Compose.cell("Replace this save?")
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Live",
 			title = title,
 			message = "Your current progress will replace the previous checkpoint.",
@@ -1100,13 +1100,12 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		w.settle(3)
 		t.expect(w.adapter.visibleOf(path)).toBe(true)
 		alert.dispose()
-		title:dispose()
 	end)
 
 	t.it("a READABLE title that starts blank never draws a zero-width box", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local title = w.core:signal(" ")
-		local alert = Facet.Controls.Alert(w.core, {
+		local title = Compose.cell(" ")
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Born",
 			title = title,
 			message = "Your selected driver is ready.",
@@ -1115,9 +1114,8 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		alert.present(w.pres)
 		w.settle(3)
 		t.expect(w.adapter.visibleOf("/Born/Center/Card/Header/Title")).toBe(false)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 		alert.dispose()
-		title:dispose()
 	end)
 
 	t.it("a long unmarked title wraps inside a full-width card instead of collapsing it", function()
@@ -1132,7 +1130,7 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		local title = w.adapter.node("/Long/Center/Card/Header/Title").rect
 		t.expect(`card {card.w} >= 300`).toBe(`card {math.max(card.w, 300)} >= 300`)
 		-- ...and the title really did WRAP: two heading lines or more
-		local heading = w.env:get("themeMetrics"):get().type.heading
+		local heading = w.env:get("themeMetrics"):peek().type.heading
 		t.expect(`title lines {title.h >= heading.size * 2}`).toBe("title lines true")
 		alert.dispose()
 	end)
@@ -1189,7 +1187,7 @@ t.describe("Alert card: it grows to fit, and scrolls only when it cannot", funct
 			return a
 		end
 		local w = world.new(o)
-		local alert = Facet.Controls.Alert(w.core, spec)
+		local alert = harness.Controls.Alert(w.core, spec)
 		alert.present(w.pres)
 		w.settle(5)
 		return w, alert
@@ -1269,22 +1267,30 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 			input = input or "touch",
 			viewport = viewport,
 		})
-		local alert = Facet.Controls.Alert(w.core, {
-			id = "Ctl",
-			title = lt.PSEUDO,
-			message = lt.GERMAN_COMPOUND,
-			actions = {
-				{ id = "Cancel", label = lt.PSEUDO_ACTION, role = "cancel" },
-				{ id = "Accept", label = "Continue", shortcut = "defaultAction" },
-			},
-		})
-		w.present(UI.Screen({ id = "S", children = { alert.blueprint } }))
-		return w, alert
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Alert("Ctl")({
+					isPresented = w.Compose.cell(true),
+					title = lt.PSEUDO,
+					message = lt.GERMAN_COMPOUND,
+					actions = {
+						{ id = "Cancel", label = lt.PSEUDO_ACTION, role = "cancel" },
+						{ id = "Accept", label = "Continue", shortcut = "defaultAction" },
+					},
+				}),
+			})
+		end)
+		w.settle(3)
+		return w
 	end
 
 	local function truncatedActions(w: any): { string }
 		local out: { string } = {}
-		for path, entry in lt.sweep(w).rects do
+		-- the card is the alert's own modal surface, audited through that surface's controller
+		local modal = setmetatable({ controller = w.record("Ctl").present().controller }, { __index = w })
+		local rects = lt.sweep(modal, "/Ctl").rects
+		t.expect(next(rects) ~= nil).toBe(true)
+		for path, entry in rects do
 			local facts = if type(entry) == "table" then entry.textFacts else nil
 			if type(facts) == "table" and facts.truncated == true and string.find(path, "/Actions/", 1, true) then
 				table.insert(out, path)
@@ -1296,15 +1302,15 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 
 	for _, themeName in { "fantasy_parchment", "glossy_touch" } do
 		t.it(`{themeName}: at the Largest preference on a 390 phone no action label is cut`, function()
-			local w, alert = mount(themeName, lt.LARGEST, lt.PHONE_PORTRAIT)
+			local w = mount(themeName, lt.LARGEST, lt.PHONE_PORTRAIT)
 			t.expect(`{themeName}: cut {table.concat(truncatedActions(w), ",")}`).toBe(`{themeName}: cut `)
 			-- ...and they are stacked, full width, which is what gave them the room
-			local a = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Accept]/Accept").rect
-			local c = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+			local a = w.adapter.node("/Ctl/Center/Card/Actions/Order/[Accept]/Accept").rect
+			local c = w.adapter.node("/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
 			t.expect(a.y + a.h <= c.y).toBe(true)
 			t.expect(a.x).toBe(c.x)
 			t.expect(a.w).toBe(c.w)
-			alert.dispose()
+			w.close()
 		end)
 	end
 
@@ -1321,16 +1327,16 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		}
 	do
 		t.it(`{case.name}: the bleed lane is kept exactly when the frame is not carved`, function()
-			local w, alert = mount(case.name, 0, lt.PHONE_PORTRAIT)
+			local w = mount(case.name, 0, lt.PHONE_PORTRAIT)
 			local metrics = w.metrics()
 			local carved = metrics.chromeInsets.panel.left
 			local bleed = metrics.chromeBleed
 			t.expect(`{case.name}: carved>0 {carved > 0}`).toBe(`{case.name}: carved>0 {case.carved}`)
-			local card = w.adapter.node("/S/Ctl/Center/Card").rect
-			local group = w.adapter.node("/S/Ctl/Center").rect
+			local card = w.adapter.node("/Ctl/Center/Card").rect
+			local group = w.adapter.node("/Ctl/Center").rect
 			t.expect(card.x - group.x >= bleed).toBe(true)
 			t.expect(group.x + group.w - card.x - card.w >= bleed).toBe(true)
-			local actions = w.adapter.node("/S/Ctl/Center/Card/Actions").rect
+			local actions = w.adapter.node("/Ctl/Center/Card/Actions").rect
 			local spent = actions.x - card.x
 			if case.carved then
 				-- the carve plus the `xs` floor, and nothing more: the double-count
@@ -1358,7 +1364,7 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 				t.expect(`{case.name}: lane {spent >= bleed}`).toBe(`{case.name}: lane true`)
 				t.expect(`{case.name}: carve {carved}`).toBe(`{case.name}: carve 0`)
 			end
-			alert.dispose()
+			w.close()
 		end)
 	end
 
@@ -1374,7 +1380,7 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 	t.it("a theme swapped under a LIVE alert moves its lane with it", function()
 		local snapshot = require("../src/themes/snapshot")
 		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Swap",
 			title = "Replace this save?",
 			message = "Your current progress will replace the previous checkpoint.",
@@ -1412,9 +1418,9 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 	end)
 
 	t.it("the card's padding yields to the carved frame instead of stacking with it", function()
-		local w, alert = mount("fantasy_parchment", lt.LARGEST, lt.PHONE_PORTRAIT)
-		local card = w.adapter.node("/S/Ctl/Center/Card").rect
-		local actions = w.adapter.node("/S/Ctl/Center/Card/Actions").rect
+		local w = mount("fantasy_parchment", lt.LARGEST, lt.PHONE_PORTRAIT)
+		local card = w.adapter.node("/Ctl/Center/Card").rect
+		local actions = w.adapter.node("/Ctl/Center/Card/Actions").rect
 		local metrics = w.metrics()
 		local carved = metrics.chromeInsets.panel
 		--[[ the frame the package carves, plus ONE `xs` and nothing else: the
@@ -1427,18 +1433,18 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		t.expect((card.x + card.w) - (actions.x + actions.w)).toBe(carved.right + floor)
 		-- ...and that really is a yield: the authored step is NOT added on top
 		t.expect(carved.left + floor < carved.left + metrics.space.m).toBe(true)
-		alert.dispose()
+		w.close()
 	end)
 
 	t.it("at the default preference on a desktop the row form is unchanged", function()
-		local w, alert = mount("facet-neutral", 0, { x = 0, y = 0, w = 1280, h = 800 }, "desktop")
-		local a = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Accept]/Accept").rect
-		local c = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+		local w = mount("facet-neutral", 0, { x = 0, y = 0, w = 1280, h = 800 }, "desktop")
+		local a = w.adapter.node("/Ctl/Center/Card/Actions/Order/[Accept]/Accept").rect
+		local c = w.adapter.node("/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
 		-- one row, cancel leading, nothing cut
 		t.expect(a.y).toBe(c.y)
 		t.expect(c.x + c.w <= a.x).toBe(true)
 		t.expect(truncatedActions(w)).toEqual({})
-		alert.dispose()
+		w.close()
 	end)
 
 	--[[ A BROKEN `themeMetrics` FACT MUST NOT QUARANTINE THE CONTROL (RED-TEAM F2).
@@ -1451,7 +1457,7 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		every other rung short-circuits the measurement. ]]
 	t.it("a partial themeMetrics fact degrades the rung instead of quarantining it", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 800 }, themeMetrics = {} })
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Broken",
 			title = "Start this race?",
 			message = "Your selected driver is ready.",
@@ -1459,7 +1465,7 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		})
 		alert.present(w.pres)
 		w.settle(3)
-		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(w.core.lastError()).toBe(nil)
 		t.expect(alert.dump().lastError).toBe(nil)
 		t.expect(alert.dump().presented).toBe(true)
 		t.expect(w.adapter.node("/Broken/Center/Card") ~= nil).toBe(true)
@@ -1473,7 +1479,7 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 			charged as "does not fit", so the degraded answer is a STACK, which is
 			full width by construction and cannot overflow the box it stacks in. ]]
 		local wide = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 800 }, themeMetrics = {} })
-		local long = Facet.Controls.Alert(wide.core, {
+		local long = harness.Controls.Alert(wide.core, {
 			id = "Long",
 			title = "Start this race?",
 			actions = {
@@ -1489,7 +1495,7 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		t.expect(`form {if a.y == c.y then "row" else "stack"}`).toBe("form stack")
 		local overflow = math.max(0, (a.x + a.w) - (card.x + card.w), card.x - a.x)
 		t.expect(`overflow {overflow}`).toBe("overflow 0")
-		t.expect(wide.core:lastError()).toBe(nil)
+		t.expect(wide.core.lastError()).toBe(nil)
 		long.dispose()
 	end)
 
@@ -1510,20 +1516,24 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 				input = "desktop",
 				viewport = { x = 0, y = 0, w = 1280, h = 800 },
 			})
-			local alert = Facet.Controls.Alert(w.core, {
-				id = "Ctl",
-				title = "Delete this save?",
-				actions = {
-					{ id = "Cancel", label = "Cancel", role = "cancel" },
-					{ id = "Go", label = LONG, compactLabel = compact },
-				},
-			})
-			w.present(UI.Screen({ id = "S", children = { alert.blueprint } }))
-			local card = w.adapter.node("/S/Ctl/Center/Card").rect
-			local a = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Go]/Go").rect
-			local c = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Alert("Ctl")({
+						isPresented = w.Compose.cell(true),
+						title = "Delete this save?",
+						actions = {
+							{ id = "Cancel", label = "Cancel", role = "cancel" },
+							{ id = "Go", label = LONG, compactLabel = compact },
+						},
+					}),
+				})
+			end)
+			w.settle(3)
+			local card = w.adapter.node("/Ctl/Center/Card").rect
+			local a = w.adapter.node("/Ctl/Center/Card/Actions/Order/[Go]/Go").rect
+			local c = w.adapter.node("/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
 			local overflow = math.max(0, (a.x + a.w) - (card.x + card.w), card.x - a.x)
-			alert.dispose()
+			w.close()
 			return (if a.y == c.y then "row" else "stack"), overflow
 		end
 		local plainForm, plainOverflow = probe(nil)

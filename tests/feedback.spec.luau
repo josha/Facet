@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE SEMANTIC FEEDBACK SEAM (acceptance row SF-F1). What is
 -- actually being guarded here:
 --
@@ -14,21 +15,22 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local feedbackLib = require("../src/present/feedback")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 --[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -134,7 +136,7 @@ describe("presenter feedback: activate", function()
 		pres.onFeedback(function(event)
 			table.insert(events, event)
 		end)
-		local flag = core:signal(false)
+		local flag = Compose.cell(false)
 		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = { UI.Toggle({ id = "T", label = "Music", value = flag }) },
@@ -143,7 +145,7 @@ describe("presenter feedback: activate", function()
 		expect(typesOf(events)).toBe("activate")
 		expect(events[1].path).toBe("/S/T")
 		expect(events[1].surface).toBe(handle)
-		expect(flag:get()).toBe(true) -- the effect already landed when the event fired
+		expect(flag:peek()).toBe(true) -- the effect already landed when the event fired
 
 		-- rapid repeat: one event per press, never two
 		system.deviceKey("ButtonA", true)

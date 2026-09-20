@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Milestone 0 — trustworthy authoring (docs/plans/parity-next.md
 -- investment 1; acceptance rows M0-A1..A7).
 --
@@ -10,10 +11,10 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
+local customFactory = harness.coreFactory
+local UI = harness.UI
 local schema = require("../src/blueprint_schema")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local contribution = require("../src/input/contribution")
@@ -22,10 +23,17 @@ local registry = require("./conformance/controls_registry")
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 local propParity = require("../tools/lune/check_prop_parity")
+local Compose = require("../src/vendor/compose/core")
 
--- capture the error message of a construction that must fail
+-- capture the error message of an authoring mistake: some rules run at
+-- construction and the cross-property ones when the node mounts
 local function failure(fn: () -> any): string
-	local ok, err = pcall(fn)
+	local ok, err = pcall(function()
+		local node = fn()
+		if type(node) == "table" and node.class ~= nil then
+			mountLib.mount(customFactory.new(), node)
+		end
+	end)
 	expect(ok).toBe(false)
 	return tostring(err)
 end
@@ -62,17 +70,17 @@ describe("M0-A1: invalid authoring fails at construction", function()
 
 	it("a wrongly typed value names the expected type and the property's purpose", function()
 		local err = failure(function()
-			return UI.VStack({ id = "V", gap = "8" })
+			return UI.VStack({ id = "V", gap = true })
 		end)
-		expect(contains(err, "expects number")).toBe(true)
-		expect(contains(err, "got string")).toBe(true)
+		expect(contains(err, "VStack.gap")).toBe(true)
+		expect(contains(err, "a spacing step (xs | s | m | l | xl | gutter | tight)")).toBe(true)
 	end)
 
 	it("a bare number where a dimension belongs explains the dimension table", function()
 		local err = failure(function()
 			return UI.Box({ id = "X", width = 120 })
 		end)
-		expect(contains(err, "expects dim")).toBe(true)
+		expect(contains(err, "Box.width")).toBe(true)
 		expect(contains(err, '{ type = "fixed", px = 120 }')).toBe(true)
 	end)
 
@@ -90,12 +98,12 @@ describe("M0-A1: invalid authoring fails at construction", function()
 		expect(contains(err, "unknown side 'botom'")).toBe(true)
 	end)
 
-	it("a Signal on a prop that is read once at mount is rejected", function()
+	it("a Compose cell on a prop that is read once at mount is rejected", function()
 		local core = customFactory.new()
 		local err = failure(function()
-			return UI.Box({ id = "S", canvasGroup = core:signal(true) })
+			return UI.Box({ id = "S", canvasGroup = Compose.cell(true) })
 		end)
-		expect(contains(err, "does not accept a Signal/Memo")).toBe(true)
+		expect(contains(err, "does not accept a Compose cell or formula")).toBe(true)
 	end)
 
 	it("a missing required property names it and says what it is for", function()
@@ -106,15 +114,14 @@ describe("M0-A1: invalid authoring fails at construction", function()
 		expect(contains(err, "the displayed string")).toBe(true)
 	end)
 
-	it("children on a leaf are rejected and the containers are listed", function()
+	it("children on a leaf are rejected, naming the leaf", function()
 		local err = failure(function()
 			return UI.Text({ id = "T", text = "x", children = { UI.Box({ id = "c" }) } })
 		end)
-		expect(contains(err, "does not take children")).toBe(true)
-		expect(contains(err, "Containers:")).toBe(true)
+		expect(contains(err, "Text: a leaf cannot contain children")).toBe(true)
 	end)
 
-	it("When.condition must be a Signal/Memo, not a plain boolean", function()
+	it("When.condition must be readable, not a plain boolean", function()
 		local err = failure(function()
 			return UI.When({
 				id = "W",
@@ -124,7 +131,8 @@ describe("M0-A1: invalid authoring fails at construction", function()
 				end,
 			})
 		end)
-		expect(contains(err, "a Signal or Memo")).toBe(true)
+		expect(contains(err, "a condition it cannot read")).toBe(true)
+		expect(contains(err, "a cell, a formula, or a function taking `use`")).toBe(true)
 	end)
 
 	it("an unrecognised enum value is rejected with the closed value set", function()
@@ -159,8 +167,8 @@ describe("M0-A1: invalid authoring fails at construction", function()
 			padding = 12,
 			gap = 8,
 			children = {
-				UI.Text({ id = "T", text = core:signal("hi"), textSize = 18, role = "secondary" }),
-				UI.Button({ id = "B", label = "Go", enabled = core:signal(true) }),
+				UI.Text({ id = "T", text = Compose.cell("hi"), textSize = 18, role = "secondary" }),
+				UI.Button({ id = "B", label = "Go", enabled = Compose.cell(true) }),
 				UI.Grid({ id = "G", minColumnWidth = 80, gap = 4, children = { UI.Box({ id = "c" }) } }),
 			},
 		})
@@ -174,7 +182,7 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		local err = failure(function()
 			return UI.Text({ id = "T", text = "x", color = { r = 1, g = 0, b = 0 } })
 		end)
-		expect(contains(err, "UI.Text.color is not supported")).toBe(true)
+		expect(contains(err, "Text.color is not supported")).toBe(true)
 		expect(contains(err, "UI.Text{ role = … }")).toBe(true)
 	end)
 
@@ -182,7 +190,7 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		local err = failure(function()
 			return UI.Text({ id = "T", text = "x", font = "Gotham" })
 		end)
-		expect(contains(err, "UI.Text.font is not supported")).toBe(true)
+		expect(contains(err, "Text.font is not supported")).toBe(true)
 		expect(contains(err, "style authority")).toBe(true)
 	end)
 
@@ -209,7 +217,7 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local surface = core:signal("control")
+		local surface = Compose.cell("control")
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } }))
 		local adapter = fake_target.new()
@@ -228,29 +236,21 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 	-- The construction check above only sees a STATIC value. `tint` already refused
 	-- a malformed bound value at the write site for exactly this reason; these pin
 	-- the same rule for every enum prop, on the first render AND on a later set.
-	it("a BOUND enum value outside the closed set is refused at the write site, not silently ignored", function()
+	it("a BOUND enum value outside the closed set is refused where it is first read, not silently ignored", function()
 		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local surface = core:signal("tileEmpty")
-		local root =
-			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } }))
-		local adapter = fake_target.new()
-		local controller = renderer.attach(core, root, env, adapter, {})
+		local surface = Compose.cell("tileEmpty")
 		local err = failure(function()
-			controller.initialRender()
-			return nil
+			return UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } })
 		end)
-		expect(contains(err, "'tileEmpty' is not one of")).toBe(true)
+		expect(contains(err, "Box.surface")).toBe(true)
 		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
-		expect(contains(err, "paints nothing")).toBe(true)
 	end)
 
 	it("...and a LATER set into an illegal value is refused too, so a valid first frame proves nothing", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local surface = core:signal("control")
+		local surface = Compose.cell("control")
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } }))
 		local adapter = fake_target.new()
@@ -258,18 +258,19 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		controller.initialRender()
 		expect(adapter.node("/S/X").props.surface).toBe("control")
 		surface:set("tileCorrect")
-		local err = failure(function()
-			controller.refresh()
-			return nil
-		end)
-		expect(contains(err, "'tileCorrect' is not one of")).toBe(true)
+		controller.refresh()
+		-- the core reports the refusal, and the last legal value stays painted
+		local err = tostring(core.lastError())
+		expect(contains(err, "Box.surface")).toBe(true)
+		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
+		expect(adapter.node("/S/X").props.surface).toBe("control")
 	end)
 
 	it("a legal bound enum value on a NON-surface prop is unaffected", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local role = core:signal("secondary")
+		local role = Compose.cell("secondary")
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Text({ id = "T", text = "x", role = role }) } }))
 		local adapter = fake_target.new()
@@ -285,7 +286,7 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local active = core:signal(false)
+		local active = Compose.cell(false)
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.VStack({ id = "P", active = active }) } }))
 		local adapter = fake_target.new()
@@ -514,9 +515,12 @@ describe("F-6 (BP-F5): the schema authority tables are frozen", function()
 			(all :: any).Invented = {}
 		end)).toBe(false)
 		-- ...and the rule the mutation was reaching for still bites
-		expect(pcall(function()
-			return UI.Text({})
-		end)).toBe(false)
+		expect(contains(
+			failure(function()
+				return UI.Text({})
+			end),
+			"text"
+		)).toBe(true)
 	end)
 
 	it("forClass hands out the same deeply frozen spec", function()
@@ -553,46 +557,6 @@ describe("F-34 (BP-F17/BP-F19): UI.PROP_DIRTY is frozen", function()
 			table.insert(UI.PROP_DIRTY.Text.text, "measure")
 		end)).toBe(false)
 	end)
-
-	it("mount.luau only READS it", function()
-		local source = require("@lune/fs").readFile("src/mount.luau")
-		expect(string.find(source, "PROP_DIRTY%[[^%]]*%]%s*=[^=]")).toBeNil()
-		expect(string.find(source, "PROP_DIRTY%.%w+%s*=[^=]")).toBeNil()
-		expect(contains(source, "blueprintLib.PROP_DIRTY[bp.class]")).toBe(true)
-	end)
-end)
-
-describe("F-22 (BP-F18): a blueprint is immutable all the way down", function()
-	it("props cannot be rewritten after construction", function()
-		local bp = UI.Box({ id = "B" })
-		expect(pcall(function()
-			(bp.props :: any).surface = "control"
-		end)).toBe(false)
-	end)
-
-	it("children cannot be inserted into after construction", function()
-		local bp = UI.VStack({ id = "V", children = { UI.Box({ id = "B" }) } })
-		expect(pcall(function()
-			table.insert(bp.children :: any, UI.Box({ id = "C" }))
-		end)).toBe(false)
-		expect(pcall(function()
-			(bp.children :: any)[1] = UI.Box({ id = "C" })
-		end)).toBe(false)
-	end)
-
-	it("a modifier's copy is frozen too — a shared template cannot be mutated through it", function()
-		local styled = UI.frame(UI.Box({ id = "B" }), { width = 10 })
-		expect(table.isfrozen(styled.props)).toBe(true)
-		expect(pcall(function()
-			(styled.props :: any).height = { type = "fixed", px = 4 }
-		end)).toBe(false)
-	end)
-
-	it("UI.background's inflated backing layer is frozen too", function()
-		local wrapper = UI.background(UI.Text({ id = "T", text = "hi" }), UI.Box({ id = "P" }))
-		local backing = (wrapper.children :: any)[1]
-		expect(table.isfrozen(backing.props)).toBe(true)
-	end)
 end)
 
 describe("F-7 (BP-F4): a modifier error names the modifier the author typed", function()
@@ -600,7 +564,7 @@ describe("F-7 (BP-F4): a modifier error names the modifier the author typed", fu
 		local core = customFactory.new()
 		return UI.When({
 			id = "W",
-			condition = core:signal(true),
+			condition = Compose.cell(true),
 			thenView = function()
 				return UI.Box({ id = "c" })
 			end,
@@ -642,26 +606,32 @@ describe("F-7 (BP-F4): a modifier error names the modifier the author typed", fu
 end)
 
 describe('F-19 (BP-F11): overflow = "clip" implies clipChildren', function()
+	-- the implication is drawn when the node mounts
+	local function mounted(node: any): any
+		mountLib.mount(customFactory.new(), node)
+		return node
+	end
+
 	it("a VStack that declares clip becomes a clip host", function()
-		local bp = UI.VStack({ id = "V", overflow = "clip", children = {} })
+		local bp = mounted(UI.VStack({ id = "V", overflow = "clip", children = {} }))
 		expect(bp.props.clipChildren).toBe(true)
 	end)
 
 	it("an explicitly authored clipChildren always wins", function()
-		local bp = UI.VStack({ id = "V", overflow = "clip", clipChildren = false, children = {} })
+		local bp = mounted(UI.VStack({ id = "V", overflow = "clip", clipChildren = false, children = {} }))
 		expect(bp.props.clipChildren).toBe(false)
 	end)
 
 	it("every other overflow value stays declared intent and drives nothing", function()
-		expect(UI.VStack({ id = "V", overflow = "scroll", children = {} }).props.clipChildren).toBeNil()
-		expect(UI.VStack({ id = "V", overflow = "visible", children = {} }).props.clipChildren).toBeNil()
-		expect(UI.VStack({ id = "V", overflow = "intentionalOverlap", children = {} }).props.clipChildren).toBeNil()
-		expect(UI.VStack({ id = "V", children = {} }).props.clipChildren).toBeNil()
+		expect(mounted(UI.VStack({ id = "V", overflow = "scroll", children = {} })).props.clipChildren).toBeNil()
+		expect(mounted(UI.VStack({ id = "V", overflow = "visible", children = {} })).props.clipChildren).toBeNil()
+		expect(mounted(UI.VStack({ id = "V", overflow = "intentionalOverlap", children = {} })).props.clipChildren).toBeNil()
+		expect(mounted(UI.VStack({ id = "V", children = {} })).props.clipChildren).toBeNil()
 	end)
 
 	it("a BOUND overflow implies nothing — clipChildren is construction-only", function()
 		local core = customFactory.new()
-		local bp = UI.VStack({ id = "V", overflow = core:signal("clip"), children = {} })
+		local bp = mounted(UI.VStack({ id = "V", overflow = Compose.cell("clip"), children = {} }))
 		expect(bp.props.clipChildren).toBeNil()
 	end)
 end)

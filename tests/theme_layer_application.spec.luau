@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- LAYER STACKS, APPLIED (rich-skinning-v2 package P2).
 --
 -- P1 made a layered package COMPILE to rules. This file is the other half, and
@@ -33,10 +34,10 @@ local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local fake_target = require("./lib/fake_target")
 
@@ -44,6 +45,7 @@ local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
+local Compose = require("../src/vendor/compose/core")
 
 local source = fs.readFile("src/client/screen_target.luau")
 -- the adapter was split into siblings when screen_target.luau reached Studio's
@@ -898,9 +900,9 @@ describe("rung 2: one grammar, one normalizer, both rungs", function()
 	it("a bad rung-2 map is an authoring error naming the prop", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.Controls.Slider(core, {
+			return harness.Controls.Slider(core, {
 				id = "Bad",
-				value = core:signal(1),
+				value = Compose.cell(1),
 				min = 0,
 				max = 10,
 				thumbImage = { hover = "rbxassetid://1" }, -- no `default`
@@ -921,12 +923,12 @@ describe("rung 2: the per-state map REACHES the adapter", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local value = core:signal(50)
+		local value = Compose.cell(50)
 		local spec: any = { id = "Vol", label = "Vol", value = value, min = 0, max = 100 }
 		for k, v in (specOverrides or {}) :: any do
 			spec[k] = v
 		end
-		local control = Facet.Controls.Slider(core, spec)
+		local control = harness.Controls.Slider(core, spec)
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		return adapter, control

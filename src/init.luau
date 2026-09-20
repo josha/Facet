@@ -1,201 +1,50 @@
 --!strict
--- Facet public entry point (design Â§5): the game-agnostic, engine-free
+-- Facet public entry point (design §5): the game-agnostic, engine-free
 -- surface. Client-only modules (ScreenTarget, roblox_env, roblox_input) are
--- NOT exported here â client entry points require them from @self/client/*
+-- NOT exported here — client entry points require them from @self/client/*
 -- directly, keeping this module safe for shared/server require graphs
 -- (UI-BOUND-001; enforced by tools/lune/check_boundary).
 -- Library-internal requires stay RELATIVE/@self so the same source runs
 -- headless under lune and mounted under Rojo.
 
 local coreContract = require("@self/core/contract")
-local customCore = require("@self/core/compose")
-local authoring = require("@self/authoring")
-local controlTypes = require("@self/control_types")
 local blueprint = require("@self/blueprint")
-local mountLib = require("@self/mount")
 local environment = require("@self/env/environment")
 local rendererLib = require("@self/render/renderer")
-local presenterLib = require("@self/present/presenter")
 local actionsLib = require("@self/input/actions")
 local replication = require("@self/replication/adapters")
 local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
-local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_SECONDS
---[[ THE TWENTY-FOUR COMPOSITE CONTROLS.
-
-	Fifteen legacy Spec types and NavigationStack.Spec enter scope through direct module bindings, so
-	those implementations load here. Luau does not expose a module's exported
-	types through deferred `typeof(require(...))` spellings (tools/check_types.py).
-
-	Eight implementations remain deferred until construction: Chip, VirtualList,
-	VirtualGrid, AsyncImage, Button, Toggle, ComboBox and SplitButton. The first
-	four retain their historic `any` specs; the newer four publish typed specs
-	directly below, so deferral costs no argument checking. The checker pins the
-	four `any` exceptions and probes every typed entry.
-
-	The original four-module deferral saved 228 KB [131..313] in the wave T15
-	paired measurements. That historical result is not a measurement of the
-	current eight-module set. Facet.preload() force-loads all eight at a caller's
-	chosen loading-screen moment. ]]
-local tableControl = require("@self/controls/table")
-local popupButton = require("@self/controls/picker_menu")
-local menuControl = require("@self/controls/menu")
-local calloutControl = require("@self/controls/callout")
-local stepperControl = require("@self/controls/stepper")
-local sliderControl = require("@self/controls/slider")
-local ratingControl = require("@self/controls/rating")
-local progressView = require("@self/controls/progress_view")
-local labelControl = require("@self/controls/label")
-local pickerControl = require("@self/controls/picker")
-local tabView = require("@self/controls/tab_view")
-local disclosureGroup = require("@self/controls/disclosure_group")
-local textInput = require("@self/controls/text_input")
+local transitionsLib = require("@self/render/transitions")
 local rowActions = require("@self/controls/row_actions")
-local levelPicker = require("@self/controls/level_picker")
-local navigationStack = require("@self/controls/navigation_stack")
-local radial_menu = require("@self/controls/radial_menu")
-local alert = require("@self/controls/alert")
-local sheet = require("@self/controls/sheet")
-local page_view = require("@self/controls/page_view")
-local collapsible_view = require("@self/controls/collapsible_view")
 local asyncResources = require("@self/async/resources")
+local controlTypes = require("@self/control_types")
+export type App = controlTypes.App
+export type Controls = controlTypes.Controls
+export type ButtonSpec = controlTypes.ButtonSpec
+export type ToggleSpec = controlTypes.ToggleSpec
+export type ComboBoxSpec = controlTypes.ComboBoxSpec
+export type SplitButtonSpec = controlTypes.SplitButtonSpec
+export type ChipSpec = controlTypes.ChipSpec
+export type AsyncImageSpec = controlTypes.AsyncImageSpec
+export type VirtualListSpec<T> = controlTypes.VirtualListSpec<T>
+export type VirtualGridSpec<T> = controlTypes.VirtualGridSpec<T>
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
 local motionClasses = require("@self/motion/classes")
 local motionCurves = require("@self/motion/curves")
 
--- THE CORE CONTRACT TYPES, REACHABLE (F-28). `src/core/contract.luau` is pure
--- types and no code, and until now nothing re-exported it from the public entry
--- — so an author writing a typed helper (`function build(core: ???, …)`) had no
--- name to write and no way to import one, and the library's own boundaries said
--- `core: any` 35 times. These are erased at runtime (the module returns nil),
--- and it requires nothing, so the entry point stays safe for shared/server
--- require graphs (UI-BOUND-001).
-type BooleanSignal = coreContract.Signal<boolean>
-type StringSignal = coreContract.Signal<string>
+-- The core contract types, so a typed helper or an out-of-repo control can name
+-- them. `core/contract` is pure types, and they are Compose's own: state is a
+-- `Cell`, derivation is a `Formula`, either is a `Readable`, and a lifetime is
+-- an `Owner`.
 export type Core = coreContract.Core
-export type Scope = coreContract.Scope
-export type Signal<T> = coreContract.Signal<T>
-export type Memo<T> = coreContract.Memo<T>
+export type Owner = coreContract.Owner
+export type Cell<T> = coreContract.Cell<T>
+export type Formula<T> = coreContract.Formula<T>
 export type Readable<T> = coreContract.Readable<T>
 export type Unsubscribe = coreContract.Unsubscribe
-export type ChipSpec = controlTypes.ChipSpec
-export type VirtualListSpec<T> = controlTypes.VirtualListSpec<T>
-export type VirtualGridSpec<T> = controlTypes.VirtualGridSpec<T>
-export type AsyncImageSpec = controlTypes.AsyncImageSpec
-export type NavigationStackSpec = navigationStack.Spec
-export type NavigationEntry = navigationStack.Entry
-
--- These specs live at the public boundary so their implementations remain
--- deferred without losing argument checking. Existing eager controls retain
--- their module-owned Spec declarations below.
 export type ActivationMetadata = blueprint.ActivationMetadata
-export type AnimationSpec = authoring.AnimationSpec
-export type ComponentChildren = authoring.Children
-export type ComponentContext = authoring.Context
-export type Read<T> = authoring.Read<T>
-export type ConfirmationSpec = {
-	title: blueprint.Bound<string>,
-	message: blueprint.Bound<string>?,
-	acceptLabel: string?,
-	cancelLabel: string?,
-	destructive: boolean?,
-}
-export type SemanticRow = {
-	description: blueprint.Bound<string>?,
-	icon: blueprint.Bound<string>?,
-	value: blueprint.Bound<string>?,
-}
-export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? }
-export type ButtonSpec = {
-	image: blueprint.Bound<string>?,
-	imageAspectRatio: number?,
-	imageFraming: blueprint.ImageFraming?,
-	subtitle: blueprint.Bound<string>?,
-	row: SemanticRow?,
-	pop: boolean?,
-	id: string?,
-	label: blueprint.Bound<string>?,
-	children: { blueprint.Blueprint }?,
-	enabled: blueprint.Bound<boolean>?,
-	busy: blueprint.Bound<boolean>?,
-	onActivate: (ActivationMetadata?) -> (),
-	repeatDelay: number?,
-	repeatInterval: number?,
-	shortcut: ButtonShortcut?,
-	dialogAction: ("default" | "cancel")?,
-	role: blueprint.Bound<string>?,
-	width: blueprint.Bound<blueprint.Dim>?,
-	height: blueprint.Bound<blueprint.Dim>?,
-}
-export type ViewButtonSpec = {
-	animation: AnimationSpec?,
-	[number]: blueprint.Blueprint,
-	confirm: ConfirmationSpec?,
-	image: blueprint.Bound<string>?,
-	imageAspectRatio: number?,
-	imageFraming: blueprint.ImageFraming?,
-	subtitle: blueprint.Bound<string>?,
-	row: SemanticRow?,
-	pop: boolean?,
-	id: string?,
-	label: blueprint.Bound<string>?,
-	children: { blueprint.Blueprint }?,
-	enabled: blueprint.Bound<boolean>?,
-	busy: blueprint.Bound<boolean>?,
-	onActivate: (ActivationMetadata?) -> (),
-	repeatDelay: number?,
-	repeatInterval: number?,
-	shortcut: ButtonShortcut?,
-	dialogAction: ("default" | "cancel")?,
-	role: blueprint.Bound<string>?,
-	width: blueprint.Bound<blueprint.Dim>?,
-	height: blueprint.Bound<blueprint.Dim>?,
-}
-export type ToggleSpec<V = BooleanSignal> = {
-	row: SemanticRow?,
-	id: string?,
-	label: blueprint.Bound<string>?,
-	value: V,
-	mixed: Signal<boolean>?, -- construction restricts this to checkbox
-	presentation: ("switch" | "checkbox" | "button")?,
-	children: { blueprint.Blueprint }?, -- construction restricts this to button
-	enabled: blueprint.Bound<boolean>?,
-	onChange: ((boolean) -> ())?,
-}
-export type ComboBoxOption =
-	{
-		id: string,
-		label: blueprint.Bound<string>,
-		description: blueprint.Bound<string>?,
-		icon: blueprint.Bound<string>?,
-		enabled: blueprint.Bound<boolean>?,
-		divider: false?,
-	}
-	| { divider: true }
-export type ComboBoxSpec<V = StringSignal, S = StringSignal> = {
-	id: string?,
-	value: V,
-	text: S,
-	options: blueprint.Bound<{ ComboBoxOption }>,
-	enabled: blueprint.Bound<boolean>?,
-	acceptCustom: (string) -> (boolean, string?),
-	onChange: ((string) -> ())?,
-	commitOnFocusLost: boolean?,
-	placeholder: string?,
-	env: environment.Env?,
-}
-export type SplitButtonSpec = {
-	id: string?,
-	label: blueprint.Bound<string>?,
-	menuLabel: blueprint.Bound<string>?,
-	onActivate: (ActivationMetadata?) -> (),
-	items: { menuControl.Item },
-	enabled: blueprint.Bound<boolean>?,
-	busy: blueprint.Bound<boolean>?,
-	shortcut: ButtonShortcut?,
-	env: environment.Env?,
-}
 
 export type Deprecation = {
 	surface: string,
@@ -205,11 +54,8 @@ export type Deprecation = {
 	note: string?,
 }
 
--- DECLARED deprecations: the half of the ledger that is not a
--- blueprint PROPERTY. `blueprint_schema.deprecations()` can only speak about
--- props, so an opts field or a derived condition had nowhere to be declared and
--- the machinery simply did not know about it. Both halves are the same record
--- shape, so every consumer of DEPRECATIONS reads one list.
+-- Declared deprecations: the half of the ledger that is not a blueprint
+-- property. Same record shape as `blueprint_schema.deprecations()`.
 local DECLARED_DEPRECATIONS: { Deprecation } = {
 	{
 		surface = "newResourceProvider(opts.retryAttempts)",
@@ -225,34 +71,9 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		replacement = "viewportWidth",
 		note = "alias; the value never subtracted insets",
 	},
-	--[[ THE TWO EXTENT NAMES VirtualList RENAMED WHEN IT GAINED A SECOND AXIS
-		(docs/plans/parity-round2.md §2.3). Both still WORK — that is what
-		these rows say — and a caller passing the old spelling on a vertical list
-		needs no edit at all. They are deprecated rather than kept because a
-		`rowHeight` on `axis = "x"` names a height that is really a width, and the
-		alias would have to lie to somebody. Passing the new name and the old one
-		together is refused at construction: it is one field. ]]
-	{
-		surface = "newVirtualList(spec.rowHeight)",
-		since = "0.9.0",
-		removeNoEarlierThan = "0.10.0",
-		replacement = "itemExtent",
-		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
-	},
-	--[[ THE ONLY ROUTE TO REDUCED MOTION, UNTIL IT WAS NOT (device-bug round
-		2026-08-12, C1; registered here by the Milestone-1 review, C3). Reduced
-		motion now arrives on its own — the renderer pushes the environment's
-		`reducedMotion` fact into `adapter.setReducedMotion` at attach and on every
-		change — so nothing has to pass this closure any more, and no production
-		caller ever did, which is why the setting reached nothing at all.
-
-		It KEEPS WORKING and is deprecated rather than removed: it is
-		public, `billboard_target` forwards it, and a harness that wants to FORCE
-		reduced motion regardless of the environment still has a use for it. Its
-		meaning narrowed in that same change — it is an OR with the pushed fact, so
-		returning `false` no longer overrides a player who asked for less motion —
-		and a narrowing that is documented in prose but absent from the ledger is
-	invisible to every machine-readable upgrade check the deprecation ledger exists for. ]]
+	-- The renderer pushes the environment's `reducedMotion` fact into
+	-- `adapter.setReducedMotion`; this closure is OR-ed with it, so a harness can
+	-- force reduced motion on, never off.
 	{
 		surface = "screen_target.new(opts.isReducedMotion)",
 		since = "0.9.0",
@@ -261,191 +82,29 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		note = "still accepted, and now OR-ed with the pushed fact: it can force reduced motion on, "
 			.. "never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it",
 	},
+	-- VirtualList's two extent names from before it had a second axis. Both
+	-- still work on a vertical list; passing the old and new name together is
+	-- refused at construction, because it is one field.
 	{
-		surface = "newVirtualList(spec.viewportHeight)",
+		surface = "UI.VirtualList(spec.rowHeight)",
+		since = "0.9.0",
+		removeNoEarlierThan = "0.10.0",
+		replacement = "itemExtent",
+		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
+	},
+	{
+		surface = "UI.VirtualList(spec.viewportHeight)",
 		since = "0.9.0",
 		removeNoEarlierThan = "0.10.0",
 		replacement = "viewportExtent",
 		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
 	},
-	--[[ THE NINETEEN OLD-FORM COMPOSITE BUILDERS. Each still works and
-		still dispatches to the same builder — `Facet.Controls.<Name>` is a closure
-		over this library, not a reimplementation — so a caller that never edits is
-		never broken. What these rows add is the NOTICE: the removal cannot come
-		before 0.12.0, and every one of them names the exact replacement call, which
-		is what makes `tools/check_call_shape_drift.py` a rule rather than a taste.
-
-		The eleven infrastructure constructors (`newCore`, `newPresenter`,
-		`newActionSystem`, …) are deliberately ABSENT from this list: they take no
-		library argument, their creation and ownership IS the important fact, and the
-		the decision leaves them where they are. ]]
 	{
-		surface = "newTable",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Table(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newSlider",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Slider(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newStepper",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Stepper(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newPicker",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Picker(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newPopupButton",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = 'Facet.Controls.Picker(core, { style = "menu" | "navigationLink", ... })',
-		note = "the popup button folded into the Picker's menu styles (2026-09-11); the old builder "
-			.. "still runs on the same engine (src/controls/picker_menu.luau)",
-	},
-	{
-		surface = "Controls.PopupButton",
+		surface = "UI.Picker.presentation",
 		since = "0.11.0",
 		removeNoEarlierThan = "0.12.0",
-		replacement = 'Facet.Controls.Picker(core, { style = "menu" | "navigationLink", ... })',
-		note = "one selection control: `{ value, label }` options and a `selected` signal; a checked "
-			.. "multi-select is `Controls.Menu` with `checked` items; a searchable list is "
-			.. '`style = "navigationLink"` with `query`',
-	},
-	{
-		surface = "Picker.presentation",
-		since = "0.11.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Picker.style (automatic | menu | segmented | inline | radioGroup | navigationLink)",
+		replacement = "UI.Picker.style (automatic | menu | segmented | inline | radioGroup | navigationLink)",
 		note = "same values, the reference platform's spelling; `radio` reads as `radioGroup`",
-	},
-	{
-		surface = "newMenu",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Menu(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newTabView",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.TabView(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newLabel",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Label(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newChip",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Chip(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newRating",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Rating(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newTextInput",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.TextInput(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newProgressView",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.ProgressView(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newLevelPicker",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.LevelPicker(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newDisclosureGroup",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.DisclosureGroup(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newVirtualList",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.VirtualList(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newVirtualGrid",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.VirtualGrid(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newRowActions",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.RowActions(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newCallout",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.Callout(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
-	},
-	{
-		surface = "newAsyncImage",
-		since = "0.10.0",
-		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.AsyncImage(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
 	},
 }
 
@@ -464,186 +123,26 @@ local function buildDeprecations(): { Deprecation }
 	return table.freeze(ledger)
 end
 
---[[ COMPOSITE CONTROLS, WITHOUT THE LIBRARY'S NAME TWICE.
-
-	`Facet.Controls.Table(core, spec)` made every author write `Facet` twice: the
-	first argument is the library handing itself to its own builder — boilerplate
-	that teaches nothing and that autocomplete cannot explain. This namespace
-	closes over the library once, so the redundant argument disappears and
-	`Facet.Controls.` completes to the composite controls instead of the
-	forty-four mixed entries `Facet.` offers (nineteen controls and eleven
-	infrastructure constructors shared one top level).
-
-	WHY A NAMESPACE AND NOT `Facet.newTable(core, spec)`. The flat repair buys the
-	same authoring win at the same migration cost, but the same symbol would then
-	have two live arities during migration and the only way to keep old callers
-	working is sniffing whether argument 1 is the library — the "magic argument"
-	class the API constitution bans. New symbols overload nothing, so the old form
-	stays intact, unwarped, and mechanically detectable
-	(`tools/check_call_shape_drift.py`).
-
-	`library` is assigned immediately below the `Facet` literal. It is the same
-	table these builders were always handed; a local rather than a parameter only
-	because a closure cannot capture a local declared after it.
-]]
-local library: any = nil
-
-local Controls = table.freeze({
-	NavigationStack = function(core: any, spec: navigationStack.Spec)
-		return authoring.control("NavigationStack", navigationStack.build, library, core, spec)
-	end,
-	SplitButton = function(core: any, spec: SplitButtonSpec)
-		return authoring.control("SplitButton", require("@self/controls/split_button").build, library, core, spec)
-	end,
-	Button = function(core: any, spec: ButtonSpec)
-		return authoring.control("Button", require("@self/controls/button").build, library, core, spec)
-	end,
-	ComboBox = function(core: any, spec: ComboBoxSpec)
-		return authoring.control("ComboBox", require("@self/controls/combo_box").build, library, core, spec)
-	end,
-	Toggle = function(core: any, spec: ToggleSpec)
-		return authoring.control("Toggle", require("@self/controls/toggle").build, library, core, spec)
-	end,
-	Table = function(core: any, spec: tableControl.Spec)
-		return authoring.control("Table", tableControl.build, library, core, spec)
-	end,
-	Slider = function(core: any, spec: sliderControl.Spec)
-		return authoring.control("Slider", sliderControl.build, library, core, spec)
-	end,
-	Stepper = function(core: any, spec: stepperControl.Spec)
-		return authoring.control("Stepper", stepperControl.build, library, core, spec)
-	end,
-	Picker = function(core: any, spec: pickerControl.Spec)
-		return authoring.control("Picker", pickerControl.build, library, core, spec)
-	end,
-	PopupButton = function(core: any, spec: popupButton.Spec)
-		return authoring.control("PopupButton", popupButton.build, library, core, spec)
-	end,
-	Menu = function(core: any, spec: menuControl.Spec)
-		return authoring.control("Menu", menuControl.build, library, core, spec)
-	end,
-	TabView = function(core: any, spec: tabView.Spec)
-		return authoring.control("TabView", tabView.build, library, core, spec)
-	end,
-	Label = function(core: any, spec: labelControl.Spec)
-		return authoring.control("Label", labelControl.build, library, core, spec)
-	end,
-	-- Spec types stay at the public boundary; implementation loads on demand.
-	Chip = function(core: any, spec: controlTypes.ChipSpec)
-		return authoring.control("Chip", require("@self/controls/chip").build, library, core, spec)
-	end,
-	Rating = function(core: any, spec: ratingControl.Spec)
-		return authoring.control("Rating", ratingControl.build, library, core, spec)
-	end,
-	TextInput = function(core: any, spec: textInput.Spec)
-		return authoring.control("TextInput", textInput.build, library, core, spec)
-	end,
-	ProgressView = function(core: any, spec: progressView.Spec)
-		return authoring.control("ProgressView", progressView.build, library, core, spec)
-	end,
-	LevelPicker = function(core: any, spec: levelPicker.Spec)
-		return authoring.control("LevelPicker", levelPicker.build, library, core, spec)
-	end,
-	DisclosureGroup = function(core: any, spec: disclosureGroup.Spec)
-		return authoring.control("DisclosureGroup", disclosureGroup.build, library, core, spec)
-	end,
-	-- Deferred implementation; the public collection spec retains item types.
-	VirtualList = function<T>(core: any, spec: controlTypes.VirtualListSpec<T>)
-		return authoring.control("VirtualList", require("@self/controls/virtual_list").build, library, core, spec)
-	end,
-	-- Deferred implementation; the public collection spec retains item types.
-	VirtualGrid = function<T>(core: any, spec: controlTypes.VirtualGridSpec<T>)
-		return authoring.control("VirtualGrid", require("@self/controls/virtual_grid").build, library, core, spec)
-	end,
-	RowActions = function(core: any, spec: rowActions.Spec)
-		return authoring.control("RowActions", rowActions.build, library, core, spec)
-	end,
-	Callout = function(core: any, spec: calloutControl.Spec)
-		return authoring.control("Callout", calloutControl.build, library, core, spec)
-	end,
-	-- The spec is typed without eagerly loading the image implementation.
-	RadialMenu = function(core: any, spec: radial_menu.Spec)
-		return authoring.control("RadialMenu", radial_menu.build, library, core, spec)
-	end,
-	Alert = function(core: any, spec: alert.Spec)
-		return authoring.control("Alert", alert.build, library, core, spec)
-	end,
-	Sheet = function(core: any, spec: sheet.Spec)
-		return authoring.control("Sheet", sheet.build, library, core, spec)
-	end,
-	PageView = function(core: any, spec: page_view.Spec)
-		return authoring.control("PageView", page_view.build, library, core, spec)
-	end,
-	CollapsibleView = function(core: any, spec: collapsible_view.Spec)
-		return authoring.control("CollapsibleView", collapsible_view.build, library, core, spec)
-	end,
-	AsyncImage = function(core: any, spec: controlTypes.AsyncImageSpec)
-		return authoring.control("AsyncImage", require("@self/controls/async_image").build, library, core, spec)
-	end,
-})
-
 local Facet = {
 	-- semantic version: MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the changelog.
 	VERSION = "0.11.0",
 
-	--[[ THE FLAT, NON-OVERRIDABLE EXIT CAP (framework-gaps-phase2 item 41; ui-designer
-		spec §2.1 / disposition F8). No exit's teardown may defer past this many
-		seconds of CLOCK time — `src/render/transitions.luau` is the authority
-		and enforces it; this is that same number, published, because a consumer
-		that must tick a stepped clock past a dismissed surface's teardown (a
-		presenter's own final `tick` on the way out, the way
-		`games/RascalRally/code/src/client/FacetSponsor/init.luau`'s `destroy()`
-		does) used to know it only by reading this constant's doc comment and
-		copying the literal `0.5` by hand — the exact "framework constant known
-		only by comment" shape the audit names. ]]
+	-- The flat, non-overridable exit cap: no exit's teardown defers past this many
+	-- seconds of clock time. `src/render/transitions.luau` enforces it; a consumer
+	-- ticking a stepped clock past a dismissed surface's teardown reads it here.
 	EXIT_CAP_SECONDS = transitionsLib.EXIT_CAP_SECONDS,
 
-	--[[ the composite-control namespace. `Facet.Controls.Table(core,
-		spec)`; the nineteen `new<Control>` builders below keep working and are
-		declared in DEPRECATIONS with `Facet.Controls.<Name>` as the replacement. ]]
-	Controls = Controls,
-
-	-- Force-load the eight deferred implementations at a caller-chosen loading
-	-- moment. require's cache makes repeated calls idempotent. The return value
-	-- counts the deferred module set, including modules that were already loaded.
-	preload = function(): number
-		-- Literal paths preserve Luau require resolution; keep this list and its
-		-- return count together when the deferred set changes.
-		local _chip = require("@self/controls/chip")
-		local _list = require("@self/controls/virtual_list")
-		local _grid = require("@self/controls/virtual_grid")
-		local _image = require("@self/controls/async_image")
-		local _button = require("@self/controls/button")
-		local _toggle = require("@self/controls/toggle")
-		local _combo = require("@self/controls/combo_box")
-		local _split = require("@self/controls/split_button")
-		return 8
-	end,
-
-	-- deprecation ledger: { surface, since, removeNoEarlierThan,
-	-- replacement, note? } per entry; a deprecated surface keeps working for
-	-- at least one minor version after `since`. Schema-generated property
-	-- deprecations plus the declared list above — complete, machine-readable,
-	-- and frozen.
+	-- Deprecation ledger: schema-generated property deprecations plus the
+	-- declared list above. A deprecated surface keeps working for at least one
+	-- minor version after `since`. Frozen.
 	DEPRECATIONS = buildDeprecations(),
 
-	-- reactive foundation (the custom core)
-	newCore = customCore.new,
-
-	-- declarative blueprints (UI.Screen / VStack / Text / Button / ...)
-	UI = blueprint,
-
-	-- mounting, environment, rendering, presentation
-	mount = mountLib.mount,
+	-- environment and rendering seams
 	newEnvironment = environment.new,
 	renderer = rendererLib,
-	newPresenter = presenterLib.new,
-	-- the presenter-side surface-chrome seam (registry item 13, task W3-D):
-	-- a pure back+title+trailing bar factory, not a stateful
-	-- control — `Facet.navBar({ onBack, title, trailing })` -> Blueprint.
-	-- See src/present/nav_bar.luau's header for why this lives beside the
-	-- presenter and not under `Facet.Controls`.
+	-- surface chrome: a pure back+title+trailing bar factory —
+	-- `Facet.navBar({ onBack, title, trailing })` -> Blueprint
 	navBar = require("@self/present/nav_bar").build,
 
 	-- input pipeline (headless model; the client swaps in roblox_input)
@@ -661,48 +160,7 @@ local Facet = {
 	-- forbids consumers from using.
 	contribution = require("@self/input/contribution"),
 
-	-- composite controls (VirtualList §10.5 first release)
-	newTable = tableControl.build,
-	newVirtualList = function(lib: any, core: any, spec: any)
-		return require("@self/controls/virtual_list").build(lib, core, spec)
-	end,
-	-- the LAZY grid (parity §4.2.2): windows by LINE OF CELLS on the same
-	-- running-offset index `newVirtualList` uses, and mounts a real `UI.Grid` as
-	-- its band, so there is one column arithmetic in the framework and not two
-	newVirtualGrid = function(lib: any, core: any, spec: any)
-		return require("@self/controls/virtual_grid").build(lib, core, spec)
-	end,
-
-	newPopupButton = popupButton.build,
-	-- ...and its sibling that is NOT a value picker: a menu of VERBS, attachable
-	-- to any blueprint, presented on the D1 anchored seam. It is what closes
-	-- the context-menu construct — primary activate, right-click, touch long-press, a gamepad
-	-- button and the keyboard context key all open the same list.
-	newMenu = menuControl.build,
-	-- ...and the APP-PUSHED coach mark (D3b): a plate with an arrow tail that the
-	-- app raises from eligibility rules, not a tooltip the player pulls (that is
-	-- `help`, a prop). It never blocks, at most one is ever on screen, and its
-	-- persistence is the CALLER'S — it reads a "has this been seen" Readable and
-	-- reports back once when it should be retired.
-	newCallout = calloutControl.build,
-	-- value-control family: Stepper and Slider
-	-- are different affordances over ONE shared value model, so bounds, stepping,
-	-- rounding, formatting and semantic value text cannot disagree at the edges.
-	newStepper = stepperControl.build,
-	newSlider = sliderControl.build,
-	-- ...and the small discrete one: a run of glyphs that reads as ONE value and
-	-- takes ONE focus stop, instead of the N buttons every app writes by hand
-	newRating = ratingControl.build,
-	-- display controls
-	newProgressView = progressView.build,
-	newLabel = labelControl.build,
-	newPicker = pickerControl.build,
-	-- ...and the construct that COMPOSES that strip: a tab bar plus the pages
-	-- behind it, placed by `adaptive.navPlacement` (navigation-and-menus D5)
-	newTabView = tabView.build,
-	newDisclosureGroup = disclosureGroup.build,
 	valueModel = require("@self/controls/value_model"),
-	newTextInput = textInput.build,
 
 	-- pure Path2D shape math for UI.Path (the native substrate):
 	-- rings/arcs/needles as normalized control points, headlessly tested
@@ -726,10 +184,6 @@ local Facet = {
 	-- row actions: pure swipe state verdicts (axis lock, rubber-band, settle)
 	-- for row-swipe interaction. No instance, no mount; verdicts are return values.
 
-	-- async image over the resource provider
-	newAsyncImage = function(lib: any, core: any, spec: any)
-		return require("@self/controls/async_image").build(lib, core, spec)
-	end,
 	-- pure drag-session model + native touch-gesture normalization/arbitration
 	-- (corrections addendum §1/§2): framework policy over engine-owned motion
 	newDragSession = require("@self/input/drag_session").new,
@@ -759,16 +213,11 @@ local Facet = {
 	-- what they mean, and `spatial.isFlat(pos)` is true for every event Facet
 	-- produces today.
 	spatial = require("@self/input/spatial"),
-	newChip = function(lib: any, core: any, spec: any)
-		return require("@self/controls/chip").build(lib, core, spec)
-	end,
-	newRowActions = rowActions.build,
 	-- row-actions Task 7: at most one row open per shared list surface. A
 	-- VStack/ScrollView list creates its own and shares it across every
 	-- wrapped row's `coordinator` spec key; Table's own `rowActions` wiring
 	-- (Task 10) does this for its rows automatically.
 	newRowActionsCoordinator = rowActions.newCoordinator,
-	newLevelPicker = levelPicker.build,
 	-- async resources (§10.3): bounded, cancellable, generation-checked
 	newResourceProvider = asyncResources.newProvider,
 
@@ -812,10 +261,15 @@ local Facet = {
 			in, and which paths count as abandoning. `newValueReveal` is that shape,
 			once. It owns no clock and no signals; the caller passes its own. ]]
 		newValueReveal = require("@self/motion/value_reveal").new,
+		--[[ "Show a string as it arrives, never a half-glyph, and never a
+			placeholder where a value already is." The text twin of
+			`newValueReveal`, and the same shape: it owns no clock and no signals,
+			so it composes with whatever model is already streaming the string. ]]
+		newTextReveal = require("@self/motion/text_stream").new,
 	},
 
 	-- adaptive-layout decisions: the PURE
-	-- breakpoint/axis/column functions plus `conditions(core, env)`, which
+	-- breakpoint/axis/column functions plus `conditions(env)`, which
 	-- returns Readables a screen binds so adaptation never becomes a
 	-- device-name branch. Bind `conditions(...).axis` to UI.AdaptiveStack.
 	adaptive = require("@self/layout/adaptive"),
@@ -836,9 +290,9 @@ local Facet = {
 		that formula in-repo and exactly one correct. These two are the one
 		implementation, and they spend the solver's own seams
 		(`text_metrics.reservedSize` / `.lineBoxPx`) rather than a copy of them.
-		Reach for `newVirtualList { itemExtent = "measured" }` instead whenever the
-		row can measure itself — that removes the prediction rather than making it
-		easier. ]]
+		Reach for `UI.VirtualList` with `itemExtent = "measured"` instead whenever
+		the row can measure itself — that removes the prediction rather than making
+		it easier. ]]
 	text = {
 		measure = require("@self/layout/text_metrics").measure,
 		fit = require("@self/layout/text_fit").fit,
@@ -878,7 +332,7 @@ local Facet = {
 		`anchorPlacement(request)` is the same move for gap 39 (`armStaging`
 		"as a declaration rather than a coordinate"): the pure edge/flip/shift/
 		tail decision `present/anchored.luau`, the disclosure plate and
-		`newRowActions`' floating menu already share, published so a consumer can
+		`UI.RowActions`' floating menu already share, published so a consumer can
 		DECLARE a placement — "above the source, centred, gapped by N" — instead
 		of hand-computing the point, the way RascalRally's `HandDock` staging
 		spot used to. ]]
@@ -946,205 +400,21 @@ local Facet = {
 	},
 }
 
---[[ the `Controls` closures were built above the literal (a closure
-	cannot capture a local declared after it), so the library they hand to each
-	builder is bound here — the same table `Facet.new<Control>(Facet, …)` passes. ]]
-library = Facet
-Facet.component = authoring.component
-local viewBuilders = authoring.views(Facet)
-Facet.View = table.freeze({
-	sortedEntries = blueprint.sortedEntries,
-	Screen = blueprint.Screen,
-	VStack = blueprint.VStack,
-	HStack = blueprint.HStack,
-	ZStack = blueprint.ZStack,
-	ScrollView = blueprint.ScrollView,
-	Spacer = blueprint.Spacer,
-	Box = blueprint.Box,
-	Anchor = blueprint.Anchor,
-	Grid = blueprint.Grid,
-	GridRow = blueprint.GridRow,
-	AdaptiveStack = blueprint.AdaptiveStack,
-	ViewThatFits = blueprint.ViewThatFits,
-	Region = blueprint.Region,
-	Composition = blueprint.Composition,
-	Divider = blueprint.Divider,
-	Grip = blueprint.Grip,
-	Text = blueprint.Text,
-	Image = blueprint.Image,
-	TextField = blueprint.TextField,
-	Path = blueprint.Path,
-	Foreign = blueprint.Foreign,
-	Stage = blueprint.Stage,
-	shadow = viewBuilders.shadow :: typeof(blueprint.shadow),
-	gradient = viewBuilders.gradient :: typeof(blueprint.gradient),
-	corners = viewBuilders.corners :: typeof(blueprint.corners),
-	stroke = viewBuilders.stroke :: typeof(blueprint.stroke),
-	strokeData = blueprint.strokeData,
-	shadowData = blueprint.shadowData,
-	gradientData = blueprint.gradientData,
-	cornersData = blueprint.cornersData,
-	focusSection = viewBuilders.focusSection :: typeof(blueprint.focusSection),
-	draggable = viewBuilders.draggable :: typeof(blueprint.draggable),
-	dropTarget = viewBuilders.dropTarget :: typeof(blueprint.dropTarget),
-	sensoryFeedback = viewBuilders.sensoryFeedback :: typeof(blueprint.sensoryFeedback),
-	styleGroup = viewBuilders.styleGroup :: typeof(blueprint.styleGroup),
-	frame = viewBuilders.frame :: typeof(blueprint.frame),
-	padding = viewBuilders.padding :: typeof(blueprint.padding),
-	offset = viewBuilders.offset :: typeof(blueprint.offset),
-	containerRelativeFrame = viewBuilders.containerRelativeFrame :: typeof(blueprint.containerRelativeFrame),
-	aspectRatio = viewBuilders.aspectRatio :: typeof(blueprint.aspectRatio),
-	fill = blueprint.fill,
-	hug = blueprint.hug,
-	alignment = viewBuilders.alignment :: typeof(blueprint.alignment),
-	overlay = viewBuilders.overlay :: typeof(blueprint.overlay),
-	background = viewBuilders.background :: typeof(blueprint.background),
-	ErrorBoundary = blueprint.ErrorBoundary,
-	When = function(spec: {
-		id: string?,
-		condition: blueprint.Bound<boolean>,
-		thenView: ((Scope) -> blueprint.Blueprint)?,
-		[number]: blueprint.Blueprint,
-		children: { blueprint.Blueprint }?,
-		transition: any?,
-	}): blueprint.Blueprint
-		return viewBuilders.When(spec)
-	end,
-	ForEach = function<T>(spec: {
-		id: string?,
-		items: Readable<{ T }> | (() -> { T }),
-		key: string | ((T) -> string),
-		row: (() -> T) -> blueprint.Blueprint,
-		transition: any?,
-	}): blueprint.Blueprint
-		return viewBuilders.ForEach(spec)
-	end,
-	NavigationStack = function(spec: navigationStack.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.NavigationStack(spec)
-	end,
-	SplitButton = function(spec: SplitButtonSpec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.SplitButton(spec)
-	end,
-	Button = function(spec: ViewButtonSpec): blueprint.Blueprint
-		return viewBuilders.Button(spec)
-	end,
-	ComboBox = function(spec: (ComboBoxSpec | (
-		ComboBoxSpec<authoring.Read<string>, authoring.Read<string>>
-		& { onChange: (string) -> (), onTextChange: (string) -> () }
-	)) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.ComboBox(spec)
-	end,
-	Toggle = function(spec: (
-		ToggleSpec<Signal<boolean>> | (ToggleSpec<authoring.Read<boolean>> & { onChange: (boolean) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Toggle(spec)
-	end,
-	Table = function(spec: tableControl.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Table(spec)
-	end,
-	Slider = function(spec: (
-		sliderControl.Spec | (sliderControl.Spec<authoring.Read<number>> & { onChange: (number) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Slider(spec)
-	end,
-	Stepper = function(spec: (
-		stepperControl.Spec | (stepperControl.Spec<authoring.Read<number>> & { onChange: (number) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Stepper(spec)
-	end,
-	Picker = function(
-		spec: (pickerControl.Spec | (pickerControl.Spec<authoring.Read<any>> & { onChange: (any) -> () })) & authoring.Animated
-	): blueprint.Blueprint
-		return viewBuilders.Picker(spec)
-	end,
-	PopupButton = function(spec: popupButton.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.PopupButton(spec)
-	end,
-	Menu = function(spec: menuControl.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Menu(spec)
-	end,
-	TabView = function(
-		spec: (tabView.Spec | (tabView.Spec<Read<string>> & { onChange: (string) -> () })) & authoring.Animated
-	): blueprint.Blueprint
-		return viewBuilders.TabView(spec)
-	end,
-	Label = function(spec: labelControl.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Label(spec)
-	end,
-	Chip = function(spec: (
-		controlTypes.ChipSpec | (controlTypes.ChipSpec<authoring.Read<boolean>> & { onToggle: (boolean) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Chip(spec)
-	end,
-	Rating = function(spec: (
-		ratingControl.Spec | (ratingControl.Spec<authoring.Read<number>> & { onChange: (number) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Rating(spec)
-	end,
-	TextInput = function(
-		spec: (
-			textInput.Spec | (textInput.Spec<authoring.Read<string>> & { onChange: (string) -> () })
-		) & authoring.Animated
-	): blueprint.Blueprint
-		return viewBuilders.TextInput(spec)
-	end,
-	ProgressView = function(spec: progressView.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.ProgressView(spec)
-	end,
-	LevelPicker = function(spec: (
-		levelPicker.Spec | (levelPicker.Spec<authoring.Read<number>> & { onChange: (number) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.LevelPicker(spec)
-	end,
-	DisclosureGroup = function(spec: (
-		disclosureGroup.Spec | (disclosureGroup.Spec<authoring.Read<boolean>> & { onChange: (boolean) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.DisclosureGroup(spec)
-	end,
-	VirtualList = function<T>(spec: controlTypes.ViewVirtualListSpec<T> & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.VirtualList(spec)
-	end,
-	VirtualGrid = function<T>(spec: controlTypes.ViewVirtualGridSpec<T> & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.VirtualGrid(spec)
-	end,
-	RowActions = function(spec: rowActions.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.RowActions(spec)
-	end,
-	Callout = function(spec: calloutControl.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.Callout(spec)
-	end,
-	RadialMenu = function(spec: radial_menu.Spec & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.RadialMenu(spec)
-	end,
-	Alert = function(
-		spec: alert.Spec | (alert.Spec<Read<boolean>> & { onPresentedChange: (boolean) -> () })
-	): blueprint.Blueprint
-		return viewBuilders.Alert(spec)
-	end,
-	Sheet = function(spec: (
-		sheet.Spec
-		| (sheet.Spec<StringSignal, Read<boolean>> & { onPresentedChange: (boolean) -> () })
-		| (sheet.Spec<Read<string>, BooleanSignal> & { onDetentChange: (string) -> () })
-		| (
-			sheet.Spec<Read<string>, Read<boolean>>
-			& { onDetentChange: (string) -> (), onPresentedChange: (boolean) -> () }
-		)
-	)): blueprint.Blueprint
-		return viewBuilders.Sheet(spec)
-	end,
-	PageView = function(
-		spec: (page_view.Spec | (page_view.Spec<Read<string>> & { onChange: (string) -> () })) & authoring.Animated
-	): blueprint.Blueprint
-		return viewBuilders.PageView(spec)
-	end,
-	CollapsibleView = function(spec: (
-		collapsible_view.Spec | (collapsible_view.Spec<authoring.Read<boolean>> & { onChange: (boolean) -> () })
-	) & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.CollapsibleView(spec)
-	end,
-	AsyncImage = function(spec: controlTypes.AsyncImageOptions & authoring.Animated): blueprint.Blueprint
-		return viewBuilders.AsyncImage(spec)
-	end,
-})
+-- Requiring Facet remains safe in shared code. Engine services are only resolved
+-- when a client explicitly starts an application.
+Facet.Compose = require("@self/vendor/compose/core")
+function Facet.new(opts: any?): controlTypes.App
+	return require("@self/client/application").new(opts)
+end
+
+-- The two theme reads a client needs BEFORE a surface exists: the boot `style`
+-- for `Facet.new`, and the sheet model `app.installTheme` accepts. Resolved on
+-- call, like `Facet.new`, so the shared require graph stays engine-free.
+function Facet.themes.styleFor(package: any, themeName: string?, displaySize: string?)
+	return require("@self/client/application").styleFor(package, themeName, displaySize)
+end
+function Facet.themes.sheetModelFor(package: any, displaySize: string?)
+	return require("@self/client/application").sheetModelFor(package, displaySize)
+end
 
 return Facet

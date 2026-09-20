@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Phase 4 engine styling adoption (design §17 Phase 4; UI-STYLE-001,
 -- UI-FID-001): UIShadow + per-corner UICorner adopted through the token and
 -- property-authority path as modifier-style modifiers. UI.shadow / UI.corners
@@ -16,15 +17,16 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local style_lint = require("../src/render/style_lint")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local function present(screen: any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	local adapter = fake_target.new()
 	local root = mountLib.mount(core, screen)
@@ -174,7 +176,7 @@ describe("engine styling: shadows and per-corner rounding (§17)", function()
 		for i = 1, 101 do
 			table.insert(children, UI.shadow(UI.Box({ id = `Bx{i}` }), "raised"))
 		end
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local root = mountLib.mount(core, UI.Screen({ id = "S", children = children }))
 		local warnings = style_lint.lint(root.node)
 		local sawJagged, sawBudget = false, false
@@ -305,7 +307,7 @@ describe("engine styling: the per-view gradient modifier (rung 2)", function()
 					return UI.Button({ id = "B", label = "Go" })
 				end,
 				function()
-					return UI.Toggle({ id = "Sw", label = "On", value = Facet.newCore():signal(false) })
+					return UI.Toggle({ id = "Sw", label = "On", value = Compose.cell(false) })
 				end,
 			}
 		do
@@ -375,7 +377,7 @@ describe("engine styling: the per-view gradient modifier (rung 2)", function()
 					return UI.Button({ id = "B", label = "Go" })
 				end,
 				function()
-					return UI.Toggle({ id = "Sw", label = "On", value = Facet.newCore():signal(false) })
+					return UI.Toggle({ id = "Sw", label = "On", value = Compose.cell(false) })
 				end,
 			}
 		do

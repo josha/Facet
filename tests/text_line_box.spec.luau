@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE LINE BOX — `Facet.text.facts` / `Facet.text.lineBox`, and the three
 	defects they fixed in `Facet.composition.floorPx` (ruled 2026-08-15,
 	docs/plans/variable-item-extents.md).
@@ -32,13 +33,14 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local composition = require("../src/layout/composition")
 local textFit = require("../src/layout/text_fit")
 local textMetrics = require("../src/layout/text_metrics")
 local snapshot = require("../src/themes/snapshot")
 local prng = require("./lib/prng")
 local lt = require("./lib/large_text")
+local Compose = require("../src/vendor/compose/core")
 
 local NEUTRAL = snapshot.neutral()
 local NEUTRAL_PKG = snapshot.neutralPackage()
@@ -61,7 +63,7 @@ local RAGGED = snapshot.resolve(NEUTRAL_PKG, nil, {}, {
 -- legal here because a spec is not a reactive derivation, and writing it out is
 -- what makes that a decision rather than an accident.
 local function get(r: any): any
-	return r:get()
+	return r:peek()
 end
 
 -- ===== §1  text.facts ======================================================
@@ -102,7 +104,7 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 			an `itemExtent` has a live env. If those two derivations could disagree, the
 			framework would have exactly the parallel-copy defect this feature exists to
 			end, one level up. Both call `themes/snapshot`'s text-scale policy. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		for _, display in { "Medium", "Large" } do
 			for _, preference in { 0.5, 1, 1.5, 3 } do
@@ -122,8 +124,8 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 		end
 	end)
 
-	it("{ env } WITHOUT `use` is refused — a fact read with :get() is right once and then stale", function()
-		local core = Facet.newCore()
+	it("{ env } WITHOUT `use` is refused — a fact read with :peek() is right once and then stale", function()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local ok, err = pcall(function()
 			return Facet.text.facts({ env = env })
@@ -148,21 +150,21 @@ describe("text.facts — the live text facts, read once for a whole extent pass"
 		--[[ The reason `facts` takes `use` rather than reading the env itself: it has
 			to register the dependency edges in the CALLER's derivation. Proved by
 			driving the preference and watching a memo built on top of it recompute. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local runs = 0
-		local extent = core:memo(function(use)
+		local extent = Compose.formula(function(use)
 			runs += 1
 			local facts = Facet.text.facts({ env = env, use = use })
 			return Facet.text.lineBox({ facts = facts, size = "body", lines = 2 })
 		end)
-		local first = extent:get()
+		local first = extent:peek()
 		expect(runs).toBe(1)
 		env:set("preferredTextOffset", 14)
-		local second = extent:get()
+		local second = extent:peek()
 		expect(`runs={runs} grew={second > first}`).toBe("runs=2 grew=true")
 		env:set("displaySize", "Large")
-		local third = extent:get()
+		local third = extent:peek()
 		expect(`grewAgain={third > second}`).toBe("grewAgain=true")
 	end)
 end)
@@ -498,7 +500,6 @@ describe("text.lineBox equals what the solver arranges — differentially, over 
 					-- eight texts per mount: the mount is the expensive part, the comparisons
 					-- are free, and one solve holding many sizes is also a harder test of the
 					-- role ladder than eight solves holding one
-					local children = {}
 					local declared: { { id: string, size: any, lines: number } } = {}
 					for i = 1, 8 do
 						local useRole = rng:bool(0.5)
@@ -512,18 +513,22 @@ describe("text.lineBox equals what the solver arranges — differentially, over 
 						end
 						local id = `T{i}`
 						table.insert(declared, { id = id, size = size, lines = lines })
-						table.insert(
-							children,
-							UI.Text({
-								id = id,
-								text = WRAPPY,
-								textSize = size,
-								lineLimit = lines,
-								width = { type = "fixed", px = BOX_W },
-							})
-						)
 					end
-					w.present(UI.Screen({ id = "S", children = children }))
+					w.present(function()
+						local children = {}
+						for _, d in declared do
+							table.insert(
+								children,
+								w.UI.Text(d.id)({
+									text = WRAPPY,
+									textSize = d.size,
+									lineLimit = d.lines,
+									width = { type = "fixed", px = BOX_W },
+								})
+							)
+						end
+						return w.UI.Screen("S")(children)
+					end)
 
 					local live = Facet.text.facts({ env = w.env, use = get })
 					if live.scale > 1 and display == "Large" then

@@ -515,12 +515,13 @@ and minimum spacing update when the theme or preferred text size changes.
 
 ## Color that follows state
 
-`clock:animate(amount, "object", { scope = scope })` gives a numeric signal or
-memo a smooth presentation value. Bind that value through a memo to a tint such
-as `{ from = "control", role = "accent", blend = math.clamp(use(animated), 0, 1) }`.
-The painter reads the current theme's colors, and the motion clock applies the
-player's reduced-motion preference. The scope removes both the animation and its
-subscription when the screen closes; your application keeps its own state.
+`app.runtime.spring(function(use) ... end, opts)` gives a number a smooth
+presentation value. Bind that value into a tint such as
+`{ from = "control", role = "accent", blend = math.clamp(use(animated), 0, 1) }`.
+The painter reads the current theme's colors, and the runtime applies the
+player's reduced-motion preference. The component's Compose owner releases both
+the animated readable and its subscription when the screen closes; your
+application keeps its own state.
 Use theme tags for ordinary selected/disabled states. Use this tint channel when
 the color itself varies continuously. The Showcase motion demo demonstrates it
 on the moving puck; the [API reference](../reference/api.md#clockanimatesource-classorcurve-opts---motionvalue)

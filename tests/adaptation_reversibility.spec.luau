@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 --[[ ADAPTATION IS A ROUND TRIP, AND THE RECOVERY ROUTE IS THE SAME THING BACK.
 
 	Two halves of one director finding (device review, 2026-08-16), and both are
@@ -74,17 +76,20 @@ local function facts(view: View): { [string]: any }
 end
 
 local function drive(view: View): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	for key, value in facts(view) do
 		env:set(key, value)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	local handle: any = nil
 	local built = hudScenario.build({
 		Facet = Facet,
+		app = scenario_app.over(core, presenter),
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -372,12 +377,36 @@ describe("the recovery route discloses the SAME content the richest form shows",
 		local opened = tight.built.steps.openOverflow()
 		tight.refresh()
 		expect(opened.open).toBe(true)
-		--[[ THE CENSUS ROW, TAPPED. `Tasks` has stepped down rather than been
-			dropped, so the sink lists it as simplified and the row is the route: one
-			tap opens the zone's own plate, which is where its rich form lives. ]]
-		tight.adapter.tap("/HudOverflow/Layer/Surface/OverflowPanel/OverflowBody/OverflowExpandTasks")
-		tight.refresh()
-		local panelTexts, panelBars = contentUnder(tight, "/Expand:Tasks")
+		--[[ THE ROUTE THE CENSUS ACTUALLY OFFERS, TAPPED — and which one that is is
+			read from the dump rather than written down here.
+
+			Whether a zone at a given viewport steps DOWN or is DROPPED is a ladder
+			decision that belongs to the fixture and the solver; what this case is
+			about is that the route reaches the whole thing either way. Naming one of
+			the two outcomes here pinned an incidental measurement instead: `Tasks`
+			is dropped outright at 640x320 with the URL bar open, so there is no
+			`OverflowExpandTasks` row to tap, the tap landed on nothing, and the case
+			reported the content missing when the sink was carrying all of it inline.
+
+			So: stepped down -> the census row opens the zone's own plate and the
+			plate is the route; dropped -> the zone has no form left to disclose
+			from and the sink itself carries the content, which is the panel body.
+			The assertions below are the same in both arms. ]]
+		local dump = tight.handle.controller.compositionAt("/HudScreen/Hud")
+		local tasks: any = nil
+		for _, r in dump.regions do
+			if r.id == "Tasks" or string.sub(tostring(r.id), -6) == "/Tasks" then
+				tasks = r
+			end
+		end
+		expect(`the census knows about Tasks: {tasks ~= nil}`).toBe("the census knows about Tasks: true")
+		local route = "/HudOverflow/Layer/Surface/OverflowPanel/OverflowBody"
+		if not tasks.dropped then
+			tight.adapter.tap("/HudOverflow/Layer/Surface/OverflowPanel/OverflowBody/OverflowExpandTasks")
+			tight.refresh()
+			route = "/Expand:Tasks"
+		end
+		local panelTexts, panelBars = contentUnder(tight, route)
 
 		local missing: { string } = {}
 		for text in richTexts do

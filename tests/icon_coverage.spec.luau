@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenarioCtx = require("./lib/scenario_ctx")
 -- ICON COVERAGE: a shipped theme package answers every icon name a control asks
 -- for with ART, and the ASCII floor is an engine recovery path nobody ever sees.
 --
@@ -273,34 +275,19 @@ end)
 local SCENARIO = "selection_controls"
 
 local function scenarioWorld(snapshot: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 	env:set("themeMetrics", snapshot)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
 local function mountScenario(w: any): ()
 	local module = require(`../examples/gallery/scenarios/{SCENARIO}`) :: any
-	local built = module.build({
-		Facet = Facet,
-		core = w.core,
-		env = w.env,
-		adapter = w.adapter,
-		presenter = w.presenter,
-		actionSystem = w.system,
-		record = function() end,
-		flags = {},
-		geometry = function(): { [string]: any }
-			return {}
-		end,
-		bindResourceTransport = function()
-			return function() end
-		end,
-	})
+	local built = module.build(scenarioCtx.ofHarness(w))
 	if built.handle == nil and built.screen ~= nil then
 		built.handle = w.presenter.present(built.screen, built.present)
 	end

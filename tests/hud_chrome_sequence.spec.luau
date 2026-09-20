@@ -183,6 +183,9 @@ local function world(view: View): any
 	local handle: any = nil
 	local built = hud.build({
 		Facet = Facet,
+		app = w.app,
+		UI = w.UI,
+		Compose = w.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,

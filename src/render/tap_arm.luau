@@ -133,7 +133,7 @@ function tap_arm.new(deps: Deps): TapArm
 		with the card focused, ButtonA armed nothing and Return armed nothing (audit
 		the adaptation review's high-severity finding M-9).
 
-		THE RULE IS `newVirtualList`'S, HOISTED. That control already answers this
+		THE RULE IS `UI.VirtualList`'S, HOISTED. That control already answers this
 		for its own rows — `grabOnActivate = reorderable and onActivate == nil`, "a
 		source with no consumer Activate arms on Activate" — and the reason the
 		public verb had none is that `renderer` excluded action-source activates

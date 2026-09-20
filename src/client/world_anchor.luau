@@ -1,11 +1,11 @@
 --!strict
-local tracking = require("../core/tracking")
 -- Screen-overlay projection only; no Instances, input, or frame driver created.
 local guard = require("../spec_guard")
+local Compose = require("../vendor/compose/core")
 local worldAnchor = {}
 local KEYS = guard.keySet({ "target", "padding", "camera", "offscreen", "occlusion" })
 local function read(value: any): any
-	return if type(value) == "table" and type(value.get) == "function" then value:get() else value
+	return if Compose.isReadable(value) then value:peek() else value
 end
 local function finite(value: any): boolean
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
@@ -109,17 +109,17 @@ function worldAnchor.new(host: any, opts: any, services: any?): any
 	end
 	-- Validate and measure before allocating, so invalid authoring cannot leak.
 	local first = sample()
-	local scope = host.core:scope("world-anchor")
-	local anchor = scope:own(host.core:signal(first))
+	local scope = host.core.owner.createChild()
+	local anchor = Compose.cell(first)
 	local disposed = false
-	scope:own(host.presenter.onTick(function()
+	scope.own(host.presenter.onTick(function()
 		-- Streaming/destruction can invalidate a target between reads. Never leave
 		-- the last valid anchor interactive when a native read fails.
 		local ok, nextValue = pcall(sample)
 		if not ok then
 			nextValue = { visible = false }
 		end
-		local old = anchor:get()
+		local old = anchor:peek()
 		if
 			old.visible ~= nextValue.visible
 			or old.x ~= nextValue.x
@@ -128,9 +128,7 @@ function worldAnchor.new(host: any, opts: any, services: any?): any
 			or old.onscreen ~= nextValue.onscreen
 			or old.occluded ~= nextValue.occluded
 		then
-			tracking.withOrigin("tracking", function()
-				anchor:set(nextValue)
-			end)
+			anchor:set(nextValue)
 		end
 	end))
 	return table.freeze({

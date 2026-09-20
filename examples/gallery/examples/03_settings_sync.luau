@@ -32,7 +32,8 @@
 -- about. In a real game you would send the mutation envelope over your
 -- replication layer and deliver the response from your remote handler instead.
 --
--- deps used: none directly (see 01's header for the shared module shape).
+-- ctx used: core (the replication snapshot and mutation). `build(ctx)` is the
+-- shape every example shares.
 
 local example = {}
 example.title = "Settings Sync"
@@ -51,9 +52,9 @@ local function describeSettings(music: boolean, volume: number): string
 	return `Music {if music then "on" else "off"}, volume {volume}`
 end
 
-function example.build(Facet: any, core: any, _deps: any)
-	local UI = Facet.View
-	local replication = Facet.replication
+function example.build(ctx: any)
+	local UI, Compose, core = ctx.UI, ctx.Compose, ctx.core
+	local replication = ctx.Facet.replication
 
 	-- AUTHORITATIVE STATE (what the server has confirmed). A snapshot is the
 	-- replicated truth; we start it at revision 1.
@@ -61,16 +62,16 @@ function example.build(Facet: any, core: any, _deps: any)
 
 	-- OPTIMISTIC DRAFT STATE (what the UI shows right now). These may run ahead
 	-- of the server between send and confirm.
-	local draftMusic = core:signal(snapshot.binding:get().music)
-	local draftVolume = core:signal(snapshot.binding:get().volume)
+	local draftMusic = Compose.cell(snapshot.binding:peek().music)
+	local draftVolume = Compose.cell(snapshot.binding:peek().volume)
 
 	-- THE VISIBLE EVENT LOG, newest first and capped at the rows the screen has.
 	-- A tutorial about a state machine has to show the transitions, not only the
 	-- current state: a player who taps twice quickly needs to read what happened.
-	local history = core:signal({ "Ready. Nothing sent yet." })
+	local history = Compose.cell({ "Ready. Nothing sent yet." })
 	local function log(line: string)
 		local next = { line }
-		for _, older in history:get() do
+		for _, older in history:peek() do
 			if #next < HISTORY_ROWS then
 				table.insert(next, older)
 			end
@@ -89,7 +90,7 @@ function example.build(Facet: any, core: any, _deps: any)
 				draftVolume:set(payload.volume)
 			end,
 			restore = function()
-				local truth = snapshot.binding:get()
+				local truth = snapshot.binding:peek()
 				draftMusic:set(truth.music)
 				draftVolume:set(truth.volume)
 			end,
@@ -141,7 +142,7 @@ function example.build(Facet: any, core: any, _deps: any)
 	-- and then errored. A tutorial must not throw at a player for pressing a
 	-- button twice, so the second press explains itself instead.
 	local function requestChange(nextMusic: boolean, nextVolume: number, what: string)
-		if mutation.status:get() == "pending" then
+		if mutation.status:peek() == "pending" then
 			log("Already waiting for a reply. Deliver it first.")
 			return
 		end
@@ -153,20 +154,24 @@ function example.build(Facet: any, core: any, _deps: any)
 	-- APP SEMANTICS (settings mutation) as node handlers referenced below;
 	-- activating a control commits the change, dispatched by the presenter with
 	-- no consumer routing. The toggle's flip rides commit's apply.
-	local function toggleMusic()
-		local nextMusic = not draftMusic:get()
-		requestChange(nextMusic, draftVolume:get(), `music {if nextMusic then "on" else "off"}`)
+	-- The Toggle has already written the draft; a request the form cannot send
+	-- puts it back.
+	local function toggleMusic(nextMusic: boolean)
+		if mutation.status:peek() == "pending" then
+			draftMusic:set(not nextMusic)
+		end
+		requestChange(nextMusic, draftVolume:peek(), `music {if nextMusic then "on" else "off"}`)
 	end
 	local function volDown()
-		local nextVolume = draftVolume:get() - 1
-		requestChange(draftMusic:get(), nextVolume, `volume {nextVolume}`)
+		local nextVolume = draftVolume:peek() - 1
+		requestChange(draftMusic:peek(), nextVolume, `volume {nextVolume}`)
 	end
 	local function volUp()
-		local nextVolume = draftVolume:get() + 1
-		requestChange(draftMusic:get(), nextVolume, `volume {nextVolume}`)
+		local nextVolume = draftVolume:peek() + 1
+		requestChange(draftMusic:peek(), nextVolume, `volume {nextVolume}`)
 	end
 	local function askInvalid()
-		requestChange(draftMusic:get(), INVALID_VOLUME, `volume {INVALID_VOLUME}`)
+		requestChange(draftMusic:peek(), INVALID_VOLUME, `volume {INVALID_VOLUME}`)
 	end
 	local function deliverReply()
 		server.deliver()
@@ -186,26 +191,20 @@ function example.build(Facet: any, core: any, _deps: any)
 		history:set({ `Reset. The server rewrote the start values. Revision {snapshot.revision()}.` })
 	end
 
-	local Settings = Facet.component(function(ui)
-		local music, volume = ui.read(draftMusic), ui.read(draftVolume)
-		local confirmed, mutationStatus, lastResult =
-			ui.read(snapshot.binding), ui.read(mutation.status), ui.read(mutation.lastResult)
-		local events = ui.read(history)
-		-- Recipes read the state they report; mount tracks their dependencies.
-		-- so the two halves of the lesson can never be drawn from the same source.
-		local draftLabel = function()
-			return describeSettings(music(), volume())
+	local function screen()
+		local draftLabel = function(use)
+			return describeSettings(use(draftMusic), use(draftVolume))
 		end
-		local serverLabel = function()
-			local truth = confirmed()
+		local serverLabel = function(use)
+			local truth = use(snapshot.binding)
 			return `{describeSettings(truth.music, truth.volume)} (revision {snapshot.revision()})`
 		end
-		local volumeLabel = function()
-			return `Volume: {volume()}`
+		local volumeLabel = function(use)
+			return `Volume: {use(draftVolume)}`
 		end
-		local statusLabel = function()
-			local status = mutationStatus()
-			local result = lastResult()
+		local statusLabel = function(use)
+			local status = use(mutation.status)
+			local result = use(mutation.lastResult)
 			if status == "pending" then
 				return "Status: pending (no reply yet)"
 			elseif status == "confirmed" then
@@ -217,8 +216,8 @@ function example.build(Facet: any, core: any, _deps: any)
 		end
 		-- the status line says WHAT happened; this one says what to do next, which is
 		-- what a player who has never read the source is missing
-		local hintLabel = function()
-			local status = mutationStatus()
+		local hintLabel = function(use)
+			local status = use(mutation.status)
 			if status == "pending" then
 				return 'Your screen already shows it. Press "Deliver server reply".'
 			elseif status == "confirmed" then
@@ -230,8 +229,8 @@ function example.build(Facet: any, core: any, _deps: any)
 		end
 		-- STATE COLOUR IS SEMANTIC, never a literal: `danger` for a refusal, `accent`
 		-- for an agreement, the resting content role otherwise.
-		local statusTint = function()
-			local status = mutationStatus()
+		local statusTint = function(use)
+			local status = use(mutation.status)
 			if status == "rejected" then
 				return { role = "danger", blend = 1 }
 			elseif status == "confirmed" then
@@ -242,20 +241,18 @@ function example.build(Facet: any, core: any, _deps: any)
 		-- One recipe per visible history row: a fixed row count keeps the panel's
 		-- geometry still while the text inside it changes
 		local function eventRow(index: number)
-			return function()
-				return events()[index] or ""
+			return function(use)
+				return use(history)[index] or ""
 			end
 		end
 
 		-- The page scrolls: at the largest preferred-text setting on a compact phone
 		-- this content is taller than the viewport, and a settings screen whose Reset
 		-- button is off the bottom edge is not operable.
-		return UI.Screen({
-			id = "Settings",
+		return UI.Screen("Settings")({
 			surface = "base",
 			padding = "m",
-			UI.ScrollView({
-				id = "Page",
+			UI.ScrollView("Page")({
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
@@ -267,9 +264,8 @@ function example.build(Facet: any, core: any, _deps: any)
 				-- succeed here (the engine would break the word) and the line
 				-- ellipsizes instead. `disclose` is what the framework owes a reader
 				-- when that happens; the compact-phone sweep re-proves it every run.
-				UI.Text({ id = "Title", text = "Settings sync", textSize = "title", disclose = true }),
-				UI.Text({
-					id = "Lesson",
+				UI.Text("Title")({ text = "Settings sync", textSize = "title", disclose = true }),
+				UI.Text("Lesson")({
 					text = "See an instant change while a save is pending, then accept or reject it. Replies are paused in this local simulation so you can compare both states.",
 					textSize = "caption",
 					role = "secondary",
@@ -277,42 +273,38 @@ function example.build(Facet: any, core: any, _deps: any)
 
 				-- THE TWO STATES, ADJACENT AND NAMED. Everything else on this
 				-- screen exists to move these two lines apart and back together.
-				UI.VStack({
-					id = "State",
+				UI.VStack("State")({
 					surface = "raised",
 					padding = "m",
 					gap = "xs",
-					UI.Text({
-						id = "DraftHeading",
+					UI.Text("DraftHeading")({
 						text = "On your screen — changes immediately",
 						textSize = "caption",
 						role = "secondary",
 						disclose = true,
 					}),
-					UI.Text({ id = "Draft", text = draftLabel, textSize = "body" }),
-					UI.Divider({ id = "StateRule" }),
-					UI.Text({
-						id = "ServerHeading",
+					UI.Text("Draft")({ text = draftLabel, textSize = "body" }),
+					UI.Divider("StateRule")({}),
+					UI.Text("ServerHeading")({
 						text = "Saved on the simulated server",
 						textSize = "caption",
 						role = "secondary",
 						disclose = true,
 					}),
-					UI.Text({ id = "Server", text = serverLabel, textSize = "body", disclose = true }),
+					UI.Text("Server")({ text = serverLabel, textSize = "body", disclose = true }),
 				}),
 
-				UI.Text({ id = "Status", text = statusLabel, textSize = "label", tint = statusTint }),
-				UI.Text({ id = "Hint", text = hintLabel, textSize = "caption", role = "secondary" }),
+				UI.Text("Status")({ text = statusLabel, textSize = "label", tint = statusTint }),
+				UI.Text("Hint")({ text = hintLabel, textSize = "caption", role = "secondary" }),
 
 				-- A Toggle bound to the optimistic draft (see the node handlers
 				-- above): it flips the instant you press it, and flips back if
 				-- the server refuses.
-				UI.Toggle({ id = "Music", label = "Music", value = music, onChange = toggleMusic }),
+				UI.Toggle("Music")({ label = "Music", value = draftMusic, onChange = toggleMusic }),
 				-- A +/- volume stepper; the server validates 0..10. `align`
 				-- centres the read-out against the buttons — `alignV` is a
 				-- ZStack-child property and is silently ignored here.
-				UI.HStack({
-					id = "VolumeRow",
+				UI.HStack("VolumeRow")({
 					gap = "s",
 					align = "center",
 					-- THE ROW HAS TO CLAIM THE WIDTH BEFORE THE READ-OUT CAN FILL
@@ -322,22 +314,19 @@ function example.build(Facet: any, core: any, _deps: any)
 					width = UI.fill(),
 					-- a one-glyph button is narrower than a finger: the floor
 					-- is the theme's own minimum target, never a px literal
-					UI.Button({
-						id = "VolMinus",
+					UI.Button("VolMinus")({
 						label = "–",
 						width = { type = "minMax", min = "targetSizes.minimum" },
 						onActivate = volDown,
 					}),
-					UI.Text({
-						id = "VolValue",
+					UI.Text("VolValue")({
 						text = volumeLabel,
 						textSize = "control",
 						textAlign = "center",
 						width = UI.fill(),
 						disclose = true,
 					}),
-					UI.Button({
-						id = "VolPlus",
+					UI.Button("VolPlus")({
 						label = "+",
 						width = { type = "minMax", min = "targetSizes.minimum" },
 						onActivate = volUp,
@@ -345,29 +334,26 @@ function example.build(Facet: any, core: any, _deps: any)
 				}),
 				-- the rejection path in ONE tap, so it needs no explaining: the
 				-- Lesson line above already says which volumes the server takes
-				UI.Button({ id = "AskInvalid", label = `Ask for volume {INVALID_VOLUME}`, onActivate = askInvalid }),
-				UI.Button({ id = "Deliver", label = "Deliver server reply", onActivate = deliverReply }),
-				UI.Button({ id = "Reset", label = "Reset demo", onActivate = resetDemo }),
+				UI.Button("AskInvalid")({ label = `Ask for volume {INVALID_VOLUME}`, onActivate = askInvalid }),
+				UI.Button("Deliver")({ label = "Deliver server reply", onActivate = deliverReply }),
+				UI.Button("Reset")({ label = "Reset demo", onActivate = resetDemo }),
 
-				UI.VStack({
-					id = "History",
+				UI.VStack("History")({
 					surface = "raised",
 					padding = "m",
 					gap = "xs",
-					UI.Text({
-						id = "HistoryHeading",
+					UI.Text("HistoryHeading")({
 						text = "What happened (newest first)",
 						textSize = "caption",
 						role = "secondary",
 					}),
-					UI.Text({ id = "Event1", text = eventRow(1), textSize = "caption" }),
-					UI.Text({ id = "Event2", text = eventRow(2), textSize = "caption" }),
-					UI.Text({ id = "Event3", text = eventRow(3), textSize = "caption" }),
+					UI.Text("Event1")({ text = eventRow(1), textSize = "caption" }),
+					UI.Text("Event2")({ text = eventRow(2), textSize = "caption" }),
+					UI.Text("Event3")({ text = eventRow(3), textSize = "caption" }),
 				}),
 			}),
 		})
-	end)
-	local screen = Settings({})
+	end
 
 	return {
 		screen = screen,

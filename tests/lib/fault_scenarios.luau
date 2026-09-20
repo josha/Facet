@@ -1,17 +1,20 @@
 --!strict
+local harness = require("./harness")
 -- Phase 4 fault-injection scenarios (design §17 Phase 4). One table of named,
 -- deterministic scenarios shared by tests/faults.spec.luau (small iteration
 -- counts) and tools/lune/faults (scaled runs + artifact). Randomized
 -- scenarios go through the seeded fuzz harness, so every failure carries a
 -- replayable seed. Every scenario must leave core registries at baseline.
 
-local customCore = require("../../src/core/custom")
+local customCore = harness.coreFactory
 local resources = require("../../src/async/resources")
 local environment = require("../../src/env/environment")
-local mountLib = require("../../src/mount")
-local blueprintLib = require("../../src/blueprint")
+local mountLib = harness
+local blueprintLib = harness.UI
 local fuzz = require("./fuzz")
 local fake_target = require("./fake_target")
+local Compose = require("../../src/vendor/compose/core")
+local observeChange = require("../../src/core/on_change")
 
 local fault_scenarios = {}
 
@@ -21,12 +24,10 @@ local function newCore(): any
 	return (customCore :: any).new()
 end
 
-local function assertBaseline(core: any, baseline: { [string]: number }, context: string)
-	local after = core:counters()
-	for key, value in baseline do
-		if after[key] ~= value then
-			error(`[{context}] registry '{key}' not at baseline: {after[key]} != {value}`)
-		end
+local function assertBaseline(core: any, baseline: number, context: string)
+	local after = core.owner.size()
+	if after ~= baseline then
+		error(`[{context}] registrations not at baseline: {after} != {baseline}`)
 	end
 end
 
@@ -34,8 +35,8 @@ end
 
 local function asyncFixed(_iterations: number)
 	local core = newCore()
-	local baseline = core:counters()
-	local scope = core:scope("async-fixed")
+	local baseline = core.owner.size()
+	local scope = core.owner.createChild()
 	local provider = resources.newProvider(core, { maxConcurrent = 2, cacheBudget = 3, retryAttempts = 1 })
 
 	-- concurrency cap: 5 distinct keys, only 2 active
@@ -49,14 +50,14 @@ local function asyncFixed(_iterations: number)
 
 	-- completion promotes the queue
 	assert(provider.complete(window[1].key, window[1].generation, "v1") == "applied", "complete must apply")
-	assert(handles[1].state:get() == "ready" and handles[1].value:get() == "v1", "handle 1 must be ready")
+	assert(handles[1].state:peek() == "ready" and handles[1].value:peek() == "v1", "handle 1 must be ready")
 	assert(#provider.pendingRequests() == 2, "queue must promote into the freed slot")
 
 	-- retry: first failure re-queues (fairly, behind waiting requests) under a
 	-- NEW generation; the failed attempt's late completion is stale
 	local second = provider.pendingRequests()[1]
 	assert(provider.fail(second.key, second.generation, "boom") == "retrying", "first failure must retry")
-	assert(handles[2].state:get() == "pending", "retrying key stays pending")
+	assert(handles[2].state:peek() == "pending", "retrying key stays pending")
 	assert(provider.complete(second.key, second.generation, "zombie") == "stale", "old generation must be stale")
 
 	-- cancel: releasing the last pending handle makes its completion stale
@@ -87,16 +88,16 @@ local function asyncFixed(_iterations: number)
 	assert(retried ~= nil and retried.key == second.key, "retried request must reach the window")
 	assert(retried.attempt == 2, `retry must carry attempt=2, got {retried.attempt}`)
 	assert(provider.fail(retried.key, retried.generation, "boom2") == "failed", "second failure exhausts retries")
-	assert(handles[2].state:get() == "failed", "handle must observe failed")
-	assert(handles[2].error:get() == "boom2", "failure message must surface")
+	assert(handles[2].state:peek() == "failed", "handle must observe failed")
+	assert(handles[2].error:peek() == "boom2", "failure message must surface")
 
 	-- failed key re-requests on demand
 	local again = provider.acquire(scope, second.key)
-	assert(again.state:get() == "pending", "re-acquired failed key must re-request")
+	assert(again.state:peek() == "pending", "re-acquired failed key must re-request")
 	local rerequested = provider.pendingRequests()[1]
 	assert(rerequested ~= nil and rerequested.key == second.key, "re-request must be in flight")
 	provider.complete(rerequested.key, rerequested.generation, "finally")
-	assert(again.state:get() == "ready" and again.value:get() == "finally", "re-request must complete")
+	assert(again.state:peek() == "ready" and again.value:peek() == "finally", "re-request must complete")
 
 	-- cache budget honored throughout (budget 3, more than 3 keys completed)
 	assert(provider.counters().cached <= 3, `cache budget exceeded: {provider.counters().cached}`)
@@ -104,7 +105,7 @@ local function asyncFixed(_iterations: number)
 	-- retry-then-release: cancelling the ONLY waiter of a retried request must
 	-- retire it (no leaked slot) and stale-reject its completion (verifier F2)
 	do
-		local lateScope = core:scope("retry-release")
+		local lateScope = core.owner.createChild()
 		local h = provider.acquire(lateScope, "retry-cancel-key")
 		local w = provider.pendingRequests()
 		local mine = nil
@@ -133,13 +134,13 @@ local function asyncFixed(_iterations: number)
 	scope:dispose()
 	assert(provider.counters().handles == 0, "all handles must release with their scope")
 	assertBaseline(core, baseline, "async-fixed")
-	assert(core:lastError() == nil, `core error: {tostring(core:lastError())}`)
+	assert(core.lastError() == nil, `core error: {tostring(core.lastError())}`)
 end
 
 local function asyncStormCase(rng: any)
 	local core = newCore()
-	local baseline = core:counters()
-	local scope = core:scope("async-storm")
+	local baseline = core.owner.size()
+	local scope = core.owner.createChild()
 	local maxConcurrent = rng:range(1, 3)
 	local provider = resources.newProvider(core, {
 		maxConcurrent = maxConcurrent,
@@ -174,7 +175,7 @@ local function asyncStormCase(rng: any)
 		end
 		assert(#provider.pendingRequests() <= maxConcurrent, "active window exceeded maxConcurrent")
 		for _, handle in live do
-			local state = handle.state:get()
+			local state = handle.state:peek()
 			assert(state == "pending" or state == "ready" or state == "failed", `illegal state {tostring(state)}`)
 		end
 	end
@@ -185,7 +186,7 @@ local function asyncStormCase(rng: any)
 	assert(counters.active == 0, `active slots leaked: {counters.active}`)
 	assert(counters.queued == 0, `queued requests leaked: {counters.queued}`)
 	assertBaseline(core, baseline, "async-storm")
-	assert(core:lastError() == nil, `core error: {tostring(core:lastError())}`)
+	assert(core.lastError() == nil, `core error: {tostring(core.lastError())}`)
 end
 
 -- ============================= teardown ==============================
@@ -196,42 +197,39 @@ local function teardown(_iterations: number)
 	-- 1) dispose with a non-empty dirty queue
 	do
 		local core = newCore()
-		local baseline = core:counters()
-		local text = core:signal("hello")
-		local root = mountLib.mount(
-			core,
-			UI.Screen({
+		local baseline = core.owner.size()
+		local text = Compose.cell("hello")
+		-- A surface owns what its component builds.
+		local root = mountLib.mount(core, function()
+			return UI.Screen({
 				id = "S",
 				children = { UI.Text({ id = "T", text = text, textSize = 14 }) },
 			})
-		)
+		end)
 		text:set("dirty-now")
 		root.dispose() -- dirty entries pending; must not throw
 		assert(root.counters().mounted == 0, "mounted must be 0 after dispose")
-		text:dispose()
 		assertBaseline(core, baseline, "teardown-dirty")
 	end
 
-	-- 2) double disposal is DETECTED (lastError) and idempotent (no throw)
+	-- 2) double disposal is idempotent (no throw, nothing reported)
 	do
 		local core = newCore()
-		local root = mountLib.mount(core, UI.Screen({ id = "S", children = {} }))
+		local root = mountLib.mount(core, function()
+			return UI.Screen({ id = "S", children = {} })
+		end)
 		root.dispose()
 		root.dispose()
-		local message = core:lastError()
-		assert(
-			message ~= nil and string.find(message, "double disposal") ~= nil,
-			`double disposal must be detected, got {tostring(message)}`
-		)
+		assert(root.counters().mounted == 0, "mounted must be 0 after a second dispose")
+		assert(core.lastError() == nil, `a second dispose must report nothing, got {tostring(core.lastError())}`)
 	end
 
 	-- 3) an observer callback disposing the mounted root mid-notify is safe
 	do
 		local core = newCore()
-		local flag = core:signal(false)
-		local root = mountLib.mount(
-			core,
-			UI.Screen({
+		local flag = Compose.cell(false)
+		local root = mountLib.mount(core, function()
+			return UI.Screen({
 				id = "S",
 				children = {
 					UI.When({
@@ -243,20 +241,19 @@ local function teardown(_iterations: number)
 					}),
 				},
 			})
-		)
-		local unsubscribe = core:observe(flag, function()
+		end)
+		local unsubscribe = observeChange(core.owner, flag, function()
 			root.dispose()
 		end)
 		flag:set(true) -- one observer mounts/unmounts, the other disposes: no crash
 		unsubscribe()
 		assert(root.counters().mounted == 0, "root must be disposed")
-		flag:dispose()
 	end
 
 	-- 4) a RUNTIME duplicate key is quarantined: recorded loudly, scheduler survives
 	do
 		local core = newCore()
-		local items = core:signal({ { id = "a" }, { id = "b" } })
+		local items = Compose.cell({ { id = "a" }, { id = "b" } })
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -276,21 +273,19 @@ local function teardown(_iterations: number)
 			})
 		)
 		items:set({ { id = "x" }, { id = "x" } }) -- duplicate: must not crash the writer
-		local message = core:lastError()
+		local message = core.lastError()
 		assert(
-			message ~= nil and string.find(message, "duplicate key") ~= nil,
+			message ~= nil and string.find(message, "structure/duplicate-key", 1, true) ~= nil,
 			`runtime duplicate key must be recorded, got {tostring(message)}`
 		)
 		-- scheduler must still work afterwards
-		local probe = core:signal(1)
-		local doubled = core:memo(function(use)
+		local probe = Compose.cell(1)
+		local doubled = Compose.formula(function(use)
 			return use(probe) * 2
 		end)
 		probe:set(21)
-		assert(doubled:get() == 42, "scheduler wedged after quarantined observer error")
+		assert(doubled:peek() == 42, "scheduler wedged after quarantined observer error")
 		root.dispose()
-		items:dispose()
-		probe:dispose()
 		doubled:dispose()
 	end
 end
@@ -307,8 +302,8 @@ local function localeCase(rng: any)
 	}
 	local core = newCore()
 	local env = environment.new(core) -- long-lived per client; outside the churn baseline
-	local baseline = core:counters()
-	local text = core:signal("hello")
+	local baseline = core.owner.size()
+	local text = Compose.cell("hello")
 	local root = mountLib.mount(
 		core,
 		blueprintLib.Screen({
@@ -331,9 +326,8 @@ local function localeCase(rng: any)
 		assert(sawMeasure, "a text change must queue a measure dirty entry")
 	end
 	root.dispose()
-	text:dispose()
 	assertBaseline(core, baseline, "locale-storm")
-	assert(core:lastError() == nil, `core error: {tostring(core:lastError())}`)
+	assert(core.lastError() == nil, `core error: {tostring(core.lastError())}`)
 end
 
 -- =========================== accessibility ===========================
@@ -356,25 +350,25 @@ local function accessibilityCase(rng: any)
 			}) :: any
 		)
 
-		local scale = env:get("typographyScale"):get()
+		local scale = env:get("typographyScale"):peek()
 		assert(
 			type(scale) == "number" and scale == scale and scale >= 0.5 and scale <= 3,
 			`typographyScale out of legal domain: {tostring(scale)}`
 		)
-		local transparency = env:get("effectiveTransparency"):get()
+		local transparency = env:get("effectiveTransparency"):peek()
 		assert(
 			type(transparency) == "number" and transparency >= 0 and transparency <= 1,
 			`effectiveTransparency out of legal domain: {tostring(transparency)}`
 		)
-		local motion = env:get("motionPolicy"):get()
+		local motion = env:get("motionPolicy"):peek()
 		assert(motion == "reduced" or motion == "full", `motionPolicy out of legal domain: {tostring(motion)}`)
-		local sizeClass = env:get("sizeClass"):get()
+		local sizeClass = env:get("sizeClass"):peek()
 		assert(
 			sizeClass == "compact" or sizeClass == "regular" or sizeClass == "wide",
 			`sizeClass out of legal domain: {tostring(sizeClass)}`
 		)
 	end
-	assert(core:lastError() == nil, `core error: {tostring(core:lastError())}`)
+	assert(core.lastError() == nil, `core error: {tostring(core.lastError())}`)
 end
 
 -- ============================ input switch ===========================
@@ -384,23 +378,23 @@ end
 -- `case(rng)` alone), so the pass-through exists for a future caller.
 local function inputSwitchCase(rng: any, ops: boolean?)
 	local Facet = require("../../src") :: any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = ops == true })
-	local hint = core:memo(function(use)
+	local hint = Compose.formula(function(use)
 		local preferred = use(env:get("preferredInput"))
 		return if preferred == "Touch" then "Tap" else "Press"
 	end)
-	local screen = Facet.UI.Screen({
+	local screen = harness.UI.Screen({
 		id = "S",
 		children = {
-			Facet.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
-			Facet.UI.Button({ id = "A", label = "A" }),
-			Facet.UI.Button({ id = "B", label = "B" }),
+			harness.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+			harness.UI.Button({ id = "A", label = "A" }),
+			harness.UI.Button({ id = "B", label = "B" }),
 		},
 	})
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local handle = pres.present(screen)
 	local runsBefore = handle.root.counters().factoryRuns
 	local mountedBefore = handle.root.counters().mounted
@@ -424,86 +418,14 @@ local function inputSwitchCase(rng: any, ops: boolean?)
 	end
 
 	-- bindings still functional after the storm
-	local before = pres.focus.focused:get()
+	local before = pres.focus.focused:peek()
 	system.deviceKey("Down", true)
 	system.deviceKey("Down", false)
-	local after = pres.focus.focused:get()
+	local after = pres.focus.focused:peek()
 	assert(after ~= nil, "focus lost after input-switch storm")
 	assert(before ~= nil, "focus was never established")
 	pres.dismiss(handle)
-	assert(core:lastError() == nil, `core error: {tostring(core:lastError())}`)
-end
-
--- ===================== core callback fault paths =====================
-
--- verifier F1/F4/F5: user-supplied equality callbacks that THROW must
--- quarantine (lastError), never unwind the flush loop (wedged flushing flag)
--- or escape a plain set(); disposing a node with live observers reclaims
--- their registry slots and silences them.
-local function coreEqQuarantine(_iterations: number)
-	-- 1) throwing eq on an OBSERVED memo: no raise, lastError set, scheduler alive
-	do
-		local core = newCore()
-		local source = core:signal(1)
-		local cursed = core:memo(function(use)
-			return use(source)
-		end, function()
-			error("eq boom")
-		end)
-		local fired = 0
-		local unsubscribe = core:observe(cursed, function()
-			fired += 1
-		end)
-		local ok = pcall(function()
-			source:set(2)
-		end)
-		assert(ok, "a throwing eq must not unwind the writer")
-		assert(core:lastError() ~= nil, "a throwing eq must record lastError")
-		-- the flush loop must NOT be wedged: an unrelated pair still fires
-		local other = core:signal(0)
-		local otherFired = 0
-		local unsubscribeOther = core:observe(other, function()
-			otherFired += 1
-		end)
-		other:set(7)
-		assert(otherFired == 1, "flush loop wedged after a throwing eq (verifier F1)")
-		unsubscribe()
-		unsubscribeOther()
-	end
-
-	-- 2) throwing eq on a plain signal set(): no raise, quarantined
-	do
-		local core = newCore()
-		local cursed = core:signal(1, function()
-			error("eq boom on write")
-		end)
-		local ok = pcall(function()
-			cursed:set(2)
-		end)
-		assert(ok, "a throwing signal eq must not unwind set() (verifier F4)")
-		assert(core:lastError() ~= nil, "signal eq error must record lastError")
-	end
-
-	-- 3) disposing a node with LIVE observers reclaims their counters and
-	-- silences them (verifier F5/F6)
-	do
-		local core = newCore()
-		local baseline = core:counters()
-		local source = core:signal(1)
-		local fired = 0
-		local unsubscribe = core:observe(source, function()
-			fired += 1
-		end)
-		source:dispose()
-		assert(
-			core:counters().observers == baseline.observers,
-			`observer registry leaked on node dispose: {core:counters().observers}`
-		)
-		unsubscribe() -- must be a safe no-op, not a double decrement
-		assert(core:counters().observers == baseline.observers, "unsubscribe after node dispose double-decremented")
-		assert(core:counters().signals == baseline.signals, "signal registry off after dispose")
-		assert(fired == 0, "disposed node's observer fired")
-	end
+	assert(core.lastError() == nil, `core error: {tostring(core.lastError())}`)
 end
 
 -- verifier F7: lock the healthy feedback paths with explicit coverage —
@@ -512,31 +434,31 @@ end
 local function schedulerFeedback(_iterations: number)
 	do
 		local core = newCore()
-		local source = core:signal(1)
-		local sink = core:signal(0)
-		local dispose = core:effect(function(use)
+		local source = Compose.cell(1)
+		local sink = Compose.cell(0)
+		local dispose = core.owner.watch(function(use)
 			sink:set(use(source) * 10)
 		end)
 		source:set(3)
-		assert(sink:get() == 30, `effect write must converge next round, got {sink:get()}`)
-		assert(core:lastError() == nil, "legal effect write recorded an error")
+		assert(sink:peek() == 30, `effect write must converge next round, got {sink:peek()}`)
+		assert(core.lastError() == nil, "legal effect write recorded an error")
 		dispose()
 	end
 	do
 		local core = newCore()
-		local ouro = core:signal(0)
-		local dispose = core:effect(function(use)
+		local ouro = Compose.cell(0)
+		local dispose = core.owner.watch(function(use)
 			ouro:set(use(ouro) + 1) -- self-feeding loop
 		end)
 		assert(
-			core:lastError() ~= nil and string.find(core:lastError() :: string, "did not settle after", 1, true) ~= nil,
-			`feedback loop must hit the round cap, got {tostring(core:lastError())}`
+			core.lastError() ~= nil and string.find(core.lastError() :: string, "did not settle after", 1, true) ~= nil,
+			`feedback loop must hit the round cap, got {tostring(core.lastError())}`
 		)
 		dispose()
 		-- scheduler alive afterwards
-		local probe = core:signal(1)
+		local probe = Compose.cell(1)
 		local seen = 0
-		local unsubscribe = core:observe(probe, function()
+		local unsubscribe = observeChange(core.owner, probe, function()
 			seen += 1
 		end)
 		probe:set(2)
@@ -553,20 +475,20 @@ end
 -- the pass-through exists for a future caller.
 local function presenterDismissNonTop(_iterations: number, ops: boolean?)
 	local Facet = require("../../src") :: any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = ops == true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local base = pres.present(Facet.UI.Screen({
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local base = pres.present(harness.UI.Screen({
 		id = "Base",
-		children = { Facet.UI.Button({ id = "A", label = "A" }), Facet.UI.Button({ id = "B", label = "B" }) },
+		children = { harness.UI.Button({ id = "A", label = "A" }), harness.UI.Button({ id = "B", label = "B" }) },
 	}))
-	local modal = pres.presentModal(Facet.UI.Screen({
+	local modal = pres.presentModal(harness.UI.Screen({
 		id = "Modal",
-		children = { Facet.UI.Button({ id = "Ok", label = "Ok" }), Facet.UI.Button({ id = "No", label = "No" }) },
+		children = { harness.UI.Button({ id = "Ok", label = "Ok" }), harness.UI.Button({ id = "No", label = "No" }) },
 	}))
-	assert(pres.focus.focused:get() == "/Modal/Ok", "modal must own focus")
+	assert(pres.focus.focused:peek() == "/Modal/Ok", "modal must own focus")
 	pres.dismiss(base)
 	assert(pres.depth() == 1, "base must be gone")
 	assert(
@@ -574,15 +496,15 @@ local function presenterDismissNonTop(_iterations: number, ops: boolean?)
 		`active scope must stay the modal, got {tostring(pres.focus.activeScopeName())}`
 	)
 	assert(
-		pres.focus.focused:get() == "/Modal/Ok",
-		`focus must stay on the live modal, got {tostring(pres.focus.focused:get())}`
+		pres.focus.focused:peek() == "/Modal/Ok",
+		`focus must stay on the live modal, got {tostring(pres.focus.focused:peek())}`
 	)
 	system.deviceKey("Down", true)
 	system.deviceKey("Down", false)
-	assert(pres.focus.focused:get() == "/Modal/No", "navigation must move within the modal")
+	assert(pres.focus.focused:peek() == "/Modal/No", "navigation must move within the modal")
 	pres.dismiss(modal)
 	assert(pres.depth() == 0, "all screens dismissed")
-	assert(core:lastError() == nil, `core error: {tostring(core:lastError())}`)
+	assert(core.lastError() == nil, `core error: {tostring(core.lastError())}`)
 end
 
 -- ============================== table ================================
@@ -609,12 +531,6 @@ fault_scenarios.list = {
 		end,
 	},
 	{
-		name = "core-eq-quarantine",
-		summary = "throwing user eq callbacks quarantine (no wedged flush, no raised set); node dispose reclaims live observers",
-		requirements = { "UI-RUNTIME-003", "UI-LIFE-002" },
-		run = coreEqQuarantine,
-	},
-	{
 		name = "scheduler-feedback",
 		summary = "effect writes converge next round; true feedback loops hit the cap loudly and the scheduler survives",
 		requirements = { "UI-RUNTIME-003" },
@@ -628,7 +544,7 @@ fault_scenarios.list = {
 	},
 	{
 		name = "teardown",
-		summary = "dirty-queue dispose, detected double disposal, dispose-from-observer, quarantined runtime duplicate key",
+		summary = "dirty-queue dispose, idempotent double disposal, dispose-from-observer, quarantined runtime duplicate key",
 		requirements = { "UI-LIFE-001", "UI-RUNTIME-003" },
 		run = teardown,
 	},

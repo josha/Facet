@@ -1,55 +1,53 @@
 --!strict
---[[ THE HEADLESS WORLD (reuse audit REUSE-88/95/96/104; controller ruling R12).
+--[[ The headless world: one Facet application over a fake render target, with
+	frames stepped by hand.
 
-	Core → environment → viewport → render target → action system → presenter. A
-	spec needs all six before it can present anything, and 106 spec-local builders
-	across 100 files each wrote them out. That is not the finding. THE FINDING IS
-	THE TWO ORDERS:
+	`new` takes an options table and returns a record read by name: `app`, `UI`
+	(`app.controls`), `Compose`, `core`, `env`, `adapter`, `system`, `pres`.
 
-	    local core, env, system, adapter, pres = world()    -- 12 files
-	    local core, env, adapter, system, pres = world()    -- 16 files
+	The viewport is set before the first solve, so nothing measures against 1x1.
+	Each world owns one adapter; adapters are never shared between presenters.
 
-	Positions three and four are swapped, the same five names are used on both
-	sides, and Luau will bind an action system to a variable called `adapter`
-	without a word. Ten of the twelve are byte-identical, so a spec author copying
-	a line from a neighbouring file — which is exactly how a suite this size is
-	written — has a coin-flip chance of silently testing something else. The bug
-	does not fail loudly; it fails as "the adapter has no `node` method", three
-	edits later, in a file nobody was changing.
-
-	SO THIS CONSTRUCTOR IS KEYWORD-ONLY AND ITS RESULT IS NAMED. There is no
-	tuple to get wrong in either direction. `new` takes an options TABLE (so
-	adding an option can never shift an argument) and returns an object whose
-	fields are read by name.
-
-	SCOPE — R12, deliberately narrow. This substrate lands with the files that
-	carry the two colliding orders migrated onto it and NOTHING ELSE. The other
-	~78 spec-local builders are not churn worth taking: each is a few lines, each
-	is read beside the spec that uses it, and rewriting a hundred files to prove a
-	point is how a test suite acquires a regression nobody can bisect. THE
-	FOLLOW-UP TRIGGER, recorded in artifacts/release-candidate-review/reuse-ledger.md:
-	the next spec file that ADDS a builder migrates its file instead.
-
-	THE TWO CONSTRUCTION INVARIANTS THIS MODULE OWNS, both of which are past
-	defects in this repository rather than theory:
-
-	  1. `viewportRect` is set BEFORE the presenter exists. A first solve against
-	     an unset viewport runs at 1×1, and every measured thing in it is wrong in
-	     a way the second frame silently repairs — the role-pick pop, 2026-08-04.
-	  2. The presenter is constructed AFTER the adapter, and the adapter is never
-	     shared between two presenters (the instance map and the
-	     capture/cursor state are adapter-scoped).
-
-	`tests/lib/large_text.luau`'s `world` is the prototype this is generalised
-	from, and keeps its own because its options are the large-text matrix's
-	(offset, theme, input class) rather than these.
-]]
+	`record(id)` answers the `{ blueprint, api, dump, dispose }` record a composite
+	control built under that id, so a spec authors with `UI.X("Id")({...})` exactly
+	as an application does and still reaches the control's api and dump. ]]
 
 local Facet = require("../../src") :: any
 local fake_target = require("./fake_target")
 local overflow_guard = require("./overflow_guard")
 
 local world = {}
+
+-- Every composite control module `app.controls` registers through `build`.
+local CONTROL_MODULES = {
+	"alert",
+	"async_image",
+	"button",
+	"callout",
+	"chip",
+	"collapsible_view",
+	"combo_box",
+	"disclosure_group",
+	"label",
+	"level_picker",
+	"menu",
+	"navigation_stack",
+	"page_view",
+	"picker",
+	"picker_menu",
+	"progress_view",
+	"radial_menu",
+	"rating",
+	"row_actions",
+	"sheet",
+	"slider",
+	"split_button",
+	"stepper",
+	"tab_view",
+	"table",
+	"text_input",
+	"toggle",
+}
 
 export type Rect = { x: number, y: number, w: number, h: number }
 
@@ -67,8 +65,8 @@ export type Opts = {
 	-- extra environment facts, applied last, so a spec can set anything the
 	-- named options do not cover without a second constructor
 	env: { [string]: any }?,
-	-- forwarded verbatim to `Facet.newPresenter`'s fifth argument
-	presenterOpts: any?,
+	-- extra `Facet.new` options (`now`, `keyboardNavigation`, `clock`)
+	hostOpts: any?,
 	-- swap the render target (the billboard target, a fault-injecting fake)
 	newAdapter: (() -> any)?,
 	-- arm the fake target's op log (T12, default off per ruling A-11). Ignored
@@ -98,9 +96,19 @@ export type World = {
 	adapter: any,
 	system: any,
 	pres: any,
-	present: (screen: any, presentOpts: any?) -> any,
+	app: any,
+	UI: any,
+	Compose: any,
+	close: (() -> ())?,
+	node: any,
+	present: (component: () -> any, presentOpts: any?) -> any,
+	presentModal: (component: () -> any, presentOpts: any?) -> (any, () -> ()),
+	scoped: (body: () -> ...any) -> ...any,
+	record: (id: string) -> any,
+	records: (id: string) -> { any },
 	press: (key: string) -> (),
 	tick: (dt: number?) -> (),
+	frame: (dt: number?) -> (),
 	settle: (frames: number?) -> (),
 	-- the containment invariant, callable on demand: a spec that drives a state
 	-- WITHOUT settling (an activation that solves synchronously) still has to be
@@ -114,39 +122,95 @@ local DEFAULT_VIEWPORT: Rect = { x = 0, y = 0, w = 390, h = 844 }
 
 function world.new(opts: Opts?): World
 	local o: Opts = opts or {}
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-
-	-- INVARIANT 1: before anything can solve (see the header)
-	env:set("viewportRect", o.viewport or DEFAULT_VIEWPORT)
-	if o.safeInsets ~= nil then
-		env:set("coreSafeInsets", o.safeInsets)
-	end
-	if o.capabilities ~= nil then
-		env:set("capabilities", o.capabilities)
-	end
-	if o.preferredInput ~= nil then
-		env:set("preferredInput", o.preferredInput)
-	end
-	if o.displaySize ~= nil then
-		env:set("displaySize", o.displaySize)
-	end
-	if o.themeMetrics ~= nil then
-		env:set("themeMetrics", o.themeMetrics)
-	end
-	if o.reducedMotion ~= nil then
-		env:set("reducedMotion", o.reducedMotion)
-	end
-	for key, value in o.env or {} do
-		env:set(key, value)
-	end
-
-	-- INVARIANT 2: adapter first, one presenter per adapter
 	local adapter = if o.newAdapter then o.newAdapter() else fake_target.new({ ops = o.ops == true })
-	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, adapter, system, o.presenterOpts)
+	local core, env, system
+	local hostOpts = table.clone(o.hostOpts or {})
+	hostOpts.newAdapter = function()
+		return adapter
+	end
+	hostOpts.newInputSystem = function(value)
+		core = value
+		system = Facet.newActionSystem(value)
+		return system
+	end
+	hostOpts.bindEnv = function(value)
+		env = value
+		-- The viewport precedes the first solve.
+		env:set("viewportRect", o.viewport or DEFAULT_VIEWPORT)
+		if o.safeInsets ~= nil then
+			env:set("coreSafeInsets", o.safeInsets)
+		end
+		if o.capabilities ~= nil then
+			env:set("capabilities", o.capabilities)
+		end
+		if o.preferredInput ~= nil then
+			env:set("preferredInput", o.preferredInput)
+		end
+		if o.displaySize ~= nil then
+			env:set("displaySize", o.displaySize)
+		end
+		if o.themeMetrics ~= nil then
+			env:set("themeMetrics", o.themeMetrics)
+		end
+		if o.reducedMotion ~= nil then
+			env:set("reducedMotion", o.reducedMotion)
+		end
+		for key, value in o.env or {} do
+			env:set(key, value)
+		end
+		return function() end
+	end
+	-- Motion reads a virtual clock that `tick` and `settle` advance, so animation
+	-- progress follows stepped frames. A spec that passes `hostOpts.now` owns time.
+	local elapsed = 0
+	if hostOpts.now == nil then
+		hostOpts.now = function()
+			return elapsed
+		end
+	end
+	-- Specs step frames by hand through `tick` and `settle`.
+	hostOpts.connectFrame = function()
+		return function() end
+	end
+	-- Composite builders are read when the application registers its controls, so
+	-- wrapping them for the span of that call records what each one builds.
+	local built: { [string]: { any } } = {}
+	local restore: { () -> () } = {}
+	for _, name in CONTROL_MODULES do
+		local module = require("../../src/controls/" .. name) :: any
+		local original = module.build
+		module.build = function(library: any, controlCore: any, spec: any, ...)
+			local result = original(library, controlCore, spec, ...)
+			local id = if type(spec) == "table" then spec.id else nil
+			if type(id) == "string" and type(result) == "table" then
+				built[id] = built[id] or {}
+				table.insert(built[id], result)
+			end
+			return result
+		end
+		table.insert(restore, function()
+			module.build = original
+		end)
+	end
+	local ok, app = pcall(Facet.new, hostOpts)
+	for _, undo in restore do
+		undo()
+	end
+	if not ok then
+		error(app, 0)
+	end
+	local pres = app.presenter
 
-	local w: any = { core = core, env = env, adapter = adapter, system = system, pres = pres }
+	local w: any = {
+		app = app,
+		UI = app.controls,
+		Compose = Facet.Compose,
+		core = core,
+		env = env,
+		adapter = adapter,
+		system = system,
+		pres = pres,
+	}
 
 	--[[ THE INVARIANT, AT EVERY POINT THIS WORLD HANDS CONTROL BACK. A check that
 		ran only at mount would miss every defect a state change introduces, which is
@@ -171,16 +235,49 @@ function world.new(opts: Opts?): World
 
 	-- present + settle in one, because a presented screen that has not solved is
 	-- a state no spec in this suite is ever interested in
-	function w.present(screen: any, presentOpts: any?): any
-		w.handle = pres.present(screen, presentOpts)
+	-- `component` is a function that returns the screen's root node.
+	function w.present(component: () -> any, presentOpts: any?): any
+		assert(type(component) == "function", "world.present takes a component function that returns the screen node")
+		local close, node, handle = app.mount(component, presentOpts)
+		w.close, w.node, w.handle = close, node, handle
 		pres.refresh()
-		w.controller = w.handle.controller
-		if guardLabel == nil and type(screen) == "table" then
-			local props = (screen :: any).props
-			guardLabel = if type(props) == "table" and type(props.id) == "string" then props.id else nil
+		w.controller = handle.controller
+		if guardLabel == nil and node ~= nil and type(node.id) == "string" then
+			guardLabel = node.id
 		end
 		guard()
-		return w.handle
+		return handle
+	end
+
+	-- A modal over the presented screen: answers its handle and its close.
+	function w.presentModal(component: () -> any, presentOpts: any?): (any, () -> ())
+		local close, _, handle = app.presentModal(component, presentOpts)
+		pres.refresh()
+		return handle, close
+	end
+
+	-- Runs `body` under a throwaway owner, for constructing outside a mount (spec
+	-- validation cases). The owner, and everything built under it, is released.
+	function w.scoped(body: () -> ...any): ...any
+		local owner = Facet.Compose.createOwner(core.scene.reactor)
+		local results = table.pack(pcall(Facet.Compose.withOwner, owner, body))
+		owner.dispose()
+		if not results[1] then
+			error(results[2], 0)
+		end
+		return table.unpack(results, 2, results.n)
+	end
+
+	-- The newest record built under `id`; `records` answers every one, oldest first.
+	function w.records(id: string): { any }
+		return built[id] or {}
+	end
+	function w.record(id: string): any
+		local list = built[id]
+		if list == nil then
+			error(`world.record: no composite control was built with id '{id}'`, 2)
+		end
+		return list[#list]
 	end
 
 	--[[ A KEY DOWN AND BACK UP, which is what seventeen copies of `press` did.
@@ -193,7 +290,15 @@ function world.new(opts: Opts?): World
 	end
 
 	function w.tick(dt: number?)
+		elapsed += dt or 1 / 60
 		pres.tick(dt or 1 / 60)
+	end
+
+	-- One production frame of `dt`: clock, then solve. Compose motion reaches the
+	-- adapter on the solve, so a spec sampling mid-flight values steps with this.
+	function w.frame(dt: number?)
+		w.tick(dt)
+		pres.refresh()
 	end
 
 	--[[ N frames of clock and solve. The DEFAULT is deliberately absent from the
@@ -203,6 +308,7 @@ function world.new(opts: Opts?): World
 		nothing at all. ]]
 	function w.settle(frames: number?)
 		for _ = 1, math.max(frames or 1, 1) do
+			elapsed += 1 / 60
 			pres.tick(1 / 60)
 			pres.refresh()
 		end

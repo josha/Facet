@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ ── THE COMPOSED RECT'S IDENTITY CHURNS EVERY COMMIT (RED-TEAM C-3) ──────────
 
 	THE CONCERN, stated as it was raised. `render/rect_pass.apply` calls
@@ -49,8 +50,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src")
-local UI = Facet.UI
-local worldLib = require("./lib/world")
+local UI = harness.UI
+local worldLib = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 
 local ROWS = 200
 -- the row the slider lives in. Any index does; one that is NOT first or last keeps
@@ -75,15 +77,15 @@ local function makeWorld(): any
 			.. "coordinate-space hosts, not containment",
 	})
 	local core = w.core
-	local value = core:signal(0.5)
-	local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
+	local value = Compose.cell(0.5)
+	local slider = harness.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1, step = 0.1 })
 	local items = {}
 	local rowValue = {}
 	for i = 1, ROWS do
-		rowValue[i] = core:signal(`row{i}`)
+		rowValue[i] = Compose.cell(`row{i}`)
 		items[i] = { id = `k{i}`, n = rowValue[i], slider = i == SLIDER_ROW }
 	end
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	w.present(UI.Screen({
 		id = "S",
 		children = {

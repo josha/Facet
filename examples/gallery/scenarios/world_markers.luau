@@ -3,13 +3,11 @@ return {
 	title = "World markers",
 	ledgerRows = {},
 	build = function(ctx: any)
-		local Facet, core, env, pres = ctx.Facet, ctx.core, ctx.env, ctx.presenter
-		local UI = Facet.UI
-		local scope = core:scope("world-markers-demo")
-		local bounds = scope:own(core:signal({ x = 0, y = 0, w = 1, h = 1 }))
-		local shifted, crowded, hidden =
-			scope:own(core:signal(false)), scope:own(core:signal(false)), scope:own(core:signal(false))
-		local geometry = scope:own(core:memo(function(use)
+		local Facet, env, pres = ctx.Facet, ctx.env, ctx.presenter
+		local UI, Compose = ctx.UI, ctx.Compose
+		local bounds = Compose.cell({ x = 0, y = 0, w = 1, h = 1 })
+		local shifted, crowded, hidden = Compose.cell(false), Compose.cell(false), Compose.cell(false)
+		local geometry = Compose.formula(function(use)
 			local box = use(bounds)
 			local facts = Facet.text.facts({ env = env, use = use })
 			local line = Facet.text.lineBox({ facts = facts, size = "label", lines = 1 })
@@ -40,87 +38,82 @@ return {
 					},
 				},
 			})
-		end))
-		local pins = {}
-		for index, id in { "A", "B", "C" } do
+		end)
+		local function pinView(index: number, id: string)
 			local function property(fn)
-				return scope:own(core:memo(function(use)
+				return function(use)
 					return fn(use(geometry)[index])
-				end))
+				end
 			end
-			local pin = UI.ZStack({
-				id = id,
-				anchor = "topLeft",
-				surface = "raised",
-				corners = UI.cornersData("control"),
-				offsetX = property(function(row)
-					return if row.rect then row.rect.x else 0
-				end),
-				offsetY = property(function(row)
-					return if row.rect then row.rect.y else 0
-				end),
-				width = property(function(row)
-					return { type = "fixed", px = if row.rect then row.rect.w else 1 }
-				end),
-				height = property(function(row)
-					return { type = "fixed", px = if row.rect then row.rect.h else 1 }
-				end),
-
-				UI.Text({ id = "Label", text = id, textSize = "label", alignH = "center", alignV = "center" }),
-				UI.Path({
-					id = "Direction",
-					role = "accent",
-					thickness = "strokes.hairline",
-					width = UI.fill(),
-					height = UI.fill(),
-					hidden = property(function(row)
-						return not row.edge
-					end),
-					points = property(function(row)
-						return Facet.pathShapes.needle(row.angle or 0, { innerRadius = 0.65, radius = 0.9 })
-					end),
-				}),
-			})
-			table.insert(
-				pins,
-				UI.When({
-					id = id .. "Visible",
-					condition = property(function(row)
+			return UI.When(id .. "Visible")({
+				Compose.show(
+					property(function(row)
 						return row.visible
 					end),
-					thenView = function()
-						return pin
-					end,
-				})
-			)
-		end
-		local function toggle(id, label, value)
-			return scope:own(Facet.Controls.Toggle(core, { id = id, label = label, value = value })).blueprint
-		end
-		local screen = UI.Screen({
-			id = "WorldMarkers",
-			padding = "m",
-			gap = "s",
+					function()
+						return UI.ZStack(id)({
+							anchor = "topLeft",
+							surface = "raised",
+							corners = UI.cornersData("control"),
+							offsetX = property(function(row)
+								return if row.rect then row.rect.x else 0
+							end),
+							offsetY = property(function(row)
+								return if row.rect then row.rect.y else 0
+							end),
+							width = property(function(row)
+								return { type = "fixed", px = if row.rect then row.rect.w else 1 }
+							end),
+							height = property(function(row)
+								return { type = "fixed", px = if row.rect then row.rect.h else 1 }
+							end),
 
-			UI.Anchor({ id = "Map", width = UI.fill(), height = UI.fill(), children = pins }),
-			UI.ScrollView({
-				id = "Controls",
-				width = UI.fill(),
-				height = UI.fill(),
+							UI.Text("Label")({ text = id, textSize = "label", alignH = "center", alignV = "center" }),
+							UI.Path("Direction")({
+								role = "accent",
+								thickness = "strokes.hairline",
+								width = UI.fill(),
+								height = UI.fill(),
+								hidden = property(function(row)
+									return not row.edge
+								end),
+								points = property(function(row)
+									return Facet.pathShapes.needle(row.angle or 0, { innerRadius = 0.65, radius = 0.9 })
+								end),
+							}),
+						})
+					end
+				),
+			})
+		end
+		local function screen()
+			local map = { width = UI.fill(), height = UI.fill() } :: { [any]: any }
+			for index, id in { "A", "B", "C" } do
+				table.insert(map, pinView(index, id))
+			end
+			return UI.Screen("WorldMarkers")({
+				padding = "m",
 				gap = "s",
 
-				UI.Text({ text = "A · Objective   B · Ally   C · Supplies", textSize = "label" }),
-				toggle("Move", "Move objective offscreen", shifted),
-				toggle("Crowd", "Bring markers together", crowded),
-				toggle("Hide", "Occlude supplies", hidden),
-			}),
-		})
+				UI.Anchor("Map")(map),
+				UI.ScrollView("Controls")({
+					width = UI.fill(),
+					height = UI.fill(),
+					gap = "s",
+
+					UI.Text({ text = "A · Objective   B · Ally   C · Supplies", textSize = "label" }),
+					UI.Toggle("Move")({ label = "Move objective offscreen", value = shifted }),
+					UI.Toggle("Crowd")({ label = "Bring markers together", value = crowded }),
+					UI.Toggle("Hide")({ label = "Occlude supplies", value = hidden }),
+				}),
+			})
+		end
 		return {
 			screen = screen,
 			present = {
 				onGeometry = function(rectOf)
 					local r = rectOf("/WorldMarkers/Map")
-					local old = bounds:get()
+					local old = bounds:peek()
 					if r and (r.x ~= old.x or r.y ~= old.y or r.w ~= old.w or r.h ~= old.h) then
 						bounds:set(table.clone(r))
 					end
@@ -133,18 +126,17 @@ return {
 					hidden:set(false)
 				end,
 				move = function()
-					shifted:set(not shifted:get())
+					shifted:set(not shifted:peek())
 				end,
 				crowd = function()
-					crowded:set(not crowded:get())
+					crowded:set(not crowded:peek())
 				end,
 			},
 			report = function()
-				return { markers = geometry:get() }
+				return { markers = geometry:peek() }
 			end,
-			dispose = function()
-				scope:dispose()
-			end,
+			-- nothing outlives the screen
+			dispose = function() end,
 		}
 	end,
 }

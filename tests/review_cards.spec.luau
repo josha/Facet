@@ -25,6 +25,9 @@ t.describe("adaptive card shelves", function()
 			})
 			local s = scenario.build({
 				Facet = Facet,
+				app = w.app,
+				UI = w.UI,
+				Compose = w.Compose,
 				core = w.core,
 				env = w.env,
 				presenter = w.pres,
@@ -33,16 +36,34 @@ t.describe("adaptive card shelves", function()
 			w.present(s.screen, s.present)
 			s.handle = w.handle
 			w.settle(3)
-			t.expect(#(s.rails or {})).toBe(3)
-			local d = s.rail.dump()
-			t.expect(d.viewportExtent - d.cardsPerView * d.itemExtent - (d.cardsPerView - 1) * d.rowGap >= 40)
-				.toBe(true)
+			local shelves = {
+				"/CardRail/Page/RailPane/Rail",
+				"/CardRail/Page/WeekendRailPane/WeekendRail",
+				"/CardRail/Page/RecommendedRailPane/RecommendedRail",
+			}
+			for _, shelf in shelves do
+				t.expect(w.adapter.node(shelf) ~= nil).toBe(true)
+			end
+			local railWidth = w.adapter.node(shelves[1]).rect.w
+			local itemExtent = s.itemExtent()
+			local d = {
+				itemExtent = itemExtent,
+				cardsPerView = math.floor((railWidth + s.cardGap) / (itemExtent + s.cardGap)),
+			}
+			t.expect(railWidth - d.cardsPerView * itemExtent - (d.cardsPerView - 1) * s.cardGap >= 40).toBe(true)
 			table.insert(results, d)
 			if device.input == "Gamepad" then
-				s.rail.focusKey("c1")
+				local first
+				for _, path in w.adapter.paths() do
+					local slot = string.match(path, "^(" .. shelves[1] .. "/.+)/Slot/Card/Name$")
+					if slot and w.adapter.node(path).props.text == "Livery 001" then
+						first = slot .. "/Hit"
+					end
+				end
+				w.pres.focus.focusOn(first)
 				w.settle(2)
 				w.press("DPadDown")
-				t.expect(string.find(w.pres.focus.focused:get(), "WeekendRail", 1, true) ~= nil).toBe(true)
+				t.expect(string.find(w.pres.focus.focused:peek(), "WeekendRail", 1, true) ~= nil).toBe(true)
 			end
 			w.pres.dismiss(w.handle)
 			s.dispose()
@@ -64,8 +85,16 @@ t.describe("adaptive card shelves", function()
 				return a
 			end,
 		})
-		local s =
-			scenario.build({ Facet = Facet, core = w.core, env = w.env, presenter = w.pres, actionSystem = w.system })
+		local s = scenario.build({
+			Facet = Facet,
+			app = w.app,
+			UI = w.UI,
+			Compose = w.Compose,
+			core = w.core,
+			env = w.env,
+			presenter = w.pres,
+			actionSystem = w.system,
+		})
 		w.present(s.screen, s.present)
 		w.settle(3)
 		w.env:set("preferredTextOffset", 14)
@@ -81,7 +110,7 @@ t.describe("adaptive card shelves", function()
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1320, h = 2000 })
 		w.settle(3)
 		t.expect(w.controller.scrollBarInsetOf("/CardRail/Page")).toBeNil()
-		t.expect(w.core:lastError()).toBeNil()
+		t.expect(w.core.lastError()).toBeNil()
 		w.pres.dismiss(w.handle)
 		s.dispose()
 	end)

@@ -84,17 +84,14 @@ return {
 	copy = COPY,
 	stops = STOPS,
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("preferred-transparency")
 
 		-- the fixture's own mirror of the fact, so the readout and the chip
 		-- selection have something to bind to. The FACT is the authority: this is
 		-- written in the same call that writes it, never read back from paint.
-		local setting = scope:own(core:signal(1))
+		local setting = Compose.cell(1)
 
 		local function apply(value: number)
 			setting:set(value)
@@ -103,133 +100,115 @@ return {
 			end
 		end
 
-		local readout = scope:own(core:memo(function(use)
+		local readout = Compose.formula(function(use)
 			return `{COPY.readout}: {string.format("%.2f", use(setting))}`
-		end))
+		end)
 
-		local dialog: any = nil
-		local function closeDialog()
-			if dialog ~= nil then
-				pres.dismiss(dialog)
-				dialog = nil
-				pres.refresh()
-			end
-		end
+		-- the dialog is an Alert bound to one cell: opening it is a write
+		local dialogOpen = Compose.cell(false)
 		local function openDialog()
-			if dialog ~= nil then
-				return
-			end
-			dialog = pres.presentModal(UI.Screen({
-				id = "TransparencyDialog",
-				padding = 20,
-				gap = 10,
-				width = { type = "fixed", px = 300 },
-
-				UI.Text({ id = "DTitle", text = COPY.dialogTitle, textSize = "heading" }),
-				UI.Text({ id = "DBody", text = COPY.dialogBody, textSize = "caption", role = "secondary" }),
-				UI.Button({ id = "DClose", label = COPY.close, onActivate = closeDialog }),
-			}))
-			pres.refresh()
+			dialogOpen:set(true)
+		end
+		local function closeDialog()
+			dialogOpen:set(false)
 		end
 
 		-- ONE swatch shape for all three, so the only difference a player can see
 		-- between them is the declaration each carries
 		local function swatch(id: string, label: string, hint: string, body: any): any
-			return UI.VStack({
-				id = id,
+			return UI.VStack(id)({
 				gap = "xs",
 				width = { type = "fixed", px = 132 },
 
 				body,
-				UI.Text({ id = "Label", text = label, textSize = "label" }),
-				UI.Text({ id = "Hint", text = hint, textSize = "caption", role = "secondary" }),
+				UI.Text("Label")({ text = label, textSize = "label" }),
+				UI.Text("Hint")({ text = hint, textSize = "caption", role = "secondary" }),
 			})
 		end
 
-		local stopChips: { any } = {}
-		for _, stop in STOPS do
-			table.insert(
-				stopChips,
-				UI.Button({
-					id = stop.id,
-					label = stop.label,
-					onActivate = function()
-						apply(stop.value)
-					end,
-				})
-			)
-		end
+		local function screen()
+			local stops: { any } = { gap = "tight", wrap = true }
+			for _, stop in STOPS do
+				table.insert(
+					stops,
+					UI.Button(stop.id)({
+						label = stop.label,
+						onActivate = function()
+							apply(stop.value)
+						end,
+					})
+				)
+			end
+			return UI.Screen("PreferredTransparency")({
+				padding = "m",
 
-		local screen = UI.Screen({
-			id = "PreferredTransparency",
-			padding = "m",
-
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = 10,
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = COPY.title, textSize = "title" }),
-				UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "SettingLabel", text = COPY.setting, textSize = "label" }),
-				UI.HStack({ id = "Stops", gap = "tight", wrap = true, children = stopChips }),
-				UI.Text({ id = "Readout", text = readout, textSize = "label" }),
-				UI.Text({ id = "RealHint", text = COPY.realHint, textSize = "caption", role = "secondary" }),
-				UI.HStack({
-					id = "Swatches",
+				UI.ScrollView("Page")({
+					axis = "y",
 					gap = 10,
-					wrap = true,
+					width = UI.fill(),
+					height = UI.fill(),
 
-					swatch(
-						"BackdropSwatch",
-						COPY.backdrop,
-						COPY.backdropHint,
-						-- the ONE declaration on this page that the
-						-- preference reaches: a backdrop says it means
-						-- to be seen through
-						UI.Box({
-							id = "Fill",
-							surface = "scrim",
-							width = UI.fill(),
-							height = { type = "fixed", px = 72 },
-						})
-					),
-					swatch(
-						"PanelSwatch",
-						COPY.panel,
-						COPY.panelHint,
-						UI.Box({
-							id = "Fill",
-							surface = "raised",
-							width = UI.fill(),
-							height = { type = "fixed", px = 72 },
-						})
-					),
-					swatch(
-						"FadeSwatch",
-						COPY.fade,
-						COPY.fadeHint,
-						UI.ZStack({
-							id = "Fill",
-							opacity = 0.5,
-							width = UI.fill(),
-							height = { type = "fixed", px = 72 },
+					UI.Text("Title")({ text = COPY.title, textSize = "title" }),
+					UI.Text("Caption")({ text = COPY.caption, textSize = "caption", role = "secondary" }),
+					UI.Text("SettingLabel")({ text = COPY.setting, textSize = "label" }),
+					UI.HStack("Stops")(stops),
+					UI.Text("Readout")({ text = readout, textSize = "label" }),
+					UI.Text("RealHint")({ text = COPY.realHint, textSize = "caption", role = "secondary" }),
+					UI.HStack("Swatches")({
+						gap = 10,
+						wrap = true,
 
-							UI.Box({
-								id = "Plate",
+						swatch(
+							"BackdropSwatch",
+							COPY.backdrop,
+							COPY.backdropHint,
+							-- the ONE declaration on this page that the
+							-- preference reaches: a backdrop says it means
+							-- to be seen through
+							UI.Box("Fill")({
+								surface = "scrim",
+								width = UI.fill(),
+								height = { type = "fixed", px = 72 },
+							})
+						),
+						swatch(
+							"PanelSwatch",
+							COPY.panel,
+							COPY.panelHint,
+							UI.Box("Fill")({
 								surface = "raised",
 								width = UI.fill(),
-								height = UI.fill(),
-							}),
-						})
-					),
+								height = { type = "fixed", px = 72 },
+							})
+						),
+						swatch(
+							"FadeSwatch",
+							COPY.fade,
+							COPY.fadeHint,
+							UI.ZStack("Fill")({
+								opacity = 0.5,
+								width = UI.fill(),
+								height = { type = "fixed", px = 72 },
+
+								UI.Box("Plate")({
+									surface = "raised",
+									width = UI.fill(),
+									height = UI.fill(),
+								}),
+							})
+						),
+					}),
+					UI.Button("Open")({ label = COPY.open, onActivate = openDialog }),
+					UI.Text("Note")({ text = COPY.note, textSize = "caption", role = "secondary" }),
+					UI.Alert("TransparencyDialog")({
+						title = COPY.dialogTitle,
+						message = COPY.dialogBody,
+						isPresented = dialogOpen,
+						actions = { { id = "DClose", label = COPY.close, role = "cancel" } },
+					}),
 				}),
-				UI.Button({ id = "Open", label = COPY.open, onActivate = openDialog }),
-				UI.Text({ id = "Note", text = COPY.note, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
@@ -237,45 +216,41 @@ return {
 			steps = {
 				setFull = function()
 					apply(1)
-					return { setting = setting:get() }
+					return { setting = setting:peek() }
 				end,
 				setHalf = function()
 					apply(0.5)
-					return { setting = setting:get() }
+					return { setting = setting:peek() }
 				end,
 				setOpaque = function()
 					apply(0)
-					return { setting = setting:get() }
+					return { setting = setting:peek() }
 				end,
 				openDialog = function()
 					openDialog()
-					return { open = dialog ~= nil, depth = pres.depth() }
+					return { open = dialogOpen:peek(), depth = pres.depth() }
 				end,
 				closeDialog = function()
 					closeDialog()
-					return { open = dialog ~= nil, depth = pres.depth() }
+					return { open = dialogOpen:peek(), depth = pres.depth() }
 				end,
 			},
 			report = function()
 				local effective: any = nil
 				if env ~= nil then
 					local ok, value = pcall(function()
-						return env:get("effectiveTransparency"):get()
+						return env:get("effectiveTransparency"):peek()
 					end)
 					effective = if ok then value else nil
 				end
 				return {
-					setting = setting:get(),
+					setting = setting:peek(),
 					-- the DERIVED value the framework actually paints with, read
 					-- from the environment rather than recomputed here
 					effectiveTransparency = effective,
-					dialogOpen = dialog ~= nil,
+					dialogOpen = dialogOpen:peek(),
 					scrimPath = pres.topScrimPath(),
 				}
-			end,
-			dispose = function()
-				closeDialog()
-				scope:dispose()
 			end,
 		}
 	end,

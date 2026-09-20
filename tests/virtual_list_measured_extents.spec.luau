@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	MEASURED ITEM EXTENTS — `newVirtualList.itemExtent = "measured"` (Stage 2 of
 	`docs/plans/variable-item-extents.md`).
@@ -45,8 +46,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local mountLib = require("../src/mount")
-local fake_target = require("../tests/lib/fake_target")
+local mountLib = harness
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -93,7 +95,7 @@ local function newList(core: any, opts: any)
 		viewportExtent = opts.viewportExtent or 498,
 		overscan = opts.overscan or 2,
 		cell = opts.cell or function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	})
 end
@@ -101,13 +103,13 @@ end
 -- a PRESENTED list, so the real solver measures the cells and the presenter runs
 -- the geometry broadcast that feeds the measurement back
 local function world(opts: any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(opts.rows or makeRows(8))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(opts.rows or makeRows(8))
 	local list = newList(core, {
 		rows = rows,
 		axis = opts.axis,
@@ -118,7 +120,7 @@ local function world(opts: any)
 		overscan = opts.overscan,
 		cell = opts.cell,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local w: any = { core = core, list = list, rows = rows, adapter = adapter, handle = handle, pres = pres }
@@ -144,7 +146,7 @@ end
 local function plateCell(pxOf: (item: any) -> number, axis: string?)
 	return function(item: any)
 		local fixed: any = { type = "fixed", px = pxOf(item) }
-		return Facet.UI.Box({
+		return harness.UI.Box({
 			id = "Plate",
 			width = if axis == "x" then fixed else { type = "fill", weight = 1 },
 			height = if axis == "x" then { type = "fill", weight = 1 } else fixed,
@@ -154,8 +156,8 @@ end
 
 describe("VirtualList measured extents: what the spec accepts", function()
 	it('accepts itemExtent = "measured" with an estimate, and the dump says so', function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(6))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(6))
 		local list = newList(core, { rows = rows, itemExtent = "measured", estimatedItemExtent = 56 })
 		local d = list.dump()
 		expect(d.itemExtentMode).toBe("measured")
@@ -171,8 +173,8 @@ describe("VirtualList measured extents: what the spec accepts", function()
 	end)
 
 	it("refuses measured mode with no estimate, and an estimate that is not a positive number", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local function build(estimate: any)
 			local list = newList(core, { rows = rows, itemExtent = "measured", estimatedItemExtent = estimate })
 			list.dispose()
@@ -191,8 +193,8 @@ describe("VirtualList measured extents: what the spec accepts", function()
 			`rowCapability.assertNarrowsSomething` already applies to the per-row
 			opt-outs: an accepted property that does nothing is worse than a refused
 			one, because the author believes it took effect. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local ok, err = pcall(function()
 			newList(core, { rows = rows, itemExtent = 56, estimatedItemExtent = 40 })
 		end)
@@ -202,8 +204,8 @@ describe("VirtualList measured extents: what the spec accepts", function()
 	end)
 
 	it('refuses any other string: "measured" is the one word, not an open enum', function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		expect(pcall(function()
 			newList(core, { rows = rows, itemExtent = "auto", estimatedItemExtent = 56 })
 		end)).toBe(false)
@@ -286,29 +288,29 @@ describe("VirtualList measured extents: the row is windowed at what it measures"
 	end)
 
 	it("a row that SHRINKS is re-measured down, not ratcheted", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local rows = core:signal(makeRows(3))
-		local px = core:signal(120)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell(makeRows(3))
+		local px = Compose.cell(120)
 		local list = newList(core, {
 			rows = rows,
 			itemExtent = "measured",
 			estimatedItemExtent = 40,
 			viewportExtent = 600,
 			cell = function()
-				return Facet.UI.Box({
+				return harness.UI.Box({
 					id = "Plate",
 					width = { type = "fill", weight = 1 },
-					height = core:memo(function(use)
+					height = Compose.formula(function(use)
 						return { type = "fixed", px = use(px) }
 					end),
 				})
 			end,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		expect(list.dump().contentExtent).toBe(3 * 120)
 		px:set(48)
@@ -374,7 +376,7 @@ describe("VirtualList measured extents: what a measurement is allowed to be", fu
 			viewportExtent = 600,
 			-- an empty stack: it measures nothing at all on either axis
 			cell = function()
-				return Facet.UI.VStack({ id = "Empty", padding = 0, gap = 0, children = {} })
+				return harness.UI.VStack({ id = "Empty", padding = 0, gap = 0, children = {} })
 			end,
 		})
 		zero.pres.refresh()
@@ -392,8 +394,8 @@ describe("VirtualList measured extents: laziness survives", function()
 			would delete the property the control exists for. A build counter, not a
 			timer: the perf runner's own A/A control on these scenes measures a
 			±5%..±28% band, which cannot resolve this and never could. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(10000))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(10000))
 		local built = 0
 		local list = newList(core, {
 			rows = rows,
@@ -402,7 +404,7 @@ describe("VirtualList measured extents: laziness survives", function()
 			viewportExtent = 498,
 			cell = function(item: any)
 				built += 1
-				return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+				return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 			end,
 		})
 		local root = mountLib.mount(core, list.blueprint)
@@ -472,29 +474,29 @@ describe("VirtualList measured extents: the scroll does not jump as measurements
 			viewport grows with it. Without the anchor the player is somewhere else in
 			their list — the recorded jump class. Stage 1 built the anchor for the
 			DECLARED path; this is it running on measurements. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local rows = core:signal(makeRows(200))
-		local px = core:signal(56)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local rows = Compose.cell(makeRows(200))
+		local px = Compose.cell(56)
 		local list = newList(core, {
 			rows = rows,
 			itemExtent = "measured",
 			estimatedItemExtent = 56,
 			viewportExtent = 400,
 			cell = function()
-				return Facet.UI.Box({
+				return harness.UI.Box({
 					id = "Plate",
 					width = { type = "fill", weight = 1 },
-					height = core:memo(function(use)
+					height = Compose.formula(function(use)
 						return { type = "fixed", px = use(px) }
 					end),
 				})
 			end,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 		pres.refresh()
 		local ctrl = scrollStub()
 		list.bindNativeScroll(ctrl, "/S/VL")
@@ -540,15 +542,15 @@ describe("VirtualList measured extents: a fill main axis is refused", function()
 			collapse to nothing and no number in any dump would say why. The intent is
 			circular in measured mode — the row is as tall as the cell, so a cell that
 			asks to be as tall as the row is asking to be as tall as itself. ]]
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(3))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(3))
 		local ok, err = pcall(function()
 			local list = newList(core, {
 				rows = rows,
 				itemExtent = "measured",
 				estimatedItemExtent = 56,
 				cell = function()
-					return Facet.UI.Box({
+					return harness.UI.Box({
 						id = "Plate",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
@@ -577,14 +579,14 @@ describe("VirtualList measured extents: a fill main axis is refused", function()
 	end)
 
 	it("a DECLARED list still accepts a fill cell — the refusal is measured mode's", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(3))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(3))
 		local ok = pcall(function()
 			local list = newList(core, {
 				rows = rows,
 				itemExtent = 56,
 				cell = function()
-					return Facet.UI.Box({
+					return harness.UI.Box({
 						id = "Plate",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },

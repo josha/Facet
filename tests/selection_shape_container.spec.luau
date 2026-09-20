@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE CONTAINER IS THE AUTHORITY ON THE FILL'S SILHOUETTE.
 
 	WHAT WAS REPORTED (owner, 2026-09-12, Compact Pointer): a pill-shaped tab
@@ -49,14 +50,15 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local snapshot = require("../src/themes/snapshot")
 local styling = require("../src/tokens/styling")
 local selectionIndicator = require("../src/controls/selection_indicator")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 local BAR = "/S/View/Indicator/Layer/Bar"
 local TRACK = "/S/View/Indicator/Track"
@@ -108,9 +110,9 @@ local function stripWorld(metrics: any)
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 		themeMetrics = metrics,
 	})
-	local picker = Facet.Controls.Picker(w.core, {
+	local picker = harness.Controls.Picker(w.core, {
 		id = "View",
-		selected = w.core:signal("a"),
+		selected = Compose.cell("a"),
 		options = { { value = "a", label = "One" }, { value = "b", label = "Two" }, { value = "c", label = "Tri" } },
 		env = w.env,
 		presentation = "segmented",
@@ -128,10 +130,10 @@ local function adaptableBarWorld(metrics: any)
 		themeMetrics = metrics,
 		env = { viewingDistance = "ten-foot" },
 	})
-	local tabs = Facet.Controls.TabView(w.core, {
+	local tabs = harness.Controls.TabView(w.core, {
 		id = "Tabs",
 		env = w.env,
-		selection = w.core:signal("a"),
+		selection = Compose.cell("a"),
 		style = "sidebarAdaptable",
 		tabs = {
 			{
@@ -239,10 +241,10 @@ describe("selection shape: the adaptable app bar follows the control shape of it
 			capabilities = { mouse = true, keyboard = true },
 			themeMetrics = metrics,
 		})
-		local tabs = Facet.Controls.TabView(w.core, {
+		local tabs = harness.Controls.TabView(w.core, {
 			id = "Tabs",
 			env = w.env,
-			selection = w.core:signal("a"),
+			selection = Compose.cell("a"),
 			style = "sidebarAdaptable",
 			tabs = {
 				{
@@ -297,7 +299,7 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 } })
 		local spec: any = {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 			env = w.env,
 			presentation = "segmented",
@@ -306,7 +308,7 @@ describe("selection shape: naming a container that cannot answer is an authoring
 			spec[key] = value
 		end
 		local ok, err = pcall(function()
-			return Facet.Controls.Picker(w.core, spec)
+			return harness.Controls.Picker(w.core, spec)
 		end)
 		return ok, tostring(err)
 	end
@@ -352,9 +354,9 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 }, themeMetrics = metrics })
 		local function buildIn(corner: string): (boolean, string)
 			local ok, err = pcall(function()
-				return Facet.Controls.Picker(w.core, {
+				return harness.Controls.Picker(w.core, {
 					id = "View",
-					selected = w.core:signal("a"),
+					selected = Compose.cell("a"),
 					options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 					env = w.env,
 					presentation = "segmented",
@@ -471,10 +473,10 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		-- once at build and keeps the token it took, which `paintCorners` then
 		-- answers for or leaves at the authored number — no memo, nothing to
 		-- quarantine
-		local container = w.core:signal("chip")
-		local picker = Facet.Controls.Picker(w.core, {
+		local container = Compose.cell("chip")
+		local picker = harness.Controls.Picker(w.core, {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 			env = w.env,
 			presentation = "segmented",
@@ -494,10 +496,10 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		local corners = (after :: any).props.corners
 		expect(`corners present: {corners ~= nil}`).toBe("corners present: true")
 		-- THE DIRECT EVIDENCE FIRST: nothing was quarantined. Without the
-		-- defensive resolve the memo raises here, `core:lastError()` records it,
+		-- defensive resolve the memo raises here, `core.lastError()` records it,
 		-- and the bar keeps whatever corner data it happened to hold — a stale
 		-- token under a style that cannot answer it.
-		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		expect(`quarantined: {tostring(w.core.lastError())}`).toBe("quarantined: nil")
 		-- ...and it re-derived to the plain `selection` token, which every style
 		-- answers
 		expect(corners.tokens.radius).toBe("selection")
@@ -519,7 +521,6 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		w.pres.refresh()
 		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 		picker.dispose()
-		container:dispose()
 	end)
 
 	it("a REACTIVE stripCorner typo is healed, but SAID — once per token", function()
@@ -534,10 +535,10 @@ describe("selection shape: naming a container that cannot answer is an authoring
 			.cornerFallbacks` is how that "once" is asserted rather than watched
 			for in a log. ]]
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 } })
-		local container = w.core:signal("panel")
-		local picker = Facet.Controls.Picker(w.core, {
+		local container = Compose.cell("panel")
+		local picker = harness.Controls.Picker(w.core, {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 			env = w.env,
 			presentation = "segmented",
@@ -553,7 +554,7 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		-- healed: the bar still has a corner, the plain one every style answers
 		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection")
 		-- ...and nothing was quarantined, which is what the fallback bought
-		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		expect(`quarantined: {tostring(w.core.lastError())}`).toBe("quarantined: nil")
 		-- ...and it was SAID, exactly once
 		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 
@@ -578,7 +579,6 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection:pill")
 		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
 		picker.dispose()
-		container:dispose()
 	end)
 
 	it("a hand-built metrics table without `radii` degrades to neutral, it does not raise", function()
@@ -594,10 +594,10 @@ describe("selection shape: naming a container that cannot answer is an authoring
 			viewport = { x = 0, y = 0, w = 640, h = 720 },
 			themeMetrics = { controls = { alert = { maxWidth = 400 } } } :: any,
 		})
-		local container = w.core:signal("panel")
-		local picker = Facet.Controls.Picker(w.core, {
+		local container = Compose.cell("panel")
+		local picker = harness.Controls.Picker(w.core, {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 			env = w.env,
 			presentation = "segmented",
@@ -607,13 +607,12 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
 		local bar = w.adapter.node(BAR)
 		expect(`bar mounted: {bar ~= nil}`).toBe("bar mounted: true")
-		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		expect(`quarantined: {tostring(w.core.lastError())}`).toBe("quarantined: nil")
 		-- the neutral snapshot answers the container, so this is not even a
 		-- fallback — the memo simply never saw the unusable table
 		expect((bar :: any).props.corners.tokens.radius).toBe("selection:panel")
 		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
 		picker.dispose()
-		container:dispose()
 	end)
 
 	--[[ A METRICS TABLE THAT PASSES THE GUARD AND STILL CANNOT ANSWER `selection`
@@ -642,9 +641,9 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		})
 		local picker
 		local ok, err = pcall(function()
-			picker = Facet.Controls.Picker(w.core, {
+			picker = harness.Controls.Picker(w.core, {
 				id = "View",
-				selected = w.core:signal("a"),
+				selected = Compose.cell("a"),
 				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 				env = w.env,
 				presentation = "segmented",
@@ -654,7 +653,7 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		w.present(UI.Screen({ id = "S", children = { (picker :: any).blueprint } }))
 		local bar = w.adapter.node(BAR)
 		expect(`bar mounted: {bar ~= nil}`).toBe("bar mounted: true")
-		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		expect(`quarantined: {tostring(w.core.lastError())}`).toBe("quarantined: nil")
 		-- and it paints a REAL corner, not a dropped prop that reads as square
 		local corners = (bar :: any).props.corners
 		expect(`corners: {type(corners)}`).toBe("corners: table")
@@ -670,10 +669,10 @@ describe("selection shape: naming a container that cannot answer is an authoring
 			viewport = { x = 0, y = 0, w = 640, h = 720 },
 			themeMetrics = PARTIAL_METRICS,
 		})
-		local container = w.core:signal("panel")
-		local picker = Facet.Controls.Picker(w.core, {
+		local container = Compose.cell("panel")
+		local picker = harness.Controls.Picker(w.core, {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 			env = w.env,
 			presentation = "segmented",
@@ -681,19 +680,18 @@ describe("selection shape: naming a container that cannot answer is an authoring
 			stripCorner = container,
 		})
 		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
-		expect(`quarantined at build: {tostring(w.core:lastError())}`).toBe("quarantined at build: nil")
+		expect(`quarantined at build: {tostring(w.core.lastError())}`).toBe("quarantined at build: nil")
 		container:set("panle")
 		w.pres.refresh()
 		local bar = w.adapter.node(BAR)
 		expect(`bar mounted: {bar ~= nil}`).toBe("bar mounted: true")
-		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		expect(`quarantined: {tostring(w.core.lastError())}`).toBe("quarantined: nil")
 		local corners = (bar :: any).props.corners
 		expect(`corners: {type(corners)}`).toBe("corners: table")
 		expect(styling.paintCorners(corners, PARTIAL_METRICS).radius > 0).toBe(true)
 		-- ...and it was SAID: healing quietly is the thing this control refuses
 		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 		picker.dispose()
-		container:dispose()
 	end)
 
 	it("with NO theme in hand at all the message says the vocabulary is the base style's", function()
@@ -704,11 +702,11 @@ describe("selection shape: naming a container that cannot answer is an authoring
 			knows every radius that exists. ]]
 		-- a BARE core: no presenter, no surface, so `surfaceEnv.find` answers
 		-- nothing and there is no live radii table to check against
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
-			return Facet.Controls.Picker(core, {
+			return harness.Controls.Picker(core, {
 				id = "View",
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
 				presentation = "segmented",
 				track = false,

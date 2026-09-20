@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE HEADLESS TWIN OF THE FIVE-VIEW DEVICE MATRIX (RS-A16 structural guard).
 --
 -- WHY THIS EXISTS. The rich-skinning-v2 matrix was stopped twice by defects that
@@ -152,7 +153,7 @@ end
 -- seams stubbed exactly as tests/theme_authoring_scenario.spec.luau stubs them:
 -- the module under solve is the same file Studio loads.
 local function solveRow(row: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", row.view.viewport)
 	env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
@@ -165,11 +166,13 @@ local function solveRow(row: any): any
 	-- 8px off the cross axis when content overflows, and a row solved without it
 	-- would lay out 8px wider than the live one
 	adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	local chromeState = chrome_slots.newState(nil)
 	local ctx: any
 	ctx = {
 		Facet = Facet,
+		UI = harness.libraryOf(core),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -228,7 +231,7 @@ local function solveRow(row: any): any
 		assert(applied.ok == true, `{row.id}: the package must install (got {tostring(applied.error)})`)
 		presenter.refresh()
 	end
-	local metrics = env:get("themeMetrics"):get()
+	local metrics = env:get("themeMetrics"):peek()
 	local nodes: { [string]: any } = {}
 	for _, path in adapter.paths() do
 		local node = adapter.node(path)
@@ -242,7 +245,7 @@ local function solveRow(row: any): any
 		metrics = metrics,
 		-- the factor the renderer painted authored text sizes with (the ten-foot
 		-- floor); the measure seam used the same one, preferredTextSize being 1
-		paintScale = env:get("typographyPaintScale"):get(),
+		paintScale = env:get("typographyPaintScale"):peek(),
 		nodes = nodes,
 		paths = adapter.paths(),
 		adapter = adapter,

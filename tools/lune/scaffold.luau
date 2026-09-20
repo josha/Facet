@@ -8,7 +8,8 @@
 --             dump surface), tests/<name>.spec.luau (a deliberately-failing
 --             TODO test: the red step of the loop), a gallery scenario, and
 --             EVERY registration a twentieth control needs — the runner, the
---             controls registry, the src/init.luau export, the api.md stub, the
+--             controls registry, the src/render/compose_controls.luau
+--             registration behind `app.controls.<Name>`, the api.md stub, the
 --             large-text fixture, the guide's capability catalog, the Controls
 --             namespace allowlist, the scenario ORDER, the overflow sweep, the
 --             demo picker and its pinned root and counts.
@@ -82,28 +83,32 @@ local CONTROL_TEMPLATE = [==[
 --!strict
 -- %DISPLAY% control (scaffolded by tools/lune/scaffold — replace this line
 -- with what the control IS and which primitives it composes).
--- Composite-control seam: build(Facet, core, spec) returns
--- { blueprint, dump, dispose } (plus any control-specific api). Compose the
--- shipped UI.* primitives; own every resource in the control scope; expose a
--- deterministic dump() (the control contract's diagnostic form).
+-- Composite-control seam: build(library, core, spec) returns
+-- { blueprint, dump, dispose } (plus any control-specific api). `library.UI` is
+-- the control-side node vocabulary; the application reaches this control as
+-- `app.controls.%DISPLAY%("Id")({...})` once src/render/compose_controls.luau
+-- registers it. The control is built under the caller's Compose owner, which
+-- releases everything it creates; expose a deterministic dump() (the control
+-- contract's diagnostic form).
+
+local contribution = require("../input/contribution")
+local Compose = require("../../src/vendor/compose/core")
 
 local %NAME% = {}
 
 export type Spec = {
 	id: string?,
-	-- TODO: the real spec keys. `Facet.Controls.%DISPLAY%` in src/init.luau
-	-- declares this type, so a caller gets argument checking, not `any`.
+	-- TODO: the real spec keys, so a caller gets argument checking, not `any`.
 	[string]: any,
 }
 
-function %NAME%.build(Facet: any, core: any, spec: Spec)
-	local UI = Facet.UI
-	-- the input-contribution seam is PUBLIC (Facet.contribution), so a control
-	-- built outside this repository attaches its bundle exactly like this one
-	local contribution = Facet.contribution
-	local scope = core:scope("%NAME%-" .. tostring(spec.id or "%DISPLAY%"))
+function %NAME%.build(library: any, _core: any, spec: Spec)
+	local UI = library.UI
 
-	-- TODO: control state (signals/memos) owned by `scope`
+	-- TODO: control state. Require `../vendor/compose/core` as `Compose`: a
+	-- `Compose.cell` / `Compose.formula` / `Compose.watch` made here belongs to
+	-- the owner this control is built under; register any other teardown with
+	-- `Compose.cleanup`.
 
 	local blueprint = UI.VStack({
 		id = spec.id or "%DISPLAY%",
@@ -181,9 +186,7 @@ function %NAME%.build(Facet: any, core: any, spec: Spec)
 	return {
 		blueprint = blueprint,
 		dump = dump,
-		dispose = function()
-			scope:dispose()
-		end,
+		dispose = function() end,
 	}
 end
 
@@ -199,14 +202,15 @@ local SPEC_TEMPLATE = [==[
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local Facet = require("../src") :: any
-local %NAME% = require("../src/controls/%NAME%")
+local world = require("./lib/world")
 
 describe("%DISPLAY% control", function()
 	it("TODO: replace with the control's first real behavior", function()
-		local core = Facet.newCore()
-		local control = %NAME%.build(Facet, core, { id = "%DISPLAY%" })
-		expect(control.blueprint ~= nil).toBeTruthy()
+		local w = world.new()
+		w.present(function()
+			return w.UI.Screen("S")({ w.UI.%DISPLAY%("Ctl")({}) })
+		end)
+		expect(w.record("Ctl").blueprint ~= nil).toBeTruthy()
 		error("unimplemented: write the control's real failing test, then implement it")
 	end)
 
@@ -398,7 +402,7 @@ local LARGE_TEXT_FIXTURE_TEMPLATE = [==[
 		-- the stub proves the stub, and the sweep's whole question is whether THIS
 		-- control's text still fits its boxes at +14px in a wider theme.
 		build = function(core: any)
-			return Facet.Controls.%DISPLAY%(core, { id = "Ctl" }).blueprint
+			return harness.Controls.%DISPLAY%(core, { id = "Ctl" }).blueprint
 		end,
 	},
 ]==]
@@ -420,31 +424,39 @@ local LARGE_TEXT_FIXTURE_TEMPLATE = [==[
 	its author wrote would have found. ]]
 local SCENARIO_TEMPLATE = [==[
 --!strict
--- Current application authoring: a component owns its state and controls.
+-- Application authoring: a component function owns its state and controls.
 -- Add real commands/readbacks, then exercise this mounted view on every input.
 return {
-    title = "%DISPLAY%", ledgerRows = {},
-    build = function(ctx: any)
-        local Facet, UI = ctx.Facet, ctx.Facet.View
-        local latest = {}
-        local Example = Facet.component(function(ui)
-            -- TODO: local value, setValue = ui.state(initial)
-            -- Keep report data in sync with an owned effect if the driver needs it.
-            return UI.Screen {
-                id = "%DISPLAY%", padding = "m", gap = "s",
-                UI.ScrollView {
-                    id = "Page", axis = "y", gap = "s", width = UI.fill(), height = UI.fill(),
-                    UI.Text { id = "Title", text = "%DISPLAY%" },
-                    UI.%DISPLAY% { id = "Ctl" },
-                },
-            }
-        end)
-        return {
-            screen = Example {},
-            -- TODO: one named command per user action, plus reset.
-            steps = {}, report = function() return latest end,
-        }
-    end,
+	title = "%DISPLAY%",
+	ledgerRows = {},
+	build = function(ctx: any)
+		local UI = ctx.UI
+		local latest = {}
+		local function Example()
+			-- TODO: local value = ctx.Compose.cell(initial)
+			-- Keep report data in sync with a `ctx.Compose.watch` if the driver needs it.
+			return UI.Screen("%DISPLAY%")({
+				padding = "m",
+				gap = "s",
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+					UI.Text("Title")({ text = "%DISPLAY%" }),
+					UI.%DISPLAY%("Ctl")({}),
+				}),
+			})
+		end
+		return {
+			screen = Example,
+			-- TODO: one named command per user action, plus reset.
+			steps = {},
+			report = function()
+				return latest
+			end,
+		}
+	end,
 }
 ]==]
 
@@ -452,14 +464,14 @@ return {
 -- documentation-gate cases for the first agent to contribute a control, with
 -- nothing in any playbook saying the row was mandatory.
 local GUIDE_CATALOG_ROW_TEMPLATE =
-	[==[| `Controls.%DISPLAY%` | TODO: one sentence, in a Roblox developer's words, about what this control does. | [api](../reference/api.md#controls%LOWERDISPLAY%) |]==]
+	[==[| `UI.%DISPLAY%` | TODO: one sentence, in a Roblox developer's words, about what this control does. | [api](../reference/api.md#ui%LOWERDISPLAY%) |]==]
 
 -- the Controls namespace allowlist. A control created after the namespace
 -- landed has no old form and no deprecation row, so it joins POST_ADR_NAMES
 -- rather than the migration set.
 local NAMESPACE_NAME_TEMPLATE = [==[	"%DISPLAY%",]==]
 
-local SCENARIO_ORDER_TEMPLATE = [==[	-- scaffolded showcase surface for `Facet.Controls.%DISPLAY%`. Also in
+local SCENARIO_ORDER_TEMPLATE = [==[	-- scaffolded showcase surface for the `%DISPLAY%` control. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"%NAME%",]==]
 
@@ -483,10 +495,10 @@ local REGISTRY_ROW_TEMPLATE = [==[
 		name = "%DISPLAY%",
 		kind = "composite",
 		module = "src/controls/%NAME%.luau",
-		export = "Controls.%DISPLAY%",
+		export = "UI.%DISPLAY%",
 		spec = "tests/%NAME%.spec.luau",
 		conformance = "tests/%NAME%.spec.luau",
-		docsAnchor = "Controls.%DISPLAY%",
+		docsAnchor = "UI.%DISPLAY%",
 		-- cite the dump DEFINITION exactly (check_registration requires the text to
 		-- exist in the module); a module with no dump surface declares
 		-- `dump = false` with a `reason` instead
@@ -516,16 +528,12 @@ local REGISTRY_ROW_TEMPLATE = [==[
 
 local API_STUB_TEMPLATE = [==[
 
-### `Controls.%DISPLAY%`
+### `UI.%DISPLAY%`
 
-`Facet.Controls.%DISPLAY%(core, spec) -> { blueprint, dump, dispose }` —
+`app.controls.%DISPLAY%("Id")({ ...spec })` answers the control's node —
 TODO: one-paragraph description, the spec shape, invariants, and a short
 usage example (scaffolded stub — the registration checker requires this
-anchor; the docs-accuracy review requires it to be REAL).
-
-A control created after 0.10.0 has ONE public spelling. There is no
-`Facet.new%DISPLAY%` — the nineteen that exist predate the namespace, kept
-working and deprecated, and a new control is not born deprecated.]==]
+anchor; the docs-accuracy review requires it to be REAL).]==]
 
 local function fill(template: string, name: string, display: string): string
 	local out = string.gsub(template, "%%NAME%%", name)
@@ -629,30 +637,12 @@ function scaffold.plan(kind: string, name: string): Plan
 				before = "scaffold: new control rows are appended above this line",
 				insert = fill(REGISTRY_ROW_TEMPLATE, name, display),
 			},
-			--[[ THE CANONICAL EXPORT. Two edits, because the namespace
-				entry names the module twice — once to call it and once for the spec
-				type it declares — so the module needs a local. There is deliberately no
-				`new{display}` line: the nineteen old-form builders predate the namespace,
-				deprecated in the ledger, and a control scaffolded today is not born
-				into a deprecated spelling. ]]
+			-- THE ONE PUBLIC SPELLING: `app.controls.{display}`, registered beside the
+			-- other composite controls.
 			{
-				path = "src/init.luau",
-				before = "local asyncResources = ",
-				insert = `local {name} = require("@self/controls/{name}")`,
-			},
-			{
-				path = "src/init.luau",
-				before = "	AsyncImage = function(core: any, spec: any)",
-				insert = `	{display} = function(core: any, spec: {name}.Spec)\n`
-					.. `		return {name}.build(library, core, spec)\n`
-					.. `	end,`,
-			},
-			{
-				path = "src/init.luau",
-				before = "\tNavigationStack = function(spec:",
-				insert = `\t{display} = function(spec: {name}.Spec & authoring.Animated): blueprint.Blueprint\n`
-					.. `\t\treturn viewBuilders.{display}(spec)\n`
-					.. `\tend,`,
+				path = "src/render/compose_controls.luau",
+				before = '\tapi.Chip = composite("Chip"',
+				insert = `\tapi.{display} = composite("{display}", require("../controls/{name}").build)`,
 			},
 			--[[ ...AND THE LARGE-TEXT SWEEP (MAINT-3/MAINT-29, 2026-08-17). Without
 				this row the scaffold's own output failed `LT8-COVER` the moment it
@@ -679,7 +669,7 @@ function scaffold.plan(kind: string, name: string): Plan
 				everything above. ]]
 			--[[ 1. THE GUIDE'S CAPABILITY CATALOG. A missing row here fails four
 				cases in tests/theme_docs.spec ("the capability catalog does not name
-				'Controls.X'"), and no playbook said the row was mandatory — §4 asked
+				'UI.X'"), and no playbook said the row was mandatory — §4 asked
 				only for an api.md entry and a guide PARAGRAPH when the control
 				introduces a new concept. The anchor is the api.md heading the stub
 				above writes, so the two land together or not at all. It is inserted

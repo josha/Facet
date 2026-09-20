@@ -396,6 +396,8 @@ local function classify(facts: Facts): { state: string, headline: string, detail
 	return record(STATE_UNDETERMINED, unknown, COPY.unknownDetail, COPY.unknownNoProbe, nil)
 end
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Sensory feedback per control",
 	ledgerRows = {},
@@ -417,33 +419,34 @@ return {
 
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
-		local scope = core:scope("sensory-feedback")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 
 		-- ===== the report the panel at the top publishes ===================
 		-- DEFAULT TRUE. This is the DEMO opting in — see the header — and it is the
 		-- one line of this file that a reader must not confuse with the library's
 		-- own posture.
-		local playHaptics = scope:own(core:signal(true))
-		local hapticsState = scope:own(core:signal(STATE_OFF))
-		local hapticsHeadline = scope:own(core:signal(COPY.stateOffHeadline))
-		local hapticsDetail = scope:own(core:signal(COPY.stateOff))
-		local hapticsEvidence = scope:own(core:signal(COPY.evidenceOff))
+		local playHaptics = Compose.cell(true)
+		local hapticsState = Compose.cell(STATE_OFF)
+		local hapticsHeadline = Compose.cell(COPY.stateOffHeadline)
+		local hapticsDetail = Compose.cell(COPY.stateOff)
+		local hapticsEvidence = Compose.cell(COPY.evidenceOff)
 
 		-- ===== the four rows' live readouts ================================
-		local historyText = scope:own(core:signal(COPY.historyEmpty))
-		local requests = scope:own(core:signal(0))
-		local heldPath = scope:own(core:signal(""))
-		local releaseOutcome = scope:own(core:signal(COPY.stateWaiting))
-		local choice = scope:own(core:signal(FIRST_CHOICE))
+		local historyText = Compose.cell(COPY.historyEmpty)
+		local requests = Compose.cell(0)
+		local heldPath = Compose.cell("")
+		local releaseOutcome = Compose.cell(COPY.stateWaiting)
+		local choice = Compose.cell(FIRST_CHOICE)
 		-- the waveform each phase is CURRENTLY serving, read off the installed
 		-- adapters rather than written out here. A written-out table is the shape
 		-- that drifts into fiction; there is nothing left on this page to drift.
-		local pressEffect = scope:own(core:signal(NO_EFFECT))
-		local releaseEffect = scope:own(core:signal(NO_EFFECT))
-		local selectEffect = scope:own(core:signal(NO_EFFECT))
-		local customEffect = scope:own(core:signal(NO_EFFECT))
+		local pressEffect = Compose.cell(NO_EFFECT)
+		local releaseEffect = Compose.cell(NO_EFFECT)
+		local selectEffect = Compose.cell(NO_EFFECT)
+		local customEffect = Compose.cell(NO_EFFECT)
 
 		local history: { string } = {}
 
@@ -511,7 +514,7 @@ return {
 				return
 			end
 			pushLine(`{phase} {effect} · {cause} · {source}`)
-			requests:set(requests:get() + 1)
+			requests:set(requests:peek() + 1)
 		end
 
 		local function noteNothing(cause: string, why: string)
@@ -667,20 +670,20 @@ return {
 			publishPhases()
 		end
 
-		scope:own(core:observe(playHaptics, function(on: any)
+		lifetime.observe(playHaptics, function(on: any)
 			if on == true then
 				install()
 			else
 				release()
 			end
-		end))
+		end)
 		-- the fixture may be torn down with the switch still on
-		scope:own(function()
+		own(function()
 			teardown = true
 			release()
 			table.clear(customSinks)
 		end)
-		-- ...AND THE FIRST INSTALL IS EXPLICIT. `core:observe` baselines on the
+		-- ...AND THE FIRST INSTALL IS EXPLICIT. `a change listener` baselines on the
 		-- signal's CURRENT value and fires only for changes, so a default of `true`
 		-- would otherwise be a switch that reads on and installed nothing — the
 		-- exact "it says it is on and does nothing" defect this rework exists to end.
@@ -722,7 +725,7 @@ return {
 		-- this fixture learns what a control did: no control calls back into it.
 		local presenter = ctx.presenter
 		if presenter ~= nil and type(presenter.onFeedback) == "function" then
-			scope:own(presenter.onFeedback(function(event: any)
+			own(presenter.onFeedback(function(event: any)
 				local path = tostring(event.path)
 				-- only THIS surface's own controls. The showcase presents its chrome
 				-- and its demo on one presenter, so every chip-strip press is an
@@ -740,11 +743,11 @@ return {
 					if not activationIsFelt(verb) then
 						return
 					end
-					noteRequest("release", releaseEffect:get(), `{cause} → {verb}`, COPY.sourceBuiltIn)
+					noteRequest("release", releaseEffect:peek(), `{cause} → {verb}`, COPY.sourceBuiltIn)
 				elseif verb == "select" or verb == "adjust" then
-					local picked = choice:get()
+					local picked = choice:peek()
 					local named = COPY[CHOICE_KEY[picked] or ""] or picked
-					noteRequest("select", selectEffect:get(), `{cause} → {named}`, COPY.sourceBuiltIn)
+					noteRequest("select", selectEffect:peek(), `{cause} → {named}`, COPY.sourceBuiltIn)
 				end
 				-- ...AND RE-READ THE ADAPTER. `support()` is not a boot fact: it is
 				-- re-probed on every gamepad connect/disconnect, so a pad plugged in
@@ -772,7 +775,7 @@ return {
 		local function samplePointerDown(path: string): any
 			heldPath:set(path)
 			releaseOutcome:set(COPY.statePressed)
-			noteRequest("press", pressEffect:get(), causeOf(path), COPY.sourceBuiltIn)
+			noteRequest("press", pressEffect:peek(), causeOf(path), COPY.sourceBuiltIn)
 			return nil
 		end
 
@@ -813,7 +816,7 @@ return {
 			player cannot see, so the no-op is written down instead: the absence
 			becomes evidence rather than an unexplained silence. ]]
 		local function choose(id: string)
-			if choice:get() == id then
+			if choice:peek() == id then
 				local named = COPY[CHOICE_KEY[id] or ""] or id
 				noteNothing(`{COPY.selectLabel} → {named} {COPY.causeAgain}`, COPY.whyUnchanged)
 				return
@@ -827,7 +830,7 @@ return {
 			the press at all. One gesture, one request, and no arithmetic needed to
 			believe it. ]]
 		local function playCustom()
-			local effect = customEffect:get()
+			local effect = customEffect:peek()
 			if customHap == nil or effect == NO_EFFECT then
 				noteNothing(COPY.customLabel, COPY.whyOff)
 				return
@@ -844,8 +847,7 @@ return {
 
 		-- ===== the tree ====================================================
 		local function caption(id: string, text: any, secondary: boolean?): any
-			return UI.Text({
-				id = id,
+			return UI.Text(id)({
 				text = text,
 				textSize = "caption",
 				role = if secondary == true then "secondary" else nil,
@@ -853,8 +855,7 @@ return {
 		end
 
 		local function sampleButton(id: string, label: string): any
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				surface = "chip",
 				onPointerDown = function(path: string): any
@@ -867,225 +868,219 @@ return {
 			})
 		end
 
-		local pressLine = scope:own(core:memo(function(use)
+		local pressLine = Compose.formula(function(use)
 			return `{COPY.phasePrefix} press → {use(pressEffect)} · {COPY.sourceBuiltIn}`
-		end))
-		local releaseLine = scope:own(core:memo(function(use)
+		end)
+		local releaseLine = Compose.formula(function(use)
 			return `{COPY.phasePrefix} release → {use(releaseEffect)} · {COPY.sourceBuiltIn}`
-		end))
-		local selectLine = scope:own(core:memo(function(use)
+		end)
+		local selectLine = Compose.formula(function(use)
 			return `{COPY.phasePrefix} select → {use(selectEffect)} · {COPY.sourceBuiltIn}`
-		end))
-		local customLine = scope:own(core:memo(function(use)
+		end)
+		local customLine = Compose.formula(function(use)
 			return `{COPY.phasePrefix} release → {use(customEffect)} · {COPY.sourceOverride}`
-		end))
-		local pressState = scope:own(core:memo(function(use)
+		end)
+		local pressState = Compose.formula(function(use)
 			return if use(heldPath) ~= "" then COPY.statePressed else COPY.stateIdle
-		end))
-		local statusLine = scope:own(core:memo(function(use)
+		end)
+		local statusLine = Compose.formula(function(use)
 			return `{use(hapticsHeadline)} · {use(hapticsDetail)}`
-		end))
-		local requestLine = scope:own(core:memo(function(use)
+		end)
+		local requestLine = Compose.formula(function(use)
 			return `{COPY.requestsPrefix}: {use(requests)}`
-		end))
-		local choiceLine = scope:own(core:memo(function(use)
+		end)
+		local choiceLine = Compose.formula(function(use)
 			local id = use(choice)
 			return `{COPY.selectLabel}: {COPY[CHOICE_KEY[id] or ""] or id}`
-		end))
-
-		local optionButtons: { any } = {}
-		for _, option in CHOICES do
-			local id = option.id
-			table.insert(
-				optionButtons,
-				UI.Button({
-					id = id,
-					label = COPY[option.copyKey],
-					surface = "chip",
-					selected = scope:own(core:memo(function(use)
-						return use(choice) == id
-					end)),
-					onActivate = function()
-						choose(id)
-					end,
-				})
-			)
-		end
-
-		--[[ BOTH FORMS OF ONE MODIFIER, ON ONE NODE, and they compose because they
-			describe two different causes. The CHANGE form fires when the value moves,
-			which is the tick; `activation = "none"` silences each option's OWN press,
-			so the row's only sensation is the choice moving — which is what makes it a
-			comparison rather than a pile. ]]
-		local choiceGroup = UI.sensoryFeedback(
-			UI.sensoryFeedback(
-				UI.HStack({ id = "Choice", wrap = true, gap = "tight", children = optionButtons }),
-				{ trigger = choice, event = "select" }
-			),
-			{ activation = "none" }
-		)
+		end)
 
 		-- one button, declared or not. The ONLY difference between these five is the
 		-- modifier — same class, same surface, same label treatment.
 		local function declaredButton(entry: { id: string, copyKey: string, activation: string? }): any
-			local button = UI.Button({ id = entry.id, label = COPY[entry.copyKey], surface = "chip" })
+			local button = UI.Button(entry.id)({ label = COPY[entry.copyKey], surface = "chip" })
 			if entry.activation == nil then
 				return button
 			end
 			return UI.sensoryFeedback(button, { activation = entry.activation })
 		end
 
-		local leafButtons: { any } = {}
-		for _, entry in DECLARED do
-			table.insert(leafButtons, declaredButton(entry))
-		end
-
 		local function panel(id: string, children: { any }): any
-			return UI.VStack({
-				id = id,
+			return UI.VStack(id)({
 				surface = "control",
 				padding = "s",
 				gap = "tight",
 				width = UI.fill(),
-				children = children,
+				table.unpack(children),
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "SensoryFeedback",
-			padding = 12,
-			gap = "s",
+		-- deferred: Compose.create needs an active owner, which only exists once
+		-- the presenter mounts this component
+		local function screen(): any
+			local optionButtons: { any } = {}
+			for _, option in CHOICES do
+				local id = option.id
+				table.insert(
+					optionButtons,
+					UI.Button(id)({
+						label = COPY[option.copyKey],
+						surface = "chip",
+						selected = Compose.formula(function(use)
+							return use(choice) == id
+						end),
+						onActivate = function()
+							choose(id)
+						end,
+					})
+				)
+			end
 
-			-- THE PAGE SCROLLS, for the reason every fixture here does: four
-			-- comparison panels, a history and two kept panels do not fit the
-			-- ~200px a 640x320 landscape phone has left once the showcase reserves
-			-- its chip strip, and content that overflows with nothing to scroll it
-			-- is this repo's named recurring defect. What must fit WITHOUT
-			-- scrolling is the title, the sentence and the haptics panel — proved
-			-- from solved rects, per profile, at Largest text.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
+			--[[ BOTH FORMS OF ONE MODIFIER, ON ONE NODE, and they compose because
+				they describe two different causes. The CHANGE form fires when the
+				value moves, which is the tick; `activation = "none"` silences each
+				option's OWN press, so the row's only sensation is the choice moving
+				— which is what makes it a comparison rather than a pile. ]]
+			local choiceGroup = UI.sensoryFeedback(
+				UI.sensoryFeedback(
+					UI.HStack("Choice")({ wrap = true, gap = "tight", table.unpack(optionButtons) }),
+					{ trigger = choice, event = "select" }
+				),
+				{ activation = "none" }
+			)
+
+			local leafButtons: { any } = {}
+			for _, entry in DECLARED do
+				table.insert(leafButtons, declaredButton(entry))
+			end
+
+			return UI.Screen("SensoryFeedback")({
+				padding = 12,
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
 
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				caption("Intro", COPY.intro, true),
-				--[[ FIRST, AND ON. The toggle, the one-line status and the
+				-- THE PAGE SCROLLS, for the reason every fixture here does: four
+				-- comparison panels, a history and two kept panels do not fit the
+				-- ~200px a 640x320 landscape phone has left once the showcase reserves
+				-- its chip strip, and content that overflows with nothing to scroll it
+				-- is this repo's named recurring defect. What must fit WITHOUT
+				-- scrolling is the title, the sentence and the haptics panel — proved
+				-- from solved rects, per profile, at Largest text.
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					caption("Intro", COPY.intro, true),
+					--[[ FIRST, AND ON. The toggle, the one-line status and the
 							short explanation are the three things the first viewport has
 							to hold; the evidence line under them may fall below the fold
 							and is allowed to grow, because the engine's own error text is
 							appended to it and a refusal in a pseudo-localized package is
 							longer than any budget worth declaring. ]]
-				panel("Haptics", {
-					UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
-					caption("PlayState", statusLine),
-					caption("PlayNote", COPY.playNote, true),
-					caption("PlayLibrary", COPY.playLibrary, true),
-					caption("PlayEvidence", hapticsEvidence, true),
-				}),
-				panel("PressRow", {
-					caption("PressTitle", COPY.pressTitle),
-					UI.HStack({
-						id = "PressControls",
-						wrap = true,
-						gap = "tight",
-						sampleButton("PressSample", COPY.pressLabel),
+					panel("Haptics", {
+						UI.Toggle("PlayHaptics")({ label = COPY.playToggle, value = playHaptics }),
+						caption("PlayState", statusLine),
+						caption("PlayNote", COPY.playNote, true),
+						caption("PlayLibrary", COPY.playLibrary, true),
+						caption("PlayEvidence", hapticsEvidence, true),
 					}),
-					caption("PressState", pressState),
-					caption("PressPhase", pressLine),
-					caption("PressNote", COPY.pressNote, true),
-				}),
-				panel("ReleaseRow", {
-					caption("ReleaseTitle", COPY.releaseTitle),
-					UI.HStack({
-						id = "ReleaseControls",
-						wrap = true,
-						gap = "tight",
-						sampleButton("ReleaseSample", COPY.releaseLabel),
+					panel("PressRow", {
+						caption("PressTitle", COPY.pressTitle),
+						UI.HStack("PressControls")({
+							wrap = true,
+							gap = "tight",
+							sampleButton("PressSample", COPY.pressLabel),
+						}),
+						caption("PressState", pressState),
+						caption("PressPhase", pressLine),
+						caption("PressNote", COPY.pressNote, true),
 					}),
-					caption("ReleaseState", releaseOutcome),
-					caption("ReleasePhase", releaseLine),
-					caption("ReleaseNote", COPY.releaseNote, true),
-				}),
-				panel("SelectRow", {
-					caption("SelectTitle", COPY.selectTitle),
-					choiceGroup,
-					caption("SelectState", choiceLine),
-					caption("SelectPhase", selectLine),
-					caption("SelectNote", COPY.selectNote, true),
-				}),
-				panel("CustomRow", {
-					caption("CustomTitle", COPY.customTitle),
-					UI.HStack({
-						id = "CustomControls",
-						wrap = true,
-						gap = "tight",
-
-						-- `none` on the control itself: the presenter emits
-						-- nothing for it, so the INSTALLED adapter never hears
-						-- this press and the override adapter is the only thing
-						-- that answers it
-						UI.sensoryFeedback(
-							UI.Button({
-								id = "CustomSample",
-								label = COPY.customLabel,
-								surface = "chip",
-								onActivate = playCustom,
-							}),
-							{ activation = "none" }
-						),
+					panel("ReleaseRow", {
+						caption("ReleaseTitle", COPY.releaseTitle),
+						UI.HStack("ReleaseControls")({
+							wrap = true,
+							gap = "tight",
+							sampleButton("ReleaseSample", COPY.releaseLabel),
+						}),
+						caption("ReleaseState", releaseOutcome),
+						caption("ReleasePhase", releaseLine),
+						caption("ReleaseNote", COPY.releaseNote, true),
 					}),
-					caption("CustomPhase", customLine),
-					caption("CustomNote", COPY.customNote, true),
-					caption("CustomLonger", COPY.customLonger, true),
-				}),
-				panel("History", {
-					caption("HistoryTitle", COPY.historyTitle),
-					caption("HistoryLog", historyText, true),
-					caption("HistoryCount", requestLine),
-					caption("HistoryNote", COPY.historyNote, true),
-				}),
-				-- ===== KEPT: the two lessons the four rows do not teach =====
-				panel("Leaves", {
-					caption("LeavesTitle", COPY.declaredTitle),
-					-- WRAPS. Five chips at the Largest text preference,
-					-- pseudo-localized, do not fit one line on a 320px phone, and a
-					-- row that cannot wrap walks off the right edge of its own box.
-					UI.HStack({ id = "LeafRow", wrap = true, gap = "tight", children = leafButtons }),
-					caption("MuteNote", COPY.muteNote, true),
-				}),
-				-- ONE DECLARATION, THREE CONTROLS, and the nesting is the point:
-				-- `Third` sits a level deeper than the other two, so a mechanism
-				-- that only reached direct children would be visibly wrong here.
-				UI.sensoryFeedback(
-					panel("Cascade", {
-						caption("CascadeTitle", COPY.cascadeTitle),
-						UI.HStack({
-							id = "CascadeRow",
+					panel("SelectRow", {
+						caption("SelectTitle", COPY.selectTitle),
+						choiceGroup,
+						caption("SelectState", choiceLine),
+						caption("SelectPhase", selectLine),
+						caption("SelectNote", COPY.selectNote, true),
+					}),
+					panel("CustomRow", {
+						caption("CustomTitle", COPY.customTitle),
+						UI.HStack("CustomControls")({
 							wrap = true,
 							gap = "tight",
 
-							UI.Button({ id = "First", label = COPY.first, surface = "chip" }),
-							UI.VStack({
-								id = "Nested",
+							-- `none` on the control itself: the presenter emits
+							-- nothing for it, so the INSTALLED adapter never hears
+							-- this press and the override adapter is the only thing
+							-- that answers it
+							UI.sensoryFeedback(
+								UI.Button("CustomSample")({
+									label = COPY.customLabel,
+									surface = "chip",
+									onActivate = playCustom,
+								}),
+								{ activation = "none" }
+							),
+						}),
+						caption("CustomPhase", customLine),
+						caption("CustomNote", COPY.customNote, true),
+						caption("CustomLonger", COPY.customLonger, true),
+					}),
+					panel("History", {
+						caption("HistoryTitle", COPY.historyTitle),
+						caption("HistoryLog", historyText, true),
+						caption("HistoryCount", requestLine),
+						caption("HistoryNote", COPY.historyNote, true),
+					}),
+					-- ===== KEPT: the two lessons the four rows do not teach =====
+					panel("Leaves", {
+						caption("LeavesTitle", COPY.declaredTitle),
+						-- WRAPS. Five chips at the Largest text preference,
+						-- pseudo-localized, do not fit one line on a 320px phone, and a
+						-- row that cannot wrap walks off the right edge of its own box.
+						UI.HStack("LeafRow")({ wrap = true, gap = "tight", table.unpack(leafButtons) }),
+						caption("MuteNote", COPY.muteNote, true),
+					}),
+					-- ONE DECLARATION, THREE CONTROLS, and the nesting is the point:
+					-- `Third` sits a level deeper than the other two, so a mechanism
+					-- that only reached direct children would be visibly wrong here.
+					UI.sensoryFeedback(
+						panel("Cascade", {
+							caption("CascadeTitle", COPY.cascadeTitle),
+							UI.HStack("CascadeRow")({
+								wrap = true,
 								gap = "tight",
 
-								UI.Button({ id = "Second", label = COPY.second, surface = "chip" }),
-								UI.Button({ id = "Third", label = COPY.third, surface = "chip" }),
+								UI.Button("First")({ label = COPY.first, surface = "chip" }),
+								UI.VStack("Nested")({
+									gap = "tight",
+
+									UI.Button("Second")({ label = COPY.second, surface = "chip" }),
+									UI.Button("Third")({ label = COPY.third, surface = "chip" }),
+								}),
 							}),
+							caption("CascadeNote", COPY.cascadeNote, true),
 						}),
-						caption("CascadeNote", COPY.cascadeNote, true),
+						{ activation = "pickup" }
+					),
+					panel("Unknowable", {
+						caption("UnknowableTitle", COPY.unknowableTitle),
+						caption("UnknowableNote", COPY.unknowable, true),
 					}),
-					{ activation = "pickup" }
-				),
-				panel("Unknowable", {
-					caption("UnknowableTitle", COPY.unknowableTitle),
-					caption("UnknowableNote", COPY.unknowable, true),
 				}),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
@@ -1124,24 +1119,24 @@ return {
 				-- invokes `fn(session.built, payload)`, and a step that declared a
 				-- single parameter read the SESSION as its value (live find 2026-08-21)
 				readHistory = function()
-					return { history = historyText:get(), requests = requests:get() }
+					return { history = historyText:peek(), requests = requests:peek() }
 				end,
 				setPlayHaptics = function(_session, on: any)
 					playHaptics:set(on == true or on == "true")
 					return {
-						state = hapticsState:get(),
-						headline = hapticsHeadline:get(),
-						detail = hapticsDetail:get(),
+						state = hapticsState:peek(),
+						headline = hapticsHeadline:peek(),
+						detail = hapticsDetail:peek(),
 					}
 				end,
 				readHaptics = function()
 					publish()
 					publishPhases()
 					return {
-						state = hapticsState:get(),
-						headline = hapticsHeadline:get(),
-						detail = hapticsDetail:get(),
-						evidence = hapticsEvidence:get(),
+						state = hapticsState:peek(),
+						headline = hapticsHeadline:peek(),
+						detail = hapticsDetail:peek(),
+						evidence = hapticsEvidence:peek(),
 						support = if hap ~= nil then hap.support() else nil,
 						decorated = if hap ~= nil then hap.diagnostics().decorated else 0,
 					}
@@ -1150,13 +1145,13 @@ return {
 				-- call — so a scripted sweep and a finger take one path
 				readRows = function()
 					return {
-						press = pressEffect:get(),
-						release = releaseEffect:get(),
-						select = selectEffect:get(),
-						custom = customEffect:get(),
-						choice = choice:get(),
-						held = heldPath:get(),
-						outcome = releaseOutcome:get(),
+						press = pressEffect:peek(),
+						release = releaseEffect:peek(),
+						select = selectEffect:peek(),
+						custom = customEffect:peek(),
+						choice = choice:peek(),
+						held = heldPath:peek(),
+						outcome = releaseOutcome:peek(),
 						releasePlays = if hap ~= nil then hap.diagnostics().phases.release.plays else 0,
 						selectPlays = if hap ~= nil then hap.diagnostics().phases.select.plays else 0,
 						customPlays = if customHap ~= nil then customHap.diagnostics().phases.release.plays else 0,
@@ -1164,25 +1159,25 @@ return {
 				end,
 				choose = function(_session, id: any)
 					choose(tostring(id))
-					return { choice = choice:get(), history = historyText:get() }
+					return { choice = choice:peek(), history = historyText:peek() }
 				end,
 				playCustom = function()
 					playCustom()
-					return { history = historyText:get() }
+					return { history = historyText:peek() }
 				end,
 			},
 
 			report = function()
 				return {
-					history = historyText:get(),
-					requests = requests:get(),
-					haptics = hapticsState:get(),
-					hapticsDetail = hapticsDetail:get(),
+					history = historyText:peek(),
+					requests = requests:peek(),
+					haptics = hapticsState:peek(),
+					hapticsDetail = hapticsDetail:peek(),
 				}
 			end,
 
 			dispose = function()
-				scope:dispose()
+				lifetime.dispose()
 			end,
 		}
 	end,

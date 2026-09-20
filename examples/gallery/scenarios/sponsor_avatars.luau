@@ -15,16 +15,19 @@
 -- apart" retry is one second of the same time everything else on this surface
 -- runs on — never `os.clock`, never a `task.delay`.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Avatar lab (SF-A1..A4/P2)",
 	ledgerRows = { "SF-A1", "SF-A2", "SF-A3", "SF-A4", "SF-P2", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-avatars")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 
 		local SCREEN = "/AvatarLab"
 		local GRID = SCREEN .. "/Avatars"
@@ -34,7 +37,7 @@ return {
 		local function note(kind: string, info: any?)
 			table.insert(trace, { at = elapsed, kind = kind, info = info })
 		end
-		scope:own(pres.onFeedback(function(event: any)
+		own(pres.onFeedback(function(event: any)
 			table.insert(
 				trace,
 				{ at = elapsed, kind = "feedback:" .. tostring(event.type), info = { path = event.path } }
@@ -63,11 +66,11 @@ return {
 		local completions: { any } = {}
 		local staleCompletions: { any } = {}
 		local churnOutcomes: { any } = {}
-		local autoDrain = scope:own(core:signal(true))
-		local transportBound = scope:own(core:signal(false))
+		local autoDrain = Compose.cell(true)
+		local transportBound = Compose.cell(false)
 
 		local function drain()
-			if not autoDrain:get() then
+			if not autoDrain:peek() then
 				return
 			end
 			for _, request in provider.pendingRequests() do
@@ -88,7 +91,7 @@ return {
 
 		-- ===== the composites ===============================================
 		local FACE: any = { type = "fixed", px = "targetSizes.minimum" }
-		local dimmed = scope:own(core:signal(false))
+		local dimmed = Compose.cell(false)
 		local states: { [string]: any } = {}
 
 		-- A COMPOSITE'S ROW KEY CARRIES A GENERATION, its provider key does not.
@@ -123,31 +126,25 @@ return {
 			return out
 		end
 
-		local avatars = scope:own(core:signal(makeSet(8)))
+		local avatars = Compose.cell(makeSet(8))
 
-		local rimStroke = scope:own(core:memo(function(use)
+		local rimStroke = Compose.formula(function(use)
 			-- the dim treatment's companion (§6.5): the rim goes further back at the
 			-- same moment the picture does, so "dimmed" is two channels, not a hue
 			return UI.strokeData({ color = "hairline", transparency = if use(dimmed) then 0.35 else 0 })
-		end))
+		end)
 
-		local function composite(item: any, itemScope: any): any
-			local image = Facet.Controls.AsyncImage(core, {
-				id = "Face",
-				scope = itemScope,
-				provider = provider,
-				key = item.key,
-				width = FACE,
-				height = FACE,
-				retry = RETRY,
-				dimmed = dimmed,
-			})
-			states[item.key] = image.state
-			local notReady = itemScope:own(core:memo(function(use)
-				return use(image.state) ~= "ready"
-			end))
-			return UI.ZStack({
-				id = "Avatar",
+		-- `entry` is a readable of the avatar record; its fields never change.
+		local function composite(entry: any): any
+			local item = entry:peek()
+			-- the row holds its own lease on the key, so the placeholder initial and
+			-- the report read the same state the image does
+			local lease = provider.acquire(Compose.currentOwner(), item.key, { retry = RETRY })
+			states[item.key] = lease.state
+			local function notReady(use)
+				return use(lease.state) ~= "ready"
+			end
+			return UI.ZStack("Avatar-" .. item.rowKey)({
 				-- the keyed row declares a `fade` enter, and a fading form needs a
 				-- fade GROUP: the composite is the group, so the whole avatar fades as
 				-- one unit through a single GroupTransparency write
@@ -156,35 +153,38 @@ return {
 				height = FACE,
 
 				-- the presentable placeholder: a complete composite, never a spinner
-				UI.corners(UI.Box({ id = "Fallback", surface = "raised", width = FACE, height = FACE }), "pill"),
-				image.blueprint,
-				UI.When({
-					id = "InitialRegion",
-					condition = notReady,
-					thenView = function()
-						return UI.Text({
-							id = "Initial",
+				UI.corners(UI.Box("Fallback")({ surface = "raised", width = FACE, height = FACE }), "pill"),
+				UI.AsyncImage("Face")({
+					provider = provider,
+					key = item.key,
+					width = FACE,
+					height = FACE,
+					retry = RETRY,
+					dimmed = dimmed,
+				}),
+				UI.When("InitialRegion")({
+					Compose.show(notReady, function()
+						return UI.Text("Initial")({
 							text = item.initial,
 							textSize = "label",
 							textAlign = "center",
 							width = FACE,
 							height = FACE,
 						})
-					end,
+					end),
 				}),
 				-- the rim is a BOUND stroke prop (the reactive idiom): one memo of
 				-- `UI.strokeData`, so the dim state moves the border's transparency
 				-- without ever stacking a second border on the node
 				UI.corners(
-					UI.Box({ id = "Rim", surface = "plain", stroke = rimStroke, width = FACE, height = FACE }),
+					UI.Box("Rim")({ surface = "plain", stroke = rimStroke, width = FACE, height = FACE }),
 					"pill"
 				),
 			})
 		end
 
 		local function control(id: string, label: string, onActivate: () -> ())
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = onActivate,
@@ -198,7 +198,7 @@ return {
 			table.insert(plan, { at = elapsed + delay, run = run })
 		end
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			if #plan > 0 then
 				local remaining: { any } = {}
@@ -221,72 +221,72 @@ return {
 			drain()
 		end))
 
-		local screen = UI.Screen({
-			id = "AvatarLab",
-			padding = "m",
-			gap = "m",
+		local function screen()
+			return UI.Screen("AvatarLab")({
+				padding = "m",
+				gap = "m",
 
-			UI.Text({ id = "Title", text = "Avatar lab", textSize = "heading" }),
-			-- WRAPS TO FEWER COLUMNS rather than shrinking the circles below the
-			-- face floor: the grid derives its column count from a minimum width
-			UI.Grid({
-				id = "Avatars",
-				minColumnWidth = "intrinsic",
-				gap = "s",
-				rowGap = "s",
-				width = UI.fill(),
+				UI.Text("Title")({ text = "Avatar lab", textSize = "heading" }),
+				-- WRAPS TO FEWER COLUMNS rather than shrinking the circles below the
+				-- face floor: the grid derives its column count from a minimum width
+				UI.Grid("Avatars")({
+					minColumnWidth = "intrinsic",
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
 
-				UI.ForEach({
-					id = "Set",
-					items = avatars,
-					key = function(item: any)
-						return item.rowKey
-					end,
-					row = composite,
-					transition = { enter = "fade", class = "container" },
+					UI.ForEach("Set")({
+						transition = { enter = "fade", class = "container" },
+						Compose.keyed({
+							from = avatars,
+							key = function(item: any)
+								return item.rowKey
+							end,
+							render = composite,
+						}),
+					}),
 				}),
-			}),
-			UI.Grid({
-				id = "Controls",
-				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-				-- lets the WIDEST verb decide every column, so one long label costs this lab a
-				-- whole column on a 320px phone: the control grid doubles in height and the
-				-- `fill` stage column above it collapses to zero. This number asks the other
-				-- question — how many controls fit a row — and lets a long label compact.
-				minColumnWidth = 104,
-				gap = "s",
-				rowGap = "s",
-				width = UI.fill(),
+				UI.Grid("Controls")({
+					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+					-- lets the WIDEST verb decide every column, so one long label costs this lab a
+					-- whole column on a 320px phone: the control grid doubles in height and the
+					-- `fill` stage column above it collapses to zero. This number asks the other
+					-- question — how many controls fit a row — and lets a long label compact.
+					minColumnWidth = 104,
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
 
-				control("BtnLoad", "Load", function()
-					autoDrain:set(true)
-				end),
-				control("BtnFail", "Fail", function()
-					for index, item in avatars:get() :: { any } do
-						if index % 2 == 0 then
-							failing[item.key] = true
-							provider.invalidate(item.key)
+					control("BtnLoad", "Load", function()
+						autoDrain:set(true)
+					end),
+					control("BtnFail", "Fail", function()
+						for index, item in avatars:peek() :: { any } do
+							if index % 2 == 0 then
+								failing[item.key] = true
+								provider.invalidate(item.key)
+							end
 						end
-					end
-				end),
-				control("BtnChurn", "Churn", function()
-					avatars:set(makeSet(8, 8))
-				end),
-				control("BtnPreload", "Preload", function()
-					provider.preload({ "av-97", "av-98" })
-				end),
-				control("BtnDim", "Dim", function()
-					dimmed:set(not dimmed:get())
-				end),
-			}),
-		})
+					end),
+					control("BtnChurn", "Churn", function()
+						avatars:set(makeSet(8, 8))
+					end),
+					control("BtnPreload", "Preload", function()
+						provider.preload({ "av-97", "av-98" })
+					end),
+					control("BtnDim", "Dim", function()
+						dimmed:set(not dimmed:peek())
+					end),
+				}),
+			})
+		end
 
 		local function stateSnapshot(): { [string]: string }
 			local out: { [string]: string } = {}
-			for _, item in avatars:get() :: { any } do
+			for _, item in avatars:peek() :: { any } do
 				local state = states[item.key]
-				out[item.key] = if state ~= nil then tostring(state:get()) else "unmounted"
+				out[item.key] = if state ~= nil then tostring(state:peek()) else "unmounted"
 			end
 			return out
 		end
@@ -299,9 +299,12 @@ return {
 				return nil
 			end
 			local paths: { string } = {}
-			for _, item in avatars:get() :: { any } do
-				table.insert(paths, `{GRID}/Set/[{item.rowKey}]/Avatar/Face/Failure/then/Mark`)
-				table.insert(paths, `{GRID}/Set/[{item.rowKey}]/Avatar/Face/Placeholder/then/Fill`)
+			for _, item in avatars:peek() :: { any } do
+				-- `UI.When` mounts its content under its own `then` segment, so an
+				-- AsyncImage's placeholder and failure mark live one hop deeper than
+				-- the region that gates them.
+				table.insert(paths, `{GRID}/Set/Avatar-{item.rowKey}/Face/Failure/then/Mark`)
+				table.insert(paths, `{GRID}/Set/Avatar-{item.rowKey}/Face/Placeholder/then/Fill`)
 			end
 			local geometry = ctx.geometry(paths)
 			local marks, placeholders = {}, {}
@@ -324,11 +327,11 @@ return {
 			load = function()
 				failing = {}
 				autoDrain:set(false)
-				local current = avatars:get() :: { any }
+				local current = avatars:peek() :: { any }
 				avatars:set(reload(current))
 				pres.refresh()
 				local keys: { string } = {}
-				for _, item in avatars:get() :: { any } do
+				for _, item in avatars:peek() :: { any } do
 					table.insert(keys, item.key)
 				end
 				for index, request in provider.pendingRequests() do
@@ -345,11 +348,11 @@ return {
 				return { keys = keys, staggerSeconds = 0.15, pending = #provider.pendingRequests() }
 			end,
 			-- SF-A1: half the set is forced to fail. The placeholder must persist and
-			-- nothing may announce the failure on screen; the provider still reports
+			-- nothing may announce the failure on screen(); the provider still reports
 			-- `failed` for instrumentation.
 			fail = function()
 				local failed: { string } = {}
-				local current = avatars:get() :: { any }
+				local current = avatars:peek() :: { any }
 				for index, item in current do
 					if index % 2 == 0 then
 						failing[item.key] = true
@@ -367,7 +370,7 @@ return {
 			-- SF-A2: three attempts, a second apart, then given up for the session
 			retrySchedule = function()
 				attempts = {}
-				local current = avatars:get() :: { any }
+				local current = avatars:peek() :: { any }
 				local key = current[1].key
 				failing[key] = true
 				provider.invalidate(key)
@@ -377,7 +380,7 @@ return {
 				return { key = key, policy = RETRY }
 			end,
 			retryRead = function()
-				local key = (avatars:get() :: any)[1].key
+				local key = (avatars:peek() :: any)[1].key
 				local mine: { any } = {}
 				for _, attempt in attempts do
 					if attempt.key == key then
@@ -388,7 +391,7 @@ return {
 					key = key,
 					attempts = mine,
 					gaveUp = provider.gaveUp(key),
-					state = if states[key] ~= nil then states[key]:get() else nil,
+					state = if states[key] ~= nil then states[key]:peek() else nil,
 				}
 			end,
 			-- SF-A2's churn clause: release and remount the set while fetches are in
@@ -435,21 +438,21 @@ return {
 						provider.complete(request.key, request.generation, `demo://{request.key}`)
 					end
 				end
-				local set = avatars:get() :: { any }
+				local set = avatars:peek() :: { any }
 				local next = table.clone(set)
 				table.insert(next, { key = "av-97", rowKey = `av-97#{generation}`, initial = "Y" })
 				table.insert(next, { key = "av-98", rowKey = `av-98#{generation}`, initial = "Z" })
 				avatars:set(next)
 				pres.refresh()
-				local debut = if states["av-97"] ~= nil then states["av-97"]:get() else nil
+				local debut = if states["av-97"] ~= nil then states["av-97"]:peek() else nil
 				note("preload", { keys = warm.keys, debutState = debut })
 				return { keys = warm.keys, debutState = debut, skippedPlaceholder = debut == "ready" }
 			end,
 			-- SF-P2: the dim treatment, on the authored tint channel plus the rim
 			dim = function()
-				dimmed:set(not dimmed:get())
-				note("dim", { dimmed = dimmed:get() })
-				return { dimmed = dimmed:get() }
+				dimmed:set(not dimmed:peek())
+				note("dim", { dimmed = dimmed:peek() })
+				return { dimmed = dimmed:peek() }
 			end,
 			-- SF-A4: the real Roblox transport, Studio only. Headlessly the seam is
 			-- absent and the step says so rather than pretending it ran.
@@ -459,7 +462,8 @@ return {
 				end
 				autoDrain:set(false)
 				local unbind = ctx.bindResourceTransport(provider)
-				scope:own(unbind)
+				own(unbind)
+				own(unbind)
 				transportBound:set(true)
 				local live = {
 					{
@@ -470,7 +474,7 @@ return {
 					-- a content id that cannot resolve: the forced-failure half of SF-A4
 					{ key = "rbxassetid://0", rowKey = `live-fail#{generation}`, initial = "F" },
 				}
-				local next = table.clone(avatars:get() :: { any })
+				local next = table.clone(avatars:peek() :: { any })
 				for _, entry in live do
 					table.insert(next, entry)
 				end
@@ -500,27 +504,27 @@ return {
 				providerCounters = provider.counters(),
 				gaveUp = (function()
 					local out: { [string]: boolean } = {}
-					for _, item in avatars:get() :: { any } do
+					for _, item in avatars:peek() :: { any } do
 						out[item.key] = provider.gaveUp(item.key)
 					end
 					return out
 				end)(),
-				dimmed = dimmed:get(),
-				transportBound = transportBound:get(),
+				dimmed = dimmed:peek(),
+				transportBound = transportBound:peek(),
 				keys = (function()
 					local out: { string } = {}
-					for _, item in avatars:get() :: { any } do
+					for _, item in avatars:peek() :: { any } do
 						table.insert(out, item.key)
 					end
 					return out
 				end)(),
-				reducedMotion = env:get("reducedMotion"):get(),
-				counters = core:counters(),
-				coreError = core:lastError(),
+				reducedMotion = env:get("reducedMotion"):peek(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
-			scope:dispose()
+			lifetime.dispose()
 		end
 		return result
 	end,

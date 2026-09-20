@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ `UI.sortedEntries` — DETERMINISTIC DICTIONARY ITERATION
 	(docs/reference/api.md §sortedEntries).
 
@@ -35,11 +36,12 @@
 	going quietly green. ]]
 
 local t = require("./lib/testkit")
+local Compose = require("../src/vendor/compose/core")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 
 -- twelve player ids, the shape a score map actually has
 local KEYS: { string } = {}
@@ -292,18 +294,18 @@ describe("sortedEntries: through UI.ForEach", function()
 	it("a dictionary signal drives a keyed region in one order whatever built it", function()
 		--[[ The composition the helper is FOR: a memo flattens, `ForEach` keys off
 			the entry key. The helper is pure on purpose — the reactive half is the
-			`core:memo` a consumer already writes for every derived value, and making
+			`Compose.formula` a consumer already writes for every derived value, and making
 			the helper build one would have forced it to take a core and a scope it
 			has no other use for. ]]
 		local rendered: { string } = {}
 		for _, c in constructions() do
 			local core = customFactory.new()
-			local scores = core:signal(c.dict)
+			local scores = Compose.cell(c.dict)
 			local root = mountLib.mount(
 				core,
 				UI.ForEach({
 					id = "Board",
-					items = core:memo(function(use)
+					items = Compose.formula(function(use)
 						return UI.sortedEntries(use(scores))
 					end),
 					key = function(entry)

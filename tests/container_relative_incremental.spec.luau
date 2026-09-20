@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	`containerRelative` UNDER INCREMENTAL LAYOUT — RED-TEAM Milestone 1, HIGH 3.
 
@@ -41,12 +42,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local VIEWPORT = { w = 400, h = 300 }
 local RESERVE = 8
@@ -82,8 +84,8 @@ local function world(incremental: boolean)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-	local big = core:signal(false)
-	local growHeight = core:memo(function(use: any)
+	local big = Compose.cell(false)
+	local growHeight = Compose.formula(function(use: any)
 		return px(if use(big) then 900 else 40)
 	end)
 	local bp = UI.ScrollView({
@@ -208,8 +210,8 @@ describe("containerRelative is re-resolved when the container moves under it (HI
 			local core = customFactory.new()
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-			local big = core:signal(false)
-			local growHeight = core:memo(function(use: any)
+			local big = Compose.cell(false)
+			local growHeight = Compose.formula(function(use: any)
 				return px(if use(big) then 900 else 40)
 			end)
 			local root = mountLib.mount(
@@ -281,8 +283,8 @@ describe("containerRelative is re-resolved when the container moves under it (HI
 			local core = customFactory.new()
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
-			local big = core:signal(false)
-			local growHeight = core:memo(function(use: any)
+			local big = Compose.cell(false)
+			local growHeight = Compose.formula(function(use: any)
 				return px(if use(big) then 900 else 40)
 			end)
 			local root = mountLib.mount(

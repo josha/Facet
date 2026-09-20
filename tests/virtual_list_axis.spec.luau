@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	`newVirtualList.axis` — THE SIDEWAYS VIRTUALIZER
 	(docs/plans/parity-round2.md §2.3; game-director decision 2026-08-12).
@@ -39,7 +40,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -84,7 +86,7 @@ local function newList(core: any, opts: any)
 		rowGap = opts.rowGap,
 		overscan = opts.overscan or 2,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 	}
 	-- the two spellings, exactly as a caller would write one or the other
@@ -101,13 +103,13 @@ end
 -- a PRESENTED list, so the real solver hands back rects and a scroll region
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(makeRows(options.count or 100))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(makeRows(options.count or 100))
 	local activations: { any } = {}
 	local reorders: { any } = {}
 	local spec: any = {
@@ -127,7 +129,7 @@ local function world(opts: any?)
 			else nil,
 		autoscroll = options.autoscroll,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any, meta: any)
 			table.insert(activations, { item = item, meta = meta })
@@ -141,7 +143,7 @@ local function world(opts: any?)
 		spec.viewportExtent = options.viewportExtent or 400
 	end
 	local list = virtual_list.build(Facet, core, spec)
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
 	local w: any = {
@@ -194,8 +196,8 @@ end
 -- ===========================================================================
 describe('VirtualList.axis — the contract ("y" | "x", construction-only)', function()
 	it('defaults to "y", accepts "y" explicitly, and refuses anything else naming BOTH values', function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local default = newList(core, { rows = rows })
 		expect(default.dump().axis).toBe("y")
 		local explicit = newList(core, { rows = rows, axis = "y" })
@@ -218,8 +220,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("itemExtent / viewportExtent are the canonical names and land in the dump", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, { rows = rows, itemExtent = 56, viewportExtent = 200 })
 		local d = list.dump()
 		expect(`{d.itemExtent}|{d.viewportExtent}|{d.axis}`).toBe("56|200|y")
@@ -227,8 +229,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("rowHeight / viewportHeight still work UNCHANGED — the deprecated aliases", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		-- the SAME list, spelled both ways: the two dumps must agree field for field
 		local canonical = newList(core, { rows = rows, itemExtent = 56, viewportExtent = 200 })
 		local legacy = newList(core, { rows = rows, legacyNames = true, itemExtent = 56, viewportExtent = 200 })
@@ -242,7 +244,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 		-- existing reader of `dump().rowHeight` sees the number it always saw
 		expect(`{b.rowHeight}|{b.viewportHeight}`).toBe("56|200")
 		-- a live Readable works through the alias exactly as through the canonical
-		local extent = core:signal(56)
+		local extent = Compose.cell(56)
 		local live = newList(core, { rows = rows, legacyNames = true, itemExtent = extent, viewportExtent = 200 })
 		expect(live.dump().itemExtent).toBe(56)
 		extent:set(72)
@@ -253,8 +255,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("the deprecated names are ABSENT from a horizontal dump — a rowHeight there is a lie", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local d = list.dump()
 		expect(d.itemExtent).toBe(120)
@@ -265,8 +267,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it("a name and its alias TOGETHER are refused, naming both and which is deprecated", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local function build(extra: any)
 			local spec: any = {
 				id = "VL",
@@ -275,7 +277,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 					return item.id
 				end,
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			}
 			for key, value in extra do
@@ -297,8 +299,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 
 	it("both deprecations are in Facet.DEPRECATIONS with a replacement and a minor of notice", function()
 		local wanted = {
-			["newVirtualList(spec.rowHeight)"] = "itemExtent",
-			["newVirtualList(spec.viewportHeight)"] = "viewportExtent",
+			["UI.VirtualList(spec.rowHeight)"] = "itemExtent",
+			["UI.VirtualList(spec.viewportHeight)"] = "viewportExtent",
 		}
 		local seen: { [string]: boolean } = {}
 		for _, entry in Facet.DEPRECATIONS :: { any } do
@@ -314,8 +316,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it('rowActions is refused on axis = "x", and the refusal says WHY (the gesture collides)', function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local ok, err = pcall(function()
 			virtual_list.build(Facet, core, {
 				id = "VL",
@@ -327,7 +329,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 				itemExtent = 120,
 				viewportExtent = 400,
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 				rowActions = function()
 					return { trailing = { { id = "del", label = "Delete", onActivate = function() end } } }
@@ -351,7 +353,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 			itemExtent = 40,
 			viewportExtent = 200,
 			cell = function()
-				return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+				return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 			end,
 			rowActions = function()
 				return { trailing = { { id = "del", label = "Delete", onActivate = function() end } } }
@@ -362,8 +364,8 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 	end)
 
 	it('`width` is refused on axis = "x" — there, the width IS viewportExtent', function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(4))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(4))
 		local function build(axis: string?)
 			return virtual_list.build(Facet, core, {
 				id = "VL",
@@ -376,7 +378,7 @@ describe('VirtualList.axis — the contract ("y" | "x", construction-only)', fun
 				viewportExtent = 200,
 				width = { type = "fixed", px = 300 },
 				cell = function()
-					return Facet.UI.Text({ id = "L", text = "x", textSize = 14 })
+					return harness.UI.Text({ id = "L", text = "x", textSize = 14 })
 				end,
 			})
 		end
@@ -393,8 +395,8 @@ end)
 -- ===========================================================================
 describe("VirtualList.axis — the windowing arithmetic reads the x canvas", function()
 	it("the content extent is N*itemExtent + (N-1)*rowGap along x, with no trailing gutter", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(8))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(8))
 		local list = newList(core, {
 			rows = rows,
 			axis = "x",
@@ -413,8 +415,8 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("window membership steps on the PITCH along x", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(200))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(200))
 		-- 126 pitch, a 252 px viewport = exactly 2 whole slots, no overscan
 		local list = newList(core, {
 			rows = rows,
@@ -431,8 +433,8 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("keep-visible writes the target on X, and leaves Y at zero (the discriminator)", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(100))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(100))
 		local list = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local ctrl = scrollStub()
 		list.bindNativeScroll(ctrl, "/VL")
@@ -447,26 +449,26 @@ describe("VirtualList.axis — the windowing arithmetic reads the x canvas", fun
 	end)
 
 	it("the CanvasPosition mirror reads .X on a horizontal list (and .Y on a vertical one)", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(100))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(100))
 		local sideways = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local ctrl = scrollStub()
 		sideways.bindNativeScroll(ctrl, "/VL")
 		ctrl.scrollTo("/VL", { x = 600, y = 999 })
-		expect(sideways.scrollTop:get()).toBe(600)
+		expect(sideways.scrollTop:peek()).toBe(600)
 
 		local down = newList(core, { rows = rows, itemExtent = 120, viewportExtent = 400 })
 		local ctrl2 = scrollStub()
 		down.bindNativeScroll(ctrl2, "/VL")
 		ctrl2.scrollTo("/VL", { x = 999, y = 600 })
-		expect(down.scrollTop:get()).toBe(600)
+		expect(down.scrollTop:peek()).toBe(600)
 		sideways.dispose()
 		down.dispose()
 	end)
 
 	it("scrollTo clamps and writes along the list's own axis", function()
-		local core = Facet.newCore()
-		local rows = core:signal(makeRows(10))
+		local core = harness.newCore()
+		local rows = Compose.cell(makeRows(10))
 		local list = newList(core, { rows = rows, axis = "x", itemExtent = 120, viewportExtent = 400 })
 		local ctrl = scrollStub()
 		list.bindNativeScroll(ctrl, "/VL")
@@ -560,9 +562,9 @@ end)
 describe("VirtualList horizontal pointer input (no consumer wiring)", function()
 	it("VirtualList pointer: a horizontal engine scroll slides the window along x", function()
 		local w = world({ axis = "x", count = 100, itemExtent = 120, viewportExtent = 480 })
-		expect(w.list.scrollTop:get()).toBe(0)
+		expect(w.list.scrollTop:peek()).toBe(0)
 		w.adapter.driveScroll("/S/VL", { x = 360, y = 0 })
-		expect(w.list.scrollTop:get()).toBe(360)
+		expect(w.list.scrollTop:peek()).toBe(360)
 		w.pres.refresh()
 		expect(w.list.debugWindow().r1).toBe(nil)
 		expect(w.list.debugWindow().r9).toBe(true)
@@ -587,7 +589,7 @@ describe("VirtualList horizontal touch input (no consumer wiring)", function()
 	it("VirtualList touch: a native sideways pan slides the window and never activates", function()
 		local w = world({ axis = "x", count = 100, itemExtent = 120, viewportExtent = 480 })
 		w.adapter.driveScroll("/S/VL", { x = 240, y = 0 })
-		expect(w.list.scrollTop:get()).toBe(240)
+		expect(w.list.scrollTop:peek()).toBe(240)
 		w.pres.refresh()
 		expect(w.list.debugWindow().r7).toBe(true)
 		expect(#w.activations).toBe(0)
@@ -608,17 +610,17 @@ end)
 describe("VirtualList horizontal keyboard input (no consumer wiring)", function()
 	it("VirtualList keyboard: Left/Right steps a horizontal list item-by-item", function()
 		local w = world({ axis = "x", count = 100, itemExtent = 120, viewportExtent = 480 })
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r1"))
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r3"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r3"))
 		w.system.deviceKey("Left", true)
 		w.system.deviceKey("Left", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
-		expect(w.list.focusedKey:get()).toBe("r2")
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
+		expect(w.list.focusedKey:peek()).toBe("r2")
 	end)
 
 	it("VirtualList keyboard: Up/Down do NOT step a horizontal list — ONE map, read one way", function()
@@ -627,13 +629,13 @@ describe("VirtualList horizontal keyboard input (no consumer wiring)", function(
 			Left/Right — the exact defect the group-axis line exists to prevent, and
 			the reason it is the group's axis rather than a second order. ]]
 		local w = world({ axis = "x", count = 100, itemExtent = 120, viewportExtent = 480 })
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r1"))
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r1"))
 		w.system.deviceKey("Up", true)
 		w.system.deviceKey("Up", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r1"))
 	end)
 
 	it("VirtualList keyboard: focus past the horizontal window edge scrolls it into view", function()
@@ -643,10 +645,10 @@ describe("VirtualList horizontal keyboard input (no consumer wiring)", function(
 			w.system.deviceKey("Right", false)
 			w.pres.refresh()
 		end
-		local key = w.list.focusedKey:get() :: string
+		local key = w.list.focusedKey:peek() :: string
 		local index = tonumber(string.match(key, "r(%d+)")) :: number
 		expect(index).toBe(7)
-		local left = w.list.scrollTop:get()
+		local left = w.list.scrollTop:peek()
 		expect(left > 0).toBe(true)
 		-- the focused item is fully inside the band, measured on x
 		expect((index - 1) * 120 >= left).toBe(true)
@@ -669,20 +671,20 @@ end)
 describe("VirtualList horizontal gamepad input (no consumer wiring)", function()
 	it("VirtualList gamepad: DPadLeft/DPadRight move focus identically to arrows", function()
 		local w = world({ axis = "x", count = 100, itemExtent = 120, viewportExtent = 480 })
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r1"))
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r3"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r3"))
 		w.system.deviceKey("DPadLeft", true)
 		w.system.deviceKey("DPadLeft", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
 		-- DPadDown is inert here, exactly as Down is
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
 	end)
 
 	it("VirtualList gamepad: ButtonA activates the focused horizontal item", function()
@@ -711,7 +713,7 @@ describe("VirtualList.axis — drag, drop line and edge autoscroll follow the ax
 		-- just past r4's trailing edge is the boundary between slot 4 and slot 5;
 		-- with the dragged r1 removed first, landing there is index 4
 		w.moveToX("r1", r4.x + r4.w + 3)
-		expect(w.list.dropIndex:get()).toBe(4)
+		expect(w.list.dropIndex:peek()).toBe(4)
 		--[[ ...and the hairline itself was translated ON X. It is parked far
 			BEFORE the canvas origin when idle and moved by the presentation
 			channel, so the composed offset is the whole evidence: a list that still
@@ -742,20 +744,20 @@ describe("VirtualList.axis — drag, drop line and edge autoscroll follow the ax
 		})
 		w.list.focusKey("r1")
 		expect(w.list.toggleGrab()).toBe(true)
-		expect(w.list.armedKey:get()).toBe("r1")
+		expect(w.list.armedKey:peek()).toBe("r1")
 		-- the ORTHOGONAL pair is consumed and moves nothing: the predicted slot is
 		-- still the armed row's own, exactly as it was before the press
-		local armedAt = w.list.dropIndex:get()
+		local armedAt = w.list.dropIndex:peek()
 		expect(armedAt).toBe(1)
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.list.dropIndex:get()).toBe(armedAt)
+		expect(w.list.dropIndex:peek()).toBe(armedAt)
 		for _ = 1, 3 do
 			w.system.deviceKey("DPadRight", true)
 			w.system.deviceKey("DPadRight", false)
 			w.pres.refresh()
 		end
-		expect(w.list.dropIndex:get()).toBe(4)
+		expect(w.list.dropIndex:peek()).toBe(4)
 		w.list.toggleGrab() -- commit
 		expect(w.reorders[1]).toEqual({ key = "r1", toIndex = 4 })
 	end)
@@ -796,18 +798,18 @@ describe("VirtualList.axis — drag, drop line and edge autoscroll follow the ax
 		w.moveToX("r1", host.x + host.w - 5) -- deep in the trailing band
 		expect(w.list.stepAutoscroll(0).delta).toBe(0)
 		expect(w.list.stepAutoscroll(0.2).delta).toBe(0) -- the dwell has not paid
-		expect(w.list.scrollTop:get()).toBe(0)
+		expect(w.list.scrollTop:peek()).toBe(0)
 		local armed = w.list.stepAutoscroll(0.35)
 		expect(armed.state).toBe("active")
-		expect(w.list.autoscroll:get().band).toBe("right")
-		local before = w.list.scrollTop:get()
+		expect(w.list.autoscroll:peek().band).toBe("right")
+		local before = w.list.scrollTop:peek()
 		w.list.stepAutoscroll(0.6)
-		expect(w.list.scrollTop:get() > before).toBe(true)
+		expect(w.list.scrollTop:peek() > before).toBe(true)
 		-- ...and the leading band answers "left"
 		w.moveToX("r1", host.x + 3)
 		w.list.stepAutoscroll(1.0)
 		w.list.stepAutoscroll(1.4)
-		expect(w.list.autoscroll:get().band).toBe("left")
+		expect(w.list.autoscroll:peek().band).toBe("left")
 	end)
 
 	it("a VERTICAL list still reports top/bottom — the band names are not globally renamed", function()
@@ -822,7 +824,7 @@ describe("VirtualList.axis — drag, drop line and edge autoscroll follow the ax
 		)
 		w.list.stepAutoscroll(0)
 		w.list.stepAutoscroll(0.35)
-		expect(w.list.autoscroll:get().band).toBe("bottom")
+		expect(w.list.autoscroll:peek().band).toBe("bottom")
 	end)
 end)
 
@@ -841,13 +843,13 @@ describe("VirtualList.axis — a list declaring no axis builds what it always di
 		expect(w.rect("r1").y - canvasY).toBe(0)
 		expect(w.rect("r3").y - canvasY).toBe(2 * 40)
 		-- ...and the focus group is still vertical: Down steps, Right does not
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r1"))
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
-		expect(w.pres.focus.focused:get()).toBe(w.hitPath("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(w.hitPath("r2"))
 		-- ...and keep-visible still writes Y
 		w.adapter.takeOps()
 		for _ = 1, 12 do

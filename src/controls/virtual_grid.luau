@@ -1,4 +1,5 @@
 --!strict
+local observeChange = require("../core/on_change")
 --[[ THE LAZY GRID, on the substrate that already exists.
 
 	WHAT IT IS. A collection laid out in `columns` lanes that mounts only the
@@ -53,7 +54,7 @@
 	±lanes arithmetic itself. It no longer contributes one at all; the block above
 	`bundle` records what went with it and why nothing replaced it.
 
-	A cell whose focus target leaves the window is handled the way `newVirtualList`
+	A cell whose focus target leaves the window is handled the way `UI.VirtualList`
 	handles it, and the reason is worth keeping: the ring never has to focus an
 	unmounted node, because a step into the OVERSCAN band scrolls the window, which
 	materializes the next line for the step after it. The control contributes NO
@@ -150,7 +151,7 @@
 	one rule: THE GROUP'S AXIS IS THE LANE AXIS, ALWAYS PERPENDICULAR TO THE SCROLL
 	— because document order walks a line's lanes before it moves to the next line.
 	So a vertical grid declares `horizontal` and a horizontal grid declares
-	`vertical`. `newVirtualList` transposes the OTHER way (`vertical` on y,
+	`vertical`. `UI.VirtualList` transposes the OTHER way (`vertical` on y,
 	`horizontal` on x), because a list's line holds one item and its document order
 	IS its scroll axis; copying the list's answer here would be REACHABLE and wrong
 	in SHAPE, with Right stepping one cell down instead of a whole line. A list
@@ -160,7 +161,7 @@
 	── WHAT DIES WITH THE WINDOW, AND WHAT DOES NOT ─────────────────────────────
 
 	A CELL'S OWN STATE DIES WHEN THE CELL LEAVES THE WINDOW — the same honesty
-	`newTable { virtualized = true }` owes and states. Anything a cell must keep
+	`UI.Table { virtualized = true }` owes and states. Anything a cell must keep
 	across a scroll belongs in the consumer's model, not in the cell's scope; async
 	work owned through `ctx.scope` is cancelled on window exit, which is the point.
 
@@ -179,7 +180,7 @@
 	both because it is keyed on an ITEM:
 
 	  * THE EXTENTS RE-DERIVE (a per-line `itemExtent` reads the accessibility text
-	    offset, the theme metrics, the viewport). `newVirtualList` guards this.
+	    offset, the theme metrics, the viewport). `UI.VirtualList` guards this.
 	  * THE LANE COUNT CHANGES. A reflow moves EVERY item to a different line, so a
 	    line-keyed anchor would faithfully hold a line the player was never looking
 	    at. This case is a grid's own; a list never has it, because there an item
@@ -191,7 +192,7 @@
 	index changes. It writes through the bound controller — the framework's one
 	programmatic scroll write — never into the mirror.
 
-	IT IS UNCONDITIONAL HERE, where `newVirtualList` scopes it to variable extents.
+	IT IS UNCONDITIONAL HERE, where `UI.VirtualList` scopes it to variable extents.
 	That was not a judgement about anchoring but about not moving a shipped list's
 	behaviour when a row is inserted above the viewport. This control has no
 	shipped behaviour to preserve, and the reflow case needs the anchor on the
@@ -209,6 +210,7 @@
 	beyond the hit's Activate.
 ]]
 
+local Compose = require("../vendor/compose/core")
 local contribution = require("../input/contribution")
 local gapMetric = require("./gap_metric")
 local scrollSnap = require("./scroll_snap")
@@ -217,6 +219,7 @@ local nativeScrollBinding = require("./native_scroll_binding")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local virtual_extents = require("../virtual_extents")
+local virtual_window = require("./virtual_window")
 local paths = require("../paths")
 -- `rect.sameFlatValue`: the framework's one field-for-field equality for a FLAT
 -- record — the renderer's `sameGeometryValue`, the selection indicator's
@@ -227,7 +230,7 @@ local paths = require("../paths")
 -- recompute, re-dirtying measure and arrange for a value that did not change.
 local rect = require("../rect")
 
--- "nothing to report", as ONE shared frozen table — see `newVirtualList`'s own
+-- "nothing to report", as ONE shared frozen table — see `UI.VirtualList`'s own
 -- note: a fresh empty per `dump()` makes two dumps of one grid compare unequal by
 -- identity, and a shared mutable one would let a caller write into every grid's
 -- report at once.
@@ -248,6 +251,8 @@ local VIRTUAL_GRID_KEYS = specGuard.keySet({
 	"onActivate",
 	"overscan",
 	"rowGap",
+	-- { position, active }: a scroll position shared across presentations
+	"scrollNavigation",
 	-- where this grid may come to REST on its scroll axis: "none" (default) | "item"
 	"snap",
 	"viewportExtent",
@@ -255,7 +260,7 @@ local VIRTUAL_GRID_KEYS = specGuard.keySet({
 })
 
 -- child 1 of a `Cell` is the control's own focusable hit; the consumer's
--- blueprint is everything from 2 on. `newVirtualList`'s row has the same shape
+-- blueprint is everything from 2 on. `UI.VirtualList`'s row has the same shape
 -- and the same number, for the same reason.
 local SLOT_CONTENT_FROM = 2
 
@@ -270,7 +275,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		guard so they explain themselves instead of being reported as unknown keys. ]]
 	if spec ~= nil and spec.axis ~= nil and spec.axis ~= "y" and spec.axis ~= "x" then
 		error(
-			`newVirtualGrid: axis = '{tostring(spec.axis)}' is not an axis. It is "y" (the vertical grid — lanes `
+			`UI.VirtualGrid: axis = '{tostring(spec.axis)}' is not an axis. It is "y" (the vertical grid — lanes `
 				.. 'across the width, lines advancing down; the default) or "x" (sideways grid — lanes down the height, '
 				.. "lines advancing rightward). It is CONSTRUCTION-ONLY, exactly as `ScrollView.axis` is: a reactive "
 				.. "scroll axis would rebuild the engine's native scroll state mid-gesture.",
@@ -279,7 +284,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	end
 	if spec ~= nil and spec.minColumnWidth ~= nil then
 		error(
-			"newVirtualGrid: minColumnWidth is refused — deriving the lane count from a minimum cell width needs "
+			"UI.VirtualGrid: minColumnWidth is refused — deriving the lane count from a minimum cell width needs "
 				.. "the CROSS-axis size in px, which would be a second measured seam beside viewportExtent. The "
 				.. "flow grid's own arithmetic is already exported: bind `columns` to a memo over "
 				.. "Facet.adaptive.columnsFor(availableWidth, minColumnWidth, gap) and the grid re-lanes itself "
@@ -287,14 +292,18 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			0
 		)
 	end
-	specGuard.assertKnownKeys("newVirtualGrid", spec, VIRTUAL_GRID_KEYS, "spec")
-
-	assert(type(spec.key) == "function", "VirtualGrid.key is required: (item) -> a stable string identity")
-	assert(type(spec.cell) == "function", "VirtualGrid.cell is required: (item, ctx) -> Blueprint")
-	assert(
-		type(spec.items) == "table" and type((spec.items :: any).get) == "function",
-		"VirtualGrid.items is required: a Readable of the collection"
+	specGuard.assertKnownKeys("UI.VirtualGrid", spec, VIRTUAL_GRID_KEYS, "spec")
+	local adoptedReadables
+	spec, adoptedReadables = virtual_window.adopt(
+		core,
+		spec,
+		{ "items", "columns", "itemExtent", "viewportExtent" },
+		{ items = true, columns = true, viewportExtent = true }
 	)
+
+	assert(type(spec.key) == "function", "UI.VirtualGrid.key is required: (item) -> a stable string identity")
+	assert(type(spec.cell) == "function", "UI.VirtualGrid.cell is required: (item, ctx) -> Blueprint")
+	assert(Compose.isReadable(spec.items), "UI.VirtualGrid.items is required: a Readable of the collection")
 
 	local UI = Facet.UI
 	local id = spec.id or "VirtualGrid"
@@ -305,7 +314,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		accepting both would be two answers to one dim, and letting either win
 		silently is the class this file refuses aliases for. The cross axis of a
 		horizontal grid is its HEIGHT and it fills: wrap the strip in a box of the
-		height you want. (`newVirtualList` refuses the identical pair for the
+		height you want. (`UI.VirtualList` refuses the identical pair for the
 		identical reason.) ]]
 	if isX then
 		assert(
@@ -322,7 +331,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		helpers are the ONLY place the axis turns into a coordinate or a dim name,
 		and every write below goes through one of them, so "which way does this grid
 		scroll" is answered once rather than per call site. Same seam, same four
-		shapes, as `newVirtualList`'s. ]]
+		shapes, as `UI.VirtualList`'s. ]]
 	-- A FRESH `fill` DIM PER NODE, never one shared table: a dim is a VALUE, and one
 	-- shared constant on the canvas, the band and every cell at once is a trap the
 	-- first time anything treats a dim as its own.
@@ -350,10 +359,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	-- ── the reactive scalars ────────────────────────────────────────────────
 	-- Each is `number | Readable<number>` and resolves through a pair: `xIn(use)`
 	-- inside a memo (registers the dependency) and `xNow()` at an imperative call
-	-- site. Reading a Readable with `:get()` inside a memo is right once and never
+	-- site. Reading a Readable with `:peek()` inside a memo is right once and never
 	-- again, which is the silent staleness this shape exists to prevent.
 	local lanesSpec = spec.columns
-	local lanesIsLive = type(lanesSpec) == "table" and type((lanesSpec :: any).get) == "function"
+	local lanesIsLive = Compose.isReadable(lanesSpec)
 	local function validLanes(v: any): boolean
 		return type(v) == "number" and v == v and v >= 1 and math.floor(v) == v
 	end
@@ -364,7 +373,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			.. "UI.Grid is given, so a fraction or a zero has no reading as a column count."
 	)
 	local function lanesNow(): number
-		local v = if lanesIsLive then (lanesSpec :: any):get() else lanesSpec
+		local v = if lanesIsLive then (lanesSpec :: any):peek() else lanesSpec
 		assert(validLanes(v), `VirtualGrid.columns resolved to {tostring(v)} — it must stay an integer >= 1`)
 		return v
 	end
@@ -378,25 +387,25 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	end
 
 	local extentSpec = spec.itemExtent
-	local extentIsLive = type(extentSpec) == "table" and type((extentSpec :: any).get) == "function"
+	local extentIsLive = Compose.isReadable(extentSpec)
 	local extentIsPerLine = type(extentSpec) == "function"
 	assert(
 		extentIsPerLine or extentIsLive or (type(extentSpec) == "number" and extentSpec > 0),
-		"VirtualGrid.itemExtent must be a positive number, a Readable<number>, or a function (line, use) -> px: "
+		"UI.VirtualGrid.itemExtent must be a positive number, a Readable<number>, or a function (line, use) -> px: "
 			.. "ONE LINE OF CELLS' size along the scroll axis, not one cell's. A number or Readable is UNIFORM and "
 			.. "windows by line x pitch; a function is a PER-LINE extent and windows by a running-offset index. "
 			.. "Read live facts (the preferred-text offset, the theme metrics) through the function's second "
 			.. "argument `use`, or the extents will not re-derive when they move."
 	)
 	local function extentNow(): number
-		return if extentIsLive then (extentSpec :: any):get() else extentSpec
+		return if extentIsLive then (extentSpec :: any):peek() else extentSpec
 	end
 	local function extentIn(use: any): number
 		return if extentIsLive then use(extentSpec) else extentSpec
 	end
 
 	--[[ THE TWO GUTTERS, EACH A NUMBER, A THEME METRIC NAME OR A `Readable` OF
-		EITHER (purity audit §5, 2026-08-22) — `newTable.rowGap`'s contract, with the
+		EITHER (purity audit §5, 2026-08-22) — `UI.Table.rowGap`'s contract, with the
 		vocabulary, the refusal and the live read in `controls/gap_metric.luau` so a
 		grid and a list cannot drift into two answers about what a gutter may be.
 		`gap` refused even a `Readable` before this, which is why the audit named it
@@ -434,7 +443,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local viewportSpec = spec.viewportExtent
 	--[[ ...OR `"auto"`, THE GRID MEASURING THE BOX IT WAS GIVEN (purity audit §4,
-		2026-08-22) — `newVirtualList`'s form, the same argument and the same seam:
+		2026-08-22) — `UI.VirtualList`'s form, the same argument and the same seam:
 		the host takes `fill` along its scroll axis, so its solved size is decided by
 		what CONTAINS it and never by what is inside it, and `syncGeometry` reports
 		what the solver gave. Seeded from the screen so the frame before a
@@ -447,10 +456,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		order to know how wide its lanes are. `crossExtent` is a list field; this
 		grid's closed spec refuses the key by name. ]]
 	local viewportIsAuto = viewportSpec == "auto"
-	local viewportIsLive = type(viewportSpec) == "table" and type((viewportSpec :: any).get) == "function"
+	local viewportIsLive = Compose.isReadable(viewportSpec)
 	assert(
 		viewportIsAuto or viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
-		'VirtualGrid.viewportExtent must be a positive number, a Readable<number>, or "auto": the scroll host\'s '
+		'UI.VirtualGrid.viewportExtent must be a positive number, a Readable<number>, or "auto": the scroll host\'s '
 			.. 'size along the grid\'s own axis (its height on axis="y", its width on axis="x"). "auto" takes '
 			.. "`fill` along that axis and measures what the solver gave it, so a grid inside a pane needs no "
 			.. "number at all — the one requirement is an ancestor that hands it a definite extent there."
@@ -463,7 +472,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		if surfaceEnvironment == nil then
 			return 0
 		end
-		local r: any = surfaceEnvironment:get("viewportRect"):get()
+		local r: any = surfaceEnvironment:get("viewportRect"):peek()
 		if type(r) ~= "table" then
 			return 0
 		end
@@ -478,10 +487,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			then "a gutter is a theme metric name and resolves against the live snapshot"
 			else nil
 		if need ~= nil then
-			surfaceEnv.resolve("newVirtualGrid", spec.id or "VirtualGrid", core, nil, need)
+			surfaceEnv.resolve("UI.VirtualGrid", spec.id or "VirtualGrid", core, nil, need)
 		end
 	end
-	local measuredViewport: any = if viewportIsAuto then core:signal(screenSeed()) else nil
+	local measuredViewport: any = if viewportIsAuto then Compose.cell(screenSeed()) else nil
 	--[[ THE MOUNTED BAND'S OWN CROSS EXTENT (framework-gaps-phase2 item 26). Unlike
 		`measuredViewport` this is not an OPT-IN form — there is no `crossExtent`
 		spec key to gate it behind (the header above already explains why: a
@@ -493,9 +502,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		cell that may not even be mounted yet. Starts at 0 (nothing measured
 		before the first geometry sync); a grid that never presents reports 0,
 		honestly, rather than a guess. ]]
-	local measuredCrossExtent = core:signal(0)
+	local measuredCrossExtent = Compose.cell(0)
 	--[[ THE MEASUREMENT THAT IS NOT A VIEWPORT (fix round 1, finding A) — the same
-		shape `newVirtualList` reports and for the same reason, because both take
+		shape `UI.VirtualList` reports and for the same reason, because both take
 		`fill` along their scroll axis and both are exposed to an ancestor that is
 		unbounded there. A `fill` dim offered `math.huge` answers with its CONTENT
 		contribution, and a scroll node's content measure SUMS its children, so a
@@ -519,7 +528,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		end
 		table.insert(
 			measureDiagnostics,
-			`newVirtualGrid('{id}'): viewportExtent = "auto" measured {main}px along its own axis, which is larger `
+			`UI.VirtualGrid('{id}'): viewportExtent = "auto" measured {main}px along its own axis, which is larger `
 				.. `than the screen ({bound}px) — so this is a CANVAS, not a viewport, and the window it produces `
 				.. "covers every line (virtualization is off). The grid is inside an ancestor that is unbounded on "
 				.. "this axis, which is what another scroller's own scroll axis offers. Give the grid a pane with a "
@@ -534,33 +543,38 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	end
 	local function viewportNow(): number
 		if viewportIsAuto then
-			return measuredViewport:get()
+			return measuredViewport:peek()
 		end
-		return if viewportIsLive then (viewportSpec :: any):get() else viewportSpec
+		return if viewportIsLive then (viewportSpec :: any):peek() else viewportSpec
 	end
 
 	local overscan: number = spec.overscan or 2
 	assert(
 		type(overscan) == "number" and overscan == overscan and overscan >= 0,
-		"VirtualGrid.overscan must be a non-negative number of LINES either side of the viewport"
+		"UI.VirtualGrid.overscan must be a non-negative number of LINES either side of the viewport"
 	)
 
-	local scope = core:scope(`virtual-grid-{id}`)
-	if measuredViewport ~= nil then
-		scope:own(measuredViewport)
+	local scope = core.owner.createChild()
+	for _, readable in adoptedReadables do
+		scope.own(function()
+			readable:dispose()
+		end)
 	end
-	scope:own(measuredCrossExtent)
 	-- a gutter that can move (a Readable, or a theme metric name) reaches the band
 	-- as a live prop; one that cannot stays the plain number it always was
 	local gapProp: any = if gapMetricReader.live
-		then scope:own(core:memo(function(use)
-			return gapMetricReader.In(use)
-		end))
+		then Compose.withOwner(scope, function()
+			return Compose.formula(function(use)
+				return gapMetricReader.In(use)
+			end)
+		end)
 		else gapNow()
 	local rowGapProp: any = if rowGapMetric.live
-		then scope:own(core:memo(function(use)
-			return rowGapMetric.In(use)
-		end))
+		then Compose.withOwner(scope, function()
+			return Compose.formula(function(use)
+				return rowGapMetric.In(use)
+			end)
+		end)
 		else rowGapNow()
 
 	local boundController: any = nil
@@ -583,7 +597,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			local px = (extentSpec :: any)(line, use)
 			if type(px) ~= "number" or px ~= px or px <= 0 then
 				error(
-					`newVirtualGrid '{id}': spec.itemExtent(line {line}) returned {tostring(px)} — a per-line `
+					`UI.VirtualGrid '{id}': spec.itemExtent(line {line}) returned {tostring(px)} — a per-line `
 						.. "extent must be a positive number of px (the size of ONE LINE OF CELLS along the "
 						.. "scroll axis).",
 					0
@@ -594,7 +608,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return out
 	end
 
-	--[[ THE IDENTITY CACHE. `core:memo`'s equality is observer-facing only — a
+	--[[ THE IDENTITY CACHE. `Compose.formula`'s equality is observer-facing only — a
 		stale mark invalidates the subtree unconditionally — so handing back the SAME
 		index object when the inputs did not move has to happen in the body. It is
 		what makes `observe(layoutIndex)` mean "the offsets actually changed" and
@@ -620,25 +634,27 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local cachedInputs: any = nil
 	local cachedIndex: any = nil
-	local layoutIndex = scope:own(core:memo(function(use)
-		local inputs: any = if extentIsPerLine
-			then { extents = extentsFor(use), gap = rowGapIn(use) }
-			else {
-				count = lineCountOf(#(use(spec.items) :: { any }), lanesIn(use)),
-				extent = extentIn(use),
-				gap = rowGapIn(use),
-			}
-		if cachedIndex ~= nil and sameInputs(cachedInputs, inputs) then
+	local layoutIndex = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			local inputs: any = if extentIsPerLine
+				then { extents = extentsFor(use), gap = rowGapIn(use) }
+				else {
+					count = lineCountOf(#(use(spec.items) :: { any }), lanesIn(use)),
+					extent = extentIn(use),
+					gap = rowGapIn(use),
+				}
+			if cachedIndex ~= nil and sameInputs(cachedInputs, inputs) then
+				return cachedIndex
+			end
+			cachedInputs = inputs
+			cachedIndex = if extentIsPerLine
+				then virtual_extents.variable(inputs.extents, inputs.gap)
+				else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
 			return cachedIndex
-		end
-		cachedInputs = inputs
-		cachedIndex = if extentIsPerLine
-			then virtual_extents.variable(inputs.extents, inputs.gap)
-			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
-		return cachedIndex
-	end))
+		end)
+	end)
 	local function layoutNow(): any
-		return layoutIndex:get() :: any
+		return layoutIndex:peek() :: any
 	end
 
 	-- a per-line extent function that is always wrong must fail out of `build()`.
@@ -646,19 +662,21 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	-- something unrelated, which is how a clear authoring error becomes a hunt.
 	if extentIsPerLine then
 		extentsFor(function(readable: any): any
-			return readable:get()
+			return readable:peek()
 		end)
 	end
 
-	local indexByKey = scope:own(core:memo(function(use)
-		local map: { [string]: number } = {}
-		for i, item in use(spec.items) :: { any } do
-			map[spec.key(item)] = i
-		end
-		return map
-	end))
+	local indexByKey = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			local map: { [string]: number } = {}
+			for i, item in use(spec.items) :: { any } do
+				map[spec.key(item)] = i
+			end
+			return map
+		end)
+	end)
 
-	local scrollTop = scope:own(core:signal(0))
+	local scrollTop = Compose.cell(0)
 
 	--[[ BY VALUE, NOT BY IDENTITY. The reactive review found that a
 		memo returning a fresh table under the default identity eq notifies on every
@@ -672,18 +690,22 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		equivalent memo in `virtual_window.luau` was measured at 41 solves against 1
 		over forty churn iterations; no perf scene mounts a grid, so the case in
 		`tests/virtual_grid.spec.luau` is this one's measurement. ]]
-	local canvasDim = scope:own(core:memo(function(use)
-		return { type = "fixed", px = use(layoutIndex).content }
-	end, rect.sameFlatValue))
+	local canvasDim = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			return { type = "fixed", px = use(layoutIndex).content }
+		end, rect.sameFlatValue)
+	end)
 
-	local clampedTop = scope:own(core:memo(function(use)
-		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
-		local raw = use(scrollTop)
-		if type(raw) ~= "number" or raw ~= raw then
-			return 0
-		end
-		return math.clamp(raw, 0, maxTopPx)
-	end))
+	local clampedTop = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
+			local raw = use(scrollTop)
+			if type(raw) ~= "number" or raw ~= raw then
+				return 0
+			end
+			return math.clamp(raw, 0, maxTopPx)
+		end)
+	end)
 
 	local function maxTop(): number
 		return math.max(0, layoutNow().content - viewportNow())
@@ -691,7 +713,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	--[[ ── SNAPPING ON THE SCROLL AXIS ────────────────────────────────
 		The machine, its design and its measurements are `controls/scroll_snap.luau`;
-		this is the same four wires `newVirtualList` has, over a LINE index instead
+		this is the same four wires `UI.VirtualList` has, over a LINE index instead
 		of a row index. A grid's boundaries are its LINES — the lane axis is
 		perpendicular to the scroll and has nothing to rest on — so `snap = "item"`
 		here means "settle on a line", which for a one-lane grid is the same
@@ -704,8 +726,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return snapModeIn(nil)
 	end
 	local snapEngine = scrollSnap.new({
-		core = core,
-		scope = scope,
+		owner = scope,
 		index = layoutNow,
 		viewport = viewportNow,
 		mode = snapModeNow,
@@ -716,7 +737,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			end
 		end,
 	})
-	scope:own(snapEngine.dispose)
+	scope.own(snapEngine.dispose)
 	-- the framework moved the scroll: announce it, then write it (see the list's
 	-- `writeScroll` for why the announcement is not optional)
 	local function writeScroll(controller: any, host: string, offset: number)
@@ -734,10 +755,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return type(a) == "table" and type(b) == "table" and a.first == b.first and a.last == b.last
 	end
 
-	local windowRange = scope:own(core:memo(function(use)
-		local first, last = use(layoutIndex).window(use(clampedTop), viewportIn(use), overscan)
-		return { first = first, last = last }
-	end, sameRange))
+	local windowRange = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			local first, last = use(layoutIndex).window(use(clampedTop), viewportIn(use), overscan)
+			return { first = first, last = last }
+		end, sameRange)
+	end)
 
 	local function sameWindow(a: { any }, b: { any }): boolean
 		if type(a) ~= "table" or type(b) ~= "table" or #a ~= #b then
@@ -751,32 +774,38 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return true
 	end
 
-	local windowItems = scope:own(core:memo(function(use)
-		local items = use(spec.items) :: { any }
-		local lanes = lanesIn(use)
-		local range = use(windowRange) :: any
-		local window: { any } = {}
-		for line = range.first, range.last do
-			for lane = 1, lanes do
-				local index = (line - 1) * lanes + lane
-				local item = items[index]
-				if item == nil then
-					break -- the last line is short; the flow grid left-aligns what is there
+	local windowItems = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			local items = use(spec.items) :: { any }
+			local lanes = lanesIn(use)
+			local range = use(windowRange) :: any
+			local window: { any } = {}
+			for line = range.first, range.last do
+				for lane = 1, lanes do
+					local index = (line - 1) * lanes + lane
+					local item = items[index]
+					if item == nil then
+						break -- the last line is short; the flow grid left-aligns what is there
+					end
+					table.insert(window, { key = spec.key(item), item = item, index = index, lane = lane, line = line })
 				end
-				table.insert(window, { key = spec.key(item), item = item, index = index, lane = lane, line = line })
 			end
-		end
-		return window
-	end, sameWindow))
+			return window
+		end, sameWindow)
+	end)
 
 	-- the band's own canvas offset: the leading edge of its FIRST line
-	local bandOffset = scope:own(core:memo(function(use)
-		return use(layoutIndex).offsetOf((use(windowRange) :: any).first)
-	end))
+	local bandOffset = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			return use(layoutIndex).offsetOf((use(windowRange) :: any).first)
+		end)
+	end)
 
-	local lanesDim = scope:own(core:memo(function(use)
-		return lanesIn(use)
-	end))
+	local lanesDim = Compose.withOwner(scope, function()
+		return Compose.formula(function(use)
+			return lanesIn(use)
+		end)
+	end)
 
 	-- ── keep-visible and reveal ─────────────────────────────────────────────
 	-- the SPAN is the line's own box, never its slot: demanding the trailing
@@ -786,7 +815,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		local plain = solverLib.keepVisibleOffset(
 			ix.offsetOf(line),
 			ix.extentOf(line),
-			clampedTop:get(),
+			clampedTop:peek(),
 			viewportNow(),
 			ix.content
 		)
@@ -794,7 +823,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		if snapModeNow() ~= "item" then
 			return plain
 		end
-		return scrollSnap.keepVisible(ix, viewportNow(), clampedTop:get(), line, plain)
+		return scrollSnap.keepVisible(ix, viewportNow(), clampedTop:peek(), line, plain)
 	end
 
 	local function lineOf(index: number): number
@@ -806,7 +835,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		if root == nil then
 			return nil
 		end
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			if entry.key == key then
 				return `{root}/Canvas/Band/W/[{key}]/Cell`
 			end
@@ -841,7 +870,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		offset from the index instead, issues the framework's one programmatic scroll
 		write, and the window materializes the cell on the way through. ]]
 	local function revealItem(key: string): string?
-		local index = (indexByKey:get() :: { [string]: number })[key]
+		local index = (indexByKey:peek() :: { [string]: number })[key]
 		if index == nil then
 			return nil
 		end
@@ -859,22 +888,22 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		reflow, which a line-keyed anchor cannot. ]]
 	local anchorKey: string? = nil
 	local anchorDelta = 0
-	scope:own(core:observe(scrollTop, function()
-		local items = spec.items:get() :: { any }
+	observeChange(scope, scrollTop, function()
+		local items = spec.items:peek() :: { any }
 		if #items == 0 then
 			anchorKey = nil
 			return
 		end
 		local ix = layoutNow()
-		local top = math.clamp(clampedTop:get(), 0, maxTop())
+		local top = math.clamp(clampedTop:peek(), 0, maxTop())
 		-- a zero-extent viewport asks the index exactly one question: which line is
 		-- the leading edge in
 		local line = math.clamp((ix.window(top, 0, 0)), 1, math.max(1, ix.count))
 		local firstIndex = math.min((line - 1) * lanesNow() + 1, #items)
 		anchorKey = spec.key(items[firstIndex])
 		anchorDelta = top - ix.offsetOf(line)
-	end))
-	scope:own(core:observe(layoutIndex, function(ix: any)
+	end)
+	observeChange(scope, layoutIndex, function(ix: any)
 		local key = anchorKey
 		if key == nil or boundController == nil then
 			return
@@ -883,7 +912,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		if host == nil then
 			return
 		end
-		local index = (indexByKey:get() :: { [string]: number })[key]
+		local index = (indexByKey:peek() :: { [string]: number })[key]
 		if index == nil then
 			-- the anchored item is gone; inventing a neighbour would be a jump with
 			-- extra steps
@@ -903,13 +932,13 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			player is left staring at blank space. Measured on the Table: 400 rows
 			shrinking 43px -> 40px at the end of the list left the engine 1200px
 			out of range. ]]
-		if math.abs(target - scrollTop:get()) < 0.5 then
+		if math.abs(target - scrollTop:peek()) < 0.5 then
 			return
 		end
 		-- ...and it is a REST, not a gesture: read as a travel, an anchor correction
 		-- would look like a flick of exactly its own size
 		writeScroll(boundController, host, target)
-	end))
+	end)
 
 	-- ── the blueprint ───────────────────────────────────────────────────────
 	local band = UI.Grid({
@@ -950,24 +979,29 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 					return entry.key
 				end,
 				row = function(entry: any, itemScope: any)
+					itemScope = itemScope or Compose.currentOwner()
 					--[[ THE LINE IS RE-DERIVED, NEVER CLOSED OVER. `entry.line` was true
 						when the window was computed; a lane-count change moves this very
 						item to a different line while its key — and therefore its mounted
 						subtree — survives. Reading the line back out of `indexByKey` and
 						the live lane count is what keeps the cell's extent honest across a
 						reflow. ]]
-					local cellLine = itemScope:own(core:memo(function(use)
-						local index = (use(indexByKey) :: { [string]: number })[entry.key]
-						if index == nil then
-							return 1 -- the cell is leaving; the unmount is in flight
-						end
-						return math.floor((index - 1) / lanesIn(use)) + 1
-					end))
-					local cellExtent = itemScope:own(core:memo(function(use)
-						return use(layoutIndex).extentOf(use(cellLine))
-					end))
+					local cellLine = Compose.withOwner(itemScope, function()
+						return Compose.formula(function(use)
+							local index = (use(indexByKey) :: { [string]: number })[entry.key]
+							if index == nil then
+								return 1 -- the cell is leaving; the unmount is in flight
+							end
+							return math.floor((index - 1) / lanesIn(use)) + 1
+						end)
+					end)
+					local cellExtent = Compose.withOwner(itemScope, function()
+						return Compose.formula(function(use)
+							return use(layoutIndex).extentOf(use(cellLine))
+						end)
+					end)
 					--[[ A FULL-CELL FOCUSABLE HIT SITS BEHIND THE CELL'S CONTENT
-						(ZStack, z = tree order), which is `newVirtualList`'s row shape
+						(ZStack, z = tree order), which is `UI.VirtualList`'s row shape
 						and is here for a harder reason than symmetry: a contribution
 						OWNS ITS SUBTREE'S FOCUS. `focus_map.autoGroups` emits this
 						control's groups and does not descend into it, so a focusable
@@ -1001,9 +1035,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 					-- a line's extent is republished whenever the index recomputes,
 					-- and a fresh literal made every windowed cell measure-dirty for a
 					-- number that had not moved.
-					local extentDim = itemScope:own(core:memo(function(use)
-						return { type = "fixed", px = use(cellExtent) }
-					end, rect.sameFlatValue))
+					local extentDim = Compose.withOwner(itemScope, function()
+						return Compose.formula(function(use)
+							return { type = "fixed", px = use(cellExtent) }
+						end, rect.sameFlatValue)
+					end)
 					return UI.ZStack({
 						id = "Cell",
 						-- the cell is its LINE's extent along the scroll axis and fills
@@ -1015,14 +1051,16 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						-- content's own measure against the declaration and names both
 						-- numbers when the promise is not kept
 						-- ...and the promise beside it, by value for the same reason
-						virtualSlot = itemScope:own(core:memo(function(use)
-							return {
-								list = id,
-								axis = axis,
-								extent = use(cellExtent),
-								contentFrom = SLOT_CONTENT_FROM,
-							}
-						end, rect.sameFlatValue)),
+						virtualSlot = Compose.withOwner(itemScope, function()
+							return Compose.formula(function(use)
+								return {
+									list = id,
+									axis = axis,
+									extent = use(cellExtent),
+									contentFrom = SLOT_CONTENT_FROM,
+								}
+							end, rect.sameFlatValue)
+						end),
 						children = {
 							hit,
 							spec.cell(entry.item, {
@@ -1047,9 +1085,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		-- decides rather than one this control asserts, which is what makes it
 		-- converge in a single step
 		then fill()
-		elseif viewportIsLive then scope:own(core:memo(function(use)
-			return { type = "fixed", px = viewportIn(use) }
-		end))
+		elseif viewportIsLive then Compose.withOwner(scope, function()
+			return Compose.formula(function(use)
+				return { type = "fixed", px = viewportIn(use) }
+			end)
+		end)
 		else { type = "fixed", px = viewportSpec }
 
 	local blueprint = UI.ScrollView({
@@ -1062,6 +1102,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		-- origin
 		padding = 0,
 		gap = 0,
+		navigation = spec.scrollNavigation,
 		clipChildren = true,
 		children = {
 			UI.Anchor({
@@ -1093,7 +1134,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		control does none.
 
 		WHICH AXIS IS WHICH FLIPS WITH THE SCROLL, and it flips the OPPOSITE way from
-		`newVirtualList`'s. A vertical grid's lanes run across, so the group is
+		`UI.VirtualList`'s. A vertical grid's lanes run across, so the group is
 		`horizontal` and the graph answers Up/Down by a line; a horizontal grid's
 		lanes run down, so the group is `vertical` and the line pair is Left/Right. A
 		list transposes the other way because its line holds ONE item, which makes its
@@ -1114,12 +1155,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	end
 
 	local function itemForKey(key: string): any
-		local index = (indexByKey:get() :: { [string]: number })[key]
-		return if index == nil then nil else (spec.items:get() :: { any })[index]
+		local index = (indexByKey:peek() :: { [string]: number })[key]
+		return if index == nil then nil else (spec.items:peek() :: { any })[index]
 	end
 
 	--[[ THERE IS NO `focusMoved` HERE, AND THAT IS A MEASURED DECISION.
-		`newVirtualList` contributes one to scroll the focused row into view, so this
+		`UI.VirtualList` contributes one to scroll the focused row into view, so this
 		control was written with the same seam — and mutation testing found it DEAD:
 		withholding it changed the scroll behaviour on no path at all, because the
 		presenter's own keep-visible already reacts to a focus move it observes.
@@ -1245,14 +1286,14 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	local bookmark = require("./scroll_bookmarks")
 	local bundle: any = {
 		captureScrollBookmark = function(controller, node)
-			local items = spec.items:get()
+			local items = spec.items:peek()
 			return bookmark.captureIndex(layoutNow(), function(line)
 				return spec.key(items[(line - 1) * lanesNow() + 1])
 			end, controller.scrollHostFor(node.path, true).offset)
 		end,
 		restoreScrollBookmark = function(controller, node, state)
 			local offset = bookmark.restoreIndex(layoutNow(), function(key)
-				local i = indexByKey:get()[key]
+				local i = indexByKey:peek()[key]
 				return if i then lineOf(i) else nil
 			end, state, viewportNow())
 			writeScroll(controller, node.path, offset)
@@ -1298,7 +1339,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			local crossRaw = if isX then box.h else box.w
 			if type(crossRaw) == "number" and crossRaw == crossRaw then
 				local cross = math.max(0, math.floor(crossRaw + 0.5))
-				if cross ~= measuredCrossExtent:get() then
+				if cross ~= measuredCrossExtent:peek() then
 					measuredCrossExtent:set(cross)
 				end
 			end
@@ -1317,18 +1358,18 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			end
 			local main = math.max(0, math.floor(raw + 0.5))
 			noticeViewport(main)
-			if main ~= measuredViewport:get() then
+			if main ~= measuredViewport:peek() then
 				measuredViewport:set(main)
 			end
 		end,
 	}
-	blueprint = contribution.attach(blueprint, bundle)
+	blueprint = contribution.attach(blueprint, virtual_window.mergeInherited(contribution.read(blueprint), bundle))
 
 	local function bindNativeScroll(controller: any, scrollPath: string?): () -> ()
 		local path = scrollPath or mountedScrollPath
 		assert(
 			path ~= nil,
-			"VirtualGrid.bindNativeScroll: scroll path unknown — present the control (so its mounted path is "
+			"UI.VirtualGrid.bindNativeScroll: scroll path unknown — present the control (so its mounted path is "
 				.. "captured) or pass it explicitly"
 		)
 		return mirror.bind(controller, path)
@@ -1350,7 +1391,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	-- reach a cell BY KEY: scroll it into view, then hand back the hit path the
 	-- focus graph can aim at (nil while the control is unmounted or the key is gone)
 	function grid.focusKey(key: string): string?
-		local index = (indexByKey:get() :: { [string]: number })[key]
+		local index = (indexByKey:peek() :: { [string]: number })[key]
 		if index == nil then
 			return nil
 		end
@@ -1367,7 +1408,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	function grid.debugWindow(): { [string]: boolean }
 		local out: { [string]: boolean } = {}
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			out[entry.key] = true
 		end
 		return out
@@ -1375,16 +1416,16 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	function grid.dump(): any
 		local keys = {}
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			table.insert(keys, entry.key)
 		end
-		local range = windowRange:get() :: any
+		local range = windowRange:peek() :: any
 		local ix = layoutNow()
 		return {
 			id = id,
 			axis = axis,
 			lanes = lanesNow(),
-			itemCount = #(spec.items:get() :: { any }),
+			itemCount = #(spec.items:peek() :: { any }),
 			lineCount = ix.count,
 			content = ix.content,
 			rowGap = rowGapNow(),
@@ -1393,11 +1434,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 			-- that came back larger than the screen (fix round 1, finding A)
 			diagnostics = if #measureDiagnostics == 0 then NO_DIAGNOSTICS else table.clone(measureDiagnostics),
 			overscan = overscan,
-			scrollTop = clampedTop:get(),
+			scrollTop = clampedTop:peek(),
 			lines = { range.first, range.last },
 			window = keys,
 			itemExtentMode = if extentIsPerLine then "variable" else "uniform",
-			bandOffset = bandOffset:get(),
+			bandOffset = bandOffset:peek(),
 			anchorKey = anchorKey,
 			--[[ THE PER-LANE CROSS EXTENT (framework-gaps-phase2 item 26). `crossExtent`
 				is the mounted band's own solved box on the axis this grid does not
@@ -1410,9 +1451,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 				"every lane is zero-wide", which is a different fact from "nobody
 				has asked yet". Clamped at 0 otherwise: a cross extent too small for
 				its own gaps is a fact worth reporting, never a negative number. ]]
-			crossExtent = measuredCrossExtent:get(),
+			crossExtent = measuredCrossExtent:peek(),
 			laneWidth = (function(): number?
-				local cross = measuredCrossExtent:get()
+				local cross = measuredCrossExtent:peek()
 				if cross <= 0 then
 					return nil
 				end

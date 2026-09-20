@@ -300,19 +300,19 @@ local ORDER = {
 	-- toggle, the ring landing outside is a jump, and the reactive tint is a
 	-- drag. Also in `demo_picker.DEMOS`.
 	"inherited_subtree",
-	-- scaffolded showcase surface for `Facet.Controls.RadialMenu`. Also in
+	-- scaffolded showcase surface for `UI.RadialMenu`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"radial_menu",
-	-- scaffolded showcase surface for `Facet.Controls.Alert`. Also in
+	-- scaffolded showcase surface for `UI.Alert`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"alert",
-	-- scaffolded showcase surface for `Facet.Controls.Sheet`. Also in
+	-- scaffolded showcase surface for `UI.Sheet`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"sheet",
-	-- scaffolded showcase surface for `Facet.Controls.PageView`. Also in
+	-- scaffolded showcase surface for `UI.PageView`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"page_view",
-	-- scaffolded showcase surface for `Facet.Controls.CollapsibleView`. Also in
+	-- scaffolded showcase surface for `UI.CollapsibleView`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"collapsible_view",
 	-- scaffold: new control scenarios are appended above this line

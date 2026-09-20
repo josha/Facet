@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_app = require("./lib/scenario_app")
 -- NM-H4a — THE DIRECTOR'S SEQUENCE, AND THE INSTRUMENT THAT SURVIVES IT.
 --
 -- THE DEFECT. On a real phone, opening the `hud` demo in portrait, tapping the
@@ -42,6 +44,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 local hud = require("../examples/gallery/scenarios/hud") :: any
+local Compose = require("../src/vendor/compose/core")
 
 -- the device in the report, in points: 1180x2556 physical at 3x
 local PORTRAIT = {
@@ -58,14 +61,14 @@ local LANDSCAPE = {
 }
 
 local function world(view: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	for key, value in view do
 		env:set(key, value)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -107,6 +110,9 @@ end
 local function ctxFor(w: any, lie: ((path: string) -> any)?): any
 	return {
 		Facet = Facet,
+		app = scenario_app.over(w.core, w.presenter),
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
@@ -585,14 +591,14 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 		THIS CASE IS THE PIN. The day cross-surface traversal ships, it goes red and
 		whoever lands it moves the switch. ]]
 	it("a second base surface's control is in NEITHER traversal ring (the reported gap)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		for key, value in LANDSCAPE do
 			env:set(key, value)
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local presenter = harness.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 		local w = { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 		local built = mount(w, ctxFor(w))
 
@@ -600,7 +606,7 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 		for _ = 1, 12 do
 			system.deviceKey("Tab", true)
 			system.deviceKey("Tab", false)
-			local focused = presenter.focus.focused:get()
+			local focused = presenter.focus.focused:peek()
 			if focused ~= nil then
 				seen[focused] = true
 			end
@@ -609,8 +615,8 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 		-- the switches sit behind a room gate now (`hud.luau`, `roomForDrivers`), so
 		-- the path carries the `UI.When`; the claim — they are in THIS surface's ring
 		-- and the probe's switch is not — is unchanged
-		expect(seen["/HudScreen/DriversWhen/then/Drivers/UrlBar"]).toBe(true)
-		expect(seen["/HudScreen/DriversWhen/then/Drivers/RideStrip"]).toBe(true)
+		expect(seen["/HudScreen/DriversWhen/Drivers/UrlBar"]).toBe(true)
+		expect(seen["/HudScreen/DriversWhen/Drivers/RideStrip"]).toBe(true)
 		-- ...and the probe's switch, on its own surface, is not
 		expect(seen["/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody/ProbeHold"]).toBe(nil)
 		built.dispose()
@@ -652,27 +658,27 @@ end)
 	mount. ]]
 describe("hud: the director's sequence with the gallery's other surfaces present", function()
 	local function screenAbove(core: any, count: any): any
-		local items = core:memo(function(use: any)
+		local items = Compose.formula(function(use: any)
 			local out = {}
 			for i = 1, use(count) do
 				table.insert(out, { id = `c{i}` })
 			end
 			return out
 		end)
-		return Facet.UI.Screen({
+		return harness.UI.Screen({
 			id = "Showcase",
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "ShowcaseCol",
 					children = {
-						Facet.UI.ForEach({
+						harness.UI.ForEach({
 							id = "ShowcaseItems",
 							items = items,
 							key = function(item: any)
 								return item.id
 							end,
 							row = function(item: any)
-								return Facet.UI.Text({ id = "ShowcaseText", text = item.id, textSize = 15 })
+								return harness.UI.Text({ id = "ShowcaseText", text = item.id, textSize = 15 })
 							end,
 						}),
 					},
@@ -697,7 +703,7 @@ describe("hud: the director's sequence with the gallery's other surfaces present
 	it("no HUD node is left parented under another surface's root", function()
 		local w = world(PORTRAIT)
 		local built = mount(w, ctxFor(w))
-		local count = w.core:signal(0)
+		local count = Compose.cell(0)
 		w.presenter.present(screenAbove(w.core, count), {})
 		w.presenter.refresh()
 
@@ -737,7 +743,7 @@ describe("hud: the director's sequence with the gallery's other surfaces present
 	it("...and the painted tree still equals a fresh mount's", function()
 		local w = world(PORTRAIT)
 		local built = mount(w, ctxFor(w))
-		local count = w.core:signal(0)
+		local count = Compose.cell(0)
 		w.presenter.present(screenAbove(w.core, count), {})
 		w.presenter.refresh()
 		built.steps.openOverflow(built)
@@ -889,6 +895,9 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		-- Position write that never landed leaves behind
 		local built = mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -936,6 +945,9 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		local w = world(LANDSCAPE)
 		local built = mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -980,6 +992,9 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		local w = world(LANDSCAPE)
 		local built = mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1019,6 +1034,9 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		local w = world(LANDSCAPE)
 		local built = mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1162,7 +1180,7 @@ describe("hud: the probe plate lays out as lines, not as one opaque block", func
 		-- one mounted Text per line of the plate, and none for the lines it does not have
 		local mounted = 0
 		for _, path in w.adapter.paths() do
-			if string.find(path, "^" .. BODY .. "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+			if string.find(path, "^" .. BODY .. "/ProbeLines/ProbeLine%d+/Line$") ~= nil then
 				mounted += 1
 			end
 		end
@@ -1211,7 +1229,7 @@ describe("hud: the probe plate lays out as lines, not as one opaque block", func
 		local healthy = #string.split(built.report().paintProbe.plate, "\n")
 		local mounted = 0
 		for _, path in w.adapter.paths() do
-			if string.find(path, "^" .. BODY .. "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+			if string.find(path, "^" .. BODY .. "/ProbeLines/ProbeLine%d+/Line$") ~= nil then
 				mounted += 1
 			end
 		end
@@ -1384,6 +1402,9 @@ describe("hud: a whole-surface coordinate offset is a space, not a defect", func
 	local function mountWith(w: any, geo: any): any
 		return mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1412,6 +1433,9 @@ describe("hud: a whole-surface coordinate offset is a space, not a defect", func
 		-- the whole surface in the engine's space, and one node genuinely misplaced
 		local built = mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,
@@ -1527,7 +1551,7 @@ describe("hud: the paint probe does not cover the HUD it is describing", functio
 		built.steps.sampleProbe(built)
 		local closed = 0
 		for _, path in w.adapter.paths() do
-			if string.find(path, "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+			if string.find(path, "/ProbeLines/ProbeLine%d+/Line$") ~= nil then
 				closed += 1
 			end
 		end
@@ -1535,7 +1559,7 @@ describe("hud: the paint probe does not cover the HUD it is describing", functio
 		w.presenter.refresh()
 		local open = 0
 		for _, path in w.adapter.paths() do
-			if string.find(path, "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+			if string.find(path, "/ProbeLines/ProbeLine%d+/Line$") ~= nil then
 				open += 1
 			end
 		end
@@ -1595,6 +1619,9 @@ describe("hud: faded and clipped are not painting", function()
 	local function mountSeam(w: any, decorate: (path: string, out: any) -> ()): any
 		return mount(w, {
 			Facet = Facet,
+			app = scenario_app.over(w.core, w.presenter),
+			UI = (harness.libraryOf(w.core)),
+			Compose = Facet.Compose,
 			core = w.core,
 			env = w.env,
 			adapter = w.adapter,

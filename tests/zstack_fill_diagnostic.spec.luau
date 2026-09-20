@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- The ZStack overflow diagnostic must not fire on a `fill` axis
 -- (reference-app matrix 2026-08-08, burn-down finding: a fill axis resolves at
 -- arrange to exactly the stack's box, but `measure` answers `fill` with
@@ -19,7 +20,7 @@ local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 
 local function world(build: (any) -> any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 	local system = Facet.newActionSystem(core)
@@ -27,8 +28,8 @@ local function world(build: (any) -> any)
 	-- the live shape carried the engine bar: keep it so the reserve half of
 	-- the false positive (offer + bar on the cross axis) is in the fixture
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local handle = presenter.present(build(Facet.UI), {})
+	local presenter = harness.newPresenter(core, env, adapter, system)
+	local handle = presenter.present(build(harness.UI), {})
 	presenter.refresh()
 	return handle
 end

@@ -129,8 +129,8 @@ local DEDICATED_PAINT_SEAMS: { [string]: string } = {
 	`inherit` is the two INHERITED CHANNELS (stabilization pass 2026-09-07, stream
 	C): `enabled` and `tint` declared on a layout CONTAINER, where they apply to the
 	container's whole subtree. The value reaches the engine only through the
-	DESCENDANTS `src/mount.luau`'s cascade resolves it onto — each of which writes it
-	under its own class's authority — so the declaring node writes nothing, and
+	DESCENDANTS the inheritance cascade (`src/render/inheritance.luau`) resolves
+	it onto — each of which writes it under its own class's authority — so the declaring node writes nothing, and
 	giving it an authority entry would authorize the renderer to paint a container's
 	plate with a tint it was never asked to paint. View 1 above still binds: both
 	names are members of the renderer's `BINDING_PROPS`, so a reactive change is
@@ -428,12 +428,30 @@ function checker.check(opts: Options?)
 		end
 	end
 
-	-- the shared box/container props are documented once under `### UI`
-	local sharedSection = docsSectionFor("UI") or ""
+	--[[ THE SHARED BOX/CONTAINER PROPS ARE DOCUMENTED ONCE, and this is the
+		heading they live under. `docsSectionFor` matches a heading that names a
+		CLASS in backticks; the shared section names the constructor FAMILY
+		instead, so it is named here rather than guessed. Both spellings the
+		reference has worn are accepted, which is what keeps this check and the
+		extension checker from disagreeing about one heading. ]]
+	local SHARED_HEADINGS = { "UI.*", "UI" }
+	local sharedSection = ""
+	for _, heading in SHARED_HEADINGS do
+		sharedSection = docsSectionFor(heading) or ""
+		if sharedSection ~= "" then
+			break
+		end
+	end
+	if sharedSection == "" then
+		problem(
+			`{DOCS_API} has no shared-property section: expected a \`### \`UI.*\`\` heading `
+				.. "(the shared box/container props are documented once there, not per class)"
+		)
+	end
 	for _, prop in schema.sharedPropNames() do
 		if string.find(sharedSection, prop, 1, true) == nil then
 			problem(
-				`shared property '{prop}' is not documented in the \`### UI\` section of {DOCS_API} `
+				`shared property '{prop}' is not documented in the \`### \`UI.*\`\` section of {DOCS_API} `
 					.. `(shared box/container props are documented once, not per class)`
 			)
 		end

@@ -1,44 +1,19 @@
 --!strict
---[[
-	THE LAYOUT PRIMITIVES ANSWER FOR THEMSELVES (wave LAYOUT-FIX, 2026-08-21).
-
-	`artifacts/release-candidate-review/adapt-audit/matrix-layout.md` measured the
-	six screen-size × input combos against every layout primitive and found the same
-	defect shape eight times over: **an adaptive rule that exists, is correct, is
-	unit-tested, and is not reached on the default path.** `Grid` defaults to one
-	lane. `AdaptiveStack` defaults to not adapting. The default answer to overflow
-	is to paint outside the box.
-
-	This file is the standing guard for the halves of that this wave closed. Every
-	case here was RED at the wave's anchor (`fd59cae`) — that is the point of the
-	file, and the report records which mutation reddens which case.
-
-	THE SIX COMBOS ARE THE AUDIT'S OWN, verbatim from its column table, so a row
-	here can be read straight against the row there:
-
-	  compact touch portrait    390x844   Small
-	  compact touch landscape   844x390   Small
-	  regular touch tablet     1024x768   Small
-	  desktop pointer          1600x900   Medium
-	  ten-foot gamepad        1920x1080   Large
-	  hybrid pointer+touch     1280x800   Medium
-]]
+-- The layout primitives adapt on their default path, and say so when content
+-- does not fit. Each case runs at the six screen-size and input combos below.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
-local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
-local rendererLib = require("../src/render/renderer")
-local fake_target = require("./lib/fake_target")
+local Facet = require("../src")
+local world = require("./lib/world")
 
+local FILL = { type = "fill", weight = 1 }
 local FIXED = function(px: number)
 	return { type = "fixed", px = px }
 end
 
-type Combo = { name: string, w: number, h: number, display: string }
+type Combo = { name: string, w: number, h: number, display: string? }
 local COMBOS: { Combo } = {
 	{ name = "compact touch portrait", w = 390, h = 844, display = "Small" },
 	{ name = "compact touch landscape", w = 844, h = 390, display = "Small" },
@@ -48,21 +23,27 @@ local COMBOS: { Combo } = {
 	{ name = "hybrid pointer+touch", w = 1280, h = 800, display = "Medium" },
 }
 
-local function render(screen: any, combo: Combo, policy: string?): (any, any)
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = combo.w, h = combo.h })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	env:set("displaySize", combo.display)
-	local root = mountLib.mount(core, screen)
-	local adapter = fake_target.new()
-	local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = policy or "edgeToEdge" })
-	controller.initialRender()
-	return adapter, controller
+-- `build(UI, w)` returns the screen's root node. Answers the adapter, the
+-- renderer controller and the world.
+local function render(build: (any, any) -> any, combo: Combo, policy: string?): (any, any, any)
+	local w = world.new({
+		viewport = { x = 0, y = 0, w = combo.w, h = combo.h },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		displaySize = combo.display,
+		overflowGuardOff = "these fixtures overflow their boxes to read the solver's findings",
+	})
+	w.present(function()
+		return build(w.UI, w)
+	end, { rootPolicy = policy or "edgeToEdge" })
+	return w.adapter, w.controller, w
 end
 
--- how many cells share the first cell's LANE coordinate — i.e. the lane count the
--- grid actually laid out, read off the rects rather than off the arithmetic
+local function width(px: number): Combo
+	return { name = `{px}px`, w = px, h = 800 }
+end
+
+-- The lane count the grid laid out, read off the rects: how many cells share the
+-- first cell's row.
 local function laneCount(adapter: any, prefix: string, n: number): number
 	local first = adapter.node(prefix .. "1")
 	if first == nil then
@@ -78,419 +59,235 @@ local function laneCount(adapter: any, prefix: string, n: number): number
 	return lanes
 end
 
-local function cards(n: number, w: number, h: number): { any }
-	local kids = {}
+-- `n` fixed boxes named `prefix1..n`, appended to `props` as its children.
+local function withBoxes(UI: any, props: any, prefix: string, n: number, w: any, h: any): any
 	for i = 1, n do
-		kids[i] = UI.Box({ id = "C" .. i, width = FIXED(w), height = FIXED(h) })
+		table.insert(props, UI.Box(prefix .. i)({ width = w, height = h }))
 	end
-	return kids
+	return props
 end
 
---[[ ═══ ADAPT-L2 · a Grid that was told nothing lanes itself from the box it got ═══
+local function grid(props: any, n: number, w: number, h: number)
+	return function(UI: any)
+		return UI.Screen("S")({ UI.Grid("G")(withBoxes(UI, table.clone(props), "C", n, FIXED(w), FIXED(h))) })
+	end
+end
 
-	`gridLaneCount` returned 1 whenever neither `columns` nor `minColumnWidth` was
-	declared, at every width from 390 to 1920 — cell B-1, "a one-lane default on a
-	1920 TV is a column of cards down the left edge".
+local function findings(controller: any, phrase: string?): { string }
+	local out: { string } = {}
+	for _, d in controller.diagnostics() do
+		if phrase == nil or string.find(d.issue, phrase, 1, true) ~= nil then
+			table.insert(out, d.issue)
+		end
+	end
+	return out
+end
 
-	The default is now the route the guide already teaches: the widest child's own
-	measured extent as the lane minimum, divided into the box the grid was actually
-	offered by `adaptive.columnsFor` — the same function the declared route calls,
-	so the ten-foot cap rides along and a television gets FEWER lanes than a
-	desktop. No new number enters the framework.
-]]
+local function missingPhrases(message: string, phrases: { string }): string
+	local missing: { string } = {}
+	for _, phrase in phrases do
+		if string.find(message, phrase, 1, true) == nil then
+			table.insert(missing, phrase)
+		end
+	end
+	return `missing:{table.concat(missing, ",")}`
+end
+
+-- An undeclared Grid takes the widest child's measured extent as its lane
+-- minimum and divides the offered box through `adaptive.columnsFor`, the same
+-- function the declared route calls, so the ten-foot cap applies.
 describe("ADAPT-L2 — Grid lanes itself from the space it got", function()
-	-- the audit's own B-2 row, which is the number the default must now reach:
-	-- six 160px cards at each combo with `minColumnWidth = 160` declared
+	-- six 160px cards with `minColumnWidth = 160` declared, per combo
 	local EXPECTED = { 2, 4, 6, 9, 5, 7 }
 
 	for index, combo in COMBOS do
 		it(`an undeclared Grid takes the offer's lanes at {combo.name}`, function()
-			local screen = UI.Screen({
-				id = "S",
-				children = { UI.Grid({ id = "G", gap = 12, children = cards(14, 160, 100) }) },
-			})
-			local adapter = render(screen, combo)
+			local adapter = render(grid({ gap = 12 }, 14, 160, 100), combo)
 			expect(laneCount(adapter, "/S/G/C", 14)).toBe(EXPECTED[index])
 		end)
 	end
 
 	it("the undeclared answer IS the declared answer, at every combo", function()
-		-- the strongest form of the claim: the default is not a second arithmetic
-		-- that happens to agree today, it is the same one reached with the
-		-- minimum the solver already measured
 		for _, combo in COMBOS do
-			local declared = render(
-				UI.Screen({
-					id = "S",
-					children = { UI.Grid({ id = "G", gap = 12, minColumnWidth = 160, children = cards(14, 160, 100) }) },
-				}),
-				combo
-			)
-			local defaulted = render(
-				UI.Screen({
-					id = "S",
-					children = { UI.Grid({ id = "G", gap = 12, children = cards(14, 160, 100) }) },
-				}),
-				combo
-			)
+			local declared = render(grid({ gap = 12, minColumnWidth = 160 }, 14, 160, 100), combo)
+			local defaulted = render(grid({ gap = 12 }, 14, 160, 100), combo)
 			expect(laneCount(defaulted, "/S/G/C", 14)).toBe(laneCount(declared, "/S/G/C", 14))
 		end
 	end)
 
 	it("a television gets FEWER lanes than a desktop, with nothing declared", function()
 		local function lanes(combo: Combo): number
-			local screen = UI.Screen({
-				id = "S",
-				children = { UI.Grid({ id = "G", gap = 12, children = cards(14, 160, 100) }) },
-			})
-			return laneCount(render(screen, combo), "/S/G/C", 14)
+			return laneCount(render(grid({ gap = 12 }, 14, 160, 100), combo), "/S/G/C", 14)
 		end
-		local desktop = lanes(COMBOS[4])
-		local tenFoot = lanes(COMBOS[5])
-		expect(tenFoot).toBeLessThan(desktop)
+		expect(lanes(COMBOS[5])).toBeLessThan(lanes(COMBOS[4]))
 	end)
 
 	it("AUTHORED ALWAYS WINS: a declared lane count is untouched by the default", function()
-		local screen = UI.Screen({
-			id = "S",
-			children = { UI.Grid({ id = "G", gap = 12, columns = 3, children = cards(9, 160, 100) }) },
-		})
 		for _, combo in COMBOS do
-			expect(laneCount(render(screen, combo), "/S/G/C", 9)).toBe(3)
+			expect(laneCount(render(grid({ gap = 12, columns = 3 }, 9, 160, 100), combo), "/S/G/C", 9)).toBe(3)
 		end
 	end)
 
 	it("...and so is a declared minimum, in both directions", function()
-		local wide = UI.Screen({
-			id = "S",
-			children = { UI.Grid({ id = "G", gap = 12, minColumnWidth = 700, children = cards(6, 160, 100) }) },
-		})
-		local narrow = UI.Screen({
-			id = "S",
-			children = { UI.Grid({ id = "G", gap = 12, minColumnWidth = 40, children = cards(6, 160, 100) }) },
-		})
-		-- a minimum WIDER than the children still wins: two lanes on a 1600 desktop,
-		-- not the nine the children's own 160px would have bought
-		expect(laneCount(render(wide, COMBOS[4]), "/S/G/C", 6)).toBe(2)
-		-- ...and one NARROWER than them wins too — six lanes, one per child
-		expect(laneCount(render(narrow, COMBOS[4]), "/S/G/C", 6)).toBe(6)
+		-- a minimum wider than the children wins: two lanes on a 1600 desktop
+		local wide = render(grid({ gap = 12, minColumnWidth = 700 }, 6, 160, 100), COMBOS[4])
+		expect(laneCount(wide, "/S/G/C", 6)).toBe(2)
+		-- ...and one narrower than them wins too: six lanes, one per child
+		local narrow = render(grid({ gap = 12, minColumnWidth = 40 }, 6, 160, 100), COMBOS[4])
+		expect(laneCount(narrow, "/S/G/C", 6)).toBe(6)
 	end)
 
 	it("THE NULL HYPOTHESIS: a grid of fill children still gets one lane", function()
-		-- a `fill` child cannot express an intrinsic minimum (it measures to
-		-- whatever it is offered), so the honest answer is the one-lane fallback
-		-- the declared `"intrinsic"` route has always given — unchanged
-		local kids = {}
-		for i = 1, 6 do
-			kids[i] = UI.Box({ id = "C" .. i, width = { type = "fill", weight = 1 }, height = FIXED(40) })
-		end
-		local screen = UI.Screen({ id = "S", children = { UI.Grid({ id = "G", gap = 12, children = kids }) } })
-		expect(laneCount(render(screen, COMBOS[4]), "/S/G/C", 6)).toBe(1)
+		-- a `fill` child has no intrinsic minimum, so the one-lane fallback stands
+		local adapter = render(function(UI)
+			return UI.Screen("S")({ UI.Grid("G")(withBoxes(UI, { gap = 12 }, "C", 6, FILL, FIXED(40))) })
+		end, COMBOS[4])
+		expect(laneCount(adapter, "/S/G/C", 6)).toBe(1)
 	end)
 end)
 
---[[ ═══ ADAPT-L4 · a class named AdaptiveStack cannot silently not adapt ═══════
-
-	`axis` defaulted to `"y"`, so `UI.AdaptiveStack{}` was a PERMANENT VSTACK at
-	every combo — measured 160x200 at all six, 1920px television included (cell
-	A-2). Three shipped fixtures declared it with a comment saying "side by side
-	where there is room, a column where there is not" and never went side by side.
-
-	The remedy is this framework's own, and it is older than the audit:
-	`tab_view.luau:344-350` REFUSES to construct when its adaptive fact is absent,
-	naming the host that would have supplied it. `axis` is now REQUIRED, and its
-	refusal names both routes — the reactive fact for a stack that adapts, and
-	`UI.VStack` for an author who simply wants a column. A default of `"y"` on
-	THIS class buys nothing that `UI.VStack` did not already buy.
-]]
+-- `AdaptiveStack.axis` is required. The refusal names the reactive fact for a
+-- stack that adapts and `UI.VStack` for an author who wants a column.
 describe("ADAPT-L4 — AdaptiveStack refuses rather than silently not adapting", function()
+	local function bare(UI: any)
+		return UI.Screen("S")({ UI.AdaptiveStack("Panels")({ gap = 8, UI.Box("A")({}) }) })
+	end
+
 	it("a bare AdaptiveStack REFUSES to construct", function()
 		expect(function()
-			UI.AdaptiveStack({ id = "Panels", gap = 8, children = { UI.Box({ id = "A" }) } })
+			render(bare, COMBOS[1])
 		end).toThrow()
 	end)
 
 	it("...and the refusal names the host, the fact, and the unconditional class", function()
-		local ok, err = pcall(function()
-			UI.AdaptiveStack({ id = "Panels", gap = 8, children = { UI.Box({ id = "A" }) } })
-		end)
+		local ok, err = pcall(render, bare, COMBOS[1])
 		expect(ok).toBe(false)
-		local message = tostring(err)
-		local missing: { string } = {}
-		-- the fix, the host that publishes it, and the way out for an author who
-		-- wanted a column all along — the same three the tab_view refusal carries
-		for _, phrase in { "AdaptiveStack.axis is required", "adaptive.conditions", "client.host.new", "UI.VStack" } do
-			if string.find(message, phrase, 1, true) == nil then
-				table.insert(missing, phrase)
-			end
-		end
-		expect(`missing:{table.concat(missing, ",")}`).toBe("missing:")
+		expect(
+			missingPhrases(
+				tostring(err),
+				{ "AdaptiveStack.axis is required", "adaptive.conditions", "client.host.new", "UI.VStack" }
+			)
+		).toBe("missing:")
 	end)
 
 	it("THE NULL HYPOTHESIS: a bound axis constructs and still flips in place", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local scope = core:scope("adapt-l4")
-		local conditions = (require("../src/layout/adaptive") :: any).conditions(core, env, { scope = scope })
-		local screen = UI.Screen({
-			id = "S",
-			children = {
-				UI.AdaptiveStack({
-					id = "Bar",
-					axis = conditions.axis,
+		local adapter, _, w = render(function(UI, w)
+			return UI.Screen("S")({
+				UI.AdaptiveStack("Bar")({
+					axis = Facet.adaptive.conditions(w.env).axis,
 					gap = 8,
-					children = {
-						UI.Box({ id = "A", width = FIXED(60), height = FIXED(20) }),
-						UI.Box({
-							id = "B",
-							width = FIXED(60),
-							height = FIXED(20),
-						}),
-					},
+					UI.Box("A")({ width = FIXED(60), height = FIXED(20) }),
+					UI.Box("B")({ width = FIXED(60), height = FIXED(20) }),
 				}),
-			},
-		})
-		local root = mountLib.mount(core, screen)
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
-		controller.initialRender()
-		local column = adapter.node("/S/Bar/B").rect
-		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 800 })
-		controller.refresh()
+			})
+		end, { name = "narrow", w = 400, h = 800 })
+		local node = adapter.node("/S/Bar/B")
+		local column = node.rect
+		w.env:set("viewportRect", { x = 0, y = 0, w = 900, h = 800 })
+		w.settle()
 		local row = adapter.node("/S/Bar/B").rect
-		-- a column puts B under A; a row puts it beside it. The class's whole
-		-- promise is that this is a re-solve, so the node is the same node
+		-- a column puts B under A; a row puts it beside it, on the same node
 		expect(`{column.x},{column.y} -> {row.x},{row.y}`).toBe("0,28 -> 68,0")
-		scope:dispose()
+		expect(adapter.node("/S/Bar/B")).toBe(node)
 	end)
 
-	it("the comment three fixtures carried is TRUE now: 320px is a column, 1280px a row", function()
-		-- the audit's own reproduction: two 132px plates cannot share a 320px line,
-		-- and the fixtures said so in a comment while stacking forever
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local scope = core:scope("adapt-l4-fixture")
-		local conditions = (require("../src/layout/adaptive") :: any).conditions(core, env, { scope = scope })
-		local function panels(): any
-			return UI.Screen({
-				id = "S",
-				children = {
-					UI.AdaptiveStack({
-						id = "Panels",
-						axis = conditions.axis,
-						gap = 8,
-						width = { type = "fill", weight = 1 },
-						children = {
-							UI.Box({ id = "One", width = FIXED(132), height = FIXED(60) }),
-							UI.Box({ id = "Many", width = FIXED(132), height = FIXED(60) }),
-						},
-					}),
-				},
+	it("two 132px plates are a column at 320px and a row at 1280px", function()
+		local adapter, _, w = render(function(UI, w)
+			return UI.Screen("S")({
+				UI.AdaptiveStack("Panels")({
+					axis = Facet.adaptive.conditions(w.env).axis,
+					gap = 8,
+					width = FILL,
+					UI.Box("One")({ width = FIXED(132), height = FIXED(60) }),
+					UI.Box("Many")({ width = FIXED(132), height = FIXED(60) }),
+				}),
 			})
-		end
-		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
-		local root = mountLib.mount(core, panels())
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
-		controller.initialRender()
+		end, { name = "320", w = 320, h = 640 })
 		expect(adapter.node("/S/Panels/Many").rect.y).toBe(68)
-		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 800 })
-		controller.refresh()
-		-- ...and on a wide surface they are the comparison the comment promised
+		w.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 800 })
+		w.settle()
 		expect(adapter.node("/S/Panels/Many").rect.y).toBe(0)
-		scope:dispose()
 	end)
 end)
 
---[[ ═══ ADAPT-L3 · the adaptive axis is a SCREEN fact, and the band where that bites ═══
-
-	CONTESTED, and this block is the measurement that makes the contest checkable
-	rather than a paragraph. `conditions.axis` is `adaptive.axisFor(viewportWidth)`
-	— the RAW window — so a stack inside anything that got less than the window can
-	be told "row" for space it does not have. Reproduced below with nothing exotic:
-	a `Screen` with the theme's own 24px page margin.
-
-	WHY THE TWO CANDIDATE FIXES ARE BOTH OUT OF THIS WAVE'S REACH, stated here so
-	the next reader does not re-derive it:
-
-	  (a) "make `contentWidth` subtract the insets and leave `viewportWidth` raw" is
-	      refused by the framework's own deprecation ledger — `src/init.luau`
-	      DEPRECATED `adaptive.conditions().contentWidth` at 0.8.0 with the
-	      replacement `viewportWidth` and the note "alias; the value never
-	      subtracted insets". Giving a removed-by-0.9.0 alias new meaning is the
-	      opposite of what that row promised. It also would not close the case
-	      below, which is PADDING rather than an inset.
-	  (b) "let the stack resolve its axis from the box the solver proposed" is the
-	      honest fix and it is not one file. The axis is currently a PROP, and
-	      `present/focus_map.luau:640-665` reads that prop LIVE to decide whether a
-	      pad navigates the stack left/right or up/down — the D5 defect that had
-	      every segmented picker navigating vertically. An offer-derived axis is
-	      known only inside the solve, so it needs the solver to publish the
-	      resolved axis per node AND the focus derivation to read the solved fact
-	      instead of the prop, which crosses solver, renderer and presenter — all
-	      three extraction-locked.
-
-	So the band stays, and it is guarded: the framework is not silent about it, and
-	the case below is the red one waiting for (b).
-]]
+-- `conditions.axis` reads the raw window width, so a stack inside a padded
+-- screen can be told "row" for space it does not have. The band where that
+-- happens is reported by the solver.
 describe("ADAPT-L3 — the axis is the SCREEN's width, and the solver says so", function()
-	local adaptive = require("../src/layout/adaptive")
-
-	local function padded(width: number): (any, any, any)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = width, h = 800 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local scope = core:scope("adapt-l3")
-		local conditions = (adaptive :: any).conditions(core, env, { scope = scope })
-		local kids = {}
-		for i = 1, 3 do
-			kids[i] = UI.Box({ id = "K" .. i, width = FIXED(200), height = FIXED(44) })
-		end
-		local screen = UI.Screen({
-			id = "S",
-			padding = "l",
-			children = {
-				UI.AdaptiveStack({
-					id = "Bar",
-					axis = conditions.axis,
+	local function padded(px: number): (any, any, any)
+		return render(function(UI, w)
+			return UI.Screen("S")({
+				padding = "l",
+				UI.AdaptiveStack("Bar")(withBoxes(UI, {
+					axis = Facet.adaptive.conditions(w.env).axis,
 					gap = 8,
-					width = { type = "fill", weight = 1 },
-					children = kids,
-				}),
-			},
-		})
-		local root = mountLib.mount(core, screen)
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
-		controller.initialRender()
-		return adapter, controller, scope
+					width = FILL,
+				}, "K", 3, FIXED(200), FIXED(44))),
+			})
+		end, width(px))
 	end
 
 	local function overflowFinding(controller: any): string?
-		for _, d in controller.diagnostics() do
-			if string.find(d.issue, "content overflows", 1, true) ~= nil then
-				return d.issue
-			end
-		end
-		return nil
+		return findings(controller, "content overflows this")[1]
 	end
 
 	it("the band exists and is exactly the offer's, not the window's", function()
 		-- 560: the window is under the threshold, so it is a column and fits
-		local _, below, s1 = padded(560)
+		local _, below = padded(560)
 		expect(overflowFinding(below)).toBeNil()
-		s1:dispose()
-		-- 600-640: the WINDOW cleared the threshold and the CONTAINER did not
-		for _, width in { 600, 610, 640 } do
-			local _, inside, s2 = padded(width)
+		-- 600..640: the window says "row", the padded offer cannot hold one
+		for _, px in { 600, 610, 640 } do
+			local _, inside = padded(px)
 			expect(overflowFinding(inside) ~= nil).toBe(true)
-			s2:dispose()
 		end
-		-- 680: the container clears it too, and the band closes
-		local _, above, s3 = padded(680)
+		local _, above = padded(680)
 		expect(overflowFinding(above)).toBeNil()
-		s3:dispose()
 	end)
 
 	it("...and it is NOT silent — the finding names the container, the amount and both fixes", function()
-		local _, controller, scope = padded(610)
+		local _, controller = padded(610)
 		local issue = overflowFinding(controller) :: string
-		local missing: { string } = {}
-		for _, phrase in { "hstack", "54px", "paint outside its box", "ScrollView", "give it room" } do
-			if string.find(issue, phrase, 1, true) == nil then
-				table.insert(missing, phrase)
-			end
-		end
-		expect(`missing:{table.concat(missing, ",")}`).toBe("missing:")
-		scope:dispose()
+		expect(missingPhrases(issue, { "hstack", "54px", "paint outside its box", "ScrollView", "give it room" })).toBe(
+			"missing:"
+		)
 	end)
 
 	it("the fact itself is honest about what it is: `viewportWidth` IS the raw window", function()
-		-- the module's own V16 note, pinned: a decision keyed on this is keyed on
-		-- the WINDOW. `contentWidth` is its deprecated alias and is the same number.
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
-		env:set("displaySize", "Large")
-		local scope = core:scope("adapt-l3-fact")
-		local conditions = (adaptive :: any).conditions(core, env, { scope = scope })
-		-- 90px of overscan per side is reserved at ten-foot and this number ignores it
-		expect(conditions.viewportWidth:get()).toBe(1920)
-		expect(conditions.contentWidth:get()).toBe(1920)
-		scope:dispose()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1920, h = 1080 }, displaySize = "Large" })
+		local viewportWidth, contentWidth = w.scoped(function()
+			local conditions = Facet.adaptive.conditions(w.env)
+			return conditions.viewportWidth:peek(), conditions.contentWidth:peek()
+		end)
+		expect(viewportWidth).toBe(1920)
+		expect(contentWidth).toBe(1920)
 	end)
 end)
 
---[[ ═══ ADAPT-L8 · a GridRow squeezed past its declared widths and said nothing ═══
-
-	Two containers in one primitive family with OPPOSITE failure modes, and the
-	silent one was winning. At 320px three cells each declaring `width = fixed(200)`
-	came out 101px wide with ZERO solver findings (cell B-4, measured 200 -> 181 ->
-	148 -> 124 -> 101 across 1024/560/460/390/320), while the `UI.HStack` twin at
-	the same widths files a named finding every time.
-
-	The squeeze itself is RIGHT and stays: a row grid's naturals that do not fit
-	would paint outside the box, and reducing them proportionally is the same clamp
-	the flow grid makes one level up. What was wrong is that a declared `fixed(200)`
-	silently became 101 — the audit's own minimum was "at minimum the finding an
-	HStack files at the same width", and that is what this is.
-
-	ONE OWNER, as everywhere in this file: the squeeze is computed in
-	`gridColumnPlan`, which is the single function measure and arrange both read, so
-	the finding reports the plan's own number rather than a second arithmetic that
-	agrees today.
-]]
+-- A GridRow that squeezes its declared column widths files a named finding, the
+-- same way an HStack does at the same width.
 describe("ADAPT-L8 — a row grid says when it squeezed its columns", function()
-	local function rowGrid(width: number): (any, any)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = width, h = 800 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local cells = {}
-		for i = 1, 3 do
-			cells[i] = UI.Text({ id = "C" .. i, text = "Cell " .. i, width = FIXED(200), height = FIXED(24) })
-		end
-		local screen = UI.Screen({
-			id = "S",
-			children = {
-				UI.Grid({
-					id = "G",
-					gap = 8,
-					width = { type = "fill", weight = 1 },
-					children = { UI.GridRow({ id = "Row", children = cells }) },
-				}),
-			},
-		})
-		local root = mountLib.mount(core, screen)
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
-		controller.initialRender()
-		return adapter, controller
+	local function rowGrid(px: number): (any, any)
+		return render(function(UI)
+			local row = {}
+			for i = 1, 3 do
+				row[i] = UI.Text("C" .. i)({ text = "Cell " .. i, width = FIXED(200), height = FIXED(24) })
+			end
+			return UI.Screen("S")({ UI.Grid("G")({ gap = 8, width = FILL, UI.GridRow("Row")(row) }) })
+		end, width(px))
 	end
 
 	local function squeezeFinding(controller: any): string?
-		for _, d in controller.diagnostics() do
-			if string.find(d.issue, "squeezed its columns", 1, true) ~= nil then
-				return d.issue
-			end
-		end
-		return nil
+		return findings(controller, "squeeze")[1]
 	end
 
 	it("a squeeze is REPORTED, at every width the audit measured one", function()
-		-- 1024 and 700 hold the three 200px cells whole: no squeeze, no finding
-		for _, width in { 1024, 700 } do
-			local adapter, controller = rowGrid(width)
+		for _, px in { 1024, 700 } do
+			local adapter, controller = rowGrid(px)
 			expect(adapter.node("/S/G/Row/C1").rect.w).toBe(200)
 			expect(squeezeFinding(controller)).toBeNil()
 		end
-		-- ...and below that the columns give, which is right, and is now said
-		for _, width in { 560, 460, 390, 320 } do
-			local adapter, controller = rowGrid(width)
+		for _, px in { 560, 460, 390, 320 } do
+			local adapter, controller = rowGrid(px)
 			expect(adapter.node("/S/G/Row/C1").rect.w).toBeLessThan(200)
 			expect(squeezeFinding(controller) ~= nil).toBe(true)
 		end
@@ -499,138 +296,54 @@ describe("ADAPT-L8 — a row grid says when it squeezed its columns", function()
 	it("...and the finding names the amount, the room, and the three ways out", function()
 		local _, controller = rowGrid(320)
 		local issue = squeezeFinding(controller) :: string
-		local missing: { string } = {}
-		-- 600px of naturals against 304px of room after two 8px gaps
-		for _, phrase in { "600px", "304px", "ScrollView", "give the grid room", "fewer columns" } do
-			if string.find(issue, phrase, 1, true) == nil then
-				table.insert(missing, phrase)
-			end
-		end
-		expect(`missing:{table.concat(missing, ",")}`).toBe("missing:")
+		expect(missingPhrases(issue, { "600px", "304px", "ScrollView", "give the grid room", "fewer columns" })).toBe(
+			"missing:"
+		)
 	end)
 
 	it("THE GEOMETRY DID NOT MOVE: the squeeze is still the squeeze", function()
-		-- the clamp is right and this wave did not touch it — only the silence.
-		-- These are the audit's own measured numbers, so a "fix" that re-laid the
-		-- row out would fail here rather than pass quietly
 		local widths: { number } = {}
-		for _, vp in { 1024, 560, 460, 390, 320 } do
-			local adapter = rowGrid(vp)
+		for _, px in { 1024, 560, 460, 390, 320 } do
+			local adapter = rowGrid(px)
 			table.insert(widths, adapter.node("/S/G/Row/C1").rect.w)
 		end
 		expect(table.concat(widths, ",")).toBe("200,181,148,124,101")
 	end)
 end)
 
---[[ ═══ ADAPT-L5 · the default answer to overflow, measured at all six combos ═══
-
-	CONTESTED as a DEFAULT, guarded as a DIAGNOSIS. The audit reached this from
-	three directions — a row of fixed boxes 274px over at compact, a Spacer layout
-	whose two ends alone exceed the width, and a twenty-row page 792-1362px over at
-	every combo — and got the same outcome each time: the content is placed past the
-	edge, nothing clips it, and a finding is filed on a channel that must be asked.
-
-	WHAT THIS WAVE COULD NOT DO, per cell and with the reason, because "we did not
-	get to it" and "it is not one file" are different sentences:
-
-	  * F-1's expected answer is an IMPLICIT SCROLL HOST for a page taller than its
-	    box. `render/renderer.luau:1483` keys the engine scroll host on
-	    `node.class == "ScrollView"`, not on the solved kind — so a `kind = "scroll"`
-	    written at the measure seam would get a scroller's LAYOUT and no scrolling,
-	    which is strictly worse than today. Renderer and solver, both locked.
-	  * A-8/F-2's expected answer is `wrap` BOUND BY DEFAULT on a stack that does
-	    not fit. `wrap` decides the solver KIND (`hstack` vs `hwrap`) at the measure
-	    seam, and `hwrap` has no shrink pair by design — so wrapping by default would
-	    silently disable the shrink cascade on every stack that has one, which is
-	    the "silent re-flow of shipped screens" the solver's own overflow comment
-	    has always refused to be.
-	  * F-4's expected MINIMUM — "the solver's finding should escalate" — is the
-	    half that is already shipped, and it is worth saying so rather than
-	    re-building it: `tests/overflow_sweep.spec.luau` asks EVERY showcase surface
-	    at nine viewports, four text preferences and the themed and locale tiers, on
-	    every `./run-tests.sh`, with nobody deciding to run it.
-
-	So what is left for this file is the part the sweep structurally cannot say: that
-	the DIAGNOSIS itself is complete and identical at every combo, on all three of
-	the audit's shapes. A finding that named the container on a phone and not on a
-	television would be a hole the sweep could not see, because the sweep only ever
-	counts findings.
-]]
+-- Content that does not fit paints outside its box, nothing clips it, and the
+-- solver files a complete finding at every combo.
 describe("ADAPT-L5 — overflow is not silent, and says the same thing at every combo", function()
-	local function findings(controller: any): { string }
-		local out: { string } = {}
-		for _, d in controller.diagnostics() do
-			table.insert(out, d.issue)
-		end
-		return out
+	local function tallPage(UI: any): any
+		return UI.Screen("S")({ UI.VStack("Col")(withBoxes(UI, { width = FILL }, "R", 20, FILL, FIXED(80))) })
 	end
 
-	local function mount(screen: any, combo: Combo): any
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = combo.w, h = combo.h })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		env:set("displaySize", combo.display)
-		local root = mountLib.mount(core, screen)
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
-		controller.initialRender()
-		return controller
+	-- four 160px boxes in a row
+	local function fixedRow(UI: any): any
+		return UI.Screen("S")({ UI.HStack("Row")(withBoxes(UI, { width = FILL }, "K", 4, FIXED(160), FIXED(44))) })
 	end
 
-	-- the audit's shape 3: twenty 80px rows on a page with no scroller
-	local function tallPage(): any
-		local rows = {}
-		for i = 1, 20 do
-			rows[i] = UI.Box({ id = "R" .. i, width = { type = "fill", weight = 1 }, height = FIXED(80) })
-		end
-		return UI.Screen({
-			id = "S",
-			children = { UI.VStack({ id = "Col", width = { type = "fill", weight = 1 }, children = rows }) },
+	-- [200][Spacer][200], whose ends alone exceed a phone
+	local function spacerRow(UI: any): any
+		return UI.Screen("S")({
+			UI.HStack("Row")({
+				width = FILL,
+				UI.Box("A")({ width = FIXED(200), height = FIXED(44) }),
+				UI.Spacer("Sp")({}),
+				UI.Box("B")({ width = FIXED(200), height = FIXED(44) }),
+			}),
 		})
 	end
 
-	-- the audit's shape 1: four 160px boxes in a row
-	local function fixedRow(): any
-		local kids = {}
-		for i = 1, 4 do
-			kids[i] = UI.Box({ id = "K" .. i, width = FIXED(160), height = FIXED(44) })
-		end
-		return UI.Screen({
-			id = "S",
-			children = { UI.HStack({ id = "Row", width = { type = "fill", weight = 1 }, children = kids }) },
-		})
-	end
-
-	-- the audit's shape 2: [200][Spacer][200], whose ends alone exceed a phone
-	local function spacerRow(): any
-		return UI.Screen({
-			id = "S",
-			children = {
-				UI.HStack({
-					id = "Row",
-					width = { type = "fill", weight = 1 },
-					children = {
-						UI.Box({ id = "A", width = FIXED(200), height = FIXED(44) }),
-						UI.Spacer({ id = "Sp" }),
-						UI.Box({ id = "B", width = FIXED(200), height = FIXED(44) }),
-					},
-				}),
-			},
-		})
+	local function issues(build: any, combo: Combo, phrase: string?): { string }
+		local _, controller = render(build, combo)
+		return findings(controller, phrase)
 	end
 
 	it("a page taller than its box is DIAGNOSED at every one of the six combos", function()
 		local silent: { string } = {}
 		for _, combo in COMBOS do
-			local issues = findings(mount(tallPage(), combo))
-			local named = false
-			for _, issue in issues do
-				if string.find(issue, "content overflows this vstack", 1, true) ~= nil then
-					named = true
-				end
-			end
-			if not named then
+			if #issues(tallPage, combo, "content overflows this vstack") == 0 then
 				table.insert(silent, combo.name)
 			end
 		end
@@ -638,10 +351,9 @@ describe("ADAPT-L5 — overflow is not silent, and says the same thing at every 
 	end)
 
 	it("...and so is a fixed row, and a Spacer row whose ends alone do not fit", function()
-		-- both at the compact phone the audit measured them on
 		local compact = COMBOS[1]
-		local row = findings(mount(fixedRow(), compact))
-		local spacer = findings(mount(spacerRow(), compact))
+		local row = issues(fixedRow, compact)
+		local spacer = issues(spacerRow, compact)
 		expect(#row >= 1).toBe(true)
 		expect(#spacer >= 1).toBe(true)
 		expect(string.find(row[1], "content overflows this hstack", 1, true) ~= nil).toBe(true)
@@ -649,23 +361,17 @@ describe("ADAPT-L5 — overflow is not silent, and says the same thing at every 
 	end)
 
 	it("THE DIAGNOSIS IS COMPLETE at every combo: container, axis, amount, both fixes", function()
-		-- the property the always-on sweep structurally cannot check, because it
-		-- COUNTS findings rather than reading them: a message that named the
-		-- container on a phone and not on a television is a hole nothing else sees
 		local incomplete: { string } = {}
 		for _, combo in COMBOS do
-			local issues = findings(mount(tallPage(), combo))
-			for _, issue in issues do
-				if string.find(issue, "content overflows this vstack", 1, true) ~= nil then
-					for _, phrase in { "on the main axis", "paint outside its box", "ScrollView", "give it room" } do
-						if string.find(issue, phrase, 1, true) == nil then
-							table.insert(incomplete, `{combo.name}:{phrase}`)
-						end
+			for _, issue in issues(tallPage, combo, "content overflows this vstack") do
+				for _, phrase in { "on the main axis", "paint outside its box", "ScrollView", "give it room" } do
+					if string.find(issue, phrase, 1, true) == nil then
+						table.insert(incomplete, `{combo.name}:{phrase}`)
 					end
-					-- ...and it carries a real pixel count, not a placeholder
-					if string.match(issue, "by (%d+)px") == nil then
-						table.insert(incomplete, `{combo.name}:px`)
-					end
+				end
+				-- ...and it carries a real pixel count
+				if string.match(issue, "by (%d+)px") == nil then
+					table.insert(incomplete, `{combo.name}:px`)
 				end
 			end
 		end
@@ -673,98 +379,71 @@ describe("ADAPT-L5 — overflow is not silent, and says the same thing at every 
 	end)
 
 	it("CLIPPING IS NEVER THE ANSWER: nothing was quietly made a clip host", function()
-		-- the standing rule, pinned where the wave that could have broken it lives.
 		-- `ScrollView` is the one container that clips by default; a plain stack
-		-- that overflows must not acquire `clipChildren` behind the author's back
-		local col = UI.VStack({ id = "Col", children = {} })
-		expect(col.props.clipChildren).toBeNil()
-		local row = UI.HStack({ id = "Row", children = {} })
-		expect(row.props.clipChildren).toBeNil()
-		-- ...and the one word that DOES make a clip host still does
-		expect(UI.VStack({ id = "V", overflow = "clip", children = {} }).props.clipChildren).toBe(true)
+		-- that overflows does not acquire `clipChildren`
+		local adapter = render(function(UI)
+			return UI.Screen("S")({
+				UI.VStack("Col")({}),
+				UI.HStack("Row")({}),
+				UI.VStack("V")({ overflow = "clip" }),
+			})
+		end, COMBOS[1])
+		expect(adapter.node("/S/Col").props.clipChildren).toBeNil()
+		expect(adapter.node("/S/Row").props.clipChildren).toBeNil()
+		-- ...and the one word that makes a clip host still does
+		expect(adapter.node("/S/V").props.clipChildren).toBe(true)
 	end)
 end)
 
---[[ ═══ B-6e · the ten-foot measure, ruled (controller ruling R14, 2026-08-21) ═══
-
-	A `Composition` at ten-foot resolved the DESKTOP answer with more pixels: the
-	same `threeLane`, with the main lane simply wider — 1316px in the audit's own
-	reproduction, against the regular-touch tablet's 600 (cell B-6c, verified
-	RIGHT). `sizeClass`, `heightClass` and `columnsFor` all cap at distance; the
-	arrangement that decides the MEASURE — the reading width of the content lane —
-	did not, and `maxMeasure` sat unset on every shipped site.
-
-	THE NUMBER IS RULED AND IT IS DERIVED, not chosen: **900 = 600 x 1.5**, the
-	tablet measure times the ten-foot distance factor. That is the same
-	proportion-equality doctrine every ten-foot number in this framework rides: the factor is `themes.snapshot.metricScale`'s own `tenFootFloor`,
-	read rather than restated, and the base is `adaptive.LANE_MEASURE`. Neither
-	number is duplicated, so a re-ruled measure is one line here and a named sweep.
-
-	IT IS A DEFAULT AND AUTHORED WINS. A composition that declares `maxMeasure` has
-	made the measure decision itself and is not second-guessed — the package
-	authority precedent, applied to an arrangement fact.
-]]
+-- A ten-foot Composition caps its main lane at 900 = `adaptive.LANE_MEASURE`
+-- times the ten-foot metric scale. It is a default: an authored `maxMeasure` or
+-- group `maxWidth` wins.
 describe("B-6e — the ten-foot Composition measure caps at the ruled 900", function()
-	local FILL = { type = "fill", weight = 1 }
-
-	local function compositionScreen(maxMeasure: number?, mainMaxWidth: number?): any
-		local props: { [string]: any } = {
-			id = "Sum",
-			arrangements = { "threeLane", "twoLane", "column" },
-			laneGap = "m",
-			groupGap = "s",
-			width = FILL,
-			height = FILL,
-			groups = {
-				{ id = "lead", lane = "lead", sizing = "hug", place = "center" },
-				{
-					id = "main",
-					lane = "main",
-					sizing = "fill",
-					weight = 1,
-					minWidth = 240,
-					maxWidth = mainMaxWidth,
-				},
-				{ id = "trail", lane = "trail", sizing = "hug", place = "center" },
-			},
-			children = {
-				UI.Region({
-					id = "Hero",
-					group = "lead",
-					rank = 3,
-					children = { UI.Box({ id = "HeroBox", width = FIXED(200), height = FIXED(120) }) },
+	local function compositionScreen(maxMeasure: number?, mainMaxWidth: number?)
+		return function(UI: any): any
+			return UI.Screen("S")({
+				UI.Composition("Sum")({
+					arrangements = { "threeLane", "twoLane", "column" },
+					laneGap = "m",
+					groupGap = "s",
+					width = FILL,
+					height = FILL,
+					maxMeasure = maxMeasure,
+					groups = {
+						{ id = "lead", lane = "lead", sizing = "hug", place = "center" },
+						{
+							id = "main",
+							lane = "main",
+							sizing = "fill",
+							weight = 1,
+							minWidth = 240,
+							maxWidth = mainMaxWidth,
+						},
+						{ id = "trail", lane = "trail", sizing = "hug", place = "center" },
+					},
+					UI.Region("Hero")({
+						group = "lead",
+						rank = 3,
+						UI.Box("HeroBox")({ width = FIXED(200), height = FIXED(120) }),
+					}),
+					UI.Region("Field")({
+						group = "main",
+						rank = 2,
+						sizing = "fill",
+						UI.Box("FieldBox")({ width = FILL, height = FIXED(300) }),
+					}),
+					UI.Region("Ctas")({
+						group = "trail",
+						rank = 1,
+						UI.Box("CtaBox")({ width = FIXED(200), height = FIXED(80) }),
+					}),
 				}),
-				UI.Region({
-					id = "Field",
-					group = "main",
-					rank = 2,
-					sizing = "fill",
-					children = { UI.Box({ id = "FieldBox", width = FILL, height = FIXED(300) }) },
-				}),
-				UI.Region({
-					id = "Ctas",
-					group = "trail",
-					rank = 1,
-					children = { UI.Box({ id = "CtaBox", width = FIXED(200), height = FIXED(80) }) },
-				}),
-			},
-		}
-		if maxMeasure ~= nil then
-			props.maxMeasure = maxMeasure
+			})
 		end
-		return UI.Screen({ id = "S", children = { UI.Composition(props) } })
 	end
 
-	local function resolveAt(combo: Combo, maxMeasure: number?): (any, any)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = combo.w, h = combo.h })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		env:set("displaySize", combo.display)
-		local root = mountLib.mount(core, compositionScreen(maxMeasure))
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
-		controller.initialRender()
+	local function resolveAt(combo: Combo, maxMeasure: number?, mainMaxWidth: number?): (any, any)
+		local adapter, controller = render(compositionScreen(maxMeasure, mainMaxWidth), combo, "coreSafeContent")
 		return adapter, controller.compositionAt("/S/Sum")
 	end
 
@@ -781,30 +460,23 @@ describe("B-6e — the ten-foot Composition measure caps at the ruled 900", func
 		return -1
 	end
 
-	it("the ten-foot main lane is 900, where it was the desktop answer with more pixels", function()
+	it("the ten-foot main lane is 900", function()
 		local _, tenFoot = resolveAt(COMBOS[5])
 		expect(tenFoot.arrangement).toBe("threeLane")
 		expect(mainLane(tenFoot)).toBe(900)
 	end)
 
 	it("...and the derivation holds: it IS the tablet measure times the distance factor", function()
-		-- the acceptance is a PROPORTION, not a literal — the same shape the ladder
-		-- set for every other ten-foot number. If the tablet measure moves, or the
-		-- factor is re-ruled, this stays true and the literal above is the one edit
 		local adaptive = require("../src/layout/adaptive")
 		local snapshot = require("../src/themes/snapshot")
 		expect((adaptive :: any).LANE_MEASURE * snapshot.metricScale("Large")).toBe(900)
-		-- ...and a near display takes no cap at all, which is what keeps every
-		-- other combo byte-identical
+		-- a near display takes no cap at all
 		expect((adaptive :: any).laneMeasureFor(snapshot.metricScale("Medium"))).toBeNil()
 	end)
 
 	it("THE OTHER FIVE COMBOS DO NOT MOVE", function()
-		-- the null hypothesis, and the reason this is a distance rule rather than a
-		-- width rule: a 1600px desktop keeps the 1168px measure it had. The compact
-		-- phone has no main lane to report (it resolves `column`), and saying so is
-		-- the point — a cap that reached it would be a width rule wearing a
-		-- distance rule's name
+		-- a distance rule, not a width rule: a 1600px desktop keeps its 1168px
+		-- measure, and the compact phone resolves `column` with no main lane
 		local widths: { string } = {}
 		for index, combo in COMBOS do
 			if index == 5 then
@@ -818,8 +490,7 @@ describe("B-6e — the ten-foot Composition measure caps at the ruled 900", func
 
 	it("the lanes re-absorb the slack and the band is CENTRED, not parked left", function()
 		-- 200 lead + 24 + 900 main + 24 + 200 trail = 1348 inside a 1740 content
-		-- box, so 196px of slack on each side. A capped measure that left the band
-		-- against the left edge would be a worse answer than the one it replaced
+		-- box, so 196px of slack on each side
 		local adapter, tenFoot = resolveAt(COMBOS[5])
 		local hero = adapter.node("/S/Sum/Hero").rect
 		local ctas = adapter.node("/S/Sum/Ctas").rect
@@ -831,33 +502,14 @@ describe("B-6e — the ten-foot Composition measure caps at the ruled 900", func
 	end)
 
 	it("AUTHORED WINS: a declared `maxMeasure` is not second-guessed at ten-foot", function()
-		--[[ the package-authority precedent. A composition that named its own
-			measure has made the decision, and the default does not fire beside it.
-
-			THE NUMBER HAS TO BE ABOVE THE CAP OR THE CASE PROVES NOTHING, which is
-			what a mutation found rather than a reading: at `maxMeasure = 1200` the
-			box leaves the main lane 752px, which is under 900, so the default would
-			have been inert there and the case stayed green with `authored wins`
-			deleted. 1600 leaves 1152 — a number only reachable if the default is
-			genuinely off. ]]
+		-- 1600 is above the cap, so only an inert default reaches 1152:
+		-- 1600 box - 200 lead - 200 trail - 48 of gaps
 		local _, authored = resolveAt(COMBOS[5], 1600)
-		-- 1600 box - 200 lead - 200 trail - 48 of gaps = 1152, not the ruled 900
 		expect(mainLane(authored)).toBe(1152)
 	end)
 
-	it("...and so does a group that declares its own `maxWidth`, in both directions", function()
-		-- the second authored spelling, and the one an author reaches for when a
-		-- single lane wants a measure of its own. Tighter than the ruled default:
-		local tighter = compositionScreen(nil, 700)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		env:set("displaySize", "Large")
-		local root = mountLib.mount(core, tighter)
-		local adapter = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
-		controller.initialRender()
-		expect(mainLane(controller.compositionAt("/S/Sum"))).toBe(700)
+	it("...and so does a group that declares its own `maxWidth`", function()
+		local _, tighter = resolveAt(COMBOS[5], nil, 700)
+		expect(mainLane(tighter)).toBe(700)
 	end)
 end)

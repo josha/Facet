@@ -564,7 +564,7 @@ describe("extension scaffold", function()
 				-- ...beside the ones that were already stamped
 				"tests/run.luau",
 				"tests/conformance/controls_registry.luau",
-				"src/init.luau",
+				"src/render/compose_controls.luau",
 				"tests/lib/large_text_fixtures.luau",
 				"docs/reference/api.md",
 			}
@@ -586,7 +586,8 @@ describe("extension scaffold", function()
 		local fs = require("@lune/fs")
 		local plan = scaffold.plan("control", "probe_widget")
 		local LATE = {
-			["docs/guide/README.md"] = "`Controls.ProbeWidget`",
+			["src/render/compose_controls.luau"] = 'api.ProbeWidget = composite("ProbeWidget"',
+			["docs/guide/README.md"] = "`UI.ProbeWidget`",
 			["tests/controls_namespace.spec.luau"] = '"ProbeWidget",',
 			["examples/gallery/scenarios/init.luau"] = '"probe_widget",',
 			["tests/overflow_sweep.spec.luau"] = '"probe_widget",',
@@ -610,7 +611,7 @@ describe("extension scaffold", function()
 				`{edit.path} idempotent: true`
 			)
 		end
-		expect(checked).toBe(6)
+		expect(checked).toBe(7)
 	end)
 
 	it("the scenario, the demo, and the pinned root all name the SAME surface", function()
@@ -626,11 +627,11 @@ describe("extension scaffold", function()
 		end
 		expect(scenario ~= nil).toBeTruthy()
 		-- the scenario's ROOT SCREEN is the control's display name...
-		expect(`root screen: {string.find(scenario :: string, 'id = "ProbeWidget"', 1, true) ~= nil}`).toBe(
+		expect(`root screen: {string.find(scenario :: string, 'UI.Screen("ProbeWidget")', 1, true) ~= nil}`).toBe(
 			"root screen: true"
 		)
-		-- ...and it mounts the control through the component View surface
-		expect(`public spelling: {string.find(scenario :: string, "UI.ProbeWidget {", 1, true) ~= nil}`).toBe(
+		-- ...and it mounts the control through the application's constructors
+		expect(`public spelling: {string.find(scenario :: string, 'UI.ProbeWidget("Ctl")', 1, true) ~= nil}`).toBe(
 			"public spelling: true"
 		)
 
@@ -664,7 +665,7 @@ describe("extension scaffold", function()
 		-- the catalog row's api.md link must land on the heading the api.md stub
 		-- writes, or `check_docs` reports a guide link to nothing
 		expect(
-			`catalog anchor: {string.find(catalogRow :: string, "(../reference/api.md#controlsprobewidget)", 1, true) ~= nil}`
+			`catalog anchor: {string.find(catalogRow :: string, "(../reference/api.md#uiprobewidget)", 1, true) ~= nil}`
 		).toBe("catalog anchor: true")
 	end)
 

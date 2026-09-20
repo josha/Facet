@@ -80,7 +80,7 @@ shell.SECTIONS = SECTIONS
 -- ---------------------------------------------------------------------------
 
 local function paneWidth(app: any): any
-	return app.own(app.core:memo(function(use)
+	return app.own(app.Compose.formula(function(use)
 		if not use(app.paneSplit) then
 			return dims.fill
 		end
@@ -93,29 +93,25 @@ end
 -- and lets this pane render the same selection
 local function detailPane(app: any, kind: string): any
 	local UI = app.UI
-	local core = app.core
-	local hasSelection = app.own(core:memo(function(use)
+	local hasSelection = app.own(app.Compose.formula(function(use)
 		return use(app.state.selectedBlendId) ~= nil
 	end))
-	local noSelection = app.own(core:memo(function(use)
+	local noSelection = app.own(app.Compose.formula(function(use)
 		return use(app.state.selectedBlendId) == nil
 	end))
-	return UI.HStack({
-		id = "DetailPane",
+	return UI.HStack("DetailPane")({
 		gap = "m",
 		width = dims.fill,
 		height = dims.fill,
 
-		UI.Divider({ id = "Rule" }),
-		UI.ZStack({
-			id = "PaneBody",
+		UI.Divider("Rule")({}),
+		UI.ZStack("PaneBody")({
 			width = dims.fill,
 			height = dims.fill,
 			alignH = "center",
 			alignV = "center",
 
-			UI.When({
-				id = "Body",
+			app.when("Body")({
 				condition = hasSelection,
 				thenView = function()
 					if kind == "recipes" then
@@ -124,12 +120,10 @@ local function detailPane(app: any, kind: string): any
 					return detailView.body(app, { id = "Detail", showBack = false })
 				end,
 			}),
-			UI.When({
-				id = "Empty",
+			app.when("Empty")({
 				condition = noSelection,
 				thenView = function()
-					return UI.Text({
-						id = "Hint",
+					return UI.Text("Hint")({
 						text = app.text("detail.empty"),
 						role = "secondary",
 						textSize = "body",
@@ -143,9 +137,8 @@ end
 
 local function listSection(app: any, kind: string): any
 	local UI = app.UI
-	local core = app.core
 
-	local items = app.own(core:memo(function(use)
+	local items = app.own(app.Compose.formula(function(use)
 		return app.visibleBlends(use, kind)
 	end))
 
@@ -155,8 +148,7 @@ local function listSection(app: any, kind: string): any
 	-- the conditions are mutually exclusive and none of these Whens declares a
 	-- transition, so the shared field identity is never mounted twice at once
 	local body: { any } = {
-		UI.When({
-			id = "InlineSearchWhen",
+		app.when("InlineSearchWhen")({
 			condition = app.navSidebar,
 			thenView = function()
 				return listView.searchBar(app)
@@ -178,61 +170,57 @@ local function listSection(app: any, kind: string): any
 	local listBlueprint = listView.blendList(app, {
 		id = "List",
 		items = items,
-		leading = UI.VStack({ id = "Lead", gap = "m", width = dims.fill, children = leading }),
+		leading = UI.VStack("Lead")(app.withChildren({ gap = "m", width = dims.fill }, leading)),
 		onActivate = function(blendId: string)
 			app.commands.openBlend(blendId, kind)
 		end,
 	})
 
 	if kind == "favorites" then
-		local empty = app.own(core:memo(function(use)
+		local empty = app.own(app.Compose.formula(function(use)
 			local set = use(app.services.favorites.set)
 			return next(set) == nil
 		end))
 		table.insert(
 			body,
-			UI.ZStack({
-				id = "ListArea",
+			UI.ZStack("ListArea")({
 				width = dims.fill,
 				height = dims.fill,
 				alignH = "center",
 				alignV = "center",
 
 				listBlueprint,
-				UI.When({
-					id = "EmptyState",
+				app.when("EmptyState")({
 					condition = empty,
 					transition = { enter = "fade" },
 					thenView = function()
-						return UI.ZStack({
-							id = "EmptyBox",
+						return UI.ZStack("EmptyBox")({
 							canvasGroup = true,
 							width = dims.fill,
 							height = dims.fill,
 							alignH = "center",
 							alignV = "center",
 
-							UI.VStack({
-								id = "Empty",
+							UI.VStack("Empty")({
 								gap = "s",
 								align = "center",
 								padding = "m",
 
-								UI.Text({
-									id = "Message",
+								UI.Text("Message")({
 									text = app.text("favorites.empty"),
 									role = "secondary",
 									textSize = "body",
 									textAlign = "center",
 								}),
-								UI.Button({
-									id = "Browse",
-									label = app.text("favorites.browse"),
-									corners = UI.cornersData("pill"),
-									onActivate = function()
-										app.commands.selectSection("menu")
-									end,
-								}),
+								UI.corners(
+									UI.Button("Browse")({
+										label = app.text("favorites.browse"),
+										onActivate = function()
+											app.commands.selectSection("menu")
+										end,
+									}),
+									UI.cornersData("pill")
+								),
 							}),
 						})
 					end,
@@ -243,21 +231,17 @@ local function listSection(app: any, kind: string): any
 		table.insert(body, listBlueprint)
 	end
 
-	return UI.HStack({
-		id = "Panes",
+	return UI.HStack("Panes")({
 		gap = "m",
 		width = dims.fill,
 		height = dims.fill,
 
-		UI.VStack({
-			id = "ListPane",
+		UI.VStack("ListPane")(app.withChildren({
 			gap = "s",
 			width = paneWidth(app),
 			height = dims.fill,
-			children = body,
-		}),
-		UI.When({
-			id = "Side",
+		}, body)),
+		app.when("Side")({
 			condition = app.paneSplit,
 			thenView = function()
 				return detailPane(app, kind)
@@ -268,8 +252,7 @@ end
 
 local function stampsSection(app: any): any
 	local UI = app.UI
-	return UI.ScrollView({
-		id = "StampsPage",
+	return UI.ScrollView("StampsPage")({
 		axis = "y",
 		gap = "m",
 		padding = "m",
@@ -280,10 +263,7 @@ local function stampsSection(app: any): any
 		-- a section like any other and must not be the one place the task
 		-- vanishes from
 		taskView.card(app),
-		UI.ZStack({
-			-- HUGS, never fills: a `fill` height inside a y-scroller measures
-			-- against a canvas that is itself derived from the content
-			id = "Backdrop",
+		UI.ZStack("Backdrop")({
 			width = dims.fill,
 			alignH = "center",
 			alignV = "start",
@@ -301,8 +281,7 @@ end
 	breathing room a page wants belongs to the page. ]]
 local function sectionContent(app: any, section: string): any
 	local UI = app.UI
-	return UI.ZStack({
-		id = "Body",
+	return UI.ZStack("Body")({
 		canvasGroup = true,
 		padding = "s",
 		width = dims.fill,
@@ -318,7 +297,6 @@ end
 
 function shell.build(app: any): any
 	local UI = app.UI
-	local core = app.core
 
 	-- the placement policy — and, since GAP 7a (framework-gaps-phase2 §7)
 	-- promoted the four homes onto `adaptive.conditions` itself, the inline
@@ -327,11 +305,11 @@ function shell.build(app: any): any
 	app.navSidebar = app.cond.navSidebar
 	-- the accessory (and the top band's trailing slot) only makes sense on the
 	-- sections that HAVE a searchable list — never over the stamps pocket
-	app.searchable = app.own(core:memo(function(use)
+	app.searchable = app.own(app.Compose.formula(function(use)
 		return use(app.state.section) ~= "stamps"
 	end))
 	-- ...and the SHORT vocabulary's own condition: the two thumb-zone homes
-	local terse = app.own(core:memo(function(use)
+	local terse = app.own(app.Compose.formula(function(use)
 		return use(app.cond.navBottomBar) or use(app.cond.navBottomBarCompact)
 	end))
 	local function sectionLabel(section: string): any
@@ -340,7 +318,7 @@ function shell.build(app: any): any
 		-- evaluation
 		local full = app.text(SECTION_LABEL[section])
 		local short = app.text(SECTION_LABEL[section] .. ".short")
-		return app.own(core:memo(function(use)
+		return app.own(app.Compose.formula(function(use)
 			return if use(terse) then use(short) else use(full)
 		end))
 	end
@@ -353,13 +331,11 @@ function shell.build(app: any): any
 		intent is reconciled back to whatever the command actually did, in the same
 		synchronous turn: a tab that declines to become the section snaps back before
 		anything is solved. ]]
-	local intent = app.own(core:signal(app.state.section:get()))
-	-- `core:observe` hands back a DISCONNECT FUNCTION, not a disposable, so the
-	-- proof's own `own` gets the shape it disposes
-	local unmirror = core:observe(app.state.section, function(value: string)
+	local intent = app.own(app.Compose.cell(app.state.section:peek()))
+	-- the mirror is a watch under this build's owner
+	app.observe(app.state.section, function(value: string)
 		intent:set(value)
 	end)
-	app.own({ dispose = unmirror })
 
 	local tabs: { any } = {}
 	for _, section in SECTIONS do
@@ -373,8 +349,7 @@ function shell.build(app: any): any
 		})
 	end
 
-	local nav = app.own(app.Facet.Controls.TabView(core, {
-		id = "Nav",
+	local nav = app.own(UI.TabView("Nav")({
 		selection = intent,
 		-- the conditions this proof already built, passed in rather than rebuilt:
 		-- `adaptive.conditions` creates its own set of memos and two copies would be two
@@ -396,7 +371,7 @@ function shell.build(app: any): any
 		-- framework guarantees.
 		onChange = function(id: string)
 			app.commands.selectSection(id)
-			intent:set(app.state.section:get())
+			intent:set(app.state.section:peek())
 		end,
 		accessories = {
 			--[[ THE TOP BAND'S TRAILING EDGE. The construct parks this at the band's
@@ -404,12 +379,10 @@ function shell.build(app: any): any
 				centre — which is the shape this proof drew by hand with a ZStack and
 				an `align = "end"` wrapper, and the contract `newTabView` now owns. ]]
 			trailing = function()
-				return UI.When({
-					id = "TopSearchWhen",
+				return app.when("TopSearchWhen")({
 					condition = app.searchable,
 					thenView = function()
-						return UI.VStack({
-							id = "TopSearchBox",
+						return UI.VStack("TopSearchBox")({
 							width = dims.minMax(160, 200, 260),
 							listView.searchBar(app),
 						})
@@ -422,12 +395,10 @@ function shell.build(app: any): any
 				still one bar — which is exactly what the hand-built `Dock` said with
 				a `bottomBar or bottomBarCompact` memo of its own. ]]
 			aboveBar = function()
-				return UI.When({
-					id = "AccessoryWhen",
+				return app.when("AccessoryWhen")({
 					condition = app.searchable,
 					thenView = function()
-						return UI.VStack({
-							id = "Accessory",
+						return UI.VStack("Accessory")({
 							width = dims.fill,
 							padding = "xs",
 							listView.searchBar(app),
@@ -454,18 +425,16 @@ function shell.build(app: any): any
 		full copy — goal, next action, verb, completion — is the CARD, and the card
 		rides inside the section's own scroller where it can be as tall as its
 		words. `views/task.luau`'s header records the measurement that decided it. ]]
-	return UI.Screen({
-		id = "Sipworks",
+	return UI.Screen("Sipworks")({
 		padding = 0,
 		surface = "base",
 
-		UI.VStack({
-			id = "Shell",
+		UI.VStack("Shell")({
 			gap = 0,
 			width = dims.fill,
 			height = dims.fill,
 			taskView.strip(app),
-			nav.blueprint,
+			nav,
 		}),
 	})
 end

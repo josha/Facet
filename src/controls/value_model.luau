@@ -20,7 +20,10 @@ local value_model = {}
 export type Spec = {
 	min: number,
 	max: number,
-	step: number?, -- nil = continuous; a Stepper defaults to 1
+	-- nil = continuous; a Stepper defaults to 1. A Readable<number> or a
+	-- `function(use)` is resolved at every quantization, so the grid may be a
+	-- live setting.
+	step: any?,
 	-- format(value) -> string for the visible/semantic value text. Defaults to a
 	-- trimmed decimal that never shows "-0" or a trailing ".0".
 	format: ((value: number) -> string)?,
@@ -29,7 +32,10 @@ export type Spec = {
 export type Model = {
 	min: number,
 	max: number,
+	-- the declared step when it was a literal number; nil for a live source
 	step: number?,
+	-- the step in force right now, whatever its source
+	currentStep: () -> number?,
 	clamp: (value: number) -> number,
 	quantize: (value: number) -> number,
 	stepped: (value: number, direction: number) -> number,
@@ -71,10 +77,32 @@ function value_model.new(spec: Spec): Model
 	if spec.max <= spec.min then
 		error(`Facet value control: max ({spec.max}) must be greater than min ({spec.min})`, 0)
 	end
-	if spec.step ~= nil and (not isFinite(spec.step) or spec.step <= 0) then
-		error(`Facet value control: step must be a positive number (got {tostring(spec.step)})`, 0)
+	--[[ A STEP MAY BE LIVE. The grid a control snaps to is a setting like any
+		other — a "turn step" picker that drives the slider it sits beside — so
+		`step` takes a Readable or a `function(use)` as well as a number, and every
+		reader below resolves it at the moment it quantizes rather than once at
+		construction. The refusal is the same either way; a live source is checked
+		each time it is read, because that is the only moment it exists. ]]
+	local stepSource = spec.step
+	local function resolveStep(): number?
+		local value = stepSource
+		if type(value) == "table" and type((value :: any).peek) == "function" then
+			value = (value :: any):peek()
+		elseif type(value) == "function" then
+			value = (value :: any)(function(source: any)
+				return if type(source) == "table" and type(source.peek) == "function" then source:peek() else source
+			end)
+		end
+		if value == nil then
+			return nil
+		end
+		if not isFinite(value) or value <= 0 then
+			error(`Facet value control: step must be a positive number (got {tostring(value)})`, 0)
+		end
+		return value
 	end
-	local min, max, step = spec.min, spec.max, spec.step
+	resolveStep() -- refuse a bad literal where it is written
+	local min, max = spec.min, spec.max
 	local authored = spec.format
 
 	-- QUARANTINED (F-38): `spec.format` is the one user callback in this module,
@@ -106,6 +134,7 @@ function value_model.new(spec: Spec): Model
 	-- the bounds
 	local function quantize(v: number): number
 		local c = clamp(v)
+		local step = resolveStep()
 		if step == nil then
 			return c
 		end
@@ -114,6 +143,7 @@ function value_model.new(spec: Spec): Model
 	end
 
 	local function stepped(v: number, direction: number): number
+		local step = resolveStep()
 		local delta = (step or (max - min) / 100) * (if direction < 0 then -1 else 1)
 		local next_ = quantize(clamp(v) + delta)
 		-- guarantee forward progress: quantizing back onto the same grid point
@@ -144,7 +174,10 @@ function value_model.new(spec: Spec): Model
 	return {
 		min = min,
 		max = max,
-		step = step,
+		-- the DECLARED step, for a caller that took a number; `currentStep()` is
+		-- what a live source answers with, and the only honest reading of one
+		step = if type(stepSource) == "number" then stepSource else nil,
+		currentStep = resolveStep,
 		clamp = clamp,
 		quantize = quantize,
 		stepped = stepped,

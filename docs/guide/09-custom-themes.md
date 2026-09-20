@@ -341,9 +341,8 @@ An attribute the package does not know is **ignored, with exactly one warning**
 naming the supported set — a typo in the Style Editor cannot silently become a
 theme value.
 
-> The old read-only "layout mirror" attributes described in
-> [chapter 5 §5.7](05-styling.md) are **retired for packages**. When a package is
-> installed the metric attributes *are* the source, not a mirror of one.
+> When a package is installed the metric attributes described in
+> [chapter 5 §5.7](05-styling.md) *are* the source, not a read-only mirror of one.
 
 ## 9.4 Step 3 — add nine-slice chrome
 
@@ -650,11 +649,10 @@ rule only ever matches a node that really is carrying art, so a flat slider is
 byte-identical either way.
 
 **A gradient may never target these**, and declaring one is a compile error
-naming the reason. That restriction is the whole point of the section: the
-thumb used to borrow `surface = "raised"` just to get a fill, which quietly
-subscribed it to the entire panel treatment. A panel gradient carrying alpha
-then made the thumb translucent, so the accent fill behind it read straight
-through. A wash belongs on the surfaces an author opted into.
+naming the reason. A wash belongs on the surfaces an author opted into. A thumb
+that borrowed a panel surface just to get a fill would subscribe itself to the
+whole panel treatment, and a panel gradient carrying alpha would then read
+straight through it.
 
 ### Focus: a ring, or a glow
 
@@ -1144,11 +1142,11 @@ short version.
 
 **Rung 2, concretely.** `Slider` takes `thumbImage` and `trackImage`:
 
-```lua
-local UI = Facet.View
-local power, setPower = ui.state(50) -- inside Facet.component
-local slider = UI.Slider({
-    id = "Power", label = "Power", value = power, onChange = setPower, min = 0, max = 100,
+```luau
+local UI = app.controls
+local power = Compose.cell(50)
+local slider = UI.Slider("Power")({
+    label = "Power", value = power, min = 0, max = 100,
     thumbImage = "rbxassetid://102024273231445",   -- THIS slider only
 })
 ```

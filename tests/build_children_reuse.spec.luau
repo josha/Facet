@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local Compose = require("../src/vendor/compose/core")
 --[[ T15 — A REBUILT CONTAINER KEEPS THE CHILDREN ARRAY IT BUILT LAST TICK.
 
 	P3's store answers a CLEAN container in two hash probes and returns its whole
@@ -32,15 +34,13 @@
 	                                     would be short by the whole subtree. Case: "a
 	                                     build that COLLECTS never reuses"
 	 4  the When/ForEach/ErrorBoundary   SERVED BY THE `store.dirty` CHILD SCAN. A
-	    splice in `appendChild`          region's children are replaced wholesale at
-	                                     `mount.luau:450` and mutated IN PLACE at
-	                                     `:197` (When exit-finish) and `:465` (ForEach
-	                                     exit-finish), each followed by
-	                                     `pushDirty(path, "structure")` (`:202`,
-	                                     `:470`). `renderer.luau`'s `markDirtyIn` walks
-	                                     path string PREFIXES, so the region's own path
-	                                     is in `store.dirty` whenever any descendant
-	                                     is. Two cases, one per exit-finish site
+	    splice in `appendChild`          region's children are inserted and removed IN
+	                                     PLACE by the scene, and each write marks the
+	                                     region's path dirty. `renderer.luau`'s
+	                                     `markDirtyIn` walks path string PREFIXES, so
+	                                     the region's own path is in `store.dirty`
+	                                     whenever any descendant is. Two cases, one per
+	                                     region class
 	 5  `hit.axis`/`hit.clip` per child  ▲ NOT SERVED, AND THE PLAN SAID IT WAS. The
 	                                     claim was "`childAxis` is a pure function of
 	                                     `kind`, and `kind` is fixed for a mounted
@@ -143,11 +143,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/deep_stack_scene")
 local device_views = require("./lib/device_views")
 local layout_node = require("../src/render/layout_node")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 
 local NEUTRAL = (require("../src/themes/snapshot") :: any).neutral()
@@ -330,7 +330,7 @@ describe("T15: the gate, driven against `layout_node.build` directly", function(
 
 			▲ AND IT IS DRIVEN HERE BECAUSE THE MOUNT LAYER CANNOT PRODUCE IT. The only
 			writers of a mounted node's `children` after mount are the region
-			reconcilers (`mount.luau:450`, `:197`, `:465`), and a region is spliced away
+			reconcilers, and a region is spliced away
 			in `appendChild` so it never owns a layout node and never reaches this gate.
 			For every node that DOES reach it, `node.children` is the array built at
 			mount. So a length mutation is a structural NULL against a blueprint drive,
@@ -409,10 +409,8 @@ describe("T15: the counter, on the thousand-row list", function()
 			an insert shifts every later index of `List`'s spliced flat child list while
 			`List`'s own mount children table stays the same OBJECT — the identity term
 			alone would carry the stale array. What refuses it is the `store.dirty` scan:
-			`mount.luau:450` replaces the REGION's children and `pushDirty(path,
-			"structure")` marks the region's own path, which is a mount child of `List`.
-			THE SITE THIS CASE DRIVES is that wholesale replacement; the two exit-finish
-			sites are driven below. ]]
+			the insert marks the region's own path, which is a mount child of `List`.
+			The removals are driven below. ]]
 		local s = scene.new({ rows = 200, foreach = true, listWidth = true })
 		s.text(5, "warm")
 		local before = s.stats()
@@ -425,58 +423,24 @@ describe("T15: the counter, on the thousand-row list", function()
 	end)
 end)
 
---[[ ── THE TWO EXIT-FINISH SITES ───────────────────────────────────────────────
-	`mount.luau:197` (When) and `:465` (ForEach) `table.remove` from `node.children`
-	IN PLACE, on a frame of the coordinator's choosing, long after the reconcile that
-	started the exit. Table identity is blind to both. Each is followed by
-	`pushDirty(path, "structure")` (`:202`, `:470`) on the REGION's path, and the
-	region is a mount child of the container this arm is about — so the scan sees what
-	identity cannot. A scripted coordinator hands the test the `done` callback so
-	"the exit completes" is something the case decides. ]]
-local FADE = { enter = "fade" }
-
-local function scripted()
-	local pending: { [string]: () -> () } = {}
-	local coordinator: any = {}
-	function coordinator.shouldRetire(_path: string, node: any): any?
-		return node.transition
-	end
-	function coordinator.beginExit(path: string, _node: any, _spec: any, done: () -> ())
-		pending[path] = done
-	end
-	function coordinator.cancelExit(path: string)
-		pending[path] = nil
-	end
-	function coordinator.beginEnter() end
-	function coordinator.release(path: string)
-		pending[path] = nil
-	end
-	return {
-		coordinator = coordinator,
-		finish = function(path: string)
-			local done = pending[path]
-			expect(done ~= nil).toBe(true)
-			pending[path] = nil
-			(done :: () -> ())()
-		end,
-	}
-end
-
-describe("T15: the two exit-finish sites the identity term is blind to", function()
+--[[ ── A REGION THAT LOSES A CHILD ────────────────────────────────────────────
+	Removing a row or a branch takes it out of the region's children array IN PLACE,
+	and no table changes identity. The removal marks the region's path dirty, and the
+	region is a child of the container this arm is about, so the dirty scan sees what
+	identity cannot. ]]
+describe("T15: the in-place removes the identity term is blind to", function()
 	local function build(region: "foreach" | "when")
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		local script = scripted()
-		local width = core:signal(900)
-		local items = core:signal({ { key = "a" }, { key = "b" } })
-		local on = core:signal(true)
+		local width = Compose.cell(900)
+		local items = Compose.cell({ { key = "a" }, { key = "b" } })
+		local on = Compose.cell(true)
 		local kids: { any } = {}
 		if region == "foreach" then
 			kids[1] = UI.ForEach({
 				id = "F",
 				items = items,
-				transition = FADE,
 				key = function(item: any): string
 					return item.key
 				end,
@@ -492,7 +456,6 @@ describe("T15: the two exit-finish sites the identity term is blind to", functio
 			kids[1] = UI.When({
 				id = "W",
 				condition = on,
-				transition = FADE,
 				thenView = function()
 					return UI.ZStack({
 						id = "Item",
@@ -516,14 +479,13 @@ describe("T15: the two exit-finish sites the identity term is blind to", functio
 					UI.VStack({
 						id = "List",
 						gap = 2,
-						width = core:memo(function(use: any)
+						width = Compose.formula(function(use: any)
 							return px(use(width) :: number)
 						end),
 						children = kids,
 					}),
 				},
-			}),
-			{ transitions = script.coordinator }
+			})
 		)
 		local adapter = fake_target.new()
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
@@ -532,7 +494,6 @@ describe("T15: the two exit-finish sites the identity term is blind to", functio
 			core = core,
 			root = root,
 			controller = controller,
-			script = script,
 			width = width,
 			items = items,
 			on = on,
@@ -544,7 +505,7 @@ describe("T15: the two exit-finish sites the identity term is blind to", functio
 		return `solves={st.solves - before.solves} visits={st.lastBuildChildVisits} nodes={st.lastLayoutNodes}`
 	end
 
-	it("ForEach exit-finish (`mount.luau:465`): the in-place remove is caught by the scan", function()
+	it("ForEach row removal: the in-place remove is caught by the scan", function()
 		local arm = build("foreach")
 		arm.width:set(880)
 		arm.controller.refresh()
@@ -553,22 +514,16 @@ describe("T15: the two exit-finish sites the identity term is blind to", functio
 		arm.width:set(870)
 		arm.controller.refresh()
 		expect(line(arm, before)).toBe("solves=1 visits=1 nodes=54")
-		-- the reconcile: `b` starts exiting and HOLDS its slot (`mount.luau:450`)
-		arm.items:set({ { key = "a" } })
-		arm.controller.refresh()
+		-- `lastLayoutNodes` falling by the row's two nodes is the witness that the
+		-- flat list actually lost the row
 		before = arm.controller.stats()
-		--[[ ...and now the FINISH, on its own frame: `table.remove(node.children,
-			index)` on the region's array, `pushDirty(path, "structure")` at `:470`, and
-			no table anywhere changed identity. The scan is the only thing that sees it,
-			and `lastLayoutNodes` falling by one is the witness that the flat list
-			actually lost the row. ]]
-		arm.script.finish("/S/List/F/[b]/Item")
+		arm.items:set({ { key = "a" } })
 		arm.controller.refresh()
 		expect(line(arm, before)).toBe("solves=1 visits=26 nodes=52")
 		arm.root.dispose()
 	end)
 
-	it("When exit-finish (`mount.luau:197`): the same in-place remove, the same scan", function()
+	it("When branch removal: the same in-place remove, the same scan", function()
 		local arm = build("when")
 		arm.width:set(880)
 		arm.controller.refresh()
@@ -576,10 +531,8 @@ describe("T15: the two exit-finish sites the identity term is blind to", functio
 		arm.width:set(870)
 		arm.controller.refresh()
 		expect(line(arm, before)).toBe("solves=1 visits=1 nodes=52")
-		arm.on:set(false)
-		arm.controller.refresh()
 		before = arm.controller.stats()
-		arm.script.finish("/S/List/W/then/Item")
+		arm.on:set(false)
 		arm.controller.refresh()
 		expect(line(arm, before)).toBe("solves=1 visits=25 nodes=50")
 		arm.root.dispose()
@@ -630,6 +583,11 @@ local TABLE_MUTATORS: { string } = { "insert", "remove", "sort", "move", "clear"
 	line it excused could have been deleted, renamed or moved and the sweep would go on
 	reporting a clean bill for a pattern it no longer meets. ]]
 local ALLOWED_MUTATIONS: { [string]: boolean } = {
+	-- Compose's domain host mutates MOUNT nodes, never published layout arrays.
+	-- Every insert/move/remove advances childrenVersion and the structure journal;
+	-- compose_scene.spec exercises those invalidations and keyed identity.
+	["src/render/compose_scene.luau|insert|parent.children"] = true,
+	["src/render/compose_scene.luau|remove|parent.children"] = true,
 	-- the else-arm of this task's own gate, building the array it is about to publish;
 	-- pinned to exactly ONE occurrence by the case below, so this entry is a name and
 	-- not a hole

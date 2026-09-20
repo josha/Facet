@@ -20,6 +20,7 @@ local Facet = require("../../src")
 -- proof's group really left it
 local themeSnapshot = require("../../src/themes/snapshot") :: any
 local fake_target = require("../lib/fake_target")
+local refWorld = require("./ref_world")
 local standard_icons = require("../../src/themes/standard_icons")
 
 local proof = require("../../examples/reference/p2_cartwheel") :: any
@@ -32,38 +33,53 @@ local strings = require("../../examples/reference/p2_cartwheel/content/strings")
 -- proof PRESENTS ITSELF (it needs its own controller for the stage seam), so the
 -- harness never presents a second time — it only drives.
 
-type World = { core: any, env: any, adapter: any, presenter: any, system: any, built: any }
+type World = { core: any, env: any, adapter: any, presenter: any, system: any, built: any, record: (string) -> any }
 
 local function makeWorld(opts: any?): World
 	local options: any = opts or {}
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = options.width or 1200, h = options.height or 800 })
-	if options.reducedMotion then
-		env:set("reducedMotion", true)
-	end
-	if options.locale ~= nil then
-		env:set("locale", options.locale)
-	end
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	if options.noStageHost then
-		-- an adapter WITHOUT the optional stage seam. `controller.stageHost`
-		-- answers nil for one, which is the capability-absent world the proof's
-		-- fallback plate exists for.
-		adapter.stageHost = nil
-	end
-	local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-	local built = proof.build(Facet, core, {
-		env = env,
-		actionSystem = system,
-		presenter = presenter,
-		adapter = adapter,
-		seed = options.seed,
-		locale = options.locale,
+	local rw = refWorld.new(proof, {
+		keyboardNavigation = true,
+		before = function(env: any, adapter: any)
+			env:set("viewportRect", { x = 0, y = 0, w = options.width or 1200, h = options.height or 800 })
+			if options.reducedMotion then
+				env:set("reducedMotion", true)
+			end
+			if options.locale ~= nil then
+				env:set("locale", options.locale)
+			end
+			if options.noStageHost then
+				-- an adapter WITHOUT the optional stage seam. `controller.stageHost`
+				-- answers nil for one, which is the capability-absent world the proof's
+				-- fallback plate exists for.
+				adapter.stageHost = nil
+			end
+		end,
+		deps = function(env: any, system: any, presenter: any, adapter: any)
+			return {
+				env = env,
+				actionSystem = system,
+				presenter = presenter,
+				adapter = adapter,
+				seed = options.seed,
+				locale = options.locale,
+			}
+		end,
 	})
+	local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+	local built = rw.built
 	presenter.refresh()
-	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system, built = built }
+	return {
+		core = core,
+		env = env,
+		adapter = adapter,
+		presenter = presenter,
+		system = system,
+		built = built,
+		-- the newest composite control built under `id`
+		record = function(id: string): any
+			return rw.world.record(id)
+		end,
+	}
 end
 
 --[[ …AND THE PROOF'S APP NAMESPACE GOES WITH IT. `build` declares
@@ -119,7 +135,7 @@ describe("Cartwheel reference proof — module contract", function()
 		local world = makeWorld()
 		expect(world.built.handle ~= nil).toBe(true)
 		expect(world.adapter.node(world.built.paths.screen) ~= nil).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		closeWorld(world)
 	end)
 
@@ -220,7 +236,7 @@ describe("Cartwheel — every section mounts", function()
 			for _, entry in sections do
 				world.built.steps.section(world.built, entry[1])
 				expect(world.adapter.node((world.built.paths :: any)[entry[2]]) ~= nil).toBe(true)
-				expect(world.core:lastError()).toBeNil()
+				expect(world.core.lastError()).toBeNil()
 			end
 			closeWorld(world)
 		end
@@ -249,7 +265,7 @@ describe("Cartwheel — brews: modes, search, sort", function()
 		local dump = world.built.steps.sort ~= nil and world.built.screens.brews.dump()
 		expect(dump.sort.column).toBe("status")
 		expect(dump.sort.ascending).toBe(true)
-		local rows = world.built.screens.brews.rows:get() :: any
+		local rows = world.built.screens.brews.rows:peek() :: any
 		-- every New brew precedes every Ready one...
 		local lastNew, firstReady = 0, math.huge
 		for index, brew in rows do
@@ -267,15 +283,15 @@ describe("Cartwheel — brews: modes, search, sort", function()
 
 	it("sorting by a column cycles it and re-derives the order", function()
 		local world = makeWorld()
-		local before = idsOf(world.built.screens.brews.rows:get() :: any)
+		local before = idsOf(world.built.screens.brews.rows:peek() :: any)
 		local ascending = world.built.steps.sort(world.built, "bottles")
 		expect(ascending.sort.column).toBe("bottles")
 		expect(ascending.sort.ascending).toBe(true)
-		local rows = world.built.screens.brews.rows:get() :: any
+		local rows = world.built.screens.brews.rows:peek() :: any
 		expect(rows[1].bottles <= rows[#rows].bottles).toBe(true)
 		local descending = world.built.steps.sort(world.built, "bottles")
 		expect(descending.sort.ascending).toBe(false)
-		local flipped = world.built.screens.brews.rows:get() :: any
+		local flipped = world.built.screens.brews.rows:peek() :: any
 		expect(flipped[1].bottles >= flipped[#flipped].bottles).toBe(true)
 		expect(#before > 0).toBe(true)
 		closeWorld(world)
@@ -283,7 +299,7 @@ describe("Cartwheel — brews: modes, search, sort", function()
 
 	it("search matches the brew number, its potions AND their ingredients", function()
 		local world = makeWorld()
-		local all = #(world.built.screens.brews.rows:get() :: any)
+		local all = #(world.built.screens.brews.rows:peek() :: any)
 		local byNumber = world.built.steps.search(world.built, "101")
 		expect(byNumber.rows).toBe(1)
 		expect(byNumber.first).toBe(101)
@@ -309,7 +325,7 @@ describe("Cartwheel — brews: modes, search, sort", function()
 	it("the sectioned list omits empty status groups and heads the rest", function()
 		local world = makeWorld({ width = 420 })
 		world.built.steps.section(world.built, "brews")
-		local entries = world.built.screens.brews.listEntries:get() :: any
+		local entries = world.built.screens.brews.listEntries:peek() :: any
 		local headings: { string } = {}
 		for _, entry in entries do
 			if entry.kind == "heading" then
@@ -348,7 +364,7 @@ describe("Cartwheel — brews: modes, search, sort", function()
 		local empty = world.built.paths.brews .. "/Body/EmptyWhen/then/Empty"
 		expect(world.adapter.node(empty) ~= nil).toBe(true)
 		expect(world.adapter.node(empty).props.text).toBe("No brews match that search.")
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		closeWorld(world)
 	end)
 
@@ -397,10 +413,10 @@ describe("Cartwheel — the status machine", function()
 		-- the optimistic write lands, the decision refuses it, and the revert puts
 		-- the record back where it was
 		world.built.app.actions.collectBrews({ 110 })
-		expect(world.built.commands.status("brew:110"):get()).toBe("pending")
+		expect(world.built.commands.status("brew:110"):peek()).toBe("pending")
 		world.built.steps.advance(world.built, "0.3")
-		expect(world.built.commands.status("brew:110"):get()).toBe("rejected")
-		expect(world.built.commands.reason("brew:110"):get()).toBe("Brew already collected")
+		expect(world.built.commands.status("brew:110"):peek()).toBe("rejected")
+		expect(world.built.commands.reason("brew:110"):peek()).toBe("Brew already collected")
 		expect(world.built.services.orders.statusOf(110)).toBe("done")
 
 		local log = world.built.commands.dump()
@@ -534,7 +550,7 @@ describe("Cartwheel — the completion celebration", function()
 		-- leaving the sequence half-painted
 		world.built.steps.dismiss_celebration(world.built)
 		expect(world.built.screens.celebration.dump().open).toBe(false)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		closeWorld(world)
 	end)
 
@@ -573,7 +589,7 @@ describe("Cartwheel — scripted arrivals", function()
 		expect(early.arrivals[1]).toBe(125)
 
 		-- and the newest is at the FRONT of the list the dashboard reads
-		local rows = world.built.services.orders.brews:get() :: any
+		local rows = world.built.services.orders.brews:peek() :: any
 		expect(rows[1].id).toBe(early.arrivals[#early.arrivals])
 
 		-- twenty, then the cart goes quiet
@@ -609,7 +625,7 @@ describe("Cartwheel — the dashboard reacts to an arrival", function()
 		expect(world.adapter.node(hero .. "/[124]/Tile124") ~= nil).toBe(true)
 
 		world.built.steps.advance(world.built, "10")
-		local newest = (world.built.services.orders.brews:get() :: any)[1]
+		local newest = (world.built.services.orders.brews:peek() :: any)[1]
 		expect(newest.id > 124).toBe(true)
 		world.presenter.refresh()
 		-- the keyed row for the arrival is mounted, and the one it replaced is on
@@ -704,14 +720,14 @@ describe("Cartwheel — the unwired picker adapts to the surface (ADAPT-1)", fun
 		phone.env:set("preferredInput", "Touch")
 		phone.presenter.refresh()
 		phone.built.steps.section(phone.built, "potions")
-		expect(phone.built.screens.gallery.dump().sortStyle).toBe("menu")
-		expect(phone.built.screens.gallery.dump().sortPresentation).toBe("menu")
+		expect(phone.record("Sort").dump().style).toBe("menu")
+		expect(phone.record("Sort").dump().presentation).toBe("menu")
 		closeWorld(phone)
 
 		local desktop = makeWorld({ width = 1440, height = 900 })
 		desktop.built.steps.section(desktop.built, "potions")
-		expect(desktop.built.screens.gallery.dump().sortStyle).toBe("menu")
-		expect(desktop.built.screens.gallery.dump().sortPresentation).toBe("menu")
+		expect(desktop.record("Sort").dump().style).toBe("menu")
+		expect(desktop.record("Sort").dump().presentation).toBe("menu")
 		closeWorld(desktop)
 
 		local tv = makeWorld({ width = 1920, height = 1080 })
@@ -724,7 +740,7 @@ describe("Cartwheel — the unwired picker adapts to the surface (ADAPT-1)", fun
 		-- need ~500px at the ten-foot scale: a strip that cannot fit its row is
 		-- the focus-navigable row list on a television, never three truncated
 		-- segments (2026-09-11)
-		expect(tv.built.screens.gallery.dump().sortStyle).toBe("inline")
+		expect(tv.record("Sort").dump().style).toBe("inline")
 		closeWorld(tv)
 	end)
 
@@ -737,12 +753,12 @@ describe("Cartwheel — the unwired picker adapts to the surface (ADAPT-1)", fun
 		hybrid.presenter.refresh()
 		hybrid.built.steps.section(hybrid.built, "potions")
 		-- a mouse still wins outright, touchscreen or not (ADAPT-9)
-		expect(hybrid.built.screens.gallery.dump().sortStyle).toBe("menu")
+		expect(hybrid.record("Sort").dump().style).toBe("menu")
 		-- ...and picking up the pad on a nearby screen keeps three short options
 		-- on screen as a strip: no menu to open, one press to pick
 		hybrid.env:set("preferredInput", "Gamepad")
 		hybrid.presenter.refresh()
-		expect(hybrid.built.screens.gallery.dump().sortStyle).toBe("segmented")
+		expect(hybrid.record("Sort").dump().style).toBe("segmented")
 		closeWorld(hybrid)
 	end)
 end)
@@ -839,7 +855,7 @@ describe("Cartwheel — entitlement, gate and lock", function()
 		world.built.steps.section(world.built, "ledger")
 		local first = world.built.steps.purchase(world.built, "ledger")
 		expect(first.entitlement.fullLedger).toBe(false)
-		expect(world.built.commands.reason("purchase:ledger"):get()).toBe("Purchase declined — nothing was charged")
+		expect(world.built.commands.reason("purchase:ledger"):peek()).toBe("Purchase declined — nothing was charged")
 		local second = world.built.steps.purchase(world.built, "ledger")
 		expect(second.entitlement.fullLedger).toBe(true)
 		closeWorld(world)
@@ -942,15 +958,15 @@ describe("Cartwheel — signing out asks first", function()
 		local world = makeWorld()
 		world.built.steps.guild_open(world.built)
 		world.built.steps.guild_submit(world.built, "emberwick")
-		expect(world.built.services.identity.signedIn:get()).toBe(true)
+		expect(world.built.services.identity.signedIn:peek()).toBe(true)
 
 		-- the sidebar row now opens the confirm rather than the form
 		world.built.steps.guild_open(world.built)
 		expect(world.adapter.node("/CartwheelSignOut/Card/Toolbar/SignOut") ~= nil).toBe(true)
-		expect(world.built.services.identity.signedIn:get()).toBe(true)
+		expect(world.built.services.identity.signedIn:peek()).toBe(true)
 		world.adapter.tap("/CartwheelSignOut/Card/Toolbar/SignOut")
 		world.presenter.refresh()
-		expect(world.built.services.identity.signedIn:get()).toBe(false)
+		expect(world.built.services.identity.signedIn:peek()).toBe(false)
 		closeWorld(world)
 	end)
 end)
@@ -967,19 +983,23 @@ describe("Cartwheel — the Plaza stage and its fallback", function()
 	end)
 
 	it("can open straight on a plaza, so the runner's one-shot stage content lands", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built = proof.build(Facet, core, {
-			env = env,
-			actionSystem = system,
-			presenter = presenter,
-			adapter = adapter,
-			section = "plaza:emberfall",
+		local rw = refWorld.new(proof, {
+			keyboardNavigation = true,
+			before = function(env: any, adapter: any)
+				env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
+			end,
+			deps = function(env: any, system: any, presenter: any, adapter: any)
+				return {
+					env = env,
+					actionSystem = system,
+					presenter = presenter,
+					adapter = adapter,
+					section = "plaza:emberfall",
+				}
+			end,
 		})
+		local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+		local built = rw.built
 		presenter.refresh()
 		-- the Stage is mounted on the FIRST frame, which is when the scenario
 		-- runner asks for its host
@@ -1087,27 +1107,31 @@ describe("Cartwheel — the solver's own verdict", function()
 	it("reports NO layout diagnostics on any real viewport, in any section", function()
 		for _, viewport in VIEWPORTS do
 			for _, section in SECTIONS do
-				local core = Facet.newCore()
-				local env = Facet.newEnvironment(core)
-				env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
-				if viewport.large then
-					env:set("displaySize", "Large")
-				end
-				local system = Facet.newActionSystem(core)
-				local adapter = fake_target.new();
-				-- UNDER THE BAR THE LIVE ENGINE ACTUALLY RESERVES. The headless twin
-				-- defaults to none, so a bar-less sweep measures every page scroller
-				-- 8px wider than the screen will, and reports clean on rows that
-				-- overflow in Studio.
-				(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-				local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-				local built = proof.build(Facet, core, {
-					env = env,
-					actionSystem = system,
-					presenter = presenter,
-					adapter = adapter,
-					section = section,
+				local rw = refWorld.new(proof, {
+					keyboardNavigation = true,
+					scrollBar = true,
+					before = function(env: any, adapter: any)
+						env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
+						if viewport.large then
+							env:set("displaySize", "Large")
+						end
+						-- UNDER THE BAR THE LIVE ENGINE ACTUALLY RESERVES. The headless twin
+						-- defaults to none, so a bar-less sweep measures every page scroller
+						-- 8px wider than the screen will, and reports clean on rows that
+						-- overflow in Studio.
+					end,
+					deps = function(env: any, system: any, presenter: any, adapter: any)
+						return {
+							env = env,
+							actionSystem = system,
+							presenter = presenter,
+							adapter = adapter,
+							section = section,
+						}
+					end,
 				})
+				local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+				local built = rw.built
 				presenter.refresh()
 				local diagnostics = built.handle.controller.diagnostics()
 				if #diagnostics > 0 then
@@ -1125,23 +1149,27 @@ describe("Cartwheel — the solver's own verdict", function()
 
 	it("...and none on the pushed detail, the celebration, or the sign-up form either", function()
 		for _, viewport in VIEWPORTS do
-			local core = Facet.newCore()
-			local env = Facet.newEnvironment(core)
-			env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
-			if viewport.large then
-				env:set("displaySize", "Large")
-			end
-			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-			local built = proof.build(Facet, core, {
-				env = env,
-				actionSystem = system,
-				presenter = presenter,
-				adapter = adapter,
-				section = "brews",
+			local rw = refWorld.new(proof, {
+				keyboardNavigation = true,
+				scrollBar = true,
+				before = function(env: any, adapter: any)
+					env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
+					if viewport.large then
+						env:set("displaySize", "Large")
+					end
+				end,
+				deps = function(env: any, system: any, presenter: any, adapter: any)
+					return {
+						env = env,
+						actionSystem = system,
+						presenter = presenter,
+						adapter = adapter,
+						section = "brews",
+					}
+				end,
 			})
+			local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+			local built = rw.built
 			presenter.refresh()
 			built.steps.open_brew(built, "110")
 			expect(#built.handle.controller.diagnostics()).toBe(0)
@@ -1186,7 +1214,7 @@ describe("Cartwheel — the solver's own verdict", function()
 
 		-- ...and the same factor reaches the declaration side, which is what makes
 		-- the four numbers ONE decision instead of four remembered ones
-		local snap: any = far.env:get("themeMetrics"):get()
+		local snap: any = far.env:get("themeMetrics"):peek()
 		expect(snap.app.cartwheel.chartH).toBe(240)
 		expect(snap.app.cartwheel.heroH).toBe(180)
 		expect(snap.app.cartwheel.previewMin).toBe(300)
@@ -1232,7 +1260,7 @@ describe("Cartwheel — the solver's own verdict", function()
 			world.built.steps.advance_status(world.built)
 			expect(world.built.screens.brewDetail.dump().status).toBe("brewing")
 			expect(#world.built.handle.controller.diagnostics()).toBe(0)
-			expect(world.core:lastError()).toBeNil()
+			expect(world.core.lastError()).toBeNil()
 			closeWorld(world)
 		end
 	end)
@@ -1279,33 +1307,26 @@ describe("Cartwheel — determinism and lifecycle", function()
 	end)
 
 	it("build + drive + dispose is registry-neutral", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
+		-- one application, three builds: each close must return the registry
+		local w = refWorld.open({ viewport = { x = 0, y = 0, w = 1200, h = 800 }, keyboardNavigation = true })
+		local core, presenter = w.core, w.pres
 
 		local baseline: any = nil
 		for cycle = 1, 3 do
-			local built = proof.build(Facet, core, deps)
+			local built = refWorld.mount(w, proof).built
 			presenter.refresh()
 			built.steps.section(built, "brews")
 			built.steps.open_brew(built, "101")
 			built.steps.advance_status(built)
 			built.dispose()
-			local counters = core:counters()
+			local counters = core.owner.size()
 			if cycle == 1 then
 				baseline = counters
 			else
-				expect(counters.memos).toBe(baseline.memos)
-				expect(counters.signals).toBe(baseline.signals)
-				expect(counters.scopes).toBe(baseline.scopes)
-				expect(counters.observers).toBe(baseline.observers)
+				expect(counters).toBe(baseline)
 			end
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1348,7 +1369,7 @@ describe("Cartwheel — reduced motion", function()
 		-- beats still fire, instantly
 		expect(world.built.screens.celebration.dump().open).toBe(true)
 		expect(world.built.screens.celebration.dump().cork).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		closeWorld(world)
 	end)
 	it("the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)", function()
@@ -1361,16 +1382,18 @@ describe("Cartwheel — reduced motion", function()
 				{ w = 1920, h = 1080 },
 			}
 		do
-			local core = Facet.newCore()
-			local env = Facet.newEnvironment(core)
-			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
-			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new();
-			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system)
 			-- the proof presents itself, so `built.handle` IS the mounted surface
-			local built =
-				proof.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			local rw = refWorld.new(proof, {
+				scrollBar = true,
+				before = function(env: any, adapter: any)
+					env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
+				end,
+				deps = function(env: any, system: any, presenter: any, adapter: any)
+					return { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
+				end,
+			})
+			local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+			local built = rw.built
 			presenter.refresh()
 			expect(#built.handle.controller.diagnostics()).toBe(0)
 			built.dispose()
@@ -1391,20 +1414,24 @@ describe("Cartwheel — the rows that WRAP (parity round 3)", function()
 	-- off their published paths past a green suite. So every case below reads
 	-- `screenRectOf` and insists on a NON-ZERO rect at a NAMED path.
 	local function worldAt(w: number, h: number, section: string)
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new();
-		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
-		local built = proof.build(Facet, core, {
-			env = env,
-			actionSystem = system,
-			presenter = presenter,
-			adapter = adapter,
-			section = section,
+		local rw = refWorld.new(proof, {
+			keyboardNavigation = true,
+			scrollBar = true,
+			before = function(env: any, adapter: any)
+				env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
+			end,
+			deps = function(env: any, system: any, presenter: any, adapter: any)
+				return {
+					env = env,
+					actionSystem = system,
+					presenter = presenter,
+					adapter = adapter,
+					section = section,
+				}
+			end,
 		})
+		local core, env, system, adapter, presenter = rw.core, rw.env, rw.system, rw.adapter, rw.presenter
+		local built = rw.built
 		presenter.refresh()
 		return built, adapter
 	end

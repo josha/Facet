@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 -- Logical focus graph (design §9.3, UI-FOCUS-001): Facet owns focus identity
 -- and movement; Roblox SelectedObject/NextSelection* are render outputs
 -- applied by the platform adapter (not here — engine-free).
@@ -191,7 +192,7 @@ end
 
 function focus_graph.new(core: any)
 	local self = {}
-	local focused = core:signal(nil :: string?)
+	local focused = Compose.cell(nil :: string?)
 	local scopes: { any } = {} -- stack; top owns navigation
 	local restoreStack: { string? } = {} -- previous focus per pushed modal
 	-- the node an in-progress interaction is aiming at (drag hover, armed
@@ -217,7 +218,7 @@ function focus_graph.new(core: any)
 		surface answers, and the first arrow press after a tap brings the ring back.
 	]]
 	local focusOrigin = "navigation"
-	local focusVisible = core:signal(true)
+	local focusVisible = Compose.cell(true)
 
 	self.focused = focused
 	-- Readable<boolean>: should the focus ring PAINT right now? (see above)
@@ -471,17 +472,25 @@ function focus_graph.new(core: any)
 		return nil
 	end
 
-	local function chromeBelowTop(): ({ any }, boolean)
+	--[[ EVERY CHROME SCOPE BUT THE OWNER'S — and the owner is not always the top
+		one (see `navigationOwner`). A chrome surface that is PASSIVE may sit ABOVE
+		the screen it annotates and still belong in its ring rather than owning one:
+		the coach mark is the shipped case, a plate with a single dismiss
+		affordance that must be one arrow away and must not be a dead end. ]]
+	local function chromeScopes(ownerIndex: number): ({ any }, boolean)
 		local out: { any } = {}
 		local before = true
-		for i = 1, #scopes - 1 do
+		for i = 1, #scopes do
 			local scope = scopes[i]
-			if scope.chrome ~= nil then
+			if i ~= ownerIndex and scope.chrome ~= nil then
 				table.insert(out, scope)
 				before = CHROME_BEFORE[scope.chrome] ~= false
 			end
 		end
 		return out, before
+	end
+	local function chromeBelowTop(): ({ any }, boolean)
+		return chromeScopes(#scopes)
 	end
 
 	-- a scope's navigation groups, with a flat one read as the single vertical
@@ -502,12 +511,33 @@ function focus_graph.new(core: any)
 		}
 	end
 
+	--[[ WHICH SCOPE OWNS THE RING — not simply the top one.
+
+		A scope that declares `chrome` has already said its members belong in
+		ANOTHER screen's ring (`focusChrome`), and that was only ever read for a
+		chrome surface sitting BELOW the content. A chrome surface can also sit
+		above it: a coach mark is presented over the screen it points at, and as the
+		top scope it took the ring off that screen and kept it — one focusable on
+		the plate, no arrow back to the strip it was annotating, on the one input
+		class with no other route.
+
+		So a chrome scope is never the owner; it is adopted by whoever is. All-chrome
+		(a chrome surface standing alone, which is what `focus_chrome`'s own fixtures
+		present) answers the top scope exactly as before. ]]
+	local function navigationOwner(): any
+		for i = #scopes, 1, -1 do
+			if scopes[i].chrome == nil then
+				return scopes[i], i
+			end
+		end
+		return scopes[#scopes], #scopes
+	end
 	local function activeScope(): any
-		local owner = top()
+		local owner, ownerIndex = navigationOwner()
 		if owner == nil or owner.trap then
 			return owner
 		end
-		local chrome, before = chromeBelowTop()
+		local chrome, before = chromeScopes(ownerIndex)
 		if #chrome == 0 then
 			return owner
 		end
@@ -589,11 +619,11 @@ function focus_graph.new(core: any)
 		if path == nil or #scopes < 2 then
 			return false
 		end
-		local owner = top()
+		local owner, ownerIndex = navigationOwner()
 		if owner == nil or owner.trap then
 			return false
 		end
-		local chrome = chromeBelowTop()
+		local chrome = chromeScopes(ownerIndex)
 		for _, scope in chrome do
 			if indexOf(allIds(scope), path) ~= nil then
 				return true
@@ -644,12 +674,17 @@ function focus_graph.new(core: any)
 		-- while it is set; once the player Tabs or taps in, the scope behaves like
 		-- every other and keeps the nearest-survivor rule intact.
 		if id ~= nil then
-			local scope = top()
+			-- ...AND THE SCOPE THAT GOT IT IS THE ONE THAT OWNS THE RING, which is
+			-- not always the top one: a CHROME surface above it owns no navigation
+			-- (see `navigationOwner`), so clearing its flag here would hand it the
+			-- next order update's auto-entry for a focus move that happened on the
+			-- screen underneath it.
+			local scope = navigationOwner()
 			if scope ~= nil then
 				scope._awaitingFirstFocus = nil
 			end
 		end
-		recordFocus(top(), id)
+		recordFocus(navigationOwner(), id)
 	end
 
 	local function entryFocus(scope: any): string?
@@ -859,7 +894,7 @@ function focus_graph.new(core: any)
 		-- the graph's own copy; the caller's tables are never written (F-14 above)
 		local internal = internalScope(scope)
 		if internal.trap then
-			table.insert(restoreStack, focused:get())
+			table.insert(restoreStack, focused:peek())
 		end
 		table.insert(scopes, internal)
 		local want = scope.initialFocus
@@ -875,7 +910,7 @@ function focus_graph.new(core: any)
 				it is annotating. Measured before it was changed: presenting an
 				anchored plate over a focused screen dropped `focused` to nil, and
 				the next arrow press had nowhere to start from. ]]
-			if internal.trap or focused:get() == nil then
+			if internal.trap or focused:peek() == nil then
 				setFocus(nil)
 			end
 		elseif want ~= nil and want ~= "first" and isFocusable(internal, want) then
@@ -963,7 +998,7 @@ function focus_graph.new(core: any)
 		if not fromGroup._sections then
 			return false
 		end
-		local from = focused:get()
+		local from = focused:peek()
 		local resolver = fromGroup.rectOf or (fromGroup.section and fromGroup.section.rectOf)
 		if not resolver then
 			return false
@@ -1091,7 +1126,7 @@ function focus_graph.new(core: any)
 		if group.rectOf == nil or group.columns ~= nil or group.wrap == true or FALLTHROUGH_DELTA[direction] == nil then
 			return false
 		end
-		local current = focused:get()
+		local current = focused:peek()
 		local origin = group.rectOf(current)
 		if origin == nil or origin.w <= 0 or origin.h <= 0 then
 			return false
@@ -1127,7 +1162,7 @@ function focus_graph.new(core: any)
 			end
 			return
 		end
-		local group, groupIndex = groupOf(scope, focused:get())
+		local group, groupIndex = groupOf(scope, focused:peek())
 		if group == nil then
 			setFocus(entryFocus(scope))
 			return
@@ -1137,7 +1172,7 @@ function focus_graph.new(core: any)
 		then
 			return
 		end
-		local i = indexOf((group :: NavigationGroup).order, focused:get()) :: number
+		local i = indexOf((group :: NavigationGroup).order, focused:peek()) :: number
 		local axisDelta = AXIS_DELTA[(group :: NavigationGroup).axis or "vertical"][direction]
 		if axisDelta == nil then
 			-- orthogonal to the group's axis: a RECTANGLE answers it by a whole line; a ring has no answer and only an exit can move focus.
@@ -1187,7 +1222,7 @@ function focus_graph.new(core: any)
 			return
 		end
 		if scope.groups ~= nil then
-			local group = groupOf(scope, focused:get())
+			local group = groupOf(scope, focused:peek())
 			local axis = if group ~= nil then (group :: NavigationGroup).axis else "vertical"
 			--[[ THE AXIS MAPPING IS A GUESS THAT A RECTANGLE MAKES UNNECESSARY. It
 				exists because a 1-D group has ONE navigable axis and this verb carries no
@@ -1220,7 +1255,7 @@ function focus_graph.new(core: any)
 		if #order == 0 then
 			return
 		end
-		local i = indexOf(order, focused:get())
+		local i = indexOf(order, focused:peek())
 		if i == nil then
 			setFocus(entryFocus(scope))
 			return
@@ -1276,7 +1311,7 @@ function focus_graph.new(core: any)
 		if n == 0 then
 			return false
 		end
-		local current = focused:get()
+		local current = focused:peek()
 		local i = indexOf(order, current)
 		local step = if delta >= 0 then 1 else -1
 		if i == nil then
@@ -1352,8 +1387,8 @@ function focus_graph.new(core: any)
 						end
 					end
 				end
-				if i == #scopes then
-					local current = focused:get()
+				if scope == navigationOwner() then
+					local current = focused:peek()
 					if not scope._awaitingFirstFocus and (current == nil or indexOf(allIds(scope), current) == nil) then
 						setFocus(entryFocus(scope))
 					end
@@ -1373,14 +1408,14 @@ function focus_graph.new(core: any)
 					return -- grouped scopes update per group (setGroupOrder)
 				end
 				local oldOrder = scope.order :: { string }
-				local oldIndex = indexOf(oldOrder, focused:get())
+				local oldIndex = indexOf(oldOrder, focused:peek())
 				local sink: { [string]: () -> boolean } = {}
 				local normalized = normalizeOrder(order, sink)
 				scope.order = normalized
 				scope._focusable = sink
 				scope.traversalRank = if rank ~= nil then table.clone(rank) else nil
-				if i == #scopes then
-					local current = focused:get()
+				if scope == navigationOwner() then
+					local current = focused:peek()
 					if not scope._awaitingFirstFocus and (current == nil or indexOf(normalized, current) == nil) then
 						local fallback = if oldIndex ~= nil then math.min(oldIndex, #normalized) else 1
 						setFocus(nearestEligible(scope, normalized, math.max(1, fallback)))
@@ -1409,7 +1444,7 @@ function focus_graph.new(core: any)
 					return
 				end
 				local oldOrder = (group :: NavigationGroup).order
-				local oldIndex = indexOf(oldOrder, focused:get())
+				local oldIndex = indexOf(oldOrder, focused:peek())
 				local sink: { [string]: () -> boolean } = {}
 				local normalized = normalizeOrder(order, sink);
 				(group :: NavigationGroup).order = normalized;
@@ -1420,8 +1455,8 @@ function focus_graph.new(core: any)
 						scope._lastFocus[groupName] = nil
 					end
 				end
-				if i == #scopes and oldIndex ~= nil then
-					local current = focused:get()
+				if scope == navigationOwner() and oldIndex ~= nil then
+					local current = focused:peek()
 					if current == nil or indexOf(normalized, current) == nil then
 						local fallback = math.max(1, math.min(oldIndex, #normalized))
 						setFocus(nearestEligible(scope, normalized, fallback))
@@ -1461,7 +1496,7 @@ function focus_graph.new(core: any)
 			if (group :: any)._focusable ~= nil then
 				(group :: any)._focusable[id] = nil
 			end
-			if focused:get() == id then
+			if focused:peek() == id then
 				setFocus(nearestEligible(scope, order, math.min(i, #order)))
 			end
 			return
@@ -1475,7 +1510,7 @@ function focus_graph.new(core: any)
 		if scope._focusable ~= nil then
 			scope._focusable[id] = nil
 		end
-		if focused:get() == id then
+		if focused:peek() == id then
 			setFocus(nearestEligible(scope, order, math.min(i, #order)))
 		end
 	end

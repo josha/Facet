@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- DOES MOUNT/UNMOUNT RATCHET? The soak invariant: N mount/unmount cycles must
 -- return to the starting instance count.
 --
@@ -37,12 +38,15 @@ local transientSurfaces = require("../examples/performance/lab/transient_surface
 local perf_lab = require("../examples/performance/lab/perf_lab")
 
 local function newHarness()
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 	local adapter = fake_target.new()
 	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
+	-- `app.controls` in Studio (runner.luau's `ctx.UI`): the shorthand-capable
+	-- constructor table, per `tests/perf_lab.spec.luau`'s `newHarness`.
+	local controlsApi = harness.libraryOf(core)
 	local clock = 0
 	local ctx: any = {
 		Facet = Facet,
@@ -51,6 +55,8 @@ local function newHarness()
 		adapter = adapter,
 		presenter = pres,
 		actionSystem = system,
+		UI = controlsApi,
+		Compose = Facet.Compose,
 		host = {
 			facts = function()
 				return {
@@ -104,7 +110,28 @@ local function newHarness()
 			end,
 		},
 	}
-	local built = perf_lab.build(ctx)
+	-- In Studio, every call into a mounted scenario runs with the scenario's
+	-- owner already active, re-entered by the framework's own dispatch — see
+	-- `tests/perf_lab.spec.luau`'s `newHarness` for the full story. `deepOwn`
+	-- closes that gap for this harness's own direct calls into `built`.
+	local function deepOwn(t: any): any
+		for k, v in t do
+			if type(v) == "function" then
+				t[k] = function(...)
+					local args = table.pack(...)
+					return harness.owned(function()
+						return v(table.unpack(args, 1, args.n))
+					end)
+				end
+			elseif type(v) == "table" then
+				deepOwn(v)
+			end
+		end
+		return t
+	end
+	local built = deepOwn(harness.owned(function()
+		return perf_lab.build(ctx)
+	end))
 
 	-- the pool-aware census: wrap `create` and keep every handle ever made
 	local everCreated: { any } = {}

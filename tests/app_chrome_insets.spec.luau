@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE HOST'S OWN RESERVED BAND IS A SEPARATE FACT FROM THE DEVICE SAFE AREA,
 	AND A MODAL HONOURS ONLY THE DEVICE (owner ruling, 2026-09-13).
 
@@ -34,9 +35,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local UI = harness.UI
 local geometry_facts = require("../src/render/geometry_facts")
 
 local VIEWPORT = { x = 0, y = 0, w = 390, h = 844 }
@@ -118,7 +119,7 @@ describe("appChromeInsets: the host's band is content's, never a modal's", funct
 			viewport = { x = 0, y = 0, w = 1280, h = 800 },
 			env = { appChromeInsets = { top = 80, bottom = 0, left = 0, right = 0 } },
 		})
-		local alert = Facet.Controls.Alert(w.core, {
+		local alert = harness.Controls.Alert(w.core, {
 			id = "Confirm",
 			title = "Start the race?",
 			message = "Everyone is waiting.",
@@ -209,7 +210,7 @@ describe("appChromeInsets: the host's band is content's, never a modal's", funct
 		-- the theme's gutter floor on three edges, the platform's row on the top,
 		-- and NOT the 80px box
 		expect(rectStr(w.adapter.node("/Hud").rect)).toBe(`8,36 {390 - 16}x{844 - 36 - 8}`)
-		local declared = (w.env:get("platformChrome"):get() :: any).rects
+		local declared = (w.env:get("platformChrome"):peek() :: any).rects
 		local found = false
 		for _, r in declared do
 			if r.x == chips.x and r.y == chips.y and r.w == chips.w and r.h == chips.h then

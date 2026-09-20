@@ -1,51 +1,27 @@
 --!strict
 --[[ Scenario 'measured_extents' — A LIST WITH NO HEIGHT ARITHMETIC IN IT AT ALL.
 
-	`newVirtualList.itemExtent = "measured"` (Stage 2 of
-	`docs/plans/variable-item-extents.md`, 2026-08-15). Every new public API appears
-	in a gallery scenario the headless suite executes, and this is that scenario —
-	but it is here for a second reason, and the second one is the argument.
-
-	READ THIS BESIDE `variable_extents.luau`. That fixture demonstrates Stage 1: a
-	per-item extent FUNCTION. It is correct today, and being correct cost it a
-	thirty-line block reproducing the solver's text arithmetic by hand —
-	`max(typographyScale, typographyPaintScale)`, the additive `preferredTextOffset`,
-	the live theme's per-role line height, and a `lineLimit` on the body so the
-	reserved and drawn line counts cannot drift. It got that wrong on its first cut
-	(a literal 1.25 line ratio; 372 solver findings on its own rows) and three other
-	`itemExtent` consumers in this repo still carry a waiver for the identical
-	mistake.
-
-	THIS FIXTURE CONTAINS NO SUCH BLOCK. Search it for a multiplication: there is
-	not one. The cell paints; the list measures what it painted and windows at that.
-	The body here deliberately has NO `lineLimit`, so how many lines a post occupies
-	is decided by the live width, the live type scale and the live text preference —
-	a number no consumer could predict — and that is the case Stage 1 could express
-	and could not make easy.
+	`UI.VirtualList` with `itemExtent = "measured"`. READ THIS BESIDE
+	`variable_extents.luau`, which declares each post's height and reproduces the
+	solver's text arithmetic to do it. This file contains no such block: the row
+	paints, the list measures what it painted and windows at that. The body has NO
+	`lineLimit`, so how many lines a post occupies is decided by the live width,
+	the live type scale and the live text preference — a number no consumer could
+	predict.
 
 	WHAT A STILL SCREENSHOT CANNOT SHOW, and therefore what this fixture is FOR:
 
-	  · THE FOUR MEASURED TEXT OFFSETS, walked with nothing recomputed. `{0,4,10,14}`
-	    is the set the sweep that bought this feature measured (a `row_actions` row
-	    declaring 84 and measuring 88 at the DEFAULT preference, 249 at +14 on a
-	    320x640 phone). Here the rows simply grow and the list follows them.
-	  · CONVERGENCE IS A NUMBER IN THE STATUS LINE. `measured N of 400` is how much
-	    of the canvas is truth and how much is still `estimatedItemExtent`, which is
-	    the honest statement of this design's one residual cost: the content under
-	    the eye is exact, the SCROLL THUMB's proportion is an estimate until every
-	    post has been on screen once. Watch it climb as you fling.
-	  · IT IS STILL VIRTUALIZED. The mounted count does not move when you fling, and
-	    it never approaches 400. The refused candidate design — measure every row at
-	    mount — would look identical in a screenshot and would have deleted the
-	    property the control exists for.
+	  · THE FOUR MEASURED TEXT OFFSETS, walked with nothing recomputed. The rows
+	    simply grow and the list follows them.
+	  · IT IS STILL VIRTUALIZED. The status line counts the rows that are mounted
+	    right now and the rows the `row` component was ever asked for. The first
+	    stays a handful when you fling and never approaches 400.
 	  · THE SCROLL DOES NOT JUMP. Change the size while parked in the middle and the
 	    post under the top edge stays under the top edge, even though every offset
-	    above it just grew. The status line reports the anchored post.
+	    above it just grew.
 
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. The list's window is the
-	solved pane fed back through `present.onGeometry`, exactly as `variable_extents`
-	learned to do the hard way: a literal reserve for chrome the SOLVER sizes is the
-	same defect as a literal row height, one level up.
+	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. The list fills `ListPane`,
+	and the pane's height is the screen's decision.
 
 	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS (the pair
 	`card_rail.luau` documents): the scenario runner drives `steps` by name, and the
@@ -72,10 +48,6 @@ local TEXT_OFFSETS = { 0, 4, 10, 14 }
 	paint over its neighbour for that frame. ]]
 local ESTIMATED_POST = 76
 
--- the path `onGeometry` reads the list's window off. One spelling, so the
--- blueprint id and the lookup cannot drift.
-local LIST_PANE = "/MeasuredExtents/ListPane"
-
 -- how many sentences post `i` carries: deterministic, 1..7, so the fixture is the
 -- same list on every run and on every device. NOTE what is NOT here: how many
 -- LINES that becomes. That is the solver's answer, not the fixture's, and this
@@ -88,9 +60,7 @@ return {
 	title = "Measured item extents (ruling 7, stage 2)",
 	ledgerRows = { "R3-VIE" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
-		local core = ctx.core
-		local scope = core:scope("measured-extents")
+		local UI, Compose = ctx.UI, ctx.Compose
 
 		local posts = {}
 		for i = 1, POST_COUNT do
@@ -100,195 +70,148 @@ return {
 				body = string.rep(`A sentence about post {i}. `, sentencesFor(i)),
 			})
 		end
-		local rows = core:signal(posts)
-		local textOffset = scope:own(core:signal(0))
+		local items = Compose.cell(posts)
+		local textOffset = Compose.cell(0)
+		local titleSize = Compose.formula(function(use)
+			return 15 + use(textOffset)
+		end)
+		local bodySize = Compose.formula(function(use)
+			return 13 + use(textOffset)
+		end)
 
-		--[[ THE LIST'S WINDOW IS THE PANE THE SOLVER GAVE IT (the discipline
-			`variable_extents.luau` records at length after the sweep found its literal
-			`viewportHeight - 210` reserve painting 77px past its own box). `ListPane`
-			takes `fill`, so its height is decided by the screen above it and never by
-			the list inside it — it cannot chase its own tail. The seed is only the value
-			for the frame before any geometry exists, and it is deliberately SMALL: a
-			list that starts too short can only grow. ]]
-		local viewportExtent = scope:own(core:signal(72))
+		-- The row component counts itself in and out, so the status line reports
+		-- the window from the application's side of the list.
+		local mounted = Compose.cell(0)
+		local built = Compose.cell(0)
 
-		local list = ctx.Facet.Controls.VirtualList(core, {
-			id = "Feed",
-			rows = rows,
-			key = function(item: any): string
-				return item.id
-			end,
-			--[[ THE WHOLE DECLARATION. There is no function here, no `use`, no theme
-				metric and no arithmetic — the two lines below are everything this fixture
-				says about how tall a post is. ]]
-			itemExtent = "measured",
-			estimatedItemExtent = ESTIMATED_POST,
-			viewportExtent = viewportExtent,
-			overscan = 2,
-			cell = function(item: any): any
-				local titleSize = scope:own(core:memo(function(use)
-					return 15 + use(textOffset)
-				end))
-				local bodySize = scope:own(core:memo(function(use)
-					return 13 + use(textOffset)
-				end))
-				return UI.VStack({
-					id = "Post",
-					padding = 10,
-					gap = "xs",
-					width = UI.fill(),
+		--[[ THE STATUS LINE IS THE INSTRUMENT, and it reports the fact a screenshot
+			cannot: how much of this list is virtualized (mounted vs 400, and how many
+			rows were ever built to get here). ]]
+		local status = Compose.formula(function(use)
+			return `mounted {use(mounted)} of {POST_COUNT} · built {use(built)} · text +{use(textOffset)}`
+		end)
 
-					UI.Text({ id = "Title", text = item.title, textSize = titleSize }),
-					--[[ NO `lineLimit`, ON PURPOSE. `variable_extents` caps its body at
-							exactly the number of lines its extent function reserved, because a
-							declared extent and an uncapped wrap cannot both be right. Here the
-							body wraps to whatever the live width and the live type scale make
-							it, which is the case a declared extent cannot express at all. ]]
-					UI.Text({ id = "Body", text = item.body, textSize = bodySize }),
-				})
+		--[[ A STABLE PROXY, not a plain upvalue: `screen()` below is called once,
+			lazily, by whatever presents it (`runtime.mount` opens the owner
+			`UI.VirtualList` needs, which does not exist yet while `build()` itself
+			is running), so `ref` cannot fire until well after this scenario's
+			`return` table is built. A plain `local list; ref = function(record)
+			list = record.api end` would freeze `list = list` at nil in that return
+			table forever. This table's IDENTITY is what `return { list = list }`
+			captures, and its `__index` resolves through to the real record once
+			`ref` sets `listApi` — so a reader that waits until after mount (the
+			showcase host's native-scroll auto-bind, `tests/gallery_demo_picker.spec`)
+			sees the real thing. ]]
+		local listApi: any
+		local list = setmetatable({}, {
+			__index = function(_, key)
+				return if listApi ~= nil then listApi[key] else nil
 			end,
 		})
 
-		--[[ THE STATUS LINE IS THE INSTRUMENT, and it reports the two facts a
-			screenshot cannot: how much of this list is virtualized (mounted vs 400) and
-			how much of the canvas is truth rather than estimate (measured vs 400). A
-			fixture that only showed the settled state would be a picture. ]]
-		local status = scope:own(core:memo(function(use)
-			--[[ THE TWO DEPENDENCIES ARE THE TWO THINGS THAT MOVE THE NUMBERS, and
-				`scrollTop` is the load-bearing one: a measurement lands when a row enters
-				the window, and a row enters the window when the player scrolls. Reading
-				the dump alone would print the convergence once and then lie about it. ]]
-			local offset = use(textOffset)
-			local _ = use(list.scrollTop)
-			local d = list.dump()
-			local mounted = 0
-			for _key in list.debugWindow() do
-				mounted += 1
+		local function screen()
+			local sizes = {}
+			for _, offset in TEXT_OFFSETS do
+				table.insert(sizes, { value = offset, label = `+{offset}` })
 			end
-			return `mounted {mounted} of {POST_COUNT} · measured {d.measuredRows} of {POST_COUNT} `
-				.. `· canvas {d.contentExtent}px · text +{offset}`
-		end))
+			return UI.Screen("MeasuredExtents")({
+				padding = "s",
+				gap = "tight",
 
-		local sizeChips = {}
-		for _, offset in TEXT_OFFSETS do
-			table.insert(
-				sizeChips,
-				UI.Button({
-					id = `Size{offset}`,
-					label = `+{offset}`,
-					selected = scope:own(core:memo(function(use)
-						return use(textOffset) == offset
-					end)),
-					onActivate = function()
-						textOffset:set(offset)
-					end,
-				})
-			)
+				-- The page does not scroll: the list IS a scroll host, and nesting one
+				-- inside another is a gesture with two owners.
+				UI.Picker("TextSize")({
+					style = "segmented",
+					selected = textOffset,
+					options = sizes,
+				}),
+				-- capped at two lines so a longer status string can never be the thing
+				-- that pushes the list out of its own page
+				UI.Text("Status")({ text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
+				-- the pane whose solved height IS the list's window. `fill` is what makes
+				-- it the screen's decision rather than the list's
+				UI.VStack("ListPane")({
+					width = UI.fill(),
+					height = UI.fill(),
+					UI.VirtualList("Feed")({
+						-- `UI.VirtualList(...)` (the app's `api`-flavoured control library)
+						-- answers only the blueprint node; the control's own verbs and its
+						-- native-scroll mirror arrive through `ref`, per the round-2
+						-- addendum's contract.
+						ref = function(record: any)
+							listApi = record.api
+						end,
+						rows = items,
+						key = "id",
+						--[[ THE WHOLE DECLARATION. There is no function here, no theme metric
+							and no arithmetic — the two lines below are everything this
+							fixture says about how tall a post is. ]]
+						itemExtent = "measured",
+						estimatedItemExtent = ESTIMATED_POST,
+						viewportExtent = "auto",
+						overscan = 2,
+						cell = function(_, ctx: any): any
+							-- The cell receives the item; `ctx.current` follows its edits.
+							local item = Compose.formula(ctx.current)
+							mounted:set(mounted:peek() + 1)
+							built:set(built:peek() + 1)
+							Compose.cleanup(function()
+								mounted:set(mounted:peek() - 1)
+							end)
+							return UI.VStack("Post")({
+								padding = 10,
+								gap = "xs",
+								width = UI.fill(),
+
+								UI.Text("Title")({
+									text = function(use)
+										return use(item).title
+									end,
+									textSize = titleSize,
+								}),
+								--[[ NO `lineLimit`, ON PURPOSE. The body wraps to whatever the
+									live width and the live type scale make it, which is the
+									case a declared extent cannot express at all. ]]
+								UI.Text("Body")({
+									text = function(use)
+										return use(item).body
+									end,
+									textSize = bodySize,
+								}),
+							})
+						end,
+					}),
+				}),
+			})
 		end
 
-		local screen = UI.Screen({
-			id = "MeasuredExtents",
-			padding = "s",
-			gap = "tight",
-
-			--[[ THE CONTROLS WRAP rather than the page scrolling, for the reason
-					`variable_extents` records: the list IS a scroll host, and nesting one
-					inside another is a gesture with two owners. `wrap = true` is the
-					framework's own flow-wrap doing the job a page scroller does elsewhere. ]]
-			UI.HStack({
-				id = "Controls",
-				wrap = true,
-				gap = "tight",
-				width = UI.fill(),
-				children = sizeChips,
-			}),
-			-- capped at two lines so a longer status string can never be the thing
-			-- that pushes the list out of its own page
-			UI.Text({ id = "Status", text = status, textSize = "caption", role = "secondary", lineLimit = 2 }),
-			-- the pane whose solved height IS the list's window. `fill` is what makes
-			-- it the screen's decision rather than the list's
-			UI.VStack({
-				id = "ListPane",
-				width = UI.fill(),
-				height = UI.fill(),
-				list.blueprint,
-			}),
-		})
-
-		local unbind: any = nil
 		return {
 			screen = screen,
-			present = {
-				onGeometry = function(rectOf: (string) -> any)
-					local pane = rectOf(LIST_PANE)
-					if pane == nil or type(pane.h) ~= "number" then
-						return
-					end
-					local window = math.max(0, math.floor(pane.h))
-					if window ~= viewportExtent:get() then
-						viewportExtent:set(window)
-					end
-				end,
-			},
-			-- published for the headless suite: the signals a test drives, rather than
-			-- a re-implementation of them
+			present = {},
+			-- published for the headless suite: the cell a test drives, rather than a
+			-- re-implementation of it
 			textOffset = textOffset,
+			-- published for the showcase host's native-scroll auto-bind, which probes
+			-- a returned table's values for a flat `bindNativeScroll` (see
+			-- `variable_extents.luau`, the sibling fixture this pattern is carried
+			-- from)
 			list = list,
 
 			steps = {
-				bind = function(built: any)
-					unbind = list.bindNativeScroll(built.handle.controller)
-					return list.scrollPath and list.scrollPath() or "bound"
-				end,
 				setTextSize = function(_built: any, payload: string?)
 					textOffset:set(tonumber(payload or "0") or 0)
-					local d = list.dump()
-					return { offset = textOffset:get(), canvas = d.contentExtent, measured = d.measuredRows }
-				end,
-				focusPost200 = function()
-					return list.focusKey("m200")
-				end,
-				-- the anchoring proof, as one drive: park mid-feed, grow the text,
-				-- report where the list ended up and which post was under the top edge
-				growWhileScrolled = function(_built: any, payload: string?)
-					local before = list.dump()
-					textOffset:set(tonumber(payload or "14") or 14)
-					local after = list.dump()
-					return {
-						scrollBefore = before.scrollTop,
-						scrollAfter = after.scrollTop,
-						firstBefore = before.window[1],
-						firstAfter = after.window[1],
-					}
+					return { offset = textOffset:peek() }
 				end,
 			},
 
 			report = function()
-				local mounted, keys = 0, {}
-				for key in list.debugWindow() do
-					mounted += 1
-					table.insert(keys, key)
-				end
-				table.sort(keys)
-				local d = list.dump()
 				return {
-					textOffset = textOffset:get(),
-					mounted = mounted,
-					firstKeys = { keys[1], keys[2], keys[3] },
-					itemExtentMode = d.itemExtentMode,
-					estimatedItemExtent = d.estimatedItemExtent,
-					measuredRows = d.measuredRows,
-					contentExtent = d.contentExtent,
-					scrollTop = d.scrollTop,
+					textOffset = textOffset:peek(),
+					mounted = mounted:peek(),
+					built = built:peek(),
+					itemExtentMode = "measured",
+					estimatedItemExtent = ESTIMATED_POST,
 				}
-			end,
-
-			dispose = function()
-				if unbind then
-					unbind()
-				end
-				list.dispose()
-				scope:dispose()
 			end,
 		}
 	end,

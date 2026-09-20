@@ -25,6 +25,7 @@ local contribution = require("../input/contribution")
 -- the renderer's input gates from ever disagreeing about "disabled".
 local classContract = require("../class_contract")
 local paths = require("../paths")
+local Compose = require("../vendor/compose/core")
 
 local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
 
@@ -163,7 +164,7 @@ end
 	walks that build the groups, and that was wrong three ways:
 
 	  * it never reached a control that CONTRIBUTES its own `focusGroups`
-	    (`newTable`, `newVirtualList`, `newVirtualGrid`, `newTextInput`), because
+	    (`UI.Table`, `UI.VirtualList`, `UI.VirtualGrid`, `UI.TextInput`), because
 	    `autoGroups` emits a contribution's groups verbatim and does not descend —
 	    so a disabled list kept every row in the ring — nor a CONSUMER-declared
 	    `navigationGroups` map, which no builder touches at all;
@@ -668,7 +669,7 @@ end
 	navigation-and-menus D5, and it was a SHIPPED defect rather than a new one).
 	`AdaptiveStack` exists so a row/column flip is a re-solve and not a remount,
 	which is exactly why every adaptive row of controls the framework builds is
-	one — `newPicker`'s segmented option strip, and therefore `newTabView`'s tab
+	one — `UI.Picker`'s segmented option strip, and therefore `UI.TabView`'s tab
 	strip, are both `AdaptiveStack`s. Matching on `HStack` alone left every one of
 	them navigating VERTICALLY on a pad: the wings of a tab bar answered Up/Down,
 	and Right walked straight out of the band into the page underneath it.
@@ -699,15 +700,15 @@ local function isHorizontalRun(node: any): boolean
 		return false
 	end
 	local axis = node.props and node.props.axis
-	if type(axis) == "table" and (axis.kind == "signal" or axis.kind == "memo") then
-		axis = (axis :: any):get()
+	if Compose.isReadable(axis) then
+		axis = (axis :: any):peek()
 	end
 	if axis ~= "x" then
 		return false
 	end
 	--[[ …AND IT MUST ACTUALLY BE A RUN, which is where the `HStack` rule got away
 		with not asking. An adaptive stack is ALSO how a construct flips a whole
-		SCREEN between arrangements — `newTabView`'s root is one, holding a tab
+		SCREEN between arrangements — `UI.TabView`'s root is one, holding a tab
 		strip on one side of a content region — and calling that a horizontal group
 		would put the bar's wings and the page's controls in one left/right ring
 		with nothing left for up/down.

@@ -180,17 +180,19 @@ local LANES = {
 	},
 }
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Time-based easing",
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("time-curves")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
 
 		-- ===== the curves this surface spends ===============================
@@ -217,31 +219,31 @@ return {
 		-- (see the header); `kind` is left at glide's own "informational" default,
 		-- so under reduced motion the readout keeps counting in 250 ms steps
 		-- instead of teleporting to the end of the race it is timing.
-		local stopwatch = scope:own(clock:glide(0, { duration = STOPWATCH_SECONDS }))
+		local stopwatch = own(clock:glide(0, { duration = STOPWATCH_SECONDS }))
 		-- THE INFORMATIONAL HALF. `kind = "informational"` is the declaration that
 		-- reduced motion must not delete this — a cooldown that jumped to full
 		-- would be telling the player the wait is over when it is not.
-		local cooldown = scope:own(clock:tween(0, COOLDOWN, { kind = "informational" }))
+		local cooldown = own(clock:tween(0, COOLDOWN, { kind = "informational" }))
 		-- ...and the spring it is racing, on a BUILT-IN class whose response is the
 		-- same number the curve's duration is.
-		local spring = scope:own(clock:spring(0, "decay"))
+		local spring = own(clock:spring(0, "decay"))
 
 		-- -1 means "has not arrived on this run". Two signals rather than two
 		-- booleans, because the interesting fact is WHEN, and the stamp is read off
 		-- the same stopwatch the player is looking at.
-		local tweenArrival = scope:own(core:signal(-1))
-		local springArrival = scope:own(core:signal(-1))
-		local raceRuns = scope:own(core:signal(0))
+		local tweenArrival = Compose.cell(-1)
+		local springArrival = Compose.cell(-1)
+		local raceRuns = Compose.cell(0)
 
 		-- onSettle fires EXACTLY ONCE per arrival, after the frame's writes are
 		-- committed — so these read the terminus, and under reduced motion the
 		-- spring's fires synchronously inside `setTarget` with the stopwatch still
 		-- reading 0.00, which is precisely the fact that pass is meant to show.
-		scope:own(cooldown:onSettle(function()
-			tweenArrival:set(stopwatch:get())
+		own(cooldown:onSettle(function()
+			tweenArrival:set(stopwatch:peek())
 		end))
-		scope:own(spring:onSettle(function()
-			springArrival:set(stopwatch:get())
+		own(spring:onSettle(function()
+			springArrival:set(stopwatch:peek())
 		end))
 
 		local function runRace()
@@ -252,7 +254,7 @@ return {
 			stopwatch:setTarget(STOPWATCH_SECONDS)
 			tweenArrival:set(-1)
 			springArrival:set(-1)
-			raceRuns:set(raceRuns:get() + 1)
+			raceRuns:set(raceRuns:peek() + 1)
 			-- `snap` is a placement, not an arrival: it fires no settle event, so
 			-- re-running the race cannot stamp an arrival nobody travelled to
 			cooldown:snap(0)
@@ -271,7 +273,7 @@ return {
 			return if at >= 0 then `{COPY.arrivedAt} {stamp(at)}` else COPY.approaching
 		end
 
-		local raceStatus = scope:own(core:memo(function(use)
+		local raceStatus = Compose.formula(function(use)
 			if use(raceRuns) == 0 then
 				return COPY.idle
 			end
@@ -279,82 +281,85 @@ return {
 			local tw = `{COPY.tweenShort} {percent(use(cooldown))} · {arrivalWord(use(tweenArrival))}`
 			local sp = `{COPY.springShort} {percent(use(spring))} · {arrivalWord(use(springArrival))}`
 			return `{COPY.elapsed} {e} — {tw} — {sp}`
-		end))
+		end)
 
-		local cooldownBar = Facet.View.ProgressView({
-			id = "CooldownBar",
-			label = COPY.tweenLabel,
-			value = cooldown,
-			min = 0,
-			max = 1,
-			showValue = true,
-			format = percent,
-		})
-		local springBar = Facet.View.ProgressView({
-			id = "SpringBar",
-			label = COPY.springLabel,
-			value = spring,
-			min = 0,
-			max = 1,
-			showValue = true,
-			format = percent,
-		})
+		local function cooldownBar()
+			return UI.ProgressView("CooldownBar")({
+				label = COPY.tweenLabel,
+				value = cooldown,
+				min = 0,
+				max = 1,
+				showValue = true,
+				format = percent,
+			})
+		end
+		local function springBar()
+			return UI.ProgressView("SpringBar")({
+				label = COPY.springLabel,
+				value = spring,
+				min = 0,
+				max = 1,
+				showValue = true,
+				format = percent,
+			})
+		end
 
 		-- ===== the curve gallery ============================================
 		-- One tween per lane, all DECORATIVE (the default): a puck sliding along a
 		-- track carries no information the end state does not, so reduced motion is
 		-- right to place it — and doing so beside the informational bar above is
 		-- how this surface says that the two policies are different on purpose.
-		local lanes: { any } = {}
 		local laneValues: { [string]: any } = {}
 		for _, lane in LANES do
-			local value = scope:own(clock:tween(0, lane.curve))
-			laneValues[lane.id] = value
-			-- A FRACTION OF THE LANE, spent at ARRANGE (`offsetX` is arrange-only),
-			-- so a moving puck re-measures nothing. Clamped at both ends because a
-			-- curve is allowed to leave [0, 1] — `back · out` does, by design — and
-			-- a negative scale would put the puck outside its own parent.
-			local offsetX = scope:own(core:memo(function(use)
-				return { scale = math.clamp(use(value), 0, 1.15) * LANE_SPAN }
-			end))
-			table.insert(
-				lanes,
-				UI.VStack({
-					id = lane.id,
-					gap = 2,
-					width = UI.fill(),
-
-					UI.Text({
-						id = "Label",
-						text = lane.label,
-						textSize = "caption",
-						role = "secondary",
-					}),
-					UI.Anchor({
-						id = "Lane",
-						surface = "control",
+			laneValues[lane.id] = own(clock:tween(0, lane.curve))
+		end
+		local function lanes(): { any }
+			local out: { any } = {}
+			for _, lane in LANES do
+				local value = laneValues[lane.id]
+				-- A FRACTION OF THE LANE, spent at ARRANGE (`offsetX` is arrange-only),
+				-- so a moving puck re-measures nothing. Clamped at both ends because a
+				-- curve is allowed to leave [0, 1] — `back · out` does, by design — and
+				-- a negative scale would put the puck outside its own parent.
+				local function offsetX(use)
+					return { scale = math.clamp(use(value), 0, 1.15) * LANE_SPAN }
+				end
+				table.insert(
+					out,
+					UI.VStack(lane.id)({
+						gap = 2,
 						width = UI.fill(),
-						height = { type = "fixed", px = LANE_PX },
 
-						-- the lane holds NO text, which is what makes a fixed px
-						-- height safe here (the repo's named device-only defect
-						-- class is a px box fixed against content that is not)
-						UI.Box({
-							id = "Puck",
-							surface = "accent",
-							anchor = "left",
-							offsetX = offsetX,
-							width = { type = "fixed", px = PUCK_PX },
-							height = UI.fill(),
+						UI.Text("Label")({
+							text = lane.label,
+							textSize = "caption",
+							role = "secondary",
 						}),
-					}),
-				})
-			)
+						UI.Anchor("Lane")({
+							surface = "control",
+							width = UI.fill(),
+							height = { type = "fixed", px = LANE_PX },
+
+							-- the lane holds NO text, which is what makes a fixed px
+							-- height safe here (the repo's named device-only defect
+							-- class is a px box fixed against content that is not)
+							UI.Box("Puck")({
+								surface = "accent",
+								anchor = "left",
+								offsetX = offsetX,
+								width = { type = "fixed", px = PUCK_PX },
+								height = UI.fill(),
+							}),
+						}),
+					})
+				)
+			end
+			return out
 		end
 
-		local galleryRuns = scope:own(core:signal(0))
+		local galleryRuns = Compose.cell(0)
 		local function launchGallery()
-			galleryRuns:set(galleryRuns:get() + 1)
+			galleryRuns:set(galleryRuns:peek() + 1)
 			-- ONE PRESS, FOUR AIMS, NO COORDINATOR. They land together because they
 			-- were given the same duration, not because anything synchronises them —
 			-- which is the claim, and the thing four springs could not do.
@@ -366,9 +371,9 @@ return {
 		end
 
 		-- ===== the withAnimation panel ======================================
-		local panelRight = scope:own(core:signal(false))
-		local panelTall = scope:own(core:signal(false))
-		local panelRuns = scope:own(core:signal(0))
+		local panelRight = Compose.cell(false)
+		local panelTall = Compose.cell(false)
+		local panelRuns = Compose.cell(0)
 
 		local function flyPanel()
 			-- ONE CALL, TWO CHANGES, ONE CURVE. `withAnimation` needs its own flush
@@ -377,15 +382,15 @@ return {
 			-- mutation site itself rather than a wrapper around one. The name it is
 			-- handed is a CURVE, and everything downstream of that is unchanged.
 			pres.withAnimation(PANEL, function()
-				panelRight:set(not panelRight:get())
-				panelTall:set(not panelTall:get())
-				panelRuns:set(panelRuns:get() + 1)
+				panelRight:set(not panelRight:peek())
+				panelTall:set(not panelTall:peek())
+				panelRuns:set(panelRuns:peek() + 1)
 			end)
 		end
 
-		local panelStatus = scope:own(core:memo(function(use)
+		local panelStatus = Compose.formula(function(use)
 			return `{COPY.runs} {use(panelRuns)} · {COPY.records} {pres.animationRecordCount()}`
-		end))
+		end)
 
 		-- ===== the reduced-motion control ===================================
 		-- Identical in shape to `with_animation.luau`'s, and for the identical
@@ -394,140 +399,129 @@ return {
 		-- the settings surface never disagree on screen, and it RESTORES whatever
 		-- it found on dispose so a demo cannot leave every other demo in reduced
 		-- motion after the player has walked away from it.
-		local inheritedReduced = env:get("reducedMotion"):get() == true
-		local motionMode = scope:own(core:signal(if inheritedReduced then "reduced" else "full"))
+		local inheritedReduced = env:get("reducedMotion"):peek() == true
+		local motionMode = Compose.cell(if inheritedReduced then "reduced" else "full")
 
 		local function applyMotionMode(value: string)
-			if (env:get("reducedMotion"):get() == true) ~= (value == "reduced") then
+			if (env:get("reducedMotion"):peek() == true) ~= (value == "reduced") then
 				env:set("reducedMotion", value == "reduced")
 			end
 		end
 
-		scope:own(core:observe(env:get("reducedMotion"), function(value: any)
+		lifetime.observe(env:get("reducedMotion"), function(value: any)
 			local live = if value == true then "reduced" else "full"
-			if motionMode:get() ~= live then
+			if motionMode:peek() ~= live then
 				motionMode:set(live)
 			end
-		end))
+		end)
 
-		local motionPicker = Facet.View.Picker({
-			id = "MotionMode",
-			label = COPY.motionLabel,
-			-- SEGMENTED and declared: "Full" and "Reduced" as peers is the teaching.
-			-- A control labelled "Off" would say the opposite of what the
-			-- informational bar on this same surface is doing.
-			style = "segmented",
-			options = {
-				{ value = "full", label = COPY.full },
-				{ value = "reduced", label = COPY.reduced },
-			},
-			selected = motionMode,
-		})
+		local function motionPicker()
+			return UI.Picker("MotionMode")({
+				label = COPY.motionLabel,
+				-- SEGMENTED and declared: "Full" and "Reduced" as peers is the teaching.
+				-- A control labelled "Off" would say the opposite of what the
+				-- informational bar on this same surface is doing.
+				style = "segmented",
+				options = {
+					{ value = "full", label = COPY.full },
+					{ value = "reduced", label = COPY.reduced },
+				},
+				selected = motionMode,
+			})
+		end
 
-		local screen = UI.Screen({
-			id = "TimeCurves",
-			padding = 12,
-			gap = "tight",
+		local function screen()
+			return UI.Screen("TimeCurves")({
+				padding = 12,
+				gap = "tight",
 
-			-- THE PAGE SCROLLS. Three demonstrations, a picker, three buttons and
-			-- two status lines do not fit in the ~200px a 640x320 landscape phone
-			-- has left after the showcase reserves its chip strip, and content
-			-- that overflows with nothing to scroll it is this repo's named
-			-- recurring defect.
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-				motionPicker,
-
-				-- (1) THE RACE
-				UI.Text({ id = "RaceHead", text = COPY.raceHead, textSize = "label" }),
-				UI.Text({
-					id = "RaceBody",
-					text = COPY.raceBody,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				UI.Button({
-					id = "RunRace",
-					label = COPY.raceRun,
+				-- THE PAGE SCROLLS. Three demonstrations, a picker, three buttons and
+				-- two status lines do not fit in the ~200px a 640x320 landscape phone
+				-- has left after the showcase reserves its chip strip, and content
+				-- that overflows with nothing to scroll it is this repo's named
+				-- recurring defect.
+				UI.ScrollView("Page")({
+					axis = "y",
+					gap = "s",
 					width = UI.fill(),
-					onActivate = runRace,
-				}),
-				cooldownBar,
-				springBar,
-				UI.Text({
-					id = "RaceStatus",
-					text = raceStatus,
-					textSize = "caption",
-					role = "secondary",
-				}),
+					height = UI.fill(),
 
-				-- (2) THE CURVE GALLERY
-				UI.Text({ id = "GalleryHead", text = COPY.galleryHead, textSize = "label" }),
-				UI.Text({
-					id = "GalleryBody",
-					text = COPY.galleryBody,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				UI.Button({
-					id = "LaunchGallery",
-					label = COPY.galleryRun,
-					width = UI.fill(),
-					onActivate = launchGallery,
-				}),
-				UI.VStack({
-					id = "Lanes",
-					gap = "tight",
-					width = UI.fill(),
-					children = lanes,
-				}),
+					UI.Text("Title")({ text = COPY.title, textSize = "control" }),
+					motionPicker(),
 
-				-- (3) THE withAnimation PANEL
-				UI.Text({ id = "PanelHead", text = COPY.panelHead, textSize = "label" }),
-				UI.Text({
-					id = "PanelBody",
-					text = COPY.panelBody,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				UI.Button({
-					id = "FlyPanel",
-					label = COPY.panelRun,
-					width = UI.fill(),
-					onActivate = flyPanel,
-				}),
-				-- the thing that MOVES: `anchor` is arrange-only, so flipping it
-				-- re-arranges one node without re-measuring it — exactly the rect
-				-- change `withAnimation` records and flies
-				UI.Anchor({
-					id = "PanelLane",
-					surface = "control",
-					width = UI.fill(),
-					height = { type = "fixed", px = 40 },
-
-					UI.Box({
-						id = "PanelPuck",
-						surface = "accent",
-						anchor = scope:own(core:memo(function(use)
-							return if use(panelRight) then "topRight" else "topLeft"
-						end)),
-						width = { type = "fixed", px = 36 },
-						height = UI.fill(),
+					-- (1) THE RACE
+					UI.Text("RaceHead")({ text = COPY.raceHead, textSize = "label" }),
+					UI.Text("RaceBody")({
+						text = COPY.raceBody,
+						textSize = "caption",
+						role = "secondary",
 					}),
-				}),
-				UI.Text({
-					id = "CardCaption",
-					text = COPY.panelCard,
-					textSize = "caption",
-					role = "secondary",
-				}),
-				--[[ ...and the thing that GROWS: a box whose SOLVED height
+					UI.Button("RunRace")({
+						label = COPY.raceRun,
+						width = UI.fill(),
+						onActivate = runRace,
+					}),
+					cooldownBar(),
+					springBar(),
+					UI.Text("RaceStatus")({
+						text = raceStatus,
+						textSize = "caption",
+						role = "secondary",
+					}),
+
+					-- (2) THE CURVE GALLERY
+					UI.Text("GalleryHead")({ text = COPY.galleryHead, textSize = "label" }),
+					UI.Text("GalleryBody")({
+						text = COPY.galleryBody,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Button("LaunchGallery")({
+						label = COPY.galleryRun,
+						width = UI.fill(),
+						onActivate = launchGallery,
+					}),
+					UI.VStack("Lanes")({
+						gap = "tight",
+						width = UI.fill(),
+						table.unpack(lanes()),
+					}),
+
+					-- (3) THE withAnimation PANEL
+					UI.Text("PanelHead")({ text = COPY.panelHead, textSize = "label" }),
+					UI.Text("PanelBody")({
+						text = COPY.panelBody,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Button("FlyPanel")({
+						label = COPY.panelRun,
+						width = UI.fill(),
+						onActivate = flyPanel,
+					}),
+					-- the thing that MOVES: `anchor` is arrange-only, so flipping it
+					-- re-arranges one node without re-measuring it — exactly the rect
+					-- change `withAnimation` records and flies
+					UI.Anchor("PanelLane")({
+						surface = "control",
+						width = UI.fill(),
+						height = { type = "fixed", px = 40 },
+
+						UI.Box("PanelPuck")({
+							surface = "accent",
+							anchor = Compose.formula(function(use)
+								return if use(panelRight) then "topRight" else "topLeft"
+							end),
+							width = { type = "fixed", px = 36 },
+							height = UI.fill(),
+						}),
+					}),
+					UI.Text("CardCaption")({
+						text = COPY.panelCard,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					--[[ ...and the thing that GROWS: a box whose SOLVED height
 							changes, so the flight has a size delta in it as well as a
 							position one. The solver lands the new height exactly and
 							instantly, as it always did; what the curve owns is the
@@ -543,30 +537,29 @@ return {
 							get to add more, so this one is shaped to be clean instead.
 							It holds no string for the older reason: a px height around
 							text is the device-only defect class this repo names. ]]
-				UI.Box({
-					id = "PanelCard",
-					surface = "accent",
-					width = UI.fill(),
-					height = scope:own(core:memo(function(use)
-						return { type = "fixed", px = if use(panelTall) then 88 else 40 }
-					end)),
+					UI.Box("PanelCard")({
+						surface = "accent",
+						width = UI.fill(),
+						height = Compose.formula(function(use)
+							return { type = "fixed", px = if use(panelTall) then 88 else 40 }
+						end),
+					}),
+					UI.Text("PanelStatus")({
+						text = panelStatus,
+						textSize = "caption",
+						role = "secondary",
+					}),
 				}),
-				UI.Text({
-					id = "PanelStatus",
-					text = panelStatus,
-					textSize = "caption",
-					role = "secondary",
-				}),
-			}),
-		})
+			})
+		end
 
 		-- one fact, two readers: keep the picker's signal and the environment fact
 		-- together whichever way the change arrived (a press, or the `setMotion`
 		-- step below)
-		scope:own(core:observe(motionMode, function(value: any)
+		lifetime.observe(motionMode, function(value: any)
 			applyMotionMode(tostring(value))
-		end))
-		applyMotionMode(motionMode:get())
+		end)
+		applyMotionMode(motionMode:peek())
 
 		return {
 			screen = screen,
@@ -587,16 +580,16 @@ return {
 			steps = {
 				race = function()
 					runRace()
-					return { runs = raceRuns:get(), reduced = clock:isReduced() }
+					return { runs = raceRuns:peek(), reduced = clock:isReduced() }
 				end,
 				gallery = function()
 					launchGallery()
-					return { runs = galleryRuns:get(), reduced = clock:isReduced() }
+					return { runs = galleryRuns:peek(), reduced = clock:isReduced() }
 				end,
 				panel = function()
 					flyPanel()
 					return {
-						runs = panelRuns:get(),
+						runs = panelRuns:peek(),
 						reduced = clock:isReduced(),
 						records = pres.animationRecordCount(),
 					}
@@ -615,9 +608,9 @@ return {
 						pres.tick(1 / 60)
 					end
 					return {
-						elapsed = stopwatch:get(),
-						cooldown = cooldown:get(),
-						spring = spring:get(),
+						elapsed = stopwatch:peek(),
+						cooldown = cooldown:peek(),
+						spring = spring:peek(),
 					}
 				end,
 			},
@@ -625,25 +618,25 @@ return {
 			report = function()
 				local travel: { [string]: number } = {}
 				for id, value in laneValues do
-					travel[id] = value:get()
+					travel[id] = value:peek()
 				end
 				return {
-					motion = motionMode:get(),
+					motion = motionMode:peek(),
 					reduced = clock:isReduced(),
-					elapsed = stopwatch:get(),
-					raceRuns = raceRuns:get(),
-					cooldown = cooldown:get(),
+					elapsed = stopwatch:peek(),
+					raceRuns = raceRuns:peek(),
+					cooldown = cooldown:peek(),
 					cooldownSettled = cooldown:isSettled(),
 					cooldownKind = cooldown:motionKind(),
-					spring = spring:get(),
+					spring = spring:peek(),
 					springSettled = spring:isSettled(),
-					tweenArrival = tweenArrival:get(),
-					springArrival = springArrival:get(),
-					galleryRuns = galleryRuns:get(),
+					tweenArrival = tweenArrival:peek(),
+					springArrival = springArrival:peek(),
+					galleryRuns = galleryRuns:peek(),
 					travel = travel,
-					panelRuns = panelRuns:get(),
-					panelRight = panelRight:get(),
-					panelTall = panelTall:get(),
+					panelRuns = panelRuns:peek(),
+					panelRight = panelRight:peek(),
+					panelTall = panelTall:peek(),
 					records = pres.animationRecordCount(),
 					-- the registry this surface depends on, so a report says whether
 					-- the six curves it cites are actually there
@@ -655,7 +648,7 @@ return {
 				-- PUT THE WORLD BACK: the persistent place-wide toggle is the settings
 				-- surface's job, not this demo's side effect
 				env:set("reducedMotion", inheritedReduced)
-				scope:dispose()
+				lifetime.dispose()
 			end,
 		}
 	end,

@@ -1,8 +1,9 @@
 --!strict
+local harness = require("./lib/harness")
 -- TabView ACCESSORY SLOTS (framework-gaps-phase2 §6) — the chrome a nav bar
 -- carries beside its tabs, homed by the placement the control already resolved.
 --
--- WHY THIS FILE EXISTS. `Facet.Controls.TabView` shipped to kill the four-`When`
+-- WHY THIS FILE EXISTS. `harness.Controls.TabView` shipped to kill the four-`When`
 -- nav wheel, and one reference app could adopt it: the only one whose chrome
 -- never moves. `p1_glade` puts a wordmark at the rail's HEAD; `p3_sipworks` puts
 -- a search field on the top band's TRAILING edge and directly ABOVE the thumb-zone
@@ -34,10 +35,11 @@ local Facet = require("../src") :: any
 local tab_view = require("../src/controls/tab_view")
 -- the shared headless world (REUSE-88 / R12): this file was the next one to add a
 -- builder, so it is the next one migrated rather than the 79th to hand-roll six
--- pieces in the order `Facet.newPresenter` happens to take
-local worldLib = require("./lib/world")
+-- pieces in the order `harness.newPresenter` happens to take
+local worldLib = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- the same four shapes tab_view.spec uses, and for the same reason: a placement
 -- is decided by viewport and input facts and by nothing else
@@ -75,7 +77,7 @@ local function world(opts: any?)
 		preferredInput = options.preferredInput or "KeyboardAndMouse",
 		displaySize = options.displaySize,
 	})
-	local selection = w.core:signal(options.initial or "home")
+	local selection = Compose.cell(options.initial or "home")
 	local built: any = {
 		id = "Tabs",
 		selection = selection,
@@ -87,7 +89,7 @@ local function world(opts: any?)
 			built[key] = (options :: any)[key]
 		end
 	end
-	local tv = Facet.Controls.TabView(w.core, built)
+	local tv = harness.Controls.TabView(w.core, built)
 	local handle = w.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
 	return {
 		core = w.core,
@@ -164,7 +166,7 @@ describe("§6 the rail's two ends: head above the strip, foot pinned to the bott
 		local root = w.adapter.node("/S/Tabs").rect
 		expect(head.y + head.h <= strip.y + 1).toBe(true)
 		expect(head.y >= root.y - 1).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	--[[ THE POCKET SHAPE. A rail's foot is not "after the strip" — it is the
@@ -387,7 +389,7 @@ describe("§6 the slots follow the placement — mounted where hosted, absent ev
 		w.pres.refresh()
 		expect(table.concat(w.tv.dump().accessories.mounted, ",")).toBe("foot,head")
 		expect(find(w, "/AboveBarSlot/Dock")).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	--[[ I-1: THE TWO-HOME SLOT, RE-HOMED BETWEEN ITS OWN TWO HOMES. `aboveBar` is
@@ -435,7 +437,7 @@ describe("§6 the slots follow the placement — mounted where hosted, absent ev
 		expect(w.tv.dump().placement).toBe("sidebar")
 		expect(#w.tv.dump().accessories.mounted).toBe(0)
 		expect(find(w, "/AboveBarSlot/Search")).toBeNil()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	--[[ A FACTORY MAY DECLINE. The slot is declared once for every placement that
@@ -562,7 +564,7 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 
 	it("an automatic placement refuses nothing, because every home is still reachable", function()
 		local w = world({ viewport = PHONE, accessories = { head = leaf("Wordmark") } })
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		expect(#w.tv.dump().accessories.mounted).toBe(0)
 	end)
 
@@ -574,10 +576,10 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 			safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 		})
 		local core, env = w.core, w.env
-		local outerSelection = core:signal("page")
-		local innerSelection = core:signal("one")
+		local outerSelection = Compose.cell("page")
+		local innerSelection = Compose.cell("one")
 		local innerError: string? = nil
-		local outer = Facet.Controls.TabView(core, {
+		local outer = harness.Controls.TabView(core, {
 			id = "App",
 			selection = outerSelection,
 			env = env,
@@ -587,7 +589,7 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 					label = "Page",
 					content = function(_scope: any)
 						local ok, err = pcall(function()
-							return Facet.Controls.TabView(core, {
+							return harness.Controls.TabView(core, {
 								id = "Page",
 								selection = innerSelection,
 								env = env,
@@ -622,17 +624,15 @@ describe("§6 refuse, don't guess: a slot the placement cannot host is an author
 end)
 
 describe("§6 the slots are owned, not leaked", function()
-	it("re-homing disposes the accessory's scope with its branch", function()
+	it("re-homing disposes the accessory's owner with its branch", function()
 		local disposals = 0
 		local w = world({
 			viewport = DESKTOP,
 			accessories = {
-				head = function(_placement: string, scope: any)
-					scope:own({
-						dispose = function()
-							disposals += 1
-						end,
-					})
+				head = function(_placement: string, slotOwner: any)
+					slotOwner.own(function()
+						disposals += 1
+					end)
 					return UI.Text({ id = "Wordmark", text = "glade" })
 				end,
 			},
@@ -643,6 +643,6 @@ describe("§6 the slots are owned, not leaked", function()
 		w.env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		w.pres.refresh()
 		expect(disposals).toBe(1)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)

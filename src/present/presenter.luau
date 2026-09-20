@@ -12,8 +12,7 @@
 --   used to be (docs/plans/parity-round2.md §Phase 1). The verb lives
 --   here because the clock, the controller scopes and `refresh` all do.
 
-local mountLib = require("../mount")
-local blueprintLib = require("../blueprint")
+local composeScene = require("../render/compose_scene")
 local renderer = require("../render/renderer")
 local focus_graph = require("../focus/focus_graph")
 -- structural transitions, the toast model and the semantic feedback seam
@@ -42,6 +41,8 @@ local specGuard = require("../spec_guard")
 -- its own copy of the same four rules.
 local anchorPlacement = require("../layout/anchor_placement")
 local anchoredLib = require("./anchored")
+local Compose = require("../vendor/compose/core")
+local observeChange = require("../core/on_change")
 
 local presenter = {}
 
@@ -239,10 +240,11 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"incrementalLayout",
 	"keyboardNavigation",
 })
-local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "now" })
+local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "mountComponent", "now" })
 
 local modalZones = require("./modal_zones")
 local focusMap = require("./focus_map")
+local contributionLib = require("../input/contribution")
 -- the two synthesized full-viewport tap swallowers (the modal/engaged scrim and
 -- the transient popup catcher) — see that module's header for why they left
 local inputAperture = require("../render/input_aperture")
@@ -323,8 +325,8 @@ local function activateEffect(handle: any, node: any, path: string?, meta: any?)
 	-- (2) Toggle auto-flip (contract.luau §Toggle: "Activate flips value")
 	if node ~= nil and node.class == "Toggle" and node.dynamicProps ~= nil then
 		local value = node.dynamicProps.value
-		if type(value) == "table" and (value :: any).kind == "signal" then
-			value:set(not value:get())
+		if Compose.isReadable(value) and type((value :: any).set) == "function" then
+			value:set(not value:peek())
 			return
 		end
 	end
@@ -338,7 +340,7 @@ local function activateEffect(handle: any, node: any, path: string?, meta: any?)
 		row). An action-source Activate
 		that nobody above wanted, on a mounted `UI.draggable`, ARMS it — and the
 		next one commits it at the aim the focus ring has been feeding. The rule is
-		`newVirtualList`'s own ("a source with no consumer Activate arms on
+		`UI.VirtualList`'s own ("a source with no consumer Activate arms on
 		Activate"), hoisted to the public verb, and it is asked LAST so that
 		"nobody wanted it" is structural rather than predicted: a node's own
 		`onActivate`, a Toggle's flip and every control contribution have already
@@ -388,10 +390,73 @@ local function isEngineSelectionTap(source: string?, meta: any?): boolean
 	end
 	return meta.pointer == "keyboard" or meta.pointer == "gamepad"
 end
+--[[ THE FIRST ACTIVATION WAKES THE SURFACE (`UI.activationGate`). A surface that
+	is not the active one — a monitor in a room of monitors, an inactive panel in
+	a split — must take a press to BECOME active without also pressing whatever
+	sat under the finger. Before this, an app covered the whole subtree with a
+	full-size transparent Button, which works for a tap and for the focus ring but
+	is a second focus stop, a second hit target and a second thing to keep sized.
+
+	It lives here because this is the ONE funnel every source arrives through:
+	`"tap"` is pointer and touch, `"action"` is the IAS Activate the keyboard and
+	the gamepad raise. A gate declared once is therefore honoured by all four with
+	no per-source code.
+
+	The DEEPEST closed gate on the path wins, so a gated panel inside a gated
+	screen wakes one level per press, innermost first — the same longest-prefix
+	rule contribution dispatch already uses. ]]
+-- a press is not a reactive read: a binding is sampled through a `use` that
+-- peeks, so the gate answers for THIS press and subscribes to nothing
+local function peekUse(source: any): any
+	if type(source) == "table" and type(source.peek) == "function" then
+		return source:peek()
+	end
+	if type(source) == "function" then
+		return source(peekUse)
+	end
+	return source
+end
+
+local function readGateClosed(gate: any): boolean
+	return peekUse(gate.closed) == true
+end
+
+local function closedGateOn(handle: any, path: string): any?
+	local node = if handle.root ~= nil then handle.root.node else nil
+	local found = nil
+	while node ~= nil do
+		local gate = if node.meta ~= nil then node.meta.activationGate else nil
+		if gate ~= nil and readGateClosed(gate) then
+			found = gate
+		end
+		if node.path == path then
+			break
+		end
+		local descend = nil
+		for _, child in node.children or {} do
+			if child.path ~= nil and (child.path == path or isPathPrefix(child.path, path)) then
+				descend = child
+				break
+			end
+		end
+		node = descend
+	end
+	return found
+end
+
 local function dispatchActivate(handle: any, path: string?, meta: any?, source: string?)
 	local node = if path ~= nil then nodeAt(handle.root.node, path) else nil
 	if isDisabled(node) then
 		return true -- consumes the verb and does nothing
+	end
+	if path ~= nil then
+		local gate = closedGateOn(handle, path)
+		if gate ~= nil then
+			if type(gate.onOpen) == "function" then
+				gate.onOpen(path, meta)
+			end
+			return true -- the press spent itself waking the surface
+		end
 	end
 	if path ~= nil and source ~= nil and handle.activateEcho ~= nil then
 		local at = handle.now()
@@ -417,8 +482,8 @@ local function dispatchActivate(handle: any, path: string?, meta: any?, source: 
 		-- THE PER-CONTROL VERB (director request 2026-08-13). `activate` is the
 		-- default, not the only answer: a control (or any ancestor of it) may have
 		-- declared what its own press means through
-		-- `UI.sensoryFeedback(bp, { activation = … })`, which `mount.luau` already
-		-- resolved down the tree onto this node. `"none"` is a control the author
+		-- `UI.sensoryFeedback(node, { activation = … })`, which the scene host
+		-- resolves down the tree onto this node. `"none"` is a control the author
 		-- deliberately silenced, and it emits nothing at all rather than a verb a
 		-- subscriber then has to know to ignore.
 		--
@@ -476,6 +541,11 @@ export type PresenterOpts = {
 	-- steps it.
 	clock: any?,
 	now: (() -> number)?,
+	-- Mounts a component into the application's UI runtime and answers the
+	-- mounted Compose root. The component receives the internal UI library. Every
+	-- surface the presenter builds for itself (scrim, catcher, disclosure plate,
+	-- reveal strip, drag ghost, toast) mounts through it.
+	mountComponent: ((component: (UI: any) -> any) -> any)?,
 }
 
 function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opts: PresenterOpts?)
@@ -484,11 +554,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	local graph = focus_graph.new(core)
 	-- Entry focus is still tracked, but a pointer/touch session has not asked
 	-- for a navigation ring. Seed once; subsequent input verbs own visibility.
-	graph.setFocusOrigin(if env:get("effectiveInput"):get() == "Gamepad" then "navigation" else "pointer")
+	graph.setFocusOrigin(if env:get("effectiveInput"):peek() == "Gamepad" then "navigation" else "pointer")
 	local stack: { any } = {} -- presented handles, base first
 	self.focus = graph
 	local presenterOpts: PresenterOpts = opts or {}
 	local nowFn = presenterOpts.now or os.clock
+	local function mountComponent(component: (UI: any) -> any): any
+		local mount = presenterOpts.mountComponent
+		if mount == nil then
+			error("Facet presenter: opts.mountComponent is required to mount a framework surface", 0)
+		end
+		return mount(component)
+	end
 	-- ONE ACTIVATE PER PRESS ACROSS THE TWO PATHS (roadmap Step 8, the desktop
 	-- keyboard round). A
 	-- keyboard press on a control the engine also considers SELECTED can arrive
@@ -562,8 +639,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end)
 		if okP and policyReadable ~= nil then
 			local function applyIndicatorPolicy()
-				local reduced = if motionPolicy ~= nil then motionPolicy:get() == "reduced" else false
-				local policy = policyReadable:get();
+				local reduced = if motionPolicy ~= nil then motionPolicy:peek() == "reduced" else false
+				local policy = policyReadable:peek();
 				(adapter :: any).setScrollIndicatorPolicy(policy, reduced)
 			end
 			-- session-lifetime, like the presenter itself (it has no dispose):
@@ -572,7 +649,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- must NOT refresh (self.refresh is not constructed yet, and there
 			-- is nothing mounted to re-solve); only CHANGES re-solve.
 			local booted = false
-			self._scrollIndicatorWatcher = core:effect(function(use)
+			self._scrollIndicatorWatcher = core.owner.watch(function(use)
 				use(policyReadable)
 				if motionPolicy ~= nil then
 					use(motionPolicy)
@@ -594,7 +671,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- theme commit must move the dismiss geometry in the same frame it moves the
 	-- solved rects those decisions are taken against.
 	local function metricsNow(): any
-		local m = env:get("themeMetrics"):get()
+		local m = env:get("themeMetrics"):peek()
 		return if type(m) == "table" and type(m.targetSizes) == "table" then m else themeSnapshot.neutral()
 	end
 
@@ -663,12 +740,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- (a modal, or an engaged-from-passive surface — both sink, becoming first
 	-- responder over gameplay). A client adapter observes this to hide the touch
 	-- controls while an exclusive surface is up (src/client/responder_effects).
-	local exclusive = core:signal(false)
+	local exclusive = Compose.cell(false)
 	self.exclusiveSurfaceActive = exclusive
 	local function refreshExclusive()
 		local anyExclusive = false
 		for _, handle in stack do
-			if handle.kind == "modal" or (handle.isPassive and handle.responder:get() == "engaged") then
+			if handle.kind == "modal" or (handle.isPassive and handle.responder:peek() == "engaged") then
 				anyExclusive = true
 				break
 			end
@@ -705,6 +782,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		presenter = self,
 		metricsNow = metricsNow,
+		mountComponent = mountComponent,
 	})
 	local applyOutsideOutcome = catchers.applyOutsideOutcome
 	local syncScrim = catchers.syncScrim
@@ -783,10 +861,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		owner surface reserves it — and a decorative step on a reserved band pushes
 		every plate down for nothing. ]]
 	local function safeBox(reserveAppChrome: boolean?): { x: number, y: number, w: number, h: number }
-		local vp = env:get("viewportRect"):get()
-		local core_ = env:get("coreSafeInsets"):get()
-		local device = env:get("deviceSafeInsets"):get()
-		local appChrome = if reserveAppChrome == false then nil else env:get("appChromeInsets"):get()
+		local vp = env:get("viewportRect"):peek()
+		local core_ = env:get("coreSafeInsets"):peek()
+		local device = env:get("deviceSafeInsets"):peek()
+		local appChrome = if reserveAppChrome == false then nil else env:get("appChromeInsets"):peek()
 		-- the theme's own smallest gutter step, never a literal: a package that
 		-- retunes its spacing ladder retunes the screen's margin with it
 		local gutter = themeSnapshot.resolveNumber(metricsNow(), "s") or 0
@@ -824,6 +902,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		stack = stack,
 		presenter = self,
 		metricsNow = metricsNow,
+		mountComponent = mountComponent,
 		safeBox = safeBox,
 		handleByPath = function(path: string): any
 			return if handleByPath ~= nil then handleByPath(path) else nil
@@ -972,7 +1051,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			align = "start",
 			gap = themeSnapshot.resolveNumber(metricsNow(), "xs") or 4,
 		})
-		if plate.ox:get() ~= placement.x or plate.oy:get() ~= placement.y then
+		if plate.ox:peek() ~= placement.x or plate.oy:peek() ~= placement.y then
 			plate.ox:set(placement.x)
 			plate.oy:set(placement.y)
 			plate.controller.refresh()
@@ -995,43 +1074,45 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local box = safeBox(owner.reserveAppChrome)
 		local metrics = metricsNow()
 		local gap = themeSnapshot.resolveNumber(metrics, "xs") or 4
-		local sc = core:scope("present-disclose")
-		local ox = sc:own(core:signal(srcRect.x))
-		local oy = sc:own(core:signal(srcRect.y + srcRect.h + gap))
-		local bp = blueprintLib.Screen({
-			id = DISCLOSE_ROOT,
-			children = {
-				blueprintLib.Anchor({
-					id = "Layer",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = {
-						-- a VStack and not a Box: a Box is a LEAF, and the plate has to
-						-- hold the label it exists to show
-						blueprintLib.VStack({
-							id = "Plate",
-							anchor = "topLeft",
-							offsetX = ox,
-							offsetY = oy,
-							-- the panel treatment, so the plate is themed by the ACTIVE
-							-- ThemeSnapshot (fill, corner, stroke, contentInsets) rather
-							-- than by numbers written here
-							surface = "raised",
-							padding = "s",
-							-- HUG WITH A CEILING, not a fixed width: a short value gets a
-							-- short plate, and a long one wraps inside the safe box instead
-							-- of running off the screen edge — which is the same overflow
-							-- ladder the label it is disclosing just failed
-							width = { type = "hug", max = math.max(0, box.w - 2 * gap) },
-							children = {
-								blueprintLib.Text({ id = "Full", text = fullText, textSize = "body" }),
-							},
-						}),
-					},
-				}),
-			},
-		})
-		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
+		local sc = core.owner.createChild()
+		local ox = Compose.cell(srcRect.x)
+		local oy = Compose.cell(srcRect.y + srcRect.h + gap)
+		local root = mountComponent(function(UI)
+			return UI.Screen({
+				id = DISCLOSE_ROOT,
+				children = {
+					UI.Anchor({
+						id = "Layer",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							-- a VStack and not a Box: a Box is a LEAF, and the plate has to
+							-- hold the label it exists to show
+							UI.VStack({
+								id = "Plate",
+								anchor = "topLeft",
+								offsetX = ox,
+								offsetY = oy,
+								-- the panel treatment, so the plate is themed by the ACTIVE
+								-- ThemeSnapshot (fill, corner, stroke, contentInsets) rather
+								-- than by numbers written here
+								surface = "raised",
+								padding = "s",
+								-- HUG WITH A CEILING, not a fixed width: a short value gets a
+								-- short plate, and a long one wraps inside the safe box instead
+								-- of running off the screen edge — which is the same overflow
+								-- ladder the label it is disclosing just failed
+								width = { type = "hug", max = math.max(0, box.w - 2 * gap) },
+								children = {
+									UI.Text({ id = "Full", text = fullText, textSize = "body" }),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		sc.own(root.dispose)
 		local controller = renderer.attach(core, root, env, adapter, {
 			clock = motionClock,
 			-- window space: the anchor offsets below are the SAME coordinates
@@ -1119,14 +1200,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- finger asked to press the row, not to read its name, and a plate popping
 		-- up under every tap is the tooltip-on-click behaviour nobody wants. The
 		-- pointer's own engagement is the hover dwell, which has its own seam.
-		if graph.focusVisible:get() == false then
+		if graph.focusVisible:peek() == false then
 			owner = nil
 		end
 		-- ...AND THE SURFACE MUST OWN INPUT (rounds 4/6). A passive HUD has focus
 		-- IDENTITY from the moment it mounts; it has the keyboard only once it
 		-- engages, and a plate presented off a focus the player never moved is the
 		-- same lie as a focus ring on a surface the keyboard is not reaching.
-		if owner ~= nil and owner.isPassive and owner.responder:get() ~= "engaged" then
+		if owner ~= nil and owner.isPassive and owner.responder:peek() ~= "engaged" then
 			owner = nil
 		end
 		local targetPath, fullText = disclosureTargetIn(owner, path)
@@ -1158,12 +1239,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		  * `hasHelp` is stamped once at present, so a surface that declared no
 		    help anywhere pays nothing for the feature (the F-11 containment rule). ]]
 	local function syncHelpFocus(path: string?)
-		if graph.focusVisible:get() == false then
+		if graph.focusVisible:peek() == false then
 			helpPlate.focus(nil)
 			return
 		end
 		local owner = handleOwning(path)
-		if owner ~= nil and owner.isPassive and owner.responder:get() ~= "engaged" then
+		if owner ~= nil and owner.isPassive and owner.responder:peek() ~= "engaged" then
 			helpPlate.focus(nil)
 			return
 		end
@@ -1331,6 +1412,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		adapter = adapter,
 		stack = stack,
 		plateShows = plateShows,
+		mountComponent = mountComponent,
 	})
 	local stepReveal = textReveal.stepReveal
 	self.reveal = textReveal.reveal
@@ -1400,12 +1482,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- mount, which cannot happen until this constructor has returned. `observe`
 	-- also seeds `lastSeen` from the value at registration, so moving a
 	-- registration later inside one constructor cannot make it fire late.
-	core:observe(graph.focused, syncFocusVisuals)
+	observeChange(core.owner, graph.focused, syncFocusVisuals)
 	-- ...and on the ORIGIN flipping under a standing focus: the first arrow press
 	-- after a tap must bring the ring back onto the node the finger left it on,
 	-- without waiting for focus to move somewhere else.
-	core:observe(graph.focusVisible, function()
-		syncFocusVisuals(graph.focused:get())
+	observeChange(core.owner, graph.focusVisible, function()
+		syncFocusVisuals(graph.focused:peek())
 	end)
 	-- ...and on a RESPONDER flipping, for the same reason: engaging must bring the
 	-- ring up on the node focus is already standing on (nothing moved, so neither
@@ -1413,7 +1495,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- `resign()` call this; it is exposed on the presenter rather than inlined
 	-- there because a handle cannot reach this closure.
 	function self.syncFocusVisuals()
-		syncFocusVisuals(graph.focused:get())
+		syncFocusVisuals(graph.focused:peek())
 	end
 
 	-- ===== DRAG-PROXY HOST (ui-designer §5.3/§6.3) ======
@@ -1440,44 +1522,48 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		show = function(info: any): any
 			dragProxyHide(nil) -- one live session, one ghost: a second show replaces
 			local rect = (type(info) == "table" and info.rect) or { x = 0, y = 0, w = 44, h = 44 }
-			local content = (type(info) == "table" and info.blueprint)
-			if content == nil then
-				-- the default ghost: a themed plate the size of the grab rect. Styling
-				-- rides the NORMALIZING modifiers, never raw prop tables — the same
-				-- rule authored screens follow.
-				content = blueprintLib.Box({
-					id = "Ghost",
-					surface = "control",
-					width = { type = "fixed", px = rect.w },
-					height = { type = "fixed", px = rect.h },
+			local component = (type(info) == "table" and info.component) or nil
+			local sc = core.owner.createChild()
+			local root = mountComponent(function(UI)
+				local content = if component then component() else nil
+				if content == nil then
+					-- the default ghost: a themed plate the size of the grab rect. Styling
+					-- rides the NORMALIZING modifiers, never raw prop tables — the same
+					-- rule authored screens follow.
+					content = UI.Box({
+						id = "Ghost",
+						surface = "control",
+						width = { type = "fixed", px = rect.w },
+						height = { type = "fixed", px = rect.h },
+					})
+					content = UI.corners(content, "control")
+					content = UI.shadow(content, "overlay")
+				end
+				-- the slot pins at the GRAB rect origin; `transform` drives deltas from
+				-- there through the presentation channel, so the ghost never touches
+				-- solver geometry mid-drag (Decision 2)
+				return UI.Screen({
+					id = "__dragproxy__",
+					children = {
+						UI.Anchor({
+							id = "Layer",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							children = {
+								UI.ZStack({
+									id = "Slot",
+									offsetX = rect.x,
+									offsetY = rect.y,
+									width = { type = "fixed", px = rect.w },
+									height = { type = "fixed", px = rect.h },
+									children = { content },
+								}),
+							},
+						}),
+					},
 				})
-				content = blueprintLib.corners(content, "control")
-				content = blueprintLib.shadow(content, "overlay")
-			end
-			-- the slot pins at the GRAB rect origin; `transform` drives deltas from
-			-- there through the presentation channel, so the ghost never touches
-			-- solver geometry mid-drag (Decision 2)
-			local slot = blueprintLib.ZStack({
-				id = "Slot",
-				offsetX = rect.x,
-				offsetY = rect.y,
-				width = { type = "fixed", px = rect.w },
-				height = { type = "fixed", px = rect.h },
-				children = { content },
-			})
-			local bp = blueprintLib.Screen({
-				id = "__dragproxy__",
-				children = {
-					blueprintLib.Anchor({
-						id = "Layer",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
-						children = { slot },
-					}),
-				},
-			})
-			local sc = core:scope("present-dragproxy")
-			local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
+			end)
+			sc.own(root.dispose)
 			-- edgeToEdge, NOT coreSafeContent (director fix round, the "odd offset"):
 			-- the registry hands this host WINDOW-space coordinates (screenRectOf
 			-- includes the core inset), so the ghost surface's own origin must BE the
@@ -1517,6 +1603,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		screenTakesScreen: boolean?,
 		inheritAppChrome: boolean?
 	)
+		if not composeScene.isRoot(blueprint) then
+			error("Facet presenter: present a mounted Compose root (app.mount / app.presentModal mount one)", 0)
+		end
+		local composed = blueprint
+		blueprint = { id = composed.node.id, class = composed.node.class, props = composed.node.props }
 		-- an unknown cancelPolicy is refused LOUDLY, the same way an unknown
 		-- rootPolicy is (renderer.attach): a typo that silently kept the default
 		-- would read as "the framework ignored my mandatory modal".
@@ -1630,7 +1721,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- `pendingExits` carries the reasoning; this file is near the source cap)
 		flushPendingExit(blueprint.id)
 		noteDuplicateSurfaceId(blueprint.id)
-		local scope = core:scope(`present-{kind}-{blueprint.id or "screen"}`)
+		local scope = core.owner.createChild()
 		--[[ RESPONDER STATE IS HOISTED HERE, above `bindContribution`, because a
 			control has to be handed the paint permission below at BIND time and
 			`handle` does not exist until far later in this function — writing
@@ -1638,7 +1729,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			newSlider's trackPath and newTextInput's idPattern in Step 8). The handle
 			literal reuses these locals rather than making its own. ]]
 		local isPassive = kind == "screen" and (opts and opts.responder) == "passive"
-		local responderState = scope:own(core:signal(if isPassive then "passive" else "engaged"))
+		local responderState = Compose.cell(if isPassive then "passive" else "engaged")
 
 		--[[ MAY A CONTROL PAINT ITS OWN FOCUSED STATE RIGHT NOW? (director playtest
 			2026-08-03 round 6: "slider has focus, and i clicked on the world. it's
@@ -1655,12 +1746,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			the adapter's ring uses: the ring is a NAVIGATION answer (hidden after a
 			pointer move) AND a claim about owning input (a passive surface owns
 			none until it engages). ]]
-		local focusPaintAllowed = scope:own(core:memo(function(use)
-			if use(graph.focusVisible) == false then
-				return false
-			end
-			return not isPassive or use(responderState) == "engaged"
-		end))
+		local focusPaintAllowed = Compose.withOwner(scope, function()
+			return Compose.formula(function(use)
+				if use(graph.focusVisible) == false then
+					return false
+				end
+				return not isPassive or use(responderState) == "engaged"
+			end)
+		end)
 		-- STRUCTURAL TRANSITIONS. Every surface gets a
 		-- coordinator: it costs a table, builds a spring only when a region actually
 		-- declares a transition, and it is the only thing that makes `UI.When
@@ -1677,25 +1770,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				emitFeedback(event)
 			end,
 		})
-		local root = mountLib.mount(core, blueprint, {
-			context = { env = env, presenter = self },
-			scope = scope:child("mount"),
-			transitions = coordinator,
-			-- `UI.sensoryFeedback` (round 2 §3.3) emits through here, stamped with
-			-- the surface it happened on exactly as the transition coordinator's
-			-- events are, so `handle.onFeedback`'s per-surface filter sees it
-			feedback = function(event: any)
+		local root = composed
+		scope.own(composed.dispose)
+		-- regions in the composed tree reach this surface's coordinator
+		transitionsLib.bind(root.node, coordinator)
+		-- sensory declarations in the composed tree report to this surface's bus
+		if root.setFeedback ~= nil then
+			root.setFeedback(function(event: any)
 				event.surface = surfaceRef
 				emitFeedback(event)
-			end,
-		})
-		-- Deferred components acquire their actual root identity at mount.
-		-- All routing, duplicate detection and exit reuse must use that identity.
-		if blueprint.id ~= root.node.id then
-			blueprint = table.clone(blueprint)
-			blueprint.id = root.node.id
-			flushPendingExit(blueprint.id)
-			noteDuplicateSurfaceId(blueprint.id)
+			end, function(source: any, onChange: () -> ())
+				return observeChange(core.owner, source, onChange)
+			end)
 		end
 		local controller = renderer.attach(core, root, env, adapter, {
 			clock = motionClock,
@@ -1749,7 +1835,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- (platform sheet dismiss) and never clicks through to a lower handle.
 				for i = #stack, 1, -1 do
 					local candidate = stack[i]
-					local engagedPassive = candidate.isPassive and candidate.responder:get() == "engaged"
+					local engagedPassive = candidate.isPassive and candidate.responder:peek() == "engaged"
 					if candidate.kind == "modal" or engagedPassive then
 						local surfaceRoot = "/" .. (candidate.blueprint.id or "")
 						if not isPathPrefix(surfaceRoot, path) then
@@ -1790,10 +1876,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 						if
 							od ~= nil
 							and od.active ~= nil
-							and od.active:get() == true
+							and od.active:peek() == true
 							and not isPathPrefix(c.path, path)
 							and not inputAperture.contains(
-								od.passThroughRect and od.passThroughRect:get(),
+								od.passThroughRect and od.passThroughRect:peek(),
 								meta and meta.x,
 								meta and meta.y
 							)
@@ -1808,7 +1894,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- a tap on a focusable INSIDE a passive (not-yet-engaged) surface
 				-- engages it BEFORE the activate routes (director 2026-07-21): the
 				-- surface becomes first responder for that gesture, then dispatches
-				if h ~= nil and h.isPassive and h.responder:get() == "passive" then
+				if h ~= nil and h.isPassive and h.responder:peek() == "passive" then
 					h.engage()
 				end
 				-- Apple model: clicking a focusable moves keyboard focus there
@@ -1857,7 +1943,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- the clock, on the one sanctioned frame source, quarantined like every
 		-- other tick hook. Inert while no drag is announced.
 		if type(controller.stepAutoscroll) == "function" then
-			scope:own(self.onTick(function(dt: number)
+			scope.own(self.onTick(function(dt: number)
 				controller.stepAutoscroll(dt)
 			end))
 		end
@@ -1869,7 +1955,21 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- Remember binding without owning retired controls for the surface lifetime.
 		-- Live/reusable blueprints keep their bundles alive through a remount.
 		local boundBundles: { [any]: boolean } = setmetatable({}, { __mode = "k" })
+		-- Catcher subscriptions last only while their contribution is mounted.
+		local outsideObservers: { [any]: () -> () } = {}
+		scope.own(function()
+			for bundle, stop in outsideObservers do
+				stop()
+				outsideObservers[bundle] = nil
+			end
+		end)
 		local function bindContribution(c: Contribution)
+			local outside = c.bundle.outsideDismiss
+			if outside and outside.active and not outsideObservers[c.bundle] then
+				outsideObservers[c.bundle] = observeChange(core.owner, outside.active, function()
+					self.syncPopupCatcher()
+				end)
+			end
 			if boundBundles[c.bundle] then
 				return
 			end
@@ -1945,17 +2045,17 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 						return false
 					end,
 					onDispose = function(fn)
-						scope:own(fn)
+						scope.own(fn)
 					end,
 					priority = function()
 						return if surfaceRef then surfaceRef.context.priority else 0
 					end,
 					focused = function()
-						return graph.focused:get()
+						return graph.focused:peek()
 					end,
 					onTick = function(fn)
 						local off = self.onTick(fn)
-						scope:own(off)
+						scope.own(off)
 						return off
 					end,
 					activate = function(path, meta)
@@ -2025,20 +2125,22 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- anchored seam, for the control whose floating surface belongs
 				-- against a live source RECT rather than a parent corner
 				c.bundle.bindPresent(
-					self.presentModal,
+					-- a contribution presents a component; it mounts here
+					function(component: any, modalOptions: any)
+						return self.presentModal(
+							if type(component) == "function"
+								then mountComponent(function()
+									return component()
+								end)
+								else component,
+							modalOptions
+						)
+					end,
 					self.dismiss,
 					self.presentAnchored,
 					self.presentCallout,
 					self.releaseCallout
 				)
-			end
-			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
-			-- active readable so the synthesized catcher is mounted/retired as the
-			-- popup opens/closes (see the popup-catcher block above)
-			if c.bundle.outsideDismiss ~= nil and c.bundle.outsideDismiss.active ~= nil then
-				scope:own(core:observe(c.bundle.outsideDismiss.active, function()
-					self.syncPopupCatcher()
-				end))
 			end
 		end
 		for _, c in contributions do
@@ -2069,7 +2171,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				opts.onGeometry(rectOf)
 			end
 			for _, c in contributions do
-				if c.bundle.syncGeometry ~= nil then
+				-- ...AND NEVER A BUNDLE WHOSE OWNER HAS GONE. This loop runs from
+				-- inside the solve, so it can see the array one refresh before
+				-- `syncContributions` drops what a tab swap just unmounted
+				-- (`input/contribution.alive` has the whole story).
+				if c.bundle.syncGeometry ~= nil and contributionLib.alive(c.bundle) then
 					-- the contribution's own MOUNTED NODE rides along: a control that
 					-- needs the solved rect of one of its own descendants (a Slider's
 					-- track) would otherwise have to guess the path, or wait for an
@@ -2107,7 +2213,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			happens, and the first solve — `initialRender` above — is already
 			over. ]]
 		if controller.onSolved ~= nil then
-			scope:own(controller.onSolved(function()
+			scope.own(controller.onSolved(function()
 				feedGeometry(controller.rectOf)
 			end))
 		end
@@ -2185,6 +2291,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			contribEpoch = epoch
 			local fresh = collectContributions(root.node)
+			local mountedBundles = {}
+			for _, c in fresh do
+				mountedBundles[c.bundle] = true
+			end
+			for bundle, stop in outsideObservers do
+				if not mountedBundles[bundle] then
+					stop()
+					outsideObservers[bundle] = nil
+				end
+			end
 			local changed = #fresh ~= #contributions
 			if not changed then
 				for i, c in fresh do
@@ -2236,6 +2352,17 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- newTextInput.idPattern and newSlider.trackPath in Step 8)
 		local consumerFocusMap = ngOpt ~= nil and ngOpt ~= false
 
+		-- a refused `initialFocus` fires after the surface rendered: release it
+		local function focusOrRelease(order: any): any
+			local ok, resolved = pcall(resolveInitialFocus, initialFocus, order, blueprint.id or kind)
+			if not ok then
+				controller.dispose()
+				scope:dispose()
+				error(resolved, 0)
+			end
+			return resolved
+		end
+
 		if navigationGroups ~= nil then
 			-- grouped, direction-aware scope (§9.3; verifier F2). Hidden candidates
 			-- leave the ring here exactly as they do on the flat path below.
@@ -2250,11 +2377,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				chrome = focusChrome,
 				groups = navigationGroups,
 				traversalWrap = traversalWrap,
-				initialFocus = resolveInitialFocus(
-					initialFocus,
-					orderPaths(nil, navigationGroups),
-					blueprint.id or kind
-				),
+				initialFocus = focusOrRelease(orderPaths(nil, navigationGroups)),
 				-- derived AFTER the hidden filter, from the filtered map, so the
 				-- rank covers exactly the members the scope will have
 				traversalRank = if consumerFocusMap then nil else traversalRank(root.node, nil, navigationGroups),
@@ -2270,7 +2393,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				order = order,
 				traversalWrap = traversalWrap,
 				traversalRank = traversalRank(root.node, order, nil),
-				initialFocus = resolveInitialFocus(initialFocus, order, blueprint.id or kind),
+				initialFocus = focusOrRelease(order),
 			})
 		end
 
@@ -2786,7 +2909,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			root's live instance is a ScreenGui. `screen_presentation
 			.applyPresentationPaint` returns on `not instance:IsA("GuiObject")`, so the
 			UIScale was never materialized and a `materialize` faded without ever
-			growing, with no error anywhere. Measured on `Controls.Menu` and the
+			growing, with no error anywhere. Measured on `UI.Menu` and the
 			pop-up picker: `/…/Layer/Surface/Popup` 1 -> 0.02 in GroupTransparency, no
 			UIScale on any node.
 
@@ -2941,13 +3064,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if context.destroyed then
 				return
 			end
-			local classes = env:get("interactionClasses"):get()
+			local classes = env:get("interactionClasses"):peek()
 			local keyboardLive = type(classes) == "table" and classes.keyboard == true
-			setKeyboardBound(keyboardNavigation and keyboardLive and handle.responder:get() == "engaged")
+			setKeyboardBound(keyboardNavigation and keyboardLive and handle.responder:peek() == "engaged")
 		end
-		scope:own(core:observe(env:get("interactionClasses"), function()
+		observeChange(scope, env:get("interactionClasses"), function()
 			handle.syncKeyboardBindings()
-		end))
+		end)
 
 		-- engage(): a passive surface becomes first responder — its nav context
 		-- rises into the engaged band with sink=true, so it handles events BEFORE
@@ -2955,7 +3078,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- surfaces (a modal is always exclusive; a plain screen is engaged-open).
 		-- Idempotent, so tap-then-explicit or churn never double-registers.
 		function handle.engage()
-			if not isPassive or handle.responder:get() == "engaged" then
+			if not isPassive or handle.responder:peek() == "engaged" then
 				return
 			end
 			context.setEnabled(true)
@@ -2973,7 +3096,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- avatar/gameplay input is restored EXACTLY (Cancel / outside-tap route
 		-- here). No-op for non-passive surfaces.
 		function handle.resign()
-			if not isPassive or handle.responder:get() == "passive" then
+			if not isPassive or handle.responder:peek() == "passive" then
 				return
 			end
 			context.setSink(false)
@@ -3069,8 +3192,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 						-- while `focusGroups` — the seam right beside it — has
 						-- always been handed the contribution's own node. Controls
 						-- that identify their targets STRUCTURALLY rather than by a
-						-- unique id therefore claimed the whole screen: `newStepper`
-						-- returns "every Button below here", `newRating` "every
+						-- unique id therefore claimed the whole screen: `UI.Stepper`
+						-- returns "every Button below here", `UI.Rating` "every
 						-- Grip", and on a screen carrying either one plus any other
 						-- button the Adjust keys stayed bound with focus anywhere at
 						-- all. That is precisely the gameplay-key shadowing this
@@ -3107,7 +3230,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				local ts = c.bundle.transientScope
 				if ts ~= nil and ts.active ~= nil then
 					local name = transientName(c)
-					local wantActive = ts.active:get() == true
+					local wantActive = ts.active:peek() == true
 					local pushed = transientPushed[c.path] == true
 					if wantActive then
 						local rootPath = ts.rootPath or c.path
@@ -3167,7 +3290,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			local function maxOffset(): number
 				local m = 0
 				for _, r in offsets do
-					local v = r:get()
+					local v = require("../selection_model").read(r)
 					if type(v) == "number" and v > m then
 						m = v
 					end
@@ -3175,9 +3298,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				return m
 			end
 			for _, r in offsets do
-				scope:own(core:observe(r, function()
+				observeChange(scope, r, function()
 					controller.setPresentationOffset(maxOffset())
-				end))
+				end)
 			end
 			controller.setPresentationOffset(maxOffset())
 		end
@@ -3191,7 +3314,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			local reg = if controller.peekDragRegistry ~= nil then controller.peekDragRegistry() else nil
 			if reg ~= nil and reg.mode ~= nil and reg.mode() == "armed" then
 				local target = reg.interactionTarget()
-				if target ~= nil and target ~= graph.focused:get() then
+				if target ~= nil and target ~= graph.focused:peek() then
 					graph.focusOn(target)
 				end
 			end
@@ -3214,17 +3337,17 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				return
 			end
 			graph.navigateDirection(direction)
-			local focused = graph.focused:get()
+			local focused = graph.focused:peek()
 			if focused ~= nil then
 				handle.focusMoved(focused)
 			end
 		end
 		if navigateH ~= nil then
-			scope:own(core:observe(navigateH.state, function(dir)
+			observeChange(scope, navigateH.state, function(dir)
 				if dir == 1 or dir == -1 then
 					navigateHorizontal(dir)
 				end
-			end))
+			end)
 		end
 		local function navigateVertical(dir: number)
 			graph.setFocusOrigin("navigation") -- see the horizontal case above
@@ -3237,7 +3360,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if navigationGroups ~= nil then
 				-- direction-aware vertical movement for grouped scopes
 				graph.navigateDirection(vertical)
-				local focused = graph.focused:get()
+				local focused = graph.focused:peek()
 				if focused ~= nil then
 					handle.focusMoved(focused)
 				end
@@ -3249,7 +3372,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- impossible (top row + up): falling through would wrap focus
 			-- to the far end (verifier 2026-07-20 F1)
 			if handle.onReorderNav ~= nil and actionSystem.modifiers ~= nil and actionSystem.modifiers().shift then
-				local focused = graph.focused:get()
+				local focused = graph.focused:peek()
 				if focused ~= nil then
 					handle.onReorderNav(focused, dir)
 				end
@@ -3259,16 +3382,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- Apple model: navigation-driven focus moves report to the
 			-- screen (selection follows focus in lists); pointer focusOn
 			-- does NOT route here — tap selection rides the activate meta
-			local focused = graph.focused:get()
+			local focused = graph.focused:peek()
 			if focused ~= nil then
 				handle.focusMoved(focused)
 			end
 		end
-		scope:own(core:observe(navigate.state, function(dir)
+		observeChange(scope, navigate.state, function(dir)
 			if dir == 1 or dir == -1 then
 				navigateVertical(dir)
 			end
-		end))
+		end)
 
 		-- Held keyboard arrows, D-pad and thumbstick navigation share one cadence.
 		-- Recheck binding ownership each tick: a modal, resign or axis-owning
@@ -3294,7 +3417,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			local heldDir: number? = nil
 			local sinceLastFire = 0
 			local repeating = false
-			scope:own(core:observe(action.state, function(dir: any)
+			observeChange(scope, action.state, function(dir: any)
 				owner = if eligible then eligible() else true
 				if (dir == 1 or dir == -1) and (keyboard or action.lastGamepad) and owner then
 					heldDir = dir :: number
@@ -3303,8 +3426,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 				sinceLastFire = 0
 				repeating = false
-			end))
-			scope:own(self.onTick(function(dt: number)
+			end)
+			scope.own(self.onTick(function(dt: number)
 				if heldDir == nil then
 					return
 				end
@@ -3318,7 +3441,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					or not actionSystem.wouldWinArbitration(action.context, action.lastBinding)
 				then
 					heldDir = nil
-					if action.state:get() ~= 0 then
+					if action.state:peek() ~= 0 then
 						action.state:set(0)
 					end
 					return
@@ -3344,7 +3467,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- ADJUST DISPATCH, shared by both adjust actions. Returns whether anything
 		-- claimed the press — which is what the axis action turns into a yield.
 		local function dispatchAdjust(dir: number): boolean
-			local focused = graph.focused:get()
+			local focused = graph.focused:peek()
 			if focused == nil then
 				return false
 			end
@@ -3368,19 +3491,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					end
 				end
 				local transient = c.bundle.transientScope
-				if transient and transient.active:get() == true then
+				if transient and transient.active:peek() == true then
 					return true
 				end
 			end
 			return false
 		end
-		scope:own(core:observe(adjust.state, function(dir)
+		observeChange(scope, adjust.state, function(dir)
 			if dir == 1 or dir == -1 then
 				dispatchAdjust(dir)
 			end
-		end))
+		end)
 		local function repeatAdjustOwner()
-			local path = graph.focused:get()
+			local path = graph.focused:peek()
 			if path == nil then
 				return nil
 			end
@@ -3417,7 +3540,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			a horizontal move. On a flat screen `bindAdjustKeys` never puts the
 			arrows on this action, so there is no case where the ring is asked to
 			move along an axis that has no navigation. ]]
-		scope:own(core:observe(adjustAxis.state, function(dir)
+		observeChange(scope, adjustAxis.state, function(dir)
 			if not (dir == 1 or dir == -1) then
 				return
 			end
@@ -3439,7 +3562,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- arrival. Neutralising here covers both exits with one line (pinned:
 			-- "the yield RE-ARMS ... the NEXT value control in the row").
 			adjustAxis.state:set(0)
-		end))
+		end)
 		-- TRAVERSE (Tab / Shift+Tab, roadmap Step 8). Shift chooses the direction
 		-- from the same live modifier state Activate reads.
 		--
@@ -3455,7 +3578,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- a traversal verb asks "where does the ring go next", so the ring comes
 			-- back even if a tap had put it away (device round 3)
 			graph.setFocusOrigin("navigation")
-			local from = graph.focused:get()
+			local from = graph.focused:peek()
 			if from ~= nil then
 				for _, c in contributionsForPath(contributions, from) do
 					if c.bundle.handleTraverse ~= nil and c.bundle.handleTraverse(from, direction) then
@@ -3464,7 +3587,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end
 			if graph.traverse(direction) then
-				local focused = graph.focused:get()
+				local focused = graph.focused:peek()
 				if focused ~= nil then
 					-- the same focus-move report every other navigation verb makes:
 					-- keep-visible first, then the owning contribution
@@ -3489,7 +3612,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				`isAdoptedChrome`, not on "the path is not mine": two un-sunk base surfaces
 				both bind Activate, and re-routing on absence would make one press one
 				activation PER surface that heard the key. ]]
-			local focused = graph.focused:get()
+			local focused = graph.focused:peek()
 			local target = handle
 			if graph.isAdoptedChrome(focused) then
 				target = (handleByPath ~= nil and handleByPath(focused :: string)) or handle
@@ -3509,7 +3632,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- contains an open popup closes the popup on the first ButtonB and
 			-- dismisses on the second. Every existing modal/responder test stays
 			-- green (no prior contribution declares handleCancel).
-			local focused = graph.focused:get()
+			local focused = graph.focused:peek()
 			local candidates = if focused ~= nil then contributionsForPath(contributions, focused) else contributions
 			for _, c in candidates do
 				if c.bundle.handleCancel ~= nil and c.bundle.handleCancel(focused) then
@@ -3535,7 +3658,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			if handle.kind == "modal" then
 				self.dismiss(handle)
-			elseif handle.isPassive and handle.responder:get() == "engaged" then
+			elseif handle.isPassive and handle.responder:peek() == "engaged" then
 				-- Cancel on an engaged-from-passive surface resigns it (back to
 				-- passive, context disabled) instead of doing nothing
 				handle.resign()
@@ -3594,9 +3717,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- which is how a passive surface came up painting a ring over a keyboard it
 		-- had not bound. One decision site, so a rule added there cannot be missed
 		-- here; it also drops a hand-rolled copy of the same ownership/adjust work.
-		if graph.focused:get() ~= nil then
+		if graph.focused:peek() ~= nil then
 			self.syncFocusVisuals()
 		end
+		calloutQueue.surfacePresented()
 		return handle
 	end
 
@@ -3635,8 +3759,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		`opts.anchor` names the source (a mounted `path` or a fixed `rect`), the
 		preferred `edge`, the `align`ment along it, the `gap`, the `tail` and the
 		`overflow` policy. See docs/reference/api.md § Anchored surfaces. ]]
-	function self.presentAnchored(panel: any, opts: any)
-		return anchoredSurfaces.present(panel, opts)
+	function self.presentAnchored(panel: any, opts: any, mountSurface: any?)
+		return anchoredSurfaces.present(panel, opts, mountSurface)
 	end
 
 	-- every live anchored surface, its resolved edge, whether it flipped, how far
@@ -3686,8 +3810,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		read floor priority may never truncate are all `toast_schedule`'s, which is
 		why this is a driver and not a second scheduler
 		(`src/present/callout_queue.luau`). ]]
-	function self.presentCallout(spec: any): number
-		return calloutQueue.request(spec)
+	function self.presentCallout(spec: any, presentAnchored: any?): number
+		return calloutQueue.request(spec, presentAnchored)
 	end
 
 	function self.releaseCallout(id: number, reason: string?): boolean
@@ -3729,24 +3853,30 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 	end
 
-	-- critical-screen fallback (§17 Phase 4): a screen whose construction or
-	-- presentation throws presents opts.fallbackScreen(err) instead of taking
-	-- the client down. The factory runs under pcall; so does makeHandle, so a
-	-- blueprint that explodes during mount/render also falls back. The
-	-- fallback screen itself presents normally (its errors stay hard).
-	function self.presentCritical(blueprintFactory: () -> any, opts: PresentOpts)
+	-- Critical-screen fallback: a screen whose component or presentation throws
+	-- presents opts.fallbackScreen(err) instead of taking the client down. The
+	-- component mounts under pcall; so does makeHandle, so a screen that explodes
+	-- during render also falls back. The fallback screen itself presents
+	-- normally (its errors stay hard).
+	function self.presentCritical(component: () -> any, opts: PresentOpts)
 		specGuard.assertKnownKeys("presenter.presentCritical", opts, PRESENT_OPTS_KEYS, "opts")
 		assert(
 			type(opts) == "table" and type(opts.fallbackScreen) == "function",
-			"presentCritical requires opts.fallbackScreen(err) -> Blueprint"
+			"presentCritical requires opts.fallbackScreen(err) -> node"
 		)
-		local ok, blueprintOrError = pcall(blueprintFactory)
+		local function mounted(build: () -> any): any
+			return mountComponent(function()
+				return build()
+			end)
+		end
+		local ok, rootOrError = pcall(mounted, component)
 		if ok then
-			local presented, handleOrError = pcall(makeHandle, blueprintOrError, opts, "screen", true)
+			local presented, handleOrError = pcall(makeHandle, rootOrError, opts, "screen", true)
 			if presented then
 				return handleOrError
 			end
-			blueprintOrError = handleOrError
+			rootOrError.dispose()
+			rootOrError = handleOrError
 		end
 		-- THE FALLBACK IS PRESENTED WITH THE CALLER'S OPTS (F-16). It used to get
 		-- `{ onActivate = … }` and nothing else, so a critical screen declared
@@ -3760,7 +3890,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- and its own errors stay hard.
 		local fallbackOpts: any = table.clone(opts :: any)
 		fallbackOpts.fallbackScreen = nil
-		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen", true)
+		local failure = rootOrError
+		return makeHandle(
+			mounted(function()
+				return opts.fallbackScreen(failure)
+			end),
+			fallbackOpts,
+			"screen",
+			true
+		)
 	end
 
 	-- `dismiss`, `back` and `raise` live in src/present/surface_lifecycle.luau
@@ -3827,7 +3965,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	local toasts = toastLayerLib.new({
 		reserveHud = hudReservations.reserve,
 		core = core,
-		presenter = self,
 		env = env,
 		adapter = adapter,
 		motionClock = motionClock,
@@ -3836,6 +3973,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- ONE NUMBER, not the band table: above every base screen, below every
 		-- modal (ui-designer §6.3)
 		toastDisplayOrder = SURFACE_LAYER.toast,
+		mountComponent = mountComponent,
 	})
 	self.presentToast = toasts.presentToast
 	self.toastCounts = toasts.toastCounts
@@ -3906,9 +4044,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- probe — ride the SAME tick so "one clock, one driver" stays true. Hooks
 		-- run after the motion step: they read this frame's settled values.
 		for _, hook in table.clone(tickHooks) do
-			-- quarantined (the reactive-runtime verifier): a throwing hook must not starve its
-			-- siblings or escape into the render thread's PreRender handler
-			pcall(hook, step :: number)
+			-- A throwing hook must not starve its siblings or escape into the
+			-- frame handler. The failure is reported, never swallowed.
+			local ok, err = pcall(hook, step :: number)
+			if not ok and core.report then
+				core.report(`Facet: a frame hook failed: {tostring(err)}`)
+			end
 		end
 	end
 

@@ -1,47 +1,36 @@
 --!strict
 -- A damage trail uses the shared motion clock; healing cancels its pending delay.
+local Compose = require("../vendor/compose/core")
+local read = require("../selection_model").read
 local trail = {}
 
-function trail.new(core: any, scope: any, source: any, clock: any, options: any, policy: any?): any
-	local value = scope:own(clock:glide(source:get(), { duration = options.duration or 0.35, kind = "decorative" }))
-	local waiting: any = nil
-	local previous = source:get()
-	local function cancel()
-		if waiting then
-			waiting:dispose()
-			waiting = nil
-		end
-	end
-	scope:own(cancel)
-	if policy then
-		scope:own(core:observe(policy, function()
-			if clock:isReduced() then
-				cancel()
-				value:snap(source:get())
-			end
-		end))
-	end
-	scope:own(core:observe(source, function()
-		local nextValue = source:get()
-		cancel()
-		if nextValue >= previous or clock:isReduced() then
-			value:snap(nextValue)
+-- Compose drives a finite delay-and-fall sequence. Healing cancels it immediately.
+function trail.native(runtime, source, options, policy)
+	local initial = read(source)
+	local from, target = Compose.cell(initial), Compose.cell(initial)
+	local delay, duration = options.delay or 0.3, options.duration or 0.35
+	local total = delay + duration
+	local clock = runtime.timeline({ duration = total, autoplay = false })
+	clock:seek(total)
+	local value = Compose.formula(function(use)
+		local progress = math.clamp((use(clock.progress) * total - delay) / duration, 0, 1)
+		return use(from) + (use(target) - use(from)) * progress
+	end)
+	local previous = initial
+	Compose.watch(function(use)
+		local nextValue = use(source)
+		local reduced = policy and use(policy) == "reduced"
+		if nextValue >= previous or reduced then
+			from:set(nextValue)
+			target:set(nextValue)
+			clock:seek(total)
 		else
-			value:snap(math.max(value:get(), previous))
-			local delay = options.delay or 0.3
-			if delay == 0 then
-				value:setTarget(nextValue)
-			else
-				local hold = clock:timer({ from = 0, to = 0, duration = delay, kind = "decorative" })
-				waiting = hold
-				hold:onSettle(function()
-					cancel()
-					value:setTarget(source:get())
-				end)
-			end
+			from:set(math.max(value:peek(), previous))
+			target:set(nextValue)
+			clock:restart()
 		end
 		previous = nextValue
-	end))
+	end)
 	return value
 end
 

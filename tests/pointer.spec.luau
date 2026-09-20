@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Pointer interaction seam (Table Phase B foundation): Grip zones
 -- (non-button Active nodes — engine overrides MouseIcon over GuiButtons, so
 -- resize grips must be Frames), semantic cursor hints through the adapter,
@@ -11,13 +12,14 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function world(screenBp: any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local adapter = fake_target.new({ ops = true })
-	local root = Facet.mount(core, screenBp)
+	local root = harness.mount(core, screenBp)
 	local controller = Facet.renderer.attach(core, root, env, adapter, {})
 	controller.initialRender()
 	return core, adapter, controller, root
@@ -25,10 +27,10 @@ end
 
 describe("Pointer seam: grips and cursor hints", function()
 	it("a Grip renders as a non-button node and hover requests its cursor hint", function()
-		local _, adapter = world(Facet.UI.Screen({
+		local _, adapter = world(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grip({
+				harness.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -49,10 +51,10 @@ describe("Pointer seam: grips and cursor hints", function()
 
 	it("pointer capture: down on a grip routes moves and up to it, with rects", function()
 		local calls: { any } = {}
-		local _, adapter = world(Facet.UI.Screen({
+		local _, adapter = world(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grip({
+				harness.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -89,10 +91,10 @@ describe("Pointer seam: grips and cursor hints", function()
 	end)
 
 	it("cursor hint persists across a captured drag even off the grip", function()
-		local _, adapter = world(Facet.UI.Screen({
+		local _, adapter = world(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grip({
+				harness.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -114,10 +116,10 @@ describe("Pointer seam: capture lifecycle", function()
 	it("destroying the root cancels an active pointer capture", function()
 		local cancelled = false
 		local moves = 0
-		local _, adapter, controller = world(Facet.UI.Screen({
+		local _, adapter, controller = world(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grip({
+				harness.UI.Grip({
 					id = "G",
 					cursorHint = "colResize",
 					width = { type = "fixed", px = 8 },
@@ -155,15 +157,15 @@ describe("Pointer seam: capture lifecycle", function()
 	-- invariant at the one seam it actually lives in (`destroyRoot` itself),
 	-- independent of that whole call chain.
 	local function mountRoot(adapter: any, id: string, counts: { moves: number, ups: number, cancels: number })
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = id,
 				children = {
-					Facet.UI.Grip({
+					harness.UI.Grip({
 						id = "G",
 						width = { type = "fixed", px = 8 },
 						height = { type = "fixed", px = 20 },
@@ -237,10 +239,10 @@ describe("Pointer seam: capture lifecycle", function()
 	-- destruction its own tracked mutators never leave uncancelled.
 	it("a capture whose node dies through an untracked path no longer blocks a fresh press", function()
 		local movesG, movesH, upsH = 0, 0, 0
-		local _, adapter, controller = world(Facet.UI.Screen({
+		local _, adapter, controller = world(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Grip({
+				harness.UI.Grip({
 					id = "G",
 					width = { type = "fixed", px = 8 },
 					height = { type = "fixed", px = 20 },
@@ -251,7 +253,7 @@ describe("Pointer seam: capture lifecycle", function()
 						movesG += 1
 					end,
 				}),
-				Facet.UI.Grip({
+				harness.UI.Grip({
 					id = "H",
 					width = { type = "fixed", px = 8 },
 					height = { type = "fixed", px = 20 },
@@ -289,17 +291,17 @@ end)
 
 describe("Pointer seam: dynamic hints and opt-in bindings", function()
 	it("a dynamic cursorHint re-applies through the adapter on change", function()
-		local core = Facet.newCore()
-		local hint = core:signal("colResize")
+		local core = harness.newCore()
+		local hint = Compose.cell("colResize")
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new({ ops = true })
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
 				children = {
-					Facet.UI.Grip({
+					harness.UI.Grip({
 						id = "G",
 						cursorHint = hint,
 						width = { type = "fixed", px = 8 },
@@ -319,12 +321,12 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 	it("sinkNavigation stops nav keys from reaching lower contexts (the avatar)", function()
 		-- hand-test finding 2026-07-20: arrow keys walked list focus AND moved
 		-- the avatar — a focus-driven screen must be able to sink its keys
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		-- the "character controls": a lower-priority context bound to Down
 		local game = system.createContext({ name = "CharacterControls", priority = 1000 })
 		local move = game.createAction("Move", "Bool")
@@ -333,9 +335,9 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 		move.onPressed(function()
 			moved += 1
 		end)
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
-			children = { Facet.UI.Button({ id = "A", label = "A" }), Facet.UI.Button({ id = "B", label = "B" }) },
+			children = { harness.UI.Button({ id = "A", label = "A" }), harness.UI.Button({ id = "B", label = "B" }) },
 		})
 		-- without the opt-in, nav keys leak through (base screens never sink
 		-- by default: HUD overlays must not eat gameplay input)
@@ -348,20 +350,20 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
 		expect(moved).toBe(1) -- sunk: the avatar never saw it
-		expect(pres.focus.focused:get()).toBe("/S/B") -- but focus moved
+		expect(pres.focus.focused:peek()).toBe("/S/B") -- but focus moved
 		pres.dismiss(h2)
 	end)
 
 	it("Adjust and reorder-nav bindings exist only when the screen opts in", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local screen = Facet.UI.Screen({
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local screen = harness.UI.Screen({
 			id = "Plain",
-			children = { Facet.UI.Button({ id = "B", label = "Go" }) },
+			children = { harness.UI.Button({ id = "B", label = "Go" }) },
 		})
 		local h1 = pres.present(screen, {})
 		expect(#h1.actions.adjust.bindings).toBe(0)
@@ -374,10 +376,10 @@ end)
 
 describe("Pointer seam: rectOf and anchored overlays", function()
 	it("controller.rectOf returns solved rects for live paths", function()
-		local _, _, controller = world(Facet.UI.Screen({
+		local _, _, controller = world(harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.VStack({
+				harness.UI.VStack({
 					id = "Main",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = 100 },
@@ -392,28 +394,28 @@ describe("Pointer seam: rectOf and anchored overlays", function()
 	end)
 
 	it("Anchor overlay: a dynamic offset re-arranges with rect writes only (no remount)", function()
-		local core = Facet.newCore()
-		local offsetX = core:signal(40)
+		local core = harness.newCore()
+		local offsetX = Compose.cell(40)
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local adapter = fake_target.new({ ops = true })
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
 				children = {
-					Facet.UI.Anchor({
+					harness.UI.Anchor({
 						id = "Z",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 						children = {
-							Facet.UI.VStack({
+							harness.UI.VStack({
 								id = "Main",
 								width = { type = "fill", weight = 1 },
 								height = { type = "fill", weight = 1 },
 								children = {},
 							}),
-							Facet.UI.Box({
+							harness.UI.Box({
 								id = "Line",
 								anchor = "topLeft",
 								offsetX = offsetX,

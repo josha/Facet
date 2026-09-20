@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- VirtualList HOSTED ROW ACTIONS (row-actions perf mission, Task 3 —
 -- docs/plans/row-actions-hosted-mode-design.md §"Hosted mode: a closed row
 -- mounts NOTHING"). `newVirtualList.rowActions` wires ONE shared four-function
@@ -36,7 +37,8 @@ local virtual_list = require("../src/controls/virtual_list")
 local row_actions_state = require("../src/input/row_actions_state")
 local text_metrics = require("../src/layout/text_metrics")
 local themeSnapshot = require("../src/themes/snapshot")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local LOCK = row_actions_state.AXIS_LOCK_PX
 local FRAME = 1 / 60
@@ -125,7 +127,7 @@ end
 	contribution's `syncGeometry`, which is how a hosted engine measures). ]]
 local function world(opts: any?): any
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
@@ -142,8 +144,8 @@ local function world(opts: any?): any
 	if options.keyboardNavigation ~= nil then
 		presenterOpts.keyboardNavigation = options.keyboardNavigation
 	end
-	local pres = Facet.newPresenter(core, env, adapter, system, presenterOpts)
-	local rows = core:signal(makeRows(options.count or 100))
+	local pres = harness.newPresenter(core, env, adapter, system, presenterOpts)
+	local rows = Compose.cell(makeRows(options.count or 100))
 	local activations: { string } = {}
 	local spec: any = {
 		id = "VL",
@@ -155,7 +157,7 @@ local function world(opts: any?): any
 		viewportHeight = 400, -- 10 visible rows
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function(item: any)
 			table.insert(activations, item.id)
@@ -167,7 +169,7 @@ local function world(opts: any?): any
 	}
 	-- a LIVE viewport height (this control accepts a Readable), for the one case
 	-- that needs the window to change without a scroll
-	local viewportHeight = if options.liveViewport ~= nil then core:signal(options.liveViewport) else nil
+	local viewportHeight = if options.liveViewport ~= nil then Compose.cell(options.liveViewport) else nil
 	if viewportHeight ~= nil then
 		spec.viewportHeight = viewportHeight
 	end
@@ -198,7 +200,7 @@ local function world(opts: any?): any
 		-- a rendered node OUTSIDE the list, for the outside-tap half of dismiss
 		table.insert(
 			children,
-			Facet.UI.Button({
+			harness.UI.Button({
 				id = "Outside",
 				label = "Outside",
 				onActivate = function()
@@ -214,7 +216,7 @@ local function world(opts: any?): any
 	if options.screenEnabled ~= nil then
 		screenSpec.enabled = options.screenEnabled
 	end
-	local screen = Facet.UI.Screen(screenSpec)
+	local screen = harness.UI.Screen(screenSpec)
 	local handle = pres.present(screen)
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
@@ -421,7 +423,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 			w.adapter.driveScroll("/S/VL", { x = 0, y = y })
 			w.pres.refresh()
 		end
-		expect(w.list.scrollTop:get()).toBe(800)
+		expect(w.list.scrollTop:peek()).toBe(800)
 		expect(w.debug().engineCount).toBe(0)
 		expect(w.debug().engagedKey).toBeNil()
 	end)
@@ -432,7 +434,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.dragLeft("r2", 80)
 		expect(w.debug().engineCount).toBe(1)
 		expect(w.debug().engagedKey).toBe("r2")
-		expect(w.list.engagedOffset:get()).toBe(-80)
+		expect(w.list.engagedOffset:peek()).toBe(-80)
 		-- ...and a second gesture on the SAME row reuses it (the cache is real)
 		w.release()
 		w.settle(20)
@@ -462,7 +464,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.dragDown("r2", 120)
 		expect(w.debug().engineCount).toBe(0)
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		w.release()
 		expect(w.debug().engineCount).toBe(0)
 	end)
@@ -517,7 +519,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		-- a tap-heavy hosted list accumulates nothing
 		expect(w.debug().engineCount).toBe(0)
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		-- and a plain list is unchanged
 		local plain = world()
 		plain.adapter.touchTap(rowHit("r1"))
@@ -525,18 +527,18 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 	end)
 
 	it("(c) rowActions + reorderable is refused at build (v1)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			virtual_list.build(Facet, core, {
 				id = "VL",
-				rows = core:signal(makeRows(4)),
+				rows = Compose.cell(makeRows(4)),
 				key = function(item: any)
 					return item.id
 				end,
 				rowHeight = 40,
 				viewportHeight = 200,
 				cell = function(item: any)
-					return Facet.UI.Text({ id = "L", text = item.label })
+					return harness.UI.Text({ id = "L", text = item.label })
 				end,
 				reorderable = true,
 				onReorder = function() end,
@@ -615,7 +617,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.adapter.driveScroll("/S/VL", { x = 0, y = 25 })
 		w.settle()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 	end)
 
 	it("(f) a plain list exposes the same debug shape with nothing hosted", function()
@@ -645,7 +647,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.release() -- the cancel/up must still land on r2's engine
 		w.settle()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		-- back to the top, and the SAME row must swipe again — from a DIFFERENT
 		-- origin, so a stale `drag` left over from the first gesture would show
 		-- up as an offset measured against the wrong starting point
@@ -653,7 +655,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.pres.refresh()
 		w.dragLeft("r2", 80, "mouse", 100)
 		expect(w.debug().engagedKey).toBe("r2")
-		expect(w.list.engagedOffset:get()).toBe(-80)
+		expect(w.list.engagedOffset:peek()).toBe(-80)
 	end)
 
 	it("(i) a row REMOVED from the data mid-drag releases the engagement", function()
@@ -666,7 +668,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.rows:set({ { id = "r1" }, { id = "r3" }, { id = "r4" }, { id = "r5" }, { id = "r6" } })
 		w.pres.refresh()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		-- ...and the dead row's engine went with it, rather than lingering
 		expect(w.debug().engineCount).toBe(0)
 		w.release()
@@ -691,7 +693,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		expect(w.debug().engineCount).toBe(1)
 
 		w.pres.dismiss(w.handle)
-		local screen2 = Facet.UI.Screen({ id = "S2", children = { w.blueprint } })
+		local screen2 = harness.UI.Screen({ id = "S2", children = { w.blueprint } })
 		local handle2 = w.pres.present(screen2)
 		w.pres.refresh()
 		w.list.bindNativeScroll(handle2.controller)
@@ -785,7 +787,7 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		local deepest = 0
 		for i = 1, 400 do
 			w.tick(FRAME)
-			deepest = math.min(deepest, w.list.engagedOffset:get())
+			deepest = math.min(deepest, w.list.engagedOffset:peek())
 			if #fired == 1 then
 				firedAt = i
 				break
@@ -966,7 +968,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		local row = w.adapter.node(rowPath("r2"))
 		expect(row.rect.x).toBe(0)
 		expect(row.presentationOffset.x).toBe(-80)
-		expect(row.presentationOffset.x).toBe(w.list.engagedOffset:get())
+		expect(row.presentationOffset.x).toBe(w.list.engagedOffset:peek())
 		-- and no OTHER row is translated
 		expect(w.adapter.node(rowPath("r3")).presentationOffset.x).toBe(0)
 	end)
@@ -985,7 +987,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 			arithmetic restated. ]]
 		local expected = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
 		local travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-travel)
+		expect(w.list.engagedOffset:peek()).toBe(-travel)
 		expect(w.debug().engagedKey).toBe("r2")
 		-- ...and the number is the button's actual painted width, not a
 		-- coincidence: the row is open at exactly the width of what it revealed
@@ -1011,7 +1013,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.release()
 		w.settle()
 		local neutralWidth = expectedTrayWidth(w, action, "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, action, "Delete"))
+		expect(w.list.engagedOffset:peek()).toBe(-expectedTravel(w, action, "Delete"))
 		local retunedWidth = expectedTrayWidth(w, action, "Delete", retuned)
 		expect(retunedWidth ~= neutralWidth).toBe(true) -- a real differential
 		w.close()
@@ -1021,7 +1023,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
-		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, action, "Delete", retuned))
+		expect(w.list.engagedOffset:peek()).toBe(-expectedTravel(w, action, "Delete", retuned))
 		-- ...and the PAINTED button agrees, which is the whole point: measured
 		-- and painted are the same number under the same theme
 		expect(w.adapter.node(trayAction("r2", "trailing", "delete")).rect.w).toBe(retunedWidth)
@@ -1046,7 +1048,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(w.activations).toEqual({})
 		-- ...and the row closed behind it: overlay gone, slide restored
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
 	end)
@@ -1062,7 +1064,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(w.adapter.node(trayGroup("r2"))).never().toBeNil()
 		w.close()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 		-- the tree is the CLOSED tree again, node for node
 		expect(#w.adapter.paths()).toBe(closed)
@@ -1246,7 +1248,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.adapter.touchTap(rowHit("r5"))
 		w.settle()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
 		-- ...and the actionless row is still an ordinary row: it activated, and
@@ -1287,7 +1289,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.adapter.touchTap(rowHit("r2"))
 		w.settle()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		expect(w.activations).toEqual({})
 		expect(#fired).toBe(0)
 		-- ...and the row is an ordinary row again: the NEXT tap activates
@@ -1395,10 +1397,10 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		local carriedClear = false
 		for _ = 1, 400 do
 			w.tick(FRAME)
-			deepest = math.min(deepest, w.list.engagedOffset:get())
+			deepest = math.min(deepest, w.list.engagedOffset:peek())
 			-- ...once the row itself has been carried clear, NOTHING may still be
 			-- painted in the strip it left (C8a's first half)
-			if w.list.engagedOffset:get() <= -rect.w * 0.95 then
+			if w.list.engagedOffset:peek() <= -rect.w * 0.95 then
 				carriedClear = true
 				expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).toBeNil()
 			end
@@ -1424,7 +1426,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		-- refused: the row is still off-row, exactly where the commit put it. (Not an
 		-- equality: the slide-off spring is still finishing, so the number moves —
 		-- what must not happen is the gesture taking the row over.)
-		expect(w.list.engagedOffset:get()).toBeLessThan(-rect.w * 0.9)
+		expect(w.list.engagedOffset:peek()).toBeLessThan(-rect.w * 0.9)
 		w.settle(400)
 		expect(fired).toEqual({ "r2" }) -- still exactly one
 		expect(w.debug().engagedKey).toBeNil()
@@ -1450,7 +1452,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.dragLeft("r12", 80)
 		w.release()
 		w.settle()
-		local open = w.list.engagedOffset:get()
+		local open = w.list.engagedOffset:peek()
 		expect(open < 0).toBe(true)
 		expect(w.adapter.node(rowPath("r12")).presentationOffset.x).toBe(open)
 		-- the viewport shrinks past r12: the row unmounts, and NOTHING closes it
@@ -1535,10 +1537,10 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r2")
-		expect(w.list.engagedOffset:get() < 0).toBe(true)
+		expect(w.list.engagedOffset:peek() < 0).toBe(true)
 		expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
 		expect(w.adapter.node(tray("r2", "leading"))).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete"))
+		expect(w.list.engagedOffset:peek()).toBe(-expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete"))
 		w.close()
 
 		-- LEADING: the same row, the other direction — mirrored sign, and the
@@ -1547,10 +1549,10 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r2")
-		expect(w.list.engagedOffset:get() > 0).toBe(true)
+		expect(w.list.engagedOffset:peek() > 0).toBe(true)
 		expect(w.adapter.node(trayAction("r2", "leading", "flag"))).never().toBeNil()
 		expect(w.adapter.node(tray("r2", "trailing"))).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(expectedTravel(w, trayAction("r2", "leading", "flag"), "Flag"))
+		expect(w.list.engagedOffset:peek()).toBe(expectedTravel(w, trayAction("r2", "leading", "flag"), "Flag"))
 		-- the leading tray is anchored at the row's LEFT edge, where it was revealed
 		expect(w.adapter.node(trayAction("r2", "leading", "flag")).rect.x).toBe(0)
 		-- ...and the leading action is the one that fires
@@ -1568,18 +1570,18 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		local travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-travel)
+		expect(w.list.engagedOffset:peek()).toBe(-travel)
 		w.close()
 
 		-- UNDER half, with no flick in the gesture: back to closed, tray gone
 		local short = travel * 0.4
 		expect(short > LOCK).toBe(true) -- still a real horizontal gesture
 		w.dragLeftNoFlick("r2", short)
-		expect(w.list.engagedOffset:get()).toBeCloseTo(-short, 0.001) -- it tracked the finger...
+		expect(w.list.engagedOffset:peek()).toBeCloseTo(-short, 0.001) -- it tracked the finger...
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBeNil() -- ...and then snapped back
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 
 		-- PAST half, same shape of gesture: settles open at the measured width
@@ -1587,7 +1589,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r2")
-		expect(w.list.engagedOffset:get()).toBe(-travel)
+		expect(w.list.engagedOffset:peek()).toBe(-travel)
 	end)
 
 	it("(P2b) REGRESSION: every later short swipe on the SAME row also snaps back (the reused spring)", function()
@@ -1600,7 +1602,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			the last flight left it. A snap-back aims it at 0, which is exactly
 			where it already was: no steps, no writes, and the row stayed parked at
 			the drag's last offset with `engagedKey` still set and no tray to close
-			it. Fixed by re-seeding at the drag's end (`spring:snap(offset:get())`,
+			it. Fixed by re-seeding at the drag's end (`spring:snap(offset:peek())`,
 			src/controls/row_actions.luau), mirroring the collapse spring's own
 			re-seed.
 
@@ -1611,11 +1613,11 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		local travel: number? = nil
 		for _ = 1, 3 do
 			w.dragLeftNoFlick("r2", 30) -- a real gesture, under the open threshold
-			expect(w.list.engagedOffset:get()).toBeCloseTo(-30, 0.001)
+			expect(w.list.engagedOffset:peek()).toBeCloseTo(-30, 0.001)
 			w.release()
 			w.settle()
 			-- ...back to rest, EVERY time — never 30px further out than last time
-			expect(w.list.engagedOffset:get()).toBe(0)
+			expect(w.list.engagedOffset:peek()).toBe(0)
 			expect(w.debug().engagedKey).toBeNil()
 			expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 			expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
@@ -1626,7 +1628,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-(travel :: number))
+		expect(w.list.engagedOffset:peek()).toBe(-(travel :: number))
 		expect(#fired).toBe(0)
 	end)
 
@@ -1644,13 +1646,13 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		w.close()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 
 		w.dragLeftNoFlick("r2", 30)
-		expect(w.list.engagedOffset:get()).toBeCloseTo(-30, 0.001)
+		expect(w.list.engagedOffset:peek()).toBeCloseTo(-30, 0.001)
 		w.adapter.interruptCapture()
 		w.settle()
-		expect(w.list.engagedOffset:get()).toBe(0) -- not left parked at -30
+		expect(w.list.engagedOffset:peek()).toBe(0) -- not left parked at -30
 		expect(w.debug().engagedKey).toBeNil()
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
@@ -1687,7 +1689,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.settle(400)
 		expect(fired).toEqual({}) -- NOT committed
 		expect(w.debug().engagedKey).toBe("r2") -- left open instead
-		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete"))
+		expect(w.list.engagedOffset:peek()).toBe(-expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete"))
 		-- ...and the row never collapsed on the way (a commit's own signature)
 		expect(w.adapter.node(rowPath("r2")).rect.h).toBe(40)
 		-- the action is still reachable the ordinary way (a destructive tap runs
@@ -1723,7 +1725,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		local w = world({ rowActions = destructiveActions(fired) })
 		local rowWidth = commitInFlight(w, "r2")
 		expect(fired).toEqual({}) -- mid-flight, before the fire
-		expect(w.list.engagedOffset:get() < -rowWidth * 0.6).toBe(true)
+		expect(w.list.engagedOffset:peek() < -rowWidth * 0.6).toBe(true)
 		-- r4 presses: the dispatcher asks r2's engine to close (the in-list
 		-- dismiss) AND the coordinator claim moves — neither may cancel r2
 		w.dragLeft("r4", 80)
@@ -1776,14 +1778,14 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		local travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-travel)
+		expect(w.list.engagedOffset:peek()).toBe(-travel)
 
 		w.dragLeft("r4", 80)
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r4")
 		expect(w.debug().engineCount).toBe(2) -- both rows kept their engines...
-		expect(w.list.engagedOffset:get()).toBe(-travel)
+		expect(w.list.engagedOffset:peek()).toBe(-travel)
 		-- ...and r2 is closed: no tray, no slide, and its own content is flat
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
@@ -1815,7 +1817,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.close()
 		expect(w.debug().engagedKey).toBeNil()
 		-- focus sits on the first row's hit (the presenter's own initial focus)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		w.system.deviceKey("Delete", true)
 		w.system.deviceKey("Delete", false)
 		w.settle(400)
@@ -1845,7 +1847,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 	it("(P8b) Delete on a row NOBODY has swiped fires its destructive action, building ONE engine", function()
 		local fired: { string } = {}
 		local w = world({ rowActions = destructiveActions(fired) })
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		expect(w.debug().engineCount).toBe(0) -- nothing built by mounting or focusing
 		w.system.deviceKey("Delete", true)
 		w.system.deviceKey("Delete", false)
@@ -1894,7 +1896,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			w.system.deviceKey("DPadDown", false)
 		end
 		w.settle(30)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r9"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r9"))
 		expect(w.debug().engineCount).toBe(0)
 		w.system.deviceKey("Delete", true)
 		w.system.deviceKey("Delete", false)
@@ -1913,7 +1915,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 				return destructiveActions(fired)(item)
 			end,
 		})
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		w.system.deviceKey("Delete", true)
 		w.system.deviceKey("Delete", false)
 		w.settle(200)
@@ -2008,7 +2010,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.settle()
 		w.close()
 		expect(w.debug().engineCount).toBe(1)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		w.system.deviceKey("Delete", true)
 		w.system.deviceKey("Delete", false)
 		w.settle(400)
@@ -2066,19 +2068,19 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		-- pad, below and in (P9c)/(P9d))
 
 		-- ...and the d-pad walks it: r1 (initial focus) -> r2 -> right, into the tray
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		press(w, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(action)
+		expect(w.pres.focus.focused:peek()).toBe(action)
 		expect(w.adapter.node(action).focused).toBe(true) -- and the ring is painted
 		-- ...back out the way it came in: onto the ENGAGED row, not row 1
 		press(w, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 
 		-- ButtonA on the action fires it, exactly as a tap does — and closes the row
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(action)
+		expect(w.pres.focus.focused:peek()).toBe(action)
 		press(w, "ButtonA")
 		w.settle()
 		expect(fired).toEqual({ "r2" })
@@ -2089,7 +2091,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			scope is `entryFocus` — the first focusable in the whole scope, i.e. r1
 			(on a real screen, whatever sits at the top). It must be the row the
 			player was working on. ]]
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		expect(w.adapter.node(rowHit("r2")).focused).toBe(true)
 		-- the tray is gone, so the map is one group again
 		expect(#w.handle.focusOrder().navigation).toBe(1)
@@ -2107,14 +2109,14 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			w.settle()
 			press(w, "DPadDown")
 			press(w, "DPadRight")
-			expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "trailing", "delete"))
+			expect(w.pres.focus.focused:peek()).toBe(trayAction("r2", "trailing", "delete"))
 		end
 
 		-- (1) a SCROLL (the coordinator's own close)
 		local scrolled = world({ rowActions = trailingActions(fired) })
 		toTray(scrolled)
 		scrolled.close()
-		expect(scrolled.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(scrolled.pres.focus.focused:peek()).toBe(rowHit("r2"))
 
 		-- (2) CANCEL / ButtonB (the list's handleCancel -> the engine)
 		local cancelled = world({ rowActions = trailingActions(fired) })
@@ -2122,7 +2124,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		press(cancelled, "ButtonB")
 		cancelled.settle()
 		expect(cancelled.debug().engagedKey).toBeNil()
-		expect(cancelled.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(cancelled.pres.focus.focused:peek()).toBe(rowHit("r2"))
 
 		-- (3) a tap OUTSIDE the list (the presenter's outsideDismiss)
 		local tapped = world({ rowActions = trailingActions(fired), sibling = true })
@@ -2135,7 +2137,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		-- the player just made themselves, and it does not — what it prevents is
 		-- the ring being stranded at the top of the surface, which is neither of
 		-- these two paths
-		expect(tapped.pres.focus.focused:get()).toBe("/S/Outside")
+		expect(tapped.pres.focus.focused:peek()).toBe("/S/Outside")
 		expect(#fired).toBe(0) -- none of these is a commit
 	end)
 
@@ -2179,29 +2181,29 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 
 		press(w, "DPadDown")
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(flag) -- the near end: entered from the row
+		expect(w.pres.focus.focused:peek()).toBe(flag) -- the near end: entered from the row
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(delete)
+		expect(w.pres.focus.focused:peek()).toBe(delete)
 		-- CONTAINED: no exit past the far end, and none along the other axis —
 		-- the row group is one press away, but only through the way in
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(delete)
+		expect(w.pres.focus.focused:peek()).toBe(delete)
 		press(w, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(delete)
+		expect(w.pres.focus.focused:peek()).toBe(delete)
 		press(w, "DPadUp")
-		expect(w.pres.focus.focused:get()).toBe(delete)
+		expect(w.pres.focus.focused:peek()).toBe(delete)
 		-- ...and back out, one step at a time, onto the row it belongs to
 		press(w, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(flag)
+		expect(w.pres.focus.focused:peek()).toBe(flag)
 		press(w, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		-- the SECOND action is reachable and fires alone
 		press(w, "DPadRight")
 		press(w, "DPadRight")
 		press(w, "ButtonA")
 		w.settle()
 		expect(fired).toEqual({ "r2" }) -- Delete, not Flag
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 	end)
 
 	it("(P9d) a LEADING tray is entered from the other side (the edge decides the direction)", function()
@@ -2239,11 +2241,11 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		-- RIGHT does nothing: there is no trailing tray to enter (the row group's
 		-- only tray exit is the edge the revealed tray is actually on)
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		press(w, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(flag)
+		expect(w.pres.focus.focused:peek()).toBe(flag)
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 	end)
 
 	it("(P9b) Tab reaches the revealed tray button too (the presenter's document-order rank)", function()
@@ -2266,7 +2268,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		for _ = 1, #ranked do
 			w.system.deviceKey("Tab", true)
 			w.system.deviceKey("Tab", false)
-			if w.pres.focus.focused:get() == action then
+			if w.pres.focus.focused:peek() == action then
 				seen = true
 				break
 			end
@@ -2293,7 +2295,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r5")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		w.settle()
@@ -2336,9 +2338,9 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 
 		-- CLOSED: the author's exit is what Right means
 		press(w, "DPadDown")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/S/Outside")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Outside")
 
 		-- ...a tray is revealed, and now Right reaches the ACTIONS
 		w.dragLeft("r2", 80)
@@ -2346,19 +2348,19 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.settle()
 		-- (the swipe was a pointer gesture, which leaves the ring where it was)
 		w.pres.focus.focusOn(rowHit("r2"))
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "trailing", "delete"))
+		expect(w.pres.focus.focused:peek()).toBe(trayAction("r2", "trailing", "delete"))
 		-- ...and back out the way it came in
 		press(w, "DPadLeft")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 
 		-- ...the tray closes, and the author's exit is back — not overwritten
 		w.close()
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		press(w, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/S/Outside")
+		expect(w.pres.focus.focused:peek()).toBe("/S/Outside")
 		expect(#fired).toBe(0)
 	end)
 
@@ -2384,7 +2386,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			keyboardNavigation = true,
 		})
 		-- nothing in the list takes focus at all while it is closed
-		expect(w.pres.focus.focused:get()).toBeNil()
+		expect(w.pres.focus.focused:peek()).toBeNil()
 		expect(#w.handle.focusOrder().navigation).toBe(1)
 
 		w.dragLeft("r2", 80)
@@ -2392,7 +2394,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.settle()
 		local action = trayAction("r2", "trailing", "delete")
 		press(w, "Tab")
-		expect(w.pres.focus.focused:get()).toBe(action)
+		expect(w.pres.focus.focused:peek()).toBe(action)
 		press(w, "Return")
 		w.settle()
 		expect(fired).toEqual({ "r2" })
@@ -2432,7 +2434,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.settle()
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r2"))
 		w.system.deviceKey("ButtonX", true)
 		w.system.deviceKey("ButtonX", false)
 		w.pres.refresh()
@@ -2474,13 +2476,13 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r1")
-		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(rowHit("r1"))
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.settle()
 		-- closed, and the press was SWALLOWED — the same verdict the tap gets
 		expect(w.debug().engagedKey).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.list.engagedOffset:peek()).toBe(0)
 		expect(w.adapter.node(trayGroup("r1"))).toBeNil()
 		expect(w.adapter.node(rowPath("r1")).presentationOffset.x).toBe(0)
 		expect(w.activations).toEqual({})
@@ -2587,7 +2589,7 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 			swipe(w, "r2", "trailing", pointerType, order)
 			expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
 			expect(w.debug().engagedKey).toBe("r2") -- revealed, and STILL revealed
-			expect(w.list.engagedOffset:get() < 0).toBe(true)
+			expect(w.list.engagedOffset:peek() < 0).toBe(true)
 			expect(w.activations).toEqual({}) -- a swipe is not a tap
 			expect(fired).toEqual({}) -- and it ran no action either
 			expect(#w.handle.controller.diagnostics()).toBe(0)
@@ -2602,7 +2604,7 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 			swipe(lead, "r2", "leading", pointerType, order)
 			expect(lead.adapter.node(trayAction("r2", "leading", "flag"))).never().toBeNil()
 			expect(lead.debug().engagedKey).toBe("r2")
-			expect(lead.list.engagedOffset:get() > 0).toBe(true)
+			expect(lead.list.engagedOffset:peek() > 0).toBe(true)
 			expect(lead.activations).toEqual({})
 			expect(leadFired).toEqual({})
 			expect(#lead.handle.controller.diagnostics()).toBe(0)
@@ -2825,7 +2827,7 @@ end)
 describe("a tray already open when its subtree is disabled leaves the ring (2026-09-07)", function()
 	it("its action buttons are in the group while enabled, and gone the frame it is disabled", function()
 		local fired: { string } = {}
-		local enabled = Facet.newCore():signal(true)
+		local enabled = Compose.cell(true)
 		local w = world({ rowActions = trailingActions(fired), screenEnabled = enabled, keyboardNavigation = true })
 		w.dragLeft("r2", 80)
 		w.release()

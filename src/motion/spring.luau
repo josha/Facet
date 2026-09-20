@@ -1,5 +1,7 @@
 --!strict
--- The pure spring solver: semi-implicit Euler,
+-- Facet spring policy over Compose’s public spring integrator.
+-- Compose owns integration; Facet keeps its absolute UI settle threshold,
+-- frame-spike limit and gesture velocity handoff. Motion classes are
 -- parameterized the way designers ship motion — TWO numbers, never
 -- mass/stiffness/damping:
 --
@@ -31,6 +33,7 @@
 -- velocities.
 
 local num = require("../num")
+local Compose = require("../vendor/compose/core")
 
 local spring = {}
 
@@ -57,7 +60,7 @@ export type Params = {
 }
 
 export type Spring = {
-	get: (self: Spring) -> number,
+	peek: (self: Spring) -> number,
 	getVelocity: (self: Spring) -> number,
 	getTarget: (self: Spring) -> number,
 	setTarget: (self: Spring, target: number) -> (),
@@ -76,15 +79,6 @@ export type Spring = {
 -- the surface permanently. Reject at the boundary and keep the last good state.
 local isFinite = num.isFinite
 
-local function coeffs(dampingRatio: number, response: number): (number, number)
-	-- response must stay positive: a zero/negative response divides by zero.
-	-- Guard here rather than trusting the call site (classes.luau validates the
-	-- authored range; this is the last line of defence).
-	local r = math.max(response, 1e-4)
-	local omega = (2 * math.pi) / r
-	return omega * omega, 2 * dampingRatio * omega
-end
-
 function spring.new(initial: number, params: Params, eps: number?): Spring
 	assert(
 		type(params) == "table" and type(params.dampingRatio) == "number" and type(params.response) == "number",
@@ -92,20 +86,21 @@ function spring.new(initial: number, params: Params, eps: number?): Spring
 	)
 	assert(isFinite(initial), "Facet motion: a spring needs a finite initial value")
 
-	local k, c = coeffs(params.dampingRatio, params.response)
+	local response = math.max(params.response, 1e-4)
+	local state = Compose.createSpringState({ initial }, 1)
+	local aim = { initial }
 	local epsilon = if eps ~= nil and isFinite(eps) and eps > 0 then eps else DEFAULT_EPS
-	local x = initial
-	local v = 0
 	local target = initial
 
 	local self = {}
 
-	function self.get(_: any): number
-		return x
+	-- `peek`, as Compose spells a current-value read
+	function self.peek(_: any): number
+		return state.position[1]
 	end
 
 	function self.getVelocity(_: any): number
-		return v
+		return state.velocity[1]
 	end
 
 	function self.getTarget(_: any): number
@@ -119,6 +114,7 @@ function spring.new(initial: number, params: Params, eps: number?): Spring
 			return -- keep the last good aim (see isFinite)
 		end
 		target = newTarget
+		aim[1] = newTarget
 	end
 
 	-- Seed the velocity: the gesture→animation handoff. A release velocity in
@@ -129,36 +125,28 @@ function spring.new(initial: number, params: Params, eps: number?): Spring
 		if not isFinite(velocity) then
 			return
 		end
-		v = velocity
+		state.velocity[1] = velocity
 	end
 
 	function self.step(_: any, dt: number): boolean
 		if dt > 0 then
-			local frame = if dt > MAX_DT then MAX_DT else dt
-			local steps = math.max(1, math.ceil(frame / MAX_SUBSTEP))
-			local h = frame / steps
-			for _ = 1, steps do
-				-- semi-implicit Euler: advance velocity from the current
-				-- position, then advance position with the NEW velocity
-				local a = -k * (x - target) - c * v
-				v += a * h
-				x += v * h
-			end
+			Compose.stepSpring(state, aim, math.min(dt, MAX_DT), response, params.dampingRatio)
 		end
-		return math.abs(x - target) <= epsilon and math.abs(v) <= epsilon
+		return math.abs(state.position[1] - target) <= epsilon and math.abs(state.velocity[1]) <= epsilon
 	end
 
 	function self.isSettled(_: any): boolean
-		return math.abs(x - target) <= epsilon and math.abs(v) <= epsilon
+		return math.abs(state.position[1] - target) <= epsilon and math.abs(state.velocity[1]) <= epsilon
 	end
 
 	function self.snap(_: any, value: number)
 		if not isFinite(value) then
 			return
 		end
-		x = value
+		state.position[1] = value
 		target = value
-		v = 0
+		aim[1] = value
+		state.velocity[1] = 0
 	end
 
 	return self :: any

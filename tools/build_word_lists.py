@@ -415,13 +415,14 @@ def manifest_module(manifest: dict) -> str:
     """The manifest as Luau, so the suite can hold the drift claim with no Python."""
 
     def lua(value, indent=""):
+        child_indent = indent + "\t"
         if isinstance(value, dict):
             inner = "".join(
-                f'{indent}\t["{k}"] = {lua(v, indent + "\t")},\n' for k, v in value.items()
+                f'{indent}\t["{k}"] = {lua(v, child_indent)},\n' for k, v in value.items()
             )
             return "{\n" + inner + indent + "}"
         if isinstance(value, list):
-            inner = "".join(f"{indent}\t{lua(v, indent + '\t')},\n" for v in value)
+            inner = "".join(f"{indent}\t{lua(v, child_indent)},\n" for v in value)
             return "{\n" + inner + indent + "}"
         if isinstance(value, bool):
             return "true" if value else "false"

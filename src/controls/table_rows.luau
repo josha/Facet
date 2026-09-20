@@ -1,51 +1,7 @@
 --!strict
---[[ THE ROW/CELL BUILDER for `controls/table.luau` — one row's whole mounted
-	shape, and the pointer gestures that shape answers to.
-
-	WHY IT IS ITS OWN FILE, AND WHY IT HAD TO BE THIS ONE.
-	`tools/lune/verify/data/source-cap-ledger.md`'s row for `table.luau` named this seam
-	and made it a PRECONDITION rather than a companion — "THE NEXT CHANGE OF ANY
-	SIZE MUST BE PRECEDED BY THE BUILDER EXTRACTION, not accompanied by it". The
-	file was 1,236 characters from the 200,000-char Source WRITE cap, past which
-	a module stops live-syncing into an open Studio session, silently, so a live
-	check against it tests the built place rather than the edit.
-
-	WHAT MADE IT EXTRACTABLE, when the same ledger row records that no one-way
-	seam existed. Every large block in `newTable` reads mutable instance
-	upvalues, so the checker's own mutable-upvalue test — the rule for a move
-	that cannot create a require back — failed by construction. The ledger's
-	answer was a SHAPE, not a size: this pair "becomes one-way the moment the
-	row's inputs are a parameter object rather than upvalues". `new(deps)` below
-	is that parameter object.
-
-	THE WHOLE COST WAS TWO SCALARS. Of everything the pair shared with what
-	stayed behind, exactly two were mutable AND reassigned — the live row drag
-	and the activate suppression — and a REASSIGNED local cannot be shared by
-	reference at all, which is precisely why this seam was closed for so long.
-	They are now one record (`deps.rowGesture`), the same spelling
-	`screen_scroll_indicators` took for the one upvalue it shares with its host.
-	The mutable TABLE both halves still write, `rowActionsByKey`, needed nothing
-	whatsoever: a table already IS a reference, so this file inserts and
-	`table.luau` prunes and disposes, exactly as before. Everything else in
-	`Deps` is a value, a signal, or a function, and
-	`tests/table_rows_seam.spec.luau` pins the shared WRITE surface to exactly
-	those two names.
-
-	IT IS ONE-WAY MECHANICALLY, NOT ASPIRATIONALLY. This module requires
-	`table.luau` nowhere and names no type from it — `Column` below is
-	STRUCTURAL, spelling only the fields the builder reads, because importing
-	the real type would be the require back the extraction exists to make
-	impossible. `tests/table_rows_seam.spec.luau` is the read-vs-write seam
-	test that keeps it that way.
-
-	WHAT STAYED BEHIND, and why it is not an arbitrary line. The drag's own
-	MODEL — `applyDragPosition`, `liveDragRects`, `cancelDrag`,
-	`clearPointerDrag`, the drop-slot arithmetic and the scroll mirror — is
-	shared with `api.handleActivate`, the interaction-class observer and the
-	rows-pruning observer, none of which are a row's blueprint. This module is
-	the row's SHAPE and the gestures that begin on it; the table's own state
-	machine answers back through `deps`.
-]]
+local Compose = require("../vendor/compose/core")
+-- Row content and pointer gestures. Table supplies shared state through Deps;
+-- this module does not import the table implementation.
 
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
@@ -57,10 +13,7 @@ local interactionTokens = require("../input/interaction_tokens")
 
 local table_rows = {}
 
---[[ THE FIELDS OF `table.luau`'s `Column` THIS BUILDER READS, spelled
-	structurally. `[string]: any` keeps a column the caller hands in assignable
-	without this file claiming to know the whole shape — the closed key set that
-	polices the real one stays where the spec is declared. ]]
+-- Only the column fields read by this builder belong in this interface.
 export type Column = {
 	id: string,
 	cell: ((item: any) -> any)?,
@@ -71,23 +24,13 @@ export type Column = {
 	[string]: any,
 }
 
---[[ THE ONE MUTABLE CELL THE TWO FILES SHARE. `drag` is the live row drag (nil
-	between gestures) and `suppressActivate` is the path whose next `Activated`
-	is a drag/swipe artifact rather than a tap. Both are WRITTEN on both sides of
-	the seam — this file arms them from the gestures that create them, and
-	`table.luau` clears them from `cancelDrag`, from `api.handleActivate` and
-	from the capability-loss observer — so neither can be a value passed in and
-	neither can be a getter/setter pair without a second source of truth. A
-	record is the one spelling in which both files name the same cell. ]]
+-- Shared gesture state lets the table cancel a drag or suppress its final activation.
 export type Gesture = {
 	drag: any,
 	suppressActivate: string?,
 }
 
---[[ EVERY INPUT THE ROW BUILDER HAS, BY NAME. The list IS the seam test: a
-	field added here is a fact the table decided and handed over; a field this
-	module would rather reach for is a require back, and there is nowhere to put
-	one. Ordered as `table.luau` declares them. ]]
+-- Table supplies the model, geometry, and interaction services used by its rows.
 export type Deps = {
 	Facet: any,
 	core: any,
@@ -128,17 +71,13 @@ export type Deps = {
 	-- here, owned by `table.luau`, spent by `table_header.band` (see
 	-- `noteEditGutter` below for why the number is taken rather than re-derived)
 	rowEditGutter: any,
-	-- `table.luau`'s OWN scope (`local scope = core:scope(...)`) — the one
-	-- `tbl.dispose()` tears down. `noteEditGutter` below owns its rebindable
-	-- observer into it, the same idiom every other `core:observe` call site in
-	-- this file's pair uses, so the FINAL row's subscription is released when
-	-- the table itself is.
-	scope: any,
+	-- The table's Compose owner releases the final gutter subscription.
+	owner: any,
 	-- the ONE environment `table.luau` resolved (`spec.env`, else the one
 	-- published against the core): a wrapped row's tray must not resolve its
 	-- metrics against a different one than the row box did
 	surfaceEnvironment: any,
-	selectedMemo: (string) -> any,
+	grabbedKey: any,
 	itemForKey: (string) -> any?,
 	applyDragPosition: ({ x: number, y: number }) -> (),
 	clearPointerDrag: () -> (),
@@ -147,16 +86,13 @@ export type Deps = {
 }
 
 -- Task 10: the closed key set for whatever `spec.rowActions(item)` returns
--- for a single row — the same three fields `newRowActions` itself exposes
+-- for a single row — the same three fields `UI.RowActions` itself exposes
 -- besides `content`/`coordinator`/`env`/`editing` (Table supplies those
 -- four). Checked per row, at build, so a typo names the offending row rather
 -- than surfacing as a silently-ignored option (constitution §4).
 local ROW_ACTIONS_RESULT_KEYS = specGuard.keySet({ "leading", "trailing", "fullSwipe" })
 
---[[ ONE ENTRY POINT: `blueprint(entry, itemScope)`, the `UI.ForEach` row
-	function. `rowPointerHandlers`, `handleDragHandlers` and `isHandleZonePress`
-	are reachable ONLY through it — they were already private to the pair before
-	the move, which is why the seam needed no new surface at all. ]]
+-- The collection calls blueprint; pointer handlers remain private to each row.
 function table_rows.new(deps: Deps)
 	local Facet = deps.Facet
 	local core = deps.core
@@ -188,61 +124,16 @@ function table_rows.new(deps: Deps)
 	local columnDim = deps.columnDim
 	local columnHidden = deps.columnHidden
 	local canEditMode = deps.canEditMode
-	local scope = deps.scope
+	local owner = deps.owner
 	local surfaceEnvironment = deps.surfaceEnvironment
-	local selectedMemo = deps.selectedMemo
+	local grabbedKey = deps.grabbedKey
 	local itemForKey = deps.itemForKey
 	local applyDragPosition = deps.applyDragPosition
 	local clearPointerDrag = deps.clearPointerDrag
 	local liveDragRects = deps.liveDragRects
 	local cancelDrag = deps.cancelDrag
-	--[[ THE ⊖ GUTTER THE HEADING BAND HAS TO MATCH (director report 2026-08-22:
-		"Name sits over the minus circles").
-
-		A row that carries a destructive action is WRAPPED by `row_actions`, and the
-		composite insets the content it was handed — this row, cells and all — by its
-		own edit-mode gutter (`row_actions_root` spends `editGutterPx` as that
-		content's LEFT PADDING). That is on top of the ≡/◉ gutter `cellsEditPadding`
-		already pays. The heading band sits outside every row and pays neither, so
-		every column came apart the instant edit mode opened.
-
-		THE NUMBER IS TAKEN, NOT RE-DERIVED. `api.editGutterPx` is the composite's
-		own published reading — the same Readable its padding is spent from, 0
-		whenever the mode is closed — so the band and the row cannot disagree. A
-		second `editAffordance + rowGutter` sum here would be the "two
-		implementations that agree today" shape this file's other comments keep
-		finding at the bottom of a defect, and it would go stale the next time
-		anything else claims leading room in a row.
-
-		ONE OBSERVATION, RE-POINTED at the most recently built wrapped row. Every row
-		that can show the minus publishes the SAME number (two theme metrics and the
-		mode), so which row is watched does not change the reading — and re-pointing
-		rather than accumulating is what stops a table that rebuilds its rows from
-		growing one observer per rebuild. The write is equality-guarded by the signal
-		itself, so a row built while the mode is closed writes nothing at all.
-
-		OWNED, LIKE EVERY OTHER OBSERVE IN THIS PAIR (scope-neutrality fix,
-		FIX-SHOW round 2). `unbindEditGutter` still fires by hand on every rebind —
-		that manual call is what keeps a rebuilding table from accumulating one
-		observer per row — but until this fix the disposer `core:observe` returns
-		was never also handed to `scope`, so the FINAL wrapped row's subscription
-		had no owner at all: nothing calls it when `tbl.dispose()` runs.
-		`src/core/custom.luau` (the production default) happens to self-heal this
-		one today — a disposed signal/memo's OWN `node.dispose()` walks its
-		`node.observers` and force-decrements `counts.observers` for each,
-		because `tbl.dispose()` always disposes the owning `row_actions` instance
-		(hence `editGutterPx`) before Table's own `scope` — but `core/contract.
-		luau`'s promise is that an observer is released ONLY through the disposer
-		`core:observe` returns, and `bench/cores/imperative.luau` (the other
-		conforming core this repo keeps as a development fixture and runs the
-		identical control suite against) keeps exactly that promise with no
-		self-heal, so there the subscription is never released at all.
-		`scope:own` fixes that under
-		EITHER core, the same way the other seven `core:observe` call sites in
-		this file's pair do; calling an already-disposed observer's unbind again
-		(the walk `scope:dispose()` performs on every prior row's now-stale
-		entry) is a no-op by construction on both cores, so nothing here
-		double-frees. ]]
+	-- The header reads the row wrapper's edit gutter so their columns stay aligned.
+	-- Rebinding releases the previous observer; the table owner releases the last one.
 	local rowEditGutter = deps.rowEditGutter
 	local unbindEditGutter: (() -> ())? = nil
 	local function noteEditGutter(source: any)
@@ -252,10 +143,10 @@ function table_rows.new(deps: Deps)
 		if unbindEditGutter ~= nil then
 			unbindEditGutter()
 		end
-		unbindEditGutter = scope:own(core:observe(source, function()
-			rowEditGutter:set(source:get())
-		end))
-		rowEditGutter:set(source:get())
+		unbindEditGutter = owner.watchStatic(source, function()
+			rowEditGutter:set(source:peek())
+		end)
+		rowEditGutter:set(source:peek())
 	end
 	-- the edit-mode ≡ handle reuses the row-drag closures; forward-declared for
 	-- the same reason it always was (it is built after them and read by the
@@ -270,20 +161,25 @@ function table_rows.new(deps: Deps)
 	-- A `cell`/`cellFor` blueprint belongs to the consumer, who may put a scrolling
 	-- panel or an image in there; the table caps what it makes, not what it is given.
 	local function cellContentFor(column: Column, item: any, lineCap: any): any
+		local current = if not Compose.isReadable(item) then Compose.cell(item) else item
 		if column.cell ~= nil then
-			return (column.cell :: any)(item)
+			return (column.cell :: any)(current)
 		end
 		if column.value ~= nil then
 			return UI.Text({
 				id = "Value",
-				text = tostring((column.value :: any)(item)),
+				text = if Compose.isReadable(current)
+					then function(use)
+						return tostring((column.value :: any)(use(current)))
+					end
+					else tostring((column.value :: any)(current)),
 				textSize = "controls.table.cellTextSize",
 				lineLimit = lineCap,
 				disclose = if column.disclose == true then true else nil,
 			})
 		end
 		assert(spec.cellFor ~= nil, `Table '{tableId}': column '{column.id}' has no cell/value and no spec.cellFor`)
-		return (spec.cellFor :: any)(column.id, item)
+		return (spec.cellFor :: any)(column.id, current)
 	end
 
 	-- press→drag promotion, from the SHARED token table —
@@ -303,7 +199,7 @@ function table_rows.new(deps: Deps)
 	-- defers to the axis lock — a wrapped, reorderable, editing row must keep
 	-- this exact decline, unchanged, ahead of any row-actions gesture.
 	local function isHandleZonePress(path: string, pos: any, rectOf: (string) -> any): boolean
-		if not (editingSignal:get() and string.match(path, "/Row/Hit$") ~= nil) then
+		if not (editingSignal:peek() and string.match(path, "/Row/Hit$") ~= nil) then
 			return false
 		end
 		-- THE GRAB ZONE IS READ, NOT RE-DERIVED (director report 2026-07-28).
@@ -370,7 +266,7 @@ function table_rows.new(deps: Deps)
 					rowActionsInstance._close()
 				end
 				local item
-				for _, candidate in spec.rows:get() do
+				for _, candidate in spec.rows:peek() do
 					if spec.key(candidate) == rowKey then
 						item = candidate
 					end
@@ -415,10 +311,10 @@ function table_rows.new(deps: Deps)
 					rowGesture.suppressActivate = path
 					-- dragging a SELECTED row picks up the whole selection
 					-- (document order); an unselected row drags alone
-					local selected = selectedKeys:get()
+					local selected = selectedKeys:peek()
 					local group: { string } = {}
 					if selectionMode ~= "none" and selected[rowGesture.drag.rowKey] == true then
-						for _, item in spec.rows:get() do
+						for _, item in spec.rows:peek() do
 							local key = spec.key(item)
 							if selected[key] == true then
 								table.insert(group, key)
@@ -468,7 +364,7 @@ function table_rows.new(deps: Deps)
 					local remaining: { string } = {}
 					local index0 = 0
 					local draggedAboveSlot = 0
-					for _, item in spec.rows:get() do
+					for _, item in spec.rows:peek() do
 						local key = spec.key(item)
 						table.insert(ordered, key)
 						if draggedSet[key] then
@@ -543,29 +439,51 @@ function table_rows.new(deps: Deps)
 		}
 	end
 
-	local function rowBlueprint(entry: any, itemScope: any): any
-		local item = entry.item
+	-- Uniform rows share their geometry derivations. Item-dependent heights keep
+	-- per-row formulas so replacements still update without remounting controls.
+	local uniformHeight, uniformCap
+	if type(spec.rowHeight) ~= "function" then
+		Compose.withOwner(owner, function()
+			uniformHeight = Compose.formula(function(use)
+				return { type = "fixed", px = rowHeightOf(nil, use(rowBox)) }
+			end)
+			uniformCap = Compose.formula(function(use)
+				local box = use(rowBox)
+				return capFor(box, rowHeightOf(nil, box))
+			end)
+		end)
+	end
+
+	local function rowBlueprint(entry: any, itemScope: any, currentItem: any): any
+		itemScope = Compose.currentOwner()
+		local item = entry
+		local current = currentItem
 		local rowKey = spec.key(item)
-		-- rows flow at their NATURAL document positions inside the native scroll
-		-- host — no per-row offset (native §4). The engine owns the offset via
-		-- CanvasPosition; partial rows crop through the ScrollingFrame's clip.
-		--
-		-- BOTH ARE PER ROW AND BOTH ARE REACTIVE, and they are memos on the ROW's own
-		-- scope, which the ForEach disposes with the row: `rowHeight` may be a
-		-- function of the item, so one table-wide answer would be a guess, and the
-		-- derived height moves under a theme swap or an accessibility text change —
-		-- which must RE-SOLVE the rows in place, never rebuild them (a rebuild would
-		-- drop selection, focus and any live in-cell control).
-		local heightDim = itemScope:own(core:memo(function(use)
-			return { type = "fixed", px = rowHeightOf(item, use(rowBox)) }
-		end))
+		local function selectionValue(use)
+			return use(selectedKeys)[rowKey] == true or use(grabbedKey) == rowKey
+		end
+		local rowSelected = if not canEditMode
+			then selectionValue
+			else Compose.withOwner(itemScope, function()
+				return Compose.formula(selectionValue)
+			end)
+		-- Theme and text-size changes update shared or item-specific row geometry.
+		local heightDim = uniformHeight
+			or Compose.withOwner(itemScope, function()
+				return Compose.formula(function(use)
+					return { type = "fixed", px = rowHeightOf(if current then use(current) else item, use(rowBox)) }
+				end)
+			end)
 		-- ...and the cap the cells are measured against IS this row's height: see
 		-- rowBoxFor. This is what makes a cell physically unable to paint outside the
 		-- row it belongs to, whoever chose the height.
-		local cellCap = itemScope:own(core:memo(function(use)
-			local box = use(rowBox)
-			return capFor(box, rowHeightOf(item, box))
-		end))
+		local cellCap = uniformCap
+			or Compose.withOwner(itemScope, function()
+				return Compose.formula(function(use)
+					local box = use(rowBox)
+					return capFor(box, rowHeightOf(if current then use(current) else item, box))
+				end)
+			end)
 		local cells = {}
 		for _, column in columns do
 			local alignment = column.alignment or {}
@@ -584,7 +502,7 @@ function table_rows.new(deps: Deps)
 					padding = { left = cellPadding, right = cellPadding },
 					alignV = ALIGN_V[alignment.v or "center"],
 					alignH = ALIGN_H[alignment.h or "leading"],
-					children = { cellContentFor(column, item, cellCap) },
+					children = { cellContentFor(column, current or item, cellCap) },
 				})
 			)
 		end
@@ -601,7 +519,7 @@ function table_rows.new(deps: Deps)
 			rowActionsResult = spec.rowActions(item)
 			if rowActionsResult ~= nil then
 				specGuard.assertKnownKeys(
-					"newTable",
+					"UI.Table",
 					rowActionsResult,
 					ROW_ACTIONS_RESULT_KEYS,
 					`spec.rowActions result (row '{rowKey}')`
@@ -626,33 +544,8 @@ function table_rows.new(deps: Deps)
 			hitOnPointerUp = dragHandlers and dragHandlers.onPointerUp
 			hitOnPointerCancel = dragHandlers and dragHandlers.onPointerCancel
 		else
-			--[[ A SWIPE IS UNDONE BY ITS OWN RELEASE, unless this remembers it
-				(redteam BLOCKER, 2026-08-13). A row's `Hit` is a real engine
-				`GuiButton`, so the SAME pointer sequence that swipes it also ends
-				in a native `Activated` on it — "whichever side of `InputEnded` it
-				lands" (the identical fact `onPointerMove`'s reorder arm and
-				`virtual_list.luau`'s `suppressActivatePath` both already record).
-				Table armed the suppression only for a MOUSE REORDER drag, which a
-				horizontal swipe never becomes: the axis lock hands the gesture to
-				`row_actions` instead. So the swipe's own Activated arrived
-				unsuppressed and `api.handleActivate` answered it as a tap —
-				landing AFTER `InputEnded` it found the tray open and CLOSED it (the
-				tray vanished the instant it appeared), landing BEFORE it found no
-				tray yet and fired the row's primary action (the swipe played the
-				track it was meant to offer a Remove for). Measured on both edges
-				and both pointer kinds before the fix.
-
-				`horizontal` is the whole state: did this gesture cross the axis
-				lock sideways, i.e. did `row_actions` take it. The rule is the two
-				lines below — a pure function of dx/dy against the ONE authored
-				constant, ties going vertical — applied here rather than asked of
-				`row_actions`, exactly as `virtual_list.luau`'s `hostedResolveAxis`
-				applies it in its own host dispatcher. It is deliberately not a
-				second copy of the DECISION (`row_actions_state.new(...)` instances
-				stay inside the composite): both engines that resolve this gesture
-				— `composeWithReorder`'s `resolveAxis` for mouse, the composite's
-				own `onPointerMove` for touch — measure from the SAME origin (this
-				down) with the SAME constant, so this verdict is theirs. ]]
+			-- Suppress the Activated event that follows a horizontal swipe. Both pointer
+			-- handlers measure from the same origin and use the shared axis-lock threshold.
 			local swipeGesture: { originX: number, originY: number, horizontal: boolean }? = nil
 			hitOnPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
 				-- the handle-zone decline runs FIRST, exactly as it does for
@@ -661,28 +554,8 @@ function table_rows.new(deps: Deps)
 				if dragHandlers ~= nil and isHandleZonePress(path, pos, rectOf) then
 					return false
 				end
-				--[[ A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE (the reason
-					`virtual_list.luau`'s own hosted dispatcher clears it here too):
-					a release that produces no Activated at all — the up landing off
-					the button — leaves the arm below with nothing left to clear it.
-
-					THIS IS THE WEAKEST OF THE FOUR CLEARS, NOT THE ONLY ONE, and
-					the first draft of it carried a premise that is simply false:
-					"a real Activated always fires
-					between a pointer-up and the next pointer-down, so a still-live
-					suppression can never legitimately survive to see another down."
-					TWO ACTIVATE PRODUCERS CARRY NO POINTER-DOWN AT ALL — an IAS
-					device Activate (gamepad A / keyboard Return, `meta.source ==
-					"action"`), and the minimum-target hit expander, a SEPARATE
-					`GuiButton` whose press produces no pointer event on this row's
-					`Hit` at all (`screen_target.luau`'s `pointerActivateMeta`).
-					Either of them can reach `handleActivate` while an arm from a
-					silently-ended swipe is still live, and be eaten by it: measured
-					on a swipe cancelled mid-gesture (0 -> 0 primary actions where
-					13fd3c6 gave 0 -> 1) and on a swipe with a silent release
-					(the tray stayed open under a device press that must close it).
-					So the arm is cleared on a CANCEL too, and `handleActivate`
-					refuses to spend it on a device Activate at all. ]]
+				-- A new gesture clears stale suppression. Cancellation also clears it;
+				-- keyboard and gamepad activation must never consume a pointer suppression.
 				rowGesture.suppressActivate = nil
 				local accepted = composedRef.onPointerDown(path, pos, rectOf)
 				swipeGesture = if accepted == false
@@ -691,16 +564,7 @@ function table_rows.new(deps: Deps)
 				return accepted
 			end
 			hitOnPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
-				--[[ `swipe`, not `gesture`: THIS record is one pointer sequence's own
-					axis verdict, and `rowGesture` beside it is the table-wide cell the
-					builder shares with `table.luau`. The extraction found that out the
-					hard way — this local was called `gesture` and shadowed the shared
-					record for the two lines that matter, so the arm below wrote a field
-					onto the swipe and `api.handleActivate` never saw it. Symptom: every
-					swipe's own release Activate arrived unsuppressed and was read as a
-					tap, which closed the tray in the frame it appeared — the exact
-					defect the block below this one exists to prevent, re-manufactured
-					by a name. ]]
+				-- This record tracks one pointer sequence. rowGesture tracks the whole table.
 				local swipe = swipeGesture
 				if swipe ~= nil and not swipe.horizontal then
 					local dx, dy = pos.x - swipe.originX, pos.y - swipe.originY
@@ -744,29 +608,9 @@ function table_rows.new(deps: Deps)
 			UI.Button({
 				id = "Hit",
 				label = "",
-				selected = selectedMemo(rowKey),
-				--[[ A UNION OVER THE VERBS THIS ROW HAS, and every clause is a verb
-					that would otherwise be unreachable off a pointer.
-
-					· SELECTION — the row's own primary stop.
-					· REORDER — gamepad/keyboard reorder is focus + grab
-					  (UI-PARADIGM-001), and the auto Edit/Done toggle must never be a
-					  navigation dead end (live-drive regression 2026-07-21).
-					· ROW ACTIONS (2026-08-18) — and this one was MISSING,
-					  measured by the audit as "the table has ZERO focus stops: initial
-					  focus nil, twelve Down presses reach nil, Delete fired 0, ButtonX
-					  menu false". The focus stop IS the mechanism: with none, the engine
-					  builds no key context for the row, so the Delete and menu bindings
-					  the row-actions wrapper carries have nothing to bind to and the
-					  whole non-pointer route is dead. `api.md` claimed the opposite in
-					  as many words ("Keyboard and gamepad Delete/menu bind per row
-					  through the wrapper itself ... with no separate Table wiring"), and
-					  `virtual_list.luau`'s own key-context note had already diagnosed
-					  and closed the identical defect one control over.
-
-					IT IS A UNION AND NOT A BLANKET. A read-only table of text has no
-					verb for a ring to reach, and giving one a focus stop per row would
-					put a ring on every static grid in the framework. ]]
+				selected = rowSelected,
+				-- Selection, reorder and row actions each require a keyboard/gamepad focus stop.
+				-- Read-only rows without an action do not.
 				focusable = selectionMode ~= "none" or spec.reorderable == true or rowActionsResult ~= nil,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
@@ -784,45 +628,9 @@ function table_rows.new(deps: Deps)
 				children = cells,
 			}),
 		}
-		--[[ ── WHAT THE EDIT-MODE GUTTER HOLDS (2026-08-18) ───────────────
-			THE GUTTER WAS ALWAYS RESERVED AND SOMETIMES EMPTY. `cellsEditPadding`
-			insets every row's cells by `HANDLE_GUTTER` whenever editing, reorderable
-			or not — so a SELECTABLE, non-reorderable table entered edit mode, moved
-			its cells 32px right, and put nothing there. The audit measured the
-			consequence: "the row mounts exactly `Row/Hit` + `Row/Cells` — no leading
-			circle, no checkbox, no gutter — the only change is the invisible
-			`selected` prop. The sole cue that the mode changed is the toolbar label
-			flipping Edit->Done."
-
-			A SELECTION MARK IS NOT A REORDER HANDLE, so it is its own zone with its
-			own id, and it is DECORATION: the row's `Hit` is the whole tap surface
-			already and a second focusable inside the row would put a stop on every
-			row of every editable table for a verb the row's own Activate performs.
-
-			THE ONE GUTTER, AND WHO GETS IT WHEN BOTH ARE TRUE. A reorderable table's
-			gutter belongs to the ≡, because reorder is the capability edit mode
-			exists for on touch and the handle is its only touch route; selection on
-			such a table stays on the row's own painted treatment. Two marks do not
-			fit 32px, and the alternative — moving the ≡ to the trailing edge, which
-			is where the convention puts it — is a layout change to every reorderable table
-			carrying its own path grammar and its own press-zone arithmetic
-			(`isHandleZonePress` reads the zone's leading edge). Recorded rather than
-			smuggled: a selectable AND reorderable table still paints no mark, which
-			is a director call about where the ≡ goes, and is not settled here.
-
-			...AND IT MOUNTS ONLY WHERE EDIT MODE IS REACHABLE, which is not
-			fastidiousness — it is one engine Instance per ROW. `UI.When` is a
-			structural region and it materialises even while its branch is absent, so
-			an unconditional mark would have put a node on every row of every
-			selectable table in the library to serve a mode most of them have no
-			affordance for. `canEditMode` is the build-time union of the two routes
-			that exist: the consumer holds the signal (`spec.editing`), or the control
-			auto-shows the toggle (`autoEditRoute`). A table with neither can still be
-			driven into edit mode through the public `api.editing`, and gets the
-			gutter without the mark — the honest residue of the trade, and the
-			shipped racer list is the reason it is worth taking (it declares
-			`selection = "single"`, has no edit route at all, and its own package's
-			contract test caught the extra node). ]]
+		-- Editable selection rows show a mark in the leading gutter. Reorder rows use
+		-- that space for the drag handle. Only mount the mark when edit mode has an
+		-- authored route; a structural region still costs a node while its branch is absent.
 		if spec.reorderable ~= true and selectionMode ~= "none" and canEditMode then
 			table.insert(
 				rowChildren,
@@ -830,7 +638,7 @@ function table_rows.new(deps: Deps)
 					id = "EditWhen",
 					condition = editingSignal,
 					thenView = function()
-						local selected = selectedMemo(rowKey)
+						local selected = rowSelected
 						return UI.ZStack({
 							id = "SelectZone",
 							alignH = "start",
@@ -843,14 +651,12 @@ function table_rows.new(deps: Deps)
 							children = {
 								UI.Text({
 									id = "SelectMark",
-									--[[ TWO GLYPHS, ONE NODE. A filled and a hollow circle
-										are the list-edit vocabulary, and reading them off
-										the SAME memo the row's `selected` prop reads is what
-										stops the mark and the row's own treatment ever
-										disagreeing. ]]
-									text = itemScope:own(core:memo(function(use)
-										return if use(selected) then "◉" else "◯"
-									end)),
+									-- The edit marker reads the same selection state as the row.
+									text = Compose.withOwner(itemScope, function()
+										return Compose.formula(function(use)
+											return if use(selected) then "◉" else "◯"
+										end)
+									end),
 									textSize = "control",
 									-- the GLYPH carries the state, not a colour: `content`
 									-- is the resting role and the only other legal one here
@@ -917,24 +723,17 @@ function table_rows.new(deps: Deps)
 				})
 			)
 		end
-		--[[ THE ROW'S CANVAS OFFSET (virtualized only). A memo on the ROW's own
-			scope, for the same reason `heightDim` above is one: the offset moves
-			when the data reorders and when the derived height changes under a theme
-			swap or a text-preference change, and both must RE-SOLVE this row in
-			place — a rebuild would drop selection, focus and any live in-cell
-			control. `offsetY` is arrange-only (`blueprint_schema.luau` BOX.offsetY),
-			so a write here re-arranges ONE node and re-measures nothing.
-
-			A ROW MID-UNMOUNT READS 0 rather than erroring: the ForEach can still
-			pull this memo for a key the data has already dropped, and `slotOf` will
-			not have it. It is about to leave the tree, so where it sits is moot. ]]
+		-- Virtual rows follow the layout index without rebuilding their controls.
+		-- A departing key may no longer have a slot; its offset then defaults to zero.
 		local slotOffset = if not virtualized
 			then nil
-			else itemScope:own(core:memo(function(use)
-				local layout = use(layoutIndex) :: any
-				local slot = layout.slotOf[rowKey]
-				return if slot == nil then 0 else layout.ix.offsetOf(slot)
-			end))
+			else Compose.withOwner(itemScope, function()
+				return Compose.formula(function(use)
+					local layout = use(layoutIndex) :: any
+					local slot = layout.slotOf[rowKey]
+					return if slot == nil then 0 else layout.ix.offsetOf(slot)
+				end)
+			end)
 		local rowBp = UI.ZStack({
 			id = "Row",
 			anchor = if virtualized then "topLeft" else nil,
@@ -1002,13 +801,7 @@ function table_rows.new(deps: Deps)
 			then row_actions.composeWithReorder(rowActionsApi._pointerHandlers, dragHandlers)
 			else rowActionsApi._pointerHandlers
 
-		-- a stale prior instance under the SAME rowKey (a resize-triggered
-		-- remount — `keyedItems`' own key embeds `widthsVersion`, so a
-		-- committed resize mounts a FRESH `itemScope`/tableKey for every row
-		-- while the row's own semantic key stays live) is disposed here:
-		-- `core:scope()` is an independent root (see `rowActionsByKey`'s own
-		-- comment) with nothing else to free it, and the `spec.rows` pruning
-		-- observer never sees this key go dark across a resize.
+		-- Replacing a row wrapper releases any prior instance for that item.
 		local staleInstance = rowActionsByKey[rowKey]
 		if staleInstance ~= nil then
 			staleInstance.dispose()
@@ -1019,14 +812,7 @@ function table_rows.new(deps: Deps)
 		return rowActionsApi.blueprint
 	end
 
-	--[[ TWO ENTRY POINTS. `blueprint` is the `UI.ForEach` row function and is what
-		this module exists for; `cellContent` is the SAME cell-content priority rule
-		(`column.cell` -> `column.value` -> `spec.cellFor`) offered to the one other
-		caller that has to answer the same question — the hidden-column disclosure
-		plate, which shows a collapsed column's values and must show the
-		values the row itself would have. A second copy of that priority ladder in
-		`table.luau` is exactly the "two implementations that agree today" shape this
-		repository keeps finding at the bottom of its defects. ]]
+	-- Collapsed-column details use the same cell content rules as mounted rows.
 	return { blueprint = rowBlueprint, cellContent = cellContentFor }
 end
 

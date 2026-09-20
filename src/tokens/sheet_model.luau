@@ -365,7 +365,9 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- semantic button role (B-BTN2). "default" adds no tag: the class default
 	-- already describes it, and an extra tag would be a rule with nothing to say.
 	if input.buttonRole == "destructive" then
-		tags["facet-role-destructive"] = true
+		-- A `plain` surface paints no plate, so the role has nothing to put
+		-- `$OnDanger` on: there it is a LABEL colour (a menu's destructive row).
+		tags[if surface == "plain" then "facet-role-destructive-label" else "facet-role-destructive"] = true
 	elseif input.buttonRole == "cancel" then
 		tags["facet-role-cancel"] = true
 	elseif input.buttonRole == chrome_slots.ON_INDICATOR_ROLE then
@@ -1082,6 +1084,11 @@ function sheet_model.build(opts: BuildOpts): Model
 			name = "Destructive button",
 			selector = ".facet-role-destructive",
 			props = { BackgroundColor3 = "$Danger", TextColor3 = "$OnDanger" },
+		},
+		{
+			name = "Destructive label",
+			selector = "TextButton.facet-role-destructive-label",
+			props = { TextColor3 = "$Danger" },
 		},
 		{
 			name = "Cancel button",
@@ -2215,6 +2222,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		name = "Destructive button",
 		selector = ".facet-role-destructive",
 		props = { BackgroundColor3 = "$Danger", TextColor3 = "$OnDanger" },
+	})
+	emit("roles", {
+		name = "Destructive label",
+		selector = "TextButton.facet-role-destructive-label",
+		props = { TextColor3 = "$Danger" },
 	})
 	emit("roles", {
 		name = "Cancel button",

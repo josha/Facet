@@ -43,33 +43,37 @@ The explicit next-card preview remains visible in the multi-card layouts too.
 Every example file returns the same shape:
 
 ```lua
-{ title = "...", build = function(Facet, core, deps) ... end }
+{ title = "...", build = function(ctx) ... end }
 ```
 
-`deps` is always the same four-field table — `{ env, actionSystem, presenter,
-adapter }` — and each example uses only the pieces it needs. There are two
-styles of `build` in the set:
+`ctx` is the host's context table. Its fields are `Facet`, `app`, `UI`,
+`Compose`, `core`, `env`, `adapter`, `actionSystem` and `presenter`. `UI` is
+`app.controls`; `Compose` is `Facet.Compose`. Each example uses only the pieces
+it needs.
+
+`build` returns either a component function or a table. A returned table may
+carry `screen` (a component function), `present` (mount options), `dispose`, and
+a `handle` when the example presented itself. There are two styles in the set:
 
 - **Examples 1–5 hand the screen back to the caller.** Their `build` returns
-  `{ screen = <blueprint>, ...handles }`, and the caller shows it with
-  `presenter.present(built.screen)`. None of them pass `present()` options. The
-  presenter auto-composes each mounted control's four-input story (pointer,
-  touch, keyboard, gamepad) from the tree, so there is no navigation map,
-  activation router, or occlusion wiring to hand it. (One exception uses the
-  presenter at all: example 5, whose *action* opens a modal.)
-- **Examples 6–8 present themselves.** Their `build` takes `deps.presenter`,
-  calls `presenter.present(...)` internally, and returns a handle with a
-  `dispose()` you call when finished. They do this because they manage their
-  own lifetime (a game scope, a results modal). Example 6 also raises its own
-  input context for the *hardware* keyboard. None of them wire navigation or
-  activation by hand — the presenter derives 2D navigation from their layout
-  and dispatches Activate to each control's own handler (see §4.5–4.7).
+  `{ screen = <component function>, ...readbacks }`, and the host shows it with
+  `ctx.app.mount(built.screen)`. None of them pass mount options. The presenter
+  composes each mounted control's four-input story (pointer, touch, keyboard,
+  gamepad) from the tree, so there is no navigation map, activation router, or
+  occlusion wiring to hand it.
+- **Examples 6–8 present themselves.** Their `build` calls `ctx.app.mount(...)`
+  internally and returns the resulting `handle` with a `dispose()` the host
+  calls when finished. They do this because they manage their own lifetime (a
+  game model, a results overlay) and pass their own mount options. Example 6
+  also raises its own input context for the *hardware* keyboard. None of them
+  wire navigation or activation by hand — the presenter derives 2D navigation
+  from their layout and dispatches Activate to each control's own handler.
 
 The file order:
 
 | # | File | New idea it introduces |
 |---|---|---|
-| 1 | `01_temperature_converter.luau` | component state, property getters and controlled text entry |
+| 1 | `01_temperature_converter.luau` | component state, reactive properties and controlled text entry |
 | 2 | `02_playlist_table.luau` | composing a reusable table/control from primitives |
 | 3 | `02_playlist_table.luau` (continued) | collections, derived filtering, virtualization |
 | 4 | `03_settings_sync.luau` | optimistic mutation and server reconciliation |
@@ -85,78 +89,82 @@ The file order:
 **New concepts: component state, shared derived values and controlled text entry.**
 
 [`01_temperature_converter.luau`](../../examples/gallery/examples/01_temperature_converter.luau)
-is a `Facet.component` using `Facet.View`. Its state and bindings belong to the
-mounted screen. It describes the interface once; only property recipes update.
+is one component function using `app.controls`. Its cells belong to the mounted
+screen. It describes the interface once; only reactive properties update.
 
 ```luau
-local fahrenheit, setFahrenheit = ui.state("")
-local celsius, setCelsius = ui.state(nil :: number?)
+local fahrenheit = Compose.cell("")
+local celsius = Compose.cell(nil :: number?)
 local function toCelsius(text)
     local n = tonumber(text)
     return if n then (n - 32) * 5 / 9 else nil
 end
-local liveCelsius = ui.memo(function() return toCelsius(fahrenheit()) end)
+local liveCelsius = Compose.formula(function(use) return toCelsius(use(fahrenheit)) end)
 ```
 
 ### The two edit modes
 
-`onChange` accepts live text edits; the preview follows the text. `onCommit`
-updates the final result on Enter or focus loss. The getter remains the source of
-truth: validation can reject a proposed edit before its change callback runs.
+A writable cell accepts live text edits, so the preview follows the text.
+`onCommit` updates the final result on Enter or focus loss. The cell remains the
+source of truth: `validate` can reject a proposed edit before it is accepted.
 
 ```luau
-UI.TextInput {
-    id = "Fahrenheit", value = fahrenheit, onChange = setFahrenheit,
+UI.TextInput("Fahrenheit")({
+    value = fahrenheit,
     placeholder = "e.g. 212", keyboardType = "numeric",
     validate = function(proposed)
         return if string.match(proposed, "^%-?%d*%.?%d*$") then proposed else nil
     end,
-    onCommit = function(text) setCelsius(toCelsius(text)) end,
-}
+    onCommit = function(text) celsius:set(toCelsius(text)) end,
+})
 ```
 
 The grammar accepts unfinished numbers such as `-` and `.` while refusing letters
 and a second decimal point. `keyboardType` describes intent; it does not force a
 Roblox keyboard layout. A rejected edit leaves the value unchanged.
 
-### Recipes and shared work
+### Reactive properties and shared work
 
-Use a simple property function for formatting. `liveCelsius` is a memo because
-both the preview and the example driver read that derived number.
+Use a plain property function for formatting. `liveCelsius` is a formula because
+both the preview and the example's readbacks need that derived number.
 
 ```luau
-UI.Text {
-    id = "Preview", role = "secondary",
-    text = function()
-        local c = liveCelsius()
+UI.Text("Preview")({
+    role = "secondary",
+    text = function(use)
+        local c = use(liveCelsius)
         return if c == nil then "Preview: —" else string.format("Preview: %g °C", c)
     end,
-}
-UI.Button {
+})
+UI.Button("Clear")({
     label = "Clear",
     onActivate = function()
-        ui.batch(function() setFahrenheit(""); setCelsius(nil) end)
+        app.runtime:batch(function()
+            fahrenheit:set("")
+            celsius:set(nil)
+        end)
     end,
-}
+})
 ```
 
 ### No presenter wiring
 
 The mounted TextInput receives its environment and input integration from the
 host. It owns editing, keyboard occlusion and cancellation. The example passes
-no manual scope, core, input router or `.blueprint` into its view tree. Dismissing
-the component releases its resources. Use typography roles and spacing steps so
-the same description follows themes and the player's preferred text size.
+no owner, runtime or input router into its tree. Closing the screen releases its
+resources. Use typography roles and spacing steps so the same description follows
+themes and the player's preferred text size.
 
 ## 4.2 Playlist table
 
 **New concepts: shared model state, keyed rows, custom cells and table interactions.**
 
 [`02_playlist_table.luau`](../../examples/gallery/examples/02_playlist_table.luau)
-keeps the playlist order and ratings in a model scope. Filtering or removing a
-mounted row does not destroy that track's rating. The application releases that
-model at its lifetime boundary; the `Playlist` component owns mounted controls.
-This is the same separation to use for an inventory or a server-backed catalog.
+keeps the playlist order and ratings in model cells created outside the
+component. Filtering or removing a mounted row does not destroy that track's
+rating. The application releases the model at its lifetime boundary; the
+`Playlist` component owns the mounted controls. This is the same separation to
+use for an inventory or a server-backed catalog.
 
 ### The data
 
@@ -171,26 +179,26 @@ A controlled search field binds the query. For component-local filtering, the
 same idea is:
 
 ```luau
-local query, setQuery = ui.state("")
-local filtered = ui.memo(function()
+local query = Compose.cell("")
+local filtered = Compose.formula(function(use)
     local matches = {}
-    for _, track in tracks() do
-        if string.find(string.lower(track.name), string.lower(query()), 1, true) then
+    for _, track in use(tracks) do
+        if string.find(string.lower(track.name), string.lower(use(query)), 1, true) then
             table.insert(matches, track)
         end
     end
     return matches
 end)
 local search = UI.TextInput {
-    presentation = "search", value = query, onChange = setQuery,
+    presentation = "search", value = query,
     placeholder = "Filter tracks",
 }
 ```
 
-`tracks` is a getter; borrow a shared model readable with `ui.read(model.rows)`.
-Use a memo because filtering does real work. Formatting a short label usually
-needs only a property function. A plain substring search treats punctuation as
-text, not a pattern.
+`tracks` is a Compose readable, whether the component created it or the model
+did. Use a formula because filtering does real work. Formatting a short label
+usually needs only a property function. A plain substring search treats
+punctuation as text, not a pattern.
 
 ### Reordering while filtered
 
@@ -205,13 +213,14 @@ adjustable control, so it gets one focus stop and the control's native input sto
 
 ```luau
 local function starCell(item)
-    return UI.Rating { id = "Rating", value = ratings[item.id], count = 5 }
+    return UI.Rating { value = ratings[item.id], count = 5 }
 end
 ```
 
-Here `ratings` contains shared writable model signals, which View also accepts.
-For local state use `value = rating, onChange = setRating`. Mount owns each rating
-control; no eager cache of control handles or manual disposal loop is needed.
+Here `ratings` holds writable model cells, which the control accepts directly.
+Pair a read-only value with `onChange` when a model must approve the change
+first. The mount owns each rating control; no cache of control handles or manual
+disposal loop is needed.
 
 ### Activation lives on the node
 
@@ -229,16 +238,28 @@ stays available. Player column-width overrides participate in this calculation.
 Widening the viewport restores the column without replacing the surviving rows.
 
 The demo also displays the table's column widths and selected header. That is a
-concrete reason to keep an explicit handle in this one component:
+concrete reason to ask this one control for its record:
 
 ```luau
-local tableHandle = ui.own(Facet.Controls.Table(core, tableSpec))
-local widths = ui.read(tableHandle.api.columnWidthOverrides)
--- Include tableHandle.blueprint in the view tree; read widths() in a recipe.
+local tracksApi
+UI.Table("Tracks")({
+    rows = rows, columns = columns,
+    key = function(track) return track.id end,
+    ref = function(record) tracksApi = record.api end,
+})
+
+UI.Text {
+    text = function(use)
+        local selected = use(tracksApi.selectedColumn)
+        return if selected then `Sorted by {selected}` else "Unsorted"
+    end,
+}
 ```
 
-Use `UI.Table(tableSpec)` for a table that does not need those imperative
-readbacks. Do not introduce a manual handle solely to get a blueprint.
+`ref` must be a function. It runs once, while the control is built, with a
+frozen `{ api, dump }`. Its `api` publishes readables such as
+`columnWidthOverrides`, `hiddenColumns` and `selectedColumn`. Leave `ref` off a
+table that needs no imperative readback.
 
 ### Drag & drop
 
@@ -309,12 +330,12 @@ the source can reach every state from the screen.
 
 The **authoritative** state — what the server has confirmed — lives in a
 snapshot. The **optimistic draft** — what the UI shows right now — lives in
-plain signals that may run ahead of the server:
+plain cells that may run ahead of the server:
 
 ```lua
 local snapshot    = replication.snapshot(core, 1, { music = false, volume = 10 })
-local draftMusic  = core:signal(snapshot.binding:get().music)
-local draftVolume = core:signal(snapshot.binding:get().volume)
+local draftMusic  = Compose.cell(snapshot.binding:peek().music)
+local draftVolume = Compose.cell(snapshot.binding:peek().volume)
 ```
 
 The **mutation** ties them together. Its `optimistic.apply` runs the instant
@@ -329,7 +350,7 @@ local mutation = replication.mutation(core, {
             draftMusic:set(payload.music); draftVolume:set(payload.volume)
         end,
         restore = function()
-            local truth = snapshot.binding:get()
+            local truth = snapshot.binding:peek()
             draftMusic:set(truth.music); draftVolume:set(truth.volume)
         end,
     },
@@ -371,7 +392,7 @@ pressing a button twice, so the example checks the status first and writes
 `Already waiting for a reply. Deliver it first.` into the history instead:
 
 ```lua
-if mutation.status:get() == "pending" then
+if mutation.status:peek() == "pending" then
     log("Already waiting for a reply. Deliver it first.")
     return
 end
@@ -417,17 +438,17 @@ The declaration contributes no inline copy or layout gap. The Alert supplies
 responsive sizing, safe initial focus, input routing and dismissal.
 
 ```luau
-local open, setOpen = ui.state(false)
-local hasSave, setHasSave = ui.state(true)
+local open = Compose.cell(false)
+local hasSave = Compose.cell(true)
 
 return UI.Screen {
-    UI.Button { label = "Delete Save", enabled = hasSave, onActivate = function() setOpen(true) end },
+    UI.Button { label = "Delete Save", enabled = hasSave, onActivate = function() open:set(true) end },
     UI.Alert {
         title = "Delete this save?", message = "This cannot be undone.", severity = "critical",
-        isPresented = open, onPresentedChange = setOpen,
+        isPresented = open,
         actions = {
             { id = "Delete", label = "Delete Save", role = "destructive",
-              onActivate = function() setHasSave(false) end },
+              onActivate = function() hasSave:set(false) end },
             { id = "Cancel", label = "Cancel", role = "cancel" },
         },
     },
@@ -440,36 +461,37 @@ answers are visible and the demonstration is repeatable. Gamepad B takes the can
 route; focus returns to the original action. Roblox reserves Escape, so the
 on-screen Cancel remains available to keyboard users.
 
-For a single confirmed command, `UI.Button { confirm = { title = "Delete?" },
-onActivate = deleteSave, ... }` is shorter. Use a bound Alert when the decision
-has its own state or multiple actions; use a custom modal for a substantial task.
+Use a bound Alert whenever the decision has its own state or more than one
+action. Use `UI.Sheet` or a modal component for a substantial task.
 
 ## 4.5 Word game
 
 [`05_word_game.luau`](../../examples/gallery/examples/05_word_game.luau) separates
 word validation and scoring from a mounted `WordGame` component. The game model
-owns guesses, keyboard verdicts and the hardware input context. Its Core scope
-outlives the results overlay; closing the example releases that scope.
+owns guesses, keyboard verdicts and the hardware input context. Its cells are
+created outside the component, so they outlive the results overlay; closing the
+example releases them.
 
-The view borrows model values and shares a tile's derived verdict:
+The view reads model cells and shares a tile's derived verdict:
 
 ```luau
-local rowsNow, activeNow = ui.read(rowsSig), ui.read(activeSig)
-local state = ui.memo(function() return tileState(rowsNow(), activeNow(), r, c) end)
-local tint = function() return TILE_TINT[state()] end
-local mark = function() return TILE_MARK[state()] end
-local tile = UI.ZStack {
-    id = `tile{r}_{c}`, width = TILE, height = TILE,
-    UI.Box { id = "fill", width = UI.fill(), height = UI.fill(), tint = tint },
-    UI.Text { id = "mark", text = mark, textSize = "caption" },
-}
+local state = Compose.formula(function(use)
+    return tileState(use(rowsSig), use(activeSig), r, c)
+end)
+local tint = Compose.formula(function(use) return TILE_TINT[use(state)] end)
+local mark = Compose.formula(function(use) return TILE_MARK[use(state)] end)
+local tile = UI.ZStack(`tile{r}_{c}`)({
+    width = TILE, height = TILE,
+    UI.Box("fill")({ width = UI.fill(), height = UI.fill(), tint = tint }),
+    UI.Text("mark")({ text = mark, textSize = "caption" }),
+})
 ```
 
 The full example includes letters, a non-color mark for every verdict, and a
-separate cue for the row accepting input. A `Grid` lays out the board; three
-stacks lay out the keyboard. Custom keyboard hit targets use `Facet.UI.Button`
-for compact glyph sizing and verdict paint. Ordinary actions such as New game
-use `UI.Button` from `Facet.View`. Navigation still comes from Facet's solved
+separate cue for the row accepting input. `UI.Grid` lays out the board; three
+stacks lay out the keyboard. Keyboard hit targets and ordinary actions such as
+New game are both `UI.Button`; the compact keys set `surface` and a small
+`textSize` for their glyph paint. Navigation still comes from Facet's solved
 layout and semantic input system.
 
 Try a short guess, an unknown word, a repeated letter and a completed game.
@@ -481,32 +503,31 @@ commands and mounted node actions as the showcase.
 
 [`06_tile_game.luau`](../../examples/gallery/examples/06_tile_game.luau) adds a
 rack, tentative placements, word validation and scoring. The rules are pure
-functions. Commands update shared game state in a transaction, while a
-`Crossword` component owns the display's derived values.
+functions. Commands update shared game cells inside one
+`app.runtime:batch(...)`, while a `Crossword` component owns the display's
+derived values.
 
 **Refusal is feedback, with the exact problem named.** The rules distinguish nine
 refusals. A refused submit keeps every tentative tile in place, so the player can
 correct the problem without rebuilding the word. Validation also feeds a live
-verdict before Submit is pressed. Use a memo for that shared work, and ordinary
-getters for short presentation values:
+verdict before Submit is pressed. Use a formula for that shared work, and plain
+property functions for short presentation values:
 
 ```luau
-local boardNow, pendingNow = ui.read(boardSig), ui.read(pendingSig)
-local turnNow = ui.read(turnSig)
-local verdict = ui.memo(function()
-    local pending = pendingNow()
+local verdict = Compose.formula(function(use)
+    local pending = use(pendingSig)
     if next(pending) == nil then return nil end
-    return rules.validate(boardNow(), pending, turnNow())
+    return rules.validate(use(boardSig), pending, use(turnSig))
 end)
-local wordText = function()
-    local result = verdict()
+local wordText = function(use)
+    local result = use(verdict)
     return if result then result.message else "No tiles placed this turn."
 end
 ```
 
-Cells and rack letters use custom primitive hit targets because their glyphs,
+Board cells and rack letters are `UI.Button` hit targets, because their glyphs,
 selected paint and cell surfaces are part of the board representation. Submit,
-Undo and Start over are ordinary `View.Button` declarations. The board and rack
+Undo and Start over are ordinary `UI.Button` declarations too. The board and rack
 are ordered child arrays in uniform grids. Nothing calculates native GUI positions.
 
 Try placing and taking back a tile, Undo, an invalid word, a valid crossing word
@@ -521,20 +542,25 @@ gravity, refill and land. A row component owns a tile's local presentation state
 The array order is deterministic, while identity follows the key.
 
 ```luau
-local board = UI.Anchor {
-    id = "board", overflow = "clip", width = BOARD_WIDTH, height = BOARD_HEIGHT,
+local board = UI.Anchor("board")({
+    overflow = "clip", width = BOARD_WIDTH, height = BOARD_HEIGHT,
     animation = { layout = "object" },
-    UI.ForEach {
-        id = "tiles", items = items, key = "id",
+    UI.ForEach("tiles")({
+        items = items,
+        key = function(tile) return tile.id end,
         row = function(item) return TileView { item = item } end,
         transition = { enter = "materialize", exit = "fade", class = "object" },
-    },
-}
+    }),
+})
 ```
+
+`UI.ForEach` and `UI.When` take the schema-shaped spec only through a named
+constructor: `UI.ForEach("tiles")({ items = ..., key = ..., row = ... })`. That
+is the form whose `transition` reaches the transition coordinator.
 
 The board's animation policy coordinates position changes automatically. Game
 commands batch model changes; they do not wrap each swap or fall in
-`withAnimation`. A tile's component reads its current position through a getter
+`withAnimation`. A tile's component reads its current position through a readable
 and declares scaled offsets. Facet solves the target rectangles and animates the
 presentation between them. Removing a key runs its exit transition and disposes
 the row. Fading tile artwork uses a CanvasGroup; ordinary text outside that fade

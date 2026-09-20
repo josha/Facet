@@ -978,6 +978,10 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		iconSize = hint.iconSize,
 		footprint = hint.footprint,
 	})
+	if require("../vendor/compose/core").custodyOf(blueprint) == "owned" then
+		blueprint.meta = table.freeze(meta)
+		return blueprint
+	end
 	return table.freeze({
 		class = blueprint.class,
 		id = blueprint.id,
@@ -2215,7 +2219,7 @@ end
 -- value in the adapter's colour writes.
 chrome_slots.TOGGLE_ON_TAG = "facet-toggle-on"
 
---[[ THE LABEL-ONLY BUTTON ROLE (stabilization B'1, 2026-09-07). `Button.role`'s
+--[[ THE LABEL-ONLY BUTTON ROLE (stabilization B'1, 2026-09-07). `UI.Button.role`'s
 	fourth value, and the only one that names a text colour without a fill: its
 	plate is painted by something ELSE — Facet's sliding selection indicator, a
 	`surface = "accent"` chip that slides behind the option strip

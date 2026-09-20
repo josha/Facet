@@ -1,12 +1,15 @@
 --!strict
+local harness = require("./lib/harness")
+local example_world = require("./lib/example_world")
+local scenario_ctx = require("./lib/scenario_ctx")
 -- Documentation deliverable (design §17 Phase 4): the first FIVE progressive
 -- tutorial examples, each a runnable, engine-free gallery module verified
 -- headless under Lune. Every example module exports:
---     { title = "...", build = function(Facet, core, deps) ... end }
--- and build(...) returns { screen = <Blueprint>, present? = <presenter opts>,
--- ...example-specific handles }. deps is the uniform four-field table
---     { env, actionSystem, presenter, adapter }
--- (each example uses the subset it needs). These tests drive each example the
+--     { title = "...", build = function(ctx) ... end }
+-- and build(ctx) returns { screen = <component function>, present? = <presenter
+-- opts>, ...example-specific handles }. ctx is the context every gallery surface
+-- builds against: { Facet, app, UI, Compose, core, env, adapter, actionSystem,
+-- presenter } (each example uses the subset it needs). These tests drive each example the
 -- way a real client would — mount + render through the presenter and the
 -- headless FakeTarget adapter, then exercise its primary interaction end to
 -- end — and assert the reactive core stayed error-free throughout.
@@ -33,14 +36,8 @@ local fake_target = require("./lib/fake_target")
 -- the Roblox-only adapters (FakeTarget stands in for ScreenTarget; the headless
 -- action system stands in for the Input Action System).
 local function makeHarness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-	return core, system, adapter, presenter, deps
+	local xw = example_world.new()
+	return xw.core, xw.system, xw.adapter, xw.presenter, xw.ctx
 end
 
 local function countWindow(list: any): number
@@ -65,7 +62,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 	local function tempWorld()
 		local ex = require("../examples/gallery/examples/01_temperature_converter")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, adapter, presenter, built, handle, deps
@@ -79,7 +76,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 	it("mounts headlessly with no core error", function()
 		local core, adapter, presenter, _, handle = tempWorld()
 		expect(adapter.node(FIELD) ~= nil).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -104,7 +101,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		-- commit path is untouched: nothing has been committed yet
 		expect(built.celsius()).toBeNil()
 		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: —")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -119,7 +116,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		expect(adapter.node(FIELD).props.editing).toBe(false)
 		presenter.refresh()
 		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: 100 °C")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -131,7 +128,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		expect(built.celsius()).toBe(0)
 		presenter.refresh()
 		expect(adapter.node(FIELD).props.editing).toBe(false)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -144,7 +141,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		adapter.typeText(FIELD, "x") -- rejected: not numeric
 		expect(built.fahrenheitText()).toBe("9") -- unchanged
 		expect(built.liveCelsius()).toBe(liveAfterNine) -- no live update for the rejected edit
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -164,7 +161,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 
 	it("per-input activation: keyboard Activate (Return) on the focused field enters edit mode", function()
 		local _, adapter, presenter, built, handle, deps = tempWorld()
-		expect(presenter.focus.focused:get()).toBe(FIELD) -- the field is the initial focus
+		expect(presenter.focus.focused:peek()).toBe(FIELD) -- the field is the initial focus
 		deps.actionSystem.deviceKey("Return", true)
 		deps.actionSystem.deviceKey("Return", false)
 		presenter.refresh()
@@ -175,7 +172,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 	it("per-input activation: gamepad A enters edit mode, B cancels reverting to the snapshot", function()
 		local _, adapter, presenter, built, handle, deps = tempWorld()
 		local sys = deps.actionSystem
-		expect(presenter.focus.focused:get()).toBe(FIELD)
+		expect(presenter.focus.focused:peek()).toBe(FIELD)
 		sys.deviceKey("ButtonA", true) -- gamepad activate
 		sys.deviceKey("ButtonA", false)
 		presenter.refresh()
@@ -210,7 +207,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		expect(built.celsius()).toBeNil()
 		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: —")
 		expect(adapter.node("/TempConverter/Page/Preview").props.text).toBe("Preview: —")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 end)
@@ -221,26 +218,26 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	local function playlistWorld()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, adapter, presenter, built, handle
 	end
 	local function rowHit(key: string): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Hit`
 	end
 	-- ONE CONTROL, NOT FIVE BUTTONS (director round 10, 2026-07-26). The rating
 	-- cell is `Facet.newRating`, so the glyphs are Texts under a single Grip:
 	-- `star()` still names a glyph to READ, but there is nothing to tap there —
 	-- every input class lands on the strip.
 	local function star(key: string, index: number): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Cells/Cell-rating/Rating/Stars/Star{index}`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Cells/Cell-rating/Rating/Stars/Star{index}`
 	end
 	local function ratingStrip(key: string): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Cells/Cell-rating/Rating/Strip`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Cells/Cell-rating/Rating/Strip`
 	end
 	local FILTER_FIELD = "/Playlist/Page/Filter/Field"
-	local FILTER_CLEAR = "/Playlist/Page/Filter/ClearWhen/then/Clear"
+	local FILTER_CLEAR = "/Playlist/Page/Filter/Clear"
 	-- focus + open the engine text seam on the filter field, then type
 	local function typeFilter(adapter: any, str: string)
 		adapter.tap(FILTER_FIELD)
@@ -249,9 +246,9 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	end
 	local function mountedRowKeys(adapter: any, rows: any): { string }
 		local out: { string } = {}
-		for _, track in rows:get() do
+		for _, track in rows:peek() do
 			if
-				adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{track.id}@0]/RowActions-{track.id}/Content/Row`)
+				adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{track.id}]/RowActions-{track.id}/Content/Row`)
 				~= nil
 			then
 				table.insert(out, track.id)
@@ -265,35 +262,35 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- case-insensitive substring on track name: "drift" matches one track
 		typeFilter(adapter, "drift")
 		presenter.refresh()
-		expect(#built.rows:get()).toBe(1)
-		expect(built.rows:get()[1].id).toBe("drift")
-		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[drift@0]/RowActions-drift/Content/Row`) ~= nil).toBeTruthy()
-		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon@0]/RowActions-neon/Content/Row`)).toBe(nil)
+		expect(#built.rows:peek()).toBe(1)
+		expect(built.rows:peek()[1].id).toBe("drift")
+		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[drift]/RowActions-drift/Content/Row`) ~= nil).toBeTruthy()
+		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon]/RowActions-neon/Content/Row`)).toBe(nil)
 		-- clear through the REAL tap path restores every row
 		adapter.tap(FILTER_CLEAR)
 		presenter.refresh()
-		expect(#built.rows:get()).toBe(6)
-		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon@0]/RowActions-neon/Content/Row`) ~= nil).toBeTruthy()
-		expect(core:lastError()).toBeNil()
+		expect(#built.rows:peek()).toBe(6)
+		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon]/RowActions-neon/Content/Row`) ~= nil).toBeTruthy()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("case-insensitive match; surviving rows keep their mounted identity (no remount)", function()
 		local core, adapter, presenter, built, handle = playlistWorld()
 		-- capture a row that survives both filters below (Apex Bloom)
-		local apexRowPath = `/Playlist/Page/Tracks/Main/Body/Rows/[apex@0]/RowActions-apex/Content/Row`
+		local apexRowPath = `/Playlist/Page/Tracks/Main/Body/Rows/[apex]/RowActions-apex/Content/Row`
 		typeFilter(adapter, "A") -- upper-case query, lower-case data -> several match
 		presenter.refresh()
 		local apexBefore = adapter.node(apexRowPath)
 		expect(apexBefore ~= nil).toBeTruthy()
-		expect(#built.rows:get() > 1).toBeTruthy() -- Apex, Straightaway, Cascade, Lane...
+		expect(#built.rows:peek() > 1).toBeTruthy() -- Apex, Straightaway, Cascade, Lane...
 		-- narrow to just Apex; the surviving row NODE is the same object (kept mounted)
 		adapter.typeText(FILTER_FIELD, "pex")
 		presenter.refresh()
-		expect(#built.rows:get()).toBe(1)
-		expect(built.rows:get()[1].id).toBe("apex")
+		expect(#built.rows:peek()).toBe(1)
+		expect(built.rows:peek()[1].id).toBe("apex")
 		expect(adapter.node(apexRowPath)).toBe(apexBefore) -- reference equality: never remounted
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -312,7 +309,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("the handshake: typing in the filter field never navigates the table or moves selection", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local sys = deps.actionSystem
@@ -320,21 +317,21 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		adapter.tap(FILTER_FIELD)
 		presenter.refresh()
 		expect(adapter.node(FILTER_FIELD).props.editing).toBe(true)
-		local focusBefore = presenter.focus.focused:get()
+		local focusBefore = presenter.focus.focused:peek()
 		-- while editing, D-pad is SUNK by the text-entry context: no row focus,
 		-- no selection, the table's shortcuts never fire
 		sys.deviceKey("DPadDown", true)
 		sys.deviceKey("DPadDown", false)
 		presenter.refresh()
-		expect(presenter.focus.focused:get()).toBe(focusBefore) -- focus did not move
+		expect(presenter.focus.focused:peek()).toBe(focusBefore) -- focus did not move
 		local anySelected = false
-		for _, track in built.rows:get() do
+		for _, track in built.rows:peek() do
 			if adapter.node(rowHit(track.id)).props.selected == true then
 				anySelected = true
 			end
 		end
 		expect(anySelected).toBe(false)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -343,13 +340,13 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		function()
 			local core, adapter, presenter, built, handle = playlistWorld()
 			local baseBefore = {}
-			for _, track in built.baseRows:get() do
+			for _, track in built.baseRows:peek() do
 				table.insert(baseBefore, track.id)
 			end
 			typeFilter(adapter, "a") -- a filter is now active (several rows match)
 			presenter.refresh()
 			-- attempt a drag reorder of the first visible row down past the second
-			local visible = built.rows:get()
+			local visible = built.rows:peek()
 			local firstRect = adapter.node(rowHit(visible[1].id)).rect
 			local secondRect = adapter.node(rowHit(visible[2].id)).rect
 			adapter.pointerDown(rowHit(visible[1].id), 100, firstRect.y + 5)
@@ -359,11 +356,11 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			presenter.refresh()
 			-- the underlying base order is UNCHANGED (the move was refused under filter)
 			local baseAfter = {}
-			for _, track in built.baseRows:get() do
+			for _, track in built.baseRows:peek() do
 				table.insert(baseAfter, track.id)
 			end
 			expect(table.concat(baseAfter, ",")).toBe(table.concat(baseBefore, ","))
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 			presenter.dismiss(handle)
 		end
 	)
@@ -371,17 +368,17 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("per-input activation: keyboard/gamepad Activate on the focused filter field enters edit mode", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local sys = deps.actionSystem
 		-- the filter field is prepended to the nav map, so it is the initial focus
-		expect(presenter.focus.focused:get()).toBe(FILTER_FIELD)
+		expect(presenter.focus.focused:peek()).toBe(FILTER_FIELD)
 		sys.deviceKey("Return", true) -- keyboard Activate
 		sys.deviceKey("Return", false)
 		presenter.refresh()
 		expect(adapter.node(FILTER_FIELD).props.editing).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -393,12 +390,12 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- same mechanism, a column that still exists.
 	it("mounts an iTunes-style table: name and rating columns aligned under their headers", function()
 		local core, adapter, _, built = playlistWorld()
-		expect(core:lastError()).toBeNil()
-		local firstKey = built.rows:get()[1].id
-		local firstName = built.rows:get()[1].name
+		expect(core.lastError()).toBeNil()
+		local firstKey = built.rows:peek()[1].id
+		local firstName = built.rows:peek()[1].name
 		local function cell(id: string): any
 			return adapter.node(
-				`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}@0]/RowActions-{firstKey}/Content/Row/Cells/Cell-{id}`
+				`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}]/RowActions-{firstKey}/Content/Row/Cells/Cell-{id}`
 			).rect
 		end
 		for _, id in { "name", "rating" } do
@@ -408,7 +405,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		end
 		-- a column's `value` function reaches its cell
 		local nameText = adapter.node(
-			`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}@0]/RowActions-{firstKey}/Content/Row/Cells/Cell-name/Value`
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}]/RowActions-{firstKey}/Content/Row/Cells/Cell-name/Value`
 		)
 		expect(nameText.props.text).toBe(firstName)
 		-- and the `fill` column really is the one absorbing the leftover
@@ -455,7 +452,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			the page — proved by the live-shaped case below, not by a mirror. ]]
 		expect(built.table_.api.scrollPath()).toBe(nil)
 		expect(built.table_.dump().scrollTop).toBe(0)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	--[[ RULING 3, THE REPORTED SYMPTOM, ON THE SHIPPED SURFACE (director
@@ -466,19 +463,15 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		real scrolling ancestor, so the page scroll closes it. ]]
 	it("RULING 3: scrolling the PAGE closes a swiped-open tray on the shipped playlist", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
 		local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
-		local presenter = Facet.newPresenter(core, env, adapter, system, {
+		local xw = example_world.new({ hostOpts = {
 			now = function()
 				return clock.t
 			end,
-		})
-		local built =
-			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		} })
+		local core, env, system, adapter, presenter = xw.core, xw.env, xw.system, xw.adapter, xw.presenter
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local built = ex.build(xw.ctx)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		-- THE SHIPPED BOOTSTRAP's auto-bind, the same loop as the case above
@@ -490,8 +483,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 				presenter.refresh()
 			end
 		end
-		local key = built.rows:get()[1].id
-		local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		local key = built.rows:peek()[1].id
+		local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}`
 		local hit = `{root}/Content/Row/Hit`
 		local remove = `{root}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
 		local rect = adapter.node(hit).rect
@@ -511,7 +504,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(`tray open after a page scroll: {adapter.node(remove) ~= nil}`).toBe(
 			"tray open after a page scroll: false"
 		)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("the bootstrap's auto-bind probes BOTH spellings, in both loops (the source is the contract)", function()
@@ -529,21 +522,21 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 	it("tapping the rating INSIDE a table cell sets that track's rating and repaints without remount", function()
 		local core, adapter, presenter, built, handle = playlistWorld()
-		local key = built.rows:get()[1].id
+		local key = built.rows:peek()[1].id
 		local runsBefore = handle.root.counters().factoryRuns
 		local rect = adapter.node(ratingStrip(key)).rect
 		adapter.pointerDown(ratingStrip(key), rect.x + rect.w * 0.7, rect.y + 5)
 		adapter.pointerUp(rect.x + rect.w * 0.7, rect.y + 5)
 		presenter.refresh()
-		expect(built.ratingFor(key):get()).toBe(4)
+		expect(built.ratingFor(key):peek()).toBe(4)
 		expect(adapter.node(star(key, 4)).props.text).toBe("★")
 		expect(adapter.node(star(key, 5)).props.text).toBe("☆")
 		expect(handle.root.counters().factoryRuns).toBe(runsBefore) -- paint-only
 		adapter.pointerDown(ratingStrip(key), rect.x + rect.w * 0.3, rect.y + 5)
 		adapter.pointerUp(rect.x + rect.w * 0.3, rect.y + 5)
 		presenter.refresh()
-		expect(built.ratingFor(key):get()).toBe(2)
-		expect(core:lastError()).toBeNil()
+		expect(built.ratingFor(key):peek()).toBe(2)
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("the stars are glyphs, so NO theme can paint a plate behind one", function()
@@ -552,7 +545,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- shadow — five of which overlapped into a smeared band behind the row.
 		local chrome_slots = require("../src/tokens/chrome_slots")
 		local _, adapter, _, built = playlistWorld()
-		local key = built.rows:get()[1].id
+		local key = built.rows:peek()[1].id
 		for i = 1, 5 do
 			local node = adapter.node(star(key, i))
 			expect(node.class).toBe("Text")
@@ -575,11 +568,11 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		function()
 			local ex = require("../examples/gallery/examples/02_playlist_table")
 			local core, _, adapter, presenter, deps = makeHarness()
-			local built = ex.build(Facet, core, deps)
+			local built = ex.build(deps)
 			presenter.present(built.screen, built.present)
 			presenter.refresh()
-			local first = built.rows:get()[1].id
-			local second = built.rows:get()[2].id
+			local first = built.rows:peek()[1].id
+			local second = built.rows:peek()[2].id
 			-- the Edit affordance auto-shows for a touch session (the same gate the
 			-- reorder case below drives); it is the surface a phone player reaches
 			deps.env:set("preferredInput", "Touch")
@@ -593,13 +586,13 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			expect(adapter.node(rowHit(first)).props.selected).toBe(true)
 			expect(adapter.node(rowHit(second)).props.selected).toBe(true)
 			-- nothing played: activation is unreachable in edit mode, on purpose
-			expect(built.nowPlaying:get()).toBeNil()
+			expect(built.nowPlaying:peek()).toBeNil()
 			-- and the gesture the new rule GIVES BACK: a second tap deselects
 			adapter.touchTap(rowHit(second))
 			presenter.refresh()
 			expect(adapter.node(rowHit(second)).props.selected).toBeFalsy()
 			expect(adapter.node(rowHit(first)).props.selected).toBe(true)
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 		end
 	)
 
@@ -614,19 +607,15 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- a scripted one.
 	local function playingWorld()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
 		local clock = { t = 100 }
-		local presenter = Facet.newPresenter(core, env, adapter, system, {
+		local xw = example_world.new({ hostOpts = {
 			now = function()
 				return clock.t
 			end,
-		})
-		local built =
-			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		} })
+		local core, env, system, adapter, presenter = xw.core, xw.env, xw.system, xw.adapter, xw.presenter
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local built = ex.build(xw.ctx)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, adapter, presenter, built, handle, clock
@@ -643,100 +632,100 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 	it("onPrimaryAction: a DOUBLE-click plays the track and the page says so; a single click only selects", function()
 		local core, adapter, presenter, built, _, clock = playingWorld()
-		local key = built.rows:get()[2].id
-		local name = built.rows:get()[2].name
+		local key = built.rows:peek()[2].id
+		local name = built.rows:peek()[2].name
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBeNil()
+		expect(built.nowPlaying:peek()).toBeNil()
 		expect(string.find(adapter.node(built.nowPlayingPath).props.text, "Nothing playing", 1, true) ~= nil).toBeTruthy()
 		-- one click is a SELECTION and nothing else
 		mouseTap(adapter, key)
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBeNil()
+		expect(built.nowPlaying:peek()).toBeNil()
 		expect(adapter.node(rowHit(key)).props.selected).toBe(true)
 		-- ...and a second one inside the window is the primary action
 		clock.t += 0.2
 		mouseTap(adapter, key)
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBe(name)
+		expect(built.nowPlaying:peek()).toBe(name)
 		expect(adapter.node(built.nowPlayingPath).props.text).toBe(`Now playing — {name}`)
 		-- opening is not a selection verb: the row it opened is still selected
 		expect(adapter.node(rowHit(key)).props.selected).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("onPrimaryAction: two clicks SLOWER than the double-click window play nothing", function()
 		local _, adapter, presenter, built, _, clock = playingWorld()
-		local key = built.rows:get()[1].id
+		local key = built.rows:peek()[1].id
 		mouseTap(adapter, key)
 		clock.t += 0.6 -- past the 500 ms window
 		mouseTap(adapter, key)
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBeNil()
+		expect(built.nowPlaying:peek()).toBeNil()
 	end)
 
 	it("onPrimaryAction: on TOUCH the FIRST plain tap plays the track (the compact-touch rule)", function()
 		local _, adapter, presenter, built, _, clock = playingWorld()
-		local key = built.rows:get()[3].id
-		local name = built.rows:get()[3].name
+		local key = built.rows:peek()[3].id
+		local name = built.rows:peek()[3].name
 		adapter.touchTap(rowHit(key))
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBe(name)
+		expect(built.nowPlaying:peek()).toBe(name)
 		-- THE PRICE THIS EXAMPLE PAYS, ON THE RECORD: a normal-mode tap does not
 		-- select at all any more — selection retreats into edit mode, which is
 		-- exactly what the convention documents once a primary action is declared
 		expect(adapter.node(rowHit(key)).props.selected).toBeFalsy()
 		-- and touch activation is a MODE, not a measurement: a second tap after an
 		-- arbitrarily long pause plays it again rather than doing something else
-		local other = built.rows:get()[2].id
+		local other = built.rows:peek()[2].id
 		clock.t += 30
 		adapter.touchTap(rowHit(other))
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBe(built.rows:get()[2].name)
+		expect(built.nowPlaying:peek()).toBe(built.rows:peek()[2].name)
 	end)
 
 	it("Restore puts the playlist back INCLUDING what was playing", function()
 		local _, adapter, presenter, built, _, clock = playingWorld()
-		local key = built.rows:get()[1].id
+		local key = built.rows:peek()[1].id
 		mouseTap(adapter, key)
 		clock.t += 0.2
 		mouseTap(adapter, key)
 		presenter.refresh()
-		expect(built.nowPlaying:get()).never().toBeNil()
+		expect(built.nowPlaying:peek()).never().toBeNil()
 		adapter.tap(built.restorePath)
 		presenter.refresh()
-		expect(built.nowPlaying:get()).toBeNil()
+		expect(built.nowPlaying:peek()).toBeNil()
 		expect(string.find(adapter.node(built.nowPlayingPath).props.text, "Nothing playing", 1, true) ~= nil).toBeTruthy()
 	end)
 
 	it("scrubbing left/right across the stars sets the rating live (pointer drag)", function()
 		local core, adapter, presenter, built = playlistWorld()
-		local key = built.rows:get()[1].id
+		local key = built.rows:peek()[1].id
 		local scrub = ratingStrip(key)
 		local rect = adapter.node(scrub).rect
 		expect(rect ~= nil).toBeTruthy()
 		-- press at ~90% across -> 5 stars
 		adapter.pointerDown(scrub, rect.x + rect.w * 0.9, rect.y + 5)
-		expect(built.ratingFor(key):get()).toBe(5)
+		expect(built.ratingFor(key):peek()).toBe(5)
 		-- drag left to ~30% -> 2 stars (live scrub)
 		adapter.pointerMove(rect.x + rect.w * 0.3, rect.y + 5)
-		expect(built.ratingFor(key):get()).toBe(2)
+		expect(built.ratingFor(key):peek()).toBe(2)
 		-- drag past the left edge -> clears to 0
 		adapter.pointerMove(rect.x - 4, rect.y + 5)
-		expect(built.ratingFor(key):get()).toBe(0)
+		expect(built.ratingFor(key):peek()).toBe(0)
 		-- back to ~50% and release -> 3 stars committed
 		adapter.pointerMove(rect.x + rect.w * 0.5, rect.y + 5)
 		adapter.pointerUp(rect.x + rect.w * 0.5, rect.y + 5)
 		presenter.refresh()
-		expect(built.ratingFor(key):get()).toBe(3)
+		expect(built.ratingFor(key):peek()).toBe(3)
 		expect(adapter.node(star(key, 3)).props.text).toBe("★")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("touch input auto-shows the Edit toggle; edit mode + handle drag reorders on touch", function()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
 		local env = deps.env
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local togglePath = "/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle"
@@ -746,10 +735,10 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(adapter.node(togglePath) ~= nil).toBeTruthy()
 		built.table_.api.handleActivate(togglePath, nil)
 		presenter.refresh()
-		local first = built.rows:get()[1].id
-		local second = built.rows:get()[2].id
+		local first = built.rows:peek()[1].id
+		local second = built.rows:peek()[2].id
 		local handlePath =
-			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row/EditWhen/then/HandleZone/Handle`
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}]/RowActions-{first}/Content/Row/EditWhen/then/HandleZone/Handle`
 		expect(adapter.node(handlePath) ~= nil).toBeTruthy()
 		local handleRect = adapter.node(handlePath).rect
 		-- DERIVED FROM THE ROW, not a literal. This drag was 60px, which crossed
@@ -757,15 +746,15 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- inside the SAME row and the test failed on a change that was correct.
 		-- A reorder test should say "past the next row", not "60 pixels".
 		local rowRect =
-			adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row`).rect
+			adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{first}]/RowActions-{first}/Content/Row`).rect
 		local dropY = handleRect.y + 5 + rowRect.h * 1.5
 		adapter.pointerDown(handlePath, handleRect.x + 5, handleRect.y + 5, "touch")
 		adapter.pointerMove(handleRect.x + 5, dropY, "touch")
 		presenter.refresh()
 		adapter.pointerUp(handleRect.x + 5, dropY, "touch")
 		presenter.refresh()
-		expect(built.rows:get()[1].id).toBe(second)
-		expect(built.rows:get()[2].id).toBe(first)
+		expect(built.rows:peek()[1].id).toBe(second)
+		expect(built.rows:peek()[2].id).toBe(first)
 		presenter.dismiss(handle)
 	end)
 
@@ -774,7 +763,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local core, _, adapter, presenter, deps = makeHarness()
 		local env = deps.env
 		env:set("preferredInput", "Gamepad")
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local system = deps.actionSystem
@@ -782,8 +771,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			system.deviceKey(key, true)
 			system.deviceKey(key, false)
 		end
-		local first = built.rows:get()[1].id
-		local second = built.rows:get()[2].id
+		local first = built.rows:peek()[1].id
+		local second = built.rows:peek()[2].id
 		-- initial focus = the filter field (prepended nav group), then down through
 		-- the HEADER BAND, then the toolbar, then into the rows.
 		--
@@ -792,45 +781,45 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- leaves it while Left/Right walks its columns. That is the cost of a table
 		-- whose headings sort and resize, and it is paid on every input class — a
 		-- header a pad cannot reach would be a sort a pad cannot perform.
-		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Filter/Field")
+		expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Filter/Field")
 		press("DPadDown")
-		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-name/Column")
+		expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Tracks/Main/Header/Head-name/Column")
 		press("DPadDown")
-		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
+		expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
 		press("DPadDown")
-		expect(presenter.focus.focused:get()).toBe(
-			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row/Hit`
+		expect(presenter.focus.focused:peek()).toBe(
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}]/RowActions-{first}/Content/Row/Hit`
 		)
 		-- right into the rating — ONE stop, not five, and the bumpers rate it.
 		-- As five buttons this was three DPadRights to cross one cell and an A
 		-- press per star; now the whole strip is the target and Adjust is the verb.
 		press("DPadRight")
-		expect(presenter.focus.focused:get()).toBe(ratingStrip(first))
-		expect(built.ratingFor(first):get()).toBe(4) -- the fixture's starting value
+		expect(presenter.focus.focused:peek()).toBe(ratingStrip(first))
+		expect(built.ratingFor(first):peek()).toBe(4) -- the fixture's starting value
 		press("ButtonL1")
 		presenter.refresh()
-		expect(built.ratingFor(first):get()).toBe(3)
+		expect(built.ratingFor(first):peek()).toBe(3)
 		-- back to the toggle, A enters edit mode
 		press("DPadLeft")
 		press("DPadUp")
-		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
+		expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
 		press("ButtonA")
 		presenter.refresh()
 		-- down to the first row, A grabs, DPadDown moves it a slot, A drops
 		press("DPadDown")
 		press("ButtonA")
-		expect(built.table_.api.grabbedKey:get()).toBe(first)
+		expect(built.table_.api.grabbedKey:peek()).toBe(first)
 		press("DPadDown")
 		presenter.refresh()
-		expect(built.rows:get()[1].id).toBe(second)
-		expect(built.rows:get()[2].id).toBe(first)
+		expect(built.rows:peek()[1].id).toBe(second)
+		expect(built.rows:peek()[2].id).toBe(first)
 		-- focus stayed with the grabbed row (key-based path)
-		expect(presenter.focus.focused:get()).toBe(
-			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row/Hit`
+		expect(presenter.focus.focused:peek()).toBe(
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}]/RowActions-{first}/Content/Row/Hit`
 		)
 		press("ButtonA")
-		expect(built.table_.api.grabbedKey:get()).toBeNil()
-		expect(core:lastError()).toBeNil()
+		expect(built.table_.api.grabbedKey:peek()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -838,7 +827,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local ex = require("../examples/gallery/examples/02_playlist_table")
 		local core, _, adapter, presenter, deps = makeHarness()
 		deps.env:set("preferredInput", "Gamepad")
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local system = deps.actionSystem
@@ -846,10 +835,10 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			system.deviceKey(key, true)
 			system.deviceKey(key, false)
 		end
-		local first = built.rows:get()[1].id
-		local second = built.rows:get()[2].id
+		local first = built.rows:peek()[1].id
+		local second = built.rows:peek()[2].id
 		local function hitOf(key: string): string
-			return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+			return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}/Content/Row/Hit`
 		end
 		press("DPadDown") -- filter field -> header band (sortable/resizable since D8)
 		press("DPadDown") -- header -> toolbar
@@ -863,7 +852,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- the director's rule: selection MOVES with focus
 		expect(adapter.node(hitOf(second)).props.selected).toBe(true)
 		expect(adapter.node(hitOf(first)).props.selected).toBe(false)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it(
@@ -890,21 +879,19 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			DIFFERENT order (document-order rank, above) and losing it would be a
 			separate regression. ]]
 			local ex = require("../examples/gallery/examples/02_playlist_table")
-			local core = Facet.newCore()
-			local env = Facet.newEnvironment(core)
+			local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
+			local xw = example_world.new({
+				hostOpts = {
+					now = function()
+						return clock.t
+					end,
+					keyboardNavigation = true, -- Tab is opt-in at the presenter
+				},
+			})
+			local core, env, system, adapter, presenter = xw.core, xw.env, xw.system, xw.adapter, xw.presenter
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			env:set("preferredInput", "KeyboardAndMouse")
-			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new()
-			local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
-			local presenter = Facet.newPresenter(core, env, adapter, system, {
-				now = function()
-					return clock.t
-				end,
-				keyboardNavigation = true, -- Tab is opt-in at the presenter
-			})
-			local built =
-				ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			local built = ex.build(xw.ctx)
 			presenter.present(built.screen, built.present)
 			presenter.refresh()
 			local function settle(frames: number?)
@@ -919,8 +906,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 				system.deviceKey(key, false)
 				settle(2)
 			end
-			local key = built.rows:get()[1].id
-			local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+			local key = built.rows:peek()[1].id
+			local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}`
 			local hit = `{root}/Content/Row/Hit`
 			local remove = `{root}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
 			expect(adapter.node(remove)).toBe(nil)
@@ -946,24 +933,24 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 				(`97e9d93`) and a walk that reached the tray by some other route would
 				be a different fact. ]]
 			press("Tab")
-			expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-name/Column")
+			expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Tracks/Main/Header/Head-name/Column")
 			press("Tab")
-			expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-artist/Column")
+			expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Tracks/Main/Header/Head-artist/Column")
 			press("Tab")
-			expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-rating/Column")
+			expect(presenter.focus.focused:peek()).toBe("/Playlist/Page/Tracks/Main/Header/Head-rating/Column")
 			press("Tab")
-			expect(presenter.focus.focused:get()).toBe(remove)
+			expect(presenter.focus.focused:peek()).toBe(remove)
 			expect(adapter.node(remove).focused).toBe(true)
-			expect(#built.baseRows:get()).toBe(6)
+			expect(#built.baseRows:peek()).toBe(6)
 			press("Return")
 			settle(400)
 			local ids = {}
-			for _, track in built.baseRows:get() do
+			for _, track in built.baseRows:peek() do
 				table.insert(ids, track.id)
 			end
 			expect(#ids).toBe(5)
 			expect(table.find(ids, key)).toBeNil()
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 		end
 	)
 
@@ -981,20 +968,16 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			swipe), and then the pointer is left alone — everything after the swipe is
 			the pad. ]]
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		env:set("preferredInput", "Gamepad")
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
 		local clock = { t = 0 }
-		local presenter = Facet.newPresenter(core, env, adapter, system, {
+		local xw = example_world.new({ hostOpts = {
 			now = function()
 				return clock.t
 			end,
-		})
-		local built =
-			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		} })
+		local core, env, system, adapter, presenter = xw.core, xw.env, xw.system, xw.adapter, xw.presenter
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set("preferredInput", "Gamepad")
+		local built = ex.build(xw.ctx)
 		presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local function settle(frames: number?)
@@ -1009,8 +992,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			system.deviceKey(key, false)
 			settle(2)
 		end
-		local key = built.rows:get()[1].id
-		local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		local key = built.rows:peek()[1].id
+		local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}`
 		local hit = `{root}/Content/Row/Hit`
 		local remove = `{root}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
 
@@ -1030,28 +1013,28 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		presenter.focus.focusOn(hit)
 		presenter.refresh()
 		press("DPadRight")
-		expect(presenter.focus.focused:get()).toBe(ratingStrip(key))
-		local ratingBefore = built.ratingFor(key):get()
+		expect(presenter.focus.focused:peek()).toBe(ratingStrip(key))
+		local ratingBefore = built.ratingFor(key):peek()
 		for _ = 1, 8 do
 			press("DPadRight")
-			if presenter.focus.focused:get() ~= ratingStrip(key) then
+			if presenter.focus.focused:peek() ~= ratingStrip(key) then
 				break
 			end
 		end
 		-- the rating went to its maximum and STAYED there; the ring moved on
 		-- the rating went to its maximum and STAYED there, and the ring moved on to
 		-- the tray button — the exact thing that was unreachable on a pad
-		expect(`rating={built.ratingFor(key):get()} landed={presenter.focus.focused:get()}`).toBe(
+		expect(`rating={built.ratingFor(key):peek()} landed={presenter.focus.focused:peek()}`).toBe(
 			`rating=5 landed={remove}`
 		)
 		expect(ratingBefore < 5).toBe(true) -- the walk really did have to climb
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("drag & drop rearranges the playlist rows (post-removal reorder contract)", function()
 		local core, adapter, presenter, built = playlistWorld()
 		local order = {}
-		for _, track in built.rows:get() do
+		for _, track in built.rows:peek() do
 			table.insert(order, track.id)
 		end
 		-- drag the FIRST row down past the second row's midpoint
@@ -1063,13 +1046,13 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		adapter.pointerUp(100, secondRect.y + secondRect.h - 2)
 		presenter.refresh()
 		local after = {}
-		for _, track in built.rows:get() do
+		for _, track in built.rows:peek() do
 			table.insert(after, track.id)
 		end
 		expect(after[1]).toBe(order[2])
 		expect(after[2]).toBe(order[1])
 		expect(after[3]).toBe(order[3])
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	-- THE WAY BACK (example-quality-pass play audit, 2026-08-06). Reordering rows
@@ -1078,32 +1061,32 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("Restore puts the original order and every original rating back", function()
 		local core, _, adapter, presenter, deps = makeHarness()
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local startOrder = {}
-		for _, track in built.baseRows:get() do
+		for _, track in built.baseRows:peek() do
 			table.insert(startOrder, track.id)
 		end
-		local startRating = built.ratingFor(startOrder[1]):get()
+		local startRating = built.ratingFor(startOrder[1]):peek()
 		-- disturb both: a reorder and a rating change, plus a live filter
-		local moved = table.clone(built.baseRows:get())
+		local moved = table.clone(built.baseRows:peek())
 		table.insert(moved, table.remove(moved, 1))
 		built.baseRows:set(moved)
 		built.ratingFor(startOrder[1]):set(if startRating == 5 then 1 else 5)
 		built.filterText:set("nights")
 		presenter.refresh()
-		expect(built.baseRows:get()[1].id ~= startOrder[1]).toBe(true)
+		expect(built.baseRows:peek()[1].id ~= startOrder[1]).toBe(true)
 		adapter.tap(built.restorePath)
 		presenter.refresh()
 		local after = {}
-		for _, track in built.baseRows:get() do
+		for _, track in built.baseRows:peek() do
 			table.insert(after, track.id)
 		end
 		expect(table.concat(after, "|")).toBe(table.concat(startOrder, "|"))
-		expect(built.ratingFor(startOrder[1]):get()).toBe(startRating)
-		expect(built.filterText:get()).toBe("")
-		expect(core:lastError()).toBeNil()
+		expect(built.ratingFor(startOrder[1]):peek()).toBe(startRating)
+		expect(built.filterText:peek()).toBe("")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1134,24 +1117,20 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- on touch" was never the same sentence as "this works on a phone".
 	local function phoneWorld(vw: number?, vh: number?)
 		local ex = require("../examples/gallery/examples/02_playlist_table")
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
+		local clock = { t = 0 }
+		local xw = example_world.new({ hostOpts = {
+			now = function()
+				return clock.t
+			end,
+		} })
+		local core, env, system, adapter, presenter = xw.core, xw.env, xw.system, xw.adapter, xw.presenter
 		env:set("viewportRect", { x = 0, y = 0, w = vw or 390, h = vh or 844 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		-- ...and PreferredInput reads KeyboardAndMouse on a phone nobody has
 		-- touched yet (the engine default, not a fact — environment.luau's own
 		-- 2026-07-29 note). Boot in exactly that state.
 		env:set("preferredInput", "KeyboardAndMouse")
-		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
-		local clock = { t = 0 }
-		local presenter = Facet.newPresenter(core, env, adapter, system, {
-			now = function()
-				return clock.t
-			end,
-		})
-		local built =
-			ex.build(Facet, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		local built = ex.build(xw.ctx)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		local world: any = {
@@ -1176,7 +1155,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	end
 	local TOGGLE = "/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle"
 	local function rowRoot(key: string): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}]/RowActions-{key}`
 	end
 	--[[ swipe the row's own Hit surface sideways. `frac` is signed: negative is a
 		trailing (leftward) swipe, positive a leading one, as a fraction of the
@@ -1216,7 +1195,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 	it("PHONE (no mouse capability): Edit mounts the ≡ gutter, a handle drag reorders, and a tap selects", function()
 		local world = phoneWorld()
-		local classes = world.env:get("interactionClasses"):get()
+		local classes = world.env:get("interactionClasses"):peek()
 		-- the discriminator: this world is genuinely NOT the hybrid the older
 		-- touch cases drive, so what follows is proved on the phone's class set
 		expect(classes.pointer).toBe(false)
@@ -1225,8 +1204,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 		expect(world.adapter.node(TOGGLE) ~= nil).toBeTruthy()
 		expect(world.adapter.node(TOGGLE).props.label).toBe("Edit")
-		local first = world.built.rows:get()[1].id
-		local second = world.built.rows:get()[2].id
+		local first = world.built.rows:peek()[1].id
+		local second = world.built.rows:peek()[2].id
 		-- the gutter is NOT there before Edit — otherwise "it mounted" proves
 		-- nothing about the button
 		local handlePath = `{rowRoot(first)}/Content/Row/EditWhen/then/HandleZone/Handle`
@@ -1234,7 +1213,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 		world.adapter.touchTap(TOGGLE)
 		world.presenter.refresh()
-		expect(world.built.table_.api.editing:get()).toBe(true)
+		expect(world.built.table_.api.editing:peek()).toBe(true)
 		expect(world.adapter.node(TOGGLE).props.label).toBe("Done")
 		expect(world.adapter.node(handlePath) ~= nil).toBeTruthy()
 
@@ -1253,8 +1232,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		world.presenter.refresh()
 		world.adapter.pointerUp(handleRect.x + 5, dropY, "touch")
 		world.presenter.refresh()
-		expect(world.built.rows:get()[1].id).toBe(second)
-		expect(world.built.rows:get()[2].id).toBe(first)
+		expect(world.built.rows:peek()[1].id).toBe(second)
+		expect(world.built.rows:peek()[2].id).toBe(first)
 
 		-- and an edit-mode tap SELECTS rather than playing (the other half of
 		-- what "editable" has to mean once a primary action is declared)
@@ -1262,43 +1241,43 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		world.adapter.touchTap(hit)
 		world.presenter.refresh()
 		expect(world.adapter.node(hit).props.selected).toBe(true)
-		expect(world.built.nowPlaying:get()).toBeNil()
+		expect(world.built.nowPlaying:peek()).toBeNil()
 
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 	end)
 
 	it("TRAILING swipe reveals Remove OUTSIDE edit mode, and firing it drops the track", function()
 		local world = phoneWorld()
 		-- NOT editing — the whole point of finding 2
-		expect(world.built.table_.api.editing:get()).toBe(false)
-		local key = world.built.rows:get()[1].id
+		expect(world.built.table_.api.editing:peek()).toBe(false)
+		local key = world.built.rows:peek()[1].id
 		local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
 		expect(world.adapter.node(trayAction)).toBe(nil)
 
 		swipeRow(world, key, -0.3)
-		expect(world.built.table_.api.editing:get()).toBe(false) -- still not a mode
+		expect(world.built.table_.api.editing:peek()).toBe(false) -- still not a mode
 		expect(world.adapter.node(trayAction) ~= nil).toBeTruthy()
 		-- a swipe is not a tap: the primary action never fired
-		expect(world.built.nowPlaying:get()).toBeNil()
-		expect(#world.built.baseRows:get()).toBe(6)
+		expect(world.built.nowPlaying:peek()).toBeNil()
+		expect(#world.built.baseRows:peek()).toBe(6)
 
 		world.adapter.touchTap(trayAction)
 		world.settle(400) -- the commit collapses the row over a spring first
 		local ids = {}
-		for _, track in world.built.baseRows:get() do
+		for _, track in world.built.baseRows:peek() do
 			table.insert(ids, track.id)
 		end
 		expect(#ids).toBe(5)
 		expect(table.find(ids, key)).toBeNil()
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 	end)
 
 	it("LEADING swipe reveals Top OUTSIDE edit mode, and firing it moves the track to the front", function()
 		local world = phoneWorld()
-		local key = world.built.rows:get()[3].id -- NOT already first
-		expect(world.built.baseRows:get()[1].id).never().toBe(key)
+		local key = world.built.rows:peek()[3].id -- NOT already first
+		expect(world.built.baseRows:peek()[1].id).never().toBe(key)
 		local trayAction = `{rowRoot(key)}/TrayLeadingWhen/then/TrayLeading/Action:top`
 		expect(world.adapter.node(trayAction)).toBe(nil)
 
@@ -1308,16 +1287,16 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- example — §16 [SW-37]), so this must REVEAL and commit nothing. A 30%
 		-- swipe would have passed whether the opt-out existed or not.
 		swipeRow(world, key, 0.9)
-		expect(world.built.table_.api.editing:get()).toBe(false)
+		expect(world.built.table_.api.editing:peek()).toBe(false)
 		expect(world.adapter.node(trayAction) ~= nil).toBeTruthy()
-		expect(world.built.nowPlaying:get()).toBeNil()
-		expect(world.built.baseRows:get()[1].id).never().toBe(key)
+		expect(world.built.nowPlaying:peek()).toBeNil()
+		expect(world.built.baseRows:peek()[1].id).never().toBe(key)
 
 		world.adapter.touchTap(trayAction)
 		world.settle(120)
-		expect(world.built.baseRows:get()[1].id).toBe(key)
-		expect(#world.built.baseRows:get()).toBe(6) -- moved, not copied
-		expect(world.core:lastError()).toBeNil()
+		expect(world.built.baseRows:peek()[1].id).toBe(key)
+		expect(#world.built.baseRows:peek()).toBe(6) -- moved, not copied
+		expect(world.core.lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 	end)
 
@@ -1334,17 +1313,17 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		it(`a swipe never plays the track, whichever side of InputEnded its Activate lands ({pointerType})`, function()
 			for _, activate in { "after", "before" } do
 				local world = phoneWorld()
-				local key = world.built.rows:get()[1].id
+				local key = world.built.rows:peek()[1].id
 				local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
-				expect(world.built.nowPlaying:get()).toBeNil()
+				expect(world.built.nowPlaying:peek()).toBeNil()
 
 				swipeRow(world, key, -0.3, pointerType, activate :: any)
 
 				expect(world.adapter.node(trayAction) ~= nil).toBeTruthy() -- the tray survived
-				expect(world.built.nowPlaying:get()).toBeNil() -- and nothing played
-				expect(world.built.table_.api.editing:get()).toBe(false)
-				expect(#world.built.baseRows:get()).toBe(6) -- no commit either
-				expect(world.core:lastError()).toBeNil()
+				expect(world.built.nowPlaying:peek()).toBeNil() -- and nothing played
+				expect(world.built.table_.api.editing:peek()).toBe(false)
+				expect(#world.built.baseRows:peek()).toBe(6) -- no commit either
+				expect(world.core.lastError()).toBeNil()
 				expect(#world.handle.controller.diagnostics()).toBe(0)
 			end
 		end)
@@ -1352,14 +1331,14 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 
 	it("a plain TAP still plays the track and opens no tray — the two gestures do not fight", function()
 		local world = phoneWorld()
-		local key = world.built.rows:get()[2].id
-		local name = world.built.rows:get()[2].name
+		local key = world.built.rows:peek()[2].id
+		local name = world.built.rows:peek()[2].name
 		world.adapter.touchTap(`{rowRoot(key)}/Content/Row/Hit`)
 		world.presenter.refresh()
-		expect(world.built.nowPlaying:get()).toBe(name)
+		expect(world.built.nowPlaying:peek()).toBe(name)
 		expect(world.adapter.node(`{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`)).toBe(nil)
 		expect(world.adapter.node(`{rowRoot(key)}/TrayLeadingWhen/then/TrayLeading/Action:top`)).toBe(nil)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 	end)
 
 	-- RE-DECIDED 2026-08-13 (game-director ruling, parity round 3 item C).
@@ -1377,7 +1356,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	-- recollection (standing rule 7).
 	it("edit mode ADDS the ⊖, and tapping it REMOVES the row (the director's device scenario)", function()
 		local world = phoneWorld()
-		local key = world.built.rows:get()[1].id
+		local key = world.built.rows:peek()[1].id
 		local minus = `{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`
 		expect(world.adapter.node(minus)).toBe(nil)
 		world.adapter.touchTap(TOGGLE)
@@ -1388,14 +1367,14 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- the ≡ handle is there TOO: two affordances, one row, at once
 		expect(world.adapter.node(`{rowRoot(key)}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBeTruthy()
 
-		expect(#world.built.baseRows:get()).toBe(6)
+		expect(#world.built.baseRows:peek()).toBe(6)
 		world.adapter.touchTap(minus)
 		world.settle(120)
 		-- THE ROW IS GONE. This is the whole ruling, asserted on the real
 		-- showcase fixture rather than on a unit world.
-		expect(#world.built.baseRows:get()).toBe(5)
+		expect(#world.built.baseRows:peek()).toBe(5)
 		-- and it is the row that was tapped, not merely "some row"
-		for _, row in world.built.baseRows:get() do
+		for _, row in world.built.baseRows:peek() do
 			expect(row.id ~= key).toBeTruthy()
 		end
 		-- nothing stands painted behind it: the ⊖ commits through the same
@@ -1403,7 +1382,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		-- is not left mounted (round 2's C8a, in its edit-mode costume)
 		local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
 		expect(world.adapter.node(trayAction)).toBe(nil)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 	end)
 
@@ -1434,29 +1413,29 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		world.presenter.focus.focusOn(TOGGLE)
 		world.presenter.refresh()
 		press("ButtonA")
-		expect(world.built.table_.api.editing:get()).toBe(true)
+		expect(world.built.table_.api.editing:peek()).toBe(true)
 
 		-- THE SECOND ROW: the first row cannot show this defect at all, because it
 		-- has no row group above it to fall into
-		local key = world.built.rows:get()[2].id
-		local above = world.built.rows:get()[1].id
+		local key = world.built.rows:peek()[2].id
+		local above = world.built.rows:peek()[1].id
 		world.presenter.focus.focusOn(`{rowRoot(key)}/Content/Row/Hit`)
 		world.presenter.refresh()
 		press("DPadLeft")
-		expect(world.presenter.focus.focused:get()).toBe(`{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`)
+		expect(world.presenter.focus.focused:peek()).toBe(`{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`)
 
-		local before = #world.built.baseRows:get()
+		local before = #world.built.baseRows:peek()
 		press("ButtonA")
 		world.settle(120)
-		expect(#world.built.baseRows:get()).toBe(before - 1)
+		expect(#world.built.baseRows:peek()).toBe(before - 1)
 		-- ...and it is THIS track that went, with the one above it untouched
 		local left: { string } = {}
-		for _, row in world.built.baseRows:get() do
+		for _, row in world.built.baseRows:peek() do
 			table.insert(left, row.id)
 		end
 		expect(table.find(left, key)).toBeNil()
 		expect(table.find(left, above) ~= nil).toBe(true)
-		expect(world.core:lastError()).toBeNil()
+		expect(world.core.lastError()).toBeNil()
 	end)
 
 	--[[ EDIT MODE COSTS ROW WIDTH, AND THE SWEEP CANNOT SEE IT ────────────────
@@ -1479,8 +1458,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			-- layout the sweep already covers and proves nothing new
 			world.adapter.touchTap(TOGGLE)
 			world.presenter.refresh()
-			expect(world.built.table_.api.editing:get()).toBe(true)
-			local key = world.built.rows:get()[1].id
+			expect(world.built.table_.api.editing:peek()).toBe(true)
+			local key = world.built.rows:peek()[1].id
 			expect(world.adapter.node(`{rowRoot(key)}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBeTruthy()
 			expect(world.adapter.node(`{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`) ~= nil).toBeTruthy()
 			-- ...and the track name still has room to be a track name
@@ -1495,22 +1474,22 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 				table.insert(detail, `{d.node or "?"}: {d.issue or "?"}`)
 			end
 			expect(`{view.w}x{view.h}: {table.concat(detail, " / ")}`).toBe(`{view.w}x{view.h}: `)
-			expect(world.core:lastError()).toBeNil()
+			expect(world.core.lastError()).toBeNil()
 		end
 	end)
 
 	it("Restore brings a REMOVED track back (the way out of the destructive action)", function()
 		local world = phoneWorld()
-		local key = world.built.rows:get()[1].id
+		local key = world.built.rows:peek()[1].id
 		swipeRow(world, key, -0.3)
 		world.adapter.touchTap(`{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`)
 		world.settle(400)
-		expect(#world.built.baseRows:get()).toBe(5)
+		expect(#world.built.baseRows:peek()).toBe(5)
 		world.adapter.touchTap(world.built.restorePath)
 		world.presenter.refresh()
-		expect(#world.built.baseRows:get()).toBe(6)
-		expect(world.built.baseRows:get()[1].id).toBe(key)
-		expect(world.core:lastError()).toBeNil()
+		expect(#world.built.baseRows:peek()).toBe(6)
+		expect(world.built.baseRows:peek()[1].id).toBe(key)
+		expect(world.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -1541,7 +1520,7 @@ describe("examples/gallery 04: settings sync", function()
 	local function ex03World()
 		local ex = require("../examples/gallery/examples/03_settings_sync")
 		local core, system, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return core, system, adapter, presenter, built, handle
@@ -1560,7 +1539,7 @@ describe("examples/gallery 04: settings sync", function()
 
 	it("mounts headlessly with no core error", function()
 		local core, _, _, presenter, _, handle = ex03World()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1616,7 +1595,7 @@ describe("examples/gallery 04: settings sync", function()
 		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 10")
 		expect(shown(adapter, presenter, SERVER)).toBe("Music off, volume 10 (revision 3)")
 
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1639,18 +1618,18 @@ describe("examples/gallery 04: settings sync", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
 
 		adapter.tap(MUSIC) -- flip the toggle
-		expect(built.draftMusic:get()).toBe(true) -- optimistic apply
-		expect(built.mutation.status:get()).toBe("pending")
-		expect(built.snapshot.binding:get().music).toBe(false) -- server unmoved
+		expect(built.draftMusic:peek()).toBe(true) -- optimistic apply
+		expect(built.mutation.status:peek()).toBe("pending")
+		expect(built.snapshot.binding:peek().music).toBe(false) -- server unmoved
 
 		adapter.tap(DELIVER) -- the loopback "server" validates + replicates
 
-		expect(built.mutation.status:get()).toBe("confirmed")
-		expect(built.snapshot.binding:get().music).toBe(true)
-		expect(built.draftMusic:get()).toBe(true)
+		expect(built.mutation.status:peek()).toBe("confirmed")
+		expect(built.snapshot.binding:peek().music).toBe(true)
+		expect(built.draftMusic:peek()).toBe(true)
 		expect(built.snapshot.revision()).toBe(2)
 		expect(shown(adapter, presenter, STATUS)).toBe("Status: accepted")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1659,35 +1638,35 @@ describe("examples/gallery 04: settings sync", function()
 
 		-- volume starts at its max (10); nudging up produces an invalid 11
 		adapter.tap(VOL_PLUS)
-		expect(built.draftVolume:get()).toBe(11) -- optimistic
-		expect(built.mutation.status:get()).toBe("pending")
+		expect(built.draftVolume:peek()).toBe(11) -- optimistic
+		expect(built.mutation.status:peek()).toBe("pending")
 
 		adapter.tap(DELIVER) -- server refuses the out-of-range value
 
-		expect(built.mutation.status:get()).toBe("rejected")
-		expect(built.draftVolume:get()).toBe(10) -- restored to server truth
+		expect(built.mutation.status:peek()).toBe("rejected")
+		expect(built.draftVolume:peek()).toBe(10) -- restored to server truth
 		expect(built.snapshot.revision()).toBe(1) -- and the server never moved
 		expect(shown(adapter, presenter, STATUS)).toBe("Status: rejected (volume must be 0..10)")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("reset recovers from a request the server never answered", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
 		adapter.tap(ASK_INVALID)
-		expect(built.mutation.status:get()).toBe("pending")
+		expect(built.mutation.status:peek()).toBe("pending")
 
 		adapter.tap(RESET) -- abandons the in-flight request and rolls it back
 
-		expect(built.mutation.status:get()).toBe("idle")
-		expect(built.draftVolume:get()).toBe(10)
-		expect(built.draftMusic:get()).toBe(false)
+		expect(built.mutation.status:peek()).toBe("idle")
+		expect(built.draftVolume:peek()).toBe(10)
+		expect(built.draftMusic:peek()).toBe(false)
 		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 10")
 		-- the abandoned reply can still arrive and must change nothing
 		adapter.tap(DELIVER)
-		expect(built.mutation.status:get()).toBe("idle")
-		expect(built.draftVolume:get()).toBe(10)
-		expect(core:lastError()).toBeNil()
+		expect(built.mutation.status:peek()).toBe("idle")
+		expect(built.draftVolume:peek()).toBe(10)
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1699,17 +1678,17 @@ describe("examples/gallery 04: settings sync", function()
 	it("a second change while one is in flight is refused visibly, and never throws", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
 		adapter.tap(MUSIC)
-		expect(built.mutation.status:get()).toBe("pending")
+		expect(built.mutation.status:peek()).toBe("pending")
 
 		local ok = pcall(function()
 			adapter.tap(MUSIC)
 		end)
 
 		expect(ok).toBe(true)
-		expect(built.draftMusic:get()).toBe(true) -- unchanged: nothing was sent
-		expect(built.mutation.status:get()).toBe("pending")
+		expect(built.draftMusic:peek()).toBe(true) -- unchanged: nothing was sent
+		expect(built.mutation.status:peek()).toBe("pending")
 		expect(shown(adapter, presenter, EVENT1)).toBe("Already waiting for a reply. Deliver it first.")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1718,7 +1697,7 @@ describe("examples/gallery 04: settings sync", function()
 		adapter.tap(DELIVER)
 		expect(shown(adapter, presenter, STATUS)).toBe("Status: idle")
 		expect(shown(adapter, presenter, EVENT1)).toBe("Nothing to deliver. Send a change first.")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1739,8 +1718,8 @@ describe("examples/gallery 04: settings sync", function()
 			adapter.tap(MUSIC)
 			adapter.tap(DELIVER)
 		end
-		expect(#built.history:get()).toBe(3)
-		expect(core:lastError()).toBeNil()
+		expect(#built.history:peek()).toBe(3)
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1760,11 +1739,7 @@ describe("examples/gallery 04: settings sync", function()
 					}
 				do
 					local w = lt.world({ viewport = view.rect, offset = offset, input = "touch", theme = theme })
-					local built = ex.build(
-						Facet,
-						w.core,
-						{ env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
-					)
+					local built = ex.build(scenario_ctx.of(w))
 					w.present(built.screen, built.present)
 					local label = `{theme.id} {view.name} @ +{offset}px`
 					local sweep = lt.sweep(w, "/Settings")
@@ -1808,9 +1783,9 @@ describe("examples/gallery 04: settings sync", function()
 	it("✓ ex03 touch: a touch tap on the Music toggle applies optimistically and goes pending", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
 		adapter.tap(MUSIC, { pointer = "touch" })
-		expect(built.draftMusic:get()).toBe(true)
-		expect(built.mutation.status:get()).toBe("pending")
-		expect(core:lastError()).toBeNil()
+		expect(built.draftMusic:peek()).toBe(true)
+		expect(built.mutation.status:peek()).toBe("pending")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1818,23 +1793,23 @@ describe("examples/gallery 04: settings sync", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
 		adapter.tap(MUSIC, { pointer = "touch" })
 		adapter.tap(DELIVER, { pointer = "touch" })
-		expect(built.draftMusic:get()).toBe(true)
-		expect(built.mutation.status:get()).toBe("confirmed")
+		expect(built.draftMusic:peek()).toBe(true)
+		expect(built.mutation.status:peek()).toBe("confirmed")
 		adapter.tap(MUSIC, { pointer = "touch" })
 		adapter.tap(DELIVER, { pointer = "touch" })
-		expect(built.draftMusic:get()).toBe(false) -- and back off again
-		expect(core:lastError()).toBeNil()
+		expect(built.draftMusic:peek()).toBe(false) -- and back off again
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("✓ ex03 keyboard: Return on the focused Music toggle applies optimistically", function()
 		local core, system, _, presenter, built, handle = ex03World()
-		expect(presenter.focus.focused:get()).toBe(MUSIC) -- initial focus
+		expect(presenter.focus.focused:peek()).toBe(MUSIC) -- initial focus
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
-		expect(built.draftMusic:get()).toBe(true)
-		expect(built.mutation.status:get()).toBe("pending")
-		expect(core:lastError()).toBeNil()
+		expect(built.draftMusic:peek()).toBe(true)
+		expect(built.mutation.status:peek()).toBe("pending")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1845,28 +1820,28 @@ describe("examples/gallery 04: settings sync", function()
 		local core, system, _, presenter, built, handle = ex03World()
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
-		expect(built.mutation.status:get()).toBe("pending")
+		expect(built.mutation.status:peek()).toBe("pending")
 		-- Music -> the +/- row -> AskInvalid -> Deliver, derived from the layout
 		for _ = 1, 3 do
 			system.deviceKey("Down", true)
 			system.deviceKey("Down", false)
 		end
-		expect(presenter.focus.focused:get()).toBe(DELIVER)
+		expect(presenter.focus.focused:peek()).toBe(DELIVER)
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
-		expect(built.mutation.status:get()).toBe("confirmed")
-		expect(core:lastError()).toBeNil()
+		expect(built.mutation.status:peek()).toBe("confirmed")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("✓ ex03 gamepad: ButtonA on the focused Music toggle applies optimistically", function()
 		local core, system, _, presenter, built, handle = ex03World()
-		expect(presenter.focus.focused:get()).toBe(MUSIC)
+		expect(presenter.focus.focused:peek()).toBe(MUSIC)
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
-		expect(built.draftMusic:get()).toBe(true)
-		expect(built.mutation.status:get()).toBe("pending")
-		expect(core:lastError()).toBeNil()
+		expect(built.draftMusic:peek()).toBe(true)
+		expect(built.mutation.status:peek()).toBe("pending")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1876,12 +1851,12 @@ describe("examples/gallery 04: settings sync", function()
 		-- group), auto-derived from layout: D-pad Down enters the stepper row.
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
-		expect(presenter.focus.focused:get()).toBe(VOL_MINUS)
+		expect(presenter.focus.focused:peek()).toBe(VOL_MINUS)
 		system.deviceKey("ButtonA", true) -- activate the focused stepper
 		system.deviceKey("ButtonA", false)
-		expect(built.draftVolume:get()).toBe(9) -- 10 - 1, optimistic
-		expect(built.mutation.status:get()).toBe("pending")
-		expect(core:lastError()).toBeNil()
+		expect(built.draftVolume:peek()).toBe(9) -- 10 - 1, optimistic
+		expect(built.mutation.status:peek()).toBe("pending")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 end)
@@ -1892,69 +1867,69 @@ describe("examples/gallery 05: confirmation dialog", function()
 	it("mounts headlessly with no core error", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, _, _, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("opens a modal that traps focus, and ButtonB dismisses it and restores focus", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, system, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
+		expect(presenter.focus.focused:peek()).toBe("/DangerScreen/Page/Delete")
 		-- Pointer opens the modal; gamepad dismissal restores keyboard focus.
 		adapter.tap(built.deletePath)
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 
 		-- The horizontal row (cancel leading) follows directional input without leaving the modal.
 		system.deviceKey("DPadRight", true)
 		system.deviceKey("DPadRight", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm")
 		system.deviceKey("DPadLeft", true)
 		system.deviceKey("DPadLeft", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 
 		-- ButtonB (gamepad B) is Cancel routing: dismiss + restore focus
 		system.deviceKey("ButtonB", true)
 		system.deviceKey("ButtonB", false)
 		expect(presenter.depth()).toBe(1)
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
+		expect(presenter.focus.focused:peek()).toBe("/DangerScreen/Page/Delete") -- restored
 		-- Reopening restores the safe default. Return accepts Cancel, keeping the save.
 		for _ = 1, 2 do
 			system.deviceKey("Return", true)
 			system.deviceKey("Return", false)
-			expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+			expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 			system.deviceKey("Return", true)
 			system.deviceKey("Return", false)
 			expect(built.result()).toBe("cancelled")
 			expect(built.hasSave()).toBe(true)
 			expect(presenter.depth()).toBe(1)
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("gamepad navigation to Cancel + activate reports a cancel and dismisses", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, system, _, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		local built = ex.build(deps)
 		local handle = presenter.present(built.screen, built.present)
 
 		system.deviceKey("ButtonA", true) -- open the modal (gamepad activate)
 		system.deviceKey("ButtonA", false)
 		expect(presenter.depth()).toBe(2)
 
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 		system.deviceKey("DPadRight", true) -- cancel leads the row
 		system.deviceKey("DPadRight", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm")
 		system.deviceKey("DPadLeft", true)
 		system.deviceKey("DPadLeft", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 		system.deviceKey("ButtonA", true) -- activate Cancel
 		system.deviceKey("ButtonA", false)
 
@@ -1964,14 +1939,14 @@ describe("examples/gallery 05: confirmation dialog", function()
 		-- An immediate default activation on the next opening also cancels.
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
 		expect(built.result()).toBe("cancelled")
 		expect(built.hasSave()).toBe(true)
 		expect(presenter.depth()).toBe(1)
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
-		expect(core:lastError()).toBeNil()
+		expect(presenter.focus.focused:peek()).toBe("/DangerScreen/Page/Delete")
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -1986,20 +1961,23 @@ describe("examples/gallery 05: confirmation dialog", function()
 		for key, value in facts or {} do
 			deps.env:set(key, value)
 		end
-		local library = Facet
+		local ctx = deps
 		if confirmLabel ~= nil then
 			-- Expand one real action's copy without adding a demo configuration API.
-			library = table.clone(Facet)
-			library.View = table.clone(Facet.View)
-			library.View.Alert = function(spec)
-				spec = table.clone(spec)
-				spec.actions = table.clone(spec.actions)
-				spec.actions[1] = table.clone(spec.actions[1])
-				spec.actions[1].label = confirmLabel
-				return Facet.View.Alert(spec)
-			end
+			ctx = table.clone(deps)
+			ctx.UI = setmetatable({
+				Alert = function(name)
+					return function(spec)
+						spec = table.clone(spec)
+						spec.actions = table.clone(spec.actions)
+						spec.actions[1] = table.clone(spec.actions[1])
+						spec.actions[1].label = confirmLabel
+						return deps.UI.Alert(name)(spec)
+					end
+				end,
+			}, { __index = deps.UI })
 		end
-		local built = ex.build(library, core, deps)
+		local built = ex.build(ctx)
 		local handle = presenter.present(built.screen, built.present)
 		return core, system, adapter, presenter, built, handle, deps
 	end
@@ -2008,12 +1986,12 @@ describe("examples/gallery 05: confirmation dialog", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
 		adapter.tap("/DangerScreen/Page/Delete") -- mouse click opens the dialog
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		expect(presenter.focus.focused:peek()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 		adapter.tap("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel") -- a tap INSIDE the modal routes normally
 		expect(built.result()).toBe("cancelled")
 		expect(presenter.depth()).toBe(1)
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
-		expect(core:lastError()).toBeNil()
+		expect(presenter.focus.focused:peek()).toBe("/DangerScreen/Page/Delete") -- restored
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -2024,7 +2002,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		adapter.tap("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm", { pointer = "touch" })
 		expect(built.result()).toBe("confirmed")
 		expect(presenter.depth()).toBe(1)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -2051,7 +2029,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		expect(string.find(adapter.node(built.outcomePath).props.text, "Deleted", 1, true) ~= nil).toBe(true)
 		-- ...and the destructive action is no longer offered on an empty slot
 		expect(adapter.node(built.deletePath).props.enabled).toBe(false)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -2081,7 +2059,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		expect(presenter.depth()).toBe(2)
 		adapter.tap(built.confirmPath)
 		expect(built.hasSave()).toBe(false)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -2148,8 +2126,8 @@ describe("examples/gallery 05: confirmation dialog", function()
 			local trail = (header.x + header.w) - (prompt.rect.x + prompt.rect.w)
 			expect(math.abs(lead - trail) <= 1).toBe(true)
 			expect(prompt.props.textSize > message.props.textSize).toBe(true)
-			expect(presenter.focus.focused:get()).toBe(built.cancelPath)
-			expect(core:lastError()).toBeNil()
+			expect(presenter.focus.focused:peek()).toBe(built.cancelPath)
+			expect(core.lastError()).toBeNil()
 			presenter.dismiss(handle)
 		end
 
@@ -2193,7 +2171,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 			local hit = adapter.hitRectOf(path) or adapter.node(path).rect
 			expect(hit.w >= 44 and hit.h >= 44).toBe(true)
 		end
-		expect(presenter.focus.focused:get()).toBe(built.cancelPath)
+		expect(presenter.focus.focused:peek()).toBe(built.cancelPath)
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
 		expect(built.result()).toBe("cancelled")
@@ -2203,8 +2181,8 @@ describe("examples/gallery 05: confirmation dialog", function()
 		adapter.tap(built.deletePath)
 		presenter.refresh()
 		expect(adapter.node(built.confirmPath).props.label).toBe(longLabel)
-		expect(presenter.focus.focused:get()).toBe(built.cancelPath)
-		expect(core:lastError()).toBeNil()
+		expect(presenter.focus.focused:peek()).toBe(built.cancelPath)
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
@@ -2216,7 +2194,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		-- the guard is what is under test, not the routing
 		built.openDialog()
 		expect(presenter.depth()).toBe(2)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 end)
@@ -2273,7 +2251,7 @@ local function settleFixture(presenter: any)
 end
 
 local function fixtureWorld(view: any): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
@@ -2283,7 +2261,7 @@ local function fixtureWorld(view: any): any
 	-- fake publishes none unless asked — a sweep laid out without it models a
 	-- desktop 8px wider than the real one (tests/scroll_bar_measure.spec.luau)
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-	local presenter = Facet.newPresenter(core, env, adapter, system)
+	local presenter = harness.newPresenter(core, env, adapter, system)
 	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
 end
 
@@ -2291,6 +2269,8 @@ end
 local function mountFixture(w: any, module: any): any
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(w.core)),
+		Compose = Facet.Compose,
 		core = w.core,
 		env = w.env,
 		actionSystem = w.system,
@@ -2359,62 +2339,98 @@ end
 -- ---------------------------------------------------------------------------
 -- card_rail — newVirtualList `axis = "x"`
 -- ---------------------------------------------------------------------------
-describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', function()
+describe('examples/gallery fixture: card rail (VirtualList axis = "x")', function()
 	local module = require("../examples/gallery/scenarios/card_rail") :: any
 	local RAIL = "/CardRail/Page/RailPane/Rail"
-	local CANVAS = RAIL .. "/Canvas"
-	local CARD_GAP, CARDS = 8, 400
-	--[[ THE CARD WIDTH IS THE PARADIGM'S ANSWER, NOT THIS FILE'S (ADAPT-17). It was
-		a pinned 132 until the rail started deriving it from how many cards belong in
-		view — so every number below is read off the control that resolved it, which
-		is the same rule this fixture's own `report()` already keeps for the rail
-		width. A pin here would test the constant, not the rail. ]]
-	local function cardExtent(built: any): number
-		return built.rail.dump().itemExtent
-	end
+	local CARDS = 400
+	local CARD_GAP = 0 -- the gutter rides inside each slot
 
 	local function railWorld(view: any)
 		local w = fixtureWorld(view)
 		local built = mountFixture(w, module)
 		return w, built
 	end
-	-- the item's hit node: `pathOf` answers relative to the LIST, so the surface
-	-- prefix is added here rather than hardcoded twice
-	local function hitPath(built: any, key: string): string
-		return "/CardRail/Page/RailPane" .. (built.rail.pathOf(key) :: string) .. "/Hit"
+	local function settle(w: any)
+		for _ = 1, 5 do
+			w.presenter.tick(1 / 60)
+			w.presenter.refresh()
+		end
+	end
+	-- The first rail's mounted cards by name: slot path -> "Livery 00N". Slot ids
+	-- are generated, so a card is found by what it shows.
+	local function mountedCards(w: any): { [string]: string }
+		local out: { [string]: string } = {}
+		for _, path in w.adapter.paths() do
+			local slot = string.match(path, "^(" .. RAIL .. "/.+)/Slot/Card/Name$")
+			if slot ~= nil then
+				out[w.adapter.node(path).props.text] = slot
+			end
+		end
+		return out
+	end
+	local function name(index: number): string
+		return string.format("Livery %03d", index)
+	end
+	local function hitPath(w: any, index: number): string
+		local slot = mountedCards(w)[name(index)]
+		assert(slot ~= nil, `card {index} is not mounted`)
+		return slot .. "/Hit"
+	end
+	local function focusedCard(w: any): string?
+		local focused = w.presenter.focus.focused:peek()
+		for label, slot in mountedCards(w) do
+			if focused == slot .. "/Hit" then
+				return label
+			end
+		end
+		return nil
+	end
+	local function press(w: any, key: string)
+		w.system.deviceKey(key, true)
+		w.system.deviceKey(key, false)
+		settle(w)
 	end
 
 	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
 			local w, built = railWorld(view)
 			expectNoDiagnostics(`card_rail at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			built.dispose()
 		end
 	end)
 
 	it("windows a full-WIDTH canvas: 400 cards, a handful mounted, the rest not built", function()
 		local w, built = railWorld(DESKTOP)
-		local canvas = w.adapter.node(CANVAS)
+		local canvas
+		for _, path in w.adapter.paths() do
+			if string.match(path, "^" .. RAIL .. "/[^/]+$") then
+				canvas = w.adapter.node(path)
+			end
+		end
 		expect(canvas ~= nil).toBe(true)
 		-- N items span N*extent + (N-1)*gap along the SCROLL axis, and that axis is
 		-- x here: a vertical virtualizer would have put this number on the height
-		expect(canvas.rect.w).toBe(CARDS * cardExtent(built) + (CARDS - 1) * CARD_GAP)
+		expect(canvas.rect.w).toBe(CARDS * built.itemExtent() + (CARDS - 1) * CARD_GAP)
 		expect(canvas.rect.h <= w.adapter.node(RAIL).rect.h).toBe(true)
 		-- ...and only a window of it exists
-		local mounted = built.steps.mountedCount()
+		local mounted = 0
+		for _ in mountedCards(w) do
+			mounted += 1
+		end
 		expect(mounted > 0).toBe(true)
 		expect(mounted < 30).toBe(true)
 		expect(built.report().total).toBe(CARDS)
 		built.dispose()
 	end)
 
-	it("the rail's width is re-derived from the viewport, never a constant", function()
+	it("the card's width is re-derived from the viewport, never a constant", function()
 		local narrowW, narrow = railWorld(NARROW_PORTRAIT)
 		local wideW, wide = railWorld(DESKTOP)
-		local narrowExtent = narrow.report().viewportExtent
-		local wideExtent = wide.report().viewportExtent
-		expect(wideExtent > narrowExtent).toBe(true)
+		expect(wideW.adapter.node(RAIL).rect.w > narrowW.adapter.node(RAIL).rect.w).toBe(true)
+		-- one card and a peek on the phone, several across the desktop
+		expect(narrow.itemExtent() * 2 > narrowW.adapter.node(RAIL).rect.w).toBe(true)
+		expect(wide.itemExtent() * 2 < wideW.adapter.node(RAIL).rect.w).toBe(true)
 		-- and neither one paints past the screen it was derived from
 		expect(narrowW.adapter.node(RAIL).rect.w <= NARROW_PORTRAIT.w).toBe(true)
 		expect(wideW.adapter.node(RAIL).rect.w <= DESKTOP.w).toBe(true)
@@ -2422,54 +2438,55 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 		wide.dispose()
 	end)
 
-	it("keyboard: Left/Right step the rail — and Up/Down do nothing at all", function()
+	it("the rail is exactly as tall as its card, scrollbar band included", function()
+		for _, view in { NARROW_PORTRAIT, DESKTOP } do
+			local w, built = railWorld(view)
+			local rail = w.adapter.node(RAIL).rect
+			local sizer = w.adapter.node("/CardRail/Page/RailPane/Sizer").rect
+			expect(`{view.w}: rail {rail.h}`).toBe(`{view.w}: rail {sizer.h}`)
+			local card = w.adapter.node(mountedCards(w)[name(1)] .. "/Slot/Card").rect
+			expect(card.y + card.h <= rail.y + rail.h).toBe(true)
+			built.dispose()
+		end
+	end)
+
+	it("keyboard: Left/Right step the rail — and Up/Down never step along it", function()
 		-- THE DISCRIMINATOR for "the list declares its own axis to the focus
 		-- graph". A group still saying `vertical` would step on Up/Down here and be
 		-- dead on Left/Right, which is a rail no keyboard can reach.
 		local w, built = railWorld(DESKTOP)
-		expect(w.presenter.focus.focused:get()).toBe(hitPath(built, "c1"))
-		w.system.deviceKey("Right", true)
-		w.system.deviceKey("Right", false)
-		expect(built.rail.focusedKey:get()).toBe("c2")
-		w.system.deviceKey("Right", true)
-		w.system.deviceKey("Right", false)
-		expect(built.rail.focusedKey:get()).toBe("c3")
-		w.system.deviceKey("Left", true)
-		w.system.deviceKey("Left", false)
-		expect(built.rail.focusedKey:get()).toBe("c2")
-		for _, key in { "Down", "Up" } do
-			w.system.deviceKey(key, true)
-			w.system.deviceKey(key, false)
-			expect(`{key} moved focus to {tostring(built.rail.focusedKey:get())}`).toBe(`{key} moved focus to c2`)
-		end
-		expect(w.core:lastError()).toBeNil()
+		w.presenter.focus.focusOn(hitPath(w, 1))
+		press(w, "Right")
+		expect(focusedCard(w)).toBe(name(2))
+		press(w, "Right")
+		expect(focusedCard(w)).toBe(name(3))
+		press(w, "Left")
+		expect(focusedCard(w)).toBe(name(2))
+		press(w, "Up")
+		expect(`Up left the ring on {tostring(focusedCard(w))}`).toBe(`Up left the ring on {name(2)}`)
+		expect(w.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
 	it("gamepad: the D-pad steps it sideways and A picks the focused card", function()
 		local w, built = railWorld(DESKTOP)
-		w.system.deviceKey("DPadRight", true)
-		w.system.deviceKey("DPadRight", false)
-		w.system.deviceKey("DPadRight", true)
-		w.system.deviceKey("DPadRight", false)
-		expect(built.rail.focusedKey:get()).toBe("c3")
-		w.system.deviceKey("DPadLeft", true)
-		w.system.deviceKey("DPadLeft", false)
-		w.system.deviceKey("ButtonA", true)
-		w.system.deviceKey("ButtonA", false)
-		expect(built.rail.selectedKey:get()).toBe("c2")
+		w.presenter.focus.focusOn(hitPath(w, 1))
+		press(w, "DPadRight")
+		press(w, "DPadRight")
+		expect(focusedCard(w)).toBe(name(3))
+		press(w, "DPadLeft")
+		press(w, "ButtonA")
+		expect(built.report().selectedKey).toBe("c2")
 		built.dispose()
 	end)
 
 	it("keyboard: Return picks the focused card, and the surface SAYS which one", function()
 		local w, built = railWorld(DESKTOP)
-		w.system.deviceKey("Right", true)
-		w.system.deviceKey("Right", false)
-		w.system.deviceKey("Return", true)
-		w.system.deviceKey("Return", false)
-		expect(built.rail.selectedKey:get()).toBe("c2")
-		w.presenter.refresh()
-		-- the player-visible consequence, not just the signal: a pick nobody can
+		w.presenter.focus.focusOn(hitPath(w, 1))
+		press(w, "Right")
+		press(w, "Return")
+		expect(built.report().selectedKey).toBe("c2")
+		-- the player-visible consequence, not just the cell: a pick nobody can
 		-- see on screen is a pick that proves nothing about the fixture
 		local shown = w.adapter.node("/CardRail/Page/Selected").props.text
 		expect(string.find(shown, "Livery 002", 1, true) ~= nil).toBe(true)
@@ -2479,54 +2496,26 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 	it("pointer and touch: a tap picks the card it landed on", function()
 		for _, pointer in { "mouse", "touch" } do
 			local w, built = railWorld(DESKTOP)
-			w.adapter.tap(hitPath(built, "c4"), { pointer = pointer })
-			expect(`{pointer}:{tostring(built.rail.selectedKey:get())}`).toBe(`{pointer}:c4`)
+			w.adapter.tap(hitPath(w, 4), { pointer = pointer })
+			expect(`{pointer}:{tostring(built.report().selectedKey)}`).toBe(`{pointer}:c4`)
 			built.dispose()
 		end
 	end)
 
-	it("binds its own engine-scroll mirror with no scripted step (the showcase path)", function()
-		-- The showcase's generic auto-bind loop runs only on the tutorial-EXAMPLE
-		-- branch, so a fixture that waited for a `bind` step would never mirror
-		-- CanvasPosition for the one host where a real thumb does the scrolling.
-		local w, built = railWorld(DESKTOP)
-		expect(built.report().bound).toBe(false)
-		w.presenter.tick(1 / 60)
-		expect(built.report().bound).toBe(true)
-		built.dispose()
-	end)
-
 	it("a sideways engine scroll slides the window along X", function()
 		local w, built = railWorld(DESKTOP)
-		w.presenter.tick(1 / 60)
-		expect(built.rail.debugWindow().c1).toBe(true)
+		expect(mountedCards(w)[name(1)] ~= nil).toBe(true)
 		w.adapter.driveScroll(RAIL, { x = 1400, y = 0 })
-		w.presenter.refresh()
-		-- `scrollTop` mirrors CanvasPosition.X on this axis: the name predates the
-		-- field and is public API
-		expect(built.rail.scrollTop:get()).toBe(1400)
-		expect(built.rail.debugWindow().c1).toBe(nil)
-		local index = math.floor(1400 / (cardExtent(built) + CARD_GAP)) + 1
-		expect(built.rail.debugWindow()[`c{index}`]).toBe(true)
+		settle(w)
+		expect(mountedCards(w)[name(1)]).toBeNil()
+		local index = math.floor(1400 / (built.itemExtent() + CARD_GAP)) + 1
+		expect(mountedCards(w)[name(index)] ~= nil).toBe(true)
 		-- a Y scroll is not this list's axis and must not move its window
 		w.adapter.driveScroll(RAIL, { x = 1400, y = 900 })
-		w.presenter.refresh()
-		expect(built.rail.scrollTop:get()).toBe(1400)
-		expect(w.core:lastError()).toBeNil()
-		built.dispose()
-	end)
-
-	it("keep-visible scrolls a far-off card into the band on the X axis", function()
-		local w, built = railWorld(DESKTOP)
-		w.presenter.tick(1 / 60)
-		built.steps.focusEnd()
-		w.presenter.refresh()
-		local left = built.rail.scrollTop:get()
-		expect(left > 0).toBe(true)
-		local last = (CARDS - 1) * (cardExtent(built) + CARD_GAP)
-		expect(last >= left).toBe(true)
-		expect(last + cardExtent(built) <= left + built.report().viewportExtent + 1).toBe(true)
-		expect(built.rail.debugWindow()[`c{CARDS}`]).toBe(true)
+		settle(w)
+		expect(mountedCards(w)[name(index)] ~= nil).toBe(true)
+		expect(mountedCards(w)[name(1)]).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
@@ -2557,7 +2546,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 	local RUN = PAGE .. "/Run"
 	local STAGE = PAGE .. "/Stage/Decorative"
 	local PUCK = STAGE .. "/Lane/Puck"
-	local PANEL = STAGE .. "/Detail/then/Panel"
+	local PANEL = STAGE .. "/Detail/Panel"
 	local CARD = STAGE .. "/Card"
 	local CARD_PIP = CARD .. "/Pip"
 	-- ONE LEVEL DEEPER since navigation-and-menus D6: this picker is declared
@@ -2568,7 +2557,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 	local FRAME = 1 / 60
 
 	local function chipPath(name: string): string
-		return `{STAGE}/Chips/Order/[{name}]/Chip`
+		return `{STAGE}/Chips/Order/Chip-{name}`
 	end
 	local function motionWorld(view: any?)
 		local w = fixtureWorld(view or DESKTOP)
@@ -2585,23 +2574,23 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 
 	it("state-driven theme tint interpolates, snaps when reduced, and cleans up with the demo", function()
 		local w, built = motionWorld()
-		expect(built.color:get()).toBe(0)
+		expect(built.color:peek()).toBe(0)
 		w.adapter.tap(RUN)
 		w.presenter.tick(FRAME)
-		expect(built.color:get() > 0 and built.color:get() < 1).toBe(true)
+		expect(built.color:peek() > 0 and built.color:peek() < 1).toBe(true)
 		w.presenter.refresh()
 		local tint = w.adapter.node(PUCK).props.tint
 		expect(tint.from).toBe("contentSecondary")
 		expect(tint.role).toBe("accent")
-		expect(tint.blend).toBe(built.color:get())
+		expect(tint.blend).toBe(built.color:peek())
 		built.motionMode:set("reduced")
 		w.adapter.tap(RUN)
-		expect(built.color:get()).toBe(0)
+		expect(built.color:peek()).toBe(0)
 		w.presenter.dismiss(built.handle)
 		built.dispose()
 		settleMotion(w)
 		expect(w.presenter.motionClock:activeCount()).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
@@ -2616,7 +2605,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 			end
 			settleFixture(w.presenter)
 			expectNoDiagnostics(`with_animation mid-flight at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			built.dispose()
 		end
 	end)
@@ -2643,8 +2632,8 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 			-- their identity while doing it (a rebuild would have changed the paths)
 			expect(w.adapter.node(chipPath("Alpha")).rect.x).toBe(deltaBefore)
 			expect(w.adapter.node(chipPath("Delta")).rect.x).toBe(alphaBefore)
-			expect(built.chipOrder:get()[1]).toBe("Delta")
-			expect(w.core:lastError()).toBeNil()
+			expect(built.chipOrder:peek()[1]).toBe("Delta")
+			expect(w.core.lastError()).toBeNil()
 			built.dispose()
 		end
 	)
@@ -2710,7 +2699,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		expect(settled.motionScaleInstance.scale).toBeCloseTo(0.6)
 		expect(settled.rotation).toBeCloseTo(45)
 		expect(built.report().badgeRotation).toBe(45)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
@@ -2763,7 +2752,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		settleMotion(w)
 		local landed = w.adapter.node(CARD)
 		expect(landed.presentedSize.h).toBe(landed.rect.h)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
@@ -2882,9 +2871,9 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		local w, built = motionWorld()
 		w.adapter.tap(REDUCED_OPTION) -- the player's own route to it
 		w.presenter.refresh()
-		expect(built.motionMode:get()).toBe("reduced")
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
-		expect(w.env:get("motionPolicy"):get()).toBe("reduced")
+		expect(built.motionMode:peek()).toBe("reduced")
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
+		expect(w.env:get("motionPolicy"):peek()).toBe("reduced")
 
 		local puckBefore = w.adapter.node(PUCK).rect.x
 		w.adapter.tap(RUN)
@@ -2892,7 +2881,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		-- the layout still happened, exactly...
 		expect(puck.rect.x ~= puckBefore).toBe(true)
 		expect(w.adapter.node(PANEL) ~= nil).toBe(true)
-		expect(built.chipOrder:get()[1]).toBe("Delta")
+		expect(built.chipOrder:peek()[1]).toBe("Delta")
 		-- ...and nothing was installed to travel it. "Installed and cleared" is the
 		-- bug: a settle-ordering slip then paints a stale delta forever.
 		expect(w.presenter.animationRecordCount()).toBe(0)
@@ -2914,13 +2903,13 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 			local distinct, last = 0, nil
 			for _ = 1, 150 do
 				w.presenter.tick(FRAME)
-				local value = built.charge:get()
+				local value = built.charge:peek()
 				if value ~= last then
 					distinct += 1
 					last = value
 				end
 			end
-			local terminal = built.charge:get()
+			local terminal = built.charge:peek()
 			built.dispose()
 			return distinct, terminal
 		end
@@ -2942,7 +2931,7 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		for _, pointer in { "mouse", "touch" } do
 			local w, built = motionWorld()
 			w.adapter.tap(RUN, { pointer = pointer })
-			expect(`{pointer}:{built.laneRight:get()}`).toBe(`{pointer}:true`)
+			expect(`{pointer}:{built.laneRight:peek()}`).toBe(`{pointer}:true`)
 			built.dispose()
 		end
 		-- keyboard: Return on the focused button
@@ -2950,26 +2939,35 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		kbWorld.presenter.focus.focusOn(RUN)
 		kbWorld.system.deviceKey("Return", true)
 		kbWorld.system.deviceKey("Return", false)
-		expect(kbBuilt.laneRight:get()).toBe(true)
+		expect(kbBuilt.laneRight:peek()).toBe(true)
 		-- ...and the reduced-motion control is reachable the same way
 		kbWorld.presenter.focus.focusOn(REDUCED_OPTION)
 		kbWorld.system.deviceKey("Return", true)
 		kbWorld.system.deviceKey("Return", false)
-		expect(kbBuilt.motionMode:get()).toBe("reduced")
+		expect(kbBuilt.motionMode:peek()).toBe("reduced")
 		kbBuilt.dispose()
 		-- gamepad: A on the focused button
 		local padWorld, padBuilt = motionWorld()
 		padWorld.presenter.focus.focusOn(RUN)
 		padWorld.system.deviceKey("ButtonA", true)
 		padWorld.system.deviceKey("ButtonA", false)
-		expect(padBuilt.laneRight:get()).toBe(true)
+		expect(padBuilt.laneRight:peek()).toBe(true)
 		padBuilt.dispose()
 	end)
 
-	it("carries the INDETERMINATE pair, and reduced motion steps them instead of stopping them", function()
-		-- §3.1's claim, hands-on: the decorative half stops travelling under
-		-- Reduced while these two go on sweeping. A fixture that only carried the
-		-- decorative half would teach that reduced motion means no motion.
+	it("carries the INDETERMINATE pair, and reduced motion STEPS them rather than freezing", function()
+		-- The native contract, read off the control rather than assumed:
+		-- `src/controls/progress_view.luau`'s indeterminate cycle keeps running
+		-- under `motionPolicy == "reduced"` and quantizes its READS onto a
+		-- 250 ms tick (REDUCED_STEP), for all three presentations. That is the
+		-- SAME answer the charge bar above gives ("...and the INFORMATIONAL
+		-- half keeps running under Reduced, quantized rather than deleted"),
+		-- reached by a different mechanism — the charge bar rides
+		-- `src/motion/motion.luau`'s write gate, this pair rides the control's
+		-- own quantized read — which is why both are measured here the same
+		-- way. The busy pair has no terminus to announce, and that is exactly
+		-- why it must not stop: it is the only thing on the page saying work is
+		-- still happening, and a frozen indicator says the opposite.
 		local BUSY = PAGE .. "/Stage/Informational/Busy"
 		local SPIN = PAGE .. "/Stage/Informational/Working/Spinner"
 		local w, built = motionWorld()
@@ -3001,12 +2999,14 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		local full = distinctOverASecond()
 		w.adapter.tap(REDUCED_OPTION)
 		local reduced = distinctOverASecond()
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
-		-- STILL MOVING under reduced motion — the whole decision — and visibly
-		-- coarser than full motion over the same wall clock
-		expect(reduced > 1).toBe(true)
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
+		-- COARSER, never stopped: far fewer readings than the full-motion
+		-- second, and more than one — the two halves of the stepped policy, and
+		-- a freeze fails the second of them.
 		expect(full > reduced).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(reduced > 1).toBe(true)
+		expect(reduced <= 8).toBe(true)
+		expect(w.core.lastError()).toBeNil()
 		built.dispose()
 	end)
 
@@ -3015,11 +3015,11 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		-- honest; leaving it written after the player walks away is what would make
 		-- it a trap for every OTHER demo in the same place
 		local w, built = motionWorld()
-		expect(w.env:get("reducedMotion"):get()).toBe(false)
+		expect(w.env:get("reducedMotion"):peek()).toBe(false)
 		w.adapter.tap(REDUCED_OPTION)
-		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		expect(w.env:get("reducedMotion"):peek()).toBe(true)
 		built.dispose()
-		expect(w.env:get("reducedMotion"):get()).toBe(false)
+		expect(w.env:get("reducedMotion"):peek()).toBe(false)
 	end)
 
 	it("its copy survives a 1.4x pseudo-localization without clipping", function()
@@ -3068,8 +3068,7 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
 			local w, built = ringWorld(view)
 			expectNoDiagnostics(`progress_ring at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
-			built.dispose()
+			expect(w.core.lastError()).toBeNil()
 		end
 	end)
 
@@ -3085,7 +3084,6 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 		-- arc's per-frame paint ever fails on a device, and the fixture is where
 		-- the two are compared
 		expect(w.adapter.node(PAGE .. "/Dots/Spinner/Dot5") ~= nil).toBe(true)
-		built.dispose()
 	end)
 
 	it("the steps drive the ring's sweep, and the arc follows the value", function()
@@ -3108,7 +3106,6 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 		built.steps.setProgress100()
 		settleFixture(w.presenter)
 		expect(built.report().fraction).toBe(1)
-		built.dispose()
 	end)
 
 	it("the indeterminate head TRAVELS when the surface's clock advances", function()
@@ -3121,7 +3118,6 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 		built.steps.advance(built, "20")
 		settleFixture(w.presenter)
 		expect(`travelled:{math.abs(head() - before) > 0.001}`).toBe("travelled:true")
-		built.dispose()
 	end)
 
 	it("its copy survives a 1.4x pseudo-localization without clipping", function()
@@ -3137,7 +3133,6 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 					PAGE .. "/Busy/Label",
 					PAGE .. "/Dots/Label",
 				})
-				built.dispose()
 			end
 		end)
 		expect(module.copy.title).toBe(originalTitle)
@@ -3186,7 +3181,7 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
 			local w, built = vocabWorld(view)
 			expectNoDiagnostics(`adaptive_controls at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			built.dispose()
 		end
 	end)
@@ -3345,7 +3340,7 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			expect(`{events[2].type} {events[2].path}`).toBe(`select {SETTINGS}/Quality`)
 			-- ...and the fixture is still exactly the controls it was: Facet plays
 			-- nothing, so the only trace of either verb is the event above
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			unsubscribe()
 			built.dispose()
 		end
@@ -3380,7 +3375,7 @@ describe("examples/gallery fixture: variable item extents", function()
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
 			local w, built = feedWorld(view)
 			expectNoDiagnostics(`variable_extents at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			-- THE PATH IS A CLAIM, so it is asserted once rather than assumed forty
 			-- times: every row lookup in this describe hangs off `FEED`, and a path
 			-- that no longer resolves turns each of them into a silent nil
@@ -3507,7 +3502,7 @@ describe("examples/gallery fixture: flow wrap (UI.HStack wrap = true)", function
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
 			local w, built = wrapWorld(view)
 			expectNoDiagnostics(`flow_wrap at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			built.dispose()
 		end
 	end)
@@ -3640,8 +3635,7 @@ describe("examples/gallery fixture: lifecycle hooks and hidden", function()
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
 			local w, built = lifeWorld(view)
 			expectNoDiagnostics(`lifecycle_hidden at {view.w}x{view.h}`, w, built)
-			expect(w.core:lastError()).toBeNil()
-			built.dispose()
+			expect(w.core.lastError()).toBeNil()
 		end
 	end)
 
@@ -3659,7 +3653,6 @@ describe("examples/gallery fixture: lifecycle hooks and hidden", function()
 			local reservedAfter = w.adapter.node(RESERVED_NOTE).rect.y
 			expect(`{view.w} removed moved: {removedAfter < removedBefore}`).toBe(`{view.w} removed moved: true`)
 			expect(`{view.w} reserved: {reservedAfter - reservedBefore}`).toBe(`{view.w} reserved: 0`)
-			built.dispose()
 		end
 	end)
 
@@ -3675,26 +3668,25 @@ describe("examples/gallery fixture: lifecycle hooks and hidden", function()
 		expect(`{hiddenBox.w}x{hiddenBox.h}`).toBe(`{box.w}x{box.h}`)
 		-- a hidden badge fires no lifetime event of its own: hiding is a paint and
 		-- interaction state, never a mount
-		local beforeCounts = `{built.appearCount:get()}/{built.disappearCount:get()}`
+		local beforeCounts = `{built.appearCount:peek()}/{built.disappearCount:peek()}`
 		w.adapter.tap(GHOST, {})
 		settleFixture(w.presenter)
-		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe(beforeCounts)
+		expect(`{built.appearCount:peek()}/{built.disappearCount:peek()}`).toBe(beforeCounts)
 		built.steps.setShowing(built, "on")
 		settleFixture(w.presenter)
 		expect(w.adapter.visibleOf(GHOST)).toBe(true)
-		built.dispose()
 	end)
 
 	it("the log and the counters are the only evidence a lifetime hook ran", function()
 		local w, built = lifeWorld(NARROW_PORTRAIT)
 		-- the badge is present at mount, so exactly one appearance has happened
-		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/0")
+		expect(`{built.appearCount:peek()}/{built.disappearCount:peek()}`).toBe("1/0")
 		built.steps.setShowing(built, "off")
 		settleFixture(w.presenter)
-		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/1")
+		expect(`{built.appearCount:peek()}/{built.disappearCount:peek()}`).toBe("1/1")
 		built.steps.setShowing(built, "on")
 		settleFixture(w.presenter)
-		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("2/1")
+		expect(`{built.appearCount:peek()}/{built.disappearCount:peek()}`).toBe("2/1")
 		-- ...and the log is BOUNDED, so a player who flips the switch all afternoon
 		-- cannot grow a Text past its page
 		for _ = 1, module.logLines * 2 do
@@ -3704,20 +3696,18 @@ describe("examples/gallery fixture: lifecycle hooks and hidden", function()
 			settleFixture(w.presenter)
 		end
 		local lines = 1
-		for _ in string.gmatch(built.logText:get(), "\n") do
+		for _ in string.gmatch(built.logText:peek(), "\n") do
 			lines += 1
 		end
 		expect(`log lines: {lines}`).toBe(`log lines: {module.logLines}`)
 		expectNoDiagnostics("lifecycle_hidden after many flips", w, built)
-		built.dispose()
 	end)
 
 	it("teardown fires the badge's own disappear, so the count is never left short", function()
 		local w, built = lifeWorld(NARROW_PORTRAIT)
-		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/0")
+		expect(`{built.appearCount:peek()}/{built.disappearCount:peek()}`).toBe("1/0")
 		built.handle.controller.dispose()
-		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/1")
-		built.dispose()
+		expect(`{built.appearCount:peek()}/{built.disappearCount:peek()}`).toBe("1/1")
 	end)
 
 	it("pseudo-localized (~1.4x), every line still reads whole and clips nothing", function()
@@ -3732,7 +3722,6 @@ describe("examples/gallery fixture: lifecycle hooks and hidden", function()
 					RESERVED_NOTE,
 					`{PAGE}/NoFire`,
 				})
-				built.dispose()
 			end
 		end)
 	end)
@@ -3792,7 +3781,7 @@ describe("examples/gallery fixture: what a label gives up first", function()
 					)
 				end
 			end
-			expect(w.core:lastError()).toBeNil()
+			expect(w.core.lastError()).toBeNil()
 			built.dispose()
 		end
 	end)

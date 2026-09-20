@@ -209,7 +209,7 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 						lane deliberately does NOT gate, so this differential is what says the
 						solve files nothing there either. `clearOffset` is the nil-flip the lane
 						REFUSES, and its restore is not tidiness: `tick` reads
-						`item.x:get() + dx`, so a plate left at nil makes every later step an
+						`item.x:peek() + dx`, so a plate left at nil makes every later step an
 						error on nil. ]]
 					if fixture.reactiveAnchor then
 						step(`anchorFlip {round}`, false, function(w)

@@ -33,16 +33,19 @@
 -- glance — the accent edge bar and the hairline stroke — and never spends an
 -- ELEVATION role on an interaction state.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Collection lab (SF-L1/L3/P1/P3)",
 	ledgerRows = { "SF-L1", "SF-L3", "SF-P1", "SF-P3", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-list")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
 
 		local SCREEN = "/ListLab"
@@ -55,7 +58,7 @@ return {
 		local function note(kind: string, info: any?)
 			table.insert(trace, { at = elapsed, kind = kind, info = info })
 		end
-		scope:own(pres.onFeedback(function(event: any)
+		own(pres.onFeedback(function(event: any)
 			table.insert(trace, {
 				at = elapsed,
 				kind = "feedback:" .. tostring(event.type),
@@ -77,18 +80,18 @@ return {
 			end
 			return rows
 		end
-		local rows = scope:own(core:signal(makeRows()))
-		local churning = scope:own(core:signal(false))
-		local mixedEligibility = scope:own(core:signal(false))
+		local rows = Compose.cell(makeRows())
+		local churning = Compose.cell(false)
+		local mixedEligibility = Compose.cell(false)
 		-- rows the fixture has blocked BY HAND (the exemption step flips one while
 		-- it is armed); separate from the every-third pattern so the two reasons a
 		-- row can be ineligible never get confused in the trace
-		local blocked = scope:own(core:signal({} :: { [string]: boolean }))
-		local inspect = scope:own(core:signal("inspect: (nothing yet)"))
-		local pulseKey = scope:own(core:signal(nil :: string?))
+		local blocked = Compose.cell({} :: { [string]: boolean })
+		local inspect = Compose.cell("inspect: (nothing yet)")
+		local pulseKey = Compose.cell(nil :: string?)
 
-		local sweep = scope:own(clock:spring(0, "decay"))
-		local pulse = scope:own(clock:spring(0, "decay"))
+		local sweep = own(clock:spring(0, "decay"))
+		local pulse = own(clock:spring(0, "decay"))
 
 		local remountCounts: { [string]: number } = {}
 		local navigationSweep: { any } = {}
@@ -98,17 +101,17 @@ return {
 		end
 
 		local function isEligible(key: string): boolean
-			if (blocked:get() :: any)[key] == true then
+			if (blocked:peek() :: any)[key] == true then
 				return false
 			end
-			if not mixedEligibility:get() then
+			if not mixedEligibility:peek() then
 				return true
 			end
 			return indexOfKey(key) % 3 ~= 0
 		end
 
 		-- ===== the derived row height =======================================
-		local itemExtent = scope:own(core:memo(function(use)
+		local itemExtent = Compose.formula(function(use)
 			--[[ THE LINE BOXES COME FROM THE FRAMEWORK (`Facet.text.facts` /
 				`Facet.text.lineBox`, adopted 2026-08-15). This memo used to carry its own
 				copy of the arithmetic, and the copy was wrong in the way six of the seven
@@ -189,7 +192,7 @@ return {
 			end
 			local chromeV = carvedSide("top") + carvedSide("bottom")
 			return math.max(metrics.targetSizes.minimum or 44, content + padV + chromeV + marginV)
-		end))
+		end)
 
 		--[[ THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
 			Readable viewport height, so this is a memo over the environment's own
@@ -217,28 +220,35 @@ return {
 			extents; `scenarios/sponsor_drop.luau` was migrated and REVERTED on
 			measurement, for a different reason it carries at its own site. The clamp
 			stays here, and the sentence above is why. ]]
-		local viewportExtent = scope:own(core:memo(function(use)
+		local viewportExtent = Compose.formula(function(use)
 			local vp: any = use(env:get("viewportRect"))
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 760
 			return math.clamp(math.floor(h - 220), 160, 460)
-		end))
+		end)
 
 		-- ===== the row ======================================================
 		-- declared before `cell` because a row reads the list's own selection
 		-- signal; it is assigned the moment the construct is built, below
 		local list: any = nil
+		-- a scenario-owned mirror of the list's selectedKey, read by `cell`
+		-- (`ref` only hands back `list` once VirtualList's build finishes, which
+		-- is AFTER it has already built the initially windowed rows, so `cell`
+		-- cannot reach `list.selectedKey` for its own first paint; `onSelect`
+		-- fires on every route into `select()` — pointer, keyboard and the
+		-- programmatic `list.select()` driver alike — so this mirror never
+		-- drifts from the list's own signal)
+		local selectedKey = Compose.cell(nil :: string?)
 		local SWATCH: any = { type = "fixed", px = "iconSizes.medium" }
 
-		local function cell(item: any, cellCtx: any): any
-			local itemScope = cellCtx.scope
+		local function cell(item: any, _cellCtx: any): any
 			remountCounts[item.id] = (remountCounts[item.id] or 0) + 1
 			local key = item.id
 			local index = indexOfKey(key)
 
-			local selected = itemScope:own(core:memo(function(use)
-				return use(list.selectedKey) == key
-			end))
-			local eligible = itemScope:own(core:memo(function(use)
+			local selected = Compose.formula(function(use)
+				return use(selectedKey) == key
+			end)
+			local eligible = Compose.formula(function(use)
 				if (use(blocked) :: any)[key] == true then
 					return false
 				end
@@ -246,17 +256,17 @@ return {
 					return true
 				end
 				return index % 3 ~= 0
-			end))
+			end)
 			-- SF-P1: a continuous value on the fill channel. One `decay` spring
 			-- drives the whole list and each row spends it at its own phase, so the
 			-- sweep is a real gradient across rows rather than 20 copies of one
 			-- number.
-			local energy = itemScope:own(core:memo(function(use)
+			local energy = Compose.formula(function(use)
 				return math.clamp(use(sweep) * 1.8 - (index - 1) * 0.08, 0, 1)
-			end))
-			local washTint = itemScope:own(core:memo(function(use)
+			end)
+			local washTint = Compose.formula(function(use)
 				return { role = "accent", from = "control", blend = use(energy) }
-			end))
+			end)
 			-- THE CARD'S FILL IS ELEVATION, AND ONLY ELEVATION (review R2-F6). It used
 			-- to switch to `raised` when the row was selected, which put an
 			-- interaction state on the elevation channel — the one-meaning-per-channel
@@ -264,19 +274,19 @@ return {
 			-- state: it declares `selected` on the row hit under this card, the theme
 			-- paints that (`controlSelected`), and the card contributes the FORM
 			-- channels instead — the accent edge bar and the hairline stroke.
-			local cardSurface = itemScope:own(core:memo(function(use)
+			local cardSurface = Compose.formula(function(use)
 				return if use(eligible) then "control" else "base"
-			end))
+			end)
 			-- the content channel of the row's state set: an ineligible row reads in
 			-- the secondary role, an eligible one in the default. "secondary" is the
 			-- only authored text role there is — anything else would be a string the
 			-- schema accepts and the theme ignores.
-			local nameRole = itemScope:own(core:memo(function(use)
+			local nameRole = Compose.formula(function(use)
 				return if use(eligible) then nil else "secondary"
-			end))
+			end)
 			-- ONE stroke prop, declared precedence: the pulse (SF-P3) outranks the
 			-- selected hairline, and an unselected quiet row carries none
-			local strokeData = itemScope:own(core:memo(function(use)
+			local strokeData = Compose.formula(function(use)
 				if use(pulseKey) == key then
 					return UI.strokeData({ thickness = 2, color = "accent", transparency = 1 - use(pulse) })
 				end
@@ -284,13 +294,12 @@ return {
 					return UI.strokeData({ color = "hairline" })
 				end
 				return nil
-			end))
-			local edgeBarWidth = itemScope:own(core:memo(function(use)
+			end)
+			local edgeBarWidth = Compose.formula(function(use)
 				return { type = "fixed", px = if use(selected) then 4 else 0 }
-			end))
+			end)
 
-			return UI.HStack({
-				id = "Card",
+			return UI.HStack("Card")({
 				surface = cardSurface,
 				stroke = strokeData,
 				padding = "s",
@@ -303,25 +312,22 @@ return {
 				height = UI.fill(),
 
 				-- the selected FORM channel (never hue alone, I-5)
-				UI.Box({
-					id = "EdgeBar",
+				UI.Box("EdgeBar")({
 					surface = "accent",
 					width = edgeBarWidth,
 					height = UI.fill(),
 				}),
-				UI.corners(UI.Box({ id = "Swatch", surface = "chip", width = SWATCH, height = SWATCH }), "pill"),
-				UI.VStack({
-					id = "Labels",
+				UI.corners(UI.Box("Swatch")({ surface = "chip", width = SWATCH, height = SWATCH }), "pill"),
+				UI.VStack("Labels")({
 					gap = "xs",
 					width = UI.fill(),
 
-					UI.Text({ id = "Name", text = item.name, textSize = "body", role = nameRole }),
+					UI.Text("Name")({ text = item.name, textSize = "body", role = nameRole }),
 					-- CAPPED AT TWO LINES (finding F13): the row height above
 					-- reserves exactly this, so the largest text offset grows
 					-- every row by the same amount and the windowing arithmetic
 					-- stays index x height
-					UI.Text({
-						id = "Detail",
+					UI.Text("Detail")({
 						text = item.detail,
 						textSize = "caption",
 						role = "secondary",
@@ -337,14 +343,13 @@ return {
 						width = UI.fill(),
 					}),
 				}),
-				UI.Spacer({ id = "Gap" }),
+				UI.Spacer("Gap")({}),
 				-- the §4.2 verdict glyph slot: empty in this lab (no drag session
 				-- here), sized so the drop lab's row and this one measure the same
-				UI.Box({ id = "VerdictSlot", surface = "plain", width = SWATCH, height = SWATCH }),
+				UI.Box("VerdictSlot")({ surface = "plain", width = SWATCH, height = SWATCH }),
 				-- SF-P1's continuous channel, on its own node so the card keeps its
 				-- state fill (a tint claims the fill it is written to)
-				UI.Box({
-					id = "Wash",
+				UI.Box("Wash")({
 					tint = washTint,
 					width = { type = "fixed", px = 6 },
 					height = UI.fill(),
@@ -356,56 +361,63 @@ return {
 		local selections: { string } = {}
 		local activations: { any } = {}
 
-		list = Facet.Controls.VirtualList(core, {
-			id = "Rows",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			itemExtent = itemExtent,
-			viewportExtent = viewportExtent,
-			overscan = 2,
-			selection = "single",
-			onSelect = function(_item: any, key: string)
-				table.insert(selections, key)
-				note("select", { key = key })
-			end,
-			reorderable = true,
-			reorderMotion = "object",
-			motionClock = clock,
-			onReorder = function(key: string, toIndex: number)
-				table.insert(reorders, { key = key, toIndex = toIndex })
-				local current = rows:get() :: { any }
-				local next: { any } = {}
-				local moved: any = nil
-				for _, item in current do
-					if item.id == key then
-						moved = item
-					else
-						table.insert(next, item)
+		-- The list is built inside the screen component, so its rows belong to the
+		-- mounted surface; `ref` hands the scenario the list's record.
+		local function listNode(): any
+			return UI.VirtualList("Rows")({
+				ref = function(record: any)
+					list = record.api
+				end,
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = itemExtent,
+				viewportExtent = viewportExtent,
+				overscan = 2,
+				selection = "single",
+				onSelect = function(_item: any, key: string)
+					selectedKey:set(key)
+					table.insert(selections, key)
+					note("select", { key = key })
+				end,
+				reorderable = true,
+				reorderMotion = "object",
+				motionClock = clock,
+				onReorder = function(key: string, toIndex: number)
+					table.insert(reorders, { key = key, toIndex = toIndex })
+					local current = rows:peek() :: { any }
+					local next: { any } = {}
+					local moved: any = nil
+					for _, item in current do
+						if item.id == key then
+							moved = item
+						else
+							table.insert(next, item)
+						end
 					end
-				end
-				table.insert(next, math.clamp(toIndex, 1, #next + 1), moved)
-				rows:set(next)
-				note("reorder", { key = key, toIndex = toIndex })
-			end,
-			rowFocusable = function(item: any)
-				return isEligible(item.id)
-			end,
-			onActivate = function(item: any, _meta: any)
-				-- I-9: an ineligible row is skipped for NAVIGATION and still answers
-				-- "explain why" on Activate
-				local eligible = isEligible(item.id)
-				table.insert(activations, { key = item.id, eligible = eligible })
-				inspect:set(
-					if eligible
-						then `inspect: {item.name} is eligible`
-						else `inspect: {item.name} is ineligible (demo-pattern-3)`
-				)
-				note("activate", { key = item.id, eligible = eligible })
-			end,
-			cell = cell,
-		})
+					table.insert(next, math.clamp(toIndex, 1, #next + 1), moved)
+					rows:set(next)
+					note("reorder", { key = key, toIndex = toIndex })
+				end,
+				rowFocusable = function(item: any)
+					return isEligible(item.id)
+				end,
+				onActivate = function(item: any, _meta: any)
+					-- I-9: an ineligible row is skipped for NAVIGATION and still answers
+					-- "explain why" on Activate
+					local eligible = isEligible(item.id)
+					table.insert(activations, { key = item.id, eligible = eligible })
+					inspect:set(
+						if eligible
+							then `inspect: {item.name} is eligible`
+							else `inspect: {item.name} is ineligible (demo-pattern-3)`
+					)
+					note("activate", { key = item.id, eligible = eligible })
+				end,
+				cell = cell,
+			})
+		end
 
 		-- ===== the scripted schedule (churn) =================================
 		local plan: { { at: number, run: () -> () } } = {}
@@ -435,7 +447,7 @@ return {
 		local function churnOnce()
 			-- a re-sort that KEEPS every key: identity, selection, focus and the
 			-- mounted rows must all survive it (SF-L1)
-			local current = rows:get() :: { any }
+			local current = rows:peek() :: { any }
 			local next: { any } = {}
 			for i = 2, #current do
 				table.insert(next, current[i])
@@ -445,11 +457,11 @@ return {
 			churnTicks += 1
 		end
 		local function scheduleChurn()
-			if not churning:get() then
+			if not churning:peek() then
 				return
 			end
 			schedule(0.25, function()
-				if not churning:get() then
+				if not churning:peek() then
 					return
 				end
 				churnOnce()
@@ -474,12 +486,12 @@ return {
 				return
 			end
 			local ctrl = controller()
-			if ctrl ~= nil then
+			if ctrl ~= nil and list ~= nil then
 				unbindScroll = list.bindNativeScroll(ctrl)
 			end
 		end
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			ensureBound()
 			runDue()
@@ -495,55 +507,52 @@ return {
 		-- `vstack`/`hstack`), so it drops in as the screen's one child with no
 		-- second wrapper node — `LIST` above already accounts for the one path
 		-- segment (`Body`) this adds.
-		local screen = UI.Screen({
-			id = "ListLab",
-			padding = "m",
+		local function screen(): any
+			return UI.Screen("ListLab")({
+				padding = "m",
 
-			UI.ScrollView({
-				id = "Body",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
-				-- THE CONTROL ROW WRAPS (O-21, 2026-08-15). The buttons carry
-				-- their own labels and nothing in the row is shrinkable, so on a
-				-- 320px phone from +10 up it painted `Eligibility` 15px off the
-				-- right screen edge — a control whose label cannot be read and
-				-- whose target cannot be reached.
-				UI.HStack({
-					id = "Controls",
-					wrap = true,
+				UI.ScrollView("Body")({
+					axis = "y",
 					gap = "s",
 					width = UI.fill(),
+					height = UI.fill(),
 
-					UI.Button({
-						id = "BtnChurn",
-						label = "Churn",
-						selected = churning,
-						height = { type = "minMax", min = "targetSizes.minimum" },
-						onActivate = function()
-							churning:set(not churning:get())
-							if churning:get() then
-								scheduleChurn()
-							end
-						end,
+					UI.Text("Title")({ text = "Collection lab", textSize = "heading" }),
+					-- THE CONTROL ROW WRAPS (O-21, 2026-08-15). The buttons carry
+					-- their own labels and nothing in the row is shrinkable, so on a
+					-- 320px phone from +10 up it painted `Eligibility` 15px off the
+					-- right screen edge — a control whose label cannot be read and
+					-- whose target cannot be reached.
+					UI.HStack("Controls")({
+						wrap = true,
+						gap = "s",
+						width = UI.fill(),
+
+						UI.Button("BtnChurn")({
+							label = "Churn",
+							selected = churning,
+							height = { type = "minMax", min = "targetSizes.minimum" },
+							onActivate = function()
+								churning:set(not churning:peek())
+								if churning:peek() then
+									scheduleChurn()
+								end
+							end,
+						}),
+						UI.Button("BtnEligibility")({
+							label = "Eligibility",
+							selected = mixedEligibility,
+							height = { type = "minMax", min = "targetSizes.minimum" },
+							onActivate = function()
+								mixedEligibility:set(not mixedEligibility:peek())
+							end,
+						}),
 					}),
-					UI.Button({
-						id = "BtnEligibility",
-						label = "Eligibility",
-						selected = mixedEligibility,
-						height = { type = "minMax", min = "targetSizes.minimum" },
-						onActivate = function()
-							mixedEligibility:set(not mixedEligibility:get())
-						end,
-					}),
+					listNode(),
+					UI.Text("InspectLine")({ text = inspect, textSize = "caption", role = "secondary" }),
 				}),
-				list.blueprint,
-				UI.Text({ id = "InspectLine", text = inspect, textSize = "caption", role = "secondary" }),
-			}),
-		})
+			})
+		end
 
 		-- ===== steps ========================================================
 		-- `list.focusKey` is KEEP-VISIBLE plus the list's own focused key; moving the
@@ -575,7 +584,7 @@ return {
 				-- step: without it the window cannot slide, so a sweep that walks past
 				-- the mounted window would report the same row twice
 				pres.refresh()
-				table.insert(out, { focused = pres.focus.focused:get() })
+				table.insert(out, { focused = pres.focus.focused:peek() })
 			end
 			binding.remove()
 			return out
@@ -586,14 +595,14 @@ return {
 		result.steps = {
 			select = function()
 				list.select("row-03")
-				return { selected = list.selectedKey:get(), selections = #selections }
+				return { selected = list.selectedKey:peek(), selections = #selections }
 			end,
 			startChurn = function()
 				churning:set(true)
 				churnTicks = 0
 				scheduleChurn()
 				note("churn:start")
-				return { churning = true, order = (rows:get() :: any)[1].id }
+				return { churning = true, order = (rows:peek() :: any)[1].id }
 			end,
 			stopChurn = function()
 				churning:set(false)
@@ -618,19 +627,19 @@ return {
 				local key = "row-04"
 				focusRow(key)
 				list.toggleGrab(key)
-				local armed = list.armedKey:get()
-				local blockedNow = table.clone(blocked:get() :: any)
+				local armed = list.armedKey:peek()
+				local blockedNow = table.clone(blocked:peek() :: any)
 				blockedNow[key] = true
 				blocked:set(blockedNow)
 				pres.refresh()
 				local hit = `{LIST}/Canvas/W/[{key}]/Row/Hit`
-				local focusedWhileArmed = pres.focus.focused:get()
+				local focusedWhileArmed = pres.focus.focused:peek()
 				local focusableWhileArmed = pres.focus.isFocusable(hit)
-				local armedAfterFlip = list.armedKey:get()
+				local armedAfterFlip = list.armedKey:peek()
 				-- disarm: NOW the flip is allowed to take effect
 				list.toggleGrab(key)
 				pres.refresh()
-				local focusedAfterDisarm = pres.focus.focused:get()
+				local focusedAfterDisarm = pres.focus.focused:peek()
 				local focusableAfterDisarm = pres.focus.isFocusable(hit)
 				note("exemption", { key = key, armed = armed, armedAfterFlip = armedAfterFlip })
 				return {
@@ -650,7 +659,7 @@ return {
 				sweep:snap(1)
 				sweep:setTarget(0)
 				note("wash:sweep")
-				return { sweep = sweep:get(), settled = sweep:isSettled() }
+				return { sweep = sweep:peek(), settled = sweep:isSettled() }
 			end,
 			-- SF-P3: one row's authored border pulses on a bound decay value
 			strokePulse = function()
@@ -658,17 +667,17 @@ return {
 				pulse:snap(1)
 				pulse:setTarget(0)
 				note("stroke:pulse", { key = "row-05" })
-				return { key = pulseKey:get(), value = pulse:get() }
+				return { key = pulseKey:peek(), value = pulse:peek() }
 			end,
 			clearStrokePulse = function()
 				pulseKey:set(nil)
-				return { key = pulseKey:get() }
+				return { key = pulseKey:peek() }
 			end,
 			inspectIneligible = function()
 				mixedEligibility:set(true)
 				local target = "row-03"
 				local item: any = nil
-				for _, row in rows:get() :: { any } do
+				for _, row in rows:peek() :: { any } do
 					if row.id == target then
 						item = row
 					end
@@ -685,7 +694,7 @@ return {
 				)
 				table.insert(activations, { key = target, eligible = eligible })
 				note("inspect", { key = target, eligible = eligible })
-				return { key = target, eligible = eligible, line = inspect:get() }
+				return { key = target, eligible = eligible, line = inspect:peek() }
 			end,
 			-- identity evidence a churn row pairs with: how many times each key's
 			-- cell factory has run since the fixture mounted (SF-L1's no-blink)
@@ -699,7 +708,7 @@ return {
 		}
 		result.report = function()
 			local order: { string } = {}
-			for _, item in rows:get() :: { any } do
+			for _, item in rows:peek() :: { any } do
 				table.insert(order, item.id)
 			end
 			local window: { string } = {}
@@ -725,32 +734,32 @@ return {
 				trace = trace,
 				order = order,
 				window = window,
-				itemExtent = itemExtent:get(),
-				viewportExtent = viewportExtent:get(),
-				selectedKey = list.selectedKey:get(),
-				armedKey = list.armedKey:get(),
-				focusedKey = list.focusedKey:get(),
-				focusPath = pres.focus.focused:get(),
-				churning = churning:get(),
+				itemExtent = itemExtent:peek(),
+				viewportExtent = viewportExtent:peek(),
+				selectedKey = list.selectedKey:peek(),
+				armedKey = list.armedKey:peek(),
+				focusedKey = list.focusedKey:peek(),
+				focusPath = pres.focus.focused:peek(),
+				churning = churning:peek(),
 				churnTicks = churnTicks,
-				mixedEligibility = mixedEligibility:get(),
-				blocked = blocked:get(),
-				inspect = inspect:get(),
+				mixedEligibility = mixedEligibility:peek(),
+				blocked = blocked:peek(),
+				inspect = inspect:peek(),
 				navigationSweep = navigationSweep,
 				navigationSweepIsSynthetic = true,
 				selections = selections,
 				activations = activations,
 				reorders = reorders,
 				remounts = remountCounts,
-				sweep = sweep:get(),
-				pulse = { key = pulseKey:get(), value = pulse:get() },
+				sweep = sweep:peek(),
+				pulse = { key = pulseKey:peek(), value = pulse:peek() },
 				authority = styled,
 				listDump = list.dump(),
 				motion = { active = clock:activeCount(), stats = clock:stats() },
-				reducedMotion = env:get("reducedMotion"):get(),
-				preferredTextOffset = env:get("preferredTextOffset"):get(),
-				counters = core:counters(),
-				coreError = core:lastError(),
+				reducedMotion = env:get("reducedMotion"):peek(),
+				preferredTextOffset = env:get("preferredTextOffset"):peek(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
@@ -759,8 +768,8 @@ return {
 				unbindScroll()
 				unbindScroll = nil
 			end
-			list.dispose()
-			scope:dispose()
+			list = nil
+			lifetime.dispose()
 		end
 		return result
 	end,

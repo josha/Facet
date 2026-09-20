@@ -15,23 +15,22 @@ local signup = {}
 
 function signup.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 	local Facet = app.Facet
 	local identity = app.services.identity
 
 	local self: any = {}
-	local guildName = core:signal("")
-	local watchword = core:signal("")
-	local fieldError = core:signal("")
+	local guildName = Compose.cell("")
+	local watchword = Compose.cell("")
+	local fieldError = Compose.cell("")
 	local handle: any = nil
 	local confirmHandle: any = nil
 	self.guildName = guildName
 	self.watchword = watchword
 	self.fieldError = fieldError
 
-	local nameField = Facet.View.TextInput({
-		id = "GuildName",
+	local nameField = UI.TextInput("GuildName")({
 		value = guildName,
 		placeholder = S.t("guild.name"),
 		-- lowercase-trim, and idempotent by construction: running it twice
@@ -46,8 +45,7 @@ function signup.new(app: any): any
 		actionSystem = app.actionSystem,
 	})
 
-	local watchwordField = Facet.View.TextInput({
-		id = "Watchword",
+	local watchwordField = UI.TextInput("Watchword")({
 		value = watchword,
 		placeholder = S.t("guild.watchword"),
 		maxLength = 32,
@@ -55,16 +53,16 @@ function signup.new(app: any): any
 		actionSystem = app.actionSystem,
 	})
 
-	local canSubmit = core:memo(function(use)
+	local canSubmit = Compose.formula(function(use)
 		return use(guildName) ~= "" and use(watchword) ~= "" and use(app.commands.status("signup")) ~= "pending"
 	end)
-	local hasError = core:memo(function(use)
+	local hasError = Compose.formula(function(use)
 		return use(fieldError) ~= ""
 	end)
-	local pending = core:memo(function(use)
+	local pending = Compose.formula(function(use)
 		return use(app.commands.status("signup")) == "pending"
 	end)
-	local cannotSubmit = core:memo(function(use)
+	local cannotSubmit = Compose.formula(function(use)
 		return not use(canSubmit)
 	end)
 
@@ -77,11 +75,11 @@ function signup.new(app: any): any
 	self.close = close
 
 	local function submit()
-		if not canSubmit:get() then
+		if not canSubmit:peek() then
 			return
 		end
 		fieldError:set("")
-		local name = guildName:get()
+		local name = guildName:peek()
 		app.commands.submit({
 			id = "signup",
 			decide = function()
@@ -101,32 +99,27 @@ function signup.new(app: any): any
 	self.submit = submit
 
 	local function view(): any
-		return UI.Screen({
-			id = "CartwheelGuildCard",
+		return UI.Screen("CartwheelGuildCard")({
 			padding = "l",
 
-			UI.VStack({
-				id = "Card",
+			UI.VStack("Card")({
 				gap = "m",
 				padding = "l",
 				surface = "raised",
 				width = UI.fill(),
 
-				UI.Text({ id = "Title", text = S.t("guild.title"), textSize = "title" }),
-				UI.Text({
-					id = "Note",
+				UI.Text("Title")({ text = S.t("guild.title"), textSize = "title" }),
+				UI.Text("Note")({
 					text = S.t("guild.note"),
 					textSize = "caption",
 					role = "secondary",
 					lineLimit = 3,
 				}),
 				nameField,
-				UI.When({
-					id = "ErrorWhen",
+				app.when("ErrorWhen")({
 					condition = hasError,
 					thenView = function()
-						return UI.Text({
-							id = "Error",
+						return UI.Text("Error")({
 							text = fieldError,
 							textSize = "strong",
 							lineLimit = 2,
@@ -136,49 +129,41 @@ function signup.new(app: any): any
 				watchwordField,
 				-- VARIANT B's permanent caption: two lines are reserved for
 				-- it, because the pseudo-locale wraps it
-				UI.Text({
-					id = "Visible",
+				UI.Text("Visible")({
 					text = S.t("guild.watchwordVisible"),
 					textSize = "caption",
 					role = "secondary",
 					lineLimit = 2,
 				}),
-				UI.When({
-					id = "WorkingWhen",
+				app.when("WorkingWhen")({
 					condition = pending,
 					thenView = function()
-						return UI.Text({
-							id = "Working",
+						return UI.Text("Working")({
 							text = S.t("command.working"),
 							textSize = "caption",
 							surface = "chip",
 						})
 					end,
 				}),
-				UI.HStack({
-					id = "Toolbar",
+				UI.HStack("Toolbar")({
 					gap = "s",
 					align = "center",
 
-					UI.Button({
-						id = "Cancel",
+					UI.Button("Cancel")({
 						label = S.t("guild.cancel"),
 						role = "cancel",
 						onActivate = close,
 					}),
-					UI.Button({
-						id = "Submit",
+					UI.Button("Submit")({
 						label = S.t("guild.submit"),
 						surface = "accent",
 						enabled = canSubmit,
 						onActivate = submit,
 					}),
-					UI.When({
-						id = "HintWhen",
+					app.when("HintWhen")({
 						condition = cannotSubmit,
 						thenView = function()
-							return UI.Text({
-								id = "Hint",
+							return UI.Text("Hint")({
 								text = S.t("guild.submitHint"),
 								textSize = "caption",
 								role = "secondary",
@@ -197,7 +182,9 @@ function signup.new(app: any): any
 			return
 		end
 		fieldError:set("")
-		handle = app.presenter.presentModal(view(), {
+		handle = app.presentModal(function()
+			return view()
+		end, {
 			outsideTapCancel = true,
 			-- FOCUS AUTOSET, by PATH. A `newTextInput`'s focusable is its inner
 			-- `Field` node, and this form has two of them, so the unambiguous
@@ -215,38 +202,32 @@ function signup.new(app: any): any
 		if confirmHandle ~= nil then
 			return
 		end
-		confirmHandle = app.presenter.presentModal(
-			UI.Screen({
-				id = "CartwheelSignOut",
+		confirmHandle = app.presentModal(function()
+			return UI.Screen("CartwheelSignOut")({
 				padding = "l",
 
-				UI.VStack({
-					id = "Card",
+				UI.VStack("Card")({
 					gap = "m",
 					padding = "l",
 					surface = "raised",
 
-					UI.Text({ id = "Title", text = S.t("guild.signOutConfirm"), textSize = "heading" }),
-					UI.Text({
-						id = "Body",
+					UI.Text("Title")({ text = S.t("guild.signOutConfirm"), textSize = "heading" }),
+					UI.Text("Body")({
 						text = S.t("guild.signOutBody"),
 						textSize = "caption",
 						role = "secondary",
 					}),
-					UI.HStack({
-						id = "Toolbar",
+					UI.HStack("Toolbar")({
 						gap = "s",
 
-						UI.Button({
-							id = "Keep",
+						UI.Button("Keep")({
 							label = S.t("guild.cancel"),
 							role = "cancel",
 							onActivate = function()
 								self.closeSignOut()
 							end,
 						}),
-						UI.Button({
-							id = "SignOut",
+						UI.Button("SignOut")({
 							label = S.t("guild.signOut"),
 							role = "destructive",
 							onActivate = function()
@@ -258,9 +239,8 @@ function signup.new(app: any): any
 						}),
 					}),
 				}),
-			}),
-			{ outsideTapCancel = true, initialFocus = "Keep" }
-		)
+			})
+		end, { outsideTapCancel = true, initialFocus = "Keep" })
 	end
 
 	function self.closeSignOut()
@@ -273,26 +253,14 @@ function signup.new(app: any): any
 	function self.dump(): any
 		return {
 			open = handle ~= nil,
-			signedIn = identity.signedIn:get(),
-			guild = identity.guildName:get(),
-			name = guildName:get(),
-			watchword = watchword:get(),
+			signedIn = identity.signedIn:peek(),
+			guild = identity.guildName:peek(),
+			name = guildName:peek(),
+			watchword = watchword:peek(),
 			watchwordMasked = false,
-			error = fieldError:get(),
-			canSubmit = canSubmit:get(),
+			error = fieldError:peek(),
+			canSubmit = canSubmit:peek(),
 		}
-	end
-
-	function self.dispose()
-		close()
-		self.closeSignOut()
-		cannotSubmit:dispose()
-		pending:dispose()
-		hasError:dispose()
-		canSubmit:dispose()
-		fieldError:dispose()
-		watchword:dispose()
-		guildName:dispose()
 	end
 
 	return self

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	LATE INPUT CONTRIBUTIONS + THE FOCUS-VISIBLE RULE
 	(RascalRally device round 1, DB-4 the crown bug and DB-3(b)).
@@ -26,18 +27,19 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local contribution = require("../src/input/contribution")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
@@ -51,7 +53,7 @@ end
 -- like a HUD gated on a role/phase the player does not have yet
 local function gatedWorld()
 	local core, _, adapter, system, pres = harness()
-	local open = core:signal(false)
+	local open = Compose.cell(false)
 	local hits: { string } = {}
 	local bound = { controller = 0, actions = 0 }
 	local inner = contribution.attach(
@@ -168,7 +170,7 @@ describe("DB-4: a contribution mounted AFTER present is discovered and wired", f
 		w.pres.focus.focusOn("/S/Gate/then/Panel/Two")
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focused:get()).toBe(GATED_ONE)
+		expect(w.pres.focus.focused:peek()).toBe(GATED_ONE)
 	end)
 
 	it("closing the region drops it again: a dispatch can never reach a dead control", function()
@@ -213,7 +215,7 @@ describe("DB-3(b): the focus RING answers navigation, never a finger", function(
 		local w = ringWorld()
 		expect(ringOn(w, BTN_A)).toBe(false) -- entry focus has no navigation origin yet
 		w.adapter.touchTap(BTN_B)
-		expect(w.pres.focus.focused:get()).toBe(BTN_B) -- identity still tracked
+		expect(w.pres.focus.focused:peek()).toBe(BTN_B) -- identity still tracked
 		expect(ringOn(w, BTN_B)).toBe(false)
 		expect(ringOn(w, BTN_A)).toBe(false) -- and the one it left is cleared
 	end)
@@ -225,26 +227,26 @@ describe("DB-3(b): the focus RING answers navigation, never a finger", function(
 		-- Down wraps back to A in the flat ring; the ring is visible from here on
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(ringOn(w, w.pres.focus.focused:get())).toBe(true)
+		expect(ringOn(w, w.pres.focus.focused:peek())).toBe(true)
 	end)
 
 	it("a tap AFTER navigating puts the ring away again (no stale ring behind a finger)", function()
 		local w = ringWorld()
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(ringOn(w, w.pres.focus.focused:get())).toBe(true)
+		expect(ringOn(w, w.pres.focus.focused:peek())).toBe(true)
 		w.adapter.touchTap(BTN_A)
-		expect(w.pres.focus.focused:get()).toBe(BTN_A)
+		expect(w.pres.focus.focused:peek()).toBe(BTN_A)
 		expect(ringOn(w, BTN_A)).toBe(false)
 		expect(ringOn(w, BTN_B)).toBe(false)
 	end)
 
 	it("keyboard/gamepad-only sessions are untouched: the ring paints from the first move", function()
 		local w = ringWorld()
-		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		expect(w.pres.focus.focusVisible:peek()).toBe(false)
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
-		expect(ringOn(w, w.pres.focus.focused:get())).toBe(true)
+		expect(w.pres.focus.focusVisible:peek()).toBe(true)
+		expect(ringOn(w, w.pres.focus.focused:peek())).toBe(true)
 	end)
 end)

@@ -17,21 +17,13 @@ return {
 	title = "Native stylesheet paint",
 	ledgerRows = { "NSS-A2", "NSS-A3", "NSS-A4", "NSS-A5", "NSS-A6", "NSS-A7", "NSS-A10" },
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
-		local core = ctx.core
-		local selectedA = core:signal(true)
-		local selectedB = core:signal(false)
-		local rowBEnabled = core:signal(true)
-		local toggleOn = core:signal(true)
-		local fieldText = core:signal("styled")
-		local field = ctx.Facet.View.TextInput({
-			id = "Field",
-			value = fieldText,
-			placeholder = "type here",
-			env = ctx.env,
-			actionSystem = ctx.actionSystem,
-		})
-
+		local UI, Compose = ctx.UI, ctx.Compose
+		local function noop() end
+		local selectedA = Compose.cell(true)
+		local selectedB = Compose.cell(false)
+		local rowBEnabled = Compose.cell(true)
+		local toggleOn = Compose.cell(true)
+		local fieldText = Compose.cell("styled")
 		-- The body SCROLLS (overflow sweep, 2026-08-12): Title + Subtitle + Panel +
 		-- SurfaceRow + the nested Scroll demo ran 61-352px past the screen on a
 		-- narrow phone and on every landscape phone, with nothing to move it — the
@@ -39,133 +31,111 @@ return {
 		-- absorbing the whole column). This adds one path segment under every
 		-- descendant (`/NativeStyle/Body/...`), so every path this module and
 		-- `tests/native_style_scenario.spec.luau` reference moved with it.
-		local screen = UI.Screen({
-			id = "NativeStyle",
-			padding = "m",
-			gap = "s",
-			surface = "base",
-
-			UI.ScrollView({
-				id = "Body",
-				axis = "y",
+		local function screen()
+			local scrollRows: { any } = { height = { type = "content", lines = 6 } }
+			for i = 1, 8 do
+				table.insert(
+					scrollRows,
+					UI.Text("ScrollRow" .. i)({
+						text = "Scroll row " .. i,
+						textSize = "body",
+						height = { type = "fixed", px = 28 },
+					})
+				)
+			end
+			return UI.Screen("NativeStyle")({
+				padding = "m",
 				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
+				surface = "base",
 
-				UI.Text({ id = "Title", text = "Native stylesheet fixture", textSize = "title" }),
-				UI.Text({ id = "Subtitle", text = "secondary text", textSize = "label", role = "secondary" }),
-				UI.VStack({
-					id = "Panel",
-					surface = "raised",
-					padding = 12,
+				UI.ScrollView("Body")({
+					axis = "y",
 					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
 
-					UI.Button({ id = "RowA", label = "Row A (selected)", selected = selectedA }),
-					UI.Button({
-						id = "RowB",
-						label = "Row B",
-						selected = selectedB,
-						enabled = rowBEnabled,
-					}),
-					UI.Button({ id = "Primary", label = "Primary action", surface = "accent" }),
-					UI.Toggle({ id = "Music", label = "Music", value = toggleOn }),
-					field,
-				}),
-				-- remaining handed-off surfaces (arch verifier 2026-07-24: chip/
-				-- badge/scrim/plain were headless-only) + a focusable Grip for
-				-- the native grip-focus tag rule.
-				--
-				-- A Grid rather than the original HStack (overflow sweep,
-				-- 2026-08-12): five fixed-width chips ran 43-82px past a narrow
-				-- phone's width with nothing to wrap them. Each surface keeps its
-				-- own declared size (a non-fill Grid cell keeps content sizing,
-				-- per the solver), so this only changes how many sit on one row —
-				-- never what they look like.
-				UI.Grid({
-					id = "SurfaceRow",
-					minColumnWidth = "intrinsic",
-					gap = "s",
+					UI.Text("Title")({ text = "Native stylesheet fixture", textSize = "title" }),
+					UI.Text("Subtitle")({ text = "secondary text", textSize = "label", role = "secondary" }),
+					UI.VStack("Panel")({
+						surface = "raised",
+						padding = 12,
+						gap = "s",
 
-					UI.Box({
-						id = "Chip",
-						surface = "chip",
-						width = { type = "fixed", px = 90 },
-						height = { type = "fixed", px = 56 },
+						-- a Chip is the selectable button: its `selected` binding is the
+						-- tag the native stylesheet keys on
+						UI.Chip("RowA")({ label = "Row A (selected)", selected = selectedA }),
+						UI.Chip("RowB")({
+							label = "Row B",
+							selected = selectedB,
+							enabled = rowBEnabled,
+						}),
+						UI.Button("Primary")({ label = "Primary action", surface = "accent", onActivate = noop }),
+						UI.Toggle("Music")({ label = "Music", value = toggleOn }),
+						UI.TextInput("Field")({ value = fieldText, placeholder = "type here" }),
 					}),
-					UI.Image({
-						id = "Badge",
-						surface = "badge",
-						width = { type = "fixed", px = 56 },
-						height = { type = "fixed", px = 56 },
+					-- remaining handed-off surfaces (arch verifier 2026-07-24: chip/
+					-- badge/scrim/plain were headless-only) + a focusable Grip for
+					-- the native grip-focus tag rule.
+					--
+					-- A Grid rather than the original HStack (overflow sweep,
+					-- 2026-08-12): five fixed-width chips ran 43-82px past a narrow
+					-- phone's width with nothing to wrap them. Each surface keeps its
+					-- own declared size (a non-fill Grid cell keeps content sizing,
+					-- per the solver), so this only changes how many sit on one row —
+					-- never what they look like.
+					UI.Grid("SurfaceRow")({
+						minColumnWidth = "intrinsic",
+						gap = "s",
+
+						UI.Box("Chip")({
+							surface = "chip",
+							width = { type = "fixed", px = 90 },
+							height = { type = "fixed", px = 56 },
+						}),
+						UI.Image("Badge")({
+							surface = "badge",
+							width = { type = "fixed", px = 56 },
+							height = { type = "fixed", px = 56 },
+						}),
+						UI.Box("ScrimPatch")({
+							surface = "scrim",
+							width = { type = "fixed", px = 90 },
+							height = { type = "fixed", px = 56 },
+						}),
+						UI.Button("PlainBtn")({
+							label = "plain",
+							surface = "plain",
+							onActivate = noop,
+							width = { type = "fixed", px = 90 },
+							height = { type = "fixed", px = 56 },
+						}),
+						UI.Grip("Grip")({
+							focusable = true,
+							width = { type = "fixed", px = 12 },
+							height = { type = "fixed", px = 56 },
+						}),
 					}),
-					UI.Box({
-						id = "ScrimPatch",
-						surface = "scrim",
-						width = { type = "fixed", px = 90 },
-						height = { type = "fixed", px = 56 },
-					}),
-					UI.Button({
-						id = "PlainBtn",
-						label = "plain",
-						surface = "plain",
-						width = { type = "fixed", px = 90 },
-						height = { type = "fixed", px = 56 },
-					}),
-					UI.Grip({
-						id = "Grip",
-						focusable = true,
-						width = { type = "fixed", px = 12 },
-						height = { type = "fixed", px = 56 },
-					}),
+					-- CONTENT-TERMS VIEWPORT (framework-gaps-phase2 gap 3, 2026-08-23):
+					-- a literal `120` used to sit here next to eight `textSize = "body"`
+					-- rows, tracking neither the ten-foot ladder nor a raised text
+					-- preference. `lines = 6` spends the SAME arithmetic
+					-- `Facet.text.lineBox` publicly exposes for the role the rows
+					-- actually paint at ("body"), so the viewport grows exactly as
+					-- the rows themselves would if their own fixed 28px floor were
+					-- lifted (a separate, out-of-scope change — the rows keep their
+					-- literal height; only this container is gap 3's target).
+					-- MEASURED, not preserved exactly: six lines of `body` is 116px at
+					-- Neutral (`ceil(6 * 16 * 1.2)`), 4px under the old 120 — the
+					-- closest a whole line count reaches, and a smaller number is the
+					-- safe direction for a viewport (nothing that fit now overflows).
+					UI.ScrollView("Scroll")(scrollRows),
 				}),
-				-- CONTENT-TERMS VIEWPORT (framework-gaps-phase2 gap 3, 2026-08-23):
-				-- a literal `120` used to sit here next to eight `textSize = "body"`
-				-- rows, tracking neither the ten-foot ladder nor a raised text
-				-- preference. `lines = 6` spends the SAME arithmetic
-				-- `Facet.text.lineBox` publicly exposes for the role the rows
-				-- actually paint at ("body"), so the viewport grows exactly as
-				-- the rows themselves would if their own fixed 28px floor were
-				-- lifted (a separate, out-of-scope change — the rows keep their
-				-- literal height; only this container is gap 3's target).
-				-- MEASURED, not preserved exactly: six lines of `body` is 116px at
-				-- Neutral (`ceil(6 * 16 * 1.2)`), 4px under the old 120 — the
-				-- closest a whole line count reaches, and a smaller number is the
-				-- safe direction for a viewport (nothing that fit now overflows).
-				UI.ScrollView({
-					id = "Scroll",
-					height = { type = "content", lines = 6 },
-					children = (function()
-						local rows = {}
-						for i = 1, 8 do
-							table.insert(
-								rows,
-								UI.Text({
-									id = "ScrollRow" .. i,
-									text = "Scroll row " .. i,
-									textSize = "body",
-									height = { type = "fixed", px = 28 },
-								})
-							)
-						end
-						return rows
-					end)(),
-				}),
-			}),
-		})
+			})
+		end
 
 		return {
 			screen = screen,
-			present = {
-				onActivate = function(path: string)
-					if path == "/NativeStyle/Body/Panel/RowA" then
-						selectedA:set(not selectedA:get())
-					elseif path == "/NativeStyle/Body/Panel/RowB" then
-						selectedB:set(not selectedB:get())
-					elseif path == "/NativeStyle/Body/Panel/Music" then
-						toggleOn:set(not toggleOn:get())
-					end
-				end,
-			},
+			present = {},
 			steps = {
 				-- NSS-A2: mode + authority probe data (full tree rides the report)
 				probe = function()
@@ -272,13 +242,12 @@ return {
 					}
 				end,
 			},
-			dispose = nil,
 			report = function()
 				return {
 					native = ctx.nativeStyle.info(),
-					selectedA = selectedA:get(),
-					selectedB = selectedB:get(),
-					rowBEnabled = rowBEnabled:get(),
+					selectedA = selectedA:peek(),
+					selectedB = selectedB:peek(),
+					rowBEnabled = rowBEnabled:peek(),
 				}
 			end,
 		}

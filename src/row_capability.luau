@@ -1,6 +1,6 @@
 --!strict
--- PER-ROW CAPABILITY OPT-OUTS — the one mechanism `newTable` and
--- `newVirtualList` both use for `rowSelectable` / `rowMovable` / `rowDeletable`.
+-- PER-ROW CAPABILITY OPT-OUTS — the one mechanism `UI.Table` and
+-- `UI.VirtualList` both use for `rowSelectable` / `rowMovable` / `rowDeletable`.
 --
 -- WHAT IT IS FOR. A consumer wants "this list is reorderable, but the pinned row
 -- at the top stays put", or "these rows can be deleted, that one cannot". The
@@ -67,7 +67,7 @@ export type Predicate = ((item: any) -> boolean)?
 	A THROW IS SWALLOWED, NOT RECORDED, AND THAT IS A KNOWN GAP RATHER THAN A
 	CHOICE. Constitution §8's error ladder says a quarantined user callback is
 	"recorded via `lastError`" — but `core`'s `fail` is a private local
-	(`core/custom.luau:60`) and `Core` publishes only `lastError()` to READ it.
+	(`core/services.luau`) and `Core` publishes only `lastError()` to READ it.
 	A composite control has no public channel to write one, which is why every
 	shipped quarantine in `row_actions.luau` is a bare `pcall` too
 	(`:1542`, `:1620`, `:1889`, `:3336`). This module follows the house idiom

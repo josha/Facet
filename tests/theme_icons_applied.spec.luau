@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- SEMANTIC ICONS, APPLIED (rich-skinning-v2 package P4).
 --
 -- P1 gave the framework `resolveIcon`, the ASCII fallback table and the
@@ -25,10 +26,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local fake_target = require("./lib/fake_target")
 
@@ -37,6 +38,7 @@ local snapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local frameworkIconRuleCount = require("./lib/framework_icons")
+local Compose = require("../src/vendor/compose/core")
 
 local adapterSource = fs.readFile("src/client/screen_target.luau")
 -- the chrome/decoration materializer was extracted to a sibling module when
@@ -192,8 +194,8 @@ describe("the tofu defect, closed at its source", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local expanded = core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
@@ -227,8 +229,8 @@ describe("the tofu defect, closed at its source", function()
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
 		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
-		local expanded = core:signal(false)
-		local group = Facet.Controls.DisclosureGroup(core, {
+		local expanded = Compose.cell(false)
+		local group = harness.Controls.DisclosureGroup(core, {
 			id = "Adv",
 			label = "Advanced",
 			expanded = expanded,
@@ -282,10 +284,10 @@ describe("the icon request travels the internal hint channel", function()
 		local adapter = fake_target.new()
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
-		local control = Facet.Controls.Stepper(core, {
+		local control = harness.Controls.Stepper(core, {
 			id = "Qty",
 			label = "Qty",
-			value = core:signal(3),
+			value = Compose.cell(3),
 			min = 0,
 			max = 10,
 		})

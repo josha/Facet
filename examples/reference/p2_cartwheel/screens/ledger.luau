@@ -18,32 +18,32 @@ local SERIES_ROLES = { "accent", "content", "secondary" }
 
 function ledger.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 	local Facet = app.Facet
 	local stats = app.services.stats
 	local entitlement = app.services.entitlement
 
 	local self: any = {}
-	local timeframe = core:signal("twoWeeks")
-	local upsellCollapsed = core:signal(false)
+	local timeframe = Compose.cell("twoWeeks")
+	local upsellCollapsed = Compose.cell(false)
 	self.timeframe = timeframe
 	self.upsellCollapsed = upsellCollapsed
 
 	local entitled = entitlement.fullLedger
-	local locked = core:memo(function(use)
+	local locked = Compose.formula(function(use)
 		return GATED[use(timeframe)] == true and not use(entitled)
 	end)
-	local unlocked = core:memo(function(use)
+	local unlocked = Compose.formula(function(use)
 		return not use(locked)
 	end)
-	local showUpsell = core:memo(function(use)
+	local showUpsell = Compose.formula(function(use)
 		return not use(entitled)
 	end)
-	local upsellExpanded = core:memo(function(use)
+	local upsellExpanded = Compose.formula(function(use)
 		return use(showUpsell) and not use(upsellCollapsed)
 	end)
-	local upsellRow = core:memo(function(use)
+	local upsellRow = Compose.formula(function(use)
 		return use(showUpsell) and use(upsellCollapsed)
 	end)
 	self.locked = locked
@@ -61,324 +61,278 @@ function ledger.new(app: any): any
 		end
 	end
 
-	local picker = Facet.View.Picker({
-		id = "Timeframe",
-		options = optionLabels,
-		selected = timeframe,
-		sizeClass = app.state.sizeClass,
-	})
+	-- The page is built per visit: a node belongs to the mount that made it.
+	local function buildPage(): any
+		local picker = UI.Picker("Timeframe")({
+			options = optionLabels,
+			selected = timeframe,
+			sizeClass = app.state.sizeClass,
+		})
 
-	-- ---- the plot ------------------------------------------------------------
+		-- ---- the plot ------------------------------------------------------------
 
-	local seriesMemos: { any } = {}
-	local seriesPaths: { any } = {}
-	for index, plaza in data.plazas :: any do
-		local points = core:memo(function(use)
-			return parts.polyline(stats.series(plaza.id, use(timeframe)))
-		end)
-		table.insert(seriesMemos, points)
-		table.insert(
-			seriesPaths,
-			UI.Path({
-				id = "Series" .. index,
-				points = points,
-				role = SERIES_ROLES[index] or "content",
-				thickness = "controls.table.indicatorThickness",
+		local seriesMemos: { any } = {}
+		local seriesPaths: { any } = {}
+		for index, plaza in data.plazas :: any do
+			local points = Compose.formula(function(use)
+				return parts.polyline(stats.series(plaza.id, use(timeframe)))
+			end)
+			table.insert(seriesMemos, points)
+			table.insert(
+				seriesPaths,
+				UI.Path("Series" .. index)({
+					points = points,
+					role = SERIES_ROLES[index] or "content",
+					thickness = "controls.table.indicatorThickness",
+					width = UI.fill(),
+					height = UI.fill(),
+				})
+			)
+		end
+
+		local gridLines: { any } = {}
+		for line = 0, 3 do
+			table.insert(
+				gridLines,
+				UI.Box("Grid" .. line)({
+					surface = "base",
+					anchor = "topLeft",
+					offsetY = { scale = line / 4 },
+					width = { type = "percent", fraction = 1 },
+					height = { type = "fixed", px = "strokes.hairline" },
+				})
+			)
+		end
+
+		local axisCaptions: { any } = {}
+		-- the LAST tick is suppressed: it would sit on the plot's own edge
+		for tick = 0, 2 do
+			table.insert(
+				axisCaptions,
+				UI.Text("Tick" .. tick)({
+					text = tostring(100 - tick * 25),
+					textSize = "caption",
+					role = "secondary",
+					lineLimit = 1,
+				})
+			)
+		end
+
+		local legendChips: { any } = {}
+		for index, plaza in data.plazas :: any do
+			table.insert(legendChips, parts.chip(app, "Legend" .. index, plaza.name))
+		end
+
+		local plot = UI.ZStack("Plot")({
+			width = UI.fill(),
+			height = { type = "fixed", px = "app.cartwheel.chartH" },
+
+			UI.Anchor("Grid")(app.withChildren({
 				width = UI.fill(),
 				height = UI.fill(),
-			})
-		)
-	end
-
-	local gridLines: { any } = {}
-	for line = 0, 3 do
-		table.insert(
-			gridLines,
-			UI.Box({
-				id = "Grid" .. line,
-				surface = "base",
-				anchor = "topLeft",
-				offsetY = { scale = line / 4 },
-				width = { type = "percent", fraction = 1 },
-				height = { type = "fixed", px = "strokes.hairline" },
-			})
-		)
-	end
-
-	local axisCaptions: { any } = {}
-	-- the LAST tick is suppressed: it would sit on the plot's own edge
-	for tick = 0, 2 do
-		table.insert(
-			axisCaptions,
-			UI.Text({
-				id = "Tick" .. tick,
-				text = tostring(100 - tick * 25),
-				textSize = "caption",
-				role = "secondary",
-				lineLimit = 1,
-			})
-		)
-	end
-
-	local legendChips: { any } = {}
-	for index, plaza in data.plazas :: any do
-		table.insert(legendChips, parts.chip(app, "Legend" .. index, plaza.name))
-	end
-
-	local plot = UI.ZStack({
-		id = "Plot",
-		width = UI.fill(),
-		height = { type = "fixed", px = "app.cartwheel.chartH" },
-
-		UI.Anchor({
-			id = "Grid",
-			width = UI.fill(),
-			height = UI.fill(),
-			children = gridLines,
-		}),
-		UI.When({
-			id = "SeriesWhen",
-			condition = unlocked,
-			thenView = function()
-				return UI.ZStack({
-					id = "Series",
-					width = UI.fill(),
-					height = UI.fill(),
-					children = seriesPaths,
-				})
-			end,
-		}),
-		UI.When({
-			id = "LockWhen",
-			condition = locked,
-			thenView = function()
-				return UI.ZStack({
-					id = "Lock",
-					canvasGroup = true,
-					width = UI.fill(),
-					height = UI.fill(),
-					alignH = "center",
-					alignV = "center",
-
-					UI.Box({
-						id = "Scrim",
-						surface = "scrim",
+			}, gridLines)),
+			app.when("SeriesWhen")({
+				condition = unlocked,
+				thenView = function()
+					return UI.ZStack("Series")(app.withChildren({
 						width = UI.fill(),
 						height = UI.fill(),
-					}),
-					parts.chip(app, "Badge", S.t("ledger.locked")),
-				})
-			end,
-			transition = { enter = "fade", class = "container" },
-		}),
-	})
+					}, seriesPaths))
+				end,
+			}),
+			app.when("LockWhen")({
+				condition = locked,
+				thenView = function()
+					return UI.ZStack("Lock")({
+						canvasGroup = true,
+						width = UI.fill(),
+						height = UI.fill(),
+						alignH = "center",
+						alignV = "center",
 
-	-- ---- the two-state upsell ------------------------------------------------
+						UI.Box("Scrim")({
+							surface = "scrim",
+							width = UI.fill(),
+							height = UI.fill(),
+						}),
+						parts.chip(app, "Badge", S.t("ledger.locked")),
+					})
+				end,
+				transition = { enter = "fade", class = "container" },
+			}),
+		})
 
-	local unlockPending = core:memo(function(use)
-		return use(app.commands.status("purchase:ledger")) == "pending"
-	end)
-	local unlockIdle = core:memo(function(use)
-		return not use(unlockPending)
-	end)
+		-- ---- the two-state upsell ------------------------------------------------
 
-	local function unlock()
-		app.actions.purchase("ledger")
-	end
+		local unlockPending = Compose.formula(function(use)
+			return use(app.commands.status("purchase:ledger")) == "pending"
+		end)
+		local unlockIdle = Compose.formula(function(use)
+			return not use(unlockPending)
+		end)
 
-	local upsell = UI.VStack({
-		id = "Upsell",
-		gap = "s",
-		width = UI.fill(),
+		local function unlock()
+			app.actions.purchase("ledger")
+		end
 
-		UI.When({
-			id = "ExpandedWhen",
-			condition = upsellExpanded,
-			--[[ task POP fix round 1 (sweep found this real): `parts.card`
+		local upsell = UI.VStack("Upsell")({
+			gap = "s",
+			width = UI.fill(),
+
+			app.when("ExpandedWhen")({
+				condition = upsellExpanded,
+				--[[ task POP fix round 1 (sweep found this real): `parts.card`
 					is itself the plate (`surface = "raised"`) AND, before this
 					fix, the direct container of its own content — the same
 					shape `shop.wisp`'s pre-fix `Panel` had. `Expanded` (the
 					card/plate) stays the OUTER, non-canvasGroup node; `Group`
 					is the ONE new canvasGroup, nested one level in, wrapping
 					what used to be the card's direct children. ]]
-			thenView = function()
-				return UI.ZStack({
-					id = "ExpandedHost",
-					width = UI.fill(),
-					height = { type = "content" },
+				thenView = function()
+					return UI.ZStack("ExpandedHost")({
+						width = UI.fill(),
+						height = { type = "content" },
 
-					parts.card(app, {
-						id = "Expanded",
-						children = {
-							UI.ZStack({
-								id = "Group",
-								canvasGroup = true,
-								width = UI.fill(),
-								height = { type = "content" },
-
-								UI.VStack({
-									id = "GroupStack",
-									gap = "s",
+						parts.card(app, {
+							id = "Expanded",
+							children = {
+								UI.ZStack("Group")({
+									canvasGroup = true,
 									width = UI.fill(),
+									height = { type = "content" },
 
-									UI.HStack({
-										id = "Head",
+									UI.VStack("GroupStack")({
 										gap = "s",
-										align = "center",
 										width = UI.fill(),
 
-										-- the heading TAKES the slack rather than a
-										-- spacer beside it: a fixed-width heading plus a
-										-- 44px disc overflowed a phone-width card by 7px
-										UI.Text({
-											id = "Heading",
-											text = S.t("ledger.unlockTitle"),
-											textSize = "heading",
+										UI.HStack("Head")({
+											gap = "s",
+											align = "center",
 											width = UI.fill(),
-											lineLimit = 2,
-											disclose = true,
+
+											-- the heading TAKES the slack rather than a
+											-- spacer beside it: a fixed-width heading plus a
+											-- 44px disc overflowed a phone-width card by 7px
+											UI.Text("Heading")({
+												text = S.t("ledger.unlockTitle"),
+												textSize = "heading",
+												width = UI.fill(),
+												lineLimit = 2,
+												disclose = true,
+											}),
+											UI.Button("Dismiss")({
+												label = S.t("ledger.close"),
+												shape = "circle",
+												icon = "close",
+												onActivate = function()
+													upsellCollapsed:set(true)
+												end,
+											}),
 										}),
-										UI.Button({
-											id = "Dismiss",
-											label = S.t("ledger.close"),
-											shape = "circle",
-											icon = "close",
-											onActivate = function()
-												upsellCollapsed:set(true)
-											end,
+										UI.Text("Body")({
+											text = S.t("ledger.unlockBody"),
+											textSize = "body",
+											role = "secondary",
 										}),
-									}),
-									UI.Text({
-										id = "Body",
-										text = S.t("ledger.unlockBody"),
-										textSize = "body",
-										role = "secondary",
-									}),
-									UI.Button({
-										id = "Unlock",
-										label = S.t("ledger.unlock"),
-										surface = "accent",
-										enabled = unlockIdle,
-										onActivate = unlock,
+										UI.Button("Unlock")({
+											label = S.t("ledger.unlock"),
+											surface = "accent",
+											enabled = unlockIdle,
+											onActivate = unlock,
+										}),
 									}),
 								}),
-							}),
-						},
-					}),
-				})
-			end,
-			transition = { enter = "fade", class = "container" },
-		}),
-		UI.When({
-			id = "RowWhen",
-			condition = upsellRow,
-			thenView = function()
-				return UI.ZStack({
-					id = "RowHost",
-					canvasGroup = true,
-					width = UI.fill(),
-					height = { type = "content" },
-
-					UI.HStack({
-						id = "Row",
-						gap = "s",
-						align = "center",
+							},
+						}),
+					})
+				end,
+				transition = { enter = "fade", class = "container" },
+			}),
+			app.when("RowWhen")({
+				condition = upsellRow,
+				thenView = function()
+					return UI.ZStack("RowHost")({
+						canvasGroup = true,
 						width = UI.fill(),
+						height = { type = "content" },
 
-						UI.Text({
-							id = "Line",
-							text = S.t("ledger.unlockRow", { credits = data.fullLedgerCredits }),
-							textSize = "caption",
-							role = "secondary",
-							lineLimit = 2,
-							disclose = true,
+						UI.HStack("Row")({
+							gap = "s",
+							align = "center",
+							width = UI.fill(),
+
+							UI.Text("Line")({
+								text = S.t("ledger.unlockRow", { credits = data.fullLedgerCredits }),
+								textSize = "caption",
+								role = "secondary",
+								lineLimit = 2,
+								disclose = true,
+							}),
+							UI.Spacer("Gap")({ width = UI.fill() }),
+							UI.Button("Unlock")({
+								label = S.t("ledger.unlock"),
+								enabled = unlockIdle,
+								onActivate = unlock,
+							}),
 						}),
-						UI.Spacer({ id = "Gap", width = UI.fill() }),
-						UI.Button({
-							id = "Unlock",
-							label = S.t("ledger.unlock"),
-							enabled = unlockIdle,
-							onActivate = unlock,
-						}),
-					}),
-				})
-			end,
-			transition = { enter = "fade", class = "container" },
-		}),
-		UI.When({
-			id = "WorkingWhen",
-			condition = unlockPending,
-			thenView = function()
-				return parts.chip(app, "Working", S.t("command.working"))
-			end,
-		}),
-	})
+					})
+				end,
+				transition = { enter = "fade", class = "container" },
+			}),
+			app.when("WorkingWhen")({
+				condition = unlockPending,
+				thenView = function()
+					return parts.chip(app, "Working", S.t("command.working"))
+				end,
+			}),
+		})
 
-	local page = UI.ScrollView({
-		id = "Ledger",
-		axis = "y",
-		gap = "m",
-		padding = "m",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		UI.Text({ id = "Title", text = S.t("ledger.title"), textSize = "title" }),
-		picker,
-		UI.HStack({
-			id = "Chart",
-			gap = "s",
-			align = "start",
+		local page = UI.ScrollView("Ledger")({
+			axis = "y",
+			gap = "m",
+			padding = "m",
 			width = UI.fill(),
+			height = UI.fill(),
 
-			UI.VStack({ id = "Axis", gap = "m", children = axisCaptions }),
-			UI.VStack({
-				id = "PlotHost",
+			UI.Text("Title")({ text = S.t("ledger.title"), textSize = "title" }),
+			picker,
+			UI.HStack("Chart")({
 				gap = "s",
+				align = "start",
 				width = UI.fill(),
 
-				plot,
-				-- a chart legend is plaza NAMES, so its chips are ragged by
-				-- nature; the uniform grid this used to be gave all three the
-				-- widest name's width (135x23 each, measured 1440x900) and left
-				-- a dead third cell on the second row
-				UI.HStack({
-					id = "Legend",
-					wrap = true,
-					gap = "xs",
-					children = legendChips,
+				UI.VStack("Axis")(app.withChildren({ gap = "m" }, axisCaptions)),
+				UI.VStack("PlotHost")({
+					gap = "s",
+					width = UI.fill(),
+
+					plot,
+					-- a chart legend is plaza NAMES, so its chips are ragged by
+					-- nature; the uniform grid this used to be gave all three the
+					-- widest name's width (135x23 each, measured 1440x900) and left
+					-- a dead third cell on the second row
+					UI.HStack("Legend")(app.withChildren({
+						wrap = true,
+						gap = "xs",
+					}, legendChips)),
 				}),
 			}),
-		}),
-		upsell,
-	})
+			upsell,
+		})
 
-	function self.view(): any
 		return page
 	end
 
+	self.view = buildPage
+
 	function self.dump(): any
 		return {
-			timeframe = timeframe:get(),
-			locked = locked:get(),
-			entitled = entitled:get(),
-			upsell = if not showUpsell:get() then "none" elseif upsellCollapsed:get() then "row" else "expanded",
-			series = #seriesPaths,
+			timeframe = timeframe:peek(),
+			locked = locked:peek(),
+			entitled = entitled:peek(),
+			upsell = if not showUpsell:peek() then "none" elseif upsellCollapsed:peek() then "row" else "expanded",
+			series = #(data.plazas :: any),
 		}
-	end
-
-	function self.dispose()
-		unlockIdle:dispose()
-		unlockPending:dispose()
-		for _, memo in seriesMemos do
-			memo:dispose()
-		end
-		upsellRow:dispose()
-		upsellExpanded:dispose()
-		showUpsell:dispose()
-		unlocked:dispose()
-		locked:dispose()
-		upsellCollapsed:dispose()
-		timeframe:dispose()
 	end
 
 	return self

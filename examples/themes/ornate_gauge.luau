@@ -176,6 +176,9 @@ end
 --     it is the modifier contract, and a control that hides it would be lying
 --     about when its paint updates.
 function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): any
+	-- the runtime arrives on the core, like everything else a control written
+	-- outside this repository is handed
+	local Compose = core.Compose
 	local o: any = opts or {}
 	local name: string = o.id or "Gauge"
 	local capPx = ornate_gauge.CAP_PX
@@ -192,17 +195,17 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 	-- floor keeps both weights strictly positive, because a zero-weight fill is
 	-- a degenerate box rather than a hidden one.
 	local FLOOR = 1e-4
-	local lead = core:memo(function(use: any)
+	local lead = Compose.formula(function(use: any)
 		local f = clamp01(if fraction ~= nil then use(fraction) else 0)
 		return UI.fill(math.max(f, FLOOR))
 	end)
-	local trail = core:memo(function(use: any)
+	local trail = Compose.formula(function(use: any)
 		local f = clamp01(if fraction ~= nil then use(fraction) else 0)
 		return UI.fill(math.max(1 - f, FLOOR))
 	end)
 
 	local dialHeight: any = if o.heightPx ~= nil
-		then core:memo(function(use: any)
+		then Compose.formula(function(use: any)
 			return { type = "fixed", px = use(o.heightPx) }
 		end)
 		else { type = "fixed", px = resolved.height }
@@ -214,8 +217,7 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 	-- takes an explicit `{ r, g, b }`, and every other public paint channel is
 	-- semantic (a `surface` name), by design — a control may not invent fills.
 	local needle = UI.shadow(
-		UI.Image({
-			id = name .. "Needle",
+		UI.Image(name .. "Needle")({
 			image = ornate_gauge.ART.needle,
 			width = { type = "fixed", px = ornate_gauge.NEEDLE_PX },
 			height = FILL,
@@ -229,15 +231,13 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 	)
 
 	local dial = UI.corners(
-		UI.ZStack({
-			id = name .. "Dial",
+		UI.ZStack(name .. "Dial")({
 			width = FILL,
 			height = dialHeight,
 
 			-- the channel: whole art, stretched horizontally, which is
 			-- lossless because the art is column-identical by construction
-			UI.Image({
-				id = name .. "Face",
+			UI.Image(name .. "Face")({
 				image = ornate_gauge.ART.face,
 				width = FILL,
 				height = FILL,
@@ -245,32 +245,28 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 			-- the needle rides between the caps: the track is inset by one
 			-- cap width per side so the token can never slide under an
 			-- ornament at 0 % or 100 %
-			UI.HStack({
-				id = name .. "Track",
+			UI.HStack(name .. "Track")({
 				width = FILL,
 				height = FILL,
 				gap = 0,
 				padding = { top = 0, right = capPx, bottom = 0, left = capPx },
 
-				UI.Spacer({ id = name .. "Lead", width = lead, height = FILL }),
+				UI.Spacer(name .. "Lead")({ width = lead, height = FILL }),
 				needle,
-				UI.Spacer({ id = name .. "Trail", width = trail, height = FILL }),
+				UI.Spacer(name .. "Trail")({ width = trail, height = FILL }),
 			}),
 			-- the ornaments last, so they paint OVER the needle at the ends
-			UI.Anchor({
-				id = name .. "Caps",
+			UI.Anchor(name .. "Caps")({
 				width = FILL,
 				height = FILL,
 
-				UI.Image({
-					id = name .. "CapStart",
+				UI.Image(name .. "CapStart")({
 					image = ornate_gauge.ART.endcap,
 					anchor = "left",
 					width = { type = "fixed", px = capPx },
 					height = FILL,
 				}),
-				UI.Image({
-					id = name .. "CapEnd",
+				UI.Image(name .. "CapEnd")({
 					image = ornate_gauge.ART.endcap,
 					anchor = "right",
 					width = { type = "fixed", px = capPx },
@@ -281,13 +277,11 @@ function ornate_gauge.blueprint(UI: any, core: any, resolved: any, opts: any?): 
 		resolved.ring
 	)
 
-	return UI.VStack({
-		id = name,
+	return UI.VStack(name)({
 		gap = "xs",
 		width = FILL,
 
-		UI.Text({
-			id = name .. "Label",
+		UI.Text(name .. "Label")({
 			text = o.label or "Boiler pressure (gauge:dial)",
 			textSize = "caption",
 		}),

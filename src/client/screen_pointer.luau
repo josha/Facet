@@ -65,6 +65,9 @@ local screen_pointer = {}
 
 function screen_pointer.new(ctx: any)
 	local handlesByPath = ctx.handlesByPath
+	-- the host's one materialisation seam: an elided (layout-only) node gets its
+	-- engine object back the moment something needs one
+	local ensureInstance = ctx.ensureInstance or function(_handle: any) end
 	local services = ctx.services or engineServices()
 	local UserInputService = services.userInput
 	local GuiService = services.gui
@@ -640,8 +643,16 @@ function screen_pointer.new(ctx: any)
 	end
 
 	function adapter.setPointerHandlers(handle: any, handlers: any)
+		--[[ A HANDLER IS A REASON TO EXIST (elision, `screen_target`'s
+			`ensureInstance`). Container elision is CREATION-TIME and conservative:
+			`create` cannot know that a layout-only class will later be handed
+			pointer handlers, so `ensureInstance` is how everything else gets its
+			object back. Returning early here instead — the shape a live crash first
+			bought — drops the handlers for good, silently: a `UI.draggable` VStack
+			(a showcase card is exactly that) would simply never be draggable. ]]
+		ensureInstance(handle)
 		local instance = handle.instance
-		if not instance:IsA("GuiObject") then
+		if instance == nil or not instance:IsA("GuiObject") then
 			return
 		end
 		handle.pointer = handlers

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE MOUNT-IDENTITY DIFFERENTIAL (row-actions perf mission, Task 5 — design
 	doc §"What must be proven before ship": a `rowActions` list must mount a tree
 	"identical to an unwrapped list except the one overlay node").
@@ -36,7 +37,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local row_actions_state = require("../src/input/row_actions_state")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local LOCK = row_actions_state.AXIS_LOCK_PX
 local FRAME = 1 / 60
@@ -59,13 +61,13 @@ end
 	same scripted clock, same env — so any difference the diff below finds is
 	`rowActions` and can be nothing else. ]]
 local function world(hosted: boolean): any
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
@@ -73,7 +75,7 @@ local function world(hosted: boolean): any
 	local fired: { string } = {}
 	local spec: any = {
 		id = "VL",
-		rows = core:signal(makeRows(100)),
+		rows = Compose.cell(makeRows(100)),
 		key = function(item: any)
 			return item.id
 		end,
@@ -81,7 +83,7 @@ local function world(hosted: boolean): any
 		viewportHeight = 400,
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 })
+			return harness.UI.Text({ id = "Label", text = item.label, textSize = 14 })
 		end,
 		onActivate = function() end,
 		env = env,
@@ -102,7 +104,7 @@ local function world(hosted: boolean): any
 		end
 	end
 	local list = virtual_list.build(Facet, core, spec)
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
@@ -373,14 +375,14 @@ describe("VirtualList rowActions: mount identity (the shipping differential)", f
 
 		for _ = 1, 5 do
 			hosted.engage("r2")
-			expect(hosted.list.engagedOffset:get() < 0).toBe(true)
+			expect(hosted.list.engagedOffset:peek() < 0).toBe(true)
 			-- OPEN: the tray really is mounted (a closed-shape proof over a world
 			-- where nothing ever opened would be vacuous)
 			expect(hosted.adapter.liveCount() > closedCount).toBe(true)
 			expect(hosted.adapter.node(`{OVERLAY}/[r2]/RowActionsTray`)).never().toBeNil()
 
 			hosted.disengage()
-			expect(hosted.list.engagedOffset:get()).toBe(0)
+			expect(hosted.list.engagedOffset:peek()).toBe(0)
 			-- CLOSED AGAIN, and the tree is the closed tree — path for path, not
 			-- merely count for count (a leak that swapped one node for another
 			-- would keep the count)

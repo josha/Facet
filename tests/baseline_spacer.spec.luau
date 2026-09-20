@@ -1,8 +1,10 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local solver = require("../src/layout/solver")
+local Compose = require("../src/vendor/compose/core")
 local fixed = function(px: number)
 	return { type = "fixed", px = px }
 end
@@ -135,23 +137,19 @@ local snapshot = require("../src/themes/snapshot")
 describe("baseline and spacer live reactive bindings", function()
 	it("re-solves signal and theme changes without replacing mounted nodes", function()
 		local w = lt.world({ input = "desktop" })
-		local align = w.core:signal("firstTextBaseline")
-		local floor = w.core:signal("m")
-		w.present(UI.Screen({
-			id = "S",
-			children = {
-				UI.HStack({
-					id = "R",
+		local align = w.Compose.cell("firstTextBaseline")
+		local floor = w.Compose.cell("m")
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.HStack("R")({
 					align = align,
 					width = fixed(240),
-					children = {
-						UI.Text({ id = "A", text = "Small", textSize = "caption" }),
-						UI.Spacer({ id = "Gap", minLength = floor }),
-						UI.Text({ id = "B", text = "Large\nTitle", textSize = "title" }),
-					},
+					w.UI.Text("A")({ text = "Small", textSize = "caption" }),
+					w.UI.Spacer("Gap")({ minLength = floor }),
+					w.UI.Text("B")({ text = "Large\nTitle", textSize = "title" }),
 				}),
-			},
-		}))
+			})
+		end)
 		local function node(id: string): any
 			for path, entry in w.adapter.liveNodes() do
 				if path:sub(-#id - 1) == "/" .. id then
@@ -188,20 +186,20 @@ describe("baseline and spacer live reactive bindings", function()
 	end)
 end)
 
-local coreFactory = require("../src/core/custom")
+local coreFactory = harness.coreFactory
 local envFactory = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local renderer = require("../src/render/renderer")
 local fake = require("./lib/fake_target")
 local function differentialArm(incremental: boolean): any
 	local core = coreFactory.new()
 	local env = envFactory.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 260, h = 400 })
-	local align = core:signal("start")
-	local peerAlign = core:signal("start")
-	local size = core:signal(10)
-	local floor = core:signal(12)
-	local axis = core:signal("x")
+	local align = Compose.cell("start")
+	local peerAlign = Compose.cell("start")
+	local size = Compose.cell(10)
+	local floor = Compose.cell(12)
+	local axis = Compose.cell("x")
 	local root = mountLib.mount(
 		core,
 		UI.Screen({
@@ -289,17 +287,15 @@ describe("baseline incremental differential", function()
 	end)
 	it("reports a spacer minimum shadowed by an explicit dimension, including axis changes", function()
 		local w = lt.world()
-		local axis = w.core:signal("x")
-		w.present(UI.Screen({
-			id = "S",
-			children = {
-				UI.AdaptiveStack({
-					id = "Row",
+		local axis = w.Compose.cell("x")
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.AdaptiveStack("Row")({
 					axis = axis,
-					children = { UI.Spacer({ id = "Gap", minLength = 10, width = fixed(5) }) },
+					w.UI.Spacer("Gap")({ minLength = 10, width = fixed(5) }),
 				}),
-			},
-		}))
+			})
+		end)
 		local function conflict(): boolean
 			for _, d in w.controller.diagnostics() do
 				if d.issue:find("Spacer.minLength", 1, true) then

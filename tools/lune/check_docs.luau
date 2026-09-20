@@ -45,6 +45,9 @@ local fs = require("@lune/fs")
 	way tools/lune/check_registration does. A hand list here would be one more
 	place a new export could fail to appear. ]]
 local liveFacet = require("../../src") :: any
+local schema = require("../../src/blueprint_schema")
+-- the constructors an application authors with: `Facet.new(...).controls`
+local liveControls = require("../../bench/native_app")().app.controls
 
 local check_docs = {}
 
@@ -1030,9 +1033,8 @@ function check_docs.check(opts: Opts?)
 
 		Surfaces on their way out are skipped, read from `Facet.DEPRECATIONS`:
 		an alias with a replacement is not something the index has to teach.
-		`UI` and `Controls` are namespaces whose MEMBERS are the capabilities,
-		so the members carry the obligation and the bare namespace name does
-		not. ]]
+		`UI` and `Controls` spell the members of `app.controls`, so the members
+		carry the obligation and the bare namespace name does not. ]]
 	local catalogEntries = 0
 	if index ~= nil then
 		local text = index :: string
@@ -1058,18 +1060,33 @@ function check_docs.check(opts: Opts?)
 			end
 		end
 
+		-- THE CONSTRUCTOR VOCABULARY: what an application reaches as `app.controls`.
+		-- Registered entries (composite controls, modifiers, helpers) are raw keys;
+		-- every schema class is reachable through the same table. The
+		-- catalog may spell a member `UI.x` or `Controls.x`.
 		local namespaces = { "UI", "Controls" }
-		for _, key in namespaces do
-			local namespace = liveFacet[key]
-			if type(namespace) == "table" then
-				local members: { string } = {}
-				for member in namespace do
-					table.insert(members, tostring(member))
-				end
-				table.sort(members)
-				for _, member in members do
-					mustName(`{key}.{member}`, `a member of the {key} namespace`)
-				end
+		local vocabulary: { [string]: boolean } = {}
+		for member in liveControls :: any do
+			vocabulary[tostring(member)] = true
+		end
+		for _, class in schema.classNames() do
+			vocabulary[class] = true
+		end
+		local members: { string } = {}
+		for member in vocabulary do
+			table.insert(members, member)
+		end
+		table.sort(members)
+		for _, member in members do
+			catalogEntries += 1
+			if not (named(`UI.{member}`) or named(`Controls.{member}`)) then
+				-- `UI.<Name>` is the one spelling the catalog and the reference use
+				local token = `UI.{member}`
+				problem(
+					GUIDE_INDEX,
+					`the capability catalog does not name '{token}' (a constructor or helper on app.controls)`,
+					`add a catalog row naming \`{token}\` and linking its docs/reference/api.md section`
+				)
 			end
 		end
 
@@ -1088,12 +1105,12 @@ function check_docs.check(opts: Opts?)
 		--[[ b. NOTHING THE INDEX ADVERTISES MAY HAVE DISAPPEARED, and the check
 			reads the CAPABILITY COLUMN of every catalog row rather than every
 			backtick in the file. That bound is what lets it judge a BARE name:
-			the first cell of a row is a capability, so `mount` there is a claim
-			that `Facet.mount` exists, while `Instance` in the prose is not.
+			the first cell of a row is a capability, so `new` there is a claim
+			that `Facet.new` exists, while `Instance` in the prose is not.
 
 			Four shapes resolve, and anything else in that column is a claim
 			about a surface that is not there:
-			  `UI.x` / `Controls.x`   a member of a live namespace table
+			  `UI.x` / `Controls.x`   a constructor or helper on `app.controls`
 			  `<ns>.x`                a member of any other live namespace
 			  `client.x`              a client module, which is NOT on the Facet
 			                          table and is checked against src/client/
@@ -1120,6 +1137,8 @@ function check_docs.check(opts: Opts?)
 					ok = liveFacet[token] ~= nil
 				elseif namespace == "client" then
 					ok = fs.isFile(`src/client/{member}.luau`)
+				elseif namespace == "UI" or namespace == "Controls" then
+					ok = vocabulary[member] == true
 				else
 					local live = liveFacet[namespace]
 					ok = type(live) == "table" and live[member] ~= nil

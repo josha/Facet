@@ -1,8 +1,8 @@
 --!strict
 -- A bound Alert owns modal presentation, focus, cancellation and restoration.
 local example = { title = "Confirmation Dialog" }
-function example.build(Facet: any, _core: any, _deps: any)
-	local UI = Facet.View
+function example.build(ctx: any)
+	local UI, Compose = ctx.UI, ctx.Compose
 	local built: any = {
 		deletePath = "/DangerScreen/Page/Delete",
 		restorePath = "/DangerScreen/Page/Restore",
@@ -13,58 +13,61 @@ function example.build(Facet: any, _core: any, _deps: any)
 		cardPath = "/ConfirmDialog/Center/Card",
 		dispose = function() end,
 	}
-	local SaveSlot = Facet.component(function(ui)
-		local result, setResult = ui.state("none")
-		local hasSave, setHasSave = ui.state(true)
-		local open, setOpen = ui.state(false)
-		local function outcome()
-			if result() == "confirmed" then
-				return "Deleted. The slot is empty now."
-			end
-			if result() == "cancelled" then
-				return "Kept. Nothing was deleted."
-			end
-			return "This slot holds a save. Deleting it cannot be undone."
+	local result = Compose.cell("none")
+	local hasSave = Compose.cell(true)
+	local open = Compose.cell(false)
+	local outcome = Compose.formula(function(use)
+		if use(result) == "confirmed" then
+			return "Deleted. The slot is empty now."
 		end
-		local function openDialog()
-			setOpen(true)
+		if use(result) == "cancelled" then
+			return "Kept. Nothing was deleted."
 		end
-		local function restore()
-			ui.batch(function()
-				setHasSave(true)
-				setResult("none")
-			end)
-		end
-		built.result, built.hasSave, built.outcomeText = result, hasSave, outcome
-		built.openDialog, built.restore = openDialog, restore
-		return UI.Screen({
-			id = "DangerScreen",
+		return "This slot holds a save. Deleting it cannot be undone."
+	end)
+	local function openDialog()
+		open:set(true)
+	end
+	local function restore()
+		ctx.app.runtime:batch(function()
+			hasSave:set(true)
+			result:set("none")
+		end)
+	end
+	function built.result()
+		return result:peek()
+	end
+	function built.hasSave()
+		return hasSave:peek()
+	end
+	function built.outcomeText()
+		return outcome:peek()
+	end
+	built.openDialog, built.restore = openDialog, restore
+	function built.screen()
+		return UI.Screen("DangerScreen")({
 			surface = "base",
 			padding = "m",
-			UI.ScrollView({
-				id = "Page",
+			UI.ScrollView("Page")({
 				axis = "y",
 				gap = "s",
 				width = UI.fill(),
 				height = UI.fill(),
-				UI.Text({
-					id = "Title",
+				UI.Text("Title")({
 					textSize = "title",
-					text = function()
-						return if hasSave() then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
+					text = function(use)
+						return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 					end,
 				}),
-				UI.Text({ id = "Outcome", text = outcome, textSize = "body", role = "secondary" }),
-				UI.Button({ id = "Delete", label = "Delete Save", enabled = hasSave, onActivate = openDialog }),
-				UI.Button({ id = "Restore", label = "Restore the save", onActivate = restore }),
+				UI.Text("Outcome")({ text = outcome, textSize = "body", role = "secondary" }),
+				UI.Button("Delete")({ label = "Delete Save", enabled = hasSave, onActivate = openDialog }),
+				UI.Button("Restore")({ label = "Restore the save", onActivate = restore }),
 			}),
-			UI.Alert({
-				id = "ConfirmDialog",
+			UI.Alert("ConfirmDialog")({
 				title = "Delete this save?",
 				severity = "critical",
 				message = "This cannot be undone.",
 				isPresented = open,
-				onPresentedChange = setOpen,
 				actions = {
 					{
 						id = "Confirm",
@@ -72,9 +75,9 @@ function example.build(Facet: any, _core: any, _deps: any)
 						compactLabel = "Delete",
 						role = "destructive",
 						onActivate = function()
-							ui.batch(function()
-								setResult("confirmed")
-								setHasSave(false)
+							ctx.app.runtime:batch(function()
+								result:set("confirmed")
+								hasSave:set(false)
 							end)
 						end,
 					},
@@ -83,14 +86,13 @@ function example.build(Facet: any, _core: any, _deps: any)
 						label = "Cancel",
 						role = "cancel",
 						onActivate = function()
-							setResult("cancelled")
+							result:set("cancelled")
 						end,
 					},
 				},
 			}),
 		})
-	end)
-	built.screen = SaveSlot({})
+	end
 	return built
 end
 return example

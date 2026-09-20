@@ -29,18 +29,11 @@ rules your addition must follow.
   `./run-tests.sh` still decides green.
 - Never edit `tools/lune/gate_manifest.luau` or `phases.json` for a control;
   the existing gate checks pick your work up through the suite and the
-  registration checker.
-
-  That rule was false in one place until 2026-08-21, and it is worth knowing why
-  it is true now. The `naming-adr-implemented` gate row pinned the size of the
-  `Facet.Controls` namespace as a literal, so a twentieth control turned a
-  passing check red — and the one-character repair was the exact edit this rule
-  forbids. The row now DERIVES that number from the controls registry. A control
-  registered the way this playbook describes moves both sides of the comparison
-  and the row keeps passing, while a namespace entry with no registry row still
-  reddens it, which is what the check was for. **If you ever meet a gate row that
-  a correctly registered control cannot satisfy, that is a defect in the row.
-  Report it; do not edit it, and do not work around it.**
+  registration checker. Gate rows derive their counts from the controls
+  registry, so a control registered the way this playbook describes keeps them
+  passing. **If you meet a gate row that a correctly registered control cannot
+  satisfy, that is a defect in the row. Report it; do not edit it, and do not
+  work around it.**
 
 ## 1. Scaffold the skeleton
 
@@ -52,12 +45,12 @@ This stamps and REGISTERS everything, so that nothing can be forgotten. The plan
 
 | File | What the scaffold does |
 |---|---|
-| `src/controls/<name>.luau` | writes the control source: the `build(Facet, core, spec)` seam, an exported `Spec` type, the input-contribution skeleton, and `dump()` |
+| `src/controls/<name>.luau` | writes the control source: the `build(library, core, spec)` seam, an exported `Spec` type, the input-contribution skeleton, and `dump()` |
 | `tests/<name>.spec.luau` | writes the spec: one failing TODO case, four failing input-class cases, four failing affordance cases, one hot-switch case |
 | `examples/gallery/scenarios/<name>.luau` | writes the gallery scenario — the surface a person opens on a device |
 | `tests/run.luau` | registers your spec in the runner |
 | `tests/conformance/controls_registry.luau` | writes your registry row, with `inputProofs` and `affordanceProofs` citing the stamped case names |
-| `src/init.luau` | the module local and typed `Facet.Controls.<Name>` / `Facet.View.<Name>` entries |
+| `src/render/compose_controls.luau` | the one public registration: `api.<Name> = composite("<Name>", require("../controls/<name>").build)` |
 | `tests/lib/large_text_fixtures.luau` | registers a large-text fixture, so the accessibility sweep measures the control from its first commit |
 | `docs/reference/api.md` | appends the reference stub, at the anchor the registration checker requires |
 | `docs/guide/README.md` | adds the capability-catalog row, linked to that api.md anchor |
@@ -67,10 +60,8 @@ This stamps and REGISTERS everything, so that nothing can be forgotten. The plan
 | `examples/gallery/client/demo_picker.luau` | adds the demo, so a player can select it in the showcase place |
 | `tests/gallery_demo_picker.spec.luau` | pins the demo's root screen and moves the two catalogue count pins |
 
-The last six rows were, until 2026-08-21, six edits a control author had to
-discover one red test at a time, and the guide-catalog row alone reddened four
-documentation-gate cases whose obligation no playbook stated. They are stamped
-now from the one name you typed.
+Every row is stamped from the one name you typed. Do not add a registration by
+hand that the scaffold already writes.
 
 Verify the red state: `./run-tests.sh` must now fail with the TEN stamped
 cases and nothing else. Every other check in the suite was green before the
@@ -92,23 +83,66 @@ check that names it if you forget:
 | a new public property on a primitive | `lune run tools/lune/check_prop_parity_cli`, which proves seven views of the property agree |
 | a guide paragraph, when the control introduces a new CONCEPT | a human reviewer. The catalog row is mandatory; a concept paragraph is a judgement |
 
-**The call shape.** Application code uses `Facet.View.<Name> { ... }` inside a
-`Facet.component`. Keep `Facet.Controls.<Name>(core, spec)` for implementation,
-explicit imperative handles and low-level contract tests. Both public forms
-share the same `build(Facet, core, spec)` implementation; do not add a new
-`Facet.new<Name>` spelling.
+## 1.5 The shape of a control, and the one way it is registered
 
-The scaffold registers both namespaces. Finish the typed View spec for controlled
-getters/callbacks and mark its reactive properties in `src/authoring.luau`.
-If the control needs the environment, presenter clock or owner, arrange automatic
-injection at that boundary. A normal view must not ask its caller for a scope,
-core or `.blueprint`. Test the View path as a mounted component, including cleanup,
-as well as the explicit handle contract. Use `ui.state`, plain property getters,
-`ui.memo` for shared work and ordered numeric children in its showcase scenario.
+A control module exports one function and returns one record:
 
-Read [component authoring](../guide/15-components.md) before writing the public
-usage example. A new feature is unfinished when only the low-level constructor
-has an example or when its public View type omits runtime fields or metadata.
+```lua
+function gauge.build(library: any, core: any, spec: any)
+    local UI = library.UI          -- the control-side node vocabulary
+    -- …compose primitives, attach an input contribution…
+    return {
+        blueprint = blueprint,     -- required: the node the caller receives
+        api = api,                 -- optional: the control's imperative verbs
+        dump = dump,               -- optional: the deterministic diagnostic form
+        dispose = dispose,         -- optional: teardown the wrapper registers
+    }
+end
+```
+
+Registration is one line in `src/render/compose_controls.luau`, beside the other
+composites:
+
+```lua
+api.Gauge = composite("Gauge", require("../controls/gauge").build)
+```
+
+`composite(name, build)` is the whole public wrapper, and it is worth knowing
+exactly what it does for you:
+
+- It accepts both spellings: `UI.Gauge { ... }` and `UI.Gauge("Id") { ... }`.
+  A constructor name becomes `spec.id`; without one the wrapper stamps a unique
+  `Gauge#<n>`. Passing both is an error.
+- It moves numeric children into `spec.children`, so a caller writes ordered
+  children and your `build` reads one field. Writing both spellings is an error.
+- It calls `build(library, core, spec)` under the caller's Compose owner.
+- It registers your `dispose` with `Compose.cleanup`, so teardown follows the
+  owner. Never ask a caller to call `dispose` by hand.
+- It hands the frozen record `{ api, dump }` to the spec's `ref` callback, once,
+  while the control is built. `ref` must be a function. A control that publishes
+  its verbs on its own record is its own `api`.
+- It returns your `blueprint` to the caller. The caller never sees the record
+  except through `ref`.
+
+So application code reads like every other control:
+
+```luau
+local gauge
+UI.Gauge("Pressure")({
+    value = pressure,
+    ref = function(record) gauge = record.api end,
+})
+```
+
+Do not add a second public spelling. `app.controls.<Name>` is the only one, and
+`docs/reference/api.md` documents it under the heading `` `Controls.<Name>` ``
+(`Controls.<Name>` reads as "the `<Name>` constructor on `app.controls`"; sample
+code always spells it `UI.<Name>`).
+
+A control takes its caller's state; it never invents it. State that must outlive
+the control is a Compose cell the caller owns and passes in. Read
+[component authoring](../guide/15-components.md) before writing the public usage
+example, and write that example in the `UI.<Name>` form an application uses.
 
 ## 2. Design the control's contract (in the spec, first)
 
@@ -116,11 +150,15 @@ Replace the TODO test with failing tests for the control's real behavior.
 
 **Build your world with `tests/lib/world.luau`, not by hand.** One call —
 `local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })` — hands
-back the core, the environment, the adapter, the action system, and the
-presenter, in one order. Roughly eighty older spec files still build those five
-themselves, and `tests/world_substrate.spec.luau` holds that number so it can
-only fall: the next spec file that ADDS a hand-rolled builder is asked, by name,
-to migrate instead. A new control's spec is a new spec file, so this is you.
+back `app`, `UI` (`app.controls`), `Compose`, `core`, `env`, `adapter`, `system`
+and `pres`, in one order. `tests/world_substrate.spec.luau` ratchets the number
+of hand-rolled builders downward, and names the next spec file that adds one. A
+new control's spec is a new spec file, so build it on the substrate.
+
+Author your cases the way an application does: `w.UI.Gauge("Ctl")({ ... })`.
+`w.record("Ctl")` answers the `{ blueprint, api, dump, dispose }` record that
+control built, so a spec reaches the api and the dump without a second call
+shape.
 
 The house style for the control contract below is
 [`tests/level_picker.spec.luau`](../../tests/level_picker.spec.luau) — a whole
@@ -131,9 +169,9 @@ paradigm axis and the hot-switch transitions. Both are on the substrate.
 Cover, at minimum (this is the control contract the conformance culture
 expects):
 
-1. **Build + render**: `build` returns `{ blueprint, dump, dispose }`; the
+1. **Build + render**: `build` returns `{ blueprint, api?, dump?, dispose? }`; the
    blueprint mounts and renders headlessly (mount → `renderer.attach` over
-   `tests/lib/fake_target` → `initialRender`), `core:lastError()` stays nil.
+   `tests/lib/fake_target` → `initialRender`), `core.lastError()` stays nil.
 2. **Every input class**, end to end through the REAL paths — this is the
    review bar: *a control that only works with a mouse is an unfinished control*.
    A control must prove ALL FOUR of pointer, touch,
@@ -194,7 +232,7 @@ expects):
 6. **Dump determinism**: `dump()` twice → identical; it reflects the state a
    bug report needs.
 7. **Registry neutrality**: build/mount/interact/dispose returns
-   `core:counters()` to its baseline. Snapshot the baseline AFTER creating
+   `core.owner.size()` to its baseline. Snapshot the baseline AFTER creating
    the long-lived harness singletons (environment, action system, presenter)
    — they intentionally allocate for the client's lifetime and have no
    dispose seam; only YOUR control must be neutral (see
@@ -205,14 +243,12 @@ only way to see each case fail for the RIGHT reason (missing behavior, not a
 typo) while the file is still changing. Run `./run-tests.sh` before you believe
 any of it.
 
-**Your OWN spec is strict too, with the framework's own guard.** The rule below
-is about `UI.*` specs; it says nothing about the table a consumer hands
-`Facet.Controls.Gauge(core, spec)`, and until 0.10.0 there was no public route to
-enforce that half — which meant the strictness this playbook asks for stopped at
-the repository boundary.
+**Your OWN spec is strict too, with the framework's own guard.** Schema
+validation rules on `UI.*` primitive props. Your control's own spec table is
+yours to close, and `Facet.specGuard` is the one implementation of that rule.
 
 **Inside this repository — which is where you are — require the submodule
-directly.** All 24 shipped controls do exactly this, and so should yours:
+directly.** Every shipped control does exactly this, and so should yours:
 
 ```lua
 local specGuard = require("../spec_guard")
@@ -220,23 +256,23 @@ local specGuard = require("../spec_guard")
 -- CLOSED SPEC (constitution §4): exactly the fields this control reads.
 local GAUGE_KEYS = specGuard.keySet({ "id", "value", "onChange" })
 
-function gauge.build(Facet: any, core: any, spec: any)
+function gauge.build(library: any, core: any, spec: any)
     -- `where` is the PUBLIC name an author typed, so the error is greppable from
     -- the call site; `kind` is "spec" or "opts"
     specGuard.assertKnownKeys("Controls.Gauge", spec, GAUGE_KEYS, "spec")
 ```
 
-Note the seam: `build(Facet, core, spec)`, three arguments, as
-[§1's call-shape paragraph](#1-scaffold-the-skeleton) describes and as the
-scaffold stamps it. `src/controls/chip.luau` is the smallest worked example.
+Note the seam: `build(library, core, spec)`, three arguments, as
+[§1.5](#15-the-shape-of-a-control-and-the-one-way-it-is-registered) describes and
+as the scaffold stamps it. `src/controls/chip.luau` is the smallest worked
+example.
 
 > **Do NOT reach the guard through the library root from inside `src/controls/`.**
 > `local Facet = require("../")` — or `require("@self")` — at module scope is a
 > CIRCULAR REQUIRE: `src/init.luau` requires every control module near its top and
-> only assembles `Facet.specGuard` some four hundred lines later. Lune does not
-> report the cycle. **It hangs** — no output, no stack, no timeout — so
-> `lune run tests/run_one <name>` sits there forever with nothing to pull on. A
-> fresh-context author lost a session to exactly this. `lune run
+> assembles `Facet.specGuard` much later. Lune does not report the cycle. **It
+> hangs** — no output, no stack, no timeout — so `lune run tests/run_one <name>`
+> sits there forever with nothing to pull on. `lune run
 > tools/lune/check_boundary` names the file and the rule
 > (`src-module-requires-library-root`) in under a second, and 19 gate rows run it.
 
@@ -256,7 +292,7 @@ whole legal set. See [api.md §`specGuard`](../reference/api.md#specguard).
 
 **Authoring is strict.** Every `UI.*` spec is validated against
 `src/blueprint_schema.luau` at construction: an unknown key, a wrongly typed
-value, a bare number where a dimension belongs, a Signal on a prop read once at
+value, a bare number where a dimension belongs, a readable on a prop read once at
 mount, a missing required prop, or children on a leaf is an immediate error
 naming the control, the property, and the valid alternatives. If your control
 needs a NEW public property on a primitive, add it to the schema FIRST, then
@@ -272,23 +308,27 @@ Rules the reviewers will hold you to:
 - Compose shipped primitives (`UI.VStack/HStack/ZStack/Anchor/Text/Button/
   Toggle/Box/Grip/When/ForEach`, style modifiers `UI.shadow`/`UI.corners`).
   Structural changes go through `When`/`ForEach` only.
-- Own EVERY resource (signals, memos, observers) in the control's scope;
-  `dispose()` = `scope:dispose()` and nothing else.
+- Every reactive value you create belongs to a Compose owner. A
+  `Compose.cell`/`formula`/`watch` made inside `build` belongs to the owner the
+  control is built under. Register any other teardown with `Compose.cleanup`.
+  Create a child owner only when the control must release a subtree earlier than
+  its caller does; `src/controls/page_view.luau` is the worked example, and its
+  `dispose` is `owner.dispose()` and nothing else.
 - State that must outlive the control belongs to the CALLER's data model,
-  not inside the control.
+  not inside the control. A caller-owned writable cell arrives through the spec.
 - Focus: reachable ids via focusable primitives; if the control has inner
   navigation semantics, use `NavigationGroup`s (see
   `src/focus/focus_graph.luau`).
 - **Attach your input contribution.** Wrap the returned
   root with `Facet.contribution.attach(blueprint, bundle)` — a PUBLIC export,
-  so a control built outside this repository uses the same seam (the scaffold
-  stamps `local contribution = Facet.contribution` and a commented bundle
-  skeleton). The bundle rides the blueprint's internal `meta` channel, never
+  so a control built outside this repository uses the same seam. Inside the
+  repository require `../input/contribution` directly, as the scaffold stamps
+  it. The bundle rides the blueprint's internal `meta` channel, never
   the public prop bag, so it is unaffected by strict prop validation. Fill only the fields your control needs
   (`focusGroups` for D-pad/arrow navigation, `handleActivate` for tap/A/Return,
   `navigateIntercept` for grab mode, `focusMoved`/`syncGeometry`/
   `keepVisibleOffset`/`bindActionSystem` as needed, and `bindFocusGraph` for the
-  rare control that must MOVE focus rather than follow it — `newVirtualList`'s
+  rare control that must MOVE focus rather than follow it — `UI.VirtualList`'s
   index focus policy is the worked example; never ask a consumer for the graph).
   The presenter discovers the
   bundle on mount and composes the four-input story with zero consumer opts;
@@ -300,8 +340,7 @@ Rules the reviewers will hold you to:
   and `handleCancel`/`outsideDismiss`/`transientScope` for a control that opens a
   transient surface (the Picker's menu, `picker_menu.luau`, is the worked example). Use these instead of
   asking consumers for `present()` opts.
-- **Three load-bearing facts** (dry-run findings 2026-07-21 — previously only
-  learnable from the exemplar sources):
+- **Three load-bearing facts:**
   1. **One activation site.** When your bundle declares `handleActivate`, the
      inner focusable primitives must carry **no** `onActivate` prop. Activate
      dispatch is an ordered cascade with an early return
@@ -311,15 +350,10 @@ Rules the reviewers will hold you to:
      `handleActivate`, then the drag verb's pickup. **The first one that answers
      ends the dispatch.**
 
-     So declaring both does not double-fire the verb — it does something
-     quieter and worse: **the node's `onActivate` wins and your bundle's
-     `handleActivate` is never called at all, silently.** Measured 2026-08-21 on
-     all four input classes (pointer tap, touch tap, focus+Return, focus+ButtonA)
-     with both handlers instrumented: the node handler fired once every time, the
-     bundle handler zero times, and a control arm with no node `onActivate` fired
-     the bundle handler — so the zero is shadowing, not a dead harness. (This
-     playbook claimed "double-fires" until then; the symptom it warned about was
-     the opposite of the real one, and the real one is harder to notice.)
+     So declaring both does not double-fire the verb. It does something quieter
+     and worse: **the node's `onActivate` wins and your bundle's
+     `handleActivate` is never called at all, silently.** That holds on all four
+     input classes.
 
      The silence is deliberate rather than an oversight, and it has to be: a
      composite may legitimately give ONE inner node its own `onActivate` while
@@ -335,15 +369,14 @@ Rules the reviewers will hold you to:
      pass a careless test. **Name the token, never the number.** A bare `44`
      here is a theme-owned metric written into a control, and
      `tools/lune/check_theme_drift` rejects a numeric `min` anywhere under
-     `src/controls/` — so the literal this step printed until 2026-08-21 was
-     advice no author could actually ship. The token resolves to the same floor
+     `src/controls/`. The token resolves to the same floor
      and moves with the theme package. `src/controls/chip.luau` and
      `src/controls/picker.luau` are the worked spellings.
   3. **`pres.refresh()` before reading rendered props.** Binding writes flush
      to the adapter on refresh; a spec that asserts an adapter prop right
      after an interaction reads stale state without it.
-- Async resources only via `Facet.newResourceProvider` handles owned by the
-  right scope (item scopes for per-row resources).
+- Async resources only via `app.newResourceProvider` handles owned by the right
+  owner (a row's own owner for a per-row resource).
 - Keep `dump()` truthful as the state grows.
 
 Loop `lune run tests/run_one <name>` while you implement, then `./run-tests.sh`
@@ -383,19 +416,12 @@ lune run tools/lune/gate phase-4-hardening       # must not REGRESS (see below)
 Many gate rows prove themselves by grepping a passing line out of a full-suite
 transcript (`tools/suite_transcript.sh`, which the rows shell into). A red suite
 therefore has no such line for ANY of them, so every transcript-dependent row
-flips at once, whatever its subject. Measured 2026-08-21 against a stashed clean
-baseline: with four affordance stubs still unimplemented, **seven rows that were
-PASS at baseline went FAIL_RECOVERABLE.** One of them, `library-suite-green`,
-failed for the honest reason — it runs `tools/test.sh`. The other six had nothing
-to do with the change and failed only for the missing line:
-`virtualization-hardening`, `navigation-groups`, `semver-and-deprecation`,
-`error-boundaries`, `maintainability-playbooks-and-checker` and
-`documentation-and-examples`. None of the seven is a PENDING placeholder; they
-are real checks reading an absent transcript. That cascade is not a regression
-you caused and it tells you nothing — get `./run-tests.sh` to exit 0 first, then
-read the gate.
+flips at once, whatever its subject. A handful of unrelated rows going
+FAIL_RECOVERABLE on a red suite is that cascade, not a regression you caused,
+and it tells you nothing. Get `./run-tests.sh` to exit 0 first, then read the
+gate.
 
-The registration checker now enforces the four-input bar: it **fails a
+The registration checker enforces the four-input bar: it **fails a
 mouse-only control**. Every interactive control (a focusable leaf, or a
 composite that attaches an input contribution) must declare `inputProofs` for
 all four classes in `tests/conformance/controls_registry.luau`, and every cited
@@ -477,8 +503,8 @@ part.
 
 ## Controls inside navigation pages
 
-A NavigationStack content factory receives a page scope. Own a composite control
-on that scope and keep caller data outside it. Declare Cancel through the normal
+A NavigationStack page runs under its own Compose owner. Build a composite
+control there and keep caller data outside it. Declare Cancel through the normal
 contribution so an editor or popup gets first refusal before the page pops. Do
 not bind Back hardware or create a second focus order. Test a page switch while
 your control owns focus and while its transient content is open.

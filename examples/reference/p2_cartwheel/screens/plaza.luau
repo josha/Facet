@@ -20,7 +20,7 @@ local plaza = {}
 
 function plaza.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 	local ambient = app.services.ambient
 	local stats = app.services.stats
@@ -29,40 +29,40 @@ function plaza.new(app: any): any
 
 	-- "unknown" until the seam has been asked, so the fallback plate appears
 	-- because the host is ABSENT and never because it has not been asked yet
-	local stageState = core:signal("unknown")
+	local stageState = Compose.cell("unknown")
 	self.stageState = stageState
 
-	local current = core:memo(function(use)
+	local current = Compose.formula(function(use)
 		local section = use(app.state.section)
 		local id = string.match(section, "^plaza:(.+)$")
 		return data.plazaById(id or "willowmere") or (data.plazas :: any)[2]
 	end)
 	self.current = current
 
-	local plazaName = core:memo(function(use)
+	local plazaName = Compose.formula(function(use)
 		return (use(current) :: any).name
 	end)
-	local pitchName = core:memo(function(use)
+	local pitchName = Compose.formula(function(use)
 		return (use(current) :: any).pitch
 	end)
-	local chargeText = core:memo(function(use)
+	local chargeText = Compose.formula(function(use)
 		local entry = ambient.forPlaza((use(current) :: any).id)
 		return S.t("plaza.charge", { percent = math.floor((1 - entry.cloud / 100) * 100) })
 	end)
-	local cloudText = core:memo(function(use)
+	local cloudText = Compose.formula(function(use)
 		local entry = ambient.forPlaza((use(current) :: any).id)
 		return S.t("plaza.cloud", { percent = entry.cloud })
 	end)
-	local seasonalText = core:memo(function(use)
+	local seasonalText = Compose.formula(function(use)
 		use(stats.version)
 		local top = stats.topFive("today")[1]
 		return S.t("plaza.seasonal", { potion = if top == nil then "" else top.potion.name })
 	end)
-	local stockText = core:memo(function(use)
+	local stockText = Compose.formula(function(use)
 		local entry = ambient.forPlaza((use(current) :: any).id)
 		return S.t("plaza.stock", { bottles = 12 + entry.cloud })
 	end)
-	local noHost = core:memo(function(use)
+	local noHost = Compose.formula(function(use)
 		return use(stageState) == "absent"
 	end)
 
@@ -71,7 +71,7 @@ function plaza.new(app: any): any
 	-- MOUNTED, and only while the answer is still unknown — so a settled screen
 	-- pays nothing for it and "the node is not on screen" can never be mistaken
 	-- for "this adapter has no stage seam".
-	local onPlaza = core:memo(function(use)
+	local onPlaza = Compose.formula(function(use)
 		return string.match(use(app.state.section), "^plaza:") ~= nil
 	end)
 
@@ -84,8 +84,8 @@ function plaza.new(app: any): any
 	local ORBIT_PERIOD = 48
 	local ORBIT_RADIUS = 21
 	local function framing(now: number): any
-		local angle = if app.reducedMotion:get() then 0 else (now / ORBIT_PERIOD) * 2 * math.pi
-		local pitch = 9 + (if app.reducedMotion:get() then 0 else math.sin(now / (ORBIT_PERIOD * 0.5)) * 2)
+		local angle = if app.reducedMotion:peek() then 0 else (now / ORBIT_PERIOD) * 2 * math.pi
+		local pitch = 9 + (if app.reducedMotion:peek() then 0 else math.sin(now / (ORBIT_PERIOD * 0.5)) * 2)
 		return {
 			position = {
 				x = math.sin(angle + 0.72) * ORBIT_RADIUS,
@@ -99,14 +99,14 @@ function plaza.new(app: any): any
 	self.framing = framing
 
 	app.onTick(function()
-		if not onPlaza:get() then
+		if not onPlaza:peek() then
 			return
 		end
 		local controller = app.controller()
 		if controller == nil or controller.stageHost == nil then
 			return
 		end
-		if stageState:get() == "unknown" then
+		if stageState:peek() == "unknown" then
 			host = controller.stageHost(app.paths.stage)
 			stageState:set(if host == nil then "absent" else "present")
 		end
@@ -116,16 +116,16 @@ function plaza.new(app: any): any
 		-- a parked orbit still writes ONE framing (the declared one) and then
 		-- nothing more, so reduced motion costs a frame rather than a branch in
 		-- the view
-		if app.reducedMotion:get() and self.parked then
+		if app.reducedMotion:peek() and self.parked then
 			return
 		end
-		self.parked = app.reducedMotion:get()
+		self.parked = app.reducedMotion:peek()
 		host.setCamera(framing(app.clock.now()))
 	end)
 
 	-- leaving the section unmounts the Stage with its host, so the answer goes
 	-- back to unknown and is asked again on the next visit
-	local unsubscribe = core:observe(onPlaza, function(on: boolean)
+	local unsubscribe = app.observe(onPlaza, function(on: boolean)
 		if not on then
 			stageState:set("unknown")
 			host = nil
@@ -137,84 +137,78 @@ function plaza.new(app: any): any
 		stageState:set("unknown")
 	end
 
-	local fallbackPlate = UI.ZStack({
-		id = "Fallback",
-		canvasGroup = true,
-		width = UI.fill(),
-		height = UI.fill(),
-		alignH = "center",
-		alignV = "center",
+	-- The page is built per visit: a node belongs to the mount that made it.
+	local function buildPage(): any
+		local fallbackPlate = UI.ZStack("Fallback")({
+			canvasGroup = true,
+			width = UI.fill(),
+			height = UI.fill(),
+			alignH = "center",
+			alignV = "center",
 
-		UI.gradient(
-			UI.Image({
-				id = "KeyArt",
-				image = app.art.marks.menu.image,
-				scaleMode = "crop",
-				tint = { role = "contentSecondary", blend = 0.7 },
-				width = UI.fill(),
-				height = UI.fill(),
-			}),
-			{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
-		),
-		UI.Text({
-			id = "Note",
-			text = S.t("plaza.fallback"),
-			textSize = "caption",
-			role = "secondary",
-			textAlign = "center",
-			lineLimit = 2,
-		}),
-	})
-
-	local hero = UI.ZStack({
-		id = "Hero",
-		width = UI.fill(),
-		height = { type = "fixed", px = "app.cartwheel.previewMin" },
-
-		-- the reserved box itself: it paints its own plate whether or not a
-		-- scene ever arrives, so the layout is identical in both worlds
-		UI.corners(
-			UI.Stage({
-				id = "Stage",
-				surface = "raised",
-				width = UI.fill(),
-				height = UI.fill(),
-			}),
-			"panel"
-		),
-		UI.When({
-			id = "FallbackWhen",
-			condition = noHost,
-			thenView = function()
-				return fallbackPlate
-			end,
-			transition = { enter = "fade", class = "container" },
-		}),
-	})
-
-	local page = UI.ScrollView({
-		id = "Plaza",
-		axis = "y",
-		gap = "m",
-		padding = "m",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		-- plaza and pitch names are identity text: they may truncate, but only
-		-- with a way back to the whole string (spec §19 disclose ledger)
-		UI.Text({ id = "Title", text = plazaName, textSize = "title", lineLimit = 2, disclose = true }),
-		hero,
-		parts.card(app, {
-			id = "Pitch",
-			children = {
-				UI.Text({ id = "Name", text = pitchName, textSize = "heading", lineLimit = 2, disclose = true }),
-				UI.Text({
-					id = "Recommended",
-					text = S.t("plaza.recommended"),
-					textSize = "caption",
-					role = "secondary",
+			UI.gradient(
+				UI.Image("KeyArt")({
+					image = app.art.marks.menu.image,
+					scaleMode = "crop",
+					tint = { role = "contentSecondary", blend = 0.7 },
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
-				--[[ THIS WAS A `ViewThatFits` LADDER: three candidate summaries,
+				{ colors = { "surfaceStrong", "surface" }, rotation = 90 }
+			),
+			UI.Text("Note")({
+				text = S.t("plaza.fallback"),
+				textSize = "caption",
+				role = "secondary",
+				textAlign = "center",
+				lineLimit = 2,
+			}),
+		})
+
+		local hero = UI.ZStack("Hero")({
+			width = UI.fill(),
+			height = { type = "fixed", px = "app.cartwheel.previewMin" },
+
+			-- the reserved box itself: it paints its own plate whether or not a
+			-- scene ever arrives, so the layout is identical in both worlds
+			UI.corners(
+				UI.Stage("Stage")({
+					surface = "raised",
+					width = UI.fill(),
+					height = UI.fill(),
+				}),
+				"panel"
+			),
+			app.when("FallbackWhen")({
+				condition = noHost,
+				thenView = function()
+					return fallbackPlate
+				end,
+				transition = { enter = "fade", class = "container" },
+			}),
+		})
+
+		local page = UI.ScrollView("Plaza")({
+			axis = "y",
+			gap = "m",
+			padding = "m",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			-- plaza and pitch names are identity text: they may truncate, but only
+			-- with a way back to the whole string (spec §19 disclose ledger)
+			UI.Text("Title")({ text = plazaName, textSize = "title", lineLimit = 2, disclose = true }),
+			hero,
+			parts.card(app, {
+				id = "Pitch",
+				children = {
+					UI.Text("Name")({ text = pitchName, textSize = "heading", lineLimit = 2, disclose = true }),
+					UI.Text("Recommended")({
+						text = S.t("plaza.recommended"),
+						textSize = "caption",
+						role = "secondary",
+					}),
+					--[[ THIS WAS A `ViewThatFits` LADDER: three candidate summaries,
 						richest first (Full = 3 chips, Two = 2, One = 1), and the framework
 						measured and picked. Two things were wrong with it, and
 						`HStack{ wrap = true }` (parity round 3) fixes both.
@@ -243,54 +237,40 @@ function plaza.new(app: any): any
 						`align` as that child's cross placement — so keeping it slid the
 						whole row 80px right, off the card's leading edge (measured
 						1440x900: x 270 -> 350). Dropped, and the row stays where it was. ]]
-				UI.HStack({
-					id = "Summary",
-					wrap = true,
-					gap = "xs",
+					UI.HStack("Summary")({
+						wrap = true,
+						gap = "xs",
 
-					parts.chip(app, "Charge", chargeText),
-					parts.chip(app, "Popular", S.t("plaza.popular")),
-					parts.chip(app, "Trending", S.t("plaza.trending")),
-				}),
-			},
-		}),
-		parts.plate(app, {
-			id = "Flavor",
-			gap = "xs",
-			children = {
-				UI.Text({ id = "Cloud", text = cloudText, textSize = "body" }),
-				UI.Text({ id = "Seasonal", text = seasonalText, textSize = "body" }),
-				UI.Text({ id = "Stock", text = stockText, textSize = "body" }),
-			},
-		}),
-	})
+						parts.chip(app, "Charge", chargeText),
+						parts.chip(app, "Popular", S.t("plaza.popular")),
+						parts.chip(app, "Trending", S.t("plaza.trending")),
+					}),
+				},
+			}),
+			parts.plate(app, {
+				id = "Flavor",
+				gap = "xs",
+				children = {
+					UI.Text("Cloud")({ text = cloudText, textSize = "body" }),
+					UI.Text("Seasonal")({ text = seasonalText, textSize = "body" }),
+					UI.Text("Stock")({ text = stockText, textSize = "body" }),
+				},
+			}),
+		})
 
-	function self.view(): any
 		return page
 	end
 
+	self.view = buildPage
+
 	function self.dump(): any
-		local entry = ambient.forPlaza((current:get() :: any).id)
+		local entry = ambient.forPlaza((current:peek() :: any).id)
 		return {
-			plaza = (current:get() :: any).id,
-			stage = stageState:get(),
+			plaza = (current:peek() :: any).id,
+			stage = stageState:peek(),
 			recommended = ambient.recommendedPlaza().id,
 			damp = entry.damp,
 		}
-	end
-
-	function self.dispose()
-		unsubscribe()
-		onPlaza:dispose()
-		noHost:dispose()
-		stockText:dispose()
-		seasonalText:dispose()
-		cloudText:dispose()
-		chargeText:dispose()
-		pitchName:dispose()
-		plazaName:dispose()
-		current:dispose()
-		stageState:dispose()
 	end
 
 	return self

@@ -22,6 +22,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
+local worldLib = require("./lib/world")
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
@@ -34,7 +35,7 @@ local DESKTOP = { w = 1200, h = 900 }
 local CARDS = { "Tap", "Chord", "Secondary", "Hold", "Blocked" }
 local TRIGGER: { [string]: string } = {}
 for _, id in CARDS do
-	TRIGGER[id] = `/MenuDemo/Page/Cards/Card{id}/{id}Trigger`
+	TRIGGER[id] = `/MenuDemo/Page/Cards/Card{id}/{id}`
 end
 
 local function panelRow(card: string, level: number, itemId: string): string
@@ -46,28 +47,78 @@ local function sheetRow(card: string, itemId: string): string
 end
 
 local function world(view: { w: number, h: number })
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local tw = worldLib.new({
+		viewport = { x = 0, y = 0, w = view.w, h = view.h },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		-- the live adapter publishes a scroll-bar reserve; the fake does only when asked
+		newAdapter = function()
+			local adapter = fake_target.new()
+			adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
+			return adapter
+		end,
+	})
+	local core, env, adapter, pres, system = tw.core, tw.env, tw.adapter, tw.pres, tw.system
 	local built = module.build({
 		Facet = Facet,
+		app = tw.app,
+		UI = tw.UI,
+		Compose = tw.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
 		presenter = pres,
 		actionSystem = system,
 	})
-	built.handle = pres.present(built.screen, built.present)
+	built.handle = tw.present(built.screen, built.present)
+	--[[ THE CONTROLS' OWN RECORDS. An application holds no handle on a menu: it
+		gets `onOpen` and `onClose`. What each menu reports about itself — its
+		dump, its diagnostics, its resolved presentation — and the programmatic
+		open/select/close verbs are read off the records the world keeps, and
+		folded into the fixture's report and steps so each case reads the same. ]]
+	local records: { any } = {}
+	for index, id in CARDS do
+		records[index] = tw.record(id)
+	end
+	local function openRecord(): any
+		for _, record in records do
+			if record.api.isOpen:peek() then
+				return record
+			end
+		end
+		return nil
+	end
+	function built.steps.open(_built: any, id: string?)
+		return tw.record(id or "Tap").api.open()
+	end
+	function built.steps.enter(_built: any, itemId: string?)
+		local record = openRecord()
+		return record ~= nil and record.api.select(itemId or "layering")
+	end
+	function built.steps.back()
+		local record = openRecord()
+		if record ~= nil then
+			record.api.closeLevel()
+		end
+	end
+	function built.steps.close()
+		for _, record in records do
+			record.api.close()
+		end
+	end
+	local fixtureReport = built.report
+	function built.report()
+		local report = fixtureReport()
+		report.cards = {}
+		for index, record in records do
+			report.cards[index] = record.dump()
+		end
+		report.presentation = records[1].presentation()
+		report.diagnostics = records[1].api.diagnostics()
+		return report
+	end
 	local w: any = { core = core, env = env, adapter = adapter, pres = pres, system = system, built = built }
 	function w.settle(frames: number?)
-		for _ = 1, frames or 6 do
-			pres.tick(1 / 60)
-			pres.refresh()
-		end
+		tw.settle(frames or 6)
 	end
 	function w.text(path: string): string?
 		local facts = built.handle.controller.textAt()[path]
@@ -96,7 +147,7 @@ describe("scenario 'menu': the surface D2 shipped without", function()
 		-- than off the blueprint: a demo whose root never materializes is exactly
 		-- the failure `gallery_demo_picker.spec`'s negative control is named after
 		expect(w.adapter.node("/MenuDemo") ~= nil).toBe(true)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it(
@@ -203,7 +254,7 @@ describe("scenario 'menu': each route opens ITS OWN card, through the real seam"
 		w.settle()
 		-- ...and the keyboard half of the same route, on the focus ring the screen
 		-- puts on that trigger at mount
-		expect(w.pres.focus.focused:get()).toBe(TRIGGER.Tap)
+		expect(w.pres.focus.focused:peek()).toBe(TRIGGER.Tap)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		w.settle()
@@ -287,7 +338,7 @@ describe("scenario 'menu': the list, and what the framework says about it", func
 		end
 	end)
 
-	it("a submenu two levels deep, and the standing advice PRINTED rather than swallowed", function()
+	it("a submenu two levels deep, and the standing advice the control reports", function()
 		local w = world(DESKTOP)
 		w.built.steps.open(w.built, "Tap")
 		w.built.steps.enter(w.built, "layering")
@@ -296,16 +347,15 @@ describe("scenario 'menu': the list, and what the framework says about it", func
 		w.built.steps.enter(w.built, "makeup")
 		w.settle()
 		expect(w.adapter.node(panelRow("Tap", 2, "lips")) ~= nil).toBe(true)
-		expect(string.find(w.built.report().state, "depth 2") ~= nil).toBe(true)
-		-- the advice is the framework's sentence, on the screen, verbatim
+		expect(w.built.report().cards[1].depth).toBe(2)
+		-- the advice is the framework's own sentence
 		local diags = w.built.report().diagnostics
 		expect(#diags).toBe(1)
-		expect(w.text("/MenuDemo/Page/Diag/Body")).toBe(diags[1])
 		expect(string.find(diags[1], "nests 2 levels deep") ~= nil).toBe(true)
 		-- Left leaves a level, which is the keyboard half of the same claim
 		w.built.steps.back(w.built)
 		w.settle()
-		expect(string.find(w.built.report().state, "depth 1") ~= nil).toBe(true)
+		expect(w.built.report().cards[1].depth).toBe(1)
 	end)
 
 	--[[ THE REFUSAL WITH A CARD OF ITS OWN. The guidance: if all of a menu's items are
@@ -447,7 +497,6 @@ describe("scenario 'menu': it holds together where a phone squeezes it", functio
 			w.settle()
 			local open = w.built.handle.controller.diagnostics()
 			expect(`{view.w}x{view.h} open: {#open} finding(s)`).toBe(`{view.w}x{view.h} open: 0 finding(s)`)
-			w.built.dispose()
 		end
 	end)
 

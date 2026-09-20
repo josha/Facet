@@ -1,13 +1,65 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 local Facet = require("../src") :: any
-local UI = Facet.UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 t.describe("named scroll navigation", function()
+	t.it("shares model-owned offsets between active presentations and across remount", function()
+		local Compose = Facet.Compose
+		local position, screen = Compose.cell(150), Compose.cell(false)
+		local function surface(isScreen)
+			local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 300 }, reducedMotion = true })
+			w.present(UI.Screen({
+				id = "S",
+				children = {
+					UI.ScrollView({
+						id = "Scroll",
+						width = UI.fill(),
+						height = UI.fill(),
+						navigation = {
+							targets = {},
+							position = position,
+							active = function(use)
+								return use(screen) == isScreen
+							end,
+						},
+						children = { UI.Box({ height = { type = "fixed", px = 1200 } }) },
+					}),
+				},
+			}))
+			w.settle(3)
+			return w
+		end
+		local spatial, flat = surface(false), surface(true)
+		t.expect(spatial.controller.scrollPosition("/S/Scroll").y).toBe(150)
+		spatial.adapter.driveScroll("/S/Scroll", { x = 0, y = 420 })
+		spatial.settle(3)
+		t.expect(position:peek()).toBe(420)
+		screen:set(true)
+		spatial.settle(3)
+		flat.settle(3)
+		t.expect(flat.controller.scrollPosition("/S/Scroll").y).toBe(420)
+		-- A hidden surface's native clamp/echo must not replace the shared state.
+		spatial.adapter.driveScroll("/S/Scroll", { x = 0, y = 0 })
+		t.expect(position:peek()).toBe(420)
+		flat.adapter.driveScroll("/S/Scroll", { x = 0, y = 660 })
+		flat.settle(3)
+		t.expect(position:peek()).toBe(660)
+		flat.pres.dismiss(flat.handle)
+		local reopened = surface(true)
+		t.expect(reopened.controller.scrollPosition("/S/Scroll").y).toBe(660)
+		screen:set(false)
+		spatial.settle(3)
+		t.expect(spatial.controller.scrollPosition("/S/Scroll").y).toBe(660)
+		reopened.pres.dismiss(reopened.handle)
+		spatial.pres.dismiss(spatial.handle)
+	end)
 	t.it("resolves named destinations, publishes visibility crossings and scroll progress", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 300 }, reducedMotion = true })
-		local target = w.core:signal(nil)
-		local progress = w.core:signal(0)
+		local target = Compose.cell(nil)
+		local progress = Compose.cell(0)
 		local events = {}
 		w.present(UI.Screen({
 			id = "S",
@@ -35,7 +87,7 @@ t.describe("named scroll navigation", function()
 		target:set("Shelf")
 		w.settle(3)
 		t.expect(w.controller.scrollPosition("/S/Scroll").y).toBe(300)
-		t.expect(progress:get()).toBe(0.5)
+		t.expect(progress:peek()).toBe(0.5)
 		local count = #events
 		w.settle(5)
 		t.expect(#events).toBe(count)
@@ -55,8 +107,8 @@ t.describe("named scroll navigation", function()
 	end)
 	t.it("finishes and settles normal motion target travel with gesture snap disabled", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 300 }, reducedMotion = false })
-		local target = w.core:signal(nil)
-		local progress = w.core:signal(0)
+		local target = Compose.cell(nil)
+		local progress = Compose.cell(0)
 		local events = {}
 		w.present(UI.Screen({
 			id = "S",
@@ -84,7 +136,7 @@ t.describe("named scroll navigation", function()
 		target:set("Shelf")
 		w.settle(90)
 		t.expect(w.controller.scrollPosition("/S/Scroll").y).toBe(300)
-		t.expect(progress:get()).toBe(0.5)
+		t.expect(progress:peek()).toBe(0.5)
 		local count = #events
 		w.settle(5)
 		t.expect(#events).toBe(count)
@@ -135,7 +187,7 @@ t.describe("named scroll navigation", function()
 		w.pres.focus.focusOn("/S/Scroll/Hero/HeroButton")
 		w.press("DPadDown")
 		w.settle(100)
-		t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Shelf/ShelfButton")
+		t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Shelf/ShelfButton")
 		local rect = w.controller.screenRectOf("/S/Scroll/Shelf/ShelfButton")
 		t.expect(rect.y + rect.h <= 300).toBe(true)
 		w.pres.dismiss(w.handle)
@@ -166,9 +218,9 @@ t.describe("named scroll navigation", function()
 
 	t.it("resolves a late-mounted destination after pending geometry changes", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 300 }, reducedMotion = true })
-		local on = w.core:signal(false)
-		local height = w.core:signal({ type = "fixed", px = 300 })
-		local target = w.core:signal(nil)
+		local on = Compose.cell(false)
+		local height = Compose.cell({ type = "fixed", px = 300 })
+		local target = Compose.cell(nil)
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -200,7 +252,7 @@ t.describe("named scroll navigation", function()
 	end)
 	t.it("announces one visibility exit when a visible target unmounts", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 300 } })
-		local shown = w.core:signal(true)
+		local shown = Compose.cell(true)
 		local exits = 0
 		w.present(UI.Screen({
 			id = "S",
@@ -248,7 +300,7 @@ t.describe("named scroll navigation", function()
 				reducedMotion = reduced,
 				preferredInput = "Gamepad",
 			})
-			local target = w.core:signal(nil)
+			local target = Compose.cell(nil)
 			w.present(UI.Screen({
 				id = "S",
 				children = {
@@ -274,7 +326,7 @@ t.describe("named scroll navigation", function()
 			w.pres.focus.focusOn("/S/Scroll/Start")
 			target:set("Shelf")
 			w.settle(90)
-			t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Shelf/Equip")
+			t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Shelf/Equip")
 			w.pres.dismiss(w.handle)
 		end)
 	end
@@ -287,8 +339,8 @@ t.describe("scroll target focus interruptions", function()
 			preferredInput = "Gamepad",
 			reducedMotion = false,
 		})
-		local target = w.core:signal(nil)
-		local shown = w.core:signal(true)
+		local target = Compose.cell(nil)
+		local shown = Compose.cell(true)
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -330,7 +382,7 @@ t.describe("scroll target focus interruptions", function()
 		target:set("Shelf")
 		w.settle(90)
 		t.expect(w.controller.scrollPosition("/S/Scroll").y).toBe(300)
-		t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Start/First")
+		t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Start/First")
 		w.pres.dismiss(w.handle)
 	end)
 	t.it("abandons arrival focus after the user moves focus during travel", function()
@@ -339,7 +391,7 @@ t.describe("scroll target focus interruptions", function()
 		w.settle(3)
 		w.pres.focus.focusOn("/S/Scroll/Start/Other")
 		w.settle(90)
-		t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Start/Other")
+		t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Start/Other")
 		w.pres.dismiss(w.handle)
 	end)
 	t.it("does not resume arrival focus after an interrupting modal closes", function()
@@ -351,10 +403,10 @@ t.describe("scroll target focus interruptions", function()
 		)
 		w.pres.refresh()
 		w.settle(3)
-		t.expect(w.pres.focus.focused:get()).toBe("/Modal/Close")
+		t.expect(w.pres.focus.focused:peek()).toBe("/Modal/Close")
 		w.pres.dismiss(modal)
 		w.settle(90)
-		t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Start/First")
+		t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Start/First")
 		w.pres.dismiss(w.handle)
 	end)
 	t.it("abandons target motion and arrival focus when native scrolling takes over", function()
@@ -364,7 +416,7 @@ t.describe("scroll target focus interruptions", function()
 		w.adapter.driveScroll("/S/Scroll", { x = 0, y = 180 })
 		w.settle(90)
 		t.expect(w.controller.scrollPosition("/S/Scroll").y).toBe(180)
-		t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Start/First")
+		t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Start/First")
 		w.pres.dismiss(w.handle)
 	end)
 	t.it("does not hand focus to a removed and remounted destination", function()
@@ -375,7 +427,7 @@ t.describe("scroll target focus interruptions", function()
 		w.settle(3)
 		shown:set(true)
 		w.settle(90)
-		t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Start/First")
+		t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Start/First")
 		w.pres.dismiss(w.handle)
 	end)
 end)
@@ -399,7 +451,7 @@ t.describe("scroll arrival input paradigms", function()
 					elseif class == "touch" then "Touch"
 					else "MouseKeyboard",
 			})
-			local target = w.core:signal(nil)
+			local target = Compose.cell(nil)
 			w.present(UI.Screen({
 				id = "S",
 				children = {
@@ -435,7 +487,7 @@ t.describe("scroll arrival input paradigms", function()
 				w.press(if class == "keyboard" then "Return" else "ButtonA")
 			end
 			w.settle(4)
-			t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/Settings/Tune")
+			t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/Settings/Tune")
 			local rect = w.controller.screenRectOf("/S/Scroll/Settings/Tune")
 			t.expect(rect.y >= 0 and rect.y + rect.h <= 400).toBe(true)
 			w.pres.dismiss(w.handle)
@@ -447,7 +499,7 @@ t.describe("reactive scroll axes", function()
 	t.it("retains the native host and children while updating gamepad directions", function()
 		for _, initial in { "x", "y" } do
 			local w = world.new({ viewport = { x = 0, y = 0, w = 300, h = 300 }, preferredInput = "Gamepad" })
-			local axis = w.core:signal(initial)
+			local axis = Compose.cell(initial)
 			local children = {}
 			for _, id in { "A", "B", "C" } do
 				table.insert(
@@ -480,7 +532,7 @@ t.describe("reactive scroll axes", function()
 			axis:set(if initial == "y" then "x" else "y")
 			w.settle(2)
 			w.press(if initial == "y" then "DPadRight" else "DPadDown")
-			t.expect(w.pres.focus.focused:get()).toBe("/S/Scroll/B")
+			t.expect(w.pres.focus.focused:peek()).toBe("/S/Scroll/B")
 			t.expect(w.adapter.node("/S/Scroll")).toBe(host)
 			t.expect(w.adapter.node("/S/Scroll/A")).toBe(child)
 			w.pres.dismiss(w.handle)
@@ -489,7 +541,7 @@ t.describe("reactive scroll axes", function()
 	t.it("retargets an in-flight destination on an axis change without reviving cancelled focus", function()
 		for _, cancel in { false, true } do
 			local w = world.new({ viewport = { x = 0, y = 0, w = 300, h = 300 }, reducedMotion = false })
-			local axis, target = w.core:signal("y"), w.core:signal(nil)
+			local axis, target = Compose.cell("y"), Compose.cell(nil)
 			local children = {}
 			for _, id in { "A", "B", "C" } do
 				table.insert(
@@ -533,7 +585,7 @@ t.describe("reactive scroll axes", function()
 			if not cancel then
 				t.expect(w.controller.scrollPosition("/S/Scroll").x).toBe(1000)
 			end
-			t.expect(w.pres.focus.focused:get()).toBe(if cancel then "/S/Scroll/A/Other" else "/S/Scroll/C/First")
+			t.expect(w.pres.focus.focused:peek()).toBe(if cancel then "/S/Scroll/A/Other" else "/S/Scroll/C/First")
 			w.pres.dismiss(w.handle)
 		end
 	end)

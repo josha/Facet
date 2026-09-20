@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- The motion clock and MotionValue (acceptance rows SF-M1,
 -- SF-M5, SF-M8). Every case here steps a SCRIPTED clock, so "the same frame"
 -- means the same frame forever.
@@ -18,12 +19,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 -- the PUBLIC table, for the facade cases at the end of this file: what is under
 -- test there is `Facet.motion`, which is what a consumer holds
 local Facet = require("../src") :: any
 local clockLib = require("../src/motion/clock")
-local blueprint = require("../src/blueprint")
+local Compose = require("../src/vendor/compose/core")
+local observeChange = require("../src/core/on_change")
+local blueprint = harness.UI
 
 local FRAME = 1 / 60
 -- exact in binary, so accumulated elapsed lands on a duration without drift
@@ -40,7 +43,7 @@ type Fixture = {
 
 local function fixture(): Fixture
 	local core = customCore.new()
-	local policy = core:signal("full")
+	local policy = Compose.cell("full")
 	local now = 0
 	local clock = clockLib.new(core, {
 		motionPolicy = policy,
@@ -76,15 +79,15 @@ describe("motion clock: stepping and the active set", function()
 	it("a value is a Readable the rest of the framework already knows how to bind", function()
 		local f = fixture()
 		local value = f.clock:spring(0, "object")
-		expect(value.kind).toBe("signal")
+		expect(Compose.isReadable(value)).toBe(true)
 		expect(blueprint.isReadable(value)).toBe(true)
-		local doubled = f.core:memo(function(use)
+		local doubled = Compose.formula(function(use)
 			return use(value) * 2
 		end)
 		value:setTarget(10)
 		stepN(f.clock, 120)
-		expect(value:get()).toBe(10)
-		expect(doubled:get()).toBe(20)
+		expect(value:peek()).toBe(10)
+		expect(doubled:peek()).toBe(20)
 	end)
 
 	it("derives dt from the injected now() when step() is called bare", function()
@@ -100,8 +103,8 @@ describe("motion clock: stepping and the active set", function()
 			scripted.advance(TICK)
 			explicit.clock:step(TICK)
 		end
-		expect(a:get()).toBe(b:get())
-		expect(a:get()).toBeGreaterThan(0)
+		expect(a:peek()).toBe(b:peek())
+		expect(a:peek()).toBeGreaterThan(0)
 		expect(scripted.clock:stats().steps).toBe(10)
 	end)
 
@@ -113,16 +116,16 @@ describe("motion clock: stepping and the active set", function()
 		b:setTarget(100)
 		local fires = 0
 		local bSeenFromA: { number } = {}
-		f.core:observe(a, function()
+		observeChange(f.core.owner, a, function()
 			fires += 1
-			table.insert(bSeenFromA, b:get())
+			table.insert(bSeenFromA, b:peek())
 		end)
 		f.clock:step(FRAME)
 		-- one observer notification for the frame...
 		expect(fires).toBe(1)
 		-- ...and b's write for the SAME frame was already visible: two
 		-- transactions would have shown a's observer b's previous value
-		expect(bSeenFromA[1]).toBe(b:get())
+		expect(bSeenFromA[1]).toBe(b:peek())
 		expect(bSeenFromA[1]).toBeGreaterThan(0)
 
 		stepN(f.clock, 20)
@@ -157,14 +160,14 @@ describe("motion clock: stepping and the active set", function()
 		end)
 		value:setTarget(100)
 		stepN(f.clock, 200)
-		expect(value:get()).toBe(100) -- not 99.9997
+		expect(value:peek()).toBe(100) -- not 99.9997
 		expect(settles).toBe(1)
 		stepN(f.clock, 60)
 		expect(settles).toBe(1) -- resting fires nothing
 
 		value:setTarget(0) -- a second flight is a second arrival
 		stepN(f.clock, 200)
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		expect(settles).toBe(2)
 	end)
 
@@ -173,12 +176,12 @@ describe("motion clock: stepping and the active set", function()
 		local value = f.clock:spring(0, "object")
 		value:setTarget(100)
 		stepN(f.clock, 10)
-		local atInterrupt = value:get()
+		local atInterrupt = value:peek()
 		local velocity = value:getVelocity()
 		expect(velocity).toBeGreaterThan(0)
 
 		value:setTarget(200)
-		expect(value:get()).toBe(atInterrupt) -- the aim moved; the value did not
+		expect(value:peek()).toBe(atInterrupt) -- the aim moved; the value did not
 		expect(value:getVelocity()).toBe(velocity)
 
 		-- frame by frame: no discontinuity across the interrupt, and it keeps
@@ -186,12 +189,12 @@ describe("motion clock: stepping and the active set", function()
 		local previous = atInterrupt
 		for _ = 1, 10 do
 			f.clock:step(FRAME)
-			expect(value:get()).toBeGreaterThan(previous)
-			expect(value:get() - previous).toBeLessThan(30) -- no jump
-			previous = value:get()
+			expect(value:peek()).toBeGreaterThan(previous)
+			expect(value:peek() - previous).toBeLessThan(30) -- no jump
+			previous = value:peek()
 		end
 		stepN(f.clock, 200)
-		expect(value:get()).toBe(200)
+		expect(value:peek()).toBe(200)
 	end)
 
 	it("a function target is re-read every step, so a moved target still lands", function()
@@ -202,10 +205,10 @@ describe("motion clock: stepping and the active set", function()
 			return target
 		end)
 		stepN(f.clock, 10)
-		expect(value:get()).toBeLessThan(100)
+		expect(value:peek()).toBeLessThan(100)
 		target = 500 -- the row re-sorted mid-flight
 		stepN(f.clock, 300)
-		expect(value:get()).toBe(500) -- never a stale pixel
+		expect(value:peek()).toBe(500) -- never a stale pixel
 	end)
 
 	it("a vanished live target freezes the aim on the last good read and settles", function()
@@ -218,7 +221,7 @@ describe("motion clock: stepping and the active set", function()
 		stepN(f.clock, 5)
 		target = nil -- the row unmounted
 		stepN(f.clock, 300)
-		expect(value:get()).toBe(100)
+		expect(value:peek()).toBe(100)
 		expect(value:isSettled()).toBe(true)
 	end)
 
@@ -231,11 +234,11 @@ describe("motion clock: stepping and the active set", function()
 		end)
 		value:setTarget(100)
 		stepN(f.clock, 5)
-		local mid = value:get()
+		local mid = value:peek()
 		value:stop()
 		expect(f.clock:activeCount()).toBe(0)
 		stepN(f.clock, 60)
-		expect(value:get()).toBe(mid)
+		expect(value:peek()).toBe(mid)
 		expect(settles).toBe(0) -- nothing was reached
 	end)
 
@@ -249,7 +252,7 @@ describe("motion clock: stepping and the active set", function()
 		value:setTarget(100)
 		stepN(f.clock, 5)
 		value:snap(42)
-		expect(value:get()).toBe(42)
+		expect(value:peek()).toBe(42)
 		expect(value:getTarget()).toBe(42)
 		expect(value:getVelocity()).toBe(0)
 		expect(f.clock:activeCount()).toBe(0)
@@ -285,7 +288,7 @@ describe("motion clock: reduced motion (information parity)", function()
 		value:setTarget(100)
 		-- instant: no step needed at all, because RM parity must not depend on a
 		-- driver being attached
-		expect(value:get()).toBe(100)
+		expect(value:peek()).toBe(100)
 		expect(settles).toBe(1)
 		expect(f.clock:activeCount()).toBe(0)
 		expect(f.clock:stats().steps).toBe(0)
@@ -298,7 +301,7 @@ describe("motion clock: reduced motion (information parity)", function()
 		local value = f.clock:spring(0, "object")
 		value:setTarget(100)
 		value:setVelocity(900)
-		expect(value:get()).toBe(100)
+		expect(value:peek()).toBe(100)
 		expect(f.clock:activeCount()).toBe(0)
 	end)
 
@@ -307,10 +310,10 @@ describe("motion clock: reduced motion (information parity)", function()
 		local value = f.clock:spring(0, "object")
 		value:setTarget(100)
 		stepN(f.clock, 5)
-		expect(value:get()).toBeLessThan(100)
+		expect(value:peek()).toBeLessThan(100)
 		f.reduce()
 		value:setTarget(250)
-		expect(value:get()).toBe(250)
+		expect(value:peek()).toBe(250)
 		expect(f.clock:activeCount()).toBe(0)
 	end)
 
@@ -329,14 +332,14 @@ describe("motion clock: reduced motion (information parity)", function()
 		end)
 		a:setTarget(100)
 		b:setTarget(100)
-		expect(b:get()).toBe(0) -- it did NOT snap: informational motion steps
+		expect(b:peek()).toBe(0) -- it did NOT snap: informational motion steps
 		expect(reduced.clock:activeCount()).toBe(1)
 
 		stepN(full.clock, 200)
 		stepN(reduced.clock, 200)
 		-- same terminus, same event...
-		expect(a:get()).toBe(100)
-		expect(b:get()).toBe(100)
+		expect(a:peek()).toBe(100)
+		expect(b:peek()).toBe(100)
 		expect(settlesA).toBe(1)
 		expect(settlesB).toBe(1)
 		-- ...far fewer writes: the sweep is stepped, not per-frame
@@ -355,15 +358,15 @@ describe("motion clock: informational timers", function()
 		timer:onSettle(function()
 			settles += 1
 		end)
-		expect(timer:get()).toBe(1)
+		expect(timer:peek()).toBe(1)
 		expect(timer:motionKind()).toBe("informational") -- a timer's content IS time
 		stepN(f.clock, 32, TICK) -- half way
-		expect(timer:get()).toBeCloseTo(0.5, 1e-9)
+		expect(timer:peek()).toBeCloseTo(0.5, 1e-9)
 		stepN(f.clock, 31, TICK)
-		expect(timer:get()).toBeGreaterThan(0) -- not there yet: 63/64
+		expect(timer:peek()).toBeGreaterThan(0) -- not there yet: 63/64
 		expect(settles).toBe(0)
 		f.clock:step(TICK) -- frame 64 of 64
-		expect(timer:get()).toBe(0)
+		expect(timer:peek()).toBe(0)
 		expect(settles).toBe(1)
 		expect(f.clock:activeCount()).toBe(0)
 	end)
@@ -376,13 +379,13 @@ describe("motion clock: informational timers", function()
 		timer:onSettle(function()
 			settles += 1
 		end)
-		expect(timer:get()).toBe(1) -- still running: nothing was deleted
+		expect(timer:peek()).toBe(1) -- still running: nothing was deleted
 		stepN(f.clock, 15, TICK)
-		expect(timer:get()).toBe(1) -- inside the first 250 ms tick: no write yet
+		expect(timer:peek()).toBe(1) -- inside the first 250 ms tick: no write yet
 		f.clock:step(TICK) -- crosses 0.25 s
-		expect(timer:get()).toBeCloseTo(0.75, 1e-9)
+		expect(timer:peek()).toBeCloseTo(0.75, 1e-9)
 		stepN(f.clock, 48, TICK)
-		expect(timer:get()).toBe(0) -- same wall-clock terminus as the full path
+		expect(timer:peek()).toBe(0) -- same wall-clock terminus as the full path
 		expect(settles).toBe(1)
 		local writes = f.clock:stats().writes
 		expect(writes).toBeLessThanOrEqual(5) -- four ticks plus the terminal write
@@ -397,7 +400,7 @@ describe("motion clock: informational timers", function()
 		timer:onSettle(function()
 			settles += 1
 		end)
-		expect(timer:get()).toBe(0) -- the terminal STATE is instant
+		expect(timer:peek()).toBe(0) -- the terminal STATE is instant
 		expect(timer:isSettled()).toBe(true)
 		-- ...and the arrival is still announced, on the next step, so a consumer
 		-- wiring onSettle up on the following line cannot miss it
@@ -415,7 +418,7 @@ describe("motion clock: informational timers", function()
 		timer:onSettle(function()
 			settles += 1
 		end)
-		expect(timer:get()).toBe(7)
+		expect(timer:peek()).toBe(7)
 		f.clock:step(FRAME)
 		expect(settles).toBe(1)
 		expect(f.clock:activeCount()).toBe(0)
@@ -445,11 +448,11 @@ describe("motion clock: glides (a value RESAMPLED at a fixed cadence)", function
 		local g = f.clock:glide(0, { duration = 0.25 })
 		g:setTarget(1)
 		local deltas: { number } = {}
-		local prev = g:get()
+		local prev = g:peek()
 		for _ = 1, 16 do -- 16 x 1/64 s = the full 0.25 s ramp
 			f.clock:step(TICK)
-			table.insert(deltas, g:get() - prev)
-			prev = g:get()
+			table.insert(deltas, g:peek() - prev)
+			prev = g:peek()
 		end
 		local lo, hi = math.huge, -math.huge
 		for _, d in deltas do
@@ -458,7 +461,7 @@ describe("motion clock: glides (a value RESAMPLED at a fixed cadence)", function
 		-- an `object` spring over the same staircase swings 15.5x between its
 		-- fastest and slowest frame; linear is 1.0 by construction
 		expect(hi / lo).toBeCloseTo(1, 1e-9)
-		expect(g:get()).toBe(1)
+		expect(g:peek()).toBe(1)
 		expect(g:isSettled()).toBe(true)
 	end)
 
@@ -467,15 +470,15 @@ describe("motion clock: glides (a value RESAMPLED at a fixed cadence)", function
 		local g = f.clock:glide(0, { duration = 0.25 })
 		g:setTarget(1)
 		stepN(f.clock, 8, TICK) -- half way
-		local mid = g:get()
+		local mid = g:peek()
 		expect(mid).toBeCloseTo(0.5, 1e-9)
 		g:setTarget(2)
-		expect(g:get()).toBe(mid) -- the aim never moves the value (interruptibility)
+		expect(g:peek()).toBe(mid) -- the aim never moves the value (interruptibility)
 		f.clock:step(TICK)
 		-- a fresh full-duration ramp from `mid` to 2: one tick of (2 - mid) / 0.25
-		expect(g:get()).toBeCloseTo(mid + (2 - mid) * (TICK / 0.25), 1e-9)
+		expect(g:peek()).toBeCloseTo(mid + (2 - mid) * (TICK / 0.25), 1e-9)
 		stepN(f.clock, 15, TICK)
-		expect(g:get()).toBe(2)
+		expect(g:peek()).toBe(2)
 		expect(f.clock:activeCount()).toBe(0) -- rest costs zero
 	end)
 
@@ -485,13 +488,13 @@ describe("motion clock: glides (a value RESAMPLED at a fixed cadence)", function
 		local g = f.clock:glide(0, { duration = 1 })
 		expect(g:motionKind()).toBe("informational")
 		g:setTarget(1)
-		expect(g:get()).toBe(0) -- a decorative value would already be AT 1
+		expect(g:peek()).toBe(0) -- a decorative value would already be AT 1
 		stepN(f.clock, 15, TICK)
-		expect(g:get()).toBe(0) -- inside the first 250 ms tick: no write yet
+		expect(g:peek()).toBe(0) -- inside the first 250 ms tick: no write yet
 		f.clock:step(TICK)
-		expect(g:get()).toBeCloseTo(0.25, 1e-9) -- still travelling, just coarser
+		expect(g:peek()).toBeCloseTo(0.25, 1e-9) -- still travelling, just coarser
 		stepN(f.clock, 48, TICK)
-		expect(g:get()).toBe(1)
+		expect(g:peek()).toBe(1)
 	end)
 
 	it("a zero duration is legal and lands immediately (a cadence that is one frame)", function()
@@ -499,7 +502,7 @@ describe("motion clock: glides (a value RESAMPLED at a fixed cadence)", function
 		local g = f.clock:glide(3, { duration = 0 })
 		g:setTarget(9)
 		f.clock:step(TICK)
-		expect(g:get()).toBe(9)
+		expect(g:peek()).toBe(9)
 		expect(g:isSettled()).toBe(true)
 	end)
 
@@ -519,13 +522,13 @@ describe("motion clock: counters (the numeral a player reads)", function()
 		local f = fixture()
 		local counter = f.clock:counter(120, "object")
 		local seen: { number } = {}
-		f.core:observe(counter, function(v: number)
+		observeChange(f.core.owner, counter, function(v: number)
 			table.insert(seen, v)
 		end)
-		expect(counter:get()).toBe(120)
+		expect(counter:peek()).toBe(120)
 		counter:setTarget(150)
 		stepN(f.clock, 240)
-		expect(counter:get()).toBe(150)
+		expect(counter:peek()).toBe(150)
 		expect(counter:isSettled()).toBe(true)
 		expect(#seen > 3).toBe(true) -- it COUNTED; it did not jump
 		for _, v in seen do
@@ -541,23 +544,23 @@ describe("motion clock: counters (the numeral a player reads)", function()
 		local f = fixture()
 		local counter = f.clock:counter(0, "reward")
 		local peak = -math.huge
-		f.core:observe(counter, function(v: number)
+		observeChange(f.core.owner, counter, function(v: number)
 			peak = math.max(peak, v)
 		end)
 		counter:setTarget(100)
 		stepN(f.clock, 240)
 		expect(peak).toBe(100)
-		expect(counter:get()).toBe(100)
+		expect(counter:peek()).toBe(100)
 		-- ...and the same going DOWN
 		local down = f.clock:counter(100, "reward")
 		local trough = math.huge
-		f.core:observe(down, function(v: number)
+		observeChange(f.core.owner, down, function(v: number)
 			trough = math.min(trough, v)
 		end)
 		down:setTarget(40)
 		stepN(f.clock, 240)
 		expect(trough).toBe(40)
-		expect(down:get()).toBe(40)
+		expect(down:peek()).toBe(40)
 		-- the RAW spring under it really did overshoot: without the clamp this
 		-- assertion is what fails
 		expect(f.clock:stats().writes > 0).toBe(true)
@@ -572,7 +575,7 @@ describe("motion clock: counters (the numeral a player reads)", function()
 		counter:setTarget(12)
 		stepN(f.clock, 120)
 		local writes = f.clock:stats().writes - before
-		expect(counter:get()).toBe(12)
+		expect(counter:peek()).toBe(12)
 		expect(writes).toBeLessThanOrEqual(13) -- 12 steps up, at most
 		expect(writes).toBeGreaterThanOrEqual(2)
 	end)
@@ -582,12 +585,12 @@ describe("motion clock: counters (the numeral a player reads)", function()
 		local counter = f.clock:counter(0, "object")
 		counter:setTarget(200)
 		stepN(f.clock, 10)
-		local mid = counter:get()
+		local mid = counter:peek()
 		expect(mid > 0 and mid < 200).toBe(true)
 		counter:setTarget(60) -- the payload changed under the flight
-		expect(counter:get()).toBe(mid) -- the aim moved; the value did not
+		expect(counter:peek()).toBe(mid) -- the aim moved; the value did not
 		stepN(f.clock, 240)
-		expect(counter:get()).toBe(60)
+		expect(counter:peek()).toBe(60)
 	end)
 
 	it("under reduced motion the FINAL COUNT is instant, and the settle event still fires", function()
@@ -599,7 +602,7 @@ describe("motion clock: counters (the numeral a player reads)", function()
 			settles += 1
 		end)
 		counter:setTarget(150)
-		expect(counter:get()).toBe(150) -- the information, with no count-up
+		expect(counter:peek()).toBe(150) -- the information, with no count-up
 		expect(settles).toBe(1) -- ...and the same event on the same frame
 		expect(f.clock:activeCount()).toBe(0)
 	end)
@@ -610,7 +613,7 @@ describe("motion clock: counters (the numeral a player reads)", function()
 		counter:setTarget(10.4)
 		expect(counter:getTarget()).toBe(10)
 		stepN(f.clock, 240)
-		expect(counter:get()).toBe(10)
+		expect(counter:peek()).toBe(10)
 	end)
 
 	it("snap places the count with no arrival, and rest costs zero", function()
@@ -621,7 +624,7 @@ describe("motion clock: counters (the numeral a player reads)", function()
 			settles += 1
 		end)
 		counter:snap(88)
-		expect(counter:get()).toBe(88)
+		expect(counter:peek()).toBe(88)
 		expect(settles).toBe(0) -- a placement is not an arrival
 		expect(f.clock:activeCount()).toBe(0)
 	end)
@@ -630,7 +633,7 @@ end)
 describe("motion clock: lifetime", function()
 	it("dispose releases every value it built (and is idempotent)", function()
 		local core = customCore.new()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local clock = clockLib.new(core, {
 			now = function()
 				return 0
@@ -640,40 +643,44 @@ describe("motion clock: lifetime", function()
 		local b = clock:timer({ from = 0, to = 1, duration = 1 })
 		a:setTarget(10)
 		clock:step(FRAME)
-		expect(core:counters().signals).toBe(baseline.signals + 2)
+		-- the clock holds its two values; the application owner holds neither,
+		-- because a motion value is the clock's, not the surface's
+		expect(clock:activeCount()).toBe(2)
 		clock:dispose()
 		clock:dispose()
 		expect(clock:isDisposed()).toBe(true)
-		expect(core:counters()).toEqual(baseline)
+		expect(core.owner.size()).toEqual(baseline)
 		-- and a disposed clock refuses to hand out new motion rather than leaking
 		expect(function()
 			clock:spring(0, "object")
 		end).toThrow()
 		-- a disposed value still READS its last committed value: teardown never
 		-- hands a binding a nil
-		expect(b:get()).toBeCloseTo(FRAME, 1e-9)
+		expect(b:peek()).toBeCloseTo(FRAME, 1e-9)
 	end)
 
 	it("a scope owns the clock (surface teardown disposes motion with everything else)", function()
 		local core = customCore.new()
-		local baseline = core:counters()
-		local scope = core:scope("surface")
+		local baseline = core.owner.size()
+		local scope = core.owner.createChild()
 		local clock = clockLib.new(core, {
 			now = function()
 				return 0
 			end,
 		})
-		scope:own(clock)
+		scope.own(function()
+			clock:dispose()
+		end)
 		clock:spring(0, "object"):setTarget(5)
 		scope:dispose()
 		expect(clock:isDisposed()).toBe(true)
-		expect(core:counters()).toEqual(baseline)
+		expect(core.owner.size()).toEqual(baseline)
 	end)
 
 	it("50 build/step/dispose cycles return the core counters to baseline", function()
 		local core = customCore.new()
-		local policy = core:signal("full")
-		local baseline = core:counters()
+		local policy = Compose.cell("full")
+		local baseline = core.owner.size()
 		for cycle = 1, 50 do
 			local clock = clockLib.new(core, {
 				motionPolicy = policy,
@@ -708,8 +715,8 @@ describe("motion clock: lifetime", function()
 			end
 			clock:dispose()
 		end
-		expect(core:counters()).toEqual(baseline)
-		expect(core:lastError()).toBe(nil)
+		expect(core.owner.size()).toEqual(baseline)
+		expect(core.lastError()).toBe(nil)
 	end)
 end)
 

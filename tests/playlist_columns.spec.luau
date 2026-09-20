@@ -1,4 +1,6 @@
 --!strict
+local harness = require("./lib/harness")
+local scenario_ctx = require("./lib/scenario_ctx")
 --[[
 	THE HEADER AND ITS RESIZE DIVIDERS — the half of `newTable` that shipped in
 	Phase B, on the surface a player actually reaches: the shipped playlist
@@ -63,6 +65,7 @@ local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 local example = require("../examples/gallery/examples/02_playlist_table") :: any
+local Compose = require("../src/vendor/compose/core")
 
 local ROOT = "/Playlist/Page/Tracks"
 local HEADER = `{ROOT}/Main/Header`
@@ -82,7 +85,7 @@ type World = {
 	whatever the Table contributes for itself. ]]
 local function world(opts: any?): World
 	local o: any = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", o.viewport or { x = 0, y = 0, w = 900, h = 640 })
 	if o.preferredInput ~= nil then
@@ -100,15 +103,12 @@ local function world(opts: any?): World
 	-- Tab traversal is OPT-IN at the presenter (`keyboardNavigation`), so a case
 	-- that walks the document order has to ask for it — the same way the gallery
 	-- client does for a desktop session
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		keyboardNavigation = o.keyboardNavigation,
 	})
-	local built = example.build(Facet, core, {
-		env = env,
-		actionSystem = system,
-		presenter = pres,
-		adapter = adapter,
-	})
+	local built = example.build(
+		scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
+	)
 	built.handle = pres.present(built.screen, built.present)
 	-- `presentOnly` skips the settling refresh, which is the ONLY way to ask "how
 	-- many frames does the gutter cost" — see the frame-count case below
@@ -153,13 +153,13 @@ describe("playlist columns: the header is on screen and legible", function()
 		-- is the failure a `fixed` header height produced at the largest text
 		-- preference (src/controls/table.luau's `minMax` FLOOR note)
 		local band = w.adapter.node(`{HEADER}/Head-name`)
-		local firstRow = w.built.rows:get()[1].id
+		local firstRow = w.built.rows:peek()[1].id
 		-- COMPOSED (Plan C, C1): a row-actions row's `Content` carries a REACTIVE
 		-- `offsetX`, which makes it a coordinate space — the cell's stored rect is
 		-- relative to it, and the band's is not, so the two must be brought into one
 		-- space before they are compared
 		local firstCell = w.adapter.composedRect(
-			`{ROOT}/Main/Body/Rows/[{firstRow}@0]/RowActions-{firstRow}/Content/Row/Cells/Cell-name`
+			`{ROOT}/Main/Body/Rows/[{firstRow}]/RowActions-{firstRow}/Content/Row/Cells/Cell-name`
 		)
 		expect(`clear:{firstCell.y >= band.rect.y + band.rect.h}`).toBe("clear:true")
 		w.built.dispose()
@@ -228,9 +228,9 @@ describe("playlist columns: the three routes all move the same column", function
 		focusHead(w, "name")
 		local before = headWidth(w, "name")
 		-- the header handle is a focus stop the Table contributes for itself
-		expect(w.pres.focus.focused:get()).toBe(`{HEADER}/Head-name/Column`)
+		expect(w.pres.focus.focused:peek()).toBe(`{HEADER}/Head-name/Column`)
 		key(w, "Return") -- a device Activate SELECTS the column
-		expect(w.built.table_.api.selectedColumn:get()).toBe("name")
+		expect(w.built.table_.api.selectedColumn:peek()).toBe("name")
 		key(w, "Right")
 		expect(`wider:{headWidth(w, "name") - before}`).toBe("wider:16")
 		key(w, "Left")
@@ -247,7 +247,7 @@ describe("playlist columns: the three routes all move the same column", function
 		expect(`wider:{headWidth(w, "name") - before}`).toBe("wider:16")
 		-- ...and it did NOT need the column selected first, which is the difference
 		-- between the bumper route and the stick route
-		expect(w.built.table_.api.selectedColumn:get()).toBe(nil)
+		expect(w.built.table_.api.selectedColumn:peek()).toBe(nil)
 		key(w, "ButtonL1")
 		expect(`back:{headWidth(w, "name") - before}`).toBe("back:0")
 		w.built.dispose()
@@ -273,7 +273,7 @@ describe("playlist columns: the three routes all move the same column", function
 		focusHead(w, "name")
 		key(w, "Right")
 		key(w, "Right")
-		expect(w.pres.focus.focused:get()).toBe(`{HEADER}/Head-rating/Column`)
+		expect(w.pres.focus.focused:peek()).toBe(`{HEADER}/Head-rating/Column`)
 		local before = `{headWidth(w, "name")}/{headWidth(w, "artist")}/{headWidth(w, "rating")}`
 		-- ONE press, not a press and its inverse: R1 followed by L1 nets to zero and
 		-- would pass whether or not the key was bound, which is a check that proves
@@ -285,7 +285,7 @@ describe("playlist columns: the three routes all move the same column", function
 		-- equally explained by "no bumper ever arrived".
 		key(w, "Left")
 		key(w, "Left")
-		expect(w.pres.focus.focused:get()).toBe(`{HEADER}/Head-name/Column`)
+		expect(w.pres.focus.focused:peek()).toBe(`{HEADER}/Head-name/Column`)
 		local nameBefore = headWidth(w, "name")
 		key(w, "ButtonR1")
 		expect(`control:{headWidth(w, "name") - nameBefore}`).toBe("control:16")
@@ -305,7 +305,7 @@ describe("playlist columns: the tutorial's contract", function()
 		local head = `{HEADER}/Head-name/Column`
 		w.built.table_.api.handleActivate(head, { source = "action" })
 		w.pres.refresh()
-		expect(w.built.table_.api.selectedColumn:get()).toBe("name")
+		expect(w.built.table_.api.selectedColumn:peek()).toBe("name")
 		w.built.table_.api.handleGrabNavigate("right")
 		w.pres.refresh()
 		expect(`wider:{headWidth(w, "name") - before}`).toBe("wider:16")
@@ -325,7 +325,7 @@ describe("playlist columns: the tutorial's contract", function()
 		local reached = false
 		local stops = 0
 		for _ = 1, 80 do
-			if w.pres.focus.focused:get() == `{HEADER}/Head-name/Column` then
+			if w.pres.focus.focused:peek() == `{HEADER}/Head-name/Column` then
 				reached = true
 				break
 			end
@@ -348,7 +348,7 @@ describe("playlist columns: the tutorial's contract", function()
 		w.pres.dismiss(w.built.handle)
 		w.pres.refresh()
 		expect(w.adapter.node(`{HEADER}/Head-name`)).toBe(nil)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -372,7 +372,7 @@ end)
 describe("playlist sort: the owner sorts, and the sort composes with the filter", function()
 	local function names(w: World): string
 		local out = {}
-		for _, track in w.built.rows:get() :: { any } do
+		for _, track in w.built.rows:peek() :: { any } do
 			table.insert(out, track.name)
 		end
 		return table.concat(out, "|")
@@ -380,7 +380,7 @@ describe("playlist sort: the owner sorts, and the sort composes with the filter"
 
 	it("no sort is the SHIPPED order, and the memo hands back the source array untouched", function()
 		local w = world()
-		expect(w.built.sortOrder:get()).toBeNil()
+		expect(w.built.sortOrder:peek()).toBeNil()
 		expect(names(w)).toBe(
 			"Neon Straightaway|Drift City Nights|Turbo Cascade|Pit Lane Shuffle|Photo Finish|Apex Bloom"
 		)
@@ -391,14 +391,14 @@ describe("playlist sort: the owner sorts, and the sort composes with the filter"
 		local w = world()
 		w.built.table_.api.handleActivate(`{HEADER}/Head-name/Column`, { source = "pointer" })
 		w.pres.refresh()
-		expect(`{w.built.sortOrder:get().column}/{w.built.sortOrder:get().ascending}`).toBe("name/true")
+		expect(`{w.built.sortOrder:peek().column}/{w.built.sortOrder:peek().ascending}`).toBe("name/true")
 		expect(names(w)).toBe(
 			"Apex Bloom|Drift City Nights|Neon Straightaway|Photo Finish|Pit Lane Shuffle|Turbo Cascade"
 		)
 		-- the same heading again FLIPS it (the control's own cycle, not the owner's)
 		w.built.table_.api.handleActivate(`{HEADER}/Head-name/Column`, { source = "pointer" })
 		w.pres.refresh()
-		expect(`{w.built.sortOrder:get().column}/{w.built.sortOrder:get().ascending}`).toBe("name/false")
+		expect(`{w.built.sortOrder:peek().column}/{w.built.sortOrder:peek().ascending}`).toBe("name/false")
 		expect(names(w)).toBe(
 			"Turbo Cascade|Pit Lane Shuffle|Photo Finish|Neon Straightaway|Drift City Nights|Apex Bloom"
 		)
@@ -409,7 +409,7 @@ describe("playlist sort: the owner sorts, and the sort composes with the filter"
 		local w = world()
 		w.built.table_.api.handleActivate(`{HEADER}/Head-rating/Column`, { source = "pointer" })
 		w.pres.refresh()
-		expect(w.built.sortOrder:get().column).toBe("rating")
+		expect(w.built.sortOrder:peek().column).toBe("rating")
 		-- ascending by rating, ties broken by the source order: 0,2,3,3,4,5
 		expect(names(w)).toBe(
 			"Photo Finish|Pit Lane Shuffle|Drift City Nights|Apex Bloom|Neon Straightaway|Turbo Cascade"
@@ -444,7 +444,7 @@ describe("playlist sort: the owner sorts, and the sort composes with the filter"
 		local w = world()
 		w.built.table_.api.handleActivate(`{HEADER}/Head-artist/Column`, { source = "pointer" })
 		w.pres.refresh()
-		expect(w.built.sortOrder:get().column).toBe("artist")
+		expect(w.built.sortOrder:peek().column).toBe("artist")
 		-- "Nine Volt" is TWO tracks: the tie-break is the source index, so Drift
 		-- (source 2) precedes Apex (source 6) and the result is reproducible
 		expect(names(w)).toBe(
@@ -472,7 +472,7 @@ end)
 describe("playlist sort: a manual reorder wins, and takes the sort with it", function()
 	local function ids(w: World, list: any): string
 		local out = {}
-		for _, track in list:get() :: { any } do
+		for _, track in list:peek() :: { any } do
 			table.insert(out, track.id)
 		end
 		return table.concat(out, ",")
@@ -488,7 +488,7 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		-- move the first visible row (apex) down two slots among the rows staying
 		w.built.reorder({ "apex" }, 2)
 		w.pres.refresh()
-		expect(w.built.sortOrder:get()).toBeNil()
+		expect(w.built.sortOrder:peek()).toBeNil()
 		-- the baked order is what the player was looking at, with the move applied
 		expect(ids(w, w.built.baseRows)).toBe("drift,neon,apex,photo,pit,turbo")
 		expect(ids(w, w.built.rows)).toBe("drift,neon,apex,photo,pit,turbo")
@@ -501,7 +501,7 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		w.pres.refresh()
 		w.built.moveToTop("turbo")
 		w.pres.refresh()
-		expect(w.built.sortOrder:get()).toBeNil()
+		expect(w.built.sortOrder:peek()).toBeNil()
 		expect(ids(w, w.built.rows)).toBe("turbo,apex,drift,neon,photo,pit")
 		w.built.dispose()
 	end)
@@ -512,7 +512,7 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		w.pres.refresh()
 		w.built.removeTrack("neon")
 		w.pres.refresh()
-		expect(w.built.sortOrder:get().column).toBe("name")
+		expect(w.built.sortOrder:peek().column).toBe("name")
 		expect(ids(w, w.built.rows)).toBe("apex,drift,photo,pit,turbo")
 		w.built.dispose()
 	end)
@@ -521,10 +521,10 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		local w = world()
 		w.built.table_.api.handleActivate(`{HEADER}/Head-rating/Column`, { source = "pointer" })
 		w.pres.refresh()
-		expect(w.built.sortOrder:get() ~= nil).toBe(true)
+		expect(w.built.sortOrder:peek() ~= nil).toBe(true)
 		w.built.restore()
 		w.pres.refresh()
-		expect(w.built.sortOrder:get()).toBeNil()
+		expect(w.built.sortOrder:peek()).toBeNil()
 		expect(ids(w, w.built.rows)).toBe("neon,drift,turbo,pit,photo,apex")
 		w.built.dispose()
 	end)
@@ -542,14 +542,14 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		w.built.moveToTop("a-track-that-is-not-in-the-playlist")
 		w.built.reorder({}, 3)
 		w.pres.refresh()
-		expect(w.built.sortOrder:get().column).toBe("name")
+		expect(w.built.sortOrder:peek().column).toBe("name")
 		expect(ids(w, w.built.baseRows)).toBe(before)
 		-- THE POSITIVE CONTROL: the same two commands, given real arguments in the
 		-- same session, DO bake — otherwise "nothing happened" is equally explained
 		-- by a bake that stopped working
 		w.built.moveToTop("turbo")
 		w.pres.refresh()
-		expect(w.built.sortOrder:get()).toBeNil()
+		expect(w.built.sortOrder:peek()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -565,7 +565,7 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		w.built.reorder({ "photo" }, 0)
 		w.pres.refresh()
 		expect(ids(w, w.built.baseRows)).toBe(before)
-		expect(w.built.sortOrder:get().column).toBe("name")
+		expect(w.built.sortOrder:peek().column).toBe("name")
 		w.built.dispose()
 	end)
 end)
@@ -590,8 +590,8 @@ describe("playlist columns: how big the divider actually is", function()
 			-- (`controls.table.rowHeight.touch`), so if the row height does not move
 			-- between these three the paradigm never switched and the grip
 			-- measurement beside it would prove nothing.
-			local firstRow = w.built.rows:get()[1].id
-			local row = w.adapter.node(`{ROOT}/Main/Body/Rows/[{firstRow}@0]/RowActions-{firstRow}/Content/Row`)
+			local firstRow = w.built.rows:peek()[1].id
+			local row = w.adapter.node(`{ROOT}/Main/Body/Rows/[{firstRow}]/RowActions-{firstRow}/Content/Row`)
 			table.insert(measured, `{input}=grip{grip.rect.w}x{grip.rect.h}/row{row.rect.h}`)
 			w.built.dispose()
 		end
@@ -675,24 +675,15 @@ describe("the resize grip's hit floor lands on top of its own header button", fu
 	end)
 end)
 
---[[ RESIZE x VIRTUALIZATION — a combination that is one week old on both sides.
-
-	`virtualized` mounts the body as a full-extent Canvas with absolutely
-	positioned windowed rows instead of a flowing stack, and a committed resize
-	bumps `widthsVersion`, which is interpolated into every ForEach row key. The
-	question is whether the WINDOW remounts at the new width, or whether the rows
-	the window happens to hold keep the old one.
-
-	IT BUILDS ITS OWN TABLE. The playlist is a BLOCK table (`scrolls = false`) by a
-	measured decision of its own, so it cannot be the surface that asks this. ]]
+-- Resizing updates the dimensions of both mounted and newly windowed rows.
 describe("column resize on a VIRTUALIZED table", function()
 	local function virtualWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local rows = {}
 		for i = 1, 2000 do
 			table.insert(rows, { id = `r{i}`, n = i })
@@ -719,7 +710,7 @@ describe("column resize on a VIRTUALIZED table", function()
 					end,
 				},
 			},
-			rows = core:signal(rows),
+			rows = Compose.cell(rows),
 			key = function(item: any)
 				return item.id
 			end,
@@ -729,7 +720,7 @@ describe("column resize on a VIRTUALIZED table", function()
 			selection = "single",
 			env = env,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }), {})
 		pres.refresh()
 		return adapter, pres, tbl, handle, core
 	end
@@ -744,7 +735,7 @@ describe("column resize on a VIRTUALIZED table", function()
 		expect(adapter.node("/S/V/Main/Header/Head-name").rect.w).toBe(before - 120)
 		-- THE ROWS, not just the band: a windowed row is mounted under a key that
 		-- carries the widths version, so a stale row would still be at `before`
-		local firstCell = adapter.node("/S/V/Main/Body/Canvas/Rows/[r1@1]/Row/Cells/Cell-name")
+		local firstCell = adapter.node("/S/V/Main/Body/Canvas/Rows/[r1]/Row/Cells/Cell-name")
 		expect(`row:{firstCell ~= nil and firstCell.rect.w or -1}`).toBe(`row:{before - 120}`)
 		expect(`stillBounded:{tbl.dump().windowRows == windowBefore}`).toBe("stillBounded:true")
 	end)
@@ -755,7 +746,7 @@ describe("column resize on a VIRTUALIZED table", function()
 		pres.refresh()
 		expect(tbl.dump().rowCount).toBe(2000)
 		expect(`mounted:{tbl.dump().windowRows < 40}`).toBe("mounted:true")
-		expect(adapter.node("/S/V/Main/Body/Canvas/Rows/[r1500@1]/Row/Cells/Cell-name")).toBe(nil)
+		expect(adapter.node("/S/V/Main/Body/Canvas/Rows/[r1500]/Row/Cells/Cell-name")).toBe(nil)
 	end)
 end)
 
@@ -793,10 +784,10 @@ describe("playlist columns: the divider forwards a press it did not turn into a 
 
 	it("a press and release with no travel sorts the column and commits NO width", function()
 		local w = world()
-		expect(w.built.sortOrder:get()).toBeNil()
+		expect(w.built.sortOrder:peek()).toBeNil()
 		tapGrip(w, 0)
 		-- the tap reached the header cell's own Button, one layer down
-		expect(`sorted:{w.built.sortOrder:get().column}`).toBe("sorted:name")
+		expect(`sorted:{w.built.sortOrder:peek().column}`).toBe("sorted:name")
 		-- ...and nothing was resized: `auto` is the readout for a column with no
 		-- committed override at all
 		expect(w.built.widths()).toBe("Name auto · Artist auto · Rating locked")
@@ -881,7 +872,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 
 	local function scrollingWorld(opts: any?): World
 		local o: any = opts or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 640 })
 		local system = Facet.newActionSystem(core)
@@ -889,7 +880,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 		if o.reserveBar ~= false then
 			(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		end
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local rows = {}
 		for i = 1, 28 do
 			table.insert(rows, { id = `r{i}`, name = `Track {i}`, artist = `Artist {i}`, rating = i % 6 })
@@ -928,7 +919,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 					end,
 				},
 			},
-			rows = core:signal(rows),
+			rows = Compose.cell(rows),
 			key = function(item: any)
 				return item.id
 			end,
@@ -942,7 +933,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 				tbl.dispose()
 			end,
 		}
-		built.handle = pres.present(Facet.UI.Screen({ id = "Grid", padding = 12, children = { tbl.blueprint } }), {})
+		built.handle = pres.present(harness.UI.Screen({ id = "Grid", padding = 12, children = { tbl.blueprint } }), {})
 		if not o.presentOnly then
 			pres.refresh()
 		end
@@ -959,12 +950,10 @@ describe("newTable: the header's column boundaries are the body's", function()
 	local GRID_ROOT = "/Grid/Tracks"
 	local GRID_HEADER = `{GRID_ROOT}/Main/Header`
 
-	-- the first row's cell region, found rather than spelled: a committed resize
-	-- bumps `widthsVersion` and that version is interpolated into every ForEach
-	-- key, so a hard-coded `[r1@0]` reads a node that a resize has just replaced
+	-- The row keeps its item key across committed column resizes.
 	local function firstRowCells(w: World): string
 		for _, path in w.adapter.paths() do
-			local cells = string.match(path, `^({GRID_ROOT}/Main/Body/Rows/%[r1@%d+%]/Row/Cells)$`)
+			local cells = string.match(path, `^({GRID_ROOT}/Main/Body/Rows/%[r1%]/Row/Cells)$`)
 			if cells ~= nil then
 				return cells
 			end
@@ -1037,7 +1026,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 		)
 		local head, cells = grids(w)
 		expect(head).toBe(cells)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1053,7 +1042,7 @@ describe("newTable: the header's column boundaries are the body's", function()
 		w.pres.refresh()
 		w.pres.refresh()
 		expect(select(1, grids(w))).toBe(before)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1094,13 +1083,13 @@ describe("playlist columns: a selected column is released the moment focus leave
 		local w = world()
 		focusHead(w, "name")
 		key(w, "Return")
-		expect(w.built.table_.api.selectedColumn:get()).toBe("name")
+		expect(w.built.table_.api.selectedColumn:peek()).toBe("name")
 		key(w, "ButtonB")
-		expect(w.built.table_.api.selectedColumn:get()).toBeNil()
+		expect(w.built.table_.api.selectedColumn:peek()).toBeNil()
 		key(w, "Return")
-		expect(w.built.table_.api.selectedColumn:get()).toBe("name")
+		expect(w.built.table_.api.selectedColumn:peek()).toBe("name")
 		key(w, "Return")
-		expect(w.built.table_.api.selectedColumn:get()).toBeNil()
+		expect(w.built.table_.api.selectedColumn:peek()).toBeNil()
 		w.built.dispose()
 	end)
 
@@ -1118,12 +1107,12 @@ describe("playlist columns: a selected column is released the moment focus leave
 		press Tab twice, and the hint line goes back to idle with the selection
 		released. ]]
 	it("focus leaving the table entirely releases it too, however it left", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 640 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
@@ -1138,7 +1127,7 @@ describe("playlist columns: a selected column is released the moment focus leave
 					end,
 				},
 			},
-			rows = core:signal({ { id = "r1" } }),
+			rows = Compose.cell({ { id = "r1" } }),
 			key = function(item: any)
 				return item.id
 			end,
@@ -1146,16 +1135,16 @@ describe("playlist columns: a selected column is released the moment focus leave
 			env = env,
 		})
 		pres.present(
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
-				children = { tbl.blueprint, Facet.UI.Button({ id = "Away", label = "Away", focusable = true }) },
+				children = { tbl.blueprint, harness.UI.Button({ id = "Away", label = "Away", focusable = true }) },
 			}),
 			{}
 		)
 		pres.refresh()
 		tbl.api.handleActivate("/S/T/Main/Header/Head-name/Column", { source = "action" })
 		pres.refresh()
-		expect(tbl.api.selectedColumn:get()).toBe("name")
+		expect(tbl.api.selectedColumn:peek()).toBe("name")
 		-- a selected column swallows every direction, so while it is held the ring
 		-- cannot be steered off it: that is what makes a leaked selection permanent
 		expect(`swallows:{tbl.api.handleGrabNavigate("down")}`).toBe("swallows:true")
@@ -1163,8 +1152,8 @@ describe("playlist columns: a selected column is released the moment focus leave
 		-- the ring goes somewhere this table does not own
 		pres.focus.focusOn("/S/Away")
 		pres.refresh()
-		expect(pres.focus.focused:get()).toBe("/S/Away")
-		expect(tbl.api.selectedColumn:get()).toBeNil()
+		expect(pres.focus.focused:peek()).toBe("/S/Away")
+		expect(tbl.api.selectedColumn:peek()).toBeNil()
 		-- ...and it has stopped answering for a stick that is not its own
 		expect(`released:{tbl.api.handleGrabNavigate("down")}`).toBe("released:false")
 		tbl.dispose()
@@ -1222,15 +1211,16 @@ end)
 	that cannot hold them. ]]
 describe("playlist columns: the 320x640 edit-mode measurement that kept the third column", function()
 	local function editModeCell(vw: number, vh: number, columnId: string): (number, number)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = vw, h = vh })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local built =
-			example.build(Facet, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local built = example.build(
+			scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
+		)
 		pres.present(built.screen, built.present)
 		pres.refresh()
 		built.table_.api.editing:set(true)
@@ -1259,20 +1249,21 @@ describe("playlist columns: the 320x640 edit-mode measurement that kept the thir
 			the widths alone would go on passing if the collapse silently stopped
 			happening and the floors were being ignored again — which is exactly the
 			state ADAPT-19 found. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local built =
-			example.build(Facet, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local built = example.build(
+			scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
+		)
 		pres.present(built.screen, built.present)
 		pres.refresh()
 		built.table_.api.editing:set(true)
 		pres.refresh()
-		expect(built.table_.api.hiddenColumns:get()).toEqual({ "rating" })
+		expect(built.table_.api.hiddenColumns:peek()).toEqual({ "rating" })
 		-- the disclosure is mounted, and the screen's own census line stopped
 		-- calling a column that is not on screen "locked"
 		local chip: string? = nil
@@ -1299,15 +1290,16 @@ describe("playlist columns: the 320x640 edit-mode measurement that kept the thir
 	end)
 
 	it("the solver files NO collapse diagnostic — which is the whole difference from the fixed column", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local built =
-			example.build(Facet, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local built = example.build(
+			scenario_ctx.ofHarness({ core = core, env = env, adapter = adapter, presenter = pres, system = system })
+		)
 		local handle = pres.present(built.screen, built.present)
 		pres.refresh()
 		built.table_.api.editing:set(true)

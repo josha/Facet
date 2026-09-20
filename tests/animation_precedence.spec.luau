@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- `withAnimation` PRECEDENCE vs the keep-visible offset — RED-TEAM Milestone 1,
 -- BLOCKER 1.
 --
@@ -34,6 +35,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -48,28 +50,28 @@ end
 -- ingredient that broke it: a `UI.TextInput`, mounted BESIDE the animated node.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
-	local tall = core:signal(false)
-	local headerHeight = core:memo(function(use: any)
+	local tall = Compose.cell(false)
+	local headerHeight = Compose.formula(function(use: any)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
-	local UI = Facet.UI
+	local UI = harness.UI
 
 	local children: { any } = {
 		UI.Box({ id = "Header", height = headerHeight }),
 	}
 	local field: any = nil
 	if options.textInput ~= false then
-		field = Facet.Controls.TextInput(core, {
+		field = harness.Controls.TextInput(core, {
 			id = "Field",
-			value = core:signal("hi"),
+			value = Compose.cell("hi"),
 			env = env,
 			actionSystem = system,
 		})
@@ -133,17 +135,17 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 		-- the same root ownership, reached through the PUBLIC present option
 		-- rather than a control's bundle — proof the defect was the precedence
 		-- rule and not anything text-field-specific.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local tall = core:signal(false)
-		local headerHeight = core:memo(function(use: any)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local tall = Compose.cell(false)
+		local headerHeight = Compose.formula(function(use: any)
 			return { type = "fixed", px = if use(tall) then 200 else 100 }
 		end)
-		local UI = Facet.UI
+		local UI = harness.UI
 		pres.present(
 			UI.Screen({
 				id = "S",
@@ -160,7 +162,7 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 					}),
 				},
 			}),
-			{ keepVisibleOffset = core:signal(0) }
+			{ keepVisibleOffset = Compose.cell(0) }
 		)
 		pres.refresh()
 		expect(adapter.node("/S").props.transform ~= nil).toBe(true)
@@ -219,18 +221,18 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 		-- solved rect; the keep-visible shift is added on top by the
 		-- accumulating channel. Passing `inh` through unchanged is what makes
 		-- that sum come out right.
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local tall = core:signal(false)
-		local lift = core:signal(0)
-		local headerHeight = core:memo(function(use: any)
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local tall = Compose.cell(false)
+		local lift = Compose.cell(0)
+		local headerHeight = Compose.formula(function(use: any)
 			return { type = "fixed", px = if use(tall) then 200 else 100 }
 		end)
-		local UI = Facet.UI
+		local UI = harness.UI
 		pres.present(
 			UI.Screen({
 				id = "S",

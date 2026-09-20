@@ -1,35 +1,13 @@
 --!strict
---[[ Composite controls live at `Facet.Controls.<Name>(core, spec)`.
-
-	THE SHAPE THIS PINS. `Facet.Controls.Table(core, spec)` made an author write
-	the library's name twice in every call: the first argument is the library
-	handing itself to its own builder, boilerplate that teaches nothing and that
-	autocomplete cannot explain. `Facet.Controls` closes over the library once, so
-	the redundant argument disappears and completion on `Facet.Controls.` lists
-	exactly the nineteen composite controls instead of the forty-four mixed
-	entries `Facet.` offers.
-
-	WHAT A TEST CAN ACTUALLY PROVE HERE, and why it is written this way. A
-	namespace that merely EXISTS proves nothing — the defect this file exists to
-	catch is an entry wired to the wrong builder, or wired to the right builder
-	with the wrong library, and both produce a table that looks perfectly
-	plausible from the outside. So every one of the nineteen is built BOTH WAYS
-	with the SAME spec table, and the two results are compared on their published
-	surface (the dump, the blueprint class, the node id). A builder that received
-	something other than the library cannot construct its blueprint at all, and a
-	builder wired to the wrong control produces a different class.
-
-	AND THE OLD FORM STILL WORKS. That is not a nicety: it is the compatible half
-	of the migration. The old
-	form is what the comparison's control arm calls, so it is proven live by
-	every case below rather than by one token case.
-]]
+local harness = require("./lib/harness")
+-- Control factories and their explicit-handle contract.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 
 -- the nineteen names, in the namespace's own order
 local NAMES = {
@@ -81,6 +59,8 @@ local POST_ADR_NAMES: { string } = {
 	"Sheet",
 	"PageView",
 	"CollapsibleView",
+	"Composition",
+	"Region",
 	-- scaffold: new control names are appended above this line
 }
 
@@ -90,7 +70,7 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 	Table = function(core)
 		return {
 			id = "T",
-			rows = core:signal({ { id = "a", name = "Apex" } }),
+			rows = Compose.cell({ { id = "a", name = "Apex" } }),
 			key = function(row: any)
 				return row.id
 			end,
@@ -108,16 +88,16 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 		}
 	end,
 	Slider = function(core)
-		return { id = "Vol", value = core:signal(0.5), min = 0, max = 1, step = 0.1 }
+		return { id = "Vol", value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 }
 	end,
 	Stepper = function(core)
-		return { id = "Qty", value = core:signal(2), min = 0, max = 10, step = 1 }
+		return { id = "Qty", value = Compose.cell(2), min = 0, max = 10, step = 1 }
 	end,
 	Picker = function(core)
 		return {
 			id = "Mode",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 			-- an automatic presentation adapts, so it needs the arm's environment
 			-- (ADAPT-1) — and BOTH arms build one, which is what keeps the two
 			-- dumps comparable
@@ -127,7 +107,7 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 	PopupButton = function(core)
 		return {
 			id = "Choice",
-			value = core:signal("one"),
+			value = Compose.cell("one"),
 			options = { { id = "one", label = "One" }, { id = "two", label = "Two" } },
 			-- an automatic presentation adapts, so it needs the arm's environment (ADAPT-1)
 			env = Facet.newEnvironment(core),
@@ -145,7 +125,7 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 	TabView = function(core)
 		return {
 			id = "TV",
-			selection = core:signal("a"),
+			selection = Compose.cell("a"),
 			placement = "topBar",
 			tabs = {
 				{
@@ -162,26 +142,26 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 		return { id = "Save", title = "Save", icon = "rbxassetid://1" }
 	end,
 	Chip = function(core)
-		return { id = "C", label = "Wet", selected = core:signal(false) }
+		return { id = "C", label = "Wet", selected = Compose.cell(false) }
 	end,
 	Rating = function(core)
-		return { id = "Stars", value = core:signal(3) }
+		return { id = "Stars", value = Compose.cell(3) }
 	end,
 	TextInput = function(core)
 		-- a field reads the surface's environment (ADAPT-1), and both arms build one
-		return { id = "Field", value = core:signal("hi"), env = Facet.newEnvironment(core) }
+		return { id = "Field", value = Compose.cell("hi"), env = Facet.newEnvironment(core) }
 	end,
 	ProgressView = function(_core)
 		return { id = "Load", value = 0.25, showValue = true }
 	end,
 	LevelPicker = function(core)
-		return { id = "L", value = core:signal(1) }
+		return { id = "L", value = Compose.cell(1) }
 	end,
 	DisclosureGroup = function(core)
 		return {
 			id = "Advanced",
 			label = "Advanced",
-			expanded = core:signal(false),
+			expanded = Compose.cell(false),
 			content = function()
 				return UI.Text({ id = "Body", text = "body" })
 			end,
@@ -190,7 +170,7 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 	VirtualList = function(core)
 		return {
 			id = "VL",
-			rows = core:signal({ { id = "r1", label = "One" }, { id = "r2", label = "Two" } }),
+			rows = Compose.cell({ { id = "r1", label = "One" }, { id = "r2", label = "Two" } }),
 			key = function(item: any)
 				return item.id
 			end,
@@ -204,7 +184,7 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 	VirtualGrid = function(core)
 		return {
 			id = "VG",
-			items = core:signal({ { id = "i1", label = "One" }, { id = "i2", label = "Two" } }),
+			items = Compose.cell({ { id = "i1", label = "One" }, { id = "i2", label = "Two" } }),
 			key = function(item: any)
 				return item.id
 			end,
@@ -235,98 +215,62 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 		return {
 			id = "I",
 			provider = Facet.newResourceProvider(core),
-			scope = core:scope("img"),
 			key = "rbxassetid://1",
 		}
 	end,
 }
 
 describe("the Controls namespace", function()
-	it("exports exactly the nineteen composite controls the namespace names, and nothing else", function()
-		expect(type(Facet.Controls)).toBe("table")
-		local declared: { [string]: boolean } = {}
+	it("exports exactly the declared composite controls from an application, and nothing else", function()
+		local controls = require("./lib/world").new().UI
+		-- The structural constructors are public: a schema-shaped spec plays region transitions.
+		local declared: { [string]: boolean } = { ScrollView = true, Stage = true, ForEach = true, When = true }
 		for _, name in NAMES do
 			declared[name] = true
-			expect(`{name}: {type(Facet.Controls[name])}`).toBe(`{name}: function`)
+			expect(`{name}: {type(rawget(controls, name))}`).toBe(`{name}: function`)
 		end
-		-- ...plus the later additions, named just as explicitly. The claim is
-		-- "nothing is in this namespace that no list admits to", not "the namespace
-		-- never grows": a control added to `src/init.luau` and to neither list still
-		-- reddens this case, which is the mutation that matters.
+		-- ...plus the later additions, named just as explicitly. A control added to
+		-- the library and to neither list reddens this case.
 		for _, name in POST_ADR_NAMES do
 			declared[name] = true
-			expect(`{name}: {type(Facet.Controls[name])}`).toBe(`{name}: function`)
+			expect(`{name}: {type(rawget(controls, name))}`).toBe(`{name}: function`)
 		end
-		for key in Facet.Controls do
-			expect(`Controls.{key} is in the declared list: {declared[key] == true}`).toBe(
-				`Controls.{key} is in the declared list: true`
-			)
+		for key in controls do
+			-- lower-case members are modifiers and dimension helpers
+			if string.match(key, "^%u") then
+				expect(`controls.{key} is in the declared list: {declared[key] == true}`).toBe(
+					`controls.{key} is in the declared list: true`
+				)
+			end
 		end
-		-- authority, not a scratch table a consumer can extend with a 20th control
-		expect(table.isfrozen(Facet.Controls)).toBe(true)
+		expect(Facet.Controls).toBe(nil)
 	end)
 
-	--[[ THE ONE THAT MATTERS. An entry wired to the wrong builder, or to the
-		right builder with the wrong first argument, still returns a table. Build
-		each control BOTH WAYS from the same spec and compare what each publishes. ]]
-	it("every entry builds what the old two-argument form builds", function()
+	it("builds declared roots without flat constructor aliases", function()
 		for _, name in NAMES do
-			local fixture = FIXTURES[name]
-			expect(`{name} has a fixture: {fixture ~= nil}`).toBe(`{name} has a fixture: true`)
-
-			local oldCore = Facet.newCore()
-			local old = Facet[`new{name}`](Facet, oldCore, fixture(oldCore))
-			local newCore = Facet.newCore()
-			local new = Facet.Controls[name](newCore, fixture(newCore))
-
-			expect(`{name} blueprint: {new.blueprint ~= nil}`).toBe(`{name} blueprint: true`)
-			expect(`{name} class: {new.blueprint.class}`).toBe(`{name} class: {old.blueprint.class}`)
-			expect(`{name} id: {tostring(new.blueprint.props.id)}`).toBe(
-				`{name} id: {tostring(old.blueprint.props.id)}`
-			)
-			if type(old.dump) == "function" then
-				expect(`{name} dumps: {type(new.dump)}`).toBe(`{name} dumps: function`)
-				expect(new.dump()).toEqual(old.dump())
+			local core = harness.newCore()
+			local spec = FIXTURES[name](core)
+			local control = harness.Controls[name](core, spec)
+			expect(type(control.blueprint.class)).toBe("string")
+			local expectedId = if name == "Menu"
+				then spec.id .. "Trigger"
+				elseif name == "Callout" then spec.anchor.id
+				else spec.id
+			expect(control.blueprint.id).toBe(expectedId)
+			expect(Facet[`new{name}`]).toBe(nil)
+			if control.dispose then
+				control.dispose()
 			end
 		end
 	end)
 
-	--[[ THE LEDGER IS THE NOTICE. The old form keeps working for at
-		least one minor after `since`; what makes that a promise rather than a habit
-		is a machine-readable row naming the replacement. api_surface.spec owns the
-		ledger's SHAPE — this owns its CONTENT for the nineteen. ]]
-	it("every old-form builder carries its deprecation row", function()
-		local bySurface: { [string]: any } = {}
-		for _, entry in Facet.DEPRECATIONS :: { any } do
-			bySurface[entry.surface] = entry
-		end
-		for _, name in NAMES do
-			local surface = `new{name}`
-			local entry = bySurface[surface]
-			expect(`{surface} is in the ledger: {entry ~= nil}`).toBe(`{surface} is in the ledger: true`)
-			expect(`{surface} since: {entry.since}`).toBe(`{surface} since: 0.10.0`)
-			expect(`{surface} removeNoEarlierThan: {entry.removeNoEarlierThan}`).toBe(
-				`{surface} removeNoEarlierThan: 0.12.0`
-			)
-			-- the popup button's row points past the namespace, at the Picker
-			-- style that replaced it (2026-09-11)
-			local replacement = if name == "PopupButton"
-				then 'Facet.Controls.Picker(core, { style = "menu" | "navigationLink", ... })'
-				else `Facet.Controls.{name}(core, spec)`
-			expect(`{surface} replacement: {entry.replacement}`).toBe(`{surface} replacement: {replacement}`)
-		end
-	end)
-
-	--[[ INFRASTRUCTURE DID NOT MOVE. `newCore`/`newPresenter`/`newActionSystem`/…
-		take no library argument and their creation IS the important fact, so the decision
-		leaves them where they are. A future editor tidying "all the `new*`s" into
-		the namespace would break every host in the repository. ]]
-	it("the eleven infrastructure constructors stay at the top level and stay out of Controls", function()
+	-- An application owns its core and presenter; the service constructors that
+	-- take no library stay at the top level and out of the control library.
+	it("the infrastructure constructors stay at the top level and stay out of the controls", function()
+		local controls = require("./lib/world").new().UI
 		for _, name in
 			{
-				"newCore",
 				"newEnvironment",
-				"newPresenter",
 				"newActionSystem",
 				"newFocusGraph",
 				"newDragRegistry",
@@ -339,7 +283,149 @@ describe("the Controls namespace", function()
 		do
 			expect(`{name}: {type(Facet[name])}`).toBe(`{name}: function`)
 			local short = string.sub(name, 4)
-			expect(`Controls.{short}: {tostring(Facet.Controls[short])}`).toBe(`Controls.{short}: nil`)
+			expect(`controls.{short}: {tostring(rawget(controls, short))}`).toBe(`controls.{short}: nil`)
 		end
+		for _, name in { "newCore", "newPresenter" } do
+			expect(`{name}: {type(Facet[name])}`).toBe(`{name}: nil`)
+		end
+	end)
+end)
+
+--[[ THE TWO STRUCTURAL REGIONS ON `app.controls`. `UI.ForEach`/`UI.When` are
+	told apart from a hand-rolled region by the SPEC KEY, never by the name: an
+	anonymous schema-shaped spec dispatches exactly like a named one, and a table
+	that is neither a spec nor a list of children is a typo rather than a bare
+	structural node that quietly does nothing. ]]
+describe("app.controls regions dispatch on the spec shape, named or not", function()
+	local world = require("./lib/world")
+
+	-- the mounted paths under the region, with the region's own segment stripped
+	local function branchPaths(w: any, region: string): { string }
+		local out: { string } = {}
+		for _, path in w.adapter.paths() do
+			local inside = string.match(path, `^/S/Host/{region}/(.+)$`)
+			if inside ~= nil then
+				table.insert(out, inside)
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	it("an ANONYMOUS schema-shaped When mounts the branch, exactly as a named one does", function()
+		local open = Compose.cell(true)
+		local function screen(build: (any) -> any)
+			local w = world.new()
+			w.present(function()
+				return w.UI.Screen("S")({ w.UI.VStack("Host")({ build(w.UI) }) })
+			end)
+			return w
+		end
+		local anonymous = screen(function(U: any)
+			return U.When({
+				condition = open,
+				thenView = function()
+					return U.Text("Branch")({ text = "branch" })
+				end,
+			})
+		end)
+		local named = screen(function(U: any)
+			return U.When("Gate")({
+				condition = open,
+				thenView = function()
+					return U.Text("Branch")({ text = "branch" })
+				end,
+			})
+		end)
+		-- the anonymous region gets a generated segment; what it MOUNTS is identical
+		local anonSegment = nil
+		for _, path in anonymous.adapter.paths() do
+			anonSegment = string.match(path, "^/S/Host/(When[^/]*)/") or anonSegment
+		end
+		expect(`anonymous region: {tostring(anonSegment ~= nil)}`).toBe("anonymous region: true")
+		expect(table.concat(branchPaths(anonymous, anonSegment :: string), ",")).toBe(
+			table.concat(branchPaths(named, "Gate"), ",")
+		)
+		expect(table.concat(branchPaths(named, "Gate"), ",")).toBe("then,then/Branch")
+	end)
+
+	it("an ANONYMOUS schema-shaped ForEach mounts rows, exactly as a named one does", function()
+		local items = Compose.cell({ { id = "a" }, { id = "b" } })
+		local w = world.new()
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("Host")({
+					w.UI.ForEach({
+						items = items,
+						key = function(item: any)
+							return item.id
+						end,
+						row = function(item: any)
+							return w.UI.Text("Row")({ text = item.id })
+						end,
+					}),
+				}),
+			})
+		end)
+		local segment = nil
+		for _, path in w.adapter.paths() do
+			segment = string.match(path, "^/S/Host/(ForEach[^/]*)/") or segment
+		end
+		expect(`anonymous region: {tostring(segment ~= nil)}`).toBe("anonymous region: true")
+		expect(table.concat(branchPaths(w, segment :: string), ",")).toBe("[a]/Row,[b]/Row")
+	end)
+
+	it("numeric children still build a bare region, named or anonymous", function()
+		local w = world.new()
+		local bare = w.scoped(function()
+			return w.UI.When({ w.UI.Text({ text = "hand-rolled" }) })
+		end)
+		expect(`class: {bare.class}, children: {#bare.children}`).toBe("class: When, children: 1")
+	end)
+
+	it("a spec that is neither shape names what was expected", function()
+		local w = world.new()
+		local ok, err = pcall(function()
+			return w.scoped(function()
+				return w.UI.ForEach({ rows = {}, row = function() end })
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Facet UI.ForEach", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "neither a numeric child nor a declared prop", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "items = <cell or formula>", 1, true) ~= nil).toBe(true)
+	end)
+
+	-- `key` is a function OR the name of the field that holds the identity, with
+	-- the same `tostring` rule the list engine uses — one rule everywhere.
+	it("ForEach takes a field name for `key`, like VirtualList does", function()
+		local items = Compose.cell({ { id = 1 }, { id = 2 } })
+		local w = world.new()
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("Host")({
+					w.UI.ForEach("Rows")({
+						items = items,
+						key = "id",
+						row = function(item: any)
+							return w.UI.Text("Row")({ text = tostring(item.id) })
+						end,
+					}),
+				}),
+			})
+		end)
+		-- a numeric id is spelled out, because a key is a path segment
+		expect(table.concat(branchPaths(w, "Rows"), ",")).toBe("[1]/Row,[2]/Row")
+	end)
+
+	it("a `key` that is neither a function nor a field name says so", function()
+		local w = world.new()
+		local ok, err = pcall(function()
+			return w.scoped(function()
+				return w.UI.ForEach("Rows")({ items = Compose.cell({}), key = 7, row = function() end })
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Facet UI.ForEach: `key` identifies an item", 1, true) ~= nil).toBe(true)
 	end)
 end)

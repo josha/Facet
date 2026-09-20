@@ -36,11 +36,10 @@ local PANES = "/ForeignContent/Page/Panes"
 return {
 	title = "UI.Foreign — a box for an instance Facet does not own",
 	build = function(ctx: any)
-		local UI = ctx.Facet.UI
-		local core = ctx.core
+		local UI, Compose = ctx.UI, ctx.Compose
 
-		local status = core:signal("adopting on present…")
-		local refusal = core:signal("(press “Adopt a Part” to see the refusal)")
+		local status = Compose.cell("adopting on present…")
+		local refusal = Compose.cell("(press “Adopt a Part” to see the refusal)")
 
 		local RICH = '<b>Rich</b> <i>text</i> <font color="rgb(120,200,255)">spans</font> '
 			.. '<font color="rgb(255,180,120)">in one string</font> — <b>UI.Text cannot.</b>'
@@ -61,93 +60,84 @@ return {
 		local adoptPart: () -> string
 
 		local function pane(id: string, caption: string, child: any)
-			return UI.VStack({
-				id = id,
+			return UI.VStack(id)({
 				gap = "tight",
 				width = { type = "fixed", px = 220 },
 				child,
-				UI.Text({ id = "Caption", text = caption, textSize = 13 }),
+				UI.Text("Caption")({ text = caption, textSize = 13 }),
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "ForeignContent",
-			padding = "m",
+		local function Example()
+			return UI.Screen("ForeignContent")({
+				padding = "m",
 
-			UI.ScrollView({
-				id = "Page",
-				axis = "y",
-				gap = 12,
-				width = UI.fill(),
-				height = UI.fill(),
-
-				UI.Text({ id = "Title", text = "UI.Foreign", textSize = "title" }),
-				UI.Text({
-					id = "Blurb",
-					text = "Facet reserves and clips the box. You create the instance, you own every "
-						.. "property on it, and the framework writes exactly one thing: its Parent.",
-					textSize = "label",
-				}),
-				UI.HStack({
-					id = "Panes",
+				UI.ScrollView("Page")({
+					axis = "y",
 					gap = 12,
-					wrap = true,
+					width = UI.fill(),
+					height = UI.fill(),
 
-					pane(
-						"Rich",
-						"RichText: markup spans in one label",
-						UI.Foreign({
-							id = "Pane",
-							width = { type = "fixed", px = 220 },
-							height = { type = "fixed", px = 96 },
-							surface = "raised",
-						})
-					),
-					pane(
-						"Engine",
-						"The ENGINE lays this out and measures it",
-						UI.Foreign({
-							id = "Pane",
-							width = { type = "fixed", px = 220 },
-							height = { type = "fixed", px = 96 },
-							surface = "raised",
-						})
-					),
-					pane(
-						"Clip",
-						"2x oversize — cropped at the box edge",
-						UI.Foreign({
-							id = "Pane",
-							width = { type = "fixed", px = 220 },
-							height = { type = "fixed", px = 96 },
-							surface = "raised",
-						})
-					),
-				}),
-				UI.Text({ id = "Status", text = status, textSize = 13 }),
-				UI.HStack({
-					id = "Actions",
-					gap = "s",
-					wrap = true,
+					UI.Text("Title")({ text = "UI.Foreign", textSize = "title" }),
+					UI.Text("Blurb")({
+						text = "Facet reserves and clips the box. You create the instance, you own every "
+							.. "property on it, and the framework writes exactly one thing: its Parent.",
+						textSize = "label",
+					}),
+					UI.HStack("Panes")({
+						gap = 12,
+						wrap = true,
 
-					UI.Button({
-						id = "Readopt",
-						label = "Re-adopt all three",
-						onActivate = function()
-							readoptAll()
-						end,
+						pane(
+							"Rich",
+							"RichText: markup spans in one label",
+							UI.Foreign("Pane")({
+								width = { type = "fixed", px = 220 },
+								height = { type = "fixed", px = 96 },
+								surface = "raised",
+							})
+						),
+						pane(
+							"Engine",
+							"The ENGINE lays this out and measures it",
+							UI.Foreign("Pane")({
+								width = { type = "fixed", px = 220 },
+								height = { type = "fixed", px = 96 },
+								surface = "raised",
+							})
+						),
+						pane(
+							"Clip",
+							"2x oversize — cropped at the box edge",
+							UI.Foreign("Pane")({
+								width = { type = "fixed", px = 220 },
+								height = { type = "fixed", px = 96 },
+								surface = "raised",
+							})
+						),
 					}),
-					UI.Button({
-						id = "AdoptPart",
-						label = "Adopt a Part (refused)",
-						onActivate = function()
-							adoptPart()
-						end,
+					UI.Text("Status")({ text = status, textSize = 13 }),
+					UI.HStack("Actions")({
+						gap = "s",
+						wrap = true,
+
+						UI.Button("Readopt")({
+							label = "Re-adopt all three",
+							onActivate = function()
+								readoptAll()
+							end,
+						}),
+						UI.Button("AdoptPart")({
+							label = "Adopt a Part (refused)",
+							onActivate = function()
+								adoptPart()
+							end,
+						}),
 					}),
+					UI.Text("Refusal")({ text = refusal, textSize = "caption", disclose = true }),
 				}),
-				UI.Text({ id = "Refusal", text = refusal, textSize = "caption", disclose = true }),
-			}),
-		})
+			})
+		end
 
 		local CONTENT: { [string]: any } = {
 			-- THEME-OPT-OUT: this number is not a Facet prop — it is handed across the
@@ -163,7 +153,7 @@ return {
 		function readoptAll(): string
 			if ctx.foreign == nil then
 				status:set("this host offers no live foreign seam")
-				return status:get()
+				return status:peek()
 			end
 			local parts: { string } = {}
 			for path, content in CONTENT do
@@ -171,22 +161,22 @@ return {
 			end
 			table.sort(parts)
 			status:set(table.concat(parts, "  |  "))
-			return status:get()
+			return status:peek()
 		end
 
 		function adoptPart(): string
 			if ctx.foreign == nil then
 				refusal:set("this host offers no live foreign seam")
-				return refusal:get()
+				return refusal:peek()
 			end
 			-- the 3-D case at the 2-D seam. The materializer returns the framework's
 			-- own sentence, which is the thing worth showing.
 			refusal:set(ctx.foreign.adopt(`{PANES}/Rich/Pane`, { kind = "part" }))
-			return refusal:get()
+			return refusal:peek()
 		end
 
 		return {
-			screen = screen,
+			screen = Example,
 			present = {},
 			-- the initial adoption, materialized by the runner right after present
 			foreignContent = CONTENT,
@@ -195,7 +185,7 @@ return {
 				adoptPart = adoptPart,
 			},
 			report = function()
-				return { status = status:get(), refusal = refusal:get() }
+				return { status = status:peek(), refusal = refusal:peek() }
 			end,
 		}
 	end,

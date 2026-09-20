@@ -50,7 +50,7 @@ local snapshot = require("../../src/themes/snapshot")
 local controlContract = require("../../src/class_contract")
 local audit = require("../../src/layout/text_audit")
 local fixtures = require("../fixtures/a11y_l10n_fixtures")
-local fake_target = require("./fake_target")
+local worldLib = require("./world")
 
 local large_text = {}
 
@@ -144,53 +144,27 @@ export type WorldOpts = {
 	ops: boolean?,
 }
 
---[[ world(opts) -> a presented-nothing world.
-
-	The PRESENTER is the driver on purpose: it is the public way a screen is put
-	on a target, it auto-wires every composite's four-input story with
-	no consumer opts, and it owns focus — so the same world answers the control
-	sweep, the layout sweep and the hot-swap focus/scroll cases without any spec
-	reaching past the public surface.
-]]
+-- world(opts) -> the shared headless world, configured for the text sweep.
+-- `w.present(component)` takes a function returning the screen node.
 function large_text.world(opts: WorldOpts?)
 	local options: WorldOpts = opts or {}
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", options.viewport or large_text.PHONE_PORTRAIT)
-	-- the sweep is about TEXT, so the surface starts flush: a device inset would
-	-- change the box every row is measured against and prove nothing about the
-	-- preference
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	env:set("preferredTextOffset", options.offset or 0)
-	if options.reducedMotion == true then
-		env:set("reducedMotion", true)
-	end
-	if options.input == "desktop" then
-		env:set("preferredInput", "KeyboardAndMouse")
-		env:set("capabilities", DESKTOP)
-	else
-		env:set("preferredInput", "Touch")
-		env:set("capabilities", TOUCH_PHONE)
-	end
+	local desktop = options.input == "desktop"
 	local theme = options.theme
-	if theme ~= nil and theme.metrics ~= nil then
-		env:set("themeMetrics", theme.metrics)
-	end
-	local adapter = fake_target.new({ ops = options.ops == true })
-	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, adapter, system)
-
-	local w: any = { core = core, env = env, adapter = adapter, system = system, pres = pres }
-
-	function w.present(screen: any, presentOpts: any?)
-		w.handle = pres.present(screen, presentOpts)
-		pres.refresh()
-		w.controller = w.handle.controller
-		return w.handle
-	end
+	local w: any = worldLib.new({
+		viewport = options.viewport or large_text.PHONE_PORTRAIT,
+		-- the surface starts flush, so every row is measured against the same box
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		reducedMotion = if options.reducedMotion == true then true else nil,
+		preferredInput = if desktop then "KeyboardAndMouse" else "Touch",
+		capabilities = if desktop then DESKTOP else TOUCH_PHONE,
+		themeMetrics = if theme ~= nil then theme.metrics else nil,
+		env = { preferredTextOffset = options.offset or 0 },
+		ops = options.ops,
+		overflowGuardOff = "the large-text sweep measures containment itself",
+	})
 
 	function w.metrics(): any
-		return env:get("themeMetrics"):get()
+		return w.env:get("themeMetrics"):peek()
 	end
 
 	return w

@@ -51,8 +51,8 @@
 -- Everything runs headless: no engine calls, so the same file drives the tests
 -- and a real Roblox client unchanged.
 --
--- deps used: presenter (opens the game and the results card), actionSystem (the
--- hardware-key context). See 01's header for the shared module shape.
+-- ctx used: app (mounts the game and the results card), actionSystem (the
+-- hardware-key context). `build(ctx)` is the shape every example shares.
 --
 -- data used: `./words`, the shared generated English word data both word games
 -- run on. It is EXAMPLE CONTENT, not framework code — `src/` does not know it
@@ -351,44 +351,37 @@ local function tileState(rows: { Row }, active: number, r: number, c: number): s
 	return "empty"
 end
 
-function example.build(Facet: any, core: any, deps: any)
-	local UI = Facet.View
-	local pres = deps.presenter
-	local actions = deps.actionSystem
+function example.build(ctx: any)
+	local UI, Compose, app = ctx.UI, ctx.Compose, ctx.app
+	local actions = ctx.actionSystem
 	-- Game state and hardware input survive view branches and result overlays.
-	-- Only this model boundary owns a Core scope; view calculations belong to ui.
-	local gameScope = core:scope("example-05-word-game")
-	local function reg(readable: any): any
-		gameScope:own(readable)
-		return readable
-	end
-	local rowsSig = reg(core:signal(emptyRows()))
-	local activeSig = reg(core:signal(1))
-	local keysSig = reg(core:signal({} :: { [string]: string }))
-	local phaseSig = reg(core:signal("playing"))
-	local noticeSig = reg(core:signal(""))
-	local seedSig = reg(core:signal(1))
-	local solutionSig = reg(core:memo(function(use)
+	local rowsSig = Compose.cell(emptyRows())
+	local activeSig = Compose.cell(1)
+	local keysSig = Compose.cell({} :: { [string]: string })
+	local phaseSig = Compose.cell("playing")
+	local noticeSig = Compose.cell("")
+	local seedSig = Compose.cell(1)
+	local solutionSig = Compose.formula(function(use)
 		return rules.solutionForSeed(use(seedSig))
-	end))
-	local playingSig = reg(core:memo(function(use)
+	end)
+	local playingSig = Compose.formula(function(use)
 		return use(phaseSig) == "playing"
-	end))
-	local modalHandle: any = nil
+	end)
+	local closeModal: (() -> ())? = nil
 	local function isPlaying(): boolean
-		return phaseSig:get() == "playing"
+		return phaseSig:peek() == "playing"
 	end
 	local function typeLetter(letter: string)
 		if not isPlaying() then
 			return
 		end
-		local rows = cloneRows(rowsSig:get())
-		local row = rows[activeSig:get()]
+		local rows = cloneRows(rowsSig:peek())
+		local row = rows[activeSig:peek()]
 		if row == nil or #row.letters >= COLS then
 			return
 		end
 		row.letters ..= letter
-		core:transaction(function()
+		app.runtime:batch(function()
 			rowsSig:set(rows)
 			noticeSig:set("")
 		end)
@@ -397,27 +390,28 @@ function example.build(Facet: any, core: any, deps: any)
 		if not isPlaying() then
 			return
 		end
-		local rows = cloneRows(rowsSig:get())
-		local row = rows[activeSig:get()]
+		local rows = cloneRows(rowsSig:peek())
+		local row = rows[activeSig:peek()]
 		if row == nil or #row.letters == 0 then
 			return
 		end
 		row.letters = row.letters:sub(1, #row.letters - 1)
-		core:transaction(function()
+		app.runtime:batch(function()
 			rowsSig:set(rows)
 			noticeSig:set("")
 		end)
 	end
 	local function closeResults()
-		if modalHandle ~= nil then
-			pres.dismiss(modalHandle)
-			modalHandle = nil
+		local close = closeModal
+		if close ~= nil then
+			closeModal = nil
+			close()
 		end
 	end
 	local function restart(seed: number?)
 		closeResults()
-		local nextSeed = if seed ~= nil then math.max(1, math.floor(seed)) else seedSig:get() + 1
-		core:transaction(function()
+		local nextSeed = if seed ~= nil then math.max(1, math.floor(seed)) else seedSig:peek() + 1
+		app.runtime:batch(function()
 			seedSig:set(nextSeed)
 			rowsSig:set(emptyRows())
 			activeSig:set(1)
@@ -428,56 +422,51 @@ function example.build(Facet: any, core: any, deps: any)
 	end
 	local function openResults(solved: boolean, solution: string, guesses: number)
 		closeResults()
-		modalHandle = pres.presentModal(UI.Screen({
-			id = "WordleResult",
-			surface = "scrim",
-			padding = "m",
-			UI.ZStack({
-				id = "centre",
-				width = FILL,
-				height = FILL,
-				alignH = "center",
-				alignV = "center",
-				UI.VStack({
-					id = "Card",
-					surface = "raised",
-					padding = "m",
-					gap = "s",
-					align = "center",
-					UI.Text({
-						id = "Msg",
-						text = if solved then "Solved!" else "Out of guesses",
-						textSize = "heading",
-					}),
-					UI.Text({
-						id = "Word",
-						text = if solved
-							then `{solution} in {guesses} {if guesses == 1 then "guess" else "guesses"}.`
-							else `The word was {solution}.`,
-						textSize = "body",
-					}),
-					UI.Button({
-						id = "Again",
-						label = "New game",
-						onActivate = function()
-							restart()
-						end,
-					}),
-					UI.Button({
-						id = "Close",
-						label = "Close",
-						onActivate = closeResults,
+		closeModal = app.presentModal(function()
+			return UI.Screen("WordleResult")({
+				surface = "scrim",
+				padding = "m",
+				UI.ZStack("centre")({
+					width = FILL,
+					height = FILL,
+					alignH = "center",
+					alignV = "center",
+					UI.VStack("Card")({
+						surface = "raised",
+						padding = "m",
+						gap = "s",
+						align = "center",
+						UI.Text("Msg")({
+							text = if solved then "Solved!" else "Out of guesses",
+							textSize = "heading",
+						}),
+						UI.Text("Word")({
+							text = if solved
+								then `{solution} in {guesses} {if guesses == 1 then "guess" else "guesses"}.`
+								else `The word was {solution}.`,
+							textSize = "body",
+						}),
+						UI.Button("Again")({
+							label = "New game",
+							onActivate = function()
+								restart()
+							end,
+						}),
+						UI.Button("Close")({
+							label = "Close",
+							onActivate = closeResults,
+						}),
 					}),
 				}),
-			}),
-		}))
+			})
+		end)
 	end
 	local function submit()
 		if not isPlaying() then
 			return
 		end
-		local active = activeSig:get()
-		local rows = cloneRows(rowsSig:get())
+		local active = activeSig:peek()
+		local rows = cloneRows(rowsSig:peek())
 		local row = rows[active]
 		if row == nil then
 			return
@@ -491,12 +480,12 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set(`{guess} — this game doesn't know that word. Try another.`)
 			return
 		end
-		local solution = solutionSig:get()
+		local solution = solutionSig:peek()
 		local states = rules.evaluate(guess, solution)
 		row.submitted = true
 		row.states = states
-		local keys = rules.mergeKeys(keysSig:get(), guess, states)
-		core:transaction(function()
+		local keys = rules.mergeKeys(keysSig:peek(), guess, states)
+		app.runtime:batch(function()
 			rowsSig:set(rows)
 			keysSig:set(keys)
 			activeSig:set(active + 1)
@@ -510,56 +499,49 @@ function example.build(Facet: any, core: any, deps: any)
 				noticeSig:set("")
 			end
 		end)
-		if phaseSig:get() ~= "playing" then
-			openResults(phaseSig:get() == "won", solution, active)
+		if phaseSig:peek() ~= "playing" then
+			openResults(phaseSig:peek() == "won", solution, active)
 		end
 	end
 	local statusSig: any
 	local tileStateOf: { [string]: any } = {}
 	local tileSurfaceOf: { [string]: any } = {}
 	local keyPathByLetter: { [string]: any } = {}
-	local WordGame = Facet.component(function(ui)
-		local rowsSigNow = ui.read(rowsSig)
-		local activeSigNow = ui.read(activeSig)
-		local keysSigNow = ui.read(keysSig)
-		local noticeSigNow = ui.read(noticeSig)
-		local playingSigNow = ui.read(playingSig)
-		-- Custom board/keyboard hit targets use Facet.UI.Button for surface and
+	local function WordGame()
+		-- Custom board/keyboard hit targets use UI.Button for surface and
 		-- compact glyph sizing; ordinary actions use UI.Button.
-		local tiles = {}
+		local tiles: { any } = { columns = COLS, gap = "xs", rowGap = "xs", itemSizing = "uniform" }
 		for r = 1, ROWS do
 			for c = 1, COLS do
 				local rr, cc = r, c
-				local state = ui.memo(function()
-					return tileState(rowsSigNow(), activeSigNow(), rr, cc)
+				local state = Compose.formula(function(use)
+					return tileState(use(rowsSig), use(activeSig), rr, cc)
 				end)
-				local letter = ui.memo(function()
-					return rowsSigNow()[rr].letters:sub(cc, cc)
+				local letter = Compose.formula(function(use)
+					return use(rowsSig)[rr].letters:sub(cc, cc)
 				end)
-				local tint = ui.memo(function()
-					return TILE_TINT[state()]
+				local tint = Compose.formula(function(use)
+					return TILE_TINT[use(state)]
 				end)
-				local mark = ui.memo(function()
-					return TILE_MARK[state()]
+				local mark = Compose.formula(function(use)
+					return TILE_MARK[use(state)]
 				end)
-				local surface = ui.memo(function()
-					local taking = playingSigNow() and activeSigNow() == rr
+				local surface = Compose.formula(function(use)
+					local taking = use(playingSig) and use(activeSig) == rr
 					return if taking then ACTIVE_ROW_PLATE.surface else IDLE_ROW_PLATE.surface
 				end)
 				tileStateOf[`{rr}:{cc}`] = state
 				tileSurfaceOf[`{rr}:{cc}`] = surface
 				table.insert(
 					tiles,
-					UI.ZStack({
-						id = `tile{r}_{c}`,
+					UI.ZStack(`tile{r}_{c}`)({
 						width = TILE,
 						height = TILE,
 						alignH = "center",
 						alignV = "center",
-						UI.Box({ id = "fill", width = FILL, height = FILL, tint = tint, surface = surface }),
-						UI.Text({ id = "ch", text = letter, textSize = "heading" }),
-						UI.Text({
-							id = "mark",
+						UI.Box("fill")({ width = FILL, height = FILL, tint = tint, surface = surface }),
+						UI.Text("ch")({ text = letter, textSize = "heading" }),
+						UI.Text("mark")({
 							text = mark,
 							textSize = "caption",
 							role = "secondary",
@@ -570,18 +552,11 @@ function example.build(Facet: any, core: any, deps: any)
 				)
 			end
 		end
-		local board = UI.Grid({
-			id = "board",
-			columns = COLS,
-			gap = "xs",
-			rowGap = "xs",
-			itemSizing = "uniform",
-			children = tiles,
-		})
-		local keyboardRows = {}
+		local board = UI.Grid("board")(tiles)
+		local keyboardRows: { any } = { width = FILL, gap = "xs" }
 		for ri, keys in KEYBOARD do
 			local rowId = "kbrow" .. ri
-			local buttons = {}
+			local buttons: { any } = { width = FILL, gap = "xs" }
 			for ki, key in keys do
 				local thisKey = key
 				local isCommand = key == "Enter" or key == "Back"
@@ -590,20 +565,19 @@ function example.build(Facet: any, core: any, deps: any)
 				if isCommand then
 					labelOf = if key == "Enter" then "Enter" else "Delete"
 				else
-					local state = ui.memo(function()
-						return keysSigNow()[thisKey] or "unknown"
+					local state = Compose.formula(function(use)
+						return use(keysSig)[thisKey] or "unknown"
 					end)
-					labelOf = ui.memo(function()
-						local s = state()
+					labelOf = Compose.formula(function(use)
+						local s = use(state)
 						local m = KEY_MARK[s]
 						return if m ~= nil then thisKey .. m else thisKey
 					end)
-					surfaceOf = ui.memo(function()
-						return KEY_SURFACE[state()]
+					surfaceOf = Compose.formula(function(use)
+						return KEY_SURFACE[use(state)]
 					end)
 				end
-				buttons[ki] = Facet.UI.Button({
-					id = "key_" .. key,
+				buttons[ki] = UI.Button("key_" .. key)({
 					label = labelOf,
 					compactLabel = if key == "Back" then "Del" else nil,
 					surface = surfaceOf,
@@ -624,41 +598,36 @@ function example.build(Facet: any, core: any, deps: any)
 				})
 				keyPathByLetter[key] = `/Wordle/page/col/kb/{rowId}/key_{key}`
 			end
-			keyboardRows[ri] = UI.HStack({ id = rowId, width = FILL, gap = "xs", children = buttons })
+			keyboardRows[ri] = UI.HStack(rowId)(buttons)
 		end
-		local keyboard = UI.VStack({ id = "kb", width = FILL, gap = "xs", children = keyboardRows })
-		statusSig = ui.memo(function()
-			local notice = noticeSigNow()
+		local keyboard = UI.VStack("kb")(keyboardRows)
+		statusSig = Compose.formula(function(use)
+			local notice = use(noticeSig)
 			if notice ~= "" then
 				return notice
 			end
-			return `Guess the five-letter word — row {math.min(activeSigNow(), ROWS)} of {ROWS}.`
+			return `Guess the five-letter word — row {math.min(use(activeSig), ROWS)} of {ROWS}.`
 		end)
-		return UI.Screen({
-			id = "Wordle",
+		return UI.Screen("Wordle")({
 			surface = "base",
 			padding = "m",
-			UI.ScrollView({
-				id = "page",
+			UI.ScrollView("page")({
 				width = FILL,
 				height = FILL,
-				UI.VStack({
-					id = "col",
+				UI.VStack("col")({
 					width = FILL,
 					gap = "s",
 					align = "center",
-					UI.Text({ id = "Title", text = "Facet Wordle", textSize = "title" }),
-					UI.Text({ id = "Status", text = statusSig, textSize = "label", textAlign = "center" }),
+					UI.Text("Title")({ text = "Facet Wordle", textSize = "title" }),
+					UI.Text("Status")({ text = statusSig, textSize = "label", textAlign = "center" }),
 					board,
-					UI.Text({
-						id = "Legend",
+					UI.Text("Legend")({
 						text = "v correct   ~ present   x absent",
 						textSize = "caption",
 						role = "secondary",
 					}),
 					keyboard,
-					UI.Button({
-						id = "Restart",
+					UI.Button("Restart")({
 						label = "New game",
 						onActivate = function()
 							restart()
@@ -667,30 +636,25 @@ function example.build(Facet: any, core: any, deps: any)
 				}),
 			}),
 		})
-	end)
-	local screen = WordGame({})
-	local handle = pres.present(screen, { keyboardNavigation = true })
-	local ctx = actions.createContext({ name = "WordleInput", priority = 2000, sink = true })
-	gameScope:own(function()
-		ctx.destroy()
-	end)
+	end
+	local close, _, handle = app.mount(WordGame, { keyboardNavigation = true })
+	local input = actions.createContext({ name = "WordleInput", priority = 2000, sink = true })
 	for i = 0, 25 do
 		local letter = string.char(65 + i)
-		local a = ctx.createAction("Type_" .. letter, "Bool")
+		local a = input.createAction("Type_" .. letter, "Bool")
 		a.bind({ keyCode = letter })
 		a.onPressed(function()
 			typeLetter(letter)
 		end)
 	end
-	local submitAction = ctx.createAction("Submit", "Bool")
+	local submitAction = input.createAction("Submit", "Bool")
 	submitAction.bind({ keyCode = "Return" })
 	submitAction.onPressed(submit)
-	local backAction = ctx.createAction("Backspace", "Bool")
+	local backAction = input.createAction("Backspace", "Bool")
 	backAction.bind({ keyCode = "Backspace" })
 	backAction.onPressed(backspace)
 	return {
 		title = example.title,
-		screen = screen,
 		handle = handle,
 		rules = rules,
 		press = function(keyCode: string)
@@ -698,46 +662,46 @@ function example.build(Facet: any, core: any, deps: any)
 			actions.deviceKey(keyCode, false)
 		end,
 		row = function(i: number): string
-			return rowsSig:get()[i].letters
+			return rowsSig:peek()[i].letters
 		end,
 		state = function(r: number, c: number): string
-			return tileState(rowsSig:get(), activeSig:get(), r, c)
+			return tileState(rowsSig:peek(), activeSig:peek(), r, c)
 		end,
 		tint = function(r: number, c: number): any
-			return TILE_TINT[tileStateOf[`{r}:{c}`]()]
+			return TILE_TINT[tileStateOf[`{r}:{c}`]:peek()]
 		end,
 		mark = function(r: number, c: number): string
-			return TILE_MARK[tileStateOf[`{r}:{c}`]()]
+			return TILE_MARK[tileStateOf[`{r}:{c}`]:peek()]
 		end,
 		tileSurface = function(r: number, c: number): string
-			return tileSurfaceOf[`{r}:{c}`]()
+			return tileSurfaceOf[`{r}:{c}`]:peek()
 		end,
 		keyState = function(letter: string): string?
-			return keysSig:get()[letter]
+			return keysSig:peek()[letter]
 		end,
 		activeRow = function(): number
-			return activeSig:get()
+			return activeSig:peek()
 		end,
 		phase = function(): string
-			return phaseSig:get()
+			return phaseSig:peek()
 		end,
 		won = function(): boolean
-			return phaseSig:get() == "won"
+			return phaseSig:peek() == "won"
 		end,
 		lost = function(): boolean
-			return phaseSig:get() == "lost"
+			return phaseSig:peek() == "lost"
 		end,
 		status = function(): string
-			return statusSig()
+			return statusSig:peek()
 		end,
 		seed = function(): number
-			return seedSig:get()
+			return seedSig:peek()
 		end,
 		solution = function(): string
-			return solutionSig:get()
+			return solutionSig:peek()
 		end,
 		resultsOpen = function(): boolean
-			return modalHandle ~= nil
+			return closeModal ~= nil
 		end,
 		restart = restart,
 		keyPath = function(letter: string): string
@@ -748,8 +712,8 @@ function example.build(Facet: any, core: any, deps: any)
 		end,
 		dispose = function()
 			closeResults()
-			pres.dismiss(handle)
-			gameScope:dispose()
+			input.destroy()
+			close()
 		end,
 	}
 end

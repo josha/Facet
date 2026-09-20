@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	FLOW-WRAP (docs/plans/parity-round3.md, item A).
 
@@ -36,14 +37,15 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local solver = require("../src/layout/solver")
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local schema = require("../src/blueprint_schema")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local Facet = require("../src") :: any
+local Compose = require("../src/vendor/compose/core")
 
 local function fixed(px: number): any
 	return { type = "fixed", px = px }
@@ -649,7 +651,7 @@ describe("flow-wrap: the prop, through the authoring surface", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local wrapping = core:signal(false)
+		local wrapping = Compose.cell(false)
 		local screen = UI.Screen({
 			id = "S",
 			width = fixed(300) :: any,
@@ -691,7 +693,7 @@ describe("flow-wrap: it does NOT compose with newVirtualList, and that is refuse
 		local core = customFactory.new()
 		local spec: any = {
 			id = "L",
-			rows = core:signal({}),
+			rows = Compose.cell({}),
 			itemExtent = 40,
 			viewportExtent = 200,
 			key = function(row: any): string
@@ -710,7 +712,7 @@ describe("flow-wrap: it does NOT compose with newVirtualList, and that is refuse
 	it("the same list WITHOUT `wrap` builds, so the refusal below is about the word", function()
 		local core, spec = listSpec()
 		local ok, err = pcall(function()
-			Facet.Controls.VirtualList(core, spec)
+			harness.Controls.VirtualList(core, spec)
 		end)
 		expect(`built: {ok} {tostring(err)}`).toBe("built: true nil")
 	end)
@@ -718,7 +720,7 @@ describe("flow-wrap: it does NOT compose with newVirtualList, and that is refuse
 	it("`newVirtualList{ wrap = true }` is refused: the spec is CLOSED", function()
 		local core, spec = listSpec({ wrap = true })
 		local ok, err = pcall(function()
-			Facet.Controls.VirtualList(core, spec)
+			harness.Controls.VirtualList(core, spec)
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "wrap", 1, true) ~= nil).toBe(true)
@@ -760,13 +762,13 @@ describe("flow-wrap: the gallery surface holds under every shipped package", fun
 	local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
 
 	local function mountUnder(pkgName: string?, view: any): (any, any)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		if pkgName ~= nil then
 			env:set(
 				"themeMetrics",
@@ -775,6 +777,8 @@ describe("flow-wrap: the gallery surface holds under every shipped package", fun
 		end
 		local built = scenario.build({
 			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
 			core = core,
 			env = env,
 			actionSystem = system,
@@ -805,7 +809,7 @@ describe("flow-wrap: the gallery surface holds under every shipped package", fun
 				if text ~= "" then
 					table.insert(problems, `  {name} at {view.w}x{view.h}: {text}`)
 				end
-				expect(w.core:lastError()).toBeNil()
+				expect(w.core.lastError()).toBeNil()
 				built.dispose()
 			end
 		end

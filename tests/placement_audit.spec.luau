@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	SILENTLY-INERT PLACEMENT PROPS (docs/plans/parity-round2.md §2.1).
 
@@ -39,12 +40,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local FILL = { type = "fill", weight = 1 }
 local function px(n: number)
@@ -445,7 +447,7 @@ describe("§2.1 tier 2: the children a construction-time check cannot see", func
 						children = {
 							UI.When({
 								id = "W",
-								condition = core:signal(true),
+								condition = Compose.cell(true),
 								thenView = function()
 									return box("K", 40, 40, { alignH = "end" })
 								end,
@@ -474,7 +476,7 @@ describe("§2.1 tier 2: the children a construction-time check cannot see", func
 					children = {
 						UI.ForEach({
 							id = "F",
-							items = core:signal({ "a", "b" }),
+							items = Compose.cell({ "a", "b" }),
 							key = function(item: any)
 								return item
 							end,

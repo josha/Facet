@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE SHOWCASE SURFACE FOR `newCallout` AND `help` —
 	`examples/gallery/scenarios/callout.luau`.
 
@@ -33,15 +34,17 @@ local COMPACT_DESKTOP = { w = 700, h = 500 }
 local DESKTOP = { w = 1200, h = 900 }
 
 local function world(view: { w: number, h: number })
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local built = module.build({
 		Facet = Facet,
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -103,7 +106,7 @@ describe("scenario 'callout': a device pass a tester can run more than once", fu
 		w.built.steps.reset(w.built)
 		w.settle()
 		expect(w.built.report().second.state).toBe("waiting")
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	--[[ THE RESET MUST NOT TAKE THE SCREEN WITH IT (device review 2026-08-16, F2b).
@@ -121,13 +124,13 @@ describe("scenario 'callout': a device pass a tester can run more than once", fu
 
 		A raised plate at the viewport origin covering an 80x46 button at 12,12 is
 		what "the reset removes the buttons" looks like from the couch. The anchors
-		are permanent furniture; only the coach marks are session state, so the
-		session key is gone and the reset re-arms the CONSTRUCTS in place.
+		keep their paths: the reset builds the new pair under the same names, with no
+		session key in any path.
 
 		The case is written against the paths, because a path IS the identity here —
 		a check that only counted painted buttons would pass on the defect. ]]
-	local PLUS = "/CalloutDemo/Bar/Plus"
-	local SHARE = "/CalloutDemo/Bar/Share"
+	local PLUS = "/CalloutDemo/Bar/PlusSlot/Plus"
+	local SHARE = "/CalloutDemo/Bar/ShareSlot/Share"
 
 	it("the anchors survive a reset with their IDENTITY, not just their number", function()
 		local w = world(PHONE)
@@ -243,7 +246,7 @@ end)
 	is the one instrument that cannot see it. These ask for the gutter instead. ]]
 describe("scenario 'callout': the plate clears the glass, and the page stays in its gutter", function()
 	local function gutterOf(w: any): number
-		local metrics = w.env:get("themeMetrics"):get()
+		local metrics = w.env:get("themeMetrics"):peek()
 		local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
 		return space.s
 	end

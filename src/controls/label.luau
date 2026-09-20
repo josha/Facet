@@ -1,31 +1,13 @@
 --!strict
--- Label: an icon + title pair with a semantic text fallback (docs/plans/
--- parity-next.md investment 7; acceptance row B-DSP1).
---
--- The point of the construct is the FALLBACK: when the icon cannot be shown —
--- no asset, or an icon-only presentation at a size where a glyph alone is
--- ambiguous — the title still carries the meaning. `semanticText` is always the
--- title, whatever the presentation, so an icon-only Label is never a control with
--- no accessible name. It is a READABLE (`:get()`), the shape ProgressView,
--- Stepper, Slider and Rating publish, so one readout layer serves all five.
---
--- NON-INTERACTIVE: a Label displays. Put it inside a Button (which now takes
--- content) when it needs to be pressable — that keeps ONE activation surface.
+-- An icon and title pair. The title remains its accessible name in every presentation.
+local Compose = require("../vendor/compose/core")
 
 local specGuard = require("../spec_guard")
 
 local label_control = {}
 
-export type Spec = {
-	id: string?,
-	title: string, -- required: it IS the semantic text
-	icon: string?, -- asset string; absent => title-only, no empty slot
-	presentation: string?, -- "titleAndIcon" (default) | "titleOnly" | "iconOnly"
-	-- each accepts a literal number (theme-independent) or a theme metric name
-	iconSize: (number | string)?,
-	textSize: (number | string)?,
-	gap: (number | string)?,
-}
+local specTypes = require("../spec_types/label")
+export type Spec = specTypes.Spec
 
 local PRESENTATIONS: { [string]: boolean } = { titleAndIcon = true, titleOnly = true, iconOnly = true }
 
@@ -42,13 +24,12 @@ local LABEL_KEYS = specGuard.keySet({
 })
 
 function label_control.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newLabel", spec, LABEL_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.Label", spec, LABEL_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Label"
-	local scope = core:scope("label-" .. tostring(id))
 	if type(spec.title) ~= "string" or spec.title == "" then
 		error(
-			`Facet newLabel('{id}'): \`title\` is required and must be non-empty — it is the semantic `
+			`Facet UI.Label('{id}'): \`title\` is required and must be non-empty — it is the semantic `
 				.. `text, so an icon-only Label without one would have no accessible name`,
 			0
 		)
@@ -60,7 +41,7 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 			table.insert(names, k)
 		end
 		table.sort(names)
-		error(`Facet newLabel('{id}'): unknown presentation '{presentation}'. One of {table.concat(names, " | ")}.`, 0)
+		error(`Facet UI.Label('{id}'): unknown presentation '{presentation}'. One of {table.concat(names, " | ")}.`, 0)
 	end
 	-- iconOnly DEGRADES to the title when there is no icon to show: an empty
 	-- square is worse than a word (the fallback this construct exists for)
@@ -103,14 +84,9 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 		align = "center",
 		children = children,
 	})
-	-- always the title, whatever the presentation — and a READABLE, like the
-	-- four siblings that publish one (ProgressView, Stepper, Slider, Rating), so
-	-- an accessibility/readout layer can be written ONCE for the family
-	-- The title is construction-fixed here, so this is a static memo:
-	-- it is owned by the control scope and dies with dispose().
-	api.semanticText = scope:own(core:memo(function()
+	api.semanticText = Compose.formula(function()
 		return spec.title
-	end))
+	end)
 
 	function api.dump()
 		return {
@@ -126,7 +102,7 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 	end
 
 	function api.dispose()
-		scope:dispose()
+		api.semanticText:dispose()
 	end
 
 	return api

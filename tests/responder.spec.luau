@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- First-responder (focus-engagement) model (ui_todo §0/§3; director
 -- 2026-07-21). A Facet surface becomes first responder over avatar/gameplay
 -- input via FOCUS ENGAGEMENT (the responder-chain analogue), NOT by
@@ -21,20 +22,21 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
+local observeChange = require("../src/core/on_change")
 
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function newWorld()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
@@ -65,7 +67,7 @@ local function gameplay(system: any, core: any)
 	jump.onPressed(function()
 		counters.jump += 1
 	end)
-	core:observe(move.state, function(dir)
+	observeChange(core.owner, move.state, function(dir)
 		if dir == 1 or dir == -1 then
 			counters.move += 1
 		end
@@ -78,17 +80,17 @@ end
 
 -- a simple passive HUD: two buttons that record activation
 local function hudScreen(acts: { [string]: number })
-	return Facet.UI.Screen({
+	return harness.UI.Screen({
 		id = "HUD",
 		children = {
-			Facet.UI.Button({
+			harness.UI.Button({
 				id = "b1",
 				label = "b1",
 				onActivate = function()
 					acts.b1 = (acts.b1 or 0) + 1
 				end,
 			}),
-			Facet.UI.Button({
+			harness.UI.Button({
 				id = "b2",
 				label = "b2",
 				onActivate = function()
@@ -104,15 +106,15 @@ end
 -- ===========================================================================
 describe("responder (a): a passive HUD leaves avatar input untouched", function()
 	it("Space/ButtonA/Up all reach gameplay and the HUD focus never moves", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
 		pres.refresh()
 
-		expect(h.responder:get()).toBe("passive")
-		expect(pres.exclusiveSurfaceActive:get()).toBe(false)
-		local focus0 = pres.focus.focused:get()
+		expect(h.responder:peek()).toBe("passive")
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(false)
+		local focus0 = pres.focus.focused:peek()
 
 		press(system, "Space")
 		expect(g.counters.jump).toBe(1)
@@ -122,7 +124,7 @@ describe("responder (a): a passive HUD leaves avatar input untouched", function(
 		expect(g.counters.move).toBe(1)
 
 		-- the HUD is passive: its navigation context is DISABLED, focus is inert
-		expect(pres.focus.focused:get()).toBe(focus0)
+		expect(pres.focus.focused:peek()).toBe(focus0)
 	end)
 end)
 
@@ -131,7 +133,7 @@ end)
 -- ===========================================================================
 describe("responder (b): a tap on the HUD's focusable engages it (first responder)", function()
 	it("engaged: Up/Down navigate the HUD and NOT gameplay; Space/ButtonA guarded; Activate works", function()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
@@ -139,14 +141,14 @@ describe("responder (b): a tap on the HUD's focusable engages it (first responde
 
 		-- tap inside the passive HUD -> engages (and activates the tapped control)
 		adapter.tap("/HUD/b1")
-		expect(h.responder:get()).toBe("engaged")
-		expect(pres.exclusiveSurfaceActive:get()).toBe(true)
+		expect(h.responder:peek()).toBe("engaged")
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(true)
 		expect(acts.b1).toBe(1) -- the engaging tap still activated b1
-		expect(pres.focus.focused:get()).toBe("/HUD/b1")
+		expect(pres.focus.focused:peek()).toBe("/HUD/b1")
 
 		-- Down now navigates the HUD; gameplay Move is NOT reached (sunk)
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe("/HUD/b2")
+		expect(pres.focus.focused:peek()).toBe("/HUD/b2")
 		expect(g.counters.move).toBe(0)
 
 		-- ButtonA activates the focused HUD control; jump is guarded (never fires)
@@ -160,13 +162,13 @@ describe("responder (b): a tap on the HUD's focusable engages it (first responde
 	end)
 
 	it("handle.engage() is the explicit public path to first responder", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
 		pres.refresh()
 		h.engage()
-		expect(h.responder:get()).toBe("engaged")
+		expect(h.responder:peek()).toBe("engaged")
 		press(system, "Up")
 		expect(g.counters.move).toBe(0) -- nav sunk from gameplay
 		-- A PASSIVE HUD MOUNTS WITH NO FOCUS (2026-08-03 round 6), so the first
@@ -174,9 +176,9 @@ describe("responder (b): a tap on the HUD's focusable engages it (first responde
 		-- this case exists for is that the HUD — not the avatar — received the
 		-- press, which the `move == 0` above already pins; the second press keeps
 		-- the "it really steps" half honest.
-		expect(pres.focus.focused:get()).toBe("/HUD/b1")
+		expect(pres.focus.focused:peek()).toBe("/HUD/b1")
 		press(system, "Up")
-		expect(pres.focus.focused:get()).toBe("/HUD/b2") -- wraps up in a two-element ring
+		expect(pres.focus.focused:peek()).toBe("/HUD/b2") -- wraps up in a two-element ring
 	end)
 end)
 
@@ -185,17 +187,17 @@ end)
 -- ===========================================================================
 describe("responder (c): resign restores gameplay delivery exactly", function()
 	it("Cancel (ButtonB) resigns an engaged-from-passive HUD; gameplay restored", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
 		pres.refresh()
 		h.engage()
-		expect(h.responder:get()).toBe("engaged")
+		expect(h.responder:peek()).toBe("engaged")
 
 		press(system, "ButtonB") -- Cancel resigns (back to passive), not nothing
-		expect(h.responder:get()).toBe("passive")
-		expect(pres.exclusiveSurfaceActive:get()).toBe(false)
+		expect(h.responder:peek()).toBe("passive")
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(false)
 
 		-- gameplay delivery is restored exactly
 		press(system, "Space")
@@ -205,13 +207,13 @@ describe("responder (c): resign restores gameplay delivery exactly", function()
 	end)
 
 	it("an outside tap resigns an engaged-from-passive HUD; gameplay restored, no clickthrough", function()
-		local core, _, adapter, system, pres = harness()
+		local core, _, adapter, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local baseHits: { string } = {}
-		local base = Facet.UI.Screen({
+		local base = harness.UI.Screen({
 			id = "Base",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "B",
 					label = "B",
 					onActivate = function(path: string)
@@ -225,11 +227,11 @@ describe("responder (c): resign restores gameplay delivery exactly", function()
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
 		pres.refresh()
 		h.engage()
-		expect(h.responder:get()).toBe("engaged")
+		expect(h.responder:peek()).toBe("engaged")
 
 		-- tap OUTSIDE the engaged HUD (on the base) resigns it and never clicks through
 		adapter.tap("/Base/B")
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 		expect(#baseHits).toBe(0)
 
 		press(system, "Space")
@@ -242,14 +244,14 @@ end)
 -- ===========================================================================
 describe("responder (d): a modal over gameplay suppresses avatar input; dismiss restores", function()
 	it("Space/ButtonA/Up are suppressed while the modal is up and restored on dismiss", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
-		local modal = pres.presentModal(Facet.UI.Screen({
+		local modal = pres.presentModal(harness.UI.Screen({
 			id = "Sheet",
-			children = { Facet.UI.Button({ id = "ok", label = "ok" }) },
+			children = { harness.UI.Button({ id = "ok", label = "ok" }) },
 		}))
 		pres.refresh()
-		expect(pres.exclusiveSurfaceActive:get()).toBe(true)
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(true)
 
 		press(system, "Space")
 		expect(g.counters.jump).toBe(0)
@@ -259,7 +261,7 @@ describe("responder (d): a modal over gameplay suppresses avatar input; dismiss 
 		expect(g.counters.jump).toBe(0)
 
 		pres.dismiss(modal)
-		expect(pres.exclusiveSurfaceActive:get()).toBe(false)
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(false)
 
 		press(system, "Space")
 		expect(g.counters.jump).toBe(1)
@@ -273,7 +275,7 @@ end)
 -- ===========================================================================
 describe("responder (e): gameplayGuard=false lets Space reach gameplay while engaged", function()
 	it("Space reaches gameplay; Up is still sunk (nav owns it)", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive", gameplayGuard = false })
@@ -292,18 +294,18 @@ end)
 -- ===========================================================================
 describe("responder (f): present() default (no responder opt) is byte-identical", function()
 	it("nav works immediately AND gameplay ALSO receives (documented UI-only-place semantics)", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts)) -- NO responder opt: today's semantics
 		pres.refresh()
 
 		-- a plain present() screen is engaged-open (non-sinking) from the start
-		expect(h.responder:get()).toBe("engaged")
-		expect(pres.exclusiveSurfaceActive:get()).toBe(false) -- non-sinking: not exclusive
+		expect(h.responder:peek()).toBe("engaged")
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(false) -- non-sinking: not exclusive
 
 		press(system, "Down")
-		expect(pres.focus.focused:get()).toBe("/HUD/b2") -- nav works immediately
+		expect(pres.focus.focused:peek()).toBe("/HUD/b2") -- nav works immediately
 		expect(g.counters.move).toBe(1) -- gameplay ALSO receives (non-sinking)
 	end)
 end)
@@ -313,7 +315,7 @@ end)
 -- ===========================================================================
 describe("responder (g): engage/resign churn is leak-free and registry-neutral", function()
 	it("50 engage/resign cycles leave a single working context and gameplay intact", function()
-		local core, _, _, system, pres = harness()
+		local core, _, _, system, pres = newWorld()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
@@ -323,8 +325,8 @@ describe("responder (g): engage/resign churn is leak-free and registry-neutral",
 			h.engage()
 			h.resign()
 		end
-		expect(h.responder:get()).toBe("passive")
-		expect(pres.exclusiveSurfaceActive:get()).toBe(false)
+		expect(h.responder:peek()).toBe("passive")
+		expect(pres.exclusiveSurfaceActive:peek()).toBe(false)
 
 		-- idempotent: a redundant engage/resign is a no-op, no double-registration
 		h.engage()
@@ -334,10 +336,10 @@ describe("responder (g): engage/resign churn is leak-free and registry-neutral",
 		-- the doubled engage had registered twice this would land back on b1.
 		pres.focus.focusOn("/HUD/b1")
 		press(system, "Up")
-		expect(pres.focus.focused:get()).toBe("/HUD/b2") -- one step (wrap up)
+		expect(pres.focus.focused:peek()).toBe("/HUD/b2") -- one step (wrap up)
 		h.resign()
 		h.resign()
-		expect(h.responder:get()).toBe("passive")
+		expect(h.responder:peek()).toBe("passive")
 
 		-- gameplay is fully restored after all the churn
 		press(system, "Space")
@@ -350,19 +352,19 @@ end)
 -- ===========================================================================
 describe("responder: the engaged band sits strictly above the gameplay sink (2000)", function()
 	it("a modal's context priority is >= 3000 (mirrors CAS High) and > 2000", function()
-		local _, _, _, _, pres = harness()
-		local modal = pres.presentModal(Facet.UI.Screen({
+		local _, _, _, _, pres = newWorld()
+		local modal = pres.presentModal(harness.UI.Screen({
 			id = "M",
-			children = { Facet.UI.Button({ id = "x", label = "x" }) },
+			children = { harness.UI.Button({ id = "x", label = "x" }) },
 		}))
 		expect(modal.context.priority > 2000).toBe(true)
 		expect(modal.context.priority >= 3000).toBe(true)
 	end)
 
 	it("an engaged-from-passive context sits above 2000", function()
-		local _, _, _, _, pres = harness()
+		local _, _, _, _, pres = newWorld()
 		local h = pres.present(
-			Facet.UI.Screen({ id = "H", children = { Facet.UI.Button({ id = "x", label = "x" }) } }),
+			harness.UI.Screen({ id = "H", children = { harness.UI.Button({ id = "x", label = "x" }) } }),
 			{ responder = "passive" }
 		)
 		h.engage()
@@ -381,7 +383,7 @@ end)
 -- ===========================================================================
 describe("responder: Sink changes go through the setSink adapter seam", function()
 	it("engage() calls setSink(true) and resign() calls setSink(false) on the context", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
@@ -405,9 +407,9 @@ describe("responder: Sink changes go through the setSink adapter seam", function
 			deviceKey = system.deviceKey,
 		}, { __index = system })
 		local adapter = require("../tests/lib/fake_target").new()
-		local pres = Facet.newPresenter(core, env, adapter, spySystem)
+		local pres = harness.newPresenter(core, env, adapter, spySystem)
 		local h = pres.present(
-			Facet.UI.Screen({ id = "SpyH", children = { Facet.UI.Button({ id = "b", label = "b" }) } }),
+			harness.UI.Screen({ id = "SpyH", children = { harness.UI.Button({ id = "b", label = "b" }) } }),
 			{ responder = "passive" }
 		)
 		h.engage()

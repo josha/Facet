@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	PERFORMANCE PRINCIPLES, AS EXECUTABLE BUDGETS.
 
@@ -26,7 +27,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- MUTATION-PROVED elsewhere in this suite (instance_recycling.spec): a 20px pitch
 -- reddens the layout audit with a 4px overflow, 56 is clean with headroom.
@@ -58,24 +60,24 @@ type World = {
 -- A list whose rows carry the shapes real UI has: an image, text, a toggle and a
 -- value control. Measuring a tree of bare Frames would flatter every rule here.
 local function world(rowCount: number): World
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local items = {}
 	for i = 1, rowCount do
 		table.insert(items, {
 			id = `r{i}`,
 			label = `Racer {i}`,
-			value = core:signal(i % 100),
-			ready = core:signal(i % 2 == 0),
+			value = Compose.cell(i % 100),
+			ready = Compose.cell(i % 2 == 0),
 		})
 	end
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
-		rows = core:signal(items),
+		rows = Compose.cell(items),
 		key = function(item: any)
 			return item.id
 		end,
@@ -83,27 +85,27 @@ local function world(rowCount: number): World
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.HStack({
+			return harness.UI.HStack({
 				id = "Row",
 				gap = 6,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fixed", px = ROW_HEIGHT },
 				children = {
-					Facet.UI.Image({ id = "Av", image = "rbxassetid://0", width = { type = "fixed", px = 40 } }),
-					Facet.UI.Text({
+					harness.UI.Image({ id = "Av", image = "rbxassetid://0", width = { type = "fixed", px = 40 } }),
+					harness.UI.Text({
 						id = "N",
 						textSize = 15,
-						text = core:memo(function(use)
+						text = Compose.formula(function(use)
 							return `{item.label} · {use(item.value)}`
 						end),
 					}),
-					Facet.UI.Toggle({ id = "Rdy", label = "Ready", value = item.ready }),
-					Facet.UI.Box({ id = "P", width = { type = "fill", weight = 1 } }),
+					harness.UI.Toggle({ id = "Rdy", label = "Ready", value = item.ready }),
+					harness.UI.Box({ id = "P", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { list.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { list.blueprint } }))
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)
 	assertClean(handle, `mount ({rowCount} rows)`)
@@ -266,7 +268,7 @@ describe("perf principle 4: an unchanged value is not written", function()
 	it("PRESENTATION — a toggle flip touches its own row and nothing else", function()
 		local a = world(400)
 		local flip = delta(a, function()
-			a.items[1].ready:set(not a.items[1].ready:get())
+			a.items[1].ready:set(not a.items[1].ready:peek())
 		end)
 		expect(flip.propWrites > 0).toBe(true)
 		-- bounded by ONE row's worth of nodes, not by the window and not by the list

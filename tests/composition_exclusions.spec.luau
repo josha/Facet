@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ PER-LANE EXCLUSIONS — reserving around a host's own chrome (framework-gaps §8).
 
 	THE HOLE THIS CLOSES, in the audit's own words: *"A `Composition`'s lane band is
@@ -36,6 +37,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local composition = require("../src/layout/composition")
+local Compose = require("../src/vendor/compose/core")
 
 --[[ THE MEASURED SHAPE, from the DIR-2 reproduction: three 250px columns at
 	749x380 with the showcase's chip row declared, and a 360x691 portrait whose
@@ -482,11 +484,11 @@ end)
 	stated in and the space the solver's own output rects are in, so a consumer
 	never converts and never needs to know where its composition landed. ]]
 describe("§8: `UI.Composition{ exclusions }` — the declaration, through the mounted path", function()
-	local UI = require("../src/blueprint")
-	local customFactory = require("../src/core/custom")
+	local UI = harness.UI
+	local customFactory = harness.coreFactory
 	local environment = require("../src/env/environment")
 	local renderer = require("../src/render/renderer")
-	local mountLib = require("../src/mount")
+	local mountLib = harness
 	local fake_target = require("./lib/fake_target")
 
 	local function screen(exclusions: any): any
@@ -545,7 +547,7 @@ describe("§8: `UI.Composition{ exclusions }` — the declaration, through the m
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 766, h = 400 })
-		local rects = core:signal({})
+		local rects = Compose.cell({})
 		local root = mountLib.mount(core, screen(rects))
 		local adapter = fake_target.new()
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })

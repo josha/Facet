@@ -1,4 +1,5 @@
 --!strict
+local observeChange = require("../core/on_change")
 -- Responder engine effects (CLIENT-ONLY). The presenter's first-
 -- responder model (passive vs engaged-exclusive surfaces) is engine-free and
 -- resolves purely through IAS InputContext priority + Sink. This module is the
@@ -127,8 +128,8 @@ function responder_effects.bind(core: any, presenter: any): () -> ()
 		end
 	end
 
-	local disconnect = core:observe(presenter.exclusiveSurfaceActive, apply)
-	apply(presenter.exclusiveSurfaceActive:get()) -- reconcile the current state
+	local disconnect = observeChange(core.owner, presenter.exclusiveSurfaceActive, apply)
+	apply(presenter.exclusiveSurfaceActive:peek()) -- reconcile the current state
 
 	return function()
 		if type(disconnect) == "function" then

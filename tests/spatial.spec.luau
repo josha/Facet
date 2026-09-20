@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- The future spatial seam (roadmap Step 4; ledger rows XP-D1..XP-D5).
 --
 -- These cases guard a promise and a boundary. The promise: adding spatial input
@@ -15,10 +16,10 @@ local fs = require("@lune/fs")
 local Facet = require("../src")
 local spatial = require("../src/input/spatial")
 local environment = require("../src/env/environment")
-local custom = require("../src/core/custom")
+local custom = harness.coreFactory
 local target_contract = require("../src/render/target_contract")
 local fake_target = require("./lib/fake_target")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local renderer = require("../src/render/renderer")
 
 local RAY = {
@@ -34,8 +35,8 @@ describe("presentation facts (XP-D1)", function()
 	it("defaults to a flat screen and never names a device", function()
 		local core = custom.new()
 		local env = environment.new(core)
-		expect(env:get("presentationSpace"):get()).toBe("screen")
-		local profile = env:get("presentationProfile"):get()
+		expect(env:get("presentationSpace"):peek()).toBe("screen")
+		local profile = env:get("presentationProfile"):peek()
 		expect(profile.space).toBe("screen")
 		expect(profile.flat).toBe(true)
 		expect(profile.world).toBe(false)
@@ -45,27 +46,27 @@ describe("presentation facts (XP-D1)", function()
 		local core = custom.new()
 		local env = environment.new(core)
 		env:set("presentationSpace", "billboard")
-		expect(env:get("presentationProfile"):get().flat).toBe(true)
-		expect(env:get("presentationProfile"):get().world).toBe(false)
+		expect(env:get("presentationProfile"):peek().flat).toBe(true)
+		expect(env:get("presentationProfile"):peek().world).toBe(false)
 		env:set("presentationSpace", "world")
-		expect(env:get("presentationProfile"):get().flat).toBe(false)
-		expect(env:get("presentationProfile"):get().world).toBe(true)
+		expect(env:get("presentationProfile"):peek().flat).toBe(false)
+		expect(env:get("presentationProfile"):peek().world).toBe(true)
 	end)
 
 	it("clamps a malformed platform fact to screen rather than propagating it", function()
 		local core = custom.new()
 		local env = environment.new(core)
 		env:set("presentationSpace", "holodeck")
-		expect(env:get("presentationProfile"):get().space).toBe("screen")
+		expect(env:get("presentationProfile"):peek().space).toBe("screen")
 		env:set("presentationSpace", 42)
-		expect(env:get("presentationProfile"):get().space).toBe("screen")
+		expect(env:get("presentationProfile"):peek().space).toBe("screen")
 	end)
 
 	it("spatial pointing is a capability among others, never a replacement mode", function()
 		local core = custom.new()
 		local env = environment.new(core)
 		-- the default: no spatial pointer anywhere
-		expect(env:get("interactionClasses"):get().spatialPointer).toBe(false)
+		expect(env:get("interactionClasses"):peek().spatialPointer).toBe(false)
 		-- a spatial session may have a ray AND a gamepad AND a keyboard at once;
 		-- adding the ray must not remove any of them
 		env:set(
@@ -73,7 +74,7 @@ describe("presentation facts (XP-D1)", function()
 			{ keyboard = true, mouse = false, touch = false, gamepad = true, spatialPointer = true }
 		)
 		env:set("preferredInput", "Gamepad")
-		local classes = env:get("interactionClasses"):get()
+		local classes = env:get("interactionClasses"):peek()
 		expect(classes.spatialPointer).toBe(true)
 		expect(classes.gamepad).toBe(true)
 		expect(classes.keyboard).toBe(true)
@@ -147,10 +148,10 @@ describe("normalized spatial event data (XP-D2)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		local seen: { any } = {}
-		local bp = Facet.UI.Screen({
+		local bp = harness.UI.Screen({
 			id = "S",
 			children = {
-				Facet.UI.Button({
+				harness.UI.Button({
 					id = "Card",
 					label = "Card",
 					onPointerDown = function(_path, pos)
@@ -209,25 +210,22 @@ describe("the world render target is declared AND shipped (XP-D3)", function()
 		expect(fs.isFile("src/client/surface_target.luau")).toBe(true)
 	end)
 
-	it("every still-open question has a capability the adapter withholds", function()
-		--[[ THE HALF THAT IS EASY TO LET ROT. An open question with the matching
-			capability quietly shipped anyway is worse than no declaration at all:
-			it reads as caution while the unproven path is live. So the adapter's
-			source is read for the deletions that correspond to the open rows. ]]
+	it("withholds custom pointer and foreign seams while enabling verified native scrolling", function()
+		-- Native wheel delivery has live evidence. Custom capture still lacks
+		-- canvas-coordinate mapping and must not inherit the screen mapping.
 		local source = fs.readFile("src/client/surface_target.luau")
 		for _, withheld in
 			{
 				"adapter.setPointerHandlers = nil",
 				"adapter.setTouchGestureHandlers = nil",
-				"adapter.stageHost = nil",
 				"adapter.foreignHost = nil",
 			}
 		do
 			expect(string.find(source, withheld, 1, true) ~= nil).toBe(true)
 		end
-		-- ...and the two conservative flags the open rows name
-		expect(string.find(source, "nativeStyle = false", 1, true) ~= nil).toBe(true)
-		expect(string.find(source, "forceScrollFallback = true", 1, true) ~= nil).toBe(true)
+		-- Native palette and scrolling use the shared implementation.
+		expect(string.find(source, "nativeStyle = opts.nativeStyle", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "forceScrollFallback = false", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("AlwaysOnTop is pinned false and is not an option", function()

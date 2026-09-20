@@ -43,14 +43,9 @@
 
 local fs = require("@lune/fs")
 
-local Facet = require("../../src") :: any
 local controlContract = require("../../src/class_contract")
-local mountLib = require("../../src/mount")
-local environment = require("../../src/env/environment")
-local rendererLib = require("../../src/render/renderer")
-local fake_target = require("../../tests/lib/fake_target")
-
-local UI = Facet.UI
+local schema = require("../../src/blueprint_schema")
+local nativeApp = require("../../bench/native_app")
 
 -- The mapping table moved to the adapter's vocabulary sibling when
 -- `screen_target.luau` paid its source-cap-ledger extraction (2026-08-22). It is
@@ -94,54 +89,66 @@ end
 	primitive.md` step 3 asks an author to make ("what is the smallest legal
 	instance of your class"), and a new primitive with a required prop and no
 	entry here fails by name rather than by a confusing constructor error. ]]
-local MINIMAL_PROPS: { [string]: { [string]: any } } = {
-	Button = { label = "Probe" },
-	Toggle = { label = "Probe" },
-	Text = { text = "Probe" },
-	Path = { points = { { x = 0, y = 0 }, { x = 1, y = 1 } } },
-	Region = { group = "probe", rank = 1, children = { UI.Box({ id = "Form" }) } },
-	Composition = {
-		arrangements = { "column" },
-		groups = { { id = "g", lane = "main", sizing = "fill" } },
-		children = {
-			UI.Region({ id = "R", group = "g", rank = 1, children = { UI.Box({ id = "Form" }) } }),
-		},
-	},
-	ViewThatFits = { children = { UI.Box({ id = "Candidate" }) } },
+-- Children are built by the probe's own primitive constructors, so each entry
+-- is a function of `create` (`create(class)(name)(props)`).
+local MINIMAL_PROPS: { [string]: (create: any) -> { [any]: any } } = {
+	Button = function()
+		return { label = "Probe" }
+	end,
+	Toggle = function()
+		return { label = "Probe" }
+	end,
+	Text = function()
+		return { text = "Probe" }
+	end,
+	Path = function()
+		return { points = { { x = 0, y = 0 }, { x = 1, y = 1 } } }
+	end,
+	Region = function(create)
+		return { group = "probe", rank = 1, create("Box")("Form")({}) }
+	end,
+	Composition = function(create)
+		return {
+			arrangements = { "column" },
+			groups = { { id = "g", lane = "main", sizing = "fill" } },
+			create("Region")("R")({ group = "g", rank = 1, create("Box")("Form")({}) }),
+		}
+	end,
+	ViewThatFits = function(create)
+		return { create("Box")("Candidate")({}) }
+	end,
 	-- ADAPT-L4: `axis` is REQUIRED on this class rather than defaulting to `"y"`,
 	-- because a class named for adapting must not be able to silently not adapt.
 	-- A literal is the right probe here — the checker is asking whether the class
 	-- reaches a render handle, not whether the fact is reactive.
-	AdaptiveStack = { axis = "x" },
+	AdaptiveStack = function()
+		return { axis = "x" }
+	end,
 }
 
--- can the headless target actually create this class? Mounts one node of it and
--- asks the adapter for its handle.
+-- can the headless target actually create this class? Mounts one node of it
+-- through the application's primitive constructors and asks the adapter for its
+-- handle. (`app.controls` answers the composite control for a name both carry, so
+-- the probe reads the primitive vocabulary directly.)
 local function createsHandle(class: string): (boolean, string?)
-	local core = Facet.newCore()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local ok, adapter = pcall(function()
-		local constructor = (UI :: any)[class]
-		local props: { [string]: any } = { id = "Probe" }
-		for key, value in MINIMAL_PROPS[class] or {} do
-			props[key] = value
-		end
-		local node = constructor(props)
-		local root = mountLib.mount(core, UI.Screen({ id = "S", children = { node } }))
-		local target = fake_target.new()
-		local controller = rendererLib.attach(core, root, env, target, { rootPolicy = "edgeToEdge" })
-		controller.initialRender()
-		local made = target.node("/S/Probe") ~= nil
-		controller.dispose()
-		root.dispose()
-		return made
+	local world = nativeApp({
+		viewport = { x = 0, y = 0, w = 400, h = 400 },
+		env = { coreSafeInsets = { top = 0, bottom = 0, left = 0, right = 0 } },
+	})
+	local create = world.app.runtime.create
+	local ok, made = pcall(function()
+		world.app.mount(function()
+			local minimal = MINIMAL_PROPS[class]
+			return create("Screen")("S")({ create(class)("Probe")(if minimal then minimal(create) else {}) })
+		end, { rootPolicy = "edgeToEdge" })
+		world.pres.refresh()
+		return world.adapter.node("/S/Probe") ~= nil
 	end)
+	world.app.dispose()
 	if not ok then
-		return false, tostring(adapter)
+		return false, tostring(made)
 	end
-	return adapter == true, nil
+	return made == true, nil
 end
 
 function check_primitives.check(opts: Options?): { ok: boolean, problems: { string }, counts: { [string]: number } }
@@ -157,7 +164,7 @@ function check_primitives.check(opts: Options?): { ok: boolean, problems: { stri
 	end
 
 	local schemaClasses: { [string]: boolean } = {}
-	for _, name in UI.schema.classNames() do
+	for _, name in schema.classNames() do
 		schemaClasses[name] = true
 	end
 	if options.extraSchemaClass ~= nil then
@@ -194,7 +201,7 @@ function check_primitives.check(opts: Options?): { ok: boolean, problems: { stri
 
 	local materialised = 0
 	for class in schemaClasses do
-		local spec = UI.schema.forClass(class)
+		local spec = schema.forClass(class)
 		local isStructural = spec ~= nil and spec.structural == true
 		-- 3. every class is registered for conformance
 		if not contractClasses[class] then
@@ -204,7 +211,7 @@ function check_primitives.check(opts: Options?): { ok: boolean, problems: { stri
 			)
 		end
 		-- 4. every materialised class has a create() branch that works
-		if not isStructural and (UI :: any)[class] ~= nil then
+		if not isStructural then
 			materialised += 1
 			local made, err = createsHandle(class)
 			if not made then

@@ -15,16 +15,19 @@
 -- its own, `focusable = false` so the four control buttons remain the whole focus
 -- order the spec declares.
 
+local newLifetime = require("./lifetime")
+
 return {
 	title = "Sequence lab (SF-M4)",
 	ledgerRows = { "SF-M4", "SF-M5", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
 		local env = ctx.env
 		local pres = ctx.presenter
-		local scope = core:scope("sponsor-celebration")
+		local lifetime = newLifetime(Compose)
+		local own = lifetime.own
 		local clock = pres.motionClock
 
 		local SCREEN = "/CelebrationLab"
@@ -37,7 +40,7 @@ return {
 		local function note(kind: string, info: any?)
 			table.insert(trace, { at = elapsed, kind = kind, info = info })
 		end
-		scope:own(pres.onFeedback(function(event: any)
+		own(pres.onFeedback(function(event: any)
 			table.insert(trace, {
 				at = elapsed,
 				kind = "feedback:" .. tostring(event.type),
@@ -46,13 +49,13 @@ return {
 		end))
 
 		-- the four subjects, one per beat
-		local boxAOpen = scope:own(core:signal(false))
-		local boxBX = scope:own(clock:spring(0, "object"))
-		local chipScale = scope:own(clock:spring(1, "reward"))
-		local washEnergy = scope:own(clock:spring(0, "decay"))
-		local washTint = scope:own(core:memo(function(use)
+		local boxAOpen = Compose.cell(false)
+		local boxBX = own(clock:spring(0, "object"))
+		local chipScale = own(clock:spring(1, "reward"))
+		local washEnergy = own(clock:spring(0, "decay"))
+		local washTint = Compose.formula(function(use)
 			return { role = "accent", from = "surface", blend = math.clamp(use(washEnergy), 0, 1) }
-		end))
+		end)
 
 		local FLY_FROM = -160
 		local BEAT_AT = { 0, 0.5, 1.0, 1.5 }
@@ -92,36 +95,36 @@ return {
 			return if handle ~= nil then handle.controller else nil
 		end
 
-		scope:own(pres.onTick(function(dt: number)
+		own(pres.onTick(function(dt: number)
 			elapsed += dt
 			runDue()
 			local ctrl = controller()
 			if ctrl == nil then
 				return
 			end
-			ctrl.setPresentationTransform(BOX_B, { x = boxBX:get(), y = 0 })
-			ctrl.setPresentationTransform(BOX_C, { x = 0, y = 0, scale = chipScale:get() })
+			ctrl.setPresentationTransform(BOX_B, { x = boxBX:peek(), y = 0 })
+			ctrl.setPresentationTransform(BOX_C, { x = 0, y = 0, scale = chipScale:peek() })
 		end))
 
 		-- the STAGE STATE a terminal assertion reads: every subject's value, and
 		-- whether it stands at the beat's declared terminal
 		local function stageState(): any
 			return {
-				boxAOpen = boxAOpen:get(),
-				boxBX = boxBX:get(),
+				boxAOpen = boxAOpen:peek(),
+				boxBX = boxBX:peek(),
 				boxBSettled = boxBX:isSettled(),
-				chipScale = chipScale:get(),
+				chipScale = chipScale:peek(),
 				chipSettled = chipScale:isSettled(),
-				wash = washEnergy:get(),
+				wash = washEnergy:peek(),
 				washSettled = washEnergy:isSettled(),
 				-- PERCEPTUAL, not exact: a spring's settle epsilon is 1e-3 and a
 				-- terminal stage is one nobody can see a difference in, so the
 				-- predicate is half a pixel and half a percent. The raw values ride
 				-- beside it so a reader can always check the arithmetic.
-				terminal = boxAOpen:get()
-					and math.abs(boxBX:get()) < 0.5
-					and math.abs(chipScale:get() - 1) < 0.005
-					and math.abs(washEnergy:get()) < 0.005,
+				terminal = boxAOpen:peek()
+					and math.abs(boxBX:peek()) < 0.5
+					and math.abs(chipScale:peek() - 1) < 0.005
+					and math.abs(washEnergy:peek()) < 0.005,
 			}
 		end
 
@@ -210,8 +213,7 @@ return {
 
 		-- ===== the stage ====================================================
 		local function beat(index: number, caption: string, boxView: any)
-			return UI.VStack({
-				id = `Beat{index}`,
+			return UI.VStack(`Beat{index}`)({
 				gap = "xs",
 				width = UI.fill(),
 
@@ -219,160 +221,150 @@ return {
 				-- captions WRAP (they are the preferred-text participant here);
 				-- the beat box grows with its caption because the column sizes to
 				-- its content, and the stage scrolls rather than clipping
-				UI.Text({ id = `Cap{index}`, text = caption, textSize = "caption", role = "secondary" }),
+				UI.Text(`Cap{index}`)({ text = caption, textSize = "caption", role = "secondary" }),
 			})
 		end
 
 		local BEAT_BOX: any = { type = "fixed", px = "controlSizes.large.height" }
 
-		local stageInner = UI.ZStack({
-			id = "StageInner",
-			width = UI.fill(),
-			height = UI.fill(),
-
-			-- the beat-4 wash, BEHIND the beats: a tinted Box claims both colour
-			-- and opacity, so a wash painted over the content would hide it
-			UI.Box({
-				id = "Wash",
-				surface = "base",
-				tint = washTint,
-				width = UI.fill(),
-				height = UI.fill(),
-			}),
-			UI.ScrollView({
-				id = "Beats",
-				axis = "y",
+		local function stageInner()
+			return UI.ZStack("StageInner")({
 				width = UI.fill(),
 				height = UI.fill(),
 
-				UI.HStack({
-					id = "Row",
-					gap = "s",
-					align = "start",
+				-- the beat-4 wash, BEHIND the beats: a tinted Box claims both colour
+				-- and opacity, so a wash painted over the content would hide it
+				UI.Box("Wash")({
+					surface = "base",
+					tint = washTint,
 					width = UI.fill(),
-
-					beat(
-						1,
-						"materialize",
-						UI.When({
-							id = "BoxARegion",
-							condition = boxAOpen,
-							transition = { enter = "materialize", class = "container" },
-							thenView = function()
-								return UI.corners(
-									UI.Box({
-										id = "BoxA",
-										surface = "control",
-										canvasGroup = true,
-										width = UI.fill(),
-										height = BEAT_BOX,
-									}),
-									"control"
-								)
-							end,
-						})
-					),
-					beat(
-						2,
-						"fly in (object)",
-						UI.corners(
-							UI.Box({
-								id = "BoxB",
-								surface = "control",
-								width = UI.fill(),
-								height = BEAT_BOX,
-							}),
-							"control"
-						)
-					),
-					beat(
-						3,
-						"reward pop",
-						UI.corners(
-							UI.Box({
-								id = "BoxC",
-								surface = "control",
-								width = UI.fill(),
-								height = BEAT_BOX,
-							}),
-							"control"
-						)
-					),
-					beat(
-						4,
-						"decay wash",
-						UI.corners(
-							UI.Box({
-								id = "BoxD",
-								surface = "control",
-								width = UI.fill(),
-								height = BEAT_BOX,
-							}),
-							"control"
-						)
-					),
+					height = UI.fill(),
 				}),
-			}),
-		})
+				UI.ScrollView("Beats")({
+					axis = "y",
+					width = UI.fill(),
+					height = UI.fill(),
+
+					UI.HStack("Row")({
+						gap = "s",
+						align = "start",
+						width = UI.fill(),
+
+						beat(
+							1,
+							"materialize",
+							UI.When("BoxARegion")({
+								transition = { enter = "materialize", class = "container" },
+								Compose.show(boxAOpen, function()
+									return UI.corners(
+										UI.Box("BoxA")({
+											surface = "control",
+											canvasGroup = true,
+											width = UI.fill(),
+											height = BEAT_BOX,
+										}),
+										"control"
+									)
+								end),
+							})
+						),
+						beat(
+							2,
+							"fly in (object)",
+							UI.corners(
+								UI.Box("BoxB")({
+									surface = "control",
+									width = UI.fill(),
+									height = BEAT_BOX,
+								}),
+								"control"
+							)
+						),
+						beat(
+							3,
+							"reward pop",
+							UI.corners(
+								UI.Box("BoxC")({
+									surface = "control",
+									width = UI.fill(),
+									height = BEAT_BOX,
+								}),
+								"control"
+							)
+						),
+						beat(
+							4,
+							"decay wash",
+							UI.corners(
+								UI.Box("BoxD")({
+									surface = "control",
+									width = UI.fill(),
+									height = BEAT_BOX,
+								}),
+								"control"
+							)
+						),
+					}),
+				}),
+			})
+		end
 
 		local function control(id: string, label: string, onActivate: () -> ())
-			return UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = onActivate,
 			})
 		end
 
-		local screen = UI.Screen({
-			id = "CelebrationLab",
-			padding = "m",
-			gap = "m",
+		local function screen()
+			return UI.Screen("CelebrationLab")({
+				padding = "m",
+				gap = "m",
 
-			UI.Text({ id = "Title", text = "Sequence lab", textSize = "heading" }),
-			-- THE STAGE IS THE SKIP AFFORDANCE. A content Button paints no text of
-			-- its own and refuses focusables inside it, so this is one activation
-			-- surface over inert content — and `focusable = false` keeps the focus
-			-- order exactly the four controls below.
-			UI.Button({
-				id = "Stage",
-				label = "Skip sequence",
-				focusable = false,
-				surface = "base",
-				width = UI.fill(),
-				height = UI.fill(),
-				onActivate = function()
-					skipRun()
-				end,
-				stageInner,
-			}),
-			UI.Grid({
-				id = "Controls",
-				-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
-				-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
-				-- lets the WIDEST verb decide every column, so one long label costs this lab a
-				-- whole column on a 320px phone: the control grid doubles in height and the
-				-- `fill` stage column above it collapses to zero. This number asks the other
-				-- question — how many controls fit a row — and lets a long label compact.
-				minColumnWidth = 104,
-				gap = "s",
-				rowGap = "s",
-				width = UI.fill(),
+				UI.Text("Title")({ text = "Sequence lab", textSize = "heading" }),
+				-- THE STAGE IS THE SKIP AFFORDANCE. A content Button paints no text of
+				-- its own and refuses focusables inside it, so this is one activation
+				-- surface over inert content — and `focusable = false` keeps the focus
+				-- order exactly the four controls below.
+				UI.Button("Stage")({
+					label = "Skip sequence",
+					focusable = false,
+					surface = "base",
+					width = UI.fill(),
+					height = UI.fill(),
+					onActivate = function()
+						skipRun()
+					end,
+					stageInner(),
+				}),
+				UI.Grid("Controls")({
+					-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
+					-- being left alone. `minColumnWidth = "intrinsic"` (the default since that day)
+					-- lets the WIDEST verb decide every column, so one long label costs this lab a
+					-- whole column on a 320px phone: the control grid doubles in height and the
+					-- `fill` stage column above it collapses to zero. This number asks the other
+					-- question — how many controls fit a row — and lets a long label compact.
+					minColumnWidth = 104,
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
 
-				control("BtnRun", "Run", function()
-					startRun("button")
-				end),
-				control("BtnInterrupt", "Interrupt", function()
-					endTimeline()
-				end),
-				control("BtnSkip", "Skip", function()
-					skipRun()
-				end),
-				control("BtnReplay", "Replay", function()
-					startRun("replay")
-				end),
-			}),
-		})
+					control("BtnRun", "Run", function()
+						startRun("button")
+					end),
+					control("BtnInterrupt", "Interrupt", function()
+						endTimeline()
+					end),
+					control("BtnSkip", "Skip", function()
+						skipRun()
+					end),
+					control("BtnReplay", "Replay", function()
+						startRun("replay")
+					end),
+				}),
+			})
+		end
 
 		result.screen = screen
 		result.present = {}
@@ -478,16 +470,16 @@ return {
 				running = timeline ~= nil,
 				stage = stageState(),
 				beats = BEAT_AT,
-				reducedMotion = env:get("reducedMotion"):get(),
-				motionPolicy = env:get("motionPolicy"):get(),
+				reducedMotion = env:get("reducedMotion"):peek(),
+				motionPolicy = env:get("motionPolicy"):peek(),
 				motion = { active = clock:activeCount(), stats = clock:stats() },
-				counters = core:counters(),
-				coreError = core:lastError(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
 			endTimeline()
-			scope:dispose()
+			lifetime.dispose()
 		end
 		return result
 	end,

@@ -24,7 +24,7 @@ local NONE = "none"
 
 function workbench.new(app: any): any
 	local UI = app.UI
-	local core = app.core
+	local Compose = app.Compose
 	local S = app.S
 	local Facet = app.Facet
 
@@ -54,7 +54,7 @@ function workbench.new(app: any): any
 	end
 	self.recordFor = recordFor
 
-	local currentId = core:memo(function(use)
+	local currentId = Compose.formula(function(use)
 		local open = use(app.state.openPotion)
 		if open ~= "" then
 			return open
@@ -65,10 +65,10 @@ function workbench.new(app: any): any
 
 	-- the four live signals the controls own; `loading` guards the write-back so
 	-- a load cannot be mistaken for an edit
-	local nameValue = core:signal("")
-	local baseValue = core:signal("springwater")
-	local essenceValue = core:signal(NONE)
-	local garnishValue = core:signal(NONE)
+	local nameValue = Compose.cell("")
+	local baseValue = Compose.cell("springwater")
+	local essenceValue = Compose.cell(NONE)
+	local garnishValue = Compose.cell(NONE)
 	local loading = false
 
 	local function load(id: string)
@@ -85,25 +85,25 @@ function workbench.new(app: any): any
 		if loading then
 			return
 		end
-		local record = recordFor(currentId:get())
-		record.name = nameValue:get()
-		record.base = baseValue:get()
-		record.essence = essenceValue:get()
-		record.garnish = garnishValue:get()
+		local record = recordFor(currentId:peek())
+		record.name = nameValue:peek()
+		record.base = baseValue:peek()
+		record.essence = essenceValue:peek()
+		record.garnish = garnishValue:peek()
 	end
 
-	load(currentId:get())
+	load(currentId:peek())
 	local unsubscribes = {
-		core:observe(currentId, load),
-		core:observe(nameValue, save),
-		core:observe(baseValue, save),
-		core:observe(essenceValue, save),
-		core:observe(garnishValue, save),
+		app.observe(currentId, load),
+		app.observe(nameValue, save),
+		app.observe(baseValue, save),
+		app.observe(essenceValue, save),
+		app.observe(garnishValue, save),
 	}
 
 	-- ---- the derived recipe --------------------------------------------------
 
-	local attributes = core:memo(function(use)
+	local attributes = Compose.formula(function(use)
 		local essence = use(essenceValue)
 		local garnish = use(garnishValue)
 		return data.attributesOf(
@@ -114,213 +114,201 @@ function workbench.new(app: any): any
 	end)
 	self.attributes = attributes
 
-	local strongest = core:memo(function(use)
+	local strongest = Compose.formula(function(use)
 		return data.strongestAxis(use(attributes) :: any)
 	end)
 	self.strongest = strongest
 
-	local peak = core:memo(function(use)
+	local peak = Compose.formula(function(use)
 		local attrs = use(attributes) :: any
 		return math.max(1, attrs[use(strongest)])
 	end)
 
 	-- ---- the live preview ----------------------------------------------------
 
-	local baseHue = core:memo(function(use)
+	local baseHue = Compose.formula(function(use)
 		return { direct = data.baseHueFor(use(baseValue)) }
 	end)
-	local hasEssence = core:memo(function(use)
+	local hasEssence = Compose.formula(function(use)
 		return use(essenceValue) ~= NONE
 	end)
-	local hasGarnish = core:memo(function(use)
+	local hasGarnish = Compose.formula(function(use)
 		return use(garnishValue) ~= NONE
 	end)
 
-	local function previewPlate(id: string, box: any): any
-		return parts.plate(app, {
-			id = id,
-			align = "center",
-			gap = "s",
-			children = {
-				UI.ZStack({
-					id = "Layers",
-					width = UI.fill(),
-					height = box,
-
-					UI.Image({
-						id = "Bottle",
-						image = app.art.marks.menu.image,
-						scaleMode = "fit",
-						tint = { role = "contentSecondary", blend = 0.9 },
-						width = UI.fill(),
-						height = UI.fill(),
-					}),
-					UI.Image({
-						id = "Base",
-						image = app.art.marks.chevronUp.image,
-						scaleMode = "fit",
-						tint = baseHue,
-						width = UI.fill(),
-						height = UI.fill(),
-					}),
-					UI.When({
-						id = "EssenceWhen",
-						condition = hasEssence,
-						thenView = function()
-							return UI.Image({
-								id = "Essence",
-								image = app.art.marks.check.image,
-								scaleMode = "fit",
-								tint = { role = "accent", blend = 0.8 },
-								width = UI.fill(),
-								height = UI.fill(),
-							})
-						end,
-					}),
-					UI.When({
-						id = "GarnishWhen",
-						condition = hasGarnish,
-						thenView = function()
-							return UI.Image({
-								id = "Garnish",
-								image = app.art.marks.more.image,
-								scaleMode = "fit",
-								tint = { role = "contentStrong", blend = 1 },
-								width = UI.fill(),
-								height = UI.fill(),
-							})
-						end,
-					}),
-				}),
-				-- THE CAPTION IS NEVER WIDER THAN THE BOX IT CAPTIONS. `lineLimit`
-				-- caps the lines a text spends, never the width it asks for, and
-				-- the preview sits in a HUG lane — so a long potion name measured
-				-- 401px of single line, the lane hugged all of it, and the form
-				-- lane beside it was left 38px on a landscape phone (every
-				-- attribute row then reported its own overflow, which is how this
-				-- was found). Capping the ask is what makes `lineLimit` bite.
-				UI.Text({
-					id = "Caption",
-					text = nameValue,
-					textSize = "heading",
-					textAlign = "center",
-					width = { type = "minMax", max = "app.cartwheel.previewMin" },
-					lineLimit = 2,
-					disclose = true,
-				}),
-			},
-		})
-	end
-
-	-- TWO FORMS, richest first. A landscape phone gives this composition 221px of
-	-- height and the full preview alone wants more than that, so the region steps
-	-- DOWN to a thumbnail-sized plate before anything is dropped — which is the
-	-- composition's own ladder, not a device branch.
-	local preview = previewPlate("Preview", { type = "fixed", px = "app.cartwheel.previewMin" })
-	local previewCompact = previewPlate("PreviewCompact", { type = "fixed", px = "controls.image.defaultSize" })
-
-	-- ---- the form ------------------------------------------------------------
-
-	local nameField = Facet.Controls.TextInput(core, {
-		id = "Name",
-		value = nameValue,
-		placeholder = S.t("bench.name"),
-		maxLength = 24,
-		-- an IDEMPOTENT normalizer: trim, and never anything a second pass would
-		-- change (the engine echoes a programmatic write back through the seam)
-		validate = function(proposed: string): string?
-			return (string.gsub(proposed, "^%s*(.-)%s*$", "%1"))
-		end,
-		clearButtonMode = "whileEditing",
-		env = app.env,
-		actionSystem = app.actionSystem,
-	})
-
-	local gauges: { any } = {}
-	local gaugeMemos: { any } = {}
-	local attributeRows: { any } = {}
-	for axis = 1, 6 do
-		local ratio = core:memo(function(use)
-			local attrs = use(attributes) :: any
-			return math.clamp(attrs[axis] / use(peak), 0, 1)
-		end)
-		table.insert(gaugeMemos, ratio)
-		local gauge = Facet.Controls.ProgressView(core, {
-			id = "Gauge" .. axis,
-			value = ratio,
-			min = 0,
-			max = 1,
-		})
-		table.insert(gauges, gauge)
-		local isStrongest = core:memo(function(use)
-			return use(strongest) == axis
-		end)
-		table.insert(gaugeMemos, isStrongest)
-		local roleMemo = core:memo(function(use)
-			return if use(isStrongest) then "content" else "secondary"
-		end)
-		table.insert(gaugeMemos, roleMemo)
-		local valueText = core:memo(function(use)
-			return tostring((use(attributes) :: any)[axis])
-		end)
-		table.insert(gaugeMemos, valueText)
-		local tintMemo = core:memo(function(use)
-			return { role = "accent", blend = if use(isStrongest) then 1 else 0.25 }
-		end)
-		table.insert(gaugeMemos, tintMemo)
-		table.insert(
-			attributeRows,
-			UI.HStack({
-				id = "Attr" .. axis,
-				-- the tightest legal gap: the row carries an icon, a name, a gauge
-				-- and a numeral, and at a landscape phone's form width the wider
-				-- step spent exactly the 12px it overflowed by
-				gap = "xs",
+	-- The page is built per visit: a node belongs to the mount that made it.
+	local function buildPage(): any
+		local function previewPlate(id: string, box: any): any
+			return parts.plate(app, {
+				id = id,
 				align = "center",
-				width = UI.fill(),
+				gap = "s",
+				children = {
+					UI.ZStack("Layers")({
+						width = UI.fill(),
+						height = box,
 
-				UI.Image({
-					id = "Mark",
-					image = app.art.markFor(axis).image,
-					scaleMode = "fit",
-					tint = tintMemo,
-					width = { type = "fixed", px = "iconSizes.small" },
-					height = { type = "fixed", px = "iconSizes.small" },
-				}),
-				-- BOTH shrink, in proportion: a natural-width label beside a
-				-- fill bar overflowed the row by 56px once the form was a column
-				-- on a landscape phone
-				UI.Text({
-					id = "Name",
-					text = parts.attributeName(app, axis),
-					textSize = "label",
-					role = roleMemo,
-					width = UI.fill(),
-					lineLimit = 1,
-					disclose = true,
-				}),
-				UI.VStack({
-					id = "Bar",
-					width = UI.fill(2),
-					gauge.blueprint,
-				}),
-				UI.Text({ id = "Value", text = valueText, textSize = "numeral", role = roleMemo }),
+						UI.Image("Bottle")({
+							image = app.art.marks.menu.image,
+							scaleMode = "fit",
+							tint = { role = "contentSecondary", blend = 0.9 },
+							width = UI.fill(),
+							height = UI.fill(),
+						}),
+						UI.Image("Base")({
+							image = app.art.marks.chevronUp.image,
+							scaleMode = "fit",
+							tint = baseHue,
+							width = UI.fill(),
+							height = UI.fill(),
+						}),
+						app.when("EssenceWhen")({
+							condition = hasEssence,
+							thenView = function()
+								return UI.Image("Essence")({
+									image = app.art.marks.check.image,
+									scaleMode = "fit",
+									tint = { role = "accent", blend = 0.8 },
+									width = UI.fill(),
+									height = UI.fill(),
+								})
+							end,
+						}),
+						app.when("GarnishWhen")({
+							condition = hasGarnish,
+							thenView = function()
+								return UI.Image("Garnish")({
+									image = app.art.marks.more.image,
+									scaleMode = "fit",
+									tint = { role = "contentStrong", blend = 1 },
+									width = UI.fill(),
+									height = UI.fill(),
+								})
+							end,
+						}),
+					}),
+					-- THE CAPTION IS NEVER WIDER THAN THE BOX IT CAPTIONS. `lineLimit`
+					-- caps the lines a text spends, never the width it asks for, and
+					-- the preview sits in a HUG lane — so a long potion name measured
+					-- 401px of single line, the lane hugged all of it, and the form
+					-- lane beside it was left 38px on a landscape phone (every
+					-- attribute row then reported its own overflow, which is how this
+					-- was found). Capping the ask is what makes `lineLimit` bite.
+					UI.Text("Caption")({
+						text = nameValue,
+						textSize = "heading",
+						textAlign = "center",
+						width = { type = "minMax", max = "app.cartwheel.previewMin" },
+						lineLimit = 2,
+						disclose = true,
+					}),
+				},
 			})
-		)
-	end
-
-	local function ingredientOptions(list: { any }, withNone: boolean): { any }
-		local options: { any } = {}
-		if withNone then
-			table.insert(options, { value = NONE, label = S.t("bench.none") })
 		end
-		for _, entry in list do
-			table.insert(options, { value = entry.id, label = entry.name })
-		end
-		return options
-	end
 
-	--[[ THE THREE INGREDIENT PICKERS NOW ADAPT WITHOUT BEING TOLD ANYTHING
+		-- TWO FORMS, richest first. A landscape phone gives this composition 221px of
+		-- height and the full preview alone wants more than that, so the region steps
+		-- DOWN to a thumbnail-sized plate before anything is dropped — which is the
+		-- composition's own ladder, not a device branch.
+		local preview = previewPlate("Preview", { type = "fixed", px = "app.cartwheel.previewMin" })
+		local previewCompact = previewPlate("PreviewCompact", { type = "fixed", px = "controls.image.defaultSize" })
+
+		-- ---- the form ------------------------------------------------------------
+
+		local nameField = UI.TextInput("Name")({
+			value = nameValue,
+			placeholder = S.t("bench.name"),
+			maxLength = 24,
+			-- an IDEMPOTENT normalizer: trim, and never anything a second pass would
+			-- change (the engine echoes a programmatic write back through the seam)
+			validate = function(proposed: string): string?
+				return (string.gsub(proposed, "^%s*(.-)%s*$", "%1"))
+			end,
+			clearButtonMode = "whileEditing",
+			env = app.env,
+			actionSystem = app.actionSystem,
+		})
+
+		local gauges: { any } = {}
+		local gaugeMemos: { any } = {}
+		local attributeRows: { any } = {}
+		for axis = 1, 6 do
+			local ratio = Compose.formula(function(use)
+				local attrs = use(attributes) :: any
+				return math.clamp(attrs[axis] / use(peak), 0, 1)
+			end)
+			table.insert(gaugeMemos, ratio)
+			local gauge = UI.ProgressView("Gauge" .. axis)({
+				value = ratio,
+				min = 0,
+				max = 1,
+			})
+			table.insert(gauges, gauge)
+			local isStrongest = Compose.formula(function(use)
+				return use(strongest) == axis
+			end)
+			table.insert(gaugeMemos, isStrongest)
+			local roleMemo = Compose.formula(function(use)
+				return if use(isStrongest) then "content" else "secondary"
+			end)
+			table.insert(gaugeMemos, roleMemo)
+			local valueText = Compose.formula(function(use)
+				return tostring((use(attributes) :: any)[axis])
+			end)
+			table.insert(gaugeMemos, valueText)
+			local tintMemo = Compose.formula(function(use)
+				return { role = "accent", blend = if use(isStrongest) then 1 else 0.25 }
+			end)
+			table.insert(gaugeMemos, tintMemo)
+			table.insert(
+				attributeRows,
+				UI.HStack("Attr" .. axis)({
+					-- the tightest legal gap: the row carries an icon, a name, a gauge
+					-- and a numeral, and at a landscape phone's form width the wider
+					-- step spent exactly the 12px it overflowed by
+					gap = "xs",
+					align = "center",
+					width = UI.fill(),
+
+					UI.Image("Mark")({
+						image = app.art.markFor(axis).image,
+						scaleMode = "fit",
+						tint = tintMemo,
+						width = { type = "fixed", px = "iconSizes.small" },
+						height = { type = "fixed", px = "iconSizes.small" },
+					}),
+					-- BOTH shrink, in proportion: a natural-width label beside a
+					-- fill bar overflowed the row by 56px once the form was a column
+					-- on a landscape phone
+					UI.Text("Name")({
+						text = parts.attributeName(app, axis),
+						textSize = "label",
+						role = roleMemo,
+						width = UI.fill(),
+						lineLimit = 1,
+						disclose = true,
+					}),
+					UI.VStack("Bar")({
+						width = UI.fill(2),
+						gauge,
+					}),
+					UI.Text("Value")({ text = valueText, textSize = "numeral", role = roleMemo }),
+				})
+			)
+		end
+
+		local function ingredientOptions(list: { any }, withNone: boolean): { any }
+			local options: { any } = {}
+			if withNone then
+				table.insert(options, { value = NONE, label = S.t("bench.none") })
+			end
+			for _, entry in list do
+				table.insert(options, { value = entry.id, label = entry.name })
+			end
+			return options
+		end
+
+		--[[ THE THREE INGREDIENT PICKERS NOW ADAPT WITHOUT BEING TOLD ANYTHING
 		(ADAPT-1, 2026-08-18). All three wired `sizeClass` and none wired
 		`interactionClasses`, which is why every one of them presented a floating
 		plate on a phone — the audit's exact words — where the reference platform's
@@ -328,213 +316,168 @@ function workbench.new(app: any): any
 		`Controls.Picker`s in the automatic style: a form-row menu under a thumb or
 		a mouse, a focus-navigable strip on a television, and the facts still come
 		from the surface each one is standing on. ]]
-	local basePicker = Facet.Controls.Picker(core, {
-		id = "Base",
-		options = ingredientOptions(data.bases :: any, false),
-		selected = baseValue,
-	})
-	local essencePicker = Facet.Controls.Picker(core, {
-		id = "Essence",
-		options = ingredientOptions(data.essences :: any, true),
-		selected = essenceValue,
-	})
-	local garnishPicker = Facet.Controls.Picker(core, {
-		id = "Garnish",
-		options = ingredientOptions(data.garnishes :: any, true),
-		selected = garnishValue,
-	})
+		local basePicker = UI.Picker("Base")({
+			options = ingredientOptions(data.bases :: any, false),
+			selected = baseValue,
+		})
+		local essencePicker = UI.Picker("Essence")({
+			options = ingredientOptions(data.essences :: any, true),
+			selected = essenceValue,
+		})
+		local garnishPicker = UI.Picker("Garnish")({
+			options = ingredientOptions(data.garnishes :: any, true),
+			selected = garnishValue,
+		})
 
-	-- the three pickers, reachable by name: `api.select(id)` is the control's own
-	-- public drive verb, so a scenario step and a test press the same control a
-	-- finger does rather than writing the signal behind it
-	self.pickers = { base = basePicker, essence = essencePicker, garnish = garnishPicker }
-	self.nameField = nameField
-	self.nameValue = nameValue
+		-- the three pickers, reachable by name: `api.select(id)` is the control's own
+		-- public drive verb, so a scenario step and a test press the same control a
+		-- finger does rather than writing the signal behind it
+		self.pickers = { base = baseValue, essence = essenceValue, garnish = garnishValue }
+		self.nameField = nameField
+		self.nameValue = nameValue
 
-	local form = UI.ScrollView({
-		id = "Form",
-		axis = "y",
-		gap = "m",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		UI.VStack({
-			id = "Potion",
-			gap = "xs",
-			width = UI.fill(),
-
-			UI.Text({ id = "Heading", text = S.t("bench.sectionPotion"), textSize = "heading" }),
-			nameField.blueprint,
-		}),
-		UI.VStack({
-			id = "Attributes",
-			gap = "xs",
-			width = UI.fill(),
-
-			UI.Text({ id = "Heading", text = S.t("bench.sectionAttributes"), textSize = "heading" }),
-			UI.VStack({
-				id = "Rows",
-				gap = "xs",
-				width = UI.fill(),
-				children = attributeRows,
-			}),
-		}),
-		UI.VStack({
-			id = "Ingredients",
-			gap = "xs",
-			width = UI.fill(),
-
-			UI.Text({ id = "Heading", text = S.t("bench.sectionIngredients"), textSize = "heading" }),
-			UI.HStack({
-				id = "BaseRow",
-				gap = "s",
-				align = "center",
-
-				-- the LABEL shrinks, not the picker: a picker's trigger is
-				-- as wide as its longest option ("Ribbon · Coppertonic")
-				-- and a fixed-width label beside one overflows a narrow
-				-- form
-				UI.Text({
-					id = "Label",
-					text = S.t("bench.base"),
-					textSize = "label",
-					width = UI.fill(),
-					lineLimit = 1,
-					disclose = true,
-				}),
-				basePicker.blueprint,
-			}),
-			UI.HStack({
-				id = "EssenceRow",
-				gap = "s",
-				align = "center",
-
-				-- the LABEL shrinks, not the picker: a picker's trigger is
-				-- as wide as its longest option ("Ribbon · Coppertonic")
-				-- and a fixed-width label beside one overflows a narrow
-				-- form
-				UI.Text({
-					id = "Label",
-					text = S.t("bench.essence"),
-					textSize = "label",
-					width = UI.fill(),
-					lineLimit = 1,
-					disclose = true,
-				}),
-				essencePicker.blueprint,
-			}),
-			UI.HStack({
-				id = "GarnishRow",
-				gap = "s",
-				align = "center",
-
-				-- the LABEL shrinks, not the picker: a picker's trigger is
-				-- as wide as its longest option ("Ribbon · Coppertonic")
-				-- and a fixed-width label beside one overflows a narrow
-				-- form
-				UI.Text({
-					id = "Label",
-					text = S.t("bench.garnish"),
-					textSize = "label",
-					width = UI.fill(),
-					lineLimit = 1,
-					disclose = true,
-				}),
-				garnishPicker.blueprint,
-			}),
-		}),
-	})
-
-	local page = UI.VStack({
-		id = "Workbench",
-		padding = "m",
-		gap = "s",
-		width = UI.fill(),
-		height = UI.fill(),
-
-		UI.Text({ id = "Title", text = S.t("bench.title"), textSize = "title" }),
-		UI.Text({ id = "Live", text = S.t("bench.live"), textSize = "caption", role = "secondary" }),
-		UI.Composition({
-			id = "Bench",
-			-- `leadFirst` (framework-gaps-phase2 item 12): see shell.luau's header
-			-- for the full account of why this used to be a CUSTOM arrangement
-			-- reusing the `"twoLane"` name for different lanes.
-			arrangements = { "leadFirst", "column" },
-			laneGap = "m",
-			groupGap = "m",
+		local form = UI.ScrollView("Form")({
+			axis = "y",
+			gap = "m",
 			width = UI.fill(),
 			height = UI.fill(),
-			groups = {
-				{ id = "preview", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.previewMin" },
-				{ id = "form", lane = "main", sizing = "fill" },
-			},
 
-			UI.Region({
-				id = "Preview",
-				group = "preview",
-				rank = 2,
-				-- the compact preview drops the attribute read-out, and a dropped one
-				-- drops the potion entirely — the screen owes both a route
-				recover = "overflow",
-				floor = { lines = 2 },
-				mayDrop = true,
-				preview,
-				previewCompact,
-			}),
-			UI.Region({
-				id = "Form",
-				group = "form",
-				rank = 1,
-				sizing = "fill",
-				mayScroll = true,
-				floor = { lines = 4 },
-				form,
-			}),
-		}),
-	})
+			UI.VStack("Potion")({
+				gap = "xs",
+				width = UI.fill(),
 
-	function self.view(): any
+				UI.Text("Heading")({ text = S.t("bench.sectionPotion"), textSize = "heading" }),
+				nameField,
+			}),
+			UI.VStack("Attributes")({
+				gap = "xs",
+				width = UI.fill(),
+
+				UI.Text("Heading")({ text = S.t("bench.sectionAttributes"), textSize = "heading" }),
+				UI.VStack("Rows")(app.withChildren({
+					gap = "xs",
+					width = UI.fill(),
+				}, attributeRows)),
+			}),
+			UI.VStack("Ingredients")({
+				gap = "xs",
+				width = UI.fill(),
+
+				UI.Text("Heading")({ text = S.t("bench.sectionIngredients"), textSize = "heading" }),
+				UI.HStack("BaseRow")({
+					gap = "s",
+					align = "center",
+
+					-- the LABEL shrinks, not the picker: a picker's trigger is
+					-- as wide as its longest option ("Ribbon · Coppertonic")
+					-- and a fixed-width label beside one overflows a narrow
+					-- form
+					UI.Text("Label")({
+						text = S.t("bench.base"),
+						textSize = "label",
+						width = UI.fill(),
+						lineLimit = 1,
+						disclose = true,
+					}),
+					basePicker,
+				}),
+				UI.HStack("EssenceRow")({
+					gap = "s",
+					align = "center",
+
+					-- the LABEL shrinks, not the picker: a picker's trigger is
+					-- as wide as its longest option ("Ribbon · Coppertonic")
+					-- and a fixed-width label beside one overflows a narrow
+					-- form
+					UI.Text("Label")({
+						text = S.t("bench.essence"),
+						textSize = "label",
+						width = UI.fill(),
+						lineLimit = 1,
+						disclose = true,
+					}),
+					essencePicker,
+				}),
+				UI.HStack("GarnishRow")({
+					gap = "s",
+					align = "center",
+
+					-- the LABEL shrinks, not the picker: a picker's trigger is
+					-- as wide as its longest option ("Ribbon · Coppertonic")
+					-- and a fixed-width label beside one overflows a narrow
+					-- form
+					UI.Text("Label")({
+						text = S.t("bench.garnish"),
+						textSize = "label",
+						width = UI.fill(),
+						lineLimit = 1,
+						disclose = true,
+					}),
+					garnishPicker,
+				}),
+			}),
+		})
+
+		local page = UI.VStack("Workbench")({
+			padding = "m",
+			gap = "s",
+			width = UI.fill(),
+			height = UI.fill(),
+
+			UI.Text("Title")({ text = S.t("bench.title"), textSize = "title" }),
+			UI.Text("Live")({ text = S.t("bench.live"), textSize = "caption", role = "secondary" }),
+			UI.Composition("Bench")({
+				-- `leadFirst` (framework-gaps-phase2 item 12): see shell.luau's header
+				-- for the full account of why this used to be a CUSTOM arrangement
+				-- reusing the `"twoLane"` name for different lanes.
+				arrangements = { "leadFirst", "column" },
+				laneGap = "m",
+				groupGap = "m",
+				width = UI.fill(),
+				height = UI.fill(),
+				groups = {
+					{ id = "preview", lane = "lead", sizing = "hug", minWidth = "app.cartwheel.previewMin" },
+					{ id = "form", lane = "main", sizing = "fill" },
+				},
+
+				UI.Region("Preview")({
+					group = "preview",
+					rank = 2,
+					-- the compact preview drops the attribute read-out, and a dropped one
+					-- drops the potion entirely — the screen owes both a route
+					recover = "overflow",
+					floor = { lines = 2 },
+					mayDrop = true,
+					preview,
+					previewCompact,
+				}),
+				UI.Region("Form")({
+					group = "form",
+					rank = 1,
+					sizing = "fill",
+					mayScroll = true,
+					floor = { lines = 4 },
+					form,
+				}),
+			}),
+		})
+
 		return page
 	end
 
-	function self.dump(): any
-		local attrs = attributes:get() :: any
-		return {
-			potion = currentId:get(),
-			name = nameValue:get(),
-			base = baseValue:get(),
-			essence = essenceValue:get(),
-			garnish = garnishValue:get(),
-			attributes = table.clone(attrs),
-			strongest = (data.ATTRIBUTES :: any)[strongest:get()],
-		}
-	end
+	self.view = buildPage
 
-	function self.dispose()
-		for _, unsubscribe in unsubscribes do
-			unsubscribe()
-		end
-		garnishPicker.dispose()
-		essencePicker.dispose()
-		basePicker.dispose()
-		nameField.dispose()
-		for _, gauge in gauges do
-			gauge.dispose()
-		end
-		for _, memo in gaugeMemos do
-			memo:dispose()
-		end
-		hasGarnish:dispose()
-		hasEssence:dispose()
-		baseHue:dispose()
-		peak:dispose()
-		strongest:dispose()
-		attributes:dispose()
-		currentId:dispose()
-		garnishValue:dispose()
-		essenceValue:dispose()
-		baseValue:dispose()
-		nameValue:dispose()
+	function self.dump(): any
+		local attrs = attributes:peek() :: any
+		return {
+			potion = currentId:peek(),
+			name = nameValue:peek(),
+			base = baseValue:peek(),
+			essence = essenceValue:peek(),
+			garnish = garnishValue:peek(),
+			attributes = table.clone(attrs),
+			strongest = (data.ATTRIBUTES :: any)[strongest:peek()],
+		}
 	end
 
 	return self

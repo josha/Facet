@@ -67,6 +67,8 @@ function callout_queue.new(ctx: any)
 	local clock = 0
 	-- entry id -> { data, handle } for the ONE mounted callout
 	local mounted: any = nil
+	-- the visible entry's source surface has not joined the stack yet
+	local awaitingSource = false
 
 	local schedule
 	local api = {}
@@ -92,6 +94,7 @@ function callout_queue.new(ctx: any)
 		mutation, so a push that displaces something costs one teardown and one mount
 		instead of a flicker of both. ]]
 	local function syncBody()
+		awaitingSource = false
 		local visible = schedule.visible()
 		local entry = visible[1]
 		if entry == nil then
@@ -110,7 +113,17 @@ function callout_queue.new(ctx: any)
 			schedule.dismiss(entry.id, "capacity")
 			return
 		end
-		local ok, handle = pcall(presenter.presentAnchored, panel, {
+		-- A callout asked for while its source surface is still being presented waits
+		-- for that surface to join the stack: mounted now, it would sit BENEATH the
+		-- surface it annotates, in focus order and in the stack alike.
+		local sourcePath = if type(anchor) == "table" and type(anchor.source) == "table"
+			then anchor.source.path
+			else nil
+		if sourcePath ~= nil and handleByPath ~= nil and handleByPath(sourcePath) == nil then
+			awaitingSource = true
+			return
+		end
+		local ok, handle = pcall(data.presentAnchored or presenter.presentAnchored, panel, {
 			id = data.id,
 			--[[ NEVER A MODAL, AND NEVER THE FOCUS RING. `presentAnchored` routes
 				through `present` rather than `presentModal` unless it is told otherwise,
@@ -118,6 +131,24 @@ function callout_queue.new(ctx: any)
 				where the player put it. A coach mark that captured focus would be a
 				dialog wearing an arrow. ]]
 			initialFocus = "none",
+			--[[ ...AND IT DOES NOT OWN THE RING EITHER, which "never the focus ring"
+				above only half-delivered. `initialFocus = "none"` says where the ring
+				STARTS; it says nothing about where the NEXT arrow may go, and a
+				presented surface used to own navigation simply by being on top. So the
+				first Navigate after a mark appeared walked onto the plate, found its
+				single focusable and stayed there — measured on the showcase's ten-foot
+				Chat mark, where the tab strip stopped answering arrows the moment the
+				mark appeared.
+
+				TWO FACTS, BOTH NEEDED. `focusChrome` puts the plate's one affordance in
+				the ANNOTATED screen's ring, so it is still one arrow away (which D3b
+				requires) and one arrow back; `responder = "passive"` keeps the mark's
+				own action context out of the Navigate dispatch, so one press is one
+				move rather than one per surface that heard the key. A press on the
+				plate still reaches it: the presenter routes Activate to whoever owns
+				the focused node (`graph.isAdoptedChrome`). ]]
+			responder = "passive",
+			focusChrome = "bottom",
 			anchor = anchor,
 		})
 		if not ok or type(handle) ~= "table" then
@@ -190,7 +221,7 @@ function callout_queue.new(ctx: any)
 	--[[ ASK FOR THE SCREEN. Returns the entry id; `release(id, reason)` gives it
 		back. A request that cannot be shown yet WAITS — it is not dropped and it is
 		not shown beside the one that is up. ]]
-	function api.request(spec: any): number
+	function api.request(spec: any, presentAnchored: any?): number
 		specGuard.assertKnownKeys("presenter.presentCallout", spec, REQUEST_KEYS, "spec")
 		if type(spec) ~= "table" or type(spec.build) ~= "function" or type(spec.id) ~= "string" then
 			error(
@@ -199,12 +230,22 @@ function callout_queue.new(ctx: any)
 				0
 			)
 		end
+		local data = table.clone(spec)
+		data.presentAnchored = presentAnchored
 		return schedule.push({
 			key = spec.key,
 			priority = spec.priority,
 			duration = NEVER_TIMES_OUT,
-			data = spec,
+			data = data,
 		})
+	end
+
+	-- A surface joined the stack: mount the callout that was waiting for it.
+	function api.surfacePresented()
+		if awaitingSource then
+			awaitingSource = false
+			sync()
+		end
 	end
 
 	function api.release(id: number, reason: string?): boolean

@@ -235,8 +235,8 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 							`tests/text_premeasure.spec.luau` pins the shipped number. ]]
 						local solvesBefore = stats.solves
 						-- `env:get` answers the FACT's signal, so the current value is one
-						-- more `:get()` in (same shape as every other read in this file)
-						env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+						-- more `:peek()` in (same shape as every other read in this file)
+						env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):peek() :: number?) or 0) + 1)
 						if stats.solves == solvesBefore then
 							solveAndApply()
 						end

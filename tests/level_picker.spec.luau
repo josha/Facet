@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ LevelPicker: a run of discrete segments that reads as ONE value.
 
 	The control generalizes `newRating` (director ruling 2026-08-16): a
@@ -17,17 +18,18 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local environment = require("../src/env/environment")
-local presenterLib = require("../src/present/presenter")
+local presenterLib = harness.presenterLib
 local actionsLib = require("../src/input/actions")
 local fake_target = require("../tests/lib/fake_target")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local level_picker = require("../src/controls/level_picker")
+local Compose = require("../src/vendor/compose/core")
 
 local STRIP = "/S/Quality/Strip"
 local function markPath(index: number): string
@@ -38,7 +40,7 @@ end
 	`tests/lib/world.luau` owns the construction and its two invariants — the
 	viewport is set before anything can solve, and one presenter per adapter. The
 	tuple order here, `core, env, adapter, system, pres`, is the one
-	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	`harness.newPresenter` itself takes and is now the only one in the suite: twelve
 	files used to swap positions three and four with the same five names, so a line
 	copied between two neighbouring specs bound an action system to a variable
 	called `adapter` and said nothing. ]]
@@ -52,12 +54,12 @@ end
 
 local function mount(specOverrides: any?, start: number?)
 	local core, env, adapter, system, pres = world()
-	local value = core:signal(start or 2)
+	local value = Compose.cell(start or 2)
 	local spec: any = { id = "Quality", value = value, count = 10 }
 	for k, v in (specOverrides or {}) :: any do
 		spec[k] = v
 	end
-	local control = Facet.Controls.LevelPicker(core, spec)
+	local control = harness.Controls.LevelPicker(core, spec)
 	local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 	pres.refresh()
 	return core, adapter, system, pres, value, control, env, handle
@@ -96,9 +98,9 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("a read-only Memo is refused at BUILD, not on the first tap", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.LevelPicker(core, {
+			return harness.Controls.LevelPicker(core, {
 				id = "L",
-				value = core:memo(function()
+				value = Compose.formula(function()
 					return 3
 				end),
 			})
@@ -109,7 +111,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 		local core = customFactory.new()
 		for _, bad in { 0, -3, 2.5 } do
 			expect(pcall(function()
-				return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), count = bad })
+				return harness.Controls.LevelPicker(core, { id = "L", value = Compose.cell(1), count = bad })
 			end)).toBe(false)
 		end
 	end)
@@ -117,19 +119,19 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("an unknown spec key is an authoring error that names the key", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), starSize = "small" })
+			return harness.Controls.LevelPicker(core, { id = "L", value = Compose.cell(1), starSize = "small" })
 		end)
 		expect(ok).toBe(false)
-		-- `starSize` is newRating's spelling and is NOT on this control's spec:
+		-- `starSize` is UI.Rating's spelling and is NOT on this control's spec:
 		-- the rename must be a refusal that names it, never a silent no-op
 		expect(string.find(tostring(err), "starSize", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "newLevelPicker", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "UI.LevelPicker", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("an unknown segment is a build error naming the three that exist", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), segment = "dots" })
+			return harness.Controls.LevelPicker(core, { id = "L", value = Compose.cell(1), segment = "dots" })
 		end)
 		expect(ok).toBe(false)
 		for _, name in { "bar", "glyph", "image" } do
@@ -140,7 +142,7 @@ describe("LevelPicker: the value model and the closed spec", function()
 	it("an unknown segmentSize is a build error, not a silently-default segment", function()
 		local core = customFactory.new()
 		expect(pcall(function()
-			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), segmentSize = "huge" })
+			return harness.Controls.LevelPicker(core, { id = "L", value = Compose.cell(1), segmentSize = "huge" })
 		end)).toBe(false)
 	end)
 
@@ -150,21 +152,21 @@ describe("LevelPicker: the value model and the closed spec", function()
 		-- wrong pair is the accepted-and-ignored class the closed spec exists to
 		-- remove (the progress_view refusal shape)
 		expect(pcall(function()
-			return Facet.Controls.LevelPicker(
+			return harness.Controls.LevelPicker(
 				core,
-				{ id = "L", value = core:signal(1), segment = "bar", glyphs = { filled = "x", empty = "o" } }
+				{ id = "L", value = Compose.cell(1), segment = "bar", glyphs = { filled = "x", empty = "o" } }
 			)
 		end)).toBe(false)
 		expect(pcall(function()
-			return Facet.Controls.LevelPicker(
+			return harness.Controls.LevelPicker(
 				core,
-				{ id = "L", value = core:signal(1), segment = "glyph", images = { filled = "a", empty = "b" } }
+				{ id = "L", value = Compose.cell(1), segment = "glyph", images = { filled = "a", empty = "b" } }
 			)
 		end)).toBe(false)
 		-- ...and an image segment with NO images is refused too: an image picker
 		-- with nothing to draw is an empty strip, not a default
 		expect(pcall(function()
-			return Facet.Controls.LevelPicker(core, { id = "L", value = core:signal(1), segment = "image" })
+			return harness.Controls.LevelPicker(core, { id = "L", value = Compose.cell(1), segment = "image" })
 		end)).toBe(false)
 	end)
 
@@ -172,21 +174,21 @@ describe("LevelPicker: the value model and the closed spec", function()
 		local _, adapter, _, pres, value = mount()
 		adapter.pointerDown(STRIP, pointAt(adapter, -2))
 		pres.refresh()
-		expect(value:get()).toBe(0)
+		expect(value:peek()).toBe(0)
 		local _, adapter2, _, pres2, value2 = mount({ allowZero = false })
 		adapter2.pointerDown(STRIP, pointAt(adapter2, -2))
 		pres2.refresh()
-		expect(value2:get()).toBe(1)
+		expect(value2:peek()).toBe(1)
 		-- ...and the top of the run is the count, however far past it you drag
 		adapter.pointerUp(pointAt(adapter, -2))
 		adapter.pointerDown(STRIP, pointAt(adapter, 3))
 		pres.refresh()
-		expect(value:get()).toBe(10)
+		expect(value:peek()).toBe(10)
 	end)
 
 	it("semantic text reports the level IN ITS RANGE, never a bare number", function()
 		local _, _, _, _, _, control = mount()
-		expect(control.semanticText:get()).toBe("2 of 10")
+		expect(control.semanticText:peek()).toBe("2 of 10")
 	end)
 
 	it("dump reports segment, count, value and semanticText, and is deterministic", function()
@@ -206,10 +208,10 @@ describe("LevelPicker: the value model and the closed spec", function()
 
 	it("build/interact/dispose returns the registry to its baseline", function()
 		local core, env, adapter, _, pres = world()
-		local baseline = core:counters() -- AFTER the long-lived singletons
+		local baseline = core.owner.size() -- AFTER the long-lived singletons
 
-		local value = core:signal(2)
-		local control = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10, env = env })
+		local value = Compose.cell(2)
+		local control = harness.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10, env = env })
 		local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
@@ -219,12 +221,9 @@ describe("LevelPicker: the value model and the closed spec", function()
 
 		pres.dismiss(handle)
 		control.dispose()
-		value:dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -356,9 +355,9 @@ describe("LevelPicker: one control, not N buttons", function()
 		local seen: { [string]: boolean } = {}
 		for _ = 1, 8 do
 			tap(system, pres, "DPadDown")
-			seen[tostring(pres.focus.focused:get())] = true
+			seen[tostring(pres.focus.focused:peek())] = true
 			tap(system, pres, "DPadRight")
-			seen[tostring(pres.focus.focused:get())] = true
+			seen[tostring(pres.focus.focused:peek())] = true
 		end
 		expect(seen[STRIP]).toBe(true)
 		for i = 1, 10 do
@@ -373,20 +372,20 @@ describe("LevelPicker: one control, not N buttons", function()
 		expect(#focusStopsIn(handle, "/S/Quality")).toBe(0)
 		local _, _, system2, pres2 = mount({ readOnly = true })
 		tap(system2, pres2, "DPadDown")
-		expect(tostring(pres2.focus.focused:get())).never().toBe(STRIP)
+		expect(tostring(pres2.focus.focused:peek())).never().toBe(STRIP)
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
 		pres.refresh()
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 	end)
 
 	it("a disabled picker refuses every input class, not just the pointer", function()
 		local _, adapter, system, pres, value = mount({ enabled = false })
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
 		pres.refresh()
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 		tap(system, pres, "DPadDown")
 		tap(system, pres, "Period")
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 	end)
 end)
 
@@ -397,42 +396,42 @@ describe("LevelPicker reaches the same arithmetic from every input class", funct
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.95))
 		adapter.pointerUp(pointAt(adapter, 0.95))
 		pres.refresh()
-		expect(value:get()).toBe(10)
+		expect(value:peek()).toBe(10)
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.35))
 		adapter.pointerUp(pointAt(adapter, 0.35))
 		pres.refresh()
-		expect(value:get()).toBe(4)
+		expect(value:peek()).toBe(4)
 	end)
 
 	it("LevelPicker touch: a finger drag across the strip scrubs the level live", function()
 		local _, adapter, _, pres, value = mount()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.05), "touch")
 		pres.refresh()
-		expect(value:get()).toBe(1)
+		expect(value:peek()).toBe(1)
 		adapter.pointerMove(pointAt(adapter, 0.65))
 		pres.refresh()
-		expect(value:get()).toBe(7)
+		expect(value:peek()).toBe(7)
 		adapter.pointerUp(pointAt(adapter, 0.65))
 		pres.refresh()
-		expect(value:get()).toBe(7)
+		expect(value:peek()).toBe(7)
 	end)
 
 	it("LevelPicker keyboard: Adjust on the focused strip sets the level", function()
 		local _, _, system, pres, value = mount()
 		tap(system, pres, "DPadDown")
 		tap(system, pres, "Period")
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		tap(system, pres, "Comma")
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 	end)
 
 	it("LevelPicker gamepad: the bumpers Adjust the focused level picker", function()
 		local _, _, system, pres, value = mount()
 		tap(system, pres, "DPadDown")
 		tap(system, pres, "ButtonR1")
-		expect(value:get()).toBe(3)
+		expect(value:peek()).toBe(3)
 		tap(system, pres, "ButtonL1")
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 	end)
 
 	it("LevelPicker pointer affordance: ONE drag target covers the run, at every count", function()
@@ -465,8 +464,8 @@ describe("LevelPicker reaches the same arithmetic from every input class", funct
 
 	it("LevelPicker keyboard affordance: no Adjust key is bound while focus sits outside", function()
 		local core, _, _, system, pres = world()
-		local value = core:signal(2)
-		local control = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
+		local value = Compose.cell(2)
+		local control = harness.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -477,13 +476,13 @@ describe("LevelPicker reaches the same arithmetic from every input class", funct
 		pres.refresh()
 		-- focus is on the first focusable, which is OUTSIDE the picker
 		tap(system, pres, "ButtonR1")
-		expect(value:get()).toBe(2)
+		expect(value:peek()).toBe(2)
 	end)
 
 	it("LevelPicker gamepad affordance: at the limit the arrow goes back to navigation", function()
 		local core, _, _, system, pres = world()
-		local value = core:signal(9)
-		local control = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
+		local value = Compose.cell(9)
+		local control = harness.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
 		local STRIP_IN_ROW = "/S/Row/Quality/Strip"
 		local AFTER = "/S/Row/After"
 		pres.present(
@@ -509,21 +508,21 @@ describe("LevelPicker reaches the same arithmetic from every input class", funct
 		)
 		pres.refresh()
 		tap(system, pres, "DPadRight") -- onto the strip
-		expect(tostring(pres.focus.focused:get())).toBe(STRIP_IN_ROW)
+		expect(tostring(pres.focus.focused:peek())).toBe(STRIP_IN_ROW)
 		tap(system, pres, "DPadRight") -- 9 -> 10, the ring must NOT move
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`10@{STRIP_IN_ROW}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`10@{STRIP_IN_ROW}`)
 		tap(system, pres, "DPadRight") -- at the maximum: the ring moves, the value does not
-		expect(`{value:get()}@{pres.focus.focused:get()}`).toBe(`10@{AFTER}`)
+		expect(`{value:peek()}@{pres.focus.focused:peek()}`).toBe(`10@{AFTER}`)
 	end)
 
 	it("LevelPicker hot-switch: losing the pointer mid-scrub CANCELS back, it never commits", function()
 		local _, adapter, _, pres, value, control = mount()
 		adapter.pointerDown(STRIP, pointAt(adapter, 0.95))
 		pres.refresh()
-		expect(value:get()).toBe(10)
+		expect(value:peek()).toBe(10)
 		control.onInteractionClassLost("pointer")
 		pres.refresh()
-		expect(value:get()).toBe(2) -- the pre-scrub value, not the half-finished one
+		expect(value:peek()).toBe(2) -- the pre-scrub value, not the half-finished one
 	end)
 end)
 
@@ -576,7 +575,7 @@ describe("LevelPicker: a high count is diagnosed, never refused", function()
 		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
 		local control =
-			Facet.Controls.LevelPicker(core, { id = "Quality", value = core:signal(1), count = count, env = env })
+			harness.Controls.LevelPicker(core, { id = "Quality", value = Compose.cell(1), count = count, env = env })
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		local snap = themes.resolve((require)(`../examples/themes/{pkgName}`).build(themes), nil, {})
@@ -609,7 +608,7 @@ end)
 describe("newRating is a thin preset over newLevelPicker", function()
 	it("newRating is count 5, glyph segments and the star pair — nothing else", function()
 		local core, _, adapter, _, pres = world()
-		local control = Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3) })
+		local control = harness.Controls.Rating(core, { id = "Stars", value = Compose.cell(3) })
 		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 		pres.refresh()
 		local out = ""
@@ -629,8 +628,8 @@ describe("newRating is a thin preset over newLevelPicker", function()
 
 	it("newRating still accepts starSize and maps it to the segment size", function()
 		local core, _, adapter, _, pres = world()
-		local small = Facet.Controls.Rating(core, { id = "A", value = core:signal(3) })
-		local large = Facet.Controls.Rating(core, { id = "B", value = core:signal(3), starSize = "large" })
+		local small = harness.Controls.Rating(core, { id = "A", value = Compose.cell(3) })
+		local large = harness.Controls.Rating(core, { id = "B", value = Compose.cell(3), starSize = "large" })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -644,7 +643,7 @@ describe("newRating is a thin preset over newLevelPicker", function()
 		local a = adapter.node("/S/Col/A/Stars/Star1").props.textSize
 		local b = adapter.node("/S/Col/B/Stars/Star1").props.textSize
 		expect(b > a).toBe(true)
-		local explicitSmall = Facet.Controls.Rating(core, { id = "C", value = core:signal(3), starSize = "small" })
+		local explicitSmall = harness.Controls.Rating(core, { id = "C", value = Compose.cell(3), starSize = "small" })
 		pres.present(UI.Screen({ id = "T", children = { explicitSmall.blueprint } }))
 		pres.refresh()
 		expect(adapter.node("/T/C/Stars/Star1").props.textSize).toBe(a)
@@ -652,7 +651,7 @@ describe("newRating is a thin preset over newLevelPicker", function()
 
 	it("newRating keeps its own dump schema, and gains `segment` additively", function()
 		local core = customFactory.new()
-		local control = Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3) })
+		local control = harness.Controls.Rating(core, { id = "Stars", value = Compose.cell(3) })
 		local d = control.dump()
 		-- every key the schema carried before this control was generalized still
 		-- carries the value it carried: the schema stays /1 because nothing moved
@@ -666,8 +665,10 @@ describe("newRating is a thin preset over newLevelPicker", function()
 
 	it("newRating diagnoses a high count through exactly the same rule", function()
 		local core = customFactory.new()
-		local control =
-			Facet.Controls.Rating(core, { id = "Stars", value = core:signal(3), count = level_picker.HIGH_COUNT + 1 })
+		local control = harness.Controls.Rating(
+			core,
+			{ id = "Stars", value = Compose.cell(3), count = level_picker.HIGH_COUNT + 1 }
+		)
 		expect(#control.diagnostics()).toBe(1)
 		control.dispose()
 	end)
@@ -760,9 +761,9 @@ describe("LevelPicker: every mark paints a rectangle with AREA", function()
 		-- centred cross axis does not stretch its children, so the strip's own
 		-- declared floor is the only thing holding the run open.
 		local core, _, adapter, _, pres = world()
-		local value = core:signal(2)
-		local picker = Facet.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
-		local stepper = Facet.Controls.Stepper(core, { id = "QualityStep", value = value, min = 0, max = 10 })
+		local value = Compose.cell(2)
+		local picker = harness.Controls.LevelPicker(core, { id = "Quality", value = value, count = 10 })
+		local stepper = harness.Controls.Stepper(core, { id = "QualityStep", value = value, min = 0, max = 10 })
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -813,6 +814,8 @@ describe("LevelPicker: every mark paints a rectangle with AREA", function()
 			local pres = presenterLib.new(core, env, adapter, system)
 			local built = scenario.build({
 				Facet = Facet,
+				UI = (harness.libraryOf(core)),
+				Compose = Facet.Compose,
 				core = core,
 				env = env,
 				adapter = adapter,
@@ -848,7 +851,6 @@ describe("LevelPicker: every mark paints a rectangle with AREA", function()
 					)
 				end
 			end
-			built.dispose()
 		end
 	end)
 end)

@@ -115,7 +115,8 @@ end
 
 export type MountOpts = {
 	Facet: any,
-	core: any,
+	-- the application whose controls the sections are built from
+	app: any,
 	env: any,
 	-- the theme picker's own two sections (`theme_picker.mount(...).sections`),
 	-- or nil when no packages replicated. Settings composes them rather than
@@ -163,26 +164,23 @@ export type MountOpts = {
 	    last. That is what makes this a setting rather than a demo's side effect.
 ]]
 function settings_panel.mount(opts: MountOpts): any
-	local Facet = opts.Facet
-	local UI = Facet.View
-	local core = opts.core
+	local UI, Compose = opts.app.controls, opts.Facet.Compose
 	local env = opts.env
 	-- Preferences outlive each opening of the settings panel. The model is
-	-- host-owned; UI.Picker creates and disposes its own mounted control.
-	local scope = core:scope("gallery-settings-panel")
+	-- host-owned; each section builds its controls when the panel mounts it.
 	local COPY: any = opts.copy or settings_panel.COPY
 
 	local reducedFact = env:get("reducedMotion")
-	local initial = settings_panel.modeOf(reducedFact:get())
+	local initial = settings_panel.modeOf(reducedFact:peek())
 	-- the preference (a press on this control is its only writer)
-	local setting = scope:own(core:signal(initial))
+	local setting = Compose.cell(initial)
 	-- what is live (mirrors the fact, and is what the picker shows)
-	local mode = scope:own(core:memo(function(use)
+	local mode = Compose.formula(function(use)
 		return settings_panel.modeOf(use(reducedFact))
-	end))
+	end)
 
 	local function applyMode(value: string)
-		local command = settings_panel.choose(settings_panel.modeOf(reducedFact:get()), value)
+		local command = settings_panel.choose(settings_panel.modeOf(reducedFact:peek()), value)
 		if command.action == "none" then
 			return
 		end
@@ -192,41 +190,41 @@ function settings_panel.mount(opts: MountOpts): any
 	end
 
 	-- The preference outlives the card; its view and subscriptions do not.
-	local MotionSettings = Facet.component(function(ui)
-		local View = Facet.View
-		return View.VStack({
-			id = "Motion",
-			width = View.fill(),
+	local function motionSection()
+		-- The picker shows the live fact, which a platform preference can move.
+		local shown = Compose.cell(mode:peek())
+		Compose.watch(function(use)
+			shown:set(use(mode))
+		end)
+		return UI.VStack("Motion")({
+			width = UI.fill(),
 			gap = "xs",
-			View.Picker({
-				id = "MotionMode",
+			UI.Picker("MotionMode")({
 				label = COPY.motion,
 				style = "segmented",
 				options = {
 					{ value = "full", label = COPY.full },
 					{ value = "reduced", label = COPY.reduced },
 				},
-				selected = ui.read(mode),
+				selected = shown,
 				onChange = function(value)
 					setting:set(value)
 					applyMode(value)
 				end,
 			}),
-			View.Text({
-				id = "Note",
+			UI.Text("Note")({
 				text = COPY.motionNote,
 				textSize = "caption",
 				role = "secondary",
-				width = View.fill(),
+				width = UI.fill(),
 			}),
 		})
-	end)
-	local motionSection = MotionSettings({})
+	end
 
-	local previewProfile = scope:own(core:signal("automatic"))
-	local previewOrientation = scope:own(core:signal("portrait"))
-	local previewInput = scope:own(core:signal("automatic"))
-	local distanceSetting = scope:own(core:signal(env:get("viewingDistance"):get()))
+	local previewProfile = Compose.cell("automatic")
+	local previewOrientation = Compose.cell("portrait")
+	local previewInput = Compose.cell("automatic")
+	local distanceSetting = Compose.cell(env:get("viewingDistance"):peek())
 	local function setDistance(value: string): boolean
 		if value ~= "automatic" and value ~= "near" and value ~= "ten-foot" then
 			return false
@@ -241,37 +239,35 @@ function settings_panel.mount(opts: MountOpts): any
 		end
 		return true
 	end
-	local distancePicker = UI.Picker({
-		id = "ViewingDistance",
-		label = COPY.viewingDistance,
-		env = env,
-		selected = distanceSetting,
-		options = {
-			{ value = "automatic", label = COPY.automaticDistance },
-			{ value = "near", label = COPY.nearDistance },
-			{ value = "ten-foot", label = COPY.tvDistance },
-		},
-		onChange = function(value)
-			setDistance(value)
-		end,
-	})
-	local sections: { any } = {
-		UI.VStack({
-			id = "Distance",
+	local function distanceSection()
+		local distancePicker = UI.Picker("ViewingDistance")({
+			label = COPY.viewingDistance,
+			env = env,
+			selected = distanceSetting,
+			options = {
+				{ value = "automatic", label = COPY.automaticDistance },
+				{ value = "near", label = COPY.nearDistance },
+				{ value = "ten-foot", label = COPY.tvDistance },
+			},
+			onChange = function(value)
+				setDistance(value)
+			end,
+		})
+		return UI.VStack("Distance")({
 			width = UI.fill(),
 			gap = "xs",
 
 			distancePicker,
-			UI.Text({
-				id = "Note",
+			UI.Text("Note")({
 				text = COPY.distanceNote,
 				width = UI.fill(),
 				textSize = "caption",
 				role = "secondary",
 			}),
-		}),
-		motionSection,
-	}
+		})
+	end
+	-- Each section is a component: the host that places it builds it in its own mount.
+	local sections: { any } = { distanceSection, motionSection }
 	local function setPreview(value: string): boolean
 		if opts.preview == nil or not opts.preview.setProfile(value) then
 			return false
@@ -301,8 +297,7 @@ function settings_panel.mount(opts: MountOpts): any
 			for _, value in values do
 				table.insert(options, { value = value, label = COPY[value] })
 			end
-			return UI.Picker({
-				id = id,
+			return UI.Picker(id)({
 				label = label,
 				valueAlignment = "start",
 				env = env,
@@ -313,10 +308,8 @@ function settings_panel.mount(opts: MountOpts): any
 			})
 		end
 		-- Display presets replace the distance-only surface in the showcase.
-		local Display = Facet.component(function(ui)
-			local profile = ui.read(previewProfile)
-			return UI.VStack({
-				id = "Display",
+		sections[1] = function()
+			return UI.VStack("Display")({
 				width = UI.fill(),
 				gap = "s",
 
@@ -334,8 +327,8 @@ function settings_panel.mount(opts: MountOpts): any
 					previewOrientation,
 					{ "portrait", "landscape" },
 					setOrientation,
-					function()
-						local value = profile()
+					function(use)
+						local value = use(previewProfile)
 						return value == "phone" or value == "tablet"
 					end
 				),
@@ -347,36 +340,28 @@ function settings_panel.mount(opts: MountOpts): any
 					setInput,
 					true
 				),
-				UI.Text({
-					id = "Note",
+				UI.Text("Note")({
 					text = COPY.previewNote,
 					width = UI.fill(),
 					textSize = "caption",
 					role = "secondary",
 				}),
 			})
-		end)
-		sections[1] = Display({})
+		end
 	end
 	if opts.buildStamp ~= nil and opts.buildStamp ~= "" then
-		table.insert(
-			sections,
-			UI.VStack({
-				id = "Build",
+		table.insert(sections, function()
+			return UI.VStack("Build")({
 				width = UI.fill(),
 				gap = "xs",
-
-				UI.Text({
-					id = "Stamp",
+				UI.Text("Stamp")({
 					text = `build {opts.buildStamp}`,
 					textSize = "caption",
 					role = "secondary",
-					-- WRAPS, never clips: a sha plus a timestamp is long, and this
-					-- is the one line whose whole job is being read exactly.
 					width = UI.fill(),
 				}),
 			})
-		)
+		end)
 	end
 	for _, section in opts.themeSections or {} do
 		table.insert(sections, section)
@@ -412,18 +397,18 @@ function settings_panel.mount(opts: MountOpts): any
 		-- demo mount and teardown; see the header for why that is what makes this
 		-- a setting rather than a demo's side effect.
 		apply = function()
-			applyMode(setting:get())
+			applyMode(setting:peek())
 			if opts.preview ~= nil then
 				opts.preview.apply()
 			end
-			if opts.preview == nil or distanceSetting:get() ~= "automatic" then
-				env:set("viewingDistance", distanceSetting:get())
+			if opts.preview == nil or distanceSetting:peek() ~= "automatic" then
+				env:set("viewingDistance", distanceSetting:peek())
 			end
 		end,
 		-- the scriptable route a pointer-free drive takes, and the SAME call the
 		-- picker press makes rather than a parallel one that can rot on its own
 		setMode = function(value: string): boolean
-			local command = settings_panel.choose(mode:get(), value)
+			local command = settings_panel.choose(mode:peek(), value)
 			if command.action == "none" then
 				return false
 			end
@@ -431,9 +416,7 @@ function settings_panel.mount(opts: MountOpts): any
 			applyMode(command.mode)
 			return true
 		end,
-		dispose = function()
-			scope:dispose()
-		end,
+		dispose = function() end,
 	}
 end
 

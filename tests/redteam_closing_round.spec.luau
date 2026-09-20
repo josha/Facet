@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE WICKED-FAST CLOSING RED-TEAM'S THREE ADJUDICATED FINDINGS, one case each.
 
 	The campaign's final adversarial pass read the whole `2d9f90cf..HEAD` diff and
@@ -101,13 +102,14 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local solver = require("../src/layout/solver")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function contains(haystack: string, needle: string): boolean
 	return string.find(haystack, needle, 1, true) ~= nil
@@ -200,7 +202,7 @@ describe("RED-TEAM 1: an anchor child served by the reuse arm keeps its measure 
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local nudge = core:signal(0)
+			local nudge = Compose.cell(0)
 			local root = mountLib.mount(
 				core,
 				UI.Screen({
@@ -271,7 +273,7 @@ describe("RED-TEAM 1: an anchor child served by the reuse arm keeps its measure 
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local nudge = core:signal(0)
+			local nudge = Compose.cell(0)
 			local root = mountLib.mount(
 				core,
 				UI.Screen({
@@ -347,7 +349,7 @@ describe("RED-TEAM 1: an anchor child served by the reuse arm keeps its measure 
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local nudge = core:signal(0)
+			local nudge = Compose.cell(0)
 			local root = mountLib.mount(
 				core,
 				UI.Screen({
@@ -414,21 +416,24 @@ describe("RED-TEAM 1: an anchor child served by the reuse arm keeps its measure 
 			local env = environment.new(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local anch = core:signal("topLeft")
+			-- The scene refuses an unknown anchor at the property, so the fixture
+			-- writes it on the mounted node and an arrange-classed nudge carries it
+			-- into the solve.
+			local nudge = Compose.cell(0)
+			local child = UI.Box({ id = "C", anchor = "topLeft", offsetX = nudge, width = px(60), height = px(40) })
 			local root = mountLib.mount(
 				core,
 				UI.Screen({
 					id = "S",
 					children = {
-						UI.Anchor({
-							id = "A",
-							width = px(400),
-							height = px(300),
-							children = { UI.Box({ id = "C", anchor = anch, width = px(60), height = px(40) }) },
-						}),
+						UI.Anchor({ id = "A", width = px(400), height = px(300), children = { child } }),
 					},
 				})
 			)
+			local function anchorTo(value: string)
+				child.props.anchor = value
+				nudge:set(nudge:peek() + 1)
+			end
 			local controller = attach(core, root, env)
 			controller.initialRender()
 			local BAD = "unknown anchor 'nope'"
@@ -438,7 +443,7 @@ describe("RED-TEAM 1: an anchor child served by the reuse arm keeps its measure 
 			-- files about it in the same solve. THE ARM MUST STAY ARMED: this finding
 			-- is not a measure-time one, and disarming on it would cost the arm on
 			-- every surface that ever reports anything.
-			anch:set("nope")
+			anchorTo("nope")
 			controller.refresh()
 			local bad = readback(controller, lastSolve, BAD)
 			expect(bad.solves).toBe(2)
@@ -450,7 +455,7 @@ describe("RED-TEAM 1: an anchor child served by the reuse arm keeps its measure 
 			-- ...and the repair CLEARS it. This is the direction the `walkedIds`
 			-- alternative would have broken: `C` is walked, files nothing this solve,
 			-- and the replay must refuse to re-file a finding whose cause is gone.
-			anch:set("topRight")
+			anchorTo("topRight")
 			controller.refresh()
 			local fixed = readback(controller, lastSolve, BAD)
 			expect(fixed.solves).toBe(3)
@@ -478,7 +483,7 @@ local function compositionWorld(inner: string?): any
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local slide = core:signal(0)
+	local slide = Compose.cell(0)
 	local root = mountLib.mount(
 		core,
 		UI.Screen({

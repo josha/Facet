@@ -10,7 +10,7 @@
 	closure.
 
 	PUBLIC INTERFACE (all consumed by `row_actions.luau`, which re-exports the two
-	types under its own names so no caller's `newRowActions.ActionSpec` moved):
+	types under its own names so no caller's `UI.RowActions.ActionSpec` moved):
 	  * types `Edge`, `ActionSpec`
 	  * `patternEscape(s)` — escape a node id for interpolation into a Lua pattern
 	  * `isPathPrefix(prefix, path)` — "is `path` inside `prefix`'s own subtree"
@@ -68,11 +68,11 @@ end
 
 -- validate ONE ActionSpec entry, naming the edge and index in every error so
 -- a bad row in a five-action tray is not a guessing game. `label` is the
--- CALLING entry point's own public name (`newRowActions` or
--- `newRowActionsHosted` — fix round 1, finding 5): this validation is shared,
+-- CALLING entry point's own public name (`UI.RowActions` or
+-- `UI.RowActions` — fix round 1, finding 5): this validation is shared,
 -- unconditional code (`buildEngine` calls it for both modes), and a hosted
 -- caller's bad ActionSpec used to get an error naming the WRONG entry point
--- (always the literal `"newRowActions"`) — greppable but misleading.
+-- (always the literal `"UI.RowActions"`) — greppable but misleading.
 local function buildActionSpec(label: string, rowId: string, edge: Edge, index: number, raw: any): ActionSpec
 	if type(raw) ~= "table" then
 		error(`Facet {label}('{rowId}'): \`{edge}[{index}]\` must be a table (ActionSpec)`, 0)

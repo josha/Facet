@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./harness")
 --[[ THE DEEP STACK SCENE — one thousand identical rows under ONE stack, as a
 	Facet fixture.
 
@@ -39,12 +40,13 @@
 	has a fixture that reaches it. They are opts on ONE scene rather than four scenes
 	because the drives and the snapshot must be identical across them — a gate case
 	that compares two different trees is comparing the trees. ]]
-local UI = require("../../src/blueprint")
-local mountLib = require("../../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../../src/env/environment")
 local renderer = require("../../src/render/renderer")
-local customFactory = require("../../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./fake_target")
+local Compose = require("../../src/vendor/compose/core")
 
 local deep_stack_scene = {}
 
@@ -228,17 +230,17 @@ function deep_stack_scene.new(opts: Opts?)
 	local rowChildren: { any } = {}
 	-- the weight that ARRIVES LATER (see `Opts.shrinkLater`) and the ForEach region's
 	-- item list (see `Opts.foreach`), both signals so a drive can move them
-	local shrinkOn = core:signal(0)
-	local listWidth = core:signal(900)
-	local listHeight = core:signal(700)
-	local listPad = core:signal(0)
-	local items = core:signal({ { key = "i1", kind = "box" }, { key = "i2", kind = "box" } })
+	local shrinkOn = Compose.cell(0)
+	local listWidth = Compose.cell(900)
+	local listHeight = Compose.cell(700)
+	local listPad = Compose.cell(0)
+	local items = Compose.cell({ { key = "i1", kind = "box" }, { key = "i2", kind = "box" } })
 	-- the descendant dim type that carries `containerRelativeInside` up to the gate row
-	local crelOn = core:signal(o.crelStart == true)
+	local crelOn = Compose.cell(o.crelStart == true)
 	for i = 1, n do
-		texts[i] = core:signal(`Row {i}`)
-		widths[i] = core:signal(300)
-		heights[i] = core:signal(18)
+		texts[i] = Compose.cell(`Row {i}`)
+		widths[i] = Compose.cell(300)
+		heights[i] = Compose.cell(18)
 		local kids: { any } = {
 			UI.Text({ id = "A", textSize = 14, text = texts[i] }),
 			UI.Text({ id = "B", textSize = 12, text = `#{i}` }),
@@ -325,7 +327,7 @@ function deep_stack_scene.new(opts: Opts?)
 					children = {
 						UI.Box({
 							id = "Inner",
-							width = core:memo(function(use: any)
+							width = Compose.formula(function(use: any)
 								if use(crelOn) :: boolean then
 									return { type = "containerRelative", fraction = 0.1 }
 								end
@@ -382,11 +384,11 @@ function deep_stack_scene.new(opts: Opts?)
 			id = `R{i}`,
 			padding = 0,
 			gap = 4,
-			width = core:memo(function(use: any)
+			width = Compose.formula(function(use: any)
 				return px(use(widths[i]) :: number)
 			end),
 			height = if o.coupled and isGate
-				then core:memo(function(use: any)
+				then Compose.formula(function(use: any)
 					return px(use(heights[i]) :: number)
 				end)
 				elseif o.fill and isGate then fill()
@@ -396,7 +398,7 @@ function deep_stack_scene.new(opts: Opts?)
 			-- magnitude with 1,000 rows, so PASS 1.5 is LIVE rather than merely declared
 			shrinkWeight = if o.shrink and isGate
 				then 1
-				elseif o.shrinkLater and isGate then core:memo(function(use: any)
+				elseif o.shrinkLater and isGate then Compose.formula(function(use: any)
 					return use(shrinkOn) :: number
 				end)
 				else nil,
@@ -442,20 +444,20 @@ function deep_stack_scene.new(opts: Opts?)
 			UI.VStack({
 				id = "List",
 				padding = if o.listPad
-					then core:memo(function(use: any)
+					then Compose.formula(function(use: any)
 						local v = use(listPad) :: number
 						return { top = v, right = 0, bottom = v, left = 0 }
 					end)
 					else 0,
 				gap = 2,
 				width = if o.listWidth
-					then core:memo(function(use: any)
+					then Compose.formula(function(use: any)
 						return px(use(listWidth) :: number)
 					end)
 					elseif o.hug or o.listHeight then { type = "content" }
 					else fill(),
 				height = if o.listHeight
-					then core:memo(function(use: any)
+					then Compose.formula(function(use: any)
 						return px(use(listHeight) :: number)
 					end)
 					else { type = "content" },
@@ -602,7 +604,7 @@ function deep_stack_scene.new(opts: Opts?)
 		structural solve widens `measureContains` to the whole `dirtyContains` set. ]]
 	function scene.insertItemKind(key: string, kind: string)
 		local next: { any } = {}
-		for _, item in items:get() :: any do
+		for _, item in items:peek() :: any do
 			table.insert(next, item)
 		end
 		table.insert(next, 1, { key = key, kind = kind })
@@ -612,7 +614,7 @@ function deep_stack_scene.new(opts: Opts?)
 
 	function scene.removeItem(key: string)
 		local next: { any } = {}
-		for _, item in items:get() :: any do
+		for _, item in items:peek() :: any do
 			if item.key ~= key then
 				table.insert(next, item)
 			end
@@ -629,7 +631,7 @@ function deep_stack_scene.new(opts: Opts?)
 		the re-created child is measure-dirty and the skip arm never fires for it. ]]
 	function scene.swapKind(key: string, kind: string)
 		local next: { any } = {}
-		for _, item in items:get() :: any do
+		for _, item in items:peek() :: any do
 			table.insert(next, if item.key == key then { key = item.key, kind = kind } else item)
 		end
 		items:set(next)

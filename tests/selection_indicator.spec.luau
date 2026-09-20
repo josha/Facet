@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- SelectionIndicator spec (navigation-and-menus brief §2 D4) — the sliding
 -- selection seam D5's TabView and D6's segmented Picker both consume.
 --
@@ -22,10 +23,17 @@ local serde = require("@lune/serde")
 
 local Facet = require("../src") :: any
 local selection_indicator = require("../src/controls/selection_indicator")
+
+-- Builds with the core's own control library.
+local function buildIndicator(core: any, spec: any): any
+	local _, _, library = harness.libraryOf(core)
+	return selection_indicator.build(library, core, spec)
+end
 local fake_target = require("../tests/lib/fake_target")
 local focus_map = require("../src/present/focus_map")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 -- ===== the harness ========================================================
 -- A two-segment horizontal strip of Buttons wrapped by the indicator. Segment
@@ -33,7 +41,7 @@ local UI = Facet.UI
 -- below would fail if anything interpolated an index instead of a rect.
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -42,8 +50,8 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local selected = core:signal(options.initial or "a")
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local selected = Compose.cell(options.initial or "a")
 	local axis = options.axis or "x"
 	local widths = options.widths or { 120, 80 }
 	local segmentDim = function(px: number)
@@ -58,7 +66,7 @@ local function world(opts: any?)
 	local strip = if axis == "x"
 		then UI.HStack({ id = "Strip", gap = 0, children = kids })
 		else UI.VStack({ id = "Strip", gap = 0, children = kids })
-	local indicator = selection_indicator.build(Facet, core, {
+	local indicator = buildIndicator(core, {
 		id = "Tabs",
 		content = strip,
 		segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
@@ -70,7 +78,7 @@ local function world(opts: any?)
 	-- a sibling ABOVE the wrapper whose height a test can change: growing it moves
 	-- the whole indicator, layer and segments together, which is what a scroll or
 	-- a re-flowing header does in the shipped case
-	local spacerHeight = core:signal(0)
+	local spacerHeight = Compose.cell(0)
 	local handle = pres.present(UI.Screen({
 		id = "S",
 		children = {
@@ -80,7 +88,7 @@ local function world(opts: any?)
 				children = {
 					UI.Box({
 						id = "Head",
-						height = core:memo(function(use)
+						height = Compose.formula(function(use)
 							return { type = "fixed", px = use(spacerHeight) }
 						end),
 					}),
@@ -224,7 +232,7 @@ end)
 describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", function()
 	it("mounts one bar behind the strip and lands on the initial selection with no travel", function()
 		local w = world()
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 		local a = w.adapter.node("/S/Page/Tabs/Strip/A").rect
 		local bar = barRect(w)
 		expect(bar.x).toBe(a.x)
@@ -442,15 +450,15 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 	end)
 
 	it("build/mount/select/dispose returns every registry to baseline", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters() -- AFTER the long-lived singletons
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size() -- AFTER the long-lived singletons
 
-		local selected = core:signal("a")
+		local selected = Compose.cell("a")
 		local strip = UI.HStack({
 			id = "Strip",
 			children = {
@@ -458,7 +466,7 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 				UI.Button({ id = "B", label = "B", width = { type = "fixed", px = 80 } }),
 			},
 		})
-		local indicator = selection_indicator.build(Facet, core, {
+		local indicator = buildIndicator(core, {
 			id = "Tabs",
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
@@ -480,18 +488,15 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 
 		pres.dismiss(handle)
 		indicator.dispose()
-		selected:dispose()
 
-		local after = core:counters()
-		for k, v in baseline :: any do
-			expect((after :: any)[k]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
 describe("D4 authoring: the spec is closed and the ids are checked", function()
 	local function bare()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local strip = UI.HStack({ id = "Strip", children = { UI.Button({ id = "A", label = "A" }) } })
 		return core, strip
 	end
@@ -499,13 +504,12 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	it("an unknown spec key is an authoring error, never a silent no-op", function()
 		local core, strip = bare()
 		local ok, err = pcall(function()
-			selection_indicator.build(
-				Facet,
+			buildIndicator(
 				core,
 				{
 					content = strip,
 					segments = { { value = "a", id = "A" } },
-					selected = core:signal("a"),
+					selected = Compose.cell("a"),
 					underlineThickness = 3, -- not a key this control reads
 				} :: any
 			)
@@ -517,10 +521,10 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	it("a segment id that names no child of `content` is caught at build", function()
 		local core, strip = bare()
 		local ok, err = pcall(function()
-			selection_indicator.build(Facet, core, {
+			buildIndicator(core, {
 				content = strip,
 				segments = { { value = "z", id = "Nope" } },
-				selected = core:signal("z"),
+				selected = Compose.cell("z"),
 			})
 		end)
 		expect(ok).toBe(false)
@@ -528,8 +532,8 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	end)
 
 	it("a strip built from a When/ForEach is trusted instead, and reports what never resolved", function()
-		local core = Facet.newCore()
-		local flag = core:signal(false)
+		local core = harness.newCore()
+		local flag = Compose.cell(false)
 		local strip = UI.HStack({
 			id = "Strip",
 			children = {
@@ -543,10 +547,10 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 				}),
 			},
 		})
-		local indicator = selection_indicator.build(Facet, core, {
+		local indicator = buildIndicator(core, {
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 		})
 		expect(indicator.state().unresolved[1]).toBe("A") -- nothing has been solved yet
 		indicator.dispose()
@@ -556,20 +560,12 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		local core, strip = bare()
 		local segments = { { value = "a", id = "A" } }
 		local ok, err = pcall(function()
-			selection_indicator.build(
-				Facet,
-				core,
-				{ content = strip, segments = segments, selected = core:signal("a"), skin = "glow" }
-			)
+			buildIndicator(core, { content = strip, segments = segments, selected = Compose.cell("a"), skin = "glow" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "underline | pill", 1, true) ~= nil).toBe(true)
 		local ok2, err2 = pcall(function()
-			selection_indicator.build(
-				Facet,
-				core,
-				{ content = strip, segments = segments, selected = core:signal("a"), axis = "z" }
-			)
+			buildIndicator(core, { content = strip, segments = segments, selected = Compose.cell("a"), axis = "z" })
 		end)
 		expect(ok2).toBe(false)
 		expect(string.find(tostring(err2), "x | y", 1, true) ~= nil).toBe(true)
@@ -578,7 +574,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 	it("with NO presenter (a bare mount) it still places the bar, instantly", function()
 		-- the supported degradation: `bindMotion` never runs, so every retarget is
 		-- an instant placement rather than a flight
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local strip = UI.HStack({
 			id = "Strip",
 			children = {
@@ -586,8 +582,8 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 				UI.Button({ id = "B", label = "B", width = { type = "fixed", px = 100 } }),
 			},
 		})
-		local selected = core:signal("a")
-		local indicator = selection_indicator.build(Facet, core, {
+		local selected = Compose.cell("a")
+		local indicator = buildIndicator(core, {
 			content = strip,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
 			selected = selected,
@@ -595,7 +591,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
 		local adapter = fake_target.new({ ops = true })
-		local root = Facet.mount(core, UI.Screen({ id = "S", children = { indicator.blueprint } }))
+		local root = harness.mount(core, UI.Screen({ id = "S", children = { indicator.blueprint } }))
 		local controller = Facet.renderer.attach(core, root, env, adapter)
 		controller.initialRender()
 		-- no presenter walked the tree, so nothing fed geometry: the bar is hidden
@@ -622,7 +618,7 @@ end)
 describe("D4 through the public property: newPicker's `indicator` and `axis`", function()
 	local function pickerWorld(spec: any?)
 		local options = spec or {}
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -631,9 +627,9 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		end
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local selected = core:signal("grid")
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local selected = Compose.cell("grid")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -717,10 +713,10 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		end
 		expect(paintedRect(w.adapter.node(PBAR)).y).toBe(b.y + 4)
 		-- and `inline` still means the ROW LIST it always meant: a distinct shape
-		local core = Facet.newCore()
-		local inline = Facet.Controls.Picker(core, {
+		local core = harness.newCore()
+		local inline = harness.Controls.Picker(core, {
 			id = "P",
-			selected = core:signal("a"),
+			selected = Compose.cell("a"),
 			options = { { value = "a", label = "A" }, { value = "b", label = "B" } },
 			presentation = "inline",
 			axis = "x", -- inert: a stacked list is a column by definition
@@ -741,17 +737,17 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 	end)
 
 	it("an unknown indicator or axis names the legal set", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local function build(extra: any)
 			local spec: any = {
 				id = "P",
-				selected = core:signal("a"),
+				selected = Compose.cell("a"),
 				options = { { value = "a", label = "A" } },
 			}
 			for k, v in extra do
 				spec[k] = v
 			end
-			return Facet.Controls.Picker(core, spec)
+			return harness.Controls.Picker(core, spec)
 		end
 		local ok, err = pcall(build, { indicator = "glow" })
 		expect(ok).toBe(false)
@@ -795,7 +791,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local w = pickerWorld({ indicator = "pill" })
 		w.adapter.tap(optPath(w, 2))
 		w.pres.refresh()
-		expect(w.selected:get()).toBe("list")
+		expect(w.selected:peek()).toBe("list")
 		expect(w.picker.dump().indicator.selectedId).toBe("Opt2")
 	end)
 
@@ -836,15 +832,15 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 	end)
 
 	it("an indicated picker is registry-neutral: build, mount, switch, dispose", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
-		local selected = core:signal("grid")
-		local p = Facet.Controls.Picker(core, {
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
+		local selected = Compose.cell("grid")
+		local p = harness.Controls.Picker(core, {
 			id = "View",
 			selected = selected,
 			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
@@ -864,11 +860,8 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		end
 		pres.dismiss(handle)
 		p.dispose()
-		selected:dispose()
-		local after = core:counters()
-		for k, v in baseline :: any do
-			expect((after :: any)[k]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -887,13 +880,13 @@ end)
 -- a `When` that toggles, not a TabView special case, so the fix belongs here.
 describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", function()
 	local function homedWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local selected = core:signal("a")
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local selected = Compose.cell("a")
 		local kids = {}
 		for i, label in { "A", "B" } do
 			table.insert(
@@ -906,7 +899,7 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 				})
 			)
 		end
-		local indicator = selection_indicator.build(Facet, core, {
+		local indicator = buildIndicator(core, {
 			id = "Tabs",
 			content = UI.HStack({ id = "Strip", gap = 0, children = kids }),
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
@@ -917,8 +910,8 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 		-- the SAME wrapper blueprint declared in two mutually-exclusive homes, one
 		-- leading and one trailing: exactly the shape the reference shells use for
 		-- a nav bar, and exactly the shape TabView now owns
-		local atTop = core:signal(true)
-		local bottom = core:memo(function(use)
+		local atTop = Compose.cell(true)
+		local bottom = Compose.formula(function(use)
 			return not use(atTop)
 		end)
 		pres.present(UI.Screen({
@@ -1084,11 +1077,11 @@ end)
 
 describe("indicator and layout motion share timing", function()
 	it("keeps the pill aligned with its selected segment throughout an animated resize", function()
-		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 400, h = 400 } })
-		local width = w.core:signal({ type = "fixed", px = 120 })
-		local indicator = selection_indicator.build(Facet, w.core, {
+		local w = require("./lib/harness_world").new({ viewport = { x = 0, y = 0, w = 400, h = 400 } })
+		local width = Compose.cell({ type = "fixed", px = 120 })
+		local indicator = buildIndicator(w.core, {
 			id = "I",
-			selected = w.core:signal("b"),
+			selected = Compose.cell("b"),
 			skin = "pill",
 			env = w.env,
 			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },

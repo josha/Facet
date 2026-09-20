@@ -1,8 +1,9 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
-local coreFactory = require("../src/core/custom")
+local coreFactory = harness.coreFactory
 local function event()
 	local callbacks = {}
 	return {
@@ -76,6 +77,10 @@ local function rig()
 			Instance = instance,
 			Enum = enum,
 			require = function(path)
+				if path == "../vendor/compose/core" then
+					return require("../src").Compose
+				end
+				assert(path == "../input/binding_owner", "unexpected adapter dependency: " .. path)
 				return require("../src/input/binding_owner")
 			end,
 		},
@@ -109,15 +114,15 @@ t.describe("native held input metadata", function()
 		local binding = action.bindAxis({ axis = "Thumbstick1", component = "y" })
 		local Vector2 = require("@lune/roblox").Vector2
 		binding.axisInstance.StateChanged:fire(Vector2.new(0, -1))
-		t.expect(action.state:get()).toBe(1)
+		t.expect(action.state:peek()).toBe(1)
 		t.expect(action.lastGamepad).toBe(true)
 		t.expect(action.lastBinding).toBe(binding)
 		binding.axisInstance.StateChanged:fire(Vector2.new(0, -0.7))
-		t.expect(action.state:get()).toBe(1)
+		t.expect(action.state:peek()).toBe(1)
 		binding.axisInstance.StateChanged:fire(Vector2.new(0, 0))
-		t.expect(action.state:get()).toBe(0)
+		t.expect(action.state:peek()).toBe(0)
 		binding.axisInstance.StateChanged:fire(Vector2.new(0, 1))
-		t.expect(action.state:get()).toBe(-1)
+		t.expect(action.state:peek()).toBe(-1)
 		system.dispose()
 	end)
 end)

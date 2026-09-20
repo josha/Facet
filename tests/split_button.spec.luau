@@ -1,14 +1,15 @@
 --!strict
+local harness = require("./lib/harness")
 -- SplitButton — one control, two forms (picker round, 2026-09-11): the pointer
 -- split (primary + chevron segment) and the touch single button whose long
 -- press opens the same menu. Both drive the REAL paths: adapter taps, the
 -- gesture stream, and the presenter's activation routing.
 local t = require("./lib/testkit")
 local Facet = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
 
 local function build(w, calls)
-	return Facet.Controls.SplitButton(w.core, {
+	return harness.Controls.SplitButton(w.core, {
 		id = "S",
 		label = "Race",
 		onActivate = function()
@@ -42,7 +43,7 @@ t.describe("SplitButton", function()
 		})
 		local calls = { n = 0 }
 		local c = build(w, calls)
-		w.present(Facet.UI.Screen({ id = "Root", children = { c.blueprint } }))
+		w.present(harness.UI.Screen({ id = "Root", children = { c.blueprint } }))
 		t.expect(c.dump().form).toBe("split")
 		w.adapter.tap("/Root/S/Split/then/Split/Primary")
 		t.expect(calls.n).toBe(1)
@@ -62,7 +63,7 @@ t.describe("SplitButton", function()
 		local w = world.new({ capabilities = { touch = true }, preferredInput = "Touch" })
 		local calls = { n = 0 }
 		local c = build(w, calls)
-		w.present(Facet.UI.Screen({ id = "Root", children = { c.blueprint } }))
+		w.present(harness.UI.Screen({ id = "Root", children = { c.blueprint } }))
 		t.expect(c.dump().form).toBe("single")
 		t.expect(w.adapter.node("/Root/S/Single/then/Primary") ~= nil).toBe(true)
 		local menuCell = false
@@ -98,7 +99,7 @@ t.describe("SplitButton", function()
 		local w = world.new({ capabilities = { touch = true }, preferredInput = "Touch" })
 		local calls = { n = 0 }
 		local c = build(w, calls)
-		local handle = w.present(Facet.UI.Screen({ id = "Root", children = { c.blueprint } }))
+		local handle = w.present(harness.UI.Screen({ id = "Root", children = { c.blueprint } }))
 		t.expect(c.dump().form).toBe("single")
 		-- ONE focus stop under the control, and it is the button itself
 		t.expect(focusStopsIn(handle, "/Root/S/")).toEqual({ "/Root/S/Single/then/Primary" })
@@ -134,7 +135,7 @@ t.describe("SplitButton", function()
 			preferredInput = "KeyboardAndMouse",
 		})
 		local c = build(w, { n = 0 })
-		w.present(Facet.UI.Screen({ id = "Root", children = { c.blueprint } }))
+		w.present(harness.UI.Screen({ id = "Root", children = { c.blueprint } }))
 		t.expect(c.dump().form).toBe("split")
 		w.env:set("preferredInput", "Touch")
 		w.pres.refresh()

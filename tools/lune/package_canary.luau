@@ -233,45 +233,49 @@ check(
 	`the packaged Facet.VERSION ({tostring(Facet.VERSION)}) equals Distribution.Version ({tostring(stampedVersion)})`
 )
 
-local function newWorld()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	-- the viewport before the presenter: a first solve against an unset viewport
-	-- runs at 1x1 and every measured thing in it is wrong (tests/lib/world.luau)
-	env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-	local adapter = fake_target.new()
-	local system = Facet.newActionSystem(core)
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, adapter, system, pres
-end
+-- One headless application through the public entry point. The viewport is
+-- bound before the first solve: a solve against an unset viewport runs at 1x1
+-- and every measured thing in it is wrong.
+local adapter = fake_target.new()
+local core, env
+local app = Facet.new({
+	newAdapter = function()
+		return adapter
+	end,
+	newInputSystem = function(value)
+		core = value
+		return Facet.newActionSystem(value)
+	end,
+	bindEnv = function(value)
+		env = value
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		return function() end
+	end,
+	-- frames are stepped by hand below
+	connectFrame = function()
+		return function() end
+	end,
+})
+local UI, pres = app.controls, app.presenter
 
-local core, env, adapter, _system, pres = newWorld()
-
-local title = core:signal("Hello")
+local title = Facet.Compose.cell("Hello")
 local taps = 0
 
 local function screen(): any
-	return Facet.UI.Screen({
-		id = "Canary",
-		children = {
-			Facet.UI.VStack({
-				id = "Stack",
-				children = {
-					Facet.UI.Text({ id = "Title", text = title }),
-					Facet.UI.Button({
-						id = "Go",
-						label = "Go",
-						onActivate = function()
-							taps += 1
-						end,
-					}),
-				},
+	return UI.Screen("Canary")({
+		UI.VStack("Stack")({
+			UI.Text("Title")({ text = title }),
+			UI.Button("Go")({
+				label = "Go",
+				onActivate = function()
+					taps += 1
+				end,
 			}),
-		},
+		}),
 	})
 end
 
-local handle = pres.present(screen())
+local close = app.mount(screen)
 pres.refresh()
 
 local BUTTON = "/Canary/Stack/Go"
@@ -325,7 +329,7 @@ pres.refresh()
 local titleNode = adapter.node(TITLE)
 check(
 	titleNode ~= nil and titleNode.props.text == "Changed",
-	`a signal update reaches the rendered text (read {tostring(titleNode and titleNode.props.text)})`
+	`a cell update reaches the rendered text (read {tostring(titleNode and titleNode.props.text)})`
 )
 
 --[[ THE ENVIRONMENT RE-SOLVES: the viewport first, then preferred text.
@@ -354,7 +358,7 @@ check(
 
 -- ── 5. teardown returns the registries to their floor ───────────────────────
 
-pres.dismiss(handle)
+close()
 pres.refresh()
 
 --[[ THE FLOOR IS MEASURED AFTER ONE FULL LAP, not before the first mount. The
@@ -362,22 +366,21 @@ pres.refresh()
 	the wrong question; "back to where the previous lap left it" is the one that
 	catches a leak (tests/mount_unmount_soak.spec.luau's discipline). ]]
 local floorLive = adapter.liveCount()
-local floorCounters = core:counters()
+local floorCounters = core.owner.size()
 
 for lap = 1, 3 do
-	local lapHandle = pres.present(screen())
+	local closeLap = app.mount(screen)
 	pres.refresh()
-	pres.dismiss(lapHandle)
+	closeLap()
 	pres.refresh()
-	local counters = core:counters()
+	local counters = core.owner.size()
 	check(
 		adapter.liveCount() == floorLive,
 		`lap {lap}: live instances return to {floorLive} (read {adapter.liveCount()})`
 	)
 	check(
-		counters.observers == floorCounters.observers and counters.scopes == floorCounters.scopes,
-		`lap {lap}: core observers/scopes return to {floorCounters.observers}/{floorCounters.scopes} `
-			.. `(read {counters.observers}/{counters.scopes})`
+		counters == floorCounters and counters == floorCounters,
+		`lap {lap}: core observers/scopes return to {floorCounters}/{floorCounters} ` .. `(read {counters}/{counters})`
 	)
 end
 

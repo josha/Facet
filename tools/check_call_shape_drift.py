@@ -1,42 +1,10 @@
 #!/usr/bin/env python3
-"""check_call_shape_drift — no NEW composite control is created the old way.
+"""Reject removed flat control-constructor calls in maintained Luau sources.
 
-The `Controls` namespace moved every composite control to
-`Facet.Controls.<Name>(core, spec)`.
-The nineteen `Facet.new<Name>(Facet, core, spec)` builders still work and are
-declared in `Facet.DEPRECATIONS` with `removeNoEarlierThan = 0.12.0`, so nothing
-published breaks — but a compatible migration that leaves the old form
-mechanically undetectable is a migration that un-does itself: the next author
-copies the nearest call site, and the nearest call site is whatever survived.
-
-WHAT IS MATCHED, over `.luau` sources tracked by the framework repo and by the
-Rascal Rally consumer:
-
-  1. `<expr>.new<UpperCamel>(<expr>,`     — the two-argument spelling, whatever
-     the library is bound to locally (`Facet`, `ctx.Facet`, an alias); the
-     first argument must be the SAME expression the call is made on, which is
-     precisely the "hands itself to its own builder" shape and nothing else.
-  2. `:new<UpperCamel>(`                  — the colon spelling, which would put
-     the library in `self` and make the same mistake invisible to (1).
-
-WHY NOT `.md` TOO. The reference is REQUIRED to name the retiring
-spelling — `docs/reference/api.md` marks all nineteen "deprecated" beside their
-own name, and `tests/api_surface.spec.luau`'s ENF-3 rule fails the suite if that
-marking disappears. Prose is governed there; this guard governs code.
-
-Every permitted match lives in ALLOWLIST with a reason and a removal rule.
-
-`--selftest` proves the guard can fail: it plants one old-form call, one
-colon-spelling call and one WRAPPED old-form call (the shape stylua produces for
-a long argument list, and the one the line-based first version let through)
-inside scanned trees, requires all three to go red at the right line numbers,
-removes them, and requires the restored tree to pass. It also plants an
-allowlisted file's pattern in a NON-allowlisted file, to prove the allowlist is
-scoped to its paths. `scan_file`'s docstring names the two shapes this scan
-still cannot see and why neither is hiding anything today.
-
-Usage:  python3 tools/check_call_shape_drift.py [--selftest]
-Exit 0 = clean; 1 = drift found; 2 = environment failure.
+Controls use Facet.Controls.<Name>(core, spec) for explicit handles, or
+app.controls.<Name>(spec) in a Compose-mounted application. This check catches
+receivers passed to themselves and colon calls, including wrapped calls.
+Run with --selftest to verify rejection and allowlist scope.
 """
 
 import os
@@ -69,20 +37,7 @@ EXCLUDED_TREES = (
 # (path-prefix-or-exact, reason, removal rule). `rr:` prefixes a path in the
 # Rascal Rally repo.
 ALLOWLIST = [
-    ("tests/controls_namespace.spec.luau",
-     "the compatibility arm: every control is built BOTH ways from one spec and "
-     "the two results compared, which is what proves the old form still works",
-     "when the nineteen ledger rows reach removeNoEarlierThan and the old form goes"),
-    ("tools/check_call_shape_drift.py",
-     "the guard's own match data and selftest plants",
-     "never (it IS the guard)"),
-    ("tools/lune/_probe_t15_controls.luau",
-     "the call-shape cost probe: it MEASURES the namespace form against the old "
-     "two-argument form it replaced, so it has to call both. Deleting the old-form "
-     "arm would delete the comparison, which is the whole instrument (wave T15 "
-     "item 2: the closure hop is +0.000004 ms, proved <= noise)",
-     "when the nineteen ledger rows reach removeNoEarlierThan and the old form goes "
-     "— at which point there is nothing left to compare and the probe goes with it"),
+    ("tools/check_call_shape_drift.py", "the guard's own match data", "never"),
 ]
 
 
@@ -125,8 +80,7 @@ def scan_file(abs_path, scope_path, hits):
 
       * DYNAMIC construction — `Facet[name](Facet, ...)` builds a composite
         without ever writing its name. `tests/spec_guard_sweep.spec.luau` does
-        this deliberately over all 19 to prove the deprecated builders still
-        work, which is the one thing that MUST keep constructing the old way.
+        this dynamically; runtime API tests check the exported constructor set.
       * An ALIASED receiver — `local F = Facet; F.newTable(Facet, ...)`. The
         backreference is what makes the two-argument pattern specific (it is
         what tells `x.newFoo(x, ...)` from `x.newFoo(core, ...)`), and an alias
@@ -217,7 +171,7 @@ def selftest():
         scan_file(wrapped, "src/call_shape_wrapped_probe_tmp.luau", hits)
         # ...and the same content INSIDE the allowlisted path must be tolerated
         tolerated = []
-        scan_file(two_arg, "tests/controls_namespace.spec.luau", tolerated)
+        scan_file(two_arg, "tools/check_call_shape_drift.py", tolerated)
         wrapped_hits = [h for h in hits if "call_shape_wrapped_probe_tmp" in h]
         # ...and it must point at the call's FIRST line, not at the file's start
         wrapped_line_ok = len(wrapped_hits) == 1 and wrapped_hits[0].split(":")[1] == "1"
@@ -259,9 +213,7 @@ def main():
             print(f"  … and {len(hits) - 60} more")
         sys.exit(1)
     print("check_call_shape_drift: PASS — every composite control is created as "
-          "Facet.Controls.<Name>(core, spec); the nineteen deprecated "
-          "builders keep working and have no live call site outside the "
-          "compatibility spec")
+          "the maintained control constructors; no removed flat builders are called")
     for tree in SKIPPED_TREES:
         print(f"  NOT SCANNED: {tree} is not beside this checkout — that half of "
               "the claim is unproved here, and says so rather than passing quietly")

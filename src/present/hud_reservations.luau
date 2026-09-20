@@ -2,12 +2,13 @@
 local guard = require("../spec_guard")
 local geometry = require("../layout/hud_insets")
 local rect = require("../rect")
+local Compose = require("../vendor/compose/core")
 local KEYS = guard.keySet({ "id", "edge", "scope" })
 local hud = {}
 
 function hud.new(core: any): any
 	local entries = {}
-	local changed = core:signal(table.freeze({}))
+	local changed = Compose.cell(table.freeze({}))
 	local function publish()
 		local rows = {}
 		for id, entry in entries do
@@ -28,9 +29,19 @@ function hud.new(core: any): any
 			spec.edge == "top" or spec.edge == "bottom" or spec.edge == "left" or spec.edge == "right",
 			"presenter.reserveHud.edge must be top, bottom, left, or right"
 		)
+		--[[ A DISPOSED OWNER IS REFUSED, LOUDLY. Compose releases into a dead owner
+			immediately and answers a no-op, so a reservation handed one would take
+			the ID, release itself, and leave the caller holding a handle that never
+			reserves anything. The refusal keeps the ID free for the next caller. ]]
 		assert(
-			spec.scope == nil or (type(spec.scope) == "table" and type(spec.scope.own) == "function"),
-			"presenter.reserveHud.scope must be a Scope"
+			spec.scope == nil
+				or (
+					type(spec.scope) == "table"
+					and type(spec.scope.own) == "function"
+					and type(spec.scope.isDisposed) == "function"
+					and not spec.scope.isDisposed()
+				),
+			"presenter.reserveHud.scope must be a live owner"
 		)
 		local entry = { edge = spec.edge, rect = nil }
 		local disposed = false
@@ -57,13 +68,13 @@ function hud.new(core: any): any
 			end
 		end
 		if spec.scope then
-			spec.scope:own(handle)
+			spec.scope.own(handle.dispose)
 		end
 		entries[spec.id] = entry
 		return table.freeze(handle)
 	end
 	-- The consumer receives a Readable, never the writable signal authority.
-	return { reserve = reserve, reservations = core:memo(function(use)
+	return { reserve = reserve, reservations = Compose.formula(function(use)
 		return use(changed)
 	end) }
 end

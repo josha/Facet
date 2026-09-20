@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ WAVE REVEAL — a stepped-down region EXPANDS to its richest form.
 
 	The knob is `expand`: `reveal` is already UI.Text's marquee prop and `disclose`
@@ -36,6 +37,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local composition = require("../src/layout/composition")
+local Compose = require("../src/vendor/compose/core")
 
 -- ===== 1. THE PURE FACTS ===================================================
 -- One region per case, measured from a table, exactly as `composition.spec`
@@ -270,7 +272,7 @@ end)
 -- to the tree: the affordance. Blueprints are plain frozen tables, so every
 -- assertion here reads the declaration the mount would have received.
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 -- the plate's chrome, read from the ONE place that declares it: a spec that
 -- restated `space.m` here would be the second copy the module exists to remove
 local Facet = require("../src")
@@ -279,7 +281,7 @@ local expandPlate = require("../src/layout/expand_plate")
 -- the ONE enumerator for the theme corpus (MAINT-8c): a spec that restated the
 -- package list would be a second copy of it, and a tenth package would escape
 local themePackages = require("../tools/lune/theme_packages")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 
 local function childrenOf(node: any): { any }
 	return node.children or {}
@@ -557,10 +559,10 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 		--[[ ...AND THE REACTIVE SPELLING, which is the one the first fix missed (fix
 			round 1, review MEDIUM-1). `active` is `Bound<boolean>` — a literal or a
 			Signal/Memo — and `== true` is false for every bound value, so
-			`UI.Box{ active = core:signal(true) }`, the framework's own primary idiom
+			`UI.Box{ active = Compose.cell(true) }`, the framework's own primary idiom
 			for a prop that varies, still got a cover UNDERNEATH an Active Frame. Both
 			pinned arms above are literals, so no mutation could have caught it. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local bound = UI.Region({
 			id = "Bound",
 			group = "body",
@@ -568,7 +570,7 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 			recover = "overflow",
 			children = {
 				textForm("Full"),
-				UI.VStack({ id = "Compact", children = { UI.Box({ id = "Sink", active = core:signal(true) }) } }),
+				UI.VStack({ id = "Compact", children = { UI.Box({ id = "Sink", active = Compose.cell(true) }) } }),
 			},
 		})
 		expect(bound.props.expand.interactive[2]).toBe(true)
@@ -588,7 +590,7 @@ describe("EXPAND 5 — one gesture, one meaning: the form's own controls decide 
 					children = {
 						UI.When({
 							id = "Gate",
-							condition = customFactory.new():signal(true),
+							condition = Compose.cell(true),
 							thenView = function()
 								return UI.Button({ id = "Hidden", label = "go", onActivate = function() end })
 							end,
@@ -656,7 +658,7 @@ end)
 -- WHERE the solver puts it, and that it puts it nowhere at all at the richest
 -- form. Mounted over the fake target, so these are solved rects.
 
-local mountLib = require("../src/mount")
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
@@ -1016,7 +1018,7 @@ end)
 -- a collapsing region and NOTHING ELSE gets a working disclosure — the tap, the
 -- surface, the content, and the way back.
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 local adapter_source = require("./lib/adapter_source")
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
@@ -1259,7 +1261,7 @@ describe("EXPAND 10 — the stop exists only while a reduced form does, and neve
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
 		w.present(ringScreen(false), { initialFocus = "none" })
 		w.pres.focus.focusOn("/S/C/Clock/Expand")
-		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
+		expect(w.pres.focus.focused:peek()).toBe("/S/C/Clock/Expand")
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.pres.refresh()
@@ -1270,7 +1272,7 @@ describe("EXPAND 10 — the stop exists only while a reduced form does, and neve
 		expect(w.pres.depth()).toBe(1)
 		-- the modal scope popped, and the presenter's own restore put the ring back
 		-- where the player left it
-		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
+		expect(w.pres.focus.focused:peek()).toBe("/S/C/Clock/Expand")
 	end)
 end)
 
@@ -1346,12 +1348,12 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 		expect(w.pres.depth()).toBe(2)
 		-- form 1 here is two lines of text and holds no control of its own, so the
 		-- modal's default (its FIRST focusable) IS the close affordance
-		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		expect(w.pres.focus.focused:peek()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
 		w.press("Return")
 		w.pres.refresh()
 		expect(w.pres.depth()).toBe(1)
 		-- ...and the ring is back on the stop that opened it
-		expect(w.pres.focus.focused:get()).toBe("/S/C/Clock/Expand")
+		expect(w.pres.focus.focused:peek()).toBe("/S/C/Clock/Expand")
 	end)
 
 	it("Space activates it too, where the surface owns Space", function()
@@ -1432,11 +1434,11 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 		expect(stops[1]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Details")
 		expect(stops[2]).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
 		-- the modal's existing rule put focus on the CONTENT, not on the way out
-		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Details")
+		expect(w.pres.focus.focused:peek()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/Full/Details")
 		-- Tab to it and press Return: the whole keyboard route, driven
 		w.press("Tab")
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
+		expect(w.pres.focus.focused:peek()).toBe("/Expand:Clock/Layer/Surface/ExpandPanel/ExpandClose")
 		w.press("Return")
 		w.pres.refresh()
 		expect(w.pres.depth()).toBe(1)
@@ -1485,7 +1487,7 @@ describe("EXPAND 12 — a keyboard-only player can open the plate and close it a
 		expect(w.pres.depth()).toBe(2)
 		-- the same content, presented full width, with the same way out
 		expect(w.adapter.node("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandSheetPlate/Wide")).never().toBeNil()
-		expect(w.pres.focus.focused:get()).toBe("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandClose")
+		expect(w.pres.focus.focused:peek()).toBe("/ExpandSheet:Clock/Layer/ExpandSheet/ExpandClose")
 		w.press("Return")
 		w.pres.refresh()
 		expect(w.pres.depth()).toBe(1)
@@ -1591,7 +1593,7 @@ describe("EXPAND 19 — the panel a plate becomes never exceeds the gutter allow
 			derivation, `space.xs + disc/2` (22). Read from the module that DECLARES
 			it rather than restated, so the cap and this line can never be two
 			readings of one intention. ]]
-		local straddle = expandPlate.straddleX(w.env:get("themeMetrics"):get())
+		local straddle = expandPlate.straddleX(w.env:get("themeMetrics"):peek())
 		expect(row.plate.max).toBe(ALLOWANCE - straddle)
 		w.pres.focus.focusOn("/S/C/Clock/Expand")
 		w.press("Return")
@@ -1829,7 +1831,7 @@ describe("EXPAND 14 — a form that spliced itself away cannot be indexed, and i
 
 	it("with the richest form spliced away, the standing rung's own answer is reported", function()
 		local core = customFactory.new()
-		local gate = core:signal(false)
+		local gate = Compose.cell(false)
 		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 50 } })
 		w.present(gatedScreen(gate), { initialFocus = "none" })
 		local row = w.controller.compositionAt("/S/C").regions[1]
@@ -1846,7 +1848,7 @@ describe("EXPAND 14 — a form that spliced itself away cannot be indexed, and i
 
 	it("...and with the gate open the indexes line up again, unchanged", function()
 		local core = customFactory.new()
-		local gate = core:signal(true)
+		local gate = Compose.cell(true)
 		local roomy = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 400 } })
 		roomy.present(gatedScreen(gate), { initialFocus = "none" })
 		local rich = roomy.controller.compositionAt("/S/C").regions[1]
@@ -2456,7 +2458,7 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			plate = w.adapter.node(`{PANEL}/ExpandPlate`),
 			close = w.adapter.node(`{PANEL}/ExpandClose`),
 			content = w.adapter.node(`{PANEL}/ExpandPlate/Full`),
-			metrics = w.env:get("themeMetrics"):get(),
+			metrics = w.env:get("themeMetrics"):peek(),
 		}
 	end
 
@@ -2520,7 +2522,7 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			w = w,
 			close = w.adapter.node(`{SHEET}/ExpandClose`),
 			content = w.adapter.node(`{SHEET}/ExpandSheetPlate/Full`),
-			metrics = w.env:get("themeMetrics"):get(),
+			metrics = w.env:get("themeMetrics"):peek(),
 		}
 	end
 
@@ -3062,7 +3064,7 @@ describe("automatic region dismissal chrome", function()
 		w.press("Tab")
 		w.settle(3)
 		expect(w.adapter.node(close)).never().toBeNil()
-		expect(w.pres.focus.focused:get()).toBe(close)
+		expect(w.pres.focus.focused:peek()).toBe(close)
 		w.press("Return")
 		w.settle(3)
 		expect(w.pres.depth()).toBe(1)

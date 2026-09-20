@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Phase 4 error boundaries with critical-screen fallback (design §17 Phase 4;
 -- UI-RUNTIME-003): UI.ErrorBoundary quarantines factory errors inside its
 -- subtree — at mount AND during later structural rebuilds — and swaps to its
@@ -11,14 +12,15 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local mountLib = require("../src/mount")
+local mountLib = harness
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
-local UI = Facet.UI
+local UI = harness.UI
 
 describe("error boundaries (§17 Phase 4)", function()
 	it("renders its view when healthy; the fallback is not mounted", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -36,7 +38,6 @@ describe("error boundaries (§17 Phase 4)", function()
 				},
 			})
 		)
-		local dump = root.dump()
 		local flat = {}
 		local function walk(node: any)
 			flat[node.path] = true
@@ -44,14 +45,14 @@ describe("error boundaries (§17 Phase 4)", function()
 				walk(child)
 			end
 		end
-		walk(dump.tree)
-		expect(flat["/S/EB/view/Happy"]).toBeTruthy()
-		expect(flat["/S/EB/fallback/Fallback"]).toBeFalsy()
+		walk(root.node)
+		expect(flat["/S/EB/Happy"]).toBeTruthy()
+		expect(flat["/S/EB/Fallback"]).toBeFalsy()
 		root.dispose()
 	end)
 
 	it("a throwing view factory at mount swaps to the fallback; siblings survive", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -77,15 +78,15 @@ describe("error boundaries (§17 Phase 4)", function()
 				walk(child)
 			end
 		end
-		walk(root.dump().tree)
+		walk(root.node)
 		expect(flat["/S/Sibling"] ~= nil).toBeTruthy()
-		expect(flat["/S/EB/fallback/Fallback"] ~= nil).toBeTruthy()
+		expect(flat["/S/EB/Fallback"] ~= nil).toBeTruthy()
 		root.dispose()
 	end)
 
 	it("a structural rebuild that throws INSIDE the boundary trips it at runtime", function()
-		local core = Facet.newCore()
-		local explode = core:signal(false)
+		local core = harness.newCore()
+		local explode = Compose.cell(false)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -124,27 +125,25 @@ describe("error boundaries (§17 Phase 4)", function()
 					walk(child)
 				end
 			end
-			walk(root.dump().tree)
+			walk(root.node)
 			return flat
 		end
-		expect(paths()["/S/EB/view/V/Content"]).toBeTruthy()
+		expect(paths()["/S/EB/V/Content"]).toBeTruthy()
 		explode:set(true) -- the writer must NOT crash
 		local after = paths()
-		expect(after["/S/EB/fallback/Fallback"]).toBeTruthy()
-		expect(after["/S/EB/view/V/Content"]).toBeFalsy()
+		expect(after["/S/EB/Fallback"]).toBeTruthy()
+		expect(after["/S/EB/V/Content"]).toBeFalsy()
 		-- scheduler alive
-		local probe = core:signal(1)
+		local probe = Compose.cell(1)
 		probe:set(2)
-		expect(probe:get()).toBe(2)
+		expect(probe:peek()).toBe(2)
 		root.dispose()
-		explode:dispose()
-		probe:dispose()
 	end)
 
 	it("boundary trips are registry-clean: dispose returns to baseline", function()
-		local core = Facet.newCore()
-		local baseline = core:counters()
-		local explode = core:signal(false)
+		local core = harness.newCore()
+		local baseline = core.owner.size()
+		local explode = Compose.cell(false)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -170,19 +169,16 @@ describe("error boundaries (§17 Phase 4)", function()
 		)
 		explode:set(true)
 		root.dispose()
-		explode:dispose()
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	it("critical screen: a throwing screen presents its declared fallback screen", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local handle = pres.presentCritical(function()
 			error("screen construction failed")
 		end, {
@@ -198,7 +194,7 @@ describe("error boundaries (§17 Phase 4)", function()
 		})
 		expect(pres.depth()).toBe(1)
 		expect(handle.blueprint.id).toBe("SafeMode")
-		expect(pres.focus.focused:get()).toBe("/SafeMode/Retry")
+		expect(pres.focus.focused:peek()).toBe("/SafeMode/Retry")
 		pres.dismiss(handle)
 	end)
 
@@ -212,32 +208,36 @@ describe("error boundaries (§17 Phase 4)", function()
 		consistent AND announced, the throwing key is retried on the next update,
 		and the boundary path is untouched. ]]
 	local function forEachFixture(core: any, boundary: boolean, throwOn: { [string]: boolean })
-		local cards = core:signal({ { id = "a" }, { id = "b" } })
-		local rows = UI.ForEach({
-			id = "Rows",
-			items = cards,
-			key = function(c: any)
-				return c.id
-			end,
-			row = function(c: any)
-				if throwOn[c.id] then
-					error(`row factory throws for {c.id}`, 0)
-				end
-				return UI.Text({ id = `Row-{c.id}`, text = c.id, textSize = 12 })
-			end,
-		})
-		local child = if boundary
-			then UI.ErrorBoundary({
-				id = "EB",
-				view = function()
-					return rows
-				end,
-				fallback = function()
-					return UI.Text({ id = "Fallback", text = "broken", textSize = 12 })
-				end,
-			})
-			else rows
-		local root = mountLib.mount(core, UI.Screen({ id = "S", children = { child } }))
+		local cards = Compose.cell({ { id = "a" }, { id = "b" } })
+		-- The surface owns what its component builds, so disposal releases it all.
+		local root = mountLib.mount(core, function()
+			-- A boundary guards what its view builds.
+			local function rows()
+				return UI.ForEach({
+					id = "Rows",
+					items = cards,
+					key = function(c: any)
+						return c.id
+					end,
+					row = function(c: any)
+						if throwOn[c.id] then
+							error(`row factory throws for {c.id}`, 0)
+						end
+						return UI.Text({ id = `Row-{c.id}`, text = c.id, textSize = 12 })
+					end,
+				})
+			end
+			local child = if boundary
+				then UI.ErrorBoundary({
+					id = "EB",
+					view = rows,
+					fallback = function()
+						return UI.Text({ id = "Fallback", text = "broken", textSize = 12 })
+					end,
+				})
+				else rows()
+			return UI.Screen({ id = "S", children = { child } })
+		end)
 		return root, cards
 	end
 
@@ -263,7 +263,7 @@ describe("error boundaries (§17 Phase 4)", function()
 	end
 
 	it("a throwing row factory outside a boundary leaves the surviving tree consistent (ARCH-1)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local throwOn: { [string]: boolean } = {}
 		local root, cards = forEachFixture(core, false, throwOn)
 		local forEach = findForEach(root.node)
@@ -290,12 +290,12 @@ describe("error boundaries (§17 Phase 4)", function()
 			end
 		end
 		expect(structural >= 1).toBe(true)
-		expect(string.find(tostring(core:lastError()), "row factory throws for c", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(core.lastError()), "row factory throws for c", 1, true) ~= nil).toBe(true)
 		root.dispose()
 	end)
 
 	it("the row that threw is retried on the next update (ARCH-1)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local throwOn: { [string]: boolean } = {}
 		local root, cards = forEachFixture(core, false, throwOn)
 		local forEach = findForEach(root.node)
@@ -310,8 +310,30 @@ describe("error boundaries (§17 Phase 4)", function()
 		root.dispose()
 	end)
 
+	it("a throwing row does not prevent independent rows later in the update from mounting", function()
+		local core = harness.newCore()
+		local root, cards = forEachFixture(core, false, { c = true })
+		local rows = findForEach(root.node)
+		cards:set({ { id = "d" }, { id = "c" }, { id = "a" }, { id = "e" } })
+		expect(childPaths(rows)).toEqual({ "/S/Rows/[d]/Row-d", "/S/Rows/[a]/Row-a", "/S/Rows/[e]/Row-e" })
+		root.dispose()
+	end)
+
+	it("an insertion before a throwing row cannot strand a retained row", function()
+		local core = harness.newCore()
+		local throwOn = { c = true }
+		local root, cards = forEachFixture(core, false, throwOn)
+		local rows = findForEach(root.node)
+		cards:set({ { id = "d" }, { id = "c" }, { id = "a" } })
+		cards:set({})
+		expect(childPaths(rows)).toEqual({})
+		expect(root.counters().mounted).toBe(2)
+		root.dispose()
+		expect(root.counters().mounted).toBe(0)
+	end)
+
 	it("with a boundary the fallback path is unchanged (ARCH-1)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local throwOn: { [string]: boolean } = {}
 		local root, cards = forEachFixture(core, true, throwOn)
 		throwOn.c = true
@@ -323,30 +345,28 @@ describe("error boundaries (§17 Phase 4)", function()
 				walk(ch)
 			end
 		end
-		walk(root.dump().tree)
-		expect(flat["/S/EB/fallback/Fallback"]).toBeTruthy()
-		expect(flat["/S/EB/view/Rows/[a]/Row-a"]).toBeFalsy()
+		walk(root.node)
+		expect(flat["/S/EB/Fallback"]).toBeTruthy()
+		expect(flat["/S/EB/Rows/[a]/Row-a"]).toBeFalsy()
 		root.dispose()
 	end)
 
 	it("outside a boundary the mount-time hard-error contract is unchanged", function()
-		local core = Facet.newCore()
-		local ok, err = pcall(
-			mountLib.mount,
-			core,
-			UI.Screen({
+		local core = harness.newCore()
+		local ok, err = pcall(mountLib.mount, core, function()
+			return UI.Screen({
 				id = "S",
 				children = {
 					UI.When({
 						id = "W",
-						condition = core:signal(true),
+						condition = Compose.cell(true),
 						thenView = function()
 							error("no boundary here")
 						end,
 					}),
 				},
 			})
-		)
+		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "no boundary here") ~= nil).toBe(true)
 	end)

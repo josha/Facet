@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE ICON'S BOX (director report, 2026-07-28).
 --
 -- Three of the four defects in that report were ONE defect: a semantic icon is
@@ -29,16 +30,17 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local Facet = require("../src") :: any
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local PACKAGES = {
 	"classic_desktop",
@@ -218,7 +220,7 @@ end)
 
 describe("preferred compact icons", function()
 	it("reserve the same art square as an icon hint across live themes", function()
-		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 800, h = 400 } })
+		local w = require("./lib/harness_world").new({ viewport = { x = 0, y = 0, w = 800, h = 400 } })
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -323,29 +325,29 @@ describe("control glyphs are centered in their plates", function()
 	end
 	for _, kind in { "search-clear", "checkbox" } do
 		it(kind .. " stays centered across live themes, large text, and checked/mixed states", function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 600, h = 400 })
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-			local mixed = core:signal(false)
+			local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+			local mixed = Compose.cell(false)
 			local control = if kind == "checkbox"
-				then Facet.Controls.Toggle(core, {
+				then harness.Controls.Toggle(core, {
 					id = "Control",
 					label = "Filter",
-					value = core:signal(true),
+					value = Compose.cell(true),
 					mixed = mixed,
 					presentation = "checkbox",
 				})
-				else Facet.Controls.TextInput(core, {
+				else harness.Controls.TextInput(core, {
 					id = "Control",
-					value = core:signal("Race"),
+					value = Compose.cell("Race"),
 					presentation = "search",
 					env = env,
 				})
 			local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
 			pres.refresh()
-			local plate = if kind == "checkbox" then nil else "/S/Control/ClearWhen/then/Clear"
+			local plate = if kind == "checkbox" then nil else "/S/Control/Clear"
 			-- Anonymous nodes use generated IDs; read the mounted indicator once.
 			if kind == "checkbox" then
 				for _, path in adapter.paths() do

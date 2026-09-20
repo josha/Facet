@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- RowActions control spec (Task 3: composite skeleton, static reveal). Mirrors
 -- tests/chip.spec.luau's presenterWorld/renderWorld idioms. This file proves:
 --   1. the spec/ActionSpec authoring contract (unknown keys, empty-list refusal);
@@ -29,7 +30,7 @@ local lt = require("./lib/large_text")
 
 -- renderer-level modules for the headless mount->attach->render axis (hover,
 -- ten-foot focus), mirroring tests/chip.spec.luau's renderWorld
-local mountLib = require("../src/mount")
+local mountLib = harness
 local renderer = require("../src/render/renderer")
 -- the solver's OWN headless text measurement (src/layout/text_metrics), used
 -- to independently verify the "no clipping" claim against the button's REAL
@@ -43,6 +44,7 @@ local theme_package = require("../src/themes/package")
 -- the SAME resolver the control itself uses, so a theme-metric leg asserts the
 -- theme's number rather than a literal that silently drifts from it
 local themeSnapshot = require("../src/themes/snapshot")
+local Compose = require("../src/vendor/compose/core")
 
 local ROW = "/S/Row"
 local TRAILING_TRAY = ROW .. "/TrayTrailingWhen/then/TrayTrailing"
@@ -54,7 +56,7 @@ local EDIT_AFFORDANCE_PATH = ROW .. "/EditAffordanceWhen/then/EditAffordance"
 -- tray Buttons fill it, so a too-short fixture would blame the composite for
 -- what is really an unrealistic caller-provided row box.
 local function content(id: string?)
-	return Facet.UI.Text({ id = id or "Body", text = "Row content", height = { type = "fixed", px = 48 } })
+	return harness.UI.Text({ id = id or "Body", text = "Row content", height = { type = "fixed", px = 48 } })
 end
 
 -- Task 4: `_open`/`_close` now ANIMATE through a presenter's real motion
@@ -80,14 +82,14 @@ end
 -- presenter harness: the four-input auto-composition path (chip.spec's house
 -- style). `build` receives `core` and returns the row_actions instance.
 local function presenterWorld(build: (core: any) -> any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local ra = build(core)
-	local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
@@ -132,7 +134,7 @@ end
 -- renderer harness: mount a row_actions (trailing tray pre-opened) and attach
 -- the renderer directly, mirroring chip.spec.luau's renderWorld.
 local function renderWorldOpen(envSetup: ((any) -> ())?, actions: { any }?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if envSetup then
@@ -144,7 +146,7 @@ local function renderWorldOpen(envSetup: ((any) -> ())?, actions: { any }?)
 		trailing = actions or { { id = "delete", label = "Delete", onAction = function() end } },
 	})
 	ra._open("trailing")
-	local root = mountLib.mount(core, Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
+	local root = mountLib.mount(core, harness.UI.Screen({ id = "S", children = { ra.blueprint } }))
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, {})
 	controller.initialRender()
@@ -154,7 +156,7 @@ end
 describe("RowActions control", function()
 	-- 1. AUTHORING CONTRACT (constitution §4; ARCH-1) ------------------------
 	it("validates unknown spec keys", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return row_actions.build(Facet, core, { contnet = content() } :: any)
 		end)
@@ -163,7 +165,7 @@ describe("RowActions control", function()
 	end)
 
 	it("rejects an empty action list", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return row_actions.build(Facet, core, { content = content(), leading = {} })
 		end)
@@ -172,7 +174,7 @@ describe("RowActions control", function()
 	end)
 
 	it("rejects an unknown ActionSpec key", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return row_actions.build(Facet, core, {
 				content = content(),
@@ -185,7 +187,7 @@ describe("RowActions control", function()
 	end)
 
 	it("rejects an ActionSpec with an unknown role", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return row_actions.build(Facet, core, {
 				content = content(),
@@ -205,8 +207,8 @@ describe("RowActions control", function()
 	-- same literal, corrupting the presenter's own path-keyed bookkeeping
 	-- the instant a second such row mounts. Refused loudly at build time.
 	it("rejects a coordinator-sharing row with no explicit id", function()
-		local core = Facet.newCore()
-		local coordinator = row_actions.newCoordinator(core)
+		local core = harness.newCore()
+		local coordinator = row_actions.newCoordinator()
 		local ok, err = pcall(function()
 			return row_actions.build(Facet, core, {
 				content = content(),
@@ -220,8 +222,8 @@ describe("RowActions control", function()
 	end)
 
 	it("a coordinator-sharing row WITH an explicit id builds normally", function()
-		local core = Facet.newCore()
-		local coordinator = row_actions.newCoordinator(core)
+		local core = harness.newCore()
+		local coordinator = row_actions.newCoordinator()
 		local ok = pcall(function()
 			return row_actions.build(Facet, core, {
 				id = "Row",
@@ -568,19 +570,19 @@ describe("RowActions control", function()
 	end)
 
 	it("reduced motion snaps the reveal in one frame", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("reducedMotion", true) -- derives env:get("motionPolicy") == "reduced"
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		pres.present(Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
+		pres.present(harness.UI.Screen({ id = "S", children = { ra.blueprint } }))
 		pres.refresh()
 		ra._open("trailing")
 		pres.refresh()
@@ -591,20 +593,20 @@ describe("RowActions control", function()
 	end)
 
 	it("dispose mid-flight leaks nothing", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		ra._open("trailing")
@@ -623,10 +625,8 @@ describe("RowActions control", function()
 		end
 		expect(ra.dump().offset).toBe(mid) -- disposed: further steps change nothing
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	--[[ SHOWCASE2 task B: the row_actions gallery scenario warned "Facet:
@@ -634,11 +634,11 @@ describe("RowActions control", function()
 		through 'm6' live at Play, every time the demo tore down. Root-caused
 		live (Studio traceback instrumentation, task-showcase2-report.md):
 		THE ROW CAN BE TORN DOWN BY TWO INDEPENDENT, BOTH-CORRECT OWNERS —
-		the app's own per-item lifecycle (the scenario's `itemScope:own(
+		the app's own per-item lifecycle (the scenario's `itemScope.own(
 		function() ... built.dispose() end)`, needed so a row disposes the
 		MOMENT it leaves the list) and `examples/gallery/client/demo_host.
 		luau`'s `scopedCore` (a blanket per-demo leak guard that additionally
-		owns EVERY `core:scope(...)` a demo makes, however deep, into the
+		owns EVERY `owner.createChild(...)` a demo makes, however deep, into the
 		demo's own scope — by design, for demos that do not scope
 		themselves). On a whole-demo teardown the blanket guard's cascade can
 		reach a row's scope before the app's own per-item teardown does, so
@@ -651,30 +651,30 @@ describe("RowActions control", function()
 		(`if not X:isDisposed() then X:dispose() end`), now met by this
 		composite control's `dispose()` too. ]]
 	it("dispose() a second time is a silent no-op (task SHOWCASE2 defect B)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 
 		ra.dispose()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		-- RED before the fix: this second call reached the row's already-
-		-- disposed scope directly and `core:lastError()` read "Facet:
+		-- disposed scope directly and `core.lastError()` read "Facet:
 		-- quarantined - Facet: double disposal of scope 'row-actions-Row'
 		-- detected".
 		ra.dispose()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 
 		pres.dismiss(handle)
 	end)
@@ -714,19 +714,19 @@ describe("RowActions control", function()
 	-- "live preference swing" idiom (`env:set("preferredTextOffset", ...)`
 	-- then `pres.refresh()` on an ALREADY-presented, already-open screen).
 	it("tray button width re-derives when preferredTextSize changes (not frozen)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			env = env,
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { ra.blueprint } }))
 		pres.refresh()
 		ra._open("trailing")
 		pres.refresh()
@@ -767,20 +767,20 @@ describe("RowActions control", function()
 
 	-- 6. DISPOSAL / REGISTRY NEUTRALITY ------------------------------------------
 	it("dispose unmounts and releases the scope", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
 			content = content("Body"),
 			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		ra._open("trailing")
@@ -790,10 +790,8 @@ describe("RowActions control", function()
 		pres.dismiss(handle)
 		ra.dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	-- 7. FOUR-INPUT REACHABILITY (ui_todo §0) — device-true, all four classes.
@@ -849,7 +847,7 @@ describe("RowActions control", function()
 
 	it("RowActions keyboard: focus + Return activates a revealed tray action", function()
 		local w = openTrailingWorld()
-		expect(w.pres.focus.focused:get()).toBe(DELETE_PATH)
+		expect(w.pres.focus.focused:peek()).toBe(DELETE_PATH)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		expect(w.fired[1]).toBe("delete")
@@ -857,7 +855,7 @@ describe("RowActions control", function()
 
 	it("RowActions gamepad: focus + ButtonA activates a revealed tray action", function()
 		local w = openTrailingWorld()
-		expect(w.pres.focus.focused:get()).toBe(DELETE_PATH)
+		expect(w.pres.focus.focused:peek()).toBe(DELETE_PATH)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		expect(w.fired[1]).toBe("delete")
@@ -887,12 +885,12 @@ describe("RowActions control", function()
 	end)
 
 	it("RowActions keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local fired: { string } = {}
 		local ra = row_actions.build(Facet, core, {
 			id = "Row",
@@ -915,16 +913,16 @@ describe("RowActions control", function()
 			},
 		})
 		ra._open("trailing")
-		local screen = Facet.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { ra.blueprint } })
 		pres.present(screen)
 		pres.refresh()
 		local flagPath = TRAILING_TRAY .. "/Action:flag"
 		local deletePath = TRAILING_TRAY .. "/Action:delete"
-		expect(pres.focus.focused:get()).toBe(flagPath) -- Navigate order: leftmost tray button first
+		expect(pres.focus.focused:peek()).toBe(flagPath) -- Navigate order: leftmost tray button first
 		expect(adapter.node(flagPath).focused == true).toBe(false) -- no navigation yet
 		system.deviceKey("Right", true)
 		system.deviceKey("Right", false)
-		expect(pres.focus.focused:get()).toBe(deletePath) -- Navigate moved the ring
+		expect(pres.focus.focused:peek()).toBe(deletePath) -- Navigate moved the ring
 		expect(adapter.node(deletePath).focused).toBe(true)
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
@@ -949,7 +947,7 @@ describe("RowActions control", function()
 
 	-- 9. TASK 9: EDIT-MODE DELETE AFFORDANCE (leading minus) --------------
 	it("rejects an editing value that is not a Readable", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local ok, err = pcall(function()
 			return row_actions.build(Facet, core, {
 				content = content(),
@@ -964,7 +962,7 @@ describe("RowActions control", function()
 	it("the minus is absent while not editing", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(false)
+			editing = Compose.cell(false)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -981,7 +979,7 @@ describe("RowActions control", function()
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "flag", label = "Flag", onAction = function() end } }, -- normal, not destructive
-				editing = core:signal(true),
+				editing = Compose.cell(true),
 			})
 		end)
 		expect(w.adapter.node(EDIT_AFFORDANCE_PATH) == nil).toBe(true)
@@ -1034,7 +1032,7 @@ describe("RowActions control", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1077,7 +1075,7 @@ describe("RowActions control", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1110,7 +1108,7 @@ describe("RowActions control", function()
 	it("the minus wears the destructive action's own accessible name, and now that name is true", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1134,7 +1132,7 @@ describe("RowActions control", function()
 	-- action sits on the LEADING edge (`hasDestructive`/`hasEditAffordance`
 	-- scan both edges, so this shape is reachable). A leading-only
 	-- destructive row's minus must open the LEADING tray, not silently
-	-- no-op (`openEdge:get() ~= "trailing"` was already true — "trailing" —
+	-- no-op (`openEdge:peek() ~= "trailing"` was already true — "trailing" —
 	-- so the old code's own no-op guard never even fired; `open("trailing")`
 	-- itself was simply a no-op because this row has no trailing actions at
 	-- all, see `hasActions`).
@@ -1142,7 +1140,7 @@ describe("RowActions control", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1193,7 +1191,7 @@ describe("RowActions control", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1210,7 +1208,7 @@ describe("RowActions control", function()
 				editing = editing,
 			})
 		end)
-		expect(w.pres.focus.focused:get()).toBe(EDIT_AFFORDANCE_PATH)
+		expect(w.pres.focus.focused:peek()).toBe(EDIT_AFFORDANCE_PATH)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		w.pres.refresh()
@@ -1223,7 +1221,7 @@ describe("RowActions control", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1240,7 +1238,7 @@ describe("RowActions control", function()
 				editing = editing,
 			})
 		end)
-		expect(w.pres.focus.focused:get()).toBe(EDIT_AFFORDANCE_PATH)
+		expect(w.pres.focus.focused:peek()).toBe(EDIT_AFFORDANCE_PATH)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		w.pres.refresh()
@@ -1303,7 +1301,7 @@ describe("RowActions control", function()
 		-- table of closures — `row_actions.newCoordinator`'s own return shape
 		-- — so wrapping one field is ordinary Lua, no framework hook needed)
 		-- and assert it is called exactly ONCE for two activations.
-		local coordinator = row_actions.newCoordinator(Facet.newCore())
+		local coordinator = row_actions.newCoordinator()
 		local claimCount = 0
 		local realClaim = coordinator.claim
 		coordinator.claim = function(...)
@@ -1313,7 +1311,7 @@ describe("RowActions control", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1388,7 +1386,7 @@ describe("RowActions control", function()
 						},
 					}
 					if withEditing then
-						spec.editing = core:signal(true)
+						spec.editing = Compose.cell(true)
 					end
 					return row_actions.build(Facet, core, spec)
 				end)
@@ -1433,7 +1431,7 @@ describe("RowActions control", function()
 	it("toggling editing off does not force-close an already-open tray (documented behavior)", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1457,7 +1455,7 @@ describe("RowActions control", function()
 	it("editing shifts Content right by the editAffordance gutter (geometry)", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(false)
+			editing = Compose.cell(false)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1477,7 +1475,7 @@ describe("RowActions control", function()
 	it("leading actions + editing compose: the minus sits outside (before) the leading tray's reveal", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1500,7 +1498,7 @@ describe("RowActions control", function()
 	it("the minus's own hit target floors at 44px despite its 28px visual diameter", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1592,7 +1590,7 @@ describe("RowActions control", function()
 	it("the edit gutter never collapses: the minus stays mounted and the inset holds at EVERY offset", function()
 		local editing
 		local w = presenterWorld(function(core)
-			editing = core:signal(true)
+			editing = Compose.cell(true)
 			return row_actions.build(Facet, core, {
 				id = "Row",
 				content = content("Body"),
@@ -1645,7 +1643,7 @@ describe("RowActions control", function()
 				id = "Row",
 				content = content("Body"),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
-				editing = core:signal(true),
+				editing = Compose.cell(true),
 			})
 			return built
 		end)
@@ -1713,11 +1711,11 @@ describe("RowActions control", function()
 		-- and the grammar still refuses what it always refused: `prefer` names no
 		-- form, so a table holding only it is still formless.
 		local ok = pcall(function()
-			return Facet.UI.Button({ id = "B", label = "x", compactLabel = { prefer = true } })
+			return harness.UI.Button({ id = "B", label = "x", compactLabel = { prefer = true } })
 		end)
 		expect(ok).toBe(false)
 		local badType = pcall(function()
-			return Facet.UI.Button({ id = "B", label = "x", compactLabel = { icon = "trash", prefer = "yes" } })
+			return harness.UI.Button({ id = "B", label = "x", compactLabel = { icon = "trash", prefer = "yes" } })
 		end)
 		expect(badType).toBe(false)
 	end)
@@ -1760,7 +1758,7 @@ end
 -- control at all. Without it the composite degrades to the neutral snapshot and
 -- a themed sweep would measure the wrong package on purpose.
 local function themedWorld(snap: any?, spec: (core: any, env: any) -> any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if snap ~= nil then
@@ -1768,9 +1766,9 @@ local function themedWorld(snap: any?, spec: (core: any, env: any) -> any)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local ra = row_actions.build(Facet, core, spec(core, env))
-	local handle = pres.present(Facet.UI.Screen({ id = "S", children = { ra.blueprint } }))
+	local handle = pres.present(harness.UI.Screen({ id = "S", children = { ra.blueprint } }))
 	pres.refresh()
 	return { core = core, env = env, adapter = adapter, pres = pres, ra = ra, handle = handle }
 end
@@ -1843,7 +1841,7 @@ describe("device bug round 2026-08-12 — the tray's negative space (findings A1
 				id = "Row",
 				content = content("Body"),
 				width = { type = "fill", weight = 1 },
-				editing = core:signal(true),
+				editing = Compose.cell(true),
 				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
 			})
 		end)

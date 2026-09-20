@@ -35,6 +35,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
+local scenario_ctx = require("./lib/scenario_ctx")
 local worldLib = require("./lib/world")
 local sheet_model = require("../src/tokens/sheet_model")
 local tokens = require("../src/tokens/tokens")
@@ -88,7 +89,7 @@ local function makeWorld(opts: any?): (any, any, any)
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 		reducedMotion = options.reducedMotion == true,
 	})
-	local deps = { env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
+	local deps = scenario_ctx.of(w)
 	return w.core, deps, w.adapter
 end
 
@@ -136,7 +137,7 @@ local function driveToIdle(game: any, deps: any, watch: (frame: number) -> ()): 
 end
 
 local function newGame(core: any, deps: any): any
-	local game = match3.build(Facet, core, deps)
+	local game = match3.build(deps)
 	settleMount(deps)
 	game.debugSetBoard(SWAP_BOARD)
 	deps.presenter.refresh()
@@ -232,7 +233,7 @@ describe("match-3 motion: tile identity survives a move", function()
 		-- no row factory re-ran and nothing remounted: a move is a move
 		expect(game.handle.root.counters().factoryRuns).toBe(runsBefore)
 		expect(game.handle.root.counters().mounted).toBe(mountedBefore)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -302,7 +303,7 @@ describe("match-3 motion: the two swapped tiles travel", function()
 
 		settleBoard(deps)
 		expect(deps.presenter.animationRecordCount()).toBe(0)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -344,7 +345,7 @@ describe("match-3 motion: the two swapped tiles travel", function()
 		expect(game.boardSnapshot()).toEqual(before)
 		expect(game.moves()).toBe(0)
 		expect(string.find(game.hintText(), "no run of three", 1, true) ~= nil).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)
@@ -398,7 +399,7 @@ describe("match-3 motion: the resolve sequence is visible, in order", function()
 		expect(string.match(log[5], "^refill:(%d+)$") ~= nil).toBe(true)
 		expect(log[6]).toBe("land")
 		expect(log[#log]).toBe("idle")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -434,7 +435,7 @@ describe("match-3 motion: the resolve sequence is visible, in order", function()
 		for _, id in doomed do
 			expect(adapter.node(game.tilePath(id))).toBeNil()
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -472,7 +473,7 @@ describe("match-3 motion: the resolve sequence is visible, in order", function()
 				expect(at.y >= 0).toBe(true)
 			end
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -500,7 +501,7 @@ describe("match-3 motion: the resolve sequence is visible, in order", function()
 		end)
 		expect(restY > homeY).toBe(true) -- it really did end up lower
 		expect(travelledDown).toBe(true) -- and it was seen on the way
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -518,7 +519,7 @@ describe("match-3 motion: the resolve sequence is visible, in order", function()
 		expect(string.find(game.hintText(), "still settling", 1, true) ~= nil).toBe(true)
 		settleBoard(deps)
 		expect(game.moves()).toBe(1) -- only the swap the player actually made
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)
@@ -543,14 +544,14 @@ describe("match-3 motion: the anchored board still navigates in two dimensions",
 		local focus = deps.presenter.focus
 		local function check(where: string)
 			focus.focusOn(game.cellPath(1, 1))
-			expect(focus.focused:get()).toBe(game.cellPath(1, 1))
+			expect(focus.focused:peek()).toBe(game.cellPath(1, 1))
 			focus.navigateDirection("right")
-			expect(focus.focused:get()).toBe(game.cellPath(1, 2))
+			expect(focus.focused:peek()).toBe(game.cellPath(1, 2))
 			focus.navigateDirection("down") -- keeps the lane, moves a whole line
-			expect(focus.focused:get()).toBe(game.cellPath(2, 2))
+			expect(focus.focused:peek()).toBe(game.cellPath(2, 2))
 			focus.navigateDirection("left")
-			expect(focus.focused:get()).toBe(game.cellPath(2, 1))
-			if focus.focused:get() ~= game.cellPath(2, 1) then
+			expect(focus.focused:peek()).toBe(game.cellPath(2, 1))
+			if focus.focused:peek() ~= game.cellPath(2, 1) then
 				error(`board navigation broke {where}`, 2)
 			end
 		end
@@ -558,7 +559,7 @@ describe("match-3 motion: the anchored board still navigates in two dimensions",
 		game.swap(1, 3, 2, 3)
 		settleBoard(deps)
 		check("after a cascade moved and replaced tiles")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -568,16 +569,16 @@ describe("match-3 motion: the anchored board still navigates in two dimensions",
 		local focus = deps.presenter.focus
 		focus.focusOn(game.cellPath(6, 1))
 		focus.navigateDirection("down") -- off the bottom row, into the artwork row
-		expect(focus.focused:get()).toBe(game.reloadPath)
+		expect(focus.focused:peek()).toBe(game.reloadPath)
 		focus.navigateDirection("right")
-		expect(focus.focused:get()).toBe(game.deliverPath)
+		expect(focus.focused:peek()).toBe(game.deliverPath)
 		focus.navigateDirection("right")
-		expect(focus.focused:get()).toBe(game.breakPath)
+		expect(focus.focused:peek()).toBe(game.breakPath)
 		focus.navigateDirection("down")
-		expect(focus.focused:get()).toBe(game.resetPath)
+		expect(focus.focused:peek()).toBe(game.resetPath)
 		focus.navigateDirection("up")
-		expect(focus.focused:get() ~= game.resetPath).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(focus.focused:peek() ~= game.resetPath).toBe(true)
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)
@@ -636,14 +637,14 @@ describe("match-3 motion: a reset mid-cascade leaves nothing behind", function()
 		game.swap(1, 3, 2, 3)
 		settleBoard(deps)
 		expect(game.moves()).toBe(1)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("dispose mid-cascade unregisters the hook and leaves the registry at baseline", function()
 		local core, deps = makeWorld()
-		local baseline = core:counters()
-		local game = match3.build(Facet, core, deps)
+		local baseline = core.owner.size()
+		local game = match3.build(deps)
 		settleMount(deps)
 		game.debugSetBoard(SWAP_BOARD)
 		game.swap(1, 3, 2, 3)
@@ -659,11 +660,9 @@ describe("match-3 motion: a reset mid-cascade leaves nothing behind", function()
 			deps.presenter.tick(FRAME)
 			deps.presenter.refresh()
 		end
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
-		expect(core:lastError()).toBeNil()
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
+		expect(core.lastError()).toBeNil()
 	end)
 end)
 
@@ -696,7 +695,7 @@ describe("match-3 motion: reduced motion changes the paint and nothing else", fu
 			hint = game.hintText(),
 			ids = game.tileIds(),
 			records = records,
-			error = core:lastError(),
+			error = core.lastError(),
 		}
 		game.dispose()
 		return result
@@ -783,12 +782,12 @@ describe("match-3 motion: the example builds no animation system of its own", fu
 		local code = table.concat(codeLines(source), "\n")
 		for _, needle in
 			{
-				"presenter", -- the deps handle every mechanism hangs off
+				"ctx.app", -- the application every mechanism hangs off
 				"animation = { layout = TILE_MOTION }",
-				"onTick",
+				"onFrame",
 				"UI.Anchor",
 				"UI.ForEach",
-				"transition = { enter",
+				"animation = { opacity = TILE_MOTION }",
 			}
 		do
 			expect(string.find(code, needle, 1, true) ~= nil).toBe(true)
@@ -844,7 +843,7 @@ describe("match-3 motion: thirty-six tiles that are actually painted, in every s
 
 	it("every tile picture clears the visibility floor against the page it sits on", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		settleMount(deps)
 		local problems: { string } = {}
 		local checked = 0
@@ -949,7 +948,7 @@ describe("match-3 pointer drag", function()
 			settleBoard(deps)
 			expect(game.moves()).toBe(if target[3] then 1 else 0)
 			expect(game.score() > 0).toBe(target[3])
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 			game.dispose()
 		end)
 	end

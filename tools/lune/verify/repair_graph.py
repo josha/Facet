@@ -1052,31 +1052,6 @@ PLACEMENT_CASES = [
     "placement_audit::§2.1 tier 2: the children a construction-time check cannot see::a UI.When child is audited against the parent it SPLICES into, not against the When",
 ]
 
-WARDROBE_CASES = [
-    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::owned-only shrinks the catalog; price sort reorders; reset restores",
-    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::section stubs are honest and the worn set survives leaving and returning",
-    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the BuyBar copy live",
-    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the SECTION PICKER's option labels too",
-    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::two fresh builds are identical (reset determinism) and dispose cleanly",
-    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::REDUCED MOTION STOPS THE TURNTABLE — and motion allowed still turns it",
-    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::an orbit step drives a new camera write through the public host",
-    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::mounts the boutique with categories, grids, pane, and no core error",
-    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::the stage host is live headlessly (recording stub): lighting + camera recorded, fallback closed",
-    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip",
-    "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::insufficient Sparks rejects with a visible reason; the wallet never moves; retry stays allowed",
-    "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::sold-out rejects once, then a retry confirms: balance debits, chip flips to Owned+Wearing, modal dismisses, BuyBar leaves",
-    "reference/wardrobe_spec::Wardrobe proof — try-on and history::activating a card equips it: Wearing chip, selected state, rig re-dressed; activating again unequips",
-    "reference/wardrobe_spec::Wardrobe proof — try-on and history::trying on an unowned item raises the BuyBar; an owned one does not",
-    "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends",
-    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you card is the same width, and the row tiles the grid exactly",
-    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you thumbnail is the SAME width — never a different width per card",
-    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the catalog column claims the whole phone viewport — not just the grid's minColumnWidth floor",
-    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the thumbnail never paints past its own Col — at the floor lane, not just a wide one",
-    "reference/wardrobe_spec::Wardrobe — backdrop-finding sweep (task POP)::the purchase Confirm modal and the Refine filter modal are clean",
-    "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::FIVE WORN PIECES SHARE ONE LINE, each at its own width — not five stacked lines",
-    "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::IN A NARROW PANE THEY WRAP to a second line rather than paint past the plate",
-]
-
 CONSUMER_CASES = [
     "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
     "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
@@ -1301,18 +1276,6 @@ ROW_FLIPS = {
         "uncommitted is not a colour",
         None,
     ),
-    "example-games-and-standalones::dead-example-audit": (
-        {
-            "resultIds": WARDROBE_CASES,
-            "producers": ["check_example_drift_cli", "check_device_sweep-selftest"],
-            "receipt": "tools/lune/verify/evidence/example-games-and-standalones--dead-example-audit.json",
-        },
-        "the retired example stays retired and stays proved: its cases still run as test evidence, "
-        "the drift checker reconciles the live set against what is registered, and the inventory "
-        "taken when it was retired is pinned by content hash",
-        None,
-    ),
-
     # ---- Step 13.5: the closing rows -----------------------------------------
     "example-games-and-standalones::rascalrally-consumer": (
         {"producers": ["rascalrally-suite"], "receipt": "tools/lune/verify/evidence/example-games-and-standalones--rascalrally-consumer.json"},
@@ -1828,12 +1791,6 @@ DR_RECEIPTS = {
         [("design", "artifacts/example-games-and-standalones/design/sipworks-and-glade.md", "archive"),
          ("acceptance", "artifacts/example-games-and-standalones/acceptance-ledger.md", "archive")],
         "the same record, read for the second loop",
-    ),
-    "example-games-and-standalones::dead-example-audit": (
-        "external",
-        [("inventory", "artifacts/example-games-and-standalones/wardrobe-inventory.md", "archive"),
-         ("retirement", "artifacts/example-games-and-standalones/design/wardrobe-retirement.md", "archive")],
-        "the inventory taken when the example was retired, and the retirement decision beside it",
     ),
     "example-games-and-standalones::rascalrally-consumer": (
         "deterministic",

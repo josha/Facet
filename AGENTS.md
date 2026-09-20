@@ -44,10 +44,10 @@ Before selecting controls for a new screen, apply
 [`Choosing controls`](docs/guide/14-choosing-controls.md). Use its task and input
 criteria to decide whether contextual radial actions are appropriate, then choose
 the documented geometry, content-fit, navigation, and completion options. For
-brief confirmations, declare `View.Alert` with `isPresented` and `onPresentedChange`, or
-`View.Button.confirm` for a single action; the control owns responsive sizing,
-actions, focus and cancellation. Use
-`presentModal` directly for substantial custom modal tasks. For
+brief confirmations, declare `UI.Alert` with an `isPresented` cell and an
+`actions` list; the control owns responsive sizing, actions, focus and
+cancellation. Use
+`app.presentModal` directly for substantial custom modal tasks. For
 proximity actions around world objects, use the public `client.world_anchor`
 binding and the chooser’s world-object guidance. Prefer a direct prompt for one
 primary action and a corner menu for global commands; do not duplicate projection
@@ -62,7 +62,7 @@ Follow this order for every UI requirement, including whole-screen layouts and r
 
 First inspect the host screen as well as the control catalog. Reuse its existing
 toolbar, settings, and navigation composition: a new action usually needs a
-`View.Button` in that surface, not another piece of chrome. Before adding a
+`UI.Button` in that surface, not another piece of chrome. Before adding a
 control, wrapper, or alternative presentation, identify the concrete requirement
 the closest existing control and host composition cannot express. Follow the
 [composition guidance](docs/guide/14-choosing-controls.md#compose-in-the-existing-screen).
@@ -83,24 +83,21 @@ The ordinary implementation rules below apply unless that documented last-resort
 fallback is necessary. Do not start with native Roblox controls or a separate
 custom input/layout system and then attempt to wrap Facet around it.
 
-1. **Compose from the public surface.** For new code, use `Facet.component` and
-   `Facet.View` ([component authoring](docs/guide/15-components.md)). The explicit
-   handle API remains available: layout comes from `Facet.UI.*` — stacks,
-   grids, `ZStack`, `Composition`, and the layout modifiers. Controls come from
-   `Facet.Controls.<Name>(core, spec)`. The catalog in the guide index lists every
-   one; the API reference gives each one its properties.
-2. **Keep local state in the component.** Use `ui.state`, property getters and
-   controlled callbacks (`value = enabled, onChange = setEnabled`). A getter reads;
-   a callback commands. Use `ui.memo` for shared/expensive derived work, `ui.watch`
-   for external reactions, and `ui.effect` when cleanup must run before the next
-   effect. Borrow shared model state with `ui.read`; `:get()` is untracked. The
-   component owns these resources automatically. Use `ui.own` only for external
-   resources or an explicitly needed control handle. Application/model lifetimes
-   may still use Core scopes.
+1. **Compose from the public surface.** Create an application with `Facet.new()`
+   and use `app.controls`. A component is an ordinary function returning a view;
+   `app.mount(Component)` gives it Compose ownership. Use numeric children and
+   optional constructor names. See [component authoring](docs/guide/15-components.md).
+2. **Keep local state in the component.** Use `Facet.Compose.cell` and property
+   functions that read through `use`. Event callbacks command the model with
+   `:set` or `:update`; `:peek()` reads without subscribing. Use `Compose.formula`
+   for shared calculations, `Compose.watch` for external effects, and
+   `Compose.cleanup` for external resources. Create shared model cells outside
+   the component when their values must survive its removal.
 3. **Customize the theme first.** A game may use an out-of-the-box theme as-is.
    When its look and feel needs customization, first derive or customize a
    game-owned theme package before adding screen-specific styling or changing
-   controls. Include real image/vector icons rather than text substitutes.
+   controls. Install it with `app.installTheme(package)`. Include real
+   image/vector icons rather than text substitutes.
    See [Custom themes](docs/guide/09-custom-themes.md) for backgrounds, icon
    coverage, contrast and border insets. Use semantic roles, spacing
    steps, and type roles. Paint reaches the engine through Roblox's own
@@ -109,19 +106,19 @@ custom input/layout system and then attempt to wrap Facet around it.
    and [api.md `themes`](docs/reference/api.md#themes).
 4. **Let Facet adapt.** Size class, orientation, column counts, safe areas,
    interaction class, and the player's preferred text size are facts published by
-   `Facet.newEnvironment(core)` and read by the controls themselves. Do not branch
+   `app.environment` and read by the controls themselves. Do not branch
    on a device name. [api.md `adaptive`](docs/reference/api.md#adaptive) is the
    policy surface.
 5. **Let Facet own the mechanisms.** Focus and navigation come from the solved
    layout ([`newFocusGraph`](docs/reference/api.md#newfocusgraph)), input from the
    semantic action system
    ([`newActionSystem`](docs/reference/api.md#newactionsystem)), motion from the
-   motion authority, scrolling from a real Roblox scrolling container, and
-   lifetime from scopes that dispose exactly once.
-6. **Stand the surface up once.** `client.host.new()` composes the core,
-   environment, render target, input system, and presenter, and drives both halves
-   of the frame. See [api.md client entry
-   points](docs/reference/api.md#client-entry-points).
+   Compose animation runtime, scrolling from a real Roblox scrolling container,
+   and lifetime from Compose owners.
+6. **Stand the surface up once.** `Facet.new()` creates the environment, render
+   target, input system, presenter and Compose runtime. It drives the frame.
+   Use `app.mount` to present a component and `app.dispose` when the application
+   ends. See the [application API](docs/reference/api.md#new).
 7. **Choose collection lifetime deliberately.** Apply the chooser's
    [virtualization guidance](docs/guide/14-choosing-controls.md#collection-size-and-lifetime)
    to inventories, catalogs and feeds. Use the existing virtual controls for
@@ -131,23 +128,23 @@ custom input/layout system and then attempt to wrap Facet around it.
 
 **Examples are part of the API.** Maintained examples, guide snippets and new
 feature scenarios must teach the same current authoring vocabulary. Prefer dense
-numeric children, `UI.When { condition = open, Details {} }`, stable collection
-keys (`key = "id"`), current-item getters and row components. Keep durable row
-state in the model. Never introduce a second state/ownership facade just to keep
-old example code working.
+numeric children, `Compose.show`, stable collection keys (`key = "id"`),
+current-item readables and row components. Keep durable row
+state in the model. Never introduce a second state or ownership facade.
 
-Declare ordinary motion where it belongs: `animation = { layout = "container" }`
-on a layout, local paint animation on a node, and `transition` for insertion or
-removal. Use `ui.animate` only when another calculation needs an animated number;
-reserve `ui.withAnimation` for exceptional action-scoped coordination. Native
-StyleRule paint transitions and reduced-motion handling come from the host.
+Use the application's Compose runtime for animation. Bind its animated readables
+in view properties. Declare a region's enter and exit motion as `transition` on
+`UI.When` or `UI.ForEach`, and name a shared element with `transition.source`.
+Controls can expose motion options for their own behavior. Native StyleRule paint
+transitions and reduced-motion handling come from the host. See the current
+[motion recipe](docs/guide/15-components.md).
 
 A low-level constructor in an example needs a concrete reason: implementing a
 control, testing primitive contracts, inspecting an imperative handle, or owning
 state outside a mounted view. Name that reason beside the code and link the
 ordinary component recipe. Do not copy low-level verification fixtures into new
-application UI. Historical plans and before/after migration examples are records,
-not current templates. When a feature changes, update its example and teaching
+application UI. Keep historical change descriptions in the changelog. When a
+feature changes, update its example and teaching
 snippet in the same change and exercise the mounted example.
 
 ## 3. Choosing where the interface lives
@@ -247,11 +244,12 @@ Outside the documented last-resort fallback in §2, each of these is a defect:
 
 ## 7. Two standing facts
 
-- **Compose owns the reactive graph, scheduler and ownership.** `src/core/compose.luau`
-  provides Facet readables, diagnostics and layout settling. The source, MIT notice
-  and local lifetime patch are pinned under `src/vendor/compose`; no other vendor
-  is allowed. See `src/core/README.md` for the native scheduling contract.
+- **Compose owns the reactive graph, scheduler and ownership.** Facet sits directly on it:
+  `Compose.cell`, `Compose.formula`, `Compose.watch` and Compose owners, with no Facet signal,
+  memo or scope type. `src/core/services.luau` adds only the error boundary and the layout
+  settle pass (`src/render/settle_pass.luau`). The commit and file hashes are recorded in `src/vendor/compose/UPSTREAM.lock`;
+  `src/vendor/compose` is a generated, read-only snapshot of that commit with its MIT notice;
+  `tools/sync_compose.py --check` fails when any file differs from the lock. Do not edit the snapshot.
+  There is no local patch, and no other vendor is allowed. See `src/core/README.md` for the native scheduling contract.
 - **`Facet.VERSION` is the version, and it lives in one place**, `src/init.luau`.
-  The compatibility policy is
-  [`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation); the
-  retiring-surface ledger is `Facet.DEPRECATIONS`.
+  See the [versioning policy](CONTRIBUTING.md#6-versioning).

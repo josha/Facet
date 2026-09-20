@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./harness")
 -- THE THEME LEDGER — what turning the theme axis on found, on 2026-08-14.
 --
 -- Read `tests/overflow_sweep.spec.luau`'s "THE THEME AXIS" and "THE THEME LEDGER"
@@ -174,7 +175,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage/FriendsRow/AddTile/BadgeWhen/then/BadgeBubble/Count",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody/FeedPage/FriendsRow/AddTile/BadgeWhen/then/BadgeBubble/Count",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 32, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
 		since = 0,
@@ -184,7 +185,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage/FriendsRow/AddTile/B",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody/FeedPage/FriendsRow/AddTile/B",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 56,
 		since = 14,
@@ -196,7 +197,7 @@ theme_ledger.ROWS = {
 		-- the section headers' `See all` link-buttons, one construction per section.
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage/Sections/[*]/Body/Header/SeeAll",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody/FeedPage/Sections/[*]/Body/Header/SeeAll",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 68, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
 		since = 0,
@@ -216,7 +217,7 @@ theme_ledger.ROWS = {
 		-- not previously need to name.
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody/FeedPage",
 		sig = "content box collapses to Npx on y: padding N",
 		px = 5,
 		since = 0,
@@ -226,7 +227,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "row_actions",
 		variant = "vlist",
-		node = "/MailActions/VListWhen/then/VListPane",
+		node = "/MailActions/VListWhen/VListPane",
 		sig = "content overflows this vstack by Npx on the",
 		px = 324,
 		since = 0,
@@ -346,7 +347,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "row_actions",
 		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane",
+		node = "/MailActions/TableWhen/TablePane",
 		sig = "content overflows this vstack by Npx on the",
 		px = 102,
 		since = 0,
@@ -413,7 +414,7 @@ theme_ledger.ROWS = {
 		-- happened to measure.
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody",
+		node = "/Foyer/Root/Nav/Content/Tab-home/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
 		px = 96,
 		since = 0,
@@ -465,7 +466,7 @@ theme_ledger.ROWS = {
 		-- box hitting the same ceiling.
 		surface = "with_animation",
 		variant = "-",
-		node = "/MotionDemo/Page/Stage/Decorative/Chips/Order/[*]/Chip",
+		node = "/MotionDemo/Page/Stage/Decorative/Chips/Order/Chip-*",
 		sig = "content box collapses to Npx on x: padding N",
 		px = 72,
 		since = 0,
@@ -495,7 +496,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "sponsor_avatars",
 		variant = "-",
-		node = "/AvatarLab/Avatars/Set/[*]/Avatar/Fallback",
+		node = "/AvatarLab/Avatars/Set/Avatar-*/Fallback",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 60,
 		since = 0,
@@ -581,7 +582,7 @@ theme_ledger.ROWS = {
 		surface = "sponsor_drop",
 		variant = "-",
 		node = "/DropLab/Main/ListZone/Rows/Canvas/W/[*]/Row/Card",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
+		sig = "UI.VirtualList 'X' declares itemExtent = N,",
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the hosted row's content scales with the ladder (66px slot, 72px content under Fantasy Ornate) while the art frame it must clear does not — the same 6px shortfall the near pass records at 48.
 		px = 72,
 		since = 0,
@@ -611,7 +612,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "composition",
 		variant = "-",
-		node = "/CompositionScreen/Body/OfferFrame/Summary/Celebration/CelebrationFull/then/CelebrationPiece/CelebrationPieceLabel",
+		node = "/CompositionScreen/Body/OfferFrame/Summary/Celebration/CelebrationFull/CelebrationPiece/CelebrationPieceLabel",
 		sig = "this child overflows its zstack by NxNpx and",
 		px = 45,
 		since = 0,
@@ -641,7 +642,7 @@ theme_ledger.ROWS = {
 		-- the old pattern stopped matching outright rather than matching wrong. Same
 		-- node, same finding, same box.
 		-- Same existing chrome-inset finding and ceilings; root now lives in NavigationStack.
-		node = "/Glade/GladeFlow/Pages/[*]/PageMotion/Page/BodyHost/Content/view/Shell/Nav/Content/Tab-glades/then/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
+		node = "/Glade/GladeFlow/Pages/[*]/PageMotion/Page/BodyHost/Content/Shell/Nav/Content/Tab-glades/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/FavSlot/Fav_*",
 		sig = "the 'X' chrome contentInsets could not be",
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the star already spends `targetSizes.minimum`, so its box follows the ladder to 68 under Pixel Quest. Same finding, larger box, SMALLER shortfall (20px of room for a 32px frame at near, 28px at distance).
 		px = 68,
@@ -829,7 +830,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "row_actions",
 		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main",
+		node = "/MailActions/TableWhen/TablePane/MailTable/Main",
 		sig = "content overflows this vstack by Npx on the",
 		-- RE-RECORDED 2026-08-29 (task SHOWCASE3): 40 -> 55, under
 		-- fantasy-ornate/fantasy-parchment/glossy-touch only (the other five
@@ -1064,7 +1065,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "sponsor_markers",
 		variant = "-",
-		node = "/MarkerLab/Stage/Overlay/Markers/[*]/Dot",
+		node = "/MarkerLab/Stage/Overlay/Markers/Dot-*",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 32,
 		since = 0,
@@ -1094,7 +1095,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "row_actions",
 		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value",
+		node = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value",
 		sig = "this child overflows its zstack by NxNpx and",
 		px = 31,
 		since = 0,
@@ -1219,7 +1220,7 @@ theme_ledger.ROWS = {
 	{
 		surface = "row_actions",
 		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-from/Value",
+		node = "/MailActions/TableWhen/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-from/Value",
 		sig = "this child overflows its zstack by NxNpx and",
 		px = 21,
 		since = 0,
@@ -1352,7 +1353,7 @@ theme_ledger.ROWS = {
 		— Pixel Quest's fields at 76px in a hand-built shell that stacked a top bar, a
 		`Middle` row and a `Dock`, each with a gap of its own, left the content region
 		2px on a 640x320 landscape at the largest text preference. The shell is
-		`Facet.Controls.TabView` now, and the construct declares NO padding and NO gap
+		`harness.Controls.TabView` now, and the construct declares NO padding and NO gap
 		anywhere in its own scaffold (its header says why), so those steps came back to
 		the content. The sweep reports nothing at that cell any more, from any package. ]]
 } :: { Row }

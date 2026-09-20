@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Edit-mode preview harness (director Part-2 ws2): the engine-free half —
 -- device profiles resolve to environment geometry (viewport + core-safe
 -- insets), and applying a profile to an environment re-solves an attached
@@ -11,7 +12,7 @@ local Facet = require("../src")
 local device_profiles = require("../src/preview/device_profiles")
 local fake_target = require("../tests/lib/fake_target")
 local environment = require("../src/env/environment")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 
 describe("Preview: device profiles", function()
 	it("ships presets matching the measured device truths", function()
@@ -61,29 +62,29 @@ describe("Preview: device profiles", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		device_profiles.apply(env, "console")
-		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
-		local classes = env:get("interactionClasses"):get()
+		expect(env:get("distanceProfile"):peek()).toBe("ten-foot")
+		local classes = env:get("interactionClasses"):peek()
 		expect(classes.gamepad).toBe(true)
 		expect(classes.primary).toBe("gamepad")
 		expect(classes.pointer).toBe(false)
 		-- and applying a near profile fully restores the desktop facts
 		device_profiles.apply(env, "desktop")
-		expect(env:get("distanceProfile"):get()).toBe("near")
-		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
-		expect(env:get("overscanInsets"):get().left).toBe(0)
+		expect(env:get("distanceProfile"):peek()).toBe("near")
+		expect(env:get("interactionClasses"):peek().primary).toBe("pointer")
+		expect(env:get("overscanInsets"):peek().left).toBe(0)
 	end)
 
 	it("applying a profile re-renders an attached tree with rect writes only", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		device_profiles.apply(env, "desktop")
 		local adapter = fake_target.new({ ops = true })
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "P",
 				children = {
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Panel",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
@@ -110,16 +111,16 @@ describe("Preview: device profiles", function()
 	-- ten-foot, the renderer composes overscanInsets ON TOP of coreSafeInsets
 	-- (TVs clip edges), and leaving the profile restores the full canvas
 	it("applying the console profile insets the solved tree by the overscan margins", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		device_profiles.apply(env, "desktop")
 		local adapter = fake_target.new({ ops = true })
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "P",
 				children = {
-					Facet.UI.VStack({
+					harness.UI.VStack({
 						id = "Panel",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
@@ -147,12 +148,12 @@ describe("Preview: notched device-safe profile (native-substrate NS-A1)", functi
 		local core = customFactory.new()
 		local env = environment.new(core)
 		device_profiles.apply(env, "phoneNotchLandscape")
-		local device = env:get("deviceSafeInsets"):get()
+		local device = env:get("deviceSafeInsets"):peek()
 		expect(device.left).toBe(47)
 		expect(device.right).toBe(47)
 		expect(device.bottom).toBe(21)
 		device_profiles.apply(env, "desktop")
-		local reset = env:get("deviceSafeInsets"):get()
+		local reset = env:get("deviceSafeInsets"):peek()
 		expect(reset.left).toBe(0)
 		expect(reset.right).toBe(0)
 	end)
@@ -161,7 +162,7 @@ end)
 describe("Live environment preview", function()
 	it("preserves overrides across platform changes and restores the latest live facts", function()
 		local preview = require("../src/client/environment_preview")
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		local handle = preview.new(env)
 		handle.source:batch(function()
@@ -169,41 +170,41 @@ describe("Live environment preview", function()
 			handle.source:set("preferredInput", "KeyboardAndMouse")
 		end)
 		expect(handle.setProfile("phone")).toBe(true)
-		expect(env:get("viewportRect"):get().w).toBe(389)
-		expect(env:get("interactionClasses"):get().primary).toBe("touch")
+		expect(env:get("viewportRect"):peek().w).toBe(389)
+		expect(env:get("interactionClasses"):peek().primary).toBe("touch")
 		handle.setInput("gamepad")
 		handle.source:set("preferredInput", "KeyboardAndMouse")
-		expect(env:get("interactionClasses"):get().primary).toBe("gamepad")
-		expect(env:get("distanceProfile"):get()).toBe("near")
+		expect(env:get("interactionClasses"):peek().primary).toBe("gamepad")
+		expect(env:get("distanceProfile"):peek()).toBe("near")
 		handle.setOrientation("landscape")
-		expect(env:get("viewportRect"):get().w).toBe(749)
+		expect(env:get("viewportRect"):peek().w).toBe(749)
 		handle.setProfile("tv")
 		handle.setInput("pointer")
-		expect(env:get("distanceProfile"):get()).toBe("ten-foot")
-		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
+		expect(env:get("distanceProfile"):peek()).toBe("ten-foot")
+		expect(env:get("interactionClasses"):peek().primary).toBe("pointer")
 		handle.source:set("viewportRect", { x = 0, y = 0, w = 1000, h = 600 })
 		handle.setProfile("automatic")
 		handle.setInput("automatic")
-		expect(env:get("viewportRect"):get().w).toBe(1000)
-		expect(env:get("interactionClasses"):get().primary).toBe("pointer")
-		expect(env:get("distanceProfile"):get()).toBe("near")
+		expect(env:get("viewportRect"):peek().w).toBe(1000)
+		expect(env:get("interactionClasses"):peek().primary).toBe("pointer")
+		expect(env:get("distanceProfile"):peek()).toBe("near")
 		expect(handle.setProfile("typo")).toBe(false)
 		env:set("viewportRect", { x = 0, y = 0, w = 777, h = 500 })
 		handle.source:batch(function()
 			handle.source:set("preferredInput", "Touch")
 		end)
-		expect(env:get("viewportRect"):get().w).toBe(777)
+		expect(env:get("viewportRect"):peek().w).toBe(777)
 		handle.source:set("reducedMotion", true)
 		handle.setProfile("tablet")
 		handle.setOrientation("landscape")
-		expect(env:get("viewportRect"):get().w).toBe(1000)
+		expect(env:get("viewportRect"):peek().w).toBe(1000)
 		handle.setOrientation("portrait")
-		expect(env:get("viewportRect"):get().w).toBe(768)
-		expect(env:get("reducedMotion"):get()).toBe(true)
+		expect(env:get("viewportRect"):peek().w).toBe(768)
+		expect(env:get("reducedMotion"):peek()).toBe(true)
 		handle.setProfile("phone")
 		handle.setOrientation("portrait")
-		expect(env:get("viewportRect"):get().h).toBe(600)
+		expect(env:get("viewportRect"):peek().h).toBe(600)
 		handle.dispose()
-		expect(env:get("viewportRect"):get().w).toBe(1000)
+		expect(env:get("viewportRect"):peek().w).toBe(1000)
 	end)
 end)

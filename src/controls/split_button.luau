@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 --[[ SPLIT BUTTON — a primary action with a menu of alternatives, in the form
 	the primary interaction class wants (picker round, 2026-09-11).
 
@@ -19,7 +20,7 @@
 	again on the next touch. Both forms share the Menu's anchored surfaces, focus
 	restoration and dismissal policy; the touch form's menu also keeps the
 	right-click, context-key and gamepad triggers, so a hybrid never loses a way
-	in. `busy` and `shortcut` ride `Controls.Button` in the split form; the touch
+	in. `busy` and `shortcut` ride `UI.Button` in the split form; the touch
 	form's button is a plain `UI.Button` (a long-press trigger and a control's own
 	contribution cannot both own one node), so it takes `enabled`/`busy` as one
 	memo and no shortcut. ]]
@@ -34,30 +35,36 @@ local split = {}
 local KEYS = guard.keySet({ "id", "label", "onActivate", "items", "enabled", "busy", "shortcut", "env", "menuLabel" })
 -- the four triggers a touch form keeps: everything but the tap, which is the action
 local TOUCH_TRIGGERS = table.freeze({ "longPress", "secondary", "keyboard", "gamepad" })
-function split.build(Facet, core, spec)
-	guard.assertKnownKeys("Controls.SplitButton", spec, KEYS, "spec")
-	local scope = core:scope("split-button")
+local function build(Facet, core, spec, owner)
+	guard.assertKnownKeys("UI.SplitButton", spec, KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "SplitButton"
-	local enabled = scope:own(core:memo(function(use)
-		return contract.enabledIn(use, spec.enabled) and selection.read(spec.busy, use) ~= true
-	end))
+	local enabled = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return contract.enabledIn(use, spec.enabled) and selection.read(spec.busy, use) ~= true
+		end)
+	end)
 	local env = surfaceEnv.resolve(
-		"Controls.SplitButton",
+		"UI.SplitButton",
 		id,
 		core,
 		spec.env,
 		"the touch form is one button with a long-press menu; the pointer form is a split"
 	)
-	local touchPrimary = scope:own(core:memo(function(use)
-		return menuRecipe.touchPrimary(use(env:get("interactionClasses")))
-	end))
-	local pointerForm = scope:own(core:memo(function(use)
-		return not use(touchPrimary)
-	end))
+	local touchPrimary = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return menuRecipe.touchPrimary(use(env:get("interactionClasses")))
+		end)
+	end)
+	local pointerForm = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			return not use(touchPrimary)
+		end)
+	end)
 	local live: any = nil
-	local function splitForm(branchScope: any): any
-		local primary = branchScope:own(Facet.Controls.Button(core, {
+	local function splitForm(): any
+		local branchOwner = Compose.currentOwner()
+		local primary = require("./button").build(Facet, core, {
 			id = "Primary",
 			label = spec.label,
 			width = UI.fill(),
@@ -65,8 +72,8 @@ function split.build(Facet, core, spec)
 			enabled = spec.enabled,
 			busy = spec.busy,
 			shortcut = spec.shortcut,
-		}))
-		local menu = branchScope:own(Facet.Controls.Menu(core, {
+		})
+		local menu = require("./menu").build(Facet, core, {
 			id = "Menu",
 			trigger = UI.Button({
 				id = "Menu",
@@ -83,16 +90,18 @@ function split.build(Facet, core, spec)
 			}),
 			items = spec.items,
 			env = spec.env,
-		}))
+		})
+		branchOwner.own(primary.dispose)
+		branchOwner.own(menu.dispose)
 		live = { primary = primary, menu = menu, form = "split" }
-		branchScope:own(function()
+		branchOwner.own(function()
 			if live ~= nil and live.menu == menu then
 				live = nil
 			end
 		end)
 		-- the two segments share ONE silhouette: square where they meet, the
 		-- theme's radius everywhere else (`UI.corners` is the modifier, so the
-		-- primary keeps every contribution `Controls.Button` attached)
+		-- primary keeps every contribution `UI.Button` attached)
 		return UI.HStack({
 			id = "Split",
 			gap = 0,
@@ -128,8 +137,9 @@ function split.build(Facet, core, spec)
 		localization-safe form (~1.4x under pseudo-localization); the button's
 		minimum height is a floor, not a cap, so a two-line label grows the plate
 		instead of losing its second half. ]]
-	local function touchForm(branchScope: any): any
-		local menu = branchScope:own(Facet.Controls.Menu(core, {
+	local function touchForm(): any
+		local branchOwner = Compose.currentOwner()
+		local menu = require("./menu").build(Facet, core, {
 			id = "Menu",
 			trigger = UI.Button({
 				id = "Primary",
@@ -159,9 +169,10 @@ function split.build(Facet, core, spec)
 			triggers = table.clone(TOUCH_TRIGGERS),
 			items = spec.items,
 			env = spec.env,
-		}))
+		})
+		branchOwner.own(menu.dispose)
 		live = { menu = menu, form = "single" }
-		branchScope:own(function()
+		branchOwner.own(function()
 			if live ~= nil and live.menu == menu then
 				live = nil
 			end
@@ -179,7 +190,7 @@ function split.build(Facet, core, spec)
 	local function dump()
 		return {
 			schema = "facet-split_button-dump/1",
-			form = if live ~= nil then live.form else (if touchPrimary:get() then "single" else "split"),
+			form = if live ~= nil then live.form else (if touchPrimary:peek() then "single" else "split"),
 			primary = if live ~= nil and live.primary ~= nil then live.primary.dump() else nil,
 			menu = if live ~= nil then live.menu.dump() else nil,
 		}
@@ -188,8 +199,20 @@ function split.build(Facet, core, spec)
 		blueprint = blueprint,
 		dump = dump,
 		dispose = function()
-			scope:dispose()
+			owner.dispose()
 		end,
 	}
+end
+function split.build(Facet, core, spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 return split

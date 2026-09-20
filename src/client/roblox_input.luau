@@ -1,4 +1,5 @@
 --!strict
+local Compose = require("../vendor/compose/core")
 -- Roblox Input Action System adapter (design §9.1; CLIENT-ONLY): implements
 -- the same action-system interface as src/input/actions.luau over real
 -- InputContext/InputAction/InputBinding instances, so the presenter runs
@@ -90,7 +91,7 @@ function roblox_input.newSystem(core: any)
 				name = name,
 				type = actionType,
 				context = context,
-				state = core:signal(if actionType == "Bool" then false else 0),
+				state = Compose.cell(if actionType == "Bool" then false else 0),
 				bindings = {} :: { any },
 				instance = actionInstance,
 				connections = {} :: { RBXScriptConnection },
@@ -102,7 +103,7 @@ function roblox_input.newSystem(core: any)
 				actionInstance.StateChanged:Connect(function(value)
 					-- IAS owns delivery. Inspect only the held binding that produced
 					-- this value, before observers decide whether it may repeat.
-					if value ~= 0 and value ~= false and value ~= action.state:get() then
+					if value ~= 0 and value ~= false and value ~= action.state:peek() then
 						action.lastBinding, action.lastGamepad = nil, false
 						for _, binding in action.bindings do
 							if
@@ -470,7 +471,6 @@ function roblox_input.newSystem(core: any)
 				-- children of THIS `contextInstance`, so `contextInstance:
 				-- Destroy()` below already destroys them, same as every other
 				-- binding's own `bindingInstance`.
-				action.state:dispose()
 				table.clear(action.pressedHandlers)
 				table.clear(action.releasedHandlers)
 			end

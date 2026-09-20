@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE CLIENT HOST'S FRAME CONTRACT (reuse audit REUSE-109/115; `src/client/host.luau`).
 
 	The defect this module exists to end is not visible in a dump: three of the
@@ -27,7 +28,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local host = require("../src/client/host")
 local actionsLib = require("../src/input/actions")
 local fake_target = require("../tests/lib/fake_target")
-local UI = require("../src/blueprint")
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 
 --[[ A hand-cranked frame source. `frames.step(dt)` is one PreRender edge; the
 	counter is how the spec proves there is exactly ONE connection rather than
@@ -103,8 +105,25 @@ describe("client host: the six steps, in order, once", function()
 		expect(h.presenter ~= nil).toBe(true)
 		-- the environment was BOUND before the presenter was built: a viewport
 		-- that arrives after the first solve is the 1x1-first-frame defect class
-		expect(h.env:get("viewportRect"):get().w).toBe(390)
+		expect(h.env:get("viewportRect"):peek().w).toBe(390)
 		h.dispose()
+	end)
+
+	it("owns native environment formulas until host teardown", function()
+		local Compose = require("../src").Compose
+		local h = newHost()
+		local sizeClass = h.env:get("sizeClass")
+		expect(Compose.isReadable(sizeClass)).toBe(true)
+		expect(sizeClass.get == nil).toBe(true)
+		expect(sizeClass:peek()).toBe("compact")
+		h.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+		expect(sizeClass:peek()).toBe("wide")
+		h.dispose()
+		h.dispose()
+		local ok = pcall(function()
+			return sizeClass:peek()
+		end)
+		expect(ok).toBe(false)
 	end)
 
 	it("connects exactly one frame source, and disposing takes it back", function()
@@ -153,11 +172,14 @@ describe("REUSE-109: the frame drives the clock, not just the solve", function()
 		`refresh` alone, one frame smaller, and just as invisible in a dump. ]]
 	it("ticks BEFORE it refreshes, so this frame's hook work is solved this frame", function()
 		local h, frames, adapter = newHost()
-		local rows = h.core:signal("first")
-		h.presenter.present(UI.Screen({
-			id = "S",
-			children = { UI.Text({ id = "L", text = rows }) },
-		}))
+		local rows = Compose.cell("first")
+		h.presenter.present(harness.mount(
+			h.core,
+			UI.Screen({
+				id = "S",
+				children = { UI.Text({ id = "L", text = rows }) },
+			})
+		))
 		h.presenter.refresh()
 		adapter.takeOps()
 
@@ -400,12 +422,12 @@ describe("declarative host placement", function()
 					return function() end
 				end,
 			})
-			expect(h.env:get("viewportRect"):get()).toEqual({ x = 0, y = 0, w = 800, h = 600 })
+			expect(h.env:get("viewportRect"):peek()).toEqual({ x = 0, y = 0, w = 800, h = 600 })
 			publish()
-			expect(h.env:get("viewportRect"):get().w).toBe(800)
-			expect(h.env:get("reducedMotion"):get()).toBe(true)
-			expect(h.env:get("preferredInput"):get()).toBe("Gamepad")
-			expect(h.env:get("presentationSpace"):get()).toBe(if kind == "surface" then "world" else "billboard")
+			expect(h.env:get("viewportRect"):peek().w).toBe(800)
+			expect(h.env:get("reducedMotion"):peek()).toBe(true)
+			expect(h.env:get("preferredInput"):peek()).toBe("Gamepad")
+			expect(h.env:get("presentationSpace"):peek()).toBe(if kind == "surface" then "world" else "billboard")
 			expect(frames.connects()).toBe(1)
 			h.dispose()
 			expect(frames.live()).toBe(0)

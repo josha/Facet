@@ -4,7 +4,7 @@
 -- Why this exists: migrating the framework's hardcoded metric literals onto
 -- semantic theme roles is only safe if the DEFAULT (Facet Neutral) result is
 -- byte-identical to what shipped. This walks a control-vocabulary fixture plus
--- every gallery example through the real mount -> renderer -> FakeTarget stack at
+-- every gallery example through a real Facet application over the FakeTarget at
 -- three viewports and writes every solved rect and every adapter prop write,
 -- deterministically ordered, to the path you name.
 --
@@ -26,14 +26,10 @@ local serde = require("@lune/serde")
 local fs = require("@lune/fs")
 
 local Facet = require("../../src") :: any
-local customFactory = require("../../src/core/custom")
-local mountLib = require("../../src/mount")
-local environment = require("../../src/env/environment")
-local rendererLib = require("../../src/render/renderer")
 local text_metrics = require("../../src/layout/text_metrics")
 local fake_target = require("../../tests/lib/fake_target")
 
-local UI = Facet.UI
+local Compose = Facet.Compose
 
 local VIEWPORTS = {
 	{ name = "phone-portrait", w = 390, h = 844 },
@@ -94,19 +90,46 @@ local function snapshotOf(adapter: any): { any }
 	return out
 end
 
--- one fixture render: build -> mount -> present -> refresh -> dump
-local function render(name: string, viewport: any, build: (core: any, deps: any) -> any): any
+-- one fixture render: application -> build -> mount -> refresh -> dump.
+-- `build(ctx)` answers `{ screen = component?, present = options?, drive = fn? }`.
+local function render(name: string, viewport: any, build: (ctx: any) -> any): any
 	text_metrics.resetMeasured()
 	text_metrics.resetCalibration()
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 	local adapter = fake_target.new()
-	local system = Facet.newActionSystem(core)
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
-	local built = build(core, deps)
-	presenter.present(built.screen, built.present)
+	local core, env, system
+	local app = Facet.new({
+		newAdapter = function()
+			return adapter
+		end,
+		newInputSystem = function(value)
+			core = value
+			system = Facet.newActionSystem(value)
+			return system
+		end,
+		bindEnv = function(value)
+			env = value
+			env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
+			return function() end
+		end,
+		-- nothing here animates: the dump is the first settled solve
+		connectFrame = function()
+			return function() end
+		end,
+	})
+	local presenter = app.presenter
+	local built = build({
+		Facet = Facet,
+		app = app,
+		UI = app.controls,
+		Compose = Compose,
+		env = env,
+		core = core,
+		actionSystem = system,
+	})
+	-- an example that owns its own surface mounts it inside `build`
+	if built.screen ~= nil then
+		app.mount(built.screen, built.present)
+	end
 	presenter.refresh()
 	local out = { fixture = name, viewport = viewport.name, nodes = snapshotOf(adapter), opened = nil :: any }
 	-- transient surfaces (the PopupButton panel) only exist while open, and their
@@ -116,92 +139,65 @@ local function render(name: string, viewport: any, build: (core: any, deps: any)
 		presenter.refresh()
 		out.opened = snapshotOf(adapter)
 	end
+	app.dispose()
 	return out
 end
 
 -- the control vocabulary: every control whose metrics the theme stage migrates
-local function controlVocabulary(core: any, _deps: any): any
-	local slider = Facet.Controls.Slider(core, {
-		id = "Volume",
-		label = "Volume",
-		value = core:signal(6),
-		min = 0,
-		max = 10,
-	})
-	local stepper = Facet.Controls.Stepper(core, {
-		id = "Count",
-		label = "Count",
-		value = core:signal(3),
-		min = 0,
-		max = 9,
-		step = 1,
-	})
-	local progress = Facet.Controls.ProgressView(core, { id = "Load", label = "Load", value = 0.4, showValue = true })
-	local label = Facet.Controls.Label(core, { id = "Save", title = "Save changes", icon = "rbxassetid://1" })
-	local picker = Facet.Controls.Picker(core, {
-		id = "Quality",
-		label = "Quality",
-		options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
-		selected = core:signal("low"),
-		-- `style = "segmented"` DECLARED (picker round, 2026-09-11): the frozen
-		-- render is the STRIP's nodes, and an undeclared style on this pointer
-		-- fixture has been the menu family since that round
-		style = "segmented",
-		-- `indicator = "none"` DELIBERATELY, and it is the one caller in the repo
-		-- that is right to pin it (navigation-and-menus D6, which flipped the
-		-- segmented default to the sliding pill). This fixture is not a screen: it
-		-- is the frozen input `check_flat_baseline` regenerates and compares
-		-- node-for-node against the stored 0.6.0 `control-vocabulary` render, and
-		-- that comparison IS the flat-theme byte-compatibility claim.
-		-- Letting the new default in here would re-pin the framework claim to make
-		-- a paint change quiet — which is the exact failure `check_flat_baseline`'s
-		-- own header warns about. The new default is swept where it belongs: the
-		-- `Picker-indicator` large-text fixture and `tests/picker_segments.spec`.
-		indicator = "none",
-	})
-	local disclosure = Facet.Controls.DisclosureGroup(core, {
-		id = "More",
-		label = "More",
-		expanded = core:signal(true),
-		content = function()
-			return UI.Text({ id = "Body", text = "Hidden detail", textSize = 14 })
-		end,
-	})
-	local chip = Facet.Controls.Chip(core, { id = "Tag", label = "Tag", selected = core:signal(false) })
-	local popup = Facet.Controls.PopupButton(core, {
-		id = "Mode",
-		options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
-		value = core:signal("a"),
-	})
-	local input = Facet.Controls.TextInput(core, {
-		id = "Name",
-		value = core:signal("Ada"),
-		placeholder = "Your name",
-		clearButton = true,
-	})
+local function controlVocabulary(ctx: any): any
+	local UI = ctx.UI
+	local primitive = ctx.app.runtime.constructors
+	local function noop() end
 	return {
-		screen = UI.Screen({
-			id = "Vocabulary",
-			padding = 16,
-			gap = 8,
-			children = {
-				UI.Text({ id = "Title", text = "Controls", textSize = 24 }),
-				UI.Text({ id = "Body", text = "Every control the theme stage migrates." }),
-				UI.Button({ id = "Go", label = "Go" }),
-				UI.Toggle({ id = "Flag", label = "Flag", value = core:signal(true) }),
-				UI.TextField({ id = "Field", placeholder = "Type here" }),
-				UI.Divider({ id = "Rule" }),
-				slider.blueprint,
-				stepper.blueprint,
-				progress.blueprint,
-				label.blueprint,
-				picker.blueprint,
-				disclosure.blueprint,
-				chip.blueprint,
-				popup.blueprint,
-				input.blueprint,
-			},
-		}),
+		screen = function()
+			return UI.Screen("Vocabulary")({
+				padding = 16,
+				gap = 8,
+				UI.Text("Title")({ text = "Controls", textSize = 24 }),
+				UI.Text("Body")({ text = "Every control the theme stage migrates." }),
+				-- The stored render froze the PRIMITIVE button and toggle, so the
+				-- fixture keeps measuring those; the composites are swept elsewhere.
+				primitive.Button("Go")({ label = "Go", onActivate = noop }),
+				primitive.Toggle("Flag")({ label = "Flag", value = Compose.cell(true) }),
+				UI.TextField("Field")({ placeholder = "Type here" }),
+				UI.Divider("Rule")({}),
+				UI.Slider("Volume")({ label = "Volume", value = Compose.cell(6), min = 0, max = 10 }),
+				UI.Stepper("Count")({ label = "Count", value = Compose.cell(3), min = 0, max = 9, step = 1 }),
+				UI.ProgressView("Load")({ label = "Load", value = 0.4, showValue = true }),
+				UI.Label("Save")({ title = "Save changes", icon = "rbxassetid://1" }),
+				UI.Picker("Quality")({
+					label = "Quality",
+					options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
+					selected = Compose.cell("low"),
+					-- `style = "segmented"` DECLARED: the frozen render is the STRIP's
+					-- nodes, and an undeclared style on this pointer fixture is the
+					-- menu family
+					style = "segmented",
+					-- `indicator = "none"` DELIBERATELY. This fixture is not a screen: it
+					-- is the frozen input `check_flat_baseline` regenerates and compares
+					-- node-for-node against the stored `control-vocabulary` render, and
+					-- that comparison IS the flat-theme byte-compatibility claim.
+					-- Letting the sliding-pill default in here would re-pin the framework
+					-- claim to make a paint change quiet. The default is swept where it
+					-- belongs: the `Picker-indicator` large-text fixture and
+					-- `tests/picker_segments.spec`.
+					indicator = "none",
+				}),
+				UI.DisclosureGroup("More")({
+					label = "More",
+					expanded = Compose.cell(true),
+					content = function()
+						return UI.Text("Body")({ text = "Hidden detail", textSize = 14 })
+					end,
+				}),
+				UI.Chip("Tag")({ label = "Tag", selected = Compose.cell(false) }),
+				UI.PopupButton("Mode")({
+					options = { { id = "a", label = "Alpha" }, { id = "b", label = "Beta" } },
+					value = Compose.cell("a"),
+				}),
+				UI.TextInput("Name")({ value = Compose.cell("Ada"), placeholder = "Your name", clearButton = true }),
+			})
+		end,
 		drive = function(adapter: any, _presenter: any)
 			adapter.tap("/Vocabulary/Mode/Trigger")
 		end,
@@ -225,8 +221,8 @@ for _, viewport in VIEWPORTS do
 		local module = require("../../examples/gallery/examples/" .. name) :: any
 		table.insert(
 			results,
-			render(name, viewport, function(core, deps)
-				return module.build(Facet, core, deps)
+			render(name, viewport, function(ctx)
+				return module.build(ctx)
 			end)
 		)
 	end

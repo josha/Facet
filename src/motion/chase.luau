@@ -112,7 +112,7 @@ function chase.new(internals: any, opts: Opts): Chase
 			end
 			return
 		end
-		if math.abs(x:get() - tx) <= radius and math.abs(y:get() - ty) <= radius then
+		if math.abs(x:peek() - tx) <= radius and math.abs(y:peek() - ty) <= radius then
 			finish("radius")
 			return
 		end

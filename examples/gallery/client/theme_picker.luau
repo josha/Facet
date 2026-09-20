@@ -321,10 +321,10 @@ theme_picker.CHIP_PADDING = table.freeze({
 
 export type MountOpts = {
 	Facet: any,
-	core: any,
+	-- the application the picker mounts into and builds its controls from
+	app: any,
 	env: any,
 	adapter: any,
-	presenter: any,
 	composed: boolean?,
 	-- moduleName -> compiled package (the caller resolves ReplicatedStorage)
 	packages: { [string]: any },
@@ -350,22 +350,19 @@ export type MountOpts = {
 -- a one-row picker is chrome that teaches nothing and still costs a surface.
 function theme_picker.mount(opts: MountOpts): any
 	local Facet = opts.Facet
-	local UI = Facet.View
-	local core = opts.core
+	local UI, Compose = opts.app.controls, Facet.Compose
 	local themes = Facet.themes
 	local entries = theme_picker.listing(opts.packages, themes.neutralPackage())
 	if #entries < 2 then
 		return nil
 	end
 	local warnFn = opts.warn or print
-	local scope = core:scope("gallery-theme-picker")
-	local selection = scope:own(core:signal(theme_picker.initialSelection(entries)))
+	local selection = Compose.cell(theme_picker.initialSelection(entries))
 	local ok, controller = pcall(opts.themeController.install, opts.adapter, themes.neutralPackage(), {
 		env = opts.env,
 	})
 	if not ok then
 		warnFn(`[Facet Gallery] theme picker: {tostring(controller)}`)
-		scope:dispose()
 		return nil
 	end
 	if controller.inspect().fallback then
@@ -395,11 +392,16 @@ function theme_picker.mount(opts: MountOpts): any
 	end
 	-- Host selection survives closing the panel; view bindings do not.
 	-- Primitive chips expose the selected paint and measured padding used here.
-	local Choices = Facet.component(function(ui, props)
-		local current = ui.read(selection)
+	local function when(id: string, condition: any, thenView: () -> any): any
+		return UI.When(id)({
+			Compose.show(condition, function()
+				return UI.When("then")({ thenView() })
+			end),
+		})
+	end
+	local function Choices(props: any)
 		local function selectionChip(id: string, label: string, isActive: any, onSelect: () -> ())
-			return Facet.UI.Button({
-				id = id,
+			return UI.Button(id)({
 				label = label,
 				surface = "chip",
 				onActivate = onSelect,
@@ -408,93 +410,95 @@ function theme_picker.mount(opts: MountOpts): any
 				padding = theme_picker.CHIP_PADDING,
 			})
 		end
-		local packageChips: { any } = {}
-		for _, entry in entries do
-			table.insert(
-				packageChips,
-				selectionChip(`P_{entry.id}`, entry.displayName, function()
-					return current().packageId == entry.id
-				end, function()
-					apply(theme_picker.choosePackage(entries, selection:get(), entry.id))
-				end)
-			)
-		end
-		local themeRows: { any } = {}
-		for _, entry in entries do
-			local chips: { any } = {}
-			for _, name in entry.themes do
+		if props.themes then
+			local themeRows: { any } = { gap = theme_picker.ROW_GAP }
+			for _, entry in entries do
 				table.insert(
-					chips,
-					selectionChip(`T_{entry.id}_{name}`, name, function()
-						local live = current()
-						return live.packageId == entry.id and live.theme == name
+					themeRows,
+					when(`Themes_{entry.id}`, function(use)
+						return use(selection).packageId == entry.id
 					end, function()
-						apply(theme_picker.chooseTheme(entries, selection:get(), name))
+						local chips: { any } = { gap = theme_picker.ROW_GAP }
+						for _, name in entry.themes do
+							table.insert(
+								chips,
+								selectionChip(`T_{entry.id}_{name}`, name, function(use)
+									local live = use(selection)
+									return live.packageId == entry.id and live.theme == name
+								end, function()
+									apply(theme_picker.chooseTheme(entries, selection:peek(), name))
+								end)
+							)
+						end
+						return UI.HStack("Row")(chips)
 					end)
 				)
 			end
+			return UI.VStack("Themes")(themeRows)
+		end
+		local packages: { any } = {
+			minColumnWidth = "intrinsic",
+			itemSizing = "uniform",
+			gap = theme_picker.GRID_GAP,
+			rowGap = theme_picker.GRID_ROW_GAP,
+			width = UI.fill(),
+		}
+		for _, entry in entries do
 			table.insert(
-				themeRows,
-				UI.When({
-					id = `Themes_{entry.id}`,
-					condition = function()
-						return current().packageId == entry.id
-					end,
-					thenView = function()
-						return UI.HStack({ id = "Row", gap = theme_picker.ROW_GAP, children = chips })
-					end,
-				})
+				packages,
+				selectionChip(`P_{entry.id}`, entry.displayName, function(use)
+					return use(selection).packageId == entry.id
+				end, function()
+					apply(theme_picker.choosePackage(entries, selection:peek(), entry.id))
+				end)
 			)
 		end
-		if props.themes then
-			return UI.VStack({ id = "Themes", gap = theme_picker.ROW_GAP, children = themeRows })
-		end
-		return UI.VStack({
-			id = "Choose",
+		return UI.VStack("Choose")({
 			width = UI.fill(),
 			gap = theme_picker.ROW_GAP,
-			UI.Text({ id = "Title", text = "Theme", textSize = "caption", role = "secondary" }),
-			UI.Grid({
-				id = "Packages",
-				minColumnWidth = "intrinsic",
-				itemSizing = "uniform",
-				gap = theme_picker.GRID_GAP,
-				rowGap = theme_picker.GRID_ROW_GAP,
-				width = UI.fill(),
-				children = packageChips,
-			}),
+			UI.Text("Title")({ text = "Theme", textSize = "caption", role = "secondary" }),
+			UI.Grid("Packages")(packages),
 		})
-	end)
+	end
 	local isCollapsible = opts.collapsible == true
-	local panelOpen = scope:own(core:signal(not isCollapsible))
-	local panelSections = { Choices({}), Choices({ themes = true }) }
-	local panel = UI.VStack({
-		id = "Panel",
-		anchor = if isCollapsible then nil else "topRight",
-		surface = "raised",
-		padding = "s",
-		gap = theme_picker.SECTION_GAP,
-		width = { type = "percent", fraction = 1, offset = -16, max = 560 },
-		children = panelSections,
-	})
-	if opts.composed == true then
-		panel = UI.ScrollView({
-			id = "Panel",
+	local panelOpen = Compose.cell(not isCollapsible)
+	-- Each section is a component: the host that places it builds it in its own mount.
+	local panelSections = {
+		function()
+			return Choices({})
+		end,
+		function()
+			return Choices({ themes = true })
+		end,
+	}
+	local function panel()
+		if opts.composed == true then
+			return UI.ScrollView("Panel")({
+				surface = "raised",
+				padding = "s",
+				gap = theme_picker.SECTION_GAP,
+				width = UI.hug(),
+				height = UI.hug(),
+				panelSections[1](),
+				panelSections[2](),
+			})
+		end
+		return UI.VStack("Panel")({
+			anchor = if isCollapsible then nil else "topRight",
 			surface = "raised",
 			padding = "s",
 			gap = theme_picker.SECTION_GAP,
-			width = UI.hug(),
-			height = UI.hug(),
-			children = panelSections,
+			width = { type = "percent", fraction = 1, offset = -16, max = 560 },
+			panelSections[1](),
+			panelSections[2](),
 		})
 	end
-	local Toggle = Facet.component(function(ui)
-		local expanded, current = ui.read(panelOpen), ui.read(selection)
-		local handleLabel = ui.memo(function()
-			if expanded() then
+	local function chip()
+		local handleLabel = Compose.formula(function(use)
+			if use(panelOpen) then
 				return "Theme ×"
 			end
-			local entry = theme_picker.find(entries, current().packageId)
+			local entry = theme_picker.find(entries, use(selection).packageId)
 			local name = if entry ~= nil then entry.displayName else "—"
 			if isCollapsible then
 				if opts.composed == true then
@@ -504,45 +508,35 @@ function theme_picker.mount(opts: MountOpts): any
 			end
 			return `Theme: {name}`
 		end)
-		return Facet.UI.Button({
-			id = if opts.composed == true then "ThemeToggle" else "Toggle",
+		return UI.Button(if opts.composed == true then "ThemeToggle" else "Toggle")({
 			label = handleLabel,
 			surface = "chip",
 			height = theme_picker.CHIP_HEIGHT,
 			padding = theme_picker.CHIP_PADDING,
 			onActivate = function()
-				panelOpen:set(not panelOpen:get())
+				panelOpen:set(not panelOpen:peek())
 			end,
 		})
-	end)
-	local chip = Toggle({})
-	local dockChild = if isCollapsible
-		then UI.VStack({
-			id = "Shell",
-			anchor = "topRight",
-			offsetX = 0,
-			offsetY = 0,
-			gap = theme_picker.ROW_GAP,
-			chip,
-			UI.When({
-				id = "PanelWhen",
-				condition = panelOpen,
-				thenView = function()
-					return panel
-				end,
+	end
+	local function screen()
+		return UI.Screen("GalleryThemePicker")({
+			padding = "s",
+			UI.Anchor("Dock")({
+				width = UI.fill(),
+				height = UI.fill(),
+				if isCollapsible
+					then UI.VStack("Shell")({
+						anchor = "topRight",
+						offsetX = 0,
+						offsetY = 0,
+						gap = theme_picker.ROW_GAP,
+						chip(),
+						when("PanelWhen", panelOpen, panel),
+					})
+					else panel(),
 			}),
 		})
-		else panel
-	local screen = UI.Screen({
-		id = "GalleryThemePicker",
-		padding = "s",
-		UI.Anchor({
-			id = "Dock",
-			width = UI.fill(),
-			height = UI.fill(),
-			dockChild,
-		}),
-	})
+	end
 	if opts.composed == true then
 		return {
 			chip = chip,
@@ -550,7 +544,7 @@ function theme_picker.mount(opts: MountOpts): any
 			sections = panelSections,
 			open = panelOpen,
 			pickPackage = function(packageId: string): boolean
-				local command = theme_picker.choosePackage(entries, selection:get(), packageId)
+				local command = theme_picker.choosePackage(entries, selection:peek(), packageId)
 				if command.action == "none" then
 					return false
 				end
@@ -562,25 +556,25 @@ function theme_picker.mount(opts: MountOpts): any
 			controller = controller,
 			dispose = function()
 				controller.uninstall()
-				scope:dispose()
 			end,
 		}
 	end
 	local presentOpts = {
 		responder = "passive",
 	}
-	local handle = opts.presenter.present(screen, presentOpts)
+	local close, _, handle = opts.app.mount(screen, presentOpts)
 	return {
 		handleOf = function()
 			return handle
 		end,
 		raise = function()
-			opts.presenter.dismiss(handle)
-			handle = opts.presenter.present(screen, presentOpts)
+			close()
+			local nextClose, _, nextHandle = opts.app.mount(screen, presentOpts)
+			close, handle = nextClose, nextHandle
 		end,
 		open = panelOpen,
 		pickPackage = function(packageId: string): boolean
-			local command = theme_picker.choosePackage(entries, selection:get(), packageId)
+			local command = theme_picker.choosePackage(entries, selection:peek(), packageId)
 			if command.action == "none" then
 				return false
 			end
@@ -591,9 +585,8 @@ function theme_picker.mount(opts: MountOpts): any
 		selection = selection,
 		controller = controller,
 		dispose = function()
-			opts.presenter.dismiss(handle)
+			close()
 			controller.uninstall()
-			scope:dispose()
 		end,
 	}
 end

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- PROFILE-CONDITIONAL PACKAGE SELECTION (rich-skinning-v2 P4).
 --
 -- `selectBy = { touch = pkgA, pointer = pkgB, gamepad = pkgC }` is a
@@ -28,7 +29,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
 
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
@@ -112,7 +113,7 @@ describe("selectBy resolves at INSTALL from the facts already published", functi
 		expect(controller.inspect().package.id).toBe("glossy-touch-test")
 		-- and the METRICS that came with it, in the same install: a swap a frame
 		-- later would have painted one frame of the default package's geometry
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(20)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(20)
 		expect(controller.inspect().selectBy.profile).toBe("touch")
 		expect(controller.inspect().selectBy.swaps).toBe(0)
 		controller.uninstall()
@@ -138,7 +139,7 @@ describe("selectBy resolves at INSTALL from the facts already published", functi
 	it("PRIMARY is the decision, not the whole class set (a hybrid has several)", function()
 		-- touch AND gamepad AND pointer all live; the preferred class decides
 		local w = newWorld("Touch", { touch = true, gamepad = true, mouse = true, keyboard = true })
-		local classes = w.env:get("interactionClasses"):get()
+		local classes = w.env:get("interactionClasses"):peek()
 		expect(classes.touch).toBe(true)
 		expect(classes.gamepad).toBe(true)
 		expect(classes.pointer).toBe(true)
@@ -193,7 +194,7 @@ describe("a profile change swaps ONCE, after it settles", function()
 
 		settle.fire()
 		expect(controller.inspect().package.id).toBe("compact-pointer-test")
-		expect(w.env:get("themeMetrics"):get().space.m).toBe(12)
+		expect(w.env:get("themeMetrics"):peek().space.m).toBe(12)
 		expect(controller.inspect().selectBy.profile).toBe("pointer")
 		expect(controller.inspect().selectBy.swaps).toBe(1)
 		controller.uninstall()
@@ -305,7 +306,7 @@ describe("the subscription lives and dies with the controller", function()
 		settle.fire()
 		-- the environment is back on the pre-install snapshot, not on a package
 		-- some dead controller swapped in after its own uninstall
-		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("facet-neutral")
+		expect(w.env:get("themeMetrics"):peek().identity.packageId).toBe("facet-neutral")
 	end)
 
 	it("a controller with no selectBy publishes no selectBy state at all", function()
@@ -325,16 +326,16 @@ describe("the subscription lives and dies with the controller", function()
 	-- leak check reads the registry across a full install/uninstall cycle.
 	it("the core's OWN observer count returns to baseline across install/uninstall", function()
 		local w = newWorld("Touch")
-		local baseline = w.core:counters().observers
+		local baseline = w.core.owner.size()
 		local controller = install(w, { selectBy = { touch = GLOSSY, pointer = COMPACT } })
 		-- the subscription is real: the count actually went up
-		expect(w.core:counters().observers > baseline).toBe(true)
+		expect(w.core.owner.size() > baseline).toBe(true)
 		controller.uninstall()
-		expect(w.core:counters().observers).toBe(baseline)
+		expect(w.core.owner.size()).toBe(baseline)
 		-- ...and it stays at baseline over a second cycle (no per-install residue)
 		local again = install(w, { selectBy = { touch = GLOSSY, pointer = COMPACT } })
 		again.uninstall()
-		expect(w.core:counters().observers).toBe(baseline)
+		expect(w.core.owner.size()).toBe(baseline)
 	end)
 
 	it("uninstall CANCELS a settle already in flight (runtime-F6)", function()
@@ -348,7 +349,7 @@ describe("the subscription lives and dies with the controller", function()
 		-- task.delay closure keeps the whole controller reachable for its window
 		expect(settle.cancelled).toBe(cancelledBefore + 1)
 		settle.fire()
-		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("facet-neutral")
+		expect(w.env:get("themeMetrics"):peek().identity.packageId).toBe("facet-neutral")
 	end)
 
 	it("the source keeps ONE swap path with an explicit ORIGIN (contract)", function()
@@ -358,7 +359,9 @@ describe("the subscription lives and dies with the controller", function()
 		expect(string.find(source, 'swapPackageInternal(nextPackage, themeName, "manual")', 1, true) ~= nil).toBe(true)
 		expect(string.find(source, 'swapPackageInternal(target, nil, "profile")', 1, true) ~= nil).toBe(true)
 		-- the observer is created from the caller's core and released on uninstall
-		expect(string.find(source, "o.core:observe(selectByClasses, onProfileChanged)", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "observeChange(o.core.owner, selectByClasses, onProfileChanged)", 1, true) ~= nil).toBe(
+			true
+		)
 		expect(string.find(source, "selectByUnsubscribe()", 1, true) ~= nil).toBe(true)
 	end)
 end)
@@ -422,20 +425,18 @@ describe("selectBy under adversarial input (verifier fix round)", function()
 		controller.uninstall()
 	end)
 
-	-- runtime-F4. `o.core:observe` ran ~750 lines past the first mutation. On a
+	-- runtime-F4. The change listener is created ~750 lines past the first mutation. On a
 	-- throw the caller never got a handle, so `uninstall` was unreachable and the
 	-- liveControllers entry persisted for the process lifetime — the env could
 	-- never be themed again.
 	it("a throwing core.observe leaves the environment installable (no half-install)", function()
 		local w = newWorld("Touch")
-		local poisoned = {
-			observe = function()
+		local poisonedOwner = setmetatable({
+			watchStatic = function()
 				error("observe exploded", 0)
 			end,
-			signal = w.core.signal,
-			memo = w.core.memo,
-		}
-		setmetatable(poisoned, { __index = w.core })
+		}, { __index = w.core.owner })
+		local poisoned = setmetatable({ owner = poisonedOwner }, { __index = w.core })
 		local ok = pcall(function()
 			return theme_controller.install(w.adapter, DEFAULT, {
 				env = w.env,
@@ -450,7 +451,7 @@ describe("selectBy under adversarial input (verifier fix round)", function()
 		-- the environment is not poisoned: a fresh install succeeds
 		local controller = install(w, { selectBy = { touch = GLOSSY, pointer = COMPACT } })
 		expect(controller.inspect().package.id).toBe("glossy-touch-test")
-		expect(w.core:counters().observers >= 0).toBe(true)
+		expect(w.core.owner.size() >= 0).toBe(true)
 		controller.uninstall()
 	end)
 
@@ -485,12 +486,12 @@ describe("selectBy under adversarial input (verifier fix round)", function()
 		-- ALL THREE surfaces still describe the previous package
 		expect(controller.inspect().package.id).toBe("default-test")
 		expect(controller.current()).toBe("Dark")
-		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("default-test")
+		expect(w.env:get("themeMetrics"):peek().identity.packageId).toBe("default-test")
 		expect(seen[#seen]).toBe("default-test")
 		-- ...and the controller re-converges: a later swap to a good package works
 		controller.swapPackage(COMPACT)
 		expect(controller.inspect().package.id).toBe("compact-pointer-test")
-		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("compact-pointer-test")
+		expect(w.env:get("themeMetrics"):peek().identity.packageId).toBe("compact-pointer-test")
 		controller.uninstall()
 	end)
 

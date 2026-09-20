@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- P1.6 control conformance kit (design §10.2): every v1 control class has a
 -- declared contract; each mounts/disposes memory-neutrally with a
 -- deterministic dump; focusable contracts declare an effective hit target
@@ -7,15 +8,15 @@
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
-local serde = require("@lune/serde")
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local controlContract = require("../src/class_contract")
-local blueprintLib = require("../src/blueprint")
+local blueprintLib = harness.UI
 local authority = require("../src/render/authority")
 local pathShapes = require("../src/controls/path_shapes")
+local Compose = require("../src/vendor/compose/core")
 
 -- one minimal instance per control class
 local function minimalInstance(core: any, class: string): any
@@ -24,7 +25,7 @@ local function minimalInstance(core: any, class: string): any
 	elseif class == "Button" then
 		return UI.Button({ id = "B", label = "b" })
 	elseif class == "Toggle" then
-		return UI.Toggle({ id = "G", label = "g", value = core:signal(false) })
+		return UI.Toggle({ id = "G", label = "g", value = Compose.cell(false) })
 	elseif class == "TextField" then
 		return UI.TextField({ id = "F", text = "x", placeholder = "p" })
 	elseif class == "Image" then
@@ -106,7 +107,7 @@ local function minimalInstance(core: any, class: string): any
 	elseif class == "When" then
 		return UI.When({
 			id = "W",
-			condition = core:signal(true),
+			condition = Compose.cell(true),
 			thenView = function()
 				return UI.Box({ id = "c" })
 			end,
@@ -114,7 +115,7 @@ local function minimalInstance(core: any, class: string): any
 	elseif class == "ForEach" then
 		return UI.ForEach({
 			id = "Fe",
-			items = core:signal({ 1, 2 }),
+			items = Compose.cell({ 1, 2 }),
 			key = function(item)
 				return tostring(item)
 			end,
@@ -154,19 +155,36 @@ describe("control conformance kit", function()
 			end
 			-- dirty map declared for the class
 			expect(blueprintLib.PROP_DIRTY[class] ~= nil).toBe(true)
-			-- mount, dump determinism, dispose neutrality
+			-- mount, tree determinism, dispose neutrality
 			local core = customFactory.new()
-			local bp = minimalInstance(core, class)
-			expect(bp ~= nil).toBe(true)
-			local baseline = core:counters()
-			local root = mountLib.mount(core, bp)
-			local d1 = serde.encode("json", root.dump(), true)
-			local d2 = serde.encode("json", root.dump(), true)
+			local baseline = core.owner.size()
+			local function mounted()
+				local root = mountLib.mount(core, function()
+					local node = minimalInstance(core, class)
+					expect(node ~= nil).toBe(true)
+					return node
+				end)
+				local lines = {}
+				local function walk(node: any)
+					table.insert(lines, `{node.path} {node.class}`)
+					for _, child in node.children do
+						walk(child)
+					end
+				end
+				walk(root.node)
+				return root, table.concat(lines, "\n")
+			end
+			local first, d1 = mounted()
+			local second, d2 = mounted()
 			expect(d1).toBe(d2)
-			root.dispose()
-			local after = core:counters()
-			expect(after.scopes).toBe(baseline.scopes)
-			expect(after.observers).toBe(baseline.observers)
+			expect(string.find(d1, class, 1, true) ~= nil).toBe(true)
+			first.dispose()
+			second.dispose()
+			expect(first.counters().mounted).toBe(0)
+			expect(second.counters().mounted).toBe(0)
+			local after = core.owner.size()
+			expect(after).toBe(baseline)
+			expect(after).toBe(baseline)
 		end)
 	end
 

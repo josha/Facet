@@ -385,7 +385,7 @@ describe("T12: a host move recomposes the host's own subtree, not the mounted tr
 		expect(s.stats().solves).toBe(1)
 
 		local before = s.stats()
-		s.setOffsetX(1, (s.items[1].x:get() :: number) + 7)
+		s.setOffsetX(1, (s.items[1].x:peek() :: number) + 7)
 		local after = s.stats()
 
 		expect(after.solves - before.solves).toBe(0)
@@ -453,7 +453,7 @@ describe("T12: a host move recomposes the host's own subtree, not the mounted tr
 
 		local before = s.stats()
 		probes = 0
-		s.setOffsetX(1, (s.items[1].x:get() :: number) + 11)
+		s.setOffsetX(1, (s.items[1].x:peek() :: number) + 11)
 		local moveProbes = probes
 		local after = s.stats()
 

@@ -1,10 +1,11 @@
 --!strict
+local harness = require("./lib/harness")
+local example_world = require("./lib/example_world")
 -- Tests for the three game gallery examples (docs progressive tutorial 6-8):
 --   06 Wordle-style word game, 07 Scrabble-style tile game, 08 match-3.
 -- Each example module exports { title, build } where
---   build(Facet, core, deps) -> a table with the presented screen, the
---   presenter handle, and a small game/test API.
--- deps = { env, actionSystem, presenter, adapter }.
+--   build(ctx) -> a table with the presenter handle and a small game/test API.
+-- ctx is the context every gallery surface builds against.
 -- Everything here runs headless under Lune against the FakeTarget adapter, so
 -- these double as the write-once-run-everywhere proof: no engine, no Studio.
 
@@ -25,16 +26,11 @@ local standard_icons = require("../src/themes/standard_icons")
 -- the example builds, so a later example.dispose() can prove registry-neutral
 -- teardown of everything the example itself created.
 local function makeWorld(viewport: any?, now: any?)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	if viewport ~= nil then
-		env:set("viewportRect", viewport)
-	end
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system, { now = now })
-	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
-	return core, deps, adapter
+	local xw = example_world.new({
+		viewport = viewport or { x = 0, y = 0, w = 1280, h = 720 },
+		hostOpts = { now = now },
+	})
+	return xw.core, xw.ctx, xw.adapter
 end
 
 -- fire a device key press+release through the arbitrated action pipeline (the
@@ -63,7 +59,7 @@ local WORD_SEED = (function(): number
 end)()
 
 local function buildWordGame(core: any, deps: any): any
-	local game = wordGame.build(Facet, core, deps)
+	local game = wordGame.build(deps)
 	game.restart(WORD_SEED)
 	return game
 end
@@ -75,7 +71,7 @@ describe("examples/05 word game (Wordle-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
 		local game = buildWordGame(core, deps)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		-- the screen and a first-row tile both reached the adapter
 		expect(adapter.node("/Wordle") == nil).toBeFalsy()
 		expect(adapter.node(game.tilePath(1, 1)) == nil).toBeFalsy()
@@ -124,27 +120,25 @@ describe("examples/05 word game (Wordle-style)", function()
 		local game = buildWordGame(core, deps)
 		local focus = deps.presenter.focus
 		-- focus enters the first key of the top row
-		expect(focus.focused:get()).toBe(game.keyPath("Q"))
+		expect(focus.focused:peek()).toBe(game.keyPath("Q"))
 		focus.navigateDirection("right")
-		expect(focus.focused:get()).toBe(game.keyPath("W"))
+		expect(focus.focused:peek()).toBe(game.keyPath("W"))
 		-- crossing down lands on the nearest key of the second row (entry=nearest)
 		focus.navigateDirection("down")
-		expect(focus.focused:get()).toBe(game.keyPath("S"))
+		expect(focus.focused:peek()).toBe(game.keyPath("S"))
 		game.dispose()
 	end)
 
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local game = buildWordGame(core, deps)
 		for _, ch in { "R", "E", "A", "C", "T", "Return" } do
 			game.press(ch)
 		end
 		game.dispose()
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	-- Per-input proofs: the example now carries NO nav-group build,
@@ -163,7 +157,7 @@ describe("examples/05 word game (Wordle-style)", function()
 		expect(game.row(1)).toBe("REACT")
 		adapter.tap(game.keyPath("Enter")) -- Enter key submits (its node onActivate)
 		expect(game.won()).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -172,7 +166,7 @@ describe("examples/05 word game (Wordle-style)", function()
 		local game = buildWordGame(core, deps)
 		adapter.tap(game.keyPath("R"), { pointer = "touch" })
 		expect(game.row(1)).toBe("R")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -181,11 +175,11 @@ describe("examples/05 word game (Wordle-style)", function()
 		local game = buildWordGame(core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
-		expect(focus.focused:get()).toBe(game.keyPath("Q"))
+		expect(focus.focused:peek()).toBe(game.keyPath("Q"))
 		press(sys, "Right")
-		expect(focus.focused:get()).toBe(game.keyPath("W"))
+		expect(focus.focused:peek()).toBe(game.keyPath("W"))
 		press(sys, "Down") -- crosses to row 2, nearest column
-		expect(focus.focused:get()).toBe(game.keyPath("S"))
+		expect(focus.focused:peek()).toBe(game.keyPath("S"))
 		game.dispose()
 	end)
 
@@ -194,12 +188,12 @@ describe("examples/05 word game (Wordle-style)", function()
 		local game = buildWordGame(core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
-		expect(focus.focused:get()).toBe(game.keyPath("Q"))
+		expect(focus.focused:peek()).toBe(game.keyPath("Q"))
 		press(sys, "DPadRight")
-		expect(focus.focused:get()).toBe(game.keyPath("W"))
+		expect(focus.focused:peek()).toBe(game.keyPath("W"))
 		press(sys, "ButtonA") -- A on the focused key types it (node onActivate)
 		expect(game.row(1)).toBe("W")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)
@@ -224,8 +218,8 @@ end)
 describe("examples/07 tile game (Scrabble-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
-		expect(core:lastError()).toBeNil()
+		local game = tileGame.build(deps)
+		expect(core.lastError()).toBeNil()
 		expect(adapter.node("/TileGame") == nil).toBeFalsy()
 		-- all forty-nine squares, both plates deep, and the seven rack slots
 		expect(adapter.node(game.cellPath(1, 1)) == nil).toBeFalsy()
@@ -240,7 +234,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("select-then-place moves a rack tile onto a board square", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
+		local game = tileGame.build(deps)
 		local letter = game.rackLetter(1)
 		-- tap the first rack tile (select), then tap a board square (place)
 		adapter.tap(game.rackPath(1))
@@ -255,22 +249,20 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		adapter.tap(game.undoPath)
 		expect(game.rackCount()).toBe(7)
 		expect(game.letterAt(4, 4)).toBeNil()
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps, adapter = makeWorld()
-		local baseline = core:counters()
-		local game = tileGame.build(Facet, core, deps)
+		local baseline = core.owner.size()
+		local game = tileGame.build(deps)
 		adapter.tap(game.rackPath(1))
 		adapter.tap(game.cellPath(4, 4))
 		adapter.tap(game.submitPath)
 		game.dispose()
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	-- Per-input proofs: the example carries NO activation router
@@ -281,7 +273,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- device, and then reaches Submit and Undo, which are new this round.
 	it("✓ ex06 touch: touch taps select a rack tile and place it on a board cell", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
+		local game = tileGame.build(deps)
 		local first = game.rackLetter(1)
 		local second = game.rackLetter(3)
 		adapter.tap(game.rackPath(1), { pointer = "touch" })
@@ -299,7 +291,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		adapter.tap(game.submitPath, { pointer = "touch" })
 		deps.presenter.refresh()
 		expect(adapter.node(game.wordPath).props.text).toBe("Place at least one tile before you submit.")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -310,12 +302,12 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- rack and the actions, and Activate there does the thing.
 	local function pressUntil(sys: any, focus: any, key: string, wanted: string): boolean
 		for _ = 1, 16 do
-			if focus.focused:get() == wanted then
+			if focus.focused:peek() == wanted then
 				return true
 			end
 			press(sys, key)
 		end
-		return focus.focused:get() == wanted
+		return focus.focused:peek() == wanted
 	end
 
 	-- Reaching ONE of the two actions is two moves, not one: down from the rack
@@ -325,22 +317,22 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- change that is not a defect.
 	local function reachAction(sys: any, focus: any, down: string, side: string, wanted: string, other: string): boolean
 		for _ = 1, 16 do
-			local at = focus.focused:get()
+			local at = focus.focused:peek()
 			if at == wanted then
 				return true
 			end
 			press(sys, if at == other then side else down)
 		end
-		return focus.focused:get() == wanted
+		return focus.focused:peek() == wanted
 	end
 
 	it("✓ ex06 keyboard: arrow/Return select-then-place from the rack onto the board", function()
 		local core, deps = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
+		local game = tileGame.build(deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		local letter = game.rackLetter(1)
-		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 1))
 		expect(pressUntil(sys, focus, "Down", game.rackPath(1))).toBe(true)
 		press(sys, "Return") -- select the rack tile
 		expect(game.selected()).toBe(1)
@@ -358,22 +350,22 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		for _ = 1, 12 do
 			press(sys, "Up")
 		end
-		local at = focus.focused:get()
+		local at = focus.focused:peek()
 		local row, column = string.match(at, "cell(%d+)_(%d+)/tap$")
 		expect(row ~= nil).toBe(true)
 		game.press(letter :: string)
 		expect(game.letterAt(tonumber(row) :: number, tonumber(column) :: number)).toBe(letter)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("✓ ex06 gamepad: DPad grid navigation with ButtonA select-then-place", function()
 		local core, deps = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
+		local game = tileGame.build(deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		local letter = game.rackLetter(1)
-		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 1))
 		expect(pressUntil(sys, focus, "DPadDown", game.rackPath(1))).toBe(true)
 		press(sys, "ButtonA") -- select the rack tile
 		expect(pressUntil(sys, focus, "DPadUp", game.cellPath(7, 1))).toBe(true)
@@ -382,13 +374,13 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		-- ...and the D-pad crosses the board a square at a time, which is what
 		-- the Grid's derived row groups are for
 		press(sys, "DPadRight")
-		expect(focus.focused:get()).toBe(game.cellPath(7, 2))
+		expect(focus.focused:peek()).toBe(game.cellPath(7, 2))
 		-- ...and Submit answers a gamepad A like anything else
 		expect(reachAction(sys, focus, "DPadDown", "DPadLeft", game.submitPath, game.undoPath)).toBe(true)
 		press(sys, "ButtonA")
 		expect(game.turn()).toBe(1) -- refused: a lone tile in row 7 is no word
 		expect(game.letterAt(7, 1)).toBe(letter) -- ...and the refusal kept it
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -403,7 +395,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- ========================================================================
 	it("placing with nothing picked up says so instead of doing nothing", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
+		local game = tileGame.build(deps)
 		local before = game.wordText()
 		adapter.tap(game.cellPath(1, 1))
 		expect(game.letterAt(1, 1)).toBeNil()
@@ -418,7 +410,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 
 	it("progress and the goal are visible, and the readouts are ARRANGED to something", function()
 		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
+		local game = tileGame.build(deps)
 		deps.presenter.refresh()
 		expect(adapter.node("/TileGame/Page/Stats/Score").props.text).toBe("0 of 60 points")
 		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("6 turns left")
@@ -451,7 +443,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		deps.presenter.refresh()
 		expect(adapter.node("/TileGame/Page/Stats/Score").props.text).toBe("2 of 60 points")
 		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("5 turns left")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 end)
@@ -485,8 +477,8 @@ end
 describe("examples/08 match-3", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
-		expect(core:lastError()).toBeNil()
+		local game = match3.build(deps)
+		expect(core.lastError()).toBeNil()
 		expect(adapter.node("/Match3") == nil).toBeFalsy()
 		expect(adapter.node(game.cellPath(1, 1)) == nil).toBeFalsy()
 		game.dispose()
@@ -494,7 +486,7 @@ describe("examples/08 match-3", function()
 
 	it("a swap that forms a run clears and refills, and replays deterministically", function()
 		local core, deps = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		-- arrange a board where swapping (1,3)<->(2,3) completes a horizontal
 		-- run of three 'a' tiles on row 1. Kinds: a,b,c,d,e.
 		game.debugSetBoard({
@@ -516,7 +508,7 @@ describe("examples/08 match-3", function()
 		-- determinism: a second game with the same seed, board, and swap lands
 		-- on an identical board — tests replay exactly (§ seeded refill).
 		local core2, deps2 = makeWorld()
-		local game2 = match3.build(Facet, core2, deps2)
+		local game2 = match3.build(deps2)
 		game2.debugSetBoard({
 			{ "a", "a", "b", "c", "d", "e" },
 			{ "c", "d", "a", "e", "b", "c" },
@@ -541,7 +533,7 @@ describe("examples/08 match-3", function()
 		-- page without rebuilding it, and that the tile never drops below the
 		-- theme's own touch floor at any of them.
 		local core, deps, adapter = makeWorld({ x = 0, y = 0, w = 390, h = 844 }) -- phone
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		deps.presenter.refresh()
 		local mountedBefore = game.handle.root.counters().mounted
 		local runsBefore = game.handle.root.counters().factoryRuns
@@ -565,7 +557,7 @@ describe("examples/08 match-3", function()
 			expect(game.handle.root.counters().mounted).toBe(mountedBefore) -- no remount
 			expect(game.handle.root.counters().factoryRuns).toBe(runsBefore)
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -575,18 +567,18 @@ describe("examples/08 match-3", function()
 		-- provider" and the gallery host never did. A tutorial whose board is
 		-- unreadable until someone runs a script is not a tutorial.
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		deps.presenter.refresh()
 		local kind = game.kindAt(1, 1)
 		expect(adapter.node(game.imagePath(1, 1)).props.image).toBe(assets.match3Tiles[kind].image)
 		expect(game.artStatusText()).toBe("Artwork: all 5 ready")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("re-request -> pending -> deliver is the async lesson, driven from the screen", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		deps.presenter.refresh()
 		adapter.tap(game.reloadPath)
 		deps.presenter.refresh()
@@ -602,13 +594,13 @@ describe("examples/08 match-3", function()
 		expect(adapter.node(game.imagePath(1, 1)).props.image).toBe(assets.match3Tiles[kind].image)
 		expect(game.artStatusText()).toBe("Artwork: all 5 ready")
 		expect(adapter.node(game.cellPath(1, 1)).props.label).toBe("")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("a FAILED load is visible and recoverable, which is the half that was missing", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		deps.presenter.refresh()
 		adapter.tap(game.breakPath)
 		deps.presenter.refresh()
@@ -620,7 +612,7 @@ describe("examples/08 match-3", function()
 		adapter.tap(game.deliverPath)
 		deps.presenter.refresh()
 		expect(game.artStatusText()).toBe("Artwork: all 5 ready")
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -655,36 +647,36 @@ describe("examples/08 match-3", function()
 	-- ========================================================================
 	it("opens with no run already on the board", function()
 		local core, deps = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		expect(next(game.findMatches())).toBeNil()
 		expect(game.score()).toBe(0) -- and it did not score the run it cleared while dealing
 		expect(game.moves()).toBe(0)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("opens with at least one legal move", function()
 		local core, deps = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		expect(game.hasLegalMove()).toBe(true)
 		game.dispose()
 	end)
 
 	it("...and so does every board a reset deals", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		for _ = 1, 8 do
 			adapter.tap(game.resetPath)
 			expect(next(game.findMatches())).toBeNil()
 			expect(game.hasLegalMove()).toBe(true)
 		end
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("a swap that makes no run is refused WITH A REASON, and costs no move", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		game.debugSetBoard({
 			{ "a", "b", "c", "d", "e", "a" },
 			{ "b", "c", "d", "e", "a", "b" },
@@ -706,7 +698,7 @@ describe("examples/08 match-3", function()
 
 	it("tapping a NON-adjacent tile says tiles have to touch", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		adapter.tap(game.cellPath(1, 1))
 		adapter.tap(game.cellPath(4, 4))
 		expect(string.find(game.hintText(), "have to touch", 1, true) ~= nil).toBe(true)
@@ -719,7 +711,7 @@ describe("examples/08 match-3", function()
 		local core, deps, adapter = makeWorld(nil, function()
 			return now
 		end)
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		deps.presenter.refresh()
 		adapter.tap(game.cellPath(2, 2))
 		deps.presenter.refresh()
@@ -733,7 +725,7 @@ describe("examples/08 match-3", function()
 
 	it("a swap SCORES what it clears, counts the move, and chains resolve in one go", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		-- swapping (1,3)<->(2,3) completes a,a,a on row 1
 		game.debugSetBoard({
 			{ "a", "a", "b", "c", "d", "e" },
@@ -760,7 +752,7 @@ describe("examples/08 match-3", function()
 
 	it("reset returns score, moves, selection and the message to their start values", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		local startHint = game.hintText()
 		local startBoard = game.boardSnapshot()
 		adapter.tap(game.cellPath(1, 1))
@@ -773,13 +765,13 @@ describe("examples/08 match-3", function()
 		expect(game.boardSnapshot()).toEqual(startBoard)
 		deps.presenter.refresh()
 		expect(adapter.node(game.cellPath(1, 1)).props.selected).toBe(false)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("rapid tapping and resetting leaves no stale selection or error", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		for _ = 1, 15 do
 			adapter.tap(game.cellPath(1, 1))
 			adapter.tap(game.cellPath(1, 2))
@@ -793,33 +785,31 @@ describe("examples/08 match-3", function()
 		expect(game.score()).toBe(0)
 		expect(game.moves()).toBe(0)
 		expect(game.hasLegalMove()).toBe(true)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	it("supports gamepad grid navigation across navigation-group rows", function()
 		local core, deps = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		local focus = deps.presenter.focus
-		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 1))
 		focus.navigateDirection("right")
-		expect(focus.focused:get()).toBe(game.cellPath(1, 2))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 2))
 		focus.navigateDirection("down") -- crosses to the next row, same column
-		expect(focus.focused:get()).toBe(game.cellPath(2, 2))
+		expect(focus.focused:peek()).toBe(game.cellPath(2, 2))
 		game.dispose()
 	end)
 
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
-		local baseline = core:counters()
-		local game = match3.build(Facet, core, deps)
+		local baseline = core.owner.size()
+		local game = match3.build(deps)
 		game.swap(1, 1, 1, 2)
 		settleBoard(deps.presenter)
 		game.dispose()
-		local after = core:counters()
-		for key, value in baseline :: { [string]: number } do
-			expect(after[key]).toBe(value)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 
 	-- Per-input proofs: the example now carries NO activation router,
@@ -839,7 +829,7 @@ describe("examples/08 match-3", function()
 	-- the board that the direct swap API (1,3)<->(2,3) produces from SWAP_BOARD
 	local function referenceAfterSwap(): { string }
 		local core, deps = makeWorld()
-		local ref = match3.build(Facet, core, deps)
+		local ref = match3.build(deps)
 		ref.debugSetBoard(SWAP_BOARD)
 		ref.swap(1, 3, 2, 3)
 		settleBoard(deps.presenter)
@@ -850,7 +840,7 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 pointer: tapping two adjacent tiles swaps them (matches the swap API)", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		game.debugSetBoard(SWAP_BOARD)
 		adapter.tap(game.cellPath(1, 3)) -- select
 		adapter.tap(game.cellPath(2, 3)) -- adjacent -> swap
@@ -861,7 +851,7 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 touch: touch taps on two adjacent tiles swap them", function()
 		local core, deps, adapter = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		game.debugSetBoard(SWAP_BOARD)
 		adapter.tap(game.cellPath(1, 3), { pointer = "touch" })
 		adapter.tap(game.cellPath(2, 3), { pointer = "touch" })
@@ -872,14 +862,14 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 keyboard: arrow keys navigate and Return swaps adjacent tiles", function()
 		local core, deps = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		game.debugSetBoard(SWAP_BOARD)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
-		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 1))
 		press(sys, "Right")
 		press(sys, "Right")
-		expect(focus.focused:get()).toBe(game.cellPath(1, 3))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 3))
 		press(sys, "Return") -- select (1,3)
 		press(sys, "Down") -- to (2,3)
 		press(sys, "Return") -- swap
@@ -890,14 +880,14 @@ describe("examples/08 match-3", function()
 
 	it("✓ ex07 gamepad: DPad navigation and ButtonA swaps adjacent tiles", function()
 		local core, deps = makeWorld()
-		local game = match3.build(Facet, core, deps)
+		local game = match3.build(deps)
 		game.debugSetBoard(SWAP_BOARD)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
-		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 1))
 		press(sys, "DPadRight")
 		press(sys, "DPadRight")
-		expect(focus.focused:get()).toBe(game.cellPath(1, 3))
+		expect(focus.focused:peek()).toBe(game.cellPath(1, 3))
 		press(sys, "ButtonA") -- select (1,3)
 		press(sys, "DPadDown") -- to (2,3)
 		press(sys, "ButtonA") -- swap

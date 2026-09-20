@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- UI.Path + path_shapes (native-substrate NS-A7, ledger row NS-A7):
 -- deterministic shape math (E1) and the paint-only reactive contract. The
 -- engine half (Path2D stroking, 100-point limit, scaling into the solved
@@ -8,12 +9,13 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local path_shapes = require("../src/controls/path_shapes")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function near(a: number, b: number, eps: number?): boolean
 	return math.abs(a - b) <= (eps or 1e-6)
@@ -88,8 +90,8 @@ describe("UI.Path: paint-only reactive stroke (NS-A7)", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local progress = core:signal(0.25)
-		local points = core:memo(function(use)
+		local progress = Compose.cell(0.25)
+		local points = Compose.formula(function(use)
 			return path_shapes.arc(0, 360 * use(progress))
 		end)
 		local bp = UI.Screen({

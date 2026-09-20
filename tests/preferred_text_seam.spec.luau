@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Step 8.5 large-text-accessibility: the PreferredTextSize offset seam
 -- (src/client/preferred_text) — measured-fallback-first, confirm-once,
 -- stale-safe, failure-safe, never-loop (LT-1/LT-3/LT-4) — plus the live-change
@@ -9,9 +10,9 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local preferred_text = require("../src/client/preferred_text")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")

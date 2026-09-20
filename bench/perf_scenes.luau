@@ -1,7 +1,7 @@
 --!strict
 -- Named perf scenes (design §14.3 named-scene list; §17 Phase 4). Each scene is
--- PRODUCTION-shaped — it drives the real mount → render → present pipeline
--- through the headless FakeTarget adapter — so a device profile (viewport,
+-- PRODUCTION-shaped — it drives a real Facet application (component → mount →
+-- render → present) through the headless FakeTarget adapter — so a device profile (viewport,
 -- insets, input class) actually changes the work the solver does. setup(profile)
 -- applies the profile to the environment; the perf runner
 -- (bench/perf_runner.luau) supplies warm-up/sampling/percentiles and records the
@@ -45,12 +45,11 @@
 -- and a phase named `inputToVisible` which the runner lifts into the metric
 -- ledger's M6 slot.
 --
--- Depends on: src (Facet public API), src/controls/table, tests/lib/fake_target
--- (the headless RenderTargetAdapter), bench/perf_profiles.
+-- Depends on: src (Facet public API), bench/native_app (one headless
+-- application over tests/lib/fake_target), bench/perf_profiles.
 
-local Facet = require("../src")
-local table_control = require("../src/controls/table")
-local fake_target = require("../tests/lib/fake_target")
+local Facet = require("../src") :: any
+local nativeApp = require("./native_app")
 local perf_profiles = require("../bench/perf_profiles")
 -- THE SHARED LAB DEFINITIONS (roadmap Step 9, acceptance PL-12). The headless
 -- scenes below and the Roblox performance place build the SAME dataset from the
@@ -64,7 +63,7 @@ local transientSurfaces = require("../examples/performance/lab/transient_surface
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 
-local UI = Facet.UI
+local Compose = Facet.Compose
 
 export type PerfScene = {
 	name: string,
@@ -80,15 +79,36 @@ export type PerfScene = {
 	asyncStats: ((state: any) -> { dropped: number, stale: number, completed: number })?,
 }
 
--- build a fully-wired headless stack sized to `profile`
-local function newStack(profile: any)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	perf_profiles.apply(env, profile)
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+-- One headless application sized to `profile`. The record carries `app`, `UI`,
+-- `core`, `env`, `adapter`, `pres`, `frame` and `tick`; scenes add their own
+-- fields to it and return it as their state.
+local function newStack(profile: any, hostOpts: any?): any
+	return nativeApp({
+		hostOpts = hostOpts,
+		configure = function(env)
+			perf_profiles.apply(env, profile)
+		end,
+	})
+end
+
+local function noop() end
+local function fixed(px: number)
+	return { type = "fixed", px = px }
+end
+local function disposeApp(state: any)
+	state.app.dispose()
+end
+
+-- how many adapter nodes sit under `prefix` with the leaf name `leaf`
+local function countLeaves(adapter: any, prefix: string, leaf: string): number
+	local n = 0
+	local suffix = "/" .. leaf
+	for _, path in adapter.paths() do
+		if path:sub(1, #prefix) == prefix and path:sub(-#suffix) == suffix then
+			n += 1
+		end
+	end
+	return n
 end
 
 local scenes: { PerfScene } = {}
@@ -98,23 +118,26 @@ local scenes: { PerfScene } = {}
 table.insert(scenes, {
 	name = "hud-binding-storm",
 	requirement = "UI-PERF-001",
-	dataset = "HUD Screen(Text←memo(speed), Button); 50 speed writes + 1 refresh per iter",
+	dataset = "HUD Screen(Text←formula(speed), Button); 50 speed writes + 1 refresh per iter",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local speed = core:signal(0)
-		local label = core:memo(function(use)
-			return `{use(speed)} sps`
+		local state = newStack(profile)
+		local UI = state.UI
+		local speed = Compose.cell(0)
+		state.app.mount(function()
+			return UI.Screen("Hud")({
+				padding = 8,
+				gap = 4,
+				UI.Text("Speed")({
+					text = function(use)
+						return `{use(speed)} sps`
+					end,
+					textSize = 18,
+				}),
+				UI.Button("Boost")({ label = "Boost", onActivate = noop }),
+			})
 		end)
-		pres.present(UI.Screen({
-			id = "Hud",
-			padding = 8,
-			gap = 4,
-			children = {
-				UI.Text({ id = "Speed", text = label, textSize = 18 }),
-				UI.Button({ id = "Boost", label = "Boost" }),
-			},
-		}))
-		return { core = core, adapter = adapter, pres = pres, speed = speed, n = 0 }
+		state.speed, state.n = speed, 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
@@ -128,6 +151,7 @@ table.insert(scenes, {
 		state.pres.refresh()
 		return { mutate = mutate, commit = os.clock() - t1 }
 	end,
+	teardown = disposeApp,
 })
 
 -- 2. Settings open/close churn: a modal settings panel is presented over a base
@@ -137,33 +161,36 @@ table.insert(scenes, {
 	requirement = "UI-LIFE-002",
 	dataset = "base HUD + modal Settings(6 rows) presented then dismissed per iter",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		pres.present(UI.Screen({ id = "Base", children = { UI.Text({ id = "T", text = "HUD" }) } }))
-		local rows = {}
-		for i = 1, 6 do
-			table.insert(
-				rows,
-				UI.HStack({
-					id = `Row{i}`,
-					gap = 8,
-					children = {
-						UI.Text({ id = "L", text = `Setting {i}` }),
-						UI.Toggle({ id = "TG", label = `Toggle {i}`, value = i % 2 == 0 }),
-					},
-				})
-			)
+		local state = newStack(profile)
+		local UI = state.UI
+		state.app.mount(function()
+			return UI.Screen("Base")({ UI.Text("T")({ text = "HUD" }) })
+		end)
+		function state.settings()
+			local props: { [any]: any } = { padding = 12, gap = 6 }
+			for i = 1, 6 do
+				table.insert(
+					props,
+					UI.HStack(`Row{i}`)({
+						gap = 8,
+						UI.Text("L")({ text = `Setting {i}` }),
+						UI.Toggle("TG")({ label = `Toggle {i}`, value = Compose.cell(i % 2 == 0) }),
+					})
+				)
+			end
+			return UI.Screen("Settings")(props)
 		end
-		local settings = UI.Screen({ id = "Settings", padding = 12, gap = 6, children = rows })
-		return { core = core, adapter = adapter, pres = pres, settings = settings }
+		return state
 	end,
 	run = function(state)
 		local t0 = os.clock()
-		local handle = state.pres.presentModal(state.settings)
+		local close = state.app.presentModal(state.settings)
 		local open = os.clock() - t0
 		local t1 = os.clock()
-		state.pres.dismiss(handle)
+		close()
 		return { open = open, close = os.clock() - t1 }
 	end,
+	teardown = disposeApp,
 })
 
 -- 3. scroll and focus traversal: a scrollable list of focusable buttons; each
@@ -174,18 +201,16 @@ table.insert(scenes, {
 	requirement = "UI-FOCUS-001",
 	dataset = "ScrollView of 16 focusable Buttons; 16 focus navigates + 1 refresh per iter",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local buttons = {}
-		for i = 1, 16 do
-			table.insert(buttons, UI.Button({ id = `Item{i}`, label = `Row {i}` }))
-		end
-		pres.present(UI.Screen({
-			id = "List",
-			children = {
-				UI.ScrollView({ id = "Scroll", gap = 2, children = buttons }),
-			},
-		}))
-		return { core = core, adapter = adapter, pres = pres }
+		local state = newStack(profile)
+		local UI = state.UI
+		state.app.mount(function()
+			local props: { [any]: any } = { gap = 2 }
+			for i = 1, 16 do
+				table.insert(props, UI.Button(`Item{i}`)({ label = `Row {i}`, onActivate = noop }))
+			end
+			return UI.Screen("List")({ UI.ScrollView("Scroll")(props) })
+		end)
+		return state
 	end,
 	run = function(state)
 		local t0 = os.clock()
@@ -197,83 +222,105 @@ table.insert(scenes, {
 		state.pres.refresh()
 		return { focusMove = move, commit = os.clock() - t1 }
 	end,
+	teardown = disposeApp,
 })
 
 -- 4. structural collection mutation: the Table control with keyed rows; one row
--- replaced + one selection toggle + refresh per iteration (keyed ForEach churn).
+-- replaced + one selection toggle + refresh per iteration (keyed row churn).
 table.insert(scenes, {
 	name = "collection-mutation",
 	requirement = "UI-RUNTIME-002",
 	dataset = "Table(8 keyed rows, 2 cols, multi-select); replace 1 row + toggle sel + refresh",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
+		local state = newStack(profile)
+		local UI = state.UI
 		local items = {}
 		for i = 1, 8 do
 			table.insert(items, { id = `r{i}`, name = `Racer {i}` })
 		end
-		local rows = core:signal(items)
-		local tbl = table_control.build(Facet, core, {
-			id = "Bench",
-			columns = {
-				{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
-				{ id = "n", width = { type = "fixed", px = 48 } },
-			},
-			rows = rows,
-			key = function(item)
-				return item.id
-			end,
-			cellFor = function(_columnId, item)
-				return UI.Text({ id = "V", text = item.name, textSize = 14 })
-			end,
-			rowHeight = 40,
-			header = false,
-			selection = "multi",
-		})
-		pres.present(UI.Screen({ id = "S", children = { tbl.blueprint } }))
-		pres.refresh()
-		return { core = core, adapter = adapter, pres = pres, rows = rows, tbl = tbl, items = items, n = 8 }
+		local rows, selected = Compose.cell(items), Compose.cell({})
+		state.app.mount(function()
+			return UI.Screen("S")({
+				UI.Table("Bench")({
+					columns = {
+						{ id = "name", width = { type = "fill", weight = 1 }, minWidth = 80, resizable = true },
+						{ id = "n", width = { type = "fixed", px = 48 } },
+					},
+					rows = rows,
+					key = function(item)
+						return item.id
+					end,
+					cellFor = function(_columnId, item)
+						return UI.Text("V")({
+							text = function(use)
+								return use(item).name
+							end,
+							textSize = 14,
+						})
+					end,
+					rowHeight = 40,
+					header = false,
+					selection = "multi",
+					selectedKeys = selected,
+				}),
+			})
+		end)
+		state.pres.refresh()
+		state.rows, state.selected, state.items, state.n = rows, selected, items, 8
+		return state
 	end,
 	run = function(state)
 		state.n += 1
 		local t0 = os.clock()
 		local items = table.clone(state.items)
-		items[((state.n - 1) % 8) + 1] = { id = `r{state.n}`, name = `Racer {state.n}` }
+		local key = `r{state.n}`
+		items[((state.n - 1) % 8) + 1] = { id = key, name = `Racer {state.n}` }
 		state.items = items
 		state.rows:set(items)
-		state.tbl.api.select(`r{state.n}`)
+		state.selected:update(function(previous)
+			local next = table.clone(previous)
+			next[key] = if next[key] then nil else true
+			return next
+		end)
 		local mutate = os.clock() - t0
 		local t1 = os.clock()
 		state.pres.refresh()
 		return { mutate = mutate, commit = os.clock() - t1 }
 	end,
+	teardown = disposeApp,
 })
 
 -- 5. animation interruption: a value eased toward a target is RETARGETED before
 -- it settles every iteration (the interruption), stepping several frames each
 -- time and committing. Models the re-render churn a spring/tween under constant
--- interruption imposes — Facet has no tween module yet, so the scene builds the
--- observability (ENGINEERING.md "build the observability") deterministically.
+-- interruption imposes, with the ease computed by the scene so the sample is
+-- deterministic.
 table.insert(scenes, {
 	name = "animation-interruption",
 	requirement = "UI-PERF-001",
 	dataset = "Text←eased value; retarget + 6 lerp steps + 6 refreshes per iter",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local value = core:signal(0.0)
-		local shown = core:memo(function(use)
-			return string.format("%.1f%%", use(value) * 100)
+		local state = newStack(profile)
+		local UI = state.UI
+		local value = Compose.cell(0.0)
+		state.app.mount(function()
+			return UI.Screen("Anim")({
+				UI.Text("Meter")({
+					text = function(use)
+						return string.format("%.1f%%", use(value) * 100)
+					end,
+					textSize = 20,
+				}),
+			})
 		end)
-		pres.present(UI.Screen({
-			id = "Anim",
-			children = { UI.Text({ id = "Meter", text = shown, textSize = 20 }) },
-		}))
-		return { core = core, adapter = adapter, pres = pres, value = value, current = 0.0, n = 0 }
+		state.value, state.current, state.n = value, 0.0, 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
 		-- retarget (the interruption): alternate 0..1 so the ease never settles
 		local target = if state.n % 2 == 0 then 1.0 else 0.0
-		local step = os.clock() - os.clock()
+		local step = 0.0
 		local commit = 0.0
 		for _ = 1, 6 do
 			local t0 = os.clock()
@@ -286,6 +333,7 @@ table.insert(scenes, {
 		end
 		return { step = step, commit = commit }
 	end,
+	teardown = disposeApp,
 })
 
 -- 6. locale / preferred-text-size change: flipping locale + text-size scale
@@ -296,13 +344,17 @@ table.insert(scenes, {
 	requirement = "UI-ENV-001",
 	dataset = "Screen(8 Text rows); toggle locale + preferredTextSize + refresh per iter",
 	setup = function(profile)
-		local core, env, _sys, adapter, pres = newStack(profile)
-		local labels = {}
-		for i = 1, 8 do
-			table.insert(labels, UI.Text({ id = `L{i}`, text = `Menu item {i}`, textSize = 16 }))
-		end
-		pres.present(UI.Screen({ id = "Menu", padding = 8, gap = 4, children = labels }))
-		return { core = core, adapter = adapter, env = env, pres = pres, n = 0 }
+		local state = newStack(profile)
+		local UI = state.UI
+		state.app.mount(function()
+			local props: { [any]: any } = { padding = 8, gap = 4 }
+			for i = 1, 8 do
+				table.insert(props, UI.Text(`L{i}`)({ text = `Menu item {i}`, textSize = 16 }))
+			end
+			return UI.Screen("Menu")(props)
+		end)
+		state.n = 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
@@ -314,42 +366,42 @@ table.insert(scenes, {
 		state.pres.refresh()
 		return { envChange = envChange, commit = os.clock() - t1 }
 	end,
+	teardown = disposeApp,
 })
 
 -- 7. async image burst: a grid of Image nodes takes a burst of new asset ids
 -- each iteration, fed through a modeled bounded-concurrency loader. When a
 -- node's target changes before its in-flight load completes, that load is
--- counted STALE/dropped (§14.3 "dropped or stale async work"). Facet has no
--- async-resource module yet, so the loader is modeled deterministically in the
--- scene — measuring both the image-prop reactive churn and the async accounting.
+-- counted STALE/dropped (§14.3 "dropped or stale async work"). The loader is
+-- modeled deterministically in the scene — measuring both the image-prop
+-- reactive churn and the async accounting; `async-image-grid` below runs the
+-- real provider.
 local ASYNC_CONCURRENCY = 4
 table.insert(scenes, {
 	name = "async-image-burst",
 	requirement = "UI-PERF-001",
 	dataset = "12 Image nodes; burst 12 new asset ids/iter; loader concurrency=4",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
+		local state = newStack(profile)
+		local UI = state.UI
 		local N = 12
-		local imageSignals = {}
-		local children = {}
+		local imageCells = {}
 		for i = 1, N do
-			local sig = core:signal(`rbxassetid://0`)
-			imageSignals[i] = sig
-			table.insert(children, UI.Image({ id = `Img{i}`, image = sig }))
+			imageCells[i] = Compose.cell(`rbxassetid://0`)
 		end
-		pres.present(UI.Screen({ id = "Gallery", gap = 2, children = children }))
+		state.app.mount(function()
+			local props: { [any]: any } = { gap = 2 }
+			for i = 1, N do
+				table.insert(props, UI.Image(`Img{i}`)({ image = imageCells[i] }))
+			end
+			return UI.Screen("Gallery")(props)
+		end)
 		-- loader model: `inflight[node]` = the asset id currently "loading";
-		-- `queue` respects ASYNC_CONCURRENCY. Counters accumulate across the run.
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			imageSignals = imageSignals,
-			N = N,
-			n = 0,
-			inflight = {} :: { [number]: string? },
-			stats = { dropped = 0, stale = 0, completed = 0 },
-		}
+		-- completion respects ASYNC_CONCURRENCY. Counters accumulate across the run.
+		state.imageCells, state.N, state.n = imageCells, N, 0
+		state.inflight = {} :: { [number]: string? }
+		state.stats = { dropped = 0, stale = 0, completed = 0 }
+		return state
 	end,
 	run = function(state)
 		state.n += 1
@@ -363,7 +415,7 @@ table.insert(scenes, {
 				state.stats.stale += 1
 				state.stats.dropped += 1
 			end
-			state.imageSignals[i]:set(newId)
+			state.imageCells[i]:set(newId)
 			state.inflight[i] = newId
 		end
 		local enqueue = os.clock() - t0
@@ -383,6 +435,7 @@ table.insert(scenes, {
 	asyncStats = function(state)
 		return state.stats
 	end,
+	teardown = disposeApp,
 })
 
 -- 8. shadow storm (§17 Phase 4 engine styling): a screen at the ~100-shadow
@@ -393,48 +446,35 @@ table.insert(scenes, {
 	requirement = "UI-STYLE-001",
 	dataset = "Screen with 100 shadowed+rounded Boxes (the engine budget); refresh + style_lint per iter",
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local style_lint = require("../src/render/style_lint")
-		local children = {}
-		for i = 1, 100 do
-			table.insert(
-				children,
-				UI.corners(
-					UI.shadow(
-						UI.Box({
-							id = `Sh{i}`,
-							width = { type = "fixed", px = 20 },
-							height = { type = "fixed", px = 8 },
-						}),
-						"raised"
-					),
-					"control"
+		local state = newStack(profile)
+		local UI = state.UI
+		local _, root = state.app.mount(function()
+			local props: { [any]: any } = { padding = 4, gap = 1 }
+			for i = 1, 100 do
+				table.insert(
+					props,
+					UI.corners(
+						UI.shadow(UI.Box(`Sh{i}`)({ width = fixed(20), height = fixed(8) }), "raised"),
+						"control"
+					)
 				)
-			)
-		end
-		local handle = pres.present(UI.Screen({ id = "Shadows", padding = 4, gap = 1, children = children }))
-		return { core = core, adapter = adapter, pres = pres, handle = handle, lint = style_lint, warnings = 0 }
+			end
+			return UI.Screen("Shadows")(props)
+		end)
+		state.root, state.lint, state.warnings = root, require("../src/render/style_lint"), 0
+		return state
 	end,
 	run = function(state)
 		local t0 = os.clock()
 		state.pres.refresh()
 		local commit = os.clock() - t0
 		local t1 = os.clock()
-		local warnings = state.lint.lint(state.handle.root.node)
+		local warnings = state.lint.lint(state.root)
 		state.warnings = #warnings
 		return { commit = commit, lint = os.clock() - t1 }
 	end,
+	teardown = disposeApp,
 })
-
--- ===========================================================================
--- ROADMAP STEP 4: production-shaped scenes
---
--- Everything above this line is a mechanism benchmark: the smallest tree that
--- exercises one hot path. Everything below is a SHAPE — a list a game actually
--- ships, a HUD with the node count a race HUD has, a theme swap with the
--- invalidation a real package causes. Mechanism benchmarks catch algorithmic
--- regressions; shapes catch the ones that only appear at production size.
--- ===========================================================================
 
 -- 9. large virtual list, scrolled. 2000 rows of a production row shape
 -- (avatar + two-line text + a control), windowed by the real VirtualList over
@@ -444,47 +484,55 @@ table.insert(scenes, {
 table.insert(scenes, {
 	name = "virtual-list-scroll",
 	requirement = "UI-RUNTIME-002",
-	dataset = "VirtualList 2000 rows x (Image + 2 Text + Toggle), rowHeight 56; scroll 61px + refresh per iter",
+	dataset = "VirtualList 2000 rows x (Image + 2 Text + Toggle), itemExtent 56; scroll 61px + refresh per iter",
 	samples = 160,
 	warmup = 40,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
+		local state = newStack(profile)
+		local UI = state.UI
 		local items = table.create(2000)
 		for i = 1, 2000 do
 			items[i] = { id = `racer{i}`, name = `Racer {i}`, detail = `Lap {i % 5 + 1} · P{i % 24 + 1}` }
 		end
-		local rows = core:signal(items)
-		local list = Facet.Controls.VirtualList(core, {
-			id = "Roster",
-			rows = rows,
-			key = function(item)
-				return item.id
-			end,
-			rowHeight = 56,
-			viewportHeight = math.max(120, profile.viewport.h - 80),
-			cell = function(item)
-				return UI.HStack({
-					id = "Row",
-					gap = 8,
-					padding = 6,
-					children = {
-						UI.Image({ id = "Avatar", image = "rbxassetid://0" }),
-						UI.VStack({
-							id = "Lines",
-							gap = 2,
-							children = {
-								UI.Text({ id = "Name", text = item.name, textSize = 16 }),
-								UI.Text({ id = "Detail", text = item.detail, textSize = 13 }),
-							},
-						}),
-						UI.Toggle({ id = "Fav", label = "Favourite", value = false }),
-					},
-				})
-			end,
-		})
-		pres.present(UI.Screen({ id = "Roster", children = { list.blueprint } }))
-		pres.refresh()
-		return { core = core, adapter = adapter, pres = pres, list = list, y = 0 }
+		local rows = Compose.cell(items)
+		state.app.mount(function()
+			return UI.Screen("Roster")({
+				UI.VirtualList("Roster")({
+					rows = rows,
+					key = "id",
+					itemExtent = 56,
+					viewportExtent = math.max(120, profile.viewport.h - 80),
+					cell = function(_, cellCtx)
+						-- The cell receives the item; `current` follows its edits.
+						local item = Compose.formula(cellCtx.current)
+						return UI.HStack("Row")({
+							gap = 8,
+							padding = 6,
+							UI.Image("Avatar")({ image = "rbxassetid://0" }),
+							UI.VStack("Lines")({
+								gap = 2,
+								UI.Text("Name")({
+									text = function(use)
+										return use(item).name
+									end,
+									textSize = 16,
+								}),
+								UI.Text("Detail")({
+									text = function(use)
+										return use(item).detail
+									end,
+									textSize = 13,
+								}),
+							}),
+							UI.Toggle("Fav")({ label = "Favourite", value = Compose.cell(false) }),
+						})
+					end,
+				}),
+			})
+		end)
+		state.pres.refresh()
+		state.y = 0
+		return state
 	end,
 	run = function(state)
 		-- 61px: deliberately NOT a row multiple, so every iteration lands the
@@ -494,22 +542,15 @@ table.insert(scenes, {
 			state.y = 0
 		end
 		local t0 = os.clock()
-		state.list.scrollTop:set(state.y)
+		state.adapter.driveScroll("/Roster/Roster", { x = 0, y = state.y })
 		local scroll = os.clock() - t0
 		local t1 = os.clock()
 		state.pres.refresh()
 		return { scroll = scroll, commit = os.clock() - t1 }
 	end,
-	teardown = function(state)
-		state.list.dispose()
-	end,
+	teardown = disposeApp,
 	extras = function(state)
-		local window = state.list.debugWindow()
-		local n = 0
-		for _ in window do
-			n += 1
-		end
-		return { windowedRows = n, virtualRows = 2000 }
+		return { windowedRows = countLeaves(state.adapter, "/Roster/Roster/", "Row"), virtualRows = 2000 }
 	end,
 })
 
@@ -520,66 +561,60 @@ table.insert(scenes, {
 table.insert(scenes, {
 	name = "native-scroll-drag",
 	requirement = "UI-NATIVE-001",
-	dataset = "ScrollView(30 draggable rows); 1 scroll + a 6-step pointer drag through the capture path per iter",
+	dataset = "ScrollView(30 draggable Grip rows); 1 scroll + a 6-step pointer drag through the capture path per iter",
 	samples = 160,
 	warmup = 40,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local moved = core:signal(0)
-		local drops = core:signal(0)
+		local state = newStack(profile)
+		local UI = state.UI
+		local moved, drops = 0, 0
 		local session: any = nil
-		local rows = {}
-		for i = 1, 30 do
-			table.insert(
-				rows,
-				UI.Button({
-					id = `Card{i}`,
-					label = `Card {i}`,
-					height = { type = "fixed", px = 48 },
-					onPointerDown = function(_path, pos)
-						session = Facet.newDragSession({
-							payload = { card = i },
-							source = `Card{i}`,
-							targets = {
-								{ id = "SlotA", rect = { x = 0, y = 0, w = 200, h = 200 } },
-								{ id = "SlotB", rect = { x = 200, y = 0, w = 200, h = 200 } },
-							},
-						})
-						session:update(pos.x, pos.y)
-						return true
-					end,
-					onPointerMove = function(_path, pos)
-						if session ~= nil then
+		state.app.mount(function()
+			local props: { [any]: any } = { gap = 4 }
+			for i = 1, 30 do
+				table.insert(
+					props,
+					UI.Grip(`Card{i}`)({
+						width = UI.fill(),
+						height = fixed(48),
+						onPointerDown = function(_path, pos)
+							session = Facet.newDragSession({
+								payload = { card = i },
+								source = `Card{i}`,
+								targets = {
+									{ id = "SlotA", rect = { x = 0, y = 0, w = 200, h = 200 } },
+									{ id = "SlotB", rect = { x = 200, y = 0, w = 200, h = 200 } },
+								},
+							})
 							session:update(pos.x, pos.y)
-							moved:set(moved:get() + 1)
-						end
-					end,
-					onPointerUp = function(_path, pos)
-						if session ~= nil then
-							local result = session:drop(pos.x, pos.y)
-							if result.kind == "dropped" then
-								drops:set(drops:get() + 1)
+							return true
+						end,
+						onPointerMove = function(_path, pos)
+							if session ~= nil then
+								session:update(pos.x, pos.y)
+								moved += 1
 							end
-							session = nil
-						end
-					end,
-				})
-			)
+						end,
+						onPointerUp = function(_path, pos)
+							if session ~= nil then
+								local result = session:drop(pos.x, pos.y)
+								if result.kind == "dropped" then
+									drops += 1
+								end
+								session = nil
+							end
+						end,
+					})
+				)
+			end
+			return UI.Screen("Cards")({ UI.ScrollView("Scroll")(props) })
+		end)
+		state.pres.refresh()
+		state.y, state.dragPath = 0, "/Cards/Scroll/Card1"
+		function state.counts()
+			return moved, drops
 		end
-		pres.present(UI.Screen({
-			id = "Cards",
-			children = { UI.ScrollView({ id = "Scroll", gap = 4, children = rows }) },
-		}))
-		pres.refresh()
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			y = 0,
-			dragPath = "/Cards/Scroll/Card1",
-			moved = moved,
-			drops = drops,
-		}
+		return state
 	end,
 	run = function(state)
 		state.y = (state.y + 37) % 600
@@ -601,8 +636,10 @@ table.insert(scenes, {
 	-- a (very fast) time, so the counters that prove the work happened are part
 	-- of the record and the gate checks them
 	extras = function(state)
-		return { dragMoves = state.moved:get(), dropsCommitted = state.drops:get() }
+		local moved, drops = state.counts()
+		return { dragMoves = moved, dropsCommitted = drops }
 	end,
+	teardown = disposeApp,
 })
 
 -- 11. dense Sponsor-like HUD. The node count and binding fan-out a race HUD
@@ -617,95 +654,90 @@ table.insert(scenes, {
 	samples = 160,
 	warmup = 40,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local readouts = {}
-		local signals = {}
+		local state = newStack(profile)
+		local UI = state.UI
+		local cells = {}
 		for i = 1, 8 do
-			local sig = core:signal(0)
-			signals[i] = sig
-			local text = core:memo(function(use)
-				return `{use(sig)}`
-			end)
-			table.insert(readouts, UI.Text({ id = `R{i}`, text = text, textSize = 15 }))
+			cells[i] = Compose.cell(0)
 		end
-		local markerData = core:signal({})
 		local marks = {}
 		for i = 1, 12 do
 			marks[i] = { id = `m{i}`, x = i * 7 }
 		end
-		markerData:set(marks)
-		local progress = core:signal(0)
-		local bar = Facet.Controls.ProgressView(core, { id = "Lap", value = progress })
-		local boosts = core:signal(0)
-		local actions = {}
-		for i = 1, 4 do
-			table.insert(
-				actions,
-				UI.Button({
-					id = `Act{i}`,
-					label = `Action {i}`,
-					onActivate = function()
-						boosts:set(boosts:get() + 1)
-					end,
-				})
-			)
-		end
-		local boostText = core:memo(function(use)
-			return `Boost x{use(boosts)}`
-		end)
+		local markerData = Compose.cell(marks)
+		local progress = Compose.cell(0)
+		local boosts = Compose.cell(0)
 		-- the M6 chain's OBSERVABLE end: the committed text on the mounted node.
 		-- extras reads it back from the adapter, so an activate seam that quietly
 		-- stopped reaching paint fails the gate instead of getting faster.
-		pres.present(UI.Screen({
-			id = "Hud",
-			padding = 6,
-			gap = 4,
-			children = {
-				UI.HStack({ id = "Readouts", gap = 6, children = readouts }),
-				bar.blueprint,
-				UI.ForEach({
-					id = "Markers",
-					items = markerData,
-					key = function(m)
-						return m.id
-					end,
-					row = function(_m)
-						return UI.Box({
-							id = "Dot",
-							width = { type = "fixed", px = 6 },
-							height = { type = "fixed", px = 6 },
-						})
-					end,
+		state.app.mount(function()
+			local readouts: { [any]: any } = { gap = 6 }
+			for i = 1, 8 do
+				table.insert(
+					readouts,
+					UI.Text(`R{i}`)({
+						text = function(use)
+							return `{use(cells[i])}`
+						end,
+						textSize = 15,
+					})
+				)
+			end
+			local actions: { [any]: any } = { gap = 6 }
+			for i = 1, 4 do
+				table.insert(
+					actions,
+					UI.Button(`Act{i}`)({
+						label = `Action {i}`,
+						onActivate = function()
+							boosts:set(boosts:peek() + 1)
+						end,
+					})
+				)
+			end
+			return UI.Screen("Hud")({
+				padding = 6,
+				gap = 4,
+				UI.HStack("Readouts")(readouts),
+				UI.ProgressView("Lap")({ value = progress }),
+				UI.ForEach("Markers")({
+					Compose.keyed({
+						from = markerData,
+						key = function(m)
+							return m.id
+						end,
+						render = function(m)
+							return UI.Box(`Dot-{m:peek().id}`)({ width = fixed(6), height = fixed(6) })
+						end,
+					}),
 				}),
-				UI.Text({ id = "BoostCount", text = boostText, textSize = 14 }),
-				UI.HStack({ id = "Actions", gap = 6, children = actions }),
-			},
-		}))
-		pres.refresh()
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			bar = bar,
-			signals = signals,
-			progress = progress,
-			n = 0,
-		}
+				UI.Text("BoostCount")({
+					text = function(use)
+						return `Boost x{use(boosts)}`
+					end,
+					textSize = 14,
+				}),
+				UI.HStack("Actions")(actions),
+			})
+		end)
+		state.pres.refresh()
+		state.cells, state.progress, state.n = cells, progress, 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
 		local t0 = os.clock()
 		for i = 1, 8 do
-			state.signals[i]:set(state.n * 10 + i)
-			state.signals[i]:set(state.n * 10 + i + 1)
-			state.signals[i]:set(state.n * 10 + i + 2)
+			state.cells[i]:set(state.n * 10 + i)
+			state.cells[i]:set(state.n * 10 + i + 1)
+			state.cells[i]:set(state.n * 10 + i + 2)
 		end
 		state.progress:set((state.n % 100) / 100)
 		local mutate = os.clock() - t0
 		local t1 = os.clock()
 		state.pres.refresh()
 		local commit = os.clock() - t1
-		-- M6: the full semantic chain, adapter activate -> handler -> signal ->
+		-- M6: the full semantic chain, adapter activate -> handler -> cell ->
 		-- refresh -> committed property write. Not a callback call: the tap goes
 		-- through the same activate seam a pointer/touch/gamepad press does.
 		local t2 = os.clock()
@@ -721,9 +753,7 @@ table.insert(scenes, {
 			boostText = if node ~= nil then node.props.text else nil,
 		}
 	end,
-	teardown = function(state)
-		state.bar.dispose()
-	end,
+	teardown = disposeApp,
 })
 
 -- 12. StyleSheet state churn. In production the visual states are native
@@ -738,23 +768,31 @@ table.insert(scenes, {
 	samples = 160,
 	warmup = 40,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local selected = core:signal(1)
-		local children = {}
+		local state = newStack(profile)
+		local UI = state.UI
+		local values = {}
 		for i = 1, 40 do
-			local isSel = core:memo(function(use)
-				return use(selected) == i
-			end)
-			table.insert(children, UI.Toggle({ id = `Opt{i}`, label = `Option {i}`, value = isSel }))
+			values[i] = Compose.cell(i == 1)
 		end
-		pres.present(UI.Screen({ id = "Opts", gap = 2, children = children }))
-		pres.refresh()
-		return { core = core, adapter = adapter, pres = pres, selected = selected, n = 0, tagCount = 0 }
+		state.app.mount(function()
+			local props: { [any]: any } = { gap = 2 }
+			for i = 1, 40 do
+				table.insert(props, UI.Toggle(`Opt{i}`)({ label = `Option {i}`, value = values[i] }))
+			end
+			return UI.Screen("Opts")(props)
+		end)
+		state.pres.refresh()
+		state.values, state.n, state.tagCount = values, 0, 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
 		local t0 = os.clock()
-		state.selected:set((state.n % 40) + 1)
+		-- the selection fans out to all forty; two of them change
+		local selected = (state.n % 40) + 1
+		for i, value in state.values do
+			value:set(i == selected)
+		end
 		local mutate = os.clock() - t0
 		local t1 = os.clock()
 		state.pres.refresh()
@@ -781,72 +819,56 @@ table.insert(scenes, {
 	extras = function(state)
 		return { tagsPerPass = state.tagCount }
 	end,
+	teardown = disposeApp,
 })
 
--- 13. async image grid over the REAL provider. Twelve avatars are acquired in a
--- scope, partially fulfilled, and the whole scope is released and rebuilt with
--- new keys — the shape a scrolling player list has, including the stale
--- completions a released handle must reject.
+-- 13. async image grid over the REAL provider. Twelve avatars are acquired by
+-- one mounted screen, partially fulfilled, and the whole screen is released and
+-- rebuilt with new keys — the shape a scrolling player list has, including the
+-- stale completions a released handle must reject.
 table.insert(scenes, {
 	name = "async-image-grid",
 	requirement = "UI-PERF-001",
-	dataset = "12 AsyncImage over the real bounded provider; scope release + rebuild with new keys + partial drain per iter",
+	dataset = "12 AsyncImage over the real bounded provider; screen release + rebuild with new keys + partial drain per iter",
 	samples = 120,
 	warmup = 30,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local provider = Facet.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 16 })
-		local state = {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			provider = provider,
-			scope = nil :: any,
-			handle = nil :: any,
-			images = {} :: { any },
-			n = 0,
-			stats = { dropped = 0, stale = 0, completed = 0 },
-		}
+		local state = newStack(profile)
+		state.provider = Facet.newResourceProvider(state.core, { maxConcurrent = 4, cacheBudget = 16 })
+		state.close = nil :: any
+		state.n = 0
+		state.stats = { dropped = 0, stale = 0, completed = 0 }
 		return state
 	end,
 	run = function(state)
 		state.n += 1
+		local UI = state.UI
 		local t0 = os.clock()
-		-- release the previous generation: scope disposal is what makes any
-		-- still-in-flight request's completion stale
-		if state.handle ~= nil then
-			state.pres.dismiss(state.handle)
-			state.handle = nil
+		-- release the previous generation: the screen's owner going away is what
+		-- makes any still-in-flight request's completion stale
+		if state.close ~= nil then
+			state.close()
+			state.close = nil
 		end
-		for _, img in state.images do
-			if img.dispose ~= nil then
-				img.dispose()
-			end
-		end
-		if state.scope ~= nil then
-			state.scope:dispose()
-		end
-		state.scope = state.core:scope()
-		local images = {}
-		local children = {}
-		for i = 1, 12 do
-			local img = Facet.Controls.AsyncImage(state.core, {
-				id = `Av{i}`,
-				scope = state.scope,
-				provider = state.provider,
-				key = `rbxthumb://gen={state.n}&id={i}`,
-			})
-			images[i] = img
-			table.insert(children, img.blueprint)
-		end
-		state.images = images
 		local mount = os.clock() - t0
 		local t1 = os.clock()
-		state.handle = state.pres.present(UI.Screen({ id = "Avatars", gap = 2, children = children }))
+		state.close = state.app.mount(function()
+			local props: { [any]: any } = { gap = 2 }
+			for i = 1, 12 do
+				table.insert(
+					props,
+					UI.AsyncImage(`Av{i}`)({
+						provider = state.provider,
+						key = `rbxthumb://gen={state.n}&id={i}`,
+					})
+				)
+			end
+			return UI.Screen("Avatars")(props)
+		end)
 		state.pres.refresh()
 		local commit = os.clock() - t1
 		-- drain what the concurrency window exposes; the rest are dropped when
-		-- the next iteration releases the scope
+		-- the next iteration releases the screen
 		local t2 = os.clock()
 		local pending = state.provider.pendingRequests()
 		for idx, req in pending do
@@ -863,11 +885,7 @@ table.insert(scenes, {
 		end
 		return { mount = mount, commit = commit, drain = os.clock() - t2 }
 	end,
-	teardown = function(state)
-		if state.scope ~= nil then
-			state.scope:dispose()
-		end
-	end,
+	teardown = disposeApp,
 	asyncStats = function(state)
 		return state.stats
 	end,
@@ -883,63 +901,53 @@ table.insert(scenes, {
 	samples = 120,
 	warmup = 30,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		pres.present(UI.Screen({ id = "Base", children = { UI.Text({ id = "T", text = "HUD" }) } }))
-		pres.refresh()
-		return { core = core, adapter = adapter, pres = pres, n = 0 }
+		local state = newStack(profile)
+		local UI = state.UI
+		state.app.mount(function()
+			return UI.Screen("Base")({ UI.Text("T")({ text = "HUD" }) })
+		end)
+		state.pres.refresh()
+		state.n = 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
-		local core = state.core
+		local UI = state.UI
+		local build = 0
 		local t0 = os.clock()
-		local volume = core:signal(50)
-		local quality = core:signal(2)
-		local choice = core:signal("medium")
-		local slider = Facet.Controls.Slider(core, { id = "Vol", label = "Volume", value = volume, min = 0, max = 100 })
-		local stepper =
-			Facet.Controls.Stepper(core, { id = "Qual", label = "Quality", value = quality, min = 0, max = 4 })
-		local picker = Facet.Controls.Picker(core, {
-			id = "Detail",
-			label = "Detail",
-			options = {
-				{ value = "low", label = "Low" },
-				{ value = "medium", label = "Medium" },
-				{ value = "high", label = "High" },
-			},
-			selected = choice,
-		})
-		local bar = Facet.Controls.ProgressView(core, { id = "Load", value = 0.4 })
-		local label = Facet.Controls.Label(core, { id = "Head", title = "Settings" })
-		local toggles = {}
-		for i = 1, 12 do
-			table.insert(toggles, UI.Toggle({ id = `Flag{i}`, label = `Flag {i}`, value = i % 2 == 0 }))
-		end
-		local screen = UI.Screen({
-			id = "Settings",
-			padding = 12,
-			gap = 6,
-			children = {
-				label.blueprint,
-				slider.blueprint,
-				stepper.blueprint,
-				picker.blueprint,
-				bar.blueprint,
-				UI.VStack({ id = "Flags", gap = 4, children = toggles }),
-			},
-		})
-		local build = os.clock() - t0
-		local t1 = os.clock()
-		local handle = state.pres.presentModal(screen)
-		local open = os.clock() - t1
+		local close = state.app.presentModal(function()
+			local b0 = os.clock()
+			local toggles: { [any]: any } = { gap = 4 }
+			for i = 1, 12 do
+				table.insert(toggles, UI.Toggle(`Flag{i}`)({ label = `Flag {i}`, value = Compose.cell(i % 2 == 0) }))
+			end
+			local screen = UI.Screen("Settings")({
+				padding = 12,
+				gap = 6,
+				UI.Label("Head")({ title = "Settings" }),
+				UI.Slider("Vol")({ label = "Volume", value = Compose.cell(50), min = 0, max = 100 }),
+				UI.Stepper("Qual")({ label = "Quality", value = Compose.cell(2), min = 0, max = 4 }),
+				UI.Picker("Detail")({
+					label = "Detail",
+					options = {
+						{ value = "low", label = "Low" },
+						{ value = "medium", label = "Medium" },
+						{ value = "high", label = "High" },
+					},
+					selected = Compose.cell("medium"),
+				}),
+				UI.ProgressView("Load")({ value = 0.4 }),
+				UI.VStack("Flags")(toggles),
+			})
+			build = os.clock() - b0
+			return screen
+		end)
+		local open = os.clock() - t0 - build
 		local t2 = os.clock()
-		state.pres.dismiss(handle)
-		slider.dispose()
-		stepper.dispose()
-		picker.dispose()
-		bar.dispose()
-		label.dispose()
+		close()
 		return { build = build, open = open, close = os.clock() - t2 }
 	end,
+	teardown = disposeApp,
 })
 
 -- ---- the three theme-swap invalidation shapes -----------------------------
@@ -951,27 +959,23 @@ table.insert(scenes, {
 local THEME_PROBES = { "/Fixture/Head", "/Fixture/Row/Go", "/Fixture/Row/Flag", "/Fixture/Bar" }
 
 local function themeFixture(profile: any)
-	local core, env, _sys, adapter, pres = newStack(profile)
-	local bar = Facet.Controls.ProgressView(core, { id = "Bar", value = 0.6 })
-	pres.present(UI.Screen({
-		id = "Fixture",
-		padding = 8,
-		gap = 6,
-		children = {
-			UI.Text({ id = "Head", text = "Garage", textSize = 20 }),
-			UI.HStack({
-				id = "Row",
+	local state = newStack(profile)
+	local UI = state.UI
+	state.app.mount(function()
+		return UI.Screen("Fixture")({
+			padding = 8,
+			gap = 6,
+			UI.Text("Head")({ text = "Garage", textSize = 20 }),
+			UI.HStack("Row")({
 				gap = 8,
-				children = {
-					UI.Button({ id = "Go", label = "Go" }),
-					UI.Toggle({ id = "Flag", label = "Flag", value = true }),
-				},
+				UI.Button("Go")({ label = "Go", onActivate = noop }),
+				UI.Toggle("Flag")({ label = "Flag", value = Compose.cell(true) }),
 			}),
-			bar.blueprint,
-		},
-	}))
-	pres.refresh()
-	return core, env, adapter, pres, bar
+			UI.ProgressView("Bar")({ value = 0.6 }),
+		})
+	end)
+	state.pres.refresh()
+	return state
 end
 
 local function probeRects(adapter: any): { [string]: any }
@@ -1014,21 +1018,12 @@ local function themeSwapScene(spec: {
 		samples = 160,
 		warmup = 40,
 		setup = function(profile)
-			local core, env, adapter, pres, bar = themeFixture(profile)
+			local state = themeFixture(profile)
 			local snapshots = spec.snapshots(profile)
-			env:set("themeMetrics", snapshots[1])
-			pres.refresh()
-			return {
-				core = core,
-				adapter = adapter,
-				env = env,
-				pres = pres,
-				bar = bar,
-				snapshots = snapshots,
-				baseline = probeRects(adapter),
-				moved = 0,
-				n = 0,
-			}
+			state.env:set("themeMetrics", snapshots[1])
+			state.pres.refresh()
+			state.snapshots, state.baseline, state.moved, state.n = snapshots, probeRects(state.adapter), 0, 0
+			return state
 		end,
 		run = function(state)
 			state.n += 1
@@ -1051,9 +1046,7 @@ local function themeSwapScene(spec: {
 			end
 			return { swap = swap, commit = commit }
 		end,
-		teardown = function(state)
-			state.bar.dispose()
-		end,
+		teardown = disposeApp,
 		extras = function(state)
 			return {
 				themeSwap = {
@@ -1148,9 +1141,10 @@ table.insert(scenes, {
 	samples = 160,
 	warmup = 40,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
+		local state = newStack(profile)
+		local UI = state.UI
 		local now = 0
-		local clock = Facet.motion.newClock(core, {
+		local clock = Facet.motion.newClock(state.core, {
 			now = function()
 				return now
 			end,
@@ -1159,68 +1153,50 @@ table.insert(scenes, {
 		for i = 1, 600 do
 			items[i] = { id = `chip{i}`, name = `Racer {i}` }
 		end
-		local rows = core:signal(items)
-		local list = Facet.Controls.VirtualList(core, {
-			id = "Roster",
-			rows = rows,
-			key = function(item)
-				return item.id
-			end,
-			rowHeight = 44,
-			viewportHeight = math.max(120, math.floor(profile.viewport.h * 0.5)),
-			cell = function(item)
-				return UI.Text({ id = "Name", text = item.name, textSize = 15 })
-			end,
-		})
-		local chips = {}
+		local rows = Compose.cell(items)
 		local springs = {}
 		for i = 1, 24 do
-			table.insert(
-				chips,
-				UI.Box({
-					id = `Chip{i}`,
-					surface = "control",
-					width = { type = "fixed", px = 24 },
-					height = { type = "fixed", px = 24 },
-				})
-			)
 			springs[i] = clock:spring(0, if i % 2 == 0 then "object" else "reward")
 		end
-		local banner = core:signal("ready")
-		local handle = pres.present(UI.Screen({
-			id = "Celebrate",
-			padding = 6,
-			gap = 4,
-			children = {
-				UI.Text({ id = "Banner", text = banner, textSize = 18 }),
-				UI.HStack({ id = "Chips", gap = 4, children = chips }),
-				list.blueprint,
-			},
-		}))
-		pres.refresh()
-		local beats = 0
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			controller = handle.controller,
-			clock = clock,
-			springs = springs,
-			list = list,
-			rows = rows,
-			banner = banner,
-			beats = beats,
-			timeline = nil :: any,
-			now = now,
-			n = 0,
-		}
+		local banner = Compose.cell("ready")
+		local _, _, handle = state.app.mount(function()
+			local chips: { [any]: any } = { gap = 4 }
+			for i = 1, 24 do
+				table.insert(chips, UI.Box(`Chip{i}`)({ surface = "control", width = fixed(24), height = fixed(24) }))
+			end
+			return UI.Screen("Celebrate")({
+				padding = 6,
+				gap = 4,
+				UI.Text("Banner")({ text = banner, textSize = 18 }),
+				UI.HStack("Chips")(chips),
+				UI.VirtualList("Roster")({
+					rows = rows,
+					key = "id",
+					itemExtent = 44,
+					viewportExtent = math.max(120, math.floor(profile.viewport.h * 0.5)),
+					cell = function(_, cellCtx)
+						local item = Compose.formula(cellCtx.current)
+						return UI.Text("Name")({
+							text = function(use)
+								return use(item).name
+							end,
+							textSize = 15,
+						})
+					end,
+				}),
+			})
+		end)
+		state.pres.refresh()
+		state.controller, state.clock, state.springs = handle.controller, clock, springs
+		state.rows, state.banner, state.beats, state.timeline, state.now, state.n = rows, banner, 0, nil, now, 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
 		local t0 = os.clock()
 		-- the churn underneath: a re-sort that KEEPS every key, so the window slides
 		-- over the same identities a live leaderboard does
-		local current = state.rows:get() :: { any }
+		local current = state.rows:peek() :: { any }
 		local next = table.create(#current)
 		for i = 2, #current do
 			next[i - 1] = current[i]
@@ -1260,7 +1236,7 @@ table.insert(scenes, {
 		state.now += 1 / 60
 		state.clock:step(1 / 60)
 		for i, spring in state.springs do
-			state.controller.setPresentationTransform(`/Celebrate/Chips/Chip{i}`, { x = 0, y = spring:get() })
+			state.controller.setPresentationTransform(`/Celebrate/Chips/Chip{i}`, { x = 0, y = spring:peek() })
 		end
 		local motion = os.clock() - t1
 		local t2 = os.clock()
@@ -1268,26 +1244,22 @@ table.insert(scenes, {
 		return { mutate = mutate, motion = motion, commit = os.clock() - t2 }
 	end,
 	extras = function(state)
-		local window = 0
-		for _ in state.list.debugWindow() do
-			window += 1
-		end
 		local stats = state.clock:stats()
 		return {
 			springs = #state.springs,
 			activeMotions = state.clock:activeCount(),
 			timelineBeats = state.beats,
-			windowedRows = window,
+			windowedRows = countLeaves(state.adapter, "/Celebrate/Roster/", "Name"),
 			virtualRows = 600,
 			-- the contract this scene exists to keep honest: one transaction per
 			-- stepped frame, however many springs moved
 			motionSteps = stats.steps,
 			motionTransactions = stats.transactions,
-			banner = state.banner:get(),
+			banner = state.banner:peek(),
 		}
 	end,
 	teardown = function(state)
-		state.list.dispose()
+		state.app.dispose()
 		state.clock:dispose()
 	end,
 })
@@ -1300,17 +1272,19 @@ table.insert(scenes, {
 -- WHY IT IS ITS OWN SCENE. `dense-motion` prices the motion AUTHORITY (springs
 -- and timelines driven straight off a clock the scene owns); this one prices
 -- what the CONTROLS ask that authority to do on a frame where all four kinds of
--- motion overlap. Every motion here is booked by the control itself through the
--- presenter's own clock — the scene never touches a spring — so a control that
--- starts booking a timeline per frame, or a stagger that stops sharing one
--- transaction, shows up as cost instead of hiding inside a control spec.
+-- motion overlap. The control motions are booked by the controls themselves on
+-- the application runtime, and the row enter is one runtime timeline per row, so
+-- a control that starts booking a timeline per frame, or a frame that stops
+-- sharing one drain, shows up as cost instead of hiding inside a control spec.
 --
--- THE CLOCK IS SCRIPTED: `pres.tick(1/60)` steps a fixed dt, so the same
--- iteration always advances the same beats and the sample measures WORK rather
--- than wall-clock luck. The proof is the one `dense-motion` keeps — one
--- transaction per stepped frame, however many values moved — plus a counter per
--- motion kind, because a shake or a pop that quietly stopped firing would only
+-- THE CLOCK IS SCRIPTED: `tick(1/60)` steps a fixed dt on the application's
+-- virtual clock, so the same iteration always advances the same beats and the
+-- sample measures WORK rather than wall-clock luck. The proof is the one
+-- `dense-motion` keeps — one drain per stepped frame that moved anything,
+-- however many values moved — plus a counter per motion kind, because a shake or a pop that quietly stopped firing would only
 -- make this scene faster.
+local STAGGER_S, ENTER_S = 0.02, 0.2
+local DISCLOSURE_BODY = "/Motion/Adv/Reveal/Body"
 table.insert(scenes, {
 	name = "control-motion",
 	requirement = "UI-PERF-001",
@@ -1319,92 +1293,90 @@ table.insert(scenes, {
 	samples = 160,
 	warmup = 40,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
+		local state = newStack(profile)
+		local UI, runtime = state.UI, state.app.runtime
 		local gen = 0
 		local function batch()
 			gen += 1
 			local out = table.create(30)
 			for i = 1, 30 do
-				out[i] = { id = `g{gen}-{i}` }
+				out[i] = { id = `g{gen}-{i}`, index = i }
 			end
 			return out
 		end
-		local items = core:signal(batch())
-		local invalid = core:signal(false)
-		local expanded = core:signal(false)
+		local items = Compose.cell(batch())
+		local invalid = Compose.cell(false)
+		local expanded = Compose.cell(false)
 		local pops = 0
-		local input = Facet.Controls.TextInput(core, { id = "Name", value = core:signal(""), invalid = invalid })
-		local button = Facet.Controls.Button(core, {
-			id = "Go",
-			label = "Go",
-			pop = true,
-			onActivate = function()
-				pops += 1
-			end,
-		})
-		local group = Facet.Controls.DisclosureGroup(core, {
-			id = "Adv",
-			label = "Advanced",
-			expanded = expanded,
-			content = function()
-				return UI.Text({ id = "Body", text = "body", textSize = 14 })
-			end,
-		})
-		pres.present(UI.Screen({
-			id = "Motion",
-			padding = 6,
-			gap = 4,
-			children = {
-				input.blueprint,
-				button.blueprint,
-				group.blueprint,
-				UI.ForEach({
-					id = "List",
-					items = items,
-					key = function(item)
-						return item.id
-					end,
-					transition = { enter = "fade", stagger = 0.02 },
-					row = function(item)
-						return UI.ZStack({
-							id = "Row",
-							canvasGroup = true,
-							height = { type = "fixed", px = 20 },
-							children = { UI.Text({ id = "T", text = item.id, textSize = 14 }) },
-						})
+		state.app.mount(function()
+			-- one timeline carries the whole list's entrance; a re-key restarts it
+			local entry = runtime.timeline({ duration = 29 * STAGGER_S + ENTER_S })
+			local entered = items:peek()
+			Compose.watch(function(use)
+				local current = use(items)
+				if current ~= entered then
+					entered = current
+					entry:restart()
+				end
+			end)
+			return UI.Screen("Motion")({
+				padding = 6,
+				gap = 4,
+				UI.TextInput("Name")({ value = Compose.cell(""), invalid = invalid }),
+				UI.Button("Go")({
+					label = "Go",
+					pop = true,
+					onActivate = function()
+						pops += 1
 					end,
 				}),
-			},
-		}))
-		pres.refresh()
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			items = items,
-			batch = batch,
-			invalid = invalid,
-			expanded = expanded,
-			input = input,
-			button = button,
-			group = group,
-			popsRef = function()
-				return pops
-			end,
-			genRef = function()
-				return gen
-			end,
-			n = 0,
-			rekeys = 0,
-			flips = 0,
-			pulses = 0,
-			staggerHeld = 0,
-			-- the FRAMEWORK-ANSWERED halves of the flip and the pulse (below):
-			-- what the tree and the paint say, not what the driving code asked for
-			contentUp = adapter.node("/Motion/Adv/Content/then/Reveal/Body") ~= nil,
-			flipsSeen = 0,
-			shakesSeen = 0,
-		}
+				UI.DisclosureGroup("Adv")({
+					label = "Advanced",
+					expanded = expanded,
+					content = function()
+						return UI.Text("Body")({ text = "body", textSize = 14 })
+					end,
+				}),
+				UI.ForEach("List")({
+					Compose.keyed({
+						from = items,
+						key = function(item)
+							return item.id
+						end,
+						render = function(item)
+							-- the staggered enter: each row holds for its place in the
+							-- rhythm, then fades in over ENTER_S
+							local record = item:peek()
+							local hold = (record.index - 1) * STAGGER_S
+							return UI.ZStack(`Row-{record.id}`)({
+								canvasGroup = true,
+								height = fixed(20),
+								opacity = function(use)
+									return math.clamp((use(entry.elapsed) - hold) / ENTER_S, 0, 1)
+								end,
+								UI.Text("T")({ text = record.id, textSize = 14 }),
+							})
+						end,
+					}),
+				}),
+			})
+		end)
+		state.pres.refresh()
+		state.items, state.batch, state.invalid, state.expanded = items, batch, invalid, expanded
+		function state.popsRef()
+			return pops
+		end
+		function state.genRef()
+			return gen
+		end
+		state.n, state.rekeys, state.flips, state.pulses, state.staggerHeld = 0, 0, 0, 0, 0
+		-- the FRAMEWORK-ANSWERED halves of the flip and the pulse (below):
+		-- what the tree and the paint say, not what the driving code asked for
+		state.contentUp = state.adapter.node(DISCLOSURE_BODY) ~= nil
+		state.flipsSeen, state.shakesSeen = 0, 0
+		state.motionSteps, state.motionDrains = 0, 0
+		Compose.setWorkCounters(true)
+		return state
 	end,
 	run = function(state)
 		state.n += 1
@@ -1414,7 +1386,7 @@ table.insert(scenes, {
 			state.rekeys += 1
 		end
 		if state.n % 20 == 0 then
-			state.expanded:set(not state.expanded:get())
+			state.expanded:set(not state.expanded:peek())
 			state.flips += 1
 		end
 		if state.n % 15 == 0 then
@@ -1432,7 +1404,13 @@ table.insert(scenes, {
 		-- ONE clock step: every active control motion advances inside one core
 		-- transaction, which is what `motionSteps == motionTransactions` asserts
 		local t1 = os.clock()
-		state.pres.tick(1 / 60)
+		Compose.resetWorkCounters()
+		state.tick(1 / 60)
+		local work = Compose.readWorkCounters()
+		if work.cellWrites > 0 then
+			state.motionSteps += 1
+			state.motionDrains += work.drains
+		end
 		local motion = os.clock() - t1
 		local t2 = os.clock()
 		state.pres.refresh()
@@ -1474,7 +1452,7 @@ table.insert(scenes, {
 			It counts every iteration the field is off its rest line, not only the
 			pulse frames: a shake lasts many frames, and 90 of 200 is the beat this
 			scene is actually paying for. ]]
-		local body = state.adapter.node("/Motion/Adv/Content/then/Reveal/Body")
+		local body = state.adapter.node(DISCLOSURE_BODY)
 		local up = body ~= nil
 		if up ~= state.contentUp then
 			state.contentUp = up
@@ -1493,8 +1471,8 @@ table.insert(scenes, {
 			return
 		end
 		local g = state.genRef()
-		local first = state.adapter.node(`/Motion/List/[g{g}-1]/Row`)
-		local last = state.adapter.node(`/Motion/List/[g{g}-30]/Row`)
+		local first = state.adapter.node(`/Motion/List/Row-g{g}-1`)
+		local last = state.adapter.node(`/Motion/List/Row-g{g}-30`)
 		if first == nil or last == nil or first.canvasGroupInstance == nil or last.canvasGroupInstance == nil then
 			return
 		end
@@ -1503,7 +1481,6 @@ table.insert(scenes, {
 		end
 	end,
 	extras = function(state)
-		local stats = state.pres.motionClock:stats()
 		return {
 			rekeys = state.rekeys,
 			flips = state.flips,
@@ -1513,16 +1490,15 @@ table.insert(scenes, {
 			flipsSeen = state.flipsSeen,
 			shakesSeen = state.shakesSeen,
 			rows = 30,
-			-- the contract this scene shares with dense-motion: one transaction
-			-- per stepped frame, however many control motions moved
-			motionSteps = stats.steps,
-			motionTransactions = stats.transactions,
+			-- the contract this scene shares with dense-motion: one reactive drain
+			-- per stepped frame that moved anything, however many control motions moved
+			motionSteps = state.motionSteps,
+			motionTransactions = state.motionDrains,
 		}
 	end,
 	teardown = function(state)
-		state.input.dispose()
-		state.button.dispose()
-		state.group.dispose()
+		Compose.setWorkCounters(false)
+		state.app.dispose()
 	end,
 })
 
@@ -1558,49 +1534,80 @@ table.insert(
 -- They are TREND EVIDENCE ONLY, like every other scene here: no engine, no frame,
 -- no device. The place is where engine cost is measured and only a phone can
 -- close the device budget.
-local function labStack(profile)
-	local core, env, system, adapter, pres = newStack(profile)
-	local provider = Facet.newResourceProvider(core)
-	return core, env, system, adapter, pres, provider
+--
+-- THE SEAM WITH THE LAB MODULES. Each lab builder takes the application context
+-- first — `ctx = { Facet, app, UI, Compose, env, core }` — and builds natively
+-- under whatever owner is active when it is called:
+--   perf_rows.cell(ctx, item, { provider, values, toggles, compact }) -> node
+--   navigationInventory.build(ctx, imageKeys) -> { screen = component, tabs, builds, ... }
+--   transientSurfaces.build(ctx, kind) -> { present, open, close, proof, dispose }
+local function labContext(state: any)
+	return {
+		Facet = Facet,
+		app = state.app,
+		UI = state.UI,
+		Compose = Compose,
+		env = state.env,
+		core = state.core,
+	}
 end
 
-local function labList(core: any, pres: any, provider: any, items: { any }, viewportHeight: number, profile: any)
-	local rowsSignal = core:signal(items)
-	local ownerScope = core:scope("perf-scene-rows")
+local LAB_LIST = "/PerfWorkload/Rows"
+
+local function labStack(profile: any, items: { any }, viewportHeight: number)
+	local state = newStack(profile)
+	local UI = state.UI
+	local ctx = labContext(state)
+	local provider = Facet.newResourceProvider(state.core)
+	local rows = Compose.cell(items)
 	local values: { [string]: any } = {}
 	local toggles: { [string]: any } = {}
-	-- THE SAME ARRANGEMENT DECISION THE PLACE MAKES (2026-08-05). The reference profile
-	-- is `floorAndroid` at 360x640 — a compact phone — so before this, every headless
-	-- number for these two scenes was measured on a row overflowing its box by 132px.
-	-- The work was real work, but the layout was not one anybody would ship, and a
-	-- budget taken from it was guarding the wrong thing. Sharing `compactFor` is the
-	-- whole point of sharing the row module.
+	-- THE SAME ARRANGEMENT DECISION THE PLACE MAKES. The reference profile is
+	-- `floorAndroid` at 360x640 — a compact phone — and the one-line row overflows
+	-- it, so a budget taken from that layout would guard a screen nobody ships.
+	-- Sharing `compactFor` is the whole point of sharing the row module.
 	local compact = perf_rows.compactFor(profile.viewport.w)
-	local list = Facet.Controls.VirtualList(core, {
-		id = "Rows",
-		rows = rowsSignal,
-		key = function(item: any)
-			return item.id
-		end,
-		rowHeight = perf_rows.heightFor(compact),
-		rowGap = perf_rows.ROW_GAP,
-		viewportHeight = viewportHeight,
-		overscan = perf_rows.OVERSCAN,
-		selection = "single",
-		cell = function(item: any, cellCtx: any)
-			return perf_rows.cell(Facet, core, item, {
-				scope = cellCtx.scope,
-				ownerScope = ownerScope,
-				provider = provider,
-				values = values,
-				toggles = toggles,
-				compact = compact,
-			})
-		end,
-	})
-	pres.present(UI.Screen({ id = "PerfWorkload", padding = 8, gap = 6, children = { list.blueprint } }))
-	pres.refresh()
-	return list, rowsSignal
+	state.app.mount(function()
+		return UI.Screen("PerfWorkload")({
+			padding = 8,
+			gap = 6,
+			UI.VirtualList("Rows")({
+				rows = rows,
+				key = "id",
+				itemExtent = perf_rows.heightFor(compact),
+				rowGap = perf_rows.ROW_GAP,
+				viewportExtent = viewportHeight,
+				overscan = perf_rows.OVERSCAN,
+				cell = function(item: any)
+					return perf_rows.cell(ctx, item, {
+						provider = provider,
+						values = values,
+						toggles = toggles,
+						compact = compact,
+					})
+				end,
+			}),
+		})
+	end)
+	state.pres.refresh()
+	state.provider, state.rows, state.compact, state.viewportHeight = provider, rows, compact, viewportHeight
+	return state
+end
+
+-- mounted row slots: the list's canvas holds exactly one child per windowed
+-- row, two path segments below the list
+local function labWindow(state: any): number
+	local n = 0
+	local prefix = LAB_LIST .. "/"
+	for _, path in state.adapter.paths() do
+		if path:sub(1, #prefix) == prefix then
+			local _, separators = path:sub(#prefix + 1):gsub("/", "")
+			if separators == 1 then
+				n += 1
+			end
+		end
+	end
+	return n
 end
 
 -- LAB-1: the principal dense-scroll workload, headless.
@@ -1612,21 +1619,10 @@ table.insert(scenes, {
 	samples = 120,
 	warmup = 30,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres, provider = labStack(profile)
 		local items = perf_dataset.build({ count = 2000, seed = 1, content = "normal" })
-		local viewportHeight = math.max(120, profile.viewport.h - 80)
-		local list = labList(core, pres, provider, items, viewportHeight, profile)
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			list = list,
-			provider = provider,
-			y = 0,
-			viewportHeight = viewportHeight,
-			compact = perf_rows.compactFor(profile.viewport.w),
-			digest = perf_dataset.digest(items),
-		}
+		local state = labStack(profile, items, math.max(120, profile.viewport.h - 80))
+		state.y, state.digest = 0, perf_dataset.digest(items)
+		return state
 	end,
 	run = function(state)
 		-- 61px, deliberately not a row multiple (same reasoning as
@@ -1637,22 +1633,16 @@ table.insert(scenes, {
 			state.y = 0
 		end
 		local t0 = os.clock()
-		state.list.scrollTop:set(state.y)
+		state.adapter.driveScroll(LAB_LIST, { x = 0, y = state.y })
 		local scroll = os.clock() - t0
 		local t1 = os.clock()
 		state.pres.refresh()
 		return { scroll = scroll, commit = os.clock() - t1 }
 	end,
-	teardown = function(state)
-		state.list.dispose()
-	end,
+	teardown = disposeApp,
 	extras = function(state)
-		local n = 0
-		for _ in state.list.debugWindow() do
-			n += 1
-		end
 		return {
-			windowedRows = n,
+			windowedRows = labWindow(state),
 			-- the SAME bound the place asserts, computed from the same arithmetic,
 			-- so a windowing regression fails here as well as there
 			windowBound = perf_rows.expectedWindow(state.viewportHeight, state.compact),
@@ -1675,25 +1665,15 @@ table.insert(scenes, {
 	samples = 100,
 	warmup = 25,
 	setup = function(profile)
-		local core, _env, _sys, adapter, pres, provider = labStack(profile)
 		local items = perf_dataset.build({ count = 800, seed = 1, content = "normal" })
-		local viewportHeight = math.max(120, profile.viewport.h - 80)
-		local list, rowsSignal = labList(core, pres, provider, items, viewportHeight, profile)
-		return {
-			core = core,
-			adapter = adapter,
-			pres = pres,
-			list = list,
-			rowsSignal = rowsSignal,
-			viewportHeight = viewportHeight,
-			compact = perf_rows.compactFor(profile.viewport.w),
-			n = 0,
-		}
+		local state = labStack(profile, items, math.max(120, profile.viewport.h - 80))
+		state.n = 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
 		local t0 = os.clock()
-		local items = table.clone(state.rowsSignal:get())
+		local items = table.clone(state.rows:peek())
 		local at = math.max(1, math.floor(#items * 0.25))
 		table.insert(items, at, {
 			id = `ins{state.n}`,
@@ -1710,22 +1690,16 @@ table.insert(scenes, {
 		table.insert(items, math.max(1, ((state.n * 7) % #items) + 3), moved)
 		local mutate = os.clock() - t0
 		local t1 = os.clock()
-		state.rowsSignal:set(items)
+		state.rows:set(items)
 		state.pres.refresh()
 		return { mutate = mutate, commit = os.clock() - t1 }
 	end,
-	teardown = function(state)
-		state.list.dispose()
-	end,
+	teardown = disposeApp,
 	extras = function(state)
-		local n = 0
-		for _ in state.list.debugWindow() do
-			n += 1
-		end
 		return {
-			windowedRows = n,
+			windowedRows = labWindow(state),
 			windowBound = perf_rows.expectedWindow(state.viewportHeight, state.compact),
-			logicalRows = #state.rowsSignal:get(),
+			logicalRows = #state.rows:peek(),
 			datasetVersion = perf_dataset.VERSION,
 			rowVersion = perf_rows.VERSION,
 		}
@@ -1741,13 +1715,33 @@ table.insert(scenes, {
 	samples = 120,
 	warmup = 20,
 	setup = function(profile)
-		local core, env, system, adapter, pres = newStack(profile)
-		local state = navigationInventory.build(Facet, core, perf_dataset.IMAGE_KEYS)
-		local handle = pres.present(state.screen)
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		state.core, state.env, state.adapter, state.pres, state.handle = core, env, adapter, pres, handle
+		local stack = newStack(profile)
+		-- `navigationInventory.build` constructs composite controls (TabView,
+		-- Button) that register their teardown with the ambient Compose owner
+		-- (docs/extending/new-control.md step 3) — so it has to run INSIDE
+		-- `app.mount`'s callback, which is what establishes that owner, rather
+		-- than being built eagerly and handed to `mount` as a static node.
+		local state: any = nil
+		local _, _, handle = stack.app.mount(function()
+			state = navigationInventory.build(labContext(stack), perf_dataset.IMAGE_KEYS)
+			return state.screen
+		end)
+		stack.pres.refresh()
+		stack.tick(1 / 60)
+		stack.pres.refresh()
+		state.app, state.core, state.env, state.adapter = stack.app, stack.core, stack.env, stack.adapter
+		state.pres, state.tick, state.handle = stack.pres, stack.tick, handle
+		-- the two cards focus alternates between, resolved once from the mounted tree
+		state.cards = {}
+		for index = 1, 2 do
+			local suffix = `/Cars/Car{index}`
+			for _, path in stack.adapter.paths() do
+				if path:sub(-#suffix) == suffix then
+					state.cards[index] = path
+				end
+			end
+			assert(state.cards[index], `adaptive-navigation-images: inventory card {index} is not mounted`)
+		end
 		state.n = 0
 		return state
 	end,
@@ -1756,14 +1750,14 @@ table.insert(scenes, {
 		local phases = {}
 		local before = c.stats()
 		local t0 = os.clock()
-		pres.tick(1 / 60)
+		state.tick(1 / 60)
 		pres.refresh()
 		phases.idle = os.clock() - t0
 		assert(c.stats().solves == before.solves, "idle adaptive controls must not solve")
 		state.n += 1
 		t0 = os.clock()
-		pres.focus.focusOn("/S/Tabs/Content/Tab-garage/then/Inventory/Cars/Car" .. (state.n % 2 + 1))
-		pres.tick(1 / 60)
+		pres.focus.focusOn(state.cards[state.n % 2 + 1])
+		state.tick(1 / 60)
 		pres.refresh()
 		phases.focus = os.clock() - t0
 		assert(c.stats().solves == before.solves, "image focus must remain paint-only")
@@ -1771,12 +1765,12 @@ table.insert(scenes, {
 		t0 = os.clock()
 		state.tabs.expandSidebar()
 		pres.refresh()
-		pres.tick(1 / 60)
+		state.tick(1 / 60)
 		state.tabs.collapseSidebar()
 		pres.refresh()
-		pres.tick(1 / 60)
+		state.tick(1 / 60)
 		pres.refresh()
-		pres.tick(1 / 60)
+		state.tick(1 / 60)
 		pres.refresh()
 		phases.navigation = os.clock() - t0
 		assert(state.builds() == 1, "navigation chrome must preserve its selected page")
@@ -1786,19 +1780,14 @@ table.insert(scenes, {
 		-- Settling is measured separately from one player event. It still runs
 		-- on every iteration and must leave the next idle sample truly idle.
 		for _ = 1, 60 do
-			state.pres.tick(1 / 60)
+			state.tick(1 / 60)
 			state.pres.refresh()
 		end
 	end,
 	extras = function(state)
 		return { contentBuilds = state.builds(), render = state.handle.controller.stats() }
 	end,
-	teardown = function(state)
-		state.pres.dismiss(state.handle)
-		state.tabs.dispose()
-		state.selected:dispose()
-		state.customization:dispose()
-	end,
+	teardown = disposeApp,
 })
 
 local customizationScene = table.clone(scenes[#scenes])
@@ -1834,10 +1823,22 @@ local function transientScene(spec: { name: string, requirement: string, dataset
 		samples = 120,
 		warmup = 30,
 		setup = function(profile)
-			local core, _env, _sys, adapter, pres = newStack(profile)
-			local fixture = transientSurfaces.build(Facet, core, spec.kind)
-			fixture.present(pres)
-			return { core = core, adapter = adapter, pres = pres, fixture = fixture }
+			local state = newStack(profile)
+			-- KNOWN GAP (see port report): `transientSurfaces.build` and
+			-- `fixture.present` build with `ctx.UI`/`ctx.presenter.present(blueprint)`
+			-- directly, which needs an ambient Compose owner AND (per
+			-- port-reports/chrome.md) a presenter root that came from
+			-- `runtime.mount` — neither of which a bare `newStack` provides. The
+			-- headless lab test harness tolerates this (`harness.newPresenter`
+			-- wraps every `present` in its own mount), so `tests/perf_lab.spec.luau`
+			-- is green; the real `app.presenter` used here is not. Fixing this
+			-- scene means moving `transient_surfaces.luau`'s own `present`/`open`
+			-- calls onto `ctx.app.mount`, which is a change to a file this task
+			-- does not own alone (the lab Studio surface uses the same file) —
+			-- flagged rather than changed under this scene.
+			state.fixture = transientSurfaces.build(labContext(state), spec.kind)
+			state.fixture.present(state.pres)
+			return state
 		end,
 		run = function(state)
 			local t0 = os.clock()
@@ -1852,6 +1853,7 @@ local function transientScene(spec: { name: string, requirement: string, dataset
 		end,
 		teardown = function(state)
 			state.fixture.dispose()
+			state.app.dispose()
 		end,
 	}
 end
@@ -1896,31 +1898,30 @@ table.insert(scenes, {
 	samples = 120,
 	warmup = 30,
 	setup = function(profile)
-		local core, env, _sys, adapter, pres = newStack(profile)
-		local selected = core:signal("normal")
-		local picker = Facet.Controls.Picker(core, {
-			id = "Difficulty",
-			label = "Difficulty",
-			style = "segmented",
-			options = {
-				{ value = "easy", label = "Easy" },
-				{ value = "normal", label = "Normal" },
-				{ value = "hard", label = "Hard" },
-			},
-			selected = selected,
-		})
-		pres.present(UI.Screen({
-			id = "S",
-			padding = 12,
-			gap = 8,
-			children = {
-				UI.Text({ id = "Head", text = "Race setup", textSize = 18 }),
-				picker.blueprint,
-				UI.Text({ id = "Note", text = "Affects rival speed and damage.", textSize = 14 }),
-			},
-		}))
-		pres.refresh()
-		return { core = core, env = env, adapter = adapter, pres = pres, picker = picker, n = 0, flips = 0 }
+		local state = newStack(profile)
+		local UI = state.UI
+		local selected = Compose.cell("normal")
+		state.app.mount(function()
+			return UI.Screen("S")({
+				padding = 12,
+				gap = 8,
+				UI.Text("Head")({ text = "Race setup", textSize = 18 }),
+				UI.Picker("Difficulty")({
+					label = "Difficulty",
+					style = "segmented",
+					options = {
+						{ value = "easy", label = "Easy" },
+						{ value = "normal", label = "Normal" },
+						{ value = "hard", label = "Hard" },
+					},
+					selected = selected,
+				}),
+				UI.Text("Note")({ text = "Affects rival speed and damage.", textSize = 14 }),
+			})
+		end)
+		state.pres.refresh()
+		state.n, state.flips = 0, 0
+		return state
 	end,
 	run = function(state)
 		state.n += 1
@@ -1934,11 +1935,12 @@ table.insert(scenes, {
 		return { envChange = envChange, commit = commit }
 	end,
 	extras = function(state)
-		return { flips = state.flips, style = state.picker.dump().style }
+		-- the selection bar exists only in the segmented strip, so the tree answers
+		-- which style the control resolved
+		local bar = state.adapter.node("/S/Difficulty/Indicator/Layer/Bar")
+		return { flips = state.flips, style = if bar ~= nil then "segmented" else nil }
 	end,
-	teardown = function(state)
-		state.picker.dispose()
-	end,
+	teardown = disposeApp,
 })
 
 -- 26. Radial menu open/close: a six-item compass radial opens from its solved

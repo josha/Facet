@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ O3 — A SUBTREE THAT ONLY MOVED IS RE-BASED, NOT RE-ENTERED.
 
 	The arrange skip (`solver.luau`, `arrange`'s reuse gate) is on ABSOLUTE-rect
@@ -60,6 +61,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
+local Compose = require("../src/vendor/compose/core")
 
 local PLATES = scene.PLATES
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
@@ -260,11 +262,11 @@ end)
 	refusal), and at that moment `node.distribute` is nil, so a presence test calls
 	it translatable while its children still need re-spreading. The shipped
 	predicate records the three on the entry and compares BY VALUE. ]]
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
 local fs = require("@lune/fs")
 local schema = require("../src/blueprint_schema")
@@ -363,8 +365,8 @@ local function placeWorld(kind: string, prop: string, incremental: boolean, view
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local sig = core:signal(nil :: any)
-	local dx = core:signal(0)
+	local sig = Compose.cell(nil :: any)
+	local dx = Compose.cell(0)
 	local inner: any = {
 		id = "Bar",
 		anchor = "topLeft",
@@ -946,11 +948,11 @@ local function branchFieldWorld(incremental: boolean, memoReuse: boolean, view: 
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local dx = core:signal(0)
+	local dx = Compose.cell(0)
 	-- `lineAlign` under an `Anchor` parent is INERT — the anchor branch reads
 	-- `anchor`/`offsetX`/`offsetY` and nothing else — so driving it dirties the node
 	-- and moves it by exactly zero, which is the `tdx = 0` arm
-	local la = core:signal("start")
+	local la = Compose.cell("start")
 	local root = mountLib.mount(
 		core,
 		UI.Screen({
@@ -1361,7 +1363,7 @@ local function mountedReportWorld(incremental: boolean, view: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
-	local dx = core:signal(0)
+	local dx = Compose.cell(0)
 	local root = mountLib.mount(
 		core,
 		UI.Screen({

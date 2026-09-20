@@ -165,12 +165,17 @@ local APP_METRICS = {
 	heroH = 120,
 }
 
-function Cartwheel.build(Facet: any, core: any, deps: any): any
-	local UI = Facet.UI
+local PRESENT = { keyboardNavigation = true, cancelPolicy = "none", initialFocus = "first" }
+
+-- The whole app is one component: services, state and screens live under the
+-- mount's owner, and closing the mount releases them.
+local function construct(Facet: any, deps: any, late: any): any
+	local host = deps.app
+	local UI = host.controls
+	local Compose = Facet.Compose
 	Facet.themes.declareApp("cartwheel", APP_METRICS)
-	local env = deps.env
-	local presenter = deps.presenter
-	local scope = core:scope("cartwheel")
+	local env = host.environment
+	local presenter = host.presenter
 
 	-- ---- locale --------------------------------------------------------------
 	-- `ctx.locale` wins, then the env fact; anything that is not a declared
@@ -180,7 +185,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		localeFact = deps.locale
 	elseif env ~= nil then
 		local ok, value = pcall(function()
-			return env:get("locale"):get()
+			return env:get("locale"):peek()
 		end)
 		if ok and type(value) == "string" then
 			localeFact = value
@@ -191,19 +196,42 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 
 	-- ---- services ------------------------------------------------------------
 	local seed: number = if type(deps.seed) == "number" then deps.seed else DEFAULT_SEED
-	local clock = clockLib.new(core, { start = 0 })
-	local orders = orderService.new({ core = core, clock = clock, seed = seed })
-	local stats = statsService.new({ core = core, seed = seed })
+	local clock = clockLib.new(Compose, { start = 0 })
+	local orders = orderService.new({ Compose = Compose, clock = clock, seed = seed })
+	local stats = statsService.new({ Compose = Compose, seed = seed })
 	local ambient = ambientService.new({ seed = seed })
-	local entitlement = entitlementService.new({ core = core })
-	local identity = identityService.new({ core = core })
+	local entitlement = entitlementService.new({ Compose = Compose })
+	local identity = identityService.new({ Compose = Compose })
+	-- The screen's owner: a toast body is built under it and released with it.
+	local screenOwner: any = nil
+	local function presentToast(name: string, message: string, options: any)
+		if screenOwner == nil then
+			return
+		end
+		local function body()
+			return UI.ZStack(name)({
+				canvasGroup = true,
+
+				UI.Box("Plate")({
+					surface = "raised",
+					width = UI.fill(),
+					height = { type = "content" },
+				}),
+				UI.Text("Body")({ text = message, textSize = "label", padding = "s" }),
+			})
+		end
+		presenter.presentToast(body, options)
+	end
 	local commands = commandsLib.new({
-		core = core,
+		Compose = Compose,
 		clock = clock,
 		presenter = presenter,
-		Facet = Facet,
 		strings = S,
 		latency = 0.25,
+		-- `key = id`, so a retry supersedes its predecessor instead of stacking
+		toast = function(id: string, message: string)
+			presentToast("CartwheelToast", message, { key = id, position = "bottom", duration = 4 })
+		end,
 	})
 
 	-- the loop closes here: a collected brew is bottles StatsService counts, so
@@ -213,22 +241,23 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	end)
 
 	-- ---- presentation state --------------------------------------------------
-	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
+	screenOwner = Compose.currentOwner()
+	local conditions = Facet.adaptive.conditions(env)
 	-- THE OPENING SECTION IS AN INPUT, and it exists for one measured reason: the
 	-- scenario runner materializes `stageContent` ONCE, immediately after
 	-- `present`, through `controller.stageHost(path)` — and a Stage inside a
 	-- section that is not mounted yet has no host, so the diorama is skipped.
 	-- Opening straight on a plaza is how a live pass sees the scene; every
 	-- headless run and the default keep the dashboard (`deps.section` absent).
-	local section = core:signal(if type(deps.section) == "string" then deps.section else "cart")
-	local openBrew = core:signal(0)
-	local openPotion = core:signal("")
-	local compactOpen = core:signal(false)
+	local section = Compose.cell(if type(deps.section) == "string" then deps.section else "cart")
+	local openBrew = Compose.cell(0)
+	local openPotion = Compose.cell("")
+	local compactOpen = Compose.cell(false)
 	-- GAP 7b (framework-gaps-phase2 §7): "not compact", not "isRegular" — the
 	-- middle class alone reads false on a desktop, which is `wide`. Reuses the
 	-- memo `adaptive.conditions` already owns rather than building a second one.
 	local isTableMode = conditions.isRegularOrWider
-	local reducedMotion = core:memo(function(use)
+	local reducedMotion = Compose.formula(function(use)
 		return use(env:get("motionPolicy")) == "reduced"
 	end)
 
@@ -250,8 +279,8 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	local app: any = {
 		Facet = Facet,
 		UI = UI,
-		core = core,
-		scope = scope,
+		Compose = Compose,
+		host = host,
 		env = env,
 		actionSystem = deps.actionSystem,
 		presenter = presenter,
@@ -295,24 +324,93 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		table.insert(tickHooks, fn)
 	end
 	function app.toast(message: string)
-		if presenter == nil or presenter.presentToast == nil then
-			return
-		end
-		presenter.presentToast(
-			UI.ZStack({
-				id = "CartwheelNotice",
-				canvasGroup = true,
+		presentToast("CartwheelNotice", message, { key = "notice", position = "bottom" })
+	end
 
-				UI.Box({
-					id = "Plate",
-					surface = "raised",
-					width = UI.fill(),
-					height = { type = "content" },
+	-- A conditional region: `/<id>/then/...` or `/<id>/else/...`.
+	function app.when(id: string)
+		return function(spec: any)
+			return UI.When(id)({
+				Compose.show(
+					spec.condition,
+					function()
+						return UI.When("then")({ spec.thenView() })
+					end,
+					if spec.elseView
+						then function()
+							return UI.When("else")({ spec.elseView() })
+						end
+						else nil
+				),
+			})
+		end
+	end
+	-- A keyed collection: each row lives at `/<id>/[key]/...`. Rows that carry
+	-- a `transition` (dashboard's arriving tiles) are passed to `UI.ForEach` by
+	-- the SCHEMA shape (`items`/`key`/`row`/`transition`) instead of a
+	-- hand-rolled `Compose.keyed` child, which is what routes them through the
+	-- same coordinator dispatch a native control gets — a hand-rolled
+	-- `Compose.keyed` never calls `coordinator.beginEnter`, so a declared
+	-- transition never runs and a row never actually fades in.
+	function app.forEach(id: string)
+		return function(spec: any)
+			if spec.transition ~= nil then
+				return UI.ForEach(id)({
+					items = spec.items,
+					key = spec.key,
+					row = spec.row,
+					transition = spec.transition,
+				})
+			end
+			return UI.ForEach(id)({
+				Compose.keyed({
+					from = spec.items,
+					key = spec.key,
+					render = function(item: any, _, key: any)
+						local node = spec.row(item:peek())
+						node.collectionKey = `[{key}]`
+						return node
+					end,
 				}),
-				UI.Text({ id = "Body", text = message, textSize = "label", padding = "s" }),
-			}),
-			{ key = "notice", position = "bottom" }
-		)
+			})
+		end
+	end
+	-- Presents a modal component and answers its handle; dismissing the handle
+	-- releases the component.
+	local modalCloses: { [() -> ()]: boolean } = {}
+	function app.presentModal(component: () -> any, options: any?): any
+		local close, _, handle = host.presentModal(component, options)
+		modalCloses[close] = true
+		return handle
+	end
+	Compose.cleanup(function()
+		for close in modalCloses do
+			close()
+		end
+	end)
+	-- Runs `build` under the app's owner, for values that outlive the visit that
+	-- first asks for them.
+	function app.rooted(build: () -> any): any
+		return Compose.withOwner(screenOwner, build)
+	end
+	-- Appends a generated child list to a property table.
+	function app.withChildren(props: any, children: { any }): any
+		for _, child in children do
+			table.insert(props, child)
+		end
+		return props
+	end
+	-- Runs `onChange` when `source` changes; the current owner releases it.
+	function app.observe(source: any, onChange: (any) -> ()): () -> ()
+		local first = true
+		return Compose.watch(function(use)
+			local value = use(source)
+			if first then
+				first = false
+				return
+			end
+			onChange(value)
+		end)
 	end
 
 	-- ---- the actions: the ONLY way state changes ----------------------------
@@ -322,7 +420,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	-- SELECTION RESETS PUSHED DETAIL (spec §4): changing the section clears that
 	-- section's sub-detail, so a sidebar row always lands on a section ROOT.
 	function app.actions.selectSection(id: string)
-		core:transaction(function()
+		host.runtime:batch(function()
 			section:set(id)
 			openBrew:set(0)
 			openPotion:set("")
@@ -331,7 +429,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	end
 
 	function app.actions.openBrew(id: number)
-		core:transaction(function()
+		host.runtime:batch(function()
 			section:set("brews")
 			openBrew:set(id)
 			compactOpen:set(true)
@@ -339,7 +437,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	end
 
 	function app.actions.openPotion(id: string)
-		core:transaction(function()
+		host.runtime:batch(function()
 			section:set("workbench")
 			openPotion:set(id)
 			compactOpen:set(true)
@@ -347,7 +445,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	end
 
 	function app.actions.openScratch()
-		core:transaction(function()
+		host.runtime:batch(function()
 			section:set("workbench")
 			openPotion:set("")
 			compactOpen:set(true)
@@ -355,7 +453,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	end
 
 	function app.actions.openGuildCard()
-		if identity.signedIn:get() then
+		if identity.signedIn:peek() then
 			screens.signup.openSignOut()
 		else
 			screens.signup.open()
@@ -367,15 +465,15 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		if screens.brews ~= nil and screens.brews.handleCancel() then
 			return true
 		end
-		if openBrew:get() ~= 0 then
+		if openBrew:peek() ~= 0 then
 			openBrew:set(0)
 			return true
 		end
-		if openPotion:get() ~= "" then
+		if openPotion:peek() ~= "" then
 			openPotion:set("")
 			return true
 		end
-		if conditions.isCompact:get() and compactOpen:get() then
+		if conditions.isCompact:peek() and compactOpen:peek() then
 			compactOpen:set(false)
 			return true
 		end
@@ -464,17 +562,13 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 
 	-- ---- present -------------------------------------------------------------
 
-	local handle = presenter.present(shell.screen, {
-		keyboardNavigation = true,
-		cancelPolicy = "none",
-		initialFocus = "first",
-	})
-	controllerRef = handle.controller
+	function late.bind(handle: any)
+		controllerRef = handle.controller
+	end
 
+	-- The domain clock advances with presenter time in a live place, and only
+	-- through the `advance` step headlessly, so a scripted run is reproducible.
 	local unbindTick = presenter.onTick(function(dt: number)
-		-- the domain clock advances with presenter time in a live place, and only
-		-- through the `advance` step headlessly — so a scripted run is exactly
-		-- reproducible and a played one still counts down in real seconds
 		clock.advance(dt)
 		for _, hook in tickHooks do
 			hook(dt)
@@ -514,14 +608,14 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 	end
 
 	steps.open_brew = function(_built: any, payload: string?): any
-		local id = tonumber(payload or "") or (orders.brews:get() :: any)[1].id
+		local id = tonumber(payload or "") or (orders.brews:peek() :: any)[1].id
 		app.actions.openBrew(id)
 		presenter.refresh()
 		return screens.brewDetail.dump()
 	end
 
 	steps.advance_status = function(): any
-		local id = openBrew:get()
+		local id = openBrew:peek()
 		if id == 0 then
 			return { error = "no brew is open" }
 		end
@@ -555,7 +649,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 
 	steps.sort = function(_built: any, payload: string?): any
 		local column = payload or "status"
-		local order = screens.brews.sortOrder:get() :: any
+		local order = screens.brews.sortOrder:peek() :: any
 		screens.brews.sortOrder:set({
 			column = column,
 			ascending = if order.column == column then not order.ascending else true,
@@ -586,7 +680,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		if picker == nil then
 			return { error = "no picker '" .. slot .. "'" }
 		end
-		picker.api.select(id)
+		picker:set(id)
 		presenter.refresh()
 		return screens.workbench.dump()
 	end
@@ -619,7 +713,7 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		if payload ~= nil and payload ~= "" then
 			screens.signup.guildName:set(payload)
 		end
-		if screens.signup.watchword:get() == "" then
+		if screens.signup.watchword:peek() == "" then
 			screens.signup.watchword:set("thistle")
 		end
 		screens.signup.submit()
@@ -662,58 +756,12 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		}
 	end
 
-	local function dispose()
-		unbindTick()
-		-- UNMOUNT BEFORE DISPOSING WHAT THE TREE READS. The surface is dismissed
-		-- first so no bound prop is still observing a signal a screen is about to
-		-- dispose; the scenario runner also dismisses this handle after calling
-		-- us, and `presenter.dismiss` on a handle already off the stack is a
-		-- documented no-op, so the pair is safe in either order.
-		presenter.dismiss(handle)
-		for _, name in
-			{
-				"signup",
-				"celebration",
-				"plaza",
-				"ledger",
-				"chatter",
-				"topfive",
-				"workbench",
-				"gallery",
-				"brewDetail",
-				"brews",
-				"dashboard",
-				"shell",
-			}
-		do
-			local screenModule = screens[name]
-			if screenModule ~= nil and screenModule.dispose ~= nil then
-				screenModule.dispose()
-			end
-		end
-		commands.dispose()
-		identity.dispose()
-		entitlement.dispose()
-		stats.dispose()
-		orders.dispose()
-		reducedMotion:dispose()
-		-- isTableMode is `conditions.isRegularOrWider` — owned by `conditions`'s
-		-- own scope (framework-gaps-phase2 gap 7b), not by this file
-		compactOpen:dispose()
-		openPotion:dispose()
-		openBrew:dispose()
-		section:dispose()
-		clock.dispose()
-		scope:dispose()
-	end
+	Compose.cleanup(unbindTick)
 
 	return {
 		screen = shell.screen,
-		handle = handle,
-		present = { keyboardNavigation = true, cancelPolicy = "none", initialFocus = "first" },
 		steps = steps,
 		report = report,
-		dispose = dispose,
 		-- the Plaza hero's engine content, keyed by the Stage node's full path
 		stageContent = { [PATHS.stage] = STAGE_CONTENT },
 		-- handles the suite and a live pass reach for
@@ -726,6 +774,21 @@ function Cartwheel.build(Facet: any, core: any, deps: any): any
 		strings = S,
 		data = data,
 	}
+end
+
+-- The proof presents itself: it needs its own controller for the stage seam.
+function Cartwheel.build(Facet: any, _core: any, deps: any): any
+	local built: any
+	local late: any = {}
+	local close, _, handle = deps.app.mount(function()
+		built = construct(Facet, deps, late)
+		return built.screen
+	end, PRESENT)
+	late.bind(handle)
+	built.handle = handle
+	built.present = PRESENT
+	built.dispose = close
+	return built
 end
 
 return Cartwheel

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ AUTHORED PRESENTATION — `opacity`, `scale`, `rotation`.
 
 	The director's ruling, 2026-08-14: *"should opacity, transparency, and scale
@@ -38,6 +39,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local schema = require("../src/blueprint_schema") :: any
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local FRAME = 1 / 60
 
@@ -52,7 +54,7 @@ end
 -- of them (the off-path control).
 local function world(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
@@ -61,19 +63,19 @@ local function world(opts: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
-	local opacity = core:signal(options.opacity or 1)
-	local scale = core:signal(options.scale or 1)
-	local rotation = core:signal(options.rotation or 0)
+	local opacity = Compose.cell(options.opacity or 1)
+	local scale = Compose.cell(options.scale or 1)
+	local rotation = Compose.cell(options.rotation or 0)
 	-- the GEOMETRIC half, so one call can move a node and fade another and the
 	-- shared-spring case can compare their progress
-	local tall = core:signal(false)
-	local faderHeight = core:memo(function(use: any)
+	local tall = Compose.cell(false)
+	local faderHeight = Compose.formula(function(use: any)
 		return { type = "fixed", px = if use(tall) then 200 else 100 }
 	end)
 
-	local UI = Facet.UI
+	local UI = harness.UI
 	local screen = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -160,7 +162,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("`opacity` on a LEAF is refused at construction, because a leaf fade would defeat the sheet", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local ok, err = pcall(function()
 			return UI.Text({ text = "hi", opacity = 0.5 })
 		end)
@@ -175,7 +177,7 @@ describe("authored presentation A — the props, and the refusals", function()
 		contain the answer, and never mentions the one-line spelling that works.
 		A capability that is refused has to say so at the point of use. ]]
 	it("THE DISABLED-DIMMING CASE: the refusal names the defeat it exists to prevent", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local ok, err = pcall(function()
 			return UI.Text({ text = "hi", opacity = 0.5 })
 		end)
@@ -192,7 +194,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("...and it names the WORKAROUND, spelled out, not a doc reference", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local _, err = pcall(function()
 			return UI.Text({ text = "hi", opacity = 0.5 })
 		end)
@@ -201,7 +203,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("`canvasGroup` on a leaf is refused with the SAME message — one fact, both spellings", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local _, err = pcall(function()
 			return UI.Text({ text = "hi", canvasGroup = true })
 		end)
@@ -211,7 +213,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("a genuinely unknown property is UNCHANGED — the refusal did not swallow the suggester", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		local _, err = pcall(function()
 			return UI.Text({ text = "hi", opactiy = 0.5 })
 		end)
@@ -259,26 +261,13 @@ describe("authored presentation A — the props, and the refusals", function()
 
 	--[[ A STRUCTURAL REGION IS NOT REFUSED A FADE — it has no engine instance to
 		fade in the first place, so the fade message would be a wrong answer to a
-		real question. `UI.When{ opacity = … }` stays a plain unknown property, and
-		the honest fix there is to put the prop on the branch's own root. ]]
+		real question. The honest fix there is to put the prop on the branch's own
+		root. ]]
 	it("a STRUCTURAL class is not given the fade refusal — it has no instance to fade", function()
 		for _, className in { "When", "ForEach", "Region", "GridRow", "ErrorBoundary" } do
 			expect(`{className}:{schema.refusal(className, "opacity")}`).toBe(`{className}:nil`)
 			expect(`{className} cg:{schema.refusal(className, "canvasGroup")}`).toBe(`{className} cg:nil`)
 		end
-		local UI = Facet.UI
-		local _, err = pcall(function()
-			return UI.When({
-				condition = true,
-				opacity = 0.5,
-				thenView = function()
-					return UI.Text({ text = "x" })
-				end,
-			})
-		end)
-		expect(`plain unknown:{string.find(tostring(err), "unknown property 'opacity'", 1, true) ~= nil}`).toBe(
-			"plain unknown:true"
-		)
 	end)
 
 	it("...and `scale`/`rotation` are offered on EVERY rendered class and refused on none", function()
@@ -303,7 +292,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("`scale` and `rotation` ARE offered on a leaf — neither touches a sheet-owned property", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		expect(function()
 				return UI.Text({ text = "hi", scale = 1.2, rotation = 8 })
 			end)
@@ -319,14 +308,14 @@ describe("authored presentation A — the props, and the refusals", function()
 		engine fact headless cannot see; it is measured live — probe W1, and
 		artifacts/leaf-opacity/live-probes.md.) ]]
 	it("the wrap fades the GROUP and writes nothing at all on the control inside it", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -356,7 +345,7 @@ describe("authored presentation A — the props, and the refusals", function()
 	end)
 
 	it("the authored domain is refused rather than clamped: opacity outside 0..1, scale <= 0", function()
-		local UI = Facet.UI
+		local UI = harness.UI
 		expect(function()
 			return UI.Box({ opacity = 1.5 })
 		end).toThrow()
@@ -373,11 +362,15 @@ describe("authored presentation A — the props, and the refusals", function()
 
 	it("a REACTIVE value out of domain is refused at the read site too, not silently painted", function()
 		local w = world()
-		local ok = pcall(function()
-			w.opacity:set(4)
-			w.pres.refresh()
-		end)
-		expect(ok).toBe(false)
+		w.opacity:set(0.25)
+		w.pres.refresh()
+		w.opacity:set(4)
+		w.pres.refresh()
+		-- the core reports the refusal, and the last valid value stays painted
+		local refusal = tostring(w.core.lastError())
+		expect(string.find(refusal, "Box.opacity", 1, true) ~= nil).toBe(true)
+		expect(string.find(refusal, "got 4", 1, true) ~= nil).toBe(true)
+		expect(groupAlpha(w, "/S/Fader")).toBeCloseTo(0.75)
 	end)
 end)
 
@@ -425,14 +418,14 @@ describe("authored presentation B — the composition rule", function()
 	end)
 
 	it("NESTED groups do NOT double-compose: the engine multiplies across nodes, the framework within one", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		pres.present(UI.Screen({
 			id = "S",
 			padding = 0,
@@ -566,14 +559,14 @@ end)
 
 describe("authored presentation D — off-path cost, and one write site", function()
 	it("a surface authoring NONE of the three writes no presentation property at all", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new({ ops = true })
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -725,15 +718,15 @@ end)
 -- (an offset-carrying node is never accidentally in their population).
 local function offsetWorld(opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local offset = core:signal(options.offset or { x = 0, y = 0 })
-	local UI = Facet.UI
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local offset = Compose.cell(options.offset or { x = 0, y = 0 })
+	local UI = harness.UI
 	local screen = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -789,40 +782,39 @@ describe("authored presentation F — offset (gap 16)", function()
 		expect(after.x).toBeCloseTo(10)
 	end)
 
-	it("refuses a non-table value, loudly, naming the path", function()
+	it("refuses a non-table value, loudly, naming the class and the property", function()
 		local ok, err = pcall(function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 			local adapter = fake_target.new({ ops = true })
 			local system = Facet.newActionSystem(core)
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local UI = Facet.UI
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local UI = harness.UI
 			pres.present(UI.Screen({
 				id = "S",
-				children = { UI.Box({ id = "Bad", offset = core:signal(5) }) },
+				children = { UI.Box({ id = "Bad", offset = Compose.cell(5) }) },
 			}))
 			pres.refresh()
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "Bad", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "offset", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "Box.offset", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("refuses a NaN component", function()
 		local ok = pcall(function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 			local adapter = fake_target.new({ ops = true })
 			local system = Facet.newActionSystem(core)
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local UI = Facet.UI
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local UI = harness.UI
 			pres.present(UI.Screen({
 				id = "S",
-				children = { UI.Box({ id = "Bad", offset = core:signal({ x = 0 / 0, y = 0 }) }) },
+				children = { UI.Box({ id = "Bad", offset = Compose.cell({ x = 0 / 0, y = 0 }) }) },
 			}))
 			pres.refresh()
 		end)

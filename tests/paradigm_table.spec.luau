@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- Table paradigm axis: bare-Table column-resize Adjust (matrix §B-Table kb/gamepad
 -- GAP, UI-PARADIGM-001) and hot-switch transition semantics (matrix §C,
 -- UI-PARADIGM-002). Every behavior runs through the REAL device path — the
@@ -16,21 +17,22 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
+local worldLib = require("./lib/harness_world")
 
 local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 --[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
 	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
 	this file hands its cases is `core, env, adapter, system, pres` — the order
-	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	`harness.newPresenter` itself takes, and now the only one in the suite. It used
 	to be `core, env, system, adapter, pres` here and the other spelling sixteen
 	files away, with the same five names on both sides, so a line copied between
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
-local function harness()
+local function services()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
@@ -53,9 +55,9 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 	local NAME_HEAD = "/S/T/Main/Header/Head-name"
 
 	local function resizeWorld()
-		local core, _, adapter, system, pres = harness()
-		local sortOrder = core:signal(nil :: any)
-		local rows = core:signal(bigRows(3))
+		local core, _, adapter, system, pres = services()
+		local sortOrder = Compose.cell(nil :: any)
+		local rows = Compose.cell(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -86,7 +88,7 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 			rowHeight = 40,
 			sortOrder = sortOrder,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO opts: full auto-composition
 		pres.refresh()
 		return { system = system, adapter = adapter, pres = pres, handle = handle, tbl = tbl }
@@ -96,10 +98,10 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 		-- director 2026-07-29: the 4px divider is no longer a focus stop, so Right
 		-- walks column-to-column instead of column -> its own divider.
 		local w = resizeWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(LAPS_HEAD_HANDLE)
+		expect(w.pres.focus.focused:peek()).toBe(LAPS_HEAD_HANDLE)
 	end)
 
 	it("no Adjust key is bound while focus sits off a RESIZABLE column (no bumper shadow)", function()
@@ -107,22 +109,22 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 		-- resizable, not about a divider existing: `laps` is fixed-width, so its
 		-- header binds nothing
 		local w = resizeWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT) -- the resizable column
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT) -- the resizable column
 		expect(#w.handle.actions.adjust.bindings > 0).toBe(true)
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(LAPS_HEAD_HANDLE)
+		expect(w.pres.focus.focused:peek()).toBe(LAPS_HEAD_HANDLE)
 		expect(#w.handle.actions.adjust.bindings).toBe(0)
 		w.system.deviceKey("DPadLeft", true)
 		w.system.deviceKey("DPadLeft", false)
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		expect(#w.handle.actions.adjust.bindings > 0).toBe(true)
 	end)
 
 	it("keyboard Comma/Period on the focused grip resize the column by the step", function()
 		local w = resizeWorld()
 		expect(w.adapter.node(NAME_HEAD).rect.w).toBe(200)
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("Period", true) -- '.' increments one step (+16)
 		w.system.deviceKey("Period", false)
 		w.pres.refresh()
@@ -135,7 +137,7 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 
 	it("gamepad ButtonL1/ButtonR1 on the focused grip resize the column", function()
 		local w = resizeWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		w.system.deviceKey("ButtonR1", true) -- R1 increments
 		w.system.deviceKey("ButtonR1", false)
 		w.pres.refresh()
@@ -151,20 +153,20 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 	-- cleaner?" — it is, and it also gives column-wide verbs somewhere to live.
 	it("A selects the focused column, then Left/Right resizes it", function()
 		local w = resizeWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
-		expect(w.tbl.api.selectedColumn:get()).toBeNil()
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
+		expect(w.tbl.api.selectedColumn:peek()).toBeNil()
 		expect(w.adapter.node(NAME_HEAD).rect.w).toBe(200)
 
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.selectedColumn:get()).toBe("name")
+		expect(w.tbl.api.selectedColumn:peek()).toBe("name")
 
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
 		w.pres.refresh()
 		expect(w.adapter.node(NAME_HEAD).rect.w).toBe(216)
 		-- ...and focus did NOT walk to the next column: the selection owns the stick
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 
 		w.system.deviceKey("DPadLeft", true)
 		w.system.deviceKey("DPadLeft", false)
@@ -174,40 +176,40 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 		-- A again releases it, and Right walks columns once more
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.selectedColumn:get()).toBeNil()
+		expect(w.tbl.api.selectedColumn:peek()).toBeNil()
 		w.system.deviceKey("DPadRight", true)
 		w.system.deviceKey("DPadRight", false)
-		expect(w.pres.focus.focused:get()).toBe(LAPS_HEAD_HANDLE)
+		expect(w.pres.focus.focused:peek()).toBe(LAPS_HEAD_HANDLE)
 	end)
 
 	it("keyboard drives the same model: Return selects, arrows resize, Cancel releases", function()
 		local w = resizeWorld()
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.tbl.api.selectedColumn:get()).toBe("name")
+		expect(w.tbl.api.selectedColumn:peek()).toBe("name")
 		w.system.deviceKey("Right", true)
 		w.system.deviceKey("Right", false)
 		w.pres.refresh()
 		expect(w.adapter.node(NAME_HEAD).rect.w).toBe(216)
 		w.system.deviceKey("ButtonB", true) -- Cancel
 		w.system.deviceKey("ButtonB", false)
-		expect(w.tbl.api.selectedColumn:get()).toBeNil()
+		expect(w.tbl.api.selectedColumn:peek()).toBeNil()
 	end)
 
 	it("a selected column cannot be left behind: moving focus off it releases it", function()
 		local w = resizeWorld()
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.selectedColumn:get()).toBe("name")
+		expect(w.tbl.api.selectedColumn:peek()).toBe("name")
 		-- DPadDown leaves the headers group entirely (the selection swallows the
 		-- stick, so this is the framework's own focus move, not a nav step)
-		w.tbl.api.handleFocusMoved("/S/T/Main/Body/Rows/[r1@0]/Row/Hit")
-		expect(w.tbl.api.selectedColumn:get()).toBeNil()
+		w.tbl.api.handleFocusMoved("/S/T/Main/Body/Rows/[r1]/Row/Hit")
+		expect(w.tbl.api.selectedColumn:peek()).toBeNil()
 	end)
 
 	it("resize clamps to the column minWidth", function()
 		local w = resizeWorld()
-		expect(w.pres.focus.focused:get()).toBe(NAME_SORT)
+		expect(w.pres.focus.focused:peek()).toBe(NAME_SORT)
 		-- drive well past the minimum (200 -> 80 is 8 steps; do 12)
 		for _ = 1, 12 do
 			w.system.deviceKey("Comma", true)
@@ -233,7 +235,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 					movingSet[key] = true
 				end
 				local moving, staying = {}, {}
-				for _, item in rows:get() do
+				for _, item in rows:peek() do
 					table.insert(if movingSet[item.id] then moving else staying, item)
 				end
 				local out = {}
@@ -253,27 +255,27 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 
 	local function order(rows: any): { string }
 		local out = {}
-		for _, item in rows:get() do
+		for _, item in rows:peek() do
 			table.insert(out, item.id)
 		end
 		return out
 	end
 
 	local function hit(key: string): string
-		return `/S/T/Main/Body/Rows/[{key}@0]/Row/Hit`
+		return `/S/T/Main/Body/Rows/[{key}]/Row/Hit`
 	end
 
 	-- build a reorderable table with an explicit capability set + preferredInput.
 	-- editing: nil => control-owned; a signal => owner-held.
 	local function flipWorld(opts: any)
-		local core, env, adapter, system, pres = harness()
+		local core, env, adapter, system, pres = services()
 		env:set("capabilities", opts.capabilities)
 		env:set("preferredInput", opts.preferredInput or "Gamepad")
-		local rows = core:signal(bigRows(opts.n or 4))
+		local rows = Compose.cell(bigRows(opts.n or 4))
 		local log: { any } = {}
 		-- editingOwned => an OWNER-held signal (no auto Edit/Done toggle, so focus
 		-- lands directly on r1 for the device-driven grab tests)
-		local editing = if opts.editingOwned then core:signal(true) else opts.editing
+		local editing = if opts.editingOwned then Compose.cell(true) else opts.editing
 		local spec: any = {
 			id = "T",
 			rows = rows,
@@ -298,7 +300,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 		}
 		reorderConsumer(rows, log)(spec)
 		local tbl = table_control.build(Facet, core, spec)
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- zero opts
 		pres.refresh()
 		return {
@@ -349,10 +351,10 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			n = 4,
 		})
 		-- focus a row, grab it, step it down once
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		w.system.deviceKey("ButtonA", true) -- grab r1
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 		w.system.deviceKey("DPadDown", true) -- step r1 below r2
 		w.system.deviceKey("DPadDown", false)
 		expect(order(w.rows)).toEqual({ "r2", "r1", "r3", "r4" })
@@ -361,7 +363,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 		w.env:set("preferredInput", "KeyboardAndMouse")
 		w.pres.refresh()
 		-- CANCEL: grab cleared AND the list order reverts to pre-grab
-		expect(w.tbl.api.grabbedKey:get()).toBeNil()
+		expect(w.tbl.api.grabbedKey:peek()).toBeNil()
 		expect(order(w.rows)).toEqual({ "r1", "r2", "r3", "r4" })
 	end)
 
@@ -379,8 +381,8 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			-- enter edit mode: grips (≡ handles) mount
 			w.tbl.api.handleActivate(togglePath, nil)
 			w.pres.refresh()
-			expect(w.tbl.api.editing:get()).toBe(true)
-			expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/Handle") ~= nil).toBe(true)
+			expect(w.tbl.api.editing:peek()).toBe(true)
+			expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/Handle") ~= nil).toBe(true)
 			-- go pure pointer: touch AND gamepad both gone
 			w.env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
 			w.env:set("preferredInput", "KeyboardAndMouse")
@@ -389,19 +391,19 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			expect(w.adapter.node(togglePath)).toBe(nil)
 			-- …AND the control-owned editing signal resets, so grips do not linger
 			-- with no way to exit (the wedge this fixes)
-			expect(w.tbl.api.editing:get()).toBe(false)
-			expect(w.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row/EditWhen/then/HandleZone/Handle")).toBe(nil)
+			expect(w.tbl.api.editing:peek()).toBe(false)
+			expect(w.adapter.node("/S/T/Main/Body/Rows/[r1]/Row/EditWhen/then/HandleZone/Handle")).toBe(nil)
 		end
 	)
 
 	it("an OWNER-held editing signal is NOT reset by the control on a pure-pointer flip", function()
 		local editing = nil
-		local core, env, adapter, system, pres = harness()
+		local core, env, adapter, system, pres = services()
 		env:set("capabilities", { keyboard = true, mouse = true, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
-		local ownerEditing = core:signal(true)
+		local ownerEditing = Compose.cell(true)
 		editing = ownerEditing
-		local rows = core:signal(bigRows(3))
+		local rows = Compose.cell(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -424,14 +426,14 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			editing = ownerEditing,
 			env = env,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen)
 		pres.refresh()
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
 		env:set("preferredInput", "KeyboardAndMouse")
 		pres.refresh()
 		-- the owner's signal is the owner's business: never reset by the control
-		expect(ownerEditing:get()).toBe(true)
+		expect(ownerEditing:peek()).toBe(true)
 		local _ = { system, adapter, editing }
 	end)
 
@@ -445,11 +447,11 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 		local togglePath = "/S/T/Main/ToggleWhen/then/Toolbar/EditToggle"
 		w.tbl.api.handleActivate(togglePath, nil)
 		w.pres.refresh()
-		expect(w.tbl.api.editing:get()).toBe(true)
+		expect(w.tbl.api.editing:peek()).toBe(true)
 		-- touch leaves, gamepad stays live
 		w.env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
 		w.pres.refresh()
-		expect(w.tbl.api.editing:get()).toBe(true) -- edit-mode CARRIES
+		expect(w.tbl.api.editing:peek()).toBe(true) -- edit-mode CARRIES
 		expect(w.adapter.node(togglePath) ~= nil).toBe(true) -- toggle still shown (gamepad)
 	end)
 
@@ -460,14 +462,14 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 			editingOwned = true, -- owner-held edit-mode: focus lands on r1
 			n = 4,
 		})
-		expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+		expect(w.pres.focus.focused:peek()).toBe(hit("r1"))
 		w.system.deviceKey("ButtonA", true) -- grab r1
 		w.system.deviceKey("ButtonA", false)
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1")
 		-- a mouse arrives mid-grab; gamepad stays live
 		w.env:set("capabilities", { keyboard = false, mouse = true, touch = false, gamepad = true })
 		w.pres.refresh()
-		expect(w.tbl.api.grabbedKey:get()).toBe("r1") -- grab CARRIES
+		expect(w.tbl.api.grabbedKey:peek()).toBe("r1") -- grab CARRIES
 		-- the grabbed row still follows Navigate
 		w.system.deviceKey("DPadDown", true)
 		w.system.deviceKey("DPadDown", false)
@@ -504,14 +506,14 @@ end)
 -- =============================================================================
 describe("paradigm_table: reorderable + selection-none keeps rows reachable (live-drive regression)", function()
 	local function noneWorld()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(bigRows(3))
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(bigRows(3))
 		local reorders: { any } = {}
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
@@ -537,7 +539,7 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 				table.insert(reorders, { keys = keys, toIndex = toIndex })
 			end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		pres.present(screen) -- zero opts
 		pres.refresh()
 		local function press(key: string)
@@ -549,10 +551,10 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 
 	it("DPadDown leaves the auto Edit/Done toggle and reaches a row", function()
 		local w = noneWorld()
-		expect(w.pres.focus.focused:get()).toBe("/S/T/Main/ToggleWhen/then/Toolbar/EditToggle")
+		expect(w.pres.focus.focused:peek()).toBe("/S/T/Main/ToggleWhen/then/Toolbar/EditToggle")
 		w.press("DPadDown")
 		w.pres.refresh()
-		expect(w.pres.focus.focused:get()).toBe("/S/T/Main/Body/Rows/[r1@0]/Row/Hit")
+		expect(w.pres.focus.focused:peek()).toBe("/S/T/Main/Body/Rows/[r1]/Row/Hit")
 	end)
 
 	it("gamepad grab-mode reorders end to end with selection none", function()
@@ -569,13 +571,13 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 	end)
 
 	it("a selection-none NON-reorderable table keeps rows out of the ring (unchanged)", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local rows = core:signal(bigRows(2))
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell(bigRows(2))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -596,14 +598,14 @@ describe("paradigm_table: reorderable + selection-none keeps rows reachable (liv
 			rowHeight = 40,
 			env = env,
 		})
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
-			children = { tbl.blueprint, Facet.UI.Button({ id = "After", label = "After" }) },
+			children = { tbl.blueprint, harness.UI.Button({ id = "After", label = "After" }) },
 		})
 		pres.present(screen)
 		pres.refresh()
 		-- nothing in the table is focusable; entry focus goes to the button
-		expect(pres.focus.focused:get()).toBe("/S/After")
+		expect(pres.focus.focused:peek()).toBe("/S/After")
 	end)
 end)
 
@@ -614,16 +616,16 @@ end)
 -- =============================================================================
 describe("paradigm_table: class-flip-then-dispose is registry-neutral", function()
 	it("grab, rip the classes away (cancel fires), dispose: counters at baseline", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
-		local baseline = core:counters()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local baseline = core.owner.size()
 
-		local rows = core:signal(bigRows(3))
+		local rows = Compose.cell(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -646,7 +648,7 @@ describe("paradigm_table: class-flip-then-dispose is registry-neutral", function
 			env = env,
 			onReorder = function() end,
 		})
-		local screen = Facet.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local screen = harness.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen)
 		pres.refresh()
 		local function press(key: string)
@@ -663,12 +665,9 @@ describe("paradigm_table: class-flip-then-dispose is registry-neutral", function
 		pres.refresh()
 		pres.dismiss(handle)
 		tbl.dispose()
-		rows:dispose()
 
-		local after = core:counters()
-		for key, v in baseline :: { [string]: number } do
-			expect((after :: any)[key]).toBe(v)
-		end
+		local after = core.owner.size()
+		expect(after).toBe(baseline)
 	end)
 end)
 
@@ -693,7 +692,7 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 	-- one narrow table, solved for real, reporting the row rect and the rect of
 	-- the name cell's own text — the two numbers the defect was about
 	local function solveRow(opts: any): any
-		local core, env, adapter, system, pres = harness()
+		local core, env, adapter, system, pres = services()
 		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 852 })
 		local touch = opts.touch == true
 		env:set("capabilities", { keyboard = not touch, mouse = not touch, touch = touch, gamepad = false })
@@ -706,7 +705,7 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 			local pkg = require(`../examples/themes/{opts.package}`).build(Facet.themes)
 			env:set("themeMetrics", Facet.themes.resolve(pkg, nil, {}))
 		end
-		local rows = core:signal({ { id = "drift", name = LONG } })
+		local rows = Compose.cell({ { id = "drift", name = LONG } })
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			columns = {
@@ -745,9 +744,9 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 			rowHeight = opts.rowHeight,
 			env = env,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		local handle = pres.present(harness.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		local rectOf = handle.controller.rectOf
-		local base = "/S/T/Main/Body/Rows/[drift@0]/Row"
+		local base = "/S/T/Main/Body/Rows/[drift]/Row"
 		local out = {
 			row = rectOf(base),
 			-- THE CELL, NOT JUST THE ROW (O-25). A row that is tall enough while its
@@ -761,7 +760,6 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 		}
 		pres.dismiss(handle)
 		tbl.dispose()
-		rows:dispose()
 		return out
 	end
 
@@ -890,11 +888,11 @@ describe("paradigm_table: a surface onGeometry is additive, not an override", fu
 	-- record that the presenter fed it. Deliberately not the Table itself — the
 	-- claim is about the presenter's seam, and a bare bundle asserts it directly.
 	local function world(withOnGeometry: boolean): any
-		local core, _, _, _, pres = harness()
+		local core, _, _, _, pres = services()
 		local fed = { count = 0 }
 		local surface = { count = 0 }
 		local node = contribution.attach(
-			Facet.UI.Box({ id = "Probe", width = { type = "fixed", px = 10 }, height = { type = "fixed", px = 10 } }),
+			harness.UI.Box({ id = "Probe", width = { type = "fixed", px = 10 }, height = { type = "fixed", px = 10 } }),
 			{
 				syncGeometry = function()
 					fed.count += 1
@@ -907,7 +905,7 @@ describe("paradigm_table: a surface onGeometry is additive, not an override", fu
 				surface.count += 1
 			end
 		end
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { node } }), opts)
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { node } }), opts)
 		pres.refresh()
 		return { pres = pres, handle = handle, fed = fed, surface = surface }
 	end
@@ -977,9 +975,9 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 	it("still solves a real row, at neutral's own derived height", function()
 		local expected: number? = nil
 		for _, case in CASES do
-			local core, env, _, _, pres = harness()
+			local core, env, _, _, pres = services()
 			env:set("themeMetrics", case.metrics)
-			local rows = core:signal({ { id = "a", name = "Neon Straightaway" } })
+			local rows = Compose.cell({ { id = "a", name = "Neon Straightaway" } })
 			local tbl = table_control.build(Facet, core, {
 				id = "T",
 				rows = rows,
@@ -999,8 +997,8 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 				scrolls = false,
 				env = env,
 			})
-			local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
-			local r = handle.controller.rectOf("/S/T/Main/Body/Rows/[a@0]/Row")
+			local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+			local r = handle.controller.rectOf("/S/T/Main/Body/Rows/[a]/Row")
 			if r == nil or r.h <= 0 then
 				error(`{case.label}: no solved row`)
 			end
@@ -1010,15 +1008,14 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 			expect(r.h).toBe(expected)
 			pres.dismiss(handle)
 			tbl.dispose()
-			rows:dispose()
 		end
 	end)
 
 	it("a NaN typography scale or text offset does not produce a NaN row", function()
-		local core, env, _, _, pres = harness()
+		local core, env, _, _, pres = services()
 		env:set("preferredTextSize", 0 / 0)
 		env:set("preferredTextOffset", 0 / 0)
-		local rows = core:signal({ { id = "a", name = "Neon Straightaway" } })
+		local rows = Compose.cell({ { id = "a", name = "Neon Straightaway" } })
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
 			rows = rows,
@@ -1038,13 +1035,12 @@ describe("paradigm_table: a metrics snapshot missing the derived row keys falls 
 			scrolls = false,
 			env = env,
 		})
-		local handle = pres.present(Facet.UI.Screen({ id = "S", children = { tbl.blueprint } }))
-		local r = handle.controller.rectOf("/S/T/Main/Body/Rows/[a@0]/Row")
+		local handle = pres.present(harness.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		local r = handle.controller.rectOf("/S/T/Main/Body/Rows/[a]/Row")
 		expect(r ~= nil).toBe(true)
 		expect(r.h == r.h).toBe(true) -- not NaN
 		expect(r.h > 0).toBe(true)
 		pres.dismiss(handle)
 		tbl.dispose()
-		rows:dispose()
 	end)
 end)

@@ -1,10 +1,10 @@
 --!strict
--- Edit-mode preview harness (director Part-2 ws2): runs the REAL pipeline —
--- blueprint → mount → solver → ScreenTarget — into a ScreenGui during Studio
--- Edit, sized by device profiles (src/preview/device_profiles). No presenter
--- or input contexts: this is a visual preview; blueprints holding signals
--- still live-update through the heartbeat refresh, and switching profiles
--- re-solves in place (rect writes only — the same contract the tests pin).
+-- Edit-mode preview harness (director Part-2 ws2): runs a REAL application —
+-- component → mount → solver → ScreenTarget — into a ScreenGui during Studio
+-- Edit, sized by device profiles (src/preview/device_profiles). No engine input
+-- is bound: this is a visual preview; components holding cells still
+-- live-update through the heartbeat frame, and switching profiles re-solves in
+-- place (rect writes only — the same contract the tests pin).
 --
 -- Drivable two ways:
 --   * Studio MCP / command bar: require this module in the Edit DataModel and
@@ -24,17 +24,17 @@ local edit_preview = {}
 
 export type StartOpts = {
 	parent: Instance,
-	-- a Blueprint, or a factory (Facet, core) -> Blueprint so entries can
-	-- create signals/memos on the preview's core
-	blueprint: any,
+	-- the screen to preview: `component(app) -> node`, run inside the preview
+	-- application's mount, so its cells and watches are released with the preview
+	component: (app: any) -> any,
 	profile: string?,
 	style: any?,
 }
 
 function edit_preview.start(Facet: any, opts: StartOpts)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	local profile = device_profiles.apply(env, opts.profile or "desktop")
+	assert(type(opts.component) == "function", "Facet edit_preview.start: opts.component must be a function")
+	local profile = device_profiles.get(opts.profile or "desktop")
+	assert(profile ~= nil, `Facet edit_preview.start: unknown device profile '{tostring(opts.profile)}'`)
 
 	-- device-bounds decoration: an outline + caption so screenshots read
 	-- which profile is active and where its viewport ends
@@ -72,9 +72,9 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 	end
 	applyDeco(profile)
 
-	-- fallible section (user blueprint factories throw): any failure tears
-	-- down everything already parented and re-raises — start() never orphans
-	-- preview furniture (verifier F1)
+	-- fallible section (user components throw): any failure tears down
+	-- everything already parented and re-raises — start() never orphans preview
+	-- furniture (verifier F1)
 	--[[ THE PREVIEW OPTS OUT OF SHEET PAINT, EXPLICITLY, and after the 2026-08-21
 		default flip (`native_style.DEFAULT_ENABLED = true`) that
 		`false` is load-bearing rather than a restatement. This harness runs in the
@@ -88,9 +88,9 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 		beside it, for its own reason. ]]
 	--[[ THE PREVIEW HAS A DISTANCE, AND IT IS THE PROFILE'S (fix round,
 		2026-08-21). `device_profiles` ships a `console` profile whose facts carry
-		`displaySize = "Large"`, and the profile is applied to `env` at the top of
-		this function — BEFORE this line — so the class being previewed is the class
-		this target must paint. Without it the preview would show a television's
+		`displaySize = "Large"`, and the host binds the environment — where the
+		profile is applied — BEFORE it asks for the adapter, so the class being
+		previewed is the class this target must paint. Without it the preview would show a television's
 		spacing around a phone's corners, which is precisely the disagreement a
 		preview exists to make visible.
 
@@ -98,36 +98,52 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 		measure and not the paint: a target takes its class at construction, the way
 		it takes its palette. Restart the preview to change distance; the growth
 		seam that would make it live is not built. ]]
-	local adapter = screen_target.new({
-		parent = opts.parent,
-		style = opts.style,
-		displaySize = env:get("displaySize"):get(),
-		nativeStyle = false,
-	})
-	local root: any = nil
+	local env: any = nil
+	local app: any = nil
 	local controller: any = nil
 	local ok, startErr = pcall(function()
-		local blueprint = if type(opts.blueprint) == "function" then opts.blueprint(Facet, core) else opts.blueprint
-		root = Facet.mount(core, blueprint)
-		controller = Facet.renderer.attach(core, root, env, adapter, {})
-		controller.initialRender()
+		app = Facet.new({
+			bindEnv = function(bound: any)
+				env = bound
+				device_profiles.apply(env, profile.name)
+				return function() end
+			end,
+			newAdapter = function()
+				return screen_target.new({
+					parent = opts.parent,
+					style = opts.style,
+					displaySize = env:get("displaySize"):peek(),
+					nativeStyle = false,
+				})
+			end,
+			-- a preview takes no engine input: an action system with no devices bound
+			newInputSystem = function(core: any)
+				return Facet.newActionSystem(core)
+			end,
+			connectFrame = function(frame: (dt: number) -> ())
+				local connection = RunService.Heartbeat:Connect(frame)
+				return function()
+					connection:Disconnect()
+				end
+			end,
+		})
+		local _, _, surface = app.mount(function()
+			return opts.component(app)
+		end)
+		controller = surface.controller
 	end)
 	if not ok then
-		if controller ~= nil then
-			pcall(controller.dispose)
-		end
-		if root ~= nil then
-			pcall(root.dispose)
+		-- a host that throws unwinds itself; an application that mounted and then
+		-- failed is released here
+		if app ~= nil then
+			pcall(app.dispose)
 		end
 		deco:Destroy()
 		error(`Facet edit_preview.start failed (all preview instances removed): {tostring(startErr)}`, 0)
 	end
 
-	local heartbeat = RunService.Heartbeat:Connect(function()
-		controller.refresh()
-	end)
-
 	local handle = {}
+	handle.app = app
 	handle.controller = controller
 	handle.profile = profile.name
 
@@ -137,17 +153,15 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 		local active = device_profiles.apply(env, name)
 		handle.profile = active.name
 		applyDeco(active)
-		controller.refresh()
+		app.presenter.refresh()
 	end
 
 	function handle.refresh()
-		controller.refresh()
+		app.presenter.refresh()
 	end
 
 	function handle.dispose()
-		heartbeat:Disconnect()
-		controller.dispose()
-		root.dispose()
+		app.dispose()
 		deco:Destroy()
 	end
 

@@ -1,4 +1,5 @@
 --!strict
+local observeChange = require("../core/on_change")
 -- VirtualList (design §10.5; native-substrate §4/§6; UI-RUNTIME-002,
 -- UI-FOCUS-001, UI-LIFE-002): fixed-extent keyed-item virtualization riding the
 -- NATIVE scroll substrate. The control root is a UI.ScrollView (engine
@@ -65,7 +66,7 @@
 	WHAT IS TRUE NOW: the window comes from a running-offset INDEX, chosen once at
 	build. `uniform` is the old `index × pitch` formulas verbatim and every list
 	that declares a number still gets exactly them; `variable` is a prefix sum,
-	searched. See THE RUNNING-OFFSET INDEX below. `newTable` windows on the same
+	searched. See THE RUNNING-OFFSET INDEX below. `UI.Table` windows on the same
 	index since 2026-08-14 (`docs/plans/unified-collection.md`).
 
 	MEASURED EXTENTS SHIPPED TOO (Stage 2, 2026-08-15) — `itemExtent = "measured"`.
@@ -245,7 +246,7 @@
 --
 -- HOSTED ROW ACTIONS (spec.rowActions; design doc
 -- docs/plans/row-actions-hosted-mode-design.md). Table's own `rowActions` wraps
--- every actionable row in a `newRowActions` COMPOSITE — five extra instances per
+-- every actionable row in a `UI.RowActions` COMPOSITE — five extra instances per
 -- row, mounted whether the row is ever touched or not. A virtualized list cannot
 -- pay that: the measured cost is ~+45% steady / ~+82% fling per refresh, and the
 -- rows it would be paid on are overwhelmingly rows nobody ever swipes.
@@ -274,6 +275,7 @@ local cardRail = require("./card_rail")
 -- shared with `present/focus_map` and the renderer's input gates
 local classContract = require("../class_contract")
 local gapMetric = require("./gap_metric")
+local Compose = require("../vendor/compose/core")
 local contribution = require("../input/contribution")
 local surfaceEnv = require("../env/surface_env")
 local nativeScrollBinding = require("./native_scroll_binding")
@@ -414,6 +416,10 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	-- predicts its own extents has nothing to estimate.
 	"estimatedItemExtent",
 	"focusPolicy",
+	-- "end" holds the tail in view while the player reads it; "none" is the default
+	"follow",
+	-- px from the end within which the player still counts as reading the tail
+	"followThreshold",
 	"grabOnActivate",
 	"id",
 	-- the canonical, axis-neutral extent names. `rowHeight` / `viewportHeight`
@@ -443,6 +449,8 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"rowGap",
 	"rowHeight", -- deprecated alias of itemExtent
 	"rows",
+	-- { position, active }: a scroll position shared across presentations
+	"scrollNavigation",
 	"selection",
 	"selectionPaint",
 	-- where this list is allowed to come to REST: "none" (default) | "item"
@@ -452,7 +460,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"width",
 })
 
-function virtual_list.build(Facet: any, core: any, spec: any)
+local function build(Facet: any, core: any, spec: any, listScope: any)
 	--[[ FLOW-WRAP DOES NOT COMPOSE WITH VIRTUALIZATION, and it says why.
 
 		`wrap` is not in this control's closed key set, so the guard above already
@@ -474,7 +482,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		why reads as an oversight and gets re-filed as a feature request. ]]
 	if spec.wrap ~= nil then
 		error(
-			"Facet newVirtualList: spec.wrap is refused — flow-wrap and virtualization do not compose. "
+			"Facet UI.VirtualList: spec.wrap is refused — flow-wrap and virtualization do not compose. "
 				.. "This list windows by index x itemExtent, which is exact only because the extent is ONE number; "
 				.. "a wrapped line has ragged extents and a variable count per line, so that arithmetic cannot say "
 				.. "which items are on screen. Use UI.HStack/UI.VStack with wrap = true inside a UI.ScrollView for a "
@@ -482,14 +490,21 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			2
 		)
 	end
-	specGuard.assertKnownKeys("newVirtualList", spec, VIRTUAL_LIST_KEYS, "spec")
+	specGuard.assertKnownKeys("UI.VirtualList", spec, VIRTUAL_LIST_KEYS, "spec")
+	local adoptedReadables
+	spec, adoptedReadables = virtual_window.adopt(
+		core,
+		spec,
+		{ "rows", "itemExtent", "estimatedItemExtent", "viewportExtent", "rowHeight", "viewportHeight", "follow" },
+		{ rows = true, estimatedItemExtent = true, viewportExtent = true, viewportHeight = true, follow = true }
+	)
 	--[[ PER-ROW OPT-OUTS MAY ONLY SUBTRACT (parity round 3, item C).
 		A predicate that narrows a capability this list does not have is an
 		accepted property that does nothing — constitution §4's exact
 		prohibition, and the defect class the placement audit was written to
 		end. Refused at construction, naming what is missing. ]]
 	rowCapability.assertNarrowsSomething(
-		"newVirtualList",
+		"UI.VirtualList",
 		"rowSelectable",
 		spec.rowSelectable,
 		spec.selection ~= nil and spec.selection ~= "none",
@@ -497,7 +512,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		'Declare selection = "single" (and an onSelect), or drop spec.rowSelectable.'
 	)
 	rowCapability.assertNarrowsSomething(
-		"newVirtualList",
+		"UI.VirtualList",
 		"rowMovable",
 		spec.rowMovable,
 		spec.onReorder ~= nil,
@@ -505,7 +520,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		"Declare reorderable = true and an onReorder handler, or drop spec.rowMovable."
 	)
 	rowCapability.assertNarrowsSomething(
-		"newVirtualList",
+		"UI.VirtualList",
 		"rowDeletable",
 		spec.rowDeletable,
 		spec.rowActions ~= nil,
@@ -539,7 +554,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	local function oneOf(canonicalName: string, canonical: any, aliasName: string, alias: any): any
 		if canonical ~= nil and alias ~= nil then
 			error(
-				`newVirtualList: {canonicalName} and {aliasName} are the SAME field under two names `
+				`UI.VirtualList: {canonicalName} and {aliasName} are the SAME field under two names `
 					.. `({aliasName} is the deprecated alias of {canonicalName}) — pass exactly one`,
 				0
 			)
@@ -567,11 +582,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 
 		READ EVERY LIVE FACT THROUGH `use`, THE THIRD ARGUMENT. It is the memo's own
 		`use`: `use(preferredTextOffset)` inside the function makes the whole extents
-		table re-derive when that signal moves. Calling `:get()` on a Readable
+		table re-derive when that signal moves. Calling `:peek()` on a Readable
 		instead reads the right number ONCE and never registers the dependency —
 		the extents then go stale silently, which is the failure mode this whole
 		feature exists to end. ]]
-	local itemExtentIsLive = type(itemExtentSpec) == "table" and type(itemExtentSpec.get) == "function"
+	local itemExtentIsLive = Compose.isReadable(itemExtentSpec)
 	local itemExtentIsPerItem = type(itemExtentSpec) == "function"
 	--[[ ...AND A FOURTH FORM: `"measured"` (Stage 2, 2026-08-15).
 
@@ -620,7 +635,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			or itemExtentIsCards
 			or itemExtentIsLive
 			or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
-		"VirtualList.itemExtent (deprecated alias: rowHeight — both are accepted, one at a time) must be a positive "
+		"UI.VirtualList.itemExtent (deprecated alias: rowHeight — both are accepted, one at a time) must be a positive "
 			.. 'number, a Readable<number>, a function (item, index, use) -> px, or the word "measured": ONE item\'s '
 			.. 'size along the list\'s own axis (its height on axis="y", its width on axis="x"). A number or Readable '
 			.. "is UNIFORM and windows by index × pitch; a function is a PER-ITEM extent and windows by a "
@@ -636,11 +651,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		would put a Facet constant into the scroll extent of every measured list.
 		Requiring it costs one field and is refused loudly rather than guessed. ]]
 	local estimateSpec: any = spec.estimatedItemExtent
-	local estimateIsLive = type(estimateSpec) == "table" and type(estimateSpec.get) == "function"
+	local estimateIsLive = Compose.isReadable(estimateSpec)
 	if itemExtentIsMeasured then
 		assert(
 			estimateIsLive or (type(estimateSpec) == "number" and estimateSpec > 0),
-			'VirtualList.estimatedItemExtent is required with itemExtent = "measured" and must be a positive number '
+			'UI.VirtualList.estimatedItemExtent is required with itemExtent = "measured" and must be a positive number '
 				.. "or a Readable<number>: the size an UNSEEN row is windowed at until it has been on screen once. "
 				.. "A measured list windows rows it has never built, so something has to stand in for them, and a "
 				.. "framework default would silently own the scroll extent of your list."
@@ -652,7 +667,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			exact prohibition (`rowCapability.assertNarrowsSomething`, one screen up). ]]
 		assert(
 			estimateSpec == nil,
-			'VirtualList.estimatedItemExtent only means something with itemExtent = "measured" — every other form '
+			'UI.VirtualList.estimatedItemExtent only means something with itemExtent = "measured" — every other form '
 				.. "answers for every row in the data, so there is nothing left to estimate and this field would be "
 				.. 'accepted and then ignored. Declare itemExtent = "measured", or drop estimatedItemExtent.'
 		)
@@ -682,10 +697,10 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- THE CARD PARADIGM'S OPTIONS, validated by the module that owns the decision
 	-- (`controls/card_rail.luau`), so the refusals and the arrangement cannot drift
 	-- apart. `cards` without `itemExtent = "cards"` is refused there by name.
-	cardRail.assertOptions("newVirtualList", spec.cards, itemExtentIsCards)
+	cardRail.assertOptions("UI.VirtualList", spec.cards, itemExtentIsCards)
 	--[[ THE GUTTER BETWEEN ROW SLOTS, one number for the whole list for exactly
 		the reason the row height is one number: the windowing arithmetic is
-		index x pitch. `newTable` has always had this field
+		index x pitch. `UI.Table` has always had this field
 		(`controls/table.luau`); VirtualList's absence left consumers one
 		workaround — hand in the PITCH as `rowHeight` and inset the cell — which
 		is wrong where it counts, because it inflates the row's HIT node into the
@@ -695,9 +710,9 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		to its pre-field form at 0). Live for the same reason `rowHeight` is: a
 		gutter derived from the theme metrics re-derives on a theme swap without
 		rebuilding the list. ]]
-	--[[ ...AND IT TAKES A THEME METRIC NAME, on `newTable.rowGap`'s own contract
+	--[[ ...AND IT TAKES A THEME METRIC NAME, on `UI.Table.rowGap`'s own contract
 		(purity audit §5, 2026-08-22). The vocabulary, the refusal and the live read
-		are `controls/gap_metric.luau`'s, shared with `newVirtualGrid` so the two
+		are `controls/gap_metric.luau`'s, shared with `UI.VirtualGrid` so the two
 		collections cannot drift into two answers about what a gutter may be. ]]
 	local rowGapMetric = gapMetric.reader({
 		env = surfaceEnvironment,
@@ -715,7 +730,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- track it, so the painted box and the window can never disagree.
 	local viewportSpec = oneOf("viewportExtent", spec.viewportExtent, "viewportHeight", spec.viewportHeight)
 	--[[ ...OR `"auto"`, WHICH IS THE LIST MEASURING THE BOX IT WAS GIVEN (purity
-		audit §4, 2026-08-22). `newTable` has done this since the variable-extents
+		audit §4, 2026-08-22). `UI.Table` has done this since the variable-extents
 		mission and its own comment says why the consumer should not be asked:
 		"asking for it would be one more thing to predict wrongly, which is the whole
 		family of defect the variable-extents mission was about". The technique is
@@ -724,10 +739,10 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		the screen so the frame before a measurement over-fills rather than mounting
 		three rows and popping. See THE MEASURED VIEWPORT below. ]]
 	local viewportIsAuto = viewportSpec == "auto"
-	local viewportIsLive = type(viewportSpec) == "table" and type(viewportSpec.get) == "function"
+	local viewportIsLive = Compose.isReadable(viewportSpec)
 	assert(
 		viewportIsAuto or viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
-		"VirtualList.viewportExtent (deprecated alias: viewportHeight — both are accepted, one at a time) must be a "
+		"UI.VirtualList.viewportExtent (deprecated alias: viewportHeight — both are accepted, one at a time) must be a "
 			.. "positive number, a Readable<number>, or \"auto\": the scroll host's size along the list's own axis "
 			.. '(its height on axis="y", its width on axis="x"). "auto" takes `fill` along that axis and measures '
 			.. "what the solver gave it, so a list inside a pane needs no number at all — the one requirement is an "
@@ -749,7 +764,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		IT IS A LIST FIELD AND NOT A GRID ONE. A grid's lane width is derived FROM
 		its cross extent (`floor((innerW - gap * (lanes - 1)) / lanes)`), so a
 		hugging grid would be asking its lanes how wide they are in order to know how
-		wide its lanes are. `newVirtualGrid`'s closed spec refuses the key by name. ]]
+		wide its lanes are. `UI.VirtualGrid`'s closed spec refuses the key by name. ]]
 	local crossExtentSpec = spec.crossExtent
 	assert(
 		crossExtentSpec == nil or crossExtentSpec == "hug" or crossExtentSpec == "measured",
@@ -768,7 +783,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			then "`rowGap` is a theme metric name and resolves against the live snapshot"
 			else nil
 		if need ~= nil then
-			surfaceEnv.resolve("newVirtualList", spec.id or "VirtualList", core, nil, need)
+			surfaceEnv.resolve("UI.VirtualList", spec.id or "VirtualList", core, nil, need)
 		end
 	end
 	local crossIsHug = crossExtentSpec == "hug"
@@ -783,12 +798,12 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		`width` IS the scroll axis there and is already refused below. ]]
 	assert(
 		not crossIsHug or spec.width == nil,
-		'VirtualList.crossExtent = "hug" sizes the CROSS axis to the content, and on a vertical list `width` is that '
+		'UI.VirtualList.crossExtent = "hug" sizes the CROSS axis to the content, and on a vertical list `width` is that '
 			.. "same axis — declaring both would silently discard the width. Drop one: `width` to hug the content, or "
 			.. 'crossExtent = "measured"` to keep the authored width and still be told the extent.'
 	)
-	assert(type(spec.key) == "function", "VirtualList.key is required")
-	assert(type(spec.cell) == "function", "VirtualList.cell is required")
+	assert(type(spec.key) == "function", "UI.VirtualList.key is required")
+	assert(type(spec.cell) == "function", "UI.VirtualList.cell is required")
 	--[[ `width` IS THE CROSS AXIS, and only a vertical list has one there. On
 		`axis = "x"` the width IS the main axis — it is what `viewportExtent`
 		declares — so accepting both would be two answers to one dim, and
@@ -798,7 +813,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	if isX then
 		assert(
 			spec.width == nil,
-			'VirtualList.width is an axis="y" field (there, width is the CROSS axis). On axis="x" the width IS the '
+			'UI.VirtualList.width is an axis="y" field (there, width is the CROSS axis). On axis="x" the width IS the '
 				.. "scroll axis — declare it as viewportExtent. The cross axis of a horizontal list is its height, "
 				.. "which fills its container; wrap the list to fix it."
 		)
@@ -836,7 +851,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		if env == nil then
 			return 0
 		end
-		local rect: any = env:get("viewportRect"):get()
+		local rect: any = env:get("viewportRect"):peek()
 		if type(rect) ~= "table" then
 			return 0
 		end
@@ -860,12 +875,12 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		and is the same "measure rather than predict" the whole field exists for.
 		Every other list keeps the screen seed and the over-fill it buys. ]]
 	local measuredViewport: any = if viewportIsAuto
-		then core:signal(if itemExtentIsCards then 0 else screenSeed())
+		then Compose.cell(if itemExtentIsCards then 0 else screenSeed())
 		else nil
 	-- ...and the cross axis, when the list was asked to know it. Seeded 0: unlike
 	-- the scroll axis there is no over-fill argument here, because nothing is
 	-- WINDOWED against the cross extent — it is a number a consumer reads.
-	local measuredCross: any = if crossIsMeasured then core:signal(0) else nil
+	local measuredCross: any = if crossIsMeasured then Compose.cell(0) else nil
 	local function viewportIn(use: any): number
 		if viewportIsAuto then
 			return use(measuredViewport)
@@ -874,9 +889,9 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	end
 	local function viewportNow(): number
 		if viewportIsAuto then
-			return measuredViewport:get()
+			return measuredViewport:peek()
 		end
-		return if viewportIsLive then (viewportSpec :: any):get() else viewportSpec
+		return if viewportIsLive then (viewportSpec :: any):peek() else viewportSpec
 	end
 	local overscan: number = spec.overscan or 2
 	local selectionMode: string = spec.selection or "none"
@@ -924,7 +939,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- copy would silently lose both. Absent, every field resolves to today's
 	-- values and the contributed group is byte-identical.
 	local navigation: any = spec.navigation or {}
-	assert(type(navigation) == "table", "VirtualList.navigation must be a table of navigation-group overrides")
+	assert(type(navigation) == "table", "UI.VirtualList.navigation must be a table of navigation-group overrides")
 	for key in navigation do
 		assert(
 			key == "name" or key == "wrap" or key == "containment" or key == "entry" or key == "exit",
@@ -952,11 +967,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	if hostedRowActions ~= nil then
 		assert(
 			type(hostedRowActions) == "function",
-			"VirtualList.rowActions must be a function (item) -> { leading?, trailing?, fullSwipe? }? "
+			"UI.VirtualList.rowActions must be a function (item) -> { leading?, trailing?, fullSwipe? }? "
 				.. "(nil for a row with no actions)"
 		)
 		if reorderable then
-			error("newVirtualList: rowActions + reorderable is unsupported (v1)", 0)
+			error("UI.VirtualList: rowActions + reorderable is unsupported (v1)", 0)
 		end
 		--[[ ...AND ROW ACTIONS ARE VERTICAL-ONLY, for a reason that is about the
 			PLAYER'S HAND rather than about this file. A tray is revealed by a
@@ -971,7 +986,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			answer, and the honest place to raise it is the build. ]]
 		if isX then
 			error(
-				'newVirtualList: rowActions is unsupported on axis = "x". A row-actions tray is opened by a SIDEWAYS '
+				'UI.VirtualList: rowActions is unsupported on axis = "x". A row-actions tray is opened by a SIDEWAYS '
 					.. "swipe, and on a horizontal list a sideways swipe is already the scroll gesture — one gesture "
 					.. "cannot mean both, and picking one silently makes the list unpredictable. Put the actions on a "
 					.. 'vertical list, or reach them another way (a long-press menu, a detail view) on axis = "x".',
@@ -1060,7 +1075,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		local cardsEnv: any = nil
 		if type(spec.cards) ~= "table" or (spec.cards :: any).perView == nil then
 			cardsEnv = surfaceEnv.resolve(
-				"newVirtualList",
+				"UI.VirtualList",
 				id,
 				core,
 				spec.env,
@@ -1068,7 +1083,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			)
 		end
 		cardArrangement = cardRail.new({
-			control = "newVirtualList",
+			control = "UI.VirtualList",
 			options = spec.cards,
 			interactionClasses = if cardsEnv ~= nil then cardsEnv:get("interactionClasses") else nil,
 			distanceProfile = if cardsEnv ~= nil then cardsEnv:get("distanceProfile") else nil,
@@ -1118,7 +1133,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		if itemExtentIsCards then
 			return cardExtentIn(nil)
 		end
-		return if itemExtentIsLive then (itemExtentSpec :: any):get() else itemExtentSpec
+		return if itemExtentIsLive then (itemExtentSpec :: any):peek() else itemExtentSpec
 	end
 	local function itemExtentIn(use: any): number
 		if itemExtentIsCards then
@@ -1133,7 +1148,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		return if estimateIsLive then use(estimateSpec) else estimateSpec
 	end
 	local function estimateNow(): number
-		return if estimateIsLive then (estimateSpec :: any):get() else estimateSpec
+		return if estimateIsLive then (estimateSpec :: any):peek() else estimateSpec
 	end
 	--[[ THE PITCH: one slot, gutter included. Nothing that describes the ROW is on
 		it (see the header).
@@ -1208,12 +1223,10 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		return hostedDelivery.controller.dragRegistry()
 	end
 
-	local listScope = core:scope(`virtual-list-{id}`)
-	if measuredViewport ~= nil then
-		listScope:own(measuredViewport)
-	end
-	if measuredCross ~= nil then
-		listScope:own(measuredCross)
+	for _, readable in adoptedReadables do
+		listScope.own(function()
+			readable:dispose()
+		end)
 	end
 	--[[ ===== THE WINDOWING ARITHMETIC LIVES IN `./virtual_window.luau`
 		(2026-08-15, the 200,000-char Source-write cap — tools/check_source_size.py).
@@ -1238,6 +1251,10 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 
 		EVERY EXPORT IS REBOUND TO A LOCAL OF ITS ORIGINAL NAME, so no call site in
 		this file changed. ]]
+	local savedPosition: any = if itemExtentIsMeasured and spec.scrollNavigation ~= nil
+		then spec.scrollNavigation.position
+		else nil
+	local restoreTop: number? = if savedPosition ~= nil then savedPosition:peek() else nil
 	local window = virtual_window.new({
 		core = core,
 		listScope = listScope,
@@ -1253,6 +1270,9 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		estimateIn = estimateIn,
 		rowGapIn = rowGapIn,
 		viewportIn = viewportIn,
+		-- a measured list with a saved position windows its first frame THERE, so
+		-- the rows it measures are the ones the restore will land on
+		initialTop = restoreTop,
 	})
 	local SLOT_CONTENT_FROM = window.SLOT_CONTENT_FROM
 	local canvasDim = window.canvasDim
@@ -1275,13 +1295,13 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- the prune observer both write it, and a number cannot be shared by
 	-- reference the way `measured` itself is.
 	local measuredCount = 0
-	local focusedKey = listScope:own(core:signal(nil))
-	local selectedKey = listScope:own(core:signal(nil :: string?))
-	local armedKey = listScope:own(core:signal(nil :: string?))
+	local focusedKey = Compose.cell(nil)
+	local selectedKey = Compose.cell(nil :: string?)
+	local armedKey = Compose.cell(nil :: string?)
 	-- the insertion slot a live reorder would commit to (1-based index in the
 	-- resulting order), and the autoscroll affordance state a fixture paints
-	local dropIndex = listScope:own(core:signal(nil :: number?))
-	local autoscrollState = listScope:own(core:signal({ state = "idle", band = nil :: string? }))
+	local dropIndex = Compose.cell(nil :: number?)
+	local autoscrollState = Compose.cell({ state = "idle", band = nil :: string? })
 
 	-- the MOUNTED row-hit path (screen-prefixed), which is what the renderer's
 	-- registry and the focus graph key on. `pathOf` is deliberately
@@ -1305,7 +1325,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- nearest surviving neighbor, preferring the FOLLOWING item (§9.3): the
 	-- item that now occupies the removed item's index is its old follower
 	local lastIndexOfFocused: number? = nil
-	listScope:own(core:observe(indexByKey, function(map: { [string]: number })
+	observeChange(listScope, indexByKey, function(map: { [string]: number })
 		-- ...and so does the last-known extent cache (see `rowExtentIn`): it exists
 		-- to cover a row between leaving the data and leaving the tree, so it must
 		-- not outlive the tree.
@@ -1328,15 +1348,15 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		end
 		-- SELECTION PRUNES WITH THE DATA: a removed row must never linger as a
 		-- phantom selection, nor pre-select a key that comes back later.
-		local selected = selectedKey:get()
+		local selected = selectedKey:peek()
 		if selected ~= nil and map[selected] == nil then
 			selectedKey:set(nil)
 		end
-		local armed = armedKey:get()
+		local armed = armedKey:peek()
 		if armed ~= nil and map[armed] == nil then
 			armedKey:set(nil)
 		end
-		local focused = focusedKey:get()
+		local focused = focusedKey:peek()
 		if focused == nil then
 			return
 		end
@@ -1344,7 +1364,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			lastIndexOfFocused = map[focused]
 			return
 		end
-		local items = spec.rows:get() :: { any }
+		local items = spec.rows:peek() :: { any }
 		if #items == 0 then
 			focusedKey:set(nil)
 			return
@@ -1353,7 +1373,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		local neighbor = spec.key(items[landing])
 		lastIndexOfFocused = landing
 		focusedKey:set(neighbor)
-	end))
+	end)
 
 	--[[ ── SNAPPING ─────────────────────────────────────────────────────────────
 		The compact card paradigm is what this exists for; the machine is
@@ -1374,8 +1394,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		rotation or a text-size change moves both between one sample and the next,
 		and the boundaries have to be the ones the WINDOW is using right now. ]]
 	local snapEngine = scrollSnap.new({
-		core = core,
-		scope = listScope,
+		owner = listScope,
 		index = layoutNow,
 		viewport = viewportNow,
 		mode = function(): string
@@ -1391,7 +1410,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			end
 		end,
 	})
-	listScope:own(snapEngine.dispose)
+	listScope.own(snapEngine.dispose)
 	-- THE FRAMEWORK MOVED THE SCROLL: announce it, then write it. Every internal
 	-- caller goes through here so no site can forget the first half.
 	local function writeScroll(controller: any, host: string, offset: number)
@@ -1424,34 +1443,71 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		IT WRITES THROUGH THE BOUND CONTROLLER, the framework's one programmatic
 		scroll write (native §4): unbound, there is no engine to correct and the
 		correction is skipped rather than faked into the mirror. ]]
+	-- `follow` may be a plain value OR a live readable (`virtual_window.adopt`
+	-- above wraps a Compose readable / `function(use)` into one owned memo, the
+	-- same seam `rows`/`viewportExtent` already ride) — validated here at
+	-- construction AND on every live change below, never assumed static.
+	local followIsReactive = type(spec.follow) == "table" and Compose.isReadable(spec.follow)
+	local function followRaw(use: any?): string?
+		if followIsReactive then
+			local readable = spec.follow :: any
+			return if use then use(readable) else readable:peek()
+		end
+		return spec.follow
+	end
+	local function assertFollowValue(value: string?)
+		assert(
+			value == nil or value == "end" or value == "none",
+			`VirtualList.follow must be "end" (hold the tail in view while the player reads it) or "none" (the default) — `
+				.. `got '{tostring(value)}'`
+		)
+	end
+	assertFollowValue(followRaw(nil))
+	assert(
+		spec.followThreshold == nil
+			or (
+				type(spec.followThreshold) == "number"
+				and spec.followThreshold >= 0
+				and spec.followThreshold < math.huge
+			),
+		"UI.VirtualList.followThreshold must be a finite, nonnegative px distance from the end"
+	)
+	assert(
+		spec.followThreshold == nil or followIsReactive or followRaw(nil) == "end",
+		'UI.VirtualList.followThreshold only means something with follow = "end"'
+	)
+	local followThreshold: number = spec.followThreshold or 4
+	local followEnd = followRaw(nil) == "end"
+	local following = followEnd
 	local anchorKey: string? = nil
 	local anchorDelta = 0
 	if itemExtentIsVariable then
-		listScope:own(core:observe(scrollTop, function()
-			local items = spec.rows:get() :: { any }
+		observeChange(listScope, scrollTop, function()
+			local items = spec.rows:peek() :: { any }
 			if #items == 0 then
 				anchorKey = nil
 				return
 			end
 			local ix = layoutNow()
-			local top = math.clamp(clampedTop:get(), 0, math.max(0, ix.content - viewportNow()))
+			local top = math.clamp(clampedTop:peek(), 0, math.max(0, ix.content - viewportNow()))
 			-- a zero-extent viewport asks the index exactly one question: which slot
 			-- is the leading edge in
 			local first = (ix.window(top, 0, 0))
 			first = math.clamp(first, 1, #items)
 			anchorKey = spec.key(items[first])
 			anchorDelta = top - ix.offsetOf(first)
-		end))
-		listScope:own(core:observe(layoutIndex, function(ix: any)
+		end)
+		observeChange(listScope, layoutIndex, function(ix: any)
 			local key = anchorKey
-			if key == nil or hostedDelivery.controller == nil then
+			-- a list following its tail holds the END, not the leading item
+			if key == nil or following or hostedDelivery.controller == nil then
 				return
 			end
 			local host = boundScrollPath or hostedDelivery.scrollPath
 			if host == nil then
 				return
 			end
-			local index = (indexByKey:get() :: { [string]: number })[key]
+			local index = (indexByKey:peek() :: { [string]: number })[key]
 			if index == nil then
 				-- the anchored item is gone; there is nothing to hold the view onto,
 				-- and inventing a neighbour would be a jump with extra steps
@@ -1471,7 +1527,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				out of range. ]]
 			-- the same round-to-nearest the slot guard uses: sub-pixel drift is not a
 			-- jump, and correcting it would fight the engine's own rounding forever
-			if math.abs(target - scrollTop:get()) < 0.5 then
+			if math.abs(target - scrollTop:peek()) < 0.5 then
 				return
 			end
 			--[[ ...AND IT IS A REST, NOT A GESTURE (the adaptation audit's
@@ -1480,7 +1536,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				read as a travel it would look like a flick of exactly the correction's
 				size and advance a card nobody swiped. ]]
 			writeScroll(hostedDelivery.controller, host, target)
-		end))
+		end)
 	end
 
 	-- ===== native scroll seam (native-substrate adoption) ===========
@@ -1492,6 +1548,49 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- buildFocusGroups, which the presenter calls on every refresh.
 	local function maxTop(): number
 		return math.max(0, layoutNow().content - viewportNow())
+	end
+
+	--[[ ── FOLLOW THE TAIL (`follow = "end"`) ─────────────────────────────────────
+		A streaming transcript keeps its newest row in view WHILE THE PLAYER IS
+		READING THE TAIL, and leaves a player who scrolled away exactly where they
+		are. "Reading the tail" is decided only when the ENGINE reports an offset —
+		the one moment the player chooses where they are — as within
+		`followThreshold` px of the end. Growth (a new row, a measured row settling,
+		a taller viewport) then re-pins the end through the one programmatic scroll
+		write, as a REST so the snap engine never reads it as a gesture. ]]
+	local function followTail()
+		if not following or hostedDelivery.controller == nil then
+			return
+		end
+		local host = boundScrollPath or hostedDelivery.scrollPath
+		if host == nil then
+			return
+		end
+		local target = maxTop()
+		if math.abs(target - scrollTop:peek()) >= 0.5 then
+			writeScroll(hostedDelivery.controller, host, target)
+		end
+	end
+	-- Installed whenever `follow` starts (or could ever live-become) "end", so a
+	-- reactive `follow` never needs the list to remount: flipping it live only
+	-- changes what these two already-running observers decide.
+	if followEnd or followIsReactive then
+		observeChange(listScope, scrollTop, function(top: number)
+			following = followRaw(nil) == "end" and layoutNow().content - (top + viewportNow()) <= followThreshold
+		end)
+		observeChange(listScope, layoutIndex, followTail)
+		if followIsReactive then
+			-- The flip itself is the other moment "reading the tail" is decided:
+			-- re-evaluate against the engine's CURRENT offset and, if the switch
+			-- lands ON "end" already inside the threshold, resume following
+			-- immediately rather than waiting for the next scroll report.
+			observeChange(listScope, spec.follow :: any, function(value: string?)
+				assertFollowValue(value)
+				following = value == "end"
+					and layoutNow().content - (scrollTop:peek() + viewportNow()) <= followThreshold
+				followTail()
+			end)
+		end
 	end
 
 	-- keep-visible target: the canvas offset that brings row `index` fully into
@@ -1508,7 +1607,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		local plain = solverLib.keepVisibleOffset(
 			ix.offsetOf(index),
 			ix.extentOf(index),
-			clampedTop:get(),
+			clampedTop:peek(),
 			viewportNow(),
 			ix.content
 		)
@@ -1524,11 +1623,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		if snapModeIn(nil) ~= "item" then
 			return plain
 		end
-		return scrollSnap.keepVisible(ix, viewportNow(), clampedTop:get(), index, plain)
+		return scrollSnap.keepVisible(ix, viewportNow(), clampedTop:peek(), index, plain)
 	end
 
 	local function focusKey(key: string): string?
-		local index = (indexByKey:get() :: { [string]: number })[key]
+		local index = (indexByKey:peek() :: { [string]: number })[key]
 		if index == nil then
 			return nil
 		end
@@ -1570,17 +1669,17 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	local pinnedKey: string? = nil
 	local pinnedSlot: number? = nil
 	if focusPolicy == "index" then
-		listScope:own(core:observe(focusedKey, function(key: string?)
+		observeChange(listScope, focusedKey, function(key: string?)
 			-- EVERY focus move re-pins, this policy's own retarget included. The
 			-- retarget hands focus to whoever is AT the pinned slot, so it re-pins to
 			-- the same number: idempotent by construction, which beats a suppression
 			-- latch that a throw mid-flight would leave stuck (a stuck latch would
 			-- freeze the pin on a stale slot and then drag focus around by it).
-			pinnedSlot = if key ~= nil then (indexByKey:get() :: { [string]: number })[key] else nil
+			pinnedSlot = if key ~= nil then (indexByKey:peek() :: { [string]: number })[key] else nil
 			pinnedKey = if pinnedSlot ~= nil then key else nil
-		end))
-		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
-			local focused = focusedKey:get() :: string?
+		end)
+		observeChange(listScope, indexByKey, function(map: { [string]: number })
+			local focused = focusedKey:peek() :: string?
 			local slot = pinnedSlot
 			-- THE PIN APPLIES ONLY WHILE IT STILL DESCRIBES THE FOCUSED ROW. That is
 			-- what makes "focus itself just moved" (do nothing — the pin catches up
@@ -1609,7 +1708,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			if reg ~= nil and reg.isActive() then
 				return
 			end
-			local items = spec.rows:get() :: { any }
+			local items = spec.rows:peek() :: { any }
 			-- CLAMP ON SHRINK: the pinned slot may no longer exist
 			local landing = math.min(slot, #items)
 			local occupant = if landing >= 1 then items[landing] else nil
@@ -1641,7 +1740,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			-- Yanking it into this list would be a focus move nobody asked for. The
 			-- logical retarget happens either way; only the ring is conditional.
 			local fromPath = hitPathOf(focused)
-			local graphWasHere = focusGraph ~= nil and fromPath ~= nil and focusGraph.focused:get() == fromPath
+			local graphWasHere = focusGraph ~= nil and fromPath ~= nil and focusGraph.focused:peek() == fromPath
 			pinnedKey = occupantKey
 			pinnedSlot = landing
 			focusKey(occupantKey)
@@ -1649,7 +1748,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			if graphWasHere and hitPath ~= nil then
 				focusGraph.focusOn(hitPath)
 			end
-		end))
+		end)
 	end
 
 	--[[ ===== REORDER, DROP TARGETS AND AUTOSCROLL LIVE IN `./virtual_reorder.luau`
@@ -1895,7 +1994,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				the open row closes it and is swallowed, exactly as the tap is. A
 				POINTER Activate on that row still belongs to the pointer seam, which
 				has already decided it. ]]
-			local engaged = engagedKey:get()
+			local engaged = engagedKey:peek()
 			if engaged ~= nil then
 				if engaged ~= key then
 					hostedCloseRow(engaged)
@@ -1975,7 +2074,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			armedKey:set(nil)
 			return true
 		end
-		local target = key or focusedKey:get()
+		local target = key or focusedKey:peek()
 		if target == nil then
 			return false
 		end
@@ -2001,7 +2100,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		if reg == nil or reg.mode() ~= "armed" then
 			return false
 		end
-		if armedKey:get() == nil then
+		if armedKey:peek() == nil then
 			-- the armed session is NOT this list's own grabbed row (a card armed
 			-- elsewhere is aiming into us): normal graph navigation + the
 			-- presenter's focus-follow aim own that flow — hijacking it here would
@@ -2020,11 +2119,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			return true -- consumed: an armed row does not wander off its own axis
 		end
 		local delta = if direction == forward then 1 else -1
-		local items = spec.rows:get() :: { any }
+		local items = spec.rows:peek() :: { any }
 		local hovered = reg.interactionTarget()
 		local currentIndex = if hovered ~= nil then indexOfKey(keyOfHit(hovered) or "") else nil
 		if currentIndex == nil then
-			currentIndex = indexOfKey(armedKey:get() or "") or 1
+			currentIndex = indexOfKey(armedKey:peek() or "") or 1
 		end
 		local next = math.clamp((currentIndex :: number) + delta, 1, math.max(1, #items))
 		local nextKey = if items[next] ~= nil then spec.key(items[next]) else nil
@@ -2183,7 +2282,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		local trayExit: any = nil
 		local trayIsLeading = false
 		if #hostedTrayOrder > 0 then
-			local engaged = engagedKey:get()
+			local engaged = engagedKey:peek()
 			local leading = if engaged ~= nil then hostedTrayPath(engaged, "leading") else nil
 			for _, path in hostedTrayOrder do
 				if leading ~= nil and string.sub(path, 1, #leading) == leading then
@@ -2361,7 +2460,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		local path = scrollPath or hostedDelivery.scrollPath
 		assert(
 			path ~= nil,
-			"VirtualList.bindNativeScroll: scroll path unknown — present the control (so its mounted path is captured) or pass it explicitly"
+			"UI.VirtualList.bindNativeScroll: scroll path unknown — present the control (so its mounted path is captured) or pass it explicitly"
 		)
 		return mirror.bind(controller, path)
 	end
@@ -2402,9 +2501,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- one row's "am I the selected one" fact, owned by the row's own scope so it
 	-- dies with the row (no per-key cache to prune)
 	local function selectedMemo(key: string, itemScope: any): any
-		return itemScope:own(core:memo(function(use)
-			return use(selectedKey) == key
-		end))
+		return Compose.withOwner(itemScope, function()
+			return Compose.formula(function(use)
+				return use(selectedKey) == key
+			end)
+		end)
 	end
 
 	-- the control root IS the native scroll host (UI.ScrollView -> ScrollingFrame
@@ -2419,6 +2520,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				return entry.key
 			end,
 			row = function(entry: any, itemScope: any)
+				itemScope = itemScope or Compose.currentOwner()
 				-- per-row placement memo at the ABSOLUTE CANVAS offset
 				-- (index-1)*pitch along the scroll axis — engine-independent,
 				-- so a scroll never re-arranges it (the engine translates via
@@ -2426,23 +2528,25 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				-- uniform item extent), not the scroll: a same-window scroll
 				-- delta is zero writes. Owned by the item scope, so it dies
 				-- with its row.
-				local slotOffset = itemScope:own(core:memo(if itemExtentIsVariable
-					then function(use)
-						local index = (use(indexByKey) :: { [string]: number })[entry.key]
-						if index == nil then
-							return 0 -- row is leaving; the unmount is in flight
+				local slotOffset = Compose.withOwner(itemScope, function()
+					return Compose.formula(if itemExtentIsVariable
+						then function(use)
+							local index = (use(indexByKey) :: { [string]: number })[entry.key]
+							if index == nil then
+								return 0 -- row is leaving; the unmount is in flight
+							end
+							return use(layoutIndex).offsetOf(index)
 						end
-						return use(layoutIndex).offsetOf(index)
-					end
-					else function(use)
-						local index = (use(indexByKey) :: { [string]: number })[entry.key]
-						if index == nil then
-							return 0 -- row is leaving; the unmount is in flight
-						end
-						-- the SLOT's LEADING edge: the gutter belongs to the
-						-- space between slots, never to the row that follows it
-						return (index - 1) * pitchIn(use)
-					end))
+						else function(use)
+							local index = (use(indexByKey) :: { [string]: number })[entry.key]
+							if index == nil then
+								return 0 -- row is leaving; the unmount is in flight
+							end
+							-- the SLOT's LEADING edge: the gutter belongs to the
+							-- space between slots, never to the row that follows it
+							return (index - 1) * pitchIn(use)
+						end)
+				end)
 				--[[ THE ROW BOX. A plain list builds today's memo, unchanged and
 					unconditional; a `rowActions` list builds one that also composes
 					the commit collapse (the engine's own height ladder, arriving
@@ -2452,16 +2556,18 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 					every row on a hosted list reads exactly one extra signal (the
 					commit KEY; the px is only read by the row it names — see
 					`hostedItemExtentIn`). ]]
-				local rowExtentDim = itemScope:own(core:memo(if hostedEnabled
-					then function(use)
-						return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
-					end
-					elseif itemExtentIsVariable then function(use)
-						return { type = "fixed", px = rowExtentIn(use, entry.key) }
-					end
-					else function(use)
-						return { type = "fixed", px = itemExtentIn(use) }
-					end))
+				local rowExtentDim = Compose.withOwner(itemScope, function()
+					return Compose.formula(if hostedEnabled
+						then function(use)
+							return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
+						end
+						elseif itemExtentIsVariable then function(use)
+							return { type = "fixed", px = rowExtentIn(use, entry.key) }
+						end
+						else function(use)
+							return { type = "fixed", px = itemExtentIn(use) }
+						end)
+				end)
 				--[[ WHAT THIS ROW WAS PROMISED TO BE. On the uniform path it is the
 					list-wide `slotDeclaration` (one table, one prop assignment per
 					row); under variable extents the promise is per row, so the
@@ -2475,14 +2581,16 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 					the author never made. The generic zstack-overflow finding covers that
 					step, says something true, and clears on the next solve. ]]
 				local rowSlot = if itemExtentIsPerItem
-					then itemScope:own(core:memo(function(use)
-						return {
-							list = id,
-							axis = axis,
-							extent = rowExtentIn(use, entry.key),
-							contentFrom = SLOT_CONTENT_FROM,
-						}
-					end))
+					then Compose.withOwner(itemScope, function()
+						return Compose.formula(function(use)
+							return {
+								list = id,
+								axis = axis,
+								extent = rowExtentIn(use, entry.key),
+								contentFrom = SLOT_CONTENT_FROM,
+							}
+						end)
+					end)
 					else slotDeclaration
 				-- a full-row focusable Button hit sits BEHIND the cell
 				-- content (ZStack, z = tree order): it gives the row a
@@ -2665,7 +2773,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 					local mainDim: any = if isX then cellNode.props.width else cellNode.props.height
 					if type(mainDim) == "table" and mainDim.type == "fill" then
 						error(
-							`newVirtualList '{id}': the cell for row '{entry.key}' declares `
+							`UI.VirtualList '{id}': the cell for row '{entry.key}' declares `
 								.. `{if isX then "width" else "height"} = fill on the list's own scroll axis, and `
 								.. 'itemExtent = "measured" cannot resolve that — a measured row is exactly as '
 								.. `{if isX then "wide" else "tall"} as its cell, so a cell that asks to fill its row `
@@ -2730,6 +2838,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 					return entry.key
 				end,
 				row = function(entry: any, itemScope: any)
+					itemScope = itemScope or Compose.currentOwner()
 					local engine = hostedEngines[entry.key]
 					-- VERTICAL ONLY, and unconditionally so: this whole branch is
 					-- under `hostedEnabled`, which `axis = "x"` refuses at
@@ -2741,27 +2850,31 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 						-- the engaged row's own canvas offset — the SAME slot
 						-- arithmetic the row itself uses, read from the same memo,
 						-- so the tray cannot drift from the row by a gap
-						offsetY = itemScope:own(core:memo(if itemExtentIsVariable
-							then function(use)
-								local index = (use(indexByKey) :: { [string]: number })[entry.key]
-								if index == nil then
-									return 0
+						offsetY = Compose.withOwner(itemScope, function()
+							return Compose.formula(if itemExtentIsVariable
+								then function(use)
+									local index = (use(indexByKey) :: { [string]: number })[entry.key]
+									if index == nil then
+										return 0
+									end
+									return use(layoutIndex).offsetOf(index)
 								end
-								return use(layoutIndex).offsetOf(index)
-							end
-							else function(use)
-								local index = (use(indexByKey) :: { [string]: number })[entry.key]
-								if index == nil then
-									return 0
-								end
-								return (index - 1) * pitchIn(use)
-							end)),
+								else function(use)
+									local index = (use(indexByKey) :: { [string]: number })[entry.key]
+									if index == nil then
+										return 0
+									end
+									return (index - 1) * pitchIn(use)
+								end)
+						end),
 						width = { type = "fill", weight = 1 },
 						-- ...and the row's own height, commit collapse included, so
 						-- a committing row's tray shrinks with it
-						height = itemScope:own(core:memo(function(use)
-							return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
-						end)),
+						height = Compose.withOwner(itemScope, function()
+							return Compose.formula(function(use)
+								return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
+							end)
+						end),
 						children = if engine ~= nil then engine.trayViews else {},
 					})
 				end,
@@ -2803,9 +2916,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		-- the solver decides rather than one this control asserts, and it is the
 		-- whole convergence argument (see THE MEASURED VIEWPORT)
 		then fill()
-		elseif viewportIsLive then listScope:own(core:memo(function(use)
-			return { type = "fixed", px = viewportIn(use) }
-		end))
+		elseif viewportIsLive then Compose.withOwner(listScope, function()
+			return Compose.formula(function(use)
+				return { type = "fixed", px = viewportIn(use) }
+			end)
+		end)
 		else { type = "fixed", px = viewportSpec }
 	--[[ THE CROSS AXIS. `"hug"` is the one form that changes a dim: the host, its
 		canvas and every row take `content` across, so the extent walks up from the
@@ -2821,6 +2936,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		axis = axis,
 		padding = 0,
 		gap = 0,
+		navigation = spec.scrollNavigation,
 		-- native scroll + clip host (native-substrate adoption): the adapter mounts a
 		-- ScrollingFrame; descendants render inside it and partial rows crop. The
 		-- solver's scroll-axis content sum becomes CanvasSize; the ENGINE owns the
@@ -2870,6 +2986,8 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 
 		ROUNDED TO WHOLE PX, the same round-to-nearest the slot guard and the anchor
 		use: chasing sub-pixel measure noise would be an invalidation per frame. ]]
+	-- false while the last geometry pass still moved a measurement
+	local measureSettled = not itemExtentIsMeasured
 	local function measureWindow(rectOf: ((string) -> any)?, rootNode: any?)
 		if not itemExtentIsMeasured or rectOf == nil then
 			return
@@ -2884,7 +3002,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			return
 		end
 		local changed = false
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			local rect = rectOf(`{rowPathUnder(root, entry.key)}/{MEASURED_CONTENT_ID}`)
 			if type(rect) ~= "table" then
 				continue
@@ -2905,8 +3023,9 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				changed = true
 			end
 		end
+		measureSettled = not changed
 		if changed then
-			measuredEpoch:set(measuredEpoch:get() + 1)
+			measuredEpoch:set(measuredEpoch:peek() + 1)
 		end
 	end
 
@@ -3006,20 +3125,29 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			local main = px(if isX then box.w else box.h)
 			if main ~= nil then
 				noticeViewport(main)
-				if main ~= measuredViewport:get() then
+				if main ~= measuredViewport:peek() then
 					measuredViewport:set(main)
 				end
 			end
 		end
 		if measuredCross ~= nil then
 			local cross = px(if isX then box.h else box.w)
-			if cross ~= nil and cross ~= measuredCross:get() then
+			if cross ~= nil and cross ~= measuredCross:peek() then
 				measuredCross:set(cross)
 			end
 		end
 	end
 
 	local function syncGeometry(rectOf: ((string) -> any)?, rootNode: any?)
+		--[[ A SOLVE CAN LAND AFTER THE LIST IS GONE. The contribution is held by
+			the mounted node, and a surface that re-presents can solve once more
+			between this list's disposal and the node's; the windowing readables are
+			already released by then, and reading a released formula is an error in
+			Compose rather than a stale answer. Nothing to sync into a list that no
+			longer exists, so this returns. ]]
+		if listScope.isDisposed() then
+			return
+		end
 		if type(rootNode) == "table" and rootNode.path ~= nil then
 			hostedDelivery.scrollPath = rootNode.path
 			mirror.noticeMount(rootNode, rootNode.path)
@@ -3029,19 +3157,21 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		measureHost(rectOf, rootNode)
 		-- a no-op on a declared list; the measurement's own seam on a measured one
 		measureWindow(rectOf, rootNode)
+		-- a viewport that grew or a host that just mounted moves the end too
+		followTail()
 	end
 
 	local bookmark = require("./scroll_bookmarks")
 	local bundle: any = {
 		captureScrollBookmark = function(controller, node)
-			local rows = spec.rows:get()
+			local rows = spec.rows:peek()
 			return bookmark.captureIndex(layoutNow(), function(i)
 				return spec.key(rows[i])
 			end, controller.scrollHostFor(node.path, true).offset)
 		end,
 		restoreScrollBookmark = function(controller, node, state)
 			local offset = bookmark.restoreIndex(layoutNow(), function(key)
-				return indexByKey:get()[key]
+				return indexByKey:peek()[key]
 			end, state, viewportNow())
 			writeScroll(controller, node.path, offset)
 		end,
@@ -3090,7 +3220,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				end
 				-- ...and the list's own stand-in follows the ring exactly as an
 				-- engine's does (row_actions' `bindFocusGraph`, same shape)
-				listScope:own(core:observe(graph.focused, hostedSyncKeysEnabled))
+				observeChange(listScope, graph.focused, hostedSyncKeysEnabled)
 				hostedSyncKeysEnabled()
 			end
 		end
@@ -3165,9 +3295,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			round 7: closing must never swallow an unrelated click), so the tap
 			that closed the tray still does whatever it was going to do. ]]
 		bundle.outsideDismiss = {
-			active = listScope:own(core:memo(function(use)
-				return use(engagedKey) ~= nil
-			end)),
+			active = Compose.withOwner(listScope, function()
+				return Compose.formula(function(use)
+					return use(engagedKey) ~= nil
+				end)
+			end),
 			dismiss = function()
 				local engine = hostedEngagedEngine()
 				if engine ~= nil then
@@ -3190,7 +3322,18 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		-- the press) — and with an engaged row-actions tray, which Cancel closes
 		bundle.handleCancel = handleCancel
 	end
-	blueprint = contribution.attach(blueprint, bundle)
+	blueprint = contribution.attach(
+		blueprint,
+		virtual_window.mergeInherited(
+			contribution.read(blueprint),
+			bundle,
+			if itemExtentIsMeasured
+				then function()
+					return measureSettled
+				end
+				else nil
+		)
+	)
 
 	local list = {
 		blueprint = blueprint,
@@ -3246,12 +3389,12 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		this file already reads off `window` — this is the first PUBLIC door onto
 		it, not new bookkeeping. `nil` for a key not in the current `rows`. ]]
 	function list.positionOf(key: string): number?
-		return (indexByKey:get() :: { [string]: number })[key]
+		return (indexByKey:peek() :: { [string]: number })[key]
 	end
 	-- deterministic diagnostic summary (§10.2 dump form; uniform control seam)
 	function list.dump()
 		local windowKeys = {}
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			table.insert(windowKeys, entry.key)
 		end
 		--[[ THE DUMP CARRIES THE AXIS-NEUTRAL NAMES ALWAYS, and the deprecated
@@ -3286,7 +3429,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				CHANGED: a converged list's stops moving, a tail-chasing one's does not. ]]
 			estimatedItemExtent = if itemExtentIsMeasured then estimateNow() else nil,
 			measuredRows = if itemExtentIsMeasured then measuredCount else nil,
-			measureEpoch = if itemExtentIsMeasured then measuredEpoch:get() else nil,
+			measureEpoch = if itemExtentIsMeasured then measuredEpoch:peek() else nil,
 			contentExtent = layoutNow().content,
 			viewportExtent = viewportNow(),
 			rowGap = rowGapNow(),
@@ -3299,11 +3442,11 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				session already looks rather than in a warning nobody reads. ]]
 			diagnostics = if #measureDiagnostics == 0 then NO_DIAGNOSTICS else table.clone(measureDiagnostics),
 			overscan = overscan,
-			scrollTop = clampedTop:get(),
-			focusedKey = focusedKey:get(),
-			selectedKey = selectedKey:get(),
-			armedKey = armedKey:get(),
-			dropIndex = dropIndex:get(),
+			scrollTop = clampedTop:peek(),
+			focusedKey = focusedKey:peek(),
+			selectedKey = selectedKey:peek(),
+			armedKey = armedKey:peek(),
+			dropIndex = dropIndex:peek(),
 			selection = selectionMode,
 			--[[ WHERE THIS LIST MAY REST, and — on a card rail — the arrangement that
 				decided it. `snap` is the RESOLVED mode, never the declaration, because
@@ -3317,9 +3460,9 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			reorderable = reorderable,
 			dropSurface = isDropSurface,
 			focusGroup = focusGroupName,
-			autoscroll = autoscrollState:get().state,
+			autoscroll = autoscrollState:peek().state,
 			window = windowKeys,
-			totalRows = #(spec.rows:get() :: { any }),
+			totalRows = #(spec.rows:peek() :: { any }),
 		}
 		if not isX then
 			-- ...and the deprecated alias follows `itemExtent` exactly, absence
@@ -3354,12 +3497,12 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		end
 		return {
 			engineCount = count,
-			engagedKey = if engagedKey ~= nil then engagedKey:get() else nil,
+			engagedKey = if engagedKey ~= nil then engagedKey:peek() else nil,
 		}
 	end
 	function list.debugWindow(): { [string]: boolean }
 		local out: { [string]: boolean } = {}
-		for _, entry in windowItems:get() :: { any } do
+		for _, entry in windowItems:peek() :: { any } do
 			out[entry.key] = true
 		end
 		return out
@@ -3375,6 +3518,33 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		listScope:dispose()
 	end
 	return list
+end
+
+--[[ ONE OWNER FOR THE BLUEPRINT AND THE STATE IT READS.
+
+	`listScope` used to be a child of the CORE's root owner while the nodes this
+	function constructs — the windowed `UI.ForEach` above all — belonged to
+	whatever owner was active at the call site. The two could then die in either
+	order, and `list.dispose()` (the documented release for a list built outside a
+	mount) took the window formulas out from under a keyed region that was still
+	subscribed: "a disposed formula cannot be read", every time the perf lab
+	remounted its workload on a rotation.
+
+	Built under one child owner, as every other composite is
+	(`radial_menu`/`tab_view` have the same three lines), the whole control has a
+	single lifetime: `list.dispose()` and the caller's own teardown do the same
+	thing, in any order, exactly once. ]]
+function virtual_list.build(Facet: any, core: any, spec: any)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else core.owner.createChild()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
 end
 
 return virtual_list

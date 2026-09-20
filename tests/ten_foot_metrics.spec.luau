@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ TEN-FOOT METRICS — THE WHOLE LADDER SCALES, BY THE TYPE'S OWN FACTOR.
 
 	THE DIRECTOR'S RULING (2026-08-20, ADAPT-8). The framework's ten-foot policy
@@ -43,10 +44,10 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
+local UI = harness.UI
+local customFactory = harness.coreFactory
 local environment = require("../src/env/environment")
-local mountLib = require("../src/mount")
+local mountLib = harness
 local rendererLib = require("../src/render/renderer")
 local layoutNode = require("../src/render/layout_node")
 local adaptive = require("../src/layout/adaptive")
@@ -55,6 +56,7 @@ local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style") :: any
 local snapshot = require("../src/themes/snapshot") :: any
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- the eight shipped reference packages plus the flat theme = the nine
 -- configurations every geometry claim in this repo is measured against
@@ -111,7 +113,7 @@ end
 
 --[[ A BARE DEFAULT-PATH SURFACE: a core, an environment, a viewport and a
 	display class, and NOTHING else — no theme controller, no resolved snapshot,
-	no facts handed to anything. This is what `Facet.newPresenter` gives a
+	no facts handed to anything. This is what `harness.newPresenter` gives a
 	consumer who installs no theme package, and it is the shape ADAPT-L1 measured
 	as broken. ]]
 local function bareSurface(w: number, h: number, displaySize: string): (any, any)
@@ -598,17 +600,17 @@ describe("ten-foot metrics — ADAPT-L1: the default path carries the density fa
 		a desktop. ]]
 	it("a bare ten-foot mount reads ten-foot density with no theme controller", function()
 		local _, env = bareSurface(1920, 1080, "Large")
-		expect(env:get("themeMetrics"):get().density).toBe("ten-foot")
-		expect(env:get("themeMetrics"):get().metricScale).toBe(1.5)
+		expect(env:get("themeMetrics"):peek().density).toBe("ten-foot")
+		expect(env:get("themeMetrics"):peek().metricScale).toBe(1.5)
 
 		local _, near = bareSurface(1600, 900, "Medium")
-		expect(near:get("themeMetrics"):get().density).toBe("near")
-		expect(near:get("themeMetrics"):get().metricScale).toBe(1)
+		expect(near:get("themeMetrics"):peek().density).toBe("near")
+		expect(near:get("themeMetrics"):peek().metricScale).toBe(1)
 	end)
 
 	it("…and its metric ladder is scaled, with no theme controller", function()
 		local _, env = bareSurface(1920, 1080, "Large")
-		local m = env:get("themeMetrics"):get()
+		local m = env:get("themeMetrics"):peek()
 		expect(m.targetSizes.minimum).toBe(66)
 		expect(m.space.m).toBe(24)
 		expect(m.controlSizes.regular.height).toBe(
@@ -761,7 +763,7 @@ describe("ten-foot metrics — what does NOT scale", function()
 		expect(r.y).toBe(60)
 		expect(r.w).toBe(1920 - 180)
 		expect(r.h).toBe(1080 - 120)
-		expect(env:get("effectiveOverscanInsets"):get().left).toBe(90)
+		expect(env:get("effectiveOverscanInsets"):peek().left).toBe(90)
 	end)
 
 	it("durations stay time-true", function()
@@ -875,7 +877,7 @@ end)
 	the three joins, measured rather than reasoned about. ]]
 
 describe("ten-foot metrics — interplay: the expand plate and its Close", function()
-	local worldLib = require("./lib/world")
+	local worldLib = require("./lib/harness_world")
 
 	local function hudScreen(): any
 		return UI.Screen({
@@ -921,7 +923,7 @@ describe("ten-foot metrics — interplay: the expand plate and its Close", funct
 			displaySize = "Large",
 		})
 		w.present(hudScreen(), { initialFocus = "none" })
-		expect(w.env:get("themeMetrics"):get().metricScale).toBe(1.5)
+		expect(w.env:get("themeMetrics"):peek().metricScale).toBe(1.5)
 		-- the region stepped down, so there is something to expand to
 		expect(w.controller.compositionAt("/S/C").regions[1].activeForm).toBe(2)
 		w.adapter.tap("/S/C/Clock/Expand")
@@ -940,21 +942,21 @@ describe("ten-foot metrics — interplay: the table's collapse at distance", fun
 	local table_control = require("../src/controls/table")
 
 	local function tableWorld(displaySize: string, w: number, h: number): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("displaySize", displaySize)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, system)
+		local pres = harness.newPresenter(core, env, adapter, system)
 		local rows = {}
 		for i = 1, 3 do
 			table.insert(rows, { id = `r{i}`, name = `Racer {i}`, laps = i })
 		end
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
-			rows = core:signal(rows),
+			rows = Compose.cell(rows),
 			key = function(r: any)
 				return r.id
 			end,
@@ -1003,13 +1005,13 @@ describe("ten-foot metrics — interplay: the table's collapse at distance", fun
 	it("a ten-foot table takes the scaled distance rung for its rows", function()
 		local near = tableWorld("Medium", 900, 500)
 		local tv = tableWorld("Large", 1920, 1080)
-		local nearRow = near.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row").rect.h
-		local tvRow = tv.adapter.node("/S/T/Main/Body/Rows/[r1@0]/Row").rect.h
+		local nearRow = near.adapter.node("/S/T/Main/Body/Rows/[r1]/Row").rect.h
+		local tvRow = tv.adapter.node("/S/T/Main/Body/Rows/[r1]/Row").rect.h
 		expect(tvRow).toBeGreaterThan(nearRow)
-		local tvMetrics = tv.env:get("themeMetrics"):get()
+		local tvMetrics = tv.env:get("themeMetrics"):peek()
 		expect(tvRow).toBeGreaterThanOrEqual(tvMetrics.controlSizes.large.height)
 		expect(tvMetrics.controlSizes.large.height).toBe(
-			near.env:get("themeMetrics"):get().controlSizes.large.height * 1.5
+			near.env:get("themeMetrics"):peek().controlSizes.large.height * 1.5
 		)
 	end)
 
@@ -1043,79 +1045,6 @@ describe("ten-foot metrics — interplay: the table's collapse at distance", fun
 		expect(narrower.adapter.node("/S/T/Main/Header/Head-artist").rect.w).toBe(0)
 		-- ...and the disclosure exists, so nothing is unreachable
 		expect(narrow.adapter.node("/S/T/Main/MoreWhen/then/MoreBar/MoreChip")).never().toBeNil()
-	end)
-end)
-
-describe("ten-foot metrics — interplay: carousel snap with scaled cards", function()
-	local card_rail = require("../src/controls/card_rail")
-	local scroll_snap = require("../src/controls/scroll_snap")
-	local virtual_extents = require("../src/virtual_extents")
-
-	local function railExtent(displaySize: string): number
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 400 })
-		env:set("displaySize", displaySize)
-		local metrics: any = env:get("themeMetrics"):get()
-		local rail = card_rail.new({
-			control = "newVirtualList",
-			options = { perView = 3, peek = 0 },
-			interactionClasses = env:get("interactionClasses"),
-			distanceProfile = env:get("distanceProfile"),
-			viewportIn = function()
-				return 1200
-			end,
-			viewportNow = function()
-				return 1200
-			end,
-			-- the rail's gutter is a THEME step (`space.s`), which is exactly the
-			-- kind of number this wave moves
-			gapIn = function()
-				return metrics.space.s
-			end,
-			gapNow = function()
-				return metrics.space.s
-			end,
-		})
-		return rail.extent(nil)
-	end
-
-	--[[ A CARD IS SIZED BY THE RAIL AND ITS GUTTER, and the gutter is a theme step.
-		So a television's cards are not the same cards: the same three-up rail in the
-		same 1200px gives a narrower card, because the gaps between them grew with
-		the ladder. That is the ladder reaching the carousel. ]]
-	it("the scaled gutter changes the card's own extent", function()
-		local near = railExtent("Medium")
-		local tv = railExtent("Large")
-		expect(near).toBeGreaterThan(tv)
-		-- three cards and two gutters fill the rail at both distances (the card is
-		-- floored onto a whole pixel, so up to one pixel per lane goes unspent)
-		expect(near * 3 + 8 * 2).toBeLessThanOrEqual(1200)
-		expect(near * 3 + 8 * 2).toBeGreaterThan(1200 - 3)
-		expect(tv * 3 + 12 * 2).toBeLessThanOrEqual(1200)
-		expect(tv * 3 + 12 * 2).toBeGreaterThan(1200 - 3)
-	end)
-
-	--[[ …AND THE SETTLE STILL LANDS ON A CARD EDGE. Snap and arrangement read ONE
-		extents index, so a scaled card is still a whole card to the snap machine —
-		which is the property that would break first if the two ever derived the
-		gutter separately. ]]
-	it("a fling settles exactly on a card boundary at the scaled extents", function()
-		local extent = railExtent("Large")
-		local gap = 12 -- space.s at ten-foot
-		local ix = virtual_extents.uniform(12, extent, gap)
-		local pitch = extent + gap
-		for _, drift in { 0.1, 0.35, 0.6, 0.9 } do
-			local landed = scroll_snap.resolve({
-				index = ix,
-				viewport = 1200,
-				offset = pitch * (3 + drift),
-				origin = 0,
-				peak = 0,
-			})
-			expect(landed).never().toBeNil()
-			expect((landed :: number) % pitch).toBeCloseTo(0, 1e-6)
-		end
 	end)
 end)
 
@@ -1200,7 +1129,7 @@ describe("ten-foot metrics — the transform is total", function()
 		local _, env = bareSurface(1920, 1080, "Large")
 		for _, garbage in CASES do
 			env:set("themeMetrics", garbage)
-			local read = env:get("themeMetrics"):get()
+			local read = env:get("themeMetrics"):peek()
 			expect(type(read)).toBe("table")
 			-- THE FRESHNESS ASSERTION: a memo that threw on this value would leave the
 			-- previous case's output standing, and this is what says so
@@ -1232,7 +1161,7 @@ describe("ten-foot metrics — the transform is total", function()
 		local _, env = bareSurface(1920, 1080, "Large")
 		local authored = snapshot.resolve(snapshot.neutralPackage(), nil, {})
 		env:set("themeMetrics", authored)
-		local read1 = env:get("themeMetrics"):get()
+		local read1 = env:get("themeMetrics"):peek()
 		expect(read1.targetSizes.minimum).toBe(66)
 		expect(read1.space.m).toBe(24)
 
@@ -1244,13 +1173,13 @@ describe("ten-foot metrics — the transform is total", function()
 		expect(rawequal(snapshot.baseOf(copy), copy)).toBeTruthy() -- the link IS gone
 		env:set("themeMetrics", copy)
 
-		local read2 = env:get("themeMetrics"):get()
+		local read2 = env:get("themeMetrics"):peek()
 		expect(read2.targetSizes.minimum).toBe(66) -- NOT 99
 		expect(read2.space.m).toBe(24) -- NOT 36
 		expect(read2.metricScale).toBe(1.5)
 		-- the fact kept its last real value, so the authored ladder is still there
 		env:set("displaySize", "Medium")
-		expect(rawequal(env:get("themeMetrics"):get(), authored)).toBeTruthy()
+		expect(rawequal(env:get("themeMetrics"):peek(), authored)).toBeTruthy()
 	end)
 
 	--[[ …AND A SNAPSHOT NOBODY ADAPTED IS STILL WRITABLE. The refusal keys on the
@@ -1262,7 +1191,7 @@ describe("ten-foot metrics — the transform is total", function()
 		local _, env = bareSurface(1600, 900, "Medium")
 		-- an authored ladder at a near display is the IDENTITY, refusal or no refusal
 		env:set("themeMetrics", authored)
-		expect(rawequal(env:get("themeMetrics"):get(), authored)).toBeTruthy()
+		expect(rawequal(env:get("themeMetrics"):peek(), authored)).toBeTruthy()
 		-- ...and a table nobody adapted still lands, whatever else is wrong with it
 		for _, value in
 			{
@@ -1271,7 +1200,7 @@ describe("ten-foot metrics — the transform is total", function()
 			}
 		do
 			env:set("themeMetrics", value)
-			local read = env:get("themeMetrics"):get()
+			local read = env:get("themeMetrics"):peek()
 			expect(`{value.marker} -> {tostring(read.marker)}`).toBe(`{value.marker} -> {value.marker}`)
 			-- it reached the read UNSCALED: the refusal is not a general gate
 			expect(read.space.m).toBe(value.space.m)
@@ -1289,10 +1218,10 @@ describe("ten-foot metrics — the transform is total", function()
 		-- form, and the round trip is exact
 		local authored = snapshot.resolve(packageNamed("classic_desktop"), nil, {})
 		env:set("themeMetrics", authored)
-		expect(env:get("themeMetrics"):get().space.m).toBe(authored.space.m * 1.5)
-		expect(rawequal(snapshot.baseOf(env:get("themeMetrics"):get()), authored)).toBeTruthy()
+		expect(env:get("themeMetrics"):peek().space.m).toBe(authored.space.m * 1.5)
+		expect(rawequal(snapshot.baseOf(env:get("themeMetrics"):peek()), authored)).toBeTruthy()
 		env:set("displaySize", "Medium")
-		expect(rawequal(env:get("themeMetrics"):get(), authored)).toBeTruthy()
+		expect(rawequal(env:get("themeMetrics"):peek(), authored)).toBeTruthy()
 	end)
 
 	--[[ THE PRODUCTION ROUND TRIP, AND THE ONE SHAPE THAT MAKES THE WRITE-SIDE
@@ -1312,17 +1241,17 @@ describe("ten-foot metrics — the transform is total", function()
 		expect(packageA.space.m).never().toBe(packageB.space.m)
 
 		env:set("themeMetrics", packageA)
-		local heldFromA = env:get("themeMetrics"):get() -- the ADAPTED form, as a reader gets it
+		local heldFromA = env:get("themeMetrics"):peek() -- the ADAPTED form, as a reader gets it
 		expect(heldFromA.metricScale).toBe(1.5)
 
 		env:set("themeMetrics", packageB)
-		expect(env:get("themeMetrics"):get().space.m).toBe(packageB.space.m * 1.5)
+		expect(env:get("themeMetrics"):peek().space.m).toBe(packageB.space.m * 1.5)
 
 		-- uninstall: write the held value back. It is adapted, and its base must win
 		env:set("themeMetrics", heldFromA)
-		expect(env:get("themeMetrics"):get().space.m).toBe(packageA.space.m * 1.5)
+		expect(env:get("themeMetrics"):peek().space.m).toBe(packageA.space.m * 1.5)
 		env:set("displaySize", "Medium")
-		expect(rawequal(env:get("themeMetrics"):get(), packageA)).toBeTruthy()
+		expect(rawequal(env:get("themeMetrics"):peek(), packageA)).toBeTruthy()
 	end)
 end)
 
@@ -1625,7 +1554,7 @@ describe("ten-foot metrics — the paint family reaches the paint", function()
 		local host = fs.readFile("src/client/host.luau")
 		-- effectiveDisplaySize, not the raw fact, since director item 5:
 		-- the live client's real paint decision must be the touch-corrected class
-		expect(string.find(host, 'displaySize = env:get("effectiveDisplaySize"):get()', 1, true) ~= nil).toBe(true)
+		expect(string.find(host, 'displaySize = env:get("effectiveDisplaySize"):peek()', 1, true) ~= nil).toBe(true)
 		local controller = fs.readFile("src/client/theme_controller.luau")
 		expect(string.find(controller, "sheetModelFor(pkg, displaySizeFact())", 1, true) ~= nil).toBe(true)
 		-- …and the live-edit repaint answers a designer's edit at the SAME distance
@@ -1793,10 +1722,10 @@ describe("ten-foot metrics — the second door: an authored token", function()
 			env:set("displaySize", displaySize)
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local pres = Facet.newPresenter(core, env, adapter, system)
-			local picker = Facet.Controls.Picker(core, {
+			local pres = harness.newPresenter(core, env, adapter, system)
+			local picker = harness.Controls.Picker(core, {
 				id = "View",
-				selected = core:signal("grid"),
+				selected = Compose.cell("grid"),
 				options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
 				presentation = "segmented",
 				indicator = "pill",
@@ -1869,7 +1798,7 @@ end)
 describe("ten-foot overscan — proportional to the viewport it reserves from", function()
 	local function overscanAt(w: number, h: number): any
 		local _, env = bareSurface(w, h, "Large")
-		return env:get("effectiveOverscanInsets"):get()
+		return env:get("effectiveOverscanInsets"):peek()
 	end
 
 	it("is exactly the console profile at 1080p, and the same fraction everywhere else", function()
@@ -1885,12 +1814,12 @@ describe("ten-foot overscan — proportional to the viewport it reserves from", 
 
 	it("a near display still reserves nothing, and an authored margin still wins", function()
 		local _, near = bareSurface(801, 392, "Medium")
-		local none = near:get("effectiveOverscanInsets"):get()
+		local none = near:get("effectiveOverscanInsets"):peek()
 		expect(`{none.top}/{none.left}`).toBe("0/0")
 		local _, env = bareSurface(801, 392, "Large")
 		env:set("overscanInsets", { top = 10, bottom = 10, left = 10, right = 10 })
-		expect(env:get("effectiveOverscanInsets"):get().top).toBe(10)
+		expect(env:get("effectiveOverscanInsets"):peek().top).toBe(10)
 		env:set("overscanInsets", "none")
-		expect(env:get("effectiveOverscanInsets"):get().top).toBe(0)
+		expect(env:get("effectiveOverscanInsets"):peek().top).toBe(0)
 	end)
 end)

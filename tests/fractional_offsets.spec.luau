@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- FRACTIONAL ANCHOR OFFSETS (acceptance rows SF-P5/SF-K1).
 --
 -- The marker-overlay shape: a minimap dot's position is a SHARE of the map, not a
@@ -15,13 +16,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local themeSnapshot = require("../src/themes/snapshot")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function harness(screen: any, w: number?, h: number?)
 	local core = customFactory.new()
@@ -244,7 +246,7 @@ describe("Anchor: fractional offsets", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local u = core:signal({ scale = 0.1 } :: any)
+		local u = Compose.cell({ scale = 0.1 } :: any)
 		local root = mountLib.mount(
 			core,
 			UI.Screen({

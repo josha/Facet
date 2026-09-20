@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE CONTAINMENT INVARIANT'S OWN PROOFS (overflow guard layer 1, 2026-08-21).
 
 	`tests/lib/overflow_guard.luau` runs after every settle in every fixture world
@@ -24,8 +25,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local world = require("./lib/world")
+local UI = harness.UI
+local world = require("./lib/harness_world")
 local overflow_guard = require("./lib/overflow_guard")
 
 -- every fixture below turns the guard OFF on the world itself and asks it by

@@ -1,10 +1,10 @@
 --!strict
-local blueprint = require("../blueprint")
+local Compose = require("../vendor/compose/core")
 --[[ MENU — a freestanding action menu attachable to ANY blueprint
 	(navigation-and-menus brief §2 D2). This is what closes the context-menu construct.
 
 	ITEMS ARE VERBS, NOT VALUES, and that is the whole reason this is a control
-	rather than a property on `newPopupButton`. That control's `value` is a
+	rather than a property on `UI.PopupButton`. That control's `value` is a
 	`Signal<string>` and its `Option` is `{ id, label }`: picking an option WRITES
 	a value. Picking a menu item RUNS something. A control that sometimes owns a
 	value signal and sometimes does not is two controls in one, so this is the
@@ -70,7 +70,6 @@ local blueprint = require("../blueprint")
 ]]
 
 local contribution = require("../input/contribution")
-local coreContract = require("../core/contract")
 local menuRecipe = require("./menu_recipe")
 local controlContract = require("../class_contract")
 local specGuard = require("../spec_guard")
@@ -95,55 +94,10 @@ menu.TRIGGER_KEYS = {
 -- a screen that happens to have claimed the same key
 menu.TRIGGER_KEY_PRIORITY = 1200
 
-export type Item = {
-	checked: coreContract.Signal<boolean>?,
-	selected: any?, -- Signal of the caller's arbitrary identity type, paired with value
-	value: any?, -- same identity type as selected; boolean for checked callbacks
-	description: (string | coreContract.Readable<string>)?,
-	dismiss: boolean?,
-	onChange: ((any) -> ())?,
-	id: string?,
-	label: string?,
-	icon: string?, -- semantic icon NAME, never an asset id
-	role: string?, -- "default" (the fallback) | "destructive"
-	enabled: any?, -- boolean | Readable<boolean>
-	onSelect: (() -> ())?, -- an ACTION item
-	children: { Item }?, -- a SUBMENU item
-	divider: boolean?, -- a rule between two groups
-}
+local specTypes = require("../spec_types/menu")
+export type Item = specTypes.Item
 
-export type Spec = {
-	id: string?,
-	trigger: blueprint.Blueprint, -- Blueprint, required: ANY node, not a built-in trigger
-	items: { Item }, -- required, non-empty
-	triggers: { string }?, -- which gestures open it; default all five
-	-- string | Readable<string> (automatic | menu | sheet; gap 20, framework-
-	-- gaps-phase2). Was construction-time only; a forced (non-"automatic")
-	-- value now rides the SAME hot-switch machinery `sizeClass`/
-	-- `interactionClasses` already drive an open menu through.
-	presentation: any?,
-	sizeClass: blueprint.Bound<string>?, -- string | Readable<string>
-	interactionClasses: any?, -- table | Readable<table>
-	--[[ the environment both facts above come from. Omitted, an
-		automatic presentation finds the one this control's own core published, and
-		refuses to construct when there is none. ]]
-	env: any?,
-	--[[ THE SHEET'S BACK ROW LABEL (review finding I1, task PANEL fix round 1),
-		following `present/nav_bar.luau`'s own `NavBarSpec.backLabel: string?`
-		shape exactly — same optional typing, same reason: "a Button always needs
-		a label (a11y)... this construct has no i18n system of its own to invent
-		one from." UNLIKE `nav_bar` (which has no built-in Back verb at all, so
-		omitting `backLabel` there means no text and an icon-only button),
-		`newMenu` invented its own Back row before this field existed, so omitting
-		this stays WORKING rather than blank: it falls back to the literal English
-		"Back" `buildPanel` already drew. That fallback is an i18n gap, not a
-		feature — a caller shipping `sheet`-reachable submenus (any compact
-		width, the framework default since this round) to a localized audience
-		must set this, exactly as `docs/reference/api.md` now says. ]]
-	backLabel: string?,
-	onOpen: (() -> ())?,
-	onClose: (() -> ())?,
-}
+export type Spec = specTypes.Spec
 
 local MENU_KEYS = specGuard.keySet({
 	"backLabel",
@@ -156,6 +110,7 @@ local MENU_KEYS = specGuard.keySet({
 	"presentation",
 	"sizeClass",
 	"trigger",
+	"label",
 	"triggers",
 })
 local ITEM_KEYS = specGuard.keySet({
@@ -195,7 +150,7 @@ local DUMP_SCHEMA = "facet-menu-dump/1"
 	runs, and the author would find out from a player. ]]
 local function validate(id: string, items: { Item }, path: string, depth: number, notes: { string })
 	if type(items) ~= "table" or #items == 0 then
-		error(`Facet newMenu('{id}'): {path} must be a non-empty array of items.`, 0)
+		error(`Facet UI.Menu('{id}'): {path} must be a non-empty array of items.`, 0)
 	end
 	local seen: { [string]: boolean } = {}
 	local actionable = 0
@@ -203,13 +158,13 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	for index, item in items do
 		local where = `{path}[{index}]`
 		if type(item) ~= "table" then
-			error(`Facet newMenu('{id}'): {where} must be a table.`, 0)
+			error(`Facet UI.Menu('{id}'): {where} must be a table.`, 0)
 		end
-		specGuard.assertKnownKeys("newMenu", item, ITEM_KEYS, where)
+		specGuard.assertKnownKeys("UI.Menu", item, ITEM_KEYS, where)
 		if item.divider == true then
 			if item.label ~= nil or item.onSelect ~= nil or item.children ~= nil or item.icon ~= nil then
 				error(
-					`Facet newMenu('{id}'): {where} is a divider, so it carries nothing else — `
+					`Facet UI.Menu('{id}'): {where} is a divider, so it carries nothing else — `
 						.. "no label, icon, onSelect or children. A divider groups; it never responds.",
 					0
 				)
@@ -225,10 +180,10 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		if hasState then
 			local state = item.checked or item.selected
 			assert(
-				type(state) == "table" and state.kind == "signal",
-				"Menu: checked/selected must be caller-owned settable Signals"
+				require("../selection_model").isWritable(state),
+				"UI.Menu: checked/selected must be writable Compose cells the caller owns"
 			)
-			assert(item.checked == nil or type(state:get()) == "boolean", "Menu: checked must hold a boolean")
+			assert(item.checked == nil or type(state:peek()) == "boolean", "Menu: checked must hold a boolean")
 			assert(item.selected == nil or item.value ~= nil, "Menu: a selected group item requires value")
 			assert(
 				item.children == nil and item.onSelect == nil,
@@ -244,7 +199,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		local hasChildren = item.children ~= nil
 		if hasSelect and hasChildren then
 			error(
-				`Facet newMenu('{id}'): {where} declares BOTH onSelect and children. That is a spec error, `
+				`Facet UI.Menu('{id}'): {where} declares BOTH onSelect and children. That is a spec error, `
 					.. "not a precedence rule: an item is an ACTION or a SUBMENU, and silently running one of "
 					.. "the two is how an author finds out from a player.",
 				0
@@ -252,20 +207,20 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		end
 		if not hasSelect and not hasChildren then
 			error(
-				`Facet newMenu('{id}'): {where} has neither onSelect nor children, so activating it would `
+				`Facet UI.Menu('{id}'): {where} has neither onSelect nor children, so activating it would `
 					.. "silently do nothing. Give it an action, give it children, or make it divider = true.",
 				0
 			)
 		end
 		if type(item.id) ~= "string" or type(item.label) ~= "string" then
-			error(`Facet newMenu('{id}'): {where} needs a string id and a string label.`, 0)
+			error(`Facet UI.Menu('{id}'): {where} needs a string id and a string label.`, 0)
 		end
 		local itemId = item.id :: string
 		if string.find(itemId, "/", 1, true) then
-			error(`Facet newMenu('{id}'): item id '{itemId}' must be path-safe (no "/").`, 0)
+			error(`Facet UI.Menu('{id}'): item id '{itemId}' must be path-safe (no "/").`, 0)
 		end
 		if seen[itemId] then
-			error(`Facet newMenu('{id}'): two items in {path} share the id '{itemId}'.`, 0)
+			error(`Facet UI.Menu('{id}'): two items in {path} share the id '{itemId}'.`, 0)
 		end
 		seen[itemId] = true
 		actionable += 1
@@ -289,7 +244,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 		end
 	end
 	if actionable == 0 then
-		error(`Facet newMenu('{id}'): {path} is all dividers — a rule between nothing and nothing.`, 0)
+		error(`Facet UI.Menu('{id}'): {path} is all dividers — a rule between nothing and nothing.`, 0)
 	end
 	--[[ THE ICON LINT: provide icons for all menu items in a group, or none
 		of them"). A GROUP is the run between two dividers, which is what makes this
@@ -300,7 +255,7 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	local mixed = menuRecipe.mixedIconGroup(items)
 	if mixed ~= nil then
 		error(
-			`Facet newMenu('{id}'): the {path} group starting at index {mixed} mixes items that declare an `
+			`Facet UI.Menu('{id}'): the {path} group starting at index {mixed} mixes items that declare an `
 				.. "icon with items that do not. Give every item in a group an icon, or none of them "
 				.. "A divider starts a new group.",
 			0
@@ -325,15 +280,20 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 	end
 end
 
-function menu.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newMenu", spec, MENU_KEYS, "spec")
+local function build(Facet, core, spec, owner)
+	specGuard.assertKnownKeys("UI.Menu", spec, MENU_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Menu"
-	local scope = core:scope(`menu-{id}`)
+	if spec.label ~= nil then
+		assert(type(spec.label) == "string", "UI.Menu.label must be a string")
+		assert(spec.trigger == nil, "Menu: use label or trigger, not both")
+		spec = table.clone(spec)
+		spec.trigger = UI.Button({ id = id, label = spec.label })
+	end
 
 	if type(spec.trigger) ~= "table" then
 		error(
-			`Facet newMenu('{id}'): \`trigger\` is the blueprint the menu attaches to — ANY node, not a `
+			`Facet UI.Menu('{id}'): \`trigger\` is the blueprint the menu attaches to — ANY node, not a `
 				.. "built-in trigger. The contribution rides it; its layout is untouched.",
 			0
 		)
@@ -348,11 +308,11 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		reactive prop in this framework uses (`scale`/`rotation`'s
 		`schema.checkX` pattern) because a Readable's future values cannot be
 		known here. ]]
-	local presentationIsReadable = type(spec.presentation) == "table" and (spec.presentation :: any).get ~= nil
+	local presentationIsReadable = Compose.isReadable(spec.presentation)
 	local staticPresentation = if presentationIsReadable then nil else (spec.presentation or "automatic")
 	if staticPresentation ~= nil and not PRESENTATIONS[staticPresentation] then
 		error(
-			`Facet newMenu('{id}'): unknown presentation '{tostring(staticPresentation)}' (automatic | menu | sheet). `
+			`Facet UI.Menu('{id}'): unknown presentation '{tostring(staticPresentation)}' (automatic | menu | sheet). `
 				.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
 			0
 		)
@@ -361,12 +321,12 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local enabledTriggers: { [string]: boolean } = {}
 	local requestedTriggers = spec.triggers or ALL_TRIGGERS
 	if type(requestedTriggers) ~= "table" or #requestedTriggers == 0 then
-		error(`Facet newMenu('{id}'): \`triggers\` is a non-empty array, or absent for all five.`, 0)
+		error(`Facet UI.Menu('{id}'): \`triggers\` is a non-empty array, or absent for all five.`, 0)
 	end
 	for _, name in requestedTriggers do
 		if not TRIGGERS[name] then
 			error(
-				`Facet newMenu('{id}'): unknown trigger '{tostring(name)}' `
+				`Facet UI.Menu('{id}'): unknown trigger '{tostring(name)}' `
 					.. `(activate | secondary | longPress | keyboard | gamepad).`,
 				0
 			)
@@ -380,7 +340,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		right-click is a defect" is the brief's own wording. ]]
 	if not enabledTriggers.activate and not (enabledTriggers.keyboard and enabledTriggers.gamepad) then
 		error(
-			`Facet newMenu('{id}'): dropping the 'activate' trigger leaves the menu unreachable on a `
+			`Facet UI.Menu('{id}'): dropping the 'activate' trigger leaves the menu unreachable on a `
 				.. "keyboard or a gamepad. Keep 'activate', or declare both 'keyboard' and 'gamepad'.",
 			0
 		)
@@ -389,8 +349,8 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	-- ===== state ==========================================================
 	-- the open CHAIN: {} is the root level, { "adjust" } is one submenu deep.
 	-- Held as a plain array behind a signal so a level change is one write.
-	local openPath = scope:own(core:signal({} :: { string }))
-	local isOpen = scope:own(core:signal(false))
+	local openPath = Compose.cell({} :: { string })
+	local isOpen = Compose.cell(false)
 	local disposed = false
 	local mountedNode
 	local function available()
@@ -401,13 +361,17 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local function bindStates(items)
 		for _, item in items do
 			if item.checked ~= nil or item.selected ~= nil then
-				local selected = scope:own(core:memo(function(use)
-					return if item.checked ~= nil then use(item.checked) else use(item.selected) == item.value
-				end))
+				local selected = Compose.withOwner(owner, function()
+					return Compose.formula(function(use)
+						return if item.checked ~= nil then use(item.checked) else use(item.selected) == item.value
+					end)
+				end)
 				selectedByItem[item] = selected
-				hiddenByItem[item] = scope:own(core:memo(function(use)
-					return not use(selected)
-				end))
+				hiddenByItem[item] = Compose.withOwner(owner, function()
+					return Compose.formula(function(use)
+						return not use(selected)
+					end)
+				end)
 			end
 			if item.children then
 				bindStates(item.children)
@@ -446,8 +410,8 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local ops = {} :: any
 
 	local function readFact(fact: any): any
-		if type(fact) == "table" and (fact :: any).get ~= nil then
-			return (fact :: any):get()
+		if Compose.isReadable(fact) then
+			return (fact :: any):peek()
 		end
 		return fact
 	end
@@ -458,7 +422,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		the drift only shows on the input class nobody tested. `inline` folds into
 		`menu`: see PRESENTATIONS above. ]]
 	local function useFact(use: any, fact: any): any
-		if type(fact) == "table" and (fact :: any).get ~= nil then
+		if Compose.isReadable(fact) then
 			return use(fact)
 		end
 		return fact
@@ -467,7 +431,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	--[[ A MEMO, not a plain read, because the answer has to be able to CHANGE
 		while the menu is open. `sizeClass` and `interactionClasses` are the caller's
 		Readables; a memo tracks them, so the observer below hears a live rotation or
-		a keyboard being put down and re-presents. Read non-reactively (`:get()`) it
+		a keyboard being put down and re-presents. Read non-reactively (`:peek()`) it
 		would have been correct at every open and stale for the whole time one was
 		up — the shape that makes a hot-switch defect device-only. ]]
 	--[[ THE FACTS, AND WHERE THEY COME FROM. Both were spec keys and
@@ -488,7 +452,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		and (spec.sizeClass == nil or spec.interactionClasses == nil)
 	then
 		local env, source = surfaceEnv.resolve(
-			"newMenu",
+			"UI.Menu",
 			id,
 			core,
 			spec.env,
@@ -501,40 +465,43 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local classesSource: any = spec.interactionClasses
 		or (if envForFacts ~= nil then envForFacts:get("interactionClasses") else nil)
 
-	local presentationMemo = scope:own(core:memo(function(use)
-		local requested = useFact(use, spec.presentation)
-		if requested ~= nil and requested ~= "automatic" then
-			if not PRESENTATIONS[requested] then
-				error(
-					`Facet newMenu('{id}'): unknown presentation '{tostring(requested)}' (automatic | menu | sheet). `
-						.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
-					0
-				)
+	local presentationMemo = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local requested = useFact(use, spec.presentation)
+			if requested ~= nil and requested ~= "automatic" then
+				if not PRESENTATIONS[requested] then
+					error(
+						`Facet UI.Menu('{id}'): unknown presentation '{tostring(requested)}' (automatic | menu | sheet). `
+							.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
+						0
+					)
+				end
+				return requested
 			end
-			return requested
-		end
-		-- PRIMARY, not merely present: one predicate, in the recipe
-		local classes = useFact(use, classesSource)
-		local touchLive = menuRecipe.touchPrimary(classes)
-		local liveSizeClass = useFact(use, sizeClassSource)
-		local resolved = menuRecipe.resolvePresentation(
-			menuRecipe.actionableCount(spec.items),
-			liveSizeClass,
-			touchLive,
-			classes ~= nil and classes.primary == "gamepad"
-		)
-		-- Cascades require both room and pointer precision. A short gamepad root
-		-- still needs one panel when entering a submenu; Back pops its history.
-		if
-			resolved ~= "sheet" and (liveSizeClass == "compact" or (classes ~= nil and classes.primary == "gamepad"))
-		then
-			resolved = "sheet"
-		end
-		return if resolved == "sheet" then "sheet" else "menu"
-	end))
+			-- PRIMARY, not merely present: one predicate, in the recipe
+			local classes = useFact(use, classesSource)
+			local touchLive = menuRecipe.touchPrimary(classes)
+			local liveSizeClass = useFact(use, sizeClassSource)
+			local resolved = menuRecipe.resolvePresentation(
+				menuRecipe.actionableCount(spec.items),
+				liveSizeClass,
+				touchLive,
+				classes ~= nil and classes.primary == "gamepad"
+			)
+			-- Cascades require both room and pointer precision. A short gamepad root
+			-- still needs one panel when entering a submenu; Back pops its history.
+			if
+				resolved ~= "sheet"
+				and (liveSizeClass == "compact" or (classes ~= nil and classes.primary == "gamepad"))
+			then
+				resolved = "sheet"
+			end
+			return if resolved == "sheet" then "sheet" else "menu"
+		end)
+	end)
 
 	local function presentationNow(): string
-		return presentationMemo:get()
+		return presentationMemo:peek()
 	end
 
 	-- the item list at a given open chain, and the item a chain's last hop names
@@ -665,7 +632,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				elseif emitted == 1 then "first"
 				elseif emitted == total then "last"
 				else "middle"
-			table.insert(rows, menuRecipe.cardRow(UI, core, scope, spec :: any, position))
+			table.insert(rows, menuRecipe.cardRow(UI, spec :: any, position))
 		end
 		local isSheet = presentation == "sheet"
 		local rich = false
@@ -721,14 +688,14 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	end
 
 	local function closeAll()
-		if #handles == 0 and not isOpen:get() then
+		if #handles == 0 and not isOpen:peek() then
 			return
 		end
 		while #handles > 0 do
 			dismissDeepest()
 		end
 		openPath:set({})
-		if isOpen:get() then
+		if isOpen:peek() then
 			isOpen:set(false)
 			if spec.onClose ~= nil then
 				pcall(spec.onClose)
@@ -744,7 +711,6 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		next one, so a submenu REPLACES the contents; `menu` leaves the parent
 		standing and anchors the child to the row it came from. ]]
 	function presentLevel(level: number, presentation: string, chain: { string }, direction: string?)
-		local panel = buildPanel(presentation, chain)
 		-- `buildPanel`'s own `isSheet` is scoped to that function; recomputed here
 		-- once per open/level rather than threaded through as another return
 		local isSheet = presentation == "sheet"
@@ -754,95 +720,96 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				table.insert(rowIds, `Item:{item.id}`)
 			end
 		end
-		local attached = contribution.attach(panel, {
-			--[[ ONE GROUP, AND IT IS WHAT MAKES THE ARROWS EXIST. The presenter
+		local function buildAttached()
+			return contribution.attach(buildPanel(presentation, chain), {
+				--[[ ONE GROUP, AND IT IS WHAT MAKES THE ARROWS EXIST. The presenter
 				creates its HORIZONTAL Navigate action only when the surface has
 				navigation groups (`navigateH` is nil otherwise), so without this
 				declaration Left/Right would never reach `navigateIntercept` and the
 				submenu arrows would silently do nothing — the "check that proves
 				nothing" shape, one level down. The order is DOCUMENT order, matching
 				the Tab rule shipped in `97e9d93`. ]]
-			focusGroups = function(rootNode: any)
-				local order: { string } = {}
-				if presentation == "sheet" and #chain > 0 then
-					table.insert(order, `{rootNode.path}/{BACK_ID}`)
-				end
-				-- a non-sheet root is the `Popup` fade group the materialize
-				-- transition wraps around `Panel`, one level above the rows it used
-				-- to sit on directly; a sheet's root IS `Panel`, unwrapped
-				local rowRoot = if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`
-				for _, rowId in rowIds do
-					table.insert(order, `{rowRoot}/{rowId}`)
-				end
-				return { { name = `menu-{id}-{level}`, axis = "vertical", entry = "first", order = order } }
-			end,
-			bindFocusGraph = function(graph: any)
-				pendingGraph = graph
-			end,
-			handleActivate = function(path: string, _meta: any?): boolean
-				if string.match(path, `/{PANEL_ID}/{BACK_ID}$`) ~= nil then
-					ops.back()
-					return true
-				end
-				local itemId = string.match(path, `/{PANEL_ID}/Item:(.+)$`)
-				if itemId == nil then
-					return false
-				end
-				return ops.select(itemId)
-			end,
-			handleCancel = function(_focusedPath: string?): boolean
-				if not isOpen:get() then
-					return false
-				end
-				-- CANCEL CLOSES ONE LEVEL, tap-away closes ALL (brief §2 D2). They are
-				-- different verbs: Cancel is "I am done with this submenu", an outside
-				-- tap is "I am done with the menu". Conflating them is invisible until
-				-- a submenu is open, which no smoke test does.
-				ops.back()
-				return true
-			end,
-			navigateIntercept = function(direction: string): boolean
-				if not isOpen:get() then
-					return false
-				end
-				if direction == "left" then
-					if #openPath:get() == 0 then
-						return false -- nothing to leave; let the ring have the arrow
+				focusGroups = function(rootNode: any)
+					local order: { string } = {}
+					if presentation == "sheet" and #chain > 0 then
+						table.insert(order, `{rootNode.path}/{BACK_ID}`)
 					end
+					-- a non-sheet root is the `Popup` fade group the materialize
+					-- transition wraps around `Panel`, one level above the rows it used
+					-- to sit on directly; a sheet's root IS `Panel`, unwrapped
+					local rowRoot = if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`
+					for _, rowId in rowIds do
+						table.insert(order, `{rowRoot}/{rowId}`)
+					end
+					return { { name = `menu-{id}-{level}`, axis = "vertical", entry = "first", order = order } }
+				end,
+				bindFocusGraph = function(graph: any)
+					pendingGraph = graph
+				end,
+				handleActivate = function(path: string, _meta: any?): boolean
+					if string.match(path, `/{PANEL_ID}/{BACK_ID}$`) ~= nil then
+						ops.back()
+						return true
+					end
+					local itemId = string.match(path, `/{PANEL_ID}/Item:(.+)$`)
+					if itemId == nil then
+						return false
+					end
+					return ops.select(itemId)
+				end,
+				handleCancel = function(_focusedPath: string?): boolean
+					if not isOpen:peek() then
+						return false
+					end
+					-- CANCEL CLOSES ONE LEVEL, tap-away closes ALL (brief §2 D2). They are
+					-- different verbs: Cancel is "I am done with this submenu", an outside
+					-- tap is "I am done with the menu". Conflating them is invisible until
+					-- a submenu is open, which no smoke test does.
 					ops.back()
 					return true
-				end
-				if direction == "right" then
-					return ops.enterFocused()
-				end
-				return false
-			end,
-		})
-
+				end,
+				navigateIntercept = function(direction: string): boolean
+					if not isOpen:peek() then
+						return false
+					end
+					if direction == "left" then
+						if #openPath:peek() == 0 then
+							return false -- nothing to leave; let the ring have the arrow
+						end
+						ops.back()
+						return true
+					end
+					if direction == "right" then
+						return ops.enterFocused()
+					end
+					return false
+				end,
+			})
+		end
 		local surfaceId = surfaceIdFor(level)
 		local handle
 		if presentation == "sheet" then
-			handle = (presentModalFn :: any)(
-				UI.Screen({
+			local function buildSheet()
+				return UI.Screen({
 					id = surfaceId,
 					children = {
 						UI.Anchor({
 							id = "Layer",
-							width = { type = "fill", weight = 1 },
-							height = { type = "fill", weight = 1 },
-							children = { attached },
+							width = UI.fill(),
+							height = UI.fill(),
+							children = { buildAttached() },
 						}),
 					},
-				}),
-				{
-					-- the touch idiom: a dimming scrim under a bottom-anchored surface,
-					-- which is what makes a sheet read as "the screen is waiting"
-					scrim = "scrim",
-					outsideTapCancel = true,
-					cancelPolicy = "none",
-					transition = { enter = direction or "slide-up", exit = "slide-down" },
-				}
-			)
+				})
+			end
+			handle = (presentModalFn :: any)(if Facet.surfaces then buildSheet else buildSheet(), {
+				-- the touch idiom: a dimming scrim under a bottom-anchored surface,
+				-- which is what makes a sheet read as "the screen is waiting"
+				scrim = "scrim",
+				outsideTapCancel = true,
+				cancelPolicy = "none",
+				transition = { enter = direction or "slide-up", exit = "slide-down" },
+			})
 		else
 			--[[ D1 DOES THE PLACEMENT. Level 0 hangs under the trigger; a submenu
 				hangs off its PARENT ROW, preferred edge trailing, flipping to leading
@@ -862,7 +829,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}/Item:{last}`
 				edge = "trailing"
 			end
-			handle = (presentAnchoredFn :: any)(attached, {
+			handle = (presentAnchoredFn :: any)(if Facet.surfaces then buildAttached else buildAttached(), {
 				id = surfaceId,
 				modal = true,
 				-- the same attachment every control-presented popover keeps (picker
@@ -933,7 +900,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		if not available() then
 			return
 		end
-		local chain = table.clone(openPath:get())
+		local chain = table.clone(openPath:peek())
 		table.insert(chain, itemId)
 		openPath:set(chain)
 		local presentation = presentationNow()
@@ -948,7 +915,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	end
 
 	function ops.back()
-		local chain = table.clone(openPath:get())
+		local chain = table.clone(openPath:peek())
 		if #chain == 0 then
 			closeAll()
 			return
@@ -985,46 +952,48 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		the surfaces are rebuilt in the newly resolved idiom at exactly the depth the
 		player had reached. Cancelling it instead would close a menu under a player
 		who did nothing but rotate the device. ]]
-	scope:own(core:observe(presentationMemo, function(presentation: string)
-		if not isOpen:get() then
+	owner.watchStatic(presentationMemo, function(presentation: string)
+		if not isOpen:peek() then
 			return
 		end
-		rebuild(openPath:get(), presentation)
-	end))
+		rebuild(openPath:peek(), presentation)
+	end)
 
 	-- A submenu cannot retain input ownership after its parent becomes unavailable.
-	local validOpenChain = scope:own(core:memo(function(use)
-		local chain, valid, items = use(openPath), {}, spec.items
-		for _, identity in chain do
-			local item = itemIn(items, identity)
-			if not item or item.children == nil then
-				break
+	local validOpenChain = Compose.withOwner(owner, function()
+		return Compose.formula(function(use)
+			local chain, valid, items = use(openPath), {}, spec.items
+			for _, identity in chain do
+				local item = itemIn(items, identity)
+				if not item or item.children == nil then
+					break
+				end
+				local state = item.enabled
+				if Compose.isReadable(state) then
+					state = use(state)
+				end
+				if state == false then
+					break
+				end
+				table.insert(valid, identity)
+				items = item.children
 			end
-			local state = item.enabled
-			if type(state) == "table" and state.kind then
-				state = use(state)
-			end
-			if state == false then
-				break
-			end
-			table.insert(valid, identity)
-			items = item.children
-		end
-		return valid
-	end))
-	scope:own(core:observe(validOpenChain, function(valid)
-		if not isOpen:get() or #valid == #openPath:get() then
+			return valid
+		end)
+	end)
+	owner.watchStatic(validOpenChain, function(valid)
+		if not isOpen:peek() or #valid == #openPath:peek() then
 			return
 		end
 		openPath:set(valid)
 		rebuild(valid, presentationNow())
-	end))
+	end)
 
 	function ops.select(itemId: string): boolean
 		if not available() then
 			return false
 		end
-		local chain = openPath:get()
+		local chain = openPath:peek()
 		local item = itemIn(itemsAt(chain), itemId)
 		if item == nil then
 			return false
@@ -1045,8 +1014,8 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 		if hasState then
 			local state = item.checked or item.selected
-			local nextValue = if item.checked ~= nil then not state:get() else item.value
-			if state:get() ~= nextValue then
+			local nextValue = if item.checked ~= nil then not state:peek() else item.value
+			if state:peek() ~= nextValue then
 				state:set(nextValue)
 				if item.onChange then
 					pcall(item.onChange, nextValue)
@@ -1066,7 +1035,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		only when there is one to go into. ]]
 	function ops.enterFocused(): boolean
 		local graph = graphs[#graphs]
-		local focused = if graph ~= nil then graph.focused:get() else nil
+		local focused = if graph ~= nil then graph.focused:peek() else nil
 		if type(focused) ~= "string" then
 			return false
 		end
@@ -1074,7 +1043,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		if itemId == nil then
 			return false
 		end
-		local item = itemIn(itemsAt(openPath:get()), itemId)
+		local item = itemIn(itemsAt(openPath:peek()), itemId)
 		if item == nil or item.children == nil then
 			return false
 		end
@@ -1088,7 +1057,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		if not available() then
 			return false
 		end
-		if isOpen:get() then
+		if isOpen:peek() then
 			return false
 		end
 		--[[ THE FUNCTION THIS IDIOM ACTUALLY NEEDS, not "either of them". `bindPresent`
@@ -1124,7 +1093,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		ops.back()
 	end
 	function api.toggle()
-		if isOpen:get() then
+		if isOpen:peek() then
 			closeAll()
 		else
 			api.open()
@@ -1184,7 +1153,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 		detachGestures = controller.attachContextGestures(rootPath :: string, handlers)
 		if detachGestures ~= nil then
-			scope:own(detachGestures :: any)
+			owner.own(detachGestures :: any)
 		end
 	end
 
@@ -1216,12 +1185,12 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		action.onPressed(function()
 			-- Context commands belong to the focused trigger. Multiple menus may
 			-- share the chord without opening all their panels at once.
-			if triggerGraph and rootPath and triggerGraph.focused:get() == rootPath then
+			if triggerGraph and rootPath and triggerGraph.focused:peek() == rootPath then
 				api.toggle()
 			end
 		end)
 		keysContext = ctx
-		scope:own(function()
+		owner.own(function()
 			if keysContext ~= nil then
 				keysContext.destroy()
 				keysContext = nil
@@ -1236,7 +1205,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		handleActivate = api.handleActivate,
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
 			mountedNode = rootNode
-			if not available() and isOpen:get() then
+			if not available() and isOpen:peek() then
 				closeAll()
 			end
 			if rootNode ~= nil and rootPath == nil then
@@ -1249,9 +1218,9 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			wireGestures()
 		end,
 		bindPresent = function(presentModal: any, dismiss: any, presentAnchored: any)
-			presentModalFn = presentModal
+			presentModalFn = if Facet.surfaces then Facet.surfaces.modal else presentModal
 			dismissFn = dismiss
-			presentAnchoredFn = presentAnchored
+			presentAnchoredFn = if Facet.surfaces then Facet.surfaces.anchored else presentAnchored
 		end,
 		bindActionSystem = function(sys: any)
 			actionSystemRef = sys
@@ -1267,6 +1236,20 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			return { rootPath :: string }
 		end,
 	})
+
+	-- A trigger that declares its own effect still opens its menu: the presenter
+	-- asks a node's `onActivate` before any contribution, so the menu's activate
+	-- route goes first there and the trigger's effect runs when the menu declines.
+	local ownActivate = spec.trigger.props and spec.trigger.props.onActivate
+	if type(ownActivate) == "function" then
+		Facet.runtime.decorate(blueprint, {
+			onActivate = function(path: string, meta: any?)
+				if not api.handleActivate(path, meta) then
+					ownActivate(path, meta)
+				end
+			end,
+		})
+	end
 
 	local function dump()
 		local function describe(list: { Item }, out: { any })
@@ -1286,8 +1269,8 @@ function menu.build(Facet: any, core: any, spec: Spec)
 							elseif item.selected ~= nil then "selection"
 							else "action",
 						checked = if item.checked ~= nil
-							then item.checked:get()
-							elseif item.selected ~= nil then item.selected:get() == item.value
+							then item.checked:peek()
+							elseif item.selected ~= nil then item.selected:peek() == item.value
 							else nil,
 					}
 					if item.children ~= nil then
@@ -1300,10 +1283,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 		local items: { any } = {}
 		describe(spec.items, items)
-		local chain = openPath:get()
+		local chain = openPath:peek()
 		local presentation = presentationNow()
 		local depth = #chain
-		local text = if not isOpen:get()
+		local text = if not isOpen:peek()
 			then `menu '{id}': closed, {menuRecipe.actionableCount(spec.items)} items, presents as {presentation}`
 			else `menu '{id}': open at depth {depth} ({table.concat(chain, " > ")}), {presentation}, `
 				.. `{#handles} surface(s)`
@@ -1312,7 +1295,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			-- "spec" (authored) or "core" (the surface's environment, no wiring)
 			factsFrom = factsFrom,
 			id = id,
-			open = isOpen:get(),
+			open = isOpen:peek(),
 			presentation = presentation,
 			openPath = table.clone(chain),
 			depth = depth,
@@ -1324,6 +1307,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		}
 	end
 
+	owner.own(function()
+		disposed = true
+		closeAll()
+	end)
 	return {
 		blueprint = blueprint,
 		api = api,
@@ -1335,9 +1322,21 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			end
 			disposed = true
 			closeAll()
-			scope:dispose()
+			owner.dispose()
 		end,
 	}
 end
 
+function menu.build(Facet, core, spec)
+	local parent = Compose.currentOwner()
+	local owner = if parent then parent.createChild() else Compose.createOwner()
+	local ok, result = pcall(Compose.withOwner, owner, function()
+		return build(Facet, core, spec, owner)
+	end)
+	if not ok then
+		owner.dispose()
+		error(result, 0)
+	end
+	return result
+end
 return menu

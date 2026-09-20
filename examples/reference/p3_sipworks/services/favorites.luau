@@ -11,8 +11,7 @@
 local favorites = {}
 
 function favorites.new(opts: any)
-	local core = opts.core
-	local scope = opts.scope
+	local Compose = opts.Compose
 	local seed = opts.seed or 1
 	local ids: { string } = opts.ids or {}
 
@@ -30,20 +29,17 @@ function favorites.new(opts: any)
 		return out
 	end
 
-	local set = core:signal(seeded())
-	scope:own(function()
-		set:dispose()
-	end)
+	local set = Compose.cell(seeded())
 
 	local self = {}
 	self.set = set
 
 	function self.isFavorite(id: string): boolean
-		return set:get()[id] == true
+		return set:peek()[id] == true
 	end
 
 	function self.toggle(id: string): boolean
-		local next = table.clone(set:get())
+		local next = table.clone(set:peek())
 		local nowOn = next[id] ~= true
 		next[id] = if nowOn then true else nil
 		set:set(next)
@@ -52,7 +48,7 @@ function favorites.new(opts: any)
 
 	function self.count(): number
 		local n = 0
-		for _ in set:get() do
+		for _ in set:peek() do
 			n += 1
 		end
 		return n
@@ -61,7 +57,7 @@ function favorites.new(opts: any)
 	-- sorted, so a dump is stable
 	function self.ids(): { string }
 		local out: { string } = {}
-		for id in set:get() do
+		for id in set:peek() do
 			table.insert(out, id)
 		end
 		table.sort(out)

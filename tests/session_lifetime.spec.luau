@@ -1,9 +1,10 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE TWO `newX` FACTORIES THAT HELD SESSION STATE AND COULD NOT BE PUT DOWN
 	(architecture review ARCH-12 / ARCH-13; constitution §2 and §8).
 
 	The constitution's rule is "who disposes it", in order of preference: pass a
-	scope and the helper owns its resources there; else `scope:own(handle)` the
+	scope and the helper owns its resources there; else `scope.own(handle)` the
 	returned object; else the return IS the unsubscribe. `newActionSystem` and
 	`newResourceProvider` were in none of those categories. Both are `newX`
 	factories, both hold real per-session state — contexts and their signals; a
@@ -26,14 +27,14 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customCore = require("../src/core/custom")
+local customCore = harness.coreFactory
 local actionsLib = require("../src/input/actions")
 local resources = require("../src/async/resources")
 
 describe("newActionSystem has a lifetime (ARCH-12)", function()
 	it("dispose destroys every context it created and returns the core to baseline", function()
 		local core = customCore.new()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 
 		local system = actionsLib.newSystem(core)
 		local gameplay = system.createContext({ name = "Gameplay", priority = 1000 })
@@ -51,8 +52,8 @@ describe("newActionSystem has a lifetime (ARCH-12)", function()
 			"disposed" system that merely dropped its table would leave those signals
 			in the graph, alive, for the lifetime of the core — which is the leak
 			shape a comment cannot rule out. ]]
-		expect(core:counters()).toEqual(baseline)
-		expect(core:lastError()).toBe(nil)
+		expect(core.owner.size()).toEqual(baseline)
+		expect(core.lastError()).toBe(nil)
 	end)
 
 	it("dispose is idempotent, and a disposed system delivers nothing", function()
@@ -80,31 +81,31 @@ describe("newActionSystem has a lifetime (ARCH-12)", function()
 		system.deviceKey("Space", false)
 		system.deviceAxis("Move", 1, 0)
 		expect(fired).toBe(1)
-		expect(core:lastError()).toBe(nil)
+		expect(core.lastError()).toBe(nil)
 	end)
 
 	it("a context destroyed by hand before dispose is not destroyed twice", function()
 		local core = customCore.new()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local system = actionsLib.newSystem(core)
 		local ctx = system.createContext({ name = "UI", priority = 1000 })
 		ctx.createAction("Fire", "Bool")
 		ctx.destroy() -- the consumer got there first
 		expect(system.contextCount()).toBe(0)
 		system.dispose()
-		expect(core:counters()).toEqual(baseline)
-		expect(core:lastError()).toBe(nil)
+		expect(core.owner.size()).toEqual(baseline)
+		expect(core.lastError()).toBe(nil)
 	end)
 end)
 
 describe("newResourceProvider has a lifetime (ARCH-13)", function()
 	local function scopeOf(core: any)
-		return core:scope()
+		return core.owner.createChild()
 	end
 
 	it("dispose drops the cache, the in-flight requests and the give-up ledger", function()
 		local core = customCore.new()
-		local baseline = core:counters()
+		local baseline = core.owner.size()
 		local provider = resources.newProvider(core, { maxConcurrent = 1 })
 		local scope = scopeOf(core)
 
@@ -128,8 +129,8 @@ describe("newResourceProvider has a lifetime (ARCH-13)", function()
 			`state`, `value` and `error` are core signals held in `keyState`, so a
 			provider that is merely forgotten leaves three per key alive in the graph
 			forever. ]]
-		expect(core:counters()).toEqual(baseline)
-		expect(core:lastError()).toBe(nil)
+		expect(core.owner.size()).toEqual(baseline)
+		expect(core.lastError()).toBe(nil)
 	end)
 
 	it("dispose is idempotent, and a disposed provider accepts no new work", function()
@@ -150,9 +151,9 @@ describe("newResourceProvider has a lifetime (ARCH-13)", function()
 
 		-- ...and an acquire after dispose does not resurrect the session
 		local handle = provider.acquire(scope, "b")
-		expect(handle.state:get()).toBe("failed")
+		expect(handle.state:peek()).toBe("failed")
 		expect(#provider.pendingRequests()).toBe(0)
 		scope:dispose()
-		expect(core:lastError()).toBe(nil)
+		expect(core.lastError()).toBe(nil)
 	end)
 end)

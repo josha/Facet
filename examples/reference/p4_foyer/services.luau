@@ -12,23 +12,23 @@ export type CommandStatus = "idle" | "pending" | "confirmed" | "rejected"
 
 local services = {}
 
-function services.new(deps: { core: any })
-	local core = deps.core
+function services.new(deps: { Compose: any })
+	local Compose = deps.Compose
 
 	local self = {} :: any
 
 	-- ── FeedService ────────────────────────────────────────────────────────
 	local page = 0
-	self.sections = core:signal(seed.sections(page))
+	self.sections = Compose.cell(seed.sections(page))
 	self.charted = seed.charted()
-	self.continueIds = core:signal({} :: { [string]: boolean })
-	self.noticeCount = core:signal(#seed.notices)
+	self.continueIds = Compose.cell({} :: { [string]: boolean })
+	self.noticeCount = Compose.cell(#seed.notices)
 	self.notices = seed.notices
 
-	self.refreshStatus = core:signal("idle" :: CommandStatus)
-	self.refreshReason = core:signal(nil :: string?)
-	self.visitStatus = core:signal("idle" :: CommandStatus)
-	self.visitPendingId = core:signal(nil :: string?)
+	self.refreshStatus = Compose.cell("idle" :: CommandStatus)
+	self.refreshReason = Compose.cell(nil :: string?)
+	self.visitStatus = Compose.cell("idle" :: CommandStatus)
+	self.visitPendingId = Compose.cell(nil :: string?)
 
 	-- scripted rejection fixtures: the NEXT command of that name rejects once
 	local rejectNext: { [string]: string? } = {}
@@ -51,7 +51,7 @@ function services.new(deps: { core: any })
 	end
 
 	function self.refresh()
-		if self.refreshStatus:get() == "pending" then
+		if self.refreshStatus:peek() == "pending" then
 			return
 		end
 		self.refreshReason:set(nil)
@@ -71,7 +71,7 @@ function services.new(deps: { core: any })
 	end
 
 	function self.visit(tileId: string)
-		if self.visitStatus:get() == "pending" then
+		if self.visitStatus:peek() == "pending" then
 			return
 		end
 		self.visitPendingId:set(tileId)
@@ -84,7 +84,7 @@ function services.new(deps: { core: any })
 				self.visitPendingId:set(nil)
 				return
 			end
-			local ids = table.clone(self.continueIds:get())
+			local ids = table.clone(self.continueIds:peek())
 			ids[tileId] = true
 			self.continueIds:set(ids)
 			self.visitStatus:set("confirmed")
@@ -102,13 +102,13 @@ function services.new(deps: { core: any })
 
 	-- ── FriendsService ─────────────────────────────────────────────────────
 	self.friends = seed.friends
-	self.inviteCount = core:signal(seed.inviteCount)
+	self.inviteCount = Compose.cell(seed.inviteCount)
 
 	-- ── SearchService ──────────────────────────────────────────────────────
 	-- filter(queryReadable) -> memo of matching tiles (title OR creator,
 	-- case-folded substring), deterministic order = seed order
 	function self.filterMemo(query: any)
-		return core:memo(function(use)
+		return Compose.formula(function(use)
 			local q = string.lower(use(query))
 			if q == "" then
 				return {}
@@ -135,7 +135,7 @@ function services.new(deps: { core: any })
 
 	-- lookup for the detail surface
 	function self.tileById(id: string): seed.Tile?
-		for _, section in self.sections:get() :: { any } do
+		for _, section in self.sections:peek() :: { any } do
 			for _, tile in section.tiles do
 				if tile.id == id then
 					return tile

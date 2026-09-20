@@ -72,34 +72,61 @@ local BADGE_MIN = 20
 local BADGE_MAX = 40
 
 function Foyer.build(Facet: any, core: any, deps: any): any
-	local UI = Facet.UI
-	local env = deps.env
-	local presenter = deps.presenter
+	local app = deps.app
+	local UI = app.controls
+	local Compose = Facet.Compose
+	local env = app.environment
+	local presenter = app.presenter
 
-	local scope = core:scope("ref-p4-foyer")
-	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
-	local clock = presenter.motionClock
+	-- A conditional region: `/<id>/then/...` or `/<id>/else/...`.
+	local function when(id: string)
+		return function(spec: any)
+			return UI.When(id)({
+				Compose.show(
+					spec.condition,
+					function()
+						return UI.When("then")({ spec.thenView() })
+					end,
+					if spec.elseView
+						then function()
+							return UI.When("else")({ spec.elseView() })
+						end
+						else nil
+				),
+			})
+		end
+	end
+	-- A keyed collection: each row lives at `/<id>/[key]/...`.
+	local function forEach(id: string)
+		return function(spec: any)
+			return UI.ForEach(id)({
+				Compose.keyed({
+					from = spec.items,
+					key = spec.key,
+					render = function(item: any, _, key: any)
+						local node = spec.row(item:peek())
+						node.collectionKey = `[{key}]`
+						return node
+					end,
+				}),
+			})
+		end
+	end
 
 	-- ── locale ─────────────────────────────────────────────────────────────
-	local locale = core:signal("en")
-	local stringMemos: { [string]: any } = {}
+	local locale = Compose.cell("en")
+	-- A reactive string: a property bound to it follows the locale.
 	local function L(key: string, param: string?): any
-		local cacheKey = key .. "\1" .. (param or "")
-		local m = stringMemos[cacheKey]
-		if m == nil then
-			m = core:memo(function(use)
-				return strings.get(use(locale), key, param)
-			end)
-			stringMemos[cacheKey] = m
+		return function(use)
+			return strings.get(use(locale), key, param)
 		end
-		return m
 	end
 	local function Lnow(key: string, param: string?): string
-		return strings.get(locale:get(), key, param)
+		return strings.get(locale:peek(), key, param)
 	end
 
 	-- ── services + images ──────────────────────────────────────────────────
-	local services = Services.new({ core = core })
+	local services = Services.new({ Compose = Compose })
 	local provider = Facet.newResourceProvider(core, { maxConcurrent = 4, cacheBudget = 64 })
 
 	-- the scripted transport (spec §3): drain the provider's active window and
@@ -122,33 +149,24 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		end
 	end
 
-	-- disposables from composite controls (newLabel/newTextInput) built at
-	-- screen scope: owned here so dispose() releases them all
-	local function owned(control: any): any
-		if control.dispose ~= nil then
-			scope:own(control.dispose)
-		end
-		return control
-	end
-
 	-- ── semantic state ─────────────────────────────────────────────────────
-	local destination = core:signal("home")
-	local tab = core:signal("forYou")
-	local query = core:signal("")
+	local destination = Compose.cell("home")
+	local tab = Compose.cell("forYou")
+	local query = Compose.cell("")
 	local filtered = services.filterMemo(query)
-	local searchActive = core:memo(function(use)
+	local searchActive = Compose.formula(function(use)
 		return use(query) ~= ""
 	end)
 
-	-- ── motion: tab underline springs (object class; reduced motion snaps) ──
+	-- ── motion: tab underline springs (reduced motion snaps) ───────────────
 	local function underlineTint(tabId: string)
-		local selected = scope:own(core:memo(function(use)
+		local s = app.runtime.spring(function(use)
 			return if use(tab) == tabId then 1 else 0
-		end))
-		local s = clock:animate(selected, "object", { scope = scope })
-		return scope:own(core:memo(function(use)
-			return { role = "accent", blend = math.clamp(use(s), 0, 1) }
-		end))
+		end, { period = 0.28, damping = 1 })
+		return function(use)
+			local blend = if use(env:get("reducedMotion")) then (if use(tab) == tabId then 1 else 0) else use(s)
+			return { role = "accent", blend = math.clamp(blend, 0, 1) }
+		end
 	end
 
 	-- ── feedback → proof sound ids (spec §12; ids only, nothing plays) ─────
@@ -159,121 +177,113 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		reject = "sfx.foyer.deny",
 		dismiss = "sfx.foyer.close",
 	}
-	scope:own(presenter.onFeedback(function(event: any)
+	local function logFeedback(event: any)
 		local id = FEEDBACK_SFX[event.type]
 		if id ~= nil then
 			table.insert(soundLog, id)
 		end
-	end))
+	end
 
 	-- ── shared pieces ──────────────────────────────────────────────────────
 	local function asyncImage(id: string, key: string, width: any, height: any, radius: string?)
-		local img = Facet.View.AsyncImage({
-			id = id,
+		local img = UI.AsyncImage(id)({
 			provider = provider,
 			key = key,
 			width = width,
 			height = height,
 		})
-		return Facet.View.corners(img, radius or "control")
+		return UI.corners(img, radius or "control")
 	end
 
+	-- A toast owns its body: the component runs inside the toast.
 	local function toast(textKey: string)
-		presenter.presentToast(
-			UI.VStack({
-				id = "ToastPlate",
+		local function body()
+			return UI.VStack("ToastPlate")({
 				surface = "raised",
 				padding = "m",
-				UI.Text({ id = "Msg", text = L(textKey), textSize = "label" }),
-			}),
-			{ key = "foyer", duration = 4 }
-		)
+				UI.Text("Msg")({ text = L(textKey), textSize = "label" }),
+			})
+		end
+		presenter.presentToast(body, { key = "foyer", duration = 4 })
 	end
 
 	-- one modal shape for info surfaces (profile / notices / invite stub /
 	-- see-all): a materializing raised panel with a Close button
-	local function presentInfoModal(id: string, titleKey: string, bodyChildren: { any })
-		local children: { any } = {
-			UI.Text({ id = "Title", text = L(titleKey), textSize = "heading" }),
-		}
-		for _, child in bodyChildren do
-			children[#children + 1] = child
+	-- `body` runs inside the modal's component and answers its middle children.
+	local function presentInfoModal(id: string, titleKey: string, body: () -> { any })
+		local close: any
+		local function group()
+			local props: { any } = {
+				canvasGroup = true,
+				UI.Text("Title")({ text = L(titleKey), textSize = "heading" }),
+			} :: any
+			for _, child in body() do
+				table.insert(props, child)
+			end
+			table.insert(
+				props,
+				UI.Button("Close")({
+					label = Lnow("close.label"),
+					onActivate = function()
+						close()
+					end,
+				})
+			)
+			return UI.ZStack("Group")(props)
 		end
-		local handle
-		children[#children + 1] = UI.Button({
-			id = "Close",
-			label = Lnow("close.label"),
-			onActivate = function()
-				presenter.dismiss(handle)
-			end,
-		})
 		--[[ task POP fix round 1: `Plate` is itself the panel (`surface =
 			"raised"`) AND, before this fix, the direct container of `children`
 			— `materialize` (which fades) targeted `PanelZ`, so `Plate` used to
 			ride the same `GroupTransparency` ramp as its own title/body text
 			(`newpop.mov`'s mechanism). `Plate` stays the outer, non-canvasGroup
 			panel; `Group` is the ONE new canvasGroup, nested one level in. ]]
-		handle = presenter.presentModal(
-			UI.Screen({
-				id = id,
+		close = app.presentModal(function()
+			return UI.Screen(id)({
 
-				UI.ZStack({
-					id = "PanelZ",
+				UI.ZStack("PanelZ")({
 
 					UI.corners(
 						UI.shadow(
-							UI.VStack({
-								id = "Plate",
+							UI.VStack("Plate")({
 								surface = "raised",
 								padding = "l",
 								gap = "m",
 								width = { type = "minMax", min = 280, max = DETAIL_W },
 
-								UI.ZStack({
-									id = "Group",
-									canvasGroup = true,
-									children = children,
-								}),
+								group(),
 							}),
 							"overlay"
 						),
 						"panel"
 					),
 				}),
-			}),
-			{ transition = { enter = "materialize" } }
-		)
-		return handle
+			})
+		end, { transition = { enter = "materialize" } })
 	end
 
 	local function presentNotices()
-		local rows: { any } = {}
-		for i, notice in seedData.notices :: { seedData.Notice } do
-			rows[#rows + 1] = UI.VStack({
-				id = "N" .. i,
-				gap = "xs",
+		presentInfoModal("NoticesModal", "notices.title", function()
+			local rows: { any } = {}
+			for i, notice in seedData.notices :: { seedData.Notice } do
+				rows[#rows + 1] = UI.VStack("N" .. i)({
+					gap = "xs",
 
-				UI.Text({ id = "Body", text = notice.bodyKeyless }),
-				UI.Text({
-					id = "Time",
-					text = L(notice.timeKey, notice.timeParam),
-					textSize = "caption",
-					role = "secondary",
-				}),
-			})
-		end
-		presentInfoModal("NoticesModal", "notices.title", rows)
+					UI.Text("Body")({ text = notice.bodyKeyless }),
+					UI.Text("Time")({
+						text = L(notice.timeKey, notice.timeParam),
+						textSize = "caption",
+						role = "secondary",
+					}),
+				})
+			end
+			return rows
+		end)
 		services.clearNotices()
 	end
 
 	-- ── detail modal (spec §6.5) ───────────────────────────────────────────
-	local detailScope: any = nil
 	local function presentDetail(tile: seedData.Tile)
-		if detailScope ~= nil then
-			detailScope:dispose()
-		end
-		detailScope = core:scope("foyer-detail")
-		local visitLabel = core:memo(function(use)
+		local visitLabel = Compose.formula(function(use)
 			local status = use(services.visitStatus)
 			local pendingId = use(services.visitPendingId)
 			if status == "pending" and pendingId == tile.id then
@@ -281,35 +291,28 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			end
 			return strings.get(use(locale), "detail.visit")
 		end)
-		local visitEnabled = core:memo(function(use)
+		local visitEnabled = Compose.formula(function(use)
 			return use(services.visitStatus) ~= "pending"
 		end)
-		local handle
-		--[[ task POP fix round 1: same shape and fix as `presentInfoModal`
-			above — `Plate` stays the outer, non-canvasGroup panel; `Group` is
-			the ONE new canvasGroup, nested one level in, wrapping the page
-			scroller. ]]
-		handle = presenter.presentModal(
-			UI.Screen({
-				id = "Detail",
+		local close: any
+		-- `Plate` is the outer, non-canvasGroup panel; `Group` is the one
+		-- canvasGroup, nested one level in, wrapping the page scroller.
+		close = app.presentModal(function()
+			return UI.Screen("Detail")({
 
-				UI.ZStack({
-					id = "PanelZ",
+				UI.ZStack("PanelZ")({
 
 					UI.corners(
 						UI.shadow(
-							UI.VStack({
-								id = "Plate",
+							UI.VStack("Plate")({
 								surface = "raised",
 								padding = "l",
 								width = { type = "minMax", min = 280, max = DETAIL_W },
 
-								UI.ZStack({
-									id = "Group",
+								UI.ZStack("Group")({
 									canvasGroup = true,
 
-									UI.ScrollView({
-										id = "Page",
+									UI.ScrollView("Page")({
 										gap = "m",
 
 										asyncImage(
@@ -318,27 +321,23 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 											UI.fill(),
 											{ type = "aspect", ratio = 16 / 9 }
 										),
-										UI.Text({
-											id = "Title",
+										UI.Text("Title")({
 											text = tile.title,
 											textSize = "title",
 										}),
-										UI.Text({
-											id = "Meta",
+										UI.Text("Meta")({
 											text = tile.approval .. "%  ·  " .. tile.creator,
 											textSize = "caption",
 											role = "secondary",
 										}),
-										UI.Text({ id = "Blurb", text = tile.blurb }),
-										UI.HStack({
-											id = "Footer",
+										UI.Text("Blurb")({ text = tile.blurb }),
+										UI.HStack("Footer")({
 											gap = "m",
 											-- same story as the section Header: primary leading,
 											-- dismiss trailing, said once on the row
 											distribute = "spaceBetween",
 
-											UI.Button({
-												id = "Visit",
+											UI.Button("Visit")({
 												label = visitLabel,
 												surface = "accent",
 												enabled = visitEnabled,
@@ -346,13 +345,12 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 													services.visit(tile.id)
 												end,
 											}),
-											UI.Button({
-												id = "Close",
+											UI.Button("Close")({
 												label = Lnow("close.label"),
 												shape = "circle",
 												icon = "close",
 												onActivate = function()
-													presenter.dismiss(handle)
+													close()
 												end,
 											}),
 										}),
@@ -364,57 +362,63 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 						"panel"
 					),
 				}),
-			}),
-			{ transition = { enter = "materialize" } }
-		)
+			})
+		end, { transition = { enter = "materialize" } })
 	end
 
 	-- command outcomes (spec §9): visit confirm dismisses + toasts; refresh
 	-- confirm toasts + scrolls the feed to top scenario-side; refresh reject
 	-- toasts the service's reason key (already a full i18n key)
-	scope:own(core:observe(services.visitStatus, function(status: string)
-		if status == "confirmed" then
-			-- back() is a safe no-op when no modal is up (it returns false)
-			presenter.back()
-			toast("toast.visited")
-		elseif status == "rejected" then
-			toast("err.generic")
-		end
-	end))
-	scope:own(core:observe(services.refreshStatus, function(status: string)
-		if status == "confirmed" then
-			toast("toast.refreshed")
-		elseif status == "rejected" then
-			toast(services.refreshReason:get() or "err.generic")
-		end
-	end))
+	local function watchStatus(source: any, onChange: (string) -> ())
+		local first = true
+		Compose.watch(function(use)
+			local status = use(source)
+			if first then
+				first = false
+				return
+			end
+			onChange(status)
+		end)
+	end
+	local function watchCommands()
+		watchStatus(services.visitStatus, function(status: string)
+			if status == "confirmed" then
+				-- back() is a safe no-op when no modal is up (it returns false)
+				presenter.back()
+				toast("toast.visited")
+			elseif status == "rejected" then
+				toast("err.generic")
+			end
+		end)
+		watchStatus(services.refreshStatus, function(status: string)
+			if status == "confirmed" then
+				toast("toast.refreshed")
+			elseif status == "rejected" then
+				toast(services.refreshReason:peek() or "err.generic")
+			end
+		end)
+	end
 
 	-- ── tile card (spec §6.4) ──────────────────────────────────────────────
-	local function tileCard(tile: seedData.Tile, itemScope: any)
-		local approval = Facet.Controls.Label(core, {
-			id = "Approval",
+	local function tileCard(tile: seedData.Tile)
+		local approval = UI.Label("Approval")({
 			title = tile.approval .. "%",
 			icon = "foyer:approval",
 		})
-		if approval.dispose ~= nil then
-			itemScope:own(approval.dispose)
-		end
-		return UI.Button({
-			id = tile.id,
+		return UI.Button(tile.id)({
 			label = tile.title,
 			width = UI.fill(),
 			onActivate = function()
 				presentDetail(tile)
 			end,
 
-			UI.VStack({
-				id = "Col",
+			UI.VStack("Col")({
 				gap = "xs",
 				align = "stretch",
 				width = UI.fill(),
 
 				asyncImage("Thumb", tile.thumbKey, UI.fill(), { type = "aspect", ratio = 16 / 9 }),
-				UI.Text({ id = "Title", text = tile.title, textSize = "label", lineLimit = 2 }),
+				UI.Text("Title")({ text = tile.title, textSize = "label", lineLimit = 2 }),
 				--[[ THIS WAS A TWO-RUNG `ViewThatFits`: `MetaRow` (approval + a
 							trailing Sponsored chip) with `MetaColumn` (the same two, stacked)
 							behind it, because at preference +14 the pair overflowed the cell
@@ -436,21 +440,18 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 							acts PER LINE — so the chip is pushed to the trailing edge while
 							the two share a line, and sits at the start of its own line once
 							they do not. ]]
-				UI.HStack({
-					id = "MetaFits",
+				UI.HStack("MetaFits")({
 					wrap = true,
 					gap = "xs",
 					distribute = "spaceBetween",
 
-					approval.blueprint,
-					UI.When({
-						id = "Sponsored",
-						condition = core:memo(function()
+					approval,
+					when("Sponsored")({
+						condition = Compose.formula(function()
 							return tile.sponsored
 						end),
 						thenView = function()
-							return UI.Text({
-								id = "Chip",
+							return UI.Text("Chip")({
 								surface = "chip",
 								text = L("chip.sponsored"),
 								textSize = "caption",
@@ -464,12 +465,11 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	end
 
 	-- ── section (grid or shelf) ────────────────────────────────────────────
-	local function sectionView(section: any, itemScope: any)
+	local function sectionView(section: any)
 		-- THE HEADER WRAPS (O-21, 2026-08-15): a heading and its trailing chevron
 		-- have nothing shrinkable between them, and at +10/+14 on a 320px phone the
 		-- `See all` target went 5px off the right screen edge on all four sections.
-		local header = UI.HStack({
-			id = "Header",
+		local header = UI.HStack("Header")({
 			wrap = true,
 			gap = "s",
 			-- `distribute` (parity round 2), not the `UI.Spacer({})` that used to sit
@@ -478,42 +478,40 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			-- disappearing, which a hand-placed separator does not
 			distribute = "spaceBetween",
 
-			UI.Text({ id = "Title", text = L(section.titleKey), textSize = "heading" }),
-			UI.Button({
-				id = "SeeAll",
+			UI.Text("Title")({ text = L(section.titleKey), textSize = "heading" }),
+			UI.Button("SeeAll")({
 				label = Lnow("section.seeAll", Lnow(section.titleKey)),
 				shape = "circle",
 				icon = "chevron.trailing",
 				onActivate = function()
-					local rows: { any } = {}
-					for _, tile in section.tiles :: { seedData.Tile } do
-						local t = tile
-						rows[#rows + 1] = UI.Button({
-							id = "All_" .. t.id,
-							label = t.title,
-							onActivate = function()
-								presentDetail(t)
-							end,
-						})
-					end
-					presentInfoModal("SeeAll_" .. section.id, section.titleKey, rows)
+					presentInfoModal("SeeAll_" .. section.id, section.titleKey, function()
+						local rows: { any } = {}
+						for _, tile in section.tiles :: { seedData.Tile } do
+							local t = tile
+							rows[#rows + 1] = UI.Button("All_" .. t.id)({
+								label = t.title,
+								onActivate = function()
+									presentDetail(t)
+								end,
+							})
+						end
+						return rows
+					end)
 				end,
 			}),
 		})
 		local body
 		if section.layout == "shelf" then
-			local shelfTiles: { any } = {}
+			local shelfTiles: any = { axis = "x", indicators = "none", gap = "s" }
 			for _, tile in section.tiles :: { seedData.Tile } do
 				local t = tile
-				shelfTiles[#shelfTiles + 1] = UI.Button({
-					id = "S_" .. t.id,
+				shelfTiles[#shelfTiles + 1] = UI.Button("S_" .. t.id)({
 					label = t.title,
 					onActivate = function()
 						presentDetail(t)
 					end,
 
-					UI.VStack({
-						id = "Col",
+					UI.VStack("Col")({
 						gap = "xs",
 
 						asyncImage(
@@ -522,8 +520,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 							{ type = "fixed", px = SHELF_TILE },
 							{ type = "fixed", px = SHELF_TILE }
 						),
-						UI.Text({
-							id = "Title",
+						UI.Text("Title")({
 							text = t.title,
 							textSize = "caption",
 							lineLimit = 1,
@@ -533,53 +530,46 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 					}),
 				})
 			end
-			body = UI.ScrollView({ id = "Shelf", axis = "x", indicators = "none", gap = "s", children = shelfTiles })
+			body = UI.ScrollView("Shelf")(shelfTiles)
 		else
-			body = UI.Grid({
-				id = "Grid",
+			body = UI.Grid("Grid")({
 				minColumnWidth = TILE_MIN,
 				itemSizing = "uniform",
 				gap = "m",
 				rowGap = "l",
 
-				UI.ForEach({
-					id = "Tiles",
-					items = core:memo(function()
+				forEach("Tiles")({
+					items = Compose.formula(function()
 						return section.tiles
 					end),
 					key = function(tile: seedData.Tile)
 						return tile.id
 					end,
-					row = function(tile: seedData.Tile, rowScope: any)
-						return tileCard(tile, rowScope)
-					end,
+					row = tileCard,
 				}),
 			})
 		end
-		return UI.VStack({ id = "Body", gap = "s", width = UI.fill(), header, body })
+		return UI.VStack("Body")({ gap = "s", width = UI.fill(), header, body })
 	end
 
 	-- ── HomeBody (spec §6.3) ───────────────────────────────────────────────
 	local function tabButton(tabId: string, labelKey: string)
-		return UI.VStack({
-			id = "Tab_" .. tabId,
+		return UI.VStack("Tab_" .. tabId)({
 			gap = "xs",
 			-- both tabs give pixels back at the same rate, so a short row narrows
 			-- them together instead of pushing the last one off the edge (O-21)
 			shrinkWeight = 1,
 
-			UI.Button({
-				id = "B",
+			UI.Button("B")({
 				label = L(labelKey),
-				selected = core:memo(function(use)
+				selected = Compose.formula(function(use)
 					return use(tab) == tabId
 				end),
 				onActivate = function()
 					tab:set(tabId)
 				end,
 			}),
-			UI.Box({
-				id = "Underline",
+			UI.Box("Underline")({
 				height = { type = "fixed", px = 3 },
 				width = UI.fill(),
 				tint = underlineTint(tabId),
@@ -610,17 +600,16 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	-- itself symmetric (fantasy_ornate: top=10, right=14). Zero on every flat
 	-- package (`chromeInsets` is all-zero there), so shipped geometry there is
 	-- unchanged.
-	local badgeCornerInset = scope:own(core:memo(function(use)
+	local badgeCornerInset = Compose.formula(function(use)
 		local raw = use(env:get("themeMetrics"))
 		local snap = if type(raw) == "table" and type((raw :: any).controls) == "table" then raw else nil
 		return {
 			top = carvedSide(snap, "control", "top"),
 			right = carvedSide(snap, "control", "right"),
 		}
-	end))
+	end)
 	local function badgeBubble(countMemo: any): any
-		return UI.ZStack({
-			id = "BadgeBubble",
+		return UI.ZStack("BadgeBubble")({
 			alignH = "end",
 			alignV = "start",
 			width = UI.fill(),
@@ -631,8 +620,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			padding = badgeCornerInset,
 
 			UI.stroke(
-				UI.Text({
-					id = "Count",
+				UI.Text("Count")({
 					surface = "badge",
 					text = countMemo,
 					textSize = "caption",
@@ -647,111 +635,117 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		})
 	end
 
-	local friendTiles: { any } = {
-		UI.ZStack({
-			id = "AddTile",
+	-- ── the screen component ───────────────────────────────────────────────
+	local function Screen()
+		local conditions = Facet.adaptive.conditions(env)
+		watchCommands()
+		Compose.cleanup(presenter.onFeedback(logFeedback))
+		-- The scripted transport rides the presenter's tick: every frame drains the
+		-- provider's active window against the seed table. A headless test that never
+		-- ticks still observes the pending state and drives settleImages itself.
+		Compose.cleanup(presenter.onTick(settleImages))
 
-			UI.Button({
-				id = "B",
-				label = Lnow("invite.label"),
-				shape = "circle",
-				icon = "foyer:add",
-				width = { type = "fixed", px = PORTRAIT },
+		local friendTiles: any = {
+			axis = "x",
+			-- a peeking carousel's affordance is the half-visible next tile
+			indicators = "none",
+			gap = "s",
+			width = UI.fill(),
+			UI.ZStack("AddTile")({
+
+				UI.Button("B")({
+					label = Lnow("invite.label"),
+					shape = "circle",
+					icon = "foyer:add",
+					width = { type = "fixed", px = PORTRAIT },
+					onActivate = function()
+						presentInfoModal("InviteStub", "invite.label", function()
+							return { UI.Text("StubBody")({ text = L("invite.stub"), role = "secondary" }) }
+						end)
+					end,
+				}),
+				when("BadgeWhen")({
+					condition = Compose.formula(function(use)
+						return use(services.inviteCount) > 0
+					end),
+					thenView = function()
+						return badgeBubble(Compose.formula(function(use)
+							return tostring(use(services.inviteCount))
+						end))
+					end,
+				}),
+			}),
+		}
+		for _, friend in services.friends :: { seedData.Friend } do
+			local f = friend
+			friendTiles[#friendTiles + 1] = UI.Button("F_" .. f.id)({
+				label = f.handle,
 				onActivate = function()
-					presentInfoModal("InviteStub", "invite.label", {
-						UI.Text({ id = "StubBody", text = L("invite.stub"), role = "secondary" }),
-					})
+					presentInfoModal("Friend_" .. f.id, "profile.label", function()
+						return { UI.Text("FriendHandle")({ text = f.handle, textSize = "heading" }) }
+					end)
 				end,
-			}),
-			UI.When({
-				id = "BadgeWhen",
-				condition = core:memo(function(use)
-					return use(services.inviteCount) > 0
-				end),
-				thenView = function()
-					return badgeBubble(core:memo(function(use)
-						return tostring(use(services.inviteCount))
-					end))
-				end,
-			}),
-		}),
-	}
-	for _, friend in services.friends :: { seedData.Friend } do
-		local f = friend
-		friendTiles[#friendTiles + 1] = UI.Button({
-			id = "F_" .. f.id,
-			label = f.handle,
-			onActivate = function()
-				presentInfoModal("Friend_" .. f.id, "profile.label", {
-					UI.Text({ id = "FriendHandle", text = f.handle, textSize = "heading" }),
-				})
-			end,
 
-			UI.VStack({
-				id = "Col",
-				gap = "xs",
+				UI.VStack("Col")({
+					gap = "xs",
 
-				UI.ZStack({
-					id = "PortraitZ",
+					UI.ZStack("PortraitZ")({
 
-					asyncImage(
-						"Portrait",
-						f.portraitKey,
-						{ type = "fixed", px = PORTRAIT },
-						{ type = "fixed", px = PORTRAIT },
-						"pill"
-					),
-					UI.Box({
-						id = "Presence",
-						width = { type = "fixed", px = 10 },
-						height = { type = "fixed", px = 10 },
-						alignH = "end",
-						alignV = "end",
-						tint = {
-							role = "accent",
-							blend = if f.presence == "here" then 1 else 0,
-						},
+						asyncImage(
+							"Portrait",
+							f.portraitKey,
+							{ type = "fixed", px = PORTRAIT },
+							{ type = "fixed", px = PORTRAIT },
+							"pill"
+						),
+						UI.Box("Presence")({
+							width = { type = "fixed", px = 10 },
+							height = { type = "fixed", px = 10 },
+							alignH = "end",
+							alignV = "end",
+							tint = {
+								role = "accent",
+								blend = if f.presence == "here" then 1 else 0,
+							},
+						}),
+					}),
+					UI.Text("Handle")({
+						text = f.handle,
+						textSize = "caption",
+						lineLimit = 1,
+						disclose = true,
+						width = { type = "fixed", px = PORTRAIT },
 					}),
 				}),
-				UI.Text({
-					id = "Handle",
-					text = f.handle,
-					textSize = "caption",
-					lineLimit = 1,
-					disclose = true,
-					width = { type = "fixed", px = PORTRAIT },
-				}),
-			}),
-		})
-	end
-
-	local feedSections = core:memo(function(use)
-		if use(searchActive) then
-			return {}
+			})
 		end
-		if use(tab) == "charts" then
-			return services.charted
-		end
-		return use(services.sections)
-	end)
 
-	-- TabRow-to-FeedPage GAP IS "s", NOT "m" (overflow sweep, narrow-landscape
-	-- 640x320): `FeedPage` is the spec's ONE scroll authority (§2) and stays
-	-- `fill` — it is not this fixture's job to give IT more room, so the fix
-	-- lives in what sits ABOVE it. `TabRow`'s two touch-target tabs are already
-	-- their real, accessible height (not shrinkable), and at that viewport
-	-- `Middle`'s box has exactly 64px for the whole of `HomeBody` — one `"m"`
-	-- (16px) gap on top of TabRow's 53px already overflows the box before
-	-- `FeedPage` gets a single pixel. One token step down closes it with room
-	-- to spare, everywhere, and touches neither TabRow's touch targets nor
-	-- FeedPage's own fill/scroll contract.
-	local homeBody = UI.VStack({
-		id = "HomeBody",
-		gap = "s",
-		align = "stretch",
-		height = UI.fill(),
+		local feedSections = Compose.formula(function(use)
+			if use(searchActive) then
+				return {}
+			end
+			if use(tab) == "charts" then
+				return services.charted
+			end
+			return use(services.sections)
+		end)
 
-		--[[ THE TAB ROW SHRINKS RATHER THAN WRAPS (O-21 round 2, 2026-08-15).
+		-- TabRow-to-FeedPage GAP IS "s", NOT "m" (overflow sweep, narrow-landscape
+		-- 640x320): `FeedPage` is the spec's ONE scroll authority (§2) and stays
+		-- `fill` — it is not this fixture's job to give IT more room, so the fix
+		-- lives in what sits ABOVE it. `TabRow`'s two touch-target tabs are already
+		-- their real, accessible height (not shrinkable), and at that viewport
+		-- `Middle`'s box has exactly 64px for the whole of `HomeBody` — one `"m"`
+		-- (16px) gap on top of TabRow's 53px already overflows the box before
+		-- `FeedPage` gets a single pixel. One token step down closes it with room
+		-- to spare, everywhere, and touches neither TabRow's touch targets nor
+		-- FeedPage's own fill/scroll contract.
+		local homeBody = UI.VStack("HomeBody")({
+			gap = "s",
+			align = "stretch",
+			height = UI.fill(),
+
+			--[[ THE TAB ROW SHRINKS RATHER THAN WRAPS (O-21 round 2, 2026-08-15).
 				Wrapping was the first repair — two tab targets at the Largest text
 				preference need more than a 320px phone gives them, and the row put
 				`Charts` 27px off the right screen edge rather than taking a second
@@ -766,181 +760,153 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				line and on screen at every viewport and every locale; the cost is a
 				truncated tab label at the far end of the cross product, which is a
 				degrade the framework has a name for and an off-screen target is not. ]]
-		UI.HStack({
-			id = "TabRow",
-			gap = "l",
-			padding = { left = "m", right = "m" },
-			tabButton("forYou", "tab.forYou"),
-			tabButton("charts", "tab.charts"),
-		}),
-		-- PADDING IS "s", NOT "m" (overflow sweep + live report: this scroll —
-		-- the spec's ONE scroll authority, §2 — was already silently drawing
-		-- NOTHING on the canonical compact-phone-landscape row, 705x338: its own
-		-- 16+16 padding alone exceeded the 13px TabRow left it, before this fix
-		-- even touched HomeBody's gap. A smaller, still-real padding step gives
-		-- it an honest content box on every viewport that has room for a feed at
-		-- all; the narrowest swept viewport (640x320) has so little of Middle's
-		-- box left after TabRow's own accessible height that no padding choice
-		-- can make FeedPage show content there without shrinking a real touch
-		-- target — that residual is reported, not hidden.
-		UI.ScrollView({
-			id = "FeedPage",
-			gap = "l",
-			padding = "s",
-			height = UI.fill(),
-
-			UI.ScrollView({
-				id = "FriendsRow",
-				axis = "x",
-				-- a peeking carousel's affordance IS the half-visible next
-				-- tile — the reference app draws no bar on its carousels
-				indicators = "none",
-				gap = "s",
-				width = UI.fill(),
-				children = friendTiles,
+			UI.HStack("TabRow")({
+				gap = "l",
+				padding = { left = "m", right = "m" },
+				tabButton("forYou", "tab.forYou"),
+				tabButton("charts", "tab.charts"),
 			}),
-			UI.When({
-				id = "SearchResults",
-				condition = searchActive,
-				thenView = function()
-					return UI.VStack({
-						id = "Results",
-						gap = "s",
-						width = UI.fill(),
+			-- PADDING IS "s", NOT "m" (overflow sweep + live report: this scroll —
+			-- the spec's ONE scroll authority, §2 — was already silently drawing
+			-- NOTHING on the canonical compact-phone-landscape row, 705x338: its own
+			-- 16+16 padding alone exceeded the 13px TabRow left it, before this fix
+			-- even touched HomeBody's gap. A smaller, still-real padding step gives
+			-- it an honest content box on every viewport that has room for a feed at
+			-- all; the narrowest swept viewport (640x320) has so little of Middle's
+			-- box left after TabRow's own accessible height that no padding choice
+			-- can make FeedPage show content there without shrinking a real touch
+			-- target — that residual is reported, not hidden.
+			UI.ScrollView("FeedPage")({
+				gap = "l",
+				padding = "s",
+				height = UI.fill(),
 
-						UI.When({
-							id = "None",
-							condition = core:memo(function(use)
-								return #use(filtered) == 0
-							end),
-							thenView = function()
-								return UI.VStack({
-									id = "Empty",
-									gap = "s",
+				UI.ScrollView("FriendsRow")(friendTiles),
+				when("SearchResults")({
+					condition = searchActive,
+					thenView = function()
+						return UI.VStack("Results")({
+							gap = "s",
+							width = UI.fill(),
 
-									UI.Text({
-										id = "H",
-										text = L("search.none"),
-										textSize = "heading",
-									}),
-									UI.Text({
-										id = "Q",
-										text = core:memo(function(use)
-											return '"' .. use(query) .. '"'
-										end),
-										lineLimit = 1,
-										disclose = true,
-									}),
-									UI.Button({
-										id = "Clear",
-										label = Lnow("search.clear"),
-										onActivate = function()
-											query:set("")
-										end,
-									}),
-								})
-							end,
-						}),
-						UI.ForEach({
-							id = "Rows",
-							items = filtered,
-							key = function(tile: seedData.Tile)
-								return tile.id
-							end,
-							row = function(tile: seedData.Tile, rowScope: any)
-								return tileCard(tile, rowScope)
-							end,
-						}),
-					})
-				end,
+							when("None")({
+								condition = Compose.formula(function(use)
+									return #use(filtered) == 0
+								end),
+								thenView = function()
+									return UI.VStack("Empty")({
+										gap = "s",
+
+										UI.Text("H")({
+											text = L("search.none"),
+											textSize = "heading",
+										}),
+										UI.Text("Q")({
+											text = Compose.formula(function(use)
+												return '"' .. use(query) .. '"'
+											end),
+											lineLimit = 1,
+											disclose = true,
+										}),
+										UI.Button("Clear")({
+											label = Lnow("search.clear"),
+											onActivate = function()
+												query:set("")
+											end,
+										}),
+									})
+								end,
+							}),
+							forEach("Rows")({
+								items = filtered,
+								key = function(tile: seedData.Tile)
+									return tile.id
+								end,
+								row = tileCard,
+							}),
+						})
+					end,
+				}),
+				forEach("Sections")({
+					items = feedSections,
+					key = function(section: any)
+						return section.id
+					end,
+					row = sectionView,
+					transition = { enter = "slide-up" },
+				}),
 			}),
-			UI.ForEach({
-				id = "Sections",
-				items = feedSections,
-				key = function(section: any)
-					return section.id
-				end,
-				row = function(section: any, rowScope: any)
-					return sectionView(section, rowScope)
-				end,
-				transition = { enter = "slide-up" },
-			}),
-		}),
-	})
-
-	-- ── nav chrome (spec §6.2) — ONE `Facet.newTabView`, built below ──────
-	--
-	-- THE FOUR NAV HOMES ARE NO LONGER THIS FILE'S BUSINESS (navigation-and-menus
-	-- D5). `adaptive.navPlacement` shipped 2026-08-09 and every reference app
-	-- then wrote the same four `When`-gated presentations by hand; D5 turned that
-	-- into a construct and this proof is its first consumer. What used to stand
-	-- here — four placement memos, four hand-built bars, three copies of the wing
-	-- list, a hand-rolled 3px active bar and a `ViewThatFits` ladder per home — is
-	-- now a `tabs` array handed to `newTabView` beside the screen, using the
-	-- `conditions` this file already builds.
-	--
-	-- Only the SECTION NAV ever moved between homes: the top chrome bar, and the
-	-- search that lives in it, is its own band and stays where it is on every
-	-- placement. That is why this proof could adopt the construct whole rather
-	-- than borrowing pieces of it.
-	--
-	-- FOUR VISIBLE CHANGES, each a deliberate trade rather than an oversight:
-	--
-	--  1. THE ACTIVE BAR IS THE FRAMEWORK'S SLIDING INDICATOR. The 3px rule this
-	--     file painted inside every wing is exactly D4's `underline`, and the
-	--     framework's one SLIDES between wings instead of cross-fading two fills.
-	--  2. ICON-ONLY IS A FIT DECISION NOW, NOT A PER-HOME ONE. The bottom homes
-	--     hard-coded it so no wing could ellipsize; `Option.icon` rides
-	--     `compactLabel`, so the framework degrades word -> glyph at the width
-	--     that actually needs it and never ellipsizes either. Same guarantee, one
-	--     fewer rule, and the rail and top band keep their words for free.
-	--  3. THE WING NAMES NOW FOLLOW A LIVE LOCALE FLIP. `newLabel`'s title is a
-	--     plain string by contract, so the old wings resolved at BUILD locale and
-	--     this proof's own loop could not move them; a picker option label may be
-	--     a Readable, so they are `L(...)` memos and they do.
-	--  4. THE TOP AND COMPACT BANDS LEAD RATHER THAN CENTRE. A tab bar that can
-	--     OVERFLOW is a scroll host, and a scroll host cannot centre content
-	--     narrower than its band — measured, not assumed: a `fill` child inside a
-	--     horizontal ScrollView resolves to the CONTENT width, so there is no band
-	--     width to centre within. Five wings that scroll beat five wings that
-	--     centre and truncate.
-
-	-- ── stub destinations (spec §6.6) ──────────────────────────────────────
-	local function stubPlate()
-		return UI.VStack({
-			id = "StubPlate",
-			gap = "s",
-			align = "center",
-			height = UI.fill(),
-
-			UI.Text({
-				id = "Name",
-				text = core:memo(function(use)
-					return strings.get(use(locale), "nav." .. use(destination))
-				end),
-				textSize = "heading",
-			}),
-			UI.Text({ id = "Body", text = L("stub.body") }),
-			UI.Text({ id = "Honest", text = L("stub.honest"), textSize = "caption", role = "secondary" }),
 		})
-	end
 
-	-- ── top bar (spec §6.1) ────────────────────────────────────────────────
-	local searchField = owned(Facet.Controls.TextInput(core, {
-		id = "Search",
-		value = query,
-		placeholder = Lnow("search.ph"),
-		clearButtonMode = "whileEditing",
-		env = env,
-		actionSystem = deps.actionSystem,
-	}))
+		-- ── nav chrome (spec §6.2) — ONE `Facet.newTabView`, built below ──────
+		--
+		-- THE FOUR NAV HOMES ARE NO LONGER THIS FILE'S BUSINESS (navigation-and-menus
+		-- D5). `adaptive.navPlacement` shipped 2026-08-09 and every reference app
+		-- then wrote the same four `When`-gated presentations by hand; D5 turned that
+		-- into a construct and this proof is its first consumer. What used to stand
+		-- here — four placement memos, four hand-built bars, three copies of the wing
+		-- list, a hand-rolled 3px active bar and a `ViewThatFits` ladder per home — is
+		-- now a `tabs` array handed to `newTabView` beside the screen, using the
+		-- `conditions` this file already builds.
+		--
+		-- Only the SECTION NAV ever moved between homes: the top chrome bar, and the
+		-- search that lives in it, is its own band and stays where it is on every
+		-- placement. That is why this proof could adopt the construct whole rather
+		-- than borrowing pieces of it.
+		--
+		-- FOUR VISIBLE CHANGES, each a deliberate trade rather than an oversight:
+		--
+		--  1. THE ACTIVE BAR IS THE FRAMEWORK'S SLIDING INDICATOR. The 3px rule this
+		--     file painted inside every wing is exactly D4's `underline`, and the
+		--     framework's one SLIDES between wings instead of cross-fading two fills.
+		--  2. ICON-ONLY IS A FIT DECISION NOW, NOT A PER-HOME ONE. The bottom homes
+		--     hard-coded it so no wing could ellipsize; `Option.icon` rides
+		--     `compactLabel`, so the framework degrades word -> glyph at the width
+		--     that actually needs it and never ellipsizes either. Same guarantee, one
+		--     fewer rule, and the rail and top band keep their words for free.
+		--  3. THE WING NAMES NOW FOLLOW A LIVE LOCALE FLIP. `newLabel`'s title is a
+		--     plain string by contract, so the old wings resolved at BUILD locale and
+		--     this proof's own loop could not move them; a picker option label may be
+		--     a Readable, so they are `L(...)` memos and they do.
+		--  4. THE TOP AND COMPACT BANDS LEAD RATHER THAN CENTRE. A tab bar that can
+		--     OVERFLOW is a scroll host, and a scroll host cannot centre content
+		--     narrower than its band — measured, not assumed: a `fill` child inside a
+		--     horizontal ScrollView resolves to the CONTENT width, so there is no band
+		--     width to centre within. Five wings that scroll beat five wings that
+		--     centre and truncate.
 
-	local topBar = UI.HStack({
-		id = "TopBar",
-		gap = "m",
-		padding = "s",
+		-- ── stub destinations (spec §6.6) ──────────────────────────────────────
+		local function stubPlate()
+			return UI.VStack("StubPlate")({
+				gap = "s",
+				align = "center",
+				height = UI.fill(),
 
-		--[[ WHY THE SHRINK PAIR BELOW NEEDED A `minMax` UNDER IT. This row reports
+				UI.Text("Name")({
+					text = Compose.formula(function(use)
+						return strings.get(use(locale), "nav." .. use(destination))
+					end),
+					textSize = "heading",
+				}),
+				UI.Text("Body")({ text = L("stub.body") }),
+				UI.Text("Honest")({ text = L("stub.honest"), textSize = "caption", role = "secondary" }),
+			})
+		end
+
+		-- ── top bar (spec §6.1) ────────────────────────────────────────────────
+		local searchField = UI.TextInput("Search")({
+			value = query,
+			placeholder = Lnow("search.ph"),
+			clearButtonMode = "whileEditing",
+			env = env,
+			actionSystem = deps.actionSystem,
+		})
+
+		local topBar = UI.HStack("TopBar")({
+			gap = "m",
+			padding = "s",
+
+			--[[ WHY THE SHRINK PAIR BELOW NEEDED A `minMax` UNDER IT. This row reports
 				"content overflows this hstack by 46px on the main axis" on
 				`controller.diagnostics()` at 390x844 with `preferredTextSize` raised to
 				+4 and +14 — the phone, at two of the four shipping text offsets. (The
@@ -959,11 +925,10 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				BELOW its longest word, so a hand-chosen `minMax` is the only lever.
 				O-21 took it — see the node below; the pair is back BECAUSE the floor
 				it needed is now declared, which is the part that was missing. ]]
-		UI.Text({
-			id = "Brand",
-			text = L("app.name"),
-			textSize = "title",
-			--[[ THE SHRINK PAIR IS BACK, AND THE BLOCK ABOVE IS WHY IT WORKS NOW
+			UI.Text("Brand")({
+				text = L("app.name"),
+				textSize = "title",
+				--[[ THE SHRINK PAIR IS BACK, AND THE BLOCK ABOVE IS WHY IT WORKS NOW
 					(O-21, measured 2026-08-15). That note is from 2026-08-13 and its
 					conclusion — "no vocabulary lets a one-word label truncate BELOW its
 					longest word, so a hand-chosen `minMax` cap is still the only lever" —
@@ -978,149 +943,132 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 					itself reddens `proof 'p4_foyer'`.
 					What it buys: without it the bell and its unread count sat 2px off a
 					320px screen in English at +14, and 19px off a 390px one under `xa`. ]]
-			shrinkWeight = 1,
-			-- ...and a cut wordmark is a DECLARED truncation with a way back
-			-- (§15.3 `policy = "truncate"`), never a clipped string. No always-on
-			-- check bites for these two — the probe only reads nodes under a
-			-- finding, and this row files none now — so they are here on the
-			-- standing rule that player copy is never cut without an opener.
-			lineLimit = 1,
-			disclose = true,
-		}),
-		UI.ViewThatFits({
-			id = "SearchSlot",
-			width = UI.fill(),
-			layoutPriority = 1,
+				shrinkWeight = 1,
+				-- ...and a cut wordmark is a DECLARED truncation with a way back
+				-- (§15.3 `policy = "truncate"`), never a clipped string. No always-on
+				-- check bites for these two — the probe only reads nodes under a
+				-- finding, and this row files none now — so they are here on the
+				-- standing rule that player copy is never cut without an opener.
+				lineLimit = 1,
+				disclose = true,
+			}),
+			UI.ViewThatFits("SearchSlot")({
+				width = UI.fill(),
+				layoutPriority = 1,
 
-			UI.HStack({
-				id = "FieldForm",
-				width = { type = "minMax", min = 200, preferred = SEARCH_W, max = SEARCH_W },
-				searchField.blueprint,
+				UI.HStack("FieldForm")({
+					width = { type = "minMax", min = 200, preferred = SEARCH_W, max = SEARCH_W },
+					searchField,
+				}),
+				UI.Button("IconForm")({
+					label = Lnow("search.label"),
+					shape = "circle",
+					icon = "foyer:search",
+					onActivate = function()
+						presentInfoModal("SearchModal", "search.label", function()
+							return { UI.Text("Hint")({ text = L("search.ph"), role = "secondary" }) }
+						end)
+					end,
+				}),
 			}),
-			UI.Button({
-				id = "IconForm",
-				label = Lnow("search.label"),
+			UI.Button("Refresh")({
+				label = Lnow("refresh.label"),
 				shape = "circle",
-				icon = "foyer:search",
-				onActivate = function()
-					presentInfoModal("SearchModal", "search.label", {
-						UI.Text({ id = "Hint", text = L("search.ph"), role = "secondary" }),
-					})
-				end,
-			}),
-		}),
-		UI.Button({
-			id = "Refresh",
-			label = Lnow("refresh.label"),
-			shape = "circle",
-			icon = "foyer:refresh",
-			enabled = core:memo(function(use)
-				return use(services.refreshStatus) ~= "pending"
-			end),
-			onActivate = function()
-				services.refresh()
-			end,
-		}),
-		-- a circle avatar chip at every width (the observed reference grammar;
-		-- a hug text button can never engage the compact ladder — its box IS
-		-- its label, framework-fixes ledger note)
-		UI.Button({
-			id = "Profile",
-			label = Lnow("profile.label"),
-			shape = "circle",
-			icon = "foyer:you",
-			onActivate = function()
-				presentInfoModal("ProfileModal", "profile.label", {
-					UI.Text({ id = "Caption", text = L("profile.caption"), role = "secondary" }),
-				})
-			end,
-		}),
-		UI.ZStack({
-			id = "BellZ",
-
-			UI.Button({
-				id = "Bell",
-				label = Lnow("bell.label"),
-				shape = "circle",
-				icon = "foyer:bell",
-				onActivate = presentNotices,
-			}),
-			UI.When({
-				id = "BadgeWhen",
-				condition = core:memo(function(use)
-					return use(services.noticeCount) > 0
+				icon = "foyer:refresh",
+				enabled = Compose.formula(function(use)
+					return use(services.refreshStatus) ~= "pending"
 				end),
-				thenView = function()
-					return badgeBubble(core:memo(function(use)
-						return tostring(use(services.noticeCount))
-					end))
+				onActivate = function()
+					services.refresh()
 				end,
 			}),
-		}),
-	})
-
-	-- ── the nav, as ONE construct (navigation-and-menus D5) ────────────────
-	--
-	-- Five destinations, five tab bodies, and the placement policy. `homeBody` is
-	-- still built ONCE above and merely CAPTURED by its factory — the wings'
-	-- disposer lesson has not changed, and a tab factory that rebuilt a composite
-	-- on every visit would hand the screen scope a fresh set each time. The stubs
-	-- own nothing, so they are rebuilt, which is exactly what the construct's
-	-- eviction contract promises: coming back replays the entry cost.
-	local navTabs: { any } = {}
-	for _, dest in DESTINATIONS do
-		table.insert(navTabs, {
-			id = dest,
-			label = L("nav." .. dest),
-			icon = DEST_ICON[dest],
-			content = if dest == "home"
-				then function()
-					return homeBody
-				end
-				else function()
-					return stubPlate()
+			-- a circle avatar chip at every width (the observed reference grammar;
+			-- a hug text button can never engage the compact ladder — its box IS
+			-- its label, framework-fixes ledger note)
+			UI.Button("Profile")({
+				label = Lnow("profile.label"),
+				shape = "circle",
+				icon = "foyer:you",
+				onActivate = function()
+					presentInfoModal("ProfileModal", "profile.label", function()
+						return { UI.Text("Caption")({ text = L("profile.caption"), role = "secondary" }) }
+					end)
 				end,
+			}),
+			UI.ZStack("BellZ")({
+
+				UI.Button("Bell")({
+					label = Lnow("bell.label"),
+					shape = "circle",
+					icon = "foyer:bell",
+					onActivate = presentNotices,
+				}),
+				when("BadgeWhen")({
+					condition = Compose.formula(function(use)
+						return use(services.noticeCount) > 0
+					end),
+					thenView = function()
+						return badgeBubble(Compose.formula(function(use)
+							return tostring(use(services.noticeCount))
+						end))
+					end,
+				}),
+			}),
 		})
-	end
-	local nav = owned(Facet.Controls.TabView(core, {
-		id = "Nav",
-		selection = destination,
-		-- the conditions this screen already builds, passed in rather than rebuilt:
-		-- `adaptive.conditions` creates its own set of memos and two copies would be two
-		-- answers to one question
-		conditions = conditions,
-		env = env,
-		tabs = navTabs,
-	}))
 
-	-- ── screen ─────────────────────────────────────────────────────────────
-	local screen = UI.Screen({
-		id = "Foyer",
-		gap = "m",
+		-- ── the nav, as ONE construct (navigation-and-menus D5) ────────────────
+		--
+		-- Five destinations, five tab bodies, and the placement policy. `homeBody` is
+		-- still built ONCE above and merely CAPTURED by its factory — the wings'
+		-- disposer lesson has not changed, and a tab factory that rebuilt a composite
+		-- on every visit would hand the screen scope a fresh set each time. The stubs
+		-- own nothing, so they are rebuilt, which is exactly what the construct's
+		-- eviction contract promises: coming back replays the entry cost.
+		local navTabs: { any } = {}
+		for _, dest in DESTINATIONS do
+			table.insert(navTabs, {
+				id = dest,
+				label = L("nav." .. dest),
+				icon = DEST_ICON[dest],
+				content = if dest == "home"
+					then function()
+						return homeBody
+					end
+					else function()
+						return stubPlate()
+					end,
+			})
+		end
+		local nav = UI.TabView("Nav")({
+			selection = destination,
+			-- the conditions this screen already builds, passed in rather than rebuilt:
+			-- `adaptive.conditions` creates its own set of memos and two copies would be two
+			-- answers to one question
+			conditions = conditions,
+			env = env,
+			tabs = navTabs,
+		})
 
-		UI.VStack({
-			id = "Root",
+		-- ── screen ─────────────────────────────────────────────────────────────
+		local screen = UI.Screen("Foyer")({
 			gap = "m",
-			align = "stretch",
-			height = UI.fill(),
 
-			-- the chrome band, which never moves…
-			topBar,
-			-- …and everything the placement policy DOES move, which is now
-			-- one node instead of four `When`s around three copies of a list
-			nav.blueprint,
-		}),
-	})
+			UI.VStack("Root")({
+				gap = "m",
+				align = "stretch",
+				height = UI.fill(),
 
-	-- The scripted transport rides the presenter's own tick (the one sanctioned
-	-- frame source): every frame drains the provider's active window against the
-	-- seed table, so a live session resolves art with no operator step while a
-	-- headless test — which never ticks unless it chooses to — still observes
-	-- the pending state and drives settleImages explicitly.
-	scope:own(presenter.onTick(function()
+				-- the chrome band, which never moves…
+				topBar,
+				-- …and everything the placement policy DOES move, which is now
+				-- one node instead of four `When`s around three copies of a list
+				nav,
+			}),
+		})
+
 		settleImages()
-	end))
-	settleImages()
+		return screen
+	end
 
 	local steps = {
 		locale = function(_built: any, value: string?)
@@ -1155,7 +1103,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	}
 
 	return {
-		screen = screen,
+		screen = Screen,
 		present = {
 			keyboardNavigation = true,
 			initialFocus = "first",
@@ -1164,25 +1112,18 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		report = function()
 			return {
 				proof = "p4_foyer",
-				destination = destination:get(),
-				tab = tab:get(),
-				query = query:get(),
-				locale = locale:get(),
-				noticeCount = services.noticeCount:get(),
-				refreshStatus = services.refreshStatus:get(),
-				visitStatus = services.visitStatus:get(),
-				continueIds = services.continueIds:get(),
+				destination = destination:peek(),
+				tab = tab:peek(),
+				query = query:peek(),
+				locale = locale:peek(),
+				noticeCount = services.noticeCount:peek(),
+				refreshStatus = services.refreshStatus:peek(),
+				visitStatus = services.visitStatus:peek(),
+				continueIds = services.continueIds:peek(),
 				providerCounters = provider.counters(),
 				soundLog = soundLog,
 				page = services.currentPage(),
 			}
-		end,
-		dispose = function()
-			if detailScope ~= nil then
-				detailScope:dispose()
-				detailScope = nil
-			end
-			scope:dispose()
 		end,
 		-- exposed for the proof's own spec file (never for consumers)
 		_internals = {

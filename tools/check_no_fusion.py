@@ -230,7 +230,7 @@ def check(skip_build=False, quiet=False):
         compose = os.path.join(vendor, "compose")
         try:
             pin = json.load(open(os.path.join(compose, "UPSTREAM.lock")))
-            expected = set(pin["sha256"]) | {"UPSTREAM.lock"}
+            expected = set(pin["sha256"]) | {"UPSTREAM.lock", "README.md"}
             actual = {os.path.relpath(os.path.join(base, name), compose).replace(os.sep, "/")
                       for base, _, names in os.walk(compose) for name in names}
             if actual != expected:
@@ -308,7 +308,7 @@ PLANTS = (
     (
         "a clean file that says 'confusion' (must NOT fire)",
         "clean.luau",
-        '-- the confusion this fixture exists to not report\nlocal core = require("../src/core/custom")\n',
+        '-- the confusion this fixture exists to not report\nlocal core = require("../src/core/services")\n',
         None,
     ),
 )

@@ -62,10 +62,8 @@ return {
 	title = "Outpost power terminal (world surface)",
 	ledgerRows = { "WORLD-1" },
 	build = function(ctx: any)
-		local Facet = ctx.Facet
-		local UI = Facet.UI
+		local UI, Compose = ctx.UI, ctx.Compose
 		local core = ctx.core
-		local scope = core:scope("outpost-terminal-scenario")
 
 		local terminalModule, resolveError = resolveTerminal()
 		local rules = if terminalModule ~= nil then terminalModule.rules else nil
@@ -77,10 +75,10 @@ return {
 
 		-- ===== what the lab knows ==========================================
 
-		local surfaceState = scope:own(core:signal("not opened"))
-		local lastExit = scope:own(core:signal("—"))
-		local terminalState = scope:own(core:signal(nil :: any))
-		local faceLine = scope:own(core:signal("face: not checked"))
+		local surfaceState = Compose.cell("not opened")
+		local lastExit = Compose.cell("—")
+		local terminalState = Compose.cell(nil :: any)
+		local faceLine = Compose.cell("face: not checked")
 
 		local function seam(): any
 			return ctx.surface
@@ -96,7 +94,9 @@ return {
 			carries it. `send`/`exit` come the other way — the terminal calls them, the
 			runner puts them on the wire and resigns the surface. ]]
 		local function buildTerminal(host: any): any
-			local built = terminalModule.build(Facet, host.core, {
+			-- `host` is the surface's own ctx: the terminal authors against the
+			-- application that owns the world surface, not this screen's
+			local built = terminalModule.build(host, {
 				send = host.send,
 				onExit = function()
 					host.exit("exit-control")
@@ -171,11 +171,11 @@ return {
 
 		-- ===== the lab's readouts ==========================================
 
-		local statusLine = scope:own(core:memo(function(use)
+		local statusLine = Compose.formula(function(use)
 			return `surface: {use(surfaceState)} — last exit: {use(lastExit)}`
-		end))
+		end)
 
-		local terminalLine = scope:own(core:memo(function(use)
+		local terminalLine = Compose.formula(function(use)
 			local state = use(terminalState)
 			if state == nil then
 				return "terminal: not mounted"
@@ -185,15 +185,15 @@ return {
 			return `terminal: {state.phase}/{state.status} — draft {draft.door or 0}/{draft.beacon or 0}/`
 				.. `{draft.workshop or 0}, outpost {live.door or 0}/{live.beacon or 0}/{live.workshop or 0}`
 				.. `{if state.complete then " — ALL RUNNING" else ""}`
-		end))
+		end)
 
-		local outcomeLine = scope:own(core:memo(function(use)
+		local outcomeLine = Compose.formula(function(use)
 			local state = use(terminalState)
 			if state == nil or state.outcome == nil then
 				return "outcome: —"
 			end
 			return `outcome: {state.outcome.message}`
-		end))
+		end)
 
 		--[[ THE RULES, ON SCREEN. The lab prints the same table the terminal and the
 			server both read, so a reviewer standing at the console can check the
@@ -425,55 +425,51 @@ return {
 
 		-- ===== the lab screen ==============================================
 
-		local function control(id: string, label: string, onActivate: () -> ()): any
-			return UI.Button({
-				id = id,
-				label = label,
-				height = { type = "minMax", min = "targetSizes.minimum" },
-				onActivate = onActivate,
-			})
-		end
+		local function screen()
+			local function control(id: string, label: string, onActivate: () -> ()): any
+				return UI.Button(id)({
+					label = label,
+					height = { type = "minMax", min = "targetSizes.minimum" },
+					onActivate = onActivate,
+				})
+			end
 
-		local screen = UI.Screen({
-			id = "OutpostLab",
-			padding = "m",
-			gap = "m",
+			return UI.Screen("OutpostLab")({
+				padding = "m",
+				gap = "m",
 
-			--[[ THE READOUTS SCROLL AND THE CONTROLS DO NOT, which is the packing
+				--[[ THE READOUTS SCROLL AND THE CONTROLS DO NOT, which is the packing
 					the sibling world fixture (`sponsor_billboard`) learned the hard way: a
 					`fill` Spacer gives its pixels back to nobody, so a narrow landscape
 					phone put every labelled control below the fold with no page scroller
 					to reach it. A `fill` ScrollView does the Spacer's job AND is a place
 					the readouts can be read from. ]]
-			UI.ScrollView({
-				id = "Readouts",
-				axis = "y",
-				gap = "s",
-				width = UI.fill(),
-				height = UI.fill(),
+				UI.ScrollView("Readouts")({
+					axis = "y",
+					gap = "s",
+					width = UI.fill(),
+					height = UI.fill(),
 
-				UI.Text({ id = "Title", text = "Outpost power terminal", textSize = "heading" }),
-				UI.Text({
-					id = "Lead",
-					text = "The terminal is on the console in the world. Walk up and use it.",
-					textSize = "caption",
-					role = "secondary",
+					UI.Text("Title")({ text = "Outpost power terminal", textSize = "heading" }),
+					UI.Text("Lead")({
+						text = "The terminal is on the console in the world. Walk up and use it.",
+						textSize = "caption",
+						role = "secondary",
+					}),
+					UI.Text("Status")({ text = statusLine, textSize = "caption", role = "secondary" }),
+					UI.Text("Terminal")({ text = terminalLine, textSize = "caption", role = "secondary" }),
+					UI.Text("Outcome")({ text = outcomeLine, textSize = "caption", role = "secondary" }),
+					UI.Text("Face")({ text = faceLine, textSize = "caption", role = "secondary" }),
+					UI.Text("Rules")({ text = rulesLine, textSize = "caption", role = "secondary" }),
 				}),
-				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "Terminal", text = terminalLine, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "Outcome", text = outcomeLine, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "Face", text = faceLine, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "Rules", text = rulesLine, textSize = "caption", role = "secondary" }),
-			}),
-			UI.Grid({
-				id = "Controls",
-				-- a packing floor rather than a font guess: this asks how many
-				-- controls fit a row and lets a long label compact
-				minColumnWidth = 104,
-				gap = "s",
-				rowGap = "s",
-				width = UI.fill(),
-				--[[ FIVE BUTTONS, AND THE COUNT IS A MEASUREMENT. At `minColumnWidth`
+				UI.Grid("Controls")({
+					-- a packing floor rather than a font guess: this asks how many
+					-- controls fit a row and lets a long label compact
+					minColumnWidth = 104,
+					gap = "s",
+					rowGap = "s",
+					width = UI.fill(),
+					--[[ FIVE BUTTONS, AND THE COUNT IS A MEASUREMENT. At `minColumnWidth`
 					104 a 640x320 landscape phone fits five columns, so five controls are
 					one row and six are two — and the second row is 40px more than the
 					leftover has at the largest text preference, measured, on exactly that
@@ -482,23 +478,24 @@ return {
 					`Solve` is here because a driver taking a screenshot of the success
 					state should not have to know that 2 + 1 + 2 is the answer. ]]
 
-				control("BtnOpen", "Open", function()
-					open()
-				end),
-				control("BtnEngage", "Engage", function()
-					steps.engage(nil)
-				end),
-				control("BtnSolve", "Solve", function()
-					steps.solve(nil)
-				end),
-				control("BtnCancel", "Cancel", function()
-					steps.exitCancel(nil)
-				end),
-				control("BtnTeardown", "Teardown", function()
-					steps.teardown(nil)
-				end),
-			}),
-		})
+					control("BtnOpen", "Open", function()
+						open()
+					end),
+					control("BtnEngage", "Engage", function()
+						steps.engage(nil)
+					end),
+					control("BtnSolve", "Solve", function()
+						steps.solve(nil)
+					end),
+					control("BtnCancel", "Cancel", function()
+						steps.exitCancel(nil)
+					end),
+					control("BtnTeardown", "Teardown", function()
+						steps.teardown(nil)
+					end),
+				}),
+			})
+		end
 
 		local result: any = {}
 		result.screen = screen
@@ -510,16 +507,16 @@ return {
 				ledger = "WORLD-1",
 				canvas = CANVAS,
 				face = "Back",
-				surfaceState = surfaceState:get(),
-				lastExit = lastExit:get(),
-				terminal = terminalState:get(),
+				surfaceState = surfaceState:peek(),
+				lastExit = lastExit:peek(),
+				terminal = terminalState:peek(),
 				rulesLine = rulesLine,
 				resolveError = resolveError,
 				trace = trace,
 				surface = if api ~= nil then api.dump() else { open = false, seam = "absent" },
-				focusPath = ctx.presenter.focus.focused:get(),
-				counters = core:counters(),
-				coreError = core:lastError(),
+				focusPath = ctx.presenter.focus.focused:peek(),
+				counters = core.owner.size(),
+				coreError = core.lastError(),
 			}
 		end
 		result.dispose = function()
@@ -527,7 +524,6 @@ return {
 			if api ~= nil then
 				api.teardown()
 			end
-			scope:dispose()
 		end
 		return result
 	end,

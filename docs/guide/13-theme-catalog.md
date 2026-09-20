@@ -53,18 +53,20 @@ is one `ModuleScript` named for the package, so `FantasyOrnate.rbxm` becomes
 
 Then, on the client, at the point where your UI is set up:
 
-```lua
+```luau
 local Facet = require(ReplicatedStorage.Facet)
-local theme_controller = require(ReplicatedStorage.Facet.client.theme_controller)
 
 -- the package module compiles itself through the PUBLIC theme surface
 local package = require(ReplicatedStorage.FantasyOrnate).build(Facet.themes)
 
-local controller = theme_controller.install(adapter, package, {
-    env = env,                -- REQUIRED: the metric snapshot rides it
+local controller = app.installTheme(package, {
     theme = "Grand Hall",     -- optional; defaults to the package's own default
 })
 ```
+
+`app.installTheme` calls `theme_controller.install` for this application and
+supplies the environment and the services it needs. Install once per application;
+the application releases the controller on disposal.
 
 **Present your first screen before you install.** The controller links its sheet
 at the target's root. A target has no root until it has drawn one, so an install
@@ -111,10 +113,8 @@ declares Day and Night.
 One game then wears the thumb-sized skin on a phone and the dense one on a
 desktop, and switches when a player docks a mouse:
 
-```lua
-theme_controller.install(adapter, glossyTouch, {
-    env = env,
-    core = core,                          -- selectBy needs a scope for its subscription
+```luau
+app.installTheme(glossyTouch, {
     selectBy = { pointer = compactPointer },
 })
 ```

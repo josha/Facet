@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ "IS THIS PATH INSIDE A SUBTREE THAT DOES NOT PAINT" — ONE OWNER
 	(reuse audit REUSE-29; brief §3a; R5 review §3a-1 / §5-3).
 
@@ -46,8 +47,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local worldLib = require("./lib/world")
-local UI = require("../src/blueprint")
+local worldLib = require("./lib/harness_world")
+local UI = harness.UI
 
 local LONG = "Bartholomew Fitzgerald-Montgomery III"
 local HELP = "Posts your reply to everyone in the room."

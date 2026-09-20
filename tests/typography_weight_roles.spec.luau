@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- THE TYPOGRAPHY WEIGHT CHANNEL (F2, racer-sort parity, 2026-08-02).
 --
 -- `strong` and `numeral` are typography ROLES, not a `weight` prop, and the
@@ -21,9 +22,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local customFactory = require("../src/core/custom")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local customFactory = harness.coreFactory
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local text_metrics = require("../src/layout/text_metrics")

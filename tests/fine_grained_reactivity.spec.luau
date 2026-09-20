@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	FINE-GRAINED REACTIVITY AT SCALE — changing one bound value must cost the same
 	whether the collection holds 200 rows or 20 000.
@@ -52,7 +53,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- The three sizes every claim is measured at. 200 is smaller than one screen's
 -- worth of scrolling, 20 000 is two orders of magnitude larger; anything that
@@ -93,12 +95,12 @@ end
 
 local function world(count: number, opts: any?)
 	local options = opts or {}
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 
 	-- one signal per row, built up front so a mutation later allocates nothing
 	local items: { Item } = {}
@@ -106,14 +108,14 @@ local function world(count: number, opts: any?)
 		table.insert(items, {
 			id = `r{i}`,
 			label = `Row {i}`,
-			value = core:signal(i),
-			flag = core:signal(false),
+			value = Compose.cell(i),
+			flag = Compose.cell(false),
 		})
 	end
 	-- a signal EVERY row reads: the negative control's subject
-	local shared = core:signal("shared-0")
+	local shared = Compose.cell("shared-0")
 
-	local rows = core:signal(items)
+	local rows = Compose.cell(items)
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
@@ -126,29 +128,29 @@ local function world(count: number, opts: any?)
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.HStack({
+			return harness.UI.HStack({
 				id = "Row",
 				children = {
 					-- bound to THIS row's own signal
-					Facet.UI.Text({
+					harness.UI.Text({
 						id = "Value",
-						text = core:memo(function(use)
+						text = Compose.formula(function(use)
 							return `{use(item.value)}`
 						end),
 						textSize = 14,
 					}),
 					-- bound to a signal every row shares
-					Facet.UI.Text({
+					harness.UI.Text({
 						id = "Shared",
 						text = if options.readShared == false then "static" else shared,
 						textSize = 14,
 					}),
-					Facet.UI.Text({ id = "Label", text = item.label, textSize = 14 }),
+					harness.UI.Text({ id = "Label", text = item.label, textSize = 14 }),
 				},
 			})
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
 	assertClean(handle, "mount")

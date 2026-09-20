@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ A COVER'S TOUCH FLOOR STOPS AT THE FIRST THING IT COULD STEAL (DIR5 review H1).
 
 	THE DEFECT, MEASURED. A control under the effective touch floor gets an
@@ -50,9 +51,11 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
+local UI = harness.UI
 local commit_walks = require("../src/render/commit_walks")
 local worldLib = require("./lib/world")
+-- screens built from `harness.UI` nodes present through the service-level world
+local harnessWorld = require("./lib/harness_world")
 
 --[[ `region_expand.spec`'s `ringScreen(false)`, rebuilt here because it is local
 	to that file. Its geometry is pinned below against the review's own
@@ -124,7 +127,7 @@ local function overlapArea(a: any, b: any): number
 end
 
 local function steppedDown(): any
-	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
+	local w = harnessWorld.new({ viewport = { x = 0, y = 0, w = 390, h = 150 } })
 	w.present(ringScreen(), { initialFocus = "none" })
 	return w
 end
@@ -228,6 +231,9 @@ describe("a cover with ROOM keeps its whole floor — the other arm of R18", fun
 		})
 		local built = hud.build({
 			Facet = require("../src") :: any,
+			app = w.app,
+			UI = w.UI,
+			Compose = w.Compose,
 			core = w.core,
 			env = w.env,
 			actionSystem = w.system,
@@ -238,8 +244,7 @@ describe("a cover with ROOM keeps its whole floor — the other arm of R18", fun
 				return function() end
 			end,
 		})
-		built.handle = w.pres.present(built.screen, built.present)
-		w.pres.refresh()
+		built.handle = w.present(built.screen, built.present)
 		w.built = built
 		return w
 	end
@@ -354,7 +359,7 @@ describe("the F1 accessibility floor is UNTOUCHED by the clamp", function()
 	end
 
 	it("a sub-floor Button keeps its WHOLE floor over a pressable node in ANOTHER subtree", function()
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 200 } })
+		local w = harnessWorld.new({ viewport = { x = 0, y = 0, w = 390, h = 200 } })
 		w.present(crossHostScreen(), { initialFocus = "none" })
 		local hit = w.adapter.hitRectOf("/X/Row/LeftCol/Tiny")
 		local neighbour = w.adapter.node("/X/Row/RightCol/Neighbour")
@@ -368,7 +373,7 @@ describe("the F1 accessibility floor is UNTOUCHED by the clamp", function()
 	end)
 
 	it("a 20x20 Button still asks for the full 44x44, and it still leaves its parent", function()
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 200 } })
+		local w = harnessWorld.new({ viewport = { x = 0, y = 0, w = 390, h = 200 } })
 		w.present(subFloorScreen(), { initialFocus = "none" })
 		local small = w.adapter.node("/F/List/Small")
 		local hit = w.adapter.hitRectOf("/F/List/Small")
@@ -460,7 +465,7 @@ describe("a HIDDEN target is not a target", function()
 		end
 
 		local function floorWith(ghostHidden: boolean): string
-			local w = worldLib.new({
+			local w = harnessWorld.new({
 				viewport = { x = 0, y = 0, w = 390, h = 46 },
 				overflowGuardOff = "this case reads hit geometry only; the fixture deliberately overlays two layers",
 			})

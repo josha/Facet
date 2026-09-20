@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THEMED INSTANCE RECYCLING (optimization-log L-28).
 
@@ -25,7 +26,8 @@ local fs = require("@lune/fs")
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local chrome_slots = require("../src/tokens/chrome_slots")
-local fake_target = require("../tests/lib/fake_target")
+local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local ROW_HEIGHT = 56
 local VIEWPORT = { w = 360, h = 640 }
@@ -51,13 +53,13 @@ end
 -- bucket keyed by the hint table's ADDRESS can never match across a slide, and a
 -- bucket keyed by the hint's CONTENT always can.
 local function hintedWorld(recycle: boolean)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local rows = core:signal(makeItems(400))
+	local pres = harness.newPresenter(core, env, adapter, system)
+	local rows = Compose.cell(makeItems(400))
 	local list = virtual_list.build(Facet, core, {
 		id = "VL",
 		rows = rows,
@@ -68,25 +70,25 @@ local function hintedWorld(recycle: boolean)
 		viewportHeight = VIEWPORT.h,
 		overscan = 2,
 		cell = function(item: any)
-			return Facet.UI.HStack({
+			return harness.UI.HStack({
 				id = "Row",
 				gap = 6,
 				children = {
 					chrome_slots.attachHint(
-						Facet.UI.Box({
+						harness.UI.Box({
 							id = "Deco",
 							width = { type = "fixed", px = 24 },
 							height = { type = "fixed", px = 24 },
 						}),
 						{ slot = "control" }
 					),
-					Facet.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
-					Facet.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
+					harness.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
+					harness.UI.Box({ id = "Pad", width = { type = "fill", weight = 1 } }),
 				},
 			})
 		end,
 	})
-	local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+	local screen = harness.UI.Screen({ id = "S", children = { list.blueprint } })
 	local handle = pres.present(screen, { recycleInstances = recycle })
 	pres.refresh()
 	list.bindNativeScroll(handle.controller)

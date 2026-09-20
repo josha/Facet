@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE INSTANCE-HOST REGISTRY.
 
 	`clipHosts` was named for the first of its three triggers and outlived the
@@ -43,12 +44,13 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local screen_presentation = require("../src/client/screen_presentation")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- the region under test, with the three collaborators it composes against
 -- stubbed: none of them is reached by the registry half.
@@ -307,21 +309,21 @@ describe("WHICH NODES ARE REAL PARENTS, through the renderer that decides it", f
 							UI.VStack({
 								id = "Moving",
 								anchor = "topLeft",
-								offsetX = core:signal(10),
+								offsetX = Compose.cell(10),
 								children = { kid() },
 							}),
 							-- ...on a LEAF it is not: there is no subtree to carry
-							UI.Box({ id = "MovingLeaf", anchor = "topLeft", offsetY = core:signal(20) }),
+							UI.Box({ id = "MovingLeaf", anchor = "topLeft", offsetY = Compose.cell(20) }),
 							-- ...and a STATIC placement is not, however many children it has
 							UI.VStack({ id = "Static", anchor = "topLeft", offsetX = 30, children = { kid() } }),
 							-- ...and neither is a ScrollView or a `clipChildren` container,
 							-- refused outright so every raw-rect reader inside every list
 							-- Facet ships keeps its meaning
-							UI.ScrollView({ id = "Scroller", offsetX = core:signal(0), children = { kid() } }),
+							UI.ScrollView({ id = "Scroller", offsetX = Compose.cell(0), children = { kid() } }),
 							UI.VStack({
 								id = "Clip",
 								clipChildren = true,
-								offsetY = core:signal(0),
+								offsetY = Compose.cell(0),
 								children = { kid() },
 							}),
 						},
@@ -433,7 +435,7 @@ describe("WHICH NODES ARE REAL PARENTS, through the renderer that decides it", f
 					UI.VStack({
 						id = "Moving",
 						anchor = "topLeft",
-						offsetX = core:signal(10),
+						offsetX = Compose.cell(10),
 						children = { UI.Box({ id = "B", surface = "raised" }) },
 					}),
 				},

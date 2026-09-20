@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ THE ROW-ACTIONS FLIGHT (device bug round 2026-08-12, Group C —
 	docs/plans/device-bug-round-2026-08-12.md §"Group C — the flight").
 
@@ -61,14 +62,14 @@ local ROW_GUTTER_PX = themeSnapshot.resolveNumber(themeSnapshot.neutral(), "cont
 -- WRAPPING preview line — the leading-reveal defect (C9c/C9d) is a re-wrap, so a
 -- row whose content cannot wrap could not have shown it.
 local function content()
-	return Facet.UI.VStack({
+	return harness.UI.VStack({
 		id = "Body",
 		gap = 2,
 		width = { type = "fill", weight = 1 },
 		padding = { top = 10, bottom = 10, left = 14, right = 14 },
 		children = {
-			Facet.UI.Text({ id = "From", text = "Sender Name", textSize = 15 }),
-			Facet.UI.Text({
+			harness.UI.Text({ id = "From", text = "Sender Name", textSize = 15 }),
+			harness.UI.Text({
 				id = "Preview",
 				text = "a preview line long enough that it wraps once the row is squeezed",
 				textSize = 12,
@@ -83,7 +84,7 @@ end
 -- `pres.tick` with `pres.refresh`, for the same reason: `syncGeometry` only runs
 -- on the refresh, and the naturals this whole file is about are derived there).
 local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageWidth: number?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	if envSetup ~= nil then
@@ -92,13 +93,13 @@ local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageW
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = Facet.newPresenter(core, env, adapter, system, {
+	local pres = harness.newPresenter(core, env, adapter, system, {
 		now = function()
 			return clockTime
 		end,
 	})
 	local ra = build(core)
-	local screen = Facet.UI.Screen({
+	local screen = harness.UI.Screen({
 		id = "S",
 		-- a fixed-width cage, so the row's own width is decided FOR it exactly as a
 		-- list row's is, and `deriveNaturals`' clamp branch behaves like the shipped
@@ -110,7 +111,7 @@ local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageW
 				believed at 703px, which is what a phone-width playlist row
 				actually is. `cageWidth` exists for exactly that one case;
 				every other case passes nothing and is byte-identical. ]]
-			Facet.UI.VStack({
+			harness.UI.VStack({
 				id = "Cage",
 				width = { type = "fixed", px = cageWidth or 360 },
 				children = { ra.blueprint },
@@ -911,7 +912,7 @@ describe("RowActions departure clipping", function()
 								{}
 							)
 						local now = 0
-						local w = require("./lib/world").new({
+						local w = require("./lib/harness_world").new({
 							viewport = { x = 0, y = 0, w = 1200, h = 600 },
 							themeMetrics = if wired then metrics else themeSnapshot.neutral(),
 							presenterOpts = {
@@ -929,34 +930,34 @@ describe("RowActions departure clipping", function()
 								fired += 1
 							end,
 						}
-						local row = Facet.Controls.RowActions(w.core, {
+						local row = harness.Controls.RowActions(w.core, {
 							id = "Row",
 							env = if wired then w.env else nil,
 							leading = if edge == "leading" then { action } else nil,
 							trailing = if edge == "trailing" then { action } else nil,
-							content = Facet.UI.Box({
+							content = harness.UI.Box({
 								id = "Body",
 								surface = "chip",
 								height = { type = "fixed", px = 70 },
 								width = { type = "fill" },
 							}),
 						})
-						w.present(Facet.UI.Screen({
+						w.present(harness.UI.Screen({
 							id = "S",
 							padding = 16,
 							children = {
-								(if mode.scroll then Facet.UI.ScrollView else Facet.UI.VStack)({
+								(if mode.scroll then harness.UI.ScrollView else harness.UI.VStack)({
 									id = "Scroll",
 									width = { type = "fill" },
 									height = { type = "fixed", px = 300 },
 									children = {
-										Facet.UI.VStack({
+										harness.UI.VStack({
 											id = "Rows",
 											padding = 17,
 											width = { type = "fill" },
 											children = {
 												row.blueprint,
-												Facet.UI.Box({ id = "Next", height = { type = "fixed", px = 70 } }),
+												harness.UI.Box({ id = "Next", height = { type = "fixed", px = 70 } }),
 											},
 										}),
 									},
@@ -971,7 +972,7 @@ describe("RowActions departure clipping", function()
 						local path = "/S/Scroll/Rows/Row"
 						local rest = w.controller.screenRectOf(path)
 						local host = w.controller.scrollHostFor(path)
-						local clip = if host then host.rect else w.env:get("viewportRect"):get()
+						local clip = if host then host.rect else w.env:get("viewportRect"):peek()
 						local nextY = w.controller.screenRectOf("/S/Scroll/Rows/Next").y
 						expect(rest.x > clip.x).toBe(true)
 						row._commitFirst(edge)

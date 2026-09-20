@@ -1,5 +1,4 @@
 --!strict
-local tracking = require("../core/tracking")
 -- Renderer (design §4.3 #4, §13): walks the mounted graph, solves layout, and
 -- drives a RenderTargetAdapter. Engine-free — ScreenTarget (client-only) and
 -- the FakeTarget (tests) implement the same adapter interface, which is what
@@ -25,6 +24,7 @@ local profile = require("../core/profile")
 local text_metrics = require("../layout/text_metrics")
 local measure_reuse = require("../layout/measure_reuse")
 local authority = require("./authority")
+local foreign_content = require("./foreign_content")
 -- the per-node presentation channel: transform,
 -- transparency, the authored triple and the `withAnimation` records, behind one
 -- write site. Constructed per surface in `attach` — see the pointer there.
@@ -78,6 +78,8 @@ local dragContract = require("../input/drag_contract")
 -- of `input/drag_registry` against this surface, the native detector acquisition
 -- beside it, and the OWNER of the one reassigned scalar the two used to share.
 local drag_bridge = require("./drag_bridge")
+local Compose = require("../vendor/compose/core")
+local observeChange = require("../core/on_change")
 local autoscrollLib = require("../input/autoscroll")
 local specGuard = require("../spec_guard")
 -- the CLASS SCHEMA, read here for one reason only: an enum prop's closed set has
@@ -331,7 +333,7 @@ function renderer.attach(
 		)
 	end
 	local rootHandle = adapter.createRoot(root.node.id or "Screen")
-	local attachScope = core:scope("renderer-attach")
+	local attachScope = core.owner.createChild()
 	local initialized = false
 	-- THE TWO FACTS THE CROSS-SURFACE ALARM READS BACK. `rootVisible`
 	-- mirrors what the adapter accepted from `setRootVisible`, and
@@ -346,7 +348,7 @@ function renderer.attach(
 	-- `{ right, bottom }`, or nil for anything that reserved none. Read back
 	-- through `controller.scrollBarInsetOf` by a control whose node has to line up
 	-- ACROSS a scroll boundary it does not live inside (see the solver's own
-	-- `barInset` note, and `newTable`'s header padding).
+	-- `barInset` note, and `UI.Table`'s header padding).
 	local lastBarInsets: { [string]: any } = {}
 	local lastScrollRegions: { [string]: any } = {}
 	-- per-ScrollView autoscroll: the authored declaration, and the live model.
@@ -646,7 +648,7 @@ function renderer.attach(
 	-- snapshot would paint the old theme's geometry for one frame. A garbage
 	-- fact falls back to neutral rather than crashing a mounted surface.
 	local function currentMetrics(): any
-		local m = env:get("themeMetrics"):get()
+		local m = env:get("themeMetrics"):peek()
 		return if type(m) == "table" and type(m.type) == "table" then m else themeSnapshot.neutral()
 	end
 	-- last visibility pushed per path (hidden subtrees, A-AL1)
@@ -822,8 +824,49 @@ function renderer.attach(
 	local captureParkedProps: (path: string) -> any
 	local restoreParkedProps: (path: string, carried: any) -> ()
 
+	-- The node each handle was made for. A conditional branch or a keyed row may
+	-- put a DIFFERENT node at a path the last one held, and a handle kept across
+	-- that would go on painting its previous occupant.
+	--
+	-- AN IDENTITY, NOT THE NODE. This map used to be weak-VALUED, which retained
+	-- nothing but made the detection depend on the collector: if the old node was
+	-- collected before its replacement reached `ensureTree`, the entry was already
+	-- gone, the occupant read nil and the replacement sweep was skipped in
+	-- silence — a correctness decision keyed on GC timing. Ids are handed out from
+	-- a counter and never reused, and the weak-KEYED side table lets a dead node go
+	-- while the number it was given stays readable.
+	local handleNodes: { [string]: number } = {}
+	local nodeIds: { [any]: number } = setmetatable({}, { __mode = "k" }) :: any
+	local nextNodeId = 0
+	local function idOf(node: any): number
+		local id = nodeIds[node]
+		if id == nil then
+			nextNodeId += 1
+			id = nextNodeId
+			nodeIds[node] = id
+		end
+		return id
+	end
+	--[[ A NODE REPLACED AT A LIVE PATH TAKES ITS DESCENDANTS WITH IT.
+
+		`sweepDeparted` clears `childNodesOf[path]`, which is the ONLY record of who
+		the old occupant's children were — so sweeping the replaced path alone erased
+		the evidence the live-path walk needs to discover the orphans, and the old
+		subtree's handles stayed mounted forever under the new occupant. That is
+		visible whenever a keyed swap re-uses a path (a `Compose.keyed` render whose
+		row carries no `collectionKey`): the retired branch's `UI.When` content went
+		on painting beside the new branch's. The new occupant mounts its own children
+		through `ensureTree` below, so retiring the whole old subtree here is both
+		correct and the only moment the children are still known. ]]
+	local sweepReplaced: (path: string) -> ()
 	local function ensureTree(node: any, bounded: boolean?)
 		stats.lastSsVisited += 1
+		local id = idOf(node)
+		local occupant = handleNodes[node.path]
+		if occupant ~= nil and occupant ~= id and handles[node.path] ~= nil then
+			sweepReplaced(node.path)
+		end
+		handleNodes[node.path] = id
 		if handles[node.path] == nil then
 			-- THE LIFETIME BOOKKEEPING, first, so it is impossible to reach a `return`
 			-- or an adapter refusal below without it. `props.onDisappear` is captured
@@ -836,6 +879,24 @@ function renderer.attach(
 				end
 				if node.props.onDisappear ~= nil then
 					disappearHooks[node.path] = node.props.onDisappear
+				end
+				-- the Foreign content seam, PUSHED rather than polled
+				-- (`foreign_content.newHostBinding` says why it has to be)
+				if node.props.onHost ~= nil then
+					local binding = foreign_content.newHostBinding(node.path, node.props.onHost, core.report)
+					table.insert(appearQueue, {
+						path = node.path,
+						fn = function(path: string)
+							binding.open(controller.foreignHost(path))
+						end,
+					})
+					local prior = disappearHooks[node.path]
+					disappearHooks[node.path] = function(path: string)
+						binding.close()
+						if prior ~= nil then
+							prior(path)
+						end
+					end
 				end
 				if node.props.hidden == true then
 					authoredHidden[node.path] = true
@@ -1022,7 +1083,7 @@ function renderer.attach(
 			if
 				adapter.enableHover ~= nil
 				and HOVERABLE[node.class]
-				and env:get("interactionClasses"):get().pointer == true
+				and env:get("interactionClasses"):peek().pointer == true
 			then
 				adapter.enableHover(handles[node.path])
 			end
@@ -1046,7 +1107,7 @@ function renderer.attach(
 				local pressCb = opts and (opts :: any).onDiscloseLongPress
 				if hoverCb ~= nil or pressCb ~= nil then
 					local path = node.path
-					local classes = env:get("interactionClasses"):get()
+					local classes = env:get("interactionClasses"):peek()
 					adapter.enableDisclosure(handles[path], {
 						hover = if hoverCb ~= nil and classes.pointer == true
 							then function(over: boolean)
@@ -1093,8 +1154,11 @@ function renderer.attach(
 					if declEnabled == nil then
 						return true
 					end
-					if type(declEnabled) == "table" and type((declEnabled :: any).get) == "function" then
-						return (declEnabled :: any):get() ~= false
+					if Compose.isReadable(declEnabled) then
+						return (declEnabled :: any):peek() ~= false
+					end
+					if type(declEnabled) == "table" and type((declEnabled :: any).peek) == "function" then
+						return (declEnabled :: any):peek() ~= false
 					end
 					return declEnabled ~= false
 				end
@@ -1144,6 +1208,9 @@ function renderer.attach(
 						if not tapArm.tapArmsInstead(tapPath, nil) then
 							onNodeTap(tapPath, { via = "dragDetectorTap" })
 						end
+					elseif outcome == "tap" and not TAPPABLE[tapClass] and type(pos) == "table" then
+						-- a draggable CONTAINER ate the click: hand it to what lies under it
+						controller.tapAt(pos.x, pos.y, { skip = tapPath })
 					end
 				end
 				local detach = dragBridge.attachDetector(node.path, handlers)
@@ -1189,6 +1256,9 @@ function renderer.attach(
 				local path = node.path
 				local props = node.props or {}
 				local registry = if wantsDragCapture then dragBridge.registry() else nil
+				-- A node that unmounts mid-gesture has its events disconnected before
+				-- the adapter's remove-then-cancel arrives, so the cancel is held here.
+				local cancelHandler = props.onPointerCancel
 				adapter.setPointerHandlers(handles[path], {
 					down = function(pos: any)
 						-- the drag declaration is offered the press FIRST: only it
@@ -1230,8 +1300,9 @@ function renderer.attach(
 						if registry ~= nil then
 							keep = registry.pointerCancel(path, reason)
 						end
-						if props.onPointerCancel then
-							local authored = props.onPointerCancel(path, reason)
+						local onCancel = props.onPointerCancel or cancelHandler
+						if onCancel then
+							local authored = onCancel(path, reason)
 							if authored ~= nil then
 								return authored
 							end
@@ -1602,7 +1673,7 @@ function renderer.attach(
 	-- ...AND WHAT AXIS 3 STOPPED CARRYING (T18-A): this surface's `(font,size) ->
 	-- mounted text paths` index (`render/text_index`)
 	local textIndex = text_index.new()
-	attachScope:own(textIndex.dispose)
+	attachScope.own(textIndex.dispose)
 	-- ...AND THE BUILD HALF (P3): the `solver.Node` tree the other two run over was
 	-- rebuilt from the mounted tree on every solve. Per SURFACE beside them;
 	-- `render/layout_node.luau` carries the four axes, the weak keys and the numbers.
@@ -1673,48 +1744,10 @@ function renderer.attach(
 	local solvedListeners: { () -> () } = {}
 	local notifyingSolved = false
 
-	--[[ ── THE SOLVE'S OWN FEEDBACK, DRAINED BY THAT SOLVE ─────────────────────
-		L-31 gave the measure→publish cycle its settle phase, and closed it for a
-		publication that is an ENVIRONMENT write: `geometryFacts` depends on the env
-		signal, so the settle callback below re-solves and the cycle lands in one
-		flush. A publication that is a NODE PROP took a different road. `mount.luau`
-		binds a reactive prop through `core:observe`, which writes `node.props` and
-		pushes a dirty entry — and that queue is drained by `controller.refresh()`,
-		on the host's NEXT frame. So the solve that produced the measurement laid the
-		tree out against the OLD prop and the correction arrived a frame later
-		(the node that must spend a reservation lives outside it: a Table's header
-		pays the gutter its body spent, and `present`'s own solve paid it late).
-
-		THE MARK IS THE MECHANISM, and it is what keeps this from becoming "solve on
-		every write". `feedbackMark` is the tree's dirty sequence as the notification
-		BEGAN, so the only dirt this ever acts on is dirt a `solvedListener` caused.
-		Two arrival times, one rule:
-
-		  * the solve came from `refresh`/`initialRender` (no flush open), so the
-		    listener's `:set` flushes synchronously and the dirt is on the tree by
-		    the time the notify loop returns — drained inline, right there;
-		  * the solve came from the settle callback below (a flush IS open), so the
-		    write joins `writeSet`, the core ends the pass, drains propagation and
-		    RESTARTS the pass from the first callback (`core/contract.luau`) — which
-		    is the first moment the dirt exists. `feedbackArmed` carries the mark
-		    across that one pass boundary.
-
-		NO NEW CYCLE. The re-solve is bounded by `SOLVE_FEEDBACK_ROUND_CAP` and a
-		publication that will not converge is the same loud error the core's
-		`FEEDBACK_ROUND_CAP` already produces — quarantined into `lastError` when it
-		fires from the settle phase, propagated from `refresh` exactly as a throwing
-		`solvedListener` already is (see the notify block). It is not a second
-		scheduler: it runs inside the solve it belongs to, publishes nothing, and
-		touches no observer, so glitch-freedom and observer creation order are
-		untouched by construction.
-
-		WHAT IT DELIBERATELY DOES NOT DO: consume the dirty queue. `refresh` still
-		sees those entries and still commits the paint half of the prop — this
-		closes the LAYOUT frame, not the property-write cadence, and leaving the
-		queue alone is what keeps `onAppear`/`onDisappear` ordering and the
-		structural sync byte-identical. The cost is `stats.feedbackSolves`: one
-		extra solve on the frame a consumer publishes, which is the solve the next
-		frame used to pay. ]]
+	--[[ THE SOLVE DRAINS ITS OWN FEEDBACK. A solve can publish a measurement
+		that changes a node property. That write queues a dirty entry. The solve
+		drains the queue itself, so the measurement and the layout that uses it
+		land in one flush, not one frame apart. ]]
 	local SOLVE_FEEDBACK_ROUND_CAP = 8
 	local feedbackMark = 0
 	local feedbackArmed = false
@@ -1761,8 +1794,8 @@ function renderer.attach(
 		-- decided at the reuse branch below, which is the one place that knows
 		-- whether this turned out to be a full solve or an incremental one.
 		local seqAtSolveStart = root.dirtySeq()
-		local vp = env:get("viewportRect"):get()
-		local insets = env:get("coreSafeInsets"):get()
+		local vp = env:get("viewportRect"):peek()
+		local insets = env:get("coreSafeInsets"):peek()
 		-- deviceSafeContent, from the native-substrate round: the notch/rounded-corner
 		-- device insets are a SEPARATE fact from the CoreGui insets; a screen
 		-- opting into deviceSafeContent clears BOTH, so the content rect insets
@@ -1794,14 +1827,14 @@ function renderer.attach(
 		if rootPolicy == "edgeToEdge" then
 			insets = { top = 0, bottom = 0, left = 0, right = 0 }
 		elseif rootPolicy == "bandSafeContent" then
-			local chrome = env:get("platformChrome"):get()
+			local chrome = env:get("platformChrome"):peek()
 			if type(chrome) == "table" then
 				insets = (chrome :: any).bandInsets
 				band = (chrome :: any).band
 				bandFullTop = ((chrome :: any).insets :: any).top
 			end
 		elseif rootPolicy == "deviceSafeContent" then
-			local device = env:get("deviceSafeInsets"):get()
+			local device = env:get("deviceSafeInsets"):peek()
 			if type(device) == "table" then
 				insets = {
 					top = math.max(insets.top, device.top or 0),
@@ -1820,19 +1853,19 @@ function renderer.attach(
 		-- garbage-fact guards live once, in `themes/snapshot.reserveScale`, which
 		-- the public `Facet.text.facts` calls on the same two keys — so a
 		-- consumer PREDICTING a text box reserves at exactly this scale.
-		local paintScale = env:get("typographyPaintScale"):get()
+		local paintScale = env:get("typographyPaintScale"):peek()
 		if type(paintScale) ~= "number" or paintScale ~= paintScale then
 			paintScale = 1
 		end
-		local measureScale = themeSnapshot.reserveScale(env:get("typographyScale"):get(), paintScale)
+		local measureScale = themeSnapshot.reserveScale(env:get("typographyScale"):peek(), paintScale)
 		-- ten-foot presentation (input-paradigms expansion): TVs clip edges,
 		-- so overscan margins compose ON TOP of the CoreGui safe insets while
 		-- the display class is Large; a near display keeps the full canvas
 		-- NOT UNDER `bandSafeContent`: `platformChrome` composes the overscan into
 		-- both of its inset records itself, so a second addition here would spend a
 		-- television's margin twice
-		if rootPolicy ~= "bandSafeContent" and env:get("distanceProfile"):get() == "ten-foot" then
-			local overscan = env:get("effectiveOverscanInsets"):get()
+		if rootPolicy ~= "bandSafeContent" and env:get("distanceProfile"):peek() == "ten-foot" then
+			local overscan = env:get("effectiveOverscanInsets"):peek()
 			if type(overscan) == "table" then
 				insets = {
 					top = insets.top + (overscan.top or 0),
@@ -1844,7 +1877,7 @@ function renderer.attach(
 		end
 		-- the legal domain lives with the policy (`themes/snapshot.textOffset`), so
 		-- the public `Facet.text.facts` clamps the offset exactly as this seam does
-		local prefOffset = themeSnapshot.textOffset(env:get("preferredTextOffset"):get())
+		local prefOffset = themeSnapshot.textOffset(env:get("preferredTextOffset"):peek())
 		-- the adapter owns the scrollbar thickness (it is engine-specific); the
 		-- solver reserves it off a scrolling region's cross axis so content is
 		-- never laid out underneath the bar
@@ -1926,7 +1959,7 @@ function renderer.attach(
 		-- The rule lives with the key (`geometry_facts.withAppChrome`); the modal's
 		-- opt-out narrows that key out of GEOMETRY_KEYS too.
 		if reserveAppChrome then
-			insets = geometry_facts.withAppChrome(insets, rootPolicy, env:get("appChromeInsets"):get())
+			insets = geometry_facts.withAppChrome(insets, rootPolicy, env:get("appChromeInsets"):peek())
 		end
 		--[[ THE TREE, PATCHED RATHER THAN REBUILT (P3). `nodeDirty` is the
 			ancestor-closed set `refresh` accumulated; `nil` is "rebuild everything".
@@ -2471,6 +2504,9 @@ function renderer.attach(
 			adapter.remove(handle)
 		end
 		handles[path] = nil
+		-- the occupant id goes with the handle: the map is strong now, so a path
+		-- that never comes back must not leave a number behind
+		handleNodes[path] = nil
 		lastRects[path] = nil
 		--[[ ...and its coordinate-space bookkeeping (`rect_reads.dropPath` says why the
 			bounded arm makes it necessary). THE LANE'S PER-HOST `UI.Path` COUNT COMES OFF
@@ -2577,6 +2613,30 @@ function renderer.attach(
 			pathNodeCount -= 1
 		end
 		stats.removes += 1
+	end
+	-- deepest-first, like the departure sweep: `parkEligible` refuses a host whose
+	-- child list is not yet empty, and the children empty it on their way out.
+	local replacedOrder: { string } = {}
+	sweepReplaced = function(path: string)
+		table.clear(replacedOrder)
+		structural_scope.subtreeOf(childNodesOf, path, replacedOrder)
+		-- ...and take the retired path out of its parent's child map, so an ANCESTOR
+		-- replaced later in the same walk does not re-collect a subtree that has
+		-- already been rebuilt under the new occupant and park its live handles.
+		local parentNode = parentNodeOf[path]
+		if parentNode ~= nil then
+			local kids = childNodesOf[parentNode.path]
+			if kids ~= nil then
+				kids[path] = nil
+			end
+		end
+		table.sort(replacedOrder, deeperFirst)
+		for _, p in replacedOrder do
+			local handle = handles[p]
+			if handle ~= nil then
+				sweepDeparted(p, handle)
+			end
+		end
 	end
 
 	local function structuralSync(delta: { any }?)
@@ -2707,15 +2767,17 @@ function renderer.attach(
 	local GEOMETRY_KEYS = geometry_facts.keysFor(rootPolicy, reserveAppChrome)
 	-- scope-owned like every other memo: an unowned one is a live registry node
 	-- after dispose, which the registry-neutrality suites catch as a leak
-	local geometryFacts = attachScope:own(core:memo(function(use)
-		local values = table.create(#GEOMETRY_KEYS)
-		for i, key in GEOMETRY_KEYS do
-			values[i] = use(env:get(key))
-		end
-		return values
-	end, function(a: any, b: any): boolean
-		return geometry_facts.same(GEOMETRY_KEYS, a, b)
-	end))
+	local geometryFacts = Compose.withOwner(attachScope, function()
+		return Compose.formula(function(use)
+			local values = table.create(#GEOMETRY_KEYS)
+			for i, key in GEOMETRY_KEYS do
+				values[i] = use(env:get(key))
+			end
+			return values
+		end, function(a: any, b: any): boolean
+			return geometry_facts.same(GEOMETRY_KEYS, a, b)
+		end)
+	end)
 	--[[ THE RE-SOLVE IS SETTLE WORK, NOT OBSERVER WORK (L-31, 2026-08-14).
 		This observer used to call `solveAndApply()` inline, which meant a surface
 		committed to a layout in the MIDDLE of propagation — before the flush had
@@ -2726,18 +2788,18 @@ function renderer.attach(
 		two-surface shape (tools/lune/_probe_settle): 4 solves and 2 reactive
 		flushes per geometry change against 2 and 1 with no round trip.
 
-		Deferring to `core:settle` costs nothing anyone can observe — the settle
+		Deferring to `the settle pass` costs nothing anyone can observe — the settle
 		phase runs INSIDE the flush, so a top-level `env:set` still returns with
 		the surface solved — and buys the whole cycle one flush instead of two.
 		The flag is the idempotence the settle contract requires: the callback
 		runs once per settle pass and must be a boolean read when there is
 		nothing to do. ]]
 	local geometryPending = false
-	attachScope:own(core:observe(geometryFacts, function()
+	observeChange(attachScope, geometryFacts, function()
 		geometryPending = true
 		channel.suppressAutomatic()
-	end))
-	attachScope:own(core:settle(function()
+	end)
+	attachScope.own(core.settlePass.register(function()
 		--[[ FIRST, because a pass restarts from the FIRST callback: when the branch
 			below solved and a consumer published a PROP, this is the pass the core
 			restarted for, and this is the first moment that dirt exists on the tree
@@ -2797,7 +2859,7 @@ function renderer.attach(
 		from an incremental solve to a full one — `tests/perf_principles.spec` could
 		not see the second, because `stats().lastArranged` reports the LAST solve of
 		a frame rather than every solve in it. ]]
-	attachScope:own(core:settle(function()
+	attachScope.own(core.settlePass.register(function()
 		feedbackArmed = false
 	end))
 
@@ -3114,7 +3176,7 @@ function renderer.attach(
 			-- unmistakable-at-3m state (scale + glow) on a Large display while a
 			-- near display keeps the hairline ring. Third arg is optional —
 			-- older adapters ignore it and stay byte-identical.
-			local profile = env:get("distanceProfile"):get()
+			local profile = env:get("distanceProfile"):peek()
 			if focusedPath ~= nil and handles[focusedPath] ~= nil and not paintsOwnFocus(focusedPath) then
 				adapter.setFocusVisual(handles[focusedPath], false, profile)
 			end
@@ -3130,7 +3192,7 @@ function renderer.attach(
 	-- RESTING focus visual — text and margins already re-adopt via the solve
 	-- subscription, and the focus ring must move with them without waiting for
 	-- the next focus change
-	attachScope:own(core:observe(env:get("distanceProfile"), function(profile)
+	observeChange(attachScope, env:get("distanceProfile"), function(profile)
 		if
 			adapter.setFocusVisual ~= nil
 			and focusRingVisible
@@ -3139,7 +3201,7 @@ function renderer.attach(
 		then
 			adapter.setFocusVisual(handles[focusedPath], true, profile)
 		end
-	end))
+	end)
 
 	-- verifier F3: hover is a hot-switch CARRY idiom — a pointer ARRIVING
 	-- mid-session (dock adds a mouse) enables hover on nodes that already
@@ -3147,8 +3209,8 @@ function renderer.attach(
 	-- idempotent; there is no disable path (without a mouse the events
 	-- simply never fire).
 	do
-		local hoverLive = env:get("interactionClasses"):get().pointer == true
-		attachScope:own(core:observe(env:get("interactionClasses"), function(classes)
+		local hoverLive = env:get("interactionClasses"):peek().pointer == true
+		observeChange(attachScope, env:get("interactionClasses"), function(classes)
 			local live = classes.pointer == true
 			if live and not hoverLive and adapter.enableHover ~= nil then
 				local function enableWalk(node: any)
@@ -3162,7 +3224,7 @@ function renderer.attach(
 				enableWalk(root.node)
 			end
 			hoverLive = live
-		end))
+		end)
 	end
 
 	-- ...and the SAME carry idiom for disclosure engagement zones (architecture
@@ -3176,9 +3238,9 @@ function renderer.attach(
 		local discloseHoverCb = opts and (opts :: any).onDiscloseHover
 		local disclosePressCb = opts and (opts :: any).onDiscloseLongPress
 		if (discloseHoverCb ~= nil or disclosePressCb ~= nil) and adapter.enableDisclosure ~= nil then
-			local last = env:get("interactionClasses"):get()
+			local last = env:get("interactionClasses"):peek()
 			local lastPointer, lastTouch = last.pointer == true, last.touch == true
-			attachScope:own(core:observe(env:get("interactionClasses"), function(classes)
+			observeChange(attachScope, env:get("interactionClasses"), function(classes)
 				local pointer, touch = classes.pointer == true, classes.touch == true
 				if (pointer and not lastPointer) or (touch and not lastTouch) then
 					local function wireWalk(node: any)
@@ -3208,7 +3270,7 @@ function renderer.attach(
 					wireWalk(root.node)
 				end
 				lastPointer, lastTouch = pointer, touch
-			end))
+			end)
 		end
 	end
 
@@ -3242,10 +3304,10 @@ function renderer.attach(
 				adapter.setReducedMotion(reduced == true)
 			end
 		end
-		pushReducedMotion(env:get("reducedMotion"):get() == true)
-		attachScope:own(core:observe(env:get("reducedMotion"), function(reduced)
+		pushReducedMotion(env:get("reducedMotion"):peek() == true)
+		observeChange(attachScope, env:get("reducedMotion"), function(reduced)
 			pushReducedMotion(reduced == true)
-		end))
+		end)
 	end
 
 	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (owed row O-26).
@@ -3267,10 +3329,10 @@ function renderer.attach(
 		already painted, not merely remember the number. ]]
 	if adapter.setPreferredTransparency ~= nil then
 		local effective = env:get("effectiveTransparency")
-		adapter.setPreferredTransparency(effective:get())
-		attachScope:own(core:observe(effective, function(value)
+		adapter.setPreferredTransparency(effective:peek())
+		observeChange(attachScope, effective, function(value)
 			adapter.setPreferredTransparency(value)
-		end))
+		end)
 	end
 
 	function controller.initialRender()
@@ -3393,7 +3455,7 @@ function renderer.attach(
 	-- Internal mounted behavior seam: announce framework writes before their
 	-- native echoes, so gesture settling cannot undo keep-visible or bookmarks.
 	local scrollIntents = {}
-	attachScope:own(function()
+	attachScope.own(function()
 		table.clear(scrollIntents)
 	end)
 	function controller.observeScrollIntent(path, callback)
@@ -3578,48 +3640,11 @@ function renderer.attach(
 	})
 	controller.scrollToVisible = scrollIntoView.scrollToVisible
 
-	--[[ HAND A PRESS TO WHAT IS UNDERNEATH IT (ruling 6, director 2026-08-13).
-
-		THE ENGINE FACT THIS EXISTS FOR, measured live in Studio 2026-08-13 and
-		measured directly: Roblox
-		delivers `InputBegan` to the TOPMOST interactive object only. A `GuiButton`
-		sinks it and an Active `Frame` behind it receives NOTHING. So a hit surface
-		painted BEHIND a row's content — which is how `row_actions` and `table`'s own
-		`rowBlueprint` were both built, on a comment claiming the opposite — is dead
-		wherever a Button covers it, and the row cannot be swiped there.
-
-		The ruled repair (option A) puts the gesture surface ON TOP, where it always
-		receives the press, and makes it FORWARD a press it decides was not its own.
-		Forwarding cannot go back through the engine — the press has already been
-		delivered and sunk — so it comes here instead, to the one place that holds
-		the live tree, the solved rects and the tap dispatch the engine's own
-		`Activated` would have reached.
-
-		WHAT IT PICKS. The LAST node in document order (which is paint order, so the
-		last match is the topmost) that (i) sits under `within` and is not under
-		`skip`, (ii) is something the engine would have delivered the press to at
-		all, (iii) is not hidden or disabled, (iv) contains the point in WINDOW
-		space, and (v) is not scrolled out of its own clip host.
-
-		"SOMETHING THE ENGINE WOULD HAVE DELIVERED TO" IS TWO FAMILIES, NOT ONE, and
-		getting that wrong would have traded one dead control for another. A `Button`
-		/`Toggle`/`TextField` is activated through `setActivateHandler`, so a
-		forwarded press has to run that dispatch. But a `Rating`, a `Slider` and every
-		other control built on a POINTER ZONE (`onPointerDown`/`onPointerUp` props,
-		) is not `TAPPABLE` at all — it hears the raw press. Before this
-		ruling those worked and the swipe did not, because they were painted on top;
-		forwarding only the tappable family would have inverted exactly that, on the
-		same surfaces. So a pointer zone gets its down/up pair replayed at the point,
-		in order, with the same `screenRectOf` a native press is handed.
-
-		The `skip` prefix exists because the forwarding surface is ITSELF a pointer
-		zone and lives inside `within` — without it, the Grip would forward every
-		press straight back to itself.
-
-		The tappable path runs the SAME body `setActivateHandler` runs — the hidden
-		gate, the per-press dedupe, the drag-arm check, `opts.onNodeTap` — because a
-		forwarded tap must be indistinguishable from a native one. Returns the path it
-		dispatched to, or nil when nothing was under the point. ]]
+	--[[ HAND A PRESS TO WHAT IS UNDERNEATH IT. Roblox delivers `InputBegan` to the
+		topmost interactive object only. A `GuiButton` sinks it, and an Active
+		`Frame` behind it receives nothing. A hit surface behind a row's content is
+		therefore dead where a Button covers it. This seam hands the press to the
+		node underneath. ]]
 	local function isPointerZone(node: any): boolean
 		local props = node.props
 		return props ~= nil and (props.onPointerDown ~= nil or props.onPointerUp ~= nil)
@@ -3724,9 +3749,7 @@ function renderer.attach(
 		local handle = handles[path]
 		if handle ~= nil and adapter.observeScroll ~= nil then
 			return adapter.observeScroll(handle, function(pos)
-				tracking.withOrigin("scroll", function()
-					fn(pos)
-				end)
+				fn(pos)
 			end)
 		end
 		return function() end

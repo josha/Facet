@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[
 	THE PLACEMENT AUDIT UNDER INCREMENTAL LAYOUT — RED-TEAM Milestone 1, HIGH 2.
 
@@ -32,12 +33,13 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
-local customFactory = require("../src/core/custom")
+local customFactory = harness.coreFactory
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function px(n: number)
 	return { type = "fixed", px = n }
@@ -72,12 +74,12 @@ local function world(incremental: boolean)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	local wide = core:signal(false)
-	local tall = core:signal(false)
-	local reactiveWidth = core:memo(function(use: any)
+	local wide = Compose.cell(false)
+	local tall = Compose.cell(false)
+	local reactiveWidth = Compose.formula(function(use: any)
 		return px(if use(wide) then 120 else 60)
 	end)
-	local tailHeight = core:memo(function(use: any)
+	local tailHeight = Compose.formula(function(use: any)
 		return px(if use(tall) then 90 else 30)
 	end)
 	local bp = UI.VStack({
@@ -171,8 +173,8 @@ describe("the placement audit does not duplicate under incremental layout (HIGH 
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		local inert = core:signal(true)
-		local align = core:memo(function(use: any)
+		local inert = Compose.cell(true)
+		local align = Compose.formula(function(use: any)
 			return if use(inert) then "end" else nil
 		end)
 		local bp = UI.VStack({

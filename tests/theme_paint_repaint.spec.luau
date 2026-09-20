@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- A THEME COMMIT RE-RESOLVES ADAPTER-OWNED PAINT (director report 2026-08-14).
 --
 -- *"when i changed to the parchment theme, the spinner stayed blue. i'd expect
@@ -46,9 +47,9 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local snapshot = require("../src/themes/snapshot")

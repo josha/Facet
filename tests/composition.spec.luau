@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- DECLARED-CONTENT ADAPTIVE COMPOSITION (ledger row OWN-D45).
 --
 -- The decision is PURE, so most of this file drives `composition.resolve` with a
@@ -18,12 +19,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local composition = require("../src/layout/composition")
 local themeSnapshot = require("../src/themes/snapshot")
-local customFactory = require("../src/core/custom")
-local UI = require("../src/blueprint")
-local mountLib = require("../src/mount")
+local customFactory = harness.coreFactory
+local UI = harness.UI
+local mountLib = harness
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 -- ===== the fixture declaration =============================================
 -- Shaped like the commissioning surface: a masthead that spans, a ceremony lane
@@ -1248,8 +1250,8 @@ describe("UI.Composition, mounted", function()
 		-- occupies the slot RIGHT NOW, `active` is whether the schedule can still
 		-- produce one. Between two pieces the first is false and the second is true,
 		-- and that gap is exactly what rule 7 exists to hold still.
-		local piece = core:signal(true)
-		local active = core:signal(true)
+		local piece = Compose.cell(true)
+		local active = Compose.cell(true)
 		local function box(id: string, w: number, h: number)
 			return UI.Box({ id = id, width = { type = "fixed", px = w }, height = { type = "fixed", px = h } })
 		end
@@ -1495,13 +1497,13 @@ describe("UI.Composition, mounted", function()
 			end
 		end
 		-- with a floor, a live reserve is legal
-		expect(pcall(build({ reserved = core:signal(true), floor = { targets = 1 } }))).toBe(true)
+		expect(pcall(build({ reserved = Compose.cell(true), floor = { targets = 1 } }))).toBe(true)
 		-- ...without one it reserves nothing, live or pinned
-		local ok, err = pcall(build({ reserved = core:signal(true) }))
+		local ok, err = pcall(build({ reserved = Compose.cell(true) }))
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "reserved but declares no floor", 1, true) ~= nil).toBe(true)
 		-- ...and it is still mutually exclusive with mayDrop
-		local ok2, err2 = pcall(build({ reserved = core:signal(false), floor = { targets = 1 }, mayDrop = true }))
+		local ok2, err2 = pcall(build({ reserved = Compose.cell(false), floor = { targets = 1 }, mayDrop = true }))
 		expect(ok2).toBe(false)
 		expect(string.find(tostring(err2), "both reserved and mayDrop", 1, true) ~= nil).toBe(true)
 	end)
@@ -1648,16 +1650,18 @@ local SCENARIO = require("../examples/gallery/scenarios/composition") :: any
 local COMP_PATH = "/CompositionScreen/Body/OfferFrame/Summary"
 
 local function world(viewport: { x: number, y: number, w: number, h: number }?)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", viewport or { x = 0, y = 0, w = 1920, h = 1080 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = harness.newPresenter(core, env, adapter, system)
 	local built: any
 	local ctx: any = {
 		Facet = Facet,
+		UI = (harness.libraryOf(core)),
+		Compose = Facet.Compose,
 		core = core,
 		env = env,
 		adapter = adapter,
@@ -1721,7 +1725,7 @@ end
 describe("scenario 'composition': the fixture the device matrix drives", function()
 	it("mounts headlessly and resolves an arrangement with no core error", function()
 		local w = world()
-		expect(w.core:counters().errors or 0).toBe(0)
+		expect(w.core.lastError()).toBeNil()
 		expect(w.resolution().schema).toBe("facet-composition-dump/1")
 	end)
 

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- RenderTargetAdapter conformance (the billboard extension of the §13 seam): the
 -- FakeTarget satisfies the full contract headless, and a billboard-shaped
 -- pixel canvas (small offset-Size viewport — BillboardGui canvases are offset
@@ -18,7 +19,8 @@ local target_contract = require("../src/render/target_contract")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
-local UI = (Facet :: any).UI
+local Compose = require("../src/vendor/compose/core")
+local UI = harness.UI
 
 describe("RenderTargetAdapter contract", function()
 	it("the FakeTarget satisfies every required and optional method", function()
@@ -165,20 +167,20 @@ describe("RenderTargetAdapter contract", function()
 	end)
 
 	it("a billboard-sized pixel canvas renders a nameplate and updates paint-only", function()
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 96 }) -- the canvas
 		local adapter = fake_target.new({ ops = true })
-		local health = core:signal("100")
-		local root = Facet.mount(
+		local health = Compose.cell("100")
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "Nameplate",
 				padding = 8,
 				gap = 4,
 				children = {
-					Facet.UI.Text({ id = "Name", text = "Razz Raccoon", textSize = 18 }),
-					Facet.UI.Text({ id = "Health", text = health, textSize = 14 }),
+					harness.UI.Text({ id = "Name", text = "Razz Raccoon", textSize = 18 }),
+					harness.UI.Text({ id = "Health", text = health, textSize = 14 }),
 				},
 			})
 		)
@@ -324,15 +326,15 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 	-- schema accepts the word, and the engine adapter paints both directions (its
 	-- source is the contract — screen_target.luau cannot load headless).
 	it("Text.role names BOTH ends of its closed set, and both adapters write both", function()
-		local blueprint = require("../src/blueprint")
+		local blueprint = harness.UI
 		for _, role in { "secondary", "content" } do
 			local ok = pcall(function()
-				return Facet.UI.Text({ id = "T", text = "x", role = role })
+				return harness.UI.Text({ id = "T", text = "x", role = role })
 			end)
 			expect(`{role}=accepted:{ok}`).toBe(`{role}=accepted:true`)
 		end
 		local rejected = pcall(function()
-			return Facet.UI.Text({ id = "T", text = "x", role = "accent" })
+			return harness.UI.Text({ id = "T", text = "x", role = "accent" })
 		end)
 		expect(rejected).toBe(false)
 		expect(blueprint ~= nil).toBe(true)
@@ -393,11 +395,11 @@ end)
 	a segmented option) and over a subtree mounted INSIDE an already-hidden one,
 	which is the case a per-node write could most plausibly miss. ]]
 describe("FakeTarget: `visibleOf` answers for the chain, because the walk writes it", function()
-	local world = require("./lib/world")
+	local world = require("./lib/harness_world")
 
 	it("a glyph under a hidden plate reads hidden, though only the plate declared it", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 640, h = 480 } })
-		local show = w.core:signal(false)
+		local show = Compose.cell(false)
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -435,9 +437,9 @@ describe("FakeTarget: `visibleOf` answers for the chain, because the walk writes
 
 	it("the real shape it was claimed about: an empty badge on a segmented option", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 900, h = 720 } })
-		local picker = Facet.Controls.Picker(w.core, {
+		local picker = harness.Controls.Picker(w.core, {
 			id = "View",
-			selected = w.core:signal("a"),
+			selected = Compose.cell("a"),
 			options = {
 				{ value = "a", label = "Pages" },
 				{ value = "b", label = "Inbox", badge = "" },

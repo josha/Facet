@@ -1,17 +1,19 @@
 --!strict
+local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local F = require("../src") :: any
-local world = require("./lib/world")
+local world = require("./lib/harness_world")
+local Compose = require("../src/vendor/compose/core")
 local function tabFixture(view, input, distance, initialPreference)
 	local w = world.new({
 		viewport = { x = 0, y = 0, w = view[1], h = view[2] },
 		preferredInput = input,
 		env = { viewingDistance = distance or "near" },
 	})
-	local selection = w.core:signal("garage")
-	local preference = if initialPreference then w.core:signal(initialPreference) else nil
+	local selection = Compose.cell("garage")
+	local preference = if initialPreference then Compose.cell(initialPreference) else nil
 	local builds = 0
-	local tabs = F.Controls.TabView(w.core, {
+	local tabs = harness.Controls.TabView(w.core, {
 		id = "Tabs",
 		style = "sidebarAdaptable",
 		sidebarPreference = preference,
@@ -22,7 +24,7 @@ local function tabFixture(view, input, distance, initialPreference)
 				label = "Garage",
 				content = function()
 					builds += 1
-					return F.UI.Button({ id = "Tune", label = "Tune car" })
+					return harness.UI.Button({ id = "Tune", label = "Tune car" })
 				end,
 			},
 			{
@@ -30,12 +32,12 @@ local function tabFixture(view, input, distance, initialPreference)
 				label = "Races",
 				content = function()
 					builds += 1
-					return F.UI.Button({ id = "Race", label = "Start race" })
+					return harness.UI.Button({ id = "Race", label = "Start race" })
 				end,
 			},
 		},
 	})
-	w.present(F.UI.Screen({ id = "S", children = { tabs.blueprint } }))
+	w.present(harness.UI.Screen({ id = "S", children = { tabs.blueprint } }))
 	w.settle(2)
 	return w, tabs, selection, function()
 		return builds
@@ -45,36 +47,36 @@ end
 t.describe("shared adaptive presentation", function()
 	t.it("binds a nearby sidebar preference without rebuilding content or overriding compact and TV layouts", function()
 		local w, tabs, selection, builds, preference = tabFixture({ 1200, 800 }, "KeyboardAndMouse", "near", "topBar")
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		preference:set("sidebar")
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("bottomBar")
-		local contentPath = "/S/Tabs/Content/Tab-garage/then/Tune"
+		t.expect(tabs.placement:peek()).toBe("bottomBar")
+		local contentPath = "/S/Tabs/Content/Tab-garage/Tune"
 		w.pres.focus.focusOn(contentPath)
 		preference:set("topBar")
 		w.settle(3)
-		t.expect(w.pres.focus.focused:get()).toBe(contentPath)
+		t.expect(w.pres.focus.focused:peek()).toBe(contentPath)
 		preference:set("sidebar")
 		w.settle(3)
-		t.expect(w.pres.focus.focused:get()).toBe(contentPath)
+		t.expect(w.pres.focus.focused:peek()).toBe(contentPath)
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
 		w.env:set("viewingDistance", "ten-foot")
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		w.env:set("viewingDistance", "near")
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		tabs.collapseSidebar()
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		preference:set("automatic")
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		t.expect(builds()).toBe(1)
-		t.expect(selection:get()).toBe("garage")
+		t.expect(selection:peek()).toBe("garage")
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
@@ -93,7 +95,7 @@ t.describe("shared adaptive presentation", function()
 		t.expect(content.x > rail.x + rail.w).toBe(true)
 		w.env:set("viewingDistance", "ten-foot")
 		w.settle(4)
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		local target
 		for _, path in w.adapter.paths() do
 			if path:match("/ToggleSidebar$") then
@@ -108,8 +110,8 @@ t.describe("shared adaptive presentation", function()
 		t.expect(w.controller.rectOf(target).w > 0).toBe(true)
 		w.adapter.tap(target)
 		w.settle(4)
-		t.expect(selection:get()).toBe("races")
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(selection:peek()).toBe("races")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		t.expect(w.controller.rectOf(target).w > 0).toBe(true)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
@@ -117,17 +119,17 @@ t.describe("shared adaptive presentation", function()
 
 	t.it("expanding ordinary adaptable tabs focuses the selected tab after relocation", function()
 		local w, tabs = tabFixture({ 1000, 800 }, "Touch")
-		w.pres.focus.focusOn("/S/Tabs/Content/Tab-garage/then/Tune")
+		w.pres.focus.focusOn("/S/Tabs/Content/Tab-garage/Tune")
 		tabs.expandSidebar()
 		w.settle(3)
-		t.expect(string.match(w.pres.focus.focused:get(), "/Opt1$") ~= nil).toBe(true)
+		t.expect(string.match(w.pres.focus.focused:peek(), "/Opt1$") ~= nil).toBe(true)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
 	t.it("a resize cancels an obsolete sidebar focus handoff while duplicate requests retain it", function()
 		for _, collapse in { false, true } do
 			local w, tabs = tabFixture({ 1000, 800 }, "Touch")
-			local path = "/S/Tabs/Content/Tab-garage/then/Tune"
+			local path = "/S/Tabs/Content/Tab-garage/Tune"
 			w.pres.focus.focusOn(path)
 			tabs.expandSidebar()
 			w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
@@ -135,7 +137,7 @@ t.describe("shared adaptive presentation", function()
 				tabs.collapseSidebar()
 			end
 			w.settle(3)
-			t.expect(w.pres.focus.focused:get()).toBe(path)
+			t.expect(w.pres.focus.focused:peek()).toBe(path)
 			w.pres.dismiss(w.handle)
 			tabs.dispose()
 		end
@@ -143,31 +145,31 @@ t.describe("shared adaptive presentation", function()
 		tabs.expandSidebar()
 		tabs.expandSidebar()
 		w.settle(3)
-		t.expect(string.find(w.pres.focus.focused:get(), "/RailHome/", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(w.pres.focus.focused:peek(), "/RailHome/", 1, true) ~= nil).toBe(true)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
 	t.it("sidebar commands preserve focus when compact navigation cannot relocate", function()
 		local w, tabs = tabFixture({ 390, 844 }, "Gamepad")
-		local path = "/S/Tabs/Content/Tab-garage/then/Tune"
+		local path = "/S/Tabs/Content/Tab-garage/Tune"
 		w.pres.focus.focusOn(path)
 		tabs.expandSidebar()
 		w.settle(3)
-		t.expect(tabs.placement:get()).toBe("bottomBar")
-		t.expect(w.pres.focus.focused:get()).toBe(path)
+		t.expect(tabs.placement:peek()).toBe("bottomBar")
+		t.expect(w.pres.focus.focused:peek()).toBe(path)
 		tabs.collapseSidebar()
 		w.settle(3)
-		t.expect(w.pres.focus.focused:get()).toBe(path)
+		t.expect(w.pres.focus.focused:peek()).toBe(path)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
 	t.it("image buttons consume focus changes without polling focus on unchanged geometry", function()
 		local w = world.new()
-		local button = F.Controls.Button(
+		local button = harness.Controls.Button(
 			w.core,
 			{ id = "Card", label = "Car", image = "rbxassetid://0", onActivate = function() end }
 		)
-		w.present(F.UI.Screen({ id = "S", children = { button.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { button.blueprint } }))
 		w.settle(2)
 		local node = w.handle.root.node.children[1]
 		local bundle = require("../src/input/contribution").read(node)
@@ -188,29 +190,29 @@ t.describe("shared adaptive presentation", function()
 	end)
 	t.it("lets a tablet toggle the same tabs without rebuilding its selected page", function()
 		local w, tabs, selection, builds = tabFixture({ 1000, 800 }, "Touch")
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		tabs.expandSidebar()
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		tabs.collapseSidebar()
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		t.expect(builds()).toBe(1)
-		t.expect(selection:get()).toBe("garage")
+		t.expect(selection:peek()).toBe("garage")
 		tabs.expandSidebar()
 		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("bottomBar")
+		t.expect(tabs.placement:peek()).toBe("bottomBar")
 		w.env:set("viewportRect", { x = 0, y = 0, w = 1000, h = 800 })
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 	end)
 	t.it("keeps explicitly expanded distant navigation stable on tab activation", function()
 		local w, tabs, selection, builds = tabFixture({ 1920, 1080 }, "Gamepad", "ten-foot")
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		tabs.expandSidebar()
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		local target
 		for _, p in w.adapter.paths() do
 			if p:match("/Opt2$") then
@@ -221,15 +223,15 @@ t.describe("shared adaptive presentation", function()
 		w.pres.focus.focusOn(target)
 		w.press("ButtonA")
 		w.settle(3)
-		t.expect(selection:get()).toBe("races")
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(selection:peek()).toBe("races")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		t.expect(builds()).toBe(2)
-		t.expect(w.pres.focus.focused:get()).toBe(target)
-		t.expect(w.core:lastError()).toBeNil()
+		t.expect(w.pres.focus.focused:peek()).toBe(target)
+		t.expect(w.core.lastError()).toBeNil()
 	end)
 	t.it("defaults to persistent navigation with mouse without adding a toggle", function()
 		local w, tabs = tabFixture({ 1200, 800 }, "KeyboardAndMouse")
-		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(tabs.placement:peek()).toBe("sidebar")
 		local found = false
 		for _, p in w.adapter.paths() do
 			if p:match("/ToggleSidebar$") then
@@ -239,12 +241,12 @@ t.describe("shared adaptive presentation", function()
 		t.expect(found).toBe(false)
 		tabs.collapseSidebar()
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 	end)
 	t.it("image buttons keep one focus target and never reflow their caption on focus", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 800 }, preferredInput = "Gamepad", ops = true })
 		local calls = 0
-		local b = F.Controls.Button(w.core, {
+		local b = harness.Controls.Button(w.core, {
 			id = "Card",
 			label = "Mountain circuit",
 			subtitle = "Time trial",
@@ -254,7 +256,7 @@ t.describe("shared adaptive presentation", function()
 				calls += 1
 			end,
 		})
-		w.present(F.UI.Screen({ id = "S", children = { b.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { b.blueprint } }))
 		w.settle(2)
 		local imagePath = "/S/Card/ImageContent/ImageEnvelope/Artwork"
 		local labelPath = "/S/Card/ImageContent/Caption/Label"
@@ -283,14 +285,17 @@ t.describe("shared adaptive presentation", function()
 			env = { viewingDistance = "ten-foot" },
 			ops = true,
 		})
-		local b = F.Controls.Button(w.core, {
+		local b = harness.Controls.Button(w.core, {
 			id = "Card",
 			label = "Circuit",
 			image = "rbxassetid://0",
 			width = { type = "fixed", px = 320 },
 			onActivate = function() end,
 		})
-		w.present(F.UI.Screen({ id = "S", children = { b.blueprint, F.UI.Button({ id = "Other", label = "Other" }) } }))
+		w.present(harness.UI.Screen({
+			id = "S",
+			children = { b.blueprint, harness.UI.Button({ id = "Other", label = "Other" }) },
+		}))
 		w.pres.focus.focusOn("/S/Other")
 		w.settle(60)
 		t.expect(#w.controller.diagnostics()).toBe(0)
@@ -323,9 +328,9 @@ t.describe("shared adaptive presentation", function()
 
 	t.it("uses a single panel for gamepad menu hierarchies and keeps mouse cascades", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 720 }, preferredInput = "Gamepad" })
-		local menu = F.Controls.Menu(w.core, {
+		local menu = harness.Controls.Menu(w.core, {
 			id = "M",
-			trigger = F.UI.Button({ id = "Open", label = "Gear" }),
+			trigger = harness.UI.Button({ id = "Open", label = "Gear" }),
 			items = {
 				{
 					id = "tools",
@@ -365,7 +370,7 @@ t.describe("shared adaptive presentation", function()
 					themeMetrics = metrics,
 					env = { preferredTextOffset = 14, viewingDistance = if view[1] == 1920 then "ten-foot" else "near" },
 				})
-				local b = F.Controls.Button(w.core, {
+				local b = harness.Controls.Button(w.core, {
 					id = "Card",
 					label = "A remarkably adventurous driver",
 					subtitle = "Choose a racer for mountain trails",
@@ -373,14 +378,14 @@ t.describe("shared adaptive presentation", function()
 					image = "rbxassetid://0",
 					onActivate = function() end,
 				})
-				w.present(F.UI.Screen({
+				w.present(harness.UI.Screen({
 					id = "S",
 					padding = "m",
 					children = {
-						F.UI.ScrollView({
+						harness.UI.ScrollView({
 							id = "Scroll",
-							width = F.UI.fill(),
-							height = F.UI.fill(),
+							width = harness.UI.fill(),
+							height = harness.UI.fill(),
 							children = {
 								b.blueprint,
 							},
@@ -414,8 +419,8 @@ t.describe("shared adaptive presentation", function()
 			themeMetrics = F.themes.resolve(pkg, nil, {}),
 			env = { viewingDistance = "ten-foot", preferredTextOffset = 14 },
 		})
-		local selected = w.core:signal("pages")
-		local tabs = F.Controls.TabView(w.core, {
+		local selected = Compose.cell("pages")
+		local tabs = harness.Controls.TabView(w.core, {
 			id = "Tabs",
 			style = "sidebarAdaptable",
 			selection = selected,
@@ -424,7 +429,7 @@ t.describe("shared adaptive presentation", function()
 					id = "pages",
 					label = "Pages",
 					content = function()
-						return F.UI.Text({ text = "Pages" })
+						return harness.UI.Text({ text = "Pages" })
 					end,
 				},
 				{
@@ -432,12 +437,12 @@ t.describe("shared adaptive presentation", function()
 					label = "Inbox",
 					badge = "3",
 					content = function()
-						return F.UI.Text({ text = "Inbox" })
+						return harness.UI.Text({ text = "Inbox" })
 					end,
 				},
 			},
 		})
-		w.present(F.UI.Screen({ id = "S", children = { tabs.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { tabs.blueprint } }))
 		tabs.expandSidebar()
 		w.settle(60)
 		local label, badge
@@ -465,27 +470,23 @@ t.describe("shared adaptive presentation", function()
 		w.settle(2)
 		tabs.collapseSidebar()
 		w.settle(2)
-		local before = w.core:counters()
+		local before = w.core.owner.size()
 		for _ = 1, 12 do
 			tabs.expandSidebar()
 			w.settle(2)
 			tabs.collapseSidebar()
 			w.settle(2)
 		end
-		local after = w.core:counters()
-		for key, value in before do
-			if key == "signals" or key == "memos" or key == "effects" or key == "observers" or key == "scopes" then
-				t.expect(after[key]).toBe(value)
-			end
-		end
+		local after = w.core.owner.size()
+		t.expect(after).toBe(before)
 		t.expect(builds()).toBe(1)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
 	t.it("coordinates mouse hover, input changes and disabled image feedback", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 800 }, preferredInput = "KeyboardAndMouse" })
-		local enabled = w.core:signal(true)
-		local b = F.Controls.Button(w.core, {
+		local enabled = Compose.cell(true)
+		local b = harness.Controls.Button(w.core, {
 			id = "Card",
 			label = "Driver",
 			image = "rbxassetid://0",
@@ -493,7 +494,7 @@ t.describe("shared adaptive presentation", function()
 			enabled = enabled,
 			onActivate = function() end,
 		})
-		w.present(F.UI.Screen({ id = "S", children = { b.blueprint } }))
+		w.present(harness.UI.Screen({ id = "S", children = { b.blueprint } }))
 		w.settle(60)
 		local path = "/S/Card/ImageContent/ImageEnvelope/Artwork"
 		w.pres.focus.setFocusOrigin("pointer")
@@ -513,18 +514,17 @@ t.describe("shared adaptive presentation", function()
 		t.expect(w.adapter.node(path).props.transform.scale).toBe(1)
 		w.pres.dismiss(w.handle)
 		b.dispose()
-		enabled:dispose()
 	end)
 	t.it("distance changes release collapsed-caption observers", function()
 		local w, tabs = tabFixture({ 1000, 800 }, "Touch")
-		local before = w.core:counters().memos
+		local before = w.core.owner.size()
 		for _ = 1, 8 do
 			w.env:set("viewingDistance", "ten-foot")
 			w.settle(2)
 			w.env:set("viewingDistance", "near")
 			w.settle(2)
 		end
-		t.expect(w.core:counters().memos).toBe(before)
+		t.expect(w.core.owner.size()).toBe(before)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
@@ -532,31 +532,31 @@ t.describe("shared adaptive presentation", function()
 		local w, tabs = tabFixture({ 1920, 1080 }, "Gamepad", "ten-foot")
 		tabs.expandSidebar()
 		w.settle(2)
-		t.expect(string.find(w.pres.focus.focused:get() or "", "/RailHome/", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(w.pres.focus.focused:peek() or "", "/RailHome/", 1, true) ~= nil).toBe(true)
 		w.press("ButtonB")
 		w.settle(2)
-		t.expect(tabs.placement:get()).toBe("topBar")
+		t.expect(tabs.placement:peek()).toBe("topBar")
 		local bundle = require("../src/input/contribution").read(tabs.blueprint)
-		t.expect(bundle.handleCancel(w.pres.focus.focused:get())).toBe(false)
+		t.expect(bundle.handleCancel(w.pres.focus.focused:peek())).toBe(false)
 		w.pres.dismiss(w.handle)
 		tabs.dispose()
 	end)
 	t.it("reconnects image hover after the same control is remounted", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 800 }, preferredInput = "KeyboardAndMouse" })
-		local shown = w.core:signal(true)
-		local b = F.Controls.Button(
-			w.core,
-			{ id = "Card", label = "Driver", image = "rbxassetid://0", onActivate = function() end }
-		)
+		local shown = Compose.cell(true)
 		w.present(
-			F.UI.Screen({
+			harness.UI.Screen({
 				id = "S",
 				children = {
-					F.UI.When({
+					harness.UI.When({
 						id = "Show",
 						condition = shown,
+						-- each showing builds the control again at the same path
 						thenView = function()
-							return b.blueprint
+							return harness.Controls.Button(
+								w.core,
+								{ id = "Card", label = "Driver", image = "rbxassetid://0", onActivate = function() end }
+							).blueprint
 						end,
 					}),
 				},
@@ -575,26 +575,22 @@ t.describe("shared adaptive presentation", function()
 		t.expect(w.adapter.node("/S/Show/then/Card/ImageContent/ImageEnvelope/Artwork").props.transform.scale)
 			.toBe(1.05)
 		w.pres.dismiss(w.handle)
-		b.dispose()
-		shown:dispose()
 	end)
 	t.it("dismissing a screen after evicting image buttons releases callbacks safely", function()
 		local w = world.new()
-		local shown = w.core:signal(true)
-		w.present(F.UI.Screen({
+		local shown = Compose.cell(true)
+		w.present(harness.UI.Screen({
 			id = "S",
 			children = {
-				F.UI.When({
+				harness.UI.When({
 					id = "Show",
 					condition = shown,
-					thenView = function(pageScope)
-						local b = pageScope:own(
-							F.Controls.Button(
-								w.core,
-								{ id = "Card", label = "Driver", image = "rbxassetid://0", onActivate = function() end }
-							)
-						)
-						return b.blueprint
+					-- the branch's owner releases the control it builds
+					thenView = function()
+						return harness.Controls.Button(
+							w.core,
+							{ id = "Card", label = "Driver", image = "rbxassetid://0", onActivate = function() end }
+						).blueprint
 					end,
 				}),
 			},
@@ -604,15 +600,16 @@ t.describe("shared adaptive presentation", function()
 		w.settle(60)
 		t.expect(w.adapter.node("/S/Show/then/Card")).toBeNil()
 		w.pres.dismiss(w.handle)
-		t.expect(w.core:lastError()).toBeNil()
-		shown:dispose()
+		t.expect(w.core.lastError()).toBeNil()
 	end)
 	t.it("includes image hover observers in the adapter handler census", function()
 		local function count(image)
 			local w = world.new({ preferredInput = "KeyboardAndMouse" })
-			local b =
-				F.Controls.Button(w.core, { id = "B", label = "Driver", image = image, onActivate = function() end })
-			w.present(F.UI.Screen({ children = { b.blueprint } }))
+			local b = harness.Controls.Button(
+				w.core,
+				{ id = "B", label = "Driver", image = image, onActivate = function() end }
+			)
+			w.present(harness.UI.Screen({ children = { b.blueprint } }))
 			w.settle(2)
 			local n = w.adapter.handlerCount()
 			w.pres.dismiss(w.handle)
@@ -652,12 +649,12 @@ t.describe("persistent adaptive navigation", function()
 		tabs.dispose()
 	end)
 	t.it("centers the top capsule beside a tall accessory and anchors rail accessories", function()
-		local UI = F.UI
+		local UI = harness.UI
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 600 } })
-		local tabs = F.Controls.TabView(w.core, {
+		local tabs = harness.Controls.TabView(w.core, {
 			id = "Tabs",
-			selection = w.core:signal("a"),
-			conditions = { navPlacement = w.core:signal("topBar") },
+			selection = Compose.cell("a"),
+			conditions = { navPlacement = Compose.cell("topBar") },
 			style = "sidebarAdaptable",
 			accessories = {
 				trailing = function()

@@ -225,6 +225,8 @@ function check_registration.check(opts: Opts?)
 
 	local apiMd = fs.readFile("docs/reference/api.md")
 	local liveFacet = require("../../src") :: any
+	-- the constructors an application authors with: `Facet.new(...).controls`
+	local liveControls = require("../../bench/native_app")().app.controls
 	local initSource = fs.readFile("src/init.luau")
 
 	-- ---- dump surface (ENF-1c) ----------------------------------------
@@ -285,18 +287,29 @@ function check_registration.check(opts: Opts?)
 		end
 		checkDumpSurface(entry)
 		--[[ RESOLVED ON THE LIVE TABLE, NOT SEARCHED FOR IN THE SOURCE.
-			A substring find in `src/init.luau` says a control is exported when the
-			name merely appears anywhere in the file — a comment, a deprecation row, a
-			require. It also cannot express a namespaced export at all, and after
-			the `Controls` namespace the canonical route to every composite IS namespaced
-			(`Controls.Table`). A dotted lookup on the required table answers the
-			question the field actually asks: is this reachable from `Facet`? ]]
-		local resolved: any = liveFacet
-		for segment in string.gmatch(entry.export, "[^.]+") do
-			resolved = if type(resolved) == "table" then resolved[segment] else nil
+			A substring find in the source says a control is exported when the name
+			merely appears anywhere in the file — a comment, a deprecation row, a
+			require. A lookup on the live table answers the question the field
+			actually asks: is this reachable by an application?
+
+			`Controls.<Name>` and `UI.<Name>` name a constructor on `app.controls`,
+			read with `rawget`: the constructor table answers a function for ANY
+			name it is indexed with, so only a registered entry proves anything.
+			Every other export is a dotted path on the `Facet` table. ]]
+		local resolved: any
+		local constructor = string.match(entry.export, "^Controls%.(%w+)$") or string.match(entry.export, "^UI%.(%w+)$")
+		if constructor ~= nil then
+			resolved = rawget(liveControls, constructor)
+		else
+			resolved = liveFacet
+			for segment in string.gmatch(entry.export, "[^.]+") do
+				resolved = if type(resolved) == "table" then resolved[segment] else nil
+			end
 		end
 		if resolved == nil then
-			problem(`control {entry.name}: export '{entry.export}' does not resolve on the Facet table`)
+			problem(
+				`control {entry.name}: export '{entry.export}' does not resolve on the Facet table or on app.controls`
+			)
 		end
 		if string.find(apiMd, "`" .. entry.docsAnchor .. "`", 1, true) == nil then
 			problem(`control {entry.name}: docs anchor \`{entry.docsAnchor}\` not found in docs/reference/api.md`)
@@ -308,14 +321,9 @@ function check_registration.check(opts: Opts?)
 
 	-- ---- 2. API reference drift ---------------------------------------
 	local exports: { string } = {}
-	--[[ TOP-LEVEL KEYS FROM THE LIVE TABLE, NOT FROM THE SOURCE TEXT.
-		This used to scrape `\n\t(%w+) = ` out of `src/init.luau`, which is every
-		one-tab `word = ` line in the file and not only the ones inside the `Facet`
-		literal. The moment `Facet.Controls` landed as a module-level table, its
-		nineteen entries were reported as undocumented TOP-LEVEL exports — a
-		checker's own heuristic manufacturing nineteen false failures. The live
-		table is the thing the rule is about, it is already required below for the
-		nested walk, and it cannot be fooled by indentation. ]]
+	-- TOP-LEVEL KEYS FROM THE LIVE TABLE, NOT FROM THE SOURCE TEXT: a scrape of
+	-- one-tab `word = ` lines reports every module-level table's entries as
+	-- top-level exports, and the live table cannot be fooled by indentation.
 	local Facet = liveFacet
 	for key in Facet do
 		if type(key) == "string" then
@@ -333,11 +341,31 @@ function check_registration.check(opts: Opts?)
 	end
 
 	local documented: { [string]: boolean } = {}
+	--[[ A `### ` heading whose backticked token is a BARE identifier claims a
+		public export of the Facet table, checked both ways below. A heading
+		spelled `UI.<Name>` claims something else — a member of `app.controls` —
+		so it is collected separately and resolved on the live control library.
+		Both spellings are reference entries; neither may name something gone. ]]
+	local controlHeadings: { string } = {}
 	for line in string.gmatch(apiMd, "[^\n]+") do
 		if string.sub(line, 1, 4) == "### " then
 			for token in string.gmatch(line, "`([%w_]+)`") do
 				documented[token] = true
 			end
+			for token in string.gmatch(line, "`UI%.([%w_]+)`") do
+				table.insert(controlHeadings, token)
+			end
+		end
+	end
+	local schemaClasses: { [string]: boolean } = {}
+	for _, class in require("../../src/blueprint_schema").classNames() do
+		schemaClasses[class] = true
+	end
+	for _, member in controlHeadings do
+		if rawget(liveControls, member) == nil and not schemaClasses[member] then
+			problem(
+				`docs/reference/api.md has a \`### \`UI.{member}\`\` heading, but '{member}' is not a member of app.controls (stale reference?)`
+			)
 		end
 	end
 

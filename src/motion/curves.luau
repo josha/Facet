@@ -32,8 +32,8 @@
 -- ...AND WHY A PURE FALLBACK STILL SHIPS. Lune has no `TweenService`, and
 -- `clock:step(dt)` under a scripted clock is the entire reason the motion
 -- authority is testable (engine-free, no globals). So the
--- evaluator is INJECTED exactly the way `now` is, and this module carries a pure
--- twin for the headless suite. The twin is not a second opinion: it is pinned to
+-- evaluator is INJECTED exactly the way `now` is, and this module adapts Compose’s pure easing functions
+-- for the headless suite. That adapter is pinned to
 -- the engine by a differential oracle over a dense generated corpus — a LIVE
 -- Studio session, recorded once in `artifacts/time-based-easing/engine-oracle.md`
 -- (11 styles x 3 directions x 1,001 alphas; max |twin - engine| 4.73e-7), which
@@ -68,6 +68,7 @@
 -- the same VM should not call it.
 
 local num = require("../num")
+local Compose = require("../vendor/compose/core")
 local textDistance = require("../text_distance")
 
 local curves = {}
@@ -127,74 +128,28 @@ curves.DIRECTIONS = table.freeze(DIRECTIONS)
 
 local isFinite = num.isFinite
 
--- ===== the pure twin =======================================================
--- Penner's canonical set, which is what `TweenService` implements. Every entry
--- is the "in" form; `out` and `inOut` are DERIVED from it below, so a style can
--- only be wrong in one place. Constants are the standard ones and are pinned
--- against the engine by the oracle, not by belief.
-local BACK_S = 1.70158
--- NOT Penner's 0.3, and this is exactly the kind of thing belief gets wrong:
--- the pure twin was written with 0.3 and the differential oracle reddened
--- `elastic` in all three directions at max |err| 0.0248 while the other eight
--- styles agreed to < 1e-4. Fitting the period against `TweenService:GetValue`
--- over 201 alphas landed on 1/p = 3.250024, i.e. p = 1/3.25 exactly, which drops
--- the error to 7.4e-6 (measured live 2026-08-15; recorded in
--- docs/research/2026-08-15-roblox-easing-engine-facts.md).
+-- Compose owns the standard easing functions. Facet keeps the Roblox naming
+-- adapter and its recorded elastic compatibility rule: TweenService's period is
+-- 1/3.25, whereas Compose's canonical elastic curve uses 0.3. See the live oracle
+-- in docs/research/2026-08-15-roblox-easing-engine-facts.md.
 local ELASTIC_PERIOD = 1 / 3.25
-
 local easeIn: { [string]: (number) -> number } = {
-	linear = function(t: number): number
-		return t
-	end,
-	sine = function(t: number): number
-		return 1 - math.cos((t * math.pi) / 2)
-	end,
-	quad = function(t: number): number
-		return t * t
-	end,
-	cubic = function(t: number): number
-		return t * t * t
-	end,
-	quart = function(t: number): number
-		return t * t * t * t
-	end,
-	quint = function(t: number): number
-		return t * t * t * t * t
-	end,
-	exponential = function(t: number): number
-		return if t == 0 then 0 else math.pow(2, 10 * (t - 1))
-	end,
-	circular = function(t: number): number
-		return 1 - math.sqrt(math.max(0, 1 - t * t))
-	end,
-	back = function(t: number): number
-		return t * t * ((BACK_S + 1) * t - BACK_S)
-	end,
+	linear = Compose.easing.linear,
+	sine = Compose.easing.inSine,
+	quad = Compose.easing.inQuad,
+	cubic = Compose.easing.inCubic,
+	quart = Compose.easing.inQuart,
+	quint = Compose.easing.inQuint,
+	exponential = Compose.easing.inExpo,
+	circular = Compose.easing.inCirc,
+	back = Compose.easing.inBack,
+	bounce = Compose.easing.inBounce,
 	elastic = function(t: number): number
 		if t == 0 or t == 1 then
 			return t
 		end
 		local p = ELASTIC_PERIOD
 		return -(math.pow(2, 10 * (t - 1)) * math.sin(((t - 1) - p / 4) * (2 * math.pi) / p))
-	end,
-	bounce = function(t: number): number
-		-- bounce is authored OUT-first (the ball falls and rebounds); the `in`
-		-- form is its mirror, which is why this one entry inverts twice.
-		local u = 1 - t
-		local v: number
-		if u < 1 / 2.75 then
-			v = 7.5625 * u * u
-		elseif u < 2 / 2.75 then
-			u -= 1.5 / 2.75
-			v = 7.5625 * u * u + 0.75
-		elseif u < 2.5 / 2.75 then
-			u -= 2.25 / 2.75
-			v = 7.5625 * u * u + 0.9375
-		else
-			u -= 2.625 / 2.75
-			v = 7.5625 * u * u + 0.984375
-		end
-		return 1 - v
 	end,
 }
 

@@ -2,23 +2,35 @@
 -- Optional mounted ScrollView behavior. Geometry is indexed after layout; native
 -- samples read that index, never walk the tree or schedule an idle frame loop.
 local guard = require("../spec_guard")
+local Compose = require("../vendor/compose/core")
+local read = require("../selection_model").read
 local snap = require("./scroll_snap")
 local navigation = {}
 function navigation.validate(spec)
 	guard.assertKnownKeys(
 		"ScrollView.navigation",
 		spec,
-		guard.keySet({ "targets", "target", "snap", "progress", "threshold", "onVisibilityChanged", "focus" }),
+		guard.keySet({
+			"targets",
+			"target",
+			"snap",
+			"progress",
+			"threshold",
+			"onVisibilityChanged",
+			"focus",
+			"position",
+			"active",
+		}),
 		"navigation"
 	)
 	assert(
-		type(spec.targets) == "table",
+		type(spec.targets) == "table" or (spec.targets == nil and spec.position ~= nil),
 		"ScrollView.navigation.targets must be an array of descendant IDs or relative paths"
 	)
 	local seen = {}
-	for index, id in spec.targets do
+	for index, id in spec.targets or {} do
 		assert(
-			type(index) == "number" and index >= 1 and index <= #spec.targets and index % 1 == 0,
+			type(index) == "number" and index >= 1 and index <= #(spec.targets or {}) and index % 1 == 0,
 			"ScrollView.navigation.targets must be a dense array"
 		)
 		assert(
@@ -35,16 +47,23 @@ function navigation.validate(spec)
 		spec.focus == nil or spec.focus == "preserve" or spec.focus == "target",
 		"ScrollView.navigation.focus must be preserve | target"
 	)
+	assert(
+		spec.active == nil
+			or type(spec.active) == "boolean"
+			or type(spec.active) == "function"
+			or Compose.isReadable(spec.active),
+		"ScrollView.navigation.active must be a boolean source"
+	)
 	local threshold = spec.threshold or 0.5
 	assert(
 		type(threshold) == "number" and threshold > 0 and threshold <= 1,
 		"ScrollView.navigation.threshold must be in (0, 1]"
 	)
-	for _, name in { "target", "progress" } do
+	for _, name in { "target", "progress", "position" } do
 		local v = spec[name]
 		assert(
 			v == nil
-				or (type(v) == "table" and type(v.get) == "function" and (name ~= "progress" or v.kind == "signal")),
+				or (type(v) == "table" and Compose.isReadable(v) and (name == "target" or type(v.set) == "function")),
 			"ScrollView.navigation: " .. name .. " must be a readable (progress must be a signal)"
 		)
 	end
@@ -53,19 +72,34 @@ function navigation.validate(spec)
 		"ScrollView.navigation.onVisibilityChanged must be a function"
 	)
 end
-function navigation.new(core, scope, spec)
+function navigation.new(owner, spec)
 	local controller, node, off, offIntent
 	local graph, focusRequest, arrived, focusOff
 	local travelTarget
 	local function cancelFocus()
 		focusRequest, arrived = nil, nil
 	end
+	local function active()
+		return spec.active == nil or read(spec.active) ~= false
+	end
+	local pendingPosition = if spec.position then read(spec.position) else nil
+	local wasActive = false
+	local function validPosition(value)
+		assert(
+			type(value) == "number" and value == value and math.abs(value) < math.huge,
+			"ScrollView.navigation.position must contain a finite pixel offset"
+		)
+		return value
+	end
+	if pendingPosition ~= nil then
+		validPosition(pendingPosition)
+	end
 	local writing = false
 	local frameworkOffset = nil
 	local callbackError = nil
 	local geometryEpoch, structureEpoch = nil, nil
 	local entries, visible = {}, {}
-	local pending = if spec.target then spec.target:get() else nil
+	local pending = if spec.target then read(spec.target) else nil
 	assert(pending == nil or type(pending) == "string", "ScrollView.navigation.target must contain a name or nil")
 	local maxScroll, band, offset, isX = 0, 0, 0, false
 	local function write(value)
@@ -77,8 +111,7 @@ function navigation.new(core, scope, spec)
 		end
 	end
 	local engine = snap.new({
-		core = core,
-		scope = scope,
+		owner = owner,
 		index = function()
 			return nil
 		end,
@@ -128,7 +161,7 @@ function navigation.new(core, scope, spec)
 			return best
 		end,
 	})
-	scope:own(engine)
+	owner.own(engine.dispose)
 	local function announce(id, on)
 		visible[id] = on
 		local ok, err = pcall(spec.onVisibilityChanged, id, on)
@@ -137,7 +170,10 @@ function navigation.new(core, scope, spec)
 			warn("Facet ScrollView.navigation: visibility callback quarantined: " .. callbackError)
 		end
 	end
-	local function publish()
+	local function publish(fromScroll)
+		if fromScroll and spec.position and active() and not writing then
+			spec.position:set(offset)
+		end
 		if spec.progress then
 			spec.progress:set(if maxScroll > 0 then math.clamp(offset / maxScroll, 0, 1) else 0)
 		end
@@ -173,14 +209,33 @@ function navigation.new(core, scope, spec)
 			cancelFocus()
 		end
 	end
+	local function restorePosition()
+		if pendingPosition == nil or not active() then
+			return
+		end
+		local wanted = math.clamp(pendingPosition, 0, maxScroll)
+		pendingPosition = nil
+		if math.abs(wanted - offset) > 0.5 then
+			engine.rest(wanted)
+			write(wanted)
+		end
+	end
+	if spec.position then
+		owner.watchStatic(spec.position, function(value)
+			value = validPosition(value)
+			if math.abs(value - offset) > 0.5 then
+				pendingPosition = value
+			end
+		end)
+	end
 	if spec.target then
-		scope:own(core:observe(spec.target, function(id)
+		owner.watchStatic(spec.target, function(id)
 			assert(id == nil or type(id) == "string", "ScrollView.navigation.target must contain a name or nil")
 			pending = id
 			cancelFocus()
-		end))
+		end)
 	end
-	scope:own(function()
+	owner.own(function()
 		if focusOff then
 			focusOff()
 		end
@@ -202,10 +257,10 @@ function navigation.new(core, scope, spec)
 				focusOff()
 			end
 			graph = g
-			focusOff = core:observe(g.focused, cancelFocus)
+			focusOff = owner.watchStatic(g.focused, cancelFocus)
 		end,
 		bindInputScope = function(input)
-			scope:own(input.onTick(function()
+			owner.own(input.onTick(function()
 				if not arrived or not graph then
 					return
 				end
@@ -232,6 +287,15 @@ function navigation.new(core, scope, spec)
 			if not controller or not root then
 				return
 			end
+			if not active() then
+				wasActive = false
+				return
+			end
+			if not wasActive then
+				wasActive = true
+				geometryEpoch = nil
+				pendingPosition = if spec.position then read(spec.position) else nil
+			end
 			if node ~= root then
 				if off then
 					off()
@@ -249,6 +313,9 @@ function navigation.new(core, scope, spec)
 					end
 				end)
 				off = controller.observeScroll(node.path, function(pos)
+					if not active() then
+						return
+					end
 					offset = if isX then pos.x else pos.y
 					if
 						pos.dragging ~= true
@@ -260,11 +327,12 @@ function navigation.new(core, scope, spec)
 						frameworkOffset = nil
 						engine.sample(offset, pos.dragging, pos.origin)
 					end
-					publish()
+					publish(true)
 				end)
 			end
 			local structure, geometry = controller.structureEpoch(), controller.geometryEpoch()
 			if geometryEpoch == geometry and structureEpoch == structure then
+				restorePosition()
 				seek()
 				return
 			end
@@ -302,7 +370,7 @@ function navigation.new(core, scope, spec)
 			end
 			walk(root)
 			entries = {}
-			for _, id in spec.targets do
+			for _, id in spec.targets or {} do
 				local rect = paths[id] and controller.screenRectOf(paths[id])
 				if rect then
 					table.insert(entries, {
@@ -336,6 +404,7 @@ function navigation.new(core, scope, spec)
 					cancelFocus()
 				end
 			end
+			restorePosition()
 			publish()
 			if retargeting then
 				focusRequest = retainedFocus
@@ -344,10 +413,10 @@ function navigation.new(core, scope, spec)
 		end,
 	}
 end
-function navigation.attach(core, scope, bp)
+function navigation.attach(owner, bp)
 	local contribution = require("../input/contribution")
 	local bundle = table.clone(contribution.read(bp) or {})
-	for name, callback in navigation.new(core, scope, bp.meta.scrollNavigation) do
+	for name, callback in navigation.new(owner, bp.meta.scrollNavigation) do
 		local previous = bundle[name]
 		bundle[name] = if previous
 			then function(...)

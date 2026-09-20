@@ -44,15 +44,16 @@ These words are used throughout this chapter, so here they are once:
   a subtree is re-run. Fine means one property on one instance is written.
 - **Signal** is a value you can read and set that other things are allowed to
   watch; Fusion spells it `Value`, Vide spells it `source`, Facet spells it
-  `core:signal`.
+  `Compose.cell`.
 - **Memo** is a value worked out from other values, which recalculates itself
   only when one of those values changes.
 - **Dirty entry** is a note that one piece of the screen is out of date, held
   until the library next brings the screen up to date.
-- **Scope** is a bag that owns things and destroys them together — but the word
-  names three different constructs on this page. Facet's is an ownership scope,
-  Fusion's is a cleanup scope, and Vide's reactive scope is a computation that
-  re-runs, not only a bag.
+- **Ownership** is what releases a set of things together. The word for it
+  differs per library. Facet has no type of its own: it uses a Compose owner,
+  which holds the cells, watches and nodes a mount created. Fusion's is a
+  cleanup scope. Vide's reactive scope is a computation that re-runs, not only
+  a bag.
 - **Token** is a named design value, such as a spacing step or a text colour,
   that you set in one place and every screen reads.
 - **Solver** is the part of a library that turns a description into the position
@@ -60,9 +61,10 @@ These words are used throughout this chapter, so here they are once:
 
 The one-sentence version of each library:
 
-- **Facet** — a Roblox UI library. Its decisions (state, layout, focus,
-  adaptation) are plain Luau you can test without an engine. A thin adapter
-  edge turns the result into real Roblox UI ([the root `README.md`](../../README.md),
+- **Facet** — a Roblox UI library built directly on Compose, a vendored reactive
+  runtime. Its decisions (state, layout, focus, adaptation) are plain Luau you
+  can test without an engine. A thin adapter edge turns the result into real
+  Roblox UI ([the root `README.md`](../../README.md),
   [the guide index](README.md)). `[FACT]`
 - **React Luau** — "a comprehensive, but not exhaustive, translation of ReactJS
   17.x into Luau", giving you React's component model on Roblox instances (React
@@ -101,13 +103,13 @@ class" `[FACT]` ([`05-styling.md`](05-styling.md) is the authority, and
 
 | | Facet | React Luau | Fusion | Vide |
 |---|---|---|---|---|
-| **Mental model** | Describe the screen as plain data; a solver decides the geometry; an adapter writes the instances ([`02-architecture.md`](02-architecture.md)) | Components return an element tree, and the library will "efficiently update and render just the right components when your data changes" (React Luau README) | Scopes hold state objects and the instances built from them | Sources hold values; effects created at build time keep single properties current |
+| **Mental model** | Describe the screen as plain data; a solver decides the geometry; an adapter writes the instances ([`02-architecture.md`](02-architecture.md)) | Components return an element tree, and the library will "efficiently update and render just the right components when your data changes" (React Luau README) | A cleanup scope holds state objects and the instances built from them | Sources hold values; effects created at build time keep single properties current |
 | **How much it supplies** | A full UI layer: layout, controls, styling, input, focus, adaptation, motion, render targets ([the guide index](README.md) catalog) | The component model, hooks, refs, bindings, portals, and a root that renders into an instance | Reactive state, instance creation and adoption, collection helpers, tween and spring | Reactive state, instance creation, control flow helpers, spring |
 | **Normal state/update path** | A changed value marks its spot. Once a frame, Facet re-lays-out only what moved and writes only what changed ([`02-architecture.md`](02-architecture.md) §2.2) | `[INFERENCE]` `useState` or props change → the component re-renders → reconciliation writes what differs | `Value:set` → dependent `Computed` objects recompute → `New`/`Hydrate` re-assign the bound property | Set a source → the effects that read it re-run → each writes its one property |
 | **Reactivity granularity** | Fine. A paint-only change writes that property and does not re-run layout ([`02-architecture.md`](02-architecture.md) §2.2) | Coarse by default (component re-render), plus a fine route: Bindings are "a form of signals-based state that doesn't re-render" (React Luau README) | Fine. A property bound to a state object "is re-assigned every time the value of the state object changes" | Fine. A non-event property given a function makes an effect "to update property" |
-| **Cleanup model** | Scopes. Disposing a scope disposes everything it owns, in reverse order, exactly once ([`01-concepts.md`](01-concepts.md) §1.3) | `useEffect` returns a cleanup function; unmounting a root tears its tree down | `doCleanup()` on a scope destroys its contents in reverse order; `innerScope` nests | `root()` returns a destructor; a parent scope's destruction destroys its children |
-| **Layout** | A pure two-pass solver produces a rectangle per node, with no instance and no signal reads ([`02-architecture.md`](02-architecture.md) §2.1) | `[INFERENCE]` Roblox's own: you set `UDim2` values or add layout instances, as you would by hand | `[INFERENCE]` Roblox's own, in the property table you pass to `New` | `[INFERENCE]` Roblox's own, in the property table you pass to `create` |
-| **Built-in controls** | Nineteen composite controls, including table, virtual list, slider, picker, tabs and text input ([the guide index](README.md) catalog) | `[INFERENCE]` None documented; you compose Roblox classes yourself | `[INFERENCE]` None documented; you compose Roblox classes yourself | `[INFERENCE]` None documented; you compose Roblox classes yourself |
+| **Cleanup model** | Compose owners. A mount owns every cell, formula, watch and node created while the component ran; closing the surface releases them, and `Compose.cleanup(fn)` adds an external resource to that same lifetime ([`01-concepts.md`](01-concepts.md) §1.3) | `useEffect` returns a cleanup function; unmounting a root tears its tree down | `doCleanup()` on a scope destroys its contents in reverse order; `innerScope` nests | `root()` returns a destructor; a parent scope's destruction destroys its children |
+| **Layout** | A pure two-pass solver produces a rectangle per node, with no instance and no reactive reads ([`02-architecture.md`](02-architecture.md) §2.1) | `[INFERENCE]` Roblox's own: you set `UDim2` values or add layout instances, as you would by hand | `[INFERENCE]` Roblox's own, in the property table you pass to `New` | `[INFERENCE]` Roblox's own, in the property table you pass to `create` |
+| **Built-in controls** | Twenty-nine composite controls, including table, virtual list, slider, picker, tabs and text input ([the guide index](README.md) catalog) | `[INFERENCE]` None documented; you compose Roblox classes yourself | `[INFERENCE]` None documented; you compose Roblox classes yourself | `[INFERENCE]` None documented; you compose Roblox classes yourself |
 | **Native StyleSheets and Studio theme editing** | The default paint path is a generated Roblox `StyleSheet` named `FacetStyle`, one `StyleLink` per screen, with Style Editor token edits taking effect immediately ([`05-styling.md`](05-styling.md) §5.7) | `[INFERENCE]` Yours to write; `StyleSheet` and `StyleRule` are ordinary instances you can create | `[INFERENCE]` Yours to write, same as the column to the left | `[INFERENCE]` Yours to write, same as the column to the left |
 | **Input, focus, device adaptation** | Semantic actions over Roblox's Input Action System, navigation derived from the solved layout, per-device idioms ([`07-input.md`](07-input.md)) | `[INFERENCE]` Yours to write; the library gives you events and refs on the instances | `[INFERENCE]` Yours to write; `OnEvent` connects a callback | `[INFERENCE]` Yours to write; a function on an event property is connected as a callback |
 | **Accessibility** | The player's preferred text size adds space to every text box; reduced motion turns the travel off and keeps the result; the dialog backdrop follows the player's own transparency setting ([`api.md`](../reference/api.md) Environment) | `[INFERENCE]` Yours to write | `[INFERENCE]` Yours to write | `[INFERENCE]` Yours to write |
@@ -187,7 +189,7 @@ Reach for it when the interface is a large part of the product, and you want the
 parts a test can check to be checkable without an engine `[INFERENCE]`. Layout,
 focus, adaptation and state are plain Luau; only the adapter edge touches an
 `Instance` `[FACT]` ([`02-architecture.md`](02-architecture.md)). It ships the
-things you would otherwise write: nineteen composite controls, native
+things you would otherwise write: twenty-nine composite controls, native
 `StyleSheet` paint with Studio Style Editor token editing, and input across
 pointer, touch, keyboard and gamepad. It also ships layout that adapts from a
 phone to a console, and three render targets `[FACT]` ([the guide
@@ -242,22 +244,28 @@ one writes its single property `[FACT]`. Control flow is where structure changes
 per entry, differing in whether an element is bound to a position or to an object
 `[FACT]`.
 
-**Facet has its own fine-grained reactive core; it does not use Fusion, React, or
-Vide.** That core is `src/core/custom.luau`, and `src/init.luau` binds
-`Facet.newCore` to it `[FACT]`. It gives you signals, memos, observers and
-effects. It gives you transactions that batch several writes so dependents
-recompute and observers fire once. It also gives you scopes that own
-everything and dispose of it exactly once `[FACT]`
-([`01-concepts.md`](01-concepts.md) §1.3). Structure changes only through
-`UI.When` and `UI.ForEach`, which mount and unmount branches and rows, each with
-its own scope `[FACT]` ([`api.md`](../reference/api.md)). Geometry is a separate
-pure step. A two-pass solver reads a snapshot of the tree and a viewport size,
-and returns a rectangle per node. It reads no signal and no `Instance`
-`[FACT]`. Only then does the adapter edge write engine properties. A change
-reaching a signal does not repaint immediately. Instead, it records a dirty
-entry, and one refresh per frame drains that entry. As a result, many changes
-in a frame collapse into one layout pass and a minimal set of writes `[FACT]`
-([`02-architecture.md`](02-architecture.md) §2.2).
+**Facet sits directly on Compose; it does not use Fusion, React, or Vide.**
+Compose is a fine-grained reactive runtime vendored into this repository as a
+generated, read-only snapshot at `src/vendor/compose`, pinned by
+`src/vendor/compose/UPSTREAM.lock` `[FACT]`. Facet defines no reactive type of
+its own and wraps none of Compose's: an author reaches them as
+`Facet.Compose` and writes `Compose.cell`, `Compose.formula` and
+`Compose.watch`, with `app.runtime:batch(...)` for several writes that form one
+update `[FACT]` ([`01-concepts.md`](01-concepts.md) §1.3). Lifetime is a
+Compose owner: a mount owns what the component created, and releasing the mount
+releases it `[FACT]`. Structure changes through `Compose.show` and
+`Compose.keyed`, and through `UI.When` and `UI.ForEach`, which mount and unmount
+branches and rows each under their own owner `[FACT]`
+([`api.md`](../reference/api.md)). Geometry is a separate pure step. A two-pass
+solver reads a snapshot of the tree and a viewport size, and returns a rectangle
+per node. It reads no reactive value and no `Instance` `[FACT]`. Only then does
+the adapter edge write engine properties. A write to a cell does not repaint
+immediately. Instead, it records a dirty entry, and one refresh per frame drains
+that entry. As a result, many changes in a frame collapse into one layout pass
+and a minimal set of writes `[FACT]`
+([`02-architecture.md`](02-architecture.md) §2.2). Layout settling runs as a
+fixed point inside the flush that opened it, capped at 100 passes `[FACT]`
+(`src/render/settle_pass.luau`).
 Paint, by default, is not written by the adapter at all: the adapter classifies
 each instance with tags, and a generated Roblox `StyleSheet` owns the paint
 `[FACT]` ([`05-styling.md`](05-styling.md) §5.7).
@@ -314,7 +322,7 @@ current on that date.
 
 | Project | Pinned to | Source |
 |---|---|---|
-| Facet | commit `bb9944bddef80c32913fcfdca7d1699e021fd988` (the repository state this chapter was written against), `Facet.VERSION` `0.10.0` | this repository: [the root `README.md`](../../README.md), [`01-concepts.md`](01-concepts.md), [`02-architecture.md`](02-architecture.md), [`05-styling.md`](05-styling.md), [`07-input.md`](07-input.md), [`12-performance-lab.md`](12-performance-lab.md), [`api.md`](../reference/api.md), `src/core/custom.luau`, `src/init.luau`, `src/client/native_style.luau`, `src/client/surface_target.luau` |
+| Facet | commit `99fcf4a3f0e9468efcc1f89e0b1c27b02485bdc0` (the repository state this chapter was written against), `Facet.VERSION` `0.11.0` | this repository: [the root `README.md`](../../README.md), [`01-concepts.md`](01-concepts.md), [`02-architecture.md`](02-architecture.md), [`05-styling.md`](05-styling.md), [`07-input.md`](07-input.md), [`12-performance-lab.md`](12-performance-lab.md), [`api.md`](../reference/api.md), `src/init.luau`, `src/client/application.luau`, `src/vendor/compose/UPSTREAM.lock`, `src/render/settle_pass.luau`, `src/client/native_style.luau`, `src/client/surface_target.luau` |
 | React Luau | newest tag `v17.1.3` (commit `7455fb005c68ec63326fcfb6b311da99800980b6`); newest published release `v17.0.1`; branch `main` at `9351444c2db37caa08b38ad5de90f438db9221ea` | <https://github.com/Roblox/react-luau> · <https://roblox.github.io/roact-alignment/> · <https://roblox.github.io/roact-alignment/api-reference/react/> · <https://roblox.github.io/roact-alignment/api-reference/react-roblox/> · <https://roblox.github.io/roact-alignment/deviations/> |
 | Fusion | release `v0.3-beta` ("Fusion 0.3"); branch `main` at `2790f7b6272bdf7cd0bbfee259a2f9d79ea20810` | <https://github.com/dphfox/Fusion> · <https://elttob.uk/Fusion/0.3/> · <https://elttob.uk/Fusion/0.3/tutorials/fundamentals/scopes/> · <https://elttob.uk/Fusion/0.3/api-reference/> · <https://elttob.uk/Fusion/0.3/api-reference/roblox/members/new/> · <https://elttob.uk/Fusion/0.3/api-reference/roblox/members/hydrate/> |
 | Vide | release `0.4.1` (commit `5ed4c01940e6bd578fb83253cfbeda0a6c05177c`); branch `main` at `f3bfc65607834370ce84a6e16722282c4d30316c` | <https://github.com/centau/vide> · <https://centau.github.io/vide/> · <https://centau.github.io/vide/tut/crash-course/1-introduction> · <https://centau.github.io/vide/api/reactivity-core.html> · <https://centau.github.io/vide/api/reactivity-dynamic.html> · <https://centau.github.io/vide/api/creation.html> · <https://centau.github.io/vide/api/animation.html> · <https://centau.github.io/vide/api/strict-mode.html> |

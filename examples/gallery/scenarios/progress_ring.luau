@@ -17,44 +17,37 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local Facet, UI = ctx.Facet, ctx.Facet.View
-		local progress, writeProgress
-		local Progress = Facet.component(function(ui)
-			progress, writeProgress = ui.state(0.25)
-			local function percent(v)
-				return string.format("%d%%", math.floor(v * 100 + 0.5))
-			end
-			return UI.Screen({
-				id = "ProgressRing",
+		local UI, Compose = ctx.UI, ctx.Compose
+		local progress = Compose.cell(0.25)
+		local function percent(v)
+			return string.format("%d%%", math.floor(v * 100 + 0.5))
+		end
+		local function screen()
+			return UI.Screen("ProgressRing")({
 				padding = "m",
-				UI.ScrollView({
-					id = "Page",
+				UI.ScrollView("Page")({
 					axis = "y",
 					gap = "s",
 					width = UI.fill(),
 					height = UI.fill(),
-					UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
-					UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
+					UI.Text("Title")({ text = COPY.title, textSize = "heading" }),
+					UI.Text("Caption")({ text = COPY.caption, textSize = "caption", role = "secondary" }),
 					UI.Text({ text = COPY.adjust, width = UI.fill() }),
-					UI.Slider({
-						id = "AdjustProgress",
+					UI.Slider("AdjustProgress")({
 						value = progress,
-						onChange = writeProgress,
 						min = 0,
 						max = 1,
 						step = 0.05,
 					}),
 					UI.Text({ text = COPY.bar, width = UI.fill() }),
-					UI.ProgressView({
-						id = "Bar",
+					UI.ProgressView("Bar")({
 						value = progress,
 						showValue = true,
 						format = percent,
 						segments = 5,
 						trail = { delay = 0.3, duration = 0.35 },
 					}),
-					UI.ProgressView({
-						id = "Ring",
+					UI.ProgressView("Ring")({
 						label = COPY.determinate,
 						value = progress,
 						presentation = "circular",
@@ -62,20 +55,21 @@ return {
 						showValue = true,
 						format = percent,
 					}),
-					UI.ProgressView({ id = "Busy", label = COPY.indeterminate, presentation = "circular" }),
-					UI.ProgressView({ id = "Dots", label = COPY.spinner, presentation = "spinner" }),
+					UI.ProgressView("Busy")({ label = COPY.indeterminate, presentation = "circular" }),
+					UI.ProgressView("Dots")({ label = COPY.spinner, presentation = "spinner" }),
 				}),
 			})
-		end)
+		end
 		local function report()
-			return { progress = progress(), fraction = progress(), reduced = ctx.presenter.motionClock:isReduced() }
+			local value = progress:peek()
+			return { progress = value, fraction = value, reduced = ctx.presenter.motionClock:isReduced() }
 		end
 		local function setProgress(value)
-			writeProgress(math.clamp(value, 0, 1))
+			progress:set(math.clamp(value, 0, 1))
 			return report()
 		end
 		return {
-			screen = Progress({}),
+			screen = screen,
 			present = {},
 			steps = {
 				setProgress10 = function()
@@ -96,7 +90,6 @@ return {
 				end,
 			},
 			report = report,
-			dispose = function() end,
 		}
 	end,
 }

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 --[[ The world-surface render target's PURE half.
 
 	`surface_target.new` makes a `SurfaceGui`, so the engine writes themselves are
@@ -58,19 +59,19 @@ describe("surface_target: the canvas the solver is handed", function()
 			pixels. So the solver's world IS the canvas, and this is the headless
 			twin of that: the same tree at the same viewport, through the same
 			renderer, with the fake target standing in for the engine. ]]
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", surface_target.canvasRect({ w = 400, h = 250 }))
 		local adapter = fake_target.new()
-		local root = Facet.mount(
+		local root = harness.mount(
 			core,
-			Facet.UI.Screen({
+			harness.UI.Screen({
 				id = "Terminal",
 				padding = 12,
 				gap = 8,
 				children = {
-					Facet.UI.Text({ id = "Title", text = "Outpost power", textSize = 20 }),
-					Facet.UI.Text({ id = "Budget", text = "6 units to allocate", textSize = 14 }),
+					harness.UI.Text({ id = "Title", text = "Outpost power", textSize = 20 }),
+					harness.UI.Text({ id = "Budget", text = "6 units to allocate", textSize = 14 }),
 				},
 			})
 		)
@@ -155,7 +156,7 @@ describe("surface_target: what it withholds is real", function()
 		for _, name in target_contract.OPTIONAL do
 			declared[name] = true
 		end
-		for _, withheld in { "setPointerHandlers", "setTouchGestureHandlers", "stageHost", "foreignHost" } do
+		for _, withheld in { "setPointerHandlers", "setTouchGestureHandlers", "foreignHost" } do
 			if not declared[withheld] then
 				error(`surface_target withholds "{withheld}", which target_contract does not declare`, 2)
 			end

@@ -1,4 +1,5 @@
 --!strict
+local harness = require("./lib/harness")
 -- A hug ScrollView must MEASURE the bar its own arrange will RESERVE
 -- (matrix row 2026-08-08, ref_wardrobe compact-phone-portrait: every category
 -- chip overflowed its box by exactly the engine scrollbar's 8px). The arrange
@@ -17,9 +18,10 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local Compose = require("../src/vendor/compose/core")
 
 local function world(withBar: boolean, build: (any) -> any)
-	local core = Facet.newCore()
+	local core = harness.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 	local system = Facet.newActionSystem(core)
@@ -29,8 +31,8 @@ local function world(withBar: boolean, build: (any) -> any)
 		-- one-pixel gutter beside it (fake_target.SCROLL_BAR_RESERVE's own header)
 		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	end
-	local presenter = Facet.newPresenter(core, env, adapter, system)
-	local handle = presenter.present(build(Facet.UI, core), {})
+	local presenter = harness.newPresenter(core, env, adapter, system)
+	local handle = presenter.present(build(harness.UI, core), {})
 	presenter.refresh()
 	return core, adapter, presenter, handle
 end
@@ -81,7 +83,7 @@ describe("ScrollView measure includes the bar its arrange reserves", function()
 		local core, _, _, handle = world(true, chipRow)
 		local diags = handle.controller.diagnostics()
 		expect(#diags).toBe(0)
-		expect(core:lastError()).toBeNil()
+		expect(core.lastError()).toBeNil()
 	end)
 
 	it("the shelf's box is tall enough for a full control PLUS the bar", function()
@@ -311,7 +313,7 @@ describe("item 3: a persistent scrollbar never overlaps a full-width card list",
 	-- (src/present/presenter.luau), which is what a live desktop session
 	-- actually goes through before its first paint
 	local function policyWorld(viewport: { w: number, h: number }, preferredInput: string?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 		if preferredInput ~= nil then
@@ -320,8 +322,8 @@ describe("item 3: a persistent scrollbar never overlaps a full-width card list",
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local handle = presenter.present(cardList(Facet.UI), {})
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local handle = presenter.present(cardList(harness.UI), {})
 		presenter.refresh()
 		return { core = core, adapter = adapter, presenter = presenter, handle = handle }
 	end
@@ -406,7 +408,7 @@ end)
 	nothing is reserved — which is what every case below asserts. ]]
 describe("director ruling 2026-08-28: persistent holds space, auto lets it overlap — every construction", function()
 	local function tableWorld(viewport: { w: number, h: number }, preferredInput: string?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 		if preferredInput ~= nil then
@@ -415,7 +417,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local presenter = harness.newPresenter(core, env, adapter, system)
 		-- RascalRally's FacetRacerListScreen shape exactly (task-misc-report.md):
 		-- headerless, single `fill` column, overflowing a fixed-height panel
 		local ROW_COUNT = 40
@@ -423,9 +425,9 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		for i = 1, ROW_COUNT do
 			rows[i] = { id = "r" .. i, label = "Row " .. i }
 		end
-		local tbl = Facet.Controls.Table(core, {
+		local tbl = harness.Controls.Table(core, {
 			id = "Tbl",
-			rows = core:signal(rows),
+			rows = Compose.cell(rows),
 			key = function(item: any)
 				return item.id
 			end,
@@ -434,10 +436,10 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 			height = { type = "fixed", px = 300 }, -- a fixed panel, overflowing 40 rows
 			columns = { { id = "label", width = { type = "fill", weight = 1 } } },
 			cellFor = function(_columnId: string, item: any)
-				return Facet.UI.Text({ id = "Value", text = item.label })
+				return harness.UI.Text({ id = "Value", text = item:peek().label })
 			end,
 		})
-		local screen = Facet.UI.Screen({
+		local screen = harness.UI.Screen({
 			id = "S",
 			padding = 0,
 			gap = 0,
@@ -464,7 +466,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		-- `fill`, matching task-misc-report.md's own finding for this exact
 		-- headerless shape): under "always" a row is narrowed by exactly the
 		-- bar's thickness; under "auto" it gets the FULL panel width.
-		local rowPath = bodyPath .. "/Rows/[r1@0]/Row"
+		local rowPath = bodyPath .. "/Rows/[r1]/Row"
 		local alwaysRow = always.handle.controller.rectOf(rowPath)
 		local autoRow = auto.handle.controller.rectOf(rowPath)
 		expect(alwaysRow ~= nil and autoRow ~= nil).toBe(true)
@@ -485,7 +487,7 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 	local WINDOWED_DESKTOP = { w = 1200, h = 800 } -- windowed, not fullscreen (measured live at 1366x768 too)
 
 	local function allControlsWorld(viewport: { w: number, h: number }, preferredInput: string?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = viewport.w, h = viewport.h })
 		if preferredInput ~= nil then
@@ -494,8 +496,14 @@ describe("director ruling 2026-08-28: persistent holds space, auto lets it overl
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local built = adaptive_controls.build({ Facet = Facet, core = core, env = env })
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local built = adaptive_controls.build({
+			Facet = Facet,
+			UI = (harness.libraryOf(core)),
+			Compose = Facet.Compose,
+			core = core,
+			env = env,
+		})
 		local handle = presenter.present(built.screen, {})
 		presenter.refresh()
 		presenter.refresh()
@@ -536,7 +544,7 @@ end)
 	THIS solve). A host newly overflowing under "auto" therefore painted with the
 	PREVIOUS solve's widen — nil on a fresh mount — and the field is a bare,
 	non-reactive handle write with no settle-phase feedback to correct it later
-	(unlike `table.luau`'s `bodyBarInset`, which rides a `core:signal` through the
+	(unlike `table.luau`'s `bodyBarInset`, which rides a `Compose.cell` through the
 	renderer's settle phase for exactly this "derived from this solve's own
 	rects, must land before paint" hazard). A host nothing else ever re-solves
 	stays clipped indefinitely — the 2026-08-09 defect this whole file exists to
@@ -564,7 +572,7 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 	local ROW_COUNT = 6 -- 240px of content in a 100px box: overflows on the FIRST solve
 
 	local function firstPaintWorld(preferredInput: string?): any
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 		if preferredInput ~= nil then
@@ -574,8 +582,8 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 		-- ARMED (T12): the first-paint widen case below reads `.ops()`.
 		local adapter = fake_target.new({ ops = true })
 		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		local rows: { any } = {}
 		for i = 1, ROW_COUNT do
 			rows[i] = UI.Box({
@@ -624,7 +632,7 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 		-- (task SCROLL2 fix round 1), this read a stale nil widen — RED.
 		expect((node :: any).appliedRectW).toBe((node :: any).rect.w + fake_target.SCROLL_BAR_THICKNESS)
 		expect(#w.handle.controller.diagnostics()).toBe(0)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 
 	it("...and under 'always' policy the same first solve applies no widen at all (sanity control)", function()
@@ -632,7 +640,7 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 		local node = (w.adapter :: any).node("/S/List")
 		expect(node ~= nil).toBe(true)
 		expect((node :: any).appliedRectW).toBe((node :: any).rect.w)
-		expect(w.core:lastError()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
 	end)
 end)
 
@@ -670,14 +678,14 @@ describe(
 	"fix round 2 (RED-TEAM re-review): setScrollRegion receives the REAL solved-rect host box, never nil",
 	function()
 		it("hostW/hostH reaching setScrollRegion are non-nil and equal the solved rect", function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
 			adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system)
-			local UI = Facet.UI
+			local presenter = harness.newPresenter(core, env, adapter, system)
+			local UI = harness.UI
 			local rows: { any } = {}
 			for i = 1, 6 do
 				rows[i] = UI.Box({
@@ -711,18 +719,18 @@ describe(
 			expect(type((node :: any).scrollRegion.hostH)).toBe("number")
 			expect((node :: any).scrollRegion.hostW).toBe((node :: any).rect.w)
 			expect((node :: any).scrollRegion.hostH).toBe((node :: any).rect.h)
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 		end)
 
 		it("...and a hug-width X shelf gets the same fact on its own cross axis (hostH)", function()
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
 			adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
-			local presenter = Facet.newPresenter(core, env, adapter, system)
-			local UI = Facet.UI
+			local presenter = harness.newPresenter(core, env, adapter, system)
+			local UI = harness.UI
 			local chips: { any } = {}
 			for i = 1, 9 do
 				chips[i] = UI.Box({
@@ -754,7 +762,7 @@ describe(
 			expect(type((node :: any).scrollRegion.hostH)).toBe("number")
 			expect((node :: any).scrollRegion.hostW).toBe((node :: any).rect.w)
 			expect((node :: any).scrollRegion.hostH).toBe((node :: any).rect.h)
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 		end)
 	end
 )
@@ -776,7 +784,7 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 	local snapshot = require("../src/themes/snapshot")
 
 	local function bleedWorld(packageName: string)
-		local core = Facet.newCore()
+		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		env:set(
@@ -785,8 +793,8 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 		)
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
-		local presenter = Facet.newPresenter(core, env, adapter, system)
-		local UI = Facet.UI
+		local presenter = harness.newPresenter(core, env, adapter, system)
+		local UI = harness.UI
 		presenter.present(
 			UI.Screen({
 				id = "S",
@@ -833,7 +841,7 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 		local chrome_slots = require("../src/tokens/chrome_slots")
 
 		local function tightPanel(px: number)
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 			local metrics =
@@ -841,8 +849,8 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 			env:set("themeMetrics", metrics)
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local presenter = Facet.newPresenter(core, env, adapter, system)
-			local UI = Facet.UI
+			local presenter = harness.newPresenter(core, env, adapter, system)
+			local UI = harness.UI
 			-- the HINT is what makes this a `panel` at all: `classify` answers by
 			-- CLASS first, so a bare ScrollView is a scroll TRACK and carves nothing
 			-- (the same fact `Controls.Alert`'s own card hint exists for)
@@ -894,7 +902,7 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 		local snapshot = require("../src/themes/snapshot")
 
 		local function nestedWorld(packageName: string)
-			local core = Facet.newCore()
+			local core = harness.newCore()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 			env:set(
@@ -903,8 +911,8 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 			)
 			local system = Facet.newActionSystem(core)
 			local adapter = fake_target.new()
-			local presenter = Facet.newPresenter(core, env, adapter, system)
-			local UI = Facet.UI
+			local presenter = harness.newPresenter(core, env, adapter, system)
+			local UI = harness.UI
 			presenter.present(
 				UI.Screen({
 					id = "S",
@@ -945,7 +953,7 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 				expect(inner ~= nil and inner.scrollRegion ~= nil).toBe(true)
 				local dH = (inner :: any).scrollRegion.contentH - (inner :: any).rect.h
 				expect(`{packageName}: dH {dH}`).toBe(`{packageName}: dH 0`)
-				expect(core:lastError()).toBeNil()
+				expect(core.lastError()).toBeNil()
 			end)
 		end
 	end)
@@ -961,7 +969,7 @@ describe("a hug ScrollView measures the chrome bleed its own canvas will add", f
 			expect(`{packageName}: canvas {region.contentH} <= host {(node :: any).rect.h}`).toBe(
 				`{packageName}: canvas {math.min(region.contentH, (node :: any).rect.h)} <= host {(node :: any).rect.h}`
 			)
-			expect(core:lastError()).toBeNil()
+			expect(core.lastError()).toBeNil()
 		end)
 	end
 end)
