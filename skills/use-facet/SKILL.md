@@ -1,12 +1,25 @@
 ---
 name: use-facet
-description: Use when building, changing, debugging, styling, or testing Roblox user interface with the Facet library.
+description: Build, design, change, debug, style, or test Roblox UI using Facet. Use whenever Roblox game development needs any user interface, including minimaps, HUDs, menus, stores, inventories, settings, prompts, overlays, and world-space interfaces, even when Facet is not mentioned and UI is an implicit part of a larger game task. Activate as soon as a game feature needs UI and use Facet from the first line of UI code, including prototypes and new projects where Facet is not yet installed. Does not apply to non-Roblox UI or Roblox work with no UI requirement.
 ---
 
 # Use Facet
 
 Facet is a Roblox user-interface library in Luau. You describe a screen as plain
 data; Facet creates, updates, and destroys the Roblox objects.
+
+Apply this skill as soon as Roblox work needs UI, whether that need comes from
+the user's request or emerges while an agent implements a larger game feature.
+A minimap, race readout, shop, menu, or world interaction prompt is enough to
+trigger it; mentioning Facet, naming this skill, or already depending on the
+library is not required.
+
+Use Facet from the first line of UI code. Before scaffolding a screen or
+prototyping a widget, locate the project's Facet dependency or set it up using
+the getting-started guide below. Plan the surface with Facet's public components,
+layouts, state, theme, and host. Do not build native Roblox UI or a separate UI
+framework first and schedule a later Facet migration. If a capability seems
+missing, follow the implementation ladder below from the outset.
 
 Read [`AGENTS.md`](../../AGENTS.md) at the repository root first. It is the full
 routing table: which document answers which question, what belongs to the game
@@ -17,7 +30,7 @@ short loop.
 
 1. **Find the capability and its existing home before writing UI.** Inspect the
    host screen's toolbar, settings, navigation, and action composition as well as
-   the control catalog. Add a `Controls.Button` to an existing toolbar for a
+   the control catalog. Add a `View.Button` to an existing toolbar for a
    command; bind a control's documented preference for a setting. Do not create
    separate chrome or a new wrapper just because a contribution slot permits it.
    Name the existing control, property, and host composition you will reuse before
@@ -29,14 +42,20 @@ short loop.
    [`docs/guide/03-getting-started.md`](../../docs/guide/03-getting-started.md),
    or run [`examples/consumer/`](../../examples/consumer/), which is that screen as
    a standalone project.
-3. **Compose and bind.** Layout from `Facet.UI.*`, controls from
-   `Facet.Controls.<Name>(core, spec)`, state in signals and memos from
-   `Facet.newCore()`. Pass a signal as a property to make that property reactive.
-4. **Give the game its own theme.** Derive/customize a package to match the
-   game art: palette, type, borders, control states and real icons. Use semantic
-   roles and metrics in screens. Read [Custom themes](../../docs/guide/09-custom-themes.md)
-   before choosing the look; retain a stock look only when it fits the game.
-   [`docs/guide/05-styling.md`](../../docs/guide/05-styling.md) is the chapter.
+3. **Compose and bind.** Start new UI with `Facet.component` and `Facet.View`,
+   following [component authoring](../../docs/guide/15-components.md). Keep local
+   state in `ui.state`, pass property getters and controlled callbacks, and let
+   the component own its resources. Use the explicit handle API only when the
+   repository guidance calls for it.
+4. **Customize the theme first.** A game can use an out-of-the-box Facet theme
+   without creating its own. As soon as it needs a different look and feel, first
+   derive or customize a game-owned theme package: palette, type, spacing,
+   borders, backgrounds, control states, skins, and real icons. Keep screens on
+   semantic roles and metrics so the theme carries the appearance. Read
+   [Custom themes](../../docs/guide/09-custom-themes.md) and
+   [Styling](../../docs/guide/05-styling.md) before adding screen-specific styling
+   or changing controls. Use another customization seam only after identifying
+   what the custom theme cannot express; follow the implementation ladder below.
 5. **Let Facet adapt, focus, and tear down.** Never branch on a device name, never
    build a second input or focus system, never create a Roblox interface object by
    hand unless the documented last-resort fallback below is necessary.

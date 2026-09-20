@@ -97,8 +97,10 @@ custom input/layout system and then attempt to wrap Facet around it.
    component owns these resources automatically. Use `ui.own` only for external
    resources or an explicitly needed control handle. Application/model lifetimes
    may still use Core scopes.
-3. **Give the game its own theme.** Derive/customize a package to match its art
-   direction, including real image/vector icons rather than text substitutes.
+3. **Customize the theme first.** A game may use an out-of-the-box theme as-is.
+   When its look and feel needs customization, first derive or customize a
+   game-owned theme package before adding screen-specific styling or changing
+   controls. Include real image/vector icons rather than text substitutes.
    See [Custom themes](docs/guide/09-custom-themes.md) for backgrounds, icon
    coverage, contrast and border insets. Use semantic roles, spacing
    steps, and type roles. Paint reaches the engine through Roblox's own
