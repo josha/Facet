@@ -492,6 +492,7 @@ local function releaseCase()
 	local cores, adapters, reason = caseCores, caseAdapters, retainReason
 	caseCores, caseAdapters, retainReason = {}, {}, nil
 	local failures: { string } = {}
+	local resources = {}
 	for _, core in cores do
 		local stage = stages[core]
 		stages[core] = nil
@@ -556,10 +557,15 @@ local function releaseCase()
 		end
 		table.insert(releases, core.settlePass.dispose)
 		table.insert(releases, core.owner.dispose)
-		local ok, err = pcall(cleanup, releases)
-		if not ok then
-			table.insert(failures, `a teardown threw while releasing the case's resources: {tostring(err)}`)
+		for _, release in releases do
+			table.insert(resources, release)
 		end
+	end
+	-- A later core can mount nodes that read an earlier core's state. Close
+	-- every surface and mount before releasing any of those state owners.
+	local ok, err = pcall(cleanup, resources)
+	if not ok then
+		table.insert(failures, `a teardown threw while releasing the case's resources: {tostring(err)}`)
 	end
 	activeCore = nil
 	if reason ~= nil then
