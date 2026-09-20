@@ -64,6 +64,15 @@ end
 function theme.sheet(controller: any, package: any, displaySize: string)
 	local model = controller.sheetModelFor(package, displaySize)
 	for _, rule in model.rules do
+		-- Panels here wear `surfaceStrong`, which is also the slider thumb's
+		-- stock colour; the thumb takes the strong content colour so it reads.
+		if
+			type(rule.selector) == "string"
+			and string.find(rule.selector, "facet-slot-sliderThumb", 1, true)
+			and rule.props.BackgroundColor3 ~= nil
+		then
+			rule.props.BackgroundColor3 = "$ContentStrong"
+		end
 		for property in rule.props do
 			if
 				property == "BackgroundColor3"

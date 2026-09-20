@@ -989,7 +989,8 @@ table.insert(ALLOWED_NEW_NODES, {
 		.. MATCH3_TILE,
 })
 for id = 1, 36 do
-	local cell = `/Match3/Page/board/tiles/[{id}]/cell`
+	-- the tile is the keyed node itself on the native path: its name carries the id
+	local cell = `/Match3/Page/board/tiles/tile{id}`
 	table.insert(ALLOWED_NEW_NODES, {
 		path = cell,
 		why = MATCH3_TILE
@@ -1102,6 +1103,54 @@ table.insert(ALLOWED_NEW_NODES, {
 })
 
 local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = {
+	{
+		fixture = "control-vocabulary",
+		prefix = "/Vocabulary/More/",
+		why = "REGION WRAPPERS ARE GONE ON THE NATIVE PATH, and nothing else changed here. A conditional child used to "
+			.. "mount as `<Name>When/then/<child>` (and a disclosure body as `Content/then/Reveal`); `Compose.show` "
+			.. "mounts the child directly, so the same node now sits one or two path segments higher. This waives "
+			.. "ONLY appearance and disappearance under the prefix: every rect, hit rect and prop on every node that "
+			.. "still exists is compared against the frozen baseline exactly as before, and none moved.",
+	},
+	{
+		fixture = "control-vocabulary",
+		prefix = "/Vocabulary/Name/Clear",
+		why = "REGION WRAPPERS ARE GONE ON THE NATIVE PATH, and nothing else changed here. A conditional child used to "
+			.. "mount as `<Name>When/then/<child>` (and a disclosure body as `Content/then/Reveal`); `Compose.show` "
+			.. "mounts the child directly, so the same node now sits one or two path segments higher. This waives "
+			.. "ONLY appearance and disappearance under the prefix: every rect, hit rect and prop on every node that "
+			.. "still exists is compared against the frozen baseline exactly as before, and none moved.",
+	},
+	{
+		fixture = "control-vocabulary",
+		prefix = "/Vocabulary/Mode/PopupWhen",
+		why = "REGION WRAPPERS ARE GONE ON THE NATIVE PATH, and nothing else changed here. A conditional child used to "
+			.. "mount as `<Name>When/then/<child>` (and a disclosure body as `Content/then/Reveal`); `Compose.show` "
+			.. "mounts the child directly, so the same node now sits one or two path segments higher. This waives "
+			.. "ONLY appearance and disappearance under the prefix: every rect, hit rect and prop on every node that "
+			.. "still exists is compared against the frozen baseline exactly as before, and none moved.",
+	},
+	{
+		fixture = "control-vocabulary",
+		prefix = "/Vocabulary/Count/Spacer#",
+		why = "An ANONYMOUS node is named `<Class>#<n>` from a creation counter, so the same spacer carries a different "
+			.. "number than it did in the stored render. Same node, same rect; only the generated name differs.",
+	},
+	{
+		fixture = "01_temperature_converter",
+		prefix = "/TempConverter/Page/Fahrenheit/Clear",
+		why = "REGION WRAPPERS ARE GONE ON THE NATIVE PATH, and nothing else changed here. A conditional child used to "
+			.. "mount as `<Name>When/then/<child>` (and a disclosure body as `Content/then/Reveal`); `Compose.show` "
+			.. "mounts the child directly, so the same node now sits one or two path segments higher. This waives "
+			.. "ONLY appearance and disappearance under the prefix: every rect, hit rect and prop on every node that "
+			.. "still exists is compared against the frozen baseline exactly as before, and none moved.",
+	},
+	{
+		fixture = "04_confirm_dialog",
+		prefix = "/DangerScreen/ConfirmDialogAnchor",
+		why = "The confirm dialog is presented from an anchor node on the native path: a zero-size `Anchor` that mounts "
+			.. "no instance of its own. The dialog under it is compared node for node as before.",
+	},
 	{
 		fixture = "07_match3",
 		prefix = "/Match3/Page/board/cell",

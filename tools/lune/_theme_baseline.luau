@@ -146,6 +146,7 @@ end
 -- the control vocabulary: every control whose metrics the theme stage migrates
 local function controlVocabulary(ctx: any): any
 	local UI = ctx.UI
+	local primitive = ctx.app.runtime.constructors
 	local function noop() end
 	return {
 		screen = function()
@@ -154,8 +155,10 @@ local function controlVocabulary(ctx: any): any
 				gap = 8,
 				UI.Text("Title")({ text = "Controls", textSize = 24 }),
 				UI.Text("Body")({ text = "Every control the theme stage migrates." }),
-				UI.Button("Go")({ label = "Go", onActivate = noop }),
-				UI.Toggle("Flag")({ label = "Flag", value = Compose.cell(true) }),
+				-- The stored render froze the PRIMITIVE button and toggle, so the
+				-- fixture keeps measuring those; the composites are swept elsewhere.
+				primitive.Button("Go")({ label = "Go", onActivate = noop }),
+				primitive.Toggle("Flag")({ label = "Flag", value = Compose.cell(true) }),
 				UI.TextField("Field")({ placeholder = "Type here" }),
 				UI.Divider("Rule")({}),
 				UI.Slider("Volume")({ label = "Volume", value = Compose.cell(6), min = 0, max = 10 }),

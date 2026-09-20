@@ -400,10 +400,10 @@ end
 -- for `Facet.new`, and the sheet model `app.installTheme` accepts. Resolved on
 -- call, like `Facet.new`, so the shared require graph stays engine-free.
 function Facet.themes.styleFor(package: any, themeName: string?, displaySize: string?)
-	return require("@self/client/theme_controller").styleFor(package, themeName, displaySize)
+	return require("@self/client/application").styleFor(package, themeName, displaySize)
 end
 function Facet.themes.sheetModelFor(package: any, displaySize: string?)
-	return require("@self/client/theme_controller").sheetModelFor(package, displaySize)
+	return require("@self/client/application").sheetModelFor(package, displaySize)
 end
 
 return Facet

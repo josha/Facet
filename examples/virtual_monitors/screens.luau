@@ -205,7 +205,10 @@ function screens.create(Facet: any, app: any, actions: any?)
 				-- Only a screen presentation sits under the engine's top bar.
 				width = function(use)
 					local free = use(topbar)
-					if callbacks.spatial ~= false or free == nil then
+					-- Wide screens carry the tab strip on the top row, so this row
+					-- already sits below the engine's controls.
+					local topRow = use(hostEnvironment:get("sizeClass")) == "compact"
+					if callbacks.spatial ~= false or free == nil or not topRow then
 						return fixed(0)
 					end
 					return fixed(math.max(0, free.x - 24))
@@ -686,92 +689,100 @@ function screens.create(Facet: any, app: any, actions: any?)
 			use(selected)
 			discoveryPath:set({})
 		end)
+		-- Each route scrolls its own content: a stack page fills its stack, and a
+		-- page inside an outer scroll would have no height to fill.
 		local function infoRoute()
-			return UI.VStack("Body")({
+			return UI.ScrollView("InfoScroll")({
+				axis = "y",
 				width = fill,
-				gap = "m",
-				UI.Divider({ width = fill }),
-				text(field("description", "Explore this world with friends."), "body", "secondary"),
-				UI.ForEach("Creator")({
-					Compose.keyed({
-						from = creatorList,
-						key = function(item)
-							return item.id
-						end,
-						render = function(item)
-							local game = item:peek()
-							-- `ref` hands back the composite's own record
-							-- (round-2 addendum): `record.api.state` is
-							-- `Controls.AsyncImage`'s provider Readable, which
-							-- is what drives the shimmer's own visibility.
-							local imageState
-							local avatar = UI.AsyncImage("Avatar")({
-								provider = creatorImages,
-								key = game.creatorImage,
-								width = fixed(40),
-								height = fixed(40),
-								ref = function(record)
-									imageState = record.api.state
-								end,
-							})
-							return UI.HStack("Row-" .. game.id)({
-								gap = "s",
-								align = "center",
-								UI.ZStack("AvatarSlot")({
+				height = fill,
+				UI.VStack("Body")({
+					width = fill,
+					gap = "m",
+					UI.Divider({ width = fill }),
+					text(field("description", "Explore this world with friends."), "body", "secondary"),
+					UI.ForEach("Creator")({
+						Compose.keyed({
+							from = creatorList,
+							key = function(item)
+								return item.id
+							end,
+							render = function(item)
+								local game = item:peek()
+								-- `ref` hands back the composite's own record
+								-- (round-2 addendum): `record.api.state` is
+								-- `Controls.AsyncImage`'s provider Readable, which
+								-- is what drives the shimmer's own visibility.
+								local imageState
+								local avatar = UI.AsyncImage("Avatar")({
+									provider = creatorImages,
+									key = game.creatorImage,
 									width = fixed(40),
 									height = fixed(40),
-									UI.corners(avatar, "pill"),
-									-- The shimmer sits ONLY while the request
-									-- is pending, over the same slot the image
-									-- fills once it resolves — never both.
-									Compose.show(function(use)
-										return imageState ~= nil and use(imageState) == "pending"
-									end, function()
-										return UI.corners(shimmerHost("Shimmer-" .. game.id, 40), "pill")
-									end),
-								}),
-								text("By " .. game.creator, "caption", "secondary"),
-							})
-						end,
+									ref = function(record)
+										imageState = record.api.state
+									end,
+								})
+								return UI.HStack("Row-" .. game.id)({
+									width = fill,
+									gap = "s",
+									align = "center",
+									UI.ZStack("AvatarSlot")({
+										width = fixed(40),
+										height = fixed(40),
+										UI.corners(avatar, "pill"),
+										-- The shimmer sits ONLY while the request
+										-- is pending, over the same slot the image
+										-- fills once it resolves — never both.
+										Compose.show(function(use)
+											return imageState ~= nil and use(imageState) == "pending"
+										end, function()
+											return UI.corners(shimmerHost("Shimmer-" .. game.id, 40), "pill")
+										end),
+									}),
+									text("By " .. game.creator, "caption", "secondary"),
+								})
+							end,
+						}),
 					}),
-				}),
-				UI.Divider({ width = fill }),
-				UI.VStack("Trend")({
-					width = fill,
-					gap = "xs",
-					text("Players this week", "caption", "secondary"),
-					UI.Path("Sparkline")({
-						-- Deterministic per game: no randomness, so the same card
-						-- always draws the same trend line headlessly and live.
-						points = function(use)
-							local item = use(lastSelected)
-							local index = if item then item.index else 1
-							local points = {}
-							for day = 0, 6 do
-								local wobble = ((index * (day + 1) * 37) % 23) / 23
-								table.insert(points, { x = day / 6, y = 1 - (0.25 + 0.5 * wobble) })
-							end
-							return points
-						end,
-						thickness = 3,
-						role = "accent",
+					UI.Divider({ width = fill }),
+					UI.VStack("Trend")({
 						width = fill,
-						height = fixed(40),
+						gap = "xs",
+						text("Players this week", "caption", "secondary"),
+						UI.Path("Sparkline")({
+							-- Deterministic per game: no randomness, so the same card
+							-- always draws the same trend line headlessly and live.
+							points = function(use)
+								local item = use(lastSelected)
+								local index = if item then item.index else 1
+								local points = {}
+								for day = 0, 6 do
+									local wobble = ((index * (day + 1) * 37) % 23) / 23
+									table.insert(points, { x = day / 6, y = 1 - (0.25 + 0.5 * wobble) })
+								end
+								return points
+							end,
+							thickness = 3,
+							role = "accent",
+							width = fill,
+							height = fixed(40),
+						}),
 					}),
-				}),
-				text(function(use)
-					local item = use(lastSelected)
-					return if item then item.rating .. " recommend  ·  " .. item.players else ""
-				end, "body", "secondary"),
-				UI.Button("MoreLikeThis")({
-					label = "More like this",
-					width = fill,
-					enabled = function(use)
-						return #use(similarGames) > 0
-					end,
-					onActivate = function()
-						discoveryPath:set({ { id = "similar" } })
-					end,
+					text(function(use)
+						local item = use(lastSelected)
+						return if item then item.rating .. " recommend  ·  " .. item.players else ""
+					end, "body", "secondary"),
+					UI.Button("MoreLikeThis")({
+						label = "More like this",
+						width = fill,
+						enabled = function(use)
+							return #use(similarGames) > 0
+						end,
+						onActivate = function()
+							discoveryPath:set({ { id = "similar" } })
+						end,
+					}),
 				}),
 			})
 		end
@@ -819,15 +830,20 @@ function screens.create(Facet: any, app: any, actions: any?)
 					}),
 				})
 			end
-			return UI.VStack("Similar")({
+			return UI.ScrollView("SimilarScroll")({
+				axis = "y",
 				width = fill,
-				gap = "s",
-				UI.Label("Heading")({ title = "More like this", icon = "more" }),
-				Compose.show(compactWidth, function()
-					return rows(1)
-				end, function()
-					return rows(0.5)
-				end),
+				height = fill,
+				UI.VStack("Similar")({
+					width = fill,
+					gap = "s",
+					UI.Label("Heading")({ title = "More like this", icon = "more" }),
+					Compose.show(compactWidth, function()
+						return rows(1)
+					end, function()
+						return rows(0.5)
+					end),
+				}),
 			})
 		end
 		desktop = UI.ZStack("Desktop")({
@@ -1110,6 +1126,38 @@ function screens.create(Facet: any, app: any, actions: any?)
 								end),
 							}),
 						}),
+						-- Filters that match nothing say so, and offer the way back.
+						Compose.show(function(use)
+							return #use(visibleGames) == 0
+						end, function()
+							return UI.VStack("NoMatches")({
+								width = fill,
+								gap = "s",
+								padding = "xl",
+								alignH = "center",
+								icons.draw(UI, "search", 32, "secondary"),
+								UI.Text({
+									text = "No games match",
+									textSize = "heading",
+									textAlign = "center",
+									width = fill,
+								}),
+								UI.Text({
+									text = "Try another genre or a shorter search.",
+									role = "secondary",
+									textAlign = "center",
+									width = fill,
+								}),
+								UI.Button("ClearFilters")({
+									label = "Clear filters",
+									onActivate = function()
+										genre:set(nil)
+										query:set("")
+										searchValue:set("")
+									end,
+								}),
+							})
+						end),
 						UI.VirtualGrid("Games")({
 							scrollNavigation = if callbacks.discoveryScroll
 								then {
@@ -1227,13 +1275,13 @@ function screens.create(Facet: any, app: any, actions: any?)
 								FOLD on the 920x640 monitor canvas, inside a `clipChildren`
 								panel with nothing to scroll — unreachable, with no affordance
 								saying so. The third term reserves room for the Information
-								area at any height; the ScrollView below makes what is left
-								enough. ]]
+								area at any height: two pinned rows, the route's own bar, and a
+								scrolling body that is still worth reading. ]]
 							stage("World", {
 								width = fill,
 								height = function(use)
 									local h = use(app.environment:get("viewportRect")).h
-									return fixed(math.max(160, math.min(520, h * 0.56, h - 300)))
+									return fixed(math.max(140, math.min(520, h * 0.42, h - 460)))
 								end,
 								surface = "raised",
 							}, function()
@@ -1262,27 +1310,31 @@ function screens.create(Facet: any, app: any, actions: any?)
 												end,
 											}),
 											text(field("title", ""), "title"),
-											UI.Button("Favorite")({
-												label = function(use)
-													local item = use(selected)
-													return if item and use(saved)[item.id] then "Saved" else "Save"
-												end,
-												onActivate = function()
-													local item = selected:peek()
-													if item then
-														local nextSaved = table.clone(saved:peek())
-														nextSaved[item.id] = not nextSaved[item.id]
-														saved:set(nextSaved)
-														app.presentToast(function()
-															return text(
-																if nextSaved[item.id]
-																	then `Saved {item.title}`
-																	else `Removed {item.title}`
-															)
-														end, { duration = 2.5 })
-													end
-												end,
-											}),
+											-- wide enough for either label, so "Saved" never truncates
+											UI.frame(
+												UI.Button("Favorite")({
+													label = function(use)
+														local item = use(selected)
+														return if item and use(saved)[item.id] then "Saved" else "Save"
+													end,
+													onActivate = function()
+														local item = selected:peek()
+														if item then
+															local nextSaved = table.clone(saved:peek())
+															nextSaved[item.id] = not nextSaved[item.id]
+															saved:set(nextSaved)
+															app.presentToast(function()
+																return text(
+																	if nextSaved[item.id]
+																		then `Saved {item.title}`
+																		else `Removed {item.title}`
+																)
+															end, { duration = 2.5 })
+														end
+													end,
+												}),
+												{ width = 96 }
+											),
 										}),
 										UI.HStack("RatingRow")({
 											width = fill,
@@ -1290,19 +1342,26 @@ function screens.create(Facet: any, app: any, actions: any?)
 											onAppear = function(path)
 												ratingRowPath:set(path)
 											end,
-											text(field("genre", ""), "label"),
-											UI.Rating("Stars")({
-												value = stars,
-												count = 5,
-												onChange = function(value)
-													local item = lastSelected:peek()
-													if item then
-														local nextRatings = table.clone(ratings:peek())
-														nextRatings[item.id] = value
-														ratings:set(nextRatings)
-													end
-												end,
-											}),
+											-- genre and stars read as one fact on the leading edge; the
+											-- explanation sits on the trailing one
+											UI.Text("Genre")({ text = field("genre", ""), textSize = "label" }),
+											-- a rating fills its row by default; here it is one fact in a line
+											UI.frame(
+												UI.Rating("Stars")({
+													value = stars,
+													count = 5,
+													onChange = function(value)
+														local item = lastSelected:peek()
+														if item then
+															local nextRatings = table.clone(ratings:peek())
+															nextRatings[item.id] = value
+															ratings:set(nextRatings)
+														end
+													end,
+												}),
+												{ width = 132 }
+											),
+											UI.Spacer({ width = fill }),
 											UI.Button("RatingInfo")({
 												--[[ NAMED FOR WHAT IT OPENS. "About" is the
 													shell's own button (this file's `aboutModal`),
@@ -1321,19 +1380,14 @@ function screens.create(Facet: any, app: any, actions: any?)
 											description, creator, sparkline, "More like this" — is
 											reachable at every canvas this showcase runs on, which a
 											clipped natural-height box was not. ]]
-										UI.ScrollView("InfoScroll")({
-											axis = "y",
-											width = fill,
-											height = fill,
-											UI.NavigationStack("Info")({
-												path = discoveryPath,
-												backLabel = "Back",
-												transition = { enter = "slide-left" },
-												root = { title = "About", content = infoRoute },
-												destinations = {
-													similar = { title = "More like this", content = similarRoute },
-												},
-											}),
+										UI.NavigationStack("Info")({
+											path = discoveryPath,
+											backLabel = "Back",
+											transition = { enter = "slide-left" },
+											root = { title = "About", content = infoRoute },
+											destinations = {
+												similar = { title = "More like this", content = similarRoute },
+											},
 										}),
 									}),
 									"m"
@@ -1500,6 +1554,40 @@ function screens.create(Facet: any, app: any, actions: any?)
 				})
 			)
 		end
+		-- THE QUICK PALETTE RING. A radial menu wants the space left after the
+		-- chrome, so it is an overlay of the whole screen with no launcher of its
+		-- own; the settings row opens it.
+		local quickRing
+		local quickRingOverlay = UI.RadialMenu("QuickRing")({
+			label = "Quick palette",
+			launcher = false,
+			items = {
+				{
+					id = "sage",
+					label = "Sage",
+					onSelect = function()
+						setColor("sage")
+					end,
+				},
+				{
+					id = "clay",
+					label = "Clay",
+					onSelect = function()
+						setColor("clay")
+					end,
+				},
+				{
+					id = "iris",
+					label = "Iris",
+					onSelect = function()
+						setColor("iris")
+					end,
+				},
+			},
+			ref = function(record)
+				quickRing = record.api
+			end,
+		})
 		local previewHud = UI.Composition("PreviewHud")({
 			width = function(use)
 				return fixed(if compactWidth(use) then 70 else 260)
@@ -1644,30 +1732,16 @@ function screens.create(Facet: any, app: any, actions: any?)
 											gap = "s",
 											align = "center",
 											text("Quick palette", "caption", "secondary"),
-											UI.RadialMenu("Quick")({
-												items = {
-													{
-														id = "sage",
-														label = "Sage",
-														onSelect = function()
-															setColor("sage")
-														end,
-													},
-													{
-														id = "clay",
-														label = "Clay",
-														onSelect = function()
-															setColor("clay")
-														end,
-													},
-													{
-														id = "iris",
-														label = "Iris",
-														onSelect = function()
-															setColor("iris")
-														end,
-													},
-												},
+											-- The ring needs room: it opens over the whole monitor
+											-- (the overlay below) and this row only asks for it.
+											UI.Button("Quick")({
+												label = "Palette ring",
+												compactLabel = "Ring",
+												onActivate = function()
+													if quickRing then
+														quickRing.open()
+													end
+												end,
 											}),
 										}),
 									})
@@ -1727,6 +1801,8 @@ function screens.create(Facet: any, app: any, actions: any?)
 										value = autoSpin,
 										count = 3,
 										allowZero = true,
+										-- empty steps stay visible against the control plate
+										tint = { empty = { role = "contentSecondary", blend = 0.4 } },
 										onChange = function(value)
 											autoSpin:set(value)
 										end,
@@ -1779,7 +1855,9 @@ function screens.create(Facet: any, app: any, actions: any?)
 										})
 									end
 									return UI.VStack("Content")({
-										width = fill,
+										-- a sheet hugs what it holds: the summary states the
+										-- width it reads well at, and yields on a phone
+										width = { type = "minMax", min = 240, preferred = 420, max = 420 },
 										gap = "m",
 										UI.Grid("Summary")({
 											gap = "s",
@@ -1848,6 +1926,7 @@ function screens.create(Facet: any, app: any, actions: any?)
 			-- panel, and under the title when the preview is stacked above them.
 			-- It is only as large as its plates, so the page under it stays live.
 			previewHud,
+			quickRingOverlay,
 		})
 	end
 	local function Chat()
@@ -1998,7 +2077,7 @@ function screens.create(Facet: any, app: any, actions: any?)
 										id = "delete",
 										role = "destructive",
 										label = "Delete",
-										onActivate = function()
+										onAction = function()
 											conversation.remove(message.id)
 										end,
 									},
@@ -2025,12 +2104,11 @@ function screens.create(Facet: any, app: any, actions: any?)
 									-- whole (possibly multi-line) bubble: `lineAlign` is the
 									-- shared box property `UI.alignment` sets on a ZStack
 									-- child; a stack child names it directly.
-									return UI.Image("Glyph")({
-										image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
-										tint = { role = "accent", blend = 1 },
+									return UI.ZStack("Glyph")({
 										width = fixed(20),
 										height = fixed(20),
 										lineAlign = "start",
+										icons.draw(UI, "sparkle", 20, "accent"),
 									})
 								end),
 								UI.VStack({
@@ -2080,23 +2158,24 @@ function screens.create(Facet: any, app: any, actions: any?)
 							end,
 						}),
 					}),
+					-- The reply's progress runs above the composer, so the field never moves.
+					Compose.show(read(conversation.streaming), function()
+						-- Determinate: streamed vs. total characters of the in-flight
+						-- reply. The mode is construction-fixed, but this block remounts
+						-- fresh every time streaming turns on, so a real value is always
+						-- known before it is built.
+						return UI.ProgressView("ResponseProgress")({
+							value = function(use)
+								return use(conversation.streamedChars)
+							end,
+							min = 0,
+							max = math.max(1, conversation.totalChars:peek()),
+							showValue = false,
+						})
+					end),
 					UI.HStack({
 						width = fill,
 						gap = "m",
-						Compose.show(read(conversation.streaming), function()
-							-- Determinate: streamed vs. total characters of the in-flight
-							-- reply. The mode is construction-fixed, but this block remounts
-							-- fresh every time streaming turns on, so a real value is always
-							-- known before it is built.
-							return UI.ProgressView("ResponseProgress")({
-								value = function(use)
-									return use(conversation.streamedChars)
-								end,
-								min = 0,
-								max = math.max(1, conversation.totalChars:peek()),
-								showValue = false,
-							})
-						end),
 						UI.frame(
 							UI.TextInput("Prompt")({
 								placeholder = "Message assistant",

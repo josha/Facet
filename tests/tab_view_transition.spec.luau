@@ -161,7 +161,7 @@ describe("TabView refuses the forms it cannot play, instead of ignoring them", f
 
 	it("refuses a declaration with no form at all, in the schema's own words", function()
 		local message = fails(function()
-			world({ class = "swift" })
+			world({ class = "brisk" })
 		end)
 		expect(contains(message, "UI.TabView")).toBe(true)
 		expect(contains(message, "enter")).toBe(true)

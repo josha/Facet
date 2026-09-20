@@ -1018,6 +1018,17 @@ t.describe("Virtual Monitors shared presentations", function()
 		chat.remove(2)
 		settle(6)
 		t.expect(shows("First answer")).toBe(false)
+		-- ...and a full leftward swipe on a row commits its Delete.
+		local hit = assert(find("/History/", "/W/[1]/Row/Hit"))
+		adapter.pointerDown(hit, 600, 40, "mouse")
+		adapter.pointerMove(500, 40)
+		adapter.pointerMove(-400, 40)
+		adapter.pointerUp(-400, 40)
+		settle(8)
+		t.expect(shows("First question")).toBe(false)
+		t.expect(#chat.messages:peek()).toBe(0)
+		chat.messages:set({ { id = 3, role = "user", content = "First question" } })
+		settle(6)
 		t.expect(shows("First question")).toBe(true)
 		-- The Send menu clears what is left.
 		adapter.driveActivate(assert(find("/Send/", "/Split/Menu")))
@@ -1315,7 +1326,8 @@ t.describe("Virtual Monitors shared presentations", function()
 			end
 			return nil
 		end
-		adapter.driveActivate(assert(suffixed("/Launcher"), "the Quick palette launcher is reachable"))
+		-- the settings row opens the ring; the ring itself overlays the whole screen
+		adapter.driveActivate(assert(suffixed("/QuickPalette/Quick"), "the Quick palette button is reachable"))
 		settle(5)
 		local clay
 		for _, path in adapter.paths() do
@@ -1355,19 +1367,13 @@ t.describe("Virtual Monitors shared presentations", function()
 			end
 			return nil
 		end
-		-- the affordance is OFFERED at this width: the gate is gone
-		local launcher = assert(suffixed("/Launcher"), "the Quick palette launcher is reachable at 393px")
-		adapter.driveActivate(launcher)
+		-- the affordance is OFFERED at this width, and it opens over the whole
+		-- screen rather than inside the 44px row that asks for it
+		local opener = assert(suffixed("/QuickPalette/Quick"), "the Quick palette button is reachable at 393px")
+		adapter.driveActivate(opener)
 		settle(8)
-		local listPath = assert(suffixed("/ListArea/Content/List"), "the radial fell back to its list form")
-		local areaPath = assert(suffixed("/Presentation/Yes/then/ListArea"), "the list form has an area")
-		local list, area = adapter.node(listPath).rect, adapter.node(areaPath).rect
-		t.expect(`the list starts inside its area: {list.y >= area.y}`).toBe("the list starts inside its area: true")
-		t.expect(`the list ends inside its area: {list.y + list.h <= area.y + area.h}`)
-			.toBe("the list ends inside its area: true")
-		-- ...and it is a usable list, not a one-pixel sliver
-		t.expect(`the list has the room its area has: {list.h == area.h}`)
-			.toBe(`the list has the room its area has: true`)
+		local ring = assert(suffixed("/QuickRing"), "the ring overlays the screen")
+		t.expect(adapter.node(ring).rect.h >= 400).toBe(true)
 		local clay
 		for _, path in adapter.paths() do
 			if path:find("clay", 1, true) and path:sub(-5) == "/Item" then

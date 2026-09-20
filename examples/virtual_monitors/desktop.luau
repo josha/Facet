@@ -27,9 +27,6 @@ function desktop.create(Compose: any, app: any, apps: any, mode: any, selectedTa
 					width = { type = "fill" },
 					height = { type = "fill" },
 					surface = "base",
-					opacity = function(use)
-						return math.clamp((progress(use) - 0.45) / 0.55, 0, 1)
-					end,
 					UI.TabView("Apps")({
 						style = "sidebarAdaptable",
 						sidebarPreference = "topBar",
@@ -38,6 +35,21 @@ function desktop.create(Compose: any, app: any, apps: any, mode: any, selectedTa
 						transition = { fade = true },
 						tabs = tabs,
 					}),
+					-- The flat presentation fades IN under a veil that unmounts when the
+					-- switch settles. Fading the page itself would keep the whole screen
+					-- in a fade group for as long as it is shown.
+					Compose.show(function(use)
+						return progress(use) < 1
+					end, function()
+						return UI.Box("Veil")({
+							width = { type = "fill" },
+							height = { type = "fill" },
+							surface = "base",
+							opacity = function(use)
+								return 1 - math.clamp((progress(use) - 0.45) / 0.55, 0, 1)
+							end,
+						})
+					end),
 				})
 			end),
 		})

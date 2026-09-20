@@ -1208,6 +1208,9 @@ function renderer.attach(
 						if not tapArm.tapArmsInstead(tapPath, nil) then
 							onNodeTap(tapPath, { via = "dragDetectorTap" })
 						end
+					elseif outcome == "tap" and not TAPPABLE[tapClass] and type(pos) == "table" then
+						-- a draggable CONTAINER ate the click: hand it to what lies under it
+						controller.tapAt(pos.x, pos.y, { skip = tapPath })
 					end
 				end
 				local detach = dragBridge.attachDetector(node.path, handlers)

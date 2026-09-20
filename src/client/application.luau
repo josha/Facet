@@ -179,4 +179,13 @@ function application.new(opts: host.Opts?)
 	end
 	return app
 end
+-- The theme reads a client needs before its first surface exists. They live
+-- here so the shared entry point reaches client code through one module.
+function application.styleFor(package: any, themeName: string?, displaySize: string?)
+	return require("./theme_controller").styleFor(package, themeName, displaySize)
+end
+function application.sheetModelFor(package: any, displaySize: string?)
+	return require("./theme_controller").sheetModelFor(package, displaySize)
+end
+
 return application

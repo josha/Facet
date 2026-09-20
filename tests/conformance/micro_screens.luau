@@ -142,11 +142,10 @@ local checks: { Check } = {
 			end
 			apply({})
 			root:dispose()
+			-- a Compose owner's size is one number: what it still holds
 			local after = core.owner.size()
-			for k, v in baseline :: any do
-				if (after :: any)[k] ~= v then
-					return false, `counter {k} leaked: {v} -> {(after :: any)[k]}`
-				end
+			if after ~= baseline then
+				return false, `owner leaked: {baseline} -> {after}`
 			end
 			return true, nil
 		end,
