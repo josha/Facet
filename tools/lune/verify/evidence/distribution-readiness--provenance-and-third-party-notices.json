@@ -9,26 +9,21 @@
   {
    "archivedPath": "THIRD_PARTY_NOTICES.md",
    "label": "notices",
-   "sha256": "a358856e73cbdd825dd961e7125cb89786c26a3f9fde0bb143519fe58085eab7"
+   "sha256": "dce08f9f3610c2ea396d21e2af703f26394e55d2a08a16b0403e958b66eb6b5e"
   },
   {
    "archivedPath": "src/vendor/compose/UPSTREAM.lock",
    "label": "Compose UPSTREAM.lock",
-   "sha256": "107331f77f7992bbd2e9a12375b3c616637252cf40f289ae3420d5997bac482b"
+   "sha256": "b65f5b2ce099217174ed1f807f0e5a6fc84550905ad12faa6c8caebb38013cfb"
   },
   {
    "archivedPath": "src/vendor/compose/LICENSE",
    "label": "Compose LICENSE",
    "sha256": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885"
-  },
-  {
-   "archivedPath": "src/vendor/compose/UPSTREAM.patch",
-   "label": "Compose UPSTREAM.patch",
-   "sha256": "46f0417fd58ea03a6d4fcf3d39c612006ae0670b8eab993981407b04d4a9d5fe"
   }
  ],
- "recordedAt": "2026-09-17T06:06:58Z",
+ "recordedAt": "2026-09-20T20:30:00Z",
  "row": "distribution-readiness::provenance-and-third-party-notices",
  "schema": "facet-evidence-receipt/1",
- "summary": "Compose source pin, complete MIT notices, local lifetime patch, and exact source inventory. Offline package verification covers the built artifact."
+ "summary": "Compose source pin, complete MIT notices, an unmodified read-only snapshot with no local patch, and an exact sha256 inventory of every vendored file. Offline package verification covers the built artifact."
 }

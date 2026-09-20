@@ -7733,7 +7733,7 @@
     "resultIds": [
      "async_image::AsyncImage (NS-A14)::release-then-stale-completion never resurrects (honest cancellation)"
     ],
-    "shell": "test -f src/client/roblox_resources.luau && test -f src/controls/async_image.luau && grep -q \"PreloadAsync\" src/client/roblox_resources.luau && grep -q \"newAsyncImage\" docs/reference/api.md"
+    "shell": "test -f src/client/roblox_resources.luau && test -f src/controls/async_image.luau && grep -q \"PreloadAsync\" src/client/roblox_resources.luau && grep -q \"UI.AsyncImage\" docs/reference/api.md"
    },
    "class": "result-ids",
    "evidence": "artifacts/native-substrate/a13-resources.json",
@@ -8295,7 +8295,7 @@
      "button_complete::B-BTN4: disabled is consistent across focus, activation, appearance and semantics::a disabled button does not activate on the keyboard or gamepad path either",
      "button_complete::B-BTN2: semantic roles ride tags and style rules::every theme's danger pair passes the contrast gate"
     ],
-    "shell": "grep -q \"assertNoFocusableContent\" src/blueprint.luau && grep -q \"effectiveHitFloor\" src/render/renderer.luau && grep -q \"setHitRect\" src/client/screen_target.luau && grep -q \"isDisabled\" src/present/presenter.luau && grep -q \"Destructive button\" src/tokens/sheet_model.luau && grep -q \"dangerPair\" src/tokens/sheet_model.luau"
+    "shell": "grep -q \"assertNoFocusableContent\" src/button_properties.luau && grep -q \"effectiveHitFloor\" src/render/renderer.luau && grep -q \"setHitRect\" src/client/screen_target.luau && grep -q \"isDisabled\" src/present/presenter.luau && grep -q \"Destructive button\" src/tokens/sheet_model.luau && grep -q \"dangerPair\" src/tokens/sheet_model.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/authoring-adaptive-ui/b-btn-button.json",
@@ -8323,7 +8323,7 @@
      "value_controls::B-VAL3: Stepper bounds, formatting, disabled and lifecycle::the affordance at a bound is DISABLED, not silently inert",
      "value_controls::B-VAL3: Stepper bounds, formatting, disabled and lifecycle::an explicitly disabled Stepper refuses every input class"
     ],
-    "shell": "test -f src/controls/value_model.luau && test -f src/controls/stepper.luau && grep -q \"newStepper\" src/init.luau && grep -q \"isEnabled\" src/controls/stepper.luau"
+    "shell": "test -f src/controls/value_model.luau && test -f src/controls/stepper.luau && grep -q \"api.Stepper = composite\" src/render/compose_controls.luau && grep -q \"isEnabled\" src/controls/stepper.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/authoring-adaptive-ui/b-val-value-controls.json",
@@ -12999,7 +12999,7 @@
      "examples_gallery::examples/gallery fixture: circular progress, both forms::both forms are on screen: a filled ring, a rotating head, and the dot spinner",
      "overflow_sweep::overflow sweep: gallery scenarios::scenario 'progress_ring': the solver reports NOTHING at any swept viewport, at any text size"
     ],
-    "shell": "grep -qF \"newProgressView\" docs/reference/api.md && test -f tests/progress_circular.spec.luau"
+    "shell": "grep -qF \"UI.ProgressView\" docs/reference/api.md && test -f tests/progress_circular.spec.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -13064,7 +13064,7 @@
      "lifecycle_hooks::hidden — the space-reserving hide::...and so does a losing ViewThatFits candidate, which is the SAME verdict",
      "examples_gallery::examples/gallery fixture: lifecycle hooks and hidden::teardown fires the badge's own disappear, so the count is never left short"
     ],
-    "shell": "grep -qF \"newAsyncImage\" docs/reference/api.md && grep -qF \"keyboardType\" docs/reference/api.md && grep -qF \"effectiveTransparency\" docs/reference/api.md"
+    "shell": "grep -qF \"UI.AsyncImage\" docs/reference/api.md && grep -qF \"keyboardType\" docs/reference/api.md && grep -qF \"effectiveTransparency\" docs/reference/api.md"
    },
    "class": "result-ids",
    "evidence": null,
@@ -22966,7 +22966,7 @@
      "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
      "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls"
     ],
-    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"Controls : table(frozen)\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"^  Controls[.][A-Za-z]+ : function\" artifacts/verify/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\" && test \"$(grep -c \"since=0[.]10[.]0 | removeNoEarlierThan=0[.]12[.]0 | replacement=Facet[.]Controls[.]\" artifacts/verify/public-surface.txt)\" = \"19\""
+    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"29\""
    },
    "class": "result-ids",
    "evidence": null,
