@@ -281,6 +281,20 @@ end)
 
 -- Two consecutive cases exercise the runner's real afterEach boundary.
 describe("the case owns its complete harness world", function()
+	local previousScenario
+	it("records a scenario's controls for inspection within the case", function()
+		local scenarioCtx = require("./lib/scenario_ctx")
+		local w = require("./lib/world").new()
+		previousScenario = scenarioCtx.of(w)
+		w.present(function()
+			return w.UI.Button("Recorded")({ label = "Recorded" })
+		end)
+		expect(previousScenario.controlRecord("Recorded") ~= nil).toBe(true)
+	end)
+	it("releases scenario control records before the next case", function()
+		expect(previousScenario.controlRecord("Recorded")).toBeNil()
+		previousScenario = nil
+	end)
 	local sameLibrary
 	it("keeps the original construction library available during mount cleanup", function()
 		local core = harness.newCore()
