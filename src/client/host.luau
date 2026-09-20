@@ -67,6 +67,7 @@ local services = require("../core/services")
 local environment = require("../env/environment")
 local presenterLib = require("../present/presenter")
 
+local cleanup = require("../core/cleanup")
 local host = {}
 
 export type SurfaceSpec =
@@ -312,10 +313,12 @@ function host.new(opts: Opts?): Host
 	-- undo stack, innermost last: whatever succeeded is what gets torn down
 	local undo: { () -> () } = {}
 	local function unwind()
+		local steps = {}
 		for i = #undo, 1, -1 do
-			pcall(undo[i])
+			table.insert(steps, undo[i])
 		end
 		table.clear(undo)
+		return pcall(cleanup, steps)
 	end
 
 	local built: any = nil
@@ -431,17 +434,17 @@ function host.new(opts: Opts?): Host
 				stopped answering, which is the one ordering that turns a clean
 				teardown into a mid-frame error.
 
-				WHAT IT DOES NOT DISPOSE: the PRESENTER, which has no teardown seam of
-				its own because its whole state hangs off the core owner this now
-				disposes; a CORE THE CALLER SUPPLIED through `opts.newCore`, which is
-				the caller's to end; and whatever you presented — a handle is the
-				consumer's. ]]
+				The presenter releases its surfaces and observers. A core supplied
+				through `opts.newCore` remains the caller's to end. ]]
 			dispose = function()
 				if disposed then
 					return
 				end
 				disposed = true
-				unwind()
+				local clean, failure = unwind()
+				if not clean then
+					error(failure, 0)
+				end
 			end,
 		}
 	end)
