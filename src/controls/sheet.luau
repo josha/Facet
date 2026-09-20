@@ -1,8 +1,5 @@
 --!strict
 local Compose = require("../vendor/compose/core")
-local publicCore = require("../core/contract")
-local publicBlueprint = require("../blueprint")
-local publicEnv = require("../env/environment")
 
 -- A modal with owner-held detents, a draggable header, and focus-based sizing.
 local guard = require("../spec_guard")
@@ -10,20 +7,10 @@ local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
 local chromeSlots = require("../tokens/chrome_slots")
 local sheet = {}
-type StringCell = publicCore.Cell<string>
-type BooleanCell = publicCore.Cell<boolean>
-export type Spec<V = StringCell, P = BooleanCell> = {
-	id: string?,
-	title: publicBlueprint.Bound<string>,
-	content: publicBlueprint.Blueprint | (() -> publicBlueprint.Blueprint),
-	detent: V,
-	detents: { "medium" | "large" | { id: string, fraction: number?, height: number? } }?,
-	env: publicEnv.Env?,
-	presenter: any?,
-	isPresented: P?,
-	interactiveDismissDisabled: boolean?,
-	dragIndicator: ("automatic" | "visible" | "hidden")?,
-}
+local specTypes = require("../spec_types/sheet")
+type StringCell = specTypes.StringCell
+type BooleanCell = specTypes.BooleanCell
+export type Spec<V = StringCell, P = BooleanCell> = specTypes.Spec<V, P>
 local KEYS = guard.keySet({
 	"id",
 	"title",

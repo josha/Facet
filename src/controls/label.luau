@@ -6,16 +6,8 @@ local specGuard = require("../spec_guard")
 
 local label_control = {}
 
-export type Spec = {
-	id: string?,
-	title: string, -- required: it IS the semantic text
-	icon: string?, -- asset string; absent => title-only, no empty slot
-	presentation: string?, -- "titleAndIcon" (default) | "titleOnly" | "iconOnly"
-	-- each accepts a literal number (theme-independent) or a theme metric name
-	iconSize: (number | string)?,
-	textSize: (number | string)?,
-	gap: (number | string)?,
-}
+local specTypes = require("../spec_types/label")
+export type Spec = specTypes.Spec
 
 local PRESENTATIONS: { [string]: boolean } = { titleAndIcon = true, titleOnly = true, iconOnly = true }
 

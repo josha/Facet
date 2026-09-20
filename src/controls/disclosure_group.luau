@@ -1,8 +1,6 @@
 --!strict
 -- Expandable content with focus recovery. Native pages and caret motion belong
 -- to Compose; Facet supplies the header, layout, theme icon and input behavior.
-local coreContract = require("../core/contract")
-local blueprint = require("../blueprint")
 
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
@@ -14,16 +12,9 @@ local disclosure_group = {}
 local selection = require("../selection_model")
 local regionTransitions = require("../render/region_transitions")
 
-type BooleanCell = coreContract.Cell<boolean>
-export type Spec<V = BooleanCell> = {
-	id: string?,
-	label: string, -- required: the header IS the control
-	expanded: V, -- the caller's writable cell of a boolean
-	content: () -> blueprint.Blueprint, -- () -> Blueprint, mounted only while expanded
-	enabled: blueprint.Bound<boolean>?,
-	onToggle: ((expanded: boolean) -> ())?,
-	presenter: any?,
-}
+local specTypes = require("../spec_types/disclosure_group")
+type BooleanCell = specTypes.BooleanCell
+export type Spec<V = BooleanCell> = specTypes.Spec<V>
 
 local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
 	"content",

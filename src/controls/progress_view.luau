@@ -3,8 +3,6 @@
 -- Native controls use Compose timelines; theme tokens define each presentation.
 local Compose = require("../vendor/compose/core")
 local selection = require("../selection_model")
-local coreContract = require("../core/contract")
-local blueprint = require("../blueprint")
 
 local chrome_slots = require("../tokens/chrome_slots")
 local path_shapes = require("./path_shapes")
@@ -68,22 +66,8 @@ local function dotFraction(index: number, phase: number): number
 	return DOT_TROUGH + (1 - DOT_TROUGH) * lit
 end
 
-export type Spec = {
-	segments: number?,
-	trail: { delay: number?, duration: number? }?,
-	diameter: (number | string)?,
-	id: string?,
-	value: blueprint.Bound<number>?, -- number | Readable<number> | nil
-	label: string?,
-	min: number?, -- default 0
-	max: number?, -- default 1
-	format: ((value: number) -> string)?,
-	showValue: boolean?, -- render the formatted value beside the bar
-	height: number?, -- the BAR's track thickness; refused for a spinner
-	presentation: string?, -- "bar" (default) | "spinner" (indeterminate only)
-	scope: coreContract.Owner?,
-	motionClock: any?,
-}
+local specTypes = require("../spec_types/progress_view")
+export type Spec = specTypes.Spec
 
 local PROGRESS_VIEW_KEYS = specGuard.keySet({
 	"segments",
@@ -102,15 +86,7 @@ local PROGRESS_VIEW_KEYS = specGuard.keySet({
 	"value",
 })
 
-type Capability = {
-	indeterminate: boolean,
-	determinate: boolean,
-	hasTrack: boolean,
-	valueLabel: boolean,
-	sizeMetric: string?,
-	modeAlt: string?,
-	valueLabelAlt: string?,
-}
+type Capability = specTypes.Capability
 
 -- Validate presentation capabilities before allocating motion resources.
 local PRESENTATIONS: { [string]: Capability } = {

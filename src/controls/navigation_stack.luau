@@ -7,27 +7,16 @@ local selection = require("../selection_model")
 local guard = require("../spec_guard")
 local contribution = require("../input/contribution")
 local blueprintLib = require("../blueprint")
-local environment = require("../env/environment")
 local transitionsLib = require("../render/transitions")
 local regionTransitions = require("../render/region_transitions")
 local motionClasses = require("../motion/classes")
 local surfaceEnv = require("../env/surface_env")
 local schema = require("../blueprint_schema")
 local navigation = {}
-export type Entry = { id: string, value: any? }
-export type Destination = {
-	title: blueprintLib.Bound<string>?,
-	content: (owner: Compose.Owner, entry: Entry?) -> blueprintLib.Blueprint,
-}
-export type Spec = {
-	id: string?,
-	path: Compose.Cell<{ Entry }>,
-	root: Destination,
-	destinations: { [string]: Destination },
-	backLabel: string,
-	env: environment.Env?,
-	transition: blueprintLib.TransitionSpec?,
-}
+local specTypes = require("../spec_types/navigation_stack")
+export type Entry = specTypes.Entry
+export type Destination = specTypes.Destination
+export type Spec = specTypes.Spec
 local KEYS = guard.keySet({ "id", "path", "root", "destinations", "backLabel", "env", "transition" })
 local PAGE_KEYS = guard.keySet({ "title", "content" })
 local ENTRY_KEYS = guard.keySet({ "id", "value" })

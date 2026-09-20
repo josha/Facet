@@ -1,7 +1,5 @@
 --!strict
 -- Rating configures the shared LevelPicker behavior with star glyphs.
-local coreContract = require("../core/contract")
-local blueprint = require("../blueprint")
 
 local level_picker = require("./level_picker")
 local specGuard = require("../spec_guard")
@@ -13,19 +11,9 @@ local STAR_SIZE_ROLE = "small"
 rating.FILLED = "★"
 rating.EMPTY = "☆"
 
-type NumberCell = coreContract.Cell<number>
-export type Spec<V = NumberCell> = {
-	id: string?,
-	value: V, -- the caller's writable cell of a number
-	count: number?, -- how many glyphs; default 5
-	allowZero: boolean?,
-	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
-	readOnly: boolean?,
-	glyphs: { filled: string, empty: string }?,
-	starSize: ("small" | "medium" | "large")?,
-	env: any?,
-	onChange: ((value: number) -> ())?,
-}
+local specTypes = require("../spec_types/rating")
+type NumberCell = specTypes.NumberCell
+export type Spec<V = NumberCell> = specTypes.Spec<V>
 
 local RATING_KEYS = specGuard.keySet({
 	"allowZero",

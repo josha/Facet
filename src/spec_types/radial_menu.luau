@@ -1,0 +1,63 @@
+--!strict
+-- The `radial_menu` control's types, apart from its implementation: reading a type must
+-- not load the control.
+local publicCore = require("../core/contract")
+local publicBlueprint = require("../blueprint")
+local publicEnv = require("../env/environment")
+export type Item = {
+	id: string,
+	label: publicBlueprint.Value<string>,
+	icon: string?,
+	compactLabel: publicBlueprint.Value<string>?,
+	labelStyle: string?,
+	slot: string?,
+	enabled: publicBlueprint.Value<boolean>?,
+	hidden: publicBlueprint.Value<boolean>?,
+	description: publicBlueprint.Value<string>?,
+	children: publicBlueprint.Value<{ Item }>?,
+	navigation: string?,
+	expansion: string?,
+	completion: string?,
+	checked: publicCore.Cell<boolean>?,
+	selected: publicCore.Cell<any>?,
+	value: any?,
+	dismiss: boolean?,
+	onSelect: (() -> ())?,
+	onChange: ((any) -> ())?,
+	role: string?,
+	decoration: any?,
+	buttonSurface: string?,
+}
+export type Spec = {
+	id: string?,
+	items: publicBlueprint.Bound<{ Item }>,
+	env: publicEnv.Env?,
+	label: string?,
+	launcher: boolean?,
+	icon: string?,
+	preset: string?,
+	appearance: string?,
+	buttonSurface: string?,
+	distribution: string?,
+	navigation: string?,
+	expansion: string?,
+	center: string?,
+	centerLabel: string?,
+	centerContent: publicBlueprint.Blueprint?,
+	centerPassThrough: boolean?,
+	completion: string?,
+	anchor: any?,
+	follow: string?,
+	clearance: publicBlueprint.Bound<number | string>?,
+	ringWidth: publicBlueprint.Bound<number | string>?,
+	contentFit: string?,
+	gestureSelection: string?,
+	enabled: publicBlueprint.Bound<boolean>?,
+	width: publicBlueprint.Bound<publicBlueprint.Dim>?,
+	height: publicBlueprint.Bound<publicBlueprint.Dim>?,
+	holdAction: any?,
+	skin: any?,
+	onOpen: (() -> ())?,
+	onClose: (() -> ())?,
+}
+return nil

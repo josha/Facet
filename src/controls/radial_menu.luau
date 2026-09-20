@@ -1,9 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
 local selection = require("../selection_model")
-local publicCore = require("../core/contract")
 local publicBlueprint = require("../blueprint")
-local publicEnv = require("../env/environment")
 
 -- A radial command surface composed from Anchor, Path, Button and ScrollView.
 -- One logical path survives ring fitting/replacement; all input commits here.
@@ -21,62 +19,9 @@ local radial = {}
 local function fixed(px: any): any
 	return { type = "fixed", px = px }
 end
-export type Item = {
-	id: string,
-	label: publicBlueprint.Value<string>,
-	icon: string?,
-	compactLabel: publicBlueprint.Value<string>?,
-	labelStyle: string?,
-	slot: string?,
-	enabled: publicBlueprint.Value<boolean>?,
-	hidden: publicBlueprint.Value<boolean>?,
-	description: publicBlueprint.Value<string>?,
-	children: publicBlueprint.Value<{ Item }>?,
-	navigation: string?,
-	expansion: string?,
-	completion: string?,
-	checked: publicCore.Cell<boolean>?,
-	selected: publicCore.Cell<any>?,
-	value: any?,
-	dismiss: boolean?,
-	onSelect: (() -> ())?,
-	onChange: ((any) -> ())?,
-	role: string?,
-	decoration: any?,
-	buttonSurface: string?,
-}
-export type Spec = {
-	id: string?,
-	items: publicBlueprint.Bound<{ Item }>,
-	env: publicEnv.Env?,
-	label: string?,
-	launcher: boolean?,
-	icon: string?,
-	preset: string?,
-	appearance: string?,
-	buttonSurface: string?,
-	distribution: string?,
-	navigation: string?,
-	expansion: string?,
-	center: string?,
-	centerLabel: string?,
-	centerContent: publicBlueprint.Blueprint?,
-	centerPassThrough: boolean?,
-	completion: string?,
-	anchor: any?,
-	follow: string?,
-	clearance: publicBlueprint.Bound<number | string>?,
-	ringWidth: publicBlueprint.Bound<number | string>?,
-	contentFit: string?,
-	gestureSelection: string?,
-	enabled: publicBlueprint.Bound<boolean>?,
-	width: publicBlueprint.Bound<publicBlueprint.Dim>?,
-	height: publicBlueprint.Bound<publicBlueprint.Dim>?,
-	holdAction: any?,
-	skin: any?,
-	onOpen: (() -> ())?,
-	onClose: (() -> ())?,
-}
+local specTypes = require("../spec_types/radial_menu")
+export type Item = specTypes.Item
+export type Spec = specTypes.Spec
 local LIFT_SCALE, POP_KICK = 1.04, 4
 local STAGGER_STEP, STAGGER_CAP = 0.02, 5
 local KEYS = guard.keySet({

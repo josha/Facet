@@ -3,8 +3,6 @@
 -- keyboard/gamepad adjustment. The caller owns the value cell.
 local Compose = require("../vendor/compose/core")
 local read = require("../selection_model").read
-local coreContract = require("../core/contract")
-local blueprint = require("../blueprint")
 
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
@@ -26,25 +24,9 @@ local READOUT_MIN_WIDTH = "controls.slider.readoutMinWidth"
 local LABEL_GAP = "m"
 local FOCUS_RING = "focusRing"
 
-type NumberCell = coreContract.Cell<number>
-export type Spec<V = NumberCell> = {
-	row: { description: blueprint.Bound<string>?, icon: blueprint.Bound<string>? }?,
-	id: string?,
-	label: blueprint.Bound<string>?,
-	value: V, -- the caller's writable cell of a number
-	min: number,
-	max: number,
-	-- nil = continuous. A Readable<number> or a `function(use)` drives the grid
-	-- live, so a setting beside the slider can change the step it snaps to.
-	step: (number | any)?,
-	format: ((value: number) -> string)?,
-	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
-	tapToPosition: boolean?, -- default true
-	onChange: ((value: number) -> ())?,
-	onCommit: ((value: number) -> ())?,
-	thumbImage: (string | { [string]: any })?,
-	trackImage: (string | { [string]: any })?,
-}
+local specTypes = require("../spec_types/slider")
+type NumberCell = specTypes.NumberCell
+export type Spec<V = NumberCell> = specTypes.Spec<V>
 
 local function hintFor(id: string, slot: string, prop: string, value: any): chrome_slots.Hint
 	if value == nil then

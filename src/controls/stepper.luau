@@ -1,8 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
 local read = require("../selection_model").read
-local coreContract = require("../core/contract")
-local blueprint = require("../blueprint")
 -- Stepper: a labelled value with discrete decrement/increment affordances
 -- (docs/plans/parity-next.md investment 4; acceptance rows B-VAL1/B-VAL3).
 -- Composed from shipped primitives — an HStack of a label, a value readout, and
@@ -48,18 +46,9 @@ local INCREMENT = themePackage.iconGlyph("increment") or "+"
 
 local stepper = {}
 
-type NumberCell = coreContract.Cell<number>
-export type Spec<V = NumberCell> = {
-	id: string?,
-	label: string?,
-	value: V, -- the caller's writable cell of a number
-	min: number,
-	max: number,
-	step: number?, -- defaults to 1 (a Stepper is discrete by definition)
-	format: ((value: number) -> string)?,
-	enabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
-	onChange: ((value: number) -> ())?,
-}
+local specTypes = require("../spec_types/stepper")
+type NumberCell = specTypes.NumberCell
+export type Spec<V = NumberCell> = specTypes.Spec<V>
 
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.

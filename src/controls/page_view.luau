@@ -1,25 +1,15 @@
 --!strict
 local Compose = require("../vendor/compose/core")
 local selectionModel = require("../selection_model")
-local publicCore = require("../core/contract")
-local publicBlueprint = require("../blueprint")
 local publicEnv = require("../env/environment")
 
 -- Finite content pages share selection with native scrolling and page indicators.
 local guard = require("../spec_guard")
 local pageView = {}
-export type Page = { id: string, title: string, content: publicBlueprint.Blueprint }
-type StringCell = publicCore.Cell<string>
-export type Spec<V = StringCell> = {
-	id: string?,
-	pages: { Page },
-	selection: V,
-	height: publicBlueprint.Bound<publicBlueprint.Dim>?,
-	indicators: boolean?,
-	-- The "Page 2 of 3" line and the Previous/Next buttons. Both default to shown.
-	summary: boolean?,
-	controls: boolean?,
-}
+local specTypes = require("../spec_types/page_view")
+export type Page = specTypes.Page
+type StringCell = specTypes.StringCell
+export type Spec<V = StringCell> = specTypes.Spec<V>
 local KEYS = guard.keySet({ "id", "pages", "selection", "height", "indicators", "summary", "controls" })
 local function build(Facet, core, spec: Spec, owner)
 	guard.assertKnownKeys("UI.PageView", spec, KEYS, "spec")
