@@ -15,6 +15,7 @@ local presenterLib = require("../../src/present/presenter")
 local sceneLib = require("../../src/render/compose_scene")
 local controlsLib = require("../../src/render/compose_controls")
 local observeChange = require("../../src/core/on_change")
+local cleanup = require("../../src/core/cleanup")
 
 local harness = {}
 
@@ -162,6 +163,7 @@ local function stageOf(core: any): any
 			owner = owner,
 			roots = {},
 			handles = {},
+			services = {},
 		}
 		stages[core] = stage
 		if core ~= ambientCore then
@@ -241,8 +243,17 @@ function harness.frameListeners(core: any): number
 end
 
 harness.coreFactory = { new = harness.newCore }
-harness.newEnvironment = Facet.newEnvironment
-harness.newActionSystem = Facet.newActionSystem
+function harness.newEnvironment(core: any)
+	local env = Facet.newEnvironment(core)
+	table.insert(stageOf(core).services, env)
+	return env
+end
+
+function harness.newActionSystem(core: any)
+	local system = Facet.newActionSystem(core)
+	table.insert(stageOf(core).services, system)
+	return system
+end
 
 -- Mounts a node, or a component function, and returns the renderer's root.
 function harness.mount(core: any, content: any, _opts: any?)
@@ -510,15 +521,32 @@ local function releaseCase()
 				end
 			end
 		end
+		if pres ~= nil then
+			local ok, err = pcall(pres.dispose)
+			if not ok then
+				table.insert(failures, `presenter shutdown threw: {tostring(err)}`)
+			end
+		end
 		for index = #stage.roots, 1, -1 do
 			local ok, err = pcall(stage.roots[index])
 			if not ok then
 				table.insert(failures, `a surface teardown threw while releasing the case: {tostring(err)}`)
 			end
 		end
-		local ok, err = pcall(stage.owner.dispose)
+		local releases = {
+			stage.owner.dispose,
+			function()
+				stage.runtime:dispose()
+			end,
+		}
+		for index = #stage.services, 1, -1 do
+			table.insert(releases, stage.services[index].dispose)
+		end
+		table.insert(releases, core.settlePass.dispose)
+		table.insert(releases, core.owner.dispose)
+		local ok, err = pcall(cleanup, releases)
 		if not ok then
-			table.insert(failures, `a teardown threw while releasing the case's constructions: {tostring(err)}`)
+			table.insert(failures, `a teardown threw while releasing the case's resources: {tostring(err)}`)
 		end
 	end
 	activeCore = nil

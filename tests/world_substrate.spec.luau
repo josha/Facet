@@ -278,3 +278,27 @@ describe("REUSE-88: the retired tuple order stays retired", function()
 		)
 	end)
 end)
+
+-- Two consecutive cases exercise the runner's real afterEach boundary.
+describe("the case owns its complete harness world", function()
+	local previous, ownerCleaned, settleCalls
+	it("creates owned core work and an environment in a case", function()
+		previous = worldLib.new()
+		ownerCleaned, settleCalls = false, 0
+		previous.core.owner.own(function()
+			ownerCleaned = true
+		end)
+		previous.core.settlePass.register(function()
+			settleCalls += 1
+		end)
+	end)
+	it("releases the core, environment and settle work before the next case", function()
+		expect(previous.core.owner.isDisposed()).toBe(true)
+		expect(ownerCleaned).toBe(true)
+		expect(require("../src/env/surface_env").find(previous.core)).toBeNil()
+		local beforeSettle = settleCalls
+		previous.core.settlePass.run()
+		expect(settleCalls).toBe(beforeSettle)
+		previous = nil
+	end)
+end)

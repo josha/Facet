@@ -72,6 +72,7 @@ jobs:
       # The same full tier contributors run locally. Keep the memory-intensive
       # suite alone, and never fall back to a smaller set of checks.
       - name: Tests
+        shell: bash
         run: |
           mkdir -p artifacts/verify
           tools/verify.sh full --jobs 1 2>&1 | tee artifacts/verify/ci.log
