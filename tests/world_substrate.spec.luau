@@ -281,6 +281,17 @@ end)
 
 -- Two consecutive cases exercise the runner's real afterEach boundary.
 describe("the case owns its complete harness world", function()
+	local implicitCleaned = false
+	it("owns constructions made before selecting an explicit core", function()
+		harness.owned(function()
+			require("../src/vendor/compose/core").cleanup(function()
+				implicitCleaned = true
+			end)
+		end)
+	end)
+	it("releases implicitly owned constructions before the next case", function()
+		expect(implicitCleaned).toBe(true)
+	end)
 	local previous, ownerCleaned, settleCalls
 	it("creates owned core work and an environment in a case", function()
 		previous = worldLib.new()
