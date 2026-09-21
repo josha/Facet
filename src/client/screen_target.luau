@@ -592,7 +592,7 @@ function screen_target.new(opts: Opts?)
 			-- costs a flat theme zero instances — and the tag has to ride the
 			-- desired set or the next classification pass would square it off.
 			shape = handle.shape,
-			shapeRim = handle.class ~= "Box" and handle.class ~= "Image",
+			shapeRim = handle.class ~= "Box" and handle.class ~= "Image" and not instance:IsA("CanvasGroup"),
 			-- THE TYPOGRAPHY ROLE (F2, 2026-08-02). `FontFace` is sheet-owned, so
 			-- the role a node wears reaches native paint as a tag whose generated
 			-- rule carries that role's descriptor — the same descriptor the solver

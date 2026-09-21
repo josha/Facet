@@ -12217,7 +12217,11 @@ rounded CanvasGroup to mask its sweep, released under reduced motion; its buffer
 shares the documented [CanvasGroup quality and memory limits](#canvasgroup-costs).
 Mounted sweeps start it; the last sweep
 leaving detaches it immediately. Separate branch holds keep its independent
-owner alive until the last Skeleton is disposed. Render hooks count structural
+owner alive until the last Skeleton is disposed. A circular plate and its active
+CanvasGroup mask use the shared true-circle shape, independent of theme pill
+radii. A circular CanvasGroup is a grouping/clipping aperture and gains no
+implicit shape hairline; ordinary circle Button/ZStack chrome is unchanged.
+An explicit stroke remains available and additive. Render hooks count structural
 presence, not pixel visibility or opacity. Reduced motion removes the sweep;
 a missing presenter clock or environment leaves the plate static.
 

@@ -420,3 +420,60 @@ describe("painted circle native property path", function()
 		end
 	end)
 end)
+
+describe("circle native grouping classification", function()
+	it("reconciles a CanvasGroup aperture without a rim while preserving ordinary circle chrome", function()
+		local fs, luau = require("@lune/fs"), require("@lune/luau")
+		local source = fs.readFile("src/client/screen_target.luau")
+		local branch = assert(string.match(source, "\tlocal function syncTags%(handle: any%)(.-)\n\tend"))
+		local service = {}
+		function service:GetTags(instance)
+			return table.clone(instance.tags)
+		end
+		function service:AddTag(instance, tag)
+			table.insert(instance.tags, tag)
+		end
+		function service:RemoveTag(instance, tag)
+			table.remove(instance.tags, assert(table.find(instance.tags, tag)))
+		end
+		local sync = luau.load("return function(handle)" .. branch .. "\nend", {
+			injectGlobals = true,
+			environment = {
+				nativeMode = true,
+				sheet_model = sheet_model,
+				tag_sync = require("../src/render/tag_sync"),
+				CollectionService = service,
+			},
+		})()
+		for _, test in
+			{
+				{ "Button", "TextButton", true },
+				{ "ZStack", "Frame", true },
+				{ "ZStack", "CanvasGroup", false },
+				{ "Box", "Frame", false },
+				{ "Image", "ImageLabel", false },
+			}
+		do
+			local instance = { tags = { CIRCLE_TAG, sheet_model.TAGS.circleRim }, class = test[2] }
+			function instance:IsA(class)
+				return self.class == class
+			end
+			local handle = { class = test[1], instance = instance, shape = "circle" }
+			local function has(tag)
+				return table.find(instance.tags, tag) ~= nil
+			end
+			sync(handle)
+			expect(has(CIRCLE_TAG)).toBe(true)
+			expect(has(sheet_model.TAGS.circleRim)).toBe(test[3])
+			-- The same handle's next occupant must lose both shape tags, then earn the right set again.
+			handle.shape = nil
+			sync(handle)
+			expect(has(CIRCLE_TAG)).toBe(false)
+			expect(has(sheet_model.TAGS.circleRim)).toBe(false)
+			handle.shape = "circle"
+			sync(handle)
+			expect(has(CIRCLE_TAG)).toBe(true)
+			expect(has(sheet_model.TAGS.circleRim)).toBe(test[3])
+		end
+	end)
+end)

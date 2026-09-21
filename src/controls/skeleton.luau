@@ -144,7 +144,11 @@ local function build(library, core, spec, owner)
 		elseif form == "box" then "control"
 		else "pill"
 	local function plate(plateId, width, height)
-		local children = { UI.corners(UI.Box({ id = "Plate", width = FILL, height = FILL, tint = PLATE }), radius) }
+		local children = {
+			if form == "circle"
+				then UI.Box({ id = "Plate", shape = "circle", width = FILL, tint = PLATE })
+				else UI.corners(UI.Box({ id = "Plate", width = FILL, height = FILL, tint = PLATE }), radius),
+		}
 		if driver then
 			table.insert(
 				children,
@@ -168,16 +172,13 @@ local function build(library, core, spec, owner)
 						-- Rounded sibling paint is not a mask. The native CanvasGroup
 						-- clips the moving band to this circle; reduced motion owns none.
 						return if form == "circle"
-							then UI.corners(
-								UI.ZStack({
-									id = "Mask",
-									width = FILL,
-									height = FILL,
-									canvasGroup = true,
-									children = { sweep },
-								}),
-								"pill"
-							)
+							then UI.ZStack({
+								id = "Mask",
+								width = FILL,
+								shape = "circle",
+								canvasGroup = true,
+								children = { sweep },
+							})
 							else sweep
 					end,
 				})
