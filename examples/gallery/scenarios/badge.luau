@@ -24,6 +24,10 @@ return {
 			status:set(word)
 			return report()
 		end
+		local function reset()
+			status:set("neutral")
+			rung:set("compact")
+		end
 		local function section()
 			Compose.cleanup(function()
 				rootPath, controller, record = nil, nil, nil
@@ -106,6 +110,7 @@ return {
 		end
 		return {
 			section = section,
+			reset = reset,
 			report = report,
 			screen = function()
 				return UI.Screen("Badge")({

@@ -17,6 +17,7 @@ local groups = {
 		label = "Actions",
 		tabs = {
 			{ id = "buttons", label = "Buttons", scenario = require("./action_controls") },
+			{ id = "shortcuts", label = "Shortcuts", scenario = require("./shortcut_hint") },
 			{ id = "menus", label = "Menus", scenario = require("./menu") },
 			{ id = "alerts", label = "Alerts", scenario = require("./alert") },
 			{ id = "sheets", label = "Sheets", scenario = require("./sheet") },
@@ -29,8 +30,7 @@ local groups = {
 		tabs = {
 			{ id = "progress", label = "Progress", scenario = require("./progress_ring") },
 			{ id = "identity", label = "Identity", scenario = require("./identity") },
-			{ id = "status", label = "Status", scenario = require("./status_indicator") },
-			{ id = "badges", label = "Badges", scenario = require("./badge") },
+			{ id = "status", label = "Status", scenario = require("./status_family") },
 			{ id = "toasts", label = "Toasts", scenario = require("./sponsor_toast") },
 			{ id = "levels", label = "Levels", scenario = require("./level_picker") },
 			{ id = "feedback", label = "Feedback", scenario = require("./sensory_feedback") },

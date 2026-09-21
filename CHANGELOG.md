@@ -13,6 +13,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Consolidate Showcase recipes into existing family tabs with shared reset actions.
+  Long removable tags scroll horizontally; progress tracks retain visible segments
+  beside trailing copy at large text sizes. New-control scaffolds use existing demos.
+
 - Setting rows retain their real switch/checkbox with optional side, hint and size.
   DisclosureGroup gains description, icon, side, appearance and size; removable
   Chips retain independent target floors and collection focus. Add the archived

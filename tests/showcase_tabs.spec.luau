@@ -374,6 +374,84 @@ t.describe("Consolidated showcase", function()
 		end
 	end)
 
+	t.it("keeps every selected tab within its nearest scroll host on a 390px phone at Largest text", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, { textOffset = 14 })
+		local visited = 0
+		for _, group in catalog.groups do
+			activate(w, group.label)
+			for _, tab in group.tabs do
+				activate(w, tab.label)
+				t.expect(built.report().active).toBe(tab.id)
+				local path = button(w, tab.label)
+				local acc, host = "", nil
+				for segment in path:gmatch("[^/]+") do
+					acc ..= "/" .. segment
+					local node = w.adapter.node(acc)
+					if node and node.scrollRegion then
+						host = acc
+					end
+				end
+				assert(host, group.id .. "/" .. tab.id .. " has no scroll host")
+				local rect, window = w.controller.screenRectOf(path), w.controller.screenRectOf(host)
+				assert(rect and window, "selected tab screen geometry missing")
+				t.expect(
+					rect.x >= window.x - 1
+						and rect.y >= window.y - 1
+						and rect.x + rect.w <= window.x + window.w + 1
+						and rect.y + rect.h <= window.y + window.h + 1
+				).toBe(true)
+				local findings = {}
+				for _, finding in w.controller.diagnostics() do
+					if finding.designed ~= true and string.sub(finding.node, 1, #host) == host then
+						table.insert(findings, finding.issue)
+					end
+				end
+				t.expect(table.concat(findings, " | ")).toBe("")
+				visited += 1
+			end
+		end
+		t.expect(visited).toBe(19)
+		w.pres.dismiss(w.handle)
+		w.settle(4)
+		built.dispose()
+		t.expect(w.core.lastError()).toBeNil()
+	end)
+
+	t.it("resets both mounted status and identity recipes through their shared commands", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
+		activate(w, "Indicators")
+		activate(w, "Status")
+		activate(w, "warning")
+		activate(w, "Error")
+		t.expect(built.report().example.status.status).toBe("warning")
+		t.expect(built.report().example.badge.badge.status).toBe("error")
+		activate(w, "Reset status")
+		t.expect(built.report().example.status.status).toBe("neutral")
+		t.expect(built.report().example.badge.badge.status).toBe("neutral")
+		activate(w, "Identity")
+		activate(w, "Away")
+		activate(w, "Fewer")
+		t.expect(built.report().example.avatar.portrait.presence).toBe("away")
+		t.expect(#built.report().example.group.group.shown + built.report().example.group.group.hidden).toBe(5)
+		activate(w, "Reset identity")
+		t.expect(built.report().example.avatar.portrait.presence).toBe("online")
+		t.expect(#built.report().example.group.group.shown + built.report().example.group.group.hidden).toBe(6)
+		activate(w, "Progress")
+		activate(w, "Large")
+		activate(w, "Loaded")
+		t.expect(built.report().example.controlSize).toBe("large")
+		t.expect(built.report().example.loading.loading).toBe(false)
+		activate(w, "Reset progress")
+		t.expect(built.report().example.controlSize).toBeNil()
+		t.expect(built.report().example.loading.loading).toBe(true)
+		w.settle(4)
+		w.pres.dismiss(w.handle)
+		w.settle(4)
+		t.expect(built.report().active).toBeNil()
+		built.dispose()
+		t.expect(w.core.lastError()).toBeNil()
+	end)
+
 	t.it("keeps virtualized scrolling and measured pane size working inside a tab", function()
 		local w, built = make(collections, { x = 0, y = 0, w = 1280, h = 800 })
 		activate(w, "Grids")

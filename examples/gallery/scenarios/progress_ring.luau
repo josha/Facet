@@ -22,6 +22,11 @@ return {
 		local rung = Compose.cell(nil)
 		local rootPath, controller
 		local placeholders = require("./skeleton").build(ctx)
+		local function reset()
+			progress:set(0.25)
+			rung:set(nil)
+			placeholders.reset()
+		end
 		local function percent(v)
 			return string.format("%d%%", math.floor(v * 100 + 0.5))
 		end
@@ -94,6 +99,7 @@ return {
 							end,
 						}),
 					}),
+					UI.Button("Reset")({ label = "Reset progress", onActivate = reset }),
 					placeholders.section(),
 				}),
 			})
@@ -115,6 +121,7 @@ return {
 			ctx.presenter.refresh()
 			local value = progress:peek()
 			return {
+				loading = placeholders.report(),
 				progress = value,
 				fraction = value,
 				reduced = ctx.presenter.motionClock:isReduced(),
@@ -131,7 +138,9 @@ return {
 		return {
 			screen = screen,
 			present = {},
+			reset = reset,
 			steps = {
+				reset = reset,
 				sizeCompact = function()
 					rung:set("compact")
 					return report()

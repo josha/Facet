@@ -93,7 +93,6 @@ return {
 	build = function(ctx: any)
 		local Facet = ctx.Facet
 		local UI, Compose = ctx.UI, ctx.Compose
-		local gridRecipe = require("./container_grid").build(ctx)
 		-- the mounted screen's adaptive facts, for the report
 		local conditions: any = nil
 		local function noop() end
@@ -667,7 +666,6 @@ return {
 				vocabShrink,
 				vocabPage,
 				vocabSpecs,
-				gridRecipe.section(),
 			})
 
 			-- The body SCROLLS and the action bar stays PINNED — the standard settings

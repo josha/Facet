@@ -7,7 +7,13 @@ return {
 		local UI = ctx.UI
 		local avatar = require("./avatar").build(ctx)
 		local group = require("./avatar_group").build(ctx)
+		local function reset()
+			avatar.reset()
+			group.reset()
+		end
 		return {
+			reset = reset,
+			steps = { reset = reset },
 			screen = function()
 				return UI.Screen("Identity")({
 					surface = "base",
@@ -16,12 +22,19 @@ return {
 						width = UI.fill(),
 						height = UI.fill(),
 						padding = "s",
-						UI.VStack("Recipes")({ width = UI.fill(), gap = "l", avatar.section(), group.section() }),
+						UI.VStack("Recipes")({
+							width = UI.fill(),
+							gap = "l",
+							UI.Button("Reset")({ label = "Reset identity", onActivate = reset }),
+							avatar.section(),
+							group.section(),
+						}),
 					}),
 				})
 			end,
 			report = function()
-				return { avatar = avatar.report(), group = group.report() }
+				local face, roster = avatar.report(), group.report()
+				return if face and roster then { avatar = face, group = roster } else nil
 			end,
 			dispose = function()
 				avatar.dispose()

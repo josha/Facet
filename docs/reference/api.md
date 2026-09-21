@@ -8573,7 +8573,9 @@ end)
 
 `UI.ProgressView` also accepts bound `endLabel`, the caller's trailing phrase
 (e.g. "2 of 5"). It follows the indicator and optional formatted value, can
-shrink, and requests disclosure. Indeterminate activity can carry this phrase too.
+shrink, and requests disclosure. Indeterminate activity can carry this phrase too. With trailing
+copy, bar segments reserve the theme's smallest spacing for each painted segment
+and its intervening gap, so copy cannot reduce the indicator to zero width.
 Bound `controlSize` names the indicator's local space-based ladder: spinner dots
 compact/regular/large use space.xs/s/m (4/8/16 at Neutral); circular indicators use
 space.m/l/xl (16/24/40). Absent or nil preserves the package's authored progress

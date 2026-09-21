@@ -1548,6 +1548,20 @@ describe("ProgressView trailing copy and local rungs", function()
 	local function rect(w, path)
 		return assert(w.adapter.node("/S/Progress/" .. path)).rect
 	end
+	it("keeps visible segmented progress beside trailing copy at phone Largest", function()
+		local metrics = Facet.themes.resolve(require("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 280, h = 500 },
+			themeMetrics = metrics,
+			env = { preferredTextOffset = 14 },
+		})
+		mount(w, { value = 0.4, segments = 5, showValue = true, endLabel = "2 of 5" })
+		expect(rect(w, "Bar/Segments/Segment1").w > 0).toBe(true)
+		local ending = rect(w, "EndLabel")
+		expect(ending.x + ending.w <= 280).toBe(true)
+		expect(w.adapter.node("/S/Progress/EndLabel").props.text).toBe("2 of 5")
+		w.close()
+	end)
 	it("places live endLabel after the value with shrink and disclosure", function()
 		local w = world.new()
 		local copy = Compose.cell("2 of 5")

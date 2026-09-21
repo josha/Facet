@@ -22,6 +22,11 @@ return {
 			status:set(word)
 			return report()
 		end
+		local function reset()
+			status:set("neutral")
+			form:set("dot")
+			count:set(0)
+		end
 		local function section()
 			Compose.cleanup(function()
 				rootPath, controller, record = nil, nil, nil
@@ -108,6 +113,7 @@ return {
 		end
 		return {
 			section = section,
+			reset = reset,
 			report = report,
 			screen = function()
 				return UI.Screen("StatusIndicator")({

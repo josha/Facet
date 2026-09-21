@@ -5,7 +5,6 @@ return {
 	build = function(ctx)
 		local Facet = ctx.Facet
 		local UI, Compose = ctx.UI, ctx.Compose
-		local hintRecipe = require("./shortcut_hint").build(ctx)
 		local signal = Compose.cell
 		local busy = signal(false)
 		local enabled = signal(true)
@@ -434,30 +433,33 @@ return {
 					rowSlider,
 				})),
 				heading("Race tags"),
-				UI.HStack("Tokens")({
+				UI.ScrollView("Tokens")({
+					axis = "x",
+					height = UI.hug(),
 					width = UI.fill(),
-					gap = "s",
-					wrap = true,
-					UI.ForEach("Items")({
-						items = tokens,
-						key = function(item)
-							return item
-						end,
-						row = function(item)
-							return UI.Chip("Token")({
-								label = item,
-								controlSize = "compact",
-								onRemove = function()
-									local nextItems = {}
-									for _, value in tokens:peek() do
-										if value ~= item then
-											table.insert(nextItems, value)
+					UI.HStack("Row")({
+						gap = "s",
+						UI.ForEach("Items")({
+							items = tokens,
+							key = function(item)
+								return item
+							end,
+							row = function(item)
+								return UI.Chip("Token")({
+									label = item,
+									controlSize = "compact",
+									onRemove = function()
+										local nextItems = {}
+										for _, value in tokens:peek() do
+											if value ~= item then
+												table.insert(nextItems, value)
+											end
 										end
-									end
-									tokens:set(nextItems)
-								end,
-							})
-						end,
+										tokens:set(nextItems)
+									end,
+								})
+							end,
+						}),
 					}),
 				}),
 				heading("Prepare a race"),
@@ -517,7 +519,6 @@ return {
 				body,
 				UI.Text({ text = "Size and emphasis", textSize = "heading", width = UI.fill() }),
 				VocabularySection(),
-				hintRecipe.section(),
 			})
 			local scroller = UI.ScrollView("Content")({
 				width = UI.fill(),

@@ -57,8 +57,7 @@ This stamps and REGISTERS everything, so that nothing can be forgotten. The plan
 | `tests/controls_namespace.spec.luau` | adds your name to `POST_ADR_NAMES`, the namespace allowlist |
 | `examples/gallery/scenarios/init.luau` | registers the scenario in `ORDER`, so the runner and the showcase can reach it |
 | `tests/overflow_sweep.spec.luau` | adds the scenario to `SCENARIOS`, so it is swept at every viewport, text size, and theme |
-| `examples/gallery/client/demo_picker.luau` | adds the demo, so a player can select it in the showcase place |
-| `tests/gallery_demo_picker.spec.luau` | pins the demo's root screen and moves the two catalogue count pins |
+| existing demo section | choose the appropriate visible home; the scaffold does not add a top-level demo or alter catalogue counts |
 
 Every row is stamped from the one name you typed. Do not add a registration by
 hand that the scaffold already writes.
@@ -77,7 +76,7 @@ check that names it if you forget:
 |---|---|
 | the ten stamped cases | `./run-tests.sh` — they `error("unimplemented")` on purpose |
 | the real `docs/reference/api.md` entry | a human reviewer. The anchor satisfies `check_registration`; only a person can see that the entry is real |
-| the catalog row's one-line description, the demo's title and blurb | a human reviewer, plus `tests/gallery_demo_picker.spec` on a blurb longer than the 82 characters a device pass has read |
+| the catalog row's one-line description and the recipe's teaching copy | a human reviewer and the mounted scenario tests |
 | the scenario's `steps` and `report` | a human reviewer, and §6 below: a fixture with no steps cannot be driven |
 | a `PROOF_GAPS` or `AFFORDANCE_GAPS` entry, when a class genuinely has no device-true case | `lune run tools/lune/check_registration_cli`, which names the control and the class |
 | a new public property on a primitive | `lune run tools/lune/check_prop_parity_cli`, which proves seven views of the property agree |
@@ -462,9 +461,9 @@ Before calling a player-visible control complete:
    (`examples/gallery/scenarios/<name>.luau`) into a real instrumented fixture:
    deterministic state, one named `step` per verb, and a `reset`. Its four
    registrations — the scenario `ORDER`, the overflow sweep, the demo picker,
-   and the pinned root screen — are already in place, and that is the whole of
+   and standalone sweep registration — are already in place, and that is the whole of
    the repository's standing rule for a showcase surface: *registered in
-   `scenarios/init.luau` ORDER and `demo_picker.DEMOS`, swept by
+   `scenarios/init.luau` ORDER, composed within an existing demo, swept by
    `tests/overflow_sweep.spec.luau` at all viewports, and verified across every
    shipped theme.* What is still yours is the part a tool cannot write: the
    state and the steps that let a person drive the control.

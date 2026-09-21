@@ -448,6 +448,16 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 	end
 
 	local function buildBar(): any
+		-- Trailing copy may shrink, but must not spend the track's entire offer.
+		-- Reserve the theme's smallest spacing for each segment plus its gaps.
+		local minimum = {}
+		for index = 1, spec.segments or 1 do
+			table.insert(minimum, "xs")
+			if index > 1 then
+				table.insert(minimum, "xs")
+			end
+		end
+		local width = if spec.endLabel ~= nil then { type = "fill", min = minimum } else UI.fill()
 		if not indeterminate and (spec.segments ~= nil or trailValue ~= nil) then
 			local cells = {}
 			local count = spec.segments or 1
@@ -484,7 +494,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			return chrome_slots.attachHint(
 				UI.ZStack({
 					id = "Bar",
-					width = UI.fill(),
+					width = width,
 					height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
 					children = {
 						UI.HStack({
