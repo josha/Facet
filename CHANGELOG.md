@@ -13,6 +13,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Application presentation forwards the existing renderer comparison options
+  `measureReuse`, `commitScope`, `structuralReuse` and `translateHosts`.
+  `Facet.schema` exposes read-only constructor facts for contract tooling, and
+  the supported PopupButton alias is again listed in the deprecation ledger.
 - Application disposal immediately retires animated exits, toasts and auxiliary
   surfaces before releasing their state. All cleanup steps run even if one fails.
 - Headless test worlds release their complete applications after each case.

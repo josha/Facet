@@ -50,7 +50,7 @@ describe("semantic versioning and deprecation", function()
 		local generated = schema.deprecations()
 		local ledger = Facet.DEPRECATIONS :: { any }
 
-		expect(#ledger).toBe(#generated + 6)
+		expect(#ledger).toBe(#generated + 7)
 		-- schema entries come first, in their own deterministic order
 		for i, entry in generated do
 			expect(ledger[i].surface).toBe(entry.surface)
@@ -75,6 +75,11 @@ describe("semantic versioning and deprecation", function()
 		expect(reducedMotion ~= nil).toBe(true)
 		expect(reducedMotion.since).toBe("0.9.0")
 		expect(reducedMotion.removeNoEarlierThan).toBe("0.10.0")
+		local popupButton = declared["Controls.PopupButton"]
+		expect(popupButton ~= nil).toBe(true)
+		expect(popupButton.since).toBe("0.11.0")
+		expect(popupButton.removeNoEarlierThan).toBe("0.12.0")
+		expect(string.find(popupButton.replacement, "Controls.Picker", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("every entry gives at least one MINOR of notice, and the ledger is frozen", function()
@@ -95,6 +100,27 @@ describe("semantic versioning and deprecation", function()
 		expect(pcall(function()
 			table.insert(Facet.DEPRECATIONS :: { any }, { surface = "forged" })
 		end)).toBe(false)
+	end)
+end)
+
+describe("public property schema", function()
+	it("exposes constructor facts without allowing a consumer to change the contract", function()
+		local schema = Facet.schema
+		expect(type(schema)).toBe("table")
+		local box = schema.forClass("Box")
+		expect(box.props.width ~= nil).toBe(true)
+		expect(schema.forClass("UnknownClass")).toBe(nil)
+		expect(table.find(schema.sharedPropNames(), "width") ~= nil).toBe(true)
+		expect(table.isfrozen(schema)).toBe(true)
+		expect(pcall(function()
+			schema.forClass = function() end
+		end)).toBe(false)
+		expect(pcall(function()
+			box.props.width.types[1] = "forged"
+		end)).toBe(false)
+		local names = schema.sharedPropNames()
+		table.clear(names)
+		expect(#schema.sharedPropNames() > 0).toBe(true)
 	end)
 end)
 

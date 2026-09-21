@@ -51,6 +51,12 @@ local presenter = {}
 -- presenter surface is typed, not `any`)
 export type PresentOpts = {
 	rootPolicy: string?,
+	recycleInstances: boolean?,
+	incrementalLayout: boolean?,
+	measureReuse: boolean?,
+	commitScope: boolean?,
+	structuralReuse: boolean?,
+	translateHosts: boolean?,
 	-- the edge-floor knob (director ruling, 2026-08-23): a
 	-- number (literal px) or a theme metric name, passed straight to
 	-- `renderer.attach`'s own opt of the same name — see its header for the
@@ -231,14 +237,18 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"sinkNavigation",
 	"transition",
 	"traversalWrap",
-	-- INSTANCE RECYCLING (opt-in, default off). A windowed list rebuilds an
+	-- INSTANCE RECYCLING (default on). A windowed list rebuilds an
 	-- identical row every time its window slides; with this on, retiring nodes are
 	-- parked and reused instead of destroyed and re-created. Feature-detected on
 	-- the adapter as well, and the adapter refuses any node carrying path-keyed
 	-- state — so it can only ever save work, never change what is on screen.
 	"recycleInstances",
-	-- INCREMENTAL LAYOUT (opt-in, default off — Stage 2)
+	-- Renderer comparison switches, default on. False selects the baseline.
 	"incrementalLayout",
+	"measureReuse",
+	"commitScope",
+	"structuralReuse",
+	"translateHosts",
 	"keyboardNavigation",
 })
 local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "mountComponent", "now" })
@@ -1809,6 +1819,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
 			incrementalLayout = opts == nil or opts.incrementalLayout ~= false,
+			measureReuse = opts == nil or opts.measureReuse ~= false,
+			commitScope = opts == nil or opts.commitScope ~= false,
+			structuralReuse = opts == nil or opts.structuralReuse ~= false,
+			translateHosts = opts == nil or opts.translateHosts ~= false,
 			-- engine-selection bridge (the native-substrate round, corrections §11):
 			-- OPT-IN and modal/exclusive-only. Passive/gameplay surfaces never
 			-- set it, so GuiService.SelectedObject stays nil for them.

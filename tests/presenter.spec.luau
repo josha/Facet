@@ -37,6 +37,36 @@ local function confirmModal(w: any)
 end
 
 describe("presenter: screens and modals", function()
+	for _, method in { "mount", "presentModal", "presentAnchored" } do
+		it(`{method} accepts renderer comparison options on a mounted component`, function()
+			local w = makeWorld()
+			local opts: any = {
+				structuralReuse = false,
+				measureReuse = false,
+				commitScope = false,
+				translateHosts = false,
+				initialFocus = "none",
+			}
+			local path = "/Probe"
+			if method == "presentAnchored" then
+				opts.id = "Tip"
+				opts.anchor = { source = { rect = { x = 100, y = 100, w = 40, h = 40 } }, edge = "bottom" }
+				path = "/Tip/Layer/Surface/Probe"
+			end
+			w.app[method](function()
+				return w.UI.Box("Probe")({
+					width = { type = "fixed", px = 40 },
+					height = { type = "fixed", px = 20 },
+				})
+			end, opts)
+			local rect = w.adapter.node(path).rect
+			expect(rect.w).toBe(40)
+			expect(rect.h).toBe(20)
+			w.app.dispose()
+			expect(w.adapter.node(path)).toBe(nil)
+		end)
+	end
+
 	it("presents a screen with document-order focus and device navigation", function()
 		local w = makeWorld()
 		local system, pres = w.system, w.pres

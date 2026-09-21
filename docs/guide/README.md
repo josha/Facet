@@ -288,6 +288,7 @@ owner that owns its resources. Start with
 | `client.host` | The taught client bootstrap: environment, input, theme, and mount. | [api](../reference/api.md#clienthost) |
 | `client.theme_controller` | Installs a theme package at an application root and swaps it live. | [api](../reference/api.md#clienttheme_controller) |
 | `specGuard` | The closed-key-set guard, exported so an out-of-repo control can reuse it. | [api](../reference/api.md#specguard) |
+| `schema` | Read-only constructor facts, property validation and dirty classes for extensions and contract tooling. | [api](../reference/api.md#the-property-schema) |
 | `VERSION` | The library's semantic version string. | [api](../reference/api.md#version) |
 | `EXIT_CAP_SECONDS` | The flat, non-overridable cap on how long a dismissed surface's exit may defer teardown. | [api](../reference/api.md#exit_cap_seconds) |
 | `DEPRECATIONS` | The retiring-surface ledger: what is going, what replaces it, and when. | [api](../reference/api.md#deprecations) |

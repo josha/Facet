@@ -58,6 +58,13 @@ export type Deprecation = {
 -- property. Same record shape as `blueprint_schema.deprecations()`.
 local DECLARED_DEPRECATIONS: { Deprecation } = {
 	{
+		surface = "Controls.PopupButton",
+		since = "0.11.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = 'Controls.Picker { style = "menu" | "navigationLink", ... }',
+		note = "the alias remains available on app.controls; Picker owns single-value selection",
+	},
+	{
 		surface = "newResourceProvider(opts.retryAttempts)",
 		since = "0.8.0",
 		removeNoEarlierThan = "0.9.0",
@@ -137,6 +144,9 @@ local Facet = {
 	-- declared list above. A deprecated surface keeps working for at least one
 	-- minor version after `since`. Frozen.
 	DEPRECATIONS = buildDeprecations(),
+
+	-- Read-only constructor facts for extension authors and contract tooling.
+	schema = table.freeze(table.clone(blueprint.schema)),
 
 	-- environment and rendering seams
 	newEnvironment = environment.new,

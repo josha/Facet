@@ -381,6 +381,9 @@ for that parent — a property that is accepted must do something.
 
 #### The property schema
 
+`local schema = Facet.schema` provides read-only inspection and validation for
+extensions and contract tooling, without creating an application.
+
 The schema is the authority every constructor and modifier rules against. Its
 members are named here because an extension author reads them to make an
 out-of-repo control refuse a bad property exactly the way an in-repo one does.
@@ -4032,7 +4035,7 @@ an unknown one is refused at present time:
 `cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`,
 `traversalWrap`, `keyboardNavigation`, `initialFocus`, `focusChrome`,
 `engineSelectionBridge` (the `presentModal` mirror described above),
-`fallbackScreen` (read by `presentCritical`), and the two performance opts the
+`fallbackScreen` (read by `presentCritical`), and the performance opts the
 surface hands straight to `renderer.attach`:
 
 - **`recycleInstances`** (default **on**) — park a retiring node and reuse it for
@@ -4046,6 +4049,15 @@ surface hands straight to `renderer.attach`:
   and same rect as last time), replaying that subtree's published verdicts and
   diagnostics. Same traversal, same context, same policies as a full solve. Pass
   `false` to opt out.
+
+Four additional comparison switches also default **on**: `measureReuse` reuses
+measurements between solves, `commitScope` prunes unchanged commit subtrees,
+`structuralReuse` limits structural solves to a valid boundary, and
+`translateHosts` uses coordinate-space hosts for translations. Pass `false` to
+compare with the corresponding baseline path while keeping the same mounted
+component and application lifetime. These are diagnostic options; they do not
+change authored layout semantics. See [`renderer.attach`](#rendererattach) for
+their renderer contracts.
 
 The four string-enum opts — `rootPolicy`, `responder`, `cancelPolicy`, `scrim` —
 are validated at present time and an unknown value errors naming the legal set.
