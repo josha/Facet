@@ -1847,10 +1847,18 @@ painted bounds disagree. Both are style authority — use `role`.
 
 ### `Image`
 
-`UI.Image{ id?, image?, surface?, tint?, scaleMode?, tileSize?, sliceCenter?, sliceScale?, resample?, imageFraming?, width?, height? }` — image
+`UI.Image{ id?, image?, surface?, tint?, shape?, scaleMode?, tileSize?, sliceCenter?, sliceScale?, resample?, imageFraming?, width?, height? }` — image
 node; `image` is an asset string (pair with `newResourceProvider` for async
 ready/pending/failed handling). `image` is optional so a node can mount empty and
 receive content later — that is exactly what `UI.AsyncImage` binds.
+
+**`shape`** defaults to `"rect"`. `"circle"` uses the shared 1:1 layout guarantee:
+author at most one axis and the other follows, including bound, fill, and percent
+dimensions. With neither axis it uses the control height metric. The direct image
+gets a true circular native corner, independent of the theme's pill radius, with
+no implicit border or extra render buffer. `shape` is construction-only. The new
+circle form refuses `imageFraming`, including a late bound value; the last valid
+direct image remains until the binding recovers. Rectangular framing is unchanged.
 
 **`scaleMode`** decides how the picture fills the box the solver already sized —
 `"fit"` (contain: the whole picture, letterboxed), `"fill"` / `"crop"` (cover:
@@ -2377,8 +2385,12 @@ UI.HStack({
 
 ### `Box` / `Spacer`
 
-`UI.Box{ id?, width?, height?, surface?, tint?, canvasGroup?, opacity?, offsetX?, offsetY? }`
-— plain rect. `UI.Spacer{}` consumes available main-axis space in a stack.
+`UI.Box{ id?, width?, height?, surface?, tint?, shape?, canvasGroup?, opacity?, offsetX?, offsetY? }`
+— a painted rect by default. Its construction-only `shape = "circle"` follows the
+same one-axis/square rule as Image and preserves Box tint paint. The circular
+corner follows the shape rather than the theme's pill radius, adds no implicit
+border, and does not allocate a render buffer. `UI.Spacer{}` consumes available
+main-axis space in a stack.
 
 | Property | Type | Meaning |
 |---|---|---|

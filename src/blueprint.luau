@@ -340,6 +340,7 @@ export type DividerSpec = BoxProps & {
 -- { direct = {r,g,b} | "#rrggbb" } (declared theming-exempt). `canvasGroup` makes
 -- this Box its subtree's fade group — see blueprint_schema for both rulings.
 export type BoxSpec = BoxProps & {
+	shape: ("rect" | "circle")?,
 	surface: Bound<string>?,
 	active: Bound<boolean>?,
 	tint: Bound<any>?,
@@ -393,6 +394,7 @@ export type ImageFraming = {
 export type ImageSliceCenter = { x0: number, y0: number, x1: number, y1: number }
 
 export type ImageSpec = BoxProps & {
+	shape: ("rect" | "circle")?,
 	imageFraming: Bound<ImageFraming>?,
 	image: Bound<string>?,
 	surface: Bound<string>?,

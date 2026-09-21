@@ -50,6 +50,7 @@ sheet_model.TAGS = table.freeze({
 	-- seventh surface, which is what keeps `shape` from having to re-declare a
 	-- fill, a label colour and a hover treatment it does not change.
 	shapePrefix = "facet-shape-", -- + circle (the only non-default shape)
+	circleRim = "facet-circle-rim", -- legacy Button/ZStack shape chrome; painted leaves have no implicit rim
 	-- THE TYPOGRAPHY ROLE TAG (F2, 2026-08-02). `FontFace` is sheet-owned in
 	-- native mode, so a node's typography role — which carries the FACE as well as
 	-- the size — cannot reach paint as an explicit write. It reaches it as this
@@ -304,6 +305,7 @@ export type ClassifyInput = {
 	-- every Button already had; "circle" earns `facet-shape-circle`, which the
 	-- disc's phantom corner and hairline rules key on.
 	shape: string?,
+	shapeRim: boolean?, -- false for Box/Image; absent retains legacy circle chrome
 	-- THE TYPOGRAPHY ROLE this text node resolved to (F2, 2026-08-02): the name,
 	-- not the descriptor — the FACE lives in the generated rule, so measurement and
 	-- paint read the one ramp. nil for a node that draws no text.
@@ -388,6 +390,9 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- cannot strip a disc back to a rectangle.
 	if input.shape ~= nil and input.shape ~= "rect" then
 		tags[T.shapePrefix .. input.shape] = true
+		if input.shapeRim ~= false then
+			tags[T.circleRim] = true
+		end
 	end
 	-- THE LOCAL SIZE RUNG (see TAGS): all three earn a tag, because a rung is
 	-- AUTHORED — a control that named none passes nil here and wears nothing.
@@ -869,7 +874,7 @@ local function emitShapeChrome(
 	})
 	emit({
 		name = "Circle button — hairline",
-		selector = `.{circle}::UIStroke`,
+		selector = `.{circle}.{sheet_model.TAGS.circleRim}::UIStroke`,
 		props = {
 			Color = "$Hairline",
 			Transparency = hairlineT,

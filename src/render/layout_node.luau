@@ -1202,15 +1202,9 @@ local function toLayoutNode(
 		-- with ZStack's branch below).
 		applyCircleShape(layoutNode, props, metrics)
 		layoutNode.padding = themeSnapshot.buttonPadding(metrics, props)
-	elseif class == "ZStack" then
-		-- THE CIRCLE SHAPE, generalized from the Button-only case above (task
-		-- PAINT, director items 11/12). A ring/disc composite built from a
-		-- ZStack (`UI.Path` track + arc + a centered mark — this round's Glade
-		-- supply rings) gets the identical square guarantee: state a shape,
-		-- never compute a size. No padding default here — unlike a Button's
-		-- disc, a circular ZStack has no drawn label whose room this file could
-		-- reserve or return, so the author's own (or absent) `padding` stands
-		-- unchanged either way.
+	elseif class == "ZStack" or class == "Box" or class == "Image" then
+		-- Containers and painted leaves share the square guarantee without
+		-- changing their authored padding or paint channel.
 		applyCircleShape(layoutNode, props, metrics)
 	elseif class == "Toggle" then
 		-- measure = what the adapter DRAWS (control contract): label at the left

@@ -289,15 +289,23 @@ end
 	mistake caught before the node reaches a tree) was accepted in silence; asking the whole of `normalize` there instead
 	would have run the WRITING half — the clip default, the required-prop sweep,
 	Button's content rule — before a binding had delivered anything. ]]
+function properties.assertImageFramingShape(shape: any, framing: any)
+	assert(
+		shape ~= "circle" or framing == nil,
+		"Facet UI.Image: circle shape does not support imageFraming; use the direct image and scaleMode"
+	)
+end
+
 function properties.assertCombinations(class: string, props: any, bound: any?)
 	if class == "Text" then
 		assertTruncate(props)
 	elseif class == "Image" then
+		properties.assertImageFramingShape(props.shape, props.imageFraming)
 		assertImageScale(props, bound)
 	elseif class == "ScrollView" then
 		assertScrollExtent(props, bound)
 	end
-	if class == "ZStack" then
+	if class == "ZStack" or class == "Box" or class == "Image" then
 		properties.assertCircleSquare(class, props)
 	end
 	if props.wrap == true and props.align == "stretch" then

@@ -9,6 +9,14 @@ local coreTypes = require("../../src/core/contract")
 local navigationTypes = require("../../src/spec_types/navigation_stack")
 local pickerTypes = require("../../src/spec_types/picker")
 local levelPickerTypes = require("../../src/spec_types/level_picker")
+local primitiveTypes = require("../../src/blueprint")
+local _circleBox: primitiveTypes.BoxSpec = {
+	shape = "circle" :: "circle",
+	width = { type = "percent", fraction = 0.5 },
+	tint = { role = "control", blend = 1 },
+}
+local _circleImage: primitiveTypes.ImageSpec =
+	{ shape = "circle" :: "circle", width = { type = "fill" }, image = "rbxassetid://1" }
 local app = Facet.new()
 
 local label = Facet.Compose.cell("Repeat")

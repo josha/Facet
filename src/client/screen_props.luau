@@ -327,21 +327,29 @@ function screen_props.new(ctx: Ctx)
 				-- rides the radii machinery the slider thumb proved
 				syncTags(handle)
 			else
-				-- fallback half: the real UICorner already exists (adapter.create
-				-- wires a Button's interactive states before any prop arrives), so
-				-- re-radius what is there rather than parenting a second modifier —
-				-- the engine honours ONE UICorner and a second would be dead weight
-				-- whose value nobody could predict.
+				-- Reuse existing corners. Painted leaves can start bare; own only
+				-- the corner materialized for their explicit circle declaration.
 				assertBespokePaint("CornerRadius")
 				local reshaped = cornerRadiusFor(handle, style.radii.control)
+				-- Painted leaves can start bare: no interactive/surface corner exists.
+				if handle.class == "Box" or handle.class == "Image" then
+					if handle.shape == "circle" and instance:FindFirstChildOfClass("UICorner") == nil then
+						local made = Instance.new("UICorner")
+						made.Parent = instance
+						handle.shapeCorner = made
+					elseif handle.shape ~= "circle" and handle.shapeCorner ~= nil then
+						handle.shapeCorner:Destroy()
+						handle.shapeCorner = nil
+					end
+				end
 				for _, child in instance:GetChildren() do
 					if child:IsA("UICorner") then
 						(child :: UICorner).CornerRadius = reshaped
 					end
 				end
 				-- ...AND THE CHROME RECORD FOLLOWS THE PAINT (T8 R3, Important 3).
-				-- This write does not MATERIALISE the corner, so it never creates a
-				-- record — but when a chrome owner already made one, that record
+				-- A shape-only corner has no chrome record; when a chrome owner
+				-- already made one, that record
 				-- must keep describing what the instance actually wears, or a
 				-- reactive `corners` crossing to nil would restore the square
 				-- radius `wireInteractiveStates` wrote before the disc arrived.

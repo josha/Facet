@@ -175,6 +175,9 @@ function scene.new(frames: any?)
 		if node.validated and key == "text" and node.props.rich == true and type(value) == "string" then
 			value = richText.normalizeFontSizes(value)
 		end
+		if node.validated and node.class == "Image" and key == "imageFraming" then
+			primitiveProperties.assertImageFramingShape(node.props.shape, value)
+		end
 		local old = node.props[key]
 		node.props[key] = value
 		if old == value then

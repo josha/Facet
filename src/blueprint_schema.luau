@@ -1739,23 +1739,10 @@ local OPACITY: PropSpec = p({
 		.. "framework is running on the same node, and animates through presenter.withAnimation",
 })
 
---[[ THE CIRCLE SHAPE (feature round 2026-07-26, Button only; GENERALIZED to
-	ZStack, task PAINT 2026-08-27, director items 11/12 — "circles need a better
-	approach than what we have"). `shape` is a closed set of two and defaults to
-	the rectangle every existing Button/ZStack already is, so nothing that
-	predates it moves by a pixel. NOT reactive: a shape is what the control IS,
-	not a state it passes through, and a reactive shape would re-solve one axis
-	against the other mid-flight for no expressive gain.
-
-	ONE SHARED SPEC, not a second copy: `layout_node.luau`'s square-enforcement
-	(`aspect` ratio 1 on the axis not authored) and the sheet's phantom
-	`.facet-shape-circle::UICorner`/`::UIStroke` rules (`sheet_model.luau`,
-	`sheet_model.classifyTags`) were ALREADY class-agnostic — they read
-	`props.shape`/`handle.shape`, never a class name — so a ring/disc primitive
-	built from a ZStack (a `UI.Path` track + arc + a centered mark, e.g. this
-	round's Glade supply rings) gets the identical "author states a shape, the
-	solver derives the square, refuse-don't-guess if both axes are given"
-	guarantee a circle Button always had, with no new paint machinery. ]]
+-- The shared rect/circle declaration: the solver derives the unauthored axis.
+-- Button/ZStack retain their original circle hairline. Painted Box/Image leaves
+-- earn only the circular corner; an authored stroke remains independent.
+-- Shape is construction-only, and an absent shape retains the rectangle default.
 local SHAPE: PropSpec = p({
 	types = { "string" },
 	reactive = false,
@@ -2498,6 +2485,7 @@ class("Box", {
 	container = false,
 	structural = false,
 	props = merge(BOX, {
+		shape = SHAPE,
 		surface = CONTAINER_LAYOUT.surface,
 		active = CONTAINER_LAYOUT.active,
 		tint = TINT,
@@ -2713,6 +2701,7 @@ class("Image", {
 	container = false,
 	structural = false,
 	props = merge(BOX, {
+		shape = SHAPE,
 		-- NOT required: an Image may mount empty and receive content later (the
 		-- async-image control binds a Readable that starts as ""), and a
 		-- surface-only Image is a legitimate placeholder shape.
