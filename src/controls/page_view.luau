@@ -103,8 +103,16 @@ local function build(Facet, core, spec: Spec, owner)
 				label = "Page " .. i .. ": " .. page.title,
 				selected = selected,
 				surface = "plain",
+				--[[ THE RING FOLLOWS THE SHAPE OF THE THING IT IS ON. A dot is round
+					and the focus ring around it was a SQUARE (measured live, 1080p,
+					2026-09-20): the fallback ring radius is derived from the node's own
+					surface role, and `plain` names none, so it stayed sharp-cornered.
+					`shape = "circle"` is the framework's one disc idiom and carries that
+					radius on both paint paths — it also makes the 1:1 target explicit,
+					which is what the dot always was. The label stays the accessible name
+					(a disc with custom content draws no text). ]]
+				shape = "circle",
 				width = { type = "fixed", px = "targetSizes.minimum" },
-				height = { type = "minMax", min = "targetSizes.minimum" },
 				onActivate = function()
 					select(page.id)
 				end,
@@ -135,6 +143,65 @@ local function build(Facet, core, spec: Spec, owner)
 				},
 			})
 		)
+	end
+	--[[ THE CAROUSEL IS ONE STOP (measured live, 1080p, 2026-09-20: walking from
+		the showcase header to its game grid took ~10 Down presses, because the hero
+		page's own card and then each of the three dots were separate stops).
+
+		A carousel is ONE thing to a reader: you arrive on it, you page Left/Right,
+		you activate what is on the page, and one press of Down leaves it. That is
+		exactly a HORIZONTAL navigation group whose entries are the pages — so the
+		group is what this control contributes, and `focus_map.autoGroups` does not
+		descend into a contribution, which is what takes the dots out of the
+		keyboard and pad order without taking them out of the tree. They stay
+		mounted, tappable and clickable, and they stay the fallback: a PageView
+		whose pages hold no focusable at all (three pictures, say) keeps its dots as
+		the stops, because otherwise the control would have none.
+
+		ONE ENTRY PER PAGE, not one per focusable: the entry is the page's FIRST
+		focusable, which is the page's primary action, so Return activates the thing
+		the page is about. A page that puts several controls on itself still shows
+		them and still takes taps on them; what it does not get is a keyboard walk
+		THROUGH the carousel, which is the trade this stop is.
+
+		Vertical arrows are left alone, so Up and Down fall straight out of the
+		group to the neighbouring region — one press, whichever page is showing. ]]
+	local FOCUS_STOP: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
+	-- the focusables this control's own subtree offers, split by the region they
+	-- sit in. One walk, shared by `focusGroups` and `adjustTargets`.
+	local function survey(root: any)
+		local pageStops: { string } = {}
+		local dotStops: { string } = {}
+		local controlStops: { string } = {}
+		local seenPage: { [string]: boolean } = {}
+		local pagePrefix = root.path .. "/Pages/"
+		local dotPrefix = root.path .. "/Indicators/"
+		local controlPrefix = root.path .. "/Controls/"
+		local function walk(node: any)
+			if node.retiring == true then
+				return
+			end
+			local path = node.path
+			if path ~= nil and FOCUS_STOP[node.class] and not (node.props ~= nil and node.props.focusable == false) then
+				if string.sub(path, 1, #pagePrefix) == pagePrefix then
+					local key = string.match(string.sub(path, #pagePrefix + 1), "^([^/]+)")
+					if key ~= nil and indices[key] ~= nil and not seenPage[key] then
+						seenPage[key] = true
+						table.insert(pageStops, path)
+					end
+				elseif string.sub(path, 1, #dotPrefix) == dotPrefix then
+					table.insert(dotStops, path)
+				elseif string.sub(path, 1, #controlPrefix) == controlPrefix then
+					table.insert(controlStops, path)
+				end
+				return -- a focusable is a leaf for this control's purposes
+			end
+			for _, child in node.children or {} do
+				walk(child)
+			end
+		end
+		walk(root)
+		return pageStops, dotStops, controlStops
 	end
 	local summary = Compose.formula(function(use)
 		local n = indices[use(spec.selection)]
@@ -230,10 +297,49 @@ local function build(Facet, core, spec: Spec, owner)
 		{
 			adjustAxis = "horizontal",
 			adjustRepeat = true,
+			focusGroups = function(root)
+				local pageStops, dotStops, controlStops = survey(root)
+				local groups: { any } = {}
+				local ring = if #pageStops > 0 then pageStops else dotStops
+				if #ring > 0 then
+					table.insert(groups, {
+						name = `page-view-{root.path}`,
+						axis = "horizontal",
+						--[[ ARRIVING PUTS YOU BACK WHERE YOU WERE. The ring inside this
+							group follows the selected page (see `bindInputScope` below), so
+							Down-then-Up lands on the page you were reading rather than on
+							page one. ]]
+						entry = "restore",
+						wrap = false,
+						order = ring,
+					})
+				end
+				-- Previous/Next are ordinary buttons on their own line and keep their
+				-- own run: this control declares the groups for its whole subtree, so
+				-- a region left out of them would have no stops at all.
+				if #controlStops > 0 then
+					table.insert(groups, {
+						name = `page-view-controls-{root.path}`,
+						axis = "horizontal",
+						entry = "nearest",
+						wrap = false,
+						order = controlStops,
+					})
+				end
+				return groups
+			end,
 			adjustTargets = function(root)
 				local targets = {}
-				for i = 1, #pages do
-					targets[root.path .. "/Indicators/Dot" .. i] = true
+				local pageStops, dotStops = survey(root)
+				-- Left/Right PAGE from wherever the ring is standing inside the
+				-- carousel — the page stops when the pages own the ring, and the dots
+				-- both when they are the fallback and when a pointer put the ring on
+				-- one, which is still a place it may legally stand.
+				for _, path in pageStops do
+					targets[path] = true
+				end
+				for _, path in dotStops do
+					targets[path] = true
 				end
 				return targets
 			end,

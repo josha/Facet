@@ -42,6 +42,37 @@ interaction_tokens.dragPromotionRangePx = table.freeze({
 	touch = table.freeze({ min = 10, max = 18 }),
 })
 
+--[[ A FINGER ARMS A DRAG BY TIME; EVERYTHING ELSE ARMS BY TRAVEL.
+
+	The distances above answer "has this press become a drag YET", which is the
+	right question once a press is the framework's to interpret. On touch it is
+	asked too late to be the only question, because a finger's press is contended
+	from the first frame: the scroller underneath it, and a swipeable row beside
+	it, both want the same gesture, and all three begin identically. Measured live
+	on a phone: a 230 px flick on the Discover feed's cards scrolled it exactly
+	0 px, because the cards' drag acquisition had already claimed the touch.
+
+	So touch gets a second gate IN FRONT of the distance one: hold still, and the
+	drag may have it; move first, and the gesture belongs to whatever is
+	underneath. `holdMs` is the press-and-hold both phone platforms teach, and
+	`slopPx` is the travel that cancels it — larger than the 6 px a mouse is gated
+	on, because a still finger is not a still cursor, and smaller than the 14 px
+	promotion gate, so a gesture is released to the scroller BEFORE it could have
+	promoted. `src/input/touch_drag_arm` is the state machine these two numbers
+	parameterize.
+
+	280 ms, NOT 320. The first number shipped was 320 and it reads long in the
+	hand next to the platform's own pick-up, which lands nearer a quarter second;
+	320 spends the difference feeling like a lag rather than a deliberate hold.
+	280 still sits well clear of a tap (a tap is over in well under 150 ms) and
+	well clear of the flick that has to be released to the scroller. This is the
+	ONE place the number is written — `touch_drag_arm` and its spec both read it
+	rather than a literal. ]]
+interaction_tokens.touchDragArm = table.freeze({
+	holdMs = 280,
+	slopPx = 12,
+})
+
 -- engine/adapter pointerType -> interaction class. `pen` is precise like a
 -- mouse; an unknown or absent type is treated as pointer, because the ONE
 -- adapter that omits it (the headless fake's default) is a mouse.

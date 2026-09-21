@@ -706,3 +706,56 @@ describe("VirtualGrid: the canvas Dim is compared by VALUE (review RR-5)", funct
 		grid.dispose()
 	end)
 end)
+
+--[[ A CELL CAN SEE WHERE THE RING IS (found live, 2026-09-20). The cell-sized
+	`Hit` sits BEHIND the cell's content and paints nothing, both deliberately, so
+	the sheet's focus treatment lands on a plate the player never sees: an opaque
+	card could not show focus at all, and a consumer had no way to draw it either.
+
+	`ctx.focused` is a Readable, so a cell binds paint to it and the builder never
+	re-runs, and it follows `focusVisible` — the same rule every other control
+	obeys, so a tap that moved the ring does not paint one.
+
+	HOVER IS NOT HERE ON PURPOSE: `setHoverObserver` is MouseEnter/MouseLeave on
+	the node's own instance, and the engine does not deliver those to a button
+	covered by an opaque sibling (measured live, with and without the cell's drag
+	detector). See the control's own note. ]]
+t.describe("VirtualGrid cell interaction state", function()
+	t.it("hands the cell builder a focus readable that follows the ring", function()
+		local seen: { [string]: any } = {}
+		local w = world({
+			items = makeItems(4),
+			columns = 1,
+			itemExtent = 60,
+			viewportExtent = 200,
+			cell = function(plain: any, ctx: any)
+				seen[tostring(plain.id)] = ctx
+				return harness.UI.Text({ id = "L", text = tostring(plain.id) })
+			end,
+		})
+		local first = seen[next(seen) :: string]
+		t.expect(first ~= nil).toBe(true)
+		-- the two facts exist and are Readables, not plain values, so a cell binds
+		-- paint to them and the builder never re-runs
+		t.expect(Compose.isReadable(first.focused)).toBe(true)
+		t.expect(first.focused:peek()).toBe(false)
+
+		-- ...and `focused` follows the ring's own path
+		local hitPath = "/S/VG/Canvas/Band/W/[1]/Cell/Hit"
+		w.pres.focus.setFocusOrigin("navigation")
+		w.pres.focus.focusOn(hitPath)
+		w.pres.refresh()
+		local cellOne = nil
+		for _, ctx in seen do
+			if ctx.focused:peek() then
+				cellOne = ctx
+			end
+		end
+		t.expect(`one cell reports the ring: {cellOne ~= nil}`).toBe("one cell reports the ring: true")
+		-- a tap moved the ring, so the ring is not painted — the same rule every
+		-- other control follows
+		w.pres.focus.setFocusOrigin("pointer")
+		t.expect(cellOne.focused:peek()).toBe(false)
+		w.grid.dispose()
+	end)
+end)

@@ -1558,9 +1558,53 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 		the one moment the player chooses where they are — as within
 		`followThreshold` px of the end. Growth (a new row, a measured row settling,
 		a taller viewport) then re-pins the end through the one programmatic scroll
-		write, as a REST so the snap engine never reads it as a gesture. ]]
+		write, as a REST so the snap engine never reads it as a gesture.
+
+		AND FOLLOWING YIELDS THE INSTANT THE PLAYER TAKES THE SCROLL. The threshold
+		alone was not enough, and a real phone proved it: a thread pinned at the end
+		while a reply streamed could not be scrolled away from AT ALL (measured,
+		phone profile: canvas 1216 in a 389 window, max offset 827; a 230 px pan
+		moved it 827 -> 827, from on a message and from a gap alike, while the same
+		gestures worked perfectly once the thread was a few hundred px up). Nothing
+		was sinking the gesture. The streaming reveal grows the last row for
+		SECONDS, every growth re-pinned the end, and each frame of the pan only ever
+		moved the offset a few px — never the whole `followThreshold` in one frame —
+		so the player was snapped back before their next frame of travel, for
+		exactly as long as they were most likely to be trying. "At the bottom with a
+		reply arriving" is the only state a chat is ever in, so this read as the
+		whole list being stuck.
+
+		So the offset the ENGINE reports is read for DIRECTION as well as distance:
+		a report that moves away from the end, and that is not the echo of the one
+		write below, yields following for the rest of this visit to the thread.
+		While yielded, growth moves the view by exactly nothing. Following resumes
+		when the player comes back — a reported offset within `followThreshold` of
+		the end — or when the consumer re-asserts `follow`, which is the hook an app
+		uses to jump to the bottom on send. ]]
+	-- has the PLAYER taken the scroll? Set by a reported offset moving away from
+	-- the end, cleared by one arriving back at it.
+	local followYielded = false
+	-- the offset the write below asked for, so its own echo is not mistaken for
+	-- the player (the engine reports every write back through the same mirror)
+	local followWrote: number? = nil
+	--[[ THE READING IS A GAP, NOT AN OFFSET, and clamped at zero. Comparing raw
+		offsets frame to frame looked right and was wrong on a real phone: a native
+		scroller OVERSHOOTS past the end and settles back, so the last report of a
+		pan that RETURNED to the bottom moves down in value exactly like the first
+		report of a pan leaving it, and following yielded again at the very moment
+		it should have resumed (measured: the player panned back to 1251 of 1251 and
+		the next reply still did not re-pin). The distance to the end has no such
+		ambiguity — an overshoot and the end are both a gap of zero — and it is also
+		the thing the rule is actually about. ]]
+	local function endGap(top: number): number
+		return math.max(0, layoutNow().content - (top + viewportNow()))
+	end
+	local followLastGap: number = endGap(scrollTop:peek())
+	local function nearEnd(top: number): boolean
+		return endGap(top) <= followThreshold
+	end
 	local function followTail()
-		if not following or hostedDelivery.controller == nil then
+		if not following or followYielded or hostedDelivery.controller == nil then
 			return
 		end
 		local host = boundScrollPath or hostedDelivery.scrollPath
@@ -1569,6 +1613,7 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 		end
 		local target = maxTop()
 		if math.abs(target - scrollTop:peek()) >= 0.5 then
+			followWrote = target
 			writeScroll(hostedDelivery.controller, host, target)
 		end
 	end
@@ -1577,18 +1622,43 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 	-- changes what these two already-running observers decide.
 	if followEnd or followIsReactive then
 		observeChange(listScope, scrollTop, function(top: number)
-			following = followRaw(nil) == "end" and layoutNow().content - (top + viewportNow()) <= followThreshold
+			local previous = followLastGap
+			local gap = endGap(top)
+			followLastGap = gap
+			local atEnd = gap <= followThreshold
+			--[[ OUR OWN WRITE TEACHES US NOTHING about where the player wants to be,
+				and it is the one report that always moves TOWARD the end — reading it
+				as the player's would make following un-yieldable. One echo is
+				consumed per write; anything else is the player, the wheel, a keyboard
+				scroll or the consumer, and all four are allowed to take the view. ]]
+			if followWrote ~= nil and math.abs(top - followWrote) < 0.5 then
+				followWrote = nil
+			elseif gap > previous + 0.5 then
+				--[[ THE GAP GREW, SO THE PLAYER IS LEAVING — and that is asked BEFORE
+					"are they still near the end", which is the fix. Asking the
+					threshold first would read the FIRST frame of a pan (12 px of
+					travel out of a 48 px band) as the player still reading the tail,
+					re-pin them, and leave the next frame with the same 12 px to
+					travel: the stuck thread, exactly. ]]
+				followYielded = true
+			elseif atEnd then
+				-- back at the end (an overshoot reads as zero too): the player is back
+				followYielded = false
+			end
+			following = followRaw(nil) == "end" and atEnd
 		end)
 		observeChange(listScope, layoutIndex, followTail)
 		if followIsReactive then
 			-- The flip itself is the other moment "reading the tail" is decided:
 			-- re-evaluate against the engine's CURRENT offset and, if the switch
 			-- lands ON "end" already inside the threshold, resume following
-			-- immediately rather than waiting for the next scroll report.
+			-- immediately rather than waiting for the next scroll report. Asserting
+			-- `follow` is also how a consumer says "the player is back" (a chat's
+			-- own send), so it clears the yield rather than reading it.
 			observeChange(listScope, spec.follow :: any, function(value: string?)
 				assertFollowValue(value)
-				following = value == "end"
-					and layoutNow().content - (scrollTop:peek() + viewportNow()) <= followThreshold
+				followYielded = false
+				following = value == "end" and nearEnd(scrollTop:peek())
 				followTail()
 			end)
 		end
@@ -2707,7 +2777,22 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 							change what a tap does on every reorderable list that ships. The
 							route an author has TODAY is that same declaration, or a mounted
 							handle of their own; the framework-side answer is queued with the
-							director's other paradigm calls. ]]
+							director's other paradigm calls.
+
+							AND IT STAYS DECLARED, for now, even though the arm
+							(`interactionTokens.touchDragArm`) has since given a finger a
+							platform-conventional way in: hold still and the drag may have the
+							gesture, move first and the scroller keeps it. Two reasons this
+							site is not the one to open. The arm lives on the NATIVE
+							acquisition; the framework's own pointer-capture fallback still
+							promotes a touch press by distance alone, so dropping the decline
+							here would make a pan on a reorderable list start a reorder on any
+							host without `UIDragDetector`. And reorder-by-hold is a product
+							default for every reorderable list that ships, not a showcase
+							tweak — it wants its own round, with a live pass on a real list.
+							The Discover card in `examples/virtual_monitors` dropped its
+							`declineTouch` because it is a card lying on a page, which is the
+							case the flag was never meant for. ]]
 						declineTouch = true,
 						--[[ A WINDOWED-OUT ROW IS NOT A REMOVED ROW. This list unmounts
 							rows it is still holding — that is what virtualization is — and

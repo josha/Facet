@@ -29,6 +29,8 @@ require("./virtual_monitors.spec")
 -- stealing the Saved shelf's height) and its focus cycle
 require("./virtual_monitors_layout.spec")
 require("./virtual_monitors_focus.spec")
+require("./virtual_monitors_diagnostics.spec")
+require("./virtual_monitors_input.spec")
 require("./hud_meters.spec")
 require("./hud_reservations.spec")
 require("./world_markers.spec")
@@ -56,6 +58,7 @@ require("./transform_footprint.spec")
 require("./focus.spec")
 require("./distance_gamepad.spec")
 require("./focus_sections.spec")
+require("./focus_section_appear.spec")
 require("./semantic_rows.spec")
 require("./scroll_navigation.spec")
 require("./tab_scroll_bookmarks.spec")
@@ -1074,6 +1077,7 @@ require("./async_completeness.spec")
 -- sponsor-framework-gaps P4: the shared interaction tokens + the rolling
 -- release-velocity tracker (rows SF-D3 / SF-D2)
 require("./interaction_tokens.spec")
+require("./touch_drag_arm.spec")
 -- the pure drag-to-edge autoscroll model under a scripted clock (SF-L2)
 require("./autoscroll.spec")
 -- ...and the RENDERER's chain around it (`render/autoscroll_bridge.luau`, extracted
@@ -1414,6 +1418,7 @@ require("./layout_defaults.spec")
 	finally given. Scoped by measurement to a stack's CROSS axis — the counts
 	that rejected the wider rule are in `layout/placement_audit.luau` ]]
 require("./containment_diagnostic.spec")
+require("./inert_placement_warning.spec")
 --[[ ...AND THE SAME INVARIANT ASKED UNDER A PACKAGE (task THEME, director items
 	6-9). It sits above the guard's own proofs for the same reason everything else
 	does — those read process-wide waiver counts — and below the diagnostic because

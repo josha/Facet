@@ -140,8 +140,10 @@ local function board(opts: any?)
 	end
 	-- the ENGINE detector mirror (NS-A5): the acquisition path the live adapter
 	-- takes whenever UIDragDetector exists
-	function api.dragStart(x: number, y: number, pointerType: string?)
-		adapter.driveDragStart("/S/Board/Card", { x = x, y = y, pointerType = pointerType or "mouse" })
+	-- `armed` is what a hold-arbitrated touch acquisition tags its positions with
+	-- once the finger has held past `touchDragArm.holdMs` (see screen_target)
+	function api.dragStart(x: number, y: number, pointerType: string?, armed: boolean?)
+		adapter.driveDragStart("/S/Board/Card", { x = x, y = y, pointerType = pointerType or "mouse", armed = armed })
 	end
 	function api.dragTo(x: number, y: number, pointerType: string?)
 		adapter.driveDragContinue(
@@ -213,6 +215,50 @@ describe("public drag: acquisition and promotion (SF-D1, SF-D3)", function()
 		expect(b.registry.pointerDown("/S/Board/Card", { x = 20, y = 20, pointerType = "touch" })).toBe(false)
 		-- ...and the same node still acquires normally on a mouse
 		expect(b.registry.pointerDown("/S/Board/Card", { x = 20, y = 20, pointerType = "mouse" })).never().toBe(false)
+	end)
+
+	--[[ THE LONG-PRESS PATH, END TO END. A touch acquisition that arbitrates by
+		TIME (`src/input/touch_drag_arm`) hands the registry a position tagged
+		`armed = true` — the finger has already held still past the hold and the
+		scroller underneath has already been told the gesture is not its. Before
+		this, such a press was filed as `pending` like any other and waited for 14
+		px of travel, so on a real phone a long press produced NOTHING: no ghost,
+		no lift, no held state, until the player moved a finger they had been asked
+		to hold still. ]]
+	it("an armed press begins the session at the press, with no travel", function()
+		local b = board()
+		b.dragStart(20, 20, "touch", true)
+		expect(b.registry.isActive()).toBe(true)
+		expect(b.registry.mode()).toBe("pointer")
+		expect(b.registry.payload()).toBe("card")
+		-- the feedback a held finger is owed lands at the arm, not at first motion
+		expect(b.eventNames()[1]).toBe("select")
+	end)
+
+	it("an armed press drops on the target it is carried to", function()
+		local b = board()
+		local ax, ay = b.centerOf("/S/Board/SlotA")
+		b.dragStart(20, 20, "touch", true)
+		b.dragTo(ax, ay, "touch")
+		b.dragEnd(ax, ay, "touch")
+		expect(#b.drops).toBe(1)
+		expect(b.drops[1].id).toBe("SlotA")
+	end)
+
+	it("an UNarmed touch press is unchanged — it still promotes by travel", function()
+		local b = board()
+		b.dragStart(20, 20, "touch")
+		expect(b.registry.isActive()).toBe(false)
+	end)
+
+	it("declineTouch refuses an armed touch as well", function()
+		-- the arm never arms a declining source, but the registry is the boundary
+		-- that must not be talked past by a tag
+		local b = board({ declineTouch = true })
+		expect(b.registry.pointerDown("/S/Board/Card", { x = 20, y = 20, pointerType = "touch", armed = true })).toBe(
+			false
+		)
+		expect(b.registry.isActive()).toBe(false)
 	end)
 
 	it("falls back to the framework pointer capture when the engine has no detector", function()

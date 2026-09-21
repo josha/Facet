@@ -8,14 +8,27 @@ local UI = harness.UI
 local function mount(facts)
 	local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, reducedMotion = true, env = facts })
 	local selection = Compose.cell("one")
+	-- each page's own primary action, so "Activate reaches the page that is
+	-- showing" is a fact this file can assert rather than assume
+	local played = Compose.cell("")
 	local pages = {}
 	for _, id in { "one", "two", "three" } do
-		table.insert(pages, { id = id, title = id, content = UI.Button({ id = "Play", label = "Play " .. id }) })
+		table.insert(pages, {
+			id = id,
+			title = id,
+			content = UI.Button({
+				id = "Play",
+				label = "Play " .. id,
+				onActivate = function()
+					played:set(id)
+				end,
+			}),
+		})
 	end
 	local c = harness.Controls.PageView(w.core, { id = "Pager", selection = selection, pages = pages })
 	w.present(UI.Screen({ id = "S", children = { c.blueprint } }))
 	w.settle(3)
-	return w, c, selection
+	return w, c, selection, played
 end
 local root = "/S/Pager"
 local dot2 = root .. "/Indicators/Dot2"
@@ -99,20 +112,64 @@ t.describe("PageView control", function()
 		t.expect(s:peek()).toBe("two")
 		clean(w, c)
 	end)
-	t.it("PageView keyboard: focus + Return drives the control", function()
-		local w, c, s = mount()
-		w.pres.focus.focusOn(dot2)
+	--[[ THE CAROUSEL IS ONE STOP, so these two no longer drive a DOT. They used to
+		focus `Dot2` and press Activate, which is precisely the keyboard stop the
+		control stopped offering: the pages own the ring and the dots stay in the
+		tree as pointer targets (the two tap cases above are unchanged and still
+		pass). What the control owes each input is the same as it ever was and is
+		what is asserted here — page by direction, and Activate reaching the page
+		that is showing. ]]
+	t.it("PageView keyboard: focus + Right pages, Return drives the page", function()
+		local w, c, s, played = mount()
+		w.pres.focus.focusOn(root .. "/Pages/one/Play")
+		w.press("Right")
+		w.settle(3)
+		t.expect(s:peek()).toBe("two")
 		w.press("Return")
 		w.settle(3)
-		t.expect(s:peek()).toBe("two")
+		t.expect(played:peek()).toBe("two")
 		clean(w, c)
 	end)
-	t.it("PageView gamepad: focus + ButtonA drives the control", function()
-		local w, c, s = mount()
-		w.pres.focus.focusOn(dot2)
-		w.press("ButtonA")
+	t.it("PageView gamepad: focus + DPadRight pages, ButtonA drives the page", function()
+		local w, c, s, played = mount()
+		w.pres.focus.focusOn(root .. "/Pages/one/Play")
+		w.press("DPadRight")
 		w.settle(3)
 		t.expect(s:peek()).toBe("two")
+		w.press("ButtonA")
+		w.settle(3)
+		t.expect(played:peek()).toBe("two")
+		clean(w, c)
+	end)
+	--[[ ...AND ONE PRESS LEAVES IT, whichever page is showing: the group is
+		horizontal, so a vertical arrow falls straight out of it rather than walking
+		the dots. This is the live defect of 2026-09-20 (~10 Down presses from the
+		showcase header to its feed) reduced to its smallest form. ]]
+	t.it("one Down leaves the whole carousel, from any page", function()
+		local w, c, s = mount()
+		local stops = {}
+		for _, entry in w.pres.focus.focusMap().traversal do
+			if entry.eligible ~= false then
+				table.insert(stops, entry.path)
+			end
+		end
+		local dotStops = 0
+		for _, path in stops do
+			if string.find(path, "/Indicators/Dot", 1, true) then
+				dotStops += 1
+			end
+		end
+		t.expect(`dots on the ring: {dotStops}`).toBe("dots on the ring: 0")
+		for _, page in { "one", "two", "three" } do
+			s:set(page)
+			w.settle(6)
+			w.pres.focus.focusOn(root .. "/Pages/" .. page .. "/Play")
+			w.press("Down")
+			w.settle(3)
+			local landed = tostring(w.pres.focus.focused:peek())
+			t.expect(`{page}: left the carousel in one press: {string.find(landed, "/Pages/", 1, true) == nil}`)
+				.toBe(`{page}: left the carousel in one press: true`)
+		end
 		clean(w, c)
 	end)
 	t.it("PageView pointer affordance: hover, direct drag, wheel channel", function()

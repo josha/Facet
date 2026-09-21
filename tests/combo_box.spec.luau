@@ -96,6 +96,37 @@ t.describe("ComboBox", function()
 			pres.dismiss()
 		end)
 	end
+	--[[ ONE LINE, ONE HEIGHT (found live in the showcase's search row,
+		2026-09-20: a 56x41 opener beside a 44px field, its bottom edge three pixels
+		short of the field's).
+
+		The field states the theme's own field height; the opener hugged its own
+		content and its anchored child was placed at that hugged size, so a parent
+		that stretched the control moved a box nobody could see and left the painted
+		trigger where it was. What is asserted here is the PAINTED node — the
+		trigger's own rect, not its anchor's — because that is the half that stayed
+		wrong through the first attempt at this fix. ]]
+	t.it("the suggestions opener is exactly as tall as the field beside it", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+		local control = harness.Controls.ComboBox(w.core, {
+			id = "C",
+			value = Compose.cell("a"),
+			text = Compose.cell("Alpine"),
+			options = { { id = "a", label = "Alpine" }, { id = "b", label = "Birch" } },
+			acceptCustom = function()
+				return true
+			end,
+		})
+		w.pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
+		w.pres.refresh()
+		local field = w.adapter.node("/S/C/Row/Editor/Field").rect
+		local trigger = w.adapter.node("/S/C/Row/Suggestions/Trigger").rect
+		t.expect(`field {field.h}, trigger {trigger.h}`).toBe(`field {field.h}, trigger {field.h}`)
+		-- ...and they sit on the same line, which is the other half of "one row"
+		t.expect(trigger.y).toBe(field.y)
+		control.dispose()
+		w.pres.dismiss()
+	end)
 	t.it("custom commits validate separately from supplied suggestions and cancel restores committed text", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
 		local core, env = w.core, w.env

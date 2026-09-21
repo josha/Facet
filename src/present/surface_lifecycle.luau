@@ -576,14 +576,140 @@ function surfaceLifecycle.new(ctx: any)
 		return derived
 	end
 
+	--[[ THE ARRIVAL AND DEPARTURE OF A FOCUS SECTION (`UI.focusSection`'s
+		`focusOnAppear`/`returnFocus`; see `blueprint.focusSection` for the defect
+		this closes).
+
+		"This region is new this frame" is a fact about TWO frames, and the focus
+		graph only ever sees one — it is handed a fresh set of groups and has no
+		memory of the last set. So the diff lives here, beside the sync that
+		produces it, keyed by the section's own node path.
+
+		ORDER MATTERS AND IS DELIBERATE: the groups are published FIRST, then the
+		arrivals are spent, then the departures. A section that appeared this frame
+		is only focusable once the graph knows about it, and a section that left
+		must already be gone from the ring before its remembered target is restored
+		— otherwise `focusOn` would be refusing a path that is about to vanish, or
+		restoring into a region the graph still thinks is live. ]]
+	--[[ THE SECTIONS ON THIS TREE, read off the TREE and not off the navigation
+		groups. The groups were the obvious place and the wrong one: whether a
+		surface derives groups at all is decided once, when it is presented, from
+		the tree as it stood THEN — so a section that only exists while a branch is
+		open (which is every section this feature is for) is invisible to the
+		grouped path, and a surface that never had a horizontal run keeps the flat
+		ring forever. The tree is the one thing that is re-walked every solve.
+
+		`focusOrder` gives the section's focusables in DOCUMENT order, so
+		`members[1]` is "the first stop" as an author reading the source would count
+		it — not as a geometric sort settled it between two buttons that solved to
+		the same rect. ]]
+	-- how many syncs a refused focus restore is re-offered before the scope's own
+	-- entry rule is left in charge (see the departure block in `syncFocusMap`)
+	local RESTORE_RETRIES = 4
+
+	local function sectionsOf(root: any): { [string]: any }
+		local out: { [string]: any } = {}
+		local function walk(node: any)
+			local section = node.meta and node.meta.focusSection
+			if
+				section ~= nil
+				and (section.focusOnAppear ~= nil or section.returnFocus == true)
+				and node.path ~= nil
+			then
+				local members: { string } = {}
+				focusOrder(node, members)
+				out[node.path] = { section = section, members = members }
+			end
+			for _, child in node.children or {} do
+				walk(child)
+			end
+		end
+		walk(root)
+		return out
+	end
+
+	-- `focusOnAppear = true` takes the section's first stop; a STRING names a
+	-- descendant, matched on its final path segment or its whole path — the same
+	-- rule `presenter.initialFocus` uses, so an author who knows one knows both.
+	local function appearTarget(entry: any): string?
+		local want = entry.section.focusOnAppear
+		if want == nil then
+			return nil
+		end
+		if want == true then
+			return entry.members[1]
+		end
+		for _, path in entry.members do
+			if path == want or string.match(path, "([^/]+)$") == want then
+				return path
+			end
+		end
+		return nil
+	end
+
 	local function syncFocusMap(handle: any)
 		local derived = focusDerivation(handle)
 		local scopeName = handle.blueprint.id or handle.kind
+		local sections = sectionsOf(handle.root.node)
+		local previous = handle.focusSections or {}
+		--[[ READ BEFORE PUBLISHING. The edit that opens a branch is usually the same
+			edit that makes the rows underneath it ineligible, and publishing the new
+			order re-seeds focus off an ineligible node before this function gets to
+			ask where focus WAS. Measured: a section opened from row 3 of three
+			remembered row 1, because row 1 is where the re-seed had already put the
+			ring by the time the question was asked. ]]
+		local focusBefore = graph.focused:peek()
 		if derived.grouped then
 			graph.replaceGroups(scopeName, derived.groups, derived.rank)
 		else
 			graph.setOrder(scopeName, derived.order, derived.rank)
 		end
+		for name, entry in sections do
+			if previous[name] == nil then
+				-- remembered BEFORE the claim below moves it, or a section that does
+				-- both would remember the target it just took
+				entry.restoreTo = if entry.section.returnFocus == true then focusBefore else nil
+				local target = appearTarget(entry)
+				if target ~= nil then
+					graph.focusOn(target)
+				end
+			else
+				entry.restoreTo = previous[name].restoreTo
+			end
+		end
+		--[[ A DEPARTURE IS NOT ALWAYS SPENDABLE ON THE FRAME IT HAPPENS. The branch
+			that closes is usually the same edit that re-enables the rows underneath
+			it, and the tree this sync walked is the one from BEFORE that solve
+			settled — so the remembered row is still ineligible, `focusOn` refuses
+			(correctly: an ineligible node does not take focus), and the ring is left
+			wherever the graph's own re-seed put it. Measured: restoring to row 3 of
+			three landed on row 1.
+
+			So a refusal is retried on the next few syncs rather than dropped. The
+			budget is small and finite because the other reason `focusOn` refuses is
+			the legitimate one — the target is gone for good — and that must settle
+			quickly into "the scope's own entry rule decides" rather than fighting
+			the graph for the rest of the surface's life. ]]
+		local pending: { any } = {}
+		for _, entry in handle.focusRestorePending or {} do
+			table.insert(pending, entry)
+		end
+		for name, entry in previous do
+			if sections[name] == nil and entry.restoreTo ~= nil then
+				table.insert(pending, { path = entry.restoreTo, tries = 0 })
+			end
+		end
+		local carried: { any } = {}
+		for _, entry in pending do
+			if not graph.focusOn(entry.path) then
+				entry.tries += 1
+				if entry.tries < RESTORE_RETRIES then
+					table.insert(carried, entry)
+				end
+			end
+		end
+		handle.focusRestorePending = if #carried > 0 then carried else nil
+		handle.focusSections = sections
 	end
 
 	--[[ RAISE — RE-BAND A LIVE SURFACE WITHOUT DISMISS+RE-PRESENT (registry

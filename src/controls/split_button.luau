@@ -1,5 +1,8 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+-- the strip's shared corner token, so this control and the segmented picker
+-- round their ends by the same rule
+local selectionIndicator = require("./selection_indicator")
 local ownedBuild = require("../core/owned_build")
 local ownedFormula = require("../core/owned_formula")
 --[[ SPLIT BUTTON — a primary action with a menu of alternatives, in the form
@@ -95,17 +98,39 @@ local function build(Facet, core, spec, owner)
 				live = nil
 			end
 		end)
-		-- the two segments share ONE silhouette: square where they meet, the
-		-- theme's radius everywhere else (`UI.corners` is the modifier, so the
-		-- primary keeps every contribution `UI.Button` attached)
+		--[[ THE TWO SEGMENTS SHARE ONE SILHOUETTE: square where they meet, the
+			theme's radius everywhere else — and ALL FOUR corners have to say so.
+			`normalizeCorners` gives an unnamed corner 0, not the theme's radius, so
+			naming only the inner pair made the whole control square: a hard-edged
+			rectangle beside rounded buttons on every screen that used it (found live,
+			2026-09-20, `UICorner = (0, 0)` on both segments where an ordinary Button
+			carries the sheet's `.facet-surface-control::UICorner` of 12).
+
+			The radius is spent as a TOKEN, never a resolved number, for the reason
+			`selection_indicator.segmentShape` spends its own that way: the painter
+			re-resolves it against the style it paints with, so a ten-foot display's
+			derived radius reaches this control instead of a build-time near-distance
+			number. `UI.corners` is the modifier, so the primary keeps every
+			contribution `UI.Button` attached. ]]
+		local CORNER = selectionIndicator.TRACK_CORNER
 		return UI.HStack({
 			id = "Split",
 			gap = 0,
 			width = UI.fill(),
 			children = {
-				UI.corners(primary.blueprint, { topRight = 0, bottomRight = 0 }),
+				UI.corners(primary.blueprint, {
+					topLeft = CORNER,
+					bottomLeft = CORNER,
+					topRight = 0,
+					bottomRight = 0,
+				}),
 				UI.Divider({ height = { type = "fill", weight = 1 } }),
-				UI.corners(menu.blueprint, { topLeft = 0, bottomLeft = 0 }),
+				UI.corners(menu.blueprint, {
+					topLeft = 0,
+					bottomLeft = 0,
+					topRight = CORNER,
+					bottomRight = CORNER,
+				}),
 			},
 		})
 	end

@@ -25,7 +25,7 @@ local observeChange = require("../core/on_change")
 	  gap? (px between cells ACROSS a line, default 0),
 	  rowGap? (px between LINES, default 0),
 	  overscan? (LINES either side, default 2),
-	  cell (item, ctx: { scope, index, line, lane }) -> Blueprint,
+	  cell (item, ctx: { scope, index, line, lane, focused }) -> Blueprint,
 	  onActivate? ((item, meta) -> ()),
 	  width? (the cross-axis Dim — `axis = "y"` ONLY; on `axis = "x"` the width IS
 	    the scroll axis and the cross axis is the height, which fills), env? }
@@ -308,6 +308,43 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local UI = Facet.UI
 	local id = spec.id or "VirtualGrid"
+	--[[ WHAT THE RING IS ON, so a cell can paint it.
+
+		The cell-sized `Hit` below sits BEHIND the cell's content (see its own
+		comment for why that is structural rather than incidental) and paints
+		nothing, so the sheet's own focus treatment lands on a plate the player
+		never sees: an opaque card could show no focus at all, and a consumer had
+		no way to draw it either. It is interaction state a grid owns and could not
+		hand over.
+
+		HOVER IS DELIBERATELY NOT HERE, and the reason is worth recording so the
+		next attempt does not repeat it. `adapter.setHoverObserver` is
+		`MouseEnter`/`MouseLeave` on the node's own instance, and the engine does
+		not deliver those to a button COVERED by an opaque sibling — measured live
+		(2026-09-20) with and without the cell's drag detector, which was the
+		obvious suspect and was not the cause. A hover fact sourced from this hit
+		would read false forever on exactly the cells that most want it, which is a
+		quieter version of the defect it set out to fix. The observer has to hang on
+		a node that is actually on top; that is a change to the cell's SHAPE, not a
+		fact this control can publish today.
+
+		AND IT COMES FROM THE RENDER CONTROLLER, NOT FROM THE PRESENTER'S FOCUS
+		AUTHORITY. The seam that hands a control that authority exists, and several
+		controls take it — but every one of them takes it in order to MOVE focus,
+		and this grid's whole 2-D story is that it moves nothing: the perpendicular
+		direction is answered by the focus graph itself, from the `columns` this
+		control declares (see the deletion note further down, and the verifier row
+		that pins it). Asking for the authority in order to READ a paint fact would
+		put this file back on the wrong side of that line for no behaviour at all.
+		`controller.focusRing` is the already-resolved ANSWER — which path the ring
+		is on, nil when no ring is painted — published by the renderer that paints
+		it and reached through `bindController`, the seam this control already has.
+
+		A CELL, not a value: the Readable arrives at present time, after the cell
+		formulas are built, so it is held in a cell and `use`d through it. A bare
+		upvalue read would be evaluated once while it was still nil and never
+		depend on anything that could tell it otherwise. ]]
+	local gridRing = Compose.cell(nil :: any)
 	local axis: string = spec.axis or "y"
 	local isX = axis == "x"
 	--[[ `width` IS THE CROSS AXIS, AND ONLY A VERTICAL GRID HAS ONE THERE. On
@@ -989,8 +1026,17 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						There is no pointer or pan handler on it: the engine
 						ScrollingFrame owns scrolling, and interactive cell content
 						renders above and still captures its own taps. ]]
+					-- THE HIT'S OWN PATH, learned when it mounts: `ctx.focused` compares
+					-- the ring against it, and `onAppear` fires after the frame's solve so
+					-- the path is the one this slot currently holds.
+					local hitPath = Compose.withOwner(itemScope, function()
+						return Compose.cell(nil :: string?)
+					end)
 					local hit = UI.Button({
 						id = "Hit",
+						onAppear = function(path: string)
+							hitPath:set(path)
+						end,
 						label = "",
 						-- ...AND IT PAINTS NOTHING (`surface = "plain"`, the sibling half
 						-- of the same fix `controls/virtual_list.luau`'s row hit carries
@@ -1045,6 +1091,22 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 								index = entry.index,
 								line = entry.line,
 								lane = entry.lane,
+								--[[ THE INTERACTION FACT THE CELL COULD NOT SEE. A Readable, not a
+									value, so a cell binds paint to it and nothing re-runs the
+									builder; false where it has no meaning, so one expression is
+									correct on a monitor, a phone and a pad alike. ]]
+								focused = Compose.withOwner(itemScope, function()
+									return Compose.formula(function(use)
+										local path = use(hitPath)
+										local ring = use(gridRing)
+										if path == nil or ring == nil then
+											return false
+										end
+										-- nil while the ring is not PAINTED, which is the rule every
+										-- other control follows: a tap moved the ring, so no ring
+										return use(ring) == path
+									end)
+								end),
 							}),
 						},
 					})
@@ -1273,6 +1335,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		handleActivate = handleActivate,
 		bindController = function(controller: any)
 			mirror.noticeController(controller)
+			-- ...and the painted ring's own path, for `ctx.focused` (see the note
+			-- at the head of this control). Absent on a controller that predates
+			-- it, which leaves every cell's `focused` false — the degradation this
+			-- seam's contract asks for.
+			gridRing:set(controller.focusRing)
 		end,
 		-- the snap machine's frame source, and the only thing this control wants a
 		-- motion clock for (settle detection is a question about frames)

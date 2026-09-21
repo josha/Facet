@@ -83,6 +83,7 @@ local ownedFormula = require("../core/owned_formula")
 local observeChange = require("../core/on_change")
 local env_wiring = require("./env_wiring")
 local autoscrollLib = require("../input/autoscroll")
+local placementWarnings = require("../layout/placement_warnings")
 local specGuard = require("../spec_guard")
 -- the CLASS SCHEMA, read here for one reason only: an enum prop's closed set has
 -- to be enforced where a BOUND value lands, not just where a static one is
@@ -1215,7 +1216,12 @@ function renderer.attach(
 						controller.tapAt(pos.x, pos.y, { skip = tapPath })
 					end
 				end
-				local detach = dragBridge.attachDetector(node.path, handlers)
+				-- the declaration's own touch answer, now kept on the NATIVE path
+				-- too: a `declineTouch` source used to disable Facet's drag and
+				-- leave the engine detector claiming the finger anyway
+				local detach = dragBridge.attachDetector(node.path, handlers, {
+					touch = if dragDecl.declineTouch == true then "decline" else "hold",
+				})
 				if detach ~= nil then
 					dragAcquiredNatively = true
 					tapArm.guardDetector(node.path)
@@ -2121,6 +2127,12 @@ function renderer.attach(
 		profile.span("commit", function()
 			local textRequests = text_metrics.endCollect()
 			lastDiagnostics = result.diagnostics
+			-- ...and an INERT placement prop is said out loud, once per site, where
+			-- an author is already looking (`layout/placement_warnings`, which
+			-- carries the whole rule). One length test on a clean solve.
+			if #result.diagnostics > 0 then
+				placementWarnings.notice(result.diagnostics)
+			end
 			-- what the walks below cost, as a NUMBER rather than an inference (P4): the
 			-- claim is about the whole span, so the reset is here and not in a walk.
 			stats.lastCommitVisits = 0
@@ -3133,6 +3145,7 @@ function renderer.attach(
 	-- the logical focus path; nil clears
 	local focusedPath: string? = nil
 	local focusRingVisible = true
+	local ringPath = Compose.cell(nil :: string?)
 	local bridgeEngaged = (opts and opts.engineSelectionBridge) == true
 	-- `visible` (optional, default true) is the RING's own answer, separate from
 	-- the focus path: a pointer/touch-driven focus move tracks focus, drives the
@@ -3186,7 +3199,14 @@ function renderer.attach(
 		end
 		focusedPath = path
 		focusRingVisible = wantRing
+		-- WHERE THE RING IS, AS A READABLE (`controller.focusRing`; nil = no ring
+		-- on this surface). Both facts a control needs to paint its own focused
+		-- state are already resolved here, so this publishes the ANSWER, reached
+		-- through `bindController`. `src/controls/virtual_grid.luau` carries why a
+		-- control reads this and not the presenter's focus authority.
+		ringPath:set(if wantRing then path else nil)
 	end
+	controller.focusRing = ringPath :: any
 
 	-- verifier F2: a displaySize dock (Medium <-> Large) must re-strengthen a
 	-- RESTING focus visual — text and margins already re-adopt via the solve
