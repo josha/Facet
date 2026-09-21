@@ -11,13 +11,14 @@ or scope type, and no second graph, observer queue or Signals bridge.
 API. It holds the scene runtime a surface's nodes mount into, the application's
 root owner, the reactor, the error boundary, and the layout settle pass.
 
-`on_change.luau` is one function: `owner.watchStatic` with the registration
-delivery suppressed, because a Facet listener reacts to a surface MOVING and
-Compose's watch always delivers once when it is created.
+`on_change.luau` wraps `owner.watchStatic` and suppresses registration and
+equal-value deliveries, because a Facet change listener reacts only to a new
+value. Compose's watch delivers once when it is created.
 
-`contract.luau` is types only. `Signal<T>`, `Memo<T>`, `Readable<T>` and `Scope`
-are type aliases for Compose's `Cell`, `Formula`, `Readable` and `Owner`, and
-`src/init.luau` re-exports them. They exist so a typed helper or an out-of-repo
+`contract.luau` exports `Cell<T>`, `Formula<T>`, `Readable<T>` and `Owner`, and
+`src/init.luau` re-exports those names. Cell, Formula and Owner are Compose types;
+Readable describes the read-only shape accepted by Facet and includes the
+concrete Compose Cell and Formula types. They exist so a typed helper or an out-of-repo
 control can name a Compose value without requiring the vendored snapshot. They
 are an interop spelling, not an authoring API: write `Compose.cell`,
 `Compose.formula` and a Compose owner. `contract.luau` also declares `Core`, the
@@ -61,8 +62,9 @@ never touched.
 
 ## The pin
 
-The exact pin and integrity inventory live in `../vendor/compose`. Setup
-materializes ignored source from that commit; no dependency source is committed,
-and there is no Facet patch overlay. The full MIT notice travels in the package.
+The exact pin and integrity inventory live in `../vendor/compose`. The generated
+source snapshot is committed and read-only, with no Facet patch overlay. Test and
+verification entry points check it against the lock without rewriting it. A fresh
+clone builds offline; the full MIT notice travels in the package.
 These internals are not consumer entry points: use the Facet table and the
 documented client modules.

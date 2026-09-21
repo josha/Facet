@@ -87,13 +87,18 @@ called, so requiring Facet in shared code does not initialize a client host.
 |---|---|
 | `app.installTheme(package, options?)` | Installs the existing theme controller for this application and releases it on disposal. Returns that controller for `swap` and `swapPackage`. Options are the theme-controller options except `env` and `core`, which the application supplies. Install once per application. |
 | `app.controls` | Facet constructors for this Compose runtime. Use a property table with ordered numeric children. Constructors accept an optional name: `UI.Button("Save") { ... }`; anonymous controls need no ID. |
-| `app.presentModal(component, opts?)` | Mounts a component in its own Compose lifetime and presents it as a modal. Returns `close, node`. Uses the presenter's modal options, focus trap and cancellation policy. Dismissal releases the component; application disposal closes all remaining surfaces. |
+| `app.presentModal(component, opts?)` | Mounts a component in its own Compose lifetime and presents it as a modal. Returns `close, node, handle`. Uses the presenter's modal options, focus trap and cancellation policy. Dismissal releases the component; application disposal closes all remaining surfaces. |
 | `app.presentAnchored(component, opts)` | Builds a panel under Compose ownership and places it beside a source path or rect. Returns `close, node` for the generated surface. The builder receives `app.controls`, the same vocabulary `app.mount` components close over; most builders ignore the argument and close over `UI` instead. Uses the [anchored options](#anchored-surfaces) for placement, tails, modality and noninteractive chrome. Moving sources reposition the panel; dismissal releases its content. |
-| `app.mount(component, options?)` | Runs an ordinary component function under Compose ownership and presents its one root. Accepts the standard presentation options, including `rootPolicy = "edgeToEdge"` for a full-window background. Returns `close, node`. Invalid roots and presentation failures release the mounted resources before propagating the error. |
+| `app.mount(component, options?)` | Runs an ordinary component function under Compose ownership and presents its one root. Accepts the standard presentation options, including `rootPolicy = "edgeToEdge"` for a full-window background. Returns `close, node, handle`. Invalid roots and presentation failures release the mounted resources before propagating the error. |
 | `app.dispose()` | Immediately removes all surfaces, pending exits, toasts and auxiliary layers before releasing their state, the runtime, frame connection, input, adapter and environment. Queued components are discarded without mounting. Every release step runs even if a cleanup throws; the first error is then raised. Repeated disposal is harmless. |
 | `app.runtime` | The actual Compose runtime for this domain; its constructors, bindings, structural operations and animation APIs follow Compose's contract. |
 | `app.environment` | The host environment. Read facts such as `use(app.environment:get("viewportRect"))` in a property binding. |
 | `app.onFrame(callback)` | Subscribes to the host frame driver and returns a disconnect function. Own it with `Compose.cleanup(app.onFrame(callback))` inside a component. |
+
+The third return from `app.mount` and `app.presentModal` is the presentation
+handle. Its `controller`, responder and focus operations last for that surface;
+use `close()` or `app.dispose()` to end its lifetime. `app.presentAnchored` returns
+only `close, node`.
 
 Calling `close()` is idempotent. It removes that surface and releases its component
 resources; it does not dispose the whole application. Model cells created outside
@@ -318,16 +323,21 @@ runtime.
 
 ## Blueprints
 
+### `schema`
+
+`Facet.schema` is the frozen property-schema facade used by constructors and
+modifiers. It exposes read-only class facts and pure inspection/validation
+functions; see [the property schema](#the-property-schema) for each member.
+
 ### `UI.*` constructors
 
-`app.controls` (conventionally `local UI = app.controls`) is the blueprint
-constructors. Blueprints are immutable plain
-tables describing a tree; they carry no reactivity themselves, but any prop
-may be a Compose readable or a `function(use) ... end` binding, and the mount
-layer subscribes it to the right update
-class. Every constructor takes one spec table; `id` gives a node stable
-identity (required for anything you want to address later — focus, tests,
-dumps).
+`app.controls` (conventionally `local UI = app.controls`) constructs nodes owned
+by the current Compose lifetime. A node is a mutable runtime object, not an
+immutable template to reuse across mounts. Reactive properties accept Compose
+readables or `function(use) ... end` bindings. Build fresh nodes inside each
+component factory. Every constructor takes a property table; the optional named
+form `UI.Text("Title") { text = "Hello" }` gives a stable path for focus, tests
+and diagnostics.
 
 **Construction is strict.** Every spec is validated against the public schema
 (`src/blueprint_schema.luau`) at build time, and each of these is an immediate
@@ -4056,8 +4066,7 @@ measurements between solves, `commitScope` prunes unchanged commit subtrees,
 `translateHosts` uses coordinate-space hosts for translations. Pass `false` to
 compare with the corresponding baseline path while keeping the same mounted
 component and application lifetime. These are diagnostic options; they do not
-change authored layout semantics. See [`renderer.attach`](#rendererattach) for
-their renderer contracts.
+change authored layout semantics.
 
 The four string-enum opts — `rootPolicy`, `responder`, `cancelPolicy`, `scrim` —
 are validated at present time and an unknown value errors naming the legal set.
@@ -5602,9 +5611,10 @@ root = Facet.contribution.attach(root, {
 })
 ```
 
-`contribution.attach(rootBlueprint, bundle) -> Blueprint` returns a new frozen
-blueprint carrying the bundle on the internal `meta` channel (never in the
-public prop bag). `contribution.read(mountedNode) -> Bundle?` is the presenter's
+`contribution.attach(rootNode, bundle) -> node` decorates an owned Compose node
+in place and returns the same node. The bundle lives on its internal `meta`
+channel, never in the public prop bag. For an internal immutable blueprint it
+returns a new frozen blueprint instead. `contribution.read(mountedNode) -> Bundle?` is the presenter's
 side and type-guards a non-table value to `nil`. `contribution.PROP` is the
 `meta` key the two share — exported so a tool that inspects a blueprint or a
 dump can find the bundle without hard-coding the string; a control author uses
@@ -8812,8 +8822,10 @@ semanticText }`.
 ### `UI.Slider`
 
 `UI.Slider { … }` -> the slider's node. `ref` receives `{ api, dump }`, where
-`api` is the control's record: `blueprint`, `model`, `semanticText`, `fillWidth`,
-`thumbOffset`, `onInteractionClassLost(class)`, `dump()` and `dispose()`.
+`api` exposes `model`, `semanticText`, `fillWidth`, `thumbOffset` and
+`onInteractionClassLost(class)`, with diagnostics through `record.dump()`.
+The ref does not expose `blueprint` or `dispose`; the component owner releases
+the control.
 
 A continuous or stepped value along a track, sharing the value arithmetic with
 `UI.Stepper`. Spec keys are `id`, `label`, `value`, `min`, `max`, `step`,

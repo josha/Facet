@@ -176,7 +176,7 @@ in `Compose.formula` when the cell must track them. `ctx.scope` is the row's own
 Compose owner.
 
 `UI.VirtualList` uses the same vocabulary without `columns` or `rowGap`, and
-names its array `rows` or `items`. Both controls use Compose's
+names its array `rows`; VirtualGrid uses `items`. Both controls use Compose's
 `OrderedCollection` for windowing and row lifetime. Facet supplies the scroll
 container and focus navigation.
 

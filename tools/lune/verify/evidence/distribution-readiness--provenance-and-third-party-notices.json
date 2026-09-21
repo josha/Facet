@@ -4,7 +4,7 @@
   {
    "archivedPath": "artifacts/distribution-readiness/audit/provenance-ledger.md",
    "label": "ledger",
-   "sha256": "3847ec15b4683ca32808743c0fb24519f9889f3395ba038badfe6c14a9646c64"
+   "sha256": "b8ef45bc05a308b11affc28360091ef348aa32825ce180e1a8e76e141ff83399"
   },
   {
    "archivedPath": "THIRD_PARTY_NOTICES.md",
@@ -22,8 +22,8 @@
    "sha256": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885"
   }
  ],
- "recordedAt": "2026-09-20T20:30:00Z",
+ "recordedAt": "2026-09-21T00:50:00Z",
  "row": "distribution-readiness::provenance-and-third-party-notices",
  "schema": "facet-evidence-receipt/1",
- "summary": "Compose source pin, complete MIT notices, an unmodified read-only snapshot with no local patch, and an exact sha256 inventory of every vendored file. Offline package verification covers the built artifact."
+ "summary": "Current Compose dependency addendum, exact source pin and SHA-256 inventory, and complete MIT notices. Historical audit entries remain labelled; this receipt does not assert a new package build or publication approval."
 }

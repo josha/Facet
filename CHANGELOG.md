@@ -101,7 +101,7 @@ Focus and enablement:
   evaluations retain partial dependency changes. Keep Facet’s renderer settling,
   structural transitions and error boundaries. See `src/core/README.md`.
   Rebuild all bundled tutorial, showcase, reference and performance places with
-  this runtime; examples keep the public component state and getter API.
+  this runtime; examples use plain components, Compose cells and `function(use)` bindings.
 
 - Unlink retired child scopes in constant time, preserving reverse cleanup order
   and cleanup-error quarantine. Large keyed collections no longer scan and shift
@@ -111,10 +111,10 @@ Focus and enablement:
   `width` using ordinary dimensions, including content-fit `hug`; default slides
   avoid CanvasGroup text rasterization, while explicit fades remain available.
   Component toast bodies inherit environment and animation services.
-- `View.ProgressView` inherits the mounted owner and presenter clock, including
+- `UI.ProgressView` inherits the mounted owner and presenter clock, including
   activity cycles and trails. Maintained examples adopt ordered numeric children;
-  tutorials, showcase chrome and reference views use component state, property
-  getters and automatic ownership. New-feature scaffolding and contributor
+  tutorials, showcase chrome and reference views use Compose state, property
+  bindings and automatic ownership. New-feature scaffolding and contributor
   guidance teach the same syntax.
 - Track getter-based drag enablement without invoking payload callbacks.
   NavigationStack pages and Alert content accept component descriptions.
@@ -122,17 +122,15 @@ Focus and enablement:
   rejection after unmount.
 - Prevent getter indexes from retaining cyclic values after unmount; keep shared
   bindings alive through their component owner instead of a global strong value.
-- Reuse the Signals callback-delivery queue and renew signal subscriptions without
-  rereading their known value, reducing typing overhead while preserving callback
-  order and recovery.
+- Earlier unreleased Signals queue optimizations are superseded by the pinned
+  Compose runtime described above.
 
 - Native StyleRule paint transitions now default on with explicit opt-out and live reduced-motion support; `client.host` installs Roblox's easing evaluator just like `motion_driver`.
 
-- Use pinned official Roblox Signals 0.9.0 for reactive dependencies while keeping
-  Facet's deterministic change delivery, lifecycle, recovery and settling contract.
-- Add `Facet.component` and `Facet.View`: scoped state and effects, property
-  functions, ordered array children, controlled inputs, confirmation and keyed
-  current-item getters. Migrate showcase motion settings and Settings Sync.
+- Historical unreleased work introduced Signals 0.9.0, `Facet.component` and
+  `Facet.View`. The current authoring-model change above replaces those APIs
+  with Compose and plain component functions, including the showcase and
+  Settings Sync examples.
 - Add declarative screen, billboard and surface placement to the client host.
 - Complete previously untyped public control specs, describe activation metadata,
   and check real component authoring with the pinned Luau analyzer.
@@ -946,8 +944,8 @@ Focus and enablement:
 
 - **The vendored copy of another reactive library, and its adapter.** Both were
   bake-off arms kept from the comparison that chose Facet's own core; neither
-  ever shipped in Facet's runtime, model, or Package. Facet's reactive core is
-  and remains its own, in `src/core/`.
+  ever shipped in Facet's runtime, model, or Package. Facet used its own core
+  at that point; the current unreleased runtime uses Compose as described above.
 
 ## [0.10.0] — not yet published
 

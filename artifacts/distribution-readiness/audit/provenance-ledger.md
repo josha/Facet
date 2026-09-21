@@ -84,3 +84,16 @@ in `LICENSE`, the package-carried `license.luau`, and `THIRD_PARTY_NOTICES.md`.
 The dependency inventory gate and offline package verification passed against
 this explicit vendor allowlist. This addendum records the new dependency; it
 does not re-adjudicate the historical audit's unrelated assets or release gates.
+
+
+## 2026-09-20 addendum: current Compose dependency
+
+The earlier audit and Signals addendum above are historical. The current runtime
+ships Compose from `https://github.com/voidmeld/compose.git` at commit
+`5f6bf7d081bab39971b116e47d6eb9ccf5877282`. The committed, generated snapshot is
+read-only: `patches` is empty, and `UPSTREAM.lock` inventories 68 files by
+SHA-256. `python3 tools/sync_compose.py --check` verifies the snapshot without
+rewriting it. The complete upstream MIT notice remains in the vendored LICENSE,
+package-carried license module and THIRD_PARTY_NOTICES.md. This entry records the
+current dependency facts; it does not re-adjudicate the historical asset audit
+or authorize publication.

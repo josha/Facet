@@ -322,8 +322,8 @@ function contribution.alive(bundle: any): boolean
 	return not owner.isDisposed()
 end
 
--- attach a bundle to a control's root blueprint, returning a NEW frozen
--- blueprint (blueprints are immutable). Controls call this once, on their
+-- Attach in place to an owned Compose node; copy an immutable blueprint.
+-- Controls call this once, on their
 -- returned root, so the attachment is uniform and the magic prop name lives in
 -- exactly one place.
 function contribution.attach(rootBlueprint: any, bundle: Bundle): any
