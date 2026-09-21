@@ -2565,7 +2565,7 @@ class("Text", {
 			channel = "style",
 			doc = "true to parse this text as markup (the engine's closed tag set: b, i, u, s, font, stroke, "
 				.. "br, uc, sc, mark, plus the five &…; escapes). The box is reserved for the DISPLAYED "
-				.. "text, so a tag never widens the label; unknown markup is drawn literally and measured "
+				.. "text: all well-formed tags are stripped; malformed markup is measured "
 				.. "literally. Escape untrusted text with `Facet.richText.escape` before composing it in",
 		}),
 		--[[ WRITING DIRECTION, mapped to the engine's own `TextDirection`. Absent
@@ -2744,7 +2744,7 @@ class("Image", {
 			a geometry key with, so reaching them through the reactive door would
 			paint `Tile` over the engine's default whole-box tile, which is `stretch`
 			wearing another name. `staticOnly` is what shuts that door, refused at
-			`src/mount.luau`'s binding write. ]]
+			`primitive_properties` at the Compose binding write. ]]
 		scaleMode = p({
 			types = { "string" },
 			reactive = true,

@@ -1167,7 +1167,7 @@ describe("fix round 2: a freeze is only ever what the author asked for", functio
 		-- ...and exactly one seam records it, at the binding write
 		expect(string.find(props, "handle.authoredScrollingEnabled = value ~= false", 1, true) ~= nil).toBe(true)
 		local recorders = 0
-		for _ in string.gmatch(props .. pointer, "handle%.authoredScrollingEnabled =") do
+		for _ in string.gmatch(props .. pointer, "handle%.authoredScrollingEnabled = ") do
 			recorders += 1
 		end
 		expect(recorders).toBe(1)
@@ -1496,4 +1496,173 @@ describe("leaf gallery controls", function()
 		expect(built.report().endWidth).toBeNil()
 		expect(built.report().offset).toBeNil()
 	end)
+end)
+
+describe("P1b review: rich word boundaries and reveal identity", function()
+	it("measures opening, closing and whole rich runs inside one unbroken word", function()
+		textMetrics.resetMeasured()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
+		w.present(function()
+			return w.UI.Screen("Runs")({
+				w.UI.VStack("Col")({
+					w.UI.Text("Open")({ rich = true, textSize = 16, text = 'Lap<font size="48">Record</font>' }),
+					w.UI.Text("Close")({ rich = true, textSize = 16, text = '<font size="48">Lap</font>Record' }),
+					w.UI.Text("Whole")({ rich = true, textSize = 16, text = '<font size="48">LapRecord</font>' }),
+				}),
+			})
+		end)
+		local open = w.controller.textAt("/Runs/Col/Open")
+		local close = w.controller.textAt("/Runs/Col/Close")
+		local whole = w.controller.textAt("/Runs/Col/Whole")
+		local base = string.split(open.font, "\1")[1]
+		textMetrics.beginCollect()
+		textMetrics.measure("LapRecord", open.font, 16, math.huge)
+		textMetrics.measure("LapRecord", whole.font, 16, math.huge)
+		local requested = {}
+		for _, request in textMetrics.endCollect() do
+			requested[request.word .. ":" .. request.size] = true
+		end
+		expect(requested["Lap:16"]).toBe(true)
+		expect(requested["Record:48"]).toBe(true)
+		expect(requested["LapRecord:48"]).toBe(true)
+		for _, row in
+			{
+				{ "Lap", 16, 30 },
+				{ "Record", 48, 120 },
+				{ "Lap", 48, 70 },
+				{ "Record", 16, 60 },
+				{ "LapRecord", 48, 186 },
+			}
+		do
+			textMetrics.setMeasured(base, row[2], row[1], row[3])
+		end
+		w.env:set("textMeasureEpoch", 1)
+		w.settle()
+		expect(rectOf(w, "/Runs/Col/Open").w).toBe(150)
+		expect(rectOf(w, "/Runs/Col/Close").w).toBe(130)
+		expect(rectOf(w, "/Runs/Col/Whole").w).toBe(186)
+		expect(textMetrics.minWidth("LapRecord", open.font, 16)).toBe(150)
+		expect(textMetrics.minWidth("LapRecord", close.font, 16)).toBe(130)
+		expect(textMetrics.minWidth("LapRecord", whole.font, 16)).toBe(186)
+		-- A font boundary is not a wrapping opportunity, even when the word cannot fit.
+		expect(textMetrics.measure("LapRecord", open.font, 16, 100).naturalLines).toBe(1)
+		textMetrics.beginCollect()
+		expect(textMetrics.measure("LapRecord", open.font, 16, math.huge).width).toBe(150)
+		expect(#textMetrics.endCollect()).toBe(0)
+		textMetrics.resetMeasured()
+	end)
+
+	it("retires a moving rich strip when equal displayed words change markup", function()
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 400, h = 400 },
+			overflowGuardOff = "the reveal strip deliberately travels behind its native clipping window",
+		})
+		local words = "Championship standings updated for the season"
+		local markup = Compose.cell('<font color="#ff0000">' .. words .. "</font>")
+		local visible = Compose.cell(true)
+		local source
+		w.present(function()
+			return w.UI.Screen("Moving")({
+				Compose.show(visible, function()
+					source = w.UI.Text("Label")({
+						rich = true,
+						text = markup,
+						textSize = 16,
+						reveal = "auto",
+						lineLimit = 1,
+						width = { type = "fixed", px = 80 },
+					})
+					return source
+				end),
+			})
+		end)
+		local full = "/__reveal__/Layer/Window/Inner/Full"
+		local function start()
+			for _ = 1, 65 do
+				w.tick(1 / 30)
+			end
+			expect(w.pres.reveal().present).toBe(true)
+			expect(w.adapter.node(full).props.text).toBe(markup:peek())
+			expect(w.adapter.visibleOf("/Moving/Label")).toBe(false)
+		end
+		start()
+		for _, nextMarkup in { '<font color="#0000ff">' .. words .. "</font>", "<b>" .. words .. "</b>" } do
+			markup:set(nextMarkup)
+			w.settle()
+			w.tick(1 / 30)
+			expect(w.pres.reveal().present).toBe(false)
+			expect(w.adapter.node(full)).toBeNil()
+			expect(w.adapter.visibleOf("/Moving/Label")).toBe(true)
+			start()
+		end
+		local prior = source
+		visible:set(false)
+		w.settle()
+		visible:set(true)
+		w.settle()
+		w.tick(1 / 30)
+		expect(source == prior).toBe(false)
+		expect(prior.destroyed).toBe(true)
+		expect(w.adapter.node(full)).toBeNil()
+		expect(w.adapter.visibleOf("/Moving/Label")).toBe(true)
+		start()
+		w.close()
+		expect(w.adapter.node(full)).toBeNil()
+	end)
+end)
+
+describe("P1b review: an acquired native scroll capture can be frozen", function()
+	for _, paging in { false, true } do
+		it(`stops the real move/up/cancel handlers mid-drag, paging {paging}`, function()
+			-- Execute the native handler closure, as native_caret_scroll does, rather than a copied state machine.
+			local source = fs.readFile("src/client/screen_pointer.luau")
+			local first = string.find(source, "local instance = hit", 1, true)
+			local last = string.find(source, "beginPointerCapture(handle, handlers, input)", first, true)
+			assert(first and last)
+			local factory = require("@lune/luau").load(
+				"return function(handle, hit, pos, mouseScroll, input, suppressedInputs, Vector2, endCapture)\n"
+					.. string.sub(source, first, last - 1)
+					.. "\nreturn handlers\nend",
+				{ debugName = "native-scroll-capture" }
+			)()
+			local Vector2 = require("@lune/roblox").Vector2
+			local handle = { paging = paging, authoredScrollingEnabled = true }
+			local instance = {
+				CanvasPosition = Vector2.new(40, 20),
+				AbsoluteWindowSize = Vector2.new(200, 100),
+				AbsoluteCanvasSize = Vector2.new(1000, 100),
+				ScrollingEnabled = true,
+				ResetScrollVelocity = function() end,
+			}
+			local handlers, cancelled = nil, 0
+			handlers = factory(
+				handle,
+				instance,
+				{ x = 100, y = 0 },
+				require("../src/input/mouse_scroll"),
+				{},
+				{},
+				Vector2,
+				function()
+					cancelled += 1
+					handlers.cancel()
+				end
+			)
+			handlers.move({ x = 80, y = 0 })
+			expect(instance.CanvasPosition.X).toBe(60)
+			handlers.move({ x = 60, y = 0 }) -- paging's own native false is not an authored freeze
+			expect(instance.CanvasPosition.X).toBe(80)
+			handle.authoredScrollingEnabled = false
+			instance.ScrollingEnabled = false
+			handlers.move({ x = 0, y = 0 })
+			expect(instance.CanvasPosition.X).toBe(80)
+			expect(cancelled).toBe(1)
+			expect(handle.mouseScrolling).toBeNil()
+			handlers.up()
+			handlers.cancel()
+			expect(instance.ScrollingEnabled).toBe(false)
+			instance.CanvasPosition = Vector2.new(300, 20) -- freezing never disables programmatic placement
+			expect(instance.CanvasPosition.X).toBe(300)
+		end)
+	end
 end)

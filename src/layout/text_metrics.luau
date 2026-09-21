@@ -1114,7 +1114,7 @@ local function runResolver(canon: string, fontSize: number, baseFraction: number
 	local runs = record.runs
 	local cursor = 0
 	local lastAt = 0
-	return function(at: number): (string, number, number)
+	return function(at: number): (string, number, number, number)
 		-- a re-scan (a second line, a re-measure of the same text) rewinds rather
 		-- than walking off the end
 		if at < lastAt then
@@ -1125,11 +1125,42 @@ local function runResolver(canon: string, fontSize: number, baseFraction: number
 			cursor += 1
 		end
 		if cursor == 0 then
-			return record.base, fontSize, baseFraction
+			return record.base, fontSize, baseFraction, runs[1].at
 		end
 		local run = runs[cursor]
-		return run.font, run.size or fontSize, runFraction(run.font, record.base, baseFraction)
+		return run.font,
+			run.size or fontSize,
+			runFraction(run.font, record.base, baseFraction),
+			if cursor < #runs then runs[cursor + 1].at else math.huge
 	end
+end
+
+-- Keep each word/break unit intact for wrapping, but probe its font-run fragments.
+-- The plain path still asks the same whole-word bucket and allocates no fragments.
+local function runWordWidth(
+	word: string,
+	at: number,
+	canon: string,
+	fontSize: number,
+	fraction: number,
+	bucket: { [string]: number | false }?,
+	faceAt: ((number) -> (string, number, number, number))?
+): (number, boolean)
+	if faceAt == nil then
+		return wordWidth(word, canon, bucket, fontSize, fraction)
+	end
+	local stop = at + #word
+	local cursor, width, exact = at, 0, true
+	while cursor < stop do
+		local face, size, estimate, nextRun = faceAt(cursor)
+		local finish = math.min(stop, nextRun)
+		local part = if cursor == at and finish == stop then word else string.sub(word, cursor - at + 1, finish - at)
+		local partWidth, partExact = wordWidth(part, face, bucketFor(face, size, false), size, estimate)
+		width += partWidth
+		exact = exact and partExact
+		cursor = finish
+	end
+	return width, exact
 end
 
 local function wrapLine(
@@ -1138,7 +1169,7 @@ local function wrapLine(
 	fontSize: number,
 	maxWidth: number,
 	fraction: number,
-	faceAt: ((number) -> (string, number))?,
+	faceAt: ((number) -> (string, number, number, number))?,
 	lineBase: number?
 ): (number, number, boolean)
 	local bucket = bucketFor(canon, fontSize, false)
@@ -1181,19 +1212,7 @@ local function wrapLine(
 	local prevEnd = 0
 	local base = lineBase or 0
 	for wordStart: number, word: string in string.gmatch(text, "()(%S+)") do
-		--[[ THE WORD'S OWN FACE, when the string has runs. `wordWidth`'s key is
-			`(canon, size, word)` and every term of it moves here, so the bucket moves
-			with them — which is exactly what makes the engine premeasure ask for the
-			BOLD face of a bold run rather than the family's regular. ]]
-		local wCanon, wSize, wFraction = canon, fontSize, fraction
-		local wBucket = bucket
-		if faceAt ~= nil then
-			wCanon, wSize, wFraction = faceAt(base + (wordStart :: number))
-			if wCanon ~= canon or wSize ~= fontSize then
-				wBucket = bucketFor(wCanon, wSize, false)
-			end
-		end
-		local wordW, wordExact = wordWidth(word, wCanon, wBucket, wSize, wFraction)
+		local wordW, wordExact = runWordWidth(word, base + wordStart, canon, fontSize, fraction, bucket, faceAt)
 		exact = exact and wordExact
 		local extra = 0
 		if lineWidth > 0 then
@@ -1462,18 +1481,13 @@ function text_metrics.minWidth(text: string, font: string, fontSize: number): nu
 	local fraction = fractionFor(baseCanon)
 	local faceAt = runResolver(canon, fontSize, fraction)
 	local widest = 0
-	local wordCanon, wordSize, wordBucket, wordFraction = baseCanon, fontSize, bucket, fraction
-	local function consider(run: string)
-		local w = wordWidth(run, wordCanon, wordBucket, wordSize, wordFraction)
+	local function consider(run: string, at: number)
+		local w = runWordWidth(run, at, baseCanon, fontSize, fraction, bucket, faceAt)
 		if w > widest then
 			widest = w
 		end
 	end
 	for at: number, word: string in string.gmatch(text, "()(%S+)") do
-		if faceAt ~= nil then
-			wordCanon, wordSize, wordFraction = faceAt(at :: number)
-			wordBucket = bucketFor(wordCanon, wordSize, false)
-		end
 		-- THE COMMON PATH IS BYTE-IDENTICAL: a word with no ideographic codepoint is
 		-- measured whole, so it still hits the engine-measured word bucket and every
 		-- latin number in this repo is unchanged.
@@ -1485,23 +1499,23 @@ function text_metrics.minWidth(text: string, font: string, fontSize: number): nu
 			end
 		end
 		if not hasIdeograph then
-			consider(word)
+			consider(word, at)
 			continue
 		end
 		local runStart: number? = nil
 		for pos, cp in utf8.codes(word) do
 			if isIdeographic(cp) then
 				if runStart ~= nil then
-					consider(string.sub(word, runStart, pos - 1))
+					consider(string.sub(word, runStart, pos - 1), at + runStart - 1)
 					runStart = nil
 				end
-				consider(string.sub(word, pos, utf8.offset(word, 2, pos) :: number - 1))
+				consider(string.sub(word, pos, utf8.offset(word, 2, pos) :: number - 1), at + pos - 1)
 			elseif runStart == nil then
 				runStart = pos
 			end
 		end
 		if runStart ~= nil then
-			consider(string.sub(word, runStart))
+			consider(string.sub(word, runStart), at + runStart - 1)
 		end
 	end
 	return math.ceil(widest)

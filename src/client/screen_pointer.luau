@@ -610,6 +610,11 @@ function screen_pointer.new(ctx: any)
 						end
 						local handlers = {
 							move = function(point)
+								-- Paging borrows native false; only the authored flag freezes a capture.
+								if handle.authoredScrollingEnabled == false then
+									endCapture("interrupted")
+									return
+								end
 								if pageExtent and instance.AbsoluteWindowSize.X ~= pageExtent then
 									endCapture("interrupted")
 									return

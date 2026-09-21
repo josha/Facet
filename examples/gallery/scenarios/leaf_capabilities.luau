@@ -67,10 +67,11 @@ return {
 
 				UI.Text("Title")({ text = "Leaf capabilities", textSize = "title" }),
 				UI.HStack("Actions")({
+					wrap = true,
 					gap = "s",
 					UI.Button("Width")({
 						label = function(use)
-							return if use(narrow) then "Widen text" else "Narrow text"
+							return if use(narrow) then "Widen" else "Narrow"
 						end,
 						onActivate = function()
 							narrow:set(not narrow:peek())
@@ -78,7 +79,7 @@ return {
 					}),
 					UI.Button("Freeze")({
 						label = function(use)
-							return if use(frozen) then "Thaw canvas" else "Freeze canvas"
+							return if use(frozen) then "Thaw" else "Freeze"
 						end,
 						onActivate = function()
 							frozen:set(not frozen:peek())
@@ -196,16 +197,16 @@ return {
 				freeze = function(built: any)
 					local before = boardOffset(built)
 					frozen:set(true)
-					return { frozen = true, offsetBefore = before }
+					return { requestedFrozen = true, offsetBefore = before }
 				end,
 				thaw = function()
 					frozen:set(false)
-					return { frozen = false }
+					return { requestedFrozen = false }
 				end,
 			},
 			report = function()
 				return {
-					frozen = frozen:peek(),
+					requestedFrozen = frozen:peek(),
 					narrow = narrow:peek(),
 					track = TRACK,
 					guest = GUEST,
