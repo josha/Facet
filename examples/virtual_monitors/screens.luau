@@ -304,6 +304,10 @@ function screens.create(Facet: any, app: any, actions: any?)
 		local function compactWidth(use)
 			return use(hostEnvironment:get("viewportRect")).w < 640
 		end
+		-- six genre chips (about 560) beside the 452 tools, with the page padding
+		local function filtersStacked(use)
+			return use(hostEnvironment:get("viewportRect")).w < 1100
+		end
 		local viewport = app.environment:get("viewportRect")
 		local feed = callbacks.catalog or require("./catalog").new(Facet.Compose)
 		if not callbacks.catalog then
@@ -1045,8 +1049,11 @@ function screens.create(Facet: any, app: any, actions: any?)
 						UI.AdaptiveStack("Filters")({
 							width = fill,
 							gap = "s",
+							-- The six genres and the tools share a row only where both fit.
+							-- On a monitor canvas the tools take their own row, so no chip
+							-- is sliced by the search field.
 							axis = function(use)
-								return if compactWidth(use) then "y" else "x"
+								return if filtersStacked(use) then "y" else "x"
 							end,
 							UI.ScrollView("Genres")({
 								axis = "x",
@@ -1054,6 +1061,9 @@ function screens.create(Facet: any, app: any, actions: any?)
 								width = fill,
 								UI.HStack({
 									gap = "s",
+									-- room for the chips' outline: a scroller clips at its own
+									-- edge, and a pill that fills it loses its top and bottom
+									padding = 2,
 									table.unpack((function()
 										local chips = {}
 										for _, name in require("./catalog").genres do
@@ -1083,7 +1093,7 @@ function screens.create(Facet: any, app: any, actions: any?)
 							UI.HStack("Tools")({
 								gap = "s",
 								width = function(use)
-									return if compactWidth(use) then fill else fixed(452)
+									return if filtersStacked(use) then fill else fixed(452)
 								end,
 								UI.frame(
 									UI.ComboBox("Search")({

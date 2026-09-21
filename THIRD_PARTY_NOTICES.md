@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`5f6bf7d081bab39971b116e47d6eb9ccf5877282`, `src/core` and `src/roblox`.
+`fc7c0f3fdabbf30900cfe509453f6b1aa3595fd1`, `src/core` and `src/roblox`.
 
 **Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
 commit. `UPSTREAM.lock` records the commit and a SHA-256 for every file. There

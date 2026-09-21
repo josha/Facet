@@ -257,3 +257,38 @@ local _bound = {
 	pageview = _pageview,
 }
 local _keep: any = _bound
+
+-- THE PRIMITIVES, in both spellings and with every kind of live value an author
+-- passes: a plain value, a cell, a formula and a `function(use)` binding, with
+-- positional children.
+local UI = app.controls
+local spacing = Facet.Compose.cell(8)
+local title = Facet.Compose.formula(function()
+	return "Title"
+end)
+local _layout = UI.Screen("Witness")({
+	padding = 12,
+	gap = "m",
+	UI.VStack({
+		gap = spacing,
+		width = { type = "fill" },
+		UI.Text({ text = title, textSize = "heading" }),
+		UI.Text("Count")({
+			text = function(use)
+				return `{use(spacing)} px`
+			end,
+			textSize = 14,
+		}),
+		UI.HStack("Row")({
+			gap = 4,
+			wrap = true,
+			UI.Box({ width = { type = "fixed", px = 24 }, height = { type = "fixed", px = 24 }, surface = "control" }),
+			UI.Spacer({ minLength = 8 }),
+			UI.Image({ image = "rbxassetid://1", width = { type = "fixed", px = 24 } }),
+		}),
+		UI.Divider({}),
+		UI.ZStack("Layers")({ alignH = "center", UI.Text({ text = 7 }) }),
+		UI.ScrollView("Scroll")({ axis = "y", UI.Text({ text = "scrolls" }) }),
+		UI.Grid("Cells")({ columns = 2, gap = "s", UI.Text({ text = "a" }), UI.Text({ text = "b" }) }),
+	}),
+})

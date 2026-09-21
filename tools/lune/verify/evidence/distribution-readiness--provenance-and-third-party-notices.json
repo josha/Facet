@@ -9,12 +9,12 @@
   {
    "archivedPath": "THIRD_PARTY_NOTICES.md",
    "label": "notices",
-   "sha256": "dce08f9f3610c2ea396d21e2af703f26394e55d2a08a16b0403e958b66eb6b5e"
+   "sha256": "3666be3d0cc93f0eda3c4cd0d8f5f7986d4f7938a02b97506d6a924f64a6d5c8"
   },
   {
    "archivedPath": "src/vendor/compose/UPSTREAM.lock",
    "label": "Compose UPSTREAM.lock",
-   "sha256": "b65f5b2ce099217174ed1f807f0e5a6fc84550905ad12faa6c8caebb38013cfb"
+   "sha256": "c906b5688698ffdca0f2d2f55c1d23dd84338367ed0fa4ba64fbb05b56c35b16"
   },
   {
    "archivedPath": "src/vendor/compose/LICENSE",

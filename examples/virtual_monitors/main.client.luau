@@ -129,7 +129,9 @@ local stopWorld = world.mount(function()
 			CFrame = CFrame.new(0, -0.5, 0),
 			Color = moodColor(Color3.fromRGB(24, 25, 38), Color3.fromRGB(173, 177, 187)),
 			Material = Enum.Material.SmoothPlastic,
-			Reflectance = 0.16,
+			-- No reflectance: a reflective floor mirrors the engine's daytime skybox,
+			-- and the lower half of the room reads as open sky. The monitors' bias
+			-- lights and the accent strips light the floor instead.
 		})
 	)
 	table.insert(

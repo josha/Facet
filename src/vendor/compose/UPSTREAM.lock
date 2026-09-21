@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "5f6bf7d081bab39971b116e47d6eb9ccf5877282",
+  "commit": "fc7c0f3fdabbf30900cfe509453f6b1aa3595fd1",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -42,7 +42,7 @@
     "core/reactive/sink.luau": "efafad364d56811913f45955a028f8b04222afc28177951955ad384ce8b10c9a",
     "core/reactive/static-sink.luau": "8a4dc163dd5d9d6d12b324512a0178e45d97c12cabfd269c61fc967db3b0d121",
     "core/reactive/stats.luau": "0c384f3c8e9ad10955a5a2a49066e9dd566cd135f06872e9877dc5d627de523e",
-    "core/reactive/types.luau": "c1113b5fbad239042e4e947626f65f026ff33b5b190a97229dcb372673a25cde",
+    "core/reactive/types.luau": "72e8af7dd324a22673abf393642eea4f7014819bda55f7f5f73dc2a48640e54b",
     "core/reactive/userSpace.luau": "d4265690153baa516680a6a9c43b3f2b39bbfef2fd1011e854dbd8efd96374a8",
     "core/reactive/watch.luau": "894c54e8cc5e712057211aa73561c5a7fc868b14b85cc9953fbcab2961c5a7b8",
     "core/runtime/block.luau": "27037359d16cfe4554c0adc639a43feda33db7449c19af7fef8b1eb117ab073a",
@@ -63,7 +63,6 @@
     "core/structure/spatial-collection.luau": "f0cd54d97aa6583eddd864e538557573162c348267545f88386d439a9fb6cf94",
     "core/structure/support.luau": "8d807362fb659305180bce8859a0b0fe97453e966dadbde3b7a6c2d11a155a9a",
     "core/structure/switch.luau": "0f3d041ab6540daaba40484febe39060b5619e16d7666a496ef253e4282ffa1f",
-    "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36",
     "roblox/cleanup.luau": "c19d9f2c7572ad98517ddf7d1b2b6041fa04f3121322369b1a6c283f34400c52",
     "roblox/codecs.luau": "731d8031bc6f077b93e64600672b8a5c93253c00bd74ab42e69b03c1a6e74270",
     "roblox/engine.luau": "09a464032f2144bd084a229cbf0a097828711c8a38432f25909ae74165f75ee8",
@@ -71,7 +70,8 @@
     "roblox/init.luau": "3540e2dda4dbe683aeda2f735d5fc623c26cad7ffc786a318915882c8fb49b1c",
     "roblox/input.luau": "c9877d2a6677348670bb9c0348512b01e8e466eb209f35a88caeff9662cea7fc",
     "roblox/preferred-input.luau": "976d779725a9c65825c59b81d535e0546d5b13542c9c2c7b34cb40e19b09f3e7",
-    "roblox/viewport.luau": "e2abb971178859aa9bd039da0491d60ddd43e81fd7f4b63d32560f5869740733"
+    "roblox/viewport.luau": "e2abb971178859aa9bd039da0491d60ddd43e81fd7f4b63d32560f5869740733",
+    "license.luau": "6895ff52a3e5583fabbf3f961d94eece335df5f24d2753189473daf8873e8f36"
   },
   "docs": {
     "SKILL.md": "412a0cf5825068bb13bef3bd3ef7de48a77a00311e42f96cf79e579ad02ffec3",

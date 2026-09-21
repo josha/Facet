@@ -289,13 +289,49 @@ The tab IDs are selection values. The control itself needs no ID. Each page
 factory returns a native Facet node and can use `Compose.cleanup` for external
 resources. Facet supplies adaptive navigation placement, input and focus.
 
+### Types
+
+Every constructor on `app.controls` is typed, so a wrong value in a spec is an
+analyzer error on the line where you wrote it. Nothing has to run. Both
+spellings are checked: `UI.Button({ … })` and `UI.Button("Name")({ … })`.
+
+```luau
+--!strict
+local Facet = require(path.to.Facet)
+local app = Facet.new()              -- app: Facet.App
+local UI = app.controls              -- UI: Facet.Controls
+
+UI.VStack({ gap = true })            -- error: `gap` is a number or a spacing name
+UI.Slider("Volume")({ value = "5" }) -- error: `value` is a cell of number
+UI.Text({ text = function(use)       -- fine: a binding that reads a cell
+    return `{use(score)} points`
+end })
+```
+
+| Type | What it is |
+|---|---|
+| `Facet.App` | What `Facet.new` returns. `controls` is typed; the rest of the handle is described in the table above. |
+| `Facet.Controls` | The constructor table. Each control and each layout, text and paint primitive is a `Constructor<Spec>`; regions and modifiers are not yet typed. |
+| `Facet.ButtonSpec`, `ToggleSpec`, `ComboBoxSpec`, `SplitButtonSpec`, `ChipSpec`, `AsyncImageSpec`, `VirtualListSpec<T>`, `VirtualGridSpec<T>` | Spec types for the controls that do not export one from their own module. |
+| `<control>.Spec` | Every other control's spec type, declared in `src/spec_types/<control>.luau` and re-exported by the control. Reading a type loads no control. |
+
+**A live value is a `Bound<T>`**: a plain `T`, a `Compose.cell` or
+`Compose.formula` holding a `T`, or a function `(use) -> T`. A prop that takes
+two kinds of value, such as `gap` (a number or a spacing name), accepts a cell of
+either.
+
+Two limits to know about. A cell is invariant in what it holds, so a field that
+wants `Cell<{ Entry }>` needs the literal annotated:
+`Compose.cell({ … } :: { NavigationStack.Entry })`. And a misspelled key is
+caught when the control is built (with a suggestion), not by the analyzer.
+
 ### `Compose`
 
 `Facet.Compose` is the pinned Compose core module itself. Facet does not rename its
 operations or wrap its cells and components in another public authoring context.
 The exact dependency revision is recorded in
 [`UPSTREAM.lock`](../../src/vendor/compose/UPSTREAM.lock). The
-[pinned Compose reference](https://github.com/voidmeld/compose/blob/5f6bf7d081bab39971b116e47d6eb9ccf5877282/docs/api.md)
+[pinned Compose reference](https://github.com/voidmeld/compose/blob/fc7c0f3fdabbf30900cfe509453f6b1aa3595fd1/docs/api.md)
 is authoritative for signatures, options, ownership and error contracts.
 
 The re-exported capabilities are grouped below. They operate on Facet's runtime

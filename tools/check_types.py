@@ -159,17 +159,56 @@ _EROSION_PROBES = [
     ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
     ("NavigationStack", 'app.controls.NavigationStack({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
     ("NavigationStack", 'app.controls.NavigationStack("N")({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
-    ("Button", 'app.controls.Button({ label = 42 })'),
-    ("Button", 'app.controls.Button("B")({ label = 42 })'),
+    ("Button", 'app.controls.Button({ label = true })'),
+    ("Button", 'app.controls.Button("B")({ label = true })'),
     ("Toggle", 'app.controls.Toggle({ value = "on" })'),
     ("Toggle", 'app.controls.Toggle("T")({ value = "on" })'),
+    # the layout and text primitives are held to the same bar as the controls
+    ("VStack", 'app.controls.VStack({ gap = true })'),
+    ("VStack", 'app.controls.VStack("V")({ gap = true })'),
+    ("Text", 'app.controls.Text({ text = "x", textSize = true })'),
+    ("Text", 'app.controls.Text("T")({ text = "x", textSize = true })'),
+    ("Text", 'app.controls.Text({ text = function(use) return true end })'),
+    ("Grid", 'app.controls.Grid("G")({ columns = "two" })'),
+    ("Image", 'app.controls.Image({ image = 42 })'),
 ]
+
+TYPES_FILE = "src/control_types.luau"
+
+
+def typed_surface_problems(entries):
+    """Every registered control is NAMED in `Controls` with a real spec type, no
+    spec is `any`, and the flat ButtonSpec carries every key the control accepts."""
+    problems = []
+    source = open(TYPES_FILE).read()
+    block = source[source.index("export type Controls = {") :]
+    block = block[: block.index("\n}")]
+    named = dict(re.findall(r"\n\t(\w+): Constructor<([^\n]+)>,", block))
+    for name in sorted(entries):
+        spec = named.get(name)
+        if spec is None:
+            problems.append(f"`{name}` is registered but not named in `Controls` ({TYPES_FILE}): its spec is unchecked")
+        elif re.fullmatch(r"any|\{\s*\[any\]: any\s*\}", spec.strip()):
+            problems.append(f"`{name}` is typed `{spec}` in `Controls`: a spec may not be `any`")
+    loose = re.findall(r"\n\t(\w+): any\??,", source)
+    if loose:
+        problems.append(f"{TYPES_FILE} types these fields `any`: {', '.join(sorted(set(loose)))}")
+    button = open("src/controls/button.luau").read()
+    keys = re.search(r"guard\.keySet\(\{(.*?)\}\)", button, re.S)
+    accepted = set(re.findall(r'"(\w+)"', keys.group(1))) if keys else set()
+    body = re.search(r"export type ButtonSpec = \{\n(.*?)\n\}\n", source, re.S)
+    typed = set(re.findall(r"^\t(\w+):", body.group(1), re.M)) if body else set()
+    missing = sorted(accepted - typed)
+    if missing:
+        problems.append("ButtonSpec does not type these keys `controls/button.luau` accepts: " + ", ".join(missing))
+    return problems
 
 
 def field_erosion_check(entries):
     """-> (eroded: bool, detail: str). Only meaningful if both probed entries
     are still registered composites; skipped otherwise."""
-    if not all(name in entries for name, _ in _EROSION_PROBES):
+    composites = {"Slider", "NavigationStack", "Button", "Toggle"}
+    if not all(name in entries for name, _ in _EROSION_PROBES if name in composites):
         return None, "probed entries no longer registered; erosion check skipped"
     lines = ['--!strict', 'local Facet = require("../../src")', "local app = Facet.new()"]
     for _, call in _EROSION_PROBES:
@@ -259,6 +298,8 @@ def run():
                 f"`app.controls.{name}` is declared DECLARED_UNPROTECTED but the analyzer "
                 "rejected a number for it — remove it from DECLARED_UNPROTECTED, it is fine"
             )
+
+    problems.extend(typed_surface_problems(entries))
 
     eroded, erosionDetail = field_erosion_check(entries)
     if eroded is None:
