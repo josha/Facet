@@ -417,4 +417,65 @@ describe("DisclosureGroup header vocabulary", function()
 		expect(order[2]).toBe("closed")
 		expect(w.pres.focus.focused:peek()).toBe(header)
 	end)
+	it("returns keyboard focus before child or caller collapse without stealing unrelated focus", function()
+		for _, reduced in { false, true } do
+			local w = world.new({
+				reducedMotion = reduced,
+				preferredInput = "MouseKeyboard",
+				hostOpts = { keyboardNavigation = true },
+			})
+			local expanded = Compose.cell(false)
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.VStack("Cases")({
+						width = { type = "fixed", px = 320 },
+						w.UI.DisclosureGroup("Group")({
+							label = "Details",
+							expanded = expanded,
+							content = function()
+								return w.UI.Button("Inside")({
+									label = "Close",
+									onActivate = function()
+										expanded:set(false)
+									end,
+								})
+							end,
+						}),
+						w.UI.Button("Outside")({ label = "Next control" }),
+					}),
+				})
+			end)
+			local _, header = find(w, "/Header")
+			expect(w.pres.focus.focusOn(header)).toBe(true)
+			w.press("Return")
+			w.settle(60)
+			local _, inside = find(w, "/Inside")
+			w.press("Tab")
+			expect(w.pres.focus.focused:peek()).toBe(inside)
+			w.press("Return")
+			expect(expanded:peek()).toBe(false)
+			expect(w.pres.focus.focused:peek()).toBe(header)
+			w.settle(60)
+			expect(w.adapter.node(inside)).toBeNil()
+			expect(w.pres.focus.focused:peek()).toBe(header)
+			expanded:set(true)
+			w.settle(60)
+			w.press("Tab")
+			expect(w.pres.focus.focused:peek()).toBe(inside)
+			expanded:set(false)
+			expect(w.pres.focus.focused:peek()).toBe(header)
+			w.settle(60)
+			expanded:set(true)
+			w.settle(60)
+			local _, outside = find(w, "/Outside")
+			expect(w.pres.focus.focusOn(outside)).toBe(true)
+			expanded:set(false)
+			w.settle(60)
+			expect(w.pres.focus.focused:peek()).toBe(outside)
+			w.close()
+			expanded:set(true)
+			expanded:set(false)
+			expect(#w.adapter.paths()).toBe(0)
+		end
+	end)
 end)

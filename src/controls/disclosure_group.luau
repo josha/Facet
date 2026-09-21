@@ -3,6 +3,7 @@
 -- to Compose; Facet supplies the header, layout, theme icon and input behavior.
 
 local controlContract = require("../class_contract")
+local Compose = require("../vendor/compose/core")
 local contribution = require("../input/contribution")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
@@ -92,7 +93,24 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	vocabulary.assertSize("UI.DisclosureGroup", spec.controlSize)
 
 	local headerPath: string? = nil
+	local rootPath: string? = nil
 	local focusGraph: any = nil
+	local function returnContentFocus()
+		if focusGraph == nil or headerPath == nil or rootPath == nil then
+			return
+		end
+		local focused = focusGraph.focused:peek()
+		local prefix = rootPath .. "/Reveal/"
+		if focused ~= nil and string.sub(focused, 1, #prefix) == prefix then
+			focusGraph.focusOn(headerPath)
+		end
+	end
+	-- Register before presence: caller-owned state can collapse the branch too.
+	Compose.watch(function(use)
+		if not use(expanded) then
+			returnContentFocus()
+		end
+	end)
 
 	local function isEnabled(): boolean
 		return controlContract.enabledNow(spec.enabled)
@@ -105,12 +123,7 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		local next_ = not selection.read(expanded)
 		-- Return focus before removing the branch that currently contains it.
 		if not next_ then
-			if focusGraph ~= nil and headerPath ~= nil then
-				local focused = focusGraph.focused:peek()
-				if focused ~= nil and string.sub(focused, 1, #headerPath) ~= headerPath then
-					focusGraph.focusOn(headerPath)
-				end
-			end
+			returnContentFocus()
 		end
 		local function flip()
 			expanded:set(next_)
@@ -252,7 +265,11 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 			return false
 		end,
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
-			if rootNode == nil or headerPath ~= nil then
+			if rootNode == nil then
+				return
+			end
+			rootPath = rootNode.path
+			if headerPath ~= nil then
 				return
 			end
 			local function findHeader(node: any)
