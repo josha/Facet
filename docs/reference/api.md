@@ -8561,6 +8561,17 @@ app.mount(function()
 end)
 ```
 
+`UI.ProgressView` also accepts bound `endLabel`, the caller's trailing phrase
+(e.g. "2 of 5"). It follows the indicator and optional formatted value, can
+shrink, and requests disclosure. Indeterminate activity can carry this phrase too.
+Bound `controlSize` names the indicator's local space-based ladder: spinner dots
+compact/regular/large use space.xs/s/m (4/8/16 at Neutral); circular indicators use
+space.m/l/xl (16/24/40). Absent or nil preserves the package's authored progress
+metrics. Every rendered dimension checks the rung before publication and recovers
+on a legal value. Bars have no sized indicator and refuse controlSize; circular
+views accept either an explicit diameter or a rung. `dump.endLabel` and
+`dump.controlSize` describe the requested source values.
+
 The native host owns its Compose timeline, and the control's lifetime is the
 Compose owner that built it: removing the control releases its animation. With
 reduced motion, the indeterminate indicator rests at its initial phase.
@@ -12361,6 +12372,7 @@ return UI.AvatarGroup("Party")({
 })
 ```
 
+
 ### `UI.StatusIndicator`
 
 `app.controls.StatusIndicator("Unread")({ count = unread, status = "error" })`
@@ -12381,6 +12393,11 @@ warning content/surface, error danger/onDanger, and info/success/accent accent/o
 Shape and a readable name distinguish meanings that share a color. `onDanger` is
 also a public tint role resolved through the theme's existing destructive pair.
 A cutout spends the page surface color; it is not a transparent hole through arbitrary art.
+Uncounted round forms center a square in the smaller offered axis, rounding the
+diameter down to a whole pixel. An existing two-candidate fit ladder keeps both
+passive alternatives mounted but paints only the selected one. Square forms use
+the full rectangular reservation. Counted height is resolved once at the outer
+reservation; the seal and cutout consume that space.
 
 `ref` receives `{ api, dump }`; `api.semanticText` is a readable. `dump()` returns
 `schema`, `id`, `form`, `status`, displayed `count`, `max`, `cutout`, `name`,
@@ -12396,19 +12413,21 @@ informational caption with no generated focus stop or activation behavior.
 
 | Field | Contract |
 |---|---|
-| `label`, `icon` | Bound caption and/or static semantic icon name. Initial content must be nonempty; an icon-only badge requires a nonempty `name`. The caller owns meaningful later caption values. |
+| `label`, `icon` | Bound caption and/or static semantic icon name. An empty or absent caption requires an icon and a nonempty `name`. Bound caption presence mounts/removes the owned label; invalid updates retain the last legal content. |
 | `iconPosition` | leading (default) or trailing; requires an icon. |
 | `appearance` | standard (default), status (adds a shared StatusIndicator), or utility (no plate). |
 | `status` | Bound StatusIndicator vocabulary, default neutral. |
 | `corners` | pill or square; absent uses a pill. |
 | `controlSize` | Bound compact (default), regular, or large; an icon-size height floor, not a cap on text growth. |
 | `over` | media uses the opaque surfaceStrong/contentStrong pair, overriding the status pair. |
-| `name` | Optional semantic word; required for icon-only content. |
+| `name` | Optional nonempty semantic word; required for icon-only content. |
 
 Every plated Badge owns a surface-less tinted Box; package badge-slot art remains
 available to existing `Text.surface = "badge"` sites. Absent, static and bound
 neutral all use control/content. Non-neutral statuses use StatusIndicator's pair;
 utility uses secondary lettering. The caption can shrink and requests disclosure.
+The status appearance gives its nested mark a page-color cutout so the mark
+remains distinct from the enclosing plate even when both use the same status role.
 Small icon art and an ASCII glyph share a hugging box. Live status changes switch
 the visible representation so a status plate's lettering remains readable; this
 is not generic per-instance recoloring of semantic assets.

@@ -261,7 +261,15 @@ local _numericText = app.controls.TextInput("Number")({
 	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
 	onCancel = function() end,
 })
-local _progressview = app.controls.ProgressView("Progress")({ value = Facet.Compose.cell(0.5) })
+local _progressview =
+	app.controls.ProgressView("Progress")({ value = Facet.Compose.cell(0.5), endLabel = Facet.Compose.cell("2 of 5") })
+local _rungProgress = app.controls.ProgressView({
+	presentation = "spinner",
+	controlSize = "compact",
+	endLabel = function(_use)
+		return "Connecting"
+	end,
+})
 local _levelpicker = app.controls.LevelPicker("Level")({ value = Facet.Compose.cell(2) })
 local _levelConfig: levelPickerTypes.Config = {
 	constructor = "LevelPicker",

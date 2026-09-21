@@ -19,6 +19,7 @@ local function presencePart(w, base, name)
 		if
 			string.sub(path, 1, #base + #"/Layers/Presence/") == base .. "/Layers/Presence/"
 			and string.sub(path, -#name - 1) == "/" .. name
+			and w.adapter.visibleOf(path)
 		then
 			return value
 		end

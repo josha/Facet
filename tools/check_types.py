@@ -193,6 +193,8 @@ _EROSION_PROBES = [
     ("AvatarGroup", 'app.controls.AvatarGroup({ items = {{ id = 42, name = "Ada" }} })'),
     ("AvatarGroup", 'app.controls.AvatarGroup("Team")({ items = {}, layout = "grid" })'),
     ("AvatarGroup", 'app.controls.AvatarGroup({ items = {}, onOverflow = "show" })'),
+    ("ProgressView", 'app.controls.ProgressView({ endLabel = 2 })'),
+    ("ProgressView", 'app.controls.ProgressView("Busy")({ presentation = "spinner", controlSize = "huge" })'),
     ("StatusIndicator", 'app.controls.StatusIndicator({ form = "triangle" })'),
     ("StatusIndicator", 'app.controls.StatusIndicator("Count")({ count = "4" })'),
     ("StatusIndicator", 'app.controls.StatusIndicator({ status = "busy" })'),

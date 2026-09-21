@@ -13,9 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- ProgressView gains a trailing endLabel and checked live spinner/circular size
+  rungs. Omitting the rung preserves each package's authored indicator sizes.
+
 - Add passive `UI.StatusIndicator` shapes/counts and `UI.Badge` captions with live
   status paint. Avatar presence uses the shared status shapes and cutout. Existing
-  All controls Indicators gains Status and Badges child tabs.
+  All controls Indicators gains Status and Badges child tabs. Round marks fit both
+  reserved axes, counted height resolves once, and Badge caption presence stays live.
 
 - Add `UI.AvatarGroup` keyed player rosters with shared caller-owned picture
   requests, stacked or spread faces, and one optional overflow target. Indicators

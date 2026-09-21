@@ -30,6 +30,10 @@ local ON = {
 	accent = "onAccent",
 }
 local FILL = table.freeze({ type = "fill", weight = 1 })
+local ROUND_HEIGHT = table.freeze({ type = "aspect", ratio = 1 })
+-- Percent dimensions round to the nearest pixel; subtracting half a pixel
+-- floors the offered axis so an aspect-paired circle stays inside fractional offers.
+local ROUND_AXIS = table.freeze({ type = "percent", fraction = 1, offset = -0.5 })
 local ZERO = table.freeze({ type = "fixed", px = 0 })
 local SURFACE = table.freeze({ role = "surface", blend = 1 })
 local INSET = table.freeze({
@@ -61,8 +65,10 @@ local function build(library: any, _core: any, spec: any, owner: any)
 		"Facet StatusIndicator: name must be a nonempty string"
 	)
 	local facts = Compose.formula(function(use)
-		local form = selection.read(spec.form, use) or "dot"
-		local status = selection.read(spec.status, use) or "neutral"
+		local form = selection.read(spec.form, use)
+		local status = selection.read(spec.status, use)
+		form = if form == nil then "dot" else form
+		status = if status == nil then "neutral" else status
 		local count = selection.read(spec.count, use)
 		local rung = selection.read(spec.controlSize, use)
 		assert(FORMS[form], "Facet StatusIndicator: form must be dot | ring | square | dash")
@@ -110,103 +116,150 @@ local function build(library: any, _core: any, spec: any, owner: any)
 				return UI.Box({ id = name, shape = "rect", width = FILL, height = FILL, tint = tint })
 			end,
 			elseView = function()
-				return UI.Box({ id = name, shape = "circle", width = FILL, tint = tint })
+				return UI.Box({ id = name, shape = "circle", width = ROUND_AXIS, tint = tint })
 			end,
 		})
 	end
-	local body
-	if counted then
-		body = UI.background(
-			UI.ZStack({
-				id = "Seal",
-				padding = { left = "xs", right = "xs" },
-				alignH = "center",
-				alignV = "center",
-				height = spec.height or function(use)
-					return {
-						type = "minMax",
-						min = vocabulary.metricPath(use(facts).controlSize or "compact", "iconSize"),
-					}
-				end,
-				children = {
-					UI.Text({
-						id = "Count",
-						text = field("count"),
-						textSize = "caption",
-						textAlign = "center",
-						lineLimit = 1,
-						tint = function(use)
-							return { role = ON[use(facts).status], blend = 1 }
-						end,
-					}),
-				},
-			}),
-			UI.Box({ id = "Plate", tint = plateTint, corners = corners })
-		)
-	else
-		local function detailDim(axis)
-			return function(use)
-				local form = use(facts).form
-				return if form == "ring"
-					then { type = "percent", fraction = 0.46 }
-					elseif form == "dash" then { type = "percent", fraction = if axis == "w" then 0.62 else 0.22 }
-					else ZERO
-			end
-		end
-		local function detailTint(use)
-			local form = use(facts).form
-			return { role = "surface", blend = 1, transparency = if form == "ring" or form == "dash" then 0 else 1 }
-		end
-		body = UI.ZStack({
-			id = "Body",
-			width = FILL,
-			height = FILL,
-			children = {
-				mark("Mark", plateTint),
+	local function layers()
+		local body
+		if counted then
+			body = UI.background(
 				UI.ZStack({
-					id = "DetailFrame",
-					width = FILL,
-					height = FILL,
+					id = "Seal",
+					padding = { left = "xs", right = "xs" },
 					alignH = "center",
 					alignV = "center",
+					height = if spec.height ~= nil
+						then FILL
+						else function(use)
+							return {
+								type = "minMax",
+								min = vocabulary.metricPath(use(facts).controlSize or "compact", "iconSize"),
+							}
+						end,
 					children = {
-						UI.When({
-							id = "DetailShape",
-							condition = function(use)
-								return use(facts).form == "ring"
-							end,
-							thenView = function()
-								return UI.Box({
-									id = "Detail",
-									shape = "circle",
-									width = detailDim("w"),
-									tint = detailTint,
-								})
-							end,
-							elseView = function()
-								return UI.Box({
-									id = "Detail",
-									shape = "rect",
-									width = detailDim("w"),
-									height = detailDim("h"),
-									tint = detailTint,
-								})
+						UI.Text({
+							id = "Count",
+							text = field("count"),
+							textSize = "caption",
+							textAlign = "center",
+							lineLimit = 1,
+							tint = function(use)
+								return { role = ON[use(facts).status], blend = 1 }
 							end,
 						}),
 					},
 				}),
+				UI.Box({ id = "Plate", tint = plateTint, corners = corners })
+			)
+		else
+			local function detailDim(axis)
+				return function(use)
+					local form = use(facts).form
+					return if form == "ring"
+						then { type = "percent", fraction = 0.46 }
+						elseif form == "dash" then {
+							type = "percent",
+							fraction = if axis == "w" then 0.62 else 0.22,
+						}
+						else ZERO
+				end
+			end
+			local function detailTint(use)
+				local form = use(facts).form
+				return { role = "surface", blend = 1, transparency = if form == "ring" or form == "dash" then 0 else 1 }
+			end
+			body = UI.ZStack({
+				id = "Body",
+				width = FILL,
+				height = FILL,
+				children = {
+					mark("Mark", plateTint),
+					UI.ZStack({
+						id = "DetailFrame",
+						width = FILL,
+						height = FILL,
+						alignH = "center",
+						alignV = "center",
+						children = {
+							UI.When({
+								id = "DetailShape",
+								condition = function(use)
+									return use(facts).form == "ring"
+								end,
+								thenView = function()
+									return UI.Box({
+										id = "Detail",
+										shape = "circle",
+										width = detailDim("w"),
+										tint = detailTint,
+									})
+								end,
+								elseView = function()
+									return UI.Box({
+										id = "Detail",
+										shape = "rect",
+										width = detailDim("w"),
+										height = detailDim("h"),
+										tint = detailTint,
+									})
+								end,
+							}),
+						},
+					}),
+				},
+			})
+		end
+		local children = { body }
+		if spec.cutout then
+			children = {
+				if counted
+					then UI.Box({ id = "Cutout", tint = SURFACE, corners = corners, width = FILL, height = FILL })
+					else mark("Cutout", SURFACE),
+				UI.ZStack({ id = "Inset", width = FILL, height = FILL, padding = INSET, children = { body } }),
+			}
+		end
+		return children
+	end
+	local function roundCandidate(name, fromWidth)
+		return UI.ZStack({
+			id = name,
+			width = FILL,
+			height = FILL,
+			alignH = "center",
+			alignV = "center",
+			children = {
+				UI.ZStack({
+					id = "Circle",
+					width = if fromWidth then ROUND_AXIS else ROUND_HEIGHT,
+					height = if fromWidth then ROUND_HEIGHT else ROUND_AXIS,
+					children = layers(),
+				}),
 			},
 		})
 	end
-	local children = { body }
-	if spec.cutout then
-		children = {
-			if counted
-				then UI.Box({ id = "Cutout", tint = SURFACE, corners = corners, width = FILL, height = FILL })
-				else mark("Cutout", SURFACE),
-			UI.ZStack({ id = "Inset", width = FILL, height = FILL, padding = INSET, children = { body } }),
+	local children = if counted
+		then layers()
+		else {
+			UI.When({
+				id = "Footprint",
+				condition = function(use)
+					return use(facts).form == "square"
+				end,
+				thenView = function()
+					return UI.ZStack({ id = "Rectangle", width = FILL, height = FILL, children = layers() })
+				end,
+				elseView = function()
+					-- Two passive candidates share checked facts; only the fitting square paints.
+					return UI.ViewThatFits({
+						id = "Fit",
+						width = FILL,
+						height = FILL,
+						children = { roundCandidate("FromWidth", true), roundCandidate("FromHeight", false) },
+					})
+				end,
+			}),
 		}
-	end
 	local root = UI.ZStack({
 		id = id,
 		width = spec.width or (if counted then nil else size),

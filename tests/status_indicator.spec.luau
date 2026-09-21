@@ -8,7 +8,11 @@ local function node(w, path)
 end
 local function part(w, name)
 	for path, value in w.adapter.liveNodes() do
-		if string.sub(path, 1, 8) == "/S/Mark/" and string.sub(path, -#name - 1) == "/" .. name then
+		if
+			string.sub(path, 1, 8) == "/S/Mark/"
+			and string.sub(path, -#name - 1) == "/" .. name
+			and w.adapter.visibleOf(path)
+		then
 			return value
 		end
 	end
@@ -231,5 +235,218 @@ t.describe("StatusIndicator gallery", function()
 		t.expect(built.report().count.count).toBe("0")
 		w.close()
 		t.expect(built.report()).toBeNil()
+	end)
+end)
+
+t.describe("StatusIndicator authored footprints", function()
+	t.it("spends an authored count height once and keeps cutout content inside its inset", function()
+		for _, cutout in { false, true } do
+			for _, height in { { type = "percent", fraction = 0.5 }, { type = "fixed", px = 20 } } do
+				local w = world.new()
+				w.present(function()
+					return w.UI.Screen("S")({
+						width = { type = "fixed", px = 100 },
+						height = { type = "fixed", px = 100 },
+						w.UI.StatusIndicator("Mark")({
+							count = 7,
+							width = { type = "fixed", px = 40 },
+							height = height,
+							cutout = cutout,
+						}),
+					})
+				end)
+				local root, plate, count = node(w, "/S/Mark").rect, part(w, "Plate").rect, part(w, "Count").rect
+				t.expect(root.h).toBe(if height.type == "percent" then 50 else 20)
+				t.expect(plate.h).toBe(root.h - (if cutout then 2 else 0))
+				t.expect(plate.y).toBe(root.y + (if cutout then 1 else 0))
+				t.expect(count.y >= plate.y and count.y + count.h <= plate.y + plate.h).toBe(true)
+				w.close()
+			end
+		end
+	end)
+	t.it("centers ring and dash details in the actual circle within a nonsquare reservation", function()
+		for _, form in { "ring", "dash", "square" } do
+			local w = world.new()
+			mount(w, { form = form, width = { type = "fixed", px = 10 } })
+			local root, mark, detail = node(w, "/S/Mark").rect, part(w, "Mark").rect, part(w, "Detail").rect
+			t.expect(root.w).toBe(10)
+			t.expect(root.h).toBe(16)
+			t.expect(mark.h).toBe(if form == "square" then 16 else 10)
+			if form ~= "square" then
+				t.expect(math.abs(detail.y + detail.h / 2 - mark.y - mark.h / 2) <= 0.5).toBe(true)
+				t.expect(detail.y > mark.y and detail.y + detail.h < mark.y + mark.h).toBe(true)
+			end
+			w.close()
+		end
+	end)
+	t.it("refuses false form and status instead of publishing defaults", function()
+		local w = world.new()
+		local form, status = Compose.cell("ring"), Compose.cell("error")
+		local record = mount(w, { form = form, status = status })
+		form:set(false)
+		w.pres.refresh()
+		t.expect(record.dump().form).toBe("ring")
+		t.expect(part(w, "Detail").props.shape).toBe("circle")
+		form:set("square")
+		status:set(false)
+		w.pres.refresh()
+		t.expect(record.dump().status).toBe("error")
+		t.expect(part(w, "Mark").props.tint.role).toBe("danger")
+		status:set(nil)
+		w.pres.refresh()
+		t.expect(record.dump().status).toBe("neutral")
+	end)
+end)
+
+t.describe("StatusIndicator round containment", function()
+	t.it("selects a contained visible square from either axis with cutout and fractional offers", function()
+		for _, cutout in { false, true } do
+			for _, axes in
+				{
+					{ 10, 16 },
+					{ 16, 10 },
+					{ false, 10 },
+					{ 16.49, 10.49 },
+					{ 16.5, 10.5 },
+					{ 16.99, 10.99 },
+					{ 10.49, 16.49 },
+					{ 10.5, 16.5 },
+					{ 10.99, 16.99 },
+					{ 10.49, 10.99 },
+					{ 10.99, 10.49 },
+				}
+			do
+				local metrics = table.clone(snapshot.neutral())
+				metrics.strokes = table.clone(metrics.strokes)
+				metrics.strokes.hairline = 2
+				local w = world.new({ themeMetrics = metrics })
+				mount(w, {
+					form = "ring",
+					width = if axes[1] then { type = "fixed", px = axes[1] } else nil,
+					height = { type = "fixed", px = axes[2] },
+					cutout = cutout,
+				})
+				local root = node(w, "/S/Mark").rect
+				local visible, mounted = {}, 0
+				for path, value in w.adapter.liveNodes() do
+					if path ~= "/S/Mark" and string.sub(path, -5) == "/Mark" then
+						mounted += 1
+						if w.adapter.visibleOf(path) then
+							table.insert(visible, value)
+						end
+					end
+				end
+				t.expect(#visible).toBe(1)
+				local mark = visible[1].rect
+				t.expect(mark.w).toBe(math.floor(math.min(root.w, root.h)) - (if cutout then 4 else 0))
+				t.expect(mark.w).toBe(mark.h)
+				t.expect(
+					mark.x >= root.x
+						and mark.y >= root.y
+						and mark.x + mark.w <= root.x + root.w
+						and mark.y + mark.h <= root.y + root.h
+				).toBe(true)
+				for path, value in w.adapter.liveNodes() do
+					if
+						(string.sub(path, -7) == "/Cutout" or string.sub(path, -7) == "/Detail")
+						and w.adapter.visibleOf(path)
+					then
+						local r = value.rect
+						t.expect(
+							r.x >= root.x
+								and r.y >= root.y
+								and r.x + r.w <= root.x + root.w
+								and r.y + r.h <= root.y + root.h
+						).toBe(true)
+					end
+				end
+				t.expect(mounted).toBe(2) -- existing fit ladder owns one constant passive alternative
+				w.close()
+			end
+		end
+	end)
+	t.it("keeps fractional theme insets inside the selected circular cutout", function()
+		local metrics = table.clone(snapshot.neutral())
+		metrics.strokes = table.clone(metrics.strokes)
+		metrics.strokes.hairline = 1.25
+		local w = world.new({ themeMetrics = metrics })
+		w.present(function()
+			return w.UI.Screen("S")({
+				padding = { left = 0.49, top = 0.99 },
+				w.UI.StatusIndicator("Mark")({
+					form = "ring",
+					width = { type = "fixed", px = 16.5 },
+					height = { type = "fixed", px = 10.5 },
+					cutout = true,
+				}),
+			})
+		end)
+		local root, cutout, mark, detail =
+			node(w, "/S/Mark").rect, part(w, "Cutout").rect, part(w, "Mark").rect, part(w, "Detail").rect
+		t.expect(root.x).toBe(0.49)
+		t.expect(root.y).toBe(0.99)
+		t.expect(cutout.w).toBe(10)
+		t.expect(cutout.h).toBe(10)
+		t.expect(mark.w).toBe(7)
+		t.expect(mark.h).toBe(7)
+		t.expect(
+			detail.x >= mark.x
+				and detail.y >= mark.y
+				and detail.x + detail.w <= mark.x + mark.w
+				and detail.y + detail.h <= mark.y + mark.h
+		).toBe(true)
+		for _, rect in { cutout, mark, detail } do
+			t.expect(
+				rect.x >= root.x
+					and rect.y >= root.y
+					and rect.x + rect.w <= root.x + root.w
+					and rect.y + rect.h <= root.y + root.h
+			).toBe(true)
+		end
+	end)
+	t.it("retains a legal subpixel reservation with zero quantized paint", function()
+		local w = world.new()
+		mount(w, { form = "ring", width = { type = "fixed", px = 0.99 }, height = { type = "fixed", px = 0.49 } })
+		local root, mark = node(w, "/S/Mark").rect, part(w, "Mark").rect
+		t.expect(root.w).toBe(0.99)
+		t.expect(root.h).toBe(0.49)
+		t.expect(mark.w).toBe(0)
+		t.expect(mark.h).toBe(0)
+		t.expect(mark.x >= root.x and mark.y >= root.y and mark.x <= root.x + root.w and mark.y <= root.y + root.h)
+			.toBe(true)
+	end)
+	t.it("reselects the fitted axis when a relative parent offer changes", function()
+		local w = world.new()
+		local width, height = Compose.cell({ type = "fixed", px = 200 }), Compose.cell({ type = "fixed", px = 100 })
+		w.present(function()
+			return w.UI.Screen("S")({
+				width = width,
+				height = height,
+				w.UI.StatusIndicator("Mark")({
+					form = "dash",
+					width = { type = "percent", fraction = 0.5 },
+					height = { type = "percent", fraction = 0.5 },
+				}),
+			})
+		end)
+		for _, dimensions in { { 200, 100 }, { 60, 200 }, { 200, 100 } } do
+			width:set({ type = "fixed", px = dimensions[1] })
+			height:set({ type = "fixed", px = dimensions[2] })
+			w.pres.refresh()
+			local root, actual = node(w, "/S/Mark").rect, nil
+			for path, value in w.adapter.liveNodes() do
+				if path ~= "/S/Mark" and string.sub(path, -5) == "/Mark" and w.adapter.visibleOf(path) then
+					actual = value.rect
+				end
+			end
+			t.expect(actual.w).toBe(math.min(root.w, root.h))
+			t.expect(actual.h).toBe(actual.w)
+			t.expect(
+				actual.x >= root.x
+					and actual.y >= root.y
+					and actual.x + actual.w <= root.x + root.w
+					and actual.y + actual.h <= root.y + root.h
+			).toBe(true)
+		end
 	end)
 end)

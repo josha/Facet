@@ -4,7 +4,9 @@ local world = require("./lib/world")
 local Compose = require("../src").Compose
 local function node(w, path)
 	return assert(
-		w.adapter.node(path) or w.adapter.node((string.gsub(path, "/S/Badge%+background/Badge", "/S/Badge"))),
+		w.adapter.node(path)
+			or w.adapter.node((string.gsub(path, "/S/Badge%+background/Badge", "/S/Badge")))
+			or w.adapter.node((string.gsub(path, "/Label$", "/LabelContent/then/Label"))),
 		path
 	)
 end
@@ -134,7 +136,8 @@ t.describe("Badge", function()
 		size:set(nil)
 		w.pres.refresh()
 		t.expect(record.dump().controlSize).toBeNil()
-		t.expect(require("../src/paths").nodeAt(w.handle.root.node, ROOT .. "/Label").props.disclose).toBe(true)
+		t.expect(require("../src/paths").nodeAt(w.handle.root.node, ROOT .. "/LabelContent/then/Label").props.disclose)
+			.toBe(true)
 	end)
 	t.it("requires meaningful initial content and an icon-only name", function()
 		for _, spec in
@@ -183,5 +186,107 @@ t.describe("Badge gallery", function()
 		t.expect(built.report().glyphVisible).toBe(false)
 		w.close()
 		t.expect(built.report()).toBeNil()
+	end)
+end)
+
+t.describe("Badge live content presence", function()
+	t.it("mounts and removes a checked live caption while retaining the icon and plate", function()
+		local w = world.new()
+		local label = Compose.cell(nil)
+		local record = mount(w, { label = label, icon = "status.info", name = "Information" })
+		local plate, icon = node(w, PLATE), node(w, ROOT .. "/Icon/Art")
+		local labelPath = ROOT .. "/LabelContent/then/Label"
+		t.expect(w.adapter.node(labelPath)).toBeNil()
+		for _ = 1, 5 do
+			label:set("Ready")
+			w.pres.refresh()
+			t.expect(node(w, labelPath).props.text).toBe("Ready")
+			t.expect(record.dump().label).toBe("Ready")
+			for _, empty in { "", false } do
+				if empty == false then
+					label:set(nil)
+				else
+					label:set(empty)
+				end
+				w.pres.refresh()
+				t.expect(w.adapter.node(labelPath)).toBeNil()
+			end
+			t.expect(node(w, PLATE)).toBe(plate)
+			t.expect(node(w, ROOT .. "/Icon/Art")).toBe(icon)
+		end
+	end)
+	t.it("quarantines an empty unnamed caption and false status, then recovers", function()
+		local w = world.new()
+		local label, status = Compose.cell("Ready"), Compose.cell("error")
+		local record = mount(w, { label = label, status = status })
+		for _, empty in { "", false } do
+			if empty == false then
+				label:set(nil)
+			else
+				label:set(empty)
+			end
+			w.pres.refresh()
+			t.expect(record.dump().label).toBe("Ready")
+		end
+		label:set("New")
+		status:set(false)
+		w.pres.refresh()
+		t.expect(record.dump().status).toBe("error")
+		status:set("neutral")
+		w.pres.refresh()
+		t.expect(record.dump().label).toBe("New")
+		t.expect(record.dump().status).toBe("neutral")
+	end)
+	t.it("rejects supplied empty or non-string names and false appearance", function()
+		for _, spec in
+			{
+				{ label = "Ready", name = "" },
+				{ label = "Ready", name = false },
+				{ label = "Ready", appearance = false },
+			}
+		do
+			local w = world.new()
+			t.expect(pcall(function()
+				mount(w, spec)
+			end)).toBe(false)
+		end
+	end)
+end)
+
+t.describe("Badge status silhouette", function()
+	t.it("separates warning and error marks from their equal-role plate with a page-color cutout", function()
+		local themes = require("../src").themes
+		local snapshot = require("../src/themes/snapshot")
+		for _, package in
+			{
+				snapshot.neutralPackage(),
+				require("../examples/themes/pixel_quest").build(themes),
+				(require("../examples/themes/fantasy_ornate").build(themes)),
+			}
+		do
+			for _, status in { "warning", "error" } do
+				local w = world.new({ themeMetrics = snapshot.resolve(package) })
+				mount(w, { label = "Ready", appearance = "status", status = status })
+				local cutout, mark
+				for path, value in w.adapter.liveNodes() do
+					if string.find(path, ROOT .. "/Mark/", 1, true) and w.adapter.visibleOf(path) then
+						if string.sub(path, -7) == "/Cutout" then
+							cutout = value
+						end
+						if string.sub(path, -5) == "/Mark" then
+							mark = value
+						end
+					end
+				end
+				t.expect(cutout ~= nil).toBe(true)
+				t.expect(cutout.props.tint.role).toBe("surface")
+				t.expect(mark.props.tint.role).toBe(node(w, PLATE).props.tint.role)
+				t.expect(cutout.rect.w > mark.rect.w and cutout.rect.h > mark.rect.h).toBe(true)
+				for _, theme in package.style.themes do
+					t.expect(theme.colors.surface).never().toEqual(theme.colors[mark.props.tint.role])
+				end
+				w.close()
+			end
+		end
 	end)
 end)

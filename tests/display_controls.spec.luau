@@ -1531,3 +1531,108 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		expect(ok).toBe(false)
 	end)
 end)
+
+describe("ProgressView trailing copy and local rungs", function()
+	local world = require("./lib/world")
+	local function mount(w, spec)
+		local record
+		spec = table.clone(spec)
+		spec.ref = function(value)
+			record = value
+		end
+		w.present(function()
+			return w.UI.Screen("S")({ w.UI.ProgressView("Progress")(spec) })
+		end)
+		return record
+	end
+	local function rect(w, path)
+		return assert(w.adapter.node("/S/Progress/" .. path)).rect
+	end
+	it("places live endLabel after the value with shrink and disclosure", function()
+		local w = world.new()
+		local copy = Compose.cell("2 of 5")
+		mount(w, { label = "Loading", value = 0.4, showValue = true, endLabel = copy })
+		local value, ending = rect(w, "Value"), rect(w, "EndLabel")
+		expect(ending.x >= value.x + value.w).toBe(true)
+		expect(w.adapter.node("/S/Progress/EndLabel").props.text).toBe("2 of 5")
+		local actual = require("../src/paths").nodeAt(w.handle.root.node, "/S/Progress/EndLabel")
+		expect(actual.props.shrinkWeight).toBe(1)
+		expect(actual.props.disclose).toBe(true)
+		copy:set("Almost finished")
+		w.pres.refresh()
+		expect(w.adapter.node("/S/Progress/EndLabel").props.text).toBe("Almost finished")
+	end)
+	it("keeps an end phrase on indeterminate activity without creating another clock", function()
+		local w = world.new()
+		local record = mount(w, { presentation = "spinner", endLabel = "Contacting server" })
+		expect(w.adapter.node("/S/Progress/EndLabel").props.text).toBe("Contacting server")
+		expect(record.dump().indeterminate).toBe(true)
+		local phase = record.api.phase:peek()
+		w.pres.tick(0.4)
+		expect(record.api.phase:peek() ~= phase).toBe(true)
+	end)
+	it("checks every live indicator dimension and retracts to authored theme defaults", function()
+		local snapshot = require("../src/themes/snapshot")
+		for _, presentation in { "spinner", "circular" } do
+			local metrics = table.clone(snapshot.neutral())
+			metrics.controls = table.clone(metrics.controls)
+			metrics.controls.progress = table.clone(metrics.controls.progress)
+			metrics.controls.progress.spinnerDotSize = 11
+			metrics.controls.progress.circularSize = 31
+			local w = world.new({ themeMetrics = metrics })
+			local rung = Compose.cell("compact")
+			local record = mount(w, { presentation = presentation, controlSize = rung })
+			local path = if presentation == "spinner" then "Spinner/Dot1" else "Ring/Arc"
+			local expected = if presentation == "spinner" then { 4, 8, 16 } else { 16, 24, 40 }
+			for index, word in { "compact", "regular", "large" } do
+				rung:set(word)
+				w.pres.refresh()
+				expect(rect(w, path).w).toBe(expected[index])
+				expect(rect(w, path).h).toBe(expected[index])
+			end
+			rung:set("invalid")
+			w.pres.refresh()
+			expect(rect(w, path).w).toBe(expected[3])
+			expect(rect(w, path).h).toBe(expected[3])
+			rung:set(nil)
+			w.pres.refresh()
+			expect(rect(w, path).w).toBe(if presentation == "spinner" then 11 else 31)
+			expect(record.dump().indeterminate).toBe(true)
+			w.close()
+		end
+	end)
+	it("refuses bar rungs, explicit diameter plus rung, and non-string end phrases", function()
+		for _, spec in
+			{
+				{ controlSize = "compact" },
+				{ presentation = "circular", diameter = 64, controlSize = "regular" },
+				{ presentation = "spinner", controlSize = "huge" },
+				{ value = 0.5, endLabel = 7 },
+			}
+		do
+			local w = world.new()
+			expect(pcall(function()
+				mount(w, spec)
+			end)).toBe(false)
+			expect(w.adapter.liveCount()).toBe(0)
+		end
+	end)
+end)
+
+describe("ProgressView rung gallery", function()
+	it("reports mounted dimensions and drives the same controls shown in Progress", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 900, h = 1200 } })
+		local built = require("../examples/gallery/scenarios/progress_ring").build(require("./lib/scenario_ctx").of(w))
+		expect(built.report()).toBeNil()
+		w.present(built.screen)
+		expect(built.steps.sizeCompact().ring.w).toBe(16)
+		expect(built.report().dot.w).toBe(4)
+		expect(w.adapter.driveActivate("/ProgressRing/Page/Sizes/Large")).toBe(true)
+		w.settle()
+		expect(built.report().ring.w).toBe(40)
+		expect(built.report().dot.w).toBe(16)
+		expect(built.steps.setProgress65().endLabel.text).toBe("3 of 5")
+		w.close()
+		expect(built.report()).toBeNil()
+	end)
+end)

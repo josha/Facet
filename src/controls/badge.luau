@@ -26,7 +26,8 @@ local KEYS = guard.keySet({
 local APPEARANCES = guard.keySet({ "standard", "status", "utility" })
 local function build(library: any, core: any, spec: any, owner: any)
 	guard.assertKnownKeys("UI.Badge", spec, KEYS, "spec")
-	local UI, id, appearance = library.UI, spec.id or "Badge", spec.appearance or "standard"
+	local UI, id, appearance =
+		library.UI, spec.id or "Badge", if spec.appearance == nil then "standard" else spec.appearance
 	assert(APPEARANCES[appearance], "Facet Badge: appearance must be standard | status | utility")
 	assert(
 		spec.icon == nil or (type(spec.icon) == "string" and themePackage.isIconName(spec.icon)),
@@ -37,14 +38,21 @@ local function build(library: any, core: any, spec: any, owner: any)
 			or (spec.icon ~= nil and (spec.iconPosition == "leading" or spec.iconPosition == "trailing")),
 		"Facet Badge: iconPosition requires icon and must be leading | trailing"
 	)
+	assert(
+		spec.name == nil or (type(spec.name) == "string" and spec.name ~= ""),
+		"Facet Badge: name must be a nonempty string"
+	)
 	vocabulary.assertCorners("Badge", spec.corners)
 	vocabulary.assertOver("Badge", spec.over)
 	local facts = Compose.formula(function(use)
 		local label, status, rung =
-			selection.read(spec.label, use),
-			selection.read(spec.status, use) or "neutral",
-			selection.read(spec.controlSize, use)
+			selection.read(spec.label, use), selection.read(spec.status, use), selection.read(spec.controlSize, use)
+		status = if status == nil then "neutral" else status
 		assert(label == nil or type(label) == "string", "Facet Badge: label must be a string")
+		assert(
+			(label ~= nil and label ~= "") or (spec.icon ~= nil and spec.name ~= nil),
+			"Facet Badge: an empty caption requires an icon and nonempty name"
+		)
 		assert(
 			statusIndicator.STATUS_SET[status],
 			"Facet Badge: status must be neutral | info | success | warning | error | accent"
@@ -53,12 +61,6 @@ local function build(library: any, core: any, spec: any, owner: any)
 		return { label = label, status = status, controlSize = rung }
 	end)
 	local initial = facts:peek()
-	local hasLabel = initial.label ~= nil and initial.label ~= ""
-	assert(hasLabel or spec.icon ~= nil, "Facet Badge: supply a label, an icon, or both")
-	assert(
-		hasLabel or (type(spec.name) == "string" and spec.name ~= ""),
-		"Facet Badge: an icon-only badge requires a nonempty name"
-	)
 	local function field(key)
 		return function(use: Compose.Use): any
 			return use(facts)[key]
@@ -93,7 +95,7 @@ local function build(library: any, core: any, spec: any, owner: any)
 			statusIndicator.build(
 				library,
 				core,
-				{ id = "Mark", status = field("status"), controlSize = field("controlSize") }
+				{ id = "Mark", status = field("status"), controlSize = field("controlSize"), cutout = true }
 			).blueprint
 		)
 	end
@@ -135,18 +137,30 @@ local function build(library: any, core: any, spec: any, owner: any)
 	if icon and spec.iconPosition ~= "trailing" then
 		table.insert(content, icon)
 	end
-	if hasLabel then
+	local function labelView()
+		return UI.Text({
+			id = "Label",
+			text = field("label"),
+			textSize = "caption",
+			tint = letterTint,
+			shrinkWeight = 1,
+			disclose = true,
+		})
+	end
+	if selection.isSource(spec.label) then
 		table.insert(
 			content,
-			UI.Text({
-				id = "Label",
-				text = field("label"),
-				textSize = "caption",
-				tint = letterTint,
-				shrinkWeight = 1,
-				disclose = true,
+			UI.When({
+				id = "LabelContent",
+				condition = function(use)
+					local label = use(facts).label
+					return label ~= nil and label ~= ""
+				end,
+				thenView = labelView,
 			})
 		)
+	elseif initial.label ~= nil and initial.label ~= "" then
+		table.insert(content, labelView())
 	end
 	if icon and spec.iconPosition == "trailing" then
 		table.insert(content, icon)
