@@ -101,7 +101,7 @@ export type Dim = {
 	weight: number?, -- fill
 	fraction: number?, -- percent | containerRelative
 	offset: number?, -- percent: pixel adjustment applied before clamping
-	min: (number | Metric)?, -- percent clamp / minMax
+	min: (number | Metric | { number | Metric })?, -- fill floor / percent clamp / minMax
 	preferred: (number | Metric)?, -- minMax
 	max: (number | Metric)?, -- percent clamp / minMax
 	ratio: number?, -- aspect

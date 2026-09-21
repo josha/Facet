@@ -547,6 +547,21 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			unit wins? — and every other field here only makes sense attached to the
 			shape that uses it. ]]
 		local dv = v :: any
+		if dv.type == "fill" and dv.min ~= nil then
+			local weight = dv.weight or 1
+			if type(weight) ~= "number" or weight ~= weight or weight <= 0 or weight == math.huge then
+				return false, "a minimum-bearing fill requires a finite positive weight"
+			end
+			local values = if type(dv.min) == "table" then dv.min else { dv.min }
+			for _, value in values do
+				if
+					type(value) ~= "string"
+					and (type(value) ~= "number" or value ~= value or value < 0 or value == math.huge)
+				then
+					return false, "fill min must be a finite nonnegative number, metric, or sum of those values"
+				end
+			end
+		end
 		local hasLines = dv.lines ~= nil
 		local hasRows = dv.rows ~= nil
 		if dv.type ~= "content" then

@@ -1,4 +1,5 @@
 --!strict
+local fillExtent = require("./fill_space").extent
 --[[ grid — UI.Grid's WHOLE arithmetic, both layouts and both passes.
 
 	Public interface, four entry points and one type:
@@ -107,10 +108,9 @@ export type AlignOffset = (align: string?, avail: number, size: number) -> numbe
 -- `minColumnWidth = "intrinsic"` asks for the number the solver already has: the
 -- widest child's own measured width under the ACTIVE theme's font and metrics.
 -- It is recomputed on every solve, so a theme swap re-lays the grid out with no
--- author involvement. A `fill`-width child cannot express an intrinsic minimum
--- (it measures to whatever it is offered), so those are skipped; a grid of only
--- fill children has no minimum to take and falls back to one lane, which since
--- the single-lane case below is the only shape that still lands there.
+-- author involvement. A fill child contributes its explicit minimum.
+-- Without one it contributes nothing; an all-fill grid with no minima retains
+-- the one-lane fallback.
 local INTRINSIC = "intrinsic"
 --[[ ...AND IT IS ALSO THE DEFAULT (audit Part 2 cell B-1, 2026-08-21).
 
@@ -133,8 +133,8 @@ local INTRINSIC = "intrinsic"
 	    rides along for free and a television gets FEWER lanes than a desktop
 	    (measured: 5 against 9) instead of the one lane it used to share with a
 	    phone.
-	  * THE FALLBACK IS UNCHANGED. A grid of only `fill` children still has no
-	    intrinsic minimum to take, and still gets one lane.
+	  * THE FALLBACK IS UNCHANGED. A grid of only `fill` children with no explicit minima
+	    still gets one lane.
 
 	AUTHORED ALWAYS WINS, both keys and both directions: `columns` short-circuits
 	`gridLaneCount` before this is asked at all, and a declared `minColumnWidth`
@@ -154,7 +154,12 @@ local function gridLaneMin(deps: Deps, ctx: any, node: any, isCol: boolean): num
 	end
 	local widest = 0
 	for _, child in node.children or {} do
-		if deps.dim(child, if isCol then "h" else "w").type == "fill" then
+		local lane = deps.dim(child, if isCol then "h" else "w")
+		if lane.type == "fill" then
+			if lane.min ~= nil then
+				local mt, mr, mb, ml = deps.sides(child.margin)
+				widest = math.max(widest, lane.min + (if isCol then mt + mb else ml + mr))
+			end
 			continue
 		end
 		-- LANE-axis margins only: this is an intrinsic LANE extent
@@ -343,7 +348,7 @@ local function gridFlowPlan(deps: Deps, ctx: any, node: any, innerW: number, inn
 			local isFill = deps.dim(child, if isCol then "h" else "w").type == "fill"
 			local painted = if laneSize == math.huge
 				then ownLane
-				elseif isFill then laneSize
+				elseif isFill then fillExtent(deps.dim(child, if isCol then "h" else "w"), laneSize)
 				elseif uLane ~= nil then math.min(uLane :: number, laneSize)
 				else math.min(ownLane, laneSize)
 			-- see the header: the report follows the CELL under uniform sizing and
@@ -368,7 +373,7 @@ local function gridFlowPlan(deps: Deps, ctx: any, node: any, innerW: number, inn
 			local cell = cells[j]
 			local flowDim = deps.dim(child, if isCol then "w" else "h")
 			local painted = if flowDim.type == "fill"
-				then lineFlow
+				then fillExtent(flowDim, lineFlow)
 				elseif uFlow ~= nil then math.min(uFlow :: number, lineFlow)
 				else math.min(cell.ownFlow, lineFlow)
 			-- ASPECT FOLLOWS THE LANE, which is the axis the grid actually fixed
@@ -663,6 +668,9 @@ local function gridRowHeight(deps: Deps, ctx: any, row: any, plan: any, limitH: 
 		local mt, _, mb, _ = deps.sides(cell.margin)
 		local hDim = deps.dim(cell, "h")
 		if hDim.type == "fill" then
+			if hDim.min ~= nil then
+				rowH = math.max(rowH, hDim.min + mt + mb)
+			end
 			column += span
 			continue
 		end
@@ -736,6 +744,26 @@ end
 
 -- ===== THE ARRANGE HALF ======================================================
 
+local function noteFillFloor(deps: Deps, ctx: any, node: any, child: any, offerW: number, offerH: number)
+	if ctx.hiddenDepth ~= 0 or node.overflow == "clip" or node.overflow == "intentionalOverlap" then
+		return
+	end
+	local dw, dh = deps.dim(child, "w"), deps.dim(child, "h")
+	local overW = if dw.type == "fill" then math.max(0, (dw.min or 0) - offerW) else 0
+	local overH = if dh.type == "fill" then math.max(0, (dh.min or 0) - offerH) else 0
+	if overW > 0 or overH > 0 then
+		table.insert(ctx.diagnostics, {
+			node = child.id,
+			filedBy = node.id,
+			issue = string.format(
+				"fill minimum exceeds its grid slot by %.2fx%.2fpx; give the track room",
+				overW,
+				overH
+			),
+		})
+	end
+end
+
 function grid.arrangeRow(
 	deps: Deps,
 	ctx: any,
@@ -787,8 +815,13 @@ function grid.arrangeRow(
 		local w, h = deps.measure(ctx, cell, availW, availH)
 		-- the same cell rules the flow grid uses: a `fill` axis takes its slot,
 		-- anything else keeps its content size and ALIGNS inside it
-		local cellW = if deps.dim(cell, "w").type == "fill" then availW else math.min(w, availW)
-		local cellH = if deps.dim(cell, "h").type == "fill" then availH else math.min(h, availH)
+		local cellW = if deps.dim(cell, "w").type == "fill"
+			then fillExtent(deps.dim(cell, "w"), availW)
+			else math.min(w, availW)
+		local cellH = if deps.dim(cell, "h").type == "fill"
+			then fillExtent(deps.dim(cell, "h"), availH)
+			else math.min(h, availH)
+		noteFillFloor(deps, ctx, node, cell, availW, availH)
 		local hDimCell = deps.dim(cell, "h")
 		if hDimCell.type == "aspect" and cellW > 0 then
 			cellH = math.min(availH, roundPx(cellW / (hDimCell.ratio :: number)))
@@ -910,6 +943,14 @@ function grid.arrange(
 					and deps.dim(child, if isCol then "w" else "h").type == "fill"
 				then lineFlow
 				else cell.flow
+			noteFillFloor(
+				deps,
+				ctx,
+				node,
+				child,
+				if isCol then lineFlow else laneSize,
+				if isCol then laneSize else lineFlow
+			)
 			local laneAlign = if isCol then child.alignV else child.alignH
 			local flowAlign = if isCol then child.alignH else child.alignV
 			local lanePos = (j - line.first) * (laneSize + gap) + alignOffset(laneAlign, laneSize, cell.lane)

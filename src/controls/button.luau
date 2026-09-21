@@ -158,6 +158,10 @@ local function build(Facet, core, spec, owner)
 		spec.trailingIcon == nil or (spec.children == nil and spec.image == nil and spec.row == nil),
 		"Button.trailingIcon is a trailing mark beside the label — it does not combine with children, image or row"
 	)
+	assert(
+		spec.shape ~= "circle" or spec.trailingIcon == nil,
+		"Button.trailingIcon does not combine with shape = circle; a circle carries one icon"
+	)
 	--[[ A BUTTON WITH NOTHING TO READ STILL HAS TO SAY WHAT IT IS. `label` is the
 		semantic name every Button carries; an ICON-ONLY button has no visible one,
 		so `name` supplies it and is REQUIRED there rather than optional-with-a-
@@ -430,7 +434,9 @@ local function build(Facet, core, spec, owner)
 
 		AN AUTHORED `height` STILL WINS, below: a rung is a default, and a caller who
 		measured their own layout is not overruled by one. ]]
-	local sizedHeight = vocabulary.derive(spec.controlSize, vocabulary.heightFor)
+	local sizedHeight = if spec.shape == "circle" and (spec.width ~= nil or spec.height ~= nil)
+		then nil
+		else vocabulary.derive(spec.controlSize, vocabulary.heightFor)
 	local sizedPadding = vocabulary.derive(spec.controlSize, vocabulary.paddingFor)
 	--[[ THE ICON SQUARE IS A WHOLE DIM, NOT A REACTIVE NUMBER INSIDE ONE. A `Dim`'s
 		`min`/`px` fields are resolved at prop-normalization time and take a number or

@@ -2765,7 +2765,19 @@ function snapshot.resolveDim(snap: any, dim: any): any
 			resolved[field] = snapshot.resolveTotal(snap, dim[field])
 		end
 	end
-	return resolved or dim
+	local result = resolved or dim
+	if result.type == "fill" and result.min ~= nil then
+		local minimum, weight = result.min, result.weight or 1
+		assert(
+			type(minimum) == "number" and minimum == minimum and minimum >= 0 and minimum < math.huge,
+			"Facet fill min must resolve to a finite nonnegative number"
+		)
+		assert(
+			type(weight) == "number" and weight == weight and weight > 0 and weight < math.huge,
+			"Facet minimum-bearing fill requires a finite positive weight"
+		)
+	end
+	return result
 end
 
 return snapshot

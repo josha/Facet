@@ -1,4 +1,5 @@
 --!strict
+local fillExtent = require("./fill_space").extent
 --[[ scroll_arrange — the ARRANGE half of `UI.ScrollView`, lifted out of
 	`layout/solver.luau` on 2026-09-04 (Plan C, C3) for the Source-write headroom
 	the anchor branch's clean-child skip needed. The solver stood 258 characters
@@ -18,8 +19,8 @@
 	      it reserved, and the resolved `overflow`.
 
 	`scroll_arrange.Deps` is what it needs from the solver: the two recursive
-	passes and four pure readers. It requires `../tokens/chrome_slots` for the
-	all-or-nothing leading-bleed floor and nothing else.
+	passes and four pure readers. Its pure dependencies provide chrome bleed,
+	fill floors and the context type.
 
 	WHY IT IS A ONE-WAY SPLIT DESPITE MUTATING THE SCOPE. The scope pair
 	(`pushContainer` / `restoreScope`) is the reason the T6 round declined this
@@ -272,11 +273,11 @@ function scroll_arrange.arrange(
 		-- cross-axis fill children stretch to the scroll viewport
 		local w = if isX then size.w else math.min(size.w, innerW)
 		if not isX and dim(child, "w").type == "fill" then
-			w = innerW
+			w = fillExtent(dim(child, "w"), innerW)
 		end
 		local h = if isX then math.min(size.h, innerH) else size.h
 		if isX and dim(child, "h").type == "fill" then
-			h = innerH
+			h = fillExtent(dim(child, "h"), innerH)
 		end
 		-- offsetX/offsetY are arrange-time adjustments (scroll offsetting +
 		-- row culling park, Phase 4 touch-scroll design); the flow cursor is

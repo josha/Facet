@@ -471,7 +471,7 @@ Three groups recur in the column below and are worth naming once:
 |---|---|---|
 | `animation` | every rendered class | Static named presets for `layout`, `scale`, `opacity`, `rotation`, `offset`; each property must be supported by the node. `false` disables that animation. Layout declarations coordinate surviving descendants at the next refresh; property declarations animate paint without layout work. See [component motion](../guide/15-components.md#animate-values-with-the-compose-runtime). |
 | `id` | every class | stable node identity; required to address the node later (focus, tests, dumps) |
-| `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="hug",min=,max=}`, `{type="fill",weight=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`, `{type="content",lines=,role=}` **or** `{type="content",rows=,of=}` (content-terms sizing — see below). The `px`/`min`/`preferred`/`max`/`of` fields take a number **or a theme metric name** (see below); `UI.fill(weight?)` and `UI.hug({min?,max?})` are the shorthand for the two most common raw tables |
+| `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="hug",min=,max=}`, `{type="fill",weight=,min=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`, `{type="content",lines=,role=}` **or** `{type="content",rows=,of=}` (content-terms sizing — see below). The `px`/`min`/`preferred`/`max`/`of` fields take a number **or a theme metric name** (see below); `UI.fill(weight?)` and `UI.hug({min?,max?})` are the shorthand for the two most common raw tables |
 | `margin` | every rendered class | outer spacing the parent reserves around this node; a number, a spacing-step name, or `{top?,right?,bottom?,left?}` of either. A **`fill` child spends its own margin out of its fill**, on every container — a `ZStack` layer with `margin = { top = 56 }` is 56 px shorter, not 56 px lower — and a filled axis therefore ignores `alignH`/`alignV`, because there is nothing left to align. A non-fill child keeps its size and is displaced, so alignment still applies to it |
 | `anchor`, `offsetX`, `offsetY` | children of an `Anchor` (a `ScrollView` also reads the offsets as scroll-time nudges); a stack, grid or wrap parent places by flow and ignores all three | placement corner plus offset; offsets update in the arrange pass only (no re-measure). An offset takes a number, a theme metric name (`"-s"` negates one), or a **fraction of the parent's inner extent**: `{ scale = 0.5 }`, `{ scale = 0.5, offset = -4 }` (the marker-overlay shape — see `Anchor`) |
 | `alignH`, `alignV` | children of a `ZStack` | per-child cross-alignment (`start`/`center`/`end`) |
@@ -494,6 +494,15 @@ Three groups recur in the column below and are worth naming once:
 | `offset` | every rendered class | paint-only translation in px from the node's SOLVED position (`{x=,y=}`; `0,0` = unmoved; gap 16, framework-gaps-phase2). It changes nothing the solver sees — the box, the hit target and the focus order stay at the solved position; to change WHERE a node is, change its layout (`margin`, `Anchor` offsets, position in the tree) — and it **adds** to any offset the framework is applying (a slide transition, a keyboard shift), the same composition rule `rotation` uses. Reactive and animatable through `presenter.withAnimation`'s steady state (it does not itself participate in a flight's interpolation) |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme, or **`"fit"`** — the largest size that fits the box this node lands in, chosen by the SOLVER (option form `{ fit = { cap = <role or px>, floor = <role or px> } }`; see below). A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. A px or role size is scaled at both seams; a `"fit"` size is already the painted one |
+
+A fill dimension may declare `min` as a finite nonnegative pixel value, theme metric,
+or additive list of those values. Stack shares keep their weighted integer sizes
+when those meet the floors; constrained shares take their floors and the remaining
+room is shared by the remaining weights. Margins are paid outside a positive floor.
+An impossible offer keeps the minimum and reports overflow; explicit grid tracks
+are not expanded. Spacer `minLength` retains its separate base-plus-remainder rule.
+Omitting `min` preserves the existing fill behavior. Minimum-bearing fills require
+finite positive weights. `UI.frame`'s infinity form remains a plain fill.
 
 **`{ type = "content", lines = n }` / `{ type = "content", rows = n, of = metric }`**
  is how a box declares its extent in CONTENT TERMS — "about N lines/rows",
@@ -7796,6 +7805,13 @@ They are borrowed from the caller; changing or retracting them updates the mount
 plate without rebuilding it. A bound rung retains its `<id>+target` wrapper when its
 value becomes nil. `corners`, `over`, and semantic icon names are construction-time.
 
+A sized Button reads the mounted surface's environment to reserve the larger of
+its class hit minimum and the live theme minimum. Construction is refused without
+that environment; `Facet.new()` registers it for ordinary `app.controls` use.
+A circle keeps its one authored width or height; a rung supplies the axis only
+when neither was authored. Its existing icon-content minimum still applies.
+`trailingIcon` is refused with `shape = "circle"`, whose primitive form carries one mark.
+
 
 Plain text buttons accept `compactLabel`, a short alternate title or icon specification
 with the same rules as `UI.Button.compactLabel`. Do not combine it with custom
@@ -9361,6 +9377,7 @@ end)
 
 `UI.Chip { … }` -> the chip's node. `ref` receives `{ api, dump }`; Chip
 publishes no verbs, so `api` is its own record.
+A sized Chip uses the same surface-environment requirement and hit-floor reservation as Button; an unregistered environment is refused.
 
 A small toggleable tag/filter pill. It renders as a single rounded label (a
 Button with

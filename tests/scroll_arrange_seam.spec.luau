@@ -104,13 +104,13 @@ local moduleSrc = fs.readFile(MODULE_PATH)
 local solverSrc = fs.readFile(SOLVER_PATH)
 
 describe("the scroll-arrange seam: one-way, one entry point, no state", function()
-	it("requires only the token module and the context types — never the solver", function()
+	it("requires only token/context facts and the pure fill extent — never the solver", function()
 		--[[ THE ONE-WAY CLAIM, at its strongest form: a module that cannot require the
 			solver cannot read a solver local, and the direction of the dependency is then
 			a fact about the file rather than a promise in its header. `chrome_slots` is
 			the all-or-nothing leading-bleed floor the branch already used; `solve_ctx`
 			supplies the `Rect` type and nothing else, and it is itself a leaf. ]]
-		expect(sorted(requiresIn(moduleSrc))).toEqual({ "../tokens/chrome_slots", "./solve_ctx" })
+		expect(sorted(requiresIn(moduleSrc))).toEqual({ "../tokens/chrome_slots", "./fill_space", "./solve_ctx" })
 	end)
 
 	it("...and the solver requires IT, which is the direction the split claims", function()
@@ -130,13 +130,19 @@ describe("the scroll-arrange seam: one-way, one entry point, no state", function
 
 	it("holds no module-level mutable state", function()
 		--[[ A `local x = {}` or a `local n = 0` at column zero, other than the module
-			table itself and the two requires, is state that survives between solves —
+			table itself and the three pure requires, is state that survives between solves —
 			the thing that would make two surfaces share an accumulator. There is none,
 			and this reads it off the source rather than trusting the header. ]]
 		local offenders: { string } = {}
 		for line in string.gmatch("\n" .. stripComments(moduleSrc), "\n([^\n]*)") do
 			local name = string.match(line, "^local ([A-Za-z_][A-Za-z0-9_]*)%s*=")
-			if name ~= nil and name ~= "scroll_arrange" and name ~= "chrome_slots" and name ~= "solveCtx" then
+			if
+				name ~= nil
+				and name ~= "scroll_arrange"
+				and name ~= "chrome_slots"
+				and name ~= "solveCtx"
+				and name ~= "fillExtent"
+			then
 				table.insert(offenders, name)
 			end
 		end

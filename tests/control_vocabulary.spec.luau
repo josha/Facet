@@ -223,6 +223,11 @@ describe("the vocabulary tags", function()
 			for _, word in { "Emphasis", "Soft", "Utility", "Link" } do
 				for _, state in { "hover", "pressed" } do
 					local compound = at[`Destructive {string.lower(word)} — {state}`]
+					local rule = ruleNamed(entry.model, `Destructive {string.lower(word)} — {state}`)
+					expect(rule.props.BackgroundTransparency).toBe(nil)
+					for prop in rule.transitions or {} do
+						expect(rule.props[prop] ~= nil).toBe(true)
+					end
 					expect(`{entry.name}/{word} {state} compound exists:{tostring(compound ~= nil)}`).toBe(
 						`{entry.name}/{word} {state} compound exists:true`
 					)
@@ -266,6 +271,11 @@ describe("the vocabulary tags", function()
 			for _, word in { "Emphasis", "Soft", "Utility", "Link", "Over media" } do
 				for state, generic in { hover = "Control — hover", pressed = "Control — pressed" } do
 					local own = at[`{word} — {state}`]
+					local rule = ruleNamed(entry.model, `{word} — {state}`)
+					expect(rule.props.BackgroundTransparency).toBe(nil)
+					for prop in rule.transitions or {} do
+						expect(rule.props[prop] ~= nil).toBe(true)
+					end
 					expect(`{entry.name}/{word} {state} exists:{tostring(own ~= nil)}`).toBe(
 						`{entry.name}/{word} {state} exists:true`
 					)
@@ -432,6 +442,7 @@ describe("Button adopts the vocabulary through app.controls", function()
 			{ spec = { label = "Go", controlSize = "tiny" }, message = "compact | regular | large" },
 			{ spec = { label = "Go", appearance = "bright" }, message = "standard | emphasis | soft | utility | link" },
 			{ spec = { label = "Go", corners = "round" }, message = "pill | square" },
+			{ spec = { label = "+", shape = "circle", trailingIcon = "close" }, message = "trailingIcon" },
 			{ spec = { label = "Go", over = "panel" }, message = "media" },
 		}
 	do
@@ -480,7 +491,7 @@ describe("Button adopts the vocabulary through app.controls", function()
 			local UI = w.UI
 			local rung, look = w.Compose.cell("large"), w.Compose.cell("standard")
 			local builds = 0
-			w.present(function()
+			local handle = w.present(function()
 				builds += 1
 				return UI.Screen("S")({
 					UI.VStack("Rows")({
@@ -502,6 +513,7 @@ describe("Button adopts the vocabulary through app.controls", function()
 				})
 			end)
 			local live = pathOf(w, "Live")
+			local factoryRuns = handle.root.counters().factoryRuns
 			expect(w.pres.focus.focusOn(pathOf(w, "Other"))).toBe(true)
 			expect(w.pres.focus.focusOn(live)).toBe(true)
 			expect(w.pres.focus.focused:peek()).toBe(live)
@@ -513,6 +525,7 @@ describe("Button adopts the vocabulary through app.controls", function()
 			expect(tagsOf(w, live)["facet-appearance-emphasis"]).toBe(true)
 			expect(tagsOf(w, live)["facet-size-compact"]).toBe(true)
 			expect(builds).toBe(1)
+			expect(handle.root.counters().factoryRuns).toBe(factoryRuns)
 			expect(#w.records("Live")).toBe(1)
 			expect(w.pres.focus.focused:peek()).toBe(live)
 			rung:set(nil)
@@ -523,6 +536,7 @@ describe("Button adopts the vocabulary through app.controls", function()
 			expect(propsOf(w, live).padding).toBe(12)
 			expect(w.pres.focus.focused:peek()).toBe(live)
 			expect(builds).toBe(1)
+			expect(handle.root.counters().factoryRuns).toBe(factoryRuns)
 		end)
 	end
 
@@ -688,5 +702,169 @@ describe("sized control ownership", function()
 		rung:set("regular")
 		selected:set(false)
 		expect(selected:peek()).toBe(false)
+	end)
+end)
+
+describe("sized circles and constrained fill targets", function()
+	for _, axis in { "width", "height", "neither" } do
+		it(`a compact circle preserves its authored {axis} axis`, function()
+			local w = world.new()
+			local UI = w.UI
+			w.present(function()
+				local spec = { label = "Close", icon = "close", shape = "circle", controlSize = "compact" }
+				if axis ~= "neither" then
+					spec[axis] = { type = "fixed", px = if axis == "width" then 32 else 72 }
+				end
+				return UI.Screen("S")({ UI.Button("Close")(spec) })
+			end)
+			local rect = rectOf(w, pathOf(w, "Close"))
+			local props = authored(w.record("Close"))
+			if axis ~= "neither" then
+				expect(props[axis].px).toBe(if axis == "width" then 32 else 72)
+				expect(props[if axis == "width" then "height" else "width"]).toBe(nil)
+			end
+			-- A 32px icon disc retains the existing icon-plus-padding floor (36 here).
+			expect(rect.w).toBe(if axis == "height" then 72 else NEUTRAL.controlSizes.compact.height)
+			expect(rect.h).toBe(rect.w)
+			expect(targetOf(w, "Close").w >= FLOOR).toBe(true)
+			expect(targetOf(w, "Close").h >= FLOOR).toBe(true)
+		end)
+	end
+
+	for _, axis in { "width", "height" } do
+		it(`a bound compact circle keeps its authored {axis} through rung changes`, function()
+			local w = world.new()
+			local UI = w.UI
+			local rung = w.Compose.cell("compact")
+			local axisSize = w.Compose.cell({ type = "fixed", px = 72 })
+			w.present(function()
+				local spec = {
+					label = "Close",
+					icon = "close",
+					shape = "circle",
+					controlSize = function(use)
+						return use(rung)
+					end,
+				}
+				spec[axis] = axisSize
+				if axis == "width" then
+					spec.id = "Close"
+					return UI.Screen("S")({ UI.Button(spec) })
+				end
+				return UI.Screen("S")({ UI.Button("Close")(spec) })
+			end)
+			for _, size in { "large", "regular", "compact" } do
+				rung:set(size)
+				w.settle()
+				local rect = rectOf(w, pathOf(w, "Close"))
+				expect(rect.w).toBe(72)
+				expect(rect.h).toBe(72)
+			end
+			rung:set(nil)
+			w.settle()
+			expect(rectOf(w, pathOf(w, "Close")).w).toBe(72)
+			axisSize:set({ type = "fixed", px = 88 })
+			w.settle()
+			expect(rectOf(w, pathOf(w, "Close")).w).toBe(88)
+			expect(rectOf(w, pathOf(w, "Close")).h).toBe(88)
+			expect(#w.records("Close")).toBe(1)
+		end)
+	end
+
+	for _, minimum in { 44, 60 } do
+		it(`an 80px fill row reserves disjoint {minimum}px targets and reports its shortage`, function()
+			local w = world.new({
+				overflowGuardOff = "The authored 80px row is deliberately narrower than its two required hit floors; this case asserts that shortage and disjoint targets.",
+			})
+			local UI = w.UI
+			local metrics = table.clone(NEUTRAL)
+			metrics.targetSizes = table.clone(NEUTRAL.targetSizes)
+			metrics.targetSizes.minimum = minimum
+			w.env:set("themeMetrics", metrics)
+			w.present(function()
+				return UI.Screen("S")({
+					UI.HStack("Narrow")({
+						gap = 0,
+						width = { type = "fixed", px = 80 },
+						UI.Button("A")({ label = "A", controlSize = "compact", width = UI.fill() }),
+						UI.Button("B")({ label = "B", controlSize = "compact", width = UI.fill() }),
+					}),
+				})
+			end)
+			local a, b = targetOf(w, "A"), targetOf(w, "B")
+			expect(overlaps(a, b)).toBe(false)
+			for _, id in { "A", "B" } do
+				local reserved = rectOf(w, `/S/Narrow/{id}+target`)
+				expect(reserved.w >= minimum).toBe(true)
+				expect(reserved.h >= minimum).toBe(true)
+			end
+			expect(#w.controller.diagnostics() > 0).toBe(true)
+		end)
+	end
+end)
+
+describe("sized fill minima remain live and caller-owned", function()
+	it("resolves metric sums before the target floor and matches fresh layout after every edit", function()
+		local original = { type = "fill", weight = 1, min = { "targetSizes.minimum", 20 } }
+		local function fixture(full: boolean)
+			local w = world.new({ viewport = { x = 0, y = 0, w = 320, h = 160 } })
+			local width = w.Compose.cell(original)
+			w.present(function()
+				local UI = w.UI
+				return UI.Screen("S")({
+					UI.HStack("Row")({
+						width = UI.fill(),
+						gap = 0,
+						UI.Button("A")({ label = "A", controlSize = "compact", width = width }),
+						UI.Button("B")({ label = "B", controlSize = "compact", width = UI.fill(3) }),
+					}),
+				})
+			end, { structuralReuse = not full, measureReuse = not full, incrementalLayout = not full })
+			return w, width
+		end
+		local a, aw = fixture(false)
+		local b, bw = fixture(true)
+		local function agree()
+			for _, id in { "A", "B", "A+target", "B+target" } do
+				expect(rectOf(a, pathOf(a, id))).toEqual(rectOf(b, pathOf(b, id)))
+			end
+			expect(a.controller.diagnostics()).toEqual(b.controller.diagnostics())
+			expect(overlaps(targetOf(a, "A"), targetOf(a, "B"))).toBe(false)
+			expect(#a.records("A")).toBe(1)
+		end
+		agree()
+		expect(rectOf(a, pathOf(a, "A+target")).w).toBe(80)
+		for _, minimum in { 70, 80 } do
+			local metrics = table.clone(snapshot.neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = minimum
+			a.env:set("themeMetrics", metrics)
+			b.env:set("themeMetrics", metrics)
+			a.settle()
+			b.settle()
+			agree()
+			expect(rectOf(a, pathOf(a, "A+target")).w).toBe(minimum + 20)
+		end
+		for _, nextWidth in
+			{
+				{ type = "fill", min = 110, weight = 1 },
+				{ type = "fill", weight = 2 },
+				{ type = "fixed", px = 110 },
+				original,
+			}
+		do
+			aw:set(nextWidth)
+			bw:set(nextWidth)
+			a.settle()
+			b.settle()
+			agree()
+		end
+		a.env:set("viewportRect", { x = 0, y = 0, w = 400, h = 160 })
+		b.env:set("viewportRect", { x = 0, y = 0, w = 400, h = 160 })
+		a.settle()
+		b.settle()
+		agree()
+		expect(original.min).toEqual({ "targetSizes.minimum", 20 })
+		expect(original.weight).toBe(1)
 	end)
 end)

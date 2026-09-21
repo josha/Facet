@@ -853,25 +853,32 @@ function stack.arrange(
 		these two sites file about DESCENDANTS. `nil` on every well-formed stack, which
 		is nearly all of them. ]]
 	local ownIssues: { any }? = nil
-	if availMain < 0 and ctx.hiddenDepth == 0 then
-		local finding = rowPrefix.overflow(node, -availMain, shrinkOrder)
-		table.insert(ctx.diagnostics, finding)
-		ownIssues = { finding }
-	end
+
 	local remaining = math.max(0, availMain)
 	local fillPx: { [number]: number } = {}
+	local fillSpend = 0
 	if fillWeightSum > 0 then
 		local shares = {}
 		for idx, child in children do
 			local mainDim = deps.mainDimOf(child, isH)
 			if mainDim.type == "fill" then
-				table.insert(shares, { i = idx, weight = mainDim.weight or 1 })
+				local m = margins[idx]
+				local minimum = if mainDim.min ~= nil and mainDim.min > 0
+					then mainDim.min + (if isH then m.l + m.r else m.t + m.b)
+					else nil
+				table.insert(shares, { i = idx, weight = mainDim.weight or 1, min = minimum })
 			end
 		end
 		fillPx = fillSpace.allocate(remaining, fillWeightSum, shares)
 		for _, share in shares do
+			fillSpend += fillPx[share.i]
 			fillPx[share.i] += spacerMinimum(children[share.i], isH)
 		end
+	end
+	if fillSpend > availMain and ctx.hiddenDepth == 0 then
+		local finding = rowPrefix.overflow(node, fillSpend - availMain, shrinkOrder)
+		table.insert(ctx.diagnostics, finding)
+		ownIssues = { finding }
 	end
 	-- A FILL child's CROSS size was measured above against the whole inner extent,
 	-- but the loop above just decided the much smaller main extent it actually
@@ -901,7 +908,7 @@ function stack.arrange(
 			local h = math.min(d.h, math.max(0, innerH - m.t - m.b))
 			local align = baseline.alignment(node, child)
 			if deps.dim(child, "h").type == "fill" or align == "stretch" then
-				h = math.max(0, innerH - m.t - m.b)
+				h = fillSpace.extent(deps.dim(child, "h"), math.max(0, innerH - m.t - m.b))
 			end
 			sizes[i] = {
 				w = if deps.mainDimOf(child, isH).type == "fill"
@@ -1015,7 +1022,7 @@ function stack.arrange(
 		-- reserved the measured size, so a hugging stack overlaps its next sibling.
 		-- An explicit fill still takes the offered extent before deriving the pair.
 		local crossSize = if crossDim.type == "fill" or (childAlign == "stretch" and mainDim.type ~= "aspect")
-			then crossAvail
+			then fillSpace.extent(crossDim, crossAvail)
 			else math.min(if isH then desired[idx].h else desired[idx].w, crossAvail)
 		-- ASPECT against a FILL sibling (found live: a 16:9 media box resolved to
 		-- ZERO height). `fill` has no measure-time size, so measure could only

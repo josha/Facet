@@ -935,15 +935,25 @@ function stack_measure.contentSize(
 	if #fillList > 0 and remaining ~= math.huge and fillWeightSum > 0 then
 		local shares = {}
 		for _, idx in fillList do
-			table.insert(shares, { i = idx, weight = dim(children[idx], if isH then "w" else "h").weight or 1 })
+			local d = dim(children[idx], if isH then "w" else "h")
+			table.insert(shares, {
+				i = idx,
+				weight = d.weight or 1,
+				min = if d.min ~= nil and d.min > 0 then d.min + marginMain[idx] else nil,
+			})
 		end
 		fillPx = fillSpace.allocate(remaining, fillWeightSum, shares)
 	end
 
+	local fillMinimum = 0
 	ctx.childIterations += #fillList
 	for _, idx in fillList do
 		local child = children[idx]
 		local mt, mr, mb, ml = sides(child.margin)
+		local minimum = dim(child, if isH then "w" else "h").min
+		if minimum ~= nil and minimum > 0 then
+			fillMinimum += math.ceil(minimum + marginMain[idx])
+		end
 		local share = if fillPx then fillPx[idx] + spacerMinimum(child, isH) else math.huge
 		local childMain = if share == math.huge then math.huge else math.max(0, share - marginMain[idx])
 		local cw, ch = measure(ctx, child, if isH then childMain else innerMaxW, if isH then innerMaxH else childMain)
@@ -1040,7 +1050,7 @@ function stack_measure.contentSize(
 		local _, cross = baseline.line(deps.baseline, ctx, node, sizes, 1, n)
 		crossMax = math.max(crossMax, cross)
 	end
-	local contentMain = mainSum + gaps + (if isH then pl + pr else pt + pb)
+	local contentMain = mainSum + fillMinimum + gaps + (if isH then pl + pr else pt + pb)
 	local contentCross = crossMax + (if isH then pt + pb else pl + pr)
 	if isH then
 		return contentMain, contentCross

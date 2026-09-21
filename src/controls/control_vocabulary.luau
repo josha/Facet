@@ -5,6 +5,7 @@ local guard = require("../spec_guard")
 local selection = require("../selection_model")
 local contract = require("../class_contract")
 local surfaceEnv = require("../env/surface_env")
+local themeSnapshot = require("../themes/snapshot")
 
 local vocabulary = {}
 
@@ -138,7 +139,16 @@ function vocabulary.reserveTarget(UI: any, core: any, id: string, plate: any, wi
 		-- Fill belongs on the wrapper too, so the control still takes its offer.
 		width = function(use)
 			local authored = selection.read(width, use)
-			return if authored and authored.type == "fill" then authored else floor(use)
+			if authored and authored.type == "fill" then
+				local metrics = use(env:get("themeMetrics"))
+				local reserved = table.clone(authored)
+				reserved.min = math.max(
+					themeSnapshot.resolveTotal(metrics, authored.min or 0),
+					contract.effectiveHitFloor("Button", metrics)
+				)
+				return reserved
+			end
+			return floor(use)
 		end,
 		height = floor,
 		alignH = "center",
