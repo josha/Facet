@@ -46,7 +46,9 @@ function util.fileHash(path: string): string
 	if cached ~= nil then
 		return cached
 	end
-	local ok, text = pcall(util.readNormalized, path)
+	-- Asset and vendored-source checks compare exact bytes. Normalizing CRLF
+	-- here would let a changed integrity input reuse its previous result.
+	local ok, text = pcall(fs.readFile, path)
 	local hash = if ok then util.sha256(text :: string) else "<vanished>"
 	hashCache[path] = hash
 	return hash

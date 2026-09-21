@@ -13,7 +13,7 @@
 	  3. its environment class;
 	  4. the toolchain pins (rokit.toml content, lune/stylua/python versions);
 	  5. every file matching its declared `inputs` globs, as
-	     `<relative path>\0<sha256 of the LF-normalised content>`, sorted by path;
+	     `<relative path>\0<sha256 of the exact bytes>`, sorted by path;
 	  6. its declared fixture inputs, the same way (a missing fixture hashes as
 	     the literal string `<absent>`, which is a different identity from any
 	     content — so deleting a fixture invalidates rather than being ignored).

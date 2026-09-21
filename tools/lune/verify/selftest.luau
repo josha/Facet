@@ -113,7 +113,7 @@ do
 	fs.writeFile(`{scratch}/one.txt`, "alpha\r\n")
 	identity.resetCaches()
 	local crlf = identity.compute(producer, tc)
-	check("a CRLF line ending is the same source", crlf.hash == first.hash)
+	check("a CRLF byte change invalidates integrity inputs", crlf.hash ~= first.hash)
 	fs.writeFile(`{scratch}/one.txt`, "alpha\n")
 	identity.resetCaches()
 
@@ -135,6 +135,58 @@ do
 	fs.writeFile(`{scratch}/missing.json`, "{}")
 	identity.resetCaches()
 	check("a fixture appearing changes the identity", identity.compute(withFixture, tc).hash ~= absent.hash)
+end
+
+-- Exercise the shipped declarations in an isolated tree. These are real suite
+-- dependencies; generated outputs must not invalidate their own producers.
+print("suite dependency declarations")
+do
+	local graphMod = require("./graph")
+	local declared = graphMod.producerById(graphMod.load())
+	local function mirror(path: string): string
+		return `{scratch}/declared/{string.gsub(path, "^%.%./%.%./%.%./", "external/")}`
+	end
+	for _, case in
+		{
+			{ "suite", "docs/reference/api.md", true },
+			{ "suite-fast", "docs/reference/api.md", true },
+			{ "suite", "tools/lune/check_prop_parity.luau", true },
+			{ "suite", "bench/perf_runner.luau", true },
+			{ "suite", "assets/themes/plate-samples.json", true },
+			{ "suite", "skills/compose/SKILL.md", true },
+			{ "suite", "CHANGELOG.md", true },
+			{ "suite", "examples/places/generated.rbxl", false },
+			{ "suite", "artifacts/verify/generated.json", false },
+			{ "rascalrally-suite", "../../../games/RascalRally/code/default.project.json", true },
+			{ "rascalrally-suite", "../../../games/RascalRally/code/places/sponsor.project.json", true },
+			{ "rascalrally-suite", "examples/themes/glossy_touch.luau", true },
+			{ "rascalrally-suite", "../../../games/RascalRally/code/artifacts/verify/generated.json", false },
+		}
+	do
+		local id, path, invalidates = case[1] :: string, case[2] :: string, case[3] :: boolean
+		local probe = table.clone(declared[id])
+		probe.inputs = {}
+		for _, input in declared[id].inputs do
+			table.insert(probe.inputs, mirror(input))
+		end
+		local file = mirror(path)
+		fs.writeDir(string.match(file, "^(.*)/[^/]+$") :: string)
+		fs.writeFile(file, "before\n")
+		identity.resetCaches()
+		local before = identity.compute(probe, tc).hash
+		fs.writeFile(file, "after\n")
+		identity.resetCaches()
+		local after = identity.compute(probe, tc).hash
+		check(`{id}: {path} invalidates={invalidates}`, (after ~= before) == invalidates)
+		fs.writeFile(file, "before\n")
+		identity.resetCaches()
+		check(`{id}: restoring {path} restores identity`, identity.compute(probe, tc).hash == before)
+	end
+	local legacy = process.exec("bash", { "tools/test.sh", "--fingerprint" })
+	check(
+		"legacy Facet cache uses the graph suite identity",
+		legacy.ok and string.gsub(legacy.stdout, "%s+$", "") == identity.compute(declared.suite, tc).hash
+	)
 end
 
 -- ---- the results store ------------------------------------------------------
