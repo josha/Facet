@@ -1242,8 +1242,8 @@ local function toLayoutNode(
 		layoutNode.textBaseline = if role ~= nil then role.baseline else nil
 		layoutNode.padding = layoutNode.padding or metrics.controls.textInput.padding
 	elseif class == "Screen" then
-		layoutNode.width = props.width or { type = "fill", weight = 1 }
-		layoutNode.height = props.height or { type = "fill", weight = 1 }
+		layoutNode.width = layoutNode.width or { type = "fill", weight = 1 }
+		layoutNode.height = layoutNode.height or { type = "fill", weight = 1 }
 	elseif class == "Divider" then
 		-- axis names the stack axis the hairline SEPARATES ALONG: "y" (a vertical
 		-- stack) draws a horizontal line spanning the cross axis; "x" draws a

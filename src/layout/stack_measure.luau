@@ -873,8 +873,17 @@ function stack_measure.contentSize(
 	-- See `chosenCandidate` for the ruling and the measurement; the probe is off
 	-- again before the chosen candidate is measured for real, so the winner still
 	-- shrinks.
+	-- Fill floors take part in the deficit, but not the weighted remainder's base.
+	local fillList = if visit ~= nil then cmemo.mFill else fills
+	local fillMinimum = 0
+	for _, idx in fillList do
+		local minimum = dim(children[idx], if isH then "w" else "h").min
+		if minimum ~= nil and minimum > 0 then
+			fillMinimum += math.max(0, math.ceil(minimum + marginMain[idx]))
+		end
+	end
 	if shrinkBasis ~= nil and mainLimit ~= math.huge and not ctx.fitProbe then
-		local deficit = mainSum + gaps - mainLimit
+		local deficit = mainSum + fillMinimum + gaps - mainLimit
 		if deficit > 0 then
 			local shrunk: { [number]: number } = {}
 			local absorbed =
@@ -930,7 +939,6 @@ function stack_measure.contentSize(
 		the container's own persisted array and no index is ever nil. The BODY below is
 		untouched, so a fill child is still measured on every single tick (T13's owed
 		row 5), which is why `lastChildVisits` cannot move. ]]
-	local fillList = if visit ~= nil then cmemo.mFill else fills
 	local fillPx = nil
 	if #fillList > 0 and remaining ~= math.huge and fillWeightSum > 0 then
 		local shares = {}
@@ -945,15 +953,10 @@ function stack_measure.contentSize(
 		fillPx = fillSpace.allocate(remaining, fillWeightSum, shares)
 	end
 
-	local fillMinimum = 0
 	ctx.childIterations += #fillList
 	for _, idx in fillList do
 		local child = children[idx]
 		local mt, mr, mb, ml = sides(child.margin)
-		local minimum = dim(child, if isH then "w" else "h").min
-		if minimum ~= nil and minimum > 0 then
-			fillMinimum += math.ceil(minimum + marginMain[idx])
-		end
 		local share = if fillPx then fillPx[idx] + spacerMinimum(child, isH) else math.huge
 		local childMain = if share == math.huge then math.huge else math.max(0, share - marginMain[idx])
 		local cw, ch = measure(ctx, child, if isH then childMain else innerMaxW, if isH then innerMaxH else childMain)

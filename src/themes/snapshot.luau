@@ -2767,7 +2767,7 @@ function snapshot.resolveDim(snap: any, dim: any): any
 	end
 	local result = resolved or dim
 	if result.type == "fill" and result.min ~= nil then
-		local minimum, weight = result.min, result.weight or 1
+		local minimum, weight = result.min, if result.weight ~= nil then result.weight else 1
 		assert(
 			type(minimum) == "number" and minimum == minimum and minimum >= 0 and minimum < math.huge,
 			"Facet fill min must resolve to a finite nonnegative number"

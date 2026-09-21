@@ -652,6 +652,7 @@ function stack.arrange(
 	local desired = {}
 	local margins = {}
 	local fillWeightSum = 0
+	local fillMinimum = 0
 	local fixedMain = 0
 	local gaps = if #children > 1 then gap * (#children - 1) else 0
 	-- A `hug` CHILD'S CEILING IS WHAT ITS SIBLINGS LEFT IT, not the whole stack
@@ -699,6 +700,9 @@ function stack.arrange(
 		if mainDim.type == "fill" then
 			fillWeightSum += mainDim.weight or 1
 			fixedMain += spacerMinimum(child, isH)
+			if mainDim.min ~= nil and mainDim.min > 0 then
+				fillMinimum += math.max(0, math.ceil(mainDim.min + (if isH then ml + mr else mt + mb)))
+			end
 		else
 			fixedMain += (if isH then w + ml + mr else h + mt + mb)
 		end
@@ -769,7 +773,7 @@ function stack.arrange(
 	local shrunk: { [number]: number } = shrinkLib.EMPTY
 	local shrinkOrder: string? = nil
 	local hasShrink = false
-	if availMain < 0 then
+	if fillMinimum > availMain then
 		for _, child in children do
 			-- the same `> 0` filter `shrinkLib.stack` applies: `shrinkWeight = 0` is the
 			-- default AND a legal authored value meaning "never"
@@ -793,7 +797,8 @@ function stack.arrange(
 				basisMain[idx] = if isH then d.w else d.h
 			end
 		end
-		absorbed, shrinkOrder = shrinkLib.stack(deps.shrink, ctx, children, isH, basisMain, -availMain, shrunk)
+		absorbed, shrinkOrder =
+			shrinkLib.stack(deps.shrink, ctx, children, isH, basisMain, fillMinimum - availMain, shrunk)
 		if absorbed > 0 then
 			fixedMain -= absorbed
 			availMain += absorbed
@@ -843,7 +848,9 @@ function stack.arrange(
 	-- opted into nothing and is untouched — cropping every overflowing stack in the
 	-- library would be the silent re-flow of shipped screens the diagnostic below
 	-- has always refused to be.
-	local clipMain = shrinkOrder ~= nil and availMain < 0
+	-- A positive fill floor is a required footprint even after the cascade is
+	-- exhausted. Ordinary children retain the established crop; shortage stays visible.
+	local clipMain = shrinkOrder ~= nil and fillMinimum > availMain
 	--[[ THE FINDINGS THIS CONTAINER FILES ABOUT ITSELF (T14). Neither carries a
 		`filedBy`, so the solver's diagnostic replay keys them on `d.node` — this
 		container, which is walked on every solve that reaches here — and drops the
@@ -876,7 +883,7 @@ function stack.arrange(
 		end
 	end
 	if fillSpend > availMain and ctx.hiddenDepth == 0 then
-		local finding = rowPrefix.overflow(node, fillSpend - availMain, shrinkOrder)
+		local finding = rowPrefix.overflow(node, fillSpend - availMain, if fillMinimum == 0 then shrinkOrder else nil)
 		table.insert(ctx.diagnostics, finding)
 		ownIssues = { finding }
 	end
@@ -1050,7 +1057,7 @@ function stack.arrange(
 		-- re-flowing — pulling the later children back inside would move content the
 		-- author placed, which is a different (and silent) change.
 		local paintedMain = mainSize
-		if clipMain then
+		if clipMain and not (mainDim.type == "fill" and (mainDim.min or 0) > 0) then
 			local start = cursor + (if isH then m.l else m.t)
 			local edge = if isH then innerX + innerW else innerY + innerH
 			paintedMain = math.clamp(edge - start, 0, mainSize)

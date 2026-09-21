@@ -548,7 +548,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			shape that uses it. ]]
 		local dv = v :: any
 		if dv.type == "fill" and dv.min ~= nil then
-			local weight = dv.weight or 1
+			local weight = if dv.weight ~= nil then dv.weight else 1
 			if type(weight) ~= "number" or weight ~= weight or weight <= 0 or weight == math.huge then
 				return false, "a minimum-bearing fill requires a finite positive weight"
 			end

@@ -1,5 +1,4 @@
 --!strict
-local fillExtent = require("./fill_space").extent
 --[[ flow — FLOW-WRAP's LINE PARTITION AND THE PLAN BOTH PASSES SHARE.
 
 	Public interface, two entry points and one record:

@@ -160,7 +160,7 @@ describe("fill minimum shares and placement", function()
 		expect(r.rects.b.rect.x).toBe(45)
 		expect(#r.diagnostics > 0).toBe(true)
 	end)
-	for _, weight in { 0, -1, math.huge, 0 / 0 } do
+	for _, weight in { 0, -1, math.huge, 0 / 0, false } do
 		it("refuses invalid minimum-bearing weight " .. tostring(weight), function()
 			expect(pcall(function()
 				UI.Box({ width = { type = "fill", min = 1, weight = weight } })
@@ -232,5 +232,169 @@ describe("fill minimum shares and placement", function()
 		expect(r.rects.a.rect.w).toBe(60)
 		expect(r.rects.a.rect.h).toBe(30)
 		expect(r.rects.R.rect.h).toBe(30)
+	end)
+end)
+
+describe("fill floors participate in existing shrink negotiation", function()
+	it("shrinks an opted-in 80px sibling to 56 so a 44px fill fits 100", function()
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			width = fixed(100),
+			children = {
+				{
+					kind = "box",
+					id = "a",
+					width = { type = "minMax", min = 0, preferred = 80 },
+					height = fixed(10),
+					shrinkWeight = 1,
+				},
+				{ kind = "box", id = "b", width = fill(44), height = fixed(10) },
+			},
+		}, 200, 100)
+		expect(r.rects.a.rect.w).toBe(56)
+		expect(r.rects.b.rect.w).toBe(44)
+		expect(r.rects.b.rect.x).toBe(56)
+		expect(#r.diagnostics).toBe(0)
+	end)
+	it("keeps opted-out siblings unchanged and reports a real shortage", function()
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			width = fixed(100),
+			children = {
+				{ kind = "box", id = "a", width = { type = "minMax", min = 0, preferred = 80 }, height = fixed(10) },
+				{ kind = "box", id = "b", width = fill(44), height = fixed(10) },
+			},
+		}, 200, 100)
+		expect(r.rects.a.rect.w).toBe(80)
+		expect(r.rects.b.rect.w).toBe(44)
+		expect(#r.diagnostics > 0).toBe(true)
+	end)
+	for _, offer in { 100, 60 } do
+		it("preserves the fill floor after exhausted shrink in " .. offer .. "px", function()
+			local r = solve({
+				kind = "hstack",
+				id = "R",
+				width = fixed(offer),
+				children = {
+					{
+						kind = "box",
+						id = "a",
+						width = { type = "minMax", min = 80, preferred = 80 },
+						height = fixed(10),
+						shrinkWeight = 1,
+					},
+					{ kind = "box", id = "b", width = fill(44), height = fixed(10) },
+				},
+			}, 200, 100)
+			expect(r.rects.a.rect.w).toBe(math.min(offer, 80))
+			expect(r.rects.b.rect.w).toBe(44)
+			expect(r.rects.b.rect.x).toBe(80)
+			expect(#r.diagnostics).toBe(1)
+			expect(string.find(r.diagnostics[1].issue, tostring(124 - offer) .. "px", 1, true) ~= nil).toBe(true)
+		end)
+	end
+	it("matches warm and full public layout across floor, preferred-size and offer changes", function()
+		local world = require("./lib/world")
+		local function fixture(full)
+			local w = world.new({ viewport = { x = 0, y = 0, w = 200, h = 100 } })
+			local preferred, minimum, offer = w.Compose.cell(80), w.Compose.cell(44), w.Compose.cell(100)
+			w.present(function()
+				local U = w.UI
+				return U.Screen("S")({
+					U.HStack("R")({
+						width = function(use)
+							return fixed(use(offer))
+						end,
+						U.Box("A")({
+							width = function(use)
+								return { type = "minMax", min = 0, preferred = use(preferred) }
+							end,
+							height = fixed(10),
+							shrinkWeight = 1,
+						}),
+						U.Box("B")({
+							width = function(use)
+								return fill(use(minimum))
+							end,
+							height = fixed(10),
+						}),
+					}),
+				})
+			end, { incrementalLayout = not full, measureReuse = not full, structuralReuse = not full })
+			return w, { preferred, minimum, offer }
+		end
+		local a, ac = fixture(false)
+		local b, bc = fixture(true)
+		expect(a.adapter.node("/S/R/A").rect.w).toBe(56)
+		for _, drive in { { 80, 44, 100 }, { 100, 60, 100 }, { 72, 30, 100 }, { 72, false, 100 }, { 100, 44, 180 } } do
+			for i, value in drive do
+				ac[i]:set(if value == false then nil else value)
+				bc[i]:set(if value == false then nil else value)
+			end
+			a.settle()
+			b.settle()
+			for _, path in { "/S/R", "/S/R/A", "/S/R/B" } do
+				expect(a.adapter.node(path).rect).toEqual(b.adapter.node(path).rect)
+			end
+			expect(a.controller.diagnostics()).toEqual(b.controller.diagnostics())
+			expect(#a.controller.diagnostics()).toBe(0)
+		end
+	end)
+end)
+
+describe("Screen preserves normalized fill metrics", function()
+	for _, minimum in { "targetSizes.minimum", { "targetSizes.minimum", 20 } } do
+		it("normalizes a root minimum of kind " .. type(minimum), function()
+			local world = require("./lib/world")
+			local w = world.new({
+				viewport = { x = 0, y = 0, w = 30, h = 30 },
+				overflowGuardOff = "Intentional root floor exceeds viewport.",
+			})
+			w.present(function()
+				return w.UI.Screen("S")({ width = { type = "fill", min = minimum } })
+			end)
+			expect(w.adapter.node("/S").rect.w).toBe(if type(minimum) == "string" then 44 else 64)
+		end)
+	end
+	for _, invalid in { -1, math.huge, 0 / 0 } do
+		it("refuses a nonfinite or negative normalized metric " .. tostring(invalid), function()
+			local snapshot = require("../src/themes/snapshot")
+			local metrics = table.clone(snapshot.neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = invalid
+			expect(pcall(function()
+				snapshot.resolveDim(metrics, { type = "fill", min = "targetSizes.minimum" })
+			end)).toBe(false)
+		end)
+	end
+	it("normalizes string/sum floors and re-resolves cells and theme changes", function()
+		local world = require("./lib/world")
+		local snapshot = require("../src/themes/snapshot")
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 30, h = 30 },
+			overflowGuardOff = "The root deliberately declares minima larger than its 30px viewport.",
+		})
+		local width = w.Compose.cell({ type = "fill", min = "targetSizes.minimum" })
+		w.present(function()
+			return w.UI.Screen("S")({ width = width, height = { type = "fill", min = { "targetSizes.minimum", 20 } } })
+		end)
+		expect(w.adapter.node("/S").rect.w).toBe(44)
+		expect(w.adapter.node("/S").rect.h).toBe(64)
+		local metrics = table.clone(snapshot.neutral())
+		metrics.targetSizes = table.clone(metrics.targetSizes)
+		metrics.targetSizes.minimum = 60
+		w.env:set("themeMetrics", metrics)
+		w.settle()
+		expect(w.adapter.node("/S").rect.w).toBe(60)
+		expect(w.adapter.node("/S").rect.h).toBe(80)
+		width:set({ type = "fill", min = { "targetSizes.minimum", 10 } })
+		w.settle()
+		expect(w.adapter.node("/S").rect.w).toBe(70)
+		width:set({ type = "fill" })
+		w.settle()
+		expect(w.adapter.node("/S").rect.w).toBe(30)
+		expect(#w.controller.diagnostics()).toBe(0)
 	end)
 end)
