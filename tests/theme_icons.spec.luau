@@ -215,6 +215,56 @@ describe("the fallback glyph table can never be tofu", function()
 	end)
 end)
 
+-- P1d (2026-09-18): a SMALL common set for the next controls (Notice/Badge/
+-- Snackbar, DateTimePicker, Vote, Avatar, Pagination) — pinned by exact name,
+-- floor and asset, the way the shipped rows above already are.
+describe("P1d: eleven common glyphs (status, calendar, clock, vote, person, chevron ends)", function()
+	local FLOORS: { [string]: string } = {
+		["status.info"] = "i",
+		["status.success"] = "ok",
+		["status.warning"] = "!",
+		["status.error"] = "x!",
+		["calendar"] = "[#]",
+		["clock"] = "(:)",
+		["vote.up"] = "+1",
+		["vote.down"] = "-1",
+		["person"] = "@",
+		["chevron.first"] = "|<",
+		["chevron.last"] = ">|",
+	}
+	local ASSET_NAMES: { [string]: string } = {
+		["status.info"] = "facet_icon_info",
+		["status.success"] = "facet_icon_success",
+		["status.warning"] = "facet_icon_warning",
+		["status.error"] = "facet_icon_error",
+		["calendar"] = "facet_icon_calendar",
+		["clock"] = "facet_icon_clock",
+		["vote.up"] = "facet_icon_thumb_up",
+		["vote.down"] = "facet_icon_thumb_down",
+		["person"] = "facet_icon_person",
+		["chevron.first"] = "facet_icon_chevron_first",
+		["chevron.last"] = "facet_icon_chevron_last",
+	}
+
+	it("each name carries its exact ASCII floor and an ART row for the matching asset", function()
+		local standard_icons = require("../src/themes/standard_icons")
+		for name, floor in FLOORS do
+			expect(themes.ICON_FALLBACK_GLYPHS[name]).toBe(floor)
+			expect(themes.isSafeGlyph(floor)).toBe(true)
+			expect(themes.isIconName(name)).toBe(true)
+			local entry = (standard_icons.ART :: any)[name]
+			expect(entry ~= nil).toBe(true)
+			expect(entry.assetName).toBe(ASSET_NAMES[name])
+			expect(entry.tintRole).toBe("content")
+			-- resolveIcon always answers something for a name this table knows —
+			-- the framework's own art once uploaded, the ASCII floor while pending —
+			-- and never nil, at every rung including no package at all
+			expect(themes.resolveIcon(nil, name) ~= nil).toBe(true)
+			expect(themes.resolveIcon(snapshot.neutralPackage(), name) ~= nil).toBe(true)
+		end
+	end)
+end)
+
 describe("themes.resolveIcon: three honest answers", function()
 	it("the theme's art when it has some, per state", function()
 		local pkg = themes.define(withIcons({

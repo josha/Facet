@@ -1007,6 +1007,24 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	-- Neither collides with anything already in this table.
 	["trash"] = "\\_/",
 	["flag"] = "|>",
+	-- P1d (2026-09-18): a small common set for the next controls (Notice/Badge/
+	-- Snackbar, DateTimePicker, Vote, Avatar, Pagination). Every floor here is
+	-- plain ASCII, lowercase-only, at most 3 characters (the button_shape.spec
+	-- rule), and distinct from everything already in this table: `status.info`'s
+	-- `i` is not `increment`'s `+`-adjacent row, `status.error`'s `x!` reads
+	-- differently from bare `close`'s `x`, and `checkmark`'s `v` stays the only
+	-- bare tick (`status.success`'s `ok` is a word, not a stroke).
+	["status.info"] = "i",
+	["status.success"] = "ok",
+	["status.warning"] = "!",
+	["status.error"] = "x!",
+	["calendar"] = "[#]",
+	["clock"] = "(:)",
+	["vote.up"] = "+1",
+	["vote.down"] = "-1",
+	["person"] = "@",
+	["chevron.first"] = "|<",
+	["chevron.last"] = ">|",
 })
 
 -- isSafeGlyph(s): plain ASCII and nothing else. Falsifiable — a private-use

@@ -13,6 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add eleven common glyphs to the framework's own standard icon set: `status.info`,
+  `status.success`, `status.warning`, `status.error`, `calendar`, `clock`,
+  `vote.up`, `vote.down`, `person`, `chevron.first` and `chevron.last`, each with
+  an ASCII fallback floor (`i`, `ok`, `!`, `x!`, `[#]`, `(:)`, `+1`, `-1`, `@`,
+  `|<`, `>|`). Same generator, style, manifest and resolver as the existing
+  eighteen; no control wires them in yet.
+
 - Add optional local `controlSize` (`compact`, `regular`, `large`), `appearance`,
   and `corners` to `app.controls.Button` and `Chip`, plus Button `over = "media"`.
   Compose readables and `function(use)` bindings update size and appearance in

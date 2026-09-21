@@ -2,10 +2,21 @@
   "schema": "facet-theme-assets/1",
   "package": "facet-standard-icons",
   "stage": "compact-label",
-  "uploaded": "2026-09-11",
+  "uploaded": "2026-09-18",
   "method": "Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via /assets/v1/operations/<id>, by tools/upload_icons.py. FULLY HEADLESS -- no Studio and no human step, unlike the eleven per-package assets that went up through the Studio MCP upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1.",
   "note": "Framework-owned art, not a theme package: it resolves BELOW a package's own icons and ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white #F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and ImageColor3 multiplies, so white reaches every palette while black could only darken. Regenerate the PNGs with assets/icons/source/generate_icons.py.",
   "assets": {
+    "facet_icon_calendar": {
+      "sliceBorder": 0,
+      "slot": "icons.calendar",
+      "state": "default",
+      "file": "facet_icon_calendar.png",
+      "contentId": "rbxassetid://93477762216058",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "9fc7d2cad1a5438bae91c43b846095ad3a6fe73acd9f0d68362fc79f205ac5af",
+      "assetType": "Image"
+    },
     "facet_icon_check": {
       "file": "facet_icon_check.png",
       "contentId": "rbxassetid://108245103349446",
@@ -37,6 +48,28 @@
       "state": "default",
       "moderation": "Approved",
       "sha256": "3765fec39fcb2fe048368c24f372e5b8dc3c5e93d3277f42b633f294a57779ca",
+      "assetType": "Image"
+    },
+    "facet_icon_chevron_first": {
+      "sliceBorder": 0,
+      "slot": "icons.chevron.first",
+      "state": "default",
+      "file": "facet_icon_chevron_first.png",
+      "contentId": "rbxassetid://121092340130819",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "b51acd0f088e9bc7d96497a4f7399e3f567b8802f9ecbf85e9ad7a46e93524fc",
+      "assetType": "Image"
+    },
+    "facet_icon_chevron_last": {
+      "sliceBorder": 0,
+      "slot": "icons.chevron.last",
+      "state": "default",
+      "file": "facet_icon_chevron_last.png",
+      "contentId": "rbxassetid://124199778383157",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "c02037a060e5ca3a2ccdcdcb96026879a8e6ae06bd6d387dfbd3aafd0761e719",
       "assetType": "Image"
     },
     "facet_icon_chevron_left": {
@@ -83,6 +116,17 @@
       "sha256": "5c88123c74eba1c36e8bff344bbe144343a1394c38e414c28925900a12bb54f3",
       "assetType": "Image"
     },
+    "facet_icon_clock": {
+      "sliceBorder": 0,
+      "slot": "icons.clock",
+      "state": "default",
+      "file": "facet_icon_clock.png",
+      "contentId": "rbxassetid://101095496899333",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "881c49d7061a81ebf4d82b35d0cf601a7a4c5a0cd4e4f63029cdbb1d16a8c43d",
+      "assetType": "Image"
+    },
     "facet_icon_close": {
       "file": "facet_icon_close.png",
       "contentId": "rbxassetid://133198978089241",
@@ -105,6 +149,17 @@
       "sha256": "a0f62fc4b1a2b2176b9e12b97a7d5f8ab8539cdbb266e3248e27e092ff212c5f",
       "assetType": "Image"
     },
+    "facet_icon_error": {
+      "sliceBorder": 0,
+      "slot": "icons.status.error",
+      "state": "default",
+      "file": "facet_icon_error.png",
+      "contentId": "rbxassetid://131379225714116",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "b4048c4d1800cf465d6ae3f0a1697fa96c936daed2ee648baae8d62961f9bd28",
+      "assetType": "Image"
+    },
     "facet_icon_flag": {
       "file": "facet_icon_flag.png",
       "contentId": "rbxassetid://109067109704366",
@@ -114,6 +169,17 @@
       "state": "default",
       "moderation": "Approved",
       "sha256": "ada43c6afd8bcf65e04bc18691ebfa0fa52662899086f71cd581b06c3fab1a6d",
+      "assetType": "Image"
+    },
+    "facet_icon_info": {
+      "sliceBorder": 0,
+      "slot": "icons.status.info",
+      "state": "default",
+      "file": "facet_icon_info.png",
+      "contentId": "rbxassetid://119954823374061",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "6e0a7e7105c09a5d5ebc2148e5882fece49a9f0cc6ace8fd426bd79e3101a720",
       "assetType": "Image"
     },
     "facet_icon_menu": {
@@ -147,6 +213,17 @@
       "state": "default",
       "moderation": "Approved",
       "sha256": "80c8bcbb803fdabc9b9d98d8cd729307ce1c4d96714e5204fffef56c50ec8019",
+      "assetType": "Image"
+    },
+    "facet_icon_person": {
+      "sliceBorder": 0,
+      "slot": "icons.person",
+      "state": "default",
+      "file": "facet_icon_person.png",
+      "contentId": "rbxassetid://75342910516929",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "c9056245ca0c5ad762fdb3caa65b865da768e95854c23ff690c7ca8ec45e866c",
       "assetType": "Image"
     },
     "facet_icon_plus": {
@@ -195,6 +272,39 @@
       "moderation": "Approved",
       "assetType": "Image"
     },
+    "facet_icon_success": {
+      "sliceBorder": 0,
+      "slot": "icons.status.success",
+      "state": "default",
+      "file": "facet_icon_success.png",
+      "contentId": "rbxassetid://138442161978711",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "05718ef898ebec3cb4cbe996ce05f98d0ac008ede628c593bafea947647e3954",
+      "assetType": "Image"
+    },
+    "facet_icon_thumb_down": {
+      "sliceBorder": 0,
+      "slot": "icons.vote.down",
+      "state": "default",
+      "file": "facet_icon_thumb_down.png",
+      "contentId": "rbxassetid://105653007466295",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "1d4c0f29dd7e887be5be38d632e5cd23f9af68fd21fc82c2cf079d7574d58b92",
+      "assetType": "Image"
+    },
+    "facet_icon_thumb_up": {
+      "sliceBorder": 0,
+      "slot": "icons.vote.up",
+      "state": "default",
+      "file": "facet_icon_thumb_up.png",
+      "contentId": "rbxassetid://75207492738442",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "081c7efbe2a1dd1d76b9885eb1e54892ea683f92d619eb2d1414465a2c0bd618",
+      "assetType": "Image"
+    },
     "facet_icon_trash": {
       "file": "facet_icon_trash.png",
       "contentId": "rbxassetid://84398508341623",
@@ -205,27 +315,49 @@
       "moderation": "Approved",
       "sha256": "2c4837ba2f4b87026b9f302a57e252c96a2a424782c4e29b4c52450b400e6e8f",
       "assetType": "Image"
+    },
+    "facet_icon_warning": {
+      "sliceBorder": 0,
+      "slot": "icons.status.warning",
+      "state": "default",
+      "file": "facet_icon_warning.png",
+      "contentId": "rbxassetid://94336971455701",
+      "size": "128x128",
+      "moderation": "Approved",
+      "sha256": "6e92bffb9e6e134dd6663bbcd73edbdb2f18b16db0ba251c78cfaf3dc4fc66c5",
+      "assetType": "Image"
     }
   },
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",
   "uploadedFiles": [
+    "facet_icon_calendar",
     "facet_icon_check",
     "facet_icon_check_off",
     "facet_icon_chevron_down",
+    "facet_icon_chevron_first",
+    "facet_icon_chevron_last",
     "facet_icon_chevron_left",
     "facet_icon_chevron_right",
     "facet_icon_chevron_up",
     "facet_icon_chevron_up_down",
+    "facet_icon_clock",
     "facet_icon_close",
     "facet_icon_edit",
+    "facet_icon_error",
     "facet_icon_flag",
+    "facet_icon_info",
     "facet_icon_menu",
     "facet_icon_minus",
     "facet_icon_more",
+    "facet_icon_person",
     "facet_icon_plus",
     "facet_icon_radio_off",
     "facet_icon_radio_on",
     "facet_icon_search",
-    "facet_icon_trash"
+    "facet_icon_success",
+    "facet_icon_thumb_down",
+    "facet_icon_thumb_up",
+    "facet_icon_trash",
+    "facet_icon_warning"
   ]
 }

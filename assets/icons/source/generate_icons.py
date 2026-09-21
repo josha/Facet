@@ -265,6 +265,198 @@ def search() -> Image.Image:
     return img
 
 
+# ---- P1d: eleven common glyphs (2026-09-18) -----------------------------------
+# Notice/Badge/Snackbar, DateTimePicker, Vote, Avatar and Pagination need a SMALL
+# common set -- not parity with any reference catalog, just the marks those five
+# controls actually ask for. Three families:
+#
+#   status badges (info/success/warning/error) -- a ring (the same r=40 outer
+#   radius as radio/check/close so the family reads as one weight class) with a
+#   small mark INSIDE it, kept within radius ~24-26 so its own ink never touches
+#   the ring's inner edge (r - STROKE = 27). `error` is a small X in a ring,
+#   deliberately smaller and enclosed rather than the bare full-box X `close`
+#   draws, so the two are not the same shape at a glance. `warning` breaks the
+#   ring pattern on purpose -- a hazard triangle is the one shape every reference
+#   material actually uses for that meaning, and confusing it with a status
+#   circle would be the worse defect.
+#
+#   calendar / clock -- a rounded rect with binding tabs, and a ring with two
+#   unequal hands, both drawn from the same primitives as everything else here.
+#
+#   vote.up / vote.down / person / chevron.first / chevron.last -- a thumb is a
+#   capsule (thick round-capped `_stroke`) merged into a rounded-rect fist so the
+#   THUMB reads as a separate digit, not a blob; `vote.down` is the exact
+#   vertical mirror. `person` is a head circle plus a shoulders trapezoid,
+#   self-contained inside the content box like the status badges (not clipped by
+#   the canvas edge). The chevron-first/last pair is the existing chevron plus a
+#   bar, exactly as the ASCII floor `|<` / `>|` already say.
+
+
+def status_info() -> Image.Image:
+    """A ring holding a lowercase `i`: dot above, stem below -- the opposite
+    order from `warning`'s `!`, which is the mark that keeps the two readable
+    apart even before their shapes differ."""
+    img, d = _canvas()
+    _ring(d, 64, 64, 40)
+    _dot(d, 64, 46, 7)
+    _stroke(d, [(64, 62), (64, 82)], w=13)
+    return img
+
+
+def status_success() -> Image.Image:
+    """A ring holding a SMALL tick -- deliberately not the bare `checkmark`
+    glyph (which spans the whole 128px box), so a success badge and a plain
+    tick are never the same silhouette at a glance."""
+    img, d = _canvas()
+    _ring(d, 64, 64, 40)
+    _stroke(d, [(50, 66), (60, 76), (76, 52)], w=13)
+    return img
+
+
+def status_warning() -> Image.Image:
+    """A hazard triangle (closed, round-jointed outline) holding a `!`: stem
+    above, dot below. The one status mark that is NOT a ring -- a triangle is
+    what every warning glyph anywhere actually is, and disguising it as a fourth
+    circle would cost the one shape a player already knows."""
+    img, d = _canvas()
+    _stroke(d, [(64, 18), (108, 108), (20, 108), (64, 18)], w=13)
+    _stroke(d, [(64, 56), (64, 80)], w=11)
+    _dot(d, 64, 92, 5)
+    return img
+
+
+def status_error() -> Image.Image:
+    """A ring holding a SMALL X -- enclosed and reduced, so it reads as its own
+    mark rather than as `close` (a bare X filling the whole box) sitting on a
+    ring by accident."""
+    img, d = _canvas()
+    _ring(d, 64, 64, 40)
+    _stroke(d, [(52, 52), (76, 76)], w=13)
+    _stroke(d, [(76, 52), (52, 76)], w=13)
+    return img
+
+
+def calendar() -> Image.Image:
+    """A page with binding tabs: a rounded body, a header divider, and two
+    short strokes standing proud of the top edge -- the rings a calendar hangs
+    from, which is the one feature that keeps this from reading as a plain
+    rounded rectangle."""
+    img, d = _canvas()
+    d.rounded_rectangle(
+        [18 * SS, 40 * SS, 110 * SS, 108 * SS],
+        radius=12 * SS,
+        outline=INK,
+        width=STROKE * SS,
+    )
+    _stroke(d, [(24, 60), (104, 60)], w=10)
+    _stroke(d, [(40, 24), (40, 44)], w=11)
+    _stroke(d, [(88, 24), (88, 44)], w=11)
+    return img
+
+
+def clock() -> Image.Image:
+    """A ring with two unequal hands sharing a centre -- a short hour hand and
+    a longer, angled minute hand, both short enough of the ring's inner edge
+    that neither ever touches it."""
+    img, d = _canvas()
+    _ring(d, 64, 64, 40)
+    _stroke(d, [(64, 64), (64, 44)], w=11)
+    _stroke(d, [(64, 64), (76, 50)], w=11)
+    return img
+
+
+def thumb_up() -> Image.Image:
+    """The conventional three-part hand silhouette: a cuff (wrist), a fist
+    (with three finger-groove cutouts notched into its knuckle/right half),
+    and a thumb capsule leaning up and to the right off the fist's top-left
+    corner.
+
+    FIX ROUND 1 (lead art check, 2026-09-18). Round zero's two-shape version
+    (a plain block fist plus a straight vertical capsule) read as the letter
+    "L"/a boot, not a thumb -- a gesture needs a wrist AND finger texture AND
+    an ANGLED digit before it stops looking like two abstract rectangles. The
+    grooves are cut by drawing background-transparent rectangles directly over
+    the filled fist: `ImageDraw`'s basic shapes REPLACE pixels rather than
+    alpha-composite them, so a `(0, 0, 0, 0)` fill genuinely punches a hole
+    through already-opaque ink (verified: `img.getpixel` inside the cut reads
+    back fully transparent) -- no new primitive, just the existing `fill=`
+    parameter used to subtract instead of add.
+
+    FIX ROUND 2 (owner feedback, 2026-09-18): "the thumbs are a bit comically
+    long". The three-part shape is unchanged; only the thumb's own length and
+    width move -- tip raised from y=16 to y=32 (a 24px rise above the fist's
+    y=56 top edge, down from ~40px) and width from 22 to 26, same ~15-degree
+    lean, same base overlapping the fist's top-left corner. Shortening the
+    thumb also recentres the whole icon for free: the old top-heavy bbox
+    (y~5-110, centre ~57.5) sat above the canvas's own y=64 centre, and the new
+    one (y~19-110, centre ~64.5) lands on it without a separate shift.
+    """
+    img, d = _canvas()
+    # cuff: the wrist, standing apart from the fist as its own short block
+    d.rounded_rectangle([14 * SS, 58 * SS, 34 * SS, 110 * SS], radius=6 * SS, fill=INK)
+    # fist: the folded fingers
+    d.rounded_rectangle([40 * SS, 56 * SS, 112 * SS, 110 * SS], radius=14 * SS, fill=INK)
+    # three knuckle grooves, right half only -- texture at 24px+, still reads
+    # as a clean block at 16px once they disappear into the downsample
+    for gy in (70, 83, 96):
+        d.rectangle([80 * SS, (gy - 2.5) * SS, 112 * SS, (gy + 2.5) * SS], fill=(0, 0, 0, 0))
+    # thumb: a capsule leaning ~15 degrees off vertical, based at the fist's
+    # top-left corner and overlapping it (no gap), narrower than the fist and
+    # taller than the fist's own base width -- so the silhouette reads "fist
+    # with a raised thumb", not a letter
+    _stroke(d, [(58, 64), (67, 32)], w=26)
+    return img
+
+
+def thumb_down() -> Image.Image:
+    """The exact vertical mirror of `thumb_up` -- flips the FINISHED image
+    top-to-bottom rather than redrawing a second hand, so the pair can never
+    drift apart from each other."""
+    return thumb_up().transpose(Image.FLIP_TOP_BOTTOM)
+
+
+def person() -> Image.Image:
+    """A head circle over rounded shoulders, both self-contained inside the
+    content box -- a bust, not a clipped torso, so it sits on the same optical
+    footing as every other icon in the set.
+
+    FIX ROUND 1 (lead art check, 2026-09-18): the original trapezoid shoulders
+    read as a chess pawn. Widening them to a half-ellipse (a dome: PIL's
+    `pieslice` from 180 to 360 degrees on a bounding box gives a rounded top
+    and a flat bottom, verified against `getpixel`) about 2.2x the head's own
+    width, and opening a small 4px gap under the head instead of overlapping
+    it, is what reads as shoulders rather than a pawn's base.
+    """
+    img, d = _canvas()
+    _dot(d, 64, 44, 18)
+    d.pieslice([24 * SS, 66 * SS, 104 * SS, 142 * SS], 180, 360, fill=INK)
+    return img
+
+
+def chevron_first() -> Image.Image:
+    """A leading bar plus a FILLED arrowhead -- "skip to the first page", the
+    same pairing the ASCII floor `|<` already spells out.
+
+    FIRST DRAFT used the open `_stroke` chevron next to the bar and it read as
+    the letter "K": two diagonal strokes meeting a vertical one at the same two
+    points IS a K. A solid triangle reads as one mass next to the bar instead
+    of two more strokes joining it, which is what breaks the illusion.
+    """
+    img, d = _canvas()
+    _stroke(d, [(26, 24), (26, 104)], w=STROKE)
+    _poly(d, [(90, 24), (90, 104), (42, 64)])
+    return img
+
+
+def chevron_last() -> Image.Image:
+    """The mirror of `chevron_first`: a filled arrowhead plus a trailing bar,
+    matching the ASCII floor `>|`."""
+    img, d = _canvas()
+    _poly(d, [(38, 24), (38, 104), (86, 64)])
+    _stroke(d, [(102, 24), (102, 104)], w=STROKE)
+    return img
+
+
 ICONS = {
     "facet_icon_chevron_left": lambda: chevron("left"),
     "facet_icon_chevron_right": lambda: chevron("right"),
@@ -284,6 +476,17 @@ ICONS = {
     "facet_icon_radio_off": radio_off,
     "facet_icon_radio_on": radio_on,
     "facet_icon_check_off": check_off,
+    "facet_icon_info": status_info,
+    "facet_icon_success": status_success,
+    "facet_icon_warning": status_warning,
+    "facet_icon_error": status_error,
+    "facet_icon_calendar": calendar,
+    "facet_icon_clock": clock,
+    "facet_icon_thumb_up": thumb_up,
+    "facet_icon_thumb_down": thumb_down,
+    "facet_icon_person": person,
+    "facet_icon_chevron_first": chevron_first,
+    "facet_icon_chevron_last": chevron_last,
 }
 
 
