@@ -17,6 +17,28 @@ local UserInputService = game:GetService("UserInputService")
 
 local roblox_input = {}
 local bindingOwner = require("../input/binding_owner")
+local keyNames = require("../input/key_names")
+
+local function installKeyNames(): () -> ()
+	local function answer(keyCode: string, image: boolean): string?
+		local key = (Enum.KeyCode :: any)[keyCode]
+		if key == nil then
+			return nil
+		end
+		local ok, result = pcall(function()
+			return if image then UserInputService:GetImageForKeyCode(key) else UserInputService:GetStringForKeyCode(key)
+		end)
+		return if ok and type(result) == "string" and result ~= "" then result else nil
+	end
+	return keyNames.setPlatform({
+		label = function(key)
+			return answer(key, false)
+		end,
+		image = function(key)
+			return answer(key, true)
+		end,
+	})
+end
 
 -- Client-created contexts use the stable storage recommended by Roblox's IAS
 -- guide. A Studio session lost PlayerScripts and its Facet bindings while the
@@ -29,7 +51,17 @@ function roblox_input.newSystem(core: any)
 	assert(Players.LocalPlayer ~= nil, "Facet roblox_input.newSystem must run on a live client")
 	local host = game:GetService("ReplicatedStorage")
 
-	local system = {}
+	local system = { revision = Compose.cell(0) }
+	local restoreKeyNames = installKeyNames()
+
+	local function bump()
+		if not disposed then
+			system.revision:set(system.revision:peek() + 1)
+		end
+	end
+	function system.actionNamed(name: string, prefer: any?): any
+		return bindingOwner.actionNamed(contexts, name, prefer)
+	end
 
 	-- modifier state (Phase B parity with the headless system): read live from
 	-- the device so Activate meta carries held shift / ctrl / cmd
@@ -245,9 +277,11 @@ function roblox_input.newSystem(core: any)
 						local i = table.find(action.bindings, binding)
 						if i then
 							table.remove(action.bindings, i)
+							bump()
 						end
 					end
 					table.insert(action.bindings, binding)
+					bump()
 					return binding
 				end
 
@@ -305,9 +339,11 @@ function roblox_input.newSystem(core: any)
 					local i = table.find(action.bindings, binding)
 					if i then
 						table.remove(action.bindings, i)
+						bump()
 					end
 				end
 				table.insert(action.bindings, binding)
+				bump()
 				return binding
 			end
 
@@ -407,40 +443,34 @@ function roblox_input.newSystem(core: any)
 					local i = table.find(action.bindings, binding)
 					if i then
 						table.remove(action.bindings, i)
+						bump()
 					end
 				end
 				table.insert(action.bindings, binding)
+				bump()
 				return binding
 			end
 
 			function action.preferredBinding(preferredInput: string): any
-				-- engine PreferredBinding when available; nil-tolerant fallback
-				local enginePreferred = actionInstance.PreferredBinding
-				if enginePreferred ~= nil then
-					for _, binding in action.bindings do
-						if binding.instance == enginePreferred then
-							return binding
-						end
-					end
-				end
+				local preferred: any = nil
 				for _, binding in action.bindings do
-					if preferredInput == "Touch" and binding.uiButton ~= nil then
-						return binding
-					end
-					if preferredInput ~= "Touch" and binding.keyCode ~= nil then
-						return binding
+					if binding.instance == actionInstance.PreferredBinding then
+						preferred = binding
+						break
 					end
 				end
-				return nil
+				return bindingOwner.preferredBinding(action.bindings, preferredInput, preferred)
 			end
 
 			table.insert(context.actions, action)
+			bump()
 			return action
 		end
 
 		function context.setEnabled(on: boolean)
 			context.enabled = on
 			contextInstance.Enabled = on
+			bump()
 		end
 
 		-- setSink: runtime Sink changes MUST reach the engine instance — the
@@ -475,9 +505,11 @@ function roblox_input.newSystem(core: any)
 				table.clear(action.releasedHandlers)
 			end
 			contextInstance:Destroy()
+			bump()
 		end
 
 		table.insert(contexts, context)
+		bump()
 		return context
 	end
 
@@ -511,6 +543,7 @@ function roblox_input.newSystem(core: any)
 			contexts[i].destroy()
 		end
 		table.clear(contexts)
+		restoreKeyNames()
 	end
 
 	return system
