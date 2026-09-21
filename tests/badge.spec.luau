@@ -44,36 +44,43 @@ t.describe("Badge", function()
 			w.close()
 		end
 	end)
-	t.it("switches actual icon visibility both ways with the readable paint pair", function()
+	t.it("retains one semantic icon host through readable paint changes and recovery", function()
 		local w = world.new()
 		local status = Compose.cell("neutral")
 		local record = mount(w, { label = "Ready", icon = "status.success", status = status })
 		local height = node(w, ROOT).rect.h
+		local icon = node(w, ROOT .. "/Icon")
 		for _, entry in
 			{
-				{ "neutral", "control", "content", true },
-				{ "warning", "content", "surface", false },
-				{ "error", "danger", "onDanger", false },
-				{ "neutral", "control", "content", true },
+				{ "neutral", "control", "content" },
+				{ "warning", "warning", "onWarning" },
+				{ "success", "success", "onSuccess" },
+				{ "error", "danger", "onDanger" },
+				{ "neutral", "control", "content" },
 			}
 		do
 			status:set(entry[1])
 			w.pres.refresh()
 			t.expect(node(w, PLATE).props.tint.role).toBe(entry[2])
 			t.expect(node(w, ROOT .. "/Label").props.tint.role).toBe(entry[3])
-			t.expect(node(w, ROOT .. "/Icon/Glyph").props.tint.role).toBe(entry[3])
-			t.expect(w.adapter.visibleOf(ROOT .. "/Icon/Art")).toBe(entry[4])
-			t.expect(w.adapter.visibleOf(ROOT .. "/Icon/Glyph")).toBe(not entry[4])
+			t.expect(node(w, ROOT .. "/Icon").props.tint.role).toBe(entry[3])
+			t.expect(node(w, ROOT .. "/Icon")).toBe(icon)
+			t.expect(icon.decorationHint.icon).toBe("status.success")
+			t.expect(w.adapter.visibleOf(ROOT .. "/Icon")).toBe(true)
+			local tags = w.adapter.tagsOf(ROOT .. "/Icon")
+			for _, role in { "onSuccess", "onWarning", "onDanger" } do
+				t.expect(table.find(tags, "facet-letters-" .. role) ~= nil).toBe(entry[3] == role)
+			end
 			t.expect(node(w, ROOT).rect.h).toBe(height)
 			t.expect(record.dump().status).toBe(entry[1])
 		end
 		status:set("invalid")
 		w.pres.refresh()
 		t.expect(record.dump().status).toBe("neutral")
-		t.expect(w.adapter.visibleOf(ROOT .. "/Icon/Art")).toBe(true)
+		t.expect(w.adapter.visibleOf(ROOT .. "/Icon")).toBe(true)
 		status:set("warning")
 		w.pres.refresh()
-		t.expect(w.adapter.visibleOf(ROOT .. "/Icon/Glyph")).toBe(true)
+		t.expect(w.adapter.visibleOf(ROOT .. "/Icon")).toBe(true)
 	end)
 	t.it("keeps icon badges at the same height as plain captions and respects icon side", function()
 		local heights = {}
@@ -108,7 +115,7 @@ t.describe("Badge", function()
 			else
 				t.expect(node(w, PLATE).props.tint.role).toBe("surfaceStrong")
 				t.expect(node(w, ROOT .. "/Label").props.tint.role).toBe("contentStrong")
-				t.expect(w.adapter.visibleOf(ROOT .. "/Icon/Glyph")).toBe(true)
+				t.expect(w.adapter.visibleOf(ROOT .. "/Icon")).toBe(true)
 			end
 			if appearance == "status" then
 				t.expect(node(w, ROOT .. "/Mark").rect.w > 0).toBe(true)
@@ -167,7 +174,7 @@ t.describe("Badge", function()
 end)
 
 t.describe("Badge gallery", function()
-	t.it("drives real appearance changes and reports actual visibility only while mounted", function()
+	t.it("drives real appearance changes and reports mounted icon geometry", function()
 		local w = world.new()
 		local built = require("../examples/gallery/scenarios/badge").build({
 			Facet = require("../src"),
@@ -177,13 +184,12 @@ t.describe("Badge gallery", function()
 		})
 		t.expect(built.report()).toBeNil()
 		w.present(built.screen)
-		t.expect(built.report().artVisible).toBe(true)
-		t.expect(built.steps.warning().glyphVisible).toBe(true)
+		t.expect(built.report().icon.w > 0).toBe(true)
+		t.expect(built.steps.warning().badge.status).toBe("warning")
 		t.expect(built.steps.error().badge.status).toBe("error")
 		t.expect(w.adapter.driveActivate("/Badge/Content/BadgeRecipe/Commands/Neutral")).toBe(true)
 		w.settle()
-		t.expect(built.report().artVisible).toBe(true)
-		t.expect(built.report().glyphVisible).toBe(false)
+		t.expect(built.report().icon.w > 0).toBe(true)
 		w.close()
 		t.expect(built.report()).toBeNil()
 	end)
@@ -194,7 +200,7 @@ t.describe("Badge live content presence", function()
 		local w = world.new()
 		local label = Compose.cell(nil)
 		local record = mount(w, { label = label, icon = "status.info", name = "Information" })
-		local plate, icon = node(w, PLATE), node(w, ROOT .. "/Icon/Art")
+		local plate, icon = node(w, PLATE), node(w, ROOT .. "/Icon")
 		local labelPath = ROOT .. "/LabelContent/then/Label"
 		t.expect(w.adapter.node(labelPath)).toBeNil()
 		for _ = 1, 5 do
@@ -212,7 +218,7 @@ t.describe("Badge live content presence", function()
 				t.expect(w.adapter.node(labelPath)).toBeNil()
 			end
 			t.expect(node(w, PLATE)).toBe(plate)
-			t.expect(node(w, ROOT .. "/Icon/Art")).toBe(icon)
+			t.expect(node(w, ROOT .. "/Icon")).toBe(icon)
 		end
 	end)
 	t.it("quarantines an empty unnamed caption and false status, then recovers", function()

@@ -182,6 +182,30 @@ function screen_paint.new(ctx: any)
 		-- pair, never a second opacity authority.
 		local alpha = sheet_model.tintTransparency(tint, handle.class)
 		local hasAlpha = (tint :: any).transparency ~= nil
+		--[[ THE STATUS LETTERING, AS A CLASSIFICATION (2026-09-19). A tint naming
+			one of the four readable partners a status plate can carry publishes that
+			ROLE as a tag, and the only thing that reads it is the sheet's icon rule:
+			the managed picture over this node is a SEPARATE instance whose
+			`ImageColor3` is sheet-owned, which is the one paint a per-node claim
+			cannot reach. The role rather than the colour, so a theme swap re-colours
+			the picture with no Luau at all.
+
+			Set for every class, because the node that carries an icon picture is a
+			Text (its glyph is the floor under the art) and not a Box. ]]
+		local letterRole = if type((tint :: any).role) == "string"
+				and sheet_model.STATUS_LETTER_ROLES[(tint :: any).role]
+			then (tint :: any).role
+			else nil
+		if handle.letterRole ~= letterRole then
+			handle.letterRole = letterRole
+			syncTags(handle)
+			if not nativeMode and handle.iconInstance ~= nil then
+				-- THE FALLBACK HALF. With no StyleSheets there is no rule to re-match,
+				-- so the picture is repainted from the same role at the chrome
+				-- subsystem's own reconcile point — the two paths spend one fact.
+				syncChrome(handle)
+			end
+		end
 		if handle.path2d ~= nil then
 			-- a Path2D is not a GuiObject and no rule can select one: no claim needed.
 			-- Its pre-tint colour is recorded here rather than through claimPaint,
@@ -297,6 +321,10 @@ function screen_paint.new(ctx: any)
 		-- nothing asked for — the "tag added outside the desired set" defect class,
 		-- inverted (screen_target's syncTags says why the set is diffed at all)
 		handle.tintFill = nil
+		-- ...and so does the status lettering: a node whose tint was cleared is not
+		-- on a status plate any more, and a picture over it goes back to the colour
+		-- its own name declares
+		handle.letterRole = nil
 		syncTags(handle)
 		if handle.path2d ~= nil then
 			if handle.pathAlpha then

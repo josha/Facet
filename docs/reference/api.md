@@ -7512,6 +7512,18 @@ dependencies, because both the sheet model and the theme-package compiler gate
 on the same answer — so a game overriding the destructive palette can ask what
 the contrast gate will actually run against.
 
+`tokens.successPair(colors)` and `tokens.warningPair(colors)` return the effective
+plate and readable partner. Without authored values, success uses accent/onAccent
+and warning uses content/surface. Authored pairs win; both package and sheet
+compilation require contrast ≥4.5:1. A newly authored plate requires its partner.
+
+The public tint roles include `success`, `onSuccess`, `warning`, and `onWarning`.
+Managed icon pictures beneath nodes explicitly tinted `onAccent`, `onSuccess`,
+`onWarning`, or `onDanger` take that partner color through native sheet rules.
+This also applies to selected menu and picker content. Other icon roles remain
+package-owned. This semantic lettering does not change disabled alpha or the
+hidden fallback glyph, and is not arbitrary per-node RGB inheritance.
+
 The built-in default style ("Facet Neutral",
 `src/tokens/default_style.luau`) is the neutral floor every app gets for
 free; games override via their own schema. Style-modifier normalization
@@ -12412,10 +12424,10 @@ paints a passive mark without an input target or ornament surface.
 | `controlSize` | Bound compact (default), regular, or large; uses the theme's icon-size ladder. A count's height is a floor and can grow with text. |
 | `width`, `height` | Optional bound dimensions for a parent-reserved footprint. |
 
-The six statuses reuse existing palette pairs: neutral uses contentSecondary/surface,
-warning content/surface, error danger/onDanger, and info/success/accent accent/onAccent.
-Shape and a readable name distinguish meanings that share a color. `onDanger` is
-also a public tint role resolved through the theme's existing destructive pair.
+The six statuses use theme palette pairs: neutral uses contentSecondary/surface,
+warning warning/onWarning, success success/onSuccess, error danger/onDanger,
+and info/accent accent/onAccent. Themes without semantic pairs retain the former
+accent and content fallbacks. Shape and readable names remain independent channels.
 A cutout spends the page surface color; it is not a transparent hole through arbitrary art.
 Uncounted round forms center a square in the smaller offered axis, rounding the
 diameter down to a whole pixel. An existing two-candidate fit ladder keeps both
@@ -12454,9 +12466,11 @@ neutral all use control/content. Non-neutral statuses use StatusIndicator's pair
 utility uses secondary lettering. The caption can shrink and requests disclosure.
 The status appearance gives its nested mark a page-color cutout so the mark
 remains distinct from the enclosing plate even when both use the same status role.
-Small icon art and an ASCII glyph share a hugging box. Live status changes switch
-the visible representation so a status plate's lettering remains readable; this
-is not generic per-instance recoloring of semantic assets.
+One semantic Text host supplies the ASCII fallback and optional managed art. Its
+width has an iconSizes.small floor and can grow for multi-character glyphs; its
+height hugs the caption line. Art is a square bounded by that line and small icon
+size, so different icon names do not change badge height. The four readable
+partner roles also paint managed art; other roles keep the package icon tint.
 
 `ref.api.semanticText` and `ref.dump()` expose the current checked label/status/rung
 and authored appearance, icon side, corners, over and name. As with StatusIndicator,

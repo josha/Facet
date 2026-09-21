@@ -217,6 +217,13 @@ describe("themes.resolve: composition happens exactly once, in the declared orde
 		expect(snap.insets.panel.top).toBe(defaultStyle.space.m + 4)
 		expect(snap.insets.control.top).toBe(12) -- an unslotted native slot is untouched
 	end)
+	it("accepts an authored row gutter and otherwise derives it from spacing", function()
+		local authored = snapshot.resolve(derive({ controls = { rowActions = { rowGutter = 14 } } }, "trayey"), nil, {})
+		expect(authored.controls.rowActions.rowGutter).toBe(14)
+		expect(snapshot.resolve(snapshot.neutralPackage(), nil, {}).controls.rowActions.rowGutter).toBe(
+			defaultStyle.space.s
+		)
+	end)
 end)
 
 describe("metric-name resolution", function()

@@ -95,6 +95,12 @@ local NIGHTWATCH = {
 		onAccent = rgb(4, 12, 18),
 		danger = rgb(255, 110, 96),
 		onDanger = rgb(20, 4, 2),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (12.84:1 and 12.23:1)
+		success = rgb(86, 236, 158),
+		onSuccess = rgb(2, 16, 10),
+		warning = rgb(255, 196, 74),
+		onWarning = rgb(20, 12, 0),
 	},
 	extra = {
 		control = rgb(18, 30, 44),

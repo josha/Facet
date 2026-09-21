@@ -251,7 +251,12 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	-- scale, so every package answers `controls.rowActions.trayGap` while no
 	-- package's authored metrics — and therefore no package's content stamp —
 	-- moves for a value nobody wrote.
-	rowActions = table.freeze({ "trayGap" }),
+	-- ...and the gutter between the ROW and the band beside it, which `resolve`
+	-- fills one step up the same scale (`xs` separates two plates inside one tray;
+	-- `s` separates the tray from the surface it acts on). Optional for the same
+	-- reason, and listed here for the same reason `toggle.markWidth` is: a derived
+	-- metric a package may not DECLARE is a promise the compiler refuses.
+	rowActions = table.freeze({ "trayGap", "rowGutter" }),
 	-- the indeterminate spinner's dot (parity round 2 §3.1). Optional for the
 	-- same reason `trayGap` is: `snapshot.resolve` fills it from the theme's own
 	-- `space` scale, so every package answers `controls.progress.spinnerDotSize`
@@ -500,6 +505,22 @@ local LAYER_GENERATED_FIELDS: { [string]: boolean } = {
 
 local THEME_FIELDS: { [string]: boolean } = { name = true, colors = true, extra = true }
 local STYLE_FIELDS: { [string]: boolean } = { themes = true, defaultTheme = true }
+
+--[[ THE SEMANTIC PAIRS a palette publishes beyond the contract's three: a fill
+	that MEANS something plus the colour the theme itself chose to read on it.
+	Each is gated on its EFFECTIVE colours (`tokens.*Pair` answers what a theme
+	that declared neither will actually paint), so the rows below cost a package
+	written before them nothing at all.
+
+	`requiresPartner` is what separates the two newer pairs from `danger`: the
+	destructive partner has had a shipped library fallback since it existed and
+	packages already lean on it, while a green or an amber declared without its
+	partner would letter itself out of somebody else's pair. ]]
+local SEMANTIC_PAIRS = table.freeze({
+	table.freeze({ plate = "danger", partner = "onDanger", pair = tokens.dangerPair, requiresPartner = false }),
+	table.freeze({ plate = "success", partner = "onSuccess", pair = tokens.successPair, requiresPartner = true }),
+	table.freeze({ plate = "warning", partner = "onWarning", pair = tokens.warningPair, requiresPartner = true }),
+})
 
 -- ===== §4 legal-property linter ============================================
 -- A theme rule may write ONLY the native paint set (Step 2's nativeSheetOwned)
@@ -3051,26 +3072,49 @@ function package.define(def: any): (any, any)
 					)
 				end
 			end
-			-- the danger pair rides the SAME gate sheet_model asserts at build
-			-- time (using its documented library fallbacks when a theme omits the
-			-- pair) — found live: a package that passed define() then threw
-			-- inside sheet_model.gateTheme, which is the wrong place to learn it
-			do
-				local danger, onDanger = tokens.dangerPair(theme.colors)
-				local ratio = tokens.contrastRatio(danger, onDanger)
+			-- the three SEMANTIC pairs ride the SAME gate sheet_model asserts at
+			-- build time (each on its EFFECTIVE colours, so a theme that omits one
+			-- is gated on what it will actually paint) — found live: a package that
+			-- passed define() then threw inside sheet_model.gateTheme, which is the
+			-- wrong place to learn it
+			for _, entry in SEMANTIC_PAIRS do
+				local plate, on = entry.pair(theme.colors)
+				local ratio = tokens.contrastRatio(plate, on)
 				local ok = ratio >= 4.5
 				table.insert(contrast, {
 					theme = theme.name,
-					pair = "onDanger on danger",
+					pair = `{entry.partner} on {entry.plate}`,
 					ratio = math.floor(ratio * 100) / 100,
 					ok = ok,
 				})
 				if not ok then
 					reject(
 						"contrast",
-						`style.themes[{index}].colors.danger`,
-						`theme '{theme.name}': onDanger on danger contrast is {math.floor(ratio * 100) / 100}:1, below the 4.5:1 gate`,
-						"darken danger or lighten onDanger until the pair clears 4.5:1"
+						`style.themes[{index}].colors.{entry.plate}`,
+						`theme '{theme.name}': {entry.partner} on {entry.plate} contrast is `
+							.. `{math.floor(ratio * 100) / 100}:1, below the 4.5:1 gate`,
+						`darken {entry.plate} or lighten {entry.partner} until the pair clears 4.5:1`
+					)
+				end
+				--[[ A PLATE WITHOUT ITS PARTNER IS HALF A DECISION. The fallback above
+					is for a package that declares NEITHER — it keeps the look it always
+					had. A package that declares the fill and not the colour that reads on
+					it has published a plate whose lettering is somebody else's answer (the
+					accent's partner on a green, the page's surface on an amber), and the
+					gate above would then admit a pair the author never looked at. Declare
+					both or neither. `danger` is deliberately not held to this: its partner
+					has a shipped library fallback and packages already rely on it. ]]
+				if
+					entry.requiresPartner
+					and theme.colors[entry.plate] ~= nil
+					and theme.colors[entry.partner] == nil
+				then
+					reject(
+						"missingRole",
+						`style.themes[{index}].colors.{entry.partner}`,
+						`theme '{theme.name}' declares {entry.plate} without {entry.partner}`,
+						`a plate carries the colour the theme itself chose to read on it — declare {entry.partner} `
+							.. `beside {entry.plate}, or declare neither and inherit today's pair`
 					)
 				end
 			end

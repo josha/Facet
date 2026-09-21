@@ -267,6 +267,77 @@ describe("native primary-content paint bridge", function()
 		expect(f.live()).toBe(0)
 		expect(f.service:HasTag(label.instance, sheet.CONTENT_TEXT_TAG)).toBe(false)
 	end)
+	it("explicit plate lettering wins on managed art without changing content alpha or glyph suppression", function()
+		local f = nativeFixture()
+		local owner, state = f.handle("/S/Action", "Button")
+		local icon = f.handle("/S/Action/Icon", "Text", 1)
+		icon.iconInstance, icon.iconContentPaint = {}, true
+		f.service:AddTag(icon.iconInstance, slots.ICON_PICTURE_TAG)
+		f.api.bind(icon)
+		for _, model in
+			{
+				sheet.build({ themes = { { name = "Dark", style = require("../src/tokens/default_style") } } }),
+				sheet.buildPackage(require("../src/themes/snapshot").neutralPackage()),
+			}
+		do
+			for _, disabled in { false, true } do
+				f.classify(owner, {
+					"facet-role-destructive",
+					"facet-appearance-utility",
+					if disabled then slots.TAGS.stateDisabled else "facet-pointer-live",
+				})
+				state(if disabled then "NonInteractable" else "Idle")
+				for _, role in { "onAccent", "onSuccess", "onWarning", "onDanger", "content" } do
+					f.classify(icon, { slots.TAGS.iconArt, "facet-letters-" .. role })
+					local actual, inherited = nil, nil
+					for _, rule in model.rules do
+						local suffix = " > ." .. slots.ICON_PICTURE_TAG
+						local candidate
+						if string.sub(rule.selector, -#suffix) == suffix then
+							local parentRule = table.clone(rule)
+							parentRule.selector = string.sub(rule.selector, 1, -#suffix - 1)
+							candidate = resolved(
+								{ rules = { parentRule } },
+								"TextLabel",
+								f.service:GetTags(icon.instance),
+								"Idle",
+								"ImageColor3"
+							)
+						else
+							candidate = resolved(
+								{ rules = { rule } },
+								"ImageLabel",
+								f.service:GetTags(icon.iconInstance),
+								"Idle",
+								"ImageColor3"
+							)
+							if candidate ~= nil then
+								inherited = candidate
+							end
+						end
+						if candidate ~= nil then
+							actual = candidate
+						end
+					end
+					expect(inherited ~= nil).toBe(true) -- the competing P1a rules really match
+					expect(actual).toBe(
+						if role == "content" then inherited else "$" .. role:sub(1, 1):upper() .. role:sub(2)
+					)
+					expect(
+						resolved(model, "ImageLabel", f.service:GetTags(icon.iconInstance), "Idle", "ImageTransparency")
+							or { kind = "number", value = 0 }
+					).toEqual({ kind = "number", value = if disabled then 0.4 else 0 })
+					expect(resolved(model, "TextLabel", f.service:GetTags(icon.instance), "Idle", "TextTransparency")).toEqual({
+						kind = "number",
+						value = 1,
+					})
+				end
+			end
+		end
+		f.api.clear(owner)
+		expect(f.live()).toBe(0)
+	end)
+
 	it("dims actual managed art, retracts alpha, and never reveals its suppressed glyph", function()
 		local f = nativeFixture()
 		local owner, state = f.handle("/S/Action", "Button")

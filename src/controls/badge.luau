@@ -101,38 +101,21 @@ local function build(library: any, core: any, spec: any, owner: any)
 	end
 	local icon
 	if spec.icon then
-		local wantsArt = Compose.formula(function(use)
-			local _, letters = paintRoles(use)
-			return letters == "content" or not plated
-		end)
-		local function iconBox(name, hidden)
-			return UI.Text({
-				id = name,
+		-- One glyph host; the target owns its optional square picture and suppression.
+		-- Width is a floor, not a square clamp: two-character fallback glyphs can grow.
+		icon = chrome.attachHint(
+			UI.Text({
+				id = "Icon",
 				text = themePackage.iconGlyph(spec.icon) or "",
 				textSize = "caption",
 				textAlign = "center",
+				lineLimit = 1,
 				tint = letterTint,
-				hidden = hidden,
-				width = UI.hug(),
+				width = { type = "minMax", min = "iconSizes.small" },
 				height = UI.hug(),
-			})
-		end
-		-- Hints are creation-time metadata. Keep both representations owned and
-		-- switch actual visibility when a live plate needs another letter role.
-		icon = UI.ZStack({
-			id = "Icon",
-			width = UI.hug(),
-			height = UI.hug(),
-			children = {
-				chrome.attachHint(
-					iconBox("Art", function(use)
-						return not use(wantsArt)
-					end),
-					{ icon = spec.icon, iconSize = "small" }
-				),
-				iconBox("Glyph", wantsArt),
-			},
-		})
+			}),
+			{ icon = spec.icon, iconSize = "small" }
+		)
 	end
 	if icon and spec.iconPosition ~= "trailing" then
 		table.insert(content, icon)

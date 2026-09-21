@@ -423,7 +423,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 		So the fill rides a TAG, the mechanism `gripFocus` already uses for the
 		identical reason. The colour stays a claim: a rule cannot carry data. ]]
 	it("a tinted fill rides a tag, because the claim on it could never be taken", function()
-		local tint = section(adapterSource, "local function applyTint(handle: any)", 4200)
+		local tint = section(adapterSource, "local function applyTint(handle: any)", 5400)
 		-- the GuiObject branch declares the fill and re-syncs the node's tags
 		expect(contains(tint, "handle.tintFill = true")).toBe(true)
 		expect(contains(tint, "syncTags(handle)")).toBe(true)

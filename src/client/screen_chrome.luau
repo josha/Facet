@@ -397,6 +397,10 @@ function screen_chrome.new(ctx: Context)
 		accent = toColor3(style.colors.accent),
 		onAccent = toColor3(style.colors.onAccent),
 		onDanger = toColor3((select(2, sheet_model.dangerPair(style.colors)))),
+		success = toColor3((select(1, sheet_model.successPair(style.colors)))),
+		onSuccess = toColor3((select(2, sheet_model.successPair(style.colors)))),
+		warning = toColor3((select(1, sheet_model.warningPair(style.colors)))),
+		onWarning = toColor3((select(2, sheet_model.warningPair(style.colors)))),
 		control = toColor3(style.extra.control),
 		controlSelected = toColor3(style.extra.controlSelected),
 		-- the theme's OWN readable partner for its selected surface, taken from
@@ -480,7 +484,17 @@ function screen_chrome.new(ctx: Context)
 		-- icon does (create, then the first solve), and a key that only knew the
 		-- theme's number would treat the re-fit as a no-op and leave the first,
 		-- unconstrained size on screen forever.
+		--[[ THE PLATE'S OWN LETTERING WINS OVER THE NAME'S declared colour (see the
+			sheet's `Icon on <role>` rules). A framework status icon declares `content`,
+			which is right on the page and invisible on a status plate — so where the
+			HOST node says its letters are a status's readable partner, the picture
+			takes that partner too. In native mode the four rules do it; this is the
+			fallback half, written from the same role so the two cannot drift, and it
+			rides the cache key because the host's status can move under a bound
+			`status` with nothing else about the picture changing. ]]
+		local letterRole = handle.letterRole
 		local key = `{resolved.contentId}#{px}#{drawPx}#{tostring(resolved.tintRole)}#{tostring(pixelUnit)}`
+			.. `#{tostring(letterRole)}`
 		if handle.iconKey == key then
 			return
 		end
@@ -502,6 +516,10 @@ function screen_chrome.new(ctx: Context)
 			-- that joins the tree untagged is visible for the frame before the tag
 			-- lands, painting whatever the untagged cascade says.
 			CollectionService:AddTag(child, tag)
+			-- ...and the tag that says "this is an icon picture", whatever picture it
+			-- is: the status-lettering rules are about the NODE a picture sits on, so
+			-- they need a way to name the kind rather than the name
+			CollectionService:AddTag(child, chrome_slots.ICON_PICTURE_TAG)
 			child.Parent = handle.instance
 			handle.iconInstance = child
 			instancesByPath[handle.path .. "/" .. chrome_slots.ICON_NAME] = child
@@ -529,7 +547,8 @@ function screen_chrome.new(ctx: Context)
 			-- permanently), and the two halves are written from the same two
 			-- facts so they cannot drift.
 			child.ResampleMode = if pixelUnit ~= nil then Enum.ResamplerMode.Pixelated else Enum.ResamplerMode.Default
-			local tint = if type(resolved.tintRole) == "string" then ICON_TINT_COLOR[resolved.tintRole] else nil
+			local role = letterRole or (if type(resolved.tintRole) == "string" then resolved.tintRole else nil)
+			local tint = if role ~= nil then ICON_TINT_COLOR[role] else nil
 			child.ImageColor3 = tint or Color3.new(1, 1, 1)
 		end
 		handle.iconKey = key

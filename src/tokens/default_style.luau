@@ -37,6 +37,18 @@ local SCHEMA = {
 		-- its own sheet rule). Gated for contrast like every other pair.
 		danger = rgb(176, 42, 42),
 		onDanger = rgb(255, 255, 255),
+		-- the two SEMANTIC roles beside it, in this ramp's own family: a deep
+		-- forest green and a warm amber, both one step away from the surface ramp's
+		-- cool cast so a status mark reads as a state and not as a second accent.
+		-- Each carries the colour gated to read on it (5.36:1 and 7.35:1) — a
+		-- theme's answer, never white by guess. Every ratio quoted in a palette is
+		-- the number the GATE prints, which FLOORS at two decimals
+		-- (`math.floor(r * 100) / 100`); rounding one up is a comment that disagrees
+		-- with the compiler by a hundredth.
+		success = rgb(29, 122, 66),
+		onSuccess = rgb(255, 255, 255),
+		warning = rgb(212, 154, 28),
+		onWarning = rgb(26, 20, 6),
 	},
 	-- extended (non-contract) roles the renderer may read
 	extra = {

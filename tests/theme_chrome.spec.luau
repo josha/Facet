@@ -133,7 +133,14 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 		local model = sheet_model.buildPackage(classic())
 		local icons = 0
 		for _, rule in model.rules do
-			if string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
+			if
+				string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil
+				-- ...and the status-lettering rules, which are icon tints too: they
+				-- name the picture as a KIND (`facet-chrome-icon`) because what they
+				-- re-colour is decided by the NODE it sits on, not by which picture
+				-- it is
+				or string.find(rule.selector, chrome_slots.ICON_PICTURE_TAG, 1, true) ~= nil
+			then
 				icons += 1
 			else
 				expect(string.find(rule.selector, "facet-chrome-", 1, true) == nil).toBe(true)

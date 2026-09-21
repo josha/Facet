@@ -55,6 +55,13 @@ local TAN = rgb(215, 168, 96)
 local CREAM = rgb(244, 230, 192)
 local RED = rgb(122, 31, 34) -- RED_D, the palette's dark red: the mid RED fails the 4.5:1 gate against CREAM
 local GRN = rgb(79, 168, 63)
+-- the two SEMANTIC plates, in the same eight-colour discipline the rest of this
+-- palette keeps: a LEAF darker than the accent green (so "success" and "the
+-- brand" are not one colour on a 8x8 plate) and a GOLD warm enough to read as a
+-- caution beside the wood ramp. Both lettered in colours the palette already
+-- owns -- CREAM on the leaf at 5.41:1, INK on the gold at 8.09:1
+local LEAF = rgb(44, 104, 44)
+local GOLD = rgb(224, 160, 40)
 
 -- PIXEL UNIT 4. Art is authored in design pixels and saved at 4 image px per
 -- design px, so every length below is a multiple of 4 — and the snapshot snaps
@@ -199,6 +206,10 @@ local QUEST = {
 		onAccent = INK,
 		danger = RED,
 		onDanger = CREAM,
+		success = LEAF,
+		onSuccess = CREAM,
+		warning = GOLD,
+		onWarning = INK,
 	},
 	extra = {
 		control = WOOD,

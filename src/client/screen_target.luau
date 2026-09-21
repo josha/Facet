@@ -549,6 +549,13 @@ function screen_target.new(opts: Opts?)
 			-- desired set like every other classification tag, or the next pass
 			-- would strip the fill and the node would go invisible again.
 			tinted = handle.tintFill == true,
+			-- THE STATUS LETTERING (2026-09-19). Set by `applyTint` when a tint names
+			-- one of the four partners a status plate can carry: the managed icon
+			-- picture over this node reads it through a child-combinator rule, because
+			-- its own `ImageColor3` is sheet-owned and per-NAME. Rides the desired set
+			-- like every other classification tag, or a bound status moving would leave
+			-- the previous plate's lettering on the picture.
+			letterRole = handle.letterRole,
 			divider = handle.nativeDivider == true,
 			buttonRole = handle.nativeButtonRole,
 			-- the skinned-slot tag rides the SAME desired set as every other

@@ -14,10 +14,7 @@ return {
 			return {
 				badge = record.dump(),
 				rect = controller.rectOf(rootPath .. "/Forms/Standard+background"),
-				artVisible = controller.hiddenRoots()[rootPath .. "/Forms/Standard+background/Standard/Icon/Art"]
-					~= true,
-				glyphVisible = controller.hiddenRoots()[rootPath .. "/Forms/Standard+background/Standard/Icon/Glyph"]
-					~= true,
+				icon = controller.rectOf(rootPath .. "/Forms/Standard+background/Standard/Icon"),
 			}
 		end
 		local function choose(word)

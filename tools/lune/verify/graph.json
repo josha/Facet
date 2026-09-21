@@ -8602,7 +8602,7 @@
   },
   {
    "check": {
-    "shell": "test -f src/themes/package.luau && grep -q \"themes = {\" src/init.luau && grep -q \"checkCoverage\" src/init.luau && grep -q \"onDanger on danger\" src/themes/package.luau && grep -q \"theme_package.spec\" tests/run.luau"
+    "shell": "test -f src/themes/package.luau && grep -q \"themes = {\" src/init.luau && grep -q \"checkCoverage\" src/init.luau && grep -q 'partner = \"onDanger\"' src/themes/package.luau && grep -q 'partner = \"onSuccess\"' src/themes/package.luau && grep -q 'partner = \"onWarning\"' src/themes/package.luau && grep -q \"theme_package.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/theme-packages-and-skinning/b-a1-package-contract.json",

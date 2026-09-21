@@ -61,6 +61,27 @@ function tokens.dangerPair(colors: any): (Rgb, Rgb)
 	return colors.danger or DANGER_FALLBACK, colors.onDanger or ON_DANGER_FALLBACK
 end
 
+-- THE TWO SEMANTIC PAIRS the status vocabulary spends (2026-09-19), declared
+-- exactly like the destructive one above and gated in the same two places.
+--
+-- THE FALLBACK IS TODAY'S PAINT, NOT A LIBRARY COLOUR. Which green and which
+-- amber a palette wants is a decision about that palette's own family, and a
+-- constant here would put a colour no designer chose onto every package that
+-- never declared one. So a style with neither keeps exactly what the status
+-- vocabulary already spent while the palette had no green and no amber:
+-- `success` takes the accent pair, `warning` the content colour on the page's
+-- own surface. Both fallbacks are pairs the contrast gate ALREADY clears, so a
+-- package written before these roles passes the new gate rows by construction —
+-- and the two roles still resolve for every theme, which is what lets one
+-- fallback in the resolver replace a branch in every consumer.
+function tokens.successPair(colors: any): (Rgb, Rgb)
+	return colors.success or colors.accent, colors.onSuccess or colors.onAccent
+end
+
+function tokens.warningPair(colors: any): (Rgb, Rgb)
+	return colors.warning or colors.content, colors.onWarning or colors.surface
+end
+
 -- compile(schema) -> (compiled | nil, report)
 -- report = { ok, missing = {..}, contrast = { {pair, ratio, ok} } }
 function tokens.compile(schema: any): (any, any)

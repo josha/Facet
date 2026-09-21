@@ -371,6 +371,73 @@ describe("themes.resolveIcon: three honest answers", function()
 		end
 	end)
 
+	it("a status plate re-letters the picture on it, in BOTH sheet builders", function()
+		--[[ AN ICON DECLARES ONE COLOUR PER NAME (`content` for every framework
+			status icon), which is right on the page and invisible on a status plate —
+			measured live, `status.warning` painted cream on cream. The node that
+			carries the picture already knows the answer, because its own lettering IS
+			the plate's readable partner, so four scoped rules hand that role to the
+			picture. Both builders emit them, and each comes AFTER the per-name tint it
+			corrects: the cascade is priority, then insertion, with no selector
+			specificity, so position IS the ruling. ]]
+		local sheetModel = require("../src/tokens/sheet_model")
+		local defaultStyle = require("../src/tokens/default_style")
+		local models = {
+			legacy = sheetModel.build({ themes = { { name = "Facet Neutral", style = defaultStyle } } }),
+			package_ = sheetModel.buildPackage(snapshot.neutralPackage()),
+		}
+		for label, model in models do
+			local found: { string } = {}
+			local perName, lastPerName, lastStatus = 0, 0, 0
+			for index, rule in model.rules do
+				local role = string.match(rule.selector, "^%.facet%-letters%-(%w+) > %.facet%-chrome%-icon$")
+				if role ~= nil then
+					table.insert(found, `{role}={tostring(rule.props.ImageColor3)}`)
+					lastStatus = index
+				elseif string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
+					-- a per-NAME icon tint. `~= nil`, NOT `== 1`: every selector starts
+					-- with the dot, so the old test returned 2 and never fired — the
+					-- ordering claim below was vacuously true in both builders
+					perName += 1
+					lastPerName = index
+				end
+			end
+			table.sort(found)
+			expect(`{label}: {table.concat(found, " ")}`).toBe(
+				`{label}: onAccent=$OnAccent onDanger=$OnDanger onSuccess=$OnSuccess onWarning=$OnWarning`
+			)
+			--[[ THE PACKAGE BUILDER IS WHERE ORDER MEANS SOMETHING: it emits one tint
+				per icon NAME that resolves to art, and the four status rules have to come
+				after all of them. The legacy builder emits none at all, which is its own
+				fact worth stating — there the status rules are the only icon paint in the
+				sheet. ]]
+			expect(`{label}: per-name {perName > 0}, status after them {lastStatus > lastPerName}`).toBe(
+				`{label}: per-name {label == "package_"}, status after them true`
+			)
+			--[[ ...AND NOTHING LATER REPAINTS THE PICTURE, which is the claim the
+				ordering is FOR (the `button_shape` idiom: a later rule on a selector this
+				node matches would win on the same property). ]]
+			for index = lastStatus + 1, #model.rules do
+				local rule = model.rules[index]
+				local touchesPicture = string.find(rule.selector, chrome_slots.ICON_PICTURE_TAG, 1, true) ~= nil
+					or string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil
+				expect(`{label}/{rule.name}: {touchesPicture and rule.props.ImageColor3 ~= nil}`).toBe(
+					`{label}/{rule.name}: false`
+				)
+			end
+			-- ...and every token those rules spend really exists in every theme, or a
+			-- swap would stop painting the picture
+			for _, theme in model.themes do
+				for _, role in sheetModel.STATUS_LETTERS do
+					local token = theme.tokens[role:sub(1, 1):upper() .. role:sub(2)]
+					expect(`{label}/{theme.name}/{role}: {type(token) == "table"}`).toBe(
+						`{label}/{theme.name}/{role}: true`
+					)
+				end
+			end
+		end
+	end)
+
 	it("nothing at all for a name that means nothing, at every rung", function()
 		expect(themes.resolveIcon(snapshot.neutralPackage(), "not.an.icon")).toBeNil()
 		-- with no package at all there is nothing to override the framework, so

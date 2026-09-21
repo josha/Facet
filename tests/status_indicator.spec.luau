@@ -76,8 +76,8 @@ t.describe("StatusIndicator", function()
 		local expected = {
 			neutral = { "contentSecondary", "surface" },
 			info = { "accent", "onAccent" },
-			success = { "accent", "onAccent" },
-			warning = { "content", "surface" },
+			success = { "success", "onSuccess" },
+			warning = { "warning", "onWarning" },
 			error = { "danger", "onDanger" },
 			accent = { "accent", "onAccent" },
 		}

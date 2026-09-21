@@ -1549,6 +1549,44 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		expect(w.adapter.node(label).props.tint.role).toBe(menuRecipe.RESTING_LABEL_ROLE)
 	end)
 
+	it("...and so does the row's ICON, which is the rule doing what it says", function()
+		local checked = Compose.cell(true)
+		local w = world({
+			items = {
+				{ id = "a", label = "Alpha", icon = "checkmark", description = "First", onSelect = function() end },
+				{ id = "b", label = "Beta", icon = "close", checked = checked },
+			},
+			presentation = "menu",
+		})
+		w.control.api.open()
+		w.pres.refresh()
+		local function letters(id: string): string
+			local iconPath
+			for _, path in w.adapter.paths() do
+				if
+					string.sub(path, 1, #rowPath(0, id) + 1) == rowPath(0, id) .. "/"
+					and string.sub(path, -5) == "/Icon"
+				then
+					iconPath = path
+				end
+			end
+			local tags = w.adapter.tagsOf(assert(iconPath, "mounted menu icon"))
+			for _, tag in tags do
+				if string.find(tag, "facet-letters-", 1, true) == 1 then
+					return tag
+				end
+			end
+			return "none"
+		end
+		expect(`selected {letters("b")} · resting {letters("a")}`).toBe(
+			`selected facet-letters-{menuRecipe.SELECTED_LABEL_ROLE} · resting none`
+		)
+		-- ...and it lets go with the selection, exactly as the label's tint does
+		checked:set(false)
+		w.pres.refresh()
+		expect(`released {letters("b")}`).toBe("released none")
+	end)
+
 	it("the SHEET keeps the shape it had — the card is a presentation branch", function()
 		local core = harness.newCore()
 		local checked = Compose.cell(true)

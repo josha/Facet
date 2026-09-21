@@ -325,6 +325,13 @@ local function selectorMatches(selector: string, class: string, tags: { [string]
 	if string.find(selector, "::", 1, true) ~= nil then
 		return false, "descendant"
 	end
+	-- ...and a CHILD combinator names somebody else's child (the chrome state
+	-- rules and the status-lettering icon rules both reach a managed instance
+	-- parented under a node). A catcher has no such child, so the rule cannot be
+	-- about this node's fill — same channel, same reason as the phantom modifiers.
+	if string.find(selector, " > ", 1, true) ~= nil then
+		return false, "descendant"
+	end
 	if string.find(selector, ":", 1, true) ~= nil then
 		return false, "state"
 	end

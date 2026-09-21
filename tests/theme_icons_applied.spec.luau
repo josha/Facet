@@ -438,6 +438,32 @@ describe("icon paint: the package emits, the adapter applies", function()
 		expect(string.find(classify, "iconArt = handle.iconArt == true", 1, true) ~= nil).toBe(true)
 	end)
 
+	it("the picture wears the KIND tag and is a DIRECT child — the combinator's two halves", function()
+		--[[ THE LOAD-BEARING LINE NOTHING COULD SEE. The status-lettering rules are
+			`.facet-letters-<role> > .facet-chrome-icon`, so the picture has to wear the
+			kind tag AND be a direct child of the node that wears the letters — and this
+			harness has no managed picture, so every headless claim about that rule
+			reads the host's tag and the emitted selector instead. Delete either line
+			here and the whole feature is dead on a device with the suite still green,
+			which is exactly what a source pin is for. ]]
+		local apply = section(chromeSource, "local function syncIconArt(handle: any)", "\n\tend")
+		expect(string.find(apply, "CollectionService:AddTag(child, chrome_slots.ICON_PICTURE_TAG)", 1, true) ~= nil).toBe(
+			true
+		)
+		-- a DIRECT child of the host: the combinator is `>`, not a descendant walk
+		expect(string.find(apply, "child.Parent = handle.instance", 1, true) ~= nil).toBe(true)
+		-- ...and the kind tag is added BEFORE the picture joins the tree, the
+		-- tag-before-parent rule every other create path in that file keeps
+		local tagAt: any = string.find(apply, "chrome_slots.ICON_PICTURE_TAG", 1, true)
+		local parentAt: any = string.find(apply, "child.Parent = handle.instance", 1, true)
+		expect(tagAt < parentAt).toBe(true)
+		-- the fallback half reads the same role the rules spend, so the two paths
+		-- cannot disagree about a status plate's picture
+		expect(string.find(apply, "local letterRole = handle.letterRole", 1, true) ~= nil).toBe(true)
+		local classify = section(adapterSource, "local function syncTags(handle: any)", "\n\tend")
+		expect(string.find(classify, "letterRole = handle.letterRole", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("native mode writes NO sheet-owned paint on the picture (rs-m2's defeat rule)", function()
 		local apply = section(chromeSource, "local function syncIconArt(handle: any)", "\n\tend")
 		local guard: any = string.find(apply, "if not nativeMode then", 1, true)

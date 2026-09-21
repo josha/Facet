@@ -146,6 +146,17 @@ chrome_slots.ICON_Z_INDEX = 20
 -- instance, exactly like a decoration.
 chrome_slots.ICON_TAG_PREFIX = "facet-chrome-icon-"
 
+--[[ ...AND THE TAG EVERY MANAGED PICTURE WEARS, whatever its name is. The
+	per-name tag above is how a package re-skins ONE icon; this one is how a rule
+	can say something about "an icon picture" as a kind — which the status
+	lettering rules need, because a plate's readable partner is a fact about the
+	NODE the picture sits on and not about which picture it is.
+
+	Not a prefix of the per-name tags by accident: `facet-chrome-icon` is shorter
+	than `facet-chrome-icon-`, so the adapter's "drop the stale per-name tag" sweep
+	(which compares against the longer prefix) leaves it alone. ]]
+chrome_slots.ICON_PICTURE_TAG = "facet-chrome-icon"
+
 function chrome_slots.iconTagFor(name: string): string
 	return chrome_slots.ICON_TAG_PREFIX .. (string.gsub(string.gsub(name, "%.", "-"), ":", "--"))
 end

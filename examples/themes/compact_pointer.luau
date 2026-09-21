@@ -64,6 +64,12 @@ local AQUA = {
 		onAccent = rgb(255, 255, 255),
 		danger = rgb(172, 26, 38),
 		onDanger = rgb(255, 255, 255),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (6.29:1 and 7.77:1)
+		success = rgb(18, 110, 66),
+		onSuccess = rgb(255, 255, 255),
+		warning = rgb(214, 152, 16),
+		onWarning = rgb(16, 12, 2),
 	},
 	extra = {
 		control = rgb(246, 247, 250),

@@ -10,6 +10,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local defaultStyle = require("../src/tokens/default_style")
+local sheetModel = require("../src/tokens/sheet_model")
 
 -- a valid definition, cloned per test so a mutation cannot leak between them
 local function goodDef(): any
@@ -370,6 +371,80 @@ describe("theme package: danger contrast parity (integration find, 2026-07-25)",
 		def.style.themes[1].colors.onDanger = nil
 		local pkg = (themes.define(def))
 		expect(pkg ~= nil).toBe(true)
+	end)
+end)
+
+describe("theme package: the success and warning pairs", function()
+	--[[ A PACKAGE WRITTEN BEFORE THESE ROLES KEEPS ITS LOOK, and that promise is
+		kept in ONE place — the token resolver — so no control carries a branch for
+		it. The three cases are the three ways a palette can meet the pair: declare
+		neither (today's paint), declare both (its own), declare half (refused). ]]
+	local function rgbOf(theme: any, role: string): string
+		local c = sheetModel.paletteColor(theme, role)
+		return `{math.floor(c.r * 255 + 0.5)},{math.floor(c.g * 255 + 0.5)},{math.floor(c.b * 255 + 0.5)}`
+	end
+
+	local function declared(theme: any, role: string): string
+		local c = theme.colors[role]
+		return `{math.floor(c.r * 255 + 0.5)},{math.floor(c.g * 255 + 0.5)},{math.floor(c.b * 255 + 0.5)}`
+	end
+
+	it("a theme that declares neither still answers both, with the pair it always spent", function()
+		local def = goodDef()
+		local colors = def.style.themes[1].colors
+		colors.success, colors.onSuccess, colors.warning, colors.onWarning = nil, nil, nil, nil
+		local pkg, report = themes.define(def)
+		expect(pkg ~= nil).toBe(true)
+		local theme = (pkg :: any).style.themes[1]
+		-- `success` IS the accent pair and `warning` IS content on the page, which
+		-- is exactly what a status mark painted before either role existed
+		expect(`{rgbOf(theme, "success")} / {rgbOf(theme, "onSuccess")}`).toBe(
+			`{declared(theme, "accent")} / {declared(theme, "onAccent")}`
+		)
+		expect(`{rgbOf(theme, "warning")} / {rgbOf(theme, "onWarning")}`).toBe(
+			`{declared(theme, "content")} / {declared(theme, "surface")}`
+		)
+		-- ...and the gate ran on those effective colours rather than skipping the row
+		local gated: { [string]: boolean } = {}
+		for _, entry in report.contrast do
+			gated[entry.pair] = entry.ok
+		end
+		expect(`{tostring(gated["onSuccess on success"])} {tostring(gated["onWarning on warning"])}`).toBe("true true")
+	end)
+
+	it("a declared plate wins over the fallback, and an unreadable one is refused at DEFINE time", function()
+		local def = goodDef()
+		def.style.themes[1].colors.success = { r = 0.1, g = 0.5, b = 0.26 }
+		def.style.themes[1].colors.onSuccess = { r = 1, g = 1, b = 1 }
+		local pkg = (themes.define(def))
+		expect(pkg ~= nil).toBe(true)
+		expect(rgbOf((pkg :: any).style.themes[1], "success")).toBe("26,128,66")
+
+		local bad = goodDef()
+		bad.style.themes[1].colors.warning = { r = 0.95, g = 0.9, b = 0.6 }
+		bad.style.themes[1].colors.onWarning = { r = 1, g = 1, b = 1 }
+		local refused, report = themes.define(bad)
+		expect(refused).toBe(nil)
+		local named = false
+		for _, err in report.errors do
+			named = named or string.find(err.message, "onWarning on warning", 1, true) ~= nil
+		end
+		expect(named).toBe(true)
+	end)
+
+	it("a plate declared without its partner is refused, and the error names the missing role", function()
+		for _, pair in { { "success", "onSuccess" }, { "warning", "onWarning" } } do
+			local def = goodDef()
+			local colors = def.style.themes[1].colors
+			colors[pair[1]] = { r = 0.12, g = 0.42, b = 0.2 }
+			colors[pair[2]] = nil
+			local pkg, report = themes.define(def)
+			expect(`{pair[1]}: {tostring(pkg)}`).toBe(`{pair[1]}: nil`)
+			local entry = firstOfClass(report, "missingRole")
+			expect(`{pair[1]}: {if entry ~= nil then entry.field else "—"}`).toBe(
+				`{pair[1]}: style.themes[1].colors.{pair[2]}`
+			)
+		end
 	end)
 end)
 

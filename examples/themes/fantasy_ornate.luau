@@ -91,6 +91,12 @@ local GRAND_HALL = {
 		onAccent = rgb(32, 22, 8),
 		danger = rgb(158, 46, 34),
 		onDanger = rgb(255, 242, 232),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.37:1 and 6.70:1)
+		success = rgb(84, 108, 44),
+		onSuccess = rgb(255, 242, 232),
+		warning = rgb(214, 150, 54),
+		onWarning = rgb(38, 26, 8),
 	},
 	extra = {
 		control = rgb(84, 62, 42),
@@ -134,6 +140,12 @@ local CRYPT = {
 		onAccent = rgb(10, 18, 20),
 		danger = rgb(154, 52, 62),
 		onDanger = rgb(255, 238, 240),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.44:1 and 7.38:1)
+		success = rgb(92, 150, 110),
+		onSuccess = rgb(10, 18, 20),
+		warning = rgb(198, 158, 78),
+		onWarning = rgb(16, 20, 26),
 	},
 	extra = {
 		control = rgb(52, 60, 72),

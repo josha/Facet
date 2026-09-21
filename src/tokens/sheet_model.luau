@@ -75,6 +75,8 @@ sheet_model.TAGS = table.freeze({
 		it: this is the floor under an otherwise invisible node, never a new
 		authority over one that was already painted. ]]
 	tintFill = "facet-tint-fill",
+	-- Closed partner-role classification for managed icon children.
+	letterPrefix = "facet-letters-", -- + onAccent|onSuccess|onWarning|onDanger
 	--[[ THE LOCAL SIZE AND EMPHASIS VOCABULARY (`src/controls/control_vocabulary.luau`).
 
 		A control may say it is smaller, quieter or louder than its neighbour WITHOUT
@@ -104,6 +106,27 @@ sheet_model.TAGS = table.freeze({
 -- the emphasis word that IS the default paint, named once: `classifyTags` skips it
 -- and neither sheet builder emits a rule for it, and those two facts have to agree.
 sheet_model.DEFAULT_APPEARANCE = "standard"
+
+--[[ THE READABLE PARTNERS A STATUS PLATE CAN CARRY, in the order their rules are
+	emitted. The status vocabulary is six words over four plates (`info` and
+	`accent` share the accent; `neutral` is content on the page, which needs no
+	rule because `content` is what an icon already declares), so this is the whole
+	closed set — and it is what keeps the icon rules below a STATUS feature rather
+	than a per-node tint channel. ]]
+sheet_model.STATUS_LETTERS = table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger" })
+local STATUS_LETTER_ROLES: { [string]: boolean } = {}
+for _, role in sheet_model.STATUS_LETTERS do
+	STATUS_LETTER_ROLES[role] = true
+end
+sheet_model.STATUS_LETTER_ROLES = table.freeze(STATUS_LETTER_ROLES)
+
+-- the theme token one of those roles spends. Spelled here rather than read from
+-- the role-to-token map, because the legacy builder is DEFINED above that table
+-- and a later local is not an upvalue — the two are asserted equal where the map
+-- itself is declared, so they cannot drift.
+local function statusLetterToken(role: string): string
+	return "$" .. role:sub(1, 1):upper() .. role:sub(2)
+end
 
 --[[ THE BACKDROP RULE, named once. Both sheet builders emit it and the
 	adapter patches it live when the player moves their Background Transparency
@@ -270,6 +293,10 @@ export type ClassifyInput = {
 	-- or not. Drives `facet-slot-<slot>`, which is what gives a value control's
 	-- chrome its own native paint instead of borrowing a public surface's.
 	slotHint: string?,
+	-- this node's own tint names a STATUS's readable partner (see TAGS.letterPrefix):
+	-- the four `on*` roles a status plate can carry, and nothing else — the value
+	-- is the role NAME, so a rule can spend the matching token.
+	letterRole: string?,
 	-- the sixth variant state. `default/hover/pressed/selected/
 	-- disabled` all ride an engine GuiState or a tag the renderer already emits;
 	-- `error` has no engine state, so a control that has one publishes it here.
@@ -353,6 +380,12 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- an explicit write of the class default never takes the property
 	if input.tinted == true then
 		tags[T.tintFill] = true
+	end
+	-- the STATUS LETTERING (see TAGS.letterPrefix): a closed set of four, so a
+	-- role this vocabulary does not know earns no tag rather than a rule nothing
+	-- ever wrote
+	if type(input.letterRole) == "string" and sheet_model.STATUS_LETTER_ROLES[input.letterRole :: string] then
+		tags[T.letterPrefix .. (input.letterRole :: string)] = true
 	end
 	-- the ERROR state's tag. Emitted only when a control says so,
 	-- so nothing a package published before this stage renders can carry it.
@@ -472,6 +505,31 @@ end
 -- there is a cycle (sheet_model already requires ../themes/package)
 local dangerPair = tokens.dangerPair
 sheet_model.dangerPair = dangerPair
+-- ...and the two SEMANTIC pairs beside it, for the same reason and through the
+-- same door: the theme-package compiler gates them at define time, this module
+-- gates them at build time, and the adapter's fallback palette spends the same
+-- answer. A theme that declared neither still resolves both (see tokens).
+local successPair = tokens.successPair
+local warningPair = tokens.warningPair
+sheet_model.successPair = successPair
+sheet_model.warningPair = warningPair
+--[[ THE SEMANTIC ROLES, each mapped to the pair it belongs to and which END of
+	that pair it is. Both readers spend it: the contrast gate runs on the
+	EFFECTIVE colours (a theme that omits a role is gated on what it will actually
+	paint), and the tint resolver is handed ONE role at a time and has to know
+	whether it was asked for the plate or for the colour that reads on it.
+
+	A plate and its partner in one row is the whole point — a destructive seal's
+	number, a warning badge's word and the gate that admitted them all read the
+	same decision, and white is a guess rather than a theme's answer. ]]
+local SEMANTIC_ROLE: { [string]: { pair: (any) -> (any, any), partner: boolean } } = {
+	danger = { pair = dangerPair, partner = false },
+	onDanger = { pair = dangerPair, partner = true },
+	success = { pair = successPair, partner = false },
+	onSuccess = { pair = successPair, partner = true },
+	warning = { pair = warningPair, partner = false },
+	onWarning = { pair = warningPair, partner = true },
+}
 
 local function lerp(a: any, b: { r: number, g: number, b: number }, t: number): TokenValue
 	return {
@@ -586,6 +644,13 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		-- tokens use so a destructive button's states read as the same family
 		DangerHover = lerp((select(1, dangerPair(c))), { r = 1, g = 1, b = 1 }, 0.12),
 		DangerPressed = lerp((select(1, dangerPair(c))), { r = 0, g = 0, b = 0 }, 0.12),
+		-- the two SEMANTIC fills and their readable partners, from the same
+		-- effective pairs the gate runs on. No hover/press twins: neither is a
+		-- role a control can be PRESSED in — they are what a status IS
+		Success = color((select(1, successPair(c)))),
+		OnSuccess = color((select(2, successPair(c)))),
+		Warning = color((select(1, warningPair(c)))),
+		OnWarning = color((select(2, warningPair(c)))),
 		Surface = color(c.surface),
 		SurfaceStrong = color(c.surfaceStrong),
 		Content = color(c.content),
@@ -619,11 +684,14 @@ local function gateTheme(name: string, style: any)
 			{ "surfaceStrong", "contentStrong" },
 			{ "accent", "onAccent" },
 			{ "danger", "onDanger" },
+			{ "success", "onSuccess" },
+			{ "warning", "onWarning" },
 		}
 	do
 		local a, b = style.colors[pair[1]], style.colors[pair[2]]
-		if pair[1] == "danger" then
-			a, b = dangerPair(style.colors)
+		local semantic = SEMANTIC_ROLE[pair[1]]
+		if semantic ~= nil then
+			a, b = semantic.pair(style.colors)
 		end
 		local ratio = tokens.contrastRatio(a, b)
 		local ok = ratio >= 4.5
@@ -825,6 +893,22 @@ local function emitSlotSuppression(slot: string, emit: (Rule) -> ())
 		selector = `.{skinnedTag}::UIStroke`,
 		props = { Thickness = num(0), Transparency = num(1), ApplyStrokeMode = STROKE_BORDER },
 	})
+end
+
+-- Managed pictures inherit a host's explicit partner lettering through native rules.
+-- Both builders append these after name colors and generated-content projections.
+local function emitStatusIconTint(emit: (Rule) -> ())
+	for _, role in sheet_model.STATUS_LETTERS do
+		local selector = `.{sheet_model.TAGS.letterPrefix}{role} > .{chrome_slots.ICON_PICTURE_TAG}`
+		sheet_model.checkSelector(selector, "Status lettering")
+		local allowed, reason = themePackage.lintProperty("ImageColor3", "chrome")
+		assert(allowed, reason)
+		emit({
+			name = `Status lettering — {role}`,
+			selector = selector,
+			props = { ImageColor3 = statusLetterToken(role) },
+		})
+	end
 end
 
 -- ===========================================================================
@@ -1675,6 +1759,11 @@ function sheet_model.build(opts: BuildOpts): Model
 	table.insert(mirrors, { name = "MotionNormal", value = base.motion.normal })
 
 	projectContentRules(rules)
+	-- Explicit partner lettering wins over both name tint and generated-owner color.
+	emitStatusIconTint(function(rule: Rule)
+		rule.priority = (#rules + 1) * 10
+		table.insert(rules, rule)
+	end)
 
 	-- deterministic stamp over everything the generator writes
 	local parts: { string } = {}
@@ -1880,6 +1969,10 @@ local TINT_ROLE_TOKEN: { [string]: string } = {
 	accent = "$Accent",
 	onAccent = "$OnAccent",
 	onDanger = "$OnDanger",
+	success = "$Success",
+	onSuccess = "$OnSuccess",
+	warning = "$Warning",
+	onWarning = "$OnWarning",
 	control = "$Control",
 	controlSelected = "$ControlSelected",
 	onSelected = "$OnSelected",
@@ -2006,13 +2099,13 @@ function sheet_model.paletteColor(theme: any, role: string): any
 	if type(extra) == "table" and type(extra.r) == "number" then
 		return { r = extra.r, g = extra.g, b = extra.b }
 	end
-	if role == "onDanger" then
-		local _, on = dangerPair(if type(c) == "table" then c else {})
-		return { r = on.r, g = on.g, b = on.b }
-	end
-	if role == "danger" then
-		local danger = dangerPair(if type(c) == "table" then c else {})
-		return { r = danger.r, g = danger.g, b = danger.b }
+	local semantic = SEMANTIC_ROLE[role]
+	if semantic then
+		local plate, on = semantic.pair(if type(c) == "table" then c else {})
+		local answer = if semantic.partner then on else plate
+		if type(answer) == "table" and type(answer.r) == "number" then
+			return { r = answer.r, g = answer.g, b = answer.b }
+		end
 	end
 	-- `onSelected` is the SAME decision `$OnSelected` carries (the theme's own
 	-- readable partner for its selected surface), reached as a tint so a child
@@ -3510,6 +3603,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 
 	projectContentRules(rules)
+	-- Explicit partner lettering wins over both name tint and generated-owner color.
+	emitStatusIconTint(function(rule: Rule)
+		rule.priority = (#rules + 1) * 10
+		table.insert(rules, rule)
+	end)
 
 	-- ----- mirrors: what the Style Editor SHOWS about this package ---------
 	local mirrors: { { name: string, value: number } } = {}

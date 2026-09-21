@@ -74,6 +74,12 @@ local SKY = {
 		onAccent = rgb(255, 255, 255),
 		danger = rgb(178, 26, 40),
 		onDanger = rgb(255, 255, 255),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (6.12:1 and 7.45:1)
+		success = rgb(16, 112, 70),
+		onSuccess = rgb(255, 255, 255),
+		warning = rgb(212, 148, 14),
+		onWarning = rgb(18, 12, 2),
 	},
 	extra = {
 		control = rgb(232, 238, 246),

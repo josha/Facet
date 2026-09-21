@@ -196,7 +196,7 @@ t.describe("Avatar", function()
 		local record =
 			mount(w, { name = "Ada", presence = presence, presenceLabel = label, onActivate = function() end })
 		local base = "/S/Face+target/Face"
-		local roles = { online = "accent", away = "content", busy = "danger", offline = "contentSecondary" }
+		local roles = { online = "success", away = "warning", busy = "danger", offline = "contentSecondary" }
 		for _, state in { "online", "away", "busy", "offline" } do
 			presence:set(state)
 			label:set("Local " .. state)
@@ -240,7 +240,7 @@ t.describe("Avatar", function()
 		t.expect(mountedLabel(w, base)).toBe("Ada, online")
 		t.expect(record.dump().presence).toBe("online")
 		t.expect(record.dump().label).toBe("Ada, online")
-		t.expect(presencePart(w, base, "Mark").props.tint.role).toBe("accent")
+		t.expect(presencePart(w, base, "Mark").props.tint.role).toBe("success")
 		presence:set("busy")
 		w.pres.refresh()
 		t.expect(record.dump().label).toBe("Ada, busy")

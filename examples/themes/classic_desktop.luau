@@ -53,6 +53,12 @@ local DAY = {
 		onAccent = rgb(255, 255, 255),
 		danger = rgb(140, 20, 20),
 		onDanger = rgb(255, 255, 255),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (7.85:1 and 5.91:1)
+		success = rgb(20, 94, 48),
+		onSuccess = rgb(255, 255, 255),
+		warning = rgb(196, 138, 16),
+		onWarning = rgb(24, 24, 24),
 	},
 	extra = {
 		control = rgb(226, 223, 216),
@@ -78,6 +84,12 @@ local NIGHT = {
 		onAccent = rgb(12, 16, 26),
 		danger = rgb(228, 116, 116),
 		onDanger = rgb(28, 10, 10),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (9.34:1 and 10.27:1)
+		success = rgb(126, 204, 140),
+		onSuccess = rgb(10, 26, 14),
+		warning = rgb(232, 188, 104),
+		onWarning = rgb(28, 20, 4),
 	},
 	extra = {
 		control = rgb(64, 64, 60),

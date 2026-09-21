@@ -16,16 +16,16 @@ status_indicator.STATUS_SET = guard.keySet(status_indicator.STATUSES)
 local PLATE = {
 	neutral = "contentSecondary",
 	info = "accent",
-	success = "accent",
-	warning = "content",
+	success = "success",
+	warning = "warning",
 	error = "danger",
 	accent = "accent",
 }
 local ON = {
 	neutral = "surface",
 	info = "onAccent",
-	success = "onAccent",
-	warning = "surface",
+	success = "onSuccess",
+	warning = "onWarning",
 	error = "onDanger",
 	accent = "onAccent",
 }

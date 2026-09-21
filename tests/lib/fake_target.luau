@@ -469,11 +469,9 @@ function fake_target.new(opts: Opts?)
 		`screen_paint.applySurfaceNative`, exactly as `SCALE_MODE_ENGINE_NAME` is
 		kept in lockstep with the adapter's own map. ]]
 	local function syncFakeTags(handle: any)
-		local state = handle.tagState
-		if state == nil then
-			return
-		end
+		local state = handle.tagState or {}
 		local desired = sheet_model.classifyTags({
+			letterRole = handle.letterRole,
 			surface = state.surface,
 			selected = state.selected == true,
 			interactive = state.interactive == true,
@@ -1125,6 +1123,9 @@ function fake_target.new(opts: Opts?)
 				live.applyStrokeMode = "Border"
 			end
 		elseif prop == "tint" then
+			local role = if type(value) == "table" then value.role else nil
+			handle.letterRole = if type(role) == "string" and sheet_model.STATUS_LETTER_ROLES[role] then role else nil
+			syncFakeTags(handle)
 			-- the CONTINUOUS COLOUR, mirrored through the SAME pure resolver the live
 			-- adapter uses, and with the same CLAIMS recorded: a tint's whole contract
 			-- is "this node took these engine properties from the sheet", so a mirror
