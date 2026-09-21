@@ -27,7 +27,10 @@ PLATFORM = "standard"
 INIT = "src/init.luau"
 CONTROLS_FILE = "src/render/compose_controls.luau"
 WITNESS = "tests/types/controls_witness.luau"
-TARGETS = [INIT, WITNESS]
+LEVEL_TYPES = "src/spec_types/level_picker.luau"
+NAVIGATION_TYPES = "src/spec_types/navigation_stack.luau"
+BLUEPRINT = "src/blueprint.luau"
+TARGETS = [INIT, WITNESS, LEVEL_TYPES]
 ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 
 # The composite() registrations this check knows about. An entry vanishing
@@ -45,11 +48,8 @@ DECLARED_ENTRIES = {
     "VirtualList",
 }
 
-# app.controls.<name>(42) is expected to be REJECTED (the composite() closure
-# requires a table). This is the one piece of static protection that survives
-# the composite() indirection today -- see the module docstring and the
-# "field-level erosion" note this check emits. An entry that stops rejecting a
-# bare number is a real regression: say so with a reason here if it is meant.
+# Every composite rejects a bare number. Field-specific probes below separately
+# check both constructor forms; namespace protection alone cannot prove fields.
 DECLARED_UNPROTECTED = set()
 
 
@@ -143,37 +143,39 @@ def negative_probe(entries):
         os.unlink(path)
 
 
-# A composite entry whose module declares a typed `Spec` (not merely `any`),
-# probed with a value that is the wrong TYPE for one required field. If the
-# analyzer still says nothing, `composite()`'s indirection erased that field's
-# type at the `app.controls` boundary -- confirmed empirically 2026-09-20 for
-# both entries below (slider.luau declares `spec: Spec`; NavigationStack's
-# `path` must be an array). Kept small and hand-picked rather than generated
-# per module: crafting a "wrong shape" literal generically for 27 different
-# Spec tables is not worth it once the answer is uniform.
+# Every negative changes only its intended field. Navigation's valid twins use
+# this exact spec with a real path; missing required fields cannot vouch for path.
+_NAVIGATION_SPEC = '{ path = PATH, root = { title = "x", content = function() return app.controls.Text({ text = "Home" }) end }, destinations = {}, backLabel = "Back" }'
+_NAVIGATION_GOOD_PATH = 'Facet.Compose.cell({} :: { navigationTypes.Entry })'
 _EROSION_PROBES = [
     # BOTH spellings must check their spec: the anonymous form the README uses,
     # and the named form. A probe that passes in one form and is only rejected in
     # the other is exactly the gap this list exists to catch.
     ("Slider", 'app.controls.Slider({ value = "nope", min = 0, max = 1 })'),
     ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
-    ("NavigationStack", 'app.controls.NavigationStack({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
-    ("NavigationStack", 'app.controls.NavigationStack("N")({ path = 42, root = { title = "x", content = function() return nil :: any end } })'),
+    ("NavigationStack", 'app.controls.NavigationStack(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
+    ("NavigationStack", 'app.controls.NavigationStack("N")(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
     ("Button", 'app.controls.Button({ label = 42 })'),
     ("Button", 'app.controls.Button("B")({ label = 42 })'),
     ("Toggle", 'app.controls.Toggle({ value = "on" })'),
     ("Toggle", 'app.controls.Toggle("T")({ value = "on" })'),
+    ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
 ]
 
 
 def field_erosion_check(entries):
-    """-> (eroded: bool, detail: str). Only meaningful if both probed entries
+    """-> (eroded: bool, detail: str). Only meaningful if the probed entries
     are still registered composites; skipped otherwise."""
     if not all(name in entries for name, _ in _EROSION_PROBES):
         return None, "probed entries no longer registered; erosion check skipped"
     lines = ['--!strict', 'local Facet = require("../../src")', "local app = Facet.new()"]
     for _, call in _EROSION_PROBES:
         lines.append(f"local _p = {call}")
+    lines.append('local navigationTypes = require("../../src/spec_types/navigation_stack")')
+    valid_lines = []
+    for constructor in ('app.controls.NavigationStack', 'app.controls.NavigationStack("N")'):
+        valid_lines.append(len(lines) + 1)
+        lines.append(f"local _valid = {constructor}({_NAVIGATION_SPEC.replace('PATH', _NAVIGATION_GOOD_PATH)})")
     path = os.path.join("tests", "types", "_erosion_probe.luau")
     with open(path, "w") as fh:
         fh.write("\n".join(lines) + "\n")
@@ -184,12 +186,16 @@ def field_erosion_check(entries):
         missed = []
         for offset, (name, _call) in enumerate(_EROSION_PROBES):
             line = 4 + offset
-            if not any(f"({line}," in ln for ln in own):
+            diagnostics = [ln for ln in own if f"({line}," in ln and "TypeError" in ln]
+            if not diagnostics or (name == "NavigationStack" and not any("path" in ln for ln in diagnostics)):
                 missed.append(f"{name} ({_call.split(chr(40))[0]}, probe {offset + 1})")
+        invalid_twins = [ln for ln in own if any(f"({line}," in ln for line in valid_lines)]
+        if invalid_twins:
+            return True, "valid NavigationStack twins rejected: " + "; ".join(invalid_twins)
         return (len(missed) > 0), (
             "no diagnostic for a wrongly-typed field on: " + ", ".join(missed)
             if missed
-            else f"{len(_EROSION_PROBES)} wrongly-typed fields rejected"
+            else f"{len(_EROSION_PROBES)} invalid field/read probes rejected; both valid NavigationStack twins accepted"
         )
     finally:
         os.unlink(path)
@@ -226,6 +232,12 @@ def run():
     entries = namespace_entries(open(CONTROLS_FILE).read())
     if not entries:
         problems.append(f"discovered 0 composite entries from {CONTROLS_FILE} — the registration pattern moved")
+
+    witness = open(WITNESS).read()
+    named_literals = set(re.findall(r'app\.controls\.(\w+)\("[^"\n]+"\)\(\s*\{', witness))
+    missing_witnesses = set(entries) - named_literals
+    if missing_witnesses:
+        problems.append("missing named literal witness: " + ", ".join(sorted(missing_witnesses)))
 
     discovered = set(entries)
     if discovered != DECLARED_ENTRIES:
@@ -274,8 +286,13 @@ def run():
         )
     else:
         notes.append(
-            "field-erosion check: the analyzer NOW rejects a wrongly-typed field through "
-            "app.controls — composite()'s generics improved; " + erosionDetail
+            "field-erosion check: explicit Constructor<S> contracts check the probed fields "
+            "in named and anonymous forms; " + erosionDetail
+        )
+        notes.append(
+            "limits: primitives and returned nodes remain any; VirtualList/Grid constructor "
+            "item parameters remain any. Explicit generic specs can check item shape; these "
+            "probes do not establish generic item inference or every anonymous literal's inference"
         )
 
     specAnnotations = {name: controlSpecAnnotation(entries[name]) for name in entries}
@@ -304,7 +321,7 @@ def run():
 
 def selftest():
     """Break the checks on purpose and require the check to notice."""
-    backups = {p: open(p).read() for p in (CONTROLS_FILE, WITNESS)}
+    backups = {p: open(p).read() for p in (CONTROLS_FILE, WITNESS, NAVIGATION_TYPES, BLUEPRINT)}
     results = []
     try:
         code, _ = run()
@@ -324,21 +341,37 @@ def selftest():
         results.append(("M1 Toggle stops going through composite()", bit, "FAIL expected"))
         open(CONTROLS_FILE, "w").write(backups[CONTROLS_FILE])
 
-        # M2 — the witness stops exercising an entry, caught the same way the
-        # original check's M3 was: the analyzer's LocalUnused lint on the
-        # abandoned local, which is why this reads every diagnostic attributed
-        # to a target rather than grepping for `TypeError`.
-        s = backups[WITNESS].replace(
-            "local _rowactions = app.controls.RowActions(rowActionsSpec)",
-            "local _rowactions = app.controls.RowActions((nil :: any))",
-            1,
+        # M2 — losing a real named literal must fail even if an any placeholder
+        # would pass the analyzer. This is coverage, not a field-type claim.
+        s, count = re.subn(
+            r'local _rowactions = app.controls.RowActions\("RowActions"\)\(\{.*?\n\}\)',
+            "local _rowactions = app.controls.RowActions(nil :: any)",
+            backups[WITNESS], count=1, flags=re.S,
         )
-        assert s != backups[WITNESS], "M2 anchor missing"
+        assert count == 1, "M2 anchor missing"
         open(WITNESS, "w").write(s)
         code, rep = run()
-        bit = code != 0 and any("LocalUnused" in p for p in rep["problems"])
-        results.append(("M2 witness stops using a real Spec", bit, "FAIL expected"))
+        bit = code != 0 and any("missing named literal witness: RowActions" in p for p in rep["problems"])
+        results.append(("M2 witness loses named literal", bit, "FAIL expected"))
         open(WITNESS, "w").write(backups[WITNESS])
+
+        # M3 — missing unrelated required fields used to hide erased path types.
+        s = backups[NAVIGATION_TYPES].replace("path: Compose.Cell<{ Entry }>", "path: any", 1)
+        assert s != backups[NAVIGATION_TYPES], "M3 anchor missing"
+        open(NAVIGATION_TYPES, "w").write(s)
+        code, rep = run()
+        bit = code != 0 and any("no diagnostic" in p and "NavigationStack" in p for p in rep["problems"])
+        results.append(("M3 NavigationStack path loses type", bit, "FAIL expected"))
+        open(NAVIGATION_TYPES, "w").write(backups[NAVIGATION_TYPES])
+
+        # M4 — Bound's tracked callback must receive the real Compose Use.
+        s = backups[BLUEPRINT].replace("((use: coreContract.Use) -> T)", "((use: any?) -> T)", 1)
+        assert s != backups[BLUEPRINT], "M4 anchor missing"
+        open(BLUEPRINT, "w").write(s)
+        code, rep = run()
+        bit = code != 0 and any(WITNESS in p and "ButtonSpec" in p for p in rep["problems"])
+        results.append(("M4 Bound rejects the valid tracked label", bit, "FAIL expected"))
+        open(BLUEPRINT, "w").write(backups[BLUEPRINT])
     finally:
         for p, text in backups.items():
             open(p, "w").write(text)

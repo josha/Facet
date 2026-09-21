@@ -23,7 +23,7 @@ export type Config = {
 	constructor: string,
 	names: { run: string, mark: string },
 	id: string,
-	value: V,
+	value: NumberCell,
 	count: number,
 	minValue: number,
 	segment: string,

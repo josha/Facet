@@ -1,58 +1,42 @@
 --!strict
--- Public consumer witness for the Compose-authored surface: `Facet.new()` ->
--- `app.controls.X(spec)`. One call per composite registered in
--- `src/render/compose_controls.luau`, so a rename, a dropped registration or a
--- broken `require` inside a control module (rather than merely inside its own
--- file, which the graph-diagnostics half already ignores by design) shows up
--- here as a target-file diagnostic.
---
--- THIS IS NOT A DEEP TYPE WITNESS. `tools/check_types.py` found empirically
--- (2026-09-20) that `composite()`'s indirection in compose_controls.luau
--- erases every build function's declared `Spec` type at this boundary: even
--- `app.controls.Slider("W")({ value = "nope" })`, where slider.luau declares
--- `spec: Spec`, draws no diagnostic here. The per-field annotations below are
--- for a human reader and for the modules that still export their `Spec` type,
--- not because the analyzer enforces them through `app.controls`.
-
+-- Named, valid literal specs for every registered composite. The checker also
+-- probes both constructor spellings with invalid fields. Primitives and returned
+-- nodes still ride an open `any` surface; collection item inference through
+-- Controls.VirtualList/Grid<any> is not proved by these explicitly typed rows.
+-- This file is analyzed, not mounted or claimed as runtime evidence.
 local Facet = require("../../src")
-local navigationStackControl = require("../../src/controls/navigation_stack")
-local tableControl = require("../../src/controls/table")
-local sliderControl = require("../../src/controls/slider")
-local stepperControl = require("../../src/controls/stepper")
-local pickerControl = require("../../src/controls/picker")
-local popupMenuControl = require("../../src/controls/picker_menu")
-local menuControl = require("../../src/controls/menu")
-local tabView = require("../../src/controls/tab_view")
-local labelControl = require("../../src/controls/label")
-local ratingControl = require("../../src/controls/rating")
-local textInputControl = require("../../src/controls/text_input")
-local progressView = require("../../src/controls/progress_view")
-local levelPicker = require("../../src/controls/level_picker")
-local disclosureGroup = require("../../src/controls/disclosure_group")
-local rowActions = require("../../src/controls/row_actions")
-local calloutControl = require("../../src/controls/callout")
-
+local coreTypes = require("../../src/core/contract")
+local navigationTypes = require("../../src/spec_types/navigation_stack")
+local pickerTypes = require("../../src/spec_types/picker")
+local levelPickerTypes = require("../../src/spec_types/level_picker")
 local app = Facet.new()
 
-local _button = app.controls.Button({
-	label = "Repeat",
+local label = Facet.Compose.cell("Repeat")
+local _button = app.controls.Button("Repeat")({
+	label = function(use: coreTypes.Use): string
+		return use(label)
+	end,
 	busy = Facet.Compose.cell(false),
 	repeatDelay = 0.4,
 	shortcut = { keyCode = "F6", modifiers = { shift = true } },
 	dialogAction = "default",
 	onActivate = function() end,
 })
-
-local _toggle = app.controls.Toggle("W")({
+-- Untracked thunks remain accepted; a callback may ignore the supplied Use.
+local _thunkButton = app.controls.Button("Ready")({
+	label = function(): string
+		return "Ready"
+	end,
+})
+local _toggle = app.controls.Toggle("SelectAll")({
 	label = "Select all",
 	value = Facet.Compose.cell(false),
 	mixed = Facet.Compose.cell(true),
 	presentation = "checkbox",
 	onChange = function(_value: boolean) end,
 })
-
 local approved = Facet.Compose.cell(false)
-local _controlledToggle = app.controls.Toggle({
+local _controlledToggle = app.controls.Toggle("Music")({
 	label = "Music",
 	value = Facet.Compose.formula(function(use)
 		return use(approved)
@@ -65,8 +49,7 @@ local _controlledToggle = app.controls.Toggle({
 		approved:set(value)
 	end,
 })
-
-local _combo = app.controls.ComboBox({
+local _combo = app.controls.ComboBox("Mountain")({
 	value = Facet.Compose.cell("a"),
 	text = Facet.Compose.cell("Alpine"),
 	options = { { id = "a", label = "Alpine", description = "Mountain" } },
@@ -75,16 +58,13 @@ local _combo = app.controls.ComboBox({
 	end,
 	onChange = function(_value: string) end,
 })
-
-local _split = app.controls.SplitButton("W")({
+local _split = app.controls.SplitButton("Start")({
 	label = "Start",
 	onActivate = function() end,
 	items = { { id = "practice", label = "Practice", onSelect = function() end } },
 })
-
-local _navigation = app.controls.NavigationStack({
-	-- a path is a cell of entries; say so, because a cell is invariant in what it holds
-	path = Facet.Compose.cell({ { id = "details", value = { name = "Alder" } } } :: { navigationStackControl.Entry }),
+local _navigation = app.controls.NavigationStack("Navigation")({
+	path = Facet.Compose.cell({ { id = "details", value = { name = "Alder" } } } :: { navigationTypes.Entry }),
 	backLabel = "Back",
 	root = {
 		title = Facet.Compose.cell("Home"),
@@ -95,50 +75,54 @@ local _navigation = app.controls.NavigationStack({
 	destinations = {
 		details = {
 			title = "Details",
-			content = function(_owner, entry: any)
+			content = function(_owner, entry: navigationTypes.Entry?)
 				return app.controls.Text({ text = if entry then entry.id else "Root" })
 			end,
 		},
 	},
 	transition = { enter = "slide-left", distance = 100 },
 })
-
-local tableControlSpec: tableControl.Spec = nil :: any
-local _table = app.controls.Table(tableControlSpec)
-
-local sliderControlSpec: sliderControl.Spec = nil :: any
-local _slider = app.controls.Slider(sliderControlSpec)
-
-local stepperControlSpec: stepperControl.Spec = nil :: any
-local _stepper = app.controls.Stepper(stepperControlSpec)
-
-local pickerControlSpec: pickerControl.Spec = nil :: any
-local _picker = app.controls.Picker(pickerControlSpec)
-
-local initialPickerOptions: { pickerControl.Option } = { { id = "a", value = "a", label = "Alpine" } }
-local livePickerOptions = Facet.Compose.cell(initialPickerOptions)
-local _livePicker = app.controls.Picker("W")({
-	options = livePickerOptions,
+local _table = app.controls.Table("Table")({
+	rows = Facet.Compose.cell({ "Alpine" }),
+	key = function(item: string)
+		return item
+	end,
+	columns = {
+		{
+			id = "name",
+			title = "Name",
+			width = { type = "fixed", px = 120 },
+			value = function(item: string)
+				return item
+			end,
+		},
+	},
+})
+local _slider = app.controls.Slider("Volume")({ value = Facet.Compose.cell(0.5), min = 0, max = 1 })
+local _stepper = app.controls.Stepper("Laps")({ value = Facet.Compose.cell(2), min = 1, max = 8 })
+local _picker = app.controls.Picker("Picker")({
+	options = { { id = "a", value = "a", label = "Alpine" } },
+	selected = Facet.Compose.cell("a"),
+})
+local pickerOptions: { pickerTypes.Option } = { { id = "a", value = "a", label = "Alpine" } }
+local _livePicker = app.controls.Picker("LivePicker")({
+	options = Facet.Compose.cell(pickerOptions),
 	selected = Facet.Compose.cell("a"),
 	presentation = "radio",
 })
-
-local popupButtonSpec: popupMenuControl.Spec = nil :: any
-local _popupbutton = app.controls.PopupButton(popupButtonSpec)
-
-local _multiPopup = app.controls.PopupButton({
+local _popupbutton = app.controls.PopupButton("Popup")({
+	options = { { id = "a", label = "Alpine" } },
+	value = Facet.Compose.cell("a"),
+})
+local _multiPopup = app.controls.PopupButton("MultiPopup")({
 	options = { { id = "a", label = "Alpine" } },
 	selectedValues = Facet.Compose.cell({ a = true }),
 	onChange = function(chosen: { [string]: boolean })
 		local _selected: boolean? = chosen.a
 	end,
 })
-
-local menuControlSpec: menuControl.Spec = nil :: any
-local _menu = app.controls.Menu(menuControlSpec)
-
-local _statefulMenu = app.controls.Menu("W")({
-	trigger = app.controls.Button({ label = "Filters" }) :: any,
+local _menu = app.controls.Menu("Filters")({
+	label = "Filters",
 	items = {
 		{
 			id = "a",
@@ -149,22 +133,23 @@ local _statefulMenu = app.controls.Menu("W")({
 		},
 	},
 })
-
-local tabViewSpec: tabView.Spec = nil :: any
-local _tabview = app.controls.TabView(tabViewSpec)
-
-local labelControlSpec: labelControl.Spec = nil :: any
-local _label = app.controls.Label(labelControlSpec)
-
-local _chip = app.controls.Chip("W")({ selected = Facet.Compose.cell(false), label = "Tag" })
-
-local ratingControlSpec: ratingControl.Spec = nil :: any
-local _rating = app.controls.Rating(ratingControlSpec)
-
-local textInputSpec: textInputControl.Spec = nil :: any
-local _textinput = app.controls.TextInput(textInputSpec)
-
-local _numericText = app.controls.TextInput({
+local _tabview = app.controls.TabView("Tabs")({
+	selection = Facet.Compose.cell("home"),
+	tabs = {
+		{
+			id = "home",
+			label = "Home",
+			content = function(_owner)
+				return app.controls.Text({ text = "Home" })
+			end,
+		},
+	},
+})
+local _label = app.controls.Label("Label")({ title = "Alpine" })
+local _chip = app.controls.Chip("Tag")({ selected = Facet.Compose.cell(false), label = "Tag" })
+local _rating = app.controls.Rating("Rating")({ value = Facet.Compose.cell(3) })
+local _textinput = app.controls.TextInput("Name")({ value = Facet.Compose.cell("Alpine") })
+local _numericText = app.controls.TextInput("Number")({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),
 	presentation = "number",
@@ -179,96 +164,124 @@ local _numericText = app.controls.TextInput({
 	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
 	onCancel = function() end,
 })
-
-local progressViewSpec: progressView.Spec = nil :: any
-local _progressview = app.controls.ProgressView(progressViewSpec)
-
-local levelPickerSpec: levelPicker.Spec = nil :: any
-local _levelpicker = app.controls.LevelPicker(levelPickerSpec)
-
-local disclosureGroupSpec: disclosureGroup.Spec = nil :: any
-local _disclosuregroup = app.controls.DisclosureGroup(disclosureGroupSpec)
-
-local collapsibleControl = require("../../src/controls/collapsible_view")
-local collapsibleSpec: collapsibleControl.Spec = nil :: any
-local _collapsible = app.controls.CollapsibleView(collapsibleSpec)
-
-local _virtuallist = app.controls.VirtualList("W")({
-	rows = Facet.Compose.cell({ "a" }),
-	key = function(item: string)
-		return item
+local _progressview = app.controls.ProgressView("Progress")({ value = Facet.Compose.cell(0.5) })
+local _levelpicker = app.controls.LevelPicker("Level")({ value = Facet.Compose.cell(2) })
+local _levelConfig: levelPickerTypes.Config = {
+	constructor = "LevelPicker",
+	names = { run = "Run", mark = "Mark" },
+	id = "Level",
+	value = Facet.Compose.cell(2),
+	count = 5,
+	minValue = 1,
+	segment = "bar",
+	sizeRole = "medium",
+	tint = {},
+	targetFloor = true,
+	readOnly = false,
+	diagnostics = {},
+}
+local _disclosuregroup = app.controls.DisclosureGroup("More")({
+	label = "More",
+	expanded = Facet.Compose.cell(false),
+	content = function()
+		return app.controls.Text({ text = "Details" })
 	end,
-	cell = function(item: string)
-		return app.controls.Text({ text = item })
+})
+local _collapsible = app.controls.CollapsibleView("Collapsible")({
+	label = "More",
+	expanded = Facet.Compose.cell(false),
+	content = function()
+		return app.controls.Text({ text = "Details" })
 	end,
-	itemExtent = 40,
 })
 
-local _virtualgrid = app.controls.VirtualGrid({
-	items = Facet.Compose.cell({ "a" }),
-	key = function(item: string)
-		return item
+type Row = { id: string, label: string }
+local rows = Facet.Compose.cell({ { id = "a", label = "Alpine" } } :: { Row })
+local function currentRows(use: coreTypes.Use): { Row }
+	return use(rows)
+end
+local _virtuallist = app.controls.VirtualList("History")({
+	rows = currentRows,
+	key = "id",
+	cell = function(item: Row)
+		return app.controls.Text({ text = item.label })
 	end,
-	cell = function(item: string)
-		return app.controls.Text({ text = item })
+	itemExtent = 40,
+	follow = function(use: coreTypes.Use): "end" | "none"
+		return if use(approved) then "end" else "none"
+	end,
+	followThreshold = 48,
+	scrollNavigation = { position = Facet.Compose.cell(0), active = approved },
+})
+local _virtualgrid = app.controls.VirtualGrid("Inventory")({
+	items = currentRows,
+	key = "id",
+	cell = function(item: Row)
+		return app.controls.Text({ text = item.label })
 	end,
 	columns = 2,
 	itemExtent = 40,
 })
-
-local rowActionsSpec: rowActions.Spec = nil :: any
-local _rowactions = app.controls.RowActions(rowActionsSpec)
-
-local calloutControlSpec: calloutControl.Spec = nil :: any
-local _callout = app.controls.Callout(calloutControlSpec)
-
-local _asyncimage =
-	app.controls.AsyncImage("W")({ id = "Art", scope = nil :: any, provider = nil :: any, key = "image" })
-
-local radialControl = require("../../src/controls/radial_menu")
-local radialSpec: radialControl.Spec = nil :: any
-local _radial = app.controls.RadialMenu(radialSpec)
-
-local alertControl = require("../../src/controls/alert")
-local alertSpec: alertControl.Spec = nil :: any
-local _alert = app.controls.Alert(alertSpec)
-
-local sheetControl = require("../../src/controls/sheet")
-local sheetSpec: sheetControl.Spec = nil :: any
-local _sheet = app.controls.Sheet(sheetSpec)
-
-local pageViewControl = require("../../src/controls/page_view")
-local pageViewSpec: pageViewControl.Spec = nil :: any
-local _pageview = app.controls.PageView(pageViewSpec)
-
---[[ The results are bound so an entry that stopped returning anything at all
-	would be visible here too. They are deliberately not annotated: the builders'
-	return types are what they are, and pinning them in this file would make it a
-	second declaration of a contract that lives in the control modules. ]]
-local _bound = {
-	table = _table,
-	slider = _slider,
-	stepper = _stepper,
-	picker = _picker,
-	popupbutton = _popupbutton,
-	menu = _menu,
-	tabview = _tabview,
-	label = _label,
-	chip = _chip,
-	rating = _rating,
-	textinput = _textinput,
-	progressview = _progressview,
-	levelpicker = _levelpicker,
-	disclosuregroup = _disclosuregroup,
-	collapsible = _collapsible,
-	virtuallist = _virtuallist,
-	virtualgrid = _virtualgrid,
-	rowactions = _rowactions,
-	callout = _callout,
-	asyncimage = _asyncimage,
-	radial = _radial,
-	alert = _alert,
-	sheet = _sheet,
-	pageview = _pageview,
+-- Explicit generic specs preserve Row agreement even though the constructor's
+-- item parameter remains any. These are valid data, never nil/any seeded specs.
+local _listSpec: Facet.VirtualListSpec<Row> = {
+	rows = currentRows,
+	key = "id",
+	cell = function(item: Row)
+		return app.controls.Text({ text = item.label })
+	end,
+	itemExtent = 40,
 }
-local _keep: any = _bound
+local _gridSpec: Facet.VirtualGridSpec<Row> = {
+	items = currentRows,
+	key = "id",
+	cell = function(item: Row)
+		return app.controls.Text({ text = item.label })
+	end,
+	columns = 2,
+	itemExtent = 40,
+}
+local _rowactions = app.controls.RowActions("RowActions")({
+	content = app.controls.Text({ text = "Alpine" }),
+	trailing = { { label = "Delete", onAction = function() end } },
+})
+local _callout = app.controls.Callout("Tip")({
+	anchor = app.controls.Button({ label = "Help" }),
+	content = function()
+		return app.controls.Text({ text = "Help text" })
+	end,
+	onRetire = function(_reason: string) end,
+})
+local _asyncimage = app.controls.AsyncImage("Art")({
+	key = "image",
+	provider = {
+		acquire = function(_owner, _key, _options)
+			return {
+				state = Facet.Compose.cell("ready"),
+				value = Facet.Compose.cell("rbxassetid://1"),
+				error = Facet.Compose.cell(nil),
+				release = function() end,
+			}
+		end,
+	},
+})
+local _radial = app.controls.RadialMenu("Actions")({
+	label = "Actions",
+	items = { { id = "watch", label = "Watch", onSelect = function() end } },
+})
+local _alert = app.controls.Alert("Confirm")({
+	title = "Continue?",
+	isPresented = Facet.Compose.cell(false),
+	actions = { { id = "ok", label = "Continue", onActivate = function() end } },
+})
+local _sheet = app.controls.Sheet("Details")({
+	title = "Details",
+	detent = Facet.Compose.cell("medium"),
+	content = function()
+		return app.controls.Text({ text = "Details" })
+	end,
+})
+local _pageview = app.controls.PageView("Pages")({
+	selection = Facet.Compose.cell("home"),
+	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },
+})

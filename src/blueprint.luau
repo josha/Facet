@@ -70,7 +70,7 @@ blueprint.schema = schema
 -- `blueprint_schema` disagree about a class's fields, so the editor hint and
 -- the runtime error can never drift apart.
 --
--- `Bound<T>` = a plain value OR a Compose cell or formula of it. A prop typed as plain `T`
+-- `Bound<T>` = a value, Compose readable, or tracked function of Compose Use. A prop typed as plain `T`
 -- is read once at mount and REJECTS a Readable at construction.
 
 local coreContract = require("./core/contract")
@@ -81,7 +81,7 @@ export type Readable<T> = coreContract.Readable<T>
 export type Value<T> = T | Readable<T>
 -- ONE function member: it takes a binding written `function()` or `function(use)`,
 -- and a union of two function types could not be called.
-export type Bound<T> = Value<T> | ((use: any?) -> T)
+export type Bound<T> = Value<T> | ((use: coreContract.Use) -> T)
 
 -- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",
