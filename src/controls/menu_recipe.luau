@@ -60,7 +60,7 @@ local Compose = require("../vendor/compose/core")
 local menu_recipe = {}
 -- Shared content for semantic setting/action rows. Accessories are inert; the
 -- owning Button, Toggle or Slider retains the single input identity.
-function menu_recipe.semantic(UI, label, spec, value)
+function menu_recipe.semantic(UI, label, spec, value, trailing, trailingEdge)
 	guard.assertKnownKeys("control.row", spec, guard.keySet({ "description", "icon", "value" }), "row")
 	for _, key in { "description", "icon", "value" } do
 		local v = selection.read(spec[key])
@@ -73,6 +73,8 @@ function menu_recipe.semantic(UI, label, spec, value)
 		description = spec.description or "",
 		icon = spec.icon,
 		value = value or spec.value,
+		trailing = trailing,
+		trailingEdge = trailingEdge,
 	}).children)
 end
 
@@ -240,6 +242,8 @@ export type Row = {
 	badge: any?, -- string | number | Readable; empty removes the badge paint
 	surface: any?,
 	value: any?,
+	trailing: any?, -- inert owned accessory, placed inside the row wrapping layout
+	trailingEdge: string?,
 	description: any?,
 	markHidden: any?,
 	--[[ THE CARD PAINTS THE SELECTION, so the Button must not also carry the
@@ -280,7 +284,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 	-- has already painted its own
 	local buttonSelected = if row.platedSelection == true then nil else row.selected
 
-	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil then
+	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil or row.trailing ~= nil then
 		local content = {}
 		-- the indicator slot, placed leading (a desktop menu) or trailing (a
 		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
@@ -473,6 +477,13 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 					role = "secondary",
 				})
 			)
+		end
+		if row.trailing ~= nil then
+			if row.trailingEdge == "leading" then
+				table.insert(content, 1, row.trailing)
+			else
+				table.insert(content, row.trailing)
+			end
 		end
 		if row.badge ~= nil then
 			local badge = if readable(row.badge)

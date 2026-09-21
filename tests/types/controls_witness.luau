@@ -51,6 +51,9 @@ local _toggle = app.controls.Toggle("SelectAll")({
 	value = Facet.Compose.cell(false),
 	mixed = Facet.Compose.cell(true),
 	presentation = "checkbox",
+	hint = Facet.Compose.cell("Choose every row"),
+	indicatorPosition = "trailing",
+	controlSize = "compact",
 	onChange = function(_value: boolean) end,
 })
 local approved = Facet.Compose.cell(false)
@@ -244,6 +247,26 @@ local _chip = app.controls.Chip("Tag")({
 	selected = Facet.Compose.cell(false),
 	label = "Tag",
 })
+local _removeOnly = app.controls.Chip("RemoveTag")({
+	label = "Tag",
+	onRemove = function() end,
+	removeLabel = "Remove tag",
+	removeFocusFallback = Facet.Compose.cell("/Screen/Restore"),
+})
+local _anonymousRemoveOnly = app.controls.Chip({
+	label = "Tag",
+	onRemove = function() end,
+	removeFocusFallback = function(_use: coreTypes.Use): string
+		return "/Screen/Restore"
+	end,
+})
+local _anonymousSetting = app.controls.Toggle({
+	label = "Music",
+	value = Facet.Compose.cell(false),
+	hint = "Play music",
+	indicatorPosition = "leading",
+	controlSize = "large",
+})
 local _rating = app.controls.Rating("Rating")({ value = Facet.Compose.cell(3) })
 local _textinput = app.controls.TextInput("Name")({ value = Facet.Compose.cell("Alpine") })
 local _numericText = app.controls.TextInput("Number")({
@@ -287,7 +310,22 @@ local _levelConfig: levelPickerTypes.Config = {
 }
 local _disclosuregroup = app.controls.DisclosureGroup("More")({
 	label = "More",
+	description = Facet.Compose.cell("Optional settings"),
+	icon = "settings",
+	chevronPosition = "trailing",
+	appearance = "contained",
+	controlSize = "compact",
 	expanded = Facet.Compose.cell(false),
+	content = function()
+		return app.controls.Text({ text = "Details" })
+	end,
+})
+local _anonymousDisclosure = app.controls.DisclosureGroup({
+	label = "Settings",
+	expanded = Facet.Compose.cell(false),
+	description = "Optional",
+	appearance = "divided",
+	chevronPosition = "leading",
 	content = function()
 		return app.controls.Text({ text = "Details" })
 	end,

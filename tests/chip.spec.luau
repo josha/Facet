@@ -300,3 +300,168 @@ describe("Chip control", function()
 		).toBe(true)
 	end)
 end)
+
+describe("Removable Chip", function()
+	local world = require("./lib/world")
+	local function path(w, suffix)
+		for candidate in w.adapter.liveNodes() do
+			if string.sub(candidate, -#suffix) == suffix then
+				return candidate
+			end
+		end
+		error("missing chip " .. suffix)
+	end
+	for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
+		it("keeps the token body inert and removes once through " .. input, function()
+			local w = world.new()
+			local calls = 0
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Chip("Token")({
+						label = "Rain",
+						onRemove = function()
+							calls += 1
+						end,
+					}),
+				})
+			end)
+			local remove = path(w, "/Remove")
+			expect(#w.handle.focusOrder().traversal).toBe(1)
+			w.adapter.tap(path(w, "/Token"))
+			expect(calls).toBe(0)
+			if input == "pointer" then
+				w.adapter.tap(remove)
+			elseif input == "touch" then
+				w.adapter.touchTap(remove)
+			else
+				w.pres.focus.focusOn(remove)
+				w.press(if input == "keyboard" then "Return" else "ButtonA")
+			end
+			expect(calls).toBe(1)
+			local raw = require("../src/paths").nodeAt(w.handle.root.node, remove)
+			expect(raw.props.label).toBe("Remove Rain")
+			expect(raw.props.shape).toBe("circle")
+		end)
+	end
+	it("distinguishes a body named Remove and reserves disjoint effective targets", function()
+		for _, rung in { false, "compact", "large" } do
+			local snapshot = require("../src/themes/snapshot")
+			local metrics = table.clone(snapshot.neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = 60
+			local w = world.new({ themeMetrics = metrics })
+			local selected = Compose.cell(false)
+			local removes = 0
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.HStack("Tokens")({
+						gap = 0,
+						w.UI.Chip("Remove")({
+							label = "A",
+							selected = selected,
+							controlSize = if rung then rung else nil,
+							onRemove = function()
+								removes += 1
+							end,
+						}),
+						w.UI.Button("Next")({ label = "Next" }),
+					}),
+				})
+			end)
+			local body = "/S/Tokens/Remove+token/Remove+target/Remove"
+			local remove = "/S/Tokens/Remove+token/Remove"
+			local bodyHit = w.adapter.hitRectOf(body) or w.adapter.node(body).rect
+			local removeHit = w.adapter.hitRectOf(remove) or w.adapter.node(remove).rect
+			expect(bodyHit.x + bodyHit.w <= removeHit.x).toBe(true)
+			expect(removeHit.x + removeHit.w <= w.adapter.node("/S/Tokens/Next").rect.x).toBe(true)
+			w.adapter.tap(body)
+			expect(selected:peek()).toBe(true)
+			expect(removes).toBe(0)
+			w.adapter.tap(remove)
+			expect(removes).toBe(1)
+			expect(selected:peek()).toBe(true)
+			w.close()
+		end
+	end)
+	it("chooses next then previous then caller fallback through real keyed owner disposal", function()
+		local w = world.new()
+		local items = Compose.cell({ "A", "B", "C" })
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("List")({
+					w.UI.Button("Fallback")({ label = "Add", onActivate = function() end }),
+					w.UI.ForEach("Tokens")({
+						items = items,
+						key = function(item)
+							return item
+						end,
+						row = function(item)
+							return w.UI.Chip(item)({
+								label = item,
+								removeFocusFallback = "/S/List/Fallback",
+								onRemove = function()
+									local nextItems = {}
+									for _, value in items:peek() do
+										if value ~= item then
+											table.insert(nextItems, value)
+										end
+									end
+									items:set(nextItems)
+								end,
+							})
+						end,
+					}),
+				}),
+			})
+		end)
+		local a, b, c = path(w, "/A+token/Remove"), path(w, "/B+token/Remove"), path(w, "/C+token/Remove")
+		w.pres.focus.focusOn(b)
+		w.adapter.tap(b)
+		w.settle()
+		expect(w.pres.focus.focused:peek()).toBe(c)
+		w.adapter.tap(c)
+		w.settle()
+		expect(w.pres.focus.focused:peek()).toBe(a)
+		w.adapter.tap(a)
+		w.settle()
+		expect(w.pres.focus.focused:peek()).toBe("/S/List/Fallback")
+	end)
+	it("does not repeat a held Remove across an input-class change and respects inherited disabled", function()
+		local w = world.new()
+		local enabled = Compose.cell(true)
+		local calls = 0
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.ZStack("Owner")({
+					enabled = enabled,
+					w.UI.Chip("Token")({
+						label = "Rain",
+						onRemove = function()
+							calls += 1
+						end,
+					}),
+				}),
+			})
+		end)
+		local remove = path(w, "/Remove")
+		w.pres.focus.focusOn(remove)
+		w.system.deviceKey("Return", true)
+		expect(calls).toBe(1)
+		w.env:set("capabilities", { mouse = true, keyboard = true, touch = true, gamepad = true })
+		w.env:set("preferredInput", "Gamepad")
+		w.settle()
+		expect(w.env:get("effectiveInput"):peek()).toBe("Gamepad")
+		w.system.deviceKey("Return", false)
+		w.settle()
+		expect(calls).toBe(1)
+		w.env:set("preferredInput", "KeyboardAndMouse")
+		enabled:set(false)
+		w.settle()
+		w.adapter.tap(remove)
+		expect(calls).toBe(1)
+		enabled:set(true)
+		w.settle()
+		w.adapter.tap(remove)
+		expect(calls).toBe(2)
+	end)
+end)

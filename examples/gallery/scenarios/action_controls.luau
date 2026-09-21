@@ -19,6 +19,8 @@ return {
 		local rowVolume = signal(60)
 		local assist = signal(true)
 		local confirming = signal(false)
+		local tokens = signal({ "Rain", "No assists", "Friends" })
+		local mounted = false
 		local seconds = 0
 		local readRung = function(): string?
 			return nil
@@ -160,6 +162,7 @@ return {
 			confirming:set(true)
 		end
 		local function reset()
+			tokens:set({ "Rain", "No assists", "Friends" })
 			setRung("compact")
 			busy:set(false)
 			enabled:set(true)
@@ -171,6 +174,10 @@ return {
 		end
 
 		local function Example()
+			mounted = true
+			Compose.cleanup(function()
+				mounted = false
+			end)
 			local conditions = Facet.adaptive.conditions(ctx.env)
 			local rowToggle = UI.Toggle("Assist")({
 				label = "Driving assistance",
@@ -426,6 +433,33 @@ return {
 					rowToggle,
 					rowSlider,
 				})),
+				heading("Race tags"),
+				UI.HStack("Tokens")({
+					width = UI.fill(),
+					gap = "s",
+					wrap = true,
+					UI.ForEach("Items")({
+						items = tokens,
+						key = function(item)
+							return item
+						end,
+						row = function(item)
+							return UI.Chip("Token")({
+								label = item,
+								controlSize = "compact",
+								onRemove = function()
+									local nextItems = {}
+									for _, value in tokens:peek() do
+										if value ~= item then
+											table.insert(nextItems, value)
+										end
+									end
+									tokens:set(nextItems)
+								end,
+							})
+						end,
+					}),
+				}),
 				heading("Prepare a race"),
 				save,
 				UI.Text("Status")({ text = status, width = UI.fill() }),
@@ -558,7 +592,11 @@ return {
 				end,
 			},
 			report = function()
+				if not mounted then
+					return nil
+				end
 				return {
+					tokenCount = #tokens:peek(),
 					controlSize = readRung(),
 					count = count:peek(),
 					settings = { assistance = assist:peek(), music = rowVolume:peek() },

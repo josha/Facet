@@ -13,6 +13,12 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Setting rows retain their real switch/checkbox with optional side, hint and size.
+  DisclosureGroup gains description, icon, side, appearance and size; removable
+  Chips retain independent target floors and collection focus. Add the archived
+  settings gear without changing earlier icon art. Small status cutouts cap their
+  separator proportionally so thick theme strokes do not consume the mark.
+
 - ProgressView gains a trailing endLabel and checked live spinner/circular size
   rungs. Omitting the rung preserves each package's authored indicator sizes.
 

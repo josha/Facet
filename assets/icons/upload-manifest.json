@@ -327,6 +327,17 @@
       "moderation": "Approved",
       "sha256": "6e92bffb9e6e134dd6663bbcd73edbdb2f18b16db0ba251c78cfaf3dc4fc66c5",
       "assetType": "Image"
+    },
+    "facet_icon_settings": {
+      "sliceBorder": 0,
+      "slot": "icons.settings",
+      "state": "default",
+      "file": "facet_icon_settings.png",
+      "contentId": "rbxassetid://78513807849201",
+      "size": "128x128",
+      "moderation": "Reviewing",
+      "sha256": "e6b7dda0cb28015af00d6c7b31c144b698404e0acea49ba403c1bb2f66c24efd",
+      "assetType": "Image"
     }
   },
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",

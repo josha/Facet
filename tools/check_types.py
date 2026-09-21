@@ -148,6 +148,19 @@ def negative_probe(entries):
 _NAVIGATION_SPEC = '{ path = PATH, root = { title = "x", content = function() return app.controls.Text({ text = "Home" }) end }, destinations = {}, backLabel = "Back" }'
 _NAVIGATION_GOOD_PATH = 'Facet.Compose.cell({} :: { navigationTypes.Entry })'
 _EROSION_PROBES = [
+    ("Toggle", 'app.controls.Toggle({ value = Facet.Compose.cell(false), hint = 42 })'),
+    ("Toggle", 'app.controls.Toggle("Probe")({ value = Facet.Compose.cell(false), hint = 42 })'),
+    ("Toggle", 'app.controls.Toggle({ value = Facet.Compose.cell(false), indicatorPosition = "above" })'),
+    ("Toggle", 'app.controls.Toggle("Probe")({ value = Facet.Compose.cell(false), indicatorPosition = "above" })'),
+    ("Chip", 'app.controls.Chip({ label = "Tag", onRemove = 42 })'),
+    ("Chip", 'app.controls.Chip("Probe")({ label = "Tag", onRemove = 42 })'),
+    ("Chip", 'app.controls.Chip({ label = "Tag", onRemove = function() end, removeLabel = 42 })'),
+    ("Chip", 'app.controls.Chip("Probe")({ label = "Tag", onRemove = function() end, removeLabel = 42 })'),
+    ("DisclosureGroup", 'app.controls.DisclosureGroup({ expanded = Facet.Compose.cell(false), content = function() return nil end, appearance = "loud" })'),
+    ("DisclosureGroup", 'app.controls.DisclosureGroup("Probe")({ expanded = Facet.Compose.cell(false), content = function() return nil end, appearance = "loud" })'),
+    ("DisclosureGroup", 'app.controls.DisclosureGroup({ expanded = Facet.Compose.cell(false), content = function() return nil end, description = 42 })'),
+    ("DisclosureGroup", 'app.controls.DisclosureGroup("Probe")({ expanded = Facet.Compose.cell(false), content = function() return nil end, description = 42 })'),
+
     # BOTH spellings must check their spec: the anonymous form the README uses,
     # and the named form. A probe that passes in one form and is only rejected in
     # the other is exactly the gap this list exists to catch.

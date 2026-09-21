@@ -269,6 +269,18 @@ describe("P1d: eleven common glyphs (status, calendar, clock, vote, person, chev
 	end)
 end)
 
+describe("settings gear", function()
+	it("resolves the archived asset and retains an ASCII fallback", function()
+		expect(themes.ICON_FALLBACK_GLYPHS.settings).toBe("*")
+		for _, pkg in { false, snapshot.neutralPackage() } do
+			local answer = themes.resolveIcon(if pkg == false then nil else pkg, "settings")
+			expect(answer.source).toBe("asset")
+			expect(answer.contentId).toBe("rbxassetid://78513807849201")
+			expect(answer.tintRole).toBe("content")
+		end
+	end)
+end)
+
 describe("themes.resolveIcon: three honest answers", function()
 	it("the theme's art when it has some, per state", function()
 		local pkg = themes.define(withIcons({

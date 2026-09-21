@@ -267,7 +267,11 @@ t.describe("AvatarGroup validated publication", function()
 		w.pres.refresh()
 		t.expect(faceDump().label).toBe("Ada, Localized")
 		t.expect(
-			node(w, nextPath .. "/Presence/Visible/then/Status/Footprint/then/Rectangle/Inset/Body/MarkShape/then/Mark").props.shape
+			node(
+				w,
+				nextPath
+					.. "/Presence/Visible/then/Status/Footprint/then/Rectangle/Inset/Center/Body/MarkShape/then/Mark"
+			).props.shape
 		).toBe("rect")
 		t.expect(record.dump().shown).toEqual({ "a" })
 		w.adapter.tap(CHIP)

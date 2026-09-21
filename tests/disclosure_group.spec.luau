@@ -276,3 +276,145 @@ describe("disclosure opening stays within its endpoints", function()
 		w.pres.dismiss(w.handle)
 	end)
 end)
+
+describe("DisclosureGroup header vocabulary", function()
+	local world = require("./lib/world")
+	local function find(w, suffix)
+		for path, node in w.adapter.liveNodes() do
+			if string.sub(path, -#suffix) == suffix then
+				return node, path
+			end
+		end
+		error("missing disclosure " .. suffix)
+	end
+	it("paints each appearance and opens a divider only with its content", function()
+		for _, appearance in { "plain", "contained", "divided" } do
+			local w = world.new()
+			local expanded = Compose.cell(false)
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.DisclosureGroup("Group")({
+						label = "Details",
+						description = "Configure the current race",
+						icon = "menu",
+						appearance = appearance,
+						chevronPosition = "trailing",
+						expanded = expanded,
+						content = function()
+							return w.UI.Text("Body")({ text = "Details" })
+						end,
+					}),
+				})
+			end)
+			expect(find(w, "/Group").props.surface).toBe(if appearance == "contained" then "raised" else nil)
+			local caret, label = find(w, "/Caret").rect, find(w, "/Label").rect
+			expect(caret.x >= label.x + label.w).toBe(true)
+			expect(find(w, "/Description").props.text).toBe("Configure the current race")
+			local function dividerCount()
+				local n = 0
+				for _, node in w.adapter.liveNodes() do
+					if node.class == "Divider" then
+						n += 1
+					end
+				end
+				return n
+			end
+			expect(dividerCount()).toBe(0)
+			expanded:set(true)
+			w.settle()
+			expect(dividerCount()).toBe(if appearance == "divided" then 1 else 0)
+			expanded:set(false)
+			w.settle()
+			expect(dividerCount()).toBe(0)
+			w.close()
+		end
+	end)
+	it("tracks description and rung geometry while preserving branch lifetime", function()
+		local w = world.new({ reducedMotion = true })
+		local expanded, size, description = Compose.cell(false), Compose.cell("compact"), Compose.cell("Details")
+		local built, disposed = 0, 0
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.DisclosureGroup("Group")({
+					label = "Details",
+					description = description,
+					controlSize = size,
+					expanded = expanded,
+					content = function()
+						built += 1
+						Compose.cleanup(function()
+							disposed += 1
+						end)
+						return w.UI.Button("Inside")({ label = "Inside", onActivate = function() end })
+					end,
+				}),
+			})
+		end)
+		local header, path = find(w, "/Header")
+		expect(header.rect.h >= 36).toBe(true)
+		expect(string.find(path, "Header+target", 1, true) ~= nil).toBe(true)
+		size:set("large")
+		description:set("Updated details")
+		w.settle()
+		expect(header.rect.h >= 56).toBe(true)
+		expect(find(w, "/Description").props.text).toBe("Updated details")
+		for _ = 1, 3 do
+			expanded:set(true)
+			w.settle()
+			expanded:set(false)
+			w.settle()
+		end
+		expect(built).toBe(3)
+		expect(disposed).toBe(3)
+	end)
+	it("binds the real focus hook and hands back before closing a wrapped header branch", function()
+		local w = world.new({ reducedMotion = true })
+		local expanded, order, bindings = Compose.cell(true), {}, 0
+		local contributions = require("../src/input/contribution")
+		local original = contributions.attach
+		contributions.attach = function(root, bundle)
+			if bundle.bindFocusGraph then
+				local bind = bundle.bindFocusGraph
+				bundle.bindFocusGraph = function(graph)
+					bindings += 1
+					bind({
+						focused = graph.focused,
+						focusOn = function(path)
+							table.insert(order, "focus:" .. path)
+							graph.focusOn(path)
+						end,
+					})
+				end
+			end
+			return original(root, bundle)
+		end
+		local ok, err = pcall(function()
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.DisclosureGroup("Group")({
+						label = "Details",
+						controlSize = "compact",
+						expanded = expanded,
+						onToggle = function()
+							table.insert(order, "closed")
+						end,
+						content = function()
+							return w.UI.Button("Inside")({ label = "Inside", onActivate = function() end })
+						end,
+					}),
+				})
+			end)
+		end)
+		contributions.attach = original
+		assert(ok, err)
+		expect(bindings).toBe(1)
+		local _, header = find(w, "/Header")
+		local _, inside = find(w, "/Inside")
+		w.pres.focus.focusOn(inside)
+		contributions.read(require("../src/paths").nodeAt(w.handle.root.node, "/S/Group")).handleActivate(header)
+		w.settle()
+		expect(order[1]).toBe("focus:" .. header)
+		expect(order[2]).toBe("closed")
+		expect(w.pres.focus.focused:peek()).toBe(header)
+	end)
+end)

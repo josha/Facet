@@ -25,6 +25,7 @@ Regenerate:  python3 assets/icons/source/generate_icons.py
 
 from __future__ import annotations
 
+import math
 import pathlib
 
 from PIL import Image, ImageDraw
@@ -445,6 +446,46 @@ def chevron_last() -> Image.Image:
     return img
 
 
+def settings() -> Image.Image:
+    """A gear: a heavy ring with eight short, blunt teeth and a hollow centre.
+
+    WHY THE TEETH ARE BLUNT POLYGONS. The first draft drew them as round-capped
+    radial strokes, as long as the ring was thick -- and eight round-ended rays
+    around a ring is a SUN, not a gear (caught on the preview sheet before any
+    upload). What makes a gear a gear is a tooth that is wider than it is long
+    and ends FLAT. Each tooth is a trapezoid about 10 units proud of the rim on a 24-unit root,
+    so at the 16px rung it survives as a square bump on the rim, not a ray.
+
+    WHY EIGHT. Six reads as a flower and twelve closes into a circle at 16px.
+
+    The body is a ring heavier than the set's stroke so the bumps have a rim to
+    sit on; the centre is punched back out AFTER the teeth so nothing leaks in.
+    """
+    img, d = _canvas()
+    body_r = 34.0
+    _ring(d, 64, 64, body_r, w=20)
+    root_r, tip_r = body_r, 54.0  # the root starts INSIDE the ring so no seam shows
+    root_half, tip_half = 12.0, 9.0
+    for index in range(8):
+        angle = math.pi / 4 * index
+        cos, sin = math.cos(angle), math.sin(angle)
+        nx, ny = -sin, cos
+        _poly(
+            d,
+            [
+                (64 + cos * root_r + nx * root_half, 64 + sin * root_r + ny * root_half),
+                (64 + cos * tip_r + nx * tip_half, 64 + sin * tip_r + ny * tip_half),
+                (64 + cos * tip_r - nx * tip_half, 64 + sin * tip_r - ny * tip_half),
+                (64 + cos * root_r - nx * root_half, 64 + sin * root_r - ny * root_half),
+            ],
+        )
+    d.ellipse(
+        [(64 - 17) * SS, (64 - 17) * SS, (64 + 17) * SS, (64 + 17) * SS],
+        fill=(0, 0, 0, 0),
+    )
+    return img
+
+
 ICONS = {
     "facet_icon_chevron_left": lambda: chevron("left"),
     "facet_icon_chevron_right": lambda: chevron("right"),
@@ -461,6 +502,7 @@ ICONS = {
     "facet_icon_trash": trash,
     "facet_icon_flag": flag,
     "facet_icon_search": search,
+    "facet_icon_settings": settings,
     "facet_icon_radio_off": radio_off,
     "facet_icon_radio_on": radio_on,
     "facet_icon_check_off": check_off,

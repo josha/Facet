@@ -31,6 +31,15 @@ local function derive(metrics: any, id: string?): any
 	return pkg
 end
 
+describe("toggle mark width", function()
+	it("derives the default but preserves a validated authored width", function()
+		local base = snapshot.neutral().controls.toggle
+		expect(base.markWidth).toBe(base.trackInset + base.trackWidth + base.trackInset)
+		local authored = snapshot.resolve(derive({ controls = { toggle = { markWidth = 72 } } }), nil, {})
+		expect(authored.controls.toggle.markWidth).toBe(72)
+	end)
+end)
+
 describe("themes.neutral: Facet Neutral reproduces the pre-theme literals", function()
 	it("reads its shared values from default_style rather than restating them", function()
 		local snap = snapshot.neutral()

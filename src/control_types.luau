@@ -186,9 +186,12 @@ export type ChipSpec<V = BooleanCell> = {
 	trailing: bp.Blueprint?,
 	id: string?,
 	label: bp.Bound<string>?,
-	selected: V,
+	selected: V?, -- optional only for a remove-only token
 	enabled: bp.Bound<boolean>?,
 	onToggle: ((boolean) -> ())?,
+	onRemove: (() -> ())?,
+	removeLabel: string?,
+	removeFocusFallback: bp.Bound<string>?,
 }
 export type ResourceHandle = {
 	state: core.Readable<string>,
@@ -311,6 +314,9 @@ type BooleanSource = core.Readable<boolean> | ((core.Use) -> boolean)
 export type ToggleSpec<V = BooleanSource> = {
 	ref: ((record: any) -> ())?,
 	row: SemanticRow?,
+	hint: bp.Bound<string>?,
+	indicatorPosition: ("leading" | "trailing")?,
+	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
 	id: string?,
 	label: bp.Bound<string>?,
 	value: V,

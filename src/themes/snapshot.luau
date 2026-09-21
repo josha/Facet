@@ -1949,6 +1949,11 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(rowActionsFamily.rowGutter) ~= "number" then
 		rowActionsFamily.rowGutter = out.space.s
 	end
+	-- A display-only switch reserves both native track insets, without a label column.
+	local toggleFamily = out.controls.toggle
+	if type(toggleFamily) == "table" and type(toggleFamily.markWidth) ~= "number" then
+		toggleFamily.markWidth = toggleFamily.trackInset + toggleFamily.trackWidth + toggleFamily.trackInset
+	end
 	-- ...and the indeterminate spinner's dot (parity round 2 §3.1). Filled here
 	-- for the same stamp reason the two above are. `space.s` rather than a fresh
 	-- literal: a spinner dot is a token on the same scale as every other small

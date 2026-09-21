@@ -36,6 +36,7 @@ local ROUND_HEIGHT = table.freeze({ type = "aspect", ratio = 1 })
 local ROUND_AXIS = table.freeze({ type = "percent", fraction = 1, offset = -0.5 })
 local ZERO = table.freeze({ type = "fixed", px = 0 })
 local SURFACE = table.freeze({ role = "surface", blend = 1 })
+local GUTTER = table.freeze({ type = "percent", fraction = 0.1, max = "strokes.hairline" })
 local INSET = table.freeze({
 	left = "strokes.hairline",
 	right = "strokes.hairline",
@@ -216,7 +217,29 @@ local function build(library: any, _core: any, spec: any, owner: any)
 				if counted
 					then UI.Box({ id = "Cutout", tint = SURFACE, corners = corners, width = FILL, height = FILL })
 					else mark("Cutout", SURFACE),
-				UI.ZStack({ id = "Inset", width = FILL, height = FILL, padding = INSET, children = { body } }),
+				if counted
+					then UI.ZStack({ id = "Inset", width = FILL, height = FILL, padding = INSET, children = { body } })
+					else UI.HStack({
+						id = "Inset",
+						width = FILL,
+						height = FILL,
+						gap = 0,
+						children = {
+							UI.Spacer({ id = "Leading", width = GUTTER }),
+							UI.VStack({
+								id = "Center",
+								width = FILL,
+								height = FILL,
+								gap = 0,
+								children = {
+									UI.Spacer({ id = "Top", height = GUTTER }),
+									body,
+									UI.Spacer({ id = "Bottom", height = GUTTER }),
+								},
+							}),
+							UI.Spacer({ id = "Trailing", width = GUTTER }),
+						},
+					}),
 			}
 		end
 		return children

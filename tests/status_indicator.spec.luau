@@ -338,7 +338,14 @@ t.describe("StatusIndicator round containment", function()
 				end
 				t.expect(#visible).toBe(1)
 				local mark = visible[1].rect
-				t.expect(mark.w).toBe(math.floor(math.min(root.w, root.h)) - (if cutout then 4 else 0))
+				t.expect(mark.w).toBe(
+					math.floor(math.min(root.w, root.h))
+						- (
+							if cutout
+								then 2 * math.min(2, math.floor(math.floor(math.min(root.w, root.h)) * 0.1 + 0.5))
+								else 0
+						)
+				)
 				t.expect(mark.w).toBe(mark.h)
 				t.expect(
 					mark.x >= root.x
@@ -376,7 +383,7 @@ t.describe("StatusIndicator round containment", function()
 				w.UI.StatusIndicator("Mark")({
 					form = "ring",
 					width = { type = "fixed", px = 16.5 },
-					height = { type = "fixed", px = 10.5 },
+					height = { type = "fixed", px = 26.5 },
 					cutout = true,
 				}),
 			})
@@ -385,10 +392,10 @@ t.describe("StatusIndicator round containment", function()
 			node(w, "/S/Mark").rect, part(w, "Cutout").rect, part(w, "Mark").rect, part(w, "Detail").rect
 		t.expect(root.x).toBe(0.49)
 		t.expect(root.y).toBe(0.99)
-		t.expect(cutout.w).toBe(10)
-		t.expect(cutout.h).toBe(10)
-		t.expect(mark.w).toBe(7)
-		t.expect(mark.h).toBe(7)
+		t.expect(cutout.w).toBe(16)
+		t.expect(cutout.h).toBe(16)
+		t.expect(mark.w).toBe(13)
+		t.expect(mark.h).toBe(13)
 		t.expect(
 			detail.x >= mark.x
 				and detail.y >= mark.y
@@ -447,6 +454,43 @@ t.describe("StatusIndicator round containment", function()
 					and actual.x + actual.w <= root.x + root.w
 					and actual.y + actual.h <= root.y + root.h
 			).toBe(true)
+		end
+	end)
+end)
+
+t.describe("StatusIndicator small cutout", function()
+	t.it("caps small Pixel gutters but restores its full hairline on large marks", function()
+		local metrics = require("../src/themes/snapshot").resolve(
+			require("../examples/themes/pixel_quest").build(require("../src").themes),
+			nil,
+			{}
+		)
+		for _, size in { 8, 10, 11, 13, 16, 40 } do
+			for _, form in { "dot", "ring", "square", "dash" } do
+				local w = world.new({ themeMetrics = metrics })
+				mount(w, {
+					form = form,
+					width = { type = "fixed", px = size },
+					height = { type = "fixed", px = size },
+					cutout = true,
+				})
+				local mark, detail, cutout = part(w, "Mark").rect, part(w, "Detail").rect, part(w, "Cutout").rect
+				local gutter = math.min(4, math.floor(size * 0.1 + 0.5))
+				t.expect(mark.w).toBe(size - 2 * gutter)
+				t.expect(mark.h).toBe(size - 2 * gutter)
+				t.expect(mark.x - cutout.x).toBe(gutter)
+				t.expect(mark.y - cutout.y).toBe(gutter)
+				if form == "ring" or form == "dash" then
+					t.expect(detail.w > 0 and detail.h > 0 and detail.w < mark.w and detail.h < mark.h).toBe(true)
+					t.expect(
+						detail.x >= mark.x
+							and detail.y >= mark.y
+							and detail.x + detail.w <= mark.x + mark.w
+							and detail.y + detail.h <= mark.y + mark.h
+					).toBe(true)
+				end
+				w.close()
+			end
 		end
 	end)
 end)

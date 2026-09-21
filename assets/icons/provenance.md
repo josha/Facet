@@ -68,7 +68,7 @@ drawn at. A 128 px preview would prove nothing.
 | facet_icon_chevron_first.png | 128×128 | `chevron.first` | `\|<` | content |
 | facet_icon_chevron_last.png | 128×128 | `chevron.last` | `>\|` | content |
 
-29 PNG files: the original ten, `edit`, `trash` and `flag` (row-actions stage),
+30 PNG files, including the settings gear added below. The prior 29 are: the original ten, `edit`, `trash` and `flag` (row-actions stage),
 the search magnifying glass (2026-09-08), the pop-up button's stacked chevron
 pair and the three selection marks (2026-09-11), and P1d's eleven common glyphs
 (2026-09-18, below).
@@ -360,3 +360,14 @@ Only the success manifest record changes; all eighteen original PNGs and asset
 records remain unchanged. The generator's success function delegates to `check`;
 the current contact sheet was rebuilt from committed PNGs only, without running
 the all-image generator. The existing hand/person blow-up remains unchanged.
+
+## Settings gear — additive archive import
+
+`facet_icon_settings.png` is the unchanged 128×128 gear from the earlier settings
+control work: SHA-256 `e6b7dda0cb28015af00d6c7b31c144b698404e0acea49ba403c1bb2f66c24efd`,
+`rbxassetid://78513807849201`, semantic name `settings`, ASCII floor `*`, content tint.
+Its manifest retains the historical `Reviewing` moderation observation; this import
+does not claim a new upload or a current moderation check. The matching procedural
+source is retained. Only the contact sheet was recomposed from the existing PNGs;
+all 29 earlier PNGs and manifest records, including ringless success/checkmark,
+remain unchanged.

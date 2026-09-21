@@ -240,6 +240,7 @@ package.CONTROL_FAMILIES = table.freeze({
 -- tune, and adding it to the REQUIRED list would refuse to compile every
 -- package written before it existed.
 package.CONTROL_FAMILY_OPTIONAL = table.freeze({
+	toggle = table.freeze({ "markWidth" }),
 	button = table.freeze({ "height" }),
 	popup = table.freeze({ "panelWidth", "shadeInset" }),
 	textInput = table.freeze({ "multilineHeight" }),
@@ -1023,6 +1024,7 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	["vote.up"] = "+1",
 	["vote.down"] = "-1",
 	["person"] = "@",
+	["settings"] = "*",
 	["chevron.first"] = "|<",
 	["chevron.last"] = ">|",
 })

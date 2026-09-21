@@ -300,7 +300,11 @@ Use `badge` for a tab or picker count: its row reserves label/count space and wr
 
 Use the `row` presentation of Button, Toggle and Slider for game settings,
 equipment details and action lists that need descriptions or trailing values. Keep
-one semantic control per row; do not nest a second focusable button around a toggle
+one semantic control per row; its real switch or checkbox shares row activation.
+Use a Toggle hint for standalone explanatory copy. Group optional settings with
+DisclosureGroup description, semantic icon and plain/contained/divided appearance.
+Use removable Chips for caller-owned keyed tags: onRemove updates the collection,
+while Chip preserves neighboring remove-target focus. Do not nest a second focusable button around a toggle
 or slider. Keep Table/VirtualList for actual collections, including editing,
 selection, row actions and reordering. A TV presentation should increase readability
 without flattening those editing semantics into a streaming catalog.

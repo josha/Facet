@@ -2,7 +2,7 @@
 local Compose = require("../vendor/compose/core")
 local read = require("../selection_model").read
 -- A filter pill borrows selection state and routes activation through Facet input.
--- It owns no reactive resources; disposal only disables its callback.
+-- Removal transfers focus when the owning keyed row is disposed.
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
@@ -20,6 +20,9 @@ local CHIP_KEYS = specGuard.keySet({
 	"id",
 	"label",
 	"onToggle",
+	"onRemove",
+	"removeLabel",
+	"removeFocusFallback",
 	"selected",
 	"controlSize",
 	"appearance",
@@ -35,6 +38,12 @@ function chip.build(Facet: any, core: any, spec: any)
 	specGuard.assertKnownKeys("UI.Chip", spec, CHIP_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Chip"
+	local removable = spec.onRemove ~= nil
+	assert(not removable or type(spec.onRemove) == "function", "UI.Chip.onRemove must be a function")
+	assert(
+		removable or (spec.removeLabel == nil and spec.removeFocusFallback == nil),
+		"UI.Chip remove options require onRemove"
+	)
 	local selected = spec.selected -- the caller's writable cell of a boolean
 	-- AUTHORING IS STRICT: fail at BUILD, not at first render (docs/extending/new-control.md §2). `selected` is required AND is the
 	-- control's single mutation site, so a missing one used to surface as
@@ -42,7 +51,9 @@ function chip.build(Facet: any, core: any, spec: any)
 	-- "cannot set a memo" from deep inside core — both unattributable. Same
 	-- check, same wording, as Stepper/Slider/Rating/Picker/DisclosureGroup/
 	-- TextInput.
-	if not (Compose.isReadable(selected) and type(selected.set) == "function") then
+	if removable and selected == nil then
+		assert(spec.onToggle == nil, "UI.Chip.onToggle requires selected; a remove-only token body is inert")
+	elseif not selection.isWritable(selected) then
 		error(
 			`Facet UI.Chip('{id}'): \`selected\` must be a writable Compose cell holding a boolean, owned by the caller `
 				.. `(the control never creates it, because the selection must outlive the control)`,
@@ -66,7 +77,7 @@ function chip.build(Facet: any, core: any, spec: any)
 	-- the SINGLE Activate site: every input class routes here through the
 	-- presenter's auto dispatch (never a direct callback in a consumer).
 	local function toggle()
-		if disposed or not controlContract.enabledNow(spec.enabled) then
+		if disposed or not controlContract.enabledNow(spec.enabled) or selected == nil then
 			return
 		end
 		local nextValue = not read(selected)
@@ -74,6 +85,72 @@ function chip.build(Facet: any, core: any, spec: any)
 		if spec.onToggle ~= nil then
 			spec.onToggle(nextValue)
 		end
+	end
+
+	local REMOVE_ID = "Remove"
+	local focusGraph: any = nil
+	local removePath: string? = nil
+	local pendingFocus: any = nil
+	local function releaseFocus()
+		if pendingFocus ~= nil and focusGraph ~= nil then
+			if removePath ~= nil then
+				focusGraph.remove(removePath)
+			end
+			focusGraph.focusOn(pendingFocus)
+			pendingFocus = nil
+		end
+	end
+
+	local function nextRemoveStop(): string?
+		if focusGraph == nil or removePath == nil then
+			return nil
+		end
+		local map = focusGraph.focusMap()
+		local traversal = if type(map) == "table" then map.traversal else nil
+		if type(traversal) ~= "table" then
+			return nil
+		end
+		local suffix = "/" .. REMOVE_ID
+		local mine: number? = nil
+		for index, entry in traversal do
+			if entry.path == removePath or entry.id == removePath then
+				mine = index
+				break
+			end
+		end
+		if mine == nil then
+			return nil
+		end
+		local function pathAt(index: number): string?
+			local entry = traversal[index]
+			local path = if entry == nil then nil else (entry.path or entry.id)
+			if type(path) == "string" and path ~= removePath and string.sub(path, -#suffix) == suffix then
+				return path
+			end
+			return nil
+		end
+		for index = mine + 1, #traversal do
+			local found = pathAt(index)
+			if found ~= nil then
+				return found
+			end
+		end
+		for index = mine - 1, 1, -1 do
+			local found = pathAt(index)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
+
+	local function remove()
+		if disposed or not controlContract.enabledNow(spec.enabled) or not removable then
+			return
+		end
+
+		pendingFocus = nextRemoveStop() or selection.read(spec.removeFocusFallback);
+		(spec.onRemove :: any)()
 	end
 
 	-- the pill: a focusable Button (44px hit floor, hover layer, focus ring all
@@ -108,6 +185,7 @@ function chip.build(Facet: any, core: any, spec: any)
 			id = id,
 			label = label,
 			selected = selected,
+			focusable = if removable and selected == nil then false else nil,
 			enabled = spec.enabled,
 			children = children,
 			animation = spec.animation,
@@ -122,15 +200,54 @@ function chip.build(Facet: any, core: any, spec: any)
 		vocabulary.cornerRadiusFor(spec.corners or "pill")
 	)
 
-	-- FOUR-INPUT STORY (ui_todo §0): the presenter discovers this
-	-- bundle on mount and composes the whole story with zero consumer opts. A
-	-- chip owns NO in-flight state (no drag/grab/open edit), so only
-	-- handleActivate is needed — Navigate/focus/geometry the presenter derives
-	-- from the single focusable Button automatically.
+	if removable then
+		local removeLabel = spec.removeLabel or `Remove {label}`
+		local removeButton = UI.Button({
+			id = REMOVE_ID,
+			icon = "close",
+
+			label = removeLabel,
+			enabled = spec.enabled,
+
+			shape = "circle",
+			surface = "plain",
+			height = { type = "minMax", min = "targetSizes.minimum" },
+		})
+
+		blueprint = UI.HStack({
+			id = `{id}+token`,
+			gap = "xs",
+			align = "center",
+			children = { vocabulary.reserveTarget(UI, core, id, blueprint, nil), removeButton },
+		})
+	end
+
 	blueprint = contribution.attach(blueprint, {
-		handleActivate = function(_path: string, _meta: any?): boolean
+		handleActivate = function(path: string, _meta: any?): boolean
+			local isRemove = if removePath ~= nil
+				then path == removePath
+				else string.sub(path, -#REMOVE_ID - 1) == "/" .. REMOVE_ID
+			if removable and isRemove then
+				removePath = path
+				remove()
+				return true
+			end
 			toggle()
 			return true
+		end,
+
+		bindFocusGraph = function(graph: any)
+			focusGraph = graph
+		end,
+
+		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
+			if rootNode ~= nil and removePath == nil and removable then
+				for _, child in rootNode.children or {} do
+					if child.id == REMOVE_ID then
+						removePath = child.path
+					end
+				end
+			end
 		end,
 	})
 
@@ -140,14 +257,16 @@ function chip.build(Facet: any, core: any, spec: any)
 			schema = "facet-chip-dump/1",
 			id = id,
 			label = label,
-			selected = read(selected),
+			selected = if selected ~= nil then read(selected) else nil,
+			removable = removable,
+			removeLabel = if removable then (spec.removeLabel or `Remove {label}`) else nil,
 			enabled = controlContract.enabledNow(spec.enabled),
 			controlSize = selection.read(spec.controlSize),
 			appearance = selection.read(spec.appearance),
 		}
 	end
 
-	local mounted = if spec.controlSize ~= nil
+	local mounted = if spec.controlSize ~= nil and not removable
 		then vocabulary.reserveTarget(UI, core, id, blueprint, nil)
 		else blueprint
 	return {
@@ -155,6 +274,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		dump = dump,
 		dispose = function()
 			disposed = true
+			releaseFocus()
 		end,
 	}
 end

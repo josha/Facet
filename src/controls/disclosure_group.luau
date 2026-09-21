@@ -7,6 +7,7 @@ local contribution = require("../input/contribution")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
 local specGuard = require("../spec_guard")
+local vocabulary = require("./control_vocabulary")
 
 local disclosure_group = {}
 local selection = require("../selection_model")
@@ -24,7 +25,17 @@ local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
 	"label",
 	"onToggle",
 	"presenter",
+	"description",
+	"icon",
+	"chevronPosition",
+	"appearance",
+	"controlSize",
 })
+
+local APPEARANCES = { "plain", "contained", "divided" }
+local APPEARANCE_SET = specGuard.keySet(APPEARANCES)
+local POSITIONS = { "leading", "trailing" }
+local POSITION_SET = specGuard.keySet(POSITIONS)
 
 function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("UI.DisclosureGroup", spec, DISCLOSURE_GROUP_KEYS, "spec")
@@ -47,6 +58,38 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	if spec.presenter ~= nil and type((spec.presenter :: any).withAnimation) ~= "function" then
 		error(`Facet UI.DisclosureGroup('{id}'): \`presenter\` must be a presenter (something with withAnimation)`, 0)
 	end
+
+	local appearance = if spec.appearance == nil then "plain" else spec.appearance
+	if not APPEARANCE_SET[appearance] then
+		error(
+			`Facet UI.DisclosureGroup('{id}'): \`appearance\` must be {table.concat(APPEARANCES, " | ")} `
+				.. `(got '{tostring(spec.appearance)}')`,
+			0
+		)
+	end
+	local chevronSide = if spec.chevronPosition == nil then "leading" else spec.chevronPosition
+	if not POSITION_SET[chevronSide] then
+		error(
+			`Facet UI.DisclosureGroup('{id}'): \`chevronPosition\` must be {table.concat(POSITIONS, " | ")} `
+				.. `(got '{tostring(spec.chevronPosition)}')`,
+			0
+		)
+	end
+	if spec.icon ~= nil and not themePackage.isIconName(spec.icon) then
+		error(
+			`Facet UI.DisclosureGroup('{id}'): \`icon\` is a semantic icon NAME the theme can answer `
+				.. `(got '{tostring(spec.icon)}') — never an asset id, which no package could then re-skin.`,
+			0
+		)
+	end
+	if spec.description ~= nil and type(selection.read(spec.description)) ~= "string" then
+		error(
+			`Facet UI.DisclosureGroup('{id}'): \`description\` is the second line under the label — a string `
+				.. `or a getter for one (got {typeof(selection.read(spec.description))}).`,
+			0
+		)
+	end
+	vocabulary.assertSize("UI.DisclosureGroup", spec.controlSize)
 
 	local headerPath: string? = nil
 	local focusGraph: any = nil
@@ -103,33 +146,97 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	end
 	local reveal, adoptReveal =
 		regionTransitions.branch({ enter = "reveal", class = "dismiss", exitClass = "dismiss" }, expanded, content)
+	local caret = chrome_slots.attachHint(
+		UI.Text({ id = "Caret", text = CARET, textSize = "control", rotation = caretAngle }),
+		{ icon = "chevron.trailing" }
+	)
+	local title: any = UI.Text({
+		id = "Label",
+		text = spec.label,
+		textSize = "control",
+		width = { type = "fill", weight = 1 },
+	})
+	if spec.description ~= nil then
+		title = UI.VStack({
+			id = "Labels",
+			gap = "xs",
+			width = { type = "fill", weight = 1 },
+			children = {
+				UI.Text({
+					id = "Label",
+					text = spec.label,
+					textSize = "control",
+					width = { type = "fill", weight = 1 },
+				}),
+				UI.Text({
+					id = "Description",
+					text = spec.description,
+					textSize = "label",
+					role = "secondary",
+					width = { type = "fill", weight = 1 },
+
+					disclose = true,
+				}),
+			},
+		})
+	end
+	local headerChildren: { any } = {}
+	if chevronSide == "leading" then
+		table.insert(headerChildren, caret)
+	end
+	if spec.icon ~= nil then
+		table.insert(
+			headerChildren,
+			chrome_slots.attachHint(
+				UI.Text({ id = "Icon", text = themePackage.iconGlyph(spec.icon) or "", textSize = "control" }),
+				{ icon = spec.icon }
+			)
+		)
+	end
+	table.insert(headerChildren, title)
+	if chevronSide == "trailing" then
+		table.insert(headerChildren, caret)
+	end
+
+	local sizedHeight = vocabulary.deriveSize("UI.DisclosureGroup", spec.controlSize, function(rung)
+		return vocabulary.heightFor(rung) or { type = "minMax", min = "targetSizes.minimum" }
+	end)
+	local sizedPadding = vocabulary.deriveSize("UI.DisclosureGroup", spec.controlSize, vocabulary.paddingFor)
+
+	local header: any = UI.Button({
+		id = "Header",
+		label = spec.label,
+		enabled = spec.enabled,
+		selected = expanded,
+		gap = "xs",
+		width = { type = "fill", weight = 1 },
+		height = sizedHeight or { type = "minMax", min = "targetSizes.minimum" },
+		padding = sizedPadding,
+		children = headerChildren,
+	})
+	if spec.controlSize ~= nil then
+		header = vocabulary.reserveTarget(UI, core, "Header", header, { type = "fill", weight = 1 })
+	end
+	local groupChildren: { any } = { header }
+	if appearance == "divided" then
+		table.insert(
+			groupChildren,
+			UI.When({
+				id = "Rule",
+				condition = expanded,
+				thenView = function()
+					return UI.Divider({ id = "Divider" })
+				end,
+			})
+		)
+	end
+	table.insert(groupChildren, reveal)
 	local root = UI.VStack({
 		id = id,
 		gap = "xs",
 		width = { type = "fill", weight = 1 },
-		children = {
-			UI.Button({
-				id = "Header",
-				label = spec.label,
-				enabled = spec.enabled,
-				gap = "xs",
-				width = { type = "fill", weight = 1 },
-				height = { type = "minMax", min = "targetSizes.minimum" },
-				children = {
-					chrome_slots.attachHint(
-						UI.Text({ id = "Caret", text = CARET, textSize = "control", rotation = caretAngle }),
-						{ icon = "chevron.trailing" }
-					),
-					UI.Text({
-						id = "Label",
-						text = spec.label,
-						textSize = "control",
-						width = { type = "fill", weight = 1 },
-					}),
-				},
-			}),
-			reveal,
-		},
+		surface = if appearance == "contained" then "raised" else nil,
+		children = groupChildren,
 	})
 
 	if adoptReveal then
@@ -145,18 +252,26 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 			return false
 		end,
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
-			if rootNode ~= nil and headerPath == nil then
-				for _, child in rootNode.children or {} do
+			if rootNode == nil or headerPath ~= nil then
+				return
+			end
+			local function findHeader(node: any)
+				for _, child in node.children or {} do
 					if child.id == "Header" then
 						headerPath = child.path
+						return
+					end
+					findHeader(child)
+					if headerPath ~= nil then
+						return
 					end
 				end
 			end
+			findHeader(rootNode)
 		end,
-		bindController = function(controller: any)
-			if controller ~= nil and controller.focusGraph ~= nil then
-				focusGraph = controller.focusGraph
-			end
+
+		bindFocusGraph = function(graph: any)
+			focusGraph = graph
 		end,
 	})
 
@@ -172,6 +287,11 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 			schema = "facet-disclosure-dump/1",
 			id = id,
 			label = spec.label,
+			description = selection.read(spec.description),
+			icon = spec.icon,
+			chevronPosition = chevronSide,
+			appearance = appearance,
+			controlSize = selection.read(spec.controlSize),
 			expanded = selection.read(expanded),
 			headerPath = headerPath,
 			semanticText = `{spec.label}: {if selection.read(expanded) then "expanded" else "collapsed"}`,

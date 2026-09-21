@@ -7910,7 +7910,7 @@ reading.
 One boolean selection control with `presentation = "switch"` (default),
 `"checkbox"`, or `"button"`. Required `value` is a boolean Compose readable or
 `function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
-`row`, and `children` (custom button content only).
+`row`, `hint`, `indicatorPosition`, `controlSize`, and `children` (custom button content only).
 
 Without `onChange`, `value` and any `mixed` binding must be writable cells;
 activation updates them directly. With `onChange(wanted)`, activation requests
@@ -7921,8 +7921,18 @@ callback. Caller writes update the display without calling `onChange`.
 
 `row = { description?, icon?, value? }` turns the control into a settings row:
 the label leads, an optional description and semantic icon sit with it, and the
-toggle's own value reads out trailing. `row` and `children` cannot be combined,
-and `row.value` is refused because the toggle supplies it.
+actual switch or checkbox sits beside the copy. Switches default trailing,
+checkboxes leading; `indicatorPosition = "leading" | "trailing"` overrides that.
+Button presentation keeps its trailing state word and refuses indicatorPosition.
+`hint` is bindable secondary text for a standalone setting; use `row.description`
+in a row, since `hint` and `row` cannot be combined. `row` and `children` cannot
+be combined, and `row.value` is refused because the toggle supplies it.
+
+Bindable `controlSize` uses the shared compact/regular/large ladder; nil restores
+the default. Bare switches retain native track padding. A row's internal indicator
+has no independent focus or command: the row owns activation and model approval.
+Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
+to `trackInset + trackWidth + trackInset`; an authored value overrides that default.
 
 Switches paint their initial value immediately. Later value changes slide the knob
 without overshoot; pressing a switch keeps its label size unchanged. Reduced
@@ -9205,7 +9215,12 @@ and `dispose()`.
 
 A labelled header that expands and collapses its content. `spec = { id?, label
 (required), expanded (a writable boolean cell), content (() -> Node), enabled?,
-onToggle?, presenter? }`.
+onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, controlSize? }`.
+
+`description` is bindable secondary copy; `icon` is a semantic icon name.
+`chevronPosition` is leading (default) or trailing. `appearance` is plain (default),
+contained (a raised group), or divided (a separator while expanded). Bindable
+`controlSize` uses the shared rung and restores the default when nil.
 
 ```lua
 local app = Facet.new()
@@ -9228,10 +9243,8 @@ on lower graphics settings.
 The caret uses the same class, so it does not bounce beyond its final angle.
 Reopening mid-exit reverses the existing transition.
 
-**An expanded header is not drawn as selected.** The header is an ordinary
-`UI.Button` and the control never sets its `selected` prop, so expansion never
-borrows the theme's selected-row fill. The caret angle is the whole of the state
-the header shows, and the header keeps the same paint open or shut.
+The header publishes its expanded selection state to ordinary Button paint.
+The caret and optional divider also indicate expansion.
 
 **The caret is one `chevron.trailing` glyph, not two.** Its `rotation` — paint-only,
 never seen by the solver — springs 0 → 90 as `expanded` flips, turning to point down
@@ -9249,8 +9262,8 @@ either way, off the ambient motion clock every mounted control receives for free
 would leave focus on a node that is about to be unmounted, so the control moves focus
 back to its own header **before** the content disappears. Expanding leaves focus on
 the header — the player asked to see the content, not to jump into it. Call
-`bindFocus(presenter.focus)` through `ref` (or let the control pick the focus graph
-up from the controller) so it can do that.
+`bindFocus(presenter.focus)` through `ref` only for a custom low-level host; the
+ordinary application supplies its focus graph through the mounted contribution.
 
 `expanded` is a cell **you** own, so a settings screen remembers which sections were
 open across a remount. `dump()` reports `{ schema, id, label, expanded, headerPath,
@@ -9713,13 +9726,22 @@ Spec fields:
 | `id` | `string` | no (default `"Chip"`) | the plate id; a supplied `controlSize` adds the `<id>+target` parent. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
 | `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
-| `selected` | a writable boolean cell | **yes** | the caller-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. Validated at build: absent, or a read-only formula, is an error naming the control and the field, not a crash on the first tap. |
+| `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by body activation. A remove-only token omits it and has an informational body. Readonly selection is refused. |
 | `animation` | animation policy | no | applies to the primitive Button plate and is checked against its supported properties. |
-| `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip with the new value (e.g. to persist a filter). |
+| `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip; requires selected. |
+| `onRemove` | `() -> ()` | no | separate named close target; the caller removes the item from its keyed collection. |
+| `removeLabel` | `string` | no | semantic close label, default `Remove <label>`. |
+| `removeFocusFallback` | bindable `string` | no | destination when no sibling remove target survives. |
 | `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
 | `appearance` | `"standard" \| "utility"` (bindable) | no | visual emphasis, through a style tag. A chip's family is two words, not the Button's five: `emphasis`/`soft`/`link` describe an action's weight among actions, which a filter pill is not. |
 | `corners` | `"pill" \| "square"` | no | the corner treatment, through the shipped `UI.corners` modifier. Absent = `"pill"`, exactly as before. |
 | `leading` / `trailing` | blueprint | no | static content either side of the label (a count, a dot, an avatar). They are content, never a second focus stop — the chip keeps one activation surface, so every input class still reaches the same flip. With neither, the chip is byte-identical to the label-only pill it has always been. |
+
+A removable token reserves separate body and close hit footprints, including the
+effective target floor. Removing a focused item returns focus to the next sibling
+remove target, then the previous, then the supplied fallback after its owner retires.
+A remove-only token has one generated focus stop; selected tokens also have their
+body action. The callback does not mutate the caller's collection automatically.
 
 The record `ref` hands back carries:
 
@@ -9729,7 +9751,7 @@ The record `ref` hands back carries:
   `app.mount` makes the chip reachable and activatable on pointer, touch,
   keyboard, and gamepad.
 - `dump()` — a deterministic diagnostic table
-  (`{ schema = "facet-chip-dump/1", id, label, selected, enabled, controlSize, appearance }`); two calls with
+  (`{ schema = "facet-chip-dump/1", id, label, selected, enabled, controlSize, appearance, removable, removeLabel }`); two calls with
   unchanged state are byte-identical.
 - `dispose()` — releases the control and nothing else.
 
@@ -12382,8 +12404,8 @@ paints a passive mark without an input target or ornament surface.
 |---|---|
 | `form` | Bound `dot` (default), `ring`, `square`, or `dash`. Discs and holes stay circular across themes. |
 | `status` | Bound `neutral` (default), `info`, `success`, `warning`, `error`, or `accent`. |
-| `count`, `max` | Optional bound finite whole count ≥0; static whole cap ≥1, default99. Above the cap the text is `99+`. Counted marks accept dot or square only. |
-| `cutout` | Static boolean; adds a surface-colored backing and a hairline inset inside the reserved footprint. |
+| `count`, `max` | Optional bound finite whole count ≥0; static whole cap ≥1, default99. Above the cap the text is `{max}+` (for example `99+`). Counted marks accept dot or square only. |
+| `cutout` | Static boolean; adds a surface-colored backing inside the reserved footprint; uncounted gutters use 10% of each axis capped by the theme hairline, counted seals retain the hairline inset. |
 | `name` | Optional nonempty semantic word. |
 | `controlSize` | Bound compact (default), regular, or large; uses the theme's icon-size ladder. A count's height is a floor and can grow with text. |
 | `width`, `height` | Optional bound dimensions for a parent-reserved footprint. |
@@ -12398,6 +12420,8 @@ diameter down to a whole pixel. An existing two-candidate fit ladder keeps both
 passive alternatives mounted but paints only the selected one. Square forms use
 the full rectangular reservation. Counted height is resolved once at the outer
 reservation; the seal and cutout consume that space.
+Uncounted cutouts use two zero-gap stacks and four passive spacer gutters so a
+small mark keeps its silhouette; larger marks recover the full themed hairline.
 
 `ref` receives `{ api, dump }`; `api.semanticText` is a readable. `dump()` returns
 `schema`, `id`, `form`, `status`, displayed `count`, `max`, `cutout`, `name`,

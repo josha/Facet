@@ -279,3 +279,175 @@ t.describe("switch value paint", function()
 		end)
 	end
 end)
+
+local function togglePart(w, suffix)
+	for path, value in w.adapter.liveNodes() do
+		if string.sub(path, -#suffix) == suffix then
+			return value, path
+		end
+	end
+	error("missing toggle part " .. suffix)
+end
+
+t.describe("Toggle setting rows", function()
+	t.it("keeps a real switch or checkbox on either requested side", function()
+		for _, presentation in { "switch", "checkbox" } do
+			for _, side in { "leading", "trailing" } do
+				local w = world.new()
+				local value = Compose.cell(false)
+				w.present(function()
+					return w.UI.Screen("S")({
+						w.UI.Toggle("T")({
+							label = "Music",
+							value = value,
+							presentation = presentation,
+							indicatorPosition = side,
+							row = { description = "Play race music" },
+						}),
+					})
+				end)
+				local mark, label = togglePart(w, "/Indicator"), togglePart(w, "/Label")
+				t.expect(mark.class).toBe(if presentation == "switch" then "Toggle" else "ZStack")
+				t.expect(
+					if side == "leading"
+						then mark.rect.x + mark.rect.w <= label.rect.x
+						else label.rect.x + label.rect.w <= mark.rect.x
+				).toBe(true)
+				value:set(true)
+				w.pres.refresh()
+				if presentation == "switch" then
+					t.expect(mark.props.value).toBe(true)
+				else
+					local _, path = togglePart(w, "/Check")
+					t.expect(w.adapter.visibleOf(path)).toBe(true)
+				end
+				t.expect(#w.handle.focusOrder().traversal).toBe(1)
+				w.close()
+			end
+		end
+	end)
+	for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
+		t.it("requests model approval from the real row indicator through " .. input, function()
+			local w = world.new()
+			local value, enabled, requests, accept = Compose.cell(false), Compose.cell(true), 0, false
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.VStack("Col")({
+						w.UI.Button("Other")({ label = "Other", onActivate = function() end }),
+						w.UI.Toggle("T")({
+							label = "Music",
+							value = value,
+							enabled = enabled,
+							row = { description = "Play race music" },
+							onChange = function(wanted)
+								requests += 1
+								if accept then
+									value:set(wanted)
+								end
+							end,
+						}),
+					}),
+				})
+			end)
+			local mark, path = togglePart(w, "/Indicator")
+			t.expect(w.adapter.hitRectOf(path)).toBeNil()
+			t.expect(require("../src/paths").nodeAt(w.handle.root.node, path).props.focusable).toBe(false)
+			local function press()
+				w.pres.focus.focusOn("/S/Col/Other")
+				if input == "pointer" or input == "touch" then
+					w.adapter.tap(path, { pointer = input })
+				else
+					w.pres.focus.focusOn("/S/Col/T")
+					w.press(if input == "keyboard" then "Return" else "ButtonA")
+				end
+				w.settle()
+			end
+			press()
+			t.expect(requests).toBe(1)
+			t.expect(value:peek()).toBe(false)
+			t.expect(mark.props.value).toBe(false)
+			t.expect(w.pres.focus.focused:peek()).toBe("/S/Col/T")
+			accept = true
+			press()
+			t.expect(requests).toBe(2)
+			t.expect(value:peek()).toBe(true)
+			t.expect(mark.props.value).toBe(true)
+			enabled:set(false)
+			w.settle()
+			press()
+			t.expect(requests).toBe(2)
+		end)
+	end
+	t.it("reserves both native track insets and no negative label column across four packages", function()
+		local snapshot = require("../src/themes/snapshot")
+		for _, name in { "neutral", "pixel_quest", "fantasy_ornate", "compact_pointer" } do
+			local metrics = if name == "neutral"
+				then snapshot.neutral()
+				else snapshot.resolve(require("../examples/themes/" .. name).build(Facet.themes), nil, {})
+			local track, inset = metrics.controls.toggle.trackWidth, metrics.controls.toggle.trackInset
+			for _, side in { "leading", "trailing" } do
+				local w = world.new({ themeMetrics = metrics, viewport = { x = 0, y = 0, w = 700, h = 600 } })
+				w.present(function()
+					return w.UI.Screen("S")({
+						w.UI.Toggle("T")({
+							label = "Driving assistance",
+							value = Compose.cell(true),
+							indicatorPosition = side,
+							row = { description = "Keep the car stable on rough ground" },
+						}),
+					})
+				end)
+				local mark, copy = togglePart(w, "/Indicator").rect, togglePart(w, "/Description").rect
+				local trackLeft = mark.x + mark.w - inset - track
+				t.expect(trackLeft - mark.x).toBe(inset)
+				t.expect(mark.x + mark.w - (trackLeft + track)).toBe(inset)
+				t.expect(mark.w - (inset + track + inset)).toBe(0)
+				t.expect(mark.x + mark.w <= copy.x or copy.x + copy.w <= mark.x).toBe(true)
+				w.close()
+			end
+		end
+	end)
+	t.it("keeps live rung height, bare-switch padding and a wrapping hint", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 420, h = 600 } })
+		local size = Compose.cell("compact")
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("Col")({
+					w.UI.Toggle("Bare")({ label = "Music", value = Compose.cell(false), controlSize = size }),
+					w.UI.Toggle("Hinted")({
+						label = "Assistance",
+						value = Compose.cell(false),
+						presentation = "checkbox",
+						hint = "Keeps the car stable on rough terrain and eases you back onto the track after a spin",
+						controlSize = size,
+					}),
+				}),
+			})
+		end)
+		local bare = togglePart(w, "/Bare")
+		local padding = require("../src/paths").nodeAt(w.handle.root.node, "/S/Col/Bare+target/Bare").props.padding
+		t.expect(padding).toBeNil()
+		for _, pair in { { "compact", 36 }, { "large", 56 }, { nil, 44 } } do
+			size:set(pair[1])
+			w.pres.refresh()
+			t.expect(bare.rect.h).toBe(pair[2])
+		end
+		local target, hint, label =
+			togglePart(w, "/Hinted").rect, togglePart(w, "/Hint").rect, togglePart(w, "/Label").rect
+		t.expect(hint.y >= label.y + label.h and hint.y + hint.h <= target.y + target.h).toBe(true)
+		t.expect(hint.h > label.h).toBe(true)
+	end)
+	t.it("refuses a hand-built nested switch despite the inert public prop pair", function()
+		local w = world.new()
+		t.expect(pcall(function()
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Button("Bad")({
+						label = "Bad",
+						harness.UI.Toggle({ id = "Inner", label = "", value = false, focusable = false }),
+					}),
+				})
+			end)
+		end)).toBe(false)
+	end)
+end)

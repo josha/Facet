@@ -3891,3 +3891,51 @@ describe("examples/gallery fixture: what a label gives up first", function()
 		end)
 	end)
 end)
+
+describe("gallery setting rows and removable race tags", function()
+	it("uses the real indicators, removes a keyed token, resets, and stops reporting after unmount", function()
+		local function suffix(w, ending)
+			for _, path in w.adapter.paths() do
+				if string.sub(path, -#ending) == ending then
+					return path
+				end
+			end
+			error("missing mounted " .. ending)
+		end
+		local w = example_world.new({ reducedMotion = true })
+		local settings = require("../examples/gallery/scenarios/adaptive_controls").build(w.ctx)
+		expect(settings.report()).toBeNil()
+		local handle = w.presenter.present(settings.screen)
+		settings.steps.openAdvanced()
+		w.presenter.refresh()
+		local vsync
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Vsync", 1, true) and string.sub(path, -10) == "/Indicator" then
+				vsync = path
+			end
+		end
+		assert(vsync, "mounted Vsync indicator missing")
+		expect(w.adapter.node(vsync).class).toBe("Toggle")
+		w.adapter.tap(vsync)
+		w.presenter.refresh()
+		expect(settings.report().settings.vsync).toBe(false)
+		w.presenter.dismiss(handle)
+		expect(settings.report()).toBeNil()
+		local actions = require("../examples/gallery/scenarios/action_controls").build(w.ctx)
+		expect(actions.report()).toBeNil()
+		handle = w.presenter.present(actions.screen)
+		expect(actions.report().tokenCount).toBe(3)
+		local remove = suffix(w, "/Token+token/Remove")
+		w.adapter.tap(remove)
+		w.presenter.refresh()
+		expect(actions.report().tokenCount).toBe(2)
+		expect(w.adapter.node(remove)).toBeNil()
+		actions.steps.reset()
+		w.presenter.refresh()
+		expect(actions.report().tokenCount).toBe(3)
+		w.presenter.dismiss(handle)
+		expect(actions.report()).toBeNil()
+		expect(w.core.lastError()).toBeNil()
+		w.app.dispose()
+	end)
+end)

@@ -5,13 +5,24 @@ local themePackage = require("./themes/package")
 local Compose = require("./vendor/compose/core")
 type Blueprint = any
 local isReadable = Compose.isReadable
+local isWritable = require("./selection_model").isWritable
 local CONTENT_FOCUSABLE = { Button = true, Toggle = true, TextField = true }
 local function assertNoFocusableContent(children: { Blueprint }?)
 	if children == nil then
 		return
 	end
 	local function walk(node: Blueprint)
-		if CONTENT_FOCUSABLE[node.class] or (node.class == "Grip" and node.props.focusable == true) then
+		local source = if node.dynamicProps then node.dynamicProps.value else node.props.value
+		local inertToggle = node.class == "Toggle"
+			and node.meta
+			and node.meta.displayOnly == true
+			and node.props.focusable == false
+			and Compose.isReadable(source)
+			and not isWritable(source)
+		if
+			(CONTENT_FOCUSABLE[node.class] and not inertToggle)
+			or (node.class == "Grip" and node.props.focusable == true)
+		then
 			error(
 				`Facet UI.Button: custom content must stay inside one activation surface, but it `
 					.. `contains a focusable UI.{node.class} ('{node.id or "unnamed"}'). Put the control `
