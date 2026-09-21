@@ -71,6 +71,8 @@ local chrome_slots = require("../tokens/chrome_slots")
 local screen_vocabulary = require("./screen_vocabulary")
 local TEXT_ALIGN_MAP = screen_vocabulary.TEXT_ALIGN_MAP
 local SCALE_MODE_ENGINE = screen_vocabulary.SCALE_MODE_ENGINE
+local RESAMPLE_ENGINE = screen_vocabulary.RESAMPLE_ENGINE
+local TEXT_DIRECTION_ENGINE = screen_vocabulary.TEXT_DIRECTION_ENGINE
 local TINT_REPAINTING_PROPS = screen_vocabulary.TINT_REPAINTING_PROPS
 local fontFaceFor = screen_vocabulary.fontFaceFor
 
@@ -460,6 +462,107 @@ function screen_props.new(ctx: Ctx)
 						assertBespokePaint("ScaleType", handle)
 						instance.ScaleType = mapped
 					end
+				end
+			end
+		elseif prop == "tileSize" then
+			-- THE TILE'S OWN SIZE, in pixels on both axes. `TileSize` is a `UDim2`
+			-- whose SCALE half is a fraction of the box; Facet's spec is pixels only,
+			-- because a fraction of a box the solver decides is a size nothing can
+			-- reason about. Construction-only, so this runs once per node — and it
+			-- runs BEFORE `scaleMode` (see `prop_channels.STYLE_PROP_ORDER`), so the
+			-- engine never sees Tile with last frame's geometry.
+			if instance:IsA("ImageLabel") and type(value) == "table" then
+				claimPaint(handle, "TileSize")
+				assertBespokePaint("TileSize", handle)
+				instance.TileSize = UDim2.fromOffset(value.width, value.height)
+			end
+		elseif prop == "sliceCenter" then
+			--[[ THE NINE-SLICE CENTRE, in SOURCE pixels — the engine's own
+				`SliceCenter` Rect, under the name and the four numbers a theme
+				package's own art already declares. The theme layer beside this one
+				(`screen_chrome.applyChromeLayerPaint`) writes the identical Rect from
+				the identical `{ x0, y0, x1, y1 }`, so this is a transcription rather
+				than a second vocabulary.
+
+				MARGINS WERE THE OTHER CANDIDATE AND ARE NOT COMPUTABLE HERE: turning
+				"an 8 px border" into a Rect needs the source's pixel size, which the
+				engine resolves asynchronously after the content loads. ]]
+			if instance:IsA("ImageLabel") and type(value) == "table" then
+				claimPaint(handle, "SliceCenter")
+				assertBespokePaint("SliceCenter", handle)
+				instance.SliceCenter = Rect.new(value.x0, value.y0, value.x1, value.y1)
+			end
+		elseif prop == "sliceScale" then
+			-- how much the BORDER run is scaled by; the engine's own default is 1,
+			-- which is what an absent declaration leaves standing
+			if instance:IsA("ImageLabel") then
+				claimPaint(handle, "SliceScale")
+				assertBespokePaint("SliceScale", handle)
+				instance.SliceScale = if type(value) == "number" then value else 1
+			end
+		elseif prop == "resample" then
+			-- HOW THE ENGINE SAMPLES THE PICTURE OFF 1:1. The enum is `ResamplerMode`
+			-- and the property is `ResampleMode` — the engine spells them
+			-- differently, which is why both live in one mapping table.
+			if instance:IsA("ImageLabel") then
+				if value == nil then
+					restorePaint(handle, "ResampleMode")
+				else
+					local mapped = RESAMPLE_ENGINE[tostring(value)]
+					if mapped ~= nil then
+						claimPaint(handle, "ResampleMode")
+						assertBespokePaint("ResampleMode", handle)
+						instance.ResampleMode = mapped
+					end
+				end
+			end
+		elseif prop == "scrollEnabled" then
+			--[[ THE FREEZE. The engine's own `ScrollingEnabled`, and it stops the
+				PLAYER and nothing else: `CanvasPosition` is untouched, so the offset
+				survives the flip, and `setScrollPosition` — the framework's own
+				keep-visible write — is a different verb the engine still honours on a
+				disabled host. Absent is true, which is the engine's default.
+
+				On the fallback path (a clip-only Frame) there is no such property and
+				nothing to freeze, because there was no player scrolling to stop. ]]
+			--[[ ONE WRITER, AND IT IS THIS ONE. `screen_pointer`'s paging mouse-drag
+				turns scrolling off for the duration of a gesture and back on at
+				release; without the authored value recorded here, that release wrote
+				an unconditional `true` and permanently thawed a host its author had
+				frozen — the min-write cache still holding `false`, so nothing ever
+				re-wrote it. The value is recorded on the handle so the gesture can
+				RESTORE it rather than assume it. ]]
+			handle.authoredScrollingEnabled = value ~= false
+			if instance:IsA("ScrollingFrame") then
+				instance.ScrollingEnabled = handle.authoredScrollingEnabled
+			end
+		elseif prop == "rich" then
+			--[[ WHETHER THE ENGINE PARSES THE STRING (`src/layout/rich_text.luau`).
+				`RichText` is TEXT SHAPE rather than paint — `screen_chrome` already
+				says so where it mirrors a host's text onto a lifted label — so it is
+				written in BOTH modes: no style rule owns it and none can, because
+				whether a string is markup is a fact about the string.
+
+				The solver has already reserved the box for the DISPLAYED text
+				(`render/layout_node`), so turning the parse on here is what makes the
+				measured box and the drawn glyphs the same picture. ]]
+			if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+				instance.RichText = value == true
+				if handle.labelInstance ~= nil then
+					handle.labelInstance.RichText = value == true
+				end
+			end
+		elseif prop == "direction" then
+			-- WHICH WAY THE GLYPHS RUN. Absent writes nothing at all, which is not
+			-- the same as `"auto"`: absent leaves the class default standing, and
+			-- `"auto"` is an authored instruction to derive it from the characters.
+			local mapped = if value == nil then nil else TEXT_DIRECTION_ENGINE[tostring(value)]
+			if
+				mapped ~= nil and (instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox"))
+			then
+				instance.TextDirection = mapped
+				if handle.labelInstance ~= nil then
+					handle.labelInstance.TextDirection = mapped
 				end
 			end
 		elseif prop == "transform" then

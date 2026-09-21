@@ -42,6 +42,11 @@ local BINDING_PROPS: { [string]: boolean } = {
 	maxLength = true,
 	keyboardType = true,
 	multiline = true,
+	-- THE SCROLL FREEZE (`ScrollView.scrollEnabled`): one engine property on the
+	-- host's own instance, written like `active` is. The host's CANVAS is a
+	-- separate, derived write (`commit_walks.scrollRegions`) with its own layout
+	-- authority — a freeze costs one prop write and no measure.
+	scrollEnabled = true,
 	-- Path (the native substrate): reactive stroke geometry/config — a bound
 	-- progress arc updates points as a paint-only prop write (never a re-solve)
 	points = true,
@@ -101,6 +106,20 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- picture fit the box the solver already sized.
 	scaleMode = true,
 	imageFraming = true,
+	-- the picture's remaining engine knobs, on the same seam and for the same
+	-- reason: the solved rect does not move, and one write decides how the
+	-- picture fills a box the solver already sized. `tileSize`/`slice` are the
+	-- geometry `scaleMode`'s two new words need; `resample` is the filter.
+	tileSize = true,
+	sliceCenter = true,
+	sliceScale = true,
+	resample = true,
+	-- TEXT SHAPE (`src/layout/rich_text.luau`): whether the engine PARSES the
+	-- string, and which way it lays the glyphs out. Both are style props for the
+	-- reason `textAlign` is — nothing about the node's rect moves, and one engine
+	-- write decides the picture inside it.
+	rich = true,
+	direction = true,
 }
 
 -- Creation-time application order. This used to be a SECOND hardcoded list
@@ -137,7 +156,19 @@ local STYLE_PROP_ORDER: { string } = {
 	"corners",
 	"stroke",
 	"textAlign",
+	-- the two text-shape props sit beside `textAlign` (all three are leaf paint
+	-- no other write reads), and `rich` goes FIRST of the pair: the parse verdict
+	-- is what the direction is then applied to.
+	"rich",
+	"direction",
+	-- ...and the picture's geometry before the mode that consumes it: the engine
+	-- reads `TileSize`/`SliceCenter` at the moment `ScaleType` becomes Tile/Slice,
+	-- so a mode applied before its geometry would draw one wrong frame.
+	"tileSize",
+	"sliceCenter",
+	"sliceScale",
 	"scaleMode",
+	"resample",
 	"imageFraming",
 	"compactLabel",
 	"icon",
@@ -177,6 +208,9 @@ local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
 		`tint = "binding"` for, and `check_prop_parity`'s view 7 pins the two lists
 		against each other in both directions. ]]
 	tint = { Box = true, Text = true, Image = true, Path = true, Stage = true },
+	-- the freeze is a fact about a SCROLL HOST and nothing else: any other class
+	-- emitting it would be a write to a property its instance does not have
+	scrollEnabled = { ScrollView = true },
 }
 
 function prop_channels.emitsBinding(class: string, prop: string): boolean

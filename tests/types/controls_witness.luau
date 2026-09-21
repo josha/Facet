@@ -270,6 +270,10 @@ local _callout = app.controls.Callout("Tip")({
 })
 local _asyncimage = app.controls.AsyncImage("Art")({
 	key = "image",
+	scaleMode = "slice",
+	sliceCenter = { x0 = 8, y0 = 8, x1 = 56, y1 = 56 },
+	sliceScale = 1,
+	resample = Facet.Compose.cell("pixelated" :: "default" | "pixelated"),
 	provider = {
 		acquire = function(_owner, _key, _options)
 			return {
@@ -280,6 +284,19 @@ local _asyncimage = app.controls.AsyncImage("Art")({
 			}
 		end,
 	},
+})
+local _tileImage = app.controls.AsyncImage({
+	key = "tile",
+	provider = {
+		acquire = function(): never
+			error("analyzer only")
+		end,
+	},
+	scaleMode = "tile",
+	tileSize = { width = 24, height = 24 },
+	resample = function(_use)
+		return "pixelated"
+	end,
 })
 local _radial = app.controls.RadialMenu("Actions")({
 	label = "Actions",

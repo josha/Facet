@@ -1334,6 +1334,11 @@ require("./ref_contract.spec")
 	taps, because the presenter imported the segment-aligned prefix test at line
 	270 and then wrote the raw `string.sub` form at 640 and 3326 ]]
 require("./leaf_helpers.spec")
+--[[ the native capabilities the leaf specs did not reach: rich text, text
+	direction, middle truncation (the one piece of real policy — the engine has no
+	such mode), image tile/slice/resample, and two-axis scrolling with an explicit
+	canvas, a freeze and shared indicators ]]
+require("./leaf_capabilities.spec")
 --[[ one bounded-Levenshtein matrix where five modules each had one, with each
 	caller's threshold kept explicit at its own boundary — the two policies
 	(case-sensitive <= 2; case-folded, length-scaled) disagreed and nobody had

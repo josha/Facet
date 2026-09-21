@@ -81,6 +81,14 @@ function scroll_arrange.arrange(
 	local pushContainer, restoreScope = deps.pushContainer, deps.restoreScope
 	local axis = node.axis or "y"
 	local isX = axis == "x"
+	--[[ BOTH AXES FREE (`ScrollView.axis = "xy"`, the engine's own
+		`ScrollingDirection.XY`). A two-axis host stacks its children exactly as a
+		`y` host does — `isX` is false — and differs in one thing: neither axis is a
+		CROSS axis, so neither offer is bounded and neither canvas is clamped. Every
+		other policy in this file (the bar reserve, the leading bleed, the cursor)
+		reads `isX` and therefore takes its `y` branch, which is what a two-axis
+		scroller wants: the bar it can show is the vertical one. ]]
+	local isXY = axis == "xy"
 	local contentW, contentH = 0, 0
 	local childSizes = {}
 	-- SCROLLBAR RESERVATION (director review 2026-07-24). The engine draws the
@@ -100,8 +108,8 @@ function scroll_arrange.arrange(
 			local w, h = measure(
 				ctx,
 				child,
-				if isX then math.huge else crossLimitW,
-				if axis == "y" then math.huge else crossLimitH
+				if isX or isXY then math.huge else crossLimitW,
+				if axis == "y" or isXY then math.huge else crossLimitH
 			)
 			table.insert(sizes, { w = w, h = h })
 			if isX then
@@ -157,7 +165,12 @@ function scroll_arrange.arrange(
 	-- horizontal scrollbar on a Y scroller, straight through the tab dock
 	-- beneath it. The canvas the adapter is given must never exceed the
 	-- window on an axis nobody can scroll.
-	if isX then
+	--
+	-- AN `xy` HOST HAS NO SUCH AXIS, so it clamps neither: the whole point is that
+	-- content past the viewport on either axis is reachable.
+	if isXY then
+		-- nothing unreachable, nothing to clamp
+	elseif isX then
 		contentH = math.min(contentH, innerH)
 	else
 		contentW = math.min(contentW, innerW)
@@ -261,7 +274,7 @@ function scroll_arrange.arrange(
 	out[node.id].barInset = if spentReserve > 0
 		then { right = if isX then 0 else spentReserve, bottom = if isX then spentReserve else 0 }
 		else nil
-	out[node.id].overflow = if (axis == "y" and contentH > innerH) or (axis == "x" and contentW > innerW)
+	out[node.id].overflow = if (axis ~= "x" and contentH > innerH) or (axis ~= "y" and contentW > innerW)
 		then "scroll"
 		else node.overflow
 	-- the flow cursor advances along the SCROLL axis; `leadingSpend` (above)
@@ -271,12 +284,12 @@ function scroll_arrange.arrange(
 	for i, child in node.children or {} do
 		local size = childSizes[i]
 		-- cross-axis fill children stretch to the scroll viewport
-		local w = if isX then size.w else math.min(size.w, innerW)
+		local w = if isX or isXY then size.w else math.min(size.w, innerW)
 		if not isX and dim(child, "w").type == "fill" then
 			w = fillExtent(dim(child, "w"), innerW)
 		end
 		local h = if isX then math.min(size.h, innerH) else size.h
-		if isX and dim(child, "h").type == "fill" then
+		if (isX or isXY) and dim(child, "h").type == "fill" then
 			h = fillExtent(dim(child, "h"), innerH)
 		end
 		-- offsetX/offsetY are arrange-time adjustments (scroll offsetting +

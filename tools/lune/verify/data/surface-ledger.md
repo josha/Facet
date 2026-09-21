@@ -86,6 +86,8 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `pathShapes` · `pathShapes.arc` · `pathShapes.ring` · `pathShapes.needle` · `pathShapes.MAX_CONTROL_POINTS` | pure decision module | stateless dot module | NOTE (ring comment count) | controls |
 | `specGuard` · `specGuard.keySet` · `specGuard.assertKnownKeys` · `specGuard.keyFunction` | pure decision module | stateless dot module | none (exported 0.10.0, ARCH-8: the strictness rule the extension playbook teaches had no public route). `keyFunction` joins the same pattern (0.11.0): ONE `key` rule for every keyed collection — a function, or the NAME of the identity field, resolved to `(item) -> string` in one place instead of once per collection control | root |
 
+| `richText` · `richText.escape` | pure decision module | stateless escaping helper; not text filtering | none | root |
+
 ## Runtime services
 
 | Item | Kind | Pattern / exception | Dispositions | Fragment |

@@ -135,23 +135,35 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 			hostRect = { x = hostRect.x + hox, y = hostRect.y + hoy, w = hostRect.w, h = hostRect.h }
 			targetRect = { x = targetRect.x + tox, y = targetRect.y + toy, w = targetRect.w, h = targetRect.h }
 		end
-		local isX = region.axis == "x"
 		local current = controller.scrollPosition(hostPath) or { x = 0, y = 0 }
-		local offset = if isX then current.x else current.y
-		local band = if isX then hostRect.w else hostRect.h
-		local extent = if isX then region.contentW else region.contentH
-		-- canvas-space span of the target (the solver arranges children in the
-		-- host's own coordinate space; the engine shifts them by the offset)
-		local top = (if isX then targetRect.x else targetRect.y) - (if isX then hostRect.x else hostRect.y)
-		local size = if isX then targetRect.w else targetRect.h
-		-- ONE implementation of the minimum-distance rule (A-SV2)
-		local wanted = solver.keepVisibleOffset(top, size, offset, band, extent)
-		if wanted == nil then
+		--[[ ONE AXIS ASKED TWICE, RATHER THAN A SECOND RULE (fix round 1, review
+			finding P1b-3). `keepVisibleOffset` is already per-axis and pure, so a
+			two-axis host is the same question asked of x and of y; the older form
+			read `isX = axis == "x"` and sent `"xy"` down the y branch, writing
+			`x = current.x` — so a keyboard or gamepad player could Tab to a button
+			that stayed off the right edge forever, which is the one thing keep-visible
+			exists to prevent. `nil` from one axis means THAT axis is already visible,
+			not that the move fails: a target off to the right of a fully-scrolled
+			column still has to move. ]]
+		local function wantedOn(isX: boolean): number?
+			local offset = if isX then current.x else current.y
+			local band = if isX then hostRect.w else hostRect.h
+			local extent = if isX then region.contentW else region.contentH
+			-- canvas-space span of the target (the solver arranges children in the
+			-- host's own coordinate space; the engine shifts them by the offset)
+			local top = (if isX then targetRect.x else targetRect.y) - (if isX then hostRect.x else hostRect.y)
+			local size = if isX then targetRect.w else targetRect.h
+			-- ONE implementation of the minimum-distance rule (A-SV2)
+			return solver.keepVisibleOffset(top, size, offset, band, extent)
+		end
+		local wantX = if region.axis ~= "y" then wantedOn(true) else nil
+		local wantY = if region.axis ~= "x" then wantedOn(false) else nil
+		if wantX == nil and wantY == nil then
 			return false
 		end
 		controller.scrollTo(hostPath, {
-			x = if isX then wanted else current.x,
-			y = if isX then current.y else wanted,
+			x = if wantX ~= nil then wantX else current.x,
+			y = if wantY ~= nil then wantY else current.y,
 		})
 		return true
 	end

@@ -591,7 +591,17 @@ function screen_pointer.new(ctx: any)
 								handle.mouseScrolling = nil
 								if handle.paging then
 									instance:ResetScrollVelocity()
-									instance.ScrollingEnabled = true
+									--[[ RESTORE THE AUTHORED VALUE, NOT `true`
+										(`ScrollView.scrollEnabled`). This gesture BORROWS
+										`ScrollingEnabled` for its own duration; handing it back
+										as an unconditional `true` thaws a host whose author
+										declared it frozen, and the framework's minimal-write
+										cache still holding that `false` means nothing ever
+										re-writes it. `screen_props` records the authored value
+										on the handle at its own write, which keeps one writer
+										for the property; absent means true, the engine's
+										default and the behaviour before the freeze existed. ]]
+									instance.ScrollingEnabled = handle.authoredScrollingEnabled ~= false
 								end
 								for notify in handle.scrollObservers or {} do
 									notify()

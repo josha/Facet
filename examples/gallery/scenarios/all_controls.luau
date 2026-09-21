@@ -8,6 +8,7 @@ local groups = {
 		tabs = {
 			{ id = "basics", label = "Basics", scenario = require("./adaptive_controls") },
 			{ id = "writing", label = "Writing", scenario = require("./text_controls") },
+			{ id = "leaves", label = "Leaves", scenario = require("./leaf_capabilities") },
 			{ id = "choices", label = "Choices", scenario = require("./selection_controls") },
 		},
 	},

@@ -517,6 +517,11 @@ local SCENARIOS = {
 	-- ...and the scaffolded `CollapsibleView` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"collapsible_view",
+	-- ...and the leaf-capability surface (markup, the middle cut, tile/slice, the
+	-- two-axis canvas), swept for the same reason: its page holds four text stops
+	-- and two fixed-size pictures, which is exactly the shape a largest-preference
+	-- sweep is for
+	"leaf_capabilities",
 	-- scaffold: new control scenarios are appended above this line
 }
 

@@ -243,6 +243,8 @@ export type ScrollViewSpec = BoxProps & ContainerProps & {
 	autoscroll: (boolean | { [string]: any })?,
 	indicators: string?, -- "auto" (default) | "none" — carousel indicator opt-out
 	chromeReserve: string?, -- "auto" (default) | "none" — the lane kept for content chrome that reaches past its box
+	scrollEnabled: Bound<boolean>?,
+	extent: { width: (number | Metric)?, height: (number | Metric)? }?,
 }
 export type GridSpec = BoxProps & ContainerProps & {
 	gap: Bound<number | Metric>?,
@@ -367,6 +369,9 @@ export type TextSpec = BoxProps & {
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
 	help: string?,
+	rich: boolean?,
+	direction: ("auto" | "ltr" | "rtl")?,
+	truncate: ("end" | "middle")?,
 	padding: Bound<Sides>?,
 	role: Bound<string>?,
 	-- "badge" | "chip" only — a Text is not interactive, so it is offered the
@@ -384,13 +389,19 @@ export type ImageFraming = {
 	scale: number?,
 }
 
+export type ImageSliceCenter = { x0: number, y0: number, x1: number, y1: number }
+
 export type ImageSpec = BoxProps & {
 	imageFraming: Bound<ImageFraming>?,
 	image: Bound<string>?,
 	surface: Bound<string>?,
 	tint: Bound<any>?,
-	-- "fit" | "fill" | "crop" | "stretch" (nine-slice stays theme-owned chrome)
+	-- Tile and slice pair a static mode with their construction-only geometry.
 	scaleMode: Bound<string>?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: ImageSliceCenter?,
+	sliceScale: number?,
+	resample: Bound<string>?,
 }
 
 export type ButtonSpec = BoxProps & PointerHandlers & {

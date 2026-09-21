@@ -151,7 +151,12 @@ function scene.new(frames: any?)
 		end
 		local valid, detail = true, nil
 		if
-			(primitiveProperties.direct[node.class] or node.validated or type(blueprint[node.class]) ~= "function")
+			(
+				primitiveProperties.direct[node.class]
+				or node.class == "ScrollView"
+				or node.validated
+				or type(blueprint[node.class]) ~= "function"
+			)
 			and not clearing
 			and (value ~= nil or definition.required)
 		then
@@ -162,6 +167,9 @@ function scene.new(frames: any?)
 		end
 		if not inherited and node.inheritedDimensions then
 			node.inheritedDimensions[key] = nil
+		end
+		if node.dynamicProps and node.dynamicProps[key] ~= nil then
+			primitiveProperties.assertBoundValue(node.class, key, definition, value)
 		end
 		local old = node.props[key]
 		node.props[key] = value
@@ -340,11 +348,17 @@ function scene.new(frames: any?)
 			return
 		end
 		for key, value in props do
-			-- children ride the numeric keys; only a table can be a readable
-			local prop = if type(key) == "string" and type(value) == "table" then definition.props[key] else nil
-			if prop and prop.reactive == false and Compose.isReadable(value) then
+			-- Children ride numeric keys; property functions and readables both bind.
+			local prop = if type(key) == "string" then definition.props[key] else nil
+			if
+				prop
+				and prop.reactive == false
+				and (
+					Compose.isReadable(value) or (type(value) == "function" and not table.find(prop.types, "function"))
+				)
+			then
 				error(
-					`Facet UI.{kind}.{key} does not accept a Compose cell or formula (it is read once at mount). `
+					`Facet UI.{kind}.{key} does not accept a Compose cell or formula, or a property function (it is read once at mount). `
 						.. `Pass a plain value, or rebuild the subtree through UI.When/UI.ForEach.`,
 					0
 				)
@@ -398,12 +412,12 @@ function scene.new(frames: any?)
 		-- PAIR only exists once the node is built. `assertCombinations` writes
 		-- nothing (see `primitive_properties`), so `validate` asking it again at
 		-- mount changes nothing.
-		local direct = primitiveProperties.direct[kind]
 		local function finish(node: any, props: any): any
 			node.recipe = props or NO_PROPS
-			if direct then
-				primitiveProperties.assertCombinations(kind, node.props)
+			for key in node.dynamicProps or {} do
+				primitiveProperties.assertBoundValue(kind, key, definition.props[key], node.props[key])
 			end
+			primitiveProperties.assertCombinations(kind, node.props, node.dynamicProps)
 			return node
 		end
 		return function(first: any)

@@ -275,7 +275,23 @@ describe("the public SHAPE a breaking change moves", function()
 		["Grip.focusVisual"] = "prose:'default' (adapter paints th",
 		["Grip.focusable"] = "prose:(Grips are unfocusable by default)",
 		["HStack.distribute"] = "`start`",
-		["Image.scaleMode"] = "prose: aspect ratio, the engine default)",
+		--[[ the two words that joined the ladder in 2026-09-18 (`tile`, `slice`)
+			moved the window this pin reads, and NOT the default: `stretch` is still
+			the engine's own, and the prose that names it is still the same sentence
+			with two more modes after it (recorded in CHANGELOG.md). ]]
+		["Image.scaleMode"] = "prose: aspect ratio, the engine default) | tile (repeat at ",
+		-- the nine-slice border run: the engine's own default is 1
+		["Image.sliceScale"] = "prose:er run is scaled by (> 0, default 1). Only with `scal",
+		["Image.resample"] = "prose: it is not drawn at 1:1: 'default' (the engine's smoo",
+		-- the freeze defaults OFF — a scroller a player can move is today's
+		-- behaviour and the engine's own `ScrollingEnabled`
+		["ScrollView.scrollEnabled"] = "true",
+		-- ABSENT is the default, and it is NOT `"auto"`: absent writes nothing and
+		-- leaves the engine's class default standing
+		["Text.direction"] = "prose:t leaves the engine's own default, which is not the s",
+		-- `"end"` is the engine's own end ellipsis, which is what every label has
+		-- always done
+		["Text.truncate"] = "prose:long value is cut: 'end' (default, the engine's own e",
 		["Region.dismissButton"] = "always",
 		["Region.expand"] = "— the framework presents it in a transient plate at the region's anchor",
 		["Region.mayDrop"] = "false",

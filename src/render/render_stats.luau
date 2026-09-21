@@ -320,6 +320,20 @@ function render_stats.new(): any
 		-- (nil = refused, or none yet).
 		structuralPartialSolves = 0,
 		lastStructuralBoundary = nil :: string?,
+		--[[ ...and the times a `truncate = "middle"` label was RE-DERIVED
+			(`render/commit_walks.textVerdicts`). Cumulative for the surface's life,
+			and RE-DERIVED rather than re-elided on purpose: it counts every memo
+			MISS, which includes the restore path where a box grew back and the whole
+			value went out again. An elision count would be a different number.
+
+			IT IS A NUMBER BECAUSE THE CLAIM IS ABOUT WHEN, NOT WHAT. Middle truncation
+			has no native mode, so the painted string is derived — a binary search of a
+			handful of measures — and a policy that re-derived it on every commit would
+			paint identical pixels while spending a measurement pass per label per
+			frame. Only the four inputs may move it (the string, the face, the size,
+			the solved width), and the only way to assert "and nothing else does" is to
+			drive a change that moves none of them and read this. ]]
+		middleTruncations = 0,
 	}
 end
 

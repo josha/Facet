@@ -13,6 +13,69 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Expose the native leaf capabilities the leaf specs did not reach. `UI.Text`
+  takes `rich` (construction-only boolean, default false — parses the engine's
+  closed tag set `b i u s font stroke br uc sc mark` plus the five `&…;` escapes)
+  and `direction` (`"auto" | "ltr" | "rtl"`, mapped to `TextDirection`; absent
+  leaves the class default, which is not the same as authoring `"auto"`).
+  **Measurement reserves the box for the DISPLAYED text**, so a tag never widens a
+  label: EVERY well-formed tag and `<!-- -->` comment is removed (measured live —
+  the engine consumes markup it does not implement rather than drawing it),
+  `<uc>`/`<uppercase>` content is measured upper-cased, and markup that does not
+  parse is measured RAW because that is what the engine draws. A span that changes
+  FACE — `<b>`, `<font weight|face|size>` — travels with the string to the per-word
+  measurement key and is measured at that face (in every `weight` spelling the
+  engine accepts: the nine `FontWeight` names case-insensitively and the nine
+  numbers they carry, so `heavy`, `Heavy` and `900` name one face and `800` is
+  `ExtraBold` rather than being rounded up to it), which is what keeps
+  a marked-up label from clipping; small caps, non-ASCII upper-casing and nested
+  face changes remain approximate and are named in `docs/reference/api.md`. The disclosure plate and the `reveal`
+  strip render a rich label's value as rich. New public
+  `Facet.richText.escape(s)` escapes `< > & " '`; escape untrusted or
+  composed-in text before pasting it into markup (it is not a text filter).
+
+- Add `UI.Text{ truncate = "end" | "middle" }`, default `"end"` (the engine's own
+  end ellipsis, unchanged). `"middle"` keeps the head AND the tail, sized by
+  the library's own measurer to the DRAWABLE width (the box minus the label's own
+  padding, published on the solve's text facts as `padX`), re-derived only when the
+  string, the face, the size, that width or the measurer's own epoch moves — the
+  last is the engine's boot window, so a cut derived before the text metrics settle
+  is derived again when they do. The engine has no such mode, so this is a fit
+  policy rather than an adapter write. The whole value stays reachable through
+  `disclose`. `truncate = "middle"` needs `lineLimit = 1` and cannot be combined
+  with `rich = true`; both are spec errors.
+
+- Add `UI.Image{ resample = "default" | "pixelated" }` (`ResampleMode` — pixel art
+  stays crisp), and two new `scaleMode` words, `"tile"` and `"slice"`, each with
+  a required companion geometry key: `tileSize = { width, height }` in whole
+  pixels `> 0`, and `sliceCenter = { x0, y0, x1, y1 }` — the stretchable centre
+  RECTANGLE in SOURCE pixels, the engine's own `SliceCenter` under the name and
+  shape a theme package's art already uses, never insets — plus `sliceScale`
+  (`> 0`, default 1). A geometry key without its mode, or a mode without its
+  geometry, is a spec error; the geometry keys are construction-only, so the two
+  new modes are authored statically and a BOUND `scaleMode` resolving to either is
+  refused at the binding write (new `PropSpec.staticOnly`, checked in
+  `primitive_properties` through the Compose property write). Theme-owned nine-slice chrome is unaffected.
+  `UI.AsyncImage` forwards all five keys.
+
+- Add `UI.ScrollView{ axis = "xy" }` (`ScrollingDirection.XY` — neither axis
+  clamps its canvas), `scrollEnabled` (`Bound<boolean>`, default true; false
+  freezes PLAYER scrolling through `ScrollingEnabled` while the offset, the layout
+  and framework keep-visible are untouched), `extent = { width?, height? }` (an
+  explicit canvas in pixels or a theme metric name, for a host whose canvas is a
+  coordinate space rather than a content sum — **only on an axis this host
+  scrolls**, because the adapter clamps a cross-axis canvas back to the window and
+  accepting one would diverge live from headless). `indicators` stays ONE word for
+  both axes: a `ScrollingFrame` carries one `ScrollBarThickness`, so a per-axis
+  form would be a declaration that does nothing, and a table is refused. An `xy`
+  host is a `"y"` host to the chrome lane, the leading-edge bleed and the
+  drag-to-edge autoscroll band; its children arrange at their natural size on both
+  axes; keep-visible moves both axes; and it reaches the same nested-scroller chain
+  rule: pinned at the end of the band a drag is asking for, it is transparent and
+  the page behind it wins. `ScrollingEnabled` has ONE writer — the paging
+  mouse-drag restores the authored value at release rather than an unconditional
+  `true` — and Facet's own drag-to-edge autoscroll respects a freeze.
+
 - Add eleven common glyphs to the framework's own standard icon set: `status.info`,
   `status.success`, `status.warning`, `status.error`, `calendar`, `clock`,
   `vote.up`, `vote.down`, `person`, `chevron.first` and `chevron.last`, each with

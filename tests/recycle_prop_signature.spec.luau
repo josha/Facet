@@ -263,6 +263,14 @@ describe(
 				-- CHOKE-POINT-EQUIVALENT (Important 2): style/binding authority, but
 				-- a DERIVED value, so they route through the `noteWorn` dep instead.
 				['commit_walks.luau|"label"|binding'] = "choke-point-equivalent via noteWorn",
+				--[[ ...and the MIDDLE CUT, which is the same shape one class over: a
+					`Text{ truncate = "middle" }` paints a string derived from the solved
+					width, so it cannot ride `applyProp`'s generic write either. It calls
+					`noteWorn` for exactly the reason the three below it do — the worn set
+					is what makes the park key and the create signature one namespace, and
+					a parked instance carrying an elided string must be re-written when a
+					new node adopts it. ]]
+				['commit_walks.luau|"text"|binding'] = "choke-point-equivalent via noteWorn",
 				['commit_walks.luau|"icon"|style'] = "choke-point-equivalent via noteWorn",
 				['commit_walks.luau|"compactLabel"|style'] = "choke-point-equivalent via noteWorn",
 				-- LAYOUT, excluded by ruling: each is value-diffed against a cache

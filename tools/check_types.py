@@ -171,6 +171,16 @@ _EROSION_PROBES = [
     ("Chip", 'app.controls.Chip("Vocabulary")({ controlSize = "tiny", selected = Facet.Compose.cell(false) })'),
     ("Chip", 'app.controls.Chip({ appearance = "emphasis", selected = Facet.Compose.cell(false) })'),
     ("Chip", 'app.controls.Chip("Vocabulary")({ appearance = "emphasis", selected = Facet.Compose.cell(false) })'),
+    ("AsyncImage", 'app.controls.AsyncImage({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, scaleMode = "repeat" })'),
+    ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, scaleMode = "repeat" })'),
+    ("AsyncImage", 'app.controls.AsyncImage({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, resample = "smooth" })'),
+    ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, resample = "smooth" })'),
+    ("AsyncImage", 'app.controls.AsyncImage({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, tileSize = { width = "24", height = 24 } })'),
+    ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, tileSize = { width = "24", height = 24 } })'),
+    ("AsyncImage", 'app.controls.AsyncImage({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceCenter = { x0 = 0, y0 = 0, x1 = "8", y1 = 8 } })'),
+    ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceCenter = { x0 = 0, y0 = 0, x1 = "8", y1 = 8 } })'),
+    ("AsyncImage", 'app.controls.AsyncImage({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceScale = "2" })'),
+    ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceScale = "2" })'),
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
 ]
 

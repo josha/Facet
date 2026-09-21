@@ -955,7 +955,7 @@ normalized progress, threshold visibility callbacks, and gesture snap; see
 keep-visible and bookmark writes take precedence over gesture snapping.
 
 
-`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box: `max(0, chromeBleed − the slot's own carve)`, because a carved frame already holds content that far from the clip edge (`chrome_slots.bleedLane`, netted per solve). A scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
+`UI.ScrollView{ id?, axis? ("y" default | "x" | "xy"), scrollEnabled?, extent?, padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box: `max(0, chromeBleed − the slot's own carve)`, because a carved frame already holds content that far from the clip edge (`chrome_slots.bleedLane`, netted per solve). A scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
 — scrolling container. `onScrollWheel(path, delta, rectOf)` receives
 hover-wheel input routed by the adapter (the composite scrolling controls use
 it; a plain `ScrollView` relies on the native host instead). the scroll axis measures children unbounded and reports
@@ -976,6 +976,49 @@ remain construction-only.
 canvas extent along x, and stretches cross-axis `fill` children to the viewport
 height (before this the solver stacked horizontal children in a column and
 reported a canvas the engine could not scroll to).
+
+**…and both at once.** `axis = "xy"` is the engine's own `ScrollingDirection.XY`:
+children stack down it exactly as they do on `"y"`, and the difference is that
+neither axis clamps its canvas to the viewport — so content past the box on
+*either* axis is reachable. Reach for it for a map, a wide table, a pinboard.
+
+An `xy` host is treated as a `"y"` host everywhere a single axis is assumed, and
+that is deliberate and uniform: the chrome lane, the leading-edge bleed reserve
+and the drag-to-edge autoscroll band are each a policy about ONE edge, so they
+take their `y` branch — which is also the bar a two-axis host can actually show.
+Nested-scroller arbitration follows the same chain rule as any other pair: an
+`xy` host already at the end of the band the drag is asking for is transparent and
+the page behind it wins. **Wheel and touch momentum between nested plain
+scrollers is the ENGINE's arbitration, not Facet's, exactly as it is for two
+nested `y` hosts.**
+
+**`scrollEnabled`** (`Bound<boolean>`, default true) freezes **player** scrolling
+through the engine's own `ScrollingEnabled`, and Facet's own drag-to-edge
+autoscroll respects it too. Nothing else changes: the offset it was at is the
+offset it stays at, every child keeps its rect, and **framework keep-visible and
+`controller.scrollTo` may still move the canvas** — focus reaching a node the
+player cannot see is the one thing a freeze must not cause. Bindable, because a
+screen freezes a list while a sheet owns the gesture and thaws it afterwards. A
+freeze re-places; it never re-measures.
+
+**`extent = { width?, height? }`** states the canvas directly, in pixels or as a
+theme metric name, for a host whose canvas is a *coordinate space* rather than a
+content sum — a map with three markers on it has a canvas the size of the map and
+content of three pins. At least one axis is required, and **only on an axis this
+host scrolls**: a `y` host takes `height`, an `x` host `width`, an `xy` host
+either or both. A cross-axis `extent` is a spec error, because the adapter clamps
+a canvas back to the window on an axis the engine cannot scroll (it must, or the
+engine draws a bar nothing can move) — so accepting one would be a declaration the
+live target discards and a headless one honours. The axis left out keeps the
+derived canvas (content + the padding the solve spent + the chrome lane it kept).
+Construction-only, and it needs a static `axis` for the same reason a tile mode
+needs a static `scaleMode`.
+
+**`indicators` is one word for both axes.** *Engine limit, recorded rather than
+worked around:* a `ScrollingFrame` carries ONE `ScrollBarThickness` for both bars,
+so there is no per-axis suppression to expose — a per-axis table whose axes
+disagreed would be a declaration that does nothing, and one whose axes agreed
+would be this word. A table is refused at construction.
 
 **Scroll indicators (director ruling 2026-08-28, the latest of three).** The
 environment derives `scrollIndicatorPolicy` from `interactionClasses.primary`
@@ -1596,7 +1639,7 @@ grid without `GridRow` children keeps inferring its rows from `columns`.)
 
 ### `Text`
 
-`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, disclose?, reveal?, help?, role?, surface?, tint?, width?, height? }`
+`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, truncate?, rich?, direction?, disclose?, reveal?, help?, role?, surface?, tint?, width?, height? }`
 — text label. `text`/`textSize` changes invalidate measurement; text metrics come
 from a non-yielding provider with conservative fallbacks for unknown
 fonts/scripts. `textSize` takes a px number or a typography role name, which
@@ -1704,6 +1747,82 @@ on a Text it claims `TextColor3`. `role` remains the way to say "secondary" — 
 tint is for a colour a role cannot name, and it leaves `TextTransparency` alone so
 the disabled state still dims.
 
+**`truncate`** decides *where* an over-long value is cut: `"end"` (the default,
+the engine's own end ellipsis, which is what every label has always done) or
+`"middle"`, which keeps the head **and** the tail — `"Coastal circui…lap 14"`.
+Reach for middle truncation when the ending is what identifies the value: a track
+name with a variant suffix, a file path, an id. The engine has no such mode, so
+this is a fit policy: the solver knows the width the label ended up with, the
+library sizes a head + `…` + tail to exactly that width, and the result is
+painted through the one text seam. The width it fits is the **drawable** one —
+the box minus the label's own padding, which is what the glyphs actually get. It
+is re-derived only when the string, the face, the size, that drawable width or
+**the measurer's own answers** move (the last is the engine's boot window: a cut
+taken before the text metrics settle is taken again once they do) — never per
+frame.
+
+Pair it with **`disclose`**: the node paints a shortened string, so the full value
+has to stay reachable, and `disclose` is that route. `truncate = "middle"` needs
+`lineLimit = 1` (a head-plus-tail form is one line by definition) and cannot be
+combined with `rich = true` — a cut through the middle of markup falls inside a
+tag. Both are spec errors.
+
+The disclosure plate and the `reveal = "auto"` strip render a `rich` label's value
+**as rich**, so the escape hatch shows the reader what the label showed rather than
+its tags.
+
+**`rich`** (construction-only, default false) parses the text as the engine's own
+markup — `<b> <i> <u> <s> <font> <stroke> <br> <uc>/<uppercase> <sc>/<smallcaps>
+<mark>` plus the five escapes `&lt; &gt; &amp; &quot; &apos;` and `<!-- -->`
+comments. A `<font weight="…">` is understood in every spelling the engine
+accepts — `heavy`, `Heavy` and `900` all name the same face.
+
+**The box is reserved for what the player SEES.** With `rich` on, the measurer
+takes the *displayed* text — every well-formed tag removed, escapes decoded,
+`<br/>` counted as a line break, `<uc>` content upper-cased — so a heavily
+marked-up label reserves the same box as its plain equivalent instead of one wide
+enough for the tags. Truncation, wrapping and the disclosure value all follow the
+displayed form.
+
+A tag Facet does not name is **removed too**, because the engine removes it:
+measured live, `<blink>Lap record</blink>` renders as `Lap record`. **Malformed**
+markup — a `<` that does not open a tag — is measured as the RAW string, because a
+failed parse is what the engine draws.
+
+**A face-changing span is measured at its own face**, which is the difference
+between a correct box and a clipped label: measured live at 24 px, a rendered
+`<b>` run is 3.5% wider than plain, `<font weight="heavy">` 6.6% and `<uc>` 16%,
+and the engine's own bounds call reports the *plain* width for bold even with rich
+text on. So the span's weight, face and size travel with the string to the
+per-word measurement key.
+
+**What is still approximate, and it can CLIP.** `<sc>`/`<smallcaps>` is measured
+upper-cased, which is *wider* than the small capitals drawn (the box
+over-reserves); a `<font>` that changes face and weight together takes the face's
+regular weight; and nested spans take the innermost declaration only. Every
+residual but the last over-reserves; a nested face-changing span inside another
+one can under-reserve, and an under-reserved label is end-ellipsized by the engine
+(`TextTruncate.AtEnd` is on for every text node). Keep spans flat in a box that is
+tight.
+
+**Escape anything you did not author.** `Facet.richText.escape(s)` escapes the
+five characters the parser reads; call it on player names, server strings and
+anything else composed into markup, or a value containing `<` either paints as a
+tag or breaks the parse for the whole label. It is *not* a text filter — whether
+a player may say a thing is the game's and the platform's decision.
+
+```lua
+UI.Text("Result")({
+    rich = true,
+    text = "Finished <b>1st</b> as " .. Facet.richText.escape(racerName),
+})
+```
+
+**`direction`** maps to the engine's `TextDirection`: `"auto"` (derive it from
+the characters), `"ltr"` or `"rtl"`. Absent leaves the engine's class default
+standing, which is **not** the same as authoring `"auto"` — absent writes
+nothing. Construction-only.
+
 `color` and `font` are **diagnosed, not accepted** (see `DEPRECATIONS`).
 Neither ever reached a render target: `color` was dropped entirely, and `font`
 reached only the measure seam, so an authored font silently made measured and
@@ -1711,7 +1830,7 @@ painted bounds disagree. Both are style authority — use `role`.
 
 ### `Image`
 
-`UI.Image{ id?, image?, surface?, tint?, scaleMode?, imageFraming?, width?, height? }` — image
+`UI.Image{ id?, image?, surface?, tint?, scaleMode?, tileSize?, sliceCenter?, sliceScale?, resample?, imageFraming?, width?, height? }` — image
 node; `image` is an asset string (pair with `newResourceProvider` for async
 ready/pending/failed handling). `image` is optional so a node can mount empty and
 receive content later — that is exactly what `UI.AsyncImage` binds.
@@ -1719,13 +1838,53 @@ receive content later — that is exactly what `UI.AsyncImage` binds.
 **`scaleMode`** decides how the picture fills the box the solver already sized —
 `"fit"` (contain: the whole picture, letterboxed), `"fill"` / `"crop"` (cover:
 aspect preserved, overflow cropped), `"stretch"` (ignore the aspect ratio, the
-engine's own default). `fill` and `crop` are deliberate synonyms: Roblox's `Crop`
+engine's own default), `"tile"` (repeat it) and `"slice"` (nine-slice it).
+`fill` and `crop` are deliberate synonyms: Roblox's `Crop`
 *is* the cover behaviour other vocabularies call fill, and neither audience should
-have to look it up. Nine-slice is **not** offered here — slice geometry is
-theme-owned chrome (a package's `sliceCenter`/`sliceScale`), and an authored slice
-would be a second authority over the same engine properties. `scaleMode` is style
+have to look it up. `scaleMode` is style
 authority and it claims `ScaleType` in native mode, exactly as `tint` claims a
 colour.
+
+**`tile` and `slice` carry their geometry in a companion key, and the pair is
+checked both ways.** `"tile"` requires `tileSize = { width, height }` in **whole**
+pixels greater than zero — the size one repeat is drawn at; whole, because the
+engine's tile offset is an integer and truncates a fraction silently. `"slice"`
+requires `sliceCenter = { x0, y0, x1, y1 }`, the stretchable centre **rectangle in
+SOURCE pixels** — the engine's own `SliceCenter`, and the same name and shape a
+theme package's own art declares. A 64×64 source with an 8px border is
+`{ x0 = 8, y0 = 8, x1 = 56, y1 = 56 }`. These are rectangle **edges, never
+insets**: turning "an 8px border" into a rectangle needs the source's pixel size,
+which the engine resolves asynchronously after the content loads. `sliceScale`
+(default 1, `> 0`) is how much the border run is scaled by, and is legal only with
+the slice mode.
+
+Declaring a geometry key without its mode, or a mode without its geometry, is a
+spec error: a `tileSize` with no tile mode paints nothing, and a tile mode with no
+`tileSize` falls back to one repeat across the whole box, which is `stretch`
+wearing another name. The geometry keys are **construction-only**, so `"tile"` and
+`"slice"` are authored as static words — a bound `scaleMode` that resolves to
+either is refused at the binding write, with the reason, rather than painting a
+mode with no geometry.
+
+A **theme's** own nine-slice frames are unaffected and unrelated: those are the
+adapter's chrome images, driven by a package's `sliceCenter`/`sliceScale`, and
+they never meet a node's own `Image`. This key exists for CONTENT art — a
+repeating background, a stretchable panel picture a screen supplies.
+
+**`resample`** is `"default"` (the engine's smooth filter) or `"pixelated"`
+(nearest neighbour). Reach for `"pixelated"` for pixel art, which otherwise
+blurs at any size but 1:1. Reactive, like `scaleMode`.
+
+```lua
+UI.Image("Backdrop")({
+    image = "rbxassetid://YOUR_GAME_ART",
+    scaleMode = "tile",
+    tileSize = { width = 32, height = 32 },
+    resample = "pixelated",
+})
+```
+
+`UI.AsyncImage` forwards all five picture keys verbatim.
 
 **`imageFraming`** optionally replaces `scaleMode` with explicit source framing:
 `{ width, height, mode?, focusX?, focusY?, scale? }`. `width` and `height` are
@@ -3251,7 +3410,7 @@ appears. Spec-first is deliberate — the collection is the thing being produced
 ### `UI.AsyncImage`
 
 `UI.AsyncImage { provider, key, id?, width?, height?, failureLabel?, retry?,
-dimmed?, ref? }` — or `UI.AsyncImage("Id") { … }` — an image whose content
+dimmed?, scaleMode?, tileSize?, sliceCenter?, sliceScale?, resample?, ref? }` — or `UI.AsyncImage("Id") { … }` — an image whose content
 arrives through the async resource provider (native-substrate NS-A14). It
 returns the control's node: a `ZStack` that shows a placeholder surface while
 `pending`, the fetched content when `ready`, and a visible failure mark when
@@ -3328,6 +3487,10 @@ end
 
 `docs/extending/new-control.md` walks the rest of the playbook.
 
+`UI.AsyncImage` forwards `scaleMode`, `tileSize`, `sliceCenter`, `sliceScale`
+and `resample` to its owned Image. The same mode/geometry pairing and binding
+rules apply; provider lifetime and the ready/pending/failed states are unchanged.
+
 ### `pathShapes`
 
 `Facet.pathShapes` — pure, headlessly-tested shape math for `UI.Path`
@@ -3344,6 +3507,17 @@ end
 All three return normalized control points (unit box; tangents relative to each
 point; exact circular-arc bezier handles). Angles are screen-clockwise with 0°
 at 12 o'clock.
+
+### `richText`
+
+`Facet.richText.escape(s) -> string` escapes `< > & " '` before composing text
+into `UI.Text { rich = true }` markup. Escape player names and server strings at
+the composition site; ordinary text is unchanged. This is not player-text
+filtering: the game still uses the platform's filtering rules.
+
+```lua
+UI.Text { rich = true, text = "<b>" .. Facet.richText.escape(playerName) .. "</b> wins" }
+```
 
 ### Engine-selection bridge (a presentModal opt)
 

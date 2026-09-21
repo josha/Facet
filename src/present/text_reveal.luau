@@ -44,6 +44,7 @@
 
 local renderer = require("../render/renderer")
 local focusMap = require("./focus_map")
+local richText = require("../layout/rich_text")
 local Compose = require("../vendor/compose/core")
 
 local isPathPrefix = focusMap.isPathPrefix
@@ -124,7 +125,7 @@ function textReveal.new(ctx: any)
 
 	-- the first DECLARED, TRUNCATED reveal text under this surface, in document
 	-- order — the same walk shape as disclosureTargetIn, against the same facts
-	local function revealTargetIn(handle: any): (string?, string?)
+	local function revealTargetIn(handle: any): (string?, string?, boolean?)
 		local ctrl = handle.controller
 		if ctrl == nil or ctrl.textAt == nil then
 			return nil, nil
@@ -137,6 +138,9 @@ function textReveal.new(ctx: any)
 		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
 		local foundText: string? = nil
+		-- ...and whether the value is MARKUP, for the reason the plate carries it:
+		-- a strip that did not parse a rich label's value would travel its tags
+		local foundRich: boolean? = nil
 		local function walk(n: any)
 			if foundPath ~= nil or focusMap.isHiddenPath(n.path, hiddenRoots) then
 				return
@@ -146,6 +150,7 @@ function textReveal.new(ctx: any)
 				if facts ~= nil and facts.truncated == true and facts.reveal == true then
 					foundPath = n.path
 					foundText = tostring(n.props.text)
+					foundRich = n.props.rich == true
 					return
 				end
 			end
@@ -154,7 +159,7 @@ function textReveal.new(ctx: any)
 			end
 		end
 		walk(handle.root.node)
-		return foundPath, foundText
+		return foundPath, foundText, foundRich
 	end
 
 	-- unmount the strip and give the source its paint back (cycle state kept)
@@ -241,6 +246,7 @@ function textReveal.new(ctx: any)
 											UI.Text({
 												id = "Full",
 												text = st.text,
+												rich = if st.rich == true then true else nil,
 												textSize = paintSize,
 												lineLimit = 1,
 												anchor = "topLeft",
@@ -339,12 +345,16 @@ function textReveal.new(ctx: any)
 			for i = #stack, 1, -1 do
 				local h = stack[i]
 				if h.hasReveal == true then
-					local path, text = revealTargetIn(h)
+					local path, text, rich = revealTargetIn(h)
 					if path ~= nil then
 						revealState = {
 							owner = h,
 							sourcePath = path,
 							text = text,
+							rich = rich,
+							-- the form the source's own facts carry, derived once (see the
+							-- identity test below)
+							displayed = if rich == true then richText.displayText(text) else text,
 							phase = "rest",
 							wait = REVEAL_PAUSE,
 							travel = 0,
@@ -360,7 +370,18 @@ function textReveal.new(ctx: any)
 		-- truncated. A re-solve that made room, a swapped text, a dismissed
 		-- surface — all retire on the next tick, releasing the held paint.
 		local facts = if table.find(stack, st.owner) ~= nil then st.owner.controller.textAt(st.sourcePath) else nil
-		if facts == nil or facts.truncated ~= true or facts.reveal ~= true or tostring(facts.text) ~= st.text then
+		--[[ ...AND A RICH LABEL'S FACTS CARRY THE DISPLAYED STRING, NOT THE AUTHORED
+			ONE (fix round 1). `st.text` is what the strip travels — the authored
+			markup, because the strip parses it exactly as its label does — so the
+			identity test compares against the same reading: `facts.text` is the
+			displayed form for a rich node and the authored form for every other.
+
+			DERIVED ONCE, WITH THE STATE. This ran `displayText` on EVERY tick of a
+			live strip — one scan and one concat per frame for a value that changes
+			only when `st.text` does, which is the per-frame-allocation rider.
+			`st.displayed` is that reading, taken where the state is built. ]]
+		local sameValue = tostring(facts and facts.text) == (st.displayed or st.text)
+		if facts == nil or facts.truncated ~= true or facts.reveal ~= true or not sameValue then
 			retireReveal()
 			return
 		end
@@ -457,6 +478,7 @@ function textReveal.new(ctx: any)
 			travel = st.travel,
 			distance = math.max(0, st.overlay.labelW - st.overlay.windowW),
 			text = st.text,
+			rich = if st.rich == true then true else nil,
 		})
 	end
 

@@ -315,6 +315,8 @@ local ORDER = {
 	-- scaffolded showcase surface for `UI.CollapsibleView`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"collapsible_view",
+	-- Leaf paint, fitting and native scrolling; also in All controls → Inputs → Leaves.
+	"leaf_capabilities",
 	-- scaffold: new control scenarios are appended above this line
 }
 

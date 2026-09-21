@@ -201,6 +201,11 @@ export type AsyncImageOptions = {
 	failureLabel: string?,
 	width: bp.Bound<bp.Dim>?,
 	height: bp.Bound<bp.Dim>?,
+	scaleMode: bp.Bound<"fit" | "fill" | "crop" | "stretch" | "tile" | "slice">?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: bp.ImageSliceCenter?,
+	sliceScale: number?,
+	resample: bp.Bound<"default" | "pixelated">?,
 }
 export type AsyncImageSpec = {
 	id: string?,
@@ -212,6 +217,11 @@ export type AsyncImageSpec = {
 	width: bp.Bound<bp.Dim>?,
 	height: bp.Bound<bp.Dim>?,
 	ref: ((record: any) -> ())?,
+	scaleMode: bp.Bound<"fit" | "fill" | "crop" | "stretch" | "tile" | "slice">?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: bp.ImageSliceCenter?,
+	sliceScale: number?,
+	resample: bp.Bound<"default" | "pixelated">?,
 }
 
 type StringCell = core.Cell<string>

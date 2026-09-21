@@ -129,6 +129,18 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- solver decided it while reserving the box, and a second writer for it
 		-- would be the measure/paint split the rule exists to close.
 		textWrapped = "layout",
+		--[[ TEXT SHAPE (`src/layout/rich_text.luau`). STYLE authority, beside
+			`textAlign`: each is one engine property (`RichText`, `TextDirection`) that
+			decides how the glyphs are laid out inside a box the solver already sized,
+			and each has exactly one writer — the adapter's own branch. Neither is
+			sheet-owned, so no rule contests them.
+
+			`truncate` is deliberately ABSENT. Its middle form does not write an engine
+			property at all: it decides which STRING the one `text` seam draws, and
+			that seam keeps its BINDING authority above — the same arrangement
+			`compactLabel` has on Button, for the same reason. ]]
+		rich = "style",
+		direction = "style",
 	},
 	Button = {
 		text = "binding",
@@ -193,7 +205,28 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- `scaleMode` is STYLE even though it decides geometry INSIDE the box, for the
 	-- same reason `shape` is: nothing about the node's solved rect moves, and the
 	-- single engine write is how the picture fills a box the solver already sized.
-	Image = { image = "binding", tint = "binding", scaleMode = "style", imageFraming = "style" },
+	-- `tileSize`/`sliceCenter`/`sliceScale`/`resample` join `scaleMode` on the style
+	-- authority for the same reason and with the same one writer: they are the
+	-- geometry and the filter the mode is applied WITH, four engine properties
+	-- (`TileSize`, `SliceCenter`, `SliceScale`, `ResampleMode`) the adapter writes
+	-- and no rule carries, because no selector can see a per-node number.
+	Image = {
+		image = "binding",
+		tint = "binding",
+		scaleMode = "style",
+		imageFraming = "style",
+		tileSize = "style",
+		sliceCenter = "style",
+		sliceScale = "style",
+		resample = "style",
+	},
+	--[[ THE SCROLL FREEZE. BINDING authority for the reason `active` and `enabled`
+		are: the value is DATA the author states, it lands on one engine property of
+		this node's own instance (`ScrollingEnabled`), and no style rule can express
+		it. It is deliberately not part of the scroll-region write, which owns
+		`canvasSize` above — that one is DERIVED from a finished solve and has layout
+		authority, and the two never touch the same property. ]]
+	ScrollView = { scrollEnabled = "binding" },
 	Grip = { cursorHint = "binding" },
 	-- Path (the native substrate): reactive stroke geometry/config are
 	-- binding-authored; stroke color rides the style role hint — or, for a value a

@@ -28,6 +28,9 @@
 -- a recycled instance's new identity re-announces itself.
 
 local TweenService = game:GetService("TweenService")
+-- the one authored-axis -> engine-direction mapping, shared with the rest of the
+-- adapter so `"xy"` means `ScrollingDirection.XY` in exactly one place
+local SCROLL_DIRECTION_ENGINE = require("./screen_vocabulary").SCROLL_DIRECTION_ENGINE
 
 --[[ scroll indicator policy — WHAT IT DECIDES, AND WHAT IT DOES NOT.
 
@@ -256,15 +259,20 @@ function screen_scroll_indicators.new(ctx: any)
 			applyBarOverlayWiden(handle, nil, false, handle.indicatorsOff == true)
 			return
 		end
-		instance.ScrollingDirection = if region.axis == "x"
-			then Enum.ScrollingDirection.X
-			else Enum.ScrollingDirection.Y
+		instance.ScrollingDirection = SCROLL_DIRECTION_ENGINE[tostring(region.axis)] or Enum.ScrollingDirection.Y
+		-- THE FREEZE (`ScrollView.scrollEnabled`) is deliberately NOT here: it is
+		-- one authored boolean on this node's own instance, so it rides the ordinary
+		-- binding write (`screen_props`) and costs no measure. This write is the
+		-- CANVAS, which is derived from a finished one.
 		-- THE CROSS AXIS IS CLAMPED TO THE ENGINE'S OWN WINDOW (director live
 		-- report 2026-08-09): the solver already clamps its measure, but the
 		-- engine's window is thinner than the frame by the BAR THICKNESS even
 		-- with ScrollBarInset.None — a fact only the engine can answer — and a
 		-- canvas one bar wider than the window makes it draw a cross-axis bar
 		-- nobody can scroll. Ask the instance, not arithmetic.
+		--
+		-- AN `xy` HOST HAS NO CROSS AXIS, so it has nothing to clamp: both axes
+		-- are scrollable by construction and the canvas is the canvas.
 		local window = instance.AbsoluteWindowSize
 		local contentW = region.contentW
 		local contentH = region.contentH
@@ -279,7 +287,11 @@ function screen_scroll_indicators.new(ctx: any)
 		-- the same "does the scroll axis overflow" fact that decides the
 		-- cross-axis clamp ALSO decides whether an "auto" host needs widening.
 		local willOverflow: boolean
-		if region.axis == "x" then
+		if region.axis == "xy" then
+			-- no cross axis to clamp: both are scrollable, so the canvas stands and
+			-- "does it overflow" is the OR of the two
+			willOverflow = contentW > hostW or contentH > hostH
+		elseif region.axis == "x" then
 			willOverflow = contentW > hostW
 			contentH = math.min(contentH, math.max(0, hostH - (if willOverflow then thickness else 0)))
 		else
@@ -289,7 +301,9 @@ function screen_scroll_indicators.new(ctx: any)
 		instance.CanvasSize = UDim2.fromOffset(contentW, contentH)
 		-- per-host opt-out first (a carousel whose affordance is the peeking
 		-- tile declares indicators = "none"): zero thickness IS the engine's
-		-- own way to draw no bar, and the driver below never arms
+		-- own way to draw no bar, and the driver below never arms. ONE word for
+		-- both axes, because `ScrollBarThickness` is one number for both bars —
+		-- which is why `indicators` takes no per-axis form (see the schema).
 		if region.indicators == "none" then
 			handle.indicatorsOff = true
 			instance.ScrollBarThickness = 0

@@ -78,6 +78,24 @@ return value is ignored. This form also accepts a Compose formula or
 `function(use)` as `value`; a checkbox's model also owns clearing `mixed`.
 Keep server validation in the game model.
 
+A property function must return the property's complete value. Width takes a
+Dim, so a reactive boolean chooses a Dim rather than being stored as a nested
+readable:
+
+```lua
+local narrow = Compose.cell(true)
+UI.Text {
+    text = "Coastal circuit reverse night lap 14",
+    lineLimit = 1,
+    truncate = "middle",
+    width = function(use)
+        return { type = "fixed", px = if use(narrow) then 160 else 320 }
+    end,
+}
+```
+
+The binding runs again when `narrow` changes; the component setup still runs once.
+
 Use `Compose.formula` for a shared calculation:
 
 ```luau

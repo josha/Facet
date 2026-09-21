@@ -38,6 +38,9 @@ local text_metrics = require("../layout/text_metrics")
 -- the ONE reading of the `textSize = "fit"` grammar, shared with the schema's
 -- acceptance check and with the paint seam (`render/commit_walks.textScale`)
 local textFit = require("../layout/text_fit")
+-- markup in, displayed text out: the one reading of `Text.rich`, shared with the
+-- paint seam that middle-truncates and with the public `Facet.richText.escape`
+local rich_text = require("../layout/rich_text")
 local themeSnapshot = require("../themes/snapshot")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
@@ -1091,7 +1094,29 @@ local function toLayoutNode(
 		end
 	end
 	if class == "Text" then
-		layoutNode.text = props.text
+		--[[ THE STRING THE BOX IS RESERVED FOR IS THE STRING THE PLAYER SEES
+			(`Text.rich`, 2026-09-18). With markup on, the authored value and the drawn
+			glyphs are two different strings — `<b>Lap</b>` draws three characters — so
+			measuring the authored one reserves a box for tags nobody will ever see,
+			which is the measure-versus-paint split this whole branch exists to avoid,
+			arriving from a new direction.
+
+			`rich_text.displayText` is the library's own reading of the engine's
+			`ContentText`, and it is applied HERE, once, at the one place the measured
+			string is chosen: everything downstream — the wrap verdict, the word
+			premeasure requests, the truncation verdict, the disclosure value — then
+			talks about the displayed form without knowing markup exists. The ADAPTER
+			still receives the authored string, because the engine is the thing that
+			parses it.
+
+			...AND THE FACES TRAVEL WITH IT (fix round 1). Measured live: a rendered
+			`<b>` run is 3.5% wider than plain and `<font weight="heavy">` 6.6%, while
+			the engine's own bounds call returns the PLAIN width for bold — so the
+			weight has to reach the per-word measurement key, which is exactly what
+			`textRuns` is. `measure_facts.textTypography` folds them into the font
+			argument; everything from there down is unchanged. ]]
+		layoutNode.text = if props.rich == true then rich_text.displayText(props.text) else props.text
+		layoutNode.textRuns = if props.rich == true then rich_text.spansOf(props.text) else nil
 		-- THE LINE CAP (Text.lineLimit). A theme metric NAME is legal here like
 		-- anywhere else a number is, so a package can express how many lines its own
 		-- rows allow. The engine ellipsizes the overflow — TextTruncate.AtEnd is
@@ -1113,7 +1138,11 @@ local function toLayoutNode(
 		-- box measured for two is the mirror of the defect this rule exists to
 		-- remove. `props.text` may be a reactive binding, and it is already
 		-- resolved by the time this runs, exactly as `props.label` is.
-		layoutNode.singleLine = if isSingleWord(props.text) then true else nil
+		--
+		-- ...and it asks about `layoutNode.text`, not `props.text`, for exactly the
+		-- reason above: with markup on, `<b>Lap</b>` has no whitespace and would
+		-- read as a single word while the glyphs it draws are a phrase.
+		layoutNode.singleLine = if isSingleWord(layoutNode.text) then true else nil
 		local size, role, fit = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Text)
 		layoutNode.textSize = size
 		-- the fit BAND, when the author asked the solver to choose the size

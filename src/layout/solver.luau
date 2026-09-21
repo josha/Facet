@@ -1247,8 +1247,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- region that summed heights reported a canvas the engine could not
 		-- scroll to (A-SV1).
 		local axis = node.axis or "y"
-		local childW = if axis == "x" then math.huge else innerMaxW
-		local childH = if axis == "y" then math.huge else innerMaxH
+		local childW = if axis ~= "y" then math.huge else innerMaxW
+		local childH = if axis ~= "x" then math.huge else innerMaxH
 		-- THIS SCROLLER IS THE CONTAINER ITS SUBTREE MEASURES AGAINST (§2.5). The
 		-- viewport is its INNER box on both axes — including the axis the children
 		-- are offered `math.huge` on, which is the whole point: a carousel page asks

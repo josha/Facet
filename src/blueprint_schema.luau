@@ -81,6 +81,9 @@ export type PropSpec = {
 	-- node with a selector no style rule matched, so the surface painted
 	-- nothing, and `role = "title"` did the same.
 	enum: { string }?,
+	-- Closed words requiring construction-only geometry; Compose binding writes
+	-- refuse these before replacing the last legal value.
+	staticOnly: { string }?,
 	-- true for the box/container groups every class shares. They are documented
 	-- ONCE under `### UI` in the API reference instead of being repeated in
 	-- nineteen class entries, and the parity checker enforces that split.
@@ -1943,12 +1946,88 @@ class("ScrollView", {
 		}),
 		gap = GAP,
 		axis = p({
+			--[[ ...AND `"xy"` (2026-09-18), which is the engine's own
+				`ScrollingDirection.XY` and nothing more. Children stack down it exactly
+				as they do on `"y"`, and the difference is that neither axis clamps its
+				canvas to the viewport — a map, a wide table, a pinboard.
+
+				IT IS A `"y"` SCROLLER EVERYWHERE A SINGLE AXIS IS ASSUMED, deliberately
+				and uniformly: the chrome lane, the leading-edge bleed and the
+				drag-to-edge autoscroll band all read `props.axis == "x"` and therefore
+				take their `y` branch. Each is a policy about ONE edge, and inventing a
+				second-axis rule for three of them at once would be three guesses; the
+				`y` reading is the conservative one (the lane is kept on the axis a
+				package's art actually bleeds into) and it is what the two-axis scroller
+				wants anyway. Recorded so the next reader knows it is a decision. ]]
 			types = { "string" },
 			reactive = true,
 			dirty = { "measure", "navigation" },
-			enum = { "y", "x" },
+			enum = { "y", "x", "xy" },
 			channel = "layout",
-			doc = 'reactive scroll axis: "y" (default) or "x"; retains the host and updates layout/navigation',
+			doc = 'reactive scroll axis: "y" (default), "x", or "xy" (both — the canvas is free on each '
+				.. "axis and the engine scrolls in two dimensions); retains the host and updates "
+				.. "layout/navigation",
+		}),
+		--[[ THE FREEZE, and it is the engine's own `ScrollingEnabled` rather than a
+			Facet re-implementation of one. `false` stops the PLAYER moving the canvas
+			— wheel, drag, momentum — and changes nothing else: the offset it was at
+			is the offset it stays at, every child keeps its rect, and the framework's
+			own keep-visible write still moves it, because focus reaching a node the
+			player cannot see is the one thing a freeze must not cause.
+
+			Reactive: a screen freezes a list while a modal owns the gesture and
+			thaws it afterwards, which is a state, not a construction. ]]
+		scrollEnabled = p({
+			types = { "boolean" },
+			reactive = true,
+			--[[ `paint` PLUS `arrange`, and the pair is the whole design.
+
+				`paint` because the CHANNEL is binding: this is one engine property on
+				this node's own instance, written through the ordinary seam like
+				`active` or `enabled`. It is deliberately NOT part of the scroll-region
+				write beside it — that one is the CANVAS, derived from a finished solve,
+				and folding an authored value into a derived push would give the freeze
+				a second writer for one engine property.
+
+				`arrange` because Facet's own drag-to-edge autoscroll decides which host
+				travels from a per-path record the COMMIT WALK publishes, and a freeze
+				that never reached a commit left that record stale — so the framework
+				kept scrolling a host the author had frozen. A freeze therefore
+				RE-PLACES (it never re-measures), which is a real cost on a bindable
+				prop and is recorded as such in `docs/reference/api.md`. The pair also
+				keeps `scrollEnabled` out of the arrange-ONLY set, which is the
+				placement-prop family and means something else. ]]
+			dirty = { "paint", "arrange" },
+			channel = "binding",
+			doc = "false to freeze player scrolling on this host (default true). The offset, the layout and "
+				.. "every child rect are untouched, and framework keep-visible may still move the canvas "
+				.. "programmatically — a freeze stops the player, not the screen",
+		}),
+		--[[ THE CANVAS THE SOLVE CANNOT DESCRIBE. A scroller's canvas is normally
+			derived — content extent plus the padding the solve spent plus the chrome
+			lane it kept — and that is right whenever the content IS the canvas. It is
+			not right when the canvas is a coordinate space the content sits inside: a
+			map with a few markers on it has a canvas of the map's size and content of
+			three pins. `extent` states that space directly, in pixels or as a theme
+			metric name, per axis; the axis left out keeps the derived answer.
+
+			ONLY ON AN AXIS THIS HOST SCROLLS, checked at construction. A canvas
+			wider than the window on an axis the engine cannot scroll is not a canvas:
+			the adapter clamps it back to the window (it must, or the engine draws a
+			bar nothing can move), so accepting `extent.width` on a `y` host would be
+			a declaration the live target discards and a headless one honours. That
+			divergence is the thing two targets exist to make impossible, so the
+			pairing is refused where it is authored — which also means the axis has to
+			be the STATIC word, exactly as a tile mode does. ]]
+		extent = p({
+			types = { "table" },
+			reactive = false,
+			channel = "layout",
+			doc = "`{ width?, height? }` — an explicit scroll canvas, in pixels or as a theme metric name, "
+				.. "for a host whose canvas is a coordinate space rather than a content sum (a map, a "
+				.. 'board). Only on an axis this host scrolls: a "y" host takes `height`, an "x" host '
+				.. '`width`, an "xy" host either or both. An axis left out keeps the canvas the solve '
+				.. "derived. At least one is required",
 		}),
 		onScrollWheel = p({
 			types = { "function" },
@@ -1965,11 +2044,18 @@ class("ScrollView", {
 			-- entirely. LAYOUT is untouched either way: the reserve is a
 			-- session-policy fact, not a per-host one, so a "none" host in an
 			-- "always" session simply leaves its reserved lane empty.
+			--
+			-- ONE WORD FOR BOTH AXES, AND THE ENGINE IS WHY (2026-09-18). A
+			-- `ScrollingFrame` carries ONE `ScrollBarThickness` for both bars, so
+			-- "no horizontal bar, keep the vertical one" is not expressible: a
+			-- per-axis table whose axes disagree would be a declaration that does
+			-- nothing, and one whose axes agree is this word. A table is refused by
+			-- the type check above rather than accepted and approximated.
 			types = { "string" },
 			reactive = false,
 			enum = { "auto", "none" },
 			channel = "layout",
-			doc = 'scroll indicators: "auto" (default, session policy) or "none" (carousels whose affordance is the peeking tile)',
+			doc = 'scroll indicators: "auto" (default, session policy) or "none" (carousels whose affordance is the peeking tile). One word covers both axes, because the engine carries one scroll-bar thickness for both',
 		}),
 		chromeReserve = p({
 			--[[ THE CHROME LANE OPT-OUT (picker visual review, 2026-09-12). A
@@ -2462,6 +2548,64 @@ class("Text", {
 		reveal = REVEAL,
 		help = HELP,
 		tint = TINT,
+		--[[ MARKUP, OPT-IN (`src/layout/rich_text.luau`). The engine parses a
+			closed tag set — emphasis, a font span, a stroke span, a hard break, the
+			two case transforms and a highlight — and Facet's whole job here is to say
+			WHEN to parse: the adapter sets `RichText`, and the measure seam reserves
+			the box for the DISPLAYED text rather than the authored string, so a tag
+			never widens a label.
+
+			CONSTRUCTION-ONLY, like `disclose` and `reveal`: whether a string is
+			markup is what the string IS, and a node that flipped between the two
+			readings would measure one form and paint the other for a frame. The
+			TEXT itself stays as reactive as it has always been. ]]
+		rich = p({
+			types = { "boolean" },
+			reactive = false,
+			channel = "style",
+			doc = "true to parse this text as markup (the engine's closed tag set: b, i, u, s, font, stroke, "
+				.. "br, uc, sc, mark, plus the five &…; escapes). The box is reserved for the DISPLAYED "
+				.. "text, so a tag never widens the label; unknown markup is drawn literally and measured "
+				.. "literally. Escape untrusted text with `Facet.richText.escape` before composing it in",
+		}),
+		--[[ WRITING DIRECTION, mapped to the engine's own `TextDirection`. Absent
+			is today's behaviour and is NOT the same as `"auto"`: absent writes
+			nothing, so the class default stands, while `"auto"` is an authored
+			instruction to derive the direction from the string's own characters.
+			Construction-only — a label's script does not change under a player. ]]
+		direction = p({
+			types = { "string" },
+			reactive = false,
+			enum = { "auto", "ltr", "rtl" },
+			channel = "style",
+			doc = 'writing direction: "auto" (derive it from the characters), "ltr" or "rtl". Absent leaves '
+				.. 'the engine\'s own default, which is not the same as authoring "auto"',
+		}),
+		--[[ WHERE THE CUT GOES WHEN THE VALUE DOES NOT FIT. `"end"` is the engine's
+			own `TextTruncate.AtEnd` and is what every label has always done.
+			`"middle"` has NO native mode, so it is a FIT POLICY: the solver knows the
+			width, `layout/text_fit.middle` sizes a head + ellipsis + tail to it, and
+			`render/commit_walks.luau` paints that string — recomputed only when the
+			string, the face, the size, the drawable width or the measurer's own
+			answers move. The whole value stays reachable through `disclose`, which
+			reads the solve's own facts and is therefore unaffected by what the node
+			paints.
+
+			`semantic`, beside its construction-only peers `disclose` and `reveal`,
+			and for the same reason: NOTHING in the solver or the layout-node builder
+			reads it. It is a permission the paint seam consults after the solve has
+			decided the box, so calling it `layout` would tell the next reader the
+			solver consumes a prop it never sees. ]]
+		truncate = p({
+			types = { "string" },
+			reactive = false,
+			enum = { "end", "middle" },
+			channel = "semantic",
+			doc = 'where an over-long value is cut: "end" (default, the engine\'s own end ellipsis) or '
+				.. '"middle" (keep the head AND the tail — a track name, a path, an id whose ending '
+				.. "identifies it). Middle truncation is a fit policy sized to the solved width, so pair it "
+				.. "with `disclose` to keep the whole value reachable. Not available with `rich`",
+		}),
 		-- the solver's text measure adds padding to the reserved box, so this is a
 		-- real layout input on a label (it lets UI.padding apply without wrapping)
 		padding = CONTAINER_LAYOUT.padding,
@@ -2581,19 +2725,91 @@ class("Image", {
 		}),
 		surface = CONTAINER_LAYOUT.surface,
 		tint = TINT,
-		-- HOW THE PICTURE FILLS THE BOX THE SOLVER GAVE IT (row
-		-- `slice` is deliberately absent: nine-slice geometry is theme-owned
-		-- chrome (a recipe's sliceCenter/sliceScale), and an authored slice would be a
-		-- second authority over the same three engine properties.
+		--[[ HOW THE PICTURE FILLS THE BOX THE SOLVER GAVE IT.
+
+			`tile` and `slice` JOINED THE WORD LIST (2026-09-18) and the older comment
+			here said slicing was theme-owned chrome only. That reading still holds for
+			the THEME's own nine-slice frames — a recipe's `sliceCenter`/`sliceScale`
+			paint a control's plate and no author touches them — but it was never true
+			of CONTENT art: a repeating background and a stretchable panel picture are
+			facts about the picture a screen supplies, not about the installed package,
+			and a screen had no way to say either. The two authorities do not collide
+			because they never meet on one node: a themed plate is the adapter's chrome
+			image, this is the node's own `Image`.
+
+			BOTH NEW MODES CARRY THEIR GEOMETRY IN A COMPANION KEY (`tileSize`,
+			`sliceCenter`), and the pair is validated at construction in both
+			directions — neither is meaningful alone. Which is also why the two words
+			are STATIC-ONLY: a bound `scaleMode` has no value at construction to pair
+			a geometry key with, so reaching them through the reactive door would
+			paint `Tile` over the engine's default whole-box tile, which is `stretch`
+			wearing another name. `staticOnly` is what shuts that door, refused at
+			`src/mount.luau`'s binding write. ]]
 		scaleMode = p({
 			types = { "string" },
 			reactive = true,
 			dirty = { "paint" },
-			enum = { "fit", "fill", "crop", "stretch" },
+			enum = { "fit", "fill", "crop", "stretch", "tile", "slice" },
+			staticOnly = { "tile", "slice" },
 			channel = "style",
 			doc = "how the picture fills its box: fit (contain, whole picture visible) | fill | crop (cover, "
 				.. "overflow cropped — two names for the engine's Crop) | stretch (ignore the aspect ratio, "
-				.. "the engine default)",
+				.. "the engine default) | tile (repeat at `tileSize`) | slice (nine-slice at `sliceCenter`). "
+				.. "The last two are authored statically, because their geometry key is construction-only",
+		}),
+		-- THE TILE'S OWN SIZE, in whole pixels: `{ width, height }`. Required with
+		-- `scaleMode = "tile"` and refused without it. Whole, because the engine's
+		-- `UDim.Offset` is an integer and truncates a fraction silently.
+		tileSize = p({
+			types = { "table" },
+			reactive = false,
+			channel = "style",
+			doc = "`{ width, height }` in whole pixels (> 0) — the size one repeat of the picture is drawn "
+				.. 'at. Required with `scaleMode = "tile"`, and a spec error without it',
+		}),
+		--[[ THE NINE-SLICE CENTRE, in SOURCE pixels, under the name and shape this
+			repository already uses for exactly this engine `Rect`: a theme package
+			writes `assets.<name>.sliceCenter = { x0, y0, x1, y1 }` and
+			`screen_chrome.applyChromeLayerPaint` turns it into `SliceCenter`. Reusing
+			the word is what stops a reader importing Facet's `Sides` vocabulary
+			(`left`/`top`/`right`/`bottom`, which means INSETS everywhere else in the
+			library) into a rectangle that is not insets at all.
+
+			A 64x64 source with an 8 px border is `{ x0 = 8, y0 = 8, x1 = 56, y1 = 56 }`.
+			Margins were the other candidate and are not computable here: "an 8 px
+			border" needs the source's pixel size, which the engine resolves
+			asynchronously after the content loads. ]]
+		sliceCenter = p({
+			types = { "table" },
+			reactive = false,
+			channel = "style",
+			doc = "`{ x0, y0, x1, y1 }` in SOURCE pixels — the stretchable centre rectangle, the same shape "
+				.. "and name a theme package's own art declares (a 64x64 source with an 8px border is "
+				.. '`{ x0 = 8, y0 = 8, x1 = 56, y1 = 56 }`). Required with `scaleMode = "slice"`, and a spec '
+				.. "error without it. These are rectangle EDGES, never insets",
+		}),
+		-- how much the nine-slice BORDER run is scaled by; the engine's own
+		-- `SliceScale`, default 1. Only with `scaleMode = "slice"`.
+		sliceScale = p({
+			types = { "number" },
+			reactive = false,
+			channel = "style",
+			doc = 'how much the nine-slice border run is scaled by (> 0, default 1). Only with `scaleMode = "slice"`',
+		}),
+		--[[ HOW THE ENGINE SAMPLES THE PICTURE WHEN IT IS NOT AT 1:1. The default is
+			the engine's smooth filter; `"pixelated"` is nearest-neighbour, which is
+			what pixel art needs and what every pixel-art package has had to fake by
+			shipping art at exactly one scale. Reactive, like `scaleMode`: a screen
+			that swaps between a pixel sprite and a photograph on one node swaps this
+			with it. ]]
+		resample = p({
+			types = { "string" },
+			reactive = true,
+			dirty = { "paint" },
+			enum = { "default", "pixelated" },
+			channel = "style",
+			doc = 'how the picture is sampled when it is not drawn at 1:1: "default" (the engine\'s smooth '
+				.. 'filter) or "pixelated" (nearest neighbour — pixel art stays crisp instead of blurring)',
 		}),
 	}),
 })

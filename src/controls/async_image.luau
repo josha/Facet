@@ -20,6 +20,11 @@ local ASYNC_IMAGE_KEYS = specGuard.keySet({
 	"key",
 	"provider",
 	"retry",
+	"scaleMode",
+	"tileSize",
+	"sliceCenter",
+	"sliceScale",
+	"resample",
 	"width",
 })
 
@@ -75,7 +80,21 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 				return UI.Box({ id = "Fill", surface = "control", width = width, height = height })
 			end,
 		}),
-		UI.Image({ id = "Content", image = imageContent, width = width, height = height, tint = tint }),
+		-- the picture options ride through verbatim; the leaf's own construction
+		-- rules (a tile mode needs its `tileSize`, a slice its `slice`) then refuse
+		-- an inconsistent pair here exactly as they would on a hand-built Image
+		UI.Image({
+			id = "Content",
+			image = imageContent,
+			width = width,
+			height = height,
+			tint = tint,
+			scaleMode = spec.scaleMode,
+			tileSize = spec.tileSize,
+			sliceCenter = spec.sliceCenter,
+			sliceScale = spec.sliceScale,
+			resample = spec.resample,
+		}),
 	}
 	if showFailure ~= nil then
 		table.insert(
