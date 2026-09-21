@@ -1736,6 +1736,7 @@ describe("native horizontal acquisition respects decorative and real overlays", 
 		local reveal = node("/__reveal__", "Frame")
 		local child = node("Decorative child", "TextLabel", reveal)
 		local ring = node("FocusRingFloat", "Frame")
+		handle.focusRingFloat = ring
 		local handles = {
 			X = handle,
 			Reveal = { instance = reveal, path = "/__reveal__", rootHandle = { screenId = "__reveal__" } },
@@ -1753,13 +1754,18 @@ describe("native horizontal acquisition respects decorative and real overlays", 
 	end)
 
 	it("retains real overlays, foreign lookalikes, text selection and drag-detector refusal", function()
-		for _, kind in { "modal", "foreign", "textbox", "drag" } do
+		for _, kind in { "modal", "foreign", "foreignRing", "foreignRingChild", "textbox", "drag" } do
 			local scroll, handle = scroller()
 			local blocker = node(
 				if kind == "foreign" then "/__reveal__" else "/Modal",
 				if kind == "textbox" then "TextBox" else "Frame",
 				if kind == "textbox" or kind == "drag" then scroll else nil
 			)
+			if kind == "foreignRing" then
+				blocker.Name = "FocusRingFloat"
+			elseif kind == "foreignRingChild" then
+				blocker.Parent = node("FocusRingFloat", "Frame")
+			end
 			if kind == "drag" then
 				blocker.FindFirstChildWhichIsA = function()
 					return {}

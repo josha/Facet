@@ -544,6 +544,9 @@ function screen_pointer.new(ctx: any)
 					if handle.instance then
 						byInstance[handle.instance] = handle
 					end
+					if handle.focusRingFloat then
+						byInstance[handle.focusRingFloat] = handle
+					end
 				end
 				-- Only our decorative reveal surface and floating ring are transparent to acquisition.
 				-- An ordinary overlay or foreign object still owns the first hit, even when inactive.
@@ -553,8 +556,11 @@ function screen_pointer.new(ctx: any)
 					while ancestor and ancestor ~= playerGui do
 						local owned = byInstance[ancestor]
 						if
-							ancestor.Name == "FocusRingFloat"
-							or (owned and owned.rootHandle and owned.rootHandle.screenId == "__reveal__")
+							owned
+							and (
+								owned.focusRingFloat == ancestor
+								or (owned.rootHandle and owned.rootHandle.screenId == "__reveal__")
+							)
 						then
 							decorative = true
 							break
