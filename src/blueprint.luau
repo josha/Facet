@@ -82,6 +82,8 @@ export type Value<T> = T | Readable<T>
 -- ONE function member: it takes a binding written `function()` or `function(use)`,
 -- and a union of two function types could not be called.
 export type Bound<T> = Value<T> | ((use: coreContract.Use) -> T)
+-- Cells are invariant, so expose either value kind as a distinct bound option.
+export type BoundEither<A, B> = Bound<A> | Bound<B> | Bound<A | B>
 
 -- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",
@@ -131,8 +133,8 @@ export type BoxProps = {
 	height: Bound<Dim>?,
 	margin: Bound<Sides>?,
 	anchor: Bound<string>?,
-	offsetX: Bound<number | Metric>?,
-	offsetY: Bound<number | Metric>?,
+	offsetX: BoundEither<number, Metric>?,
+	offsetY: BoundEither<number, Metric>?,
 	-- THIS child's own cross-axis alignment inside its stack parent's line
 	-- (Roblox `ItemLineAlignment`). Outranks the container's `align` and a nested
 	-- stack's own `align`, and unlike either it is legal on a LEAF
@@ -199,7 +201,7 @@ export type ContainerProps = {
 }
 
 export type ScreenSpec = BoxProps & ContainerProps & {
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	align: Bound<string>?,
 	-- main-axis distribution of the leftover (§2.6): "start" (default) | "center" |
 	-- "end" | "spaceBetween" | "spaceAround" | "spaceEvenly"
@@ -237,7 +239,7 @@ export type ZStackSpec = BoxProps & ContainerProps & {
 export type AnchorSpec = BoxProps & ContainerProps
 export type ScrollViewSpec = BoxProps & ContainerProps & {
 	navigation: any?,
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	axis: Bound<string>?,
 	onScrollWheel: ((path: string, delta: number, rectOf: (string) -> any) -> ())?,
 	autoscroll: (boolean | { [string]: any })?,
@@ -247,10 +249,10 @@ export type ScrollViewSpec = BoxProps & ContainerProps & {
 	extent: { width: (number | Metric)?, height: (number | Metric)? }?,
 }
 export type GridSpec = BoxProps & ContainerProps & {
-	gap: Bound<number | Metric>?,
-	rowGap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
+	rowGap: BoundEither<number, Metric>?,
 	columns: Bound<number>?,
-	minColumnWidth: Bound<number | string>?,
+	minColumnWidth: BoundEither<number, string>?,
 	itemSizing: Bound<string>?,
 	-- "row" (default) | "column" — which way the cells wrap; see the schema
 	flow: Bound<string>?,
@@ -270,7 +272,7 @@ export type GridRowSpec = {
 }
 
 export type AdaptiveStackSpec = BoxProps & ContainerProps & {
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	align: Bound<string>?,
 	distribute: Bound<string>?,
 	axis: Bound<string>?,
@@ -333,7 +335,7 @@ export type DividerSpec = BoxProps & {
 	-- since the metric-name grammar shipped (and the blueprints ledger
 	-- in artifacts/api-architecture-consistency/); this type used to
 	-- say only `number`
-	thickness: Bound<number | Metric>?,
+	thickness: BoundEither<number, Metric>?,
 }
 
 -- `tint` is the continuous-colour channel: { role, blend, from? } (themable) or
@@ -349,11 +351,11 @@ export type BoxSpec = BoxProps & {
 	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
 	opacity: Bound<number>?,
 }
-export type SpacerSpec = BoxProps & { minLength: Bound<number | Metric>? }
+export type SpacerSpec = BoxProps & { minLength: BoundEither<number, Metric>? }
 
 export type TextSpec = BoxProps & {
-	text: Bound<string | number>,
-	textSize: Bound<number | TypeRole>?,
+	text: BoundEither<string, number>,
+	textSize: BoundEither<number, TypeRole>?,
 	textAlign: Bound<string>?,
 	-- at most this many lines; beyond the cap the engine
 	-- ellipsizes instead of the box growing. The owner's knowledge, not the
@@ -413,11 +415,11 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	over: "media"?,
 	children: { Blueprint }?,
 	role: Bound<string>?,
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	align: Bound<string>?,
 	shape: string?,
 	icon: string?,
-	label: Bound<string | number>,
+	label: BoundEither<string, number>,
 	-- `prefer` is a MODIFIER rather than a content form — it names nothing to
 	-- draw, so it rides alongside whichever of text/icon/image was declared (see
 	-- `blueprint_schema.COMPACT_MODIFIERS` and api.md's Button section). Declared
@@ -434,7 +436,7 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	traversalPriority: number?,
 	surface: Bound<string>?,
 	padding: Bound<Sides>?,
-	textSize: Bound<number | TypeRole>?,
+	textSize: BoundEither<number, TypeRole>?,
 	-- FRAMEWORK-DECLARED (wave REVEAL). `UI.Region` sets this on the one button it
 	-- synthesizes for a collapsing region; an author writes `UI.Region{ expand }`
 	-- and never this. Public because a prop nothing can see is a prop nothing can
@@ -448,13 +450,13 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 }
 
 export type ToggleSpec = BoxProps & {
-	label: Bound<string | number>,
+	label: BoundEither<string, number>,
 	value: Bound<boolean>?,
 	enabled: Bound<boolean>?,
 	focusable: Bound<boolean>?,
 	traversalPriority: number?,
 	padding: Bound<Sides>?,
-	textSize: Bound<number | TypeRole>?,
+	textSize: BoundEither<number, TypeRole>?,
 	disclose: boolean?,
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
@@ -473,7 +475,7 @@ export type TextFieldSpec = BoxProps & {
 	focusable: Bound<boolean>?,
 	traversalPriority: number?,
 	padding: Bound<Sides>?,
-	textSize: Bound<number | TypeRole>?,
+	textSize: BoundEither<number, TypeRole>?,
 	maxLength: Bound<number>?,
 	keyboardType: Bound<string>?,
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
@@ -521,7 +523,7 @@ export type PathSpec = BoxProps & {
 	-- theme-tracking stroke width — `p2_cartwheel/screens/{dashboard,ledger}.luau`,
 	-- `p1_glade/ui/scene.luau` — already spells one; this type used to say
 	-- only `number`
-	thickness: Bound<number | Metric>?,
+	thickness: BoundEither<number, Metric>?,
 	closed: Bound<boolean>?,
 	role: Bound<string>?,
 	tint: Bound<any>?,

@@ -14,10 +14,21 @@ python3 tools/sync_compose.py           # restore the snapshot from the pin
 A fresh clone builds and tests without network access. The verify gate runs the
 check, so a local change to the snapshot cannot land.
 
-To upgrade, set `commit` in `UPSTREAM.lock`, regenerate the two hash
-inventories from that commit, run the sync, and commit the result. To read from
-a local checkout instead of the network:
+## Changing the pin
 
 ```sh
-python3 tools/sync_compose.py --source /path/to/compose
+python3 tools/sync_compose.py --bump <full 40-character commit>
 ```
+
+`--bump` changes the commit name, both hash inventories and the files together,
+from one archive of that commit. It prints the snapshot files that changed and
+any document that still names the previous commit. Then re-record the
+provenance receipt and run `tools/verify.sh full`.
+
+Do not edit `commit` by hand. `--check` compares the files with the lock's
+inventory; it cannot ask, offline, whether that inventory came from the commit
+the lock names. A hand-edited `commit` therefore still verifies, against the old
+files.
+
+To read from a local checkout instead of the network, add
+`--source /path/to/compose` to either command.
