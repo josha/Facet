@@ -38,6 +38,7 @@ local function rig(labels, images)
 		__index = function(self, k)
 			local e = setmetatable({}, {
 				__index = function(_, n)
+					assert(n ~= "UnlistedKey", "invalid Enum member")
 					return n
 				end,
 			})
@@ -47,10 +48,12 @@ local function rig(labels, images)
 	})
 	local input = {
 		GetStringForKeyCode = function(_, key)
-			return (labels or {})[key] or ""
+			local value = (labels or {})[key]
+			return if type(value) == "function" then value() else value or ""
 		end,
 		GetImageForKeyCode = function(_, key)
-			return (images or {})[key] or ""
+			local value = (images or {})[key]
+			return if type(value) == "function" then value() else value or ""
 		end,
 		GetLastInputType = function()
 			return { Name = "Gamepad1" }
@@ -273,6 +276,16 @@ t.describe("native key names and provider lifetime", function()
 		t.expect(names.image("ButtonA")).toBe("rbxassetid://101")
 		system.dispose()
 		t.expect(names.label("ButtonA")).toBe("A")
+	end)
+
+	t.it("native service failures retain readable labels and optional images", function()
+		local names = require("../src/input/key_names")
+		local function unavailable()
+			error("native service unavailable")
+		end
+		rig({ Return = unavailable }, { ButtonA = unavailable })
+		t.expect(names.label("Return")).toBe("Enter")
+		t.expect(names.image("ButtonA")).toBeNil()
 	end)
 
 	t.it("out-of-order native teardown cannot resurrect a removed provider", function()

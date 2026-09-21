@@ -21,11 +21,11 @@ local keyNames = require("../input/key_names")
 
 local function installKeyNames(): () -> ()
 	local function answer(keyCode: string, image: boolean): string?
-		local key = (Enum.KeyCode :: any)[keyCode]
-		if key == nil then
-			return nil
-		end
 		local ok, result = pcall(function()
+			local key = (Enum.KeyCode :: any)[keyCode]
+			if key == nil then
+				return nil
+			end
 			return if image then UserInputService:GetImageForKeyCode(key) else UserInputService:GetStringForKeyCode(key)
 		end)
 		return if ok and type(result) == "string" and result ~= "" then result else nil
