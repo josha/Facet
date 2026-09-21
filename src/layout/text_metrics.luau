@@ -1089,7 +1089,7 @@ end
 
 -- THE ENGINE'S REPORTING GRID (director round 9, measured live 2026-07-26,
 -- Studio 0.731). `GetTextBoundsAsync` answers on a 0.5 px grid, and it lays out
--- a WHOLE LINE in one pass while this model sums the parts. The space probe
+-- a WHOLE LINE in one pass while this model sums the parts. The fallback space probe
 -- (`"x x"` minus `"xx"`, src/client/text_premeasure) is a DIFFERENCE of two such
 -- quantized answers, so it can land one step low: at BuilderSans@13 it returns
 -- 2.50 where the engine's own inter-word advance inside "Classic Desktop" is

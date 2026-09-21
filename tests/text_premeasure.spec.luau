@@ -679,10 +679,83 @@ describe("presenter: revealWhenTextExact", function()
 		text_premeasure.newBoundsParams = original
 		text_premeasure.spawn = originalSpawn
 		expect(ok).toBe(true)
-		-- four words, one of them the two-probe SPACE — five bounds reads, one
+		-- four words, including SPACE and its possible fallback reads, share one
 		-- instance, and it is destroyed with the batch
 		expect(made).toBe(1)
 		expect(destroyed).toBe(1)
+	end)
+
+	it("native space measurement prefers its own advance and retains the unavailable-space fallback", function()
+		local fs = require("@lune/fs")
+		local luau = require("@lune/luau")
+		local Vector2 = require("@lune/roblox").Vector2
+		local function measured(lone: any)
+			local reads = {}
+			local destroyed = 0
+			local native = luau.load(fs.readFile("src/client/text_premeasure.luau"), {
+				environment = {
+					game = {
+						GetService = function(_, name)
+							assert(name == "TextService")
+							return {
+								GetTextBoundsAsync = function(_, params)
+									expect(params.Size).toBe(100)
+									expect(params.Width).toBe(100000)
+									table.insert(reads, params.Text)
+									local width = if params.Text == " "
+										then lone
+										elseif params.Text == "x x" then 97.5
+										else 77
+									if width == false then
+										error("space unavailable")
+									end
+									return Vector2.new(width, 100)
+								end,
+							}
+						end,
+					},
+				},
+			})()
+			native.spawn = function(f)
+				f()
+			end
+			native.fontFor = function()
+				return nil
+			end
+			native.warmUp() -- isolate measurement from the separately tested boot settle
+			native.fontFor = function()
+				return {}
+			end
+			native.newBoundsParams = function()
+				return {
+					Destroy = function()
+						destroyed += 1
+					end,
+				}
+			end
+			local answer
+			local cancel = native.measure(
+				{ { font = "BuilderSans#Regular#Normal", size = 100, word = " " } },
+				function(results)
+					answer = results[1]
+				end
+			)
+			cancel()
+			cancel()
+			expect(destroyed).toBe(1)
+			expect(answer.font).toBe("BuilderSans#Regular#Normal")
+			expect(answer.size).toBe(100)
+			expect(answer.word).toBe(" ")
+			return answer.width, reads
+		end
+		local width, reads = measured(21.5)
+		expect(width).toBe(21.5) -- live BuilderSans@100: the kerned pair difference is only20.5
+		expect(reads).toEqual({ " " })
+		for _, unavailable in { false, 0, -1, math.huge, 0 / 0 } do
+			local fallback, fallbackReads = measured(unavailable)
+			expect(fallback).toBe(20.5)
+			expect(fallbackReads).toEqual({ " ", "x x", "xx" })
+		end
 	end)
 
 	--[[ THE SETTLE LANDS ON THE FLIP (2026-08-30). Measured live in the
