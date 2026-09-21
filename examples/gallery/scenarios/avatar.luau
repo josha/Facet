@@ -174,6 +174,7 @@ return {
 			section = section,
 			screen = function()
 				return UI.Screen("Avatar")({
+					surface = "base",
 					padding = "m",
 					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
 				})

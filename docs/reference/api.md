@@ -12317,7 +12317,7 @@ are hidden members. Without it, the whole group is informational.
 | `layout` | Construction-only `"stacked"` (default) or `"spread"`. Stacked overlaps by `floor(diameter / 3)` and suppresses marks; spread uses theme `"s"` spacing and paints them. |
 | `max` | Construction-only positive whole number of visible members; default `4`. |
 | `overflow` | Construction-only `"count"` (default, `+N`) or `"ellipsis"`. Both retain the semantic `N more` label. |
-| `overflowLabel` | Optional bound localized phrase; a nonempty string replaces the English default. |
+| `overflowLabel` | Optional bound localized phrase; a nonempty string replaces the English default. Nil/empty uses the default; other types are refused. |
 | `form` | Construction-only `"standard"` (default) or `"icon"`, passed to every member; icon members refuse presence. |
 | `controlSize` | Bound `"compact"`, `"regular"`, or `"large"`; absent/nil uses regular. Every diameter and overlap follows the checked live theme rung. |
 | `over` | Optional `"media"` tint roles for readability over artwork. |
@@ -12342,7 +12342,8 @@ supplied command; an empty or fully visible roster has no overflow target.
 `dump.controlSize` reports the requested raw value, as on Avatar, while invalid
 size updates retain the last accepted geometry.
 
-Cost is proportional to the visible prefix: one keyed face per visible member,
+Validation and publication scan and clone the whole roster on a dependency
+change. Mounted cost follows the visible prefix: one keyed face per visible member,
 one provider lease per loaded member, and one shared Skeleton driver per clock
 while any pending branch is mounted. No hidden member is fetched. The gallery
 transport completes on a presenter tick using a stand-in picture; native headshot

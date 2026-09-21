@@ -59,11 +59,15 @@ t.describe("AvatarGroup", function()
 				{ id = "bad", name = "Bad", userId = 0 / 0 },
 			}
 		do
-			t.expect(pcall(function()
+			local ok, message = pcall(function()
 				w.scoped(function()
 					w.UI.AvatarGroup({ items = { good, bad }, provider = provider })
 				end)
-			end)).toBe(false)
+			end)
+			t.expect(ok).toBe(false)
+			if bad.id == "bad" then
+				t.expect(string.find(tostring(message), "member 'bad'", 1, true) ~= nil).toBe(true)
+			end
 			t.expect(provider.counters().handles).toBe(0)
 		end
 	end)
@@ -205,6 +209,113 @@ t.describe("AvatarGroup retained rows", function()
 		w.env:set("themeMetrics", snapshot.neutral())
 		w.pres.refresh()
 		t.expect(node(w, target).rect.h).toBe(44)
+	end)
+end)
+
+t.describe("AvatarGroup validated publication", function()
+	t.it("keeps bound-nil localized presence valid through source replacement and later presence", function()
+		local w = world.new()
+		local provider = w.app.newResourceProvider({ bind = false })
+		local originalAcquire, acquisitions = provider.acquire, 0
+		provider.acquire = function(owner, key)
+			acquisitions += 1
+			return originalAcquire(owner, key)
+		end
+		local presence = Compose.cell(nil)
+		local function roster(key)
+			return {
+				{ id = "a", name = "Ada", key = key, presence = presence, presenceLabel = "Localized" },
+				{ id = "b", name = "Bo" },
+			}
+		end
+		local items, activations = Compose.cell(roster("first")), 0
+		local record = mount(w, {
+			items = items,
+			max = 1,
+			layout = "spread",
+			provider = provider,
+			onOverflow = function()
+				activations += 1
+			end,
+		})
+		local firstPath = facePath("a", "key:first")
+		local first = node(w, firstPath)
+		local function faceDump()
+			return scenarioCtx.of(w).controlRecord("Face").dump()
+		end
+		t.expect(faceDump().label).toBe("Ada")
+		t.expect(provider.counters().handles).toBe(1)
+		presence:set("online")
+		w.pres.refresh()
+		t.expect(node(w, firstPath)).toBe(first)
+		t.expect(faceDump().label).toBe("Ada, Localized")
+		presence:set("invalid")
+		w.pres.refresh()
+		t.expect(faceDump().presence).toBe("online")
+		presence:set(nil)
+		w.pres.refresh()
+		t.expect(faceDump().label).toBe("Ada")
+		items:set(roster("replacement"))
+		w.pres.refresh()
+		local nextPath = facePath("a", "key:replacement")
+		t.expect(w.adapter.node(firstPath)).toBeNil()
+		t.expect(node(w, nextPath) ~= first).toBe(true)
+		t.expect(faceDump().label).toBe("Ada")
+		t.expect(acquisitions).toBe(2)
+		t.expect(provider.counters().handles).toBe(1)
+		presence:set("busy")
+		w.pres.refresh()
+		t.expect(faceDump().label).toBe("Ada, Localized")
+		t.expect(node(w, nextPath .. "/Presence/MarkShape/then/Mark").props.shape).toBe("rect")
+		t.expect(record.dump().shown).toEqual({ "a" })
+		w.adapter.tap(CHIP)
+		t.expect(activations).toBe(1)
+		t.expect(#w.handle.focusOrder().traversal).toBe(1)
+		items:set({})
+		w.pres.refresh()
+		t.expect(provider.counters().handles).toBe(0)
+		t.expect(record.dump().shown).toEqual({})
+		t.expect(w.adapter.node(CHIP)).toBeNil()
+	end)
+	t.it("refuses non-string overflow labels before allocation and recovers the mounted semantic label", function()
+		local bad = world.new()
+		local provider = bad.app.newResourceProvider({ bind = false })
+		local ok, message = pcall(function()
+			mount(
+				bad,
+				{ items = { { id = "a", name = "Ada", key = "picture" } }, provider = provider, overflowLabel = 42 }
+			)
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(message), "overflowLabel", 1, true) ~= nil).toBe(true)
+		t.expect(provider.counters().handles).toBe(0)
+		local w = world.new()
+		local phrase, calls = Compose.cell("More players"), 0
+		local record = mount(w, {
+			items = people(3),
+			max = 1,
+			overflowLabel = phrase,
+			onOverflow = function()
+				calls += 1
+			end,
+		})
+		local raw = require("../src/paths").nodeAt(w.handle.root.node, CHIP)
+		phrase:set(42)
+		w.pres.refresh()
+		t.expect(raw.props.label).toBe("More players")
+		t.expect(record.dump().chipLabel).toBe("More players")
+		t.expect(phrase:peek()).toBe(42)
+		phrase:set("Tout le monde")
+		w.pres.refresh()
+		t.expect(raw.props.label).toBe("Tout le monde")
+		phrase:set("")
+		w.pres.refresh()
+		t.expect(raw.props.label).toBe("2 more")
+		phrase:set(nil)
+		w.pres.refresh()
+		t.expect(record.dump().chipLabel).toBe("2 more")
+		w.adapter.tap(CHIP)
+		t.expect(calls).toBe(1)
 	end)
 end)
 

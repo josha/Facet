@@ -67,6 +67,7 @@ local function make(scenario, viewport, options)
 	})
 	local built = scenario.build({
 		Facet = Facet,
+		app = require("./lib/scenario_app").over(w.core, w.pres),
 		UI = (harness.libraryOf(w.core)),
 		Compose = Facet.Compose,
 		core = w.core,

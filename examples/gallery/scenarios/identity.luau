@@ -10,6 +10,7 @@ return {
 		return {
 			screen = function()
 				return UI.Screen("Identity")({
+					surface = "base",
 					padding = "m",
 					UI.ScrollView("Content")({
 						width = UI.fill(),

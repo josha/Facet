@@ -103,7 +103,7 @@ return {
 				gap = "m",
 				UI.Text("Title")({ text = "Players together", textSize = "heading", width = UI.fill() }),
 				UI.Text("Note")({
-					text = "Faces keep their identity when reordered. Open the count to see everyone.",
+					text = "Faces keep their identity when reordered. Choose the group using the count.",
 					width = UI.fill(),
 				}),
 				UI.ForEach("Variant")({
@@ -173,7 +173,7 @@ return {
 				}),
 				UI.Text("Activations")({
 					text = function(use)
-						return `Opened the group {use(activations)} times`
+						return `Selected the group {use(activations)} times`
 					end,
 				}),
 			})
@@ -192,6 +192,7 @@ return {
 			section = section,
 			screen = function()
 				return UI.Screen("AvatarGroup")({
+					surface = "base",
 					padding = "m",
 					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
 				})

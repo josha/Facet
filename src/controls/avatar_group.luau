@@ -82,10 +82,13 @@ local function build(library: any, core: any, spec: any, owner: any)
 			seen[member.id] = true
 			local checked = table.clone(member)
 			checked.form, checked.provider = form, spec.provider
-			avatar.validate(checked)
-			local facts = avatar.semantic(member.name, member.presence, member.presenceLabel, use)
+			local ok, facts = pcall(function()
+				avatar.validate(checked)
+				return avatar.semantic(member.name, member.presence, member.presenceLabel, use)
+			end)
+			assert(ok, if ok then nil else `Facet AvatarGroup: member '{member.id}': {facts}`)
 			checked.presence = facts.presence
-			checked.presenceLabel = selection.read(member.presenceLabel, use)
+			checked.presenceLabel = if facts.presence == nil then nil else selection.read(member.presenceLabel, use)
 			table.insert(out, checked)
 		end
 		return out
@@ -126,8 +129,10 @@ local function build(library: any, core: any, spec: any, owner: any)
 	end)
 	local chipLabel = Compose.formula(function(use)
 		local phrase = selection.read(spec.overflowLabel, use)
+		assert(phrase == nil or type(phrase) == "string", "Facet AvatarGroup: overflowLabel must be a string")
 		return if type(phrase) == "string" and phrase ~= "" then phrase else `{use(hidden)} more`
 	end)
+	chipLabel:peek()
 	local chipText = Compose.formula(function(use)
 		return if overflow == "count" then `+{use(hidden)}` else "…"
 	end)
