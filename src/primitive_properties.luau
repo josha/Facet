@@ -3,6 +3,7 @@
 local policy = require("./motion/policy")
 local specGuard = require("./spec_guard")
 local schema = require("./blueprint_schema")
+local richText = require("./layout/rich_text")
 local isFinite = require("./num").isFinite
 local properties = {}
 local requiredBySchema = {}
@@ -40,6 +41,9 @@ end
 -- `bound` names the properties a readable drives: what a bound value holds at
 -- mount implies nothing about a construction-only property.
 function properties.normalize(class: string, props: any, known: any, bound: { [string]: any }?)
+	if props.rich == true and type(props.text) == "string" then
+		props.text = richText.normalizeFontSizes(props.text)
+	end
 	if props.animation ~= nil then
 		local ok, why = policy.check(props.animation)
 		assert(ok, `Facet UI.{class}.animation: {why or "invalid policy"}`)

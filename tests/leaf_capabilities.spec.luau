@@ -1806,7 +1806,7 @@ describe("text and canvas hardening", function()
 		expect(w.adapter.node("/S/Canvas").scrollRegion.contentH).toBe(900)
 	end)
 
-	it("clamps rich font sizes to the engine ceiling in width and line box", function()
+	it("clamps rich font sizes to the measurement ceiling in width and line box", function()
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 1000 } })
 		local UI = w.UI
 		w.present(function()
@@ -1938,5 +1938,73 @@ describe("resolved scroll extents", function()
 		w.env:set("themeMetrics", metrics(800))
 		w.settle()
 		expect(w.adapter.node("/S/Canvas").scrollRegion.contentW).toBe(800)
+	end)
+end)
+
+describe("rich font ceiling reaches publication", function()
+	it("normalizes only real font-size attributes and preserves literal or ordinary input", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 2000, h = 1000 } })
+		local UI = w.UI
+		local rows = {
+			{ '<font size="200">X</font>', '<font size="100">X</font>' },
+			{ "<font size='200'>X</font>", "<font size='100'>X</font>" },
+			{ "<font size=200>X</font>", "<font size=100>X</font>" },
+			{ [=[<font face='size="200"' size="200">X</font>]=], [=[<font face='size="200"' size="100">X</font>]=] },
+			{
+				'<!-- <font size="200"> --><font size="30">X</font>',
+				'<!-- <font size="200"> --><font size="30">X</font>',
+			},
+			{ '<font size="100">X</font>', '<font size="100">X</font>' },
+			{ '<font size="200">X</font> < broken', '<font size="200">X</font> < broken' },
+		}
+		for _, row in rows do
+			w.present(function()
+				return UI.Screen("S")({
+					UI.Text("Rich")({ rich = true, text = row[1], width = { type = "fixed", px = 1900 } }),
+					UI.Text("Plain")({ text = row[1] }),
+				})
+			end)
+			expect(propsOf(w, "/S/Rich").text).toBe(row[2])
+			expect(propsOf(w, "/S/Plain").text).toBe(row[1])
+			w.close()
+		end
+	end)
+
+	it("keeps the caller's markup while initial, updated and revealed text share the ceiling", function()
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 600, h = 600 },
+			overflowGuardOff = "the moving reveal strip is intentionally clipped",
+		})
+		local UI = w.UI
+		local text = Compose.cell('<font size="200">Lap record on the coastal circuit</font>')
+		w.present(function()
+			return UI.Screen("S")({
+				UI.Text("Source")({
+					text = text,
+					rich = true,
+					reveal = "auto",
+					lineLimit = 1,
+					width = { type = "fixed", px = 200 },
+				}),
+			})
+		end)
+		local function check(expected, raw)
+			expect(propsOf(w, "/S/Source").text).toBe(expected)
+			expect(text:peek()).toBe(raw)
+			for _ = 1, 65 do
+				w.tick(1 / 30)
+			end
+			expect(w.pres.reveal().present).toBe(true)
+			expect(propsOf(w, "/__reveal__/Layer/Window/Inner/Full").text).toBe(expected)
+		end
+		check('<font size="100">Lap record on the coastal circuit</font>', text:peek())
+		local raw = '<font size="300" color="#0000ff">Lap record on the coastal circuit</font>'
+		text:set(raw)
+		w.settle()
+		w.tick(1 / 30)
+		expect(w.pres.reveal().present).toBe(false)
+		check('<font size="100" color="#0000ff">Lap record on the coastal circuit</font>', raw)
+		w.close()
+		expect(w.adapter.liveCount()).toBe(0)
 	end)
 end)

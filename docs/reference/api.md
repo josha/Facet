@@ -1786,6 +1786,14 @@ markup — `<b> <i> <u> <s> <font> <stroke> <br> <uc>/<uppercase> <sc>/<smallcap
 comments. A `<font weight="…">` is understood in every spelling the engine
 accepts — `heavy`, `Heavy` and `900` all name the same face.
 
+Facet caps authored `<font size>` values at 100 before publishing rich text to
+layout, native targets and disclosure/reveal surfaces. The bounds service caps
+its measurements there even though native rich text can paint larger values.
+The caller's string stays unchanged; plain text, sizes at or below 100, comments
+and quoted non-size attributes retain their bytes. Malformed markup retains the
+existing literal fallback. Text and runs share one layout parse; normalization
+is a separate bounded pass when the authored text changes.
+
 **The box is reserved for what the player SEES.** With `rich` on, the measurer
 takes the *displayed* text — every well-formed tag removed, escapes decoded,
 `<br/>` counted as a line break, `<uc>` content upper-cased — so a heavily

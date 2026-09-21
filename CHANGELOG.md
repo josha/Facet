@@ -17,7 +17,8 @@ runtime as `Facet.VERSION`.
   before publishing derived geometry or paint, and recover on a legal value.
   Scroll extents require positive finite pixels or known metrics resolving to
   that range. Middle truncation returns an ellipsis for nonpositive width.
-  Rich text measures glyphs and runs in one parse; font memos have bounded
+  Rich text caps authored font sizes at 100 in both published markup and layout,
+  leaving caller strings intact. It measures glyphs and runs in one parse; font memos have bounded
   admission and reset with measured text. Button and Chip animation policies
   now reach the primitive plate and retain its property validation.
 

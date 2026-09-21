@@ -6,6 +6,7 @@ local Compose = require("../vendor/compose/core")
 local blueprint = require("../blueprint")
 local schema = require("../blueprint_schema")
 local primitiveProperties = require("../primitive_properties")
+local richText = require("../layout/rich_text")
 local inheritance = require("./inheritance")
 local validateButton = require("../button_properties")
 local feedback = require("../present/feedback")
@@ -170,6 +171,9 @@ function scene.new(frames: any?)
 		end
 		if node.dynamicProps and node.dynamicProps[key] ~= nil then
 			primitiveProperties.assertBoundValue(node.class, key, definition, value)
+		end
+		if node.validated and key == "text" and node.props.rich == true and type(value) == "string" then
+			value = richText.normalizeFontSizes(value)
 		end
 		local old = node.props[key]
 		node.props[key] = value

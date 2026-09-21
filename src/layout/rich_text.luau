@@ -151,10 +151,85 @@ local NUMERIC_WEIGHTS: { [number]: string } = {
 	[900] = "Heavy",
 }
 
+-- Read attributes in order so a size-looking phrase inside a quoted face is inert.
+-- The accepted size spelling starts with digits, optionally quoted.
+local function fontSize(attrs: string): (number?, number?, number?)
+	local i = 1
+	while i <= #attrs do
+		local _, nameEnd, name = string.find(attrs, "^%s*([%a][%w]*)", i)
+		if nameEnd == nil then
+			break
+		end
+		local _, equalsEnd = string.find(attrs, "^%s*=%s*", nameEnd + 1)
+		if equalsEnd == nil then
+			break
+		end
+		local first = equalsEnd + 1
+		local quote = string.sub(attrs, first, first)
+		local last
+		if quote == '"' or quote == "'" then
+			first += 1
+			local close = string.find(attrs, quote, first, true)
+			if close == nil then
+				return nil
+			end
+			last, i = close - 1, close + 1
+		else
+			local boundary = string.find(attrs, "[%s/]", first)
+			last = if boundary then boundary - 1 else #attrs
+			i = last + 1
+		end
+		if name == "size" then
+			return tonumber(string.match(string.sub(attrs, first, last), "^(%d+)")), first, last
+		end
+	end
+	return nil
+end
+
+-- The bounds service caps size at 100 but native rich text can paint above it.
+-- Normalize at publication, leaving caller-owned text and ordinary inputs intact.
+function rich_text.normalizeFontSizes(text: string): string
+	local i, copied = 1, 1
+	local parts: { string }? = nil
+	while i <= #text do
+		local opening = string.find(text, "<", i, true)
+		if opening == nil then
+			break
+		end
+		local _, commentEnd = string.find(text, "^<!%-%-.-%-%->", opening)
+		if commentEnd ~= nil then
+			i = commentEnd + 1
+			continue
+		end
+		local _, tagEnd, slash, name, attrs = string.find(text, "^<(/?)([%a][%w]*)([^<>]*)>", opening)
+		-- The existing parser treats malformed markup as the original literal string.
+		if tagEnd == nil or name == nil or attrs == nil then
+			return text
+		end
+		if slash == "" and string.lower(name) == "font" then
+			local size, first, last = fontSize(attrs)
+			if size ~= nil and size > 100 and first ~= nil and last ~= nil then
+				local offset = opening + 1 + #name
+				local output = parts or {}
+				parts = output
+				table.insert(output, string.sub(text, copied, offset + first - 2))
+				table.insert(output, "100")
+				copied = offset + last
+			end
+		end
+		i = tagEnd + 1
+	end
+	if parts == nil then
+		return text
+	end
+	table.insert(parts, string.sub(text, copied))
+	return table.concat(parts)
+end
+
 local function fontAttrs(attrs: string): (string?, string?, number?)
 	local weight = string.match(attrs, "weight%s*=%s*[\"']([^\"']+)[\"']")
 	local face = string.match(attrs, "face%s*=%s*[\"']([^\"']+)[\"']")
-	local size = tonumber(string.match(attrs, "size%s*=%s*[\"']?(%d+)"))
+	local size = fontSize(attrs)
 	if size ~= nil then
 		size = math.min(size, 100)
 	end
