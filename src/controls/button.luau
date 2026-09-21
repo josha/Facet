@@ -172,7 +172,7 @@ local function build(Facet, core, spec, owner)
 	local visibleLabel = selection.read(spec.label)
 	local hasVisibleContent = (type(visibleLabel) == "string" and visibleLabel ~= "")
 		or type(visibleLabel) == "number"
-		or spec.children ~= nil
+		or (spec.children ~= nil and #spec.children > 0)
 		or spec.row ~= nil
 		or spec.image ~= nil
 	assert(
@@ -441,8 +441,8 @@ local function build(Facet, core, spec, owner)
 		measured their own layout is not overruled by one. ]]
 	local sizedHeight = if spec.shape == "circle" and (spec.width ~= nil or spec.height ~= nil)
 		then nil
-		else vocabulary.derive(spec.controlSize, vocabulary.heightFor)
-	local sizedPadding = vocabulary.derive(spec.controlSize, vocabulary.paddingFor)
+		else vocabulary.deriveSize("UI.Button", spec.controlSize, vocabulary.heightFor)
+	local sizedPadding = vocabulary.deriveSize("UI.Button", spec.controlSize, vocabulary.paddingFor)
 	--[[ THE ICON SQUARE IS A WHOLE DIM, NOT A REACTIVE NUMBER INSIDE ONE. A `Dim`'s
 		`min`/`px` fields are resolved at prop-normalization time and take a number or
 		a metric NAME — a readable there is refused at construction, and a
@@ -451,7 +451,7 @@ local function build(Facet, core, spec, owner)
 	local function iconDim(rung: any): any
 		return { type = "minMax", min = vocabulary.iconSizeFor(rung) or DEFAULT_ICON_SIZE }
 	end
-	local iconBox = vocabulary.derive(spec.controlSize, iconDim) or iconDim(nil)
+	local iconBox = vocabulary.deriveSize("UI.Button", spec.controlSize, iconDim) or iconDim(nil)
 	--[[ A SEMANTIC MARK BESIDE THE LABEL, drawn the way every other semantic icon
 		in this library is drawn (menu rows, the checkbox's tick): the framework's own
 		ASCII glyph in a `Text`, plus the internal decoration hint, so an installed

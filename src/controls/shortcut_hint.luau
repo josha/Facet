@@ -99,7 +99,7 @@ function shortcut_hint.build(Facet: any, core: any, spec: Spec)
 		local icon = vocabulary.iconSizeFor(currentRung) or vocabulary.iconSizeFor(DEFAULT_RUNG)
 		return { type = "minMax", min = { icon, "space.xs" } }
 	end
-	local capBox = vocabulary.derive(spec.controlSize, capDim) or capDim(rung)
+	local capBox = vocabulary.deriveSize("ShortcutHint", spec.controlSize, capDim) or capDim(rung)
 
 	local function cap(capId: string, text: any, glyph: any): any
 		local content: any

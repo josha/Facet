@@ -170,4 +170,19 @@ function vocabulary.derive(value: any, map: (any) -> any): any
 	return map(value)
 end
 
+-- Validate before the mapped property publishes: each family owns its words.
+function vocabulary.deriveSize(control: string, value: any, map: (any) -> any): any
+	return vocabulary.derive(value, function(rung)
+		assertWord(control, "controlSize", rung, SIZE_SET, vocabulary.SIZES)
+		return map(rung)
+	end)
+end
+
+function vocabulary.deriveAppearance(control: string, value: any, allowed: { string }, set: { [string]: boolean }): any
+	return vocabulary.derive(value, function(word)
+		assertWord(control, "appearance", word, set, allowed)
+		return word
+	end)
+end
+
 return vocabulary

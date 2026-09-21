@@ -906,7 +906,7 @@ describe("composed Button content keeps its own inset", function()
 	it("refuses empty and name-only content before mounting, while an empty bound label can recover", function()
 		local w = world.new()
 		local UI = w.UI
-		for _, spec in { {}, { name = "Blank" }, { label = "", name = "Blank" } } do
+		for _, spec in { {}, { name = "Blank" }, { label = "", name = "Blank" }, { children = {} } } do
 			local ok, err = pcall(function()
 				w.present(function()
 					return UI.Screen("S")({ UI.Button("Blank")(spec) })
@@ -928,4 +928,107 @@ describe("composed Button content keeps its own inset", function()
 		label:set("Borrowed")
 		expect(label:peek()).toBe("Borrowed")
 	end)
+end)
+
+describe("live control vocabulary keeps the last legal publication", function()
+	for _, sourceKind in { "cell", "formula", "getter" } do
+		for _, kind in { "Button", "Chip", "ShortcutHint" } do
+			it(kind .. " checks every " .. sourceKind .. " rung and recovers", function()
+				local w = world.new()
+				local UI, Compose = w.UI, w.Compose
+				local size, other = Compose.cell("compact"), Compose.cell("before")
+				w.present(function()
+					local source = if sourceKind == "formula"
+						then Compose.formula(function(use)
+							return use(size)
+						end)
+						elseif sourceKind == "getter" then function(use)
+							return use(size)
+						end
+						else size
+					local props =
+						{ controlSize = source, selected = if kind == "Chip" then Compose.cell(false) else nil }
+					if kind == "ShortcutHint" then
+						props.keys = { { "K" } }
+					else
+						props.label = "Ready"
+					end
+					return UI.Screen("S")({
+						UI.VStack({ UI[kind]("Subject")(props), UI.Text("Other")({ text = other }) }),
+					})
+				end)
+				local id = if kind == "ShortcutHint" then "Key1" else "Subject"
+				local path = pathOf(w, id)
+				local legal = table.clone(rectOf(w, path))
+				local ok, err = pcall(function()
+					size:set("huge")
+					w.settle()
+				end)
+				local refusal = if ok then tostring(w.core:lastError()) else tostring(err)
+				expect(string.find(refusal, "compact | regular | large", 1, true) ~= nil).toBe(true)
+				expect(rectOf(w, path)).toEqual(legal)
+				other:set("after")
+				w.settle()
+				expect(propsOf(w, pathOf(w, "Other")).text).toBe("after")
+				size:set("large")
+				w.settle()
+				expect(rectOf(w, path).h > legal.h).toBe(true)
+				size:set(nil)
+				w.settle()
+				expect(rectOf(w, path).h < 56).toBe(true)
+				if kind ~= "ShortcutHint" then
+					expect(tagsOf(w, path)["facet-size-large"]).toBe(nil)
+					expect(pathOf(w, "Subject+target") ~= nil).toBe(true)
+				end
+				w.close()
+				expect(w.adapter.liveCount()).toBe(0)
+				size:set("regular")
+				expect(size:peek()).toBe("regular")
+			end)
+		end
+		for _, kind in { "Button", "Chip" } do
+			it(kind .. " checks its own " .. sourceKind .. " appearance family", function()
+				local w = world.new()
+				local UI, Compose = w.UI, w.Compose
+				local appearance = Compose.cell("utility")
+				w.present(function()
+					local source = if sourceKind == "formula"
+						then Compose.formula(function(use)
+							return use(appearance)
+						end)
+						elseif sourceKind == "getter" then function(use)
+							return use(appearance)
+						end
+						else appearance
+					return UI.Screen("S")({
+						UI[kind]("Subject")({
+							label = "Ready",
+							appearance = source,
+							selected = if kind == "Chip" then Compose.cell(false) else nil,
+						}),
+					})
+				end)
+				local path = pathOf(w, "Subject")
+				local ok, err = pcall(function()
+					appearance:set(if kind == "Chip" then "link" else "unknown")
+					w.settle()
+				end)
+				local refusal = if ok then tostring(w.core:lastError()) else tostring(err)
+				expect(string.find(refusal, "appearance", 1, true) ~= nil).toBe(true)
+				expect(propsOf(w, path).appearance).toBe("utility")
+				expect(tagsOf(w, path)["facet-appearance-utility"]).toBe(true)
+				expect(tagsOf(w, path)["facet-appearance-link"]).toBe(nil)
+				appearance:set("standard")
+				w.settle()
+				expect(propsOf(w, path).appearance).toBe("standard")
+				appearance:set(nil)
+				w.settle()
+				expect(propsOf(w, path).appearance).toBe(nil)
+				expect(tagsOf(w, path)["facet-appearance-utility"]).toBe(nil)
+				w.close()
+				appearance:set("utility")
+				expect(appearance:peek()).toBe("utility")
+			end)
+		end
+	end
 end)

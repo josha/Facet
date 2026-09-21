@@ -59,8 +59,8 @@ function chip.build(Facet: any, core: any, spec: any)
 	-- the rung's METRICS as names, so the solver re-resolves them on a theme swap
 	-- (see the vocabulary module's header). Absent = the 44px floor this control
 	-- has always declared.
-	local sizedHeight = vocabulary.derive(spec.controlSize, vocabulary.heightFor)
-	local sizedPadding = vocabulary.derive(spec.controlSize, vocabulary.paddingFor)
+	local sizedHeight = vocabulary.deriveSize("UI.Chip", spec.controlSize, vocabulary.heightFor)
+	local sizedPadding = vocabulary.deriveSize("UI.Chip", spec.controlSize, vocabulary.paddingFor)
 
 	-- the SINGLE Activate site: every input class routes here through the
 	-- presenter's auto dispatch (never a direct callback in a consumer).
@@ -110,7 +110,7 @@ function chip.build(Facet: any, core: any, spec: any)
 			enabled = spec.enabled,
 			children = children,
 			controlSize = spec.controlSize,
-			appearance = spec.appearance,
+			appearance = vocabulary.deriveAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET),
 			padding = sizedPadding,
 			-- honour the Button contract's minHitSize as a real layout floor (a chip
 			-- is a touch target first) — the touch structural idiom. The FLOOR is a
