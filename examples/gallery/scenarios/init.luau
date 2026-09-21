@@ -317,6 +317,8 @@ local ORDER = {
 	"collapsible_view",
 	-- Leaf paint, fitting and native scrolling; also in All controls → Inputs → Leaves.
 	"leaf_capabilities",
+	"shortcut_hint",
+	"container_grid",
 	-- scaffold: new control scenarios are appended above this line
 }
 

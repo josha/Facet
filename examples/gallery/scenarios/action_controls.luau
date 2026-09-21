@@ -5,6 +5,7 @@ return {
 	build = function(ctx)
 		local Facet = ctx.Facet
 		local UI, Compose = ctx.UI, ctx.Compose
+		local hintRecipe = require("./shortcut_hint").build(ctx)
 		local signal = Compose.cell
 		local busy = signal(false)
 		local enabled = signal(true)
@@ -482,6 +483,7 @@ return {
 				body,
 				UI.Text({ text = "Size and emphasis", textSize = "heading", width = UI.fill() }),
 				VocabularySection(),
+				hintRecipe.section(),
 			})
 			local scroller = UI.ScrollView("Content")({
 				width = UI.fill(),

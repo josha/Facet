@@ -110,12 +110,35 @@ UI.Button {
 }
 ```
 
-`UI.Label` takes a nonempty `title` (string, Compose readable or tracked function),
+`UI.Label` takes an initially nonempty `title` (string, Compose readable or tracked function),
 an optional semantic icon name or image asset URL in `icon`,
 `presentation = "titleAndIcon" | "titleOnly" | "iconOnly"`, and theme-compatible
 `iconSize`, `textSize` and `gap`. If no icon exists, icon-only safely shows the
 title. The title updates visual and accessible text together; presentation and
 icon meaning are construction-time choices. See [Label](../reference/api.md#uilabel).
+
+### Shortcut hints and links
+
+Use [`UI.ShortcutHint`](../reference/api.md#uishortcuthint) to name a live action's
+key without binding it again: `UI.ShortcutHint("OpenHint")({ action = "Activate" })`.
+For caller-owned shortcuts, pass `keys = {{ "Ctrl", "K" }, { "F1" }}` and optionally
+bind `separator` to a localized word. `controlSize` follows the compact/regular/large
+icon ladder; these passive caps do not reserve button hit targets.
+
+A link is [`UI.Button`](../reference/api.md#uibutton) with `appearance = "link"`.
+Its normal activation callback owns navigation; the framework neither interprets
+URLs nor chooses where to send the player. For example, inside an app component:
+
+```lua
+UI.Button("Guide")({
+    label = "Open guide",
+    appearance = "link",
+    onActivate = function() page:set("guide") end,
+})
+```
+
+The [keys and labels recipe](../../examples/gallery/scenarios/shortcut_hint.luau)
+also appears in the existing Actions gallery page.
 
 ## Text entry
 

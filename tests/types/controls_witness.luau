@@ -160,6 +160,14 @@ local _anonymousLabel = app.controls.Label({
 		return use(labelTitle)
 	end,
 })
+local _hint = app.controls.ShortcutHint("Shortcut")({ action = "Activate", controlSize = "compact" })
+local _explicitHint = app.controls.ShortcutHint({
+	keys = { { "Ctrl", "K" }, { "F1" } },
+	separator = function(use)
+		return use(labelTitle)
+	end,
+	over = "media",
+})
 local _chip = app.controls.Chip("Tag")({
 	controlSize = "compact",
 	appearance = "utility",

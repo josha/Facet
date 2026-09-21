@@ -481,5 +481,26 @@ Then call `expanded:set(true)` normally. All surviving nodes whose positions
 change share the policy. New and removed branches keep their own transition.
 The preset and reduced-motion behavior come from the host's motion authority.
 
+## 15.14 A grid inside its own container
+
+The [container-grid recipe](../../examples/gallery/scenarios/container_grid.luau)
+uses the existing `contribution.syncGeometry(rectOf, node)` seam. The panel's
+solved outer width selects 3, 6 or 12 columns with `Facet.adaptive.sizeClass`.
+The solved `Cells` row supplies the track width; subtracting padding from the outer
+box would miss theme frame insets. Both measured widths write Compose cells only
+when they change.
+
+Read theme spacing in a tracked formula, then divide the inner row after gutters.
+Clamp each cell's requested span to the current column count. A span of zero uses
+`UI.When` to remove the cell; positive spans share a wrapping HStack. No viewport
+or device name decides a panel's columns. Debug bands use a keyed collection, so
+resizing with guides already visible changes their number too. The caption stays
+unmounted until the first positive measurement.
+
+The recipe is also in the existing Adaptive gallery page. Its buttons resize the
+sidebar, toggle guide bands and remove/restore the replay cell. Scenario reports
+read the committed geometry and mounted caption; requested sizes alone are not
+proof of what the container received.
+
 Next: [chapter 2](02-architecture.md) shows how the modules fit together, and
 [chapter 3](03-getting-started.md) builds a working screen.

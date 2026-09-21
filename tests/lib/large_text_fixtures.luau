@@ -629,6 +629,13 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "ShortcutHint",
+		class = "ShortcutHint",
+		build = function(core)
+			return harness.Controls.ShortcutHint(core, { id = "Ctl", keys = { { "Ctrl", "K" }, { "F1" } } }).blueprint
+		end,
+	},
+	{
 		id = "Label",
 		class = "Label",
 		build = function(core)

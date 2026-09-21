@@ -329,11 +329,12 @@ t.describe("native key names and provider lifetime", function()
 		local hint = require("../src/input/hint")
 		local system = rig(
 			{ Return = "", Space = "  ", ButtonA = "Cross", LeftShift = "LeftShift", Q = "A" },
-			{ ButtonA = "rbxassetid://101" }
+			{ ButtonA = "rbxassetid://101", Space = "  " }
 		)
 		t.expect(names.label("Q")).toBe("A")
 		t.expect(names.label("Return")).toBe("Enter")
 		t.expect(names.label("Space")).toBe("Space")
+		t.expect(names.image("Space")).toBeNil()
 		t.expect(names.label("LeftShift")).toBe("Shift")
 		t.expect(hint.labelOf({ keyCode = "ButtonA" })).toBe("Cross")
 		t.expect(hint.labelOf({ keyCode = "ButtonA", displayName = "Own button" })).toBe("Own button")

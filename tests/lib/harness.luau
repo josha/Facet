@@ -59,6 +59,7 @@ local CONTROL_MODULES = {
 	"combo_box",
 	"disclosure_group",
 	"label",
+	"shortcut_hint",
 	"level_picker",
 	"menu",
 	"navigation_stack",

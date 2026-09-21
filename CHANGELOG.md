@@ -13,6 +13,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add passive `UI.ShortcutHint` keycaps, borrowing live action names and native
+  key labels/images. Shared input lookup follows device class and the hint's own
+  surface, including passive contexts; revision changes update bindings in place.
+  Provider teardown is safe out of order. Keys use theme tint and icon sizes,
+  with no decoration slot or interactive floor. Existing Actions and Adaptive
+  pages now include keys/labels/link navigation and a measured container grid;
+  the grid uses actual inner geometry and updates already-visible debug bands.
+
 - `UI.Label.title` accepts Compose readables and tracked functions; visual text,
   accessible text and dumps update together without rebuilding. Semantic icon
   names use package art with the shared glyph fallback; asset URLs remain Images.

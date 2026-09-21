@@ -382,7 +382,7 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	end
 	api.Stage = require("./compose_stage").new(runtime.create("Stage"))
 	local serial = 0
-	local function composite(name, build)
+	local function composite(name: string, build: (any, any, any) -> any)
 		local function construct(spec, label)
 			assert(type(spec) == "table", `Facet {name}: expected a property table`)
 			serial += 1
@@ -436,6 +436,7 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	api.VirtualList = composite("VirtualList", require("../controls/virtual_list").build)
 	api.VirtualGrid = composite("VirtualGrid", require("../controls/virtual_grid").build)
 	api.Button = composite("Button", button.build)
+	api.ShortcutHint = composite("ShortcutHint", require("../controls/shortcut_hint").build)
 	api.Label = composite("Label", require("../controls/label").build)
 	api.Stepper = composite("Stepper", require("../controls/stepper").build)
 	api.Slider = composite("Slider", require("../controls/slider").build)

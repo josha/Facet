@@ -26,7 +26,7 @@
 --     focusMoved: (path) -> (),
 --     syncGeometry: (rectOf, rootNode) -> (),
 --     keepVisibleOffset: Readable<number>?,
---     bindActionSystem: (actionSystem) -> (),
+--     bindActionSystem: (actionSystem, surfaceContextOf?) -> (),
 --     bindController: (controller) -> (),
 --     bindFocusGraph: (focusGraph) -> (),
 --     bindMotion: (motionClock, now?) -> (),
@@ -94,7 +94,7 @@ export type Bundle = {
 	focusMoved: ((path: string) -> ())?,
 	syncGeometry: ((rectOf: (string) -> any, rootNode: any?) -> ())?,
 	keepVisibleOffset: any?, -- Readable<number>
-	bindActionSystem: ((actionSystem: any) -> ())?,
+	bindActionSystem: ((actionSystem: any, surfaceContextOf: (() -> any)?) -> ())?,
 	-- bindController (B-VAL2): hands the control the render controller so it can
 	-- reach NATIVE adapter capabilities the renderer owns — specifically
 	-- `attachDragDetector`, the UIDragDetector host required by

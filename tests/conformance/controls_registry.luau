@@ -2103,6 +2103,18 @@ local registry: { Entry } = {
 			hotSwitch = { "CollapsibleView hot-switch: in-flight state resolves CARRY or CANCEL on a class flip" },
 		},
 	},
+	{
+		name = "ShortcutHint",
+		kind = "composite",
+		module = "src/controls/shortcut_hint.luau",
+		export = "UI.ShortcutHint",
+		spec = "tests/shortcut_hint.spec.luau",
+		conformance = "tests/shortcut_hint.spec.luau",
+		docsAnchor = "UI.ShortcutHint",
+		dumpFunction = "function dump",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

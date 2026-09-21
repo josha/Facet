@@ -1797,6 +1797,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- One coordinator per surface; springs exist only for declared transitions.
 		-- surfaceRef is filled once the handle exists, before mount feedback fires.
 		local surfaceRef: any = nil
+		local surfaceContext: any = nil
 		local coordinator = transitionsLib.new({
 			core = core,
 			clock = motionClock,
@@ -2111,7 +2112,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- always bind the action system into every contribution
 			-- (idempotent — e.g. TextInput's edit-mode sink context uses it)
 			if c.bundle.bindActionSystem ~= nil then
-				c.bundle.bindActionSystem(actionSystem)
+				c.bundle.bindActionSystem(actionSystem, function()
+					return surfaceContext
+				end)
 			end
 			-- hand over the render controller too (B-VAL2): a control that adopts a
 			-- native adapter capability (UIDragDetector) reaches it through the
@@ -2481,6 +2484,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			sink = kind == "modal"
 				or (not isPassive and ((opts and opts.sinkNavigation) == true or keyboardNavigation)),
 		})
+		surfaceContext = context
 		local navigate = context.createAction("Navigate", "Direction1D")
 		local activate = context.createAction("Activate", "Bool")
 		local cancel = context.createAction("Cancel", "Bool")

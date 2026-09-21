@@ -43,7 +43,7 @@ DECLARED_ENTRIES = {
     "Alert", "AsyncImage", "Button", "Callout", "Chip", "CollapsibleView",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
     "NavigationStack", "PageView", "Picker", "PopupButton", "ProgressView",
-    "RadialMenu", "Rating", "RowActions", "Sheet", "Slider", "SplitButton",
+    "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Slider", "SplitButton",
     "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
     "VirtualList",
 }
@@ -183,6 +183,10 @@ _EROSION_PROBES = [
     ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceCenter = { x0 = 0, y0 = 0, x1 = "8", y1 = 8 } })'),
     ("AsyncImage", 'app.controls.AsyncImage({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceScale = "2" })'),
     ("AsyncImage", 'app.controls.AsyncImage("Art")({ key = "art", provider = { acquire = function(): never error("analyzer only") end }, sliceScale = "2" })'),
+    ("ShortcutHint", 'app.controls.ShortcutHint({ action = 12 })'),
+    ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ keys = {{"K"}}, controlSize = "huge" })'),
+    ("ShortcutHint", 'app.controls.ShortcutHint({ keys = {{"K"}}, separator = 42 })'),
+    ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ action = "Activate", over = "photo" })'),
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
 ]
 

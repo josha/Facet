@@ -99,7 +99,7 @@ function key_names.image(keyCode: string?): string?
 		return nil
 	end
 	local answer = ask(keyCode)
-	return if type(answer) == "string" and answer ~= "" then answer else nil
+	return if type(answer) == "string" and string.match(answer, "%S") ~= nil then answer else nil
 end
 
 return key_names

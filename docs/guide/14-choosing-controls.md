@@ -406,3 +406,9 @@ owns priority, overlap avoidance and edge direction; it adds no focus targets.
 For a single nearby world interaction, Roblox's native ProximityPrompt supports
 hold-to-confirm through a positive HoldDuration. Use that platform mechanism;
 Facet's Menu/RadialMenu remains appropriate when the target offers several actions.
+
+### Showing a shortcut
+
+Use `UI.ShortcutHint` for a passive action hint or explicit key chord. It adds no
+focus stop or binding. Use a Button with `appearance = "link"` for a navigational
+verb; the caller owns its destination. See the [controls guide](16-controls.md#shortcut-hints-and-links).

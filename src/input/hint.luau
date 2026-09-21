@@ -9,7 +9,7 @@
 --     at the foot of this comment)
 --   Tracks env's effectiveInput fact and resolves the action's preferredBinding
 --   for that input class (src/input/actions.luau). The label prefers the
---   binding's displayName, falling back to its keyCode / uiButton; when no
+--   binding's displayName, native/shared readable name, then keyCode / uiButton; when no
 --   binding matches the current input class the hint is "" (nil-tolerant, per the
 --   engine spike). It is a plain reactive memo — mount it as any Text's `text`
 --   prop; a preferredInput flip re-labels with NO remount.

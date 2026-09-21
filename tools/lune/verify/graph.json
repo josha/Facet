@@ -8291,7 +8291,9 @@
      "adaptive::A-AL3: pure adaptive decisions (no device names)::a ten-foot display never resolves the densest class, however wide it is",
      "adaptive::A-AL2: AdaptiveStack changes axis without rebuilding anything::flipping the bound axis re-solves WITHOUT a factory rerun or a remount",
      "adaptive::A-AL1: ViewThatFits::measures against the CONTAINER's space, not the viewport's",
-     "adaptive::A-AL1: ViewThatFits::an unchosen candidate's focusables are removed from focus order"
+     "adaptive::A-AL1: ViewThatFits::an unchosen candidate's focusables are removed from focus order",
+     "container_grid::measured container grid recipe::three simultaneous widths choose their own columns and measured tracks",
+     "container_grid::measured container grid recipe::debug-on resize updates actual bands and zero span removes/re-enters a branch"
     ],
     "shell": "test -f src/layout/adaptive.luau && grep -q \"adaptive = require\" src/init.luau && grep -q \"AdaptiveStack\" src/blueprint_schema.luau && grep -q \"ViewThatFits\" src/blueprint_schema.luau && grep -q \"chosenCandidate\" src/layout/solver.luau && grep -q \"filterHidden\" src/present/presenter.luau"
    },
@@ -8299,7 +8301,7 @@
    "evidence": "artifacts/authoring-adaptive-ui/a-al2-adaptive.json",
    "id": "authoring-adaptive-ui::adaptive-layout",
    "name": "adaptive-layout",
-   "note": "adaptive-layout: 4 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/a-al2-adaptive.json must exist. Requirements: UI-LAYOUT-001.",
+   "note": "adaptive-layout: 6 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/a-al2-adaptive.json must exist. Requirements: UI-LAYOUT-001.",
    "phase": "authoring-adaptive-ui",
    "releaseBlocking": false,
    "requirements": [
@@ -8404,7 +8406,10 @@
      "display_controls::B-DSP3: PopupButton adapts its presentation::the pure rule prefers a sheet on touch, inline when short, menu otherwise",
      "display_controls::B-DSP3: PopupButton adapts its presentation::a sheet anchors to the bottom edge with visually larger rows",
      "display_controls::B-DSP3: PopupButton adapts its presentation::every presentation keeps selection, Cancel, and the tap-away machinery",
-     "display_controls::B-DSP3: PopupButton adapts its presentation::a LIVE touch class flips it to a sheet with no rebuild of the trigger"
+     "display_controls::B-DSP3: PopupButton adapts its presentation::a LIVE touch class flips it to a sheet with no rebuild of the trigger",
+     "shortcut_hint::ShortcutHint public construction::owns no binding, context or focus target beyond its surface",
+     "shortcut_hint::ShortcutHint public construction::names its own passive surface before competing chrome",
+     "display_controls::Label: a live title and a semantic icon name::refuses an unknown semantic icon instead of painting an unnamed fallback"
     ],
     "shell": "test -f src/controls/progress_view.luau && test -f src/controls/label.luau && test -f src/controls/picker.luau && test -f src/controls/disclosure_group.luau && grep -q \"resolvePresentation\" src/controls/picker.luau && grep -q \"focusOn\" src/controls/disclosure_group.luau && grep -q \"resolvePresentation\" src/controls/popup_button.luau"
    },
@@ -8412,7 +8417,7 @@
    "evidence": "artifacts/authoring-adaptive-ui/b-dsp-display-controls.json",
    "id": "authoring-adaptive-ui::display-and-selection-controls",
    "name": "display-and-selection-controls",
-   "note": "display-and-selection-controls: 9 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/b-dsp-display-controls.json must exist. Requirements: UI-PARADIGM-001, UI-STYLE-001.",
+   "note": "display-and-selection-controls: 12 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/b-dsp-display-controls.json must exist. Requirements: UI-PARADIGM-001, UI-STYLE-001.",
    "phase": "authoring-adaptive-ui",
    "releaseBlocking": false,
    "requirements": [

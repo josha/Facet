@@ -522,6 +522,8 @@ local SCENARIOS = {
 	-- and two fixed-size pictures, which is exactly the shape a largest-preference
 	-- sweep is for
 	"leaf_capabilities",
+	"shortcut_hint",
+	"container_grid",
 	-- scaffold: new control scenarios are appended above this line
 }
 

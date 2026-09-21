@@ -5093,8 +5093,14 @@ contribution at present time (idempotent).
 attaches to its root (`contribution.attach(rootBlueprint, bundle)`; every field
 optional): `focusGroups(rootNode)`, `handleActivate(path, meta)`,
 `navigateIntercept(direction)`, `focusMoved(path)`, `syncGeometry(rectOf)`,
-`keepVisibleOffset` (a readable number), `bindActionSystem(actionSystem)`,
+`keepVisibleOffset` (a readable number), `bindActionSystem(actionSystem, surfaceContextOf?)`,
 `bindFocusGraph(focusGraph)`, and the **paradigm-axis seams** (UI-PARADIGM-001):
+- `bindActionSystem(system, surfaceContextOf?)` receives an optional getter for
+  this surface's own context. It initially returns nil: contributions bind before
+  the context exists. The getter starts answering before the surface publishes
+  its actions. Existing one-argument contributions work unchanged; binding may
+  repeat during structural refresh, so keep it idempotent.
+
 - `bindFocusGraph(focusGraph)` — the presenter hands over the screen's focus graph
   at the same moment it binds the action system and the controller, for the one
   case a control has to **move** focus rather than follow it: the data under a
@@ -5395,8 +5401,17 @@ for input contexts — constitution E-17). Prefer the setters over writing
 `context.enabled`/`.sink` directly: a bare field write works headlessly and is
 dead on the real engine adapter.
 
+`system.actionNamed(name, preferredContext?)` resolves a non-destroyed preferred
+context first, even if disabled; otherwise it uses enabled contexts by descending
+priority, with creation order breaking ties. This names a binding; it does not
+change input arbitration. `system.revision` is a Compose cell advanced after
+context/action/binding changes that affect lookup, and native engine preferred
+binding changes. `preferredBinding(kind)` chooses a live binding from that
+resolved device class first; an engine preference breaks ties only within it.
+Non-touch callers can fall back to the first real key; touch has no key fallback.
+
 **Lifecycle.** The system is a **session object**: it holds every context it
-created, every action on them, and one core signal per action. It lives as long
+created, every action on them, and the action state/revision Compose cells. It lives as long
 as the surface it serves, and it is put down explicitly.
 
 - `system.contextCount() -> number` — how many contexts it is still holding.
@@ -5511,9 +5526,10 @@ auto-repeat finding that surfaced it.
 `Facet.inputHint(core, env, action, opts?)` — a reactive input-affordance label
 for an action, answered as a Compose readable string. It tracks the
 environment's `effectiveInput` fact and resolves the action's
-`preferredBinding(...)`, returning that binding's `displayName` (falling back to
-its `keyCode` / `uiButton`), or `""` when no binding matches the current input
-class (nil-tolerant). Bind the readable to a `UI.Text` `text` prop and the label
+`preferredBinding(...)`. Labels prefer the binding's explicit `displayName`, then
+UserInputService's native name, a shared readable name, and the raw key/uiButton.
+Whitespace-only or unchanged enum answers do not replace the readable fallback.
+No binding yields `""`; non-touch classes may fall back to another actual key. Bind the readable to a `UI.Text` `text` prop and the label
 re-flips with no remount when the player switches input device:
 
 ```lua
@@ -5539,6 +5555,10 @@ KEY, it differs by VERB: you tap, you do not press Enter.
 
 An unknown `style` is refused at the call, naming the two legal values — the
 same rule `rootPolicy` and `cancelPolicy` follow. So is an unknown `opts` key.
+
+This helper tracks input-class changes for the action object it was given;
+it does not subscribe to same-class binding mutations. Use `UI.ShortcutHint`
+when the affordance must follow a live semantic action lookup and rebinding.
 
 **`opts.scope`** takes an owner and disposes the returned formula with it. Omit
 it and the active Compose owner has the memo; outside any owner, disposing it is
@@ -8701,6 +8721,54 @@ end)
 
 `dump()` reports `{ schema, id, title, icon, requestedPresentation,
 effectivePresentation, degradedToTitle, semanticText }`.
+
+### `UI.ShortcutHint`
+
+A passive row of keycaps. `UI.ShortcutHint { … }` returns its node; `ref` receives
+`{ api, dump }`. It creates no context, binding, focus target or input handler.
+Give exactly one of `action = "Activate"` (a static semantic name) or
+`keys = {{ "Ctrl", "K" }, { "F1" }}` (static explicit alternatives).
+
+The action form reads its own mounted surface's action first, even while passive;
+otherwise it finds the highest-priority enabled context declaring that name.
+Naming a key does not claim the action would win input arbitration. Binding and
+context changes update it without rebuilding. The resolved input class selects
+the binding; a live engine preference only breaks ties within that class. Touch
+hides the action form, including when the action has a touch binding.
+
+Labels prefer the binding's `displayName`, then the machine's key name, then a
+shared readable name, then the raw key. A gamepad can show the platform's own
+untinted key image. Explicit keys print the supplied words on every device.
+
+| Field | Contract |
+| --- | --- |
+| `id` | Optional identity; a named constructor is the usual spelling. |
+| `action`, `keys` | Exactly one static form, as above; names/chords must be nonempty. |
+| `separator` | Bound string between explicit alternatives, default `"or"`; keys-only. |
+| `controlSize` | Bound `compact`, `regular`, or `large`; defaults regular. |
+| `over` | Construction-only `"media"`; also applies to the joining word. |
+| `env` | Optional surface environment; supply it when the app serves ambiguous surfaces. |
+
+Caps use the theme's icon-size ladder plus `space.xs`, with a strong tinted plate,
+authored control corner and hairline. They have no package decoration slot and
+reserve no interactive hit floor. Letters grow with the text preference; native
+key images retain the theme-sized square. The mounted Compose owner disposes
+the display formulas and borrows the action system and caller values.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+app.mount(function()
+    return UI.HStack("HintRow")({
+        gap = "s",
+        UI.Text("Instruction")({ text = "Open the menu" }),
+        UI.ShortcutHint("OpenHint")({ action = "Activate" }),
+    })
+end)
+```
+
+`dump()` reports `schema`, `id`, `form`, `action`, `alternatives`, `separator`,
+`visible`, `glyph`, `controlSize`, and `over`.
 
 ### `UI.Picker`
 

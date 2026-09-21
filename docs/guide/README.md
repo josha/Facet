@@ -191,7 +191,8 @@ owner that owns its resources. Start with
 | `UI.Toggle` | A two-state switch primitive. Use UI.Toggle for checkbox and toggle-button presentations. | [api](../reference/api.md#toggle) |
 | `UI.TextField` | Native single-line or multiline text-entry primitive. | [api](../reference/api.md#textfield) |
 | `UI.Path` | Draws a stroked path from points or from `pathShapes`. | [api](../reference/api.md#path) |
-| `UI.Label` | An icon-and-text pair that compacts when space runs out. | [api](../reference/api.md#uilabel) |
+| `UI.ShortcutHint` | Passive live action keycaps or explicit shortcut alternatives. | [api](../reference/api.md#uishortcuthint) |
+| `UI.Label` | An icon-and-text pair with a bound semantic title. | [api](../reference/api.md#uilabel) |
 | `UI.Chip` | A selectable filter or action pill. | [api](../reference/api.md#uichip) |
 | `UI.Slider` | A continuous value you drag, step, or adjust. | [api](../reference/api.md#uislider) |
 | `UI.Stepper` | A value with minus and plus buttons. | [api](../reference/api.md#uistepper) |
