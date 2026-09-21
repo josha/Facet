@@ -1879,6 +1879,7 @@ local TINT_ROLE_TOKEN: { [string]: string } = {
 	contentSecondary = "$ContentSecondary",
 	accent = "$Accent",
 	onAccent = "$OnAccent",
+	onDanger = "$OnDanger",
 	control = "$Control",
 	controlSelected = "$ControlSelected",
 	onSelected = "$OnSelected",
@@ -2004,6 +2005,10 @@ function sheet_model.paletteColor(theme: any, role: string): any
 	local extra = x[role]
 	if type(extra) == "table" and type(extra.r) == "number" then
 		return { r = extra.r, g = extra.g, b = extra.b }
+	end
+	if role == "onDanger" then
+		local _, on = dangerPair(if type(c) == "table" then c else {})
+		return { r = on.r, g = on.g, b = on.b }
 	end
 	if role == "danger" then
 		local danger = dangerPair(if type(c) == "table" then c else {})

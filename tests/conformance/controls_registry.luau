@@ -2174,6 +2174,30 @@ local registry: { Entry } = {
 			hotSwitch = false, -- passive members and a command Button own no captured interaction
 		},
 	},
+	{
+		name = "StatusIndicator",
+		kind = "composite",
+		module = "src/controls/status_indicator.luau",
+		export = "UI.StatusIndicator",
+		spec = "tests/status_indicator.spec.luau",
+		conformance = "tests/status_indicator.spec.luau",
+		docsAnchor = "UI.StatusIndicator",
+		dumpFunction = "function dump",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		name = "Badge",
+		kind = "composite",
+		module = "src/controls/badge.luau",
+		export = "UI.Badge",
+		spec = "tests/badge.spec.luau",
+		conformance = "tests/badge.spec.luau",
+		docsAnchor = "UI.Badge",
+		dumpFunction = "function dump",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

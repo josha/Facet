@@ -214,6 +214,8 @@ owner that owns its resources. Start with
 | `UI.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#uisheet) |
 | `UI.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#uipageview) |
 | `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
+| `UI.StatusIndicator` | Passive shape and color marks with optional capped counts. | [api](../reference/api.md#uistatusindicator) |
+| `UI.Badge` | Informational captions with status, icon, and media treatments. | [api](../reference/api.md#uibadge) |
 | `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
 | `UI.Avatar` | A player picture or initials, with optional presence and activation. | [api](../reference/api.md#uiavatar) |
 | `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |

@@ -325,6 +325,8 @@ local ORDER = {
 	"avatar",
 	-- Keyed roster movement, picture replacement and overflow; shared with Identity.
 	"avatar_group",
+	"status_indicator",
+	"badge",
 	-- scaffold: new control scenarios are appended above this line
 }
 

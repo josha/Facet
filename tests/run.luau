@@ -1530,6 +1530,8 @@ require("./page_view.spec")
 require("./mouse_scroll.spec")
 require("./collapsible_view.spec")
 require("./skeleton.spec")
+require("./status_indicator.spec")
+require("./badge.spec")
 require("./avatar.spec")
 require("./avatar_group.spec")
 local ok = testkit.run({

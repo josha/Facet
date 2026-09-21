@@ -6,6 +6,7 @@ local selection = require("../selection_model")
 local vocabulary = require("./control_vocabulary")
 local contribution = require("../input/contribution")
 local skeleton = require("./skeleton")
+local statusIndicator = require("./status_indicator")
 local types = require("../spec_types/avatar")
 export type Spec = types.Spec
 local avatar = {}
@@ -30,13 +31,12 @@ local KEYS = guard.keySet({
 local PRESENCES = guard.keySet({ "online", "away", "busy", "offline" })
 local FILL = table.freeze({ type = "fill", weight = 1 })
 local MARK_DIM = table.freeze({ type = "percent", fraction = 0.3 })
-local MARK_FILL = {
-	online = { role = "accent", blend = 1 },
-	away = { role = "content", blend = 1 },
-	busy = { role = "danger", blend = 1 },
-	offline = { role = "contentSecondary", blend = 1 },
+local MARKS = {
+	online = { form = "dot", status = "success" },
+	away = { form = "dash", status = "warning" },
+	busy = { form = "square", status = "error" },
+	offline = { form = "ring", status = "neutral" },
 }
-local DETAILS = { away = { w = 0.62, h = 0.22 }, offline = { w = 0.46, h = 0.46 } }
 function avatar.headshotKey(userId: number): string
 	return `rbxthumb://type=AvatarHeadShot&id={userId}&w=150&h=150`
 end
@@ -205,39 +205,6 @@ local function build(library: any, core: any, spec: any, owner: any, current: an
 		table.insert(children, spec.frame)
 	end
 	if (spec.presence ~= nil or current ~= nil) and spec.presenceMark ~= false then
-		local function state(use)
-			return use(facts).presence
-		end
-		local function detailDim(axis)
-			return function(use)
-				local shape = DETAILS[state(use)]
-				return { type = "percent", fraction = if shape then shape[axis] else 0.46 }
-			end
-		end
-		local function mark(square)
-			return UI.Box({
-				id = "Mark",
-				shape = if square then "rect" else "circle",
-				width = FILL,
-				height = if square then FILL else nil,
-				tint = function(use)
-					return MARK_FILL[state(use)] or { role = "contentSecondary", blend = 1, transparency = 1 }
-				end,
-			})
-		end
-		local function detail(circle)
-			return UI.Box({
-				id = "Detail",
-				shape = if circle then "circle" else "rect",
-				width = detailDim("w"),
-				height = if circle then nil else detailDim("h"),
-				alignH = "center",
-				alignV = "center",
-				tint = function(use)
-					return { role = "surface", blend = 1, transparency = if DETAILS[state(use)] then 0 else 1 }
-				end,
-			})
-		end
 		table.insert(
 			children,
 			UI.ZStack({
@@ -248,27 +215,25 @@ local function build(library: any, core: any, spec: any, owner: any, current: an
 				alignV = "end",
 				children = {
 					UI.When({
-						id = "MarkShape",
+						id = "Visible",
 						condition = function(use)
-							return state(use) == "busy"
+							return use(facts).presence ~= nil
 						end,
 						thenView = function()
-							return mark(true)
-						end,
-						elseView = function()
-							return mark(false)
-						end,
-					}),
-					UI.When({
-						id = "DetailShape",
-						condition = function(use)
-							return state(use) == "offline"
-						end,
-						thenView = function()
-							return detail(true)
-						end,
-						elseView = function()
-							return detail(false)
+							local function markField(key)
+								return function(use: Compose.Use): any
+									local mark = MARKS[use(facts).presence]
+									return if mark then mark[key] else nil
+								end
+							end
+							return statusIndicator.build(library, core, {
+								id = "Status",
+								form = markField("form"),
+								status = markField("status"),
+								width = FILL,
+								height = FILL,
+								cutout = true,
+							}).blueprint
 						end,
 					}),
 				},

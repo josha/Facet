@@ -201,6 +201,12 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	Avatar = function(_w)
 		return { name = "Ada Quill" }
 	end,
+	StatusIndicator = function(_w)
+		return {}
+	end,
+	Badge = function(_w)
+		return { label = "Ready" }
+	end,
 	Skeleton = function(_w)
 		return { form = "box" }
 	end,

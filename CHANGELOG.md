@@ -13,6 +13,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add passive `UI.StatusIndicator` shapes/counts and `UI.Badge` captions with live
+  status paint. Avatar presence uses the shared status shapes and cutout. Existing
+  All controls Indicators gains Status and Badges child tabs.
+
 - Add `UI.AvatarGroup` keyed player rosters with shared caller-owned picture
   requests, stacked or spread faces, and one optional overflow target. Indicators
   gains an Identity child tab alongside its existing Progress demonstrations.

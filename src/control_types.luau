@@ -16,6 +16,8 @@ local stepperControl = require("./spec_types/stepper")
 local pickerControl = require("./spec_types/picker")
 local picker_menuControl = require("./spec_types/picker_menu")
 local tab_viewControl = require("./spec_types/tab_view")
+local badgeControl = require("./spec_types/badge")
+local statusIndicator = require("./spec_types/status_indicator")
 local skeletonControl = require("./spec_types/skeleton")
 local avatarControl = require("./spec_types/avatar")
 local avatarGroupControl = require("./spec_types/avatar_group")
@@ -384,6 +386,8 @@ export type Controls = {
 	TabView: Constructor<tab_viewControl.Spec>,
 	Label: Constructor<labelControl.Spec>,
 	ShortcutHint: Constructor<shortcutHint.Spec>,
+	Badge: Constructor<badgeControl.Spec>,
+	StatusIndicator: Constructor<statusIndicator.Spec>,
 	Skeleton: Constructor<skeletonControl.Spec>,
 	Avatar: Constructor<avatarControl.Spec>,
 	AvatarGroup: Constructor<avatarGroupControl.Spec>,

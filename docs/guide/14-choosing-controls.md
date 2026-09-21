@@ -423,3 +423,9 @@ Facet's Menu/RadialMenu remains appropriate when the target offers several actio
 Use `UI.ShortcutHint` for a passive action hint or explicit key chord. It adds no
 focus stop or binding. Use a Button with `appearance = "link"` for a navigational
 verb; the caller owns its destination. See the [controls guide](16-controls.md#shortcut-hints-and-links).
+
+Use StatusIndicator for a small shape or capped unread count. Its form and name
+carry meaning alongside color. Use Badge for an informational word such as New,
+Beta, or Offline, optionally with a status mark or icon. Neither generates a focus
+stop; use a Button or Chip when the player must act on the label. Avatar presence
+uses the same StatusIndicator shapes with a surface-colored cutout.

@@ -532,6 +532,8 @@ local SCENARIOS = {
 	"avatar",
 	-- Mounted rosters, overflow counts and their real recipe command buttons.
 	"avatar_group",
+	"status_indicator",
+	"badge",
 	-- scaffold: new control scenarios are appended above this line
 }
 

@@ -396,6 +396,7 @@ function screen_chrome.new(ctx: Context)
 		contentSecondary = toColor3(style.extra.contentSecondary),
 		accent = toColor3(style.colors.accent),
 		onAccent = toColor3(style.colors.onAccent),
+		onDanger = toColor3((select(2, sheet_model.dangerPair(style.colors)))),
 		control = toColor3(style.extra.control),
 		controlSelected = toColor3(style.extra.controlSelected),
 		-- the theme's OWN readable partner for its selected surface, taken from

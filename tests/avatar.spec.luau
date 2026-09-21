@@ -23,7 +23,7 @@ local function presencePart(w, base, name)
 			return value
 		end
 	end
-	error("missing presence " .. name)
+	return nil
 end
 
 local function mount(w, spec)
@@ -212,6 +212,17 @@ t.describe("Avatar", function()
 			end
 		end
 	end)
+	t.it("uses a shared status cutout inside the reserved presence corner", function()
+		local w = world.new()
+		mount(w, { name = "Ada", presence = "online", onActivate = function() end })
+		local base = "/S/Face+target/Face"
+		local cutout, mark = presencePart(w, base, "Cutout"), presencePart(w, base, "Mark")
+		t.expect(cutout.props.tint.role).toBe("surface")
+		t.expect(cutout.props.surface).toBeNil()
+		t.expect(cutout.rect.w).toBe(13)
+		t.expect(mark.rect.w).toBe(cutout.rect.w - 2)
+		t.expect(mark.rect.x).toBe(cutout.rect.x + 1)
+	end)
 	t.it("quarantines invalid presence coherently and recovers through valid and nil", function()
 		local w = world.new()
 		local presence = Compose.cell("online")
@@ -237,7 +248,7 @@ t.describe("Avatar", function()
 		t.expect(record.dump().presence).toBeNil()
 		t.expect(record.dump().presenceMark).toBe(false)
 		t.expect(mountedLabel(w, base)).toBe("Ada")
-		t.expect(presencePart(w, base, "Mark").props.tint.transparency).toBe(1)
+		t.expect(presencePart(w, base, "Mark")).toBeNil() -- nil presence owns no shared mark
 		t.expect(presence:peek()).toBeNil()
 	end)
 	t.it("recovers the mounted presence branch and circle classification after a refused value", function()

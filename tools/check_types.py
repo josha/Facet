@@ -40,10 +40,10 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # `namespace_entries()` itself whenever a control is deliberately added or
 # retired.
 DECLARED_ENTRIES = {
-    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Button", "Callout", "Chip", "CollapsibleView",
+    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
     "NavigationStack", "PageView", "Picker", "PopupButton", "ProgressView",
-    "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Slider", "SplitButton",
+    "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "StatusIndicator", "Slider", "SplitButton",
     "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
     "VirtualList",
 }
@@ -193,6 +193,12 @@ _EROSION_PROBES = [
     ("AvatarGroup", 'app.controls.AvatarGroup({ items = {{ id = 42, name = "Ada" }} })'),
     ("AvatarGroup", 'app.controls.AvatarGroup("Team")({ items = {}, layout = "grid" })'),
     ("AvatarGroup", 'app.controls.AvatarGroup({ items = {}, onOverflow = "show" })'),
+    ("StatusIndicator", 'app.controls.StatusIndicator({ form = "triangle" })'),
+    ("StatusIndicator", 'app.controls.StatusIndicator("Count")({ count = "4" })'),
+    ("StatusIndicator", 'app.controls.StatusIndicator({ status = "busy" })'),
+    ("Badge", 'app.controls.Badge({ label = 4 })'),
+    ("Badge", 'app.controls.Badge("Ready")({ label = "Ready", appearance = "emphasis" })'),
+    ("Badge", 'app.controls.Badge({ label = "Ready", iconPosition = "above" })'),
     ("Skeleton", 'app.controls.Skeleton({ form = "square" })'),
     ("Skeleton", 'app.controls.Skeleton("Load")({ form = "line", controlSize = "huge" })'),
     ("ShortcutHint", 'app.controls.ShortcutHint({ action = 12 })'),

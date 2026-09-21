@@ -1245,6 +1245,26 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "StatusIndicator",
+		class = "StatusIndicator",
+		build = function(core: any)
+			return harness.Controls.StatusIndicator(
+				core,
+				{ id = "Ctl", count = 123, status = "error", name = "Unread" }
+			).blueprint
+		end,
+	},
+	{
+		id = "Badge",
+		class = "Badge",
+		build = function(core: any)
+			return harness.Controls.Badge(
+				core,
+				{ id = "Ctl", label = "Ready for the next race", icon = "status.info", status = "warning" }
+			).blueprint
+		end,
+	},
 	-- scaffold: new control fixtures are appended above this line
 }
 

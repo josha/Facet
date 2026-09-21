@@ -630,7 +630,7 @@ selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `onSelected` — the label colour the theme itself chose to read on `controlSelected`, gated at 4.5:1 — `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `onSelected` — the label colour the theme itself chose to read on `controlSelected`, gated at 4.5:1 — `danger`, `onDanger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -12360,3 +12360,59 @@ return UI.AvatarGroup("Party")({
     overflowLabel = localizedMore,
 })
 ```
+
+### `UI.StatusIndicator`
+
+`app.controls.StatusIndicator("Unread")({ count = unread, status = "error" })`
+paints a passive mark without an input target or ornament surface.
+
+| Field | Contract |
+|---|---|
+| `form` | Bound `dot` (default), `ring`, `square`, or `dash`. Discs and holes stay circular across themes. |
+| `status` | Bound `neutral` (default), `info`, `success`, `warning`, `error`, or `accent`. |
+| `count`, `max` | Optional bound finite whole count ≥0; static whole cap ≥1, default99. Above the cap the text is `99+`. Counted marks accept dot or square only. |
+| `cutout` | Static boolean; adds a surface-colored backing and a hairline inset inside the reserved footprint. |
+| `name` | Optional nonempty semantic word. |
+| `controlSize` | Bound compact (default), regular, or large; uses the theme's icon-size ladder. A count's height is a floor and can grow with text. |
+| `width`, `height` | Optional bound dimensions for a parent-reserved footprint. |
+
+The six statuses reuse existing palette pairs: neutral uses contentSecondary/surface,
+warning content/surface, error danger/onDanger, and info/success/accent accent/onAccent.
+Shape and a readable name distinguish meanings that share a color. `onDanger` is
+also a public tint role resolved through the theme's existing destructive pair.
+A cutout spends the page surface color; it is not a transparent hole through arbitrary art.
+
+`ref` receives `{ api, dump }`; `api.semanticText` is a readable. `dump()` returns
+`schema`, `id`, `form`, `status`, displayed `count`, `max`, `cutout`, `name`,
+`controlSize`, and `semanticText`. This diagnostic semantic text does not itself
+create native text or an operating-system accessibility node. Bound form, status,
+count and rung share one checked answer: invalid updates retain the prior paint
+and semantic values, preserve the caller's source, and recover on a legal value.
+
+### `UI.Badge`
+
+`app.controls.Badge("Ready")({ label = "Ready", icon = "status.info" })` is an
+informational caption with no generated focus stop or activation behavior.
+
+| Field | Contract |
+|---|---|
+| `label`, `icon` | Bound caption and/or static semantic icon name. Initial content must be nonempty; an icon-only badge requires a nonempty `name`. The caller owns meaningful later caption values. |
+| `iconPosition` | leading (default) or trailing; requires an icon. |
+| `appearance` | standard (default), status (adds a shared StatusIndicator), or utility (no plate). |
+| `status` | Bound StatusIndicator vocabulary, default neutral. |
+| `corners` | pill or square; absent uses a pill. |
+| `controlSize` | Bound compact (default), regular, or large; an icon-size height floor, not a cap on text growth. |
+| `over` | media uses the opaque surfaceStrong/contentStrong pair, overriding the status pair. |
+| `name` | Optional semantic word; required for icon-only content. |
+
+Every plated Badge owns a surface-less tinted Box; package badge-slot art remains
+available to existing `Text.surface = "badge"` sites. Absent, static and bound
+neutral all use control/content. Non-neutral statuses use StatusIndicator's pair;
+utility uses secondary lettering. The caption can shrink and requests disclosure.
+Small icon art and an ASCII glyph share a hugging box. Live status changes switch
+the visible representation so a status plate's lettering remains readable; this
+is not generic per-instance recoloring of semantic assets.
+
+`ref.api.semanticText` and `ref.dump()` expose the current checked label/status/rung
+and authored appearance, icon side, corners, over and name. As with StatusIndicator,
+passive diagnostic semantics do not promise native or OS accessibility delivery.

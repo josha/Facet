@@ -62,6 +62,8 @@ local POST_ADR_NAMES: { string } = {
 	"Composition",
 	"Region",
 	"ShortcutHint",
+	"StatusIndicator",
+	"Badge",
 	"Skeleton",
 	"Avatar",
 	"AvatarGroup",

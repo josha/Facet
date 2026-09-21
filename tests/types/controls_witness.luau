@@ -9,6 +9,7 @@ local coreTypes = require("../../src/core/contract")
 local navigationTypes = require("../../src/spec_types/navigation_stack")
 local pickerTypes = require("../../src/spec_types/picker")
 local levelPickerTypes = require("../../src/spec_types/level_picker")
+local statusTypes = require("../../src/spec_types/status_indicator")
 local primitiveTypes = require("../../src/blueprint")
 local _circleBox: primitiveTypes.BoxSpec = {
 	shape = "circle" :: "circle",
@@ -169,6 +170,23 @@ local _anonymousLabel = app.controls.Label({
 		return use(labelTitle)
 	end,
 })
+local statusWord =
+	Facet.Compose.cell("neutral" :: "neutral" | "info" | "success" | "warning" | "error" | "accent" | nil)
+local _status = app.controls.StatusIndicator("Unread")({ count = Facet.Compose.cell(4), status = statusWord, max = 99 })
+local _anonymousStatus = app.controls.StatusIndicator({
+	form = "ring",
+	status = function(use: coreTypes.Use): statusTypes.Status?
+		return if use(statusWord) == "error" then "error" else "neutral"
+	end,
+	cutout = true,
+	ref = function(record)
+		local _text = record.api.semanticText:peek()
+	end,
+})
+local _badge =
+	app.controls.Badge("Ready")({ label = Facet.Compose.cell("Ready"), status = statusWord, appearance = "status" })
+local _anonymousBadge =
+	app.controls.Badge({ icon = "status.info", name = "Information", iconPosition = "trailing", over = "media" })
 local _skeleton = app.controls.Skeleton("Loading")({ form = "line", lines = 3, controlSize = "compact" })
 local _circleSkeleton = app.controls.Skeleton({
 	form = "circle",
