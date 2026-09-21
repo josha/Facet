@@ -359,6 +359,33 @@ describe("Screen preserves normalized fill metrics", function()
 		end)
 	end
 	for _, invalid in { -1, math.huge, 0 / 0 } do
+		it("releases an initial render refused by metric " .. tostring(invalid) .. " and remounts", function()
+			local world = require("./lib/world")
+			local snapshot = require("../src/themes/snapshot")
+			local metrics = table.clone(snapshot.neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = invalid
+			local w = world.new({ themeMetrics = metrics })
+			local ok, err = pcall(function()
+				w.present(function()
+					return w.UI.Screen("S")({ width = { type = "fill", min = "targetSizes.minimum" } })
+				end)
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "fill min must resolve to a finite nonnegative number", 1, true) ~= nil).toBe(
+				true
+			)
+			expect(w.adapter.liveCount()).toBe(0)
+			expect(w.adapter.rootCount()).toBe(0)
+			w.env:set("themeMetrics", snapshot.neutral())
+			w.present(function()
+				return w.UI.Screen("S")({ width = { type = "fill", min = "targetSizes.minimum" } })
+			end)
+			expect(w.adapter.node("/S").rect.w).toBe(390)
+			w.close()
+			expect(w.adapter.liveCount()).toBe(0)
+			expect(w.adapter.rootCount()).toBe(0)
+		end)
 		it("refuses a nonfinite or negative normalized metric " .. tostring(invalid), function()
 			local snapshot = require("../src/themes/snapshot")
 			local metrics = table.clone(snapshot.neutral())
@@ -369,6 +396,42 @@ describe("Screen preserves normalized fill metrics", function()
 			end)).toBe(false)
 		end)
 	end
+	it("keeps the render error and releases the mount when target teardown throws", function()
+		local world = require("./lib/world")
+		local snapshot = require("../src/themes/snapshot")
+		local target = require("./lib/fake_target").new()
+		local destroyRoot = target.destroyRoot
+		target.destroyRoot = function(root)
+			destroyRoot(root)
+			error("injected target teardown failure")
+		end
+		local metrics = table.clone(snapshot.neutral())
+		metrics.targetSizes = table.clone(metrics.targetSizes)
+		metrics.targetSizes.minimum = -1
+		local w = world.new({
+			themeMetrics = metrics,
+			newAdapter = function()
+				return target
+			end,
+		})
+		local released = 0
+		local ok, err = pcall(function()
+			w.present(function()
+				w.Compose.cleanup(function()
+					released += 1
+				end)
+				return w.UI.Screen("S")({ width = { type = "fill", min = "targetSizes.minimum" } })
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "fill min must resolve to a finite nonnegative number", 1, true) ~= nil).toBe(
+			true
+		)
+		expect(released).toBe(1)
+		expect(target.liveCount()).toBe(0)
+		expect(target.rootCount()).toBe(0)
+		target.destroyRoot = destroyRoot
+	end)
 	it("normalizes string/sum floors and re-resolves cells and theme changes", function()
 		local world = require("./lib/world")
 		local snapshot = require("../src/themes/snapshot")

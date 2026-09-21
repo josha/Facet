@@ -1782,12 +1782,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				return not isPassive or use(responderState) == "engaged"
 			end)
 		end)
-		-- STRUCTURAL TRANSITIONS. Every surface gets a
-		-- coordinator: it costs a table, builds a spring only when a region actually
-		-- declares a transition, and it is the only thing that makes `UI.When
-		-- { transition = … }` mean anything on this screen. `surfaceRef` is filled in
-		-- once the handle exists, so an `arrive` fired at mount already names its
-		-- surface.
+		-- One coordinator per surface; springs exist only for declared transitions.
+		-- surfaceRef is filled once the handle exists, before mount feedback fires.
 		local surfaceRef: any = nil
 		local coordinator = transitionsLib.new({
 			core = core,
@@ -1941,11 +1937,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end,
 		})
-		controller.initialRender()
-		-- the coordinator's writes need handles, which only exist once the tree has
-		-- rendered; binding flushes whatever a mount-time enter already seeded, so
-		-- the first painted frame is the seeded one rather than a frame at rest
-		-- followed by a jump
+		local rendered, renderError = pcall(controller.initialRender)
+		if not rendered then
+			-- No stack handle exists yet. Release every owner, retaining the render error.
+			pcall(cleanup, { coordinator.dispose, controller.dispose, scope.dispose })
+			error(renderError, 0)
+		end
+		-- Handles now exist; flush seeded enter state before the first painted frame.
 		coordinator.bindController(controller)
 
 		-- discover the mounted input contributions in document order;
