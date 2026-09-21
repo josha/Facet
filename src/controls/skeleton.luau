@@ -47,7 +47,7 @@ local function hold(clock, reactor)
 				return { type = "percent", fraction = (1 - triangle(use(phase))) * 0.65 }
 			end)
 			Compose.cleanup(phase:onSettle(function()
-				if drivers[clock] == entry and entry.visible > 0 then
+				if drivers[clock] == entry and entry.visible > 0 and not clock:isReduced() then
 					start(entry)
 				end
 			end))
