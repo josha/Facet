@@ -426,6 +426,49 @@ describe("Removable Chip", function()
 		w.settle()
 		expect(w.pres.focus.focused:peek()).toBe("/S/List/Fallback")
 	end)
+	it("does not steal departed focus when a retained removal request is disposed later", function()
+		for _, destination in { "/C+token/Remove", "/Unrelated" } do
+			local w = world.new()
+			local items = Compose.cell({ "A", "B", "C" })
+			local requests = 0
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Button("Fallback")({ label = "Add", onActivate = function() end }),
+					w.UI.Button("Unrelated")({ label = "Other command", onActivate = function() end }),
+					w.UI.ForEach("Tokens")({
+						items = items,
+						key = function(item)
+							return item
+						end,
+						row = function(item)
+							return w.UI.Chip(item)({
+								label = item,
+								removeFocusFallback = "/S/Fallback",
+								onRemove = function()
+									requests += 1
+								end,
+							})
+						end,
+					}),
+				})
+			end)
+			local a = path(w, "/A+token/Remove")
+			w.pres.focus.focusOn(a)
+			w.adapter.tap(a)
+			w.settle()
+			expect(requests).toBe(1)
+			expect(w.adapter.node(a) ~= nil).toBe(true)
+			local elsewhere = path(w, destination)
+			expect(w.pres.focus.focusOn(elsewhere)).toBe(true)
+			items:set({ "B", "C" })
+			w.settle()
+			expect(w.adapter.node(a)).toBeNil()
+			expect(w.pres.focus.focused:peek()).toBe(elsewhere)
+			w.close()
+			expect(w.adapter.liveCount()).toBe(0)
+		end
+	end)
+
 	it("does not repeat a held Remove across an input-class change and respects inherited disabled", function()
 		local w = world.new()
 		local enabled = Compose.cell(true)

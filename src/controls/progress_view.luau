@@ -551,7 +551,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		return chrome_slots.attachHint(
 			UI.ZStack({
 				id = "Bar",
-				width = { type = "fill", weight = 1 },
+				width = width,
 				height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
 				children = barChildren,
 			}),

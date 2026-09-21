@@ -1562,6 +1562,31 @@ describe("ProgressView trailing copy and local rungs", function()
 		expect(w.adapter.node("/S/Progress/EndLabel").props.text).toBe("2 of 5")
 		w.close()
 	end)
+	for _, busy in { false, true } do
+		it(`keeps the {if busy then "busy" else "ordinary"} track visible beside long trailing copy`, function()
+			local metrics =
+				Facet.themes.resolve(require("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+			local w = world.new({
+				viewport = { x = 0, y = 0, w = 280, h = 500 },
+				themeMetrics = metrics,
+				env = { preferredTextOffset = 14 },
+				reducedMotion = true,
+			})
+			mount(w, {
+				value = if busy then nil else 0.4,
+				showValue = if busy then nil else true,
+				endLabel = "Waiting for the next checkpoint",
+			})
+			expect(rect(w, "Bar").w >= metrics.space.xs).toBe(true)
+			expect(rect(w, if busy then "Bar/Sweep/Fill" else "Bar/Fill").w > 0).toBe(true)
+			local ending = rect(w, "EndLabel")
+			expect(ending.x + ending.w <= 280).toBe(true)
+			expect(w.adapter.node("/S/Progress/EndLabel").props.text).toBe("Waiting for the next checkpoint")
+			expect(require("../src/paths").nodeAt(w.handle.root.node, "/S/Progress/EndLabel").props.disclose).toBe(true)
+			w.close()
+		end)
+	end
+
 	it("places live endLabel after the value with shrink and disclosure", function()
 		local w = world.new()
 		local copy = Compose.cell("2 of 5")

@@ -92,12 +92,15 @@ function chip.build(Facet: any, core: any, spec: any)
 	local removePath: string? = nil
 	local pendingFocus: any = nil
 	local function releaseFocus()
-		if pendingFocus ~= nil and focusGraph ~= nil then
+		local target = pendingFocus
+		pendingFocus = nil
+		-- A caller may retain a rejected/delayed request. Disposal must not
+		-- reclaim focus after the player has moved to another command.
+		if target ~= nil and focusGraph ~= nil and focusGraph.focused:peek() == removePath then
 			if removePath ~= nil then
 				focusGraph.remove(removePath)
 			end
-			focusGraph.focusOn(pendingFocus)
-			pendingFocus = nil
+			focusGraph.focusOn(target)
 		end
 	end
 
