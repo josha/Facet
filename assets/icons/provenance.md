@@ -346,3 +346,17 @@ was not run and nothing was uploaded. Historical moderation records are retained
 this port does not assert a new moderation or native-loading check. The eighteen
 pre-existing PNGs and asset records are unchanged. Generator byte identity across
 Pillow/compression versions is not assumed; the committed hashes remain the record.
+
+## Ringless success silhouette (2026-09-20)
+
+The circled success tick was too similar to the info and clock icons at small
+sizes. `status.success` now reuses the existing standalone checkmark: identical
+PNG bytes to `facet_icon_check.png` and `rbxassetid://108245103349446`, with the
+same content tint. The semantic name, `facet_icon_success` asset name and `ok`
+ASCII floor stay unchanged. The earlier circled image/id above are historical.
+
+No drawing or upload was needed, and no new moderation check was performed.
+Only the success manifest record changes; all eighteen original PNGs and asset
+records remain unchanged. The generator's success function delegates to `check`;
+the current contact sheet was rebuilt from committed PNGs only, without running
+the all-image generator. The existing hand/person blow-up remains unchanged.

@@ -256,12 +256,16 @@ describe("P1d: eleven common glyphs (status, calendar, clock, vote, person, chev
 			expect(entry ~= nil).toBe(true)
 			expect(entry.assetName).toBe(ASSET_NAMES[name])
 			expect(entry.tintRole).toBe("content")
-			-- resolveIcon always answers something for a name this table knows —
-			-- the framework's own art once uploaded, the ASCII floor while pending —
-			-- and never nil, at every rung including no package at all
-			expect(themes.resolveIcon(nil, name) ~= nil).toBe(true)
-			expect(themes.resolveIcon(snapshot.neutralPackage(), name) ~= nil).toBe(true)
+			-- Every shipped row resolves to its exact art, even without a package.
+			expect(themes.resolveIcon(nil, name).source).toBe("asset")
+			expect(themes.resolveIcon(nil, name).contentId).toBe(entry.contentId)
+			expect(themes.resolveIcon(snapshot.neutralPackage(), name).source).toBe("asset")
+			expect(themes.resolveIcon(snapshot.neutralPackage(), name).contentId).toBe(entry.contentId)
 		end
+		expect(standard_icons.ART["status.success"].contentId).toBe(standard_icons.ART.checkmark.contentId)
+		expect(fs.readFile("assets/icons/facet_icon_success.png") == fs.readFile("assets/icons/facet_icon_check.png")).toBe(
+			true
+		)
 	end)
 end)
 

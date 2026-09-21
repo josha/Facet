@@ -270,15 +270,9 @@ def search() -> Image.Image:
 # common set -- not parity with any reference catalog, just the marks those five
 # controls actually ask for. Three families:
 #
-#   status badges (info/success/warning/error) -- a ring (the same r=40 outer
-#   radius as radio/check/close so the family reads as one weight class) with a
-#   small mark INSIDE it, kept within radius ~24-26 so its own ink never touches
-#   the ring's inner edge (r - STROKE = 27). `error` is a small X in a ring,
-#   deliberately smaller and enclosed rather than the bare full-box X `close`
-#   draws, so the two are not the same shape at a glance. `warning` breaks the
-#   ring pattern on purpose -- a hazard triangle is the one shape every reference
-#   material actually uses for that meaning, and confusing it with a status
-#   circle would be the worse defect.
+#   status badges -- info/error retain rings with small inset marks. Success
+#   uses the existing bare checkmark so its silhouette stays distinct from the
+#   circular info and clock. Warning keeps its familiar hazard triangle.
 #
 #   calendar / clock -- a rounded rect with binding tabs, and a ring with two
 #   unequal hands, both drawn from the same primitives as everything else here.
@@ -304,20 +298,14 @@ def status_info() -> Image.Image:
 
 
 def status_success() -> Image.Image:
-    """A ring holding a SMALL tick -- deliberately not the bare `checkmark`
-    glyph (which spans the whole 128px box), so a success badge and a plain
-    tick are never the same silhouette at a glance."""
-    img, d = _canvas()
-    _ring(d, 64, 64, 40)
-    _stroke(d, [(50, 66), (60, 76), (76, 52)], w=13)
-    return img
+    """The existing ringless checkmark distinguishes success from info/clock."""
+    return check()
 
 
 def status_warning() -> Image.Image:
     """A hazard triangle (closed, round-jointed outline) holding a `!`: stem
-    above, dot below. The one status mark that is NOT a ring -- a triangle is
-    what every warning glyph anywhere actually is, and disguising it as a fourth
-    circle would cost the one shape a player already knows."""
+    above, dot below. Its triangular silhouette stays distinct from the
+    circular info/error marks and the ringless success check."""
     img, d = _canvas()
     _stroke(d, [(64, 18), (108, 108), (20, 108), (64, 18)], w=13)
     _stroke(d, [(64, 56), (64, 80)], w=11)

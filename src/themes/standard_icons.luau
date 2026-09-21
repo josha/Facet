@@ -173,7 +173,7 @@ standard_icons.ART = table.freeze({
 	}),
 	["status.success"] = table.freeze({
 		assetName = "facet_icon_success",
-		contentId = "rbxassetid://138442161978711",
+		contentId = "rbxassetid://108245103349446",
 		tintRole = "content",
 	}),
 	["status.warning"] = table.freeze({

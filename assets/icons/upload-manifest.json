@@ -277,11 +277,12 @@
       "slot": "icons.status.success",
       "state": "default",
       "file": "facet_icon_success.png",
-      "contentId": "rbxassetid://138442161978711",
+      "contentId": "rbxassetid://108245103349446",
       "size": "128x128",
       "moderation": "Approved",
-      "sha256": "05718ef898ebec3cb4cbe996ce05f98d0ac008ede628c593bafea947647e3954",
-      "assetType": "Image"
+      "sha256": "15c125ba9f08e6e698fc2b699f9424b1f5b717b021789c5a51616faa7ca9ee47",
+      "assetType": "Image",
+      "note": "2026-09-20: reuses facet_icon_check PNG bytes and existing Image asset for a ringless success silhouette. No new upload or moderation check; Approved is the reused asset's historical record."
     },
     "facet_icon_thumb_down": {
       "sliceBorder": 0,
