@@ -530,6 +530,8 @@ local SCENARIOS = {
 	-- ...and the scaffolded `Avatar` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"avatar",
+	-- Mounted rosters, overflow counts and their real recipe command buttons.
+	"avatar_group",
 	-- scaffold: new control scenarios are appended above this line
 }
 

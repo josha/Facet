@@ -40,7 +40,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 # `namespace_entries()` itself whenever a control is deliberately added or
 # retired.
 DECLARED_ENTRIES = {
-    "Alert", "AsyncImage", "Avatar", "Button", "Callout", "Chip", "CollapsibleView",
+    "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Button", "Callout", "Chip", "CollapsibleView",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
     "NavigationStack", "PageView", "Picker", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "Slider", "SplitButton",
@@ -190,6 +190,9 @@ _EROSION_PROBES = [
     ("Avatar", 'app.controls.Avatar({ name = 3 })'),
     ("Avatar", 'app.controls.Avatar("Ada")({ name = "Ada", presence = "unknown" })'),
     ("Avatar", 'app.controls.Avatar({ name = "Ada", controlSize = "huge" })'),
+    ("AvatarGroup", 'app.controls.AvatarGroup({ items = {{ id = 42, name = "Ada" }} })'),
+    ("AvatarGroup", 'app.controls.AvatarGroup("Team")({ items = {}, layout = "grid" })'),
+    ("AvatarGroup", 'app.controls.AvatarGroup({ items = {}, onOverflow = "show" })'),
     ("Skeleton", 'app.controls.Skeleton({ form = "square" })'),
     ("Skeleton", 'app.controls.Skeleton("Load")({ form = "line", controlSize = "huge" })'),
     ("ShortcutHint", 'app.controls.ShortcutHint({ action = 12 })'),

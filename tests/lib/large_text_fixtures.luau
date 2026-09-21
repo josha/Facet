@@ -1226,6 +1226,25 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "AvatarGroup",
+		class = "AvatarGroup",
+		-- Initials and the overflow count both fit their circular plates at large text.
+		build = function(core: any)
+			return harness.Controls.AvatarGroup(core, {
+				id = "Ctl",
+				max = 2,
+				items = {
+					{ id = "ada", name = "Ada Quill" },
+					{ id = "noel", name = "Émile Noël" },
+					{ id = "bo", name = "Bo" },
+					{ id = "kai", name = "Kai" },
+				},
+				onOverflow = function() end,
+			}).blueprint
+		end,
+	},
+
 	-- scaffold: new control fixtures are appended above this line
 }
 

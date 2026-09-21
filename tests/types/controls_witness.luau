@@ -191,6 +191,23 @@ local _anonymousAvatar = app.controls.Avatar({
 		local _label = record.dump().label
 	end,
 })
+local _avatarGroup = app.controls.AvatarGroup("Team")({
+	items = { { id = "ada", name = "Ada Quill", presence = "online" :: "online" } },
+	max = 3,
+	controlSize = "compact",
+	onOverflow = function() end,
+})
+local _anonymousAvatarGroup = app.controls.AvatarGroup({
+	items = function(_use)
+		return { { id = "noel", name = "Émile Noël", image = "rbxassetid://1" } }
+	end,
+	layout = "spread",
+	overflow = "ellipsis",
+	form = "icon",
+	ref = function(record)
+		local _shown = record.dump().shown
+	end,
+})
 local _hint = app.controls.ShortcutHint("Shortcut")({ action = "Activate", controlSize = "compact" })
 local _explicitHint = app.controls.ShortcutHint({
 	keys = { { "Ctrl", "K" }, { "F1" } },

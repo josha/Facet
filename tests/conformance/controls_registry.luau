@@ -2151,6 +2151,29 @@ local registry: { Entry } = {
 			hotSwitch = false, -- no captured interaction; provider work belongs to the caller, independent of input class
 		},
 	},
+	{
+		name = "AvatarGroup",
+		kind = "composite",
+		module = "src/controls/avatar_group.luau",
+		export = "UI.AvatarGroup",
+		spec = "tests/avatar_group.spec.luau",
+		conformance = "tests/avatar_group.spec.luau",
+		docsAnchor = "UI.AvatarGroup",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "AvatarGroup pointer: overflow activates through the presenter" },
+			touch = { "AvatarGroup touch: overflow activates through the presenter" },
+			keyboard = { "AvatarGroup keyboard: overflow activates through the presenter" },
+			gamepad = { "AvatarGroup gamepad: overflow activates through the presenter" },
+		},
+		affordanceProofs = {
+			pointer = { "AvatarGroup pointer affordance: hover belongs only to the overflow target" },
+			touch = { "AvatarGroup touch affordance: compact faces leave one whole overflow target" },
+			keyboard = { "AvatarGroup keyboard affordance: one Tab rank and ordinary focus treatment" },
+			gamepad = { "AvatarGroup gamepad affordance: A activates while B stays with the screen" },
+			hotSwitch = false, -- passive members and a command Button own no captured interaction
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

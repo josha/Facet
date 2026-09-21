@@ -62,6 +62,7 @@ local CONTROL_MODULES = {
 	"shortcut_hint",
 	"skeleton",
 	"avatar",
+	"avatar_group",
 	"level_picker",
 	"menu",
 	"navigation_stack",

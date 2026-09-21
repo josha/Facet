@@ -102,7 +102,7 @@ function avatar.validate(spec: any)
 	vocabulary.assertSize("Avatar", spec.controlSize)
 	vocabulary.assertOver("Avatar", spec.over)
 end
-local function semantic(name, presence, label, use)
+function avatar.semantic(name, presence, label, use)
 	assert(type(name) == "string" and name ~= "", "Facet Avatar: name must be a nonempty string")
 	local state = selection.read(presence, use)
 	assert(state == nil or PRESENCES[state], "Facet Avatar: presence must be online | away | busy | offline")
@@ -123,7 +123,7 @@ local function build(library: any, core: any, spec: any, owner: any, current: an
 	-- evaluation retains its prior published value; the caller's cell is untouched.
 	local facts = Compose.formula(function(use)
 		local person = if current then use(current) else spec
-		return semantic(person.name, person.presence, person.presenceLabel, use)
+		return avatar.semantic(person.name, person.presence, person.presenceLabel, use)
 	end)
 	facts:peek()
 	local function field(key)

@@ -64,6 +64,7 @@ local POST_ADR_NAMES: { string } = {
 	"ShortcutHint",
 	"Skeleton",
 	"Avatar",
+	"AvatarGroup",
 	-- scaffold: new control names are appended above this line
 }
 

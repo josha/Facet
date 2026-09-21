@@ -374,7 +374,10 @@ or progress value and becomes static under reduced motion.
 Use Avatar for a player's picture or initials and optional presence. Supply a
 caller-owned resource provider for headshots; add `onActivate` only when selecting
 the person opens an action or profile. Use Label when the name and a supporting
-symbol belong in ordinary inline text.
+symbol belong in ordinary inline text. Use AvatarGroup for a compact roster: its
+faces are informational, with one optional overflow action. Choose spread layout
+when every presence mark should remain visible; stacked layout keeps their
+semantic state while suppressing marks covered by neighboring faces.
 
 Use ProgressView for health, shields, cooldowns and resource readouts: segments
 show discrete capacity and an optional trail preserves recent damage. Sized

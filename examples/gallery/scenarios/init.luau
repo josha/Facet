@@ -323,6 +323,8 @@ local ORDER = {
 	"skeleton",
 	-- Caller-owned portraits, loading branches and live presence; shared with Identity.
 	"avatar",
+	-- Keyed roster movement, picture replacement and overflow; shared with Identity.
+	"avatar_group",
 	-- scaffold: new control scenarios are appended above this line
 }
 

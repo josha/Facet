@@ -13,6 +13,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add `UI.AvatarGroup` keyed player rosters with shared caller-owned picture
+  requests, stacked or spread faces, and one optional overflow target. Indicators
+  gains an Identity child tab alongside its existing Progress demonstrations.
+
 - Add `UI.Avatar` player pictures and UTF-8 initials with caller-owned loading,
   presence marks, localized semantic labels, and optional activation targets.
 

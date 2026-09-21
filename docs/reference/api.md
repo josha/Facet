@@ -12302,3 +12302,60 @@ return UI.Avatar("Driver")({
     onActivate = openProfile,
 })
 ```
+### `UI.AvatarGroup`
+
+`app.controls.AvatarGroup("Team")({ items = roster })` shows the first members of
+an ordered roster and summarizes the rest with a count. Members never generate
+individual targets; `onOverflow` adds one ordinary Button focus stop when there
+are hidden members. Without it, the whole group is informational.
+
+| Field | Contract |
+|---|---|
+| `items` | Required dense array, Compose readable, or `function(use)` returning members in caller order. |
+| Member | Required unique nonempty string `id` and nonempty string `name`; optional XOR `image`, `userId`, or `key`, plus bound `presence` and `presenceLabel` as on Avatar. Repeated `userId` is allowed. |
+| `provider` | Caller-owned resource provider, required if any member uses `key` or `userId`. Hidden members are validated but do not acquire a lease. |
+| `layout` | Construction-only `"stacked"` (default) or `"spread"`. Stacked overlaps by `floor(diameter / 3)` and suppresses marks; spread uses theme `"s"` spacing and paints them. |
+| `max` | Construction-only positive whole number of visible members; default `4`. |
+| `overflow` | Construction-only `"count"` (default, `+N`) or `"ellipsis"`. Both retain the semantic `N more` label. |
+| `overflowLabel` | Optional bound localized phrase; a nonempty string replaces the English default. |
+| `form` | Construction-only `"standard"` (default) or `"icon"`, passed to every member; icon members refuse presence. |
+| `controlSize` | Bound `"compact"`, `"regular"`, or `"large"`; absent/nil uses regular. Every diameter and overlap follows the checked live theme rung. |
+| `over` | Optional `"media"` tint roles for readability over artwork. |
+| `onOverflow` | Optional callback for the only generated target. Compact paint still reserves the effective target floor in both axes. |
+| `ref` | Receives `record.dump()`: `schema="facet-avatar-group-dump/1"`, shown ids, hidden count, chip text/label, layout, max, form, presence-mark policy, interactive intent, and requested controlSize/over. |
+
+Every update validates the entire roster before publishing rows or allocating
+leases. Malformed members and duplicate ids retain the last valid mounted roster
+and diagnostic value; a later valid update recovers. Reordering unchanged ids
+keeps their mounted face and lease. Name and presence updates flow through the
+current item; changing a source identity rebuilds only that member's source
+branch. Leaving the visible prefix releases its lease. Same-key faces share a
+request/cache but each owns a lease; the group never owns the caller's provider.
+
+The group's root leaves parent alignment alone. Child line alignment centers the
+faces and count, including a compact face beside a larger target. Stacked overlap
+is intentional paint, not overlapping member hit areas. Stacked presence remains
+in each Avatar's diagnostic semantic label; passive faces expose no new native
+accessibility route. An actionable chip's raw Button label carries the localized
+count while its child paints `+N` or the ellipsis. `dump.interactive` reports the
+supplied command; an empty or fully visible roster has no overflow target.
+`dump.controlSize` reports the requested raw value, as on Avatar, while invalid
+size updates retain the last accepted geometry.
+
+Cost is proportional to the visible prefix: one keyed face per visible member,
+one provider lease per loaded member, and one shared Skeleton driver per clock
+while any pending branch is mounted. No hidden member is fetched. The gallery
+transport completes on a presenter tick using a stand-in picture; native headshot
+fetching is the supplied provider's responsibility.
+
+```luau
+local portraits = app.newResourceProvider()
+return UI.AvatarGroup("Party")({
+    items = partyMembers,
+    provider = portraits,
+    max = 4,
+    layout = "stacked",
+    onOverflow = openParty,
+    overflowLabel = localizedMore,
+})
+```

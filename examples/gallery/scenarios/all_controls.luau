@@ -28,6 +28,7 @@ local groups = {
 		label = "Indicators",
 		tabs = {
 			{ id = "progress", label = "Progress", scenario = require("./progress_ring") },
+			{ id = "identity", label = "Identity", scenario = require("./identity") },
 			{ id = "toasts", label = "Toasts", scenario = require("./sponsor_toast") },
 			{ id = "levels", label = "Levels", scenario = require("./level_picker") },
 			{ id = "feedback", label = "Feedback", scenario = require("./sensory_feedback") },

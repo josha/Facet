@@ -195,6 +195,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 			end,
 		}
 	end,
+	AvatarGroup = function(_w)
+		return { items = { { id = "ada", name = "Ada Quill" } } }
+	end,
 	Avatar = function(_w)
 		return { name = "Ada Quill" }
 	end,

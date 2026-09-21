@@ -216,6 +216,7 @@ owner that owns its resources. Start with
 | `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
 | `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
 | `UI.Avatar` | A player picture or initials, with optional presence and activation. | [api](../reference/api.md#uiavatar) |
+| `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
