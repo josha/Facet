@@ -130,6 +130,7 @@ function roblox_input.newSystem(core: any)
 				pressedHandlers = {} :: { (any) -> () },
 				releasedHandlers = {} :: { (any) -> () },
 			}
+			table.insert(action.connections, actionInstance:GetPropertyChangedSignal("PreferredBinding"):Connect(bump))
 			table.insert(
 				action.connections,
 				actionInstance.StateChanged:Connect(function(value)
@@ -252,7 +253,8 @@ function roblox_input.newSystem(core: any)
 						displayName = spec2.displayName,
 						direction = spec2.direction,
 						modifiers = spec2.modifiers,
-						instance = left, -- primary handle (preferredBinding, etc.)
+						instance = left,
+						alternateInstance = right, -- both modifier sides represent this binding
 					}
 					function binding.fire(value: any)
 						-- interface parity with every other binding shape
@@ -453,8 +455,12 @@ function roblox_input.newSystem(core: any)
 
 			function action.preferredBinding(preferredInput: string): any
 				local preferred: any = nil
+				local enginePreferred = actionInstance.PreferredBinding
 				for _, binding in action.bindings do
-					if binding.instance == actionInstance.PreferredBinding then
+					if
+						enginePreferred ~= nil
+						and (binding.instance == enginePreferred or binding.alternateInstance == enginePreferred)
+					then
 						preferred = binding
 						break
 					end

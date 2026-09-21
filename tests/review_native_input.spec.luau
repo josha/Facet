@@ -23,6 +23,15 @@ local function event()
 			table.insert(callbacks, { c, fn })
 			return c
 		end,
+		count = function()
+			local live = 0
+			for _, pair in callbacks do
+				if pair[1].live then
+					live += 1
+				end
+			end
+			return live
+		end,
 		fire = function(_, ...)
 			for _, pair in callbacks do
 				if pair[1].live then
@@ -74,9 +83,17 @@ local function rig(labels, images)
 			return services[name]
 		end,
 	}
+	local created = {}
 	local instance = {
 		new = function(class)
-			return {
+			local properties = {}
+			local object = {
+				GetPropertyChangedSignal = function(_, name)
+					if not properties[name] then
+						properties[name] = event()
+					end
+					return properties[name]
+				end,
 				ClassName = class,
 				Enabled = true,
 				StateChanged = event(),
@@ -86,6 +103,8 @@ local function rig(labels, images)
 					self.destroyed = true
 				end,
 			}
+			table.insert(created, object)
+			return object
 		end,
 	}
 	local adapter = luau.load(fs.readFile("src/client/roblox_input.luau"), {
@@ -107,7 +126,7 @@ local function rig(labels, images)
 	})()
 	local system = adapter.newSystem(coreFactory.new())
 	table.insert(releases, system.dispose)
-	return system, held
+	return system, held, created
 end
 
 t.describe("native held input metadata", function()
@@ -256,6 +275,52 @@ t.describe("action naming and revision on both input implementations", function(
 			t.expect(system.actionNamed("Activate")).toBeNil()
 		end)
 	end
+end)
+
+t.describe("native preferred binding invalidation", function()
+	t.it("publishes same-class engine tie changes once and disconnects on teardown", function()
+		local system = rig()
+		local context = system.createContext({ name = "keys" })
+		local action = context.createAction("Go", "Bool")
+		local first = action.bind({ keyCode = "Return" })
+		local second = action.bind({ keyCode = "Space" })
+		local owner = Compose.createOwner()
+		table.insert(releases, owner.dispose)
+		local seen = {}
+		owner.watch(function(use)
+			use(system.revision)
+			table.insert(seen, action.preferredBinding("KeyboardAndMouse").keyCode)
+		end)
+		local changed = action.instance:GetPropertyChangedSignal("PreferredBinding")
+		t.expect(changed.count()).toBe(1)
+		local count = system.revision:peek()
+		action.instance.PreferredBinding = second.instance
+		changed:fire()
+		t.expect(system.revision:peek()).toBe(count + 1)
+		t.expect(seen).toEqual({ "Return", "Space" })
+		context.destroy()
+		count = system.revision:peek()
+		t.expect(changed.count()).toBe(0)
+		action.instance.PreferredBinding = first.instance
+		changed:fire()
+		t.expect(system.revision:peek()).toBe(count)
+	end)
+
+	t.it("maps either modifier sibling instance to its authored binding", function()
+		local system, _, created = rig()
+		local action = system.createContext({ name = "keys" }).createAction("Go", "Bool")
+		action.bind({ keyCode = "Q" })
+		local modified = action.bind({ keyCode = "K", modifiers = { shift = true }, displayName = "Shift K" })
+		local right
+		for _, object in created do
+			if object.ClassName == "InputBinding" and object.PrimaryModifier == "RightShift" then
+				right = object
+			end
+		end
+		t.expect(right ~= nil).toBe(true)
+		action.instance.PreferredBinding = right
+		t.expect(action.preferredBinding("KeyboardAndMouse")).toBe(modified)
+	end)
 end)
 
 t.describe("native key names and provider lifetime", function()
