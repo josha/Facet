@@ -48,6 +48,40 @@ t.describe("Skeleton", function()
 			end
 		end
 	end)
+	t.it("resolves relative circle width once and derives its other axis", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 400, h = 200 } })
+		local UI = w.UI
+		local width = Compose.cell({ type = "percent", fraction = 0.5 })
+		w.present(function()
+			return UI.Screen("S")({
+				padding = 0,
+				UI.ZStack("Offer")({
+					width = fixed(400),
+					height = fixed(200),
+					UI.Skeleton("Circle")({ form = "circle", width = width }),
+				}),
+			})
+		end)
+		t.expect(rect(w, "/S/Offer/Circle").w).toBe(200)
+		t.expect(rect(w, "/S/Offer/Circle").h).toBe(200)
+		width:set({ type = "percent", fraction = 0.25 })
+		w.pres.refresh()
+		t.expect(rect(w, "/S/Offer/Circle").w).toBe(100)
+		t.expect(rect(w, "/S/Offer/Circle").h).toBe(100)
+	end)
+	t.it("paragraph bars fill one resolved relative width before the final sixty percent", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 400, h = 300 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				padding = 0,
+				UI.Skeleton("Copy")({ form = "line", lines = 3, width = { type = "percent", fraction = 0.5 } }),
+			})
+		end)
+		t.expect(rect(w, "/S/Copy").w).toBe(200)
+		t.expect(rect(w, "/S/Copy/Line1").w).toBe(200)
+		t.expect(rect(w, "/S/Copy/Line3").w).toBe(120)
+	end)
 	t.it("keeps one driver alive after the first acquiring branch disappears", function()
 		local w = world.new()
 		local UI = w.UI

@@ -180,7 +180,7 @@ local function build(library, core, spec, owner)
 				bars,
 				plate(
 					`Line{index}`,
-					if index == spec.lines then { type = "percent", fraction = 0.6 } else width,
+					if index == spec.lines then { type = "percent", fraction = 0.6 } else FILL,
 					spec.height or sized
 				)
 			)
@@ -188,7 +188,7 @@ local function build(library, core, spec, owner)
 		blueprint = UI.VStack({ id = id, width = width, gap = "s", children = bars })
 	elseif form == "circle" then
 		local diameter = spec.width or sized
-		blueprint = plate(id, diameter, diameter)
+		blueprint = plate(id, diameter, { type = "aspect", ratio = 1 })
 	else
 		blueprint = plate(id, spec.width or UI.fill(), spec.height or sized)
 	end
