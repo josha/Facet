@@ -7953,6 +7953,10 @@ dumps still address the control by the name you gave it.
 **An authored `height` wins over a rung.** A rung is a default; a caller who
 measured their own layout is not overruled by one.
 
+Composed content (`children`, `row` or `image`) keeps the theme's button padding
+when a rung is named; the zero-vertical rung inset applies only to simple labels
+and icons. Explicit `padding` overrides either default.
+
 **`regular` is the ladder's rung, not the untagged default.** Naming it adopts
 `controlSizes.regular.height` (44px at Facet Neutral) with the ladder's horizontal
 inset and no vertical one; an untagged button is its content plus the theme's
@@ -7991,6 +7995,8 @@ theme metric that does not.
 control. Supplying `name` beside a visible `label` is refused — two answers to one
 question. `icon`/`trailingIcon` are the label's neighbours, so they do not combine
 with `children`, `image` or `row` (those are whole content forms of their own).
+A Button without drawable content refuses even when `name` is supplied. A bound
+label may start empty and acquire content later; its value remains caller-owned.
 
 ```lua
 local close = UI.Button("Close")({ icon = "close", name = "Close", corners = "pill",

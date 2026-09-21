@@ -13,6 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Custom-child Buttons retain their theme padding when a control size is named;
+  explicit padding still wins. A Button with no drawable content now refuses,
+  even when a semantic name is supplied; an initially empty bound label remains
+  valid. Decorative text reveals no longer block horizontal drag acquisition;
+  real overlays, native child gestures and an authored scroll freeze retain
+  their existing input ownership.
+
 - Add passive `UI.ShortcutHint` keycaps, borrowing live action names and native
   key labels/images. Shared input lookup follows device class and the hint's own
   surface, including passive contexts; revision changes update bindings in place.

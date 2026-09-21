@@ -539,14 +539,31 @@ function screen_pointer.new(ctx: any)
 				-- GetGuiObjectsAtPosition takes the same GUI coordinates as InputObject;
 				-- our capture arithmetic uses inset-adjusted window coordinates.
 				local hits = playerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-				local hit = hits[1]
-				if hit and hit.Name == "FocusRingFloat" then
-					hit = hits[2]
-				end
 				local byInstance = {}
 				for _, handle in handlesByPath do
 					if handle.instance then
 						byInstance[handle.instance] = handle
+					end
+				end
+				-- Only our decorative reveal surface and floating ring are transparent to acquisition.
+				-- An ordinary overlay or foreign object still owns the first hit, even when inactive.
+				local hit
+				for _, candidate in hits do
+					local ancestor, decorative = candidate, false
+					while ancestor and ancestor ~= playerGui do
+						local owned = byInstance[ancestor]
+						if
+							ancestor.Name == "FocusRingFloat"
+							or (owned and owned.rootHandle and owned.rootHandle.screenId == "__reveal__")
+						then
+							decorative = true
+							break
+						end
+						ancestor = ancestor.Parent
+					end
+					if not decorative then
+						hit = candidate
+						break
 					end
 				end
 				while hit and hit ~= playerGui do

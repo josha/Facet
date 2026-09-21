@@ -1666,3 +1666,113 @@ describe("P1b review: an acquired native scroll capture can be frozen", function
 		end)
 	end
 end)
+
+describe("native horizontal acquisition respects decorative and real overlays", function()
+	local function acquisition(hits, handles, pointer)
+		-- Run the actual ordered native hit/ancestor walk and capture closures, without global engine mocks.
+		local source = fs.readFile("src/client/screen_pointer.luau")
+		local first = string.find(source, "local hits = playerGui:GetGuiObjectsAtPosition", 1, true)
+		local last = string.find(source, "\n\t\t\tend)\n\t\tend)\n\tend", first, true)
+		assert(first and last)
+		local factory = require("@lune/luau").load(
+			"return function(playerGui, input, handlesByPath, Enum, pos, mouseScroll, suppressedInputs, Vector2, beginPointerCapture, endCapture)\n"
+				.. string.sub(source, first, last - 1)
+				.. "\nend",
+			{ debugName = "native-scroll-acquisition" }
+		)()
+		local gui = {
+			GetGuiObjectsAtPosition = function()
+				return hits
+			end,
+		}
+		for _, hit in hits do
+			if hit.Parent == nil then
+				hit.Parent = gui
+			end
+		end
+		local captured, handlers
+		factory(
+			gui,
+			{ UserInputType = pointer or "MouseButton1", Position = { X = 100, Y = 0 } },
+			handles,
+			{ UserInputType = { Touch = "Touch" }, ScrollingDirection = { X = "X", Y = "Y" } },
+			{ x = 100, y = 0 },
+			require("../src/input/mouse_scroll"),
+			{},
+			require("@lune/roblox").Vector2,
+			function(handle, callbacks)
+				captured, handlers = handle, callbacks
+			end,
+			function()
+				if handlers then
+					handlers.cancel()
+				end
+			end
+		)
+		return captured, handlers
+	end
+	local function node(name, class, parent)
+		return {
+			Name = name,
+			Parent = parent,
+			IsA = function(_, wanted)
+				return wanted == class
+			end,
+			FindFirstChildWhichIsA = function()
+				return nil
+			end,
+		}
+	end
+	local function scroller()
+		local hit = node("/S/X", "ScrollingFrame")
+		hit.ScrollingEnabled, hit.ScrollingDirection, hit.ScrollBarThickness = true, "X", 0
+		hit.AbsoluteCanvasSize, hit.AbsoluteWindowSize = { X = 900 }, { X = 200 }
+		hit.CanvasPosition = require("@lune/roblox").Vector2.new(0, 0)
+		return hit, { instance = hit, path = "/S/X", authoredScrollingEnabled = true }
+	end
+
+	it("skips multiple owned reveal and focus-ring hits, then acquires and freezes the real scroller", function()
+		local scroll, handle = scroller()
+		local reveal = node("/__reveal__", "Frame")
+		local child = node("Decorative child", "TextLabel", reveal)
+		local ring = node("FocusRingFloat", "Frame")
+		local handles = {
+			X = handle,
+			Reveal = { instance = reveal, path = "/__reveal__", rootHandle = { screenId = "__reveal__" } },
+		}
+		local captured, handlers = acquisition({ child, ring, reveal, scroll }, handles)
+		expect(captured).toBe(handle)
+		handlers.move({ x = 70, y = 0 })
+		expect(scroll.CanvasPosition.X).toBe(30)
+		handle.authoredScrollingEnabled, scroll.ScrollingEnabled = false, false
+		handlers.move({ x = 10, y = 0 })
+		handlers.up()
+		expect(scroll.CanvasPosition.X).toBe(30)
+		expect(scroll.ScrollingEnabled).toBe(false)
+		expect(handle.mouseScrolling).toBeNil()
+	end)
+
+	it("retains real overlays, foreign lookalikes, text selection and drag-detector refusal", function()
+		for _, kind in { "modal", "foreign", "textbox", "drag" } do
+			local scroll, handle = scroller()
+			local blocker = node(
+				if kind == "foreign" then "/__reveal__" else "/Modal",
+				if kind == "textbox" then "TextBox" else "Frame",
+				if kind == "textbox" or kind == "drag" then scroll else nil
+			)
+			if kind == "drag" then
+				blocker.FindFirstChildWhichIsA = function()
+					return {}
+				end
+			end
+			local handles = { X = handle }
+			if kind == "modal" then
+				handles.Modal = { instance = blocker, path = "/Modal", rootHandle = { screenId = "Modal" } }
+			end
+			expect(acquisition({ blocker, scroll }, handles)).toBeNil()
+			expect(scroll.CanvasPosition.X).toBe(0)
+		end
+		local scroll, handle = scroller()
+		expect(acquisition({ scroll }, { X = handle }, "Touch")).toBeNil()
+	end)
+end)

@@ -189,6 +189,11 @@ local function build(Facet, core, spec, owner)
 		"Button: an icon-only button needs `name` — the semantic label a focus trace, a dump and a bug "
 			.. "report call it by, and the one thing a mark alone cannot supply"
 	)
+	-- A semantic name identifies content; it does not replace something to draw.
+	assert(
+		hasVisibleContent or selection.isSource(spec.label) or spec.icon ~= nil or spec.trailingIcon ~= nil,
+		"Button has nothing to draw: supply a label, icon, children, row or image; name is only a semantic label"
+	)
 	local UI = Facet.UI
 	local id = spec.id or "Button"
 	local disposed = false
@@ -611,7 +616,7 @@ local function build(Facet, core, spec, owner)
 		icon = if semanticIcons then nil else spec.icon,
 		shape = spec.shape,
 		textSize = spec.textSize,
-		padding = spec.padding or (if imageForm or spec.row then nil else sizedPadding),
+		padding = spec.padding or (if imageForm or spec.row or spec.children then nil else sizedPadding),
 		enabled = enabled,
 		role = spec.role,
 		selected = spec.selected,

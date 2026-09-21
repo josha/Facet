@@ -868,3 +868,64 @@ describe("sized fill minima remain live and caller-owned", function()
 		expect(original.weight).toBe(1)
 	end)
 end)
+
+describe("composed Button content keeps its own inset", function()
+	it("keeps theme vertical padding for sized children and honors explicit padding", function()
+		local w = world.new({ env = { preferredTextOffset = 14 } })
+		local UI, size = w.UI, w.Compose.cell("compact")
+		w.present(function()
+			local function card(id, padding)
+				return UI.Button(id)({
+					controlSize = size,
+					padding = padding,
+					UI.VStack(id .. "Lines")({
+						gap = 0,
+						UI.Text({ text = "one" }),
+						UI.Text({ text = "two" }),
+						UI.Text({ text = "three" }),
+					}),
+				})
+			end
+			return UI.Screen("S")({ UI.VStack({ card("Theme", nil), card("Explicit", 5) }) })
+		end)
+		local function check()
+			for id, padding in { Theme = 12, Explicit = 5 } do
+				local plate, inner = rectOf(w, pathOf(w, id)), rectOf(w, pathOf(w, id .. "Lines"))
+				expect(inner.y - plate.y).toBe(padding)
+				expect(plate.y + plate.h - inner.y - inner.h).toBe(padding)
+			end
+		end
+		check()
+		expect(authored(w.record("Theme")).padding).toBeNil()
+		size:set(nil)
+		w.settle()
+		check()
+		expect(#w.records("Theme")).toBe(1)
+	end)
+
+	it("refuses empty and name-only content before mounting, while an empty bound label can recover", function()
+		local w = world.new()
+		local UI = w.UI
+		for _, spec in { {}, { name = "Blank" }, { label = "", name = "Blank" } } do
+			local ok, err = pcall(function()
+				w.present(function()
+					return UI.Screen("S")({ UI.Button("Blank")(spec) })
+				end)
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "nothing to draw", 1, true) ~= nil).toBe(true)
+			expect(w.adapter.liveCount()).toBe(0)
+		end
+		local label = w.Compose.cell("")
+		w.present(function()
+			return UI.Screen("S")({ UI.Button("Live")({ label = label, controlSize = "compact" }) })
+		end)
+		label:set("Ready")
+		w.settle()
+		expect(propsOf(w, pathOf(w, "Live")).label).toBe("Ready")
+		w.close()
+		expect(w.adapter.liveCount()).toBe(0)
+		label:set("Borrowed")
+		expect(label:peek()).toBe("Borrowed")
+	end)
+end)
