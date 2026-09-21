@@ -19,6 +19,7 @@ return {
 	build = function(ctx: any)
 		local UI, Compose = ctx.UI, ctx.Compose
 		local progress = Compose.cell(0.25)
+		local placeholders = require("./skeleton").build(ctx)
 		local function percent(v)
 			return string.format("%d%%", math.floor(v * 100 + 0.5))
 		end
@@ -57,6 +58,7 @@ return {
 					}),
 					UI.ProgressView("Busy")({ label = COPY.indeterminate, presentation = "circular" }),
 					UI.ProgressView("Dots")({ label = COPY.spinner, presentation = "spinner" }),
+					placeholders.section(),
 				}),
 			})
 		end

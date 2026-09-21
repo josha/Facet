@@ -1208,6 +1208,15 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "Skeleton",
+		class = "Skeleton",
+		-- The silhouette contains no text; paragraph geometry remains theme-sized.
+		build = function(core: any)
+			return harness.Controls.Skeleton(core, { id = "Ctl", form = "line", lines = 3 }).blueprint
+		end,
+	},
+
 	-- scaffold: new control fixtures are appended above this line
 }
 

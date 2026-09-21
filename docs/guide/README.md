@@ -214,6 +214,7 @@ owner that owns its resources. Start with
 | `UI.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#uisheet) |
 | `UI.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#uipageview) |
 | `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
+| `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |

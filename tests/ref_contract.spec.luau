@@ -195,6 +195,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 			end,
 		}
 	end,
+	Skeleton = function(_w)
+		return { form = "box" }
+	end,
 	ShortcutHint = function(_w)
 		return { keys = { { "K" } } }
 	end,

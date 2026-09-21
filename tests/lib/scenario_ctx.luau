@@ -25,6 +25,7 @@ local CONTROL_MODULES = {
 	"disclosure_group",
 	"label",
 	"shortcut_hint",
+	"skeleton",
 	"level_picker",
 	"menu",
 	"navigation_stack",

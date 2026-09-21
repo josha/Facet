@@ -13,6 +13,10 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add `UI.Skeleton` loading silhouettes with checked bound sizing and a shared
+  decorative shimmer whose lifetime follows mounted Compose branches. Reduced
+  motion retains a static theme-tinted plate.
+
 - Bound control sizes and each control's appearance family reject invalid updates
   before publishing derived geometry or paint, and recover on a legal value.
   Scroll extents require positive finite pixels or known metrics resolving to

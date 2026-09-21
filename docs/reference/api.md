@@ -12180,3 +12180,42 @@ existing behavior. This style accepts automatic or topBar placement.
 NavigationStack keeps its existing Back hierarchy. It does not add a collapsed
 style: use a CollapsibleView for an app destination chooser alongside the stack
 when the product actually has sibling destinations.
+### `UI.Skeleton`
+
+`app.controls.Skeleton("Id")({ form = "line", lines = 3 })` reserves an
+informational loading silhouette. It adds no focus target, input binding, or
+surface decoration. Use `UI.ProgressView` when the player needs a progress value
+or activity indicator; use Skeleton when the pending content's shape is useful.
+
+`form` is required: `"box"`, `"line"`, or `"circle"`. `controlSize` accepts a
+static or bound `"compact" | "regular" | "large"`; absent means regular. Box and
+circle use the rung's control height; line uses its icon size. A line's positive
+whole `lines` count defaults to one. Multiple lines have theme-small gaps and a
+60% final line. Box/line accept bound `width` and `height` dimensions; their
+width defaults to fill. Circle accepts only width, used for both axes.
+`corners = "pill" | "square"` overrides box/line rounding; circle refuses it.
+Unknown keys and invalid form-specific combinations refuse. Invalid bound size
+updates quarantine before geometry changes, and later legal values recover.
+
+The surface-less plate uses the theme's control tint. One shared decorative
+1.2-second triangular driver per presenter clock moves a 35% fill band between
+percent spacers. It allocates two dimension tables per frame per clock, plus
+ordinary per-instance rendering work. Mounted sweeps start it; the last sweep
+leaving detaches it immediately. Separate branch holds keep its independent
+owner alive until the last Skeleton is disposed. Render hooks count structural
+presence, not pixel visibility or opacity. Reduced motion removes the sweep;
+a missing presenter clock or environment leaves the plate static.
+
+The ordinary `ref` callback receives the frozen record with `dump()`, including
+form, lines, authored corners/size, animating and reducedMotion. There are no
+imperative control verbs. Build pending placeholders inside their actual branch:
+
+```luau
+local UI = app.controls
+return UI.When("Pending")({
+    condition = loading,
+    thenView = function()
+        return UI.Skeleton("Article")({ form = "line", lines = 3 })
+    end,
+})
+```

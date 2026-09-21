@@ -1529,6 +1529,7 @@ require("./sheet.spec")
 require("./page_view.spec")
 require("./mouse_scroll.spec")
 require("./collapsible_view.spec")
+require("./skeleton.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",

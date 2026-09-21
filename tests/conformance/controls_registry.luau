@@ -2115,6 +2115,19 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		name = "Skeleton",
+		kind = "composite",
+		module = "src/controls/skeleton.luau",
+		export = "UI.Skeleton",
+		spec = "tests/skeleton.spec.luau",
+		conformance = "tests/skeleton.spec.luau",
+		docsAnchor = "UI.Skeleton",
+		dumpFunction = "function dump",
+		-- Informational silhouettes own no focus targets or input contribution.
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========
