@@ -12475,3 +12475,7 @@ partner roles also paint managed art; other roles keep the package icon tint.
 `ref.api.semanticText` and `ref.dump()` expose the current checked label/status/rung
 and authored appearance, icon side, corners, over and name. As with StatusIndicator,
 passive diagnostic semantics do not promise native or OS accessibility delivery.
+
+### Common control compositions
+
+See [common recipes](../guide/17-recipes.md) for measured action rows, checkbox and chip groups, empty states, divider insets, and single-open DisclosureGroup composition using app.controls and Compose.

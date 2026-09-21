@@ -913,6 +913,7 @@ require("./value_controls.spec")
 require("./rating.spec")
 require("./display_controls.spec")
 require("./shortcut_hint.spec")
+require("./recipes_common.spec")
 require("./container_grid.spec")
 -- task 12 (transitions round, spec 2I): the caret's rotation spring, the
 -- content's slide-up entrance, and the presenter-bound sibling glide

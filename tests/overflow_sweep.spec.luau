@@ -523,6 +523,7 @@ local SCENARIOS = {
 	-- sweep is for
 	"leaf_capabilities",
 	"shortcut_hint",
+	"recipes_common",
 	"container_grid",
 	-- ...and the scaffolded `Skeleton` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.

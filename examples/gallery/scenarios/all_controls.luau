@@ -17,6 +17,7 @@ local groups = {
 		label = "Actions",
 		tabs = {
 			{ id = "buttons", label = "Buttons", scenario = require("./action_controls") },
+			{ id = "recipes", label = "Recipes", scenario = require("./recipes_common") },
 			{ id = "shortcuts", label = "Shortcuts", scenario = require("./shortcut_hint") },
 			{ id = "menus", label = "Menus", scenario = require("./menu") },
 			{ id = "alerts", label = "Alerts", scenario = require("./alert") },

@@ -434,3 +434,5 @@ Declarative animation, direct conditional children, custom component slots and k
 ScrollView navigation can share a model-owned pixel position between presentations;
 VirtualGrid exposes the same behavior through `scrollNavigation`. See the
 [scroll configuration](../reference/api.md#scrollview).
+
+[Common composition recipes](17-recipes.md) covers action rows, independent settings, chip groups, empty states, divider insets, and single-open accordions.

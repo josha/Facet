@@ -318,6 +318,7 @@ local ORDER = {
 	-- Leaf paint, fitting and native scrolling; also in All controls → Inputs → Leaves.
 	"leaf_capabilities",
 	"shortcut_hint",
+	"recipes_common",
 	"container_grid",
 	-- Loading/reduced-motion branch lifetime; shared with Indicators → Progress.
 	"skeleton",

@@ -247,3 +247,5 @@ phone, tablet, desktop and ten-foot facts, and use `dump()` for inspectable cont
 state. Headless tests establish logic; Studio and physical-device observations
 are separate evidence, as [device verification](11-device-verification.md)
 explains.
+
+[Common composition recipes](17-recipes.md) covers action rows, independent settings, chip groups, empty states, divider insets, and single-open accordions.
