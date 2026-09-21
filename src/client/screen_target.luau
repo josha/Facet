@@ -731,7 +731,7 @@ function screen_target.new(opts: Opts?)
 	-- `::UIStroke` modifier for as long as it exists, and a `UIShadow` child
 	-- collides with nothing.
 	local focusTreatment: any = { kind = "ring", color = nil }
-	-- The ACTIVE theme's palette, or nil while no package is installed. Every
+	-- The ACTIVE package or native sheet palette. Every
 	-- adapter-owned paint seam that a StyleSheet rule cannot express reads it, so
 	-- there is one answer to "which theme is live" rather than one per seam.
 	local activeTheme: any = nil
@@ -772,9 +772,11 @@ function screen_target.new(opts: Opts?)
 				end
 			end
 		end
+		if package == nil and nativeMode then
+			theme = native_style.palette(nativeHandle)
+		end
 		local rgb = chrome_slots.resolveFocusColor(recipe, theme)
-		-- no package, or a recipe that named no colour: the accent the target was
-		-- constructed with, exactly as before this existed
+		-- With no resolved palette colour, retain the construction-time accent.
 		local color = if rgb ~= nil then toColor3(rgb) else nil
 		if theme ~= nil and rgb == nil and type(theme.colors) == "table" and type(theme.colors.accent) == "table" then
 			-- THE THEME-BLINDNESS FIX: a package that says nothing about focus
@@ -1906,6 +1908,9 @@ function screen_target.new(opts: Opts?)
 	function adapter.setNativeTheme(name: string)
 		if nativeMode then
 			nativeHandle.setTheme(name)
+			if chromeState.package() == nil then
+				setActiveTheme(nil)
+			end
 		end
 	end
 	function adapter.setNativeTransitionsEnabled(on: boolean)
@@ -3718,6 +3723,10 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		rootHandle.gui:Destroy()
+	end
+
+	if nativeMode then
+		setActiveTheme(chromeState.package())
 	end
 
 	return adapter
