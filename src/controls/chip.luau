@@ -15,6 +15,7 @@ local chip = {}
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local CHIP_KEYS = specGuard.keySet({
+	"animation",
 	"enabled",
 	"id",
 	"label",
@@ -109,6 +110,7 @@ function chip.build(Facet: any, core: any, spec: any)
 			selected = selected,
 			enabled = spec.enabled,
 			children = children,
+			animation = spec.animation,
 			controlSize = spec.controlSize,
 			appearance = vocabulary.deriveAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET),
 			padding = sizedPadding,

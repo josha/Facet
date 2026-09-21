@@ -201,6 +201,7 @@ function screen_scroll_indicators.new(ctx: any)
 		size delta (`pw = rect.w + presentationSizeW + barOverlayWidenW`) — no new
 		writer of `Position`/`Size` needed, which is the invariant that function's
 		own header states `applyRect` is checked to be the only one of. ]]
+	-- xy follows the vertical policy, even when only horizontal content overflows.
 	local function applyBarOverlayWiden(handle: any, axis: string?, overflowing: boolean, indicatorsOff: boolean)
 		handle.barOverlayAxis = axis
 		handle.barOverlayOverflowing = overflowing

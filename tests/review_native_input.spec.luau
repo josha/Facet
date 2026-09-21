@@ -41,7 +41,7 @@ local function event()
 		end,
 	}
 end
-local function rig(labels, images)
+local function rig(labels, images, opts)
 	local held = {}
 	local enum = setmetatable({}, {
 		__index = function(self, k)
@@ -77,7 +77,11 @@ local function rig(labels, images)
 			return held[key] == true
 		end,
 	}
-	local services = { Players = { LocalPlayer = {} }, UserInputService = input, ReplicatedStorage = {} }
+	local services = {
+		Players = { LocalPlayer = if opts and opts.server then nil else {} },
+		UserInputService = input,
+		ReplicatedStorage = {},
+	}
 	local game = {
 		GetService = function(_, name)
 			return services[name]
@@ -114,7 +118,7 @@ local function rig(labels, images)
 			Enum = enum,
 			require = function(path)
 				if path == "../vendor/compose/core" then
-					return require("../src").Compose
+					return if opts and opts.compose then opts.compose else require("../src").Compose
 				end
 				if path == "../input/key_names" then
 					return require("../src/input/key_names")
@@ -365,5 +369,65 @@ t.describe("native key names and provider lifetime", function()
 		t.expect(names.label("Q")).toBeNil()
 		first.dispose()
 		t.expect(names.label("Q")).toBeNil()
+	end)
+end)
+
+t.describe("provider restoration and refused system ownership", function()
+	t.it("refuses a non-client before allocating the system revision", function()
+		local cells = 0
+		local compose = {
+			cell = function()
+				cells += 1
+				error("unexpected allocation")
+			end,
+		}
+		local ok, err = pcall(function()
+			rig(nil, nil, { server = true, compose = compose })
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(err), "must run on a live client", 1, true) ~= nil).toBe(true)
+		t.expect(cells).toBe(0)
+	end)
+	for _, oldestFirst in { true, false } do
+		t.it(`restores native providers in either disposal order: oldest first {oldestFirst}`, function()
+			local names = require("../src/input/key_names")
+			local a = rig({ Q = "first" })
+			local b = rig({ Q = "second" })
+			t.expect(names.label("Q")).toBe("second")
+			local first, last = if oldestFirst then a else b, if oldestFirst then b else a
+			first.dispose()
+			t.expect(names.label("Q")).toBe(if oldestFirst then "second" else "first")
+			first.dispose()
+			last.dispose()
+			last.dispose()
+			t.expect(names.label("Q")).toBe(nil)
+		end)
+	end
+	t.it("retains nil-provider registrations through out-of-order removal", function()
+		local names = require("../src/input/key_names")
+		local function install(value)
+			local release = names.setPlatform(value)
+			table.insert(releases, release)
+			return release
+		end
+		local a = install({
+			label = function()
+				return "first"
+			end,
+		})
+		local empty = install(nil)
+		t.expect(names.label("Q")).toBe(nil)
+		local b = install({
+			label = function()
+				return "second"
+			end,
+		})
+		a()
+		t.expect(names.label("Q")).toBe("second")
+		b()
+		t.expect(names.label("Q")).toBe(nil)
+		empty()
+		empty()
+		t.expect(names.label("Q")).toBe(nil)
 	end)
 end)

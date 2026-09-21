@@ -2001,7 +2001,7 @@ class("ScrollView", {
 			channel = "binding",
 			doc = "false to freeze player scrolling on this host (default true). The offset, the layout and "
 				.. "every child rect are untouched, and framework keep-visible may still move the canvas "
-				.. "programmatically — a freeze stops the player, not the screen",
+				.. "programmatically; Facet drag-to-edge autoscroll respects the freeze too",
 		}),
 		--[[ THE CANVAS THE SOLVE CANNOT DESCRIBE. A scroller's canvas is normally
 			derived — content extent plus the padding the solve spent plus the chrome

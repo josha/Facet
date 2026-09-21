@@ -13,6 +13,7 @@ local app = Facet.new()
 
 local label = Facet.Compose.cell("Repeat")
 local _button = app.controls.Button("Repeat")({
+	animation = { scale = "object" },
 	label = function(use: coreTypes.Use): string
 		return use(label)
 	end,
@@ -169,6 +170,7 @@ local _explicitHint = app.controls.ShortcutHint({
 	over = "media",
 })
 local _chip = app.controls.Chip("Tag")({
+	animation = { scale = "object" },
 	controlSize = "compact",
 	appearance = "utility",
 	corners = "pill",

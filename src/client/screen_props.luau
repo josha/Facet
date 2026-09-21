@@ -518,7 +518,7 @@ function screen_props.new(ctx: Ctx)
 			end
 		elseif prop == "scrollEnabled" then
 			--[[ THE FREEZE. The engine's own `ScrollingEnabled`, and it stops the
-				PLAYER and nothing else: `CanvasPosition` is untouched, so the offset
+				PLAYER and Facet drag-to-edge autoscroll: `CanvasPosition` is untouched, so the offset
 				survives the flip, and `setScrollPosition` — the framework's own
 				keep-visible write — is a different verb the engine still honours on a
 				disabled host. Absent is true, which is the engine's default.

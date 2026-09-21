@@ -535,6 +535,10 @@ TODO: one-paragraph description, the spec shape, invariants, and a short
 usage example (scaffolded stub — the registration checker requires this
 anchor; the docs-accuracy review requires it to be REAL).]==]
 
+-- A generated row names the public entry and leaves classification to its author.
+local LEDGER_ROW_TEMPLATE = [==[
+| `app.controls.%DISPLAY%` | scoped composite control | TODO: state the caller/library ownership pattern or justified exception. | tests/%NAME%.spec.luau; docs/reference/api.md | controls |]==]
+
 local function fill(template: string, name: string, display: string): string
 	local out = string.gsub(template, "%%NAME%%", name)
 	-- LOWERDISPLAY before DISPLAY: `%DISPLAY%` is a prefix of `%DISPLAYX%` only
@@ -661,6 +665,11 @@ function scaffold.plan(kind: string, name: string): Plan
 				path = "docs/reference/api.md",
 				before = nil, -- append
 				insert = fill(API_STUB_TEMPLATE, name, display),
+			},
+			{
+				path = "tools/lune/verify/data/surface-ledger.md",
+				before = "| `Controls.Sheet` |",
+				insert = fill(LEDGER_ROW_TEMPLATE, name, display),
 			},
 			--[[ ...AND THE SIX THAT WERE NOBODY'S TO REMEMBER (2026-08-21). Each of
 				these was discovered by a fresh-context control author as a RED TEST,

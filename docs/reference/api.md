@@ -983,9 +983,11 @@ neither axis clamps its canvas to the viewport — so content past the box on
 *either* axis is reachable. Reach for it for a map, a wide table, a pinboard.
 
 An `xy` host is treated as a `"y"` host everywhere a single axis is assumed, and
-that is deliberate and uniform: the chrome lane, the leading-edge bleed reserve
-and the drag-to-edge autoscroll band are each a policy about ONE edge, so they
-take their `y` branch — which is also the bar a two-axis host can actually show.
+the chrome lane, leading-edge bleed reserve, drag-to-edge autoscroll band, and
+`scrollIndicatorPolicy = "auto"` bar compensation all take their vertical branch.
+An xy board that overflows only horizontally therefore keeps no bottom lane and
+still widens for the vertical bar. These are the current single-axis chrome
+policies; they do not infer the overflowing axis.
 Nested-scroller arbitration follows the same chain rule as any other pair: an
 `xy` host already at the end of the band the drag is asking for is transparent and
 the page behind it wins. **Wheel and touch momentum between nested plain
@@ -1012,7 +1014,10 @@ engine draws a bar nothing can move) — so accepting one would be a declaration
 live target discards and a headless one honours. The axis left out keeps the
 derived canvas (content + the padding the solve spent + the chrome lane it kept).
 Construction-only, and it needs a static `axis` for the same reason a tile mode
-needs a static `scaleMode`.
+needs a static `scaleMode`. Each authored extent must be positive and finite, or
+name a known non-negated metric that resolves to positive finite pixels. Zero,
+negative, infinite, NaN and unknown values refuse; a bad live metric answer keeps
+the last published canvas until the metric recovers.
 
 **`indicators` is one word for both axes.** *Engine limit, recorded rather than
 worked around:* a `ScrollingFrame` carries ONE `ScrollBarThickness` for both bars,
@@ -7979,6 +7984,15 @@ Each pairing holds **through hover and press** as well as at rest: the danger
 signal moves with the state on whichever channel the appearance leaves free, so a
 quiet delete never hovers back into an ordinary control.
 
+A control constructed with `controlSize` mounts at
+`<parent>/<id>+target/<id>`. Identity-based focus and keyed updates reach the same
+plate, but a stored literal path must include the wrapper. Adding or omitting the
+property at construction changes that path; a bound value becoming nil retains it.
+
+`animation` on Button or Chip belongs to the actual primitive plate, including
+when a target wrapper is present. The policy is validated against the Button
+class; wrapper-only properties such as `opacity` are refused.
+
 #### Icon-only and icon-plus-label buttons
 
 `icon` and `trailingIcon` take a **semantic icon NAME** (a framework name, or a
@@ -8008,7 +8022,9 @@ local close = UI.Button("Close")({ icon = "close", name = "Close", corners = "pi
 `controlSize` and `appearance` accept Compose readables and `function(use)` bindings.
 They are borrowed from the caller; changing or retracting them updates the mounted
 plate without rebuilding it. A bound rung retains its `<id>+target` wrapper when its
-value becomes nil. `corners`, `over`, and semantic icon names are construction-time.
+value becomes nil. Every update is checked against the control's own vocabulary;
+an invalid value keeps the last legal paint and dimensions, and a later legal
+value can recover. `corners`, `over`, and semantic icon names are construction-time.
 
 A sized Button reads the mounted surface's environment to reserve the larger of
 its class hit minimum and the live theme minimum. Construction is refused without
@@ -9659,10 +9675,11 @@ Spec fields:
 
 | field | type | required | meaning |
 |---|---|---|---|
-| `id` | `string` | no (default `"Chip"`) | the node id; the mounted path is `<screen>/<id>`. |
+| `id` | `string` | no (default `"Chip"`) | the plate id; a supplied `controlSize` adds the `<id>+target` parent. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
 | `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
 | `selected` | a writable boolean cell | **yes** | the caller-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. Validated at build: absent, or a read-only formula, is an error naming the control and the field, not a crash on the first tap. |
+| `animation` | animation policy | no | applies to the primitive Button plate and is checked against its supported properties. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip with the new value (e.g. to persist a filter). |
 | `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
 | `appearance` | `"standard" \| "utility"` (bindable) | no | visual emphasis, through a style tag. A chip's family is two words, not the Button's five: `emphasis`/`soft`/`link` describe an action's weight among actions, which a filter pill is not. |

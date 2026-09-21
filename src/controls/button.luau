@@ -12,6 +12,7 @@ local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local button = {}
 local KEYS = guard.keySet({
+	"animation",
 	"id",
 	"label",
 	"name",
@@ -70,6 +71,7 @@ local KEYS = guard.keySet({
 })
 -- Placement, visibility and lifecycle properties the primitive reads as authored.
 local PASSTHROUGH = {
+	"animation",
 	"hidden",
 	"anchor",
 	"alignH",

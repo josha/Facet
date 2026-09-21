@@ -1003,6 +1003,14 @@ function fake_target.new(opts: Opts?)
 		if recordOps then
 			note(`prop {handle.path}.{prop}={tostring(value)}`)
 		end
+		-- Noninteractive content can wear vocabulary tags too, just as on the native handle.
+		if
+			handle.tagState == nil
+			and (prop == "controlSize" or prop == "appearance" or prop == "over")
+			and type(value) == "string"
+		then
+			handle.tagState, handle.tags = {}, handle.tags or {}
+		end
 		if handle.tagState ~= nil then
 			--[[ the three writes that re-classify, mirroring the live adapter's own
 				handle bookkeeping: `screen_paint.applySurfaceNative` (a `plain` or

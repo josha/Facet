@@ -173,6 +173,7 @@ export type ViewVirtualGridSpec<T> = VirtualGridOptions & {
 }
 type BooleanCell = core.Cell<boolean>
 export type ChipSpec<V = BooleanCell> = {
+	animation: bp.AnimationSpec?,
 	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
 	appearance: bp.Bound<("standard" | "utility")?>?,
 	corners: ("pill" | "square")?,
@@ -241,6 +242,7 @@ export type SemanticRow = {
 }
 export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? }
 export type ButtonSpec = {
+	animation: bp.AnimationSpec?,
 	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
 	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
 	corners: ("pill" | "square")?,

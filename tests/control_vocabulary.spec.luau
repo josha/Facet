@@ -140,6 +140,13 @@ describe("the vocabulary tags", function()
 		return nil
 	end
 
+	it("both builders place shape before vocabulary roles", function()
+		for _, entry in models() do
+			local at = indexed(entry.model)
+			expect(at["Circle button — corner"] < at["Emphasis control"]).toBe(true)
+		end
+	end)
+
 	it("every builder paints every tag the vocabulary mints", function()
 		for _, entry in models() do
 			local seen: { [string]: boolean } = {}
@@ -1031,4 +1038,60 @@ describe("live control vocabulary keeps the last legal publication", function()
 			end)
 		end
 	end
+end)
+
+describe("control plate policy and passive classification", function()
+	for _, kind in { "Button", "Chip" } do
+		it(kind .. " forwards animation to the actual sized plate and validates its class", function()
+			local w = world.new()
+			local UI = w.UI
+			local policy = { scale = "object" }
+			w.present(function()
+				return UI.Screen("S")({
+					UI[kind]("Sized")({
+						label = "Go",
+						selected = w.Compose.cell(false),
+						controlSize = "compact",
+						animation = policy,
+					}),
+				})
+			end)
+			local plate = authored(w.record("Sized"))
+			expect(plate.animation).toEqual(policy)
+			expect(w.record("Sized").blueprint.props.animation).toBe(nil)
+			expect(pathOf(w, "Sized")).toBe("/S/Sized+target/Sized")
+			w.close()
+			for _, size in { "compact", "regular" } do
+				local ok, err = pcall(function()
+					w.present(function()
+						return UI.Screen("S")({
+							UI[kind]("Bad")({
+								label = "Go",
+								selected = w.Compose.cell(false),
+								controlSize = size,
+								animation = { opacity = "object" },
+							}),
+						})
+					end)
+				end)
+				expect(ok).toBe(false)
+				expect(string.find(tostring(err), "unsupported property 'opacity'", 1, true) ~= nil).toBe(true)
+				expect(w.adapter.liveCount()).toBe(0)
+			end
+		end)
+	end
+	it("classifies a passive Text over media and retracts the tag on removal", function()
+		local w = world.new()
+		w.present(function()
+			return w.UI.Screen("S")({ w.UI.Text("Caption")({ text = "Lap", over = "media" }) })
+		end)
+		local node = w.adapter.node("/S/Caption")
+		expect(tagsOf(w, node.path)["facet-over-media"]).toBe(true)
+		expect(#w.adapter.tagsOf(node.path)).toBe(1)
+		-- Direct adapter writes exercise the native-facing class mirror; over is construction-only.
+		w.adapter.setProp(node, "over", nil)
+		expect(tagsOf(w, node.path)["facet-over-media"]).toBe(nil)
+		w.adapter.setProp(node, "over", "media")
+		expect(tagsOf(w, node.path)["facet-over-media"]).toBe(true)
+	end)
 end)

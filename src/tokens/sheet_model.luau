@@ -2612,17 +2612,19 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- the disc's chrome, in the group right after the surfaces whose corners it
 	-- replaces and right before `chrome`, whose skinned-slot suppression must
 	-- still beat it (see emitShapeChrome)
-	-- the local size/emphasis chrome, from the SAME shared emitter as the base seed
-	-- (see emitVocabularyChrome): corners before the disc's, fills after the
-	-- surfaces, interaction states in their own groups
+	-- Preserve the base seed's cascade order: vocabulary surfaces, shape, then roles.
+	local vocabRoleRules: { Rule } = {}
 	emitVocabularyChrome(metrics, hairlineT, hairlineW, function(rule: Rule)
 		emit("surfaces", rule)
 	end, function(rule: Rule)
-		emit("roles", rule)
+		table.insert(vocabRoleRules, rule)
 	end, fromMetric)
 	emitShapeChrome(metrics, hairlineT, hairlineW, function(rule: Rule)
 		emit("roles", rule)
 	end, fromMetric)
+	for _, rule in vocabRoleRules do
+		emit("roles", rule)
+	end
 	for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 		emitOwnSlotPaint(slot, metrics, hairlineT, hairlineW, function(rule: Rule)
 			emit("surfaces", rule)

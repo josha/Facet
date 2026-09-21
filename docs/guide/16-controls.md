@@ -78,7 +78,10 @@ UI.Chip { label = "Rain", selected = raining, controlSize = "compact" }
 - **`controlSize`** is `"compact" | "regular" | "large"` and resolves to your
   theme's own ladder (`controlSizes.<rung>.{height,paddingX,iconSize}`) by NAME, so
   installing a different theme package re-sizes the control with no rebuild. An
-  authored `height` still wins.
+  authored `height` still wins. `regular` uses the middle rung (44px at Facet
+  Neutral); omitting the key keeps content plus theme padding (46px for a Neutral
+  Button). Choose a rung consistently across a row. Custom children retain their
+  theme vertical padding unless explicit padding is supplied.
 - **`appearance`** is emphasis only. `role` stays the semantic channel, and the two
   compose: `role = "destructive", appearance = "utility"` is a quiet delete.
 - **`corners`** is `"pill"` or `"square"` — the corner treatment. A 1:1 disc is

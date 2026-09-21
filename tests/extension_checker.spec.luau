@@ -587,6 +587,7 @@ describe("extension scaffold", function()
 		local plan = scaffold.plan("control", "probe_widget")
 		local LATE = {
 			["src/render/compose_controls.luau"] = 'api.ProbeWidget = composite("ProbeWidget"',
+			["tools/lune/verify/data/surface-ledger.md"] = "`app.controls.ProbeWidget`",
 			["docs/guide/README.md"] = "`UI.ProbeWidget`",
 			["tests/controls_namespace.spec.luau"] = '"ProbeWidget",',
 			["examples/gallery/scenarios/init.luau"] = '"probe_widget",',
@@ -611,7 +612,7 @@ describe("extension scaffold", function()
 				`{edit.path} idempotent: true`
 			)
 		end
-		expect(checked).toBe(7)
+		expect(checked).toBe(8)
 	end)
 
 	it("the scenario, the demo, and the pinned root all name the SAME surface", function()

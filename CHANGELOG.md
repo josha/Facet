@@ -13,6 +13,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Bound control sizes and each control's appearance family reject invalid updates
+  before publishing derived geometry or paint, and recover on a legal value.
+  Scroll extents require positive finite pixels or known metrics resolving to
+  that range. Middle truncation returns an ellipsis for nonpositive width.
+  Rich text measures glyphs and runs in one parse; font memos have bounded
+  admission and reset with measured text. Button and Chip animation policies
+  now reach the primitive plate and retain its property validation.
+
 - Custom-child Buttons retain their theme padding when a control size is named;
   explicit padding still wins. A Button with no drawable content now refuses,
   even when a semantic name is supplied; an initially empty bound label remains
