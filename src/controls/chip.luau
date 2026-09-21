@@ -266,9 +266,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		}
 	end
 
-	local mounted = if spec.controlSize ~= nil and not removable
-		then vocabulary.reserveTarget(UI, core, id, blueprint, nil)
-		else blueprint
+	local mounted = if not removable then vocabulary.reserveTarget(UI, core, id, blueprint, nil) else blueprint
 	return {
 		blueprint = mounted,
 		dump = dump,

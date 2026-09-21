@@ -6143,6 +6143,12 @@ modal scopes trap and restore the previous focus on pop.
   `graph.remove(id)` — structural updates keep focus when it survives, else
   the nearest surviving neighbor (preferring the following item).
 
+`graph.navigationTarget()` is the destination of the last real navigate,
+navigateDirection or traverse movement, published before focus subscribers run.
+Accepted explicit `focusOn` clears it, even if focus paint remains visible. TabView
+uses this authority for bookmark restoration; shoulder entry consumes its pending
+handoff after restoring the eligible target.
+
 **Geometry for automatically derived navigation.** Inferred layout groups receive
 `rectOf` from the renderer. For these groups, directions search visible eligible
 mounted candidates within that group in the requested half-plane. Overlapping perpendicular spans
@@ -7922,7 +7928,7 @@ reading.
 One boolean selection control with `presentation = "switch"` (default),
 `"checkbox"`, or `"button"`. Required `value` is a boolean Compose readable or
 `function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
-`row`, `hint`, `indicatorPosition`, `controlSize`, and `children` (custom button content only).
+`row`, `hint`, `indicatorPosition`, `controlSize`, `width`, and `children` (custom button content only).
 
 Without `onChange`, `value` and any `mixed` binding must be writable cells;
 activation updates them directly. With `onChange(wanted)`, activation requests
@@ -7945,6 +7951,12 @@ the default. Bare switches retain native track padding. A row's internal indicat
 has no independent focus or command: the row owns activation and model approval.
 Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
 to `trackInset + trackWidth + trackInset`; an authored value overrides that default.
+
+Bound `width` accepts the ordinary Dim vocabulary. Omission keeps the presentation's
+settings-row default. Plain switches and checkboxes accept hug/content/minMax widths;
+their label columns measure their own copy, so hugging checkboxes can wrap in a HStack.
+Row and button forms refuse content-sized widths by name; fixed/fill remain supported.
+Later width changes use the same checked source and recover after an invalid update.
 
 Switches paint their initial value immediately. Later value changes slide the knob
 without overshoot; pressing a switch keeps its label size unchanged. Reduced
@@ -8591,7 +8603,7 @@ and its intervening gap, so copy cannot reduce the indicator to zero width.
 Bound `controlSize` names the indicator's local space-based ladder: spinner dots
 compact/regular/large use space.xs/s/m (4/8/16 at Neutral); circular indicators use
 space.m/l/xl (16/24/40). Absent or nil preserves the package's authored progress
-metrics. Every rendered dimension checks the rung before publication and recovers
+metrics. Explicit regular derives its rung from spacing and may differ from those authored metrics. Every rendered dimension checks the rung before publication and recovers
 on a legal value. Bars have no sized indicator and refuse controlSize; circular
 views accept either an explicit diameter or a rung. `dump.endLabel` and
 `dump.controlSize` describe the requested source values.

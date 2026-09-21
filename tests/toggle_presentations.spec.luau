@@ -451,3 +451,149 @@ t.describe("Toggle setting rows", function()
 		end)).toBe(false)
 	end)
 end)
+
+t.describe("the switch's label column", function()
+	local source = require("@lune/fs").readFile("src/client/screen_paint.luau")
+	local body = require("./lib/adapter_source").bodyOf(source, "local function toggleLabelBox(")
+	local factory = require("@lune/luau").load([[return function(snapshot, themeSnapshot, UDim2)
+		local style = { space = { xs = 8, m = 16 } }
+	]] .. body .. "\nreturn toggleLabelBox end")()
+	local themeSnapshot = require("../src/themes/snapshot")
+	local UDim2 = {
+		fromOffset = function(x: number, y: number)
+			return { x = x, y = y, kind = "offset" }
+		end,
+		new = function(sx: number, ox: number, sy: number, oy: number)
+			return { sx = sx, ox = ox, sy = sy, oy = oy, kind = "udim2" }
+		end,
+	}
+
+	t.it("a leaf with no room for a label gets a ZERO column, never a negative one", function()
+		local snap = Facet.themes.neutral()
+		local box = factory(function()
+			return snap
+		end, themeSnapshot, UDim2)
+		local pad = themeSnapshot.toggleRowPadding(snap)
+		local reserved = pad.left + pad.right
+		local markWidth = snap.controls.toggle.markWidth
+		-- the fixture is the real defect's arithmetic: the reservation is WIDER
+		-- than the box the adapter paints a display-only switch into
+		t.expect(`reserved {reserved} > markWidth {markWidth}: {reserved > markWidth}`)
+			.toBe(`reserved {reserved} > markWidth {markWidth}: true`)
+		local pos, size = box({ windowRect = { x = 0, y = 0, w = markWidth, h = 24 } })
+		t.expect(`squeezed: {size.sx},{size.ox} at {pos.x}`).toBe("squeezed: 0,0 at 0")
+		-- ...and unsqueezed, the column is exactly what it always was
+		local widePos, wideSize = box({ windowRect = { x = 0, y = 0, w = 320, h = 24 } })
+		t.expect(`roomy: {wideSize.sx},{wideSize.ox} at {widePos.x}`).toBe(`roomy: 1,{-reserved} at {pad.left}`)
+		-- a handle with no rect yet keeps the shipped answer, so create-time is
+		-- byte-identical until the first rect arrives
+		local _, bareSize = box({})
+		t.expect(`no rect: {bareSize.sx},{bareSize.ox}`).toBe(`no rect: 1,{-reserved}`)
+	end)
+
+	t.it("the adapter re-takes it when the rect moves, and only then", function()
+		local live = require("./lib/adapter_source").live()
+		local setRect = require("./lib/adapter_source").bodyOf(live, "function adapter.setRect(")
+		t.expect(string.find(setRect, "handle.labelBoxWidth ~= rect.w", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(setRect, "applyToggleLabelBox(handle)", 1, true) ~= nil).toBe(true)
+		-- ...and both writers take the handle, or the clamp is unreachable
+		local apply = require("./lib/adapter_source").bodyOf(source, "local function applyToggleLabelBox(")
+		t.expect(string.find(apply, "toggleLabelBox(handle)", 1, true) ~= nil).toBe(true)
+		local build = require("./lib/adapter_source").bodyOf(source, "local function buildToggleVisual(")
+		t.expect(string.find(build, "toggleLabelBox(handle)", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+t.describe("Toggle bound width", function()
+	t.it("wraps content-sized labels and follows live width including rejected row widths", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 420, h = 640 } })
+		local UI = w.UI
+		local width = Compose.cell(UI.hug())
+		w.present(function()
+			local children = {}
+			for _, label in { "Rain", "Dust", "Night vision", "Mirror" } do
+				table.insert(
+					children,
+					UI.Toggle(label)({
+						label = label,
+						presentation = "checkbox",
+						width = width,
+						value = Compose.cell(false),
+					})
+				)
+			end
+			return UI.Screen("S")({
+				UI.HStack("Wrap")({ wrap = true, gap = "s", width = UI.fill(), table.unpack(children) }),
+			})
+		end)
+		local row = w.controller.rectOf("/S/Wrap")
+		local tops = {}
+		for _, label in { "Rain", "Dust", "Night vision", "Mirror" } do
+			local r = w.controller.rectOf("/S/Wrap/" .. label)
+			t.expect(r.w < row.w).toBe(true)
+			tops[r.y] = true
+		end
+		t.expect(w.controller.rectOf("/S/Wrap/Night vision").w > w.controller.rectOf("/S/Wrap/Rain").w).toBe(true)
+		local lines = 0
+		for _ in tops do
+			lines += 1
+		end
+		t.expect(lines > 1).toBe(true)
+		width:set(UI.fill())
+		w.settle()
+		t.expect(w.controller.rectOf("/S/Wrap/Rain").w).toBe(row.w)
+		width:set({ type = "minMax", min = 60 })
+		w.settle()
+		t.expect(w.controller.rectOf("/S/Wrap/Rain").w < row.w).toBe(true)
+		width:set(UI.hug())
+		w.settle()
+		t.expect(w.controller.rectOf("/S/Wrap/Rain").w < row.w).toBe(true)
+		w.app.dispose()
+		for _, presentation in { "switch", "button" } do
+			local r = world.new()
+			local rw = Compose.cell({ type = "fixed", px = 240 })
+			r.present(function()
+				return r.UI.Screen("S")({
+					r.UI.Toggle("T")({
+						label = "Rumble",
+						value = Compose.cell(false),
+						width = rw,
+						presentation = presentation,
+						row = if presentation == "switch" then { description = "Feedback" } else nil,
+					}),
+				})
+			end)
+			t.expect(r.controller.rectOf("/S/T").w).toBe(240)
+			rw:set({ type = "hug" })
+			r.settle()
+			t.expect(r.controller.rectOf("/S/T").w).toBe(240)
+			t.expect(string.find(tostring(r.core.lastError()), "content-sized width", 1, true) ~= nil).toBe(true)
+			rw:set({ type = "fixed", px = 280 })
+			r.settle()
+			t.expect(r.controller.rectOf("/S/T").w).toBe(280)
+		end
+	end)
+	t.it("refuses content-sized row/button widths before allocation", function()
+		for _, width in { { type = "hug" }, { type = "content" }, { type = "minMax", min = 40 } } do
+			for _, presentation in { "switch", "button" } do
+				local w = world.new()
+				local ok, err = pcall(function()
+					w.present(function()
+						return w.UI.Screen("S")({
+							w.UI.Toggle("T")({
+								label = "Rumble",
+								value = Compose.cell(false),
+								width = width,
+								presentation = presentation,
+								row = if presentation == "switch" then { description = "Feedback" } else nil,
+							}),
+						})
+					end)
+				end)
+				t.expect(ok).toBe(false)
+				t.expect(string.find(tostring(err), "width", 1, true) ~= nil).toBe(true)
+				t.expect(w.adapter.liveCount()).toBe(0)
+			end
+		end
+	end)
+end)

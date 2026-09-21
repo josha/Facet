@@ -1257,3 +1257,11 @@ Use optional `chrome.navigation` for adaptable navigation bands/capsules. A smal
 carved strip or quiet native treatment usually fits better than a panel's layered
 corners and nameplate. Declare content insets for the actual border. Fantasy Ornate
 shows this with its existing art; verify compact/distant and Largest text.
+
+Success/onSuccess and warning/onWarning are authored pairs: supplying either half
+requires both, and every authored variant supplies both or every variant omits them.
+A derived multi-variant package may omit both and inherit its base. Both compiler
+gates check the effective 4.5:1 contrast; danger retains its established fallback.
+Managed semantic pictures follow explicit readable partner tint and contentStrong
+over media; unlettered art keeps its declared icon role. The built-in Day/Night
+sheets resolve framework icon roles through the same mapping as package sheets.

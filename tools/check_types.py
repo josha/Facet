@@ -176,6 +176,8 @@ _EROSION_PROBES = [
     ("Chip", 'app.controls.Chip("C")({ selected = Facet.Compose.cell(false), animation = { scale = 42 } })'),
     ("Button", 'app.controls.Button({ label = 42 })'),
     ("Button", 'app.controls.Button("B")({ label = 42 })'),
+    ("Toggle", 'app.controls.Toggle({ value = Facet.Compose.cell(false), width = "wide" })'),
+    ("Toggle", 'app.controls.Toggle("T")({ value = Facet.Compose.cell(false), width = "wide" })'),
     ("Toggle", 'app.controls.Toggle({ value = "on" })'),
     ("Toggle", 'app.controls.Toggle("T")({ value = "on" })'),
     ("Button", 'app.controls.Button({ controlSize = "tiny" })'),

@@ -3117,6 +3117,25 @@ function package.define(def: any): (any, any)
 							.. `beside {entry.plate}, or declare neither and inherit today's pair`
 					)
 				end
+				--[[ ...AND THE OTHER HALF OF THE SAME DECISION. A partner with no plate
+					was accepted and inert: `successPair` reads the PLATE first and falls
+					back to the accent pair when it is absent, so `onSuccess` alone was a
+					colour the author wrote, the gate reported as passing, and nothing
+					ever painted. Half a decision either way is the same defect, and a
+					key that is accepted must do something. ]]
+				if
+					entry.requiresPartner
+					and theme.colors[entry.partner] ~= nil
+					and theme.colors[entry.plate] == nil
+				then
+					reject(
+						"missingRole",
+						`style.themes[{index}].colors.{entry.plate}`,
+						`theme '{theme.name}' declares {entry.partner} without {entry.plate}`,
+						`{entry.partner} is the colour that reads ON {entry.plate}, so with no plate it paints `
+							.. `nothing — declare {entry.plate} beside it, or move {entry.partner} into \`extra\``
+					)
+				end
 			end
 			for _, field in report.missing do
 				if string.sub(field, 1, 7) == "colors." then
@@ -3177,6 +3196,63 @@ function package.define(def: any): (any, any)
 				end
 			end
 			table.insert(themes, { name = theme.name, colors = theme.colors, extra = theme.extra })
+		end
+		--[[ A PAIR IS DECLARED BY THE PACKAGE, NOT BY ONE OF ITS VARIANTS. The rule
+			above is per theme, so a two-variant package could declare `success` in its
+			Day theme and leave Night on the library fallback — and the fallback is the
+			ACCENT pair, which is the very thing these roles exist to stop `success`
+			being. Nothing reports it: both variants gate green, and the player sees a
+			green tick in daylight and a blue one at night. Declaring a semantic pair
+			is a decision about the palette, so every variant of the package answers
+			it. Named on the variant that is MISSING it, which is the one an author has
+			to go and write.
+
+			IT IS ASKED OF THE DEFINITION, NOT OF THE MERGE, and that distinction is
+			the whole of the rule's correctness. `inherit` merges `style.themes`
+			POSITIONALLY, so a package with `base = themes.neutralPackage()` and two
+			variants gets themes[1] merged with the base's single theme — which has
+			carried both pairs since they became contract roles — while themes[2]
+			inherits nothing. Read off the merge, that is "variant 1 declares it and
+			variant 2 does not", and the refusal would land on every derived
+			two-variant package in existence: the shape the theme chapter tells every
+			author to write, whose author declared the pair in NEITHER variant. So the
+			question is what `def.style` says, and a plate the BASE supplied is not an
+			answer this package gave. ]]
+		local authored = if type(def.style) == "table" and type(def.style.themes) == "table"
+			then def.style.themes
+			else nil
+		local function authoredPlate(index: number, plate: string): boolean
+			local theme = if authored ~= nil then (authored :: any)[index] else nil
+			local colors = if type(theme) == "table" then theme.colors else nil
+			return type(colors) == "table" and colors[plate] ~= nil
+		end
+		for _, entry in SEMANTIC_PAIRS do
+			if not entry.requiresPartner or authored == nil then
+				continue
+			end
+			local declaredIn: string? = nil
+			for index, theme in style.themes do
+				if authoredPlate(index, entry.plate) then
+					declaredIn = if type(theme) == "table" and type(theme.name) == "string" then theme.name else "?"
+					break
+				end
+			end
+			if declaredIn == nil then
+				continue
+			end
+			for index, theme in style.themes do
+				if authoredPlate(index, entry.plate) then
+					continue
+				end
+				reject(
+					"missingRole",
+					`style.themes[{index}].colors.{entry.plate}`,
+					`theme '{tostring(if type(theme) == "table" then theme.name else "?")}' omits {entry.plate} `
+						.. `while '{declaredIn}' declares it — one variant of a package may not answer a palette `
+						.. "question the others leave to the fallback",
+					`declare {entry.plate} and {entry.partner} in every variant, or in none`
+				)
+			end
 		end
 		if style.defaultTheme ~= nil and not seen[style.defaultTheme] then
 			reject(

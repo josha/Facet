@@ -183,7 +183,7 @@ function screen_paint.new(ctx: any)
 		local alpha = sheet_model.tintTransparency(tint, handle.class)
 		local hasAlpha = (tint :: any).transparency ~= nil
 		--[[ THE STATUS LETTERING, AS A CLASSIFICATION (2026-09-19). A tint naming
-			one of the four readable partners a status plate can carry publishes that
+			a readable plate partner or contentStrong over media publishes that
 			ROLE as a tag, and the only thing that reads it is the sheet's icon rule:
 			the managed picture over this node is a SEPARATE instance whose
 			`ImageColor3` is sheet-owned, which is the one paint a per-node claim
@@ -324,8 +324,12 @@ function screen_paint.new(ctx: any)
 		-- ...and so does the status lettering: a node whose tint was cleared is not
 		-- on a status plate any more, and a picture over it goes back to the colour
 		-- its own name declares
+		local hadLetters = handle.letterRole ~= nil
 		handle.letterRole = nil
 		syncTags(handle)
+		if hadLetters and not nativeMode and handle.iconInstance ~= nil then
+			syncChrome(handle)
+		end
 		if handle.path2d ~= nil then
 			if handle.pathAlpha then
 				handle.pathAlpha.Transparency = NumberSequence.new(0)
@@ -1247,13 +1251,26 @@ function screen_paint.new(ctx: any)
 	-- the renderer's measure seam uses. Falling back to the boot style when no
 	-- package is installed keeps the flat default byte-identical, because that
 	-- fallback IS the neutral snapshot's answer.
-	local function toggleLabelBox(): (UDim2, UDim2)
+	--[[ ...AND A BOX SMALLER THAN ITS OWN RESERVATION GETS NO COLUMN AT ALL. The
+		size above is a FRACTION of this leaf minus the reservation, and a display-only
+		switch — the one a `Toggle` row mounts as a picture of a switch — is exactly
+		`trackInset + trackWidth + trackInset` wide, while the reservation is that
+		plus the label GAP. Under Facet Neutral that is 68 against 84, so the engine
+		`Label` child read **-16 px wide** live (the headless model pins 0, which is
+		why it took a device to see). Negative is not a smaller column, it is a box
+		the engine will not honour; a leaf with no room for a label has a zero one. ]]
+	local function toggleLabelBox(handle: any?): (UDim2, UDim2)
 		local snap = snapshot()
 		if type(snap) ~= "table" then
 			snap = { controls = { toggle = { trackWidth = 44, trackInset = 12 } }, space = style.space }
 		end
 		local pad = themeSnapshot.toggleRowPadding(snap)
-		return UDim2.fromOffset(pad.left, 0), UDim2.new(1, -(pad.left + pad.right), 1, 0)
+		local reserved = pad.left + pad.right
+		local rect = if type(handle) == "table" then handle.windowRect else nil
+		local width = if type(rect) == "table" and type(rect.w) == "number" then rect.w else nil
+		local squeezed = width ~= nil and reserved >= width
+		return UDim2.fromOffset(if squeezed then 0 else pad.left, 0),
+			UDim2.new(if squeezed then 0 else 1, if squeezed then 0 else -reserved, 1, 0)
 	end
 
 	-- re-applied on a theme swap: the label column moves with the metrics that
@@ -1263,7 +1280,7 @@ function screen_paint.new(ctx: any)
 		if label == nil or handle.class ~= "Toggle" then
 			return
 		end
-		local pos, size = toggleLabelBox()
+		local pos, size = toggleLabelBox(handle)
 		label.Position = pos
 		label.Size = size
 	end
@@ -1278,7 +1295,7 @@ function screen_paint.new(ctx: any)
 		local label = Instance.new("TextLabel")
 		label.Name = "Label"
 		label.BackgroundTransparency = 1
-		local labelPos, labelSize = toggleLabelBox()
+		local labelPos, labelSize = toggleLabelBox(handle)
 		label.Position = labelPos
 		label.Size = labelSize
 		label.TextXAlignment = Enum.TextXAlignment.Left

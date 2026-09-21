@@ -674,3 +674,34 @@ describe("semantic art participates in package invalidation", function()
 		expect(state.epoch()).toBe(parkedEpoch)
 	end)
 end)
+
+-- Exercise the actual native fallback helper, including the no-lettering idle guard.
+describe("fallback lettering release", function()
+	it("releasing fallback lettering restores art once and leaves unrelated releases idle", function()
+		local source = fs.readFile("src/client/screen_paint.luau")
+		local body = require("./lib/adapter_source").bodyOf(source, "local function releaseTint(handle: any)")
+		local factory = require("@lune/luau").load(
+			"return function(nativeMode,syncTags,syncChrome,restorePaint) " .. body .. " return releaseTint end"
+		)()
+		for _, native in { false, true } do
+			local syncs, tags = 0, 0
+			local release = factory(native, function(h)
+				tags += 1
+				expect(h.letterRole).toBe(nil)
+			end, function(h)
+				syncs += 1
+				h.iconInstance.color = "own-role"
+			end, function() end)
+			local h = { letterRole = "contentStrong", tintFill = true, iconInstance = { color = "ContentStrong" } }
+			release(h)
+			expect(h.tintFill).toBe(nil)
+			expect(syncs).toBe(if native then 0 else 1)
+			if not native then
+				expect(h.iconInstance.color).toBe("own-role")
+			end
+			release(h)
+			expect(syncs).toBe(if native then 0 else 1)
+			expect(tags).toBe(2)
+		end
+	end)
+end)

@@ -68,16 +68,21 @@ t.describe("public composition recipes", function()
 	end)
 	t.it("accepts or rejects checkbox requests without changing neighboring caller values", function()
 		local w, b = make(320)
-		tap(w, "/fuel")
+		tap(w, "/CheckboxGroup/fuel+target/fuel")
 		t.expect(b.report().checks).toEqual({ tires = true, fuel = true })
 		t.expect(b.report().requests).toBe(1)
+		local wrap = find(w, "/WrapChecks/fuel+target/fuel")
+		t.expect(wrap.props.selected).toBe(true)
+		tap(w, "/WrapChecks/fuel+target/fuel")
+		t.expect(find(w, "/CheckboxGroup/fuel+target/fuel").props.selected).toBe(false)
+		tap(w, "/WrapChecks/fuel+target/fuel")
 		b.steps.rejectChecks()
-		tap(w, "/fuel")
+		tap(w, "/CheckboxGroup/fuel+target/fuel")
 		t.expect(b.report().checks.fuel).toBe(true)
-		t.expect(b.report().requests).toBe(2)
+		t.expect(b.report().requests).toBe(4)
 		b.steps.disableChecks()
-		tap(w, "/fuel")
-		t.expect(b.report().requests).toBe(2)
+		tap(w, "/CheckboxGroup/fuel+target/fuel")
+		t.expect(b.report().requests).toBe(4)
 	end)
 	t.it("retains keyed chip selection and identity through reorder and removal", function()
 		local w, b = make(320)
@@ -176,7 +181,14 @@ t.describe("public composition recipes", function()
 			w.settle(1)
 		end
 		for _, suffix in
-			{ "/fuel", "/Rain", "/Accordion/Rules/Header", "/Accordion/Setup/Header", "/Accordion/Rewards/Header" }
+			{
+				"/CheckboxGroup/fuel+target/fuel",
+				"/WrapChecks/fuel+target/fuel",
+				"/Rain",
+				"/Accordion/Rules/Header",
+				"/Accordion/Setup/Header",
+				"/Accordion/Rewards/Header",
+			}
 		do
 			local _, path = find(w, suffix)
 			t.expect(visited[path]).toBe(true)

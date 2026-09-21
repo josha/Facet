@@ -47,6 +47,7 @@ local _thunkButton = app.controls.Button("Ready")({
 	end,
 })
 local _toggle = app.controls.Toggle("SelectAll")({
+	width = Facet.Compose.cell({ type = "hug" }),
 	label = "Select all",
 	value = Facet.Compose.cell(false),
 	mixed = Facet.Compose.cell(true),

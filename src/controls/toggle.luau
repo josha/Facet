@@ -8,6 +8,7 @@ local selection = require("../selection_model")
 local read = selection.read
 local themePackage = require("../themes/package")
 local contribution = require("../input/contribution")
+local schema = require("../blueprint_schema")
 local menuRecipe = require("./menu_recipe")
 local vocabulary = require("./control_vocabulary")
 
@@ -26,6 +27,7 @@ local KEYS = guard.keySet({
 	"hint",
 	"indicatorPosition",
 	"controlSize",
+	"width",
 })
 
 local DISPLAY_ONLY_META = table.freeze({ displayOnly = true })
@@ -77,6 +79,34 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 	)
 	vocabulary.assertSize("UI.Toggle", spec.controlSize)
 	local UI = Facet.UI
+	local width = if spec.width ~= nil
+		then Compose.formula(function(use)
+			local value = read(spec.width, use)
+			if value ~= nil then
+				local ok, why = schema.checkValue(assert(schema.forClass("Box")).props.width, value)
+				assert(ok, "UI.Toggle: width must be a valid dimension: " .. tostring(why))
+				local content = value.type == "hug" or value.type == "content" or value.type == "minMax"
+				assert(
+					not (content and (spec.row ~= nil or presentation == "button")),
+					"UI.Toggle: content-sized width is unsupported on row and button forms; use fixed or fill"
+				)
+			end
+			return value
+		end)
+		else nil
+	if width then
+		width:peek()
+	end
+	local function contentWidth(use)
+		local value = if width then use(width) else nil
+		return if value and (value.type == "hug" or value.type == "content" or value.type == "minMax")
+			then UI.hug()
+			else UI.fill()
+	end
+	local function rowWidth(use)
+		return (if width then use(width) else nil) or UI.fill()
+	end
+
 	local disposed = false
 	Compose.cleanup(function()
 		disposed = true
@@ -110,7 +140,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 	local sizedPadding = if wantsLadderPadding
 		then vocabulary.deriveSize("UI.Toggle", spec.controlSize, vocabulary.paddingFor)
 		else nil
-	local props = {
+	local props: any = {
 		id = spec.id or "Toggle",
 		label = spec.label or "",
 		enabled = spec.enabled,
@@ -202,18 +232,18 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 	end
 
 	local function labelColumn(): any
-		local title = UI.Text({ id = "Label", text = spec.label or "", textSize = "control", width = UI.fill() })
+		local title = UI.Text({ id = "Label", text = spec.label or "", textSize = "control", width = contentWidth })
 		if spec.hint == nil then
 			return title
 		end
 		return UI.VStack({
 			id = "Labels",
 			gap = "xs",
-			width = UI.fill(),
+			width = contentWidth,
 			children = {
 				title,
 
-				UI.Text({ id = "Hint", text = spec.hint, textSize = "label", role = "secondary", width = UI.fill() }),
+				UI.Text({ id = "Hint", text = spec.hint, textSize = "label", role = "secondary", width = contentWidth }),
 			},
 		})
 	end
@@ -221,7 +251,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 	local blueprint
 	if spec.row then
 		assert(spec.row.value == nil, "Toggle.row: value is supplied by the toggle")
-		props.width = UI.fill()
+		props.width = rowWidth
 		props.selected = selected
 
 		local mark = indicatorFor()
@@ -244,14 +274,16 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 		blueprint = UI.Button(props)
 	elseif presentation == "switch" and spec.hint == nil and side == "trailing" then
 		props.value = spec.value
+		props.width = width
 		blueprint = UI.Toggle(props)
 	elseif presentation == "button" then
+		props.width = width
 		props.selected = selected
 		props.children = spec.children
 		blueprint = UI.Button(props)
 	else
 		props.selected = selected
-		props.width = UI.fill()
+		props.width = rowWidth
 		local parts: { any } = { labelColumn() }
 		local mark = indicatorFor()
 		if side == "leading" then
@@ -259,7 +291,8 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 		else
 			table.insert(parts, mark)
 		end
-		props.children = { UI.HStack({ id = "Row", gap = "s", align = "center", width = UI.fill(), children = parts }) }
+		props.children =
+			{ UI.HStack({ id = "Row", gap = "s", align = "center", width = contentWidth, children = parts }) }
 		blueprint = UI.Button(props)
 	end
 
@@ -296,6 +329,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 			hint = selection.read(spec.hint),
 			indicatorPosition = side,
 			controlSize = selection.read(spec.controlSize),
+			width = if width and width:peek() then width:peek().type else nil,
 		}
 	end
 	return table.freeze({

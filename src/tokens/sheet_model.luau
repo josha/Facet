@@ -76,7 +76,7 @@ sheet_model.TAGS = table.freeze({
 		authority over one that was already painted. ]]
 	tintFill = "facet-tint-fill",
 	-- Closed partner-role classification for managed icon children.
-	letterPrefix = "facet-letters-", -- + onAccent|onSuccess|onWarning|onDanger
+	letterPrefix = "facet-letters-", -- + readable partner or contentStrong
 	--[[ THE LOCAL SIZE AND EMPHASIS VOCABULARY (`src/controls/control_vocabulary.luau`).
 
 		A control may say it is smaller, quieter or louder than its neighbour WITHOUT
@@ -113,7 +113,7 @@ sheet_model.DEFAULT_APPEARANCE = "standard"
 	rule because `content` is what an icon already declares), so this is the whole
 	closed set — and it is what keeps the icon rules below a STATUS feature rather
 	than a per-node tint channel. ]]
-sheet_model.STATUS_LETTERS = table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger" })
+sheet_model.STATUS_LETTERS = table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong" })
 local STATUS_LETTER_ROLES: { [string]: boolean } = {}
 for _, role in sheet_model.STATUS_LETTERS do
 	STATUS_LETTER_ROLES[role] = true
@@ -1332,6 +1332,26 @@ local function projectContentRules(rules: { Rule })
 	end
 end
 
+local TINT_ROLE_TOKEN: { [string]: string } = {
+	surface = "$Surface",
+	surfaceStrong = "$SurfaceStrong",
+	content = "$Content",
+	contentStrong = "$ContentStrong",
+	contentSecondary = "$ContentSecondary",
+	accent = "$Accent",
+	onAccent = "$OnAccent",
+	onDanger = "$OnDanger",
+	success = "$Success",
+	onSuccess = "$OnSuccess",
+	warning = "$Warning",
+	onWarning = "$OnWarning",
+	control = "$Control",
+	controlSelected = "$ControlSelected",
+	onSelected = "$OnSelected",
+	danger = "$Danger",
+	hairline = "$Hairline",
+}
+
 function sheet_model.build(opts: BuildOpts): Model
 	assert(
 		type(opts) == "table" and type(opts.themes) == "table" and #opts.themes >= 1,
@@ -1758,6 +1778,27 @@ function sheet_model.build(opts: BuildOpts): Model
 	table.insert(mirrors, { name = "MotionFast", value = base.motion.fast })
 	table.insert(mirrors, { name = "MotionNormal", value = base.motion.normal })
 
+	-- No-package art uses the same resolver and checked token vocabulary.
+	local iconNames: { string } = {}
+	for name in themePackage.ICON_FALLBACK_GLYPHS do
+		table.insert(iconNames, tostring(name))
+	end
+	table.sort(iconNames)
+	for _, name in iconNames do
+		local resolved = themePackage.resolveIcon(nil, name)
+		if resolved and resolved.source == "asset" and resolved.tintRole ~= nil then
+			local token = TINT_ROLE_TOKEN[resolved.tintRole]
+			assert(token, `sheet_model.build: icon '{name}' names unknown tintRole '{resolved.tintRole}'`)
+			push({
+				name = `Icon — {name}`,
+				selector = "." .. chrome_slots.iconTagFor(name),
+				props = {
+					ImageColor3 = token,
+				},
+			})
+		end
+	end
+
 	projectContentRules(rules)
 	-- Explicit partner lettering wins over both name tint and generated-owner color.
 	emitStatusIconTint(function(rule: Rule)
@@ -1960,25 +2001,6 @@ end
 -- token that carries it. Anything else is an authoring error rather than a
 -- silent white, because a tint that silently does nothing is invisible in
 -- review and obvious only on a device.
-local TINT_ROLE_TOKEN: { [string]: string } = {
-	surface = "$Surface",
-	surfaceStrong = "$SurfaceStrong",
-	content = "$Content",
-	contentStrong = "$ContentStrong",
-	contentSecondary = "$ContentSecondary",
-	accent = "$Accent",
-	onAccent = "$OnAccent",
-	onDanger = "$OnDanger",
-	success = "$Success",
-	onSuccess = "$OnSuccess",
-	warning = "$Warning",
-	onWarning = "$OnWarning",
-	control = "$Control",
-	controlSelected = "$ControlSelected",
-	onSelected = "$OnSelected",
-	danger = "$Danger",
-	hairline = "$Hairline",
-}
 
 -- The chrome tint ladder lives in chrome_slots, because the explicit-write
 -- fallback path needs the same resting value these rules paint. Every slot

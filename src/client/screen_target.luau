@@ -2184,6 +2184,15 @@ function screen_target.new(opts: Opts?)
 			handle.pendingRect = rect
 			return
 		end
+		-- A TOGGLE'S LABEL COLUMN IS A FRACTION OF THIS BOX minus the theme's own
+		-- reservation, so whether the leaf has room for one at all is a fact about
+		-- the rect — and a display-only switch is narrower than the reservation
+		-- (see `toggleLabelBox`). Re-taken only when the width actually moves, which
+		-- for almost every node is never.
+		if handle.class == "Toggle" and handle.labelInstance ~= nil and handle.labelBoxWidth ~= rect.w then
+			handle.labelBoxWidth = rect.w
+			applyToggleLabelBox(handle)
+		end
 		-- THE ORIGIN MOVES FIRST, AND THE CHILDREN ARE RE-BASED LAST. This re-based
 		-- every child of a moved host INLINE, to fix a descendant that "may have
 		-- received their rects before the host did" — a real symptom of the

@@ -371,6 +371,62 @@ describe("themes.resolveIcon: three honest answers", function()
 		end
 	end)
 
+	--[[ THE LEGACY SHEET'S PER-NAME ICON TINT — the rule family that only the
+		PACKAGE builder used to emit.
+
+		A managed picture's `ImageColor3` is sheet-owned paint, so with no package
+		installed there was no rule at all and every framework icon painted unstyled
+		WHITE. That is invisible on the LIGHT built-in style and merely
+		indistinguishable from `content` on the dark one, which is why it survived:
+		the two styles is what makes it a defect rather than a preference, so both
+		are read here. ]]
+	it("the legacy sheet tints a framework icon by NAME, in both built-in styles", function()
+		local sheetModel = require("../src/tokens/sheet_model")
+		local themePackage = require("../src/themes/package")
+		local styles = {
+			dark = require("../src/tokens/default_style"),
+			light = require("../src/tokens/default_light_style"),
+		}
+		for label, style in styles do
+			local model = sheetModel.build({ themes = { { name = `Facet Neutral {label}`, style = style } } })
+			local painted: { [string]: string } = {}
+			for _, rule in model.rules do
+				local tag = string.match(rule.selector, "^%.(facet%-chrome%-icon%-[%w%-]+)$")
+				if tag ~= nil and rule.props.ImageColor3 ~= nil then
+					painted[tag] = tostring(rule.props.ImageColor3)
+				end
+			end
+			-- every framework name that resolves to a PICTURE has one, and the ones
+			-- that answer with a glyph have none (a character is text, not an image)
+			local wantArt, wantGlyph = 0, 0
+			for name in themePackage.ICON_FALLBACK_GLYPHS :: any do
+				local resolved = themePackage.resolveIcon(nil, tostring(name))
+				local tag = chrome_slots.iconTagFor(tostring(name))
+				if type(resolved) == "table" and resolved.source == "asset" then
+					wantArt += 1
+					expect(`{label} {name}: {tostring(painted[tag])}`).toBe(`{label} {name}: $Content`)
+				else
+					wantGlyph += 1
+					expect(`{label} {name}: {tostring(painted[tag])}`).toBe(`{label} {name}: nil`)
+				end
+			end
+			-- every one of the framework's own names resolves to a picture today, so
+			-- the glyph arm of the loop is empty by construction and says so; the
+			-- claim it stands for is asked directly below
+			expect(`{label}: art {wantArt > 0}, glyph-only {wantGlyph}`).toBe(`{label}: art true, glyph-only 0`)
+			-- ...and a name the framework knows nothing about earns no rule at all
+			expect(`{label}: unknown name: {tostring(painted[chrome_slots.iconTagFor("not-an-icon")])}`).toBe(
+				`{label}: unknown name: nil`
+			)
+			-- the token really resolves in that style, which is the half a SPELLED
+			-- token (this builder cannot see the role-to-token map) could get wrong
+			-- with nothing noticing
+			expect(`{label}: $Content resolves: {model.themes[1].tokens.Content ~= nil}`).toBe(
+				`{label}: $Content resolves: true`
+			)
+		end
+	end)
+
 	it("a status plate re-letters the picture on it, in BOTH sheet builders", function()
 		--[[ AN ICON DECLARES ONE COLOUR PER NAME (`content` for every framework
 			status icon), which is right on the page and invisible on a status plate —
@@ -403,16 +459,19 @@ describe("themes.resolveIcon: three honest answers", function()
 				end
 			end
 			table.sort(found)
+			-- five roles, not four: `contentStrong` is the lettering a control OVER
+			-- MEDIA takes, and its picture follows its word there for the same reason
 			expect(`{label}: {table.concat(found, " ")}`).toBe(
-				`{label}: onAccent=$OnAccent onDanger=$OnDanger onSuccess=$OnSuccess onWarning=$OnWarning`
+				`{label}: contentStrong=$ContentStrong onAccent=$OnAccent onDanger=$OnDanger `
+					.. `onSuccess=$OnSuccess onWarning=$OnWarning`
 			)
-			--[[ THE PACKAGE BUILDER IS WHERE ORDER MEANS SOMETHING: it emits one tint
-				per icon NAME that resolves to art, and the four status rules have to come
-				after all of them. The legacy builder emits none at all, which is its own
-				fact worth stating — there the status rules are the only icon paint in the
-				sheet. ]]
+			--[[ ORDER MEANS SOMETHING IN BOTH BUILDERS NOW: each emits one tint per
+				icon NAME that resolves to art — the package builder over the union of its
+				own art and the framework's, the legacy one over the framework set a game
+				with no package installed actually reaches — and the lettering rules have
+				to come after all of them. ]]
 			expect(`{label}: per-name {perName > 0}, status after them {lastStatus > lastPerName}`).toBe(
-				`{label}: per-name {label == "package_"}, status after them true`
+				`{label}: per-name true, status after them true`
 			)
 			--[[ ...AND NOTHING LATER REPAINTS THE PICTURE, which is the claim the
 				ordering is FOR (the `button_shape` idiom: a later rule on a selector this

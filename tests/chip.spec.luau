@@ -27,8 +27,8 @@ local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local Compose = require("../src/vendor/compose/core")
 
-local CHIP = "/S/Chip"
-local CHIP2 = "/S/Chip2"
+local CHIP = "/S/Chip+target/Chip"
+local CHIP2 = "/S/Chip2+target/Chip2"
 
 -- presenter harness: the four-input auto-composition path (auto_input house style)
 local function presenterWorld(opts: any?)
@@ -463,5 +463,47 @@ describe("Removable Chip", function()
 		w.settle()
 		w.adapter.tap(remove)
 		expect(calls).toBe(2)
+	end)
+end)
+
+describe("Chip target reservations", function()
+	it("separates short zero-gap targets and activates the intended model at each edge", function()
+		local world = require("./lib/world")
+		for _, minimum in { 44, 60 } do
+			local metrics = table.clone(require("../src/themes/snapshot").neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = minimum
+			local w = world.new({ themeMetrics = metrics })
+			local a, b = Compose.cell(false), Compose.cell(false)
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.HStack("Row")({
+						gap = 0,
+						w.UI.Chip("A")({ label = "A", selected = a }),
+						w.UI.Chip("B")({ label = "B", selected = b }),
+					}),
+				})
+			end)
+			local ap, bp
+			for _, path in w.adapter.paths() do
+				if path:sub(-2) == "/A" then
+					ap = path
+				elseif path:sub(-2) == "/B" then
+					bp = path
+				end
+			end
+			local ar = w.adapter.hitRectOf(ap) or w.adapter.node(ap).rect
+			local br = w.adapter.hitRectOf(bp) or w.adapter.node(bp).rect
+			expect(ar.w >= minimum and ar.h >= minimum).toBe(true)
+			expect(ar.x + ar.w <= br.x).toBe(true)
+			-- The fake exposes engine activation metadata; native coordinate hit testing
+			-- is a separate aggregate witness. These points lie inside one target only.
+			w.adapter.touchTap(ap, { x = ar.x + ar.w - 1, y = ar.y + ar.h / 2 })
+			expect(a:peek()).toBe(true)
+			expect(b:peek()).toBe(false)
+			w.adapter.touchTap(bp, { x = br.x + 1, y = br.y + br.h / 2 })
+			expect(a:peek()).toBe(true)
+			expect(b:peek()).toBe(true)
+		end
 	end)
 end)

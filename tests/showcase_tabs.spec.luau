@@ -256,25 +256,11 @@ t.describe("Consolidated showcase", function()
 			t.expect(w.adapter.node(pageTab)).toBe(node)
 			t.expect(built.report().navigation.contentMounts).toBe(mounts)
 			t.expect(w.pres.focus.focusOn(pageTab)).toBe(true)
-			-- Entering a tab group restores its bookmarked option. Walk back to
-			-- the first option before checking its adjacent D-pad destination.
-			for _ = 1, 3 do
-				if w.pres.focus.focused:peek() == pageTab then
-					break
-				end
-				w.press("DPadLeft")
-			end
 			t.expect(w.pres.focus.focused:peek()).toBe(pageTab)
 			w.press("DPadRight")
 			t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Writing"))
 			local firstCategory = button(w, "Inputs")
 			t.expect(w.pres.focus.focusOn(firstCategory)).toBe(true)
-			for _ = 1, 4 do
-				if w.pres.focus.focused:peek() == firstCategory then
-					break
-				end
-				w.press("DPadLeft")
-			end
 			t.expect(w.pres.focus.focused:peek()).toBe(firstCategory)
 			w.press("DPadRight")
 			t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Actions"))
@@ -482,7 +468,17 @@ t.describe("Consolidated showcase", function()
 	t.it("reaches both tab strips and an alert by D-pad, traps focus, then restores its launcher", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
 		for _, label in { "Actions", "Alerts", "Replace checkpoint…" } do
-			navigateTo(w, button(w, label))
+			if label == "Alerts" then
+				-- Traverse the actual strip; the broad exploratory walk spends its
+				-- budget in the much larger Buttons page before trying this edge.
+				navigateTo(w, button(w, "Buttons"))
+				for _, destination in { "Shortcuts", "Recipes", "Menus", "Alerts" } do
+					w.press("DPadRight")
+					t.expect(w.pres.focus.focused:peek()).toBe(button(w, destination))
+				end
+			else
+				navigateTo(w, button(w, label))
+			end
 			w.press("ButtonA")
 			w.settle(4)
 		end

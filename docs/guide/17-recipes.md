@@ -39,10 +39,10 @@ Use a Picker when exactly one item may be selected.
 
 ```luau
 local settings = Compose.cell({ tires = true })
-local function checkbox(id, label)
+local function checkbox(id, label, width)
     return UI.Toggle(id)({
         label = label, presentation = "checkbox", controlSize = "compact",
-        indicatorPosition = "leading",
+        indicatorPosition = "leading", width = width,
         value = function(use) return use(settings)[id] == true end,
         onChange = function(requested)
             local next = table.clone(settings:peek())
@@ -56,9 +56,9 @@ return UI.VStack("Settings")({ width = UI.fill(), gap = "xs",
 })
 ```
 
-The vertical list suits settings labels and hints. A wrapping group additionally
-needs each checkbox to size to its content; do not put fill-width items into a
-wrapping row.
+The vertical list suits settings labels and hints. Reuse the same helper and model
+for a wrapping block: `UI.HStack { wrap = true, gap = "s", checkbox("tires", "Tire wear", UI.hug()), checkbox("fuel", "Fuel use", UI.hug()) }`.
+Each item measures its label instead of filling the row; either view updates both.
 
 ## 17.3 Wrapping and scrolling chip groups
 

@@ -219,10 +219,11 @@ return {
 					end,
 				})
 			end
-			local function checkItem(id: string, label: string): any
+			local function checkItem(id: string, label: string, width: any?): any
 				return UI.Toggle(id)({
 					label = label,
 					presentation = "checkbox",
+					width = width,
 					controlSize = "compact",
 					indicatorPosition = "leading",
 					enabled = enabled,
@@ -271,6 +272,16 @@ return {
 					checkItem("fuel", "Fuel use"),
 					checkItem("damage", "Damage"),
 					checkItem("weather", "Weather"),
+				}),
+
+				UI.HStack("WrapChecks")({
+					wrap = true,
+					gap = "s",
+					width = UI.fill(),
+					checkItem("tires", "Tire wear", UI.hug()),
+					checkItem("fuel", "Fuel use", UI.hug()),
+					checkItem("damage", "Damage", UI.hug()),
+					checkItem("weather", "Weather", UI.hug()),
 				}),
 
 				heading("ChipHeading", "Chip group"),

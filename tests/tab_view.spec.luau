@@ -96,7 +96,10 @@ local function world(opts: any?)
 		end
 	end
 	local tv = harness.Controls.TabView(core, built)
-	local handle = pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
+	local handle = pres.present(
+		UI.Screen({ id = "S", children = { tv.blueprint } }),
+		{ sinkNavigation = true, onFocusNav = if override then function() end else nil }
+	)
 	pres.refresh()
 	return {
 		core = core,
@@ -385,7 +388,7 @@ local function nestedWorld(opts: any?)
 	local adapter = fake_target.new()
 	local pres = harness.newPresenter(core, env, adapter, system)
 	local outerSelection = Compose.cell("discover")
-	local innerSelection = Compose.cell("foryou")
+	local innerSelection = Compose.cell(options.innerInitial or "foryou")
 	local inner: any = nil
 	local innerBuilds = 0
 	local outer = harness.Controls.TabView(core, {
@@ -404,7 +407,8 @@ local function nestedWorld(opts: any?)
 						id = "Page",
 						selection = innerSelection,
 						env = env,
-						tabs = {
+						shoulderNavigation = options.shoulderNavigation,
+						tabs = options.innerTabs or {
 							{ id = "foryou", label = "For you", content = body("foryou") },
 							{ id = "charts", label = "Charts", content = body("charts") },
 						},
@@ -550,6 +554,219 @@ describe("D5: NESTING — an inner TabView never claims the app-level placement"
 		local after = world({ viewport = PHONE })
 		expect(after.tv.dump().nested).toBe(false)
 		expect(after.tv.dump().placementSource).toBe("policy")
+	end)
+end)
+
+describe("D5: the focus bookmark survives what sits inside the tab", function()
+	local ROSTER = "/S/Tabs/Content/Tab-roster/Roster/Canvas/W"
+	local function listWorld(tableBody: boolean?, override: boolean?)
+		local core = harness.newCore()
+		local env = harness.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("preferredInput", "Gamepad")
+		local system = harness.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = harness.newPresenter(core, env, adapter, system)
+		local rows = Compose.cell({})
+		local items = {}
+		for i = 1, 12 do
+			table.insert(items, { id = "r" .. i })
+		end
+		rows:set(items)
+		local tv = harness.Controls.TabView(core, {
+			id = "Tabs",
+			selection = Compose.cell("roster"),
+			env = env,
+			shoulderNavigation = "content",
+			tabs = {
+				{
+					id = "roster",
+					label = "Roster",
+					content = function(tabScope: any)
+						if tableBody then
+							local tbl = harness.Controls.Table(core, {
+								id = "Roster",
+								selection = "single",
+								env = env,
+								rows = rows,
+								key = "id",
+								header = false,
+								rowHeight = 40,
+								columns = {
+									{
+										id = "name",
+										title = "Name",
+										width = UI.fill(),
+										value = function(item)
+											return item.id
+										end,
+									},
+								},
+							})
+							tabScope.own(tbl.dispose)
+							return tbl.blueprint
+						end
+						local list = harness.Controls.VirtualList(core, {
+							id = "Roster",
+							env = env,
+							rows = rows,
+							key = function(item: any): string
+								return item.id
+							end,
+							rowHeight = 40,
+							viewportExtent = 400,
+							cell = function(item: any): any
+								local value = if Compose.isReadable(item) then item:peek() else item
+								return UI.Button({ id = "Row", label = value.id })
+							end,
+						})
+						tabScope.own(list.dispose)
+						return list.blueprint
+					end,
+				},
+				{
+					id = "other",
+					label = "Other",
+					content = function()
+						return UI.Button({ id = "Else", label = "Else" })
+					end,
+				},
+			},
+		})
+		pres.present(UI.Screen({ id = "S", children = { tv.blueprint } }), { sinkNavigation = true })
+		pres.refresh()
+		return {
+			adapter = adapter,
+			pres = pres,
+			key = function(name: string)
+				system.deviceKey(name, true)
+				system.deviceKey(name, false)
+				pres.refresh()
+				-- the shoulder handoff lands on the control's own input TICK, not on
+				-- the refresh that follows the press
+				for _ = 1, 3 do
+					pres.tick(1 / 60)
+					pres.refresh()
+				end
+			end,
+		}
+	end
+
+	it("a LIST in the tab body does not swallow the navigation the bookmark waits for", function()
+		local w = listWorld()
+		for _ = 1, 5 do
+			w.key("DPadDown")
+		end
+		local deep = w.pres.focus.focused:peek()
+		expect(`walked into the list: {string.sub(deep, 1, #ROSTER) == ROSTER}`).toBe("walked into the list: true")
+		-- leave the region by NAMING a node outside it (not an entry walk)
+		local strip: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Options/Opt1$") ~= nil then
+				strip = path
+			end
+		end
+		expect(w.pres.focus.focusOn(strip :: string)).toBe(true)
+		w.pres.refresh()
+		-- ...and come back the way a player does
+		w.key("DPadUp")
+		expect(`restored to the bookmark: {w.pres.focus.focused:peek() == deep}`).toBe("restored to the bookmark: true")
+	end)
+
+	it("Table and an overriding navigation report cannot consume the graph bookmark", function()
+		for _, override in { false, true } do
+			local w = listWorld(true, override)
+			for _ = 1, 4 do
+				w.key("DPadUp")
+			end
+			local deep = w.pres.focus.focused:peek()
+			expect(string.find(deep, "/Roster/", 1, true) ~= nil).toBe(true)
+			local strip
+			for _, path in w.adapter.paths() do
+				if string.match(path, "/Options/Opt1$") then
+					strip = path
+				end
+			end
+			expect(w.pres.focus.focusOn(strip)).toBe(true)
+			w.key("DPadUp")
+			expect(w.pres.focus.focused:peek()).toBe(deep)
+		end
+	end)
+
+	it("paging by SHOULDER is an entry too, and restores the tab's bookmark", function()
+		local w = listWorld()
+		for _ = 1, 3 do
+			w.key("DPadDown")
+		end
+		local deep = w.pres.focus.focused:peek()
+		-- R1 pages to the next tab from content, L1 comes back — the pad route
+		w.key("ButtonR1")
+		expect(`left the roster: {string.sub(w.pres.focus.focused:peek(), 1, #ROSTER) ~= ROSTER}`).toBe(
+			"left the roster: true"
+		)
+		w.key("ButtonL1")
+		expect(`shoulders restored the bookmark: {w.pres.focus.focused:peek() == deep}`).toBe(
+			"shoulders restored the bookmark: true"
+		)
+	end)
+end)
+
+describe("D5: a tab whose body holds NOTHING focusable is still a tab you can leave", function()
+	local INNER = "/S/App/Content/Tab-discover/Page/TopHome/then/TopBandCenter/TopBand/Strip/Indicator/Options/Opt"
+	local OUTER = "/S/App/BottomHome/then/BottomBand/Strip/Indicator/Options/Opt"
+	-- three display-only pages: every one of them is the empty-body case, so no
+	-- case below can pass by landing on a focusable the fixture smuggled in
+	local DISPLAY_ONLY = {
+		{ id = "foryou", label = "For you", content = body("foryou") },
+		{ id = "charts", label = "Charts", content = body("charts") },
+		{ id = "radio", label = "Radio", content = body("radio") },
+	}
+	local function key(w: any, name: string)
+		w.system.deviceKey(name, true)
+		w.system.deviceKey(name, false)
+		w.pres.refresh()
+	end
+
+	it("nothing in the body is focusable, and the shoulders page it anyway", function()
+		local w = nestedWorld({ viewport = PHONE, innerTabs = DISPLAY_ONLY, shoulderNavigation = "content" })
+		local paths: { string } = {}
+		focus_map.collectFocusables(w.handle.root.node, paths)
+		for _, path in paths do
+			expect(`a focusable outside the two strips: {path}`).toBe(`a focusable outside the two strips: {path}`)
+			expect(string.match(path, "/Options/Opt%d$") ~= nil).toBe(true)
+		end
+		expect(w.pres.focus.focusOn(INNER .. "1")).toBe(true)
+		key(w, "ButtonR1")
+		expect(w.innerSelection:peek()).toBe("charts")
+		key(w, "ButtonR1")
+		expect(w.innerSelection:peek()).toBe("radio")
+		key(w, "ButtonL1")
+		expect(w.innerSelection:peek()).toBe("charts")
+	end)
+
+	it("after a directional press leaves it, an explicit focusOn REACHES a sibling tab", function()
+		local w = nestedWorld({ viewport = PHONE, innerTabs = DISPLAY_ONLY, shoulderNavigation = "content" })
+		expect(w.pres.focus.focusOn(INNER .. "2")).toBe(true)
+		key(w, "DPadDown")
+		-- the exit measured above: out of the inner strip, into the app's own bar
+		expect(w.pres.focus.focused:peek()).toBe(OUTER .. "2")
+		expect(w.pres.focus.focusOn(INNER .. "3")).toBe(true)
+		expect(w.pres.focus.focused:peek()).toBe(INNER .. "3")
+		key(w, "ButtonA")
+		expect(w.innerSelection:peek()).toBe("radio")
+	end)
+
+	it("...while a NAVIGATION re-entry still restores the bookmark over the nearest option", function()
+		local w = nestedWorld({ viewport = PHONE, innerTabs = DISPLAY_ONLY, shoulderNavigation = "content" })
+		expect(w.pres.focus.focusOn(INNER .. "3")).toBe(true)
+		key(w, "DPadDown")
+		expect(w.pres.focus.focused:peek()).toBe(OUTER .. "3")
+		key(w, "DPadLeft")
+		key(w, "DPadLeft")
+		expect(w.pres.focus.focused:peek()).toBe(OUTER .. "1")
+		key(w, "DPadUp")
+		expect(w.pres.focus.focused:peek()).toBe(INNER .. "3")
 	end)
 end)
 

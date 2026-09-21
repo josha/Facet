@@ -312,6 +312,7 @@ export type ButtonSpec = {
 }
 type BooleanSource = core.Readable<boolean> | ((core.Use) -> boolean)
 export type ToggleSpec<V = BooleanSource> = {
+	width: bp.Bound<bp.Dim>?,
 	ref: ((record: any) -> ())?,
 	row: SemanticRow?,
 	hint: bp.Bound<string>?,

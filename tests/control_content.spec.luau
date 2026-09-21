@@ -32,8 +32,8 @@ describe("generated control content owns its plate's semantic paint", function()
 		).toBe(0)
 		expect(w.adapter.node("/S/Delete/Label").decorationHint.contentOwnerDepth).toBe(1)
 		expect(w.adapter.node("/S/Delete/Icon").decorationHint.contentOwnerDepth).toBe(1)
-		expect(w.adapter.node("/S/Chip/Content/Label").decorationHint.contentOwnerDepth).toBe(2)
-		expect(w.adapter.node("/S/Chip/Content/Accessory").decorationHint).toBe(nil)
+		expect(w.adapter.node("/S/Chip+target/Chip/Content/Label").decorationHint.contentOwnerDepth).toBe(2)
+		expect(w.adapter.node("/S/Chip+target/Chip/Content/Accessory").decorationHint).toBe(nil)
 	end)
 	it("emits content text and image colors from each existing vocabulary color rule", function()
 		for _, model in
@@ -287,7 +287,7 @@ describe("native primary-content paint bridge", function()
 					if disabled then slots.TAGS.stateDisabled else "facet-pointer-live",
 				})
 				state(if disabled then "NonInteractable" else "Idle")
-				for _, role in { "onAccent", "onSuccess", "onWarning", "onDanger", "content" } do
+				for _, role in { "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong", "content" } do
 					f.classify(icon, { slots.TAGS.iconArt, "facet-letters-" .. role })
 					local actual, inherited = nil, nil
 					for _, rule in model.rules do

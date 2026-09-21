@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — interaction and theme hardening
+
+- Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
+- All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
+- Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
+
 ## Unreleased — semantic status colors
 
 - Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
