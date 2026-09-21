@@ -7,6 +7,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local worldLib = require("./lib/world")
+local renderer = require("../src/render/renderer")
 
 local function makeWorld()
 	return worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
@@ -37,6 +38,53 @@ local function confirmModal(w: any)
 end
 
 describe("presenter: screens and modals", function()
+	for _, enabled in { false, true } do
+		it(`anchored chrome forwards renderer comparisons (enabled={enabled})`, function()
+			local w = makeWorld()
+			local opts: any = {
+				id = "Tip",
+				chrome = true,
+				anchor = { source = { rect = { x = 100, y = 100, w = 40, h = 40 } }, edge = "bottom" },
+			}
+			local flags = { "measureReuse", "commitScope", "structuralReuse", "translateHosts" }
+			if not enabled then
+				for _, flag in flags do
+					opts[flag] = false
+				end
+			end
+			-- Observe the real renderer boundary while still mounting and solving
+			-- the public chrome route. Restore the hook even if mounting fails.
+			local attach = renderer.attach
+			local observed, calls = nil, 0
+			renderer.attach = function(core, root, env, adapter, options)
+				observed = options
+				calls += 1
+				return attach(core, root, env, adapter, options)
+			end
+			local ok, err = pcall(function()
+				w.app.presentAnchored(function()
+					return w.UI.Box("Probe")({
+						width = { type = "fixed", px = 40 },
+						height = { type = "fixed", px = 20 },
+					})
+				end, opts)
+			end)
+			renderer.attach = attach
+			assert(ok, tostring(err))
+			expect(calls).toBe(1)
+			for _, flag in flags do
+				expect(observed[flag]).toBe(enabled)
+			end
+			local path = "/Tip/Layer/Surface/Probe"
+			local rect = w.adapter.node(path).rect
+			expect(rect.w).toBe(40)
+			expect(rect.h).toBe(20)
+			expect(w.pres.depth()).toBe(0)
+			w.app.dispose()
+			expect(w.adapter.node(path)).toBe(nil)
+		end)
+	end
+
 	for _, method in { "mount", "presentModal", "presentAnchored" } do
 		it(`{method} accepts renderer comparison options on a mounted component`, function()
 			local w = makeWorld()
