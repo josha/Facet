@@ -4,7 +4,7 @@
 local blueprint = require("../blueprint")
 export type Spec = {
 	id: string?,
-	title: blueprint.Bound<string>, -- required: the current nonempty semantic text
+	title: blueprint.Bound<string>, -- initial value must be nonempty; caller maintains later semantic text
 	icon: string?, -- semantic name or asset URL; absent => title-only, no empty slot
 	presentation: string?, -- "titleAndIcon" (default) | "titleOnly" | "iconOnly"
 	-- each accepts a literal number (theme-independent) or a theme metric name

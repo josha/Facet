@@ -54,6 +54,10 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 		effective = "titleOnly"
 	end
 
+	if type(spec.icon) == "string" and string.match(spec.icon, "^%a[%w+.-]*://") == nil then
+		assert(themePackage.isIconName(spec.icon), `Facet UI.Label('{id}'): unknown icon '{spec.icon}'.`)
+	end
+
 	local children: { any } = {}
 	if effective ~= "titleOnly" then
 		local size = spec.iconSize or "controlSizes.regular.iconSize"

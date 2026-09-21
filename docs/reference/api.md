@@ -8680,11 +8680,10 @@ An icon + title pair. `spec = { id?, title (required), icon?, presentation?
 
 `title` is a string, Compose readable, or tracked function. Its initial value must
 be nonempty. Visual text, `semanticText` and `dump()` follow the same title without
-rebuilding the control. It is **required** because it *is* the semantic text: `semanticText` is the title
-whatever the presentation, so an icon-only Label is never a control with no accessible
-name. Read it with `use(record.api.semanticText)` in a reactive body or
+rebuilding the control. The caller keeps later values meaningful: `semanticText` is the current title
+whatever the presentation. Read it with `use(record.api.semanticText)` in a reactive body or
 `record.api.semanticText:peek()` for an untracked value.
-`icon` takes a construction-time semantic name (such as `"check"` or `"facet:search"`)
+`icon` takes a construction-time semantic name (such as `"checkmark"` or `"facet:search"`)
 or an asset URL. A semantic name uses the current package's icon art with the
 shared readable glyph fallback; its box can grow with the text preference. An
 asset URL keeps ordinary Image behavior and the declared icon dimensions.
@@ -8696,7 +8695,7 @@ content) when it must be pressable, which keeps one activation surface.
 local app = Facet.new()
 local UI = app.controls
 app.mount(function()
-    return UI.Label("Saved")({ title = "Saved", icon = "check", presentation = "titleAndIcon" })
+    return UI.Label("Saved")({ title = "Saved", icon = "checkmark", presentation = "titleAndIcon" })
 end)
 ```
 

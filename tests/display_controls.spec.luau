@@ -273,6 +273,17 @@ describe("Label: a live title and a semantic icon name", function()
 		end
 	end)
 
+	it("refuses an unknown semantic icon instead of painting an unnamed fallback", function()
+		local w = require("./lib/world").new()
+		local ok, err = pcall(function()
+			w.present(function()
+				return w.UI.Label("Typo")({ title = "Saved", icon = "check" })
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown icon", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("uses semantic glyph/art hints with a growing floor while preserving asset images", function()
 		local w = require("./lib/world").new()
 		w.present(function()
