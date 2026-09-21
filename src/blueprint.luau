@@ -377,6 +377,7 @@ export type TextSpec = BoxProps & {
 	-- "badge" | "chip" only — a Text is not interactive, so it is offered the
 	-- read-only surfaces and no others (see blueprint_schema for the ruling)
 	surface: Bound<string>?,
+	over: "media"?, -- construction-only contrast treatment over artwork
 	tint: Bound<any>?,
 }
 

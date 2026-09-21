@@ -110,11 +110,12 @@ UI.Button {
 }
 ```
 
-`UI.Label` takes a fixed nonempty `title`, optional image asset `icon`,
+`UI.Label` takes a nonempty `title` (string, Compose readable or tracked function),
+an optional semantic icon name or image asset URL in `icon`,
 `presentation = "titleAndIcon" | "titleOnly" | "iconOnly"`, and theme-compatible
 `iconSize`, `textSize` and `gap`. If no icon exists, icon-only safely shows the
-title. Its title and presentation are construction-time choices. For live text,
-compose a bound `UI.Text` directly. See [Label](../reference/api.md#uilabel).
+title. The title updates visual and accessible text together; presentation and
+icon meaning are construction-time choices. See [Label](../reference/api.md#uilabel).
 
 ## Text entry
 

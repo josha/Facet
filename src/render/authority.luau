@@ -141,6 +141,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 			`compactLabel` has on Button, for the same reason. ]]
 		rich = "style",
 		direction = "style",
+		over = "style", -- native classification; paint stays sheet-owned
 	},
 	Button = {
 		text = "binding",

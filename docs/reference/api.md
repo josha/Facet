@@ -1639,7 +1639,7 @@ grid without `GridRow` children keeps inferring its rows from `columns`.)
 
 ### `Text`
 
-`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, truncate?, rich?, direction?, disclose?, reveal?, help?, role?, surface?, tint?, width?, height? }`
+`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, truncate?, rich?, direction?, disclose?, reveal?, help?, role?, surface?, over?, tint?, width?, height? }`
 — text label. `text`/`textSize` changes invalidate measurement; text metrics come
 from a non-yielding provider with conservative fallbacks for unknown
 fonts/scripts. `textSize` takes a px number or a typography role name, which
@@ -1741,6 +1741,10 @@ minimum** when you declare neither `width` nor `height`: it floors to the theme'
 other `controls.*` metric) on both axes, so a one-digit count never draws as a
 bare glyph hugging its own pixels. Declare either dim yourself and it wins — the
 floor only reaches an undimensioned badge.
+
+**`over = "media"`** is a construction-only contrast treatment for text on an image
+or video. It uses the existing native style classification and the theme's
+strong surface/content pair. Other words and bound values are refused.
 
 **`tint`** is the continuous-colour channel (see [above](#continuous-colour-tint));
 on a Text it claims `TextColor3`. `role` remains the way to say "secondary" — a
@@ -8668,17 +8672,22 @@ adds `phase` (the live 0..1 cycle position) and `animating`.
 
 ### `UI.Label`
 
-`UI.Label { … }` -> the label's node. `ref` receives `{ api, dump }`, and the
-record carries `blueprint`, `semanticText` (a Compose readable), `dump` and
-`dispose`.
+`UI.Label { … }` returns the label's node. `ref` receives `{ api, dump }`;
+`api.semanticText` is a Compose readable, and the mounted owner handles disposal.
 
 An icon + title pair. `spec = { id?, title (required), icon?, presentation?
 ("titleAndIcon" | "titleOnly" | "iconOnly"), iconSize?, textSize?, gap? }`.
 
-`title` is **required** because it *is* the semantic text: `semanticText` is the title
+`title` is a string, Compose readable, or tracked function. Its initial value must
+be nonempty. Visual text, `semanticText` and `dump()` follow the same title without
+rebuilding the control. It is **required** because it *is* the semantic text: `semanticText` is the title
 whatever the presentation, so an icon-only Label is never a control with no accessible
 name. Read it with `use(record.api.semanticText)` in a reactive body or
 `record.api.semanticText:peek()` for an untracked value.
+`icon` takes a construction-time semantic name (such as `"check"` or `"facet:search"`)
+or an asset URL. A semantic name uses the current package's icon art with the
+shared readable glyph fallback; its box can grow with the text preference. An
+asset URL keeps ordinary Image behavior and the declared icon dimensions.
 `iconOnly` **degrades to the title** when there is no icon to show — an empty
 square is worse than a word. Non-interactive: put it inside a `Button` (which takes
 content) when it must be pressable, which keeps one activation surface.

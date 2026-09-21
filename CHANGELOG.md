@@ -13,6 +13,12 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.Label.title` accepts Compose readables and tracked functions; visual text,
+  accessible text and dumps update together without rebuilding. Semantic icon
+  names use package art with the shared glyph fallback; asset URLs remain Images.
+  `UI.Text.over = "media"` exposes the existing strong-contrast style treatment
+  for passive text over artwork, as a construction-only word.
+
 - Expose the native leaf capabilities the leaf specs did not reach. `UI.Text`
   takes `rich` (construction-only boolean, default false — parses the engine's
   closed tag set `b i u s font stroke br uc sc mark` plus the five `&…;` escapes)

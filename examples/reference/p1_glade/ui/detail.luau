@@ -72,12 +72,8 @@ local function supplyRow(ctx: any, gladeId: string, kind: string, scope: any): a
 		return ctx.Lnow(if kind == "dew" then "detail.refillDew" else "detail.chooseNectar")
 	end)
 
-	-- THE TRAILING AFFORDANCE. The spec asks for `newLabel` in its icon-only
-	-- presentation with the semantic title preserved; `newLabel.title` accepts
-	-- only a literal string (it is validated with `type(spec.title) ~= "string"`),
-	-- so a locale-reactive title cannot use the control without rebuilding the row
-	-- on every locale change. Recorded as a framework finding; the affordance is a
-	-- bound `UI.Text` here, which keeps the title reactive and localized.
+	-- The trailing affordance keeps its existing Text layout and disclosure.
+	-- Label now supports a bound title too; this row needs the explicit width cap.
 	-- minMax-CAPPED, because lineLimit does not cap the width a text asks for
 	-- (the same class as the name and caption in this row): under the 1.4x
 	-- locale the verb's natural ask set the row minimum 21px past the lane.

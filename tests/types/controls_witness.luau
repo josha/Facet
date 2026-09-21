@@ -153,7 +153,13 @@ local _tabview = app.controls.TabView("Tabs")({
 		},
 	},
 })
-local _label = app.controls.Label("Label")({ title = "Alpine" })
+local labelTitle = Facet.Compose.cell("Alpine")
+local _label = app.controls.Label("Label")({ title = labelTitle, icon = "facet:search" })
+local _anonymousLabel = app.controls.Label({
+	title = function(use)
+		return use(labelTitle)
+	end,
+})
 local _chip = app.controls.Chip("Tag")({
 	controlSize = "compact",
 	appearance = "utility",

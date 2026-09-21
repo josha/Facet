@@ -155,6 +155,8 @@ _EROSION_PROBES = [
     ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
     ("NavigationStack", 'app.controls.NavigationStack(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
     ("NavigationStack", 'app.controls.NavigationStack("N")(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
+    ("Label", 'app.controls.Label({ title = 42 })'),
+    ("Label", 'app.controls.Label("L")({ title = 42 })'),
     ("Button", 'app.controls.Button({ label = 42 })'),
     ("Button", 'app.controls.Button("B")({ label = 42 })'),
     ("Toggle", 'app.controls.Toggle({ value = "on" })'),

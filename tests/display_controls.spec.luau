@@ -210,6 +210,126 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 	end)
 end)
 
+describe("Label: a live title and a semantic icon name", function()
+	for _, form in { "cell", "formula", "function" } do
+		it(`tracks a {form} title in visual text, semanticText and dump without rebuilding`, function()
+			local w = require("./lib/world").new()
+			local value = Compose.cell("Lap 1")
+			local record, builds = nil, 0
+			w.present(function()
+				builds += 1
+				local title = if form == "cell"
+					then value
+					elseif form == "formula" then Compose.formula(function(use)
+						return use(value)
+					end)
+					else function(use)
+						return use(value)
+					end
+				return w.UI.Screen("S")({
+					w.UI.Label("Lap")({
+						title = title,
+						ref = function(r)
+							record = r
+						end,
+					}),
+				})
+			end)
+			local before = w.adapter.node("/S/Lap/Title")
+			expect(before.props.text).toBe("Lap 1")
+			value:set("Lap 2")
+			w.settle()
+			expect(w.adapter.node("/S/Lap/Title")).toBe(before)
+			expect(before.props.text).toBe("Lap 2")
+			expect(record.api.semanticText:peek()).toBe("Lap 2")
+			expect(record.dump().title).toBe("Lap 2")
+			expect(record.dump().semanticText).toBe("Lap 2")
+			expect(builds).toBe(1)
+			w.close()
+			value:set("Lap 3") -- borrowed model survives its control
+			expect(value:peek()).toBe("Lap 3")
+		end)
+	end
+
+	it("refuses an initially empty or non-string title through the public constructor", function()
+		local w = require("./lib/world").new()
+		for _, title in
+			{
+				"",
+				4,
+				Compose.cell(""),
+				function()
+					return false
+				end,
+			}
+		do
+			local ok, err = pcall(function()
+				w.scoped(function()
+					return w.UI.Label({ title = title })
+				end)
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "title", 1, true) ~= nil).toBe(true)
+		end
+	end)
+
+	it("uses semantic glyph/art hints with a growing floor while preserving asset images", function()
+		local w = require("./lib/world").new()
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("Body")({
+					w.UI.Label("Semantic")({
+						title = "Search",
+						icon = "facet:search",
+						presentation = "iconOnly",
+						iconSize = "controlSizes.large.iconSize",
+					}),
+					w.UI.Label("Asset")({ title = "Art", icon = "rbxassetid://1" }),
+				}),
+			})
+		end)
+		local glyph = w.adapter.node("/S/Body/Semantic/Icon")
+		expect(glyph.class).toBe("Text")
+		expect(type(glyph.props.text) == "string" and glyph.props.text ~= "").toBe(true)
+		expect(glyph.decorationHint.icon).toBe("facet:search")
+		local h = glyph.rect.h
+		expect(h >= 24).toBe(true)
+		w.env:set("preferredTextOffset", 10)
+		w.settle()
+		expect(glyph.rect.h > h).toBe(true)
+		local art = w.adapter.node("/S/Body/Asset/Icon")
+		expect(art.class).toBe("Image")
+		expect(art.props.image).toBe("rbxassetid://1")
+		expect(art.decorationHint).toBeNil()
+	end)
+end)
+
+describe("Text: the construction-only over-media classification", function()
+	it("reaches the native style channel and refuses unknown or bound words", function()
+		local w = require("./lib/world").new()
+		w.present(function()
+			return w.UI.Screen("S")({ w.UI.Text("Caption")({ text = "or", over = "media" }) })
+		end)
+		expect(w.adapter.node("/S/Caption").props.over).toBe("media")
+		expect(require("../src/render/authority").authorityFor("Text", "over")).toBe("style")
+		for _, over in
+			{
+				"background",
+				Compose.cell("media"),
+				function()
+					return "media"
+				end,
+			}
+		do
+			expect(pcall(function()
+				w.scoped(function()
+					return w.UI.Text({ text = "or", over = over })
+				end)
+			end)).toBe(false)
+		end
+	end)
+end)
+
 describe("B-DSP2: Picker presentation adapts from space, not device names", function()
 	it("the adaptive rule stacks when options cannot sit side by side", function()
 		expect(picker.resolvePresentation(2, "wide", 6)).toBe("segmented")

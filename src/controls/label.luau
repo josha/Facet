@@ -3,6 +3,9 @@
 local Compose = require("../vendor/compose/core")
 
 local specGuard = require("../spec_guard")
+local selection = require("../selection_model")
+local chromeSlots = require("../tokens/chrome_slots")
+local themePackage = require("../themes/package")
 
 local label_control = {}
 
@@ -27,7 +30,8 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("UI.Label", spec, LABEL_KEYS, "spec")
 	local UI = Facet.UI
 	local id = spec.id or "Label"
-	if type(spec.title) ~= "string" or spec.title == "" then
+	local titleNow = selection.read(spec.title)
+	if type(titleNow) ~= "string" or titleNow == "" then
 		error(
 			`Facet UI.Label('{id}'): \`title\` is required and must be non-empty — it is the semantic `
 				.. `text, so an icon-only Label without one would have no accessible name`,
@@ -53,15 +57,33 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 	local children: { any } = {}
 	if effective ~= "titleOnly" then
 		local size = spec.iconSize or "controlSizes.regular.iconSize"
-		table.insert(
-			children,
-			UI.Image({
-				id = "Icon",
-				image = spec.icon,
-				width = { type = "fixed", px = size },
-				height = { type = "fixed", px = size },
-			})
-		)
+		if type(spec.icon) == "string" and string.match(spec.icon, "^%a[%w+.-]*://") == nil then
+			table.insert(
+				children,
+				chromeSlots.attachHint(
+					UI.Text({
+						id = "Icon",
+						text = themePackage.iconGlyph(spec.icon) or "•",
+						textSize = "control",
+						textAlign = "center",
+						-- A semantic glyph can grow with the text preference; package art fits its box.
+						width = { type = "minMax", min = size },
+						height = { type = "minMax", min = size },
+					}),
+					{ icon = spec.icon }
+				)
+			)
+		else
+			table.insert(
+				children,
+				UI.Image({
+					id = "Icon",
+					image = spec.icon,
+					width = { type = "fixed", px = size },
+					height = { type = "fixed", px = size },
+				})
+			)
+		end
 	end
 	if effective ~= "iconOnly" then
 		-- CENTRED TEXT (director review 2026-07-24). The headless measurer
@@ -84,20 +106,21 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 		align = "center",
 		children = children,
 	})
-	api.semanticText = Compose.formula(function()
-		return spec.title
+	api.semanticText = Compose.formula(function(use)
+		return selection.read(spec.title, use)
 	end)
 
 	function api.dump()
+		local title = selection.read(spec.title)
 		return {
 			schema = "facet-label-dump/1",
 			id = id,
-			title = spec.title,
+			title = title,
 			icon = spec.icon,
 			requestedPresentation = presentation,
 			effectivePresentation = effective,
 			degradedToTitle = effective ~= presentation,
-			semanticText = spec.title,
+			semanticText = title,
 		}
 	end
 

@@ -2654,6 +2654,13 @@ class("Text", {
 				.. "(control/accent), the panel surface (raised) and the backdrops (base/scrim) are "
 				.. "deliberately NOT offered: wrap the label in a UI.Box for those",
 		}),
+		over = p({
+			types = { "string" },
+			reactive = false,
+			enum = { "media" },
+			channel = "style",
+			doc = 'set to "media" for text over artwork: the existing style tag supplies the strong surface/content token pair',
+		}),
 		role = p({
 			types = { "string" },
 			reactive = true,
