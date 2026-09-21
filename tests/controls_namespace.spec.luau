@@ -61,6 +61,7 @@ local POST_ADR_NAMES: { string } = {
 	"CollapsibleView",
 	"Composition",
 	"Region",
+	"ShortcutHint",
 	-- scaffold: new control names are appended above this line
 }
 

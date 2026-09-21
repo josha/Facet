@@ -195,6 +195,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 			end,
 		}
 	end,
+	ShortcutHint = function(_w)
+		return { keys = { { "K" } } }
+	end,
 	Slider = function(w)
 		return { value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 }
 	end,
