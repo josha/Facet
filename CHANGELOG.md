@@ -19,7 +19,9 @@ runtime as `Facet.VERSION`.
   that range. Middle truncation returns an ellipsis for nonpositive width.
   Rich text caps authored font sizes at 100 in both published markup and layout,
   leaving caller strings intact. It measures glyphs and runs in one parse; font memos have bounded
-  admission and reset with measured text. Button and Chip animation policies
+  admission and reset with measured text. Rich inter-word spaces use their active
+  font and size, including learned widths, so a large span reserves its full phrase.
+  Button and Chip animation policies
   now reach the primitive plate and retain its property validation.
 
 - Custom-child Buttons retain their theme padding when a control size is named;

@@ -1229,7 +1229,7 @@ describe("fix round 2: the remaining review findings", function()
 		end)
 	end)
 
-	it("NEW-3: the SPACE is measured at the base face, never with the compound key", function()
+	it("spaces use their active ordinary face, never the compound key", function()
 		local base = "GothamSSm#Regular#Normal"
 		local key = textMetrics.runKey(base, { { at = 1, font = "GothamSSm#Bold#Normal" }, { at = 5, font = "" } })
 		textMetrics.resetMeasured()
@@ -1242,9 +1242,10 @@ describe("fix round 2: the remaining review findings", function()
 				table.insert(spaceFonts, request.font)
 			end
 		end
-		expect(#spaceFonts > 0).toBe(true)
+		table.sort(spaceFonts)
+		expect(spaceFonts).toEqual({ "GothamSSm#Bold#Normal", base })
 		for _, font in spaceFonts do
-			expect(font).toBe(base)
+			expect(string.find(font, "\1", 1, true)).toBe(nil)
 		end
 	end)
 end)
@@ -2006,5 +2007,57 @@ describe("rich font ceiling reaches publication", function()
 		check('<font size="100" color="#0000ff">Lap record on the coastal circuit</font>', raw)
 		w.close()
 		expect(w.adapter.liveCount()).toBe(0)
+	end)
+end)
+
+describe("rich whitespace follows its run", function()
+	it("learns large inter-word spaces, invalidates a mounted hug, and preserves base-space boundaries", function()
+		local ok, err = pcall(function()
+			textMetrics.resetMeasured()
+			local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 600 } })
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Text("Phrase")({ rich = true, textSize = 16, text = '<font size="100">Size sample</font>' }),
+				})
+			end)
+			local facts = w.controller.textAt("/S/Phrase")
+			local base = string.split(facts.font, "\1")[1]
+			textMetrics.beginCollect()
+			textMetrics.measure("Size sample", facts.font, 16, math.huge)
+			local wantsLargeSpace = false
+			for _, request in textMetrics.endCollect() do
+				if request.word == " " and request.size == 100 and request.font == base then
+					wantsLargeSpace = true
+				end
+			end
+			expect(wantsLargeSpace).toBe(true)
+			for _, pair in { { "Size", 200 }, { "sample", 180 }, { " ", 40 }, { "A", 10 }, { "B", 10 } } do
+				textMetrics.setMeasured(base, 100, pair[1], pair[2])
+			end
+			textMetrics.setMeasured(base, 16, " ", 4)
+			w.env:set("textMeasureEpoch", 1)
+			w.settle()
+			expect(rectOf(w, "/S/Phrase").w).toBe(421)
+			textMetrics.setMeasured(base, 100, " ", 50)
+			w.env:set("textMeasureEpoch", 2)
+			w.settle()
+			expect(rectOf(w, "/S/Phrase").w).toBe(431)
+			local function width(text, runs)
+				return textMetrics.measure(text, textMetrics.runKey(base, runs), 16, math.huge).width
+			end
+			local outside =
+				{ { at = 1, font = base, size = 100 }, { at = 2, font = base }, { at = 3, font = base, size = 100 } }
+			local crossing =
+				{ { at = 1, font = base, size = 100 }, { at = 3, font = base }, { at = 4, font = base, size = 100 } }
+			expect(width("A B", outside)).toBe(25)
+			expect(width("A  B", crossing)).toBe(75)
+			-- One large space before and one base space after the boundary; plain spacing remains unchanged.
+			expect(textMetrics.measure("A  B", base, 100, math.huge).width).toBe(121)
+			w.close()
+		end)
+		textMetrics.resetMeasured()
+		if not ok then
+			error(err, 0)
+		end
 	end)
 end)

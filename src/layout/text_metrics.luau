@@ -177,10 +177,9 @@ text_metrics.canonicalFont = canonicalFont
 	`runKey(base, runs)` builds it; `runsOf(font)` reads it back, memoized. A plain
 	descriptor is unchanged on both paths, so nothing that does not use markup pays
 	a comparison. THE WORD STORE NEVER SEES A COMPOUND: every `wordWidth` call is
-	made with a resolved descriptor — the run's for a word, the BASE's for the
-	inter-word space, which belongs to no run — so the engine premeasure keeps
-	asking for ordinary `family#weight#style` faces and one space width serves
-	every markup string that shares a face. ]]
+	made with a resolved descriptor for each word fragment or space, so the
+	engine premeasure keeps asking for ordinary `family#weight#style` faces.
+	Spaces inside a run use that run's size and face too. ]]
 local RUN_SEP = "\1"
 
 export type MeasureRun = { at: number, font: string, size: number? }
@@ -1184,7 +1183,7 @@ local function wrapLine(
 	lineBase: number?
 ): (number, number, boolean)
 	local bucket = bucketFor(canon, fontSize, false)
-	-- the BASE face, for the one width that belongs to no run: the space (below)
+	-- The plain path memoizes one base-space width for this line.
 	local baseRecord = runsOf(canon)
 	local baseCanon = if baseRecord ~= nil then baseRecord.base else canon
 	local baseBucket = if baseRecord ~= nil then bucketFor(baseCanon, fontSize, false) else bucket
@@ -1223,16 +1222,28 @@ local function wrapLine(
 	local prevEnd = 0
 	local base = lineBase or 0
 	for wordStart: number, word: string in string.gmatch(text, "()(%S+)") do
-		local wordW, wordExact = runWordWidth(word, base + wordStart, canon, fontSize, fraction, bucket, faceAt)
-		exact = exact and wordExact
+		local wordW, wordExact = 0, true
+		if faceAt == nil then
+			wordW, wordExact = wordWidth(word, canon, bucket, fontSize, fraction)
+		end
 		local extra = 0
-		if lineWidth > 0 then
+		if lineWidth > 0 and faceAt ~= nil then
+			local spaces, gapExact = 0, true
+			for i = prevEnd + 1, wordStart - 1 do
+				-- Preserve the plain path's one-space fallback for non-space whitespace.
+				if string.byte(text, i) == 32 or (i == wordStart - 1 and spaces == 0) then
+					local face, size, estimate = faceAt(base + i)
+					local width, measured = wordWidth(SPACE, face, bucketFor(face, size, false), size, estimate)
+					extra += width
+					gapExact = gapExact and measured
+					spaces += 1
+				end
+			end
+			extra += if gapExact then BOUNDS_GRID else 0
+			exact = exact and gapExact
+		elseif lineWidth > 0 then
 			if spaceW == nil then
-				--[[ THE SPACE IS THE BASE FACE'S, ALWAYS. It is an inter-word advance
-					rather than a word of any run, and the store must never see a compound
-					key (see `runKey`): asking for it under one gave every distinct markup
-					string its own engine request, its own font-cache entry and its own
-					width bucket, for a number that is the same in all of them. ]]
+				-- Plain text shares one space request for its ordinary face and size.
 				local w, spaceIsExact = wordWidth(SPACE, baseCanon, baseBucket, fontSize, fraction)
 				spaceW = w
 				spaceExactly = spaceIsExact
@@ -1252,6 +1263,10 @@ local function wrapLine(
 			-- where the sum can fall below what the engine draws
 			extra = (spaceW :: number) * spaces + (if spaceExactly then BOUNDS_GRID else 0)
 		end
+		if faceAt ~= nil then
+			wordW, wordExact = runWordWidth(word, base + wordStart, canon, fontSize, fraction, bucket, faceAt)
+		end
+		exact = exact and wordExact
 		if lineWidth > 0 and lineWidth + extra + wordW > maxWidth then
 			widest = math.max(widest, lineWidth)
 			lines += 1
