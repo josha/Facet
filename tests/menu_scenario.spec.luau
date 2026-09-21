@@ -141,7 +141,17 @@ describe("scenario 'menu': the surface D2 shipped without", function()
 	it("is reachable inside All controls and keeps its standalone diagnostic screen", function()
 		local catalog = require("../examples/gallery/scenarios/all_controls")
 		expect(demo_picker.find("all-controls").module).toBe("all_controls")
-		expect(catalog.groups[2].tabs[2].scenario).toBe(module)
+		local embedded
+		for _, group in catalog.groups do
+			if group.id == "actions" then
+				for _, entry in group.tabs do
+					if entry.id == "menus" then
+						embedded = entry.scenario
+					end
+				end
+			end
+		end
+		expect(embedded).toBe(module)
 		local w = world(PHONE)
 		-- the id the catalogue sweep looks for, read off the MOUNTED tree rather
 		-- than off the blueprint: a demo whose root never materializes is exactly
