@@ -2790,10 +2790,32 @@ function chrome_slots.newState(package: any?): State
 	-- decoration instance, so the adapter asks this before touching anything.
 	function state.setPackage(next: any?): boolean
 		local function signature(p: any): string
-			if type(p) ~= "table" or type(p.chrome) ~= "table" then
+			if type(p) ~= "table" then
 				return "<none>"
 			end
-			local parts: { string } = {}
+			-- Compiled semantic art and the framework opt-out affect live images and
+			-- parked handles even when every layout metric and plate recipe is equal.
+			-- This is the resolver's data, not a second icon-resolution policy.
+			local standard = not (type(p.identity) == "table" and p.identity.standardIcons == false)
+			local parts: { string } = { "standardIcons=" .. tostring(standard) }
+			if type(p.iconArt) == "table" then
+				for name, states in p.iconArt do
+					for stateName, art in states do
+						table.insert(
+							parts,
+							string.format(
+								"%q:%q=%q/%q/%q",
+								name,
+								stateName,
+								art.assetName,
+								art.contentId,
+								tostring(art.tintRole)
+							)
+						)
+					end
+				end
+				table.sort(parts)
+			end
 			for _, slot in chrome_slots.SLOTS do
 				local plan = chrome_slots.planFor(p, slot)
 				-- the SHADOW is chrome too: a package that changes only its slot

@@ -600,3 +600,51 @@ describe("image paint is declared sheet-owned, with the adapter's instances name
 		expect((addTag :: number) < (parent :: number)).toBe(true)
 	end)
 end)
+
+describe("semantic art participates in package invalidation", function()
+	it("equal-metric art and glyph packages invalidate active and parked icons in both directions", function()
+		local art = withIcons({})
+		local glyph = withIcons({}, function(d)
+			d.identity.standardIcons = false
+		end)
+		expect(art.metrics).toEqual(glyph.metrics)
+		expect(themes.resolveIcon(art, "close").source).toBe("asset")
+		expect(themes.resolveIcon(glyph, "close").source).toBe("glyph")
+		local state = chrome_slots.newState(art)
+		for _, package in { glyph, art, glyph, art } do
+			local parkedEpoch = state.epoch()
+			expect(state.setPackage(package)).toBe(true)
+			expect(state.epoch() > parkedEpoch).toBe(true)
+			expect(state.setPackage(package)).toBe(false)
+		end
+		-- This is the existing live adoption refusal, not a fake target's policy.
+		expect(string.find(adapterSource, "if handle.parkedChromeEpoch ~= chromeState.epoch() then", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+	it("invalidates changed icon content, tint and declarations but not palette or map order", function()
+		local base = withIcons({ increment = "plus", decrement = "minus" })
+		local state = chrome_slots.newState(base)
+		local variants = {
+			withIcons({ increment = "plus", decrement = "minus" }, function(d)
+				d.assets.plus.content = "rbxassetid://903"
+			end),
+			withIcons({ increment = "plus", decrement = "minus" }, function(d)
+				d.assets.plus.tintRole = "danger"
+			end),
+			withIcons({ increment = "plus" }),
+			withIcons({ increment = { default = "plus", hover = "minus" }, decrement = "minus" }),
+		}
+		for _, variant in variants do
+			expect(variant.metrics).toEqual(base.metrics)
+			expect(state.setPackage(variant)).toBe(true)
+			expect(state.setPackage(base)).toBe(true)
+		end
+		local reordered = withIcons({ decrement = "minus", increment = "plus" }, function(d)
+			d.style.themes[1].colors.background = { r = 0, g = 0, b = 0 }
+		end)
+		local parkedEpoch = state.epoch()
+		expect(state.setPackage(reordered)).toBe(false)
+		expect(state.epoch()).toBe(parkedEpoch)
+	end)
+end)
