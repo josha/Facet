@@ -301,6 +301,14 @@ describe("circle painted leaves", function()
 			w.pres.refresh()
 			expect(circle().rect.w).toBe(400)
 			expect(circle().rect.h).toBe(400)
+			width:set(nil)
+			w.pres.refresh()
+			expect(circle().rect.w).toBe(44)
+			expect(circle().rect.h).toBe(44)
+			width:set({ type = "percent", fraction = 0.5 })
+			w.pres.refresh()
+			expect(circle().rect.w).toBe(200)
+			expect(circle().rect.h).toBe(200)
 		end)
 		it(class .. " keeps the absent or explicit rect default and rejects malformed circle declarations", function()
 			local w = world.new()
@@ -322,6 +330,8 @@ describe("circle painted leaves", function()
 				{
 					{ shape = "ellipse" },
 					{ shape = Compose.cell("circle") },
+					{ shape = "circle", width = { type = "fixed", px = 44 }, height = Compose.cell(nil) },
+					{ shape = "circle", width = Compose.cell(nil), height = { type = "fixed", px = 44 } },
 					{ shape = "circle", width = { type = "fixed", px = 44 }, height = { type = "fixed", px = 22 } },
 				}
 			do
@@ -359,6 +369,15 @@ describe("painted circle native property path", function()
 			local obj = { ClassName = class }
 			function obj:IsA(kind)
 				return self.ClassName == kind
+					or (kind == "GuiObject" and (self.ClassName == "Frame" or self.ClassName == "ImageLabel"))
+			end
+			function obj:FindFirstChild(name)
+				for _, child in self:GetChildren() do
+					if child.Name == name then
+						return child
+					end
+				end
+				return nil
 			end
 			function obj:GetChildren()
 				local out = {}
@@ -383,6 +402,54 @@ describe("painted circle native property path", function()
 			table.insert(objects, obj)
 			return obj
 		end
+		local rb = require("@lune/roblox")
+		local styling = require("../src/tokens/styling")
+		local imports = {
+			["../tokens/styling"] = styling,
+			["../tokens/sheet_model"] = sheet_model,
+			["../tokens/chrome_slots"] = require("../src/tokens/chrome_slots"),
+			["../themes/snapshot"] = snapshot,
+			["../render/authority"] = authority,
+		}
+		local paintModule = luau.load(fs.readFile("src/client/screen_paint.luau"), {
+			injectGlobals = true,
+			environment = {
+				game = {
+					GetService = function()
+						return {}
+					end,
+				},
+				Instance = { new = make },
+				UDim = rb.UDim,
+				UDim2 = rb.UDim2,
+				Enum = { ScaleType = { Crop = "Crop" } },
+				require = function(name)
+					return assert(imports[name], name)
+				end,
+			},
+		})()
+		local style = {
+			radii = { control = 12, panel = 20 },
+			strokes = { hairline = 0 },
+			colors = {},
+			extra = { scrimOpacity = 0.5 },
+		}
+		local paint = paintModule.new({
+			nativeMode = false,
+			style = style,
+			palette = {},
+			preferredTransparency = function()
+				return 0
+			end,
+			toColor3 = function(value)
+				return value
+			end,
+			chrome = { syncChrome = function() end },
+			assertBespokePaint = function() end,
+			snapshot = function()
+				return nil
+			end,
+		})
 		local props = luau.load(fs.readFile("src/client/screen_props.luau"), {
 			injectGlobals = true,
 			environment = {
@@ -394,11 +461,12 @@ describe("painted circle native property path", function()
 		})()
 		local adapter = props.new({
 			nativeMode = false,
-			style = { radii = { control = 12 } },
+			style = style,
 			assertBespokePaint = function() end,
-			cornerRadiusFor = function(handle, ordinary)
-				return if handle.shape == "circle" then { Scale = 0.5, Offset = 0 } else ordinary
-			end,
+			cornerRadiusFor = paint.cornerRadiusFor,
+			corner = paint.corner,
+			applyCorners = paint.applyCorners,
+			applySurface = paint.applySurface,
 		})
 		for _, class in { "Image", "Box" } do
 			local instance = make(if class == "Image" then "ImageLabel" else "Frame")
@@ -409,14 +477,30 @@ describe("painted circle native property path", function()
 			expect(corner.CornerRadius.Offset).toBe(0)
 			adapter.setProp(handle, "shape", "circle", "style")
 			expect(#instance:GetChildren()).toBe(1)
+			-- The same real child participates in both shape and explicit-corner ownership.
+			adapter.setProp(handle, "corners", styling.normalizeCorners(6), "style")
+			expect(corner.CornerRadius.Offset).toBe(6)
+			adapter.setProp(handle, "corners", nil, "style")
+			expect(instance:FindFirstChildOfClass("UICorner")).toBe(corner)
+			expect(corner.CornerRadius.Scale).toBe(0.5)
+			for _, surface in { "control", "badge", "plain", "scrim", "control", "plain" } do
+				adapter.setProp(handle, "surface", surface, "style")
+				expect(instance:FindFirstChildOfClass("UICorner")).toBe(corner)
+				expect(#instance:GetChildren()).toBe(1)
+				adapter.setProp(handle, "corners", styling.normalizeCorners(8), "style")
+				adapter.setProp(handle, "corners", nil, "style")
+				expect(corner.CornerRadius.Scale).toBe(0.5)
+			end
 			adapter.setProp(handle, "shape", nil, "style")
+			expect(#instance:GetChildren()).toBe(0)
+			adapter.setProp(handle, "corners", nil, "style")
 			expect(#instance:GetChildren()).toBe(0)
 			local authored = make("UICorner")
 			authored.Parent = instance
 			adapter.setProp(handle, "shape", "circle", "style")
 			adapter.setProp(handle, "shape", nil, "style")
 			expect(instance:FindFirstChildOfClass("UICorner")).toBe(authored)
-			expect(authored.CornerRadius).toBe(12)
+			expect(authored.CornerRadius.Offset).toBe(12)
 		end
 	end)
 end)

@@ -1854,7 +1854,7 @@ receive content later — that is exactly what `UI.AsyncImage` binds.
 
 **`shape`** defaults to `"rect"`. `"circle"` uses the shared 1:1 layout guarantee:
 author at most one axis and the other follows, including bound, fill, and percent
-dimensions. With neither axis it uses the control height metric. The direct image
+dimensions. A second axis binding counts as authored even while its value is nil. With neither axis it uses the control height metric. The direct image
 gets a true circular native corner, independent of the theme's pill radius, with
 no implicit border or extra render buffer. `shape` is construction-only. The new
 circle form refuses `imageFraming`, including a late bound value; the last valid

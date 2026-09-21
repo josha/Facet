@@ -594,7 +594,7 @@ function screen_paint.new(ctx: any)
 		if not sanctionedOverride then
 			assertBespokePaint("CornerRadius")
 		end
-		local uiCorner = Instance.new("UICorner")
+		local uiCorner = (handle and handle.shapeCorner) or Instance.new("UICorner")
 		local resolved = cornerRadiusFor(handle, radius)
 		uiCorner.CornerRadius = resolved
 		uiCorner.Parent = instance
@@ -730,8 +730,13 @@ function screen_paint.new(ctx: any)
 			destroys no child and `adopt` keeps `handle.instance`, so a recycled
 			node's UICorner really does still wear the recorded radius, and any
 			owner that repaints on the new identity re-records first. ]]
+		-- A painted leaf's explicit shape owns its corner independently of surface chrome.
 		if cornersData == nil then
-			local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil
+			local restored = if type(handle) == "table"
+				then (if handle.shapeCorner ~= nil
+					then cornerRadiusFor(handle, style.radii.control)
+					else handle.chromeCornerRadius)
+				else nil
 			if restored == nil then
 				-- EVERY ONE OF THEM, like every other eraser on this instance
 				-- (RED-TEAM T9, finding 3). `applySurface`'s plain/scrim branches and
@@ -928,7 +933,7 @@ function screen_paint.new(ctx: any)
 			-- avatar-badge convention (fallback fill visible until art loads)
 			instance.BackgroundTransparency = 0
 			instance.BackgroundColor3 = COLOR.surfaceStrong
-			local circle = Instance.new("UICorner")
+			local circle = (handle and handle.shapeCorner) or Instance.new("UICorner")
 			circle.CornerRadius = UDim.new(0.5, 0)
 			circle.Parent = instance
 			-- the one surface that does not go through `corner()`, so it records
@@ -969,7 +974,7 @@ function screen_paint.new(ctx: any)
 				chrome:Destroy()
 			end
 			for _, child in instance:GetChildren() do
-				if child:IsA("UICorner") then
+				if child:IsA("UICorner") and (handle == nil or child ~= handle.shapeCorner) then
 					child:Destroy()
 				end
 			end
@@ -1021,7 +1026,7 @@ function screen_paint.new(ctx: any)
 				chrome:Destroy()
 			end
 			for _, child in instance:GetChildren() do
-				if child:IsA("UICorner") then
+				if child:IsA("UICorner") and (handle == nil or child ~= handle.shapeCorner) then
 					child:Destroy()
 				end
 			end

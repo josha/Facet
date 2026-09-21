@@ -24,11 +24,14 @@ properties.direct = table.freeze({
 	Foreign = true,
 	Stage = true,
 })
-function properties.assertCircleSquare(className: string, props: { [string]: any })
+function properties.assertCircleSquare(className: string, props: { [string]: any }, bound: any?)
 	if props.shape ~= "circle" then
 		return
 	end
-	if props.width ~= nil and props.height ~= nil then
+	if
+		(props.width ~= nil or (bound and bound.width ~= nil))
+		and (props.height ~= nil or (bound and bound.height ~= nil))
+	then
 		error(
 			`Facet UI.{className}: shape = "circle" takes at most ONE of \`width\` / \`height\` — the solver `
 				.. `enforces the 1:1 square, so the other axis follows and the author never does the math. `
@@ -306,7 +309,7 @@ function properties.assertCombinations(class: string, props: any, bound: any?)
 		assertScrollExtent(props, bound)
 	end
 	if class == "ZStack" or class == "Box" or class == "Image" then
-		properties.assertCircleSquare(class, props)
+		properties.assertCircleSquare(class, props, if class == "Box" or class == "Image" then bound else nil)
 	end
 	if props.wrap == true and props.align == "stretch" then
 		error(

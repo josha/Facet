@@ -3047,6 +3047,7 @@ function screen_target.new(opts: Opts?)
 		releaseTint = releaseTint,
 		applyPathRole = applyPathRole,
 		cornerRadiusFor = cornerRadiusFor,
+		corner = corner,
 		applyToggleValue = applyToggleValue,
 		applyPathPoints = applyPathPoints,
 		registerHost = registerHost,

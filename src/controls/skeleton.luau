@@ -76,7 +76,8 @@ local function release(driver: any)
 end
 local function build(library, core, spec, owner)
 	guard.assertKnownKeys("UI.Skeleton", spec, KEYS, "spec")
-	local UI, id = library.UI, spec.id or "Skeleton"
+	local UI: any = library.UI -- internal heterogeneous primitive constructors; public Spec is checked separately
+	local id = spec.id or "Skeleton"
 	local form = spec.form
 	assert(FORMS[form] == true, "Facet UI.Skeleton: form must be box | line | circle")
 	if spec.lines ~= nil then

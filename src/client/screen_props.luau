@@ -48,7 +48,7 @@
 --   syncChrome, applyOverrideVariantArt, refitFullBleed, refitIconArt
 --                        from `screen_chrome` — the package-art path
 --   applySurface, applyShadow, applyGradient, applyCorners, applyStroke,
---   applyTint, releaseTint, applyPathRole, cornerRadiusFor, applyToggleValue
+--   applyTint, releaseTint, applyPathRole, cornerRadiusFor, corner, applyToggleValue
 --                        from `screen_paint` — the bespoke path
 --   applyPathPoints, registerHost, setPresentationTransform
 --                        from `screen_presentation`
@@ -100,6 +100,7 @@ export type Ctx = {
 	releaseTint: (any) -> (),
 	applyPathRole: (any) -> (),
 	cornerRadiusFor: (any, number) -> number,
+	corner: (any, number, boolean?, any?) -> (),
 	applyToggleValue: (any, boolean) -> (),
 	applyPathPoints: (any) -> (),
 	registerHost: (string, Instance, any, boolean?) -> (),
@@ -129,6 +130,7 @@ function screen_props.new(ctx: Ctx)
 	local releaseTint = ctx.releaseTint
 	local applyPathRole = ctx.applyPathRole
 	local cornerRadiusFor = ctx.cornerRadiusFor
+	local corner = ctx.corner
 	local applyToggleValue = ctx.applyToggleValue
 	local applyPathPoints = ctx.applyPathPoints
 	local registerHost = ctx.registerHost
@@ -334,12 +336,12 @@ function screen_props.new(ctx: Ctx)
 				-- Painted leaves can start bare: no interactive/surface corner exists.
 				if handle.class == "Box" or handle.class == "Image" then
 					if handle.shape == "circle" and instance:FindFirstChildOfClass("UICorner") == nil then
-						local made = Instance.new("UICorner")
-						made.Parent = instance
-						handle.shapeCorner = made
+						corner(instance, style.radii.control, nil, handle)
+						handle.shapeCorner = instance:FindFirstChildOfClass("UICorner")
 					elseif handle.shape ~= "circle" and handle.shapeCorner ~= nil then
 						handle.shapeCorner:Destroy()
 						handle.shapeCorner = nil
+						handle.chromeCornerRadius = nil
 					end
 				end
 				for _, child in instance:GetChildren() do
