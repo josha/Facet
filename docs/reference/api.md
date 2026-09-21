@@ -1858,7 +1858,11 @@ dimensions. A second axis binding counts as authored even while its value is nil
 gets a true circular native corner, independent of the theme's pill radius, with
 no implicit border or extra render buffer. `shape` is construction-only. The new
 circle form refuses `imageFraming`, including a late bound value; the last valid
-direct image remains until the binding recovers. Rectangular framing is unchanged.
+direct image remains until the binding recovers. Direct circles also refuse
+`scaleMode = "slice"`: the engine fragments the nine-slice picture under that
+corner. Use fit/crop/stretch/tile, or deliberately place a rectangular slice Image
+inside a `shape = "circle", canvasGroup = true` ZStack, paying one render buffer
+for the circular mask. Rectangular framing and nine-slice images are unchanged.
 
 **`scaleMode`** decides how the picture fills the box the solver already sized —
 `"fit"` (contain: the whole picture, letterboxed), `"fill"` / `"crop"` (cover:

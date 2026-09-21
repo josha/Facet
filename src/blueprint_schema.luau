@@ -2751,7 +2751,7 @@ class("Image", {
 			doc = "how the picture fills its box: fit (contain, whole picture visible) | fill | crop (cover, "
 				.. "overflow cropped — two names for the engine's Crop) | stretch (ignore the aspect ratio, "
 				.. "the engine default) | tile (repeat at `tileSize`) | slice (nine-slice at `sliceCenter`). "
-				.. "The last two are authored statically, because their geometry key is construction-only",
+				.. "The last two are authored statically, because their geometry key is construction-only; slice refuses circle shape",
 		}),
 		-- THE TILE'S OWN SIZE, in whole pixels: `{ width, height }`. Required with
 		-- `scaleMode = "tile"` and refused without it. Whole, because the engine's

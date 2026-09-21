@@ -304,6 +304,10 @@ function properties.assertCombinations(class: string, props: any, bound: any?)
 		assertTruncate(props)
 	elseif class == "Image" then
 		properties.assertImageFramingShape(props.shape, props.imageFraming)
+		assert(
+			props.shape ~= "circle" or props.scaleMode ~= "slice",
+			"Facet UI.Image: circle shape does not support slice; use fit/crop/stretch/tile, or put a rectangular slice Image inside an explicit circular CanvasGroup ZStack"
+		)
 		assertImageScale(props, bound)
 	elseif class == "ScrollView" then
 		assertScrollExtent(props, bound)
