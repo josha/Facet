@@ -280,10 +280,11 @@ local function build(library: any, core: any, spec: any, owner: any, current: an
 		local plate = UI.Button({
 			id = id,
 			label = field("label"),
-			shape = "circle",
+			shape = if form == "standard" then "circle" else nil,
 			surface = "plain",
 			padding = 0,
 			width = diameter,
+			height = if form == "icon" then diameter else nil,
 			children = { UI.ZStack({ id = "Layers", width = FILL, height = FILL, children = children }) },
 		})
 		plate = contribution.attach(plate, {

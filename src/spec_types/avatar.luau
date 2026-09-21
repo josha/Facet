@@ -14,7 +14,7 @@ export type Spec = {
 	presence: bp.Bound<Presence | nil>?,
 	presenceLabel: bp.Bound<string | nil>?,
 	presenceMark: boolean?,
-	frame: bp.Blueprint?,
+	frame: bp.Blueprint?, -- caller-owned content; activated frames obey Button content restrictions
 	backplate: boolean?,
 	form: ("standard" | "icon")?,
 	over: "media"?,

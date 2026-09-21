@@ -297,6 +297,87 @@ t.describe("Avatar", function()
 end)
 
 t.describe("Avatar circle paint", function()
+	t.it("keeps authored frame input separate and applies the ordinary activated Button restriction", function()
+		local w = world.new()
+		local tapped, record = 0, nil
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Avatar("Face")({
+					name = "Ada",
+					frame = w.UI.Button("Frame")({
+						label = "Badge",
+						onActivate = function()
+							tapped += 1
+						end,
+					}),
+					ref = function(value)
+						record = value
+					end,
+				}),
+			})
+		end)
+		t.expect(record.dump().interactive).toBe(false)
+		t.expect(#w.handle.focusOrder().traversal).toBe(1)
+		w.adapter.tap("/S/Face/Frame")
+		t.expect(tapped).toBe(1)
+		w.close()
+		t.expect(pcall(function()
+			w.scoped(function()
+				w.UI.Avatar({ name = "Ada", onActivate = function() end, frame = w.UI.Button({ label = "Bad" }) })
+			end)
+		end)).toBe(false)
+		for _, active in { false, true } do
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Avatar("Face")({
+						name = "Ada",
+						frame = w.UI.Box("Frame")({
+							width = w.UI.fill(),
+							height = w.UI.fill(),
+							tint = {
+								role = "accent",
+								blend = 1,
+							},
+						}),
+						onActivate = if active then function() end else nil,
+					}),
+				})
+			end)
+			t.expect(#w.handle.focusOrder().traversal).toBe(if active then 1 else 0)
+			w.close()
+		end
+	end)
+	t.it("keeps an interactive icon square and reachable without circle-rim classification", function()
+		local w = world.new()
+		local rung = Compose.cell("compact")
+		local taps = 0
+		mount(w, {
+			name = "Ada",
+			form = "icon",
+			controlSize = rung,
+			onActivate = function()
+				taps += 1
+			end,
+		})
+		local path = "/S/Face+target/Face"
+		local sheet = require("../src/tokens/sheet_model")
+		for _, size in { "compact", "regular", "large" } do
+			rung:set(size)
+			w.pres.refresh()
+			local face = node(w, path)
+			local tags = sheet.classifyTags({ shape = face.props.shape, surface = face.props.surface })
+			t.expect(tags[sheet.TAGS.circleRim]).toBeNil()
+			t.expect(face.rect.w).toBe(face.rect.h)
+			t.expect(node(w, path .. "/Layers/Plate").props.shape).toBe("circle")
+			t.expect(w.adapter.node(path .. "/Layers/Rim")).toBeNil()
+			t.expect(node(w, "/S/Face+target").rect.w >= 44).toBe(true)
+			t.expect(node(w, "/S/Face+target").rect.h >= 44).toBe(true)
+		end
+		w.pres.focus.focusOn(path)
+		w.press("Return")
+		t.expect(taps).toBe(1)
+		t.expect(#w.handle.focusOrder().traversal).toBe(1)
+	end)
 	t.it("uses true circle paint for faces and round presence at explicit large diameters", function()
 		local w = world.new()
 		local presence = Compose.cell("online")

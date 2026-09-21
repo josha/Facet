@@ -12262,7 +12262,7 @@ Avatar creates no provider and performs no fetch itself.
 | `presenceMark` | `true` | False hides the visual mark while retaining semantic presence. |
 | `backplate` | `false` | Accent/on-accent initials treatment. |
 | `over` | none | `"media"` uses the strong surface/content pair. |
-| `frame` | none | Caller-authored overlay node, inside the same face. |
+| `frame` | none | Caller-authored overlay content, inside the same face. |
 | `onActivate` | none | Adds one ordinary Button activation target. |
 | `ref` | none | Receives the control record; `record.dump()` reports current identity and state. |
 
@@ -12273,6 +12273,13 @@ last valid published state and a later valid or nil value recovers. Caller cells
 are untouched. Passive avatars have no focus stop or native semantic-label prop;
 their identity remains available through the ref/dump. This is not a claim about
 operating-system accessibility support.
+
+The zero/one-target statements describe Avatar-generated input. A `frame` keeps
+its caller-authored content and input; `dump.interactive` reports Avatar's own
+`onActivate` route. With `onActivate`, frame content must obey ordinary Button
+custom-content restrictions throughout its lifetime: put separate interactive
+adornments beside the Avatar. `dump.controlSize` is the requested raw rung; after
+an invalid update it may differ from the retained valid geometry.
 
 A mounted keyed Avatar owns one provider lease; the caller keeps the provider.
 Pending content owns a Skeleton only for that branch. Ready and failure states
