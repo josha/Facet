@@ -1,5 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 local selection = require("../selection_model")
 local publicBlueprint = require("../blueprint")
 
@@ -211,20 +213,13 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 				UI.When({ id = "Yes", condition = condition, thenView = yes }),
 				UI.When({
 					id = "No",
-					condition = Compose.withOwner(owner, function()
-						return Compose.formula(function(use)
-							return not use(condition)
-						end)
+					condition = ownedFormula(owner, function(use)
+						return not use(condition)
 					end),
 					thenView = no,
 				}),
 			},
 		})
-	end
-	local function memo(fn: any): any
-		return Compose.withOwner(scope, function()
-			return Compose.formula(fn)
-		end)
 	end
 	local function skin(bp: any, value: any, slot: string): any
 		if value == nil then
@@ -242,7 +237,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 	local opened, visible, path, candidate = signal(false), signal(false), signal({}), signal(nil)
 	local layout =
 		signal({ sectors = {}, levels = {}, mode = "radial", cx = 0, cy = 0, inner = 0, outer = 0, target = 44 })
-	local navLabel = memo(function(use)
+	local navLabel = ownedFormula(scope, function(use)
 		return if #use(path) > 0 then "Back" else "Close"
 	end)
 	local navigationItem = { id = "$navigation", label = navLabel }
@@ -986,7 +981,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 			end
 		end
 	end
-	local content = memo(function(use)
+	local content = ownedFormula(scope, function(use)
 		if not use(visible) then
 			return {}
 		end
@@ -1015,10 +1010,8 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 			children = {
 				UI.ForEach({
 					id = "GlyphVariants",
-					items = Compose.withOwner(owner, function()
-						return Compose.formula(function(use)
-							return { use(icon) }
-						end)
+					items = ownedFormula(owner, function(use)
+						return { use(icon) }
 					end),
 					key = function(name)
 						return name
@@ -1041,35 +1034,31 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 	end
 	-- One opening transform keeps neighboring wedge seams in the same native
 	-- coordinate space. Row transforms are reserved for branch transitions.
-	local openingScale = memo(function(use)
+	local openingScale = ownedFormula(scope, function(use)
 		return if use(env:get("reducedMotion")) then 1 else 0.12 + 0.88 * math.clamp(use(alpha), 0, 1)
 	end)
-	local ringDiameter = memo(function(use)
+	local ringDiameter = ownedFormula(scope, function(use)
 		local l = use(layout)
 		return math.ceil(l.outer + l.target) * 2
 	end)
 	local function row(s: any, rs: any)
 		rs = if rs then rs else (Compose.currentOwner() or scope)
 		local item = s.item
-		local current = Compose.withOwner(rs, function()
-			return Compose.formula(function(use)
-				for _, v in use(layout).sectors do
-					if v.key == s.key then
-						return v
-					end
+		local current = ownedFormula(rs, function(use)
+			for _, v in use(layout).sectors do
+				if v.key == s.key then
+					return v
 				end
-				for _, v in use(retiring) do
-					if v.key == s.key then
-						return v
-					end
+			end
+			for _, v in use(retiring) do
+				if v.key == s.key then
+					return v
 				end
-				return s
-			end)
+			end
+			return s
 		end)
 		local function rm(fn)
-			return Compose.withOwner(rs, function()
-				return Compose.formula(fn)
-			end)
+			return ownedFormula(rs, fn)
 		end
 		local progress = if clock then clock:spring(0, "object") else nil
 		if progress then
@@ -1559,23 +1548,23 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 		)
 		return form
 	end
-	local launchDim = memo(function(use)
+	local launchDim = ownedFormula(scope, function(use)
 		return fixed(use(layout).target)
 	end)
-	local launcherPadding = memo(function(use)
+	local launcherPadding = ownedFormula(scope, function(use)
 		return (snapshot.resolveNumber(use(env:get("themeMetrics")) or snapshot.neutral(), "strokes.hairline") or 1) * 2
 	end)
-	local launcherBounds = memo(function(use)
+	local launcherBounds = ownedFormula(scope, function(use)
 		return fixed(use(layout).target + use(launcherPadding) * 2)
 	end)
 	local isCorner = preset:find("left") ~= nil or preset:find("right") ~= nil
 	-- One exit clock owns both sides of the handoff. Lists clear their paint
 	-- first so the returning launcher never appears on top of a retiring row.
-	local listOpacity = memo(function(use)
+	local listOpacity = ownedFormula(scope, function(use)
 		local a = math.clamp(use(alpha), 0, 1)
 		return if not use(opened) and spec.launcher ~= false and not isCorner then math.clamp(a * 2 - 1, 0, 1) else a
 	end)
-	local launcherOpacity = memo(function(use)
+	local launcherOpacity = ownedFormula(scope, function(use)
 		-- A newly mounted scene has no solved origin yet.
 		if use(layout).outer == 0 then
 			return 0
@@ -1589,22 +1578,22 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 		local a = math.clamp(use(alpha), 0, 1)
 		return if use(layout).mode == "list" then math.clamp(1 - a * 2, 0, 1) else 1 - a
 	end)
-	local navigationSize = memo(function(use)
+	local navigationSize = ownedFormula(scope, function(use)
 		return if isCorner
 			then math.floor(32 + (use(layout).target - 32) * (1 - math.clamp(use(alpha), 0, 1)) + 0.5)
 			else 32
 	end)
-	local lx = memo(function(use)
+	local lx = ownedFormula(scope, function(use)
 		return use(layout).cx - use(layout).target / 2
 	end)
-	local ly = memo(function(use)
+	local ly = ownedFormula(scope, function(use)
 		return use(layout).cy - use(layout).target / 2
 	end)
 	local function roundButton(props: any): any
 		props.surface = nil
 		local diameter = props.width
 		props.padding = 0
-		local inset = memo(function(use)
+		local inset = ownedFormula(scope, function(use)
 			local size = if UI.isReadable(diameter) then use(diameter) else diameter
 			local d = size.px
 			local metrics = use(env:get("themeMetrics")) or snapshot.neutral()
@@ -1637,7 +1626,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 		surface = "plain",
 		shape = "circle",
 		width = launchDim,
-		enabled = memo(function(use)
+		enabled = ownedFormula(scope, function(use)
 			local e = spec.enabled
 			return (if UI.isReadable(e) then use(e) else e) ~= false
 		end),
@@ -1649,7 +1638,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 		end,
 	})
 
-	local status = memo(function(use)
+	local status = ownedFormula(scope, function(use)
 		local key = use(candidate)
 		for _, s in use(layout).sectors do
 			if s.key == key then
@@ -1707,7 +1696,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 	end
 	local body = switch(
 		"Presentation",
-		memo(function(use)
+		ownedFormula(scope, function(use)
 			return use(layout).mode == "list"
 		end),
 		function()
@@ -1726,10 +1715,10 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 								id = "List",
 								axis = "y",
 								width = UI.fill(),
-								height = memo(function(use)
+								height = ownedFormula(scope, function(use)
 									return fixed(listBox(use).height)
 								end),
-								offsetY = memo(function(use)
+								offsetY = ownedFormula(scope, function(use)
 									return listBox(use).top
 								end),
 								padding = "s",
@@ -1752,16 +1741,16 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 						UI.Box({
 							id = "Artwork",
 							surface = "plain",
-							width = memo(function(use)
+							width = ownedFormula(scope, function(use)
 								return fixed(use(layout).outer * 2)
 							end),
-							height = memo(function(use)
+							height = ownedFormula(scope, function(use)
 								return fixed(use(layout).outer * 2)
 							end),
-							offsetX = memo(function(use)
+							offsetX = ownedFormula(scope, function(use)
 								return use(ringDiameter) / 2 - use(layout).outer
 							end),
-							offsetY = memo(function(use)
+							offsetY = ownedFormula(scope, function(use)
 								return use(ringDiameter) / 2 - use(layout).outer
 							end),
 						}),
@@ -1780,18 +1769,18 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 				children = {
 					UI.ZStack({
 						id = "Rings",
-						width = memo(function(use)
+						width = ownedFormula(scope, function(use)
 							return fixed(use(ringDiameter))
 						end),
-						height = memo(function(use)
+						height = ownedFormula(scope, function(use)
 							return fixed(use(ringDiameter))
 						end),
 						opacity = alpha,
 						scale = openingScale,
-						offsetX = memo(function(use)
+						offsetX = ownedFormula(scope, function(use)
 							return use(layout).cx - use(ringDiameter) / 2
 						end),
-						offsetY = memo(function(use)
+						offsetY = ownedFormula(scope, function(use)
 							return use(layout).cy - use(ringDiameter) / 2
 						end),
 						children = {
@@ -1810,7 +1799,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 	-- The central square is wholly inside the transparent circle: no painted
 	-- sector leaks scene input. Four native rectangles also cut the catcher.
 	local hole = if spec.centerPassThrough and (center == "empty" or center == "content")
-		then memo(function(use)
+		then ownedFormula(scope, function(use)
 			local l = use(layout)
 			local half = l.inner / math.sqrt(2)
 			return {
@@ -1821,7 +1810,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 			}
 		end)
 		else nil
-	local captureRegions = memo(function(use)
+	local captureRegions = ownedFormula(scope, function(use)
 		local l = use(layout)
 		local h = if hole then use(hole) else nil
 		return aperture.rects(
@@ -1843,7 +1832,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 			}),
 			UI.When({
 				id = "Capture",
-				condition = memo(function(use)
+				condition = ownedFormula(scope, function(use)
 					return use(opened) and use(layout).mode == "radial"
 				end),
 				thenView = function()
@@ -1856,30 +1845,24 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 						row = function(r, rs)
 							rs = if rs then rs else (Compose.currentOwner() or scope)
 							local function property(key)
-								return Compose.withOwner(rs, function()
-									return Compose.formula(function(use)
-										for _, v in use(captureRegions) do
-											if v.id == r.id then
-												return v[key]
-											end
+								return ownedFormula(rs, function(use)
+									for _, v in use(captureRegions) do
+										if v.id == r.id then
+											return v[key]
 										end
-										return 0
-									end)
+									end
+									return 0
 								end)
 							end
 							local width, height = property("w"), property("h")
 							return UI.Grip({
 								id = "Plane",
 								focusVisual = "none",
-								width = Compose.withOwner(rs, function()
-									return Compose.formula(function(use)
-										return fixed(use(width))
-									end)
+								width = ownedFormula(rs, function(use)
+									return fixed(use(width))
 								end),
-								height = Compose.withOwner(rs, function()
-									return Compose.formula(function(use)
-										return fixed(use(height))
-									end)
+								height = ownedFormula(rs, function(use)
+									return fixed(use(height))
 								end),
 								offsetX = property("x"),
 								offsetY = property("y"),
@@ -1894,7 +1877,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 			}),
 			UI.When({
 				id = "Trigger",
-				condition = memo(function(use)
+				condition = ownedFormula(scope, function(use)
 					return spec.launcher ~= false and (use(launcherOpacity) > 0 or use(holding))
 				end),
 				thenView = function()
@@ -1903,10 +1886,10 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 						width = launcherBounds,
 						height = launcherBounds,
 						padding = launcherPadding,
-						offsetX = memo(function(use)
+						offsetX = ownedFormula(scope, function(use)
 							return use(lx) - use(launcherPadding)
 						end),
-						offsetY = memo(function(use)
+						offsetY = ownedFormula(scope, function(use)
 							return use(ly) - use(launcherPadding)
 						end),
 						opacity = launcherOpacity,
@@ -1916,14 +1899,14 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 			}),
 			UI.When({
 				id = "Navigation",
-				condition = memo(function(use)
+				condition = ownedFormula(scope, function(use)
 					return use(visible)
 				end),
 				thenView = function()
 					local children = {
 						UI.When({
 							id = "BackAffordance",
-							condition = memo(function(use)
+							condition = ownedFormula(scope, function(use)
 								if use(layout).mode == "list" or preset:find("left") or preset:find("right") then
 									return true
 								end
@@ -1940,14 +1923,14 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 							thenView = function()
 								return roundButton({
 									id = "Back",
-									label = memo(function(use)
+									label = ownedFormula(scope, function(use)
 										return if isCorner and not use(opened)
 											then spec.label or "Quick actions"
 											else use(navLabel)
 									end),
 									surface = "plain",
 									shape = "circle",
-									width = memo(function(use)
+									width = ownedFormula(scope, function(use)
 										return fixed(use(navigationSize))
 									end),
 									children = {
@@ -1962,7 +1945,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 													opacity = if isCorner then alpha else 1,
 													children = {
 														navigationGlyph(
-															memo(function(use)
+															ownedFormula(scope, function(use)
 																return if #use(path) > 0
 																	then "chevron.leading"
 																	else "close"
@@ -1976,12 +1959,12 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 														id = "LauncherIcon",
 														width = UI.fill(),
 														height = UI.fill(),
-														opacity = memo(function(use)
+														opacity = ownedFormula(scope, function(use)
 															return 1 - math.clamp(use(alpha), 0, 1)
 														end),
 														children = {
 															navigationGlyph(
-																memo(function()
+																ownedFormula(scope, function()
 																	return spec.icon or "more"
 																end),
 																scope
@@ -1992,21 +1975,21 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 											},
 										}),
 									},
-									anchor = memo(function(use)
+									anchor = ownedFormula(scope, function(use)
 										return if use(layout).mode == "list"
 												and not preset:find("left")
 												and not preset:find("right")
 											then "topRight"
 											else "topLeft"
 									end),
-									offsetX = memo(function(use)
+									offsetX = ownedFormula(scope, function(use)
 										return if use(layout).mode == "list"
 												and not preset:find("left")
 												and not preset:find("right")
 											then 0
 											else use(layout).cx - use(navigationSize) / 2
 									end),
-									offsetY = memo(function(use)
+									offsetY = ownedFormula(scope, function(use)
 										return if use(layout).mode == "list"
 												and not preset:find("left")
 												and not preset:find("right")
@@ -2027,7 +2010,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 							id = "Candidate",
 							text = status,
 							disclose = true,
-							width = memo(function(use)
+							width = ownedFormula(scope, function(use)
 								return fixed(math.max(0, (rect and rect.w or 0) - use(layout).target * 1.5))
 							end),
 							anchor = if preset:find("bottom") then "topLeft" else "bottom",
@@ -2051,16 +2034,16 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 										else (spec.centerLabel or (if center == "root" then "Home" else "Close")),
 									shape = "circle",
 									width = fixed(32),
-									offsetX = memo(function(use)
+									offsetX = ownedFormula(scope, function(use)
 										return use(layout).cx - 16
 									end),
-									offsetY = memo(function(use)
+									offsetY = ownedFormula(scope, function(use)
 										return use(layout).cy - 16
 									end),
 									surface = "plain",
 									children = {
 										navigationGlyph(
-											memo(function(use)
+											ownedFormula(scope, function(use)
 												return if center == "root"
 													then "chevron.up"
 													elseif center == "back" and #use(path) > 0 then "chevron.leading"
@@ -2094,7 +2077,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 						children,
 						UI.When({
 							id = "RadialCenter",
-							condition = memo(function(use)
+							condition = ownedFormula(scope, function(use)
 								return use(layout).mode ~= "list"
 							end),
 							thenView = function()
@@ -2112,7 +2095,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 						width = UI.fill(),
 						height = UI.fill(),
 						enabled = if isCorner then nil else opened,
-						opacity = memo(function(use)
+						opacity = ownedFormula(scope, function(use)
 							if isCorner or use(opened) then
 								return 1
 							end
@@ -2392,7 +2375,7 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 		end,
 	})
 	-- Validate reactive item/ancestor changes and restore the nearest legal context.
-	local facts = memo(function(use)
+	local facts = ownedFormula(scope, function(use)
 		local items = if UI.isReadable(spec.items) then use(spec.items) else spec.items
 		local function track(list)
 			for _, item in list do
@@ -2537,15 +2520,8 @@ local function build(Facet: any, core: any, spec: Spec, scope: any)
 	})
 end
 function radial.build(Facet: any, core: any, spec: Spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return radial

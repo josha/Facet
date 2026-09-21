@@ -5,6 +5,7 @@
 -- application state stays outside page factories so it survives navigation.
 -- Nested tabs use local navigation; only the outer tabs follow the environment.
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 local selectionModel = require("../selection_model")
 local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
@@ -351,7 +352,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		not adaptable or spec.placement == nil or spec.placement == "automatic",
 		"UI.TabView.sidebarAdaptable requires automatic placement"
 	)
-	local navigationEnv = spec.env or surfaceEnv.find(core)
+	local navigationEnv = surfaceEnv.forSpec(core, spec.env)
 	assert(not adaptable or navigationEnv ~= nil, "UI.TabView.sidebarAdaptable requires the surface environment")
 	assert(
 		spec.sidebarPreference == nil or adaptable or nested,
@@ -498,7 +499,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	-- never reaches it, so a page's own tabs cannot claim the app's home.
 	local policySource: any = nil
 	if requestedPlacement == "automatic" and not nested then
-		local publishedEnv = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
+		local publishedEnv = surfaceEnv.forSpec(core, spec.env)
 		if spec.conditions ~= nil then
 			policySource = spec.conditions.navPlacement
 		elseif publishedEnv ~= nil then
@@ -1506,15 +1507,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 end
 
 function tab_view.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return tab_view

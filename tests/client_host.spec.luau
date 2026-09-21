@@ -433,6 +433,51 @@ describe("declarative host placement", function()
 			expect(frames.live()).toBe(0)
 		end)
 	end
+	--[[ THE ON-SCREEN KEYBOARD RECT IS SCREEN GEOMETRY, so a world canvas must
+		never receive it. `roblox_env` publishes `keyboardOcclusionRect` in the
+		player's DISPLAY coordinates (the keyboard's position on the screen), and
+		`text_input` shifts and scrolls by it. Delivered to a SurfaceGui canvas it
+		names a rectangle that has nothing to do with that canvas.
+
+		The blocklist that stops screen geometry reaching a world surface used to
+		spell this fact `keyboardRect`, which nothing publishes and nothing reads,
+		so the real fact was forwarded and the guard was decoration. ]]
+	for _, kind in { "surface", "billboard" } do
+		it(kind .. " never receives the screen's keyboard occlusion rect", function()
+			local publish
+			local h = newHost({
+				surface = {
+					kind = kind,
+					target = {},
+					face = if kind == "surface" then "Back" else nil,
+					canvas = { w = 800, h = 600 },
+				},
+				bindEnv = function(env)
+					publish = function()
+						env:set("keyboardOcclusionRect", { x = 0, y = 540, w = 1920, h = 540 })
+					end
+					return function() end
+				end,
+			})
+			publish()
+			expect(h.env:get("keyboardOcclusionRect"):peek()).toBe(nil)
+			h.dispose()
+		end)
+	end
+	it("a screen surface still receives it, because there it is the truth", function()
+		local publish
+		local h = newHost({
+			bindEnv = function(env)
+				publish = function()
+					env:set("keyboardOcclusionRect", { x = 0, y = 540, w = 1920, h = 540 })
+				end
+				return function() end
+			end,
+		})
+		publish()
+		expect(h.env:get("keyboardOcclusionRect"):peek()).toEqual({ x = 0, y = 540, w = 1920, h = 540 })
+		h.dispose()
+	end)
 	it("rejects invalid placement before creating the host", function()
 		for _, surface in
 			{

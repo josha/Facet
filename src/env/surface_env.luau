@@ -192,6 +192,24 @@ end
 -- find(core) -> env?, reason? — reason is "none" (nothing published) or
 -- "ambiguous" (more than one LIVE environment on this core). Never raises: a
 -- caller that can degrade (a headless unit mount) is a legal caller.
+--[[ forSpec(core, declared) -> env? — the environment a CONTROL should use:
+	the one its spec named, else whichever one the surface published.
+
+	`find` answers TWO values, and that second one is a diagnostic reason no
+	control wants. Written inline, whether it leaks depends on where the call
+	happens to sit: a `local x = ... else surfaceEnv.find(core)` truncates, a
+	`f(spec.env or surfaceEnv.find(core))` would not. Half the call sites wrapped
+	it in parentheses and half did not, which says nobody was sure. This returns
+	one value, so there is nothing to be sure about.
+]]
+function surfaceEnv.forSpec(core: any, declared: any?): any?
+	if declared ~= nil then
+		return declared
+	end
+	local env = surfaceEnv.find(core)
+	return env
+end
+
 function surfaceEnv.find(core: any): (any?, string?)
 	-- what this core can SEE, not only what it owns: a delegating core (a host's
 	-- per-demo proxy) answers with its owner's environment. See `visible` above.

@@ -290,7 +290,7 @@ function world.new(opts: Opts?): World
 	-- Runs `body` under a throwaway owner, for constructing outside a mount (spec
 	-- validation cases). The owner, and everything built under it, is released.
 	function w.scoped(body: () -> ...any): ...any
-		local owner = Facet.Compose.createOwner(core.scene.reactor)
+		local owner = Facet.Compose.createOwner(core.reactor)
 		local results = table.pack(pcall(Facet.Compose.withOwner, owner, body))
 		owner.dispose()
 		if not results[1] then

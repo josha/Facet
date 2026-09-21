@@ -1,5 +1,5 @@
 --!strict
-local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 --[[ row_actions_root — the standalone/Table row node, composed.
 
 	WHAT THIS IS. The node tree `UI.RowActions` mounts when it is NOT in hosted
@@ -304,17 +304,13 @@ function row_actions_root.build(p: Params): any
 		and `anchor` is an arrange-only prop (blueprint_schema BOX.anchor,
 		`dirty = { "arrange" }`), the same class `offsetX` itself is in, so the
 		flip costs one node's re-arrange and no re-measure. ]]
-	local contentAnchor = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return if use(offset) > 0 then "topRight" else "topLeft"
-		end)
+	local contentAnchor = ownedFormula(owner, function(use)
+		return if use(offset) > 0 then "topRight" else "topLeft"
 	end)
 	local contentPadding: any = nil
 	if hasEditAffordance then
-		contentPadding = Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				return { left = use(editGutterPx) }
-			end)
+		contentPadding = ownedFormula(owner, function(use)
+			return { left = use(editGutterPx) }
 		end)
 	end
 	-- REDTEAM FIX (item 15, LOW). This block used to ALWAYS mount the
@@ -429,10 +425,8 @@ function row_actions_root.build(p: Params): any
 				that is not collapsing declares nothing, and a real overflow
 				on a resting row still reports.
 			]]
-			overflow = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					return if use(rowHeightOverride) ~= nil then "intentionalOverlap" else nil
-				end)
+			overflow = ownedFormula(owner, function(use)
+				return if use(rowHeightOverride) ~= nil then "intentionalOverlap" else nil
 			end),
 			children = contentChildren,
 		})
@@ -464,14 +458,12 @@ function row_actions_root.build(p: Params): any
 	-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
 	-- when absent") for every row that never commits, byte-identical to
 	-- Tasks 3-4 (no `height` prop existed on the root before this task).
-	local heightPx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local px = use(rowHeightOverride)
-			if px == nil then
-				return nil
-			end
-			return { type = "fixed", px = px }
-		end)
+	local heightPx = ownedFormula(owner, function(use)
+		local px = use(rowHeightOverride)
+		if px == nil then
+			return nil
+		end
+		return { type = "fixed", px = px }
 	end)
 	return UI.Anchor({ id = id, width = width, height = heightPx, children = children })
 end

@@ -25,8 +25,6 @@ local feedbackLib = require("./feedback")
 local motionClockLib = require("../motion/clock")
 -- the motion-class registry, read by `withAnimation` so an unknown name and an
 -- inline params table are refused by the one dial the whole framework uses
-local motionClasses = require("../motion/classes")
-local motionCurves = require("../motion/curves")
 local profile = require("../core/profile")
 -- the metric authority. The modal-dismissal spec pins the
 -- forgiveness ring to space.l and the target ring to the effective hit floor;
@@ -42,6 +40,11 @@ local specGuard = require("../spec_guard")
 local anchorPlacement = require("../layout/anchor_placement")
 local anchoredLib = require("./anchored")
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
+local activateDispatch = require("./activate_dispatch")
+-- what one press MEANS: the override/node/Toggle/contribution ladder, the
+-- activation gate and the one-press echo collapse
+local dispatchActivate = activateDispatch.dispatch
 local observeChange = require("../core/on_change")
 local cleanup = require("../core/cleanup")
 
@@ -281,9 +284,7 @@ local surfaceLifecycleLib = require("./surface_lifecycle")
 -- closure changed. A rename sweep through that closure is exactly the kind of churn
 -- this codebase's defect history says not to take on for a file move.
 local FOCUS_ORDER_SCHEMA = focusMap.FOCUS_ORDER_SCHEMA
-local FOCUSABLE = focusMap.FOCUSABLE
 local isDisabled = focusMap.isDisabled
-local isRetiring = focusMap.isRetiring
 local isPathPrefix = focusMap.isPathPrefix
 local entryPath = focusMap.entryPath
 local isHiddenPath = focusMap.isHiddenPath
@@ -296,229 +297,19 @@ local filterGroupsDisabled = focusMap.filterGroupsDisabled
 local focusOrder = focusMap.focusOrder
 local resolveInitialFocus = focusMap.resolveInitialFocus
 local nodePriority = focusMap.nodePriority
-local documentIndex = focusMap.documentIndex
 local orderPaths = focusMap.orderPaths
 local traversalRank = focusMap.traversalRank
 local collectContributions = focusMap.collectContributions
 local nodeAt = focusMap.nodeAt
 local pathIsRetiring = focusMap.pathIsRetiring
 local contributionsForPath = focusMap.contributionsForPath
-local collectFocusables = focusMap.collectFocusables
-local focusableCount = focusMap.focusableCount
-local subtreeHasFocusGroups = focusMap.subtreeHasFocusGroups
 local autoGroups = focusMap.autoGroups
 local hasHorizontalStructure = focusMap.hasHorizontalStructure
 local layoutGroups = focusMap.layoutGroups
-local pointInRect = modalZones.pointInRect
 local inflate = modalZones.inflate
-local inflateToFloor = modalZones.inflateToFloor
 -- `zoneAContains` / `modalInZoneA` left with the catchers (src/present/catchers.luau):
 -- the two Zone-A tests had no other reader here.
 type Contribution = focusMap.Contribution
-
--- Activate dispatch when the consumer passed NO opts.onActivate: (1) a
--- props.onActivate on the node; (2) a Toggle whose value is a settable signal
--- flips; (3) the longest-prefix contribution whose handleActivate consumes it;
--- (4) no-op. When opts.onActivate IS present it wins outright (override).
-local function activateEffect(handle: any, node: any, path: string?, meta: any?)
-	if handle.onActivate ~= nil then
-		handle.onActivate(path, meta) -- consumer override
-		return
-	end
-	if path == nil then
-		return
-	end
-	-- (1) a leaf that declares its own effect
-	if node ~= nil and node.props ~= nil and type(node.props.onActivate) == "function" then
-		node.props.onActivate(path, meta)
-		return
-	end
-	-- (2) Toggle auto-flip (contract.luau §Toggle: "Activate flips value")
-	if node ~= nil and node.class == "Toggle" and node.dynamicProps ~= nil then
-		local value = node.dynamicProps.value
-		if Compose.isReadable(value) and type((value :: any).set) == "function" then
-			value:set(not value:peek())
-			return
-		end
-	end
-	-- (3) longest-prefix contribution dispatch
-	for _, c in contributionsForPath(handle.contributions, path) do
-		if c.bundle.handleActivate ~= nil and c.bundle.handleActivate(path, meta) then
-			return
-		end
-	end
-	--[[ (4) THE PUBLIC DRAG VERB'S PICKUP (the adaptation wave's generic-verb
-		row). An action-source Activate
-		that nobody above wanted, on a mounted `UI.draggable`, ARMS it — and the
-		next one commits it at the aim the focus ring has been feeding. The rule is
-		`UI.VirtualList`'s own ("a source with no consumer Activate arms on
-		Activate"), hoisted to the public verb, and it is asked LAST so that
-		"nobody wanted it" is structural rather than predicted: a node's own
-		`onActivate`, a Toggle's flip and every control contribution have already
-		declined. Before this, the whole arm->navigate->commit path existed, was
-		tested, and was bound to nothing on a pad or a keyboard. ]]
-	if handle.controller ~= nil and handle.controller.activateArms ~= nil then
-		if handle.controller.activateArms(path, meta) then
-			return
-		end
-	end
-	-- (5) no-op
-end
-
--- Activate dispatch + the semantic `activate` event, which fires on the CAUSAL
--- FRAME (this one) and exactly once per press, AFTER the effect — so a subscriber
--- that reads the resulting state sees the state the press produced.
---
--- DISABLED FIRST (B-BTN4; verifier finding V12). This gate used to sit AFTER the
--- consumer override, so a screen presented with `opts.onActivate` — the gallery
--- client's own integration and the common game pattern — still activated a
--- disabled control. `enabled = false` has to mean disabled on every path,
--- including the one that overrides everything else, and a disabled control emits
--- no event either: nothing happened.
---
--- `source` names which of the two paths saw the press: "action" (the IAS
--- Activate action — Return, Space, ButtonA) or "tap" (a native tap/Activated
--- routed through the renderer). One press can be seen by BOTH exactly when this
--- surface mirrors Facet focus onto `GuiService.SelectedObject`: the engine then
--- fires the selected `GuiButton`'s own `Activated` for the same key press that
--- IAS delivered as Activate. That must still be ONE activation (roadmap Step 8,
--- the one-Activate-per-press rule), so a cross-source pair inside
--- ACTIVATE_ECHO_WINDOW collapses.
---
--- IDENTIFIED BY INPUT CLASS, NOT BY TIME ALONE. A time-only window would eat a
--- real mouse click that happened to land beside a key press — which is a thing
--- players do, and it broke the "one event per press" feedback pin the moment it
--- was tried. The engine's selection activation is distinguishable: its
--- `InputObject.UserInputType` is Keyboard or a Gamepad, never Mouse or Touch. So
--- only an {IAS Activate, non-pointer native Activated} pair collapses. Two
--- pointer taps, two key presses, or a tap next to a key press are all two
--- presses. The renderer's own detector echo guard draws the same line for the
--- same reason: deduplicate only what genuinely has two signals per press.
-local ACTIVATE_ECHO_WINDOW = 0.05 -- s; far below any human double-press
-local function isEngineSelectionTap(source: string?, meta: any?): boolean
-	if source ~= "tap" or type(meta) ~= "table" then
-		return false
-	end
-	return meta.pointer == "keyboard" or meta.pointer == "gamepad"
-end
---[[ THE FIRST ACTIVATION WAKES THE SURFACE (`UI.activationGate`). A surface that
-	is not the active one — a monitor in a room of monitors, an inactive panel in
-	a split — must take a press to BECOME active without also pressing whatever
-	sat under the finger. Before this, an app covered the whole subtree with a
-	full-size transparent Button, which works for a tap and for the focus ring but
-	is a second focus stop, a second hit target and a second thing to keep sized.
-
-	It lives here because this is the ONE funnel every source arrives through:
-	`"tap"` is pointer and touch, `"action"` is the IAS Activate the keyboard and
-	the gamepad raise. A gate declared once is therefore honoured by all four with
-	no per-source code.
-
-	The DEEPEST closed gate on the path wins, so a gated panel inside a gated
-	screen wakes one level per press, innermost first — the same longest-prefix
-	rule contribution dispatch already uses. ]]
--- a press is not a reactive read: a binding is sampled through a `use` that
--- peeks, so the gate answers for THIS press and subscribes to nothing
-local function peekUse(source: any): any
-	if type(source) == "table" and type(source.peek) == "function" then
-		return source:peek()
-	end
-	if type(source) == "function" then
-		return source(peekUse)
-	end
-	return source
-end
-
-local function readGateClosed(gate: any): boolean
-	return peekUse(gate.closed) == true
-end
-
-local function closedGateOn(handle: any, path: string): any?
-	local node = if handle.root ~= nil then handle.root.node else nil
-	local found = nil
-	while node ~= nil do
-		local gate = if node.meta ~= nil then node.meta.activationGate else nil
-		if gate ~= nil and readGateClosed(gate) then
-			found = gate
-		end
-		if node.path == path then
-			break
-		end
-		local descend = nil
-		for _, child in node.children or {} do
-			if child.path ~= nil and (child.path == path or isPathPrefix(child.path, path)) then
-				descend = child
-				break
-			end
-		end
-		node = descend
-	end
-	return found
-end
-
-local function dispatchActivate(handle: any, path: string?, meta: any?, source: string?)
-	local node = if path ~= nil then nodeAt(handle.root.node, path) else nil
-	if isDisabled(node) then
-		return true -- consumes the verb and does nothing
-	end
-	if path ~= nil then
-		local gate = closedGateOn(handle, path)
-		if gate ~= nil then
-			if type(gate.onOpen) == "function" then
-				gate.onOpen(path, meta)
-			end
-			return true -- the press spent itself waking the surface
-		end
-	end
-	if path ~= nil and source ~= nil and handle.activateEcho ~= nil then
-		local at = handle.now()
-		local selectionTap = isEngineSelectionTap(source, meta)
-		local previous = handle.activateEcho[path]
-		local echoes = previous ~= nil
-			and previous.source ~= source
-			and (selectionTap or previous.selectionTap == true)
-			and (at - previous.at) < ACTIVATE_ECHO_WINDOW
-		if echoes then
-			-- A PRESS IS A PAIR, AND THE PAIR IS NOW SPENT (architecture review
-			-- finding on the echo window). Recording the collapsing signal instead would roll the
-			-- window forward on every echo, so a genuinely fast third press —
-			-- key, echo, key — would land inside a window opened by the echo and
-			-- be eaten as well. Clearing means the next signal starts a new press.
-			handle.activateEcho[path] = nil
-			return true -- the same press echoing through the other path
-		end
-		handle.activateEcho[path] = { at = at, source = source, selectionTap = selectionTap }
-	end
-	activateEffect(handle, node, path, meta)
-	if path ~= nil and handle.emitFeedback ~= nil then
-		-- THE PER-CONTROL VERB (director request 2026-08-13). `activate` is the
-		-- default, not the only answer: a control (or any ancestor of it) may have
-		-- declared what its own press means through
-		-- `UI.sensoryFeedback(node, { activation = … })`, which the scene host
-		-- resolves down the tree onto this node. `"none"` is a control the author
-		-- deliberately silenced, and it emits nothing at all rather than a verb a
-		-- subscriber then has to know to ignore.
-		--
-		-- `reason` is stamped on EVERY control activation, including the default
-		-- one, because a subscriber otherwise cannot tell "a player pressed a
-		-- control" from "the game emitted `commit` for its own reason" — and the
-		-- client haptics adapter has to: on a platform where the engine itself
-		-- plays a button's press through the button's own press-effect property,
-		-- a second play from the bus would be two pulses for one press. (The
-		-- engine symbol is deliberately not named here — the boundary rule in
-		-- tests/haptics.spec.luau keeps every haptics name out of src/present.)
-		local verb = if node ~= nil then node.activationFeedback else nil
-		if verb ~= feedbackLib.ACTIVATION_SILENT then
-			handle.emitFeedback({
-				type = verb or "activate",
-				path = path,
-				surface = handle,
-				reason = "activation",
-				context = meta,
-			})
-		end
-	end
-	return nil
-end
 
 -- THE FIVE-LAYER SURFACE ORDER (ui-designer spec §6.3), encoded here because this
 -- is where surface z is decided. BANDS, not one running counter: a toast has to
@@ -606,7 +397,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- toast, session — arrives on one bus with one taxonomy.
 	self.emitFeedback = emitFeedback
 	self.onFeedback = bus.subscribe
-	self.feedbackTypes = feedbackLib.TYPES
 	-- the documented five-band paint order, reachable from the INSTANCE the
 	-- public API hands out (P5-F3: the module-table copy was unreachable through
 	-- `Facet.newPresenter`)
@@ -1786,13 +1576,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			the adapter's ring uses: the ring is a NAVIGATION answer (hidden after a
 			pointer move) AND a claim about owning input (a passive surface owns
 			none until it engages). ]]
-		local focusPaintAllowed = Compose.withOwner(scope, function()
-			return Compose.formula(function(use)
-				if use(graph.focusVisible) == false then
-					return false
-				end
-				return not isPassive or use(responderState) == "engaged"
-			end)
+		local focusPaintAllowed = ownedFormula(scope, function(use)
+			if use(graph.focusVisible) == false then
+				return false
+			end
+			return not isPassive or use(responderState) == "engaged"
 		end)
 		-- One coordinator per surface; springs exist only for declared transitions.
 		-- surfaceRef is filled once the handle exists, before mount feedback fires.
@@ -2880,7 +2668,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			},
 			-- ONE ACTIVATE PER PRESS, ACROSS THE TWO PATHS (roadmap Step 8). The shared echo
 			-- table + injected clock live on the presenter; the handle carries them
-			-- so the module-level dispatchActivate can reach them.
+			-- so activate_dispatch.dispatch, which closes over nothing, can reach them.
 			activateEcho = activateEcho,
 			now = nowFn,
 			contributions = contributions,

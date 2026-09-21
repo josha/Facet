@@ -4,6 +4,8 @@
 
 local controlContract = require("../class_contract")
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 local selectionModel = require("../selection_model")
 local contribution = require("../input/contribution")
 local menuRecipe = require("./menu_recipe")
@@ -527,26 +529,20 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			return if currentItem then use(currentItem) else byKey(keyOf(option), use)
 		end
 		local function property(name)
-			return Compose.withOwner(rowScope, function()
-				return Compose.formula(function(use)
-					local current = currentOption(use)
-					local value = if current then selectionModel.read(current[name], use) else nil
-					return if name == "description" then (value or "") else value
-				end)
+			return ownedFormula(rowScope, function(use)
+				local current = currentOption(use)
+				local value = if current then selectionModel.read(current[name], use) else nil
+				return if name == "description" then (value or "") else value
 			end)
 		end
-		local selected = Compose.withOwner(rowScope, function()
-			return Compose.formula(function(use)
-				local current = selectionModel.read(selection, use)
-				local item = currentOption(use)
-				return item ~= nil
-					and (if multiple then current[item.id] == true else current == selectionModel.identity(item))
-			end)
+		local selected = ownedFormula(rowScope, function(use)
+			local current = selectionModel.read(selection, use)
+			local item = currentOption(use)
+			return item ~= nil
+				and (if multiple then current[item.id] == true else current == selectionModel.identity(item))
 		end)
-		local hidden = Compose.withOwner(rowScope, function()
-			return Compose.formula(function(use)
-				return not use(selected)
-			end)
+		local hidden = ownedFormula(rowScope, function(use)
+			return not use(selected)
 		end)
 		return menuRecipe.rowProps(UI, {
 			id = `Opt-{keyOf(option)}`,
@@ -562,10 +558,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			scope = rowScope,
 			selected = selected,
 			labelTint = if pickerMode
-				then Compose.withOwner(rowScope, function()
-					return Compose.formula(function(use)
-						return if use(selected) then ON_SELECTED_TINT else nil
-					end)
+				then ownedFormula(rowScope, function(use)
+					return if use(selected) then ON_SELECTED_TINT else nil
 				end)
 				else nil,
 			textSize = spec.textSize,
@@ -582,10 +576,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			-- READABLE, so the edge follows the live class rather than the class at
 			-- build time (capture review 2026-09-12: rows are built once, at mount)
 			indicatorEdge = if pickerMode
-				then Compose.withOwner(rowScope, function()
-					return Compose.formula(function(use)
-						return if use(touchPrimary) == true then "trailing" else "leading"
-					end)
+				then ownedFormula(rowScope, function(use)
+					return if use(touchPrimary) == true then "trailing" else "leading"
 				end)
 				else "leading",
 			markHidden = hidden,
@@ -892,28 +884,22 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	end
 
 	local function searchContent(contentScope)
-		local metrics = Compose.withOwner(contentScope, function()
-			return Compose.formula(function(use)
-				local env = envForFacts
-					or spec.env
-					or (surfaceEnv.resolve("UI.PopupButton", id, core, nil, "search results follow theme metrics"))
-				local raw = use(env:get("themeMetrics"))
-				return if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
-			end)
+		local metrics = ownedFormula(contentScope, function(use)
+			local env = envForFacts
+				or spec.env
+				or (surfaceEnv.resolve("UI.PopupButton", id, core, nil, "search results follow theme metrics"))
+			local raw = use(env:get("themeMetrics"))
+			return if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
 		end)
-		local rowHeight = Compose.withOwner(contentScope, function()
-			return Compose.formula(function(use)
-				return use(metrics).targetSizes.minimum * 2
-			end)
+		local rowHeight = ownedFormula(contentScope, function(use)
+			return use(metrics).targetSizes.minimum * 2
 		end)
-		local viewport = Compose.withOwner(contentScope, function()
-			return Compose.formula(function(use)
-				local env = envForFacts
-					or spec.env
-					or surfaceEnv.resolve("UI.PopupButton", id, core, nil, "search viewport")
-				local budget = if pickerMode then listMaxPx("sheet", use) else use(env:get("viewportRect")).h * 0.4
-				return math.min(use(metrics).targetSizes.minimum * 5, budget)
-			end)
+		local viewport = ownedFormula(contentScope, function(use)
+			local env = envForFacts
+				or spec.env
+				or surfaceEnv.resolve("UI.PopupButton", id, core, nil, "search viewport")
+			local budget = if pickerMode then listMaxPx("sheet", use) else use(env:get("viewportRect")).h * 0.4
+			return math.min(use(metrics).targetSizes.minimum * 5, budget)
 		end)
 		local function rowContent(option, rowScope, currentItem)
 			local props = optionProps(option, rowScope, currentItem)
@@ -990,13 +976,11 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	end
 	local FLOATING_CORNERS = UI.cornersData("selection")
 	local function rowCorners(position: string, owner: any): any
-		return Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				if shadeInsetNow(use) > 0 then
-					return FLOATING_CORNERS
-				end
-				return rowCornersFor(position, cardCornerRadius(use))
-			end)
+		return ownedFormula(owner, function(use)
+			if shadeInsetNow(use) > 0 then
+				return FLOATING_CORNERS
+			end
+			return rowCornersFor(position, cardCornerRadius(use))
 		end)
 	end
 	local rowMargin = Compose.formula(function(use)
@@ -1091,10 +1075,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 										margin = rowMargin,
 										tint = { role = "controlSelected", blend = 1 },
 										hidden = if type(chosen) == "table"
-											then Compose.withOwner(popupScope, function()
-												return Compose.formula(function(use)
-													return use(chosen) ~= true
-												end)
+											then ownedFormula(popupScope, function(use)
+												return use(chosen) ~= true
 											end)
 											else true,
 									})
@@ -1900,16 +1882,9 @@ end
 -- `affordanceOnly` is an INTERNAL fourth argument, not a spec key: see
 -- `valueViews` above. `compose_controls` builds every composite with three.
 function popup_button.build(Facet, core, spec, affordanceOnly: boolean?)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return buildOwned(Facet, core, spec, owner, affordanceOnly)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 return popup_button

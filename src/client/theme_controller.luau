@@ -267,7 +267,7 @@ theme_controller.SELECT_BY_SETTLE_SECONDS = 0.25
 -- from the read: the classification is the environment's, this only names the
 -- winner. `warnFn` is kept in the signature for its callers and is no longer
 -- used — see the note in the body for why the tiebreaker it warned about moved.
-function theme_controller.profileOf(env: any, _warnFn: ((string) -> ())?): string?
+function theme_controller.profileOf(env: any): string?
 	local ok, classes = pcall(function()
 		return env:get("interactionClasses"):peek()
 	end)
@@ -358,7 +358,6 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	-- thing that fails after the install has already mutated
 	local selectByClasses: any = nil
 	-- the capability tiebreaker says its piece ONCE per controller (platform-F3)
-	local tiebreakWarned = false
 	-- the POSITIONAL argument, captured before the resolve below can replace it.
 	-- `package` becomes the profile's package, and an unmapped profile arriving
 	-- LATER has to fall back to what the caller actually passed — not to whichever
@@ -406,12 +405,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 				.. "environment does not publish a readable one — nothing was installed"
 		)
 		selectByClasses = classes
-		selectByProfile = theme_controller.profileOf(env, function(message: string)
-			if not tiebreakWarned then
-				tiebreakWarned = true
-				warnFn(message)
-			end
-		end)
+		selectByProfile = theme_controller.profileOf(env)
 		local chosen = if selectByProfile ~= nil then selectBy[selectByProfile] else nil
 		if chosen ~= nil then
 			package = chosen
@@ -1462,12 +1456,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 				-- moved, and reading it at settle time also means the value is the
 				-- one that survived the debounce rather than the one that started
 				-- it.
-				local settled = theme_controller.profileOf(env, function(message: string)
-					if not tiebreakWarned then
-						tiebreakWarned = true
-						warnFn(message)
-					end
-				end)
+				local settled = theme_controller.profileOf(env)
 				if settled == applied then
 					-- NOT a profile change. Critically this also leaves a manual
 					-- override alone: revoking the operator's package because an

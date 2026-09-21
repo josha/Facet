@@ -2,6 +2,8 @@
 -- Brief modal decisions. Reuses Facet's layout, controls, themes and presenter;
 -- the optional binding/data forms change ownership, not the input/layout engine.
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 local contribution = require("../input/contribution")
 local selection = require("../selection_model")
 local guard = require("../spec_guard")
@@ -55,14 +57,12 @@ local function acknowledgePlate(declared: any): any
 		return DEFAULT_TRANSITION
 	end
 	if isReadableTransition(declared) then
-		return Compose.withOwner(Compose.currentOwner(), function()
-			return Compose.formula(function(use)
-				local value = use(declared)
-				if value == nil or value == false then
-					return DEFAULT_TRANSITION
-				end
-				return mergePlate(value)
-			end)
+		return ownedFormula(Compose.currentOwner(), function(use)
+			local value = use(declared)
+			if value == nil or value == false then
+				return DEFAULT_TRANSITION
+			end
+			return mergePlate(value)
 		end)
 	end
 	return mergePlate(declared)
@@ -535,10 +535,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					textAlign = if marked then "start" else "center",
 					width = UI.hug(),
 					hidden = if UI.isReadable(def.title)
-						then Compose.withOwner(branchOwner, function()
-							return Compose.formula(function(use)
-								return blank(use(def.title))
-							end)
+						then ownedFormula(branchOwner, function(use)
+							return blank(use(def.title))
 						end)
 						else nil,
 					tint = if def.severity == "critical" then { role = "danger", blend = 1 } else nil,
@@ -639,28 +637,24 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		-- One keyed region, two orders: a mode flip MOVES the mounted actions
 		-- (identity, focus and shortcuts survive) rather than remounting them.
-		local stacked = Compose.withOwner(branchOwner, function()
-			return Compose.formula(function(use)
-				if alert.resolveStacked(#def.actions, use(sizeClass), use(distanceProfile), use(textOffset)) then
-					return true
-				end
-				local metrics = use(themeMetrics)
-				local facts = textFit.facts({ env = env, use = use })
-				local widths = {}
-				for _, action in def.actions do
-					local label = read(action.label, use)
-					table.insert(widths, labelWidth(metrics, facts, if type(label) == "string" then label else ""))
-				end
-				local gap = themeSnapshot.resolveNumber(metrics, "m") or 0
-				return not alert.rowFits(widths, buttonChromeX(metrics), gap, actionsWidth(use))
-			end)
+		local stacked = ownedFormula(branchOwner, function(use)
+			if alert.resolveStacked(#def.actions, use(sizeClass), use(distanceProfile), use(textOffset)) then
+				return true
+			end
+			local metrics = use(themeMetrics)
+			local facts = textFit.facts({ env = env, use = use })
+			local widths = {}
+			for _, action in def.actions do
+				local label = read(action.label, use)
+				table.insert(widths, labelWidth(metrics, facts, if type(label) == "string" then label else ""))
+			end
+			local gap = themeSnapshot.resolveNumber(metrics, "m") or 0
+			return not alert.rowFits(widths, buttonChromeX(metrics), gap, actionsWidth(use))
 		end)
 		local rowOrder, stackOrder = alert.orderActions(def.actions, false), alert.orderActions(def.actions, true)
 		local function mode(row, stack)
-			return Compose.withOwner(branchOwner, function()
-				return Compose.formula(function(use)
-					return if use(stacked) then stack else row
-				end)
+			return ownedFormula(branchOwner, function(use)
+				return if use(stacked) then stack else row
 			end)
 		end
 		table.insert(
@@ -694,10 +688,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				alignV = "center",
 				-- the carved frame IS this card's inner margin, so the authored step
 				-- is spent only where the art does not already cover it (`cardSpend`)
-				padding = Compose.withOwner(branchOwner, function()
-					return Compose.formula(function(use)
-						return cardSpend(use(themeMetrics))
-					end)
+				padding = ownedFormula(branchOwner, function(use)
+					return cardSpend(use(themeMetrics))
 				end),
 				gap = "s",
 				surface = spec.surface or "raised",
@@ -731,10 +723,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 						height = UI.hug(),
 						alignH = "center",
 						alignV = "center",
-						padding = Compose.withOwner(Compose.currentOwner(), function()
-							return Compose.formula(function(use)
-								return outerMargin(use(themeMetrics))
-							end)
+						padding = ownedFormula(Compose.currentOwner(), function(use)
+							return outerMargin(use(themeMetrics))
 						end),
 						children = { content },
 					}),
@@ -879,11 +869,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		dismiss()
 	end)
 	if bound then
-		local desired = Compose.withOwner(Compose.currentOwner(), function()
-			return Compose.formula(function(use)
-				return (spec.isPresented == nil or use(spec.isPresented))
-					and (source == nil or read(source, use) ~= nil)
-			end)
+		local desired = ownedFormula(Compose.currentOwner(), function(use)
+			return (spec.isPresented == nil or use(spec.isPresented)) and (source == nil or read(source, use) ~= nil)
 		end)
 		local function sync(want)
 			if disposed or closing then
@@ -919,15 +906,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	})
 end
 function alert.build(Facet: any, core: any, spec: Spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return alert

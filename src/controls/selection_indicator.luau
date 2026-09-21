@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 -- Shared decoration for Picker and TabView. It follows measured option bounds
 -- and paints an underline or pill without adding an input target. Native
 -- selection changes use Compose springs; geometry changes place it immediately.
@@ -987,15 +988,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 end
 
 function selection_indicator.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return selection_indicator

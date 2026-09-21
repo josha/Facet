@@ -1,7 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 local selectionModel = require("../selection_model")
-local publicEnv = require("../env/environment")
 
 -- Finite content pages share selection with native scrolling and page indicators.
 local guard = require("../spec_guard")
@@ -386,15 +386,8 @@ local function build(Facet, core, spec: Spec, owner)
 	})
 end
 function pageView.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return pageView

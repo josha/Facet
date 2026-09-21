@@ -50,6 +50,7 @@ local renderer = require("../render/renderer")
 local modalZones = require("./modal_zones")
 local focusMap = require("./focus_map")
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 
 local modalInZoneA = modalZones.modalInZoneA
 local zoneAContains = modalZones.zoneAContains
@@ -418,10 +419,8 @@ function catchers.new(ctx: any)
 			`outsideDismiss` owners. ]]
 		local sc = core.owner.createChild()
 		local regions = if hole
-			then Compose.withOwner(sc, function()
-				return Compose.formula(function(use)
-					return aperture.rects(use(env:get("viewportRect")), use(hole))
-				end)
+			then ownedFormula(sc, function(use)
+				return aperture.rects(use(env:get("viewportRect")), use(hole))
 			end)
 			else nil
 		local root = mountComponent(function(UI)

@@ -24,8 +24,9 @@
 	(`render/premeasure_round.luau`), the scroll-into-view family
 	(`render/scroll_into_view.luau`), the recycle-key family
 	(`render/recycle_key.luau`), the four geometry reads
-	(`render/rect_reads.luau`) and the solve trampoline
-	(`render/solve_queue.luau`).
+	(`render/rect_reads.luau`), the solve trampoline
+	(`render/solve_queue.luau`) and the environment-fact wiring
+	(`render/env_wiring.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -136,6 +137,13 @@ local PARTS = {
 		no `adapter.setProp(` and no `setRect(` — it has no requires at all — so no
 		existing count moves; it is here for the reason every part above it is. ]]
 	"src/render/solve_queue.luau",
+	--[[ ...and the ENVIRONMENT-FACT WIRING (2026-09-20): the hover and
+		disclosure-engagement carries, the reduced-motion push and the preferred
+		-transparency push, plus the `HOVERABLE` set they share with node creation.
+		It carries no `adapter.setProp(` and no `setRect(` — it reaches the engine
+		only through feature-detected adapter verbs — so no existing pin's count
+		moves; it is here for the reason every part above it is. ]]
+	"src/render/env_wiring.luau",
 }
 
 local renderer_source = {}

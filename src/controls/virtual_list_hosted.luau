@@ -49,6 +49,7 @@ local row_actions_state = require("../input/row_actions_state")
 local rowCapability = require("../row_capability")
 local specGuard = require("../spec_guard")
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 local observeChange = require("../core/on_change")
 
 local virtual_list_hosted = {}
@@ -1062,14 +1063,12 @@ function virtual_list_hosted.new(deps: Deps)
 		drag pixel, which rides `engagedOffset` and the presentation channel. ]]
 	local hostedOverlayItems: any = nil
 	if hostedEnabled then
-		hostedOverlayItems = Compose.withOwner(listScope, function()
-			return Compose.formula(function(use)
-				local key = use(engagedKey)
-				if key == nil then
-					return HOSTED_NO_OVERLAY
-				end
-				return { { key = key } }
-			end)
+		hostedOverlayItems = ownedFormula(listScope, function(use)
+			local key = use(engagedKey)
+			if key == nil then
+				return HOSTED_NO_OVERLAY
+			end
+			return { { key = key } }
 		end)
 	end
 

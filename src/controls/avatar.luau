@@ -287,7 +287,7 @@ end
 -- current is internal to AvatarGroup: retained rows read their current item.
 function avatar.build(library: any, core: any, spec: Spec, current: any?)
 	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
+	local owner = if parent then parent.createChild() else core.owner.createChild()
 	local ok, result = pcall(Compose.withOwner, owner, function()
 		return build(library, core, spec, owner, current)
 	end)

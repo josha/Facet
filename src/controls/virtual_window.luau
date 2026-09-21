@@ -36,6 +36,7 @@
 	changed. ]]
 
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 local virtual_extents = require("../virtual_extents")
 -- `rect.sameFlatValue`: the framework's one field-for-field equality for a FLAT
 -- record. Used here as the canvas Dim's memo eq (see `canvasDim`); the renderer
@@ -70,9 +71,7 @@ function virtual_window.adopt(core: any, spec: any, fields: { string }, getters:
 				owner happens to be building would let a row's teardown dispose a
 				readable the list still reads. The control releases them on its own
 				scope (`virtual_list`/`virtual_grid`, beside `listScope`). ]]
-			local memo = Compose.withOwner(core.owner, function()
-				return Compose.formula(wrap)
-			end)
+			local memo = ownedFormula(core.owner, wrap)
 			adopted[field] = memo
 			table.insert(owned, memo)
 		end
@@ -267,20 +266,18 @@ function virtual_window.new(deps: Deps)
 	end
 	local cachedInputs: any = nil
 	local cachedIndex: any = nil
-	local layoutIndex = Compose.withOwner(listScope, function()
-		return Compose.formula(function(use)
-			local inputs: any = if itemExtentIsVariable
-				then { extents = extentsFor(use), gap = rowGapIn(use) }
-				else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
-			if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
-				return cachedIndex
-			end
-			cachedInputs = inputs
-			cachedIndex = if itemExtentIsVariable
-				then virtual_extents.variable(inputs.extents, inputs.gap)
-				else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
+	local layoutIndex = ownedFormula(listScope, function(use)
+		local inputs: any = if itemExtentIsVariable
+			then { extents = extentsFor(use), gap = rowGapIn(use) }
+			else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
+		if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
 			return cachedIndex
-		end)
+		end
+		cachedInputs = inputs
+		cachedIndex = if itemExtentIsVariable
+			then virtual_extents.variable(inputs.extents, inputs.gap)
+			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
+		return cachedIndex
 	end)
 	local function layoutNow(): any
 		return layoutIndex:peek() :: any
@@ -342,15 +339,13 @@ function virtual_window.new(deps: Deps)
 	local SLOT_CONTENT_FROM = 2
 	local slotDeclaration = if itemExtentIsVariable
 		then nil
-		else Compose.withOwner(listScope, function()
-			return Compose.formula(function(use)
-				return {
-					list = id,
-					axis = axis,
-					extent = itemExtentIn(use),
-					contentFrom = SLOT_CONTENT_FROM,
-				}
-			end)
+		else ownedFormula(listScope, function(use)
+			return {
+				list = id,
+				axis = axis,
+				extent = itemExtentIn(use),
+				contentFrom = SLOT_CONTENT_FROM,
+			}
 		end)
 	--[[ scrollTop: the engine CanvasPosition MIRROR (the native substrate). Fed
 		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
@@ -362,14 +357,12 @@ function virtual_window.new(deps: Deps)
 		not need. Read it as "the offset from the start of the canvas". ]]
 	local scrollTop = Compose.cell(deps.initialTop or 0)
 	-- key -> 1-based index in the CURRENT data
-	local indexByKey = Compose.withOwner(listScope, function()
-		return Compose.formula(function(use)
-			local map: { [string]: number } = {}
-			for i, item in use(spec.rows) :: { any } do
-				map[spec.key(item)] = i
-			end
-			return map
-		end)
+	local indexByKey = ownedFormula(listScope, function(use)
+		local map: { [string]: number } = {}
+		for i, item in use(spec.rows) :: { any } do
+			map[spec.key(item)] = i
+		end
+		return map
 	end)
 
 	--[[ ONE ROW'S DECLARED EXTENT, BY KEY — what the row's box is sized to and
@@ -423,23 +416,19 @@ function virtual_window.new(deps: Deps)
 		already the same function — and it REFUSES a nested field rather than
 		half-comparing it, which is exactly right for a Dim: `fixed` carries a
 		number, and any richer Dim shape reports "changed" and propagates. ]]
-	local canvasDim = Compose.withOwner(listScope, function()
-		return Compose.formula(function(use)
-			return { type = "fixed", px = use(layoutIndex).content }
-		end, rect.sameFlatValue)
-	end)
+	local canvasDim = ownedFormula(listScope, function(use)
+		return { type = "fixed", px = use(layoutIndex).content }
+	end, rect.sameFlatValue)
 
 	-- scroll clamped into the content band, so garbage/overshoot mirror values
 	-- cannot mount phantom windows
-	local clampedTop = Compose.withOwner(listScope, function()
-		return Compose.formula(function(use)
-			local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
-			local raw = use(scrollTop)
-			if type(raw) ~= "number" or raw ~= raw then
-				return 0
-			end
-			return math.clamp(raw, 0, maxTopPx)
-		end)
+	local clampedTop = ownedFormula(listScope, function(use)
+		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
+		local raw = use(scrollTop)
+		if type(raw) ~= "number" or raw ~= raw then
+			return 0
+		end
+		return math.clamp(raw, 0, maxTopPx)
 	end)
 
 	-- the window: visible rows + overscan, keyed. Equality compares the KEY
@@ -455,20 +444,18 @@ function virtual_window.new(deps: Deps)
 		end
 		return true
 	end
-	local windowItems = Compose.withOwner(listScope, function()
-		return Compose.formula(function(use)
-			local items = use(spec.rows) :: { any }
-			local top = use(clampedTop)
-			-- SLOTS, not rows, and the index owns which arithmetic that is: division
-			-- on a uniform list, a binary search over the prefix sums on a variable one
-			local first, last = use(layoutIndex).window(top, viewportIn(use), overscan)
-			local window = {}
-			for i = first, last do
-				table.insert(window, { key = spec.key(items[i]), item = items[i] })
-			end
-			return window
-		end, sameWindow)
-	end)
+	local windowItems = ownedFormula(listScope, function(use)
+		local items = use(spec.rows) :: { any }
+		local top = use(clampedTop)
+		-- SLOTS, not rows, and the index owns which arithmetic that is: division
+		-- on a uniform list, a binary search over the prefix sums on a variable one
+		local first, last = use(layoutIndex).window(top, viewportIn(use), overscan)
+		local window = {}
+		for i = first, last do
+			table.insert(window, { key = spec.key(items[i]), item = items[i] })
+		end
+		return window
+	end, sameWindow)
 
 	-- ONE definition of a row's path shape under a given root (`{root}` is the
 	-- standalone `/{id}` for the public form and the mounted ScrollView path for

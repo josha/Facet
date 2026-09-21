@@ -276,12 +276,13 @@ local cardRail = require("./card_rail")
 local classContract = require("../class_contract")
 local gapMetric = require("./gap_metric")
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 local contribution = require("../input/contribution")
 local surfaceEnv = require("../env/surface_env")
 local nativeScrollBinding = require("./native_scroll_binding")
 local scrollSnap = require("./scroll_snap")
 local row_actions = require("./row_actions")
-local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
@@ -2501,10 +2502,8 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 	-- one row's "am I the selected one" fact, owned by the row's own scope so it
 	-- dies with the row (no per-key cache to prune)
 	local function selectedMemo(key: string, itemScope: any): any
-		return Compose.withOwner(itemScope, function()
-			return Compose.formula(function(use)
-				return use(selectedKey) == key
-			end)
+		return ownedFormula(itemScope, function(use)
+			return use(selectedKey) == key
 		end)
 	end
 
@@ -2528,8 +2527,9 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 				-- uniform item extent), not the scroll: a same-window scroll
 				-- delta is zero writes. Owned by the item scope, so it dies
 				-- with its row.
-				local slotOffset = Compose.withOwner(itemScope, function()
-					return Compose.formula(if itemExtentIsVariable
+				local slotOffset = ownedFormula(
+					itemScope,
+					if itemExtentIsVariable
 						then function(use)
 							local index = (use(indexByKey) :: { [string]: number })[entry.key]
 							if index == nil then
@@ -2545,8 +2545,8 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 							-- the SLOT's LEADING edge: the gutter belongs to the
 							-- space between slots, never to the row that follows it
 							return (index - 1) * pitchIn(use)
-						end)
-				end)
+						end
+				)
 				--[[ THE ROW BOX. A plain list builds today's memo, unchanged and
 					unconditional; a `rowActions` list builds one that also composes
 					the commit collapse (the engine's own height ladder, arriving
@@ -2556,8 +2556,9 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 					every row on a hosted list reads exactly one extra signal (the
 					commit KEY; the px is only read by the row it names — see
 					`hostedItemExtentIn`). ]]
-				local rowExtentDim = Compose.withOwner(itemScope, function()
-					return Compose.formula(if hostedEnabled
+				local rowExtentDim = ownedFormula(
+					itemScope,
+					if hostedEnabled
 						then function(use)
 							return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
 						end
@@ -2566,8 +2567,8 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 						end
 						else function(use)
 							return { type = "fixed", px = itemExtentIn(use) }
-						end)
-				end)
+						end
+				)
 				--[[ WHAT THIS ROW WAS PROMISED TO BE. On the uniform path it is the
 					list-wide `slotDeclaration` (one table, one prop assignment per
 					row); under variable extents the promise is per row, so the
@@ -2581,15 +2582,13 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 					the author never made. The generic zstack-overflow finding covers that
 					step, says something true, and clears on the next solve. ]]
 				local rowSlot = if itemExtentIsPerItem
-					then Compose.withOwner(itemScope, function()
-						return Compose.formula(function(use)
-							return {
-								list = id,
-								axis = axis,
-								extent = rowExtentIn(use, entry.key),
-								contentFrom = SLOT_CONTENT_FROM,
-							}
-						end)
+					then ownedFormula(itemScope, function(use)
+						return {
+							list = id,
+							axis = axis,
+							extent = rowExtentIn(use, entry.key),
+							contentFrom = SLOT_CONTENT_FROM,
+						}
 					end)
 					else slotDeclaration
 				-- a full-row focusable Button hit sits BEHIND the cell
@@ -2850,8 +2849,9 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 						-- the engaged row's own canvas offset — the SAME slot
 						-- arithmetic the row itself uses, read from the same memo,
 						-- so the tray cannot drift from the row by a gap
-						offsetY = Compose.withOwner(itemScope, function()
-							return Compose.formula(if itemExtentIsVariable
+						offsetY = ownedFormula(
+							itemScope,
+							if itemExtentIsVariable
 								then function(use)
 									local index = (use(indexByKey) :: { [string]: number })[entry.key]
 									if index == nil then
@@ -2865,15 +2865,13 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 										return 0
 									end
 									return (index - 1) * pitchIn(use)
-								end)
-						end),
+								end
+						),
 						width = { type = "fill", weight = 1 },
 						-- ...and the row's own height, commit collapse included, so
 						-- a committing row's tray shrinks with it
-						height = Compose.withOwner(itemScope, function()
-							return Compose.formula(function(use)
-								return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
-							end)
+						height = ownedFormula(itemScope, function(use)
+							return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
 						end),
 						children = if engine ~= nil then engine.trayViews else {},
 					})
@@ -2916,10 +2914,8 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 		-- the solver decides rather than one this control asserts, and it is the
 		-- whole convergence argument (see THE MEASURED VIEWPORT)
 		then fill()
-		elseif viewportIsLive then Compose.withOwner(listScope, function()
-			return Compose.formula(function(use)
-				return { type = "fixed", px = viewportIn(use) }
-			end)
+		elseif viewportIsLive then ownedFormula(listScope, function(use)
+			return { type = "fixed", px = viewportIn(use) }
 		end)
 		else { type = "fixed", px = viewportSpec }
 	--[[ THE CROSS AXIS. `"hug"` is the one form that changes a dim: the host, its
@@ -3295,10 +3291,8 @@ local function build(Facet: any, core: any, spec: any, listScope: any)
 			round 7: closing must never swallow an unrelated click), so the tap
 			that closed the tray still does whatever it was going to do. ]]
 		bundle.outsideDismiss = {
-			active = Compose.withOwner(listScope, function()
-				return Compose.formula(function(use)
-					return use(engagedKey) ~= nil
-				end)
+			active = ownedFormula(listScope, function(use)
+				return use(engagedKey) ~= nil
 			end),
 			dismiss = function()
 				local engine = hostedEngagedEngine()
@@ -3535,16 +3529,9 @@ end
 	single lifetime: `list.dispose()` and the caller's own teardown do the same
 	thing, in any order, exactly once. ]]
 function virtual_list.build(Facet: any, core: any, spec: any)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else core.owner.createChild()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 return virtual_list

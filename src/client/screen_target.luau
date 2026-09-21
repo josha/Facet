@@ -145,12 +145,8 @@ local SCROLL_BAR_RESERVE = SCROLL_BAR_THICKNESS + SCROLL_BAR_GUTTER
 	the rest of this file already spells, so the move is a seam and not a rename. ]]
 local screen_vocabulary = require("./screen_vocabulary")
 local CLASS_TO_INSTANCE = screen_vocabulary.CLASS_TO_INSTANCE
-local TEXT_ALIGN_MAP = screen_vocabulary.TEXT_ALIGN_MAP
-local SCALE_MODE_ENGINE = screen_vocabulary.SCALE_MODE_ENGINE
-local TINT_REPAINTING_PROPS = screen_vocabulary.TINT_REPAINTING_PROPS
 local STAGE_WORLD_NAME = screen_vocabulary.STAGE_WORLD_NAME
 local STAGE_CAMERA_NAME = screen_vocabulary.STAGE_CAMERA_NAME
-local fontFaceFor = screen_vocabulary.fontFaceFor
 local toColor3 = screen_vocabulary.toColor3
 local writeStageProp = screen_vocabulary.writeStageProp
 local markStageDisposed = screen_vocabulary.markStageDisposed
