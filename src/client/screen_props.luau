@@ -329,34 +329,35 @@ function screen_props.new(ctx: Ctx)
 				-- rides the radii machinery the slider thumb proved
 				syncTags(handle)
 			else
-				-- Reuse existing corners. Painted leaves can start bare; own only
-				-- the corner materialized for their explicit circle declaration.
 				assertBespokePaint("CornerRadius")
 				local reshaped = cornerRadiusFor(handle, style.radii.control)
-				-- Painted leaves can start bare: no interactive/surface corner exists.
-				if handle.class == "Box" or handle.class == "Image" then
-					if handle.shape == "circle" and instance:FindFirstChildOfClass("UICorner") == nil then
-						corner(instance, style.radii.control, nil, handle)
+				local leaf = handle.class == "Box" or handle.class == "Image"
+				if leaf and handle.shape ~= "circle" and handle.shapeCorner ~= nil then
+					-- Release the shape's claim, then restore whichever authored or
+					-- surface owner still needs this shared child (otherwise remove it).
+					handle.shapeCorner = nil
+					if handle.chromeCornerRadius ~= nil then
+						handle.chromeCornerRadius = reshaped
+					end
+					applyCorners(instance, handle.authoredCorners, handle)
+				else
+					if leaf and handle.shape == "circle" then
+						if instance:FindFirstChildOfClass("UICorner") == nil then
+							local chromeRadius = handle.chromeCornerRadius
+							corner(instance, style.radii.control, nil, handle)
+							-- Shape acquisition is not a new surface-chrome claim.
+							handle.chromeCornerRadius = chromeRadius
+						end
 						handle.shapeCorner = instance:FindFirstChildOfClass("UICorner")
-					elseif handle.shape ~= "circle" and handle.shapeCorner ~= nil then
-						handle.shapeCorner:Destroy()
-						handle.shapeCorner = nil
-						handle.chromeCornerRadius = nil
 					end
-				end
-				for _, child in instance:GetChildren() do
-					if child:IsA("UICorner") then
-						(child :: UICorner).CornerRadius = reshaped
+					for _, child in instance:GetChildren() do
+						if child:IsA("UICorner") then
+							(child :: UICorner).CornerRadius = reshaped
+						end
 					end
-				end
-				-- ...AND THE CHROME RECORD FOLLOWS THE PAINT (T8 R3, Important 3).
-				-- A shape-only corner has no chrome record; when a chrome owner
-				-- already made one, that record
-				-- must keep describing what the instance actually wears, or a
-				-- reactive `corners` crossing to nil would restore the square
-				-- radius `wireInteractiveStates` wrote before the disc arrived.
-				if handle.chromeCornerRadius ~= nil then
-					handle.chromeCornerRadius = reshaped
+					if handle.chromeCornerRadius ~= nil then
+						handle.chromeCornerRadius = reshaped
+					end
 				end
 			end
 		elseif prop == "controlSize" or prop == "appearance" or prop == "over" then

@@ -495,12 +495,31 @@ describe("painted circle native property path", function()
 			expect(#instance:GetChildren()).toBe(0)
 			adapter.setProp(handle, "corners", nil, "style")
 			expect(#instance:GetChildren()).toBe(0)
-			local authored = make("UICorner")
-			authored.Parent = instance
+			for _, nextSurface in { "plain", "scrim", "control" } do
+				adapter.setProp(handle, "surface", "plain", "style")
+				adapter.setProp(handle, "surface", "control", "style")
+				local borrowed = assert(instance:FindFirstChildOfClass("UICorner"))
+				-- A recycled occupant wears the same shape/surface property keys.
+				adapter.setProp(handle, "shape", "circle", "style")
+				adapter.setProp(handle, "surface", nextSurface, "style")
+				expect(instance:FindFirstChildOfClass("UICorner")).toBe(borrowed)
+				expect(borrowed.CornerRadius.Scale).toBe(0.5)
+				expect(#instance:GetChildren()).toBe(1)
+				adapter.setProp(handle, "shape", "rect", "style")
+				if nextSurface == "control" then
+					expect(instance:FindFirstChildOfClass("UICorner")).toBe(borrowed)
+					expect(borrowed.CornerRadius.Offset).toBe(12)
+				else
+					expect(#instance:GetChildren()).toBe(0)
+				end
+			end
+			adapter.setProp(handle, "corners", styling.normalizeCorners(6), "style")
+			local authored = assert(instance:FindFirstChildOfClass("UICorner"))
 			adapter.setProp(handle, "shape", "circle", "style")
 			adapter.setProp(handle, "shape", nil, "style")
 			expect(instance:FindFirstChildOfClass("UICorner")).toBe(authored)
-			expect(authored.CornerRadius.Offset).toBe(12)
+			expect(authored.CornerRadius.Offset).toBe(6)
+			adapter.setProp(handle, "corners", nil, "style")
 		end
 	end)
 end)
