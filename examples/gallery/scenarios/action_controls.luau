@@ -19,10 +19,147 @@ return {
 		local assist = signal(true)
 		local confirming = signal(false)
 		local seconds = 0
+		local readRung = function(): string?
+			return nil
+		end
+		local setRung = function(_rung: string) end
+		local function VocabularySection()
+			local rung = Compose.cell("compact")
+			readRung = function()
+				return rung:peek()
+			end
+			setRung = function(value)
+				rung:set(value)
+			end
+			Compose.cleanup(function()
+				readRung = function()
+					return nil
+				end
+				setRung = function(_value) end
+			end)
+			local ladder, looks, chips = {}, {}, {}
+			for _, step in { "compact", "regular", "large" } do
+				table.insert(
+					ladder,
+					UI.Button("Rung" .. step:sub(1, 1):upper() .. step:sub(2))({
+						label = step,
+						controlSize = step,
+						appearance = if step == "large" then "emphasis" else "standard",
+						enabled = enabled,
+						onActivate = function()
+							rung:set(step)
+							status:set(step .. " size chosen.")
+						end,
+					})
+				)
+			end
+			for _, word in { "standard", "emphasis", "soft", "utility", "link" } do
+				table.insert(
+					looks,
+					UI.Button("Look" .. word:sub(1, 1):upper() .. word:sub(2))({
+						label = word,
+						appearance = word,
+						controlSize = function(use)
+							return use(rung)
+						end,
+						enabled = enabled,
+						onActivate = function()
+							status:set(word .. " emphasis chosen.")
+						end,
+					})
+				)
+			end
+			for _, entry in { { "Dry", "compact" }, { "Wet", "regular" }, { "Snow", "large" } } do
+				table.insert(
+					chips,
+					UI.Chip("Chip" .. entry[1])({
+						label = entry[1],
+						selected = Compose.cell(entry[1] == "Dry"),
+						controlSize = entry[2],
+						appearance = if entry[1] == "Snow" then "utility" else "standard",
+					})
+				)
+			end
+			return UI.VStack("Vocabulary")({
+				width = UI.fill(),
+				gap = "m",
+				UI.Text("CapVocabulary")({
+					text = function(use)
+						return `The appearance row uses the {use(rung)} size. Compact plates keep full-size tap targets.`
+					end,
+					textSize = "caption",
+					role = "secondary",
+					width = UI.fill(),
+				}),
+				UI.HStack("SizeLadder")({ gap = "s", wrap = true, width = UI.fill(), table.unpack(ladder) }),
+				UI.HStack("Appearances")({ gap = "s", wrap = true, width = UI.fill(), table.unpack(looks) }),
+				UI.HStack("SizedChips")({ gap = "s", wrap = true, width = UI.fill(), table.unpack(chips) }),
+				UI.Button("IconLabelled")({
+					label = "Go",
+					icon = "facet:search",
+					width = UI.fill(),
+					controlSize = rung,
+					enabled = enabled,
+					onActivate = function()
+						status:set("Race search opened.")
+					end,
+				}),
+				UI.HStack("IconForms")({
+					gap = "s",
+					wrap = true,
+					width = UI.fill(),
+					UI.Button("IconOnly")({
+						icon = "close",
+						name = "Dismiss the race card",
+						corners = "pill",
+						controlSize = rung,
+						enabled = enabled,
+						onActivate = function()
+							status:set("Race card dismissed.")
+						end,
+					}),
+					UI.Button("SquareAction")({
+						label = "Square",
+						corners = "square",
+						controlSize = rung,
+						appearance = "utility",
+						enabled = enabled,
+						onActivate = function()
+							status:set("Square action chosen.")
+						end,
+					}),
+				}),
+				UI.background(
+					UI.VStack("OverMedia")({
+						width = UI.fill(),
+						height = { type = "minMax", min = 96 },
+						padding = "m",
+						align = "center",
+						UI.Button("OverMediaAction")({
+							label = "Play this replay",
+							over = "media",
+							controlSize = "large",
+							enabled = enabled,
+							onActivate = function()
+								status:set("Replay opened.")
+							end,
+						}),
+					}),
+					UI.Image("OverMediaArt")({
+						width = UI.fill(),
+						height = UI.fill(),
+						image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+						scaleMode = "crop",
+					})
+				),
+			})
+		end
+
 		local function openDialog()
 			confirming:set(true)
 		end
 		local function reset()
+			setRung("compact")
 			busy:set(false)
 			enabled:set(true)
 			count:set(0)
@@ -343,6 +480,8 @@ return {
 					end,
 				}),
 				body,
+				UI.Text({ text = "Size and emphasis", textSize = "heading", width = UI.fill() }),
+				VocabularySection(),
 			})
 			local scroller = UI.ScrollView("Content")({
 				width = UI.fill(),
@@ -386,6 +525,15 @@ return {
 				}
 			end,
 			steps = {
+				sizeCompact = function()
+					setRung("compact")
+				end,
+				sizeRegular = function()
+					setRung("regular")
+				end,
+				sizeLarge = function()
+					setRung("large")
+				end,
 				showDrivers = function()
 					scrollTarget:set(nil)
 					scrollTarget:set("Drivers")
@@ -409,6 +557,7 @@ return {
 			},
 			report = function()
 				return {
+					controlSize = readRung(),
 					count = count:peek(),
 					settings = { assistance = assist:peek(), music = rowVolume:peek() },
 					scrollProgress = scrollProgress:peek(),

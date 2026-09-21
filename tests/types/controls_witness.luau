@@ -303,3 +303,13 @@ local _pageview = app.controls.PageView("Pages")({
 })
 
 local _iconOnly = app.controls.Button({ icon = "close", name = "Close", controlSize = "compact" })
+
+local chipLook = Facet.Compose.cell("utility" :: "standard" | "utility" | nil)
+local _anonymousChip = app.controls.Chip({
+	label = "Rain",
+	selected = Facet.Compose.cell(false),
+	controlSize = function(_use: coreTypes.Use): "compact"?
+		return "compact"
+	end,
+	appearance = chipLook,
+})
