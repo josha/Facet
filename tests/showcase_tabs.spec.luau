@@ -59,6 +59,7 @@ local function make(scenario, viewport, options)
 		env = { preferredTextOffset = options.textOffset or 0 },
 		capabilities = { gamepad = true, keyboard = true, mouse = true, touch = false },
 		reducedMotion = true,
+		presenterOpts = { keyboardNavigation = options.keyboardNavigation == true },
 		newAdapter = function()
 			local adapter = fake.new()
 			adapter.scrollBarThickness = fake.SCROLL_BAR_THICKNESS
@@ -113,6 +114,51 @@ local function make(scenario, viewport, options)
 end
 
 t.describe("Consolidated showcase", function()
+	t.it("keeps the keyboard-focused recipe rail tail inside every nested clipping ancestor", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, {
+			preferredInput = "MouseKeyboard",
+			keyboardNavigation = true,
+		})
+		activate(w, "Actions")
+		activate(w, "Recipes")
+		local target = button(w, "Custom Rules")
+		for _ = 1, 100 do
+			if w.pres.focus.focused:peek() == target then
+				break
+			end
+			w.press("Tab")
+			w.settle(1)
+		end
+		t.expect(w.pres.focus.focused:peek()).toBe(target)
+		t.expect(built.report().active).toBe("recipes")
+		local clip = { x = 0, y = 0, right = 390, bottom = 844 }
+		local path, hosts = "", 0
+		for segment in target:gmatch("[^/]+") do
+			path ..= "/" .. segment
+			local node = w.adapter.node(path)
+			if node and node.props.clipChildren == true then
+				local rect = w.controller.screenRectOf(path)
+				clip.x, clip.y = math.max(clip.x, rect.x), math.max(clip.y, rect.y)
+				clip.right, clip.bottom = math.min(clip.right, rect.x + rect.w), math.min(clip.bottom, rect.y + rect.h)
+				if node.scrollRegion then
+					hosts += 1
+				end
+			end
+		end
+		t.expect(hosts).toBe(3)
+		local rect = w.controller.screenRectOf(target)
+		assert(
+			rect.x >= clip.x and rect.y >= clip.y and rect.x + rect.w <= clip.right and rect.y + rect.h <= clip.bottom,
+			`focused rail target {rect.x},{rect.y},{rect.w},{rect.h} outside clip {clip.x},{clip.y}..{clip.right},{clip.bottom}`
+		)
+		w.press("Return")
+		w.settle(2)
+		t.expect(built.report().example.railSelected["Custom Rules"]).toBe(true)
+		w.pres.dismiss(w.handle)
+		built.dispose()
+		t.expect(#w.adapter.paths()).toBe(0)
+	end)
+
 	t.it("offers toasts in Indicators and retires them when leaving the page", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
 		activate(w, "Indicators")

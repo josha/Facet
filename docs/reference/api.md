@@ -1109,7 +1109,7 @@ service rather than a per-control recipe:
 |---|---|
 | `controller.scrollTo(path, {x,y})` | programmatic position; the engine clamps it |
 | `controller.scrollPosition(path)` | the LIVE offset, read from the engine (it co-authors the value, so a user fling the framework never saw is still reflected) |
-| `controller.scrollToVisible(path, localRect?)` | scroll the node's nearest `ScrollView` **ancestor** the minimum distance that brings the node fully into view, or the supplied `{x,y,w,h}` rectangle relative to it; returns `false` when it is already visible, has no scroll ancestor, or the adapter has no scroll seam |
+| `controller.scrollToVisible(path, localRect?)` | scroll containing `ScrollView` **ancestors**, inner to outer, the minimum distance that brings the node into view, or the supplied `{x,y,w,h}` rectangle relative to it; uses each host's canvas limits and returns `false` when no host moves, there is no scroll ancestor, or the adapter has no scroll seam |
 | `controller.observeScroll(path, fn)` | engine-driven offset changes (virtualization consumes this) |
 
 `scrollToVisible` is the ONE keep-visible substrate: the presenter calls it on
