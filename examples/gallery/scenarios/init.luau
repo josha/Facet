@@ -315,6 +315,19 @@ local ORDER = {
 	-- scaffolded showcase surface for `UI.CollapsibleView`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"collapsible_view",
+	-- Leaf paint, fitting and native scrolling; also in All controls → Inputs → Leaves.
+	"leaf_capabilities",
+	"shortcut_hint",
+	"recipes_common",
+	"container_grid",
+	-- Loading/reduced-motion branch lifetime; shared with Indicators → Progress.
+	"skeleton",
+	-- Caller-owned portraits, loading branches and live presence; shared with Identity.
+	"avatar",
+	-- Keyed roster movement, picture replacement and overflow; shared with Identity.
+	"avatar_group",
+	"status_indicator",
+	"badge",
 	-- scaffold: new control scenarios are appended above this line
 }
 

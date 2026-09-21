@@ -62,6 +62,173 @@ local adapter_source = require("./lib/adapter_source")
 
 local adapterSource = adapter_source.live()
 
+describe("native palette switches without a package", function()
+	it("repaints mounted Badge roles through the actual native switch and tint writer", function()
+		-- Execute the two real adapter methods and the native paint module with
+		-- engine objects mocked. Studio separately proves StyleSheet resolution.
+		local fs, luau, rb = require("@lune/fs"), require("@lune/luau"), require("@lune/roblox")
+		local w = require("./lib/world").new()
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack({
+					width = { type = "fixed", px = 320 },
+					w.UI.Badge("Standard")({ label = "Ready", icon = "status.info" }),
+					w.UI.Badge("Utility")({ label = "Utility", icon = "settings", appearance = "utility" }),
+					w.UI.Badge("Media")({ label = "Media", icon = "clock", over = "media" }),
+					w.UI.Box("Direct")({
+						tint = { direct = "#123456" },
+						width = { type = "fixed", px = 20 },
+						height = { type = "fixed", px = 20 },
+					}),
+				}),
+			})
+		end)
+		local handles = {}
+		for path, node in w.adapter.liveNodes() do
+			if node.props.tint then
+				local class = if node.class == "Text" then "TextLabel" else "Frame"
+				handles[path] = {
+					class = node.class,
+					tint = node.props.tint,
+					instance = {
+						IsA = function(_, wanted)
+							return wanted == class or wanted == "GuiObject"
+						end,
+					},
+				}
+			end
+		end
+		local model = sheet_model.build({
+			themes = {
+				{ name = "Dark", style = default_style },
+				{ name = "Light", style = require("../src/tokens/default_light_style") },
+			},
+		})
+		local nativeHandle = { themes = {}, activeTheme = "Dark" }
+		for _, theme in model.themes do
+			local attributes = {}
+			for name, value in theme.tokens do
+				if value.kind == "color" then
+					attributes[name] = rb.Color3.new(value.r, value.g, value.b)
+				end
+			end
+			nativeHandle.themes[theme.name] = {
+				GetAttributes = function()
+					return attributes
+				end,
+			}
+		end
+		nativeHandle.setTheme = function(name)
+			assert(nativeHandle.themes[name])
+			nativeHandle.activeTheme = name
+		end
+		local paint, activePackage
+		local noop = function() end
+		local source = fs.readFile("src/client/screen_target.luau")
+		local active = assert(source:match("(\tfunction setActiveTheme%(.-\n\tend)"))
+		local switch = assert(source:match("(\tfunction adapter.setNativeTheme%(.-\n\tend)"))
+		local bridge = luau.load(
+			"local activeTheme, focusTreatment, setActiveTheme\nlocal adapter = {}\n"
+				.. active
+				.. "\n"
+				.. switch
+				.. "\nreturn {adapter=adapter, setActiveTheme=setActiveTheme, theme=function() return activeTheme end}",
+			{
+				injectGlobals = true,
+				environment = {
+					nativeMode = true,
+					nativeHandle = nativeHandle,
+					native_style = require("../src/client/native_style"),
+					chrome_slots = require("../src/tokens/chrome_slots"),
+					chromeState = {
+						package = function()
+							return activePackage
+						end,
+					},
+					toColor3 = function(value)
+						return value
+					end,
+					refreshFocusVisuals = noop,
+					refreshThemedPaint = function()
+						paint.refreshThemedPaint()
+					end,
+				},
+			}
+		)()
+		local imports = {
+			["../tokens/sheet_model"] = sheet_model,
+			["../tokens/styling"] = require("../src/tokens/styling"),
+			["../tokens/chrome_slots"] = require("../src/tokens/chrome_slots"),
+			["../themes/snapshot"] = snapshot,
+			["../render/authority"] = require("../src/render/authority"),
+		}
+		paint = luau.load(fs.readFile("src/client/screen_paint.luau"), {
+			injectGlobals = true,
+			environment = {
+				game = {
+					GetService = function()
+						return {}
+					end,
+				},
+				UDim2 = rb.UDim2,
+				require = function(name)
+					return assert(imports[name], name)
+				end,
+			},
+		})().new({
+			nativeMode = true,
+			style = default_style,
+			handlesByPath = handles,
+			activeTheme = bridge.theme,
+			toColor3 = function(value)
+				return value
+			end,
+			claimPaint = noop,
+			assertBespokePaint = noop,
+			syncTags = noop,
+			chrome = { syncChrome = noop },
+		})
+		bridge.setActiveTheme(nil)
+		local function assertPalette()
+			local attrs = nativeHandle.themes[nativeHandle.activeTheme].GetAttributes()
+			local count = 0
+			for _, handle in handles do
+				local actual = if handle.class == "Text"
+					then handle.instance.TextColor3
+					else handle.instance.BackgroundColor3
+				if handle.tint.role then
+					local role = handle.tint.role
+					local expected = attrs[role:sub(1, 1):upper() .. role:sub(2)]
+					assert(
+						math.abs(actual.r - expected.R) < 1e-6,
+						`{nativeHandle.activeTheme} {role}: painted {actual.r}, sheet {expected.R}`
+					)
+					expect(actual.g).toBeCloseTo(expected.G, 1e-6)
+					expect(actual.b).toBeCloseTo(expected.B, 1e-6)
+					count += 1
+				else
+					expect(actual).toEqual({ r = 0x12 / 255, g = 0x34 / 255, b = 0x56 / 255 })
+				end
+			end
+			expect(count).toBe(8) -- three icon/label pairs, two painted plates
+		end
+		for _, name in { "Dark", "Light", "Dark", "Light" } do
+			bridge.adapter.setNativeTheme(name)
+			assertPalette()
+		end
+		-- Switching the unused legacy sheet cannot take an installed package's paint.
+		activePackage = snapshot.neutralPackage()
+		bridge.setActiveTheme(activePackage)
+		local installed = bridge.theme()
+		bridge.adapter.setNativeTheme("Dark")
+		expect(bridge.theme()).toBe(installed)
+		activePackage = nil
+		bridge.setActiveTheme(nil)
+		assertPalette()
+		w.close()
+	end)
+end)
+
 -- Fantasy Parchment's real accent — "the illuminator's gold", rgb(122, 72, 26).
 -- Taken from the shipped package rather than restated, so a repaint that lands
 -- on the wrong palette cannot accidentally match a constant written here.

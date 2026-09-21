@@ -341,6 +341,22 @@ export type Handle = {
 	setRuleProperty: (ruleName: string, prop: string, value: any) -> boolean,
 }
 
+-- Adapter-owned role paint reads the same active tokens as native rules.
+function native_style.palette(handle: Handle): any
+	local theme = handle.themes[handle.activeTheme]
+	if theme == nil then
+		return nil
+	end
+	local colors = {}
+	for name, value in theme:GetAttributes() do
+		if typeof(value) == "Color3" then
+			local role = string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
+			colors[role] = { r = value.R, g = value.G, b = value.B }
+		end
+	end
+	return { colors = colors, extra = colors }
+end
+
 export type EnsureOpts = {
 	host: Instance?, -- explicit override of both lookup and creation host
 	-- transitions are PROGRESSIVE ENHANCEMENT and default OFF (platform

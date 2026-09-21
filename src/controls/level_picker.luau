@@ -52,7 +52,7 @@ local LEVEL_PICKER_KEYS = specGuard.keySet({
 
 export type Config = specTypes.Config
 
-local function validate(constructor: string, id: string, value: V, count: any)
+local function validate(constructor: string, id: string, value: NumberCell, count: any)
 	if not (Compose.isReadable(value) and type(value.set) == "function") then
 		error(
 			`Facet {constructor}('{id}'): \`value\` must be a writable Compose cell holding a number, owned by the caller `

@@ -365,6 +365,35 @@ describe("Cartwheel — brews: modes, search, sort", function()
 		closeWorld(world)
 	end)
 
+	it("list toggles request selection and paint the model's accepted value", function()
+		local world = makeWorld({ width = 420 })
+		world.built.steps.section(world.built, "brews")
+		local brews = world.built.screens.brews
+		brews.selectionMode:set(true)
+		world.presenter.refresh()
+		local path
+		for _, candidate in world.adapter.paths() do
+			if string.sub(candidate, -5) == "/Pick" then
+				path = candidate
+				break
+			end
+		end
+		expect(path ~= nil).toBe(true)
+		world.adapter.tap(path)
+		world.presenter.refresh()
+		local key = next(brews.listSelected:peek())
+		expect(key ~= nil).toBe(true)
+		expect(world.adapter.node(path).props.value).toBe(true)
+		world.adapter.tap(path)
+		world.presenter.refresh()
+		expect(next(brews.listSelected:peek())).toBeNil()
+		expect(world.adapter.node(path).props.value).toBe(false)
+		brews.listSelected:set({ [key] = true })
+		world.presenter.refresh()
+		expect(world.adapter.node(path).props.value).toBe(true)
+		closeWorld(world)
+	end)
+
 	it("an empty search says so rather than showing an empty page", function()
 		local world = makeWorld()
 		world.built.steps.section(world.built, "brews")

@@ -6,6 +6,60 @@ local Facet = require("../src") :: any
 local Compose = require("../src/vendor/compose/core")
 local UI = harness.UI
 t.describe("named scroll navigation", function()
+	t.it("reveals a local rect through nested scroll axes and leaves an already visible target idle", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 200, h = 160 }, reducedMotion = true, ops = true })
+		w.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ScrollView({
+					id = "Outer",
+					width = UI.fill(),
+					height = { type = "fixed", px = 120 },
+					children = {
+						UI.Box({ height = { type = "fixed", px = 200 } }),
+						UI.ScrollView({
+							id = "Inner",
+							axis = "xy",
+							width = { type = "fixed", px = 180 },
+							height = { type = "fixed", px = 180 },
+							children = {
+								UI.Box({
+									id = "Canvas",
+									width = { type = "fixed", px = 500 },
+									height = { type = "fixed", px = 500 },
+								}),
+							},
+						}),
+						UI.Box({ height = { type = "fixed", px = 200 } }),
+					},
+				}),
+			},
+		}))
+		local outer, inner = "/S/Outer", "/S/Outer/Inner"
+		local target = inner .. "/Canvas"
+		w.controller.scrollTo(outer, { x = 0, y = 50 })
+		w.controller.scrollTo(inner, { x = 25, y = 25 })
+		local area = { x = 460, y = 460, w = 40, h = 40 }
+		t.expect(w.controller.scrollToVisible(target, area)).toBe(true)
+		t.expect(w.controller.scrollPosition(inner)).toEqual({ x = 320, y = 320 })
+		t.expect(w.controller.scrollPosition(outer)).toEqual({ x = 0, y = 260 })
+		local rect = w.controller.screenRectOf(target)
+		for _, host in { inner, outer } do
+			local window = w.controller.screenRectOf(host)
+			t.expect(
+				rect.x + area.x >= window.x
+					and rect.y + area.y >= window.y
+					and rect.x + area.x + area.w <= window.x + window.w
+					and rect.y + area.y + area.h <= window.y + window.h
+			).toBe(true)
+		end
+		t.expect(w.controller.scrollHostFor(target).path).toBe(inner)
+		w.adapter.takeOps()
+		t.expect(w.controller.scrollToVisible(target, area)).toBe(false)
+		t.expect(#w.adapter.takeOps()).toBe(0)
+		w.pres.dismiss(w.handle)
+	end)
+
 	t.it("shares model-owned offsets between active presentations and across remount", function()
 		local Compose = Facet.Compose
 		local position, screen = Compose.cell(150), Compose.cell(false)

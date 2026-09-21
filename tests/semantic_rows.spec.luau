@@ -41,7 +41,7 @@ t.describe("semantic control rows", function()
 		end
 		local descriptionPath = find("/Description")
 		local labels = w.controller.rectOf(string.sub(descriptionPath, 1, -#"/Description" - 1))
-		local value = w.controller.rectOf(find("/Value"))
+		local value = w.controller.rectOf(find("/Indicator"))
 		local description = w.controller.rectOf(descriptionPath)
 		t.expect(description.y + description.h <= labels.y + labels.h).toBe(true)
 		t.expect(labels.w).toBeGreaterThan(value.w * 2)

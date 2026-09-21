@@ -58,6 +58,13 @@ export type Deprecation = {
 -- property. Same record shape as `blueprint_schema.deprecations()`.
 local DECLARED_DEPRECATIONS: { Deprecation } = {
 	{
+		surface = "Controls.PopupButton",
+		since = "0.11.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = 'Controls.Picker { style = "menu" | "navigationLink", ... }',
+		note = "the alias remains available on app.controls; Picker owns single-value selection",
+	},
+	{
 		surface = "newResourceProvider(opts.retryAttempts)",
 		since = "0.8.0",
 		removeNoEarlierThan = "0.9.0",
@@ -138,6 +145,9 @@ local Facet = {
 	-- minor version after `since`. Frozen.
 	DEPRECATIONS = buildDeprecations(),
 
+	-- Read-only constructor facts for extension authors and contract tooling.
+	schema = table.freeze(table.clone(blueprint.schema)),
+
 	-- environment and rendering seams
 	newEnvironment = environment.new,
 	renderer = rendererLib,
@@ -165,6 +175,20 @@ local Facet = {
 	-- pure Path2D shape math for UI.Path (the native substrate):
 	-- rings/arcs/needles as normalized control points, headlessly tested
 	pathShapes = require("@self/controls/path_shapes"),
+
+	--[[ THE MARKUP DOOR, for `UI.Text{ rich = true }`.
+
+		`escape(s)` is the one function a consumer needs and the one it must not
+		write itself: composing a player name, a server string or any other value
+		it did not author into markup without escaping it either paints the value
+		as a tag or breaks the parse for the whole label. It escapes the five
+		characters the engine's parser reads and nothing else, so calling it on
+		text that is already plain is safe.
+
+		IT IS NOT A TEXT FILTER. Whether a player may say a thing at all is the
+		game's and the server's decision, through the platform's own filtering;
+		this is only the difference between text and markup. ]]
+	richText = table.freeze({ escape = require("@self/layout/rich_text").escape }),
 
 	--[[ THE CLOSED-KEY-SET GUARD, so an out-of-repo control can be as strict as an
 		in-repo one (constitution §4).

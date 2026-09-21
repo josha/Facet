@@ -79,6 +79,12 @@ local DAYLIGHT = {
 		onAccent = rgb(255, 255, 255),
 		danger = rgb(184, 26, 44),
 		onDanger = rgb(255, 255, 255),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.81:1 and 7.69:1)
+		success = rgb(14, 116, 72),
+		onSuccess = rgb(255, 255, 255),
+		warning = rgb(216, 152, 16),
+		onWarning = rgb(20, 14, 2),
 	},
 	extra = {
 		control = rgb(226, 236, 250),

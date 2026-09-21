@@ -379,8 +379,13 @@ local function boundaryFor(
 			if n.class == "ScrollView" then
 				local box = n.windowRect or n.rect
 				if box ~= nil then
+					-- a two-axis host exempts BOTH: `"xy"` is not one of the two
+					-- single-axis words, so the reading "the scrolled axis is exempt"
+					-- has to be spelled per axis rather than as one inequality
 					local scrolled = if type(n.scrollRegion) == "table" then n.scrollRegion.axis else nil
-					return cursor, themedBox(snapshot, n, box), { x = scrolled ~= "x", y = scrolled ~= "y" }
+					return cursor,
+						themedBox(snapshot, n, box),
+						{ x = scrolled ~= "x" and scrolled ~= "xy", y = scrolled ~= "y" and scrolled ~= "xy" }
 				end
 			elseif
 				(n.props ~= nil and n.props.clipChildren == true)

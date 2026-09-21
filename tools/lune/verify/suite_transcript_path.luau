@@ -5,6 +5,8 @@
 	recorded human transcript of a stored, valid, full-tier suite result whose
 	identity matches the current source — and exits non-zero, printing nothing,
 	when there is not one.
+	`--fingerprint` prints that same producer identity without reading a result,
+	so the legacy cache cannot disagree about which source files invalidate it.
 
 	It exists so that `tools/test.sh` and the verification graph share ONE suite
 	run. During the parity period both systems are live: gate rows still in the
@@ -34,6 +36,12 @@ if suite == nil then
 end
 
 local computed = identity.compute(suite, identity.toolchain())
+if process.args[1] == "--fingerprint" and #process.args == 1 then
+	print(computed.hash)
+	return
+elseif #process.args > 0 then
+	error("expected no arguments or --fingerprint")
+end
 local record = results.read("suite", computed.hash, {
 	requiredClass = suite.environmentClass,
 	toolchain = identity.toolchainString(identity.toolchain()),

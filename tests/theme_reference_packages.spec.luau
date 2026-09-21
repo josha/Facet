@@ -374,6 +374,84 @@ describe("the gradient-carrying packages stay READABLE", function()
 	end)
 end)
 
+describe("every shipped theme publishes a real green and a real amber", function()
+	--[[ THE FALLBACK IS FOR SOMEBODY ELSE'S PACKAGE. `tokens.successPair` keeps a
+		palette written before these roles looking exactly as it did — but a theme
+		this repository SHIPS is a worked example of what a palette should say, and
+		inheriting the accent for `success` is what made two status words one colour
+		on screen. So every variant declares all four, in its OWN family, and both
+		pairs clear the same 4.5:1 gate the destructive pair does.
+
+		The ratios are recomputed here rather than read out of the compile report, so
+		the number written in each palette's comment has something to disagree with. ]]
+	local function variants(): { { name: string, colors: any } }
+		local out: { { name: string, colors: any } } = {
+			{ name = "Facet Neutral", colors = require("../src/tokens/default_style").colors },
+			{ name = "Facet Neutral Light", colors = require("../src/tokens/default_light_style").colors },
+		}
+		for _, name in ORDER do
+			for _, theme in built(name).style.themes do
+				table.insert(out, { name = `{name}/{theme.name}`, colors = theme.colors })
+			end
+		end
+		return out
+	end
+
+	it("declares both pairs in every variant — no shipped palette rides the fallback", function()
+		local missing: { string } = {}
+		for _, variant in variants() do
+			for _, role in { "success", "onSuccess", "warning", "onWarning" } do
+				if type(variant.colors[role]) ~= "table" then
+					table.insert(missing, `{variant.name}.{role}`)
+				end
+			end
+		end
+		expect(`{#variants()} variants, missing: {table.concat(missing, " ")}`).toBe(
+			`{#variants()} variants, missing: `
+		)
+	end)
+
+	it("both pairs clear the 4.5:1 gate in every variant", function()
+		local worst = ""
+		local lowest = 99
+		local report: { string } = {}
+		local tokens = require("../src/tokens/tokens")
+		for _, variant in variants() do
+			for _, pair in { { "success", "onSuccess" }, { "warning", "onWarning" } } do
+				local ratio = tokens.contrastRatio(variant.colors[pair[1]], variant.colors[pair[2]])
+				table.insert(report, `{variant.name}/{pair[1]} {math.floor(ratio * 100) / 100}`)
+				if ratio < lowest then
+					lowest, worst = ratio, `{variant.name}/{pair[1]}`
+				end
+			end
+		end
+		expect(`{#report} pairs, worst {worst} {math.floor(lowest * 100) / 100} >= 4.5: {lowest >= 4.5}`).toBe(
+			`{#report} pairs, worst {worst} {math.floor(lowest * 100) / 100} >= 4.5: true`
+		)
+	end)
+
+	it("neither plate is the colour it replaced — a green and an amber, not a restatement", function()
+		local same: { string } = {}
+		local function equal(a: any, b: any): boolean
+			return a ~= nil and b ~= nil and a.r == b.r and a.g == b.g and a.b == b.b
+		end
+		for _, variant in variants() do
+			-- `success` used to BE the accent and `warning` the content colour, which
+			-- is exactly the collision this package exists to end
+			if equal(variant.colors.success, variant.colors.accent) then
+				table.insert(same, `{variant.name}: success == accent`)
+			end
+			if equal(variant.colors.warning, variant.colors.content) then
+				table.insert(same, `{variant.name}: warning == content`)
+			end
+			if equal(variant.colors.success, variant.colors.warning) then
+				table.insert(same, `{variant.name}: success == warning`)
+			end
+		end
+		expect(table.concat(same, " · ")).toBe("")
+	end)
+end)
+
 -- ===== REVIEW-FIX round: the worked example IS the sync workflow (E26) ======
 
 describe("fantasy_parchment carries its metrics in the theme_sync region", function()
@@ -429,7 +507,13 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 		-- string moved from the pre-rename `luauui-theme/1` to `facet-theme/1`,
 		-- so the compiled value really is different and the stamp is doing its
 		-- job. Measured, not guessed: 538b2cb8 -> 9a3b8dd8.
-		expect(built("fantasy_parchment").stamp).toBe("9a3b8dd8")
+		--
+		-- Re-pinned again 2026-09-19: both of this package's variants now declare
+		-- `success`/`onSuccess` and `warning`/`onWarning` — four real colours where
+		-- the palette used to spend the accent and the content ramp — so the
+		-- compiled value differs and the stamp says so. Measured: 9a3b8dd8 ->
+		-- 5eb8f614.
+		expect(built("fantasy_parchment").stamp).toBe("5eb8f614")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()

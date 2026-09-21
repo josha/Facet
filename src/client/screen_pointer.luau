@@ -539,14 +539,37 @@ function screen_pointer.new(ctx: any)
 				-- GetGuiObjectsAtPosition takes the same GUI coordinates as InputObject;
 				-- our capture arithmetic uses inset-adjusted window coordinates.
 				local hits = playerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-				local hit = hits[1]
-				if hit and hit.Name == "FocusRingFloat" then
-					hit = hits[2]
-				end
 				local byInstance = {}
 				for _, handle in handlesByPath do
 					if handle.instance then
 						byInstance[handle.instance] = handle
+					end
+					if handle.focusRingFloat then
+						byInstance[handle.focusRingFloat] = handle
+					end
+				end
+				-- Only our decorative reveal surface and floating ring are transparent to acquisition.
+				-- An ordinary overlay or foreign object still owns the first hit, even when inactive.
+				local hit
+				for _, candidate in hits do
+					local ancestor, decorative = candidate, false
+					while ancestor and ancestor ~= playerGui do
+						local owned = byInstance[ancestor]
+						if
+							owned
+							and (
+								owned.focusRingFloat == ancestor
+								or (owned.rootHandle and owned.rootHandle.screenId == "__reveal__")
+							)
+						then
+							decorative = true
+							break
+						end
+						ancestor = ancestor.Parent
+					end
+					if not decorative then
+						hit = candidate
+						break
 					end
 				end
 				while hit and hit ~= playerGui do
@@ -591,7 +614,17 @@ function screen_pointer.new(ctx: any)
 								handle.mouseScrolling = nil
 								if handle.paging then
 									instance:ResetScrollVelocity()
-									instance.ScrollingEnabled = true
+									--[[ RESTORE THE AUTHORED VALUE, NOT `true`
+										(`ScrollView.scrollEnabled`). This gesture BORROWS
+										`ScrollingEnabled` for its own duration; handing it back
+										as an unconditional `true` thaws a host whose author
+										declared it frozen, and the framework's minimal-write
+										cache still holding that `false` means nothing ever
+										re-writes it. `screen_props` records the authored value
+										on the handle at its own write, which keeps one writer
+										for the property; absent means true, the engine's
+										default and the behaviour before the freeze existed. ]]
+									instance.ScrollingEnabled = handle.authoredScrollingEnabled ~= false
 								end
 								for notify in handle.scrollObservers or {} do
 									notify()
@@ -600,6 +633,11 @@ function screen_pointer.new(ctx: any)
 						end
 						local handlers = {
 							move = function(point)
+								-- Paging borrows native false; only the authored flag freezes a capture.
+								if handle.authoredScrollingEnabled == false then
+									endCapture("interrupted")
+									return
+								end
 								if pageExtent and instance.AbsoluteWindowSize.X ~= pageExtent then
 									endCapture("interrupted")
 									return

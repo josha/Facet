@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "5f6bf7d081bab39971b116e47d6eb9ccf5877282",
+  "commit": "974b7527709a4db61024cc8994cdce30adc49790",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -38,7 +38,7 @@
     "core/reactive/formula.luau": "d72669becb5e162112239c0837dde212280a477a7f6280d6bf50df9e438d31e6",
     "core/reactive/graph.luau": "52cba5f2ba46c5a21817abb95136ac1ec9439ffe3c909da1dffa69900205364f",
     "core/reactive/profile.luau": "8f96b58d471cefbf2c8d8ad7c07fa36317355657830b290f1cbde7f23f14d2de",
-    "core/reactive/reactor.luau": "509fd24102414a3974b8cd214b80f5b8fadfa03dbf541b9e1215d7d694cd75f7",
+    "core/reactive/reactor.luau": "3847fcf09ef60d06295a5d95c7ee2269a960e5e69ba872cb42776c89ea49c72e",
     "core/reactive/sink.luau": "efafad364d56811913f45955a028f8b04222afc28177951955ad384ce8b10c9a",
     "core/reactive/static-sink.luau": "8a4dc163dd5d9d6d12b324512a0178e45d97c12cabfd269c61fc967db3b0d121",
     "core/reactive/stats.luau": "0c384f3c8e9ad10955a5a2a49066e9dd566cd135f06872e9877dc5d627de523e",

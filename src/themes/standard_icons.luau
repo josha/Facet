@@ -57,6 +57,11 @@ local standard_icons = {}
 -- `assets/icons/` and the key in that folder's `upload-manifest.json`; the two
 -- are cross-checked by `tools/lune/check_docs`.
 standard_icons.ART = table.freeze({
+	["settings"] = table.freeze({
+		assetName = "facet_icon_settings",
+		contentId = "rbxassetid://78513807849201",
+		tintRole = "content",
+	}),
 	["facet:search"] = table.freeze({
 		assetName = "facet_icon_search",
 		contentId = "rbxassetid://85188541706347",
@@ -157,6 +162,68 @@ standard_icons.ART = table.freeze({
 	["flag"] = table.freeze({
 		assetName = "facet_icon_flag",
 		contentId = "rbxassetid://109067109704366",
+		tintRole = "content",
+	}),
+	-- P1d (2026-09-18): a SMALL common set for the next controls (Notice/Badge/
+	-- Snackbar, DateTimePicker, Vote, Avatar, Pagination) -- not parity with any
+	-- reference catalog, the same recipe as the rest of the set (generate_icons.py,
+	-- headless upload via tools/upload_icons.py). A `contentId` of "" is the same
+	-- legal pending state `resolve()` already documents for `nil`: the name has a
+	-- framework picture and an ASCII floor either way, and falls to the floor
+	-- until the upload lands.
+	["status.info"] = table.freeze({
+		assetName = "facet_icon_info",
+		contentId = "rbxassetid://119954823374061",
+		tintRole = "content",
+	}),
+	["status.success"] = table.freeze({
+		assetName = "facet_icon_success",
+		contentId = "rbxassetid://108245103349446",
+		tintRole = "content",
+	}),
+	["status.warning"] = table.freeze({
+		assetName = "facet_icon_warning",
+		contentId = "rbxassetid://94336971455701",
+		tintRole = "content",
+	}),
+	["status.error"] = table.freeze({
+		assetName = "facet_icon_error",
+		contentId = "rbxassetid://131379225714116",
+		tintRole = "content",
+	}),
+	["calendar"] = table.freeze({
+		assetName = "facet_icon_calendar",
+		contentId = "rbxassetid://93477762216058",
+		tintRole = "content",
+	}),
+	["clock"] = table.freeze({
+		assetName = "facet_icon_clock",
+		contentId = "rbxassetid://101095496899333",
+		tintRole = "content",
+	}),
+	["vote.up"] = table.freeze({
+		assetName = "facet_icon_thumb_up",
+		contentId = "rbxassetid://75207492738442",
+		tintRole = "content",
+	}),
+	["vote.down"] = table.freeze({
+		assetName = "facet_icon_thumb_down",
+		contentId = "rbxassetid://105653007466295",
+		tintRole = "content",
+	}),
+	["person"] = table.freeze({
+		assetName = "facet_icon_person",
+		contentId = "rbxassetid://75342910516929",
+		tintRole = "content",
+	}),
+	["chevron.first"] = table.freeze({
+		assetName = "facet_icon_chevron_first",
+		contentId = "rbxassetid://121092340130819",
+		tintRole = "content",
+	}),
+	["chevron.last"] = table.freeze({
+		assetName = "facet_icon_chevron_last",
+		contentId = "rbxassetid://124199778383157",
 		tintRole = "content",
 	}),
 })

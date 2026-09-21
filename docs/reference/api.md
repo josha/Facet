@@ -87,13 +87,18 @@ called, so requiring Facet in shared code does not initialize a client host.
 |---|---|
 | `app.installTheme(package, options?)` | Installs the existing theme controller for this application and releases it on disposal. Returns that controller for `swap` and `swapPackage`. Options are the theme-controller options except `env` and `core`, which the application supplies. Install once per application. |
 | `app.controls` | Facet constructors for this Compose runtime. Use a property table with ordered numeric children. Constructors accept an optional name: `UI.Button("Save") { ... }`; anonymous controls need no ID. |
-| `app.presentModal(component, opts?)` | Mounts a component in its own Compose lifetime and presents it as a modal. Returns `close, node`. Uses the presenter's modal options, focus trap and cancellation policy. Dismissal releases the component; application disposal closes all remaining surfaces. |
+| `app.presentModal(component, opts?)` | Mounts a component in its own Compose lifetime and presents it as a modal. Returns `close, node, handle`. Uses the presenter's modal options, focus trap and cancellation policy. Dismissal releases the component; application disposal closes all remaining surfaces. |
 | `app.presentAnchored(component, opts)` | Builds a panel under Compose ownership and places it beside a source path or rect. Returns `close, node` for the generated surface. The builder receives `app.controls`, the same vocabulary `app.mount` components close over; most builders ignore the argument and close over `UI` instead. Uses the [anchored options](#anchored-surfaces) for placement, tails, modality and noninteractive chrome. Moving sources reposition the panel; dismissal releases its content. |
-| `app.mount(component, options?)` | Runs an ordinary component function under Compose ownership and presents its one root. Accepts the standard presentation options, including `rootPolicy = "edgeToEdge"` for a full-window background. Returns `close, node`. Invalid roots and presentation failures release the mounted resources before propagating the error. |
+| `app.mount(component, options?)` | Runs an ordinary component function under Compose ownership and presents its one root. Accepts the standard presentation options, including `rootPolicy = "edgeToEdge"` for a full-window background. Returns `close, node, handle`. Invalid roots and presentation failures release the mounted resources before propagating the error. |
 | `app.dispose()` | Immediately removes all surfaces, pending exits, toasts and auxiliary layers before releasing their state, the runtime, frame connection, input, adapter and environment. Queued components are discarded without mounting. Every release step runs even if a cleanup throws; the first error is then raised. Repeated disposal is harmless. |
 | `app.runtime` | The actual Compose runtime for this domain; its constructors, bindings, structural operations and animation APIs follow Compose's contract. |
 | `app.environment` | The host environment. Read facts such as `use(app.environment:get("viewportRect"))` in a property binding. |
 | `app.onFrame(callback)` | Subscribes to the host frame driver and returns a disconnect function. Own it with `Compose.cleanup(app.onFrame(callback))` inside a component. |
+
+The third return from `app.mount` and `app.presentModal` is the presentation
+handle. Its `controller`, responder and focus operations last for that surface;
+use `close()` or `app.dispose()` to end its lifetime. `app.presentAnchored` returns
+only `close, node`.
 
 Calling `close()` is idempotent. It removes that surface and releases its component
 resources; it does not dispose the whole application. Model cells created outside
@@ -318,16 +323,21 @@ runtime.
 
 ## Blueprints
 
+### `schema`
+
+`Facet.schema` is the frozen property-schema facade used by constructors and
+modifiers. It exposes read-only class facts and pure inspection/validation
+functions; see [the property schema](#the-property-schema) for each member.
+
 ### `UI.*` constructors
 
-`app.controls` (conventionally `local UI = app.controls`) is the blueprint
-constructors. Blueprints are immutable plain
-tables describing a tree; they carry no reactivity themselves, but any prop
-may be a Compose readable or a `function(use) ... end` binding, and the mount
-layer subscribes it to the right update
-class. Every constructor takes one spec table; `id` gives a node stable
-identity (required for anything you want to address later — focus, tests,
-dumps).
+`app.controls` (conventionally `local UI = app.controls`) constructs nodes owned
+by the current Compose lifetime. A node is a mutable runtime object, not an
+immutable template to reuse across mounts. Reactive properties accept Compose
+readables or `function(use) ... end` bindings. Build fresh nodes inside each
+component factory. Every constructor takes a property table; the optional named
+form `UI.Text("Title") { text = "Hello" }` gives a stable path for focus, tests
+and diagnostics.
 
 **Construction is strict.** Every spec is validated against the public schema
 (`src/blueprint_schema.luau`) at build time, and each of these is an immediate
@@ -380,6 +390,9 @@ wrong parent is CAUGHT rather than ignored.** A `lineAlign`, `shrinkWeight` or
 for that parent — a property that is accepted must do something.
 
 #### The property schema
+
+`local schema = Facet.schema` provides read-only inspection and validation for
+extensions and contract tooling, without creating an application.
 
 The schema is the authority every constructor and modifier rules against. Its
 members are named here because an extension author reads them to make an
@@ -458,7 +471,7 @@ Three groups recur in the column below and are worth naming once:
 |---|---|---|
 | `animation` | every rendered class | Static named presets for `layout`, `scale`, `opacity`, `rotation`, `offset`; each property must be supported by the node. `false` disables that animation. Layout declarations coordinate surviving descendants at the next refresh; property declarations animate paint without layout work. See [component motion](../guide/15-components.md#animate-values-with-the-compose-runtime). |
 | `id` | every class | stable node identity; required to address the node later (focus, tests, dumps) |
-| `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="hug",min=,max=}`, `{type="fill",weight=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`, `{type="content",lines=,role=}` **or** `{type="content",rows=,of=}` (content-terms sizing — see below). The `px`/`min`/`preferred`/`max`/`of` fields take a number **or a theme metric name** (see below); `UI.fill(weight?)` and `UI.hug({min?,max?})` are the shorthand for the two most common raw tables |
+| `width`, `height` | every rendered class | dimension tables: `{type="fixed",px=}`, `{type="content"}`, `{type="hug",min=,max=}`, `{type="fill",weight=,min=}`, `{type="percent",fraction=,offset=,min=,max=}`, `{type="minMax",min=,preferred=,max=}`, `{type="aspect",ratio=}`, `{type="content",lines=,role=}` **or** `{type="content",rows=,of=}` (content-terms sizing — see below). The `px`/`min`/`preferred`/`max`/`of` fields take a number **or a theme metric name** (see below); `UI.fill(weight?)` and `UI.hug({min?,max?})` are the shorthand for the two most common raw tables |
 | `margin` | every rendered class | outer spacing the parent reserves around this node; a number, a spacing-step name, or `{top?,right?,bottom?,left?}` of either. A **`fill` child spends its own margin out of its fill**, on every container — a `ZStack` layer with `margin = { top = 56 }` is 56 px shorter, not 56 px lower — and a filled axis therefore ignores `alignH`/`alignV`, because there is nothing left to align. A non-fill child keeps its size and is displaced, so alignment still applies to it |
 | `anchor`, `offsetX`, `offsetY` | children of an `Anchor` (a `ScrollView` also reads the offsets as scroll-time nudges); a stack, grid or wrap parent places by flow and ignores all three | placement corner plus offset; offsets update in the arrange pass only (no re-measure). An offset takes a number, a theme metric name (`"-s"` negates one), or a **fraction of the parent's inner extent**: `{ scale = 0.5 }`, `{ scale = 0.5, offset = -4 }` (the marker-overlay shape — see `Anchor`) |
 | `alignH`, `alignV` | children of a `ZStack` | per-child cross-alignment (`start`/`center`/`end`) |
@@ -481,6 +494,15 @@ Three groups recur in the column below and are worth naming once:
 | `offset` | every rendered class | paint-only translation in px from the node's SOLVED position (`{x=,y=}`; `0,0` = unmoved; gap 16, framework-gaps-phase2). It changes nothing the solver sees — the box, the hit target and the focus order stay at the solved position; to change WHERE a node is, change its layout (`margin`, `Anchor` offsets, position in the tree) — and it **adds** to any offset the framework is applying (a slide transition, a keyboard shift), the same composition rule `rotation` uses. Reactive and animatable through `presenter.withAnimation`'s steady state (it does not itself participate in a flight's interpolation) |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme, or **`"fit"`** — the largest size that fits the box this node lands in, chosen by the SOLVER (option form `{ fit = { cap = <role or px>, floor = <role or px> } }`; see below). A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. A px or role size is scaled at both seams; a `"fit"` size is already the painted one |
+
+A fill dimension may declare `min` as a finite nonnegative pixel value, theme metric,
+or additive list of those values. Stack shares keep their weighted integer sizes
+when those meet the floors; constrained shares take their floors and the remaining
+room is shared by the remaining weights. Margins are paid outside a positive floor.
+An impossible offer keeps the minimum and reports overflow; explicit grid tracks
+are not expanded. Spacer `minLength` retains its separate base-plus-remainder rule.
+Omitting `min` preserves the existing fill behavior. Minimum-bearing fills require
+finite positive weights. `UI.frame`'s infinity form remains a plain fill.
 
 **`{ type = "content", lines = n }` / `{ type = "content", rows = n, of = metric }`**
  is how a box declares its extent in CONTENT TERMS — "about N lines/rows",
@@ -608,7 +630,7 @@ selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `onSelected` — the label colour the theme itself chose to read on `controlSelected`, gated at 4.5:1 — `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `onSelected` — the label colour the theme itself chose to read on `controlSelected`, gated at 4.5:1 — `danger`, `onDanger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -733,9 +755,10 @@ carrying the `facet-state-disabled` tag and dims it to that theme's own
 
 Three consequences, all deliberate, none of them a bug to report:
 
-- **Text only.** Image paint is legal in a theme rule only inside a nineSlice
-  chrome recipe (see [`themes`](#themes)), so a picture inside a disabled subtree
-  keeps its own paint. Give it a `tint` if it should dim with the panel.
+- **Authored pictures keep their own paint.** Give a picture a `tint` if it
+  should dim with the panel. The framework's generated primary control icons
+  are managed chrome: their image opacity follows the same disabled decision
+  as the label, while their hidden fallback glyph stays suppressed.
 - **The tag reaches the classes that consume it** — `Button`, `Toggle`,
   `TextField` and `Text` — and not every node in the subtree. Writing a property
   to a container the renderer had elided materializes it permanently, and the
@@ -932,7 +955,7 @@ normalized progress, threshold visibility callbacks, and gesture snap; see
 keep-visible and bookmark writes take precedence over gesture snapping.
 
 
-`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box: `max(0, chromeBleed − the slot's own carve)`, because a carved frame already holds content that far from the clip edge (`chrome_slots.bleedLane`, netted per solve). A scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
+`UI.ScrollView{ id?, axis? ("y" default | "x" | "xy"), scrollEnabled?, extent?, padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box: `max(0, chromeBleed − the slot's own carve)`, because a carved frame already holds content that far from the clip edge (`chrome_slots.bleedLane`, netted per solve). A scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
 — scrolling container. `onScrollWheel(path, delta, rectOf)` receives
 hover-wheel input routed by the adapter (the composite scrolling controls use
 it; a plain `ScrollView` relies on the native host instead). the scroll axis measures children unbounded and reports
@@ -953,6 +976,54 @@ remain construction-only.
 canvas extent along x, and stretches cross-axis `fill` children to the viewport
 height (before this the solver stacked horizontal children in a column and
 reported a canvas the engine could not scroll to).
+
+**…and both at once.** `axis = "xy"` is the engine's own `ScrollingDirection.XY`:
+children stack down it exactly as they do on `"y"`, and the difference is that
+neither axis clamps its canvas to the viewport — so content past the box on
+*either* axis is reachable. Reach for it for a map, a wide table, a pinboard.
+
+An `xy` host is treated as a `"y"` host everywhere a single axis is assumed, and
+the chrome lane, leading-edge bleed reserve, drag-to-edge autoscroll band, and
+`scrollIndicatorPolicy = "auto"` bar compensation all take their vertical branch.
+An xy board that overflows only horizontally therefore keeps no bottom lane and
+still widens for the vertical bar. These are the current single-axis chrome
+policies; they do not infer the overflowing axis.
+Nested-scroller arbitration follows the same chain rule as any other pair: an
+`xy` host already at the end of the band the drag is asking for is transparent and
+the page behind it wins. **Wheel and touch momentum between nested plain
+scrollers is the ENGINE's arbitration, not Facet's, exactly as it is for two
+nested `y` hosts.**
+
+**`scrollEnabled`** (`Bound<boolean>`, default true) freezes **player** scrolling
+through the engine's own `ScrollingEnabled`, and Facet's own drag-to-edge
+autoscroll respects it too. Nothing else changes: the offset it was at is the
+offset it stays at, every child keeps its rect, and **framework keep-visible and
+`controller.scrollTo` may still move the canvas** — focus reaching a node the
+player cannot see is the one thing a freeze must not cause. Bindable, because a
+screen freezes a list while a sheet owns the gesture and thaws it afterwards. A
+freeze re-places; it never re-measures.
+
+**`extent = { width?, height? }`** states the canvas directly, in pixels or as a
+theme metric name, for a host whose canvas is a *coordinate space* rather than a
+content sum — a map with three markers on it has a canvas the size of the map and
+content of three pins. At least one axis is required, and **only on an axis this
+host scrolls**: a `y` host takes `height`, an `x` host `width`, an `xy` host
+either or both. A cross-axis `extent` is a spec error, because the adapter clamps
+a canvas back to the window on an axis the engine cannot scroll (it must, or the
+engine draws a bar nothing can move) — so accepting one would be a declaration the
+live target discards and a headless one honours. The axis left out keeps the
+derived canvas (content + the padding the solve spent + the chrome lane it kept).
+Construction-only, and it needs a static `axis` for the same reason a tile mode
+needs a static `scaleMode`. Each authored extent must be positive and finite, or
+name a known non-negated metric that resolves to positive finite pixels. Zero,
+negative, infinite, NaN and unknown values refuse; a bad live metric answer keeps
+the last published canvas until the metric recovers.
+
+**`indicators` is one word for both axes.** *Engine limit, recorded rather than
+worked around:* a `ScrollingFrame` carries ONE `ScrollBarThickness` for both bars,
+so there is no per-axis suppression to expose — a per-axis table whose axes
+disagreed would be a declaration that does nothing, and one whose axes agreed
+would be this word. A table is refused at construction.
 
 **Scroll indicators (director ruling 2026-08-28, the latest of three).** The
 environment derives `scrollIndicatorPolicy` from `interactionClasses.primary`
@@ -1038,7 +1109,7 @@ service rather than a per-control recipe:
 |---|---|
 | `controller.scrollTo(path, {x,y})` | programmatic position; the engine clamps it |
 | `controller.scrollPosition(path)` | the LIVE offset, read from the engine (it co-authors the value, so a user fling the framework never saw is still reflected) |
-| `controller.scrollToVisible(path, localRect?)` | scroll the node's nearest `ScrollView` **ancestor** the minimum distance that brings the node fully into view, or the supplied `{x,y,w,h}` rectangle relative to it; returns `false` when it is already visible, has no scroll ancestor, or the adapter has no scroll seam |
+| `controller.scrollToVisible(path, localRect?)` | scroll containing `ScrollView` **ancestors**, inner to outer, the minimum distance that brings the node into view, or the supplied `{x,y,w,h}` rectangle relative to it; uses each host's canvas limits and returns `false` when no host moves, there is no scroll ancestor, or the adapter has no scroll seam |
 | `controller.observeScroll(path, fn)` | engine-driven offset changes (virtualization consumes this) |
 
 `scrollToVisible` is the ONE keep-visible substrate: the presenter calls it on
@@ -1573,7 +1644,7 @@ grid without `GridRow` children keeps inferring its rows from `columns`.)
 
 ### `Text`
 
-`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, disclose?, reveal?, help?, role?, surface?, tint?, width?, height? }`
+`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, truncate?, rich?, direction?, disclose?, reveal?, help?, role?, surface?, over?, tint?, width?, height? }`
 — text label. `text`/`textSize` changes invalidate measurement; text metrics come
 from a non-yielding provider with conservative fallbacks for unknown
 fonts/scripts. `textSize` takes a px number or a typography role name, which
@@ -1676,10 +1747,98 @@ other `controls.*` metric) on both axes, so a one-digit count never draws as a
 bare glyph hugging its own pixels. Declare either dim yourself and it wins — the
 floor only reaches an undimensioned badge.
 
+**`over = "media"`** is a construction-only contrast treatment for text on an image
+or video. It uses the existing native style classification and the theme's
+strong surface/content pair. Other words and bound values are refused.
+
 **`tint`** is the continuous-colour channel (see [above](#continuous-colour-tint));
 on a Text it claims `TextColor3`. `role` remains the way to say "secondary" — a
 tint is for a colour a role cannot name, and it leaves `TextTransparency` alone so
 the disabled state still dims.
+
+**`truncate`** decides *where* an over-long value is cut: `"end"` (the default,
+the engine's own end ellipsis, which is what every label has always done) or
+`"middle"`, which keeps the head **and** the tail — `"Coastal circui…lap 14"`.
+Reach for middle truncation when the ending is what identifies the value: a track
+name with a variant suffix, a file path, an id. The engine has no such mode, so
+this is a fit policy: the solver knows the width the label ended up with, the
+library sizes a head + `…` + tail to exactly that width, and the result is
+painted through the one text seam. The width it fits is the **drawable** one —
+the box minus the label's own padding, which is what the glyphs actually get. It
+is re-derived only when the string, the face, the size, that drawable width or
+**the measurer's own answers** move (the last is the engine's boot window: a cut
+taken before the text metrics settle is taken again once they do) — never per
+frame.
+
+Pair it with **`disclose`**: the node paints a shortened string, so the full value
+has to stay reachable, and `disclose` is that route. `truncate = "middle"` needs
+`lineLimit = 1` (a head-plus-tail form is one line by definition) and cannot be
+combined with `rich = true` — a cut through the middle of markup falls inside a
+tag. Both are spec errors.
+
+The disclosure plate and the `reveal = "auto"` strip render a `rich` label's value
+**as rich**, so the escape hatch shows the reader what the label showed rather than
+its tags.
+
+**`rich`** (construction-only, default false) parses the text as the engine's own
+markup — `<b> <i> <u> <s> <font> <stroke> <br> <uc>/<uppercase> <sc>/<smallcaps>
+<mark>` plus the five escapes `&lt; &gt; &amp; &quot; &apos;` and `<!-- -->`
+comments. A `<font weight="…">` is understood in every spelling the engine
+accepts — `heavy`, `Heavy` and `900` all name the same face.
+
+Facet caps authored `<font size>` values at 100 before publishing rich text to
+layout, native targets and disclosure/reveal surfaces. The bounds service caps
+its measurements there even though native rich text can paint larger values.
+The caller's string stays unchanged; plain text, sizes at or below 100, comments
+and quoted non-size attributes retain their bytes. Malformed markup retains the
+existing literal fallback. Text and runs share one layout parse; normalization
+is a separate bounded pass when the authored text changes.
+
+**The box is reserved for what the player SEES.** With `rich` on, the measurer
+takes the *displayed* text — every well-formed tag removed, escapes decoded,
+`<br/>` counted as a line break, `<uc>` content upper-cased — so a heavily
+marked-up label reserves the same box as its plain equivalent instead of one wide
+enough for the tags. Truncation, wrapping and the disclosure value all follow the
+displayed form.
+
+A tag Facet does not name is **removed too**, because the engine removes it:
+measured live, `<blink>Lap record</blink>` renders as `Lap record`. **Malformed**
+markup — a `<` that does not open a tag — is measured as the RAW string, because a
+failed parse is what the engine draws.
+
+**A face-changing span is measured at its own face**, which is the difference
+between a correct box and a clipped label: measured live at 24 px, a rendered
+`<b>` run is 3.5% wider than plain, `<font weight="heavy">` 6.6% and `<uc>` 16%,
+and the engine's own bounds call reports the *plain* width for bold even with rich
+text on. So the span's weight, face and size travel with the string to the
+per-word measurement key.
+
+**What is still approximate, and it can CLIP.** `<sc>`/`<smallcaps>` is measured
+upper-cased, which is *wider* than the small capitals drawn (the box
+over-reserves); a `<font>` that changes face and weight together takes the face's
+regular weight; and nested spans take the innermost declaration only. Every
+residual but the last over-reserves; a nested face-changing span inside another
+one can under-reserve, and an under-reserved label is end-ellipsized by the engine
+(`TextTruncate.AtEnd` is on for every text node). Keep spans flat in a box that is
+tight.
+
+**Escape anything you did not author.** `Facet.richText.escape(s)` escapes the
+five characters the parser reads; call it on player names, server strings and
+anything else composed into markup, or a value containing `<` either paints as a
+tag or breaks the parse for the whole label. It is *not* a text filter — whether
+a player may say a thing is the game's and the platform's decision.
+
+```lua
+UI.Text("Result")({
+    rich = true,
+    text = "Finished <b>1st</b> as " .. Facet.richText.escape(racerName),
+})
+```
+
+**`direction`** maps to the engine's `TextDirection`: `"auto"` (derive it from
+the characters), `"ltr"` or `"rtl"`. Absent leaves the engine's class default
+standing, which is **not** the same as authoring `"auto"` — absent writes
+nothing. Construction-only.
 
 `color` and `font` are **diagnosed, not accepted** (see `DEPRECATIONS`).
 Neither ever reached a render target: `color` was dropped entirely, and `font`
@@ -1688,21 +1847,73 @@ painted bounds disagree. Both are style authority — use `role`.
 
 ### `Image`
 
-`UI.Image{ id?, image?, surface?, tint?, scaleMode?, imageFraming?, width?, height? }` — image
+`UI.Image{ id?, image?, surface?, tint?, shape?, scaleMode?, tileSize?, sliceCenter?, sliceScale?, resample?, imageFraming?, width?, height? }` — image
 node; `image` is an asset string (pair with `newResourceProvider` for async
 ready/pending/failed handling). `image` is optional so a node can mount empty and
 receive content later — that is exactly what `UI.AsyncImage` binds.
 
+**`shape`** defaults to `"rect"`. `"circle"` uses the shared 1:1 layout guarantee:
+author at most one axis and the other follows, including bound, fill, and percent
+dimensions. A second axis binding counts as authored even while its value is nil. With neither axis it uses the control height metric. The direct image
+gets a true circular native corner, independent of the theme's pill radius, with
+no implicit border or extra render buffer. `shape` is construction-only. The new
+circle form refuses `imageFraming`, including a late bound value; the last valid
+direct image remains until the binding recovers. Direct circles also refuse
+`scaleMode = "slice"`: the engine fragments the nine-slice picture under that
+corner. Use fit/crop/stretch/tile, or deliberately place a rectangular slice Image
+inside a `shape = "circle", canvasGroup = true` ZStack, paying one render buffer
+for the circular mask. Rectangular framing and nine-slice images are unchanged.
+
 **`scaleMode`** decides how the picture fills the box the solver already sized —
 `"fit"` (contain: the whole picture, letterboxed), `"fill"` / `"crop"` (cover:
 aspect preserved, overflow cropped), `"stretch"` (ignore the aspect ratio, the
-engine's own default). `fill` and `crop` are deliberate synonyms: Roblox's `Crop`
+engine's own default), `"tile"` (repeat it) and `"slice"` (nine-slice it).
+`fill` and `crop` are deliberate synonyms: Roblox's `Crop`
 *is* the cover behaviour other vocabularies call fill, and neither audience should
-have to look it up. Nine-slice is **not** offered here — slice geometry is
-theme-owned chrome (a package's `sliceCenter`/`sliceScale`), and an authored slice
-would be a second authority over the same engine properties. `scaleMode` is style
+have to look it up. `scaleMode` is style
 authority and it claims `ScaleType` in native mode, exactly as `tint` claims a
 colour.
+
+**`tile` and `slice` carry their geometry in a companion key, and the pair is
+checked both ways.** `"tile"` requires `tileSize = { width, height }` in **whole**
+pixels greater than zero — the size one repeat is drawn at; whole, because the
+engine's tile offset is an integer and truncates a fraction silently. `"slice"`
+requires `sliceCenter = { x0, y0, x1, y1 }`, the stretchable centre **rectangle in
+SOURCE pixels** — the engine's own `SliceCenter`, and the same name and shape a
+theme package's own art declares. A 64×64 source with an 8px border is
+`{ x0 = 8, y0 = 8, x1 = 56, y1 = 56 }`. These are rectangle **edges, never
+insets**: turning "an 8px border" into a rectangle needs the source's pixel size,
+which the engine resolves asynchronously after the content loads. `sliceScale`
+(default 1, `> 0`) is how much the border run is scaled by, and is legal only with
+the slice mode.
+
+Declaring a geometry key without its mode, or a mode without its geometry, is a
+spec error: a `tileSize` with no tile mode paints nothing, and a tile mode with no
+`tileSize` falls back to one repeat across the whole box, which is `stretch`
+wearing another name. The geometry keys are **construction-only**, so `"tile"` and
+`"slice"` are authored as static words — a bound `scaleMode` that resolves to
+either is refused at the binding write, with the reason, rather than painting a
+mode with no geometry.
+
+A **theme's** own nine-slice frames are unaffected and unrelated: those are the
+adapter's chrome images, driven by a package's `sliceCenter`/`sliceScale`, and
+they never meet a node's own `Image`. This key exists for CONTENT art — a
+repeating background, a stretchable panel picture a screen supplies.
+
+**`resample`** is `"default"` (the engine's smooth filter) or `"pixelated"`
+(nearest neighbour). Reach for `"pixelated"` for pixel art, which otherwise
+blurs at any size but 1:1. Reactive, like `scaleMode`.
+
+```lua
+UI.Image("Backdrop")({
+    image = "rbxassetid://YOUR_GAME_ART",
+    scaleMode = "tile",
+    tileSize = { width = 32, height = 32 },
+    resample = "pixelated",
+})
+```
+
+`UI.AsyncImage` forwards all five picture keys verbatim.
 
 **`imageFraming`** optionally replaces `scaleMode` with explicit source framing:
 `{ width, height, mode?, focusX?, focusY?, scale? }`. `width` and `height` are
@@ -1750,10 +1961,31 @@ its outer surfaces. It does not change focus order or activation.
 
 
 `UI.Button{ id?, label (required), compactLabel?, disclose?, enabled?, selected?,
-role?, shape?, icon?, gap?, align?, help?, surface?, textSize?, padding?,
+role?, shape?, icon?, controlSize?, appearance?, over?, gap?, align?, help?, surface?, textSize?, padding?,
 focusable?, focusVisual?, traversalPriority?, onActivate?, children?,
 onPointerDown?, onPointerMove?, onPointerUp?, onPointerCancel? }` — activatable
 control.
+
+**`controlSize`** (`"compact" | "regular" | "large"`, bindable) and
+**`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link"`,
+bindable) are the **paint half** of the shared local vocabulary — each becomes one
+style tag (`facet-size-<rung>`, `facet-appearance-<word>`) that the theme's rules
+key on, exactly as `role` does. Neither moves geometry: the *measurements* of a
+rung are the theme ladder metrics `controlSizes.<rung>.{height,paddingX,iconSize}`,
+which a composite authors as ordinary `height`/`padding` props. `appearance` is
+emphasis only and composes with `role`, which stays the semantic channel:
+`role = "destructive", appearance = "utility"` is a quiet delete. `"standard"` is
+the paint an untagged button already has and earns no tag. Absent on both means
+today's paint, unchanged. **`over = "media"`** (construction-only) is the one tag
+for a control drawn on top of artwork: it takes the theme's strong opaque surface
+and the content colour gated against it, instead of the caller painting a scrim.
+
+All three reach the engine as **tags and nothing else**, so their paint is the
+theme's. On a target whose engine has no native StyleSheet support Facet has no
+rule to key on and will not open a second colour authority for one: the words are
+accepted and paint nothing there, while the *measurements* a rung drives work on
+every target. See `UI.Button` for the composite that authors these three
+plus `corners` from one spec.
 
 **`disclose`** (boolean, construction-only) gives a one-line label the same
 full-value path a `Text` carries: where the label truncates, hovering or
@@ -2157,8 +2389,12 @@ UI.HStack({
 
 ### `Box` / `Spacer`
 
-`UI.Box{ id?, width?, height?, surface?, tint?, canvasGroup?, opacity?, offsetX?, offsetY? }`
-— plain rect. `UI.Spacer{}` consumes available main-axis space in a stack.
+`UI.Box{ id?, width?, height?, surface?, tint?, shape?, canvasGroup?, opacity?, offsetX?, offsetY? }`
+— a painted rect by default. Its construction-only `shape = "circle"` follows the
+same one-axis/square rule as Image and preserves Box tint paint. The circular
+corner follows the shape rather than the theme's pill radius, adds no implicit
+border, and does not allocate a render buffer. `UI.Spacer{}` consumes available
+main-axis space in a stack.
 
 | Property | Type | Meaning |
 |---|---|---|
@@ -3207,7 +3443,7 @@ appears. Spec-first is deliberate — the collection is the thing being produced
 ### `UI.AsyncImage`
 
 `UI.AsyncImage { provider, key, id?, width?, height?, failureLabel?, retry?,
-dimmed?, ref? }` — or `UI.AsyncImage("Id") { … }` — an image whose content
+dimmed?, scaleMode?, tileSize?, sliceCenter?, sliceScale?, resample?, ref? }` — or `UI.AsyncImage("Id") { … }` — an image whose content
 arrives through the async resource provider (native-substrate NS-A14). It
 returns the control's node: a `ZStack` that shows a placeholder surface while
 `pending`, the fetched content when `ready`, and a visible failure mark when
@@ -3284,6 +3520,10 @@ end
 
 `docs/extending/new-control.md` walks the rest of the playbook.
 
+`UI.AsyncImage` forwards `scaleMode`, `tileSize`, `sliceCenter`, `sliceScale`
+and `resample` to its owned Image. The same mode/geometry pairing and binding
+rules apply; provider lifetime and the ready/pending/failed states are unchanged.
+
 ### `pathShapes`
 
 `Facet.pathShapes` — pure, headlessly-tested shape math for `UI.Path`
@@ -3300,6 +3540,17 @@ end
 All three return normalized control points (unit box; tangents relative to each
 point; exact circular-arc bezier handles). Angles are screen-clockwise with 0°
 at 12 o'clock.
+
+### `richText`
+
+`Facet.richText.escape(s) -> string` escapes `< > & " '` before composing text
+into `UI.Text { rich = true }` markup. Escape player names and server strings at
+the composition site; ordinary text is unchanged. This is not player-text
+filtering: the game still uses the platform's filtering rules.
+
+```lua
+UI.Text { rich = true, text = "<b>" .. Facet.richText.escape(playerName) .. "</b> wins" }
+```
 
 ### Engine-selection bridge (a presentModal opt)
 
@@ -4032,7 +4283,7 @@ an unknown one is refused at present time:
 `cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`,
 `traversalWrap`, `keyboardNavigation`, `initialFocus`, `focusChrome`,
 `engineSelectionBridge` (the `presentModal` mirror described above),
-`fallbackScreen` (read by `presentCritical`), and the two performance opts the
+`fallbackScreen` (read by `presentCritical`), and the performance opts the
 surface hands straight to `renderer.attach`:
 
 - **`recycleInstances`** (default **on**) — park a retiring node and reuse it for
@@ -4046,6 +4297,14 @@ surface hands straight to `renderer.attach`:
   and same rect as last time), replaying that subtree's published verdicts and
   diagnostics. Same traversal, same context, same policies as a full solve. Pass
   `false` to opt out.
+
+Four additional comparison switches also default **on**: `measureReuse` reuses
+measurements between solves, `commitScope` prunes unchanged commit subtrees,
+`structuralReuse` limits structural solves to a valid boundary, and
+`translateHosts` uses coordinate-space hosts for translations. Pass `false` to
+compare with the corresponding baseline path while keeping the same mounted
+component and application lifetime. These are diagnostic options; they do not
+change authored layout semantics.
 
 The four string-enum opts — `rootPolicy`, `responder`, `cancelPolicy`, `scrim` —
 are validated at present time and an unknown value errors naming the legal set.
@@ -4863,8 +5122,14 @@ contribution at present time (idempotent).
 attaches to its root (`contribution.attach(rootBlueprint, bundle)`; every field
 optional): `focusGroups(rootNode)`, `handleActivate(path, meta)`,
 `navigateIntercept(direction)`, `focusMoved(path)`, `syncGeometry(rectOf)`,
-`keepVisibleOffset` (a readable number), `bindActionSystem(actionSystem)`,
+`keepVisibleOffset` (a readable number), `bindActionSystem(actionSystem, surfaceContextOf?)`,
 `bindFocusGraph(focusGraph)`, and the **paradigm-axis seams** (UI-PARADIGM-001):
+- `bindActionSystem(system, surfaceContextOf?)` receives an optional getter for
+  this surface's own context. It initially returns nil: contributions bind before
+  the context exists. The getter starts answering before the surface publishes
+  its actions. Existing one-argument contributions work unchanged; binding may
+  repeat during structural refresh, so keep it idempotent.
+
 - `bindFocusGraph(focusGraph)` — the presenter hands over the screen's focus graph
   at the same moment it binds the action system and the controller, for the one
   case a control has to **move** focus rather than follow it: the data under a
@@ -5165,8 +5430,17 @@ for input contexts — constitution E-17). Prefer the setters over writing
 `context.enabled`/`.sink` directly: a bare field write works headlessly and is
 dead on the real engine adapter.
 
+`system.actionNamed(name, preferredContext?)` resolves a non-destroyed preferred
+context first, even if disabled; otherwise it uses enabled contexts by descending
+priority, with creation order breaking ties. This names a binding; it does not
+change input arbitration. `system.revision` is a Compose cell advanced after
+context/action/binding changes that affect lookup, and native engine preferred
+binding changes. `preferredBinding(kind)` chooses a live binding from that
+resolved device class first; an engine preference breaks ties only within it.
+Non-touch callers can fall back to the first real key; touch has no key fallback.
+
 **Lifecycle.** The system is a **session object**: it holds every context it
-created, every action on them, and one core signal per action. It lives as long
+created, every action on them, and the action state/revision Compose cells. It lives as long
 as the surface it serves, and it is put down explicitly.
 
 - `system.contextCount() -> number` — how many contexts it is still holding.
@@ -5281,9 +5555,10 @@ auto-repeat finding that surfaced it.
 `Facet.inputHint(core, env, action, opts?)` — a reactive input-affordance label
 for an action, answered as a Compose readable string. It tracks the
 environment's `effectiveInput` fact and resolves the action's
-`preferredBinding(...)`, returning that binding's `displayName` (falling back to
-its `keyCode` / `uiButton`), or `""` when no binding matches the current input
-class (nil-tolerant). Bind the readable to a `UI.Text` `text` prop and the label
+`preferredBinding(...)`. Labels prefer the binding's explicit `displayName`, then
+UserInputService's native name, a shared readable name, and the raw key/uiButton.
+Whitespace-only or unchanged enum answers do not replace the readable fallback.
+No binding yields `""`; non-touch classes may fall back to another actual key. Bind the readable to a `UI.Text` `text` prop and the label
 re-flips with no remount when the player switches input device:
 
 ```lua
@@ -5309,6 +5584,10 @@ KEY, it differs by VERB: you tap, you do not press Enter.
 
 An unknown `style` is refused at the call, naming the two legal values — the
 same rule `rootPolicy` and `cancelPolicy` follow. So is an unknown `opts` key.
+
+This helper tracks input-class changes for the action object it was given;
+it does not subscribe to same-class binding mutations. Use `UI.ShortcutHint`
+when the affordance must follow a live semantic action lookup and rebinding.
 
 **`opts.scope`** takes an owner and disposes the returned formula with it. Omit
 it and the active Compose owner has the memo; outside any owner, disposing it is
@@ -5590,9 +5869,10 @@ root = Facet.contribution.attach(root, {
 })
 ```
 
-`contribution.attach(rootBlueprint, bundle) -> Blueprint` returns a new frozen
-blueprint carrying the bundle on the internal `meta` channel (never in the
-public prop bag). `contribution.read(mountedNode) -> Bundle?` is the presenter's
+`contribution.attach(rootNode, bundle) -> node` decorates an owned Compose node
+in place and returns the same node. The bundle lives on its internal `meta`
+channel, never in the public prop bag. For an internal immutable blueprint it
+returns a new frozen blueprint instead. `contribution.read(mountedNode) -> Bundle?` is the presenter's
 side and type-guards a non-table value to `nil`. `contribution.PROP` is the
 `meta` key the two share — exported so a tool that inspects a blueprint or a
 dump can find the bundle without hard-coding the string; a control author uses
@@ -5862,6 +6142,12 @@ modal scopes trap and restore the previous focus on pop.
   `graph.setGroupOrder(scopeName, groupName, order, columns?)`,
   `graph.remove(id)` — structural updates keep focus when it survives, else
   the nearest surviving neighbor (preferring the following item).
+
+`graph.navigationTarget()` is the destination of the last real navigate,
+navigateDirection or traverse movement, published before focus subscribers run.
+Accepted explicit `focusOn` clears it, even if focus paint remains visible. TabView
+uses this authority for bookmark restoration; shoulder entry consumes its pending
+handoff after restoring the eligible target.
 
 **Geometry for automatically derived navigation.** Inferred layout groups receive
 `rectOf` from the renderer. For these groups, directions search visible eligible
@@ -7232,6 +7518,18 @@ dependencies, because both the sheet model and the theme-package compiler gate
 on the same answer — so a game overriding the destructive palette can ask what
 the contrast gate will actually run against.
 
+`tokens.successPair(colors)` and `tokens.warningPair(colors)` return the effective
+plate and readable partner. Without authored values, success uses accent/onAccent
+and warning uses content/surface. Authored pairs win; both package and sheet
+compilation require contrast ≥4.5:1. A newly authored plate requires its partner.
+
+The public tint roles include `success`, `onSuccess`, `warning`, and `onWarning`.
+Managed icon pictures beneath nodes explicitly tinted `onAccent`, `onSuccess`,
+`onWarning`, or `onDanger` take that partner color through native sheet rules.
+This also applies to selected menu and picker content. Other icon roles remain
+package-owned. This semantic lettering does not change disabled alpha or the
+hidden fallback glyph, and is not arbitrary per-node RGB inheritance.
+
 The built-in default style ("Facet Neutral",
 `src/tokens/default_style.luau`) is the neutral floor every app gets for
 free; games override via their own schema. Style-modifier normalization
@@ -7628,21 +7926,45 @@ verbs, so `api` is the control's own record and `dump()` is the half worth
 reading.
 
 One boolean selection control with `presentation = "switch"` (default),
-`"checkbox"`, or `"button"`. Required `value` is a caller-owned writable Compose
-cell of boolean. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
-`row`, and `children` (custom button content only).
+`"checkbox"`, or `"button"`. Required `value` is a boolean Compose readable or
+`function(use)` binding. Optional fields are `id`, `label`, `enabled`, `onChange(value)`,
+`row`, `hint`, `indicatorPosition`, `controlSize`, `width`, and `children` (custom button content only).
+
+Without `onChange`, `value` and any `mixed` binding must be writable cells;
+activation updates them directly. With `onChange(wanted)`, activation requests
+the proposed boolean exactly once and writes neither binding. The model accepts
+by writing its state; declining or delaying that write preserves the displayed
+value. The callback's return value is ignored. A readonly binding requires this
+callback. Caller writes update the display without calling `onChange`.
 
 `row = { description?, icon?, value? }` turns the control into a settings row:
 the label leads, an optional description and semantic icon sit with it, and the
-toggle's own value reads out trailing. `row` and `children` cannot be combined,
-and `row.value` is refused because the toggle supplies it.
+actual switch or checkbox sits beside the copy. Switches default trailing,
+checkboxes leading; `indicatorPosition = "leading" | "trailing"` overrides that.
+Button presentation keeps its trailing state word and refuses indicatorPosition.
+`hint` is bindable secondary text for a standalone setting; use `row.description`
+in a row, since `hint` and `row` cannot be combined. `row` and `children` cannot
+be combined, and `row.value` is refused because the toggle supplies it.
+
+Bindable `controlSize` uses the shared compact/regular/large ladder; nil restores
+the default. Bare switches retain native track padding. A row's internal indicator
+has no independent focus or command: the row owns activation and model approval.
+Its width resolves `controls.toggle.markWidth`, an optional theme metric defaulting
+to `trackInset + trackWidth + trackInset`; an authored value overrides that default.
+
+Bound `width` accepts the ordinary Dim vocabulary. Omission keeps the presentation's
+settings-row default. Plain switches and checkboxes accept hug/content/minMax widths;
+their label columns measure their own copy, so hugging checkboxes can wrap in a HStack.
+Row and button forms refuse content-sized widths by name; fixed/fill remain supported.
+Later width changes use the same checked source and recover after an invalid update.
 
 Switches paint their initial value immediately. Later value changes slide the knob
 without overshoot; pressing a switch keeps its label size unchanged. Reduced
 motion places the knob immediately.
 
-Checkboxes additionally accept `mixed`, a second caller-owned writable boolean
-cell. Mixed activation sets `value` to true and clears mixed in one transaction.
+Checkboxes additionally accept `mixed`, a second boolean binding. Mixed
+activation proposes true. Without a callback it sets `value` to true and clears
+mixed in one transaction; with a callback the model must commit both changes.
 There is no automatic three-state cycle. Clicking the label uses the same
 activation as the indicator. Checkbox labels wrap; toggle buttons retain selected
 styling between presses. Disabled controls preserve state and cannot activate.
@@ -7663,7 +7985,123 @@ end)
 
 `UI.Button { … }` -> the button's node. `ref` receives `{ api, dump }`; the
 button publishes no verbs, and `dump()` reports
-`{ schema, id, busy, enabled, repeating, dialogAction }`.
+`{ schema, id, busy, enabled, repeating, dialogAction, name, controlSize, appearance }`.
+
+#### Local size, emphasis, silhouette and backdrop
+
+Four optional keys let one screen hold a compact filter beside a large primary
+action without swapping the theme. They are shared vocabulary: every control that
+adopts them takes the same words with the same meanings.
+
+| key | values | reactive | what it does |
+|---|---|---|---|
+| `controlSize` | `"compact"` / `"regular"` / `"large"` | yes | resolves to the theme ladder `controlSizes.<rung>.{height,paddingX,iconSize}` as **metric names**, so a theme swap re-sizes the button with no rebuild, and to one style tag for the paint |
+| `appearance` | `"standard"` / `"emphasis"` / `"soft"` / `"utility"` / `"link"` | yes | visual emphasis only, through a style tag |
+| `corners` | `"pill"` / `"square"` | no | the corner treatment, through the shipped `UI.corners` modifier. `"square"` is a radius of 0, never a 1:1 box — the disc is `UI.Button{ shape = "circle" }` |
+| `over` | `"media"` | no | the control is drawn over artwork: it takes the theme's strong opaque surface and its readable content colour |
+
+Absent means **today**: a button that names none of them retains its existing layout and paint.
+
+**Paint shrinks, the footprint does not.** A control that names a rung is mounted
+inside a plain container that reserves the larger of the Button class minimum (44px) and
+`targetSizes.minimum` on both axes and
+centres the smaller plate inside it, so the solved footprint is never below a
+finger and **two sized controls cannot share a target at any gap, including none
+at all**. What a rung buys is therefore the plate's density, not the layout's: a
+row of `compact` buttons still occupies a 44px band, and still looks like a row of
+small buttons. The container takes a derived id (`<id>+target`) and the control
+keeps its own, exactly as `UI.overlay`/`UI.background` do, so focus, tests and
+dumps still address the control by the name you gave it.
+
+**An authored `height` wins over a rung.** A rung is a default; a caller who
+measured their own layout is not overruled by one.
+
+Composed content (`children`, `row` or `image`) keeps the theme's button padding
+when a rung is named; the zero-vertical rung inset applies only to simple labels
+and icons. Explicit `padding` overrides either default.
+
+**`regular` is the ladder's rung, not the untagged default.** Naming it adopts
+`controlSizes.regular.height` (44px at Facet Neutral) with the ladder's horizontal
+inset and no vertical one; an untagged button is its content plus the theme's
+button padding, which is 46px at Facet Neutral. The difference is small and it is
+real — name a rung on all the controls in a row, or on none of them.
+
+`appearance` and `role` are different questions and compose **in paint**, not just
+in name. `role` is the semantic channel and `appearance` is emphasis, so the loud
+words hand the plate to the role and the quiet ones keep their own plate while the
+role colours the content:
+
+| pairing | what it paints |
+|---|---|
+| `destructive` + `standard` / `emphasis` | the theme's danger plate with its readable partner — the role owns it outright |
+| `destructive` + `utility` | the utility plate, danger lettering — a quiet delete |
+| `destructive` + `soft` | the soft tint, danger lettering |
+| `destructive` + `link` | no plate at all, danger lettering |
+
+Each pairing holds **through hover and press** as well as at rest: the danger
+signal moves with the state on whichever channel the appearance leaves free, so a
+quiet delete never hovers back into an ordinary control.
+
+A control constructed with `controlSize` mounts at
+`<parent>/<id>+target/<id>`. Identity-based focus and keyed updates reach the same
+plate, but a stored literal path must include the wrapper. Adding or omitting the
+property at construction changes that path; a bound value becoming nil retains it.
+
+`animation` on Button or Chip belongs to the actual primitive plate, including
+when a target wrapper is present. The policy is validated against the Button
+class; wrapper-only properties such as `opacity` are refused.
+
+#### Icon-only and icon-plus-label buttons
+
+`icon` and `trailingIcon` take a **semantic icon NAME** (a framework name, or a
+package's `"ns:name"`) — never an asset id, and **construction-only**: the mark is
+drawn once, so a getter is refused rather than silently sampled. The framework
+draws its own legible glyph and an installed package paints its art over it. Each
+reserves **at least** the rung's `controlSizes.<rung>.iconSize` on both axes
+(defaulting to the `regular` rung) — a floor, not a cap, so the framework's own
+glyph still grows with the player's text preference instead of being clipped by a
+theme metric that does not.
+
+`name` is the **semantic label** for a button with no visible label, and is
+**required** for the semantic icon form there (the existing `shape = "circle"` primitive form keeps its contract): it is what a dump, a focus trace and a bug report call the
+control. Supplying `name` beside a visible `label` is refused — two answers to one
+question. `icon`/`trailingIcon` are the label's neighbours, so they do not combine
+with `children`, `image` or `row` (those are whole content forms of their own).
+A Button without drawable content refuses even when `name` is supplied. A bound
+label may start empty and acquire content later; its value remains caller-owned.
+
+```lua
+local close = UI.Button("Close")({ icon = "close", name = "Close", corners = "pill",
+    controlSize = "compact", appearance = "utility",
+    onActivate = dismiss,
+})
+```
+
+`controlSize` and `appearance` accept Compose readables and `function(use)` bindings.
+They are borrowed from the caller; changing or retracting them updates the mounted
+plate without rebuilding it. A bound rung retains its `<id>+target` wrapper when its
+value becomes nil. Every update is checked against the control's own vocabulary;
+an invalid value keeps the last legal paint and dimensions, and a later legal
+value can recover. `corners`, `over`, and semantic icon names are construction-time.
+
+A sized Button reads the mounted surface's environment to reserve the larger of
+its class hit minimum and the live theme minimum. Construction is refused without
+that environment; `Facet.new()` registers it for ordinary `app.controls` use.
+A circle keeps its one authored width or height; a rung supplies the axis only
+when neither was authored. Its existing icon-content minimum still applies.
+`trailingIcon` is refused with `shape = "circle"`, whose primitive form carries one mark.
+
+Generated primary labels and content-tinted semantic icons follow the Button's
+role, appearance, selection and interaction state through native sheet rules.
+This includes circle marks and primary text lifted above a theme's decoration.
+Managed icon opacity follows the label's disabled decision; art suppression still
+hides its fallback glyph. Package icons without a content tint keep their RGB.
+Caller-provided children and Chip accessories retain their own roles; image
+subtitles stay secondary, and package icons with explicit semantic tint roles
+retain those tints. Palette/token edits and theme changes reach this generated
+content. Editing only the root's individual StyleRule is not a general inheritance
+mechanism for its separately styled content.
+
 
 Plain text buttons accept `compactLabel`, a short alternate title or icon specification
 with the same rules as `UI.Button.compactLabel`. Do not combine it with custom
@@ -8157,6 +8595,19 @@ app.mount(function()
 end)
 ```
 
+`UI.ProgressView` also accepts bound `endLabel`, the caller's trailing phrase
+(e.g. "2 of 5"). It follows the indicator and optional formatted value, can
+shrink, and requests disclosure. Indeterminate activity can carry this phrase too. With trailing
+copy, bar segments reserve the theme's smallest spacing for each painted segment
+and its intervening gap, so copy cannot reduce the indicator to zero width.
+Bound `controlSize` names the indicator's local space-based ladder: spinner dots
+compact/regular/large use space.xs/s/m (4/8/16 at Neutral); circular indicators use
+space.m/l/xl (16/24/40). Absent or nil preserves the package's authored progress
+metrics. Explicit regular derives its rung from spacing and may differ from those authored metrics. Every rendered dimension checks the rung before publication and recovers
+on a legal value. Bars have no sized indicator and refuse controlSize; circular
+views accept either an explicit diameter or a rung. `dump.endLabel` and
+`dump.controlSize` describe the requested source values.
+
 The native host owns its Compose timeline, and the control's lifetime is the
 Compose owner that built it: removing the control releases its animation. With
 reduced motion, the indeterminate indicator rests at its initial phase.
@@ -8334,17 +8785,21 @@ adds `phase` (the live 0..1 cycle position) and `animating`.
 
 ### `UI.Label`
 
-`UI.Label { … }` -> the label's node. `ref` receives `{ api, dump }`, and the
-record carries `blueprint`, `semanticText` (a Compose readable), `dump` and
-`dispose`.
+`UI.Label { … }` returns the label's node. `ref` receives `{ api, dump }`;
+`api.semanticText` is a Compose readable, and the mounted owner handles disposal.
 
 An icon + title pair. `spec = { id?, title (required), icon?, presentation?
 ("titleAndIcon" | "titleOnly" | "iconOnly"), iconSize?, textSize?, gap? }`.
 
-`title` is **required** because it *is* the semantic text: `semanticText` is the title
-whatever the presentation, so an icon-only Label is never a control with no accessible
-name. Read it with `use(record.api.semanticText)` in a reactive body or
+`title` is a string, Compose readable, or tracked function. Its initial value must
+be nonempty. Visual text, `semanticText` and `dump()` follow the same title without
+rebuilding the control. The caller keeps later values meaningful: `semanticText` is the current title
+whatever the presentation. Read it with `use(record.api.semanticText)` in a reactive body or
 `record.api.semanticText:peek()` for an untracked value.
+`icon` takes a construction-time semantic name (such as `"checkmark"` or `"facet:search"`)
+or an asset URL. A semantic name uses the current package's icon art with the
+shared readable glyph fallback; its box can grow with the text preference. An
+asset URL keeps ordinary Image behavior and the declared icon dimensions.
 `iconOnly` **degrades to the title** when there is no icon to show — an empty
 square is worse than a word. Non-interactive: put it inside a `Button` (which takes
 content) when it must be pressable, which keeps one activation surface.
@@ -8353,12 +8808,60 @@ content) when it must be pressable, which keeps one activation surface.
 local app = Facet.new()
 local UI = app.controls
 app.mount(function()
-    return UI.Label("Saved")({ title = "Saved", icon = "check", presentation = "titleAndIcon" })
+    return UI.Label("Saved")({ title = "Saved", icon = "checkmark", presentation = "titleAndIcon" })
 end)
 ```
 
 `dump()` reports `{ schema, id, title, icon, requestedPresentation,
 effectivePresentation, degradedToTitle, semanticText }`.
+
+### `UI.ShortcutHint`
+
+A passive row of keycaps. `UI.ShortcutHint { … }` returns its node; `ref` receives
+`{ api, dump }`. It creates no context, binding, focus target or input handler.
+Give exactly one of `action = "Activate"` (a static semantic name) or
+`keys = {{ "Ctrl", "K" }, { "F1" }}` (static explicit alternatives).
+
+The action form reads its own mounted surface's action first, even while passive;
+otherwise it finds the highest-priority enabled context declaring that name.
+Naming a key does not claim the action would win input arbitration. Binding and
+context changes update it without rebuilding. The resolved input class selects
+the binding; a live engine preference only breaks ties within that class. Touch
+hides the action form, including when the action has a touch binding.
+
+Labels prefer the binding's `displayName`, then the machine's key name, then a
+shared readable name, then the raw key. A gamepad can show the platform's own
+untinted key image. Explicit keys print the supplied words on every device.
+
+| Field | Contract |
+| --- | --- |
+| `id` | Optional identity; a named constructor is the usual spelling. |
+| `action`, `keys` | Exactly one static form, as above; names/chords must be nonempty. |
+| `separator` | Bound string between explicit alternatives, default `"or"`; keys-only. |
+| `controlSize` | Bound `compact`, `regular`, or `large`; defaults regular. |
+| `over` | Construction-only `"media"`; also applies to the joining word. |
+| `env` | Optional surface environment; supply it when the app serves ambiguous surfaces. |
+
+Caps use the theme's icon-size ladder plus `space.xs`, with a strong tinted plate,
+authored control corner and hairline. They have no package decoration slot and
+reserve no interactive hit floor. Letters grow with the text preference; native
+key images retain the theme-sized square. The mounted Compose owner disposes
+the display formulas and borrows the action system and caller values.
+
+```lua
+local app = Facet.new()
+local UI = app.controls
+app.mount(function()
+    return UI.HStack("HintRow")({
+        gap = "s",
+        UI.Text("Instruction")({ text = "Open the menu" }),
+        UI.ShortcutHint("OpenHint")({ action = "Activate" }),
+    })
+end)
+```
+
+`dump()` reports `schema`, `id`, `form`, `action`, `alternatives`, `separator`,
+`visible`, `glyph`, `controlSize`, and `over`.
 
 ### `UI.Picker`
 
@@ -8738,7 +9241,12 @@ and `dispose()`.
 
 A labelled header that expands and collapses its content. `spec = { id?, label
 (required), expanded (a writable boolean cell), content (() -> Node), enabled?,
-onToggle?, presenter? }`.
+onToggle?, presenter?, description?, icon?, chevronPosition?, appearance?, controlSize? }`.
+
+`description` is bindable secondary copy; `icon` is a semantic icon name.
+`chevronPosition` is leading (default) or trailing. `appearance` is plain (default),
+contained (a raised group), or divided (a separator while expanded). Bindable
+`controlSize` uses the shared rung and restores the default when nil.
 
 ```lua
 local app = Facet.new()
@@ -8761,10 +9269,8 @@ on lower graphics settings.
 The caret uses the same class, so it does not bounce beyond its final angle.
 Reopening mid-exit reverses the existing transition.
 
-**An expanded header is not drawn as selected.** The header is an ordinary
-`UI.Button` and the control never sets its `selected` prop, so expansion never
-borrows the theme's selected-row fill. The caret angle is the whole of the state
-the header shows, and the header keeps the same paint open or shut.
+The header publishes its expanded selection state to ordinary Button paint.
+The caret and optional divider also indicate expansion.
 
 **The caret is one `chevron.trailing` glyph, not two.** Its `rotation` — paint-only,
 never seen by the solver — springs 0 → 90 as `expanded` flips, turning to point down
@@ -8782,8 +9288,8 @@ either way, off the ambient motion clock every mounted control receives for free
 would leave focus on a node that is about to be unmounted, so the control moves focus
 back to its own header **before** the content disappears. Expanding leaves focus on
 the header — the player asked to see the content, not to jump into it. Call
-`bindFocus(presenter.focus)` through `ref` (or let the control pick the focus graph
-up from the controller) so it can do that.
+`bindFocus(presenter.focus)` through `ref` only for a custom low-level host; the
+ordinary application supplies its focus graph through the mounted contribution.
 
 `expanded` is a cell **you** own, so a settings screen remembers which sections were
 open across a remount. `dump()` reports `{ schema, id, label, expanded, headerPath,
@@ -8792,8 +9298,10 @@ semanticText }`.
 ### `UI.Slider`
 
 `UI.Slider { … }` -> the slider's node. `ref` receives `{ api, dump }`, where
-`api` is the control's record: `blueprint`, `model`, `semanticText`, `fillWidth`,
-`thumbOffset`, `onInteractionClassLost(class)`, `dump()` and `dispose()`.
+`api` exposes `model`, `semanticText`, `fillWidth`, `thumbOffset` and
+`onInteractionClassLost(class)`, with diagnostics through `record.dump()`.
+The ref does not expose `blueprint` or `dispose`; the component owner releases
+the control.
 
 A continuous or stepped value along a track, sharing the value arithmetic with
 `UI.Stepper`. Spec keys are `id`, `label`, `value`, `min`, `max`, `step`,
@@ -9227,6 +9735,7 @@ end)
 
 `UI.Chip { … }` -> the chip's node. `ref` receives `{ api, dump }`; Chip
 publishes no verbs, so `api` is its own record.
+A sized Chip uses the same surface-environment requirement and hit-floor reservation as Button; an unregistered environment is refused.
 
 A small toggleable tag/filter pill. It renders as a single rounded label (a
 Button with
@@ -9240,11 +9749,25 @@ Spec fields:
 
 | field | type | required | meaning |
 |---|---|---|---|
-| `id` | `string` | no (default `"Chip"`) | the node id; the mounted path is `<screen>/<id>`. |
+| `id` | `string` | no (default `"Chip"`) | the plate id; a supplied `controlSize` adds the `<id>+target` parent. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
 | `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
-| `selected` | a writable boolean cell | **yes** | the caller-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. Validated at build: absent, or a read-only formula, is an error naming the control and the field, not a crash on the first tap. |
-| `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip with the new value (e.g. to persist a filter). |
+| `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by body activation. A remove-only token omits it and has an informational body. Readonly selection is refused. |
+| `animation` | animation policy | no | applies to the primitive Button plate and is checked against its supported properties. |
+| `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip; requires selected. |
+| `onRemove` | `() -> ()` | no | separate named close target; the caller removes the item from its keyed collection. |
+| `removeLabel` | `string` | no | semantic close label, default `Remove <label>`. |
+| `removeFocusFallback` | bindable `string` | no | destination when no sibling remove target survives. |
+| `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
+| `appearance` | `"standard" \| "utility"` (bindable) | no | visual emphasis, through a style tag. A chip's family is two words, not the Button's five: `emphasis`/`soft`/`link` describe an action's weight among actions, which a filter pill is not. |
+| `corners` | `"pill" \| "square"` | no | the corner treatment, through the shipped `UI.corners` modifier. Absent = `"pill"`, exactly as before. |
+| `leading` / `trailing` | blueprint | no | static content either side of the label (a count, a dot, an avatar). They are content, never a second focus stop — the chip keeps one activation surface, so every input class still reaches the same flip. With neither, the chip is byte-identical to the label-only pill it has always been. |
+
+A removable token reserves separate body and close hit footprints, including the
+effective target floor. Removing a focused item returns focus to the next sibling
+remove target, then the previous, then the supplied fallback after its owner retires.
+A remove-only token has one generated focus stop; selected tokens also have their
+body action. The callback does not mutate the caller's collection automatically.
 
 The record `ref` hands back carries:
 
@@ -9254,7 +9777,7 @@ The record `ref` hands back carries:
   `app.mount` makes the chip reachable and activatable on pointer, touch,
   keyboard, and gamepad.
 - `dump()` — a deterministic diagnostic table
-  (`{ schema = "facet-chip-dump/1", id, label, selected, enabled }`); two calls with
+  (`{ schema = "facet-chip-dump/1", id, label, selected, enabled, controlSize, appearance, removable, removeLabel }`); two calls with
   unchanged state are byte-identical.
 - `dispose()` — releases the control and nothing else.
 
@@ -11732,3 +12255,239 @@ existing behavior. This style accepts automatic or topBar placement.
 NavigationStack keeps its existing Back hierarchy. It does not add a collapsed
 style: use a CollapsibleView for an app destination chooser alongside the stack
 when the product actually has sibling destinations.
+### `UI.Skeleton`
+
+`app.controls.Skeleton("Id")({ form = "line", lines = 3 })` reserves an
+informational loading silhouette. It adds no focus target, input binding, or
+surface decoration. Use `UI.ProgressView` when the player needs a progress value
+or activity indicator; use Skeleton when the pending content's shape is useful.
+
+`form` is required: `"box"`, `"line"`, or `"circle"`. `controlSize` accepts a
+static or bound `"compact" | "regular" | "large"`; absent means regular. Box and
+circle use the rung's control height; line uses its icon size. A line's positive
+whole `lines` count defaults to one. Multiple lines have theme-small gaps and a
+60% final line. Box/line accept bound `width` and `height` dimensions; their
+width defaults to fill. Circle accepts only width, used for both axes.
+`corners = "pill" | "square"` overrides box/line rounding; circle refuses it.
+Unknown keys and invalid form-specific combinations refuse. Invalid bound size
+updates quarantine before geometry changes, and later legal values recover.
+
+The surface-less plate uses the theme's control tint. One shared decorative
+1.2-second triangular driver per presenter clock moves a 35% fill band between
+percent spacers. It allocates two dimension tables per frame per clock, plus
+ordinary per-instance rendering work. An animated circle also uses one small
+rounded CanvasGroup to mask its sweep, released under reduced motion; its buffer
+shares the documented [CanvasGroup quality and memory limits](#canvasgroup-costs).
+Mounted sweeps start it; the last sweep
+leaving detaches it immediately. Separate branch holds keep its independent
+owner alive until the last Skeleton is disposed. A circular plate and its active
+CanvasGroup mask use the shared true-circle shape, independent of theme pill
+radii. A circular CanvasGroup is a grouping/clipping aperture and gains no
+implicit shape hairline; ordinary circle Button/ZStack chrome is unchanged.
+An explicit stroke remains available and additive. Render hooks count structural
+presence, not pixel visibility or opacity. Reduced motion removes the sweep;
+a missing presenter clock or environment leaves the plate static.
+
+The ordinary `ref` callback receives the frozen record with `dump()`, including
+form, lines, authored corners/size, animating and reducedMotion. There are no
+imperative control verbs. Build pending placeholders inside their actual branch:
+
+```luau
+local UI = app.controls
+return UI.When("Pending")({
+    condition = loading,
+    thenView = function()
+        return UI.Skeleton("Article")({ form = "line", lines = 3 })
+    end,
+})
+```
+### `UI.Avatar`
+
+`app.controls.Avatar("Id")({ name = "Ada Quill", ... })` shows a circular player
+picture or first/last UTF-8 initials, preserving the name's authored case.
+The required `name` is a nonempty string. Source choice is construction-time:
+provide at most one of `image`, `userId`, or `key`; omit all three for initials.
+`image` accepts a content string or readable. `userId` uses the existing 150×150
+headshot URI and `key` names another resource; both require the caller's provider.
+Avatar creates no provider and performs no fetch itself.
+
+| Property | Default | Meaning |
+|---|---|---|
+| `form` | `"standard"` | `"standard"` has a border and optional presence; `"icon"` has neither. |
+| `controlSize` | `"regular"` | Bound `"compact"`, `"regular"`, or `"large"`; nil restores regular. Standard uses the rung height, icon uses its icon size. |
+| `diameter` | none | Positive finite pixels or a theme metric, instead of `controlSize`. |
+| `presence` | none | Bound `"online"`, `"away"`, `"busy"`, `"offline"`, or nil. Refused in icon form. |
+| `presenceLabel` | presence word | Optional bound localized word, requiring `presence`. |
+| `presenceMark` | `true` | False hides the visual mark while retaining semantic presence. |
+| `backplate` | `false` | Accent/on-accent initials treatment. |
+| `over` | none | `"media"` uses the strong surface/content pair. |
+| `frame` | none | Caller-authored overlay content, inside the same face. |
+| `onActivate` | none | Adds one ordinary Button activation target. |
+| `ref` | none | Receives the control record; `record.dump()` reports current identity and state. |
+
+Online is a disc, away a disc with a dash, busy a square, and offline a ring.
+Presence is validated once into the shared derived value used by paint, dump,
+and the interactive raw Button's semantic `label`; an invalid update retains the
+last valid published state and a later valid or nil value recovers. Caller cells
+are untouched. Passive avatars have no focus stop or native semantic-label prop;
+their identity remains available through the ref/dump. This is not a claim about
+operating-system accessibility support.
+
+The zero/one-target statements describe Avatar-generated input. A `frame` keeps
+its caller-authored content and input; `dump.interactive` reports Avatar's own
+`onActivate` route. With `onActivate`, frame content must obey ordinary Button
+custom-content restrictions throughout its lifetime: put separate interactive
+adornments beside the Avatar. `dump.controlSize` is the requested raw rung; after
+an invalid update it may differ from the retained valid geometry.
+
+A mounted keyed Avatar owns one provider lease; the caller keeps the provider.
+Pending content owns a Skeleton only for that branch. Ready and failure states
+retain the same face diameter; failure shows initials. Removal releases the lease
+and rejects stale completion, but cannot cancel an engine fetch already running.
+Same-key Avatars share the provider's request/cache while holding separate leases.
+Framework-generated face layers use true circles independent of a theme's pill
+radius. Interactive layers sit in one zero-padding stack inside the raw Button;
+compact visuals reserve the effective target floor in both axes. Initials fit to
+the label cap, keep one line, and retain disclosure at large text preferences.
+
+```luau
+local portraits = app.newResourceProvider()
+return UI.Avatar("Driver")({
+    name = "Ada Quill",
+    userId = 24813339,
+    provider = portraits,
+    presence = presenceCell,
+    presenceLabel = localizedPresence,
+    onActivate = openProfile,
+})
+```
+### `UI.AvatarGroup`
+
+`app.controls.AvatarGroup("Team")({ items = roster })` shows the first members of
+an ordered roster and summarizes the rest with a count. Members never generate
+individual targets; `onOverflow` adds one ordinary Button focus stop when there
+are hidden members. Without it, the whole group is informational.
+
+| Field | Contract |
+|---|---|
+| `items` | Required dense array, Compose readable, or `function(use)` returning members in caller order. |
+| Member | Required unique nonempty string `id` and nonempty string `name`; optional XOR `image`, `userId`, or `key`, plus bound `presence` and `presenceLabel` as on Avatar. Repeated `userId` is allowed. |
+| `provider` | Caller-owned resource provider, required if any member uses `key` or `userId`. Hidden members are validated but do not acquire a lease. |
+| `layout` | Construction-only `"stacked"` (default) or `"spread"`. Stacked overlaps by `floor(diameter / 3)` and suppresses marks; spread uses theme `"s"` spacing and paints them. |
+| `max` | Construction-only positive whole number of visible members; default `4`. |
+| `overflow` | Construction-only `"count"` (default, `+N`) or `"ellipsis"`. Both retain the semantic `N more` label. |
+| `overflowLabel` | Optional bound localized phrase; a nonempty string replaces the English default. Nil/empty uses the default; other types are refused. |
+| `form` | Construction-only `"standard"` (default) or `"icon"`, passed to every member; icon members refuse presence. |
+| `controlSize` | Bound `"compact"`, `"regular"`, or `"large"`; absent/nil uses regular. Every diameter and overlap follows the checked live theme rung. |
+| `over` | Optional `"media"` tint roles for readability over artwork. |
+| `onOverflow` | Optional callback for the only generated target. Compact paint still reserves the effective target floor in both axes. |
+| `ref` | Receives `record.dump()`: `schema="facet-avatar-group-dump/1"`, shown ids, hidden count, chip text/label, layout, max, form, presence-mark policy, interactive intent, and requested controlSize/over. |
+
+Every update validates the entire roster before publishing rows or allocating
+leases. Malformed members and duplicate ids retain the last valid mounted roster
+and diagnostic value; a later valid update recovers. Reordering unchanged ids
+keeps their mounted face and lease. Name and presence updates flow through the
+current item; changing a source identity rebuilds only that member's source
+branch. Leaving the visible prefix releases its lease. Same-key faces share a
+request/cache but each owns a lease; the group never owns the caller's provider.
+
+The group's root leaves parent alignment alone. Child line alignment centers the
+faces and count, including a compact face beside a larger target. Stacked overlap
+is intentional paint, not overlapping member hit areas. Stacked presence remains
+in each Avatar's diagnostic semantic label; passive faces expose no new native
+accessibility route. An actionable chip's raw Button label carries the localized
+count while its child paints `+N` or the ellipsis. `dump.interactive` reports the
+supplied command; an empty or fully visible roster has no overflow target.
+`dump.controlSize` reports the requested raw value, as on Avatar, while invalid
+size updates retain the last accepted geometry.
+
+Validation and publication scan and clone the whole roster on a dependency
+change. Mounted cost follows the visible prefix: one keyed face per visible member,
+one provider lease per loaded member, and one shared Skeleton driver per clock
+while any pending branch is mounted. No hidden member is fetched. The gallery
+transport completes on a presenter tick using a stand-in picture; native headshot
+fetching is the supplied provider's responsibility.
+
+```luau
+local portraits = app.newResourceProvider()
+return UI.AvatarGroup("Party")({
+    items = partyMembers,
+    provider = portraits,
+    max = 4,
+    layout = "stacked",
+    onOverflow = openParty,
+    overflowLabel = localizedMore,
+})
+```
+
+
+### `UI.StatusIndicator`
+
+`app.controls.StatusIndicator("Unread")({ count = unread, status = "error" })`
+paints a passive mark without an input target or ornament surface.
+
+| Field | Contract |
+|---|---|
+| `form` | Bound `dot` (default), `ring`, `square`, or `dash`. Discs and holes stay circular across themes. |
+| `status` | Bound `neutral` (default), `info`, `success`, `warning`, `error`, or `accent`. |
+| `count`, `max` | Optional bound finite whole count ≥0; static whole cap ≥1, default99. Above the cap the text is `{max}+` (for example `99+`). Counted marks accept dot or square only. |
+| `cutout` | Static boolean; adds a surface-colored backing inside the reserved footprint; uncounted gutters use 10% of each axis capped by the theme hairline, counted seals retain the hairline inset. |
+| `name` | Optional nonempty semantic word. |
+| `controlSize` | Bound compact (default), regular, or large; uses the theme's icon-size ladder. A count's height is a floor and can grow with text. |
+| `width`, `height` | Optional bound dimensions for a parent-reserved footprint. |
+
+The six statuses use theme palette pairs: neutral uses contentSecondary/surface,
+warning warning/onWarning, success success/onSuccess, error danger/onDanger,
+and info/accent accent/onAccent. Themes without semantic pairs retain the former
+accent and content fallbacks. Shape and readable names remain independent channels.
+A cutout spends the page surface color; it is not a transparent hole through arbitrary art.
+Uncounted round forms center a square in the smaller offered axis, rounding the
+diameter down to a whole pixel. An existing two-candidate fit ladder keeps both
+passive alternatives mounted but paints only the selected one. Square forms use
+the full rectangular reservation. Counted height is resolved once at the outer
+reservation; the seal and cutout consume that space.
+Uncounted cutouts use two zero-gap stacks and four passive spacer gutters so a
+small mark keeps its silhouette; larger marks recover the full themed hairline.
+
+`ref` receives `{ api, dump }`; `api.semanticText` is a readable. `dump()` returns
+`schema`, `id`, `form`, `status`, displayed `count`, `max`, `cutout`, `name`,
+`controlSize`, and `semanticText`. This diagnostic semantic text does not itself
+create native text or an operating-system accessibility node. Bound form, status,
+count and rung share one checked answer: invalid updates retain the prior paint
+and semantic values, preserve the caller's source, and recover on a legal value.
+
+### `UI.Badge`
+
+`app.controls.Badge("Ready")({ label = "Ready", icon = "status.info" })` is an
+informational caption with no generated focus stop or activation behavior.
+
+| Field | Contract |
+|---|---|
+| `label`, `icon` | Bound caption and/or static semantic icon name. An empty or absent caption requires an icon and a nonempty `name`. Bound caption presence mounts/removes the owned label; invalid updates retain the last legal content. |
+| `iconPosition` | leading (default) or trailing; requires an icon. |
+| `appearance` | standard (default), status (adds a shared StatusIndicator), or utility (no plate). |
+| `status` | Bound StatusIndicator vocabulary, default neutral. |
+| `corners` | pill or square; absent uses a pill. |
+| `controlSize` | Bound compact (default), regular, or large; an icon-size height floor, not a cap on text growth. |
+| `over` | media uses the opaque surfaceStrong/contentStrong pair, overriding the status pair. |
+| `name` | Optional nonempty semantic word; required for icon-only content. |
+
+Every plated Badge owns a surface-less tinted Box; package badge-slot art remains
+available to existing `Text.surface = "badge"` sites. Absent, static and bound
+neutral all use control/content. Non-neutral statuses use StatusIndicator's pair;
+utility uses secondary lettering. The caption can shrink and requests disclosure.
+The status appearance gives its nested mark a page-color cutout so the mark
+remains distinct from the enclosing plate even when both use the same status role.
+One semantic Text host supplies the ASCII fallback and optional managed art. Its
+width has an iconSizes.small floor and can grow for multi-character glyphs; its
+height hugs the caption line. Art is a square bounded by that line and small icon
+size, so different icon names do not change badge height. The four readable
+partner roles also paint managed art; other roles keep the package icon tint.
+
+`ref.api.semanticText` and `ref.dump()` expose the current checked label/status/rung
+and authored appearance, icon side, corners, over and name. As with StatusIndicator,
+passive diagnostic semantics do not promise native or OS accessibility delivery.
+
+### Common control compositions
+
+See [common recipes](../guide/17-recipes.md) for measured action rows, checkbox and chip groups, empty states, divider insets, and single-open DisclosureGroup composition using app.controls and Compose.

@@ -47,6 +47,12 @@ local THEME = {
 		onAccent = rgb(22, 18, 31),
 		danger = rgb(122, 31, 34),
 		onDanger = rgb(244, 230, 192),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.42:1 and 6.78:1)
+		success = rgb(42, 104, 46),
+		onSuccess = rgb(244, 230, 192),
+		warning = rgb(200, 148, 52),
+		onWarning = rgb(22, 18, 31),
 	},
 	extra = { control = rgb(168, 114, 47), contentSecondary = rgb(215, 168, 96) },
 }

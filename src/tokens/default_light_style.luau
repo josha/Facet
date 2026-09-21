@@ -26,6 +26,14 @@ local SCHEMA = {
 		-- its own sheet rule). Gated for contrast like every other pair.
 		danger = rgb(185, 28, 28),
 		onDanger = rgb(255, 255, 255),
+		-- the same two semantic roles as the dark floor, re-chosen for a near-white
+		-- page rather than reused: a green deep enough to carry white on a light
+		-- surface (6.57:1) and an amber bright enough to be a plate rather than a
+		-- smudge, lettered in its own near-black (8.26:1)
+		success = rgb(21, 107, 58),
+		onSuccess = rgb(255, 255, 255),
+		warning = rgb(224, 166, 32),
+		onWarning = rgb(28, 22, 6),
 	},
 	extra = {
 		control = rgb(228, 231, 238),

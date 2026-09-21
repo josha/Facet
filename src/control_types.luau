@@ -16,6 +16,12 @@ local stepperControl = require("./spec_types/stepper")
 local pickerControl = require("./spec_types/picker")
 local picker_menuControl = require("./spec_types/picker_menu")
 local tab_viewControl = require("./spec_types/tab_view")
+local badgeControl = require("./spec_types/badge")
+local statusIndicator = require("./spec_types/status_indicator")
+local skeletonControl = require("./spec_types/skeleton")
+local avatarControl = require("./spec_types/avatar")
+local avatarGroupControl = require("./spec_types/avatar_group")
+local shortcutHint = require("./spec_types/shortcut_hint")
 local labelControl = require("./spec_types/label")
 local ratingControl = require("./spec_types/rating")
 local text_inputControl = require("./spec_types/text_input")
@@ -56,6 +62,9 @@ export type VirtualListOptions<T> = {
 	viewportHeight: (number | core.Readable<number>)?,
 	estimatedItemExtent: (number | core.Readable<number>)?,
 	rowGap: bp.Bound<number | string>?,
+	follow: bp.Bound<"end" | "none">?,
+	followThreshold: number?,
+	scrollNavigation: { position: core.Cell<number>, active: bp.Bound<boolean>? }?,
 	overscan: number?,
 	cards: { perView: number?, minWidth: number?, peek: number? }?,
 	crossExtent: ("hug" | "measured")?,
@@ -93,6 +102,9 @@ export type VirtualListSpec<T> = {
 	viewportHeight: (number | core.Readable<number>)?,
 	estimatedItemExtent: (number | core.Readable<number>)?,
 	rowGap: bp.Bound<number | string>?,
+	follow: bp.Bound<"end" | "none">?,
+	followThreshold: number?,
+	scrollNavigation: { position: core.Cell<number>, active: bp.Bound<boolean>? }?,
 	overscan: number?,
 	cards: { perView: number?, minWidth: number?, peek: number? }?,
 	crossExtent: ("hug" | "measured")?,
@@ -117,7 +129,7 @@ export type VirtualListSpec<T> = {
 	navigation: Navigation?,
 	autoscroll: (boolean | Autoscroll)?,
 	motionClock: { now: () -> number }?,
-	rows: core.Readable<{ T }>,
+	rows: core.Readable<{ T }> | ((core.Use) -> { T }),
 	key: ((T) -> string) | string,
 	cell: (T, CellContext<T>) -> any,
 	ref: ((record: any) -> ())?,
@@ -152,7 +164,7 @@ export type VirtualGridSpec<T> = {
 	overscan: number?,
 	snap: ("none" | "item")?,
 	env: env.Env?,
-	items: core.Readable<{ T }>,
+	items: core.Readable<{ T }> | ((core.Use) -> { T }),
 	key: string | ((T) -> string),
 	cell: (T, GridCellContext<T>) -> any,
 	onActivate: ((T, bp.ActivationMetadata?) -> ())?,
@@ -166,11 +178,20 @@ export type ViewVirtualGridSpec<T> = VirtualGridOptions & {
 }
 type BooleanCell = core.Cell<boolean>
 export type ChipSpec<V = BooleanCell> = {
+	animation: bp.AnimationSpec?,
+	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
+	appearance: bp.Bound<("standard" | "utility")?>?,
+	corners: ("pill" | "square")?,
+	leading: bp.Blueprint?,
+	trailing: bp.Blueprint?,
 	id: string?,
 	label: bp.Bound<string>?,
-	selected: V,
+	selected: V?, -- optional only for a remove-only token
 	enabled: bp.Bound<boolean>?,
 	onToggle: ((boolean) -> ())?,
+	onRemove: (() -> ())?,
+	removeLabel: string?,
+	removeFocusFallback: bp.Bound<string>?,
 }
 export type ResourceHandle = {
 	state: core.Readable<string>,
@@ -190,6 +211,11 @@ export type AsyncImageOptions = {
 	failureLabel: string?,
 	width: bp.Bound<bp.Dim>?,
 	height: bp.Bound<bp.Dim>?,
+	scaleMode: bp.Bound<"fit" | "fill" | "crop" | "stretch" | "tile" | "slice">?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: bp.ImageSliceCenter?,
+	sliceScale: number?,
+	resample: bp.Bound<"default" | "pixelated">?,
 }
 export type AsyncImageSpec = {
 	id: string?,
@@ -201,6 +227,11 @@ export type AsyncImageSpec = {
 	width: bp.Bound<bp.Dim>?,
 	height: bp.Bound<bp.Dim>?,
 	ref: ((record: any) -> ())?,
+	scaleMode: bp.Bound<"fit" | "fill" | "crop" | "stretch" | "tile" | "slice">?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: bp.ImageSliceCenter?,
+	sliceScale: number?,
+	resample: bp.Bound<"default" | "pixelated">?,
 }
 
 type StringCell = core.Cell<string>
@@ -219,6 +250,13 @@ export type SemanticRow = {
 }
 export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? }
 export type ButtonSpec = {
+	animation: bp.AnimationSpec?,
+	controlSize: bp.Bound<("compact" | "regular" | "large")?>?,
+	appearance: bp.Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
+	corners: ("pill" | "square")?,
+	over: "media"?,
+	name: string?,
+	trailingIcon: string?,
 	image: bp.Bound<string>?,
 	imageAspectRatio: number?,
 	imageFraming: bp.ImageFraming?,
@@ -247,7 +285,7 @@ export type ButtonSpec = {
 	shrinkWeight: any?,
 	focusable: any?,
 	help: any?,
-	icon: any?,
+	icon: string?,
 	shape: any?,
 	textSize: any?,
 	padding: any?,
@@ -272,13 +310,18 @@ export type ButtonSpec = {
 	ref: ((record: any) -> ())?,
 	[number]: any,
 }
-export type ToggleSpec<V = BooleanCell> = {
+type BooleanSource = core.Readable<boolean> | ((core.Use) -> boolean)
+export type ToggleSpec<V = BooleanSource> = {
+	width: bp.Bound<bp.Dim>?,
 	ref: ((record: any) -> ())?,
 	row: SemanticRow?,
+	hint: bp.Bound<string>?,
+	indicatorPosition: ("leading" | "trailing")?,
+	controlSize: bp.Bound<"compact" | "regular" | "large" | nil>?,
 	id: string?,
 	label: bp.Bound<string>?,
 	value: V,
-	mixed: core.Cell<boolean>?, -- construction restricts this to checkbox
+	mixed: BooleanSource?, -- construction restricts this to checkbox
 	presentation: ("switch" | "checkbox" | "button")?,
 	children: { bp.Blueprint }?, -- construction restricts this to button
 	enabled: bp.Bound<boolean>?,
@@ -349,6 +392,12 @@ export type Controls = {
 	Menu: Constructor<menu.Spec>,
 	TabView: Constructor<tab_viewControl.Spec>,
 	Label: Constructor<labelControl.Spec>,
+	ShortcutHint: Constructor<shortcutHint.Spec>,
+	Badge: Constructor<badgeControl.Spec>,
+	StatusIndicator: Constructor<statusIndicator.Spec>,
+	Skeleton: Constructor<skeletonControl.Spec>,
+	Avatar: Constructor<avatarControl.Spec>,
+	AvatarGroup: Constructor<avatarGroupControl.Spec>,
 	Rating: Constructor<ratingControl.Spec>,
 	TextInput: Constructor<text_inputControl.Spec>,
 	ProgressView: Constructor<progress_viewControl.Spec>,

@@ -50,7 +50,7 @@ describe("semantic versioning and deprecation", function()
 		local generated = schema.deprecations()
 		local ledger = Facet.DEPRECATIONS :: { any }
 
-		expect(#ledger).toBe(#generated + 6)
+		expect(#ledger).toBe(#generated + 7)
 		-- schema entries come first, in their own deterministic order
 		for i, entry in generated do
 			expect(ledger[i].surface).toBe(entry.surface)
@@ -75,6 +75,11 @@ describe("semantic versioning and deprecation", function()
 		expect(reducedMotion ~= nil).toBe(true)
 		expect(reducedMotion.since).toBe("0.9.0")
 		expect(reducedMotion.removeNoEarlierThan).toBe("0.10.0")
+		local popupButton = declared["Controls.PopupButton"]
+		expect(popupButton ~= nil).toBe(true)
+		expect(popupButton.since).toBe("0.11.0")
+		expect(popupButton.removeNoEarlierThan).toBe("0.12.0")
+		expect(string.find(popupButton.replacement, "Controls.Picker", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("every entry gives at least one MINOR of notice, and the ledger is frozen", function()
@@ -95,6 +100,27 @@ describe("semantic versioning and deprecation", function()
 		expect(pcall(function()
 			table.insert(Facet.DEPRECATIONS :: { any }, { surface = "forged" })
 		end)).toBe(false)
+	end)
+end)
+
+describe("public property schema", function()
+	it("exposes constructor facts without allowing a consumer to change the contract", function()
+		local schema = Facet.schema
+		expect(type(schema)).toBe("table")
+		local box = schema.forClass("Box")
+		expect(box.props.width ~= nil).toBe(true)
+		expect(schema.forClass("UnknownClass")).toBe(nil)
+		expect(table.find(schema.sharedPropNames(), "width") ~= nil).toBe(true)
+		expect(table.isfrozen(schema)).toBe(true)
+		expect(pcall(function()
+			schema.forClass = function() end
+		end)).toBe(false)
+		expect(pcall(function()
+			box.props.width.types[1] = "forged"
+		end)).toBe(false)
+		local names = schema.sharedPropNames()
+		table.clear(names)
+		expect(#schema.sharedPropNames() > 0).toBe(true)
 	end)
 end)
 
@@ -234,6 +260,10 @@ describe("the public SHAPE a breaking change moves", function()
 	local CLASS_DEFAULTS: { [string]: string } = {
 		["AdaptiveStack.distribute"] = "`start`",
 		["Box.opacity"] = "prose: subtree: 1 = opaque (the default), 0 = invisible but",
+		-- the local size/appearance vocabulary: `standard` is the paint an untagged
+		-- button already has, which is why it earns no tag and why the doc names it
+		-- as the default (recorded in CHANGELOG.md with the rest of the vocabulary)
+		["Button.appearance"] = "prose:iction. 'standard' is the default paint and earns no ",
 		["Button.compactLabel"] = "prose:he compact form ALWAYS (a default, not a degrade) —",
 		["Composition.groups"] = "prose:s ceiling on a fill lane; defaults at ten-foot to `ad",
 		["ForEach.transition"] = "the mirror of enter",
@@ -245,7 +275,23 @@ describe("the public SHAPE a breaking change moves", function()
 		["Grip.focusVisual"] = "prose:'default' (adapter paints th",
 		["Grip.focusable"] = "prose:(Grips are unfocusable by default)",
 		["HStack.distribute"] = "`start`",
-		["Image.scaleMode"] = "prose: aspect ratio, the engine default)",
+		--[[ the two words that joined the ladder in 2026-09-18 (`tile`, `slice`)
+			moved the window this pin reads, and NOT the default: `stretch` is still
+			the engine's own, and the prose that names it is still the same sentence
+			with two more modes after it (recorded in CHANGELOG.md). ]]
+		["Image.scaleMode"] = "prose: aspect ratio, the engine default) | tile (repeat at ",
+		-- the nine-slice border run: the engine's own default is 1
+		["Image.sliceScale"] = "prose:er run is scaled by (> 0, default 1). Only with `scal",
+		["Image.resample"] = "prose: it is not drawn at 1:1: 'default' (the engine's smoo",
+		-- the freeze defaults OFF — a scroller a player can move is today's
+		-- behaviour and the engine's own `ScrollingEnabled`
+		["ScrollView.scrollEnabled"] = "true",
+		-- ABSENT is the default, and it is NOT `"auto"`: absent writes nothing and
+		-- leaves the engine's class default standing
+		["Text.direction"] = "prose:t leaves the engine's own default, which is not the s",
+		-- `"end"` is the engine's own end ellipsis, which is what every label has
+		-- always done
+		["Text.truncate"] = "prose:long value is cut: 'end' (default, the engine's own e",
 		["Region.dismissButton"] = "always",
 		["Region.expand"] = "— the framework presents it in a transient plate at the region's anchor",
 		["Region.mayDrop"] = "false",

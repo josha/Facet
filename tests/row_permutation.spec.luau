@@ -24,7 +24,7 @@ local function world(full: boolean, opts: any?)
 		children = {
 			(if opts.horizontal then harness.UI.HStack else harness.UI.VStack)({
 				id = "List",
-				width = { type = "fill" },
+				width = if opts.listWidth then { type = "fixed", px = opts.listWidth } else { type = "fill" },
 				height = if opts.fixedList then { type = "fixed", px = 1000 } else { type = "content" },
 				gap = opts.gap or 2,
 				padding = opts.padding,
@@ -55,7 +55,9 @@ local function world(full: boolean, opts: any?)
 								id = "Row",
 								width = if opts.contentRows
 									then { type = "content" }
-									else if opts.horizontalKnown then item.height else { type = "fill" },
+									else if opts.horizontalKnown
+										then item.height
+										else { type = "fill", min = item.fillMin },
 								height = if opts.contentRows
 									then { type = "content" }
 									else if opts.horizontalKnown then { type = "fixed", px = 22 } else item.height,
@@ -163,6 +165,7 @@ local function world(full: boolean, opts: any?)
 			local out = table.clone(items)
 			table.insert(out, position or #out + 1, {
 				directText = opts.insertText,
+				fillMin = opts.insertMin,
 				key = "tail" .. added,
 				height = Compose.cell(opts.appendDim or { type = "fixed", px = 23 }),
 				label = Compose.cell(opts.newLabel or "new"),
@@ -581,6 +584,7 @@ t.describe("middle insertion prefix reuse", function()
 			{ name = "horizontal", fixedList = true, horizontal = true, horizontalKnown = true },
 			{ name = "fractional inserted row", fixedList = true, appendDim = { type = "fixed", px = 23.5 } },
 			{ name = "flexible inserted row", fixedList = true, appendDim = { type = "fill" } },
+			{ name = "cross fill floor insertion", fixedList = true, listWidth = 40, insertMin = 60 },
 			{ name = "content parent" },
 			{ name = "margins", fixedList = true, margin = 3 },
 			{ name = "distribution", fixedList = true, distribute = "center" },

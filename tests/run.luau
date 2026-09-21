@@ -763,6 +763,11 @@ require("./paradigm_tenfoot.spec")
 require("./paradigm_textinput.spec")
 require("./paradigm_carry.spec")
 require("./chip.spec")
+-- the shared local size/appearance vocabulary (controlSize/appearance/corners/over)
+-- and its first two adopters
+require("./control_vocabulary.spec")
+require("./control_content.spec")
+require("./fill_minimum.spec")
 require("./authoring.spec")
 require("./layout_vocabulary.spec")
 -- the stack branch's three round-2 parity additions, in one file because they are
@@ -907,6 +912,9 @@ require("./compact_label.spec")
 require("./value_controls.spec")
 require("./rating.spec")
 require("./display_controls.spec")
+require("./shortcut_hint.spec")
+require("./recipes_common.spec")
+require("./container_grid.spec")
 -- task 12 (transitions round, spec 2I): the caret's rotation spring, the
 -- content's slide-up entrance, and the presenter-bound sibling glide
 require("./disclosure_group.spec")
@@ -1329,6 +1337,11 @@ require("./ref_contract.spec")
 	taps, because the presenter imported the segment-aligned prefix test at line
 	270 and then wrote the raw `string.sub` form at 640 and 3326 ]]
 require("./leaf_helpers.spec")
+--[[ the native capabilities the leaf specs did not reach: rich text, text
+	direction, middle truncation (the one piece of real policy — the engine has no
+	such mode), image tile/slice/resample, and two-axis scrolling with an explicit
+	canvas, a freeze and shared indicators ]]
+require("./leaf_capabilities.spec")
 --[[ one bounded-Levenshtein matrix where five modules each had one, with each
 	caller's threshold kept explicit at its own boundary — the two policies
 	(case-sensitive <= 2; case-folded, length-scaled) disagreed and nobody had
@@ -1517,6 +1530,11 @@ require("./sheet.spec")
 require("./page_view.spec")
 require("./mouse_scroll.spec")
 require("./collapsible_view.spec")
+require("./skeleton.spec")
+require("./status_indicator.spec")
+require("./badge.spec")
+require("./avatar.spec")
+require("./avatar_group.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",

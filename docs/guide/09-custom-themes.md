@@ -176,8 +176,26 @@ style = {
 ```
 
 `colors` carries the contract pairs (`surface`/`content`,
-`surfaceStrong`/`contentStrong`, `accent`/`onAccent`, `danger`/`onDanger`), each
-gated for contrast. `extra` carries the non-contract interaction roles
+`surfaceStrong`/`contentStrong`, `accent`/`onAccent`, `danger`/`onDanger`,
+`success`/`onSuccess`, `warning`/`onWarning`), each gated for contrast.
+
+Three of those pairs have a library fallback, so a palette may leave them out:
+`danger`/`onDanger` falls back to the library's own red on white, and
+`success`/`onSuccess` and `warning`/`onWarning` fall back to the paint every
+theme had before they existed (`success` spends the accent pair, `warning`
+content on the page). The two newer pairs additionally carry a **partner rule**:
+declare the plate and you must declare the colour that reads on it, or `define`
+refuses the package by name — half a pair would letter your green out of a
+decision nobody made about it. `danger` is not held to that rule, because its
+partner has had a shipped fallback since it existed.
+
+> **Breaking for theme authors (pre-1.0).** `colors.success` and
+> `colors.warning` used to be accepted and inert — `colors` has no closed key
+> set, so a package could carry them and nothing read them. They are contract
+> roles now: a package that declared `success` without `onSuccess` is **refused**
+> (declare the partner), and one that declared both is **contrast-gated** at
+> 4.5:1 like every other pair (retune, or rename the two into `extra`, which no
+> gate reads). `extra` carries the non-contract interaction roles
 (`control`, `controlHover`, `controlPressed`, `controlSelected`,
 `contentSecondary`, `hairline`, the opacity scalars). `extra` is optional. The library derives any role you leave out from the
 contract colours, using the same ramps it always uses — so a palette-only
@@ -1239,3 +1257,11 @@ Use optional `chrome.navigation` for adaptable navigation bands/capsules. A smal
 carved strip or quiet native treatment usually fits better than a panel's layered
 corners and nameplate. Declare content insets for the actual border. Fantasy Ornate
 shows this with its existing art; verify compact/distant and Largest text.
+
+Success/onSuccess and warning/onWarning are authored pairs: supplying either half
+requires both, and every authored variant supplies both or every variant omits them.
+A derived multi-variant package may omit both and inherit its base. Both compiler
+gates check the effective 4.5:1 contrast; danger retains its established fallback.
+Managed semantic pictures follow explicit readable partner tint and contentStrong
+over media; unlettered art keeps its declared icon role. The built-in Day/Night
+sheets resolve framework icon roles through the same mapping as package sheets.

@@ -30,9 +30,18 @@ local bindingOwner = require("./binding_owner")
 local isGamepadKeyCode = bindingOwner.isGamepadKeyCode
 
 function actions.newSystem(core: any)
-	local system = {}
+	local system = { revision = Compose.cell(0) }
 	local contexts: { any } = {}
 	local disposed = false
+
+	local function bump()
+		if not disposed then
+			system.revision:set(system.revision:peek() + 1)
+		end
+	end
+	function system.actionNamed(name: string, prefer: any?): any
+		return bindingOwner.actionNamed(contexts, name, prefer)
+	end
 
 	local function newAction(context: any, name: string, actionType: ActionType)
 		local action = {
@@ -43,6 +52,7 @@ function actions.newSystem(core: any)
 			pressedHandlers = {} :: { (any) -> () },
 			releasedHandlers = {} :: { (any) -> () },
 			bindings = {} :: { any },
+			enginePreferred = nil :: any,
 			-- was the binding that delivered the CURRENT `state` value gamepad-
 			-- classed (see isGamepadKeyCode)? A plain field, not reactive: it only
 			-- has to be correct at the moment a real change fires, and a deduped
@@ -166,8 +176,10 @@ function actions.newSystem(core: any)
 				local i = table.find(action.bindings, binding)
 				if i then
 					table.remove(action.bindings, i)
+					bump()
 				end
 			end
+			bump()
 			return binding
 		end
 
@@ -231,23 +243,17 @@ function actions.newSystem(core: any)
 				local i = table.find(action.bindings, binding)
 				if i then
 					table.remove(action.bindings, i)
+					bump()
 				end
 			end
+			bump()
 			return binding
 		end
 
 		-- preferred binding for hint display: first binding matching the
 		-- preferred input kind; nil-tolerant per the spike (hints must cope)
 		function action.preferredBinding(preferredInput: string): any
-			for _, binding in action.bindings do
-				if preferredInput == "Touch" and binding.uiButton ~= nil then
-					return binding
-				end
-				if preferredInput ~= "Touch" and binding.keyCode ~= nil then
-					return binding
-				end
-			end
-			return nil
+			return bindingOwner.preferredBinding(action.bindings, preferredInput, action.enginePreferred)
 		end
 
 		return action
@@ -266,6 +272,7 @@ function actions.newSystem(core: any)
 		function context.createAction(name: string, actionType: ActionType)
 			local action = newAction(context, name, actionType)
 			table.insert(context.actions, action)
+			bump()
 			return action
 		end
 		function context.setEnabled(on: boolean)
@@ -295,6 +302,7 @@ function actions.newSystem(core: any)
 					end
 				end
 			end
+			bump()
 		end
 		-- setSink: the ONLY sanctioned way to change Sink after creation. The
 		-- headless model would tolerate a bare field write (arbitration re-reads
@@ -305,6 +313,9 @@ function actions.newSystem(core: any)
 			context.sink = on
 		end
 		function context.destroy()
+			if context.destroyed then
+				return
+			end
 			context.destroyed = true
 			context.enabled = false
 			for _, action in context.actions do
@@ -315,8 +326,10 @@ function actions.newSystem(core: any)
 			if i then
 				table.remove(contexts, i)
 			end
+			bump()
 		end
 		table.insert(contexts, context)
+		bump()
 		return context
 	end
 

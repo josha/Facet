@@ -559,8 +559,6 @@ describe("extension scaffold", function()
 				"tests/controls_namespace.spec.luau",
 				"examples/gallery/scenarios/init.luau",
 				"tests/overflow_sweep.spec.luau",
-				"examples/gallery/client/demo_picker.luau",
-				"tests/gallery_demo_picker.spec.luau",
 				-- ...beside the ones that were already stamped
 				"tests/run.luau",
 				"tests/conformance/controls_registry.luau",
@@ -572,14 +570,9 @@ describe("extension scaffold", function()
 			expect(`{path} registered: {edits[path] == true}`).toBe(`{path} registered: true`)
 		end
 
-		-- and the two catalogue count pins move with it
-		expect(#plan.bumps).toBe(2)
-		for _, bump in plan.bumps do
-			expect(bump.path).toBe("tests/gallery_demo_picker.spec.luau")
-			expect(`guard names the control: {string.find(bump.guard, "probe-widget", 1, true) ~= nil}`).toBe(
-				"guard names the control: true"
-			)
-		end
+		expect(#plan.bumps).toBe(0)
+		expect(edits["examples/gallery/client/demo_picker.luau"]).toBeNil()
+		expect(edits["tests/gallery_demo_picker.spec.luau"]).toBeNil()
 	end)
 
 	it("every late-registration anchor is REAL: each edit applies to the shipped file, twice safely", function()
@@ -587,12 +580,11 @@ describe("extension scaffold", function()
 		local plan = scaffold.plan("control", "probe_widget")
 		local LATE = {
 			["src/render/compose_controls.luau"] = 'api.ProbeWidget = composite("ProbeWidget"',
+			["tools/lune/verify/data/surface-ledger.md"] = "`app.controls.ProbeWidget`",
 			["docs/guide/README.md"] = "`UI.ProbeWidget`",
 			["tests/controls_namespace.spec.luau"] = '"ProbeWidget",',
 			["examples/gallery/scenarios/init.luau"] = '"probe_widget",',
 			["tests/overflow_sweep.spec.luau"] = '"probe_widget",',
-			["examples/gallery/client/demo_picker.luau"] = 'id = "probe-widget"',
-			["tests/gallery_demo_picker.spec.luau"] = '["probe-widget"] = "ProbeWidget"',
 		}
 		local checked = 0
 		for _, edit in plan.edits do
@@ -611,10 +603,10 @@ describe("extension scaffold", function()
 				`{edit.path} idempotent: true`
 			)
 		end
-		expect(checked).toBe(7)
+		expect(checked).toBe(6)
 	end)
 
-	it("the scenario, the demo, and the pinned root all name the SAME surface", function()
+	it("the standalone scenario uses current constructors and names its existing-demo placement", function()
 		-- three files, one name. A demo whose module does not exist fails to mount
 		-- on the device in front of whoever is holding it; a demo with no pinned
 		-- root is advanced through and never actually looked at.
@@ -635,32 +627,13 @@ describe("extension scaffold", function()
 			"public spelling: true"
 		)
 
-		local demoRow, rootRow, catalogRow = nil, nil, nil
+		local catalogRow
 		for _, edit in plan.edits do
-			if edit.path == "examples/gallery/client/demo_picker.luau" then
-				demoRow = edit.insert
-			elseif edit.path == "tests/gallery_demo_picker.spec.luau" then
-				rootRow = edit.insert
-			elseif edit.path == "docs/guide/README.md" then
+			if edit.path == "docs/guide/README.md" then
 				catalogRow = edit.insert
 			end
 		end
-		expect(`demo module: {string.find(demoRow :: string, 'module = "probe_widget"', 1, true) ~= nil}`).toBe(
-			"demo module: true"
-		)
-		expect(`root pinned: {string.find(rootRow :: string, '["probe-widget"] = "ProbeWidget"', 1, true) ~= nil}`).toBe(
-			"root pinned: true"
-		)
-
-		-- THE BLURB CEILING IS A DEVICE FACT, not a style preference: 82 characters
-		-- is the longest blurb a device pass has ever read on a 360px phone
-		-- (tests/gallery_demo_picker.spec). A scaffold that stamps a longer one
-		-- hands its author a red test it wrote itself.
-		local blurb = string.match(demoRow :: string, 'blurb = "([^"]+)"')
-		expect(blurb ~= nil).toBeTruthy()
-		expect(`blurb {utf8.len(blurb :: string)} chars, over 82? {(utf8.len(blurb :: string) :: number) > 82}`).toBe(
-			`blurb {utf8.len(blurb :: string)} chars, over 82? false`
-		)
+		expect(string.find(scenario :: string, "existing demo", 1, true) ~= nil).toBe(true)
 
 		-- the catalog row's api.md link must land on the heading the api.md stub
 		-- writes, or `check_docs` reports a guide link to nothing

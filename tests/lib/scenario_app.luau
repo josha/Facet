@@ -24,6 +24,13 @@ function scenario_app.over(core: any, presenter: any): any
 		mount = surface("present"),
 		presentModal = surface("presentModal"),
 	}
+	function app.newResourceProvider(options: any)
+		assert(options.bind == false, "headless scenarios must supply their own resource transport")
+		local config = table.clone(options)
+		config.bind = nil
+		local provider = require("../../src").newResourceProvider(core, config)
+		return provider, core.owner.own(provider.dispose)
+	end
 	function app.presentAnchored(component: any, options: any?)
 		local handle = presenter.presentAnchored(component, options, function(build, presentOptions, presentSurface)
 			local _, internalUI = harness.libraryOf(core)

@@ -259,3 +259,324 @@ describe("circle ZStack paint: the SAME phantom rule a circle Button uses, no ne
 		expect(adapter.node("/S/Ring").props.shape).toBe("circle")
 	end)
 end)
+
+-- Painted circle leaves use the same square and native shape classification.
+describe("circle painted leaves", function()
+	local world = require("./lib/world")
+	for _, class in { "Box", "Image" } do
+		it(class .. " derives bound percent and fill diameter without losing its paint channel", function()
+			local w = world.new({ viewport = { x = 0, y = 0, w = 400, h = 400 } })
+			local width = Compose.cell({ type = "percent", fraction = 0.5 })
+			w.present(function()
+				return w.UI.Screen("S")({
+					padding = 0,
+					w.UI.ZStack("Offer")({
+						width = { type = "fixed", px = 400 },
+						height = { type = "fixed", px = 400 },
+						w.UI[class]("Circle")({
+							shape = "circle",
+							width = width,
+							tint = if class == "Box" then { role = "control", blend = 1 } else nil,
+							image = if class == "Image" then "rbxassetid://75342910516929" else nil,
+						}),
+					}),
+				})
+			end)
+			local function circle()
+				return assert(w.adapter.node("/S/Offer/Circle"))
+			end
+			expect(circle().rect.w).toBe(200)
+			expect(circle().rect.h).toBe(200)
+			expect(circle().props.shape).toBe("circle")
+			if class == "Box" then
+				expect(circle().props.tint.role).toBe("control")
+			else
+				expect(circle().props.image).toBe("rbxassetid://75342910516929")
+			end
+			width:set({ type = "percent", fraction = 0.25 })
+			w.pres.refresh()
+			expect(circle().rect.w).toBe(100)
+			expect(circle().rect.h).toBe(100)
+			width:set({ type = "fill" })
+			w.pres.refresh()
+			expect(circle().rect.w).toBe(400)
+			expect(circle().rect.h).toBe(400)
+			width:set(nil)
+			w.pres.refresh()
+			expect(circle().rect.w).toBe(44)
+			expect(circle().rect.h).toBe(44)
+			width:set({ type = "percent", fraction = 0.5 })
+			w.pres.refresh()
+			expect(circle().rect.w).toBe(200)
+			expect(circle().rect.h).toBe(200)
+		end)
+		it(class .. " keeps the absent or explicit rect default and rejects malformed circle declarations", function()
+			local w = world.new()
+			for _, shape in { "rect", false } do
+				w.present(function()
+					return w.UI.Screen("S")({
+						w.UI[class]("Leaf")({
+							shape = if shape then shape else nil,
+							width = { type = "fixed", px = 72 },
+							height = { type = "fixed", px = 24 },
+						}),
+					})
+				end)
+				expect(w.adapter.node("/S/Leaf").rect.w).toBe(72)
+				expect(w.adapter.node("/S/Leaf").rect.h).toBe(24)
+				w.close()
+			end
+			for _, bad in
+				{
+					{ shape = "ellipse" },
+					{ shape = Compose.cell("circle") },
+					{ shape = "circle", width = { type = "fixed", px = 44 }, height = Compose.cell(nil) },
+					{ shape = "circle", width = Compose.cell(nil), height = { type = "fixed", px = 44 } },
+					{ shape = "circle", width = { type = "fixed", px = 44 }, height = { type = "fixed", px = 22 } },
+				}
+			do
+				expect(pcall(function()
+					w.scoped(function()
+						w.UI[class](bad)
+					end)
+				end)).toBe(false)
+			end
+		end)
+	end
+end)
+
+describe("painted circle native property path", function()
+	it("keeps the shared circle radius while retracting legacy rim classification", function()
+		local T = sheet_model.TAGS
+		local old = sheet_model.classifyTags({ shape = "circle" })
+		expect(old[T.circleRim]).toBe(true)
+		local leaf = sheet_model.classifyTags({ shape = "circle", shapeRim = false })
+		expect(leaf[CIRCLE_TAG]).toBe(true)
+		expect(leaf[T.circleRim]).toBeNil()
+		local rect = sheet_model.classifyTags({ shape = "rect", shapeRim = false })
+		expect(rect[CIRCLE_TAG]).toBeNil()
+		expect(rect[T.circleRim]).toBeNil()
+		local tags = require("../src/render/tag_sync")
+		local change = tags.diff({ CIRCLE_TAG, T.circleRim }, rect)
+		expect(#change.remove).toBe(2)
+		expect(#tags.diff({}, old).add).toBe(2)
+	end)
+	it("materializes one bare Image or Box corner, retracts it, and preserves caller-owned corners", function()
+		-- Executes native property dispatch with engine objects mocked; GPU clipping is a Studio check.
+		local fs, luau = require("@lune/fs"), require("@lune/luau")
+		local objects = {}
+		local function make(class)
+			local obj = { ClassName = class }
+			function obj:IsA(kind)
+				return self.ClassName == kind
+					or (kind == "GuiObject" and (self.ClassName == "Frame" or self.ClassName == "ImageLabel"))
+			end
+			function obj:FindFirstChild(name)
+				for _, child in self:GetChildren() do
+					if child.Name == name then
+						return child
+					end
+				end
+				return nil
+			end
+			function obj:GetChildren()
+				local out = {}
+				for _, child in objects do
+					if child.Parent == self and not child.dead then
+						table.insert(out, child)
+					end
+				end
+				return out
+			end
+			function obj:FindFirstChildOfClass(kind)
+				for _, child in self:GetChildren() do
+					if child.ClassName == kind then
+						return child
+					end
+				end
+				return nil
+			end
+			function obj:Destroy()
+				self.dead = true
+			end
+			table.insert(objects, obj)
+			return obj
+		end
+		local rb = require("@lune/roblox")
+		local styling = require("../src/tokens/styling")
+		local imports = {
+			["../tokens/styling"] = styling,
+			["../tokens/sheet_model"] = sheet_model,
+			["../tokens/chrome_slots"] = require("../src/tokens/chrome_slots"),
+			["../themes/snapshot"] = snapshot,
+			["../render/authority"] = authority,
+		}
+		local paintModule = luau.load(fs.readFile("src/client/screen_paint.luau"), {
+			injectGlobals = true,
+			environment = {
+				game = {
+					GetService = function()
+						return {}
+					end,
+				},
+				Instance = { new = make },
+				UDim = rb.UDim,
+				UDim2 = rb.UDim2,
+				Enum = { ScaleType = { Crop = "Crop" } },
+				require = function(name)
+					return assert(imports[name], name)
+				end,
+			},
+		})()
+		local style = {
+			radii = { control = 12, panel = 20 },
+			strokes = { hairline = 0 },
+			colors = {},
+			extra = { scrimOpacity = 0.5 },
+		}
+		local paint = paintModule.new({
+			nativeMode = false,
+			style = style,
+			palette = {},
+			preferredTransparency = function()
+				return 0
+			end,
+			toColor3 = function(value)
+				return value
+			end,
+			chrome = { syncChrome = function() end },
+			assertBespokePaint = function() end,
+			snapshot = function()
+				return nil
+			end,
+		})
+		local props = luau.load(fs.readFile("src/client/screen_props.luau"), {
+			injectGlobals = true,
+			environment = {
+				Instance = { new = make },
+				require = function()
+					return {}
+				end,
+			},
+		})()
+		local adapter = props.new({
+			nativeMode = false,
+			style = style,
+			assertBespokePaint = function() end,
+			cornerRadiusFor = paint.cornerRadiusFor,
+			corner = paint.corner,
+			applyCorners = paint.applyCorners,
+			applySurface = paint.applySurface,
+		})
+		for _, class in { "Image", "Box" } do
+			local instance = make(if class == "Image" then "ImageLabel" else "Frame")
+			local handle = { class = class, instance = instance }
+			adapter.setProp(handle, "shape", "circle", "style")
+			local corner = assert(instance:FindFirstChildOfClass("UICorner"))
+			expect(corner.CornerRadius.Scale).toBe(0.5)
+			expect(corner.CornerRadius.Offset).toBe(0)
+			adapter.setProp(handle, "shape", "circle", "style")
+			expect(#instance:GetChildren()).toBe(1)
+			-- The same real child participates in both shape and explicit-corner ownership.
+			adapter.setProp(handle, "corners", styling.normalizeCorners(6), "style")
+			expect(corner.CornerRadius.Offset).toBe(6)
+			adapter.setProp(handle, "corners", nil, "style")
+			expect(instance:FindFirstChildOfClass("UICorner")).toBe(corner)
+			expect(corner.CornerRadius.Scale).toBe(0.5)
+			for _, surface in { "control", "badge", "plain", "scrim", "control", "plain" } do
+				adapter.setProp(handle, "surface", surface, "style")
+				expect(instance:FindFirstChildOfClass("UICorner")).toBe(corner)
+				expect(#instance:GetChildren()).toBe(1)
+				adapter.setProp(handle, "corners", styling.normalizeCorners(8), "style")
+				adapter.setProp(handle, "corners", nil, "style")
+				expect(corner.CornerRadius.Scale).toBe(0.5)
+			end
+			adapter.setProp(handle, "shape", nil, "style")
+			expect(#instance:GetChildren()).toBe(0)
+			adapter.setProp(handle, "corners", nil, "style")
+			expect(#instance:GetChildren()).toBe(0)
+			for _, nextSurface in { "plain", "scrim", "control" } do
+				adapter.setProp(handle, "surface", "plain", "style")
+				adapter.setProp(handle, "surface", "control", "style")
+				local borrowed = assert(instance:FindFirstChildOfClass("UICorner"))
+				-- A recycled occupant wears the same shape/surface property keys.
+				adapter.setProp(handle, "shape", "circle", "style")
+				adapter.setProp(handle, "surface", nextSurface, "style")
+				expect(instance:FindFirstChildOfClass("UICorner")).toBe(borrowed)
+				expect(borrowed.CornerRadius.Scale).toBe(0.5)
+				expect(#instance:GetChildren()).toBe(1)
+				adapter.setProp(handle, "shape", "rect", "style")
+				if nextSurface == "control" then
+					expect(instance:FindFirstChildOfClass("UICorner")).toBe(borrowed)
+					expect(borrowed.CornerRadius.Offset).toBe(12)
+				else
+					expect(#instance:GetChildren()).toBe(0)
+				end
+			end
+			adapter.setProp(handle, "corners", styling.normalizeCorners(6), "style")
+			local authored = assert(instance:FindFirstChildOfClass("UICorner"))
+			adapter.setProp(handle, "shape", "circle", "style")
+			adapter.setProp(handle, "shape", nil, "style")
+			expect(instance:FindFirstChildOfClass("UICorner")).toBe(authored)
+			expect(authored.CornerRadius.Offset).toBe(6)
+			adapter.setProp(handle, "corners", nil, "style")
+		end
+	end)
+end)
+
+describe("circle native grouping classification", function()
+	it("reconciles a CanvasGroup aperture without a rim while preserving ordinary circle chrome", function()
+		local fs, luau = require("@lune/fs"), require("@lune/luau")
+		local source = fs.readFile("src/client/screen_target.luau")
+		local branch = assert(string.match(source, "\tlocal function syncTags%(handle: any%)(.-)\n\tend"))
+		local service = {}
+		function service:GetTags(instance)
+			return table.clone(instance.tags)
+		end
+		function service:AddTag(instance, tag)
+			table.insert(instance.tags, tag)
+		end
+		function service:RemoveTag(instance, tag)
+			table.remove(instance.tags, assert(table.find(instance.tags, tag)))
+		end
+		local sync = luau.load("return function(handle)" .. branch .. "\nend", {
+			injectGlobals = true,
+			environment = {
+				nativeMode = true,
+				sheet_model = sheet_model,
+				tag_sync = require("../src/render/tag_sync"),
+				CollectionService = service,
+			},
+		})()
+		for _, test in
+			{
+				{ "Button", "TextButton", true },
+				{ "ZStack", "Frame", true },
+				{ "ZStack", "CanvasGroup", false },
+				{ "Box", "Frame", false },
+				{ "Image", "ImageLabel", false },
+			}
+		do
+			local instance = { tags = { CIRCLE_TAG, sheet_model.TAGS.circleRim }, class = test[2] }
+			function instance:IsA(class)
+				return self.class == class
+			end
+			local handle = { class = test[1], instance = instance, shape = "circle" }
+			local function has(tag)
+				return table.find(instance.tags, tag) ~= nil
+			end
+			sync(handle)
+			expect(has(CIRCLE_TAG)).toBe(true)
+			expect(has(sheet_model.TAGS.circleRim)).toBe(test[3])
+			-- The same handle's next occupant must lose both shape tags, then earn the right set again.
+			handle.shape = nil
+			sync(handle)
+			expect(has(CIRCLE_TAG)).toBe(false)
+			expect(has(sheet_model.TAGS.circleRim)).toBe(false)
+			handle.shape = "circle"
+			sync(handle)
+			expect(has(CIRCLE_TAG)).toBe(true)
+			expect(has(sheet_model.TAGS.circleRim)).toBe(test[3])
+		end
+	end)
+end)

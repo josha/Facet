@@ -202,6 +202,110 @@ function text_fit.size(spec: FitSpec): number
 	return text_fit.fit(spec).size
 end
 
+--[[ ===== MIDDLE TRUNCATION ====================================================
+
+	`UI.Text{ truncate = "middle" }`. The engine ellipsizes at the END and offers
+	no other mode, so the one string a file path, a track name or an id CANNOT
+	afford to lose the tail of has no native answer. This is that answer, and it
+	is a FIT POLICY over the measurer this file already fronts, not a second
+	measurement model: the same `text_metrics.measure` the solver reserved the box
+	with decides which candidate fits it.
+
+	HEAD AND TAIL, NOT HEAD AND HOPE. The search is over how many CODEPOINTS
+	survive — head takes the ceiling of half, tail the floor — so the two ends
+	grow together and a one-character budget spends it on the head. Fit is
+	monotone in that count (dropping a character never widens the string), so a
+	binary search lands on the true largest fitting form in ~log2(n) measures,
+	each of which is memoized by the measurer.
+
+	IT MEASURES ONE UNWRAPPED LINE, deliberately: a middle-truncated string is a
+	single line by definition — the whole point is that it fits ACROSS rather than
+	DOWN — so the width question is asked at an unbounded width and compared,
+	rather than asked at the box's width (which clamps its own answer and can
+	therefore never say "no").
+
+	THE CALLER OWNS THE CACHE. This is pure, and the only inputs are the string,
+	the face, the size and the width — so a caller that re-asks with all four
+	unchanged gets the same answer and should not have asked.
+	`render/commit_walks.luau` is that caller and keys exactly those four. ]]
+
+local ELLIPSIS = "\u{2026}"
+
+export type MiddleSpec = {
+	text: string,
+	font: string,
+	size: number, -- the px size the string is PAINTED at (the offset already added)
+	width: number, -- the box the one line has to live in
+	lineHeight: number?,
+}
+
+local MIDDLE_SPEC_KEYS = specGuard.keySet({ "text", "font", "size", "width", "lineHeight" })
+
+-- the codepoint offsets of `text`, so a cut never lands inside a character
+local function codepointOffsets(text: string): { number }
+	local offsets: { number } = {}
+	for position in utf8.codes(text) do
+		table.insert(offsets, position)
+	end
+	return offsets
+end
+
+local function lineWidth(spec: MiddleSpec, candidate: string): number
+	return text_metrics.measure(candidate, spec.font, spec.size, math.huge, spec.lineHeight, 1).width
+end
+
+--[[ middle(spec) -> the string to paint
+
+	Returns `spec.text` unchanged when the whole value already fits — so a caller
+	may ask unconditionally and write only when the answer differs from what the
+	node is drawing. When not even the ellipsis fits, the ellipsis is still what
+	comes back: a box too small for one glyph is a LAYOUT problem, and painting
+	nothing would hide it. ]]
+function text_fit.middle(spec: MiddleSpec): string
+	specGuard.assertKnownKeys("text.middle", spec, MIDDLE_SPEC_KEYS, "spec")
+	local text = spec.text
+	if text == "" then
+		return text
+	end
+	if spec.width <= 0 then
+		return ELLIPSIS
+	end
+	if lineWidth(spec, text) <= spec.width then
+		return text
+	end
+	local offsets = codepointOffsets(text)
+	local total = #offsets
+	if total <= 1 then
+		return ELLIPSIS
+	end
+	-- `keep` = how many codepoints of the ORIGINAL survive, split across the two
+	-- ends. `best = 0` is the FLOOR rather than a tested candidate: the bare
+	-- ellipsis is the narrowest form there is, so when even it overflows it is
+	-- still the honest answer (see the header).
+	local function formFor(keep: number): string
+		if keep <= 0 then
+			return ELLIPSIS
+		end
+		local head = math.ceil(keep / 2)
+		local tail = keep - head
+		local headEnd = if offsets[head + 1] ~= nil then offsets[head + 1] - 1 else #text
+		local headText = string.sub(text, 1, headEnd)
+		local tailText = if tail > 0 then string.sub(text, offsets[total - tail + 1]) else ""
+		return headText .. ELLIPSIS .. tailText
+	end
+	local lo, hi, best = 0, total - 1, 0
+	while lo <= hi do
+		local mid = (lo + hi) // 2
+		if lineWidth(spec, formFor(mid)) <= spec.width then
+			best = mid
+			lo = mid + 1
+		else
+			hi = mid - 1
+		end
+	end
+	return formFor(best)
+end
+
 --[[ ===== THE LINE BOX ========================================================
 
 	"How tall is `lines` lines of this text going to be?" — the question every

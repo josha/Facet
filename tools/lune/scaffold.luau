@@ -73,12 +73,6 @@ local function pascal(name: string): string
 	return table.concat(out)
 end
 
--- the demo picker's ids are kebab-case (`row-actions`, `nested-tree`), one
--- spelling of the same name as the module's lower_snake_case
-local function kebab(name: string): string
-	return (string.gsub(name, "_", "-"))
-end
-
 local CONTROL_TEMPLATE = [==[
 --!strict
 -- %DISPLAY% control (scaffolded by tools/lune/scaffold — replace this line
@@ -408,8 +402,8 @@ local LARGE_TEXT_FIXTURE_TEMPLATE = [==[
 ]==]
 
 --[[ THE GALLERY SCENARIO (standing rule 4). "Every gap closure ships its
-	showcase demo, registered in `scenarios/init.luau` ORDER **and**
-	`demo_picker.DEMOS`, swept by `tests/overflow_sweep.spec.luau` at all
+	standalone scenario, registered in `scenarios/init.luau` ORDER, placed in an
+	existing showcase demo, and swept by `tests/overflow_sweep.spec.luau` at all
 	viewports, and verified across every shipped theme" — four registrations that
 	`docs/extending/new-control.md` used to compress into nine words, and that a
 	fresh-context author met as four separate red tests in three files.
@@ -426,6 +420,7 @@ local SCENARIO_TEMPLATE = [==[
 --!strict
 -- Application authoring: a component function owns its state and controls.
 -- Add real commands/readbacks, then exercise this mounted view on every input.
+-- TODO: place this recipe inside an existing demo (for example All controls).
 return {
 	title = "%DISPLAY%",
 	ledgerRows = {},
@@ -471,24 +466,13 @@ local GUIDE_CATALOG_ROW_TEMPLATE =
 -- rather than the migration set.
 local NAMESPACE_NAME_TEMPLATE = [==[	"%DISPLAY%",]==]
 
-local SCENARIO_ORDER_TEMPLATE = [==[	-- scaffolded showcase surface for the `%DISPLAY%` control. Also in
-	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+local SCENARIO_ORDER_TEMPLATE = [==[	-- scaffolded standalone surface for `%DISPLAY%`. TODO: choose an existing
+	-- demo for its visible recipe; keep this scenario route independently driveable.
 	"%NAME%",]==]
 
 local SWEEP_ROW_TEMPLATE = [==[	-- ...and the scaffolded `%DISPLAY%` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"%NAME%",]==]
-
-local DEMO_ROW_TEMPLATE = [==[	-- scaffolded: the surface a person opens on a phone to drive %DISPLAY%.
-	{
-		id = "%KEBAB%",
-		title = "%DISPLAY%",
-		blurb = "TODO: what a person can do with this control on a device",
-		kind = "fixture",
-		module = "%NAME%",
-	},]==]
-
-local DEMO_ROOT_ROW_TEMPLATE = [==[	["%KEBAB%"] = "%DISPLAY%",]==]
 
 local REGISTRY_ROW_TEMPLATE = [==[
 	{
@@ -535,6 +519,10 @@ TODO: one-paragraph description, the spec shape, invariants, and a short
 usage example (scaffolded stub — the registration checker requires this
 anchor; the docs-accuracy review requires it to be REAL).]==]
 
+-- A generated row names the public entry and leaves classification to its author.
+local LEDGER_ROW_TEMPLATE = [==[
+| `app.controls.%DISPLAY%` | scoped composite control | TODO: state the caller/library ownership pattern or justified exception. | tests/%NAME%.spec.luau; docs/reference/api.md | controls |]==]
+
 local function fill(template: string, name: string, display: string): string
 	local out = string.gsub(template, "%%NAME%%", name)
 	-- LOWERDISPLAY before DISPLAY: `%DISPLAY%` is a prefix of `%DISPLAYX%` only
@@ -542,7 +530,6 @@ local function fill(template: string, name: string, display: string): string
 	-- still whole
 	out = string.gsub(out, "%%LOWERDISPLAY%%", string.lower(display))
 	out = string.gsub(out, "%%DISPLAY%%", display)
-	out = string.gsub(out, "%%KEBAB%%", kebab(name))
 	-- drop the leading newline the long-string form carries
 	return string.gsub(out, "^\n", "")
 end
@@ -603,26 +590,7 @@ function scaffold.plan(kind: string, name: string): Plan
 				content = fill(SCENARIO_TEMPLATE, name, display),
 			},
 		},
-		--[[ THE CATALOGUE COUNT PINS, moved BEFORE anything is inserted. Both live
-			in tests/gallery_demo_picker.spec.luau and both are guarded by the
-			DEMO_ROOT row this same run adds to that file, so a second scaffold run
-			finds the guard and counts nothing twice. `expect(fixtures).toBe(N)` is
-			asserted in TWO describes and both have to move together, which is why
-			the bump is every-match rather than first-match. ]]
-		bumps = {
-			{
-				path = "tests/gallery_demo_picker.spec.luau",
-				prefix = "expect(#demos).toBe(",
-				suffix = ")",
-				guard = fill(DEMO_ROOT_ROW_TEMPLATE, name, display),
-			},
-			{
-				path = "tests/gallery_demo_picker.spec.luau",
-				prefix = "expect(fixtures).toBe(",
-				suffix = ")",
-				guard = fill(DEMO_ROOT_ROW_TEMPLATE, name, display),
-			},
-		},
+		bumps = {},
 		edits = {
 			{
 				path = "tests/run.luau",
@@ -661,6 +629,11 @@ function scaffold.plan(kind: string, name: string): Plan
 				path = "docs/reference/api.md",
 				before = nil, -- append
 				insert = fill(API_STUB_TEMPLATE, name, display),
+			},
+			{
+				path = "tools/lune/verify/data/surface-ledger.md",
+				before = "| `Controls.Sheet` |",
+				insert = fill(LEDGER_ROW_TEMPLATE, name, display),
 			},
 			--[[ ...AND THE SIX THAT WERE NOBODY'S TO REMEMBER (2026-08-21). Each of
 				these was discovered by a fresh-context control author as a RED TEST,
@@ -702,21 +675,6 @@ function scaffold.plan(kind: string, name: string): Plan
 				path = "tests/overflow_sweep.spec.luau",
 				before = "scaffold: new control scenarios are appended above this line",
 				insert = fill(SWEEP_ROW_TEMPLATE, name, display),
-			},
-			-- 5 and 6. the demo picker's catalogue entry and the root screen the
-			-- host sweep looks for. A demo with no pinned root is advanced through
-			-- and never actually looked at, which is the defect one level up — so
-			-- the scenario stub names its root screen after the control and this row
-			-- pins that same name.
-			{
-				path = "examples/gallery/client/demo_picker.luau",
-				before = "scaffold: new control demos are appended above this line",
-				insert = fill(DEMO_ROW_TEMPLATE, name, display),
-			},
-			{
-				path = "tests/gallery_demo_picker.spec.luau",
-				before = "scaffold: new control roots are appended above this line",
-				insert = fill(DEMO_ROOT_ROW_TEMPLATE, name, display),
 			},
 		},
 	}

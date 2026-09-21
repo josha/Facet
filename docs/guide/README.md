@@ -191,7 +191,8 @@ owner that owns its resources. Start with
 | `UI.Toggle` | A two-state switch primitive. Use UI.Toggle for checkbox and toggle-button presentations. | [api](../reference/api.md#toggle) |
 | `UI.TextField` | Native single-line or multiline text-entry primitive. | [api](../reference/api.md#textfield) |
 | `UI.Path` | Draws a stroked path from points or from `pathShapes`. | [api](../reference/api.md#path) |
-| `UI.Label` | An icon-and-text pair that compacts when space runs out. | [api](../reference/api.md#uilabel) |
+| `UI.ShortcutHint` | Passive live action keycaps or explicit shortcut alternatives. | [api](../reference/api.md#uishortcuthint) |
+| `UI.Label` | An icon-and-text pair with a bound semantic title. | [api](../reference/api.md#uilabel) |
 | `UI.Chip` | A selectable filter or action pill. | [api](../reference/api.md#uichip) |
 | `UI.Slider` | A continuous value you drag, step, or adjust. | [api](../reference/api.md#uislider) |
 | `UI.Stepper` | A value with minus and plus buttons. | [api](../reference/api.md#uistepper) |
@@ -213,7 +214,13 @@ owner that owns its resources. Start with
 | `UI.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#uisheet) |
 | `UI.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#uipageview) |
 | `UI.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#uicollapsibleview) |
+| `UI.StatusIndicator` | Passive shape and color marks with optional capped counts. | [api](../reference/api.md#uistatusindicator) |
+| `UI.Badge` | Informational captions with status, icon, and media treatments. | [api](../reference/api.md#uibadge) |
+| `UI.Skeleton` | Theme-sized loading silhouettes with a shared, reduced-motion-aware shimmer. | [api](../reference/api.md#uiskeleton) |
+| `UI.Avatar` | A player picture or initials, with optional presence and activation. | [api](../reference/api.md#uiavatar) |
+| `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
+| `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 
 ### 3. Collections, scrolling, selection, reorder, and drag/drop
@@ -288,6 +295,7 @@ owner that owns its resources. Start with
 | `client.host` | The taught client bootstrap: environment, input, theme, and mount. | [api](../reference/api.md#clienthost) |
 | `client.theme_controller` | Installs a theme package at an application root and swaps it live. | [api](../reference/api.md#clienttheme_controller) |
 | `specGuard` | The closed-key-set guard, exported so an out-of-repo control can reuse it. | [api](../reference/api.md#specguard) |
+| `schema` | Read-only constructor facts, property validation and dirty classes for extensions and contract tooling. | [api](../reference/api.md#the-property-schema) |
 | `VERSION` | The library's semantic version string. | [api](../reference/api.md#version) |
 | `EXIT_CAP_SECONDS` | The flat, non-overridable cap on how long a dismissed surface's exit may defer teardown. | [api](../reference/api.md#exit_cap_seconds) |
 | `DEPRECATIONS` | The retiring-surface ledger: what is going, what replaces it, and when. | [api](../reference/api.md#deprecations) |
@@ -426,3 +434,5 @@ Declarative animation, direct conditional children, custom component slots and k
 ScrollView navigation can share a model-owned pixel position between presentations;
 VirtualGrid exposes the same behavior through `scrollNavigation`. See the
 [scroll configuration](../reference/api.md#scrollview).
+
+[Common composition recipes](17-recipes.md) covers action rows, independent settings, chip groups, empty states, divider insets, and single-open accordions.

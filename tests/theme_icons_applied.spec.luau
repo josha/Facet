@@ -438,6 +438,32 @@ describe("icon paint: the package emits, the adapter applies", function()
 		expect(string.find(classify, "iconArt = handle.iconArt == true", 1, true) ~= nil).toBe(true)
 	end)
 
+	it("the picture wears the KIND tag and is a DIRECT child — the combinator's two halves", function()
+		--[[ THE LOAD-BEARING LINE NOTHING COULD SEE. The status-lettering rules are
+			`.facet-letters-<role> > .facet-chrome-icon`, so the picture has to wear the
+			kind tag AND be a direct child of the node that wears the letters — and this
+			harness has no managed picture, so every headless claim about that rule
+			reads the host's tag and the emitted selector instead. Delete either line
+			here and the whole feature is dead on a device with the suite still green,
+			which is exactly what a source pin is for. ]]
+		local apply = section(chromeSource, "local function syncIconArt(handle: any)", "\n\tend")
+		expect(string.find(apply, "CollectionService:AddTag(child, chrome_slots.ICON_PICTURE_TAG)", 1, true) ~= nil).toBe(
+			true
+		)
+		-- a DIRECT child of the host: the combinator is `>`, not a descendant walk
+		expect(string.find(apply, "child.Parent = handle.instance", 1, true) ~= nil).toBe(true)
+		-- ...and the kind tag is added BEFORE the picture joins the tree, the
+		-- tag-before-parent rule every other create path in that file keeps
+		local tagAt: any = string.find(apply, "chrome_slots.ICON_PICTURE_TAG", 1, true)
+		local parentAt: any = string.find(apply, "child.Parent = handle.instance", 1, true)
+		expect(tagAt < parentAt).toBe(true)
+		-- the fallback half reads the same role the rules spend, so the two paths
+		-- cannot disagree about a status plate's picture
+		expect(string.find(apply, "local letterRole = handle.letterRole", 1, true) ~= nil).toBe(true)
+		local classify = section(adapterSource, "local function syncTags(handle: any)", "\n\tend")
+		expect(string.find(classify, "letterRole = handle.letterRole", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("native mode writes NO sheet-owned paint on the picture (rs-m2's defeat rule)", function()
 		local apply = section(chromeSource, "local function syncIconArt(handle: any)", "\n\tend")
 		local guard: any = string.find(apply, "if not nativeMode then", 1, true)
@@ -598,5 +624,84 @@ describe("image paint is declared sheet-owned, with the adapter's instances name
 		local parent = string.find(sync, "child.Parent = handle.instance", 1, true)
 		expect(addTag ~= nil and parent ~= nil).toBe(true)
 		expect((addTag :: number) < (parent :: number)).toBe(true)
+	end)
+end)
+
+describe("semantic art participates in package invalidation", function()
+	it("equal-metric art and glyph packages invalidate active and parked icons in both directions", function()
+		local art = withIcons({})
+		local glyph = withIcons({}, function(d)
+			d.identity.standardIcons = false
+		end)
+		expect(art.metrics).toEqual(glyph.metrics)
+		expect(themes.resolveIcon(art, "close").source).toBe("asset")
+		expect(themes.resolveIcon(glyph, "close").source).toBe("glyph")
+		local state = chrome_slots.newState(art)
+		for _, package in { glyph, art, glyph, art } do
+			local parkedEpoch = state.epoch()
+			expect(state.setPackage(package)).toBe(true)
+			expect(state.epoch() > parkedEpoch).toBe(true)
+			expect(state.setPackage(package)).toBe(false)
+		end
+		-- This is the existing live adoption refusal, not a fake target's policy.
+		expect(string.find(adapterSource, "if handle.parkedChromeEpoch ~= chromeState.epoch() then", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+	it("invalidates changed icon content, tint and declarations but not palette or map order", function()
+		local base = withIcons({ increment = "plus", decrement = "minus" })
+		local state = chrome_slots.newState(base)
+		local variants = {
+			withIcons({ increment = "plus", decrement = "minus" }, function(d)
+				d.assets.plus.content = "rbxassetid://903"
+			end),
+			withIcons({ increment = "plus", decrement = "minus" }, function(d)
+				d.assets.plus.tintRole = "danger"
+			end),
+			withIcons({ increment = "plus" }),
+			withIcons({ increment = { default = "plus", hover = "minus" }, decrement = "minus" }),
+		}
+		for _, variant in variants do
+			expect(variant.metrics).toEqual(base.metrics)
+			expect(state.setPackage(variant)).toBe(true)
+			expect(state.setPackage(base)).toBe(true)
+		end
+		local reordered = withIcons({ decrement = "minus", increment = "plus" }, function(d)
+			d.style.themes[1].colors.background = { r = 0, g = 0, b = 0 }
+		end)
+		local parkedEpoch = state.epoch()
+		expect(state.setPackage(reordered)).toBe(false)
+		expect(state.epoch()).toBe(parkedEpoch)
+	end)
+end)
+
+-- Exercise the actual native fallback helper, including the no-lettering idle guard.
+describe("fallback lettering release", function()
+	it("releasing fallback lettering restores art once and leaves unrelated releases idle", function()
+		local source = fs.readFile("src/client/screen_paint.luau")
+		local body = require("./lib/adapter_source").bodyOf(source, "local function releaseTint(handle: any)")
+		local factory = require("@lune/luau").load(
+			"return function(nativeMode,syncTags,syncChrome,restorePaint) " .. body .. " return releaseTint end"
+		)()
+		for _, native in { false, true } do
+			local syncs, tags = 0, 0
+			local release = factory(native, function(h)
+				tags += 1
+				expect(h.letterRole).toBe(nil)
+			end, function(h)
+				syncs += 1
+				h.iconInstance.color = "own-role"
+			end, function() end)
+			local h = { letterRole = "contentStrong", tintFill = true, iconInstance = { color = "ContentStrong" } }
+			release(h)
+			expect(h.tintFill).toBe(nil)
+			expect(syncs).toBe(if native then 0 else 1)
+			if not native then
+				expect(h.iconInstance.color).toBe("own-role")
+			end
+			release(h)
+			expect(syncs).toBe(if native then 0 else 1)
+			expect(tags).toBe(2)
+		end
 	end)
 end)

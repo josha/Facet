@@ -146,6 +146,17 @@ chrome_slots.ICON_Z_INDEX = 20
 -- instance, exactly like a decoration.
 chrome_slots.ICON_TAG_PREFIX = "facet-chrome-icon-"
 
+--[[ ...AND THE TAG EVERY MANAGED PICTURE WEARS, whatever its name is. The
+	per-name tag above is how a package re-skins ONE icon; this one is how a rule
+	can say something about "an icon picture" as a kind — which the status
+	lettering rules need, because a plate's readable partner is a fact about the
+	NODE the picture sits on and not about which picture it is.
+
+	Not a prefix of the per-name tags by accident: `facet-chrome-icon` is shorter
+	than `facet-chrome-icon-`, so the adapter's "drop the stale per-name tag" sweep
+	(which compares against the longer prefix) leaves it alone. ]]
+chrome_slots.ICON_PICTURE_TAG = "facet-chrome-icon"
+
 function chrome_slots.iconTagFor(name: string): string
 	return chrome_slots.ICON_TAG_PREFIX .. (string.gsub(string.gsub(name, "%.", "-"), ":", "--"))
 end
@@ -906,6 +917,7 @@ end
 -- fallback glyph as that node's text, so the request is an upgrade rather than a
 -- dependency: no theme art, no problem.
 export type Hint = {
+	contentOwnerDepth: number?, -- generated primary content: logical ancestor Button (0 = self), never a physical-parent guess
 	slot: string?,
 	image: string?,
 	imageVariants: { [string]: { asset: string } }?,
@@ -969,6 +981,15 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 			.. "positive px number, or a non-empty list of either that sums (see the type's comment; "
 			.. "zero would mean 'reserved nothing', which is `nil`)"
 	)
+	assert(
+		hint.contentOwnerDepth == nil
+			or (
+				type(hint.contentOwnerDepth) == "number"
+				and hint.contentOwnerDepth >= 0
+				and hint.contentOwnerDepth % 1 == 0
+			),
+		"chrome_slots.attachHint: contentOwnerDepth must be a nonnegative integer"
+	)
 	local meta = if blueprint.meta ~= nil then table.clone(blueprint.meta) else {}
 	meta[chrome_slots.META_KEY] = table.freeze({
 		slot = hint.slot,
@@ -977,6 +998,7 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		icon = hint.icon,
 		iconSize = hint.iconSize,
 		footprint = hint.footprint,
+		contentOwnerDepth = hint.contentOwnerDepth,
 	})
 	if require("../vendor/compose/core").custodyOf(blueprint) == "owned" then
 		blueprint.meta = table.freeze(meta)
@@ -1045,6 +1067,9 @@ function chrome_slots.hintKey(hint: Hint?): string
 		tostring(hint.iconSize),
 		footprint,
 	}
+	if hint.contentOwnerDepth ~= nil then
+		table.insert(parts, "contentOwner=" .. tostring(hint.contentOwnerDepth))
+	end
 	if type(hint.imageVariants) == "table" then
 		local states = {}
 		for state, entry in hint.imageVariants do
@@ -2776,10 +2801,32 @@ function chrome_slots.newState(package: any?): State
 	-- decoration instance, so the adapter asks this before touching anything.
 	function state.setPackage(next: any?): boolean
 		local function signature(p: any): string
-			if type(p) ~= "table" or type(p.chrome) ~= "table" then
+			if type(p) ~= "table" then
 				return "<none>"
 			end
-			local parts: { string } = {}
+			-- Compiled semantic art and the framework opt-out affect live images and
+			-- parked handles even when every layout metric and plate recipe is equal.
+			-- This is the resolver's data, not a second icon-resolution policy.
+			local standard = not (type(p.identity) == "table" and p.identity.standardIcons == false)
+			local parts: { string } = { "standardIcons=" .. tostring(standard) }
+			if type(p.iconArt) == "table" then
+				for name, states in p.iconArt do
+					for stateName, art in states do
+						table.insert(
+							parts,
+							string.format(
+								"%q:%q=%q/%q/%q",
+								name,
+								stateName,
+								art.assetName,
+								art.contentId,
+								tostring(art.tintRole)
+							)
+						)
+					end
+				end
+				table.sort(parts)
+			end
 			for _, slot in chrome_slots.SLOTS do
 				local plan = chrome_slots.planFor(p, slot)
 				-- the SHADOW is chrome too: a package that changes only its slot

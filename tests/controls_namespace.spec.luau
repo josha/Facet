@@ -61,6 +61,12 @@ local POST_ADR_NAMES: { string } = {
 	"CollapsibleView",
 	"Composition",
 	"Region",
+	"ShortcutHint",
+	"StatusIndicator",
+	"Badge",
+	"Skeleton",
+	"Avatar",
+	"AvatarGroup",
 	-- scaffold: new control names are appended above this line
 }
 
@@ -142,6 +148,7 @@ local FIXTURES: { [string]: (core: any) -> any } = {
 		return { id = "Save", title = "Save", icon = "rbxassetid://1" }
 	end,
 	Chip = function(core)
+		Facet.newEnvironment(core)
 		return { id = "C", label = "Wet", selected = Compose.cell(false) }
 	end,
 	Rating = function(core)
@@ -255,6 +262,7 @@ describe("the Controls namespace", function()
 			local expectedId = if name == "Menu"
 				then spec.id .. "Trigger"
 				elseif name == "Callout" then spec.anchor.id
+				elseif name == "Chip" then spec.id .. "+target"
 				else spec.id
 			expect(control.blueprint.id).toBe(expectedId)
 			expect(Facet[`new{name}`]).toBe(nil)

@@ -649,7 +649,13 @@ function anchored.new(ctx: any)
 				above whichever surface owns the source, so a plate over a modal's
 				control is above THAT modal rather than behind it. ]]
 				local mounted = screen
-				local controller = rendererLib.attach(core, mounted, env, adapter, { rootPolicy = "edgeToEdge" })
+				local controller = rendererLib.attach(core, mounted, env, adapter, {
+					rootPolicy = "edgeToEdge",
+					measureReuse = presentOptions.measureReuse ~= false,
+					commitScope = presentOptions.commitScope ~= false,
+					structuralReuse = presentOptions.structuralReuse ~= false,
+					translateHosts = presentOptions.translateHosts ~= false,
+				})
 				controller.initialRender()
 				if controller.setDisplayOrder ~= nil then
 					local owner = if anchor.source.path ~= nil then handleByPath(anchor.source.path :: string) else nil

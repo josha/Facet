@@ -423,7 +423,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 		So the fill rides a TAG, the mechanism `gripFocus` already uses for the
 		identical reason. The colour stays a claim: a rule cannot carry data. ]]
 	it("a tinted fill rides a tag, because the claim on it could never be taken", function()
-		local tint = section(adapterSource, "local function applyTint(handle: any)", 4200)
+		local tint = section(adapterSource, "local function applyTint(handle: any)", 5400)
 		-- the GuiObject branch declares the fill and re-syncs the node's tags
 		expect(contains(tint, "handle.tintFill = true")).toBe(true)
 		expect(contains(tint, "syncTags(handle)")).toBe(true)
@@ -475,12 +475,34 @@ describe("Image scaleMode", function()
 		UI.Image({ id = "I", scaleMode = "fill" })
 		UI.Image({ id = "I", scaleMode = "crop" })
 		UI.Image({ id = "I", scaleMode = "stretch" })
+		--[[ ...AND THE TWO WORDS THAT JOINED IN 2026-09-18, each with the geometry
+			key it is meaningless without. The older form of this case asserted that
+			"slice" was ABSENT from the word list, on the reading that nine-slice
+			geometry is theme-owned chrome — which is still true of a THEME's own
+			frames (the adapter's chrome images, driven by a package's
+			`sliceCenter`/`sliceScale`) and was never true of CONTENT art. The two
+			authorities never meet on one node, and the pair check below is what
+			keeps the content half from being a silent no-op. ]]
+		UI.Image({ id = "I", scaleMode = "tile", tileSize = { width = 16, height = 16 } })
+		UI.Image({ id = "I", scaleMode = "slice", sliceCenter = { x0 = 8, y0 = 8, x1 = 56, y1 = 56 } })
 		local err = fails(function()
 			UI.Image({ id = "I", scaleMode = "cover" })
 		end)
-		expect(contains(err, "fit | fill | crop | stretch")).toBe(true)
-		-- slice stays theme-owned chrome
-		expect(contains(err, "slice")).toBe(false)
+		expect(contains(err, "one of fit | fill | crop | stretch | tile | slice")).toBe(true)
+		-- and each new word is refused without its geometry, which is what stops it
+		-- degrading silently into `stretch`
+		expect(contains(
+			fails(function()
+				UI.Image({ id = "I", scaleMode = "tile" })
+			end),
+			"declare `tileSize`"
+		)).toBe(true)
+		expect(contains(
+			fails(function()
+				UI.Image({ id = "I", scaleMode = "slice" })
+			end),
+			"declare `sliceCenter`"
+		)).toBe(true)
 	end)
 
 	it("rides the STYLE channel and applies at creation and reactively", function()

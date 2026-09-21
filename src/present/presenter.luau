@@ -51,6 +51,12 @@ local presenter = {}
 -- presenter surface is typed, not `any`)
 export type PresentOpts = {
 	rootPolicy: string?,
+	recycleInstances: boolean?,
+	incrementalLayout: boolean?,
+	measureReuse: boolean?,
+	commitScope: boolean?,
+	structuralReuse: boolean?,
+	translateHosts: boolean?,
 	-- the edge-floor knob (director ruling, 2026-08-23): a
 	-- number (literal px) or a theme metric name, passed straight to
 	-- `renderer.attach`'s own opt of the same name — see its header for the
@@ -231,14 +237,18 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"sinkNavigation",
 	"transition",
 	"traversalWrap",
-	-- INSTANCE RECYCLING (opt-in, default off). A windowed list rebuilds an
+	-- INSTANCE RECYCLING (default on). A windowed list rebuilds an
 	-- identical row every time its window slides; with this on, retiring nodes are
 	-- parked and reused instead of destroyed and re-created. Feature-detected on
 	-- the adapter as well, and the adapter refuses any node carrying path-keyed
 	-- state — so it can only ever save work, never change what is on screen.
 	"recycleInstances",
-	-- INCREMENTAL LAYOUT (opt-in, default off — Stage 2)
+	-- Renderer comparison switches, default on. False selects the baseline.
 	"incrementalLayout",
+	"measureReuse",
+	"commitScope",
+	"structuralReuse",
+	"translateHosts",
 	"keyboardNavigation",
 })
 local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "mountComponent", "now" })
@@ -956,6 +966,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
 		local foundText: string? = nil
+		--[[ ...AND WHETHER THE VALUE IS MARKUP (fix round 1, review finding P1b-4).
+			The plate shows the AUTHORED string, which for `rich = true` is markup —
+			so a plate that did not parse it showed a reader `<b>Lap</b> record`. The
+			flag travels beside the value for exactly that reason: they are one fact
+			about one label, and separating them is how they drift. ]]
+		local foundRich: boolean? = nil
 		local function walk(n: any)
 			if foundPath ~= nil or isHiddenPath(n.path, hiddenRoots) then
 				return
@@ -972,6 +988,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					-- the mounted node carries the RESOLVED value, so a bound label
 					-- discloses what it is currently saying rather than a Readable
 					foundText = tostring(n.props.text ~= nil and n.props.text or n.props.label)
+					foundRich = n.props.rich == true
 					return
 				end
 			end
@@ -980,7 +997,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 		end
 		walk(node)
-		return foundPath, foundText
+		return foundPath, foundText, foundRich
 	end
 
 	-- the presented surface that owns `path`, or nil. Topmost wins, exactly as the
@@ -1070,7 +1087,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- anchor offsets (reactive, `dirty = arrange`), which is a re-solve and never
 	-- a remount — and the clamp KEEPS following the live rects after mount
 	-- (`clampDisclosure` above).
-	local function presentDisclosure(owner: any, sourcePath: string, fullText: string, source: string)
+	local function presentDisclosure(owner: any, sourcePath: string, fullText: string, source: string, rich: boolean?)
 		disposeDisclosure()
 		local ctrl = owner.controller
 		local srcRect = if ctrl.screenRectOf ~= nil then ctrl.screenRectOf(sourcePath) else ctrl.rectOf(sourcePath)
@@ -1110,7 +1127,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 								-- ladder the label it is disclosing just failed
 								width = { type = "hug", max = math.max(0, box.w - 2 * gap) },
 								children = {
-									UI.Text({ id = "Full", text = fullText, textSize = "body" }),
+									UI.Text({
+										id = "Full",
+										text = fullText,
+										textSize = "body",
+										rich = if rich == true then true else nil,
+									}),
 								},
 							}),
 						},
@@ -1219,7 +1241,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if owner ~= nil and owner.isPassive and owner.responder:peek() ~= "engaged" then
 			owner = nil
 		end
-		local targetPath, fullText = disclosureTargetIn(owner, path)
+		local targetPath, fullText, fullRich = disclosureTargetIn(owner, path)
 		if targetPath == nil then
 			-- focus left every disclosed label, so the plate it raised goes with it
 			-- (the guard above already returned for a pointer/touch one)
@@ -1231,7 +1253,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if plateShows(targetPath :: string) then
 			return -- already answered for this label; a refresh must not restart it
 		end
-		presentDisclosure(owner, targetPath :: string, fullText :: string, "focus")
+		presentDisclosure(owner, targetPath :: string, fullText :: string, "focus", fullRich)
 	end
 
 	--[[ THE FOCUS ROUTE INTO `help` (D3a), gated exactly as the plate's is above
@@ -1275,7 +1297,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		the dwell nor re-mounts the plate. ]]
 	local function discloseHoverEngage(path: string?)
 		local owner = handleOwning(path)
-		local targetPath, fullText = disclosureTargetIn(owner, path)
+		local targetPath, fullText, fullRich = disclosureTargetIn(owner, path)
 		if targetPath == nil then
 			disclosureDwell = nil
 			if disclosurePlate ~= nil and disclosurePlate.source == "pointer" then
@@ -1330,7 +1352,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if owner ~= nil and owner.contextTriggerOwns ~= nil and owner.contextTriggerOwns(path) then
 			return
 		end
-		local targetPath, fullText = disclosureTargetIn(owner, path)
+		local targetPath, fullText, fullRich = disclosureTargetIn(owner, path)
 		if targetPath == nil then
 			if disclosurePlate ~= nil and disclosurePlate.source == "touch" then
 				dismissDisclosure("release")
@@ -1342,7 +1364,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		-- the long press IS the deliberation: no dwell on top of it
 		disclosureDwell = nil
-		presentDisclosure(owner, targetPath :: string, fullText :: string, "touch")
+		presentDisclosure(owner, targetPath :: string, fullText :: string, "touch", fullRich)
 	end
 
 	--[[ the plate outlives neither its source node nor its surface. Called from
@@ -1772,13 +1794,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				return not isPassive or use(responderState) == "engaged"
 			end)
 		end)
-		-- STRUCTURAL TRANSITIONS. Every surface gets a
-		-- coordinator: it costs a table, builds a spring only when a region actually
-		-- declares a transition, and it is the only thing that makes `UI.When
-		-- { transition = … }` mean anything on this screen. `surfaceRef` is filled in
-		-- once the handle exists, so an `arrive` fired at mount already names its
-		-- surface.
+		-- One coordinator per surface; springs exist only for declared transitions.
+		-- surfaceRef is filled once the handle exists, before mount feedback fires.
 		local surfaceRef: any = nil
+		local surfaceContext: any = nil
 		local coordinator = transitionsLib.new({
 			core = core,
 			clock = motionClock,
@@ -1809,6 +1828,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
 			incrementalLayout = opts == nil or opts.incrementalLayout ~= false,
+			measureReuse = opts == nil or opts.measureReuse ~= false,
+			commitScope = opts == nil or opts.commitScope ~= false,
+			structuralReuse = opts == nil or opts.structuralReuse ~= false,
+			translateHosts = opts == nil or opts.translateHosts ~= false,
 			-- engine-selection bridge (the native-substrate round, corrections §11):
 			-- OPT-IN and modal/exclusive-only. Passive/gameplay surfaces never
 			-- set it, so GuiService.SelectedObject stays nil for them.
@@ -1927,11 +1950,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end,
 		})
-		controller.initialRender()
-		-- the coordinator's writes need handles, which only exist once the tree has
-		-- rendered; binding flushes whatever a mount-time enter already seeded, so
-		-- the first painted frame is the seeded one rather than a frame at rest
-		-- followed by a jump
+		local rendered, renderError = pcall(controller.initialRender)
+		if not rendered then
+			-- No stack handle exists yet. Release every owner, retaining the render error.
+			pcall(cleanup, { coordinator.dispose, controller.dispose, scope.dispose })
+			error(renderError, 0)
+		end
+		-- Handles now exist; flush seeded enter state before the first painted frame.
 		coordinator.bindController(controller)
 
 		-- discover the mounted input contributions in document order;
@@ -2087,7 +2112,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- always bind the action system into every contribution
 			-- (idempotent — e.g. TextInput's edit-mode sink context uses it)
 			if c.bundle.bindActionSystem ~= nil then
-				c.bundle.bindActionSystem(actionSystem)
+				c.bundle.bindActionSystem(actionSystem, function()
+					return surfaceContext
+				end)
 			end
 			-- hand over the render controller too (B-VAL2): a control that adopts a
 			-- native adapter capability (UIDragDetector) reaches it through the
@@ -2457,6 +2484,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			sink = kind == "modal"
 				or (not isPassive and ((opts and opts.sinkNavigation) == true or keyboardNavigation)),
 		})
+		surfaceContext = context
 		local navigate = context.createAction("Navigate", "Direction1D")
 		local activate = context.createAction("Activate", "Bool")
 		local cancel = context.createAction("Cancel", "Bool")
@@ -4034,9 +4062,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- while the dwell counted — the plate must answer for the label
 				-- as it IS, or not at all. The facts come from the live solve,
 				-- which is the same rule the seams and refresh already follow.
-				local targetPath, fullText = disclosureTargetIn(d.owner, d.sourcePath)
+				local targetPath, fullText, fullRich = disclosureTargetIn(d.owner, d.sourcePath)
 				if targetPath ~= nil and fullText ~= nil then
-					presentDisclosure(d.owner, targetPath, fullText, "pointer")
+					presentDisclosure(d.owner, targetPath, fullText, "pointer", fullRich)
 				end
 			end
 		end

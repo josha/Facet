@@ -26,7 +26,7 @@
 --     focusMoved: (path) -> (),
 --     syncGeometry: (rectOf, rootNode) -> (),
 --     keepVisibleOffset: Readable<number>?,
---     bindActionSystem: (actionSystem) -> (),
+--     bindActionSystem: (actionSystem, surfaceContextOf?) -> (),
 --     bindController: (controller) -> (),
 --     bindFocusGraph: (focusGraph) -> (),
 --     bindMotion: (motionClock, now?) -> (),
@@ -94,7 +94,7 @@ export type Bundle = {
 	focusMoved: ((path: string) -> ())?,
 	syncGeometry: ((rectOf: (string) -> any, rootNode: any?) -> ())?,
 	keepVisibleOffset: any?, -- Readable<number>
-	bindActionSystem: ((actionSystem: any) -> ())?,
+	bindActionSystem: ((actionSystem: any, surfaceContextOf: (() -> any)?) -> ())?,
 	-- bindController (B-VAL2): hands the control the render controller so it can
 	-- reach NATIVE adapter capabilities the renderer owns — specifically
 	-- `attachDragDetector`, the UIDragDetector host required by
@@ -322,8 +322,8 @@ function contribution.alive(bundle: any): boolean
 	return not owner.isDisposed()
 end
 
--- attach a bundle to a control's root blueprint, returning a NEW frozen
--- blueprint (blueprints are immutable). Controls call this once, on their
+-- Attach in place to an owned Compose node; copy an immutable blueprint.
+-- Controls call this once, on their
 -- returned root, so the attachment is uniform and the magic prop name lives in
 -- exactly one place.
 function contribution.attach(rootBlueprint: any, bundle: Bundle): any

@@ -12,5 +12,10 @@ export type Spec<V = BooleanCell> = {
 	enabled: blueprint.Bound<boolean>?,
 	onToggle: ((expanded: boolean) -> ())?,
 	presenter: any?,
+	description: blueprint.Bound<string>?,
+	icon: string?,
+	chevronPosition: ("leading" | "trailing")?,
+	appearance: ("plain" | "contained" | "divided")?,
+	controlSize: blueprint.Bound<"compact" | "regular" | "large" | nil>?,
 }
 return nil

@@ -42,6 +42,11 @@ local BINDING_PROPS: { [string]: boolean } = {
 	maxLength = true,
 	keyboardType = true,
 	multiline = true,
+	-- THE SCROLL FREEZE (`ScrollView.scrollEnabled`): one engine property on the
+	-- host's own instance, written like `active` is. The host's CANVAS is a
+	-- separate, derived write (`commit_walks.scrollRegions`) with its own layout
+	-- authority — a freeze costs one prop write and no measure.
+	scrollEnabled = true,
 	-- Path (the native substrate): reactive stroke geometry/config — a bound
 	-- progress arc updates points as a paint-only prop write (never a re-solve)
 	points = true,
@@ -81,6 +86,14 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- its semantic icon content: a NAME the adapter resolves through the R4
 	-- machinery, never an asset id
 	icon = true,
+	-- the local size/emphasis vocabulary: three words that reach paint as
+	-- classification tags (`src/controls/control_vocabulary.luau`). Style props for
+	-- the same reason `shape` is — the engine write is a tag, and the rule that
+	-- keys on it is the theme's. Reactive for the first two, so a toolbar that
+	-- compacts or an action that becomes the primary one repaints in place.
+	controlSize = true,
+	appearance = true,
+	over = true,
 	-- the compact representation this button wears when its full label does not
 	-- fit. The DECLARATION is style (it selects a representation, and in its icon
 	-- form a theme-owned picture); the drawn string still rides the label seam.
@@ -93,6 +106,20 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- picture fit the box the solver already sized.
 	scaleMode = true,
 	imageFraming = true,
+	-- the picture's remaining engine knobs, on the same seam and for the same
+	-- reason: the solved rect does not move, and one write decides how the
+	-- picture fills a box the solver already sized. `tileSize`/`slice` are the
+	-- geometry `scaleMode`'s two new words need; `resample` is the filter.
+	tileSize = true,
+	sliceCenter = true,
+	sliceScale = true,
+	resample = true,
+	-- TEXT SHAPE (`src/layout/rich_text.luau`): whether the engine PARSES the
+	-- string, and which way it lays the glyphs out. Both are style props for the
+	-- reason `textAlign` is — nothing about the node's rect moves, and one engine
+	-- write decides the picture inside it.
+	rich = true,
+	direction = true,
 }
 
 -- Creation-time application order. This used to be a SECOND hardcoded list
@@ -115,6 +142,13 @@ local STYLE_PROPS: { [string]: boolean } = {
 -- point; see the block above)
 local STYLE_PROP_ORDER: { string } = {
 	"shape",
+	-- the vocabulary tags sit immediately after `shape` and before `surface`: like
+	-- the shape they are classification rather than paint, so a later chrome write
+	-- that reads the handle already sees them, and their own sheet rules are
+	-- ordered by the sheet's cascade rather than by this list.
+	"controlSize",
+	"appearance",
+	"over",
 	"surface",
 	"role",
 	"shadow",
@@ -122,7 +156,19 @@ local STYLE_PROP_ORDER: { string } = {
 	"corners",
 	"stroke",
 	"textAlign",
+	-- the two text-shape props sit beside `textAlign` (all three are leaf paint
+	-- no other write reads), and `rich` goes FIRST of the pair: the parse verdict
+	-- is what the direction is then applied to.
+	"rich",
+	"direction",
+	-- ...and the picture's geometry before the mode that consumes it: the engine
+	-- reads `TileSize`/`SliceCenter` at the moment `ScaleType` becomes Tile/Slice,
+	-- so a mode applied before its geometry would draw one wrong frame.
+	"tileSize",
+	"sliceCenter",
+	"sliceScale",
 	"scaleMode",
+	"resample",
 	"imageFraming",
 	"compactLabel",
 	"icon",
@@ -162,6 +208,9 @@ local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
 		`tint = "binding"` for, and `check_prop_parity`'s view 7 pins the two lists
 		against each other in both directions. ]]
 	tint = { Box = true, Text = true, Image = true, Path = true, Stage = true },
+	-- the freeze is a fact about a SCROLL HOST and nothing else: any other class
+	-- emitting it would be a write to a property its instance does not have
+	scrollEnabled = { ScrollView = true },
 }
 
 function prop_channels.emitsBinding(class: string, prop: string): boolean

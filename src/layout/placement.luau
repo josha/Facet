@@ -174,7 +174,9 @@ function placement.anchorPlace(
 	hFill: boolean,
 	anchor: string?,
 	offsetX: any,
-	offsetY: any
+	offsetY: any,
+	wMin: number?,
+	hMin: number?
 ): (number, number, number, number, boolean)
 	local f = placement.ANCHOR_FACTORS[anchor or "topLeft"]
 	local unknown = f == nil
@@ -184,10 +186,10 @@ function placement.anchorPlace(
 	local ox = placement.offsetPx(offsetX, innerW)
 	local oy = placement.offsetPx(offsetY, innerH)
 	if wFill then
-		w = placement.offsetFill(innerW, ox, f[1])
+		w = math.max(wMin or 0, placement.offsetFill(innerW, ox, f[1]))
 	end
 	if hFill then
-		h = placement.offsetFill(innerH, oy, f[2])
+		h = math.max(hMin or 0, placement.offsetFill(innerH, oy, f[2]))
 	end
 	local x = innerX + roundPx((innerW - w) * f[1]) + ox
 	local y = innerY + roundPx((innerH - h) * f[2]) + oy

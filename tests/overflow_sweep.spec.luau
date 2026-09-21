@@ -517,6 +517,24 @@ local SCENARIOS = {
 	-- ...and the scaffolded `CollapsibleView` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"collapsible_view",
+	-- ...and the leaf-capability surface (markup, the middle cut, tile/slice, the
+	-- two-axis canvas), swept for the same reason: its page holds four text stops
+	-- and two fixed-size pictures, which is exactly the shape a largest-preference
+	-- sweep is for
+	"leaf_capabilities",
+	"shortcut_hint",
+	"recipes_common",
+	"container_grid",
+	-- ...and the scaffolded `Skeleton` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"skeleton",
+	-- ...and the scaffolded `Avatar` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"avatar",
+	-- Mounted rosters, overflow counts and their real recipe command buttons.
+	"avatar_group",
+	"status_indicator",
+	"badge",
 	-- scaffold: new control scenarios are appended above this line
 }
 

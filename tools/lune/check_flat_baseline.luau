@@ -681,6 +681,10 @@ table.insert(ALLOWED_Y_SHIFT, {
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 	{
+		path = "/Vocabulary/Tag+target",
+		why = "An inert minMax floor reserves the plain Chip target; the original plate is compared through the exact key migration below.",
+	},
+	{
 		path = "/Vocabulary/More/Content/then/Reveal",
 		why = "Disclosure text rendering repair: a clipping Frame reveals native children without rasterizing the entire list. Its Body keeps the same geometry and properties, compared below through an exact path migration.",
 	},
@@ -1677,7 +1681,11 @@ local now = index(temp)
 -- Disclosure content gained one clipping host. Compare the original Body at its
 -- new path rather than waiving its geometry, props, or disappearance.
 for key, node in table.clone(base) do
-	if node.path == "/Vocabulary/More/Content/then/Body" then
+	if node.path == "/Vocabulary/Tag" then
+		local moved = string.gsub(key, "/Vocabulary/Tag$", "/Vocabulary/Tag+target/Tag")
+		base[moved] = node
+		base[key] = nil
+	elseif node.path == "/Vocabulary/More/Content/then/Body" then
 		local moved = string.gsub(key, "/Content/then/Body$", "/Content/then/Reveal/Body")
 		base[moved] = node
 		base[key] = nil

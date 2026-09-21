@@ -27,8 +27,8 @@ local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local Compose = require("../src/vendor/compose/core")
 
-local CHIP = "/S/Chip"
-local CHIP2 = "/S/Chip2"
+local CHIP = "/S/Chip+target/Chip"
+local CHIP2 = "/S/Chip2+target/Chip2"
 
 -- presenter harness: the four-input auto-composition path (auto_input house style)
 local function presenterWorld(opts: any?)
@@ -298,5 +298,255 @@ describe("Chip control", function()
 				true
 			) ~= nil
 		).toBe(true)
+	end)
+end)
+
+describe("Removable Chip", function()
+	local world = require("./lib/world")
+	local function path(w, suffix)
+		for candidate in w.adapter.liveNodes() do
+			if string.sub(candidate, -#suffix) == suffix then
+				return candidate
+			end
+		end
+		error("missing chip " .. suffix)
+	end
+	for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
+		it("keeps the token body inert and removes once through " .. input, function()
+			local w = world.new()
+			local calls = 0
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Chip("Token")({
+						label = "Rain",
+						onRemove = function()
+							calls += 1
+						end,
+					}),
+				})
+			end)
+			local remove = path(w, "/Remove")
+			expect(#w.handle.focusOrder().traversal).toBe(1)
+			w.adapter.tap(path(w, "/Token"))
+			expect(calls).toBe(0)
+			if input == "pointer" then
+				w.adapter.tap(remove)
+			elseif input == "touch" then
+				w.adapter.touchTap(remove)
+			else
+				w.pres.focus.focusOn(remove)
+				w.press(if input == "keyboard" then "Return" else "ButtonA")
+			end
+			expect(calls).toBe(1)
+			local raw = require("../src/paths").nodeAt(w.handle.root.node, remove)
+			expect(raw.props.label).toBe("Remove Rain")
+			expect(raw.props.shape).toBe("circle")
+		end)
+	end
+	it("distinguishes a body named Remove and reserves disjoint effective targets", function()
+		for _, rung in { false, "compact", "large" } do
+			local snapshot = require("../src/themes/snapshot")
+			local metrics = table.clone(snapshot.neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = 60
+			local w = world.new({ themeMetrics = metrics })
+			local selected = Compose.cell(false)
+			local removes = 0
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.HStack("Tokens")({
+						gap = 0,
+						w.UI.Chip("Remove")({
+							label = "A",
+							selected = selected,
+							controlSize = if rung then rung else nil,
+							onRemove = function()
+								removes += 1
+							end,
+						}),
+						w.UI.Button("Next")({ label = "Next" }),
+					}),
+				})
+			end)
+			local body = "/S/Tokens/Remove+token/Remove+target/Remove"
+			local remove = "/S/Tokens/Remove+token/Remove"
+			local bodyHit = w.adapter.hitRectOf(body) or w.adapter.node(body).rect
+			local removeHit = w.adapter.hitRectOf(remove) or w.adapter.node(remove).rect
+			expect(bodyHit.x + bodyHit.w <= removeHit.x).toBe(true)
+			expect(removeHit.x + removeHit.w <= w.adapter.node("/S/Tokens/Next").rect.x).toBe(true)
+			w.adapter.tap(body)
+			expect(selected:peek()).toBe(true)
+			expect(removes).toBe(0)
+			w.adapter.tap(remove)
+			expect(removes).toBe(1)
+			expect(selected:peek()).toBe(true)
+			w.close()
+		end
+	end)
+	it("chooses next then previous then caller fallback through real keyed owner disposal", function()
+		local w = world.new()
+		local items = Compose.cell({ "A", "B", "C" })
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.VStack("List")({
+					w.UI.Button("Fallback")({ label = "Add", onActivate = function() end }),
+					w.UI.ForEach("Tokens")({
+						items = items,
+						key = function(item)
+							return item
+						end,
+						row = function(item)
+							return w.UI.Chip(item)({
+								label = item,
+								removeFocusFallback = "/S/List/Fallback",
+								onRemove = function()
+									local nextItems = {}
+									for _, value in items:peek() do
+										if value ~= item then
+											table.insert(nextItems, value)
+										end
+									end
+									items:set(nextItems)
+								end,
+							})
+						end,
+					}),
+				}),
+			})
+		end)
+		local a, b, c = path(w, "/A+token/Remove"), path(w, "/B+token/Remove"), path(w, "/C+token/Remove")
+		w.pres.focus.focusOn(b)
+		w.adapter.tap(b)
+		w.settle()
+		expect(w.pres.focus.focused:peek()).toBe(c)
+		w.adapter.tap(c)
+		w.settle()
+		expect(w.pres.focus.focused:peek()).toBe(a)
+		w.adapter.tap(a)
+		w.settle()
+		expect(w.pres.focus.focused:peek()).toBe("/S/List/Fallback")
+	end)
+	it("does not steal departed focus when a retained removal request is disposed later", function()
+		for _, destination in { "/C+token/Remove", "/Unrelated" } do
+			local w = world.new()
+			local items = Compose.cell({ "A", "B", "C" })
+			local requests = 0
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Button("Fallback")({ label = "Add", onActivate = function() end }),
+					w.UI.Button("Unrelated")({ label = "Other command", onActivate = function() end }),
+					w.UI.ForEach("Tokens")({
+						items = items,
+						key = function(item)
+							return item
+						end,
+						row = function(item)
+							return w.UI.Chip(item)({
+								label = item,
+								removeFocusFallback = "/S/Fallback",
+								onRemove = function()
+									requests += 1
+								end,
+							})
+						end,
+					}),
+				})
+			end)
+			local a = path(w, "/A+token/Remove")
+			w.pres.focus.focusOn(a)
+			w.adapter.tap(a)
+			w.settle()
+			expect(requests).toBe(1)
+			expect(w.adapter.node(a) ~= nil).toBe(true)
+			local elsewhere = path(w, destination)
+			expect(w.pres.focus.focusOn(elsewhere)).toBe(true)
+			items:set({ "B", "C" })
+			w.settle()
+			expect(w.adapter.node(a)).toBeNil()
+			expect(w.pres.focus.focused:peek()).toBe(elsewhere)
+			w.close()
+			expect(w.adapter.liveCount()).toBe(0)
+		end
+	end)
+
+	it("does not repeat a held Remove across an input-class change and respects inherited disabled", function()
+		local w = world.new()
+		local enabled = Compose.cell(true)
+		local calls = 0
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.ZStack("Owner")({
+					enabled = enabled,
+					w.UI.Chip("Token")({
+						label = "Rain",
+						onRemove = function()
+							calls += 1
+						end,
+					}),
+				}),
+			})
+		end)
+		local remove = path(w, "/Remove")
+		w.pres.focus.focusOn(remove)
+		w.system.deviceKey("Return", true)
+		expect(calls).toBe(1)
+		w.env:set("capabilities", { mouse = true, keyboard = true, touch = true, gamepad = true })
+		w.env:set("preferredInput", "Gamepad")
+		w.settle()
+		expect(w.env:get("effectiveInput"):peek()).toBe("Gamepad")
+		w.system.deviceKey("Return", false)
+		w.settle()
+		expect(calls).toBe(1)
+		w.env:set("preferredInput", "KeyboardAndMouse")
+		enabled:set(false)
+		w.settle()
+		w.adapter.tap(remove)
+		expect(calls).toBe(1)
+		enabled:set(true)
+		w.settle()
+		w.adapter.tap(remove)
+		expect(calls).toBe(2)
+	end)
+end)
+
+describe("Chip target reservations", function()
+	it("separates short zero-gap targets and activates the intended model at each edge", function()
+		local world = require("./lib/world")
+		for _, minimum in { 44, 60 } do
+			local metrics = table.clone(require("../src/themes/snapshot").neutral())
+			metrics.targetSizes = table.clone(metrics.targetSizes)
+			metrics.targetSizes.minimum = minimum
+			local w = world.new({ themeMetrics = metrics })
+			local a, b = Compose.cell(false), Compose.cell(false)
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.HStack("Row")({
+						gap = 0,
+						w.UI.Chip("A")({ label = "A", selected = a }),
+						w.UI.Chip("B")({ label = "B", selected = b }),
+					}),
+				})
+			end)
+			local ap, bp
+			for _, path in w.adapter.paths() do
+				if path:sub(-2) == "/A" then
+					ap = path
+				elseif path:sub(-2) == "/B" then
+					bp = path
+				end
+			end
+			local ar = w.adapter.hitRectOf(ap) or w.adapter.node(ap).rect
+			local br = w.adapter.hitRectOf(bp) or w.adapter.node(bp).rect
+			expect(ar.w >= minimum and ar.h >= minimum).toBe(true)
+			expect(ar.x + ar.w <= br.x).toBe(true)
+			-- The fake exposes engine activation metadata; native coordinate hit testing
+			-- is a separate aggregate witness. These points lie inside one target only.
+			w.adapter.touchTap(ap, { x = ar.x + ar.w - 1, y = ar.y + ar.h / 2 })
+			expect(a:peek()).toBe(true)
+			expect(b:peek()).toBe(false)
+			w.adapter.touchTap(bp, { x = br.x + 1, y = br.y + br.h / 2 })
+			expect(a:peek()).toBe(true)
+			expect(b:peek()).toBe(true)
+		end
 	end)
 end)

@@ -70,7 +70,7 @@ blueprint.schema = schema
 -- `blueprint_schema` disagree about a class's fields, so the editor hint and
 -- the runtime error can never drift apart.
 --
--- `Bound<T>` = a plain value OR a Compose cell or formula of it. A prop typed as plain `T`
+-- `Bound<T>` = a value, Compose readable, or tracked function of Compose Use. A prop typed as plain `T`
 -- is read once at mount and REJECTS a Readable at construction.
 
 local coreContract = require("./core/contract")
@@ -81,7 +81,7 @@ export type Readable<T> = coreContract.Readable<T>
 export type Value<T> = T | Readable<T>
 -- ONE function member: it takes a binding written `function()` or `function(use)`,
 -- and a union of two function types could not be called.
-export type Bound<T> = Value<T> | ((use: any?) -> T)
+export type Bound<T> = Value<T> | ((use: coreContract.Use) -> T)
 
 -- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",
@@ -101,7 +101,7 @@ export type Dim = {
 	weight: number?, -- fill
 	fraction: number?, -- percent | containerRelative
 	offset: number?, -- percent: pixel adjustment applied before clamping
-	min: (number | Metric)?, -- percent clamp / minMax
+	min: (number | Metric | { number | Metric })?, -- fill floor / percent clamp / minMax
 	preferred: (number | Metric)?, -- minMax
 	max: (number | Metric)?, -- percent clamp / minMax
 	ratio: number?, -- aspect
@@ -243,6 +243,8 @@ export type ScrollViewSpec = BoxProps & ContainerProps & {
 	autoscroll: (boolean | { [string]: any })?,
 	indicators: string?, -- "auto" (default) | "none" — carousel indicator opt-out
 	chromeReserve: string?, -- "auto" (default) | "none" — the lane kept for content chrome that reaches past its box
+	scrollEnabled: Bound<boolean>?,
+	extent: { width: (number | Metric)?, height: (number | Metric)? }?,
 }
 export type GridSpec = BoxProps & ContainerProps & {
 	gap: Bound<number | Metric>?,
@@ -338,6 +340,7 @@ export type DividerSpec = BoxProps & {
 -- { direct = {r,g,b} | "#rrggbb" } (declared theming-exempt). `canvasGroup` makes
 -- this Box its subtree's fade group — see blueprint_schema for both rulings.
 export type BoxSpec = BoxProps & {
+	shape: ("rect" | "circle")?,
 	surface: Bound<string>?,
 	active: Bound<boolean>?,
 	tint: Bound<any>?,
@@ -367,11 +370,15 @@ export type TextSpec = BoxProps & {
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`
 	help: string?,
+	rich: boolean?,
+	direction: ("auto" | "ltr" | "rtl")?,
+	truncate: ("end" | "middle")?,
 	padding: Bound<Sides>?,
 	role: Bound<string>?,
 	-- "badge" | "chip" only — a Text is not interactive, so it is offered the
 	-- read-only surfaces and no others (see blueprint_schema for the ruling)
 	surface: Bound<string>?,
+	over: "media"?, -- construction-only contrast treatment over artwork
 	tint: Bound<any>?,
 }
 
@@ -384,16 +391,26 @@ export type ImageFraming = {
 	scale: number?,
 }
 
+export type ImageSliceCenter = { x0: number, y0: number, x1: number, y1: number }
+
 export type ImageSpec = BoxProps & {
+	shape: ("rect" | "circle")?,
 	imageFraming: Bound<ImageFraming>?,
 	image: Bound<string>?,
 	surface: Bound<string>?,
 	tint: Bound<any>?,
-	-- "fit" | "fill" | "crop" | "stretch" (nine-slice stays theme-owned chrome)
+	-- Tile and slice pair a static mode with their construction-only geometry.
 	scaleMode: Bound<string>?,
+	tileSize: { width: number, height: number }?,
+	sliceCenter: ImageSliceCenter?,
+	sliceScale: number?,
+	resample: Bound<string>?,
 }
 
 export type ButtonSpec = BoxProps & PointerHandlers & {
+	controlSize: Bound<("compact" | "regular" | "large")?>?,
+	appearance: Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
+	over: "media"?,
 	children: { Blueprint }?,
 	role: Bound<string>?,
 	gap: Bound<number | Metric>?,

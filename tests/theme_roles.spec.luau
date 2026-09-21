@@ -533,7 +533,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		local _, _, _, chip = controlWorld(function(core)
 			return harness.Controls.Chip(core, { id = "C", label = "Tag", selected = Compose.cell(false) }).blueprint
 		end)
-		expect(chip.node("/S/C").rect.h).toBe(46) -- the 44 floor plus the button's own text box
+		expect(chip.node("/S/C+target/C").rect.h).toBe(46) -- the 44 floor plus the button's own text box
 
 		local _, _, _, group = controlWorld(function(core)
 			return harness.Controls.DisclosureGroup(core, {

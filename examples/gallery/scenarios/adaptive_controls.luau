@@ -103,10 +103,14 @@ return {
 		local brightness = Compose.cell(40)
 		local quality = Compose.cell("balanced")
 		local advancedOpen = Compose.cell(false)
+		local vsync, telemetry = Compose.cell(true), Compose.cell(false)
 		local progress = Compose.cell(0.35)
 		local navSection = Compose.cell("browse")
 		local function Example()
 			conditions = Facet.adaptive.conditions(ctx.env)
+			Compose.cleanup(function()
+				conditions = nil
+			end)
 
 			local stepper = UI.Stepper("Volume")({
 				label = "Volume",
@@ -140,14 +144,30 @@ return {
 			local saveLabel = UI.Label("SaveLabel")({ title = "Save changes" })
 			local disclosure = UI.DisclosureGroup("Advanced")({
 				label = "Advanced",
+				description = "Optional rendering and privacy settings",
+				icon = "settings",
+				chevronPosition = "trailing",
+				appearance = "divided",
+				controlSize = "regular",
 				expanded = advancedOpen,
 				content = function()
 					return UI.VStack("AdvancedBody")({
 						gap = "tight",
 						width = UI.fill(),
 
-						UI.Toggle("Vsync")({ label = "Vertical sync", value = Compose.cell(true) }),
-						UI.Toggle("Telemetry")({ label = "Share telemetry", value = Compose.cell(false) }),
+						UI.Toggle("Vsync")({
+							label = "Vertical sync",
+							value = vsync,
+							hint = "Keep frames aligned with the display",
+							controlSize = "regular",
+						}),
+						UI.Toggle("Telemetry")({
+							label = "Share telemetry",
+							value = telemetry,
+							presentation = "checkbox",
+							hint = "Send anonymous play statistics",
+							indicatorPosition = "leading",
+						}),
 					})
 				end,
 			})
@@ -739,11 +759,15 @@ return {
 				end,
 			},
 			report = function()
+				if conditions == nil then
+					return nil
+				end
 				return {
 					sizeClass = conditions and conditions.sizeClass:peek(),
 					axis = conditions and conditions.axis:peek(),
 					isTenFoot = conditions and conditions.isTenFoot:peek(),
 					contentWidth = conditions and conditions.contentWidth:peek(),
+					settings = { vsync = vsync:peek(), telemetry = telemetry:peek() },
 					state = {
 						volume = volume:peek(),
 						brightness = brightness:peek(),

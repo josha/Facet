@@ -51,10 +51,14 @@
 local authority = require("./authority")
 local layout_node = require("./layout_node")
 local themeSnapshot = require("../themes/snapshot")
+local isFinite = require("../num").isFinite
 local chromeSlots = require("../tokens/chrome_slots")
 -- the ONE reading of the `textSize = "fit"` grammar (shared with the schema and
 -- with `render/layout_node.textOf`, which resolves the band the solver picks from)
 local textFit = require("../layout/text_fit")
+-- the measurer's own generation: the middle-cut memo carries it so a cut derived
+-- inside the engine's boot window is re-derived when the metrics settle
+local text_metrics = require("../layout/text_metrics")
 local solver = require("../layout/solver")
 
 local commit_walks = {}
@@ -1369,9 +1373,58 @@ function commit_walks.new(ctx: CommitCtx)
 	-- `nil` means "never written", which is the adapter's own default (wrap on
 	-- whitespace) — so the overwhelmingly common `wraps = true` node costs ZERO
 	-- writes, on the first solve and every one after it.
-	-- ONE WALK, TWO VERDICTS. Both are the solver's answers about text, both reach
-	-- paint through the rects that produced them, and both are cached per path — so
-	-- they share the traversal rather than paying for a second one on every solve.
+	--[[ ...AND THE THIRD, WHICH IS THE ONLY ONE THAT DERIVES A STRING:
+		`Text{ truncate = "middle" }`. The engine ellipsizes at the end and has no
+		other mode, so the head-plus-tail form is computed here — from the solver's
+		own font, size and box — and painted through the one `text` seam, exactly as
+		the compact ladder above paints Button's `label`.
+
+		THE MEMO IS KEYED ON THE HANDLE AND CARRIES THE PATH, and the second half is
+		the correction this round had to make. The eight minimal-write records above
+		belong to the renderer because its removal sweep clears them per path; this
+		one cannot join them without characters in a file that has none to give, so
+		it takes the property that sweep provides and gets it structurally: the table
+		is weak in its keys, so a departed node's entry is collectable rather than
+		swept, and its values reference nothing but strings and numbers.
+
+		BUT A HANDLE IS NOT A NODE. `adopt` RE-KEYS the same handle table to a new
+		path (instance recycling), so "a re-created path is a new handle" — the claim
+		this memo first shipped on — is false for exactly the virtualized list that
+		middle truncation exists for: a recycled row hit the entry its predecessor
+		wrote, the re-elide was skipped, and the row painted the full string the
+		fresh binding write had just put there. The PATH is part of the key now, so
+		an adopted handle misses and is re-written.
+
+		THE FIVE INPUTS. The string; the canonical face; the px size the measure
+		used; the DRAWABLE width — the rect minus this node's own padding, which is
+		the box the glyphs actually get and the width `truncated` was decided
+		against (fitting to the outer rect handed the engine a string it then
+		end-ellipsized, losing the tail a middle cut exists to keep); and the
+		MEASURER'S OWN EPOCH. The last is the boot window: the engine answers text
+		bounds differently for the first fraction of a second of a session, so a cut
+		derived before the metrics flip is derived from numbers about to change —
+		measured live, the same label read 92 px of its 160 px box at mount and 126
+		px after a re-solve. `text_metrics.epoch()` is the signal the text pipeline
+		already publishes when a word is learned or a calibration moves, so the
+		re-fit rides the settle that already happens rather than a timer of its own.
+
+		`stats.middleTruncations` counts the misses, because "re-derived only when
+		one of those moves" is a claim no picture can make. ]]
+	type MiddleMemo = {
+		path: string,
+		text: string,
+		font: string,
+		size: number,
+		width: number,
+		epoch: number,
+		out: string,
+	}
+	local middleMemo: { [any]: MiddleMemo } = setmetatable({}, { __mode = "k" }) :: any
+
+	-- ONE WALK, THREE VERDICTS. All three are the solver's answers about text, all
+	-- three reach paint through the rects that produced them, and all three are
+	-- remembered — so they share the traversal rather than paying for a second one
+	-- on every solve.
 	local function textVerdicts(rootNode: any, rects: any)
 		local visits = 0
 		-- `chosen`: see `harvest`'s walk (C4)
@@ -1426,6 +1479,65 @@ function commit_walks.new(ctx: CommitCtx)
 						adapter.setProp(handle, "textWrapped", wraps, "layout")
 						lastWrapped[node.path] = wraps
 						stats.propWrites += 1
+					end
+				end
+				--[[ THE MIDDLE CUT (see the memo above this function). Only a `Text`
+					that asked for it, only where the SOLVE says the value does not fit —
+					so a label whose box grew back is written its whole value again, from
+					the same branch, because `facts.truncated` is false and the wanted
+					string is `facts.text` itself.
+
+					`facts.text` is the string the measure was about, which with `rich`
+					would be the DISPLAYED form — the pair is refused at construction for
+					exactly that reason, so what arrives here is always the authored
+					value. ]]
+				if node.class == "Text" and facts ~= nil and node.props.truncate == "middle" then
+					-- THE DRAWABLE AREA, not the outer box: a Text spends its own
+					-- padding inside its rect (`facts.padX` is the four sides the
+					-- solver actually spent), and the glyphs get what is left
+					local box = if entry.rect ~= nil then entry.rect.w - (facts.padX or 0) else nil
+					local epoch = text_metrics.epoch()
+					if type(box) == "number" and type(facts.text) == "string" then
+						local memo = middleMemo[handle]
+						local wanted: string
+						if
+							memo ~= nil
+							and memo.path == node.path
+							and memo.text == facts.text
+							and memo.font == facts.font
+							and memo.size == facts.size
+							and memo.width == box
+							and memo.epoch == epoch
+						then
+							wanted = memo.out
+						else
+							wanted = if facts.truncated
+								then textFit.middle({
+									text = facts.text,
+									font = facts.font,
+									size = facts.size,
+									width = box,
+									lineHeight = facts.lineHeight,
+								})
+								else facts.text
+							middleMemo[handle] = {
+								path = node.path,
+								text = facts.text,
+								font = facts.font,
+								size = facts.size,
+								width = box,
+								epoch = epoch,
+								out = wanted,
+							}
+							stats.middleTruncations += 1
+							-- the derived string is the one the node draws, on the ONE
+							-- `text` seam (see `compactLabel`'s note above: a derived
+							-- representation still goes out through the single writer)
+							authority.assertWrite("Text", "text", "binding")
+							adapter.setProp(handle, "text", wanted, "binding")
+							stats.propWrites += 1
+							noteWorn(node.path, "text", wanted)
+						end
 					end
 				end
 			end
@@ -1892,13 +2004,40 @@ function commit_walks.new(ctx: CommitCtx)
 						here are upstream now, in the gate that stamps the lane, so a
 						scroller that opts out publishes a zero and this reads it. ]]
 					local bleed = if type(entry.bleedLane) == "number" then entry.bleedLane else 0
+					--[[ THE AUTHORED CANVAS, WHERE THERE IS ONE (`ScrollView.extent`).
+						A canvas is normally DERIVED — content plus the padding this solve
+						spent plus the lane it kept — and that is right whenever the content
+						IS the canvas. It is not right when the canvas is a coordinate space
+						the content sits inside: a map with three markers on it has a canvas
+						the size of the map. An authored axis replaces the derivation for
+						that scrolling axis only; an omitted axis keeps the derived canvas.
+
+						Resolved here rather than at construction because a theme metric
+						name is legal wherever a number is, and a name has to re-resolve
+						per solve — the same rule `padding` and `lineLimit` follow. ]]
+					local extent = props.extent
+					local extentW = if type(extent) == "table"
+						then themeSnapshot.resolveNumber(metrics, extent.width)
+						else nil
+					local extentH = if type(extent) == "table"
+						then themeSnapshot.resolveNumber(metrics, extent.height)
+						else nil
+					for _, axis in { "width", "height" } do
+						if type(extent) == "table" and extent[axis] ~= nil then
+							local value = if axis == "width" then extentW else extentH
+							assert(
+								isFinite(value) and value > 0,
+								`Facet ScrollView extent.{axis} must resolve to positive finite pixels (at {node.path})`
+							)
+						end
+					end
 					local region = {
 						axis = props.axis or "y",
 						paging = node.meta ~= nil
 							and node.meta.scrollNavigation ~= nil
 							and node.meta.scrollNavigation.snap == "page",
-						contentW = entry.contentSize.w + pl + pr + bleed,
-						contentH = entry.contentSize.h + pt + pb + bleed,
+						contentW = if type(extentW) == "number" then extentW else entry.contentSize.w + pl + pr + bleed,
+						contentH = if type(extentH) == "number" then extentH else entry.contentSize.h + pt + pb + bleed,
 						-- the host's ARRANGED box, so the adapter's cross-axis
 						-- canvas clamp is deterministic instead of racing the
 						-- engine's own window geometry mid-layout. FIX ROUND 2
@@ -1919,14 +2058,23 @@ function commit_walks.new(ctx: CommitCtx)
 						-- per-host indicator opt-out (director ruling 2026-08-09):
 						-- carried on the region because the adapter learns a host
 						-- overflows on exactly this walk — the same place its
-						-- indicator lifecycle begins
+						-- indicator lifecycle begins. ONE word for both axes: the
+						-- engine carries one scroll-bar thickness, so a per-axis
+						-- answer has nothing to be spent on (see the schema).
 						indicators = if props.indicators == "none" then "none" else "auto",
 					}
 					-- the host's own autoscroll declaration, recorded on the SAME
 					-- walk that publishes its canvas: `false` opts out, a table
 					-- tunes the model, absent means on-and-inert. Kept here so the
 					-- per-frame stepper never needs a tree lookup.
-					scrollAutoscroll[node.path] = if props.autoscroll == false
+					--
+					-- ...AND A FROZEN HOST DOES NOT TRAVEL EITHER (fix round 1,
+					-- review finding P1b-12). `scrollEnabled = false` stops the
+					-- player; Facet's own drag-to-edge scroll is not the player, and
+					-- it was still moving a canvas the author had frozen. One channel
+					-- says "this host does not travel", whatever the reason, so the
+					-- per-frame stepper keeps its single read.
+					scrollAutoscroll[node.path] = if props.autoscroll == false or props.scrollEnabled == false
 						then false
 						else (if type(props.autoscroll) == "table" then props.autoscroll else true)
 					local last = lastScrollRegions[node.path]

@@ -568,7 +568,7 @@ describe("circle Button paint: the pill and the rim are phantom modifier rules",
 		-- a border hairline and every one of them has to say so.
 		local rule = ruleNamed(neutralSheet(), "Circle button — hairline")
 		expect(rule ~= nil).toBe(true)
-		expect(rule.selector).toBe(`.{CIRCLE_TAG}::UIStroke`)
+		expect(rule.selector).toBe(`.{CIRCLE_TAG}.{sheet_model.TAGS.circleRim}::UIStroke`)
 		expect(rule.props.ApplyStrokeMode.enum).toBe("ApplyStrokeMode")
 		expect(rule.props.ApplyStrokeMode.item).toBe("Border")
 		expect(rule.props.Color).toBe("$Hairline")

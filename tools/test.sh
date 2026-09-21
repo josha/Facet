@@ -35,8 +35,8 @@
 #   2. THE FINGERPRINT IS CONTENT, NEVER TIME. A clock- or session-keyed cache
 #      outliving an edit is the "reads two checked-in files and executes
 #      nothing" shape tools/prior_gates.sh exists to have removed (PG-2, ledger
-#      C-08). Any edit under src/ tests/ examples/, or to the toolchain pins,
-#      busts it.
+#      C-08). The graph's declared suite inputs and toolchain pins determine
+#      the fingerprint, including docs and tools read by the specs.
 #   3. THE FAST TIER IS REFUSED BY A BASH MATCH, NOT A PIPELINE. `printf | grep
 #      -q` returns 141 under pipefail when it MATCHES (grep exits at the first
 #      hit, printf takes SIGPIPE), which passed a fast-tier transcript straight
@@ -66,6 +66,10 @@ cd "$(dirname "$0")/.."
 # pinned toolchain built it fine. Measured 2026-08-15.
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# A cache hit must still reject an altered pinned dependency, including extra
+# empty directories that a file-content fingerprint cannot represent.
+python3 tools/sync_compose.py --check >/dev/null || exit $?
+
 CACHE_DIR="${FACET_SUITE_CACHE_DIR:-artifacts/suite_cache}"
 # Entries are keyed by fingerprint so two agents on two tree states never
 # contend for one filename. Set once the fingerprint is known.
@@ -76,26 +80,16 @@ set_entry() {
 	META="$CACHE_DIR/$1.meta"
 }
 
-# The tree the suite actually reads. examples/ is in here because the example
-# drift and reference-app specs require those modules. `vendor/` left this list
-# on 2026-08-30 with the directory itself: `find` reported "No such file or
-# directory" into /dev/null and hashed nothing, so the fingerprint was correct
-# and the argument was a lie about what the suite reads. tools/ is deliberately
-# NOT here — editing a gate script cannot change a spec's outcome.
+# One declaration serves both caches. Specs also read docs, tooling and assets;
+# a separate source-only list could reuse green results after those changed.
 suite_fingerprint() {
-	{
-		# 2>/dev/null on the HASH, not just the find: a sibling agent's temp file
-		# can be listed by `find` and gone by the time shasum opens it
-		# (`shasum: tests/_lpvfy.luau: No such file or directory`, measured
-		# 2026-08-16 with four agents in one tree). That is noisy but SAFE — a
-		# file that vanished mid-walk simply is not hashed, the fingerprint
-		# differs from the settled one, and the cache reports a MISS and re-runs.
-		# It degrades to slow, never to a wrong answer, which is the direction
-		# this has to fail in.
-		find src tests examples -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null
-		shasum -a 256 run-tests.sh rokit.toml 2>/dev/null
-		lune --version 2>&1
-	} | shasum -a 256 | cut -d' ' -f1
+	local value
+	value="$(lune run tools/lune/verify/suite_transcript_path --fingerprint)" || return $?
+	if [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
+		echo "tools/test.sh: refusing an invalid suite fingerprint" >&2
+		return 1
+	fi
+	printf '%s\n' "$value"
 }
 
 meta_get() {
@@ -123,10 +117,11 @@ min_expected=1
 case "${1:-}" in
 	--fingerprint)
 		suite_fingerprint
-		exit 0
+		exit $?
 		;;
 	--status)
-		cache_status "$(suite_fingerprint)"
+		fingerprint="$(suite_fingerprint)" || exit $?
+		cache_status "$fingerprint"
 		exit 0
 		;;
 	--ensure-cache)
@@ -149,7 +144,7 @@ esac
 
 mkdir -p artifacts
 
-fingerprint="$(suite_fingerprint)"
+fingerprint="$(suite_fingerprint)" || exit $?
 # set_entry in the PARENT shell. cache_status also calls it, but it runs inside
 # `$( )` — a subshell — so the paths it sets there are discarded on the way out.
 set_entry "$fingerprint"

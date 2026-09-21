@@ -366,14 +366,36 @@ function text_index.new(): Index
 
 	local index: any = {}
 
+	-- Run labels probe ordinary face/size buckets, never the compound descriptor.
+	-- Keep pathFont compound for the exact-width probe; attach every dependency here.
+	local function setKey(path: string, font: string, size: number, attached: boolean)
+		local key = text_metrics.metricKey(font, size)
+		local bucket = byKey[key]
+		if bucket == nil and attached then
+			bucket = {}
+			byKey[key] = bucket
+		end
+		if bucket then
+			if attached then
+				bucket[path] = true
+			else
+				bucket[path] = nil
+			end
+		end
+	end
+	local function link(path: string, font: string, size: number, attached: boolean)
+		local record = text_metrics.runsOf(font)
+		setKey(path, if record then record.base else font, size, attached)
+		if record then
+			for _, run in record.runs do
+				setKey(path, run.font, run.size or size, attached)
+			end
+		end
+	end
 	local function detach(path: string)
 		local font = pathFont[path]
-		if font == nil then
-			return
-		end
-		local bucket = byKey[text_metrics.metricKey(font, pathSize[path])]
-		if bucket ~= nil then
-			bucket[path] = nil
+		if font then
+			link(path, font, pathSize[path], false)
 		end
 	end
 
@@ -497,7 +519,9 @@ function text_index.new(): Index
 				joined through `always`) falls through to the measure. ]]
 			if was ~= nil then
 				local words = markedWords[path]
-				local drawn = pathWords[path]
+				-- A plain token set cannot name fragments inside a styled word.
+				-- Rich candidates keep the existing exact-width probe instead.
+				local drawn = if text_metrics.runsOf(pathFont[path]) then nil else pathWords[path]
 				if words ~= nil and drawn ~= nil then
 					local draws = false
 					for word in words do
@@ -545,13 +569,7 @@ function text_index.new(): Index
 		pathFont[path] = font
 		pathSize[path] = size
 		always[path] = if alwaysDirty then true else nil
-		local key = text_metrics.metricKey(font, size)
-		local bucket = byKey[key]
-		if bucket == nil then
-			bucket = {}
-			byKey[key] = bucket
-		end
-		bucket[path] = true
+		link(path, font, size, true)
 	end
 
 	function index.forget(path: string)
@@ -621,8 +639,9 @@ function text_index.new(): Index
 			end
 		end
 		--[[ ...AND EACH PUSHED PATH REMEMBERS THE WORDS ITS OWN KEY MARKED (Plan D,
-			D6c). One path belongs to one key, so this is a write per push and not a
-			join; the probe below reads it to ask "does this label draw any of them"
+			D6c). A plain path belongs to one key, so this is a write per push, not a
+			join. Rich paths span keys and bypass this word shortcut for the exact
+			probe; plain paths ask "does this label draw any of them"
 			before it re-measures anything. A path that reaches `entries` any OTHER way
 			(the `always` set) has no entry here, and a nil is a candidate. ]]
 		local markedWords: { [string]: { [string]: boolean } } = {}

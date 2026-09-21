@@ -263,6 +263,14 @@ describe(
 				-- CHOKE-POINT-EQUIVALENT (Important 2): style/binding authority, but
 				-- a DERIVED value, so they route through the `noteWorn` dep instead.
 				['commit_walks.luau|"label"|binding'] = "choke-point-equivalent via noteWorn",
+				--[[ ...and the MIDDLE CUT, which is the same shape one class over: a
+					`Text{ truncate = "middle" }` paints a string derived from the solved
+					width, so it cannot ride `applyProp`'s generic write either. It calls
+					`noteWorn` for exactly the reason the three below it do — the worn set
+					is what makes the park key and the create signature one namespace, and
+					a parked instance carrying an elided string must be re-written when a
+					new node adopts it. ]]
+				['commit_walks.luau|"text"|binding'] = "choke-point-equivalent via noteWorn",
 				['commit_walks.luau|"icon"|style'] = "choke-point-equivalent via noteWorn",
 				['commit_walks.luau|"compactLabel"|style'] = "choke-point-equivalent via noteWorn",
 				-- LAYOUT, excluded by ruling: each is value-diffed against a cache
@@ -436,10 +444,12 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 		  records         a chrome owner that materialises the node's OWN UICorner
 		                  and writes `handle.chromeCornerRadius` (the read that
 		                  decides whether it needs one included)
-		  record-write    those writes themselves, pinned so a recorder cannot be
+		  record-write    those writes and temporary-claim restorations, pinned so a recorder cannot be
 		                  quietly dropped while its `corner()` call stays
 		  record-clear    `handle.chromeCornerRadius = nil`, an eraser giving the
 		                  record up, pinned the same way
+		  shape-acquires  obtains a painted leaf's shape-owned corner; any temporary
+		                  chrome claim made by corner() is restored immediately
 		  record-read     reads the record to decide what to do next; writes no
 		                  radius itself
 		  updates-record  re-radiuses an existing corner and keeps the record true
@@ -484,7 +494,7 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			-- `corner()` is the ONE materialiser for every surface, the bare
 			-- circle and `wireInteractiveStates` — so it is the one recorder.
 			['screen_paint.luau|corner|assertBespokePaint("CornerRadius")'] = "paint-guard",
-			['screen_paint.luau|corner|local uiCorner = Instance.new("UICorner")'] = "records",
+			['screen_paint.luau|corner|local uiCorner = (handle and handle.shapeCorner) or Instance.new("UICorner")'] = "records",
 			["screen_paint.luau|corner|uiCorner.CornerRadius = resolved"] = "records",
 			["screen_paint.luau|corner|handle.chromeCornerRadius = resolved"] = "record-write",
 			["screen_paint.luau|applySurface|corner(instance, style.radii.panel, nil, handle)"] = "records",
@@ -495,13 +505,14 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			["screen_paint.luau|applyTint|corner(instance, style.radii.control, nil, handle)"] = "records",
 			-- ...and `applySurface`'s badge branch, the one surface that builds
 			-- its own circle instead of calling `corner()`
-			['screen_paint.luau|applySurface|local circle = Instance.new("UICorner")'] = "records",
+			['screen_paint.luau|applySurface|local circle = (handle and handle.shapeCorner) or Instance.new("UICorner")'] = "records",
 			["screen_paint.luau|applySurface|circle.CornerRadius = UDim.new(0.5, 0)"] = "records",
 			["screen_paint.luau|applySurface|handle.chromeCornerRadius = UDim.new(0.5, 0)"] = "record-write",
-			-- `plain` and `scrim` REMOVE the node's own corner. The selector is the
+			-- `plain` and `scrim` remove ordinary corners but retain an explicit
+			-- shape-owned child. They still clear the surface record. The selector is the
 			-- site (`child:Destroy()` names no class), and each of those two loops
 			-- clears the record in its own block — counted, not just present.
-			['screen_paint.luau|applySurface|if child:IsA("UICorner") then'] = "erases",
+			['screen_paint.luau|applySurface|if child:IsA("UICorner") and (handle == nil or child ~= handle.shapeCorner) then'] = "erases",
 			["screen_paint.luau|applySurface|handle.chromeCornerRadius = nil"] = "record-clear",
 			-- the toggle knob/track assembly: real CHILDREN of the node, passed
 			-- no handle at all, and never the child `applyCorners` writes into
@@ -509,7 +520,7 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			["screen_paint.luau|buildToggleVisual|corner(knob, style.radii.pill, true)"] = "not-own-child",
 			-- `applyCorners` itself: the restore reads the record, the authored
 			-- path writes the PROP and records nothing
-			['screen_paint.luau|applyCorners|local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil'] = "record-read",
+			["screen_paint.luau|applyCorners|else handle.chromeCornerRadius)"] = "record-read",
 			-- ...and the teardown sweeps `GetChildren()` like every other eraser on
 			-- this instance (RED-TEAM T9, finding 3): a node can wear two UICorners,
 			-- and "no record" means no chrome owner claims ANY of them
@@ -534,6 +545,13 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			['screen_chrome.luau|setTogglePartChrome|if child:IsA("UICorner") then'] = "not-own-child",
 			["screen_chrome.luau|setTogglePartChrome|(child :: UICorner).CornerRadius = if skinned then UDim.new(0, 0) else UDim.new(0, style.radii.pill)"] = "not-own-child",
 			-- ===== screen_props.luau =========================================
+			-- A painted leaf acquires its existing/new shape child without claiming
+			-- surface chrome. The temporary corner() record is restored, not dropped.
+			['screen_props.luau|setProp|if instance:FindFirstChildOfClass("UICorner") == nil then'] = "shape-acquires",
+			["screen_props.luau|setProp|local chromeRadius = handle.chromeCornerRadius"] = "record-read",
+			["screen_props.luau|setProp|corner(instance, style.radii.control, nil, handle)"] = "shape-acquires",
+			["screen_props.luau|setProp|handle.chromeCornerRadius = chromeRadius"] = "record-write",
+			['screen_props.luau|setProp|handle.shapeCorner = instance:FindFirstChildOfClass("UICorner")'] = "shape-acquires",
 			-- the `shape` write re-radiuses whatever corner is already there
 			['screen_props.luau|setProp|assertBespokePaint("CornerRadius")'] = "paint-guard",
 			['screen_props.luau|setProp|if child:IsA("UICorner") then'] = "updates-record",
@@ -663,7 +681,8 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 		expect(totalErases).toBe(totalClears)
 
 		-- ...and the RECORDERS are the three the mechanism names: `corner()`,
-		-- the badge branch, `applySlotNativePaint`; the ERASERS are the two that
+		-- the badge branch, `applySlotNativePaint`; shape acquisition restores its
+		-- borrowed chrome record. The ERASERS are the two that
 		-- remove the node's own corner, each with its clear. Counted through the
 		-- buckets that make a site what it is, so none can be quietly dropped
 		-- while the call it belongs to stays.
@@ -681,11 +700,12 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			"screen_chrome.luau|applySlotNativePaint|handle.chromeCornerRadius = slotRadius",
 			"screen_paint.luau|applySurface|handle.chromeCornerRadius = UDim.new(0.5, 0)",
 			"screen_paint.luau|corner|handle.chromeCornerRadius = resolved",
+			"screen_props.luau|setProp|handle.chromeCornerRadius = chromeRadius",
 			"screen_props.luau|setProp|handle.chromeCornerRadius = reshaped",
 		})
 		expect(bucketKeys("erases")).toEqual({
 			'screen_chrome.luau|applySkinnedSuppression|if child:IsA("UICorner") then',
-			'screen_paint.luau|applySurface|if child:IsA("UICorner") then',
+			'screen_paint.luau|applySurface|if child:IsA("UICorner") and (handle == nil or child ~= handle.shapeCorner) then',
 		})
 		expect(bucketKeys("record-clear")).toEqual({
 			"screen_chrome.luau|applySkinnedSuppression|handle.chromeCornerRadius = nil",

@@ -10,6 +10,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local defaultStyle = require("../src/tokens/default_style")
+local sheetModel = require("../src/tokens/sheet_model")
+local tokens = require("../src/tokens/tokens")
 
 -- a valid definition, cloned per test so a mutation cannot leak between them
 local function goodDef(): any
@@ -370,6 +372,207 @@ describe("theme package: danger contrast parity (integration find, 2026-07-25)",
 		def.style.themes[1].colors.onDanger = nil
 		local pkg = (themes.define(def))
 		expect(pkg ~= nil).toBe(true)
+	end)
+end)
+
+describe("theme package: the success and warning pairs", function()
+	--[[ A PACKAGE WRITTEN BEFORE THESE ROLES KEEPS ITS LOOK, and that promise is
+		kept in ONE place — the token resolver — so no control carries a branch for
+		it. The three cases are the three ways a palette can meet the pair: declare
+		neither (today's paint), declare both (its own), declare half (refused). ]]
+	local function rgbOf(theme: any, role: string): string
+		local c = sheetModel.paletteColor(theme, role)
+		return `{math.floor(c.r * 255 + 0.5)},{math.floor(c.g * 255 + 0.5)},{math.floor(c.b * 255 + 0.5)}`
+	end
+
+	local function declared(theme: any, role: string): string
+		local c = theme.colors[role]
+		return `{math.floor(c.r * 255 + 0.5)},{math.floor(c.g * 255 + 0.5)},{math.floor(c.b * 255 + 0.5)}`
+	end
+
+	it("a theme that declares neither still answers both, with the pair it always spent", function()
+		local def = goodDef()
+		local colors = def.style.themes[1].colors
+		colors.success, colors.onSuccess, colors.warning, colors.onWarning = nil, nil, nil, nil
+		local pkg, report = themes.define(def)
+		expect(pkg ~= nil).toBe(true)
+		local theme = (pkg :: any).style.themes[1]
+		-- `success` IS the accent pair and `warning` IS content on the page, which
+		-- is exactly what a status mark painted before either role existed
+		expect(`{rgbOf(theme, "success")} / {rgbOf(theme, "onSuccess")}`).toBe(
+			`{declared(theme, "accent")} / {declared(theme, "onAccent")}`
+		)
+		expect(`{rgbOf(theme, "warning")} / {rgbOf(theme, "onWarning")}`).toBe(
+			`{declared(theme, "content")} / {declared(theme, "surface")}`
+		)
+		-- ...and the gate ran on those effective colours rather than skipping the row
+		local gated: { [string]: boolean } = {}
+		for _, entry in report.contrast do
+			gated[entry.pair] = entry.ok
+		end
+		expect(`{tostring(gated["onSuccess on success"])} {tostring(gated["onWarning on warning"])}`).toBe("true true")
+	end)
+
+	it("a declared plate wins over the fallback, and an unreadable one is refused at DEFINE time", function()
+		local def = goodDef()
+		def.style.themes[1].colors.success = { r = 0.1, g = 0.5, b = 0.26 }
+		def.style.themes[1].colors.onSuccess = { r = 1, g = 1, b = 1 }
+		local pkg = (themes.define(def))
+		expect(pkg ~= nil).toBe(true)
+		expect(rgbOf((pkg :: any).style.themes[1], "success")).toBe("26,128,66")
+
+		local bad = goodDef()
+		bad.style.themes[1].colors.warning = { r = 0.95, g = 0.9, b = 0.6 }
+		bad.style.themes[1].colors.onWarning = { r = 1, g = 1, b = 1 }
+		local refused, report = themes.define(bad)
+		expect(refused).toBe(nil)
+		local named = false
+		for _, err in report.errors do
+			named = named or string.find(err.message, "onWarning on warning", 1, true) ~= nil
+		end
+		expect(named).toBe(true)
+	end)
+
+	it("a plate declared without its partner is refused, and the error names the missing role", function()
+		for _, pair in { { "success", "onSuccess" }, { "warning", "onWarning" } } do
+			local def = goodDef()
+			local colors = def.style.themes[1].colors
+			colors[pair[1]] = { r = 0.12, g = 0.42, b = 0.2 }
+			colors[pair[2]] = nil
+			local pkg, report = themes.define(def)
+			expect(`{pair[1]}: {tostring(pkg)}`).toBe(`{pair[1]}: nil`)
+			local entry = firstOfClass(report, "missingRole")
+			expect(`{pair[1]}: {if entry ~= nil then entry.field else "—"}`).toBe(
+				`{pair[1]}: style.themes[1].colors.{pair[2]}`
+			)
+		end
+	end)
+
+	--[[ THE OTHER HALF OF THE SAME DECISION, and it was accepted and inert:
+		`successPair` reads the PLATE first and falls back to the accent pair when it
+		is absent, so a partner with no plate is a colour the author wrote, the gate
+		reported as passing, and nothing ever painted. ]]
+	it("a partner declared without its plate is refused, and names the missing PLATE", function()
+		for _, pair in { { "success", "onSuccess" }, { "warning", "onWarning" } } do
+			local def = goodDef()
+			local colors = def.style.themes[1].colors
+			colors[pair[2]] = { r = 1, g = 1, b = 1 }
+			colors[pair[1]] = nil
+			local pkg, report = themes.define(def)
+			expect(`{pair[2]}: {tostring(pkg)}`).toBe(`{pair[2]}: nil`)
+			local entry = firstOfClass(report, "missingRole")
+			expect(`{pair[2]}: {if entry ~= nil then entry.field else "—"}`).toBe(
+				`{pair[2]}: style.themes[1].colors.{pair[1]}`
+			)
+		end
+	end)
+
+	--[[ A PAIR IS DECLARED BY THE PACKAGE, NOT BY ONE OF ITS VARIANTS. The fallback
+		for an undeclared `success` is the ACCENT pair — the very thing these roles
+		exist to stop `success` being — so a two-variant package with the pair in one
+		variant only shows a green tick in daylight and a blue one at night, with
+		both variants passing every gate. The refusal names the variant that is
+		MISSING it, which is the one an author has to go and write. ]]
+	it("a package that declares a pair in ONE variant only is refused, naming the variant without it", function()
+		local def = goodDef()
+		local first = def.style.themes[1]
+		local second = {}
+		for k, v in first do
+			second[k] = v
+		end
+		second.name = "Night"
+		local colors = {}
+		for k, v in first.colors do
+			colors[k] = v
+		end
+		colors.success = nil
+		colors.onSuccess = nil
+		second.colors = colors
+		def.style.themes = { first, second }
+		local pkg, report = themes.define(def)
+		expect(tostring(pkg)).toBe("nil")
+		local entry = firstOfClass(report, "missingRole")
+		expect(if entry ~= nil then entry.field else "—").toBe("style.themes[2].colors.success")
+		expect(`names both variants: {entry ~= nil and string.find(tostring(entry.message), "Night", 1, true) ~= nil}`).toBe(
+			"names both variants: true"
+		)
+		-- ...and a package that declares it in NEITHER variant is still fine: the
+		-- fallback is what a palette written before these roles existed relies on
+		local ok = goodDef()
+		local bare = {}
+		for k, v in ok.style.themes[1] do
+			bare[k] = v
+		end
+		bare.name = "Night"
+		local bareColors = {}
+		for k, v in ok.style.themes[1].colors do
+			bareColors[k] = v
+		end
+		bareColors.success, bareColors.onSuccess = nil, nil
+		bare.colors = bareColors
+		local firstColors = {}
+		for k, v in ok.style.themes[1].colors do
+			firstColors[k] = v
+		end
+		firstColors.success, firstColors.onSuccess = nil, nil
+		local firstTheme = {}
+		for k, v in ok.style.themes[1] do
+			firstTheme[k] = v
+		end
+		firstTheme.colors = firstColors
+		ok.style.themes = { firstTheme, bare }
+		local built = themes.define(ok)
+		expect(`neither variant declares it: {built ~= nil}`).toBe("neither variant declares it: true")
+	end)
+
+	--[[ ...AND THE RULE IS ASKED OF THE DEFINITION, NOT OF THE MERGE. `inherit`
+		merges `style.themes` POSITIONALLY, so a package derived from a base with ONE
+		theme gets variant 1 merged with it — carrying the base's pairs — and variant
+		2 inheriting nothing. Read off the merged style that is "declared in one
+		variant only", and the refusal lands on the exact shape the theme chapter
+		tells every author to write. This case goes through the real `base =` path
+		rather than copying the base's style, which is what `goodDef()` does and why
+		the derivation was structurally untested. ]]
+	it("a DERIVED two-variant package that declares neither pair is accepted", function()
+		local base = snapshot.neutralPackage()
+		-- a real author's two variants: the base's own palette with a different
+		-- surface/content pair, and NEITHER semantic plate named
+		local function variantColors(surface: any, content: any): any
+			local out: any = {}
+			for role, value in base.style.themes[1].colors do
+				out[role] = value
+			end
+			out.success, out.onSuccess, out.warning, out.onWarning = nil, nil, nil, nil
+			out.surface, out.content = surface, content
+			return out
+		end
+		local pkg, report = themes.define({
+			base = base,
+			identity = {
+				id = "derived-theme",
+				displayName = "Derived",
+				schemaVersion = themes.SCHEMA,
+				version = "1.0.0",
+			},
+			style = {
+				defaultTheme = "Day",
+				themes = {
+					{ name = "Day", colors = variantColors({ r = 1, g = 1, b = 1 }, { r = 0.1, g = 0.1, b = 0.1 }) },
+					{ name = "Night", colors = variantColors({ r = 0.1, g = 0.1, b = 0.1 }, { r = 1, g = 1, b = 1 }) },
+				},
+			},
+		})
+		local first = report and report.errors and report.errors[1]
+		expect(`accepted: {pkg ~= nil} {if pkg == nil and first then tostring(first.field) else ""}`).toBe(
+			"accepted: true "
+		)
+		-- ...and both variants answer both pairs, through the library fallback
+		for _, variant in (pkg :: any).style.themes do
+			for _, pair in { { "success", tokens.successPair }, { "warning", tokens.warningPair } } do
+				local plate, on = (pair[2] :: any)(variant.colors)
+				expect(`{variant.name}/{pair[1]}: {plate ~= nil and on ~= nil}`).toBe(`{variant.name}/{pair[1]}: true`)
+			end
+		end
 	end)
 end)
 

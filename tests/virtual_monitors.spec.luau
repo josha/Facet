@@ -1556,7 +1556,7 @@ t.describe("Virtual Monitors shared presentations", function()
 			return nil
 		end
 		local firstGenre = require("../examples/virtual_monitors/catalog").genres[1]
-		local chip = assert(suffixed("/Genre-" .. firstGenre), "genre chip missing")
+		local chip = assert(suffixed("/Genre-" .. firstGenre .. "+target"), "genre chip root missing")
 		t.expect(adapter.node(chip).props.stroke ~= nil).toBe(true)
 		selected:set(catalog.items:peek()[1])
 		settle(3)

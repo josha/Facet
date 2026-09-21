@@ -20,7 +20,7 @@
 	seam alone would have made the other reach sideways into it.
 
 	IT WRITES NOTHING OF ITS HOST'S. Both functions are pure reads over the solved
-	geometry plus one call each into `controller.scrollPosition`/`controller.scrollTo`
+	geometry plus calls into `controller.scrollPosition`/`controller.scrollTo`
 	— which is a WRITE, but an encapsulated one this module never touches directly, the
 	same way `layout/stack.luau` writes nothing of the solver's own state while calling
 	`place`. Six names cross, all by reference and none of them reassigned:
@@ -90,7 +90,7 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 	-- control that must bring a focused, selected, or newly-revealed descendant
 	-- into view asks for it here instead of carrying its own scroll arithmetic,
 	-- so the minimum-distance rule, the clamp, and the axis handling exist once.
-	-- Returns true when it actually moved the host.
+	-- Returns true when it actually moved any containing scroll host.
 	local function scrollToVisible(path: string, localRect: any?): boolean
 		if adapter.setScrollPosition == nil then
 			return false -- clip-only fallback adapter: nothing to scroll
@@ -106,54 +106,57 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 		if hostPath == nil then
 			return false
 		end
-		local hostRect = lastRects[hostPath]
 		local targetRect = lastRects[path]
-		local region = lastScrollRegions[hostPath]
-		if hostRect == nil or targetRect == nil or region == nil then
+		if targetRect == nil then
 			return false
 		end
-		if localRect ~= nil then
-			targetRect = {
-				x = targetRect.x + localRect.x,
-				y = targetRect.y + localRect.y,
-				w = localRect.w,
-				h = localRect.h,
-			}
-		end
-		--[[ BOTH RECTS INTO ONE SPACE BEFORE THE SUBTRACTION (Plan C, C1). The
-			canvas-space span below is `target - host`, and beneath a coordinate-space
-			host a stored rect is relative to THAT host — so if the scroll host and the
-			target sit under different ones the subtraction mixes two origins and means
-			nothing. A ScrollView is never itself a coordinate space (the trigger
-			refuses one outright, for exactly this reader), but either node may sit
-			under one. `hostOriginOf` walks `lastRects`, which is the map both rects
-			above came from; (0, 0) on a host-free tree, where this is the arithmetic it
-			always was. ]]
-		local hox, hoy = hostOriginOf(hostPath)
+		-- Stored rects may be relative to different coordinate-space hosts. Bring
+		-- both into the solved absolute space before comparing their canvas spans.
 		local tox, toy = hostOriginOf(path)
-		if hox ~= 0 or hoy ~= 0 or tox ~= 0 or toy ~= 0 then
-			hostRect = { x = hostRect.x + hox, y = hostRect.y + hoy, w = hostRect.w, h = hostRect.h }
-			targetRect = { x = targetRect.x + tox, y = targetRect.y + toy, w = targetRect.w, h = targetRect.h }
+		local targetX, targetY = targetRect.x + tox, targetRect.y + toy
+		local width, height = targetRect.w, targetRect.h
+		if localRect ~= nil then
+			targetX += localRect.x
+			targetY += localRect.y
+			width, height = localRect.w, localRect.h
 		end
-		local isX = region.axis == "x"
-		local current = controller.scrollPosition(hostPath) or { x = 0, y = 0 }
-		local offset = if isX then current.x else current.y
-		local band = if isX then hostRect.w else hostRect.h
-		local extent = if isX then region.contentW else region.contentH
-		-- canvas-space span of the target (the solver arranges children in the
-		-- host's own coordinate space; the engine shifts them by the offset)
-		local top = (if isX then targetRect.x else targetRect.y) - (if isX then hostRect.x else hostRect.y)
-		local size = if isX then targetRect.w else targetRect.h
-		-- ONE implementation of the minimum-distance rule (A-SV2)
-		local wanted = solver.keepVisibleOffset(top, size, offset, band, extent)
-		if wanted == nil then
-			return false
+		local moved, guard = false, 0
+		while hostPath ~= nil and guard < 32 do
+			local hostRect, region = lastRects[hostPath], lastScrollRegions[hostPath]
+			if hostRect == nil or region == nil then
+				break
+			end
+			local hox, hoy = hostOriginOf(hostPath)
+			local current = controller.scrollPosition(hostPath) or { x = 0, y = 0 }
+			-- The same minimum-distance rule handles each scrollable axis. Inner
+			-- offsets have already been removed from the target's canvas span.
+			local function wantedOn(isX: boolean): number?
+				local offset = if isX then current.x else current.y
+				local band = if isX then hostRect.w else hostRect.h
+				local extent = if isX then region.contentW else region.contentH
+				local top = if isX then targetX - hostRect.x - hox else targetY - hostRect.y - hoy
+				return solver.keepVisibleOffset(top, if isX then width else height, offset, band, extent)
+			end
+			local wantX = if region.axis ~= "y" then wantedOn(true) else nil
+			local wantY = if region.axis ~= "x" then wantedOn(false) else nil
+			if wantX ~= nil or wantY ~= nil then
+				current = {
+					x = if wantX ~= nil then wantX else current.x,
+					y = if wantY ~= nil then wantY else current.y,
+				}
+				controller.scrollTo(hostPath, current)
+				moved = true
+			end
+			-- Revealing a rail child is insufficient when the rail itself is clipped
+			-- by a scrolling page. Walk the existing ancestor chain, carrying the
+			-- actual inner offsets so an outer host reveals the same painted target.
+			current = controller.scrollPosition(hostPath) or current
+			targetX -= current.x
+			targetY -= current.y
+			hostPath = scrollHostOf[hostPath]
+			guard += 1
 		end
-		controller.scrollTo(hostPath, {
-			x = if isX then wanted else current.x,
-			y = if isX then current.y else wanted,
-		})
-		return true
+		return moved
 	end
 
 	-- THE SCROLL HOST THAT CARRIES A NODE, with everything an edge autoscroll

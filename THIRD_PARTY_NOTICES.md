@@ -8,15 +8,21 @@ copy.
 
 ## Compose
 
-**Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
+**Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), official base
 `5f6bf7d081bab39971b116e47d6eb9ccf5877282`, `src/core` and `src/roblox`.
+The current snapshot uses local repair commit
+`974b7527709a4db61024cc8994cdce30adc49790` based on that revision. This candidate
+is **LOCAL/UNPUBLISHED**; the official repository is not claimed to serve it.
+Its runtime change rearms failed reactive consumers for a later dependency update.
 
-**Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
-commit. `UPSTREAM.lock` records the commit and a SHA-256 for every file. There
-are no local patches. `skills/compose` holds the upstream agent skill and API
-reference from the same commit. The MIT notice is also a ModuleScript, so it
-travels inside the Roblox model. Compose provides reactive state, ownership,
-scheduling, collections and animation. Facet provides the UI domain on top.
+**Distribution.** `src/vendor/compose` is a generated, read-only snapshot of the
+local candidate. `UPSTREAM.lock` records its commit and a SHA-256 for every file;
+there are no post-generation patches. `skills/compose` holds the matching upstream
+agent skill and API reference, unchanged by this repair. The complete MIT notice
+is preserved below and as a ModuleScript inside the Roblox model. Compose provides
+reactive state, ownership, scheduling, collections and animation. Facet provides
+the UI domain on top. The checked-in snapshot supports offline builds; this notice
+does not imply that the unpublished commit can be fetched from the official remote.
 
 ```text
 MIT License

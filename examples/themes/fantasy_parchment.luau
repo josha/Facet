@@ -51,6 +51,12 @@ local DAYLIGHT = {
 		onAccent = rgb(252, 244, 224),
 		danger = rgb(140, 36, 28),
 		onDanger = rgb(255, 242, 232),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.65:1 and 5.27:1)
+		success = rgb(74, 106, 44),
+		onSuccess = rgb(252, 244, 224),
+		warning = rgb(190, 134, 32),
+		onWarning = rgb(38, 28, 16),
 	},
 	extra = {
 		control = rgb(214, 194, 156),
@@ -87,6 +93,12 @@ local CANDLELIGHT = {
 		onAccent = rgb(32, 22, 10),
 		danger = rgb(150, 40, 30),
 		onDanger = rgb(255, 242, 232),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.90:1 and 6.92:1)
+		success = rgb(132, 158, 74),
+		onSuccess = rgb(32, 22, 10),
+		warning = rgb(206, 152, 58),
+		onWarning = rgb(32, 22, 10),
 	},
 	extra = {
 		control = rgb(86, 66, 44),

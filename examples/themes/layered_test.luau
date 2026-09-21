@@ -180,6 +180,12 @@ local ORNATE = {
 		onAccent = rgb(30, 20, 8),
 		danger = rgb(150, 40, 30),
 		onDanger = rgb(255, 242, 232),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (6.16:1 and 6.84:1)
+		success = rgb(134, 160, 76),
+		onSuccess = rgb(30, 20, 8),
+		warning = rgb(202, 150, 56),
+		onWarning = rgb(30, 20, 8),
 	},
 	extra = {
 		control = rgb(80, 60, 40),

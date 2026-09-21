@@ -240,6 +240,7 @@ package.CONTROL_FAMILIES = table.freeze({
 -- tune, and adding it to the REQUIRED list would refuse to compile every
 -- package written before it existed.
 package.CONTROL_FAMILY_OPTIONAL = table.freeze({
+	toggle = table.freeze({ "markWidth" }),
 	button = table.freeze({ "height" }),
 	popup = table.freeze({ "panelWidth", "shadeInset" }),
 	textInput = table.freeze({ "multilineHeight" }),
@@ -250,7 +251,12 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	-- scale, so every package answers `controls.rowActions.trayGap` while no
 	-- package's authored metrics — and therefore no package's content stamp —
 	-- moves for a value nobody wrote.
-	rowActions = table.freeze({ "trayGap" }),
+	-- ...and the gutter between the ROW and the band beside it, which `resolve`
+	-- fills one step up the same scale (`xs` separates two plates inside one tray;
+	-- `s` separates the tray from the surface it acts on). Optional for the same
+	-- reason, and listed here for the same reason `toggle.markWidth` is: a derived
+	-- metric a package may not DECLARE is a promise the compiler refuses.
+	rowActions = table.freeze({ "trayGap", "rowGutter" }),
 	-- the indeterminate spinner's dot (parity round 2 §3.1). Optional for the
 	-- same reason `trayGap` is: `snapshot.resolve` fills it from the theme's own
 	-- `space` scale, so every package answers `controls.progress.spinnerDotSize`
@@ -499,6 +505,22 @@ local LAYER_GENERATED_FIELDS: { [string]: boolean } = {
 
 local THEME_FIELDS: { [string]: boolean } = { name = true, colors = true, extra = true }
 local STYLE_FIELDS: { [string]: boolean } = { themes = true, defaultTheme = true }
+
+--[[ THE SEMANTIC PAIRS a palette publishes beyond the contract's three: a fill
+	that MEANS something plus the colour the theme itself chose to read on it.
+	Each is gated on its EFFECTIVE colours (`tokens.*Pair` answers what a theme
+	that declared neither will actually paint), so the rows below cost a package
+	written before them nothing at all.
+
+	`requiresPartner` is what separates the two newer pairs from `danger`: the
+	destructive partner has had a shipped library fallback since it existed and
+	packages already lean on it, while a green or an amber declared without its
+	partner would letter itself out of somebody else's pair. ]]
+local SEMANTIC_PAIRS = table.freeze({
+	table.freeze({ plate = "danger", partner = "onDanger", pair = tokens.dangerPair, requiresPartner = false }),
+	table.freeze({ plate = "success", partner = "onSuccess", pair = tokens.successPair, requiresPartner = true }),
+	table.freeze({ plate = "warning", partner = "onWarning", pair = tokens.warningPair, requiresPartner = true }),
+})
 
 -- ===== §4 legal-property linter ============================================
 -- A theme rule may write ONLY the native paint set (Step 2's nativeSheetOwned)
@@ -1007,6 +1029,25 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	-- Neither collides with anything already in this table.
 	["trash"] = "\\_/",
 	["flag"] = "|>",
+	-- P1d (2026-09-18): a small common set for the next controls (Notice/Badge/
+	-- Snackbar, DateTimePicker, Vote, Avatar, Pagination). Every floor here is
+	-- plain ASCII, lowercase-only, at most 3 characters (the button_shape.spec
+	-- rule), and distinct from everything already in this table: `status.info`'s
+	-- `i` is not `increment`'s `+`-adjacent row, `status.error`'s `x!` reads
+	-- differently from bare `close`'s `x`, and `checkmark`'s `v` stays the only
+	-- bare tick (`status.success`'s `ok` is a word, not a stroke).
+	["status.info"] = "i",
+	["status.success"] = "ok",
+	["status.warning"] = "!",
+	["status.error"] = "x!",
+	["calendar"] = "[#]",
+	["clock"] = "(:)",
+	["vote.up"] = "+1",
+	["vote.down"] = "-1",
+	["person"] = "@",
+	["settings"] = "*",
+	["chevron.first"] = "|<",
+	["chevron.last"] = ">|",
 })
 
 -- isSafeGlyph(s): plain ASCII and nothing else. Falsifiable — a private-use
@@ -3031,26 +3072,68 @@ function package.define(def: any): (any, any)
 					)
 				end
 			end
-			-- the danger pair rides the SAME gate sheet_model asserts at build
-			-- time (using its documented library fallbacks when a theme omits the
-			-- pair) — found live: a package that passed define() then threw
-			-- inside sheet_model.gateTheme, which is the wrong place to learn it
-			do
-				local danger, onDanger = tokens.dangerPair(theme.colors)
-				local ratio = tokens.contrastRatio(danger, onDanger)
+			-- the three SEMANTIC pairs ride the SAME gate sheet_model asserts at
+			-- build time (each on its EFFECTIVE colours, so a theme that omits one
+			-- is gated on what it will actually paint) — found live: a package that
+			-- passed define() then threw inside sheet_model.gateTheme, which is the
+			-- wrong place to learn it
+			for _, entry in SEMANTIC_PAIRS do
+				local plate, on = entry.pair(theme.colors)
+				local ratio = tokens.contrastRatio(plate, on)
 				local ok = ratio >= 4.5
 				table.insert(contrast, {
 					theme = theme.name,
-					pair = "onDanger on danger",
+					pair = `{entry.partner} on {entry.plate}`,
 					ratio = math.floor(ratio * 100) / 100,
 					ok = ok,
 				})
 				if not ok then
 					reject(
 						"contrast",
-						`style.themes[{index}].colors.danger`,
-						`theme '{theme.name}': onDanger on danger contrast is {math.floor(ratio * 100) / 100}:1, below the 4.5:1 gate`,
-						"darken danger or lighten onDanger until the pair clears 4.5:1"
+						`style.themes[{index}].colors.{entry.plate}`,
+						`theme '{theme.name}': {entry.partner} on {entry.plate} contrast is `
+							.. `{math.floor(ratio * 100) / 100}:1, below the 4.5:1 gate`,
+						`darken {entry.plate} or lighten {entry.partner} until the pair clears 4.5:1`
+					)
+				end
+				--[[ A PLATE WITHOUT ITS PARTNER IS HALF A DECISION. The fallback above
+					is for a package that declares NEITHER — it keeps the look it always
+					had. A package that declares the fill and not the colour that reads on
+					it has published a plate whose lettering is somebody else's answer (the
+					accent's partner on a green, the page's surface on an amber), and the
+					gate above would then admit a pair the author never looked at. Declare
+					both or neither. `danger` is deliberately not held to this: its partner
+					has a shipped library fallback and packages already rely on it. ]]
+				if
+					entry.requiresPartner
+					and theme.colors[entry.plate] ~= nil
+					and theme.colors[entry.partner] == nil
+				then
+					reject(
+						"missingRole",
+						`style.themes[{index}].colors.{entry.partner}`,
+						`theme '{theme.name}' declares {entry.plate} without {entry.partner}`,
+						`a plate carries the colour the theme itself chose to read on it — declare {entry.partner} `
+							.. `beside {entry.plate}, or declare neither and inherit today's pair`
+					)
+				end
+				--[[ ...AND THE OTHER HALF OF THE SAME DECISION. A partner with no plate
+					was accepted and inert: `successPair` reads the PLATE first and falls
+					back to the accent pair when it is absent, so `onSuccess` alone was a
+					colour the author wrote, the gate reported as passing, and nothing
+					ever painted. Half a decision either way is the same defect, and a
+					key that is accepted must do something. ]]
+				if
+					entry.requiresPartner
+					and theme.colors[entry.partner] ~= nil
+					and theme.colors[entry.plate] == nil
+				then
+					reject(
+						"missingRole",
+						`style.themes[{index}].colors.{entry.plate}`,
+						`theme '{theme.name}' declares {entry.partner} without {entry.plate}`,
+						`{entry.partner} is the colour that reads ON {entry.plate}, so with no plate it paints `
+							.. `nothing — declare {entry.plate} beside it, or move {entry.partner} into \`extra\``
 					)
 				end
 			end
@@ -3113,6 +3196,63 @@ function package.define(def: any): (any, any)
 				end
 			end
 			table.insert(themes, { name = theme.name, colors = theme.colors, extra = theme.extra })
+		end
+		--[[ A PAIR IS DECLARED BY THE PACKAGE, NOT BY ONE OF ITS VARIANTS. The rule
+			above is per theme, so a two-variant package could declare `success` in its
+			Day theme and leave Night on the library fallback — and the fallback is the
+			ACCENT pair, which is the very thing these roles exist to stop `success`
+			being. Nothing reports it: both variants gate green, and the player sees a
+			green tick in daylight and a blue one at night. Declaring a semantic pair
+			is a decision about the palette, so every variant of the package answers
+			it. Named on the variant that is MISSING it, which is the one an author has
+			to go and write.
+
+			IT IS ASKED OF THE DEFINITION, NOT OF THE MERGE, and that distinction is
+			the whole of the rule's correctness. `inherit` merges `style.themes`
+			POSITIONALLY, so a package with `base = themes.neutralPackage()` and two
+			variants gets themes[1] merged with the base's single theme — which has
+			carried both pairs since they became contract roles — while themes[2]
+			inherits nothing. Read off the merge, that is "variant 1 declares it and
+			variant 2 does not", and the refusal would land on every derived
+			two-variant package in existence: the shape the theme chapter tells every
+			author to write, whose author declared the pair in NEITHER variant. So the
+			question is what `def.style` says, and a plate the BASE supplied is not an
+			answer this package gave. ]]
+		local authored = if type(def.style) == "table" and type(def.style.themes) == "table"
+			then def.style.themes
+			else nil
+		local function authoredPlate(index: number, plate: string): boolean
+			local theme = if authored ~= nil then (authored :: any)[index] else nil
+			local colors = if type(theme) == "table" then theme.colors else nil
+			return type(colors) == "table" and colors[plate] ~= nil
+		end
+		for _, entry in SEMANTIC_PAIRS do
+			if not entry.requiresPartner or authored == nil then
+				continue
+			end
+			local declaredIn: string? = nil
+			for index, theme in style.themes do
+				if authoredPlate(index, entry.plate) then
+					declaredIn = if type(theme) == "table" and type(theme.name) == "string" then theme.name else "?"
+					break
+				end
+			end
+			if declaredIn == nil then
+				continue
+			end
+			for index, theme in style.themes do
+				if authoredPlate(index, entry.plate) then
+					continue
+				end
+				reject(
+					"missingRole",
+					`style.themes[{index}].colors.{entry.plate}`,
+					`theme '{tostring(if type(theme) == "table" then theme.name else "?")}' omits {entry.plate} `
+						.. `while '{declaredIn}' declares it — one variant of a package may not answer a palette `
+						.. "question the others leave to the fallback",
+					`declare {entry.plate} and {entry.partner} in every variant, or in none`
+				)
+			end
 		end
 		if style.defaultTheme ~= nil and not seen[style.defaultTheme] then
 			reject(

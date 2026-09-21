@@ -71,8 +71,30 @@ UI.Toggle {
 }
 ```
 
-The control displays the model's value. Rejecting a request leaves that value
-unchanged. Keep server validation in the game model.
+The control displays the model's value. With `onChange`, it writes no state:
+`model.requestMusic` must write `music` to accept the request. Rejecting or
+delaying a request leaves the value and appearance unchanged. The callback's
+return value is ignored. This form also accepts a Compose formula or
+`function(use)` as `value`; a checkbox's model also owns clearing `mixed`.
+Keep server validation in the game model.
+
+A property function must return the property's complete value. Width takes a
+Dim, so a reactive boolean chooses a Dim rather than being stored as a nested
+readable:
+
+```lua
+local narrow = Compose.cell(true)
+UI.Text {
+    text = "Coastal circuit reverse night lap 14",
+    lineLimit = 1,
+    truncate = "middle",
+    width = function(use)
+        return { type = "fixed", px = if use(narrow) then 160 else 320 }
+    end,
+}
+```
+
+The binding runs again when `narrow` changes; the component setup still runs once.
 
 Use `Compose.formula` for a shared calculation:
 
@@ -172,7 +194,7 @@ in `Compose.formula` when the cell must track them. `ctx.scope` is the row's own
 Compose owner.
 
 `UI.VirtualList` uses the same vocabulary without `columns` or `rowGap`, and
-names its array `rows` or `items`. Both controls use Compose's
+names its array `rows`; VirtualGrid uses `items`. Both controls use Compose's
 `OrderedCollection` for windowing and row lifetime. Facet supplies the scroll
 container and focus navigation.
 

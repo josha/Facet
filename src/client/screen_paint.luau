@@ -182,6 +182,30 @@ function screen_paint.new(ctx: any)
 		-- pair, never a second opacity authority.
 		local alpha = sheet_model.tintTransparency(tint, handle.class)
 		local hasAlpha = (tint :: any).transparency ~= nil
+		--[[ THE STATUS LETTERING, AS A CLASSIFICATION (2026-09-19). A tint naming
+			a readable plate partner or contentStrong over media publishes that
+			ROLE as a tag, and the only thing that reads it is the sheet's icon rule:
+			the managed picture over this node is a SEPARATE instance whose
+			`ImageColor3` is sheet-owned, which is the one paint a per-node claim
+			cannot reach. The role rather than the colour, so a theme swap re-colours
+			the picture with no Luau at all.
+
+			Set for every class, because the node that carries an icon picture is a
+			Text (its glyph is the floor under the art) and not a Box. ]]
+		local letterRole = if type((tint :: any).role) == "string"
+				and sheet_model.STATUS_LETTER_ROLES[(tint :: any).role]
+			then (tint :: any).role
+			else nil
+		if handle.letterRole ~= letterRole then
+			handle.letterRole = letterRole
+			syncTags(handle)
+			if not nativeMode and handle.iconInstance ~= nil then
+				-- THE FALLBACK HALF. With no StyleSheets there is no rule to re-match,
+				-- so the picture is repainted from the same role at the chrome
+				-- subsystem's own reconcile point — the two paths spend one fact.
+				syncChrome(handle)
+			end
+		end
 		if handle.path2d ~= nil then
 			-- a Path2D is not a GuiObject and no rule can select one: no claim needed.
 			-- Its pre-tint colour is recorded here rather than through claimPaint,
@@ -297,7 +321,15 @@ function screen_paint.new(ctx: any)
 		-- nothing asked for — the "tag added outside the desired set" defect class,
 		-- inverted (screen_target's syncTags says why the set is diffed at all)
 		handle.tintFill = nil
+		-- ...and so does the status lettering: a node whose tint was cleared is not
+		-- on a status plate any more, and a picture over it goes back to the colour
+		-- its own name declares
+		local hadLetters = handle.letterRole ~= nil
+		handle.letterRole = nil
 		syncTags(handle)
+		if hadLetters and not nativeMode and handle.iconInstance ~= nil then
+			syncChrome(handle)
+		end
 		if handle.path2d ~= nil then
 			if handle.pathAlpha then
 				handle.pathAlpha.Transparency = NumberSequence.new(0)
@@ -594,7 +626,7 @@ function screen_paint.new(ctx: any)
 		if not sanctionedOverride then
 			assertBespokePaint("CornerRadius")
 		end
-		local uiCorner = Instance.new("UICorner")
+		local uiCorner = (handle and handle.shapeCorner) or Instance.new("UICorner")
 		local resolved = cornerRadiusFor(handle, radius)
 		uiCorner.CornerRadius = resolved
 		uiCorner.Parent = instance
@@ -730,8 +762,13 @@ function screen_paint.new(ctx: any)
 			destroys no child and `adopt` keeps `handle.instance`, so a recycled
 			node's UICorner really does still wear the recorded radius, and any
 			owner that repaints on the new identity re-records first. ]]
+		-- A painted leaf's explicit shape owns its corner independently of surface chrome.
 		if cornersData == nil then
-			local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil
+			local restored = if type(handle) == "table"
+				then (if handle.shapeCorner ~= nil
+					then cornerRadiusFor(handle, style.radii.control)
+					else handle.chromeCornerRadius)
+				else nil
 			if restored == nil then
 				-- EVERY ONE OF THEM, like every other eraser on this instance
 				-- (RED-TEAM T9, finding 3). `applySurface`'s plain/scrim branches and
@@ -928,7 +965,7 @@ function screen_paint.new(ctx: any)
 			-- avatar-badge convention (fallback fill visible until art loads)
 			instance.BackgroundTransparency = 0
 			instance.BackgroundColor3 = COLOR.surfaceStrong
-			local circle = Instance.new("UICorner")
+			local circle = (handle and handle.shapeCorner) or Instance.new("UICorner")
 			circle.CornerRadius = UDim.new(0.5, 0)
 			circle.Parent = instance
 			-- the one surface that does not go through `corner()`, so it records
@@ -969,7 +1006,7 @@ function screen_paint.new(ctx: any)
 				chrome:Destroy()
 			end
 			for _, child in instance:GetChildren() do
-				if child:IsA("UICorner") then
+				if child:IsA("UICorner") and (handle == nil or child ~= handle.shapeCorner) then
 					child:Destroy()
 				end
 			end
@@ -1021,7 +1058,7 @@ function screen_paint.new(ctx: any)
 				chrome:Destroy()
 			end
 			for _, child in instance:GetChildren() do
-				if child:IsA("UICorner") then
+				if child:IsA("UICorner") and (handle == nil or child ~= handle.shapeCorner) then
 					child:Destroy()
 				end
 			end
@@ -1214,13 +1251,26 @@ function screen_paint.new(ctx: any)
 	-- the renderer's measure seam uses. Falling back to the boot style when no
 	-- package is installed keeps the flat default byte-identical, because that
 	-- fallback IS the neutral snapshot's answer.
-	local function toggleLabelBox(): (UDim2, UDim2)
+	--[[ ...AND A BOX SMALLER THAN ITS OWN RESERVATION GETS NO COLUMN AT ALL. The
+		size above is a FRACTION of this leaf minus the reservation, and a display-only
+		switch — the one a `Toggle` row mounts as a picture of a switch — is exactly
+		`trackInset + trackWidth + trackInset` wide, while the reservation is that
+		plus the label GAP. Under Facet Neutral that is 68 against 84, so the engine
+		`Label` child read **-16 px wide** live (the headless model pins 0, which is
+		why it took a device to see). Negative is not a smaller column, it is a box
+		the engine will not honour; a leaf with no room for a label has a zero one. ]]
+	local function toggleLabelBox(handle: any?): (UDim2, UDim2)
 		local snap = snapshot()
 		if type(snap) ~= "table" then
 			snap = { controls = { toggle = { trackWidth = 44, trackInset = 12 } }, space = style.space }
 		end
 		local pad = themeSnapshot.toggleRowPadding(snap)
-		return UDim2.fromOffset(pad.left, 0), UDim2.new(1, -(pad.left + pad.right), 1, 0)
+		local reserved = pad.left + pad.right
+		local rect = if type(handle) == "table" then handle.windowRect else nil
+		local width = if type(rect) == "table" and type(rect.w) == "number" then rect.w else nil
+		local squeezed = width ~= nil and reserved >= width
+		return UDim2.fromOffset(if squeezed then 0 else pad.left, 0),
+			UDim2.new(if squeezed then 0 else 1, if squeezed then 0 else -reserved, 1, 0)
 	end
 
 	-- re-applied on a theme swap: the label column moves with the metrics that
@@ -1230,7 +1280,7 @@ function screen_paint.new(ctx: any)
 		if label == nil or handle.class ~= "Toggle" then
 			return
 		end
-		local pos, size = toggleLabelBox()
+		local pos, size = toggleLabelBox(handle)
 		label.Position = pos
 		label.Size = size
 	end
@@ -1245,7 +1295,7 @@ function screen_paint.new(ctx: any)
 		local label = Instance.new("TextLabel")
 		label.Name = "Label"
 		label.BackgroundTransparency = 1
-		local labelPos, labelSize = toggleLabelBox()
+		local labelPos, labelSize = toggleLabelBox(handle)
 		label.Position = labelPos
 		label.Size = labelSize
 		label.TextXAlignment = Enum.TextXAlignment.Left

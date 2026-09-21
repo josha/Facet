@@ -408,6 +408,11 @@ controls = {
 metrics, so the solver honours them and the layout follows — never a hidden
 minimum inside the adapter.
 
+A switch that is a PICTURE rather than a control — the mark in a setting row —
+sits in `controls.toggle.markWidth`, which is optional: omit it and the snapshot
+fills the box the adapter paints into (an inset, the track and an inset), or
+declare it and your number wins, track art and all.
+
 ### Flat bars still pay nothing
 
 A package with no bar recipes builds no instances. The

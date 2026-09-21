@@ -175,7 +175,9 @@ function flow.plan(
 		-- takes the line. `arrange` files the diagnostic that says so.
 		local mainDim = deps.dim(child, if isH then "w" else "h")
 		local ownMain = if isH then w + ml + mr else h + mt + mb
-		mains[idx] = if mainDim.type == "fill" and innerMain ~= math.huge then innerMain else ownMain
+		mains[idx] = if mainDim.type == "fill" and innerMain ~= math.huge
+			then math.max(innerMain, (mainDim.min or 0) + (if isH then ml + mr else mt + mb))
+			else ownMain
 		crosses[idx] = if isH then h + mt + mb else w + ml + mr
 	end
 	local lines = flow.partition(mains, innerMain, gap)

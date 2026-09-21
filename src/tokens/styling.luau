@@ -514,6 +514,11 @@ local TINT_ROLES: { string } = {
 	"contentSecondary",
 	"accent",
 	"onAccent",
+	"onDanger",
+	"success",
+	"onSuccess",
+	"warning",
+	"onWarning",
 	"control",
 	"controlSelected",
 	-- the label colour a theme itself chose to read on `controlSelected`

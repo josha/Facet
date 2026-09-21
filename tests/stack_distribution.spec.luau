@@ -1188,12 +1188,12 @@ describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member",
 		-- fits pays nothing for the new test either
 		local scanAt = string.find(
 			stackSource,
-			"\tlocal hasShrink = false\n\tif availMain < 0 then\n\t\tfor _, child in children do",
+			"\tlocal hasShrink = false\n\tif fillMinimum > availMain then\n\t\tfor _, child in children do",
 			1,
 			true
 		)
-		expect(`the membership scan is gated on availMain: {scanAt ~= nil}`).toBe(
-			"the membership scan is gated on availMain: true"
+		expect(`the membership scan is gated on the remaining fill-floor deficit: {scanAt ~= nil}`).toBe(
+			"the membership scan is gated on the remaining fill-floor deficit: true"
 		)
 		expect(`scan precedes guard: {scanAt ~= nil and guardAt ~= nil and (scanAt :: number) < (guardAt :: number)}`).toBe(
 			"scan precedes guard: true"

@@ -219,6 +219,8 @@ function focus_graph.new(core: any)
 	]]
 	local focusOrigin = "navigation"
 	local focusVisible = Compose.cell(true)
+	local navigationTarget: string? = nil
+	local navigating = 0
 
 	self.focused = focused
 	-- Readable<boolean>: should the focus ring PAINT right now? (see above)
@@ -664,7 +666,11 @@ function focus_graph.new(core: any)
 		end
 	end
 
-	local function setFocus(id: string?)
+	local function setFocus(id: string?, explicit: boolean?)
+		-- Publish before the Cell: current Compose observers may run synchronously.
+		if navigating > 0 and not explicit and focused:peek() ~= id then
+			navigationTarget = id
+		end
 		focused:set(id)
 		-- A SCOPE THAT ASKED FOR NO INITIAL FOCUS STOPS DECLINING ONE THE MOMENT IT
 		-- GETS IT. `initialFocus = "none"` means "do not invent focus for me", not
@@ -1347,6 +1353,23 @@ function focus_graph.new(core: any)
 		return false -- nothing else eligible anywhere in the scope: focus stays put
 	end
 
+	-- One graph-owned fact survives routed/consumed presenter navigation reports.
+	for _, verb in { "navigate", "navigateDirection", "traverse" } do
+		local inner = (self :: any)[verb];
+		(self :: any)[verb] = function(argument)
+			navigating += 1
+			local ok, answer = pcall(inner, argument)
+			navigating -= 1
+			if not ok then
+				error(answer, 0)
+			end
+			return answer
+		end
+	end
+	function self.navigationTarget(): string?
+		return navigationTarget
+	end
+
 	-- replace a GROUPED scope's whole group map (dynamic surfaces: table rows
 	-- reorder/churn — gamepad support 2026-07-20): keeps focus when it
 	-- survives the new map, else enters the first group.
@@ -1605,7 +1628,8 @@ function focus_graph.new(core: any)
 		if not isFocusable(scope, path) then
 			return false
 		end
-		setFocus(path)
+		navigationTarget = nil
+		setFocus(path, true)
 		return true
 	end
 

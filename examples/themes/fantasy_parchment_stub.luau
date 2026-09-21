@@ -97,6 +97,12 @@ local PARCHMENT = {
 		-- `themes.define`) does not — see the report's decision packet
 		danger = rgb(150, 40, 30),
 		onDanger = rgb(255, 242, 232),
+		-- the two semantic roles, in this palette's own family and gated like the
+		-- destructive pair above (5.90:1 and 6.92:1)
+		success = rgb(132, 158, 74),
+		onSuccess = rgb(32, 22, 10),
+		warning = rgb(206, 152, 58),
+		onWarning = rgb(32, 22, 10),
 	},
 	extra = {
 		control = rgb(86, 66, 44),

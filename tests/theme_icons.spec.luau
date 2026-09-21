@@ -215,6 +215,72 @@ describe("the fallback glyph table can never be tofu", function()
 	end)
 end)
 
+-- P1d (2026-09-18): a SMALL common set for the next controls (Notice/Badge/
+-- Snackbar, DateTimePicker, Vote, Avatar, Pagination) — pinned by exact name,
+-- floor and asset, the way the shipped rows above already are.
+describe("P1d: eleven common glyphs (status, calendar, clock, vote, person, chevron ends)", function()
+	local FLOORS: { [string]: string } = {
+		["status.info"] = "i",
+		["status.success"] = "ok",
+		["status.warning"] = "!",
+		["status.error"] = "x!",
+		["calendar"] = "[#]",
+		["clock"] = "(:)",
+		["vote.up"] = "+1",
+		["vote.down"] = "-1",
+		["person"] = "@",
+		["chevron.first"] = "|<",
+		["chevron.last"] = ">|",
+	}
+	local ASSET_NAMES: { [string]: string } = {
+		["status.info"] = "facet_icon_info",
+		["status.success"] = "facet_icon_success",
+		["status.warning"] = "facet_icon_warning",
+		["status.error"] = "facet_icon_error",
+		["calendar"] = "facet_icon_calendar",
+		["clock"] = "facet_icon_clock",
+		["vote.up"] = "facet_icon_thumb_up",
+		["vote.down"] = "facet_icon_thumb_down",
+		["person"] = "facet_icon_person",
+		["chevron.first"] = "facet_icon_chevron_first",
+		["chevron.last"] = "facet_icon_chevron_last",
+	}
+
+	it("each name carries its exact ASCII floor and an ART row for the matching asset", function()
+		local standard_icons = require("../src/themes/standard_icons")
+		for name, floor in FLOORS do
+			expect(themes.ICON_FALLBACK_GLYPHS[name]).toBe(floor)
+			expect(themes.isSafeGlyph(floor)).toBe(true)
+			expect(themes.isIconName(name)).toBe(true)
+			local entry = (standard_icons.ART :: any)[name]
+			expect(entry ~= nil).toBe(true)
+			expect(entry.assetName).toBe(ASSET_NAMES[name])
+			expect(entry.tintRole).toBe("content")
+			-- Every shipped row resolves to its exact art, even without a package.
+			expect(themes.resolveIcon(nil, name).source).toBe("asset")
+			expect(themes.resolveIcon(nil, name).contentId).toBe(entry.contentId)
+			expect(themes.resolveIcon(snapshot.neutralPackage(), name).source).toBe("asset")
+			expect(themes.resolveIcon(snapshot.neutralPackage(), name).contentId).toBe(entry.contentId)
+		end
+		expect(standard_icons.ART["status.success"].contentId).toBe(standard_icons.ART.checkmark.contentId)
+		expect(fs.readFile("assets/icons/facet_icon_success.png") == fs.readFile("assets/icons/facet_icon_check.png")).toBe(
+			true
+		)
+	end)
+end)
+
+describe("settings gear", function()
+	it("resolves the archived asset and retains an ASCII fallback", function()
+		expect(themes.ICON_FALLBACK_GLYPHS.settings).toBe("*")
+		for _, pkg in { false, snapshot.neutralPackage() } do
+			local answer = themes.resolveIcon(if pkg == false then nil else pkg, "settings")
+			expect(answer.source).toBe("asset")
+			expect(answer.contentId).toBe("rbxassetid://78513807849201")
+			expect(answer.tintRole).toBe("content")
+		end
+	end)
+end)
+
 describe("themes.resolveIcon: three honest answers", function()
 	it("the theme's art when it has some, per state", function()
 		local pkg = themes.define(withIcons({
@@ -302,6 +368,132 @@ describe("themes.resolveIcon: three honest answers", function()
 		local standard = require("../src/themes/standard_icons")
 		for _, entry in standard.ART :: any do
 			expect(native[entry.tintRole]).toBe(true)
+		end
+	end)
+
+	--[[ THE LEGACY SHEET'S PER-NAME ICON TINT — the rule family that only the
+		PACKAGE builder used to emit.
+
+		A managed picture's `ImageColor3` is sheet-owned paint, so with no package
+		installed there was no rule at all and every framework icon painted unstyled
+		WHITE. That is invisible on the LIGHT built-in style and merely
+		indistinguishable from `content` on the dark one, which is why it survived:
+		the two styles is what makes it a defect rather than a preference, so both
+		are read here. ]]
+	it("the legacy sheet tints a framework icon by NAME, in both built-in styles", function()
+		local sheetModel = require("../src/tokens/sheet_model")
+		local themePackage = require("../src/themes/package")
+		local styles = {
+			dark = require("../src/tokens/default_style"),
+			light = require("../src/tokens/default_light_style"),
+		}
+		for label, style in styles do
+			local model = sheetModel.build({ themes = { { name = `Facet Neutral {label}`, style = style } } })
+			local painted: { [string]: string } = {}
+			for _, rule in model.rules do
+				local tag = string.match(rule.selector, "^%.(facet%-chrome%-icon%-[%w%-]+)$")
+				if tag ~= nil and rule.props.ImageColor3 ~= nil then
+					painted[tag] = tostring(rule.props.ImageColor3)
+				end
+			end
+			-- every framework name that resolves to a PICTURE has one, and the ones
+			-- that answer with a glyph have none (a character is text, not an image)
+			local wantArt, wantGlyph = 0, 0
+			for name in themePackage.ICON_FALLBACK_GLYPHS :: any do
+				local resolved = themePackage.resolveIcon(nil, tostring(name))
+				local tag = chrome_slots.iconTagFor(tostring(name))
+				if type(resolved) == "table" and resolved.source == "asset" then
+					wantArt += 1
+					expect(`{label} {name}: {tostring(painted[tag])}`).toBe(`{label} {name}: $Content`)
+				else
+					wantGlyph += 1
+					expect(`{label} {name}: {tostring(painted[tag])}`).toBe(`{label} {name}: nil`)
+				end
+			end
+			-- every one of the framework's own names resolves to a picture today, so
+			-- the glyph arm of the loop is empty by construction and says so; the
+			-- claim it stands for is asked directly below
+			expect(`{label}: art {wantArt > 0}, glyph-only {wantGlyph}`).toBe(`{label}: art true, glyph-only 0`)
+			-- ...and a name the framework knows nothing about earns no rule at all
+			expect(`{label}: unknown name: {tostring(painted[chrome_slots.iconTagFor("not-an-icon")])}`).toBe(
+				`{label}: unknown name: nil`
+			)
+			-- the token really resolves in that style, which is the half a SPELLED
+			-- token (this builder cannot see the role-to-token map) could get wrong
+			-- with nothing noticing
+			expect(`{label}: $Content resolves: {model.themes[1].tokens.Content ~= nil}`).toBe(
+				`{label}: $Content resolves: true`
+			)
+		end
+	end)
+
+	it("a status plate re-letters the picture on it, in BOTH sheet builders", function()
+		--[[ AN ICON DECLARES ONE COLOUR PER NAME (`content` for every framework
+			status icon), which is right on the page and invisible on a status plate —
+			measured live, `status.warning` painted cream on cream. The node that
+			carries the picture already knows the answer, because its own lettering IS
+			the plate's readable partner, so four scoped rules hand that role to the
+			picture. Both builders emit them, and each comes AFTER the per-name tint it
+			corrects: the cascade is priority, then insertion, with no selector
+			specificity, so position IS the ruling. ]]
+		local sheetModel = require("../src/tokens/sheet_model")
+		local defaultStyle = require("../src/tokens/default_style")
+		local models = {
+			legacy = sheetModel.build({ themes = { { name = "Facet Neutral", style = defaultStyle } } }),
+			package_ = sheetModel.buildPackage(snapshot.neutralPackage()),
+		}
+		for label, model in models do
+			local found: { string } = {}
+			local perName, lastPerName, lastStatus = 0, 0, 0
+			for index, rule in model.rules do
+				local role = string.match(rule.selector, "^%.facet%-letters%-(%w+) > %.facet%-chrome%-icon$")
+				if role ~= nil then
+					table.insert(found, `{role}={tostring(rule.props.ImageColor3)}`)
+					lastStatus = index
+				elseif string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
+					-- a per-NAME icon tint. `~= nil`, NOT `== 1`: every selector starts
+					-- with the dot, so the old test returned 2 and never fired — the
+					-- ordering claim below was vacuously true in both builders
+					perName += 1
+					lastPerName = index
+				end
+			end
+			table.sort(found)
+			-- five roles, not four: `contentStrong` is the lettering a control OVER
+			-- MEDIA takes, and its picture follows its word there for the same reason
+			expect(`{label}: {table.concat(found, " ")}`).toBe(
+				`{label}: contentStrong=$ContentStrong onAccent=$OnAccent onDanger=$OnDanger `
+					.. `onSuccess=$OnSuccess onWarning=$OnWarning`
+			)
+			--[[ ORDER MEANS SOMETHING IN BOTH BUILDERS NOW: each emits one tint per
+				icon NAME that resolves to art — the package builder over the union of its
+				own art and the framework's, the legacy one over the framework set a game
+				with no package installed actually reaches — and the lettering rules have
+				to come after all of them. ]]
+			expect(`{label}: per-name {perName > 0}, status after them {lastStatus > lastPerName}`).toBe(
+				`{label}: per-name true, status after them true`
+			)
+			--[[ ...AND NOTHING LATER REPAINTS THE PICTURE, which is the claim the
+				ordering is FOR (the `button_shape` idiom: a later rule on a selector this
+				node matches would win on the same property). ]]
+			for index = lastStatus + 1, #model.rules do
+				local rule = model.rules[index]
+				local touchesPicture = string.find(rule.selector, chrome_slots.ICON_PICTURE_TAG, 1, true) ~= nil
+					or string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil
+				expect(`{label}/{rule.name}: {touchesPicture and rule.props.ImageColor3 ~= nil}`).toBe(
+					`{label}/{rule.name}: false`
+				)
+			end
+			-- ...and every token those rules spend really exists in every theme, or a
+			-- swap would stop painting the picture
+			for _, theme in model.themes do
+				for _, role in sheetModel.STATUS_LETTERS do
+					local token = theme.tokens[role:sub(1, 1):upper() .. role:sub(2)]
+					expect(`{label}/{theme.name}/{role}: {type(token) == "table"}`).toBe(
+						`{label}/{theme.name}/{role}: true`
+					)
+				end
+			end
 		end
 	end)
 

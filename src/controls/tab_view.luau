@@ -1121,6 +1121,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if graph == nil or mountedRootPath == nil or spec.restoreFocus == false then
 			return
 		end
+		local navigated = path ~= nil and (pendingNavigation ~= nil or graph.navigationTarget() == path)
 		local tabId = selectionModel.read(selection)
 		local prefix = mountedRootPath .. "/Content/Tab-" .. tabId .. "/"
 		if path == nil or string.sub(path, 1, #prefix) ~= prefix then
@@ -1130,8 +1131,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		local entering = enteredTab ~= tabId
 		enteredTab = tabId -- set before focusOn: notification is synchronous
 		local saved = bookmarks[tabId]
-		if entering and saved ~= nil and saved ~= path and graph.focusOrigin() == "navigation" then
+		if entering and saved ~= nil and saved ~= path and navigated then
 			if graph.focusOn(saved) then
+				pendingNavigation = nil -- the bookmark completed the shoulder handoff
 				if boundController ~= nil and boundController.scrollToVisible ~= nil then
 					boundController.scrollToVisible(saved)
 				end

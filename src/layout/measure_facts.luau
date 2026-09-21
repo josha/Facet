@@ -4,8 +4,10 @@
 	Public interface: `Dim` (the dimension schema), `CONTENT`, `dim`, `mainDimOf`,
 	`axisAbsorbs`, `sides`, `textTypography`, `recordTextFacts`, `memoPlan`,
 	`MEMO_ARM_DEPTH` and two of the three `PLAN_*` verdicts. Depends on
-	`../themes/snapshot` and on nothing else — no solver local, no forward
-	declaration, no `require` back.
+	`../themes/snapshot` and on `./text_metrics` — the second joined in 2026-09-18
+	for the ONE encoding of a font argument that changes face part-way through a
+	string (`textTypography` folds a rich node's spans into it) — and on nothing
+	else: no solver local, no forward declaration, no `require` back.
 
 	`axisAbsorbs` JOINED IT IN THE SAME ROUND it left, and for the reason a pure
 	predicate ends up somewhere: it reads a `Dim` and two limits, which is exactly
@@ -58,6 +60,14 @@
 ]]
 
 local themeSnapshot = require("../themes/snapshot")
+-- the measurer itself, for the ONE encoding of a font argument that changes face
+-- part-way through a string (`text_metrics.runKey`; see `textTypography` below)
+local text_metrics = require("./text_metrics")
+local canonicalFont = text_metrics.canonicalFont
+-- the engine's own default face terms, so a span that names only a weight keeps
+-- the family and style the node's descriptor already carried
+local DEFAULT_WEIGHT = "Regular"
+local DEFAULT_STYLE = "Normal"
 
 local measure_facts = {}
 
@@ -201,7 +211,41 @@ local function textTypography(ctx: MeasureCtx, node: any): (string, number, numb
 	local size = if type(node.textSize) == "number"
 		then node.textSize
 		else (themeSnapshot.resolveSize(ctx.metrics, node.textSize) or base.size)
-	return node.font or base.fontKey, size, node.lineHeight or base.lineHeight
+	local font = node.font or base.fontKey
+	--[[ ...AND A MARKED-UP STRING CHANGES FACE PART-WAY THROUGH IT (fix round 1).
+		`UI.Text{ rich = true }` may ask for a bold, bigger or differently-faced run
+		inside one label, and the engine draws those glyphs at those faces — so the
+		box has to be reserved at them or it under-reserves and the label clips.
+
+		The runs reach the measurer THROUGH THE FONT ARGUMENT (`text_metrics.runKey`
+		owns the encoding and says why): a font argument already means "how to
+		measure these glyphs", this is the one seam that produces it, and the one
+		caller of this function is the solver's text branch — a file with no
+		characters to spend on another parameter. Every downstream key stays correct
+		by construction, because a node whose runs change really is a different
+		measurement.
+
+		A span names a WEIGHT, a FACE or a SIZE; the family and style come from the
+		node's own descriptor, so `<b>` on a themed label is that theme's bold. ]]
+	if node.textRuns ~= nil then
+		local family, _, style = string.match(canonicalFont(font), "^([^#]+)#([^#]+)#([^#]+)$")
+		local runs: { any } = {}
+		for _, span in node.textRuns do
+			local face = span.face or family
+			local weight = span.weight or DEFAULT_WEIGHT
+			table.insert(runs, {
+				at = span.at,
+				-- a span with neither face nor weight is a size change alone, and a
+				-- CLOSING span is the base coming back: both spell the base face
+				font = if span.face == nil and span.weight == nil
+					then ""
+					else `{face}#{weight}#{style or DEFAULT_STYLE}`,
+				size = span.size,
+			})
+		end
+		font = text_metrics.runKey(font, runs)
+	end
+	return font, size, node.lineHeight or base.lineHeight
 end
 
 --[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS: a measure that truncates must SAY so where it truncates, so no consumer re-derives fit from geometry (the large-text rule).
@@ -234,6 +278,10 @@ local function recordTextFacts(
 )
 	ctx.textStates[node.id] = m.state
 	local truncated = m.truncated or clampedWidth
+	-- ONE `sides` call (this function runs once per text node per measure pass and
+	-- has paid for a per-call allocation once already); see `padX` below
+	local _, pr, _, pl = sides(node.padding)
+	local padX = pr + pl
 	--[[ ...AND THE PROBE COUNTS THE CLAMPED CUT ONLY (DIR wave contract 7). See
 		`Ctx.fitCuts`: this is the only place a cut is known and `chosenCandidate` is
 		the only reader.
@@ -308,6 +356,22 @@ local function recordTextFacts(
 		-- the string this verdict is about: with a compact form in play it is NOT
 		-- the string the node draws, and disclosure hands back the full value
 		text = node.text,
+		--[[ ...AND THE WIDTH THE GLYPHS ACTUALLY GET (fix round 1, review finding
+			P1b-2). `truncated` above is a verdict about the DRAWABLE area — the box
+			minus this node's own padding, which the solver's text branch calls
+			`availW` and which the adapter materializes as a real `UIPadding` — while
+			the rect a paint seam reads is the OUTER one. A consumer that re-derived
+			the drawable width from the rect alone was up to `left + right` too
+			generous, and for `truncate = "middle"` that meant fitting a string the
+			engine then end-ellipsized: the one thing a middle cut exists to keep.
+
+			Published rather than passed, and computed HERE rather than handed down,
+			because the solver's own call sites are in a file with no characters to
+			spend — `node.padding` is the same resolved four sides that branch spent,
+			and `sides` is the same reader. The subtraction is the box the glyphs get
+			whether or not this measure truncated, so a consumer needs no second rule
+			for the other case. ]]
+		padX = padX,
 	}
 end
 

@@ -7,10 +7,20 @@ local contribution = require("../input/contribution")
 local surfaceEnv = require("../env/surface_env")
 local menuRecipe = require("./menu_recipe")
 local shortcut = require("./button_shortcut")
+local vocabulary = require("./control_vocabulary")
+local chromeSlots = require("../tokens/chrome_slots")
+local themePackage = require("../themes/package")
 local button = {}
 local KEYS = guard.keySet({
+	"animation",
 	"id",
 	"label",
+	"name",
+	"controlSize",
+	"appearance",
+	"corners",
+	"over",
+	"trailingIcon",
 	"compactLabel",
 	"children",
 	"enabled",
@@ -61,6 +71,7 @@ local KEYS = guard.keySet({
 })
 -- Placement, visibility and lifecycle properties the primitive reads as authored.
 local PASSTHROUGH = {
+	"animation",
 	"hidden",
 	"anchor",
 	"alignH",
@@ -77,6 +88,9 @@ local PASSTHROUGH = {
 	"onDisappear",
 }
 local POINTER = { "onPointerDown", "onPointerUp", "onPointerCancel", "onPointerMove" }
+local APPEARANCES = { "standard", "emphasis", "soft", "utility", "link" }
+local APPEARANCE_SET = guard.keySet(APPEARANCES)
+local DEFAULT_ICON_SIZE = "controlSizes.regular.iconSize"
 local function build(Facet, core, spec, owner)
 	guard.assertKnownKeys("UI.Button", spec, KEYS, "spec")
 	assert(spec.onActivate == nil or type(spec.onActivate) == "function", "Button: onActivate must be a function")
@@ -121,6 +135,66 @@ local function build(Facet, core, spec, owner)
 	assert(
 		type(ratio) == "number" and ratio > 0 and ratio < math.huge,
 		"UI.Button.imageAspectRatio must be positive and finite"
+	)
+	--[[ THE LOCAL SIZE / APPEARANCE VOCABULARY (`control_vocabulary.luau`).
+		Validated here, before anything is built, so a misspelled rung names itself
+		instead of painting the default forever. ]]
+	vocabulary.assertSize("UI.Button", spec.controlSize)
+	vocabulary.assertAppearance("UI.Button", spec.appearance, APPEARANCES, APPEARANCE_SET)
+	vocabulary.assertCorners("UI.Button", spec.corners)
+	vocabulary.assertOver("UI.Button", spec.over)
+	for _, key in { "icon", "trailingIcon" } do
+		local iconName = spec[key]
+		assert(
+			iconName == nil or (type(iconName) == "string" and themePackage.isIconName(iconName)),
+			`Button.{key} must be a CONSTRUCTION-TIME semantic icon NAME — a framework name or a package's `
+				.. `"ns:name", never an asset id and never a getter (the mark is drawn once; bind the `
+				.. `\`label\` instead)`
+		)
+	end
+	assert(
+		spec.icon == nil or (spec.children == nil and spec.image == nil and spec.row == nil),
+		"Button.icon is a leading mark beside the label — it does not combine with children, image or row"
+	)
+	assert(
+		spec.trailingIcon == nil or (spec.children == nil and spec.image == nil and spec.row == nil),
+		"Button.trailingIcon is a trailing mark beside the label — it does not combine with children, image or row"
+	)
+	assert(
+		spec.shape ~= "circle" or spec.trailingIcon == nil,
+		"Button.trailingIcon does not combine with shape = circle; a circle carries one icon"
+	)
+	--[[ A BUTTON WITH NOTHING TO READ STILL HAS TO SAY WHAT IT IS. `label` is the
+		semantic name every Button carries; an ICON-ONLY button has no visible one,
+		so `name` supplies it and is REQUIRED there rather than optional-with-a-
+		fallback: an unnamed icon button is a control a dump, a bug report and a
+		focus trace cannot identify, and "close" is not a guess this library will
+		make on the author's behalf. When there IS a visible label, `name` would be a
+		second answer to the same question, so it is refused. ]]
+	local visibleLabel = selection.read(spec.label)
+	local hasVisibleContent = (type(visibleLabel) == "string" and visibleLabel ~= "")
+		or type(visibleLabel) == "number"
+		or (spec.children ~= nil and #spec.children > 0)
+		or spec.row ~= nil
+		or spec.image ~= nil
+	assert(
+		spec.name == nil or (type(spec.name) == "string" and spec.name ~= ""),
+		"Button.name must be a nonempty semantic label"
+	)
+	assert(
+		spec.name == nil or not hasVisibleContent,
+		"Button.name is the semantic label for a button with NO visible label — drop it, or drop the label"
+	)
+	local iconOnly = not hasVisibleContent and (spec.icon ~= nil or spec.trailingIcon ~= nil)
+	assert(
+		not iconOnly or spec.name ~= nil or spec.shape == "circle",
+		"Button: an icon-only button needs `name` — the semantic label a focus trace, a dump and a bug "
+			.. "report call it by, and the one thing a mark alone cannot supply"
+	)
+	-- A semantic name identifies content; it does not replace something to draw.
+	assert(
+		hasVisibleContent or selection.isSource(spec.label) or spec.icon ~= nil or spec.trailingIcon ~= nil,
+		"Button has nothing to draw: supply a label, icon, children, row or image; name is only a semantic label"
 	)
 	local UI = Facet.UI
 	local id = spec.id or "Button"
@@ -358,7 +432,56 @@ local function build(Facet, core, spec, owner)
 			})
 		end
 	end
-	local hasContent = spec.children ~= nil or spec.row ~= nil or canBeBusy or imageForm
+	--[[ THE RUNG'S METRICS, AS NAMES (`control_vocabulary.luau`). The ladder is
+		spent as `controlSizes.<rung>.*` METRIC STRINGS on ordinary layout props, so
+		the solver re-resolves them against the live theme on every solve and a
+		package swap re-sizes this button with no rebuild. A live rung is a tracked prop function over
+		the same mapping, so the static and reactive forms produce the same
+		expression.
+
+		AN AUTHORED `height` STILL WINS, below: a rung is a default, and a caller who
+		measured their own layout is not overruled by one. ]]
+	local sizedHeight = if spec.shape == "circle" and (spec.width ~= nil or spec.height ~= nil)
+		then nil
+		else vocabulary.deriveSize("UI.Button", spec.controlSize, vocabulary.heightFor)
+	local sizedPadding = vocabulary.deriveSize("UI.Button", spec.controlSize, vocabulary.paddingFor)
+	--[[ THE ICON SQUARE IS A WHOLE DIM, NOT A REACTIVE NUMBER INSIDE ONE. A `Dim`'s
+		`min`/`px` fields are resolved at prop-normalization time and take a number or
+		a metric NAME — a readable there is refused at construction, and a
+		construction that accepted one would read it exactly once. So the reactive
+		unit is the dimension itself, which is an ordinary reactive layout prop. ]]
+	local function iconDim(rung: any): any
+		return { type = "minMax", min = vocabulary.iconSizeFor(rung) or DEFAULT_ICON_SIZE }
+	end
+	local iconBox = vocabulary.deriveSize("UI.Button", spec.controlSize, iconDim) or iconDim(nil)
+	--[[ A SEMANTIC MARK BESIDE THE LABEL, drawn the way every other semantic icon
+		in this library is drawn (menu rows, the checkbox's tick): the framework's own
+		ASCII glyph in a `Text`, plus the internal decoration hint, so an installed
+		package paints its art OVER a node that was always legible without it. Never
+		an asset id — an icon is a MEANING. ]]
+	local function iconView(id: string, iconName: string): any
+		return chromeSlots.attachHint(
+			UI.Text({
+				id = id,
+				text = themePackage.iconGlyph(iconName) or "•",
+				textSize = "control",
+				textAlign = "center",
+				--[[ THE RUNG RESERVES THE SQUARE, IT DOES NOT CAP IT. A fixed width
+					would clip the framework's own ASCII fallback the moment the player
+					raises their text preference — the glyph grows with the ramp and a
+					theme metric does not — so the icon square is a FLOOR, exactly as
+					every other semantic mark in this library reserves one. A package
+					that ships real art for the name has the adapter size the picture. ]]
+				width = iconBox,
+				-- BOTH AXES, so the reservation really is the square a package's art
+				-- will be dropped into rather than a width with the glyph's own height
+				height = iconBox,
+			}),
+			{ icon = iconName, contentOwnerDepth = 1 }
+		)
+	end
+	local semanticIcons = (spec.icon ~= nil or spec.trailingIcon ~= nil) and spec.shape ~= "circle"
+	local hasContent = spec.children ~= nil or spec.row ~= nil or canBeBusy or imageForm or semanticIcons
 	assert(spec.compactLabel == nil or not hasContent, "UI.Button.compactLabel requires a plain text button")
 	local content
 	if spec.row then
@@ -366,7 +489,32 @@ local function build(Facet, core, spec, owner)
 	elseif hasContent then
 		content = if spec.children
 			then table.clone(spec.children)
-			else { UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }) }
+			else {
+				chromeSlots.attachHint(
+					UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }),
+					{ contentOwnerDepth = if imageForm then 3 else 1 }
+				),
+			}
+	end
+	if semanticIcons then
+		-- the icon forms replace the default label child rather than joining it: an
+		-- icon-only button has no label to draw, and a labelled one draws exactly one
+		content = {}
+		if spec.icon ~= nil then
+			table.insert(content, iconView("Icon", spec.icon))
+		end
+		if hasVisibleContent then
+			table.insert(
+				content,
+				chromeSlots.attachHint(
+					UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }),
+					{ contentOwnerDepth = if imageForm then 3 else 1 }
+				)
+			)
+		end
+		if spec.trailingIcon ~= nil then
+			table.insert(content, iconView("TrailingIcon", spec.trailingIcon))
+		end
 	end
 	if canBeBusy then
 		table.insert(
@@ -462,12 +610,15 @@ local function build(Facet, core, spec, owner)
 	end
 	local props: any = {
 		id = id,
-		label = spec.label or "",
+		label = spec.label or spec.name or "",
+		controlSize = spec.controlSize,
+		appearance = spec.appearance,
+		over = spec.over,
 		compactLabel = spec.compactLabel,
-		icon = spec.icon,
+		icon = if semanticIcons then nil else spec.icon,
 		shape = spec.shape,
 		textSize = spec.textSize,
-		padding = spec.padding,
+		padding = spec.padding or (if imageForm or spec.row or spec.children then nil else sizedPadding),
 		enabled = enabled,
 		role = spec.role,
 		selected = spec.selected,
@@ -475,7 +626,9 @@ local function build(Facet, core, spec, owner)
 		width = spec.width or (if imageForm or spec.row then UI.fill() else nil),
 		surface = spec.surface or (if imageForm then "plain" else nil),
 		focusVisual = if imageForm then "none" else nil,
-		height = spec.height or (if spec.row then { type = "minMax", min = "targetSizes.minimum" } else nil),
+		height = spec.height or sizedHeight or (if spec.row
+			then { type = "minMax", min = "targetSizes.minimum" }
+			else nil),
 		shrinkWeight = spec.shrinkWeight,
 		focusable = spec.focusable,
 		children = content,
@@ -525,6 +678,12 @@ local function build(Facet, core, spec, owner)
 		props[key] = spec[key]
 	end
 	local blueprint = UI.Button(props)
+	if spec.shape == "circle" then
+		blueprint = chromeSlots.attachHint(blueprint, { contentOwnerDepth = 0 })
+	end
+	if spec.corners ~= nil then
+		blueprint = UI.corners(blueprint, vocabulary.cornerRadiusFor(spec.corners))
+	end
 	blueprint = contribution.attach(blueprint, {
 		actionKeys = actionKeys,
 		syncGeometry = function(_, node)
@@ -591,6 +750,9 @@ local function build(Facet, core, spec, owner)
 			end
 		end,
 	})
+	local mounted = if spec.controlSize ~= nil
+		then vocabulary.reserveTarget(UI, core, id, blueprint, props.width)
+		else blueprint
 	local function dump()
 		return {
 			schema = "facet-button-dump/1",
@@ -599,10 +761,13 @@ local function build(Facet, core, spec, owner)
 			enabled = enabled:peek(),
 			repeating = hold ~= nil,
 			dialogAction = spec.dialogAction,
+			name = spec.name,
+			controlSize = selection.read(spec.controlSize),
+			appearance = selection.read(spec.appearance),
 		}
 	end
 	return {
-		blueprint = blueprint,
+		blueprint = mounted,
 		dump = dump,
 		dispose = function()
 			owner.dispose()

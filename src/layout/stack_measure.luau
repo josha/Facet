@@ -873,8 +873,17 @@ function stack_measure.contentSize(
 	-- See `chosenCandidate` for the ruling and the measurement; the probe is off
 	-- again before the chosen candidate is measured for real, so the winner still
 	-- shrinks.
+	-- Fill floors take part in the deficit, but not the weighted remainder's base.
+	local fillList = if visit ~= nil then cmemo.mFill else fills
+	local fillMinimum = 0
+	for _, idx in fillList do
+		local minimum = dim(children[idx], if isH then "w" else "h").min
+		if minimum ~= nil and minimum > 0 then
+			fillMinimum += math.max(0, math.ceil(minimum + marginMain[idx]))
+		end
+	end
 	if shrinkBasis ~= nil and mainLimit ~= math.huge and not ctx.fitProbe then
-		local deficit = mainSum + gaps - mainLimit
+		local deficit = mainSum + fillMinimum + gaps - mainLimit
 		if deficit > 0 then
 			local shrunk: { [number]: number } = {}
 			local absorbed =
@@ -930,12 +939,16 @@ function stack_measure.contentSize(
 		the container's own persisted array and no index is ever nil. The BODY below is
 		untouched, so a fill child is still measured on every single tick (T13's owed
 		row 5), which is why `lastChildVisits` cannot move. ]]
-	local fillList = if visit ~= nil then cmemo.mFill else fills
 	local fillPx = nil
 	if #fillList > 0 and remaining ~= math.huge and fillWeightSum > 0 then
 		local shares = {}
 		for _, idx in fillList do
-			table.insert(shares, { i = idx, weight = dim(children[idx], if isH then "w" else "h").weight or 1 })
+			local d = dim(children[idx], if isH then "w" else "h")
+			table.insert(shares, {
+				i = idx,
+				weight = d.weight or 1,
+				min = if d.min ~= nil and d.min > 0 then d.min + marginMain[idx] else nil,
+			})
 		end
 		fillPx = fillSpace.allocate(remaining, fillWeightSum, shares)
 	end
@@ -1040,7 +1053,7 @@ function stack_measure.contentSize(
 		local _, cross = baseline.line(deps.baseline, ctx, node, sizes, 1, n)
 		crossMax = math.max(crossMax, cross)
 	end
-	local contentMain = mainSum + gaps + (if isH then pl + pr else pt + pb)
+	local contentMain = mainSum + fillMinimum + gaps + (if isH then pl + pr else pt + pb)
 	local contentCross = crossMax + (if isH then pt + pb else pl + pr)
 	if isH then
 		return contentMain, contentCross

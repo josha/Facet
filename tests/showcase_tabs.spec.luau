@@ -59,6 +59,7 @@ local function make(scenario, viewport, options)
 		env = { preferredTextOffset = options.textOffset or 0 },
 		capabilities = { gamepad = true, keyboard = true, mouse = true, touch = false },
 		reducedMotion = true,
+		presenterOpts = { keyboardNavigation = options.keyboardNavigation == true },
 		newAdapter = function()
 			local adapter = fake.new()
 			adapter.scrollBarThickness = fake.SCROLL_BAR_THICKNESS
@@ -67,6 +68,7 @@ local function make(scenario, viewport, options)
 	})
 	local built = scenario.build({
 		Facet = Facet,
+		app = require("./lib/scenario_app").over(w.core, w.pres),
 		UI = (harness.libraryOf(w.core)),
 		Compose = Facet.Compose,
 		core = w.core,
@@ -112,6 +114,51 @@ local function make(scenario, viewport, options)
 end
 
 t.describe("Consolidated showcase", function()
+	t.it("keeps the keyboard-focused recipe rail tail inside every nested clipping ancestor", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, {
+			preferredInput = "MouseKeyboard",
+			keyboardNavigation = true,
+		})
+		activate(w, "Actions")
+		activate(w, "Recipes")
+		local target = button(w, "Custom Rules")
+		for _ = 1, 100 do
+			if w.pres.focus.focused:peek() == target then
+				break
+			end
+			w.press("Tab")
+			w.settle(1)
+		end
+		t.expect(w.pres.focus.focused:peek()).toBe(target)
+		t.expect(built.report().active).toBe("recipes")
+		local clip = { x = 0, y = 0, right = 390, bottom = 844 }
+		local path, hosts = "", 0
+		for segment in target:gmatch("[^/]+") do
+			path ..= "/" .. segment
+			local node = w.adapter.node(path)
+			if node and node.props.clipChildren == true then
+				local rect = w.controller.screenRectOf(path)
+				clip.x, clip.y = math.max(clip.x, rect.x), math.max(clip.y, rect.y)
+				clip.right, clip.bottom = math.min(clip.right, rect.x + rect.w), math.min(clip.bottom, rect.y + rect.h)
+				if node.scrollRegion then
+					hosts += 1
+				end
+			end
+		end
+		t.expect(hosts).toBe(3)
+		local rect = w.controller.screenRectOf(target)
+		assert(
+			rect.x >= clip.x and rect.y >= clip.y and rect.x + rect.w <= clip.right and rect.y + rect.h <= clip.bottom,
+			`focused rail target {rect.x},{rect.y},{rect.w},{rect.h} outside clip {clip.x},{clip.y}..{clip.right},{clip.bottom}`
+		)
+		w.press("Return")
+		w.settle(2)
+		t.expect(built.report().example.railSelected["Custom Rules"]).toBe(true)
+		w.pres.dismiss(w.handle)
+		built.dispose()
+		t.expect(#w.adapter.paths()).toBe(0)
+	end)
+
 	t.it("offers toasts in Indicators and retires them when leaving the page", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
 		activate(w, "Indicators")
@@ -255,25 +302,11 @@ t.describe("Consolidated showcase", function()
 			t.expect(w.adapter.node(pageTab)).toBe(node)
 			t.expect(built.report().navigation.contentMounts).toBe(mounts)
 			t.expect(w.pres.focus.focusOn(pageTab)).toBe(true)
-			-- Entering a tab group restores its bookmarked option. Walk back to
-			-- the first option before checking its adjacent D-pad destination.
-			for _ = 1, 3 do
-				if w.pres.focus.focused:peek() == pageTab then
-					break
-				end
-				w.press("DPadLeft")
-			end
 			t.expect(w.pres.focus.focused:peek()).toBe(pageTab)
 			w.press("DPadRight")
 			t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Writing"))
 			local firstCategory = button(w, "Inputs")
 			t.expect(w.pres.focus.focusOn(firstCategory)).toBe(true)
-			for _ = 1, 4 do
-				if w.pres.focus.focused:peek() == firstCategory then
-					break
-				end
-				w.press("DPadLeft")
-			end
 			t.expect(w.pres.focus.focused:peek()).toBe(firstCategory)
 			w.press("DPadRight")
 			t.expect(w.pres.focus.focused:peek()).toBe(button(w, "Actions"))
@@ -373,6 +406,84 @@ t.describe("Consolidated showcase", function()
 		end
 	end)
 
+	t.it("keeps every selected tab within its nearest scroll host on a 390px phone at Largest text", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 390, h = 844 }, { textOffset = 14 })
+		local visited = 0
+		for _, group in catalog.groups do
+			activate(w, group.label)
+			for _, tab in group.tabs do
+				activate(w, tab.label)
+				t.expect(built.report().active).toBe(tab.id)
+				local path = button(w, tab.label)
+				local acc, host = "", nil
+				for segment in path:gmatch("[^/]+") do
+					acc ..= "/" .. segment
+					local node = w.adapter.node(acc)
+					if node and node.scrollRegion then
+						host = acc
+					end
+				end
+				assert(host, group.id .. "/" .. tab.id .. " has no scroll host")
+				local rect, window = w.controller.screenRectOf(path), w.controller.screenRectOf(host)
+				assert(rect and window, "selected tab screen geometry missing")
+				t.expect(
+					rect.x >= window.x - 1
+						and rect.y >= window.y - 1
+						and rect.x + rect.w <= window.x + window.w + 1
+						and rect.y + rect.h <= window.y + window.h + 1
+				).toBe(true)
+				local findings = {}
+				for _, finding in w.controller.diagnostics() do
+					if finding.designed ~= true and string.sub(finding.node, 1, #host) == host then
+						table.insert(findings, finding.issue)
+					end
+				end
+				t.expect(table.concat(findings, " | ")).toBe("")
+				visited += 1
+			end
+		end
+		t.expect(visited).toBe(20)
+		w.pres.dismiss(w.handle)
+		w.settle(4)
+		built.dispose()
+		t.expect(w.core.lastError()).toBeNil()
+	end)
+
+	t.it("resets both mounted status and identity recipes through their shared commands", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
+		activate(w, "Indicators")
+		activate(w, "Status")
+		activate(w, "warning")
+		activate(w, "Error")
+		t.expect(built.report().example.status.status).toBe("warning")
+		t.expect(built.report().example.badge.badge.status).toBe("error")
+		activate(w, "Reset status")
+		t.expect(built.report().example.status.status).toBe("neutral")
+		t.expect(built.report().example.badge.badge.status).toBe("neutral")
+		activate(w, "Identity")
+		activate(w, "Away")
+		activate(w, "Fewer")
+		t.expect(built.report().example.avatar.portrait.presence).toBe("away")
+		t.expect(#built.report().example.group.group.shown + built.report().example.group.group.hidden).toBe(5)
+		activate(w, "Reset identity")
+		t.expect(built.report().example.avatar.portrait.presence).toBe("online")
+		t.expect(#built.report().example.group.group.shown + built.report().example.group.group.hidden).toBe(6)
+		activate(w, "Progress")
+		activate(w, "Large")
+		activate(w, "Loaded")
+		t.expect(built.report().example.controlSize).toBe("large")
+		t.expect(built.report().example.loading.loading).toBe(false)
+		activate(w, "Reset progress")
+		t.expect(built.report().example.controlSize).toBeNil()
+		t.expect(built.report().example.loading.loading).toBe(true)
+		w.settle(4)
+		w.pres.dismiss(w.handle)
+		w.settle(4)
+		t.expect(built.report().active).toBeNil()
+		built.dispose()
+		t.expect(w.core.lastError()).toBeNil()
+	end)
+
 	t.it("keeps virtualized scrolling and measured pane size working inside a tab", function()
 		local w, built = make(collections, { x = 0, y = 0, w = 1280, h = 800 })
 		activate(w, "Grids")
@@ -403,7 +514,17 @@ t.describe("Consolidated showcase", function()
 	t.it("reaches both tab strips and an alert by D-pad, traps focus, then restores its launcher", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
 		for _, label in { "Actions", "Alerts", "Replace checkpoint…" } do
-			navigateTo(w, button(w, label))
+			if label == "Alerts" then
+				-- Traverse the actual strip; the broad exploratory walk spends its
+				-- budget in the much larger Buttons page before trying this edge.
+				navigateTo(w, button(w, "Buttons"))
+				for _, destination in { "Shortcuts", "Recipes", "Menus", "Alerts" } do
+					w.press("DPadRight")
+					t.expect(w.pres.focus.focused:peek()).toBe(button(w, destination))
+				end
+			else
+				navigateTo(w, button(w, label))
+			end
 			w.press("ButtonA")
 			w.settle(4)
 		end

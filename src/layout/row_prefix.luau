@@ -70,6 +70,8 @@ function prefix.try(
 				previous[child.id] ~= nil
 				or (main.type ~= "fixed" and main.type ~= "content")
 				or (cross.type ~= "fill" and cross.type ~= "fixed" and cross.type ~= "content")
+				-- A new fill floor can file cross containment; the ordinary pass owns that report.
+				or (cross.type == "fill" and cross.min ~= nil)
 				or mt ~= 0
 				or mr ~= 0
 				or mb ~= 0

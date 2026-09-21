@@ -129,6 +129,39 @@ professional and neutral, and quick to render." Concretely:
   - then scroll the containing region.
   - truncate last, and only for bounded secondary/identity text that keeps
     its full value reachable.
+
+  **Where the cut goes is a choice.** A label truncates at its end by default —
+  the engine's own ellipsis. When the *ending* is what identifies the value (a
+  track name with a variant suffix, a file path, an id),
+  `UI.Text{ truncate = "middle", lineLimit = 1 }` keeps the head and the tail
+  instead, sized to the width the glyphs actually get (the box minus the label's
+  own padding). Pair it with `disclose`, which is what keeps the whole value
+  reachable; the solve's own facts always carry it.
+
+**Markup is opt-in, and the box is reserved for what the player sees.**
+`UI.Text{ rich = true }` parses the engine's markup — `<b> <i> <u> <s> <font>
+<stroke> <br> <uc> <sc> <mark>`, the five `&…;` escapes and `<!-- -->` comments —
+and the measurer then measures the *displayed* text, so a heavily-marked-up label
+reserves the same box as its plain equivalent. A tag Facet does not name is
+removed too, because the engine removes it; markup that does not parse at all is
+measured raw, because that is what the engine draws.
+
+A span that changes **face** — `<b>`, `<font weight|face|size>`, `<uc>` — is
+measured at that face, which is what keeps a marked-up label from being cut. The
+residual is written down in [the reference](../reference/api.md#text): small caps
+over-reserve, and a face-changing span nested inside another one can
+under-reserve, which the engine resolves by ellipsizing. Keep spans flat in a
+box that is tight.
+
+Escape anything you did not author before composing it in —
+`Facet.richText.escape(playerName)` — or a value containing `<` either paints as
+a tag or breaks the parse for the whole label. That is a *markup* concern, not a
+moderation one: whether a player may say a thing stays the game's and the
+platform's decision.
+
+`UI.Text{ direction = "auto" | "ltr" | "rtl" }` maps to the engine's
+`TextDirection` for a right-to-left script. Absent leaves the engine's own class
+default standing, which is not the same as authoring `"auto"`.
 - cheap to render by default: flat fills, one stroke, no gradients, and
   shadows used only in the two depth presets described below.
 

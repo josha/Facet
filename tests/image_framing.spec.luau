@@ -6,6 +6,75 @@ local Compose = require("../src/vendor/compose/core")
 local describe, it, expect = t.describe, t.it, t.expect
 
 describe("Image framing", function()
+	it("refuses circular nine-slice while retaining ordinary modes and rectangular slice", function()
+		local w = world.new()
+		local slice = { x0 = 24, y0 = 24, x1 = 28, y1 = 28 }
+		local ok, err = pcall(function()
+			w.scoped(function()
+				w.UI.Image("Bad")({ shape = "circle", scaleMode = "slice", sliceCenter = slice })
+			end)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "circle shape does not support slice", 1, true) ~= nil).toBe(true)
+		local mode = Compose.cell("fit")
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Image("Circle")({ shape = "circle", width = { type = "fixed", px = 44 }, scaleMode = mode }),
+				w.UI.Image("Rect")({ scaleMode = "slice", sliceCenter = slice, sliceScale = 1 }),
+				w.UI.Image("Tile")({ shape = "circle", scaleMode = "tile", tileSize = { width = 16, height = 16 } }),
+			})
+		end)
+		local mounted = require("../src/paths").nodeAt(w.handle.root.node, "/S/Circle")
+		local before = w.controller.stats().creates
+		mode:set("slice") -- the existing static-only mode guard also blocks this route
+		w.pres.refresh()
+		expect(mode:peek()).toBe("slice")
+		expect(mounted.props.scaleMode).toBe("fit")
+		expect(w.adapter.node("/S/Rect").props.scaleMode).toBe("slice")
+		expect(w.adapter.node("/S/Tile").props.scaleMode).toBe("tile")
+		for _, legal in { "fill", "crop", "stretch", "fit" } do
+			mode:set(legal)
+			w.pres.refresh()
+			expect(mounted.props.scaleMode).toBe(legal)
+			expect(w.adapter.node("/S/Circle").rect.w).toBe(44)
+		end
+		expect(w.controller.stats().creates).toBe(before)
+		w.close()
+	end)
+	it("refuses circle framing initially and on bound updates, retaining the last valid direct image", function()
+		local w = world.new()
+		local framed = { width = 1000, height = 500, mode = "fit" }
+		expect(pcall(function()
+			w.scoped(function()
+				w.UI.Image("Bad")({ shape = "circle", imageFraming = framed })
+			end)
+		end)).toBe(false)
+		local source = Compose.cell(nil)
+		w.present(function()
+			return w.UI.Screen("S")({
+				w.UI.Image("Circle")({
+					shape = "circle",
+					width = { type = "fixed", px = 44 },
+					image = "rbxassetid://1",
+					imageFraming = source,
+				}),
+			})
+		end)
+		local mounted = require("../src/paths").nodeAt(w.handle.root.node, "/S/Circle")
+		local before = w.controller.stats().creates
+		source:set(framed)
+		w.pres.refresh()
+		expect(source:peek()).toBe(framed)
+		expect(mounted.props.imageFraming).toBeNil()
+		expect(w.adapter.node("/S/Circle").imagePlan).toBeNil()
+		source:set(nil)
+		w.pres.refresh()
+		expect(mounted.props.imageFraming).toBeNil()
+		expect(w.adapter.node("/S/Circle").rect.w).toBe(44)
+		expect(w.controller.stats().creates).toBe(before)
+		w.close()
+		-- Rectangular framing still mounts, updates, and retracts in the existing case below.
+	end)
 	it("crops around the source focus point and clamps at image edges", function()
 		local p = framing.resolve({ width = 1000, height = 500, focusX = 0.8 }, 200, 200)
 		expect(p.source.x).toBe(500)

@@ -153,7 +153,7 @@ local UNWRAPPED = 100000
 	`GetTextBoundsParams` is an INSTANCE, and this allocated a fresh one per
 	measured word and never destroyed any of them. A batch is the whole tree's
 	text vocabulary — hundreds of words on a real screen, several batches per
-	session, two calls per SPACE probe — so the transport's own measurement pass
+	session, up to three calls per SPACE probe — so the transport's own measurement pass
 	was the largest instance churn in the framework, all of it garbage the moment
 	it was read. The object is a plain parameter carrier with no identity: every
 	field is overwritten before each read, so one per batch is exactly as correct
@@ -186,13 +186,15 @@ local function boundsWidth(params: any, font: Font, size: number, text: string):
 	return nil
 end
 
--- The space is the one "word" the bounds API cannot answer directly: trailing
--- and lone whitespace does not survive into TextBounds. Take it as the
--- DIFFERENCE between a spaced and an unspaced pair, which is exactly the
--- advance the engine inserts between two words.
+-- Prefer the space's own advance: subtracting a kerned pair can be smaller.
+-- Engines that omit lone whitespace still use the pair-difference fallback.
 local SPACE_PROBE_SPACED = "x x"
 local SPACE_PROBE_TIGHT = "xx"
 local function spaceWidth(params: any, font: Font, size: number): number?
+	local direct = boundsWidth(params, font, size, " ")
+	if direct ~= nil and direct > 0 and direct < math.huge then
+		return direct
+	end
 	local spaced = boundsWidth(params, font, size, SPACE_PROBE_SPACED)
 	local tight = boundsWidth(params, font, size, SPACE_PROBE_TIGHT)
 	if spaced == nil or tight == nil then

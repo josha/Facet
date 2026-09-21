@@ -429,14 +429,11 @@ function brews.new(app: any): any
 				app.when("PickWhen")({
 					condition = selectionMode,
 					thenView = function()
-						-- the Toggle writes its own cell; the set stays the one answer
-						local picked = Compose.cell((listSelected:peek() :: any)[key] == true)
-						Compose.watch(function(use)
-							picked:set((use(listSelected) :: any)[key] == true)
-						end)
 						return UI.Toggle("Pick")({
 							label = S.t("brews.rowLabel", { id = brew.id }),
-							value = picked,
+							value = function(use)
+								return (use(listSelected) :: any)[key] == true
+							end,
 							onChange = function(on: boolean)
 								local current = table.clone(listSelected:peek() :: any)
 								current[key] = if on then true else nil

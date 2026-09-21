@@ -223,8 +223,8 @@ export type RendererAttachOpts = {
 	-- CROSS-SOLVE MEASURE REUSE (P1), default ON. The switch exists for the
 	-- DIFFERENTIAL ORACLE this memo family is required to carry: off leaves
 	-- incremental layout intact, so a divergence names the memo, not the arrange
-	-- skip. `presenter.present` does not forward it; a presented surface gets the
-	-- default. See `src/layout/measure_reuse.luau`.
+	-- skip. Presentation options forward this switch for consumer comparisons.
+	-- See `src/layout/measure_reuse.luau`.
 	measureReuse: boolean?,
 	-- CROSS-SOLVE LAYOUT-NODE REUSE (P3), default ON, and the switch is here for the
 	-- same reason `measureReuse`'s is: the differential oracle needs an arm that

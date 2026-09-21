@@ -31,6 +31,15 @@ local function derive(metrics: any, id: string?): any
 	return pkg
 end
 
+describe("toggle mark width", function()
+	it("derives the default but preserves a validated authored width", function()
+		local base = snapshot.neutral().controls.toggle
+		expect(base.markWidth).toBe(base.trackInset + base.trackWidth + base.trackInset)
+		local authored = snapshot.resolve(derive({ controls = { toggle = { markWidth = 72 } } }), nil, {})
+		expect(authored.controls.toggle.markWidth).toBe(72)
+	end)
+end)
+
 describe("themes.neutral: Facet Neutral reproduces the pre-theme literals", function()
 	it("reads its shared values from default_style rather than restating them", function()
 		local snap = snapshot.neutral()
@@ -207,6 +216,13 @@ describe("themes.resolve: composition happens exactly once, in the declared orde
 		-- the slot's authored inset PLUS what the decoration reserves
 		expect(snap.insets.panel.top).toBe(defaultStyle.space.m + 4)
 		expect(snap.insets.control.top).toBe(12) -- an unslotted native slot is untouched
+	end)
+	it("accepts an authored row gutter and otherwise derives it from spacing", function()
+		local authored = snapshot.resolve(derive({ controls = { rowActions = { rowGutter = 14 } } }, "trayey"), nil, {})
+		expect(authored.controls.rowActions.rowGutter).toBe(14)
+		expect(snapshot.resolve(snapshot.neutralPackage(), nil, {}).controls.rowActions.rowGutter).toBe(
+			defaultStyle.space.s
+		)
 	end)
 end)
 

@@ -136,6 +136,8 @@ local DEFAULT_STYLE = "Normal"
 -- memoized: canonicalization sits inside the per-word measure loop, and the
 -- interpolation for alias names was a measurable share of a bench regression
 -- (2026-07-25) before the store below went nested
+local FONT_CACHE_CAP = 8192
+local canonCount, runCount = 0, 0
 local canonCache: { [string]: string } = {}
 
 local function canonicalFont(font: string): string
@@ -144,11 +146,95 @@ local function canonicalFont(font: string): string
 		return hit
 	end
 	local canon = if string.find(font, "#", 1, true) ~= nil then font else `{font}#{DEFAULT_WEIGHT}#{DEFAULT_STYLE}`
-	canonCache[font] = canon
+	if canonCount < FONT_CACHE_CAP then
+		canonCache[font] = canon
+		canonCount += 1
+	end
 	return canon
 end
 
 text_metrics.canonicalFont = canonicalFont
+
+--[[ ── A FONT ARGUMENT THAT CHANGES PART-WAY THROUGH THE STRING ───────────────
+
+	`UI.Text{ rich = true }` can ask for a bold run, a bigger run or another face
+	inside one label, and the engine draws those glyphs at those faces — measured
+	live (2026-09-18): a rendered `<b>` run is 3.5% wider than plain and a
+	`<font weight="heavy">` run 6.6%, while `GetTextBoundsAsync` returns the PLAIN
+	width for bold even with `RichText = true`. So the weight cannot be recovered
+	from the bounds call; it has to reach the per-word measurement KEY, which is
+	`(font, size, word)` and whose font half has always been per request.
+
+	IT TRAVELS AS THE `font` ARGUMENT, ENCODED, and that is a deliberate choice
+	rather than a shortcut. The one seam that hands this module a font is
+	`measure_facts.textTypography`, and the one caller of THAT is the solver's text
+	branch — a file with no characters to spend on a seventh parameter. A font
+	argument already means "how to measure these glyphs", so a run list is a
+	complete answer to the same question, and encoding it as a string keeps every
+	downstream key (the measure memo, `metricKey`, `render/text_index`) correct for
+	free: a node whose runs change really is a different measurement.
+
+	`runKey(base, runs)` builds it; `runsOf(font)` reads it back, memoized. A plain
+	descriptor is unchanged on both paths, so nothing that does not use markup pays
+	a comparison. THE WORD STORE NEVER SEES A COMPOUND: every `wordWidth` call is
+	made with a resolved descriptor for each word fragment or space, so the
+	engine premeasure keeps asking for ordinary `family#weight#style` faces.
+	Spaces inside a run use that run's size and face too. ]]
+local RUN_SEP = "\1"
+
+export type MeasureRun = { at: number, font: string, size: number? }
+
+--[[ runKey(baseFont, runs) -> the compound font argument.
+
+	`runs` are `{ at = <byte index into the measured string>, font = <descriptor>,
+	size = <px>? }`, sorted, `at = 1` implicit for the base. An empty or absent run
+	list returns the base unchanged, which is what keeps the plain path plain. ]]
+function text_metrics.runKey(baseFont: string, runs: { MeasureRun }?): string
+	if runs == nil or #runs == 0 then
+		return baseFont
+	end
+	local parts: { string } = { baseFont }
+	for _, run in runs do
+		table.insert(parts, `{run.at},{run.font},{run.size or ""}`)
+	end
+	return table.concat(parts, RUN_SEP)
+end
+
+-- compound -> { base, runs }, memoized: this sits above the per-word loop and a
+-- re-parse per measure would undo the point of the memo below it
+local runCache: { [string]: { base: string, runs: { MeasureRun } } } = {}
+
+local function runsOf(font: string): { base: string, runs: { MeasureRun } }?
+	if string.find(font, RUN_SEP, 1, true) == nil then
+		return nil
+	end
+	local hit = runCache[font]
+	if hit ~= nil then
+		return hit
+	end
+	local parts: { string } = string.split(font, RUN_SEP)
+	local runs: { MeasureRun } = {}
+	for i = 2, #parts do
+		local at, face, size = string.match(parts[i], "^(%d+),([^,]*),(%d*)$")
+		if at ~= nil then
+			table.insert(runs, {
+				at = tonumber(at) :: number,
+				-- an empty face means "back to the base", which is what a closing
+				-- span encodes
+				font = if face == "" then parts[1] else canonicalFont(face :: string),
+				size = tonumber(size),
+			})
+		end
+	end
+	local record = { base = canonicalFont(parts[1]), runs = runs }
+	if runCount < FONT_CACHE_CAP then
+		runCache[font] = record
+		runCount += 1
+	end
+	return record
+end
+
+text_metrics.runsOf = runsOf
 
 -- Engine calibration (UI-FID-001, the native substrate): the Roblox
 -- adapter (src/client/text_calibration.luau) measures a reference corpus with
@@ -378,6 +464,67 @@ local exactCount = 0
 -- a runaway vocabulary must not become a leak. Well past any real UI's word
 -- count; once full, new words simply keep the estimate.
 local EXACT_CAP = 8192
+
+--[[ THE GLYPH FRACTION A FACE ESTIMATES AT. One reading, so the per-word loop
+	and the two whole-string paths cannot disagree: a calibrated face uses its
+	measured fraction, an uncalibrated one takes the conservative full em. It is
+	its own function because a string with RUNS asks the question once per word
+	rather than once per measure. ]]
+local function fractionFor(canon: string): number
+	return if KNOWN_FONTS[canon] then (calibration[canon] or AVG_GLYPH_FRACTION) else 1.0
+end
+
+--[[ ── A RUN'S OWN ESTIMATE ────────────────────────────────────────────────────
+
+	A `<b>` run inside a known family is an UNCALIBRATED descriptor, and the rule
+	above would put it on the conservative full-em path — 1.0 against a calibrated
+	0.62, so a bold word would reserve 60% more room than it draws. That is the
+	safe direction and a ridiculous amount of it; a hugging label would come out
+	visibly too wide, which is its own defect.
+
+	MEASURED, NOT GUESSED (Studio 0.739, 2026-09-18, GothamSSm at 24 px, the string
+	"Championship standings updated"): plain renders 346.0, `<b>` 358.0 (+3.5%) and
+	`<font weight="heavy">` 369.0 (+6.6%). So a weight is worth a few per cent of
+	the family's own fraction, and those two factors are those two measurements
+	rounded UP to the nearest half per cent — up, because the estimator's whole job
+	is to not under-reserve. The other rungs are bounded by them; see the table.
+
+	IT ONLY EVER APPLIES TO A RUN. A theme that declares a bold ROLE still takes the
+	full-em path it always took (that is a different decision, with its own history
+	and its own reservation pins), and the ESTIMATE is in any case only what stands
+	until the engine answers: the per-word premeasure request now carries the bold
+	descriptor, so a live session replaces this with the real width. ]]
+--[[ MONOTONIC, AND NO RUNG EVER GETS LESS SAFE. Two rungs are measured (Bold
+	1.035, Heavy 1.066); the rest are bounded by them rather than interpolated,
+	because two points do not make a curve. `Medium` and `SemiBold` take Bold's
+	factor — they cannot be wider than Bold, so Bold's number over-reserves for
+	them by construction — and `ExtraBold` sits between Bold and Heavy for the same
+	reason. Every weight the engine can draw HEAVIER than the base face has a rung,
+	so a `<font weight="500">` or `<font weight="extrabold">` label can no longer
+	reserve a plain-face box and draw wider on a device. Lighter weights have no
+	rung: they are narrower, and reserving the base face's width for them is the
+	over-reserving direction already. ]]
+local WEIGHT_ESTIMATE: { [string]: number } = {
+	Heavy = 1.07,
+	ExtraBold = 1.06,
+	Bold = 1.04,
+	SemiBold = 1.04,
+	Medium = 1.04,
+}
+
+local function runFraction(runCanon: string, baseCanon: string, baseFraction: number): number
+	if KNOWN_FONTS[runCanon] then
+		return fractionFor(runCanon)
+	end
+	local runFamily, runWeight = string.match(runCanon, "^([^#]+)#([^#]+)#")
+	local baseFamily = string.match(baseCanon, "^([^#]+)#")
+	-- a different FAMILY the estimator has never seen keeps the conservative
+	-- full em; only a weight of the base's own family rides its calibration
+	if runFamily == nil or runFamily ~= baseFamily then
+		return 1.0
+	end
+	return baseFraction * (WEIGHT_ESTIMATE[runWeight :: string] or 1.0)
+end
 
 local function bucketFor(canon: string, fontSize: number, create: boolean): { [string]: number | false }?
 	local byFont = exactWidths[canon]
@@ -850,6 +997,9 @@ function text_metrics.measuredDump(): { { font: string, size: number, word: stri
 end
 
 function text_metrics.resetMeasured()
+	table.clear(canonCache)
+	table.clear(runCache)
+	canonCount, runCount = 0, 0
 	table.clear(exactWidths)
 	exactCount = 0
 	collecting = nil
@@ -939,7 +1089,7 @@ end
 
 -- THE ENGINE'S REPORTING GRID (director round 9, measured live 2026-07-26,
 -- Studio 0.731). `GetTextBoundsAsync` answers on a 0.5 px grid, and it lays out
--- a WHOLE LINE in one pass while this model sums the parts. The space probe
+-- a WHOLE LINE in one pass while this model sums the parts. The fallback space probe
 -- (`"x x"` minus `"xx"`, src/client/text_premeasure) is a DIFFERENCE of two such
 -- quantized answers, so it can land one step low: at BuilderSans@13 it returns
 -- 2.50 where the engine's own inter-word advance inside "Classic Desktop" is
@@ -957,14 +1107,86 @@ end
 -- byte-unchanged, which is what keeps the flat baseline reproducible.
 local BOUNDS_GRID = 0.5
 
+--[[ THE FACE A WORD IS DRAWN IN, when the string changes face part-way through
+	(see `runKey` above). Returns a resolver or nil; nil is the plain path, which
+	is every string with no markup in it and therefore almost every string.
+
+	The resolver is called in DOCUMENT ORDER, so it keeps a cursor instead of
+	searching: a label with three runs and forty words costs forty comparisons,
+	not forty scans. `lineBase` is what makes an offset absolute — `wrap` splits
+	hard line breaks before this loop sees them, so a word's index inside its own
+	line is not its index in the string the runs were measured against. ]]
+local function runResolver(canon: string, fontSize: number, baseFraction: number)
+	local record = runsOf(canon)
+	if record == nil then
+		return nil
+	end
+	local runs = record.runs
+	local cursor = 0
+	local lastAt = 0
+	return function(at: number): (string, number, number, number)
+		-- a re-scan (a second line, a re-measure of the same text) rewinds rather
+		-- than walking off the end
+		if at < lastAt then
+			cursor = 0
+		end
+		lastAt = at
+		while cursor < #runs and runs[cursor + 1].at <= at do
+			cursor += 1
+		end
+		if cursor == 0 then
+			return record.base, fontSize, baseFraction, runs[1].at
+		end
+		local run = runs[cursor]
+		return run.font,
+			run.size or fontSize,
+			runFraction(run.font, record.base, baseFraction),
+			if cursor < #runs then runs[cursor + 1].at else math.huge
+	end
+end
+
+-- Keep each word/break unit intact for wrapping, but probe its font-run fragments.
+-- The plain path still asks the same whole-word bucket and allocates no fragments.
+local function runWordWidth(
+	word: string,
+	at: number,
+	canon: string,
+	fontSize: number,
+	fraction: number,
+	bucket: { [string]: number | false }?,
+	faceAt: ((number) -> (string, number, number, number))?
+): (number, boolean)
+	if faceAt == nil then
+		return wordWidth(word, canon, bucket, fontSize, fraction)
+	end
+	local stop = at + #word
+	local cursor, width, exact = at, 0, true
+	while cursor < stop do
+		local face, size, estimate, nextRun = faceAt(cursor)
+		local finish = math.min(stop, nextRun)
+		local part = if cursor == at and finish == stop then word else string.sub(word, cursor - at + 1, finish - at)
+		local partWidth, partExact = wordWidth(part, face, bucketFor(face, size, false), size, estimate)
+		width += partWidth
+		exact = exact and partExact
+		cursor = finish
+	end
+	return width, exact
+end
+
 local function wrapLine(
 	text: string,
 	canon: string,
 	fontSize: number,
 	maxWidth: number,
-	fraction: number
+	fraction: number,
+	faceAt: ((number) -> (string, number, number, number))?,
+	lineBase: number?
 ): (number, number, boolean)
 	local bucket = bucketFor(canon, fontSize, false)
+	-- The plain path memoizes one base-space width for this line.
+	local baseRecord = runsOf(canon)
+	local baseCanon = if baseRecord ~= nil then baseRecord.base else canon
+	local baseBucket = if baseRecord ~= nil then bucketFor(baseCanon, fontSize, false) else bucket
 	-- greedy word wrap; returns (lineCount, widestLinePx, everyWidthExact).
 	-- Deterministic. With exact per-word widths this reproduces the engine's
 	-- own greedy break points, so the reserved box is the drawn box.
@@ -998,13 +1220,31 @@ local function wrapLine(
 	-- word — and nothing more. Same counts, same widths; the reservation tests pin
 	-- the numbers.
 	local prevEnd = 0
+	local base = lineBase or 0
 	for wordStart: number, word: string in string.gmatch(text, "()(%S+)") do
-		local wordW, wordExact = wordWidth(word, canon, bucket, fontSize, fraction)
-		exact = exact and wordExact
+		local wordW, wordExact = 0, true
+		if faceAt == nil then
+			wordW, wordExact = wordWidth(word, canon, bucket, fontSize, fraction)
+		end
 		local extra = 0
-		if lineWidth > 0 then
+		if lineWidth > 0 and faceAt ~= nil then
+			local spaces, gapExact = 0, true
+			for i = prevEnd + 1, wordStart - 1 do
+				-- Preserve the plain path's one-space fallback for non-space whitespace.
+				if string.byte(text, i) == 32 or (i == wordStart - 1 and spaces == 0) then
+					local face, size, estimate = faceAt(base + i)
+					local width, measured = wordWidth(SPACE, face, bucketFor(face, size, false), size, estimate)
+					extra += width
+					gapExact = gapExact and measured
+					spaces += 1
+				end
+			end
+			extra += if gapExact then BOUNDS_GRID else 0
+			exact = exact and gapExact
+		elseif lineWidth > 0 then
 			if spaceW == nil then
-				local w, spaceIsExact = wordWidth(SPACE, canon, bucket, fontSize, fraction)
+				-- Plain text shares one space request for its ordinary face and size.
+				local w, spaceIsExact = wordWidth(SPACE, baseCanon, baseBucket, fontSize, fraction)
 				spaceW = w
 				spaceExactly = spaceIsExact
 				exact = exact and spaceIsExact
@@ -1023,6 +1263,10 @@ local function wrapLine(
 			-- where the sum can fall below what the engine draws
 			extra = (spaceW :: number) * spaces + (if spaceExactly then BOUNDS_GRID else 0)
 		end
+		if faceAt ~= nil then
+			wordW, wordExact = runWordWidth(word, base + wordStart, canon, fontSize, fraction, bucket, faceAt)
+		end
+		exact = exact and wordExact
 		if lineWidth > 0 and lineWidth + extra + wordW > maxWidth then
 			widest = math.max(widest, lineWidth)
 			lines += 1
@@ -1043,14 +1287,19 @@ local function wrap(
 	maxWidth: number,
 	fraction: number
 ): (number, number, boolean)
+	local faceAt = runResolver(canon, fontSize, fraction)
 	if not string.find(text, "\n", 1, true) then
-		return wrapLine(text, canon, fontSize, maxWidth, fraction)
+		return wrapLine(text, canon, fontSize, maxWidth, fraction, faceAt, 0)
 	end
 	local lines, widest, exact = 0, 0, true
+	-- the offset of each line inside the whole string, so a run boundary lands on
+	-- the same character it was measured against (see `runResolver`)
+	local base = 0
 	-- The final delimiter preserves a trailing empty line, which must have room
 	-- for the native caret after Return at the end of a multiline editor.
 	for line in string.gmatch(text .. "\n", "(.-)\n") do
-		local count, width, measured = wrapLine(line, canon, fontSize, maxWidth, fraction)
+		local count, width, measured = wrapLine(line, canon, fontSize, maxWidth, fraction, faceAt, base)
+		base += #line + 1
 		lines += count
 		widest = math.max(widest, width)
 		exact = exact and measured
@@ -1104,7 +1353,21 @@ local function measureAt(
 		} :: Metrics
 	end
 	local key = canonicalFont(font)
-	if not KNOWN_FONTS[key] then
+	--[[ A FONT WITH RUNS IS STILL ONE FACE FOR EVERY QUESTION BUT THE WORD WIDTHS
+		(see `runKey`): the estimator's calibration and the KNOWN_FONTS test are
+		about the BASE face, and the line box is about the TALLEST size drawn on the
+		line. `wrap` gets the compound so it can resolve each word. ]]
+	local runRecord = runsOf(key)
+	local baseKey = if runRecord ~= nil then runRecord.base else key
+	local boxSize = fontSize
+	if runRecord ~= nil then
+		for _, run in runRecord.runs do
+			if run.size ~= nil and run.size > boxSize then
+				boxSize = run.size
+			end
+		end
+	end
+	if not KNOWN_FONTS[baseKey] then
 		-- pending: conservative full-em fallback so layout over-reserves;
 		-- the engine queue resolves the real metrics later (§7.4). Exact
 		-- per-word widths still win here if the adapter managed to measure
@@ -1114,7 +1377,7 @@ local function measureAt(
 		local lines = clampLines(natural, maxLines)
 		return {
 			width = math.ceil(widest),
-			height = text_metrics.lineBoxPx(fontSize, lines, lineHeight),
+			height = text_metrics.lineBoxPx(boxSize, lines, lineHeight),
 			lines = lines,
 			naturalLines = natural,
 			truncated = natural > lines,
@@ -1123,11 +1386,11 @@ local function measureAt(
 			requestKey = `{font}/{fontSize}/{maxWidth}/{text}`,
 		} :: Metrics
 	end
-	local natural, widest, exact = wrap(text, key, fontSize, maxWidth, calibration[key] or AVG_GLYPH_FRACTION)
+	local natural, widest, exact = wrap(text, key, fontSize, maxWidth, fractionFor(baseKey))
 	local lines = clampLines(natural, maxLines)
 	return {
 		width = math.ceil(widest),
-		height = text_metrics.lineBoxPx(fontSize, lines, lineHeight),
+		height = text_metrics.lineBoxPx(boxSize, lines, lineHeight),
 		lines = lines,
 		naturalLines = natural,
 		truncated = natural > lines,
@@ -1233,16 +1496,24 @@ function text_metrics.minWidth(text: string, font: string, fontSize: number): nu
 		return 0
 	end
 	local canon = canonicalFont(font)
-	local bucket = bucketFor(canon, fontSize, false)
-	local fraction = if KNOWN_FONTS[canon] then (calibration[canon] or AVG_GLYPH_FRACTION) else 1.0
+	--[[ THE WIDEST WORD IS THE WIDEST WORD AT THE FACE IT IS DRAWN IN. With runs
+		(`runKey`), the longest word may also be the bold one, and a floor computed
+		at the base face is a floor the drawn text breaks through — the same
+		under-reserve the run plumbing exists to close, in the one number the shrink
+		pass and the wrap rule both read. ]]
+	local record = runsOf(canon)
+	local baseCanon = if record ~= nil then record.base else canon
+	local bucket = bucketFor(baseCanon, fontSize, false)
+	local fraction = fractionFor(baseCanon)
+	local faceAt = runResolver(canon, fontSize, fraction)
 	local widest = 0
-	local function consider(run: string)
-		local w = wordWidth(run, canon, bucket, fontSize, fraction)
+	local function consider(run: string, at: number)
+		local w = runWordWidth(run, at, baseCanon, fontSize, fraction, bucket, faceAt)
 		if w > widest then
 			widest = w
 		end
 	end
-	for word in string.gmatch(text, "%S+") do
+	for at: number, word: string in string.gmatch(text, "()(%S+)") do
 		-- THE COMMON PATH IS BYTE-IDENTICAL: a word with no ideographic codepoint is
 		-- measured whole, so it still hits the engine-measured word bucket and every
 		-- latin number in this repo is unchanged.
@@ -1254,23 +1525,23 @@ function text_metrics.minWidth(text: string, font: string, fontSize: number): nu
 			end
 		end
 		if not hasIdeograph then
-			consider(word)
+			consider(word, at)
 			continue
 		end
 		local runStart: number? = nil
 		for pos, cp in utf8.codes(word) do
 			if isIdeographic(cp) then
 				if runStart ~= nil then
-					consider(string.sub(word, runStart, pos - 1))
+					consider(string.sub(word, runStart, pos - 1), at + runStart - 1)
 					runStart = nil
 				end
-				consider(string.sub(word, pos, utf8.offset(word, 2, pos) :: number - 1))
+				consider(string.sub(word, pos, utf8.offset(word, 2, pos) :: number - 1), at + pos - 1)
 			elseif runStart == nil then
 				runStart = pos
 			end
 		end
 		if runStart ~= nil then
-			consider(string.sub(word, runStart))
+			consider(string.sub(word, runStart), at + runStart - 1)
 		end
 	end
 	return math.ceil(widest)

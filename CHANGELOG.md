@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — interaction and theme hardening
+
+- Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
+- All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
+- Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
+
+## Unreleased — semantic status colors
+
+- Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
+- Badge semantic art retains one caption-sized host, with room for multi-character fallback glyphs. Managed pictures on the four explicit readable partner roles follow that lettering, including selected menu/picker content; unrelated package icon tint remains unchanged.
+
+
 All notable changes to Facet are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Facet's version
 numbers follow the policy in
@@ -13,6 +25,151 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Consolidate Showcase recipes into existing family tabs with shared reset actions.
+  Long removable tags scroll horizontally; progress tracks retain visible segments
+  beside trailing copy at large text sizes. New-control scaffolds use existing demos.
+
+- Setting rows retain their real switch/checkbox with optional side, hint and size.
+  DisclosureGroup gains description, icon, side, appearance and size; removable
+  Chips retain independent target floors and collection focus. Add the archived
+  settings gear without changing earlier icon art. Small status cutouts cap their
+  separator proportionally so thick theme strokes do not consume the mark.
+
+- ProgressView gains a trailing endLabel and checked live spinner/circular size
+  rungs. Omitting the rung preserves each package's authored indicator sizes.
+
+- Add passive `UI.StatusIndicator` shapes/counts and `UI.Badge` captions with live
+  status paint. Avatar presence uses the shared status shapes and cutout. Existing
+  All controls Indicators gains Status and Badges child tabs. Round marks fit both
+  reserved axes, counted height resolves once, and Badge caption presence stays live.
+
+- Add `UI.AvatarGroup` keyed player rosters with shared caller-owned picture
+  requests, stacked or spread faces, and one optional overflow target. Indicators
+  gains an Identity child tab alongside its existing Progress demonstrations.
+
+- Add `UI.Avatar` player pictures and UTF-8 initials with caller-owned loading,
+  presence marks, localized semantic labels, and optional activation targets.
+
+- Add `UI.Skeleton` loading silhouettes with checked bound sizing and a shared
+  decorative shimmer whose lifetime follows mounted Compose branches. Reduced
+  motion retains a static theme-tinted plate.
+
+- Bound control sizes and each control's appearance family reject invalid updates
+  before publishing derived geometry or paint, and recover on a legal value.
+  Scroll extents require positive finite pixels or known metrics resolving to
+  that range. Middle truncation returns an ellipsis for nonpositive width.
+  Rich text caps authored font sizes at 100 in both published markup and layout,
+  leaving caller strings intact. It measures glyphs and runs in one parse; font memos have bounded
+  admission and reset with measured text. Rich inter-word spaces use their active
+  font and size, including learned widths, so a large span reserves its full phrase.
+  Button and Chip animation policies
+  now reach the primitive plate and retain its property validation.
+
+- Custom-child Buttons retain their theme padding when a control size is named;
+  explicit padding still wins. A Button with no drawable content now refuses,
+  even when a semantic name is supplied; an initially empty bound label remains
+  valid. Decorative text reveals no longer block horizontal drag acquisition;
+  real overlays, native child gestures and an authored scroll freeze retain
+  their existing input ownership.
+
+- Add passive `UI.ShortcutHint` keycaps, borrowing live action names and native
+  key labels/images. Shared input lookup follows device class and the hint's own
+  surface, including passive contexts; revision changes update bindings in place.
+  Provider teardown is safe out of order. Keys use theme tint and icon sizes,
+  with no decoration slot or interactive floor. Existing Actions and Adaptive
+  pages now include keys/labels/link navigation and a measured container grid;
+  the grid uses actual inner geometry and updates already-visible debug bands.
+
+- `UI.Label.title` accepts Compose readables and tracked functions; visual text,
+  accessible text and dumps update together without rebuilding. Semantic icon
+  names use package art with the shared glyph fallback; asset URLs remain Images.
+  `UI.Text.over = "media"` exposes the existing strong-contrast style treatment
+  for passive text over artwork, as a construction-only word.
+
+- Expose the native leaf capabilities the leaf specs did not reach. `UI.Text`
+  takes `rich` (construction-only boolean, default false — parses the engine's
+  closed tag set `b i u s font stroke br uc sc mark` plus the five `&…;` escapes)
+  and `direction` (`"auto" | "ltr" | "rtl"`, mapped to `TextDirection`; absent
+  leaves the class default, which is not the same as authoring `"auto"`).
+  **Measurement reserves the box for the DISPLAYED text**, so a tag never widens a
+  label: EVERY well-formed tag and `<!-- -->` comment is removed (measured live —
+  the engine consumes markup it does not implement rather than drawing it),
+  `<uc>`/`<uppercase>` content is measured upper-cased, and markup that does not
+  parse is measured RAW because that is what the engine draws. A span that changes
+  FACE — `<b>`, `<font weight|face|size>` — travels with the string to the per-word
+  measurement key and is measured at that face (in every `weight` spelling the
+  engine accepts: the nine `FontWeight` names case-insensitively and the nine
+  numbers they carry, so `heavy`, `Heavy` and `900` name one face and `800` is
+  `ExtraBold` rather than being rounded up to it), which is what keeps
+  a marked-up label from clipping; small caps, non-ASCII upper-casing and nested
+  face changes remain approximate and are named in `docs/reference/api.md`. The disclosure plate and the `reveal`
+  strip render a rich label's value as rich. New public
+  `Facet.richText.escape(s)` escapes `< > & " '`; escape untrusted or
+  composed-in text before pasting it into markup (it is not a text filter).
+
+- Add `UI.Text{ truncate = "end" | "middle" }`, default `"end"` (the engine's own
+  end ellipsis, unchanged). `"middle"` keeps the head AND the tail, sized by
+  the library's own measurer to the DRAWABLE width (the box minus the label's own
+  padding, published on the solve's text facts as `padX`), re-derived only when the
+  string, the face, the size, that width or the measurer's own epoch moves — the
+  last is the engine's boot window, so a cut derived before the text metrics settle
+  is derived again when they do. The engine has no such mode, so this is a fit
+  policy rather than an adapter write. The whole value stays reachable through
+  `disclose`. `truncate = "middle"` needs `lineLimit = 1` and cannot be combined
+  with `rich = true`; both are spec errors.
+
+- Add `UI.Image{ resample = "default" | "pixelated" }` (`ResampleMode` — pixel art
+  stays crisp), and two new `scaleMode` words, `"tile"` and `"slice"`, each with
+  a required companion geometry key: `tileSize = { width, height }` in whole
+  pixels `> 0`, and `sliceCenter = { x0, y0, x1, y1 }` — the stretchable centre
+  RECTANGLE in SOURCE pixels, the engine's own `SliceCenter` under the name and
+  shape a theme package's art already uses, never insets — plus `sliceScale`
+  (`> 0`, default 1). A geometry key without its mode, or a mode without its
+  geometry, is a spec error; the geometry keys are construction-only, so the two
+  new modes are authored statically and a BOUND `scaleMode` resolving to either is
+  refused at the binding write (new `PropSpec.staticOnly`, checked in
+  `primitive_properties` through the Compose property write). Theme-owned nine-slice chrome is unaffected.
+  `UI.AsyncImage` forwards all five keys.
+
+- Add `UI.ScrollView{ axis = "xy" }` (`ScrollingDirection.XY` — neither axis
+  clamps its canvas), `scrollEnabled` (`Bound<boolean>`, default true; false
+  freezes PLAYER scrolling through `ScrollingEnabled` while the offset, the layout
+  and framework keep-visible are untouched), `extent = { width?, height? }` (an
+  explicit canvas in pixels or a theme metric name, for a host whose canvas is a
+  coordinate space rather than a content sum — **only on an axis this host
+  scrolls**, because the adapter clamps a cross-axis canvas back to the window and
+  accepting one would diverge live from headless). `indicators` stays ONE word for
+  both axes: a `ScrollingFrame` carries one `ScrollBarThickness`, so a per-axis
+  form would be a declaration that does nothing, and a table is refused. An `xy`
+  host is a `"y"` host to the chrome lane, the leading-edge bleed and the
+  drag-to-edge autoscroll band; its children arrange at their natural size on both
+  axes; keep-visible moves both axes; and it reaches the same nested-scroller chain
+  rule: pinned at the end of the band a drag is asking for, it is transparent and
+  the page behind it wins. `ScrollingEnabled` has ONE writer — the paging
+  mouse-drag restores the authored value at release rather than an unconditional
+  `true` — and Facet's own drag-to-edge autoscroll respects a freeze.
+
+- Add eleven common glyphs to the framework's own standard icon set: `status.info`,
+  `status.success`, `status.warning`, `status.error`, `calendar`, `clock`,
+  `vote.up`, `vote.down`, `person`, `chevron.first` and `chevron.last`, each with
+  an ASCII fallback floor (`i`, `ok`, `!`, `x!`, `[#]`, `(:)`, `+1`, `-1`, `@`,
+  `|<`, `>|`). Same generator, style, manifest and resolver as the existing
+  eighteen; no control wires them in yet.
+
+- Add optional local `controlSize` (`compact`, `regular`, `large`), `appearance`,
+  and `corners` to `app.controls.Button` and `Chip`, plus Button `over = "media"`.
+  Compose readables and `function(use)` bindings update size and appearance in
+  place. Named sizes use theme metric paths and reserve the effective hit floor
+  in layout, so compact neighbors retain separate targets. Appearance composes
+  with semantic role at rest, hover and press in the default and package sheets;
+  `standard` is the untagged default. Button gains construction-time semantic
+  `icon`/`trailingIcon` and the required `name` for icon-only content; Chip gains
+  static `leading`/`trailing` content. Omitted keys preserve existing behavior.
+
+- Application presentation forwards the existing renderer comparison options
+  `measureReuse`, `commitScope`, `structuralReuse` and `translateHosts`.
+  `Facet.schema` exposes read-only constructor facts for contract tooling, and
+  the supported PopupButton alias is again listed in the deprecation ledger.
 - Application disposal immediately retires animated exits, toasts and auxiliary
   surfaces before releasing their state. All cleanup steps run even if one fails.
 - Headless test worlds release their complete applications after each case.
@@ -46,6 +203,10 @@ names what moved and why a caller breaks.
 
 New public API:
 
+- `UI.Toggle.onChange(wanted)` requests a model change before any write. The
+  model accepts by writing its value; a declined request preserves the value
+  and appearance, including a checkbox's mixed state. This form accepts
+  readonly Compose bindings. Cell-only toggles continue updating directly.
 - `UI.activationGate(node, { closed, onOpen })`. While `closed` reads true, the
   first Activate at or under the node wakes the subtree instead of reaching what
   is under the press. `onOpen(path, meta)` receives the path that press would
@@ -93,7 +254,7 @@ Focus and enablement:
   evaluations retain partial dependency changes. Keep Facet’s renderer settling,
   structural transitions and error boundaries. See `src/core/README.md`.
   Rebuild all bundled tutorial, showcase, reference and performance places with
-  this runtime; examples keep the public component state and getter API.
+  this runtime; examples use plain components, Compose cells and `function(use)` bindings.
 
 - Unlink retired child scopes in constant time, preserving reverse cleanup order
   and cleanup-error quarantine. Large keyed collections no longer scan and shift
@@ -103,10 +264,10 @@ Focus and enablement:
   `width` using ordinary dimensions, including content-fit `hug`; default slides
   avoid CanvasGroup text rasterization, while explicit fades remain available.
   Component toast bodies inherit environment and animation services.
-- `View.ProgressView` inherits the mounted owner and presenter clock, including
+- `UI.ProgressView` inherits the mounted owner and presenter clock, including
   activity cycles and trails. Maintained examples adopt ordered numeric children;
-  tutorials, showcase chrome and reference views use component state, property
-  getters and automatic ownership. New-feature scaffolding and contributor
+  tutorials, showcase chrome and reference views use Compose state, property
+  bindings and automatic ownership. New-feature scaffolding and contributor
   guidance teach the same syntax.
 - Track getter-based drag enablement without invoking payload callbacks.
   NavigationStack pages and Alert content accept component descriptions.
@@ -114,17 +275,15 @@ Focus and enablement:
   rejection after unmount.
 - Prevent getter indexes from retaining cyclic values after unmount; keep shared
   bindings alive through their component owner instead of a global strong value.
-- Reuse the Signals callback-delivery queue and renew signal subscriptions without
-  rereading their known value, reducing typing overhead while preserving callback
-  order and recovery.
+- Earlier unreleased Signals queue optimizations are superseded by the pinned
+  Compose runtime described above.
 
 - Native StyleRule paint transitions now default on with explicit opt-out and live reduced-motion support; `client.host` installs Roblox's easing evaluator just like `motion_driver`.
 
-- Use pinned official Roblox Signals 0.9.0 for reactive dependencies while keeping
-  Facet's deterministic change delivery, lifecycle, recovery and settling contract.
-- Add `Facet.component` and `Facet.View`: scoped state and effects, property
-  functions, ordered array children, controlled inputs, confirmation and keyed
-  current-item getters. Migrate showcase motion settings and Settings Sync.
+- Historical unreleased work introduced Signals 0.9.0, `Facet.component` and
+  `Facet.View`. The current authoring-model change above replaces those APIs
+  with Compose and plain component functions, including the showcase and
+  Settings Sync examples.
 - Add declarative screen, billboard and surface placement to the client host.
 - Complete previously untyped public control specs, describe activation metadata,
   and check real component authoring with the pinned Luau analyzer.
@@ -938,8 +1097,8 @@ Focus and enablement:
 
 - **The vendored copy of another reactive library, and its adapter.** Both were
   bake-off arms kept from the comparison that chose Facet's own core; neither
-  ever shipped in Facet's runtime, model, or Package. Facet's reactive core is
-  and remains its own, in `src/core/`.
+  ever shipped in Facet's runtime, model, or Package. Facet used its own core
+  at that point; the current unreleased runtime uses Compose as described above.
 
 ## [0.10.0] — not yet published
 

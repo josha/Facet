@@ -49,6 +49,10 @@ local HANDLED_PROPS: { string } = {
 	"maxLength",
 	"keyboardType",
 	"multiline",
+	-- the scroll host's FREEZE: one engine boolean (`ScrollingEnabled`) on the
+	-- host's own instance, written like `active` is — its CANVAS is a separate,
+	-- derived push (`setScrollRegion` below)
+	"scrollEnabled",
 	"points",
 	"thickness",
 	"closed",
@@ -62,10 +66,26 @@ local HANDLED_PROPS: { string } = {
 	"stroke",
 	"textAlign",
 	"scaleMode",
+	-- the picture's remaining engine knobs (tile geometry, nine-slice centre,
+	-- resampler) and the two text-shape words. Mirrored here for the reason every
+	-- name on this list is: a prop only one target models is a channel a headless
+	-- suite can prove green and a device can be missing entirely
+	"tileSize",
+	"sliceCenter",
+	"sliceScale",
+	"resample",
+	"rich",
+	"direction",
 	"imageFraming",
 	"shape",
 	"icon",
 	"compactLabel",
+	-- the local size/emphasis vocabulary: three words whose whole engine
+	-- expression is a classification tag, mirrored below so a headless spec can
+	-- read the tag a live session would paint from
+	"controlSize",
+	"appearance",
+	"over",
 	-- dedicated seams (layout + presentation authority)
 	"clipChildren",
 	"textSize",
@@ -92,8 +112,17 @@ end
 -- lockstep contract KEYBOARD_TYPE_ENGINE_NAME carries: kept equal to
 -- screen_target's SCALE_MODE_ENGINE so the mapping — including `fill` and `crop`
 -- both meaning the engine's Crop — is provable without an engine.
-local SCALE_MODE_ENGINE_NAME: { [string]: string } = { fit = "Fit", fill = "Crop", crop = "Crop", stretch = "Stretch" }
+local SCALE_MODE_ENGINE_NAME: { [string]: string } =
+	{ fit = "Fit", fill = "Crop", crop = "Crop", stretch = "Stretch", tile = "Tile", slice = "Slice" }
 fake_target.SCALE_MODE_ENGINE_NAME = table.freeze(SCALE_MODE_ENGINE_NAME)
+
+-- ...and the three other engine vocabularies a leaf prop now reaches, mirrored
+-- under the same lockstep rule: the resampler's two modes, the writing
+-- directions, and the scroll host's three directions (`xy` is the engine's own
+-- `ScrollingDirection.XY`, so the two-axis host is exposure and not policy).
+fake_target.RESAMPLE_ENGINE_NAME = table.freeze({ default = "Default", pixelated = "Pixelated" })
+fake_target.TEXT_DIRECTION_ENGINE_NAME = table.freeze({ auto = "Auto", ltr = "LeftToRight", rtl = "RightToLeft" })
+fake_target.SCROLL_DIRECTION_ENGINE_NAME = table.freeze({ x = "X", y = "Y", xy = "XY" })
 
 -- The engine scrollbar's thickness, in LOCKSTEP with `SCROLL_BAR_THICKNESS` in
 -- src/client/screen_target.luau. It is the thickness of the INSTANCE the live
@@ -440,15 +469,19 @@ function fake_target.new(opts: Opts?)
 		`screen_paint.applySurfaceNative`, exactly as `SCALE_MODE_ENGINE_NAME` is
 		kept in lockstep with the adapter's own map. ]]
 	local function syncFakeTags(handle: any)
-		local state = handle.tagState
-		if state == nil then
-			return
-		end
+		local state = handle.tagState or {}
 		local desired = sheet_model.classifyTags({
+			letterRole = handle.letterRole,
 			surface = state.surface,
 			selected = state.selected == true,
 			interactive = state.interactive == true,
 			buttonRole = state.buttonRole,
+			-- the local size/emphasis vocabulary, mirrored for the same reason the
+			-- four above are: its whole engine expression is a tag, so a fake that
+			-- did not model it would leave every headless claim about it unprovable
+			controlSize = state.controlSize,
+			appearance = state.appearance,
+			over = state.over,
 		})
 		local plan = tag_sync.diff(handle.tags or {}, desired)
 		local live: { [string]: boolean } = {}
@@ -578,6 +611,16 @@ function fake_target.new(opts: Opts?)
 			-- its subtree's rects are stored against, so nothing beneath it arrives in
 			-- window space and `setRect` composes this entry's rect back in.
 			registerFakeHost(path, false, (createOpts :: any).hostSpace == true)
+		end
+		if class == "ScrollView" then
+			--[[ THE ENGINE'S OWN DEFAULT, mirrored (2026-09-18). A `ScrollingFrame` is
+				born `ScrollingEnabled = true`, so Facet writes the property only when a
+				screen authors `scrollEnabled` — and a fake that recorded nothing until
+				the first write could not tell "scrollable, untouched" from "frozen".
+				It could therefore not see the live regression that shipped in fix round
+				1: a board mounted frozen, every headless case green. Born true here, in
+				lockstep with the live adapter's reliance on the same default. ]]
+			node.appliedScrollingEnabled = true
 		end
 		if class == "Path" then
 			-- the DEFAULT stroke role's colour, from the live theme: `role` is
@@ -958,6 +1001,14 @@ function fake_target.new(opts: Opts?)
 		if recordOps then
 			note(`prop {handle.path}.{prop}={tostring(value)}`)
 		end
+		-- Noninteractive content can wear vocabulary tags too, just as on the native handle.
+		if
+			handle.tagState == nil
+			and (prop == "controlSize" or prop == "appearance" or prop == "over")
+			and type(value) == "string"
+		then
+			handle.tagState, handle.tags = {}, handle.tags or {}
+		end
 		if handle.tagState ~= nil then
 			--[[ the three writes that re-classify, mirroring the live adapter's own
 				handle bookkeeping: `screen_paint.applySurfaceNative` (a `plain` or
@@ -988,6 +1039,13 @@ function fake_target.new(opts: Opts?)
 				touched = true
 			elseif prop == "selected" then
 				state.selected = value == true
+				touched = true
+			elseif prop == "controlSize" or prop == "appearance" or prop == "over" then
+				-- the same reading the live adapter's own branch takes
+				-- (`screen_props`): the enum check upstream has already refused
+				-- anything but a legal word, so nil is the only other value and it
+				-- retracts the tag
+				state[prop] = if type(value) == "string" then value else nil
 				touched = true
 			end
 			if touched then
@@ -1065,6 +1123,9 @@ function fake_target.new(opts: Opts?)
 				live.applyStrokeMode = "Border"
 			end
 		elseif prop == "tint" then
+			local role = if type(value) == "table" then value.role else nil
+			handle.letterRole = if type(role) == "string" and sheet_model.STATUS_LETTER_ROLES[role] then role else nil
+			syncFakeTags(handle)
 			-- the CONTINUOUS COLOUR, mirrored through the SAME pure resolver the live
 			-- adapter uses, and with the same CLAIMS recorded: a tint's whole contract
 			-- is "this node took these engine properties from the sheet", so a mirror
@@ -1113,6 +1174,54 @@ function fake_target.new(opts: Opts?)
 				handle.paintClaims = handle.paintClaims or {}
 				handle.paintClaims.ScaleType = true
 			end
+		elseif prop == "tileSize" or prop == "sliceCenter" or prop == "sliceScale" then
+			--[[ THE GEOMETRY THE TWO NEW SCALE MODES ARE APPLIED WITH, mirrored for
+				the same reason `scaleMode` is: both are NATIVE_SHEET_OWNED engine
+				properties (`TileSize`, `SliceCenter`/`SliceScale`), so the live adapter
+				CLAIMS them off the sheet before writing, and a headless target that
+				modelled the mode but not its geometry would prove a tiled picture that
+				tiles at whatever the last theme left behind. ]]
+			if prop == "tileSize" then
+				handle.appliedTileSize = if type(value) == "table"
+					then { width = value.width, height = value.height }
+					else nil
+			elseif prop == "sliceCenter" then
+				handle.appliedSliceCenter = if type(value) == "table"
+					then { x0 = value.x0, y0 = value.y0, x1 = value.x1, y1 = value.y1 }
+					else nil
+			else
+				-- the engine's own default is 1, which is what an absent declaration
+				-- leaves standing — the same reading the live adapter takes
+				handle.appliedSliceScale = if type(value) == "number" then value else 1
+			end
+			if value ~= nil then
+				handle.paintClaims = handle.paintClaims or {}
+				if prop == "tileSize" then
+					handle.paintClaims.TileSize = true
+				elseif prop == "sliceCenter" then
+					handle.paintClaims.SliceCenter = true
+				else
+					handle.paintClaims.SliceScale = true
+				end
+			end
+		elseif prop == "resample" then
+			handle.appliedResampleMode = if value == nil then nil else fake_target.RESAMPLE_ENGINE_NAME[tostring(value)]
+			if value ~= nil then
+				handle.paintClaims = handle.paintClaims or {}
+				handle.paintClaims.ResampleMode = true
+			end
+		elseif prop == "scrollEnabled" then
+			-- the same reading the live adapter takes: absent is true, the engine's
+			-- own default, and the OFFSET is untouched either way
+			handle.appliedScrollingEnabled = value ~= false
+		elseif prop == "rich" then
+			-- TEXT SHAPE, written in BOTH modes on the live target (no rule owns
+			-- `RichText`), so there is no claim to mirror — only the value
+			handle.appliedRichText = value == true
+		elseif prop == "direction" then
+			handle.appliedTextDirection = if value == nil
+				then nil
+				else fake_target.TEXT_DIRECTION_ENGINE_NAME[tostring(value)]
 		elseif prop == "transform" then
 			-- offset composes onto the rect for this node AND its subtree; scale and
 			-- rotation are paint on the node's own instance (the live target's UIScale

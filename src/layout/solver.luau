@@ -1,4 +1,5 @@
 --!strict
+local fillExtent = require("./fill_space").extent
 -- Two-pass layout solver (design §7, UI-LAYOUT-001/002): measure + arrange over
 -- a snapshot it never authors. Never yields, never reads live signals or
 -- Instances; text goes through src/layout/text_metrics (non-yielding).
@@ -836,8 +837,8 @@ local function resolveAxis(
 		end
 		return if limit == math.huge then base else math.min(base, limit)
 	elseif d.type == "fill" then
-		-- fill resolves at arrange; desired contribution is content
-		return contentFn()
+		-- Fill desires content, subject to its floor; placement assigns its share.
+		return fillExtent(d, contentFn())
 	end
 	return contentFn()
 end
@@ -1246,8 +1247,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- region that summed heights reported a canvas the engine could not
 		-- scroll to (A-SV1).
 		local axis = node.axis or "y"
-		local childW = if axis == "x" then math.huge else innerMaxW
-		local childH = if axis == "y" then math.huge else innerMaxH
+		local childW = if axis ~= "y" then math.huge else innerMaxW
+		local childH = if axis ~= "x" then math.huge else innerMaxH
 		-- THIS SCROLLER IS THE CONTAINER ITS SUBTREE MEASURES AGAINST (§2.5). The
 		-- viewport is its INNER box on both axes — including the axis the children
 		-- are offered `math.huge` on, which is the whole point: a carousel page asks
@@ -2097,7 +2098,7 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- `fill` means "take the extent the parent offers", and that extent is the
 	-- limit we were handed, so use it rather than pretending the box is empty.
 	local function pairedExtent(paired: Dim, limit: number, fallback: number): number
-		return if paired.type == "fill" and limit ~= math.huge then limit else fallback
+		return if paired.type == "fill" and limit ~= math.huge then fillExtent(paired, limit) else fallback
 	end
 	if wDim.type == "aspect" then
 		h = resolveAxis(ctx, node, hDim, maxH, function()
@@ -2570,8 +2571,8 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				arrange(ctx, child, {
 					x = innerX,
 					y = innerY,
-					w = if wDim.type == "fill" then innerW else w,
-					h = if hDim.type == "fill" then innerH else h,
+					w = if wDim.type == "fill" then fillExtent(wDim, innerW) else w,
+					h = if hDim.type == "fill" then fillExtent(hDim, innerH) else h,
 				}, out)
 			else
 				-- an unchosen candidate keeps its MOUNT (a resize must not rebuild
@@ -2786,8 +2787,8 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				arrange(ctx, child, {
 					x = innerX,
 					y = innerY,
-					w = if wDim.type == "fill" then formW else math.min(w, formW),
-					h = if hDim.type == "fill" then innerH else math.min(h, innerH),
+					w = if wDim.type == "fill" then fillExtent(wDim, formW) else math.min(w, formW),
+					h = if hDim.type == "fill" then fillExtent(hDim, innerH) else math.min(h, innerH),
 				}, out)
 			else
 				setHidden(ctx, ctx.hiddenDepth + 1)
@@ -2807,6 +2808,7 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 		for childIndex, child in node.children or {} do
 			-- hoisted above the diagnostic: a FILL axis is granted exactly the
 			-- stack's box at arrange (below), so its measure is not its size
+			local mt, mr, mb, ml = sides(child.margin)
 			local childFillW = dim(child, "w").type == "fill"
 			local childFillH = dim(child, "h").type == "fill"
 			--[[ ── A LAYERED CHILD BIGGER THAN ITS BOX (2026-08-02) ─────────────────
@@ -2823,19 +2825,19 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				worse trade. `intentionalOverlap` is the opt-out for the layouts whose
 				whole job is to stack over one another.
 
-				PER-AXIS, AND ONLY THE AXES THE CHILD SIZES ITSELF ON (2026-08-08,
-				reference-app matrix): a `fill` axis resolves at arrange to exactly
-				`availW`/`availH` — the child CANNOT paint outside a box it is granted
-				— but `measure` answers `fill` with content, so comparing the measure
-				here reported a fill-width page scroller as "overflowing" by its own
-				content height (plus the bar reserve its measure honestly includes) on
-				every screen. Three reference proofs carried `overflow = "clip"` purely
-				to silence that false positive; the axis gate is what makes this
-				diagnostic trustworthy as an OVERLAP signal across the device matrix. ]]
+				Fill contributes only its explicit floor to this diagnostic. Its content
+				may be larger than its granted box (a scroller's job), so content desire
+				cannot establish overflow. A floor beyond the offer can. ]]
 			if ctx.hiddenDepth == 0 and node.overflow ~= "intentionalOverlap" and node.overflow ~= "clip" then
 				local cw, ch = measure(ctx, child, innerW, innerH)
-				local overW = if childFillW then 0 else roundPx(cw - innerW)
-				local overH = if childFillH then 0 else roundPx(ch - innerH)
+				local overW = roundPx(
+					(if childFillW then dim(child, "w").min or 0 else cw)
+						- (if childFillW then math.max(0, innerW - ml - mr) else innerW)
+				)
+				local overH = roundPx(
+					(if childFillH then dim(child, "h").min or 0 else ch)
+						- (if childFillH then math.max(0, innerH - mt - mb) else innerH)
+				)
 				--[[ ── THE LYING `itemExtent` (2026-08-13, game-director approved) ───────
 					A fixed-pitch list windows by `index × itemExtent`. That arithmetic is
 					O(1) and exact ONLY because the extent is one declared number — and the
@@ -2939,7 +2941,6 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 					})
 				end
 			end
-			local mt, mr, mb, ml = sides(child.margin)
 			-- A MARGIN IS ROOM THE CHILD DOES NOT GET, and a `fill` child in a
 			-- ZStack used to take the stack's WHOLE inner box and then be displaced
 			-- by its own top/left margin — so it hung off the far edge by exactly
@@ -2953,17 +2954,14 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 			local availW = math.max(0, innerW - ml - mr)
 			local availH = math.max(0, innerH - mt - mb)
 			local w, h = measure(ctx, child, availW, availH)
-			-- fill children stretch to the stack (overlay scrims/backdrops) MINUS
-			-- their own margins, and then sit hard against the near margin: a filled
-			-- axis has nothing left to align, so `alignH`/`alignV` are read only for
-			-- the axes the child actually sizes itself on.
+			-- Fill uses the margin-reduced offer, subject to its floor, at the near edge.
 			local fillW = childFillW
 			local fillH = childFillH
 			if fillW then
-				w = availW
+				w = fillExtent(dim(child, "w"), availW)
 			end
 			if fillH then
-				h = availH
+				h = fillExtent(dim(child, "h"), availH)
 			end
 			--[[ ...AND SO DOES A HUGGING ONE — the alignment runs in `availW`/`availH`,
 				the box the child was GIVEN, never `innerW`/`innerH`, the box it was
@@ -3158,7 +3156,9 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				dim(child, "h").type == "fill",
 				child.anchor,
 				child.offsetX,
-				child.offsetY
+				child.offsetY,
+				dim(child, "w").min,
+				dim(child, "h").min
 			)
 			if unknownAnchor then
 				table.insert(ctx.diagnostics, { node = child.id, issue = `unknown anchor '{child.anchor}'` })
@@ -3268,13 +3268,16 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				local s = plan.sizes[i]
 				local mainMargin = if isH then s.ml + s.mr else s.mt + s.mb
 				local crossMargin = if isH then s.mt + s.mb else s.ml + s.mr
-				-- AN ITEM WIDER THAN ITS LINE IS CLAMPED TO THE LINE, and said so. It
-				-- already has a line to itself (the partition gives it one rather than
-				-- dropping it); painting it at its full extent would put it outside a
-				-- box that reports fitting, which is the "painted at a size nobody
-				-- measured" family this repo keeps paying for.
+				-- Ordinary items clamp to the line. An explicit fill floor remains
+				-- truthful even when it exceeds the offer; containment reports the shortage.
 				local natural = plan.mains[i]
-				local boxMain = if innerMain == math.huge then natural else math.min(natural, innerMain)
+				local mainDim = dim(child, if isH then "w" else "h")
+				local boxMain = if innerMain == math.huge
+					then natural
+					else math.max(
+						if mainDim.type == "fill" and mainDim.min ~= nil then mainDim.min + mainMargin else 0,
+						math.min(natural, innerMain)
+					)
 				if ctx.hiddenDepth == 0 and boxMain < natural then
 					table.insert(ctx.diagnostics, {
 						node = node.id,
@@ -3315,7 +3318,7 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				-- against the offer, so the pair this reads is a real one.
 				local crossSize = if crossDim.type ~= "aspect"
 						and (crossDim.type == "fill" or childAlign == "stretch")
-					then crossAvail
+					then fillExtent(crossDim, crossAvail)
 					else math.min(if isH then s.h else s.w, crossAvail)
 				local childRect: Rect
 				if isH then
@@ -3457,8 +3460,12 @@ function solver.solve(
 	end)
 	-- the root honors its own dims: fixed/content use the measured size
 	-- (clamped to the content rect); fill stretches to the content rect
-	local rootW = if dim(root, "w").type == "fill" then contentRect.w else math.min(mw, contentRect.w)
-	local rootH = if dim(root, "h").type == "fill" then contentRect.h else math.min(mh, contentRect.h)
+	local rootW = if dim(root, "w").type == "fill"
+		then fillExtent(dim(root, "w"), contentRect.w)
+		else math.min(mw, contentRect.w)
+	local rootH = if dim(root, "h").type == "fill"
+		then fillExtent(dim(root, "h"), contentRect.h)
+		else math.min(mh, contentRect.h)
 	--[[ THIS SOLVE WRITES INTO THE PREVIOUS SOLVE'S MAP (P2). Nothing is copied and
 		nothing is snapshotted: `reuse` hands the map over, this solve overwrites what
 		it walks, and the previous result then describes a state that never existed.

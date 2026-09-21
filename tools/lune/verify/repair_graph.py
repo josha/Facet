@@ -350,7 +350,41 @@ RETIER = {
     "archive-integrity": {"fast": False, "full": True, "release": True},
 }
 
-REINPUT = {"build_places": PLACE_INPUTS, "build_reference_places": PLACE_INPUTS}
+# The suite imports checkers and reads public docs, pinned bytes and asset facts.
+# Keep generated places, cache output and evidence receipts out of this identity.
+SUITE_INPUTS = [
+    "src/**", "tests/**",
+    "examples/gallery/**", "examples/reference/**", "examples/themes/**",
+    "examples/consumer/**", "examples/performance/**", "examples/table_phaseb/**",
+    "examples/virtual_monitors/**",
+    "examples/showcase.project.json", "examples/gallery.project.json",
+    "examples/performance.project.json", "examples/README.md",
+    "docs/guide/**", "docs/reference/**", "docs/extending/**", "docs/MAINTAINERS.md",
+    "CHANGELOG.md", "CONTRIBUTING.md",
+    "tools/lune/**/*.luau", "tools/lune/verify/graph.json",
+    "tools/build_reference_places.sh", "tools/test.sh", "tools/sync_compose.py",
+    "skills/compose/**", "bench/**/*.luau",
+    "assets/themes/plate-samples.json", "assets/themes/*/*.png",
+    "assets/themes/*/*.json", "assets/themes/*/*.md", "assets/themes/*/source/*.py",
+    "assets/icons/*.png", "assets/icons/*.json", "assets/icons/*.md", "assets/icons/source/*.py",
+    "run-tests.sh", "rokit.toml",
+]
+RR_SUITE_INPUTS = [
+    "../../../games/RascalRally/code/src/**",
+    "../../../games/RascalRally/code/tests/**",
+    "../../../games/RascalRally/code/default.project.json",
+    "../../../games/RascalRally/code/places/*.project.json",
+    "../../../games/RascalRally/code/run-tests.sh",
+    "../../../games/RascalRally/code/tools/suite_transcript.sh",
+    "src/**", "tests/**", "examples/themes/**",
+]
+REINPUT = {
+    "build_places": PLACE_INPUTS,
+    "build_reference_places": PLACE_INPUTS,
+    "suite": SUITE_INPUTS,
+    "suite-fast": SUITE_INPUTS,
+    "rascalrally-suite": RR_SUITE_INPUTS,
+}
 
 SERIALIZED = {
     "check_types": "it generates and deletes a probe file inside tests/",

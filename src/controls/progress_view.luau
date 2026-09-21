@@ -12,6 +12,7 @@ local surface_env = require("../env/surface_env")
 local theme_snapshot = require("../themes/snapshot")
 local text_fit = require("../layout/text_fit")
 local progress_trail = require("./progress_trail")
+local vocabulary = require("./control_vocabulary")
 
 local progress_view = {}
 
@@ -20,6 +21,10 @@ local ROW_MIN_HEIGHT = "controls.progress.rowMinHeight"
 local SPINNER_DOT = "controls.progress.spinnerDotSize"
 local CIRCULAR_SIZE = "controls.progress.circularSize"
 local CIRCULAR_THICKNESS = "controls.progress.circularThickness"
+-- Local indicator rungs spend the existing space scale. Absent keeps each
+-- package's authored progress size, rather than selecting the regular rung.
+local SPINNER_DOT_RUNG = { compact = "space.xs", regular = "space.s", large = "space.m" }
+local CIRCULAR_SIZE_RUNG = { compact = "space.m", regular = "space.l", large = "space.xl" }
 
 local CIRCULAR_RADIUS = 0.8
 progress_view.CIRCULAR_RADIUS = CIRCULAR_RADIUS
@@ -73,6 +78,8 @@ local PROGRESS_VIEW_KEYS = specGuard.keySet({
 	"segments",
 	"trail",
 	"diameter",
+	"controlSize",
+	"endLabel",
 	"format",
 	"height",
 	"id",
@@ -136,6 +143,16 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			0
 		)
 	end
+	vocabulary.assertSize("UI.ProgressView", spec.controlSize)
+	assert(
+		spec.controlSize == nil or presentation ~= "bar",
+		"UI.ProgressView.controlSize sizes an indicator; a bar uses height and its offered width"
+	)
+	assert(spec.controlSize == nil or spec.diameter == nil, "UI.ProgressView: give diameter or controlSize, not both")
+	assert(
+		spec.endLabel == nil or type(selection.read(spec.endLabel)) == "string",
+		"UI.ProgressView.endLabel must be a string or readable string"
+	)
 	local indeterminate = spec.value == nil
 	local function nonnegative(v: any): boolean
 		return type(v) == "number" and v == v and v >= 0 and v < math.huge
@@ -275,6 +292,12 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		then progress_trail.native(Facet.runtime, fraction, spec.trail, if env then env:get("motionPolicy") else nil)
 		else nil
 	local circularSize = spec.diameter or CIRCULAR_SIZE
+	local circularDim = vocabulary.deriveSize("UI.ProgressView", spec.controlSize, function(rung)
+		return { type = "fixed", px = CIRCULAR_SIZE_RUNG[rung] or circularSize }
+	end) or { type = "fixed", px = circularSize }
+	local spinnerDim = vocabulary.deriveSize("UI.ProgressView", spec.controlSize, function(rung)
+		return { type = "fixed", px = SPINNER_DOT_RUNG[rung] or SPINNER_DOT }
+	end) or { type = "fixed", px = SPINNER_DOT }
 
 	if spec.label ~= nil then
 		table.insert(children, UI.Text({ id = "Label", text = spec.label, textSize = "label", shrinkWeight = 1 }))
@@ -292,8 +315,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 				chrome_slots.attachHint(
 					UI.Box({
 						id = `Dot{index}`,
-						width = { type = "fixed", px = SPINNER_DOT },
-						height = { type = "fixed", px = SPINNER_DOT },
+						width = spinnerDim,
+						height = spinnerDim,
 						tint = pulse,
 					}),
 					{ slot = "spinner" }
@@ -304,7 +327,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			id = "Spinner",
 			gap = "xs",
 			align = "center",
-			height = { type = "fixed", px = SPINNER_DOT },
+			height = spinnerDim,
 			children = dots,
 		})
 	end
@@ -321,8 +344,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 					closed = true,
 					thickness = CIRCULAR_THICKNESS,
 					role = "secondary",
-					width = { type = "fixed", px = circularSize },
-					height = { type = "fixed", px = circularSize },
+					width = circularDim,
+					height = circularDim,
 				})
 			)
 		end
@@ -339,15 +362,15 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 				points = arcPoints,
 				thickness = CIRCULAR_THICKNESS,
 				role = "accent",
-				width = { type = "fixed", px = circularSize },
-				height = { type = "fixed", px = circularSize },
+				width = circularDim,
+				height = circularDim,
 			})
 		)
 		local function ring(id, nodes)
 			return UI.ZStack({
 				id = id,
-				width = { type = "fixed", px = circularSize },
-				height = { type = "fixed", px = circularSize },
+				width = circularDim,
+				height = circularDim,
 				children = nodes,
 			})
 		end
@@ -425,6 +448,16 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 	end
 
 	local function buildBar(): any
+		-- Trailing copy may shrink, but must not spend the track's entire offer.
+		-- Reserve the theme's smallest spacing for each segment plus its gaps.
+		local minimum = {}
+		for index = 1, spec.segments or 1 do
+			table.insert(minimum, "xs")
+			if index > 1 then
+				table.insert(minimum, "xs")
+			end
+		end
+		local width = if spec.endLabel ~= nil then { type = "fill", min = minimum } else UI.fill()
 		if not indeterminate and (spec.segments ~= nil or trailValue ~= nil) then
 			local cells = {}
 			local count = spec.segments or 1
@@ -461,7 +494,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			return chrome_slots.attachHint(
 				UI.ZStack({
 					id = "Bar",
-					width = UI.fill(),
+					width = width,
 					height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
 					children = {
 						UI.HStack({
@@ -518,7 +551,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		return chrome_slots.attachHint(
 			UI.ZStack({
 				id = "Bar",
-				width = { type = "fill", weight = 1 },
+				width = width,
 				height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
 				children = barChildren,
 			}),
@@ -551,6 +584,13 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
+	if spec.endLabel ~= nil then
+		table.insert(
+			children,
+			UI.Text({ id = "EndLabel", text = spec.endLabel, textSize = "label", shrinkWeight = 1, disclose = true })
+		)
+	end
+
 	local layout = if presentation == "circular" and spec.diameter ~= nil then UI.VStack else UI.HStack
 	api.blueprint = layout({
 		id = id,
@@ -574,6 +614,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 				phase = phase(nil),
 				animating = phaseValue ~= nil,
 				semanticText = "Loading",
+				endLabel = selection.read(spec.endLabel),
+				controlSize = selection.read(spec.controlSize),
 			}
 		end
 		local v = read(nil)
@@ -592,6 +634,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			min = model.min,
 			max = model.max,
 			showValue = spec.showValue == true,
+			endLabel = selection.read(spec.endLabel),
+			controlSize = selection.read(spec.controlSize),
 		}
 	end
 

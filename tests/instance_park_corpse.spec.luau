@@ -76,7 +76,7 @@ describe("instance park corpse: the pool can never hold a destroyed instance", f
 		expect(string.find(body, "local reparented = pcall", 1, true) ~= nil).toBe(true)
 		-- ...and a failure restores the parked identity IN FULL before refusing.
 		-- DIRECTIONAL (platform review M1): one anchored pattern over the whole
-		-- failure block — parked flag, epoch stamp, sentinel path, refusal — so
+		-- failure block — parked flag, epoch stamp, cleared root, sentinel path, refusal — so
 		-- dropping ANY restore line (or flipping the return) reddens this case
 		expect(
 			string.match(
@@ -84,6 +84,7 @@ describe("instance park corpse: the pool can never hold a destroyed instance", f
 				"if not reparented then%s+"
 					.. "handle%.parked = true%s+"
 					.. "handle%.parkedChromeEpoch = savedEpoch%s+"
+					.. "handle%.rootHandle = nil%s+"
 					.. "handle%.path = PARKED_PATH%s+"
 					.. "return false%s+end"
 			) ~= nil

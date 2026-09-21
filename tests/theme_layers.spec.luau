@@ -835,7 +835,13 @@ describe("buildPackage: the layer census makes ornate cost a number", function()
 		expect(next(census.layersPerKind)).toBeNil()
 		expect(next(census.overhang)).toBeNil()
 		for _, rule in model.rules do
-			if string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
+			-- the per-NAME icon tints, and the status-lettering rules that re-colour
+			-- the same pictures on a status plate: both are icon paint, which is the
+			-- one exception this claim has ever had
+			if
+				string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil
+				or string.find(rule.selector, chrome_slots.ICON_PICTURE_TAG, 1, true) ~= nil
+			then
 				continue
 			end
 			expect(string.find(rule.selector, "facet-chrome-", 1, true)).toBeNil()

@@ -133,7 +133,14 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 		local model = sheet_model.buildPackage(classic())
 		local icons = 0
 		for _, rule in model.rules do
-			if string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
+			if
+				string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil
+				-- ...and the status-lettering rules, which are icon tints too: they
+				-- name the picture as a KIND (`facet-chrome-icon`) because what they
+				-- re-colour is decided by the NODE it sits on, not by which picture
+				-- it is
+				or string.find(rule.selector, chrome_slots.ICON_PICTURE_TAG, 1, true) ~= nil
+			then
 				icons += 1
 			else
 				expect(string.find(rule.selector, "facet-chrome-", 1, true) == nil).toBe(true)
@@ -919,7 +926,13 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 			end
 		end
 		expect(typeSites).toBe(6)
-		expect(count).toBe(11 + slotSites + typeSites)
+		-- +4 since the local size/appearance vocabulary: three `Control size —
+		-- <rung> corner` rules bake a PUBLISHED radius (compact/regular take
+		-- `radii.control`, large takes `radii.panel`) and `Utility control —
+		-- outline` bakes `strokes.hairline`, so a designer retuning either metric
+		-- retunes every locally-sized and every quiet control with it — the same
+		-- reason `Primary button — corner` and `Circle button — hairline` are here.
+		expect(count).toBe(15 + slotSites + typeSites)
 	end)
 end)
 

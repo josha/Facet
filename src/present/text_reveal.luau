@@ -44,6 +44,7 @@
 
 local renderer = require("../render/renderer")
 local focusMap = require("./focus_map")
+local richText = require("../layout/rich_text")
 local Compose = require("../vendor/compose/core")
 
 local isPathPrefix = focusMap.isPathPrefix
@@ -124,7 +125,7 @@ function textReveal.new(ctx: any)
 
 	-- the first DECLARED, TRUNCATED reveal text under this surface, in document
 	-- order — the same walk shape as disclosureTargetIn, against the same facts
-	local function revealTargetIn(handle: any): (string?, string?)
+	local function revealTargetIn(handle: any): (string?, string?, boolean?, any)
 		local ctrl = handle.controller
 		if ctrl == nil or ctrl.textAt == nil then
 			return nil, nil
@@ -137,6 +138,10 @@ function textReveal.new(ctx: any)
 		local hiddenRoots: { [string]: boolean } = if ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else {}
 		local foundPath: string? = nil
 		local foundText: string? = nil
+		-- ...and whether the value is MARKUP, for the reason the plate carries it:
+		-- a strip that did not parse a rich label's value would travel its tags
+		local foundRich: boolean? = nil
+		local foundNode: any = nil
 		local function walk(n: any)
 			if foundPath ~= nil or focusMap.isHiddenPath(n.path, hiddenRoots) then
 				return
@@ -146,6 +151,8 @@ function textReveal.new(ctx: any)
 				if facts ~= nil and facts.truncated == true and facts.reveal == true then
 					foundPath = n.path
 					foundText = tostring(n.props.text)
+					foundRich = n.props.rich == true
+					foundNode = n
 					return
 				end
 			end
@@ -154,7 +161,7 @@ function textReveal.new(ctx: any)
 			end
 		end
 		walk(handle.root.node)
-		return foundPath, foundText
+		return foundPath, foundText, foundRich, foundNode
 	end
 
 	-- unmount the strip and give the source its paint back (cycle state kept)
@@ -241,6 +248,7 @@ function textReveal.new(ctx: any)
 											UI.Text({
 												id = "Full",
 												text = st.text,
+												rich = if st.rich == true then true else nil,
 												textSize = paintSize,
 												lineLimit = 1,
 												anchor = "topLeft",
@@ -339,12 +347,17 @@ function textReveal.new(ctx: any)
 			for i = #stack, 1, -1 do
 				local h = stack[i]
 				if h.hasReveal == true then
-					local path, text = revealTargetIn(h)
+					local path, text, rich, sourceNode = revealTargetIn(h)
 					if path ~= nil then
 						revealState = {
 							owner = h,
 							sourcePath = path,
+							sourceNode = sourceNode,
 							text = text,
+							rich = rich,
+							-- the form the source's own facts carry, derived once (see the
+							-- identity test below)
+							displayed = if rich == true then richText.displayText(text) else text,
 							phase = "rest",
 							wait = REVEAL_PAUSE,
 							travel = 0,
@@ -360,7 +373,16 @@ function textReveal.new(ctx: any)
 		-- truncated. A re-solve that made room, a swapped text, a dismissed
 		-- surface — all retire on the next tick, releasing the held paint.
 		local facts = if table.find(stack, st.owner) ~= nil then st.owner.controller.textAt(st.sourcePath) else nil
-		if facts == nil or facts.truncated ~= true or facts.reveal ~= true or tostring(facts.text) ~= st.text then
+		-- Facts carry displayed words, which alone cannot distinguish color/face edits.
+		-- The already-found source supplies authored identity and lifetime; cached
+		-- display text avoids parsing or walking the tree on every moving frame.
+		local source = st.sourceNode
+		local sameValue = source ~= nil
+			and not source.destroyed
+			and tostring(source.props.text) == st.text
+			and (source.props.rich == true) == st.rich
+			and tostring(facts and facts.text) == (st.displayed or st.text)
+		if facts == nil or facts.truncated ~= true or facts.reveal ~= true or not sameValue then
 			retireReveal()
 			return
 		end
@@ -457,6 +479,7 @@ function textReveal.new(ctx: any)
 			travel = st.travel,
 			distance = math.max(0, st.overlay.labelW - st.overlay.windowW),
 			text = st.text,
+			rich = if st.rich == true then true else nil,
 		})
 	end
 

@@ -9,7 +9,7 @@
 --     at the foot of this comment)
 --   Tracks env's effectiveInput fact and resolves the action's preferredBinding
 --   for that input class (src/input/actions.luau). The label prefers the
---   binding's displayName, falling back to its keyCode / uiButton; when no
+--   binding's displayName, native/shared readable name, then keyCode / uiButton; when no
 --   binding matches the current input class the hint is "" (nil-tolerant, per the
 --   engine spike). It is a plain reactive memo — mount it as any Text's `text`
 --   prop; a preferredInput flip re-labels with NO remount.
@@ -25,6 +25,7 @@
 local specGuard = require("../spec_guard")
 local Compose = require("../vendor/compose/core")
 
+local keyNames = require("./key_names")
 local hint = {}
 
 -- resolve a binding to a display label, preferring displayName
@@ -32,7 +33,7 @@ local function labelOf(binding: any): string
 	if binding == nil then
 		return ""
 	end
-	return binding.displayName or binding.keyCode or binding.uiButton or ""
+	return binding.displayName or keyNames.label(binding.keyCode) or binding.keyCode or binding.uiButton or ""
 end
 
 -- `style = "phrase"`: the whole affordance, not just the key (director,
@@ -89,4 +90,5 @@ function hint.inputHint(core: any, env: any, action: any, opts: Opts?): any
 	return memo
 end
 
+hint.labelOf = labelOf
 return hint

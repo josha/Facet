@@ -64,8 +64,11 @@ end
 -- `fill` and `crop` BOTH map to Crop, and that is deliberate rather than a
 -- collision: Roblox's `Crop` IS the cover behaviour every other UI vocabulary
 -- calls "fill" (preserve the aspect ratio, let the overflow be cropped), and an
--- author arriving from either vocabulary should not have to look it up. `slice`
--- is absent because nine-slice geometry is theme-owned chrome.
+-- author arriving from either vocabulary should not have to look it up.
+--
+-- `tile` and `slice` joined in 2026-09-18 and carry their geometry in the
+-- `tileSize`/`slice` props beside them — a THEME's own nine-slice frame is a
+-- different node (the adapter's chrome image) and is unaffected.
 --
 -- Mirrored headlessly by tests/lib/fake_target's SCALE_MODE_ENGINE_NAME so the
 -- mapping is provable without an engine — keep the two in lockstep, exactly as
@@ -75,6 +78,31 @@ local SCALE_MODE_ENGINE: { [string]: Enum.ScaleType } = {
 	fill = Enum.ScaleType.Crop,
 	crop = Enum.ScaleType.Crop,
 	stretch = Enum.ScaleType.Stretch,
+	tile = Enum.ScaleType.Tile,
+	slice = Enum.ScaleType.Slice,
+}
+
+-- authored `resample` -> engine ResamplerMode. `ResamplerMode` is the enum's own
+-- name; the PROPERTY is `ResampleMode` (the engine spells the two differently,
+-- which is exactly the kind of fact a hand-written write gets wrong once).
+local RESAMPLE_ENGINE: { [string]: Enum.ResamplerMode } = {
+	default = Enum.ResamplerMode.Default,
+	pixelated = Enum.ResamplerMode.Pixelated,
+}
+
+-- authored `direction` -> engine TextDirection. Absent writes nothing at all,
+-- which is NOT the same as `auto`: absent leaves the class default standing.
+local TEXT_DIRECTION_ENGINE: { [string]: Enum.TextDirection } = {
+	auto = Enum.TextDirection.Auto,
+	ltr = Enum.TextDirection.LeftToRight,
+	rtl = Enum.TextDirection.RightToLeft,
+}
+
+-- authored `axis` -> engine ScrollingDirection, for the scroll-region write.
+local SCROLL_DIRECTION_ENGINE: { [string]: Enum.ScrollingDirection } = {
+	x = Enum.ScrollingDirection.X,
+	y = Enum.ScrollingDirection.Y,
+	xy = Enum.ScrollingDirection.XY,
 }
 
 -- props whose own write repaints a property the `tint` channel may have claimed
@@ -149,6 +177,9 @@ end
 screen_vocabulary.CLASS_TO_INSTANCE = CLASS_TO_INSTANCE
 screen_vocabulary.TEXT_ALIGN_MAP = TEXT_ALIGN_MAP
 screen_vocabulary.SCALE_MODE_ENGINE = SCALE_MODE_ENGINE
+screen_vocabulary.RESAMPLE_ENGINE = RESAMPLE_ENGINE
+screen_vocabulary.TEXT_DIRECTION_ENGINE = TEXT_DIRECTION_ENGINE
+screen_vocabulary.SCROLL_DIRECTION_ENGINE = SCROLL_DIRECTION_ENGINE
 screen_vocabulary.TINT_REPAINTING_PROPS = TINT_REPAINTING_PROPS
 screen_vocabulary.STAGE_WORLD_NAME = STAGE_WORLD_NAME
 screen_vocabulary.STAGE_CAMERA_NAME = STAGE_CAMERA_NAME

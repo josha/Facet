@@ -1949,6 +1949,11 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(rowActionsFamily.rowGutter) ~= "number" then
 		rowActionsFamily.rowGutter = out.space.s
 	end
+	-- A display-only switch reserves both native track insets, without a label column.
+	local toggleFamily = out.controls.toggle
+	if type(toggleFamily) == "table" and type(toggleFamily.markWidth) ~= "number" then
+		toggleFamily.markWidth = toggleFamily.trackInset + toggleFamily.trackWidth + toggleFamily.trackInset
+	end
 	-- ...and the indeterminate spinner's dot (parity round 2 §3.1). Filled here
 	-- for the same stamp reason the two above are. `space.s` rather than a fresh
 	-- literal: a spinner dot is a token on the same scale as every other small
@@ -2765,7 +2770,19 @@ function snapshot.resolveDim(snap: any, dim: any): any
 			resolved[field] = snapshot.resolveTotal(snap, dim[field])
 		end
 	end
-	return resolved or dim
+	local result = resolved or dim
+	if result.type == "fill" and result.min ~= nil then
+		local minimum, weight = result.min, if result.weight ~= nil then result.weight else 1
+		assert(
+			type(minimum) == "number" and minimum == minimum and minimum >= 0 and minimum < math.huge,
+			"Facet fill min must resolve to a finite nonnegative number"
+		)
+		assert(
+			type(weight) == "number" and weight == weight and weight > 0 and weight < math.huge,
+			"Facet minimum-bearing fill requires a finite positive weight"
+		)
+	end
+	return result
 end
 
 return snapshot

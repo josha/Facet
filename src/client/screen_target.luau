@@ -50,6 +50,7 @@ local screen_presentation = require("./screen_presentation")
 -- extracted for the same ceiling once it became one-way (source-cap-ledger):
 -- see that module's header for the parameter-object seam and its cost
 local screen_image = require("./screen_image")
+local screen_control_content = require("./screen_control_content")
 local screen_props = require("./screen_props")
 local screen_caret = require("./screen_caret")
 local screen_focus_visual = require("./screen_focus_visual")
@@ -526,6 +527,7 @@ function screen_target.new(opts: Opts?)
 	-- tag synchronization: the ONLY channel by which Facet state reaches
 	-- native selectors (corrections §5 — GuiState is read-only; app state is
 	-- tags). Desired set computed by the PURE sheet_model.classifyTags.
+	local contentPaint: any = nil
 	local function syncTags(handle: any)
 		if not nativeMode then
 			return
@@ -547,6 +549,13 @@ function screen_target.new(opts: Opts?)
 			-- desired set like every other classification tag, or the next pass
 			-- would strip the fill and the node would go invisible again.
 			tinted = handle.tintFill == true,
+			-- THE STATUS LETTERING (2026-09-19). Set by `applyTint` when a tint names
+			-- one of the four partners a status plate can carry: the managed icon
+			-- picture over this node reads it through a child-combinator rule, because
+			-- its own `ImageColor3` is sheet-owned and per-NAME. Rides the desired set
+			-- like every other classification tag, or a bound status moving would leave
+			-- the previous plate's lettering on the picture.
+			letterRole = handle.letterRole,
 			divider = handle.nativeDivider == true,
 			buttonRole = handle.nativeButtonRole,
 			-- the skinned-slot tag rides the SAME desired set as every other
@@ -590,6 +599,7 @@ function screen_target.new(opts: Opts?)
 			-- costs a flat theme zero instances — and the tag has to ride the
 			-- desired set or the next classification pass would square it off.
 			shape = handle.shape,
+			shapeRim = handle.class ~= "Box" and handle.class ~= "Image" and not instance:IsA("CanvasGroup"),
 			-- THE TYPOGRAPHY ROLE (F2, 2026-08-02). `FontFace` is sheet-owned, so
 			-- the role a node wears reaches native paint as a tag whose generated
 			-- rule carries that role's descriptor — the same descriptor the solver
@@ -597,13 +607,27 @@ function screen_target.new(opts: Opts?)
 			-- classification tag, or the next pass would strip the face back to the
 			-- class default.
 			typeRole = handle.typeRole,
+			-- THE LOCAL SIZE / EMPHASIS VOCABULARY
+			-- (`src/controls/control_vocabulary.luau`). Three authored words whose
+			-- whole engine expression is a tag, so they ride the desired set like
+			-- every other classification tag — the next pass would otherwise strip
+			-- a compact control back to the theme's own chrome.
+			controlSize = handle.controlSize,
+			appearance = handle.appearance,
+			over = handle.over,
 		})
+		if contentPaint then
+			contentPaint.augment(handle, desired)
+		end
 		local plan = tag_sync.diff(CollectionService:GetTags(instance), desired)
 		for _, tag in plan.remove do
 			CollectionService:RemoveTag(instance, tag)
 		end
 		for _, tag in plan.add do
 			CollectionService:AddTag(instance, tag)
+		end
+		if contentPaint then
+			contentPaint.changed(handle)
 		end
 	end
 
@@ -661,6 +685,9 @@ function screen_target.new(opts: Opts?)
 	-- Only the state the REST of this target also reads stays here.
 	local chromeState = chrome_slots.newState(opts and (opts :: any).themePackage)
 	local handlesByPath: { [string]: any } = {}
+	if nativeMode then
+		contentPaint = screen_control_content.new(CollectionService, handlesByPath)
+	end
 	-- THE COMMITTED SNAPSHOT. The adapter needs metric values for
 	-- exactly one thing: the px an icon draws at, which rides `iconSizes` so a
 	-- metric package resizes icons. It arrives from the controller INSIDE the
@@ -704,7 +731,7 @@ function screen_target.new(opts: Opts?)
 	-- `::UIStroke` modifier for as long as it exists, and a `UIShadow` child
 	-- collides with nothing.
 	local focusTreatment: any = { kind = "ring", color = nil }
-	-- The ACTIVE theme's palette, or nil while no package is installed. Every
+	-- The ACTIVE package or native sheet palette. Every
 	-- adapter-owned paint seam that a StyleSheet rule cannot express reads it, so
 	-- there is one answer to "which theme is live" rather than one per seam.
 	local activeTheme: any = nil
@@ -745,9 +772,11 @@ function screen_target.new(opts: Opts?)
 				end
 			end
 		end
+		if package == nil and nativeMode then
+			theme = native_style.palette(nativeHandle)
+		end
 		local rgb = chrome_slots.resolveFocusColor(recipe, theme)
-		-- no package, or a recipe that named no colour: the accent the target was
-		-- constructed with, exactly as before this existed
+		-- With no resolved palette colour, retain the construction-time accent.
 		local color = if rgb ~= nil then toColor3(rgb) else nil
 		if theme ~= nil and rgb == nil and type(theme.colors) == "table" and type(theme.colors.accent) == "table" then
 			-- THE THEME-BLINDNESS FIX: a package that says nothing about focus
@@ -1269,7 +1298,7 @@ function screen_target.new(opts: Opts?)
 			instance.ScrollingDirection = Enum.ScrollingDirection.Y
 			instance.Selectable = false -- selection policy: never selectable by default
 		end
-		local handle = { instance = instance, path = path, class = class }
+		local handle = { instance = instance, path = path, class = class, rootHandle = rootHandle }
 		if instance:IsA("CanvasGroup") then
 			handle.canvasGroupInstance = instance
 			-- a fade group is a REAL PARENT: its descendants live inside it (which is
@@ -1563,6 +1592,9 @@ function screen_target.new(opts: Opts?)
 		-- a node is skinned once rather than built and rebuilt as its setup proceeds
 		handle.decorationHint = decorationHint
 		syncChrome(handle)
+		if contentPaint then
+			contentPaint.bind(handle)
+		end
 		return handle
 	end
 
@@ -1876,6 +1908,9 @@ function screen_target.new(opts: Opts?)
 	function adapter.setNativeTheme(name: string)
 		if nativeMode then
 			nativeHandle.setTheme(name)
+			if chromeState.package() == nil then
+				setActiveTheme(nil)
+			end
 		end
 	end
 	function adapter.setNativeTransitionsEnabled(on: boolean)
@@ -2153,6 +2188,15 @@ function screen_target.new(opts: Opts?)
 			-- recorded so materialisation can apply it if the node ever needs an object.
 			handle.pendingRect = rect
 			return
+		end
+		-- A TOGGLE'S LABEL COLUMN IS A FRACTION OF THIS BOX minus the theme's own
+		-- reservation, so whether the leaf has room for one at all is a fact about
+		-- the rect — and a display-only switch is narrower than the reservation
+		-- (see `toggleLabelBox`). Re-taken only when the width actually moves, which
+		-- for almost every node is never.
+		if handle.class == "Toggle" and handle.labelInstance ~= nil and handle.labelBoxWidth ~= rect.w then
+			handle.labelBoxWidth = rect.w
+			applyToggleLabelBox(handle)
 		end
 		-- THE ORIGIN MOVES FIRST, AND THE CHILDREN ARE RE-BASED LAST. This re-based
 		-- every child of a moved host INLINE, to fix a descendant that "may have
@@ -3024,6 +3068,7 @@ function screen_target.new(opts: Opts?)
 		releaseTint = releaseTint,
 		applyPathRole = applyPathRole,
 		cornerRadiusFor = cornerRadiusFor,
+		corner = corner,
 		applyToggleValue = applyToggleValue,
 		applyPathPoints = applyPathPoints,
 		registerHost = registerHost,
@@ -3237,6 +3282,9 @@ function screen_target.new(opts: Opts?)
 		if capturedHandle() == handle then
 			return false
 		end
+		if contentPaint then
+			contentPaint.clear(handle)
+		end
 		-- a park keeps the instance (and any FocusScale child on it) alive for a
 		-- LATER, unrelated adoption: a tween still in flight from the blur that
 		-- just made this node eligible would otherwise land on whatever control
@@ -3289,6 +3337,7 @@ function screen_target.new(opts: Opts?)
 		-- this no longer matches, and an equal stamp is what makes adopting
 		-- WITHOUT a chrome reconcile sound.
 		handle.parkedChromeEpoch = chromeState.epoch()
+		handle.rootHandle = nil
 		handle.path = PARKED_PATH
 		invalidateSubtree()
 		-- OFF THE SCREEN, not merely invisible: a parked instance must cost no
@@ -3389,6 +3438,7 @@ function screen_target.new(opts: Opts?)
 		if not reparented then
 			handle.parked = true
 			handle.parkedChromeEpoch = savedEpoch
+			handle.rootHandle = nil
 			handle.path = PARKED_PATH
 			return false
 		end
@@ -3418,6 +3468,10 @@ function screen_target.new(opts: Opts?)
 		end
 		instancesByPath[newPath] = handle.instance
 		handlesByPath[newPath] = handle
+		handle.rootHandle = rootHandle
+		if contentPaint then
+			contentPaint.bind(handle)
+		end
 		-- re-key the chrome children under the new identity — the SAME enumeration
 		-- `park` released, so the two seams cannot drift apart
 		for name, child in chromePathChildEntries(handle) do
@@ -3468,6 +3522,9 @@ function screen_target.new(opts: Opts?)
 	end
 
 	function adapter.remove(handle: any)
+		if contentPaint then
+			contentPaint.clear(handle)
+		end
 		screen_image.clear(handle)
 		if handle ~= nil and handle.elided == true then
 			-- never built anything, so there is nothing to unwind; the path-keyed
@@ -3615,6 +3672,9 @@ function screen_target.new(opts: Opts?)
 				dropPresentationRecords(path)
 				local handle = handlesByPath[path]
 				if handle ~= nil then
+					if contentPaint then
+						contentPaint.clear(handle)
+					end
 					-- the stage seam, on the whole-root path (same reason as in `remove`)
 					markStageDisposed(handle)
 					markForeignDisposed(handle)
@@ -3663,6 +3723,10 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		rootHandle.gui:Destroy()
+	end
+
+	if nativeMode then
+		setActiveTheme(chromeState.package())
 	end
 
 	return adapter

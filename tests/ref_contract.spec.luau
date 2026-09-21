@@ -195,6 +195,24 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 			end,
 		}
 	end,
+	AvatarGroup = function(_w)
+		return { items = { { id = "ada", name = "Ada Quill" } } }
+	end,
+	Avatar = function(_w)
+		return { name = "Ada Quill" }
+	end,
+	StatusIndicator = function(_w)
+		return {}
+	end,
+	Badge = function(_w)
+		return { label = "Ready" }
+	end,
+	Skeleton = function(_w)
+		return { form = "box" }
+	end,
+	ShortcutHint = function(_w)
+		return { keys = { { "K" } } }
+	end,
 	Slider = function(w)
 		return { value = Compose.cell(0.5), min = 0, max = 1, step = 0.1 }
 	end,

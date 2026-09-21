@@ -84,3 +84,32 @@ in `LICENSE`, the package-carried `license.luau`, and `THIRD_PARTY_NOTICES.md`.
 The dependency inventory gate and offline package verification passed against
 this explicit vendor allowlist. This addendum records the new dependency; it
 does not re-adjudicate the historical audit's unrelated assets or release gates.
+
+
+## 2026-09-20 addendum: current Compose dependency
+
+The earlier audit and Signals addendum above are historical. The current runtime
+ships Compose from `https://github.com/voidmeld/compose.git` at commit
+`5f6bf7d081bab39971b116e47d6eb9ccf5877282`. The committed, generated snapshot is
+read-only: `patches` is empty, and `UPSTREAM.lock` inventories 68 files by
+SHA-256. `python3 tools/sync_compose.py --check` verifies the snapshot without
+rewriting it. The complete upstream MIT notice remains in the vendored LICENSE,
+package-carried license module and THIRD_PARTY_NOTICES.md. This entry records the
+current dependency facts; it does not re-adjudicate the historical asset audit
+or authorize publication.
+
+
+## 2026-09-21 addendum: local Compose recovery candidate
+
+The 2026-09-20 dependency entry records the previous official pin. The current
+generated snapshot uses LOCAL/UNPUBLISHED commit
+`974b7527709a4db61024cc8994cdce30adc49790`, based on official
+`5f6bf7d081bab39971b116e47d6eb9ccf5877282`. It adds two calls to the existing
+dependency-rearming operation in failed reactive-consumer paths; successful
+evaluation and the MIT license/notice bytes are unchanged. This is a committed
+source repair, not a post-generation vendor patch. UPSTREAM.lock records its
+exact commit and file hashes with an empty patches list; sync_compose.py --check
+verifies the checked-in offline snapshot. The source candidate is not claimed
+to be publicly fetchable from the official repository. THIRD_PARTY_NOTICES.md
+now distinguishes the official base from this local candidate. These inspected
+provenance facts do not assert publication approval or new Studio/device results.

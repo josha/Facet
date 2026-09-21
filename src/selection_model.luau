@@ -2,7 +2,7 @@
 -- Shared selection decisions. Rendering never reconciles caller-owned values.
 local Compose = require("./vendor/compose/core")
 local model = {}
-function model.read(value, use)
+function model.read(value: any, use: Compose.Use?): any
 	if type(value) == "function" then
 		return if use then value(use) else Compose.sample(value)
 	end

@@ -50,6 +50,7 @@ sheet_model.TAGS = table.freeze({
 	-- seventh surface, which is what keeps `shape` from having to re-declare a
 	-- fill, a label colour and a hover treatment it does not change.
 	shapePrefix = "facet-shape-", -- + circle (the only non-default shape)
+	circleRim = "facet-circle-rim", -- legacy Button/ZStack shape chrome; painted leaves have no implicit rim
 	-- THE TYPOGRAPHY ROLE TAG (F2, 2026-08-02). `FontFace` is sheet-owned in
 	-- native mode, so a node's typography role — which carries the FACE as well as
 	-- the size — cannot reach paint as an explicit write. It reaches it as this
@@ -74,7 +75,58 @@ sheet_model.TAGS = table.freeze({
 		it: this is the floor under an otherwise invisible node, never a new
 		authority over one that was already painted. ]]
 	tintFill = "facet-tint-fill",
+	-- Closed partner-role classification for managed icon children.
+	letterPrefix = "facet-letters-", -- + readable partner or contentStrong
+	--[[ THE LOCAL SIZE AND EMPHASIS VOCABULARY (`src/controls/control_vocabulary.luau`).
+
+		A control may say it is smaller, quieter or louder than its neighbour WITHOUT
+		a theme swap. The SIZE half is metrics — the control names
+		`controlSizes.<rung>.*` and the solver resolves it — but a rung also changes
+		PAINT (a smaller plate wants a tighter corner), and paint keyed on a finite
+		state is a tag, never a per-node write. Same for the emphasis word.
+
+		ALL THREE RUNGS EARN A TAG, INCLUDING THE MIDDLE ONE, on the
+		`facet-type-<role>` precedent rather than the `facet-shape-rect` one: a rule
+		that restates the class default is inert under a package whose ladder shares
+		one chrome (Facet Neutral's `regular`) and load-bearing the moment a package
+		gives one rung its own. The tag appears only when a control AUTHORS a rung,
+		so nothing that predates this vocabulary wears one.
+
+		`appearance = "standard"` EARNS NOTHING, which is the other precedent and the
+		right one here: standard IS the paint every untagged control already has, so
+		a tag for it would be a rule with nothing to say. ]]
+	sizePrefix = "facet-size-", -- + compact|regular|large
+	appearancePrefix = "facet-appearance-", -- + emphasis|soft|utility|link (standard adds none)
+	-- ...and the one surface a control can say it is drawn ON TOP OF. A control
+	-- over artwork cannot lean on the theme's resting control fill, so it asks for
+	-- the strong opaque pair by name instead of hand-painting a scrim behind itself.
+	overMedia = "facet-over-media",
 })
+
+-- the emphasis word that IS the default paint, named once: `classifyTags` skips it
+-- and neither sheet builder emits a rule for it, and those two facts have to agree.
+sheet_model.DEFAULT_APPEARANCE = "standard"
+
+--[[ THE READABLE PARTNERS A STATUS PLATE CAN CARRY, in the order their rules are
+	emitted. The status vocabulary is six words over four plates (`info` and
+	`accent` share the accent; `neutral` is content on the page, which needs no
+	rule because `content` is what an icon already declares), so this is the whole
+	closed set — and it is what keeps the icon rules below a STATUS feature rather
+	than a per-node tint channel. ]]
+sheet_model.STATUS_LETTERS = table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong" })
+local STATUS_LETTER_ROLES: { [string]: boolean } = {}
+for _, role in sheet_model.STATUS_LETTERS do
+	STATUS_LETTER_ROLES[role] = true
+end
+sheet_model.STATUS_LETTER_ROLES = table.freeze(STATUS_LETTER_ROLES)
+
+-- the theme token one of those roles spends. Spelled here rather than read from
+-- the role-to-token map, because the legacy builder is DEFINED above that table
+-- and a later local is not an upvalue — the two are asserted equal where the map
+-- itself is declared, so they cannot drift.
+local function statusLetterToken(role: string): string
+	return "$" .. role:sub(1, 1):upper() .. role:sub(2)
+end
 
 --[[ THE BACKDROP RULE, named once. Both sheet builders emit it and the
 	adapter patches it live when the player moves their Background Transparency
@@ -241,6 +293,10 @@ export type ClassifyInput = {
 	-- or not. Drives `facet-slot-<slot>`, which is what gives a value control's
 	-- chrome its own native paint instead of borrowing a public surface's.
 	slotHint: string?,
+	-- this node's own tint names a STATUS's readable partner (see TAGS.letterPrefix):
+	-- the four `on*` roles a status plate can carry, and nothing else — the value
+	-- is the role NAME, so a rule can spend the matching token.
+	letterRole: string?,
 	-- the sixth variant state. `default/hover/pressed/selected/
 	-- disabled` all ride an engine GuiState or a tag the renderer already emits;
 	-- `error` has no engine state, so a control that has one publishes it here.
@@ -276,10 +332,22 @@ export type ClassifyInput = {
 	-- every Button already had; "circle" earns `facet-shape-circle`, which the
 	-- disc's phantom corner and hairline rules key on.
 	shape: string?,
+	shapeRim: boolean?, -- false for Box/Image; absent retains legacy circle chrome
 	-- THE TYPOGRAPHY ROLE this text node resolved to (F2, 2026-08-02): the name,
 	-- not the descriptor — the FACE lives in the generated rule, so measurement and
 	-- paint read the one ramp. nil for a node that draws no text.
 	typeRole: string?,
+	-- THE LOCAL SIZE RUNG this control was authored at (see TAGS): "compact" |
+	-- "regular" | "large", or nil for a control that named none and therefore keeps
+	-- the theme's own chrome. The METRICS of a rung are the solver's; this is only
+	-- the paint half.
+	controlSize: string?,
+	-- ...and its EMPHASIS word, which is paint and nothing else. "standard" is the
+	-- default every untagged control already wears, so it earns no tag.
+	appearance: string?,
+	-- the surface this control is drawn over ("media"), when it is not the theme's
+	-- own background. One word, one tag.
+	over: string?,
 }
 
 function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
@@ -312,6 +380,12 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- an explicit write of the class default never takes the property
 	if input.tinted == true then
 		tags[T.tintFill] = true
+	end
+	-- the STATUS LETTERING (see TAGS.letterPrefix): a closed set of four, so a
+	-- role this vocabulary does not know earns no tag rather than a rule nothing
+	-- ever wrote
+	if type(input.letterRole) == "string" and sheet_model.STATUS_LETTER_ROLES[input.letterRole :: string] then
+		tags[T.letterPrefix .. (input.letterRole :: string)] = true
 	end
 	-- the ERROR state's tag. Emitted only when a control says so,
 	-- so nothing a package published before this stage renders can carry it.
@@ -349,6 +423,28 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- cannot strip a disc back to a rectangle.
 	if input.shape ~= nil and input.shape ~= "rect" then
 		tags[T.shapePrefix .. input.shape] = true
+		if input.shapeRim ~= false then
+			tags[T.circleRim] = true
+		end
+	end
+	-- THE LOCAL SIZE RUNG (see TAGS): all three earn a tag, because a rung is
+	-- AUTHORED — a control that named none passes nil here and wears nothing.
+	if type(input.controlSize) == "string" and input.controlSize ~= "" then
+		tags[T.sizePrefix .. (input.controlSize :: string)] = true
+	end
+	-- ...and the EMPHASIS word, minus the default: `standard` is the paint an
+	-- untagged control already has, so a tag for it would be a rule with nothing
+	-- to say (the `facet-shape-rect` / `role = "default"` ruling).
+	if
+		type(input.appearance) == "string"
+		and input.appearance ~= ""
+		and input.appearance ~= sheet_model.DEFAULT_APPEARANCE
+	then
+		tags[T.appearancePrefix .. (input.appearance :: string)] = true
+	end
+	-- "I am drawn over artwork": one word, one tag, no second treatment vocabulary
+	if input.over == "media" then
+		tags[T.overMedia] = true
 	end
 	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
 	-- including the class defaults: a rule that restates the class default is inert
@@ -409,6 +505,31 @@ end
 -- there is a cycle (sheet_model already requires ../themes/package)
 local dangerPair = tokens.dangerPair
 sheet_model.dangerPair = dangerPair
+-- ...and the two SEMANTIC pairs beside it, for the same reason and through the
+-- same door: the theme-package compiler gates them at define time, this module
+-- gates them at build time, and the adapter's fallback palette spends the same
+-- answer. A theme that declared neither still resolves both (see tokens).
+local successPair = tokens.successPair
+local warningPair = tokens.warningPair
+sheet_model.successPair = successPair
+sheet_model.warningPair = warningPair
+--[[ THE SEMANTIC ROLES, each mapped to the pair it belongs to and which END of
+	that pair it is. Both readers spend it: the contrast gate runs on the
+	EFFECTIVE colours (a theme that omits a role is gated on what it will actually
+	paint), and the tint resolver is handed ONE role at a time and has to know
+	whether it was asked for the plate or for the colour that reads on it.
+
+	A plate and its partner in one row is the whole point — a destructive seal's
+	number, a warning badge's word and the gate that admitted them all read the
+	same decision, and white is a guess rather than a theme's answer. ]]
+local SEMANTIC_ROLE: { [string]: { pair: (any) -> (any, any), partner: boolean } } = {
+	danger = { pair = dangerPair, partner = false },
+	onDanger = { pair = dangerPair, partner = true },
+	success = { pair = successPair, partner = false },
+	onSuccess = { pair = successPair, partner = true },
+	warning = { pair = warningPair, partner = false },
+	onWarning = { pair = warningPair, partner = true },
+}
 
 local function lerp(a: any, b: { r: number, g: number, b: number }, t: number): TokenValue
 	return {
@@ -523,6 +644,13 @@ local function themeTokens(style: any): { [string]: TokenValue }
 		-- tokens use so a destructive button's states read as the same family
 		DangerHover = lerp((select(1, dangerPair(c))), { r = 1, g = 1, b = 1 }, 0.12),
 		DangerPressed = lerp((select(1, dangerPair(c))), { r = 0, g = 0, b = 0 }, 0.12),
+		-- the two SEMANTIC fills and their readable partners, from the same
+		-- effective pairs the gate runs on. No hover/press twins: neither is a
+		-- role a control can be PRESSED in — they are what a status IS
+		Success = color((select(1, successPair(c)))),
+		OnSuccess = color((select(2, successPair(c)))),
+		Warning = color((select(1, warningPair(c)))),
+		OnWarning = color((select(2, warningPair(c)))),
 		Surface = color(c.surface),
 		SurfaceStrong = color(c.surfaceStrong),
 		Content = color(c.content),
@@ -556,11 +684,14 @@ local function gateTheme(name: string, style: any)
 			{ "surfaceStrong", "contentStrong" },
 			{ "accent", "onAccent" },
 			{ "danger", "onDanger" },
+			{ "success", "onSuccess" },
+			{ "warning", "onWarning" },
 		}
 	do
 		local a, b = style.colors[pair[1]], style.colors[pair[2]]
-		if pair[1] == "danger" then
-			a, b = dangerPair(style.colors)
+		local semantic = SEMANTIC_ROLE[pair[1]]
+		if semantic ~= nil then
+			a, b = semantic.pair(style.colors)
 		end
 		local ratio = tokens.contrastRatio(a, b)
 		local ok = ratio >= 4.5
@@ -764,6 +895,22 @@ local function emitSlotSuppression(slot: string, emit: (Rule) -> ())
 	})
 end
 
+-- Managed pictures inherit a host's explicit partner lettering through native rules.
+-- Both builders append these after name colors and generated-content projections.
+local function emitStatusIconTint(emit: (Rule) -> ())
+	for _, role in sheet_model.STATUS_LETTERS do
+		local selector = `.{sheet_model.TAGS.letterPrefix}{role} > .{chrome_slots.ICON_PICTURE_TAG}`
+		sheet_model.checkSelector(selector, "Status lettering")
+		local allowed, reason = themePackage.lintProperty("ImageColor3", "chrome")
+		assert(allowed, reason)
+		emit({
+			name = `Status lettering — {role}`,
+			selector = selector,
+			props = { ImageColor3 = statusLetterToken(role) },
+		})
+	end
+end
+
 -- ===========================================================================
 -- THE CIRCLE BUTTON'S CHROME — ONE EMITTER, BOTH BUILDERS
 -- (feature round 2026-07-26; `UI.Button{ shape = "circle" }`)
@@ -811,7 +958,7 @@ local function emitShapeChrome(
 	})
 	emit({
 		name = "Circle button — hairline",
-		selector = `.{circle}::UIStroke`,
+		selector = `.{circle}.{sheet_model.TAGS.circleRim}::UIStroke`,
 		props = {
 			Color = "$Hairline",
 			Transparency = hairlineT,
@@ -824,12 +971,385 @@ local function emitShapeChrome(
 	end
 end
 
+-- ===========================================================================
+-- THE LOCAL SIZE / EMPHASIS CHROME — ONE EMITTER, BOTH BUILDERS
+-- (`src/controls/control_vocabulary.luau`; tags declared in TAGS above)
+-- ===========================================================================
+--
+-- FACET NEUTRAL IS THE REFERENCE, so it paints every tag it mints rather than
+-- leaving a package to discover which ones matter. Two families:
+--
+--   * the SIZE rungs carry a CORNER, each from a PUBLISHED radius and never from
+--     arithmetic on one. A rung changes the plate's height through the metric
+--     ladder, and a bigger plate wearing a smaller plate's radius reads as a
+--     stretched version of it rather than as its own control — so `large` takes
+--     the next published radius up (`radii.panel`) while `compact` and `regular`
+--     both take `radii.control`, which is all Facet Neutral publishes below it.
+--     THE THREE RULES EXIST EVEN WHERE TWO AGREE, on the `facet-type-<role>`
+--     precedent: a rule that restates what its neighbour says is inert under a
+--     package whose ladder shares one radius and load-bearing the moment a package
+--     gives a rung its own. A DERIVED number was tried and refused — `radii.control
+--     - space.xs` is not a paint-family number, so it does not ride the ten-foot
+--     1.5x the way every other corner in this sheet does (`space` is not a scaled
+--     section), and a corner that scales differently from its neighbours is the
+--     measure/paint split one property down. Every rung therefore also gets a
+--     live-edit push, which a derived value could never have had.
+--   * the EMPHASIS words carry a FILL AND ITS READABLE PARTNER, and every pair
+--     below is one this library already ships gated: emphasis is ($Accent,
+--     $OnAccent) — the theme contract's one guaranteed pair; soft is
+--     ($ControlSelected, $OnSelected) — the derived partner the "Selected row"
+--     rule already proves; utility is ($Surface, $ContentSecondary) — the shipped
+--     "Cancel button" pair, plus a hairline so a quiet control still has an edge;
+--     link paints NO plate at all and takes $Accent, which is what a text link is.
+--     No new palette role is invented for any of them.
+--
+-- ORDERING, WHICH IS THE CASCADE. Corners and the utility outline go in
+-- `surfaces`, BEFORE `emitShapeChrome`'s `roles`-group disc rules, so a compact
+-- circle is still a circle. The fills go in `roles`, after every surface fill they
+-- must beat and before the hover/press rules that still layer on top — the same
+-- placement the destructive role's own comment argues for.
+local function emitVocabularyChrome(
+	metrics: any,
+	hairlineT: RuleProp,
+	hairlineW: RuleProp,
+	emitSurface: (Rule) -> (),
+	emitRole: (Rule) -> (),
+	fromMetric: ((string, string, string, string) -> ())?
+)
+	local T = sheet_model.TAGS
+	local radii = metrics.radii
+	emitSurface({
+		name = "Control size — compact corner",
+		selector = `.{T.sizePrefix}compact::UICorner`,
+		props = { CornerRadius = udim(0, radii.control) },
+	})
+	emitSurface({
+		name = "Control size — regular corner",
+		selector = `.{T.sizePrefix}regular::UICorner`,
+		props = { CornerRadius = udim(0, radii.control) },
+	})
+	emitSurface({
+		name = "Control size — large corner",
+		selector = `.{T.sizePrefix}large::UICorner`,
+		props = { CornerRadius = udim(0, radii.panel) },
+	})
+	emitSurface({
+		name = "Utility control — outline",
+		selector = `.{T.appearancePrefix}utility::UIStroke`,
+		props = {
+			Color = "$Hairline",
+			Transparency = hairlineT,
+			Thickness = hairlineW,
+			ApplyStrokeMode = STROKE_BORDER,
+		},
+	})
+	if fromMetric ~= nil then
+		fromMetric("radii.control", "Control size — compact corner", "CornerRadius", "udimOffset")
+		fromMetric("radii.control", "Control size — regular corner", "CornerRadius", "udimOffset")
+		fromMetric("radii.panel", "Control size — large corner", "CornerRadius", "udimOffset")
+		fromMetric("strokes.hairline", "Utility control — outline", "Thickness", "number")
+	end
+	emitRole({
+		name = "Emphasis control",
+		selector = `.{T.appearancePrefix}emphasis`,
+		props = { BackgroundColor3 = "$Accent", BackgroundTransparency = num(0), TextColor3 = "$OnAccent" },
+	})
+	emitRole({
+		name = "Soft emphasis control",
+		selector = `.{T.appearancePrefix}soft`,
+		props = {
+			BackgroundColor3 = "$ControlSelected",
+			BackgroundTransparency = num(0),
+			TextColor3 = "$OnSelected",
+		},
+	})
+	emitRole({
+		name = "Utility control",
+		selector = `.{T.appearancePrefix}utility`,
+		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0), TextColor3 = "$ContentSecondary" },
+	})
+	--[[ A LINK HAS NO PLATE, and that is the one thing this rule exists to say.
+		Every Button leaf takes the `control` surface at create, so a link has to
+		un-paint it rather than merely decline one — and it says so with a
+		TRANSPARENCY, which a rule may write freely (the "a write equal to the class
+		default claims nothing" trap is about explicit per-node WRITES, not rules). ]]
+	emitRole({
+		name = "Link control",
+		selector = `.{T.appearancePrefix}link`,
+		props = { BackgroundTransparency = num(1), TextColor3 = "$Accent" },
+	})
+	--[[ OVER ARTWORK, THE PAIR IS THE POINT. A control drawn on a photograph cannot
+		borrow the contrast of a background the theme controls, so it takes the
+		gated ($SurfaceStrong, $ContentStrong) pair opaque — and its interaction
+		states move to the OTHER gated pair ($Surface, $Content) rather than to the
+		control ramp, so it stays readable through hover and press instead of
+		inheriting a fill chosen to sit on the theme's own background. ]]
+	emitRole({
+		name = "Control over media",
+		selector = `.{T.overMedia}`,
+		props = {
+			BackgroundColor3 = "$SurfaceStrong",
+			BackgroundTransparency = num(0),
+			TextColor3 = "$ContentStrong",
+		},
+	})
+end
+
+--[[ THE COMPOUND `role` x `appearance` RULES — the composition the docs print in
+	four places, made true in the cascade rather than asserted about a tag.
+
+	`role` is the SEMANTIC channel and `appearance` is EMPHASIS, so the two loud
+	words hand the plate to the role (a destructive emphasis button IS the danger
+	plate, which is what the shipped `Destructive button` rule already paints), and
+	the three quiet words keep their own plate while the role colours the CONTENT.
+	That is the quiet delete the guide describes: a utility plate carrying danger
+	lettering, a link with no plate and danger lettering, a soft tint with the same.
+
+	They are emitted AFTER the role rules, which is the only reason they win: the
+	cascade is priority then insertion order, and a compound selector earns no
+	specificity here. Round 1 omitted them, so `Destructive button` landed last and
+	a destructive link painted $OnDanger — a colour gated only against $Danger — on
+	no plate at all. ]]
+local function emitVocabularyRoles(emitRole: (Rule) -> ())
+	local A = sheet_model.TAGS.appearancePrefix
+	emitRole({
+		name = "Destructive utility",
+		selector = `.facet-role-destructive.{A}utility`,
+		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0), TextColor3 = "$Danger" },
+	})
+	emitRole({
+		name = "Destructive soft",
+		selector = `.facet-role-destructive.{A}soft`,
+		props = { BackgroundColor3 = "$ControlSelected", BackgroundTransparency = num(0), TextColor3 = "$Danger" },
+	})
+	-- no `BackgroundColor3` at all: a link's plate is its absence, and naming a
+	-- colour for a plate nobody paints is how a later rule finds one to reveal
+	emitRole({
+		name = "Destructive link",
+		selector = `.facet-role-destructive.{A}link`,
+		props = { BackgroundTransparency = num(1), TextColor3 = "$Danger" },
+	})
+end
+
+--[[ THE INTERACTION STATES, EMITTED AFTER THE GENERIC ONES IN BOTH BUILDERS.
+
+	`Control — hover`/`Control — pressed` key on the INTERACTIVE tag, not on the
+	appearance, so an emphasis button hovered without a later rule repaints itself
+	neutral — the defect the shipped `Destructive — hover` pair exists to prevent,
+	one axis over. Every word gets a pair, and each pair carries the READABLE
+	PARTNER of whatever fill it names: that is the half the generic rule cannot do,
+	because it changes the plate and leaves the resting content colour on it.
+
+	`soft` and `utility` deliberately hand their plate BACK to the control ramp on
+	interaction — a quiet control becoming an ordinary one is the right read for a
+	press — and the rule exists to carry $Content with it rather than to stop the
+	fill moving. `link` changes only its lettering; the resting rule keeps its
+	plate invisible.
+
+	SEPARATE FROM `emitVocabularyChrome` because the two halves belong at different
+	points in the cascade, and `buildPackage` emits the generic states hundreds of
+	rules after its surfaces. Round 1 emitted both halves at the surface point, so
+	under EVERY installed package all ten rules were dead. ]]
+local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -> (), pointerLive: string)
+	local T = sheet_model.TAGS
+	local A = T.appearancePrefix
+	--[[ THE HOVER EASES THE PROPERTY THE RULE ACTUALLY WRITES. A blanket
+		`BackgroundColor3 = "fast"` declared a transition for a property a link's rule
+		never names, and left the one it does name — its lettering — snapping. A rule
+		says which channel it moved; the transition follows it. ]]
+	local function pair(name: string, selector: string, hover: { [string]: RuleProp }, press: { [string]: RuleProp })
+		local eased = if hover.BackgroundColor3 ~= nil then "BackgroundColor3" else "TextColor3"
+		emitHover({
+			name = `{name} — hover`,
+			selector = `TextButton.{selector}.{pointerLive}:Hover`,
+			props = hover,
+			transitions = { [eased] = "fast" },
+		})
+		emitPress({ name = `{name} — pressed`, selector = `TextButton.{selector}:Press`, props = press })
+	end
+	pair(
+		"Emphasis",
+		`{A}emphasis`,
+		{ BackgroundColor3 = "$AccentHover", TextColor3 = "$OnAccent" },
+		{ BackgroundColor3 = "$AccentPressed", TextColor3 = "$OnAccent" }
+	)
+	pair(
+		"Soft",
+		`{A}soft`,
+		{ BackgroundColor3 = "$ControlHover", TextColor3 = "$Content" },
+		{ BackgroundColor3 = "$ControlPressed", TextColor3 = "$Content" }
+	)
+	pair(
+		"Utility",
+		`{A}utility`,
+		{ BackgroundColor3 = "$ControlHover", TextColor3 = "$Content" },
+		{ BackgroundColor3 = "$ControlPressed", TextColor3 = "$Content" }
+	)
+	--[[ A LINK'S STATES MOVE ONLY ITS LETTERING, and that is a rule about the SHEET
+		rather than a preference: no `:Hover`/`:Press` rule either builder emits may
+		carry a `BackgroundTransparency`, because the catcher-paint oracle resolves a
+		resting fill by skipping every state rule and would report the wrong number
+		for a node that was painting one (`tests/popup_catcher_paint.spec`). The plate
+		stays invisible anyway — the resting `Link control` rule owns the
+		transparency and nothing in the control ramp touches it. ]]
+	pair("Link", `{A}link`, { TextColor3 = "$AccentHover" }, { TextColor3 = "$AccentPressed" })
+	-- over artwork the states move to the OTHER gated pair rather than to the
+	-- control ramp, so the control stays readable on a photograph it cannot see
+	pair(
+		"Over media",
+		T.overMedia,
+		{ BackgroundColor3 = "$Surface", TextColor3 = "$Content" },
+		{ BackgroundColor3 = "$SurfaceStrong", TextColor3 = "$ContentStrong" }
+	)
+	--[[ ...AND THE ROLE SURVIVES THE CLICK, which is the other half of the same
+		argument and belongs in this emitter rather than beside it: these rules must
+		land immediately after the per-word ones, and the only way to guarantee that
+		in two builders is to emit them from the same call.
+
+		`emitVocabularyRoles` composes `role` with `appearance` AT REST — the loud
+		words hand the plate to the role, the quiet ones keep their plate and let the
+		role colour the content. The per-word state rules above name those same two
+		channels and are emitted later, so without these a hovered quiet delete became
+		an ordinary neutral control, a destructive link's lettering turned ACCENT, and
+		a destructive emphasis button hovered accent rather than danger. Touch has no
+		hover, but `:Press` behaves identically, so every device saw it.
+
+		EACH PAIR KEEPS THE DANGER SIGNAL ON THE CHANNEL ITS WORD LEAVES FREE, and
+		moves it with the state so the control still acknowledges the press.
+		`standard` needs no pair: it mints no appearance tag, so the shipped
+		`Destructive — hover/pressed` rules are already the last word on it. And none
+		of them carries a transparency — see the link note above. ]]
+	local function rolePair(word: string, hover: { [string]: RuleProp }, press: { [string]: RuleProp })
+		pair(`Destructive {word}`, `facet-role-destructive.{A}{word}`, hover, press)
+	end
+	-- the role owns the PLATE here, so the danger family moves on the plate and
+	-- carries its gated partner with it
+	rolePair(
+		"emphasis",
+		{ BackgroundColor3 = "$DangerHover", TextColor3 = "$OnDanger" },
+		{ BackgroundColor3 = "$DangerPressed", TextColor3 = "$OnDanger" }
+	)
+	-- ...and here the WORD owns the plate, so the danger signal is the lettering and
+	-- the plate is left to the per-word rule above
+	rolePair("soft", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
+	rolePair("utility", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
+	rolePair("link", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
+end
+
 export type BuildOpts = {
 	-- ordered; the FIRST theme is the base/default unless defaultTheme names another
 	themes: { { name: string, style: any } },
 	defaultTheme: string?,
 	-- the display class this sheet is painted for; see BuildPackageOpts.displaySize
 	displaySize: string?,
+}
+
+-- Generated primary content is logically owned by a Button even when native
+-- instances are flat siblings. Only classification/state travels; paint stays in
+-- the sheet. This is semantic control paint, not arbitrary StyleRule inheritance.
+sheet_model.CONTENT_OWNER_PREFIX = "facet-content-owner-"
+sheet_model.CONTENT_TEXT_TAG = "facet-control-content-text"
+sheet_model.CONTENT_ICON_TAG = "facet-control-content-icon"
+sheet_model.CONTENT_ART_TAG = "facet-control-content-art"
+function sheet_model.contentTags(tags: { string }, state: string): { [string]: boolean }
+	local out = { [sheet_model.CONTENT_OWNER_PREFIX .. "button"] = true }
+	for _, tag in tags do
+		if string.sub(tag, 1, 6) == "facet-" then
+			out[sheet_model.CONTENT_OWNER_PREFIX .. tag] = true
+		end
+	end
+	if state == "Hover" or state == "Press" or state == "NonInteractable" then
+		out[sheet_model.CONTENT_OWNER_PREFIX .. "state-" .. state] = true
+	end
+	return out
+end
+
+local function projectContentRules(rules: { Rule })
+	local hasLift = false
+	for _, rule in rules do
+		hasLift = hasLift or string.find(rule.selector, "." .. chrome_slots.TAGS.text, 1, true) ~= nil
+	end
+	local count = #rules
+	for i = 1, count do
+		local source = rules[i]
+		if source.props.TextColor3 == nil and source.props.TextTransparency == nil then
+			continue
+		end
+		local selector = source.selector
+		local rest = string.gsub(selector, "^TextButton", "")
+		rest = string.gsub(rest, "%.facet[%w%-]+", "")
+		rest = string.gsub(rest, ":Hover", "")
+		rest = string.gsub(rest, ":Press", "")
+		rest = string.gsub(rest, ":NonInteractable", "")
+		-- Only simple owner selectors: no TextLabel/TextBox defaults, descendants,
+		-- phantom modifiers, or author combinators silently reinterpreted as ownership.
+		if rest ~= "" then
+			continue
+		end
+		selector = string.gsub(selector, "%.(facet[%w%-]+)", function(tag)
+			return "." .. sheet_model.CONTENT_OWNER_PREFIX .. tag
+		end)
+		selector = string.gsub(selector, "^TextButton", "." .. sheet_model.CONTENT_OWNER_PREFIX .. "button")
+		selector = string.gsub(selector, ":(%a+)", "." .. sheet_model.CONTENT_OWNER_PREFIX .. "state-%1")
+		for _, channel in
+			{
+				{ "text", sheet_model.CONTENT_TEXT_TAG, "TextColor3", "TextColor3", "rule" },
+				{ "icon", sheet_model.CONTENT_ICON_TAG, "ImageColor3", "TextColor3", "chrome" },
+				{ "icon opacity", sheet_model.CONTENT_ART_TAG, "ImageTransparency", "TextTransparency", "chrome" },
+				{ "lift", "", "TextColor3", "TextColor3", "rule" },
+				{ "lift opacity", "", "TextTransparency", "TextTransparency", "rule" },
+			}
+		do
+			local value = source.props[channel[4]]
+			local buttonSelector = string.sub(source.selector, 1, 10) == "TextButton"
+			-- Only the control's own opacity decision reaches art. Glyph-suppression
+			-- and ordinary subtree text rules must never make its image transparent.
+			if
+				value == nil
+				or (channel[2] == "" and not hasLift)
+				or (channel[4] == "TextTransparency" and not buttonSelector)
+			then
+				continue
+			end
+			local transition = source.transitions and source.transitions[channel[4]]
+			local contentSelector = if channel[2] == ""
+				then (if buttonSelector then source.selector else "TextButton" .. source.selector)
+					.. " > ."
+					.. chrome_slots.TAGS.text
+				else "." .. channel[2] .. selector
+			sheet_model.checkSelector(contentSelector, source.name)
+			local allowed, reason = themePackage.lintProperty(channel[3], channel[5])
+			assert(allowed, reason)
+			sheet_model.checkContentValue(source.name, channel[3], value)
+			table.insert(rules, {
+				name = "Control content " .. channel[1] .. " — " .. source.name,
+				selector = contentSelector,
+				props = { [channel[3]] = value },
+				transitions = if transition then { [channel[3]] = transition } else nil,
+				priority = (#rules + 1) * 10,
+			})
+		end
+	end
+end
+
+local TINT_ROLE_TOKEN: { [string]: string } = {
+	surface = "$Surface",
+	surfaceStrong = "$SurfaceStrong",
+	content = "$Content",
+	contentStrong = "$ContentStrong",
+	contentSecondary = "$ContentSecondary",
+	accent = "$Accent",
+	onAccent = "$OnAccent",
+	onDanger = "$OnDanger",
+	success = "$Success",
+	onSuccess = "$OnSuccess",
+	warning = "$Warning",
+	onWarning = "$OnWarning",
+	control = "$Control",
+	controlSelected = "$ControlSelected",
+	onSelected = "$OnSelected",
+	danger = "$Danger",
+	hairline = "$Hairline",
 }
 
 function sheet_model.build(opts: BuildOpts): Model
@@ -1031,9 +1551,23 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- cascade position: after every surface fill it must beat, and before the
 	-- scrim and the `Grip focus` accent that must still beat IT.
 	local hairlineT, hairlineW = num(numbers.HairlineTransparency), num(base.strokes.hairline)
+	--[[ THE LOCAL SIZE / EMPHASIS CHROME (see emitVocabularyChrome). The base seed
+		pushes into ONE flat ordered list, so the emitter's groups are collected first
+		and spliced at the points the cascade needs them: the corners before the
+		disc's, the fills after every surface fill, and the compound role rules and
+		the interaction states each after the rules they must beat. ]]
+	local vocabSurfaces: { Rule }, vocabRoles: { Rule } = {}, {}
+	local function into(list: { Rule }): (Rule) -> ()
+		return function(rule: Rule)
+			table.insert(list, rule)
+		end
+	end
+	emitVocabularyChrome(base, hairlineT, hairlineW, into(vocabSurfaces), into(vocabRoles))
+	pushAll(vocabSurfaces)
 	-- THE DISC'S CHROME, immediately after every surface corner it has to beat
 	-- and before anything that changes only colour (see emitShapeChrome)
 	emitShapeChrome(base, hairlineT, hairlineW, push)
+	pushAll(vocabRoles)
 	for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 		emitOwnSlotPaint(slot, base, hairlineT, hairlineW, push)
 	end
@@ -1112,6 +1646,9 @@ function sheet_model.build(opts: BuildOpts): Model
 			props = { TextColor3 = "$OnAccent" },
 		},
 	})
+	-- the compound role x appearance rules, immediately after the roles they must
+	-- beat (see emitVocabularyRoles)
+	emitVocabularyRoles(push)
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO — PRE-ARMED, exactly as
 	-- in `buildPackage` (director round 5). The base seed needs it for the same
@@ -1165,6 +1702,12 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = "TextButton.facet-role-destructive:Press",
 			props = { BackgroundColor3 = "$DangerPressed" },
 		},
+	})
+	-- ...and the emphasis words' own interaction states, beside the role's and for
+	-- the same reason (see emitVocabularyStates). After the generic control ramp,
+	-- before the disabled group which must still beat every interaction state.
+	emitVocabularyStates(push, push, T.pointerLive)
+	pushAll({
 		{
 			name = "Disabled button",
 			selector = "TextButton:NonInteractable",
@@ -1234,6 +1777,34 @@ function sheet_model.build(opts: BuildOpts): Model
 	table.insert(mirrors, { name = "TargetMinimum", value = base.targetSizes.minimum })
 	table.insert(mirrors, { name = "MotionFast", value = base.motion.fast })
 	table.insert(mirrors, { name = "MotionNormal", value = base.motion.normal })
+
+	-- No-package art uses the same resolver and checked token vocabulary.
+	local iconNames: { string } = {}
+	for name in themePackage.ICON_FALLBACK_GLYPHS do
+		table.insert(iconNames, tostring(name))
+	end
+	table.sort(iconNames)
+	for _, name in iconNames do
+		local resolved = themePackage.resolveIcon(nil, name)
+		if resolved and resolved.source == "asset" and resolved.tintRole ~= nil then
+			local token = TINT_ROLE_TOKEN[resolved.tintRole]
+			assert(token, `sheet_model.build: icon '{name}' names unknown tintRole '{resolved.tintRole}'`)
+			push({
+				name = `Icon — {name}`,
+				selector = "." .. chrome_slots.iconTagFor(name),
+				props = {
+					ImageColor3 = token,
+				},
+			})
+		end
+	end
+
+	projectContentRules(rules)
+	-- Explicit partner lettering wins over both name tint and generated-owner color.
+	emitStatusIconTint(function(rule: Rule)
+		rule.priority = (#rules + 1) * 10
+		table.insert(rules, rule)
+	end)
 
 	-- deterministic stamp over everything the generator writes
 	local parts: { string } = {}
@@ -1430,20 +2001,6 @@ end
 -- token that carries it. Anything else is an authoring error rather than a
 -- silent white, because a tint that silently does nothing is invisible in
 -- review and obvious only on a device.
-local TINT_ROLE_TOKEN: { [string]: string } = {
-	surface = "$Surface",
-	surfaceStrong = "$SurfaceStrong",
-	content = "$Content",
-	contentStrong = "$ContentStrong",
-	contentSecondary = "$ContentSecondary",
-	accent = "$Accent",
-	onAccent = "$OnAccent",
-	control = "$Control",
-	controlSelected = "$ControlSelected",
-	onSelected = "$OnSelected",
-	danger = "$Danger",
-	hairline = "$Hairline",
-}
 
 -- The chrome tint ladder lives in chrome_slots, because the explicit-write
 -- fallback path needs the same resting value these rules paint. Every slot
@@ -1564,9 +2121,13 @@ function sheet_model.paletteColor(theme: any, role: string): any
 	if type(extra) == "table" and type(extra.r) == "number" then
 		return { r = extra.r, g = extra.g, b = extra.b }
 	end
-	if role == "danger" then
-		local danger = dangerPair(if type(c) == "table" then c else {})
-		return { r = danger.r, g = danger.g, b = danger.b }
+	local semantic = SEMANTIC_ROLE[role]
+	if semantic then
+		local plate, on = semantic.pair(if type(c) == "table" then c else {})
+		local answer = if semantic.partner then on else plate
+		if type(answer) == "table" and type(answer.r) == "number" then
+			return { r = answer.r, g = answer.g, b = answer.b }
+		end
 	end
 	-- `onSelected` is the SAME decision `$OnSelected` carries (the theme's own
 	-- readable partner for its selected surface), reached as a tint so a child
@@ -2176,9 +2737,19 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- the disc's chrome, in the group right after the surfaces whose corners it
 	-- replaces and right before `chrome`, whose skinned-slot suppression must
 	-- still beat it (see emitShapeChrome)
+	-- Preserve the base seed's cascade order: vocabulary surfaces, shape, then roles.
+	local vocabRoleRules: { Rule } = {}
+	emitVocabularyChrome(metrics, hairlineT, hairlineW, function(rule: Rule)
+		emit("surfaces", rule)
+	end, function(rule: Rule)
+		table.insert(vocabRoleRules, rule)
+	end, fromMetric)
 	emitShapeChrome(metrics, hairlineT, hairlineW, function(rule: Rule)
 		emit("roles", rule)
 	end, fromMetric)
+	for _, rule in vocabRoleRules do
+		emit("roles", rule)
+	end
 	for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 		emitOwnSlotPaint(slot, metrics, hairlineT, hairlineW, function(rule: Rule)
 			emit("surfaces", rule)
@@ -2239,6 +2810,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextButton." .. ON_INDICATOR_TAG,
 		props = { TextColor3 = "$OnAccent" },
 	})
+	-- the compound role x appearance rules, immediately after the roles they must
+	-- beat — the same position and the same emitter as the base seed's
+	emitVocabularyRoles(function(rule: Rule)
+		emit("roles", rule)
+	end)
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
 	-- 2026-07-25). The three `Slot — <slot>` rules above are the ACCESSIBILITY
@@ -2804,6 +3380,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextButton.facet-role-destructive:Press",
 		props = { BackgroundColor3 = "$DangerPressed" },
 	})
+	-- ...and the emphasis words', from the SAME emitter the base seed uses and at
+	-- the same position relative to the generic control ramp (see
+	-- emitVocabularyStates for why the two halves cannot share one call site)
+	emitVocabularyStates(function(rule: Rule)
+		emit("hover", rule)
+	end, function(rule: Rule)
+		emit("press", rule)
+	end, T.pointerLive)
 	-- Chrome interaction states. The decoration child is Active=false and can
 	-- never report a GuiState of its own, so the state is read from its PARENT
 	-- and reaches the child through the child combinator. One base image, four
@@ -3039,6 +3623,13 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			rule.priority = #rules * 10
 		end
 	end
+
+	projectContentRules(rules)
+	-- Explicit partner lettering wins over both name tint and generated-owner color.
+	emitStatusIconTint(function(rule: Rule)
+		rule.priority = (#rules + 1) * 10
+		table.insert(rules, rule)
+	end)
 
 	-- ----- mirrors: what the Style Editor SHOWS about this package ---------
 	local mirrors: { { name: string, value: number } } = {}

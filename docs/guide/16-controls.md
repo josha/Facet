@@ -58,7 +58,50 @@ for `ref` for an ordinary control that only needs properties and callbacks.
 | [`UI.Button`](../reference/api.md#uibutton) | Any action, from a plain label to a busy or repeating command. | Required `onActivate`; `label`, `enabled`, semantic `role`, `busy`, `repeatDelay`, `repeatInterval`, `shortcut`, `dialogAction`, `children`, `image`, `icon`, `shape` and `pop`. Busy state gates activation. Shortcut ownership follows the active surface. `dialogAction = "default"` or `"cancel"` is an input behavior, not automatic dialog layout. `pop = true` kicks a paint-only release overshoot on the initial press only — a held repeat button pops once, not on every pulse. `children` replaces the painted label with composed content; keep `label` as the action's readable name. |
 | [`UI.SplitButton`](../reference/api.md#uisplitbutton) | A primary action beside a separate menu. | `label`, `onActivate`, `items`, `enabled`, `busy`, `shortcut`, `menuLabel`, and `env`. The primary action and menu remain separate focusable targets. |
 | [`UI.Toggle`](../reference/api.md#uitoggle) | An on/off setting. | Caller-owned `value` cell; `presentation = "switch"`, `"checkbox"`, or `"button"`; `label`, `enabled`, `onChange`. Checkbox accepts a separate `mixed` cell. Only the button presentation accepts composed `children`. |
-| [`UI.Chip`](../reference/api.md#uichip) | An independently selected filter or small action pill. | Caller-owned `selected`, `label`, `enabled`, and `onToggle`. Use Picker when choices must be mutually exclusive. |
+| [`UI.Chip`](../reference/api.md#uichip) | An independently selected filter or small action pill. | Caller-owned `selected`, `label`, `enabled`, and `onToggle`, plus `leading`/`trailing` static content. Use Picker when choices must be mutually exclusive. |
+
+### Local size, emphasis, silhouette and backdrop
+
+One screen often needs a compact filter beside a large primary action. Four
+optional keys say that locally, so you do not swap the theme to change one
+control. They are shared vocabulary: every control that takes them takes the same
+words with the same meanings, and leaving them out keeps exactly the control you
+have today.
+
+```lua
+UI.Button { label = "Start race", appearance = "emphasis", controlSize = "large", onActivate = start }
+UI.Button { label = "Cancel", appearance = "utility", controlSize = "compact", onActivate = back }
+UI.Button { icon = "close", name = "Close", corners = "pill", controlSize = "compact", onActivate = close }
+UI.Chip { label = "Rain", selected = raining, controlSize = "compact" }
+```
+
+- **`controlSize`** is `"compact" | "regular" | "large"` and resolves to your
+  theme's own ladder (`controlSizes.<rung>.{height,paddingX,iconSize}`) by NAME, so
+  installing a different theme package re-sizes the control with no rebuild. An
+  authored `height` still wins. `regular` uses the middle rung (44px at Facet
+  Neutral); omitting the key keeps content plus theme padding (46px for a Neutral
+  Button). Choose a rung consistently across a row. Custom children retain their
+  theme vertical padding unless explicit padding is supplied.
+- **`appearance`** is emphasis only. `role` stays the semantic channel, and the two
+  compose: `role = "destructive", appearance = "utility"` is a quiet delete.
+- **`corners`** is `"pill"` or `"square"` — the corner treatment. A 1:1 disc is
+  still `UI.Button{ shape = "circle" }`.
+- **`over = "media"`** is for a control drawn on artwork: it takes the theme's
+  strong opaque surface and the content colour gated against it.
+
+A `compact` control can paint below the effective touch floor, and the floor is
+not given up: a control that names a rung is mounted inside a container that
+reserves the larger of the class minimum (44px) and `targetSizes.minimum` on both axes and centres the smaller plate in it. So a compact
+chip is exactly as easy to tap as a regular one, two of them side by side can
+never share a target however tightly you pack them, and what you gain is the
+*look* of a denser row rather than a shorter one.
+
+A theme package needs no edits to work with these words. Facet compiles a default
+rule for every one of the tags into **every** package's sheet, written entirely in
+that package's own palette tokens — so Pixel Quest wears Pixel Quest's accent and
+Fantasy Ornate wears its own surface and hairline, with nothing to install and
+nothing to decline. A package that wants a different treatment emits its own rule
+for the tag; the cascade is insertion order, so the package's own rule wins.
 
 Text plus an icon can be composed inside a button without adding another
 activation target:
@@ -70,11 +113,35 @@ UI.Button {
 }
 ```
 
-`UI.Label` takes a fixed nonempty `title`, optional image asset `icon`,
+`UI.Label` takes an initially nonempty `title` (string, Compose readable or tracked function),
+an optional semantic icon name or image asset URL in `icon`,
 `presentation = "titleAndIcon" | "titleOnly" | "iconOnly"`, and theme-compatible
 `iconSize`, `textSize` and `gap`. If no icon exists, icon-only safely shows the
-title. Its title and presentation are construction-time choices. For live text,
-compose a bound `UI.Text` directly. See [Label](../reference/api.md#uilabel).
+title. The title updates visual and accessible text together; presentation and
+icon meaning are construction-time choices. See [Label](../reference/api.md#uilabel).
+
+### Shortcut hints and links
+
+Use [`UI.ShortcutHint`](../reference/api.md#uishortcuthint) to name a live action's
+key without binding it again: `UI.ShortcutHint("OpenHint")({ action = "Activate" })`.
+For caller-owned shortcuts, pass `keys = {{ "Ctrl", "K" }, { "F1" }}` and optionally
+bind `separator` to a localized word. `controlSize` follows the compact/regular/large
+icon ladder; these passive caps do not reserve button hit targets.
+
+A link is [`UI.Button`](../reference/api.md#uibutton) with `appearance = "link"`.
+Its normal activation callback owns navigation; the framework neither interprets
+URLs nor chooses where to send the player. For example, inside an app component:
+
+```lua
+UI.Button("Guide")({
+    label = "Open guide",
+    appearance = "link",
+    onActivate = function() page:set("guide") end,
+})
+```
+
+The [keys and labels recipe](../../examples/gallery/scenarios/shortcut_hint.luau)
+also appears in the existing Actions gallery page.
 
 ## Text entry
 
@@ -148,7 +215,7 @@ for a menu-shaped selection control: the Picker's `menu` style already supplies 
 | [`UI.VirtualList`](../reference/api.md#uivirtuallist) | Keyed `rows` (or `items`), a `cell(item, ctx)` builder and a declared `itemExtent`; builds the visible band on either axis. `item` is the record as it stands; `ctx.current` is a `function(use)` that follows later edits and `ctx.scope` is the row's Compose owner. Configure gaps, focus policy, snapping and supported row actions. Keep durable item state outside cells. |
 | [`UI.VirtualGrid`](../reference/api.md#uivirtualgrid) | Windowed keyed cells in an adaptive grid, with declared extents, gap, axis and snapping configuration. |
 | [`UI.RowActions`](../reference/api.md#uirowactions) | Wrap `content` with `leading`/`trailing` action arrays; configure `fullSwipe`, shared `coordinator`, `editing`, and `env`. Each action declares its label, optional icon, role and callback. Keyboard/gamepad users reach the same actions through the action menu. |
-| [`UI.ScrollView`](../reference/api.md#scrollview) | Native scrolling, clipping, axis and indicator configuration. It does not virtualize arbitrary children. A presented controller supplies `scrollTo` and `scrollToVisible`; collection APIs can reveal off-window items by identity. |
+| [`UI.ScrollView`](../reference/api.md#scrollview) | Native scrolling and clipping on `x`, `y` or `xy`; a bound `scrollEnabled` freezes player scrolling without losing position. Static `extent` specifies the canvas only on scrolling axes. `indicators` is one `auto`/`none` word for both axes. It does not virtualize arbitrary children. A presented controller supplies `scrollTo` and `scrollToVisible`; collection APIs can reveal off-window items by identity. |
 
 A form is a composition. Combine a ScrollView, stacks or grid rows, TextInput,
 Toggle, Picker and buttons. Baseline alignment keeps differently sized label text
@@ -180,3 +247,5 @@ phone, tablet, desktop and ten-foot facts, and use `dump()` for inspectable cont
 state. Headless tests establish logic; Studio and physical-device observations
 are separate evidence, as [device verification](11-device-verification.md)
 explains.
+
+[Common composition recipes](17-recipes.md) covers action rows, independent settings, chip groups, empty states, divider insets, and single-open accordions.

@@ -431,8 +431,18 @@ describe("inherited_subtree showcase: standing rule 4 — registered in all thre
 		local inOrder = string.find(orderBlock :: string, '"inherited_subtree"', 1, true) ~= nil
 
 		local catalog = require("../examples/gallery/scenarios/motion_layout")
+		local embedded
+		for _, group in catalog.groups do
+			if group.id == "layout" then
+				for _, entry in group.tabs do
+					if entry.id == "inheritance" then
+						embedded = entry.scenario
+					end
+				end
+			end
+		end
 		local inDemos = demo_picker.find("motion-layout") ~= nil
-			and catalog.groups[2].tabs[3].scenario == require("../examples/gallery/scenarios/inherited_subtree")
+			and embedded == require("../examples/gallery/scenarios/inherited_subtree")
 
 		local sweepSource = fs.readFile("tests/overflow_sweep.spec.luau")
 		local sweepBlock = string.match(sweepSource, "local SCENARIOS = (%b{})")

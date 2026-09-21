@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-15T00:00:00Z",
+ "maintainedAt": "2026-09-21T00:50:00Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -4695,8 +4695,13 @@
    "inputs": [
     "../../../games/RascalRally/code/src/**",
     "../../../games/RascalRally/code/tests/**",
+    "../../../games/RascalRally/code/default.project.json",
+    "../../../games/RascalRally/code/places/*.project.json",
+    "../../../games/RascalRally/code/run-tests.sh",
+    "../../../games/RascalRally/code/tools/suite_transcript.sh",
     "src/**",
-    "tests/**"
+    "tests/**",
+    "examples/themes/**"
    ],
    "kind": "external",
    "note": "required by the release graph",
@@ -4894,9 +4899,33 @@
     "examples/consumer/**",
     "examples/performance/**",
     "examples/table_phaseb/**",
+    "examples/virtual_monitors/**",
     "examples/showcase.project.json",
     "examples/gallery.project.json",
     "examples/performance.project.json",
+    "examples/README.md",
+    "docs/guide/**",
+    "docs/reference/**",
+    "docs/extending/**",
+    "docs/MAINTAINERS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "tools/lune/**/*.luau",
+    "tools/lune/verify/graph.json",
+    "tools/build_reference_places.sh",
+    "tools/test.sh",
+    "tools/sync_compose.py",
+    "skills/compose/**",
+    "bench/**/*.luau",
+    "assets/themes/plate-samples.json",
+    "assets/themes/*/*.png",
+    "assets/themes/*/*.json",
+    "assets/themes/*/*.md",
+    "assets/themes/*/source/*.py",
+    "assets/icons/*.png",
+    "assets/icons/*.json",
+    "assets/icons/*.md",
+    "assets/icons/source/*.py",
     "run-tests.sh",
     "rokit.toml"
    ],
@@ -4927,9 +4956,33 @@
     "examples/consumer/**",
     "examples/performance/**",
     "examples/table_phaseb/**",
+    "examples/virtual_monitors/**",
     "examples/showcase.project.json",
     "examples/gallery.project.json",
     "examples/performance.project.json",
+    "examples/README.md",
+    "docs/guide/**",
+    "docs/reference/**",
+    "docs/extending/**",
+    "docs/MAINTAINERS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "tools/lune/**/*.luau",
+    "tools/lune/verify/graph.json",
+    "tools/build_reference_places.sh",
+    "tools/test.sh",
+    "tools/sync_compose.py",
+    "skills/compose/**",
+    "bench/**/*.luau",
+    "assets/themes/plate-samples.json",
+    "assets/themes/*/*.png",
+    "assets/themes/*/*.json",
+    "assets/themes/*/*.md",
+    "assets/themes/*/source/*.py",
+    "assets/icons/*.png",
+    "assets/icons/*.json",
+    "assets/icons/*.md",
+    "assets/icons/source/*.py",
     "run-tests.sh",
     "rokit.toml"
    ],
@@ -5761,7 +5814,7 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "shell": "cd ../../../games/RascalRally/code && grep -q '✓.*open/close churn is registry-neutral' \"$FACET_VERIFY_RR_TRANSCRIPT\""
+    "shell": "cd ../../../games/RascalRally/code && grep -q '✓.*open/close churn returns public ownership and live targets to baseline' \"$FACET_VERIFY_RR_TRANSCRIPT\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -6069,7 +6122,7 @@
      "bench",
      "rascalrally-suite"
     ],
-    "shell": "(cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" | grep -q '✓.*open/close churn is registry-neutral')"
+    "shell": "(cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" | grep -q '✓.*open/close churn returns public ownership and targets to baseline')"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/bench.json",
@@ -8238,7 +8291,9 @@
      "adaptive::A-AL3: pure adaptive decisions (no device names)::a ten-foot display never resolves the densest class, however wide it is",
      "adaptive::A-AL2: AdaptiveStack changes axis without rebuilding anything::flipping the bound axis re-solves WITHOUT a factory rerun or a remount",
      "adaptive::A-AL1: ViewThatFits::measures against the CONTAINER's space, not the viewport's",
-     "adaptive::A-AL1: ViewThatFits::an unchosen candidate's focusables are removed from focus order"
+     "adaptive::A-AL1: ViewThatFits::an unchosen candidate's focusables are removed from focus order",
+     "container_grid::measured container grid recipe::three simultaneous widths choose their own columns and measured tracks",
+     "container_grid::measured container grid recipe::debug-on resize updates actual bands and zero span removes/re-enters a branch"
     ],
     "shell": "test -f src/layout/adaptive.luau && grep -q \"adaptive = require\" src/init.luau && grep -q \"AdaptiveStack\" src/blueprint_schema.luau && grep -q \"ViewThatFits\" src/blueprint_schema.luau && grep -q \"chosenCandidate\" src/layout/solver.luau && grep -q \"filterHidden\" src/present/presenter.luau"
    },
@@ -8246,7 +8301,7 @@
    "evidence": "artifacts/authoring-adaptive-ui/a-al2-adaptive.json",
    "id": "authoring-adaptive-ui::adaptive-layout",
    "name": "adaptive-layout",
-   "note": "adaptive-layout: 4 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/a-al2-adaptive.json must exist. Requirements: UI-LAYOUT-001.",
+   "note": "adaptive-layout: 6 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/a-al2-adaptive.json must exist. Requirements: UI-LAYOUT-001.",
    "phase": "authoring-adaptive-ui",
    "releaseBlocking": false,
    "requirements": [
@@ -8351,7 +8406,10 @@
      "display_controls::B-DSP3: PopupButton adapts its presentation::the pure rule prefers a sheet on touch, inline when short, menu otherwise",
      "display_controls::B-DSP3: PopupButton adapts its presentation::a sheet anchors to the bottom edge with visually larger rows",
      "display_controls::B-DSP3: PopupButton adapts its presentation::every presentation keeps selection, Cancel, and the tap-away machinery",
-     "display_controls::B-DSP3: PopupButton adapts its presentation::a LIVE touch class flips it to a sheet with no rebuild of the trigger"
+     "display_controls::B-DSP3: PopupButton adapts its presentation::a LIVE touch class flips it to a sheet with no rebuild of the trigger",
+     "shortcut_hint::ShortcutHint public construction::owns no binding, context or focus target beyond its surface",
+     "shortcut_hint::ShortcutHint public construction::names its own passive surface before competing chrome",
+     "display_controls::Label: a live title and a semantic icon name::refuses an unknown semantic icon instead of painting an unnamed fallback"
     ],
     "shell": "test -f src/controls/progress_view.luau && test -f src/controls/label.luau && test -f src/controls/picker.luau && test -f src/controls/disclosure_group.luau && grep -q \"resolvePresentation\" src/controls/picker.luau && grep -q \"focusOn\" src/controls/disclosure_group.luau && grep -q \"resolvePresentation\" src/controls/popup_button.luau"
    },
@@ -8359,7 +8417,7 @@
    "evidence": "artifacts/authoring-adaptive-ui/b-dsp-display-controls.json",
    "id": "authoring-adaptive-ui::display-and-selection-controls",
    "name": "display-and-selection-controls",
-   "note": "display-and-selection-controls: 9 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/b-dsp-display-controls.json must exist. Requirements: UI-PARADIGM-001, UI-STYLE-001.",
+   "note": "display-and-selection-controls: 12 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/authoring-adaptive-ui/b-dsp-display-controls.json must exist. Requirements: UI-PARADIGM-001, UI-STYLE-001.",
    "phase": "authoring-adaptive-ui",
    "releaseBlocking": false,
    "requirements": [
@@ -8544,7 +8602,7 @@
   },
   {
    "check": {
-    "shell": "test -f src/themes/package.luau && grep -q \"themes = {\" src/init.luau && grep -q \"checkCoverage\" src/init.luau && grep -q \"onDanger on danger\" src/themes/package.luau && grep -q \"theme_package.spec\" tests/run.luau"
+    "shell": "test -f src/themes/package.luau && grep -q \"themes = {\" src/init.luau && grep -q \"checkCoverage\" src/init.luau && grep -q 'partner = \"onDanger\"' src/themes/package.luau && grep -q 'partner = \"onSuccess\"' src/themes/package.luau && grep -q 'partner = \"onWarning\"' src/themes/package.luau && grep -q \"theme_package.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/theme-packages-and-skinning/b-a1-package-contract.json",
@@ -10278,7 +10336,7 @@
    "evidence": null,
    "id": "api-architecture-consistency::compatible-fixes-proven",
    "name": "compatible-fixes-proven",
-   "note": "compatible-fixes-proven: 25 named suite cases must pass; suite must exit zero. Requirements: UI-AGENT-001.",
+   "note": "compatible-fixes-proven: 24 named suite cases must pass; suite must exit zero. Requirements: UI-AGENT-001.",
    "phase": "api-architecture-consistency",
    "releaseBlocking": false,
    "requirements": [
@@ -12575,14 +12633,16 @@
      "sensory_feedback::UI.sensoryFeedback: what reaches the bus::emits the declared verb with the mounted path when the trigger changes",
      "sensory_feedback::UI.sensoryFeedback: what reaches the bus::fires once per change, and not at all for a write of the same value",
      "sensory_feedback::UI.sensoryFeedback: what reaches the bus::stops emitting the moment the node unmounts",
-     "sensory_feedback::UI.sensoryFeedback: what reaches the bus::observes NOTHING when no sink is wired, and exactly one thing when one is"
+     "sensory_feedback::UI.sensoryFeedback: what reaches the bus::observes NOTHING when no sink is wired, and exactly one thing when one is",
+     "examples_gallery::examples/gallery fixture: withAnimation + reduced motion::carries the INDETERMINATE pair, and reduced motion STEPS them rather than freezing",
+     "progress_circular::ProgressView circular: the INDETERMINATE ring rotates its own start angle::under REDUCED motion the ring keeps travelling, on the quantized tick"
     ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "parity-round-2::indicators-and-sensory-feedback",
    "name": "indicators-and-sensory-feedback",
-   "note": "indicators-and-sensory-feedback: 9 named suite cases must pass; suite must exit zero. Requirements: UI-FEEDBACK-001, UI-MOTION-001.",
+   "note": "indicators-and-sensory-feedback: 9 named suite cases must pass; suite must exit zero. Requirements: UI-FEEDBACK-001, UI-MOTION-001. Motion coverage uses the current gallery painted bar/spinner and circular quantization cases.",
    "phase": "parity-round-2",
    "releaseBlocking": false,
    "requirements": [
@@ -13005,7 +13065,7 @@
    "evidence": null,
    "id": "parity-round-3::circular-progress",
    "name": "circular-progress",
-   "note": "circular-progress: 15 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-FEEDBACK-001, UI-MOTION-001.",
+   "note": "circular-progress: 14 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-FEEDBACK-001, UI-MOTION-001.",
    "phase": "parity-round-3",
    "releaseBlocking": false,
    "requirements": [
@@ -13817,7 +13877,7 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "shell": "for f in facet_foreign_seam_contract facet_branch_scope_contract facet_preferred_transparency_contract facet_focus_grid_axis_contract facet_hit_expander_overhang_contract facet_motion_and_scroll_contract facet_stack_arrange_contract; do test -f ../../../games/RascalRally/code/tests/$f.spec.luau || { echo \"missing RR round-4 contract spec: $f\"; exit 1; }; done && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*half 1 — the framework this package requires hands thenView the branch scope\" && echo \"$out\" | grep -q \"✓.*half 4 — UI.sortedEntries is live here, and this package deliberately calls it nowhere\" && echo \"$out\" | grep -q \"✓.*half 3 — the shipped StartCountdown still opens and closes, twenty times, with no leak\" && echo \"$out\" | grep -q \"✓.*half 4 — .host. is live, owns exactly one property, and touches nothing this game writes\" && echo \"$out\" | grep -q \"✓.*half 2 — nothing in this package reaches for the escape hatch, measured off the source\" && echo \"$out\" | grep -q \"✓.*is the framework default 0.45, composed — not a number this repo restates\" && echo \"$out\" | grep -q \"✓.*nothing in src/ reads the preference or its derived key\" && echo \"$out\" | grep -q \"✓.*no navigation group on the shipped results screen declares a lane count\" && echo \"$out\" | grep -q \"✓.*POSITIVE CONTROL: this game.s focus dump does report a lane count when there is one\" && echo \"$out\" | grep -q \"✓.*...and the floor is DELIVERED there: the row outranks the row it overhangs\" && echo \"$out\" | grep -q \"✓.*the reorder is invisible: no two rows. PAINTED rects overlap\" && echo \"$out\" | grep -q \"✓.*grows no hit expander at all, so the rule cannot reach it\" && echo \"$out\" | grep -q \"✓.*this game.s sponsor list follows an engine scroll with NO bindNativeScroll call\" && echo \"$out\" | grep -q \"✓.*...and FacetSponsor.s OWN bind on top of it opens no second engine observer\" && echo \"$out\" | grep -q \"✓.*clock:tween is REACHABLE from this game.s own presenter clock, and arrives ON TIME\" && echo \"$out\" | grep -q \"✓.*an installed evaluator changes NOTHING about this game.s spring and timer\" && echo \"$out\" | grep -q \"✓.*the LIVE motion_driver fills the seam at bind — and this game binds its OWN frame source\" && echo \"$out\" | grep -q \"✓.*.lineAlign. aligns one child in its line and outranks the container.s .align.\" && echo \"$out\" | grep -q \"✓.*a real shipped screen solves with zero layout diagnostics\""
+    "shell": "for f in facet_foreign_seam_contract facet_branch_scope_contract facet_preferred_transparency_contract facet_focus_grid_axis_contract facet_hit_expander_overhang_contract facet_motion_and_scroll_contract facet_stack_arrange_contract; do test -f ../../../games/RascalRally/code/tests/$f.spec.luau || { echo \"missing RR round-4 contract spec: $f\"; exit 1; }; done && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*half 1 — a conditional body owns and releases the active branch owner\" && echo \"$out\" | grep -q \"✓.*half 4 — UI.sortedEntries is live here, and this package deliberately calls it nowhere\" && echo \"$out\" | grep -q \"✓.*half 3 — the shipped StartCountdown still opens and closes, twenty times, with no leak\" && echo \"$out\" | grep -q \"✓.*half 4 — .host. is live, owns exactly one property, and touches nothing this game writes\" && echo \"$out\" | grep -q \"✓.*half 2 — nothing in this package reaches for the escape hatch, measured off the source\" && echo \"$out\" | grep -q \"✓.*is the framework default 0.45, composed — not a number this repo restates\" && echo \"$out\" | grep -q \"✓.*nothing in src/ reads the preference or its derived key\" && echo \"$out\" | grep -q \"✓.*no navigation group on the shipped results screen declares a lane count\" && echo \"$out\" | grep -q \"✓.*POSITIVE CONTROL: this game.s focus dump does report a lane count when there is one\" && echo \"$out\" | grep -q \"✓.*...and the floor is DELIVERED there: the row outranks the row it overhangs\" && echo \"$out\" | grep -q \"✓.*the reorder is invisible: no two rows. PAINTED rects overlap\" && echo \"$out\" | grep -q \"✓.*grows no hit expander at all, so the rule cannot reach it\" && echo \"$out\" | grep -q \"✓.*this game.s sponsor list follows an engine scroll with NO bindNativeScroll call\" && echo \"$out\" | grep -q \"✓.*...and FacetSponsor.s OWN bind on top of it opens no second engine observer\" && echo \"$out\" | grep -q \"✓.*clock:tween is REACHABLE from this game.s own presenter clock, and arrives ON TIME\" && echo \"$out\" | grep -q \"✓.*an installed evaluator changes NOTHING about this game.s spring and timer\" && echo \"$out\" | grep -q \"✓.*the LIVE motion_driver fills the seam at bind — and this game binds its OWN frame source\" && echo \"$out\" | grep -q \"✓.*.lineAlign. aligns one child in its line and outranks the container.s .align.\" && echo \"$out\" | grep -q \"✓.*a real shipped screen solves with zero layout diagnostics\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -16598,7 +16658,7 @@
      "extension_checker::extension scaffold::applying the registry edit lands the row INSIDE the registry array (dry-run defect 1)",
      "extension_checker::extension scaffold::stamps EVERY registration a twentieth control needs, from the one declared name",
      "extension_checker::extension scaffold::every late-registration anchor is REAL: each edit applies to the shipped file, twice safely",
-     "extension_checker::extension scaffold::the scenario, the demo, and the pinned root all name the SAME surface",
+     "extension_checker::extension scaffold::the standalone scenario uses current constructors and names its existing-demo placement",
      "extension_checker::extension scaffold::applyBump moves every occurrence of a count pin, exactly once",
      "extension_checker::extension scaffold::the stamped output is formatter-clean: no line over 120 columns, no double blank line",
      "extension_checker::extension scaffold::rejects unknown kinds and unsafe names",
@@ -21871,7 +21931,7 @@
      "adaptive_defaults::ADAPT-1: a control that cannot get its facts refuses, naming the host::...and a DECLARED presentation consults no ladder, so it never refuses",
      "adaptive_defaults::ADAPT-1: the client host is what makes this free on a real surface::dispose releases the environment the host registered",
      "adaptive_defaults::ADAPT-1: the client host is what makes this free on a real surface::a hosted screen's controls adapt with zero authoring",
-     "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are ten today",
+     "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::the refusing controls are read out of the sources, and there are eleven today",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::a control that refuses in either shape is discovered by the scan itself",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::each discovered control's own section names the refusal and the environment",
      "adaptive_defaults::ADAPT-1: every control that can refuse for want of the environment says so in api.md::removing a control's section from api.md is reported",
@@ -22057,7 +22117,7 @@
    "evidence": null,
    "id": "navigation-and-menus::d0-one-run-per-sweep",
    "name": "d0-one-run-per-sweep",
-   "note": "d0-one-run-per-sweep: 7810 named suite cases must pass; check_manifest_integrity, suite, rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/navigation-and-menus/sweep-economy.md must exist. TRIMMED 2026-09-20: 28 ids naming `conformance/conformance::core conformance (custom)::*` were removed because that describe block was retired with the pluggable-Core contract (see phase-0-foundation::conformance-imperative-baseline). They are DROPPED rather than repointed: this row's claim is that ONE suite run covers the sweep, and the suite it names still runs — the settle/lifetime/quarantine ground those cases held is pinned by NAME in parity-round-4::core-settle-phase, code-simplicity-cleanup::carry-over-pins and code-simplicity-cleanup::conformance-all-cores, which is where a reader should look for it. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. One id was DROPPED with no successor — `table::Table: custom cells and resize model::remounted rows keep hits painted beneath cell content (deterministic z-order)` — because tests/table.spec.luau no longer carries that case under any name and no spec in this tree asserts remount hit z-order; it is recorded here rather than silently re-pointed at a case that proves something else. TRIMMED AGAIN 2026-09-20: a further 21 ids named cases in tests/mount.spec.luau, tests/transitions.spec.luau and tests/reactive_recovery.spec.luau that the Compose flattening rewrote — whole describe blocks ('mount: When hands its branch the branch scope', 'mount: churn and dumps', 'a memo that fails on its FIRST evaluation can recover', 'diagnostics name the nodes they are about') went with Facet's own scopes and error channel. They are dropped for the same reason as the conformance ids above: this row's claim is that ONE suite run covers the sweep, the `suite` producer still gates that run in full, and the ground these cases held is pinned by name in the rows that are ABOUT it (parity-round-4::when-branch-scope, parity-round-4::core-settle-phase, code-simplicity-cleanup::carry-over-pins). THIS ROW HAS NOT BEEN RECONCILED AGAINST A FULL SUITE RUN: only the ids in the specs re-run by hand on 2026-09-20 were checked, so it may still name others that a `full` run will report as missing.",
+   "note": "d0-one-run-per-sweep: 7771 named suite cases must pass; check_manifest_integrity, suite, rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/navigation-and-menus/sweep-economy.md must exist. TRIMMED 2026-09-20: 28 ids naming `conformance/conformance::core conformance (custom)::*` were removed because that describe block was retired with the pluggable-Core contract (see phase-0-foundation::conformance-imperative-baseline). They are DROPPED rather than repointed: this row's claim is that ONE suite run covers the sweep, and the suite it names still runs — the settle/lifetime/quarantine ground those cases held is pinned by NAME in parity-round-4::core-settle-phase, code-simplicity-cleanup::carry-over-pins and code-simplicity-cleanup::conformance-all-cores, which is where a reader should look for it. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. One id was DROPPED with no successor — `table::Table: custom cells and resize model::remounted rows keep hits painted beneath cell content (deterministic z-order)` — because tests/table.spec.luau no longer carries that case under any name and no spec in this tree asserts remount hit z-order; it is recorded here rather than silently re-pointed at a case that proves something else. TRIMMED AGAIN 2026-09-20: a further 21 ids named cases in tests/mount.spec.luau, tests/transitions.spec.luau and tests/reactive_recovery.spec.luau that the Compose flattening rewrote — whole describe blocks ('mount: When hands its branch the branch scope', 'mount: churn and dumps', 'a memo that fails on its FIRST evaluation can recover', 'diagnostics name the nodes they are about') went with Facet's own scopes and error channel. They are dropped for the same reason as the conformance ids above: this row's claim is that ONE suite run covers the sweep, the `suite` producer still gates that run in full, and the ground these cases held is pinned by name in the rows that are ABOUT it (parity-round-4::when-branch-scope, parity-round-4::core-settle-phase, code-simplicity-cleanup::carry-over-pins). THIS ROW HAS NOT BEEN RECONCILED AGAINST A FULL SUITE RUN: only the ids in the specs re-run by hand on 2026-09-20 were checked, so it may still name others that a `full` run will report as missing. RECONCILED 2026-09-21 against the full 10785/0 suite at5eaf0c61: the scaffold case is repointed to its current constructor/existing-demo-placement name; no case is dropped.",
    "phase": "navigation-and-menus",
    "releaseBlocking": false,
    "requirements": [
@@ -22196,7 +22256,7 @@
      "menu::D2 Menu: the dump says what is on screen::the dump carries the schema, the open chain and the whole item tree",
      "menu::D2 Menu: the dump says what is on screen::dispose closes every live surface rather than stranding one"
     ],
-    "shell": "test -f src/controls/menu.luau && test -f src/controls/menu_recipe.luau && grep -q \"resolvePresentation\" src/controls/popup_button.luau && ! grep -q \"function popup_button.resolvePresentation\" src/controls/popup_button.luau && grep -q \"setSecondaryActivate\" src/render/target_contract.luau && grep -q \"attachContextGestures\" src/render/renderer.luau && grep -q \"contextTriggerOwns\" src/present/presenter.luau && grep -q \"menuRecipe.row(UI\" src/controls/row_actions.luau && ! grep -q \"compactLabel = if\" src/controls/row_actions.luau && grep -q \"menuRecipe.row(UI\" src/controls/picker_menu.luau && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newMenu is LIVE through this package.s own require path, closed spec and all\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*the extraction is an EXTRACTION: one presentation rule, shared by identity\" && echo \"$out\" | grep -q \"✓.*newRowActions. menu rows still carry the props this package.s lists were written against\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source opens a menu or claims a context gesture yet\" && echo \"$out\" | grep -q \"✓.*A11Y: the truncated-label plate KEEPS touch long-press, which is what this package relies on\""
+    "shell": "test -f src/controls/menu.luau && test -f src/controls/menu_recipe.luau && grep -q \"resolvePresentation\" src/controls/popup_button.luau && ! grep -q \"function popup_button.resolvePresentation\" src/controls/popup_button.luau && grep -q \"setSecondaryActivate\" src/render/target_contract.luau && grep -q \"attachContextGestures\" src/render/renderer.luau && grep -q \"contextTriggerOwns\" src/present/presenter.luau && grep -q \"menuRecipe.row(UI\" src/controls/row_actions.luau && ! grep -q \"compactLabel = if\" src/controls/row_actions.luau && grep -qF \"menuRecipe.rowProps(UI\" src/controls/picker_menu.luau && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newMenu is LIVE through this package.s own require path, closed spec and all\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*the extraction is an EXTRACTION: one presentation rule, shared by identity\" && echo \"$out\" | grep -q \"✓.*newRowActions. menu rows still carry the props this package.s lists were written against\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source opens a menu or claims a context gesture yet\" && echo \"$out\" | grep -q \"✓.*A11Y: the truncated-label plate KEEPS touch long-press, which is what this package relies on\""
    },
    "class": "result-ids",
    "evidence": null,
@@ -22310,7 +22370,7 @@
      "overflow_sweep::overflow sweep: gallery scenarios::scenario 'callout': the solver reports NOTHING at any swept viewport, at any text size",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all ten"
     ],
-    "shell": "test -f src/controls/callout.luau && test -f src/present/callout_queue.luau && test -f examples/gallery/scenarios/callout.luau && grep -q \"newCallout\" src/init.luau && grep -q \"maxVisible = 1,\" src/present/callout_queue.luau && grep -q \"toast_schedule\" src/present/callout_queue.luau && grep -qF \"Use tips sparingly\" docs/reference/api.md && grep -q \"function callout.plate\" src/controls/callout.luau && ! grep -qiE \"android|xbox|playstation|nintendo|switch_|windows\" src/controls/callout.luau && ! python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.VENDOR.search(l) and 'artifacts/' not in l for l in open('src/controls/callout.luau')) else 1)\" && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newCallout and the .help. prop are LIVE in the framework this package requires\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*PERSISTENCE IS THIS PACKAGE.S: the framework reads player state and writes none of it\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source builds a callout, and every .help =. is the CARD FAMILY\""
+    "shell": "test -f src/controls/callout.luau && test -f src/present/callout_queue.luau && test -f examples/gallery/scenarios/callout.luau && grep -qF 'api.Callout = composite(\"Callout\", require(\"../controls/callout\").build)' src/render/compose_controls.luau && grep -q \"maxVisible = 1,\" src/present/callout_queue.luau && grep -q \"toast_schedule\" src/present/callout_queue.luau && grep -qF \"Use tips sparingly\" docs/reference/api.md && grep -q \"function callout.plate\" src/controls/callout.luau && ! grep -qiE \"android|xbox|playstation|nintendo|switch_|windows\" src/controls/callout.luau && ! python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.VENDOR.search(l) and 'artifacts/' not in l for l in open('src/controls/callout.luau')) else 1)\" && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newCallout and the .help. prop are LIVE in the framework this package requires\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*PERSISTENCE IS THIS PACKAGE.S: the framework reads player state and writes none of it\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source builds a callout, and every .help =. is the CARD FAMILY\""
    },
    "class": "result-ids",
    "evidence": null,
@@ -22448,7 +22508,7 @@
      "adaptive_presentation::shared adaptive presentation::Back collapses only sidebar navigation and leaves page Back unclaimed",
      "adaptive_presentation::shared adaptive presentation::distance changes release collapsed-caption observers"
     ],
-    "shell": "test -f src/controls/tab_view.luau && grep -q \"THE APP-LEVEL PLACEMENT BELONGS TO THE OUTERMOST TABVIEW\" src/controls/tab_view.luau && grep -qF \"local tabView = require(\" src/init.luau && grep -qF \"@self/controls/tab_view\" src/init.luau && grep -qF \"newTabView = tabView.build\" src/init.luau && grep -qF \"TabView = function(core: any, spec: tabView.Spec)\" src/init.luau && grep -q \"tab_view.spec\" tests/run.luau && grep -q \"adaptive.conditions\" src/controls/tab_view.luau && ! grep -q \"preferredInput\" src/controls/tab_view.luau && ! grep -q \"displaySize\" src/controls/tab_view.luau && grep -q \"picker.build\" src/controls/tab_view.luau && test \"$(grep -Fc 'UI.Button({' src/controls/tab_view.luau)\" -eq 0 && ! grep -q 'id = \"ToggleSidebar\"' src/controls/tab_view.luau && grep -q 'id = \"ToggleSidebar\"' examples/gallery/client/showcase_chrome.luau && ! grep -q \"transientScope = \" src/controls/tab_view.luau && grep -q 'placement:get() == \"sidebar\"' src/controls/tab_view.luau && ! grep -q \"outsideDismiss\" src/controls/tab_view.luau && grep -q \"Facet.newTabView\" examples/reference/p4_foyer/init.luau && ! grep -q \"navItems(\" examples/reference/p4_foyer/init.luau && ! grep -q \"NavTopWhen\" examples/reference/p4_foyer/init.luau && ! grep -q \"BottomFullWhen\" examples/reference/p4_foyer/init.luau && grep -q \"^### .newTabView.\" docs/reference/api.md && grep -qF \"newTabView\" docs/reference/api.md && test -f tests/tab_view.spec.luau && grep -q \"facet_tab_view_contract.spec\" ../../../games/RascalRally/code/tests/run.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*it exists, takes the documented shape, and refuses an unknown key\" && echo \"$rr\" | grep -q \"✓.*two levels nest: the inner strip never claims the app-level placement\" && echo \"$rr\" | grep -q \"✓.*switching a tab is a REAL disposal, counted on this package.s core\" && echo \"$rr\" | grep -q \"✓.*this game mounts no .newTabView. — the tripwire that says a caller edit is owed\" && echo \"$rr\" | grep -q \"✓.*the shipped sponsor table.s .Split. contributes no group, on the axis that flips\" && echo \"$rr\" | grep -q \"✓.*the BOUND itself: a Split-shaped stack is not a run, however its axis reads\" && echo \"$rr\" | grep -q \"✓.*POSITIVE CONTROL: a real x-axis run DOES become one horizontal group\""
+    "shell": "test -f src/controls/tab_view.luau && grep -qF 'api.TabView = composite(\"TabView\", require(\"../controls/tab_view\").build)' src/render/compose_controls.luau && grep -q \"tab_view.spec\" tests/run.luau && grep -q \"adaptive.conditions\" src/controls/tab_view.luau && ! grep -q \"preferredInput\" src/controls/tab_view.luau && ! grep -qF 'get(\"displaySize\")' src/controls/tab_view.luau && grep -q \"picker.build\" src/controls/tab_view.luau && test \"$(grep -Fc 'UI.Button(' src/controls/tab_view.luau)\" -eq 0 && ! grep -qF '\"ToggleSidebar\"' src/controls/tab_view.luau && grep -qF 'UI.Button(\"ToggleSidebar\")' examples/gallery/client/showcase_chrome.luau && ! grep -q \"transientScope = \" src/controls/tab_view.luau && ! grep -q \"outsideDismiss\" src/controls/tab_view.luau && grep -qF 'UI.TabView(\"Nav\")' examples/reference/p4_foyer/init.luau && ! grep -q \"navItems(\" examples/reference/p4_foyer/init.luau && ! grep -q \"NavTopWhen\" examples/reference/p4_foyer/init.luau && ! grep -q \"BottomFullWhen\" examples/reference/p4_foyer/init.luau && grep -qF '### `UI.TabView`' docs/reference/api.md && grep -qF \"UI.TabView\" docs/reference/api.md && test -f tests/tab_view.spec.luau && grep -q \"facet_tab_view_contract.spec\" ../../../games/RascalRally/code/tests/run.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*it exists, takes the documented shape, and refuses an unknown key\" && echo \"$rr\" | grep -q \"✓.*two levels nest: the inner strip never claims the app-level placement\" && echo \"$rr\" | grep -q \"✓.*switching a tab is a REAL disposal, counted through public retained ownership\" && echo \"$rr\" | grep -q \"✓.*this game mounts no .newTabView. — the tripwire that says a caller edit is owed\" && echo \"$rr\" | grep -q \"✓.*the shipped sponsor table.s .Split. contributes no group, on the axis that flips\" && echo \"$rr\" | grep -q \"✓.*the BOUND itself: a Split-shaped stack is not a run, however its axis reads\" && echo \"$rr\" | grep -q \"✓.*POSITIVE CONTROL: a real x-axis run DOES become one horizontal group\""
    },
    "class": "result-ids",
    "evidence": null,
@@ -22503,15 +22563,16 @@
      "display_controls::B-DSP2: Picker presentation adapts from space, not device names::segmented lays options along x; inline stacks them along y",
      "display_controls::B-DSP2: Picker presentation adapts from space, not device names::selection rides the `selected` style binding, never a bespoke fill",
      "selection_indicator::D4 through the public property: newPicker's `indicator` and `axis`::indicator = \"none\" is byte-identical to the pre-D4 control",
-     "large_text_matrix::LT-8 control matrix: every registry row at four preferences x two themes::LT8-CTL Picker-indicator: no sibling overlap, no undisclosed clip beyond its declared allowlist, and no NEW sub-floor control at 0/4/10/14 px x both reference themes"
+     "large_text_matrix::LT-8 control matrix: every registry row at four preferences x two themes::LT8-CTL Picker-indicator: no sibling overlap, no undisclosed clip beyond its declared allowlist, and no NEW sub-floor control at 0/4/10/14 px x both reference themes",
+     "tab_view::D5: the strip IS a segmented picker, not a second option row::mounts newPicker's own option row, with the D4 indicator on it"
     ],
-    "shell": "grep -qF \"all options in a group, or none of them\" src/controls/picker.luau && grep -qF \"D5 COMPOSES THIS STRIP\" src/controls/picker.luau && grep -qF \"targetSizes.minimum\" src/controls/picker.luau && grep -qF \"A segmented picker used as a tab bar IS a\" docs/reference/api.md && grep -qF \"The vertical pill is not the inline row list\" docs/reference/api.md && ! grep -qiE \"android|xbox|playstation|nintendo|switch_|windows\" src/controls/picker.luau && ! python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.VENDOR.search(l) and 'artifacts/' not in l for l in open('src/controls/picker.luau')) else 1)\" && grep -qF \"flat-theme byte-compatibility claim\" tools/lune/_theme_baseline.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*the SEGMENTED default is the sliding pill in the framework this package requires\" && echo \"$rr\" | grep -q \"✓.*a DECLARED inline picker still paints the way it always did\" && echo \"$rr\" | grep -q \"✓.*an ICON-ONLY segment draws the glyph and keeps its name for the readout\" && echo \"$rr\" | grep -q \"✓.*without .iconOnly. the word survives and the glyph is only the degrade\" && echo \"$rr\" | grep -q \"✓.*the option lint REFUSES a half-iconned group and a nameless option in this build\" && echo \"$rr\" | grep -q \"✓.*the VERTICAL rail hugs its segments; the inline column takes the whole width\" && echo \"$rr\" | grep -q \"✓.*the spec is still CLOSED: .iconOnly. is known, an invented key is not\" && echo \"$rr\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source builds a picker yet\""
+    "shell": "grep -qF \"all options in a group, or none of them\" src/controls/picker.luau && grep -qF \"targetSizes.minimum\" src/controls/picker.luau && grep -qF \"A segmented picker used as a tab bar IS a\" docs/reference/api.md && grep -qF \"The vertical pill is not the inline row list\" docs/reference/api.md && ! grep -qiE \"android|xbox|playstation|nintendo|switch_|windows\" src/controls/picker.luau && ! python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.VENDOR.search(l) and 'artifacts/' not in l for l in open('src/controls/picker.luau')) else 1)\" && grep -qF \"flat-theme byte-compatibility claim\" tools/lune/_theme_baseline.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*the SEGMENTED default is the sliding pill in the framework this package requires\" && echo \"$rr\" | grep -q \"✓.*a DECLARED inline picker still paints the way it always did\" && echo \"$rr\" | grep -q \"✓.*an ICON-ONLY segment draws the glyph and keeps its name for the readout\" && echo \"$rr\" | grep -q \"✓.*without .iconOnly. the word survives and the glyph is only the degrade\" && echo \"$rr\" | grep -q \"✓.*the option lint REFUSES a half-iconned group and a nameless option in this build\" && echo \"$rr\" | grep -q \"✓.*the VERTICAL rail hugs its segments; the inline column takes the whole width\" && echo \"$rr\" | grep -q \"✓.*the spec is still CLOSED: .iconOnly. is known, an invented key is not\" && echo \"$rr\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source builds a picker yet\""
    },
    "class": "result-ids",
    "evidence": null,
    "id": "navigation-and-menus::d6-segmented",
    "name": "d6-segmented",
-   "note": "d6-segmented: 30 named suite cases must pass; suite, check_docs_cli, check_theme_drift_cli, check_source_size, rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/navigation-and-menus/d6-segmented-picker.md must exist. Requirements: UI-LAYOUT-001, UI-A11Y-001.",
+   "note": "d6-segmented: 31 named suite cases must pass; suite, check_docs_cli, check_theme_drift_cli, check_source_size, rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/navigation-and-menus/d6-segmented-picker.md must exist. Requirements: UI-LAYOUT-001, UI-A11Y-001.",
    "phase": "navigation-and-menus",
    "releaseBlocking": false,
    "requirements": [
@@ -22966,13 +23027,13 @@
      "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
      "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls"
     ],
-    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"29\""
+    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"35\""
    },
    "class": "result-ids",
    "evidence": null,
    "id": "release-candidate-review::naming-adr-implemented",
    "name": "naming-adr-implemented",
-   "note": "naming-adr-implemented: 5 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim.",
+   "note": "naming-adr-implemented: 3 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001. REPOINTED 2026-09-20: case ids this row named were renamed or retired by the Compose flattening and the one-authoring-model cut, and are re-pointed at the live cases carrying the same claim. UPDATED 2026-09-21: ShortcutHint adds the thirtieth application composite; the exact namespace case checks the declared control set. P2a adds Skeleton, Avatar, and AvatarGroup to the accepted 30-entry baseline: the exact current composite census is 33. P2bc adds StatusIndicator and Badge: the exact current composite census is 35.",
    "phase": "release-candidate-review",
    "releaseBlocking": false,
    "requirements": [

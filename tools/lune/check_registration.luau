@@ -137,6 +137,8 @@ local INTERACTIVE_ACTION_EXCEPT: { [string]: boolean } = { ScrollView = true }
 	VERB_BEARING_FIELDS below), so a control that later grows a handler cannot
 	keep an exemption it has stopped deserving. ]]
 local CONTRIBUTION_INTAKE_ONLY: { [string]: string } = {
+	ShortcutHint = "reads binding names only; its surface-less keycaps have no handlers or focus. "
+		.. "tests/shortcut_hint.spec.luau proves mounting adds no bindings, contexts or focus targets.",
 
 	SelectionIndicator = "its bundle reads geometry epochs and accepts geometry/motion only. It mounts an Anchor holding a Box, "
 		.. "neither of which is in focus_map.FOCUSABLE, and it is declared FIRST inside its ZStack so it paints "
@@ -562,7 +564,8 @@ function check_registration.check(opts: Opts?)
 					for _, field in VERB_BEARING_FIELDS do
 						-- These helpers receive a controller for scroll/geometry observations.
 						-- Every actual handler field remains guarded, including future additions.
-						local controllerObserver = (entry.name == "SelectionIndicator") and field == "bindController"
+						local controllerObserver = (entry.name == "SelectionIndicator" and field == "bindController")
+							or (entry.name == "ShortcutHint" and field == "bindActionSystem")
 						if not controllerObserver and string.find(source, field, 1, true) ~= nil then
 							carriesVerb = true
 							problem(

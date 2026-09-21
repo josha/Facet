@@ -56,10 +56,22 @@ drawn at. A 128 px preview would prove nothing.
 | facet_icon_trash.png | 128×128 | `trash` | `\_/` | content |
 | facet_icon_flag.png | 128×128 | `flag` | `|>` | content |
 | facet_icon_search.png | 128×128 | `facet:search` | `o/` | content |
+| facet_icon_info.png | 128×128 | `status.info` | `i` | content |
+| facet_icon_success.png | 128×128 | `status.success` | `ok` | content |
+| facet_icon_warning.png | 128×128 | `status.warning` | `!` | content |
+| facet_icon_error.png | 128×128 | `status.error` | `x!` | content |
+| facet_icon_calendar.png | 128×128 | `calendar` | `[#]` | content |
+| facet_icon_clock.png | 128×128 | `clock` | `(:)` | content |
+| facet_icon_thumb_up.png | 128×128 | `vote.up` | `+1` | content |
+| facet_icon_thumb_down.png | 128×128 | `vote.down` | `-1` | content |
+| facet_icon_person.png | 128×128 | `person` | `@` | content |
+| facet_icon_chevron_first.png | 128×128 | `chevron.first` | `\|<` | content |
+| facet_icon_chevron_last.png | 128×128 | `chevron.last` | `>\|` | content |
 
-18 PNG files: the original ten, `edit`, `trash` and `flag` (row-actions stage),
+30 PNG files, including the settings gear added below. The prior 29 are: the original ten, `edit`, `trash` and `flag` (row-actions stage),
 the search magnifying glass (2026-09-08), the pop-up button's stacked chevron
-pair and the three selection marks (2026-09-11).
+pair and the three selection marks (2026-09-11), and P1d's eleven common glyphs
+(2026-09-18, below).
 
 ## Notes the consuming stage must know
 
@@ -179,3 +191,183 @@ The other half of that defect was not an art gap at all: `menu_recipe` authored
 `"o"`, `"[]"` and `"*"` as its own node text rather than reading
 `ICON_FALLBACK_GLYPHS`, so those characters were not even part of the ladder the
 floor is the bottom of. Every glyph a control draws now comes from that one table.
+
+## P1d — eleven common glyphs (2026-09-18)
+
+The owner ruled a SMALL common set for the next controls (Notice/Badge/Snackbar,
+DateTimePicker, Vote, Avatar, Pagination) — continuing this set, not parity with
+any reference design system's image catalog, and no art borrowed from one. Same
+generator, same style, same manifest, same resolver. Three families:
+
+- **Status badges** (`status.info`, `status.success`, `status.warning`,
+  `status.error`) — a ring at the family's usual r=40 outer radius (matching
+  `close`/`checkmark`/the selection marks) holding a small mark kept inside
+  radius ~24–26 so its own ink never touches the ring's inner edge. `status.error`
+  is a small enclosed X, deliberately smaller than the bare full-box X `close`
+  draws, so the two are not the same shape at a glance; `status.success`'s tick is
+  likewise reduced from the bare `checkmark`. `status.warning` breaks the ring
+  pattern on purpose: a hazard triangle is the one shape a warning glyph actually
+  is anywhere, and forcing it into a fourth circle would cost the one shape a
+  player already recognizes.
+- **`calendar` / `clock`** — a rounded body with two short strokes standing proud
+  of the top edge (the binding tabs a page hangs from) and a ring with two
+  unequal hands sharing a centre.
+- **`vote.up` / `vote.down` / `person` / `chevron.first` / `chevron.last`** — see
+  the two defects below; `person` is a head circle over a shoulders trapezoid,
+  self-contained inside the content box like the status badges.
+
+**Two shapes read as LETTERS on the first contact-sheet pass, caught by the same
+"check your own art before shipping it" step that found the U/P letters in
+2026-08-12.** `vote.up`/`vote.down` first drew a thumb as a straight round-capped
+capsule the same width as the fist it rose from — the two merged into a single
+bent bar that read as the letters **L** and **P**. The fix is proportion, not
+detail: the thumb capsule is now under a third of the fist block's width (16px
+against a 62px block, in 128-space), so the silhouette breaks into "thin digit
+over wide block" instead of one continuous stroke. `chevron.first` first paired
+the existing OPEN `_stroke` chevron with a bar, and two diagonal strokes meeting a
+vertical one at the same two points **is** the letter **K** — confirmed on the
+contact sheet, not guessed at. The fix was a FILLED triangular arrowhead
+(`_poly`, the same primitive `flag`'s pennant and `edit`'s pencil already use) in
+place of the open chevron, which reads as one solid mass next to the bar instead
+of as more strokes joining it. `chevron.last` is the mirror.
+
+No new primitives: every one of the eleven reuses `_ring`, `_stroke`, `_poly` and
+`_dot` exactly as the existing eighteen do. `tintRole` is `content` for all
+eleven, same reasoning as the rest of the set (measured legible on every
+variant). Contact sheet reviewed at 16/20/24/48 px before shipping, per icon,
+via the Read tool — not assumed from the drawing code.
+
+## P1d fix round 1 — a second art pass on `vote.up`/`vote.down`/`person` (2026-09-18)
+
+The round-0 fix above (a narrower capsule against a wider fist) was enough to
+stop reading as the letters L/P **on the contact sheet's own small preview**,
+but a dedicated lead art check at 16/20/24 px found it still read as "a boot"
+and "a mallet/flag" — recognizably not-a-letter is a lower bar than
+recognizably-a-thumb. `person`'s trapezoid shoulders also read as a chess
+pawn. Both were redrawn; `info`/`success`/`warning`/`error`/`calendar`/`clock`/
+`chevron.first`/`chevron.last` were untouched and stayed byte-identical.
+
+**`vote.up` is now the conventional three-part hand silhouette**, all three
+parts filled `_ring`/`_stroke`/`rounded_rectangle`-family primitives, no new
+drawing primitive added:
+
+1. a **cuff** (wrist) — a small rounded rect standing apart from the fist;
+2. a **fist** — a larger rounded rect with three thin horizontal grooves cut
+   into its knuckle (right) half, using `ImageDraw`'s ordinary `fill=` with a
+   `(0, 0, 0, 0)` colour: Pillow's basic shapes REPLACE pixels rather than
+   alpha-composite them, so drawing fully-transparent rectangles directly over
+   already-opaque ink genuinely punches holes through it (verified with
+   `Image.getpixel` before trusting it in the real generator — see the
+   function's own docstring in `generate_icons.py`), which is what gives the
+   fist finger texture at 24 px+ while it still reads as a clean block at
+   16 px;
+3. a **thumb** — a round-capped capsule leaning off vertical, based at the
+   fist's top-left corner and overlapping it, clearly narrower than the fist
+   and clearly taller than the fist's own base width.
+
+`vote.down` is `thumb_up().transpose(Image.FLIP_TOP_BOTTOM)` on the FINISHED
+image — a mirror of the pixels, not a second hand redrawn from scratch — so
+the pair can never drift apart from each other again.
+
+**`person`'s shoulders are now a half-ellipse (dome)**: `ImageDraw.pieslice`
+from 180° to 360° on a bounding box gives a rounded top and a flat bottom
+(verified against `getpixel` before use — a plain `getpixel` read is the only
+instrument that actually sees which half of the ellipse painted), about
+2.2× the head circle's own width, with the head separated from it by a small
+4 px gap instead of overlapping it. The wider, rounded, separated shoulders
+are what stop it reading as a pawn's round base merging straight into its own
+head.
+
+**Superseded asset ids** — abandoned, not deleted from Roblox (Open Cloud has
+no delete route this tool uses), simply no longer referenced by the registry
+or the manifest as of this round:
+
+| Name | Superseded id (round 0, abandoned) | Current id (round 1) |
+|---|---|---|
+| `vote.up` (`facet_icon_thumb_up.png`) | `rbxassetid://114320275571678` | `rbxassetid://101016045702409` |
+| `vote.down` (`facet_icon_thumb_down.png`) | `rbxassetid://126155387751193` | `rbxassetid://101348682807001` |
+| `person` (`facet_icon_person.png`) | `rbxassetid://102363425807967` | `rbxassetid://75342910516929` |
+
+Re-uploaded headlessly through `tools/upload_icons.py` (the same route, same
+`assetType = "Image"` correction); all three verified **Approved** / `Image`
+by `--recheck` on 2026-09-18, same day as the round-0 upload.
+
+Blow-up preview (16/20/24/48 px, nearest-neighbour, all three fixed icons):
+`source/preview/p1d-fix-round-1-blowup.png`.
+
+## P1d fix round 2 — the thumb was too long (owner feedback, 2026-09-18)
+
+Owner: "the thumbs are a bit comically long." The three-part shape from fix
+round 1 (cuff, grooved fist, thumb capsule) is UNCHANGED; only the thumb
+stroke's own endpoints and width move. Round 1's thumb ran base (58, 64) to
+tip (72, 16) at width 22 — a ~40 px rise above the fist's y=56 top edge. Round
+2 keeps the same base (58, 64) and the same ~15° lean, but the tip moves to
+(67, 32) — a 24 px rise above the fist's top edge, roughly 60% of round 1's
+length — at width 26 instead of 22. `vote.down` stayed exactly
+`thumb_up().transpose(Image.FLIP_TOP_BOTTOM)`, so it inherited the shorter
+thumb automatically, with no separate edit. `person` and the other eight
+round-1-reviewed icons are untouched and byte-identical (confirmed by
+`git status` after regenerating: only `facet_icon_thumb_up.png` and
+`facet_icon_thumb_down.png` changed).
+
+Shortening the thumb also recentred the icon without a separate shift: the
+round-1 bbox (thumb tip at y≈5 once its cap is included, fist/cuff bottom at
+y=110) had its vertical centre at ≈57.5, a few px above the canvas's own
+y=64 centre; the round-2 bbox (tip cap top at y≈19, same bottom) centres at
+≈64.5 — close enough that no additional vertical shift was needed.
+
+**Superseded asset ids** (round 1 → round 2, same abandon-not-delete
+convention as round 1):
+
+| Name | Superseded id (round 1, abandoned) | Current id (round 2) |
+|---|---|---|
+| `vote.up` (`facet_icon_thumb_up.png`) | `rbxassetid://101016045702409` | `rbxassetid://75207492738442` |
+| `vote.down` (`facet_icon_thumb_down.png`) | `rbxassetid://101348682807001` | `rbxassetid://105653007466295` |
+
+Re-uploaded headlessly through `tools/upload_icons.py`; both verified
+**Approved** / `Image` by `--recheck` on 2026-09-18, same day as rounds 0-1.
+`person` was not re-uploaded — its pixels did not change this round, so its
+round-1 id (`rbxassetid://75342910516929`) is still current.
+
+The blow-up preview at `source/preview/p1d-fix-round-1-blowup.png` was
+updated in place (same path, current pixels) rather than left describing a
+now-superseded shape.
+
+**Upload status:** see `upload-manifest.json` and `src/themes/standard_icons.luau`
+for the current state of each of the eleven (Approved-and-live, or pending —
+`resolveIcon` falls through to the ASCII floor above while pending, exactly as
+`trash`/`flag` did between 2026-08-11 and 2026-08-12).
+
+## Application-branch port (2026-09-20)
+
+The eleven common icons, corrected thumbs/person, preview images and existing
+asset IDs above were restored from their final committed bytes. The generator
+was not run and nothing was uploaded. Historical moderation records are retained;
+this port does not assert a new moderation or native-loading check. The eighteen
+pre-existing PNGs and asset records are unchanged. Generator byte identity across
+Pillow/compression versions is not assumed; the committed hashes remain the record.
+
+## Ringless success silhouette (2026-09-20)
+
+The circled success tick was too similar to the info and clock icons at small
+sizes. `status.success` now reuses the existing standalone checkmark: identical
+PNG bytes to `facet_icon_check.png` and `rbxassetid://108245103349446`, with the
+same content tint. The semantic name, `facet_icon_success` asset name and `ok`
+ASCII floor stay unchanged. The earlier circled image/id above are historical.
+
+No drawing or upload was needed, and no new moderation check was performed.
+Only the success manifest record changes; all eighteen original PNGs and asset
+records remain unchanged. The generator's success function delegates to `check`;
+the current contact sheet was rebuilt from committed PNGs only, without running
+the all-image generator. The existing hand/person blow-up remains unchanged.
+
+## Settings gear — additive archive import
+
+`facet_icon_settings.png` is the unchanged 128×128 gear from the earlier settings
+control work: SHA-256 `e6b7dda0cb28015af00d6c7b31c144b698404e0acea49ba403c1bb2f66c24efd`,
+`rbxassetid://78513807849201`, semantic name `settings`, ASCII floor `*`, content tint.
+Its manifest retains the historical `Reviewing` moderation observation; this import
+does not claim a new upload or a current moderation check. The matching procedural
+source is retained. Only the contact sheet was recomposed from the existing PNGs;
+all 29 earlier PNGs and manifest records, including ringless success/checkmark,
+remain unchanged.
