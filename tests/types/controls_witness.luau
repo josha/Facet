@@ -177,6 +177,20 @@ local _circleSkeleton = app.controls.Skeleton({
 		local _dump = record.dump()
 	end,
 })
+local _avatar = app.controls.Avatar("Ada")({
+	name = "Ada Quill",
+	presence = Facet.Compose.cell("online" :: "online" | "away" | "busy" | "offline" | nil),
+	controlSize = "compact",
+	onActivate = function() end,
+})
+local _anonymousAvatar = app.controls.Avatar({
+	name = "Émile Noël",
+	image = Facet.Compose.cell("rbxassetid://1"),
+	form = "icon",
+	ref = function(record)
+		local _label = record.dump().label
+	end,
+})
 local _hint = app.controls.ShortcutHint("Shortcut")({ action = "Activate", controlSize = "compact" })
 local _explicitHint = app.controls.ShortcutHint({
 	keys = { { "Ctrl", "K" }, { "F1" } },

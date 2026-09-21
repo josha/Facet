@@ -13,6 +13,9 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add `UI.Avatar` player pictures and UTF-8 initials with caller-owned loading,
+  presence marks, localized semantic labels, and optional activation targets.
+
 - Add `UI.Skeleton` loading silhouettes with checked bound sizing and a shared
   decorative shimmer whose lifetime follows mounted Compose branches. Reduced
   motion retains a static theme-tinted plate.

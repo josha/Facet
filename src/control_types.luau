@@ -17,6 +17,7 @@ local pickerControl = require("./spec_types/picker")
 local picker_menuControl = require("./spec_types/picker_menu")
 local tab_viewControl = require("./spec_types/tab_view")
 local skeletonControl = require("./spec_types/skeleton")
+local avatarControl = require("./spec_types/avatar")
 local shortcutHint = require("./spec_types/shortcut_hint")
 local labelControl = require("./spec_types/label")
 local ratingControl = require("./spec_types/rating")
@@ -383,6 +384,7 @@ export type Controls = {
 	Label: Constructor<labelControl.Spec>,
 	ShortcutHint: Constructor<shortcutHint.Spec>,
 	Skeleton: Constructor<skeletonControl.Spec>,
+	Avatar: Constructor<avatarControl.Spec>,
 	Rating: Constructor<ratingControl.Spec>,
 	TextInput: Constructor<text_inputControl.Spec>,
 	ProgressView: Constructor<progress_viewControl.Spec>,

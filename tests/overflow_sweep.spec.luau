@@ -527,6 +527,9 @@ local SCENARIOS = {
 	-- ...and the scaffolded `Skeleton` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"skeleton",
+	-- ...and the scaffolded `Avatar` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"avatar",
 	-- scaffold: new control scenarios are appended above this line
 }
 

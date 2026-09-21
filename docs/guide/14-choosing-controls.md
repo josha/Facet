@@ -371,6 +371,11 @@ and Back, so keep that hierarchy visible alongside a destination chooser.
 Use Skeleton for the shape of content that has not loaded yet. It has no input
 or progress value and becomes static under reduced motion.
 
+Use Avatar for a player's picture or initials and optional presence. Supply a
+caller-owned resource provider for headshots; add `onActivate` only when selecting
+the person opens an action or profile. Use Label when the name and a supporting
+symbol belong in ordinary inline text.
+
 Use ProgressView for health, shields, cooldowns and resource readouts: segments
 show discrete capacity and an optional trail preserves recent damage. Sized
 circular gauges keep their value at the preferred text size and move it below

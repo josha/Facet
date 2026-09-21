@@ -12238,3 +12238,56 @@ return UI.When("Pending")({
     end,
 })
 ```
+### `UI.Avatar`
+
+`app.controls.Avatar("Id")({ name = "Ada Quill", ... })` shows a circular player
+picture or first/last UTF-8 initials, preserving the name's authored case.
+The required `name` is a nonempty string. Source choice is construction-time:
+provide at most one of `image`, `userId`, or `key`; omit all three for initials.
+`image` accepts a content string or readable. `userId` uses the existing 150×150
+headshot URI and `key` names another resource; both require the caller's provider.
+Avatar creates no provider and performs no fetch itself.
+
+| Property | Default | Meaning |
+|---|---|---|
+| `form` | `"standard"` | `"standard"` has a border and optional presence; `"icon"` has neither. |
+| `controlSize` | `"regular"` | Bound `"compact"`, `"regular"`, or `"large"`; nil restores regular. Standard uses the rung height, icon uses its icon size. |
+| `diameter` | none | Positive finite pixels or a theme metric, instead of `controlSize`. |
+| `presence` | none | Bound `"online"`, `"away"`, `"busy"`, `"offline"`, or nil. Refused in icon form. |
+| `presenceLabel` | presence word | Optional bound localized word, requiring `presence`. |
+| `presenceMark` | `true` | False hides the visual mark while retaining semantic presence. |
+| `backplate` | `false` | Accent/on-accent initials treatment. |
+| `over` | none | `"media"` uses the strong surface/content pair. |
+| `frame` | none | Caller-authored overlay node, inside the same face. |
+| `onActivate` | none | Adds one ordinary Button activation target. |
+| `ref` | none | Receives the control record; `record.dump()` reports current identity and state. |
+
+Online is a disc, away a disc with a dash, busy a square, and offline a ring.
+Presence is validated once into the shared derived value used by paint, dump,
+and the interactive raw Button's semantic `label`; an invalid update retains the
+last valid published state and a later valid or nil value recovers. Caller cells
+are untouched. Passive avatars have no focus stop or native semantic-label prop;
+their identity remains available through the ref/dump. This is not a claim about
+operating-system accessibility support.
+
+A mounted keyed Avatar owns one provider lease; the caller keeps the provider.
+Pending content owns a Skeleton only for that branch. Ready and failure states
+retain the same face diameter; failure shows initials. Removal releases the lease
+and rejects stale completion, but cannot cancel an engine fetch already running.
+Same-key Avatars share the provider's request/cache while holding separate leases.
+Framework-generated face layers use true circles independent of a theme's pill
+radius. Interactive layers sit in one zero-padding stack inside the raw Button;
+compact visuals reserve the effective target floor in both axes. Initials fit to
+the label cap, keep one line, and retain disclosure at large text preferences.
+
+```luau
+local portraits = app.newResourceProvider()
+return UI.Avatar("Driver")({
+    name = "Ada Quill",
+    userId = 24813339,
+    provider = portraits,
+    presence = presenceCell,
+    presenceLabel = localizedPresence,
+    onActivate = openProfile,
+})
+```

@@ -1217,6 +1217,15 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "Avatar",
+		class = "Avatar",
+		-- Initials fit their face and retain disclosure at large text preferences.
+		build = function(core: any)
+			return harness.Controls.Avatar(core, { id = "Ctl", name = "Émile Noël", presence = "away" }).blueprint
+		end,
+	},
+
 	-- scaffold: new control fixtures are appended above this line
 }
 

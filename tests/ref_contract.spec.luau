@@ -195,6 +195,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 			end,
 		}
 	end,
+	Avatar = function(_w)
+		return { name = "Ada Quill" }
+	end,
 	Skeleton = function(_w)
 		return { form = "box" }
 	end,

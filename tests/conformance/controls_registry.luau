@@ -2128,6 +2128,29 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		name = "Avatar",
+		kind = "composite",
+		module = "src/controls/avatar.luau",
+		export = "UI.Avatar",
+		spec = "tests/avatar.spec.luau",
+		conformance = "tests/avatar.spec.luau",
+		docsAnchor = "UI.Avatar",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "Avatar pointer: activation reaches one mounted surface" },
+			touch = { "Avatar touch: activation reaches one mounted surface" },
+			keyboard = { "Avatar keyboard: activation reaches one mounted surface" },
+			gamepad = { "Avatar gamepad: activation reaches one mounted surface" },
+		},
+		affordanceProofs = {
+			pointer = { "Avatar pointer affordance: hover and all painted layers share one surface" },
+			touch = { "Avatar touch affordance: compact plates reserve disjoint whole targets" },
+			keyboard = { "Avatar keyboard affordance: one Tab rank with an ordinary focus ring" },
+			gamepad = { "Avatar gamepad affordance: A activates and Cancel remains the screen's" },
+			hotSwitch = false, -- no captured interaction; provider work belongs to the caller, independent of input class
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

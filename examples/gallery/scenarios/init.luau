@@ -321,6 +321,8 @@ local ORDER = {
 	"container_grid",
 	-- Loading/reduced-motion branch lifetime; shared with Indicators → Progress.
 	"skeleton",
+	-- Caller-owned portraits, loading branches and live presence; shared with Identity.
+	"avatar",
 	-- scaffold: new control scenarios are appended above this line
 }
 
