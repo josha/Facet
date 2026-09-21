@@ -2,6 +2,7 @@
 -- Property rules shared by immutable descriptions and the native Compose host.
 local policy = require("./motion/policy")
 local specGuard = require("./spec_guard")
+local schema = require("./blueprint_schema")
 local isFinite = require("./num").isFinite
 local properties = {}
 local requiredBySchema = {}
@@ -73,6 +74,7 @@ function properties.normalize(class: string, props: any, known: any, bound: { [s
 	end
 end
 
+local EXTENT_METRIC = { types = { "metric" } }
 local EXTENT_KEYS = specGuard.keySet({ "width", "height" })
 --[[ THE ONE AUTHORED TABLE A SCROLL HOST CARRIES, and it fails SILENTLY without
 	this in three different ways: a typo'd axis name resolves to "no axis given",
@@ -93,10 +95,17 @@ local function assertScrollExtent(props: { [string]: any }, bound: any)
 	)
 	for _, axis in { "width", "height" } do
 		local v = extent[axis]
+		if v == nil then
+			continue
+		end
+		local valid = if type(v) == "string"
+			then schema.checkValue(EXTENT_METRIC :: any, v) and string.sub(v, 1, 1) ~= "-"
+			else isFinite(v) and v > 0
 		assert(
-			v == nil or type(v) == "number" or type(v) == "string",
-			`Facet UI.ScrollView: extent.{axis} must be a number of pixels or a theme metric name `
-				.. `(got {typeof(v)}); an unresolvable value falls back to the derived canvas, silently`
+			valid,
+			`Facet UI.ScrollView: extent.{axis} must be positive finite pixels or a known, non-negated theme metric (got {tostring(
+				v
+			)})`
 		)
 	end
 	--[[ THE AXIS HAS TO BE THE STATIC WORD, for the same reason a tile mode does:

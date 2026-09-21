@@ -1115,8 +1115,11 @@ local function toLayoutNode(
 			weight has to reach the per-word measurement key, which is exactly what
 			`textRuns` is. `measure_facts.textTypography` folds them into the font
 			argument; everything from there down is unchanged. ]]
-		layoutNode.text = if props.rich == true then rich_text.displayText(props.text) else props.text
-		layoutNode.textRuns = if props.rich == true then rich_text.spansOf(props.text) else nil
+		if props.rich == true then
+			layoutNode.text, layoutNode.textRuns = rich_text.parse(props.text)
+		else
+			layoutNode.text, layoutNode.textRuns = props.text, nil
+		end
 		-- THE LINE CAP (Text.lineLimit). A theme metric NAME is legal here like
 		-- anywhere else a number is, so a package can express how many lines its own
 		-- rows allow. The engine ellipsizes the overflow — TextTruncate.AtEnd is

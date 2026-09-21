@@ -136,6 +136,8 @@ local DEFAULT_STYLE = "Normal"
 -- memoized: canonicalization sits inside the per-word measure loop, and the
 -- interpolation for alias names was a measurable share of a bench regression
 -- (2026-07-25) before the store below went nested
+local FONT_CACHE_CAP = 8192
+local canonCount, runCount = 0, 0
 local canonCache: { [string]: string } = {}
 
 local function canonicalFont(font: string): string
@@ -144,7 +146,10 @@ local function canonicalFont(font: string): string
 		return hit
 	end
 	local canon = if string.find(font, "#", 1, true) ~= nil then font else `{font}#{DEFAULT_WEIGHT}#{DEFAULT_STYLE}`
-	canonCache[font] = canon
+	if canonCount < FONT_CACHE_CAP then
+		canonCache[font] = canon
+		canonCount += 1
+	end
 	return canon
 end
 
@@ -223,7 +228,10 @@ local function runsOf(font: string): { base: string, runs: { MeasureRun } }?
 		end
 	end
 	local record = { base = canonicalFont(parts[1]), runs = runs }
-	runCache[font] = record
+	if runCount < FONT_CACHE_CAP then
+		runCache[font] = record
+		runCount += 1
+	end
 	return record
 end
 
@@ -990,6 +998,9 @@ function text_metrics.measuredDump(): { { font: string, size: number, word: stri
 end
 
 function text_metrics.resetMeasured()
+	table.clear(canonCache)
+	table.clear(runCache)
+	canonCount, runCount = 0, 0
 	table.clear(exactWidths)
 	exactCount = 0
 	collecting = nil

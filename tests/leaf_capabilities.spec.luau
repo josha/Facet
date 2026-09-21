@@ -1782,3 +1782,161 @@ describe("native horizontal acquisition respects decorative and real overlays", 
 		expect(acquisition({ scroll }, { X = handle }, "Touch")).toBeNil()
 	end)
 end)
+
+describe("text and canvas hardening", function()
+	it("refuses invalid canvas values before mount and permits same-app recovery", function()
+		local w = world.new()
+		local UI = w.UI
+		for _, value in { 0, -2, math.huge, -math.huge, 0 / 0, "not.a.metric", "-xl" } do
+			local ok, err = pcall(function()
+				w.present(function()
+					return UI.Screen("S")({ UI.ScrollView("Canvas")({ axis = "xy", extent = { width = value } }) })
+				end)
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "extent.width", 1, true) ~= nil).toBe(true)
+			expect(w.adapter.liveCount()).toBe(0)
+		end
+		w.present(function()
+			return UI.Screen("S")({
+				UI.ScrollView("Canvas")({ axis = "xy", extent = { width = "targetSizes.minimum", height = 900 } }),
+			})
+		end)
+		expect(w.adapter.node("/S/Canvas").scrollRegion.contentW).toBe(44)
+		expect(w.adapter.node("/S/Canvas").scrollRegion.contentH).toBe(900)
+	end)
+
+	it("clamps rich font sizes to the engine ceiling in width and line box", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 1000 } })
+		local UI = w.UI
+		w.present(function()
+			return UI.Screen("S")({
+				padding = 0,
+				UI.VStack("Rows")({
+					UI.Text("Huge")({ text = '<font size="200">Lap</font>', rich = true }),
+					UI.Text("Ceiling")({ text = '<font size="100">Lap</font>', rich = true }),
+					UI.Text("Small")({ text = '<font size="30">Lap</font>', rich = true }),
+				}),
+			})
+		end)
+		local huge, ceiling, small = rectOf(w, "/S/Rows/Huge"), rectOf(w, "/S/Rows/Ceiling"), rectOf(w, "/S/Rows/Small")
+		expect(huge.w).toBe(ceiling.w)
+		expect(huge.h).toBe(ceiling.h)
+		expect(small.h < ceiling.h).toBe(true)
+		expect(richText.spansOf('<font size="4000">x</font>')[1].size).toBe(100)
+		expect(richText.spansOf('<font size="30">x</font>')[1].size).toBe(30)
+	end)
+
+	it("takes displayed text and run faces from one parse per changed rich node", function()
+		local calls = { parse = 0, display = 0, spans = 0 }
+		local realParse, realDisplay, realSpans = richText.parse, richText.displayText, richText.spansOf
+		richText.parse = function(...)
+			calls.parse += 1
+			return realParse(...)
+		end
+		richText.displayText = function(...)
+			calls.display += 1
+			return realDisplay(...)
+		end
+		richText.spansOf = function(...)
+			calls.spans += 1
+			return realSpans(...)
+		end
+		local ok, err = pcall(function()
+			local w = world.new()
+			local UI, text = w.UI, w.Compose.cell("<b>Lap 1</b>")
+			w.present(function()
+				return UI.Screen("S")({ UI.Text("T")({ text = text, rich = true }) })
+			end)
+			expect(calls).toEqual({ parse = 1, display = 0, spans = 0 })
+			for lap = 2, 6 do
+				text:set(`<b>Lap {lap}</b>`)
+				w.settle()
+			end
+			expect(calls).toEqual({ parse = 6, display = 0, spans = 0 })
+			local displayed, spans = realParse("<b>Lap</b> &amp; 1")
+			expect(displayed).toBe(realDisplay("<b>Lap</b> &amp; 1"))
+			expect(spans).toEqual(realSpans("<b>Lap</b> &amp; 1"))
+		end)
+		richText.parse, richText.displayText, richText.spansOf = realParse, realDisplay, realSpans
+		if not ok then
+			error(err, 0)
+		end
+	end)
+
+	it("answers an ellipsis for nonpositive drawable width and preserves empty text", function()
+		for _, width in { 0, -5, -400 } do
+			expect(textFit.middle({ text = "Coastal circuit", font = "BuilderSans", size = 16, width = width })).toBe(
+				"…"
+			)
+			expect(textFit.middle({ text = "", font = "BuilderSans", size = 16, width = width })).toBe("")
+		end
+	end)
+
+	it("bounds font-run admission and resets both font memos without changing answers", function()
+		local ok, err = pcall(function()
+			textMetrics.resetMeasured()
+			local base = "BuilderSans#Regular#Normal"
+			local function key(i)
+				return textMetrics.runKey(base, { { at = i, font = "BuilderSans#Bold#Normal" } })
+			end
+			local first = textMetrics.runsOf(key(1))
+			expect(textMetrics.runsOf(key(1))).toBe(first)
+			textMetrics.resetMeasured()
+			expect(textMetrics.runsOf(key(1)) ~= first).toBe(true)
+			for i = 1, 8200 do
+				textMetrics.runsOf(key(i))
+				textMetrics.canonicalFont(`Fixture{i}`)
+			end
+			local a, b = textMetrics.runsOf(key(99999)), textMetrics.runsOf(key(99999))
+			expect(a ~= b).toBe(true)
+			expect(a).toEqual(b)
+			expect(textMetrics.canonicalFont("AfterCap")).toBe("AfterCap#Regular#Normal")
+			textMetrics.resetMeasured()
+			expect(textMetrics.runsOf(key(99999))).toBe(textMetrics.runsOf(key(99999)))
+		end)
+		textMetrics.resetMeasured()
+		if not ok then
+			error(err, 0)
+		end
+	end)
+end)
+
+describe("resolved scroll extents", function()
+	it("refuses invalid metric answers without publishing a canvas, then recovers", function()
+		local snapshot = require("../src/themes/snapshot")
+		local w = world.new()
+		local UI = w.UI
+		local function metrics(value)
+			local m = table.clone(snapshot.neutral())
+			m.space = table.clone(m.space)
+			m.space.xl = value
+			return m
+		end
+		local function mount()
+			w.present(function()
+				return UI.Screen("S")({ UI.ScrollView("Canvas")({ axis = "xy", extent = { width = "xl" } }) })
+			end)
+		end
+		for _, value in { 0, -1, math.huge, 0 / 0 } do
+			w.env:set("themeMetrics", metrics(value))
+			local ok, err = pcall(mount)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "extent.width", 1, true) ~= nil).toBe(true)
+			expect(w.adapter.liveCount()).toBe(0)
+		end
+		w.env:set("themeMetrics", metrics(600))
+		mount()
+		expect(w.adapter.node("/S/Canvas").scrollRegion.contentW).toBe(600)
+		local ok, err = pcall(function()
+			w.env:set("themeMetrics", metrics(-5))
+			w.settle()
+		end)
+		local refusal = if ok then tostring(w.core:lastError()) else tostring(err)
+		expect(string.find(refusal, "extent.width", 1, true) ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Canvas").scrollRegion.contentW).toBe(600)
+		w.env:set("themeMetrics", metrics(800))
+		w.settle()
+		expect(w.adapter.node("/S/Canvas").scrollRegion.contentW).toBe(800)
+	end)
+end)

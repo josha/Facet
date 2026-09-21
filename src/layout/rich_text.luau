@@ -155,6 +155,9 @@ local function fontAttrs(attrs: string): (string?, string?, number?)
 	local weight = string.match(attrs, "weight%s*=%s*[\"']([^\"']+)[\"']")
 	local face = string.match(attrs, "face%s*=%s*[\"']([^\"']+)[\"']")
 	local size = tonumber(string.match(attrs, "size%s*=%s*[\"']?(%d+)"))
+	if size ~= nil then
+		size = math.min(size, 100)
+	end
 	--[[ A NUMERIC WEIGHT IS THE ENGINE'S OTHER SPELLING (`weight="700"`), and the
 		two meet here. A name the engine has no weight for names NOTHING rather than
 		naming a face that does not exist: a span with no weight, no face and no size
@@ -265,27 +268,21 @@ local function scan(text: string): (string, { Span }?)
 	return table.concat(out), spans
 end
 
---[[ displayText(s) -> the glyphs the engine draws for `s` with RichText on. ]]
-function rich_text.displayText(s: string | number): string
+-- Parse once when a caller needs both displayed glyphs and their faces.
+function rich_text.parse(s: string | number): (string, { Span }?)
 	local text = tostring(s)
-	-- the common case is a string with no markup at all: two finds, no scan
 	if string.find(text, "<", 1, true) == nil and string.find(text, "&", 1, true) == nil then
-		return text
+		return text, nil
 	end
-	return (scan(text))
+	return scan(text)
 end
 
---[[ spansOf(s) -> the face changes inside `displayText(s)`, or nil.
+function rich_text.displayText(s: string | number): string
+	return (rich_text.parse(s))
+end
 
-	Separate from `displayText` so a caller that only needs the string pays only
-	for the string, and returned as plain data so the measurement layer owns how a
-	span becomes a font key. ]]
 function rich_text.spansOf(s: string | number): { Span }?
-	local text = tostring(s)
-	if string.find(text, "<", 1, true) == nil then
-		return nil
-	end
-	local _, spans = scan(text)
+	local _, spans = rich_text.parse(s)
 	return spans
 end
 

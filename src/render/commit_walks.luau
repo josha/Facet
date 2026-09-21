@@ -51,6 +51,7 @@
 local authority = require("./authority")
 local layout_node = require("./layout_node")
 local themeSnapshot = require("../themes/snapshot")
+local isFinite = require("../num").isFinite
 local chromeSlots = require("../tokens/chrome_slots")
 -- the ONE reading of the `textSize = "fit"` grammar (shared with the schema and
 -- with `render/layout_node.textOf`, which resolves the band the solver picks from)
@@ -2021,6 +2022,15 @@ function commit_walks.new(ctx: CommitCtx)
 					local extentH = if type(extent) == "table"
 						then themeSnapshot.resolveNumber(metrics, extent.height)
 						else nil
+					for _, axis in { "width", "height" } do
+						if type(extent) == "table" and extent[axis] ~= nil then
+							local value = if axis == "width" then extentW else extentH
+							assert(
+								isFinite(value) and value > 0,
+								`Facet ScrollView extent.{axis} must resolve to positive finite pixels (at {node.path})`
+							)
+						end
+					end
 					local region = {
 						axis = props.axis or "y",
 						paging = node.meta ~= nil

@@ -264,8 +264,11 @@ end
 function text_fit.middle(spec: MiddleSpec): string
 	specGuard.assertKnownKeys("text.middle", spec, MIDDLE_SPEC_KEYS, "spec")
 	local text = spec.text
-	if text == "" or spec.width <= 0 then
+	if text == "" then
 		return text
+	end
+	if spec.width <= 0 then
+		return ELLIPSIS
 	end
 	if lineWidth(spec, text) <= spec.width then
 		return text
