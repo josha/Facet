@@ -394,6 +394,9 @@ export type ImageSpec = BoxProps & {
 }
 
 export type ButtonSpec = BoxProps & PointerHandlers & {
+	controlSize: Bound<("compact" | "regular" | "large")?>?,
+	appearance: Bound<("standard" | "emphasis" | "soft" | "utility" | "link")?>?,
+	over: "media"?,
 	children: { Blueprint }?,
 	role: Bound<string>?,
 	gap: Bound<number | Metric>?,

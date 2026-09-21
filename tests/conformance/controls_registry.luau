@@ -195,6 +195,25 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		-- The shared local size/appearance vocabulary (`controlSize`, `appearance`,
+		-- `corners`, `over`): a pure decision module every control that adopts the
+		-- vocabulary resolves it through, so the ladder's metric paths and the
+		-- legal word sets are written once. It reserves sized footprints and owns no
+		-- state, which is why it declares neither an input nor an affordance story
+		-- — the CONTROLS that adopt it (Button, Chip today) carry those.
+		name = "ControlVocabulary",
+		kind = "composite",
+		module = "src/controls/control_vocabulary.luau",
+		export = "UI.Button",
+		spec = "tests/control_vocabulary.spec.luau",
+		conformance = "tests/control_vocabulary.spec.luau",
+		docsAnchor = "UI.Button",
+		dump = false,
+		reason = "stateless module: maps a size rung to theme metric PATHS and refuses an unknown word; no instance state",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "ButtonControl",
 		kind = "composite",
 		module = "src/controls/button.luau",

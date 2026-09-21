@@ -119,6 +119,96 @@ local FIXTURES: { Fixture } = {
 			).blueprint
 		end,
 	},
+	--[[ THE LOCAL SIZE VOCABULARY AT LARGEST TEXT — the form this sweep exists for.
+		A `compact` rung pins the plate to a theme metric that does NOT grow with the
+		player's text preference (theme metrics never have), while the label inside it
+		does, so three rungs side by side is where a fixed plate meets growing glyphs.
+		Swept as one row so the sweep also sees them as NEIGHBOURS: the compact
+		button's own hit floor overhangs its plate, and an overlap with the rung
+		beside it is the failure this arrangement can produce and a single control
+		cannot. ]]
+	{
+		id = "ControlVocabularySizes",
+		class = "ControlVocabulary",
+		build = function(core)
+			local rungs = {}
+			for _, rung in { "compact", "regular", "large" } do
+				table.insert(
+					rungs,
+					harness.Controls.Button(core, {
+						id = `Ctl{rung}`,
+						label = lt.PSEUDO_ACTION,
+						controlSize = rung,
+						appearance = if rung == "large" then "emphasis" else "utility",
+						onActivate = function() end,
+					}).blueprint
+				)
+			end
+			return UI.VStack({
+				id = "Ctl",
+				gap = "m",
+				width = UI.fill(),
+				children = {
+					-- the three rungs as NEIGHBOURS: each compact plate's hit floor
+					-- overhangs it, and an overlap with the rung beside it is the
+					-- failure this arrangement can produce and a lone control cannot
+					UI.HStack({ id = "Rungs", gap = "m", children = rungs }),
+					harness.Controls.Chip(core, {
+						id = "CtlChip",
+						label = lt.PSEUDO_ACTION,
+						selected = Compose.cell(false),
+						controlSize = "compact",
+					}).blueprint,
+				},
+			})
+		end,
+	},
+	--[[ ...AND THE TWO BUTTON FORMS THE VOCABULARY ADDS. The icon-only button has no
+		text to grow, which is exactly why it is worth sweeping: its box is a fixed
+		icon square inside a plate that the preference does not move, and its
+		neighbour's label is what arrives to collide with it. The link form paints no
+		plate at all, so a clip there has nothing to hide behind. ]]
+	{
+		id = "ButtonIconOnly",
+		class = "ButtonControl",
+		build = function(core)
+			return UI.HStack({
+				id = "Ctl",
+				gap = "s",
+				width = UI.fill(),
+				children = {
+					harness.Controls.Button(core, {
+						id = "CtlIcon",
+						icon = "close",
+						name = "Close",
+						corners = "pill",
+						controlSize = "compact",
+						onActivate = function() end,
+					}).blueprint,
+					harness.Controls.Button(core, {
+						id = "CtlLabelled",
+						label = lt.PSEUDO_ACTION,
+						icon = "facet:search",
+						trailingIcon = "chevron.trailing",
+						onActivate = function() end,
+					}).blueprint,
+				},
+			})
+		end,
+	},
+	{
+		id = "ButtonLink",
+		class = "ButtonControl",
+		build = function(core)
+			return harness.Controls.Button(core, {
+				id = "Ctl",
+				label = PSEUDO,
+				appearance = "link",
+				width = UI.fill(),
+				onActivate = function() end,
+			}).blueprint
+		end,
+	},
 	{
 		id = "ComboBox",
 		class = "ComboBox",

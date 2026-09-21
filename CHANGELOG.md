@@ -13,6 +13,16 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add optional local `controlSize` (`compact`, `regular`, `large`), `appearance`,
+  and `corners` to `app.controls.Button` and `Chip`, plus Button `over = "media"`.
+  Compose readables and `function(use)` bindings update size and appearance in
+  place. Named sizes use theme metric paths and reserve the effective hit floor
+  in layout, so compact neighbors retain separate targets. Appearance composes
+  with semantic role at rest, hover and press in the default and package sheets;
+  `standard` is the untagged default. Button gains construction-time semantic
+  `icon`/`trailingIcon` and the required `name` for icon-only content; Chip gains
+  static `leading`/`trailing` content. Omitted keys preserve existing behavior.
+
 - Application presentation forwards the existing renderer comparison options
   `measureReuse`, `commitScope`, `structuralReuse` and `translateHosts`.
   `Facet.schema` exposes read-only constructor facts for contract tooling, and

@@ -328,13 +328,22 @@ local function selectorMatches(selector: string, class: string, tags: { [string]
 	if string.find(selector, ":", 1, true) ~= nil then
 		return false, "state"
 	end
-	local cls, tag = string.match(selector, "^([%a]+)%.([%w%-]+)$")
-	if cls ~= nil then
-		return cls == class and tags[tag] == true, "match"
-	end
-	local bareTag = string.match(selector, "^%.([%w%-]+)$")
-	if bareTag ~= nil then
-		return tags[bareTag] == true, "match"
+	--[[ ONE OR MORE TAGS, with or without a class in front. A COMPOUND selector
+		(`.facet-role-destructive.facet-appearance-utility`) is an ordinary resting
+		shape — it simply asks for every tag at once — and the vocabulary round added
+		the first of them. Reading it as `unknown` would have quietly dropped three
+		rules out of the audit this oracle exists to be. ]]
+	local cls, tail = string.match(selector, "^(%a*)(%..*)$")
+	if tail ~= nil and string.match(tail, "^[%.%w%-]+$") ~= nil then
+		if cls ~= "" and cls ~= class then
+			return false, "match"
+		end
+		for tag in string.gmatch(tail, "%.([%w%-]+)") do
+			if tags[tag] ~= true then
+				return false, "match"
+			end
+		end
+		return true, "match"
 	end
 	if string.match(selector, "^[%a]+$") ~= nil then
 		return selector == class, "match"

@@ -74,7 +74,35 @@ sheet_model.TAGS = table.freeze({
 		it: this is the floor under an otherwise invisible node, never a new
 		authority over one that was already painted. ]]
 	tintFill = "facet-tint-fill",
+	--[[ THE LOCAL SIZE AND EMPHASIS VOCABULARY (`src/controls/control_vocabulary.luau`).
+
+		A control may say it is smaller, quieter or louder than its neighbour WITHOUT
+		a theme swap. The SIZE half is metrics — the control names
+		`controlSizes.<rung>.*` and the solver resolves it — but a rung also changes
+		PAINT (a smaller plate wants a tighter corner), and paint keyed on a finite
+		state is a tag, never a per-node write. Same for the emphasis word.
+
+		ALL THREE RUNGS EARN A TAG, INCLUDING THE MIDDLE ONE, on the
+		`facet-type-<role>` precedent rather than the `facet-shape-rect` one: a rule
+		that restates the class default is inert under a package whose ladder shares
+		one chrome (Facet Neutral's `regular`) and load-bearing the moment a package
+		gives one rung its own. The tag appears only when a control AUTHORS a rung,
+		so nothing that predates this vocabulary wears one.
+
+		`appearance = "standard"` EARNS NOTHING, which is the other precedent and the
+		right one here: standard IS the paint every untagged control already has, so
+		a tag for it would be a rule with nothing to say. ]]
+	sizePrefix = "facet-size-", -- + compact|regular|large
+	appearancePrefix = "facet-appearance-", -- + emphasis|soft|utility|link (standard adds none)
+	-- ...and the one surface a control can say it is drawn ON TOP OF. A control
+	-- over artwork cannot lean on the theme's resting control fill, so it asks for
+	-- the strong opaque pair by name instead of hand-painting a scrim behind itself.
+	overMedia = "facet-over-media",
 })
+
+-- the emphasis word that IS the default paint, named once: `classifyTags` skips it
+-- and neither sheet builder emits a rule for it, and those two facts have to agree.
+sheet_model.DEFAULT_APPEARANCE = "standard"
 
 --[[ THE BACKDROP RULE, named once. Both sheet builders emit it and the
 	adapter patches it live when the player moves their Background Transparency
@@ -280,6 +308,17 @@ export type ClassifyInput = {
 	-- not the descriptor — the FACE lives in the generated rule, so measurement and
 	-- paint read the one ramp. nil for a node that draws no text.
 	typeRole: string?,
+	-- THE LOCAL SIZE RUNG this control was authored at (see TAGS): "compact" |
+	-- "regular" | "large", or nil for a control that named none and therefore keeps
+	-- the theme's own chrome. The METRICS of a rung are the solver's; this is only
+	-- the paint half.
+	controlSize: string?,
+	-- ...and its EMPHASIS word, which is paint and nothing else. "standard" is the
+	-- default every untagged control already wears, so it earns no tag.
+	appearance: string?,
+	-- the surface this control is drawn over ("media"), when it is not the theme's
+	-- own background. One word, one tag.
+	over: string?,
 }
 
 function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
@@ -349,6 +388,25 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- cannot strip a disc back to a rectangle.
 	if input.shape ~= nil and input.shape ~= "rect" then
 		tags[T.shapePrefix .. input.shape] = true
+	end
+	-- THE LOCAL SIZE RUNG (see TAGS): all three earn a tag, because a rung is
+	-- AUTHORED — a control that named none passes nil here and wears nothing.
+	if type(input.controlSize) == "string" and input.controlSize ~= "" then
+		tags[T.sizePrefix .. (input.controlSize :: string)] = true
+	end
+	-- ...and the EMPHASIS word, minus the default: `standard` is the paint an
+	-- untagged control already has, so a tag for it would be a rule with nothing
+	-- to say (the `facet-shape-rect` / `role = "default"` ruling).
+	if
+		type(input.appearance) == "string"
+		and input.appearance ~= ""
+		and input.appearance ~= sheet_model.DEFAULT_APPEARANCE
+	then
+		tags[T.appearancePrefix .. (input.appearance :: string)] = true
+	end
+	-- "I am drawn over artwork": one word, one tag, no second treatment vocabulary
+	if input.over == "media" then
+		tags[T.overMedia] = true
 	end
 	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
 	-- including the class defaults: a rule that restates the class default is inert
@@ -824,6 +882,271 @@ local function emitShapeChrome(
 	end
 end
 
+-- ===========================================================================
+-- THE LOCAL SIZE / EMPHASIS CHROME — ONE EMITTER, BOTH BUILDERS
+-- (`src/controls/control_vocabulary.luau`; tags declared in TAGS above)
+-- ===========================================================================
+--
+-- FACET NEUTRAL IS THE REFERENCE, so it paints every tag it mints rather than
+-- leaving a package to discover which ones matter. Two families:
+--
+--   * the SIZE rungs carry a CORNER, each from a PUBLISHED radius and never from
+--     arithmetic on one. A rung changes the plate's height through the metric
+--     ladder, and a bigger plate wearing a smaller plate's radius reads as a
+--     stretched version of it rather than as its own control — so `large` takes
+--     the next published radius up (`radii.panel`) while `compact` and `regular`
+--     both take `radii.control`, which is all Facet Neutral publishes below it.
+--     THE THREE RULES EXIST EVEN WHERE TWO AGREE, on the `facet-type-<role>`
+--     precedent: a rule that restates what its neighbour says is inert under a
+--     package whose ladder shares one radius and load-bearing the moment a package
+--     gives a rung its own. A DERIVED number was tried and refused — `radii.control
+--     - space.xs` is not a paint-family number, so it does not ride the ten-foot
+--     1.5x the way every other corner in this sheet does (`space` is not a scaled
+--     section), and a corner that scales differently from its neighbours is the
+--     measure/paint split one property down. Every rung therefore also gets a
+--     live-edit push, which a derived value could never have had.
+--   * the EMPHASIS words carry a FILL AND ITS READABLE PARTNER, and every pair
+--     below is one this library already ships gated: emphasis is ($Accent,
+--     $OnAccent) — the theme contract's one guaranteed pair; soft is
+--     ($ControlSelected, $OnSelected) — the derived partner the "Selected row"
+--     rule already proves; utility is ($Surface, $ContentSecondary) — the shipped
+--     "Cancel button" pair, plus a hairline so a quiet control still has an edge;
+--     link paints NO plate at all and takes $Accent, which is what a text link is.
+--     No new palette role is invented for any of them.
+--
+-- ORDERING, WHICH IS THE CASCADE. Corners and the utility outline go in
+-- `surfaces`, BEFORE `emitShapeChrome`'s `roles`-group disc rules, so a compact
+-- circle is still a circle. The fills go in `roles`, after every surface fill they
+-- must beat and before the hover/press rules that still layer on top — the same
+-- placement the destructive role's own comment argues for.
+local function emitVocabularyChrome(
+	metrics: any,
+	hairlineT: RuleProp,
+	hairlineW: RuleProp,
+	emitSurface: (Rule) -> (),
+	emitRole: (Rule) -> (),
+	fromMetric: ((string, string, string, string) -> ())?
+)
+	local T = sheet_model.TAGS
+	local radii = metrics.radii
+	emitSurface({
+		name = "Control size — compact corner",
+		selector = `.{T.sizePrefix}compact::UICorner`,
+		props = { CornerRadius = udim(0, radii.control) },
+	})
+	emitSurface({
+		name = "Control size — regular corner",
+		selector = `.{T.sizePrefix}regular::UICorner`,
+		props = { CornerRadius = udim(0, radii.control) },
+	})
+	emitSurface({
+		name = "Control size — large corner",
+		selector = `.{T.sizePrefix}large::UICorner`,
+		props = { CornerRadius = udim(0, radii.panel) },
+	})
+	emitSurface({
+		name = "Utility control — outline",
+		selector = `.{T.appearancePrefix}utility::UIStroke`,
+		props = {
+			Color = "$Hairline",
+			Transparency = hairlineT,
+			Thickness = hairlineW,
+			ApplyStrokeMode = STROKE_BORDER,
+		},
+	})
+	if fromMetric ~= nil then
+		fromMetric("radii.control", "Control size — compact corner", "CornerRadius", "udimOffset")
+		fromMetric("radii.control", "Control size — regular corner", "CornerRadius", "udimOffset")
+		fromMetric("radii.panel", "Control size — large corner", "CornerRadius", "udimOffset")
+		fromMetric("strokes.hairline", "Utility control — outline", "Thickness", "number")
+	end
+	emitRole({
+		name = "Emphasis control",
+		selector = `.{T.appearancePrefix}emphasis`,
+		props = { BackgroundColor3 = "$Accent", BackgroundTransparency = num(0), TextColor3 = "$OnAccent" },
+	})
+	emitRole({
+		name = "Soft emphasis control",
+		selector = `.{T.appearancePrefix}soft`,
+		props = {
+			BackgroundColor3 = "$ControlSelected",
+			BackgroundTransparency = num(0),
+			TextColor3 = "$OnSelected",
+		},
+	})
+	emitRole({
+		name = "Utility control",
+		selector = `.{T.appearancePrefix}utility`,
+		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0), TextColor3 = "$ContentSecondary" },
+	})
+	--[[ A LINK HAS NO PLATE, and that is the one thing this rule exists to say.
+		Every Button leaf takes the `control` surface at create, so a link has to
+		un-paint it rather than merely decline one — and it says so with a
+		TRANSPARENCY, which a rule may write freely (the "a write equal to the class
+		default claims nothing" trap is about explicit per-node WRITES, not rules). ]]
+	emitRole({
+		name = "Link control",
+		selector = `.{T.appearancePrefix}link`,
+		props = { BackgroundTransparency = num(1), TextColor3 = "$Accent" },
+	})
+	--[[ OVER ARTWORK, THE PAIR IS THE POINT. A control drawn on a photograph cannot
+		borrow the contrast of a background the theme controls, so it takes the
+		gated ($SurfaceStrong, $ContentStrong) pair opaque — and its interaction
+		states move to the OTHER gated pair ($Surface, $Content) rather than to the
+		control ramp, so it stays readable through hover and press instead of
+		inheriting a fill chosen to sit on the theme's own background. ]]
+	emitRole({
+		name = "Control over media",
+		selector = `.{T.overMedia}`,
+		props = {
+			BackgroundColor3 = "$SurfaceStrong",
+			BackgroundTransparency = num(0),
+			TextColor3 = "$ContentStrong",
+		},
+	})
+end
+
+--[[ THE COMPOUND `role` x `appearance` RULES — the composition the docs print in
+	four places, made true in the cascade rather than asserted about a tag.
+
+	`role` is the SEMANTIC channel and `appearance` is EMPHASIS, so the two loud
+	words hand the plate to the role (a destructive emphasis button IS the danger
+	plate, which is what the shipped `Destructive button` rule already paints), and
+	the three quiet words keep their own plate while the role colours the CONTENT.
+	That is the quiet delete the guide describes: a utility plate carrying danger
+	lettering, a link with no plate and danger lettering, a soft tint with the same.
+
+	They are emitted AFTER the role rules, which is the only reason they win: the
+	cascade is priority then insertion order, and a compound selector earns no
+	specificity here. Round 1 omitted them, so `Destructive button` landed last and
+	a destructive link painted $OnDanger — a colour gated only against $Danger — on
+	no plate at all. ]]
+local function emitVocabularyRoles(emitRole: (Rule) -> ())
+	local A = sheet_model.TAGS.appearancePrefix
+	emitRole({
+		name = "Destructive utility",
+		selector = `.facet-role-destructive.{A}utility`,
+		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(0), TextColor3 = "$Danger" },
+	})
+	emitRole({
+		name = "Destructive soft",
+		selector = `.facet-role-destructive.{A}soft`,
+		props = { BackgroundColor3 = "$ControlSelected", BackgroundTransparency = num(0), TextColor3 = "$Danger" },
+	})
+	-- no `BackgroundColor3` at all: a link's plate is its absence, and naming a
+	-- colour for a plate nobody paints is how a later rule finds one to reveal
+	emitRole({
+		name = "Destructive link",
+		selector = `.facet-role-destructive.{A}link`,
+		props = { BackgroundTransparency = num(1), TextColor3 = "$Danger" },
+	})
+end
+
+--[[ THE INTERACTION STATES, EMITTED AFTER THE GENERIC ONES IN BOTH BUILDERS.
+
+	`Control — hover`/`Control — pressed` key on the INTERACTIVE tag, not on the
+	appearance, so an emphasis button hovered without a later rule repaints itself
+	neutral — the defect the shipped `Destructive — hover` pair exists to prevent,
+	one axis over. Every word gets a pair, and each pair carries the READABLE
+	PARTNER of whatever fill it names: that is the half the generic rule cannot do,
+	because it changes the plate and leaves the resting content colour on it.
+
+	`soft` and `utility` deliberately hand their plate BACK to the control ramp on
+	interaction — a quiet control becoming an ordinary one is the right read for a
+	press — and the rule exists to carry $Content with it rather than to stop the
+	fill moving. `link` restates its own transparency so no later fill can reveal a
+	plate under it.
+
+	SEPARATE FROM `emitVocabularyChrome` because the two halves belong at different
+	points in the cascade, and `buildPackage` emits the generic states hundreds of
+	rules after its surfaces. Round 1 emitted both halves at the surface point, so
+	under EVERY installed package all ten rules were dead. ]]
+local function emitVocabularyStates(emitHover: (Rule) -> (), emitPress: (Rule) -> (), pointerLive: string)
+	local T = sheet_model.TAGS
+	local A = T.appearancePrefix
+	--[[ THE HOVER EASES THE PROPERTY THE RULE ACTUALLY WRITES. A blanket
+		`BackgroundColor3 = "fast"` declared a transition for a property a link's rule
+		never names, and left the one it does name — its lettering — snapping. A rule
+		says which channel it moved; the transition follows it. ]]
+	local function pair(name: string, selector: string, hover: { [string]: RuleProp }, press: { [string]: RuleProp })
+		local eased = if hover.BackgroundColor3 ~= nil then "BackgroundColor3" else "TextColor3"
+		emitHover({
+			name = `{name} — hover`,
+			selector = `TextButton.{selector}.{pointerLive}:Hover`,
+			props = hover,
+			transitions = { [eased] = "fast" },
+		})
+		emitPress({ name = `{name} — pressed`, selector = `TextButton.{selector}:Press`, props = press })
+	end
+	pair(
+		"Emphasis",
+		`{A}emphasis`,
+		{ BackgroundColor3 = "$AccentHover", TextColor3 = "$OnAccent" },
+		{ BackgroundColor3 = "$AccentPressed", TextColor3 = "$OnAccent" }
+	)
+	pair(
+		"Soft",
+		`{A}soft`,
+		{ BackgroundColor3 = "$ControlHover", TextColor3 = "$Content" },
+		{ BackgroundColor3 = "$ControlPressed", TextColor3 = "$Content" }
+	)
+	pair(
+		"Utility",
+		`{A}utility`,
+		{ BackgroundColor3 = "$ControlHover", TextColor3 = "$Content" },
+		{ BackgroundColor3 = "$ControlPressed", TextColor3 = "$Content" }
+	)
+	--[[ A LINK'S STATES MOVE ONLY ITS LETTERING, and that is a rule about the SHEET
+		rather than a preference: no `:Hover`/`:Press` rule either builder emits may
+		carry a `BackgroundTransparency`, because the catcher-paint oracle resolves a
+		resting fill by skipping every state rule and would report the wrong number
+		for a node that was painting one (`tests/popup_catcher_paint.spec`). The plate
+		stays invisible anyway — the resting `Link control` rule owns the
+		transparency and nothing in the control ramp touches it. ]]
+	pair("Link", `{A}link`, { TextColor3 = "$AccentHover" }, { TextColor3 = "$AccentPressed" })
+	-- over artwork the states move to the OTHER gated pair rather than to the
+	-- control ramp, so the control stays readable on a photograph it cannot see
+	pair(
+		"Over media",
+		T.overMedia,
+		{ BackgroundColor3 = "$Surface", TextColor3 = "$Content" },
+		{ BackgroundColor3 = "$SurfaceStrong", TextColor3 = "$ContentStrong" }
+	)
+	--[[ ...AND THE ROLE SURVIVES THE CLICK, which is the other half of the same
+		argument and belongs in this emitter rather than beside it: these rules must
+		land immediately after the per-word ones, and the only way to guarantee that
+		in two builders is to emit them from the same call.
+
+		`emitVocabularyRoles` composes `role` with `appearance` AT REST — the loud
+		words hand the plate to the role, the quiet ones keep their plate and let the
+		role colour the content. The per-word state rules above name those same two
+		channels and are emitted later, so without these a hovered quiet delete became
+		an ordinary neutral control, a destructive link's lettering turned ACCENT, and
+		a destructive emphasis button hovered accent rather than danger. Touch has no
+		hover, but `:Press` behaves identically, so every device saw it.
+
+		EACH PAIR KEEPS THE DANGER SIGNAL ON THE CHANNEL ITS WORD LEAVES FREE, and
+		moves it with the state so the control still acknowledges the press.
+		`standard` needs no pair: it mints no appearance tag, so the shipped
+		`Destructive — hover/pressed` rules are already the last word on it. And none
+		of them carries a transparency — see the link note above. ]]
+	local function rolePair(word: string, hover: { [string]: RuleProp }, press: { [string]: RuleProp })
+		pair(`Destructive {word}`, `facet-role-destructive.{A}{word}`, hover, press)
+	end
+	-- the role owns the PLATE here, so the danger family moves on the plate and
+	-- carries its gated partner with it
+	rolePair(
+		"emphasis",
+		{ BackgroundColor3 = "$DangerHover", TextColor3 = "$OnDanger" },
+		{ BackgroundColor3 = "$DangerPressed", TextColor3 = "$OnDanger" }
+	)
+	-- ...and here the WORD owns the plate, so the danger signal is the lettering and
+	-- the plate is left to the per-word rule above
+	rolePair("soft", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
+	rolePair("utility", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
+	rolePair("link", { TextColor3 = "$DangerHover" }, { TextColor3 = "$DangerPressed" })
+end
+
 export type BuildOpts = {
 	-- ordered; the FIRST theme is the base/default unless defaultTheme names another
 	themes: { { name: string, style: any } },
@@ -1031,9 +1354,23 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- cascade position: after every surface fill it must beat, and before the
 	-- scrim and the `Grip focus` accent that must still beat IT.
 	local hairlineT, hairlineW = num(numbers.HairlineTransparency), num(base.strokes.hairline)
+	--[[ THE LOCAL SIZE / EMPHASIS CHROME (see emitVocabularyChrome). The base seed
+		pushes into ONE flat ordered list, so the emitter's groups are collected first
+		and spliced at the points the cascade needs them: the corners before the
+		disc's, the fills after every surface fill, and the compound role rules and
+		the interaction states each after the rules they must beat. ]]
+	local vocabSurfaces: { Rule }, vocabRoles: { Rule } = {}, {}
+	local function into(list: { Rule }): (Rule) -> ()
+		return function(rule: Rule)
+			table.insert(list, rule)
+		end
+	end
+	emitVocabularyChrome(base, hairlineT, hairlineW, into(vocabSurfaces), into(vocabRoles))
+	pushAll(vocabSurfaces)
 	-- THE DISC'S CHROME, immediately after every surface corner it has to beat
 	-- and before anything that changes only colour (see emitShapeChrome)
 	emitShapeChrome(base, hairlineT, hairlineW, push)
+	pushAll(vocabRoles)
 	for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 		emitOwnSlotPaint(slot, base, hairlineT, hairlineW, push)
 	end
@@ -1112,6 +1449,9 @@ function sheet_model.build(opts: BuildOpts): Model
 			props = { TextColor3 = "$OnAccent" },
 		},
 	})
+	-- the compound role x appearance rules, immediately after the roles they must
+	-- beat (see emitVocabularyRoles)
+	emitVocabularyRoles(push)
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO — PRE-ARMED, exactly as
 	-- in `buildPackage` (director round 5). The base seed needs it for the same
@@ -1165,6 +1505,12 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = "TextButton.facet-role-destructive:Press",
 			props = { BackgroundColor3 = "$DangerPressed" },
 		},
+	})
+	-- ...and the emphasis words' own interaction states, beside the role's and for
+	-- the same reason (see emitVocabularyStates). After the generic control ramp,
+	-- before the disabled group which must still beat every interaction state.
+	emitVocabularyStates(push, push, T.pointerLive)
+	pushAll({
 		{
 			name = "Disabled button",
 			selector = "TextButton:NonInteractable",
@@ -2176,6 +2522,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- the disc's chrome, in the group right after the surfaces whose corners it
 	-- replaces and right before `chrome`, whose skinned-slot suppression must
 	-- still beat it (see emitShapeChrome)
+	-- the local size/emphasis chrome, from the SAME shared emitter as the base seed
+	-- (see emitVocabularyChrome): corners before the disc's, fills after the
+	-- surfaces, interaction states in their own groups
+	emitVocabularyChrome(metrics, hairlineT, hairlineW, function(rule: Rule)
+		emit("surfaces", rule)
+	end, function(rule: Rule)
+		emit("roles", rule)
+	end, fromMetric)
 	emitShapeChrome(metrics, hairlineT, hairlineW, function(rule: Rule)
 		emit("roles", rule)
 	end, fromMetric)
@@ -2239,6 +2593,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextButton." .. ON_INDICATOR_TAG,
 		props = { TextColor3 = "$OnAccent" },
 	})
+	-- the compound role x appearance rules, immediately after the roles they must
+	-- beat — the same position and the same emitter as the base seed's
+	emitVocabularyRoles(function(rule: Rule)
+		emit("roles", rule)
+	end)
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
 	-- 2026-07-25). The three `Slot — <slot>` rules above are the ACCESSIBILITY
@@ -2804,6 +3163,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextButton.facet-role-destructive:Press",
 		props = { BackgroundColor3 = "$DangerPressed" },
 	})
+	-- ...and the emphasis words', from the SAME emitter the base seed uses and at
+	-- the same position relative to the generic control ramp (see
+	-- emitVocabularyStates for why the two halves cannot share one call site)
+	emitVocabularyStates(function(rule: Rule)
+		emit("hover", rule)
+	end, function(rule: Rule)
+		emit("press", rule)
+	end, T.pointerLive)
 	-- Chrome interaction states. The decoration child is Active=false and can
 	-- never report a GuiState of its own, so the state is read from its PARENT
 	-- and reaches the child through the child combinator. One base image, four

@@ -260,6 +260,10 @@ describe("the public SHAPE a breaking change moves", function()
 	local CLASS_DEFAULTS: { [string]: string } = {
 		["AdaptiveStack.distribute"] = "`start`",
 		["Box.opacity"] = "prose: subtree: 1 = opaque (the default), 0 = invisible but",
+		-- the local size/appearance vocabulary: `standard` is the paint an untagged
+		-- button already has, which is why it earns no tag and why the doc names it
+		-- as the default (recorded in CHANGELOG.md with the rest of the vocabulary)
+		["Button.appearance"] = "prose:iction. 'standard' is the default paint and earns no ",
 		["Button.compactLabel"] = "prose:he compact form ALWAYS (a default, not a degrade) —",
 		["Composition.groups"] = "prose:s ceiling on a fill lane; defaults at ten-foot to `ad",
 		["ForEach.transition"] = "the mirror of enter",

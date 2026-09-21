@@ -597,6 +597,14 @@ function screen_target.new(opts: Opts?)
 			-- classification tag, or the next pass would strip the face back to the
 			-- class default.
 			typeRole = handle.typeRole,
+			-- THE LOCAL SIZE / EMPHASIS VOCABULARY
+			-- (`src/controls/control_vocabulary.luau`). Three authored words whose
+			-- whole engine expression is a tag, so they ride the desired set like
+			-- every other classification tag — the next pass would otherwise strip
+			-- a compact control back to the theme's own chrome.
+			controlSize = handle.controlSize,
+			appearance = handle.appearance,
+			over = handle.over,
 		})
 		local plan = tag_sync.diff(CollectionService:GetTags(instance), desired)
 		for _, tag in plan.remove do

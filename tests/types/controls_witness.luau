@@ -16,6 +16,14 @@ local _button = app.controls.Button("Repeat")({
 	label = function(use: coreTypes.Use): string
 		return use(label)
 	end,
+	controlSize = Facet.Compose.cell("compact" :: "compact" | "regular" | "large"),
+	appearance = function(_use: coreTypes.Use): "emphasis"
+		return "emphasis"
+	end,
+	corners = "square",
+	over = "media",
+	icon = "search",
+	trailingIcon = "chevron.trailing",
 	busy = Facet.Compose.cell(false),
 	repeatDelay = 0.4,
 	shortcut = { keyCode = "F6", modifiers = { shift = true } },
@@ -146,7 +154,15 @@ local _tabview = app.controls.TabView("Tabs")({
 	},
 })
 local _label = app.controls.Label("Label")({ title = "Alpine" })
-local _chip = app.controls.Chip("Tag")({ selected = Facet.Compose.cell(false), label = "Tag" })
+local _chip = app.controls.Chip("Tag")({
+	controlSize = "compact",
+	appearance = "utility",
+	corners = "pill",
+	leading = app.controls.Text({ text = "*" }),
+	trailing = app.controls.Text({ text = "3" }),
+	selected = Facet.Compose.cell(false),
+	label = "Tag",
+})
 local _rating = app.controls.Rating("Rating")({ value = Facet.Compose.cell(3) })
 local _textinput = app.controls.TextInput("Name")({ value = Facet.Compose.cell("Alpine") })
 local _numericText = app.controls.TextInput("Number")({
@@ -285,3 +301,5 @@ local _pageview = app.controls.PageView("Pages")({
 	selection = Facet.Compose.cell("home"),
 	pages = { { id = "home", title = "Home", content = app.controls.Text({ text = "Home" }) } },
 })
+
+local _iconOnly = app.controls.Button({ icon = "close", name = "Close", controlSize = "compact" })

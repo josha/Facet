@@ -1763,10 +1763,31 @@ its outer surfaces. It does not change focus order or activation.
 
 
 `UI.Button{ id?, label (required), compactLabel?, disclose?, enabled?, selected?,
-role?, shape?, icon?, gap?, align?, help?, surface?, textSize?, padding?,
+role?, shape?, icon?, controlSize?, appearance?, over?, gap?, align?, help?, surface?, textSize?, padding?,
 focusable?, focusVisual?, traversalPriority?, onActivate?, children?,
 onPointerDown?, onPointerMove?, onPointerUp?, onPointerCancel? }` — activatable
 control.
+
+**`controlSize`** (`"compact" | "regular" | "large"`, bindable) and
+**`appearance`** (`"standard" | "emphasis" | "soft" | "utility" | "link"`,
+bindable) are the **paint half** of the shared local vocabulary — each becomes one
+style tag (`facet-size-<rung>`, `facet-appearance-<word>`) that the theme's rules
+key on, exactly as `role` does. Neither moves geometry: the *measurements* of a
+rung are the theme ladder metrics `controlSizes.<rung>.{height,paddingX,iconSize}`,
+which a composite authors as ordinary `height`/`padding` props. `appearance` is
+emphasis only and composes with `role`, which stays the semantic channel:
+`role = "destructive", appearance = "utility"` is a quiet delete. `"standard"` is
+the paint an untagged button already has and earns no tag. Absent on both means
+today's paint, unchanged. **`over = "media"`** (construction-only) is the one tag
+for a control drawn on top of artwork: it takes the theme's strong opaque surface
+and the content colour gated against it, instead of the caller painting a scrim.
+
+All three reach the engine as **tags and nothing else**, so their paint is the
+theme's. On a target whose engine has no native StyleSheet support Facet has no
+rule to key on and will not open a second colour authority for one: the words are
+accepted and paint nothing there, while the *measurements* a rung drives work on
+every target. See `UI.Button` for the composite that authors these three
+plus `corners` from one spec.
 
 **`disclose`** (boolean, construction-only) gives a one-line label the same
 full-value path a `Text` carries: where the label truncates, hovering or
@@ -7693,7 +7714,88 @@ end)
 
 `UI.Button { … }` -> the button's node. `ref` receives `{ api, dump }`; the
 button publishes no verbs, and `dump()` reports
-`{ schema, id, busy, enabled, repeating, dialogAction }`.
+`{ schema, id, busy, enabled, repeating, dialogAction, name, controlSize, appearance }`.
+
+#### Local size, emphasis, silhouette and backdrop
+
+Four optional keys let one screen hold a compact filter beside a large primary
+action without swapping the theme. They are shared vocabulary: every control that
+adopts them takes the same words with the same meanings.
+
+| key | values | reactive | what it does |
+|---|---|---|---|
+| `controlSize` | `"compact"` / `"regular"` / `"large"` | yes | resolves to the theme ladder `controlSizes.<rung>.{height,paddingX,iconSize}` as **metric names**, so a theme swap re-sizes the button with no rebuild, and to one style tag for the paint |
+| `appearance` | `"standard"` / `"emphasis"` / `"soft"` / `"utility"` / `"link"` | yes | visual emphasis only, through a style tag |
+| `corners` | `"pill"` / `"square"` | no | the corner treatment, through the shipped `UI.corners` modifier. `"square"` is a radius of 0, never a 1:1 box — the disc is `UI.Button{ shape = "circle" }` |
+| `over` | `"media"` | no | the control is drawn over artwork: it takes the theme's strong opaque surface and its readable content colour |
+
+Absent means **today**: a button that names none of them retains its existing layout and paint.
+
+**Paint shrinks, the footprint does not.** A control that names a rung is mounted
+inside a plain container that reserves the larger of the Button class minimum (44px) and
+`targetSizes.minimum` on both axes and
+centres the smaller plate inside it, so the solved footprint is never below a
+finger and **two sized controls cannot share a target at any gap, including none
+at all**. What a rung buys is therefore the plate's density, not the layout's: a
+row of `compact` buttons still occupies a 44px band, and still looks like a row of
+small buttons. The container takes a derived id (`<id>+target`) and the control
+keeps its own, exactly as `UI.overlay`/`UI.background` do, so focus, tests and
+dumps still address the control by the name you gave it.
+
+**An authored `height` wins over a rung.** A rung is a default; a caller who
+measured their own layout is not overruled by one.
+
+**`regular` is the ladder's rung, not the untagged default.** Naming it adopts
+`controlSizes.regular.height` (44px at Facet Neutral) with the ladder's horizontal
+inset and no vertical one; an untagged button is its content plus the theme's
+button padding, which is 46px at Facet Neutral. The difference is small and it is
+real — name a rung on all the controls in a row, or on none of them.
+
+`appearance` and `role` are different questions and compose **in paint**, not just
+in name. `role` is the semantic channel and `appearance` is emphasis, so the loud
+words hand the plate to the role and the quiet ones keep their own plate while the
+role colours the content:
+
+| pairing | what it paints |
+|---|---|
+| `destructive` + `standard` / `emphasis` | the theme's danger plate with its readable partner — the role owns it outright |
+| `destructive` + `utility` | the utility plate, danger lettering — a quiet delete |
+| `destructive` + `soft` | the soft tint, danger lettering |
+| `destructive` + `link` | no plate at all, danger lettering |
+
+Each pairing holds **through hover and press** as well as at rest: the danger
+signal moves with the state on whichever channel the appearance leaves free, so a
+quiet delete never hovers back into an ordinary control.
+
+#### Icon-only and icon-plus-label buttons
+
+`icon` and `trailingIcon` take a **semantic icon NAME** (a framework name, or a
+package's `"ns:name"`) — never an asset id, and **construction-only**: the mark is
+drawn once, so a getter is refused rather than silently sampled. The framework
+draws its own legible glyph and an installed package paints its art over it. Each
+reserves **at least** the rung's `controlSizes.<rung>.iconSize` on both axes
+(defaulting to the `regular` rung) — a floor, not a cap, so the framework's own
+glyph still grows with the player's text preference instead of being clipped by a
+theme metric that does not.
+
+`name` is the **semantic label** for a button with no visible label, and is
+**required** for the semantic icon form there (the existing `shape = "circle"` primitive form keeps its contract): it is what a dump, a focus trace and a bug report call the
+control. Supplying `name` beside a visible `label` is refused — two answers to one
+question. `icon`/`trailingIcon` are the label's neighbours, so they do not combine
+with `children`, `image` or `row` (those are whole content forms of their own).
+
+```lua
+local close = UI.Button("Close")({ icon = "close", name = "Close", corners = "pill",
+    controlSize = "compact", appearance = "utility",
+    onActivate = dismiss,
+})
+```
+
+`controlSize` and `appearance` accept Compose readables and `function(use)` bindings.
+They are borrowed from the caller; changing or retracting them updates the mounted
+plate without rebuilding it. A bound rung retains its `<id>+target` wrapper when its
+value becomes nil. `corners`, `over`, and semantic icon names are construction-time.
+
 
 Plain text buttons accept `compactLabel`, a short alternate title or icon specification
 with the same rules as `UI.Button.compactLabel`. Do not combine it with custom
@@ -9277,6 +9379,10 @@ Spec fields:
 | `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
 | `selected` | a writable boolean cell | **yes** | the caller-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. Validated at build: absent, or a read-only formula, is an error naming the control and the field, not a crash on the first tap. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip with the new value (e.g. to persist a filter). |
+| `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
+| `appearance` | `"standard" \| "utility"` (bindable) | no | visual emphasis, through a style tag. A chip's family is two words, not the Button's five: `emphasis`/`soft`/`link` describe an action's weight among actions, which a filter pill is not. |
+| `corners` | `"pill" \| "square"` | no | the corner treatment, through the shipped `UI.corners` modifier. Absent = `"pill"`, exactly as before. |
+| `leading` / `trailing` | blueprint | no | static content either side of the label (a count, a dot, an avatar). They are content, never a second focus stop — the chip keeps one activation surface, so every input class still reaches the same flip. With neither, the chip is byte-identical to the label-only pill it has always been. |
 
 The record `ref` hands back carries:
 
@@ -9286,7 +9392,7 @@ The record `ref` hands back carries:
   `app.mount` makes the chip reachable and activatable on pointer, touch,
   keyboard, and gamepad.
 - `dump()` — a deterministic diagnostic table
-  (`{ schema = "facet-chip-dump/1", id, label, selected, enabled }`); two calls with
+  (`{ schema = "facet-chip-dump/1", id, label, selected, enabled, controlSize, appearance }`); two calls with
   unchanged state are byte-identical.
 - `dispose()` — releases the control and nothing else.
 

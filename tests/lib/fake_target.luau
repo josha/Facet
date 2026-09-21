@@ -66,6 +66,12 @@ local HANDLED_PROPS: { string } = {
 	"shape",
 	"icon",
 	"compactLabel",
+	-- the local size/emphasis vocabulary: three words whose whole engine
+	-- expression is a classification tag, mirrored below so a headless spec can
+	-- read the tag a live session would paint from
+	"controlSize",
+	"appearance",
+	"over",
 	-- dedicated seams (layout + presentation authority)
 	"clipChildren",
 	"textSize",
@@ -449,6 +455,12 @@ function fake_target.new(opts: Opts?)
 			selected = state.selected == true,
 			interactive = state.interactive == true,
 			buttonRole = state.buttonRole,
+			-- the local size/emphasis vocabulary, mirrored for the same reason the
+			-- four above are: its whole engine expression is a tag, so a fake that
+			-- did not model it would leave every headless claim about it unprovable
+			controlSize = state.controlSize,
+			appearance = state.appearance,
+			over = state.over,
 		})
 		local plan = tag_sync.diff(handle.tags or {}, desired)
 		local live: { [string]: boolean } = {}
@@ -988,6 +1000,13 @@ function fake_target.new(opts: Opts?)
 				touched = true
 			elseif prop == "selected" then
 				state.selected = value == true
+				touched = true
+			elseif prop == "controlSize" or prop == "appearance" or prop == "over" then
+				-- the same reading the live adapter's own branch takes
+				-- (`screen_props`): the enum check upstream has already refused
+				-- anything but a legal word, so nil is the only other value and it
+				-- retracts the tag
+				state[prop] = if type(value) == "string" then value else nil
 				touched = true
 			end
 			if touched then

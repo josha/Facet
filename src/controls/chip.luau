@@ -6,6 +6,8 @@ local read = require("../selection_model").read
 
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
+local selection = require("../selection_model")
+local vocabulary = require("./control_vocabulary")
 
 local controlContract = require("../class_contract")
 local chip = {}
@@ -18,7 +20,15 @@ local CHIP_KEYS = specGuard.keySet({
 	"label",
 	"onToggle",
 	"selected",
+	"controlSize",
+	"appearance",
+	"corners",
+	"leading",
+	"trailing",
 })
+
+local APPEARANCES = { "standard", "utility" }
+local APPEARANCE_SET = specGuard.keySet(APPEARANCES)
 
 function chip.build(Facet: any, core: any, spec: any)
 	specGuard.assertKnownKeys("UI.Chip", spec, CHIP_KEYS, "spec")
@@ -40,6 +50,17 @@ function chip.build(Facet: any, core: any, spec: any)
 	end
 	local disposed = false
 	local label = spec.label or ""
+	--[[ THE SHARED LOCAL VOCABULARY (`control_vocabulary.luau`), validated before
+		anything is built so a misspelled word names itself rather than painting the
+		default forever. ]]
+	vocabulary.assertSize("UI.Chip", spec.controlSize)
+	vocabulary.assertAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET)
+	vocabulary.assertCorners("UI.Chip", spec.corners)
+	-- the rung's METRICS as names, so the solver re-resolves them on a theme swap
+	-- (see the vocabulary module's header). Absent = the 44px floor this control
+	-- has always declared.
+	local sizedHeight = vocabulary.derive(spec.controlSize, vocabulary.heightFor)
+	local sizedPadding = vocabulary.derive(spec.controlSize, vocabulary.paddingFor)
 
 	-- the SINGLE Activate site: every input class routes here through the
 	-- presenter's auto dispatch (never a direct callback in a consumer).
@@ -57,18 +78,39 @@ function chip.build(Facet: any, core: any, spec: any)
 	-- the pill: a focusable Button (44px hit floor, hover layer, focus ring all
 	-- come from the primitive) whose `selected` BINDING_PROP reflects the signal
 	-- with NO factory rerun. UI.corners gives the rounded ("pill") surface.
+	--[[ THE ACCESSORIES ARE ONE ROW INSIDE THE ONE ACTIVATION SURFACE. Present only
+		when asked for: with neither, the chip stays exactly the label-only Button it
+		has always been (the leaf draws the label itself, and a wrapper would change
+		both the mounted paths and the measured box for every chip that shipped). ]]
+	local accessories = spec.leading ~= nil or spec.trailing ~= nil
+	local children: { any }? = nil
+	if accessories then
+		local row = {}
+		if spec.leading ~= nil then
+			table.insert(row, spec.leading)
+		end
+		table.insert(row, UI.Text({ id = "Label", text = label, textSize = "control" }))
+		if spec.trailing ~= nil then
+			table.insert(row, spec.trailing)
+		end
+		children = { UI.HStack({ id = "Content", gap = "s", align = "center", children = row }) }
+	end
 	local blueprint = UI.corners(
 		UI.Button({
 			id = id,
 			label = label,
 			selected = selected,
 			enabled = spec.enabled,
+			children = children,
+			controlSize = spec.controlSize,
+			appearance = spec.appearance,
+			padding = sizedPadding,
 			-- honour the Button contract's minHitSize as a real layout floor (a chip
 			-- is a touch target first) — the touch structural idiom. The FLOOR is a
 			-- theme metric, so a theme with roomier targets grows the chip with it.
-			height = { type = "minMax", min = "targetSizes.minimum" },
+			height = sizedHeight or { type = "minMax", min = "targetSizes.minimum" },
 		}),
-		"pill"
+		vocabulary.cornerRadiusFor(spec.corners or "pill")
 	)
 
 	-- FOUR-INPUT STORY (ui_todo §0): the presenter discovers this
@@ -91,11 +133,16 @@ function chip.build(Facet: any, core: any, spec: any)
 			label = label,
 			selected = read(selected),
 			enabled = controlContract.enabledNow(spec.enabled),
+			controlSize = selection.read(spec.controlSize),
+			appearance = selection.read(spec.appearance),
 		}
 	end
 
+	local mounted = if spec.controlSize ~= nil
+		then vocabulary.reserveTarget(UI, core, id, blueprint, nil)
+		else blueprint
 	return {
-		blueprint = blueprint,
+		blueprint = mounted,
 		dump = dump,
 		dispose = function()
 			disposed = true

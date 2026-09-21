@@ -919,7 +919,13 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 			end
 		end
 		expect(typeSites).toBe(6)
-		expect(count).toBe(11 + slotSites + typeSites)
+		-- +4 since the local size/appearance vocabulary: three `Control size —
+		-- <rung> corner` rules bake a PUBLISHED radius (compact/regular take
+		-- `radii.control`, large takes `radii.panel`) and `Utility control —
+		-- outline` bakes `strokes.hairline`, so a designer retuning either metric
+		-- retunes every locally-sized and every quiet control with it — the same
+		-- reason `Primary button — corner` and `Circle button — hairline` are here.
+		expect(count).toBe(15 + slotSites + typeSites)
 	end)
 end)
 

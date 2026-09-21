@@ -159,6 +159,18 @@ _EROSION_PROBES = [
     ("Button", 'app.controls.Button("B")({ label = 42 })'),
     ("Toggle", 'app.controls.Toggle({ value = "on" })'),
     ("Toggle", 'app.controls.Toggle("T")({ value = "on" })'),
+    ("Button", 'app.controls.Button({ controlSize = "tiny" })'),
+    ("Button", 'app.controls.Button("Vocabulary")({ controlSize = "tiny" })'),
+    ("Button", 'app.controls.Button({ appearance = "loud" })'),
+    ("Button", 'app.controls.Button("Vocabulary")({ appearance = "loud" })'),
+    ("Button", 'app.controls.Button({ corners = "round" })'),
+    ("Button", 'app.controls.Button("Vocabulary")({ corners = "round" })'),
+    ("Button", 'app.controls.Button({ over = "panel" })'),
+    ("Button", 'app.controls.Button("Vocabulary")({ over = "panel" })'),
+    ("Chip", 'app.controls.Chip({ controlSize = "tiny", selected = Facet.Compose.cell(false) })'),
+    ("Chip", 'app.controls.Chip("Vocabulary")({ controlSize = "tiny", selected = Facet.Compose.cell(false) })'),
+    ("Chip", 'app.controls.Chip({ appearance = "emphasis", selected = Facet.Compose.cell(false) })'),
+    ("Chip", 'app.controls.Chip("Vocabulary")({ appearance = "emphasis", selected = Facet.Compose.cell(false) })'),
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
 ]
 

@@ -81,6 +81,14 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- its semantic icon content: a NAME the adapter resolves through the R4
 	-- machinery, never an asset id
 	icon = true,
+	-- the local size/emphasis vocabulary: three words that reach paint as
+	-- classification tags (`src/controls/control_vocabulary.luau`). Style props for
+	-- the same reason `shape` is — the engine write is a tag, and the rule that
+	-- keys on it is the theme's. Reactive for the first two, so a toolbar that
+	-- compacts or an action that becomes the primary one repaints in place.
+	controlSize = true,
+	appearance = true,
+	over = true,
 	-- the compact representation this button wears when its full label does not
 	-- fit. The DECLARATION is style (it selects a representation, and in its icon
 	-- form a theme-owned picture); the drawn string still rides the label seam.
@@ -115,6 +123,13 @@ local STYLE_PROPS: { [string]: boolean } = {
 -- point; see the block above)
 local STYLE_PROP_ORDER: { string } = {
 	"shape",
+	-- the vocabulary tags sit immediately after `shape` and before `surface`: like
+	-- the shape they are classification rather than paint, so a later chrome write
+	-- that reads the handle already sees them, and their own sheet rules are
+	-- ordered by the sheet's cascade rather than by this list.
+	"controlSize",
+	"appearance",
+	"over",
 	"surface",
 	"role",
 	"shadow",

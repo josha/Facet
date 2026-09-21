@@ -2626,6 +2626,51 @@ class("Button", {
 		}),
 		gap = GAP,
 		align = ALIGN,
+		--[[ THE LOCAL SIZE RUNG AND THE EMPHASIS WORD (`src/controls/control_vocabulary.luau`).
+
+			Both are PAINT here and nothing else. A rung's METRICS reach the solver as
+			the ordinary `height`/`padding` props the composite authors from the theme
+			ladder (`controlSizes.<rung>.*`); what a rule cannot read from those is
+			WHICH rung a node is at, so the word itself rides a style tag —
+			`facet-size-<rung>` / `facet-appearance-<word>` — and the theme paints it.
+
+			REACTIVE, unlike `shape`: a size or an emphasis is a state a control passes
+			through (a toolbar compacts, an action becomes the primary one), and moving
+			it must repaint and re-solve in place rather than rebuild. Nothing about the
+			node's own rect depends on either prop, so the dirty class is `paint`. ]]
+		controlSize = p({
+			types = { "string" },
+			reactive = true,
+			dirty = { "paint" },
+			enum = { "compact", "regular", "large" },
+			channel = "style",
+			doc = "the local size rung this control paints at — drives the style tag a theme's rules key "
+				.. "on. The MEASUREMENTS of a rung are the theme ladder metrics (controlSizes.<rung>.*) a "
+				.. "composite authors as height/padding; this prop is the paint half",
+		}),
+		appearance = p({
+			types = { "string" },
+			reactive = true,
+			dirty = { "paint" },
+			enum = { "standard", "emphasis", "soft", "utility", "link" },
+			channel = "style",
+			doc = "visual emphasis only — drives a style tag and its sheet rule (never a bespoke fill). "
+				.. 'Composes with `role`, which stays the SEMANTIC channel: `role = "destructive"` and '
+				.. 'appearance = "utility" are a quiet delete, not a contradiction. "standard" is the '
+				.. "default paint and earns no tag",
+		}),
+		-- "I am drawn over artwork" — one word, one tag, so a control on a
+		-- photograph asks for the readable opaque pair by name instead of
+		-- hand-painting a scrim behind itself. Construction-only, like `shape`: what
+		-- a control is drawn over is what it IS, not a state it passes through.
+		over = p({
+			types = { "string" },
+			reactive = false,
+			enum = { "media" },
+			channel = "style",
+			doc = 'set to "media" for a control drawn over an image or video: it takes the theme\'s '
+				.. "strong opaque surface and its readable content colour, through a style tag",
+		}),
 		-- THE CIRCLE BUTTON (feature round 2026-07-26; the floating round
 		-- "..." action). See the shared SHAPE spec above (generalized to ZStack,
 		-- task PAINT) for the full doc; this class also refuses two authored axes

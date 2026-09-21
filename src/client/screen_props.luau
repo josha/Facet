@@ -347,6 +347,36 @@ function screen_props.new(ctx: Ctx)
 					handle.chromeCornerRadius = reshaped
 				end
 			end
+		elseif prop == "controlSize" or prop == "appearance" or prop == "over" then
+			--[[ THE LOCAL SIZE / EMPHASIS VOCABULARY (`src/controls/control_vocabulary.luau`).
+
+				Three words, one write each, and the write is a CLASSIFICATION rather
+				than paint: the handle records the word, `syncTags` turns it into
+				`facet-size-*` / `facet-appearance-*` / `facet-over-media`, and the
+				theme's own rules do the painting. Nothing is written to the instance
+				here, which is why there is no `assertBespokePaint` call — the same
+				posture `shape` takes in native mode, one step further.
+
+				NO BESPOKE HALF, STATED RATHER THAN OMITTED. An engine without native
+				StyleSheets has no rule to key on and Facet will not invent a second
+				colour authority for it, so on that fallback path these three words are
+				accepted and change nothing visible. The control still measures, hits
+				and behaves identically — the METRICS half of a rung is the solver's and
+				works on every target. ]]
+			-- `assertEnumValue` has already refused anything outside the closed set by
+			-- the time a write reaches here, so the only value besides a legal word is
+			-- nil (the prop crossing back to absent), and nil retracts the tag
+			local word = if type(value) == "string" then value else nil
+			if prop == "controlSize" then
+				handle.controlSize = word
+			elseif prop == "appearance" then
+				handle.appearance = word
+			else
+				handle.over = word
+			end
+			if nativeMode then
+				syncTags(handle)
+			end
 		elseif prop == "icon" then
 			-- SEMANTIC ICON CONTENT reached from a public prop. The
 			-- control's own text is already the framework's ASCII glyph (the

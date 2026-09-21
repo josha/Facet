@@ -150,6 +150,15 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- BINDING authority above, on the one label seam, so there is no second
 		-- writer for the drawn string.
 		compactLabel = "style",
+		--[[ THE LOCAL SIZE / EMPHASIS VOCABULARY (`src/controls/control_vocabulary.luau`).
+			STYLE authority for exactly the reason `role` is: the only thing ever written
+			to an engine object from these three is a classification TAG, and the paint
+			that follows is the theme's rule. Button-only today because Button is the one
+			leaf that has adopted them; a later class that reaches the identical write
+			site moves them to `common`, as `shape` was moved. ]]
+		controlSize = "style",
+		appearance = "style",
+		over = "style",
 		textWrapped = "layout", -- the wrap verdict; see the Text entry above
 	},
 	-- textSize joined for the ten-foot/measure-paint agreement (verifier F1):

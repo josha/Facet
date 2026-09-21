@@ -58,7 +58,47 @@ for `ref` for an ordinary control that only needs properties and callbacks.
 | [`UI.Button`](../reference/api.md#uibutton) | Any action, from a plain label to a busy or repeating command. | Required `onActivate`; `label`, `enabled`, semantic `role`, `busy`, `repeatDelay`, `repeatInterval`, `shortcut`, `dialogAction`, `children`, `image`, `icon`, `shape` and `pop`. Busy state gates activation. Shortcut ownership follows the active surface. `dialogAction = "default"` or `"cancel"` is an input behavior, not automatic dialog layout. `pop = true` kicks a paint-only release overshoot on the initial press only — a held repeat button pops once, not on every pulse. `children` replaces the painted label with composed content; keep `label` as the action's readable name. |
 | [`UI.SplitButton`](../reference/api.md#uisplitbutton) | A primary action beside a separate menu. | `label`, `onActivate`, `items`, `enabled`, `busy`, `shortcut`, `menuLabel`, and `env`. The primary action and menu remain separate focusable targets. |
 | [`UI.Toggle`](../reference/api.md#uitoggle) | An on/off setting. | Caller-owned `value` cell; `presentation = "switch"`, `"checkbox"`, or `"button"`; `label`, `enabled`, `onChange`. Checkbox accepts a separate `mixed` cell. Only the button presentation accepts composed `children`. |
-| [`UI.Chip`](../reference/api.md#uichip) | An independently selected filter or small action pill. | Caller-owned `selected`, `label`, `enabled`, and `onToggle`. Use Picker when choices must be mutually exclusive. |
+| [`UI.Chip`](../reference/api.md#uichip) | An independently selected filter or small action pill. | Caller-owned `selected`, `label`, `enabled`, and `onToggle`, plus `leading`/`trailing` static content. Use Picker when choices must be mutually exclusive. |
+
+### Local size, emphasis, silhouette and backdrop
+
+One screen often needs a compact filter beside a large primary action. Four
+optional keys say that locally, so you do not swap the theme to change one
+control. They are shared vocabulary: every control that takes them takes the same
+words with the same meanings, and leaving them out keeps exactly the control you
+have today.
+
+```lua
+UI.Button { label = "Start race", appearance = "emphasis", controlSize = "large", onActivate = start }
+UI.Button { label = "Cancel", appearance = "utility", controlSize = "compact", onActivate = back }
+UI.Button { icon = "close", name = "Close", corners = "pill", controlSize = "compact", onActivate = close }
+UI.Chip { label = "Rain", selected = raining, controlSize = "compact" }
+```
+
+- **`controlSize`** is `"compact" | "regular" | "large"` and resolves to your
+  theme's own ladder (`controlSizes.<rung>.{height,paddingX,iconSize}`) by NAME, so
+  installing a different theme package re-sizes the control with no rebuild. An
+  authored `height` still wins.
+- **`appearance`** is emphasis only. `role` stays the semantic channel, and the two
+  compose: `role = "destructive", appearance = "utility"` is a quiet delete.
+- **`corners`** is `"pill"` or `"square"` — the corner treatment. A 1:1 disc is
+  still `UI.Button{ shape = "circle" }`.
+- **`over = "media"`** is for a control drawn on artwork: it takes the theme's
+  strong opaque surface and the content colour gated against it.
+
+A `compact` control can paint below the effective touch floor, and the floor is
+not given up: a control that names a rung is mounted inside a container that
+reserves the larger of the class minimum (44px) and `targetSizes.minimum` on both axes and centres the smaller plate in it. So a compact
+chip is exactly as easy to tap as a regular one, two of them side by side can
+never share a target however tightly you pack them, and what you gain is the
+*look* of a denser row rather than a shorter one.
+
+A theme package needs no edits to work with these words. Facet compiles a default
+rule for every one of the tags into **every** package's sheet, written entirely in
+that package's own palette tokens — so Pixel Quest wears Pixel Quest's accent and
+Fantasy Ornate wears its own surface and hairline, with nothing to install and
+nothing to decline. A package that wants a different treatment emits its own rule
+for the tag; the cascade is insertion order, so the package's own rule wins.
 
 Text plus an icon can be composed inside a button without adding another
 activation target:
