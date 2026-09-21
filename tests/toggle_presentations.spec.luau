@@ -326,6 +326,87 @@ t.describe("Toggle setting rows", function()
 			end
 		end
 	end)
+	t.it("keeps a theme-owned checkbox outline in off, on, mixed and disabled states", function()
+		local sheet = require("../src/tokens/sheet_model")
+		local packages = { require("../src/themes/snapshot").neutralPackage() }
+		for _, name in { "pixel_quest", "fantasy_ornate" } do
+			table.insert(packages, (require("../examples/themes/" .. name).build(Facet.themes)))
+		end
+		for _, side in { "leading", "trailing" } do
+			local w = world.new()
+			local value, mixed, enabled = Compose.cell(false), Compose.cell(false), Compose.cell(true)
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Toggle("T")({
+						label = "Music",
+						value = value,
+						mixed = mixed,
+						enabled = enabled,
+						presentation = "checkbox",
+						indicatorPosition = side,
+						row = { description = "Race music" },
+					}),
+				})
+			end)
+			local mark = togglePart(w, "/Indicator")
+			for _, pkg in packages do
+				local metrics = Facet.themes.resolve(pkg)
+				w.env:set("themeMetrics", metrics)
+				w.settle()
+				local models = {
+					sheet.buildPackage(pkg),
+					sheet.build({
+						themes = {
+							{ name = "Dark", style = require("../src/tokens/default_style") },
+							{ name = "Light", style = require("../src/tokens/default_light_style") },
+						},
+					}),
+				}
+				for _, state in
+					{ { false, false, true }, { true, false, true }, { false, true, true }, { false, false, false } }
+				do
+					value:set(state[1])
+					mixed:set(state[2])
+					enabled:set(state[3])
+					w.settle()
+					t.expect(mark.props.surface).toBe("chip")
+					local tags = sheet.classifyTags({ surface = mark.props.surface })
+					t.expect(tags["facet-surface-chip"]).toBe(true)
+					for _, model in models do
+						local outline
+						for _, rule in model.rules do
+							if rule.selector == ".facet-surface-chip::UIStroke" then
+								outline = rule.props
+							end
+						end
+						t.expect(outline ~= nil).toBe(true)
+						t.expect(outline.Color).toBe("$Hairline")
+						t.expect(outline.Thickness.value > 0).toBe(true)
+						t.expect(outline.Transparency.value < 1).toBe(true)
+						t.expect(outline.ApplyStrokeMode)
+							.toEqual({ kind = "enum", enum = "ApplyStrokeMode", item = "Border" })
+						for _, theme in model.themes do
+							t.expect(theme.tokens.Hairline ~= nil).toBe(true)
+							t.expect(theme.tokens.Hairline).never().toEqual(theme.tokens.Control)
+						end
+					end
+					local _, check = togglePart(w, "/Check")
+					local _, dash = togglePart(w, "/Mixed")
+					t.expect(w.adapter.visibleOf(check)).toBe(state[1] and not state[2])
+					t.expect(w.adapter.visibleOf(dash)).toBe(state[2])
+					if not state[3] then
+						w.adapter.tap("/S/T")
+						t.expect(value:peek()).toBe(false)
+					else
+						t.expect(#w.handle.focusOrder().traversal).toBe(1)
+					end
+				end
+			end
+			w.close()
+			t.expect(w.adapter.liveCount()).toBe(0)
+		end
+	end)
+
 	for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
 		t.it("requests model approval from the real row indicator through " .. input, function()
 			local w = world.new()

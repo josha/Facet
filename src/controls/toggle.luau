@@ -189,7 +189,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 				id = "Indicator",
 				alignH = "center",
 				alignV = "center",
-				surface = "control",
+				surface = "chip",
 				width = INDICATOR_BOX,
 				height = INDICATOR_BOX,
 				children = marks,
