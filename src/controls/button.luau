@@ -671,6 +671,9 @@ local function build(Facet, core, spec, owner)
 		props[key] = spec[key]
 	end
 	local blueprint = UI.Button(props)
+	if spec.shape == "circle" then
+		blueprint = chromeSlots.attachHint(blueprint, { contentOwnerDepth = 0 })
+	end
 	if spec.corners ~= nil then
 		blueprint = UI.corners(blueprint, vocabulary.cornerRadiusFor(spec.corners))
 	end

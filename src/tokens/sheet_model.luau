@@ -1161,6 +1161,7 @@ export type BuildOpts = {
 sheet_model.CONTENT_OWNER_PREFIX = "facet-content-owner-"
 sheet_model.CONTENT_TEXT_TAG = "facet-control-content-text"
 sheet_model.CONTENT_ICON_TAG = "facet-control-content-icon"
+sheet_model.CONTENT_ART_TAG = "facet-control-content-art"
 function sheet_model.contentTags(tags: { string }, state: string): { [string]: boolean }
 	local out = { [sheet_model.CONTENT_OWNER_PREFIX .. "button"] = true }
 	for _, tag in tags do
@@ -1175,10 +1176,14 @@ function sheet_model.contentTags(tags: { string }, state: string): { [string]: b
 end
 
 local function projectContentRules(rules: { Rule })
+	local hasLift = false
+	for _, rule in rules do
+		hasLift = hasLift or string.find(rule.selector, "." .. chrome_slots.TAGS.text, 1, true) ~= nil
+	end
 	local count = #rules
 	for i = 1, count do
 		local source = rules[i]
-		if source.props.TextColor3 == nil then
+		if source.props.TextColor3 == nil and source.props.TextTransparency == nil then
 			continue
 		end
 		local selector = source.selector
@@ -1199,22 +1204,38 @@ local function projectContentRules(rules: { Rule })
 		selector = string.gsub(selector, ":(%a+)", "." .. sheet_model.CONTENT_OWNER_PREFIX .. "state-%1")
 		for _, channel in
 			{
-				{ "text", sheet_model.CONTENT_TEXT_TAG, "TextColor3" },
-				{ "icon", sheet_model.CONTENT_ICON_TAG, "ImageColor3" },
+				{ "text", sheet_model.CONTENT_TEXT_TAG, "TextColor3", "TextColor3", "rule" },
+				{ "icon", sheet_model.CONTENT_ICON_TAG, "ImageColor3", "TextColor3", "chrome" },
+				{ "art opacity", sheet_model.CONTENT_ART_TAG, "ImageTransparency", "TextTransparency", "chrome" },
+				{ "lift", "", "TextColor3", "TextColor3", "rule" },
+				{ "lift opacity", "", "TextTransparency", "TextTransparency", "rule" },
 			}
 		do
-			local transition = source.transitions and source.transitions.TextColor3
-			local contentSelector = "." .. channel[2] .. selector
+			local value = source.props[channel[4]]
+			local buttonSelector = string.sub(source.selector, 1, 10) == "TextButton"
+			-- Only the control's own opacity decision reaches art. Glyph-suppression
+			-- and ordinary subtree text rules must never make its image transparent.
+			if
+				value == nil
+				or (channel[2] == "" and not hasLift)
+				or (channel[4] == "TextTransparency" and not buttonSelector)
+			then
+				continue
+			end
+			local transition = source.transitions and source.transitions[channel[4]]
+			local contentSelector = if channel[2] == ""
+				then (if buttonSelector then source.selector else "TextButton" .. source.selector)
+					.. " > ."
+					.. chrome_slots.TAGS.text
+				else "." .. channel[2] .. selector
 			sheet_model.checkSelector(contentSelector, source.name)
-			-- ImageColor3 targets only the managed FacetIcon, the existing chrome authority.
-			local allowed, reason =
-				themePackage.lintProperty(channel[3], if channel[1] == "icon" then "chrome" else "rule")
+			local allowed, reason = themePackage.lintProperty(channel[3], channel[5])
 			assert(allowed, reason)
-			sheet_model.checkContentValue(source.name, channel[3], source.props.TextColor3)
+			sheet_model.checkContentValue(source.name, channel[3], value)
 			table.insert(rules, {
 				name = "Control content " .. channel[1] .. " — " .. source.name,
 				selector = contentSelector,
-				props = { [channel[3]] = source.props.TextColor3 },
+				props = { [channel[3]] = value },
 				transitions = if transition then { [channel[3]] = transition } else nil,
 				priority = (#rules + 1) * 10,
 			})

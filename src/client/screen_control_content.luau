@@ -26,6 +26,7 @@ function content.new(collection: any, handles: { [string]: any }): any
 					string.sub(tag, 1, #sheet.CONTENT_OWNER_PREFIX) == sheet.CONTENT_OWNER_PREFIX
 					or tag == sheet.CONTENT_TEXT_TAG
 					or tag == sheet.CONTENT_ICON_TAG
+					or tag == sheet.CONTENT_ART_TAG
 				) and not desired[tag]
 			then
 				collection:RemoveTag(instance, tag)
@@ -38,20 +39,22 @@ function content.new(collection: any, handles: { [string]: any }): any
 		end
 	end
 	local function refresh(handle: any)
-		local desired = tagsFor(handle)
-		if handle.contentOwner then
+		local desired = {}
+		if handle.contentOwner and handle.contentOwner ~= handle then
+			desired = tagsFor(handle)
 			desired[sheet.CONTENT_TEXT_TAG] = true
 		end
 		apply(handle.instance, desired)
 		local image = {}
-		if handle.contentOwner and handle.iconContentPaint then
+		if handle.contentOwner then
 			image = tagsFor(handle)
-			image[sheet.CONTENT_ICON_TAG] = true
+			image[sheet.CONTENT_ART_TAG] = true
+			image[sheet.CONTENT_ICON_TAG] = if handle.iconContentPaint then true else nil
 		end
 		apply(handle.iconInstance, image)
 	end
 	function api.augment(handle: any, desired: { [string]: boolean })
-		if handle.contentOwner then
+		if handle.contentOwner and handle.contentOwner ~= handle then
 			for tag in tagsFor(handle) do
 				desired[tag] = true
 			end
@@ -104,7 +107,7 @@ function content.new(collection: any, handles: { [string]: any }): any
 		local owner = handles[path]
 		assert(
 			owner and owner.class == "Button" and owner.rootHandle == handle.rootHandle,
-			"Facet generated content must name an ancestor Button on the same surface"
+			"Facet generated content must name its Button or an ancestor Button on the same surface"
 		)
 		handle.contentOwner = owner
 		if owner.contentFollowers == nil then

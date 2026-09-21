@@ -13,6 +13,13 @@ describe("generated control content owns its plate's semantic paint", function()
 			local UI = w.UI
 			return UI.Screen("S")({
 				UI.Button("Delete")({ label = "Delete", icon = "trash", appearance = "utility", role = "destructive" }),
+				UI.Button("Close")({
+					shape = "circle",
+					icon = "close",
+					name = "Close",
+					appearance = "utility",
+					role = "destructive",
+				}),
 				UI.Chip("Chip")({
 					label = "Rain",
 					selected = w.Compose.cell(true),
@@ -20,6 +27,9 @@ describe("generated control content owns its plate's semantic paint", function()
 				}),
 			})
 		end)
+		expect(
+			w.adapter.node("/S/Close").decorationHint and w.adapter.node("/S/Close").decorationHint.contentOwnerDepth
+		).toBe(0)
 		expect(w.adapter.node("/S/Delete/Label").decorationHint.contentOwnerDepth).toBe(1)
 		expect(w.adapter.node("/S/Delete/Icon").decorationHint.contentOwnerDepth).toBe(1)
 		expect(w.adapter.node("/S/Chip/Content/Label").decorationHint.contentOwnerDepth).toBe(2)
@@ -166,6 +176,22 @@ local function resolved(model, class, tags, state, property)
 	return value
 end
 
+local function resolvedLift(model, tags, state, property)
+	local value = resolved(model, "TextLabel", { slots.TAGS.text }, "Idle", property)
+	local suffix = " > ." .. slots.TAGS.text
+	for _, rule in model.rules do
+		if string.sub(rule.selector, -#suffix) == suffix then
+			local ownerRule = table.clone(rule)
+			ownerRule.selector = string.sub(rule.selector, 1, -#suffix - 1)
+			local candidate = resolved({ rules = { ownerRule } }, "TextButton", tags, state, property)
+			if candidate ~= nil then
+				value = candidate
+			end
+		end
+	end
+	return value
+end
+
 describe("native primary-content paint bridge", function()
 	it("follows role, appearance, selection and gated pointer state with sheet-owned text and art", function()
 		local f = nativeFixture()
@@ -240,6 +266,114 @@ describe("native primary-content paint bridge", function()
 		f.api.clear(owner)
 		expect(f.live()).toBe(0)
 		expect(f.service:HasTag(label.instance, sheet.CONTENT_TEXT_TAG)).toBe(false)
+	end)
+	it("dims actual managed art, retracts alpha, and never reveals its suppressed glyph", function()
+		local f = nativeFixture()
+		local owner, state = f.handle("/S/Action", "Button")
+		local icon = f.handle("/S/Action/Icon", "Text", 1)
+		icon.iconInstance, icon.iconContentPaint = {}, true
+		f.api.bind(icon)
+		for _, theme in { "neutral", "pixel_quest", "fantasy_ornate" } do
+			local model = if theme == "neutral"
+				then sheet.build({ themes = { { name = "Dark", style = require("../src/tokens/default_style") } } })
+				else sheet.buildPackage(require("../examples/themes/" .. theme).build(Facet.themes))
+			for _, semanticTint in { false, true } do
+				icon.iconContentPaint = not semanticTint -- explicit package tint changes no alpha policy
+				for _, disabled in { true, false, true } do
+					local guiState = if disabled then "NonInteractable" else "Idle"
+					f.classify(owner, if disabled then { slots.TAGS.stateDisabled } else {})
+					state(guiState)
+					f.classify(
+						icon,
+						if disabled then { slots.TAGS.stateDisabled, slots.TAGS.iconArt } else { slots.TAGS.iconArt }
+					)
+					local expected = resolved(
+						model,
+						"TextButton",
+						f.service:GetTags(owner.instance),
+						guiState,
+						"TextTransparency"
+					) or { kind = "number", value = 0 }
+					local actual = resolved(
+						model,
+						"ImageLabel",
+						f.service:GetTags(icon.iconInstance),
+						"Idle",
+						"ImageTransparency"
+					) or { kind = "number", value = 0 }
+					expect(actual).toEqual(expected)
+					expect(resolved(model, "TextLabel", f.service:GetTags(icon.instance), "Idle", "TextTransparency")).toEqual({
+						kind = "number",
+						value = 1,
+					})
+				end
+			end
+			-- A no-art theme removes suppression; the original disabled text rule owns the fallback.
+			f.classify(icon, { slots.TAGS.stateDisabled })
+			expect(resolved(model, "TextLabel", f.service:GetTags(icon.instance), "Idle", "TextTransparency")).toEqual(
+				resolved(model, "TextButton", f.service:GetTags(owner.instance), "NonInteractable", "TextTransparency")
+			)
+		end
+		f.api.clear(owner)
+		expect(f.live()).toBe(0)
+	end)
+	it("self-owned circle art follows roles and retraction without projecting tags onto its owner", function()
+		local f = nativeFixture()
+		local circle, state = f.handle("/S/Close", "Button", 0)
+		circle.iconInstance, circle.iconContentPaint = {}, true
+		local model = sheet.build({ themes = { { name = "Dark", style = require("../src/tokens/default_style") } } })
+		for _ = 1, 4 do
+			f.api.bind(circle)
+			for _, appearance in { "utility", "emphasis", "standard" } do
+				f.classify(
+					circle,
+					{ "facet-role-destructive", "facet-appearance-" .. appearance, "facet-pointer-live" }
+				)
+				for _, guiState in { "Idle", "Hover", "Press", "NonInteractable" } do
+					state(guiState)
+					expect(resolved(model, "ImageLabel", f.service:GetTags(circle.iconInstance), "Idle", "ImageColor3")).toEqual(
+						resolved(model, "TextButton", f.service:GetTags(circle.instance), guiState, "TextColor3")
+					)
+					expect(f.service:HasTag(circle.instance, sheet.CONTENT_TEXT_TAG)).toBe(false)
+				end
+			end
+			f.api.clear(circle)
+			expect(f.live()).toBe(0)
+		end
+	end)
+	it("keeps lifted primary Button text on the same role, appearance, selection and state rules", function()
+		for _, theme in { "pixel_quest", "fantasy_ornate" } do
+			local model = sheet.buildPackage(require("../examples/themes/" .. theme).build(Facet.themes))
+			for _, appearance in { "standard", "emphasis", "soft", "utility", "link" } do
+				for _, role in { "normal", "destructive", "cancel" } do
+					for _, selected in { false, true } do
+						for _, guiState in { "Idle", "Hover", "Press", "NonInteractable" } do
+							local tags = {}
+							for tag in
+								sheet.classifyTags({
+									surface = "control",
+									interactive = true,
+									pointerLive = true,
+									appearance = appearance,
+									selected = selected,
+									buttonRole = if role == "normal" then nil else role,
+								})
+							do
+								table.insert(tags, tag)
+							end
+							expect(resolvedLift(model, tags, guiState, "TextColor3")).toEqual(
+								resolved(model, "TextButton", tags, guiState, "TextColor3")
+							)
+							if guiState == "NonInteractable" then
+								expect(resolvedLift(model, tags, guiState, "TextTransparency")).toEqual(
+									resolved(model, "TextButton", tags, guiState, "TextTransparency")
+								)
+							end
+						end
+					end
+				end
+			end
+		end
 	end)
 	it("rebinds pooled content to its new owner and releases every observer", function()
 		local f = nativeFixture()

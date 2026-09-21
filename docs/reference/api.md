@@ -755,9 +755,10 @@ carrying the `facet-state-disabled` tag and dims it to that theme's own
 
 Three consequences, all deliberate, none of them a bug to report:
 
-- **Text only.** Image paint is legal in a theme rule only inside a nineSlice
-  chrome recipe (see [`themes`](#themes)), so a picture inside a disabled subtree
-  keeps its own paint. Give it a `tint` if it should dim with the panel.
+- **Authored pictures keep their own paint.** Give a picture a `tint` if it
+  should dim with the panel. The framework's generated primary control icons
+  are managed chrome: their image opacity follows the same disabled decision
+  as the label, while their hidden fallback glyph stays suppressed.
 - **The tag reaches the classes that consume it** — `Button`, `Toggle`,
   `TextField` and `Text` — and not every node in the subtree. Writing a property
   to a container the renderer had elided materializes it permanently, and the
@@ -7814,6 +7815,9 @@ when neither was authored. Its existing icon-content minimum still applies.
 
 Generated primary labels and content-tinted semantic icons follow the Button's
 role, appearance, selection and interaction state through native sheet rules.
+This includes circle marks and primary text lifted above a theme's decoration.
+Managed icon opacity follows the label's disabled decision; art suppression still
+hides its fallback glyph. Package icons without a content tint keep their RGB.
 Caller-provided children and Chip accessories retain their own roles; image
 subtitles stay secondary, and package icons with explicit semantic tint roles
 retain those tints. Palette/token edits and theme changes reach this generated

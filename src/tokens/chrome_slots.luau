@@ -906,7 +906,7 @@ end
 -- fallback glyph as that node's text, so the request is an upgrade rather than a
 -- dependency: no theme art, no problem.
 export type Hint = {
-	contentOwnerDepth: number?, -- generated primary content: logical ancestor Button, never a physical-parent guess
+	contentOwnerDepth: number?, -- generated primary content: logical ancestor Button (0 = self), never a physical-parent guess
 	slot: string?,
 	image: string?,
 	imageVariants: { [string]: { asset: string } }?,
@@ -974,10 +974,10 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		hint.contentOwnerDepth == nil
 			or (
 				type(hint.contentOwnerDepth) == "number"
-				and hint.contentOwnerDepth >= 1
+				and hint.contentOwnerDepth >= 0
 				and hint.contentOwnerDepth % 1 == 0
 			),
-		"chrome_slots.attachHint: contentOwnerDepth must be a positive integer"
+		"chrome_slots.attachHint: contentOwnerDepth must be a nonnegative integer"
 	)
 	local meta = if blueprint.meta ~= nil then table.clone(blueprint.meta) else {}
 	meta[chrome_slots.META_KEY] = table.freeze({
