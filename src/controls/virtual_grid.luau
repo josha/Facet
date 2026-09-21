@@ -25,7 +25,7 @@ local observeChange = require("../core/on_change")
 	  gap? (px between cells ACROSS a line, default 0),
 	  rowGap? (px between LINES, default 0),
 	  overscan? (LINES either side, default 2),
-	  cell (item, ctx: { scope, index, line, lane }) -> Blueprint,
+	  cell (item, ctx: { scope, index, line, lane, focused }) -> Blueprint,
 	  onActivate? ((item, meta) -> ()),
 	  width? (the cross-axis Dim — `axis = "y"` ONLY; on `axis = "x"` the width IS
 	    the scroll axis and the cross axis is the height, which fills), env? }
@@ -211,6 +211,7 @@ local observeChange = require("../core/on_change")
 ]]
 
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 local contribution = require("../input/contribution")
 local gapMetric = require("./gap_metric")
 local scrollSnap = require("./scroll_snap")
@@ -307,6 +308,43 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local UI = Facet.UI
 	local id = spec.id or "VirtualGrid"
+	--[[ WHAT THE RING IS ON, so a cell can paint it.
+
+		The cell-sized `Hit` below sits BEHIND the cell's content (see its own
+		comment for why that is structural rather than incidental) and paints
+		nothing, so the sheet's own focus treatment lands on a plate the player
+		never sees: an opaque card could show no focus at all, and a consumer had
+		no way to draw it either. It is interaction state a grid owns and could not
+		hand over.
+
+		HOVER IS DELIBERATELY NOT HERE, and the reason is worth recording so the
+		next attempt does not repeat it. `adapter.setHoverObserver` is
+		`MouseEnter`/`MouseLeave` on the node's own instance, and the engine does
+		not deliver those to a button COVERED by an opaque sibling — measured live
+		(2026-09-20) with and without the cell's drag detector, which was the
+		obvious suspect and was not the cause. A hover fact sourced from this hit
+		would read false forever on exactly the cells that most want it, which is a
+		quieter version of the defect it set out to fix. The observer has to hang on
+		a node that is actually on top; that is a change to the cell's SHAPE, not a
+		fact this control can publish today.
+
+		AND IT COMES FROM THE RENDER CONTROLLER, NOT FROM THE PRESENTER'S FOCUS
+		AUTHORITY. The seam that hands a control that authority exists, and several
+		controls take it — but every one of them takes it in order to MOVE focus,
+		and this grid's whole 2-D story is that it moves nothing: the perpendicular
+		direction is answered by the focus graph itself, from the `columns` this
+		control declares (see the deletion note further down, and the verifier row
+		that pins it). Asking for the authority in order to READ a paint fact would
+		put this file back on the wrong side of that line for no behaviour at all.
+		`controller.focusRing` is the already-resolved ANSWER — which path the ring
+		is on, nil when no ring is painted — published by the renderer that paints
+		it and reached through `bindController`, the seam this control already has.
+
+		A CELL, not a value: the Readable arrives at present time, after the cell
+		formulas are built, so it is held in a cell and `use`d through it. A bare
+		upvalue read would be evaluated once while it was still nil and never
+		depend on anything that could tell it otherwise. ]]
+	local gridRing = Compose.cell(nil :: any)
 	local axis: string = spec.axis or "y"
 	local isX = axis == "x"
 	--[[ `width` IS THE CROSS AXIS, AND ONLY A VERTICAL GRID HAS ONE THERE. On
@@ -563,17 +601,13 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 	-- a gutter that can move (a Readable, or a theme metric name) reaches the band
 	-- as a live prop; one that cannot stays the plain number it always was
 	local gapProp: any = if gapMetricReader.live
-		then Compose.withOwner(scope, function()
-			return Compose.formula(function(use)
-				return gapMetricReader.In(use)
-			end)
+		then ownedFormula(scope, function(use)
+			return gapMetricReader.In(use)
 		end)
 		else gapNow()
 	local rowGapProp: any = if rowGapMetric.live
-		then Compose.withOwner(scope, function()
-			return Compose.formula(function(use)
-				return rowGapMetric.In(use)
-			end)
+		then ownedFormula(scope, function(use)
+			return rowGapMetric.In(use)
 		end)
 		else rowGapNow()
 
@@ -634,24 +668,22 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 
 	local cachedInputs: any = nil
 	local cachedIndex: any = nil
-	local layoutIndex = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			local inputs: any = if extentIsPerLine
-				then { extents = extentsFor(use), gap = rowGapIn(use) }
-				else {
-					count = lineCountOf(#(use(spec.items) :: { any }), lanesIn(use)),
-					extent = extentIn(use),
-					gap = rowGapIn(use),
-				}
-			if cachedIndex ~= nil and sameInputs(cachedInputs, inputs) then
-				return cachedIndex
-			end
-			cachedInputs = inputs
-			cachedIndex = if extentIsPerLine
-				then virtual_extents.variable(inputs.extents, inputs.gap)
-				else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
+	local layoutIndex = ownedFormula(scope, function(use)
+		local inputs: any = if extentIsPerLine
+			then { extents = extentsFor(use), gap = rowGapIn(use) }
+			else {
+				count = lineCountOf(#(use(spec.items) :: { any }), lanesIn(use)),
+				extent = extentIn(use),
+				gap = rowGapIn(use),
+			}
+		if cachedIndex ~= nil and sameInputs(cachedInputs, inputs) then
 			return cachedIndex
-		end)
+		end
+		cachedInputs = inputs
+		cachedIndex = if extentIsPerLine
+			then virtual_extents.variable(inputs.extents, inputs.gap)
+			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
+		return cachedIndex
 	end)
 	local function layoutNow(): any
 		return layoutIndex:peek() :: any
@@ -666,14 +698,12 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		end)
 	end
 
-	local indexByKey = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			local map: { [string]: number } = {}
-			for i, item in use(spec.items) :: { any } do
-				map[spec.key(item)] = i
-			end
-			return map
-		end)
+	local indexByKey = ownedFormula(scope, function(use)
+		local map: { [string]: number } = {}
+		for i, item in use(spec.items) :: { any } do
+			map[spec.key(item)] = i
+		end
+		return map
 	end)
 
 	local scrollTop = Compose.cell(0)
@@ -690,21 +720,17 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		equivalent memo in `virtual_window.luau` was measured at 41 solves against 1
 		over forty churn iterations; no perf scene mounts a grid, so the case in
 		`tests/virtual_grid.spec.luau` is this one's measurement. ]]
-	local canvasDim = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			return { type = "fixed", px = use(layoutIndex).content }
-		end, rect.sameFlatValue)
-	end)
+	local canvasDim = ownedFormula(scope, function(use)
+		return { type = "fixed", px = use(layoutIndex).content }
+	end, rect.sameFlatValue)
 
-	local clampedTop = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
-			local raw = use(scrollTop)
-			if type(raw) ~= "number" or raw ~= raw then
-				return 0
-			end
-			return math.clamp(raw, 0, maxTopPx)
-		end)
+	local clampedTop = ownedFormula(scope, function(use)
+		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
+		local raw = use(scrollTop)
+		if type(raw) ~= "number" or raw ~= raw then
+			return 0
+		end
+		return math.clamp(raw, 0, maxTopPx)
 	end)
 
 	local function maxTop(): number
@@ -755,12 +781,10 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return type(a) == "table" and type(b) == "table" and a.first == b.first and a.last == b.last
 	end
 
-	local windowRange = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			local first, last = use(layoutIndex).window(use(clampedTop), viewportIn(use), overscan)
-			return { first = first, last = last }
-		end, sameRange)
-	end)
+	local windowRange = ownedFormula(scope, function(use)
+		local first, last = use(layoutIndex).window(use(clampedTop), viewportIn(use), overscan)
+		return { first = first, last = last }
+	end, sameRange)
 
 	local function sameWindow(a: { any }, b: { any }): boolean
 		if type(a) ~= "table" or type(b) ~= "table" or #a ~= #b then
@@ -774,37 +798,31 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		return true
 	end
 
-	local windowItems = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			local items = use(spec.items) :: { any }
-			local lanes = lanesIn(use)
-			local range = use(windowRange) :: any
-			local window: { any } = {}
-			for line = range.first, range.last do
-				for lane = 1, lanes do
-					local index = (line - 1) * lanes + lane
-					local item = items[index]
-					if item == nil then
-						break -- the last line is short; the flow grid left-aligns what is there
-					end
-					table.insert(window, { key = spec.key(item), item = item, index = index, lane = lane, line = line })
+	local windowItems = ownedFormula(scope, function(use)
+		local items = use(spec.items) :: { any }
+		local lanes = lanesIn(use)
+		local range = use(windowRange) :: any
+		local window: { any } = {}
+		for line = range.first, range.last do
+			for lane = 1, lanes do
+				local index = (line - 1) * lanes + lane
+				local item = items[index]
+				if item == nil then
+					break -- the last line is short; the flow grid left-aligns what is there
 				end
+				table.insert(window, { key = spec.key(item), item = item, index = index, lane = lane, line = line })
 			end
-			return window
-		end, sameWindow)
-	end)
+		end
+		return window
+	end, sameWindow)
 
 	-- the band's own canvas offset: the leading edge of its FIRST line
-	local bandOffset = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			return use(layoutIndex).offsetOf((use(windowRange) :: any).first)
-		end)
+	local bandOffset = ownedFormula(scope, function(use)
+		return use(layoutIndex).offsetOf((use(windowRange) :: any).first)
 	end)
 
-	local lanesDim = Compose.withOwner(scope, function()
-		return Compose.formula(function(use)
-			return lanesIn(use)
-		end)
+	local lanesDim = ownedFormula(scope, function(use)
+		return lanesIn(use)
 	end)
 
 	-- ── keep-visible and reveal ─────────────────────────────────────────────
@@ -986,19 +1004,15 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						subtree — survives. Reading the line back out of `indexByKey` and
 						the live lane count is what keeps the cell's extent honest across a
 						reflow. ]]
-					local cellLine = Compose.withOwner(itemScope, function()
-						return Compose.formula(function(use)
-							local index = (use(indexByKey) :: { [string]: number })[entry.key]
-							if index == nil then
-								return 1 -- the cell is leaving; the unmount is in flight
-							end
-							return math.floor((index - 1) / lanesIn(use)) + 1
-						end)
+					local cellLine = ownedFormula(itemScope, function(use)
+						local index = (use(indexByKey) :: { [string]: number })[entry.key]
+						if index == nil then
+							return 1 -- the cell is leaving; the unmount is in flight
+						end
+						return math.floor((index - 1) / lanesIn(use)) + 1
 					end)
-					local cellExtent = Compose.withOwner(itemScope, function()
-						return Compose.formula(function(use)
-							return use(layoutIndex).extentOf(use(cellLine))
-						end)
+					local cellExtent = ownedFormula(itemScope, function(use)
+						return use(layoutIndex).extentOf(use(cellLine))
 					end)
 					--[[ A FULL-CELL FOCUSABLE HIT SITS BEHIND THE CELL'S CONTENT
 						(ZStack, z = tree order), which is `UI.VirtualList`'s row shape
@@ -1012,8 +1026,17 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						There is no pointer or pan handler on it: the engine
 						ScrollingFrame owns scrolling, and interactive cell content
 						renders above and still captures its own taps. ]]
+					-- THE HIT'S OWN PATH, learned when it mounts: `ctx.focused` compares
+					-- the ring against it, and `onAppear` fires after the frame's solve so
+					-- the path is the one this slot currently holds.
+					local hitPath = Compose.withOwner(itemScope, function()
+						return Compose.cell(nil :: string?)
+					end)
 					local hit = UI.Button({
 						id = "Hit",
+						onAppear = function(path: string)
+							hitPath:set(path)
+						end,
 						label = "",
 						-- ...AND IT PAINTS NOTHING (`surface = "plain"`, the sibling half
 						-- of the same fix `controls/virtual_list.luau`'s row hit carries
@@ -1035,11 +1058,9 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 					-- a line's extent is republished whenever the index recomputes,
 					-- and a fresh literal made every windowed cell measure-dirty for a
 					-- number that had not moved.
-					local extentDim = Compose.withOwner(itemScope, function()
-						return Compose.formula(function(use)
-							return { type = "fixed", px = use(cellExtent) }
-						end, rect.sameFlatValue)
-					end)
+					local extentDim = ownedFormula(itemScope, function(use)
+						return { type = "fixed", px = use(cellExtent) }
+					end, rect.sameFlatValue)
 					return UI.ZStack({
 						id = "Cell",
 						-- the cell is its LINE's extent along the scroll axis and fills
@@ -1051,16 +1072,14 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 						-- content's own measure against the declaration and names both
 						-- numbers when the promise is not kept
 						-- ...and the promise beside it, by value for the same reason
-						virtualSlot = Compose.withOwner(itemScope, function()
-							return Compose.formula(function(use)
-								return {
-									list = id,
-									axis = axis,
-									extent = use(cellExtent),
-									contentFrom = SLOT_CONTENT_FROM,
-								}
-							end, rect.sameFlatValue)
-						end),
+						virtualSlot = ownedFormula(itemScope, function(use)
+							return {
+								list = id,
+								axis = axis,
+								extent = use(cellExtent),
+								contentFrom = SLOT_CONTENT_FROM,
+							}
+						end, rect.sameFlatValue),
 						children = {
 							hit,
 							spec.cell(entry.item, {
@@ -1072,6 +1091,22 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 								index = entry.index,
 								line = entry.line,
 								lane = entry.lane,
+								--[[ THE INTERACTION FACT THE CELL COULD NOT SEE. A Readable, not a
+									value, so a cell binds paint to it and nothing re-runs the
+									builder; false where it has no meaning, so one expression is
+									correct on a monitor, a phone and a pad alike. ]]
+								focused = Compose.withOwner(itemScope, function()
+									return Compose.formula(function(use)
+										local path = use(hitPath)
+										local ring = use(gridRing)
+										if path == nil or ring == nil then
+											return false
+										end
+										-- nil while the ring is not PAINTED, which is the rule every
+										-- other control follows: a tap moved the ring, so no ring
+										return use(ring) == path
+									end)
+								end),
 							}),
 						},
 					})
@@ -1085,10 +1120,8 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		-- decides rather than one this control asserts, which is what makes it
 		-- converge in a single step
 		then fill()
-		elseif viewportIsLive then Compose.withOwner(scope, function()
-			return Compose.formula(function(use)
-				return { type = "fixed", px = viewportIn(use) }
-			end)
+		elseif viewportIsLive then ownedFormula(scope, function(use)
+			return { type = "fixed", px = viewportIn(use) }
 		end)
 		else { type = "fixed", px = viewportSpec }
 
@@ -1302,6 +1335,11 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		handleActivate = handleActivate,
 		bindController = function(controller: any)
 			mirror.noticeController(controller)
+			-- ...and the painted ring's own path, for `ctx.focused` (see the note
+			-- at the head of this control). Absent on a controller that predates
+			-- it, which leaves every cell's `focused` false — the degradation this
+			-- seam's contract asks for.
+			gridRing:set(controller.focusRing)
 		end,
 		-- the snap machine's frame source, and the only thing this control wants a
 		-- motion clock for (settle detection is a question about frames)

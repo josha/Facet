@@ -128,51 +128,62 @@ curves.DIRECTIONS = table.freeze(DIRECTIONS)
 
 local isFinite = num.isFinite
 
--- Compose owns the standard easing functions. Facet keeps the Roblox naming
--- adapter and its recorded elastic compatibility rule: TweenService's period is
--- 1/3.25, whereas Compose's canonical elastic curve uses 0.3. See the live oracle
--- in docs/research/2026-08-15-roblox-easing-engine-facts.md.
+-- Compose owns the easing functions, and it owns all three DIRECTIONS of each
+-- one: `outQuad` and `inOutQuad` are entries in its frozen table, not a
+-- composition Facet has to redo. The one curve Facet overrides is elastic —
+-- TweenService's period is 1/3.25 where Compose's canonical curve uses 0.3, and
+-- the recorded engine oracle is what this evaluator is pinned to. See
+-- docs/research/2026-08-15-roblox-easing-engine-facts.md.
 local ELASTIC_PERIOD = 1 / 3.25
-local easeIn: { [string]: (number) -> number } = {
-	linear = Compose.easing.linear,
-	sine = Compose.easing.inSine,
-	quad = Compose.easing.inQuad,
-	cubic = Compose.easing.inCubic,
-	quart = Compose.easing.inQuart,
-	quint = Compose.easing.inQuint,
-	exponential = Compose.easing.inExpo,
-	circular = Compose.easing.inCirc,
-	back = Compose.easing.inBack,
-	bounce = Compose.easing.inBounce,
-	elastic = function(t: number): number
-		if t == 0 or t == 1 then
-			return t
-		end
-		local p = ELASTIC_PERIOD
-		return -(math.pow(2, 10 * (t - 1)) * math.sin(((t - 1) - p / 4) * (2 * math.pi) / p))
-	end,
+local function elasticIn(t: number): number
+	if t == 0 or t == 1 then
+		return t
+	end
+	local p = ELASTIC_PERIOD
+	return -(math.pow(2, 10 * (t - 1)) * math.sin(((t - 1) - p / 4) * (2 * math.pi) / p))
+end
+
+-- `out` flips the `in` half; `inOut` compresses it into [0, .5] and mirrors it
+-- into [.5, 1]. Compose spells both combinators, but does not export them, so
+-- the elastic override composes its own. Every other style reads Compose's.
+local easing = Compose.easing
+local EASED: { [string]: { [string]: (number) -> number } } = {
+	-- every direction of linear is the identity
+	linear = { ["in"] = easing.linear, out = easing.linear, inOut = easing.linear },
+	sine = { ["in"] = easing.inSine, out = easing.outSine, inOut = easing.inOutSine },
+	quad = { ["in"] = easing.inQuad, out = easing.outQuad, inOut = easing.inOutQuad },
+	cubic = { ["in"] = easing.inCubic, out = easing.outCubic, inOut = easing.inOutCubic },
+	quart = { ["in"] = easing.inQuart, out = easing.outQuart, inOut = easing.inOutQuart },
+	quint = { ["in"] = easing.inQuint, out = easing.outQuint, inOut = easing.inOutQuint },
+	exponential = { ["in"] = easing.inExpo, out = easing.outExpo, inOut = easing.inOutExpo },
+	circular = { ["in"] = easing.inCirc, out = easing.outCirc, inOut = easing.inOutCirc },
+	back = { ["in"] = easing.inBack, out = easing.outBack, inOut = easing.inOutBack },
+	bounce = { ["in"] = easing.inBounce, out = easing.outBounce, inOut = easing.inOutBounce },
+	elastic = {
+		["in"] = elasticIn,
+		out = function(t: number): number
+			return 1 - elasticIn(1 - t)
+		end,
+		inOut = function(t: number): number
+			if t < 0.5 then
+				return elasticIn(t * 2) / 2
+			end
+			return 1 - elasticIn((1 - t) * 2) / 2
+		end,
+	},
 }
 
 -- The pure evaluator: `(alpha, style, direction) -> eased alpha`. Signature is
 -- deliberately identical to the engine's `TweenService:GetValue`, so the two are
 -- swappable and the oracle can compare them argument for argument.
 function curves.evaluate(alpha: number, style: string, direction: string): number
-	local f = easeIn[style]
+	local directions = EASED[style]
+	local f = if directions ~= nil then directions[direction] else nil
 	if f == nil then
-		return alpha -- unreachable through `resolve`, which validates the style
+		return alpha -- unreachable through `resolve`, which validates both names
 	end
 	local t = if alpha < 0 then 0 elseif alpha > 1 then 1 else alpha
-	local r: number
-	if direction == "in" then
-		r = f(t)
-	elseif direction == "out" then
-		r = 1 - f(1 - t)
-	elseif t < 0.5 then
-		-- inOut: the `in` half compressed into [0, .5], mirrored into [.5, 1]
-		r = f(t * 2) / 2
-	else
-		r = 1 - f((1 - t) * 2) / 2
-	end
+	local r = f(t)
 	-- NEGATIVE ZERO IS NOT ZERO TO EVERY READER, and `back`/`in` produces one at
 	-- t = 0 (`0 * 0 * -1.70158`). It compares equal, so the write gate upstream
 	-- lets it through as "unchanged" — but it formats as "-0.000000" and, in a
@@ -193,14 +204,6 @@ end
 
 local registry: { [string]: Curve } = {}
 
--- The matrix lives in `src/text_distance.luau` — a leaf with no
--- requires, so taking it costs `motion/` none of the independence the old "kept
--- local" note was protecting. THE THRESHOLD STAYS HERE, at the call site below,
--- because it is the half that was never agreed: this caller lowercases both
--- sides and accepts `d <= max(2, floor(#name / 3))`, where `spec_guard` and
--- `themes/package` accept 2 case-sensitively.
-local distance = textDistance.distance
-
 function curves.names(): { string }
 	local out: { string } = {}
 	for name in registry do
@@ -220,22 +223,6 @@ local function nameList(): string
 		return "(none yet — the curve registry ships EMPTY, by decision)"
 	end
 	return table.concat(list, ", ")
-end
-
-local function suggestion(bad: string): string?
-	local best: string? = nil
-	local bestDistance = math.huge
-	local lowerBad = string.lower(bad)
-	for _, name in curves.names() do
-		local d = distance(lowerBad, string.lower(name))
-		if d < bestDistance then
-			best, bestDistance = name, d
-		end
-	end
-	if best ~= nil and bestDistance <= math.max(2, math.floor(#best / 3)) then
-		return best
-	end
-	return nil
 end
 
 local function styleList(): string
@@ -303,7 +290,7 @@ function curves.resolve(name: any): Curve
 	end
 	local curve = registry[name]
 	if curve == nil then
-		local did = suggestion(name)
+		local did = textDistance.nearestFolded(name, curves.names())
 		local hint = if did ~= nil then ` Did you mean '{did}'?` else ""
 		error(
 			`Facet motion: unknown motion curve '{name}'.{hint} Registered curves: {nameList()}. `

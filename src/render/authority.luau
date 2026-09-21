@@ -435,10 +435,6 @@ function authority.nativeSheetOwned(engineProp: string): boolean
 	return NATIVE_SHEET_OWNED[engineProp] == true
 end
 
-function authority.nativeSheetOwnedSet(): { [string]: boolean }
-	return NATIVE_SHEET_OWNED
-end
-
 function authority.bespokeInstances(): { [string]: string }
 	return BESPOKE_INSTANCES
 end

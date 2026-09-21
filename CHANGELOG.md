@@ -25,6 +25,68 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- A chat thread can be scrolled while a reply is arriving. `UI.VirtualList`'s
+  `follow = "end"` re-pinned the end on every frame of content growth, and one
+  frame of a pan never moves the whole `followThreshold`, so a player panning
+  away from a growing thread was snapped back faster than they could travel and
+  the list read as completely stuck (measured on a phone: canvas 1216 in a 389
+  window, a 230 px pan moved the offset 827 -> 827, while the same gestures
+  worked once the thread was a few hundred px up). Following now YIELDS on a
+  reported offset that moves away from the end — including from inside
+  `followThreshold`, which is what the old test could not see — and while it is
+  yielded, growth moves the view by nothing. It resumes when the player comes
+  back to the end, or when the consumer re-asserts `follow`. The list's own
+  follow-write is matched against its echo, so it is never mistaken for the
+  player.
+
+- A desktop the engine buckets as a `"Large"` physical display no longer gets the
+  ten-foot treatment (1.5x type, metrics, target floors and overscan margins).
+  `GuiService.ViewportDisplaySize` answers `"Large"` for a 4K desk monitor, and a
+  big pixel count is not a long viewing distance; a mouse now corroborates
+  against it exactly as a touchscreen already did. A console has neither and is
+  unchanged, and `viewingDistance = "ten-foot"` still outranks the derivation.
+- A placement property a parent never reads (`alignH` under a stack, the
+  `offsetX`/`offsetY` pair `UI.offset` writes under anything but a `UI.Anchor`)
+  now `warn`s in Studio, once per site, as well as being reported on
+  `controller.diagnostics()`. Off in a running game.
+- A finger can scroll a list of draggable things again. A `UIDragDetector` owns
+  a touch from the press and keeps it whether or not the press ever becomes a
+  drag, so on a phone a feed of draggable cards could not be scrolled at all
+  (measured: a 230 px flick moved the scroller 0 px; the same flick with the
+  detectors off moved it 249 px). A touch press now claims nothing until it has
+  been held still for `interactionTokens.touchDragArm.holdMs`; travelling
+  `slopPx` first releases the gesture to the scroller — or to a swipeable row —
+  for good. A mouse and a pen are unchanged, and so is any engine with no
+  touchscreen. `UI.draggable`'s `declineTouch` also reaches the engine's
+  acquisition now: it used to disable Facet's own drag and leave the detector
+  claiming the finger anyway, which was the worst of the two.
+
+- ...and the hold now actually *picks the thing up*. The arm above switched the
+  engine's detector on and stopped there, so a player who held a card still felt
+  nothing, saw nothing, and then watched the page pan out from under the card
+  when they moved. Three things changed. An armed press is now a **promotion
+  already spent**: the drag session begins at the arm instead of asking for
+  another 14 px of travel, so the ghost, the lift and the `dragHeld` state all
+  land at the moment the hold does. The nearest scrolling ancestor is **stopped
+  for the rest of an armed gesture** and handed back when the drag ends (never at
+  the lift — the engine can still be dragging). And `holdMs` is **280 ms**, not
+  320, which sits closer to what a phone teaches. A mouse, a pen and any engine
+  without a touchscreen are still untouched.
+
+- A surface presented before its content exists now navigates that content when
+  it arrives. Whether a screen's ring is GROUPED (so Down moves by direction and
+  Left/Right are a real horizontal axis) used to be settled once, at present
+  time, from the tree as it stood then — so a screen whose body is behind a
+  `Compose.show` or a tab, and is therefore presented empty, walked every control
+  that arrived later in flat document order and had no horizontal axis at all.
+  The focus graph was already grouped; only the key wiring was not.
+
+- A `UI.PageView` carousel is ONE keyboard and gamepad stop: Left/Right page,
+  Activate reaches the page's own primary action, and one vertical press leaves
+  it. The page indicators stay tappable and stay the stops for a carousel whose
+  pages hold no focusable of their own.
+- A `UI.ComboBox`'s suggestions opener is exactly as tall as the field beside it.
+
 - Consolidate Showcase recipes into existing family tabs with shared reset actions.
   Long removable tags scroll horizontally; progress tracks retain visible segments
   beside trailing copy at large text sizes. New-control scaffolds use existing demos.

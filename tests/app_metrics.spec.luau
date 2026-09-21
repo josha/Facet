@@ -447,7 +447,7 @@ describe("app metrics: a declaration reaches a warm environment", function()
 		local Compose = Facet.Compose
 		local core = harness.newCore()
 		local env = Facet.newEnvironment(core)
-		local owner = Compose.createOwner(core.scene.reactor)
+		local owner = Compose.createOwner(core.reactor)
 		local values = {}
 		owner.watch(function(use)
 			local app = use(env:get("themeMetrics")).app

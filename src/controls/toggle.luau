@@ -342,7 +342,7 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 end
 function toggle.build(Facet, core, spec)
 	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
+	local owner = if parent then parent.createChild() else core.owner.createChild()
 	local ok, result = pcall(Compose.withOwner, owner, function()
 		return build(Facet, core, spec, owner)
 	end)

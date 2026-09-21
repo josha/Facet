@@ -1,5 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 -- RowActions: a swipeable action tray around an arbitrary row (spec:
 -- docs/plans/row-actions.md, docs/plans/row-actions-implementation.md Tasks
 -- 3-4). The spec/blueprint contract and the lazy tray structure shipped in
@@ -2604,10 +2606,8 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 	-- `openEdge:set(edge)`; `resetToClosed`'s `openEdge:set(nil)` before
 	-- `committed = false`) — so reading it here still recomputes at exactly
 	-- the right moments, never one commit-generation stale.
-	local isOpenReadable = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return not committed and use(openEdge) ~= nil
-		end)
+	local isOpenReadable = ownedFormula(owner, function(use)
+		return not committed and use(openEdge) ~= nil
 	end)
 
 	-- Task 7 (matrix §B PopupButton parity, popup_button.luau:331-337's exact
@@ -2716,10 +2716,8 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 	local editAffordanceView: any = if hasEditAffordance
 		then rowActionsRoot.buildEditAffordance({
 			UI = UI,
-			editAffordanceShown = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					return use(editAffordanceShown) and not use(committingSig)
-				end)
+			editAffordanceShown = ownedFormula(owner, function(use)
+				return use(editAffordanceShown) and not use(committingSig)
 			end),
 			destructiveEntry = firstDestructiveEntry(),
 		})
@@ -3230,10 +3228,8 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 	-- `revealPx`, its own signal.
 	local trayState: any = nil
 	if isHosted then
-		local revealPx = Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				return math.abs(use(offset))
-			end)
+		local revealPx = ownedFormula(owner, function(use)
+			return math.abs(use(offset))
 		end)
 		local leadingState = if leadingActions ~= nil
 			then { edge = "leading" :: Edge, actions = leadingActions, revealPx = revealPx }
@@ -3241,24 +3237,22 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 		local trailingState = if trailingActions ~= nil
 			then { edge = "trailing" :: Edge, actions = trailingActions, revealPx = revealPx }
 			else nil
-		trayState = Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				local edge = use(openEdge)
-				if edge == nil then
-					local px = use(offset)
-					if px > 0 then
-						edge = "leading"
-					elseif px < 0 then
-						edge = "trailing"
-					end
+		trayState = ownedFormula(owner, function(use)
+			local edge = use(openEdge)
+			if edge == nil then
+				local px = use(offset)
+				if px > 0 then
+					edge = "leading"
+				elseif px < 0 then
+					edge = "trailing"
 				end
-				if edge == "leading" then
-					return leadingState
-				elseif edge == "trailing" then
-					return trailingState
-				end
-				return nil
-			end)
+			end
+			if edge == "leading" then
+				return leadingState
+			elseif edge == "trailing" then
+				return trailingState
+			end
+			return nil
 		end)
 	end
 
@@ -3449,16 +3443,9 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 end
 
 local function buildEngine(Facet, core, spec, hosted)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return buildOwnedEngine(Facet, core, spec, hosted, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 -- THE STANDALONE/TABLE ENTRY POINT — `UI.RowActions`. Unchanged

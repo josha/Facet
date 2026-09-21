@@ -79,8 +79,11 @@ local dragContract = require("../input/drag_contract")
 -- beside it, and the OWNER of the one reassigned scalar the two used to share.
 local drag_bridge = require("./drag_bridge")
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 local observeChange = require("../core/on_change")
+local env_wiring = require("./env_wiring")
 local autoscrollLib = require("../input/autoscroll")
+local placementWarnings = require("../layout/placement_warnings")
 local specGuard = require("../spec_guard")
 -- the CLASS SCHEMA, read here for one reason only: an enum prop's closed set has
 -- to be enforced where a BOUND value lands, not just where a static one is
@@ -142,7 +145,6 @@ renderer.DIRECT_PROPS = prop_channels.DIRECT_PROPS
 -- `layout_node.build`, which owns the cross-solve node store and the recursion, so
 -- the local was dead. The module still EXPORTS `toLayoutNode` — see the note beside
 -- that export for why.
-local effectiveHitFloor = layout_node.effectiveHitFloor
 renderer.compactForm = layout_node.compactForm
 renderer.drawnButtonText = layout_node.drawnButtonText
 
@@ -166,7 +168,8 @@ local INPUT_SINKING: { [string]: boolean } = { Button = true, Toggle = true, Tex
 -- nodes that get the pointer HOVER layer (UI-PARADIGM-001): activatable chrome
 -- the renderer draws (Table rows/headers render as Button). TextField is not a
 -- hover surface (its affordance is the caret/edit handshake, not a hover lift).
-local HOVERABLE: { [string]: boolean } = { Button = true, Toggle = true }
+-- the classes that take a hover state; the wiring seam owns the fact
+local HOVERABLE = env_wiring.HOVERABLE
 -- MOVES A NODE, CHANGES NOTHING A COMMIT WALK READS (T5b): the schema's 8
 -- arrange-only specs minus `hidden` — kept OUT so a walk that reads it can be
 -- promoted to `arrangeBlind` without re-deriving this set, not because anything
@@ -1213,7 +1216,12 @@ function renderer.attach(
 						controller.tapAt(pos.x, pos.y, { skip = tapPath })
 					end
 				end
-				local detach = dragBridge.attachDetector(node.path, handlers)
+				-- the declaration's own touch answer, now kept on the NATIVE path
+				-- too: a `declineTouch` source used to disable Facet's drag and
+				-- leave the engine detector claiming the finger anyway
+				local detach = dragBridge.attachDetector(node.path, handlers, {
+					touch = if dragDecl.declineTouch == true then "decline" else "hold",
+				})
 				if detach ~= nil then
 					dragAcquiredNatively = true
 					tapArm.guardDetector(node.path)
@@ -2119,6 +2127,12 @@ function renderer.attach(
 		profile.span("commit", function()
 			local textRequests = text_metrics.endCollect()
 			lastDiagnostics = result.diagnostics
+			-- ...and an INERT placement prop is said out loud, once per site, where
+			-- an author is already looking (`layout/placement_warnings`, which
+			-- carries the whole rule). One length test on a clean solve.
+			if #result.diagnostics > 0 then
+				placementWarnings.notice(result.diagnostics)
+			end
 			-- what the walks below cost, as a NUMBER rather than an inference (P4): the
 			-- claim is about the whole span, so the reset is here and not in a walk.
 			stats.lastCommitVisits = 0
@@ -2767,16 +2781,14 @@ function renderer.attach(
 	local GEOMETRY_KEYS = geometry_facts.keysFor(rootPolicy, reserveAppChrome)
 	-- scope-owned like every other memo: an unowned one is a live registry node
 	-- after dispose, which the registry-neutrality suites catch as a leak
-	local geometryFacts = Compose.withOwner(attachScope, function()
-		return Compose.formula(function(use)
-			local values = table.create(#GEOMETRY_KEYS)
-			for i, key in GEOMETRY_KEYS do
-				values[i] = use(env:get(key))
-			end
-			return values
-		end, function(a: any, b: any): boolean
-			return geometry_facts.same(GEOMETRY_KEYS, a, b)
-		end)
+	local geometryFacts = ownedFormula(attachScope, function(use)
+		local values = table.create(#GEOMETRY_KEYS)
+		for i, key in GEOMETRY_KEYS do
+			values[i] = use(env:get(key))
+		end
+		return values
+	end, function(a: any, b: any): boolean
+		return geometry_facts.same(GEOMETRY_KEYS, a, b)
 	end)
 	--[[ THE RE-SOLVE IS SETTLE WORK, NOT OBSERVER WORK (L-31, 2026-08-14).
 		This observer used to call `solveAndApply()` inline, which meant a surface
@@ -3133,6 +3145,7 @@ function renderer.attach(
 	-- the logical focus path; nil clears
 	local focusedPath: string? = nil
 	local focusRingVisible = true
+	local ringPath = Compose.cell(nil :: string?)
 	local bridgeEngaged = (opts and opts.engineSelectionBridge) == true
 	-- `visible` (optional, default true) is the RING's own answer, separate from
 	-- the focus path: a pointer/touch-driven focus move tracks focus, drives the
@@ -3186,7 +3199,14 @@ function renderer.attach(
 		end
 		focusedPath = path
 		focusRingVisible = wantRing
+		-- WHERE THE RING IS, AS A READABLE (`controller.focusRing`; nil = no ring
+		-- on this surface). Both facts a control needs to paint its own focused
+		-- state are already resolved here, so this publishes the ANSWER, reached
+		-- through `bindController`. `src/controls/virtual_grid.luau` carries why a
+		-- control reads this and not the presenter's focus authority.
+		ringPath:set(if wantRing then path else nil)
 	end
+	controller.focusRing = ringPath :: any
 
 	-- verifier F2: a displaySize dock (Medium <-> Large) must re-strengthen a
 	-- RESTING focus visual — text and margins already re-adopt via the solve
@@ -3203,137 +3223,14 @@ function renderer.attach(
 		end
 	end)
 
-	-- verifier F3: hover is a hot-switch CARRY idiom — a pointer ARRIVING
-	-- mid-session (dock adds a mouse) enables hover on nodes that already
-	-- exist, not only on nodes created after the flip. enableHover is
-	-- idempotent; there is no disable path (without a mouse the events
-	-- simply never fire).
-	do
-		local hoverLive = env:get("interactionClasses"):peek().pointer == true
-		observeChange(attachScope, env:get("interactionClasses"), function(classes)
-			local live = classes.pointer == true
-			if live and not hoverLive and adapter.enableHover ~= nil then
-				local function enableWalk(node: any)
-					if HOVERABLE[node.class] and handles[node.path] ~= nil then
-						adapter.enableHover(handles[node.path])
-					end
-					for _, child in node.children do
-						enableWalk(child)
-					end
-				end
-				enableWalk(root.node)
-			end
-			hoverLive = live
-		end)
-	end
-
-	-- ...and the SAME carry idiom for disclosure engagement zones (architecture
-	-- review F-5): long-press is the ONLY full-value path on touch, so a touch
-	-- class arriving mid-session (hybrid handheld docking, first tap on a
-	-- touchscreen laptop) must retrofit zones onto already-mounted disclosed
-	-- labels exactly as hover does. `enableDisclosure` merges per half, so a
-	-- label wired for hover at mount gains the touch half here without
-	-- disturbing the first.
-	do
-		local discloseHoverCb = opts and (opts :: any).onDiscloseHover
-		local disclosePressCb = opts and (opts :: any).onDiscloseLongPress
-		if (discloseHoverCb ~= nil or disclosePressCb ~= nil) and adapter.enableDisclosure ~= nil then
-			local last = env:get("interactionClasses"):peek()
-			local lastPointer, lastTouch = last.pointer == true, last.touch == true
-			observeChange(attachScope, env:get("interactionClasses"), function(classes)
-				local pointer, touch = classes.pointer == true, classes.touch == true
-				if (pointer and not lastPointer) or (touch and not lastTouch) then
-					local function wireWalk(node: any)
-						local discloses = (node.props or {}).disclose == true or (node.props or {}).reveal ~= nil
-						if (discloses or (node.props or {}).help ~= nil) and handles[node.path] ~= nil then
-							local path = node.path
-							adapter.enableDisclosure(handles[path], {
-								hover = if discloseHoverCb ~= nil and pointer
-									then function(over: boolean)
-										discloseHoverCb(if over then path else nil)
-									end
-									else nil,
-								-- the press half is the PLATE's, never help's (D3a)
-								longPress = if disclosePressCb ~= nil
-										and discloses
-										and touch
-									then function(held: boolean)
-										disclosePressCb(if held then path else nil)
-									end
-									else nil,
-							})
-						end
-						for _, child in node.children do
-							wireWalk(child)
-						end
-					end
-					wireWalk(root.node)
-				end
-				lastPointer, lastTouch = pointer, touch
-			end)
-		end
-	end
-
-	--[[ REDUCED MOTION IS A LIVE FACT, AND IT REACHES THE TARGET FROM HERE — both
-		halves of a target's motion, through one observation of one env key.
-
-		`setNativeTransitionsEnabled` is the SHEET half, from the native-stylesheet round:
-		when the target runs sheet-owned paint, the adapter strips/restores the
-		sheet's declared transitions on the fly (SetPropertyTransitions({}) — the
-		proven instant path, spike m9).
-
-		`setReducedMotion` is the BESPOKE half (C1, 2026-08-12), and it exists
-		because the comment that used to stand here was false. It said bespoke
-		targets "consult the reducedMotion policy per-play already" — they consult
-		a `screen_target.new({ isReducedMotion = ... })` CLOSURE, and no production
-		caller anywhere ever passed one (not the showcase, not RascalRally's four
-		GUIs), so every bespoke tween ran at full motion for a player who had asked
-		for less. A construction-time opt four call sites forgot is the defect; the
-		repair is that the framework pushes the fact instead of hoping a consumer
-		wires it. Both calls are feature-detected, so a target with neither degrades
-		by name (target_contract) rather than crashing.
-
-		Pushed once at attach and again on every change, so a mid-session flip of
-		the player's setting lands without a remount. ]]
-	if adapter.setNativeTransitionsEnabled ~= nil or adapter.setReducedMotion ~= nil then
-		local function pushReducedMotion(reduced: boolean)
-			if adapter.setNativeTransitionsEnabled ~= nil then
-				adapter.setNativeTransitionsEnabled(reduced ~= true)
-			end
-			if adapter.setReducedMotion ~= nil then
-				adapter.setReducedMotion(reduced == true)
-			end
-		end
-		pushReducedMotion(env:get("reducedMotion"):peek() == true)
-		observeChange(attachScope, env:get("reducedMotion"), function(reduced)
-			pushReducedMotion(reduced == true)
-		end)
-	end
-
-	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (owed row O-26).
-
-		The third accessibility fact to ride this seam, and it rides it for exactly
-		the reason the second one had to: `setReducedMotion` above exists because the
-		fact used to arrive only through a construction-time opt that all four
-		production call sites forgot, so the preference silently did nothing. A
-		preference the framework merely PUBLISHES is a preference no player feels;
-		`effectiveTransparency` had been published and unread for four stages.
-
-		The env memo is the clamp — a garbage or NaN platform reading becomes 1
-		(paint what the theme said) before it ever reaches an adapter, so the seam
-		carries a value already in its legal domain.
-
-		UNLIKE `setReducedMotion`, THIS ONE REPAINTS. Reduced motion changes how the
-		NEXT transition plays; a transparency preference changes what is on screen
-		right now, so an adapter that takes it has to move the backdrop it has
-		already painted, not merely remember the number. ]]
-	if adapter.setPreferredTransparency ~= nil then
-		local effective = env:get("effectiveTransparency")
-		adapter.setPreferredTransparency(effective:peek())
-		observeChange(attachScope, effective, function(value)
-			adapter.setPreferredTransparency(value)
-		end)
-	end
+	env_wiring.install({
+		env = env,
+		adapter = adapter,
+		attachScope = attachScope,
+		handles = handles,
+		root = root,
+		opts = opts,
+	})
 
 	function controller.initialRender()
 		structuralSync()

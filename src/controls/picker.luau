@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 -- Picker presents one selection model as a menu, a segmented strip or rows.
 -- The automatic style follows available space, input and viewing distance.
 -- Static and keyed strips use Compose ownership; their controls retain Facet's
@@ -287,7 +288,7 @@ end
 	takes the plate away. Nothing is read without an environment (a declared
 	strip with none stays flat, as the neutral package carves nothing). ]]
 local function trackPaddingFor(core: any, spec: any, presentation: any): any
-	local env = spec.env or surfaceEnv.find(core)
+	local env = surfaceEnv.forSpec(core, spec.env)
 	if env == nil then
 		return nil
 	end
@@ -592,16 +593,9 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 end
 
 local function buildLive(Facet, core, spec, requested, onReselect)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return buildLiveOwned(Facet, core, spec, requested, onReselect, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 -- ===== the option lint (D6), shared by every style =========================
@@ -949,7 +943,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 		motion authority places a decorative target at its terminus on the same
 		frame (motion I-4). The lift still happens; it simply does not fly. ]]
 	local ROW_LIFT = 1.05
-	local liftEnv = spec.env or surfaceEnv.find(core)
+	local liftEnv = surfaceEnv.forSpec(core, spec.env)
 	local tenFootRows = Compose.formula(function(use)
 		if liftEnv == nil then
 			return false
@@ -1423,16 +1417,9 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 end
 
 local function buildStrip(Facet, core, spec, requested, onReselect)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return buildStripOwned(Facet, core, spec, requested, onReselect, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 -- ===== THE STYLE ROUTER (2026-09-11) =======================================
@@ -1744,16 +1731,9 @@ local function buildAutomaticOwned(Facet: any, core: any, spec: Spec, id: string
 	return api
 end
 local function buildAutomatic(Facet, core, spec, id)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return buildAutomaticOwned(Facet, core, spec, id, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 -- Internal tab-host hook: accepting the current destination completes its chooser without a change event.
@@ -1806,7 +1786,7 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 			as much rather than pretending the base set is the whole world. ]]
 		local liveRadii: any = nil
 		do
-			local themeEnv: any = spec.env or surfaceEnv.find(core)
+			local themeEnv: any = surfaceEnv.forSpec(core, spec.env)
 			if type(themeEnv) == "table" and type(themeEnv.get) == "function" then
 				local metrics: any = themeEnv:get("themeMetrics")
 				local snap: any = if Compose.isReadable(metrics) then metrics:peek() else nil

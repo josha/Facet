@@ -267,7 +267,7 @@ local function build(library: any, core: any, spec: any, owner: any)
 end
 function avatar_group.build(library: any, core: any, spec: Spec)
 	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
+	local owner = if parent then parent.createChild() else core.owner.createChild()
 	local ok, result = pcall(Compose.withOwner, owner, function()
 		return build(library, core, spec, owner)
 	end)

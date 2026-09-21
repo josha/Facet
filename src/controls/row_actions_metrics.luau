@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 --[[ row_actions_metrics — every live pixel amount a row-actions band is made of.
 
 	WHAT THIS IS. The theme-resolved chrome of `UI.RowActions`: the four
@@ -143,37 +144,27 @@ function row_actions_metrics.build(
 	-- HOISTED above the naturals (director device round 2026-08-12): the tray's
 	-- own travel distance now includes its inter-button gutters, so `trayGap` has
 	-- to exist before `leadingWidth`/`trailingWidth` read it.
-	local metricsEnv = if env ~= nil then env else (surfaceEnv.find(core))
+	local metricsEnv = surfaceEnv.forSpec(core, env)
 	local function metricsOr(raw: any): any
 		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 	end
-	local metricsSig = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			if metricsEnv == nil then
-				return themeSnapshot.neutral()
-			end
-			return metricsOr(use(metricsEnv:get("themeMetrics")))
-		end)
+	local metricsSig = ownedFormula(owner, function(use)
+		if metricsEnv == nil then
+			return themeSnapshot.neutral()
+		end
+		return metricsOr(use(metricsEnv:get("themeMetrics")))
 	end)
-	local buttonPadPx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
-		end)
+	local buttonPadPx = ownedFormula(owner, function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
 	end)
-	local buttonMinWidthPx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
-		end)
+	local buttonMinWidthPx = ownedFormula(owner, function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
 	end)
-	local trayGapPx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
-		end)
+	local trayGapPx = ownedFormula(owner, function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
 	end)
-	local rowGutterPx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return themeSnapshot.resolveNumber(use(metricsSig), ROW_GUTTER) or 0
-		end)
+	local rowGutterPx = ownedFormula(owner, function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), ROW_GUTTER) or 0
 	end)
 	-- A3 (device bug round 2026-08-12): a themed package's control frame is room
 	-- the label cannot use, and a tray button's natural width has to reserve it
@@ -182,19 +173,17 @@ function row_actions_metrics.build(
 	-- Zero under every flat package (`snapshot.resolve` only fills
 	-- `chromeInsets` for a nineSlice/layered slot recipe), so this is inert
 	-- until a package actually paints a frame.
-	local buttonChromePx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local metrics = use(metricsSig)
-			local insets = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
-				then (metrics.chromeInsets :: any).control
-				else nil
-			if type(insets) ~= "table" then
-				return 0
-			end
-			local left = if type(insets.left) == "number" then insets.left else 0
-			local right = if type(insets.right) == "number" then insets.right else 0
-			return left + right
-		end)
+	local buttonChromePx = ownedFormula(owner, function(use)
+		local metrics = use(metricsSig)
+		local insets = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+			then (metrics.chromeInsets :: any).control
+			else nil
+		if type(insets) ~= "table" then
+			return 0
+		end
+		local left = if type(insets.left) == "number" then insets.left else 0
+		local right = if type(insets.right) == "number" then insets.right else 0
+		return left + right
 	end)
 
 	-- Keep one measured-width cell per action across tray remounts. Geometry
@@ -252,15 +241,11 @@ function row_actions_metrics.build(
 		end
 		return sum + bandExtras(actions, use)
 	end
-	local leadingWidth = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return bandWidth(leadingNaturals, leadingActions, use)
-		end)
+	local leadingWidth = ownedFormula(owner, function(use)
+		return bandWidth(leadingNaturals, leadingActions, use)
 	end)
-	local trailingWidth = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return bandWidth(trailingNaturals, trailingActions, use)
-		end)
+	local trailingWidth = ownedFormula(owner, function(use)
+		return bandWidth(trailingNaturals, trailingActions, use)
 	end)
 
 	-- ===== Task 9: the edit-mode gutter (leading minus + content/leading-tray
@@ -282,23 +267,19 @@ function row_actions_metrics.build(
 	local editAffordanceShown: any = nil
 	local editGutterPx: any = nil
 	if hasEditAffordance then
-		editAffordanceShown = Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				return use(editingReadable) == true
-			end)
+		editAffordanceShown = ownedFormula(owner, function(use)
+			return use(editingReadable) == true
 		end)
 		-- ONE EXPRESSION, resolved once (2026-08-28; see `EDIT_FOOTPRINT` above).
 		-- This used to be `editAffordancePx + rowGutterPx` through two memos of its
 		-- own; it is the same two metrics and the same sum, said in the form the
 		-- disc's `footprint` hint also takes, so the reservation and the ceiling
 		-- cannot be edited apart.
-		editGutterPx = Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				if use(editAffordanceShown) then
-					return themeSnapshot.resolveTotal(use(metricsSig), EDIT_FOOTPRINT) or 0
-				end
-				return 0
-			end)
+		editGutterPx = ownedFormula(owner, function(use)
+			if use(editAffordanceShown) then
+				return themeSnapshot.resolveTotal(use(metricsSig), EDIT_FOOTPRINT) or 0
+			end
+			return 0
 		end)
 	end
 

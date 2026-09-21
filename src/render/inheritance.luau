@@ -63,7 +63,6 @@ local function applyInherited(node: any, inherited: Inherit?): (Inherit?, boolea
 	local tintMoved = node.inheritedTint ~= inheritedTint
 	node.disabled = if disabled then true else nil
 	node.inheritedTint = inheritedTint
-	node.inheritFrom = inherited
 
 	--[[ THE READ-SITE HALF OF THE `transparency` REFUSAL. The
 		schema refuses an alpha on a container's `tint` at construction, but that prop

@@ -2053,8 +2053,8 @@ local registry: { Entry } = {
 		inputProofs = {
 			pointer = { "PageView pointer: a tap activates through the presenter (device-true)" },
 			touch = { "PageView touch: a touch tap/pan drives the control (device-true)" },
-			keyboard = { "PageView keyboard: focus + Return drives the control" },
-			gamepad = { "PageView gamepad: focus + ButtonA drives the control" },
+			keyboard = { "PageView keyboard: focus + Right pages, Return drives the page" },
+			gamepad = { "PageView gamepad: focus + DPadRight pages, ButtonA drives the page" },
 		},
 		-- Paradigm-axis proofs (UI-PARADIGM-001/002): the STRUCTURAL IDIOM per
 		-- live class (distinct from inputProofs' reachability) plus the hotSwitch

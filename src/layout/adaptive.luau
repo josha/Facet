@@ -94,9 +94,33 @@ adaptive.DEFAULT_STACK_ABOVE = 600
 	(type scale, metric scale, the sizeClass density cap, overscan margins,
 	nav placement) read", never "what did the engine literally report" — a
 	diagnostic, a device-matrix harness, or an explicit preview override wants
-	the raw `displaySize` fact untouched, and keeps reading it directly. ]]
-function adaptive.effectiveDisplaySize(displaySize: any, touchCapable: boolean?): any
-	if displaySize == "Large" and touchCapable == true then
+	the raw `displaySize` fact untouched, and keeps reading it directly.
+
+	=== AND A MOUSE CORROBORATES THE SAME WAY A TOUCHSCREEN DOES (2026-09-20) ===
+
+	Reported by the owner on their own hardware: "on a 4K monitor the showcase is
+	way too big". That is this gate, on the case touch cannot speak for. A 4K
+	desk monitor is physically large and the engine says so, but a big PIXEL
+	COUNT is not a long VIEWING DISTANCE — the whole premise of the ten-foot
+	treatment is three metres of couch — so the 1.5x swing in type, metrics and
+	margins landed on a display being read from arm's length, and every part of
+	it was half again too big.
+
+	`mouseCapable` is the desk half of the same argument the touch half makes,
+	and it is stronger rather than weaker: a real ten-foot session is a console
+	plugged into a television, and a console has no mouse. A desk — at any
+	resolution — has one. Two contradictory physical facts again, resolved the
+	same way and for the same stated reason: a big-screen session with a pointer
+	keeps normal text, which is perfectly usable up close, while a desk monitor
+	wrongly inflated to console scale is the defect that was actually reported.
+
+	A PC ATTACHED TO A TELEVISION IS THE KNOWN COST, and it is the cheaper
+	failure by this rule's own test. It is also the case a player or an app can
+	say out loud: `viewingDistance = "ten-foot"` is an explicit override that
+	outranks every derivation here (`env/environment`'s own memo checks it
+	first), which is what a lounge PC build sets. ]]
+function adaptive.effectiveDisplaySize(displaySize: any, touchCapable: boolean?, mouseCapable: boolean?): any
+	if displaySize == "Large" and (touchCapable == true or mouseCapable == true) then
 		return "Medium"
 	end
 	return displaySize

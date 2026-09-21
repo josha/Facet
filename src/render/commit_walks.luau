@@ -52,7 +52,6 @@ local authority = require("./authority")
 local layout_node = require("./layout_node")
 local themeSnapshot = require("../themes/snapshot")
 local isFinite = require("../num").isFinite
-local chromeSlots = require("../tokens/chrome_slots")
 -- the ONE reading of the `textSize = "fit"` grammar (shared with the schema and
 -- with `render/layout_node.textOf`, which resolves the band the solver picks from)
 local textFit = require("../layout/text_fit")

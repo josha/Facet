@@ -947,7 +947,7 @@ local function build(core: any): Env
 end
 
 function environment.new(core: any): Env
-	local owner = Compose.createOwner(if core.scene then core.scene.reactor else Compose.reactor())
+	local owner = Compose.createOwner(if core.reactor then core.reactor else Compose.reactor())
 	local ok, result = pcall(Compose.withOwner, owner, function()
 		return build(core)
 	end)

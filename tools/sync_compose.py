@@ -120,12 +120,92 @@ def verify(pin):
     return True
 
 
+def fetch_repository(source, scratch, url, commit):
+    """A repository that holds `commit`: the caller's checkout, or a shallow fetch."""
+    if source is not None:
+        return source
+    repository = Path(scratch) / "repository"
+    subprocess.run(["git", "init", "--quiet", "--", str(repository)], check=True)
+    # `--` before the lock's own two values: a repository or a commit that
+    # began with `-` could otherwise be read as an option to `git fetch`.
+    git(repository, "fetch", "--depth=1", "--", url, commit)
+    return repository
+
+
+def write_snapshot(files, docs):
+    for path in list(DOCS_DEST.rglob("*")) if DOCS_DEST.exists() else []:
+        if path.is_file():
+            path.unlink()
+    for name, data in docs.items():
+        path = DOCS_DEST / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    for path in DEST.rglob("*"):
+        if (path.is_file() and path not in (PIN, DEST / "README.md")
+                and path.relative_to(DEST).as_posix() not in files):
+            path.unlink()
+    for name, data in files.items():
+        path = DEST / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    # Rojo emits empty directories as Folder instances, so retired dependency
+    # directories must disappear too, even when their files were already removed.
+    for directory in sorted((p for p in DEST.rglob("*") if p.is_dir()),
+                            key=lambda p: len(p.parts), reverse=True):
+        if not any(directory.iterdir()):
+            directory.rmdir()
+
+
+def inventory(entries):
+    return {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}
+
+
+def bump(pin, commit, source):
+    """Move the pin to `commit`: the commit name, the hash inventory and the files
+    change TOGETHER, from one archive.
+
+    `--check` compares the files with the lock's inventory. It does not, and
+    offline cannot, ask whether that inventory came from the commit the lock names.
+    An edit to `commit` alone therefore still verifies, against the old files. This
+    is the only supported way to change the pin."""
+    if not COMMIT.match(commit):
+        raise SystemExit(f"Compose: --bump takes a full 40-character commit, not {commit!r}")
+    previous = pin["commit"]
+    before = dict(pin["sha256"])
+    pin["commit"] = commit
+    url, _ = checked_pin(pin)
+    with tempfile.TemporaryDirectory(prefix="facet-compose-") as scratch:
+        files, docs = materialize(fetch_repository(source, scratch, url, commit), pin)
+    pin["sha256"], pin["docs"] = inventory(files), inventory(docs)
+    write_snapshot(files, docs)
+    PIN.write_text(json.dumps(pin, indent=2) + "\n")
+    assert verify(pin), "Compose materialization did not match its pin"
+    changed = sorted(n for n in set(before) | set(pin["sha256"]) if before.get(n) != pin["sha256"].get(n))
+    print(f"Compose: bumped {previous[:12]} -> {commit[:12]}; {len(changed)} snapshot file(s) changed")
+    for name in changed:
+        print("  " + name)
+    # The pin is also written down for readers. Those copies are prose, so they are
+    # named here rather than rewritten.
+    stale = []
+    for path in (ROOT / "THIRD_PARTY_NOTICES.md", ROOT / "docs/reference/api.md", DEST / "README.md"):
+        if path.is_file() and previous in path.read_text():
+            stale.append(path.relative_to(ROOT).as_posix())
+    if stale:
+        print("Compose: these still name the previous commit: " + ", ".join(stale))
+    print("Compose: re-record the provenance receipt, then run tools/verify.sh full")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, help="local Git repository containing the pinned commit")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--bump", metavar="COMMIT", help="move the pin to this full commit and re-materialize")
     args = parser.parse_args()
     pin = json.loads(PIN.read_text())
+    if args.bump is not None:
+        if args.check:
+            raise SystemExit("Compose: --bump and --check are different requests")
+        return bump(pin, args.bump, args.source)
     url, commit = checked_pin(pin)
     if verify(pin):
         print("Compose: pinned dependency verified " + commit)
@@ -133,39 +213,10 @@ def main():
     if args.check:
         raise SystemExit("Compose: missing or modified dependency; run python3 tools/sync_compose.py")
     with tempfile.TemporaryDirectory(prefix="facet-compose-") as scratch:
-        repository = args.source
-        if repository is None:
-            repository = Path(scratch) / "repository"
-            subprocess.run(["git", "init", "--quiet", "--", str(repository)], check=True)
-            # `--` before the lock's own two values: a repository or a commit that
-            # began with `-` could otherwise be read as an option to `git fetch`.
-            git(repository, "fetch", "--depth=1", "--", url, commit)
-        files, docs = materialize(repository, pin)
-        hashes = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
-        docHashes = {name: hashlib.sha256(data).hexdigest() for name, data in docs.items()}
-        if hashes != pin["sha256"] or docHashes != pin["docs"]:
+        files, docs = materialize(fetch_repository(args.source, scratch, url, commit), pin)
+        if inventory(files) != pin["sha256"] or inventory(docs) != pin["docs"]:
             raise SystemExit("Compose: archive does not match pinned integrity inventory")
-        for path in list(DOCS_DEST.rglob("*")) if DOCS_DEST.exists() else []:
-            if path.is_file():
-                path.unlink()
-        for name, data in docs.items():
-            path = DOCS_DEST / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-        for path in DEST.rglob("*"):
-            if (path.is_file() and path not in (PIN, DEST / "README.md")
-                    and path.relative_to(DEST).as_posix() not in files):
-                path.unlink()
-        for name, data in files.items():
-            path = DEST / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-    # Rojo emits empty directories as Folder instances, so retired dependency
-    # directories must disappear too, even when their files were already removed.
-    for directory in sorted((p for p in DEST.rglob("*") if p.is_dir()),
-                            key=lambda p: len(p.parts), reverse=True):
-        if not any(directory.iterdir()):
-            directory.rmdir()
+        write_snapshot(files, docs)
     assert verify(pin), "Compose materialization did not match its pin"
     print("Compose: materialized " + pin["commit"])
 

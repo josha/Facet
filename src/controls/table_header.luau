@@ -1,5 +1,5 @@
 --!strict
-local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 --[[ THE HEADER BAND for `controls/table.luau` — the column headings, their sort
 	marks, and the resize divider that lives between them.
 
@@ -255,29 +255,27 @@ function table_header.band(deps: Deps): any
 		`bandPadding` already returns: the closed state has to be byte-identical to
 		what shipped, and the toolbar — which shares `bandPadding` and is not a row —
 		keeps its own edge in both states. ]]
-	local headerPadding = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local band = use(bandPadding)
-			if not use(editingSignal) then
-				return band
-			end
-			-- NOT `not canEditMode` here too, unlike `cellsEditPadding`'s combined
-			-- guard — on purpose, not by omission. `canEditMode` gates HANDLE_GUTTER
-			-- inline (same condition `cellsEditPadding` uses for that term), but
-			-- `rowEditGutter` is never itself gated by `canEditMode` anywhere: its
-			-- source, `row_actions`' own `editGutterPx`, reacts to `editingSignal`
-			-- alone (Table's `canEditMode` is never passed to `row_actions.build`), so
-			-- a row_actions-wrapped row already pays that inset regardless of
-			-- `canEditMode` — the band has to match what the row actually spent, not
-			-- a gated re-derivation of it.
-			local lead = (if canEditMode then HANDLE_GUTTER else 0) + (use(rowEditGutter) or 0)
-			if lead <= 0 then
-				return band
-			end
-			local left = table.clone(band.left)
-			table.insert(left, lead)
-			return { left = left, right = band.right, bottom = band.bottom }
-		end)
+	local headerPadding = ownedFormula(owner, function(use)
+		local band = use(bandPadding)
+		if not use(editingSignal) then
+			return band
+		end
+		-- NOT `not canEditMode` here too, unlike `cellsEditPadding`'s combined
+		-- guard — on purpose, not by omission. `canEditMode` gates HANDLE_GUTTER
+		-- inline (same condition `cellsEditPadding` uses for that term), but
+		-- `rowEditGutter` is never itself gated by `canEditMode` anywhere: its
+		-- source, `row_actions`' own `editGutterPx`, reacts to `editingSignal`
+		-- alone (Table's `canEditMode` is never passed to `row_actions.build`), so
+		-- a row_actions-wrapped row already pays that inset regardless of
+		-- `canEditMode` — the band has to match what the row actually spent, not
+		-- a gated re-derivation of it.
+		local lead = (if canEditMode then HANDLE_GUTTER else 0) + (use(rowEditGutter) or 0)
+		if lead <= 0 then
+			return band
+		end
+		local left = table.clone(band.left)
+		table.insert(left, lead)
+		return { left = left, right = band.right, bottom = band.bottom }
 	end)
 	local headerCells = {}
 	for _, column in columns do
@@ -383,14 +381,12 @@ function table_header.band(deps: Deps): any
 					headerChildren,
 					UI.Text({
 						id = "SortMark",
-						text = Compose.withOwner(owner, function()
-							return Compose.formula(function(use)
-								local order = use(spec.sortOrder)
-								if order == nil or order.column ~= columnId then
-									return ""
-								end
-								return if order.ascending then "▲" else "▼"
-							end)
+						text = ownedFormula(owner, function(use)
+							local order = use(spec.sortOrder)
+							if order == nil or order.column ~= columnId then
+								return ""
+							end
+							return if order.ascending then "▲" else "▼"
 						end),
 						textSize = "controls.table.sortMarkTextSize",
 						alignH = "end",

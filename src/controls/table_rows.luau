@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 -- Row content and pointer gestures. Table supplies shared state through Deps;
 -- this module does not import the table implementation.
 
@@ -462,27 +463,19 @@ function table_rows.new(deps: Deps)
 		local function selectionValue(use)
 			return use(selectedKeys)[rowKey] == true or use(grabbedKey) == rowKey
 		end
-		local rowSelected = if not canEditMode
-			then selectionValue
-			else Compose.withOwner(itemScope, function()
-				return Compose.formula(selectionValue)
-			end)
+		local rowSelected = if not canEditMode then selectionValue else ownedFormula(itemScope, selectionValue)
 		-- Theme and text-size changes update shared or item-specific row geometry.
 		local heightDim = uniformHeight
-			or Compose.withOwner(itemScope, function()
-				return Compose.formula(function(use)
-					return { type = "fixed", px = rowHeightOf(if current then use(current) else item, use(rowBox)) }
-				end)
+			or ownedFormula(itemScope, function(use)
+				return { type = "fixed", px = rowHeightOf(if current then use(current) else item, use(rowBox)) }
 			end)
 		-- ...and the cap the cells are measured against IS this row's height: see
 		-- rowBoxFor. This is what makes a cell physically unable to paint outside the
 		-- row it belongs to, whoever chose the height.
 		local cellCap = uniformCap
-			or Compose.withOwner(itemScope, function()
-				return Compose.formula(function(use)
-					local box = use(rowBox)
-					return capFor(box, rowHeightOf(if current then use(current) else item, box))
-				end)
+			or ownedFormula(itemScope, function(use)
+				local box = use(rowBox)
+				return capFor(box, rowHeightOf(if current then use(current) else item, box))
 			end)
 		local cells = {}
 		for _, column in columns do
@@ -652,10 +645,8 @@ function table_rows.new(deps: Deps)
 								UI.Text({
 									id = "SelectMark",
 									-- The edit marker reads the same selection state as the row.
-									text = Compose.withOwner(itemScope, function()
-										return Compose.formula(function(use)
-											return if use(selected) then "◉" else "◯"
-										end)
+									text = ownedFormula(itemScope, function(use)
+										return if use(selected) then "◉" else "◯"
 									end),
 									textSize = "control",
 									-- the GLYPH carries the state, not a colour: `content`
@@ -727,12 +718,10 @@ function table_rows.new(deps: Deps)
 		-- A departing key may no longer have a slot; its offset then defaults to zero.
 		local slotOffset = if not virtualized
 			then nil
-			else Compose.withOwner(itemScope, function()
-				return Compose.formula(function(use)
-					local layout = use(layoutIndex) :: any
-					local slot = layout.slotOf[rowKey]
-					return if slot == nil then 0 else layout.ix.offsetOf(slot)
-				end)
+			else ownedFormula(itemScope, function(use)
+				local layout = use(layoutIndex) :: any
+				local slot = layout.slotOf[rowKey]
+				return if slot == nil then 0 else layout.ix.offsetOf(slot)
 			end)
 		local rowBp = UI.ZStack({
 			id = "Row",

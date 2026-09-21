@@ -50,12 +50,20 @@ chat model and the catalog from the host's own frame source.
 `UI.Alert`, `UI.Sheet`, `UI.Callout`. Collections: `UI.VirtualGrid`,
 `UI.VirtualList`, `UI.Table`, `UI.RowActions`.
 
-**Every modifier.** `UI.corners`, `UI.cornersData`, `UI.shadow`, `UI.gradient`,
-`UI.stroke`, `UI.strokeData`, `UI.background`, `UI.overlay`, `UI.padding`,
-`UI.frame`, `UI.offset`, `UI.alignment`, `UI.aspectRatio`,
-`UI.containerRelativeFrame`, `UI.fill`, `UI.hug`, `UI.styleGroup`,
-`UI.focusSection`, `UI.sensoryFeedback`, `UI.activationGate`, `UI.draggable`,
-`UI.dropTarget`, and the `UI.navBar` surface bar.
+**The modifiers.** `UI.corners`, `UI.cornersData`, `UI.shadow`, `UI.strokeData`,
+`UI.background`, `UI.overlay`, `UI.padding`, `UI.frame`, `UI.offset` (under the
+`UI.Anchor` that reads it), `UI.aspectRatio`, `UI.containerRelativeFrame`,
+`UI.fill`, `UI.hug`, `UI.styleGroup`, `UI.focusSection`, `UI.sensoryFeedback`,
+`UI.activationGate`, `UI.draggable`, `UI.dropTarget`, and the `UI.navBar`
+surface bar.
+
+`UI.gradient` is deliberately **not** used. Its colour names are resolved once,
+against the style the blueprint is built with, and on the native target that
+resolution cannot be redone — colour reaches a live screen as StyleSheet rules
+keyed on a node's tags, while the target's own style value table is fixed at
+construction. A token-coloured wash therefore survives a theme swap unchanged,
+which this showcase demonstrated as an unreadable near-black hero card sitting
+in the light theme. A surface tag swaps; a baked ramp does not.
 
 **Collection depth.** The catalog is a `UI.VirtualGrid` with a fixed
 `itemExtent` and named scroll navigation. The saved list is a `UI.Table` with

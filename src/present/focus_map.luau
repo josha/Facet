@@ -759,6 +759,12 @@ local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { 
 					name = node.path,
 					entry = section.entry or "restore",
 					preferred = section.preferred,
+					-- the ARRIVAL/DEPARTURE half of the section (see
+					-- `blueprint.focusSection`); the graph never reads these — the
+					-- surface's own focus sync does, because "this region is new this
+					-- frame" is a fact about two frames and the graph only sees one
+					focusOnAppear = section.focusOnAppear,
+					returnFocus = section.returnFocus,
 					rectOf = rectOf,
 				}
 				group.sections = table.clone(group.sections or {})

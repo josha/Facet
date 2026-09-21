@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 local blueprint = require("../blueprint")
 
 local contribution = require("../input/contribution")
@@ -359,15 +360,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 end
 
 function callout.build(Facet: any, core: any, spec: Spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return callout

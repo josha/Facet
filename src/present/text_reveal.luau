@@ -47,8 +47,6 @@ local focusMap = require("./focus_map")
 local richText = require("../layout/rich_text")
 local Compose = require("../vendor/compose/core")
 
-local isPathPrefix = focusMap.isPathPrefix
-
 local textReveal = {}
 
 function textReveal.new(ctx: any)

@@ -89,14 +89,6 @@ seed()
 
 local isFinite = num.isFinite
 
--- The matrix lives in `src/text_distance.luau` — a leaf with no
--- requires, so taking it costs `motion/` none of the independence the old "kept
--- local" note was protecting. THE THRESHOLD STAYS HERE, at the call site below,
--- because it is the half that was never agreed: this caller lowercases both
--- sides and accepts `d <= max(2, floor(#name / 3))`, where `spec_guard` and
--- `themes/package` accept 2 case-sensitively.
-local distance = textDistance.distance
-
 -- registered class names, sorted (a stable list for error messages and docs)
 function classes.names(): { string }
 	local out: { string } = {}
@@ -113,24 +105,6 @@ end
 
 local function nameList(): string
 	return table.concat(classes.names(), ", ")
-end
-
-local function suggestion(bad: string): string?
-	local best: string? = nil
-	local bestDistance = math.huge
-	local lowerBad = string.lower(bad)
-	for _, name in classes.names() do
-		local d = distance(lowerBad, string.lower(name))
-		if d < bestDistance then
-			best, bestDistance = name, d
-		end
-	end
-	-- only volunteer a name when it is genuinely close: a wrong guess is worse
-	-- than the full list the message already carries
-	if best ~= nil and bestDistance <= math.max(2, math.floor(#best / 3)) then
-		return best
-	end
-	return nil
 end
 
 -- Register (or re-tune) a motion class. Validation is authoring-time and loud:
@@ -181,7 +155,7 @@ function classes.resolve(name: any): Class
 	end
 	local class = registry[name]
 	if class == nil then
-		local did = suggestion(name)
+		local did = textDistance.nearestFolded(name, classes.names())
 		local hint = if did ~= nil then ` Did you mean '{did}'?` else ""
 		error(
 			`Facet motion: unknown motion class '{name}'.{hint} Registered classes: {nameList()}. `

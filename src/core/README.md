@@ -8,8 +8,10 @@ or scope type, and no second graph, observer queue or Signals bridge.
 ## What is in this directory
 
 `services.luau` builds the per-application service bag. It carries no reactive
-API. It holds the scene runtime a surface's nodes mount into, the application's
-root owner, the reactor, the error boundary, and the layout settle pass.
+API. It holds Compose's reactor, the application's root owner, the error
+boundary, and the layout settle pass. A surface's nodes mount into the UI
+runtime `render/compose_scene.luau` builds; `core.adopt` puts the same settle
+pass and the same boundary on that runtime's reactor too.
 
 `on_change.luau` wraps `owner.watchStatic` and suppresses registration and
 equal-value deliveries, because a Facet change listener reacts only to a new

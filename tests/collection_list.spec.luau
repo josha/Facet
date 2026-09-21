@@ -880,6 +880,42 @@ describe('unified collection: following the tail (follow = "end")', function()
 		expect(w.offset()).toBe(45 * 40 - 400)
 	end)
 
+	--[[ THE PHONE'S "IT IS LIKE IT IS STUCK". A thread pinned at the end while a
+		reply streams could not be panned away from at all: every frame of content
+		growth re-pinned the end, and one frame of a pan never moves the whole
+		`followThreshold`, so the player was snapped back faster than they could
+		travel. The threshold test alone cannot see this — the offsets that matter
+		are all INSIDE it. Direction is what tells the two apart. Measured on the
+		phone profile: canvas 1216 in a 389 window, a 230 px pan moved the offset
+		827 -> 827. ]]
+	it("a pan that starts INSIDE the threshold is honoured, and growth stops moving the view", function()
+		local w = followWorld("end", 48)
+		expect(w.offset()).toBe(1200)
+		-- one frame of a pan: 12 px away from the end, well inside the threshold
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 1188 })
+		w.settle()
+		w.grow(43)
+		expect(w.offset()).toBe(1188) -- NOT re-pinned to 1320
+		-- ...and the next frames of the same pan accumulate instead of fighting
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 1100 })
+		w.settle()
+		w.grow(46)
+		expect(w.offset()).toBe(1100)
+	end)
+
+	it("returning to the end resumes following after a yield", function()
+		local w = followWorld("end", 48)
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 1188 })
+		w.settle()
+		w.grow(43)
+		expect(w.offset()).toBe(1188)
+		-- the player comes back: within the threshold of the CURRENT end
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 43 * 40 - 400 - 10 })
+		w.settle()
+		w.grow(44)
+		expect(w.offset()).toBe(44 * 40 - 400)
+	end)
+
 	it("NEGATIVE CONTROL: a list that does not follow never moves on growth", function()
 		local w = followWorld(nil)
 		expect(w.offset()).toBe(0)

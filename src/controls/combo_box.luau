@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 -- Editable selection: durable committed value and editable text are distinct.
 local guard = require("../spec_guard")
 local selection = require("../selection_model")
@@ -136,6 +137,15 @@ local function build(Facet, core, spec, owner)
 					id = "Row",
 					width = { type = "fill", weight = 1 },
 					gap = "xs",
+					-- ONE LINE, ONE HEIGHT. The field states the theme's own field
+					-- height and the opener beside it hugged its content, so the two
+					-- painted 44 and 41 with the opener's bottom edge short of the
+					-- field's. `stretch` is a stack's word for "every cell takes the
+					-- line's cross extent", which is what a field and its opener are.
+					-- It is half of the fix: the trigger inside the opener's anchor
+					-- had to stop hugging too (`picker_menu`'s `boxedTrigger`), or
+					-- this stretches a box nobody can see.
+					align = "stretch",
 					children = {
 						editor.blueprint,
 						-- A FLOOR, NOT A CAP. 56px was a constant, and a constant cannot
@@ -192,15 +202,8 @@ local function build(Facet, core, spec, owner)
 	}
 end
 function combo.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return combo

@@ -3,6 +3,7 @@
 -- navBar owns chrome; the presenter owns Cancel ordering, focus and transitions.
 -- Pages are rebuilt on return. Keep durable form/data state in the caller's model.
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 local selection = require("../selection_model")
 local guard = require("../spec_guard")
 local contribution = require("../input/contribution")
@@ -189,7 +190,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					authored.exitClass or (if horizontal then pageClass else transitionsLib.DEFAULT_EXIT_CLASS)
 				).response,
 				distance = Compose.cell(authored.distance or NUDGE),
-				env = spec.env or surfaceEnv.find(core),
+				env = surfaceEnv.forSpec(core, spec.env),
 			}
 		end
 	end
@@ -780,15 +781,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	return { blueprint = blueprint, api = table.freeze(api), dump = dump, dispose = dispose }
 end
 function navigation.build(Facet: any, core: any, spec: Spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return navigation

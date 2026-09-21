@@ -805,6 +805,20 @@ function drag_registry.new(opts: Opts)
 			-- Touch reorder rides a grip that does not decline (Table precedent).
 			return false
 		end
+		--[[ A HOLD IS A PROMOTION ALREADY SPENT. An acquisition path that arbitrates
+			touch by TIME (`input/touch_drag_arm`) hands us a position tagged
+			`armed = true`: the player held still past the arm's hold, the scroller
+			underneath has already been told this gesture is not its, and there is
+			nothing left to decide. Asking such a press for another 14 px of travel
+			before the session begins is what made a long-press look dead on a real
+			phone — the ghost, the lift and the `dragHeld` node state all waited on a
+			movement the player had no reason to make. So the session begins HERE,
+			which is also what puts the feedback under the finger at the moment the
+			hold lands. Every other press is unchanged and still promotes by travel. ]]
+		if type(pos) == "table" and pos.armed == true then
+			beginSession(path, "pointer", pos.x, pos.y, pointerType)
+			return nil
+		end
 		pending = { path = path, startX = pos.x, startY = pos.y, pointerType = pointerType }
 		return nil
 	end

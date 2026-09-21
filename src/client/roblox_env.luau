@@ -8,6 +8,8 @@ local preferred_text = require("./preferred_text")
 -- the pure inset arithmetic and its staleness test: engine-free, so
 -- the conversion and the belt are provable without a rotating device
 local safe_insets = require("../env/safe_insets")
+-- the PURE ten-foot policy, spent on the raw engine bucket below (see there)
+local adaptive = require("../layout/adaptive")
 
 local roblox_env = {}
 
@@ -152,7 +154,38 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 			return (GuiService :: any).ViewportDisplaySize
 		end)
 		if okDisplay and typeof(displaySize) == "EnumItem" then
-			env:set("displaySize", displaySize.Name)
+			--[[ ...AND A DESK IS NOT A COUCH, WHATEVER ITS RESOLUTION (owner, on
+				their own 4K monitor in a published build, 2026-09-20: "on a 4K monitor
+				the showcase is way too big").
+
+				`ViewportDisplaySize` is the engine's guess at PHYSICAL screen size, and
+				a 4K desk monitor is physically large, so it answers "Large" — which
+				every ten-foot-sensitive derivation downstream reads as three metres of
+				couch and answers with a 1.5x swing in type, metrics, target floors and
+				overscan margins. A big pixel count is not a long viewing distance.
+
+				A MOUSE IS THE CORROBORATING SIGNAL, and it is the same argument
+				`adaptive.effectiveDisplaySize` already makes with a touchscreen: a real
+				ten-foot session is a console plugged into a television and a console
+				has no mouse, while a desk has one at any resolution. That function is
+				where the RULE lives and it is spent here, on the raw value, because
+				this is the module that owns an engine fact's known misbehaviour — the
+				same place and the same reason `preferredInput` is corrected against a
+				physically-present pointer a few lines down, and `capabilities.gamepad`
+				against `GamepadEnabled`. A headless world, a device-matrix row and
+				`client/edit_preview` all set this fact directly and are untouched.
+
+				The known cost is a PC attached to a television, and that is the case an
+				app or a player can say out loud: `viewingDistance = "ten-foot"` is an
+				explicit override that outranks every derivation from this fact. ]]
+			env:set(
+				"displaySize",
+				adaptive.effectiveDisplaySize(
+					displaySize.Name,
+					UserInputService.TouchEnabled,
+					UserInputService.MouseEnabled
+				)
+			)
 		end
 	end
 

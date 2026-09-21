@@ -82,6 +82,8 @@ export type Value<T> = T | Readable<T>
 -- ONE function member: it takes a binding written `function()` or `function(use)`,
 -- and a union of two function types could not be called.
 export type Bound<T> = Value<T> | ((use: coreContract.Use) -> T)
+-- Cells are invariant, so expose either value kind as a distinct bound option.
+export type BoundEither<A, B> = Bound<A> | Bound<B> | Bound<A | B>
 
 -- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",
@@ -131,8 +133,8 @@ export type BoxProps = {
 	height: Bound<Dim>?,
 	margin: Bound<Sides>?,
 	anchor: Bound<string>?,
-	offsetX: Bound<number | Metric>?,
-	offsetY: Bound<number | Metric>?,
+	offsetX: BoundEither<number, Metric>?,
+	offsetY: BoundEither<number, Metric>?,
 	-- THIS child's own cross-axis alignment inside its stack parent's line
 	-- (Roblox `ItemLineAlignment`). Outranks the container's `align` and a nested
 	-- stack's own `align`, and unlike either it is legal on a LEAF
@@ -199,7 +201,7 @@ export type ContainerProps = {
 }
 
 export type ScreenSpec = BoxProps & ContainerProps & {
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	align: Bound<string>?,
 	-- main-axis distribution of the leftover (§2.6): "start" (default) | "center" |
 	-- "end" | "spaceBetween" | "spaceAround" | "spaceEvenly"
@@ -237,7 +239,7 @@ export type ZStackSpec = BoxProps & ContainerProps & {
 export type AnchorSpec = BoxProps & ContainerProps
 export type ScrollViewSpec = BoxProps & ContainerProps & {
 	navigation: any?,
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	axis: Bound<string>?,
 	onScrollWheel: ((path: string, delta: number, rectOf: (string) -> any) -> ())?,
 	autoscroll: (boolean | { [string]: any })?,
@@ -247,10 +249,10 @@ export type ScrollViewSpec = BoxProps & ContainerProps & {
 	extent: { width: (number | Metric)?, height: (number | Metric)? }?,
 }
 export type GridSpec = BoxProps & ContainerProps & {
-	gap: Bound<number | Metric>?,
-	rowGap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
+	rowGap: BoundEither<number, Metric>?,
 	columns: Bound<number>?,
-	minColumnWidth: Bound<number | string>?,
+	minColumnWidth: BoundEither<number, string>?,
 	itemSizing: Bound<string>?,
 	-- "row" (default) | "column" — which way the cells wrap; see the schema
 	flow: Bound<string>?,
@@ -270,7 +272,7 @@ export type GridRowSpec = {
 }
 
 export type AdaptiveStackSpec = BoxProps & ContainerProps & {
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	align: Bound<string>?,
 	distribute: Bound<string>?,
 	axis: Bound<string>?,
@@ -333,7 +335,7 @@ export type DividerSpec = BoxProps & {
 	-- since the metric-name grammar shipped (and the blueprints ledger
 	-- in artifacts/api-architecture-consistency/); this type used to
 	-- say only `number`
-	thickness: Bound<number | Metric>?,
+	thickness: BoundEither<number, Metric>?,
 }
 
 -- `tint` is the continuous-colour channel: { role, blend, from? } (themable) or
@@ -349,11 +351,11 @@ export type BoxSpec = BoxProps & {
 	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
 	opacity: Bound<number>?,
 }
-export type SpacerSpec = BoxProps & { minLength: Bound<number | Metric>? }
+export type SpacerSpec = BoxProps & { minLength: BoundEither<number, Metric>? }
 
 export type TextSpec = BoxProps & {
-	text: Bound<string | number>,
-	textSize: Bound<number | TypeRole>?,
+	text: BoundEither<string, number>,
+	textSize: BoundEither<number, TypeRole>?,
 	textAlign: Bound<string>?,
 	-- at most this many lines; beyond the cap the engine
 	-- ellipsizes instead of the box growing. The owner's knowledge, not the
@@ -413,11 +415,11 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	over: "media"?,
 	children: { Blueprint }?,
 	role: Bound<string>?,
-	gap: Bound<number | Metric>?,
+	gap: BoundEither<number, Metric>?,
 	align: Bound<string>?,
 	shape: string?,
 	icon: string?,
-	label: Bound<string | number>,
+	label: BoundEither<string, number>,
 	-- `prefer` is a MODIFIER rather than a content form — it names nothing to
 	-- draw, so it rides alongside whichever of text/icon/image was declared (see
 	-- `blueprint_schema.COMPACT_MODIFIERS` and api.md's Button section). Declared
@@ -434,7 +436,7 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	traversalPriority: number?,
 	surface: Bound<string>?,
 	padding: Bound<Sides>?,
-	textSize: Bound<number | TypeRole>?,
+	textSize: BoundEither<number, TypeRole>?,
 	-- FRAMEWORK-DECLARED (wave REVEAL). `UI.Region` sets this on the one button it
 	-- synthesizes for a collapsing region; an author writes `UI.Region{ expand }`
 	-- and never this. Public because a prop nothing can see is a prop nothing can
@@ -448,13 +450,13 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 }
 
 export type ToggleSpec = BoxProps & {
-	label: Bound<string | number>,
+	label: BoundEither<string, number>,
 	value: Bound<boolean>?,
 	enabled: Bound<boolean>?,
 	focusable: Bound<boolean>?,
 	traversalPriority: number?,
 	padding: Bound<Sides>?,
-	textSize: Bound<number | TypeRole>?,
+	textSize: BoundEither<number, TypeRole>?,
 	disclose: boolean?,
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
@@ -473,7 +475,7 @@ export type TextFieldSpec = BoxProps & {
 	focusable: Bound<boolean>?,
 	traversalPriority: number?,
 	padding: Bound<Sides>?,
-	textSize: Bound<number | TypeRole>?,
+	textSize: BoundEither<number, TypeRole>?,
 	maxLength: Bound<number>?,
 	keyboardType: Bound<string>?,
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
@@ -521,7 +523,7 @@ export type PathSpec = BoxProps & {
 	-- theme-tracking stroke width — `p2_cartwheel/screens/{dashboard,ledger}.luau`,
 	-- `p1_glade/ui/scene.luau` — already spells one; this type used to say
 	-- only `number`
-	thickness: Bound<number | Metric>?,
+	thickness: BoundEither<number, Metric>?,
 	closed: Bound<boolean>?,
 	role: Bound<string>?,
 	tint: Bound<any>?,
@@ -884,7 +886,6 @@ end
 -- guess. Declared here, ahead of every constructor that calls it (ZStack
 -- below, Button further down) — a `local function` is an upvalue only to code
 -- that follows it in the source.
-local assertCircleSquare = primitiveProperties.assertCircleSquare
 
 -- public constructors (§10.1 subset for Phase 1)
 function blueprint.Screen(spec: ScreenSpec): Blueprint
@@ -2014,7 +2015,42 @@ end
 -- LEGALITY IS ALWAYS THE GAME'S. `accepts(payload) -> (legal, reason?)` is the
 -- only place a rule enters, and the reason code comes back out through the
 -- `reject` event so a refusal is never silent.
-export type FocusSectionSpec = { entry: string?, preferred: string? }
+--[[ A FOCUS SECTION IS A REGION OF THE RING, and `entry`/`preferred` say where
+	the ring lands when NAVIGATION walks into it. `focusOnAppear`/`returnFocus` are
+	the other half of that sentence: where focus goes when the region ARRIVES, and
+	where it goes back to when the region LEAVES.
+
+	The gap they close (found live, 2026-09-20): a card opened from the keyboard
+	put the ring on the app's TAB STRIP. Nothing was wrong with the graph — the
+	branch that opened declared `enabled = false` on the column underneath, so
+	every stop the ring could have been on went ineligible in the same frame the
+	detail arrived, and the nearest surviving neighbour was three levels up and
+	outside the app. A surface has had this since `presenter.initialFocus`; an
+	in-page branch (`UI.When`, `Compose.show`, a route) had no spelling for it at
+	all, and an in-page branch is how most of a real screen opens and closes.
+
+	  focusOnAppear = true          the section's first focusable, when it appears
+	  focusOnAppear = "Back"        that descendant id, matched like `preferred`
+	  returnFocus  = true           remember what held focus when this section
+	                                appeared, and put it back when it goes away
+
+	They are independent on purpose: a panel that claims focus need not give it
+	back (a route that replaces its parent), and a panel that gives focus back need
+	not have claimed it (a sheet the player opened by pointer). Used together they
+	are the open/close pair every overlay wants.
+
+	RESTORE IS BY PATH, and the path is re-checked at the moment it is spent: a
+	target that no longer exists, or that is no longer eligible, falls through to
+	the surviving scope's own entry rule rather than leaving the ring nowhere. A
+	windowed list that recycled the row under that path will restore the ring to
+	THAT SLOT, which is where the player left it on screen, not to the item that
+	used to be in it. ]]
+export type FocusSectionSpec = {
+	entry: string?,
+	preferred: string?,
+	focusOnAppear: (boolean | string)?,
+	returnFocus: boolean?,
+}
 function blueprint.focusSection(bp: Blueprint, spec: FocusSectionSpec?): Blueprint
 	local options = spec or {}
 	assert(type(bp) == "table" and ({
@@ -2028,8 +2064,21 @@ function blueprint.focusSection(bp: Blueprint, spec: FocusSectionSpec?): Bluepri
 		Anchor = true,
 	})[bp.class], "UI.focusSection requires a mounted layout container")
 	for key in options do
-		assert(key == "entry" or key == "preferred", `unknown focusSection field '{key}'`)
+		assert(
+			key == "entry" or key == "preferred" or key == "focusOnAppear" or key == "returnFocus",
+			`unknown focusSection field '{key}'`
+		)
 	end
+	assert(
+		options.focusOnAppear == nil
+			or options.focusOnAppear == true
+			or (type(options.focusOnAppear) == "string" and options.focusOnAppear ~= ""),
+		"focusSection.focusOnAppear must be true or a non-empty descendant id"
+	)
+	assert(
+		options.returnFocus == nil or type(options.returnFocus) == "boolean",
+		"focusSection.returnFocus must be a boolean"
+	)
 	assert(
 		options.entry == nil or options.entry == "first" or options.entry == "restore" or options.entry == "nearest",
 		"focusSection.entry must be first | restore | nearest"

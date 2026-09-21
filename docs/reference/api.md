@@ -206,7 +206,7 @@ placement. Facet connects the collection to its scroll container and focus graph
 | `axis` | `"y"` (default) or `"x"`. Construction-only. |
 | `overscan` | Nonnegative integer: extra rows retained around the visible window. |
 | `onActivate(item, meta)` | Optional row action. Omit it and the collection adds no row button and no row focus stop; controls inside the row keep their own input. |
-| `follow` | `"none"` (default) or `"end"`, as a value, a readable, or a `function(use)`. Following continues while the reader stays near the end, and stops when they scroll away. |
+| `follow` | `"none"` (default) or `"end"`, as a value, a readable, or a `function(use)`. Following continues while the reader stays near the end, and **yields the moment a reported offset moves away from it** — including from inside `followThreshold` — so content growth cannot snap a panning player back. It resumes on a return to the end, or when `follow` is re-asserted. |
 | `followThreshold` | Pixel distance from the end that still counts as near it. |
 | `scrollNavigation` | `{ position, active? }`: scroll state shared across presentations. See [scroll navigation](#scrollview). |
 | `snap` | `"none"` (default) or `"item"`: where the collection may come to rest on its scroll axis. |
@@ -294,13 +294,49 @@ The tab IDs are selection values. The control itself needs no ID. Each page
 factory returns a native Facet node and can use `Compose.cleanup` for external
 resources. Facet supplies adaptive navigation placement, input and focus.
 
+### Types
+
+Every constructor on `app.controls` is typed, so a wrong value in a spec is an
+analyzer error on the line where you wrote it. Nothing has to run. Both
+spellings are checked: `UI.Button({ … })` and `UI.Button("Name")({ … })`.
+
+```luau
+--!strict
+local Facet = require(path.to.Facet)
+local app = Facet.new()              -- app: Facet.App
+local UI = app.controls              -- UI: Facet.Controls
+
+UI.VStack({ gap = true })            -- error: `gap` is a number or a spacing name
+UI.Slider("Volume")({ value = "5" }) -- error: `value` is a cell of number
+UI.Text({ text = function(use)       -- fine: a binding that reads a cell
+    return `{use(score)} points`
+end })
+```
+
+| Type | What it is |
+|---|---|
+| `Facet.App` | What `Facet.new` returns. `controls` is typed; the rest of the handle is described in the table above. |
+| `Facet.Controls` | The constructor table. Each control and each layout, text and paint primitive is a `Constructor<Spec>`; regions and modifiers are not yet typed. |
+| `Facet.ButtonSpec`, `ToggleSpec`, `ComboBoxSpec`, `SplitButtonSpec`, `ChipSpec`, `AsyncImageSpec`, `VirtualListSpec<T>`, `VirtualGridSpec<T>` | Spec types for the controls that do not export one from their own module. |
+| `<control>.Spec` | Every other control's spec type, declared in `src/spec_types/<control>.luau` and re-exported by the control. Reading a type loads no control. |
+
+**A live value is a `Bound<T>`**: a plain `T`, a `Compose.cell` or
+`Compose.formula` holding a `T`, or a function `(use) -> T`. A prop that takes
+two kinds of value, such as `gap` (a number or a spacing name), accepts a cell of
+either.
+
+Two limits to know about. A cell is invariant in what it holds, so a field that
+wants `Cell<{ Entry }>` needs the literal annotated:
+`Compose.cell({ … } :: { NavigationStack.Entry })`. And a misspelled key is
+caught when the control is built (with a suggestion), not by the analyzer.
+
 ### `Compose`
 
 `Facet.Compose` is the pinned Compose core module itself. Facet does not rename its
 operations or wrap its cells and components in another public authoring context.
 The exact dependency revision is recorded in
 [`UPSTREAM.lock`](../../src/vendor/compose/UPSTREAM.lock). The
-[pinned Compose reference](https://github.com/voidmeld/compose/blob/5f6bf7d081bab39971b116e47d6eb9ccf5877282/docs/api.md)
+[vendored Compose reference](../../skills/compose/references/api.md)
 is authoritative for signatures, options, ownership and error contracts.
 
 The re-exported capabilities are grouped below. They operate on Facet's runtime
@@ -388,6 +424,16 @@ wrong parent is CAUGHT rather than ignored.** A `lineAlign`, `shrinkWeight` or
 `gridSpan` under anything but a `UI.GridRow`, is reported on
 `controller.diagnostics()` naming the node, the reason and the working spelling
 for that parent — a property that is accepted must do something.
+
+**...and in Studio it also `warn`s**, once per site for the session, so the
+finding reaches you without your having to call `diagnostics()` first. It is off
+in a running game and costs a shipped build nothing; a host that wants it
+elsewhere (a soak run, a QA build) turns it on for itself. `UI.offset(bp, x, y)`
+is one of the props this catches most often, and the reason is a name collision
+worth knowing about: it writes the LAYOUT pair `offsetX`/`offsetY`, which only a
+`UI.Anchor` parent (and a `ScrollView`, as a scroll-time nudge) reads, while the
+separate `offset` PROP is a paint-only translation that applies under any parent
+at all.
 
 #### The property schema
 
@@ -3236,7 +3282,7 @@ local slot = UI.dropTarget(UI.Box({ id = "Slot", surface = "surface" }), {
 | `grabAnchor` | `"center"` (default — the ghost rides **centered under the pointer**, the RascalRally-ratified feel) or `"preserve"` (keep the grab-point offset; for large surfaces where a snap-to-center would visibly jump). |
 | `armStaging` | `() -> { x, y }?` — **park the armed ghost.** By default an armed ghost *rides the aim*: `armTo` springs it onto the target being aimed at, so a pad/keyboard pickup is visibly different from no pickup. Declare this and the ghost springs once, at the **pickup**, to the window-space point returned and stays there while the aim moves — a fixed staging spot, with the aim carried by the target's own paint (the shape a card game wants: the held card must never sit on the name it is about to be played on). Aim, verdict and the commit flight are untouched either way; `nil` for a frame keeps the current spot. |
 | `armOnTap` | a **tap on this source IS the pickup**: the framework arms an `"armed"`-mode session instead of dispatching Activate — the touch answer to gamepad's arm-on-A. One-thumb mobile flow: tap a card, scroll the list freely (a swipe is past the tap threshold, so it can never read as a drop), tap a row to place it; a tap while something is already held flows to `onActivate` unchanged (put-back and row commits keep their meaning). Press-and-slide still starts a real drag. Default `false`: what a tap *means* is the consumer's call. |
-| `declineTouch` | touch presses **decline the capture** so a native scroll host under this node keeps the pan. A row inside a `ScrollView` sets it; a card lying on a screen does not. Pointer/pen acquisition is unaffected. |
+| `declineTouch` | touch presses **decline the capture** so a native scroll host under this node keeps the pan — and, on an engine with its own drag acquisition, decline that too. Pointer/pen acquisition is unaffected. **Reach for it rarely.** It is no longer the posture a draggable thing inside a scroller needs: a finger now arms a drag by *holding still* (`interactionTokens.touchDragArm`), so a flick reaches the scroller and a hold reaches the drag without either being declared away. Declare it when this node must *never* be dragged by a finger, not merely when something scrolls underneath it. |
 | `promotionPx` | per-class overrides for the promotion gate (`{ pointer = 8 }`); absent keys fall through to `interactionTokens`. |
 | `enabled` | a boolean, or a Compose readable of one, gating **acquisition only**. While it reads false this source arms nothing and promotes nothing, and the node stays enabled, hit-testable and activatable — which is what a control that must *explain* why it cannot be picked up needs ("disabled stays inspectable"). Setting `enabled = false` on the node itself also refuses acquisition, and additionally kills the tap, so it cannot serve that case. |
 
@@ -5623,7 +5669,7 @@ headlessly testable):
 | `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
 | `adaptive.sizeClassAtLeast(value, target)` | `boolean` — ranks `compact < regular < wide` and answers whether `value` is at least `target`'s rank. The general pure form `conditions.atLeast`/`isRegularOrWider` bind (framework-gaps-phase2 gap 7b): `isRegular` names the MIDDLE class only, so it reads "at least regular" and behaves "regular and nothing else" — false on `wide`, the widest screen there is. `sizeClassAtLeast(sizeClass, "regular")` is the question a caller actually means by "not compact" |
-| `adaptive.effectiveDisplaySize(displaySize, touchCapable)` | director item 5 — the physical-size-aware ten-foot gate. `displaySize == "Large"` downgrades to `"Medium"` only when `touchCapable` is also true (a real ten-foot session never has a touchscreen; a PC handheld the engine misreports as `"Large"` does), else passes every value through unchanged. This is the pure half `env:get("effectiveDisplaySize")` (above, under "Derived policy") wraps with the live `capabilities.touch` fact — read that key for anything reactive; call this directly only outside the environment (tooling, a solver-side caller with no `env`) |
+| `adaptive.effectiveDisplaySize(displaySize, touchCapable, mouseCapable)` | director item 5 — the physical-size-aware ten-foot gate. `displaySize == "Large"` downgrades to `"Medium"` when `touchCapable` **or** `mouseCapable` is also true (the third argument is additive; a caller that passes two is unchanged). A console plugged into a television has neither, so it keeps the treatment; a 4K desk monitor the engine buckets as `"Large"` has a mouse, and a big pixel count is not a long viewing distance. `client/roblox_env` spends this on the raw `GuiService.ViewportDisplaySize` before publishing the `displaySize` fact, so the correction reaches every derivation from it; a headless world, a device-matrix row and `client/edit_preview` set the fact directly and are untouched, and `viewingDistance = "ten-foot"` still outranks everything, else passes every value through unchanged. This is the pure half `env:get("effectiveDisplaySize")` (above, under "Derived policy") wraps with the live `capabilities.touch` fact — read that key for anything reactive; call this directly only outside the environment (tooling, a solver-side caller with no `env`) |
 
 **Reactive conditions:** `adaptive.conditions(env, opts?)` returns Readables
 the caller owns — `sizeClass`, `isCompact`, `isRegular`, `isWide`, `isTenFoot`,
@@ -6707,6 +6753,20 @@ settling, a taller viewport — then re-pins the end through the one programmati
 scroll write, as a rest rather than a gesture, so a player who scrolled away
 stays exactly where they are.
 
+**Following yields the instant the player takes the scroll, and while it is
+yielded, growth moves the view by nothing at all.** A reported offset that moves
+*away* from the end — a touch pan, the wheel, a keyboard or gamepad scroll, or
+your own `scrollTo` — yields, even when that offset is still inside
+`followThreshold`. That last clause is the whole of it: one frame of a pan moves
+only a few px, so a threshold test alone re-pins the player faster than they can
+travel, and a thread that is growing (a streaming reply) reads as completely
+stuck. Following resumes when a reported offset arrives back within
+`followThreshold` of the end, **or when you re-assert `follow`** — writing
+`"end"` to a `follow` readable that already reads `"end"` does not count, so a
+chat that wants send to jump to the bottom flips it through `"none"` or asserts
+it from a cell it owns. Your own follow-writes are not mistaken for the player's:
+the one programmatic write is matched against its own echo.
+
 ```luau
 local followReplies = Compose.cell(true)
 UI.VirtualList("History")({
@@ -7034,7 +7094,7 @@ and the same terminals.
 | `autoscroll` | `false` to disable, or an options table. Defaults on whenever the list is reorderable or a drop surface. |
 | `grabOnActivate` | whether a non-pointer Activate **arms** the row. Defaults true when the list is reorderable and declares no `onActivate` (so the two verbs never shadow each other); bind `list.toggleGrab()` to a key when it declares both. |
 | `follow` | `"end"` or `"none"` (default), **or a Compose readable / `function(use)` answering one of them**. `"end"` holds the tail in view while the player is reading it, and leaves a player who scrolled away where they are. A live flip needs no rebuild. |
-| `followThreshold` | a finite, non-negative px distance from the end inside which the player still counts as reading the tail. Default `4`. It means something only with `follow = "end"`, and is refused on a list whose `follow` is a constant that is not `"end"`. |
+| `followThreshold` | a finite, non-negative px distance from the end inside which the player still counts as reading the tail, and within which following RESUMES after a yield. Default `4`. It is not what decides a yield — direction is. It means something only with `follow = "end"`, and is refused on a list whose `follow` is a constant that is not `"end"`. |
 | `scrollNavigation` | `{ position, active? }` — one scroll offset shared across presentations. `position` is a writable Compose cell of the pixel offset; `active` is a boolean source that suspends restore and publish while it reads false. |
 | `env` | the surface environment (Table's own `env` key, and read for the identical reason). Only consulted by `rowActions`: a hosted tray's `buttonPad`/`buttonMinWidth` are theme facts with no font component, so measuring a tray's natural width needs the live `themeMetrics`. Absent degrades to the neutral snapshot — right until a theme package moves those two metrics, and silently wrong from then on. Accepted (and unread) on a list without `rowActions`. |
 
@@ -10098,6 +10158,20 @@ to find every copy.
 - `interactionTokens.promoted(dx, dy, pointerType, overrides?) -> boolean` —
   the **magnitude** test. A 5 px diagonal on a mouse is 7 px of travel and reads
   as a drag to the player; two independent axis tests would still call it a tap.
+- `interactionTokens.touchDragArm` — `{ holdMs = 320, slopPx = 12 }`. A finger
+  arms a drag by **time**; everything else arms by travel. The distances above
+  answer "has this press become a drag yet", which is the right question once a
+  press is the framework's to interpret — but on touch it is asked too late to
+  be the only question, because a finger's press is contended from the first
+  frame by the scroller underneath it and by any swipeable row beside it, and
+  all three gestures begin identically. So a touch press claims nothing until it
+  has been held still for `holdMs`, and travelling `slopPx` first releases it for
+  good to whatever is underneath. `slopPx` is deliberately **smaller** than the
+  `touch` promotion gate, so a released gesture can never also have promoted.
+  A mouse or a pen is not arbitrated at all: it arms on the press, as it always
+  has. `UI.draggable`'s `declineTouch` now reaches the engine's own acquisition
+  as well, so such a source never arms on a finger at any hold.
+
 - `interactionTokens.contextPriority` — `{ baseScreen = 1500, engagedBase =
   3000, modalStep = 500 }`. The
   **responder priority bands** every presented Facet surface arbitrates at
@@ -10393,6 +10467,50 @@ This shares Facet's exact Compose dependency, rather than installing another
 runtime copy. Facet still owns the Stage's rectangle, camera and lighting through
 its documented content seam. Ordinary interface layout, controls and input use
 Facet's public UI surface.
+
+**One model, both halves.** Sharing the dependency is what makes the interesting
+thing possible: the same cells drive the interface and the world, with no bridge
+between them and nothing to keep in step by hand.
+
+```luau
+-- OUTSIDE any app: shared state belongs to the scene, not to a surface
+local lifetime = Facet.Compose.createOwner()
+local palette = Facet.Compose.cell("sage")
+
+local app = Facet.new({ ... })                    -- the interface reads `palette`
+local world = require(ReplicatedStorage.Facet.client.scene).createRuntime()
+local Host = world.constructors
+local stopWorld = world.mount(function()          -- ...and so does the world
+    return Host.Part({
+        Anchored = true,
+        Color = function(use)
+            return PALETTES[use(palette)]
+        end,
+    })
+end, workspace)
+```
+
+A `UI.Picker` writing `palette` repaints the Part; nothing subscribes to anything
+else. Four rules worth knowing before you build on it:
+
+- **Cells belong to no runtime.** They are values with lifetimes, not children of
+  a tree. Create shared ones under an owner you make yourself, outside every app
+  and every world, and dispose that owner LAST — after the apps and after the
+  world runtime, so nothing is still reading a released cell.
+- **Batching is process-wide.** `Compose.batch` groups writes across every
+  runtime in the session, so one batch settles the interface and the world
+  together rather than leaving a frame where they disagree.
+- **Each runtime has its own frame clock.** Two trees can repaint on different
+  ticks, so do not assume a write lands in both on the same frame; assume only
+  that both see the same value.
+- **Ownership is still Compose's.** Use `adopt` for a node Compose must destroy
+  and `decorate`/`borrow` for one it must not, and bind any external handle
+  (an animation track, a connection) to an owner.
+
+`examples/virtual_monitors` is this shape end to end: its room, its per-card
+worlds and its avatar preview are all built with this runtime, and the cells the
+interface writes — palette, rotation, auto-spin, light/dark — are the same cells
+the world reads.
 
 #### `client.world_anchor`
 
@@ -11812,6 +11930,47 @@ Section bounds bridge empty space between a hero, shelf, or settings column. Gri
 lanes, contributed collection navigation, explicit exits, and modal containment keep
 their existing authority. Sections do not add a focus stop or a frame loop. Supported
 containers: Box, VStack, HStack, ZStack, Grid, ScrollView, AdaptiveStack and Anchor.
+
+`focusOnAppear` and `returnFocus` are the other half of the same sentence.
+`entry`/`preferred` say where the ring lands when navigation WALKS INTO a region;
+these two say where it goes when the region ARRIVES and where it goes back to when
+the region LEAVES.
+
+| Key | Value | Effect |
+|---|---|---|
+| `focusOnAppear` | `true` | focus the section's first stop, in document order, the frame it appears |
+| `focusOnAppear` | `"Back"` | focus that descendant — matched on its final path segment or its whole path, the same rule `initialFocus` uses |
+| `returnFocus` | `true` | remember what held focus when the section appeared, and put it back when the section goes away |
+
+A presented surface has had this since `initialFocus`. An in-page branch — a
+`UI.When`, a `Compose.show`, a route inside a page — had no spelling for it, which
+is the shape most of a screen opens and closes in. Without it, a branch that
+disables the content underneath (the usual way to show a detail over a list) leaves
+the ring with nowhere legal to stand, and the graph takes the nearest surviving
+neighbour — which can be outside the app entirely.
+
+```luau
+UI.When("Expand")({
+    condition = function(use) return use(selected) ~= nil end,
+    thenView = function()
+        return UI.focusSection(detailPanel, { focusOnAppear = "Back", returnFocus = true })
+    end,
+})
+```
+
+Opening the branch puts the ring on its Back button; closing it puts the ring back
+on the row the player opened it from. The two keys are independent: a route that
+replaces its parent claims focus without giving it back, and a sheet opened by
+pointer gives focus back without having claimed it.
+
+**Restore is by path, re-checked when it is spent.** A remembered target that no
+longer exists, or is no longer eligible, falls through to the surviving scope's own
+entry rule rather than leaving the ring nowhere. A refusal is retried for a few
+solves first, because the edit that closes a branch is usually the same edit that
+re-enables the content underneath it, and that content is not eligible yet on the
+frame the branch disappears. A windowed list that recycled the row under that path
+restores the ring to THAT SLOT — where the player left it on screen — not to the
+item that used to be in it.
 
 `UI.Button`, `UI.Toggle` and `UI.Slider` accept
 `row = { description?, icon?, value? }`. Fields are strings or readable strings;
