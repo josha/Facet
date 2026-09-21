@@ -7942,7 +7942,7 @@
   },
   {
    "check": {
-    "shell": "grep -q \"nativeStyle\" src/client/screen_target.luau && grep -q \"syncTags\" src/client/screen_target.luau && grep -q \"classifyTags\" src/client/screen_target.luau && grep -q \"wireNativePressDip\" src/client/screen_target.luau && grep -q \"nativeSheetOwned\" src/render/authority.luau && grep -q \"setNativeTransitionsEnabled\" src/render/renderer.luau"
+    "shell": "grep -q \"nativeStyle\" src/client/screen_target.luau && grep -q \"syncTags\" src/client/screen_target.luau && grep -q \"classifyTags\" src/client/screen_target.luau && grep -q \"wireNativePressDip\" src/client/screen_target.luau && grep -q \"nativeSheetOwned\" src/render/authority.luau && grep -q \"setNativeTransitionsEnabled\" src/render/env_wiring.luau"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/native-stylesheets/a2-native-paint.json",
@@ -8295,7 +8295,7 @@
      "button_complete::B-BTN4: disabled is consistent across focus, activation, appearance and semantics::a disabled button does not activate on the keyboard or gamepad path either",
      "button_complete::B-BTN2: semantic roles ride tags and style rules::every theme's danger pair passes the contrast gate"
     ],
-    "shell": "grep -q \"assertNoFocusableContent\" src/button_properties.luau && grep -q \"effectiveHitFloor\" src/render/renderer.luau && grep -q \"setHitRect\" src/client/screen_target.luau && grep -q \"isDisabled\" src/present/presenter.luau && grep -q \"Destructive button\" src/tokens/sheet_model.luau && grep -q \"dangerPair\" src/tokens/sheet_model.luau"
+    "shell": "grep -q \"assertNoFocusableContent\" src/button_properties.luau && grep -q \"effectiveHitFloor\" src/render/layout_node.luau && grep -q \"setHitRect\" src/client/screen_target.luau && grep -q \"isDisabled\" src/present/presenter.luau && grep -q \"Destructive button\" src/tokens/sheet_model.luau && grep -q \"dangerPair\" src/tokens/sheet_model.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/authoring-adaptive-ui/b-btn-button.json",

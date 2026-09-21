@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 -- Editable selection: durable committed value and editable text are distinct.
 local guard = require("../spec_guard")
 local selection = require("../selection_model")
@@ -192,15 +193,8 @@ local function build(Facet, core, spec, owner)
 	}
 end
 function combo.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return combo

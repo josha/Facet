@@ -81,7 +81,6 @@ local scrollArrange = require("./scroll_arrange")
 local compositionLib = require("./composition")
 -- the expand plate's chrome, declared once beside the padding `blueprint` writes
 -- on the plate; resolved into the composition's resolve context below
-local expandPlate = require("./expand_plate")
 -- the composition's own resolution — the block this file used to hold, taken as
 -- its own module by the source-cap ledger's named seam. It reads `measure` back,
 -- which is why it takes a Deps record rather than closing over anything here.

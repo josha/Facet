@@ -1,5 +1,6 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 --[[ row_actions_trays — the tray blueprints, built once, used by BOTH modes.
 
 	A tray is the same thing in both modes (Task 4): the same buttons, the same
@@ -129,17 +130,15 @@ function row_actions_trays.build(p: Params): { any }
 		local revealFracs: { [string]: any } = {}
 		for _, edge in { "leading", "trailing" } do
 			local traySig = if edge == "leading" then leadingWidth else trailingWidth
-			revealFracs[edge] = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					if not use(motionBound) then
-						return 1
-					end
-					local trayW = use(traySig)
-					if trayW <= 0 then
-						return 0
-					end
-					return math.clamp(math.abs(use(offset)) / trayW, 0, 1)
-				end)
+			revealFracs[edge] = ownedFormula(owner, function(use)
+				if not use(motionBound) then
+					return 1
+				end
+				local trayW = use(traySig)
+				if trayW <= 0 then
+					return 0
+				end
+				return math.clamp(math.abs(use(offset)) / trayW, 0, 1)
 			end)
 		end
 
@@ -188,17 +187,15 @@ function row_actions_trays.build(p: Params): { any }
 			local props: { [string]: any } = {}
 			for _, action in actions do
 				local natural = naturals[action.id]
-				props[action.id] = Compose.withOwner(owner, function()
-					return Compose.formula(function(use)
-						local n = use(natural)
-						if not use(motionBound) then
-							return { type = "minMax", min = BUTTON_MIN_WIDTH }
-						end
-						if n == nil then
-							return { type = "fixed", px = 0 }
-						end
-						return { type = "fixed", px = math.floor(n * use(fracSig) + 0.5) }
-					end)
+				props[action.id] = ownedFormula(owner, function(use)
+					local n = use(natural)
+					if not use(motionBound) then
+						return { type = "minMax", min = BUTTON_MIN_WIDTH }
+					end
+					if n == nil then
+						return { type = "fixed", px = 0 }
+					end
+					return { type = "fixed", px = math.floor(n * use(fracSig) + 0.5) }
 				end)
 			end
 			return props
@@ -269,24 +266,22 @@ function row_actions_trays.build(p: Params): { any }
 			local props: { [string]: any } = {}
 			for _, action in actions do
 				local widthProp = widthProps[action.id]
-				props[action.id] = Compose.withOwner(owner, function()
-					return Compose.formula(function(use)
-						local pad = use(buttonPadPx)
-						-- NO MOTION AUTHORITY is a static tray at its natural size (the
-						-- same branch, for the same reason, as `buildWidthProps` above):
-						-- there is no reveal fraction to spend, and the plate is never
-						-- painted narrower than `buttonMinWidth`, so full padding is
-						-- both correct and safe.
-						if not use(motionBound) then
-							return { left = pad, right = pad }
-						end
-						local spent = math.floor(pad * use(fracSig) + 0.5)
-						local w = use(widthProp)
-						if type(w) == "table" and w.type == "fixed" and type(w.px) == "number" then
-							spent = math.min(spent, math.floor(w.px / 2))
-						end
-						return { left = spent, right = spent }
-					end)
+				props[action.id] = ownedFormula(owner, function(use)
+					local pad = use(buttonPadPx)
+					-- NO MOTION AUTHORITY is a static tray at its natural size (the
+					-- same branch, for the same reason, as `buildWidthProps` above):
+					-- there is no reveal fraction to spend, and the plate is never
+					-- painted narrower than `buttonMinWidth`, so full padding is
+					-- both correct and safe.
+					if not use(motionBound) then
+						return { left = pad, right = pad }
+					end
+					local spent = math.floor(pad * use(fracSig) + 0.5)
+					local w = use(widthProp)
+					if type(w) == "table" and w.type == "fixed" and type(w.px) == "number" then
+						spent = math.min(spent, math.floor(w.px / 2))
+					end
+					return { left = spent, right = spent }
 				end)
 			end
 			return props
@@ -309,16 +304,12 @@ function row_actions_trays.build(p: Params): { any }
 		local trayGaps: { [string]: any } = {}
 		for _, edge in { "leading", "trailing" } do
 			local frac = revealFracs[edge]
-			trayPaddings[edge] = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					local g = math.floor(use(rowGutterPx) * use(frac) + 0.5)
-					return if edge == "leading" then { right = g } else { left = g }
-				end)
+			trayPaddings[edge] = ownedFormula(owner, function(use)
+				local g = math.floor(use(rowGutterPx) * use(frac) + 0.5)
+				return if edge == "leading" then { right = g } else { left = g }
 			end)
-			trayGaps[edge] = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					return math.floor(use(trayGapPx) * use(frac) + 0.5)
-				end)
+			trayGaps[edge] = ownedFormula(owner, function(use)
+				return math.floor(use(trayGapPx) * use(frac) + 0.5)
 			end)
 		end
 		local function trayPadding(edge: Edge): any
@@ -406,19 +397,17 @@ function row_actions_trays.build(p: Params): { any }
 			-- "VISIBLY" is `REVEAL_EPS`, not zero (device round 2026-08-12, C9b —
 			-- see the constant's own comment), and a destructive commit takes the
 			-- tray away outright (C8a — see `committingSig`).
-			local revealed = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					-- C8a: a destructive commit leaves nothing standing behind the row
-					-- (see `committingSig`'s own comment above)
-					if use(committingSig) then
-						return false
-					end
-					if use(openEdge) == "leading" then
-						return true
-					end
-					-- C9b: sub-pixel is arrived (see `REVEAL_EPS`)
-					return use(offset) >= REVEAL_EPS
-				end)
+			local revealed = ownedFormula(owner, function(use)
+				-- C8a: a destructive commit leaves nothing standing behind the row
+				-- (see `committingSig`'s own comment above)
+				if use(committingSig) then
+					return false
+				end
+				if use(openEdge) == "leading" then
+					return true
+				end
+				-- C9b: sub-pixel is arrived (see `REVEAL_EPS`)
+				return use(offset) >= REVEAL_EPS
 			end)
 			table.insert(
 				trayViews,
@@ -432,17 +421,15 @@ function row_actions_trays.build(p: Params): { any }
 			)
 		end
 		if trailingActions ~= nil then
-			local revealed = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					-- C8a / C9b — the mirror of the leading memo above, same two rules
-					if use(committingSig) then
-						return false
-					end
-					if use(openEdge) == "trailing" then
-						return true
-					end
-					return use(offset) <= -REVEAL_EPS
-				end)
+			local revealed = ownedFormula(owner, function(use)
+				-- C8a / C9b — the mirror of the leading memo above, same two rules
+				if use(committingSig) then
+					return false
+				end
+				if use(openEdge) == "trailing" then
+					return true
+				end
+				return use(offset) <= -REVEAL_EPS
 			end)
 			table.insert(
 				trayViews,

@@ -1342,9 +1342,13 @@ describe("D2: long-press ownership, settled in code", function()
 			-- `split_button` is not a third construct: its touch form AUTHORS the
 			-- Menu's own `triggers` list (a tap runs the action, the long press
 			-- opens the menu), which is the one place a caller names the gesture.
+			-- `render/env_wiring.luau` is not a fourth construct either: it is the
+			-- renderer's own disclosure-engagement carry, which left `renderer.luau`
+			-- on 2026-09-20 to put that file back under the engine's Source cap. The
+			-- code is unchanged and the two files are one consumer.
 			"src/client/screen_target.luau src/controls/menu.luau src/controls/split_button.luau "
 				.. "src/input/contribution.luau src/input/touch_gestures.luau src/present/presenter.luau "
-				.. "src/render/renderer.luau src/render/target_contract.luau"
+				.. "src/render/env_wiring.luau src/render/renderer.luau src/render/target_contract.luau"
 		)
 	end)
 

@@ -32,6 +32,7 @@ local KEEP_VISIBLE_MARGIN = 8 -- px gap kept between field bottom and keyboard t
 local TEXT_ENTRY_PRIORITY = 10000
 
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 local read = require("../selection_model").read
 local function isReadable(v: any): boolean
 	return Compose.isReadable(v)
@@ -815,16 +816,9 @@ end
 
 -- The handle owns one Compose lifetime, including callbacks created after mount.
 function text_input.build(Facet: any, core: any, spec: Spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 return text_input

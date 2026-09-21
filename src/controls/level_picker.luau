@@ -98,7 +98,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 
 	local markSize = `iconSizes.{cfg.sizeRole}`
 
-	local markEnv = if cfg.env ~= nil then cfg.env else surfaceEnv.find(core)
+	local markEnv = surfaceEnv.forSpec(core, cfg.env)
 	-- Text paint applies display scaling; remove metric scaling to avoid doubling it.
 	local markTextSize: any = if markEnv ~= nil
 		then Compose.formula(function(use)
@@ -112,7 +112,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 		end)
 		else markSize
 
-	local envForDensity = if cfg.env ~= nil then cfg.env else (surfaceEnv.find(core))
+	local envForDensity = surfaceEnv.forSpec(core, cfg.env)
 	-- Wider touch spacing preserves individual mark reach without rebuilding the run.
 	local markGap = if envForDensity ~= nil
 		then Compose.formula(function(use)

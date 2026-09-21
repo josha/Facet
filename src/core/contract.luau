@@ -48,9 +48,8 @@ export type Use = Compose.Use
 	reactive API: every verb below is Compose's, reached through `reactor` and
 	`owner`. What Facet adds is the error boundary and the layout settle pass. ]]
 export type Core = {
-	name: string,
-	-- the Compose runtime a surface's nodes are mounted into
-	scene: any,
+	-- Compose's reactor: the scheduling domain this application's own state,
+	-- watches and owners live on
 	reactor: Compose.Reactor,
 	-- the application's root owner, already guarded by the boundary below
 	owner: Compose.Owner,

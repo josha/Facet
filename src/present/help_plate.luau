@@ -77,8 +77,6 @@ local HELP_DWELL = 0.45
 -- clipping it. The inset is the spacing step, resolved live from the theme.
 local EDGE_INSET_METRIC = "s"
 
-local isPathPrefix = paths.isPrefix
-
 --[[ ctx — the by-reference presenter state this module reads and never owns:
 	  core, env          the injected reactive/fact seam
 	  stack              the presented handles, read live

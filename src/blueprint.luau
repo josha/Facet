@@ -872,7 +872,6 @@ end
 -- guess. Declared here, ahead of every constructor that calls it (ZStack
 -- below, Button further down) — a `local function` is an upvalue only to code
 -- that follows it in the source.
-local assertCircleSquare = primitiveProperties.assertCircleSquare
 
 -- public constructors (§10.1 subset for Phase 1)
 function blueprint.Screen(spec: ScreenSpec): Blueprint

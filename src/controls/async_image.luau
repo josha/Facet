@@ -1,6 +1,7 @@
 --!strict
 -- A resource-backed image. The mounted owner releases the lease and bindings.
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
 local specGuard = require("../spec_guard")
 
 local async_image = {}
@@ -111,15 +112,8 @@ local function build(Facet: any, core: any, spec: any, owner: any)
 end
 
 function async_image.build(Facet: any, core: any, spec: any)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner(core.scene.reactor)
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return async_image

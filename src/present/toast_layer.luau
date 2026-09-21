@@ -10,6 +10,7 @@ local specGuard = require("../spec_guard")
 local toast_schedule = require("./toast_schedule")
 local focusMap = require("./focus_map")
 local Compose = require("../vendor/compose/core")
+local ownedFormula = require("../core/owned_formula")
 local nodeAt = focusMap.nodeAt
 
 local cleanup = require("../core/cleanup")
@@ -109,14 +110,12 @@ function toast_layer.new(ctx: Ctx)
 			return defaultToastTransition(position)
 		end
 		if Compose.isReadable(declared) then
-			return Compose.withOwner(scope, function()
-				return Compose.formula(function(use)
-					local value = use(declared)
-					if value == nil or value == false then
-						return defaultToastTransition(position)
-					end
-					return mergeToastPlate(value)
-				end)
+			return ownedFormula(scope, function(use)
+				local value = use(declared)
+				if value == nil or value == false then
+					return defaultToastTransition(position)
+				end
+				return mergeToastPlate(value)
 			end)
 		end
 		return mergeToastPlate(declared)

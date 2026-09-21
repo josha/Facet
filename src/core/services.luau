@@ -5,63 +5,17 @@
 	reactor's. What is here is what Compose has no verb for and one surface
 	needs exactly once: the ERROR BOUNDARY that keeps a throwing binding from
 	taking a surface down, the LAYOUT SETTLE pass that drives geometry feedback
-	to a fixed point inside the flush, and the scene runtime and root owner the
-	rest of the library hangs its own owners off.
+	to a fixed point inside the flush, and the reactor and root owner the rest
+	of the library hangs its own owners off.
+
+	The reactor is Compose's own, taken directly. A surface's nodes mount into
+	the UI runtime `render/compose_scene.luau` builds, and the application hands
+	that runtime to `adopt` below so one settle pass and one boundary cover both
+	scheduling domains.
 ]]
 local Compose = require("../vendor/compose/core")
 local profile = require("./profile")
 local settle_pass = require("../render/settle_pass")
-
--- Hosts domain nodes built from validated blueprints: Compose owns their
--- structure and supplies the reactor; props pass through the blueprint schema.
-local function newScene()
-	local function changed(parent)
-		parent.childrenVersion = (parent.childrenVersion or 0) + 1
-		if parent.changed then
-			parent.changed()
-		end
-	end
-	local function remove(parent, child)
-		local index = table.find(parent.children, child)
-		if index then
-			table.remove(parent.children, index)
-		end
-		changed(parent)
-	end
-	return Compose.createRuntime({
-		name = "Facet mounted scene",
-		render = {
-			-- Facet builds domain nodes from validated blueprints. Compose adopts
-			-- those nodes for structural ownership; it does not author UI props.
-			createNode = function()
-				error("Facet scene mounts existing domain nodes", 0)
-			end,
-			setProperty = function()
-				error("Facet properties must pass through the blueprint schema", 0)
-			end,
-			clearProperty = function()
-				error("Facet properties must pass through the blueprint schema", 0)
-			end,
-			insertChild = function(parent, child, index)
-				table.insert(parent.children, index or (#parent.children + 1), child)
-				changed(parent)
-			end,
-			moveChild = function(parent, child, index)
-				local previous = table.find(parent.children, child)
-				assert(previous, "Facet scene: moving an unmounted child")
-				table.remove(parent.children, previous)
-				table.insert(parent.children, index, child)
-				changed(parent)
-			end,
-			removeChild = remove,
-			destroyNode = function(node)
-				if node.destroy then
-					node.destroy()
-				end
-			end,
-		},
-	})
-end
 
 local services = {}
 
@@ -83,8 +37,7 @@ local REPORT_REPEAT_WINDOW_S = 5
 function services.new(opts: { warn: ((string) -> ())?, now: (() -> number)? }?): any
 	local emitWarn = if opts and opts.warn then opts.warn else warn
 	local now = if opts and opts.now then opts.now else os.clock
-	local runtime = newScene()
-	local reactor = runtime.reactor
+	local reactor = Compose.reactor()
 	local lastError: string? = nil
 	local announced: string? = nil
 	local announcedAt = 0
@@ -115,12 +68,10 @@ function services.new(opts: { warn: ((string) -> ())?, now: (() -> number)? }?):
 	local pass = settle_pass.install(reactor, report, profile.span)
 
 	local core: any = {
-		name = "compose",
 		-- the runtime this application is on, so a control written outside this
 		-- repository reaches cells and formulas through the core it is handed
 		-- rather than by requiring around it
 		Compose = Compose,
-		scene = runtime,
 		reactor = reactor,
 		owner = owner,
 		--[[ Any owner Facet did not create as a child of `owner` — a mount root,

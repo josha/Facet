@@ -38,20 +38,21 @@ local Compose = require("../vendor/compose/core")
 local spring = {}
 
 -- dt hygiene: a huge frame (tab-out, stall, a debugger pause) must never blow
--- the integrator up. Clamp the whole frame, then substep so omega·h stays well
--- inside the semi-implicit-Euler stability window even for the stiffest shipped
--- class (`reward`, response 0.18 → omega ≈ 34.9; 34.9 · 1/120 ≈ 0.29 ≪ 2).
+-- the integrator up, so the whole frame is clamped before it reaches Compose.
+-- Compose then substeps at 1/120, which keeps omega·h well inside the
+-- semi-implicit-Euler stability window even for the stiffest shipped class
+-- (`reward`, response 0.18 → omega ≈ 34.9; 34.9 · 1/120 ≈ 0.29 ≪ 2).
 local MAX_DT = 0.1
-local MAX_SUBSTEP = 1 / 120
 
 -- Settle threshold: within EPS of the target AND slower than EPS/s. Scale-domain
 -- springs (0..1 alphas, scales) settle imperceptibly; position-domain springs
 -- (hundreds of px) settle a few frames after they visually arrive — which is
 -- exactly why perceptual arrival is a RADIUS, not this epsilon (chase.luau).
+-- Compose's own `springAtRest` is RELATIVE to the distance travelled; a surface
+-- needs the same threshold whatever the domain, so this module keeps its own.
 local DEFAULT_EPS = 1e-3
 
 spring.MAX_DT = MAX_DT
-spring.MAX_SUBSTEP = MAX_SUBSTEP
 spring.DEFAULT_EPS = DEFAULT_EPS
 
 export type Params = {
@@ -94,6 +95,10 @@ function spring.new(initial: number, params: Params, eps: number?): Spring
 
 	local self = {}
 
+	local function settled(): boolean
+		return math.abs(state.position[1] - target) <= epsilon and math.abs(state.velocity[1]) <= epsilon
+	end
+
 	-- `peek`, as Compose spells a current-value read
 	function self.peek(_: any): number
 		return state.position[1]
@@ -132,11 +137,11 @@ function spring.new(initial: number, params: Params, eps: number?): Spring
 		if dt > 0 then
 			Compose.stepSpring(state, aim, math.min(dt, MAX_DT), response, params.dampingRatio)
 		end
-		return math.abs(state.position[1] - target) <= epsilon and math.abs(state.velocity[1]) <= epsilon
+		return settled()
 	end
 
 	function self.isSettled(_: any): boolean
-		return math.abs(state.position[1] - target) <= epsilon and math.abs(state.velocity[1]) <= epsilon
+		return settled()
 	end
 
 	function self.snap(_: any, value: number)

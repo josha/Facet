@@ -236,7 +236,12 @@ local SCREEN_FACTS = specGuard.keySet({
 	"deviceSafeInsets",
 	"topbarSafeInsets",
 	"guiInset",
-	"keyboardRect",
+	-- the on-screen keyboard's rectangle on the player's DISPLAY. `text_input`
+	-- shifts and scrolls by it, so a world canvas that received it would move
+	-- for a rectangle in someone else's coordinate space. This read
+	-- `keyboardRect` until 2026-09-20 — a name nothing publishes, so the guard
+	-- was decoration; `tests/client_host.spec.luau` now fails if it goes back.
+	"keyboardOcclusionRect",
 })
 local function bindingEnvironment(env: any, surface: any): any
 	if not surface or surface.kind == "screen" then

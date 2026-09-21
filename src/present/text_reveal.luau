@@ -46,8 +46,6 @@ local renderer = require("../render/renderer")
 local focusMap = require("./focus_map")
 local Compose = require("../vendor/compose/core")
 
-local isPathPrefix = focusMap.isPathPrefix
-
 local textReveal = {}
 
 function textReveal.new(ctx: any)

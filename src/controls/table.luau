@@ -1,5 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 local selectionModel = require("../selection_model")
 
 -- Table composes shared-width columns, row content and whole-row hit targets.
@@ -12,7 +14,6 @@ local selectionModel = require("../selection_model")
 
 local contribution = require("../input/contribution")
 local nativeScrollBinding = require("./native_scroll_binding")
-local interactionTokens = require("../input/interaction_tokens")
 local solverLib = require("../layout/solver")
 local textFit = require("../layout/text_fit")
 local themeSnapshot = require("../themes/snapshot")
@@ -30,7 +31,6 @@ local row_actions = require("./row_actions")
 -- dispatch has to know whether a gesture it forwarded became a SWIPE, and the
 -- lock radius is the one authored fact that answers it. Same require, for the
 -- same reason, as `virtual_list.luau`'s host dispatcher.
-local row_actions_state = require("../input/row_actions_state")
 -- the column-width RESOLUTION rule (DIR-4): pure, one-way, and the reason it
 -- is its own file is that a clamp nobody can test in isolation is a clamp
 -- nobody can reason about at a viewport they do not have
@@ -406,43 +406,39 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 		Every site below now reads this local, and `tests/adaptive_defaults.spec`
 		pins the pair that could disagree (row height and column reservation) on one
 		unwired surface. ]]
-	local surfaceEnvironment = if spec.env ~= nil then spec.env else (surfaceEnv.find(core))
-	local rowBox = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local env = surfaceEnvironment
-			if env == nil then
-				-- headless / no-environment consumers: the neutral package at authored
-				-- size and a pointer paradigm, which is what the suite has always solved
-				return rowBoxFor(nil, textFit.facts({ metrics = themeSnapshot.neutral() }))
-			end
-			--[[ the facts come from the LIVE env keys (so a preference change re-derives
+	local surfaceEnvironment = surfaceEnv.forSpec(core, spec.env)
+	local rowBox = ownedFormula(owner, function(use)
+		local env = surfaceEnvironment
+		if env == nil then
+			-- headless / no-environment consumers: the neutral package at authored
+			-- size and a pointer paradigm, which is what the suite has always solved
+			return rowBoxFor(nil, textFit.facts({ metrics = themeSnapshot.neutral() }))
+		end
+		--[[ the facts come from the LIVE env keys (so a preference change re-derives
 			this memo) but the SNAPSHOT is sanitized first — `metricsOr` is the §8.2
 			guard that stops a garbage `themeMetrics` fact leaking past the seam that
 			read it, and `text.facts` deliberately does not do that for its caller. ]]
-			local facts = textFit.facts({ env = env, use = use })
-			return rowBoxFor(use(env:get("interactionClasses")), {
-				scale = facts.scale,
-				offset = facts.offset,
-				metrics = metricsOr(facts.metrics),
-			}, use(env:get("distanceProfile")))
-		end)
+		local facts = textFit.facts({ env = env, use = use })
+		return rowBoxFor(use(env:get("interactionClasses")), {
+			scale = facts.scale,
+			offset = facts.offset,
+			metrics = metricsOr(facts.metrics),
+		}, use(env:get("distanceProfile")))
 	end)
 	-- THE one row-gap answer, in pixels, live. A metric NAME resolves against the
 	-- current snapshot on every read, so a theme swap moves the gutter without a
 	-- rebuild; a number passes through unchanged; absent stays 0.
-	local rowGapPx = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local declared = spec.rowGap
-			if type(declared) == "number" then
-				return declared
-			end
-			if type(declared) ~= "string" then
-				return 0
-			end
-			local env = surfaceEnvironment
-			local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-			return themeSnapshot.resolveNumber(snap, declared) or 0
-		end)
+	local rowGapPx = ownedFormula(owner, function(use)
+		local declared = spec.rowGap
+		if type(declared) == "number" then
+			return declared
+		end
+		if type(declared) ~= "string" then
+			return 0
+		end
+		local env = surfaceEnvironment
+		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+		return themeSnapshot.resolveNumber(snap, declared) or 0
 	end)
 	-- THE one row-height answer. Every seam that reasons about row geometry — the
 	-- blueprint, the cumulative tops, the content extent, the drop slot and
@@ -578,23 +574,21 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 
 		`slotOf` bridges Table's KEY addressing to the index's INDEX addressing;
 		everything in this file that knows a row knows it by key. ]]
-	local layoutIndex = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			-- `use`d, not read: a derived row height moves every offset below it, so a
-			-- theme swap or an accessibility text change has to re-derive these
-			local box = use(rowBox)
-			local gap = use(rowGapPx)
-			local items = use(spec.rows) :: { any }
-			local extents = table.create(math.max(#items, 1))
-			local slotOf: { [string]: number } = {}
-			local keys = table.create(math.max(#items, 1))
-			for i, item in items do
-				extents[i] = rowHeightOf(item, box)
-				keys[i] = spec.key(item)
-				slotOf[keys[i]] = i
-			end
-			return { ix = virtual_extents.variable(extents, gap), slotOf = slotOf, keys = keys }
-		end)
+	local layoutIndex = ownedFormula(owner, function(use)
+		-- `use`d, not read: a derived row height moves every offset below it, so a
+		-- theme swap or an accessibility text change has to re-derive these
+		local box = use(rowBox)
+		local gap = use(rowGapPx)
+		local items = use(spec.rows) :: { any }
+		local extents = table.create(math.max(#items, 1))
+		local slotOf: { [string]: number } = {}
+		local keys = table.create(math.max(#items, 1))
+		for i, item in items do
+			extents[i] = rowHeightOf(item, box)
+			keys[i] = spec.key(item)
+			slotOf[keys[i]] = i
+		end
+		return { ix = virtual_extents.variable(extents, gap), slotOf = slotOf, keys = keys }
 	end)
 	local function layoutNow(): any
 		return layoutIndex:peek() :: any
@@ -653,11 +647,9 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 		return if type(rect) == "table" and type(rect.h) == "number" then rect.h else 0
 	end
 	local viewportH = Compose.cell(screenSeed())
-	local clampedTop = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local content = (use(layoutIndex) :: any).ix.content
-			return math.clamp(use(scrollTop), 0, math.max(0, content - use(viewportH)))
-		end)
+	local clampedTop = ownedFormula(owner, function(use)
+		local content = (use(layoutIndex) :: any).ix.content
+		return math.clamp(use(scrollTop), 0, math.max(0, content - use(viewportH)))
 	end)
 	--[[ ── SCROLL ANCHORING (virtualized only) ────────────────────────────────────
 		THE DEFECT THIS EXISTS TO PREVENT, in Table's own vocabulary: a row's height
@@ -862,10 +854,9 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 	local showAutoToggle = if autoEditRoute
 		then (
 			if surfaceEnvironment ~= nil
-				then Compose.withOwner(owner, function()
-					return Compose.formula(function(use)
-						local classes = use(surfaceEnvironment:get("interactionClasses"))
-						--[[ ...AND A KEYBOARD-ONLY SESSION THAT MUST REORDER (M-4, 2026-08-18).
+				then ownedFormula(owner, function(use)
+					local classes = use(surfaceEnvironment:get("interactionClasses"))
+					--[[ ...AND A KEYBOARD-ONLY SESSION THAT MUST REORDER (M-4, 2026-08-18).
 					The union was `touch or gamepad`, on the argument written above: a
 					MOUSE user reaches both capabilities without edit mode, because they
 					drag rows directly and a plain click selects. A keyboard has neither
@@ -882,7 +873,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 					because a keyboard beside a mouse is a desktop session, and widening
 					this to "any keyboard" would put an Edit button on every desktop
 					table in the framework to serve a session that does not exist there. ]]
-						--[[ ...AND IT ASKS THE RAW CAPABILITY, not `classes.pointer`, because
+					--[[ ...AND IT ASKS THE RAW CAPABILITY, not `classes.pointer`, because
 						the two answer different questions. `interactionClasses` has a
 						last-resort branch — a device with no mouse, no touch and no pad is
 						called pointer-primary rather than left with no primary at all — so
@@ -892,11 +883,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 						something that can drag a row. Absent capabilities default to a
 						mouse (`environment.luau`'s own `FACT_DEFAULTS`), so an env nobody
 						has told anything to is a desktop and shows nothing, as before. ]]
-						local caps = use(surfaceEnvironment:get("capabilities"))
-						local hasMouse = if type(caps) == "table" then caps.mouse == true else true
-						local keyboardOnlyReorder = reorderNeedsEditMode and classes.keyboard == true and not hasMouse
-						return classes.touch == true or classes.gamepad == true or keyboardOnlyReorder
-					end)
+					local caps = use(surfaceEnvironment:get("capabilities"))
+					local hasMouse = if type(caps) == "table" then caps.mouse == true else true
+					local keyboardOnlyReorder = reorderNeedsEditMode and classes.keyboard == true and not hasMouse
+					return classes.touch == true or classes.gamepad == true or keyboardOnlyReorder
 				end)
 				else Compose.cell(true)
 		)
@@ -909,10 +899,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 			grabbedKey:set(nil)
 		end
 	end)
-	local editToggleLabel = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return if use(editingSignal) then "Done" else "Edit"
-		end)
+	local editToggleLabel = ownedFormula(owner, function(use)
+		return if use(editingSignal) then "Done" else "Edit"
 	end)
 	-- edit mode insets every row's cells into a LEADING gutter for the ≡
 	-- handle (iOS list-edit convention; director 2026-07-20)
@@ -944,29 +932,27 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 		bottom = "chromeInsets.selection.bottom",
 		left = "chromeInsets.selection.left",
 	}
-	local cellsEditPadding = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			-- ...AND ONLY WHERE EDIT MODE HAS SOMETHING TO PUT IN THE GUTTER (ISSUE-5):
-			-- `canEditMode` gates the inset and its content together, so a table that
-			-- cannot reach the mode never insets for it. See that predicate's own note.
-			if not use(editingSignal) or not canEditMode then
-				return ROW_ART
-			end
-			-- edit mode adds the leading ≡ gutter ON TOP of the art's own inset.
-			--
-			-- It used to REPLACE it, because "a metric name and a number cannot be
-			-- added here (the metric resolves at solve time)". That is no longer true:
-			-- `snapshot.resolveSides` grew multi-metric sides on 2026-07-27 (for the
-			-- header's two stacked gutters) and every entry may be a number or a metric
-			-- name. Replacing meant that under every skinned package the first cell was
-			-- under-inset by exactly the card's carved border — 16px under Pixel Quest.
-			return {
-				top = ROW_ART.top,
-				right = ROW_ART.right,
-				bottom = ROW_ART.bottom,
-				left = { ROW_ART.left, HANDLE_GUTTER },
-			}
-		end)
+	local cellsEditPadding = ownedFormula(owner, function(use)
+		-- ...AND ONLY WHERE EDIT MODE HAS SOMETHING TO PUT IN THE GUTTER (ISSUE-5):
+		-- `canEditMode` gates the inset and its content together, so a table that
+		-- cannot reach the mode never insets for it. See that predicate's own note.
+		if not use(editingSignal) or not canEditMode then
+			return ROW_ART
+		end
+		-- edit mode adds the leading ≡ gutter ON TOP of the art's own inset.
+		--
+		-- It used to REPLACE it, because "a metric name and a number cannot be
+		-- added here (the metric resolves at solve time)". That is no longer true:
+		-- `snapshot.resolveSides` grew multi-metric sides on 2026-07-27 (for the
+		-- header's two stacked gutters) and every entry may be a number or a metric
+		-- name. Replacing meant that under every skinned package the first cell was
+		-- under-inset by exactly the card's carved border — 16px under Pixel Quest.
+		return {
+			top = ROW_ART.top,
+			right = ROW_ART.right,
+			bottom = ROW_ART.bottom,
+			left = { ROW_ART.left, HANDLE_GUTTER },
+		}
 	end)
 	-- column width overrides from resizing: { [columnId]: px }
 	local widthOverrides = Compose.cell({} :: { [string]: number })
@@ -1226,28 +1212,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 	-- The padding is theme metric NAMES until a snapshot resolves it, and a pure
 	-- rule cannot resolve them — so that half is resolved here, per solve, and
 	-- `table_columns.layout` takes the answer.
-	local cellSides = Compose.withOwner(owner, function()
-		return Compose.formula(function(use): any
-			local env = surfaceEnvironment
-			local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-			return themeSnapshot.resolveSides(snap, use(cellsEditPadding))
-		end)
+	local cellSides = ownedFormula(owner, function(use): any
+		local env = surfaceEnvironment
+		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+		return themeSnapshot.resolveSides(snap, use(cellsEditPadding))
 	end)
 	--[[ THE WHOLE BAND'S DIVISION, DECIDED ONCE (DIR-4's own principle, one rule
 		further on). `table_columns.layout` answers for EVERY column in one pass,
 		because a floor is a claim on a shared pool: a per-column `resolveDim` could
 		clamp an override but could never know whether the fill beside it had already
 		taken the room. ADAPT-19 is that gap — see the rule's own header. ]]
-	local columnLayout = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return table_columns.layout(
-				columns,
-				use(widthOverrides),
-				use(availableContentWidth),
-				spec.gap,
-				use(cellSides)
-			)
-		end)
+	local columnLayout = ownedFormula(owner, function(use)
+		return table_columns.layout(columns, use(widthOverrides), use(availableContentWidth), spec.gap, use(cellSides))
 	end)
 
 	-- ONE REACTIVE DIM PER COLUMN, SHARED BY THE HEADER AND THE CELLS (DIR-4): a
@@ -1257,10 +1233,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 	local columnDims: { [string]: any } = {}
 	local function columnDim(column: Column): any
 		if columnDims[column.id] == nil then
-			columnDims[column.id] = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					return (use(columnLayout) :: any).dims[column.id]
-				end)
+			columnDims[column.id] = ownedFormula(owner, function(use)
+				return (use(columnLayout) :: any).dims[column.id]
 			end)
 		end
 		return columnDims[column.id]
@@ -1296,39 +1270,31 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 	local columnHiddens: { [string]: any } = {}
 	local function columnHidden(column: Column): any
 		if columnHiddens[column.id] == nil then
-			columnHiddens[column.id] = Compose.withOwner(owner, function()
-				return Compose.formula(function(use)
-					return (use(columnLayout) :: any).hiddenSet[column.id] == true
-				end)
+			columnHiddens[column.id] = ownedFormula(owner, function(use)
+				return (use(columnLayout) :: any).hiddenSet[column.id] == true
 			end)
 		end
 		return columnHiddens[column.id]
 	end
 	-- the collapsed ids in declaration order, and the count the chip says out loud
-	local hiddenColumns = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return (use(columnLayout) :: any).hidden
-		end, function(a: any, b: any): boolean
-			if a == nil or b == nil or #a ~= #b then
+	local hiddenColumns = ownedFormula(owner, function(use)
+		return (use(columnLayout) :: any).hidden
+	end, function(a: any, b: any): boolean
+		if a == nil or b == nil or #a ~= #b then
+			return false
+		end
+		for i = 1, #a do
+			if a[i] ~= b[i] then
 				return false
 			end
-			for i = 1, #a do
-				if a[i] ~= b[i] then
-					return false
-				end
-			end
-			return true
-		end)
+		end
+		return true
 	end)
-	local anyColumnHidden = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return #(use(hiddenColumns) :: { string }) > 0
-		end)
+	local anyColumnHidden = ownedFormula(owner, function(use)
+		return #(use(hiddenColumns) :: { string }) > 0
 	end)
-	local moreLabel = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			return `{#(use(hiddenColumns) :: { string })} more`
-		end)
+	local moreLabel = ownedFormula(owner, function(use)
+		return `{#(use(hiddenColumns) :: { string })} more`
 	end)
 	--[[ ── ONE STATE DECIDES BOTH THE COLLAPSE AND ITS DISCLOSURE ────────────────
 		(review round 1, HIGH-1, 2026-08-20 — and this replaces a build-time
@@ -1436,17 +1402,15 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	local windowedItems = if not virtualized
 		then spec.rows
-		else Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				local all = use(spec.rows) :: { any }
-				local first, last = (use(layoutIndex) :: any).ix.window(use(clampedTop), use(viewportH), OVERSCAN)
-				local out = {}
-				for i = first, math.min(last, #all) do
-					table.insert(out, all[i])
-				end
-				return out
-			end, sameWindow)
-		end)
+		else ownedFormula(owner, function(use)
+			local all = use(spec.rows) :: { any }
+			local first, last = (use(layoutIndex) :: any).ix.window(use(clampedTop), use(viewportH), OVERSCAN)
+			local out = {}
+			for i = first, math.min(last, #all) do
+				table.insert(out, all[i])
+			end
+			return out
+		end, sameWindow)
 
 	local rowKeyForPath: { [string]: string } = {}
 
@@ -1650,22 +1614,20 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 		IT IS SHARED RATHER THAN RE-DERIVED, which is the whole lesson of the two
 		defects above it: every sibling in this band that spells its own gutters is
 		one more place for the budgets to come apart. ]]
-	local bandPadding = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local gutter = use(bodyBarInset)
-			-- the glow gutter is owed only where the body is a clipper that spends it
-			-- (see THE CLIPPER'S GLOW GUTTER): a block table's body reserves nothing,
-			-- so a header that reserved it would sit inside its own rows
-			local glow: any = if bodyPaysGlowGutter then "chromeBleed" else 0
-			return {
-				left = { ROW_ART.left, glow },
-				right = { ROW_ART.right, glow, gutter.right },
-				-- an X-scrolling body reserves off its BOTTOM; Table's body is
-				-- always Y, so this is 0 today and is written from the published
-				-- side rather than assumed away
-				bottom = gutter.bottom,
-			}
-		end)
+	local bandPadding = ownedFormula(owner, function(use)
+		local gutter = use(bodyBarInset)
+		-- the glow gutter is owed only where the body is a clipper that spends it
+		-- (see THE CLIPPER'S GLOW GUTTER): a block table's body reserves nothing,
+		-- so a header that reserved it would sit inside its own rows
+		local glow: any = if bodyPaysGlowGutter then "chromeBleed" else 0
+		return {
+			left = { ROW_ART.left, glow },
+			right = { ROW_ART.right, glow, gutter.right },
+			-- an X-scrolling body reserves off its BOTTOM; Table's body is
+			-- always Y, so this is 0 today and is written from the published
+			-- side rather than assumed away
+			bottom = gutter.bottom,
+		}
 	end)
 
 	--[[ THE BAND'S OWN ROW GAP — MAX'D AGAINST THE ACTIVE PACKAGE'S CHROME
@@ -1701,14 +1663,12 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 		class of fact: the requirement is that the seam be AT LEAST the
 		glow's reach, so a flat package (`chromeBleed` 0) leaves the literal
 		2px byte-for-byte untouched. ]]
-	local rowBandGap = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local env = surfaceEnvironment
-			local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
-			local base = themeSnapshot.resolveNumber(snap, "controls.table.rowGap") or 0
-			local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
-			return math.max(base, bleed)
-		end)
+	local rowBandGap = ownedFormula(owner, function(use)
+		local env = surfaceEnvironment
+		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+		local base = themeSnapshot.resolveNumber(snap, "controls.table.rowGap") or 0
+		local bleed = if type(snap.chromeBleed) == "number" then snap.chromeBleed else 0
+		return math.max(base, bleed)
 	end)
 
 	local children = {}
@@ -1850,10 +1810,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 		than passed through. ]]
 	local canvasHeight = if not virtualized
 		then nil
-		else Compose.withOwner(owner, function()
-			return Compose.formula(function(use)
-				return { type = "fixed", px = (use(layoutIndex) :: any).ix.content }
-			end)
+		else ownedFormula(owner, function(use)
+			return { type = "fixed", px = (use(layoutIndex) :: any).ix.content }
 		end)
 	table.insert(
 		children,
@@ -3671,16 +3629,9 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any)
 end
 
 function table_control.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return buildOwned(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 
 return table_control

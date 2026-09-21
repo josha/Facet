@@ -1,5 +1,7 @@
 --!strict
 local Compose = require("../vendor/compose/core")
+local ownedBuild = require("../core/owned_build")
+local ownedFormula = require("../core/owned_formula")
 --[[ MENU — a freestanding action menu attachable to ANY blueprint
 	(navigation-and-menus brief §2 D2). This is what closes the context-menu construct.
 
@@ -361,16 +363,12 @@ local function build(Facet, core, spec, owner)
 	local function bindStates(items)
 		for _, item in items do
 			if item.checked ~= nil or item.selected ~= nil then
-				local selected = Compose.withOwner(owner, function()
-					return Compose.formula(function(use)
-						return if item.checked ~= nil then use(item.checked) else use(item.selected) == item.value
-					end)
+				local selected = ownedFormula(owner, function(use)
+					return if item.checked ~= nil then use(item.checked) else use(item.selected) == item.value
 				end)
 				selectedByItem[item] = selected
-				hiddenByItem[item] = Compose.withOwner(owner, function()
-					return Compose.formula(function(use)
-						return not use(selected)
-					end)
+				hiddenByItem[item] = ownedFormula(owner, function(use)
+					return not use(selected)
 				end)
 			end
 			if item.children then
@@ -465,39 +463,36 @@ local function build(Facet, core, spec, owner)
 	local classesSource: any = spec.interactionClasses
 		or (if envForFacts ~= nil then envForFacts:get("interactionClasses") else nil)
 
-	local presentationMemo = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local requested = useFact(use, spec.presentation)
-			if requested ~= nil and requested ~= "automatic" then
-				if not PRESENTATIONS[requested] then
-					error(
-						`Facet UI.Menu('{id}'): unknown presentation '{tostring(requested)}' (automatic | menu | sheet). `
-							.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
-						0
-					)
-				end
-				return requested
+	local presentationMemo = ownedFormula(owner, function(use)
+		local requested = useFact(use, spec.presentation)
+		if requested ~= nil and requested ~= "automatic" then
+			if not PRESENTATIONS[requested] then
+				error(
+					`Facet UI.Menu('{id}'): unknown presentation '{tostring(requested)}' (automatic | menu | sheet). `
+						.. "`inline` is a popup idiom — a freestanding menu has no trigger row to open into.",
+					0
+				)
 			end
-			-- PRIMARY, not merely present: one predicate, in the recipe
-			local classes = useFact(use, classesSource)
-			local touchLive = menuRecipe.touchPrimary(classes)
-			local liveSizeClass = useFact(use, sizeClassSource)
-			local resolved = menuRecipe.resolvePresentation(
-				menuRecipe.actionableCount(spec.items),
-				liveSizeClass,
-				touchLive,
-				classes ~= nil and classes.primary == "gamepad"
-			)
-			-- Cascades require both room and pointer precision. A short gamepad root
-			-- still needs one panel when entering a submenu; Back pops its history.
-			if
-				resolved ~= "sheet"
-				and (liveSizeClass == "compact" or (classes ~= nil and classes.primary == "gamepad"))
-			then
-				resolved = "sheet"
-			end
-			return if resolved == "sheet" then "sheet" else "menu"
-		end)
+			return requested
+		end
+		-- PRIMARY, not merely present: one predicate, in the recipe
+		local classes = useFact(use, classesSource)
+		local touchLive = menuRecipe.touchPrimary(classes)
+		local liveSizeClass = useFact(use, sizeClassSource)
+		local resolved = menuRecipe.resolvePresentation(
+			menuRecipe.actionableCount(spec.items),
+			liveSizeClass,
+			touchLive,
+			classes ~= nil and classes.primary == "gamepad"
+		)
+		-- Cascades require both room and pointer precision. A short gamepad root
+		-- still needs one panel when entering a submenu; Back pops its history.
+		if
+			resolved ~= "sheet" and (liveSizeClass == "compact" or (classes ~= nil and classes.primary == "gamepad"))
+		then
+			resolved = "sheet"
+		end
+		return if resolved == "sheet" then "sheet" else "menu"
 	end)
 
 	local function presentationNow(): string
@@ -960,26 +955,24 @@ local function build(Facet, core, spec, owner)
 	end)
 
 	-- A submenu cannot retain input ownership after its parent becomes unavailable.
-	local validOpenChain = Compose.withOwner(owner, function()
-		return Compose.formula(function(use)
-			local chain, valid, items = use(openPath), {}, spec.items
-			for _, identity in chain do
-				local item = itemIn(items, identity)
-				if not item or item.children == nil then
-					break
-				end
-				local state = item.enabled
-				if Compose.isReadable(state) then
-					state = use(state)
-				end
-				if state == false then
-					break
-				end
-				table.insert(valid, identity)
-				items = item.children
+	local validOpenChain = ownedFormula(owner, function(use)
+		local chain, valid, items = use(openPath), {}, spec.items
+		for _, identity in chain do
+			local item = itemIn(items, identity)
+			if not item or item.children == nil then
+				break
 			end
-			return valid
-		end)
+			local state = item.enabled
+			if Compose.isReadable(state) then
+				state = use(state)
+			end
+			if state == false then
+				break
+			end
+			table.insert(valid, identity)
+			items = item.children
+		end
+		return valid
 	end)
 	owner.watchStatic(validOpenChain, function(valid)
 		if not isOpen:peek() or #valid == #openPath:peek() then
@@ -1328,15 +1321,8 @@ local function build(Facet, core, spec, owner)
 end
 
 function menu.build(Facet, core, spec)
-	local parent = Compose.currentOwner()
-	local owner = if parent then parent.createChild() else Compose.createOwner()
-	local ok, result = pcall(Compose.withOwner, owner, function()
+	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
-	if not ok then
-		owner.dispose()
-		error(result, 0)
-	end
-	return result
 end
 return menu

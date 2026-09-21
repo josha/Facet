@@ -85,6 +85,33 @@ function text_distance.nearest(bad: string, candidates: { [string]: any }, maxDi
 	return best
 end
 
+--[[ The closest name in a SORTED ARRAY of vocabulary names, case-folded, or
+	nil. This is the motion vocabularies' policy rather than the closed-key-set
+	one above, and the difference is deliberate — see the header: a key is typed
+	exactly as the schema spells it, a design-system NAME is typed from memory,
+	so this folds case and scales the threshold to the winning name's length
+	(`max(2, floor(#best / 3))`).
+
+	Ties: first in the given order, which for `classes.names()`/`curves.names()`
+	is alphabetical. `motion/classes` and `motion/curves` held byte-identical
+	copies of this until 2026-09-20.
+]]
+function text_distance.nearestFolded(bad: string, names: { string }): string?
+	local best: string? = nil
+	local bestDistance = math.huge
+	local folded = string.lower(bad)
+	for _, name in names do
+		local d = text_distance.distance(folded, string.lower(name))
+		if d < bestDistance then
+			best, bestDistance = name, d
+		end
+	end
+	if best ~= nil and bestDistance <= math.max(2, math.floor(#best / 3)) then
+		return best
+	end
+	return nil
+end
+
 --[[ The legal set as one sorted sentence. `separator` defaults to `", "`; the
 	theme compiler passes `" | "`. It was the same function twice with different
 	punctuation in the error an author reads — which is a real difference worth
