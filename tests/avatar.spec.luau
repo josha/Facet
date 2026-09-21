@@ -240,6 +240,45 @@ t.describe("Avatar", function()
 		t.expect(presencePart(w, base, "Mark").props.tint.transparency).toBe(1)
 		t.expect(presence:peek()).toBeNil()
 	end)
+	t.it("recovers the mounted presence branch and circle classification after a refused value", function()
+		local w = world.new()
+		local presence = Compose.cell("offline")
+		local provider = w.app.newResourceProvider({ bind = false, maxConcurrent = 2 })
+		local record = mount(w, {
+			name = "Ada",
+			key = "demo://native-avatar",
+			provider = provider,
+			presence = presence,
+			presenceLabel = function(use)
+				local state = use(presence)
+				return if state then "Currently " .. state else nil
+			end,
+			controlSize = Compose.cell("regular"),
+			onActivate = function() end,
+		})
+		local base = "/S/Face+target/Face"
+		local sheet = require("../src/tokens/sheet_model")
+		local function check(state, shape, role)
+			local mark = presencePart(w, base, "Mark")
+			local tags = sheet.classifyTags({ shape = mark.props.shape })
+			t.expect(record.dump().presence).toBe(state)
+			t.expect(mountedLabel(w, base)).toBe("Ada, Currently " .. state)
+			t.expect(mark.props.shape).toBe(shape)
+			t.expect(mark.props.tint.role).toBe(role)
+			t.expect(tags[sheet.TAGS.shapePrefix .. "circle"] == true).toBe(shape == "circle")
+		end
+		check("offline", "circle", "contentSecondary")
+		presence:set("invalidPresence")
+		w.pres.refresh()
+		check("offline", "circle", "contentSecondary")
+		presence:set("busy")
+		w.pres.refresh()
+		check("busy", "rect", "danger")
+		presence:set("offline")
+		w.pres.refresh()
+		check("offline", "circle", "contentSecondary")
+		t.expect(presencePart(w, base, "Detail").props.shape).toBe("circle")
+	end)
 	t.it("suppresses marks without deleting their semantic state", function()
 		local w = world.new()
 		local record = mount(w, { name = "Ada", presence = "away", presenceMark = false, onActivate = function() end })

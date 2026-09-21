@@ -79,6 +79,7 @@ local function create(): Reactor
 			local ok, err: any = xpcall(runRest, debug.traceback)
 			if not ok then
 				Graph.restoreEvaluationContext(context)
+				Graph.rearm(queue[cursor])
 				local errors: { string } = drainErrors or {}
 				drainErrors = errors
 				table.insert(errors, tostring(err))
@@ -193,6 +194,7 @@ local function create(): Reactor
 		local ok, err: any = xpcall(watch.run, debug.traceback, watch)
 		if not ok then
 			Graph.restoreEvaluationContext(context)
+			Graph.rearm(watch)
 		end
 		local errors: { string }? = nil
 		if queueCount > 0 then
