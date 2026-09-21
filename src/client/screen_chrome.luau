@@ -532,6 +532,7 @@ function screen_chrome.new(ctx: Context)
 			child.ImageColor3 = tint or Color3.new(1, 1, 1)
 		end
 		handle.iconKey = key
+		handle.iconContentPaint = resolved.tintRole == "content"
 		if handle.iconArt ~= true then
 			handle.iconArt = true
 			if not nativeMode then
@@ -540,8 +541,8 @@ function screen_chrome.new(ctx: Context)
 					(handle.instance :: any).TextTransparency = 1
 				end)
 			end
-			syncTags(handle)
 		end
+		syncTags(handle)
 		-- the lifted label mirrors the node's text, so it has to go too, or the
 		-- glyph reappears ABOVE the picture on every skinned node
 		destroyChromeText(handle)

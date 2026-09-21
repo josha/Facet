@@ -766,6 +766,7 @@ require("./chip.spec")
 -- the shared local size/appearance vocabulary (controlSize/appearance/corners/over)
 -- and its first two adopters
 require("./control_vocabulary.spec")
+require("./control_content.spec")
 require("./fill_minimum.spec")
 require("./authoring.spec")
 require("./layout_vocabulary.spec")

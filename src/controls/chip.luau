@@ -82,6 +82,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		when asked for: with neither, the chip stays exactly the label-only Button it
 		has always been (the leaf draws the label itself, and a wrapper would change
 		both the mounted paths and the measured box for every chip that shipped). ]]
+	local chromeSlots = require("../tokens/chrome_slots")
 	local accessories = spec.leading ~= nil or spec.trailing ~= nil
 	local children: { any }? = nil
 	if accessories then
@@ -89,7 +90,13 @@ function chip.build(Facet: any, core: any, spec: any)
 		if spec.leading ~= nil then
 			table.insert(row, spec.leading)
 		end
-		table.insert(row, UI.Text({ id = "Label", text = label, textSize = "control" }))
+		table.insert(
+			row,
+			chromeSlots.attachHint(
+				UI.Text({ id = "Label", text = label, textSize = "control" }),
+				{ contentOwnerDepth = 2 }
+			)
+		)
 		if spec.trailing ~= nil then
 			table.insert(row, spec.trailing)
 		end

@@ -470,7 +470,7 @@ local function build(Facet, core, spec, owner)
 				-- will be dropped into rather than a width with the glyph's own height
 				height = iconBox,
 			}),
-			{ icon = iconName }
+			{ icon = iconName, contentOwnerDepth = 1 }
 		)
 	end
 	local semanticIcons = (spec.icon ~= nil or spec.trailingIcon ~= nil) and spec.shape ~= "circle"
@@ -482,7 +482,12 @@ local function build(Facet, core, spec, owner)
 	elseif hasContent then
 		content = if spec.children
 			then table.clone(spec.children)
-			else { UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }) }
+			else {
+				chromeSlots.attachHint(
+					UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }),
+					{ contentOwnerDepth = if imageForm then 3 else 1 }
+				),
+			}
 	end
 	if semanticIcons then
 		-- the icon forms replace the default label child rather than joining it: an
@@ -492,7 +497,13 @@ local function build(Facet, core, spec, owner)
 			table.insert(content, iconView("Icon", spec.icon))
 		end
 		if hasVisibleContent then
-			table.insert(content, UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }))
+			table.insert(
+				content,
+				chromeSlots.attachHint(
+					UI.Text({ id = "Label", text = spec.label or "", textSize = "control" }),
+					{ contentOwnerDepth = if imageForm then 3 else 1 }
+				)
+			)
 		end
 		if spec.trailingIcon ~= nil then
 			table.insert(content, iconView("TrailingIcon", spec.trailingIcon))

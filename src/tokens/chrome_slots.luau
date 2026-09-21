@@ -906,6 +906,7 @@ end
 -- fallback glyph as that node's text, so the request is an upgrade rather than a
 -- dependency: no theme art, no problem.
 export type Hint = {
+	contentOwnerDepth: number?, -- generated primary content: logical ancestor Button, never a physical-parent guess
 	slot: string?,
 	image: string?,
 	imageVariants: { [string]: { asset: string } }?,
@@ -969,6 +970,15 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 			.. "positive px number, or a non-empty list of either that sums (see the type's comment; "
 			.. "zero would mean 'reserved nothing', which is `nil`)"
 	)
+	assert(
+		hint.contentOwnerDepth == nil
+			or (
+				type(hint.contentOwnerDepth) == "number"
+				and hint.contentOwnerDepth >= 1
+				and hint.contentOwnerDepth % 1 == 0
+			),
+		"chrome_slots.attachHint: contentOwnerDepth must be a positive integer"
+	)
 	local meta = if blueprint.meta ~= nil then table.clone(blueprint.meta) else {}
 	meta[chrome_slots.META_KEY] = table.freeze({
 		slot = hint.slot,
@@ -977,6 +987,7 @@ function chrome_slots.attachHint(blueprint: any, hint: Hint): any
 		icon = hint.icon,
 		iconSize = hint.iconSize,
 		footprint = hint.footprint,
+		contentOwnerDepth = hint.contentOwnerDepth,
 	})
 	if require("../vendor/compose/core").custodyOf(blueprint) == "owned" then
 		blueprint.meta = table.freeze(meta)
@@ -1045,6 +1056,9 @@ function chrome_slots.hintKey(hint: Hint?): string
 		tostring(hint.iconSize),
 		footprint,
 	}
+	if hint.contentOwnerDepth ~= nil then
+		table.insert(parts, "contentOwner=" .. tostring(hint.contentOwnerDepth))
+	end
 	if type(hint.imageVariants) == "table" then
 		local states = {}
 		for state, entry in hint.imageVariants do

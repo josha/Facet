@@ -7812,6 +7812,14 @@ A circle keeps its one authored width or height; a rung supplies the axis only
 when neither was authored. Its existing icon-content minimum still applies.
 `trailingIcon` is refused with `shape = "circle"`, whose primitive form carries one mark.
 
+Generated primary labels and content-tinted semantic icons follow the Button's
+role, appearance, selection and interaction state through native sheet rules.
+Caller-provided children and Chip accessories retain their own roles; image
+subtitles stay secondary, and package icons with explicit semantic tint roles
+retain those tints. Palette/token edits and theme changes reach this generated
+content. Editing only the root's individual StyleRule is not a general inheritance
+mechanism for its separately styled content.
+
 
 Plain text buttons accept `compactLabel`, a short alternate title or icon specification
 with the same rules as `UI.Button.compactLabel`. Do not combine it with custom

@@ -1054,8 +1054,8 @@ end
 	`soft` and `utility` deliberately hand their plate BACK to the control ramp on
 	interaction — a quiet control becoming an ordinary one is the right read for a
 	press — and the rule exists to carry $Content with it rather than to stop the
-	fill moving. `link` restates its own transparency so no later fill can reveal a
-	plate under it.
+	fill moving. `link` changes only its lettering; the resting rule keeps its
+	plate invisible.
 
 	SEPARATE FROM `emitVocabularyChrome` because the two halves belong at different
 	points in the cascade, and `buildPackage` emits the generic states hundreds of
@@ -1154,6 +1154,73 @@ export type BuildOpts = {
 	-- the display class this sheet is painted for; see BuildPackageOpts.displaySize
 	displaySize: string?,
 }
+
+-- Generated primary content is logically owned by a Button even when native
+-- instances are flat siblings. Only classification/state travels; paint stays in
+-- the sheet. This is semantic control paint, not arbitrary StyleRule inheritance.
+sheet_model.CONTENT_OWNER_PREFIX = "facet-content-owner-"
+sheet_model.CONTENT_TEXT_TAG = "facet-control-content-text"
+sheet_model.CONTENT_ICON_TAG = "facet-control-content-icon"
+function sheet_model.contentTags(tags: { string }, state: string): { [string]: boolean }
+	local out = { [sheet_model.CONTENT_OWNER_PREFIX .. "button"] = true }
+	for _, tag in tags do
+		if string.sub(tag, 1, 6) == "facet-" then
+			out[sheet_model.CONTENT_OWNER_PREFIX .. tag] = true
+		end
+	end
+	if state == "Hover" or state == "Press" or state == "NonInteractable" then
+		out[sheet_model.CONTENT_OWNER_PREFIX .. "state-" .. state] = true
+	end
+	return out
+end
+
+local function projectContentRules(rules: { Rule })
+	local count = #rules
+	for i = 1, count do
+		local source = rules[i]
+		if source.props.TextColor3 == nil then
+			continue
+		end
+		local selector = source.selector
+		local rest = string.gsub(selector, "^TextButton", "")
+		rest = string.gsub(rest, "%.facet[%w%-]+", "")
+		rest = string.gsub(rest, ":Hover", "")
+		rest = string.gsub(rest, ":Press", "")
+		rest = string.gsub(rest, ":NonInteractable", "")
+		-- Only simple owner selectors: no TextLabel/TextBox defaults, descendants,
+		-- phantom modifiers, or author combinators silently reinterpreted as ownership.
+		if rest ~= "" then
+			continue
+		end
+		selector = string.gsub(selector, "%.(facet[%w%-]+)", function(tag)
+			return "." .. sheet_model.CONTENT_OWNER_PREFIX .. tag
+		end)
+		selector = string.gsub(selector, "^TextButton", "." .. sheet_model.CONTENT_OWNER_PREFIX .. "button")
+		selector = string.gsub(selector, ":(%a+)", "." .. sheet_model.CONTENT_OWNER_PREFIX .. "state-%1")
+		for _, channel in
+			{
+				{ "text", sheet_model.CONTENT_TEXT_TAG, "TextColor3" },
+				{ "icon", sheet_model.CONTENT_ICON_TAG, "ImageColor3" },
+			}
+		do
+			local transition = source.transitions and source.transitions.TextColor3
+			local contentSelector = "." .. channel[2] .. selector
+			sheet_model.checkSelector(contentSelector, source.name)
+			-- ImageColor3 targets only the managed FacetIcon, the existing chrome authority.
+			local allowed, reason =
+				themePackage.lintProperty(channel[3], if channel[1] == "icon" then "chrome" else "rule")
+			assert(allowed, reason)
+			sheet_model.checkContentValue(source.name, channel[3], source.props.TextColor3)
+			table.insert(rules, {
+				name = "Control content " .. channel[1] .. " — " .. source.name,
+				selector = contentSelector,
+				props = { [channel[3]] = source.props.TextColor3 },
+				transitions = if transition then { [channel[3]] = transition } else nil,
+				priority = (#rules + 1) * 10,
+			})
+		end
+	end
+end
 
 function sheet_model.build(opts: BuildOpts): Model
 	assert(
@@ -1580,6 +1647,8 @@ function sheet_model.build(opts: BuildOpts): Model
 	table.insert(mirrors, { name = "TargetMinimum", value = base.targetSizes.minimum })
 	table.insert(mirrors, { name = "MotionFast", value = base.motion.fast })
 	table.insert(mirrors, { name = "MotionNormal", value = base.motion.normal })
+
+	projectContentRules(rules)
 
 	-- deterministic stamp over everything the generator writes
 	local parts: { string } = {}
@@ -3406,6 +3475,8 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			rule.priority = #rules * 10
 		end
 	end
+
+	projectContentRules(rules)
 
 	-- ----- mirrors: what the Style Editor SHOWS about this package ---------
 	local mirrors: { { name: string, value: number } } = {}
