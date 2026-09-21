@@ -173,7 +173,11 @@ function drag_bridge.new(ctx: DragBridgeCtx)
 	-- an engine without `UIDragDetector` answers nil and the caller falls back
 	-- to the framework's own pointer capture — the ONE thing that must never differ
 	-- between the two paths is the promotion rule, which lives in the registry.
-	local function attachDetector(path: string, handlers: any): (() -> ())?
+	-- `policy` carries the DECLARATION's answer about touch down to the engine's
+	-- own acquisition (`declineTouch`), which until now only the framework's
+	-- capture path could honour — an adapter that ignores the third argument
+	-- behaves exactly as it did.
+	local function attachDetector(path: string, handlers: any, policy: any): (() -> ())?
 		if adapter.setDragDetector == nil then
 			return nil
 		end
@@ -181,7 +185,7 @@ function drag_bridge.new(ctx: DragBridgeCtx)
 		if handle == nil then
 			return nil
 		end
-		return adapter.setDragDetector(handle, handlers)
+		return adapter.setDragDetector(handle, handlers, policy)
 	end
 
 	-- the surface is going away, so the model goes with it. Clearing the scalar is

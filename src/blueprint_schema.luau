@@ -1003,7 +1003,9 @@ local BOX: { [string]: PropSpec } = {
 		channel = "layout",
 		doc = "horizontal offset from the anchor point (arrange-only update); a number, a theme metric name, "
 			.. "or a fraction of the parent's inner width ({ scale = 0.5, offset? }). Read by an Anchor parent, "
-			.. "and by a ScrollView as a scroll-time nudge; a stack, grid or wrap parent places by flow and ignores it",
+			.. "and by a ScrollView as a scroll-time nudge; a stack, grid or wrap parent places by flow and "
+			.. "ignores it (`UI.offset(bp, x, y)` writes this pair, and is a LAYOUT offset — the separate "
+			.. "`offset` PROP is a paint-only translation)",
 	}),
 	offsetY = p({
 		types = { "number", "scaleOffset", "metric" },
@@ -1011,8 +1013,11 @@ local BOX: { [string]: PropSpec } = {
 		dirty = { "arrange" },
 		shared = true,
 		channel = "layout",
-		doc = "vertical offset from the anchor point (arrange-only update); a number, a theme metric name, . Read by an Anchor parent, and by a ScrollView as a scroll-time nudge; a stack, grid or wrap parent ignores it"
-			.. "or a fraction of the parent's inner height ({ scale = 0.5, offset? })",
+		doc = "vertical offset from the anchor point (arrange-only update); a number, a theme metric name, "
+			.. "or a fraction of the parent's inner height ({ scale = 0.5, offset? }). Read by an Anchor parent, "
+			.. "and by a ScrollView as a scroll-time nudge; a stack, grid or wrap parent places by flow and "
+			.. "ignores it (`UI.offset(bp, x, y)` writes this pair, and is a LAYOUT offset — the separate "
+			.. "`offset` PROP is a paint-only translation)",
 	}),
 	-- PER-CHILD CROSS-AXIS ALIGNMENT INSIDE A STACK'S LINE (parity round 2 §2.1) —
 	-- Roblox's `ItemLineAlignment`, and the fix for a word that meant two things.
@@ -1118,7 +1123,10 @@ local BOX: { [string]: PropSpec } = {
 		shared = true,
 		enum = { "start", "center", "end" },
 		channel = "layout",
-		doc = "horizontal alignment inside a ZStack parent (start|center|end)",
+		doc = "horizontal alignment inside a ZStack parent (start|center|end). Read by a ZStack (and by a "
+			.. "Grid/GridRow for its cells) off each child, and a ZStack also reads its OWN as the fallback "
+			.. "for a child that names none; under a stack, wrap, Anchor or ScrollView it is inert — a stack "
+			.. "aligns its line with `align` and one child within it with `lineAlign`",
 	}),
 	alignV = p({
 		types = { "string" },
@@ -1127,7 +1135,10 @@ local BOX: { [string]: PropSpec } = {
 		shared = true,
 		enum = { "start", "center", "end" },
 		channel = "layout",
-		doc = "vertical alignment inside a ZStack parent (start|center|end)",
+		doc = "vertical alignment inside a ZStack parent (start|center|end). Read by a ZStack (and by a "
+			.. "Grid/GridRow for its cells) off each child, and a ZStack also reads its OWN as the fallback "
+			.. "for a child that names none; under a stack, wrap, Anchor or ScrollView it is inert — a vertical "
+			.. "stack distributes ALONG its axis with `distribute`",
 	}),
 	-- style modifiers (UI.shadow / UI.corners write these; authored directly
 	-- they must already be normalized style data)
@@ -1280,7 +1291,10 @@ local BOX: { [string]: PropSpec } = {
 		dirty = { "paint" },
 		shared = true,
 		channel = "presentation",
-		doc = "paint-only translation in px from the node's SOLVED position ({x=,y=}; 0,0 = unmoved). It "
+		doc = "paint-only translation in px from the node's SOLVED position ({x=,y=}; 0,0 = unmoved). "
+			.. "It is NOT `UI.offset(bp, x, y)`, which writes the layout pair `offsetX`/`offsetY` an Anchor "
+			.. "parent reads; this one applies under any parent at all, and changes nothing the layout "
+			.. "sees. It "
 			.. "changes nothing the solver sees — the box, the hit target and the focus order stay at the "
 			.. "solved position; to change WHERE a node is, change its layout (margin, Anchor offsets, "
 			.. "position in the tree) — and it ADDS to any offset the framework is applying (a slide "

@@ -1578,7 +1578,7 @@ t.describe("Virtual Monitors shared presentations", function()
 		wideSettle(5)
 		-- 1920x1080: plenty of room, so every region's RICHEST form is standing.
 		for _, id in { "Look", "Rotation", "Spin" } do
-			local rich = wideAdapter.node(`/S/Avatar/PreviewHud/{id}/{id}Rich`)
+			local rich = wideAdapter.node(`/S/Avatar/PreviewHudArea/PreviewHud/{id}/{id}Rich`)
 			t.expect(rich and rich.rect.w > 0 and rich.rect.h > 0).toBe(true)
 		end
 		wide.dispose()
@@ -1590,7 +1590,7 @@ t.describe("Virtual Monitors shared presentations", function()
 		end)
 		settle(5)
 		-- 393x852: at least one region has stepped down to a reduced form.
-		local reduced = adapter.node("/S/Avatar/PreviewHud/Look/LookRich")
+		local reduced = adapter.node("/S/Avatar/PreviewHudArea/PreviewHud/Look/LookRich")
 		t.expect(reduced == nil or reduced.rect.w == 0).toBe(true)
 		local function suffixed(suffix)
 			for _, path in adapter.paths() do

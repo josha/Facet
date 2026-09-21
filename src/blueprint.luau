@@ -2001,7 +2001,42 @@ end
 -- LEGALITY IS ALWAYS THE GAME'S. `accepts(payload) -> (legal, reason?)` is the
 -- only place a rule enters, and the reason code comes back out through the
 -- `reject` event so a refusal is never silent.
-export type FocusSectionSpec = { entry: string?, preferred: string? }
+--[[ A FOCUS SECTION IS A REGION OF THE RING, and `entry`/`preferred` say where
+	the ring lands when NAVIGATION walks into it. `focusOnAppear`/`returnFocus` are
+	the other half of that sentence: where focus goes when the region ARRIVES, and
+	where it goes back to when the region LEAVES.
+
+	The gap they close (found live, 2026-09-20): a card opened from the keyboard
+	put the ring on the app's TAB STRIP. Nothing was wrong with the graph — the
+	branch that opened declared `enabled = false` on the column underneath, so
+	every stop the ring could have been on went ineligible in the same frame the
+	detail arrived, and the nearest surviving neighbour was three levels up and
+	outside the app. A surface has had this since `presenter.initialFocus`; an
+	in-page branch (`UI.When`, `Compose.show`, a route) had no spelling for it at
+	all, and an in-page branch is how most of a real screen opens and closes.
+
+	  focusOnAppear = true          the section's first focusable, when it appears
+	  focusOnAppear = "Back"        that descendant id, matched like `preferred`
+	  returnFocus  = true           remember what held focus when this section
+	                                appeared, and put it back when it goes away
+
+	They are independent on purpose: a panel that claims focus need not give it
+	back (a route that replaces its parent), and a panel that gives focus back need
+	not have claimed it (a sheet the player opened by pointer). Used together they
+	are the open/close pair every overlay wants.
+
+	RESTORE IS BY PATH, and the path is re-checked at the moment it is spent: a
+	target that no longer exists, or that is no longer eligible, falls through to
+	the surviving scope's own entry rule rather than leaving the ring nowhere. A
+	windowed list that recycled the row under that path will restore the ring to
+	THAT SLOT, which is where the player left it on screen, not to the item that
+	used to be in it. ]]
+export type FocusSectionSpec = {
+	entry: string?,
+	preferred: string?,
+	focusOnAppear: (boolean | string)?,
+	returnFocus: boolean?,
+}
 function blueprint.focusSection(bp: Blueprint, spec: FocusSectionSpec?): Blueprint
 	local options = spec or {}
 	assert(type(bp) == "table" and ({
@@ -2015,8 +2050,21 @@ function blueprint.focusSection(bp: Blueprint, spec: FocusSectionSpec?): Bluepri
 		Anchor = true,
 	})[bp.class], "UI.focusSection requires a mounted layout container")
 	for key in options do
-		assert(key == "entry" or key == "preferred", `unknown focusSection field '{key}'`)
+		assert(
+			key == "entry" or key == "preferred" or key == "focusOnAppear" or key == "returnFocus",
+			`unknown focusSection field '{key}'`
+		)
 	end
+	assert(
+		options.focusOnAppear == nil
+			or options.focusOnAppear == true
+			or (type(options.focusOnAppear) == "string" and options.focusOnAppear ~= ""),
+		"focusSection.focusOnAppear must be true or a non-empty descendant id"
+	)
+	assert(
+		options.returnFocus == nil or type(options.returnFocus) == "boolean",
+		"focusSection.returnFocus must be a boolean"
+	)
 	assert(
 		options.entry == nil or options.entry == "first" or options.entry == "restore" or options.entry == "nearest",
 		"focusSection.entry must be first | restore | nearest"

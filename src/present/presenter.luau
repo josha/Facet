@@ -2089,6 +2089,28 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- when the tree does. The epoch is strictly more conservative than that — it
 		-- also bumps on `navigation`/`semantics` dirt — so nothing that could reach the
 		-- comparison below is missed.
+		--[[ IS THIS SCOPE GROUPED? ASKED EVERY PRESS, NOT ONCE (live defect, 2026-09-20).
+			`navigationGroups` above is the map derived AT PRESENT TIME, and two pieces
+			of input wiring used to read it directly: which graph verb Down spends
+			(`navigateDirection` vs the flat `navigate`) and whether a `NavigateH`
+			action exists at all. Both are permanent decisions about a fact that is
+			not permanent — `syncContributions` below already UPGRADES a surface to
+			`autoGroups` when a grouped control mounts late, and `surface_lifecycle`
+			already republishes the groups through `graph.replaceGroups`, so the GRAPH
+			was grouped while the KEYS still walked a flat ring.
+
+			Measured live on the showcase (hd_1080, Screen mode, keyboard): the Desktop
+			surface is presented while `desktop.luau`'s `Compose.show(progress > 0)` is
+			still closed, so it is presented EMPTY; the tab strip, the header and the
+			hero carousel all arrive later. Down walked every one of them in document
+			order — three tab stops, three header stops, then each hero page as its own
+			stop — and Left/Right did nothing, because there was no NavigateH to do it.
+			`groupedScope` is that same question kept live: set when the upgrade fires,
+			and the horizontal action is bound at the same moment. ]]
+		local groupedScope = navigationGroups ~= nil
+		-- set below, once the input context and its actions exist; binding the
+		-- horizontal keys is the other half of an upgrade and cannot happen here
+		local onGroupedUpgrade: (() -> ())? = nil
 		local contribEpoch: number? = nil
 		local function syncContributions()
 			local epoch = if controller.structureEpoch ~= nil then controller.structureEpoch() else nil
@@ -2137,6 +2159,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 						navigationGroupsFn = autoGroups
 						if surfaceRef ~= nil then
 							surfaceRef.navigationGroupsFn = autoGroups
+						end
+						-- ...and the INPUT half of the same upgrade: Down starts
+						-- spending `navigateDirection`, and Left/Right become a real
+						-- horizontal direction on this surface for the first time
+						groupedScope = true
+						if onGroupedUpgrade ~= nil then
+							onGroupedUpgrade()
 						end
 						break
 					end
@@ -2287,10 +2316,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- without this the pad could reach the strip and not walk it. Read at present
 		-- time, which is why chrome is presented before the screens that adopt it
 		-- (FocusScope.chrome).
-		local navigateH = if navigationGroups ~= nil or graph.hasChromeScope()
-			then context.createAction("NavigateH", "Direction1D")
-			else nil
-		if navigateH ~= nil then
+		--
+		-- THE ACTION ALWAYS EXISTS; ITS KEYS DO NOT (see `groupedScope` above). An
+		-- unbound action costs nothing and fires nothing — the same deal `traverse`
+		-- takes for Tab — and having the object lets a LATE upgrade claim the
+		-- horizontal keys without reaching back into a context that is already built.
+		-- A flat surface that never upgrades therefore still shadows no arrow key.
+		local navigateH = context.createAction("NavigateH", "Direction1D")
+		local navigateHBound = false
+		local function bindNavigateH()
+			if navigateHBound then
+				return
+			end
+			navigateHBound = true
 			navigateH.bind({ keyCode = "Left", direction = -1 })
 			navigateH.bind({ keyCode = "Right", direction = 1 })
 			navigateH.bind({ keyCode = "DPadLeft", direction = -1 })
@@ -2299,6 +2337,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- horizontal axis on a grouped screen, same latch as the vertical.
 			navigateH.bindAxis({ axis = "Thumbstick1", component = "x" })
 		end
+		if groupedScope or graph.hasChromeScope() then
+			bindNavigateH()
+		end
+		onGroupedUpgrade = bindNavigateH
 		activate.bind({ keyCode = "Return" })
 		activate.bind({ keyCode = "ButtonA" })
 		-- horizontal keys bind ONLY when the screen opts in (onAdjust): a
@@ -2446,7 +2488,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			local axis = state
 			local action = adjustAxis
 			if state == "legacy" then
-				if navigateH ~= nil then
+				if navigateHBound then
 					return bound -- grouped screen: the arrows stay with Navigate
 				end
 				axis = "horizontal" -- flat screen: nothing else wants them
@@ -3163,8 +3205,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				syncFocusToAim()
 				return
 			end
-			if navigationGroups ~= nil then
+			if groupedScope then
 				-- direction-aware vertical movement for grouped scopes
+				-- (`groupedScope`, not the present-time map: a surface that was
+				-- presented empty and grouped itself later walks its groups too)
 				graph.navigateDirection(vertical)
 				local focused = graph.focused:peek()
 				if focused ~= nil then
@@ -3355,7 +3399,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			if adjustStateBound == "vertical" then
 				navigateVertical(dir)
-			elseif navigateH ~= nil then
+			elseif navigateHBound then
 				navigateHorizontal(dir)
 			end
 			-- A YIELD ENDS THIS PRESS, AND HAS TO SAY SO. The key-up that would put

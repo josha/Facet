@@ -23,6 +23,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 
 local defaultStyle = require("../tokens/default_style")
 local defaultLightStyle = require("../tokens/default_light_style")
@@ -33,6 +34,19 @@ local chrome_slots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
 local styling = require("../tokens/styling")
+--[[ AND THE ONE SWITCH THAT NEEDS AN ENGINE TO ANSWER IT. `placement_warnings`
+	says an inert placement prop out loud, and its whole contract is "in Studio,
+	never in a shipped game" — a question only a file that already knows the
+	engine can ask, which is this one and not the pure layout module that owns
+	the rule. Set at REQUIRE time rather than per target: `IsStudio` cannot change
+	inside a session, and a second ScreenTarget must not re-arm a switch a host
+	deliberately turned off. A host that wants the warnings elsewhere (a soak run,
+	a QA build) calls `setEnabled` itself, which is why this does not clear it. ]]
+local placementWarnings = require("../layout/placement_warnings")
+local touchDragArm = require("../input/touch_drag_arm")
+if RunService:IsStudio() then
+	placementWarnings.setEnabled(true)
+end
 local native_style = require("./native_style")
 -- the chrome/decoration materializer, extracted from this file (Studio's
 -- 200_000-byte `Source` ceiling). Strictly one-way: it never requires back.
@@ -2495,6 +2509,55 @@ function screen_target.new(opts: Opts?)
 		end
 		return ok
 	end)()
+	--[[ THE DETECTOR CLAIMS A TOUCH THAT WAS NEVER MEANT FOR IT (live phone
+		measurement, 2026-09-20). A `UIDragDetector` owns the finger from the press,
+		and it owns it whether or not the press ever becomes a drag — so on a phone
+		the Discover feed could not be scrolled at all: a 230 px flick starting on a
+		card left the scroller's `CanvasPosition` at `0, 0`, and disabling the three
+		detectors and repeating the identical gesture scrolled it to `0, 249.2`.
+
+		This also made `declineTouch` a half-kept promise. The registry honours it
+		(`drag_registry.pointerDown` refuses a touch press on such a source) and the
+		framework's own capture path therefore hands the gesture back — but the
+		NATIVE path never asked, because the detector is an engine object that took
+		the touch before Facet saw it. A declaration that says "not with a finger"
+		was disabling Facet's drag and leaving the engine's claim in place, which is
+		the worst of the two.
+
+		The fix is to ARM the acquisition rather than leave it standing:
+
+		  · on an engine with no touch at all, nothing changes — the detector is
+		    created enabled, exactly as before, and no desk behaviour moves;
+		  · on a touch-capable engine it is created DISARMED and armed by the press
+		    itself: a mouse button arms it in the same event, a finger arms only
+		    after `touchDragArm.holdMs` of holding still, and never at all when the
+		    policy declines touch;
+		  · a finger that travels past `touchDragArm.slopPx` first releases the
+		    gesture for good, and the scroller (or the row's own swipe) keeps it.
+
+		AND A FINGER'S ARM DOES NOT GO THROUGH THE DETECTOR AT ALL. An earlier
+		round recorded the opposite as an engine fact — "a detector enabled
+		mid-touch adopts the finger already down" — and it is WRONG as relied on
+		here. Measured on the phone profile, twice, with listeners on all three
+		detectors: a press on a card, a 280 ms hold, `Enabled` observed going
+		`false -> true` under the still finger, then 600 px of movement and a
+		lift — and `DragStart` never fired once. (Re-measured with the ancestor
+		scroller already disabled before the press, to rule the suppression out:
+		same result.) What the earlier round most likely measured is a detector
+		that was ENABLED when the touch began, briefly disabled and re-enabled —
+		the engine had already registered the finger. A detector that was disabled
+		at the press never sees that touch, and nothing later gives it one.
+
+		So an armed FINGER is driven by the framework instead, through the very
+		handlers this adapter was given: `onStart` at the arm, `onContinue` from
+		`UserInputService.TouchMoved`, `onEnd` from `TouchEnded`. That is not a
+		second drag implementation — every one of those three lands in the same
+		`drag_registry` the detector's own callbacks land in, so promotion,
+		legality, the ghost, the verdict and the drop are one code path. The
+		detector stays the acquisition for every non-touch pointer, which is what
+		it is good at. `TouchMoved` rather than the node's own `InputChanged` is
+		load-bearing: a drag's whole purpose is to leave the node it started on,
+		and `InputChanged` stops the moment the finger does. ]]
 	function adapter.setDragDetector(
 		handle: any,
 		handlers: {
@@ -2503,7 +2566,10 @@ function screen_target.new(opts: Opts?)
 			-- 2026-07-23) — never a per-frame delta (verifier F5)
 			onContinue: ((pos: { x: number, y: number }, totalOffset: { x: number, y: number }) -> ())?,
 			onEnd: ((pos: { x: number, y: number }) -> ())?,
-		}
+		},
+		-- `touch = "decline"` mirrors the declaration's `declineTouch` onto the
+		-- engine's own acquisition; absent or "hold" takes the long-press arm
+		policy: { touch: string? }?
 	): (() -> ())?
 		if not hasUIDragDetector or opts ~= nil and (opts :: any).forceDragFallback == true then
 			return nil
@@ -2551,6 +2617,228 @@ function screen_target.new(opts: Opts?)
 				end
 			end),
 		}
+		--[[ THE ARM. `UserInputService.TouchEnabled` is read ONCE, as a device fact:
+			a machine with no touchscreen has nothing to arbitrate and keeps the
+			pre-arm behaviour byte for byte, so the whole of this is dead weight on a
+			desk and cannot regress a mouse there.
+
+			On a touch-capable engine the three observers below sit on the node's OWN
+			instance and only observe — `InputBegan`/`InputChanged`/`InputEnded` on a
+			GuiObject sink nothing, the same property `setSecondaryActivate` and
+			`enableDisclosure` already rely on — so while the detector is disarmed the
+			scroller underneath is in exactly the state it is in when no drag is
+			declared at all. ]]
+		local declinesTouch = policy ~= nil and policy.touch == "decline"
+		if UserInputService.TouchEnabled then
+			detector.Enabled = false
+			--[[ THE PAGE MUST NOT PAN UNDER THE CARD THE PLAYER IS CARRYING. The
+				nearest scrolling ancestor is resolved ONCE, at attach: a drag moves the
+				proxy ghost, not the node, so the node never changes parents mid-gesture
+				and re-walking per press would only cost frames. Precedent for turning
+				`ScrollingEnabled` off for the duration of a gesture the framework is
+				driving is `screen_pointer`'s paging capture. ]]
+			local scroller = instance:FindFirstAncestorWhichIsA("ScrollingFrame")
+			local scrollerWasEnabled = true
+			--[[ THE FRAMEWORK DRIVES AN ARMED FINGER (see the header measurement).
+				`liveTouch` is the InputObject the arm is arbitrating; once it arms, the
+				gesture is followed on `UserInputService` rather than on the node,
+				because a drag exists in order to leave the node it started on and the
+				node's own `InputChanged` stops at its edge. The three calls below are
+				the SAME `handlers` the detector's own events call, so both acquisitions
+				land in one registry, one promotion rule and one session. ]]
+			local liveTouch: any = nil
+			local touchConns: { any } = {}
+			local pressConns: { any } = {}
+			local session: any = nil
+			local function clearPressConns()
+				for _, c in pressConns do
+					c:Disconnect()
+				end
+				table.clear(pressConns)
+			end
+			local function stopTouchDrive()
+				for _, c in touchConns do
+					c:Disconnect()
+				end
+				table.clear(touchConns)
+				liveTouch = nil
+			end
+			--[[ AN INPUT POSITION IS NOT A WINDOW POSITION (measured, phone profile).
+				`InputObject.Position` is in the engine's inset-RESPECTING screen space,
+				and Facet's roots are `IgnoreGuiInset = true` — their window space starts
+				at the true top of the screen, which is the inset higher. The difference
+				is invisible in x and is the whole defect in y: driven raw, a drop aimed
+				at a header control landed the height of the top bar above it and hit
+				nothing (the ghost settled at window y 46 for a target spanning 82..128,
+				and no drop fired). The detector's OWN positions need no correction —
+				they already arrive in the LayerCollector's space, per `toPos` above —
+				so this conversion belongs here and nowhere else. ]]
+			local function windowPos(p: Vector2): { x: number, y: number }
+				local inset = GuiService:GetGuiInset()
+				return { x = p.X + inset.X, y = p.Y + inset.Y }
+			end
+			local function startTouchDrive()
+				local input = liveTouch
+				if input == nil then
+					return
+				end
+				clearPressConns() -- the drive follows the same finger from here
+				local origin = windowPos(input.Position)
+				-- `armed` is what tells the registry the promotion is already spent
+				if handlers.onStart then
+					handlers.onStart({ x = origin.x, y = origin.y, pointerType = "touch", armed = true } :: any)
+				end
+				session:dragStarted()
+				table.insert(
+					touchConns,
+					UserInputService.TouchMoved:Connect(function(touch: any)
+						if touch ~= input or handlers.onContinue == nil then
+							return
+						end
+						local p = windowPos(touch.Position)
+						handlers.onContinue(
+							{ x = p.x, y = p.y, pointerType = "touch" } :: any,
+							{ x = p.x - origin.x, y = p.y - origin.y }
+						)
+					end)
+				)
+				table.insert(
+					touchConns,
+					UserInputService.TouchEnded:Connect(function(touch: any)
+						if touch ~= input then
+							return
+						end
+						local p = windowPos(touch.Position)
+						if handlers.onEnd then
+							handlers.onEnd({ x = p.x, y = p.y, pointerType = "touch" } :: any)
+						end
+						session:dragEnded()
+					end)
+				)
+			end
+			session = touchDragArm.session({
+				now = function(): number
+					return os.clock() * 1000
+				end,
+				setArmed = function(on: boolean, touch: boolean)
+					if not touch then
+						detector.Enabled = on
+						return
+					end
+					if on then
+						startTouchDrive()
+					else
+						stopTouchDrive()
+					end
+				end,
+				setScrollSuppressed = if scroller == nil
+					then nil
+					else function(on: boolean)
+						if on then
+							scrollerWasEnabled = scroller.ScrollingEnabled
+							scroller.ScrollingEnabled = false
+						elseif scrollerWasEnabled then
+							scroller.ScrollingEnabled = true
+						end
+					end,
+				schedule = function(seconds: number, fn: () -> ()): (() -> ())?
+					-- the hold has to expire even when the finger is perfectly
+					-- still, which produces no `InputChanged` at all
+					local thread = task.delay(seconds, fn)
+					return function()
+						task.cancel(thread)
+					end
+				end,
+			}, { declinesTouch = declinesTouch })
+			table.insert(
+				connections,
+				detector.DragStart:Connect(function()
+					session:dragStarted()
+				end)
+			)
+			table.insert(
+				connections,
+				detector.DragEnd:Connect(function()
+					session:dragEnded()
+				end)
+			)
+			table.insert(
+				connections,
+				instance.InputBegan:Connect(function(input: any)
+					local touch = input.UserInputType == Enum.UserInputType.Touch
+					if not touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+						return
+					end
+					local p = input.Position
+					if touch then
+						--[[ A PENDING FINGER IS FOLLOWED ON THE SERVICE, NOT ON THE NODE.
+							The node's own `InputChanged` is not a reliable account of a
+							finger's travel while something under it is panning — measured on
+							the phone profile: a flick starting on a card produced no
+							`InputChanged` at all, so the slop was never seen, the hold expired
+							under a finger that had moved 230 px, and the arm stopped the
+							scroller mid-flick. The list would not scroll from a card, which is
+							the exact defect the arm exists to fix. `TouchMoved` sees every
+							frame of the gesture wherever it goes, and the arm's slop is what
+							hands it back. ]]
+						liveTouch = input
+						clearPressConns()
+						table.insert(
+							pressConns,
+							UserInputService.TouchMoved:Connect(function(t: any)
+								if t ~= input then
+									return
+								end
+								local q = t.Position
+								session:move(q.X, q.Y)
+							end)
+						)
+						table.insert(
+							pressConns,
+							UserInputService.TouchEnded:Connect(function(t: any)
+								if t ~= input then
+									return
+								end
+								clearPressConns()
+								session:release()
+							end)
+						)
+					end
+					session:press(if touch then "touch" else "mouse", p.X, p.Y)
+				end)
+			)
+			table.insert(
+				connections,
+				instance.InputChanged:Connect(function(input: any)
+					if input.UserInputType ~= Enum.UserInputType.Touch then
+						return
+					end
+					local p = input.Position
+					session:move(p.X, p.Y)
+				end)
+			)
+			table.insert(
+				connections,
+				instance.InputEnded:Connect(function(input: any)
+					if
+						input.UserInputType ~= Enum.UserInputType.Touch
+						and input.UserInputType ~= Enum.UserInputType.MouseButton1
+					then
+						return
+					end
+					session:release()
+				end)
+			)
+			table.insert(
+				connections,
+				{
+					Disconnect = function()
+						clearPressConns()
+						session:dispose()
+					end,
+				} :: any
+			)
+		end
 		detector.Parent = instance
 		handle.dragDetector = detector
 		return function()

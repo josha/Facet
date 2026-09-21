@@ -2,6 +2,12 @@
 -- Three small, fully mounted applications. Their shared desktop appearance is
 -- model state; each application keeps its own durable interaction state.
 local screens = { CANVAS = { w = 920, h = 640 } }
+-- The featured hero's one shape decision: the art's aspect ratio and, on a
+-- regular-width layout, its width. Every other number in that card (its height,
+-- the carousel's height) is derived from these two so the art can never stand
+-- past the card that holds it.
+local FEATURED_RATIO = 16 / 10
+local FEATURED_ART_W = 280
 function screens.create(Facet: any, app: any, actions: any?)
 	local UI, Compose = app.controls, Facet.Compose
 	local icons = require("./icons")
@@ -38,8 +44,12 @@ function screens.create(Facet: any, app: any, actions: any?)
 				width = spec.width,
 				height = spec.height,
 				surface = spec.surface,
-				alignH = "center",
-				alignV = "center",
+				-- A stack centres ACROSS its line with `align` and ALONG it with
+				-- `distribute`. `alignH`/`alignV` are what a ZStack parent reads off a
+				-- child; under a stack they are accepted and then ignored, which is
+				-- exactly what `controller.diagnostics()` said about this box.
+				align = "center",
+				distribute = "center",
 				text("Preview unavailable", "caption", "secondary"),
 			}))
 		end)
@@ -222,9 +232,11 @@ function screens.create(Facet: any, app: any, actions: any?)
 				trailing = {
 					UI.ViewThatFits("Actions")({
 						-- The actions take the width the title leaves, so the row is measured
-						-- against the space it really has.
+						-- against the space it really has. The trailing edge is claimed by the
+						-- fill Spacer inside each alternative, not by `alignH`: the nav bar
+						-- lays its trailing slot out as an hstack, and an hstack places on the
+						-- main axis by flow.
 						width = { type = "fill", weight = 1000 },
-						alignH = "end",
 						UI.HStack("Row")({
 							width = fill,
 							gap = "s",
@@ -300,13 +312,60 @@ function screens.create(Facet: any, app: any, actions: any?)
 		})
 	end
 
+	--[[ A NEAR-DISTANCE PIXEL NUMBER, IN THE SIZE THIS DISPLAY ACTUALLY DRAWS AT.
+
+		Every token in a theme — type, padding, target floors, icon sizes — is scaled
+		by the display the package resolves against, and a ten-foot television comes
+		back about half again as large. A raw number written beside them does not
+		move, and the gap is a defect class of its own: a 340px settings column held
+		rows whose own controls had grown, a segmented switch truncated both its
+		words, a carousel reserved 47px less chrome than its card needed. `scaled`
+		is the one place that gap is closed — a number authored at near distance,
+		read back in the metric the screen is painting with. ]]
+	local function scaled(px: number)
+		return function(use)
+			local metrics = use(hostEnvironment:get("themeMetrics"))
+			local factor = if type(metrics) == "table" and type(metrics.metricScale) == "number"
+				then metrics.metricScale
+				else 1
+			return fixed(px * factor)
+		end
+	end
+	-- A television. Its type and its targets are half again as large as a
+	-- monitor's, so a row that fits one may not fit the other.
+	local function tenFoot(use)
+		return use(hostEnvironment:get("distanceProfile")) == "ten-foot"
+	end
+	-- A viewport with room for one band and not two: a landscape phone, a short
+	-- window. Empty states spend their mark only above it.
+	local function shortViewport(use)
+		return Facet.adaptive.heightClass(use(hostEnvironment:get("viewportRect")).h) == "short"
+	end
+	--[[ A VIEWPORT WITH NO ROOM FOR AN ORNAMENT — which a television is, in spite
+		of having 1080 rows of them. Its type, its padding and its targets are all
+		about half again as large, so the same empty state that fits a 1080p monitor
+		with room to spare stands 70px past the feed on a TV. The two cases want the
+		same answer (keep the sentence and the way back, spend the mark only where
+		there is room), so they share one predicate. ]]
+	local function spareLayout(use)
+		return shortViewport(use) or tenFoot(use)
+	end
+	-- Short AND wide: a landscape phone, a short desktop window. A short PORTRAIT
+	-- window is short without room for a second column, so it is not this.
+	local function sideBySide(use)
+		return shortViewport(use) and use(hostEnvironment:get("viewportRect")).w >= 640
+	end
 	local function Discover()
 		local function compactWidth(use)
 			return use(hostEnvironment:get("viewportRect")).w < 640
 		end
 		-- six genre chips (about 560) beside the 452 tools, with the page padding
+		--[[ ...but a SHORT viewport spends width rather than height: two filter rows
+			cost 115px of the 221 a landscape phone leaves the feed, and the empty state
+			under them then painted over the grid. There it is one row, and the genre
+			scroller takes whatever the tools leave. ]]
 		local function filtersStacked(use)
-			return use(hostEnvironment:get("viewportRect")).w < 1100
+			return use(hostEnvironment:get("viewportRect")).w < 1100 and not sideBySide(use)
 		end
 		local viewport = app.environment:get("viewportRect")
 		local feed = callbacks.catalog or require("./catalog").new(Facet.Compose)
@@ -500,56 +559,59 @@ function screens.create(Facet: any, app: any, actions: any?)
 				height = fill,
 				alignH = "end",
 				alignV = "start",
-				UI.offset(
-					UI.corners(
-						UI.padding(
-							UI.background(
-								UI.Text("Label")({ text = "Featured", textSize = "caption", role = "content" }),
-								UI.Box("Plate")({ surface = "chip" })
-							),
-							"xs"
+				--[[ THE INSET IS THE OVERLAY'S OWN PADDING. `UI.offset` writes the
+					LAYOUT pair `offsetX`/`offsetY`, which only a `UI.Anchor` reads — under
+					a ZStack the nudge was accepted and then ignored (`diagnostics()` said
+					so), and the pill sat jammed into the card's rounded corner. Padding the
+					overlay insets whichever corner it aligns to, once and for every one. ]]
+				padding = "s",
+				UI.corners(
+					UI.padding(
+						UI.background(
+							UI.Text("Label")({ text = "Featured", textSize = "caption", role = "content" }),
+							UI.Box("Plate")({ surface = "chip" })
 						),
-						"pill"
+						"xs"
 					),
-					-8,
-					8
+					"pill"
 				),
 			})
-			-- The hero pairs the game's live world with its pitch. A failing scene
-			-- shows a quiet placeholder instead of taking the carousel down with it.
-			-- 16:10 instead of an independently fixed width and height, on either
-			-- branch alike.
+			--[[ THE HERO PAIRS THE GAME'S LIVE WORLD WITH ITS PITCH, and the art's
+				16:10 is the one number its shape is stated in. `UI.aspectRatio` derives
+				HEIGHT FROM WIDTH, and a derived height does not shrink into a box too
+				short for it — which is why this only works with the card HUGGING: the
+				art states 280x175, the card is that plus its own padding token whatever
+				that token is at this display size, and the page's button is the card. A
+				hug cannot overflow the box it reports into, so the ratio can never stand
+				past the rounded corners it is clipped by. (It did, for a while: with the
+				card filling a fixed page height, the art stood 2 to 16px past the card's
+				content box, top and bottom, at every size but the one the numbers were
+				tuned at.) A failing scene shows a quiet placeholder instead of taking
+				the carousel down with it, at the same ratio. ]]
 			local function styledArt(node)
-				return UI.aspectRatio(UI.corners(node, "panel"), 16 / 10)
+				return UI.aspectRatio(UI.corners(node, "panel"), FEATURED_RATIO)
 			end
+			local artWidth = fixed(FEATURED_ART_W)
 			local art = Compose.boundary(function()
 				return styledArt(UI.Stage("Art")({
 					content = if callbacks.gameContent then callbacks.gameContent(Compose.cell(item)) else nil,
-					width = function(use)
-						return if compactWidth(use) then fill else fixed(280)
-					end,
+					width = artWidth,
 					surface = "control",
 				}))
 			end, function()
 				return styledArt(UI.VStack("Art")({
-					width = function(use)
-						return if compactWidth(use) then fill else fixed(280)
-					end,
+					width = artWidth,
 					surface = "control",
-					alignH = "center",
-					alignV = "center",
+					align = "center",
+					distribute = "center",
 					text("Preview unavailable", "caption", "secondary"),
 				}))
 			end)
 			-- The hero pairs the game's live world with its pitch.
-			local card = UI.AdaptiveStack("Card")({
-				axis = function(use)
-					return if compactWidth(use) then "y" else "x"
-				end,
+			local card = UI.HStack("Card")({
 				width = fill,
-				height = function(use)
-					return fixed(if compactWidth(use) then 300 else 175)
-				end,
+				-- hug: the card is its art plus its own padding, whatever the padding
+				-- token is at this display size
 				surface = "raised",
 				padding = "m",
 				gap = "l",
@@ -566,10 +628,20 @@ function screens.create(Facet: any, app: any, actions: any?)
 				end,
 				art,
 				UI.VStack({
-					width = fill,
+					--[[ A LINE HAS A LENGTH IT READS AT. `fill` gave the pitch the whole
+						1920 screen, so the title and the one-line description ran 1484px
+						across — a measure no one reads. The column takes the room it wants
+						and leaves the rest as air. ]]
+					width = { type = "minMax", min = 160, max = 520 },
+					-- ...AND IT YIELDS FIRST when the card is narrower than the art plus
+					-- this cap: the shrink pass needs a nominated child, and the art beside
+					-- it is a fixed box with nothing to give.
+					shrinkWeight = 1,
 					height = fill,
 					gap = "xs",
-					alignV = "center",
+					-- a vstack centres ALONG its own axis with `distribute`; `alignV` is
+					-- a ZStack parent's word and was inert here
+					distribute = "center",
 					text(item.genre, "caption", "secondary"),
 					text(item.title, "heading"),
 					text(item.description, "body", "secondary"),
@@ -578,12 +650,29 @@ function screens.create(Facet: any, app: any, actions: any?)
 			})
 			return UI.corners(
 				UI.shadow(
-					UI.overlay(UI.gradient(card, { colors = { "surfaceStrong", "surface" }, rotation = 0 }), badge),
+					--[[ NO TOKEN-COLOURED GRADIENT HERE, and the reason is a real limit
+					rather than taste. `UI.gradient`'s colour names are resolved ONCE,
+					against the style the blueprint is BUILT with, and on the native target
+					that resolution can never be redone: colour reaches a live screen as
+					StyleSheet RULES keyed on this node's tags, while the target's own style
+					VALUE table is fixed at construction (`theme_controller`'s own note:
+					"today's ScreenTarget cannot [take a new style at runtime]"). So a
+					`{ "surfaceStrong", "surface" }` wash built under the dark theme stayed
+					near-black through a swap into the light one — a hero card with dark grey
+					text on near-black, while every tagged surface around it had re-styled
+					correctly (found live, 2026-09-20).
+
+					`surface = "raised"` on the card below is a TAG, so it swaps. The wash it
+					replaces was decoration; being readable in both themes is not. ]]
+					UI.overlay(card, badge),
 					"raised"
 				),
 				"panel"
 			)
 		end
+		-- `frame` takes either a plain width or a min/max pair, so a caller that
+		-- wants the sort to YIELD (a phone row sharing its line with the shelf
+		-- switch) and one that wants it fixed both say so in the same argument.
 		local function sortPopup(width)
 			return UI.frame(
 				UI.PopupButton("Sort")({
@@ -597,7 +686,7 @@ function screens.create(Facet: any, app: any, actions: any?)
 						{ value = "players", label = "Most played" },
 					},
 				}),
-				{ width = width }
+				if type(width) == "table" then width else { width = width }
 			)
 		end
 		local function featuredCarousel()
@@ -621,8 +710,21 @@ function screens.create(Facet: any, app: any, actions: any?)
 			return UI.PageView("Featured")({
 				pages = pages,
 				selection = featuredSelection,
+				--[[ THE ONE NUMBER THE HERO'S SHAPE IS DECIDED BY: the art's 16:10 at
+					280px wide, plus the CHROME around it — the card's padding, the page's
+					button inset, and the dots under it.
+
+					...and the chrome half SCALES, because every part of it is a theme
+					token and tokens grow with the display. Reserved flat, the carousel
+					under-reserved by 47px at ten-foot and the page's own scroller clipped
+					the bottom of the card, taking the art's lower edge and the whole
+					"93% recommend" line with it (found live on the xbox profile,
+					2026-09-20). The art is a stated 175px at every distance; only the room
+					around it moves. ]]
 				height = function(use)
-					return fixed(if compactWidth(use) then 352 else 264)
+					-- the art is a stated 175px at every distance; only the room around it
+					-- moves, so only that half is scaled
+					return fixed(FEATURED_ART_W / FEATURED_RATIO + (scaled(121)(use) :: any).px)
 				end,
 				summary = false,
 				controls = false,
@@ -670,6 +772,102 @@ function screens.create(Facet: any, app: any, actions: any?)
 				anchor = { source = { path = path }, edge = "bottom", align = "start", gap = "s", tail = true },
 			})
 			ratingInfoClose = close
+		end
+		--[[ THE RATING ROW, IN TWO DESIGNED FORMS.
+
+			One row of genre + five stars + an explanation asked for 423px of a 297px
+			phone column and painted 132px past it (205 at 320). Worse than the
+			overflow: `{ width = 132 }` squeezed five stars into 10px apiece, a fifth
+			of the 44px target the control reserves for each of them when it is
+			allowed to — so the compact case was the one where the rating was both
+			off-screen AND unhittable.
+
+			So the phone gets its own shape. The facts and the explanation keep one
+			line, and the stars take the line under it at full width, where each one
+			is a real target. On a regular width all three stay on one line and the
+			stars get the 220px five 44px targets need.
+
+			`RatingInfo` is bounded rather than hugging on the compact form, because
+			`compactLabel` is a FIT degrade: the solver draws the short spelling only
+			when the width the button is GIVEN is too small for the long one, and a
+			hugging button is never given too little. The cap is what lets "About
+			ratings" become "About" instead of overflowing as its full self. ]]
+		local function ratingRow()
+			local function genre()
+				return UI.Text("Genre")({ text = field("genre", ""), textSize = "label" })
+			end
+			local function stars5(width)
+				local rating = UI.Rating("Stars")({
+					value = stars,
+					count = 5,
+					onChange = function(value)
+						local item = lastSelected:peek()
+						if item then
+							local nextRatings = table.clone(ratings:peek())
+							nextRatings[item.id] = value
+							ratings:set(nextRatings)
+						end
+					end,
+				})
+				-- no frame at all on the compact form: a rating fills the line it is
+				-- given, which is exactly what its own targets want
+				return if width then UI.frame(rating, width) else rating
+			end
+			local function about(width)
+				local button = UI.Button("RatingInfo")({
+					--[[ NAMED FOR WHAT IT OPENS. "About" is the shell's own button
+						(this file's `aboutModal`), and a second one on the same screen
+						left both unreadable out of context — which is exactly how a
+						screen reader reads them. ]]
+					label = "About ratings",
+					-- the compact form must be ONE word, so it stays "About" — the
+					-- full label is what carries the noun
+					compactLabel = "About",
+					onActivate = toggleRatingInfo,
+				})
+				return if width then UI.frame(button, width) else button
+			end
+			-- whichever form is mounted is the one the popover anchors to
+			local function mark(path)
+				ratingRowPath:set(path)
+			end
+			-- The row's own column, not the screen's: on a short viewport the detail
+			-- page turns side by side (see `Body` below), so a 794px landscape phone
+			-- hands this row about 360px — narrower than the 393px portrait one.
+			local function narrowRow(use)
+				return compactWidth(use) or shortViewport(use)
+			end
+			return Compose.show(narrowRow, function()
+				return UI.VStack("RatingRow")({
+					width = fill,
+					gap = "s",
+					onAppear = mark,
+					UI.HStack("Facts")({
+						width = fill,
+						gap = "m",
+						align = "center",
+						genre(),
+						UI.Spacer({ width = fill }),
+						about({ maxWidth = 96 }),
+					}),
+					stars5(nil),
+				})
+			end, function()
+				return UI.HStack("RatingRow")({
+					width = fill,
+					gap = "m",
+					align = "center",
+					onAppear = mark,
+					-- genre and stars read as one fact on the leading edge; the
+					-- explanation sits on the trailing one
+					genre(),
+					-- five 44px targets, which is what the control reserves when a
+					-- caller lets it
+					stars5({ width = 220 }),
+					UI.Spacer({ width = fill }),
+					about(nil),
+				})
+			end)
 		end
 		-- Up to six same-genre games, excluding the one already open.
 		local discoveryPath = callbacks.discoveryPath or Compose.cell({})
@@ -841,7 +1039,14 @@ function screens.create(Facet: any, app: any, actions: any?)
 				UI.VStack("Similar")({
 					width = fill,
 					gap = "s",
-					UI.Label("Heading")({ title = "More like this", icon = "more" }),
+					--[[ NO `icon` HERE. `UI.Label.icon` is an ASSET STRING, not one of the
+						semantic names `UI.Button`/`UI.CollapsibleView` take — those resolve
+						through the theme's icon system and fall back to a glyph, and this one
+						goes straight into a `UI.Image`. A semantic name there paints NOTHING:
+						a 20px hole and a 26px gap in front of the title, at every size, in
+						both themes. Absent, the label degrades to title-only, which is what
+						this heading wanted. ]]
+					UI.Label("Heading")({ title = "More like this" }),
 					Compose.show(compactWidth, function()
 						return rows(1)
 					end, function()
@@ -863,27 +1068,46 @@ function screens.create(Facet: any, app: any, actions: any?)
 				UI.HStack({
 					width = fill,
 					gap = "m",
+					align = "center",
+					--[[ THE SORT TAKES THE SLACK. A fixed 148 beside a fixed 184 and two
+						gaps is 360px of demand on a 345px phone row — the shelf switch ran
+						off the right edge by 19px at 393 and 92px at 320. The switch is the
+						fixed thing (two words that must both stay readable); the sort takes
+						whatever is left and shortens its own value before anything leaves
+						the screen. On a regular width this row is a caption and the switch,
+						and the sort lives beside the search instead. ]]
 					Compose.show(compactWidth, function()
-						return sortPopup(148)
+						return sortPopup({ minWidth = 112, maxWidth = "infinity" })
 					end, function()
 						return text("Recommended for you", "body", "secondary")
 					end),
-					UI.Spacer({ width = fill }),
+					Compose.show(function(use)
+						return not compactWidth(use)
+					end, function()
+						return UI.Spacer({ width = fill })
+					end),
 					UI.dropTarget(
-						UI.frame(
-							UI.Picker("Shelf")({
-								style = "segmented",
-								selected = shelf,
-								onChange = function(value)
-									shelf:set(value)
-								end,
-								options = {
-									{ value = "browse", label = "Browse" },
-									{ value = "saved", label = "Saved" },
-								},
-							}),
-							{ width = 184 }
-						),
+						--[[ THE SWITCH IS AS WIDE AS ITS TWO WORDS, WHATEVER SIZE THEY ARE.
+							A raw `{ width = 164 }` is a near-distance number, and type is not:
+							at ten-foot the theme scales every glyph by about 1.5 while that
+							frame did not move, so "Browse" and "Saved" both came out as
+							"Br…"/"Sav…" on a television (found live on the xbox profile,
+							2026-09-20). `sizing = "hug"` is the Picker's own word for
+							"natural width, uncapped", so the band measures the labels it is
+							actually going to draw — correct at 320px and at ten-foot, with
+							no number here to keep in step with the type scale. ]]
+						UI.Picker("Shelf")({
+							style = "segmented",
+							sizing = "hug",
+							selected = shelf,
+							onChange = function(value)
+								shelf:set(value)
+							end,
+							options = {
+								{ value = "browse", label = "Browse" },
+								{ value = "saved", label = "Saved" },
+							},
+						}),
 						{
 							accepts = function(payload)
 								if type(payload) ~= "table" or payload.kind ~= "game" then
@@ -912,11 +1136,46 @@ function screens.create(Facet: any, app: any, actions: any?)
 						}
 					),
 				}),
+				--[[ THE HERO IS A REGULAR-WIDTH BAND. Its stacked form — art above the
+					pitch on a phone — never sized: the card hugged the text, the art's
+					`fill` share of a hugging box was 0, and the carousel showed a 56px
+					strip with no art in it at all. It was also only ever reachable on a
+					compact layout TALLER than 900px, so a phone that met the old gate saw
+					the broken form and every other phone saw nothing. A phone goes straight
+					to the filters and the grid, which is what it has room to do well. ]]
+				--[[ ...AND NOT ON A TELEVISION, WHICH IS A WORKAROUND AND NOT A DESIGN.
+
+					On the ten-foot profile this carousel's whole subtree is present in the
+					PlayerGui and the engine draws NONE of it. Verified by painting the
+					`Pages` scroller opaque red and seeing the band stay empty, so it is
+					not a colour, a theme or a transparency.
+
+					RULED OUT, by dumping the label's whole ancestor chain on xbox and at
+					1080p and diffing (2026-09-20):
+					  * CanvasGroup texture starvation — there is exactly ONE CanvasGroup
+					    on the surface (`Tab-Discover`), it is not nested, its
+					    GroupTransparency is 0, and its pixel area is the SAME at both
+					    (an xbox profile changes the metric scale, not the resolution).
+					  * geometry — every rect in the chain is non-zero and sensible.
+					  * clipping — both scrollers clip, and the content sits inside the
+					    clipped box at both sizes.
+					  * canvas — CanvasPosition is 0,0 and AbsoluteCanvasSize covers the
+					    content at both.
+					  * visibility and z — `Visible = true` the whole way up, ZIndex
+					    ascends, DisplayOrder is the same 10100.
+					  * siblings — the chips, the grid and this carousel's own page dots
+					    draw normally through the same CanvasGroup on the same frame.
+
+					So it is none of the usual suspects, it is below the showcase, and it
+					is unresolved. Until it is, a television shows the filters and the feed
+					rather than 280px of nothing. ]]
 				Compose.show(function(use)
 					return #featuredItems > 0
 						and use(shelf) ~= "saved"
+						and not compactWidth(use)
+						and not tenFoot(use)
 						and Facet.adaptive.heightClass(use(viewport).h) ~= "short"
-						and use(viewport).h >= (if compactWidth(use) then 900 else 760)
+						and use(viewport).h >= 760
 				end, featuredCarousel),
 				Compose.show(function(use)
 					return use(shelf) == "saved" and #use(savedGames) == 0
@@ -925,9 +1184,16 @@ function screens.create(Facet: any, app: any, actions: any?)
 						width = fill,
 						height = fill,
 						gap = "s",
-						alignH = "center",
-						alignV = "center",
-						icons.draw(UI, "heart", 56, "accent"),
+						-- `align` centres ACROSS a stack's line and `distribute` ALONG it;
+						-- `alignH`/`alignV` are a ZStack parent's words and left this empty
+						-- state pinned to the shelf's top-left corner
+						align = "center",
+						distribute = "center",
+						Compose.show(function(use)
+							return not spareLayout(use)
+						end, function()
+							return icons.draw(UI, "heart", 56, "accent")
+						end),
 						UI.Text({ text = "Nothing saved yet", textSize = "heading", role = "content" }),
 						UI.Text({
 							text = "Save a game from its page, or drag a card onto Saved.",
@@ -944,7 +1210,34 @@ function screens.create(Facet: any, app: any, actions: any?)
 						key = function(item)
 							return item.id
 						end,
-						rowHeight = 48,
+						--[[ THE ROW CLEARS THE CONTROL IT HOLDS. "The height is a DESCRIPTION,
+							not a number" (src/controls/table.luau), and the theme's description is
+							derived from TEXT — lines x line box, floored at a target. This table's
+							Note column is not text: it is a `UI.TextField`, whose own floor is the
+							44px touch target, and the derived row is 10px short of that once a
+							television scales the target up. Pinned flat at 48 it was 20px short.
+
+							So the height is still a description — of the tallest thing in the row
+							rather than of its type — and it is read from the live metric rather
+							than written as a near-distance number. ]]
+						rowHeight = function()
+							local metrics = app.environment:get("themeMetrics"):peek()
+							local targets = if type(metrics) == "table" then metrics.targetSizes else nil
+							local floor = if type(targets) == "table" and type(targets.minimum) == "number"
+								then targets.minimum
+								else 44
+							return floor + 16
+						end,
+						--[[ NO PINNED `rowHeight`. "The height is a DESCRIPTION, not a number"
+							(src/controls/table.luau): the theme says how many lines a row holds
+							per input paradigm and what floor it may not go under, and the control
+							adds the two things only the live environment knows — the ten-foot
+							typography scale and the accessibility text offset the engine applies
+							on top. Pinned at 48, this table's inline Note field stood 20px past
+							its own row on a television and painted across the row below it. Left
+							to the theme, a raised text preference gets taller rows instead of
+							clipped ones and a touch session gets a row that clears the target
+							floor, without this screen asking for either. ]]
 						height = fill,
 						selection = "single",
 						selectedKeys = savedSelection,
@@ -1143,9 +1436,23 @@ function screens.create(Facet: any, app: any, actions: any?)
 							return UI.VStack("NoMatches")({
 								width = fill,
 								gap = "s",
-								padding = "xl",
-								alignH = "center",
-								icons.draw(UI, "search", 32, "secondary"),
+								--[[ AN EMPTY STATE IS A BAND, AND A LANDSCAPE PHONE HAS 150px OF
+									THEM. At `xl` padding with a mark above it this one measured
+									194px against the 152 the feed had, and it painted straight over
+									the grid below. It keeps the sentence and the way back at every
+									size and spends the mark only where there is room for it.
+
+									`align` centres ACROSS a stack's line; `alignH` is a ZStack
+									parent's word and did nothing here. ]]
+								padding = function(use)
+									return if spareLayout(use) then "s" else "l"
+								end,
+								align = "center",
+								Compose.show(function(use)
+									return not spareLayout(use)
+								end, function()
+									return icons.draw(UI, "search", 32, "secondary")
+								end),
 								UI.Text({
 									text = "No games match",
 									textSize = "heading",
@@ -1197,20 +1504,40 @@ function screens.create(Facet: any, app: any, actions: any?)
 								-- The cell receives the item; `ctx.current` follows its edits.
 								local item = Compose.formula(ctx.current)
 								local key = plain.id
+								--[[ THE CARD SHOWS WHERE THE RING IS. The grid's own cell-sized
+									hit sits BEHIND this card and paints nothing, so until
+									`ctx.focused` existed an opaque card could not show focus at
+									all — a catalog a player could walk with the keyboard with no
+									idea which card they were on. The control already withholds
+									this after a tap (a finger asked no such question), so the
+									outline appears for the keyboard and the pad only. ]]
 								local card = UI.VStack("Card")({
 									width = fill,
 									height = fixed(240),
 									surface = "raised",
 									padding = "s",
 									gap = "s",
+									stroke = function(use)
+										local ring = use(ctx.focused)
+										return UI.strokeData({
+											thickness = 2,
+											color = "accent",
+											transparency = if ring then 0 else 1,
+										})
+									end,
 									-- The card stays painted under the expansion: it is the
 									-- rectangle the transition reads on every frame.
 									onAppear = function(use)
 										feed.seen(plain.index)
 									end,
+									--[[ THE ART TAKES THE SLACK. A 240px cell holding 140 of art, a
+										title and a meta line left 31px of dead plate under the last
+										row of text — a card that reads bottom-heavy at every size
+										because the extent is fixed and the content is not. Filling
+										gives those pixels to the one thing that wants them. ]]
 									stage("WorldSlice", {
 										width = fill,
-										height = fixed(140),
+										height = fill,
 										surface = "raised",
 									}, function()
 										return if callbacks.gameContent then callbacks.gameContent(item) else nil
@@ -1234,11 +1561,19 @@ function screens.create(Facet: any, app: any, actions: any?)
 										end, "caption", "secondary"),
 									}),
 								})
-								-- Dragging a card onto the Browse|Saved switch saves it; the
-								-- Favorite button in the detail panel stays the accessible route.
+								--[[ Dragging a card onto the Browse|Saved switch saves it; the
+									Favorite button in the detail panel stays the accessible route.
+
+									NO `declineTouch` HERE ANY MORE. It was declared because the
+									engine's `UIDragDetector` claimed the finger from the press and
+									the feed could not be scrolled at all — but declining only
+									disabled Facet's own drag and left the engine's claim standing,
+									so the cost was paid and the drag was unreachable anyway. Now
+									that a finger arms the detector by HOLDING STILL
+									(`interactionTokens.touchDragArm`), a flick reaches the scroller
+									and a hold reaches the drag, and this card wants both. ]]
 								card = UI.draggable(card, {
 									payload = { kind = "game", id = key },
-									declineTouch = true,
 								})
 								cards[key] = card
 								Compose.cleanup(function()
@@ -1265,146 +1600,157 @@ function screens.create(Facet: any, app: any, actions: any?)
 					plate = "fades",
 				},
 				thenView = function()
-					return UI.ZStack("Details")({
-						width = fill,
-						height = fill,
-						canvasGroup = true,
-						clipChildren = true,
-						corners = UI.cornersData("panel"),
-						surface = "raised",
-						UI.VStack("Body")({
+					--[[ THE PAGE THAT OPENS IS THE PAGE THAT GETS THE RING, and the card
+					that opened it is what gets it back.
+
+					Opening a card from the keyboard used to put the ring on the app's TAB
+					STRIP (found live, 2026-09-20): the Browse column below declares
+					`enabled = false` while a game is selected, so every stop the ring could
+					have been standing on went ineligible in the same frame the detail page
+					arrived, and the nearest surviving neighbour was three levels up and
+					outside the app. On Back the ring did not come home either, so a player
+					walking the grid lost their place every time they looked at something.
+
+					`focusOnAppear` names the way OUT of the page rather than the first thing
+					in it: a player who has just opened something wants Back under the thumb,
+					not the first control the page happens to declare. ]]
+					return UI.focusSection(
+						UI.ZStack("Details")({
 							width = fill,
 							height = fill,
-							padding = "s",
-							gap = "m",
-							enabled = function(use)
-								return use(selected) ~= nil
-							end,
-							--[[ THE HERO NEVER EATS THE WHOLE PANEL. `h * 0.56` alone put
+							canvasGroup = true,
+							clipChildren = true,
+							corners = UI.cornersData("panel"),
+							surface = "raised",
+							UI.AdaptiveStack("Body")({
+								--[[ A SHORT VIEWPORT TURNS THE PAGE ON ITS SIDE. Stacked, the
+								hero's own 140px FLOOR plus the two pinned rows needed more
+								height than a landscape phone has at all: the information area
+								was left 111px for 120px of pinned rows, the route inside it
+								solved to height 0, and its whole body — description, creator,
+								sparkline, "More like this" — painted 350px below the panel that
+								was supposed to clip it. Side by side, the hero takes width
+								instead of height and the information keeps a column it can
+								actually scroll. ]]
+								axis = function(use)
+									return if sideBySide(use) then "x" else "y"
+								end,
+								width = fill,
+								height = fill,
+								padding = "s",
+								gap = "m",
+								enabled = function(use)
+									return use(selected) ~= nil
+								end,
+								--[[ THE HERO NEVER EATS THE WHOLE PANEL. `h * 0.56` alone put
 								the description, "More like this" and the sparkline BELOW THE
 								FOLD on the 920x640 monitor canvas, inside a `clipChildren`
 								panel with nothing to scroll — unreachable, with no affordance
 								saying so. The third term reserves room for the Information
 								area at any height: two pinned rows, the route's own bar, and a
 								scrolling body that is still worth reading. ]]
-							stage("World", {
-								width = fill,
-								height = function(use)
-									local h = use(app.environment:get("viewportRect")).h
-									return fixed(math.max(140, math.min(520, h * 0.42, h - 460)))
-								end,
-								surface = "raised",
-							}, function()
-								return if callbacks.gameContent
-									then callbacks.gameContent(lastSelected)
-									else callbacks.discoveryContent
-							end),
-							-- the transition's `content` group: the plate grows, the
-							-- information inside it crossfades on its own beat
-							UI.ZStack("Information")({
-								width = fill,
-								height = fill,
-								canvasGroup = true,
-								UI.padding(
-									UI.VStack({
-										width = fill,
-										height = fill,
-										gap = "m",
-										UI.HStack({
+								stage("World", {
+									width = function(use)
+										-- beside the information rather than above it: two fifths of
+										-- the panel, never more than a readable column's worth
+										return if sideBySide(use)
+											then fixed(math.min(360, use(app.environment:get("viewportRect")).w * 0.4))
+											else fill
+									end,
+									height = function(use)
+										if sideBySide(use) then
+											return fill
+										end
+										local h = use(app.environment:get("viewportRect")).h
+										-- A short PORTRAIT window cannot turn the page on its side (the
+										-- column beside the hero would be 80px wide), so the hero gives
+										-- up its floor instead of the information giving up its rows.
+										local floor = if shortViewport(use) then 96 else 140
+										-- ...and what is reserved for the information BELOW it is two
+										-- pinned rows and a route, all of which are type — so the
+										-- reservation is in the metric this screen draws with. At a flat
+										-- 460 a television's route overflowed its page by 41px.
+										local reserve = (scaled(460)(use) :: any).px
+										return fixed(math.max(floor, math.min(520, h * 0.42, h - reserve)))
+									end,
+									surface = "raised",
+								}, function()
+									return if callbacks.gameContent
+										then callbacks.gameContent(lastSelected)
+										else callbacks.discoveryContent
+								end),
+								-- the transition's `content` group: the plate grows, the
+								-- information inside it crossfades on its own beat
+								UI.ZStack("Information")({
+									width = fill,
+									height = fill,
+									canvasGroup = true,
+									UI.padding(
+										UI.VStack({
 											width = fill,
+											height = fill,
 											gap = "m",
-											UI.Button("Back")({
-												label = "Back",
-												onActivate = function()
-													setSelected(nil)
-												end,
-											}),
-											text(field("title", ""), "title"),
-											-- wide enough for either label, so "Saved" never truncates
-											UI.frame(
-												UI.Button("Favorite")({
-													label = function(use)
-														local item = use(selected)
-														return if item and use(saved)[item.id] then "Saved" else "Save"
-													end,
+											UI.HStack({
+												width = fill,
+												gap = "m",
+												UI.Button("Back")({
+													label = "Back",
 													onActivate = function()
-														local item = selected:peek()
-														if item then
-															local nextSaved = table.clone(saved:peek())
-															nextSaved[item.id] = not nextSaved[item.id]
-															saved:set(nextSaved)
-															app.presentToast(function()
-																return text(
-																	if nextSaved[item.id]
-																		then `Saved {item.title}`
-																		else `Removed {item.title}`
-																)
-															end, { duration = 2.5 })
-														end
+														setSelected(nil)
 													end,
 												}),
-												{ width = 96 }
-											),
-										}),
-										UI.HStack("RatingRow")({
-											width = fill,
-											gap = "m",
-											onAppear = function(path)
-												ratingRowPath:set(path)
-											end,
-											-- genre and stars read as one fact on the leading edge; the
-											-- explanation sits on the trailing one
-											UI.Text("Genre")({ text = field("genre", ""), textSize = "label" }),
-											-- a rating fills its row by default; here it is one fact in a line
-											UI.frame(
-												UI.Rating("Stars")({
-													value = stars,
-													count = 5,
-													onChange = function(value)
-														local item = lastSelected:peek()
-														if item then
-															local nextRatings = table.clone(ratings:peek())
-															nextRatings[item.id] = value
-															ratings:set(nextRatings)
-														end
-													end,
-												}),
-												{ width = 132 }
-											),
-											UI.Spacer({ width = fill }),
-											UI.Button("RatingInfo")({
-												--[[ NAMED FOR WHAT IT OPENS. "About" is the
-													shell's own button (this file's `aboutModal`),
-													and a second one on the same screen left both
-													unreadable out of context — which is exactly
-													how a screen reader reads them. ]]
-												label = "About ratings",
-												-- the compact form must be ONE word, so it stays
-												-- "About" — the full label is what carries the noun
-												compactLabel = "About",
-												onActivate = toggleRatingInfo,
+												text(field("title", ""), "title"),
+												-- wide enough for either label, so "Saved" never truncates
+												UI.frame(
+													UI.Button("Favorite")({
+														label = function(use)
+															local item = use(selected)
+															return if item and use(saved)[item.id]
+																then "Saved"
+																else "Save"
+														end,
+														onActivate = function()
+															local item = selected:peek()
+															if item then
+																local nextSaved = table.clone(saved:peek())
+																nextSaved[item.id] = not nextSaved[item.id]
+																saved:set(nextSaved)
+																app.presentToast(function()
+																	return text(
+																		if nextSaved[item.id]
+																			then `Saved {item.title}`
+																			else `Removed {item.title}`
+																	)
+																end, { duration = 2.5 })
+															end
+														end,
+													}),
+													{ width = 96 }
+												),
 											}),
-										}),
-										--[[ ...and the route itself SCROLLS. The title row and
+											ratingRow(),
+											--[[ ...and the route itself SCROLLS. The title row and
 											the rating row stay pinned; everything the route adds —
 											description, creator, sparkline, "More like this" — is
 											reachable at every canvas this showcase runs on, which a
 											clipped natural-height box was not. ]]
-										UI.NavigationStack("Info")({
-											path = discoveryPath,
-											backLabel = "Back",
-											transition = { enter = "slide-left" },
-											root = { title = "About", content = infoRoute },
-											destinations = {
-												similar = { title = "More like this", content = similarRoute },
-											},
+											UI.NavigationStack("Info")({
+												path = discoveryPath,
+												backLabel = "Back",
+												transition = { enter = "slide-left" },
+												root = { title = "About", content = infoRoute },
+												destinations = {
+													similar = { title = "More like this", content = similarRoute },
+												},
+											}),
 										}),
-									}),
-									"m"
-								),
+										"m"
+									),
+								}),
 							}),
 						}),
-					})
+						{ focusOnAppear = "Back", returnFocus = true }
+					)
 				end,
 			}),
 		})
@@ -1420,6 +1766,13 @@ function screens.create(Facet: any, app: any, actions: any?)
 		end
 		local function compactWidth(use)
 			return use(viewport).w < 640
+		end
+		-- A row whose label will not share its line with its control: a phone at a
+		-- large text preference, and a television, which are the same problem seen
+		-- from two ends — the label, the readout and the two targets all grow, and
+		-- the row they sit in does not.
+		local function labelOnOwnLine(use)
+			return compactWidth(use) or tenFoot(use)
 		end
 		local palette = callbacks.avatarPalette or Facet.Compose.cell("sage")
 		local hat = callbacks.avatarHat or Facet.Compose.cell(true)
@@ -1523,10 +1876,20 @@ function screens.create(Facet: any, app: any, actions: any?)
 		-- so `Preview`'s own path never moves.
 		local paletteNames = { sage = "Sage", clay = "Clay", iris = "Iris" }
 		local spinNames = { "Off", "Slow", "Medium", "Fast" }
-		local function hudChip(id, content)
-			return UI.corners(
-				UI.padding(UI.background(content, UI.Box(id .. "Plate")({ surface = "chip" })), "xs"),
-				"pill"
+		--[[ THE WIDTH GOES ON THE CHIP, NOT ON THE LABEL INSIDE IT. `UI.background`
+			copies its base's own dims onto the wrapper it builds (so a fill-width base
+			is never collapsed to the size of its plate) — which meant a `fixed` width
+			on the TEXT became the PLATE's width too, and the `xs` padding then took 8
+			of those px back from the text that had asked for all of them. The label ran
+			8px past its own plate, onto the preview beside it, at every compact size.
+			One width, declared on the box that is meant to carry it. ]]
+		local function hudChip(id, width, content)
+			return UI.frame(
+				UI.corners(
+					UI.padding(UI.background(content, UI.Box(id .. "Plate")({ surface = "chip" })), "xs"),
+					"pill"
+				),
+				{ width = width }
 			)
 		end
 		-- Each form declares its own fixed width, so the composition's ladder
@@ -1549,18 +1912,20 @@ function screens.create(Facet: any, app: any, actions: any?)
 		local function hudCompact(id, valueFn)
 			return hudChip(
 				id,
-				UI.Text(id .. "T")({ text = valueFn, textSize = "caption", lineLimit = 1, width = fixed(46) })
+				54,
+				UI.Text(id .. "T")({ text = valueFn, textSize = "caption", lineLimit = 1, width = fill })
 			)
 		end
 		local function hudMinimal(id, glyph)
 			return hudChip(
 				id,
+				22,
 				UI.Text(id .. "T")({
 					text = glyph,
 					textSize = "caption",
 					lineLimit = 1,
-					width = fixed(14),
-					alignH = "center",
+					width = fill,
+					textAlign = "center",
 				})
 			)
 		end
@@ -1568,51 +1933,85 @@ function screens.create(Facet: any, app: any, actions: any?)
 		-- chrome, so it is an overlay of the whole screen with no launcher of its
 		-- own; the settings row opens it.
 		local quickRing
-		local quickRingOverlay = UI.RadialMenu("QuickRing")({
-			label = "Quick palette",
-			launcher = false,
-			items = {
-				{
-					id = "sage",
-					label = "Sage",
-					onSelect = function()
-						setColor("sage")
-					end,
+		--[[ ...AND THE RING KEEPS OFF THE EDGES. Its own status caption anchors to
+			the BOTTOM of whatever box it is given, and the box was the whole screen — so
+			"Quick palette" sat flush on the monitor's bottom edge, a hair under the
+			preview HUD and reading as a fourth chip in that stack. A padded layer is the
+			inset; the ring stays centred in what is left of it. ]]
+		local quickRingOverlay = UI.ZStack("QuickRingArea")({
+			width = fill,
+			height = fill,
+			padding = "l",
+			UI.RadialMenu("QuickRing")({
+				label = "Quick palette",
+				launcher = false,
+				--[[ ROUND SWATCHES, NOT WEDGES. Three colours on a `wedges` ring paint
+				three small skewed label plates around an empty middle — the default
+				reads as a slice of a menu with many entries, and this one has three.
+				`buttons` gives each palette its own round target on the same ring,
+				which is the shape a colour picker wants and the one a thumb can hit. ]]
+				appearance = "buttons",
+				items = {
+					{
+						id = "sage",
+						label = "Sage",
+						onSelect = function()
+							setColor("sage")
+						end,
+					},
+					{
+						id = "clay",
+						label = "Clay",
+						onSelect = function()
+							setColor("clay")
+						end,
+					},
+					{
+						id = "iris",
+						label = "Iris",
+						onSelect = function()
+							setColor("iris")
+						end,
+					},
 				},
-				{
-					id = "clay",
-					label = "Clay",
-					onSelect = function()
-						setColor("clay")
-					end,
-				},
-				{
-					id = "iris",
-					label = "Iris",
-					onSelect = function()
-						setColor("iris")
-					end,
-				},
-			},
-			ref = function(record)
-				quickRing = record.api
-			end,
+				ref = function(record)
+					quickRing = record.api
+				end,
+			}),
 		})
 		local previewHud = UI.Composition("PreviewHud")({
+			-- The compact column is its widest chip (a 46px value) plus that chip's
+			-- own pill padding and this composition's: 46 + 8 + 16 + the lane's own
+			-- 8. Short by those last eight, the value text stood 8px outside its
+			-- plate and painted over the preview beside it.
 			width = function(use)
-				return fixed(if compactWidth(use) then 70 else 260)
+				return fixed(if compactWidth(use) then 78 else 260)
 			end,
 			padding = "s",
 			laneGap = "xs",
 			groupGap = "xs",
 			surface = "plain",
-			alignH = "start",
-			alignV = function(use)
-				return if compactWidth(use) then "start" else "end"
+			--[[ A CORNER AND AN INSET, WHICH IS WHAT `UI.Anchor` IS FOR. This
+				composition carried `offsetX`/`offsetY` under the screen's ROOT ZSTACK,
+				which places by layering and reads neither — so the nudge moved nothing
+				and the HUD sat flush against the screen's own edge, 14px outside the
+				preview it belongs to, at every size. `diagnostics()` had been saying so
+				on every frame, in as many words: "wrap this child in a `UI.Anchor` (it
+				reads offsetX/offsetY)". It is wrapped in one now (see the overlays list
+				below) and the pair means what it says. No `alignH`/`alignV` either: an
+				Anchor places by CORNER, and those two are a ZStack parent's words.
+
+				22 is the page's own gutter; the extra 12 carries the HUD inside the
+				preview's edge rather than sitting on it. ]]
+			anchor = function(use)
+				return if compactWidth(use) then "topLeft" else "bottomLeft"
 			end,
-			offsetX = 24,
+			offsetX = 34,
 			offsetY = function(use)
-				return if compactWidth(use) then 132 else -24
+				-- compact: under the title, over the preview stacked above the settings.
+				-- Regular: lifted off the bottom edge by the same inset the leading edge
+				-- uses, so the HUD sits in the preview's own lower-left corner.
+				return if compactWidth(use) then 132 else -34
 			end,
 			groups = { { id = "info", lane = "main", sizing = "hug", place = "start" } },
 			arrangements = { { name = "single", lanes = { { "main" } } } },
@@ -1690,8 +2089,12 @@ function screens.create(Facet: any, app: any, actions: any?)
 					surface = "raised",
 				}),
 				UI.ScrollView("Settings")({
+					-- 340 at near distance, and the same column in the metric a television
+					-- draws with — at a flat 340 the slider row stood 95px past it and the
+					-- turn stepper 234px, because every control inside had grown and the
+					-- column had not.
 					width = function(use)
-						return if wide(use) then fixed(340) else fill
+						return if wide(use) then scaled(340)(use) else fill
 					end,
 					height = fill,
 					-- Directional focus (gamepad/keyboard) stays inside the settings
@@ -1702,7 +2105,21 @@ function screens.create(Facet: any, app: any, actions: any?)
 							gap = "m",
 							padding = "m",
 							surface = "raised",
-							UI.Label("Heading")({ title = "Explorer", icon = "menu", textSize = "heading" }),
+							--[[ A SETTINGS PANEL HAS ONE LEFT EDGE. `UI.Label`, `UI.Stepper`
+								and `UI.Toggle` all HUG, and a hugging child of a centring column
+								sits centred — so the heading floated in the middle of the panel,
+								the turn stepper floated under it, and the hat switch stopped
+								167px into a 312px row while every other control ran the full
+								width. `maxWidth = "infinity"` is the documented fill idiom, and
+								it is what puts all four labels on the same gutter and all four
+								values on the same trailing edge. ]]
+							UI.frame(
+								-- no `icon`: see the note on the "More like this" Label above —
+								-- `UI.Label.icon` is an asset string, and a semantic name paints an
+								-- empty box
+								UI.Label("Heading")({ title = "Explorer", textSize = "heading" }),
+								{ maxWidth = "infinity" }
+							),
 							text("Choose a palette and accessories.", "body", "secondary"),
 							UI.DisclosureGroup("Appearance")({
 								label = "Appearance",
@@ -1725,11 +2142,14 @@ function screens.create(Facet: any, app: any, actions: any?)
 											}),
 											{ trigger = palette, event = "select" }
 										),
-										UI.Toggle("Accessory")({
-											label = "Explorer hat",
-											value = hat,
-											onChange = setAccessory,
-										}),
+										UI.frame(
+											UI.Toggle("Accessory")({
+												label = "Explorer hat",
+												value = hat,
+												onChange = setAccessory,
+											}),
+											{ maxWidth = "infinity" }
+										),
 										-- A compact one-tap palette switch, beside the segmented
 										-- Picker above. It used to be hidden below 640px: the
 										-- radial's LIST form subtracted its launcher gap from a
@@ -1757,27 +2177,33 @@ function screens.create(Facet: any, app: any, actions: any?)
 									})
 								end,
 							}),
+							-- ...AND THE SAME ROW ON A TELEVISION. The label, the readout and the two
+							-- targets all grow with the display, so the row that was 22px too wide at
+							-- 393px is 64px too wide at ten-foot for exactly the same reason.
 							-- COMPACT: THE LABEL TAKES ITS OWN LINE. A Stepper's row is a
 							-- label, a readout and two 44px targets, and it hugs — so below
 							-- ~480px at a large text preference that row is wider than the
 							-- panel and the "+" paints outside it. The label moves above the
 							-- control there and the row keeps the whole line, the same shape
 							-- the Auto-spin row below already uses.
-							Compose.show(compactWidth, function()
+							Compose.show(labelOnOwnLine, function()
 								return text("Turn step", "label")
 							end),
-							UI.Stepper("TurnStep")({
-								label = function(use)
-									return if compactWidth(use) then "" else "Turn step"
-								end,
-								value = turnStepIndex,
-								min = 1,
-								max = #turnSteps,
-								step = 1,
-								format = function(index)
-									return `{turnSteps[index]}°`
-								end,
-							}),
+							UI.frame(
+								UI.Stepper("TurnStep")({
+									label = function(use)
+										return if labelOnOwnLine(use) then "" else "Turn step"
+									end,
+									value = turnStepIndex,
+									min = 1,
+									max = #turnSteps,
+									step = 1,
+									format = function(index)
+										return `{turnSteps[index]}°`
+									end,
+								}),
+								{ maxWidth = "infinity" }
+							),
 							-- One increment, three controls: the Stepper picks it, the Turn
 							-- buttons spend it, and the slider snaps to it — `Slider.step`
 							-- takes the same readable they all read.
@@ -1935,7 +2361,9 @@ function screens.create(Facet: any, app: any, actions: any?)
 			-- The HUD sits over the preview: its lower left beside the settings
 			-- panel, and under the title when the preview is stacked above them.
 			-- It is only as large as its plates, so the page under it stays live.
-			previewHud,
+			-- The Anchor is the layer that READS a corner and an offset; the HUD names
+			-- both on itself (see `PreviewHud` above).
+			UI.Anchor("PreviewHudArea")({ width = fill, height = fill, previewHud }),
 			quickRingOverlay,
 		})
 	end
@@ -1962,8 +2390,18 @@ function screens.create(Facet: any, app: any, actions: any?)
 				UI.HStack("Bar")({
 					width = { type = "percent", fraction = 1, max = 960 },
 					gap = "m",
-					alignV = "center",
+					-- the caption sits on the menu button's centre line: an hstack's
+					-- cross-axis word is `align`, and `alignV` (a ZStack parent's word)
+					-- left the caption pinned to the top of a 46px row
+					align = "center",
 					-- the thread's own status, on the title's edge; its menu, on the actions'
+					--[[ THE CAPTION TAKES THE SLACK, so the menu beside it never has to
+						give up its own label. `compactLabel` is a FIT degrade — the solver
+						reaches for it only when the width a button is GIVEN is too small for
+						the full string — and a hugging button is never given too little, so
+						at 320px this row simply ran 38px past its box. One fill child is the
+						whole rule: the status is what yields, and it yields exactly as much
+						as the row is short. ]]
 					UI.Text("Status")({
 						text = function(use)
 							local count = #use(conversation.messages)
@@ -1971,10 +2409,17 @@ function screens.create(Facet: any, app: any, actions: any?)
 						end,
 						textSize = "caption",
 						role = "secondary",
+						width = fill,
+						lineLimit = 1,
 					}),
-					UI.Spacer({ width = fill }),
 					UI.Menu("ConversationMenu")({
-						label = "Conversation",
+						-- A trigger rather than a bare `label`, for the one thing a label
+						-- cannot carry: a compact spelling. At 320px "Conversation" plus the
+						-- thread's own status ran 38px past this bar.
+						trigger = UI.Button("ConversationMenu")({
+							label = "Conversation",
+							compactLabel = "Thread",
+						}),
 						items = {
 							{
 								id = "suggest",
@@ -2024,121 +2469,165 @@ function screens.create(Facet: any, app: any, actions: any?)
 					width = { type = "percent", fraction = 1, max = 960 },
 					height = fill,
 					gap = "m",
-
-					Compose.show(function(use)
-						return #use(conversation.messages) == 0
-					end, function()
-						-- A short entrance each time the welcome reappears (a fresh
-						-- conversation, or Clear). Reduced motion holds it fully visible.
-						local welcomeShown = Compose.cell(0)
-						local welcomeMotion = app.runtime.tween(function(use)
-							return use(welcomeShown)
-						end, { seconds = 0.24 })
-						welcomeShown:set(1)
-						local function reveal(use)
-							if use(app.environment:get("motionPolicy")) == "reduced" then
-								return 1
-							end
-							return math.clamp(use(welcomeMotion), 0, 1)
-						end
-						return UI.ZStack("Welcome")({
-							width = fill,
-							height = fill,
-							alignV = "center",
-							canvasGroup = true,
-							opacity = reveal,
-							offsetY = function(use)
-								return (1 - reveal(use)) * 12
-							end,
-							UI.VStack({
-								width = fill,
-								gap = "s",
-								icons.draw(UI, "sparkle", 40, "accent"),
-								header("What are you working on?", "Ask a question or try a prompt below."),
-							}),
-						})
-					end),
-					UI.VirtualList("History")({
-						scrollNavigation = if callbacks.chatScroll
-							then {
-								position = callbacks.chatScroll,
-								active = callbacks.scrollActive,
-							}
-							else nil,
+					--[[ THE WELCOME SITS OVER THE THREAD, NOT ABOVE IT. As a SIBLING of
+						the list, both declared `height = fill` and split the thread area in
+						half — so on a 1080p screen the greeting floated in the upper half
+						with a dead band under it, and on a small phone its half was 43px
+						too short for the greeting to fit at all (it painted over the empty
+						list below). Layered, it owns the whole thread box while the thread
+						is empty, and the list underneath is never unmounted: its scroll
+						position, its follow state and its row lifetimes survive the first
+						message instead of being rebuilt by it. ]]
+					UI.ZStack("Thread")({
 						width = fill,
-						viewportExtent = "auto",
-						rows = conversation.messages,
-						key = "id",
-						itemExtent = "measured",
-						estimatedItemExtent = 100,
-						rowGap = "m",
-						overscan = 2,
-						-- Live-bound to the Conversation menu's "Follow replies" item
-						-- (VirtualList.follow now takes a readable / function(use)).
-						follow = function(use)
-							return if use(chatFollow) then "end" else "none"
-						end,
-						followThreshold = 48,
-						-- Swipe a message, or press Delete on it, to remove it.
-						rowActions = function(message)
-							return {
-								trailing = {
-									{
-										id = "delete",
-										role = "destructive",
-										label = "Delete",
-										onAction = function()
-											conversation.remove(message.id)
-										end,
-									},
-								},
-							}
-						end,
-						cell = function(_, ctx)
-							local item = Compose.formula(ctx.current)
-							-- The reply arrives a character at a time. The reveal owns the
-							-- placeholder and the codepoint boundary; the model owns the text.
-							local reply = Facet.motion.newTextReveal({
-								value = function(use)
-									return use(item).content
-								end,
-								placeholder = "Thinking…",
-							})
-							return UI.HStack({
+						height = fill,
+						Compose.show(function(use)
+							return #use(conversation.messages) == 0
+						end, function()
+							-- A short entrance each time the welcome reappears (a fresh
+							-- conversation, or Clear). Reduced motion holds it fully visible.
+							local welcomeShown = Compose.cell(0)
+							local welcomeMotion = app.runtime.tween(function(use)
+								return use(welcomeShown)
+							end, { seconds = 0.24 })
+							welcomeShown:set(1)
+							local function reveal(use)
+								if use(app.environment:get("motionPolicy")) == "reduced" then
+									return 1
+								end
+								return math.clamp(use(welcomeMotion), 0, 1)
+							end
+							return UI.ZStack("Welcome")({
 								width = fill,
-								gap = "s",
-								Compose.show(function(use)
-									return use(item).role == "assistant"
-								end, function()
-									-- Pinned to the message's top line, not centered on the
-									-- whole (possibly multi-line) bubble: `lineAlign` is the
-									-- shared box property `UI.alignment` sets on a ZStack
-									-- child; a stack child names it directly.
-									return UI.ZStack("Glyph")({
-										width = fixed(20),
-										height = fixed(20),
-										lineAlign = "start",
-										icons.draw(UI, "sparkle", 20, "accent"),
-									})
-								end),
+								height = fill,
+								alignV = "center",
+								canvasGroup = true,
+								opacity = reveal,
+								--[[ THE RISE IS PAINT, NOT LAYOUT. `offsetY` is the LAYOUT
+								offset a `UI.Anchor` parent reads; under this vstack it was
+								accepted and then ignored, so the entrance only ever faded.
+								The `offset` PROP is the paint-only translation that belongs
+								beside `opacity` — same channel, same frame, no re-measure. ]]
+								offset = function(use)
+									return { x = 0, y = (1 - reveal(use)) * 12 }
+								end,
 								UI.VStack({
 									width = fill,
 									gap = "s",
-									padding = "m",
-									surface = function(use)
-										return if use(item).role == "user" then "control" else "plain"
-									end,
-									text(function(use)
-										return if use(item).role == "user" then "You" else "Assistant"
-									end, "label"),
-									text(reply.text),
+									-- A LANDSCAPE PHONE HAS NO ROOM FOR A MARK. The greeting's
+									-- glyph and its second line stood 35px past the thread box
+									-- there and painted over the composer. A short viewport keeps
+									-- the question and drops the ornament around it.
+									Compose.show(function(use)
+										return Facet.adaptive.heightClass(use(app.environment:get("viewportRect")).h)
+											~= "short"
+									end, function()
+										return icons.draw(UI, "sparkle", 40, "accent")
+									end),
+									Compose.show(function(use)
+										return Facet.adaptive.heightClass(use(app.environment:get("viewportRect")).h)
+											~= "short"
+									end, function()
+										return header(
+											"What are you working on?",
+											"Ask a question or try a prompt below."
+										)
+									end, function()
+										return text("What are you working on?", "title")
+									end),
 								}),
 							})
-						end,
+						end),
+						UI.VirtualList("History")({
+							scrollNavigation = if callbacks.chatScroll
+								then {
+									position = callbacks.chatScroll,
+									active = callbacks.scrollActive,
+								}
+								else nil,
+							width = fill,
+							-- "auto" measures the list's viewport from the box it is given, and
+							-- the box is now the whole thread area: the welcome is LAYERED over
+							-- this list rather than stacked above it
+							viewportExtent = "auto",
+							rows = conversation.messages,
+							key = "id",
+							itemExtent = "measured",
+							estimatedItemExtent = 100,
+							rowGap = "m",
+							overscan = 2,
+							-- Live-bound to the Conversation menu's "Follow replies" item
+							-- (VirtualList.follow now takes a readable / function(use)).
+							follow = function(use)
+								return if use(chatFollow) then "end" else "none"
+							end,
+							followThreshold = 48,
+							-- Swipe a message, or press Delete on it, to remove it.
+							rowActions = function(message)
+								return {
+									trailing = {
+										{
+											id = "delete",
+											role = "destructive",
+											label = "Delete",
+											onAction = function()
+												conversation.remove(message.id)
+											end,
+										},
+									},
+								}
+							end,
+							cell = function(_, ctx)
+								local item = Compose.formula(ctx.current)
+								-- The reply arrives a character at a time. The reveal owns the
+								-- placeholder and the codepoint boundary; the model owns the text.
+								local reply = Facet.motion.newTextReveal({
+									value = function(use)
+										return use(item).content
+									end,
+									placeholder = "Thinking…",
+								})
+								return UI.HStack({
+									width = fill,
+									gap = "s",
+									Compose.show(function(use)
+										return use(item).role == "assistant"
+									end, function()
+										-- Pinned to the message's top line, not centered on the
+										-- whole (possibly multi-line) bubble: `lineAlign` is the
+										-- shared box property `UI.alignment` sets on a ZStack
+										-- child; a stack child names it directly.
+										return UI.ZStack("Glyph")({
+											width = fixed(20),
+											height = fixed(20),
+											lineAlign = "start",
+											icons.draw(UI, "sparkle", 20, "accent"),
+										})
+									end),
+									UI.VStack({
+										width = fill,
+										gap = "s",
+										padding = "m",
+										surface = function(use)
+											return if use(item).role == "user" then "control" else "plain"
+										end,
+										text(function(use)
+											return if use(item).role == "user" then "You" else "Assistant"
+										end, "label"),
+										text(reply.text),
+									}),
+								})
+							end,
+						}),
 					}),
 					UI.HStack({
 						width = fill,
 						gap = "s",
+						-- Two starter prompts read best side by side and must not be cut
+						-- down to fit: at 393px they are 2px too wide for the column, and
+						-- narrower still on a small phone. A wrapping row takes the second
+						-- line only when it needs one, so neither label is ever truncated.
+						wrap = true,
 						UI.Callout("PromptHint")({
 							anchor = UI.Button("GamePrompt")({
 								label = "Find a game",

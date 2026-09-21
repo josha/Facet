@@ -144,3 +144,58 @@ t.describe("SplitButton", function()
 		c.dispose()
 	end)
 end)
+
+--[[ THE SILHOUETTE IS THE WHOLE POINT OF THE SPLIT FORM (found live,
+	2026-09-20). Square where the two segments meet, the theme's radius on the
+	outer ends — which is what the control has always SAID it does, and what it
+	did not do: `normalizeCorners` gives a corner nobody named a radius of 0, not
+	the theme's, so naming only the inner pair made every corner square and the
+	control shipped as a hard-edged rectangle beside rounded buttons.
+
+	Pinned on the normalized DATA rather than a screenshot, and on the token
+	rather than the pixel: the painter re-resolves `control` against the style it
+	paints with, so a ten-foot display's derived radius is the one that reaches
+	the strip. ]]
+t.describe("SplitButton silhouette", function()
+	t.it("rounds the outer ends and squares only the seam", function()
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 1024, h = 768 },
+			capabilities = { mouse = true, keyboard = true },
+			preferredInput = "KeyboardAndMouse",
+		})
+		local c = build(w, { n = 0 })
+		w.present(harness.UI.Screen({ id = "Root", children = { c.blueprint } }))
+		t.expect(c.dump().form).toBe("split")
+
+		local primary = w.adapter.node("/Root/S/Split/then/Split/Primary")
+		local menu = w.adapter.node("/Root/S/Split/then/Split/Menu")
+		t.expect(primary ~= nil).toBe(true)
+		t.expect(menu ~= nil).toBe(true)
+
+		for _, case in
+			{
+				{ node = primary, name = "primary", rounded = { "topLeft", "bottomLeft" } },
+				{ node = menu, name = "menu", rounded = { "topRight", "bottomRight" } },
+			}
+		do
+			local corners = case.node.props.corners
+			t.expect(type(corners)).toBe("table")
+			t.expect(corners.form).toBe("perCorner")
+			local roundedSet: { [string]: boolean } = {}
+			for _, key in case.rounded do
+				roundedSet[key] = true
+			end
+			for _, key in { "topLeft", "topRight", "bottomLeft", "bottomRight" } do
+				if roundedSet[key] then
+					-- the token is what survives to the painter; the px beside it is
+					-- this style's resolution of the same name
+					t.expect(corners.tokens[key]).toBe("control")
+					t.expect(corners[key] > 0).toBe(true)
+				else
+					t.expect(corners[key]).toBe(0)
+				end
+			end
+		end
+		c.dispose()
+	end)
+end)

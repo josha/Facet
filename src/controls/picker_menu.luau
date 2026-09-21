@@ -1662,8 +1662,26 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			-- trigger paints as — see the decoration hint below)
 			selected = if pickerMode then openNow else nil,
 			width = triggerWidthDim,
-			height = if detached
-				then { type = "minMax", min = TRIGGER_HEIGHT }
+			--[[ THE TRIGGER TAKES THE BOX IT WAS GIVEN (found live in the showcase's
+				search row, 2026-09-20: a 56x41 opener standing beside a 44px text
+				field, its bottom edge 3px short of the field's).
+
+				The root below is a `UI.Anchor`, and an anchored child is placed at its
+				OWN measured size — so a trigger that hugs stays hugged however tall
+				the anchor is, and a parent that stretches the control (a ComboBox row
+				matching its field) changes nothing a player can see. That was measured
+				twice: `align = "stretch"` on the ComboBox row moved the anchor's box
+				and left the painted trigger exactly where it was.
+
+				Filling instead keeps the same answer wherever nothing stretches it —
+				the anchor's own `minMax` floor is `TRIGGER_HEIGHT`, so a standalone
+				picker still resolves to the theme's own trigger height — and makes
+				the control follow when something does. The non-detached inline popup
+				keeps its fixed height: its anchor is `fill`, so filling there would
+				take the whole parent. ]]
+			height = if detached and not rowForm
+				then UI.fill()
+				elseif detached then { type = "minMax", min = TRIGGER_HEIGHT }
 				else { type = "fixed", px = TRIGGER_HEIGHT },
 			gap = "xs",
 			align = "center",

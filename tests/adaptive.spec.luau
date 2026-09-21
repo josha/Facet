@@ -2293,6 +2293,26 @@ describe("director item 5: adaptive.effectiveDisplaySize", function()
 		expect(adaptive.effectiveDisplaySize("Large", nil)).toBe("Large")
 	end)
 
+	--[[ THE DESK HALF (owner, on their own hardware, 2026-09-20: "on a 4K monitor
+		the showcase is way too big"). A 4K desk monitor is physically large and the
+		engine says so, and a big pixel count is not a long viewing distance — so
+		the 1.5x swing landed on a display being read from arm's length. A console
+		has no mouse; a desk has one at any resolution. ]]
+	it("downgrades Large to Medium when a MOUSE is live — a desk, whatever its resolution", function()
+		-- the reported defect: 4K desktop, mouse and keyboard, no touchscreen
+		expect(adaptive.effectiveDisplaySize("Large", false, true)).toBe("Medium")
+		-- ...and a console keeps the treatment the feature exists for
+		expect(adaptive.effectiveDisplaySize("Large", false, false)).toBe("Large")
+		-- a pad docked on a desk does not make the desk a couch: the mouse is
+		-- still there, and it is the mouse this rule reads
+		expect(adaptive.effectiveDisplaySize("Large", false, true)).toBe("Medium")
+		-- the PC handheld is unchanged: touch alone still corrects it
+		expect(adaptive.effectiveDisplaySize("Large", true, false)).toBe("Medium")
+		-- and the third argument is ADDITIVE — every caller written before it is
+		-- byte-identical
+		expect(adaptive.effectiveDisplaySize("Large", false)).toBe("Large")
+	end)
+
 	it("never touches Small or Medium, touch or not — only Large is ever in question", function()
 		expect(adaptive.effectiveDisplaySize("Small", true)).toBe("Small")
 		expect(adaptive.effectiveDisplaySize("Small", false)).toBe("Small")
