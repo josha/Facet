@@ -1206,7 +1206,7 @@ local function projectContentRules(rules: { Rule })
 			{
 				{ "text", sheet_model.CONTENT_TEXT_TAG, "TextColor3", "TextColor3", "rule" },
 				{ "icon", sheet_model.CONTENT_ICON_TAG, "ImageColor3", "TextColor3", "chrome" },
-				{ "art opacity", sheet_model.CONTENT_ART_TAG, "ImageTransparency", "TextTransparency", "chrome" },
+				{ "icon opacity", sheet_model.CONTENT_ART_TAG, "ImageTransparency", "TextTransparency", "chrome" },
 				{ "lift", "", "TextColor3", "TextColor3", "rule" },
 				{ "lift opacity", "", "TextTransparency", "TextTransparency", "rule" },
 			}
