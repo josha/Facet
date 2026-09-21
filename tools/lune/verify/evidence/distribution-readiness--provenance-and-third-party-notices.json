@@ -4,17 +4,17 @@
   {
    "archivedPath": "artifacts/distribution-readiness/audit/provenance-ledger.md",
    "label": "ledger",
-   "sha256": "b8ef45bc05a308b11affc28360091ef348aa32825ce180e1a8e76e141ff83399"
+   "sha256": "ca84659b52e0509293c85300be1a756a0c4769b586f72ceba9845f456244ba99"
   },
   {
    "archivedPath": "THIRD_PARTY_NOTICES.md",
    "label": "notices",
-   "sha256": "dce08f9f3610c2ea396d21e2af703f26394e55d2a08a16b0403e958b66eb6b5e"
+   "sha256": "db2d39a8ed33ae1a54d71d54a6959d613f0462a16a0f6260b5586b7d1120a12e"
   },
   {
    "archivedPath": "src/vendor/compose/UPSTREAM.lock",
    "label": "Compose UPSTREAM.lock",
-   "sha256": "b65f5b2ce099217174ed1f807f0e5a6fc84550905ad12faa6c8caebb38013cfb"
+   "sha256": "14e628e911af64ed95e9a9adff5ccdd0c920bd74f07e70607c650dc6eb716dbf"
   },
   {
    "archivedPath": "src/vendor/compose/LICENSE",
@@ -22,8 +22,8 @@
    "sha256": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885"
   }
  ],
- "recordedAt": "2026-09-21T00:50:00Z",
+ "recordedAt": "2026-09-21T11:51:03Z",
  "row": "distribution-readiness::provenance-and-third-party-notices",
  "schema": "facet-evidence-receipt/1",
- "summary": "Current Compose dependency addendum, exact source pin and SHA-256 inventory, and complete MIT notices. Historical audit entries remain labelled; this receipt does not assert a new package build or publication approval."
+ "summary": "Inspected current Compose LOCAL/UNPUBLISHED repair 974b752 based on official 5f6bf7d, exact generated lock inventory, unchanged complete MIT notices, and additive provenance history. This receipt records only the listed file hashes; it does not assert official remote fetchability, new test results, package publication or approval."
 }
