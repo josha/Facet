@@ -12200,7 +12200,10 @@ updates quarantine before geometry changes, and later legal values recover.
 The surface-less plate uses the theme's control tint. One shared decorative
 1.2-second triangular driver per presenter clock moves a 35% fill band between
 percent spacers. It allocates two dimension tables per frame per clock, plus
-ordinary per-instance rendering work. Mounted sweeps start it; the last sweep
+ordinary per-instance rendering work. An animated circle also uses one small
+rounded CanvasGroup to mask its sweep, released under reduced motion; its buffer
+shares the documented [CanvasGroup quality and memory limits](#canvasgroup-costs).
+Mounted sweeps start it; the last sweep
 leaving detaches it immediately. Separate branch holds keep its independent
 owner alive until the last Skeleton is disposed. Render hooks count structural
 presence, not pixel visibility or opacity. Reduced motion removes the sweep;

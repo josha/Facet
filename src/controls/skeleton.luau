@@ -153,7 +153,7 @@ local function build(library, core, spec, owner)
 					condition = sweeping,
 					thenView = function()
 						-- Fill absorbs independent percent rounding; the band cannot overrun.
-						return UI.HStack({
+						local sweep = UI.HStack({
 							id = "Sweep",
 							width = FILL,
 							height = FILL,
@@ -165,6 +165,20 @@ local function build(library, core, spec, owner)
 								UI.Spacer({ id = "Trail", width = driver.trail, height = FILL }),
 							},
 						})
+						-- Rounded sibling paint is not a mask. The native CanvasGroup
+						-- clips the moving band to this circle; reduced motion owns none.
+						return if form == "circle"
+							then UI.corners(
+								UI.ZStack({
+									id = "Mask",
+									width = FILL,
+									height = FILL,
+									canvasGroup = true,
+									children = { sweep },
+								}),
+								"pill"
+							)
+							else sweep
 					end,
 				})
 			)

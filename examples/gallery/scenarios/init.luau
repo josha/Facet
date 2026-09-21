@@ -319,8 +319,7 @@ local ORDER = {
 	"leaf_capabilities",
 	"shortcut_hint",
 	"container_grid",
-	-- scaffolded showcase surface for the `Skeleton` control. Also in
-	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+	-- Loading/reduced-motion branch lifetime; shared with Indicators → Progress.
 	"skeleton",
 	-- scaffold: new control scenarios are appended above this line
 }
