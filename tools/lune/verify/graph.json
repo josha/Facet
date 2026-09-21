@@ -5814,7 +5814,7 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "shell": "cd ../../../games/RascalRally/code && grep -q '✓.*open/close churn is registry-neutral' \"$FACET_VERIFY_RR_TRANSCRIPT\""
+    "shell": "cd ../../../games/RascalRally/code && grep -q '✓.*open/close churn returns public ownership and live targets to baseline' \"$FACET_VERIFY_RR_TRANSCRIPT\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -6122,7 +6122,7 @@
      "bench",
      "rascalrally-suite"
     ],
-    "shell": "(cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" | grep -q '✓.*open/close churn is registry-neutral')"
+    "shell": "(cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" | grep -q '✓.*open/close churn returns public ownership and targets to baseline')"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/bench.json",
