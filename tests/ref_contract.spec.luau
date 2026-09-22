@@ -263,6 +263,9 @@ local FIXTURES: { [string]: (w: any) -> any } = {
 	TextInput = function(w)
 		return { value = Compose.cell("hi"), env = w.env }
 	end,
+	NumberInput = function(w)
+		return { value = Compose.cell("1"), numericValue = Compose.cell(1), env = w.env }
+	end,
 	Toggle = function(w)
 		return { label = "Filter", value = Compose.cell(true) }
 	end,

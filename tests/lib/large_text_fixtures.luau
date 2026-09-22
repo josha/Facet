@@ -674,6 +674,25 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- the numeric field with a unit and both step buttons: width is its worst
+		-- case at a raised preference, and the editor must survive the squeeze
+		id = "NumberInput",
+		class = "NumberInput",
+		build = function(core, w)
+			return harness.Controls.NumberInput(core, {
+				id = "Ctl",
+				value = Compose.cell("3"),
+				numericValue = Compose.cell(3),
+				min = 0,
+				max = 99,
+				stepButtons = true,
+				suffix = "km",
+				env = w.env,
+				actionSystem = w.system,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Table",
 		class = "Table",
 		build = function(core)

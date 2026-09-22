@@ -200,7 +200,8 @@ owner that owns its resources. Start with
 | `UI.Picker` | The one selection control: an automatic style that is a menu on a phone or a desktop and a strip on a television, plus declared menu, segmented, inline, radioGroup and navigationLink styles, searchable lists and live options. | [api](../reference/api.md#uipicker) |
 | `UI.PopupButton` | **Deprecated** (0.11.0): the popup half of `UI.Picker`'s menu styles; still builds on the same engine. | [api](../reference/api.md#uipopupbutton) |
 | `UI.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#uimenu) |
-| `UI.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#uitextinput) |
+| `UI.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel; label, hint/error line, accessories, read-only and line-count options. | [api](../reference/api.md#uitextinput) |
+| `UI.NumberInput` | The numeric field: a committed number beside its draft, bounds that clamp, precision, units and optional step buttons. | [api](../reference/api.md#uinumberinput) |
 | `UI.ProgressView` | A determinate or indeterminate bar or ring, segmented HUD meters, damage trails, and adaptive gauge readouts; the Compose owner and the application clock drive it. | [api](../reference/api.md#uiprogressview) |
 | `UI.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#uidisclosuregroup) |
 | `UI.LevelPicker` | A discrete numeric level strip with bar, glyph or image segments. | [api](../reference/api.md#uilevelpicker) |
@@ -221,6 +222,7 @@ owner that owns its resources. Start with
 | `UI.AvatarGroup` | A keyed row of player faces with a capped count and optional overflow action. | [api](../reference/api.md#uiavatargroup) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `richText` | Escapes text before composing rich markup; it does not filter player text. | [api](../reference/api.md#richtext) |
+| `recipes` | Opt-in one-line compositions; `recipes.arithmetic.parse` lets a numeric field accept `3 + 5`. | [api](../reference/api.md#recipes) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 
 ### 3. Collections, scrolling, selection, reorder, and drag/drop

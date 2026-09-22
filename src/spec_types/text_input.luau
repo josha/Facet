@@ -18,7 +18,9 @@ export type Spec<V = StringCell> = {
 	id: string?,
 	value: V, -- the caller's writable cell of the field text
 	onChange: ((text: string) -> ())?, -- live: every accepted edit while typing
-	onCommit: ((text: string, reason: "enter" | "focusLost" | "submit") -> ())?, -- Enter / focus loss
+	-- Enter / focus loss / submit. The number presentation reports the committed
+	-- NUMBER, and "clamped" when a bound moved it; the others report the string.
+	onCommit: ((value: string | number, reason: "enter" | "focusLost" | "submit" | "clamped") -> ())?,
 	placeholder: string?,
 	disabled: blueprint.Bound<boolean>?, -- boolean | Readable<boolean>
 	keyboardType: ("default" | "numeric" | "email" | "phone")?,
@@ -44,5 +46,16 @@ export type Spec<V = StringCell> = {
 	readOnly: blueprint.Bound<boolean>?,
 	-- multiline only: lines shown at once; past them the editor scrolls
 	visibleLines: number?,
+	-- the number presentation
+	step: number?, -- finite and above zero; one press of a step button
+	precision: number?, -- 0..10 decimal places, rounded half away from zero at commit
+	stepButtons: boolean?, -- two target-sized stops in the plate
+	prefix: blueprint.Bound<string>?, -- unit chrome beside the editor, never in the draft
+	suffix: blueprint.Bound<string>?,
+}
+-- `UI.NumberInput`: the number presentation preset; it chooses the presentation
+export type NumberSpec<V = StringCell> = Spec<V> & {
+	presentation: nil,
+	numericValue: coreContract.Cell<number>,
 }
 return nil

@@ -16,6 +16,8 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Keep frequently used actions visible | Buttons in a toolbar/stack | Avoid making players open a menu for every repeated action. |
 | Choose one value from a list | `UI.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `navigationLink` for a long or searchable list. |
 | Choose a persistent value | Picker, Toggle, or Slider as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
+| Type a word, a name, or a paragraph | `UI.TextInput` | Add `label`, `hint`/`errorText`, `readOnly` or `multiline` with `visibleLines`; a search field is `presentation = "search"`. |
+| Type or nudge a quantity | `UI.NumberInput` | The committed number is separate from the draft; bounds clamp, `stepButtons` add two stops, and a Slider or Stepper suits a value picked rather than typed. |
 | Run one action with alternatives | `UI.Button` beside a `Picker`, or `UI.SplitButton` | The split joins a chevron segment to the button under a pointer and becomes one long-press button under touch; when the alternatives must be discoverable on a phone, a Picker beside the Button says them out loud. |
 | Browse inventory, compare items, or search a large collection | Grid/list/table with filtering | Item discovery and comparison need more content than directional quick actions. |
 | Switch peer destinations such as Garage, Races, and Settings | `UI.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |

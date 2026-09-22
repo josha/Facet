@@ -176,6 +176,10 @@ local Facet = {
 	-- rings/arcs/needles as normalized control points, headlessly tested
 	pathShapes = require("@self/controls/path_shapes"),
 
+	-- opt-in compositions a caller wires in one line: `arithmetic.parse` is a
+	-- NumberInput `parse` that commits `3 + 5` as 8 (a product decision, not a key)
+	recipes = table.freeze({ arithmetic = table.freeze({ parse = require("@self/arithmetic").parse }) }),
+
 	--[[ THE MARKUP DOOR, for `UI.Text{ rich = true }`.
 
 		`escape(s)` is the one function a consumer needs and the one it must not

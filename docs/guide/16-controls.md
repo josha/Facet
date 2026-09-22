@@ -155,7 +155,10 @@ pretend to be user edits.
 |---|---|
 | `presentation = "plain"` | Ordinary text entry. Configure `placeholder`, `enabled`, and `clearButtonMode`. |
 | `presentation = "search"` | A theme-tinted magnifying glass (`facet:search`) and clear behavior. Connect the string cell to your filtering formula; the control does not choose your search rules. Themes may replace the icon through their normal icon map. |
-| `presentation = "number"` | A separate committed `numericValue` cell, `min`/`max` bounds, optional `parse` and `format`, and visible validation feedback. A half-typed string does not replace the committed number. |
+| `presentation = "number"` or [`UI.NumberInput`](../reference/api.md#uinumberinput) | A separate committed `numericValue` cell reported by `onCommit`, `min`/`max` bounds that clamp, `precision`, `prefix`/`suffix` units, optional `stepButtons`, and a strict default parser (`Facet.recipes.arithmetic.parse` accepts arithmetic). A half-typed string does not replace the committed number. |
+| `label`, `requiredMark`, `hint`, `errorText` | A tappable label above the field (no extra focus stop), required notation in its words, and one line under the field that shows the hint or, when set, the error with its status mark. Put localized "optional" wording in `hint`. |
+| `leading`, `trailing`, `controlSize`, `appearance`, `corners` | Decoration or an action inside the plate, the shared size rung (target floor kept), a standard, contrast or utility plate, and the silhouette. |
+| `readOnly`, `visibleLines` | A focusable, selectable field that refuses edits; a multiline viewport sized in lines that scrolls past them. |
 | `multiline = true` | Wrapped native editing inside a native scrolling viewport. `height` controls the viewport; omitted height follows the multiline theme metric and available keyboard-free space. Numeric mode is single-line only. |
 | `maxLength`, `validate` | Length limiting and accepted-value normalization or rejection. `validate(text)` returns an accepted string or nil. It is not server validation. |
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`; empty and disabled fields hide the affordance. |

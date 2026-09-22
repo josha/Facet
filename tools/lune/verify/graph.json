@@ -23027,7 +23027,7 @@
      "controls_namespace::the Controls namespace::builds declared roots without flat constructor aliases",
      "controls_namespace::the Controls namespace::the infrastructure constructors stay at the top level and stay out of the controls"
     ],
-    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"35\""
+    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"new : function\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"api[.][A-Za-z]+ = composite[(]\" src/render/compose_controls.luau)\" = \"36\""
    },
    "class": "result-ids",
    "evidence": null,

@@ -67,6 +67,8 @@ local POST_ADR_NAMES: { string } = {
 	"Skeleton",
 	"Avatar",
 	"AvatarGroup",
+	-- the number presentation preset over the text-entry engine: one module, one dump
+	"NumberInput",
 	-- scaffold: new control names are appended above this line
 }
 

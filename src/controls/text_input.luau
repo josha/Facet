@@ -12,6 +12,9 @@ local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
 local textFit = require("../layout/text_fit")
+local arithmetic = require("../arithmetic")
+local valueModel = require("./value_model")
+local isFinite = require("../num").isFinite
 local fieldChrome = require("./field_chrome")
 local vocabulary = require("./control_vocabulary")
 
@@ -95,6 +98,12 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"corners",
 	"readOnly",
 	"visibleLines",
+	-- the number presentation's step, rounding and units
+	"step",
+	"precision",
+	"stepButtons",
+	"prefix",
+	"suffix",
 })
 
 local function build(Facet: any, core: any, spec: Spec, owner: any)
@@ -144,9 +153,34 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				and spec.min == nil
 				and spec.max == nil
 				and spec.parse == nil
-				and spec.format == nil,
-			"TextInput: numericValue, bounds, parse and format require presentation number"
+				and spec.format == nil
+				and spec.step == nil
+				and spec.precision == nil
+				and spec.stepButtons == nil
+				and spec.prefix == nil
+				and spec.suffix == nil,
+			"TextInput: numericValue, bounds, parse, format, step, precision, stepButtons, prefix and suffix "
+				.. "require presentation number"
 		)
+	end
+	assert(
+		spec.step == nil or (type(spec.step) == "number" and isFinite(spec.step) and spec.step > 0),
+		"TextInput: step must be a finite number above zero"
+	)
+	assert(
+		spec.precision == nil
+			or (
+				type(spec.precision) == "number"
+				and spec.precision >= 0
+				and spec.precision <= 10
+				and spec.precision % 1 == 0
+			),
+		"TextInput: precision must be a whole number of decimal places from 0 to 10"
+	)
+	assert(spec.stepButtons == nil or type(spec.stepButtons) == "boolean", "TextInput: stepButtons must be a boolean")
+	for _, name in { "prefix", "suffix" } do
+		local unit = read(spec[name])
+		assert(unit == nil or type(unit) == "string", `TextInput: {name} must be a string or a readable string`)
 	end
 	fieldChrome.assertSpec("UI.TextInput", spec)
 	local readOnlyNow = read(spec.readOnly)
@@ -338,6 +372,52 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local readOnlyMemo = Compose.formula(function(use)
 		return read(spec.readOnly, use) == true
 	end)
+	--[[ THE NUMERIC ARITHMETIC IS THE VALUE FAMILY'S OWN: with two distinct bounds
+		`value_model` clamps and steps on the grid measured from `min`, as Slider
+		and Stepper do. Without them there is no grid to invent a bound for. ]]
+	local stepSize = spec.step or 1
+	local boundedModel = if presentation == "number"
+			and spec.min ~= nil
+			and spec.max ~= nil
+			and spec.min < spec.max
+		then valueModel.new({ min = spec.min, max = spec.max, step = stepSize })
+		else nil
+	local function clampNumber(v: number): number
+		if boundedModel ~= nil then
+			return boundedModel.clamp(v)
+		end
+		if spec.min ~= nil and v < spec.min then
+			return spec.min
+		end
+		if spec.max ~= nil and v > spec.max then
+			return spec.max
+		end
+		return v
+	end
+	-- half away from zero, at commit only: rounding a draft deletes the digit
+	-- being typed. A value too large to shift has no places left to round.
+	local function roundTo(v: number): number
+		if spec.precision == nil then
+			return v
+		end
+		local scale = 10 ^ spec.precision
+		local shifted = v * scale
+		if not isFinite(shifted) then
+			return v
+		end
+		local rounded = if shifted >= 0 then math.floor(shifted + 0.5) else -math.floor(-shifted + 0.5)
+		return rounded / scale
+	end
+	-- an authored format wins; a declared precision writes exactly that many places
+	local function formatNumber(v: number): string
+		if spec.format ~= nil then
+			return spec.format(v)
+		end
+		if spec.precision ~= nil then
+			return string.format(`%.{spec.precision}f`, v)
+		end
+		return tostring(v)
+	end
 	local clearMode = spec.clearButtonMode
 		or (if spec.clearButton or presentation == "search" then "always" else "never")
 	if CLEAR_MODES[clearMode] == nil then
@@ -485,25 +565,45 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 
 		local text = read(spec.value)
+		-- a numeric field owns a number: its commit reports that, not the string
+		local committed: any = text
 		if presentation == "number" then
-			local ok, number = pcall(spec.parse or tonumber, text)
-			if disposed or disabledMemo:peek() then
-				return
-			end
-			local message = ""
-			if not ok or type(number) ~= "number" or number ~= number or math.abs(number) == math.huge then
-				message = "Enter a valid number."
-			elseif spec.min ~= nil and number < spec.min then
-				message = "Enter a value of at least " .. tostring(spec.min) .. "."
-			elseif spec.max ~= nil and number > spec.max then
-				message = "Enter a value of at most " .. tostring(spec.max) .. "."
-			end
-			if message ~= "" then
-				rejectWith(message)
+			--[[ AN INCOMPLETE DRAFT IS NOT A MISTAKE: nothing, a lone sign or a lone
+				point is a number on the way to being typed. Leaving on one restores the
+				last committed number in silence, unless the caller declared the field
+				required. ]]
+			if arithmetic.incomplete(text) then
+				local restoredOk, restored = pcall(formatNumber, spec.numericValue:peek())
+				if disposed or disabledMemo:peek() then
+					return
+				end
+				if restoredOk and type(restored) == "string" and restored ~= text then
+					spec.value:set(restored)
+				end
+				if spec.requiredMark == "required" then
+					rejectWith("Enter a number.")
+				else
+					validationError:set("")
+				end
 				endEditing()
 				return
 			end
-			local formattedOk, formatted = pcall(spec.format or tostring, number)
+			local ok, number = pcall(spec.parse or arithmetic.number, text)
+			if disposed or disabledMemo:peek() then
+				return
+			end
+			if not ok or type(number) ~= "number" or not isFinite(number) then
+				rejectWith("Enter a valid number.")
+				endEditing()
+				return
+			end
+			-- round, then clamp: a bound moves the value and the reason says so
+			local rounded = roundTo(number)
+			local bounded = clampNumber(rounded)
+			if bounded ~= rounded then
+				reason = "clamped"
+			end
+			local formattedOk, formatted = pcall(formatNumber, bounded)
 			if disposed or disabledMemo:peek() then
 				return
 			end
@@ -531,10 +631,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 			validationError:set("")
 			core.reactor:batch(function()
-				spec.numericValue:set(number)
+				spec.numericValue:set(bounded)
 				spec.value:set(formatted)
 			end)
-			text = formatted
+			committed = bounded
 		end
 		if spec.validate ~= nil and presentation ~= "number" then
 			local normalized = spec.validate(text)
@@ -542,10 +642,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				spec.value:set(normalized)
 				text = normalized
 			end
+			committed = text
 		end
 		endEditing()
 		if spec.onCommit ~= nil then
-			spec.onCommit(text, reason :: any)
+			spec.onCommit(committed, reason :: any)
 		end
 	end
 	cancelEdit = function()
@@ -570,6 +671,42 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				commit("focusLost")
 			end
 		end)
+	end
+	--[[ ONE PRESS OF A STEP BUTTON, through the typed path's own arithmetic —
+		step, round, clamp, format — so pressing and typing land on the same
+		numbers. A press is a whole decision: it commits as "submit" (and reports
+		the text change) rather than leaving a draft behind. ]]
+	local function stepBy(direction: number)
+		if disposed or disabledMemo:peek() or readOnlyMemo:peek() then
+			return
+		end
+		local current = spec.numericValue:peek()
+		local moved = if boundedModel ~= nil
+			then boundedModel.stepped(current, direction)
+			else current + direction * stepSize
+		local proposed = clampNumber(roundTo(moved))
+		if proposed == current or not isFinite(proposed) then
+			return
+		end
+		local ok, formatted = pcall(formatNumber, proposed)
+		if disposed or disabledMemo:peek() then
+			return
+		end
+		if not ok or type(formatted) ~= "string" then
+			rejectWith("The number could not be formatted.")
+			return
+		end
+		validationError:set("")
+		core.reactor:batch(function()
+			spec.numericValue:set(proposed)
+			spec.value:set(formatted)
+		end)
+		if spec.onChange ~= nil then
+			spec.onChange(formatted)
+		end
+		if not disposed and spec.onCommit ~= nil then
+			spec.onCommit(proposed :: any, "submit" :: any)
+		end
 	end
 	local function clearValue()
 		if disabledMemo:peek() then
@@ -631,7 +768,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		else ""
 	-- a pinned child and a row member cannot share the plate's right edge, so
 	-- anything else inside the plate turns the plate into one row
-	local usesRow = chrome.hasAccessories
+	local stepButtons = spec.stepButtons == true
+	local usesRow = chrome.hasAccessories or stepButtons or spec.prefix ~= nil or spec.suffix ~= nil
 	local rowPrefix = if usesRow then "/Row" else ""
 	local function ownTail(suffix: string): string
 		return `/{rootId}{fieldBase}{suffix}`
@@ -639,6 +777,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local fieldSuffix = rowPrefix .. (if spec.multiline then "/Viewport" else "") .. "/Field"
 	local FIELD_TAIL, CLEAR_TAIL = ownTail(fieldSuffix), ownTail(rowPrefix .. "/Clear")
 	local TRAILING_TAIL = ownTail("/Row/Trailing")
+	local DECREMENT_TAIL, INCREMENT_TAIL = ownTail("/Row/Decrement"), ownTail("/Row/Increment")
 	local LABEL_TAIL = `/{id}/{chrome.LABEL_ID}`
 	-- compared as text, so an id carrying a pattern character needs no escaping
 	local function endsWith(path: string, tail: string): boolean
@@ -682,6 +821,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if clear ~= nil then
 			table.insert(order, clear.path)
 		end
+		if stepButtons then
+			for _, tail in { DECREMENT_TAIL, INCREMENT_TAIL } do
+				local button = mountedUnder(rootNode, tail)
+				if button ~= nil then
+					table.insert(order, button.path)
+				end
+			end
+		end
 		if chrome.trailing ~= nil then
 			local trailing = mountedUnder(rootNode, TRAILING_TAIL)
 			if trailing ~= nil then
@@ -704,6 +851,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end
 		if spec.label ~= nil and endsWith(path, LABEL_TAIL) then
 			beginEditing()
+			return true
+		end
+		if stepButtons and (endsWith(path, DECREMENT_TAIL) or endsWith(path, INCREMENT_TAIL)) then
+			stepBy(if endsWith(path, DECREMENT_TAIL) then -1 else 1)
 			return true
 		end
 		return false
@@ -906,8 +1057,72 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if searchMark ~= nil then
 			table.insert(row, searchMark)
 		end
+		-- units are chrome beside the editor, never characters in the draft; they
+		-- give way before the editor does on a narrow row
+		local function unit(unitId: string, text: any): any
+			return UI.Text({
+				id = unitId,
+				text = text,
+				textSize = "control",
+				role = "secondary",
+				width = UI.hug(),
+				height = UI.hug(),
+				shrinkWeight = 1,
+				disclose = true,
+			})
+		end
+		if spec.prefix ~= nil then
+			table.insert(row, unit("Prefix", spec.prefix))
+		end
 		table.insert(row, rootSpec.children[1])
+		if spec.suffix ~= nil then
+			table.insert(row, unit("Suffix", spec.suffix))
+		end
 		table.insert(row, rootSpec.children[2])
+		--[[ TWO SQUARE TARGETS THAT ARE ORDINARY FOCUS STOPS. They claim no adjust
+			axis (Left/Right move between them), and at a bound, read-only or disabled
+			each says so by being disabled rather than refusing its own press. ]]
+		for _, entry in
+			(if stepButtons then { { "Decrement", "decrement", "-", -1 }, { "Increment", "increment", "+", 1 } } else {}) :: { any }
+		do
+			local direction = entry[4] :: number
+			table.insert(
+				row,
+				UI.Button({
+					id = entry[1],
+					label = entry[1],
+					align = "center",
+					padding = 0,
+					width = { type = "minMax", min = "targetSizes.minimum" },
+					height = { type = "minMax", min = "targetSizes.minimum" },
+					enabled = Compose.formula(function(use)
+						if use(disabledMemo) or use(readOnlyMemo) then
+							return false
+						end
+						local current = clampNumber(read(spec.numericValue, use))
+						if direction < 0 then
+							return spec.min == nil or current > spec.min
+						end
+						return spec.max == nil or current < spec.max
+					end),
+					surface = "chip",
+					-- the clear chip's centring: a framed package keeps the glyph whole
+					children = {
+						UI.Spacer({ id = "BeforeMark" }),
+						chromeSlots.attachHint(
+							UI.Text({
+								id = "Mark",
+								text = themePackage.iconGlyph(entry[2]) or entry[3],
+								textSize = "control",
+								textAlign = "center",
+							}),
+							{ icon = entry[2] }
+						),
+						UI.Spacer({ id = "AfterMark" }),
+					},
+				})
+			)
+		end
 		if chrome.trailing ~= nil then
 			table.insert(row, holder("Trailing", chrome.trailing))
 		end
@@ -952,6 +1167,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			submitLabel = spec.submitLabel or "default",
 			readOnly = readOnlyMemo:peek(),
 			visibleLines = spec.visibleLines,
+			step = if presentation == "number" then stepSize else nil,
+			precision = spec.precision,
+			stepButtons = stepButtons,
+			prefix = read(spec.prefix),
+			suffix = read(spec.suffix),
 		}
 		chrome.dumpInto(out)
 		return out
@@ -992,6 +1212,18 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	return ownedBuild(core, function(owner)
 		return build(Facet, core, spec, owner)
 	end)
+end
+
+-- `UI.NumberInput`: the same engine with the number presentation chosen — one
+-- draft, commit, chrome and input story under the name a chooser finds
+function text_input.buildNumber(Facet: any, core: any, spec: specTypes.NumberSpec)
+	assert(
+		(spec :: any).presentation == nil,
+		"Facet UI.NumberInput IS the number presentation: drop `presentation`, or use UI.TextInput"
+	)
+	local numeric = table.clone(spec :: any)
+	numeric.presentation = "number"
+	return text_input.build(Facet, core, numeric)
 end
 
 return text_input

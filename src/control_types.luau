@@ -401,6 +401,7 @@ export type Controls = {
 	AvatarGroup: Constructor<avatarGroupControl.Spec>,
 	Rating: Constructor<ratingControl.Spec>,
 	TextInput: Constructor<text_inputControl.Spec>,
+	NumberInput: Constructor<text_inputControl.NumberSpec>,
 	ProgressView: Constructor<progress_viewControl.Spec>,
 	LevelPicker: Constructor<level_pickerControl.Spec>,
 	DisclosureGroup: Constructor<disclosure_groupControl.Spec>,

@@ -864,6 +864,34 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		-- The number presentation preset: the SAME module, dump and docs anchor as
+		-- TextInput (one engine). Its new input story is the two step buttons.
+		name = "NumberInput",
+		kind = "composite",
+		module = "src/controls/text_input.luau",
+		export = "UI.NumberInput",
+		spec = "tests/number_input.spec.luau",
+		conformance = "tests/number_input.spec.luau",
+		docsAnchor = "UI.NumberInput",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			touch = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			keyboard = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			gamepad = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+		},
+		-- PARADIGM axis: the editor's story is TextInput's; the step buttons are
+		-- ordinary target-sized stops that claim no adjust axis, and a press is
+		-- atomic, so there is nothing in flight for an input-class flip to carry
+		affordanceProofs = {
+			pointer = { "a step button moves the value by one step on pointer, touch, keyboard and gamepad" },
+			touch = { "the step buttons are square targets that meet the touch floor and never share a pixel" },
+			keyboard = { "the step buttons are ordinary focus stops, after the editor and its clear" },
+			gamepad = { "the step buttons are ordinary focus stops, after the editor and its clear" },
+			hotSwitch = false,
+		},
+	},
+	{
 		-- the shared value arithmetic behind the value-control family. Not a
 		-- control (it renders nothing and has no input surface), but it lives under
 		-- src/controls/ so the checker requires a row — declared explicitly rather

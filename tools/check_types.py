@@ -42,7 +42,7 @@ ARTIFACT = "artifacts/release-candidate-review/perf/types.json"
 DECLARED_ENTRIES = {
     "Alert", "AsyncImage", "Avatar", "AvatarGroup", "Badge", "Button", "Callout", "Chip", "CollapsibleView",
     "ComboBox", "DisclosureGroup", "Label", "LevelPicker", "Menu",
-    "NavigationStack", "PageView", "Picker", "PopupButton", "ProgressView",
+    "NavigationStack", "NumberInput", "PageView", "Picker", "PopupButton", "ProgressView",
     "RadialMenu", "Rating", "RowActions", "Sheet", "ShortcutHint", "Skeleton", "StatusIndicator", "Slider", "SplitButton",
     "Stepper", "TabView", "Table", "TextInput", "Toggle", "VirtualGrid",
     "VirtualList",
@@ -78,7 +78,7 @@ def analyze(paths):
 # `api.NAME = composite("NAME", localVar.build)` where `localVar` was bound by
 # a top-of-file `local localVar = require("../controls/x")`.
 _COMPOSITE_RE = re.compile(
-    r'api\.(\w+) = composite\("\1",\s*(?:require\("([^"]+)"\)|(\w+))\.build\)'
+    r'api\.(\w+) = composite\("\1",\s*(?:require\("([^"]+)"\)|(\w+))\.build\w*\)'
 )
 _REQUIRE_RE = re.compile(r'local (\w+) = require\("(\.\./controls/[^"]+)"\)')
 
@@ -224,6 +224,8 @@ _EROSION_PROBES = [
     ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), appearance = "emphasis" })'),
     ("TextInput", 'app.controls.TextInput("Field")({ value = Facet.Compose.cell(""), requiredMark = "maybe" })'),
     ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), readOnly = "yes" })'),
+    ("NumberInput", 'app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), presentation = "search" })'),
+    ("NumberInput", 'app.controls.NumberInput("Laps")({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), step = "one" })'),
 ]
 
 

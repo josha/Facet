@@ -1082,7 +1082,8 @@ describe("TextInput: the invalid shake", function()
 		expect(paintedShift(w, "/S/Name/Input")).toBe(0)
 
 		w.adapter.tap("/S/Name/Input/Field")
-		w.adapter.pasteText("/S/Name/Input/Field", "-")
+		-- not a lone "-": that is an incomplete draft, which reverts in silence
+		w.adapter.pasteText("/S/Name/Input/Field", "1.2.3")
 		w.adapter.commitText("/S/Name/Input/Field")
 		expect(w.control.dump().validationError ~= "").toBe(true)
 		frame(w)

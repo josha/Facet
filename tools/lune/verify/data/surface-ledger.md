@@ -90,6 +90,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `specGuard` · `specGuard.keySet` · `specGuard.assertKnownKeys` · `specGuard.keyFunction` | pure decision module | stateless dot module | none (exported 0.10.0, ARCH-8: the strictness rule the extension playbook teaches had no public route). `keyFunction` joins the same pattern (0.11.0): ONE `key` rule for every keyed collection — a function, or the NAME of the identity field, resolved to `(item) -> string` in one place instead of once per collection control | root |
 
 | `richText` · `richText.escape` | pure decision module | stateless escaping helper; not text filtering | none | root |
+| `recipes` · `recipes.arithmetic` · `recipes.arithmetic.parse` | pure decision module | stateless dot module: a four-operator parser a NumberInput takes as its `parse` in one line, bounded (256 bytes, 32 levels) and never compiling what a player typed | none (P3a numeric field) | root |
 
 ## Runtime services
 

@@ -25,6 +25,17 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.NumberInput` is the number presentation preset over the same text-entry
+  engine, with `step`, `precision`, `stepButtons`, `prefix` and `suffix`, and
+  `Facet.recipes.arithmetic.parse` is an opt-in bounded arithmetic parser for
+  its `parse`. **Breaking, number presentation:** `onCommit` now reports the
+  committed number rather than the string; the default parser is a strict
+  decimal grammar instead of `tonumber` (no exponent, hex or blanks); a typed
+  value outside `min`/`max` is clamped and committed with reason `"clamped"`
+  instead of refused; leaving on an incomplete draft (empty, lone sign or point)
+  restores the last number silently unless the field is `requiredMark =
+  "required"`; `precision` rounds half away from zero at commit.
+
 - `UI.TextInput{ readOnly }` keeps a field focusable, selectable and at full
   contrast while refusing every edit through the engine and the model (no clear
   affordance, no commit report). `visibleLines` sizes a multiline viewport as

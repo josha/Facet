@@ -467,6 +467,7 @@ function controls.new(runtime: any, core: any, presenter: any, surfaces: any?)
 	api.Chip = composite("Chip", require("../controls/chip").build)
 	api.Toggle = composite("Toggle", toggle.build)
 	api.TextInput = composite("TextInput", textInput.build)
+	api.NumberInput = composite("NumberInput", textInput.buildNumber)
 	api.ProgressView = composite("ProgressView", progress.build)
 	return api, UI, library
 end

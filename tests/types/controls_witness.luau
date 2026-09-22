@@ -282,6 +282,22 @@ local _fieldChrome = app.controls.TextInput({
 	appearance = "contrast",
 	corners = "pill",
 })
+local _numberInput = app.controls.NumberInput("Fee")({
+	value = Facet.Compose.cell("2.00"),
+	numericValue = Facet.Compose.cell(2),
+	min = 0,
+	max = 50,
+	step = 0.5,
+	precision = 2,
+	stepButtons = true,
+	prefix = "$",
+	suffix = function(_use)
+		return "ea"
+	end,
+	parse = Facet.recipes.arithmetic.parse,
+})
+local _anonymousNumber =
+	app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1) })
 local _readOnlyNotes = app.controls.TextInput("Notes")({
 	value = Facet.Compose.cell(""),
 	multiline = true,
@@ -302,7 +318,8 @@ local _numericText = app.controls.TextInput("Number")({
 	format = function(number: number): string
 		return tostring(number)
 	end,
-	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
+	-- the number presentation reports a number, and "clamped" when a bound moved it
+	onCommit = function(_value: string | number, _reason: "enter" | "focusLost" | "submit" | "clamped") end,
 	onCancel = function() end,
 })
 local _progressview =

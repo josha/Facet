@@ -3598,6 +3598,22 @@ filtering: the game still uses the platform's filtering rules.
 UI.Text { rich = true, text = "<b>" .. Facet.richText.escape(playerName) .. "</b> wins" }
 ```
 
+### `recipes`
+
+`Facet.recipes` holds compositions a caller opts into in one line rather than
+keys every control carries. `Facet.recipes.arithmetic.parse(text) -> number?`
+is a pure four-operator parser for a `UI.NumberInput`'s `parse`, so `3 + 5`
+commits as 8. It reads `+ - * /`, parentheses, the typographic `×`, `÷` and
+`−`, and the numeric field's strict decimal grammar; it answers `nil` for
+malformed text, division by zero, a non-finite result, more than 256 bytes or
+more than 32 levels of nesting (a run of signs counts). It parses and never
+compiles or runs the text. Whether a field accepts arithmetic is a product
+decision, which is why this is a recipe and not a key.
+
+```lua
+UI.NumberInput("Fee")({ value = draft, numericValue = fee, parse = Facet.recipes.arithmetic.parse })
+```
+
 ### Engine-selection bridge (a presentModal opt)
 
 `app.presentModal(component, { engineSelectionBridge = true })` — opt-in mirror
@@ -9726,7 +9742,7 @@ geometry, and theme styling.
 | `multiline` | Construction-time boolean, default false. Native multiline text and wrapping inside a native scroll viewport. Incompatible with numeric presentation. |
 | `height` | Dimension; a single line has a minimum of `controls.textInput.fieldHeight` and grows for its text and theme. Multiline defaults to `controls.textInput.multilineHeight`. Long multiline content grows inside the viewport and can be scrolled; native caret movement and line insertion reveal the active line. The default viewport shrinks to the available keyboard-free area while editing; an explicit height stays caller-owned. |
 | `onChange(text)` | Called for each accepted user edit or clear, never for caller writes or cancellation. |
-| `onCommit(text, reason)` | Called for a valid commit. Reasons are `"enter"`, `"focusLost"`, and explicit `"submit"`. |
+| `onCommit(value, reason)` | Called for a valid commit. The text presentations report the accepted string; the number presentation reports the committed **number**. Reasons are `"enter"`, `"focusLost"`, explicit `"submit"` (also a step-button press), and `"clamped"` when a bound moved a typed number. A read-only field reports no commit. |
 | `onCancel()` | Called after restoring the text captured at edit entry. No commit fires. |
 | `clearButton` | Convenience for `clearButtonMode = "always"`. |
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`. Default is never; search defaults to always. Empty or disabled fields hide the affordance. |
@@ -9734,8 +9750,12 @@ geometry, and theme styling.
 | `validate(text)` | Return an accepted, idempotently normalized string, or nil to reject. Applied after length limiting and on commit. Numeric formatting must also pass validation before committed values change. |
 | `invalid` | Optional caller-owned readable boolean. Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
 | `numericValue` | Required caller-owned writable number cell for number presentation; distinct from the editable string in `value`. |
-| `parse(text)` / `format(number)` | Numeric commit functions; default to `tonumber` and `tostring`. Parsing must return a finite number; formatting must return a string. |
-| `min` / `max` | Optional inclusive numeric bounds. Invalid input leaves `numericValue` unchanged and displays a validation message. |
+| `parse(text)` / `format(number)` | Numeric commit functions. The default parser is a strict decimal grammar (optional sign, digits, at most one `.`; no exponent, grouping, hex or surrounding blanks); `Facet.recipes.arithmetic.parse` adds arithmetic. The default format is `tostring`, or exactly `precision` places when declared. Parsing must return a finite number; formatting must return a string. |
+| `min` / `max` | Optional inclusive numeric bounds. A typed number outside them is clamped to the bound and committed with reason `"clamped"`; it is not an error. |
+| `step` | Number presentation: finite and above zero, default 1. One step-button press; with both bounds it follows the step grid measured from `min`, as Slider and Stepper do. |
+| `precision` | Number presentation: whole number of decimal places from 0 to 10. Rounds half away from zero at commit (and on a step press), never while typing. |
+| `stepButtons` | Number presentation, construction-time boolean. Two target-sized buttons inside the plate after the clear affordance: ordinary focus stops that claim no arrow keys, disabled at the bound they face, when read-only and when disabled. A press commits. |
+| `prefix` / `suffix` | Number presentation: string or readable string standing beside the editor as unit chrome, never part of the draft. They shrink before the editor on a narrow row; a unit, clear affordance and both step buttons can still exhaust a 320 px phone at the largest text preference under heavy themes. |
 | `env` | Defaults to the environment the application published; an environment must exist for keyboard occlusion and input-class handling. |
 | `actionSystem` | Optional injection; the presenter supplies the existing action system automatically. |
 | `keyboardType` | `"default"`, `"numeric"`, `"email"`, or `"phone"`. Intent metadata: the shipping public engine API does not allow Facet to choose the native keyboard. |
@@ -9759,8 +9779,10 @@ and `api.cancel()` restore the entry snapshot. Disabling, including through an
 ancestor, ends editing, preserves accepted text, and rejects late edits and commits.
 
 Numeric entry keeps strings such as `"-"`, `"."`, and `"1e"` as editable drafts.
-Parsing, bounds, and formatting run on commit, rather than rewriting each
-keystroke. Rejected commits retain the draft, show an error, and shake the field
+Parsing, rounding, bounds, and formatting run on commit, rather than rewriting each
+keystroke. Leaving the field on an incomplete draft (empty, a lone sign, a lone
+point) restores the last committed number without a message, unless
+`requiredMark = "required"`, which reports it. Rejected commits retain the draft, show an error, and shake the field
 on the same paint-only `offset` `invalid` shakes on — but **on every rejected
 commit, not an edge**: a repeat of the same rejection shakes again, which is
 exactly when the nudge is worth the most (`invalid`, by contrast, only shakes on
@@ -9793,15 +9815,28 @@ inside `<plate>/Row`, and a named `controlSize` puts the plate inside
 hasError, controlSize, appearance, corners, leading, trailing, readOnly and
 visibleLines.
 
+### `UI.NumberInput`
+
+`UI.NumberInput { … }` -> the field's node: `UI.TextInput` with
+`presentation = "number"` already chosen. It is the same engine (draft, commit,
+chrome, focus and input story) under the name a chooser finds; supplying
+`presentation` is refused. `value` (the editable string) and `numericValue` (the
+committed number) are both caller-owned cells. Every `UI.TextInput` field
+applies; `step`, `precision`, `stepButtons`, `prefix` and `suffix` are its own.
+The step buttons mount at `<plate>/Row/Decrement` and `<plate>/Row/Increment`;
+their semantic names are not localized. `dump()` adds step, precision,
+stepButtons, prefix and suffix. Scrubbing a value by dragging and selecting the
+text on focus are not implemented.
+
 ```lua
 local app = Facet.new()
 local UI = app.controls
 local draft, laps = Facet.Compose.cell("3"), Facet.Compose.cell(3)
 local field
 app.mount(function()
-    return UI.TextInput("Laps")({
-        presentation = "number", value = draft,
-        numericValue = laps, min = 1, max = 99,
+    return UI.NumberInput("Laps")({
+        value = draft, numericValue = laps, min = 1, max = 99,
+        stepButtons = true, label = "Laps",
         ref = function(record) field = record.api end,
     })
 end)
