@@ -290,7 +290,8 @@ function slider.build(Facet: any, core: any, spec: Spec)
 				id = id,
 				width = UI.fill(),
 				gap = "s",
-				padding = "m",
+				-- the Button row's own inset, so stacked rows share one icon column
+				padding = "controls.button.padding",
 				surface = "control",
 				stroke = focusStroke,
 				children = header,
