@@ -658,9 +658,7 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 									.toBe(`{label} automatic never segments a described option: segmented`)
 							end
 							pinTrack(label, w, picker)
-							local second = suffixPath(w, "/Opt2")
-								or suffixPath(w, "/[b]/Option-b")
-								or suffixPath(w, "/[b]/SectionRow-b/Option-b")
+							local second = suffixPath(w, "/Opt2") or suffixPath(w, "/[b]/Option-b")
 							expect(`{label} second option mounted: {second ~= nil}`).toBe(
 								`{label} second option mounted: true`
 							)

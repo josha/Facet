@@ -719,6 +719,36 @@ function menu_recipe.cardRow(UI: any, row: Row, position: string): any
 	)
 end
 
+--[[ SECTION HEADINGS AS LIST ENTRIES. An option's non-empty `sectionTitle`
+	becomes its own keyed entry just before it (`{ sectionHeading, key }`), so a
+	heading can arrive after mount without re-keying any row, and a keyed list,
+	a virtual list and a static list all interleave it the same way. A heading
+	is a caption, never a stop and never an activation site. ]]
+function menu_recipe.sectionEntries(list: { any }, keyOf: (any) -> string, use: any?): { any }
+	local out = {}
+	for _, option in list do
+		local title = if type(option) == "table" and option.divider ~= true
+			then selection.read(option.sectionTitle, use)
+			else nil
+		if type(title) == "string" and title ~= "" then
+			table.insert(out, { sectionHeading = title, key = "H-" .. keyOf(option) })
+		end
+		table.insert(out, option)
+	end
+	return out
+end
+
+function menu_recipe.sectionHeading(UI: any, text: any, hidden: any?): any
+	return UI.Text({
+		id = "SectionTitle",
+		text = text,
+		textSize = "caption",
+		role = "secondary",
+		width = { type = "fill", weight = 1 },
+		hidden = hidden,
+	})
+end
+
 --[[ A DIVIDER ITEM. `UI.Divider` is the shipped axis-aware hairline (A-LV3): it
 	infers its orientation from the stack it is in, so the same call is correct in
 	a vertical menu panel and would be correct in a horizontal one. It is not

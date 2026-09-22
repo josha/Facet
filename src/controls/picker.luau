@@ -267,6 +267,8 @@ local function validateOption(option, use)
 	)
 	local enabled = readValue(option.enabled, use)
 	assert(enabled == nil or type(enabled) == "boolean", "Picker: option enabled must be boolean or readable boolean")
+	local heading = readValue(option.sectionTitle, use)
+	assert(heading == nil or type(heading) == "string", "Picker: sectionTitle must be a string or readable string")
 	assert(
 		option.icon == nil or (type(option.icon) == "string" and option.icon ~= ""),
 		"Picker: icon must be a non-empty semantic icon name"
@@ -318,10 +320,6 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 	assert(PRESENTATIONS[requested], "Picker: presentation must be automatic | segmented | inline | radio")
 	assert(spec.indicator == nil or INDICATORS[spec.indicator], "Picker: invalid live indicator")
 	local slides = requested == "segmented" and (spec.indicator == "pill" or spec.indicator == "underline")
-	local sectioned = false
-	for _, option in readValue(spec.options) do
-		sectioned = sectioned or option.sectionTitle ~= nil
-	end
 	local mountedNode
 	local function key(option)
 		return option.id or tostring(option.value)
@@ -442,11 +440,30 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 			end)
 		end
 	end
+	-- a heading is its own keyed entry, so one can arrive after mount without
+	-- re-keying the row under it; it shows only on a stacked (y) list
 	local rows = UI.ForEach({
 		id = "Rows",
-		items = options,
-		key = key,
+		items = Compose.formula(function(use)
+			return menuRecipe.sectionEntries(use(options), key, use)
+		end),
+		key = function(entry)
+			return if entry.sectionHeading ~= nil then entry.key else key(entry)
+		end,
 		row = function(initial, _, current)
+			if initial.sectionHeading ~= nil then
+				return UI.When({
+					id = "SectionHeading",
+					condition = function(use)
+						return use(axis) == "y"
+					end,
+					thenView = function()
+						return menuRecipe.sectionHeading(UI, function(use)
+							return use(current).sectionHeading
+						end)
+					end,
+				})
+			end
 			local identity = key(initial)
 			-- Compose supplies the current record for this key. Each row reads
 			-- that record directly instead of searching the entire option list.
@@ -496,34 +513,7 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 					return true
 				end,
 			})
-			if not sectioned then
-				return row
-			end
-			local heading = prop("sectionTitle", "")
-			local showHeading = function(use)
-				return use(axis) == "y" and heading(use) ~= ""
-			end
-			return UI.VStack({
-				id = "SectionRow-" .. identity,
-				width = segmentWidth,
-				gap = "xs",
-				children = {
-					UI.When({
-						id = "SectionHeading",
-						condition = showHeading,
-						thenView = function()
-							return UI.Text({
-								id = "SectionTitle",
-								text = heading,
-								textSize = "caption",
-								role = "secondary",
-								width = UI.fill(),
-							})
-						end,
-					}),
-					row,
-				},
-			})
+			return row
 		end,
 	})
 	local group = UI.AdaptiveStack({

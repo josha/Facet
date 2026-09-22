@@ -25,6 +25,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Fixed: a `UI.Picker` option carrying `badge` or `sectionTitle` crashed as
+  soon as its style resolved to `menu` or `navigationLink` (what `automatic`
+  resolves to on most nearby screens). Both now render on the menu engine —
+  the count seal on the row and the heading as a caption before it — in
+  static, keyed and searchable lists. A keyed list (and a keyed strip) can
+  gain its first heading after mount; sectioned live strip rows no longer sit
+  in a `SectionRow-<id>` wrapper (the heading is its own keyed entry).
+
 - `UI.Slider` gains `axis` (`"y"` runs bottom to top), `range` with `minGap`
   (a `{ lower, upper }` band, thumbs never cross, illegal runtime pairs
   quarantined with `api.diagnostics()`), `thumb` (`always`/`auto`/`none`,

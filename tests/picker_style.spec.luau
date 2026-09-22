@@ -588,3 +588,39 @@ describe("Picker value alignment", function()
 		p.dispose()
 	end)
 end)
+
+describe("Picker style: badge and sectionTitle reach the menu engine", function()
+	it("an automatic picker that resolves the menu renders an option's badge and its section heading", function()
+		local w, picker = mount("desktop", {
+			options = {
+				{ value = "easy", label = "Easy", sectionTitle = "Casual" },
+				{ value = "normal", label = "Normal", badge = 3 },
+				{ value = "hard", label = "Hard", sectionTitle = "Ranked", badge = "New" },
+			},
+		})
+		expect(picker.dump().style).toBe("menu")
+		w.adapter.tap(suffixPath(w, "/Trigger") :: string)
+		w.pres.refresh()
+		local count: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Opt-normal/", 1, true) and string.sub(path, -#"/Badge/Count") == "/Badge/Count" then
+				count = w.adapter.node(path).props.text
+			end
+		end
+		expect(count).toBe("3")
+		local headings: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -#"/SectionTitle") == "/SectionTitle" then
+				table.insert(headings, w.adapter.node(path).props.text)
+			end
+		end
+		table.sort(headings)
+		expect(table.concat(headings, " ")).toBe("Casual Ranked")
+		-- a heading is not a stop and not a second activation site
+		for _, path in w.adapter.paths() do
+			if string.find(path, "SectionTitle", 1, true) then
+				expect(w.adapter.node(path).class).toBe("Text")
+			end
+		end
+	end)
+end)

@@ -39,7 +39,17 @@ local popup_button = {}
 local specTypes = require("../spec_types/picker_menu")
 export type Option = specTypes.Option
 
-local OPTION_KEYS = specGuard.keySet({ "divider", "enabled", "icon", "id", "label", "description", "value" })
+local OPTION_KEYS = specGuard.keySet({
+	"divider",
+	"enabled",
+	"icon",
+	"id",
+	"label",
+	"description",
+	"value",
+	"badge",
+	"sectionTitle",
+})
 local STYLES: { [string]: boolean } = { menu = true, navigationLink = true }
 
 export type Spec = specTypes.Spec
@@ -236,6 +246,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				enabledValue == nil or type(enabledValue) == "boolean",
 				"PopupButton: option enabled must be boolean or readable boolean"
 			)
+			local badge = selectionModel.read(option.badge, use)
+			assert(
+				badge == nil or type(badge) == "string" or type(badge) == "number",
+				"PopupButton: badge must be a string or number or readable of either"
+			)
+			local heading = selectionModel.read(option.sectionTitle, use)
+			assert(heading == nil or type(heading) == "string", "PopupButton: sectionTitle must be a string")
 		end
 		local mixed = menuRecipe.mixedIconGroup(list)
 		assert(
@@ -273,6 +290,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			end
 		end
 		return filtered
+	end)
+	-- the rendered list: results with each section heading as its own entry
+	local function entryKey(entry: any): string
+		return if entry.sectionHeading ~= nil then entry.key else keyOf(entry)
+	end
+	local entries = Compose.formula(function(use)
+		return menuRecipe.sectionEntries(use(results), keyOf, use)
 	end)
 	-- open/closed is the control's only owned state; selection lives in `value`
 	local open = Compose.cell(false)
@@ -554,6 +578,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				else nil,
 			enabled = property("enabled"),
 			icon = if dynamicOptions then property("icon") else option.icon,
+			badge = if option.badge ~= nil or spec.query ~= nil or dynamicOptions then property("badge") else nil,
 			core = core,
 			scope = rowScope,
 			selected = selected,
@@ -914,20 +939,25 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			{ id = "Search", value = spec.query, presentation = "search", enabled = enabled, env = spec.env }
 		local listSpec = {
 			id = "Results",
-			key = keyOf,
+			key = entryKey,
 			itemExtent = "measured",
 			estimatedItemExtent = rowHeight,
 			viewportExtent = viewport,
 			width = { type = "fill", weight = 1 },
 			onActivate = function(option)
-				select(selectionModel.identity(option))
+				if option.sectionHeading == nil then
+					select(selectionModel.identity(option))
+				end
 			end,
 		}
-		listSpec.rows = results
+		listSpec.rows = entries
 		listSpec.rowFocusable = function(option)
-			return selectionModel.enabled(byKey(keyOf(option)))
+			return option.sectionHeading == nil and selectionModel.enabled(byKey(keyOf(option)))
 		end
 		listSpec.cell = function(option, ctx)
+			if option.sectionHeading ~= nil then
+				return menuRecipe.sectionHeading(UI, option.sectionHeading)
+			end
 			return rowContent(option, ctx.scope)
 		end
 		return Facet.nativeControls.TextInput(fieldSpec), Facet.nativeControls.VirtualList(listSpec)
@@ -1025,9 +1055,14 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 					listRows,
 					UI.ForEach({
 						id = "Options",
-						items = results,
-						key = keyOf,
-						row = optionRow,
+						items = entries,
+						key = entryKey,
+						row = function(entry, rowScope, current)
+							if entry.sectionHeading ~= nil then
+								return menuRecipe.sectionHeading(UI, entry.sectionHeading)
+							end
+							return optionRow(entry, rowScope, current)
+						end,
 					})
 				)
 			else
@@ -1039,6 +1074,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 					end
 				end
 				for index, option in staticOptions do
+					local title = if option.divider then nil else selectionModel.read(option.sectionTitle)
+					if type(title) == "string" and title ~= "" then
+						table.insert(
+							listRows,
+							UI.VStack({
+								id = `Section-{keyOf(option)}`,
+								width = { type = "fill", weight = 1 },
+								padding = { left = "s", right = "s", top = "xs" },
+								children = { menuRecipe.sectionHeading(UI, title) },
+							})
+						)
+					end
 					if not option.divider then
 						optionIndex += 1
 						local position = if optionCount == 1
