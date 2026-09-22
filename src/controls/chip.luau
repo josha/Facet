@@ -244,7 +244,8 @@ function chip.build(Facet: any, core: any, spec: any)
 							textSize = "control",
 							textAlign = "center",
 						}),
-						{ icon = "close", contentOwnerDepth = 1 }
+						-- the small art square, so the segment stands no taller than the body
+						{ icon = "close", iconSize = "small", contentOwnerDepth = 1 }
 					),
 					UI.Spacer({ id = "AfterMark" }),
 				},

@@ -392,6 +392,30 @@ describe("Removable Chip", function()
 			w.close()
 		end
 	end)
+	it("joins the close segment to the pill in skinned themes at every rung", function()
+		local snapshot = require("../src/themes/snapshot")
+		for _, theme in { "pixel_quest", "fantasy_ornate" } do
+			local metrics = snapshot.resolve(require("../examples/themes/" .. theme).build(Facet.themes), nil, {})
+			for _, rung in { false, "compact", "large" } do
+				local w = world.new({ themeMetrics = metrics })
+				w.present(function()
+					return w.UI.Screen("S")({
+						w.UI.Chip("Token")({
+							label = "Rain",
+							controlSize = if rung then rung else nil,
+							onRemove = function() end,
+						}),
+					})
+				end)
+				local plate = w.adapter.node(path(w, "/Token+target/Token")).rect
+				local mark = w.adapter.node(path(w, "/Token+token/Remove")).rect
+				expect(`{theme} {tostring(rung)}: {mark.x - (plate.x + plate.w)} {mark.y - plate.y} {mark.h - plate.h}`).toBe(
+					`{theme} {tostring(rung)}: 0 0 0`
+				)
+				w.close()
+			end
+		end
+	end)
 	it("chooses next then previous then caller fallback through real keyed owner disposal", function()
 		local w = world.new()
 		local items = Compose.cell({ "A", "B", "C" })
