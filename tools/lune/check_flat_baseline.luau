@@ -154,6 +154,16 @@ local GENERATOR = "tools/lune/_theme_baseline"
 -- (every viewport), so no existing entry changes.
 local ALLOWED_RECT_DRIFT: { { fixture: string, viewport: string?, prefix: string?, path: string?, why: string } } = {
 	{
+		fixture = "control-vocabulary",
+		path = "/Vocabulary/Name/Field",
+		why = "Native sweep F1 (2026-09-22): the field plate's chip hairline sits INSIDE its box and the plate's padding pays for it, so the transparent editor sits one hairline in on each side: 16,660 1248x44 -> 17,661 1246x42 (desktop; phone and tablet the same 1 px inset). The 44 px target stays whole through the hit expander (hit nil -> 17,660 1246x44). The plate itself is unchanged.",
+	},
+	{
+		fixture = "01_temperature_converter",
+		path = "/TempConverter/Page/Fahrenheit/Field",
+		why = "Same F1 inset as /Vocabulary/Name/Field: the chip plate's inner hairline moves the editor 1 px in on every side (16,78 WxH44 -> 17,79 (W-2)x42) and the hit expander keeps the 44 px target (hit nil -> 17,78 (W-2)x44).",
+	},
+	{
 		fixture = "02_playlist_table",
 		path = "/Playlist/Page/Filter/Field",
 		why = "The playlist opts into search presentation. Its native editor moves right by the neutral xl inset (40px) and loses exactly that width to reserve the search mark: tablet 16,53 788x44 -> 56,53 748x44; desktop 16,53 1248x44 -> 56,53 1208x44; phone 16,53 358x44 -> 56,53 318x44. The outer frame and table geometry remain unchanged.",

@@ -1571,7 +1571,7 @@ local function toLayoutNode(
 		elseif
 			props.surface == "raised"
 			or props.surface == "chip"
-			or class == "TextField"
+			or (class == "TextField" and props.surface ~= "plain")
 			or props.appearance == "utility"
 		then tonumber(metrics.strokes and metrics.strokes.hairline) or 0
 		else 0
