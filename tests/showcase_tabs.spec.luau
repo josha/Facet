@@ -162,26 +162,43 @@ t.describe("Consolidated showcase", function()
 	t.it("widens every inner tab to its engine width when the words arrive after the page mounts", function()
 		-- Owner report 2026-09-22 (bugs/topClip.png): the Actions tabs kept the
 		-- estimator's box after their exact widths arrived, clipping "Butto…".
-		local w = make(catalog, { x = 0, y = 0, w = 1542, h = 1067 }, { preferredInput = "MouseKeyboard" })
+		-- The word store is process-global, so it is restored however this ends.
+		local text_metrics = require("../src/layout/text_metrics")
+		local saved = text_metrics.measuredDump()
 		local function widthOf(word: string, size: number): number
 			return #word * size * 0.7
 		end
-		local function deliver()
-			for _ = 1, 6 do
-				w.adapter.deliverTextWidths(widthOf, true)
+		local ok, result = pcall(function()
+			local w = make(catalog, { x = 0, y = 0, w = 1542, h = 1067 }, { preferredInput = "MouseKeyboard" })
+			local function deliver()
+				for _ = 1, 6 do
+					w.adapter.deliverTextWidths(widthOf, true)
+				end
+				w.settle(2)
 			end
-			w.settle(2)
+			deliver()
+			activate(w, "Actions")
+			deliver()
+			local wanted = {}
+			for _, label in { "Buttons", "Recipes", "Menus", "Sheets", "Help" } do
+				local rect = w.controller.rectOf(button(w, label))
+				local need = math.ceil(widthOf(label, 18)) + 24
+				table.insert(wanted, `{label} {rect.w >= need}`)
+			end
+			return table.concat(wanted, ", ")
+		end)
+		text_metrics.resetMeasured()
+		for _, entry in saved do
+			if entry.width == false then
+				text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
+			else
+				text_metrics.setMeasured(entry.font, entry.size, entry.word, entry.width :: number)
+			end
 		end
-		deliver()
-		activate(w, "Actions")
-		deliver()
-		local wanted = {}
-		for _, label in { "Buttons", "Recipes", "Menus", "Sheets", "Help" } do
-			local rect = w.controller.rectOf(button(w, label))
-			local need = math.ceil(widthOf(label, 18)) + 24
-			table.insert(wanted, `{label} {rect.w >= need}`)
+		if not ok then
+			error(result, 0)
 		end
-		t.expect(table.concat(wanted, ", ")).toBe("Buttons true, Recipes true, Menus true, Sheets true, Help true")
+		t.expect(result).toBe("Buttons true, Recipes true, Menus true, Sheets true, Help true")
 	end)
 
 	t.it("offers toasts in Indicators and retires them when leaving the page", function()
