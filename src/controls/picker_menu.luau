@@ -168,6 +168,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	-- a labelled picker is a FORM ROW: title leading, value + chevron trailing
 	-- (the navigation link puts its title INSIDE its one row button instead)
 	local rowForm = pickerMode and spec.style == "menu" and spec.label ~= nil
+	local rowAxis: any -- the form's axis, built with the trigger below; the popover reads it at open
 	local multiple = spec.selectedValues ~= nil
 	assert(
 		(spec.value ~= nil and 1 or 0) + (multiple and 1 or 0) + (spec.selected ~= nil and 1 or 0) == 1,
@@ -1565,7 +1566,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				anchor = {
 					source = { path = anchorSourcePath() },
 					edge = "bottom",
-					align = if rowForm then "end" else "start",
+					align = if rowForm and rowAxis:peek() == "x" then "end" else "start",
 					gap = "xs",
 					margin = "m",
 				},
@@ -1644,16 +1645,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		localized title's longest word (~1.4x, 21px) no longer fits the room a
 		capped trigger leaves beside it on a 320px row (the picker sweep, glossy
 		phone, 2026-09-11), and a word that cannot wrap can only truncate. ]]
-	local rowAxis = Compose.formula(function(use)
+	--[[ A LABELLED MENU IS A FIELD WHERE THERE IS ROOM (lead ruling on native F3,
+		2026-09-22): at a regular or wider size class the title stands above the
+		trigger, which hugs its value at the leading edge — a 1.4k px row put the
+		value a screen's width from its title. A compact width keeps the one-line
+		form row until the text preference needs the second line. ]]
+	rowAxis = Compose.formula(function(use)
 		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
-		if type(offset) ~= "number" then
-			return "x"
-		end
 		local compact = selectionModel.read(sizeClassSource) == "compact"
 		if Compose.isReadable(sizeClassSource) then
 			compact = use(sizeClassSource) == "compact"
 		end
-		return if offset >= 10 or (offset >= 4 and compact) then "y" else "x"
+		return if compact and (type(offset) ~= "number" or offset < 4) then "x" else "y"
 	end)
 	local requestedSizing = spec.sizing
 	assert(
@@ -1862,6 +1865,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			id = "Trigger",
 			label = selectedLabel,
 			anchor = if rowForm then nil else "topLeft",
+			-- a FIELD-form trigger stands at the title's leading edge; its own
+			-- `align` (its content's) would otherwise centre it in the column
+			lineAlign = if rowForm
+				then Compose.formula(function(use)
+					return if use(rowAxis) == "y" then "start" else "center"
+				end)
+				else nil,
 			surface = triggerSurface, -- control everywhere but a plain touch navigation link
 			-- lit while its menu is up (the `selected` state of whichever slot this
 			-- trigger paints as — see the decoration hint below)

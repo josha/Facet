@@ -553,7 +553,9 @@ end)
 
 describe("Picker value alignment", function()
 	it("moves a labeled menu value next to its label without remounting the picker", function()
-		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		-- the one-line form row is the COMPACT form; a wider class stands the title
+		-- above the trigger (next case)
+		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 700 }, preferredInput = "KeyboardAndMouse" })
 		local alignment = Compose.cell("end")
 		local p = harness.Controls.Picker(w.core, {
 			id = "P",
@@ -584,6 +586,23 @@ describe("Picker value alignment", function()
 		w.settle(3)
 		expect(trigger.rect.y >= label.rect.y + label.rect.h).toBe(true)
 		expect(w.core.lastError()).toBe(nil)
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
+
+	it("at a regular width the title stands above a trigger that hugs its value at the leading edge", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		local p = harness.Controls.Picker(w.core, {
+			id = "P",
+			label = "Driver",
+			style = "menu",
+			options = THREE,
+			selected = Compose.cell("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		w.settle(3)
+		local label, trigger = suffixNode(w, "/Row/Label").rect, suffixNode(w, "/Row/Trigger").rect
+		expect(`{trigger.y >= label.y + label.h} {trigger.x == label.x} {trigger.w < 400}`).toBe("true true true")
 		w.pres.dismiss(w.handle)
 		p.dispose()
 	end)

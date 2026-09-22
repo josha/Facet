@@ -187,6 +187,12 @@ local function pinAttachment(label: string, w: any, theme: any, viewport: any, t
 	-- (the placement's own shift; the reference platform's menu does the same)
 	local flush = near(panel.x + panel.w, source.x + source.w)
 		or (near(panel.x, inset) and panel.x + panel.w + 0.5 >= source.x + source.w)
+	-- a FIELD-form row (title above, trigger at the leading edge under it; lead
+	-- ruling 2026-09-22) hangs its menu from the trigger's leading edge instead
+	local title = suffixPath(w, "/Row/Label")
+	if title ~= nil and triggerRect.y + 0.5 >= w.adapter.node(title).rect.y + w.adapter.node(title).rect.h then
+		flush = near(panel.x, source.x) or near(panel.x + panel.w, viewport.rect.w - inset)
+	end
 	expect(
 		`{label} trailing edges flush: {flush} (panel right {panel.x + panel.w}, source right {source.x + source.w})`
 	).toBe(`{label} trailing edges flush: true (panel right {panel.x + panel.w}, source right {source.x + source.w})`)
