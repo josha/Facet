@@ -106,6 +106,22 @@ return {
 		local vsync, telemetry = Compose.cell(true), Compose.cell(false)
 		local progress = Compose.cell(0.35)
 		local navSection = Compose.cell("browse")
+		-- the Slider shapes' state, owned outside the mounted factory
+		local TILT_ANGLES = { 0, 45, 90, 135, 180, 225, 270, 315 }
+		local lapWindow = Compose.cell({ lower = 4, upper = 12 })
+		local tiltBand = Compose.cell({ lower = 20, upper = 70 })
+		local tilt = Compose.cell(0)
+		local balance = Compose.cell(50)
+		local boost = Compose.cell(35)
+		local camera = Compose.cell(60)
+		local steer = Compose.cell(50)
+		local rootPath: string? = nil
+		local shapeRecords: { [string]: any } = {}
+		local function keep(id: string)
+			return function(record: any)
+				shapeRecords[id] = record
+			end
+		end
 		local function Example()
 			conditions = Facet.adaptive.conditions(ctx.env)
 			Compose.cleanup(function()
@@ -242,6 +258,120 @@ return {
 				}),
 			})
 
+			--[[ THE SLIDER SHAPES a single horizontal track cannot show: a band that
+				holds a gap (`range`, `minGap`), a turned range whose press still lands
+				under the finger (`rotation`), a track that runs up (`axis = "y"`), a
+				handle that appears when reached for (`thumb = "auto"`, compact rung),
+				one never drawn (`thumb = "none"`, still adjustable on every input), and
+				the caller's own knob (`thumbContent`). ]]
+			local sliderShapes = UI.VStack("SliderShapes")({
+				gap = "s",
+				width = UI.fill(),
+
+				UI.Text("SlidersHeading")({ text = "Slider shapes", textSize = "heading", width = UI.fill() }),
+				UI.Slider("LapWindow")({
+					label = "Laps",
+					value = lapWindow,
+					min = 1,
+					max = 20,
+					step = 1,
+					range = true,
+					minGap = 2,
+					ref = keep("band"),
+				}),
+				-- a dial's name sits OUTSIDE what rotates; the turned row is the track
+				-- plus its readout, centred in a square of its own column so every
+				-- angle's paint stays inside reserved room
+				UI.Text("TiltCaption")({ text = "Tilt (a turned range)", textSize = "caption", role = "secondary" }),
+				UI.aspectRatio(
+					UI.ZStack("TiltStage")({
+						width = UI.fill(),
+						alignH = "center",
+						alignV = "center",
+						UI.Slider("Tilt")({
+							label = "",
+							value = tiltBand,
+							min = 0,
+							max = 100,
+							step = 10,
+							range = true,
+							minGap = 10,
+							rotation = tilt,
+							ref = keep("tilt"),
+						}),
+					}),
+					1
+				),
+				UI.HStack("BalanceRow")({
+					gap = "m",
+					width = UI.fill(),
+					align = "center",
+					UI.ZStack("BalanceStage")({
+						width = { type = "fixed", px = 110 },
+						height = { type = "fixed", px = 180 },
+						alignH = "center",
+						UI.Slider("Balance")({
+							label = "Rear",
+							value = balance,
+							min = 0,
+							max = 100,
+							step = 5,
+							axis = "y",
+							ref = keep("rear"),
+						}),
+					}),
+					UI.Text("BalanceNote")({
+						text = "Rear bias runs bottom to top, and Up raises it.",
+						textSize = "caption",
+						role = "secondary",
+						width = UI.fill(),
+					}),
+				}),
+				UI.Slider("Boost")({
+					label = "Boost",
+					value = boost,
+					min = 0,
+					max = 100,
+					step = 5,
+					thumb = "auto",
+					controlSize = "compact",
+					ref = keep("boost"),
+				}),
+				UI.Slider("Camera")({
+					label = "Camera",
+					value = camera,
+					min = 0,
+					max = 100,
+					step = 5,
+					thumb = "none",
+					ref = keep("camera"),
+				}),
+				UI.Slider("Steer")({
+					label = "Steer",
+					value = steer,
+					min = 0,
+					max = 100,
+					step = 10,
+					-- a real accent plate floored at the theme's thumb size, lettered
+					-- onAccent; it grows with the mark at a raised text preference
+					thumbContent = function()
+						return UI.ZStack("Knob")({
+							alignH = "center",
+							alignV = "center",
+							width = { type = "minMax", min = "controls.slider.thumbSize" },
+							height = { type = "minMax", min = "controls.slider.thumbSize" },
+							UI.Box("Plate")({ surface = "accent", width = UI.fill(), height = UI.fill() }),
+							UI.Text("Mark")({
+								text = "▲",
+								textSize = "caption",
+								tint = { role = "onAccent", blend = 1 },
+							}),
+						})
+					end,
+					ref = keep("steer"),
+				}),
+			})
+
 			-- the ACTION ROW is the ViewThatFits case: side by side when the container
 			-- can hold it, stacked when it cannot. Measured, not guessed.
 			local function actionButton(id: string, label: string, role: string?)
@@ -296,6 +426,8 @@ return {
 				UI.sensoryFeedback(stepper, { trigger = volume, event = "adjust" }),
 				slider,
 				UI.sensoryFeedback(picker, { trigger = quality, event = "select" }),
+				UI.Divider({}),
+				sliderShapes,
 				UI.Divider({}),
 				navShapes,
 				UI.Divider({}),
@@ -684,6 +816,12 @@ return {
 			-- The ScrollView takes `fill` so it absorbs whatever the pinned action bar
 			-- leaves, at every viewport and every text scale, without arithmetic.
 			return UI.Screen("AdaptiveScreen")({
+				onAppear = function(path)
+					rootPath = path
+				end,
+				onDisappear = function()
+					rootPath = nil
+				end,
 				-- THEME-OPT-OUT: this gutter decides the usable width of every control row
 				-- below it. MEASURED with `padding = "m"`: on a 320x640 phone under glossy-mobile
 				-- and glossy-touch the theme's larger step narrows the body to 242px and the
@@ -712,6 +850,19 @@ return {
 			})
 		end
 
+		-- a rect reader for the Slider shapes, through the mounted controller
+		local function shapeRect(b: any): (string) -> any
+			local controller = if type(b) == "table" and b.handle ~= nil then b.handle.controller else nil
+			if controller ~= nil then
+				controller.refresh()
+			end
+			return function(suffix: string): any
+				if controller == nil or rootPath == nil then
+					return nil
+				end
+				return controller.rectOf(`{rootPath}/BodyScroll/Body/Settings/SliderShapes/{suffix}`)
+			end
+		end
 		return {
 			screen = Example,
 			dispose = function() end,
@@ -747,6 +898,52 @@ return {
 					navSection:set(if navSection:peek() == "browse" then "more" else "browse")
 					return navSection:peek()
 				end,
+				--[[ THE SLIDER SHAPES, each answering with where things SOLVED. ]]
+				sliderBand = function(b)
+					local cur = lapWindow:peek()
+					lapWindow:set(if cur.lower == 4 then { lower = 2, upper = 18 } else { lower = 4, upper = 12 })
+					local rect = shapeRect(b)
+					local lower, upper =
+						rect("LapWindow/TrackHost/Handles/HandleLower"), rect("LapWindow/TrackHost/Handles/HandleUpper")
+					local fill = rect("LapWindow/TrackHost/Groove/Fill")
+					return {
+						band = `{lapWindow:peek().lower}-{lapWindow:peek().upper}`,
+						ordered = if lower and upper then lower.x < upper.x else nil,
+						fillBetween = if lower
+								and upper
+								and fill
+							then fill.x >= lower.x and fill.x + fill.w <= upper.x + upper.w
+							else nil,
+					}
+				end,
+				-- the layout box stays unrotated (rotation is paint-only) at every angle
+				sliderTilt = function(b)
+					local at = table.find(TILT_ANGLES, tilt:peek()) or 1
+					tilt:set(TILT_ANGLES[(at % #TILT_ANGLES) + 1])
+					local track = shapeRect(b)("TiltStage/Tilt/TrackHost")
+					return {
+						degrees = tilt:peek(),
+						trackW = if track then track.w else nil,
+						trackH = if track then track.h else nil,
+					}
+				end,
+				-- how far UP its track the Rear handle sits: 0 bottom, 100 top
+				sliderAxis = function(b)
+					balance:set(if balance:peek() >= 90 then 10 else 90)
+					local rect = shapeRect(b)
+					local track = rect("BalanceRow/BalanceStage/Balance/TrackHost")
+					local thumb = rect("BalanceRow/BalanceStage/Balance/TrackHost/Groove/Thumb")
+					if track == nil or thumb == nil then
+						return { rear = balance:peek() }
+					end
+					return {
+						rear = balance:peek(),
+						climb = math.floor(
+							((track.y + track.h - (thumb.y + thumb.h)) / math.max(track.h - thumb.h, 1)) * 100 + 0.5
+						),
+						trackTall = track.h > track.w,
+					}
+				end,
 				-- the STATE SNAPSHOT a live orientation change must preserve (D-2)
 				snapshot = function()
 					return {
@@ -775,6 +972,14 @@ return {
 						navSection = navSection:peek(),
 						advancedOpen = advancedOpen:peek(),
 						progress = progress:peek(),
+					},
+					sliderShapes = {
+						band = if shapeRecords.band then shapeRecords.band.dump() else nil,
+						tilt = if shapeRecords.tilt then shapeRecords.tilt.dump() else nil,
+						rear = if shapeRecords.rear then shapeRecords.rear.dump() else nil,
+						boost = if shapeRecords.boost then shapeRecords.boost.dump() else nil,
+						camera = if shapeRecords.camera then shapeRecords.camera.dump() else nil,
+						steer = if shapeRecords.steer then shapeRecords.steer.dump() else nil,
 					},
 				}
 			end,

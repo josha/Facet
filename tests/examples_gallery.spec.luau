@@ -3982,3 +3982,61 @@ describe("examples/gallery fixture: Writing's field sections", function()
 		w.close()
 	end)
 end)
+
+describe("examples/gallery fixture: the Slider shapes in Basics", function()
+	local function shapesWorld(view: any): (any, any)
+		local w = require("./lib/world").new({
+			viewport = view,
+			overflowGuardOff = "a scrolled gallery screen reports 8px scroll-gutter findings on its fill rows "
+				.. "(pre-existing, reproduced on the base Writing screen); the sweeps own containment here",
+		})
+		local built = require("../examples/gallery/scenarios/adaptive_controls").build(scenario_ctx.of(w))
+		w.present(built.screen)
+		built.handle = w.handle
+		return w, built
+	end
+	local ROOT = "/AdaptiveScreen/BodyScroll/Body/Settings/SliderShapes"
+
+	for _, view in { { x = 0, y = 0, w = 390, h = 844 }, { x = 0, y = 0, w = 1920, h = 1080 } } do
+		it(
+			`the steps answer with the screen, and every turned extent stays in its stage ({view.w}x{view.h})`,
+			function()
+				local w, built = shapesWorld(view)
+				local band = built.steps.sliderBand(built)
+				expect(`{band.band} {band.ordered} {band.fillBetween}`).toBe("2-18 true true")
+				local axis = built.steps.sliderAxis(built)
+				expect(`{axis.rear} {axis.climb} {axis.trackTall}`).toBe("90 90 true")
+				local stage = w.controller.rectOf(ROOT .. "/TiltStage")
+				for _ = 1, 8 do
+					local tilt = built.steps.sliderTilt(built)
+					local track = w.controller.rectOf(ROOT .. "/TiltStage/Tilt/TrackHost")
+					-- the painted extent of a w x h box turned about its centre
+					local a = math.rad(tilt.degrees)
+					local ew = math.abs(track.w * math.cos(a)) + math.abs(track.h * math.sin(a))
+					local eh = math.abs(track.w * math.sin(a)) + math.abs(track.h * math.cos(a))
+					local cx, cy = track.x + track.w / 2, track.y + track.h / 2
+					local inside = cx - ew / 2 >= stage.x - 0.5
+						and cx + ew / 2 <= stage.x + stage.w + 0.5
+						and cy - eh / 2 >= stage.y - 0.5
+						and cy + eh / 2 <= stage.y + stage.h + 0.5
+					expect(`{tilt.degrees}: {inside}`).toBe(`{tilt.degrees}: true`)
+				end
+				-- Steer's knob is a real plate at least the thumb size, its mark inside it
+				local plate = w.controller.rectOf(ROOT .. "/Steer/TrackHost/Groove/Thumb/Knob/Plate")
+				local mark = w.controller.rectOf(ROOT .. "/Steer/TrackHost/Groove/Thumb/Knob/Mark")
+				expect(plate.w >= 20 and plate.h >= 20).toBe(true)
+				expect(mark.x >= plate.x and mark.x + mark.w <= plate.x + plate.w).toBe(true)
+				-- Rear's label and readout centre on its track
+				local rear = ROOT .. "/BalanceRow/BalanceStage/Balance"
+				local track = w.controller.rectOf(rear .. "/TrackHost")
+				for _, part in { "Label", "Value" } do
+					local r = w.controller.rectOf(rear .. "/" .. part)
+					expect(`{part}: {math.abs((r.x + r.w / 2) - (track.x + track.w / 2)) <= 1}`).toBe(`{part}: true`)
+				end
+				expect(built.report().sliderShapes.band.range).toBe(true)
+				expect(w.core.lastError()).toBeNil()
+				w.close()
+			end
+		)
+	end
+end)
