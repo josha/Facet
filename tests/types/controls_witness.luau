@@ -278,6 +278,12 @@ local _chip = app.controls.Chip("Tag")({
 	selected = Facet.Compose.cell(false),
 	label = "Tag",
 })
+local _editableTag = app.controls.Chip("EditTag")({
+	label = "Tag",
+	selected = Facet.Compose.cell(false),
+	editing = Facet.Compose.cell(false),
+	onRemove = function() end,
+})
 local _removeOnly = app.controls.Chip("RemoveTag")({
 	label = "Tag",
 	onRemove = function() end,

@@ -25,6 +25,15 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **Breaking — `UI.Chip` removal is edit mode.** A tag selects and shows no
+  close mark by default. The new `editing` (boolean or readable boolean,
+  required with `onRemove` on a selectable chip) shows the mark inside the tag's
+  one plate; activating the tag, or Delete/Backspace while it holds the ring,
+  removes it. The separate `…+token/Remove` button, its focus stop and its
+  plate are gone; the tag mounts at `<id>+target/<id>` like every chip. A
+  remove-only token (no `selected`) is always editing. Removal focus moves to
+  the next removable tag, then the previous, then `removeFocusFallback`.
+
 - `UI.TextInput{ selectOnFocus = "none" | "all" | "end" }` (and the primitive's
   `UI.TextField{ selectOnFocus }`): what each new native focus session selects,
   in byte offsets. A pointer focus applies it at that pointer's release, after

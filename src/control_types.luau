@@ -190,6 +190,7 @@ export type ChipSpec<V = BooleanCell> = {
 	enabled: bp.Bound<boolean>?,
 	onToggle: ((boolean) -> ())?,
 	onRemove: (() -> ())?,
+	editing: bp.Bound<boolean>?, -- required with onRemove on a selectable chip
 	removeLabel: string?,
 	removeFocusFallback: bp.Bound<string>?,
 }

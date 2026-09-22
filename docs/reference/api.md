@@ -9925,24 +9925,25 @@ Spec fields:
 | `id` | `string` | no (default `"Chip"`) | the plate id; a supplied `controlSize` adds the `<id>+target` parent. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
 | `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
-| `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by body activation. A remove-only token omits it and has an informational body. Readonly selection is refused. |
+| `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by activation outside edit mode. A remove-only token omits it. Readonly selection is refused. |
 | `animation` | animation policy | no | applies to the primitive Button plate and is checked against its supported properties. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip; requires selected. |
-| `onRemove` | `() -> ()` | no | a trailing close glyph inside the pill, its own named focus stop and target; the caller removes the item from its keyed collection. |
-| `removeLabel` | `string` | no | semantic close label, default `Remove <label>`. |
+| `onRemove` | `() -> ()` | no | called when the tag is removed in edit mode; the caller removes the item from its keyed collection. |
+| `editing` | boolean or readable boolean | with `onRemove` and `selected` | the caller's edit-mode cell (the `UI.Table`/`UI.RowActions` precedent). While true the tag shows a trailing close mark inside its one plate, and activating it, or Delete/Backspace while it holds the ring, removes it. A remove-only token without it is always editing. Requires `onRemove`. |
+| `removeLabel` | `string` | no | the tag's semantic name while editing, default `Remove <label>`. |
 | `removeFocusFallback` | bindable `string` | no | destination when no sibling remove target survives. |
 | `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
 | `appearance` | `"standard" \| "utility"` (bindable) | no | visual emphasis, through a style tag. A chip's family is two words, not the Button's five: `emphasis`/`soft`/`link` describe an action's weight among actions, which a filter pill is not. |
 | `corners` | `"pill" \| "square"` | no | the corner treatment, through the shipped `UI.corners` modifier. Absent = `"pill"`, exactly as before. |
 | `leading` / `trailing` | blueprint | no | static content either side of the label (a count, a dot, an avatar). They are content, never a second focus stop — the chip keeps one activation surface, so every input class still reaches the same flip. With neither, the chip is byte-identical to the label-only pill it has always been. |
 
-A removable token is one pill of two targets: the label body, then a trailing close
-segment at least the effective target floor wide with the glyph centred in it (the
-input-chip / token-field pattern). Their hit footprints stay separate and each reserves
-the floor. Removing a focused item returns focus to the next sibling
-remove target, then the previous, then the supplied fallback after its owner retires.
-A remove-only token has one generated focus stop; selected tokens also have their
-body action. The callback does not mutate the caller's collection automatically.
+Removal is edit mode. A tag outside edit mode only selects and shows no close mark.
+While `editing` is true the close mark sits inside the tag's one plate, one surface
+in every theme, and is not a separate focus stop or target: activating the tag on
+any input removes it, and so do Delete and Backspace while it holds the ring.
+Removing a focused tag returns focus to the next removable tag, then the previous,
+then the supplied fallback after its owner retires. The callback does not mutate
+the caller's collection automatically.
 
 The record `ref` hands back carries:
 

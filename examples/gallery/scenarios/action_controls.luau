@@ -19,6 +19,13 @@ return {
 		local assist = signal(true)
 		local confirming = signal(false)
 		local tokens = signal({ "Rain", "No assists", "Friends" })
+		-- tags select; Edit shows each tag's close mark and a tap then removes it
+		local editingTags = signal(false)
+		local chosenTags = {}
+		local function chosen(item: string)
+			chosenTags[item] = chosenTags[item] or signal(false)
+			return chosenTags[item]
+		end
 		local mounted = false
 		local seconds = 0
 		local readRung = function(): string?
@@ -162,6 +169,7 @@ return {
 		end
 		local function reset()
 			tokens:set({ "Rain", "No assists", "Friends" })
+			editingTags:set(false)
 			setRung("compact")
 			busy:set(false)
 			enabled:set(true)
@@ -432,7 +440,21 @@ return {
 					rowToggle,
 					rowSlider,
 				})),
-				heading("Race tags"),
+				UI.HStack("TagsHeader")({
+					width = UI.fill(),
+					align = "center",
+					heading("Race tags"),
+					UI.Button("EditTags")({
+						label = Compose.formula(function(use)
+							return if use(editingTags) then "Done" else "Edit"
+						end),
+						appearance = "soft",
+						controlSize = "compact",
+						onActivate = function()
+							editingTags:set(not editingTags:peek())
+						end,
+					}),
+				}),
 				UI.ScrollView("Tokens")({
 					axis = "x",
 					height = UI.hug(),
@@ -448,6 +470,8 @@ return {
 								return UI.Chip("Token")({
 									label = item,
 									controlSize = "compact",
+									selected = chosen(item),
+									editing = editingTags,
 									onRemove = function()
 										local nextItems = {}
 										for _, value in tokens:peek() do
@@ -584,6 +608,9 @@ return {
 					scrollTarget:set("SettingsRows")
 				end,
 				reset = reset,
+				editTags = function()
+					editingTags:set(not editingTags:peek())
+				end,
 				disable = function()
 					enabled:set(false)
 				end,
@@ -598,6 +625,7 @@ return {
 				end
 				return {
 					tokenCount = #tokens:peek(),
+					editingTags = editingTags:peek(),
 					controlSize = readRung(),
 					count = count:peek(),
 					settings = { assistance = assist:peek(), music = rowVolume:peek() },
