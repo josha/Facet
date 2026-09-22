@@ -289,6 +289,9 @@ describe("the public SHAPE a breaking change moves", function()
 		-- the text-entry leaf's read-only mode: default true, so every field without
 		-- it is unchanged (recorded in CHANGELOG.md with TextInput `readOnly`)
 		["TextField.editable"] = "prose:ne's own read-only mode); default true",
+		-- no policy writes nothing: the native caret stays where the press put it
+		-- (recorded in CHANGELOG.md with TextInput `selectOnFocus`)
+		["TextField.selectOnFocus"] = "prose:ne (the native caret, the default) | all | end; a poi",
 		-- ABSENT is the default, and it is NOT `"auto"`: absent writes nothing and
 		-- leaves the engine's class default standing
 		["Text.direction"] = "prose:t leaves the engine's own default, which is not the s",

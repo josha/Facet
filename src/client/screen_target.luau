@@ -67,6 +67,7 @@ local screen_image = require("./screen_image")
 local screen_control_content = require("./screen_control_content")
 local screen_props = require("./screen_props")
 local screen_caret = require("./screen_caret")
+local screen_text_press = require("./screen_text_press")
 local screen_focus_visual = require("./screen_focus_visual")
 -- the pointer seam: the one activate meta, the global capture, the semantic
 -- cursor and the connection census that reports what they hold
@@ -3033,6 +3034,7 @@ function screen_target.new(opts: Opts?)
 		end
 		handle.lastModelText = handle.lastModelText or instance.Text
 		screen_caret.wire(handle, handlers)
+		screen_text_press.wire(handle, { uis = UserInputService, Enum = Enum }, handlers)
 		-- RECONNECT, NOT A RAW ASSIGNMENT (task CONN round 2, completeness sweep):
 		-- once-per-life setter, same Finding-1 unconditional-overwrite shape as
 		-- `screen_pointer.luau`'s siblings — a recycled handle kept a stale

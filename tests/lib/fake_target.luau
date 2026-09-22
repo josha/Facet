@@ -50,6 +50,7 @@ local HANDLED_PROPS: { string } = {
 	"keyboardType",
 	-- the engine's read-only mode on the text-entry leaf
 	"editable",
+	"selectOnFocus",
 	"multiline",
 	-- the scroll host's FREEZE: one engine boolean (`ScrollingEnabled`) on the
 	-- host's own instance, written like `active` is — its CANVAS is a separate,

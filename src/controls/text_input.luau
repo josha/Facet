@@ -97,6 +97,7 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"appearance",
 	"corners",
 	"readOnly",
+	"selectOnFocus",
 	"visibleLines",
 	-- the number presentation's step, rounding and units
 	"step",
@@ -187,6 +188,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	assert(
 		readOnlyNow == nil or type(readOnlyNow) == "boolean",
 		"UI.TextInput: readOnly must be a boolean or a readable boolean"
+	)
+	local selectNow = read(spec.selectOnFocus)
+	assert(
+		selectNow == nil or selectNow == "none" or selectNow == "all" or selectNow == "end",
+		"UI.TextInput: selectOnFocus must be none | all | end (or a readable one)"
 	)
 	-- a line count is a multiline fact: on a single-line field it would change nothing
 	assert(
@@ -982,6 +988,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					return not use(readOnlyMemo)
 				end),
 				keyboardType = spec.keyboardType or "default",
+				selectOnFocus = spec.selectOnFocus,
 				width = { type = "fill", weight = 1 },
 				height = if spec.multiline
 					then Compose.formula(function(use)

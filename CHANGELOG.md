@@ -25,6 +25,12 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.TextInput{ selectOnFocus = "none" | "all" | "end" }` (and the primitive's
+  `UI.TextField{ selectOnFocus }`): what each new native focus session selects,
+  in byte offsets. A pointer focus applies it at that pointer's release, after
+  the engine's own caret placement; activation applies it at once. The default
+  writes nothing.
+
 - `UI.Picker{ style = "cards" }`: each option a selectable card on the shared
   menu card row (a hairline edge at rest, the accent plate when chosen),
   carrying the new option `meta` (a secondary label/value, also on menu rows)

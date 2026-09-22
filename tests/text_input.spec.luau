@@ -1305,6 +1305,41 @@ describe("TextInput: readOnly", function()
 	end)
 end)
 
+describe("TextInput: selectOnFocus", function()
+	it("the policy lands on the same editor, live, and an illegal live word keeps the last legal one", function()
+		local policy = Compose.cell("all")
+		local w = publicField({ selectOnFocus = policy })
+		expect(w.adapter.node(FIELD).props.selectOnFocus).toBe("all")
+		w.adapter.takeOps()
+		policy:set("end")
+		w.settle()
+		expect(`{w.adapter.node(FIELD).props.selectOnFocus} remounts {remounts(w.adapter.takeOps())}`).toBe(
+			"end remounts 0"
+		)
+		expect(w.core.lastError()).toBeNil()
+		policy:set("everything")
+		w.settle()
+		expect(w.adapter.node(FIELD).props.selectOnFocus).toBe("end")
+		expect(string.find(tostring(w.core.lastError()), "selectOnFocus: one of none | all | end", 1, true) ~= nil).toBe(
+			true
+		)
+		-- absent writes nothing: a default field wears no policy at all
+		expect(publicField({}).adapter.node(FIELD).props.selectOnFocus).toBeNil()
+	end)
+
+	it("an unknown initial word fails before mount", function()
+		local w = appWorld.new()
+		for _, word in { "everything", 1 :: any } do
+			local ok = pcall(function()
+				w.scoped(function()
+					return w.UI.TextInput("Name")({ value = w.Compose.cell(""), selectOnFocus = word })
+				end)
+			end)
+			expect(`{tostring(word)} {ok}`).toBe(`{tostring(word)} false`)
+		end
+	end)
+end)
+
 describe("TextInput: visibleLines", function()
 	local PLATE, EDITOR = "/S/Name", "/S/Name/Viewport/Field"
 	local function lines(count: number?, extra: any?): any

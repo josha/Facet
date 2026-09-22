@@ -765,6 +765,8 @@ function screen_props.new(ctx: Ctx)
 			if instance:IsA("TextBox") then
 				instance.TextEditable = value ~= false and handle.disabledState ~= true
 			end
+		elseif prop == "selectOnFocus" then
+			handle.selectOnFocus = value -- read at each native focus (screen_text_press)
 		elseif prop == "multiline" then
 			if instance:IsA("TextBox") then
 				instance.MultiLine = value == true

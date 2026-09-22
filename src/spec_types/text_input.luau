@@ -44,6 +44,8 @@ export type Spec<V = StringCell> = {
 	corners: ("pill" | "square")?,
 	-- focusable, selectable and full contrast, accepting no edit; not `enabled = false`
 	readOnly: blueprint.Bound<boolean>?,
+	-- what each new focus session selects; the default keeps the native caret
+	selectOnFocus: blueprint.Bound<("none" | "all" | "end")?>?,
 	-- multiline only: lines shown at once; past them the editor scrolls
 	visibleLines: number?,
 	-- the number presentation

@@ -3162,6 +3162,15 @@ class("TextField", {
 			channel = "binding",
 			doc = "declared intent only — Roblox exposes no keyboard-type API",
 		}),
+		selectOnFocus = p({
+			types = { "string" },
+			enum = { "none", "all", "end" },
+			reactive = true,
+			dirty = { "semantics" },
+			channel = "binding",
+			doc = "what a new focus session selects: none (the native caret, the default) | all | end; "
+				.. "a pointer focus applies it at that pointer's release",
+		}),
 		onTextChanged = p({
 			types = { "function" },
 			reactive = false,

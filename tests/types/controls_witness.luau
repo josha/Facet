@@ -335,6 +335,7 @@ local _readOnlyNotes = app.controls.TextInput("Notes")({
 	readOnly = function(_use)
 		return true
 	end,
+	selectOnFocus = "all",
 })
 local _numericText = app.controls.TextInput("Number")({
 	value = Facet.Compose.cell("1"),
