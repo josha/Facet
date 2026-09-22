@@ -255,6 +255,38 @@ describe("Picker menu rows: avatar, disabled and long labels", function()
 		expect(w.core.lastError()).toBeNil()
 	end)
 
+	it("the popover is as wide as its widest row, avatar, icon, meta and badge counted", function()
+		local w, picker = mount("desktop", {
+			style = "menu",
+			label = "Driver",
+			selected = Compose.cell("a"),
+			options = {
+				{ value = "a", label = "Ada", avatar = { name = "Ada" }, badge = 3, icon = "settings" },
+				{ value = "b", label = "Bo", avatar = { name = "Bo" }, meta = "Crew", icon = "settings" },
+				{ value = "c", label = "Cy", avatar = { name = "Cy" }, icon = "settings" },
+			},
+		})
+		picker.api.open()
+		w.pres.refresh()
+		w.pres.refresh()
+		local panel = node(w, "/Popup").rect
+		for _, path in w.adapter.paths() do
+			local rect = w.adapter.node(path).rect
+			if string.find(path, "/Opt-", 1, true) and rect ~= nil and rect.w > 0 then
+				local inside = rect.x >= panel.x - 0.5 and rect.x + rect.w <= panel.x + panel.w + 0.5
+				expect(`{path} inside {inside}`).toBe(`{path} inside true`)
+			end
+		end
+		local labels = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Opt-", 1, true) and string.sub(path, -6) == "/Label" then
+				labels += 1
+				expect(`{path} {w.adapter.node(path).rect.w > 0}`).toBe(`{path} true`)
+			end
+		end
+		expect(labels).toBe(3)
+	end)
+
 	it("a long option label stays inside its panel", function()
 		local w, picker = mount("phone", {
 			style = "menu",

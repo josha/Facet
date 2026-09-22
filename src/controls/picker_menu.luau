@@ -955,6 +955,26 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			if type(description) == "string" then
 				w = math.max(w, lineWidth(description, captionPx, captionRole))
 			end
+			-- every other column `menu_recipe.rowProps` lays beside the words, each
+			-- behind one row gap: avatar, icon, meta value, badge
+			if option.avatar ~= nil then
+				w += (themeSnapshot.resolveNumber(snap, "controlSizes.compact.height") or 36) + gap
+			end
+			local icon = selectionModel.read(option.icon)
+			if type(icon) == "string" and icon ~= "" then
+				local glyph = lineWidth(themePackage.iconGlyph(icon) or "•", labelPx, labelRole)
+				w += math.max(themeSnapshot.resolveNumber(snap, "space.l") or 24, glyph) + gap
+			end
+			local meta = selectionModel.read(option.meta)
+			if type(meta) == "string" and meta ~= "" then
+				w += lineWidth(meta, labelPx, labelRole) + gap
+			end
+			local badge = selectionModel.read(option.badge)
+			if badge ~= nil and tostring(badge) ~= "" then
+				local seal = lineWidth(tostring(badge), captionPx, captionRole)
+					+ 2 * (themeSnapshot.resolveNumber(snap, "space.xs") or 4)
+				w += math.max(themeSnapshot.resolveNumber(snap, "controls.badge.minimum") or 20, seal) + gap
+			end
 			widest = math.max(widest, w + slot + gap + rowPad)
 		end
 		return math.ceil(if widest > 0 then widest + card + 2 * shade else 0)
