@@ -159,6 +159,31 @@ t.describe("Consolidated showcase", function()
 		t.expect(#w.adapter.paths()).toBe(0)
 	end)
 
+	t.it("widens every inner tab to its engine width when the words arrive after the page mounts", function()
+		-- Owner report 2026-09-22 (bugs/topClip.png): the Actions tabs kept the
+		-- estimator's box after their exact widths arrived, clipping "Butto…".
+		local w = make(catalog, { x = 0, y = 0, w = 1542, h = 1067 }, { preferredInput = "MouseKeyboard" })
+		local function widthOf(word: string, size: number): number
+			return #word * size * 0.7
+		end
+		local function deliver()
+			for _ = 1, 6 do
+				w.adapter.deliverTextWidths(widthOf, true)
+			end
+			w.settle(2)
+		end
+		deliver()
+		activate(w, "Actions")
+		deliver()
+		local wanted = {}
+		for _, label in { "Buttons", "Recipes", "Menus", "Sheets", "Help" } do
+			local rect = w.controller.rectOf(button(w, label))
+			local need = math.ceil(widthOf(label, 18)) + 24
+			table.insert(wanted, `{label} {rect.w >= need}`)
+		end
+		t.expect(table.concat(wanted, ", ")).toBe("Buttons true, Recipes true, Menus true, Sheets true, Help true")
+	end)
+
 	t.it("offers toasts in Indicators and retires them when leaving the page", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
 		activate(w, "Indicators")
