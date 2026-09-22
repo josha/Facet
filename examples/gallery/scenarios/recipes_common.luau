@@ -366,11 +366,19 @@ return {
 				}),
 
 				heading("DividerHeading", "Divider insets"),
-				dividerExample("DividerFull", "Full width", 0),
-				dividerExample("DividerLeading", "Leading inset: starts at the text", { left = TEXT_INSET }),
-				dividerExample("DividerTrailing", "Trailing inset: stops short", { right = "xl" }),
-				dividerExample("DividerBoth", "Leading and trailing", { left = TEXT_INSET, right = "xl" }),
-				dividerExample("DividerHeavy", "Heavy: 3 px", 0, 3),
+				-- one bounded card, so both ends of every line are on screen to compare;
+				-- the trailing inset is the same amount as the leading one
+				UI.VStack("Dividers")({
+					surface = "raised",
+					width = { type = "percent", fraction = 1, max = 360 },
+					padding = "m",
+					gap = "m",
+					dividerExample("DividerFull", "Full width", 0),
+					dividerExample("DividerLeading", "Leading inset: starts at the text", { left = TEXT_INSET }),
+					dividerExample("DividerTrailing", "Trailing inset: stops short", { right = TEXT_INSET }),
+					dividerExample("DividerBoth", "Leading and trailing", { left = TEXT_INSET, right = TEXT_INSET }),
+					dividerExample("DividerHeavy", "Heavy: 3 px", 0, 3),
+				}),
 
 				heading("AccordionHeading", "Single-open accordion"),
 				UI.VStack("Accordion")({

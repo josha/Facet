@@ -126,11 +126,17 @@ t.describe("public composition recipes", function()
 			-- Owner report 2026-09-22 (bugs/divider.png): each line sits under a
 			-- representative icon row, so a leading inset visibly starts at the text
 			local text = rect(w, "/DividerLeading/Row/Title")
+			local inset = metrics.controlSizes.regular.iconSize + metrics.controls.label.gap
 			t.expect(l.x).toBe(text.x)
-			t.expect(l.x - f.x).toBe(metrics.controlSizes.regular.iconSize + metrics.controls.label.gap)
+			t.expect(l.x - f.x).toBe(inset)
 			t.expect(l.x + l.w).toBe(f.x + f.w)
 			t.expect(r.x).toBe(f.x)
-			t.expect(r.x + r.w).toBe(f.x + f.w - metrics.space.xl)
+			t.expect(r.x + r.w).toBe(f.x + f.w - inset)
+			-- owner follow-up: one bounded card (<= 360 px, on a 390 px phone) holds
+			-- every line, so both ends are on screen to compare
+			local card = rect(w, "/Dividers")
+			t.expect(card.w <= 360 and card.x >= 0 and card.x + card.w <= 390).toBe(true)
+			t.expect(f.x >= card.x and f.x + f.w <= card.x + card.w).toBe(true)
 			t.expect(b.x).toBe(l.x)
 			t.expect(b.x + b.w).toBe(r.x + r.w)
 			t.expect(f.h).toBe(metrics.strokes.hairline)
