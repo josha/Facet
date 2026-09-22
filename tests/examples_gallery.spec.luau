@@ -3973,6 +3973,20 @@ describe("examples/gallery fixture: Writing's field sections", function()
 		expect(w.adapter.liveCount()).toBe(0)
 	end)
 
+	it("the pit-lane field selects on focus and scrubs by its step", function()
+		local w, built = writingWorld()
+		local field = w.adapter.node("/TextControls/Content/Body/Speed/Input/Row/Field")
+		expect(field.props.selectOnFocus).toBe("all")
+		local scrub = field.textHandlers.onScrub
+		expect(`{scrub("press", "pointer")} {scrub("begin")}`).toBe("true true")
+		scrub("move", 24) -- three steps of 5
+		scrub("end")
+		w.settle()
+		expect(`{built.report().speed.numericValue} {built.report().speed.value}`).toBe("135 135")
+		expect(w.core.lastError()).toBeNil()
+		w.close()
+	end)
+
 	it("the numeric-error state still produces a visible rejection", function()
 		local w, built = writingWorld()
 		local states = built.states()

@@ -28,6 +28,8 @@ return {
 		local feeDraft = Compose.cell("2.50")
 		local fee = Compose.cell(2.5)
 		local feeReason = Compose.cell("not committed yet")
+		local speedDraft = Compose.cell("120")
+		local speed = Compose.cell(120)
 		local records: { [string]: any } = {}
 		local function keep(id: string)
 			return function(r: any)
@@ -69,6 +71,8 @@ return {
 			feeDraft:set("2.50")
 			fee:set(2.5)
 			feeReason:set("not committed yet")
+			speedDraft:set("120")
+			speed:set(120)
 		end
 		local function body()
 			return UI.VStack("Body")({
@@ -163,6 +167,20 @@ return {
 						return "Committed fee: " .. use(feeReason)
 					end,
 					width = UI.fill(),
+				}),
+				UI.NumberInput("Speed")({
+					value = speedDraft,
+					numericValue = speed,
+					enabled = enabled,
+					min = 0,
+					max = 300,
+					step = 5,
+					suffix = "km/h",
+					label = "Pit lane limit",
+					hint = "Drag sideways to change it. Focusing selects the number.",
+					scrub = true,
+					selectOnFocus = "all",
+					ref = keep("Speed"),
 				}),
 				UI.Text({ text = "Fields with furniture", textSize = "heading", width = UI.fill() }),
 				UI.TextInput("Handle")({
@@ -306,6 +324,7 @@ return {
 					briefing = if records.Briefing then records.Briefing.dump() else nil,
 					fee = if records.Fee then records.Fee.dump() else nil,
 					feeReason = feeReason:peek(),
+					speed = if records.Speed then records.Speed.dump() else nil,
 				}
 			end,
 			-- nothing outlives the screen
