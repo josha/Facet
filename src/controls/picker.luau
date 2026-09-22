@@ -2097,14 +2097,21 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	else
 		built = buildAutomatic(Facet, core, spec, id)
 	end
-	-- one message line under whichever family is on screen
+	-- one message line under whichever family is on screen, owned like it: its
+	-- formulas die with the picker's dispose, not with whoever called
 	if spec.hint ~= nil or spec.errorText ~= nil then
-		local chrome = fieldChrome.new({
-			UI = Facet.UI,
-			control = "UI.Picker",
-			spec = { hint = spec.hint, errorText = spec.errorText },
-		})
-		built.blueprint = chrome.wrap(built.blueprint, id)
+		local chromeOwner: any
+		built.blueprint = ownedBuild(core, function(owner)
+			chromeOwner = owner
+			return fieldChrome
+				.new({ UI = Facet.UI, control = "UI.Picker", spec = { hint = spec.hint, errorText = spec.errorText } })
+				.wrap(built.blueprint, id)
+		end)
+		local disposeFamily = built.dispose
+		built.dispose = function()
+			disposeFamily()
+			chromeOwner.dispose()
+		end
 	end
 	return built
 end

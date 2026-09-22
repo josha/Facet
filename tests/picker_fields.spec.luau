@@ -122,6 +122,29 @@ describe("Picker menu field: notation, message line and paint", function()
 	end)
 end)
 
+describe("Picker message line: ownership", function()
+	it("the hint line's owner is the picker's: dispose releases it", function()
+		for _, style in { "menu", "segmented", "cards" } do
+			-- built inside a caller's owner, which must get back exactly what it had
+			local core = world.new(FACTS.desktop).core
+			local caller = core.owner.createChild()
+			local before = caller.size()
+			local _, _, library = harness.libraryOf(core)
+			local built = Compose.withOwner(caller, function()
+				return require("../src/controls/picker").build(library, core, {
+					id = "P",
+					style = style,
+					selected = Compose.cell("normal"),
+					options = THREE,
+					hint = "Change it any time",
+				})
+			end)
+			built.dispose()
+			expect(`{style} {caller.size() - before}`).toBe(`{style} 0`)
+		end
+	end)
+end)
+
 describe("Picker menu panel: maxHeight and the selected row", function()
 	local LONG = {}
 	for i = 1, 30 do
