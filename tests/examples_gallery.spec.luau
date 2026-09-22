@@ -3270,7 +3270,8 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			-- `containerRelativeSize` spends, and the two agreed only by luck while
 			-- the viewport happened to divide evenly by 3 — the gutter made it 279
 			-- and 87.67 rounds UP (director report 2026-08-30).
-			local viewport = scroll.w - fake_target.SCROLL_BAR_RESERVE
+			-- ...and less the page inset the scroller now holds inside it (native F1b)
+			local viewport = scroll.w - 32 - fake_target.SCROLL_BAR_RESERVE
 			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3 + 0.5)}`)
 			built.dispose()
 		end
@@ -3287,7 +3288,7 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 		local scroll = rectOf(w, SCROLL)
 		local column = rectOf(w, HUD)
 		local page = rectOf(w, HUD .. "/Page")
-		local viewport = scroll.w - fake_target.SCROLL_BAR_RESERVE
+		local viewport = scroll.w - 32 - fake_target.SCROLL_BAR_RESERVE -- less the page inset (F1b)
 		expect(`column={column.w} viewport={viewport}`).toBe(`column=587 viewport=1191`)
 		expect(`page={page.w}`).toBe(`page={math.floor((viewport - 16) / 3 + 0.5)}`)
 		-- the parent-relative reading, which this is NOT
@@ -3950,9 +3951,10 @@ end)
 
 describe("examples/gallery fixture: Writing's field sections", function()
 	local function writingWorld(): (any, any)
-		-- tall enough that Content does not scroll: the base scenario already reports
-		-- 8px scroll-gutter containment violations on a short phone viewport
-		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 3000 } })
+		-- a short phone, so Content scrolls and reserves its bar: the page's inset now
+		-- sits inside the scroller (native F1b), and the 8px scroll-gutter
+		-- containment findings this viewport used to report are gone
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 700 } })
 		local built = require("../examples/gallery/scenarios/text_controls").build(scenario_ctx.of(w))
 		w.present(built.screen, { sinkNavigation = true })
 		built.handle = w.handle
@@ -4009,8 +4011,6 @@ describe("examples/gallery fixture: the Slider shapes in Basics", function()
 	local function shapesWorld(view: any): (any, any)
 		local w = require("./lib/world").new({
 			viewport = view,
-			overflowGuardOff = "a scrolled gallery screen reports 8px scroll-gutter findings on its fill rows "
-				.. "(pre-existing, reproduced on the base Writing screen); the sweeps own containment here",
 		})
 		local built = require("../examples/gallery/scenarios/adaptive_controls").build(scenario_ctx.of(w))
 		w.present(built.screen)
@@ -4067,8 +4067,6 @@ describe("examples/gallery fixture: Choices' picker fields and cards", function(
 	it("the driver error and the wrapping cards answer with the screen", function()
 		local w = require("./lib/world").new({
 			viewport = { x = 0, y = 0, w = 390, h = 3000 },
-			overflowGuardOff = "a scrolled gallery screen reports 8px scroll-gutter findings on its fill rows "
-				.. "(pre-existing, reproduced on the base Writing screen); the sweeps own containment here",
 		})
 		local built = require("../examples/gallery/scenarios/selection_controls").build(scenario_ctx.of(w))
 		w.present(built.screen)

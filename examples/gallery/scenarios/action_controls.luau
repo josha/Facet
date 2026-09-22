@@ -547,6 +547,7 @@ return {
 			local scroller = UI.ScrollView("Content")({
 				width = UI.fill(),
 				height = UI.fill(),
+				padding = { left = "m", right = "m" },
 				navigation = {
 					focus = "target",
 					targets = { "Hero", "SettingsRows", "Drivers" },
@@ -560,7 +561,7 @@ return {
 				},
 				page,
 			})
-			return UI.Screen("ActionControls")({ surface = "base", padding = "m", scroller })
+			return UI.Screen("ActionControls")({ surface = "base", padding = { top = "m", bottom = "m" }, scroller })
 		end
 
 		return {

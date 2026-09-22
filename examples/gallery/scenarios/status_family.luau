@@ -15,10 +15,11 @@ return {
 			screen = function()
 				return UI.Screen("StatusFamily")({
 					surface = "base",
-					padding = "m",
+					padding = { top = "m", bottom = "m" },
 					UI.ScrollView("Content")({
 						width = UI.fill(),
 						height = UI.fill(),
+						padding = { left = "m", right = "m" },
 						UI.VStack("Recipes")({
 							width = UI.fill(),
 							gap = "l",

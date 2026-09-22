@@ -187,8 +187,13 @@ return {
 			screen = function()
 				return UI.Screen("ShortcutHint")({
 					surface = "base",
-					padding = "m",
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), section() }),
+					padding = { top = "m", bottom = "m" },
+					UI.ScrollView("Content")({
+						width = UI.fill(),
+						height = UI.fill(),
+						padding = { left = "m", right = "m" },
+						section(),
+					}),
 				})
 			end,
 			report = report,

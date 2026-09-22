@@ -234,9 +234,14 @@ return {
 					onDisappear = function()
 						rootPath = nil
 					end,
-					padding = "m",
+					padding = { top = "m", bottom = "m" },
 
-					UI.ScrollView("Content")({ width = UI.fill(), height = UI.fill(), body() }),
+					UI.ScrollView("Content")({
+						width = UI.fill(),
+						height = UI.fill(),
+						padding = { left = "m", right = "m" },
+						body(),
+					}),
 				})
 			end,
 

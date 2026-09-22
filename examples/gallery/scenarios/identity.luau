@@ -17,10 +17,11 @@ return {
 			screen = function()
 				return UI.Screen("Identity")({
 					surface = "base",
-					padding = "m",
+					padding = { top = "m", bottom = "m" },
 					UI.ScrollView("Content")({
 						width = UI.fill(),
 						height = UI.fill(),
+						padding = { left = "m", right = "m" },
 						padding = "s",
 						UI.VStack("Recipes")({
 							width = UI.fill(),
