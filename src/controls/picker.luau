@@ -237,6 +237,8 @@ local PICKER_KEYS = specGuard.keySet({
 	"corners",
 	-- the menu panel's bound, chrome included
 	"maxHeight",
+	-- the radio group's mark: "leading" (default) | "trailing"
+	"indicatorPosition",
 })
 
 --[[ ONE APPEARANCE WORD, TWO FAMILIES. The menu trigger speaks
@@ -534,6 +536,10 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 				selected = if slides then nil else selected,
 				enabled = enabled,
 				indicator = if requested == "radio" then "radio" else nil,
+				indicatorEdge = spec.indicatorPosition,
+				height = if spec.controlSize ~= nil
+					then vocabulary.metricPath(readValue(spec.controlSize), "height")
+					else nil,
 				markHidden = function(use)
 					return not selected(use)
 				end,
@@ -942,7 +948,17 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	-- the row form's silhouette, and the ONE shape both its states wear (item 5):
 	-- the plate a theme paints under a chosen row is the row's own node, so an
 	-- authored corner makes chosen and unchosen the same outline by construction
-	local rowCorners = UI.cornersData(SEGMENT_RADIUS)
+	-- the strip's outer corner: `corners` names it, absent is the theme's radius
+	local outerCorner: any = if spec.corners == "pill"
+		then "pill"
+		elseif spec.corners == "square" then 0
+		else SEGMENT_RADIUS
+	local rowCorners = UI.cornersData(outerCorner)
+	local trackOutline = UI.strokeData({ color = "hairline", thickness = "hairline", transparency = 0 })
+	-- a named rung's segment and row height; the whole strip reserves the floor
+	local rungHeight = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.heightFor)
+	local segmentHeight = rungHeight or SEGMENT_HEIGHT
+	local rungPadding = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.paddingFor)
 	-- the three silhouettes a segment can wear, filled per index below: the
 	-- horizontal strip's, the vertical rail's, and the row list's
 	local cornersX: { any } = {}
@@ -1024,8 +1040,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			tables rather than allocating a corner set per re-solve. A strip that is
 			not a track (a tab bar, or a strip with no indicator) takes the plain
 			row shape, which is the same radius without the end rule. ]]
-		local cornerX = stripCorners(UI, i, segmentCount, "x")
-		local cornerY = stripCorners(UI, i, segmentCount, "y")
+		local cornerX = stripCorners(UI, i, segmentCount, "x", outerCorner)
+		local cornerY = stripCorners(UI, i, segmentCount, "y", outerCorner)
 		cornersX[i], cornersY[i], cornersRow[i] = cornerX, cornerY, rowCorners
 		local optionCorners: any = rowCorners
 		if tracked then
@@ -1077,7 +1093,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			-- width (the reactive one) is the single place the segment's size is
 			-- decided and the two can never disagree
 			width = if badged then SEGMENT_FILL else segmentWidth,
-			height = if badged then OVERLAY_FILL else SEGMENT_HEIGHT,
+			height = if badged then OVERLAY_FILL else segmentHeight,
+			padding = rungPadding,
 			-- the focus ring follows the node's corners, so a segment wears the
 			-- same shape as the bar sliding under it: one silhouette, one height.
 			-- It is authored on EVERY form, not only the sliding one, because a row
@@ -1102,6 +1119,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				description = option.description,
 				icon = option.icon,
 				indicator = if requested == "radio" then "radio" else nil,
+				indicatorEdge = spec.indicatorPosition,
+				height = rungHeight and vocabulary.metricPath(readValue(spec.controlSize), "height"),
 				markHidden = Compose.formula(function(use)
 					return selectionModel.read(selected, use) ~= option.value
 				end),
@@ -1150,7 +1169,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 			local props = table.clone(buttonProps)
 			props.id = optionId
 			props.compactLabel = nil
-			props.height = SEGMENT_HEIGHT
+			props.height = segmentHeight
 			props.children = row.children
 			local button = UI.Button(props)
 			table.insert(
@@ -1158,7 +1177,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				UI.ZStack({
 					id = optionId .. "Cell",
 					width = segmentWidth,
-					height = SEGMENT_HEIGHT,
+					height = segmentHeight,
 					children = { button },
 				})
 			)
@@ -1271,7 +1290,12 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				below and its corner is `SEGMENT_RADIUS`; an untracked one's is the
 				band its caller drew, which is the only thing `stripCorner` is for.
 				`selection_indicator.fillCornerFor` carries the three clauses. ]]
-			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
+			trackCorner = if (spec :: any).track == false
+				then (spec :: any).stripCorner
+				elseif spec.corners == "pill" then "pill"
+				else SEGMENT_RADIUS,
+			-- a square strip's fill is square too
+			corner = if spec.corners == "square" and (spec :: any).track ~= false then 0 else nil,
 			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
 				plated track holding equal segments with the selected one raised; the
 				bar alone left every unselected segment as bare text floating beside
@@ -1287,12 +1311,18 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				then nil
 				else UI.Box({
 					id = "Track",
-					surface = "control",
-					corners = UI.cornersData(SEGMENT_RADIUS),
+					-- `appearance`: filled is the plate, stroke an outline, utility none
+					surface = function(use)
+						return if readValue(spec.appearance, use) == "stroke" then "plain" else "control"
+					end,
+					stroke = function(use)
+						return if readValue(spec.appearance, use) == "stroke" then trackOutline else nil
+					end,
+					corners = UI.cornersData(outerCorner),
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					hidden = Compose.formula(function(use)
-						return use(presentation) ~= "segmented"
+						return use(presentation) ~= "segmented" or readValue(spec.appearance, use) == "utility"
 					end),
 				}),
 		})
@@ -1363,7 +1393,8 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	})
 
 	local api = {}
-	api.blueprint = built
+	-- a named rung can solve segments under the touch floor: reserve it once
+	api.blueprint = if rungHeight ~= nil then vocabulary.reserveTarget(UI, core, id, built, groupWidth) else built
 	api.presentation = presentation
 	--[[ THE ID THIS STRIP GAVE EACH OPTION, as `{ value, id }` pairs — the exact
 		table the D4 indicator is handed, published because D5's TabView needs the
@@ -1890,6 +1921,14 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 		controlSize = spec.controlSize,
 		corners = spec.corners,
 	})
+	if spec.indicatorPosition ~= nil then
+		if spec.indicatorPosition ~= "leading" and spec.indicatorPosition ~= "trailing" then
+			error(`Facet UI.Picker('{id}'): indicatorPosition must be leading | trailing`, 0)
+		end
+		if style ~= "radioGroup" then
+			error(`Facet UI.Picker('{id}'): indicatorPosition places the radio mark; the {style} style has none.`, 0)
+		end
+	end
 	local words = wordsFor(style)
 	if spec.appearance ~= nil then
 		if words == nil then

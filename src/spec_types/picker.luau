@@ -75,6 +75,7 @@ export type Spec<V = AnyCell> = {
 	appearance: blueprint.Bound<string?>?,
 	corners: ("pill" | "square")?,
 	maxHeight: number?, -- the menu panel's bound in px, chrome included
+	indicatorPosition: ("leading" | "trailing")?, -- radioGroup: the mark's edge
 }
 export type StyleFacts = {
 	optionCount: number,

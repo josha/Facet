@@ -8977,9 +8977,10 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the application's environment. |
 | `requiredMark` | `"required"` or `"optional"`: notation only. Required appends ` *` to the label's own words; optional paints nothing (put localized wording in `hint`). `required` keeps its reselect-policy meaning. |
 | `hint` / `errorText` | Strings or readables on one message line under the picker, whatever style is on screen. A non-empty `errorText` replaces the hint in the danger role beside the `status.error` mark and borders the menu trigger in danger; the picker does not move. |
-| `controlSize` | `compact`, `regular` or `large`. The menu trigger takes the rung's height and inset inside a reserved whole target (`<id>+target`). |
+| `controlSize` | `compact`, `regular` or `large`. The menu trigger, the segments of a static strip and radio or inline rows take the rung's height and inset; the trigger and a static strip sit inside a reserved whole target (`<id>+target`). A live strip reads a bound rung once for its rows. |
+| `indicatorPosition` | `radioGroup` only, construction-time `leading` (default) or `trailing`: which edge of each row carries the radio mark. Other styles refuse it. |
 | `appearance` | Menu styles: `standard` (default paint), `contrast` (the emphasis plate) or `utility`. Segmented: `filled`, `stroke` or `utility`. Automatic takes all five and maps them onto the family on screen (standard or filled, contrast or stroke, utility); while it resolves to rows the intent is kept and paints nothing. Absent keeps each family's default; `inline`, `radioGroup` and `cards` refuse it. Bound words repaint in place; a word outside the family is refused and the last legal paint stays. |
-| `corners` | Construction-time `pill` or `square` for the menu trigger or the segmented strip's outer ends. |
+| `corners` | Construction-time `pill` or `square` for the menu trigger or a static segmented strip's outer ends, track and selected fill (`pill` is the reference `isCircular`). |
 | `maxHeight` | Menu styles and automatic: a finite pixel bound above zero on the whole open panel, chrome included, overriding the default two-row floor (and kept by the sheet fallback). Other styles refuse it. |
 
 Opening a menu scrolls the selected row into view: a mounted row through the

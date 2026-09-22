@@ -25,6 +25,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.Picker` segmented strips take `appearance` (`filled` plate, `stroke`
+  outline, `utility` none; bound words repaint in place), `corners` (track,
+  outer ends and selected fill; `pill` is the reference `isCircular`) and
+  `controlSize` (segments inside one reserved target); radio and inline rows
+  take the rung's height. `indicatorPosition = "leading" | "trailing"` places
+  the radioGroup's mark. `selection_indicator.segmentShape` takes an optional
+  outer corner.
+
 - `UI.Picker` is a field: `requiredMark`, one `hint`/`errorText` message line
   (on every style; an error also borders the menu trigger), `controlSize`
   (the menu trigger inside a reserved target), `appearance` (menu standard /

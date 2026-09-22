@@ -247,3 +247,90 @@ describe("Picker menu rows: avatar, disabled and long labels", function()
 		expect(row.x >= panel.x - 0.5 and row.x + row.w <= panel.x + panel.w + 0.5).toBe(true)
 	end)
 end)
+
+describe("Picker segmented vocabulary and the radio mark", function()
+	it("appearance paints the track filled, stroked or not at all, live, and refuses a menu word", function()
+		local word = Compose.cell("filled")
+		local w = mount("desktop", { style = "segmented", appearance = word })
+		local track = suffixPath(w, "/Track") :: string
+		expect(w.adapter.node(track).props.surface).toBe("control")
+		word:set("stroke")
+		w.pres.refresh()
+		expect(w.adapter.node(track).props.surface).toBe("plain")
+		expect(w.adapter.node(track).props.stroke ~= nil).toBe(true)
+		word:set("utility")
+		w.pres.refresh()
+		expect(w.adapter.visibleOf(track)).toBe(false)
+		pcall(function()
+			word:set("contrast")
+			w.pres.refresh()
+		end)
+		expect(w.adapter.visibleOf(track)).toBe(false)
+		expect(pcall(function()
+			mount("desktop", { style = "segmented", appearance = "contrast" })
+		end)).toBe(false)
+	end)
+
+	it("an automatic picker keeps its appearance intent across a live family switch", function()
+		local w, picker = mount("desktop", { appearance = "contrast" })
+		expect(picker.dump().style).toBe("menu")
+		expect(node(w, "/Trigger").props.appearance).toBe("emphasis")
+		w.env:set("displaySize", "Large")
+		w.env:set("capabilities", { gamepad = true })
+		w.env:set("preferredInput", "Gamepad")
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(picker.dump().style).toBe("segmented")
+		expect(node(w, "/Track").props.surface).toBe("plain")
+		w.env:set("displaySize", "Medium")
+		w.env:set("capabilities", { mouse = true, keyboard = true })
+		w.env:set("preferredInput", "KeyboardAndMouse")
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(picker.dump().style).toBe("menu")
+		expect(node(w, "/Trigger").props.appearance).toBe("emphasis")
+	end)
+
+	it("corners reach the track, its ends and the fill; a rung shrinks segments inside one reserved target", function()
+		local pill = mount("desktop", { style = "segmented", corners = "pill" })
+		expect(node(pill, "/Track").props.corners.tokens.radius).toBe("pill")
+		local square = mount("desktop", { style = "segmented", corners = "square" })
+		expect(node(square, "/Track").props.corners.radius).toBe(0)
+		local w = mount("desktop", { style = "segmented", controlSize = "compact" })
+		local segs: { any } = {}
+		for _, key in { "Opt1", "Opt2", "Opt3" } do
+			table.insert(segs, node(w, "/" .. key).rect)
+		end
+		expect(segs[1].h < FLOOR).toBe(true)
+		expect(node(w, "/P+target").rect.h >= FLOOR).toBe(true)
+		for i = 1, 2 do
+			local a = w.adapter.hitRectOf(suffixPath(w, `/Opt{i}`) :: string) or segs[i]
+			local b = w.adapter.hitRectOf(suffixPath(w, `/Opt{i + 1}`) :: string) or segs[i + 1]
+			expect(a.x + a.w <= b.x + 0.5).toBe(true)
+		end
+	end)
+
+	it("indicatorPosition moves the radio mark to either edge, and belongs to the radio group only", function()
+		for _, edge in { "leading", "trailing" } do
+			local w = mount("desktop", { style = "radioGroup", indicatorPosition = edge })
+			local mark = node(w, "/Opt2/HStack#1/Indicator") or node(w, "/Opt2/Indicator")
+			local markRect: any = nil
+			local labelRect: any = nil
+			for _, path in w.adapter.paths() do
+				if string.find(path, "/Opt2/", 1, true) then
+					if string.sub(path, -#"/Indicator") == "/Indicator" then
+						markRect = w.adapter.node(path).rect
+					elseif string.sub(path, -#"/Label") == "/Label" then
+						labelRect = w.adapter.node(path).rect
+					end
+				end
+			end
+			local _ = mark
+			local trailing = markRect.x > labelRect.x
+			expect(`{edge}: {trailing}`).toBe(`{edge}: {edge == "trailing"}`)
+		end
+		expect(pcall(function()
+			mount("desktop", { style = "segmented", indicatorPosition = "trailing" })
+		end)).toBe(false)
+	end)
+end)
