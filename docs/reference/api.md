@@ -2214,7 +2214,9 @@ floating round "…" action. It is **not reactive**: a shape is what the control
   `"chevron.trailing"`, or a package's namespaced `"ns:name"`. The framework draws
   its own ASCII-safe glyph for that name immediately, so the affordance is legible
   under *every* theme, and a package that ships art for the name has the adapter
-  paint the picture over it, tinted by that asset's `tintRole`. With an `icon` the
+  paint the picture over it, tinted by that asset's `tintRole`. A plain name outside
+  the vocabulary (`"search"` for `"facet:search"`) draws a dot and warns once per
+  name in the output, naming the near miss when there is one. With an `icon` the
   `label` stays the **semantic name** and is not drawn — which names the node for a
   dump, a bug report and a focus trace, and reaches the player through nothing (see
   the accessibility note under **Custom content** above). `icon` is circle-only; a

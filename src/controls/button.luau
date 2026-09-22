@@ -464,7 +464,7 @@ local function build(Facet, core, spec, owner)
 		return chromeSlots.attachHint(
 			UI.Text({
 				id = id,
-				text = themePackage.iconGlyph(iconName) or "•",
+				text = themePackage.iconGlyphOrDot(iconName),
 				textSize = "control",
 				textAlign = "center",
 				--[[ THE RUNG RESERVES THE SQUARE, IT DOES NOT CAP IT. A fixed width

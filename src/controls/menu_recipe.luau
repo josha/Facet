@@ -404,7 +404,7 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 				UI.Text({
 					id = "Icon",
 					tint = row.labelTint,
-					text = themePackage.iconGlyph(icon) or "•",
+					text = themePackage.iconGlyphOrDot(icon),
 					textSize = row.textSize or "control",
 					width = { type = "minMax", min = "l" },
 				}),

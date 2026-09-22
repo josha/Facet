@@ -1179,6 +1179,28 @@ function package.iconGlyph(name: string): string?
 	return nil
 end
 
+--[[ THE DOT A CONTROL DRAWS FOR A NAME THE VOCABULARY LACKS, said once per name
+	(native sweep F8: `icon = "search"` for `facet:search` painted a bare dot and
+	told nobody). `report` is replaceable so a spec reads the sentence. ]]
+local warnedIcons: { [string]: boolean } = {}
+function package.report(message: string)
+	warn(message)
+end
+function package.iconGlyphOrDot(name: string): string
+	local glyph = package.iconGlyph(name)
+	if glyph ~= nil then
+		return glyph
+	end
+	if not warnedIcons[name] then
+		warnedIcons[name] = true
+		local near = if (package.ICON_FALLBACK_GLYPHS :: any)["facet:" .. name] ~= nil
+			then ` Did you mean 'facet:{name}'?`
+			else ""
+		package.report(`Facet icon: '{name}' is not an icon name, so it draws a dot.{near}`)
+	end
+	return "•"
+end
+
 package.ICON_SIZE_ROLES = table.freeze({ "small", "medium", "large" })
 
 -- ===== PIXEL-ART mode ========================================

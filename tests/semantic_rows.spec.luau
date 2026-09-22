@@ -117,7 +117,11 @@ t.describe("semantic control rows", function()
 			local action = harness.Controls.Button(w.core, {
 				id = "Action",
 				label = "Manage equipment",
-				row = { description = "Choose equipment for the next expedition", icon = "search", value = "12 items" },
+				row = {
+					description = "Choose equipment for the next expedition",
+					icon = "facet:search",
+					value = "12 items",
+				},
 				onActivate = function()
 					hits += 1
 				end,
@@ -125,13 +129,13 @@ t.describe("semantic control rows", function()
 			local toggle = harness.Controls.Toggle(w.core, {
 				id = "Toggle",
 				label = "Camera assistance",
-				row = { description = "Keep the route in view", icon = "search" },
+				row = { description = "Keep the route in view", icon = "facet:search" },
 				value = value,
 			})
 			local slider = harness.Controls.Slider(w.core, {
 				id = "Volume",
 				label = "Music volume",
-				row = { description = "Adjust music while playing", icon = "search" },
+				row = { description = "Adjust music while playing", icon = "facet:search" },
 				value = volume,
 				min = 0,
 				max = 100,

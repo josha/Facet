@@ -238,6 +238,13 @@ function pixel_quest.definition(themes: any): any
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	assets.menu = { content = "rbxassetid://119066409501208", tintRole = "content" }
 	assets.flag = { content = "rbxassetid://109067109704366", tintRole = "content" }
+	-- ...and the rest of what the showcase asks for (native sweep F8: `settings`
+	-- painted `*` here because this map had no answer and the rung is declined)
+	assets.settings = { content = "rbxassetid://78513807849201", tintRole = "content" }
+	assets.trash = { content = "rbxassetid://84398508341623", tintRole = "content" }
+	assets.status_info = { content = "rbxassetid://119954823374061", tintRole = "content" }
+	assets.status_success = { content = "rbxassetid://108245103349446", tintRole = "content" }
+	assets.status_error = { content = "rbxassetid://131379225714116", tintRole = "content" }
 	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
 		base = themes.neutralPackage(),
@@ -465,6 +472,11 @@ function pixel_quest.definition(themes: any): any
 			["facet:search"] = "search",
 			menu = "menu",
 			flag = "flag",
+			settings = "settings",
+			trash = "trash",
+			["status.info"] = "status_info",
+			["status.success"] = "status_success",
+			["status.error"] = "status_error",
 			increment = "pixel_icon_plus",
 			decrement = "pixel_icon_minus",
 			["chevron.leading"] = "pixel_icon_chevron_left",

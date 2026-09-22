@@ -193,7 +193,7 @@ return {
 			})
 			local rowAction = UI.Button("Equipment")({
 				label = "Manage equipment",
-				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "search" },
+				row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "facet:search" },
 				onActivate = function()
 					scrollTarget:set(nil)
 					scrollTarget:set("Drivers")

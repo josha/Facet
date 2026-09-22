@@ -67,7 +67,7 @@ function label_control.build(Facet: any, core: any, spec: Spec)
 				chromeSlots.attachHint(
 					UI.Text({
 						id = "Icon",
-						text = themePackage.iconGlyph(spec.icon) or "•",
+						text = themePackage.iconGlyphOrDot(spec.icon),
 						textSize = "control",
 						textAlign = "center",
 						-- A semantic glyph can grow with the text preference; package art fits its box.
