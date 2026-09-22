@@ -227,6 +227,8 @@ _EROSION_PROBES = [
     ("TextInput", 'app.controls.TextInput("Field")({ value = Facet.Compose.cell(""), requiredMark = "maybe" })'),
     ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), readOnly = "yes" })'),
     ("NumberInput", 'app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), presentation = "search" })'),
+    ("Picker", 'app.controls.Picker({ options = {}, selected = Facet.Compose.cell("a"), maxHeight = "96" })'),
+    ("Picker", 'app.controls.Picker("P")({ options = {}, selected = Facet.Compose.cell("a"), requiredMark = "maybe" })'),
     ("NumberInput", 'app.controls.NumberInput("Laps")({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), step = "one" })'),
 ]
 

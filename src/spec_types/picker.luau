@@ -13,6 +13,8 @@ export type Option = {
 	enabled: blueprint.Bound<boolean>?,
 	description: any?,
 	sectionTitle: any?,
+	-- an Avatar spec (name plus optional image/userId/key/provider) leading the row
+	avatar: { name: string, image: any?, userId: number?, key: string?, provider: any? }?,
 }
 export type Spec<V = AnyCell> = {
 	required: boolean?,
@@ -63,6 +65,16 @@ export type Spec<V = AnyCell> = {
 	env: any?, -- optional environment, so the indicator's metrics follow a live theme
 	enabled: blueprint.Bound<boolean>?,
 	onChange: ((value: any) -> ())?,
+	-- the shared field furniture: notation in the label, one message line below
+	requiredMark: ("required" | "optional")?, -- notation only; `required` stays reselect policy
+	hint: blueprint.Bound<string>?,
+	errorText: blueprint.Bound<string>?, -- replaces the hint and borders the menu trigger
+	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	-- menu: standard | contrast | utility; segmented: filled | stroke | utility;
+	-- automatic takes all five and maps them onto the family on screen
+	appearance: blueprint.Bound<string?>?,
+	corners: ("pill" | "square")?,
+	maxHeight: number?, -- the menu panel's bound in px, chrome included
 }
 export type StyleFacts = {
 	optionCount: number,

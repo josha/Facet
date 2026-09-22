@@ -17,6 +17,8 @@ local selectionModel = require("../selection_model")
 local menuRecipe = require("./menu_recipe")
 local themeSnapshot = require("../themes/snapshot")
 local textMetrics = require("../layout/text_metrics")
+local fieldChrome = require("./field_chrome")
+local vocabulary = require("./control_vocabulary")
 local picker = {}
 
 -- `icon` is a SEMANTIC NAME ("close", "chevron.trailing", a namespaced
@@ -226,7 +228,40 @@ local PICKER_KEYS = specGuard.keySet({
 		from it. Only a `track = false` caller has anything to say here — a tracked
 		picker draws its own plate and this control already knows its corner. ]]
 	"stripCorner",
+	-- the shared field furniture and local vocabulary
+	"hint",
+	"errorText",
+	"requiredMark",
+	"controlSize",
+	"appearance",
+	"corners",
+	-- the menu panel's bound, chrome included
+	"maxHeight",
 })
+
+--[[ ONE APPEARANCE WORD, TWO FAMILIES. The menu trigger speaks
+	standard/contrast/utility and the segmented strip filled/stroke/utility; an
+	automatic picker accepts all five and maps each onto whichever family is on
+	screen (standard|filled, contrast|stroke, utility), so a family switch never
+	drops the author's intent. Absent stays absent: each family keeps its own
+	default. Row forms (inline, radioGroup, cards) take no appearance. ]]
+local MENU_WORDS = table.freeze({ "standard", "contrast", "utility" })
+local STRIP_WORDS = table.freeze({ "filled", "stroke", "utility" })
+local AUTO_WORDS = table.freeze({ "standard", "contrast", "filled", "stroke", "utility" })
+local TO_MENU: { [string]: string } =
+	{ standard = "standard", filled = "standard", contrast = "contrast", stroke = "contrast", utility = "utility" }
+local TO_STRIP: { [string]: string } =
+	{ standard = "filled", filled = "filled", contrast = "stroke", stroke = "stroke", utility = "utility" }
+local function wordsFor(style: string): { string }?
+	if style == "automatic" then
+		return AUTO_WORDS
+	elseif style == "menu" or style == "navigationLink" then
+		return MENU_WORDS
+	elseif style == "segmented" then
+		return STRIP_WORDS
+	end
+	return nil
+end
 
 -- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
 -- reactive kinds, exactly as `selection_indicator.readValue` does and for the
@@ -236,7 +271,7 @@ local PICKER_KEYS = specGuard.keySet({
 local readValue = require("../selection_model").read
 
 local OPTION_KEYS =
-	specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled", "sectionTitle" })
+	specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled", "sectionTitle", "avatar" })
 local function validateArray(list)
 	assert(type(list) == "table", "Picker: options must be an array")
 	local count = 0
@@ -1462,7 +1497,7 @@ local function menuSpec(spec: Spec, style: string, id: string): any
 		style = style,
 		options = spec.options,
 		selected = spec.selected,
-		label = spec.label,
+		label = fieldChrome.labelText(spec.label, spec.requiredMark),
 		valueAlignment = spec.valueAlignment,
 		sizing = readValue(spec.sizing),
 		textSize = spec.textSize,
@@ -1474,6 +1509,13 @@ local function menuSpec(spec: Spec, style: string, id: string): any
 		enabled = spec.enabled,
 		env = spec.env,
 		sizeClass = spec.sizeClass,
+		errorText = spec.errorText,
+		controlSize = spec.controlSize,
+		corners = spec.corners,
+		maxHeight = spec.maxHeight,
+		appearance = vocabulary.derive(spec.appearance, function(word)
+			return if type(word) == "string" then TO_MENU[word] else nil
+		end),
 	}
 end
 
@@ -1483,6 +1525,10 @@ local function stripSpec(spec: Spec, id: string): any
 	local out = table.clone(spec :: any)
 	out.id = id
 	out.style, out.presentation, out.query, out.placeholder = nil, nil, nil, nil
+	out.label = fieldChrome.labelText(spec.label, spec.requiredMark)
+	out.appearance = vocabulary.derive(spec.appearance, function(word)
+		return if type(word) == "string" then TO_STRIP[word] else nil
+	end)
 	return out
 end
 
@@ -1836,13 +1882,53 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	if spec.query ~= nil and style ~= "automatic" and style ~= "navigationLink" then
 		error(`Facet UI.Picker('{id}'): \`query\` (a searchable list) belongs to the navigationLink style.`, 0)
 	end
+	-- the field furniture: notation, the message line, rung and silhouette words
+	fieldChrome.assertSpec("UI.Picker", {
+		requiredMark = spec.requiredMark,
+		hint = spec.hint,
+		errorText = spec.errorText,
+		controlSize = spec.controlSize,
+		corners = spec.corners,
+	})
+	local words = wordsFor(style)
+	if spec.appearance ~= nil then
+		if words == nil then
+			error(
+				`Facet UI.Picker('{id}'): \`appearance\` belongs to the menu trigger and the segmented strip; `
+					.. `the {style} style draws rows and takes none.`,
+				0
+			)
+		end
+		-- the automatic family's current answer checks its own words at the write
+		vocabulary.assertAppearance("UI.Picker", spec.appearance, words, specGuard.keySet(words))
+		local checked = spec.appearance
+		spec = table.clone(spec :: any)
+		spec.appearance = vocabulary.derive(checked, function(word)
+			vocabulary.assertAppearance("UI.Picker", word, words, specGuard.keySet(words))
+			return word
+		end)
+	end
+	if spec.maxHeight ~= nil and style ~= "automatic" and not MENU_STYLES[style] then
+		error(`Facet UI.Picker('{id}'): \`maxHeight\` bounds the menu panel; the {style} style has none.`, 0)
+	end
+	local built
 	if MENU_STYLES[style] then
-		return buildMenu(Facet, core, spec, style, id)
+		built = buildMenu(Facet, core, spec, style, id)
+	elseif style ~= "automatic" then
+		built = buildStripFamily(Facet, core, spec, style, id, onReselect)
+	else
+		built = buildAutomatic(Facet, core, spec, id)
 	end
-	if style ~= "automatic" then
-		return buildStripFamily(Facet, core, spec, style, id, onReselect)
+	-- one message line under whichever family is on screen
+	if spec.hint ~= nil or spec.errorText ~= nil then
+		local chrome = fieldChrome.new({
+			UI = Facet.UI,
+			control = "UI.Picker",
+			spec = { hint = spec.hint, errorText = spec.errorText },
+		})
+		built.blueprint = chrome.wrap(built.blueprint, id)
 	end
-	return buildAutomatic(Facet, core, spec, id)
+	return built
 end
 
 return picker

@@ -150,6 +150,18 @@ local _livePicker = app.controls.Picker("LivePicker")({
 	selected = Facet.Compose.cell("a"),
 	presentation = "radio",
 })
+local _pickerField = app.controls.Picker({
+	options = { { value = "a", label = "Ada", avatar = { name = "Ada" }, badge = 2, sectionTitle = "Crew" } },
+	selected = Facet.Compose.cell("a"),
+	style = "menu",
+	requiredMark = "required",
+	hint = "Who drives",
+	errorText = Facet.Compose.cell(""),
+	controlSize = "compact",
+	appearance = "contrast",
+	corners = "pill",
+	maxHeight = 96,
+})
 local _popupbutton = app.controls.PopupButton("Popup")({
 	options = { { id = "a", label = "Alpine" } },
 	value = Facet.Compose.cell("a"),

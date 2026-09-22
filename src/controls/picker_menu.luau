@@ -16,6 +16,8 @@ local themeSnapshot = require("../themes/snapshot")
 local textMetrics = require("../layout/text_metrics")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
+local vocabulary = require("./control_vocabulary")
+local isFinite = require("../num").isFinite
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -49,6 +51,7 @@ local OPTION_KEYS = specGuard.keySet({
 	"value",
 	"badge",
 	"sectionTitle",
+	"avatar",
 })
 local STYLES: { [string]: boolean } = { menu = true, navigationLink = true }
 
@@ -96,7 +99,17 @@ local POPUP_BUTTON_KEYS = specGuard.keySet({
 	"presentation",
 	"sizeClass",
 	"value",
+	-- the menu field's own paint and bounds (the Picker maps its words here)
+	"errorText",
+	"controlSize",
+	"appearance",
+	"corners",
+	"maxHeight",
 })
+-- the trigger's emphasis words, onto the Button vocabulary every package paints
+local MENU_APPEARANCES = table.freeze({ "standard", "contrast", "utility" })
+local MENU_APPEARANCE_SET = specGuard.keySet(MENU_APPEARANCES)
+local BUTTON_APPEARANCE: { [string]: string } = { contrast = "emphasis", utility = "utility" }
 
 local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, affordanceOnly: boolean?)
 	specGuard.assertKnownKeys("UI.PopupButton", spec, POPUP_BUTTON_KEYS, "spec")
@@ -202,6 +215,13 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	assert(spec.required == nil or type(spec.required) == "boolean", "PopupButton: required must be boolean")
 	assert(spec.onChanging == nil or type(spec.onChanging) == "function", "PopupButton: onChanging must be a function")
 	assert(spec.onChange == nil or type(spec.onChange) == "function", "PopupButton: onChange must be a function")
+	assert(
+		spec.maxHeight == nil or (type(spec.maxHeight) == "number" and isFinite(spec.maxHeight) and spec.maxHeight > 0),
+		"Picker: maxHeight must be a finite number of pixels above zero"
+	)
+	vocabulary.assertSize("UI.Picker", spec.controlSize)
+	vocabulary.assertCorners("UI.Picker", spec.corners)
+	vocabulary.assertAppearance("UI.Picker", spec.appearance, MENU_APPEARANCES, MENU_APPEARANCE_SET)
 	local function validatedOptions(use)
 		local list = selectionModel.read(spec.options, use)
 		assert(type(list) == "table", "PopupButton: options must be an array or readable array")
@@ -253,6 +273,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			)
 			local heading = selectionModel.read(option.sectionTitle, use)
 			assert(heading == nil or type(heading) == "string", "PopupButton: sectionTitle must be a string")
+			assert(
+				option.avatar == nil or (type(option.avatar) == "table" and type(option.avatar.name) == "string"),
+				"Picker: an option avatar must be an Avatar spec table with a name"
+			)
 		end
 		local mixed = menuRecipe.mixedIconGroup(list)
 		assert(
@@ -579,6 +603,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			enabled = property("enabled"),
 			icon = if dynamicOptions then property("icon") else option.icon,
 			badge = if option.badge ~= nil or spec.query ~= nil or dynamicOptions then property("badge") else nil,
+			-- the shipped Avatar, leading the row; decoration, never a second press
+			avatar = if option.avatar ~= nil
+				then Facet.nativeControls.Avatar({
+					id = "Avatar",
+					name = option.avatar.name,
+					image = option.avatar.image,
+					userId = option.avatar.userId,
+					key = option.avatar.key,
+					provider = option.avatar.provider,
+					controlSize = "compact",
+				})
+				else nil,
 			core = core,
 			scope = rowScope,
 			selected = selected,
@@ -626,6 +662,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
 	local listShrink = Compose.cell(0)
+	-- the open panel's own controller and search list, for the selected-row reveal
+	local panelController: any = nil
+	local resultsList: any = nil
+	local revealed = false
 	local feeds = 0 -- shrinks fed this open (convergence guard: the solver caps feedback at 8 rounds)
 	local function listMaxPx(presentation: string, use: any?): number
 		local shrink = if use ~= nil then use(listShrink) else listShrink:peek()
@@ -707,6 +747,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			local below = h - m - (source.y + source.h + xs)
 			local above = source.y - xs - top
 			budget = math.min(budget, math.max(below, above) - offset - plateV - space)
+		end
+		--[[ AN AUTHORED maxHeight BOUNDS THE WHOLE PANEL, chrome included, and wins
+			over the two-row floor (it may be one row, or less, of scrolling list). ]]
+		if type(spec.maxHeight) == "number" then
+			local insetsBySlot = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+			local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
+			local plateV = if type(plate) == "table"
+				then (tonumber(plate.top) or 0) + (tonumber(plate.bottom) or 0)
+				else 0
+			local panelChrome = if presentation == "sheet" then chrome - minimum else plateV
+			local cap = math.max(0, spec.maxHeight - panelChrome)
+			return math.max(0, math.min(cap, budget - shrink)), true
 		end
 		return math.max(minimum * 2, budget - shrink), budget - shrink <= minimum * 2
 	end
@@ -951,6 +1003,9 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			end,
 		}
 		listSpec.rows = entries
+		listSpec.ref = function(record)
+			resultsList = record.api
+		end
 		listSpec.rowFocusable = function(option)
 			return option.sectionHeading == nil and selectionModel.enabled(byKey(keyOf(option)))
 		end
@@ -1290,8 +1345,59 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		end
 		listShrink:set(0)
 		feeds = 0
+		revealed = false
+		--[[ OPENING LANDS ON THE SELECTED ROW: once per open, after the panel has
+			solved, a mounted row is scrolled into view through the shared
+			keep-visible seam and a searchable list scrolls its own window to the
+			row's estimated offset (search-field focus is untouched). ]]
+		local function reveal(node: any)
+			if revealed or panelController == nil then
+				return
+			end
+			-- a virtual list reveals through its own window once its scroll host is bound
+			if resultsList ~= nil and resultsList.scrollPath() == nil then
+				return
+			end
+			revealed = true
+			local want = currentRowId()
+			if want == nil then
+				return
+			end
+			if resultsList ~= nil then
+				for index, entry in entries:peek() do
+					if entry.sectionHeading == nil and `Opt-{keyOf(entry)}` == want then
+						local env = envForFacts or spec.env
+						local metrics = if env ~= nil then env:get("themeMetrics"):peek() else nil
+						local minimum = if type(metrics) == "table" and type(metrics.targetSizes) == "table"
+							then metrics.targetSizes.minimum
+							else themeSnapshot.neutral().targetSizes.minimum
+						resultsList.scrollTo(panelController, (index - 1) * minimum * 2)
+					end
+				end
+				return
+			end
+			local function find(n: any): string?
+				if n.id == want then
+					return n.path
+				end
+				for _, child in n.children or {} do
+					local found = find(child)
+					if found ~= nil then
+						return found
+					end
+				end
+				return nil
+			end
+			local path = find(node)
+			if path ~= nil then
+				panelController.scrollToVisible(path)
+			end
+		end
 		local function buildPanel()
 			return contribution.attach(popupPanel(), {
+				bindController = function(controller)
+					panelController = controller
+				end,
 				handleActivate = api.handleActivate,
 				handleCancel = function()
 					api.close()
@@ -1304,6 +1410,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 						if node == nil then
 							return
 						end
+						reveal(node)
 						local rect = rectOf(node.path)
 						local env = envForFacts or spec.env
 						local vp = if env ~= nil then env:get("viewportRect"):peek() else nil
@@ -1699,8 +1806,26 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			},
 		})
 	end
+	-- the field's paint on the boxed trigger: emphasis, rung, error border
+	local triggerAppearance = vocabulary.derive(spec.appearance, function(word)
+		vocabulary.assertAppearance("UI.Picker", word, MENU_APPEARANCES, MENU_APPEARANCE_SET)
+		return if type(word) == "string" then BUTTON_APPEARANCE[word] else nil
+	end)
+	local rungHeight = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.heightFor)
+	local rungPadding = vocabulary.deriveSize("UI.Picker", spec.controlSize, vocabulary.paddingFor)
+	local errorStroke = if spec.errorText ~= nil
+		then Compose.formula(function(use)
+			local text = selectionModel.read(spec.errorText, use)
+			return if type(text) == "string" and text ~= ""
+				then UI.strokeData({ color = "danger", thickness = "focusRing", transparency = 0 })
+				else nil
+		end)
+		else nil
 	local function boxedTrigger()
 		local button = UI.Button({
+			appearance = triggerAppearance,
+			padding = rungPadding,
+			stroke = errorStroke,
 			id = "Trigger",
 			label = selectedLabel,
 			anchor = if rowForm then nil else "topLeft",
@@ -1726,14 +1851,18 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				the control follow when something does. The non-detached inline popup
 				keeps its fixed height: its anchor is `fill`, so filling there would
 				take the whole parent. ]]
-			height = if detached and not rowForm
-				then UI.fill()
+			height = if rungHeight ~= nil
+				then rungHeight
+				elseif detached and not rowForm then UI.fill()
 				elseif detached then { type = "minMax", min = TRIGGER_HEIGHT }
 				else { type = "fixed", px = TRIGGER_HEIGHT },
 			gap = "xs",
 			align = "center",
 			children = contentViews(),
 		})
+		if spec.corners ~= nil then
+			button = UI.corners(button, vocabulary.cornerRadiusFor(spec.corners))
+		end
 		if navLink then
 			--[[ THE NAVIGATION LINK IS THE ONE TRIGGER WHOSE SURFACE MOVES. It is
 				`plain` on a touch row and `control` elsewhere (`triggerSurface` above),
@@ -1812,7 +1941,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		id = id,
 		enabled = enabled,
 		width = if pickerMode and not rowForm then triggerWidthDim else { type = "fill", weight = 1 },
-		height = if detached then { type = "minMax", min = TRIGGER_HEIGHT } else { type = "fill", weight = 1 },
+		height = if rungHeight ~= nil
+			then rungHeight
+			elseif detached then { type = "minMax", min = TRIGGER_HEIGHT }
+			else { type = "fill", weight = 1 },
 		children = {
 			head,
 			UI.When({
@@ -1857,6 +1989,11 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 	end
 
 	owner.own(closeSurface)
+	-- a named rung can solve the trigger under the touch floor, so only then is the
+	-- control mounted inside the container that reserves the whole target
+	local function reserve(node: any): any
+		return if rungHeight ~= nil then vocabulary.reserveTarget(UI, core, id, node, triggerWidthDim) else node
+	end
 	return {
 		-- attach the input contribution: the presenter auto-routes open/select/
 		-- cancel Activate to handleActivate with no consumer opts.
@@ -1869,7 +2006,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		--   transientScope — focus is trapped in the control while open and restores
 		--                    to the trigger on close (rootPath defaults to the control
 		--                    root, keeping the trigger as the scope entry)
-		blueprint = contribution.attach(blueprint, {
+		blueprint = reserve(contribution.attach(blueprint, {
 			bindInputScope = function(inputScope)
 				inputScope.onDispose(function()
 					open:set(false)
@@ -1931,7 +2068,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			transientScope = {
 				active = inlineOpen,
 			},
-		}),
+		})),
 		api = api,
 		-- the resolved presentation (B-DSP3), exposed on the control itself so a
 		-- consumer and a test can read the idiom without reaching into `api`

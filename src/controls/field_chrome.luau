@@ -75,6 +75,21 @@ local function assertBlueprint(control: string, key: string, value: any)
 	end
 end
 
+-- the label's words with the required notation appended (bound labels too);
+-- any other mark leaves the label exactly as authored
+function field_chrome.labelText(label: any, mark: any): any
+	if mark ~= "required" or label == nil then
+		return label
+	end
+	if type(label) == "string" then
+		return label .. REQUIRED_SUFFIX
+	end
+	return Compose.formula(function(use)
+		local text = selection.read(label, use)
+		return (if type(text) == "string" then text else "") .. REQUIRED_SUFFIX
+	end)
+end
+
 -- every chrome key is checked before the control builds anything
 function field_chrome.assertSpec(control: string, spec: any)
 	local mark = spec.requiredMark
@@ -154,15 +169,7 @@ function field_chrome.new(opts: any): any
 		if spec.label == nil then
 			return nil
 		end
-		local words: any = spec.label
-		if spec.requiredMark == "required" then
-			words = if type(spec.label) == "string"
-				then spec.label .. REQUIRED_SUFFIX
-				else Compose.formula(function(use)
-					local text = selection.read(spec.label, use)
-					return (if type(text) == "string" then text else "") .. REQUIRED_SUFFIX
-				end)
-		end
+		local words = field_chrome.labelText(spec.label, spec.requiredMark)
 		return UI.Button({
 			id = chrome.LABEL_ID,
 			label = spec.label,

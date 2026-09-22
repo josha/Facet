@@ -8975,10 +8975,24 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `track` | Boolean. `track = false` marks a tab strip inside its own band (what `UI.TabView` passes): no segmented plate, no carved inset, no disclose plate — the band's own ladder owns all three. |
 | `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the LIVE style publishes — the base `control | panel | pill` plus any a package adds of its own (`radii.chip`), because `radii.selection:chip` resolves under such a package; anything else refuses at construction, naming the vocabulary it was actually checked against. A **readable `stripCorner`** re-resolves on every read: on a swap AWAY from the package that publishes the container, the fill falls back to plain `radii.selection` rather than losing its corner, and a swap back re-derives the container answer on the next read. A **static `stripCorner`** is resolved once, at build, through that same fallback — so a later swap-away leaves it on the token it took, and neither the fallback nor the counter moves again for it. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`UI.TabView` passes one: its adaptable app bar's corner in the band form, nothing in the rail form). Absent, the fill keeps plain `radii.selection`. A healed fallback says so once per token per control **while it is falling back**: a swap back to the package clears the note and a second departure warns again, and a reactive `stripCorner` alternating between two names neither of which resolves warns on every change — the cost of a count stated in the present tense. `dump().indicator.cornerFallbacks` is that present-tense count (0 or 1): 1 means the fill is painting a fallback corner right now, and it returns to 0 the instant any token resolves again. |
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the application's environment. |
+| `requiredMark` | `"required"` or `"optional"`: notation only. Required appends ` *` to the label's own words; optional paints nothing (put localized wording in `hint`). `required` keeps its reselect-policy meaning. |
+| `hint` / `errorText` | Strings or readables on one message line under the picker, whatever style is on screen. A non-empty `errorText` replaces the hint in the danger role beside the `status.error` mark and borders the menu trigger in danger; the picker does not move. |
+| `controlSize` | `compact`, `regular` or `large`. The menu trigger takes the rung's height and inset inside a reserved whole target (`<id>+target`). |
+| `appearance` | Menu styles: `standard` (default paint), `contrast` (the emphasis plate) or `utility`. Segmented: `filled`, `stroke` or `utility`. Automatic takes all five and maps them onto the family on screen (standard or filled, contrast or stroke, utility); while it resolves to rows the intent is kept and paints nothing. Absent keeps each family's default; `inline`, `radioGroup` and `cards` refuse it. Bound words repaint in place; a word outside the family is refused and the last legal paint stays. |
+| `corners` | Construction-time `pill` or `square` for the menu trigger or the segmented strip's outer ends. |
+| `maxHeight` | Menu styles and automatic: a finite pixel bound above zero on the whole open panel, chrome included, overriding the default two-row floor (and kept by the sheet fallback). Other styles refuse it. |
+
+Opening a menu scrolls the selected row into view: a mounted row through the
+shared keep-visible seam, a searchable list through its own window at the row's
+estimated offset (the search field keeps focus).
 
 An option has required `value` and nonempty `label`, and optional `id`,
-`description`, semantic `icon`, `badge`, boolean/readable `enabled`, and
-`sectionTitle` (a heading drawn above this option in a live list).
+`description`, semantic `icon`, `badge`, boolean/readable `enabled`,
+`sectionTitle` (a caption heading drawn above this option — its own keyed
+entry, so it can arrive after mount — in menus, searchable lists and stacked
+strips) and `avatar` (an `UI.Avatar` spec with `name` and optional `image`,
+`userId`, `key`, `provider`, leading the menu row at the compact rung; it adds
+no focus stop or press).
 Descriptions explain unavailable choices without hiding them. Values and stable
 ids must be unique. A live array uses `id`, or the string form of `value`, as
 its path-safe key. Replacing or reordering an option keeps the surviving row's

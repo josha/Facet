@@ -25,6 +25,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.Picker` is a field: `requiredMark`, one `hint`/`errorText` message line
+  (on every style; an error also borders the menu trigger), `controlSize`
+  (the menu trigger inside a reserved target), `appearance` (menu standard /
+  contrast / utility; automatic maps five words across families), `corners`,
+  and `maxHeight` on the open menu panel. Opening a menu scrolls the selected
+  row into view. Options take `avatar` (the shipped Avatar leading the row);
+  menu rows gain `menu_recipe` `avatar`.
+
 - Fixed: a `UI.Picker` option carrying `badge` or `sectionTitle` crashed as
   soon as its style resolved to `menu` or `navigationLink` (what `automatic`
   resolves to on most nearby screens). Both now render on the menu engine —

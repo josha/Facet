@@ -243,6 +243,7 @@ export type Row = {
 	surface: any?,
 	value: any?,
 	trailing: any?, -- inert owned accessory, placed inside the row wrapping layout
+	avatar: any?, -- a built Avatar node leading the row (identity decoration, never a press)
 	trailingEdge: string?,
 	description: any?,
 	markHidden: any?,
@@ -284,7 +285,14 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 	-- has already painted its own
 	local buttonSelected = if row.platedSelection == true then nil else row.selected
 
-	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil or row.trailing ~= nil then
+	if
+		row.description ~= nil
+		or row.indicator ~= nil
+		or liveIcon
+		or row.badge ~= nil
+		or row.trailing ~= nil
+		or row.avatar ~= nil
+	then
 		local content = {}
 		-- the indicator slot, placed leading (a desktop menu) or trailing (a
 		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
@@ -387,6 +395,9 @@ function menu_recipe.rowProps(UI: any, row: Row): any
 			elseif row.indicatorEdge ~= "trailing" then
 				table.insert(content, indicatorView)
 			end
+		end
+		if row.avatar ~= nil then
+			table.insert(content, row.avatar)
 		end
 		local function iconView(icon)
 			return chrome_slots.attachHint(
