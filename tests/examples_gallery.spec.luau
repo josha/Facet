@@ -3939,3 +3939,46 @@ describe("gallery setting rows and removable race tags", function()
 		w.app.dispose()
 	end)
 end)
+
+describe("examples/gallery fixture: Writing's field sections", function()
+	local function writingWorld(): (any, any)
+		-- tall enough that Content does not scroll: the base scenario already reports
+		-- 8px scroll-gutter containment violations on a short phone viewport
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 390, h = 3000 } })
+		local built = require("../examples/gallery/scenarios/text_controls").build(scenario_ctx.of(w))
+		w.present(built.screen, { sinkNavigation = true })
+		built.handle = w.handle
+		return w, built
+	end
+
+	it("its three new steps drive the screen and answer with what the screen has", function()
+		local w, built = writingWorld()
+		local named = built.steps.nameError(built)
+		expect(`{named.error} {named.labelAbove} {named.errorMark} {named.trailing}`).toBe(
+			"That name is taken. true true true"
+		)
+		local cleared = built.steps.nameError(built)
+		-- the field held its place while the line under it changed
+		expect(`{cleared.errorMark} {cleared.plateY == named.plateY}`).toBe("false true")
+		local lines = built.steps.briefLines(built)
+		expect(`{lines.before ~= nil} {lines.before == lines.after}`).toBe("true true")
+		local fee = built.steps.stepFee(built)
+		expect(`{fee.value} {fee.draft} {fee.committed} {fee.unitOutside} {fee.buttons}`).toBe(
+			"8 8.00 8 (submit) true true"
+		)
+		local report = built.report()
+		expect(`{report.joinCode.readOnly} {report.briefing.visibleLines} {report.fee.prefix}`).toBe("true 3 $")
+		expect(w.core.lastError()).toBeNil()
+		w.close()
+		expect(w.adapter.liveCount()).toBe(0)
+	end)
+
+	it("the numeric-error state still produces a visible rejection", function()
+		local w, built = writingWorld()
+		local states = built.states()
+		expect(states[1].open()).toBe(true)
+		w.settle()
+		expect(built.report().number.validationError ~= "").toBe(true)
+		w.close()
+	end)
+end)
