@@ -752,7 +752,6 @@ function text_index.new(): Index
 			probed = a :: number
 			skipped = b :: number
 			if #moved > cap then
-				text_metrics.invalidateWholeTree()
 				return { full = true, contains = nil, measures = nil, n = 0, probed = probed, skipped = skipped }
 			end
 			entries = moved

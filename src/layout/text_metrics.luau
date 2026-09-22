@@ -417,14 +417,6 @@ function text_metrics.resetCalibration()
 	end
 end
 
---[[ A WORD PUSH THAT FELL BACK TO THE WHOLE TREE (owner report 2026-09-22). That
-	solve runs with no reuse set, so it records no node tuple, and the tuples it left
-	were taken under this same stamp: the next narrow solve served the estimate.
-	Over the cap a learned word is a whole-tree fact again. ]]
-function text_metrics.invalidateWholeTree()
-	calibEpoch += 1
-end
-
 -- descriptors the headless provider "knows"; anything else (including another
 -- WEIGHT of a known family, which measures differently) takes the pending path
 -- with an even more conservative fallback (full em per glyph)
