@@ -86,6 +86,11 @@ t.describe("Toggle switch paint", function()
 						plate = tag
 					end
 				end
+				-- ...and no package plate either: a skinned theme must not frame it
+				local slot = require("../src/tokens/chrome_slots").classify({ class = "Toggle" })
+				if slot ~= nil then
+					plate = `slot {slot}`
+				end
 				table.insert(seen, `{string.match(path, "^/S/(%a+)")}={plate}`)
 			end
 		end

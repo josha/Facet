@@ -1104,8 +1104,10 @@ end
 --                                                    a second slot
 --   surface = raised                  -> panel       the raised-panel family
 --   surface = control | chip | accent -> control     the interactive family
---   class = Button | Toggle           -> control     ...including a Button that
---                                                    never declared a surface
+--   class = Button                    -> control     ...including a Button that
+--                                                    never declared a surface;
+--                                                    a Toggle is its track and
+--                                                    knob and wears no plate
 --   surface = badge (not an Image)    -> badge       the counter seal (director
 --                                                    review 2026-07-25: a '3' on
 --                                                    a flat circle was
@@ -1133,7 +1135,7 @@ export type SlotInput = {
 }
 
 local CONTROL_SURFACES: { [string]: boolean } = { control = true, chip = true, accent = true }
-local CONTROL_CLASSES: { [string]: boolean } = { Button = true, Toggle = true }
+local CONTROL_CLASSES: { [string]: boolean } = { Button = true }
 
 function chrome_slots.classify(input: SlotInput): string?
 	local class, surface = input.class, input.surface

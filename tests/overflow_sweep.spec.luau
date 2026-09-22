@@ -3498,7 +3498,13 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			both pinned-EMPTY lists are still empty. ]]
 		-- Adding the two near-controller views contributes 68 measured routes;
 		-- both framework-cut and unexplained sub-floor lists remain empty.
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 506")
+		--[[ 506 -> 500 (2026-09-22, owner ruling: a switch wears no plate). A Toggle
+			no longer takes the package's control recipe, so under a carving package it
+			no longer grows by that frame. Diffing the swept route list on both trees:
+			six REMOVALS, nothing added — four `/HudScreen/Hud/Actions/Expand` and two
+			`/HudScreen/Hud/Rail/Expand`, cells whose region now holds its richer form
+			with no Expand affordance. Both pinned-EMPTY lists are still empty. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 500")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

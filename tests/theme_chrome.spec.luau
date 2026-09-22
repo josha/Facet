@@ -396,7 +396,8 @@ describe("chrome_slots: classification", function()
 			{ input = { class = "Box", surface = "control" }, slot = "control" },
 			{ input = { class = "Box", surface = "chip" }, slot = "control" },
 			{ input = { class = "Button" }, slot = "control" },
-			{ input = { class = "Toggle" }, slot = "control" },
+			-- a switch is its track and knob: no plate (owner ruling 2026-09-22)
+			{ input = { class = "Toggle" }, slot = nil },
 		}
 		for _, case in cases do
 			expect(chrome_slots.classify(case.input)).toBe(case.slot)

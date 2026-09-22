@@ -111,9 +111,9 @@ local function slotOfMounted(adapter: any, path: string): string?
 end
 
 describe("surface slot precedence: the class map is the answer for a node that declared nothing", function()
-	it("an undeclared Button and Toggle are still controls", function()
+	it("an undeclared Button is still a control, and a Toggle wears no plate", function()
 		expect(slotFor("Button", nil)).toBe("control")
-		expect(slotFor("Toggle", nil)).toBe("control")
+		expect(slotFor("Toggle", nil)).toBe(nil)
 	end)
 
 	it("...and so is one whose surface is not a NAME — a reactive value the caller has not resolved", function()
