@@ -43,8 +43,9 @@ local STYLES: { [string]: boolean } = {
 	inline = true,
 	radioGroup = true,
 	navigationLink = true,
+	cards = true,
 }
-local STYLE_LIST = "automatic | menu | segmented | inline | radioGroup | navigationLink"
+local STYLE_LIST = "automatic | menu | segmented | inline | radioGroup | navigationLink | cards"
 local STRIP_NAME: { [string]: string } = { segmented = "segmented", inline = "inline", radioGroup = "radio" }
 local PUBLIC_NAME: { [string]: string } = { segmented = "segmented", inline = "inline", radio = "radioGroup" }
 local pickerMenu = require("./picker_menu")
@@ -272,8 +273,18 @@ end
 -- caller back the node itself.
 local readValue = require("../selection_model").read
 
-local OPTION_KEYS =
-	specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled", "sectionTitle", "avatar" })
+local OPTION_KEYS = specGuard.keySet({
+	"id",
+	"value",
+	"label",
+	"description",
+	"icon",
+	"badge",
+	"enabled",
+	"sectionTitle",
+	"avatar",
+	"meta",
+})
 local function validateArray(list)
 	assert(type(list) == "table", "Picker: options must be an array")
 	local count = 0
@@ -306,6 +317,8 @@ local function validateOption(option, use)
 	assert(enabled == nil or type(enabled) == "boolean", "Picker: option enabled must be boolean or readable boolean")
 	local heading = readValue(option.sectionTitle, use)
 	assert(heading == nil or type(heading) == "string", "Picker: sectionTitle must be a string or readable string")
+	local meta = readValue(option.meta, use)
+	assert(meta == nil or type(meta) == "string", "Picker: meta must be a string or readable string")
 	assert(
 		option.icon == nil or (type(option.icon) == "string" and option.icon ~= ""),
 		"Picker: icon must be a non-empty semantic icon name"
@@ -1472,6 +1485,128 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 	return api
 end
 
+--[[ THE CARDS STYLE: each option a selectable card built on the shared
+	`menu_recipe.cardRow` (its selected surface and paired lettering, its corners
+	from `cardCorners`) with a hairline edge at rest. A column by default; a row
+	(`axis = "x"`) WRAPS onto more lines rather than running off its offer, and
+	each card hugs no wider than its offer so long copy wraps. Selection is the
+	shared `selectionModel.choose`; with `required = false` choosing the selected
+	card again clears it. ]]
+local CARD_EDGE = table.freeze({ color = "hairline", thickness = "hairline", transparency = 0 })
+local function buildCardsOwned(Facet: any, core: any, spec: any, owner: any)
+	local UI = Facet.UI
+	local id = spec.id or "Picker"
+	local mountedNode
+	assert(selectionModel.isWritable(spec.selected), "UI.Picker: selected must be a writable Compose cell")
+	local function key(option)
+		return option.id or tostring(option.value)
+	end
+	local options = Compose.formula(function(use)
+		local list = readValue(spec.options, use)
+		validateArray(list)
+		for _, option in list do
+			validateOption(option, use)
+		end
+		return list
+	end)
+	options:peek()
+	local axis = readValue(spec.axis) or "y"
+	local function choose(option: any)
+		if
+			owner.isDisposed()
+			or controlContract.isDisabled(mountedNode)
+			or not controlContract.enabledNow(spec.enabled)
+		then
+			return
+		end
+		local current = readValue(spec.selected)
+		local proposed = if current == option.value and spec.required == false then nil else option.value
+		local accepted, nextValue =
+			selectionModel.choose(options:peek(), current, proposed, spec.required, spec.onChanging)
+		if accepted and not owner.isDisposed() then
+			core.reactor:batch(function()
+				spec.selected:set(nextValue)
+				if spec.onChange then
+					spec.onChange(nextValue)
+				end
+			end)
+		end
+	end
+	local rows = UI.ForEach({
+		id = "Cards",
+		items = options,
+		key = key,
+		row = function(initial, _, current)
+			local function prop(name, fallback)
+				return function(use)
+					local value = readValue(use(current)[name], use)
+					return if value == nil then fallback else value
+				end
+			end
+			local card = menuRecipe.cardRow(UI, {
+				id = "Card-" .. key(initial),
+				label = prop("label"),
+				description = prop("description", ""),
+				icon = if initial.icon ~= nil then prop("icon") else nil,
+				badge = if initial.badge ~= nil then prop("badge", "") else nil,
+				value = if initial.meta ~= nil then prop("meta", "") else nil,
+				platedSelection = true,
+				textSize = spec.textSize,
+				width = if axis == "x" then UI.hug() else nil,
+				-- a hugging card's words hug too (fill inside hug would be nothing)
+				wrap = axis == "x",
+				selected = function(use)
+					return selectionModel.read(spec.selected, use) == use(current).value
+				end,
+				enabled = function(use)
+					return controlContract.enabledIn(use, spec.enabled)
+						and controlContract.enabledIn(use, use(current).enabled)
+				end,
+			}, "only")
+			return contribution.attach(UI.stroke(card, CARD_EDGE), {
+				handleActivate = function()
+					choose(readValue(current))
+					return true
+				end,
+			})
+		end,
+	})
+	local group = if axis == "x"
+		then UI.HStack({ id = "Options", wrap = true, gap = "s", width = BAND_WIDTH, children = { rows } })
+		else UI.VStack({ id = "Options", gap = "s", width = BAND_WIDTH, children = { rows } })
+	local children = { group }
+	if spec.label then
+		table.insert(children, 1, UI.Text({ id = "Label", text = spec.label, textSize = "label", width = UI.fill() }))
+	end
+	local blueprint = contribution.attach(UI.VStack({ id = id, width = BAND_WIDTH, gap = "xs", children = children }), {
+		syncGeometry = function(_, node)
+			mountedNode = node
+		end,
+	})
+	local presentation = Compose.formula(function()
+		return "cards"
+	end)
+	return {
+		blueprint = blueprint,
+		presentation = presentation,
+		dump = function()
+			return {
+				schema = "facet-picker-dump/1",
+				id = id,
+				selected = readValue(spec.selected),
+				presentation = "cards",
+				style = "cards",
+				requestedStyle = "cards",
+				axis = axis,
+				optionCount = #options:peek(),
+			}
+		end,
+		dispose = function()
+			owner.dispose()
+		end,
+	}
+end
+
 local function buildStrip(Facet, core, spec, requested, onReselect)
 	return ownedBuild(core, function(owner)
 		return buildStripOwned(Facet, core, spec, requested, onReselect, owner)
@@ -1953,6 +2088,10 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	local built
 	if MENU_STYLES[style] then
 		built = buildMenu(Facet, core, spec, style, id)
+	elseif style == "cards" then
+		built = ownedBuild(core, function(owner)
+			return buildCardsOwned(Facet, core, stripSpec(spec, id), owner)
+		end)
 	elseif style ~= "automatic" then
 		built = buildStripFamily(Facet, core, spec, style, id, onReselect)
 	else

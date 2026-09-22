@@ -25,6 +25,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.Picker{ style = "cards" }`: each option a selectable card on the shared
+  menu card row (a hairline edge at rest, the accent plate when chosen),
+  carrying the new option `meta` (a secondary label/value, also on menu rows)
+  beside its description, icon and badge. A row of cards wraps instead of
+  overflowing and long copy wraps; with `required = false` choosing the
+  chosen card again clears it. The picker sweep covers the new style.
+
 - `UI.Picker` segmented strips take `appearance` (`filled` plate, `stroke`
   outline, `utility` none; bound words repaint in place), `corners` (track,
   outer ends and selected fill; `pill` is the reference `isCircular`) and

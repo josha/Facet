@@ -8949,7 +8949,7 @@ record also carries `presentation`, a readable of the resolved style.
 The one selection control: a single value backed by one caller-owned writable
 cell, in the style the task and the surface want. `style` follows the reference
 platform's picker styles: `automatic` (the default), `menu`, `segmented`,
-`inline`, `radioGroup` and `navigationLink`. Use `UI.ComboBox` for
+`inline`, `radioGroup`, `navigationLink` and `cards`. Use `UI.ComboBox` for
 validated custom text, `UI.Menu` for verbs or a set of independent
 checks, and `UI.TabView` when choosing a page rather than a value.
 
@@ -8958,7 +8958,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `id`, `label` | Optional stable control identity and title. A titled `menu` picker is a form row (title leading, value and chevron trailing); a titled `navigationLink` is one row button. |
 | `selected` | Required caller-owned writable cell holding the option value. |
 | `options` | Static option array or readable array with stable values/identities. |
-| `style` | `automatic` (default), `menu`, `segmented`, `inline`, `radioGroup`, or `navigationLink`. |
+| `style` | `automatic` (default), `menu`, `segmented`, `inline`, `radioGroup`, `navigationLink`, or `cards` (never chosen by `automatic`). |
 | `presentation` | **Deprecated** since 0.11.0 (removal no earlier than 0.12.0): the former spelling of `style`, with the same values. `radio` reads as `radioGroup`; pass one of the two, never both. |
 | `query` | Optional caller-owned writable string cell: a searchable list. Its presence makes the automatic style the navigation link; an explicit style must be `navigationLink`. |
 | `placeholder` | The trigger's word when nothing is selected (menu styles). |
@@ -8993,7 +8993,8 @@ An option has required `value` and nonempty `label`, and optional `id`,
 entry, so it can arrive after mount — in menus, searchable lists and stacked
 strips) and `avatar` (an `UI.Avatar` spec with `name` and optional `image`,
 `userId`, `key`, `provider`, leading the menu row at the compact rung; it adds
-no focus stop or press).
+no focus stop or press) and `meta` (a secondary label/value, distinct from
+`badge`, trailing a menu row's words and shown on a card).
 Descriptions explain unavailable choices without hiding them. Values and stable
 ids must be unique. A live array uses `id`, or the string form of `value`, as
 its path-safe key. Replacing or reordering an option keeps the surviving row's
@@ -9017,7 +9018,8 @@ focused available choice. Disabling the control rejects every activation route.
 | `navigationLink` | A row that leads to the full list: title, value and a trailing chevron in one row button (the value drops beneath the title at large text), presenting a full-width sheet with the rows scrolling inside the height the screen allows, the optional `query` search field and a Cancel row. |
 | `segmented` | One plated track (the `control` surface every package skins) holding equal segments side by side (or a vertical rail with `axis = "y"`), always visible, the selected segment raised by the sliding `indicator`. A segment is a label only: an option with a `description` is refused on a declared segmented picker. |
 | `inline` | Options stacked as full-width rows. |
-| `radioGroup` | The inline rows wearing a radio mark. |
+| `radioGroup` | The inline rows wearing a radio mark (`indicatorPosition` picks its edge). |
+| `cards` | Each option a selectable card: title, optional icon, description, `meta` and badge, a hairline edge at rest and the accent plate when chosen (the shared menu card row). A column by default; `axis = "x"` wraps onto more lines instead of running off the offer, and long copy wraps inside its card. With `required = false`, choosing the chosen card again clears the selection. Cards take no `appearance`. |
 
 **The automatic style** resolves from the live environment — size class,
 viewing distance and the primary interaction class — never from a device name.

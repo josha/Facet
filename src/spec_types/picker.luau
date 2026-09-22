@@ -15,6 +15,7 @@ export type Option = {
 	sectionTitle: any?,
 	-- an Avatar spec (name plus optional image/userId/key/provider) leading the row
 	avatar: { name: string, image: any?, userId: number?, key: string?, provider: any? }?,
+	meta: any?, -- a card's (or menu row's) secondary label/value, distinct from badge
 }
 export type Spec<V = AnyCell> = {
 	required: boolean?,
@@ -25,7 +26,7 @@ export type Spec<V = AnyCell> = {
 	options: { Option } | coreContract.Readable<{ Option }>,
 	selected: V, -- the caller's writable cell
 	-- "automatic" (default) | "menu" | "segmented" | "inline" | "radioGroup" |
-	-- "navigationLink" — see the header for the ladder
+	-- "navigationLink" | "cards" — see the header for the ladder
 	style: string?,
 	presentation: string?, -- DEPRECATED alias of `style` ("radio" reads as "radioGroup")
 	-- a caller-owned Signal<string>: the search text of a navigationLink list.

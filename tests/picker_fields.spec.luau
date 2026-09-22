@@ -334,3 +334,119 @@ describe("Picker segmented vocabulary and the radio mark", function()
 		end)).toBe(false)
 	end)
 end)
+
+describe("Picker cards", function()
+	local CARDS = {
+		{ value = "sprint", label = "Sprint", description = "Three short laps", meta = "3 laps", icon = "flag" },
+		{
+			value = "endurance",
+			label = "Endurance",
+			description = "A long race for the patient",
+			meta = "20 laps",
+			icon = "flag",
+		},
+		{
+			value = "locked",
+			label = "Night",
+			description = "Unlocks at level 10",
+			meta = "Soon",
+			icon = "flag",
+			enabled = false,
+		},
+	}
+
+	it("each option is a bordered card with its meta, the chosen one plated, on every input", function()
+		for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
+			local selected = Compose.cell("sprint")
+			local w = mount("desktop", { style = "cards", options = CARDS, selected = selected })
+			local card = suffixPath(w, "/Card-endurance") :: string
+			expect(w.adapter.node(card).props.stroke ~= nil).toBe(true)
+			expect(node(w, "/Card-sprint").props.surface).toBe("accent")
+			expect(node(w, "/Card-endurance").props.surface).toBe("plain")
+			local metas = 0
+			for _, path in w.adapter.paths() do
+				if string.find(path, "/Card-endurance/", 1, true) and w.adapter.node(path).props.text == "20 laps" then
+					metas += 1
+				end
+			end
+			expect(metas).toBe(1)
+			if input == "pointer" then
+				w.adapter.tap(card)
+			elseif input == "touch" then
+				w.adapter.tap(card, { inputType = "Touch" })
+			else
+				w.pres.focus.focusOn(card)
+				w.pres.refresh()
+				w.press(if input == "keyboard" then "Return" else "ButtonA")
+			end
+			w.pres.refresh()
+			expect(`{input}: {selected:peek()}`).toBe(`{input}: endurance`)
+			expect(node(w, "/Card-endurance").props.surface).toBe("accent")
+			-- a disabled card is unreachable
+			w.adapter.tap(suffixPath(w, "/Card-locked") :: string)
+			w.pres.refresh()
+			expect(selected:peek()).toBe("endurance")
+		end
+	end)
+
+	it("choosing the chosen card again clears it only when the selection is not required", function()
+		for _, input in { "pointer", "touch", "keyboard", "gamepad" } do
+			local optional = Compose.cell("sprint")
+			local w = mount("desktop", { style = "cards", options = CARDS, selected = optional, required = false })
+			local card = suffixPath(w, "/Card-sprint") :: string
+			if input == "pointer" then
+				w.adapter.tap(card)
+			elseif input == "touch" then
+				w.adapter.tap(card, { inputType = "Touch" })
+			else
+				w.pres.focus.focusOn(card)
+				w.pres.refresh()
+				w.press(if input == "keyboard" then "Return" else "ButtonA")
+			end
+			w.pres.refresh()
+			expect(`{input}: {optional:peek()}`).toBe(`{input}: nil`)
+			-- the disabled card is no stop for a keyboard or a pad either
+			for _, entry in w.handle.focusOrder().traversal do
+				expect(string.find(tostring(entry.path), "Card-locked", 1, true)).toBeNil()
+			end
+		end
+		local kept = Compose.cell("sprint")
+		local w2 = mount("desktop", { style = "cards", options = CARDS, selected = kept })
+		w2.adapter.tap(suffixPath(w2, "/Card-sprint") :: string)
+		w2.pres.refresh()
+		expect(kept:peek()).toBe("sprint")
+	end)
+
+	it("a row of cards wraps on a narrow phone and long copy wraps inside its card", function()
+		local w = mount("phone", { style = "cards", options = CARDS, axis = "x" })
+		local ys: { [number]: boolean } = {}
+		local rows = 0
+		for _, key in { "sprint", "endurance", "locked" } do
+			local r = node(w, "/Card-" .. key).rect
+			expect(`{key} inside {r.x >= 0 and r.x + r.w <= 390}`).toBe(`{key} inside true`)
+			if not ys[r.y] then
+				ys[r.y] = true
+				rows += 1
+			end
+		end
+		expect(rows > 1).toBe(true)
+		local long = mount("phone", {
+			style = "cards",
+			selected = Compose.cell("a"),
+			options = {
+				{
+					value = "a",
+					label = "Championship",
+					description = "Every track in the season, back to back, with the standings carried between races",
+				},
+			},
+		})
+		local card = node(long, "/Card-a").rect
+		local description = node(long, "/Description").rect
+		expect(card.x + card.w <= 390).toBe(true)
+		expect(description.h > 20).toBe(true)
+		expect(pcall(function()
+			mount("desktop", { style = "cards", options = CARDS, appearance = "utility" })
+		end)).toBe(false)
+	end)
+end)

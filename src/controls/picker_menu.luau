@@ -52,6 +52,7 @@ local OPTION_KEYS = specGuard.keySet({
 	"badge",
 	"sectionTitle",
 	"avatar",
+	"meta",
 })
 local STYLES: { [string]: boolean } = { menu = true, navigationLink = true }
 
@@ -273,6 +274,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			)
 			local heading = selectionModel.read(option.sectionTitle, use)
 			assert(heading == nil or type(heading) == "string", "PopupButton: sectionTitle must be a string")
+			local meta = selectionModel.read(option.meta, use)
+			assert(meta == nil or type(meta) == "string", "PopupButton: meta must be a string")
 			assert(
 				option.avatar == nil or (type(option.avatar) == "table" and type(option.avatar.name) == "string"),
 				"Picker: an option avatar must be an Avatar spec table with a name"
@@ -572,6 +575,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		compares by value, so a fresh table per solve would churn the paint channel,
 		and a resting row wants no claim on `TextColor3` at all. ]]
 	local ON_SELECTED_TINT = table.freeze({ role = "onSelected", blend = 1 })
+	local metaLane = false
+	for _, option in selectionModel.read(spec.options) do
+		metaLane = metaLane or (type(option) == "table" and option.meta ~= nil)
+	end
 	local function optionProps(option, rowScope, currentItem)
 		local function currentOption(use)
 			return if currentItem then use(currentItem) else byKey(keyOf(option), use)
@@ -580,7 +587,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			return ownedFormula(rowScope, function(use)
 				local current = currentOption(use)
 				local value = if current then selectionModel.read(current[name], use) else nil
-				return if name == "description" then (value or "") else value
+				return if name == "description" or name == "meta" then (value or "") else value
 			end)
 		end
 		local selected = ownedFormula(rowScope, function(use)
@@ -603,6 +610,11 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			enabled = property("enabled"),
 			icon = if dynamicOptions then property("icon") else option.icon,
 			badge = if option.badge ~= nil or spec.query ~= nil or dynamicOptions then property("badge") else nil,
+			-- the option's secondary label/value, trailing its words
+			-- (a keyed or searchable list carries the lane when its first list does)
+			value = if option.meta ~= nil or ((spec.query ~= nil or dynamicOptions) and metaLane)
+				then property("meta")
+				else nil,
 			-- the shipped Avatar, leading the row; decoration, never a second press
 			avatar = if option.avatar ~= nil
 				then Facet.nativeControls.Avatar({

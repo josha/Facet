@@ -55,7 +55,7 @@ local VIEWPORTS = {
 	{ id = "console-ten-foot", rect = { x = 0, y = 0, w = 1920, h = 1080 }, input = "gamepad" },
 }
 
-local STYLES = { "automatic", "menu", "segmented", "inline", "radioGroup", "navigationLink" }
+local STYLES = { "automatic", "menu", "segmented", "inline", "radioGroup", "navigationLink", "cards" }
 local MENU_FAMILY: { [string]: boolean } = { menu = true, navigationLink = true }
 
 -- pseudo-localized (~1.4x) labels that can WRAP. An unbreakable compound word
@@ -658,7 +658,9 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 									.toBe(`{label} automatic never segments a described option: segmented`)
 							end
 							pinTrack(label, w, picker)
-							local second = suffixPath(w, "/Opt2") or suffixPath(w, "/[b]/Option-b")
+							local second = suffixPath(w, "/Opt2")
+								or suffixPath(w, "/[b]/Option-b")
+								or suffixPath(w, "/[b]/Card-b")
 							expect(`{label} second option mounted: {second ~= nil}`).toBe(
 								`{label} second option mounted: true`
 							)
