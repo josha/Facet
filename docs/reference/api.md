@@ -9815,7 +9815,7 @@ Spec fields:
 | `selected` | a writable boolean cell | unless `onRemove` is supplied | caller-held selection, flipped by body activation. A remove-only token omits it and has an informational body. Readonly selection is refused. |
 | `animation` | animation policy | no | applies to the primitive Button plate and is checked against its supported properties. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip; requires selected. |
-| `onRemove` | `() -> ()` | no | separate named close target; the caller removes the item from its keyed collection. |
+| `onRemove` | `() -> ()` | no | a trailing close glyph inside the pill, its own named focus stop and target; the caller removes the item from its keyed collection. |
 | `removeLabel` | `string` | no | semantic close label, default `Remove <label>`. |
 | `removeFocusFallback` | bindable `string` | no | destination when no sibling remove target survives. |
 | `controlSize` | `"compact" \| "regular" \| "large"` (bindable) | no | the shared local size rung: resolves to the theme ladder `controlSizes.<rung>.{height,paddingX}` as metric names. Absent = the 44px floor this control has always declared. A named rung paints smaller than the floor on purpose — a wrapper reserves the effective hit floor on both axes and centers the smaller pill. |
@@ -9823,8 +9823,10 @@ Spec fields:
 | `corners` | `"pill" \| "square"` | no | the corner treatment, through the shipped `UI.corners` modifier. Absent = `"pill"`, exactly as before. |
 | `leading` / `trailing` | blueprint | no | static content either side of the label (a count, a dot, an avatar). They are content, never a second focus stop — the chip keeps one activation surface, so every input class still reaches the same flip. With neither, the chip is byte-identical to the label-only pill it has always been. |
 
-A removable token reserves separate body and close hit footprints, including the
-effective target floor. Removing a focused item returns focus to the next sibling
+A removable token is one pill of two targets: the label body, then a trailing close
+segment at least the effective target floor wide with the glyph centred in it (the
+input-chip / token-field pattern). Their hit footprints stay separate and each reserves
+the floor. Removing a focused item returns focus to the next sibling
 remove target, then the previous, then the supplied fallback after its owner retires.
 A remove-only token has one generated focus stop; selected tokens also have their
 body action. The callback does not mutate the caller's collection automatically.

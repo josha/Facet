@@ -8,6 +8,7 @@ local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local selection = require("../selection_model")
 local vocabulary = require("./control_vocabulary")
+local themePackage = require("../themes/package")
 
 local controlContract = require("../class_contract")
 local chip = {}
@@ -183,6 +184,33 @@ function chip.build(Facet: any, core: any, spec: any)
 		end
 		children = { UI.HStack({ id = "Content", gap = "s", align = "center", children = row }) }
 	end
+	local appearance = vocabulary.deriveAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET)
+	-- honour the Button contract's minHitSize as a real layout floor (a chip
+	-- is a touch target first) — the touch structural idiom. The FLOOR is a
+	-- theme metric, so a theme with roomier targets grows the chip with it.
+	local plateHeight = sizedHeight or { type = "minMax", min = "targetSizes.minimum" }
+	local radius = vocabulary.cornerRadiusFor(spec.corners or "pill")
+	--[[ A REMOVABLE CHIP IS ONE PILL OF TWO TARGETS (owner report 2026-09-22): the
+		body and a trailing close segment, each at least the hit floor wide, joined
+		with complementary corners so the pair reads as one pill (the input-chip /
+		token-field pattern) while their targets stay disjoint. The body gives its
+		trailing inset to the segment, which centres the glyph in its own floor. ]]
+	local floor = if removable then vocabulary.hitFloor(core, id) else nil
+	-- the rung's (or the button's) vertical inset on both plates, so they stand
+	-- the same height; horizontal inset only where the plate needs it
+	local function inset(keepLeft: boolean): any
+		local function sides(rungSides: any): any
+			local pad = "controls.button.padding"
+			local p = rungSides or { left = pad, right = pad, top = pad, bottom = pad }
+			return { left = if keepLeft then p.left else 0, right = 0, top = p.top, bottom = p.bottom }
+		end
+		return if spec.controlSize == nil
+			then sides(nil)
+			else vocabulary.deriveSize("UI.Chip", spec.controlSize, function(rung)
+				return sides(vocabulary.paddingFor(rung))
+			end)
+	end
+	local bodyPadding = if removable then inset(true) else sizedPadding
 	local blueprint = UI.corners(
 		UI.Button({
 			id = id,
@@ -193,33 +221,46 @@ function chip.build(Facet: any, core: any, spec: any)
 			children = children,
 			animation = spec.animation,
 			controlSize = spec.controlSize,
-			appearance = vocabulary.deriveAppearance("UI.Chip", spec.appearance, APPEARANCES, APPEARANCE_SET),
-			padding = sizedPadding,
-			-- honour the Button contract's minHitSize as a real layout floor (a chip
-			-- is a touch target first) — the touch structural idiom. The FLOOR is a
-			-- theme metric, so a theme with roomier targets grows the chip with it.
-			height = sizedHeight or { type = "minMax", min = "targetSizes.minimum" },
+			appearance = appearance,
+			padding = bodyPadding,
+			width = floor,
+			height = plateHeight,
 		}),
-		vocabulary.cornerRadiusFor(spec.corners or "pill")
+		if removable and radius ~= 0 then { topLeft = radius, bottomLeft = radius } else radius
 	)
 
 	if removable then
-		local removeLabel = spec.removeLabel or `Remove {label}`
-		local removeButton = UI.Button({
-			id = REMOVE_ID,
-			icon = "close",
-
-			label = removeLabel,
-			enabled = spec.enabled,
-
-			shape = "circle",
-			surface = "plain",
-			height = { type = "minMax", min = "targetSizes.minimum" },
-		})
+		local removeButton = UI.corners(
+			UI.Button({
+				id = REMOVE_ID,
+				label = spec.removeLabel or `Remove {label}`,
+				-- the glyph is the content, so the label is the accessible name only
+				children = {
+					UI.Spacer({ id = "BeforeMark" }),
+					chromeSlots.attachHint(
+						UI.Text({
+							id = "Mark",
+							text = themePackage.iconGlyph("close"),
+							textSize = "control",
+							textAlign = "center",
+						}),
+						{ icon = "close", contentOwnerDepth = 1 }
+					),
+					UI.Spacer({ id = "AfterMark" }),
+				},
+				selected = selected,
+				enabled = spec.enabled,
+				appearance = appearance,
+				padding = inset(false),
+				width = floor,
+				height = plateHeight,
+			}),
+			if radius ~= 0 then { topRight = radius, bottomRight = radius } else radius
+		)
 
 		blueprint = UI.HStack({
 			id = `{id}+token`,
-			gap = "xs",
+			gap = 0,
 			align = "center",
 			children = { vocabulary.reserveTarget(UI, core, id, blueprint, nil), removeButton },
 		})

@@ -340,7 +340,12 @@ describe("Removable Chip", function()
 			expect(calls).toBe(1)
 			local raw = require("../src/paths").nodeAt(w.handle.root.node, remove)
 			expect(raw.props.label).toBe("Remove Rain")
-			expect(raw.props.shape).toBe("circle")
+			-- one pill (owner report 2026-09-22): the close segment continues the
+			-- body's plate at its trailing edge, same line, no gap
+			local body = w.adapter.node(path(w, "/Token+target/Token")).rect
+			local mark = w.adapter.node(remove).rect
+			expect(`{mark.x - (body.x + body.w)} {mark.y - body.y} {mark.h - body.h}`).toBe("0 0 0")
+			expect(mark.w >= 44).toBe(true)
 		end)
 	end
 	it("distinguishes a body named Remove and reserves disjoint effective targets", function()
@@ -374,6 +379,10 @@ describe("Removable Chip", function()
 			local removeHit = w.adapter.hitRectOf(remove) or w.adapter.node(remove).rect
 			expect(bodyHit.x + bodyHit.w <= removeHit.x).toBe(true)
 			expect(removeHit.x + removeHit.w <= w.adapter.node("/S/Tokens/Next").rect.x).toBe(true)
+			local plate, mark = w.adapter.node(body).rect, w.adapter.node(remove).rect
+			expect(`{tostring(rung)}: {mark.x - (plate.x + plate.w)} {mark.y - plate.y} {mark.h - plate.h}`).toBe(
+				`{tostring(rung)}: 0 0 0`
+			)
 			w.adapter.tap(body)
 			expect(selected:peek()).toBe(true)
 			expect(removes).toBe(0)
