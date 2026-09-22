@@ -363,6 +363,23 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- a range readout ("4–12") beside a long label: the label gives way first
+		id = "SliderRange",
+		class = "Slider",
+		build = function(core)
+			return harness.Controls.Slider(core, {
+				id = "Ctl",
+				label = PSEUDO,
+				value = Compose.cell({ lower = 4, upper = 12 }),
+				min = 1,
+				max = 20,
+				step = 1,
+				range = true,
+				minGap = 2,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Stepper",
 		class = "Stepper",
 		build = function(core)

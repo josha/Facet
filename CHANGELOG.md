@@ -25,6 +25,19 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.Slider` gains `axis` (`"y"` runs bottom to top), `range` with `minGap`
+  (a `{ lower, upper }` band, thumbs never cross, illegal runtime pairs
+  quarantined with `api.diagnostics()`), `thumb` (`always`/`auto`/`none`,
+  paint only), `thumbContent(info)` (a custom knob per thumb; refused with
+  `thumbImage`), live paint-only `rotation` with inverse pointer conversion,
+  and `controlSize`. Pointer input now reads the track's painted rect at event
+  time, so a scrolled track converts correctly. Range handles share one focus
+  group; a gamepad enters adjust mode with Activate. **Behavior change for
+  every Slider:** the label now shrinks (full text disclosed) before the track
+  and readout, which clears two recorded Brightness row overflows. Losing the
+  pointer and touch classes mid-drag now cancels through the live environment.
+  `reserveTarget` takes an optional height negotiated like width.
+
 - `UI.NumberInput` is the number presentation preset over the same text-entry
   engine, with `step`, `precision`, `stepButtons`, `prefix` and `suffix`, and
   `Facet.recipes.arithmetic.parse` is an opt-in bounded arithmetic parser for

@@ -121,6 +121,24 @@ local _table = app.controls.Table("Table")({
 	},
 })
 local _slider = app.controls.Slider("Volume")({ value = Facet.Compose.cell(0.5), min = 0, max = 1 })
+local _rangeSlider = app.controls.Slider({
+	value = Facet.Compose.cell({ lower = 2, upper = 8 }),
+	min = 0,
+	max = 10,
+	range = true,
+	minGap = 1,
+	axis = "y",
+	thumb = "auto",
+	rotation = function(_use)
+		return 90
+	end,
+	controlSize = "compact",
+	thumbContent = function(info)
+		local _ = info.thumb
+		return nil
+	end,
+	onChange = function(_value: any, _info) end,
+})
 local _stepper = app.controls.Stepper("Laps")({ value = Facet.Compose.cell(2), min = 1, max = 8 })
 local _picker = app.controls.Picker("Picker")({
 	options = { { id = "a", value = "a", label = "Alpine" } },

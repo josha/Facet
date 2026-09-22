@@ -166,6 +166,8 @@ _EROSION_PROBES = [
     # the other is exactly the gap this list exists to catch.
     ("Slider", 'app.controls.Slider({ value = "nope", min = 0, max = 1 })'),
     ("Slider", 'app.controls.Slider("S")({ value = "nope", min = 0, max = 1 })'),
+    ("Slider", 'app.controls.Slider({ value = Facet.Compose.cell(0), min = 0, max = 1, axis = "z" })'),
+    ("Slider", 'app.controls.Slider("S")({ value = Facet.Compose.cell(0), min = 0, max = 1, thumb = "sometimes" })'),
     ("NavigationStack", 'app.controls.NavigationStack(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
     ("NavigationStack", 'app.controls.NavigationStack("N")(' + _NAVIGATION_SPEC.replace('PATH', '42') + ')'),
     ("Label", 'app.controls.Label({ title = 42 })'),

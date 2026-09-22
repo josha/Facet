@@ -9374,15 +9374,42 @@ semanticText }`.
 ### `UI.Slider`
 
 `UI.Slider { … }` -> the slider's node. `ref` receives `{ api, dump }`, where
-`api` exposes `model`, `semanticText`, `fillWidth`, `thumbOffset` and
-`onInteractionClassLost(class)`, with diagnostics through `record.dump()`.
+`api` exposes `model`, `semanticText`, `fillWidth`, `thumbOffset`,
+`onInteractionClassLost(class)` and `diagnostics()` (a copy of a range's
+refusal lines), with state through `record.dump()`.
 The ref does not expose `blueprint` or `dispose`; the component owner releases
 the control.
 
 A continuous or stepped value along a track, sharing the value arithmetic with
 `UI.Stepper`. Spec keys are `id`, `label`, `value`, `min`, `max`, `step`,
 `format`, `enabled`, `onChange`, `onCommit`, `tapToPosition`, `thumbImage`,
-`trackImage` and `row`.
+`trackImage`, `row`, `axis`, `range`, `minGap`, `thumb`, `thumbContent`,
+`rotation` and `controlSize`.
+
+| Key | Contract and default |
+|---|---|
+| `axis` | Construction-only `"x"` (default) or `"y"`. A `y` track runs bottom to top and its arrows are Up/Down; the arrows always follow this authored axis, whatever `rotation` paints. |
+| `range` | Construction-only, default false. `value` then holds `{ lower, upper }`; each change writes a fresh pair and calls `onChange(pair, { thumb = "lower" \| "upper" })`, and `onCommit` likewise once per gesture. The thumbs never cross. An illegal initial pair (wrong type, non-finite, reversed, narrower than `minGap`) is a build error; one arriving later keeps the last legal pair painted and driveable, is never written back, and records a line in `api.diagnostics()` (once per consecutive distinct reason, at most 16 kept). |
+| `minGap` | Construction-only number from 0 (default) to the range width: the least distance between the thumbs, in value units. |
+| `thumb` | Construction-only `"always"` (default), `"auto"` or `"none"`. Paint only: `auto` shows the handle on hover, focus and drag and always on a touch-primary surface; `none` never paints it. Targets, focus, readout and adjustment are unchanged. |
+| `thumbContent(info)` | Called once per thumb at build; returns the knob node. `info = { thumb = "value" \| "lower" \| "upper", value, fraction, dragging, enabled }`, the last four readables. The knob sits in a handle floored at the theme's thumb size that grows to fit it; it drops only its own `sliderThumb` slot, and travel is measured from what is drawn. Refused with `thumbImage`. |
+| `rotation` | Bound degrees, default 0: paint-only about the track's centre. Presses are converted by the inverse angle at event time (scroll included); label and readout stay upright and the row keeps its unrotated layout box, so reserve room for the turned paint. Ancestor `scale` is not composed into input. |
+| `controlSize` | `"compact"`, `"regular"` or `"large"`: a thinner painted track inside a reserved whole target; a vertical track keeps its full travel. |
+
+A range's two handles share one focus group: Tab visits both and then leaves,
+and keyboard arrows adjust the focused handle. On a gamepad-primary surface the
+arrows first move between the handles; Activate enters adjust mode, and Cancel,
+Tab or focus leaving exits it. Coincident thumbs choose by the side a press
+approaches from, before quantization (at the minimum the upper moves, at the
+maximum the lower); a gesture keeps its thumb and commits once, and losing the
+pointer and touch classes mid-drag restores the whole starting value. The range
+handles use capture-based dragging; the native detector serves the track. The
+label shrinks (its full text disclosed) before the track or readout does.
+
+**There is no separate Knob control.** A handle's size, shadow, stroke, disabled
+look and icon come from the theme's `sliderThumb` slot (or `thumbImage`); an
+inverted or icon-bearing knob is a `thumbContent` node reading `info.enabled`
+and `info.dragging`. A switch's knob is the Toggle's own theme chrome.
 
 ```lua
 local app = Facet.new()

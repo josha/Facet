@@ -386,7 +386,7 @@ export type Controls = {
 	VirtualGrid: Constructor<VirtualGridSpec<any>>,
 	NavigationStack: Constructor<navigation_stackControl.Spec>,
 	Table: Constructor<tableControl.Spec>,
-	Slider: Constructor<sliderControl.Spec>,
+	Slider: Constructor<sliderControl.Spec<sliderControl.NumberCell | sliderControl.RangeCell>>,
 	Stepper: Constructor<stepperControl.Spec>,
 	Picker: Constructor<pickerControl.Spec>,
 	PopupButton: Constructor<picker_menuControl.Spec>,

@@ -1037,8 +1037,12 @@ local registry: { Entry } = {
 			keyboard = {
 				"keyboard: Adjust steps predictably rather than requiring a drag",
 				"Left/Right adjust a focused horizontal Slider on a GROUPED screen",
+				"keyboard: each thumb is its own Tab stop, and the arrows adjust the one holding the ring",
 			},
-			gamepad = { "gamepad: the bumpers Adjust the focused slider" },
+			gamepad = {
+				"gamepad: the bumpers Adjust the focused slider",
+				"gamepad: Left/Right reach the other thumb until Activate engages, and Cancel gives them back",
+			},
 		},
 		-- PARADIGM: pointer = direct drag on the track (native UIDragDetector, with
 		-- the Grip capture path as the corrections-mandated fallback) plus
@@ -1055,6 +1059,7 @@ local registry: { Entry } = {
 			hotSwitch = {
 				"Slider hot-switch: losing the pointer class mid-drag CANCELS back to the snapshot",
 				"a cancelled capture also reverts (the adapter's own cancel path)",
+				"a REAL capability loss mid-drag restores the pair, and the later move and release commit nothing",
 			},
 		},
 	},
