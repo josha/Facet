@@ -406,17 +406,30 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	-- half away from zero, at commit only: rounding a draft deletes the digit
 	-- being typed. A value too large to shift has no places left to round.
-	local function roundTo(v: number): number
-		if spec.precision == nil then
+	local function roundTo(v: number, places: number?): number
+		places = places or spec.precision
+		if places == nil then
 			return v
 		end
-		local scale = 10 ^ spec.precision
+		local scale = 10 ^ places
 		local shifted = v * scale
 		if not isFinite(shifted) then
 			return v
 		end
 		local rounded = if shifted >= 0 then math.floor(shifted + 0.5) else -math.floor(-shifted + 0.5)
 		return rounded / scale
+	end
+	--[[ A STEP OR SCRUB LANDS ON THE GRID'S OWN PLACES. Without a precision, three
+		presses of 0.1 would hold 0.30000000000000004; the decimals `step` and `min`
+		are written in are all a stepped number can honestly carry. ]]
+	local function placesOf(v: number?): number
+		local s = string.gsub(string.format("%.10f", v or 0), "0+$", "")
+		local dot = string.find(s, ".", 1, true)
+		return if dot then #s - dot else 0
+	end
+	local gridPlaces = math.max(placesOf(stepSize), placesOf(spec.min))
+	local function roundStep(v: number): number
+		return roundTo(v, spec.precision or gridPlaces)
 	end
 	-- an authored format wins; a declared precision writes exactly that many places
 	local function formatNumber(v: number): string
@@ -713,7 +726,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		local moved = if boundedModel ~= nil
 			then boundedModel.stepped(current, direction)
 			else current + direction * stepSize
-		local proposed = clampNumber(roundTo(moved))
+		local proposed = clampNumber(roundStep(moved))
 		if proposed == current or not isFinite(proposed) then
 			return
 		end
@@ -744,8 +757,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end
 	local function onScrub(phase: string, arg: any): boolean
 		if phase == "press" then
+			-- the COMMITTED number and its own text: a typed draft is not what a
+			-- gesture restores to, and taking one discards the draft
+			local number = spec.numericValue:peek()
+			local ok, text = pcall(formatNumber, number)
 			scrubPress = if scrubAllowed()
-				then { number = spec.numericValue:peek(), text = read(spec.value), class = arg }
+					and ok
+					and type(text) == "string"
+				then { number = number, text = text, class = arg }
 				else nil
 			return scrubPress ~= nil
 		elseif phase == "begin" then
@@ -755,6 +774,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			scrubbing, scrubPress = scrubPress, nil
 			scrubbing.last = spec.numericValue:peek()
 			endEditing()
+			validationError:set("")
 			if read(spec.value) ~= scrubbing.text then
 				spec.value:set(scrubbing.text)
 			end
@@ -762,7 +782,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		elseif scrubbing == nil then
 			return false
 		elseif phase == "move" then
-			local proposed = clampNumber(roundTo(scrubbing.number + math.round(arg / SCRUB_PX_PER_STEP) * stepSize))
+			local proposed = clampNumber(roundStep(scrubbing.number + math.round(arg / SCRUB_PX_PER_STEP) * stepSize))
 			if proposed ~= spec.numericValue:peek() and isFinite(proposed) then
 				scrubbing.last = proposed
 				setNumber(proposed)

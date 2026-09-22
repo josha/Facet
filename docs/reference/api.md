@@ -9868,6 +9868,9 @@ chrome, focus and input story) under the name a chooser finds; supplying
 `presentation` is refused. `value` (the editable string) and `numericValue` (the
 committed number) are both caller-owned cells. Every `UI.TextInput` field
 applies; `step`, `precision`, `stepButtons`, `prefix` and `suffix` are its own.
+Without `precision`, a step button or a scrub rounds to the decimal places of
+`step` and `min`, so three presses of `0.1` hold `0.3`, not a floating-point
+remainder; typed numbers keep their own digits.
 The step buttons mount at `<plate>/Row/Decrement` and `<plate>/Row/Increment`;
 their semantic names are not localized. `dump()` adds step, precision,
 stepButtons, prefix and suffix.
@@ -9876,7 +9879,8 @@ stepButtons, prefix and suffix.
 across the editor move the number. Nothing happens before the shared press→drag
 slop (6 px pointer, 14 px touch), so a tap still places the caret natively, and a
 drag that is mostly vertical stays a scroll. Past it the edit the press opened
-ends without a commit, and the number moves by one `step` per 8 px of total
+ends without a commit: a typed, uncommitted draft is discarded and the text
+returns to the committed number's, which is where the drag starts. The number moves by one `step` per 8 px of total
 travel from the press, through the step buttons' own rounding and bounds;
 `onChange` reports each change and release commits once with reason `"submit"`.
 Escape or ButtonB, losing the dragging input class, becoming disabled or

@@ -283,6 +283,23 @@ describe("NumberInput: units and step buttons", function()
 		expect(bounded.adapter.node(INC).props.enabled).toBe(false)
 	end)
 
+	it("without a precision, presses land on the step's own places, never on float noise", function()
+		for _, bounds in { { min = 0, max = 1 }, {} :: any } do
+			local w = numberWorld({
+				draft = "0",
+				number = 0,
+				stepButtons = true,
+				step = 0.1,
+				min = bounds.min,
+				max = bounds.max,
+			})
+			for _ = 1, 3 do
+				press(w, "pointer", INC)
+			end
+			expect(`{w.number:peek() == 0.3} {w.draft:peek()} {w.commits[3].value == 0.3}`).toBe("true 0.3 true")
+		end
+	end)
+
 	it("the step buttons are square targets that meet the touch floor and never share a pixel", function()
 		local w = numberWorld({ stepButtons = true, min = 0, max = 20 })
 		local dec, inc = w.adapter.node(DEC).rect, w.adapter.node(INC).rect
@@ -421,6 +438,30 @@ describe("NumberInput: scrub", function()
 		w.adapter.blurText(PLAIN_FIELD)
 		w.settle()
 		expect(`{#w.commits} {w.commits[1].value} {w.commits[1].reason}`).toBe("1 20 submit")
+	end)
+
+	it("a scrub lands on the step's own places, never on float noise", function()
+		local w = scrubWorld({ draft = "0", number = 0, step = 0.1, max = 1 })
+		scrub(w, "press", "pointer")
+		scrub(w, "begin")
+		scrub(w, "move", 24)
+		expect(`{w.number:peek() == 0.3} {w.draft:peek()}`).toBe("true 0.3")
+	end)
+
+	it("a scrub over a typed draft starts from the committed number and discards the draft", function()
+		for _, finish in { "end", "cancel" } do
+			local w = scrubWorld()
+			w.draft:set("42")
+			w.settle()
+			scrub(w, "press", "pointer")
+			scrub(w, "begin")
+			expect(`{finish} begin: {w.number:peek()} {w.draft:peek()}`).toBe(`{finish} begin: 10 10`)
+			scrub(w, "move", 16)
+			scrub(w, finish)
+			w.settle()
+			local want = if finish == "end" then "12 12 1" else "10 10 0"
+			expect(`{finish}: {w.number:peek()} {w.draft:peek()} {#w.commits}`).toBe(`{finish}: {want}`)
+		end
 	end)
 
 	it("cancel, class loss, disable and readOnly restore the snapshot without a commit", function()
