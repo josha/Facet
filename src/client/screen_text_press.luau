@@ -110,6 +110,10 @@ function screen_text_press.wire(handle: any, services: any, handlers: any)
 			if not touch and input.UserInputType ~= E.UserInputType.MouseButton1 then
 				return
 			end
+			-- a mouse press whose release never arrived (the window lost it) is stale
+			if not touch and press ~= nil and press.start ~= nil and press.touch == nil then
+				finish("cancel")
+			end
 			-- one press at a time; a mouse press joins the release Focused follows
 			if press ~= nil and (press.start ~= nil or touch or press.touch ~= nil) then
 				return
@@ -117,7 +121,9 @@ function screen_text_press.wire(handle: any, services: any, handlers: any)
 			local scrub = handlers.onScrub ~= nil
 				and handlers.onScrub("press", if touch then "touch" else "pointer") == true
 			if press == nil then
-				if not scrub and not touch then
+				-- a touch is followed only for a selection its release may land
+				local selects = handle.selectOnFocus == "all" or handle.selectOnFocus == "end"
+				if not scrub and not (touch and selects) then
 					return
 				end
 				follow(if touch then input else nil)

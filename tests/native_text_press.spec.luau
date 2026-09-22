@@ -176,6 +176,12 @@ describe("TextInput selectOnFocus on the native box", function()
 		expect(#d.writes).toBe(0)
 	end)
 
+	it("a touch on a field with nothing to select or scrub adds no listener", function()
+		local p = probe("12.5 km", "none")
+		p.instance.InputBegan.fire({ UserInputType = "Touch", Position = { X = 50, Y = 20 } })
+		expect(p.uis.InputEnded.live() + p.uis.InputChanged.live() + p.uis.InputBegan.live()).toBe(0)
+	end)
+
 	it("a policy change while focused applies at the next session", function()
 		local p = probe("12.5 km", "none")
 		p.capture()
@@ -275,6 +281,15 @@ describe("NumberInput scrub on the native box", function()
 		t2.uis.InputEnded.fire(other)
 		t2.uis.InputEnded.fire(finger)
 		expect(table.concat(touches, " ")).toBe("press:touch begin move:15 end")
+	end)
+
+	it("a mouse press whose release never came does not block the next scrub", function()
+		local p, log = scrubProbe()
+		p.mouseDown() -- the window loses its release
+		p.instance.InputBegan.fire(p.mouse)
+		p.mouseMove(8, 0)
+		p.mouseUp()
+		expect(table.concat(log, " ")).toBe("press:pointer press:pointer begin move:8 end")
 	end)
 end)
 
