@@ -8981,7 +8981,7 @@ checks, and `UI.TabView` when choosing a page rather than a value.
 | `indicatorPosition` | `radioGroup` only, construction-time `leading` (default) or `trailing`: which edge of each row carries the radio mark. Other styles refuse it. |
 | `appearance` | Menu styles: `standard` (default paint), `contrast` (the emphasis plate) or `utility`. Segmented: `filled`, `stroke` or `utility`. Automatic takes all five and maps them onto the family on screen (standard or filled, contrast or stroke, utility); while it resolves to rows the intent is kept and paints nothing. Absent keeps each family's default; `inline`, `radioGroup` and `cards` refuse it. Bound words repaint in place; a word outside the family is refused and the last legal paint stays. |
 | `corners` | Construction-time `pill` or `square` for the menu trigger or a static segmented strip's outer ends, track and selected fill (`pill` is the reference `isCircular`). |
-| `maxHeight` | Menu styles and automatic: a finite pixel bound above zero on the whole open panel, chrome included, overriding the default two-row floor (and kept by the sheet fallback). Other styles refuse it. |
+| `maxHeight` | Menu styles and automatic: a finite pixel bound above zero on the whole open panel, chrome included, overriding the default two-row floor down to one visible row (and kept by the sheet fallback). Other styles refuse it. |
 
 Opening a menu scrolls the selected row into view: a mounted row through the
 shared keep-visible seam, a searchable list through its own window at the row's

@@ -163,6 +163,12 @@ describe("Picker menu panel: maxHeight and the selected row", function()
 				expect(`searchable list revealed {scrolled}`).toBe("searchable list revealed true")
 			end
 		end
+		-- a cap below the panel's own chrome still leaves one visible row to walk
+		local tiny, tinyPicker = mount("desktop", { style = "menu", options = LONG, maxHeight = 10 })
+		tinyPicker.api.open()
+		tiny.pres.refresh()
+		tiny.pres.refresh()
+		expect(node(tiny, "/List").rect.h >= FLOOR).toBe(true)
 		for _, bad in { 0, math.huge, 0 / 0, "96" } do
 			local ok = pcall(function()
 				mount("desktop", { style = "menu", maxHeight = bad })
@@ -172,6 +178,24 @@ describe("Picker menu panel: maxHeight and the selected row", function()
 		expect(pcall(function()
 			mount("desktop", { style = "segmented", maxHeight = 96 })
 		end)).toBe(false)
+	end)
+
+	it("the open popover declares no placement its parent ignores", function()
+		local warnings = require("../src/layout/placement_warnings")
+		local said: { string } = {}
+		local realReport = warnings.report
+		warnings.reset()
+		warnings.setEnabled(true)
+		warnings.report = function(message: string)
+			table.insert(said, message)
+		end
+		local w, picker = mount("desktop", { style = "menu", label = "Driver" })
+		picker.api.open()
+		w.pres.refresh()
+		w.pres.refresh()
+		warnings.report = realReport
+		warnings.reset()
+		expect(table.concat(said, "\n")).toBe("")
 	end)
 
 	it("opening lands on the selected row, visible inside the list, on every input", function()

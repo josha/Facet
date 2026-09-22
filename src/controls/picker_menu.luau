@@ -761,7 +761,8 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 			budget = math.min(budget, math.max(below, above) - offset - plateV - space)
 		end
 		--[[ AN AUTHORED maxHeight BOUNDS THE WHOLE PANEL, chrome included, and wins
-			over the two-row floor (it may be one row, or less, of scrolling list). ]]
+			over the two-row floor down to ONE row: a list the pad can walk is never
+			0 px tall. ]]
 		if type(spec.maxHeight) == "number" then
 			local insetsBySlot = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
 			local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
@@ -770,7 +771,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 				else 0
 			local panelChrome = if presentation == "sheet" then chrome - minimum else plateV
 			local cap = math.max(0, spec.maxHeight - panelChrome)
-			return math.max(0, math.min(cap, budget - shrink)), true
+			return math.max(minimum, math.min(cap, budget - shrink)), true
 		end
 		return math.max(minimum * 2, budget - shrink), budget - shrink <= minimum * 2
 	end
@@ -1287,7 +1288,7 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		local panel = UI.VStack({
 			id = if pickerMode and not isSheet then "Rows" else "Popup",
 			anchor = if isSheet then "bottomLeft" elseif detached then nil else "topLeft",
-			offsetY = if detached or isSheet then 0 else TRIGGER_HEIGHT,
+			offsetY = if detached or isSheet then nil else TRIGGER_HEIGHT,
 			width = if pickerMode and not isSheet
 				then { type = "fill", weight = 1 }
 				elseif detached and not isSheet then floor
