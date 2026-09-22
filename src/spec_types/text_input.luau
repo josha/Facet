@@ -30,5 +30,15 @@ export type Spec<V = StringCell> = {
 	invalid: coreContract.Readable<boolean>?,
 	env: any?, -- Environment: enables keyboard-occlusion keep-visible
 	actionSystem: any?, -- injected: enables the text-entry sinking context
+	-- the shared field chrome
+	label: blueprint.Bound<string>?, -- the words above the field; a tap focuses it
+	requiredMark: ("required" | "optional")?, -- notation only; it never validates
+	hint: blueprint.Bound<string>?, -- the line under the field at rest
+	errorText: blueprint.Bound<string>?, -- non-empty replaces the hint; shakes nothing
+	leading: any?, -- a static blueprint inside the plate, before the editor
+	trailing: any?, -- a blueprint inside the plate, after the clear affordance
+	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
+	appearance: blueprint.Bound<("standard" | "contrast" | "utility")?>?,
+	corners: ("pill" | "square")?,
 }
 return nil

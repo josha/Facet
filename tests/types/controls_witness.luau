@@ -270,6 +270,18 @@ local _anonymousSetting = app.controls.Toggle({
 })
 local _rating = app.controls.Rating("Rating")({ value = Facet.Compose.cell(3) })
 local _textinput = app.controls.TextInput("Name")({ value = Facet.Compose.cell("Alpine") })
+local _fieldChrome = app.controls.TextInput({
+	value = Facet.Compose.cell(""),
+	label = "Display name",
+	requiredMark = "required",
+	hint = function(_use)
+		return "Shown to other players"
+	end,
+	errorText = Facet.Compose.cell(""),
+	controlSize = "compact",
+	appearance = "contrast",
+	corners = "pill",
+})
 local _numericText = app.controls.TextInput("Number")({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),

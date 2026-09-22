@@ -1079,7 +1079,6 @@ describe("TextInput: the invalid shake", function()
 		local core = harness.newCore()
 		local number = Compose.cell(2)
 		local w = world({ core = core, presentation = "number", numericValue = number, min = 0, max = 10 })
-		local messageX = w.adapter.node("/S/Name/Validation").rect.x
 		expect(paintedShift(w, "/S/Name/Input")).toBe(0)
 
 		w.adapter.tap("/S/Name/Input/Field")
@@ -1087,11 +1086,14 @@ describe("TextInput: the invalid shake", function()
 		w.adapter.commitText("/S/Name/Input/Field")
 		expect(w.control.dump().validationError ~= "").toBe(true)
 		frame(w)
+		-- read after the message arrives: its error mark mounts beside the words
+		local messageX = w.adapter.node("/S/Name/Message/Validation").rect.x
 		-- the FIELD moved; the danger-tinted message is the information and holds
 		-- its place
 		expect(paintedShift(w, "/S/Name/Input") ~= 0).toBe(true)
-		expect(paintedShift(w, "/S/Name/Validation")).toBe(0)
-		expect(w.adapter.node("/S/Name/Validation").rect.x).toBe(messageX)
+		expect(paintedShift(w, "/S/Name/Message/Validation")).toBe(0)
+		frame(w)
+		expect(w.adapter.node("/S/Name/Message/Validation").rect.x).toBe(messageX)
 		for _ = 1, 40 do
 			frame(w)
 		end

@@ -7,12 +7,12 @@ local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
-local paths = require("../paths")
 local rectLib = require("../rect")
 local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
-local patternEscape = paths.escape
+local fieldChrome = require("./field_chrome")
+local vocabulary = require("./control_vocabulary")
 
 local text_input = {}
 
@@ -82,6 +82,16 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"submitLabel",
 	"validate",
 	"value",
+	-- the shared field chrome (field_chrome.KEYS)
+	"label",
+	"requiredMark",
+	"hint",
+	"errorText",
+	"leading",
+	"trailing",
+	"controlSize",
+	"appearance",
+	"corners",
 })
 
 local function build(Facet: any, core: any, spec: Spec, owner: any)
@@ -135,6 +145,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			"TextInput: numericValue, bounds, parse and format require presentation number"
 		)
 	end
+	fieldChrome.assertSpec("UI.TextInput", spec)
+	-- a search field already leads with its own mark; a second one beside it would
+	-- read as part of the first
+	assert(
+		spec.leading == nil or presentation ~= "search",
+		"UI.TextInput: a search field already leads with its own mark — `leading` would sit beside it "
+			.. 'and read as part of it. Use `trailing`, or presentation = "plain" with your own mark.'
+	)
 	for _, name in { "parse", "format", "validate", "onChange", "onCommit", "onCancel" } do
 		assert(spec[name] == nil or type(spec[name]) == "function", `TextInput: {name} must be a function`)
 	end
@@ -177,6 +195,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		)
 	)
 	local validationError = Compose.cell("")
+	-- the numeric rejection line is the chrome's internal message, outranked by
+	-- the caller's `errorText` in one place
+	local chrome = fieldChrome.new({
+		UI = Facet.UI,
+		control = "UI.TextInput",
+		spec = spec,
+		internalMessage = if presentation == "number" then validationError else nil,
+	})
 
 	local nativeTimeline = if Facet.runtime and (spec.invalid ~= nil or presentation == "number")
 		then Facet.runtime.timeline({ duration = 0.24, autoplay = false })
@@ -558,34 +584,92 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		commit("focusLost")
 		return false -- the edit is closed: let the ring move on
 	end
+	--[[ WHERE EVERY PART OF THIS CONTROL IS, derived once from four independent
+		facts: furniture puts the plate inside a stack, a named rung inside the
+		reserved touch floor, accessories put the editor inside a row, multiline
+		inside a viewport. Focus, activation and occlusion all read these tails. ]]
+	local sizedRung = spec.controlSize ~= nil
+	local fieldId = if chrome.active then "Input" else id
+	local rootId = if not chrome.active and sizedRung then `{id}+target` else id
+	local fieldBase = if chrome.active
+		then (if sizedRung then "/Input+target/Input" else "/Input")
+		elseif sizedRung then `/{id}`
+		else ""
+	-- a pinned child and a row member cannot share the plate's right edge, so
+	-- anything else inside the plate turns the plate into one row
+	local usesRow = chrome.hasAccessories
+	local rowPrefix = if usesRow then "/Row" else ""
+	local function ownTail(suffix: string): string
+		return `/{rootId}{fieldBase}{suffix}`
+	end
+	local fieldSuffix = rowPrefix .. (if spec.multiline then "/Viewport" else "") .. "/Field"
+	local FIELD_TAIL, CLEAR_TAIL = ownTail(fieldSuffix), ownTail(rowPrefix .. "/Clear")
+	local TRAILING_TAIL = ownTail("/Row/Trailing")
+	local LABEL_TAIL = `/{id}/{chrome.LABEL_ID}`
+	-- compared as text, so an id carrying a pattern character needs no escaping
+	local function endsWith(path: string, tail: string): boolean
+		return string.sub(path, -#tail) == tail
+	end
+	-- the clear chip and the caller's trailing content are facts only the mounted
+	-- tree can answer: a path named in an order and not mounted is a dead stop
+	local function mountedUnder(node: any, tail: string): any?
+		if type(node.path) == "string" and endsWith(node.path, tail) then
+			return node
+		end
+		for _, child in node.children or {} do
+			local found = mountedUnder(child, tail)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
+	local function collectStops(node: any, into: { string })
+		local class = controlContract.forClass(node.class)
+		local props = node.props
+		local focusable = if node.class == "Grip"
+			then props ~= nil and props.focusable == true
+			else class ~= nil and class.focusRole == "focusable" and not (props ~= nil and props.focusable == false)
+		if focusable then
+			table.insert(into, node.path)
+		end
+		for _, child in node.children or {} do
+			collectStops(child, into)
+		end
+	end
+	-- a contribution owns its subtree's focus, so every stop inside it is named
+	-- here: the editor, the mounted clear, then focusables in `trailing`
 	function api.focusGroups(rootNode: any): { any }
 		if not enabledMemo:peek() then
 			return {}
 		end
-		return {
-			{
-				name = `{id}:field`,
-				axis = "horizontal",
-				entry = "first",
-				order = {
-					rootNode.path .. (if presentation == "number"
-						then "/Input/Field"
-						elseif spec.multiline then "/Viewport/Field"
-						else "/Field"),
-				},
-			},
-		}
+		local order: { string } = { rootNode.path .. fieldBase .. fieldSuffix }
+		local clear = mountedUnder(rootNode, CLEAR_TAIL)
+		if clear ~= nil then
+			table.insert(order, clear.path)
+		end
+		if chrome.trailing ~= nil then
+			local trailing = mountedUnder(rootNode, TRAILING_TAIL)
+			if trailing ~= nil then
+				collectStops(trailing, order)
+			end
+		end
+		return { { name = `{id}:field`, axis = "horizontal", entry = "first", order = order } }
 	end
 
-	local idPattern = patternEscape(id) .. (if presentation == "number" then "/Input" else "")
+	-- the field enters editing, the clear empties it, the label focuses its field
 	function api.handleActivate(path: string, _meta: any?): boolean
-		if string.match(path, `/{idPattern}{if spec.multiline then "/Viewport" else ""}/Field$`) ~= nil then
+		if endsWith(path, FIELD_TAIL) then
 			fieldFullPath = path -- learn our full path for keep-visible
 			beginEditing()
 			return true
 		end
-		if string.match(path, `/{idPattern}/Clear$`) ~= nil then
+		if endsWith(path, CLEAR_TAIL) then
 			clearValue()
+			return true
+		end
+		if spec.label ~= nil and endsWith(path, LABEL_TAIL) then
+			beginEditing()
 			return true
 		end
 		return false
@@ -598,8 +682,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			inheritedDisabled:set(controlContract.isDisabled(rootNode))
 		end
 		latestRectOf = rectOf
-		if spec.multiline and rootNode then
-			local frame = rectOf(rootNode.path)
+		local platePath = if rootNode then rootNode.path .. fieldBase else nil
+		if spec.multiline and platePath then
+			local frame = rectOf(platePath)
 			local metrics = env:get("themeMetrics"):peek()
 			local inset = metrics.chromeInsets and metrics.chromeInsets.field
 			local height = if frame then math.max(0, frame.h - (if inset then inset.top + inset.bottom else 0)) else 0
@@ -608,10 +693,10 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			end
 		end
 		if fieldFullPath ~= nil and editing:peek() then
-			local r = rectOf(if spec.multiline and rootNode then rootNode.path else fieldFullPath)
-			if spec.multiline and rootNode and renderController then
-				renderController.scrollToVisible(rootNode.path)
-				local painted = renderController.screenRectOf(rootNode.path)
+			local r = rectOf(if spec.multiline and platePath then platePath else fieldFullPath)
+			if spec.multiline and platePath and renderController then
+				renderController.scrollToVisible(platePath)
+				local painted = renderController.screenRectOf(platePath)
 				if painted then
 					r = { x = painted.x, y = painted.y + keepVisibleOffset:peek(), w = painted.w, h = painted.h }
 				end
@@ -640,8 +725,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				),
 				UI.Spacer({ id = "AfterMark" }),
 			},
-			anchor = "right",
-			offsetX = CLEAR_INSET,
+			-- pinned only as the Anchor's own child; in the row it is a member
+			anchor = if usesRow then nil else "right",
+			offsetX = if usesRow then nil else CLEAR_INSET,
 			padding = 0,
 			width = { type = "minMax", min = CLEAR_SIZE },
 			height = { type = "minMax", min = CLEAR_SIZE, max = FIELD_HEIGHT },
@@ -667,11 +753,14 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			return { type = "fixed", px = height }
 		end)
 		else { type = "minMax", min = FIELD_HEIGHT }
+	local fieldPadding = chrome.padding or { left = "controls.textInput.padding", right = "controls.textInput.padding" }
 	local rootView = UI.Anchor
 	local rootSpec = {
-		id = if presentation == "number" then "Input" else id,
+		id = fieldId,
 		width = { type = "fill", weight = 1 },
-		height = spec.height or defaultHeight,
+		-- authored height wins, then the rung's; a multiline editor's height is a
+		-- count of lines, so a rung's single-line floor never applies there
+		height = spec.height or (if spec.multiline then defaultHeight else chrome.height or defaultHeight),
 		offset = Compose.formula(function(use)
 			local x = use(shakeOffset)
 			return if x == 0 then nil else { x = x, y = 0 }
@@ -682,9 +771,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				text = spec.value,
 				multiline = spec.multiline,
 				surface = "plain",
-				padding = if spec.multiline
-					then nil
-					else { left = "controls.textInput.padding", right = "controls.textInput.padding" },
+				-- with an accessory row the ROW owns the inset
+				padding = if spec.multiline or usesRow then nil else fieldPadding,
 
 				placeholder = spec.placeholder or (if presentation == "search" then "Search" else nil),
 				editing = editing,
@@ -706,23 +794,27 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			Compose.show(clearVisible, clearButtonView),
 		},
 	}
-	if presentation == "search" then
-		rootSpec.padding = { left = "xl" }
-		table.insert(
-			rootSpec.children,
-			chromeSlots.attachHint(
-				UI.Text({
-					id = "SearchIcon",
-					text = themePackage.iconGlyph("facet:search"),
-					textSize = "control",
-					anchor = "left",
-					offsetX = "-xl",
-				}),
-				{ icon = "facet:search" }
-			)
+	-- the search mark: pinned to the plate's left edge in the Anchor form, the
+	-- first row member in the row form (an anchored child is not carried there)
+	local searchMark = if presentation == "search"
+		then chromeSlots.attachHint(
+			UI.Text({
+				id = "SearchIcon",
+				text = themePackage.iconGlyph("facet:search"),
+				textSize = "control",
+				anchor = if usesRow then nil else "left",
+				offsetX = if usesRow then nil else "-xl",
+				width = if usesRow then UI.hug() else nil,
+				height = if usesRow then UI.hug() else nil,
+			}),
+			{ icon = "facet:search" }
 		)
+		else nil
+	if searchMark ~= nil and not usesRow then
+		rootSpec.padding = { left = "xl" }
+		table.insert(rootSpec.children, searchMark)
 	end
-	rootSpec.surface = "chip"
+	rootSpec.surface = chrome.surface
 	rootSpec.enabled = if spec.enabled ~= nil
 		then spec.enabled
 		elseif spec.disabled ~= nil then Compose.formula(function(use)
@@ -742,30 +834,56 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			children = { field },
 		})
 	end
-	local blueprint = chromeSlots.attachHint(rootView(rootSpec), { slot = "field" })
-
-	if presentation == "number" then
-		blueprint = UI.VStack({
-			id = id,
-			width = UI.fill(),
-			gap = "xs",
-			children = {
-				blueprint,
-				UI.Text({
-					id = "Validation",
-					text = validationError,
-					tint = { role = "danger", blend = 1 },
-					textSize = "caption",
-					width = UI.fill(),
-					hidden = Compose.formula(function(use)
-						return use(validationError) == ""
-					end),
-				}),
-			},
-		})
+	--[[ THE ACCESSORY ROW. A leading mark is decoration inside a plain hugging
+		stack, so a tap across the plate still reaches the editor; a trailing
+		Button is its own focus stop after the clear, in document order. ]]
+	if usesRow then
+		local function holder(holderId: string, content: any): any
+			return UI.ZStack({
+				id = holderId,
+				width = UI.hug(),
+				height = UI.hug(),
+				alignH = "center",
+				alignV = "center",
+				children = { content },
+			})
+		end
+		local row: { any } = {}
+		if chrome.leading ~= nil then
+			table.insert(row, holder("Leading", chrome.leading))
+		end
+		if searchMark ~= nil then
+			table.insert(row, searchMark)
+		end
+		table.insert(row, rootSpec.children[1])
+		table.insert(row, rootSpec.children[2])
+		if chrome.trailing ~= nil then
+			table.insert(row, holder("Trailing", chrome.trailing))
+		end
+		rootSpec.children = {
+			UI.HStack({
+				id = "Row",
+				width = UI.fill(),
+				height = UI.fill(),
+				align = "center",
+				gap = "s",
+				padding = fieldPadding,
+				children = row,
+			}),
+		}
 	end
+	local blueprint = chromeSlots.attachHint(rootView(rootSpec), { slot = "field" })
+	if spec.corners ~= nil then
+		blueprint = UI.corners(blueprint, vocabulary.cornerRadiusFor(spec.corners))
+	end
+	-- only a named rung can solve the plate under the touch floor, so only a named
+	-- rung is mounted inside the container that reserves it
+	if sizedRung then
+		blueprint = vocabulary.reserveTarget(UI, core, fieldId, blueprint, UI.fill())
+	end
+	blueprint = chrome.wrap(blueprint, id)
 	local function dump()
-		return {
+		local out: any = {
 			schema = "facet-text_input-dump/1",
 			presentation = presentation,
 			validationError = validationError:peek(),
@@ -782,6 +900,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			keyboardType = spec.keyboardType or "default",
 			submitLabel = spec.submitLabel or "default",
 		}
+		chrome.dumpInto(out)
+		return out
 	end
 
 	return {

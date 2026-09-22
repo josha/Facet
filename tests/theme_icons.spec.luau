@@ -459,10 +459,10 @@ describe("themes.resolveIcon: three honest answers", function()
 				end
 			end
 			table.sort(found)
-			-- five roles, not four: `contentStrong` is the lettering a control OVER
-			-- MEDIA takes, and its picture follows its word there for the same reason
+			-- six roles: the four plate partners, `contentStrong` over media, and
+			-- `danger` for a field's error line, whose mark sits on the page
 			expect(`{label}: {table.concat(found, " ")}`).toBe(
-				`{label}: contentStrong=$ContentStrong onAccent=$OnAccent onDanger=$OnDanger `
+				`{label}: contentStrong=$ContentStrong danger=$Danger onAccent=$OnAccent onDanger=$OnDanger `
 					.. `onSuccess=$OnSuccess onWarning=$OnWarning`
 			)
 			--[[ ORDER MEANS SOMETHING IN BOTH BUILDERS NOW: each emits one tint per

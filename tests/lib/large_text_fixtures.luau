@@ -656,6 +656,24 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- the field wearing its furniture: a wrapping label with its notation and
+		-- the one message line, three stacked strings in one column
+		id = "TextInputField",
+		class = "FieldChrome",
+		build = function(core, w)
+			return harness.Controls.TextInput(core, {
+				id = "Ctl",
+				value = Compose.cell(""),
+				placeholder = PSEUDO,
+				label = PSEUDO,
+				requiredMark = "required",
+				hint = GERMAN,
+				env = w.env,
+				actionSystem = w.system,
+			}).blueprint
+		end,
+	},
+	{
 		id = "Table",
 		class = "Table",
 		build = function(core)

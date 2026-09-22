@@ -214,6 +214,23 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- The shared field chrome (label, notation, hint/error line, accessories,
+		-- rung/appearance/corners) that field controls wear. It builds blueprints
+		-- and folds its facts into the adopting control's dump; the adopting
+		-- control carries the input and affordance stories.
+		name = "FieldChrome",
+		kind = "composite",
+		module = "src/controls/field_chrome.luau",
+		export = "UI.TextInput",
+		spec = "tests/field_chrome.spec.luau",
+		conformance = "tests/field_chrome.spec.luau",
+		docsAnchor = "UI.TextInput",
+		dump = false,
+		reason = "builder module: it returns blueprints and folds its facts into the adopting control's dump",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "ButtonControl",
 		kind = "composite",
 		module = "src/controls/button.luau",

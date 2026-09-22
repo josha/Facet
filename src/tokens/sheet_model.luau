@@ -112,8 +112,11 @@ sheet_model.DEFAULT_APPEARANCE = "standard"
 	`accent` share the accent; `neutral` is content on the page, which needs no
 	rule because `content` is what an icon already declares), so this is the whole
 	closed set — and it is what keeps the icon rules below a STATUS feature rather
-	than a per-node tint channel. ]]
-sheet_model.STATUS_LETTERS = table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong" })
+	than a per-node tint channel. `contentStrong` and `danger` are lettering with
+	no plate under it: over-media lettering, and a field's error line, whose status
+	mark would otherwise keep the page's content colour beside a red sentence. ]]
+sheet_model.STATUS_LETTERS =
+	table.freeze({ "onAccent", "onSuccess", "onWarning", "onDanger", "contentStrong", "danger" })
 local STATUS_LETTER_ROLES: { [string]: boolean } = {}
 for _, role in sheet_model.STATUS_LETTERS do
 	STATUS_LETTER_ROLES[role] = true

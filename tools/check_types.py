@@ -221,6 +221,8 @@ _EROSION_PROBES = [
     ("ShortcutHint", 'app.controls.ShortcutHint({ keys = {{"K"}}, separator = 42 })'),
     ("ShortcutHint", 'app.controls.ShortcutHint("Hint")({ action = "Activate", over = "photo" })'),
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
+    ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), appearance = "emphasis" })'),
+    ("TextInput", 'app.controls.TextInput("Field")({ value = Facet.Compose.cell(""), requiredMark = "maybe" })'),
 ]
 
 

@@ -25,6 +25,16 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.TextInput` wears the shared field chrome: `label` (a tap focuses the
+  field; no extra focus stop), `requiredMark` notation, one `hint`/`errorText`
+  message line with the `status.error` mark, `leading`/`trailing` accessories
+  inside the plate, and `controlSize`, `appearance` and `corners`. A field with
+  none of these keys keeps its tree. The number presentation's rejection line
+  now lives on that message line (`<id>/Message/Validation`, was
+  `<id>/Validation`), and the clear affordance plus any trailing focusable are
+  now keyboard and gamepad stops after the editor. Managed pictures under
+  `danger` lettering follow it, so the error mark paints the message's colour.
+
 - A chat thread can be scrolled while a reply is arriving. `UI.VirtualList`'s
   `follow = "end"` re-pinned the end on every frame of content growth, and one
   frame of a pan never moves the whole `followThreshold`, so a player panning

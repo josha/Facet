@@ -9740,6 +9740,14 @@ geometry, and theme styling.
 | `actionSystem` | Optional injection; the presenter supplies the existing action system automatically. |
 | `keyboardType` | `"default"`, `"numeric"`, `"email"`, or `"phone"`. Intent metadata: the shipping public engine API does not allow Facet to choose the native keyboard. |
 | `submitLabel` | `"default"`, `"done"`, `"go"`, `"next"`, `"search"`, or `"send"`. Intent metadata; no public engine property applies it. |
+| `label` | String or readable string above the field. A tap or touch on it focuses the editor; it adds no focus stop and reserves the touch floor in its own row, words at the bottom. |
+| `requiredMark` | `"required"` or `"optional"`: notation only, never validation. Required appends ` *` to the label's own string (bound labels too). Optional paints nothing, because Facet has no localization table: put localized "optional" wording in `hint`. |
+| `hint` | String or readable string on the one message line under the field at rest. Wraps; unbreakable text stays reachable through disclosure. |
+| `errorText` | String or readable string. Non-empty replaces the hint and the numeric rejection line, paints the danger role beside the `status.error` mark, keeps the field's position, and does not shake (`invalid` keeps that meaning). |
+| `leading` / `trailing` | Blueprints inside the plate. Leading is static decoration and adds no stop; a search field refuses it. Trailing sits after the clear affordance, and its focusables join the field's focus order after the editor and clear. |
+| `controlSize` | `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
+| `appearance` | `"standard"` (default chip plate), `"contrast"` (control plate) or `"utility"` (no plate). Bound words repaint in place; a word outside the set is refused and the last legal paint stays. |
+| `corners` | Construction-time `"pill"` or `"square"`; absent keeps the theme radius. |
 
 Single-line Enter commits. Multiline Enter inserts a newline; use `api.submit()`
 for explicit submission. Focus loss commits through the same validation path.
@@ -9775,7 +9783,12 @@ disabled, multiline, presentation, numericValue, validationError, clearVisible,
 clearButtonMode, placeholderVisible, occlusionOffset, keyboardType, and submitLabel.
 
 The field's mounted editor is at `<id>/Field` and its clear affordance at
-`<id>/Clear`.
+`<id>/Clear`. A field wearing a label, hint, error line, accessory or number
+presentation mounts its plate at `<id>/Input` inside a vertical stack
+(`<id>/Label` above, `<id>/Message` below); accessories put the editor and clear
+inside `<plate>/Row`, and a named `controlSize` puts the plate inside
+`<plate id>+target`. `dump()` also reports label, requiredMark, hint, errorText,
+hasError, controlSize, appearance, corners, leading and trailing.
 
 ```lua
 local app = Facet.new()
