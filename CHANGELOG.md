@@ -31,6 +31,13 @@ runtime as `Facet.VERSION`.
   the engine's own caret placement; activation applies it at once. The default
   writes nothing.
 
+- `UI.NumberInput{ scrub = true }`: a horizontal drag across the editor moves
+  the number one `step` per 8 px of total travel, through the step buttons'
+  rounding and bounds, and commits once at release. Before the shared slop a
+  tap stays native; Escape, class loss, disable, read-only and disposal restore
+  the snapshot; a caller write ends the drag. `UI.TextField` gains the
+  `onScrub` handler the adapter reports it through.
+
 - `UI.Picker{ style = "cards" }`: each option a selectable card on the shared
   menu card row (a hairline edge at rest, the accent plate when chosen),
   carrying the new option `meta` (a secondary label/value, also on menu rows)

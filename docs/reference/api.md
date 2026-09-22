@@ -2301,7 +2301,7 @@ hover and focus only, nothing on touch (see `Text`'s `help`).
 
 `UI.TextField{ id?, text?, placeholder?, editing?, enabled?, editable?, focusable?,
 selectOnFocus?, maxLength?, keyboardType?, multiline?, surface?, help?, padding?, textSize?,
-traversalPriority?, onTextChanged?, onFocusGained?, onFocusLost? }` —
+traversalPriority?, onTextChanged?, onFocusGained?, onFocusLost?, onScrub? }` —
 the text-entry leaf primitive the renderer maps to an engine `TextBox`. All of
 `text`/`placeholder`/`editing`/`enabled`/`maxLength`/`keyboardType` ride the
 binding authority (the engine adapter maps `editing` to CaptureFocus/
@@ -2310,10 +2310,10 @@ props inherit `common`. **`help`** (construction-only) is the player-pulled
 sentence about what this field is for — pointer hover and focus only, nothing on
 touch (see `Text`'s `help`). The three handler props are functions the adapter wires
 through the optional `setTextInputHandlers(handle, handlers)` seam
-(`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason), onCaretRect?(rect) }`,
+(`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason), onScrub?(phase, arg), onCaretRect?(rect) }`,
 `reason ∈ "enter" | "focusLost" | "cancel"`; `path` is the focused node's full
 path — engine-initiated focus must deliver it so occlusion keep-visible works
-without a prior activate). The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `UI.TextInput`
+without a prior activate). `onScrub` reports a horizontal drag across the editor: `"press"` with the pressing class (`"pointer"` or `"touch"`) answers whether to follow it, `"begin"` past the shared slop answers whether to take it (the adapter then releases focus), then `"move"` with the total horizontal travel in pixels and one `"end"` or `"cancel"`. The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `UI.TextInput`
 composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `editable = false` is the engine's own read-only mode (`TextEditable`), default true: the field stays focusable, selectable and at full contrast but refuses every edit; the adapter composes it with `enabled`, so a field is editable only when both allow it. `selectOnFocus` (`"none"` default, `"all"`, `"end"`; bound words apply live, an illegal one is refused and the last legal policy stays) is read once at the start of each native focus session: a focus made by a pointer press applies it at that pointer's release, after the engine has placed its own caret; any other focus applies it at once. Offsets are the engine's byte offsets; `none` writes nothing, and text writes never select. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
 
 ### `UI.NavigationStack`
@@ -9870,8 +9870,19 @@ committed number) are both caller-owned cells. Every `UI.TextInput` field
 applies; `step`, `precision`, `stepButtons`, `prefix` and `suffix` are its own.
 The step buttons mount at `<plate>/Row/Decrement` and `<plate>/Row/Increment`;
 their semantic names are not localized. `dump()` adds step, precision,
-stepButtons, prefix and suffix. Scrubbing a value by dragging and selecting the
-text on focus are not implemented.
+stepButtons, prefix and suffix.
+
+`scrub` (boolean or readable boolean, default false) lets a horizontal drag
+across the editor move the number. Nothing happens before the shared press→drag
+slop (6 px pointer, 14 px touch), so a tap still places the caret natively, and a
+drag that is mostly vertical stays a scroll. Past it the edit the press opened
+ends without a commit, and the number moves by one `step` per 8 px of total
+travel from the press, through the step buttons' own rounding and bounds;
+`onChange` reports each change and release commits once with reason `"submit"`.
+Escape or ButtonB, losing the dragging input class, becoming disabled or
+read-only, turning `scrub` off, and disposal cancel: the number and text
+return to the press's snapshot and nothing commits. A caller write to
+`numericValue` during a drag ends the drag, and the caller's number stands.
 
 ```lua
 local app = Facet.new()

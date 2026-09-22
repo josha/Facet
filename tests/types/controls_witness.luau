@@ -337,6 +337,11 @@ local _readOnlyNotes = app.controls.TextInput("Notes")({
 	end,
 	selectOnFocus = "all",
 })
+local _scrubbed = app.controls.NumberInput("Laps")({
+	value = Facet.Compose.cell("1"),
+	numericValue = Facet.Compose.cell(1),
+	scrub = true,
+})
 local _numericText = app.controls.TextInput("Number")({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),

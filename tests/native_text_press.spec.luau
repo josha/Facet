@@ -77,7 +77,7 @@ local function probe(text: string?, policy: string?, handlers: any?)
 	local handle: any = { instance = instance, selectOnFocus = policy }
 	p.instance, p.uis, p.handle, p.state, p.writes = instance, uis, handle, state, writes
 	function p.wire(h: any?)
-		screen_text_press.wire(handle, { uis = uis, Enum = Enum }, h or handlers)
+		screen_text_press.wire(handle, { uis = uis, Enum = Enum }, h or handlers or {})
 	end
 	-- the engine's own writes, not counted as ours
 	local function engine(cursor: number, selection: number)
@@ -93,8 +93,11 @@ local function probe(text: string?, policy: string?, handlers: any?)
 		end
 		instance.InputBegan.fire(p.mouse)
 	end
-	function p.mouseMove(x: number, y: number)
-		uis.InputChanged.fire({ UserInputType = "Move", Position = { X = x, Y = y } })
+	function p.mouseMove(dx: number, dy: number)
+		uis.InputChanged.fire({ UserInputType = "Move", Position = { X = 100 + dx, Y = 30 + dy } })
+	end
+	function p.key(code: string)
+		uis.InputBegan.fire({ UserInputType = "Keyboard", KeyCode = code })
 	end
 	function p.mouseUp()
 		if focused then
@@ -183,6 +186,95 @@ describe("TextInput selectOnFocus on the native box", function()
 		p.blur()
 		p.capture()
 		expect(p.caret()).toBe("8 1")
+	end)
+end)
+
+describe("NumberInput scrub on the native box", function()
+	local function scrubProbe(refuse: string?): (any, { string })
+		local log: { string } = {}
+		local p = probe("10", nil, {
+			onScrub = function(phase: string, arg: any?): boolean
+				table.insert(log, if arg ~= nil then `{phase}:{arg}` else phase)
+				return phase ~= refuse
+			end,
+		})
+		return p, log
+	end
+
+	it("a press under the slop is a native tap: focus and caret stay, nothing is promoted", function()
+		local p, log = scrubProbe()
+		p.mouseDown()
+		p.mouseMove(4, 3) -- 5 px, under the 6 px pointer gate
+		p.mouseUp()
+		expect(`{table.concat(log, " ")} | {p.caret()} {p.instance:IsFocused()} {#p.writes}`).toBe(
+			"press:pointer | 5 -1 true 0"
+		)
+		expect(p.uis.InputChanged.live()).toBe(0)
+	end)
+
+	it("past the slop a horizontal drag releases focus and reports the total travel once to its end", function()
+		local p, log = scrubProbe()
+		local lost = 0
+		p.instance.FocusLost:Connect(function()
+			lost += 1
+		end)
+		p.mouseDown()
+		p.mouseMove(7, 2)
+		expect(`{p.instance:IsFocused()} {lost}`).toBe("false 1")
+		p.mouseMove(-300, 90) -- outside the box: the global service keeps reporting
+		p.mouseUp()
+		p.mouseUp()
+		expect(table.concat(log, " ")).toBe("press:pointer begin move:7 move:-300 end")
+	end)
+
+	it("a vertical drag or a refused promotion stays native for the rest of the press", function()
+		local p, log = scrubProbe()
+		p.mouseDown()
+		p.mouseMove(2, 8)
+		p.mouseMove(40, 8)
+		p.mouseUp()
+		expect(`{table.concat(log, " ")} {p.instance:IsFocused()}`).toBe("press:pointer true")
+		local r, refused = scrubProbe("begin")
+		r.mouseDown()
+		r.mouseMove(10, 0)
+		r.mouseMove(40, 0)
+		expect(`{table.concat(refused, " ")} {r.instance:IsFocused()}`).toBe("press:pointer begin true")
+		-- an ineligible press is not even followed
+		local n, never = scrubProbe("press")
+		n.mouseDown()
+		expect(`{table.concat(never, " ")} {n.uis.InputChanged.live()}`).toBe("press:pointer 0")
+	end)
+
+	it("Escape cancels, a recycle cancels, and a second finger never joins the first", function()
+		local p, log = scrubProbe()
+		p.mouseDown()
+		p.mouseMove(8, 0)
+		p.key("Unknown")
+		p.key("Escape")
+		p.mouseMove(30, 0)
+		p.mouseUp()
+		expect(table.concat(log, " ")).toBe("press:pointer begin move:8 cancel")
+		local r, recycled = scrubProbe()
+		r.mouseDown()
+		r.mouseMove(8, 0)
+		r.wire({})
+		r.mouseUp()
+		expect(table.concat(recycled, " ")).toBe("press:pointer begin move:8 cancel")
+		local t2, touches = scrubProbe()
+		local finger = { UserInputType = "Touch", Position = { X = 50, Y = 20 } }
+		local other = { UserInputType = "Touch", Position = { X = 90, Y = 20 } }
+		t2.instance.InputBegan.fire(finger)
+		t2.instance.InputBegan.fire(other)
+		-- a different InputObject at the finger's place is not the finger
+		t2.uis.InputChanged.fire({ UserInputType = "Touch", Position = { X = 80, Y = 20 } })
+		finger.Position = { X = 63, Y = 20 }
+		t2.uis.InputChanged.fire(finger) -- 13 px: under the 14 px touch gate
+		t2.uis.InputChanged.fire(other)
+		finger.Position = { X = 65, Y = 20 }
+		t2.uis.InputChanged.fire(finger)
+		t2.uis.InputEnded.fire(other)
+		t2.uis.InputEnded.fire(finger)
+		expect(table.concat(touches, " ")).toBe("press:touch begin move:15 end")
 	end)
 end)
 

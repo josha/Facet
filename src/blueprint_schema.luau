@@ -3189,6 +3189,13 @@ class("TextField", {
 			channel = "handler",
 			doc = "onFocusLost(reason) — reason ∈ enter | focusLost | cancel",
 		}),
+		onScrub = p({
+			types = { "function" },
+			reactive = false,
+			channel = "handler",
+			doc = "onScrub(phase, arg?) -> accepted — a drag across the editor: press(class) | begin | "
+				.. "move(total horizontal px) | end | cancel",
+		}),
 	}),
 })
 

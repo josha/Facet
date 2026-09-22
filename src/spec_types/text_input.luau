@@ -54,6 +54,8 @@ export type Spec<V = StringCell> = {
 	stepButtons: boolean?, -- two target-sized stops in the plate
 	prefix: blueprint.Bound<string>?, -- unit chrome beside the editor, never in the draft
 	suffix: blueprint.Bound<string>?,
+	-- a horizontal drag across the editor moves the number by steps
+	scrub: blueprint.Bound<boolean>?,
 }
 -- `UI.NumberInput`: the number presentation preset; it chooses the presentation
 export type NumberSpec<V = StringCell> = Spec<V> & {

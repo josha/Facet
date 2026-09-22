@@ -372,3 +372,124 @@ describe("NumberInput: the arithmetic recipe", function()
 		expect(parse(string.rep("1+", 60) .. "1")).toBe(61)
 	end)
 end)
+
+describe("NumberInput: scrub", function()
+	-- the adapter's report (screen_text_press): press(class), then past the slop
+	-- begin, then the TOTAL horizontal travel, then end or cancel
+	local function scrub(w: any, phase: string, arg: any?): boolean
+		return w.adapter.node(PLAIN_FIELD).textHandlers.onScrub(phase, arg)
+	end
+	local function scrubWorld(extra: any?): any
+		local spec: any = { draft = "10", number = 10, scrub = true, min = 0, max = 20 }
+		for key, entry in extra or {} do
+			spec[key] = entry
+		end
+		local w = numberWorld(spec)
+		w.adapter.tap(PLAIN_FIELD)
+		w.adapter.focusText(PLAIN_FIELD)
+		w.settle()
+		return w
+	end
+
+	it("a press that never promotes leaves the native tap and typing alone", function()
+		local w = scrubWorld()
+		expect(scrub(w, "press", "pointer")).toBe(true)
+		w.adapter.typeText(PLAIN_FIELD, "5")
+		w.adapter.commitText(PLAIN_FIELD)
+		w.settle()
+		expect(`{w.number:peek()} {#w.commits} {w.commits[1].value}`).toBe("20 1 20")
+		-- a later end with no promotion is inert
+		expect(scrub(w, "end")).toBe(false)
+		expect(#w.commits).toBe(1)
+	end)
+
+	it("travel moves whole steps of the total, clamps, reports live and commits once at release", function()
+		local w = scrubWorld({ step = 0.5, precision = 1 })
+		scrub(w, "press", "pointer")
+		expect(scrub(w, "begin")).toBe(true)
+		-- the press's own edit ends with no commit; its focus loss is inert
+		w.adapter.blurText(PLAIN_FIELD)
+		w.settle()
+		expect(`{w.adapter.node(PLAIN_FIELD).props.editing} {#w.commits}`).toBe("false 0")
+		scrub(w, "move", 17) -- two steps of 8 px
+		expect(`{w.number:peek()} {w.draft:peek()}`).toBe("11 11.0")
+		scrub(w, "move", -40) -- measured from the start, not the last frame
+		expect(w.number:peek()).toBe(7.5)
+		scrub(w, "move", 1000)
+		expect(`{w.number:peek()} {table.concat(w.changes, ",")}`).toBe("20 11.0,7.5,20.0")
+		scrub(w, "end")
+		w.adapter.blurText(PLAIN_FIELD)
+		w.settle()
+		expect(`{#w.commits} {w.commits[1].value} {w.commits[1].reason}`).toBe("1 20 submit")
+	end)
+
+	it("cancel, class loss, disable and readOnly restore the snapshot without a commit", function()
+		for _, how in { "cancel", "class", "disabled", "readOnly", "off" } do
+			local lock = Facet.Compose.cell(false)
+			local on = Facet.Compose.cell(true)
+			local w = scrubWorld({
+				disabled = if how == "disabled" then lock else nil,
+				readOnly = if how == "readOnly" then lock else nil,
+				scrub = on,
+			})
+			w.env:set("capabilities", { mouse = true, keyboard = true })
+			w.settle()
+			scrub(w, "press", "pointer")
+			scrub(w, "begin")
+			scrub(w, "move", 24)
+			-- a capability the gesture does not use carries it
+			w.env:set("capabilities", { mouse = true, keyboard = true, gamepad = true })
+			w.settle()
+			expect(`{how} moved {w.number:peek()}`).toBe(`{how} moved 13`)
+			if how == "cancel" then
+				scrub(w, "cancel")
+			elseif how == "class" then
+				w.env:set("capabilities", { keyboard = true, gamepad = true })
+			elseif how == "off" then
+				on:set(false)
+			else
+				lock:set(true)
+			end
+			w.settle()
+			scrub(w, "move", 40)
+			scrub(w, "end")
+			expect(`{how} {w.number:peek()} {w.draft:peek()} {#w.commits}`).toBe(`{how} 10 10 0`)
+		end
+	end)
+
+	it("a caller write mid-gesture ends it and the caller's number stands", function()
+		local w = scrubWorld()
+		scrub(w, "press", "pointer")
+		scrub(w, "begin")
+		scrub(w, "move", 16)
+		w.settle()
+		expect(w.number:peek()).toBe(12)
+		w.number:set(3)
+		w.draft:set("3")
+		w.settle()
+		scrub(w, "move", 40)
+		scrub(w, "end")
+		expect(`{w.number:peek()} {w.draft:peek()} {#w.commits}`).toBe("3 3 0")
+	end)
+
+	it("disposal mid-gesture restores the snapshot; an unscrubbable press is refused", function()
+		local w = scrubWorld()
+		local handlers = w.adapter.node(PLAIN_FIELD).textHandlers
+		handlers.onScrub("press", "pointer")
+		handlers.onScrub("begin")
+		handlers.onScrub("move", 16)
+		w.close()
+		w.settle()
+		expect(`{w.number:peek()} {w.draft:peek()}`).toBe("10 10")
+		expect(handlers.onScrub("press", "pointer")).toBe(false)
+		local plain = scrubWorld({ scrub = false })
+		expect(`{scrub(plain, "press", "pointer")} {scrub(plain, "begin")}`).toBe("false false")
+		expect(numberWorld().adapter.node(PLAIN_FIELD).textHandlers.onScrub).toBeNil()
+		local ok = pcall(function()
+			plain.scoped(function()
+				return plain.UI.TextInput("T")({ value = plain.Compose.cell(""), scrub = true })
+			end)
+		end)
+		expect(ok).toBe(false)
+	end)
+end)

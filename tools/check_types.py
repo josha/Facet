@@ -231,6 +231,7 @@ _EROSION_PROBES = [
     ("Picker", 'app.controls.Picker({ options = {}, selected = Facet.Compose.cell("a"), maxHeight = "96" })'),
     ("Picker", 'app.controls.Picker("P")({ options = {}, selected = Facet.Compose.cell("a"), requiredMark = "maybe" })'),
     ("NumberInput", 'app.controls.NumberInput("Laps")({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), step = "one" })'),
+    ("NumberInput", 'app.controls.NumberInput({ value = Facet.Compose.cell("1"), numericValue = Facet.Compose.cell(1), scrub = "yes" })'),
 ]
 
 

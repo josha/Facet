@@ -1319,11 +1319,9 @@ function renderer.attach(
 					end,
 				})
 			end
-			-- text-entry seam (§17 Phase 5, TextField): the control supplies
-			-- onTextChanged/onFocusGained/onFocusLost as node props (functions,
-			-- not engine writes); the adapter wires them to the TextBox and
-			-- reports edits/focus back through them. Optional adapter method —
-			-- absent adapters degrade to a read-only field (§13 seam).
+			-- text-entry seam (§17 Phase 5, TextField): the control's handler
+			-- props (functions, not engine writes) wired by the adapter to the
+			-- TextBox. Optional; absent adapters degrade to a read-only field.
 			if
 				adapter.setTextInputHandlers ~= nil
 				and node.class == "TextField"
@@ -1345,6 +1343,7 @@ function renderer.attach(
 						end
 						else nil,
 					onFocusLost = node.props.onFocusLost,
+					onScrub = node.props.onScrub,
 					onCaretRect = if node.props.multiline == true
 						then function(rect)
 							controller.scrollToVisible(nodePath, rect)

@@ -105,6 +105,7 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"stepButtons",
 	"prefix",
 	"suffix",
+	"scrub",
 })
 
 local function build(Facet: any, core: any, spec: Spec, owner: any)
@@ -159,8 +160,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				and spec.precision == nil
 				and spec.stepButtons == nil
 				and spec.prefix == nil
-				and spec.suffix == nil,
-			"TextInput: numericValue, bounds, parse, format, step, precision, stepButtons, prefix and suffix "
+				and spec.suffix == nil
+				and spec.scrub == nil,
+			"TextInput: numericValue, bounds, parse, format, step, precision, stepButtons, prefix, suffix and scrub "
 				.. "require presentation number"
 		)
 	end
@@ -179,6 +181,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		"TextInput: precision must be a whole number of decimal places from 0 to 10"
 	)
 	assert(spec.stepButtons == nil or type(spec.stepButtons) == "boolean", "TextInput: stepButtons must be a boolean")
+	local scrubNow = read(spec.scrub)
+	assert(scrubNow == nil or type(scrubNow) == "boolean", "TextInput: scrub must be a boolean or a readable boolean")
 	for _, name in { "prefix", "suffix" } do
 		local unit = read(spec[name])
 		assert(unit == nil or type(unit) == "string", `TextInput: {name} must be a string or a readable string`)
@@ -682,6 +686,25 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		step, round, clamp, format — so pressing and typing land on the same
 		numbers. A press is a whole decision: it commits as "submit" (and reports
 		the text change) rather than leaving a draft behind. ]]
+	local function setNumber(proposed: number): boolean
+		local ok, formatted = pcall(formatNumber, proposed)
+		if disposed or disabledMemo:peek() then
+			return false
+		end
+		if not ok or type(formatted) ~= "string" then
+			rejectWith("The number could not be formatted.")
+			return false
+		end
+		validationError:set("")
+		core.reactor:batch(function()
+			spec.numericValue:set(proposed)
+			spec.value:set(formatted)
+		end)
+		if spec.onChange ~= nil then
+			spec.onChange(formatted)
+		end
+		return true
+	end
 	local function stepBy(direction: number)
 		if disposed or disabledMemo:peek() or readOnlyMemo:peek() then
 			return
@@ -694,25 +717,79 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if proposed == current or not isFinite(proposed) then
 			return
 		end
-		local ok, formatted = pcall(formatNumber, proposed)
-		if disposed or disabledMemo:peek() then
-			return
-		end
-		if not ok or type(formatted) ~= "string" then
-			rejectWith("The number could not be formatted.")
-			return
-		end
-		validationError:set("")
-		core.reactor:batch(function()
-			spec.numericValue:set(proposed)
-			spec.value:set(formatted)
-		end)
-		if spec.onChange ~= nil then
-			spec.onChange(formatted)
-		end
-		if not disposed and spec.onCommit ~= nil then
+		if setNumber(proposed) and not disposed and spec.onCommit ~= nil then
 			spec.onCommit(proposed :: any, "submit" :: any)
 		end
+	end
+	--[[ A SCRUB: a horizontal drag across the editor, reported by the adapter as
+		press -> begin (past the slop) -> move(total travel px) -> end | cancel.
+		The number moves by whole steps of the TOTAL travel through the step
+		press's own arithmetic, the edit the press opened ends without a commit,
+		and release commits once. A caller write mid-gesture ends it and wins. ]]
+	local SCRUB_PX_PER_STEP = 8
+	local scrubPress: any = nil -- the snapshot an eligible press took
+	local scrubbing: any = nil -- the promoted gesture: that snapshot and the last number written
+	local function scrubAllowed(): boolean
+		return not disposed and read(spec.scrub) == true and not disabledMemo:peek() and not readOnlyMemo:peek()
+	end
+	local function endScrub(restore: boolean)
+		local gesture = scrubbing
+		scrubbing = nil
+		if gesture ~= nil and restore then
+			core.reactor:batch(function()
+				spec.numericValue:set(gesture.number)
+				spec.value:set(gesture.text)
+			end)
+		end
+	end
+	local function onScrub(phase: string, arg: any): boolean
+		if phase == "press" then
+			scrubPress = if scrubAllowed()
+				then { number = spec.numericValue:peek(), text = read(spec.value), class = arg }
+				else nil
+			return scrubPress ~= nil
+		elseif phase == "begin" then
+			if scrubPress == nil or not scrubAllowed() then
+				return false
+			end
+			scrubbing, scrubPress = scrubPress, nil
+			scrubbing.last = spec.numericValue:peek()
+			endEditing()
+			if read(spec.value) ~= scrubbing.text then
+				spec.value:set(scrubbing.text)
+			end
+			return true
+		elseif scrubbing == nil then
+			return false
+		elseif phase == "move" then
+			local proposed = clampNumber(roundTo(scrubbing.number + math.round(arg / SCRUB_PX_PER_STEP) * stepSize))
+			if proposed ~= spec.numericValue:peek() and isFinite(proposed) then
+				scrubbing.last = proposed
+				setNumber(proposed)
+			end
+		elseif phase == "end" then
+			endScrub(false)
+			if spec.onCommit ~= nil then
+				spec.onCommit(spec.numericValue:peek() :: any, "submit" :: any)
+			end
+		else
+			endScrub(true)
+		end
+		return true
+	end
+	if presentation == "number" and spec.scrub ~= nil then
+		owner.watch(function(use)
+			local number = read(spec.numericValue, use)
+			local classes = use(env:get("interactionClasses"))
+			local off = read(spec.scrub, use) ~= true or use(disabledMemo) or use(readOnlyMemo)
+			if scrubbing == nil then
+				return
+			elseif number ~= scrubbing.last then
+				scrubbing = nil -- the caller wrote: its number stands
+			elseif off or (type(classes) == "table" and classes[scrubbing.class] ~= true) then
+				endScrub(true)
+			end
+		end)
 	end
 	local function clearValue()
 		if disabledMemo:peek() then
@@ -998,6 +1075,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				onTextChanged = onTextChanged,
 				onFocusGained = onFocusGained,
 				onFocusLost = onFocusLost,
+				onScrub = if presentation == "number" and spec.scrub ~= nil then onScrub else nil,
 			}),
 
 			Compose.show(clearVisible, clearButtonView),
@@ -1203,6 +1281,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			if disposed then
 				return
 			end
+			endScrub(true)
 			endEditing()
 			disposed = true
 			if shaking ~= nil then

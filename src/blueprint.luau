@@ -487,6 +487,7 @@ export type TextFieldSpec = BoxProps & {
 	onTextChanged: ((text: string) -> ())?,
 	onFocusGained: ((path: string) -> ())?,
 	onFocusLost: ((reason: string) -> ())?,
+	onScrub: ((phase: string, arg: any?) -> boolean)?,
 }
 
 export type GripSpec = BoxProps & PointerHandlers & {
