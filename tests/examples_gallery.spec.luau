@@ -4040,3 +4040,25 @@ describe("examples/gallery fixture: the Slider shapes in Basics", function()
 		)
 	end
 end)
+
+describe("examples/gallery fixture: Choices' picker fields and cards", function()
+	it("the driver error and the wrapping cards answer with the screen", function()
+		local w = require("./lib/world").new({
+			viewport = { x = 0, y = 0, w = 390, h = 3000 },
+			overflowGuardOff = "a scrolled gallery screen reports 8px scroll-gutter findings on its fill rows "
+				.. "(pre-existing, reproduced on the base Writing screen); the sweeps own containment here",
+		})
+		local built = require("../examples/gallery/scenarios/selection_controls").build(scenario_ctx.of(w))
+		w.present(built.screen)
+		built.handle = w.handle
+		local failed = built.steps.driverError(built)
+		expect(`{failed.error} {failed.mark} {failed.line}`).toBe("Pick a driver to continue. true true")
+		local cleared = built.steps.driverError(built)
+		expect(`{cleared.mark} {cleared.line}`).toBe("false true")
+		local wrap = built.steps.modeWrap(built)
+		expect(`{wrap.rows > 1} {wrap.inside}`).toBe("true true")
+		expect(built.report().driver.style).toBe("menu")
+		expect(w.core.lastError()).toBeNil()
+		w.close()
+	end)
+end)
