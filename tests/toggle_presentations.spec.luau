@@ -57,6 +57,43 @@ t.describe("Toggle presentations", function()
 	end
 end)
 
+t.describe("Toggle switch paint", function()
+	-- Owner report 2026-09-22 (bugs/toggle.png): the row's switch wore its own
+	-- control plate, darker than the selected row at rest and equal to the row's
+	-- hover fill, so the highlight read inverted. A switch paints no plate.
+	t.it("a switch, bare or in a settings row, wears no surface plate", function()
+		local core = harness.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 400 })
+		local value = Compose.cell(true)
+		local bare = harness.Controls.Toggle(core, { id = "Bare", label = "Bare", value = value })
+		local row = harness.Controls.Toggle(core, {
+			id = "Row",
+			label = "Driving assistance",
+			value = value,
+			row = { description = "Keep the car stable", icon = "settings" },
+		})
+		local adapter = fakeTarget.new()
+		local pres = harness.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		pres.present(harness.UI.Screen({ id = "S", children = { bare.blueprint, row.blueprint } }))
+		pres.refresh()
+		local seen = {}
+		for _, path in adapter.paths() do
+			if adapter.node(path).class == "Toggle" then
+				local plate = "none"
+				for _, tag in adapter.tagsOf(path) do
+					if string.sub(tag, 1, 14) == "facet-surface-" then
+						plate = tag
+					end
+				end
+				table.insert(seen, `{string.match(path, "^/S/(%a+)")}={plate}`)
+			end
+		end
+		table.sort(seen)
+		t.expect(table.concat(seen, " ")).toBe("Bare=none Row=none")
+	end)
+end)
+
 t.describe("Toggle model approval", function()
 	local worlds = {}
 	t.afterEach(function()

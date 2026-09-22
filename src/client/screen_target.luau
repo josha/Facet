@@ -1523,13 +1523,12 @@ function screen_target.new(opts: Opts?)
 			end
 		elseif class == "Toggle" and instance:IsA("TextButton") then
 			instance.AutoButtonColor = false
+			-- A switch paints no plate: its track and knob are the affordance, and a
+			-- plate inside a settings row read darker than the row at rest and
+			-- vanished into its hover fill (owner ruling 2026-09-22).
 			if nativeMode then
-				handle.nativeSurface = "control"
 				handle.nativeInteractive = true
 				syncTags(handle)
-				wireNativePressDip(instance, handle)
-			else
-				wireInteractiveStates(instance, handle)
 			end
 			buildToggleVisual(instance, handle)
 		elseif class == "TextField" and instance:IsA("TextBox") then

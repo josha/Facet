@@ -593,8 +593,9 @@ function fake_target.new(opts: Opts?)
 		}
 		if class == "Button" or class == "Toggle" then
 			-- the class default the live adapter takes at CREATE: control chrome plus
-			-- interaction states, both from the sheet (screen_target's create branch)
-			node.tagState = { surface = "control", interactive = true }
+			-- interaction states, both from the sheet (screen_target's create branch);
+			-- a switch has no plate
+			node.tagState = { surface = if class == "Button" then "control" else nil, interactive = true }
 			node.tags = {}
 			syncFakeTags(node)
 		end
