@@ -11,6 +11,7 @@ local rectLib = require("../rect")
 local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
+local textFit = require("../layout/text_fit")
 local fieldChrome = require("./field_chrome")
 local vocabulary = require("./control_vocabulary")
 
@@ -92,6 +93,8 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"controlSize",
 	"appearance",
 	"corners",
+	"readOnly",
+	"visibleLines",
 })
 
 local function build(Facet: any, core: any, spec: Spec, owner: any)
@@ -146,6 +149,24 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		)
 	end
 	fieldChrome.assertSpec("UI.TextInput", spec)
+	local readOnlyNow = read(spec.readOnly)
+	assert(
+		readOnlyNow == nil or type(readOnlyNow) == "boolean",
+		"UI.TextInput: readOnly must be a boolean or a readable boolean"
+	)
+	-- a line count is a multiline fact: on a single-line field it would change nothing
+	assert(
+		spec.visibleLines == nil
+			or (
+				spec.multiline == true
+				and type(spec.visibleLines) == "number"
+				and spec.visibleLines >= 1
+				and spec.visibleLines < math.huge
+				and spec.visibleLines % 1 == 0
+			),
+		"UI.TextInput: visibleLines must be a whole count of at least 1, on a multiline field "
+			.. "(how many lines the editor shows at once; past them it scrolls)"
+	)
 	-- a search field already leads with its own mark; a second one beside it would
 	-- read as part of the first
 	assert(
@@ -311,6 +332,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local enabledMemo = Compose.formula(function(use)
 		return not use(disabledMemo)
 	end)
+	--[[ READ-BUT-DO-NOT-WRITE. Not `enabled = false`: the field keeps its focus
+		stop, caret, selection and full contrast. The engine refuses the keystroke
+		(`TextEditable`); the model refuses too, so no route slips past. ]]
+	local readOnlyMemo = Compose.formula(function(use)
+		return read(spec.readOnly, use) == true
+	end)
 	local clearMode = spec.clearButtonMode
 		or (if spec.clearButton or presentation == "search" then "always" else "never")
 	if CLEAR_MODES[clearMode] == nil then
@@ -324,7 +351,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if clearMode == "never" then
 			return false
 		end
-		if use(disabledMemo) then
+		-- a read-only field offers nothing that would change its value
+		if use(disabledMemo) or use(readOnlyMemo) then
 			return false
 		end
 		if read(spec.value, use) == "" then
@@ -383,7 +411,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		end)
 	end
 	local function applyProposed(proposed: string): boolean
-		if disposed or disabledMemo:peek() then
+		if disposed or disabledMemo:peek() or readOnlyMemo:peek() then
 			return false
 		end
 		if utf8.len(proposed) == nil then
@@ -447,6 +475,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	end)
 	local function commit(reason: string)
 		if disposed or disabledMemo:peek() or not editing:peek() then
+			return
+		end
+		if readOnlyMemo:peek() then
+			-- nothing could have changed: leaving the edit is the whole of it, and an
+			-- onCommit here would be a false report
+			endEditing()
 			return
 		end
 
@@ -740,6 +774,20 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			local raw = use(env:get("themeMetrics"))
 			local metrics = if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
 			local height = metrics.controls.textInput.multilineHeight
+			if spec.visibleLines ~= nil then
+				--[[ N lines of the field's own `control` typography plus the skin's
+					field inset (the viewport is the plate minus that inset), so a text
+					preference or ladder grows the box with its words. Past N the box
+					holds and the editor scrolls inside it. ]]
+				local facts = textFit.facts({ env = env, use = use })
+				local inset = metrics.chromeInsets and metrics.chromeInsets.field
+				height = textFit.lineBox({
+					facts = facts,
+					size = "control",
+					lines = spec.visibleLines,
+					role = "control",
+				}) + (if inset then inset.top + inset.bottom else 0)
+			end
 			local occlusion = use(env:get("keyboardOcclusionRect"))
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
@@ -779,6 +827,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				enabled = enabledMemo,
 				focusable = enabledMemo,
 				maxLength = spec.maxLength,
+				editable = Compose.formula(function(use)
+					return not use(readOnlyMemo)
+				end),
 				keyboardType = spec.keyboardType or "default",
 				width = { type = "fill", weight = 1 },
 				height = if spec.multiline
@@ -899,6 +950,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			occlusionOffset = keepVisibleOffset:peek(),
 			keyboardType = spec.keyboardType or "default",
 			submitLabel = spec.submitLabel or "default",
+			readOnly = readOnlyMemo:peek(),
+			visibleLines = spec.visibleLines,
 		}
 		chrome.dumpInto(out)
 		return out

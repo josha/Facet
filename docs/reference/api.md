@@ -2299,7 +2299,7 @@ hover and focus only, nothing on touch (see `Text`'s `help`).
 
 ### `TextField`
 
-`UI.TextField{ id?, text?, placeholder?, editing?, enabled?, focusable?,
+`UI.TextField{ id?, text?, placeholder?, editing?, enabled?, editable?, focusable?,
 maxLength?, keyboardType?, multiline?, surface?, help?, padding?, textSize?,
 traversalPriority?, onTextChanged?, onFocusGained?, onFocusLost? }` —
 the text-entry leaf primitive the renderer maps to an engine `TextBox`. All of
@@ -2314,7 +2314,7 @@ through the optional `setTextInputHandlers(handle, handlers)` seam
 `reason ∈ "enter" | "focusLost" | "cancel"`; `path` is the focused node's full
 path — engine-initiated focus must deliver it so occlusion keep-visible works
 without a prior activate). The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `UI.TextInput`
-composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
+composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `editable = false` is the engine's own read-only mode (`TextEditable`), default true: the field stays focusable, selectable and at full contrast but refuses every edit; the adapter composes it with `enabled`, so a field is editable only when both allow it. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
 
 ### `UI.NavigationStack`
 
@@ -9748,6 +9748,8 @@ geometry, and theme styling.
 | `controlSize` | `"compact"`, `"regular"`, or `"large"`: the theme ladder's height and inset. A named rung reserves the full touch target around the plate; an authored `height` wins, and multiline keeps its line-based height. |
 | `appearance` | `"standard"` (default chip plate), `"contrast"` (control plate) or `"utility"` (no plate). Bound words repaint in place; a word outside the set is refused and the last legal paint stays. |
 | `corners` | Construction-time `"pill"` or `"square"`; absent keeps the theme radius. |
+| `readOnly` | Boolean or readable boolean, default false. True keeps the field focusable, selectable, at full contrast and able to show a caret, but the engine and the model refuse every edit; the clear affordance is not offered and leaving the field commits nothing. Live changes keep the same editor and edit. |
+| `visibleLines` | Multiline only: a construction-time whole count of at least 1. The viewport is that many lines of the field's `control` typography plus the skin's field inset, still capped to the keyboard-free area while editing; past it the text scrolls inside a box that holds still. An authored `height` wins. |
 
 Single-line Enter commits. Multiline Enter inserts a newline; use `api.submit()`
 for explicit submission. Focus loss commits through the same validation path.
@@ -9788,7 +9790,8 @@ presentation mounts its plate at `<id>/Input` inside a vertical stack
 (`<id>/Label` above, `<id>/Message` below); accessories put the editor and clear
 inside `<plate>/Row`, and a named `controlSize` puts the plate inside
 `<plate id>+target`. `dump()` also reports label, requiredMark, hint, errorText,
-hasError, controlSize, appearance, corners, leading and trailing.
+hasError, controlSize, appearance, corners, leading, trailing, readOnly and
+visibleLines.
 
 ```lua
 local app = Facet.new()

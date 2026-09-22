@@ -40,5 +40,9 @@ export type Spec<V = StringCell> = {
 	controlSize: blueprint.Bound<("compact" | "regular" | "large")?>?,
 	appearance: blueprint.Bound<("standard" | "contrast" | "utility")?>?,
 	corners: ("pill" | "square")?,
+	-- focusable, selectable and full contrast, accepting no edit; not `enabled = false`
+	readOnly: blueprint.Bound<boolean>?,
+	-- multiline only: lines shown at once; past them the editor scrolls
+	visibleLines: number?,
 }
 return nil

@@ -1142,3 +1142,217 @@ describe("TextInput: the invalid shake", function()
 		end
 	end)
 end)
+
+--[[ READ-BUT-DO-NOT-WRITE, and A BOX MEASURED IN LINES, through the public
+	`app.controls` constructor. Read-only is proved by typing at the engine seam
+	and finding the value where it was; the line count by the solved box. ]]
+local appWorld = require("./lib/world")
+
+local function publicField(spec: any, opts: any?): any
+	local w = appWorld.new(opts or { ops = true, viewport = { x = 0, y = 0, w = 600, h = 800 } })
+	local merged: any = { value = w.Compose.cell("Ada") }
+	for key, entry in spec do
+		merged[key] = entry
+	end
+	w.value = merged.value
+	w.present(function()
+		return w.UI.Screen("S")({ w.UI.TextInput("Name")(merged) })
+	end, { sinkNavigation = true })
+	return w
+end
+
+local function remounts(ops: { string }): number
+	local count = 0
+	for _, op in ops do
+		if string.sub(op, 1, 6) == "create" or string.sub(op, 1, 6) == "remove" then
+			count += 1
+		end
+	end
+	return count
+end
+
+describe("TextInput: readOnly", function()
+	it("a read-only field keeps its stop, caret and contrast, refuses every edit and commits nothing", function()
+		local commits = 0
+		local w = publicField({
+			readOnly = true,
+			clearButtonMode = "always",
+			onCommit = function()
+				commits += 1
+			end,
+		})
+		local node = w.adapter.node(FIELD)
+		expect(`{node.props.editable} {node.props.enabled}`).toBe("false true")
+		local traversal: { string } = {}
+		for _, entry in w.handle.focusOrder().traversal do
+			table.insert(traversal, tostring(entry.path))
+		end
+		expect(table.concat(traversal, " ")).toBe(FIELD)
+		expect(w.adapter.node(CLEAR)).toBeNil()
+		w.adapter.tap(FIELD)
+		w.adapter.focusText(FIELD)
+		w.settle()
+		expect(w.adapter.node(FIELD).props.editing).toBe(true)
+		w.adapter.typeText(FIELD, "xyz")
+		w.adapter.pasteText(FIELD, "xyz")
+		w.adapter.commitText(FIELD)
+		w.settle()
+		expect(`{w.value:peek()} {commits}`).toBe("Ada 0")
+		expect(w.adapter.node(FIELD).props.editing).toBe(false)
+	end)
+
+	it("a function readOnly flips live on the same editor, keeping the draft and the edit", function()
+		local lock = Compose.cell(false)
+		local w = publicField({
+			readOnly = function(use)
+				return use(lock)
+			end,
+		})
+		w.adapter.tap(FIELD)
+		w.adapter.focusText(FIELD)
+		w.adapter.typeText(FIELD, "!")
+		w.settle()
+		expect(w.value:peek()).toBe("Ada!")
+		w.adapter.takeOps()
+		lock:set(true)
+		w.settle()
+		expect(w.adapter.node(FIELD).props.editable).toBe(false)
+		expect(`remounts {remounts(w.adapter.takeOps())}`).toBe("remounts 0")
+		expect(w.adapter.node(FIELD).props.editing).toBe(true)
+		w.adapter.typeText(FIELD, "?")
+		expect(w.value:peek()).toBe("Ada!")
+		lock:set(false)
+		w.settle()
+		w.adapter.typeText(FIELD, "?")
+		expect(w.value:peek()).toBe("Ada!?")
+		expect(w.core.lastError()).toBeNil()
+	end)
+
+	it("enabled and editable compose onto TextEditable in either order, and a reused field recovers", function()
+		local luau = require("@lune/luau")
+		local fs = require("@lune/fs")
+		local stub = setmetatable({}, {
+			__index = function()
+				return {}
+			end,
+		})
+		local screenProps = luau.load(fs.readFile("src/client/screen_props.luau"), {
+			injectGlobals = true,
+			environment = {
+				require = function()
+					return stub
+				end,
+			},
+		})()
+		local ctx = setmetatable({ nativeMode = true, style = { extra = {} }, palette = {} }, {
+			__index = function()
+				return function() end
+			end,
+		})
+		local props = screenProps.new(ctx)
+		local function field(): (any, any)
+			local store: any = { TextEditable = true }
+			local instance = setmetatable({}, {
+				__index = function(_, key)
+					if key == "IsA" then
+						return function(_, class)
+							return class == "TextBox"
+						end
+					end
+					return store[key]
+				end,
+				__newindex = function(_, key, value)
+					store[key] = value
+				end,
+			})
+			return { instance = instance, class = "TextField", path = "/S/F" }, store
+		end
+		local function set(handle: any, prop: string, value: boolean)
+			props.setProp(handle, prop, value, "binding")
+		end
+		for _, order in { { "enabled", "editable" }, { "editable", "enabled" } } do
+			local handle, store = field()
+			local values = { enabled = true, editable = false }
+			for _, prop in order do
+				set(handle, prop, values[prop])
+			end
+			expect(`{order[1]} first: {store.TextEditable}`).toBe(`{order[1]} first: false`)
+			-- a disabled read-only field stays uneditable when either half recovers
+			set(handle, "enabled", false)
+			set(handle, "editable", true)
+			expect(store.TextEditable).toBe(false)
+			set(handle, "enabled", true)
+			expect(store.TextEditable).toBe(true)
+		end
+		-- a pooled read-only handle adopted by an ordinary field gets editable=true
+		local handle, store = field()
+		set(handle, "enabled", true)
+		set(handle, "editable", false)
+		set(handle, "editable", true)
+		set(handle, "enabled", true)
+		expect(store.TextEditable).toBe(true)
+	end)
+
+	it("readOnly refuses anything but a boolean", function()
+		local w = appWorld.new()
+		local ok = pcall(function()
+			w.scoped(function()
+				return w.UI.TextInput("Name")({ value = w.Compose.cell(""), readOnly = "yes" })
+			end)
+		end)
+		expect(ok).toBe(false)
+	end)
+end)
+
+describe("TextInput: visibleLines", function()
+	local PLATE, EDITOR = "/S/Name", "/S/Name/Viewport/Field"
+	local function lines(count: number?, extra: any?): any
+		local spec: any = { multiline = true, visibleLines = count }
+		for key, entry in extra or {} do
+			spec[key] = entry
+		end
+		return publicField(spec)
+	end
+
+	it("the box is the count of lines it was told; one line is shorter and still multiline", function()
+		local one, three, five = lines(1), lines(3), lines(5)
+		local h1, h3, h5 =
+			one.adapter.node(PLATE).rect.h, three.adapter.node(PLATE).rect.h, five.adapter.node(PLATE).rect.h
+		expect(`{h1 < h3} {h3 < h5}`).toBe("true true")
+		expect(one.adapter.node(EDITOR).props.multiline).toBe(true)
+	end)
+
+	it("past the count the box holds still while the editor grows inside it, on the same editor", function()
+		local w = lines(3)
+		local plate, editor = w.adapter.node(PLATE).rect.h, w.adapter.node(EDITOR).rect.h
+		w.adapter.takeOps()
+		w.value:set(string.rep("a line of notes\n", 20))
+		w.settle(2)
+		expect(w.adapter.node(PLATE).rect.h).toBe(plate)
+		expect(w.adapter.node(EDITOR).rect.h > editor).toBe(true)
+		expect(`remounts {remounts(w.adapter.takeOps())}`).toBe("remounts 0")
+	end)
+
+	it("an authored height wins", function()
+		local w = lines(3, { height = { type = "fixed", px = 200 } })
+		expect(w.adapter.node(PLATE).rect.h).toBe(200)
+	end)
+
+	it("a line count is a multiline fact and a whole number of at least one", function()
+		local w = appWorld.new()
+		for _, bad in
+			{ { visibleLines = 3 }, { multiline = true, visibleLines = 0 }, { multiline = true, visibleLines = 1.5 } }
+		do
+			local ok = pcall(function()
+				w.scoped(function()
+					local spec: any = { value = w.Compose.cell("") }
+					for key, entry in bad do
+						spec[key] = entry
+					end
+					return w.UI.TextInput("Name")(spec)
+				end)
+			end)
+			expect(ok).toBe(false)
+		end
+	end)
+end)

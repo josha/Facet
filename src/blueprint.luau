@@ -478,6 +478,7 @@ export type TextFieldSpec = BoxProps & {
 	textSize: BoundEither<number, TypeRole>?,
 	maxLength: Bound<number>?,
 	keyboardType: Bound<string>?,
+	editable: Bound<boolean>?,
 	-- one sentence about what this view does, shown on POINTER HOVER (after a
 	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
 	-- see blueprint_schema's HELP. Construction-only, like `disclose`

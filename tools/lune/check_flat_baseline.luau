@@ -1243,6 +1243,14 @@ local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = 
 -- so the rule survives a legitimate new prop without going blind to a wrong one.
 local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, class: string?, path: string?, why: string } } = {
 	{
+		prop = "editable",
+		value = "true",
+		class = "TextField",
+		why = "The text-entry leaf's read-only mode (TextInput `readOnly`) is the engine's own TextEditable. "
+			.. "Every field without the key is editable=true, the value the engine creates a TextBox with, so "
+			.. "the prop is new on the node and nothing it decides moved. No rect, hit rect or class changes.",
+	},
+	{
 		prop = "surface",
 		value = "plain",
 		class = "TextField",

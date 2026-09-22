@@ -25,6 +25,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.TextInput{ readOnly }` keeps a field focusable, selectable and at full
+  contrast while refusing every edit through the engine and the model (no clear
+  affordance, no commit report). `visibleLines` sizes a multiline viewport as
+  that many lines plus the field inset. The primitive gains
+  `UI.TextField{ editable }` (default true), composed with `enabled` onto the
+  engine's `TextEditable`.
+
 - `UI.TextInput` wears the shared field chrome: `label` (a tap focuses the
   field; no extra focus stop), `requiredMark` notation, one `hint`/`errorText`
   message line with the `status.error` mark, `leading`/`trailing` accessories

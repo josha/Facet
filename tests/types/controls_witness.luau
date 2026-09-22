@@ -282,6 +282,14 @@ local _fieldChrome = app.controls.TextInput({
 	appearance = "contrast",
 	corners = "pill",
 })
+local _readOnlyNotes = app.controls.TextInput("Notes")({
+	value = Facet.Compose.cell(""),
+	multiline = true,
+	visibleLines = 3,
+	readOnly = function(_use)
+		return true
+	end,
+})
 local _numericText = app.controls.TextInput("Number")({
 	value = Facet.Compose.cell("1"),
 	numericValue = Facet.Compose.cell(1),

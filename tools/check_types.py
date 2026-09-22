@@ -223,6 +223,7 @@ _EROSION_PROBES = [
     ("Button", 'app.controls.Button("Tracked")({ label = function(use) return tostring(use(42)) end })'),
     ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), appearance = "emphasis" })'),
     ("TextInput", 'app.controls.TextInput("Field")({ value = Facet.Compose.cell(""), requiredMark = "maybe" })'),
+    ("TextInput", 'app.controls.TextInput({ value = Facet.Compose.cell(""), readOnly = "yes" })'),
 ]
 
 

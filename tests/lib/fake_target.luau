@@ -48,6 +48,8 @@ local HANDLED_PROPS: { string } = {
 	"editing",
 	"maxLength",
 	"keyboardType",
+	-- the engine's read-only mode on the text-entry leaf
+	"editable",
 	"multiline",
 	-- the scroll host's FREEZE: one engine boolean (`ScrollingEnabled`) on the
 	-- host's own instance, written like `active` is — its CANVAS is a separate,
@@ -2873,9 +2875,14 @@ function fake_target.new(opts: Opts?)
 	end
 	-- type per grapheme, firing onTextChanged with the full engine buffer each
 	-- step (mirrors TextBox.Text changing as the user types)
+	-- the engine refuses the keystroke itself when TextEditable is false (read-only
+	-- or disabled), so no text-changed report is made: the fake refuses there too
+	local function editableNow(node: any): boolean
+		return node.props.editable ~= false and node.props.enabled ~= false
+	end
 	function adapter.typeText(path: string, str: string)
 		local node = nodes[path]
-		if node == nil or node.textHandlers == nil then
+		if node == nil or node.textHandlers == nil or not editableNow(node) then
 			return
 		end
 		for _, g in graphemes(str) do
@@ -2888,7 +2895,7 @@ function fake_target.new(opts: Opts?)
 	-- paste idiom: one onTextChanged with a multi-grapheme delta appended
 	function adapter.pasteText(path: string, str: string)
 		local node = nodes[path]
-		if node == nil or node.textHandlers == nil then
+		if node == nil or node.textHandlers == nil or not editableNow(node) then
 			return
 		end
 		node.textBuffer = (node.textBuffer or "") .. str

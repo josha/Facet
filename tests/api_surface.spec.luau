@@ -286,6 +286,9 @@ describe("the public SHAPE a breaking change moves", function()
 		-- the freeze defaults OFF — a scroller a player can move is today's
 		-- behaviour and the engine's own `ScrollingEnabled`
 		["ScrollView.scrollEnabled"] = "true",
+		-- the text-entry leaf's read-only mode: default true, so every field without
+		-- it is unchanged (recorded in CHANGELOG.md with TextInput `readOnly`)
+		["TextField.editable"] = "prose:ne's own read-only mode); default true",
 		-- ABSENT is the default, and it is NOT `"auto"`: absent writes nothing and
 		-- leaves the engine's class default standing
 		["Text.direction"] = "prose:t leaves the engine's own default, which is not the s",

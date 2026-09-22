@@ -3142,6 +3142,19 @@ class("TextField", {
 			channel = "binding",
 			doc = "best-effort engine length hint (validation still enforces it)",
 		}),
+		--[[ READ-BUT-DO-NOT-WRITE: the engine's own `TextEditable`. Unlike
+			`enabled = false` the field stays focusable, selectable and at full
+			contrast. The model alone cannot refuse an edit without the typed
+			character showing until a commit, so the engine does it; the adapter
+			composes this with `enabled` onto that one property. ]]
+		editable = p({
+			types = { "boolean" },
+			reactive = true,
+			dirty = { "semantics" },
+			channel = "binding",
+			doc = "false keeps the field focusable, selectable and readable but refuses every edit "
+				.. "(the engine's own read-only mode); default true",
+		}),
 		keyboardType = p({
 			types = { "string" },
 			reactive = true,
