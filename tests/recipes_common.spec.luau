@@ -123,10 +123,14 @@ t.describe("public composition recipes", function()
 				rect(w, "/DividerTrailing/Pad/Line"),
 				rect(w, "/DividerBoth/Pad/Line"),
 				rect(w, "/DividerHeavy/Pad/Line")
-			t.expect(l.x).toBe(f.x + metrics.space.m)
+			-- Owner report 2026-09-22 (bugs/divider.png): each line sits under a
+			-- representative icon row, so a leading inset visibly starts at the text
+			local text = rect(w, "/DividerLeading/Row/Title")
+			t.expect(l.x).toBe(text.x)
+			t.expect(l.x - f.x).toBe(metrics.controlSizes.regular.iconSize + metrics.controls.label.gap)
 			t.expect(l.x + l.w).toBe(f.x + f.w)
 			t.expect(r.x).toBe(f.x)
-			t.expect(r.x + r.w).toBe(f.x + f.w - metrics.space.m)
+			t.expect(r.x + r.w).toBe(f.x + f.w - metrics.space.xl)
 			t.expect(b.x).toBe(l.x)
 			t.expect(b.x + b.w).toBe(r.x + r.w)
 			t.expect(f.h).toBe(metrics.strokes.hairline)

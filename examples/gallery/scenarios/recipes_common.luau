@@ -129,16 +129,20 @@ return {
 				table.unpack(children),
 			})
 		end
+		-- Each line sits under a representative icon row, so a leading inset visibly
+		-- starts where the row's text does: the Label's icon box plus its gap.
+		local TEXT_INSET = { "controlSizes.regular.iconSize", "controls.label.gap" }
 		local function dividerExample(id: string, name: string, sides: any, thickness: number?): any
 			return UI.VStack(id)({
 				width = UI.fill(),
 				gap = "xs",
 
-				UI.Text("Label")({
-					text = name,
-					textSize = "caption",
-					role = "secondary",
+				UI.HStack("Row")({
 					width = UI.fill(),
+					gap = "controls.label.gap",
+					align = "center",
+					UI.Label("Icon")({ title = name, icon = "settings", presentation = "iconOnly" }),
+					UI.Text("Title")({ text = name, width = UI.fill() }),
 				}),
 				UI.VStack("Pad")({
 					width = UI.fill(),
@@ -362,11 +366,11 @@ return {
 				}),
 
 				heading("DividerHeading", "Divider insets"),
-				dividerExample("DividerFull", "Full", 0),
-				dividerExample("DividerLeading", "Leading inset", { left = "m" }),
-				dividerExample("DividerTrailing", "Trailing inset", { right = "m" }),
-				dividerExample("DividerBoth", "Leading and trailing", { left = "m", right = "m" }),
-				dividerExample("DividerHeavy", "Heavy", 0, 3),
+				dividerExample("DividerFull", "Full width", 0),
+				dividerExample("DividerLeading", "Leading inset: starts at the text", { left = TEXT_INSET }),
+				dividerExample("DividerTrailing", "Trailing inset: stops short", { right = "xl" }),
+				dividerExample("DividerBoth", "Leading and trailing", { left = TEXT_INSET, right = "xl" }),
+				dividerExample("DividerHeavy", "Heavy: 3 px", 0, 3),
 
 				heading("AccordionHeading", "Single-open accordion"),
 				UI.VStack("Accordion")({
