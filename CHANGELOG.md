@@ -25,6 +25,33 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **Every stroke sits inside its box.** Theme hairlines (raised, chip, field,
+  `utility`) and authored `UI.stroke` borders set
+  `BorderStrokePosition = Inner`, so a scroll clip no longer cuts them, and the
+  node's padding on each side is at least the stroke's thickness. A stroked
+  container that had no padding (a raised menu card, a field plate) now insets
+  its content by its hairline (1 px under Facet Neutral).
+- **Toggle loses its plate.** A switch, bare or in a settings row, paints no
+  surface plate and takes no press dip, and a theme package's `control` slot art
+  no longer paints Toggles (`CONTROL_CLASSES` is Button only). A settings row
+  wears the `control` frame, so its content lines up with Button and Slider
+  rows in every theme.
+- Slider row content inset changed from 16 to 12 px, matching the other rows.
+- A labelled `menu` Picker is a field (title above, trigger at the leading edge)
+  at a regular or wider size class under a pointer or pad; the popover counts
+  avatar, icon, meta and badge when it sizes to its widest row, never lists
+  fewer than one visible row under `maxHeight`, and stops warning about an
+  ignored `offsetY`. The hint/error line is released by the picker's dispose.
+- NumberInput: without `precision`, a step button or scrub rounds to the decimal
+  places of `step` and `min` (three presses of 0.1 hold 0.3); a scrub over a
+  typed, uncommitted draft discards the draft and starts from the committed
+  number. A touch on a field with nothing to select or scrub adds no listener;
+  a mouse press whose release was lost no longer blocks the next scrub.
+- The arrow that moves focus onto a slider is not also a value step; a range
+  thumb stopped by `minGap` keeps the arrow instead of passing focus.
+- A plain icon name outside the vocabulary draws a dot and warns once per name,
+  naming the near miss (`search` → `facet:search`).
+
 - **Breaking — `UI.Chip` removal is edit mode.** A tag selects and shows no
   close mark by default. The new `editing` (boolean or readable boolean,
   required with `onRemove` on a selectable chip) shows the mark inside the tag's
