@@ -1096,6 +1096,54 @@ describe("Slider axis: a vertical track runs bottom to top", function()
 	end)
 end)
 
+describe("Slider axis: the press that lands focus is not a value step", function()
+	it("Up onto a vertical slider moves the ring only; the next Up steps it", function()
+		for _, key in { "Up", "DPadUp" } do
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local adapter = fake_target.new({ ops = true })
+			local system = actionsLib.newSystem(core)
+			local pres = presenterLib.new(core, env, adapter, system, { keyboardNavigation = true })
+			local rear, boost = Compose.cell(50), Compose.cell(50)
+			local vertical = harness.Controls.Slider(
+				core,
+				{ id = "Rear", label = "Rear", value = rear, min = 0, max = 100, step = 10, axis = "y" }
+			)
+			local horizontal = harness.Controls.Slider(
+				core,
+				{ id = "Boost", label = "Boost", value = boost, min = 0, max = 100, step = 10 }
+			)
+			pres.present(UI.Screen({ id = "S", children = { vertical.blueprint, horizontal.blueprint } }))
+			pres.refresh()
+			local function tap(code: string)
+				system.deviceKey(code, true)
+				pres.refresh()
+				system.deviceKey(code, false)
+				pres.refresh()
+			end
+			-- the engine hands a key HELD when its binding is made to that binding
+			-- (native F5: one Up moved the ring AND stepped Rear); the headless model
+			-- does not, so the engine's delivery is replayed as a second down
+			pres.focus.focusOn("/S/Boost/TrackHost/Track")
+			pres.refresh()
+			system.deviceKey(key, true)
+			pres.refresh()
+			system.deviceKey(key, true)
+			pres.refresh()
+			system.deviceKey(key, false)
+			pres.refresh()
+			local ring = tostring(pres.focus.focused:peek())
+			expect(`{key} landed {string.find(ring, "/S/Rear", 1, true) ~= nil} {rear:peek()}`).toBe(
+				`{key} landed true 50`
+			)
+			tap(key)
+			expect(`{key} next {rear:peek()}`).toBe(`{key} next 60`)
+		end
+	end)
+end)
+
 describe("Slider rotation: the painted angle and the pointer share one conversion", function()
 	--[[ `rotation` is PAINT-ONLY about the node's centre, so the solver hands back
 		the unrotated rect and the renderer can answer nothing about where the
@@ -1206,6 +1254,17 @@ describe("Slider range: two thumbs, one track, and they never cross", function()
 		pres.refresh()
 		adapter.pointerUp(track.x + track.w, track.y + track.h / 2)
 		expect(`{value:peek().lower}/{value:peek().upper}`).toBe("50/60")
+	end)
+
+	it("an arrow a thumb cannot use against its partner keeps the ring on that thumb", function()
+		local _, _, system, pres, value = mountRange({ minGap = 10 })
+		value:set({ lower = 50, upper = 60 })
+		pres.refresh()
+		expect(pres.focus.focused:peek()).toBe(RANGE_LOWER)
+		system.deviceKey("Right", true)
+		system.deviceKey("Right", false)
+		pres.refresh()
+		expect(`{pres.focus.focused:peek()} {value:peek().lower}`).toBe(`{RANGE_LOWER} 50`)
 	end)
 
 	it("a press LEFT of a coincident pair takes the lower thumb, and a press right takes the upper", function()

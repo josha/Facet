@@ -2442,6 +2442,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- rather than live; the capture is written to be total so it stays latent
 		-- when the first labelled directional binding lands.
 		local suspendedNav: { { action: any, spec: any } } = {}
+		local arrivalHeld = false -- the arrow that landed the ring is still down
 		local function suspendAxisKeys(axis: string)
 			local owner = axisOwner(axis)
 			if owner == nil then
@@ -2479,6 +2480,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- owns. Zeroing here is always correct: the only way this action's
 			-- state becomes non-zero again is a FRESH delivery, which correctly
 			-- reflects a hold that is live right now.
+			--
+			-- THE HOLD MOVES TO ADJUST AS AN ARRIVAL, NOT A STEP (native F5: one Up
+			-- moved the ring onto a vertical slider AND stepped it, because the
+			-- engine hands a held key to the binding just made for it). The value
+			-- ignores that direction until the key is released.
+			local held = owner.state:peek()
+			if held == 1 or held == -1 then
+				arrivalHeld = true
+				adjustAxis.state:set(held)
+			end
 			owner.state:set(0)
 		end
 		local function restoreSuspendedNav()
@@ -2549,6 +2560,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				b.remove()
 			end
 			adjustBindings = {}
+			adjustAxis.state:set(0) -- its keys are gone, and so is any hold on them
 			restoreSuspendedNav()
 			adjustStateBound = state
 			if state ~= nil then
@@ -3063,21 +3075,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if ownedPath ~= nil then
 				for _, c in contributionsForPath(contributions, ownedPath) do
 					if c.bundle.adjustTargets ~= nil then
-						-- ITS OWN NODE, NOT THE SCREEN ROOT (Studio 2026-08-02).
-						-- This used to hand every contribution the whole screen,
-						-- while `focusGroups` — the seam right beside it — has
-						-- always been handed the contribution's own node. Controls
-						-- that identify their targets STRUCTURALLY rather than by a
-						-- unique id therefore claimed the whole screen: `UI.Stepper`
-						-- returns "every Button below here", `UI.Rating` "every
-						-- Grip", and on a screen carrying either one plus any other
-						-- button the Adjust keys stayed bound with focus anywhere at
-						-- all. That is precisely the gameplay-key shadowing this
-						-- dynamic binding exists to prevent (matrix §B-Table), and
-						-- no headless test saw it because every fixture put the
-						-- value control on a screen by itself. Live: focus on an
-						-- unrelated Save button, one Right press, an Adjust action
-						-- fired and nothing consumed it.
+						-- ITS OWN NODE, NOT THE SCREEN ROOT (Studio 2026-08-02): a
+						-- structural target set (Stepper's buttons, Rating's grips)
+						-- handed the whole screen claimed every button on it, and
+						-- the Adjust keys shadowed gameplay with focus anywhere.
 						local targets = c.bundle.adjustTargets(c.node)
 						if type(targets) == "table" and targets[ownedPath] == true then
 							state = c.bundle.adjustAxis or "legacy"
@@ -3346,8 +3347,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- claimed the press — which is what the axis action turns into a yield.
 		local function dispatchAdjust(dir: number): boolean
 			local focused = graph.focused:peek()
-			if focused == nil then
-				return false
+			if focused == nil or arrivalHeld then
+				return arrivalHeld
 			end
 			if handle.onAdjust then
 				-- rectOf rides along so consumers can seed a first adjust
@@ -3420,6 +3421,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			move along an axis that has no navigation. ]]
 		observeChange(scope, adjustAxis.state, function(dir)
 			if not (dir == 1 or dir == -1) then
+				arrivalHeld = false
 				return
 			end
 			if dispatchAdjust(dir) then

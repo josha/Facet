@@ -926,6 +926,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				if not engaged:peek() and padPrimary() then
 					return false -- not engaged on a pad: the arrow reaches the other thumb
 				end
+				-- a thumb stopped by its partner keeps the arrow: it never hops over
+				return adjust(direction) or (activeThumb == "lower") == (direction > 0)
 			end
 			return adjust(direction)
 		end,
