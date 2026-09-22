@@ -97,6 +97,33 @@ t.describe("Toggle switch paint", function()
 		table.sort(seen)
 		t.expect(table.concat(seen, " ")).toBe("Bare=none Row=none")
 	end)
+
+	-- native sweep F4: under Fantasy Ornate the Toggle row wore the `selection`
+	-- frame, which carves 6 px less than `control`, so its icon and label sat
+	-- left of every Button and Slider row on the same page
+	t.it("a toggle row starts its content where a button row does, in every package", function()
+		local snapshot = require("../src/themes/snapshot")
+		for _, name in { "neutral", "pixel_quest", "fantasy_ornate" } do
+			local metrics = if name == "neutral"
+				then snapshot.neutral()
+				else snapshot.resolve(require("../examples/themes/" .. name).build(Facet.themes), nil, {})
+			local w = world.new({ themeMetrics = metrics, viewport = { x = 0, y = 0, w = 700, h = 600 } })
+			w.present(function()
+				return w.UI.Screen("S")({
+					w.UI.Button("B")({ label = "Manage", row = { icon = "settings" } }),
+					w.UI.Toggle("T")({ label = "Assist", value = Compose.cell(true), row = { icon = "settings" } }),
+				})
+			end)
+			local xs = {}
+			for _, path in w.adapter.paths() do
+				if string.sub(path, -5) == "/Icon" then
+					xs[string.match(path, "^/S/(%a)")] = w.adapter.node(path).rect.x
+				end
+			end
+			t.expect(`{name} {xs.T == xs.B}`).toBe(`{name} true`)
+			w.close()
+		end
+	end)
 end)
 
 t.describe("Toggle model approval", function()
