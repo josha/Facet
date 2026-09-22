@@ -493,7 +493,9 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		local clear = adapter.node("/S/F/Clear").rect
 		expect(clear.w).toBe(28)
 		expect(clear.h).toBe(28)
-		expect(adapter.node("/S/F").rect.x + adapter.node("/S/F").rect.w - (clear.x + clear.w)).toBe(8)
+		-- 8 from the plate's inner hairline, which sits inside the box (native F1)
+		local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
+		expect(adapter.node("/S/F").rect.x + adapter.node("/S/F").rect.w - (clear.x + clear.w)).toBe(8 + hairline)
 	end)
 
 	it("Toggle: 28px minimum height and the 44+12+16 track reservation", function()

@@ -1193,7 +1193,8 @@ local BOX: { [string]: PropSpec } = {
 	stroke = p({
 		types = { "table" },
 		reactive = true,
-		dirty = { "paint" },
+		-- measure too: the stroke sits inside the box and its padding pays for it
+		dirty = { "paint", "measure" },
 		shared = true,
 		channel = "style",
 		doc = "normalized UIStroke declaration — produced by UI.stroke(bp, …) / UI.strokeData(…)",
@@ -2892,7 +2893,8 @@ class("Button", {
 		appearance = p({
 			types = { "string" },
 			reactive = true,
-			dirty = { "paint" },
+			-- measure too: `utility` wears an inner hairline its padding pays for
+			dirty = { "paint", "measure" },
 			enum = { "standard", "emphasis", "soft", "utility", "link" },
 			channel = "style",
 			doc = "visual emphasis only — drives a style tag and its sheet rule (never a bespoke fill). "

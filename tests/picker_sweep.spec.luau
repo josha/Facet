@@ -423,7 +423,10 @@ local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
 	local insets = if theme.metrics ~= nil and type(theme.metrics.chromeInsets) == "table"
 		then theme.metrics.chromeInsets.panel
 		else nil
-	local side = if type(insets) == "table" then (tonumber(insets.left) or 0) + (tonumber(insets.right) or 0) else 0
+	-- each side is at least the card's inner hairline (native F1: strokes sit inside)
+	local hairline = metric(theme, "strokes.hairline", 1)
+	local side = math.max(if type(insets) == "table" then tonumber(insets.left) or 0 else 0, hairline)
+		+ math.max(if type(insets) == "table" then tonumber(insets.right) or 0 else 0, hairline)
 	expect(
 		`{label} list spans the card's content box: {near(listRect.w, card.w - side)} (list {listRect.w}, card {card.w}, insets {side})`
 	).toBe(`{label} list spans the card's content box: true (list {listRect.w}, card {card.w}, insets {side})`)

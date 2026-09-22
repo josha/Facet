@@ -44,6 +44,7 @@ local rich_text = require("../layout/rich_text")
 local themeSnapshot = require("../themes/snapshot")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
+local styling = require("../tokens/styling")
 local controlContract = require("../class_contract")
 local schema = require("../blueprint_schema")
 -- the ARRANGEMENT facts (breakpoints, card widths, the content lane's measure):
@@ -1556,6 +1557,33 @@ local function toLayoutNode(
 				left = left + outset.left,
 			}
 		end
+	end
+	--[[ A STROKE IS DRAWN INSIDE ITS BOX, SO ITS BOX PAYS FOR IT (native F1,
+		2026-09-22). Every border Facet paints sits `Inner` (UIStroke
+		BorderStrokePosition): an Outer stroke overhung the rect by its thickness
+		and a scroller's clip sliced it. Content keeps clear of the band because
+		each side's padding is at least the stroke: an authored `stroke`, or the
+		theme hairline on the surfaces that wear one (raised, chip, a field, the
+		utility appearance). Padding already wider than the band is untouched. ]]
+	local strokeData = props.stroke
+	local strokeW = if type(strokeData) == "table"
+		then tonumber(styling.paintStroke(strokeData, metrics).thickness) or 0
+		elseif
+			props.surface == "raised"
+			or props.surface == "chip"
+			or class == "TextField"
+			or props.appearance == "utility"
+		then tonumber(metrics.strokes and metrics.strokes.hairline) or 0
+		else 0
+	local sTop, sRight, sBottom, sLeft = solver.sides(layoutNode.padding)
+	if math.min(sTop, sRight, sBottom, sLeft) < strokeW then
+		local top, right, bottom, left = sTop, sRight, sBottom, sLeft
+		layoutNode.padding = {
+			top = math.max(top, strokeW),
+			right = math.max(right, strokeW),
+			bottom = math.max(bottom, strokeW),
+			left = math.max(left, strokeW),
+		}
 	end
 	if
 		kind == "scroll"

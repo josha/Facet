@@ -443,7 +443,9 @@ describe("TextInput: clear affordance", function()
 			local field = w.handle.controller.rectOf("/S/Name/Field")
 			-- the TextField spans the composite's FULL width (the inset must not come
 			-- from a shared container padding that also shrinks the field)
-			expect((field.x + field.w) == (composite.x + composite.w)).toBe(true)
+			-- ...less the plate's inner hairline, which its padding pays for (native F1)
+			local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
+			expect((field.x + field.w) == (composite.x + composite.w - hairline)).toBe(true)
 			-- negative space between the field's right edge and the ✕
 			local clear = w.handle.controller.rectOf(CLEAR)
 			local gap = (field.x + field.w) - (clear.x + clear.w)

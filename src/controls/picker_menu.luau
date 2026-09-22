@@ -920,7 +920,10 @@ local function buildOwned(Facet: any, core: any, spec: Spec, owner: any, afforda
 		-- between the popover's edge and a label.
 		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
 		local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
-		local card = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
+		-- ...each side at least the card's inner hairline, which its padding pays for
+		local hairline = tonumber(type(snap.strokes) == "table" and snap.strokes.hairline) or 0
+		local card = math.max(tonumber(type(plate) == "table" and plate.left) or 0, hairline)
+			+ math.max(tonumber(type(plate) == "table" and plate.right) or 0, hairline)
 		--[[ ...AND THE FLOATING ROW SHADE'S OWN MARGIN, which is horizontal room no
 			label ever gets (measured 2026-09-13).
 

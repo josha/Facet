@@ -802,6 +802,19 @@ describe("RS-DIR10: a phantom ::UIStroke strokes the TEXT unless the rule says B
 	it("ApplyStrokeMode is a legal phantom property, so the rule cannot be inert", function()
 		expect(sheet_model.PHANTOM_PROPS.UIStroke.ApplyStrokeMode).toBe(true)
 	end)
+
+	-- native sweep F1: an Outer stroke overhung its box and a scroller clipped it
+	it("every ::UIStroke rule sits Inner, and the property is a legal phantom one", function()
+		expect(sheet_model.PHANTOM_PROPS.UIStroke.BorderStrokePosition).toBe(true)
+		for _, model in { build(), sheet_model.buildPackage(definePkg()) } do
+			for _, r in strokeRules(model) do
+				local position = r.props.BorderStrokePosition
+				expect(`{r.name}: {if position then position.enum .. "." .. position.item else "none"}`).toBe(
+					`{r.name}: BorderStrokePosition.Inner`
+				)
+			end
+		end
+	end)
 end)
 
 describe("RS-DIR11: the accent surface keeps the corner every other surface has", function()

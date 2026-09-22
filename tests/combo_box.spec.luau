@@ -119,7 +119,9 @@ t.describe("ComboBox", function()
 		})
 		w.pres.present(harness.UI.Screen({ id = "S", children = { control.blueprint } }))
 		w.pres.refresh()
-		local field = w.adapter.node("/S/C/Row/Editor/Field").rect
+		-- the field's PLATE: its inner hairline sits inside it (native F1), so the
+		-- editor within is inset by the band while the painted field is the plate
+		local field = w.adapter.node("/S/C/Row/Editor").rect
 		local trigger = w.adapter.node("/S/C/Row/Suggestions/Trigger").rect
 		t.expect(`field {field.h}, trigger {trigger.h}`).toBe(`field {field.h}, trigger {field.h}`)
 		-- ...and they sit on the same line, which is the other half of "one row"

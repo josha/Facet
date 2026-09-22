@@ -3162,6 +3162,12 @@ misbehaves when the alias and per-corner properties mix).
 hairline, so `UI.stroke(bp, {})` is exactly the hairline the adapter already draws
 on a raised panel.
 
+Every border Facet paints, authored or a theme's own hairline (raised, chip, a
+field, the `utility` appearance), sits inside its node's box
+(`BorderStrokePosition = Inner`), so a scroller's clip never cuts it. The node's
+padding on each side is at least the stroke's thickness, so its content never
+lies under the band; padding that is already wider is unchanged.
+
 | Field | Meaning |
 |---|---|
 | `thickness` | px, or a stroke token name (`"hairline"`). Default: the style's hairline weight. |

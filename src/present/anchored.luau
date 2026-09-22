@@ -124,9 +124,9 @@ local DEFAULT_TAIL_SIZE = "m"
 local TAIL_CORNER_METRIC = "radii.panel"
 -- the seam band's thickness, read off the theme's own border vocabulary: a
 -- package that thickens its hairlines needs a wider band to cover one.
--- `ApplyStrokeMode = Border` puts the panel's stroke on the OUTSIDE of its rect,
--- so the band STRADDLES the edge — twice the thickness, plus one pixel so a
--- fractional layout position cannot leave a lit sliver.
+-- The band STRADDLES the edge — twice the thickness, plus one pixel so a
+-- fractional layout position cannot leave a lit sliver — which covers the
+-- panel's stroke on either side of its rect (it sits Inner since native F1).
 local SEAM_METRIC = "strokes.hairline"
 local SEAM_OVERDRAW = 1
 

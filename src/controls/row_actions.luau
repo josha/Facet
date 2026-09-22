@@ -1727,9 +1727,9 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 	end
 
 	--[[ THE MENU'S OWN SOLVED HEIGHT, PREDICTED (ruling 4). It is a prediction
-		only in name: `MenuRows` is a plain VStack with no padding whose every child
-		declares `height = { type = "fixed", px = MENU_ROW_HEIGHT }`, so its solved
-		height is exactly `n * rowHeight + (n - 1) * gap` — and both metric names are
+		only in name: `MenuRows` is a raised VStack (padding = its hairline, native F1)
+		of `fixed MENU_ROW_HEIGHT` rows, hairline gaps between, so its solved
+		height is exactly `n * rowHeight + (n + 1) * gap` — and both metric names are
 		resolved HERE against `metricsSig`, the same live theme snapshot the solver
 		resolves them against when it lays the menu out. The two cannot disagree
 		about a themed or text-scaled row height, which is the failure this would
@@ -1747,7 +1747,7 @@ local function buildOwnedEngine(Facet: any, core: any, spec: any, hosted: Hosted
 		local metrics = metricsSig:peek()
 		local rowH = themeSnapshot.resolveNumber(metrics, MENU_ROW_HEIGHT) or 0
 		local gap = themeSnapshot.resolveNumber(metrics, MENU_ROW_GAP) or 0
-		return n * rowH + (n - 1) * gap
+		return n * rowH + (n + 1) * gap
 	end
 
 	-- the height of the window the menu has to stay inside. `spec.env` is

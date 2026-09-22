@@ -13,6 +13,7 @@ local harness = require("./lib/harness")
 --      each direction.
 
 local t = require("./lib/testkit")
+local snapshotLib = require("../src/themes/snapshot")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
@@ -725,7 +726,10 @@ describe("decoration content insets reach the solver", function()
 		env:set("themeMetrics", themes.resolve(parchment(), nil, {}))
 		presenter.refresh()
 		local ornateInner = adapter.node("/InsetProbe/Panel/Inner").rect
-		expect(ornateInner.x - flatInner.x).toBe(parchment().chrome.panel.contentInsets.left)
+		-- (the flat panel's padding is its inner hairline, which the carve covers)
+		expect(ornateInner.x - flatInner.x).toBe(
+			parchment().chrome.panel.contentInsets.left - snapshotLib.neutral().strokes.hairline
+		)
 		expect(adapter.node("/InsetProbe/Panel").rect.w).toBe(300) -- the box itself is unchanged
 		presenter.dismiss(handle)
 	end)

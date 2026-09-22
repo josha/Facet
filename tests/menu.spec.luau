@@ -1515,9 +1515,10 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		for _, path in w.adapter.paths() do
 			expect(string.find(path, "Fill", 1, true) == nil).toBe(true)
 		end
-		-- the fill spans the row, which spans the card
+		-- the fill spans the row, which spans the card inside its inner hairline (F1)
 		local panel = w.adapter.node(PANEL).rect
-		expect(row.rect.w).toBe(panel.w)
+		local hairline = require("../src/themes/snapshot").neutral().strokes.hairline
+		expect(row.rect.w).toBe(panel.w - 2 * hairline)
 		--[[ ...and it is a FILL, not a picture. `slot = "none"` is what keeps a
 			skinned package from painting its whole control plate over the one row
 			that is meant to read as a wash inside the card — the same declaration

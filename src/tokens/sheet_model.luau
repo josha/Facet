@@ -562,6 +562,12 @@ local BLACK = { r = 0, g = 0, b = 0 }
 -- hairline is white and the label is white, so it hid for two whole stages.
 local STROKE_BORDER: RuleProp = { kind = "enum", enum = "ApplyStrokeMode", item = "Border" }
 sheet_model.STROKE_BORDER = STROKE_BORDER
+-- ...AND INSIDE THE BOX (native sweep F1, 2026-09-22). The engine default is
+-- `Outer`, which overhangs the rect by the stroke's thickness, so a scroller's
+-- clip sliced the left edge of every stroked card and pill. Inner keeps the band
+-- inside the box, and `render/layout_node` pays for it in padding.
+local STROKE_INNER: RuleProp = { kind = "enum", enum = "BorderStrokePosition", item = "Inner" }
+sheet_model.STROKE_INNER = STROKE_INNER
 
 -- THE SELECTED STATE'S CONTENT COLOUR (director round 8, the palette
 -- contract; the 3.5 `togglePalette` ruling is the precedent).
@@ -868,6 +874,7 @@ local function emitOwnSlotPaint(
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
@@ -894,7 +901,12 @@ local function emitSlotSuppression(slot: string, emit: (Rule) -> ())
 	emit({
 		name = `Skinned — {slot} outline`,
 		selector = `.{skinnedTag}::UIStroke`,
-		props = { Thickness = num(0), Transparency = num(1), ApplyStrokeMode = STROKE_BORDER },
+		props = {
+			Thickness = num(0),
+			Transparency = num(1),
+			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
+		},
 	})
 end
 
@@ -967,6 +979,7 @@ local function emitShapeChrome(
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
@@ -1044,6 +1057,7 @@ local function emitVocabularyChrome(
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	if fromMetric ~= nil then
@@ -1464,6 +1478,7 @@ function sheet_model.build(opts: BuildOpts): Model
 				Transparency = num(numbers.HairlineTransparency),
 				Thickness = num(base.strokes.hairline),
 				ApplyStrokeMode = STROKE_BORDER,
+				BorderStrokePosition = STROKE_INNER,
 			},
 		},
 		{
@@ -1484,6 +1499,7 @@ function sheet_model.build(opts: BuildOpts): Model
 				Transparency = num(numbers.HairlineTransparency),
 				Thickness = num(base.strokes.hairline),
 				ApplyStrokeMode = STROKE_BORDER,
+				BorderStrokePosition = STROKE_INNER,
 			},
 		},
 		{
@@ -1504,6 +1520,7 @@ function sheet_model.build(opts: BuildOpts): Model
 				Transparency = num(numbers.HairlineTransparency),
 				Thickness = num(base.strokes.hairline),
 				ApplyStrokeMode = STROKE_BORDER,
+				BorderStrokePosition = STROKE_INNER,
 			},
 		},
 		{
@@ -1908,6 +1925,7 @@ sheet_model.PHANTOM_PROPS = table.freeze({
 		Transparency = true,
 		Thickness = true,
 		ApplyStrokeMode = true,
+		BorderStrokePosition = true,
 		LineJoinMode = true,
 		Enabled = true,
 	}),
@@ -2646,6 +2664,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	fromMetric("strokes.hairline", "Raised panel — hairline", "Thickness", "number")
@@ -2668,6 +2687,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	fromMetric("strokes.hairline", "Field — outline", "Thickness", "number")
@@ -2690,6 +2710,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			Transparency = hairlineT,
 			Thickness = hairlineW,
 			ApplyStrokeMode = STROKE_BORDER,
+			BorderStrokePosition = STROKE_INNER,
 		},
 	})
 	fromMetric("strokes.hairline", "Chip — outline", "Thickness", "number")
@@ -2976,6 +2997,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 					Transparency = hairlineT,
 					Thickness = hairlineW,
 					ApplyStrokeMode = STROKE_BORDER,
+					BorderStrokePosition = STROKE_INNER,
 				},
 			})
 			fromMetric("strokes.hairline", `Chrome — {slot} fallback hairline`, "Thickness", "number")
