@@ -1596,3 +1596,52 @@ describe("§6: the sidebar rail's width is the caller's to state", function()
 		expect(string.find(string.lower(tostring(err)), "sidebar", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+describe("Tab.indicator and Tab.enabled: per-tab status and availability through the shared option row", function()
+	local function tabs(extra: { [string]: any }): { any }
+		local out = tabsOf({ "home", "feed", "me" })
+		for key, value in extra do
+			out[2][key] = value
+		end
+		return out
+	end
+
+	it("a tab's indicator is a StatusIndicator in its own segment, and survives every switch", function()
+		local w = world({ tabs = tabs({ indicator = { status = "warning", form = "dot" } }) })
+		local found: { string } = {}
+		for _, path in w.adapter.paths() do
+			if
+				string.find(path, "/Indicator/Options/Opt2Cell/Opt2/", 1, true) ~= nil
+				and string.match(path, "/Status$")
+			then
+				table.insert(found, path)
+			end
+		end
+		expect(#found).toBe(1)
+		-- only the declaring tab carries one
+		for _, path in w.adapter.paths() do
+			expect(string.find(path, "Opt1Cell", 1, true)).toBeNil()
+		end
+		w.selection:set("feed")
+		w.pres.refresh()
+		w.selection:set("me")
+		w.pres.refresh()
+		expect(w.adapter.node(found[1]) ~= nil).toBe(true)
+	end)
+
+	it("an indicator that is not a StatusIndicator spec is refused by name", function()
+		local ok, err = pcall(world, { tabs = tabs({ indicator = "dot" }) })
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "indicator", 1, true) ~= nil).toBe(true)
+		local ok2 = pcall(world, { tabs = tabs({ indicator = { status = "loud" } }) })
+		expect(ok2).toBe(false)
+	end)
+
+	it("a disabled tab cannot be selected by a tap and keeps its place in the strip", function()
+		local w = world({ tabs = tabs({ enabled = false }) })
+		w.adapter.tap(tabPath(w, 2))
+		w.pres.refresh()
+		expect(w.selection:peek()).toBe("home")
+		expect(w.adapter.node(tabPath(w, 2)) ~= nil).toBe(true)
+	end)
+end)

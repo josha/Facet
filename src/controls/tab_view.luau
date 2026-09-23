@@ -622,6 +622,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				label = tab.label or tab.id,
 				icon = tab.icon,
 				badge = tab.badge,
+				indicator = tab.indicator,
+				enabled = tab.enabled,
 				sectionTitle = if liveStrip and tab.section ~= previousSection then sectionLabels[tab.section] else nil,
 			})
 			previousSection = tab.section

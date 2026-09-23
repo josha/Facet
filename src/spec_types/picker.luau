@@ -2,6 +2,7 @@
 -- The `picker` control's types, apart from its implementation: reading a type must
 -- not load the control.
 local blueprint = require("../blueprint")
+local statusIndicator = require("./status_indicator")
 local coreContract = require("../core/contract")
 export type AnyCell = coreContract.Cell<any>
 export type Option = {
@@ -16,6 +17,7 @@ export type Option = {
 	-- an Avatar spec (name plus optional image/userId/key/provider) leading the row
 	avatar: { name: string, image: any?, userId: number?, key: string?, provider: any? }?,
 	meta: any?, -- a card's (or menu row's) secondary label/value, distinct from badge
+	indicator: statusIndicator.Spec?, -- a status mark in a segmented option's trailing lane
 }
 export type Spec<V = AnyCell> = {
 	required: boolean?,

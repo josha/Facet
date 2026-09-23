@@ -15,6 +15,7 @@ local surfaceEnv = require("../env/surface_env")
 
 local selectionModel = require("../selection_model")
 local menuRecipe = require("./menu_recipe")
+local statusIndicator = require("./status_indicator")
 local themeSnapshot = require("../themes/snapshot")
 local textMetrics = require("../layout/text_metrics")
 local fieldChrome = require("./field_chrome")
@@ -273,6 +274,21 @@ end
 -- caller back the node itself.
 local readValue = require("../selection_model").read
 
+-- an option's status mark: a StatusIndicator in the row's trailing lane, owned
+-- by whichever owner builds the row (the control's, or a keyed row's)
+local function indicatorNode(Facet: any, core: any, indicator: any): any
+	if indicator == nil then
+		return nil
+	end
+	local merged = table.clone(indicator)
+	merged.id = merged.id or "Status"
+	local built = statusIndicator.build(Facet, core, merged)
+	if built.dispose ~= nil then
+		Compose.cleanup(built.dispose)
+	end
+	return built.blueprint
+end
+
 local OPTION_KEYS = specGuard.keySet({
 	"id",
 	"value",
@@ -284,6 +300,7 @@ local OPTION_KEYS = specGuard.keySet({
 	"sectionTitle",
 	"avatar",
 	"meta",
+	"indicator",
 })
 local function validateArray(list)
 	assert(type(list) == "table", "Picker: options must be an array")
@@ -312,6 +329,10 @@ local function validateOption(option, use)
 	assert(
 		badge == nil or type(badge) == "string" or type(badge) == "number",
 		"Picker: badge must be a string or number or readable of either"
+	)
+	assert(
+		option.indicator == nil or type(option.indicator) == "table",
+		"Picker: indicator must be a StatusIndicator spec table"
 	)
 	local enabled = readValue(option.enabled, use)
 	assert(enabled == nil or type(enabled) == "boolean", "Picker: option enabled must be boolean or readable boolean")
@@ -543,6 +564,7 @@ local function buildLiveOwned(Facet, core, spec, requested: string, onReselect, 
 				description = prop("description", ""),
 				icon = prop("icon"),
 				badge = prop("badge", ""),
+				trailing = indicatorNode(Facet, core, initial.indicator),
 				width = segmentWidth,
 				textSize = spec.textSize,
 				iconOnly = spec.iconOnly,
@@ -1047,7 +1069,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 		local optionId = option.id or "Opt" .. i
 		byId[optionId] = option.value
 		table.insert(segments, { value = option.value, id = optionId })
-		local badged = option.badge ~= nil
+		local badged = option.badge ~= nil or option.indicator ~= nil
 		--[[ THIS SEGMENT'S SHAPE, in one memo over the two facts that can move it.
 			Both answers are built here, once, so the memo picks between two stable
 			tables rather than allocating a corner set per re-solve. A strip that is
@@ -1169,6 +1191,7 @@ local function buildStripOwned(Facet: any, core: any, spec: Spec, requested: str
 				icon = option.icon,
 				iconOnly = iconOnly,
 				badge = option.badge,
+				trailing = indicatorNode(Facet, core, option.indicator),
 				wrap = true,
 				description = option.description,
 				indicator = if requested == "radio" then "radio" else nil,
