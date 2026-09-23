@@ -701,8 +701,15 @@ describe("DateTimePicker: the gallery tab", function()
 	it("the Pickers scenario's window applies a preset only on Apply, and a refusal changes nothing", function()
 		local scenario = require("../examples/gallery/scenarios/pickers") :: any
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 900 }, reducedMotion = true })
-		local built =
-			scenario.build({ Facet = Facet, UI = w.UI, Compose = Compose, app = w.app, core = w.core, env = w.env })
+		local built = scenario.build({
+			Facet = Facet,
+			UI = w.UI,
+			Compose = Compose,
+			Color3 = require("./lib/gui_value_shim").colorValues().Color3,
+			app = w.app,
+			core = w.core,
+			env = w.env,
+		})
 		w.present(built.screen)
 		w.settle(3)
 		local line = must(w, "/Pickers/Committed")

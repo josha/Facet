@@ -33,7 +33,8 @@ return {
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
-		local UI, Compose = ctx.UI, ctx.Compose
+		-- the runner's engine seam: a scenario reads no engine global itself
+		local UI, Compose, Color3 = ctx.UI, ctx.Compose, ctx.Color3
 		local refuse = Compose.cell(false)
 		local body = Compose.cell(Color3.fromRGB(46, 125, 255))
 		local bodyAlpha = Compose.cell(1)

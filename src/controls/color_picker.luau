@@ -662,8 +662,8 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					height = UI.fill(),
 					tint = { direct = "#ffffff" },
 					gradient = Compose.formula(function(use)
-						local hue = Color3.fromHSV(use(canon).h, 1, v)
-						local grey = Color3.fromHSV(0, 0, v)
+						local hue = colorValue.toColor({ h = use(canon).h, s = 1, v = v })
+						local grey = colorValue.toColor({ h = 0, s = 0, v = v })
 						return UI.gradientData({
 							colors = { colorValue.tintHex(grey), colorValue.tintHex(hue) },
 							rotation = ACROSS,
@@ -980,7 +980,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				local r, g, b = colorValue.channels(value:peek() or colorValue.toColor(canon:peek()))
 				local bytes = { r, g, b }
 				bytes[i] = n
-				return colorValue.hsvOf(Color3.fromRGB(bytes[1], bytes[2], bytes[3]), canon:peek())
+				return colorValue.hsvOf(colorValue.fromBytes(bytes[1], bytes[2], bytes[3]), canon:peek())
 			end)
 		end
 		return UI.HStack({

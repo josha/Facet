@@ -1,5 +1,6 @@
 --!strict
 local harness = require("./harness")
+local Color3 = require("./gui_value_shim").colorValues().Color3
 --[[ THE LARGE-TEXT CONTROL FIXTURES — one mountable screen per
 	tests/conformance/controls_registry row (acceptance LT-8).
 

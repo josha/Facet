@@ -71,6 +71,7 @@ local function make(scenario, viewport, options)
 		app = require("./lib/scenario_app").over(w.core, w.pres),
 		UI = (harness.libraryOf(w.core)),
 		Compose = Facet.Compose,
+		Color3 = require("./lib/gui_value_shim").colorValues().Color3,
 		core = w.core,
 		env = w.env,
 		presenter = w.pres,

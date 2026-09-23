@@ -1839,6 +1839,7 @@ local function scenarioCtx(w: any): any
 		app = scenario_app.over(w.core, w.presenter),
 		UI = (harness.libraryOf(w.core)),
 		Compose = Facet.Compose,
+		Color3 = require("./lib/gui_value_shim").colorValues().Color3,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,

@@ -15,6 +15,12 @@
 	bytes round like the engine (0.5 -> 128 -> "80"). ]]
 local color_value = {}
 
+--[[ THE ENGINE'S COLOUR CONSTRUCTORS, read through this table and never as bare
+	globals below. Live they are the engine's own; a headless adapter
+	(tests/lib/fake_target) hands in Lune's, because defining a global there takes
+	`getfenv`, which de-optimises every module sharing the environment. ]]
+color_value.engine = { Color3 = Color3 :: any, BrickColor = BrickColor :: any }
+
 export type Hsv = { h: number, s: number, v: number }
 
 local function byte(x: number): number
@@ -72,7 +78,7 @@ function color_value.parseHex(text: string, allowAlpha: boolean): (any, number?,
 		return tonumber(string.sub(digits, i, i + 1), 16) :: number
 	end
 	local alpha = if #digits == 8 then at(7) / 255 else nil
-	return Color3.fromRGB(at(1), at(3), at(5)), alpha, nil
+	return color_value.fromBytes(at(1), at(3), at(5)), alpha, nil
 end
 
 -- the engine conversion, keeping what a grey or black cannot carry
@@ -88,8 +94,12 @@ function color_value.hsvOf(c: any, previous: Hsv?): Hsv
 	return { h = h, s = s, v = v }
 end
 
+function color_value.fromBytes(r: number, g: number, b: number): any
+	return color_value.engine.Color3.fromRGB(r, g, b)
+end
+
 function color_value.toColor(hsv: Hsv): any
-	return Color3.fromHSV(math.clamp(hsv.h, 0, 1), math.clamp(hsv.s, 0, 1), math.clamp(hsv.v, 0, 1))
+	return color_value.engine.Color3.fromHSV(math.clamp(hsv.h, 0, 1), math.clamp(hsv.s, 0, 1), math.clamp(hsv.v, 0, 1))
 end
 
 export type Swatch = { color: any, label: string?, key: string }
@@ -102,12 +112,12 @@ function color_value.standard(): { Swatch }
 	local steps = { { 0.35, 1 }, { 0.65, 1 }, { 1, 1 }, { 1, 0.8 }, { 1, 0.55 } } -- { s, v }
 	for _, step in steps do
 		for i = 0, 7 do
-			local c = Color3.fromHSV(i / 8, step[1], step[2])
+			local c = color_value.toColor({ h = i / 8, s = step[1], v = step[2] })
 			table.insert(out, { color = c, key = color_value.hex(c) })
 		end
 	end
 	for i = 0, 7 do
-		local c = Color3.fromHSV(0, 0, i / 7)
+		local c = color_value.toColor({ h = 0, s = 0, v = i / 7 })
 		table.insert(out, { color = c, key = color_value.hex(c) })
 	end
 	return out
@@ -122,7 +132,7 @@ function color_value.brick(): { Swatch }
 	end
 	local out: { Swatch & { order: { number } } } = {}
 	for i = 0, 127 do
-		local brick = BrickColor.palette(i)
+		local brick = color_value.engine.BrickColor.palette(i)
 		local c = brick.Color
 		local h, s, v = c:ToHSV()
 		table.insert(out, {

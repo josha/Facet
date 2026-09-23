@@ -4,8 +4,9 @@
 -- structural adds/removes, and final virtual state. Same interface as the
 -- client-only ScreenTarget.
 
--- the engine value types a caller hands a control (Color3) exist headlessly too
-require("./gui_value_shim").installColor()
+-- the engine value types a caller hands a control (Color3) exist headlessly too,
+-- handed to the colour code rather than installed as globals
+require("../../src/controls/color_value").engine = require("./gui_value_shim").colorValues()
 local chrome_slots = require("../../src/tokens/chrome_slots")
 local default_style = require("../../src/tokens/default_style")
 -- the PURE paint resolvers the live adapter goes through. Sharing them is the

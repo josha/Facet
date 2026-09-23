@@ -37,6 +37,7 @@
 	than a count. See the report attached to this spec's restoration. ]]
 
 local t = require("./lib/testkit")
+local Color3 = require("./lib/gui_value_shim").colorValues().Color3
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")

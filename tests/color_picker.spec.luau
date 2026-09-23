@@ -9,6 +9,7 @@ local world = require("./lib/world")
 local Facet = require("../src") :: any
 local colorValue = require("../src/controls/color_value")
 local Compose = Facet.Compose
+local Color3 = require("./lib/gui_value_shim").colorValues().Color3
 
 local POINTER = { mouse = true, keyboard = true, touch = false, gamepad = false }
 local TOUCH = { mouse = false, keyboard = false, touch = true, gamepad = false }
@@ -543,8 +544,15 @@ describe("ColorPicker: the gallery tab", function()
 	it("the Pickers scenario's committed line follows a commit, and a refusal changes nothing", function()
 		local scenario = require("../examples/gallery/scenarios/pickers") :: any
 		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 900 }, reducedMotion = true })
-		local built =
-			scenario.build({ Facet = Facet, UI = w.UI, Compose = Compose, app = w.app, core = w.core, env = w.env })
+		local built = scenario.build({
+			Facet = Facet,
+			UI = w.UI,
+			Compose = Compose,
+			Color3 = Color3,
+			app = w.app,
+			core = w.core,
+			env = w.env,
+		})
 		w.present(built.screen)
 		w.settle(3)
 		local line = must(w, "/Pickers/Committed")

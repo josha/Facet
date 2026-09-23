@@ -91,6 +91,7 @@ local function base(w: any, app: any, UI: any, presenter: any, extra: { [string]
 		app = app,
 		UI = UI,
 		Compose = Facet.Compose,
+		Color3 = require("./gui_value_shim").colorValues().Color3,
 		core = w.core,
 		env = w.env,
 		adapter = w.adapter,
