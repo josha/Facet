@@ -809,6 +809,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			id = "StickHint",
 			gap = "xs",
 			align = "center",
+			-- the words wrap beside the key, or under it, rather than run past a narrow panel
+			width = UI.fill(),
+			wrap = true,
 			hidden = Compose.formula(function(use)
 				local classes = if env ~= nil then use(env:get("interactionClasses")) else nil
 				local pad = type(classes) == "table" and classes.gamepad == true
@@ -1037,21 +1040,31 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 			width = UI.fill(),
 			gap = "s",
 			children = {
+				-- the chosen brick's name first, in a read-only field: below a long,
+				-- scrolled grid it was out of sight
+				UI.HStack({
+					id = "NameField",
+					width = UI.hug(),
+					surface = "chip",
+					padding = "s",
+					children = {
+						UI.Text({
+							id = "BrickName",
+							lineLimit = 1,
+							disclose = true,
+							text = Compose.formula(function(use)
+								local v = use(value)
+								return (if v ~= nil then brickName(v) else nil) or "No engine colour matches"
+							end),
+						}),
+					},
+				}),
 				gridView(
 					"BrickGrid",
 					Compose.formula(function()
 						return colorValue.brick()
 					end)
 				),
-				UI.Text({
-					id = "BrickName",
-					textSize = "caption",
-					role = "secondary",
-					text = Compose.formula(function(use)
-						local v = use(value)
-						return (if v ~= nil then brickName(v) else nil) or "No engine colour matches"
-					end),
-				}),
 			},
 		})
 	end
@@ -1201,8 +1214,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		return built.blueprint
 	end
 
-	local function actionButton(buttonId: string, words: string, fn: () -> ()): any
-		return UI.Button({ id = buttonId, label = words, onActivate = fn })
+	local function actionButton(buttonId: string, words: string, fn: () -> (), primary: boolean?): any
+		-- Apply is the panel's primary action, so it wears the accent
+		return UI.Button({ id = buttonId, label = words, onActivate = fn, surface = if primary then "accent" else nil })
 	end
 
 	local function panelView(overlay: boolean): any
@@ -1360,7 +1374,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 					if overlay then
 						close("apply")
 					end
-				end)
+				end, true)
 			)
 		elseif overlay and popoverApi ~= nil and popoverApi.route:peek() == "sheet" then
 			-- a sheet's visible way out; every change has already committed

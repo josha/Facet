@@ -1,7 +1,8 @@
 --!strict
 --[[ Pickers: `UI.ColorPicker` over caller-owned colours (docs/reference/api.md#uicolorpicker)
 	and `UI.DateTimePicker` over caller-owned civil dates (#uidatetimepicker).
-	Colours: a labelled well with opacity and every technique, a bare well over a
+	Colours: the panel inline over the spectrum (the reference form), a labelled
+	well with opacity and every technique, a bare well over a
 	team palette, a draft well that commits only on Apply, and the panel inline.
 	Dates: a race day inside a season with a blackout day, a start time on a
 	15-minute grid, and a season window with presets and an Apply/Cancel draft.
@@ -9,6 +10,7 @@
 	committed line changes only on a commit; a toggle refuses proposals. ]]
 local COPY = {
 	refuse = "Refuse changes",
+	accent = "Accent",
 	body = "Kart body",
 	bodyHint = "Shown on the track and in the garage",
 	trim = "Trim",
@@ -36,6 +38,7 @@ return {
 		-- the runner's engine seam: a scenario reads no engine global itself
 		local UI, Compose, Color3 = ctx.UI, ctx.Compose, ctx.Color3
 		local refuse = Compose.cell(false)
+		local accent = Compose.cell(Color3.fromRGB(213, 64, 245))
 		local body = Compose.cell(Color3.fromRGB(46, 125, 255))
 		local bodyAlpha = Compose.cell(1)
 		local trim = Compose.cell(Color3.fromRGB(255, 196, 0))
@@ -119,6 +122,18 @@ return {
 					text = function(use: any): string
 						return `{COPY.committed} {use(committed)}`
 					end,
+				}),
+				-- the inline form leads: the plane and hue strip at a panel's width
+				UI.VStack("Inline")({
+					width = { type = "percent", fraction = 1, max = 360 },
+					UI.ColorPicker("Accent")({
+						label = COPY.accent,
+						style = "inline",
+						modes = { "spectrum" },
+						value = accent,
+						onChange = accept(accent),
+						onCommit = record,
+					}),
 				}),
 				UI.ColorPicker("Body")({
 					label = COPY.body,
