@@ -314,6 +314,8 @@ local function indicatorNode(Facet: any, core: any, indicator: any, current: any
 	})
 end
 
+-- the Avatar keys a menu row passes on (menu_recipe.avatarNode)
+local AVATAR_KEYS = specGuard.keySet({ "name", "image", "userId", "key", "provider" })
 local OPTION_KEYS = specGuard.keySet({
 	"id",
 	"value",
@@ -359,6 +361,10 @@ local function validateOption(option, use)
 		option.indicator == nil or type(option.indicator) == "table",
 		"Picker: indicator must be a StatusIndicator spec table"
 	)
+	if option.avatar ~= nil then
+		assert(type(option.avatar) == "table", "Picker: avatar must be an Avatar spec table")
+		specGuard.assertKnownKeys("Picker.option.avatar", option.avatar, AVATAR_KEYS, "avatar")
+	end
 	local enabled = readValue(option.enabled, use)
 	assert(enabled == nil or type(enabled) == "boolean", "Picker: option enabled must be boolean or readable boolean")
 	local heading = readValue(option.sectionTitle, use)

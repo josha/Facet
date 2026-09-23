@@ -251,6 +251,15 @@ describe("Picker menu panel: maxHeight and the selected row", function()
 end)
 
 describe("Picker menu rows: avatar, disabled and long labels", function()
+	it("an option avatar's keys are closed: a misspelt one is refused by name", function()
+		local ok, err = pcall(mount, "desktop", {
+			style = "menu",
+			options = { { value = "a", label = "Ada", avatar = { name = "Ada", userID = 1 } } },
+		})
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "userID", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("an avatar leads its row without a second stop or press, and a disabled row is unreachable", function()
 		local selected = Compose.cell("a")
 		local w, picker = mount("desktop", {
