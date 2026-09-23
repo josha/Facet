@@ -82,8 +82,14 @@ local function rootOf(node: any): any
 	return n
 end
 
-local function build(Facet: any, core: any, spec: Spec, owner: any)
+--[[ `opts` is PRIVATE to the pickers that present through a popover (no public
+	key): `tenFoot` also routes a ten-foot surface (`effectiveDisplaySize ==
+	"Large"`) to the sheet, which the sheet centres there; `hug` gives that sheet
+	the one `hug` detent, so a body pan scrolls the body and never the sheet. ]]
+local function build(Facet: any, core: any, spec: Spec, owner: any, opts: any?)
 	specGuard.assertKnownKeys("UI.Popover", spec, KEYS, "spec")
+	local tenFoot = opts ~= nil and opts.tenFoot == true
+	local hug = opts ~= nil and opts.hug == true
 	local UI = Facet.UI
 	local id = spec.id or "Popover"
 	local where = `UI.Popover('{id}')`
@@ -151,6 +157,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	local route = ownedFormula(owner, function(use)
 		if env == nil then
 			return "popover"
+		end
+		if tenFoot and use(env:get("effectiveDisplaySize")) == "Large" then
+			return "sheet"
 		end
 		local sizeClass = use(env:get("sizeClass"))
 		local classes = use(env:get("interactionClasses"))
@@ -347,11 +356,12 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		local state: any = { route = which, identity = identity, generation = mine }
 		live = state
 		if which == "sheet" then
-			local detent = Compose.cell("medium")
+			local detent = Compose.cell(if hug then "hug" else "medium")
 			state.sheet = sheetLib.buildRequesting(Facet, core, {
 				id = surfaceId,
 				title = "",
 				detent = detent,
+				detents = if hug then { "hug" } else nil,
 				env = env,
 				content = function()
 					return spec.content()
@@ -525,9 +535,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 	}
 end
 
-function popover.build(Facet: any, core: any, spec: Spec)
+function popover.build(Facet: any, core: any, spec: Spec, opts: any?)
 	return ownedBuild(core, function(owner)
-		return build(Facet, core, spec, owner)
+		return build(Facet, core, spec, owner, opts)
 	end)
 end
 
