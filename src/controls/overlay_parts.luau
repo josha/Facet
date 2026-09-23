@@ -133,9 +133,16 @@ end
 
 -- full-width media: the natural width is `preferred` (default the theme's popup
 -- panel width), which a narrower parent clamps; the height follows the ratio or
--- the declared height
+-- the declared height. A hugging parent measures an aspect height at the
+-- PREFERRED width, so a panel that knows its live width passes it as
+-- `preferred(use)` and the ratio never reserves height for a wider hero.
 function overlay_parts.media(UI: any, media: any, preferred: any?): any
-	local width = { type = "minMax", preferred = preferred or "controls.popup.panelWidth" }
+	local width: any = { type = "minMax", preferred = preferred or "controls.popup.panelWidth" }
+	if type(preferred) == "function" then
+		width = function(use: any): any
+			return { type = "minMax", preferred = preferred(use) }
+		end
+	end
 	local height = if media.aspectRatio ~= nil
 		then { type = "aspect", ratio = media.aspectRatio }
 		else { type = "fixed", px = media.height }
@@ -230,6 +237,129 @@ function overlay_parts.actionRow(UI: any, actions: { any }, height: any): any
 		)
 	end
 	return UI.HStack({ id = "Actions", gap = "s", width = { type = "fill", weight = 1 }, children = buttons })
+end
+
+--[[ THE TINY ROOM (lead ruling, Dialog and Sheet). A panel pins its header,
+	hero and actions around one scrolling `Body` while they and a minimum body
+	fit. When they do not, every region unpins into ONE scrolling column, so each
+	action stays reachable by pointer and focus.
+
+	`panelMax(use)` is the most the PANEL may be tall; the panel's own chrome
+	(padding, a drag strip) is measured once and taken off it. `fill` fixes the
+	column to that room (a panel with a fixed height) instead of hugging under
+	it. `tight` is the cell the fact is written to, so regions built first can
+	read it. ]]
+function overlay_parts.room(
+	UI: any,
+	owner: any,
+	children: { any },
+	panelMax: (use: any) -> number,
+	fill: boolean,
+	tight: any
+): any
+	local contribution = require("../input/contribution")
+	local chrome = Compose.cell(nil :: number?)
+	local column = UI.VStack({
+		id = "Column",
+		width = UI.fill(),
+		gap = "s",
+		height = Compose.withOwner(owner, function()
+			return Compose.formula(function(use): any
+				local outside = use(chrome)
+				if use(tight) or outside == nil then
+					return { type = "hug" }
+				end
+				local max = math.max(0, panelMax(use) - outside)
+				return if fill then { type = "fixed", px = max } else { type = "hug", max = max }
+			end)
+		end),
+		children = children,
+	})
+	local function peek(r: any): any
+		return r:peek()
+	end
+	-- a definite viewport on a fixed panel, so the measure pays the scroll bar
+	local roomHeight = if fill
+		then Compose.withOwner(owner, function()
+			return Compose.formula(function(use): any
+				local outside = use(chrome)
+				return if outside == nil
+					then UI.fill()
+					else { type = "fixed", px = math.max(0, panelMax(use) - outside) }
+			end)
+		end)
+		else nil
+	local minimum = 44 -- one target-sized line of body
+	return contribution.attach(
+		UI.ScrollView({
+			id = "Room",
+			axis = "y",
+			width = UI.fill(),
+			height = roomHeight,
+			shrinkWeight = 1,
+			chromeReserve = "none",
+			scrollEnabled = tight,
+			children = { column },
+		}),
+		{
+			syncGeometry = function(rectOf: any, mounted: any?)
+				local col = if mounted ~= nil and mounted.children ~= nil then mounted.children[1] else nil
+				local roomRect = if mounted ~= nil then rectOf(mounted.path) else nil
+				local panelPath = if mounted ~= nil then string.match(mounted.path, "^(.*)/[^/]+$") else nil
+				local panelRect = if panelPath ~= nil then rectOf(panelPath) else nil
+				if col == nil or type(roomRect) ~= "table" or type(panelRect) ~= "table" then
+					return
+				end
+				-- the panel's own chrome does not depend on the column
+				local outside = panelRect.h - roomRect.h
+				if chrome:peek() == nil or math.abs(chrome:peek() - outside) > 0.5 then
+					chrome:set(outside)
+				end
+				-- the regions' extent: pinned parts never shrink, the body does
+				local top, bottom = math.huge, -math.huge
+				for _, child in col.children or {} do
+					local r = rectOf(child.path)
+					if type(r) == "table" and r.h > 0 then
+						top, bottom = math.min(top, r.y), math.max(bottom, r.y + r.h)
+					end
+				end
+				if top == math.huge then
+					return
+				end
+				local function find(n: any): any
+					if n.id == "Body" and n.class == "ScrollView" then
+						return n
+					end
+					for _, child in n.children or {} do
+						local hit = find(child)
+						if hit ~= nil then
+							return hit
+						end
+					end
+					return nil
+				end
+				local bodyNode = find(col)
+				local bodyRect = if bodyNode ~= nil then rectOf(bodyNode.path) else nil
+				local body, natural = 0, 0
+				if type(bodyRect) == "table" then
+					-- its content's extent, which the body clips when squeezed
+					local lo, hi = math.huge, -math.huge
+					for _, child in bodyNode.children or {} do
+						local r = rectOf(child.path)
+						if type(r) == "table" then
+							lo, hi = math.min(lo, r.y), math.max(hi, r.y + r.h)
+						end
+					end
+					body, natural = bodyRect.h, if lo < hi then hi - lo else bodyRect.h
+				end
+				local need = (bottom - top) - body + math.min(minimum, natural)
+				local next = need > panelMax(peek) - outside + 0.5
+				if next ~= tight:peek() then
+					tight:set(next)
+				end
+			end,
+		}
+	)
 end
 
 --[[ A CALLER'S CALLBACK NEVER FAILS SILENTLY (Alert's contract). `settle` runs

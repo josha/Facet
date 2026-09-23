@@ -424,7 +424,7 @@ describe("Popover: the compact sheet and the live route switch", function()
 		capabilities = { keyboard = false, mouse = false, touch = true, gamepad = false },
 		preferredInput = "Touch",
 	}
-	local SHEET_CLOSE = "/Popover-Tip/Layer/Panel/Header/Close"
+	local SHEET_CLOSE = "/Popover-Tip/Layer/Panel/Room/Column/Header/Close"
 
 	it("a compact touch screen presents it as a sheet; compact = popover suppresses that", function()
 		local open = Compose.cell(true)
@@ -438,7 +438,7 @@ describe("Popover: the compact sheet and the live route switch", function()
 			}
 		end, { w = 390, h = 700, classes = TOUCH })
 		expect(w.record("Tip").dump().route).toBe("sheet")
-		expect(w.adapter.node("/Popover-Tip/Layer/Panel/Body/Card/Line") ~= nil).toBe(true)
+		expect(w.adapter.node("/Popover-Tip/Layer/Panel/Room/Column/Body/Card/Line") ~= nil).toBe(true)
 		local w2 = mount(function(UI)
 			return {
 				isPresented = Compose.cell(true),
@@ -535,7 +535,7 @@ describe("Popover: the compact sheet and the live route switch", function()
 		expect(lines).toBe(1)
 		expect(#log.changes).toBe(0)
 		expect(#log.dismissed).toBe(0)
-		expect(w.pres.focus.focused:peek()).toBe("/Popover-Tip/Layer/Panel/Body/Card/Inner")
+		expect(w.pres.focus.focused:peek()).toBe("/Popover-Tip/Layer/Panel/Room/Column/Body/Card/Inner")
 	end)
 end)
 

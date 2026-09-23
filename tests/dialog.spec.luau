@@ -11,8 +11,10 @@ local Facet = require("../src") :: any
 local Compose = Facet.Compose
 
 local PANEL = "/Confirm/Center/Panel"
-local CLOSE = `{PANEL}/Header/Close`
-local BODY = `{PANEL}/Body`
+-- the regions live in one column that scrolls as a whole only in a tiny room
+local COLUMN = `{PANEL}/Room/Column`
+local CLOSE = `{COLUMN}/Header/Close`
+local BODY = `{COLUMN}/Body`
 
 type Log = { changes: { boolean }, dismissed: { string }, pressed: { string } }
 
@@ -123,7 +125,7 @@ describe("Dialog: the caller's fact decides", function()
 	it("an accepted fact presents the panel with pinned title, body and actions", function()
 		local open, log, change = caller()
 		local w = mount(standard(open, log, change))
-		expect(w.adapter.node(`{PANEL}/Header/Title`).props.text).toBe("Leave the race?")
+		expect(w.adapter.node(`{COLUMN}/Header/Title`).props.text).toBe("Leave the race?")
 		expect(w.adapter.node(`{BODY}/Line`) ~= nil).toBe(true)
 		expect(w.adapter.node(actionPath(w, "Leave")) ~= nil).toBe(true)
 		expect(w.record("Confirm").dump().presented).toBe(true)
@@ -381,7 +383,7 @@ describe("Dialog: composition, layout and the height budget", function()
 		end, { w = 800, h = 480 })
 		local panel = w.adapter.node(PANEL).rect
 		expect(panel.y >= 0 and panel.y + panel.h <= 480).toBe(true)
-		local title = w.adapter.node(`{PANEL}/Header/Title`).rect
+		local title = w.adapter.node(`{COLUMN}/Header/Title`).rect
 		local leave = w.adapter.node(actionPath(w, "Leave")).rect
 		expect(leave.y + leave.h <= panel.y + panel.h + 1).toBe(true)
 		local before = { title.y, leave.y }
@@ -389,9 +391,51 @@ describe("Dialog: composition, layout and the height budget", function()
 		expect(body.class).toBe("ScrollView")
 		w.adapter.setScrollPosition(body, { x = 0, y = 200 })
 		w.settle(2)
-		expect(w.adapter.node(`{PANEL}/Header/Title`).rect.y).toBe(before[1])
+		expect(w.adapter.node(`{COLUMN}/Header/Title`).rect.y).toBe(before[1])
 		expect(w.adapter.node(actionPath(w, "Leave")).rect.y).toBe(before[2])
 		local _ = ui
+	end)
+
+	it("a tiny room unpins every region into one scroller: the last action is reachable", function()
+		local open, log, change = caller()
+		local w = mount(function(UI)
+			return standard(open, log, change, {
+				hero = { image = "rbxassetid://1", aspectRatio = 2 },
+				actionLabel = "Choose carefully",
+			})(UI)
+		end, { w = 640, h = 322 })
+		local room = w.adapter.node(`{PANEL}/Room`)
+		expect(room.props.scrollEnabled).toBe(true)
+		-- the ring walks to the last action and the room scrolls it into view
+		local leave = actionPath(w, "Leave")
+		for _ = 1, 8 do
+			if w.pres.focus.focused:peek() == leave then
+				break
+			end
+			w.press("DPadRight")
+			w.settle(1)
+		end
+		expect(w.pres.focus.focused:peek()).toBe(leave)
+		local scrolled = (w.adapter.node(`{PANEL}/Room`).scrollPosition or { y = 0 }).y
+		local r, box = w.adapter.node(leave).rect, room.rect
+		expect(`visible={r.y - scrolled >= box.y - 1 and r.y - scrolled + r.h <= box.y + box.h + 1}`).toBe(
+			"visible=true"
+		)
+		-- ...and a roomy screen keeps them pinned, with no second scroller
+		local w2 = mount(standard(open, log, change), { w = 800, h = 600 })
+		expect(w2.adapter.node(`{PANEL}/Room`).props.scrollEnabled).toBe(false)
+	end)
+
+	it("a phone dialog hugs its content and rows two actions that fit", function()
+		local open, log, change = caller()
+		local w = mount(function(UI)
+			return standard(open, log, change, { hero = { image = "rbxassetid://1", aspectRatio = 2 } })(UI)
+		end, { w = 389, h = 762 })
+		local panel = w.adapter.node(PANEL).rect
+		local stay, leave = w.adapter.node(actionPath(w, "Stay")).rect, w.adapter.node(actionPath(w, "Leave")).rect
+		expect(stay.y).toBe(leave.y) -- side by side
+		-- no reserved void under the actions: only the panel's own padding
+		expect(panel.y + panel.h - (leave.y + leave.h) <= 17).toBe(true)
 	end)
 
 	it("the keyboard's occlusion takes its room from the budget", function()
@@ -480,10 +524,10 @@ describe("Dialog: composition, layout and the height budget", function()
 			}
 		end)
 		local panel = w.adapter.node(PANEL)
-		expect(w.adapter.visibleOf(`{PANEL}/Header/Title`)).toBe(false)
+		expect(w.adapter.visibleOf(`{COLUMN}/Header/Title`)).toBe(false)
 		title:set("Ready")
 		w.settle(2)
-		expect(w.adapter.visibleOf(`{PANEL}/Header/Title`)).toBe(true)
+		expect(w.adapter.visibleOf(`{COLUMN}/Header/Title`)).toBe(true)
 		expect(w.adapter.node(PANEL) == panel).toBe(true)
 	end)
 end)

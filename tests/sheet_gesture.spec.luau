@@ -188,7 +188,7 @@ t.describe("Sheet gestures", function()
 
 	t.it("default scrollPolicy never hands a body pan to the sheet, even at offset zero", function()
 		local s = mount()
-		local body = s.w.adapter.node(`{PANEL}/Body`)
+		local body = s.w.adapter.node(`{PANEL}/Room/Column/Body`)
 		t.expect(body.touchGestures).toBeNil()
 		t.expect(body.props.scrollEnabled ~= false).toBe(true)
 		s.c.dispose()
@@ -198,7 +198,7 @@ t.describe("Sheet gestures", function()
 		"atLargestDetent: below the tallest the body yields its pan; at the tallest only a top downward pan",
 		function()
 			local s = mount({ scrollPolicy = "atLargestDetent" })
-			local BODY = `{PANEL}/Body`
+			local BODY = `{PANEL}/Room/Column/Body`
 			t.expect(s.w.adapter.node(BODY).props.scrollEnabled).toBe(false)
 			pan(s, BODY, "began", 0)
 			s.clock.now += 0.3

@@ -324,7 +324,13 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		local branchOwner = Compose.currentOwner() or owner
 		local children: { any } = {}
 		if spec.hero ~= nil then
-			table.insert(children, overlayParts.media(UI, spec.hero, WIDTHS[spec.width or "automatic"]))
+			table.insert(
+				children,
+				overlayParts.media(UI, spec.hero, function(use: any): number
+					local pad = themeSnapshot.resolveNumber(use(themeMetrics), "m") or 0
+					return math.max(0, widthPx(use) - 2 * pad)
+				end)
+			)
 		end
 		local header: { any } = {}
 		if spec.title ~= nil then
@@ -396,9 +402,19 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 		if #actions > 0 then
 			table.insert(
 				children,
-				alert.actionGroup(Facet, branchOwner, env, actions, spec.actionLayout or "automatic", widthPx, press)
+				alert.actionGroup(
+					Facet,
+					branchOwner,
+					env,
+					actions,
+					spec.actionLayout or "automatic",
+					widthPx,
+					press,
+					false
+				)
 			)
 		end
+		local room = overlayParts.room(UI, branchOwner, children, roomPx, false, Compose.cell(false))
 		return chromeSlots.attachHint(
 			UI.VStack({
 				id = "Panel",
@@ -416,7 +432,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				height = function(use: any): any
 					return { type = "hug", max = roomPx(use) }
 				end,
-				children = children,
+				children = { room },
 			}),
 			{ slot = "panel" }
 		)

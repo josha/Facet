@@ -117,7 +117,9 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	local hero: any = spec.hero
 	local sticky = hero ~= nil and hero.sticky == true
 	local overHero = spec.header == false and hero ~= nil
-	local sizePath = if overHero then "/Layer/Panel/Stage/Header/Size" else "/Layer/Panel/Header/Size"
+	local sizePath = if overHero
+		then "/Layer/Panel/Room/Column/Stage/Header/Size"
+		else "/Layer/Panel/Room/Column/Header/Size"
 	local actions: { any } = spec.actions or {}
 	overlayParts.checkActions(where, spec.actions, math.huge)
 	local cancelAction, defaults = nil, 0
@@ -196,6 +198,11 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 	-- the hug detent's measured height: natural body plus pinned regions, fed
 	-- back from geometry; nil until measured (the floor stands in)
 	local hugHeight = Compose.cell(nil)
+	-- the tiny room's fact (overlay_parts.room), live once the screen is built
+	local roomTight = Compose.cell(false)
+	local function roomIsTight(): boolean
+		return roomTight:peek() == true
+	end
 	-- ONE safe rectangle: the viewport less the platform insets and the keyboard
 	local function available(use)
 		local v, c = use(vp), use(chrome)
@@ -720,12 +727,21 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			then 0
 			else themeSnapshot.resolveNumber(metrics:peek(), "s") or 8
 		local want = (bottom - top) + 2 * pad + (panelRect.h - bodyRect.h)
+		local room, column = rectOf(root.path .. "/Layer/Panel/Room"), rectOf(root.path .. "/Layer/Panel/Room/Column")
+		if roomIsTight() and type(room) == "table" and type(column) == "table" then
+			-- unpinned: the whole column is the content
+			want = column.h + (panelRect.h - room.h)
+		end
 		local was = hugHeight:peek()
 		if was == nil or math.abs(was - want) > 0.5 then
 			hugHeight:set(want)
 		end
 	end
 	local function buildScreen()
+		-- unpinned (overlay_parts.room), the regions hug their content
+		local fillUnlessTight = Compose.formula(function(use): any
+			return if use(roomTight) then { type = "content" } else UI.fill()
+		end)
 		local content = if type(spec.content) == "function" then spec.content() else spec.content
 		local pad = if spec.contentInset == "none" then 0 else "s"
 		-- the band authored hero content keeps clear for the controls over it
@@ -753,7 +769,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				return scrollPolicy == "always" or use(tallest)
 			end),
 			width = UI.fill(),
-			height = UI.fill(),
+			height = fillUnlessTight,
 			padding = if hero ~= nil and not sticky then nil else pad,
 			children = bodyChildren,
 		})
@@ -804,6 +820,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				},
 			}),
 		}
+		local regions: { any } = {}
 		if overHero then
 			-- no header strip: the utilities lie over the hero, pinned to the panel
 			-- top whether the hero is pinned or scrolls with the body
@@ -811,35 +828,35 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				then UI.VStack({
 					id = "Column",
 					width = UI.fill(),
-					height = UI.fill(),
+					height = fillUnlessTight,
 					gap = "s",
 					children = { overlayParts.hero(UI, hero, strip), body },
 				})
 				else body
 			table.insert(
-				children,
+				regions,
 				UI.ZStack({
 					id = "Stage",
 					width = UI.fill(),
-					height = UI.fill(),
+					height = fillUnlessTight,
 					children = { column, utilities(true) },
 				})
 			)
 		else
 			if sticky then
-				table.insert(children, overlayParts.hero(UI, hero))
+				table.insert(regions, overlayParts.hero(UI, hero))
 			end
 			if spec.header == nil then
-				table.insert(children, UI.Text({ id = "Title", text = spec.title, disclose = true }))
+				table.insert(regions, UI.Text({ id = "Title", text = spec.title, disclose = true }))
 			elseif spec.header ~= false then
-				table.insert(children, spec.header)
+				table.insert(regions, spec.header)
 			end
-			table.insert(children, utilities(false))
-			table.insert(children, body)
+			table.insert(regions, utilities(false))
+			table.insert(regions, body)
 		end
 		if #actions > 0 then
 			table.insert(
-				children,
+				regions,
 				alert.actionGroup(
 					Facet,
 					Compose.currentOwner() or owner,
@@ -851,10 +868,25 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 				)
 			)
 		end
+		table.insert(
+			children,
+			overlayParts.room(UI, Compose.currentOwner() or owner, regions, function(use: any): number
+				return use(paintedHeight) or 0
+			end, true, roomTight)
+		)
 		local panel = chromeSlots.attachHint(
 			UI.VStack({
 				id = "Panel",
-				width = { type = "minMax", max = overlayParts.WIDTHS[spec.width or "automatic"] },
+				-- unpinned, the panel takes its whole width: a hugged header must not
+				-- sit under the room's scroll bar
+				width = Compose.formula(function(use): any
+					local max = overlayParts.WIDTHS[spec.width or "automatic"]
+					if use(roomTight) then
+						local whole = actionWidth(use) + 2 * (themeSnapshot.resolveNumber(use(metrics), "m") or 16)
+						return { type = "fixed", px = whole }
+					end
+					return { type = "minMax", max = max }
+				end),
 				height = Compose.formula(function(use)
 					return { type = "fixed", px = use(paintedHeight) }
 				end),
@@ -869,7 +901,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any, request: ((s
 			}),
 			{ slot = "panel" }
 		)
-		local utilityPath = if overHero then "/Layer/Panel/Stage/Header" else nil
+		local utilityPath = if overHero then "/Layer/Panel/Room/Column/Stage/Header" else nil
 		local blueprint = require("../input/contribution").attach(
 			UI.Screen({
 				id = id,

@@ -402,7 +402,7 @@ local function build(Facet: any, core: any, spec: Spec, owner: any)
 				openRoute(route:peek(), identity)
 				if suffix ~= nil and live ~= nil then
 					local prefix = if live.route == "sheet"
-						then `/{surfaceId}/Layer/Panel/{BODY_ID}`
+						then `/{surfaceId}/Layer/Panel/Room/Column/{BODY_ID}`
 						else `/{surfaceId}/Layer/Surface/Popup/{PANEL_ID}/{BODY_ID}`
 					-- restored once the new surface's focus map holds the path
 					live.pendingFocus = prefix .. suffix

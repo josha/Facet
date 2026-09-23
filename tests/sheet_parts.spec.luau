@@ -10,6 +10,7 @@ local Compose = require("../src/vendor/compose/core")
 local UI = harness.UI
 
 local PANEL = "/Sheet/Layer/Panel"
+local COLUMN = `{PANEL}/Room/Column`
 local LONG = string.rep("A long line of body copy that wraps across the sheet. ", 40)
 
 local function mount(extra: any?, o: any?): (any, any, any)
@@ -73,26 +74,26 @@ t.describe("Sheet parts", function()
 	t.it("default parts: pinned title and utilities, one body scroller (the panel no longer scrolls)", function()
 		local w, c = mount()
 		t.expect(w.adapter.node(PANEL).class).toBe("VStack")
-		t.expect(w.adapter.node(`{PANEL}/Body`).class).toBe("ScrollView")
-		t.expect(w.adapter.node(`{PANEL}/Title`) ~= nil).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Header/Size`) ~= nil).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Header/Close`) ~= nil).toBe(true)
-		local body, copy = rect(w, `{PANEL}/Body`), rect(w, `{PANEL}/Body/Copy`)
+		t.expect(w.adapter.node(`{COLUMN}/Body`).class).toBe("ScrollView")
+		t.expect(w.adapter.node(`{COLUMN}/Title`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Header/Size`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Header/Close`) ~= nil).toBe(true)
+		local body, copy = rect(w, `{COLUMN}/Body`), rect(w, `{COLUMN}/Body/Copy`)
 		t.expect(copy.h > body.h).toBe(true)
-		local title = rect(w, `{PANEL}/Title`)
-		w.adapter.setScrollPosition(w.adapter.node(`{PANEL}/Body`), { x = 0, y = 200 })
+		local title = rect(w, `{COLUMN}/Title`)
+		w.adapter.setScrollPosition(w.adapter.node(`{COLUMN}/Body`), { x = 0, y = 200 })
 		w.settle(2)
-		t.expect(rect(w, `{PANEL}/Title`).y).toBe(title.y)
-		t.expect(w.adapter.node(`{PANEL}/Body`).scrollPosition.y).toBe(200) -- the body canvas overflows
+		t.expect(rect(w, `{COLUMN}/Title`).y).toBe(title.y)
+		t.expect(w.adapter.node(`{COLUMN}/Body`).scrollPosition.y).toBe(200) -- the body canvas overflows
 		c.dispose()
 	end)
 
 	t.it("contentInset none drops only the body padding", function()
 		local w, c = mount()
-		local standard = rect(w, `{PANEL}/Body/Copy`).x - rect(w, `{PANEL}/Body`).x
+		local standard = rect(w, `{COLUMN}/Body/Copy`).x - rect(w, `{COLUMN}/Body`).x
 		c.dispose()
 		w, c = mount({ contentInset = "none" })
-		local none = rect(w, `{PANEL}/Body/Copy`).x - rect(w, `{PANEL}/Body`).x
+		local none = rect(w, `{COLUMN}/Body/Copy`).x - rect(w, `{COLUMN}/Body`).x
 		t.expect(standard > 0).toBe(true)
 		t.expect(none).toBe(0)
 		t.expect(rect(w, PANEL).w > 0).toBe(true)
@@ -103,14 +104,14 @@ t.describe("Sheet parts", function()
 		local w, c = mount({
 			header = UI.HStack({ id = "Custom", width = UI.fill(), children = { UI.Text({ text = "Lobby" }) } }),
 		})
-		t.expect(w.adapter.node(`{PANEL}/Title`)).toBeNil()
-		t.expect(w.adapter.node(`{PANEL}/Custom`) ~= nil).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Header/Size`) ~= nil).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Header/Close`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Title`)).toBeNil()
+		t.expect(w.adapter.node(`{COLUMN}/Custom`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Header/Size`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Header/Close`) ~= nil).toBe(true)
 		c.dispose()
 		w, c = mount({ header = false })
-		t.expect(w.adapter.node(`{PANEL}/Title`)).toBeNil()
-		t.expect(w.adapter.node(`{PANEL}/Header/Close`) ~= nil).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Title`)).toBeNil()
+		t.expect(w.adapter.node(`{COLUMN}/Header/Close`) ~= nil).toBe(true)
 		c.dispose()
 	end)
 
@@ -131,7 +132,7 @@ t.describe("Sheet parts", function()
 		local join = assert(find(w, "/Join"), "Join is mounted")
 		t.expect(inside(rect(w, join), panel)).toBe(true)
 		local before = rect(w, join).y
-		w.adapter.setScrollPosition(w.adapter.node(`{PANEL}/Body`), { x = 0, y = 300 })
+		w.adapter.setScrollPosition(w.adapter.node(`{COLUMN}/Body`), { x = 0, y = 300 })
 		w.settle(2)
 		t.expect(rect(w, join).y).toBe(before)
 		w.adapter.tap(join)
@@ -142,6 +143,38 @@ t.describe("Sheet parts", function()
 		t.expect(pressed).toEqual({ "Join", "Later" })
 		t.expect(c.dump().presented).toBe(true)
 		c.dispose()
+	end)
+
+	t.it("a room too small for the pinned regions unpins them into one scroller", function()
+		local noop = function() end
+		local w, c = mount({
+			actionLayout = "stacked",
+			actions = {
+				{ id = "One", label = "One", onActivate = noop },
+				{ id = "Two", label = "Two", onActivate = noop },
+				{ id = "Three", label = "Three", onActivate = noop },
+			},
+		}, { detent = "medium" })
+		local room = w.adapter.node(`{PANEL}/Room`)
+		t.expect(room.props.scrollEnabled).toBe(true)
+		-- the last action lies inside the room's scrollable canvas, and a pad
+		-- walking to it brings it into view
+		local three = assert(find(w, "/Three"), "Three")
+		for _ = 1, 12 do
+			if w.pres.focus.focused:peek() == three then
+				break
+			end
+			w.press("DPadDown")
+			w.settle(1)
+		end
+		t.expect(w.pres.focus.focused:peek()).toBe(three)
+		local scrolled = (w.adapter.node(`{PANEL}/Room`).scrollPosition or { y = 0 }).y
+		local r, box = rect(w, three), room.rect
+		t.expect(r.y - scrolled + r.h <= box.y + box.h + 1).toBe(true)
+		-- the same sheet at its large detent keeps everything pinned
+		c.dispose()
+		w = mount({ actions = { { id = "One", label = "One", onActivate = noop } } })
+		t.expect(w.adapter.node(`{PANEL}/Room`).props.scrollEnabled).toBe(false)
 	end)
 
 	t.it("a sticky image hero stays pinned; header=false puts Close and Size over it", function()
@@ -155,7 +188,7 @@ t.describe("Sheet parts", function()
 		t.expect(inside(rect(w, close), rect(w, hero))).toBe(true)
 		t.expect(inside(rect(w, size), rect(w, hero))).toBe(true)
 		t.expect(rect(w, close).h >= 44).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Header`)).toBeNil() -- no empty header strip
+		t.expect(w.adapter.node(`{COLUMN}/Header`)).toBeNil() -- no empty header strip
 		local y = rect(w, hero).y
 		local body = assert(find(w, "/Body"), "body")
 		w.adapter.setScrollPosition(w.adapter.node(body), { x = 0, y = 200 })
@@ -213,7 +246,7 @@ t.describe("Sheet parts", function()
 		t.expect(panel.h < tall).toBe(true)
 		t.expect(panel.y + panel.h <= 350 + 0.5).toBe(true)
 		t.expect(inside(rect(w, assert(find(w, "/Go"), "Go")), panel)).toBe(true)
-		t.expect(inside(rect(w, `{PANEL}/Header/Close`), panel)).toBe(true)
+		t.expect(inside(rect(w, `{COLUMN}/Header/Close`), panel)).toBe(true)
 		w.env:set("keyboardOcclusionRect", nil)
 		w.settle(3)
 		t.expect(rect(w, PANEL).h).toBe(tall)
@@ -258,7 +291,7 @@ t.describe("Sheet parts", function()
 
 	-- ===== hug detents, ordering and late values ============================
 	local function natural(w: any): number
-		local body = w.adapter.node(`{PANEL}/Body`)
+		local body = w.adapter.node(`{COLUMN}/Body`)
 		local top, bottom = math.huge, -math.huge
 		for _, path in w.adapter.paths() do
 			local parent = string.match(path, "^(.*)/[^/]+$")
@@ -282,7 +315,7 @@ t.describe("Sheet parts", function()
 			end,
 			actions = { { id = "Go", label = "Go", onActivate = noop } },
 		}, { detent = "hug" })
-		local body = w.adapter.node(`{PANEL}/Body`)
+		local body = w.adapter.node(`{COLUMN}/Body`)
 		local short = rect(w, PANEL).h
 		t.expect(short < 600).toBe(true)
 		t.expect(body.rect.h >= natural(w) - 0.5).toBe(true)
@@ -292,7 +325,7 @@ t.describe("Sheet parts", function()
 		w.settle(4)
 		local tall = rect(w, PANEL).h
 		t.expect(tall > short).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Body`).rect.h >= natural(w) - 0.5).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Body`).rect.h >= natural(w) - 0.5).toBe(true)
 		copy:set("Two short lines.")
 		w.settle(4)
 		t.expect(rect(w, PANEL).h).toBe(short)
@@ -300,7 +333,7 @@ t.describe("Sheet parts", function()
 		w.env:set("preferredTextOffset", 10)
 		w.settle(4)
 		t.expect(rect(w, PANEL).h > short).toBe(true)
-		t.expect(w.adapter.node(`{PANEL}/Body`).rect.h >= natural(w) - 0.5).toBe(true)
+		t.expect(w.adapter.node(`{COLUMN}/Body`).rect.h >= natural(w) - 0.5).toBe(true)
 		t.expect(builds).toBe(1)
 		c.dispose()
 	end)
@@ -320,7 +353,7 @@ t.describe("Sheet parts", function()
 		t.expect(rect(w, PANEL).h).toBe(300)
 		local seen = {}
 		for _ = 1, 3 do
-			w.adapter.tap(`{PANEL}/Header/Size`)
+			w.adapter.tap(`{COLUMN}/Header/Size`)
 			w.settle(2)
 			table.insert(seen, d:peek())
 		end

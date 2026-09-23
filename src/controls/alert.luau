@@ -181,7 +181,9 @@ function alert.actionGroup(
 	actions: { any },
 	layout: string,
 	widthOf: (any) -> number,
-	press: (any) -> ()
+	press: (any) -> (),
+	-- false: a compact screen alone does not stack a row that fits (Dialog)
+	compactStacks: boolean?
 ): any
 	local themeMetrics, sizeClass = env:get("themeMetrics"), env:get("sizeClass")
 	local distanceProfile, textOffset = env:get("distanceProfile"), env:get("preferredTextOffset")
@@ -191,7 +193,12 @@ function alert.actionGroup(
 		end
 		if
 			layout == "automatic"
-			and alert.resolveStacked(#actions, use(sizeClass), use(distanceProfile), use(textOffset))
+			and alert.resolveStacked(
+				#actions,
+				if compactStacks == false then nil else use(sizeClass),
+				use(distanceProfile),
+				use(textOffset)
+			)
 		then
 			return true
 		end

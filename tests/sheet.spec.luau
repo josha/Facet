@@ -2,6 +2,7 @@
 local harness = require("./lib/harness")
 local t = require("./lib/testkit")
 local world = require("./lib/harness_world")
+local fake = require("./lib/fake_target")
 local Facet = require("../src") :: any
 local Compose = require("../src/vendor/compose/core")
 local UI = harness.UI
@@ -26,9 +27,9 @@ local function mount(extra, facts)
 	w.settle(3)
 	return w, control, detent, handle
 end
-local size = "/Sheet/Layer/Panel/Header/Size"
+local size = "/Sheet/Layer/Panel/Room/Column/Header/Size"
 local drag = "/Sheet/Layer/Panel/Drag/Handle"
-local close = "/Sheet/Layer/Panel/Header/Close"
+local close = "/Sheet/Layer/Panel/Room/Column/Header/Close"
 local function dragBy(w, dy, kind)
 	local r = w.adapter.node(drag).rect
 	w.adapter.pointerDown(drag, r.x + r.w / 2, r.y + r.h / 2, kind)
@@ -77,7 +78,7 @@ t.describe("Sheet control", function()
 		dragBy(w, -250, "pointer")
 		t.expect(d:peek()).toBe("large")
 		-- the body scrolls between pinned regions; the panel itself no longer does
-		t.expect(w.adapter.node("/Sheet/Layer/Panel/Body").class).toBe("ScrollView")
+		t.expect(w.adapter.node("/Sheet/Layer/Panel/Room/Column/Body").class).toBe("ScrollView")
 		c.dispose()
 	end)
 	t.it("Sheet touch affordance: 44px floor, naked-pan scroll, edit grip", function()
@@ -186,7 +187,17 @@ t.describe("Sheet control", function()
 		ctl.dispose()
 	end)
 	t.it("small detents retain usable content and reachable dismissal", function()
-		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 300 }, reducedMotion = true })
+		-- the room is too small for the pinned regions, so they scroll as one; the
+		-- adapter publishes the engine's bar like the real target does
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 390, h = 300 },
+			reducedMotion = true,
+			newAdapter = function()
+				local a = fake.new()
+				a.scrollBarThickness = fake.SCROLL_BAR_RESERVE
+				return a
+			end,
+		})
 		local c = harness.Controls.Sheet(w.core, {
 			id = "Sheet",
 			title = "Details",
@@ -201,7 +212,7 @@ t.describe("Sheet control", function()
 		t.expect(closeRect.y + closeRect.h <= panel.y + panel.h).toBe(true)
 		-- the pinned regions keep their targets; the body viewport is what is
 		-- left of the floor, and its content scrolls natively
-		local body = w.adapter.node("/Sheet/Layer/Panel/Body")
+		local body = w.adapter.node("/Sheet/Layer/Panel/Room/Column/Body")
 		t.expect(body.class == "ScrollView" and body.rect.h > 0).toBe(true)
 		c.dispose()
 	end)
@@ -216,7 +227,7 @@ t.describe("Sheet control", function()
 	end)
 	t.it("caller content named Size does not acquire sheet adjustment", function()
 		local w, c, d = mount({ content = UI.Button({ id = "Size", label = "Player size" }) })
-		w.pres.focus.focusOn("/Sheet/Layer/Panel/Body/Size")
+		w.pres.focus.focusOn("/Sheet/Layer/Panel/Room/Column/Body/Size")
 		w.press("DPadRight")
 		t.expect(d:peek()).toBe("medium")
 		c.dispose()
@@ -306,7 +317,7 @@ t.describe("Sheet control", function()
 				return "Live title"
 			end,
 		})
-		t.expect(w.adapter.node("/Sheet/Layer/Panel/Title").props.text).toBe("Live title")
+		t.expect(w.adapter.node("/Sheet/Layer/Panel/Room/Column/Title").props.text).toBe("Live title")
 		c.dispose()
 	end)
 	t.it("explicit placements override the distance default", function()
