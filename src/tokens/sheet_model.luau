@@ -1346,6 +1346,11 @@ local function projectContentRules(rules: { Rule })
 			}
 		do
 			local value = source.props[channel[4]]
+			-- a LIFTED label sits on the control's art, never on the accent fill
+			-- $OnAccent is gated against (see `onChromeColor`)
+			if channel[1] == "lift" and value == "$OnAccent" then
+				value = "$OnAccentChrome"
+			end
 			local buttonSelector = string.sub(source.selector, 1, 10) == "TextButton"
 			-- Only the control's own opacity decision reaches art. Glyph-suppression
 			-- and ordinary subtree text rules must never make its image transparent.

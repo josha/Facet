@@ -1170,6 +1170,11 @@ describe("role tints paint the ART, not a slab behind it", function()
 		expect(ruleNamed(model, "Chrome text — cancel").props.TextColor3).toBe("$ContentSecondary")
 		-- the accent label pairs with the art it sits on, not the accent fill
 		expect(ruleNamed(model, "Chrome text — accent").props.TextColor3).toBe("$OnAccentChrome")
+		-- ...and so does the generated lift of the primary label rule, which
+		-- out-ranks it (found live: Card Play kept $OnAccent under Pixel)
+		expect(ruleNamed(model, "Control content lift — Primary button label").props.TextColor3).toBe(
+			"$OnAccentChrome"
+		)
 	end)
 
 	it("a flat package emits no role tint rules (there is no art to tint)", function()
