@@ -521,8 +521,14 @@ function actions.newSystem(core: any)
 				return a.context.priority > b.context.priority
 			end)
 			for _, candidate in candidates do
-				if consumedPriority ~= nil and candidate.context.priority < consumedPriority then
-					break -- sunk by a higher-priority context
+				-- a Sink blocks new presses, never the release owed to a Bool
+				-- binding that received the down (a menu opened on the down edge)
+				if
+					consumedPriority ~= nil
+					and candidate.context.priority < consumedPriority
+					and (isDown or candidate.binding.pressed ~= true)
+				then
+					continue -- sunk by a higher-priority context
 				end
 				local value: any
 				if candidate.action.type == "Bool" then
@@ -537,10 +543,9 @@ function actions.newSystem(core: any)
 				-- is correctly never stamped. Cleared on the matching release's
 				-- own delivery, so a binding's `pressed` window is exactly
 				-- "between the down this binding received and the up it
-				-- delivers" — never read outside `modifierMatch`, so this is a
-				-- no-op write for the many bindings that never declare
-				-- `modifiers` (they always match via the first branch above).
-				if candidate.binding.modifiers ~= nil then
+				-- delivers". Read by `modifierMatch` and by the Sink check above,
+				-- which owes a stamped Bool binding its release.
+				if candidate.binding.modifiers ~= nil or candidate.action.type == "Bool" then
 					candidate.binding.pressed = isDown
 				end
 				candidate.action._deliver(value, candidate.binding.isGamepad, candidate.binding)

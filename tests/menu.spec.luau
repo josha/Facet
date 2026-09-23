@@ -422,6 +422,24 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		expect(w.control.api.isOpen:peek()).toBe(true)
 	end)
 
+	it("ButtonA opens, ButtonB closes, and the next ButtonA opens again", function()
+		local w = world()
+		expect(w.pres.focus.focusOn(TRIGGER)).toBe(true)
+		for _ = 1, 2 do
+			-- the menu opens on the down edge; its Sink is born holding that press
+			w.system.deviceKey("ButtonA", true)
+			w.pres.refresh()
+			w.system.deviceKey("ButtonA", false)
+			w.pres.refresh()
+			expect(w.control.api.isOpen:peek()).toBe(true)
+			w.system.deviceKey("ButtonB", true)
+			w.system.deviceKey("ButtonB", false)
+			w.pres.refresh()
+			expect(w.control.api.isOpen:peek()).toBe(false)
+			expect(w.pres.focus.focused:peek()).toBe(TRIGGER)
+		end
+	end)
+
 	it("activating an item runs its onSelect exactly once and closes the menu", function()
 		local runs = 0
 		local w = world({
@@ -1780,8 +1798,8 @@ describe("Menu: placement, width, a bounded list and the shared row vocabulary",
 		local row = w.adapter.node(last).rect
 		expect(scrolled > 0).toBe(true)
 		expect(`visible={row.y - scrolled + row.h <= list.rect.y + list.rect.h + 1}`).toBe("visible=true")
-		w.system.deviceKey("Return", true)
-		w.system.deviceKey("Return", false)
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
 		expect(table.concat(picked, ",")).toBe("row20")
 	end)
 
