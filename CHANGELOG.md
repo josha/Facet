@@ -1,17 +1,5 @@
 # Changelog
 
-## Unreleased — interaction and theme hardening
-
-- Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
-- All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
-- Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
-
-## Unreleased — semantic status colors
-
-- Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
-- Badge semantic art retains one caption-sized host, with room for multi-character fallback glyphs. Managed pictures on the four explicit readable partner roles follow that lettering, including selected menu/picker content; unrelated package icon tint remains unchanged.
-
-
 All notable changes to Facet are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and Facet's version
 numbers follow the policy in
@@ -24,6 +12,55 @@ The version string lives in exactly one place, `src/init.luau`, and is readable 
 runtime as `Facet.VERSION`.
 
 ## [Unreleased]
+
+### Summary of this release's control work
+
+One pass added the controls most game screens were composing by hand, and
+extended existing controls with the options they were missing. Every new
+control is on `app.controls` with a typed spec, automatic input discovery
+(pointer, touch, keyboard, gamepad), the 44 px hit floor, theme paint through
+the package slots, and a section in the [API reference](docs/reference/api.md).
+The [control chooser](docs/guide/14-choosing-controls.md) says when to pick
+each one over its closest alternative. The entries below this summary give the
+detail and every behaviour or path change.
+
+- **New controls.** Identity and status: `UI.Avatar`, `UI.AvatarGroup`,
+  `UI.Badge`, `UI.StatusIndicator`, `UI.Skeleton`, `UI.ShortcutHint`.
+  Notices and overlays: `UI.Notice`, `UI.Snackbar` (and
+  `app.presentSnackbar`), `UI.Dialog`, `UI.Popover`, `UI.Callout`, `UI.NavBar`.
+  Workflow and paging: `UI.Card`, `UI.Pagination`, `UI.StepIndicator`,
+  `UI.Vote`. Colour and dates: `UI.ColorPicker`, `UI.DateTimePicker` and
+  `Facet.civilDate`.
+- **Extended controls.** Button and Chip take local `controlSize`,
+  `appearance` and `corners`, and Button takes `icon`, `trailingIcon` and
+  `over = "media"`. Toggle settings rows, `width` and hints; DisclosureGroup
+  descriptions and appearances; removable Chips in edit mode; TextInput field
+  chrome, `readOnly` and `selectOnFocus`; NumberInput presets and `scrub`;
+  Slider `axis`, `range` and `minGap`; Picker `cards`, field chrome, segmented
+  `appearance` and option `indicator`; Sheet placement, `hug` and pinned
+  actions; ProgressView segments and trail; Menu edges and widths; TabView tab
+  `indicator` and `enabled`.
+- **Shared mechanisms.** Success and warning palette pairs; a theme
+  `controlSizes` ladder; eleven more standard icons, drawn by every shipped
+  theme wherever a control asks for one; the overlay band ladder, so a snackbar, a callout and a menu stack in
+  a fixed order; selected-under-hover paint; strokes that sit inside their box;
+  a Sink context that never swallows a release it owes.
+- **Breaking.** Several mounted paths moved (Dialog, Sheet, Card, StepIndicator,
+  plain Chips inside their target); Chip removal is edit mode; a switch paints
+  no plate. Each is listed with its new path below.
+
+### Interaction and theme hardening
+
+- Tab bookmarks follow real navigation, including shoulder entry, while explicit focus requests keep their destination.
+- All plain Chips reserve disjoint effective targets. Toggle accepts bound width for wrapping content-sized settings; display-only switch labels clamp at zero space.
+- Built-in sheets tint resolved framework icons, over-media lettering follows contentStrong, and success/warning pair validation covers authored variants.
+
+### Semantic status colors
+
+- Added success/onSuccess and warning/onWarning palette pairs and public effective-pair helpers. Both compile gates enforce 4.5:1; omitted pairs retain earlier fallback paint. Explicitly authored roles that were previously inert now paint and must pass validation.
+- Badge semantic art retains one caption-sized host, with room for multi-character fallback glyphs. Managed pictures on the four explicit readable partner roles follow that lettering, including selected menu/picker content; unrelated package icon tint remains unchanged.
+
+### Changes
 
 - **`UI.DateTimePicker`** and **`Facet.civilDate`.** A civil date (no time
   zone) field that opens a calendar — one or two consecutive months, disabled
